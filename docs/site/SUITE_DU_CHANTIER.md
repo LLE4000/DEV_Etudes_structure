@@ -847,6 +847,9 @@ vérification finale d'ensemble ; petit rangement du code (en partie : e043d15, 
     passage des brins aux cadres des cages, perfos, niveaux, coupes, textes, table de mise en page, cartouche. La liste,
     question par question, avec la valeur d'aujourd'hui (Greenwood) : `docs/beton/FONDATIONS_GRUE_OUVRAGE.md` § 5.
     Chaque réponse ira dans une option, dans le classeur Excel, ou dans le code.
+    Décidé le 12/11 au soir : on garde tous les exports tant que RBAR travaille ; à terme trois (DWG, PDF, Excel), l'Excel
+    remplissant un classeur type aux cases à remplir colorées ; un aperçu des plans au centre de l'écran quand le moteur
+    de RBAR sera là (`docs/beton/FONDATIONS_GRUE.md` § 9.2 et § 9.3).
 
 ## 5. Ce qui se fait sans attendre de décision (session de nuit)
 

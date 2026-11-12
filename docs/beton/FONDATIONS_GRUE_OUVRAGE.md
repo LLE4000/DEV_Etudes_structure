@@ -54,9 +54,14 @@ Un seul bouton, en bas de la colonne des résultats, le même sur PC, tablette e
 3. **Plan de principe (.dxf)**, **Armatures (.csv)**, **Cas de la grue (.csv)** — inchangés ;
 4. **Modèles de poutre pour RBAR (.json)** — l'ancien fichier, inchangé.
 
+**On garde toutes ces lignes pour l'instant** (décision du propriétaire du 12/11/2026, soir : la conversation RBAR
+travaille en parallèle, rien d'utile ne doit disparaître). À terme : trois exports — DWG, PDF, Excel, ce dernier
+remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIONS_GRUE.md` § 9.2).
+
 **« Plans PDF » n'apparaît pas encore** : il attend le moteur de plans de RBAR en WebAssembly (dans le navigateur, sans
-réseau, chaque fichier sous 25 Mo — la limite de Cloudflare Pages). L'état « en cours… » viendra avec lui ; l'étape 2
-du DWG (le DWG fait sans AutoCAD), plus tard.
+réseau, chaque fichier sous 25 Mo — la limite de Cloudflare Pages). L'état « en cours… » viendra avec lui, et un
+aperçu des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3) ; l'étape 2 du DWG (le DWG fait sans
+AutoCAD), plus tard.
 
 **Ce qui bloque l'envoi** (le fichier n'est jamais écrit, la ligne est éteinte, la raison est dite) : une vérification
 du classeur PAS OK ; des étriers de Ø différents aux extrémités et au centre (un modèle de RBAR n'a qu'un Ø

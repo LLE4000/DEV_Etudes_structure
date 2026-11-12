@@ -169,7 +169,7 @@ et sa mutation.
   horizontale des pieux, l'historique des indices et une partie du cartouche n'y sont pas ; les options de conception
   attendent les valeurs du bureau ([`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) § 5 et § 6).
 
-## 9. Chantiers à venir — améliorations du classeur
+## 9. Chantiers à venir — améliorations du classeur et des exports
 
 ### 9.1 Une géométrie propre à chaque pièce : relevé du géomètre, poutres inégales
 
@@ -223,3 +223,43 @@ symétrique, et la ligne « R_B respectif » (l'autre poutre, même cas) suppose
   l'identique (les suites du § 7) ; les cas dissymétriques se valident par un calcul fait à la main. La statique
   indépendante (`beton/fondation_grue/statique.py`, une poutre sur deux appuis) calcule déjà n'importe quelle portée.
 - Un effort moyen : le moteur, l'écran (une rubrique « Relevé du géomètre »), la note PDF et le plan.
+
+### 9.2 Trois exports à terme, dont un Excel qui remplit un classeur type
+
+*Décision du propriétaire du 12/11/2026 (soir) — pour plus tard ; rien n'est retiré aujourd'hui.*
+
+**Aujourd'hui, on garde toutes les lignes du menu « Exporter »** (plan de principe .dxf, armatures .csv, cas .csv,
+ancien fichier RBAR) : la conversation RBAR travaille en parallèle, rien d'utile ne doit disparaître pendant ce temps.
+
+**À terme, trois exports** : le **DWG** (le fichier « rbar.ouvrage », à ouvrir dans AutoCAD avec RBAR), le **PDF**
+(la note de calcul, et les plans quand le moteur de RBAR sera là — § 9.3), l'**Excel**.
+
+**L'export Excel remplit un classeur TYPE**, pour faire le lien avec l'ancien fichier :
+
+1. le bureau prépare le classeur type : chaque valeur à encoder y est vidée — elle vaut 0 — et sa case est mise sur un
+   fond de couleur vive (jaune ou vert fluo) : on voit d'un coup d'œil toutes les cases que l'export remplit ;
+2. l'export du site écrit, dans une copie de ce classeur, les saisies de la note dans ces cases-là, et nulle part
+   ailleurs ; les formules du classeur font le reste ;
+3. **les cases colorées sont le contrat** : un test lit le classeur type, relève toutes les cases de cette couleur et
+   vérifie que l'export les remplit TOUTES, et AUCUNE autre (une case oubliée, ou une formule écrasée, se voit tout de
+   suite) ; puis il compare les résultats du classeur rempli à ceux du site.
+
+Ce qu'il demande : le classeur type, fourni par le bureau (l'adresse de chaque case est déjà connue du site :
+`beton/fondation_grue/classeur.py`, les cellules de saisie des quatre classeurs) ; l'écriture se fait avec la
+bibliothèque standard (le fichier Excel est une archive de fichiers XML), sans rien charger d'un tiers, réseau coupé.
+
+### 9.3 L'aperçu des plans dans l'écran
+
+*Idée du propriétaire du 12/11/2026 : voir le plan de coffrage et le plan d'armatures avant de les exporter, et les
+réadapter s'ils ne vont pas.*
+
+**La place proposée : au centre**, à côté de « Plan », deux onglets « Coffrage » et « Armatures » qui montrent les
+feuilles dessinées par RBAR. On change une option de conception à gauche, l'aperçu se redessine ; le PDF se télécharge
+depuis « Exporter ». La gauche reste la saisie, la droite les résultats.
+
+**Ce qu'il attend** : le moteur de plans de RBAR qui tourne dans le navigateur (WebAssembly), et — pour l'aperçu — chaque
+feuille rendue aussi en image (SVG ; son noyau sait le faire : `OuvrageSheetSvg.Render`, celui de la mesure du
+12/11/2026). Demandé à la conversation RBAR le 12/11. Ensuite, du côté du site : ses fichiers copiés dans le site
+(chacun sous 25 Mo, aucun CDN), chargés au premier aperçu dans un travailleur (l'écran ne se fige pas), la ligne
+« Plans PDF », les deux onglets, et les mesures aux trois formats (taille, durée au téléphone).
+
