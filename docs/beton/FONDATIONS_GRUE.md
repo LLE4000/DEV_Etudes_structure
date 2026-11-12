@@ -2,7 +2,7 @@
 
 Le module « Fondations de grues » du site (famille Béton, adresse `fondations-grues`) reprend les quatre classeurs du
 bureau « Fondation grue tour sur pieux ». Ce document dit ce qu'il fait, comment il est construit, ce qui prouve qu'il
-calcule comme les classeurs, et ce qu'il ne couvre pas. L'étude qui l'a précédé — la lecture des quatre classeurs,
+calcule comme les classeurs, ce qu'il ne couvre pas, et les améliorations à l'étude (§ 9). L'étude qui l'a précédé — la lecture des quatre classeurs,
 feuille par feuille, les écarts relevés et la correspondance cellule par cellule — est dans
 [`FONDATIONS_GRUE_ETUDE.md`](FONDATIONS_GRUE_ETUDE.md).
 
@@ -155,3 +155,58 @@ et sa mutation.
 - **Ce que les classeurs ne calculent pas** : le soulèvement d'un pieu, le poinçonnement, les longueurs d'ancrage, la
   fissuration, la répartition de l'effort horizontal entre les pieux (`moteur.NON_COUVERT` : la note l'imprime).
 - **Les seize écarts de l'étude** (§ 5) : signalés, non corrigés. Six questions restent posées au bureau (étude § 11).
+
+## 9. Chantiers à venir — améliorations du classeur
+
+### 9.1 Une géométrie propre à chaque pièce : relevé du géomètre, poutres inégales
+
+*Réflexion de l'ingénieur du 12/11/2026 — à l'étude, pas encore décidée ni commencée.*
+
+**Le besoin.** Le classeur, et donc le module, supposent UNE géométrie, symétrique : les deux poutres support
+identiques (mêmes distances a et b, même section), les quatre semelles identiques, une tolérance d'exécution e posée
+partout (§ 3). Trois cas réels en sortent :
+
+- **le relevé du géomètre** : les pieux sont faits, le géomètre envoie leurs positions réelles. On veut remettre la note
+  à jour avec ces positions — deux pieux d'une petite semelle écartés de 2,00 m au lieu de 1,70 m ; les deux pieux d'une
+  semelle exécutés plus loin dans le sens de la poutre support, qui allongent sa portée — en gardant une tolérance,
+  parce qu'un relevé n'est pas exact ;
+- **une seule poutre touchée** : deux pieux bien placés sous une poutre, deux trop loin sous l'autre ; on veut pouvoir
+  changer les armatures de cette poutre seulement ;
+- **la conception** : une poutre courte et une plus longue, pour passer au-dessus d'un obstacle, au lieu de deux
+  grandes poutres.
+
+**Le principe proposé.**
+
+1. On saisit l'écart mesuré de chacun des huit pieux par rapport à sa position théorique. Le module en déduit, pièce par
+   pièce, l'entredistance réelle des pieux de chaque semelle, la position réelle de la poutre sur la semelle et la
+   portée réelle de chaque poutre support.
+2. Les positions de tolérance d'aujourd'hui (pieux décalés de e, châssis décalé de ± e) deviennent « position mesurée ±
+   tolérance résiduelle » (l'imprécision du relevé). Le châssis de la grue, posé après les pieux, garde sa propre
+   tolérance. Même mécanique qu'aujourd'hui, d'autres chiffres.
+3. Chaque pièce est vérifiée avec SA géométrie : les poutres 1 et 2 séparément (chacune ses armatures), chacune des
+   quatre semelles, chacun des huit pieux avec sa part réelle de la charge (quand la poutre n'arrive plus au milieu de
+   la semelle, ses deux pieux ne portent plus la même charge). Les charges de la grue continuent de tourner sur chaque
+   poutre : chaque cas joué dans ses huit orientations (étude § 3.3).
+
+*En attendant* (deux poutres inégales) : deux fondations dans la note, la seconde avec a ou b allongé, et le pire des
+deux retenu pièce par pièce — chaque calcul fait tourner tous les cas sur SA poutre. Limites : le plan reste dessiné
+symétrique, et la ligne « R_B respectif » (l'autre poutre, même cas) suppose deux poutres égales.
+
+**Ce qu'il faut surveiller.**
+
+- Deux poutres différentes ne fléchissent pas pareil. Le tableau du fabricant suppose des appuis rigides : une poutre
+  nettement plus souple fait reporter de la charge sur l'autre par le châssis. Comparer au moins la différence de flèche
+  à l'inclinaison que le fabricant admet.
+- Un seul pieu décalé — et non les deux d'une semelle — fait tourner la semelle : de la torsion, que le classeur ne
+  calcule pas. À signaler au minimum.
+- La note dit qu'elle est faite sur relevé : la date, le géomètre, les écarts mesurés, la tolérance résiduelle, et ce qui
+  change par rapport à la note d'origine. Le plan montre les positions réelles en trait plein, les théoriques en tireté.
+
+**Ce qu'il demande.**
+
+- L'accord du bureau : c'est une sortie du classeur validé, qui ne connaît qu'une géométrie symétrique et une
+  tolérance (règle du § 1).
+- Le garde-fou : avec une géométrie identique et la tolérance d'origine, le module redonne les chiffres du classeur à
+  l'identique (les suites du § 7) ; les cas dissymétriques se valident par un calcul fait à la main. La statique
+  indépendante (`beton/fondation_grue/statique.py`, une poutre sur deux appuis) calcule déjà n'importe quelle portée.
+- Un effort moyen : le moteur, l'écran (une rubrique « Relevé du géomètre »), la note PDF et le plan.
