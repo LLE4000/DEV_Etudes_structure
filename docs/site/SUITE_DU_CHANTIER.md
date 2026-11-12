@@ -711,6 +711,12 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   ouvert le reste quand le résultat est refait. Le harnais `exporter` joue désormais ce cas au format du propriétaire
   (tablette paysage, tactile ; un témoin posé sur l'ancien menu prouve que la réponse l'a bien refait) ; il ne jouait
   jusqu'ici ni ce format, ni un champ modifié juste avant le menu.
+- **Réponse de RBAR sur la tablette (nuit du 12 au 13/11)** : aucune limite connue qui bloquerait sans erreur ; le plus
+  probable est la lenteur (30 à 60 s le premier plan sur une tablette : démarrage du moteur 9 à 14 s, dessin des cinq
+  feuilles 20 à 35 s, plus le premier téléchargement) ; seul cas « sans erreur » connu : l'onglet gelé par Android en
+  arrière-plan. Fait le même soir : l'écran gardé allumé pendant le plan, la page cachée notée, le diagnostic de
+  l'appareil dans le message d'échec (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). À vérifier : la compression des fichiers
+  `.wasm` par Cloudflare (`Content-Encoding` ; ≈ 4,3 Mio au lieu de 15,2), invisible d'ici derrière Cloudflare Access.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

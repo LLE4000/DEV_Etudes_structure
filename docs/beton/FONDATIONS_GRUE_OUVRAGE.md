@@ -92,12 +92,22 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
   les Mo déjà reçus, redits chaque seconde par le travailleur, quand le navigateur les donne) ou le dessin des feuilles ;
   « Calcul… » tourne à côté. Il s'en va avec l'écran si on le quitte pendant le plan (aucune minuterie dans un écran :
   `tests/test_app_navigation.py` ; le plan, fini en fond, n'est pas enregistré). Le message final dit la durée et, pour le plan qui a
-  fait le calcul, celle du dessin (« … téléchargé (5,8 s — dessin 5,2 s) » ; « moteur prêt en *x* s » quand il a fallu
+  fait le calcul, celle du dessin (« … téléchargé : 5 feuilles (coffrage 2, armatures 3) en 5,8 s — dessin 5,0 s » ; « moteur prêt en *x* s » quand il a fallu
   l'attendre) : ce sont les chiffres à rapporter à RBAR. **L'attente a une fin** : sans réponse après 120 s
   (`DELAI_PLANS_S`, `js/plans.js`), le moteur est arrêté et le message d'échec — l'étape où il en était, le dernier
   incident qu'il a signalé — reste 20 s à l'écran ; le clic suivant repart d'un moteur neuf. `tests/test_site_web.py`
   (§ 4 ter, `js/plans.js` joué par node) et le harnais `exporter` (le message relevé tous les quarts de seconde pendant
   le premier plan) le gardent.
+- **Ce qu'un échec dit, et l'écran gardé allumé** (réponse de RBAR, 12/11/2026, nuit : sur une tablette, le premier plan
+  prend sans doute 30 à 60 s ; Android ralentit puis GÈLE un onglet caché — écran éteint, autre application —, et son
+  travailleur avec lui, sans rien lever). Pendant le plan, l'écran est gardé allumé (`navigator.wakeLock`, depuis la page ;
+  refusé ou absent, le plan se fait quand même) et une page passée en arrière-plan est notée : le message final le dit
+  (« … — la page a été cachée pendant le calcul »). Un échec dit, après sa raison, le DIAGNOSTIC que RBAR demande :
+  l'étape atteinte et depuis quand, les Mo reçus, la page cachée, l'appareil (système et sa version, navigateur et sa
+  version, modèle quand le navigateur le donne, mémoire, cœurs) — « étape : dessin des feuilles par RBAR depuis 45 s ·
+  4,3 Mo reçus · page cachée pendant le calcul · Android 14.0.0 · Google Chrome 131 · SM-X710 · 8 Go de mémoire · 8
+  cœurs ». Une capture d'écran suffit à le transmettre. `js/plans.js` (`appareil`, `diagnosticPlans`,
+  `garderEcranAllume`), joué par node dans `tests/test_site_web.py` § 4 quater.
 - Ce qui reste : l'**aperçu** des feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3 : le moteur le fait
   déjà, `apercu()`) ; le cartouche du bureau (son standard, à transmettre
   au moteur si le propriétaire le veut) ; l'étape 2 du DWG (le DWG fait sans AutoCAD), plus tard.

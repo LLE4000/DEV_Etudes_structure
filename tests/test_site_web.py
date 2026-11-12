@@ -447,6 +447,61 @@ chk("plans : bloqué pendant le dessin, l'erreur le dit avec le dernier incident
 chk("plans : le préchauffage (menu « Exporter » ouvert) n'envoie qu'une demande « charger », sans délai qui l'arrête",
     PL.get("prechauffe") == {"workers": 1, "postes": ["charger"], "arrete": False}, PL)
 
+# 4 quater. ce qu'un ÉCHEC de plan doit dire, et l'écran gardé allumé (js/plans.js, joué par node ; RBAR, 12/11/2026, nuit :
+# un plan qui ne vient pas sur une tablette se comprend par l'appareil, l'étape et sa durée, les Mo reçus, la page cachée —
+# Android gèle un onglet caché sans rien lever). Navigateurs simulés : Chrome sur une tablette Samsung (userAgentData, et
+# le modèle lu d'avance), Samsung Internet sans userAgentData, Safari d'un iPad en mode ordinateur.
+ESSAI_DIAG = """
+const m = await import(%s + "?diag");
+const chrome = { userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  userAgentData: { brands: [{ brand: "Not_A Brand", version: "24" }, { brand: "Chromium", version: "131" }, { brand: "Google Chrome", version: "131" }],
+                   platform: "Android", mobile: false }, deviceMemory: 8, hardwareConcurrency: 8 };
+const haut = { platform: "Android", platformVersion: "14.0.0", model: "SM-X710" };
+const samsung = { userAgent: "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Safari/537.36",
+  deviceMemory: 4 };
+const ipad = { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+  hardwareConcurrency: 6 };
+const out = {
+  chrome: m.appareil(chrome, haut), chromeSansModele: m.appareil(chrome, null), samsung: m.appareil(samsung, null), ipad: m.appareil(ipad, null),
+  rien: m.appareil(null, null),
+  diag: m.diagnosticPlans({ etape: "calcul", depuis_ms: 45200, mo: 4.3, cachee: true }, chrome, haut),
+  diagDebut: m.diagnosticPlans({ etape: "fichier", depuis_ms: 800, mo: null, cachee: false }, ipad, null),
+};
+// l'écran gardé allumé : demandé une fois (« screen »), relâché à la fin ; refusé, absent ou relâché avant d'être obtenu :
+// aucune erreur, et rien ne reste tenu
+const journal = [];
+const verrou = () => ({ release: () => { journal.push("relâché"); return Promise.resolve(); } });
+const ok = { wakeLock: { request: (t) => { journal.push(`demandé ${t}`); return Promise.resolve(verrou()); } } };
+let r = m.garderEcranAllume(ok); await new Promise((f) => setTimeout(f, 5)); r();
+const tot = { wakeLock: { request: () => { journal.push("demandé tôt"); return new Promise((f) => setTimeout(() => f(verrou()), 20)); } } };
+r = m.garderEcranAllume(tot); r(); await new Promise((f) => setTimeout(f, 40));
+const refuse = { wakeLock: { request: () => Promise.reject(new Error("NotAllowedError")) } };
+let erreurs = 0;
+try { m.garderEcranAllume(refuse)(); m.garderEcranAllume({})(); m.garderEcranAllume(null)(); } catch (e) { erreurs += 1; }
+await new Promise((f) => setTimeout(f, 5));
+out.ecran = { journal, erreurs };
+out.etapes = m.ETAPES_PLAN;
+console.log(JSON.stringify(out));
+""" % json.dumps("file://" + os.path.join(JS, "plans.js"))
+try:
+    _sortie_diag = subprocess.run(["node", "--input-type=module", "-e", ESSAI_DIAG], capture_output=True, text=True, timeout=60)
+    DG = json.loads(_sortie_diag.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    DG = {"erreur": str(e), "stderr": locals().get("_sortie_diag") and _sortie_diag.stderr[-600:]}
+chk("plans : l'appareil en quelques mots — système (et sa version, lue d'avance), navigateur et sa version, modèle, mémoire, "
+    "cœurs ; sans userAgentData, lus dans l'agent (Samsung Internet, Safari) ; rien à lire : rien",
+    DG.get("chrome") == "Android 14.0.0 · Google Chrome 131 · SM-X710 · 8 Go de mémoire · 8 cœurs"
+    and DG.get("chromeSansModele") == "Android · Google Chrome 131 · 8 Go de mémoire · 8 cœurs"
+    and DG.get("samsung") == "Android 14 · Samsung Internet 26 · 4 Go de mémoire"
+    and DG.get("ipad") == "macOS · Safari 17.5 · 6 cœurs" and DG.get("rien") == "", DG)
+chk("plans : le diagnostic d'un échec dit l'étape et depuis quand, les Mo reçus, la page cachée, l'appareil — dans cet ordre",
+    DG.get("diag") == "étape : dessin des feuilles par RBAR depuis 45 s · 4,3 Mo reçus · page cachée pendant le calcul · "
+                      "Android 14.0.0 · Google Chrome 131 · SM-X710 · 8 Go de mémoire · 8 cœurs"
+    and DG.get("diagDebut") == "étape : écriture du fichier de l'ouvrage depuis 1 s · macOS · Safari 17.5 · 6 cœurs", DG)
+chk("plans : l'écran gardé allumé pendant le plan — demandé (« screen »), relâché à la fin, même obtenu après la fin ; refusé "
+    "ou absent, aucune erreur",
+    (DG.get("ecran") or {}).get("journal") == ["demandé screen", "relâché", "demandé tôt", "relâché"] and (DG.get("ecran") or {}).get("erreurs") == 0, DG)
+
 # 5. les identifiants que les scripts cherchent existent dans leur page (S4, partie « écrans » : l'établi est un écran
 # montable, il ne nomme plus le VOILE retiré — #demarrage, #demarrage-etape — : plus aucune exception à cette règle)
 VOILE_RETIRE = ()

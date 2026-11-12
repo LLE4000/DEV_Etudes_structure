@@ -28,7 +28,7 @@ import { cablerCompact } from "./compact.js";
 import { cablerRangement } from "./rangement.js";
 import { poserVerification } from "./marques.js";
 import { cablerPanneauBibliotheque } from "./biblio_note.js";
-import { plansPdf, prechaufferPlans } from "./plans.js";
+import { plansPdf, prechaufferPlans, ETAPES_PLAN, diagnosticPlans, garderEcranAllume } from "./plans.js";
 
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
 // « selecteur », « bibliotheque » ne font que la lire
@@ -1045,21 +1045,30 @@ export function ouvrirEtabli(hote, ctx) {
     // premier plan vient en 6 s ; sur une tablette, bien plus lentement — et le message de 2,6 s laissait ensuite l'écran
     // muet : le propriétaire a attendu 30 s sans savoir si le plan venait (12/11/2026). Aucune minuterie : l'écran fermé
     // pendant le plan, le message tenu s'en va avec lui (le moteur finit son calcul, rien n'est enregistré). L'échec reste
-    // 20 s à l'écran : il se lit en entier et se rapporte.
-    const ETAPES_PLAN = { fichier: "écriture du fichier de l'ouvrage", chargement: "chargement du moteur de RBAR", calcul: "dessin des feuilles par RBAR" };
+    // 20 s à l'écran : il se lit en entier et se rapporte — avec le DIAGNOSTIC que RBAR demande (js/plans.js : l'étape et
+    // depuis quand, les Mo reçus, la page cachée, l'appareil). Pendant le plan, l'écran est gardé allumé et la page qui
+    // passe en arrière-plan est notée : Android GÈLE un onglet caché, et son travailleur avec lui, sans rien lever.
     const secondes = (ms) => (ms / 1000).toFixed(1).replace(".", ",");
     async function faireUnPlan(b) {
       occupe(1);
       const debut = performance.now();
       let tenu = "";
-      const dire = (ou) => {
+      const ou = { etape: "fichier", mo: null, depuis: debut, cachee: document.hidden };
+      const dire = (e) => {
+        if (e.etape !== ou.etape) ou.depuis = performance.now();
+        ou.etape = e.etape;
+        if (Number.isFinite(e.mo)) ou.mo = e.mo;
         if (fini()) return;
-        tenu = `Plans en cours — ${ETAPES_PLAN[ou.etape] || ou.etape}`
-          + (ou.etape === "chargement" && ou.mo ? ` (${String(ou.mo).replace(".", ",")} Mo reçus)` : "") + "…";
+        tenu = `Plans en cours — ${ETAPES_PLAN[e.etape] || e.etape}`
+          + (e.etape === "chargement" && e.mo ? ` (${String(e.mo).replace(".", ",")} Mo reçus)` : "") + "…";
         toast(tenu, false, Infinity);
       };
       const lacher = () => retirerToast(tenu);
       signal.addEventListener("abort", lacher, { once: true });
+      const noterCachee = () => { if (document.hidden) ou.cachee = true; };
+      document.addEventListener("visibilitychange", noterCachee, { signal });
+      const relacherEcran = garderEcranAllume();
+      const cacheeDit = () => (ou.cachee ? " — la page a été cachée pendant le calcul" : "");
       dire({ etape: "fichier" });
       try {
         const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
@@ -1094,10 +1103,13 @@ export function ouvrirEtabli(hote, ctx) {
         const detail = p.reutilise || !Number.isFinite(p.calcul_ms) ? ""
           : " — " + (p.chargement_ms > 100 && Number.isFinite(p.pret_ms) ? `moteur prêt en ${secondes(p.pret_ms)} s, ` : "") + `dessin ${secondes(p.calcul_ms)} s`;
         const notes = p.rapport.notes || [];
-        toast(`${nom} téléchargé : ${quoi} en ${secondes(performance.now() - debut)} s${detail}` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
+        toast(`${nom} téléchargé : ${quoi} en ${secondes(performance.now() - debut)} s${detail}${cacheeDit()}`
+          + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
       } catch (e) {
-        toast(`Plans : ${(e && e.message) || e}`, true, 20000);
+        toast(`Plans : ${(e && e.message) || e} — ${diagnosticPlans({ ...ou, depuis_ms: performance.now() - ou.depuis })}`, true, 20000);
       } finally {
+        relacherEcran();
+        document.removeEventListener("visibilitychange", noterCachee);
         signal.removeEventListener("abort", lacher);
         if (fini()) lacher();
         occupe(-1);

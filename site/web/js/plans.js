@@ -12,6 +12,8 @@
 // un neuf. Né du premier essai du propriétaire sur sa tablette (12/11/2026) : « 30 secondes, rien reçu », sans qu'aucun
 // écran puisse dire si le moteur se téléchargeait, dessinait ou était bloqué.
 export const DELAI_PLANS_S = 120;
+// les ÉTAPES d'un plan, telles que l'écran les dit (js/etabli.js) et que le diagnostic d'un échec les nomme
+export const ETAPES_PLAN = { fichier: "écriture du fichier de l'ouvrage", chargement: "chargement du moteur de RBAR", calcul: "dessin des feuilles par RBAR" };
 
 let w = null;
 let n = 0;
@@ -88,8 +90,80 @@ function demander(message, { suivre = null, delai_s = null } = {}) {
 
 /** Le moteur se charge d'avance (le premier plan vient plus vite) ; rien n'est attendu, aucune erreur n'est rendue. */
 export function prechaufferPlans() {
+  lireAppareil();
   if (w) return;
   demander({ fonction: "charger" }).catch(() => {});
+}
+
+// ------------------------------------------------------------------ ce qu'un échec doit dire (RBAR, 12/11/2026, nuit)
+// Pour comprendre un plan qui ne vient pas sur une tablette, RBAR demande : l'appareil (système, navigateur, modèle,
+// mémoire, cœurs), l'étape atteinte et sa durée, les Mo reçus, si la page a été cachée pendant le calcul (Android ralentit
+// puis GÈLE un onglet passé en arrière-plan, et son travailleur avec lui, sans rien lever), la dernière erreur du
+// travailleur (le délai la donne déjà). Le message d'échec le dit — une capture d'écran suffit à le transmettre.
+let appareilHaut = null; // le modèle et la version du système, quand le navigateur les donne (lus d'avance : c'est asynchrone)
+function lireAppareil() {
+  try {
+    const d = globalThis.navigator && globalThis.navigator.userAgentData;
+    if (!appareilHaut && d && typeof d.getHighEntropyValues === "function") {
+      d.getHighEntropyValues(["model", "platformVersion"]).then((v) => { appareilHaut = v; }, () => {});
+    }
+  } catch (x) { /* rien à lire : le diagnostic s'en passe */ }
+}
+
+/** L'APPAREIL en quelques mots : système, navigateur et sa version, modèle (quand le navigateur le donne), mémoire, cœurs.
+ *  ``nav`` : navigator (un autre objet pour les essais) ; ``haut`` : les valeurs lues par getHighEntropyValues, ou rien. */
+export function appareil(nav = globalThis.navigator, haut = appareilHaut) {
+  if (!nav) return "";
+  const ua = String(nav.userAgent || "");
+  const lu = (re) => (re.exec(ua) || [])[1] || "";
+  const d = nav.userAgentData;
+  const marques = d && Array.isArray(d.brands) ? d.brands.filter((m) => !/Not.?A.?Brand/i.test(m.brand)) : [];
+  const marque = marques.find((m) => !/^Chromium$/i.test(m.brand)) || marques[0] || null;
+  const pf = (haut && haut.platform) || (d && d.platform) || "";
+  const systeme = pf ? `${pf}${haut && haut.platformVersion ? ` ${haut.platformVersion}` : ""}`
+    : lu(/Android (\d+(?:\.\d+)?)/) ? `Android ${lu(/Android (\d+(?:\.\d+)?)/)}`
+      : /iPad|iPhone/.test(ua) ? "iOS" : /Macintosh/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
+  const navigateur = marque ? `${marque.brand} ${marque.version}`
+    : lu(/SamsungBrowser\/(\d+)/) ? `Samsung Internet ${lu(/SamsungBrowser\/(\d+)/)}`
+      : lu(/Edg\/(\d+)/) ? `Edge ${lu(/Edg\/(\d+)/)}`
+        : lu(/Firefox\/(\d+)/) ? `Firefox ${lu(/Firefox\/(\d+)/)}`
+          : lu(/Chrome\/(\d+)/) ? `Chrome ${lu(/Chrome\/(\d+)/)}`
+            : lu(/Version\/(\d+(?:\.\d+)?)[^)]*Safari/) ? `Safari ${lu(/Version\/(\d+(?:\.\d+)?)[^)]*Safari/)}` : "";
+  return [systeme, navigateur, (haut && haut.model) || "",
+    Number.isFinite(nav.deviceMemory) ? `${String(nav.deviceMemory).replace(".", ",")} Go de mémoire` : "",
+    Number.isFinite(nav.hardwareConcurrency) ? `${nav.hardwareConcurrency} cœurs` : ""].filter(Boolean).join(" · ");
+}
+
+/** Le DIAGNOSTIC d'un plan qui n'est pas venu : l'étape atteinte et depuis quand, les Mo reçus, la page cachée, l'appareil. */
+export function diagnosticPlans({ etape = null, depuis_ms = null, mo = null, cachee = false } = {}, nav = globalThis.navigator, haut = appareilHaut) {
+  return [
+    etape ? `étape : ${ETAPES_PLAN[etape] || etape}${Number.isFinite(depuis_ms) ? ` depuis ${Math.round(depuis_ms / 1000)} s` : ""}` : "",
+    Number.isFinite(mo) ? `${String(mo).replace(".", ",")} Mo reçus` : "",
+    cachee ? "page cachée pendant le calcul" : "",
+    appareil(nav, haut),
+  ].filter(Boolean).join(" · ");
+}
+
+/** L'ÉCRAN GARDÉ ALLUMÉ pendant un plan (Android gèle un onglet dont l'écran s'éteint) : la demande part tout de suite, sans
+ *  être attendue ; refusée ou absente, le plan se fait quand même. Rend de quoi le relâcher. */
+export function garderEcranAllume(nav = globalThis.navigator) {
+  let lache = false;
+  let verrou = null;
+  try {
+    if (nav && nav.wakeLock && typeof nav.wakeLock.request === "function") {
+      nav.wakeLock.request("screen").then((v) => {
+        if (lache) v.release().catch(() => {});
+        else verrou = v;
+      }, () => {});
+    }
+  } catch (x) { /* refusé ou absent */ }
+  return () => {
+    lache = true;
+    if (verrou) {
+      verrou.release().catch(() => {});
+      verrou = null;
+    }
+  };
 }
 
 /** Les plans PDF d'un fichier « rbar.ouvrage » (son texte JSON) : { rapport, pdfs: [{ numero, plan, nom, octets }],
@@ -98,6 +172,7 @@ export function prechaufferPlans() {
  *  ``reutilise`` : le résultat d'un calcul déjà demandé pour ce fichier (rien n'a été recalculé pour cet appel).
  *  ``suivre({ etape, mo })`` reçoit les étapes : « chargement » (mo : mégaoctets du moteur déjà reçus), « calcul ». */
 export function plansPdf(texte, nom, { suivre = null, delai_s = DELAI_PLANS_S } = {}) {
+  lireAppareil();
   const reutilise = !!dernier && dernier.texte === texte;
   if (!reutilise) {
     const d = { texte, promesse: null, suivis: new Set(), etape: null };
