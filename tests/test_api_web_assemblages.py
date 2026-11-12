@@ -55,6 +55,7 @@ from acier.bibliotheques import DB, PERSO  # noqa: E402
 from api_web import assemblages as A  # noqa: E402
 from api_web import assemblages_poutre as PP  # noqa: E402
 from api_web import commun as C  # noqa: E402
+from acier import projet as PJ_  # noqa: E402
 
 OK, KO = [], []
 TIRAGES = int(os.environ.get("TIRAGES", "70"))       # jeux tirés au hasard par configuration (partie 3)
@@ -506,7 +507,9 @@ if AppTest:
 
 # =====================================================================================================================
 print("\n=== 5. Ce que le site affiche = le moteur ===")
-RX_EL = re.compile(r'<div class="el( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span></div></div>')
+# (établi compact, 12/11/2026 : le taux est au bout de la PREMIÈRE ligne ; une ligne d'information y dit « hors verdict » en mots)
+RX_EL = re.compile(r'<div class="el vc( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?'
+                   r'<span class="(?:pct|et-mot) (\w)"[^>]*>([^<]+)</span></div><div class="l2">')
 for cle in POUTRE_POUTRE:
     cfg = A.CONFIGS[cle]
     M = __import__(f"{TOUS[cle]}.schemas", fromlist=["x"])
@@ -706,8 +709,9 @@ i_max = max(range(3), key=lambda i: ((bil[i]["niveau"] == "r"), bil[i]["taux"]))
 chk("le résumé de la note : son assemblage le plus chargé (non conforme d'abord)",
     r["resume"]["taux"] == C.pct(bil[i_max]["taux"]) and r["resume"]["gouvernant"].startswith(A._repere(e["assemblages"][i_max], i_max)),
     r["resume"])
-chk("la liste « Dans cette note » : chaque repère, sa configuration et son taux",
-    all(C.esc(x["values"]["id_rep"]) in r["elements"] for x in e["assemblages"]) and r["elements"].count('class="ni') == 3)
+chk("la liste de la ligne de l'élément : chaque repère et sa configuration ; plus de cadre « Dans cette note »",
+    all(f'<span class="nom">{C.esc(x["values"]["id_rep"])}</span><span class="dim">· {C.esc(A._cfg(x).court)}</span>' in r["donnees"]
+        for x in e["assemblages"]) and r["donnees"].count('data-activer="') == 3 and r["elements"] == "")
 A.gerer_elements(e, "supprimer", 0)
 A.gerer_elements(e, "supprimer", 0)
 A.gerer_elements(e, "supprimer", 0)
@@ -993,7 +997,9 @@ for cle in POUTRE_POUTRE:
         u = A._actif(e)["values"]
         u.update(v)
         vis = {k for k in cfg.E.CHAMPS if cfg.E.champ_visible(u, k)} - ({"d0_u"} if not (u.get("d0_u") or 0) > 0 else set())
-        site = set(re.findall(r'data-chemin="v/([^"/]+)"', A.resultat(e)["donnees"]))
+        don_ = A.resultat(e)["donnees"]
+        # (établi compact : le repère est le NOM de l'élément, sur sa ligne — data-chemin="nom")
+        site = set(re.findall(r'data-chemin="v/([^"/]+)"', don_)) | ({"id_rep"} if don_.count('data-chemin="nom"') == 1 else set())
         if vis != site:
             ecarts_cd.append((cle, v, sorted(vis - site), sorted(site - vis)))
 from acier.assemblages.pied_poteau.platine_beton.manuel import elements as ELP  # noqa: E402
@@ -1002,6 +1008,100 @@ chk("pied de poteau : une note relue dont un élément soudé a une dimension n�
     rep["ok"] and rep["resume"]["niveau"] == "c" and "Élément soudé 1 : b = -200 mm" in rep["resultat"], rep.get("resume"))
 chk("poutre–poutre : le cadre Données porte exactement les champs de l'écran Streamlit (11 variantes, dont les deux ailes "
     "soudées avec un trou surdimensionné : le champ Trou, qui bloque le verdict, reste atteignable)", not ecarts_cd, ecarts_cd[:3])
+
+# =====================================================================================================================
+print("\n=== L'établi compact (la mise en forme des poutres, 12/11/2026) ===")
+import html as _html  # noqa: E402
+
+
+def _txt(h):
+    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", "", h))).replace("\u202f", " ").replace("\xa0", " ").strip()
+
+
+def _rub(h):
+    return re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', h)
+
+
+SEC2 = ' data-secondaire="1"'
+e = A.nouvel_etat()
+r = A.resultat(e)
+d, h = r["donnees"], r["resultat"]
+cfg0 = A._cfg(A._actif(e))
+R0 = r_de(e)
+chk("compact : la colonne de gauche est celle de l'établi compact — la ligne de l'assemblage ouvert (son REPÈRE est son nom ; la configuration "
+    "se lit dans la liste), puis les rubriques de sa configuration", 'class="et-arbre et-arbre-c" data-assemblage="0"' in d
+    and d.count('data-chemin="nom"') == 1 and 'data-chemin="v/id_rep"' not in d
+    and f'<span class="nom">A1</span><span class="dim">· {C.esc(cfg0.court)}</span>' in d, d[:300])
+for cle in A.ordre():
+    ec = {"version": 1, "assemblages": [A.nouvel_assemblage(cle)], "actif": 0}
+    rub = _rub(A.resultat(ec)["donnees"])
+    chk(f"compact · {cle} : la première rubrique (« Assemblage ») seule ouverte ; « Coefficients et modèle » et « Cartouche et affichage » secondaires",
+        rub[0] == (" open", "as", "") and all(not o for o, _k, _s in rub[1:]) and [k for _o, k, s_ in rub if s_] == ["co", "ca"], rub)
+A.modifier(e, ["nom"], "R7")
+chk("compact : le nom saisi sur la ligne de l'élément est le REPÈRE de l'assemblage (values.id_rep)",
+    A._actif(e)["values"]["id_rep"] == "R7" and '<div class="et-rp"><b>R7</b>' in A.resultat(e)["resultat"])
+A.modifier(e, ["nom"], "A1")
+chk("compact : la tête du résultat — le repère, puis la configuration, les pièces et les efforts ; plus de phrase sous le titre de la page",
+    f'<div class="et-rp"><b>A1</b><span>{A.phrase(cfg0, A._actif(e)["values"])}</span></div>' in h and r["phrase"] == "", h[:300])
+B = re.findall(r'<section class="et-bloc (\w+)" data-theme="(\d)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>.*?'
+               r'class="et-tout" data-calcul="([\w-]+)"', h, re.S)
+niv0 = A.niveau_R(R0)
+chk("compact : le bloc « Vérifications » (son état, le taux du verdict ; « tout le calcul » ouvre la fenêtre de la pièce qui gouverne) et celui du "
+    "prédimensionnement", [(b[1], b[2]) for b in B] == [("0", "Vérifications"), ("1", "Prédimensionnement")]
+    and B[0][0] == {"p": "ok", "f": "warn", "r": "nok"}[niv0] and B[0][3] == f"{C.STATUTS[niv0][1]} · {C.pc(A.taux(A.eta_R(R0)))}{C.NBSP}%"
+    and B[0][4] == A._slug(R0.gov.grp) and B[1][4] == "predim" and all(f'id="ck-{b[4]}"' in r["volets"] for b in B), B)
+lignes = RX_EL.findall(h)
+CMP = [_txt(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', h)]
+groupes = A._groupes(cfg0, R0)
+chk("compact : une ligne par pièce — ce qu'elle choisit, son taux, ce que sa vérification la plus chargée compare (nommée, valeur ≤ limite) —, "
+    "puis la géométrie du Tableau 3.3 et la proposition du prédimensionnement",
+    [x[2] for x in lignes] == [g[1].replace("'", "&#x27;") for g in groupes] + ["Géométrie", "Proposition"]
+    and CMP[:len(groupes)] == [_txt(f"{A._minuscule(A._court(cfg0, g[4]))} : {A._comparaison(cfg0, g[4])}") for g in groupes]
+    and CMP[len(groupes)].startswith("Tab. 3.3 · ") and sum(1 for x in lignes if x[0]) == 1, (lignes, CMP))
+chk("compact : chaque vue porte son en-tête technique — le titre, la configuration, les pièces et les efforts",
+    all('class="et-ent"' in v.get("entete", "") and f"<span>· {C.esc(cfg0.court)}</span>" in v["entete"] for v in r["vues"])
+    and _txt(PJ_.description(A._actif(e)["values"])) in _txt(r["vues"][0]["entete"]), r["vues"][0].get("entete"))
+chk("compact : plus de cadre « Dans cette note » ; un assemblage seul garde son statut dans l'en-tête (une réserve, une géométrie non conforme "
+    "ne se lisent pas dans la couleur du taux)", r["elements"] == "" and r["statut_html"] == C.statut(niv0))
+A.gerer_elements(e, "ajouter")
+A.gerer_elements(e, "dupliquer", 0)
+chk("compact : copier A1 (par son rang) — la copie s'insère juste après lui, et s'ouvre",
+    [x["values"]["id_rep"] for x in e["assemblages"]] == ["A1", "A1 (copie)", "A2"] and e["actif"] == 1, [x["values"]["id_rep"] for x in e["assemblages"]])
+u_ = e["assemblages"][2]["values"]
+u_["V_Ed"] = 5000.0
+r2 = A.resultat(e)
+chk("compact : dès deux assemblages, le statut de l'en-tête est celui de la NOTE — le moins bon de ses éléments (A2, non conforme, n'est pas ouvert)",
+    "Non conforme" in r2["statut_html"] and e["actif"] == 1 and A.niveau_R(r_de({"version": 1, "assemblages": [e["assemblages"][1]], "actif": 0})) != "r",
+    r2["statut_html"])
+
+# ---- la seconde passe (12/11/2026) : rien d'écrit deux fois à droite ; les aides de groupe sous ⓘ
+chk("compact : les blocs ne répètent pas la tête — pas de ligne d'efforts (le kit cache la bande vide), et la proposition "
+    "dit ce qu'est son taux", h.count('<div class="et-bloc-ef"></div>') == 2 and CMP[-1] == "taux estimé, à confirmer en vérification"
+    and _txt(PJ_.description(A._actif(A.nouvel_etat())["values"])) in _txt(re.search(r'<div class="et-rp">.*?</div>', h, re.S).group(0)),
+    (h.count('<div class="et-bloc-ef"></div>'), CMP[-1]))
+AIDES_GROUPE = {   # configuration → (titre du groupe, début de son aide, en texte À PLAT)
+    "doubles_cornieres": ("Fixation des cornières", "Ailes A sur l'âme de la principale"),
+    "doubles_cornieres_poteau": ("Fixation des cornières", "Ailes A sur le poteau"),
+    "platine_about_poteau": ("Groupe · 2 files sur le poteau, 1 plan", "Les deux files sont symétriques"),
+}
+vus = {}
+for cle in A.ordre():
+    ec = {"version": 1, "assemblages": [A.nouvel_assemblage(cle)], "actif": 0}
+    dd = A.resultat(ec)["donnees"]
+    for m in re.finditer(r'<div class="grp">([^<]+) <span class="aide" title="([^"]*)">', dd):
+        vus.setdefault(cle, {})[_html.unescape(m.group(1))] = _html.unescape(m.group(2))
+    chk(f"compact · {cle} : plus aucun paragraphe d'aide ne reprend le texte d'un ⓘ de groupe",
+        not any(C.aide(C.esc(t)) in dd or C.aide(t) in dd for t in vus.get(cle, {}).values()), list(vus.get(cle, {})))
+chk("compact : l'aide d'un groupe se lit sous ⓘ (survol ou toucher), en texte à plat — « p3 ≥ tw,P + 2·rP + dw », sans balise",
+    all(vus.get(cle, {}).get(titre, "").startswith(debut) for cle, (titre, debut) in AIDES_GROUPE.items())
+    and "p3 ≥ tw,P + 2·rP + dw" in vus.get("platine_about_poteau", {}).get("Groupe · 2 files sur le poteau, 1 plan", "")
+    and not any("<" in t for v in vus.values() for t in v.values()), {k: list(v) for k, v in vus.items()})
+ep = {"version": 1, "assemblages": [A.nouvel_assemblage("doubles_cornieres")], "actif": 0}
+A.modifier(ep, ["v", "mode_calc"], A._cfg(ep["assemblages"][0]).E.MODE_PREDIM)
+dp = A.resultat(ep)["donnees"]
+chk("compact : en mode prédimensionnement, le groupe « Prédimensionnement » porte son mode d'emploi sous ⓘ (les champs "
+    "verrouillés, la ligne « Proposition »)", re.search(r'<div class="grp">Prédimensionnement <span class="aide" title="Les champs verrouillés '
+    r'sont pilotés par la proposition', dp) is not None and "pilotés par la proposition" not in re.sub(r'title="[^"]*"', "", dp), dp[:200])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

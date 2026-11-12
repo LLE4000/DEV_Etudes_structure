@@ -391,6 +391,12 @@ chk("le bouton « tout le calcul » d'un bloc ouvre s<i>, ou la fenêtre que le 
     'class="et-tout" data-calcul="s2"' in _b0 and 'class="et-tout" data-calcul="c3"' in _b1
     and _b1.replace('data-calcul="c3"', 'data-calcul="s2"') == _b0, (_b0[:200], _b1[:200]))
 
+# un bloc sans ligne d'efforts (les assemblages, 12/11/2026 : la tête des résultats dit déjà les pièces et les efforts)
+# rend sa bande VIDE, sans un blanc — et css/etabli.css ne la montre pas (:empty) : pas de bande grise sans texte
+chk("un bloc sans efforts rend une bande vide que css/etabli.css cache (.et-bloc-ef:empty)",
+    '<div class="et-bloc-ef"></div><div class="els">' in _b0
+    and re.search(r"\.et-bloc-ef:empty\s*\{[^}]*display:\s*none", _css_et) is not None, _b0[:300])
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

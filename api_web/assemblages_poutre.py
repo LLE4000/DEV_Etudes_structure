@@ -161,9 +161,9 @@ def resume_assemblage(cfg, u):
 def predim_items(u):
     if u.get("mode_calc") == EPA.MODE_VERIF:
         return []
-    return [("grp", "Prédimensionnement"), "eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2",
-            ("aide", "Les champs verrouillés sont pilotés par la proposition ; la ligne « Proposition » du résultat "
-                     "la recopie dans les données et repasse en vérification.")]
+    return [("grp", "Prédimensionnement", "Les champs verrouillés sont pilotés par la proposition ; la ligne « Proposition » du "
+                                          "résultat la recopie dans les données et repasse en vérification."),
+            "eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"]
 
 
 def boulons_items(u):
@@ -303,9 +303,10 @@ def _sections_dc(u, R, el):
         groupes += [("grp", "Groupe P · âme de la principale (par cornière)"), "n1P_u", "n2P_u", "p1P_u", "p2_P", "e1P_u", "gA_u"]
     secs = [
         ("as", "Assemblage", resume_assemblage(cfg, u),
-         ["id_rep", "mode_calc", ("grp", "Fixation des cornières"), "fix_P", "fix_S",
-          ("aide", "Ailes A sur l'âme de la principale, ailes B sur l'âme de la secondaire. Soudées des deux côtés : "
-                   "assemblage peu déformable, à réserver à des cas particuliers.")] + predim_items(u), True),
+         ["id_rep", "mode_calc",
+          ("grp", "Fixation des cornières", "Ailes A sur l'âme de la principale, ailes B sur l'âme de la secondaire. Soudées des "
+                                            "deux côtés : assemblage peu déformable, à réserver à des cas particuliers."),
+          "fix_P", "fix_S"] + predim_items(u), True),
         ("pt", "Poutres", resume_poutres(u),
          [("grp", "Principale (porteuse)"), "prof_P", "nu_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u",
           ("grp", "Secondaire (portée)"), "prof_S", "nu_S", "hS_u", "bS_u", "twS_u", "tfS_u", "rS_u",

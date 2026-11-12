@@ -335,7 +335,9 @@ RX_CHEMIN = re.compile(r'data-chemin="v/([^"/]+)(?:/[^"]*)?"')
 
 
 def champs_du_cadre(e):
-    return set(RX_CHEMIN.findall(A.resultat(e)["donnees"]))
+    don_ = A.resultat(e)["donnees"]
+    # (établi compact : le repère est le NOM de l'élément, sur sa ligne — data-chemin="nom")
+    return set(RX_CHEMIN.findall(don_)) | ({"id_rep"} if don_.count('data-chemin="nom"') == 1 else set())
 
 
 ecarts_cadre = []
@@ -650,7 +652,9 @@ if AppTest:
 
 # =====================================================================================================================
 print("\n=== 5. Ce que le site affiche = le moteur ===")
-RX_EL = re.compile(r'<div class="el( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span></div></div>')
+# (établi compact, 12/11/2026 : le taux est au bout de la PREMIÈRE ligne ; une ligne d'information y dit « hors verdict » en mots)
+RX_EL = re.compile(r'<div class="el vc( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?'
+                   r'<span class="(?:pct|et-mot) (\w)"[^>]*>([^<]+)</span></div><div class="l2">')
 defauts = []
 for nom, R, u, e in RESULTATS[:40]:
     cfg = A.pour(CFG, R)
@@ -904,7 +908,8 @@ e = tige_au_bord("220")
 R = r_de(e)
 res = A.resultat(e)
 tete = res["resume"]
-geo = re.search(r'data-calcul="geometrie".*?<span class="pct [a-z]+">(\d+)\s*%</span>', res["resultat"], re.S)
+# (la LIGNE « Géométrie » : le bouton « tout le calcul » du bloc ouvre lui aussi la fenêtre de la géométrie quand elle gouverne)
+geo = re.search(r'<div class="el vc[^"]*" data-calcul="geometrie".*?<span class="pct [a-z]+">(\d+)\s*%</span>', res["resultat"], re.S)
 chk("tige à 30 mm du bord : le moteur la dit non conforme (pince 30 < 31,2 mm)",
     not R.verified and not R.dist_ok and A._pince_ko(R) is not None and abs(A._pince_ko(R).val - 30.0) < 1e-9, R.statut)
 chk("tige à 30 mm du bord : la tête de la note écrit 104 %, rouge, « Non conforme » (et non 0 %)",
@@ -917,9 +922,10 @@ chk("tige à 30 mm du bord : le gouvernant nommé est la pince, pas une vérific
 v = plat(re.search(r'<div class="verdict">.*?</div></div>', res["resultat"], re.S).group(0))
 chk("tige à 30 mm du bord : le verdict écrit la comparaison de la pince (30,0 mm < 31,2 mm, e ≥ 1,2·d0)",
     "104%" in v and "Géométrie · pince des boulons au bord de la platine" in v and "30,0 mm < 31,2 mm (e ≥ 1,2·d0)" in v, v)
-marques = re.findall(r'<div class="el gov"[^>]*><div class="l1"><b>([^<]+)</b>', res["resultat"])
+marques = re.findall(r'<div class="el vc gov"[^>]*><div class="l1"><b>([^<]+)</b>', res["resultat"])
 chk("tige à 30 mm du bord : la ligne marquée gouvernante est « Géométrie » (pas « Trous » à 0 %)", marques == ["Géométrie"], marques)
-chk("tige à 30 mm du bord : « Dans cette note » écrit aussi 104 %", "104" in plat(res["elements"]), plat(res["elements"])[:200])
+chk("tige à 30 mm du bord : le bloc « Vérifications » écrit aussi 104 % (établi compact : son état, à côté du verdict)",
+    "Non conforme · 104" in plat(res["resultat"]).replace("\xa0", " ") and res["elements"] == "", plat(res["resultat"])[:300])
 chk("tige à 30 mm du bord : pas de « Vérifié sous réserve » sous « Non conforme »",
     "Vérifié sous réserve" not in res["resultat"], texte(res["resultat"])[-300:])
 # l'état voisin, conforme, est intact : la règle ne touche qu'une géométrie non conforme

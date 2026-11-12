@@ -246,9 +246,9 @@ def _sections_dc(u, R, el):
                     "e2b_u"]
     secs = [
         ("as", "Assemblage", resume_assemblage(cfg, u),
-         items_assemblage(u, ("grp", "Fixation des cornières"), "fix_P", "fix_S",
-                          ("aide", "Ailes A sur le poteau, ailes B sur l'âme de la poutre portée. Soudées des deux "
-                                   "côtés : assemblage peu déformable, à réserver à des cas particuliers.")), True),
+         items_assemblage(u, ("grp", "Fixation des cornières", "Ailes A sur le poteau, ailes B sur l'âme de la poutre portée. "
+                                      "Soudées des deux côtés : assemblage peu déformable, à réserver à des cas particuliers."),
+                          "fix_P", "fix_S"), True),
         ("po", "Poteau porteur", resume_poteau(u), items_poteau(), True),
         ("pt", "Poutre portée", resume_portee(u), items_portee("g_h"), True),
         ("gr", "Grugeage", PP.resume_grugeage(u), items_grugeage(), False),
@@ -402,9 +402,10 @@ def _sections_pb(u, R, el):
         ("pl", "Platine d'about", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
          ["hp_u", "tp_u", "bp_u", "z_C", "nu_pl", ("grp", "Soudure sur l'âme de la portée"), "a_w"], False),
         ("bo", "Boulons", f"2 × {C.nb(N(u.get('n1_u')))} {u.get('boulon_u')} {u.get('classe')}",
-         PP.boulons_items(u) + [("grp", "Groupe · 2 files sur le poteau, 1 plan"), "n1_u", "p1_u", "e1_u", "p3_u",
-                                ("aide", "Les deux files sont symétriques par rapport à l'âme du poteau ; l'écrou "
-                                         "dégage son congé : p<sub>3</sub> ≥ t<sub>w,P</sub> + 2·r<sub>P</sub> + d<sub>w</sub>.")],
+         PP.boulons_items(u) + [("grp", "Groupe · 2 files sur le poteau, 1 plan",
+                                 "Les deux files sont symétriques par rapport à l'âme du poteau ; l'écrou dégage son congé : "
+                                 "p<sub>3</sub> ≥ t<sub>w,P</sub> + 2·r<sub>P</sub> + d<sub>w</sub>."),
+                                "n1_u", "p1_u", "e1_u", "p3_u"],
          True),
         ("ef", "Efforts ELU", PP.resume_efforts(u, ("V_Ed", "N_Ed")), ["V_Ed", "N_Ed", "nat_N"], True),
         ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",

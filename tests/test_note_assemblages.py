@@ -188,8 +188,10 @@ def chiffres_ecran(r):
     """Les chiffres de l'écran : le taux de la tête (pastille du verdict), son niveau, les taux des pièces."""
     tete = r["resultat"].split('class="verdict"')[1]
     m = re.search(r'class="chip xl (\w)"[^>]*><small>η</small>([^<]+)</span>', tete)
-    pieces = re.findall(r'<div class="el[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)"[^>]*>([^<]+)</span>',
-                        r["resultat"])
+    # (établi compact : le taux est au bout de la première ligne ; une ligne sans taux — « hors verdict » — n'en est pas une)
+    pieces = [(n_, niv_, t_) for n_, sorte_, niv_, t_ in re.findall(
+        r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(?:(?!</div>).)*?<span class="(pct|et-mot) (\w)"[^>]*>([^<]+)</span></div>',
+        r["resultat"]) if sorte_ == "pct"]
     # une ligne d'INFORMATION (pied de poteau, béton d'ancrage au périmètre « EC3 seul ») ne porte plus de taux mais
     # « hors verdict » (A.SANS_TAUX_INFORMATION, petits chantiers du 10/11/2026) : ce n'est pas un taux de pièce
     return {"niveau": m.group(1), "taux": m.group(2).replace(C.NBSP, " ").replace("&gt;", ">"),
@@ -249,8 +251,9 @@ def controle_cas(liste):
         profils = [u[k] for k in ("prof_S", "prof_P", "prof_c") if u.get(k) and u[k] != PERSO]
         profils += [x.get("prof") for x in (u.get("elems") or []) if isinstance(x, dict) and x.get("prof")]
         for p in profils:
-            if p not in p1 or p not in r["phrase"]:
-                ecarts.append((nom, "profilé", p, p in p1, p in r["phrase"]))
+            tete_r = re.search(r'<div class="et-rp">.*?</div>', r["resultat"]).group(0)      # (la tête des résultats : l'ancienne phrase)
+            if p not in p1 or p not in tete_r:
+                ecarts.append((nom, "profilé", p, p in p1, p in tete_r))
         boulon = u.get("boulon_u") or u.get("tige_u") or ""
         if boulon and (boulon not in p1 or boulon not in r["resultat"]):
             ecarts.append((nom, "boulon", boulon))

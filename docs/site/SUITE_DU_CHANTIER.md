@@ -615,6 +615,24 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   taux de la suivante (« Plateaux · information » lu « 32 % ») — trouvé par la parité de la note du plancher. Preuves :
   `tests/test_api_web_plancher.py` (128 OK), `tests/test_note_plancher.py` (36 OK), harnais `module:plancher`,
   `formats:plancher`, `note_pdf`, `enregistrement`.
+- **Assemblages métalliques** (`api_web/assemblages.py` et ses trois familles, note PDF) : le même établi pour les sept
+  configurations. À gauche, la ligne de l'assemblage ouvert — son nom est le REPÈRE (`values.id_rep`, que la note et le
+  cartouche lisent) — puis les rubriques de la configuration, la première seule ouverte ; « Coefficients et modèle » et
+  « Cartouche et affichage » secondaires. À droite : la tête (le repère ; la configuration, les pièces, les efforts), le
+  verdict, le bloc « Vérifications » — une ligne par pièce : ce qu'elle choisit (boulon, profilé : un clic ouvre le
+  sélecteur), son taux, ce que sa vérification la plus chargée compare (« pression diamétrale – âme : 66,7 kN ≤
+  90,1 kN ») ; puis la géométrie du Tableau 3.3 — et le bloc du prédimensionnement. Une pièce « en information » ne dit
+  toujours ni taux ni comparaison (un dépassement ignoré ne se lit pas comme un contrôle). Le statut de l'en-tête : celui
+  de l'assemblage quand il est seul, le moins bon de la note dès qu'il y en a deux. Retiré de l'écran : le cadre « Dans
+  cette note », le champ « Repère » de la rubrique 1 (c'est la ligne de l'élément), la phrase sous le titre (c'est la
+  tête des résultats), la ligne d'efforts des blocs (elle répétait la tête : le kit ne garde plus la bande d'un bloc qui
+  n'a rien à y dire, `.et-bloc-ef:empty`), cinq paragraphes d'aide passés sous le ⓘ de leur titre de groupe (la fixation
+  des cornières, les deux files sur le poteau, le mode d'emploi du prédimensionnement, la gorge du calcul manuel, les
+  valeurs de l'ETA). Restent écrits en clair, parce qu'ils conditionnent la saisie : les conventions de signe des
+  efforts et l'hypothèse des coefficients γ du pied de poteau, la bascule du calcul manuel, « les deux ailes sont
+  soudées », la recoupe dans l'âme d'un poteau et son grugeage facultatif. Preuves : `tests/test_api_web_assemblages.py`
+  (186 OK), `…_poteau.py` (138), `…_pied.py` (93), `tests/test_note_assemblages.py` (32), harnais `module:assemblages`,
+  `formats:assemblages`, `note_pdf`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

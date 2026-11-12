@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "edf28dafb125f174d981c8e6c41b9c2aad5f7848d4925b9806653b81bd61460a",
+ "sha256": "c9655f0f5b07442c4ec862ec3743835d1703fdeb3c88182810ef3c2f7c4a4e62",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -342,7 +342,7 @@
  "apercus": {
   "age": "1066a146e57f7757",
   "armatures": "0d888c7223e651e4",
-  "assemblages": "d6af1c9bda8c2a78",
+  "assemblages": "d4844c8ce59f4b12",
   "bois": "8f2ad99577d68381",
   "catalogue": "3ffa4b30b8ac00ba",
   "corniere": "8a7ec359d7b0851c",
@@ -359,5 +359,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "7ac4e149facb0832"
+ "version": "950a67460dedba46"
 }

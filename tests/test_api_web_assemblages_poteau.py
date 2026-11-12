@@ -336,7 +336,8 @@ for cle, chemin in POTEAU.items():
         e = etat_de(cle, v)
         u = A._actif(e)["values"]
         don = A.resultat(e)["donnees"]
-        lus = set(re.findall(r'data-chemin="v/([^"/]+)"', don))
+        # (établi compact : le repère est le NOM de l'élément, sur sa ligne — data-chemin="nom")
+        lus = set(re.findall(r'data-chemin="v/([^"/]+)"', don)) | ({"id_rep"} if don.count('data-chemin="nom"') == 1 else set())
         attendus = {k for k in cfg.E.CHAMPS if cfg.E.champ_visible(u, k)}
         if "d0_u" in attendus and not (u.get("d0_u") or 0) > 0:
             attendus.discard("d0_u")                     # trou normal : la case « d0 imposé » le remplace
@@ -554,7 +555,9 @@ if AppTest:
 
 # =====================================================================================================================
 print("\n=== 5. Ce que le site affiche = le moteur ===")
-RX_EL = re.compile(r'<div class="el( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span></div></div>')
+# (établi compact, 12/11/2026 : le taux est au bout de la PREMIÈRE ligne ; une ligne d'information y dit « hors verdict » en mots)
+RX_EL = re.compile(r'<div class="el vc( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?'
+                   r'<span class="(?:pct|et-mot) (\w)"[^>]*>([^<]+)</span></div><div class="l2">')
 for cle in POTEAU:
     cfg = A.CONFIGS[cle]
     M = ecran(cle, "schemas")

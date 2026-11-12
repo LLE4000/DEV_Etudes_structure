@@ -840,7 +840,7 @@ def _sections_manuel(u, R, el):
                              f"{C.esc(AFFICHAGE['appui'].get(u.get('appui'), '')).lower()}",
          ["id_rep", "mode", ("aide", C.esc(etat_bascule(u))), "crit", "appui"], True),
         ("pl", "Platine", _platine_resume(u),
-         ["bp_u", "lp_u", "tp_u", "nu_pl", ("grp", "Soudure sur les éléments"), "a_w", ("aide", C.esc(NOTE_GORGE_MA))], True),
+         ["bp_u", "lp_u", "tp_u", "nu_pl", ("grp", "Soudure sur les éléments", NOTE_GORGE_MA), "a_w"], True),
         ("bo", "Boulons", f"{n_t} × {C.esc(u.get('ancr') or '')} {C.esc(u.get('classe') or '')} · {C.esc(E.ancrage_txt(u, True))}",
          [("lib", "ancr", ("", "Boulon")), "classe", "typ_a", "hef", "d_h", ("html", table_tiges(u, el))], True),
         ("el", "Éléments soudés", elems, [("html", table_elements(u))], True),
@@ -862,7 +862,7 @@ def _sections_manuel(u, R, el):
 def _sections_complet(u, R, el):
     cfg = A.CONFIGS["platine_beton"]
     prof = u.get("prof_c") if E.forme_I(u) else "tube RHS / SHS"
-    eta = [("grp", "Valeurs de l'ETA"), ("aide", C.esc(AIDES_CO["ETA"])), "eta_tau", "eta_k1", "eta_nrks", "eta_vrks"] if E.eta(u) else []
+    eta = [("grp", "Valeurs de l'ETA", AIDES_CO["ETA"]), "eta_tau", "eta_k1", "eta_nrks", "eta_vrks"] if E.eta(u) else []
     return [
         ("as", "Assemblage", f"vérification complète · {C.esc(AFFICHAGE['perim'].get(u.get('perim'), ''))}",
          ["id_rep", "mode", "perim"], True),
@@ -1063,9 +1063,10 @@ def lignes_resultat(R, u) -> dict:
         t = P["t_" + k]
         r = t / tp
         ok = t <= tp + 1e-9
-        piece = f't<sub>{k}</sub> = {"∞" if t == INF else C.fr(t, 1)} mm'
-        out += C.ligne_res(noms[k][0].upper() + noms[k][1:], piece, A.taux(A.eta_vu(r, ok)), "r" if not ok else C.niveau(A.eta_vu(r)),
-                           calcul="platine")
+        # (établi compact : ce que le critère compare — l'épaisseur qu'il demande face à celle de la platine)
+        quoi = f't<sub>{k}</sub> = {"∞" if t == INF else C.fr(t, 1)} mm {"≤" if ok else "&gt;"} t<sub>p</sub> = {C.fr(tp, 1)} mm'
+        out += C.ligne_verif(noms[k][0].upper() + noms[k][1:], quoi, A.taux(A.eta_vu(r, ok)), "r" if not ok else C.niveau(A.eta_vu(r)),
+                             calcul="platine")
     return {"Platine": f'<div class="asm-sous" title="Épaisseur requise : les quatre critères (t / t_p)">{out}</div>'}
 
 

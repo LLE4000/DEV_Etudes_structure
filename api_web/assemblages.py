@@ -23,6 +23,14 @@ L'état d'un assemblage reprend celui de l'écran Streamlit : ``values`` porte l
 normalisées comme les widgets les rendent (``carte.valeur_widget`` : un nombre est un flottant ou None, un choix est
 l'une de ses options, un texte est une chaîne) — c'est exactement ce que l'écran Streamlit passe au moteur
 (tests/test_api_web_assemblages.py le prouve en faisant tourner l'écran Streamlit lui-même).
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 12/11/2026), le même pour les
+sept configurations : à gauche la ligne de l'assemblage ouvert (son REPÈRE, qui est son nom ; la liste, copier,
+supprimer) et les rubriques de la configuration en accordéon — la première seule ouverte, « Coefficients et modèle »
+et « Cartouche et affichage » secondaires ; au centre les vues sous leur en-tête technique ; à droite la tête, le
+verdict, le bloc « Vérifications » (une ligne par pièce : ce qu'elle choisit — boulon, profilé —, son taux, ce que sa
+vérification la plus chargée compare ; puis la géométrie du Tableau 3.3) et, quand il y en a un, le bloc du
+prédimensionnement.
 """
 import copy
 import html
@@ -35,9 +43,14 @@ from acier import registre as RG
 from acier.bibliotheques import DB, PERSO, find
 
 from . import commun as C
+from . import etabli_compact as E
 
 MODULE = "assemblages"
 PAGE = "assemblages"
+GENRE = E.Genre("Assemblages", "l'assemblage", "cet assemblage", "un assemblage")
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
+# les rubriques SECONDAIRES des sept configurations : les coefficients et le modèle ; le cartouche et l'affichage
+SECONDAIRES = frozenset({"co", "ca"})
 
 VISSERIE_DEFAUT = "1 rondelle + 1 écrou"
 NIVEAUX_COTATION = (("0", "Simple"), ("1", "Édition"), ("2", "Toutes"))   # « Vue simple », « Complète » : rognés à 1024 px
@@ -341,10 +354,15 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         lst.append(nouvel_assemblage(_actif(etat)["type"], _repere_libre(etat)))
         etat["actif"] = len(lst) - 1
     elif action == "dupliquer":
-        e = copy.deepcopy(_actif(etat))
-        e["values"]["id_rep"] = f"{_repere(e, etat['actif'])} (copie)"
-        lst.insert(etat["actif"] + 1, e)
-        etat["actif"] += 1
+        # (``index`` : l'assemblage à copier — la ligne de l'élément de l'établi compact ; sans : l'ouvert)
+        try:
+            i = etat["actif"] if index is None else min(max(0, int(index)), len(lst) - 1)
+        except (TypeError, ValueError):
+            i = etat["actif"]
+        e = copy.deepcopy(lst[i])
+        e["values"]["id_rep"] = f"{_repere(e, i)} (copie)"
+        lst.insert(i + 1, e)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(lst) > 1:
         i = min(max(0, int(index or 0)), len(lst) - 1)
         del lst[i]
@@ -499,6 +517,8 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     el = _actif(etat)
     cfg = _cfg(el)
     chemin = [int(c) if isinstance(c, str) and c.lstrip("-").isdigit() and c != "-" else c for c in chemin]
+    if chemin == ["nom"]:                         # la ligne de l'élément (établi compact) : son nom est le REPÈRE
+        chemin = ["v", "id_rep"]
     tete = chemin[0] if chemin else None
     if chemin == ["type"]:
         return _changer_configuration(etat, valeur)
@@ -893,6 +913,15 @@ def champ(cfg: Config, u: Dict, k: str, verrou: bool = False, plein: Optional[bo
     return C.ligne(lab, C.num(["v", k], v, _unite(f), dec=3, entier=entier, desactive=verrou, mini=1 if entier else None), sym, _aide(f, cfg, u))
 
 
+def _grp(titre: str, aide: str = "") -> str:
+    """Un titre de groupe du cadre Données. Son ``aide`` (HTML ou texte) ne prend plus un paragraphe de la colonne
+    compacte : elle se lit sous ⓘ, au survol ou au toucher (js/etabli.js) — en texte, les indices à plat (« p3 »)."""
+    if not aide:
+        return f'<div class="grp">{titre}</div>'
+    plat = html.unescape(re.sub(r"<[^>]+>", "", aide))
+    return f'<div class="grp">{titre} <span class="aide" title="{C.esc(plat)}">{C.icon("info")}</span></div>'
+
+
 def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
     """Les champs visibles (``entrees.champ_visible``, les conditions de l'écran Streamlit) parmi ``cles`` ; les
     champs pilotés par le prédimensionnement sont verrouillés (◆ dans Streamlit)."""
@@ -906,9 +935,9 @@ def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
                 out += champ(cfg, u, cle, verrou=pred and cle in pil, libelle=lab)
             continue
         if isinstance(k, tuple):
-            genre, x = k
-            if genre == "grp":
-                out += f'<div class="grp">{x}</div>'
+            genre, x = k[0], k[1]
+            if genre == "grp":                             # ("grp", titre) ou ("grp", titre, aide)
+                out += _grp(x, k[2] if len(k) > 2 else "")
             elif genre == "aide":
                 out += C.aide(x)
             elif genre == "html":
@@ -927,25 +956,39 @@ def _menu_configuration(el: Dict) -> str:
         for a in f.assemblages:
             if a.id in CONFIGS:
                 opts.append((a.id, f"{f.titre} · {CONFIGS[a.id].nom_menu or a.court or a.titre}"))
-    aide = C.esc("Les sept attaches du registre des assemblages (EN 1993-1-8) : poutre–poutre, poutre–poteau (aile ou "
-                 "âme), pied de poteau sur béton. Les saisies communes (profilés, boulons, efforts) suivent dans la même famille.")
-    return (f'<div class="grp">Configuration <span class="aide" title="{aide}">{C.icon("info")}</span></div>'
-            f'<div class="asm-config">{C.choix(["type"], el["type"], opts)}</div>')
+    aide = ("Les sept attaches du registre des assemblages (EN 1993-1-8) : poutre–poutre, poutre–poteau (aile ou "
+            "âme), pied de poteau sur béton. Les saisies communes (profilés, boulons, efforts) suivent dans la même famille.")
+    return _grp("Configuration", aide) + f'<div class="asm-config">{C.choix(["type"], el["type"], opts)}</div>'
 
 
 def formulaire(etat: Dict, R=None) -> str:
-    """Le cadre Données : la configuration et le repère en tête, puis les sections de la configuration."""
+    """Le cadre Données : la configuration en tête, puis les rubriques de la configuration (leurs numéros et leurs clés
+    sont ceux de la famille) — la première seule ouverte ; « Coefficients et modèle » et « Cartouche et affichage »
+    secondaires. Le REPÈRE de l'assemblage n'y est plus : il se modifie sur sa ligne, en tête de la colonne."""
     el = _actif(etat)
     cfg = _cfg(el)
     u = el["values"]
     out = ""
-    for n, (cle, titre, resume, items, ouvert) in enumerate(cfg.sections(u, R, el), start=1):
-        corps = champs(cfg, u, items)
+    for n, (cle, titre, resume, items, _ouvert) in enumerate(cfg.sections(u, R, el), start=1):
+        corps = champs(cfg, u, [k for k in items if k != "id_rep"])
         if n == 1:
             corps = _menu_configuration(el) + corps
         if corps:
-            out += C.section(n, titre, resume, corps, ouvert, cle)
+            out += C.section(n, titre, resume, corps, n == 1, cle, secondaire=cle in SECONDAIRES)
     return out
+
+
+def _dims(el: Dict) -> str:
+    """« · Plat d'âme » : ce qu'on lit d'un assemblage dans la liste de la note (HTML)."""
+    return f"· {C.esc(_cfg(el).court)}"
+
+
+def arbre(etat: Dict, R=None) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne de
+    l'assemblage ouvert (son repère, qu'un clic modifie ; la liste des assemblages de la note ; copier, supprimer), que
+    l'écran pose dans l'en-tête du panneau, puis les rubriques de sa configuration."""
+    noms = [(_repere(e, i), _dims(e), False) for i, e in enumerate(etat["assemblages"])]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, R), "assemblage", compact=True)
 
 
 def section_cartouche(cfg: Config, u: Dict, el: Dict, avec_visserie: bool = True, libelle_visserie: str = "Visserie",
@@ -1266,18 +1309,8 @@ def resume_note(etat: Dict, bilans: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, bilans: List[Dict]) -> str:
-    """« Dans cette note » : chaque assemblage (repère, configuration) et son taux ; un clic l'ouvre."""
-    items = ""
-    n = len(etat["assemblages"])
-    for i, (el, b) in enumerate(zip(etat["assemblages"], bilans)):
-        t = b["taux"]
-        txt = f"{C.pc(taux(t))}{C.NBSP}%" if t is not None else ("—" if b["niveau"] == "x" else "à compléter")
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if n > 1 else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(_repere(el, i))} '
-                  f'<span>· {C.esc(_cfg(el).court)}</span></span><span class="pct {b["niveau"]}">{txt}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {n}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier l\'assemblage ouvert">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter un assemblage</div></div>')
+    """Rien : les assemblages de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 def _messages(cfg: Config, R) -> str:
@@ -1332,22 +1365,37 @@ def _rangee_geometrie(R, gov: bool = False) -> str:
     niv = "r" if not (R.get("dist_ok", True) and R.get("geo_ok", True)) else C.niveau(t)
     n = len(dist)
     txt = (f"{n} pinces et entraxes" if n > 1 else "1 distance au bord") if dist else "géométrie"
-    return C.ligne_res("Géométrie", f"Tab. 3.3 · {txt}", C.pct(t), niv, calcul="geometrie", gov=gov)
+    return C.ligne_verif("Géométrie", f"Tab. 3.3 · {txt}", C.pct(t), niv, calcul="geometrie", gov=gov)
+
+
+def _statut_note(bilans: List[Dict], niv: str) -> str:
+    """Le statut dit dans l'en-tête des résultats : celui de l'assemblage ouvert quand il est seul (une réserve, une
+    géométrie non conforme ne se lisent pas dans la couleur du taux) ; dès deux assemblages, celui de la NOTE — le moins
+    bon de ses éléments."""
+    if len(bilans) < 2:
+        return C.statut(niv)
+    nivs = [b["niveau"] for b in bilans]
+    return C.statut(next((n for n in ("x", "c", "r", "f") if n in nivs), "p"))
 
 
 def resultat(etat: Dict) -> Dict:
+    """Le calcul de l'assemblage ouvert et sa mise en forme : la tête (le repère ; la configuration, les pièces et les
+    efforts), le verdict, le bloc « Vérifications » (une ligne par pièce, puis la géométrie), le bloc du
+    prédimensionnement, les messages ; les fenêtres de calcul, les vues sous leur en-tête technique, la colonne de
+    gauche, le résumé de la note."""
     el = _actif(etat)
     cfg = _cfg(el)
     u = el["values"]
     bilans = [_bilan(_cfg(e), e) for e in etat["assemblages"]]
     b = bilans[etat["actif"]]
     R = b["R"]
+    tete = E.tete_resultats(C.esc(_repere(el, etat["actif"])), phrase(cfg, u))
     pied = (f'<div class="pfoot"><div class="mass"><span>{C.esc(cfg.titre_famille)} · {C.esc(cfg.nom_menu or cfg.court)}</span>'
             f'<b>EN 1993-1-8</b></div><div class="legend">{C.legende()}</div></div>')
     if R is None:
         verdict = (f'<div class="verdict"><div class="gov"><b>Calcul impossible</b>Données incomplètes : {C.esc(b["erreur"])}</div></div>')
-        return {"resultat": f'<div class="pbody">{verdict}</div>{pied}', "volets": "", "vues": [], "phrase": C.esc(cfg.titre),
-                "statut_html": C.statut("x"), "resume": resume_note(etat, bilans), "donnees": formulaire(etat, None),
+        return {"resultat": f'<div class="pbody">{tete}{verdict}</div>{pied}', "volets": "", "vues": [], "phrase": "",
+                "statut_html": _statut_note(bilans, "x"), "resume": resume_note(etat, bilans), "donnees": arbre(etat, None),
                 "elements": elements(etat, bilans)}
     if b["vides"] or b["refus"]:
         corps = ""
@@ -1361,7 +1409,7 @@ def resultat(etat: Dict) -> Dict:
                          'admises (l\'écran Streamlit les calculerait en silence, V<sub>Ed</sub> vide pris égal à 0, '
                          'γ nul…). Vérification suspendue jusqu\'à leur correction dans le cadre Données.</div></div>')
             corps += "".join(C.message(C.esc(msg), grave=True) for _k, msg in b["refus"])
-        html_res, vol = f'<div class="pbody">{corps}</div>{pied}', ""
+        html_res, vol = f'<div class="pbody">{tete}{corps}</div>{pied}', ""
         niv = "c"
     else:
         cfg = pour(cfg, R)
@@ -1374,39 +1422,53 @@ def resultat(etat: Dict) -> Dict:
         # lignes de plus (pied de poteau : les quatre critères de l'épaisseur requise, sous la ligne Platine) — un
         # texte va à la fin, un dict {groupe: html} sous la ligne de ce groupe
         extra = cfg.lignes_resultat(R, u) if cfg.lignes_resultat else ""
-        for grp, nom, eta, ok, pire, on, info in _groupes(cfg, R):
+        groupes = _groupes(cfg, R)
+        for grp, nom, eta, ok, pire, on, info in groupes:
             texte, pk = cfg.piece(R, u, grp)
             if info:
                 mot = cfg.mot_information(R, grp) if cfg.mot_information else "information"
                 texte = (texte + " · " if texte else "") + C.esc(mot)
             # une ligne d'INFORMATION ne porte pas de taux à la place des taux qui décident (petits chantiers,
             # 10/11/2026) : « hors verdict », en gris, sans jauge — un « 454 % » gris sous « Conforme » se lisait comme
-            # un dépassement ignoré. Son taux se lit dans sa fenêtre de calcul, et la phrase d'information
-            # (``note_information``) dit le plus sollicité, « satisfait » ou non.
+            # un dépassement ignoré ; pour la même raison elle ne dit pas non plus ce qu'elle compare. Son taux se lit
+            # dans sa fenêtre de calcul, et la phrase d'information (``note_information``) dit le plus sollicité.
             vu = eta if info else eta_vu(eta, ok)
-            rows += C.ligne_res(nom, texte, None if info else taux(vu), "c" if info else ("r" if not ok else C.niveau(vu)),
-                                calcul=_slug(grp), pk=pk or "", gov=bool(gouv is not None and gouv in on and not info),
-                                **({"sans_taux": SANS_TAUX_INFORMATION} if info else {}))
+            # ce que la pièce compare : sa vérification la plus chargée, nommée, puis valeur et limite
+            quoi = "" if info else f"{C.esc(_minuscule(_court(cfg, pire)))} : {_comparaison(cfg, pire)}"
+            rows += C.ligne_verif(nom, quoi, None if info else taux(vu), "c" if info else ("r" if not ok else C.niveau(vu)),
+                                  calcul=_slug(grp), pk=pk or "", piece=texte, gov=bool(gouv is not None and gouv in on and not info),
+                                  etat_txt=SANS_TAUX_INFORMATION if info else "")
             if isinstance(extra, dict):
                 rows += extra.pop(grp, "")
         rows += "".join(extra.values()) if isinstance(extra, dict) else extra
         rows += _rangee_geometrie(R, gov=geo_gouverne)
+        # « tout le calcul » du bloc : la fenêtre de ce qui gouverne (la géométrie, ou la pièce de la vérification
+        # gouvernante), sinon celle de la première pièce
+        fen = "geometrie" if geo_gouverne or not groupes else _slug(gouv.grp if gouv is not None else groupes[0][0])
+        # (pas de ligne d'efforts : la tête, juste au-dessus, dit déjà la configuration, les pièces et les efforts)
+        blocs = E.bloc(0, "Vérifications", CLASSES_BLOC.get(niv, "inc"), f"{C.STATUTS[niv][1]} · {C.pc(taux(eta_R(R)))}{C.NBSP}%",
+                       "", rows, theme=True, calcul=fen)
         if cfg.predim and R.get("pd") is not None and R.pd.get("pick") is not None:
             pick = R.pd.pick
-            rows += f'<div class="elgrp">{"Mode prédimensionnement" if R.pred else "Prédimensionnement"}</div>'
-            rows += C.ligne_res("Proposition", C.esc(cfg.predim["nom"](pick)), *taux_estime(pick.eta, 0),
-                                calcul="predim", pk="solution")
+            t_est, niv_est = taux_estime(pick.eta, 0)
+            row = C.ligne_verif("Proposition", "taux estimé, à confirmer en vérification", t_est, niv_est, calcul="predim", pk="solution",
+                                piece=C.esc(cfg.predim["nom"](pick)))
+            blocs += E.bloc(1, "Mode prédimensionnement" if R.pred else "Prédimensionnement", "inc", "solution proposée",
+                            "", row, theme=True, calcul="predim")
         msg = ""
         if R.pred:
             msg += C.message(f"<b>Mode prédimensionnement</b> — {C.esc(cfg.predim['label'](R.pd.pick) if R.pd.get('pick') is not None else '')}. "
                              f"{C.esc(R.pd.msg)}")
         msg += _messages(cfg, R)
-        html_res = f'<div class="pbody">{_verdict(cfg, R, niv)}<div class="els">{rows}</div>{msg}</div>{pied}'
+        html_res = f'<div class="pbody">{tete}{_verdict(cfg, R, niv)}<div class="et-blocs">{blocs}</div>{msg}</div>{pied}'
         vol = volets(cfg, R, u, el)
     cfg = pour(cfg, R)
-    return {"resultat": html_res, "volets": vol, "vues": vues(cfg, R, el), "phrase": phrase(cfg, u),
-            "statut_html": C.statut(niv), "resume": resume_note(etat, bilans), "donnees": formulaire(etat, R),
-            "elements": elements(etat, bilans)}
+    vs = vues(cfg, R, el)
+    d = PJ.description(u)
+    for v in vs:
+        v["entete"] = E.entete(v["titre"].upper(), C.esc(cfg.court), [d] if d else [], None, v.get("legende", ""))
+    return {"resultat": html_res, "volets": vol, "vues": vs, "phrase": "", "statut_html": _statut_note(bilans, niv),
+            "resume": resume_note(etat, bilans), "donnees": arbre(etat, R), "elements": elements(etat, bilans)}
 
 
 def phrase(cfg: Config, u: Dict) -> str:
