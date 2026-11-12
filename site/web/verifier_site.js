@@ -1629,7 +1629,7 @@ const principal = async () => {
   //   filtre « exporter »
   if (!FILTRE || FILTRE === 'exporter') {
     const fs = require('fs');
-    const LIGNES = ['Contrôle avant export', 'Plan de coffrage (PDF)', "Plan d'armatures (PDF)", 'DWG pour AutoCAD', 'Plan de principe (.dxf)',
+    const LIGNES = ['Contrôle avant export', 'Plans PDF', 'DWG pour AutoCAD', 'Plan de principe (.dxf)',
       'Armatures (.csv)', 'Cas de la grue (.csv)', 'Modèles de poutre pour RBAR (.json)'];
     const DUREES = {};
     const B = '#resultat .et-exp [data-menu]';
@@ -1673,7 +1673,7 @@ const principal = async () => {
           boite: [q.left, q.top, q.right, q.bottom].map(Math.round).join(','), haut: l.classList.contains('haut') };
       });
       verif(`exporter · ${fmt} : le menu s'ouvre, VU et entier dans l'écran ET dans la colonne des résultats, chaque ligne atteinte d'un bord à l'autre (rien ne la couvre), haute d'au moins 40 px, `
-        + 'aucun texte coupé ; ses huit lignes dans l\'ordre, aucune éteinte (la note neuve est prête à partir)',
+        + 'aucun texte coupé ; ses sept lignes dans l\'ordre, aucune éteinte (la note neuve est prête à partir)',
       menu.vu && menu.ouvert && menu.dedans && menu.touche && menu.hMin >= 40 && !menu.coupes.length && JSON.stringify(menu.titres) === JSON.stringify(LIGNES)
         && !menu.eteintes.length, JSON.stringify(menu));
       await g.screenshot({ path: path.join(OUT, `site_exporter_${nom}.png`) });
@@ -1686,8 +1686,9 @@ const principal = async () => {
         dl.suggestedFilename() === 'F1 - ouvrage RBAR.json' && !!o && o.format === 'rbar.ouvrage' && o.version === 1 && !!o.cartouche
           && o.cartouche.projet === 'Greenwood' && o.cartouche.titre === 'Fondation grue tour GT1' && /^\d{4}-\d{2}-\d{2}$/.test(o.cartouche.date || '') && ferme,
         JSON.stringify({ nom: dl.suggestedFilename(), cartouche: o && o.cartouche, ferme }));
-      // les PLANS PDF : le moteur de RBAR (WebAssembly, js/plans.js) les fait dans le navigateur, du même fichier ; le premier
-      // charge le moteur (le menu ouvert l'a préchauffé), le second sort du même calcul. Chronométrés du clic au fichier reçu.
+      // les PLANS PDF : le moteur de RBAR (WebAssembly, js/plans.js) les fait dans le navigateur, du même fichier — UN PDF, une
+      // page par feuille (RBAR 0.4.40) ; le menu ouvert a préchauffé le moteur ; un second clic sort du même calcul.
+      // Chronométrés du clic au fichier reçu ; les pages du PDF comptées (ses objets « /Type /Page »).
       // PENDANT l'attente, ce que l'œil voit est relevé tous les quarts de seconde : le message reste (il dit l'étape et les
       // secondes) jusqu'au fichier — le 12/11/2026, il s'effaçait après 2,6 s, et le propriétaire a attendu 30 s sur sa
       // tablette sans savoir si le plan venait.
@@ -1714,21 +1715,27 @@ const principal = async () => {
         const pendant = vus.filter((v) => v.ms < ms - 500);
         const ATTENTE = /^Plans en cours — (écriture du fichier de l'ouvrage|chargement du moteur de RBAR( \(\d+(,\d)? Mo reçus\))?|dessin des feuilles par RBAR)…$/;
         return { nom: d.suggestedFilename(), entete: o.subarray(0, 8).toString('latin1'), octets: o.length, ms, toast,
+          pages: (o.toString('latin1').match(/\/Type\s*\/Page(?![A-Za-z])/g) || []).length,
           attente: { releves: pendant.length, muets: pendant.filter((v) => !v.vu || !ATTENTE.test(v.texte)).map((v) => `${v.ms} ms : ${v.vu ? v.texte : '(rien à l\'écran)'}`),
             etapes: [...new Set(pendant.map((v) => v.texte.replace(/^Plans en cours — /, '').replace(/ \(.*$|…$/g, '')))],
             mo: pendant.some((v) => / \(\d+(,\d)? Mo reçus\)…$/.test(v.texte)), dernier: pendant.length ? pendant[pendant.length - 1].ms : 0 } };
       };
-      const coffrage = await plan('coffrage');
-      const armatures = await plan('armatures');
-      DUREES[fmt] = { coffrage: coffrage.ms, armatures: armatures.ms, etapes: coffrage.attente.etapes, mo: coffrage.attente.mo };
-      verif(`exporter · ${fmt} : « Plan de coffrage (PDF) » et « Plan d'armatures (PDF) » : le moteur de RBAR fait les deux plans DANS le navigateur — `
-        + 'deux vrais PDF, au nom de la fondation, la durée dite à l\'écran (et, pour le plan qui a fait le calcul, celle du dessin) ; le second sort du même calcul',
-      coffrage.nom === 'F1 - plan de coffrage.pdf' && armatures.nom === "F1 - plan d'armatures.pdf"
-        && coffrage.entete.startsWith('%PDF-1.') && armatures.entete.startsWith('%PDF-1.') && coffrage.octets > 20000 && armatures.octets > 20000
-        && /^F1 - plan de coffrage\.pdf téléchargé \(\d+,\d s — (moteur prêt en \d+,\d s, )?dessin \d+,\d s\)$/.test(coffrage.toast.texte)
-        && /^F1 - plan d'armatures\.pdf téléchargé \(\d+,\d s\)$/.test(armatures.toast.texte) && !coffrage.toast.erreur && !armatures.toast.erreur
-        && armatures.ms < coffrage.ms,
-      JSON.stringify({ coffrage: { ...coffrage, attente: undefined }, armatures: { ...armatures, attente: undefined } }));
+      const coffrage = await plan('tous');
+      const encore = await plan('tous');
+      DUREES[fmt] = { premier: coffrage.ms, encore: encore.ms, etapes: coffrage.attente.etapes, mo: coffrage.attente.mo };
+      // (les FEUILLES : le message les compte par plan, d'après le compte rendu de RBAR ; le PDF doit en avoir autant de pages.
+      //  Le 12/11/2026, une ligne par plan n'enregistrait que la première feuille de chacun : 2 sur 5, et rien ne le disait)
+      const FINAL = /^F1 - plans\.pdf téléchargé : (\d+) feuilles \(coffrage (\d+), armatures (\d+)\) en \d+,\d s( — (moteur prêt en \d+,\d s, )?dessin \d+,\d s)?$/;
+      const [, n1, c1, a1, dessin1] = FINAL.exec(coffrage.toast.texte) || [];
+      const [, n2, , , dessin2] = FINAL.exec(encore.toast.texte) || [];
+      verif(`exporter · ${fmt} : « Plans PDF » : le moteur de RBAR fait les plans DANS le navigateur — UN vrai PDF au nom de la fondation, `
+        + 'une page par feuille, TOUTES les feuilles (coffrage et armatures : autant de pages que le compte rendu de RBAR en compte, dites à l\'écran), '
+        + 'la durée dite (et celle du dessin) ; un second clic ne refait pas le calcul',
+      coffrage.nom === 'F1 - plans.pdf' && encore.nom === 'F1 - plans.pdf' && coffrage.entete.startsWith('%PDF-1.') && coffrage.octets > 40000
+        && !!n1 && Number(n1) === coffrage.pages && Number(c1) >= 1 && Number(a1) >= 1 && Number(c1) + Number(a1) === Number(n1) && !!dessin1
+        && n2 === n1 && !dessin2 && encore.octets === coffrage.octets && encore.pages === coffrage.pages
+        && !coffrage.toast.erreur && !encore.toast.erreur && encore.ms < coffrage.ms,
+      JSON.stringify({ premier: { ...coffrage, attente: undefined }, encore: { ...encore, attente: undefined } }));
       verif(`exporter · ${fmt} : PENDANT le premier plan, le message reste à l'écran jusqu'au fichier et dit l'étape (le dessin `
         + 'des feuilles, au moins) — le 12/11/2026, il s\'effaçait après 2,6 s : 30 s d\'écran muet sur la tablette du propriétaire',
       coffrage.attente.releves >= 4 && !coffrage.attente.muets.length && coffrage.attente.etapes.includes('dessin des feuilles par RBAR')
@@ -1758,7 +1765,7 @@ const principal = async () => {
       await pretEcran(g);
       await g.click(B);
       await g.waitForTimeout(150);
-      await g.click('#resultat .et-exp-l [data-plans="coffrage"]');
+      await g.click('#resultat .et-exp-l [data-plans="tous"]');
       await g.waitForTimeout(400);
       const lire = () => g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, chemin: location.pathname }; });
       const avant = await lire();

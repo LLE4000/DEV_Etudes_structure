@@ -329,10 +329,17 @@ chk(f"les {len(_empr['fichiers'])} fichiers du moteur de plans de RBAR ont les e
     and all(os.path.getsize(os.path.join(_vr, f)) <= 25 * 1024 * 1024 for f in _deposes),
     (_faux, sorted(set(_deposes) ^ set(_empr["fichiers"])), [f for f, h in _integ.items() if _empr["fichiers"].get(f) != h]))
 _licences = open(os.path.join(WEB, "LICENCES.md"), encoding="utf-8").read()
-chk("le travailleur des plans charge la version déposée du moteur de RBAR ; LICENCES.md dit sa licence et celle de ses polices",
+chk("le travailleur des plans charge la version déposée du moteur de RBAR ; LICENCES.md dit sa licence et celle de ses polices ; "
+    "les textes des licences du runtime .NET et des polices sont publiés avec les fichiers (RBAR 0.4.40)",
     f'"../{SW.RBAR_PLANS}/rbar-plans.js"' in open(os.path.join(WEB, "js", "plans-travailleur.js"), encoding="utf-8").read()
     and f"`{SW.RBAR_PLANS}/`" in _licences and f"`{SW.RBAR_PLANS}/polices/`" in _licences and "SIL Open Font License" in _licences
-    and os.path.exists(os.path.join(_vr, "polices", "LICENCE-Liberation.txt")))
+    and "`licences/LICENSE.TXT`" in _licences and "`licences/THIRD-PARTY-NOTICES.TXT`" in _licences
+    and all(os.path.getsize(os.path.join(_vr, *c.split("/"))) > 500 for c in ("polices/LICENCE-Liberation.txt", "licences/LICENSE.TXT",
+                                                                             "licences/THIRD-PARTY-NOTICES.TXT")))
+# une version REMPLACE la précédente : un seul dossier du moteur de plans dans vendor/ (deux versions mêlées seraient refusées
+# par le chargeur de .NET ; un ancien dossier serait publié pour rien) — outils/vendre_rbar_plans.py retire les autres
+_versions_plans = sorted(d for d in os.listdir(os.path.join(WEB, "vendor")) if d.startswith("rbar-plans-web-"))
+chk("un seul moteur de plans dans vendor/ : la version déposée", _versions_plans == [os.path.basename(SW.RBAR_PLANS)], _versions_plans)
 
 # 4 ter. js/plans.js joué par node (le travailleur des plans remplacé par un bouchon) : l'ATTENTE d'un plan se dit et elle a
 # une fin. Le premier essai du propriétaire, sur sa tablette (12/11/2026) : « 30 secondes, rien reçu » — rien ne disait si

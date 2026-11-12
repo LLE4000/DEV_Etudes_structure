@@ -38,3 +38,12 @@ Mesure datée (elle ne se réécrit pas ; une nouvelle mesure fait un nouveau fi
   ou un vrai téléphone, plus lents. Le message à l'écran donne la durée mesurée sur l'appareil même : c'est là qu'on la
   lira.
 - La mémoire prise par le moteur n'est pas mesurée (le navigateur ne la donne pas à la page sans isolement).
+
+## Révision du 12/11/2026, plus tard le même soir — ce que ces deux PDF ne contenaient pas
+
+En intégrant RBAR 0.4.40 (`2026-11-12_plans_pdf_un_seul_fichier.md`), le compte rendu de RBAR a montré que la note neuve
+fait **cinq** feuilles, pas deux : coffrage 1/2 et 2/2, armatures 1/3, 2/3 et 3/3. Les « deux vrais PDF » ci-dessus
+étaient chacun la PREMIÈRE feuille de son plan (51 106 et 55 371 octets : exactement les feuilles 01 et 03) ; les
+feuilles 02, 04 et 05 n'étaient pas enregistrées, et rien ne le disait. Les durées mesurées restent justes (le calcul
+faisait bien les cinq feuilles). Ce défaut est corrigé par le PDF unique, dont le harnais compte les pages contre le
+compte rendu de RBAR.

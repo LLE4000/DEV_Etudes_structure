@@ -5,10 +5,11 @@
 //   const moteur = await charger();                       // une fois, tôt (de préférence dans un Web Worker : un calcul prend des secondes)
 //   moteur.version()                                      // « 0.4.38 »
 //   moteur.apercu(ouvrage, { standard, nom })             // { rapport, feuilles: [{ plan, numero, svg }] } — sans PDF
-//   moteur.plans(ouvrage, { standard, nom })              // { rapport, pdfs: [{ numero, plan, nom, octets }] } — octets : Uint8Array
+//   moteur.plans(ouvrage, { standard, nom, unSeulPdf })   // { rapport, pdfs: [{ numero, plan, nom, octets }] } — octets : Uint8Array
 //
 // ouvrage : le fichier « rbar.ouvrage » (son texte JSON, ou l'objet) ; standard : le CompanyStandard.json du bureau (texte ou objet ; absent :
-// le standard livré) ; nom : le nom du fichier (compte rendu et noms des PDF, « nom-NUMERO.pdf » ; absent : « ouvrage.json »).
+// le standard livré) ; nom : le nom du fichier (compte rendu et noms des PDF, « nom-NUMERO.pdf » ; absent : « ouvrage.json ») ; unSeulPdf
+// (0.4.40) : un seul PDF, les feuilles en pages dans leur ordre (« nom.pdf » ; une seule entrée dans pdfs).
 // rapport : le compte rendu de rbar-plans (ok, refus, notes, messages, feuilles, duree_ms…) ; ok faux : refus dit pourquoi, à montrer tel quel.
 
 import { dotnet } from './_framework/dotnet.js';
@@ -37,7 +38,7 @@ async function demarrer() {
     version: () => m.Version(),
     apercu: (ouvrage, options = {}) => JSON.parse(m.Apercu(texte(ouvrage), texte(options.standard), texte(options.nom))),
     plans: (ouvrage, options = {}) => {
-      const reponse = JSON.parse(m.Plans(texte(ouvrage), texte(options.standard), texte(options.nom)));
+      const reponse = JSON.parse(m.Plans(texte(ouvrage), texte(options.standard), texte(options.nom), options.unSeulPdf === true));
       return {
         rapport: reponse.rapport,
         pdfs: reponse.pdfs.map((p) => ({ numero: p.numero, plan: p.plan, nom: p.nom, octets: octets(p.base64) })),

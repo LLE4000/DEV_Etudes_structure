@@ -17,7 +17,11 @@ Ne sont pas déposés : la page d'exemple et son travailleur (``exemple.html``, 
 son propre travailleur (``js/plans-travailleur.js``). Les empreintes déposées sont écrites dans ``empreintes.json`` ;
 tests/test_site_web.py les relit.
 
-    python3 site/web/outils/vendre_rbar_plans.py <rbar-plans-web-0.4.38.zip>
+Une version REMPLACE la précédente, dossier entier : les fichiers de deux versions ne se mélangent pas (``blazor.boot.json``
+porte l'empreinte de chacun), et un ancien dossier laissé dans ``vendor/`` serait publié pour rien — tout autre dossier
+``rbar-plans-web-*`` est retiré. L'archive range ses fichiers à sa racine (0.4.40) ou sous ``rbar-plans-web/`` (0.4.38).
+
+    python3 site/web/outils/vendre_rbar_plans.py <rbar-plans-web-0.4.40.zip>
 """
 import base64
 import hashlib
@@ -29,10 +33,11 @@ import shutil
 import sys
 import zipfile
 
-VERSION = "0.4.38"
-# l'empreinte de l'archive annoncée par RBAR (« MESSAGE-AU-SITE-moteur-navigateur », 12/11/2026, § 1) : copie NOMMÉE
-ARCHIVE_SHA256 = "77c2da233bf7f98d4a7b80b4ca95092e077fa19bd7e3b7cbf179dca350f5e5bf"
-RACINE_ARCHIVE = "rbar-plans-web/"
+VERSION = "0.4.40"
+# l'empreinte de l'archive annoncée par RBAR (« rbar-plans-web-0.4.40.zip.sha256 », joint à « MESSAGE-AU-SITE-un-seul-pdf-0440 »,
+# 12/11/2026 au soir) : copie NOMMÉE
+ARCHIVE_SHA256 = "0d7bc3f5edb076525f97d0a99da7ea46ccf7056bb6233a002024c1c01faebb51"
+RACINE_ARCHIVE = "rbar-plans-web/"  # (0.4.38 ; depuis 0.4.40, les fichiers sont à la racine de l'archive)
 NON_DEPOSES = ("LISEZMOI.md", "exemple.html", "exemple-worker.js")
 TAILLE_MAX = 25 * 1024 * 1024
 ICI = os.path.dirname(os.path.abspath(__file__))
@@ -69,8 +74,11 @@ def deposer(archive: str) -> dict:
     if sha256(brut) != ARCHIVE_SHA256:
         raise SystemExit(f"archive refusée : empreinte {sha256(brut)}, RBAR a annoncé {ARCHIVE_SHA256}")
     z = zipfile.ZipFile(io.BytesIO(brut))
-    contenu = {i.filename[len(RACINE_ARCHIVE):]: z.read(i) for i in z.infolist()
-               if i.filename.startswith(RACINE_ARCHIVE) and not i.is_dir()}
+    fichiers = [i for i in z.infolist() if not i.is_dir()]
+    racine = RACINE_ARCHIVE if fichiers and all(i.filename.startswith(RACINE_ARCHIVE) for i in fichiers) else ""
+    if any(i.filename.startswith("/") or ".." in i.filename.split("/") for i in fichiers):
+        raise SystemExit("archive refusée : un chemin sort du dossier")
+    contenu = {i.filename[len(racine):]: z.read(i) for i in fichiers}
     notice = table_de_la_notice(contenu["LISEZMOI.md"].decode("utf-8"))
     chargeur = integrites_du_chargeur(json.loads(contenu["_framework/blazor.boot.json"].decode("utf-8")))
     a_deposer = sorted(f for f in contenu if f not in NON_DEPOSES)
@@ -89,8 +97,10 @@ def deposer(archive: str) -> dict:
         fautes.append("un fichier que le chargeur de .NET attend manque à l'archive")
     if fautes:
         raise SystemExit("archive refusée :\n- " + "\n- ".join(fautes))
-    if os.path.isdir(DEST):
-        shutil.rmtree(DEST)
+    vendor = os.path.dirname(os.path.abspath(DEST))
+    for ancien in sorted(os.listdir(vendor)):
+        if ancien.startswith("rbar-plans-web-") and os.path.isdir(os.path.join(vendor, ancien)):
+            shutil.rmtree(os.path.join(vendor, ancien))
     for f in a_deposer:
         chemin = os.path.join(DEST, *f.split("/"))
         os.makedirs(os.path.dirname(chemin), exist_ok=True)

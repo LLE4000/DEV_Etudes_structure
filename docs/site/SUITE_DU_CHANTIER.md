@@ -683,9 +683,8 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   (`docs/site/mesures/2026-11-12_plans_pdf_dans_le_navigateur.md`).
 - Le site refuse lui-même un nom, un chantier ou un indice trop longs pour le cartouche de RBAR (il refuserait tout le
   fichier).
-- **Reste** : l'aperçu des deux feuilles au centre de l'écran (le moteur le fait déjà) ; un seul PDF de deux pages
-  (demandé à RBAR) ; le cartouche du bureau (son standard, si le propriétaire le veut) ; la durée sur une vraie
-  tablette, à lire à l'écran.
+- **Reste** : l'aperçu des feuilles au centre de l'écran (le moteur le fait déjà) ; le cartouche du bureau (son
+  standard, si le propriétaire le veut) ; la durée sur une vraie tablette, à lire à l'écran.
 - **Premier essai sur la tablette du propriétaire (Android, vers 22 h 45)** : « 30 secondes, rien reçu ». Défaut
   d'écran trouvé par l'usage, pas par le harnais : le message « Plans en cours… » s'effaçait après 2,6 s (la durée de
   tout message du site), alors qu'au poste de contrôle le plan en prend 6 et qu'une tablette est plus lente — l'écran
@@ -695,6 +694,15 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   on le quitte pendant un plan (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). Une première version redisait le message chaque
   seconde par une minuterie : `tests/test_app_navigation.py` l'a refusée (elle survivait à l'écran). La durée réelle sur
   la tablette reste à lire.
+- **RBAR 0.4.40, le même soir : « Plans PDF », un seul fichier.** RBAR a livré l'option « unSeulPdf » (une page par
+  feuille) et les licences de son runtime .NET dans le paquet ; le paquet 0.4.40 remplace 0.4.38, dossier entier
+  (`site/web/outils/vendre_rbar_plans.py` retire désormais tout autre dossier du moteur ; `tests/test_site_web.py` n'en
+  admet qu'un). Le menu « Exporter » passe de huit lignes à sept : « Plans PDF » au lieu de deux lignes.
+  **Défaut trouvé en l'intégrant** : la note neuve fait CINQ feuilles (coffrage 1/2 et 2/2, armatures 1/3, 2/3 et 3/3),
+  et la version 0.4.38 du site n'en enregistrait que la première de chaque plan — 2 sur 5, sans le dire (le harnais ne
+  regardait que l'en-tête et la taille des PDF). Le PDF unique les a toutes ; le message final les compte par plan,
+  d'après le compte rendu de RBAR, et le harnais vérifie que le PDF a autant de pages (« 5 feuilles (coffrage 2,
+  armatures 3) »). Mesure : `docs/site/mesures/2026-11-12_plans_pdf_un_seul_fichier.md`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

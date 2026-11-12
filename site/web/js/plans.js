@@ -3,8 +3,8 @@
 // travailleur pour le document, créé à la première demande — ou plus tôt, quand le menu « Exporter » s'ouvre
 // (prechaufferPlans : le moteur se charge en ≈ 2 s au poste de contrôle) ; tombé, il est refait à la demande suivante.
 //
-// Les deux plans (coffrage, armatures) sortent du MÊME calcul : le dernier résultat est gardé pour le même fichier — le
-// second plan téléchargé ne recalcule rien (``reutilise`` le dit).
+// Les plans sortent en UN PDF, une page par feuille (coffrage, puis armatures : RBAR 0.4.40, « unSeulPdf »). Le dernier
+// résultat est gardé pour le même fichier : un second clic ne recalcule rien (``reutilise`` le dit).
 //
 // L'ATTENTE SE DIT, ET ELLE A UNE FIN. Chaque demande reçoit les étapes du travailleur (``suivre`` : { etape, mo }) ; une
 // demande sans réponse après DELAI_PLANS_S secondes est abandonnée : le travailleur est arrêté (un moteur bloqué ne se

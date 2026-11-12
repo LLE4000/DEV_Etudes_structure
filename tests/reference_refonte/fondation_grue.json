@@ -149,7 +149,7 @@
      ["redémontré", "658 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
      ["redémontré", "402,16 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "120", "×", "75 cm,"],
@@ -1237,7 +1237,7 @@
      ["redémontré", "658 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
      ["redémontré", "402,16 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "120", "×", "75 cm,"],
@@ -2290,7 +2290,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -3326,9 +3326,7 @@
      ["redémontré", "76,35 kN·m"],
      ["E6 · Poutre incohérence τ et étriers ne parlent pas du même effort — classeur", "50 %", "·"],
      ["redémontré", "100 %"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
-     ["pieux · cadre » : seul le schéma", "8"],
-     ["pieux sur semelles (Greenwood) est décrit aujourd'hui. Plan d'armatures (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
      ["pieux · cadre » : seul le schéma", "8"],
      ["pieux sur semelles (Greenwood) est décrit aujourd'hui. DWG pour AutoCAD Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
      ["pieux · cadre » : seul le schéma", "8"],
@@ -3922,9 +3920,7 @@
      ["par côté", "45,92 kN"],
      ["E5 · Poutre secondaire limite du classeur Appui soulevé — classeur", "−6,41 kN"],
      ["E4 vérification absente Capacité des pieux non vérifiée — classeur", "516,85 kN"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "8"],
-     ["pieux · primaires » : seul le schéma", "8"],
-     ["pieux sur semelles (Greenwood) est décrit aujourd'hui. Plan d'armatures (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "8"],
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Le fichier pour RBAR n'existe pas encore pour le schéma «", "8"],
      ["pieux · primaires » : seul le schéma", "8"],
      ["pieux sur semelles (Greenwood) est décrit aujourd'hui. DWG pour AutoCAD Le fichier pour RBAR n'existe pas encore pour le schéma «", "8"],
      ["pieux · primaires » : seul le schéma", "8"],
@@ -4640,8 +4636,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Le fichier pour RBAR ne décrit pas encore une paroi de pieux sécants (le format de RBAR n'a ni paroi ni massif en version", "1)", ":"],
-     ["seul le côté b à semelles s'écrit aujourd'hui. Plan d'armatures (PDF) Le fichier pour RBAR ne décrit pas encore une paroi de pieux sécants (le format de RBAR n'a ni paroi ni massif en version", "1)", ":"],
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Le fichier pour RBAR ne décrit pas encore une paroi de pieux sécants (le format de RBAR n'a ni paroi ni massif en version", "1)", ":"],
      ["seul le côté b à semelles s'écrit aujourd'hui. DWG pour AutoCAD Le fichier pour RBAR ne décrit pas encore une paroi de pieux sécants (le format de RBAR n'a ni paroi ni massif en version", "1)", ":"],
      ["seul le côté b à semelles s'écrit aujourd'hui. Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
@@ -5684,7 +5679,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -6769,7 +6764,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Fichier pour RBAR bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. Plan d'armatures (PDF) Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. DWG pour AutoCAD Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK."]
+     ["Fichier pour RBAR bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. DWG pour AutoCAD Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK. Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Bloqué : Sollicitation d'un pieu (Capacité portante des pieux) : PAS OK."]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -7841,8 +7836,7 @@
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "577,16 mm", "·"],
      ["redémontré", "580,54 mm"],
      ["Fichier pour RBAR bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3."],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3 Plan."],
-     ["d'armatures (PDF) Bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3 DWG."],
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3 DWG."],
      ["pour AutoCAD Bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3 Plan."],
      ["de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Bloqué : Poutre support châssis : cisaillement au-delà de la zone", "3."]
     ],
@@ -8890,7 +8884,7 @@
      ["redémontré", "153,21 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -9935,7 +9929,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -10948,7 +10942,7 @@
      ["redémontré", "658 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
      ["redémontré", "402,16 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "120", "×", "75 cm,"],
@@ -12002,7 +11996,7 @@
      ["redémontré", "658 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
      ["redémontré", "402,16 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "120", "×", "75 cm,"],
@@ -13053,7 +13047,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -14065,7 +14059,7 @@
      ["redémontré", "155,47 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "388,72 mm", "·"],
      ["redémontré", "389,64 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "140", "×", "70 cm,"],
@@ -15146,10 +15140,7 @@
      ["Fichier pour RBAR bloqué : Poutre support : un retour de", "65 cm"],
      ["ne tient pas dans la hauteur — au plus", "59,6 cm"],
      ["(h", "70 cm"],
-     ["moins deux fois l'enrobage et l'étrier ; option de conception). Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Bloqué : Poutre support : un retour de", "65 cm"],
-     ["ne tient pas dans la hauteur — au plus", "59,6 cm"],
-     ["(h", "70 cm"],
-     ["moins deux fois l'enrobage et l'étrier ; option de conception). Plan d'armatures (PDF) Bloqué : Poutre support : un retour de", "65 cm"],
+     ["moins deux fois l'enrobage et l'étrier ; option de conception). Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Bloqué : Poutre support : un retour de", "65 cm"],
      ["ne tient pas dans la hauteur — au plus", "59,6 cm"],
      ["(h", "70 cm"],
      ["moins deux fois l'enrobage et l'étrier ; option de conception). DWG pour AutoCAD Bloqué : Poutre support : un retour de", "65 cm"],
@@ -16235,7 +16226,7 @@
      ["redémontré", "658 mm"],
      ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
      ["redémontré", "402,16 mm"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
     ],
     "calculs": [
      ["F1 · hauteur utile Poutre support châssis ·", "120", "×", "75 cm,"],
@@ -17243,9 +17234,7 @@
      ["redémontré", "76,35 kN·m"],
      ["E6 · Poutre incohérence τ et étriers ne parlent pas du même effort — classeur", "50 %", "·"],
      ["redémontré", "100 %"],
-     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
-     ["pieux · cadre » : seul le schéma", "8"],
-     ["pieux sur semelles (Greenwood) est décrit aujourd'hui. Plan d'armatures (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
+     ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
      ["pieux · cadre » : seul le schéma", "8"],
      ["pieux sur semelles (Greenwood) est décrit aujourd'hui. DWG pour AutoCAD Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
      ["pieux · cadre » : seul le schéma", "8"],
@@ -17835,7 +17824,7 @@
        ["redémontré", "658 mm"],
        ["E9 · Poutre support non conservatif Hauteur calculée sans le moment horizontal — classeur", "400,44 mm", "·"],
        ["redémontré", "402,16 mm"],
-       ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Dessiné par RBAR, en quelques secondes Plan d'armatures (PDF) Avec le bordereau, dessiné par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
+       ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Coffrage et armatures, dessinés par RBAR DWG pour AutoCAD Fichier RBAR, puis RBAROUVRAGE dans AutoCAD Plan de principe (.dxf) Pieux, contours et axes, en cm Armatures (.csv) Armatures choisies, cellules du classeur Cas de la grue (.csv) Chaque cas de la grue, colonne par colonne Modèles de poutre pour RBAR (.json) Ancien fichier, pour la palette de RBAR"]
       ]
      },
      {
@@ -17896,9 +17885,7 @@
        ["redémontré", "76,35 kN·m"],
        ["E6 · Poutre incohérence τ et étriers ne parlent pas du même effort — classeur", "50 %", "·"],
        ["redémontré", "100 %"],
-       ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plan de coffrage (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
-       ["pieux · cadre » : seul le schéma", "8"],
-       ["pieux sur semelles (Greenwood) est décrit aujourd'hui. Plan d'armatures (PDF) Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
+       ["Exporter Contrôle avant export Ce qui part, d'où, ce qui manque ou bloque Plans PDF Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
        ["pieux · cadre » : seul le schéma", "8"],
        ["pieux sur semelles (Greenwood) est décrit aujourd'hui. DWG pour AutoCAD Le fichier pour RBAR n'existe pas encore pour le schéma «", "4"],
        ["pieux · cadre » : seul le schéma", "8"],

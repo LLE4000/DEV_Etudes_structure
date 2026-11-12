@@ -1030,11 +1030,10 @@ export function ouvrirEtabli(hote, ctx) {
     }, { capture: true, signal });
 
     // -------------------------------------------------------------- les PLANS d'un ouvrage, en PDF (le moteur de RBAR)
-    // Le module pose <button data-plans="coffrage|armatures" data-ouvrage="<quoi>" data-nom="<nom du PDF>"> : le moteur
-    // Python rend le fichier « rbar.ouvrage » (action « telecharger » de ce quoi — le même que « DWG pour AutoCAD ») et le
-    // moteur de RBAR (js/plans.js) en fait les feuilles ; celle demandée est enregistrée sous ce nom. Un refus, de l'un ou
-    // de l'autre, est dit tel quel ; la durée aussi — mesurée sur l'appareil même (RBAR la demande pour la tablette et le
-    // téléphone).
+    // Le module pose <button data-plans data-ouvrage="<quoi>" data-nom="<nom du PDF>"> : le moteur Python rend le fichier
+    // « rbar.ouvrage » (action « telecharger » de ce quoi — le même que « DWG pour AutoCAD ») et le moteur de RBAR
+    // (js/plans.js) en fait UN PDF, une page par feuille, enregistré sous ce nom. Un refus, de l'un ou de l'autre, est dit
+    // tel quel ; la durée aussi — mesurée sur l'appareil même (RBAR la demande pour la tablette et le téléphone).
     // Ce que l'écran DIT pendant un plan : un message TENU (il ne s'efface pas seul) qui dit l'étape — l'écriture du fichier,
     // le chargement du moteur de RBAR (les Mo reçus, redits chaque seconde par le travailleur), le dessin des feuilles —
     // jusqu'au message final (le fichier et sa durée, ou le refus) ; « Calcul… » tourne à côté. Au poste de contrôle, le
@@ -1075,14 +1074,22 @@ export function ouvrirEtabli(hote, ctx) {
           toast(`Plans refusés par RBAR : ${(p.rapport && p.rapport.refus) || "sans raison donnée"}`, true);
           return;
         }
-        const pdf = (p.pdfs || []).find((x) => x.plan === b.dataset.plans);
-        if (!pdf) { toast(`RBAR n'a pas rendu le plan « ${b.dataset.plans} »`, true); return; }
+        const pdf = Array.isArray(p.pdfs) && p.pdfs.length === 1 ? p.pdfs[0] : null;
+        if (!pdf) { toast(`RBAR n'a pas rendu un seul PDF des plans (${Array.isArray(p.pdfs) ? p.pdfs.length : 0} fichier(s))`, true); return; }
         const nom = telecharger(`${b.dataset.nom || pdf.nom}.pdf`, pdf.octets, "application/pdf");
+        // les FEUILLES du fichier, comptées par plan (le compte rendu de RBAR : une page par feuille) — un plan peut en
+        // demander plusieurs (la note neuve : coffrage 2, armatures 3) ; le 12/11/2026, une ligne par plan n'enregistrait que
+        // la PREMIÈRE feuille de chacun, et rien ne le disait
+        const feuilles = Array.isArray(p.rapport.feuilles) ? p.rapport.feuilles : [];
+        const parPlan = new Map();
+        for (const x of feuilles) parPlan.set(x.plan, (parPlan.get(x.plan) || 0) + 1);
+        const quoi = `${feuilles.length} feuille${feuilles.length > 1 ? "s" : ""}`
+          + (parPlan.size ? ` (${[...parPlan].map(([k, v]) => `${k} ${v}`).join(", ")})` : "");
         // la durée, et d'où elle vient quand ce clic a fait le calcul : le moteur prêt (depuis l'ouverture du menu), le dessin
         const detail = p.reutilise || !Number.isFinite(p.calcul_ms) ? ""
           : " — " + (p.chargement_ms > 100 && Number.isFinite(p.pret_ms) ? `moteur prêt en ${secondes(p.pret_ms)} s, ` : "") + `dessin ${secondes(p.calcul_ms)} s`;
         const notes = p.rapport.notes || [];
-        toast(`${nom} téléchargé (${secondes(performance.now() - debut)} s${detail})` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
+        toast(`${nom} téléchargé : ${quoi} en ${secondes(performance.now() - debut)} s${detail}` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
       } catch (e) {
         toast(`Plans : ${(e && e.message) || e}`, true, 20000);
       } finally {

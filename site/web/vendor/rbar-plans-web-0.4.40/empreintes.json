@@ -1,10 +1,10 @@
 {
- "version": "0.4.38",
- "archive_sha256": "77c2da233bf7f98d4a7b80b4ca95092e077fa19bd7e3b7cbf179dca350f5e5bf",
+ "version": "0.4.40",
+ "archive_sha256": "0d7bc3f5edb076525f97d0a99da7ea46ccf7056bb6233a002024c1c01faebb51",
  "fichiers": {
-  "_framework/Rbar.Core.wasm": "59e89a8fa9fad4540ce1ba8b8bf336415db8ed4ac123af400766be8dbcd6657d",
-  "_framework/Rbar.Plans.Web.wasm": "1d295765135c5bb0206b5f8b845f4adffa3dea9c600421b183b34cc51ba24754",
-  "_framework/Rbar.Plans.wasm": "71549ddbab127adc23deeca6b728760051f74440a8b4412dac42565b6d6f3c5c",
+  "_framework/Rbar.Core.wasm": "bf2dbba5759c2b9f5896444ea957ea643c1ed5f1c3f9a43388372682ad10f98b",
+  "_framework/Rbar.Plans.Web.wasm": "295d3d77228907c749c9c05f546997923e4bac36624a149a29236cf463bb6e9b",
+  "_framework/Rbar.Plans.wasm": "7326a8c6a703935bfc3f5fcd37d895007c52e5bc0d58161c6638796b10025f3b",
   "_framework/System.Collections.Concurrent.wasm": "6711b0bff3b3815866754ad57472120996021731825b995b1ff601e45bf23db4",
   "_framework/System.Collections.NonGeneric.wasm": "0fac1827509a9b586b184c5086d67ddb5fe7bff775176e74277bfc5ecedf7c28",
   "_framework/System.Collections.wasm": "80f841a6d1f6cace406b0a13b4b776b72ce4d5ca9c04f87bfb0c23b2c1acfc0d",
@@ -28,20 +28,22 @@
   "_framework/System.Text.Json.wasm": "0b984a6e8f14a325e071aa5fc0b99e29bfe42686d74e6db1d904d9a28b8cfe1b",
   "_framework/System.Text.RegularExpressions.wasm": "952a3221683904c34f3482efd846c1b03686200a742bfb5265799ea0bebcad5b",
   "_framework/System.Xml.Linq.wasm": "94fd013102dd6033e25ac100fb62e5e2c087854190f2145e96981a413c00a58b",
-  "_framework/blazor.boot.json": "521bc68c55c848f64992f4ef27f5c2f6d2f575b2c492090b5af8d1ad2b9fc903",
+  "_framework/blazor.boot.json": "f5da5c04148348c8fd462fb07e10eed82d8f0e696df5915586f0c612fd6eef30",
   "_framework/dotnet.js": "c256a6ae0c9d4227d999fc92403803d07cf11c863e4cafa151f97c2c763bafdb",
   "_framework/dotnet.native.8.0.32.0nw8qdht41.js": "ea60e4426f3072ab1e3cb89e4b5b838e6649193971cb3b9aa0aae3b7b465ced9",
   "_framework/dotnet.native.wasm": "a91f64bf1a44bf18fb4d83a924db7aaec8139f78abf6afb89c12900521c080d3",
   "_framework/dotnet.runtime.8.0.32.v5uxpytycl.js": "fee7f28ea0216c0647ad8c45b452b2c99c7928e33b3719e6ab8719ad631893c2",
   "_framework/icudt_EFIGS.dat": "f1f22d7ad618f24434c30ea8c704cb893de85e50701caba66de3f6a51178c937",
+  "licences/LICENSE.TXT": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+  "licences/THIRD-PARTY-NOTICES.TXT": "97c1a7b3da6a4c6ad516448719f45114b41a4d4c5aa300a944476e2e4f5da438",
   "polices/LICENCE-Liberation.txt": "a5fbdf6e54dd15361bdb62b3b7305dbb35db8636fa2e7eae72d4bd1528062dee",
   "polices/LiberationSans-Bold.ttf": "3973aa5054fb467dd5627245d3dc82e37bf16fe075756156a570455871351582",
   "polices/LiberationSans-Regular.ttf": "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144",
-  "rbar-plans.js": "dd69158e20e5c229c35a0fcfa8777d2ba12e1ba104c8030e6f6ce4b5a8b43afd"
+  "rbar-plans.js": "4025a0497e7201f1f68b15364ac19259fe8a08c6c67bed7ba4e1e7c6f96fce9c"
  },
  "non_deposes": {
-  "LISEZMOI.md": "b8f2c927b6faa28de3e3f4b6a0ef8bb015c87ff8ced1784c8f6d06453dc5f684",
-  "exemple.html": "2d3cee070a76c96702e13b5acf86ecde01296132f4687bb1cf92b8018e0ba589",
-  "exemple-worker.js": "0315675f48213126d85c0ec331d175a37a2707b4af8618cd21f8a49f0d614303"
+  "LISEZMOI.md": "7b68940741bf2583a695e4043326d568c0ffbeb561a605ed3d0e4f18063dccb0",
+  "exemple.html": "cd74c59bb82895163a3eda46042bd98de5b720215ba2c4871d3b0a8c0a085f10",
+  "exemple-worker.js": "64b12cd6fa8acfd3c07eed19ab200d87283e9a362f13aa27b06125eae01d3b7f"
  }
 }

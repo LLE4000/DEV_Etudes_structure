@@ -49,9 +49,9 @@ Un seul bouton, en bas de la colonne des résultats, le même sur PC, tablette e
 
 1. **Contrôle avant export** — ce qui part (chaque valeur, et d'où elle vient), ce qui est à regarder, ce qui manque,
    ce qui bloque ;
-2. **Plan de coffrage (PDF)** et **Plan d'armatures (PDF)** (12/11/2026, soir) — les plans de RBAR, faits DANS le
-   navigateur par son moteur (§ 3 bis) ; une ligne par feuille : un fichier par geste, le téléphone ne demande pas
-   d'autoriser plusieurs téléchargements ; la seconde sort du même calcul, sans attendre ;
+2. **Plans PDF** (12/11/2026, soir) — les plans de RBAR, faits DANS le navigateur par son moteur (§ 3 bis) : UN
+   fichier, une page par feuille, toutes les feuilles du coffrage puis des armatures (RBAR 0.4.40, « unSeulPdf ») ; un
+   geste, un téléchargement (le téléphone ne demande pas d'autoriser plusieurs téléchargements) ;
 3. **DWG pour AutoCAD** — étape 1 : le fichier « rbar.ouvrage » ; dans AutoCAD, commande `RBAROUVRAGE`, puis choisir
    ce fichier. Éteinte quand l'envoi est bloqué, avec la raison (les plans PDF aussi) ;
 4. **Plan de principe (.dxf)**, **Armatures (.csv)**, **Cas de la grue (.csv)** — inchangés ;
@@ -63,19 +63,28 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
 
 ### 3 bis. Les plans PDF, dans le navigateur (le moteur de RBAR)
 
-- **Le moteur** : celui de RBAR, en WebAssembly (RBAR 0.4.38, livré le 12/11/2026 au soir) — le même que la commande
+- **Le moteur** : celui de RBAR, en WebAssembly (RBAR 0.4.40, livré le 12/11/2026 au soir ; 0.4.38 avant) — le même que la commande
   `RBAROUVRAGE` d'AutoCAD et que son programme `rbar-plans` : le site ne dessine aucun plan. Il est **déposé dans le site**,
   tel quel, par `site/web/outils/vendre_rbar_plans.py` : l'empreinte de l'archive est celle que RBAR a annoncée, chaque
   fichier a celle de sa notice et celle que le chargeur de .NET vérifie lui-même, aucun ne dépasse 25 Mio
-  (`vendor/rbar-plans-web-0.4.38/empreintes.json` ; `tests/test_site_web.py` le garde). 36 fichiers, 15,1 Mio ; rien ne
-  vient d'un tiers, rien ne passe par le réseau pendant le calcul.
+  (`vendor/rbar-plans-web-0.4.40/empreintes.json` ; `tests/test_site_web.py` le garde). 38 fichiers, 15,2 Mio, dont les
+  licences du runtime .NET (`licences/`) et des polices ; une version remplace la précédente, dossier entier (le
+  chargeur de .NET refuse deux versions mêlées). Rien ne vient d'un tiers, rien ne passe par le réseau pendant le calcul.
 - **Le chemin d'un clic** (`js/etabli.js`, `js/plans.js`, `js/plans-travailleur.js`) : le moteur Python écrit le fichier
   « rbar.ouvrage » (le même que « DWG pour AutoCAD », avec le cartouche de la note) ; le moteur de RBAR, dans un
-  travailleur à part (l'écran ne se fige pas), en fait les deux feuilles ; celle demandée est enregistrée au nom de la
-  fondation (« F1 - plan de coffrage.pdf »). Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site
-  ou de RBAR est dit tel quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.
-- **Durées** (harnais `exporter`, poste de contrôle, du clic au fichier reçu) : premier plan 5,5 à 6,1 s (chargement du
-  moteur compris), second 0,1 s. Sur une tablette ou un téléphone, c'est plus long : le message à l'écran le dit.
+  travailleur à part (l'écran ne se fige pas), en fait UN PDF, une page par feuille, enregistré au nom de la fondation
+  (« F1 - plans.pdf »). Un plan peut demander plusieurs feuilles : la note neuve en a **cinq** (coffrage 1/2 et 2/2,
+  armatures 1/3, 2/3 et 3/3). Le message final les compte, d'après le compte rendu de RBAR (« F1 - plans.pdf
+  téléchargé : 5 feuilles (coffrage 2, armatures 3) en 5,8 s — dessin 5,0 s ») ; le harnais vérifie que le PDF en a
+  autant de pages. Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site ou de RBAR est dit tel
+  quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.
+- **Défaut de la première version (0.4.38, une ligne par plan), trouvé et corrigé le même soir** : chaque ligne
+  n'enregistrait que la PREMIÈRE feuille de son plan (la recherche du PDF « coffrage » s'arrêtait au premier) — 2 feuilles
+  sur 5, sans rien dire. Le harnais ne vérifiait que l'en-tête et la taille des PDF ; il compte maintenant les pages
+  contre le compte rendu. Les plans servent au chantier : un plan incomplet qui ne le dit pas est un défaut.
+- **Durées** (harnais `exporter`, poste de contrôle, du clic au fichier reçu) : premier PDF 5,9 à 6,1 s (dont le dessin
+  des cinq feuilles, 5,0 s), un second clic 0,3 s (le même calcul). Sur une tablette ou un téléphone, c'est plus long :
+  le message à l'écran le dit.
 - **Ce que l'écran dit pendant l'attente** (depuis le premier essai du propriétaire sur sa tablette, 12/11/2026 au soir :
   « 30 secondes, rien reçu » — le message « Plans en cours… » s'effaçait après 2,6 s, et rien ne disait si le moteur se
   téléchargeait, dessinait ou était bloqué). Le message est TENU (il ne s'efface pas seul) jusqu'au message final :
@@ -89,8 +98,8 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
   incident qu'il a signalé — reste 20 s à l'écran ; le clic suivant repart d'un moteur neuf. `tests/test_site_web.py`
   (§ 4 ter, `js/plans.js` joué par node) et le harnais `exporter` (le message relevé tous les quarts de seconde pendant
   le premier plan) le gardent.
-- Ce qui reste : l'**aperçu** des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3 : le moteur le fait
-  déjà, `apercu()`) ; un seul PDF de deux pages (demandé à RBAR) ; le cartouche du bureau (son standard, à transmettre
+- Ce qui reste : l'**aperçu** des feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3 : le moteur le fait
+  déjà, `apercu()`) ; le cartouche du bureau (son standard, à transmettre
   au moteur si le propriétaire le veut) ; l'étape 2 du DWG (le DWG fait sans AutoCAD), plus tard.
 
 **Ce qui bloque l'envoi** (le fichier n'est jamais écrit, la ligne est éteinte, la raison est dite) : une vérification

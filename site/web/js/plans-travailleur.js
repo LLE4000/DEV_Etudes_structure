@@ -4,7 +4,9 @@
 // le site ne dessine aucun plan lui-même.
 //
 // Message reçu : { id, fonction: "charger" | "plans" | "apercu", ouvrage, nom } ; rendu : { id, version, resultat,
-// chargement_ms, calcul_ms, pret_ms } ou { id, erreur, pret }. Les PDF repartent sans copie (transfert de leurs octets).
+// chargement_ms, calcul_ms, pret_ms } ou { id, erreur, pret }. Les PDF repartent sans copie (transfert de leurs octets) :
+// « plans » rend UN PDF, une page par feuille dans leur ordre (coffrage, puis armatures) — l'option « unSeulPdf » de RBAR
+// (0.4.40), demandée par le site pour un geste, un fichier (le téléphone ne demande pas d'autoriser deux téléchargements).
 // En chemin, l'ÉTAPE : { id, etape: "chargement", mo } (le moteur se télécharge et démarre ; mo : les mégaoctets déjà
 // reçus du paquet, chaque seconde) puis { id, etape: "calcul" } (RBAR dessine les feuilles) — la page la dit à l'écran :
 // sur une tablette, le premier plan peut prendre bien plus que les quelques secondes du poste de contrôle, et un écran
@@ -14,7 +16,7 @@
 // Le paquet est chargé ICI, à la première demande (import dynamique), et non en tête du fichier : un échec de chargement
 // devient une erreur qui dit pourquoi, rendue à la demande — et non un travailleur mort sans un mot.
 // (le chemin du paquet est une COPIE de construire.RBAR_PLANS : tests/test_site_web.py les lie)
-const PAQUET = "../vendor/rbar-plans-web-0.4.38/rbar-plans.js";
+const PAQUET = "../vendor/rbar-plans-web-0.4.40/rbar-plans.js";
 
 let moteurPret = null; // le moteur, une fois chargé
 let pretMs = null; // quand il l'a été (ms depuis la naissance du travailleur, c.-à-d. depuis l'ouverture du menu)
@@ -65,7 +67,7 @@ self.onmessage = async ({ data }) => {
       return;
     }
     self.postMessage({ id, etape: "calcul" });
-    const resultat = fonction === "plans" ? moteur.plans(ouvrage, { nom }) : moteur.apercu(ouvrage, { nom });
+    const resultat = fonction === "plans" ? moteur.plans(ouvrage, { nom, unSeulPdf: true }) : moteur.apercu(ouvrage, { nom });
     const fin = performance.now();
     const transferts = fonction === "plans" ? resultat.pdfs.map((p) => p.octets.buffer) : [];
     self.postMessage({ id, version: moteur.version(), resultat, chargement_ms: Math.round(pret - debut), calcul_ms: Math.round(fin - pret),
