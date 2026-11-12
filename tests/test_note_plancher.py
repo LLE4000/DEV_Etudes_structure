@@ -146,8 +146,8 @@ for nom, e in ETATS.items():
                 n_v += 1
                 if f"{nom_l} {txt}" not in p1:
                     ecarts.append((nom, i, "famille", nom_l, txt))
-            m = re.match(r"(\w+) · (\d+(?:,\d+)?) kN → ", nom_l)
-            if m:   # un appui de l'écran (« P1 · 45 kN → H7 ») : sa ligne du tableau des charges, sa charge
+            m = re.fullmatch(r"(\w+) · (\d+(?:,\d+)?) kN", nom_l)
+            if m:   # un appui de l'écran (« P1 · 45 kN », établi compact : l'élément qui le porte est sur la ligne du dessous)
                 n_ch += 1
                 if not re.search(rf"\b{m.group(1)} .*? {m.group(2)} ", b1):
                     ecarts.append((nom, i, "appui", nom_l))
@@ -235,7 +235,8 @@ chk("le chantier, le nom, l'indice et la date de la note du site (l'identificati
     not ecarts, ecarts)
 donnees = PL.resultat(copy.deepcopy(e))["donnees"]
 chk("l'écran ne montre plus de champ d'identification (un seul composant, les trois formats) : il dit d'où vient celle "
-    "de la note PDF", 'data-chemin="identification/' not in donnees and NC.AIDE_IDENTIFICATION in donnees, donnees.count("identification/"))
+    "de la note PDF", 'data-chemin="identification/' not in donnees and f'title="{C.esc(NC.AIDE_IDENTIFICATION)}"' in donnees,      # (au survol de ⓘ)
+    donnees.count("identification/"))
 
 # 5. le routeur, les refus
 r = json.loads(R.traiter(json.dumps({"module": "plancher", "action": "telecharger", "etat": e, "quoi": "note_pdf",

@@ -321,7 +321,9 @@ const principal = async () => {
     const out = { rubriques: 0, champs: [], cmps: [] };
     const lire = () => pg.evaluate(() => {
       const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
-      return [...document.querySelectorAll('#donnees .field input:not([type=checkbox])')].filter(vis)
+      // les champs NUMÉRIQUES (une valeur, qui doit se lire entière) : un champ de texte libre — une source, un nom de
+      // fiche — peut être plus long que sa case, il défile (trouvé sur le plancher, 12/11/2026 : « Source » du hourdis)
+      return [...document.querySelectorAll('#donnees .field input:not([type=checkbox]):not([data-sorte="texte"])')].filter(vis)
         .filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.dataset.chemin} « ${e.value} »`);
     });
     const n = await pg.$$eval('#donnees .sec', (e) => e.length);

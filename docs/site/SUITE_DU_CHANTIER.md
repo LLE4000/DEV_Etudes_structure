@@ -600,6 +600,21 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   le libellé « Assemblage » coupé par son icône ⓘ, aux six formats — il s'appelle « Type ». Preuves :
   `tests/test_api_web_soudures.py` (226 OK : la parité avec l'écran Streamlit rejoué, et le § G), la note PDF
   (`tests/test_note_soudures.py`, 31 OK), harnais `module:soudures`, `formats:soudures`, `note_pdf`.
+- **Charges sur plancher** (`api_web/plancher.py`, note PDF) : les sept rubriques gardent leurs NUMÉROS (les messages du
+  moteur y renvoient : « Section 3 « Charges » ») ; la première seule ouverte — plus « Répartiteurs » quand le cas est
+  non conforme et « Bibliothèque et fiches » tant qu'aucune charge n'est posée ; « Hypothèses » et « Affichage et
+  note » sont secondaires. À droite : « Vérifications » (une ligne par famille : l'objet qui gouverne, son taux, ce
+  qu'elle compare — « V_Ed = 86,02 kN ≤ V_Rd = 90,00 kN » ; sans taux, la valeur et ce qui manque), puis un bloc par
+  engin (« Appuis de E1 » : chaque appui, sa charge, son répartiteur qui se choisit, l'élément qui le porte) et celui
+  des étançons. Le statut du cas reste dit même seul : une hypothèse peut le passer en « attention » quel que soit le
+  taux (P-8), ce que le verdict ne colore pas. Retiré de l'écran : le bloc « Cas de cette note », le champ Nom, la
+  phrase au-dessus du dessin (c'est la tête des résultats), trois paragraphes (le type de hourdis, la nature des
+  résistances, les parts C.1 : au survol de ⓘ). Le harnais a TROUVÉ : « Stabilisateurs » coupé sur tablette dans la
+  colonne compacte (trois boutons devenus un menu). Deux outils de contrôle corrigés au passage : `lisibles` ne juge
+  plus un champ de texte libre (« Source ») ; `tests/note_cas_outils.lignes_resultat` donnait à une ligne SANS taux le
+  taux de la suivante (« Plateaux · information » lu « 32 % ») — trouvé par la parité de la note du plancher. Preuves :
+  `tests/test_api_web_plancher.py` (128 OK), `tests/test_note_plancher.py` (36 OK), harnais `module:plancher`,
+  `formats:plancher`, `note_pdf`, `enregistrement`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

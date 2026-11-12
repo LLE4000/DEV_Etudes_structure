@@ -152,9 +152,15 @@ def lignes_resultat(resultat: str):
     bout de la première ligne ; ce que la vérification compare et sa jauge dessous)."""
     out = []
     if 'class="el vc' in resultat:
-        for m in re.finditer(r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(.*?)<span class="pct (\w+)"[^>]*>([^<]+)</span></div>'
-                             r'<div class="l2">', resultat, re.S):
-            out.append((html.unescape(m.group(1)), ecran(m.group(2)).strip(" |"), m.group(3), norm(html.unescape(m.group(4)))))
+        # ligne par ligne : la première ligne ENTIÈRE, puis ce qu'elle porte au bout — un taux (« pct ») ou, quand la
+        # vérification n'en a pas, son état en mots (« et-mot » : « non vérifié », « information »). Chercher le taux d'un
+        # trait, sans borner la ligne, donnait à une ligne sans taux celui de la SUIVANTE (trouvé le 12/11/2026 par la
+        # parité de la note du plancher : « Plateaux · information » lu « 32 % », le taux des filières)
+        for m in re.finditer(r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(.*?)</div><div class="l2">', resultat, re.S):
+            l1 = m.group(2)
+            d = re.search(r'<span class="(?:pct|et-mot) (\w+)"[^>]*>([^<]+)</span>$', l1)
+            out.append((html.unescape(m.group(1)), ecran(l1[:d.start()] if d else l1).strip(" |"), d.group(1) if d else "",
+                        norm(html.unescape(d.group(2))) if d else ""))
         return out
     for m in re.finditer(r'<div class="el[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(.*?)</div><div class="l2">.*?'
                          r'<span class="pct (\w+)"[^>]*>([^<]+)</span></div></div>', resultat, re.S):

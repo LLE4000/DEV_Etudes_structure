@@ -90,8 +90,9 @@ for sorte in ("hourdis", "dalle"):
     t = res["taux_max"]
     chk(f"{sorte} : le verdict porte le taux du moteur ({C.pc(C.pct(t))} %) et sa couleur",
         f'<span class="chip xl {C.niveau(t)}"><small>η</small>{C.pc(C.pct(t))}{C.NBSP}%</span>' in r["resultat"])
-    fams = re.findall(r'<div class="el[^"]*" data-calcul="[^"]+" title="Voir le calcul"><div class="l1"><b>([^<]+)</b>.*?<span class="pct ([a-z])">([^<]+)</span>',
-                      r["resultat"])
+    # (établi compact, 12/11/2026 : le taux est sur la première ligne ; sans taux, l'état se dit en mots — « et-mot »)
+    fams = re.findall(r'<div class="el vc[^"]*" data-calcul="[^"]+" title="Voir le détail"><div class="l1"><b>([^<]+)</b>.*?'
+                      r'<span class="(?:pct|et-mot) ([a-z])"[^>]*>([^<]+)</span>', r["resultat"])
     attendu = []
     for fam in W.ORDRE_FAM:
         vs = sorted((v for v in res["verifications"] if v["famille"] == fam), key=W._cle_famille, reverse=True)
@@ -101,9 +102,11 @@ for sorte in ("hourdis", "dalle"):
     chk(f"{sorte} : une ligne par famille, la plus défavorable, taux et couleur du moteur", fams[:len(attendu)] == attendu, (fams, attendu))
     eng = next(x for x in c["charges"] if x["type"] == "engin")
     lignes = OP.appuis_engin(c, res, calc["index"], eng["ref"])
-    vus = re.findall(r'<b>(P\d|R\d) · ([\d  ]+)\xa0kN → (\w+)</b>.*?<span class="pct ([a-z])">([^<]+)</span>', r["resultat"])
+    # (établi compact : « P1 · 45 kN » et son taux sur la première ligne, « porté par H7 » sur la seconde)
+    vus = re.findall(r'<b>(P\d|R\d) · ([\d  ]+)\xa0kN</b>.*?<span class="pct ([a-z])">([^<]+)</span></div><div class="l2">'
+                     r'<span class="cmp">porté par (\w+)</span>', r["resultat"])
     chk(f"{sorte} : « Appuis de {eng['ref']} » = le tableau de l'écran d'origine (appui, charge, élément, taux)",
-        [(a, ch, el, txt) for a, ch, el, _, txt in vus] == [(li["appui"], C.fr(li["charge"], 0), li["element"], f"{C.pc(C.pct(li['taux']))}{C.NBSP}%") for li in lignes],
+        [(a, ch, el, txt) for a, ch, _, txt, el in vus] == [(li["appui"], C.fr(li["charge"], 0), li["element"], f"{C.pc(C.pct(li['taux']))}{C.NBSP}%") for li in lignes],
         (vus, lignes))
     chk(f"{sorte} : chaque ligne qui annonce un calcul a sa fenêtre", all(f'id="ck-{k}"' in r["volets"] for k in re.findall(r'data-calcul="([^"]+)"', r["resultat"])))
     chk(f"{sorte} : le résumé de la note = son cas le plus chargé", r["resume"]["taux"] == C.pct(t) and r["resume"]["gouvernant"].startswith(c["nom"]))
@@ -364,7 +367,8 @@ e = W.exemple("hourdis")
 W.gerer_elements(e, "ajouter")
 W.gerer_elements(e, "activer", 0)
 W.gerer_elements(e, "dupliquer")
-chk("cas : ajouter (C2), copier (« (copie) »), activer", [c_["nom"] for c_ in e["cas"]] == ["C1 levage en rive", "C2", "C1 levage en rive (copie)"] and e["actif"] == 2)
+chk("cas : ajouter (C2), copier (« (copie) » : la copie s'insère juste après le cas copié, et s'ouvre), activer",
+    [c_["nom"] for c_ in e["cas"]] == ["C1 levage en rive", "C1 levage en rive (copie)", "C2"] and e["actif"] == 1)
 W.gerer_elements(e, "supprimer", 0)
 W.gerer_elements(e, "supprimer", 0)
 W.gerer_elements(e, "supprimer", 0)
@@ -595,6 +599,72 @@ e = W.nouvel_etat()
 chk("un fichier d'avant le catalogue (sans e_chape) s'ouvre ; e_chape complété à vide",
     mod(e, ["note", "ouvrir"], {"nom": "v.json", "texte": ET.texte_json(vieux)}) is None
     and cas(e)["plancher"]["hourdis"]["e_chape"] is None)
+
+# ------------------------------------------------------------------ l'établi compact (la mise en forme des poutres, 12/11/2026)
+import html as _html  # noqa: E402
+
+
+def _texte(h):
+    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", "", h))).replace("\u202f", " ").replace("\xa0", " ").strip()
+
+
+def _rubriques(h):
+    return re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', h)
+
+
+SEC2 = ' data-secondaire="1"'
+e = W.exemple("hourdis")
+r = W.resultat(e)
+d, h = r["donnees"], r["resultat"]
+calc = W._calculer(e, cas(e))
+res = calc["res"]
+chk("compact : la colonne de gauche est celle de l'établi compact — la ligne du cas ouvert (le plancher se lit dans la liste), puis ses rubriques",
+    'class="et-arbre et-arbre-c" data-casplancher="0"' in d and d.count('data-chemin="nom"') == 1
+    and '<span class="nom">C1 levage en rive</span><span class="dim">· Hourdis · 7,20' in d, d[:300])
+chk("compact : sept rubriques, aux mêmes numéros qu'avant (les messages du moteur y renvoient) ; la première seule ouverte ; « Hypothèses » et "
+    "« Affichage et note » secondaires", _rubriques(d) == [(" open", "pl", ""), ("", "ho", ""), ("", "ch", ""), ("", "re", ""), ("", "bi", ""),
+                                                           ("", "hy", SEC2), ("", "af", SEC2)], _rubriques(d))
+n0 = W.resultat(W.nouvel_etat())
+chk("compact : une note neuve ouvre aussi « Bibliothèque et fiches » (aucune charge : on y prend l'engin)",
+    [k for o, k, _ in _rubriques(n0["donnees"]) if o] == ["pl", "bi"], _rubriques(n0["donnees"]))
+e_nok = W.exemple("hourdis")
+mod(e_nok, ["plancher", "hourdis", "M_Rd"], "60")
+chk("compact : un cas non conforme ouvre « Répartiteurs » (la proposition de filière y est)",
+    [k for o, k, _ in _rubriques(W.resultat(e_nok)["donnees"]) if o] == ["pl", "re"], _rubriques(W.resultat(e_nok)["donnees"]))
+chk("compact : le nom du cas ne se saisit plus dans la rubrique « Plancher » ; les explications du type, de la nature et des parts C.1 sont au "
+    "survol de ⓘ", 'data-chemin="nom"' not in d.split('data-sec="pl"')[1].split('data-sec="ho"')[0]
+    and 'title="Le catalogue d&#x27;un fabricant (Ergon 2018' in d and 'title="Rd : valeurs de CALCUL du catalogue' in d
+    and 'title="Figure C.1 de l&#x27;EN 1168' in d and '<div class="grp">Identification de la note PDF<span class="aide" title="' in d, "")
+chk("compact : la tête du résultat — le nom du cas, puis le plancher ; plus de phrase sous le titre de la page",
+    f'<div class="et-rp"><b>C1 levage en rive</b><span>{C.esc(OP.resume_plancher(cas(e)))}</span></div>' in h and r["phrase"] == "", h[:300])
+B = re.findall(r'<section class="et-bloc (\w+)" data-theme="(\d)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>.*?'
+               r'class="et-tout" data-calcul="([\w-]+)"', h, re.S)
+chk("compact : trois blocs — « Vérifications », « Appuis de E1 », « Étançons » —, chacun son état et son taux ; « tout le calcul » ouvre une "
+    "fenêtre qui existe (celle de la vérification gouvernante, celle de l'élément du premier appui)",
+    [(b[1], b[2]) for b in B] == [("0", "Vérifications"), ("1", "Appuis de E1"), ("2", "Étançons")]
+    and B[0][3] == f"Conforme, attention · {C.pc(C.pct(res['taux_max']))}{C.NBSP}%" and B[0][0] == "warn" and B[2][0] == "ok"
+    and all(f'id="ck-{b[4]}"' in r["volets"] for b in B), B)
+chk("compact : le bloc des vérifications dit la règle (ELU et ses coefficients) ; celui d'un engin, son nom",
+    '<div class="et-bloc-ef">ELU · γ<sub>G</sub> = 1,35 · γ<sub>Q</sub> = 1,5</div>' in h and '<div class="et-bloc-ef">Télescopique rotatif</div>' in h, "")
+CMP = [_texte(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', h)]
+chk("compact : chaque famille dit ce qu'elle compare (« V_Ed = 86,02 kN ≤ V_Rd = 90,00 kN ») ; sans taux, la valeur et ce qui manque ; une "
+    "information dépassée s'écrit « > »",
+    CMP[:7] == ["MEd = 90,36 kN·m ≤ MRd = 120,00 kN·m", "VEd = 86,02 kN ≤ VRd = 90,00 kN", "p = 0,167 N/mm² ≤ padm = 1,50 N/mm²",
+                "c = 150 mm · cmax = 150 mm", "γQ·M = 16,04 kN·m ≤ MRd = 50,67 kN·m", "γQ·F = 34,51 kN · à transcrire",
+                "Mser = 62,49 kN·m > Mcr = 60,00 kN·m"], CMP[:7])
+chk("compact : chaque appui dit sa charge, son répartiteur (il se choisit) et l'élément qui le porte ; une seule ligne gouvernante",
+    CMP[7:] == ["porté par H7", "porté par H7", "porté par H2", "porté par H2", "porté par H5"]
+    and len(re.findall(r'<b>P\d · \d+\xa0kN</b><button class="prof" data-pk="rep-\d"', h)) == 4 and h.count('class="el vc gov"') == 1, CMP[7:])
+chk("compact : chaque vue porte son en-tête technique — le titre, le plancher, les charges posées",
+    all('class="et-ent"' in v.get("entete", "") and _texte(OP.resume_plancher(cas(e))) in _texte(v["entete"])
+        and "3 objet(s) · 250 kN d'engins et d'étançons (charges de service)" in _texte(v["entete"]) for v in r["vues"])
+    and r["vues"][0]["entete"].startswith('<div class="et-ent"><div class="et-ent-t"><div class="l1"><b>PLAN DU PLANCHER</b>'), r["vues"][0].get("entete"))
+chk("compact : plus de cadre « Cas de cette note » ; le statut du cas reste dit même seul (une hypothèse peut le passer en « attention » : P-8)",
+    r["elements"] == "" and "Conforme, attention" in r["statut_html"])
+W.gerer_elements(e, "ajouter")
+W.gerer_elements(e, "dupliquer", 0)
+chk("compact : copier C1 (par son rang) — la copie s'insère juste après lui, et s'ouvre",
+    [c_["nom"] for c_ in e["cas"]] == ["C1 levage en rive", "C1 levage en rive (copie)", "C2"] and e["actif"] == 1, [c_["nom"] for c_ in e["cas"]])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

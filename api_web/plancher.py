@@ -16,6 +16,14 @@ L, le sens porteur, le nombre de hourdis, les fenêtres de chaque objet) se SAIS
 x, y et rotation de chaque charge, répartiteur de chaque appui, élément, longueur, orientation et position de chaque
 filière ; le plan à l'échelle se redessine. La note PDF se fait sur le site (``telecharger``, api_web/note_cas.py) par le
 générateur validé de l'écran d'origine.
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 12/11/2026) : à gauche la ligne
+du cas ouvert (son nom, la liste, copier, supprimer) et sept rubriques en accordéon, les mêmes numéros qu'avant (les
+messages du moteur y renvoient : « Section 3 « Charges » ») — Plancher, Hourdis ou Dalle, Charges, Répartiteurs,
+Bibliothèque et fiches, puis deux secondaires : Hypothèses, Affichage et note ; au centre les vues sous leur en-tête
+technique ; à droite la tête, le verdict, les alertes, puis des blocs — « Vérifications » (une ligne par famille : ce
+qu'elle compare, sa jauge) et un bloc par engin (« Appuis de E1 » : chaque appui, son répartiteur qui se choisit,
+l'élément qui le porte), enfin les étançons.
 """
 import copy
 import json
@@ -34,10 +42,13 @@ from plancher.charges.parametres import DEFAUT as PAS
 
 from . import commun as C
 from . import dessin_plancher as DP
+from . import etabli_compact as E
 from . import note_cas as NC
 
 MODULE = "plancher"
 PAGE = "charges-plancher"
+GENRE = E.Genre("Cas", "le cas", "ce cas", "un cas")
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
 
 # Les fichiers que le moteur ne lit que sur des chemins rares (une filière d'un profilé du catalogue lit la nuance
 # d'acier) sont lus ICI, au chargement : le relevé du paquet du site (site/web/construire.py) les voit toujours.
@@ -339,24 +350,33 @@ def _cas(etat: Dict) -> Dict:
     return ET.cas_actif(etat)
 
 
+def _indice(x) -> int:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return 0
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
     """Les cas de la note (l'écran d'origine : sélecteur de cas, « ＋ Cas », « ⧉ », « 🗑️ ») : en ouvrir un, en ajouter
-    (C2, C3…), copier l'ouvert, en supprimer un (jamais le dernier)."""
+    (C2, C3…), en copier un (``index`` ; sans : le cas ouvert — la copie s'insère juste après), en supprimer un (jamais
+    le dernier)."""
     cs = etat["cas"]
     if action == "activer":
-        etat["actif"] = min(max(0, int(index or 0)), len(cs) - 1)
+        etat["actif"] = min(max(0, _indice(index)), len(cs) - 1)
     elif action == "ajouter":
         c = ET.nouveau_cas(f"C{len(cs) + 1}")
         c["site"] = _site_cas()
         cs.append(c)
         etat["actif"] = len(cs) - 1
     elif action == "dupliquer":
-        c = copy.deepcopy(cs[etat["actif"]])
+        i = etat["actif"] if index is None else min(max(0, _indice(index)), len(cs) - 1)
+        c = copy.deepcopy(cs[i])
         c["nom"] = f"{c['nom']} (copie)"
-        cs.append(c)
-        etat["actif"] = len(cs) - 1
+        cs.insert(i + 1, c)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(cs) > 1:
-        i = min(max(0, int(index or 0)), len(cs) - 1)
+        i = min(max(0, _indice(index)), len(cs) - 1)
         del cs[i]
         if etat["actif"] > i or etat["actif"] >= len(cs):
             etat["actif"] = max(0, etat["actif"] - 1)
@@ -904,19 +924,8 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    """« Dans cette note » : chaque cas avec son plancher et son taux ; un clic l'ouvre."""
-    items = ""
-    for i, (c, r) in enumerate(zip(etat["cas"], resultats)):
-        t = _taux(r)
-        niv = _niveau(r) if t is not None else ("c" if (r or {}).get("statut") == "refus" else "x")
-        txt = f"{C.pc(C.pct(t))}{C.NBSP}%" if t is not None else "—"
-        pl = c["plancher"]
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer ce cas">{C.icon("x")}</button>' if len(etat["cas"]) > 1 else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(c["nom"] or f"Cas {i + 1}")} '
-                  f'<span>· {TYPES_COURTS[pl["type"]]} · {C.fr(pl["L"], 2)} m</span></span><span class="pct {niv}">{txt}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Cas de cette note · {len(etat["cas"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier le cas ouvert">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter un cas</div></div>')
+    """Rien : les cas de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 # ------------------------------------------------------------------ le cadre Données
@@ -950,11 +959,16 @@ def _trio(*cellules: Tuple[str, str]) -> str:
     return '<div class="trio">' + "".join(f"<label><span>{lab}</span>{champ}</label>" for lab, champ in cellules) + "</div>"
 
 
+def _grp(titre: str, aide: str = "") -> str:
+    """Un titre de groupe dans une rubrique ; son aide (du TEXTE) au survol de ⓘ, plus en paragraphe."""
+    a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>' if aide else ""
+    return f'<div class="grp">{titre}{a}</div>'
+
+
 def _sec_plancher(cas: Dict) -> str:
     pl = cas["plancher"]
     L = C.ligne
-    return (L("Nom", C.texte(["nom"], cas["nom"], "ex. C1 grue en rive"), full=True)
-            + L("Plancher", C.segments(["plancher", "type"], pl["type"], [("hourdis", "Hourdis"), ("dalle", "Dalle"), ("predalle", "Prédalle")]), full=True)
+    return (L("Plancher", C.segments(["plancher", "type"], pl["type"], [("hourdis", "Hourdis"), ("dalle", "Dalle"), ("predalle", "Prédalle")]), full=True)
             + L("Appuis A–B", C.segments(["plancher", "sens"], pl["sens"], SENS), full=True)
             + L("portée", _num(["plancher", "L"], pl["L"], "m", mini=0.5), "L", "Entre les appuis A et B ; deux appuis simples, sans continuité.")
             + L("présentes", _num(["plancher", "q_presentes"], pl["q_presentes"], "kN/m²", mini=0), "q",
@@ -969,9 +983,9 @@ def _sec_hourdis(etat: Dict, cas: Dict) -> str:
     groupes = ET.groupes_types_hourdis(etat)
     if cur not in types:
         groupes = [(None, [cur])] + groupes
-    s = (L("Type", C.choix_groupes(["plancher", "hourdis", "type_cat"], cur, groupes), full=True)
-         + C.aide("Le catalogue d'un fabricant (Ergon 2018 : valeurs de calcul par élément), la fiche générique ou une fiche "
-                  "de ce fichier : ses valeurs se recopient ci-dessous et restent modifiables (P-1).")
+    s = (L("Type", C.choix_groupes(["plancher", "hourdis", "type_cat"], cur, groupes), full=True,
+           aide="Le catalogue d'un fabricant (Ergon 2018 : valeurs de calcul par élément), la fiche générique ou une fiche de ce "
+                "fichier : ses valeurs se recopient ci-dessous et restent modifiables (P-1).")
          + '<div class="grp">Éléments</div>'
          + L("nombre d'éléments", _num(["plancher", "hourdis", "n_elements"], h["n_elements"], "", entier=True, mini=1), "n")
          + L("largeur d'élément", _num(["plancher", "hourdis", "b_element"], h["b_element"], "m"), "b")
@@ -979,9 +993,9 @@ def _sec_hourdis(etat: Dict, cas: Dict) -> str:
          + L("poids propre", _num(["plancher", "hourdis", "g"], h["g"], "kN/m²"), "g")
          + L("État", C.segments(["plancher", "hourdis", "etat"], h["etat"], list(OP.ETATS_H.items())), full=True)
          + '<div class="grp">Résistances par élément</div>'
-         + L("Nature", C.segments(["plancher", "hourdis", "nature"], h["nature"], NATURES), full=True)
-         + C.aide("Rd : valeurs de CALCUL du catalogue, efforts à l'ELU γ<sub>G</sub>·G + γ<sub>Q</sub>·Q ; service : valeurs "
-                  "ADMISSIBLES, coefficients 1 (P-1, P-2).")
+         + L("Nature", C.segments(["plancher", "hourdis", "nature"], h["nature"], NATURES), full=True,
+             aide="Rd : valeurs de CALCUL du catalogue, efforts à l'ELU γG·G + γQ·Q ; service : valeurs ADMISSIBLES, coefficients 1 "
+                  "(P-1, P-2).")
          + L("moment résistant", _num(["plancher", "hourdis", "M_Rd"], h["M_Rd"], "kN·m", mini=0), "M<sub>Rd</sub>")
          + L("tranchant résistant", _num(["plancher", "hourdis", "V_Rd"], h["V_Rd"], "kN", mini=0), "V<sub>Rd</sub>"))
     if not (h["M_Rd"] or 0) > 0 or not (h["V_Rd"] or 0) > 0:
@@ -1008,12 +1022,12 @@ def _sec_hourdis(etat: Dict, cas: Dict) -> str:
               + L("M<sub>Rd</sub> avec chape", _num(["plancher", "hourdis", "M_Rd_chape"], h["M_Rd_chape"], "kN·m"), "")
               + L("V<sub>Rd</sub> avec chape", _num(["plancher", "hourdis", "V_Rd_chape"], h["V_Rd_chape"], "kN"), ""))
     actif = h["etat"] in ("clavetes", "chapes") and bool(h["parts_annexe_C"])
+    etat_parts = "Répartition <b>active</b>." if actif else ("Hourdis posés : la répartition ne s'applique pas." if h["parts_annexe_C"] else "")
     s += ('<div class="grp">Répartition entre éléments</div>'
           + L("Parts C.1", C.texte(["plancher", "hourdis", "parts_annexe_C"], OP.texte_parts_annexe_c(h["parts_annexe_C"]), "0:0.5 ; 1:0.25"),
-              full=True)
-          + C.aide("Figure C.1 de l'EN 1168 transcrite par le bureau : « 0 » l'élément chargé, « 1 » chaque premier voisin… ; vide : "
-                   "l'élément chargé porte tout. " + ("Répartition <b>active</b>." if actif else
-                                                       ("Hourdis posés : la répartition ne s'applique pas." if h["parts_annexe_C"] else "")))
+              full=True, aide="Figure C.1 de l'EN 1168 transcrite par le bureau : « 0 » l'élément chargé, « 1 » chaque premier voisin… ; "
+                              "vide : l'élément chargé porte tout.")
+          + (C.aide(etat_parts) if etat_parts else "")
           + L("Source", C.texte(["plancher", "hourdis", "source"], h["source"], "fiche, date, page"), full=True)
           + '<div class="grp">Garder comme fiche</div>'
           + L("Nom", C.texte(["note", "nom_fiche_hourdis"], etat["site"]["nom_fiche_hourdis"], "ex. SP 200 · fiche 2026"), full=True)
@@ -1207,7 +1221,9 @@ def _sec_bibliotheque(etat: Dict) -> str:
     return (f'<div class="chp-lib">{lignes}</div>'
             + '<div class="grp">Nouvelle fiche d\'engin</div>'
             + L("Nom", C.texte(["note", "fiche_engin", "nom"], fe["nom"], "modèle, constructeur"), full=True)
-            + L("Appuis", C.segments(["note", "fiche_engin", "type_appuis"], fe["type_appuis"], TYPES_APPUIS), full=True)
+            # (un menu, et non trois boutons : « Stabilisateurs » y était coupé dans la colonne compacte d'une tablette —
+            # mesuré dans le navigateur le 12/11/2026)
+            + L("Appuis", C.choix(["note", "fiche_engin", "type_appuis"], fe["type_appuis"], TYPES_APPUIS), full=True)
             + _trio(("longueur châssis", _num(["note", "fiche_engin", "longueur"], fe["longueur"], "m")),
                     ("largeur châssis", _num(["note", "fiche_engin", "largeur"], fe["largeur"], "m")),
                     ("flèche (projection)", _num(["note", "fiche_engin", "fleche"], fe["fleche"], "m")))
@@ -1257,8 +1273,7 @@ def _sec_affichage(etat: Dict, cas: Dict, calc: Dict) -> str:
     engins = [c["ref"] for c in cas["charges"] if c["type"] == "engin"]
     if engins:
         s += L("Engin balayé", C.choix(["site", "balaye"], _balaye(cas), [(r, r) for r in engins]), full=True)
-    s += ('<div class="grp">Identification de la note</div>'
-          + C.aide(NC.AIDE_IDENTIFICATION)
+    s += (_grp("Identification de la note PDF", NC.AIDE_IDENTIFICATION)
           + '<div class="grp">Fichier de l\'écran Streamlit</div>'
           + C.fichier(["note", "ouvrir"], "Ouvrir un fichier JSON du module", ".json")
           + C.aide("Le fichier « Enregistrer » de l'écran Streamlit (tous les cas et les fiches ajoutées) remplace cette note."))
@@ -1278,6 +1293,10 @@ def _balaye(cas: Dict) -> Optional[str]:
 
 
 def formulaire(etat: Dict, calc: Dict) -> str:
+    """Les sept rubriques du cas ouvert, aux mêmes numéros qu'avant (les messages du moteur y renvoient) : la première
+    seule ouverte — plus « Répartiteurs » quand le cas est non conforme (la proposition de filière y est), et
+    « Bibliothèque et fiches » tant qu'aucune charge n'est posée (on y prend l'engin) ; « Hypothèses » et « Affichage et
+    note » sont secondaires. Le nom du cas se modifie sur sa ligne, en tête de la colonne."""
     cas = _cas(etat)
     pl = cas["plancher"]
     res = calc.get("res") or {}
@@ -1286,11 +1305,11 @@ def formulaire(etat: Dict, calc: Dict) -> str:
     if t == "hourdis":
         h = pl["hourdis"]
         s2 = C.section(2, "Hourdis", f"{C.esc(_court(h['type_cat'], 26))} · M<sub>Rd</sub> {C.nb(h['M_Rd'])} · V<sub>Rd</sub> {C.nb(h['V_Rd'])}",
-                       _sec_hourdis(etat, cas), True, "ho")
+                       _sec_hourdis(etat, cas), False, "ho")
     else:
         d = pl[t]
         s2 = C.section(2, TYPES_COURTS[t], f"{C.esc(d['beton'])} · h {C.fr(d['h'] * 1e3, 0)} mm · A<sub>s</sub> {C.fr(d['As_inf'], 0)} mm²/m",
-                       _sec_dalle(cas), True, "da")
+                       _sec_dalle(cas), False, "da")
     nf = len(cas.get("filieres", []))
     np_ = sum(1 for r in cas["repartiteurs"].values() if r["type"] == "plateau")
     gabs = ET.gabarits(etat)
@@ -1298,13 +1317,28 @@ def formulaire(etat: Dict, calc: Dict) -> str:
     return (C.section(1, "Plancher", C.esc(OP.resume_plancher(cas)), _sec_plancher(cas), True, "pl")
             + s2
             + C.section(3, "Charges", f"{n} objet(s) · {OP.fmt(OP.total_charges(cas), 0)} kN d'engins et d'étançons",
-                        _sec_charges(etat, cas, calc.get("index")), True, "ch")
+                        _sec_charges(etat, cas, calc.get("index")), False, "ch")
             + C.section(4, "Répartiteurs", f"{np_} plateau(x) · {nf} filière(s)", _sec_repartiteurs(etat, cas, calc), res.get("statut") == "nok", "re")
             + C.section(5, "Bibliothèque et fiches", f"{len(gabs)} engins · {len(etat['fiches']['repartiteurs'])} fiche(s) de répartiteur",
                         _sec_bibliotheque(etat), not cas["charges"], "bi")
             + C.section(6, "Hypothèses", (f"γ<sub>G</sub> {C.nb(p.gamma_G)} · γ<sub>Q</sub> {C.nb(p.gamma_Q)} · tranchant {_pc100(p.part_tranchant_element)}"
-                                          if p is not None else ""), _sec_hypotheses(cas, calc), False, "hy")
-            + C.section(7, "Affichage et note", "plan, coupe, balayage, identification", _sec_affichage(etat, cas, calc), False, "af"))
+                                          if p is not None else ""), _sec_hypotheses(cas, calc), False, "hy", secondaire=True)
+            + C.section(7, "Affichage et note", "plan, coupe, balayage, identification", _sec_affichage(etat, cas, calc), False, "af",
+                        secondaire=True))
+
+
+def _dims(c: Dict) -> str:
+    """« · Hourdis · 6,00 m » : ce qu'on lit d'un cas dans la liste de la note (HTML)."""
+    pl = c["plancher"]
+    return f"· {TYPES_COURTS[pl['type']]} · {C.fr(pl['L'], 2)}{C.NBSP}m"
+
+
+def arbre(etat: Dict, calc: Dict) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne du cas
+    ouvert (son nom, qu'un clic modifie ; la liste des cas de la note ; copier, supprimer), que l'écran pose dans
+    l'en-tête du panneau, puis ses sept rubriques."""
+    noms = [(c["nom"] or f"C{i + 1}", _dims(c), False) for i, c in enumerate(etat["cas"])]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, calc), "casplancher", compact=True)
 
 
 # ------------------------------------------------------------------ le résultat : nombres et couleurs
@@ -1366,12 +1400,22 @@ def _texte_taux(v: Dict) -> str:
     return TEXTES_SANS_TAUX.get(v["statut"], "—")
 
 
-def _ligne_res(nom: str, piece: str, v: Optional[Dict], taux, niv: str, calcul: str = "", pk: str = "", gov: bool = False,
-               texte: str = "") -> str:
-    """La ligne de résultat du site (C.ligne_res) ; quand le moteur ne chiffre pas la ligne (répartiteur exigé, non
-    vérifié, information), son texte remplace « à compléter »."""
-    h = C.ligne_res(nom, piece, None if texte else taux, niv, calcul=calcul, pk=pk, gov=gov)
-    return h.replace(">à compléter<", f">{C.esc(texte)}<") if texte else h
+def _ligne(nom: str, quoi: str, piece: str, taux, niv: str, calcul: str = "", pk: str = "", gov: bool = False, texte: str = "") -> str:
+    """La ligne de l'établi compact (C.ligne_verif) : le nom, la pièce, le taux ; dessous, ce qu'elle compare (``quoi``, du
+    HTML) et sa jauge. Quand le moteur ne chiffre pas la ligne (répartiteur exigé, non vérifié, information), son
+    ``texte`` tient la place du taux, en mots."""
+    return C.ligne_verif(nom, quoi, None if texte else taux, niv, calcul=calcul, pk=pk, piece=piece, gov=gov, etat_txt=texte)
+
+
+def _quoi(v: Dict, nature: str, gQ: float) -> str:
+    """Ce qu'une vérification compare, en court (HTML) : « M_Ed = 86,02 kN·m ≤ M_Rd = 90,00 kN·m » ; sans taux, la valeur
+    et ce qui manque (« p = 0,564 N/mm² · non renseignée »)."""
+    _, val, lim = _comparaison(v, nature, gQ)
+    if val == "—" and lim == "—":
+        return ""
+    if v["taux"] is None:
+        return f"{val} · {lim}"
+    return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}"
 
 
 def _remplacer_puces(h: str, textes: List[str]) -> str:
@@ -1847,9 +1891,11 @@ def _calcul_de(fam: str, v: Dict, calc: Dict) -> str:
 
 
 def _lignes_familles(calc: Dict) -> Tuple[str, List[str]]:
-    """Une ligne par famille de vérifications (les barres de l'écran d'origine), la plus défavorable de chacune."""
+    """Une ligne par famille de vérifications (les barres de l'écran d'origine), la plus défavorable de chacune : l'objet
+    qui gouverne, son taux, ce qu'elle compare."""
     res = calc["res"]
     g = res.get("gouverne") or {}
+    nature, gQ = getattr(calc["plancher"], "nature", "service"), calc["params"].gamma_Q
     out, fenetres = "", []
     for fam in ORDRE_FAM:
         vs = sorted((v for v in res["verifications"] if v["famille"] == fam), key=_cle_famille, reverse=True)
@@ -1860,18 +1906,20 @@ def _lignes_familles(calc: Dict) -> Tuple[str, List[str]]:
         fenetres.append(cal)
         texte = _texte_taux(v)
         gov = not texte and fam == g.get("famille") and v["objet"] == g.get("objet")
-        out += _ligne_res(LIB_FAM[fam], _piece_famille(vs), v, C.pct(v["taux"]) if not texte else None, _niv(v), calcul=cal, gov=gov, texte=texte)
+        out += _ligne(LIB_FAM[fam], _quoi(v, nature, gQ), _piece_famille(vs), C.pct(v["taux"]) if not texte else None, _niv(v), calcul=cal, gov=gov,
+                      texte=texte)
     return out, fenetres
 
 
-def _lignes_appuis(etat: Dict, cas: Dict, calc: Dict) -> str:
-    """Par engin, puis pour les étançons : chaque appui, sa charge, son répartiteur (un clic ouvre le sélecteur) et
-    l'élément qui le porte avec son taux — le tableau « Appuis de E1 » de l'écran d'origine."""
+def _blocs_appuis(etat: Dict, cas: Dict, calc: Dict) -> List[Tuple[str, str, Optional[float], str, str]]:
+    """Par engin, puis pour les étançons : (titre du bloc, ses lignes, son taux le plus fort, la fenêtre de son bouton, ce
+    qu'il porte) — chaque appui, sa charge, son répartiteur (un clic ouvre le sélecteur), l'élément qui le porte et le
+    taux de cet élément : le tableau « Appuis de E1 » de l'écran d'origine."""
     res, index = calc["res"], calc["index"]
     refs = list(index["empreintes"])
     hourdis = calc["plancher"].type == "hourdis"
     els = {e["nom"]: e for e in res.get("elements", [])}
-    out = ""
+    out = []
 
     def ligne(ref, nom, charge, el_nom, taux):
         rp = cas["repartiteurs"].get(ref)
@@ -1879,25 +1927,28 @@ def _lignes_appuis(etat: Dict, cas: Dict, calc: Dict) -> str:
         el = els.get(el_nom)
         cal = (f"el-{el['index']}" if hourdis else "dalle") if el else ""
         niv = C.niveau(taux) if taux is not None else "c"
-        nm = f"{nom} · {C.fr(charge, 0)}{C.NBSP}kN" + (f" → {el_nom}" if el_nom else "")
-        return _ligne_res(nm, C.esc(piece), None, C.pct(taux) if taux is not None else None, niv, calcul=cal, pk=f"rep-{refs.index(ref)}",
-                          texte="" if taux is not None else "—")
+        porte = f"porté par {C.esc(el_nom)}" if el_nom else ""
+        return (_ligne(f"{nom} · {C.fr(charge, 0)}{C.NBSP}kN", porte, C.esc(piece), C.pct(taux) if taux is not None else None, niv, calcul=cal,
+                       pk=f"rep-{refs.index(ref)}", texte="" if taux is not None else "—"), cal, taux)
+    gabs = ET.gabarits(etat)
     for c in cas["charges"]:
         if c["type"] != "engin" or c["ref"] not in index["engins"]:
             continue
-        lignes = OP.appuis_engin(cas, res, index, c["ref"])
-        ts = [li["taux"] for li in lignes if li["taux"] is not None]
-        t = max(ts) if ts else None
-        pct = f'<span class="pct {C.niveau(t)}">{C.pc(C.pct(t))}{C.NBSP}%</span>' if t is not None else ""
-        out += f'<div class="elgrp">Appuis de {C.esc(c["ref"])}{pct}</div>'
-        out += "".join(ligne(li["ref"], li["appui"], li["charge"], li["element"], li["taux"]) for li in lignes)
+        ls = [ligne(li["ref"], li["appui"], li["charge"], li["element"], li["taux"]) for li in OP.appuis_engin(cas, res, index, c["ref"])]
+        ts = [t for _, _, t in ls if t is not None]
+        nom_engin = gabs[c["gabarit"]]["nom"].split(" · ")[0].split(" (")[0] if c.get("gabarit") in gabs else ""
+        out.append((f"Appuis de {c['ref']}", "".join(h for h, _, _ in ls), max(ts) if ts else None, next((k for _, k, _ in ls if k), ""),
+                    C.esc(_court(nom_engin, 40))))
     tours = [c for c in cas["charges"] if c["type"] == "ponctuel" and c["ref"] in index["empreintes"]]
     if tours:
-        out += '<div class="elgrp">Étançons</div>'
+        ls = []
         for c in tours:
             e = index["empreintes"][c["ref"]]
             el = next((x for x in res.get("elements", []) if x["y0"] <= e.y < x["y1"]), None)
-            out += ligne(c["ref"], c["ref"], e.P * e.phi, el["nom"] if el else None, el["taux"] if el else None)
+            ls.append(ligne(c["ref"], c["ref"], e.P * e.phi, el["nom"] if el else None, el["taux"] if el else None))
+        ts = [t for _, _, t in ls if t is not None]
+        out.append(("Étançons", "".join(h for h, _, _ in ls), max(ts) if ts else None, next((k for _, k, _ in ls if k), ""),
+                    f"{len(tours)} étançon{'s' if len(tours) > 1 else ''}"))
     return out
 
 
@@ -2033,31 +2084,60 @@ def _vues(etat: Dict, cas: Dict, calc: Dict) -> List[Dict]:
     return vues
 
 
+def _etat_bloc(t: Optional[float], niv: str) -> str:
+    """L'état d'un bloc (du texte) : « Conforme · 63 % » ; sans taux, « — »."""
+    return f"{C.STATUTS[niv][1]} · {C.pc(C.pct(t))}{C.NBSP}%" if t is not None else "—"
+
+
 def resultat(etat: Dict) -> Dict:
+    """Le calcul du cas ouvert et sa mise en forme : la tête (le nom du cas ; le plancher), le verdict, les alertes qui se
+    lisent AVANT les lignes, le bloc « Vérifications » (une ligne par famille), un bloc par engin (ses appuis) et celui des
+    étançons, les messages ; les fenêtres de calcul, les vues sous leur en-tête technique, la colonne de gauche."""
     cas = _cas(etat)
     calc = _calculer(etat, cas)
     resultats = [calc.get("res") or {"statut": None} if k == etat["actif"] else (_calculer(etat, c).get("res") or {"statut": None})
                  for k, c in enumerate(etat["cas"])]
     res = calc.get("res")
+    tot = OP.total_charges(cas)
+    blocs = ""
     if res and res["statut"] != "refus":
         t = res["taux_max"]
         niv = "r" if res["statut"] == "nok" else C.niveau(t)
-        fam, _ = _lignes_familles(calc)
-        n_s = f'<span class="pct {niv}">{C.pc(C.pct(t))}{C.NBSP}%</span>'
-        corps = (f'<div class="elgrp">Vérifications{n_s}</div>{fam}' if fam else "") + _lignes_appuis(etat, cas, calc)
+        fam, fens = _lignes_familles(calc)
+        # la fenêtre qu'ouvre « tout le calcul » : celle de la vérification qui gouverne, sinon la première qui existe
+        g = res.get("gouverne") or {}
+        v_g = next((x for x in res["verifications"] if x["famille"] == g.get("famille") and x["objet"] == g.get("objet")), None)
+        f_g = (_calcul_de(g["famille"], v_g, calc) if v_g else "") or next((k for k in fens if k), "")
+        k = 0
+        if fam:
+            p = calc["params"]
+            nature = getattr(calc["plancher"], "nature", "service")
+            regle = (f"ELU · γ<sub>G</sub> = {C.nb(p.gamma_G)} · γ<sub>Q</sub> = {C.nb(p.gamma_Q)}" if nature == "Rd"
+                     else "valeurs admissibles de service · coefficients 1")
+            blocs += E.bloc(k, "Vérifications", CLASSES_BLOC.get(niv, "inc"), _etat_bloc(t, niv), regle, fam, theme=True, calcul=f_g)
+            k += 1
+        for titre, rows, tb, cal, quoi in _blocs_appuis(etat, cas, calc):
+            nb = C.niveau(tb) if tb is not None else "c"
+            blocs += E.bloc(k, titre, CLASSES_BLOC.get(nb, "inc"), _etat_bloc(tb, nb), quoi, rows, theme=True, calcul=cal or f_g)
+            k += 1
         # l'écran d'origine passe tout le cas en « attention » quand une HYPOTHÈSE l'est (P-8 : étais en place, charges
-        # reportées sur l'étage inférieur non modélisé) : le site le dit aussi, quel que soit le taux
+        # reportées sur l'étage inférieur non modélisé) : le site le dit aussi, quel que soit le taux — et même pour une
+        # note d'un seul cas (le verdict, lui, ne colore que le taux)
         statut = C.statut("f" if niv == "p" and any(v["famille"] == "hypothese" and v["statut"] == "attention"
                                                       for v in res["verifications"]) else niv)
     else:
-        corps, statut = "", C.statut("c" if res else "x")
-    tot = OP.total_charges(cas)
+        statut = C.statut("c" if res else "x")
+    tete = E.tete_resultats(C.esc(cas["nom"] or "Cas"), C.esc(OP.resume_plancher(cas)))
     pied = (f'<div class="pfoot"><div class="mass"><span>Engins et étançons (charges de service)</span><b>{C.fr(tot, 0)}{C.NBSP}kN</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
-    return {"resultat": f'<div class="pbody">{_verdict(calc)}{_alertes(calc)}<div class="els">{corps}</div>{_messages(cas, calc)}</div>{pied}',
-            "volets": _fenetres(cas, calc), "vues": _vues(etat, cas, calc), "phrase": C.esc(OP.resume_plancher(cas)),
-            "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": formulaire(etat, calc),
-            "elements": elements(etat, resultats)}
+    vues = _vues(etat, cas, calc)
+    charges_txt = f"{len(cas['charges'])} objet(s) · {OP.fmt(tot, 0)} kN d'engins et d'étançons (charges de service)"
+    for v in vues:
+        v["entete"] = E.entete(v["titre"].upper(), C.esc(OP.resume_plancher(cas)), [charges_txt], None, v.get("legende", ""))
+    corps = f'<div class="et-blocs">{blocs}</div>' if blocs else ""
+    return {"resultat": f'<div class="pbody">{tete}{_verdict(calc)}{_alertes(calc)}{corps}{_messages(cas, calc)}</div>{pied}',
+            "volets": _fenetres(cas, calc), "vues": vues, "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats),
+            "donnees": arbre(etat, calc), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ la note PDF

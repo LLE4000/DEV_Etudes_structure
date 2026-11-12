@@ -60,13 +60,13 @@ ACCUEIL = "./"
 # décision D1 — vaut pour TOUS les modules depuis le 10/11/2026 : chaque carte de l'accueil ouvre le calcul directement,
 # la note est provisoire jusqu'à la première modification, « Enregistrer comme note… » est sur toute page d'établi :
 # ``page_module``.)
-ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures")
+ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher")
 # … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur
 # le 09/11/2026) : ni titre « Données », ni en-tête « POUTRES (n) », ni arborescence — l'en-tête du panneau porte la
 # LIGNE de l'élément ouvert (son nom qu'un clic modifie, la liste des éléments, copier, supprimer : le moteur la rend
 # avec ``etabli_compact.arbre(…, compact=True)``, js/etabli.js la pose dans l'emplacement ``.et-elt``) à côté
 # d'« Annuler » et « Rétablir » (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
-ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures")
+ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher")
 # Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
 # est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
 # s'ouvre dans le module fusionné. Ils restent au registre (le routeur les sert encore : anciens liens, harnais), sont
