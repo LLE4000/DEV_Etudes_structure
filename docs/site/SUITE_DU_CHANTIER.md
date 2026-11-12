@@ -723,9 +723,15 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   - « C40/50 dans la note, C30/37 sur le plan » : le site écrit bien la classe de la note et RBAR la dessine (vérifié :
     C40/50 sur les feuilles 01 et 03, aucun C30/37) — le PDF ouvert était l'ANCIEN : Chrome demandait « Télécharger de
     nouveau le fichier ? » pour le nouveau, de même nom. Corrigé : le nom porte l'heure de l'export.
-  - « Il est incomplet » : à préciser avec lui. Relevé en attendant, du côté de RBAR : feuille 04, vue en plan des
-    poutres longitudinales, deux pieux de l'AUTRE semelle (6,5 m plus loin) dessinés sous la vue, avec un long trait de
-    rappel — signalé à RBAR.
+  - « Cinq plans au lieu de deux, tous incomplets » : cause trouvée, chez RBAR (0.4.40), pas dans le fichier du site.
+    Dans la note neuve (valeurs du classeur BASE), les CENTRES des pieux tombent exactement sur les bords de la poutre
+    transversale (entraxe 120 cm = largeur 120 cm) : RBAR fait alors un « Détail 1 » sur toute la poutre (≈ 7,40 m à
+    1/10, qui part sur une feuille à lui, coupé) et dessine les pieux de l'AUTRE semelle dans la vue en plan des poutres
+    longitudinales — 5 feuilles presque vides. Pieux écartés de 5 cm, ou poutre de 110 cm : 2 feuilles (6 et 9 vues),
+    aux mêmes échelles imposées ; le fichier Greenwood aussi. Les quatre fichiers d'essai et le message sont partis
+    vers RBAR (13/11, nuit). En attendant : « Mise en page des plans » → « RBAR choisit » redonne 2 feuilles (ses
+    échelles ; les pieux en trop restent). Ce que le propriétaire trouve encore « incomplet » dans un plan de 2 feuilles
+    reste à préciser avec lui — c'est RBAR qui décide de ce qu'un plan contient.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
