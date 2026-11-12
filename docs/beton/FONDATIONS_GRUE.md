@@ -259,7 +259,23 @@ depuis « Exporter ». La gauche reste la saisie, la droite les résultats.
 
 **Ce qu'il attend** : le moteur de plans de RBAR qui tourne dans le navigateur (WebAssembly), et — pour l'aperçu — chaque
 feuille rendue aussi en image (SVG ; son noyau sait le faire : `OuvrageSheetSvg.Render`, celui de la mesure du
-12/11/2026). Demandé à la conversation RBAR le 12/11. Ensuite, du côté du site : ses fichiers copiés dans le site
+12/11/2026). Demandé à la conversation RBAR le 12/11. Le moteur existe depuis le 12/11 au soir comme programme .NET
+(`rbar-plans`, RBAR 0.4.37) : sur le fichier Greenwood du site, les deux plans en PDF, aucune note
+(`docs/site/mesures/2026-11-12_plans_pdf_par_rbar_plans.md`) ; il ne manque que sa version pour le navigateur. Ensuite, du côté du site : ses fichiers copiés dans le site
 (chacun sous 25 Mo, aucun CDN), chargés au premier aperçu dans un travailleur (l'écran ne se fige pas), la ligne
 « Plans PDF », les deux onglets, et les mesures aux trois formats (taille, durée au téléphone).
+
+### 9.4 Le retour depuis AutoCAD : réimporter le fichier de l'ouvrage
+
+*Annoncé par la conversation RBAR le 12/11/2026 (son lot suivant) : RBAR réécrira le fichier « rbar.ouvrage » depuis le
+DWG quand le dessinateur aura changé des barres, avec l'indice suivant (C après B) et la description du changement.*
+
+**Le principe proposé** : le site relit ce fichier (le même format), compare ses armatures à celles de la note et montre
+chaque différence ; sur accord, il les reprend dans la note, qui les REVÉRIFIE avec le classeur. La note reste la
+source : ce qui apparaît dans RBAR est ce qui apparaît dans la note (règle du propriétaire du 11/11/2026) — une barre
+changée dans AutoCAD n'est jamais acceptée sans être revérifiée.
+
+**Ce qu'il demande** : l'historique des indices dans la note (aujourd'hui, le site ne garde que l'indice courant ;
+`revisions` n'en porte qu'un), et un import qui refuse ce qu'il ne sait pas relier à la note (une poutre, un poste
+inconnus), en le disant.
 

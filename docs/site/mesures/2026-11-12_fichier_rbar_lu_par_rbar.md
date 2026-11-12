@@ -38,3 +38,8 @@ côté. Tant qu'elle ne les a pas faits, le cartouche des feuilles reste vide.
 - Elle ne passe pas par AutoCAD : la commande `RBAROUVRAGE` construit les objets de RBAR dans un dessin ; ce rendu
   est celui de son noyau (le même que son aperçu), pas le DWG.
 - Le visuel des plans est celui de RBAR à cette date.
+
+## Correction du 12/11/2026 (soir)
+
+« 11 065 octets » plus haut : ce sont 11 065 CARACTÈRES ; le fichier fait 11 155 octets (les accents et les symboles
+comptent pour deux). Suite de cette mesure, avec le moteur de plans de RBAR : `2026-11-12_plans_pdf_par_rbar_plans.md`.

@@ -41,6 +41,9 @@ SPEC = ("dépôt RBAR, docs/reference/ouvrages/regles/format-du-fichier.md (vers
         "ajouts du 12/11/2026 : feuilles.echelles, cartouche, revisions")
 PREFIXES = {"support": "PT", "semelle": "PL"}
 NOM_PIEU_MAX, NOM_POUTRE_MAX = 16, 20
+# ce que le lecteur de RBAR refuse dans le cartouche et les indices (0.4.36 : Rbar.Core/Ouvrages/OuvrageReader, MaxCartoucheText,
+# MaxIndice) — copies NOMMÉES, liées par tests/test_fondation_grue_ouvrage.py : le nom, le chantier et l'indice viennent de la note
+CARTOUCHE_MAX, INDICE_MAX = 200, 8
 ORIGINE_LATERALES = "prescription du classeur"
 
 
@@ -238,6 +241,11 @@ def controle(res: dict, infos: dict = None) -> dict:
                    "absente du plan")
     manques.append("Charge verticale des pieux : RBAR n'a pas encore de clé pour la charge calculée — elle part dans "
                    "l'encadré « Pieux »")
+    # (un texte de la note trop long : RBAR refuserait TOUT le fichier — le site le dit avant, sans rien couper)
+    for cle, nom, maxi in (("chantier", "Le chantier", CARTOUCHE_MAX), ("nom", "Le nom", CARTOUCHE_MAX), ("indice", "L'indice", INDICE_MAX)):
+        v = str(infos.get(cle) or "").strip()
+        if len(v) > maxi:
+            bloquants.append(f"{nom} de la note a {len(v)} caractères : RBAR en accepte {maxi} au plus (cartouche du plan)")
     vides = [k for k, v in (("le chantier", infos.get("chantier")), ("le nom de la note", infos.get("nom")))
              if not str(v or "").strip()]
     if vides:

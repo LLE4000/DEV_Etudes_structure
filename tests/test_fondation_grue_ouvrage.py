@@ -251,12 +251,16 @@ CLES = {
     "poutres": {"titre", "designation", "largeur_mm", "hauteur_mm", "dessus_m", "position", "modele", "echelle",
                 "coupes_mm", "elements", "origines"},
     "elements": {"nom", "debut", "fin"}, "origines": {"poste", "texte", "entreAxes_mm"}, "encadres": {"titre", "lignes"},
+    "numeros": {"coffrage", "armatures"},
     "traces": {"points", "ferme", "nom", "texte"},
 }
 POSITIONS = {"longrine", "retombee", "remontee", "noyee"}
 EXTREMITES = {"droites", "debut", "fin", "deux"}
 DISPOSITIONS = {"cadreInterieur", "deuxCadres", "epingles", "cadres"}
 POSTES = {"inf", "sup", "lat", "etriers", "cages", "scellements"}
+# 4. Les limites du lecteur de RBAR pour les feuilles, le cartouche et les indices (0.4.36, Rbar.Core/Ouvrages/OuvrageReader :
+#    MaxScale, MaxNumero, MaxCartoucheText, MaxIndice, MaxRevisions, MaxPerson) : au-delà, TOUT le fichier est refusé.
+LIMITES_RBAR = {"echelle": 1000, "numero": 32, "cartouche": 200, "indice": 8, "revisions": 50, "personne": 60}
 DIAMETRES = {6, 8, 10, 12, 14, 16, 20, 25, 28, 32, 40}
 
 # ====================================================================== les notes d'essai
@@ -548,18 +552,30 @@ def fautes_format(o):
             r.append(f"feuilles.format : {fe.get('format')!r}")
         ech = fe.get("echelles", {})
         if not (isinstance(ech, dict) and list(ech) == list(NOMS_ECHELLES)
-                and all(isinstance(v, int) and not isinstance(v, bool) and v > 0 and v != 30 for v in ech.values())):
-            r.append(f"feuilles.echelles : les six échelles, en 1/N entiers, jamais 1/30 ({ech})")
+                and all(isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= LIMITES_RBAR["echelle"] and v != 30 for v in ech.values())):
+            r.append(f"feuilles.echelles : les six échelles, en 1/N entiers de 1 à 1000, jamais 1/30 ({ech})")
+        nums = fe.get("numeros") or {}
+        if nums and (not inconnues(nums, "numeros", "feuilles.numeros", r) or any(len(str(v)) > LIMITES_RBAR["numero"] for v in nums.values())
+                     or str(nums.get("coffrage", "")).strip().lower() == str(nums.get("armatures", "")).strip().lower() != ""):
+            r.append(f"feuilles.numeros : trop longs, ou le même pour les deux feuilles ({nums})")
     if "cartouche" in o and inconnues(o["cartouche"], "cartouche", "cartouche", r):
         ca = o["cartouche"]
         if any(not isinstance(v, str) or not v.strip() for k, v in ca.items() if k != "intervenants"):
             r.append("cartouche : un champ vide (un champ inconnu reste ABSENT, jamais vide)")
+        if any(isinstance(v, str) and len(v.strip()) > LIMITES_RBAR["cartouche"] for v in ca.values()):
+            r.append("cartouche : un texte de plus de 200 caractères (RBAR refuse le fichier)")
         if "date" in ca and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(ca["date"])):
             r.append(f"cartouche.date : {ca['date']!r} (AAAA-MM-JJ)")
+    indices = [str(rev.get("indice", "")).strip().lower() for rev in o.get("revisions", []) if isinstance(rev, dict)]
+    if len(indices) > LIMITES_RBAR["revisions"] or len(set(indices)) != len(indices):
+        r.append(f"revisions : plus de 50, ou un indice donné deux fois ({indices})")
     for i, rev in enumerate(o.get("revisions", [])):
         if inconnues(rev, "revisions", f"revisions[{i}]", r):
-            if not str(rev.get("indice", "")).strip():
-                r.append(f"revisions[{i}] : sans indice")
+            if not str(rev.get("indice", "")).strip() or len(str(rev.get("indice", "")).strip()) > LIMITES_RBAR["indice"]:
+                r.append(f"revisions[{i}] : sans indice, ou un indice de plus de 8 caractères")
+            if len(str(rev.get("description", ""))) > LIMITES_RBAR["cartouche"] or any(
+                    len(str(rev.get(k, ""))) > LIMITES_RBAR["personne"] for k in ("par", "verifie")):
+                r.append(f"revisions[{i}] : description, auteur ou vérificateur trop long")
             if "date" in rev and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(rev["date"])):
                 r.append(f"revisions[{i}].date : {rev['date']!r}")
     modeles = {}
@@ -720,6 +736,11 @@ CONTRE_EXEMPLES = (
     ("une date du cartouche à la française", lambda o: o.update(cartouche={"date": "12/11/2026"})),
     ("un champ du cartouche laissé vide", lambda o: o.update(cartouche={"phase": ""})),
     ("une révision sans indice", lambda o: o.update(revisions=[{"date": "2026-11-12"}])),
+    ("un indice de 9 caractères", lambda o: o.update(revisions=[{"indice": "A" * 9}])),
+    ("deux fois le même indice", lambda o: o.update(revisions=[{"indice": "A"}, {"indice": "a"}])),
+    ("un titre de cartouche de 201 caractères", lambda o: o.update(cartouche={"titre": "x" * 201})),
+    ("une échelle au 1/1001", lambda o: o["feuilles"]["echelles"].update(implantation=1001)),
+    ("le même numéro pour les deux feuilles", lambda o: o["feuilles"].update(numeros={"coffrage": "F-01", "armatures": "f-01"})),
     ("un tracé d'un seul point", lambda o: o["traces"][0].update(points=[[0, 0]])),
     ("des barres latérales à zéro rangée", lambda o: o["modelesPoutre"][0]["lat"].update(nParFace=0)),
 )
@@ -1091,6 +1112,21 @@ def fautes_controle(o_mod=O):
             or SITE["modelesPoutre"][1]["etrier"].get("disposition") != "deuxCadres" \
             or SITE["modelesPoutre"][0]["etrier"].get("disposition") != "cadres":
         out.append("dispositions des étriers : 4 brins de semelle en deux cadres, sinon des cadres qui se chevauchent")
+    # le nom, le chantier, l'indice de la note : au-delà des limites du lecteur de RBAR, le fichier est refusé PAR LE SITE, avec sa
+    # raison (sinon RBAR refuserait tout le fichier) ; rien n'est coupé
+    if (o_mod.CARTOUCHE_MAX, o_mod.INDICE_MAX) != (LIMITES_RBAR["cartouche"], LIMITES_RBAR["indice"]):
+        out.append("les limites du cartouche ne sont plus celles du lecteur de RBAR")
+    for infos, motif in (({"indice": "A" * 9}, "L'indice de la note a 9 caractères : RBAR en accepte 8 au plus"),
+                         ({"nom": "N" * 201}, "Le nom de la note a 201 caractères : RBAR en accepte 200 au plus"),
+                         ({"chantier": "C" * 201}, "Le chantier de la note a 201 caractères : RBAR en accepte 200 au plus")):
+        try:
+            o_mod.fichier(copy.deepcopy(r), infos)
+            out.append(f"un texte trop long de la note part quand même ({motif[:20]}…)")
+        except ValueError as err:
+            if motif not in str(err):
+                out.append(f"texte trop long : refus « {str(err)[:120]} »")
+    if fautes_format(fichier(r, {"indice": "A" * 8, "nom": "N" * 200, "chantier": "C" * 200}, o_mod)):
+        out.append("aux limites exactes (8 et 200 caractères), le fichier ne part pas ou n'est pas lisible par RBAR")
     # ce qui bloque : dit, et le fichier n'est jamais écrit
     for titre, saisies, motif in BLOCAGES:
         e, r = cas(plus=saisies)
@@ -1202,6 +1238,8 @@ MUTATIONS_OUVRAGE = (
     ("les origines oublient leurs zones d'étriers", '{"poste": "etriers", "entreAxes_mm": _num(ext["pas"]), "texte": _origine(f, ext)}',
      '{"poste": "etriers", "texte": _origine(f, ext)}'),
     ("le contrôle tait un niveau vidé", 'manques.append(f"{nom} : non saisi (options de conception) — absent du plan")', "pass"),
+    ("un indice trop long part quand même", '        if len(v) > maxi:\n            bloquants.append(', '        if False:\n            bloquants.append('),
+    ("l'indice accepte 10 caractères", "CARTOUCHE_MAX, INDICE_MAX = 200, 8", "CARTOUCHE_MAX, INDICE_MAX = 200, 10"),
     ("le châssis n'est plus fermé", 'trace = {"nom": "Châssis", "ferme": True,', 'trace = {"nom": "Châssis", "ferme": False,'),
     ("les poutres en longrine (tirets)", '"position": "retombee"', '"position": "longrine"'),
     ("l'unité change", 'FORMAT, VERSION, UNITE = "rbar.ouvrage", 1, "mm"', 'FORMAT, VERSION, UNITE = "rbar.ouvrage", 1, "cm"'),

@@ -58,8 +58,11 @@ Un seul bouton, en bas de la colonne des résultats, le même sur PC, tablette e
 travaille en parallèle, rien d'utile ne doit disparaître). À terme : trois exports — DWG, PDF, Excel, ce dernier
 remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIONS_GRUE.md` § 9.2).
 
-**« Plans PDF » n'apparaît pas encore** : il attend le moteur de plans de RBAR en WebAssembly (dans le navigateur, sans
-réseau, chaque fichier sous 25 Mo — la limite de Cloudflare Pages). L'état « en cours… » viendra avec lui, et un
+**« Plans PDF » n'apparaît pas encore.** Le moteur de plans de RBAR existe depuis le 12/11/2026 au soir (`rbar-plans`,
+RBAR 0.4.37 : le moteur de `RBAROUVRAGE`, un PDF par feuille et un compte rendu) ; passé sur le fichier Greenwood du site :
+aucun refus, aucune note, les deux plans en 2,4 s (`docs/site/mesures/2026-11-12_plans_pdf_par_rbar_plans.md`). Mais
+c'est un programme .NET, et le site n'a pas de serveur : il attend sa version WebAssembly, demandée à RBAR (dans le
+navigateur, sans réseau, chaque fichier sous 25 Mo — la limite de Cloudflare Pages). L'état « en cours… » viendra avec lui, et un
 aperçu des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3) ; l'étape 2 du DWG (le DWG fait sans
 AutoCAD), plus tard.
 
@@ -140,9 +143,10 @@ moteur la reprend), ou **le code dur** (une règle fixe, plus une option).
   sa clé.
 - **L'historique des indices n'est pas gardé** : `revisions` ne porte que l'indice courant.
 - **Le cartouche est incomplet** (§ 5, Q12).
-- **`feuilles.echelles`, `cartouche`, `revisions`** sont lus par RBAR en notes (« clé non lue ») jusqu'à ce qu'il les
-  ait faits — en cours de son côté. Aujourd'hui, RBAR choisit ses échelles ; pour Greenwood, son choix est celui de la
-  table (vérifié, mesure du 12/11).
+- **`feuilles.echelles`, `cartouche`, `revisions`** sont lus par RBAR depuis sa version 0.4.36 (le cartouche des plans
+  est rempli). Son lecteur refuse TOUT le fichier pour un texte trop long : plus de 200 caractères dans le cartouche, plus
+  de 8 pour l'indice. Le nom, le chantier et l'indice viennent de la note : le site refuse lui-même ce fichier, avec la
+  raison, sans rien couper (`ouvrage.CARTOUCHE_MAX`, `INDICE_MAX`, liés aux limites de RBAR par le test).
 - **Le site ne fait pas le DWG** : le dessinateur ouvre AutoCAD avec RBAR et lance `RBAROUVRAGE`. Les plans PDF
   attendent le moteur de RBAR (§ 3).
 - **Le visuel des plans** est celui de RBAR (il sera revu en une fois, plus tard, par décision du propriétaire).
