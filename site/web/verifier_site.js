@@ -1712,11 +1712,11 @@ const principal = async () => {
         const toast = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
         // (l'attente proprement dite : les relevés d'avant la dernière demi-seconde, où le message final peut déjà s'écrire)
         const pendant = vus.filter((v) => v.ms < ms - 500);
-        const secondes = pendant.map((v) => Number((/ · (\d+) s$/.exec(v.texte) || [])[1]));
+        const ATTENTE = /^Plans en cours — (écriture du fichier de l'ouvrage|chargement du moteur de RBAR( \(\d+(,\d)? Mo reçus\))?|dessin des feuilles par RBAR)…$/;
         return { nom: d.suggestedFilename(), entete: o.subarray(0, 8).toString('latin1'), octets: o.length, ms, toast,
-          attente: { releves: pendant.length, muets: pendant.filter((v) => !v.vu || !/^Plans en cours — .+ · \d+ s$/.test(v.texte)).map((v) => `${v.ms} ms : ${v.vu ? v.texte : '(rien à l\'écran)'}`),
-            etapes: [...new Set(pendant.map((v) => v.texte.replace(/^Plans en cours — /, '').replace(/ \(.*$| · \d+ s$/g, '')))],
-            mo: pendant.some((v) => / \(\d+(,\d)? Mo reçus\) · /.test(v.texte)), plusLongue: Math.max(0, ...secondes.filter(Number.isFinite)) } };
+          attente: { releves: pendant.length, muets: pendant.filter((v) => !v.vu || !ATTENTE.test(v.texte)).map((v) => `${v.ms} ms : ${v.vu ? v.texte : '(rien à l\'écran)'}`),
+            etapes: [...new Set(pendant.map((v) => v.texte.replace(/^Plans en cours — /, '').replace(/ \(.*$|…$/g, '')))],
+            mo: pendant.some((v) => / \(\d+(,\d)? Mo reçus\)…$/.test(v.texte)), dernier: pendant.length ? pendant[pendant.length - 1].ms : 0 } };
       };
       const coffrage = await plan('coffrage');
       const armatures = await plan('armatures');
@@ -1729,10 +1729,10 @@ const principal = async () => {
         && /^F1 - plan d'armatures\.pdf téléchargé \(\d+,\d s\)$/.test(armatures.toast.texte) && !coffrage.toast.erreur && !armatures.toast.erreur
         && armatures.ms < coffrage.ms,
       JSON.stringify({ coffrage: { ...coffrage, attente: undefined }, armatures: { ...armatures, attente: undefined } }));
-      verif(`exporter · ${fmt} : PENDANT le premier plan, le message reste à l'écran jusqu'au fichier — l'étape et les secondes, `
-        + 'qui avancent (le 12/11/2026, il s\'effaçait après 2,6 s : 30 s d\'écran muet sur la tablette du propriétaire)',
-      coffrage.attente.releves >= 4 && !coffrage.attente.muets.length && coffrage.attente.etapes.every((e) => /^(écriture du fichier de l'ouvrage|chargement du moteur de RBAR|dessin des feuilles par RBAR)$/.test(e))
-        && coffrage.attente.etapes.includes('dessin des feuilles par RBAR') && (coffrage.ms < 3500 || coffrage.attente.plusLongue >= 2),
+      verif(`exporter · ${fmt} : PENDANT le premier plan, le message reste à l'écran jusqu'au fichier et dit l'étape (le dessin `
+        + 'des feuilles, au moins) — le 12/11/2026, il s\'effaçait après 2,6 s : 30 s d\'écran muet sur la tablette du propriétaire',
+      coffrage.attente.releves >= 4 && !coffrage.attente.muets.length && coffrage.attente.etapes.includes('dessin des feuilles par RBAR')
+        && (coffrage.ms < 3500 || coffrage.attente.dernier > 3000),
       JSON.stringify(coffrage.attente));
       await toucher(B);
       await g.waitForTimeout(200);
@@ -1743,6 +1743,40 @@ const principal = async () => {
         !!fen && fen.vu && /G129:G132/.test(fen.texte) && /prêt à partir/.test(fen.texte), fen && fen.texte.slice(0, 200));
       await g.screenshot({ path: path.join(OUT, `site_exporter_controle_${nom}.png`) });
       verif(`exporter · ${fmt} : aucune erreur JavaScript`, !erreursPage.length, erreursPage.join(' | ').slice(0, 300));
+      await c.close();
+    }
+    // QUITTER l'écran pendant un plan : le message tenu (il ne s'efface pas seul) s'en va avec l'écran — rien ne le redit sur
+    // l'écran suivant ; le plan, fini en fond, n'est ni enregistré ni annoncé ; aucune erreur
+    {
+      const c = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, acceptDownloads: true });
+      const g = await c.newPage();
+      const erreursPage = [];
+      g.on('pageerror', (e) => erreursPage.push(e.message));
+      let telecharges = 0;
+      g.on('download', () => { telecharges += 1; });
+      await g.goto(`${BASE}/fondations-grues?chantier=${encodeURIComponent('Greenwood')}&nom=${encodeURIComponent('Fondation grue tour GT1')}`);
+      await pretEcran(g);
+      await g.click(B);
+      await g.waitForTimeout(150);
+      await g.click('#resultat .et-exp-l [data-plans="coffrage"]');
+      await g.waitForTimeout(400);
+      const lire = () => g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, chemin: location.pathname }; });
+      const avant = await lire();
+      // vers un autre module, par le volet des modules : une navigation de l'application, l'écran se démonte
+      await g.click('.nav [data-modules]');
+      await g.waitForTimeout(300);
+      const cible = await g.evaluate(() => { const a = [...document.querySelectorAll('.modpanel a.navitem')].find((x) => !/fondations-grues/.test(x.getAttribute('href') || ''));
+        return a ? a.getAttribute('href') : null; });
+      await g.click(`.modpanel a.navitem[href="${cible}"]`);
+      await g.waitForTimeout(600);
+      const apres = await lire();
+      await g.waitForTimeout(9000); // le moteur de RBAR finit son calcul, en fond
+      const fin = await lire();
+      verif('exporter · PC : quitter l\'écran PENDANT un plan — le message tenu s\'en va avec lui ; le plan, fini en fond, n\'est ni enregistré ni annoncé sur '
+        + 'l\'écran suivant ; aucune erreur JavaScript',
+      avant.vu && /^Plans en cours — /.test(avant.texte) && !!cible && apres.chemin !== avant.chemin && !(apres.vu && /^Plans en cours/.test(apres.texte))
+        && !(fin.vu && /^Plans en cours|téléchargé/.test(fin.texte)) && telecharges === 0 && !erreursPage.length,
+      JSON.stringify({ avant, cible, apres, fin, telecharges, erreursPage }));
       await c.close();
     }
     console.log(`exporter · durées des plans PDF (ms, du clic au fichier reçu ; processeur du poste de contrôle, pas celui d'une tablette ; `

@@ -19,8 +19,8 @@
 //     d'un calcul neuf (moteur/apercus/<clé>.json) ou le dernier enregistrement d'une note rouverte, montré neutre ;
 //     body[data-ecran] dit l'état : demarrage, apercu, pret, erreur.
 import * as N from "./notes.js";
-import { toast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, SUITE_LECTURE, SUITE_APERCU,
-  ACTIONS_SANS_MOTEUR, texteEchecDemarrage } from "./commun.js";
+import { toast, retirerToast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, SUITE_LECTURE,
+  SUITE_APERCU, ACTIONS_SANS_MOTEUR, texteEchecDemarrage } from "./commun.js";
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
@@ -1035,21 +1035,28 @@ export function ouvrirEtabli(hote, ctx) {
     // moteur de RBAR (js/plans.js) en fait les feuilles ; celle demandée est enregistrée sous ce nom. Un refus, de l'un ou
     // de l'autre, est dit tel quel ; la durée aussi — mesurée sur l'appareil même (RBAR la demande pour la tablette et le
     // téléphone).
-    // Ce que l'écran DIT pendant un plan : l'étape et les secondes, redites chaque seconde jusqu'au fichier ou au refus. Au
-    // poste de contrôle, le premier plan vient en 6 s ; sur une tablette, le moteur de RBAR se télécharge, démarre et dessine
-    // bien plus lentement — et le message de 2,6 s laissait ensuite l'écran muet : le propriétaire a attendu 30 s sans savoir
-    // si le plan venait (12/11/2026). L'échec reste 20 s à l'écran : il se lit en entier et se rapporte.
+    // Ce que l'écran DIT pendant un plan : un message TENU (il ne s'efface pas seul) qui dit l'étape — l'écriture du fichier,
+    // le chargement du moteur de RBAR (les Mo reçus, redits chaque seconde par le travailleur), le dessin des feuilles —
+    // jusqu'au message final (le fichier et sa durée, ou le refus) ; « Calcul… » tourne à côté. Au poste de contrôle, le
+    // premier plan vient en 6 s ; sur une tablette, bien plus lentement — et le message de 2,6 s laissait ensuite l'écran
+    // muet : le propriétaire a attendu 30 s sans savoir si le plan venait (12/11/2026). Aucune minuterie : l'écran fermé
+    // pendant le plan, le message tenu s'en va avec lui (le moteur finit son calcul, rien n'est enregistré). L'échec reste
+    // 20 s à l'écran : il se lit en entier et se rapporte.
     const ETAPES_PLAN = { fichier: "écriture du fichier de l'ouvrage", chargement: "chargement du moteur de RBAR", calcul: "dessin des feuilles par RBAR" };
     const secondes = (ms) => (ms / 1000).toFixed(1).replace(".", ",");
     async function faireUnPlan(b) {
       occupe(1);
       const debut = performance.now();
-      let ou = { etape: "fichier", mo: null };
-      const dire = () => toast(`Plans en cours — ${ETAPES_PLAN[ou.etape] || ou.etape}`
-        + (ou.etape === "chargement" && ou.mo ? ` (${String(ou.mo).replace(".", ",")} Mo reçus)` : "")
-        + ` · ${Math.floor((performance.now() - debut) / 1000)} s`);
-      dire();
-      const veille = setInterval(dire, 1000);
+      let tenu = "";
+      const dire = (ou) => {
+        if (fini()) return;
+        tenu = `Plans en cours — ${ETAPES_PLAN[ou.etape] || ou.etape}`
+          + (ou.etape === "chargement" && ou.mo ? ` (${String(ou.mo).replace(".", ",")} Mo reçus)` : "") + "…";
+        toast(tenu, false, Infinity);
+      };
+      const lacher = () => retirerToast(tenu);
+      signal.addEventListener("abort", lacher, { once: true });
+      dire({ etape: "fichier" });
       try {
         const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
         let r;
@@ -1062,7 +1069,7 @@ export function ouvrirEtabli(hote, ctx) {
           toast(`Plans refusés : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu le fichier de l'ouvrage"}`, true);
           return;
         }
-        const p = await plansPdf(f.texte, f.nom, { suivre: (e) => { ou = e; dire(); } });
+        const p = await plansPdf(f.texte, f.nom, { suivre: dire });
         if (fini()) return;
         if (!p.rapport || !p.rapport.ok) {
           toast(`Plans refusés par RBAR : ${(p.rapport && p.rapport.refus) || "sans raison donnée"}`, true);
@@ -1079,7 +1086,8 @@ export function ouvrirEtabli(hote, ctx) {
       } catch (e) {
         toast(`Plans : ${(e && e.message) || e}`, true, 20000);
       } finally {
-        clearInterval(veille);
+        signal.removeEventListener("abort", lacher);
+        if (fini()) lacher();
         occupe(-1);
       }
     }

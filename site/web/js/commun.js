@@ -35,7 +35,8 @@ let retenus = null;
 export function retenirToasts() { retenus = []; }
 export function lacherToasts() { const r = retenus || []; retenus = null; return r; }
 // (duree_ms : un message qui doit rester plus longtemps à l'écran — l'échec d'un plan PDF, que l'on doit pouvoir lire en
-//  entier et rapporter ; sans elle, 2,6 s, et 7 s pour une erreur)
+//  entier et rapporter ; sans elle, 2,6 s, et 7 s pour une erreur. Infinity : un message TENU, qui ne s'efface pas seul —
+//  l'attente d'un plan PDF, jusqu'au message suivant ; son écran le retire s'il se ferme avant : retirerToast)
 export function toast(texte, erreur = false, duree_ms = 0) {
   if (retenus) { retenus.push([texte, !!erreur]); return; }
   const t = document.getElementById("toast");
@@ -44,7 +45,14 @@ export function toast(texte, erreur = false, duree_ms = 0) {
   t.classList.toggle("erreur", !!erreur);
   t.hidden = false;
   clearTimeout(minuterie);
-  minuterie = setTimeout(() => { t.hidden = true; }, duree_ms > 0 ? duree_ms : (erreur ? 7000 : 2600));
+  minuterie = duree_ms === Infinity ? null : setTimeout(() => { t.hidden = true; }, duree_ms > 0 ? duree_ms : (erreur ? 7000 : 2600));
+}
+// un message tenu s'en va — s'il est encore celui qu'on voit (un autre l'a peut-être remplacé depuis)
+export function retirerToast(texte) {
+  const t = document.getElementById("toast");
+  if (!t || t.hidden || !texte || t.textContent !== texte) return;
+  clearTimeout(minuterie);
+  t.hidden = true;
 }
 
 export function esc(s) {
