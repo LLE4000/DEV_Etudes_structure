@@ -7,6 +7,12 @@ dessins (la barre et sa déformée par axe, la section, les courbes χ(λ̄)), r
 NOUVEAU CALCUL : l'écran Streamlit (modules/flambement.py) affiche « Page en construction » ; il n'y a donc aucune
 parité à tenir, et l'avertissement « nouveau calcul, à valider par le bureau » est posé en tête du résultat. Le calcul
 est celui du moteur ``acier/flambement`` ; ce fichier MET EN FORME, il ne calcule rien.
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 11/11/2026) : à gauche la ligne
+de la barre ouverte (son nom, la liste, copier, supprimer) et cinq rubriques en accordéon, la dernière (« Hypothèses »)
+secondaire ; au centre les vues sous leur en-tête technique ; à droite la tête, le verdict et le bloc « Vérifications »
+— le flambement autour de chaque axe et la résistance de la section, chacune disant ce qu'elle compare (N_Ed face à sa
+résistance) ; chaque ligne ouvre la fenêtre de calcul.
 """
 import copy
 import math
@@ -21,9 +27,12 @@ from acier.profiles import familles as FA
 
 from . import commun as C
 from . import dessin_flambement as DF
+from . import etabli_compact as E
 
 MODULE = "flambement"
 PAGE = "flambement"
+GENRE = E.Genre("Barres", "la barre", "cette barre", "une barre")
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
 PARCOURS = [
     # une barre élancée en S355 (classe 4 : l'aire efficace), une cornière, un tube formé à froid, un U, des maintiens,
     # un coefficient et une longueur saisis, et les refus
@@ -87,21 +96,30 @@ def _nom_suivant(etat: Dict) -> str:
     return f"P{i}"
 
 
+def _indice(x) -> int:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return 0
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les barres de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la dernière)."""
+    """Les barres de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte — la copie
+    s'insère juste après), en supprimer une (jamais la dernière)."""
     bs = etat["barres"]
     if action == "activer":
-        etat["actif"] = min(max(0, int(index or 0)), len(bs) - 1)
+        etat["actif"] = min(max(0, _indice(index)), len(bs) - 1)
     elif action == "ajouter":
         bs.append(EN.nouvelle_barre(_nom_suivant(etat)))
         etat["actif"] = len(bs) - 1
     elif action == "dupliquer":
-        b = copy.deepcopy(bs[etat["actif"]])
+        i = etat["actif"] if index is None else min(max(0, _indice(index)), len(bs) - 1)
+        b = copy.deepcopy(bs[i])
         b["nom"] = f"{b.get('nom') or 'Barre'} (copie)"
-        bs.append(b)
-        etat["actif"] = len(bs) - 1
+        bs.insert(i + 1, b)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(bs) > 1:
-        i = min(max(0, int(index or 0)), len(bs) - 1)
+        i = min(max(0, _indice(index)), len(bs) - 1)
         del bs[i]
         if etat["actif"] > i or etat["actif"] >= len(bs):
             etat["actif"] = max(0, etat["actif"] - 1)
@@ -249,9 +267,13 @@ def _contour(p: Dict):
 
 
 def _axe_form(a: str, ax: Dict, r: Optional[Dict], nom_axe: str, fab: str, L: float) -> str:
+    """Une rubrique « Flambement autour de … » : les appuis dans ce plan (ce que le plan veut dire est au survol de ⓘ), le
+    champ que les appuis demandent, puis le rappel de ce qui en résulte : k, L_cr et la courbe."""
     L_ = C.ligne
-    s = (L_("Appuis", C.choix(["axes", a, "appuis"], ax["appuis"], [(k, t) for k, t, _ in EN.APPUIS]), full=True)
-         + C.aide(f"Autour de {nom_axe} : {_plans(fab)[a]}. Le premier appui nommé est le pied de la barre."))
+    plan = f"Autour de {nom_axe} : {_plans(fab)[a]}. Le premier appui nommé est le pied de la barre."
+    if ax["appuis"] not in ("AA", "k", "L"):
+        plan += " Le coefficient est celui d'Euler ; un coefficient de pratique se saisit avec « Coefficient k saisi »."
+    s = L_("Appuis", C.choix(["axes", a, "appuis"], ax["appuis"], [(k, t) for k, t, _ in EN.APPUIS]), aide=plan, full=True)
     if ax["appuis"] == "AA":
         s += L_("maintiens", C.num(["axes", a, "maintiens"], ax["maintiens"], "", entier=True, mini=0, maxi=EN.MAINTIENS_MAX), "n",
                 "Maintiens latéraux intermédiaires, équidistants, dans ce plan (lisses, butons) : L_cr = L / (n + 1).")
@@ -259,9 +281,6 @@ def _axe_form(a: str, ax: Dict, r: Optional[Dict], nom_axe: str, fab: str, L: fl
         s += L_("coefficient", C.num(["axes", a, "k"], ax["k"], "", dec=4), "k", "L_cr = k·L (0,85 de pratique pour encastrée–articulée…).")
     elif ax["appuis"] == "L":
         s += L_("longueur", C.num(["axes", a, "Lcr"], ax["Lcr"], "m", dec=4), "L<sub>cr</sub>", "Saisie directement, en mètres.")
-    else:
-        s += C.aide(f"Coefficient théorique d'Euler k = {_k(EN.K_APPUIS[ax['appuis']])} ; un coefficient de pratique se saisit "
-                    "avec « Coefficient k saisi ».")
     lcr = EN.longueur_flambement(ax, L)
     # k et L_cr rappelés sous le menu : sur une tablette en portrait, le libellé du menu est coupé avant « k = … »
     s += C.aide(f"k = {_k(EN.coefficient(ax, L))} · L<sub>cr</sub> = {_m(lcr)} m"
@@ -270,6 +289,8 @@ def _axe_form(a: str, ax: Dict, r: Optional[Dict], nom_axe: str, fab: str, L: fl
 
 
 def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
+    """Les cinq rubriques de la barre ouverte : 1 Barre, 2 Effort et longueur, 3 et 4 le flambement autour de chaque axe,
+    5 Hypothèses (secondaire). Le nom de la barre se modifie sur sa ligne, en tête de la colonne."""
     b = _barre(etat)
     p = SE.profil(b["profil"])
     fab = SE.FABRICATION[p["famille"]]
@@ -283,10 +304,9 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
                   f"{'≤ 40' if t <= 40 else '≤ 80'} mm) · classe {sec['classe'] if fab != 'L' or sec['classe'] == 4 else '1 à 3'} en compression")
     else:
         fy_txt = f"Calcul impossible : {C.esc((r or {}).get('motif', ''))}"
-    s1 = (L_("Nom", C.texte(["nom"], b.get("nom"), "ex. P1"), full=True)
-          + L_("Famille", C.choix(["famille"], p["famille"], fams), full=True)
-          + L_("Profilé", C.choix(["profil"], b["profil"], profs), full=True)
-          + C.aide("Le sélecteur du résultat (la ligne « Section ») trie les profilés par masse et marque le plus léger qui tient (★).")
+    s1 = (L_("Famille", C.choix(["famille"], p["famille"], fams), full=True)
+          + L_("Profilé", C.choix(["profil"], b["profil"], profs), full=True,
+               aide="Le sélecteur du résultat (la ligne « Section ») trie les profilés par masse et marque le plus léger qui tient (★).")
           + L_("Nuance", C.segments(["nuance"], b["nuance"], [(n, n) for n in NUANCES]), full=True)
           + C.aide(fy_txt))
     s2 = (L_("compression", C.num(["N"], b["N"], "kN"), "N<sub>Ed</sub>", "Valeur de calcul à l'ELU ; compression positive.")
@@ -297,15 +317,28 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
         ax = b["axes"][a]
         lcr = EN.longueur_flambement(ax, b["L"])
         resume = f"{C.esc(EN.LIB_APPUIS[ax['appuis']].split(' · ')[0])} · L<sub>cr</sub> {_m(lcr)} m"
-        secs_axes += C.section(3 + i, f"Flambement autour de {noms_axes[i]}", resume, _axe_form(a, ax, r, noms_axes[i], fab, b["L"]), True, f"ax{a}")
-    s5 = (L_("sections", C.num(["gamma_M0"], b["gamma_M0"], ""), "γ<sub>M0</sub>", "Résistance de la section, §6.2.4 ; ANB belge : 1,0.")
-          + L_("instabilités", C.num(["gamma_M1"], b["gamma_M1"], ""), "γ<sub>M1</sub>", "Flambement, §6.3.1 ; ANB belge : 1,0.")
+        secs_axes += C.section(3 + i, f"Flambement autour de {noms_axes[i]}", resume, _axe_form(a, ax, r, noms_axes[i], fab, b["L"]), False, f"ax{a}")
+    s5 = (C.ligne2(("γ<sub>M0</sub>", C.num(["gamma_M0"], b["gamma_M0"], ""), "Résistance de la section, §6.2.4 ; ANB belge : 1,0."),
+                   ("γ<sub>M1</sub>", C.num(["gamma_M1"], b["gamma_M1"], ""), "Flambement, §6.3.1 ; ANB belge : 1,0."))
           + C.aide("E = 210 000 N/mm² · f<sub>y</sub> du Tableau 3.1 selon l'épaisseur · courbes du Tableau 6.2 selon le profilé, l'axe et "
                    "l'épaisseur · classe 4 : aire efficace de l'EN 1993-1-5 §4.4."))
-    return (C.section(1, f"Barre {C.esc(b.get('nom') or '')}", f"{C.esc(b['profil'])} · {b['nuance']}", s1, True, "br")
-            + C.section(2, "Effort et longueur", f"N<sub>Ed</sub> {C.nb(b['N'])} kN · L {_m(b['L'])} m", s2, True, "ef")
+    return (C.section(1, "Barre", f"{C.esc(b['profil'])} · {b['nuance']}", s1, True, "br")
+            + C.section(2, "Effort et longueur", f"N<sub>Ed</sub> {C.nb(b['N'])} kN · L {_m(b['L'])} m", s2, False, "ef")
             + secs_axes
-            + C.section(5, "Méthode", f"γ<sub>M0</sub> {_g(b['gamma_M0'])} · γ<sub>M1</sub> {_g(b['gamma_M1'])} · ANB", s5, False, "me"))
+            + C.section(5, "Hypothèses", f"γ<sub>M0</sub> {_g(b['gamma_M0'])} · γ<sub>M1</sub> {_g(b['gamma_M1'])} · ANB", s5, False, "me", secondaire=True))
+
+
+def _dims(b: Dict) -> str:
+    """« · HEA 200 · 4,00 m » : ce qu'on lit d'une barre dans la liste de la note (HTML)."""
+    return f"· {C.esc(_nom(b['profil']))} · {_m(b['L'])}{C.NBSP}m"
+
+
+def arbre(etat: Dict, r: Optional[Dict] = None) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne de la barre
+    ouverte (son nom, qu'un clic modifie ; la liste des barres de la note ; copier, supprimer), que l'écran pose dans
+    l'en-tête du panneau, puis ses cinq rubriques."""
+    noms = [(b.get("nom") or f"P{i + 1}", _dims(b), False) for i, b in enumerate(etat["barres"])]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, r), "barre", compact=True)
 
 
 # ------------------------------------------------------------------ le résultat
@@ -340,16 +373,8 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    items = ""
-    for i, (b, r) in enumerate(zip(etat["barres"], resultats)):
-        t = _taux(r)
-        txt = f"{C.pc(C.pct(t))}{C.NBSP}%" if t is not None else "—"
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["barres"]) > 1 else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(b.get("nom") or f"Barre {i + 1}")} '
-                  f'<span>· {C.esc(_nom(b["profil"]))} · {_m(b["L"])} m</span></span><span class="pct {_niv(t)}">{txt}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["barres"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier la barre ouverte">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter une barre</div></div>')
+    """Rien : les barres de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 def _nouveau() -> str:
@@ -549,74 +574,104 @@ def _extents(p: Dict) -> Dict[str, float]:
     return {"y": ez or float(p.get("h") or p.get("d") or 100), "z": ey or float(p.get("b") or p.get("d") or 100)}
 
 
+def _classe_txt(sec: Dict) -> str:
+    return "classe 1 à 3" if sec["fabrication"] == "L" and sec["classe"] < 4 else f"classe {sec['classe']}"
+
+
+def _entete(titre: str, r: Dict, b: Dict, legende: str = "") -> str:
+    """L'en-tête technique d'une vue : le profilé et sa nuance ; la longueur de la barre ; la longueur de flambement et la
+    courbe de chaque axe ; à droite, l'effort de compression. Les lignes sont du TEXTE : « Lcr », sans indice."""
+    lignes = [f"L = {_m(b['L'])} m"]
+    if r.get("axes"):
+        lignes.append(" · ".join(f"{ax['nom']} : Lcr {_m(ax['Lcr'])} m, courbe {ax['courbe']}" for ax in (r["axes"]["y"], r["axes"]["z"])))
+    return E.entete(titre.upper(), f"{C.esc(_nom(r['profil']))} · {r['nuance']}", lignes, [("N", "Ed", b["N"], "kN")], legende)
+
+
 def resultat(etat: Dict) -> Dict:
+    """Le calcul de la barre ouverte et sa mise en forme : la tête (le nom, le profilé, l'effort, la longueur),
+    l'avertissement « nouveau calcul », le verdict, le bloc « Vérifications » (deux lignes par vérification : ce qu'elle
+    compare, puis sa jauge), les avertissements du moteur, la masse ; la fenêtre de calcul, les vues sous leur en-tête
+    technique, la colonne de gauche, le résumé de la note."""
     b = _barre(etat)
     r = _calculer(b)
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["barres"])]
     p = SE.profil(b["profil"])
     nom = b.get("nom") or "Barre"
+    sous = f"{C.esc(_nom(r['profil']))} · {r['nuance']}"
+    tete = E.tete_resultats(C.esc(nom), f"{sous} · N<sub>Ed</sub> = {C.nb(b['N'])} kN · L = {_m(b['L'])} m")
     vues = []
     if r["statut"] == MO.IMPOSSIBLE:
-        niv = "x"
-        corps = (f'{_nouveau()}<div class="verdict"><div class="gov"><b>Calcul impossible</b>{C.esc(r["motif"])}</div></div>'
-                 f'<div class="els"><div class="elgrp">{C.esc(nom)} · {C.esc(_nom(r["profil"]))} · {r["nuance"]}</div>'
-                 + C.ligne_res("Section", C.esc(_nom(r["profil"])), None, "c", pk="profil") + '</div>'
+        corps = (f'{tete}{_nouveau()}<div class="verdict"><div class="gov"><b>Calcul impossible</b>{C.esc(r["motif"])}</div></div>'
+                 f'<div class="els">' + C.ligne_res("Section", C.esc(_nom(r["profil"])), None, "c", pk="profil") + '</div>'
                  + C.message("Choisissez un autre profilé dans le sélecteur, ou une autre nuance.", True))
         volets = ""
         vues.append({"cle": "section", "titre": f"Section {_nom(p['nom'])}", "court": "Section", "svg": DF.section("fl_section", p, r, _fiche(p, r)),
-                     "legende": r["motif"]})
+                     "legende": r["motif"], "entete": _entete("Section", r, b, r["motif"])})
     else:
         niv = C.niveau(r["taux_max"])
         g = r["gouvernant"]
         v_g = next(v for v in r["verifications"] if v["cle"] == g)
         li_g = next(li for li in _tableau(r) if li["gov"])
-        verdict = (f'<div class="verdict">{C.chip(C.pct(r["taux_max"]), niv, xl=True)}<div class="gov"><b>{C.esc(v_g["nom"])}</b>'
-                   f'{li_g["valeur"]} {"≤" if v_g["taux"] <= 1 else "&gt;"} {li_g["limite"]}</div></div>')
+        verdict = (f'<div class="verdict" data-calcul="s0" title="Voir le calcul">{C.chip(C.pct(r["taux_max"]), niv, xl=True)}<div class="gov">'
+                   f'<b>{C.esc(v_g["nom"])}</b>{li_g["valeur"]} {"≤" if v_g["taux"] <= 1 else "&gt;"} {li_g["limite"]}</div></div>')
         opt = _optimal(b)
         leger = f"Plus léger qui tient : {_nom(opt['nom'])} · {C.pc(C.pct(opt['taux']))} %" if opt and opt["nom"] != b["profil"] else ""
         sec = r["section"]
-        rows = f'<div class="elgrp">{C.esc(nom)} · {C.esc(_nom(r["profil"]))} · {r["nuance"]}<span class="pct {niv}">{C.pc(C.pct(r["taux_max"]))}{C.NBSP}%</span></div>'
+        n_ed = f"N<sub>Ed</sub> {C.nb(r['N'])}"
+        rows = ""
         for v in r["verifications"]:
+            signe = "≤" if v["taux"] <= 1 else "&gt;"
             if v["cle"] in ("y", "z"):
                 ax = r["axes"][v["cle"]]
-                piece = f"L<sub>cr</sub> = {_m(ax['Lcr'])} m · courbe {ax['courbe']}"
-                rows += C.ligne_res(f"Flambement {ax['nom']}", piece, C.pct(v["taux"]), C.niveau(v["taux"]), calcul="fl", gov=g == v["cle"])
+                cmp_ = f"{n_ed} {signe} N<sub>b,{ax['nom'][0]},Rd</sub> {_kN(ax['NbRd'])} kN · courbe {ax['courbe']}"
+                rows += C.ligne_verif(f"Flambement {ax['nom']}", cmp_, C.pct(v["taux"]), C.niveau(v["taux"]), calcul="s0",
+                                      piece=f"L<sub>cr</sub> {_m(ax['Lcr'])}{C.NBSP}m", gov=g == v["cle"])
             else:
-                cl = "classe 1 à 3" if sec["fabrication"] == "L" and sec["classe"] < 4 else f"classe {sec['classe']}"
-                rows += C.ligne_res("Section", f"{C.esc(_nom(r['profil']))} · {cl}", C.pct(v["taux"]), C.niveau(v["taux"]), calcul="fl", pk="profil",
-                                    gov=g == "section", leger=leger)
+                cmp_ = f"{n_ed} {signe} N<sub>c,Rd</sub> {_kN(sec['NcRd'])} kN · {_classe_txt(sec)}"
+                rows += C.ligne_verif("Section", cmp_, C.pct(v["taux"]), C.niveau(v["taux"]), calcul="s0", pk="profil", piece=C.esc(_nom(r["profil"])),
+                                      gov=g == "section", leger=leger)
+        efforts = f"f<sub>y</sub> = {C.fr(sec['fy'], 0)} N/mm² · {_classe_txt(sec)} en compression · γ<sub>M1</sub> = {_g(b['gamma_M1'])}"
+        bloc = E.bloc(0, "Vérifications", CLASSES_BLOC.get(niv, "inc"), f"{C.STATUTS[niv][1]} · {C.pc(C.pct(r['taux_max']))}{C.NBSP}%", efforts, rows, theme=True)
         messages = "".join(C.message(_grecs(C.symb_math(a))) for a in r["avertissements"][1:])
         if any(ax["negligeable"] for ax in r["axes"].values()):
             messages += C.message(f"{BARRE} ≤ 0,2 autour d'un axe : χ = 1, le flambement y est sans effet (§6.3.1.2(4)).")
-        corps = f'{_nouveau()}{verdict}<div class="els">{rows}</div>{messages}'
+        corps = f'{tete}{_nouveau()}{verdict}<div class="et-blocs">{bloc}</div>{messages}'
         detail = (f'<div class="ck-g"><div class="ck-t">Matériau et section</div>{_fx(_classe_lignes(r))}</div>'
                   + "".join(f'<div class="ck-g"><div class="ck-t">Flambement autour de {r["axes"][a]["nom"]}</div>{_fx(_axe_lignes(r, a))}</div>'
                             for a in ("y", "z")))
         pied_ck = ('<div class="ck-autres">Nouveau calcul EN 1993-1-1 §6.3.1, à valider par le bureau. Non vérifiés ici : flambement par '
                    'torsion et flexion-torsion (§6.3.1.4), déversement, flexion composée (§6.3.3).</div>')
-        volets = C.fenetre_calcul("fl", f"{C.esc(nom)} · {C.esc(_nom(r['profil']))} · {r['nuance']}",
+        volets = C.fenetre_calcul("s0", f"{C.esc(nom)} · {C.esc(_nom(r['profil']))} · {r['nuance']}",
                                   f"N<sub>Ed</sub> = {C.nb(r['N'])} kN · L = {_m(r['L'])} m · EN 1993-1-1 §6.3.1",
                                   _hypotheses(r), _tableau(r), detail, pied_ck)
         ay, az = r["axes"]["y"], r["axes"]["z"]
-        vues.append({"cle": "barre", "titre": f"Barre {nom}", "court": "Barre",
-                     "svg": DF.barre("fl_barre", r, _extents(p), nom),
-                     "legende": f"{_nom(r['profil'])} · L = {_m(r['L'])} m"})
-        vues.append({"cle": "section", "titre": f"Section {_nom(p['nom'])}", "court": "Section", "svg": DF.section("fl_section", p, r, _fiche(p, r)),
-                     "legende": f"{'classe 1 à 3' if sec['fabrication'] == 'L' and sec['classe'] < 4 else 'classe ' + str(sec['classe'])} · "
-                                f"courbes {ay['courbe']} ({ay['nom']}) et {az['courbe']} ({az['nom']}) · {r['courbes']['regle']}"})
-        vues.append({"cle": "courbes", "titre": "Courbes de flambement", "court": "Courbes χ", "svg": DF.courbes("fl_courbes", r),
-                     "legende": "χ selon l'élancement réduit, courbes a0 à d (Tableau 6.1), et le point de chaque axe",
-                     "echelle": False})                  # un graphique : pas de « mm · à l'échelle » (site/web/js/etabli.js)
+        regle = r["courbes"]["regle"]
+        # (titre de l'en-tête, ce qu'on lit sur le dessin — en texte, sans indice : « tf », pas « t_f »)
+        for cle, titre, court, svg, legende, ent, lu, echelle in (
+                ("barre", f"Barre {nom}", "Barre", DF.barre("fl_barre", r, _extents(p), nom), f"{_nom(r['profil'])} · L = {_m(r['L'])} m",
+                 "Barre", "le mode de flambement dans chaque plan, sa longueur de flambement et son taux", True),
+                ("section", f"Section {_nom(p['nom'])}", "Section", DF.section("fl_section", p, r, _fiche(p, r)),
+                 f"{_classe_txt(sec)} · courbes {ay['courbe']} ({ay['nom']}) et {az['courbe']} ({az['nom']}) · {regle}",
+                 "Section", f"{_classe_txt(sec)} en compression · {regle.replace('_', '')}", True),
+                # un graphique : pas de « mm · à l'échelle » (site/web/js/etabli.js)
+                ("courbes", "Courbes de flambement", "Courbes χ", DF.courbes("fl_courbes", r),
+                 "χ selon l'élancement réduit, courbes a0 à d (Tableau 6.1), et le point de chaque axe",
+                 "Courbes de flambement", "χ selon l'élancement réduit, courbes a0 à d (Tableau 6.1), et le point de chaque axe", False)):
+            v = {"cle": cle, "titre": titre, "court": court, "svg": svg, "legende": legende, "entete": _entete(ent, r, b, lu)}
+            if not echelle:
+                v["echelle"] = False
+            vues.append(v)
     if len(etat["barres"]) > 1:
-        vues.append({"cle": "note", "titre": "Toutes les barres", "court": "Toutes", "svg": _vue_note(etat, resultats),
-                     "legende": f"{len(etat['barres'])} barres · la ligne surlignée est ouverte"})
+        legende = f"{len(etat['barres'])} barres · la ligne surlignée est ouverte"
+        vues.append({"cle": "note", "titre": "Toutes les barres", "court": "Toutes", "svg": _vue_note(etat, resultats), "legende": legende,
+                     "entete": E.entete("TOUTES LES BARRES", f"{len(etat['barres'])} barres dans la note", [], None, "la ligne surlignée est ouverte")})
     pied = (f'<div class="pfoot"><div class="mass"><span>Masse de la barre · {C.fr(p["masse"], 1)} kg/m × {_m(b["L"])} m</span>'
             f'<b>{C.fr(p["masse"] * b["L"], 0)}{C.NBSP}kg</b></div><div class="legend">{C.legende()}</div></div>')
-    # la phrase sous le titre de la feuille : courte (les L_cr sont sur le dessin), sinon un nom long la coupe
-    phrase = f"{C.esc(_nom(r['profil']))} · {r['nuance']} · N<sub>Ed</sub> = {C.nb(b['N'])} kN · L = {_m(b['L'])} m"
-    return {"resultat": f'<div class="pbody">{corps}</div>{pied}', "volets": volets, "vues": vues, "phrase": phrase,
-            "statut_html": C.statut(niv), "resume": resume_note(etat, resultats), "donnees": formulaire(etat, r),
-            "elements": elements(etat, resultats)}
+    # le statut de la NOTE (dès deux barres) : le moins bon de ses éléments ; seule, le verdict le dit déjà
+    nivs = [_niv(_taux(x)) for x in resultats]
+    statut = C.statut(next((n_ for n_ in ("x", "r", "f") if n_ in nivs), "p")) if len(resultats) > 1 else ""
+    return {"resultat": f'<div class="pbody">{corps}</div>{pied}', "volets": volets, "vues": vues, "phrase": "", "statut_html": statut,
+            "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ le sélecteur de profilés

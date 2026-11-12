@@ -55,17 +55,17 @@ res = r0["resultat"]
 chk("l'avertissement « nouveau calcul, à valider par le bureau » est EN TÊTE du résultat",
     res.index("Nouveau calcul") < res.index('class="verdict"') and "à valider par le bureau" in res)
 chk("… et dans la fenêtre de calcul", "à valider par le bureau" in r0["volets"])
-chk("le verdict porte le taux du moteur, arrondi sans quitter sa bande (C.pct)", f'{C.pc(C.pct(m0["taux_max"]))}' in texte(res.split('class="els"')[0])
+chk("le verdict porte le taux du moteur, arrondi sans quitter sa bande (C.pct)", f'{C.pc(C.pct(m0["taux_max"]))}' in texte(res.split('class="et-blocs"')[0])
     and C.pct(m0["taux_max"]) == 63)
 chk("le verdict nomme la vérification gouvernante et sa comparaison N_Ed ≤ N_b,z,Rd = 794,0 kN",
-    "Flambement autour de z-z" in res and "794,0" in texte(res.split('class="els"')[0]))
+    "Flambement autour de z-z" in res and "794,0" in texte(res.split('class="et-blocs"')[0]))
 for v in m0["verifications"]:
     chk(f"ligne « {v['nom']} » : taux {C.pct(v['taux'])} % du moteur, sa couleur", f'<span class="pct {C.niveau(v["taux"])}">{C.pc(C.pct(v["taux"]))}' in res)
-chk("trois lignes de résultat, chacune ouvre la fenêtre de calcul", res.count('class="el') - res.count('class="els"') - res.count("elgrp") == 3
-    and res.count('data-calcul="fl"') == 3 and 'id="ck-fl"' in r0["volets"])
+chk("trois lignes de résultat (deux lignes chacune : la comparaison, la jauge), chacune ouvre la fenêtre de calcul",
+    res.count('class="el vc') == 3 and len(re.findall(r'class="el vc[^"]*" data-calcul="s0"', res)) == 3 and 'id="ck-s0"' in r0["volets"])
 chk("le profilé est sur la ligne « Section » et ouvre le sélecteur (★ : un plus léger tient)", 'data-pk="profil"' in res and "Plus léger qui tient : HEA 180" in res)
 chk("le pied : la masse de la barre (42,3 kg/m × 4,00 m = 169 kg) et la légende", "169" in texte(res.split("pfoot")[1]) and 'class="legend"' in res)
-chk("le statut de la note : Conforme", "Conforme" in r0["statut_html"])
+chk("une barre seule : pas de statut de note (le verdict le dit déjà)", r0["statut_html"] == "")
 chk("le résumé : 63 %, vert pâle, la barre et la vérification gouvernante",
     r0["resume"] == {"taux": 63, "niveau": "p", "statut": "Conforme", "gouvernant": "P1 · HEA 200 · flambement z-z"}, r0["resume"])
 
@@ -84,7 +84,7 @@ chk("fenêtre : le tableau des trois vérifications, la gouvernante marquée", r
 
 # ------------------------------------------------------------------ 3. le cadre Données
 d = r0["donnees"]
-for n, t in ((1, "Barre P1"), (2, "Effort et longueur"), (3, "Flambement autour de y-y"), (4, "Flambement autour de z-z"), (5, "Méthode")):
+for n, t in ((1, "Barre"), (2, "Effort et longueur"), (3, "Flambement autour de y-y"), (4, "Flambement autour de z-z"), (5, "Hypothèses")):
     chk(f"section {n} « {t} » numérotée et repliable", f'<span class="n">{n}</span><span class="tt">{t}</span>' in d)
 for chemin in ("nom", "famille", "profil", "nuance", "N", "L", "axes/y/appuis", "axes/z/appuis", "axes/y/maintiens", "axes/z/maintiens", "gamma_M0", "gamma_M1"):
     chk(f"champ « {chemin} » présent", f'data-chemin="{chemin}"' in d)
@@ -119,10 +119,10 @@ r = modif(e2, ["axes", "z", "appuis"], "L")
 chk("passer à « longueur saisie » part de la L_cr en cours (6 / 3 = 2,00 m)", r["etat"]["barres"][0]["axes"]["z"]["Lcr"] == 2.0
     and 'data-chemin="axes/z/Lcr"' in r["donnees"])
 r = modif(e1, ["axes", "y", "appuis"], "EA")
-chk("encastrée–articulée : L_cr,y = 0,7 × 6,00 = 4,20 m, dans le résultat et la fenêtre", "L<sub>cr</sub> = 4,20 m" in r["resultat"]
+chk("encastrée–articulée : L_cr,y = 0,7 × 6,00 = 4,20 m, dans le résultat et la fenêtre", "Lcr 4,20 m" in texte(r["resultat"])
     and "0,7 × 6,00" in texte(r["volets"]))
 r = modif(e1, ["axes", "z", "maintiens"], "1")
-chk("un maintien autour de z : L_cr,z = 6,00 / (1 + 1) = 3,00 m", "6,00 / (1 + 1)" in texte(r["volets"]) and "3,00 m" in r["resultat"])
+chk("un maintien autour de z : L_cr,z = 6,00 / (1 + 1) = 3,00 m", "6,00 / (1 + 1)" in texte(r["volets"]) and "Lcr 3,00 m" in texte(r["resultat"]))
 r = modif(e0, ["nuance"], "S460")
 chk("S460 : f_y = 460 et les courbes du S460", r["etat"]["barres"][0]["nuance"] == "S460" and "460 N/mm²" in texte(r["volets"]))
 
@@ -152,7 +152,7 @@ r = req(action="calculer", etat=e)
 chk("N_Ed = 0 : taux nul, conforme", r["resume"]["taux"] == 0 and r["resume"]["niveau"] == "p")
 e = modif(e0, ["N"], "5000")["etat"]
 r = req(action="calculer", etat=e)
-chk("N_Ed = 5 000 kN : non conforme, rouge, « > » dans le verdict", r["resume"]["niveau"] == "r" and "Non conforme" in r["statut_html"]
+chk("N_Ed = 5 000 kN : non conforme, rouge, « > » dans le verdict", r["resume"]["niveau"] == "r" and '<section class="et-bloc nok"' in r["resultat"] and "Non conforme" in r["resultat"]
     and "&gt; N<sub>b,z,Rd</sub>" in r["resultat"])
 e = modif(e0, ["L"], "0,5")["etat"]
 r = req(action="calculer", etat=e)
@@ -196,7 +196,7 @@ chk("deux barres : la vue « Toutes les barres » (tableau, la barre ouverte sur
 dup = req(action="dupliquer", etat=b["etat"])
 chk("copier : « P2 (copie) », mêmes données", dup["etat"]["barres"][2]["nom"] == "P2 (copie)" and dup["etat"]["barres"][2]["N"] == 1500)
 act = req(action="activer", etat=dup["etat"], index=0)
-chk("ouvrir P1 : le résultat est celui de P1", act["etat"]["actif"] == 0 and "P1 · HEA 200" in act["resultat"])
+chk("ouvrir P1 : le résultat est celui de P1", act["etat"]["actif"] == 0 and '<div class="et-rp"><b>P1</b><span>HEA 200' in act["resultat"])
 sup = req(action="supprimer", etat=act["etat"], index=0)
 chk("supprimer P1 : il en reste deux, l'ouverte reste valide", len(sup["etat"]["barres"]) == 2 and sup["etat"]["actif"] == 0)
 seul = req(action="supprimer", etat=e0, index=0)
@@ -392,7 +392,7 @@ chk(f"les {len(CAS_MAIN)} cas couvrent les classes 1 à 4, les courbes a0, a, b,
     couverts["classe"] == {1, 2, 3, 4} and couverts["courbe"] >= {"a0", "a", "b", "c"} and len(couverts["famille"]) == 5, couverts)
 r = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], profil="HEB 300", nuance="S355", N=3294.3, L=5.0)]))
 chk("pile à la limite (η = 99,99… %) : vert foncé, « Conforme, attention », jamais arrondi à un taux rouge", r["resume"]["niveau"] == "f"
-    and r["resume"]["taux"] == 100 and "attention" in r["statut_html"], r["resume"])
+    and r["resume"]["taux"] == 100 and '<section class="et-bloc warn"' in r["resultat"] and "attention" in r["resultat"], r["resume"])
 
 # ------------------------------------------------------------------ 11. saisies absurdes : refusées proprement, jamais d'exception
 for chemin, v, mot in ((["L"], "1e200", "comprise entre"), (["L"], "1e-300", "comprise entre"), (["L"], "150", "100 m"), (["N"], "1e300", "au plus"),
@@ -427,8 +427,9 @@ r = req(action="calculer", etat=e)
 larg = [float(x) for x in re.findall(r'<rect x="[^"]+" y="0" width="([0-9.]+)" height="4000" fill="' + DF.ACIER, r["vues"][0]["svg"])]
 chk("cornière L 100×100×10 : autour de u-u la barre a sa largeur selon v (≈ √2·h = 141 mm), autour de v-v selon u (≈ 71 mm + t)",
     len(larg) == 2 and 135 < larg[0] < 142 and 70 < larg[1] < 80, larg)
-chk("la phrase sous le titre est courte (profilé, nuance, N_Ed, L) : un nom long ne la coupe pas", "L<sub>cr" not in r0["phrase"]
-    and "500 kN" in r0["phrase"] and "4,00 m" in r0["phrase"])
+TETE = re.search(r'<div class="et-rp">.*?</div>', r0["resultat"]).group(0)
+chk("la tête du résultat est courte (le nom, le profilé, la nuance, N_Ed, L) ; plus de phrase sous le titre de la page",
+    "L<sub>cr" not in TETE and "500 kN" in texte(TETE) and "4,00 m" in texte(TETE) and "HEA 200 · S235" in texte(TETE) and r0["phrase"] == "")
 e = copy.deepcopy(e0)
 e["barres"][0].update(profil="SHS 350x350x10 (froid)", nuance="S460", N=3000.0, L=6.0)
 r = req(action="calculer", etat=e)
@@ -440,6 +441,55 @@ chk("sous chaque menu d'appuis, k et L_cr rappelés (le libellé du menu est cou
 css = open(os.path.join(RACINE, "site", "web", "css", "modules", "flambement.css"), encoding="utf-8").read()
 chk("les quatre nuances en segments peuvent rétrécir (min-width: 0) : « S460 » ne sort plus du cadre Données étroit",
     ".rows .seg.full button { min-width: 0;" in css)
+
+# ------------------------------------------------------------------ 13. l'établi compact (la mise en forme des poutres, 11/11/2026)
+d = r0["donnees"]
+chk("la colonne de gauche est celle de l'établi compact : la ligne de la barre ouverte, puis ses rubriques",
+    'class="et-arbre et-arbre-c" data-barre="0"' in d and d.count('data-chemin="nom"') == 1)
+RUBRIQUES = re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', d)
+chk("cinq rubriques — la barre (seule ouverte), l'effort, chaque axe, les hypothèses (secondaire, rangée sous « Options »)",
+    RUBRIQUES == [(" open", "br", ""), ("", "ef", ""), ("", "axy", ""), ("", "axz", ""), ("", "me", ' data-secondaire="1"')], RUBRIQUES)
+chk("le nom de la barre ne se saisit plus dans une rubrique : il est sur sa ligne, en tête de la colonne",
+    'data-chemin="nom"' not in d.split('<div class="sec')[1] and ">Nom<" not in d)
+chk("chaque rubrique repliée dit l'essentiel : le profilé et la nuance, N_Ed et L, les appuis et L_cr de chaque axe, γ_M0 et γ_M1",
+    all(x in texte(d) for x in ("HEA 200 · S235", "NEd 500 kN · L 4,00 m", "Articulée – articulée · Lcr 4,00 m", "γM0 1,0 · γM1 1,0 · ANB")), texte(d)[:400])
+chk("la tête du résultat : le nom de la barre, puis le profilé, la nuance, N_Ed et L", '<div class="et-rp"><b>P1</b><span>HEA 200 · S235 · N<sub>Ed</sub> = 500 kN · L = 4,00 m</span></div>' in res, res[:300])
+BLOC = re.search(r'<section class="et-bloc (\w+)" data-theme="0">.*?</section>', res, re.S)
+chk("un bloc « Vérifications » : son état et son taux (ceux du verdict), le rappel du matériau, la fenêtre « tout le calcul »",
+    BLOC and BLOC.group(1) == "ok" and "Vérifications" in BLOC.group(0) and "Conforme · 63 %" in texte(BLOC.group(0))
+    and "fy = 235 N/mm² · classe 1 en compression · γM1 = 1,0" in texte(BLOC.group(0)) and 'class="et-tout" data-calcul="s0"' in BLOC.group(0))
+CMP = [texte(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', res)]
+chk("chaque ligne dit ce qu'elle compare : N_Ed face à la résistance de l'axe et sa courbe, puis à la résistance de la section",
+    CMP == [f"NEd 500 ≤ Nb,{a},Rd {texte(C.fr(m0['axes'][a]['NbRd'], 1))} kN · courbe {m0['axes'][a]['courbe']}" for a in ("y", "z")]
+    + [f"NEd 500 ≤ Nc,Rd {texte(C.fr(m0['section']['NcRd'], 1))} kN · classe 1"] and "794,0 kN · courbe c" in CMP[1] and "1 265,1" in CMP[2], CMP)
+chk("la longueur de flambement de chaque axe est sur sa ligne ; la ligne gouvernante est marquée",
+    res.count('<span class="prof"><span>L<sub>cr</sub> 4,00') == 2 and res.count('class="el vc gov"') == 1
+    and re.search(r'class="el vc gov"[^>]*><div class="l1"><b>Flambement z-z</b>', res))
+chk("le verdict ouvre la même fenêtre ; il n'y a qu'UNE fenêtre de calcul", '<div class="verdict" data-calcul="s0"' in res and r0["volets"].count('id="ck-') == 1)
+chk("chaque vue porte son en-tête technique : le titre, le profilé et la nuance, L, la longueur de flambement et la courbe de chaque axe ; "
+    "à droite l'effort N_Ed (une fois, dans la bande)",
+    all('class="et-ent"' in x.get("entete", "") for x in r0["vues"]) and "<b>BARRE</b><span>· HEA 200 · S235</span>" in r0["vues"][0]["entete"]
+    and "COURBES DE FLAMBEMENT" in r0["vues"][2]["entete"]
+    and all("L = 4,00 m" in texte(x["entete"]) and "y-y : Lcr 4,00 m, courbe b · z-z : Lcr 4,00 m, courbe c" in texte(x["entete"])
+            and x["entete"].count('<div class="et-eff"><span><i>N</i><sub>Ed</sub><b>500,0</b><small>kN</small></span></div>') == 1 for x in r0["vues"]),
+    r0["vues"][0].get("entete"))
+chk("aucun en-tête n'écrit un indice brut (« N_Ed », « L_cr », « t_f ») : ses lignes sont du texte", not any("_" in texte(x["entete"]) for x in r0["vues"]),
+    [texte(x["entete"]) for x in r0["vues"]])
+chk("plus de cadre « Dans cette note » ni de phrase : les barres sont dans la liste de la ligne de l'élément", r0["elements"] == "" and r0["phrase"] == "")
+n2 = req(action="ajouter", etat=e0)
+chk("deux barres : la liste les nomme avec leur profilé et leur longueur, et la note dit son statut", "· HEA 200 · 4,00" in texte(n2["donnees"])
+    and texte(n2["donnees"]).count("HEA 200 · 4,00") >= 2 and "Conforme" in n2["statut_html"], n2["statut_html"])
+n3 = req(action="dupliquer", etat=req(action="ajouter", etat=n2["etat"])["etat"], index=0)
+chk("copier P1 (par son rang) : la copie s'insère juste après elle, et s'ouvre", [x["nom"] for x in n3["etat"]["barres"]] == ["P1", "P1 (copie)", "P2", "P3"]
+    and n3["etat"]["actif"] == 1, [x["nom"] for x in n3["etat"]["barres"]])
+n4 = req(action="supprimer", etat=n3["etat"], index=0)
+chk("supprimer une barre AVANT l'ouverte : l'ouverte reste la même (son rang recule)", [x["nom"] for x in n4["etat"]["barres"]] == ["P1 (copie)", "P2", "P3"]
+    and n4["etat"]["actif"] == 0)
+n5 = req(action="supprimer", etat=req(action="activer", etat=n3["etat"], index=3)["etat"], index=3)
+chk("supprimer la dernière, ouverte : la précédente s'ouvre", n5["etat"]["actif"] == 2 and len(n5["etat"]["barres"]) == 3)
+rx = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], N=5000.0)]))
+CMPX = [texte(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', rx["resultat"])]
+chk("une vérification dépassée s'écrit « > », jamais « ≤ »", all(" > " in x and "≤" not in x for x in CMPX) and len(CMPX) == 3, CMPX)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

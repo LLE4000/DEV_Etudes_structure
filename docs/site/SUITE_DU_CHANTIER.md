@@ -550,6 +550,15 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   au-dessus du dessin (elle est dans la tête des résultats), les paragraphes d'aide (au survol). Preuves :
   `tests/test_api_web.py` (41 OK), la note PDF inchangée (`tests/test_note_garde_corps.py`), harnais `garde`,
   `module:garde_corps`, `formats:garde_corps`, `ouverture`.
+- **Flambement** (`api_web/flambement.py`) : cinq rubriques (Barre, Effort et longueur, Flambement autour de chaque
+  axe, Hypothèses) ; un bloc « Vérifications » de trois lignes — chaque axe (« N_Ed 500 ≤ N_b,z,Rd 794,0 kN · courbe
+  c », avec sa longueur de flambement) et la section (le profilé s'y choisit) ; l'en-tête de chaque vue porte le
+  profilé, L, la longueur de flambement et la courbe de chaque axe, et l'effort N_Ed dans la bande. Retiré de l'écran :
+  le bloc « Dans cette note », le champ Nom, la phrase au-dessus du dessin, le statut de la note quand elle n'a qu'une
+  barre (le verdict le dit) ; le sens de chaque plan de flambement est passé au survol de ⓘ. La copie d'une barre
+  s'insère juste après elle. Aucune valeur affichée n'a disparu (`tests/test_reference_refonte.py`, refigé avec sa
+  raison : seule la fenêtre de calcul change de nom, `fl` → `s0`). Preuves : `tests/test_api_web_flambement.py`
+  (200 OK, dont le § 13), harnais `module:flambement`, `formats:flambement`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
