@@ -1688,27 +1688,52 @@ const principal = async () => {
         JSON.stringify({ nom: dl.suggestedFilename(), cartouche: o && o.cartouche, ferme }));
       // les PLANS PDF : le moteur de RBAR (WebAssembly, js/plans.js) les fait dans le navigateur, du même fichier ; le premier
       // charge le moteur (le menu ouvert l'a préchauffé), le second sort du même calcul. Chronométrés du clic au fichier reçu.
-      const plan = async (cle, nomAttendu) => {
+      // PENDANT l'attente, ce que l'œil voit est relevé tous les quarts de seconde : le message reste (il dit l'étape et les
+      // secondes) jusqu'au fichier — le 12/11/2026, il s'effaçait après 2,6 s, et le propriétaire a attendu 30 s sur sa
+      // tablette sans savoir si le plan venait.
+      const plan = async (cle) => {
         await toucher(B);
         await g.waitForTimeout(150);
         const t0 = Date.now();
-        const [d] = await Promise.all([g.waitForEvent('download', { timeout: 180000 }), toucher(`#resultat .et-exp-l [data-plans="${cle}"]`)]);
+        let recu = null;
+        const attente = g.waitForEvent('download', { timeout: 180000 }).then((d) => { recu = d; return d; });
+        await toucher(`#resultat .et-exp-l [data-plans="${cle}"]`);
+        const vus = [];
+        while (!recu && Date.now() - t0 < 180000) {
+          const v = await g.evaluate(() => { const t = document.getElementById('toast');
+            return { vu: t.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: t.textContent }; });
+          vus.push({ ms: Date.now() - t0, ...v });
+          await g.waitForTimeout(250);
+        }
+        const d = await attente;
         const ms = Date.now() - t0;
         const o = fs.readFileSync(await d.path());
         await g.waitForTimeout(200);
         const toast = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
-        return { nom: d.suggestedFilename(), entete: o.subarray(0, 8).toString('latin1'), octets: o.length, ms, toast };
+        // (l'attente proprement dite : les relevés d'avant la dernière demi-seconde, où le message final peut déjà s'écrire)
+        const pendant = vus.filter((v) => v.ms < ms - 500);
+        const secondes = pendant.map((v) => Number((/ · (\d+) s$/.exec(v.texte) || [])[1]));
+        return { nom: d.suggestedFilename(), entete: o.subarray(0, 8).toString('latin1'), octets: o.length, ms, toast,
+          attente: { releves: pendant.length, muets: pendant.filter((v) => !v.vu || !/^Plans en cours — .+ · \d+ s$/.test(v.texte)).map((v) => `${v.ms} ms : ${v.vu ? v.texte : '(rien à l\'écran)'}`),
+            etapes: [...new Set(pendant.map((v) => v.texte.replace(/^Plans en cours — /, '').replace(/ \(.*$| · \d+ s$/g, '')))],
+            mo: pendant.some((v) => / \(\d+(,\d)? Mo reçus\) · /.test(v.texte)), plusLongue: Math.max(0, ...secondes.filter(Number.isFinite)) } };
       };
       const coffrage = await plan('coffrage');
       const armatures = await plan('armatures');
-      DUREES[fmt] = { coffrage: coffrage.ms, armatures: armatures.ms };
+      DUREES[fmt] = { coffrage: coffrage.ms, armatures: armatures.ms, etapes: coffrage.attente.etapes, mo: coffrage.attente.mo };
       verif(`exporter · ${fmt} : « Plan de coffrage (PDF) » et « Plan d'armatures (PDF) » : le moteur de RBAR fait les deux plans DANS le navigateur — `
-        + 'deux vrais PDF, au nom de la fondation, la durée dite à l\'écran ; le second sort du même calcul',
+        + 'deux vrais PDF, au nom de la fondation, la durée dite à l\'écran (et, pour le plan qui a fait le calcul, celle du dessin) ; le second sort du même calcul',
       coffrage.nom === 'F1 - plan de coffrage.pdf' && armatures.nom === "F1 - plan d'armatures.pdf"
         && coffrage.entete.startsWith('%PDF-1.') && armatures.entete.startsWith('%PDF-1.') && coffrage.octets > 20000 && armatures.octets > 20000
-        && /^F1 - plan de coffrage\.pdf téléchargé \(\d+,\d s\)$/.test(coffrage.toast.texte) && !coffrage.toast.erreur && !armatures.toast.erreur
+        && /^F1 - plan de coffrage\.pdf téléchargé \(\d+,\d s — (moteur prêt en \d+,\d s, )?dessin \d+,\d s\)$/.test(coffrage.toast.texte)
+        && /^F1 - plan d'armatures\.pdf téléchargé \(\d+,\d s\)$/.test(armatures.toast.texte) && !coffrage.toast.erreur && !armatures.toast.erreur
         && armatures.ms < coffrage.ms,
-      JSON.stringify({ coffrage, armatures }));
+      JSON.stringify({ coffrage: { ...coffrage, attente: undefined }, armatures: { ...armatures, attente: undefined } }));
+      verif(`exporter · ${fmt} : PENDANT le premier plan, le message reste à l'écran jusqu'au fichier — l'étape et les secondes, `
+        + 'qui avancent (le 12/11/2026, il s\'effaçait après 2,6 s : 30 s d\'écran muet sur la tablette du propriétaire)',
+      coffrage.attente.releves >= 4 && !coffrage.attente.muets.length && coffrage.attente.etapes.every((e) => /^(écriture du fichier de l'ouvrage|chargement du moteur de RBAR|dessin des feuilles par RBAR)$/.test(e))
+        && coffrage.attente.etapes.includes('dessin des feuilles par RBAR') && (coffrage.ms < 3500 || coffrage.attente.plusLongue >= 2),
+      JSON.stringify(coffrage.attente));
       await toucher(B);
       await g.waitForTimeout(200);
       await toucher('#resultat .et-exp-l [data-calcul="export"]');
@@ -1720,7 +1745,8 @@ const principal = async () => {
       verif(`exporter · ${fmt} : aucune erreur JavaScript`, !erreursPage.length, erreursPage.join(' | ').slice(0, 300));
       await c.close();
     }
-    console.log(`exporter · durées des plans PDF (ms, du clic au fichier reçu ; processeur du poste de contrôle, pas celui d'une tablette) : ${JSON.stringify(DUREES)}`);
+    console.log(`exporter · durées des plans PDF (ms, du clic au fichier reçu ; processeur du poste de contrôle, pas celui d'une tablette ; `
+      + `les étapes vues à l'écran pendant le premier) : ${JSON.stringify(DUREES)}`);
   }
 
   // ---------------------------------------------------------------- la météo du lieu (Open-Meteo), de bout en bout

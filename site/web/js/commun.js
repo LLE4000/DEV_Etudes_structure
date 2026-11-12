@@ -34,7 +34,9 @@ let minuterie = null;
 let retenus = null;
 export function retenirToasts() { retenus = []; }
 export function lacherToasts() { const r = retenus || []; retenus = null; return r; }
-export function toast(texte, erreur = false) {
+// (duree_ms : un message qui doit rester plus longtemps à l'écran — l'échec d'un plan PDF, que l'on doit pouvoir lire en
+//  entier et rapporter ; sans elle, 2,6 s, et 7 s pour une erreur)
+export function toast(texte, erreur = false, duree_ms = 0) {
   if (retenus) { retenus.push([texte, !!erreur]); return; }
   const t = document.getElementById("toast");
   if (!t) { if (erreur) alert(texte); return; }
@@ -42,7 +44,7 @@ export function toast(texte, erreur = false) {
   t.classList.toggle("erreur", !!erreur);
   t.hidden = false;
   clearTimeout(minuterie);
-  minuterie = setTimeout(() => { t.hidden = true; }, erreur ? 7000 : 2600);
+  minuterie = setTimeout(() => { t.hidden = true; }, duree_ms > 0 ? duree_ms : (erreur ? 7000 : 2600));
 }
 
 export function esc(s) {

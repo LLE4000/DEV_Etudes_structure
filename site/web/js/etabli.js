@@ -1035,10 +1035,21 @@ export function ouvrirEtabli(hote, ctx) {
     // moteur de RBAR (js/plans.js) en fait les feuilles ; celle demandée est enregistrée sous ce nom. Un refus, de l'un ou
     // de l'autre, est dit tel quel ; la durée aussi — mesurée sur l'appareil même (RBAR la demande pour la tablette et le
     // téléphone).
+    // Ce que l'écran DIT pendant un plan : l'étape et les secondes, redites chaque seconde jusqu'au fichier ou au refus. Au
+    // poste de contrôle, le premier plan vient en 6 s ; sur une tablette, le moteur de RBAR se télécharge, démarre et dessine
+    // bien plus lentement — et le message de 2,6 s laissait ensuite l'écran muet : le propriétaire a attendu 30 s sans savoir
+    // si le plan venait (12/11/2026). L'échec reste 20 s à l'écran : il se lit en entier et se rapporte.
+    const ETAPES_PLAN = { fichier: "écriture du fichier de l'ouvrage", chargement: "chargement du moteur de RBAR", calcul: "dessin des feuilles par RBAR" };
+    const secondes = (ms) => (ms / 1000).toFixed(1).replace(".", ",");
     async function faireUnPlan(b) {
       occupe(1);
-      toast("Plans en cours… (le moteur de RBAR, quelques secondes)");
       const debut = performance.now();
+      let ou = { etape: "fichier", mo: null };
+      const dire = () => toast(`Plans en cours — ${ETAPES_PLAN[ou.etape] || ou.etape}`
+        + (ou.etape === "chargement" && ou.mo ? ` (${String(ou.mo).replace(".", ",")} Mo reçus)` : "")
+        + ` · ${Math.floor((performance.now() - debut) / 1000)} s`);
+      dire();
+      const veille = setInterval(dire, 1000);
       try {
         const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
         let r;
@@ -1051,7 +1062,7 @@ export function ouvrirEtabli(hote, ctx) {
           toast(`Plans refusés : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu le fichier de l'ouvrage"}`, true);
           return;
         }
-        const p = await plansPdf(f.texte, f.nom);
+        const p = await plansPdf(f.texte, f.nom, { suivre: (e) => { ou = e; dire(); } });
         if (fini()) return;
         if (!p.rapport || !p.rapport.ok) {
           toast(`Plans refusés par RBAR : ${(p.rapport && p.rapport.refus) || "sans raison donnée"}`, true);
@@ -1060,12 +1071,17 @@ export function ouvrirEtabli(hote, ctx) {
         const pdf = (p.pdfs || []).find((x) => x.plan === b.dataset.plans);
         if (!pdf) { toast(`RBAR n'a pas rendu le plan « ${b.dataset.plans} »`, true); return; }
         const nom = telecharger(`${b.dataset.nom || pdf.nom}.pdf`, pdf.octets, "application/pdf");
-        const s = ((performance.now() - debut) / 1000).toFixed(1).replace(".", ",");
+        // la durée, et d'où elle vient quand ce clic a fait le calcul : le moteur prêt (depuis l'ouverture du menu), le dessin
+        const detail = p.reutilise || !Number.isFinite(p.calcul_ms) ? ""
+          : " — " + (p.chargement_ms > 100 && Number.isFinite(p.pret_ms) ? `moteur prêt en ${secondes(p.pret_ms)} s, ` : "") + `dessin ${secondes(p.calcul_ms)} s`;
         const notes = p.rapport.notes || [];
-        toast(`${nom} téléchargé (${s} s)` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
+        toast(`${nom} téléchargé (${secondes(performance.now() - debut)} s${detail})` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
       } catch (e) {
-        toast(`Plans : ${(e && e.message) || e}`, true);
-      } finally { occupe(-1); }
+        toast(`Plans : ${(e && e.message) || e}`, true, 20000);
+      } finally {
+        clearInterval(veille);
+        occupe(-1);
+      }
     }
     bench.addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-plans]");

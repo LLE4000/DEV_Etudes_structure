@@ -76,6 +76,17 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
   ou de RBAR est dit tel quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.
 - **Durées** (harnais `exporter`, poste de contrôle, du clic au fichier reçu) : premier plan 5,5 à 6,1 s (chargement du
   moteur compris), second 0,1 s. Sur une tablette ou un téléphone, c'est plus long : le message à l'écran le dit.
+- **Ce que l'écran dit pendant l'attente** (depuis le premier essai du propriétaire sur sa tablette, 12/11/2026 au soir :
+  « 30 secondes, rien reçu » — le message « Plans en cours… » s'effaçait après 2,6 s, et rien ne disait si le moteur se
+  téléchargeait, dessinait ou était bloqué). Le message reste, redit chaque seconde jusqu'au fichier : « Plans en cours —
+  *étape* · *n* s », l'étape étant l'écriture du fichier de l'ouvrage, le chargement du moteur de RBAR (avec les Mo déjà
+  reçus, quand le navigateur les donne) ou le dessin des feuilles. Le message final dit la durée et, pour le plan qui a
+  fait le calcul, celle du dessin (« … téléchargé (5,8 s — dessin 5,2 s) » ; « moteur prêt en *x* s » quand il a fallu
+  l'attendre) : ce sont les chiffres à rapporter à RBAR. **L'attente a une fin** : sans réponse après 120 s
+  (`DELAI_PLANS_S`, `js/plans.js`), le moteur est arrêté et le message d'échec — l'étape où il en était, le dernier
+  incident qu'il a signalé — reste 20 s à l'écran ; le clic suivant repart d'un moteur neuf. `tests/test_site_web.py`
+  (§ 4 ter, `js/plans.js` joué par node) et le harnais `exporter` (le message relevé tous les quarts de seconde pendant
+  le premier plan) le gardent.
 - Ce qui reste : l'**aperçu** des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3 : le moteur le fait
   déjà, `apercu()`) ; un seul PDF de deux pages (demandé à RBAR) ; le cartouche du bureau (son standard, à transmettre
   au moteur si le propriétaire le veut) ; l'étape 2 du DWG (le DWG fait sans AutoCAD), plus tard.

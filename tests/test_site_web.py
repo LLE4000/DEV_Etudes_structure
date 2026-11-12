@@ -334,6 +334,112 @@ chk("le travailleur des plans charge la version déposée du moteur de RBAR ; LI
     and f"`{SW.RBAR_PLANS}/`" in _licences and f"`{SW.RBAR_PLANS}/polices/`" in _licences and "SIL Open Font License" in _licences
     and os.path.exists(os.path.join(_vr, "polices", "LICENCE-Liberation.txt")))
 
+# 4 ter. js/plans.js joué par node (le travailleur des plans remplacé par un bouchon) : l'ATTENTE d'un plan se dit et elle a
+# une fin. Le premier essai du propriétaire, sur sa tablette (12/11/2026) : « 30 secondes, rien reçu » — rien ne disait si
+# le moteur de RBAR se téléchargeait, dessinait ou était bloqué. Les étapes du travailleur parviennent à qui attend (même à
+# qui rejoint un calcul déjà en cours) ; un travailleur muet est arrêté après le délai, et l'erreur dit l'étape et le dernier
+# incident ; un moteur qui n'a pas pu se charger est arrêté (la demande suivante en refait un neuf) ; le même fichier ne se
+# recalcule pas ; le préchauffage n'envoie qu'une demande, sans délai.
+ESSAI_PLANS = """
+const base = %s;
+const crees = [];
+class Bouchon {
+  constructor(url, opts) { this.url = String(url); this.opts = opts; this.recus = []; this.arrete = false; crees.push(this); }
+  postMessage(m) { this.recus.push(m); if (Bouchon.reponse) Bouchon.reponse(this, m); }
+  terminate() { this.arrete = true; }
+  dire(d) { if (this.onmessage) this.onmessage({ data: d }); }
+}
+globalThis.Worker = Bouchon;
+const tic = (ms = 0) => new Promise((ok) => setTimeout(ok, ms));
+const out = {};
+{
+  const m = await import(base + "?normal");
+  Bouchon.reponse = (w, msg) => setTimeout(() => {
+    w.dire({ id: msg.id, etape: "chargement", mo: 1.5 });
+    w.dire({ id: msg.id, etape: "calcul" });
+    w.dire({ id: msg.id, version: "0.4.38", resultat: { rapport: { ok: true }, pdfs: [{ plan: "coffrage", octets: new Uint8Array([37]) }] },
+             chargement_ms: 900, calcul_ms: 300, pret_ms: 1200 });
+  }, 5);
+  const etapes = [];
+  const r1 = await m.plansPdf("{}", "a.json", { suivre: (e) => etapes.push(e) });
+  const r2 = await m.plansPdf("{}", "a.json");
+  const w = crees.at(-1);
+  out.normal = { etapes, r1: { ok: r1.rapport.ok, reutilise: r1.reutilise, pret_ms: r1.pret_ms, calcul_ms: r1.calcul_ms, version: r1.version },
+                 r2: { reutilise: r2.reutilise }, postes: w.recus.length, workers: crees.length, type: w.opts.type,
+                 url: w.url.endsWith("/js/plans-travailleur.js"), delai: m.DELAI_PLANS_S };
+}
+{
+  const m = await import(base + "?partage");
+  crees.length = 0;
+  let w0 = null, id0 = null;
+  Bouchon.reponse = (w, msg) => { w0 = w; id0 = msg.id; };
+  const vus1 = [], vus2 = [];
+  const p1 = m.plansPdf("{p}", "p.json", { suivre: (e) => vus1.push(e.etape) });
+  await tic(1);
+  w0.dire({ id: id0, etape: "chargement", mo: 2 });
+  const p2 = m.plansPdf("{p}", "p.json", { suivre: (e) => vus2.push(e.etape) });
+  w0.dire({ id: id0, etape: "calcul" });
+  w0.dire({ id: id0, resultat: { rapport: { ok: true }, pdfs: [] }, chargement_ms: 0, calcul_ms: 2 });
+  const [a, b] = await Promise.all([p1, p2]);
+  out.partage = { vus1, vus2, a: a.reutilise, b: b.reutilise, postes: w0.recus.length };
+}
+{
+  const m = await import(base + "?muet");
+  crees.length = 0;
+  Bouchon.reponse = (w, msg) => setTimeout(() => w.dire({ id: msg.id, etape: "chargement", mo: null }), 1);
+  let e = null;
+  try { await m.plansPdf("{}", "b.json", { delai_s: 0.05 }); } catch (x) { e = String(x.message); }
+  const premier = crees[0];
+  Bouchon.reponse = (w, msg) => setTimeout(() => w.dire({ id: msg.id, resultat: { rapport: { ok: true }, pdfs: [] }, chargement_ms: 0, calcul_ms: 1 }), 1);
+  const r = await m.plansPdf("{}", "b.json");
+  out.muet = { e, arrete: premier.arrete, workers: crees.length, ensuite: r.rapport.ok, reutilise: r.reutilise };
+}
+{
+  const m = await import(base + "?incident");
+  crees.length = 0;
+  Bouchon.reponse = (w, msg) => setTimeout(() => { w.dire({ id: null, incident: "RangeError: Out of memory" }); w.dire({ id: msg.id, etape: "calcul" }); }, 1);
+  let e = null;
+  try { await m.plansPdf("{}", "c.json", { delai_s: 0.05 }); } catch (x) { e = String(x.message); }
+  Bouchon.reponse = (w, msg) => setTimeout(() => w.dire({ id: msg.id, erreur: "Importing a module script failed.", pret: false }), 1);
+  let e2 = null;
+  try { await m.plansPdf("{x}", "c.json"); } catch (x) { e2 = String(x.message); }
+  out.incident = { e, e2, arrete: crees.at(-1).arrete, workers: crees.length };
+}
+{
+  const m = await import(base + "?prechauffe");
+  crees.length = 0;
+  Bouchon.reponse = null;
+  m.prechaufferPlans(); m.prechaufferPlans();
+  await tic(80);
+  out.prechauffe = { workers: crees.length, postes: crees[0].recus.map((x) => x.fonction), arrete: crees[0].arrete };
+}
+console.log(JSON.stringify(out));
+""" % json.dumps("file://" + os.path.join(JS, "plans.js"))
+try:
+    _sortie_plans = subprocess.run(["node", "--input-type=module", "-e", ESSAI_PLANS], capture_output=True, text=True, timeout=60)
+    PL = json.loads(_sortie_plans.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    PL = {"erreur": str(e), "stderr": locals().get("_sortie_plans") and _sortie_plans.stderr[-600:]}
+_pn = PL.get("normal", {})
+chk("plans (js/plans.js) : les étapes du travailleur parviennent à qui attend (chargement, avec les Mo reçus ; dessin) ; le "
+    "résultat dit la durée du moteur et du dessin ; le même fichier ne se recalcule pas ; un travailleur « module », le bon",
+    _pn.get("etapes") == [{"etape": "chargement", "mo": 1.5}, {"etape": "calcul", "mo": None}]
+    and _pn.get("r1") == {"ok": True, "reutilise": False, "pret_ms": 1200, "calcul_ms": 300, "version": "0.4.38"}
+    and _pn.get("r2") == {"reutilise": True} and _pn.get("postes") == 1 and _pn.get("workers") == 1 and _pn.get("type") == "module"
+    and _pn.get("url") is True and isinstance(_pn.get("delai"), (int, float)) and 60 <= _pn["delai"] <= 300, PL)
+chk("plans : qui rejoint un calcul en cours reçoit l'étape où il en est, puis les suivantes — et rien n'est recalculé",
+    PL.get("partage") == {"vus1": ["chargement", "calcul"], "vus2": ["chargement", "calcul"], "a": False, "b": True, "postes": 1}, PL)
+chk("plans : un travailleur MUET est arrêté au bout du délai ; l'erreur dit l'étape (le chargement : réessayer en Wi-Fi) ; "
+    "la demande suivante en refait un neuf, qui répond",
+    PL.get("muet") == {"e": "le moteur de RBAR ne s'est pas chargé en 0,05 s — réessaie, de préférence en Wi-Fi (il se télécharge la première fois)",
+                       "arrete": True, "workers": 2, "ensuite": True, "reutilise": False}, PL)
+chk("plans : bloqué pendant le dessin, l'erreur le dit avec le dernier incident du travailleur ; un moteur qui n'a pas pu se "
+    "charger rend sa raison telle quelle et son travailleur est arrêté",
+    PL.get("incident") == {"e": "RBAR n'a pas fini de dessiner les feuilles en 0,05 s (dernier incident : RangeError: Out of memory)",
+                           "e2": "Importing a module script failed.", "arrete": True, "workers": 2}, PL)
+chk("plans : le préchauffage (menu « Exporter » ouvert) n'envoie qu'une demande « charger », sans délai qui l'arrête",
+    PL.get("prechauffe") == {"workers": 1, "postes": ["charger"], "arrete": False}, PL)
+
 # 5. les identifiants que les scripts cherchent existent dans leur page (S4, partie « écrans » : l'établi est un écran
 # montable, il ne nomme plus le VOILE retiré — #demarrage, #demarrage-etape — : plus aucune exception à cette règle)
 VOILE_RETIRE = ()

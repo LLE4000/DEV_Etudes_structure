@@ -686,6 +686,13 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
 - **Reste** : l'aperçu des deux feuilles au centre de l'écran (le moteur le fait déjà) ; un seul PDF de deux pages
   (demandé à RBAR) ; le cartouche du bureau (son standard, si le propriétaire le veut) ; la durée sur une vraie
   tablette, à lire à l'écran.
+- **Premier essai sur la tablette du propriétaire (Android, vers 22 h 45)** : « 30 secondes, rien reçu ». Défaut
+  d'écran trouvé par l'usage, pas par le harnais : le message « Plans en cours… » s'effaçait après 2,6 s (la durée de
+  tout message du site), alors qu'au poste de contrôle le plan en prend 6 et qu'une tablette est plus lente — l'écran
+  restait muet sans dire si le moteur se téléchargeait (15 Mio la première fois), dessinait ou était bloqué. Corrigé le
+  soir même : le message reste et dit l'étape, les secondes et les Mo reçus ; l'attente a une fin (120 s, puis un
+  message d'échec qui dit où il en était) ; le harnais relève maintenant le message PENDANT l'attente
+  (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). La durée réelle sur la tablette reste à lire.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
