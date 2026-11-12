@@ -397,6 +397,47 @@ chk("un bloc sans efforts rend une bande vide que css/etabli.css cache (.et-bloc
     '<div class="et-bloc-ef"></div><div class="els">' in _b0
     and re.search(r"\.et-bloc-ef:empty\s*\{[^}]*display:\s*none", _css_et) is not None, _b0[:300])
 
+
+# le bouton « Exporter » (12/11/2026, les fondations de grues : UN endroit pour tous les fichiers d'une note) : un menu
+# discret du kit — data-menu, que js/compact.js ouvre (vers le haut quand la place manque) — et une ligne par fichier,
+# son titre puis en clair ce qu'elle produit ; éteinte, elle dit pourquoi
+def ctl_exporter():
+    h = E.exporter([E.ligne_export('data-calcul="export"', "file-text", "Contrôle avant export", "Ce qui part, d'où"),
+                    E.ligne_export('data-telecharger="ouvrage"', "file-down", 'DWG <b>& "x"', "Bloqué : <i>PAS OK</i> & « y »",
+                                   actif=False),
+                    E.ligne_export('data-telecharger="dxf"', "download", "Plan (.dxf)")])
+    attendu = ('<div class="et-mn et-exp"><button type="button" class="btn sm et-exp-b" data-menu="1" aria-haspopup="menu" '
+               'aria-expanded="false" title="Exporter : les fichiers de cette note">' + C.icon("download") + "<span>Exporter</span>"
+               + C.icon("chevron-down") + '</button><div class="et-mn-l et-exp-l" role="menu" hidden>'
+               '<button type="button" role="menuitem" class="et-exp-i" data-calcul="export">' + C.icon("file-text")
+               + "<span><b>Contrôle avant export</b><small>Ce qui part, d&#x27;où</small></span></button>"
+               '<button type="button" role="menuitem" class="et-exp-i" data-telecharger="ouvrage" disabled>' + C.icon("file-down")
+               + "<span><b>DWG &lt;b&gt;&amp; &quot;x&quot;</b><small>Bloqué : &lt;i&gt;PAS OK&lt;/i&gt; &amp; « y »</small></span></button>"
+               '<button type="button" role="menuitem" class="et-exp-i" data-telecharger="dxf">' + C.icon("download")
+               + "<span><b>Plan (.dxf)</b></span></button></div></div>")
+    return h == attendu, h
+
+
+chk("exporter() et ligne_export() : le bouton « Exporter » (data-menu), puis une ligne par fichier — titre, texte en clair, "
+    "attributs que js/etabli.js lit ; une ligne éteinte porte disabled ; titres et textes échappés", *ctl_exporter())
+_js_compact = open(os.path.join(RACINE, "site", "web", "js", "compact.js"), encoding="utf-8").read()
+chk("le menu « Exporter » vit dans la colonne des résultats : js/compact.js y ouvre et y ferme les menus comme dans les données — "
+    "un fichier téléchargé le referme aussi ; "
+    "css/etabli.css garde ses lignes à deux étages (la hauteur fixe des menus tactiles ne les écrase pas) et tourne son chevron "
+    "vers le haut (il s'ouvre au-dessus)",
+    "const zonesMenus = [donnees, elt, resultat]" in _js_compact
+    and re.search(r'if \(resultat\) resultat\.addEventListener\("click", \(ev\) => \{\s*const mb = ev\.target\.closest\("\[data-menu\]"\);'
+                  r'\s*if \(mb\) \{ ev\.stopImmediatePropagation\(\); basculerMenu\(mb\); return; \}', _js_compact) is not None
+    # (un fichier à télécharger referme aussi le menu : js/etabli.js fait le téléchargement à la CAPTURE et arrête le clic ;
+    #  l'écoute du document, à la capture, passe avant lui — le harnais « exporter » l'a trouvé le 12/11/2026)
+    and re.search(r'document\.addEventListener\("click", \(ev\) => \{\s*if \(resultat && resultat\.contains\(ev\.target\) '
+                  r'&& ev\.target\.closest\("\.et-mn-l button"\)\) fermerMenus\(\);\s*\}, \{ capture: true, signal \}\);', _js_compact) is not None
+    and re.search(r'\[data-etabli="compact"\]\s*\.et-exp-l\s+button\.et-exp-i\s*\{[^}]*height:\s*auto', _css_et) is not None
+    and re.search(r"\.et-exp-b\s*>\s*svg\.i:last-child\s*\{[^}]*rotate\(180deg\)", _css_et) is not None)
+muter("une ligne d'export éteinte reste allumée", E.ligne_export, '{"" if actif else " disabled"}', '{""}', ctl_exporter)
+muter("le texte d'une ligne d'export non échappé", E.ligne_export, "<small>{C.esc(texte)}</small>", "<small>{texte}</small>", ctl_exporter)
+muter("le bouton « Exporter » sans data-menu (js/compact.js ne l'ouvre plus)", E.exporter, 'data-menu="1" ', "", ctl_exporter)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

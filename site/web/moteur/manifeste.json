@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "c9655f0f5b07442c4ec862ec3743835d1703fdeb3c88182810ef3c2f7c4a4e62",
+ "sha256": "c05f0eb1ce2a98274ddfcf978cd158bb103288322a06bc26c8de62b66d799bc3",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -236,6 +236,7 @@
   "beton/enrobage/moteur.py",
   "beton/fondation_grue/__init__.py",
   "beton/fondation_grue/classeur.py",
+  "beton/fondation_grue/conception.py",
   "beton/fondation_grue/donnees.py",
   "beton/fondation_grue/ecarts.py",
   "beton/fondation_grue/ecriture.py",
@@ -244,6 +245,7 @@
   "beton/fondation_grue/formules.py",
   "beton/fondation_grue/geometrie.py",
   "beton/fondation_grue/moteur.py",
+  "beton/fondation_grue/ouvrage.py",
   "beton/fondation_grue/schemas.py",
   "beton/fondation_grue/statique.py",
   "beton/hourdis/__init__.py",
@@ -350,7 +352,7 @@
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "b4e677fb81276534",
-  "fondation_grue": "0c4d77011fe6bfc3",
+  "fondation_grue": "aea1b4fe8c094aad",
   "garde_corps": "9d6a2b474d4321ad",
   "plancher": "eb59f2a541093dba",
   "poutre": "42e726efa9ec3d94",
@@ -359,5 +361,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "950a67460dedba46"
+ "version": "1e6cf9dc8b22b1c8"
 }

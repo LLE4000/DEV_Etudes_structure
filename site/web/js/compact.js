@@ -47,7 +47,8 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer, signal 
   // (colonne compacte) la ligne de l'élément ouvert, posée par js/etabli.js dans l'en-tête du panneau des données : son
   // menu (la liste des éléments) s'ouvre et se referme comme ceux des données
   const elt = document.querySelector(".panel.left .phead .et-elt");
-  const zonesMenus = [donnees, elt].filter(Boolean);
+  // les menus ⋯ des données et de la ligne de l'élément, et le menu « Exporter » du pied des résultats
+  const zonesMenus = [donnees, elt, resultat].filter(Boolean);
   const memo = () => `stab.compact.${cle}.${note().id}`;
   const lu = memoire.lire(memo(), {});
   let sel = lu.sel || "";
@@ -193,15 +194,48 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer, signal 
     l.hidden = !l.hidden;
     b.setAttribute("aria-expanded", l.hidden ? "false" : "true");
     if (l.hidden) return;
-    // le menu s'ouvre vers le bas ; trop près du bas de la colonne (ou de la barre du téléphone), vers le haut
+    // Le menu reste DANS SA COLONNE (le panneau le coupe) — mesuré par le harnais « exporter » (12/11/2026 : le menu
+    // « Exporter », plus large que la colonne des résultats, y perdait ses icônes au PC ; en tablette portrait, la colonne
+    // trop courte le coupait en bas). En largeur : décalé, ou rétréci s'il est plus large qu'elle. En hauteur : vers le
+    // bas ; trop près du bas de la colonne (ou de la barre du téléphone), du côté où il tient le mieux ; s'il ne tient
+    // d'aucun côté, il défile.
     l.classList.remove("haut");
-    const r = l.getBoundingClientRect(), z = donnees.getBoundingClientRect(), barre = document.querySelector(".mbar");
+    for (const p of ["left", "right", "width", "minWidth", "maxHeight"]) l.style[p] = "";
+    const zone = resultat && resultat.contains(b) ? resultat : donnees;
+    const z = zone.getBoundingClientRect(), barre = document.querySelector(".mbar");
+    const g = Math.max(z.left, 0) + 6, d = Math.min(z.right, innerWidth) - 6;
+    let r = l.getBoundingClientRect();
+    if (r.width > d - g) { l.style.minWidth = "0px"; l.style.width = `${Math.floor(d - g)}px`; r = l.getBoundingClientRect(); }
+    if (r.left < g - 0.5 || r.right > d + 0.5) {
+      const m = (l.offsetParent || l.parentElement).getBoundingClientRect();
+      l.style.left = `${Math.round(Math.min(Math.max(r.left, g), d - r.width) - m.left)}px`;
+      l.style.right = "auto";
+      r = l.getBoundingClientRect();
+    }
     const bas = Math.min(z.bottom, innerHeight - (barre && barre.offsetHeight ? barre.offsetHeight : 0)) - 6;
-    if (r.bottom > bas && b.getBoundingClientRect().top - Math.max(z.top, 0) > r.height + 8) l.classList.add("haut");
+    const tb = b.getBoundingClientRect(), dessous = bas - tb.bottom - 2, dessus = tb.top - (Math.max(z.top, 0) + 6) - 2;
+    if (r.height > dessous) {
+      if (dessus > dessous) l.classList.add("haut");
+      const place = Math.max(dessus, dessous);
+      if (r.height > place) l.style.maxHeight = `${Math.max(Math.floor(place), 96)}px`;
+    }
     const premier = l.querySelector("button:not(:disabled)");
     if (premier) premier.focus({ preventScroll: true });
   }
   document.addEventListener("click", (ev) => { if (!ev.target.closest(".et-mn")) fermerMenus(); }, { signal });
+  // le menu « Exporter » des résultats : il s'ouvre et se ferme ici ; un choix le referme, l'action suit (js/etabli.js :
+  // un fichier à télécharger, une fenêtre de calcul)
+  if (resultat) resultat.addEventListener("click", (ev) => {
+    const mb = ev.target.closest("[data-menu]");
+    if (mb) { ev.stopImmediatePropagation(); basculerMenu(mb); return; }
+    if (ev.target.closest(".et-mn-l")) fermerMenus();
+  }, { signal });
+  // … et un fichier à télécharger le referme aussi : js/etabli.js fait ce téléchargement à la CAPTURE du clic et l'arrête
+  // là — l'écoute ci-dessus ne l'entend jamais (le harnais l'a trouvé : le menu restait ouvert). Posée sur le document, à
+  // la capture, celle-ci passe avant lui ; elle ne fait que refermer, l'action suit.
+  document.addEventListener("click", (ev) => {
+    if (resultat && resultat.contains(ev.target) && ev.target.closest(".et-mn-l button")) fermerMenus();
+  }, { capture: true, signal });
   // la ligne de l'élément (en-tête du panneau) : son menu, la liste des éléments ; ouvrir un autre élément lâche la
   // pièce choisie (écouté AVANT js/etabli.js, qui fait l'action : ouvrir, ajouter, copier, supprimer)
   if (elt) elt.addEventListener("click", (ev) => {

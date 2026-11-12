@@ -707,7 +707,8 @@ chk("js/etabli.js déplace la ligne .et-elsel de #donnees dans l'emplacement .et
     and "const saisieElt = ELT ? saisieEnCours(ELT) : null;" in _js_etabli
     and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}(, \{ signal \})?\)', _js_etabli) is not None
     and re.search(r'ELT\.addEventListener\("focusout", .*?valider\(el\);', _js_etabli, re.S) is not None
-    and 'document.querySelector(".panel.left .phead .et-elt")' in _src_compact and "zonesMenus = [donnees, elt]" in _src_compact)
+    # (12/11/2026 : la colonne des résultats a aussi ses menus — « Exporter » des fondations de grues)
+    and 'document.querySelector(".panel.left .phead .et-elt")' in _src_compact and "zonesMenus = [donnees, elt, resultat]" in _src_compact)
 
 # 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
 # css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)

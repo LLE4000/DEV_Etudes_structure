@@ -59,29 +59,37 @@ Il a la disposition des Poutres béton armé (l'établi compact).
 
 - **À gauche**, six rubriques courtes : 1 Fondation (le schéma, le côté b, le chantier, la grue, « reprendre un
   classeur »), 2 Matériaux, 3 Géométrie, 4 Tolérances d'exécution, 5 Charges de la grue (pour les 8 pieux sur
-  semelles : un cas par carte, la réaction de chaque pied A, B, C, D), 6 Armatures choisies.
+  semelles : un cas par carte, la réaction de chaque pied A, B, C, D), 6 Armatures choisies ; et, pour les 8 pieux sur
+  semelles, une septième, secondaire : 7 **Options de conception** — ce que le plan d'armatures demande et que le
+  calcul ne fixe pas (retours, zones d'étriers serrés, latérales, coupes, cages, perfos, niveaux, textes, mise en
+  page). Elles ne changent aucun résultat ; valeurs de Greenwood par défaut ([`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md)).
 - **Au centre**, la vue en plan, redessinée à chaque saisie (pieux, semelles, poutres, pieds de la grue, châssis,
   cotes), puis une vue « M et V » par poutre et par semelle.
-- **À droite**, le verdict, un bloc par partie du classeur, les contrôles de géométrie, les écarts, puis l'export.
-  Chaque ligne ouvre sa fenêtre de calcul.
+- **À droite**, le verdict, un bloc par partie du classeur, les contrôles de géométrie, les écarts, puis le bouton
+  **« Exporter »** (§ 5). Chaque ligne ouvre sa fenêtre de calcul.
 
 Une saisie hors du domaine du classeur est refusée avec un message, et la fondation reste comme elle était.
 
 ## 5. L'export vers RBAR (AutoCAD)
 
 RBAR dessine, il ne dimensionne pas : il attend des armatures toutes choisies. Le module lui donne celles de la note,
-sans rien recalculer (`beton/fondation_grue/export.py`).
+sans rien recalculer (`beton/fondation_grue/export.py`, `beton/fondation_grue/ouvrage.py`).
+
+**Un seul bouton, « Exporter »** (12/11/2026, demande de la conversation RBAR) : son menu commence par « Contrôle avant
+export », puis une ligne par fichier, son titre et en clair ce qu'il produit ; une ligne qui ne peut pas partir est
+éteinte et dit pourquoi. Rien n'a disparu des exports d'avant.
 
 | Fichier | Contenu | Usage |
 |---|---|---|
-| RBAR `.json` | les **modèles de poutre** au format que RBAR importe déjà (palette › modèles › « Importer JSON… ») : un modèle par pièce et par zone d'étriers — barres basses et hautes, second groupe en 2ᵉ lit, étriers (Ø, pas, brins), enrobage quand le classeur en a un ; le type de pieu et de massif ; l'implantation en mm ; le tableau des armatures | le dessinateur importe les modèles, puis dessine |
+| **DWG pour AutoCAD** (`.json`, format « rbar.ouvrage ») | l'ouvrage complet au format que RBAR lit : pieux, poutres, armatures de la note, d'où vient chaque barre, options de conception, mise en page des deux feuilles, cartouche — [`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) | dans AutoCAD : commande `RBAROUVRAGE`, puis choisir ce fichier (étape 1 ; le DWG fait sans AutoCAD et les plans PDF viendront avec le moteur de RBAR) — 8 pieux sur semelles seulement |
+| Modèles de poutre pour RBAR (`.json`) | les **modèles de poutre** au format que RBAR importe déjà (palette › modèles › « Importer JSON… ») : un modèle par pièce et par zone d'étriers — barres basses et hautes, second groupe en 2ᵉ lit, étriers (Ø, pas, brins), enrobage quand le classeur en a un ; le type de pieu et de massif ; l'implantation en mm ; le tableau des armatures | le dessinateur importe les modèles, puis dessine |
 | Plan `.dxf` | le plan de principe (DXF R12, en cm) : contours, axes, pieux en cercles au diamètre réel, pieds de la grue | s'ouvre dans AutoCAD ; `RBARPIEU › Objets` reprend les cercles |
 | Armatures `.csv` | une ligne par poste d'armature, avec la section requise, la section choisie et les cellules de saisie | contrôle, bordereau |
 | Cas `.csv` | toutes les colonnes des grands tableaux (4 positions × 6 cas × 8 orientations) | comparer aux feuilles du classeur |
 
-**Avant d'envoyer**, « Contrôle » montre ce qui part, poste par poste, ce que le calcul ne fixe pas et ce que RBAR ne
-reprend pas d'un fichier. **L'export RBAR est refusé** tant qu'une vérification du classeur est « PAS OK » : on ne
-transmet pas au dessin une armature que la note refuse.
+**Avant d'envoyer**, « Contrôle avant export » montre ce qui part — chaque valeur et d'où elle vient —, ce qui est à
+regarder, ce qui manque et ce qui bloque. **Les fichiers pour RBAR sont refusés** tant qu'une vérification du classeur
+est « PAS OK » : on ne transmet pas au dessin une armature que la note refuse.
 
 **Le contrat du fichier RBAR** est [`FONDATIONS_GRUE_RBAR.md`](FONDATIONS_GRUE_RBAR.md) : chaque paramètre, son sens,
 son unité, et un fichier d'exemple complet (Greenwood, aux armatures de son plan d'armatures). C'est le document remis
@@ -93,13 +101,14 @@ vient** : ses cellules du classeur (`cellules`) et le texte prêt à écrire sur
 **Ce qui reste hors de RBAR, par décision du propriétaire** : RBAR sera vendu hors du bureau, ce site reste interne.
 La fondation de grue ne doit donc pas exister dans RBAR — ni commande, ni modèle, ni texte. C'est le fichier du site
 qui porte tout ; RBAR recevra une porte d'entrée générale (« construire un ouvrage décrit par un fichier »), et le
-vocabulaire du fichier d'aujourd'hui (`support`, `semelle`, `pieds`…) ne doit pas s'écrire dans son code. Le format
-neutre que RBAR lira est à définir par sa conversation ; le site s'y conformera.
+vocabulaire du fichier d'aujourd'hui (`support`, `semelle`, `pieds`…) ne doit pas s'écrire dans son code. Ce format
+neutre existe depuis le 11/11/2026 : « rbar.ouvrage », défini par la conversation RBAR ; le site l'écrit depuis le
+12/11/2026 (ligne « DWG pour AutoCAD »).
 
-Ce que l'export ne peut pas donner, parce que le calcul ne le fixe pas : les longueurs des zones d'étriers, les
-formes, les retours, les ancrages et les recouvrements (standard du bureau), le nombre de rangées d'armatures
-latérales. Et ce que RBAR ne lit pas encore d'un fichier : la géométrie complète d'un élément, les étriers de renfort
-au droit des pieux, les perfos — ils sont dans le tableau, à poser par le dessinateur.
+Ce que le calcul ne fixe pas — les longueurs des zones d'étriers, les retours, le nombre de rangées de barres
+latérales, les cages de renfort dessinées, les longueurs des perfos, les niveaux — vient des **options de
+conception** de la note (rubrique 7), aux valeurs de Greenwood tant que le bureau n'a pas donné les siennes : la liste
+des questions est dans [`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) § 5.
 
 ## 6. La note de calcul PDF
 
@@ -126,9 +135,10 @@ seul dessin pour l'écran et pour la note).
 | `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées — leur gabarit réévalué, et leur ÉCRITURE : la chaîne imprimée de 1 236 formules (les quatre classeurs et 24 variantes) relue caractère par caractère ; l'enveloppe exacte de la poutre support ; 39 + 8 mutations vues |
 | `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; aucun texte d'un dessin hors de son cadre ni sur un autre ; le fichier RBAR en version 2 ; les refus ; l'échappement ; 57 mutations vues |
 | `tests/test_note_fondation_grue.py` | la note PDF relue par pdftotext sur 13 états et une grille de 40 fondations : tout ce que le moteur calcule y est, à la lettre (formules, cellules, verdicts, écarts, positions de tolérance, armatures), les dessins de l'écran, l'échelle du plan, la mise en page sans débordement, l'identification, les conditions du navigateur ; 21 mutations vues |
+| `tests/test_fondation_grue_ouvrage.py` | le fichier « rbar.ouvrage » : pour Greenwood, c'est l'exemple de RBAR à ses écarts voulus près ; il tient les règles du format de RBAR (recopiées en contrôles, chaque contre-exemple vu) ; chaque option de conception change le fichier là où elle le dit et RIEN du calcul ; le contrôle avant export et les blocages ; des mutations du fichier et des options, toutes vues. Le passage dans le vrai lecteur de RBAR est une mesure : `docs/site/mesures/2026-11-12_fichier_rbar_lu_par_rbar.md` |
 | `tests/test_fondation_grue_contrat_rbar.py` | le document du fichier RBAR et le fichier disent la même chose : l'exemple du document est celui que le site produit, chaque paramètre exporté y est nommé, le tableau des 12 repères du plan Greenwood dit les cellules et les armatures du fichier, rien de la version 1 n'a disparu ; 14 mutations vues |
 | `tests/test_api_web_modules.py fondation_grue` | le contrat commun des modules du site |
-| `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`, `note_pdf`) | l'écran dans le navigateur : PC, tablettes, téléphone ; la note PDF téléchargée d'un clic |
+| `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`, `note_pdf`, `exporter`) | l'écran dans le navigateur : PC, tablettes, téléphone ; la note PDF téléchargée d'un clic ; le menu « Exporter » ouvert, mesuré tel que l'œil le voit, et le fichier « rbar.ouvrage » téléchargé |
 
 Les valeurs de référence (`tests/ref_fondation_grue.json`) sont tirées des classeurs par
 `tools/transcrire_fondation_grue.py`.
@@ -155,6 +165,9 @@ et sa mutation.
 - **Ce que les classeurs ne calculent pas** : le soulèvement d'un pieu, le poinçonnement, les longueurs d'ancrage, la
   fissuration, la répartition de l'effort horizontal entre les pieux (`moteur.NON_COUVERT` : la note l'imprime).
 - **Les seize écarts de l'étude** (§ 5) : signalés, non corrigés. Six questions restent posées au bureau (étude § 11).
+- **Le fichier « rbar.ouvrage »** : seulement le schéma 8 pieux sur semelles, des semelles des deux côtés ; la charge
+  horizontale des pieux, l'historique des indices et une partie du cartouche n'y sont pas ; les options de conception
+  attendent les valeurs du bureau ([`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) § 5 et § 6).
 
 ## 9. Chantiers à venir — améliorations du classeur
 

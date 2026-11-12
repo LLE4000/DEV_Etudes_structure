@@ -28,12 +28,14 @@ import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from beton.fondation_grue import classeur as K
+from beton.fondation_grue import conception as CO
 from beton.fondation_grue import donnees as D
 from beton.fondation_grue import ecarts as EC
 from beton.fondation_grue import ecriture as W
 from beton.fondation_grue import entree as EN
 from beton.fondation_grue import export as X
 from beton.fondation_grue import moteur as MO
+from beton.fondation_grue import ouvrage as O
 from beton.fondation_grue import schemas as SC
 
 from . import commun as C
@@ -51,6 +53,13 @@ SEGMENTS_ETAT_CAS = ((EN.SERVICE, "En service"), (EN.HORS, "Hors service"))
 OPTIONS_DIAMETRE = tuple((d, str(d)) for d in EN.DIAMETRES)
 # les champs ENTIERS (un nombre de barres, de brins) et les champs à MENU (un diamètre) : par la fin de leur chemin
 FINS_ENTIER = ("n", "brins", "brins_base")
+# les options de conception (le dessin seulement : beton/fondation_grue/conception.py), par sorte de champ — le chemin
+# est « conception/<ceci> »
+CONCEPTION_TEXTES = ("perfos/remarque", "textes/plan", "textes/support", "textes/semelle", "textes/chassis", "textes/pose")
+CONCEPTION_CHOIX = ("mise_en_page", "support/retour", "semelle/retour", "support/coupes", "semelle/coupes")
+CONCEPTION_CASES = ("support/recouvrement_lat", "semelle/recouvrement_lat")
+CONCEPTION_FACULTATIFS = ("niveaux/dessus_m", "niveaux/recepage_m")
+CONCEPTION_ENTIERS = ("laterales", "cage_cadres_long", "cage_cadres_travers")
 FINS_DIAMETRE = ("d",)
 TEXTES_CAS = ("nom",)
 # le nom COURT d'une vérification (1ʳᵉ ligne d'un résultat) : la fin de sa clé
@@ -87,6 +96,10 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["e_support"], "valeur": "80"},
     {"action": "modifier", "chemin": ["support", "inf", "0", "n"], "valeur": "2"},
     {"action": "modifier", "chemin": ["pieux", "capacite"], "valeur": "40"},
+    {"action": "modifier", "chemin": ["conception", "support", "retour"], "valeur": CO.RETOUR_ARRET},
+    {"action": "modifier", "chemin": ["conception", "mise_en_page"], "valeur": CO.RBAR_CHOISIT},
+    {"action": "modifier", "chemin": ["conception", "niveaux", "dessus_m"], "valeur": ""},
+    {"action": "telecharger", "quoi": "ouvrage"},
     {"action": "telecharger", "quoi": "rbar"},
     {"action": "telecharger", "quoi": "dxf"},
     {"action": "telecharger", "quoi": "tableau"},
@@ -166,12 +179,40 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 
 # ------------------------------------------------------------------ la saisie
 def _changer_schema(f: Dict, type_: str) -> Dict:
-    """Le schéma change : la fondation repart des valeurs du classeur de ce schéma ; le nom, le chantier, la grue et
-    les matériaux sont gardés."""
+    """Le schéma change : la fondation repart des valeurs du classeur de ce schéma ; le nom, le chantier, la grue, les
+    matériaux et les options de conception (le dessin) sont gardés."""
     neuve = MO.nouvelle_fondation(type_, f.get("nom") or NOM_DEFAUT)
-    for cle in ("projet", "grue", "beton", "acier"):
-        neuve[cle] = f[cle]
+    for cle in ("projet", "grue", "beton", "acier", "conception"):
+        if cle in f:
+            neuve[cle] = f[cle]
     return neuve
+
+
+def _poser_conception(f: Dict, cles: List[str], valeur) -> None:
+    """Écrit une option de conception (« conception/support/retour_mm »…) ; le moteur relit ensuite toute la
+    fondation (``conception.normaliser``) et refuse ce qui sort du domaine. KeyError : champ inconnu ; ValueError :
+    saisie illisible (message à montrer)."""
+    sous, chemin = "/".join(cles[1:]), "/".join(cles)
+    EN.lire(f, chemin)                                          # KeyError : le champ n'existe pas
+    if sous in CONCEPTION_TEXTES:
+        EN.poser(f, chemin, str(valeur if valeur is not None else ""))
+    elif sous in CONCEPTION_CHOIX:
+        EN.poser(f, chemin, str(valeur))
+    elif sous in CONCEPTION_CASES:
+        if not isinstance(valeur, bool):
+            raise ValueError("case à cocher : vrai ou faux attendu")
+        EN.poser(f, chemin, valeur)
+    elif sous in CONCEPTION_FACULTATIFS:
+        EN.poser(f, chemin, C.lire_auto(valeur))                # vidé : None, la valeur n'est pas écrite sur le plan
+    else:
+        x = C.lire_nombre(valeur)
+        if x is None:
+            raise ValueError(f"nombre illisible : « {valeur} »")
+        if cles[-1] in CONCEPTION_ENTIERS:
+            if not float(x).is_integer():
+                raise ValueError(f"nombre entier attendu : « {valeur} »")
+            x = int(x)
+        EN.poser(f, chemin, x)
 
 
 def _cas_neuf(cas: List[Dict]) -> Dict:
@@ -209,9 +250,11 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
                 return None
             if valeur not in EN.EXEMPLES:
                 return f"Classeur inconnu : « {valeur} »"
-            nom = f.get("nom") or NOM_DEFAUT
+            nom, conception = f.get("nom") or NOM_DEFAUT, f.get("conception")
             f = MO.exemple(valeur)
             f["nom"] = nom
+            if conception is not None:                          # les options du dessin restent celles de la fondation
+                f["conception"] = conception
         elif cle == "charges/cas/+":
             if f["type"] != S8:
                 return "Ce schéma n'a pas de tableau des cas de la grue"
@@ -230,6 +273,8 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             EN.poser(f, cle, str(valeur if valeur is not None else ""))
         elif cle in ("beton", "acier", "cote_b") or (cles[:2] == ["charges", "cas"] and fin == "etat"):
             EN.poser(f, cle, valeur)
+        elif cles[0] == "conception":
+            _poser_conception(f, cles, valeur)
         else:
             EN.lire(f, cle)                                     # KeyError : le champ n'existe pas dans ce schéma
             x = C.lire_nombre(valeur)
@@ -519,17 +564,119 @@ def _resume_tolerances(f: Dict) -> str:
     return "e = " + " et ".join(_g(e) for e in es) + " cm"
 
 
+AIDES_CONCEPTION = {
+    "mise_en_page": "Le format et les échelles des deux feuilles (coffrage, armatures) que RBAR dessine. « Selon le châssis » : la "
+                    "ligne de la table du bureau pour ce châssis, sinon celle du châssis immédiatement plus grand.",
+    "retour": "Longueur fixe : le retour hors tout des barres inférieures et supérieures aux abouts (0 : barres droites). "
+              "Arrêté sous la face opposée : le retour monte (ou descend) jusqu'à la distance donnée de la face opposée "
+              "(h − enrobage − Ø étrier − arrêt). Il doit tenir dans les étriers.",
+    "zone": "Longueur de chaque zone d'étriers serrés, aux deux abouts de la poutre support (les étriers des extrémités du "
+            "calcul) ; entre les deux, les étriers de la partie centrale.",
+    "laterales": "Rangées de barres latérales par face (le classeur prescrit 2Ø12 tous les 30 à 40 cm sans en fixer le nombre).",
+    "cage": "La cage de renfort au droit de chaque pieu : des cadres en U deux à deux, le Ø du calcul. Le classeur vérifie des "
+            "brins ; le nombre de cadres dessinés vient d'ici (règle de passage à confirmer).",
+    "perfos": "Les barres scellées de chaque plaque de répartition (les perfos du calcul : leur nombre et leur Ø), posées en "
+              "triangle sous le pied de la grue comme sur le plan de Greenwood.",
+    "niveaux": "Niveaux relatifs au ±0,00 du chantier. Vidé : le niveau n'est pas écrit sur le plan.",
+    "pose": "Les remarques de pose du plan d'armatures : une ligne par remarque, 8 au plus.",
+}
+
+
+def _rubrique_conception(f: Dict) -> str:
+    """7 Options de conception (schéma 8 pieux sur semelles) : ce que le PLAN demande et que le calcul ne fixe pas —
+    elles ne changent aucun résultat ; elles partent dans le fichier pour RBAR (``beton/fondation_grue/ouvrage.py``).
+    Valeurs de Greenwood par défaut (``beton/fondation_grue/conception.py``)."""
+    c = f["conception"]
+    L = C.ligne
+    b = "conception/"
+
+    def n(chemin, unite="mm", entier=False):
+        return _num(f, b + chemin, unite, entier)
+
+    def choix(chemin, options):
+        return C.choix((b + chemin).split("/"), EN.lire(f, b + chemin), options)
+
+    ligne, pourquoi = CO.mise_en_page(f)
+    out = C.aide("Ces options ne changent aucun résultat du calcul : elles décrivent le plan que RBAR dessine. Valeurs de "
+                 "Greenwood par défaut.")
+    out += _titre("Mise en page des plans")
+    out += L("Feuilles", choix("mise_en_page", CO.CHOIX_MISE_EN_PAGE), "", AIDES_CONCEPTION["mise_en_page"], full=True)
+    detail = ("RBAR choisit le format et les échelles" if ligne is None else
+              f"{ligne[1]} · plan 1/{ligne[2]} · détails 1/{ligne[3]} · familles 1/{ligne[4]} · coupes 1/{ligne[5]} · "
+              f"croisements 1/{ligne[6]} · implantation 1/{ligne[7]}")
+    out += C.aide(C.esc(f"{pourquoi[:1].upper() + pourquoi[1:]} : {detail}."))
+    for piece, titre in (("support", "Poutres support"), ("semelle", "Semelles sur pieux")):
+        p = c[piece]
+        out += _titre(titre)
+        out += L("Retours", choix(f"{piece}/retour", CO.CHOIX_RETOUR), "", AIDES_CONCEPTION["retour"], full=True)
+        if p["retour"] == CO.RETOUR_FIXE:
+            out += L("retour", n(f"{piece}/retour_mm"), "")
+        else:
+            out += L("arrêt", n(f"{piece}/arret_mm"), "", "Distance du bout du retour à la face opposée de la poutre.")
+        # le retour que le plan recevra (le moteur le calcule : conception.retour) — ou pourquoi il ne tient pas
+        try:
+            rt = CO.retour(c, piece, f[piece]["h"] * 10, f["enrobage"],
+                           f[piece]["etriers_centre" if piece == "support" else "etriers"]["d"])
+            if p["retour"] != CO.RETOUR_FIXE:
+                out += C.aide(C.esc(f"Retour obtenu : {_g(rt / 10)} cm hors tout (h − enrobage − Ø étrier − arrêt)."))
+            elif rt <= 0:
+                out += C.aide("Retour nul : barres droites.")
+        except ValueError as err:
+            out += C.message(C.esc(str(err)), grave=True)
+        out += L("retour latérales", n(f"{piece}/retour_lat_mm"), "")
+        if piece == "support":
+            out += L("zone serrée", n("support/zone_serree_mm"), "", AIDES_CONCEPTION["zone"])
+        out += L("latérales / face", n(f"{piece}/laterales", "", True), "", AIDES_CONCEPTION["laterales"])
+        out += C.case((b + f"{piece}/recouvrement_lat").split("/"), p["recouvrement_lat"], "Latérales : recouvrement au milieu")
+        out += L("Coupes", choix(f"{piece}/coupes", CO.COUPES_SUPPORT if piece == "support" else CO.COUPES_SEMELLE), "", full=True)
+        if piece == "semelle":
+            out += _titre("Cages de renfort au droit des pieux")
+            out += C.aide(C.esc(AIDES_CONCEPTION["cage"]))
+            out += L("longueur", n("semelle/cage_long_mm"), "") + L("largeur", n("semelle/cage_larg_mm"), "")
+            out += L("cadres en long", n("semelle/cage_cadres_long", "", True), "")
+            out += L("cadres en travers", n("semelle/cage_cadres_travers", "", True), "")
+            out += L("jambe des cadres", n("semelle/cage_jambe_mm"), "")
+    out += _titre("Barres scellées (perfos)")
+    out += C.aide(C.esc(AIDES_CONCEPTION["perfos"]))
+    out += L("longueur", n("perfos/longueur_mm"), "") + L("dont scellée", n("perfos/scelle_mm"), "")
+    out += L("remarque", _texte(f, b + "perfos/remarque"), "", full=True)
+    out += _titre("Niveaux")
+    out += C.aide(C.esc(AIDES_CONCEPTION["niveaux"]))
+    for cle, nom in (("dessus_m", "dessus des poutres"), ("recepage_m", "recépage des pieux")):
+        out += L(nom, C.num((b + "niveaux/" + cle).split("/"), c["niveaux"][cle], "m", dec=2, auto="non écrit"), "")
+    out += _titre("Textes du plan")
+    for cle, nom in (("plan", "titre du plan"), ("support", "poutres support"), ("semelle", "semelles"), ("chassis", "châssis")):
+        out += L(nom, _texte(f, b + "textes/" + cle), "", full=True)
+    # (« remarques », comme les autres libellés du groupe : « Remarques de pose » était coupé hors du PC — harnais
+    #  « formats », 12/11/2026 ; l'aide dit la phrase entière)
+    out += L("remarques", C.zone_texte((b + "textes/pose").split("/"), c["textes"]["pose"], 4), "", AIDES_CONCEPTION["pose"],
+             full=True)
+    return out
+
+
+def _resume_conception(f: Dict) -> str:
+    """Le résumé de la rubrique 7 : la mise en page, et si les options sont celles de Greenwood."""
+    ligne, _ = CO.mise_en_page(f)
+    mp = "RBAR choisit" if ligne is None else f"{ligne[1]} · 1/{ligne[2]}"
+    return f"{mp} · " + ("valeurs de Greenwood" if f["conception"] == CO.defauts() else "modifiées")
+
+
 def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
-    """Les six rubriques de la fondation ouverte. ``r`` : son calcul (``MO.verifier``), refait s'il manque."""
+    """Les rubriques de la fondation ouverte : six pour le calcul, et — 8 pieux sur semelles — la septième, les options
+    de conception du plan (secondaire). ``r`` : son calcul (``MO.verifier``), refait s'il manque."""
     f = _fondation(etat)
     r = r or MO.verifier(f)
     n_arm = sum(1 for a in r["armatures"] if a.get("saisie"))
-    return (C.section(1, "Fondation", C.esc(EN.COURTS_TYPE[f["type"]]), _rubrique_fondation(f), True, "fo")
-            + C.section(2, "Matériaux", f"{C.esc(f['beton'])} · {C.esc(f['acier'])}", _rubrique_materiaux(f, r), False, "ma")
-            + C.section(3, "Géométrie", _resume_geometrie(f), _rubrique_geometrie(f), True, "ge")
-            + C.section(4, "Tolérances d'exécution", _resume_tolerances(f), _rubrique_tolerances(f), False, "to")
-            + C.section(5, "Charges de la grue", _resume_charges(f), _rubrique_charges(f), False, "ch")
-            + C.section(6, "Armatures choisies", f"{n_arm} postes", _rubrique_armatures(f), False, "ar"))
+    out = (C.section(1, "Fondation", C.esc(EN.COURTS_TYPE[f["type"]]), _rubrique_fondation(f), True, "fo")
+           + C.section(2, "Matériaux", f"{C.esc(f['beton'])} · {C.esc(f['acier'])}", _rubrique_materiaux(f, r), False, "ma")
+           + C.section(3, "Géométrie", _resume_geometrie(f), _rubrique_geometrie(f), True, "ge")
+           + C.section(4, "Tolérances d'exécution", _resume_tolerances(f), _rubrique_tolerances(f), False, "to")
+           + C.section(5, "Charges de la grue", _resume_charges(f), _rubrique_charges(f), False, "ch")
+           + C.section(6, "Armatures choisies", f"{n_arm} postes", _rubrique_armatures(f), False, "ar"))
+    if f["type"] == S8:
+        out += C.section(7, "Options de conception", C.esc(_resume_conception(f)), _rubrique_conception(f), False, "oc",
+                         secondaire=True)
+    return out
 
 
 def _dims(f: Dict) -> str:
@@ -694,20 +841,42 @@ def _blocs(r: Dict) -> str:
     return out
 
 
+AIDE_DWG = "Dans AutoCAD : commande RBAROUVRAGE, puis choisir ce fichier."
+
+
 def _export(r: Dict) -> str:
-    """Le pied du résultat : les fichiers à télécharger. L'export vers RBAR n'est proposé que s'il peut partir."""
+    """Le pied du résultat : UN bouton « Exporter » (le menu du kit, ``E.exporter``) — une ligne par fichier, avec ce
+    qu'il produit ; rien n'a disparu des exports d'avant, tout y est rangé. Une ligne qui ne peut pas partir est éteinte
+    et dit pourquoi ; le blocage du fichier RBAR est aussi dit au-dessus du bouton."""
+    f = r["fondation"]
+    ctl_o = O.controle(r)
     ctl = X.controle(r)
-    boutons = ""
-    if ctl["pret"]:
-        boutons += C.bouton_telecharger("rbar", "RBAR .json")
-    boutons += C.bouton_telecharger("dxf", "Plan .dxf") + C.bouton_telecharger("tableau", "Armatures .csv")
-    if r["fondation"]["type"] == S8:
-        boutons += C.bouton_telecharger("cas", "Cas .csv")
+    raison = O.possible(f)
+    # (une ligne de texte chacune : le menu tient dans la colonne courte des résultats en tablette portrait — harnais
+    #  « exporter », 12/11/2026 ; une raison de blocage, elle, se dit en entier)
+    lignes = [E.ligne_export('data-calcul="export"', "file-text", "Contrôle avant export",
+                             "Ce qui part, d'où, ce qui manque ou bloque")]
+    if raison:
+        texte_dwg = raison[:1].upper() + raison[1:] + "."
+    elif not ctl_o["pret"]:
+        texte_dwg = "Bloqué : " + " ; ".join(ctl_o["bloquants"]) + "."
+    else:
+        texte_dwg = "Fichier RBAR, puis RBAROUVRAGE dans AutoCAD"
+    lignes.append(E.ligne_export('data-telecharger="ouvrage"', "file-down", "DWG pour AutoCAD", texte_dwg, actif=ctl_o["pret"]))
+    lignes.append(E.ligne_export('data-telecharger="dxf"', "download", "Plan de principe (.dxf)",
+                                 "Pieux, contours et axes, en cm"))
+    lignes.append(E.ligne_export('data-telecharger="tableau"', "download", "Armatures (.csv)",
+                                 "Armatures choisies, cellules du classeur"))
+    if f["type"] == S8:
+        lignes.append(E.ligne_export('data-telecharger="cas"', "download", "Cas de la grue (.csv)",
+                                     "Chaque cas de la grue, colonne par colonne"))
+    lignes.append(E.ligne_export('data-telecharger="rbar"', "download", "Modèles de poutre pour RBAR (.json)",
+                                 "Ancien fichier, pour la palette de RBAR"
+                                 if ctl["pret"] else "Bloqué : " + " ; ".join(ctl["bloquants"]) + ".", actif=ctl["pret"]))
     bloque = ""
-    if not ctl["pret"]:
-        bloque = C.message("<b>Export vers RBAR bloqué</b> : " + C.esc(" ; ".join(ctl["bloquants"])) + ".", grave=True)
-    return (f'{bloque}<div class="fg-exp"><button type="button" class="btn sm" data-calcul="export" title="Ce qui part, ce qui manque, ce qui bloque">'
-            f'{C.icon("file-text")}Contrôle</button>{boutons}</div>')
+    if not raison and not ctl_o["pret"]:
+        bloque = C.message("<b>Fichier pour RBAR bloqué</b> : " + C.esc(" ; ".join(ctl_o["bloquants"])) + ".", grave=True)
+    return f'{bloque}<div class="fg-exp">{E.exporter(lignes)}</div>'
 
 
 # ------------------------------------------------------------------ les fenêtres de calcul
@@ -769,7 +938,17 @@ def _fenetre_ecarts(r: Dict, nom: str, hyps: List[str]) -> str:
                             lignes, detail, pied, colonnes=("Écart", "Cellule", "Classeur", "Redémontré", "Effet"))
 
 
+def _liste(titre: str, items) -> str:
+    return (f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}</div><ul class="fg-li">{"".join(f"<li>{C.esc(x)}</li>" for x in items)}</ul></div>'
+            if items else "")
+
+
 def _fenetre_export(r: Dict, nom: str, hyps: List[str]) -> str:
+    """La fenêtre « Contrôle avant export ». 8 pieux sur semelles : le fichier « rbar.ouvrage » — chaque valeur qui part
+    et d'où elle vient (le calcul et sa cellule, la géométrie, une option de conception), ce qui est à regarder, ce qui
+    est absent du fichier, ce qui bloque ; les autres schémas : l'ancien fichier des modèles de poutre."""
+    if O.possible(r["fondation"]) is None:
+        return _fenetre_ouvrage(r, nom, hyps)
     ctl = X.controle(r)
     mots = {MO.OK: ("p", "OK"), MO.WARN: ("v", "LIMITE"), MO.NOK: ("r", "PAS OK"), MO.INFO: ("c", "prescription")}
     lignes = [{"nom": C.esc(li["element"]), "sous": "", "formule": C.esc(li["poste"]), "valeur": C.esc(li["valeur"]), "limite": C.esc(li["cellules"] or "—"),
@@ -785,6 +964,21 @@ def _fenetre_export(r: Dict, nom: str, hyps: List[str]) -> str:
             'de poutre (palette › modèles › « Importer JSON… »), les types de pieux et de massifs, l\'implantation en mm et le tableau des armatures.</div>')
     return C.fenetre_calcul("export", f"{nom} · contrôle avant export", f"vers RBAR (AutoCAD) · {etat}", hyps, lignes, detail, pied,
                             colonnes=("Élément", "Poste", "Valeur exportée", "Cellules de saisie", "État"))
+
+
+def _fenetre_ouvrage(r: Dict, nom: str, hyps: List[str]) -> str:
+    ctl = O.controle(r)
+    lignes = [{"nom": C.esc(li["quoi"]), "sous": "", "formule": C.esc(li["source"]), "valeur": C.esc(li["valeur"]), "limite": "",
+               "niveau": "p", "etat_txt": "part"} for li in ctl["lignes"]]
+    detail = (_liste("Ce qui bloque l'envoi", ctl["bloquants"]) + _liste("À regarder avant d'envoyer", ctl["a_regarder"])
+              + _liste("Absent du fichier (RBAR prend son standard, ou ne le dessine pas)", ctl["manques"])
+              + _liste("Écarts relevés dans le classeur", X.controle(r)["ecarts"]))
+    etat = "prêt à partir" if ctl["pret"] else "bloqué"
+    pied = ('<div class="ck-autres fg-pied">Le fichier « rbar.ouvrage » décrit la fondation pour RBAR : pieux, poutres support, '
+            'semelles, leurs armatures (celles que la note vérifie), les cages, les barres scellées, les textes et la mise en page. '
+            f'RBAR en fait le plan de coffrage, le plan d\'armatures et le bordereau. {AIDE_DWG}</div>')
+    return C.fenetre_calcul("export", f"{nom} · contrôle avant export", f"fichier pour RBAR · {etat}", hyps, lignes, detail, pied,
+                            colonnes=("Ce qui part", "D'où elle vient", "Valeur", "", "État"))
 
 
 GRANDEURS_CAS = (("RA", "R_A,max", "kN"), ("RB", "R_B,max", "kN"), ("RB_resp", "R_B respectif", "kN"), ("RB_symm", "R_B symétrique", "kN"),
@@ -936,15 +1130,19 @@ def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional
     ``note_fondation_grue``, chargé à la demande : reportlab n'est pas dans le paquet du moteur) ; « rbar » : le fichier
     d'échange vers RBAR (JSON ; refusé avec un message quand une vérification du classeur est PAS OK) ; « dxf » : le plan
     de principe (DXF R12, en cm) ; « tableau » : le tableau des armatures (CSV) ; « cas » : toutes les colonnes des grands
-    tableaux des cas de la grue (CSV, 8 pieux sur semelles)."""
+    tableaux des cas de la grue (CSV, 8 pieux sur semelles) ; « ouvrage » : le fichier « rbar.ouvrage » que RBAR dessine
+    (``beton/fondation_grue/ouvrage.py`` ; la ligne « DWG pour AutoCAD » du menu Exporter)."""
     if quoi == "note_pdf":
         from . import note_fondation_grue as NF
         return NF.fichier(etat, infos)
     f = _fondation(etat)
     nom = f.get("nom") or "Fondation de grue"
-    if quoi not in ("rbar", "dxf", "tableau", "cas"):
+    if quoi not in ("rbar", "dxf", "tableau", "cas", "ouvrage"):
         return None
     r = MO.verifier(f)
+    if quoi == "ouvrage":                   # le fichier « rbar.ouvrage » (ValueError, message à montrer, s'il est bloqué)
+        d = O.fichier(r, infos)
+        return {"nom": C.nom_fichier(d["nom"], "json"), "type": d["type"], "texte": d["texte"]}
     if quoi == "rbar":
         return {"nom": C.nom_fichier(f"{nom} - RBAR", "json"), "type": "application/json", "texte": X.rbar_texte(r, infos)}
     if quoi == "dxf":

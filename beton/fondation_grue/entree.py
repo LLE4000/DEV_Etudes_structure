@@ -11,9 +11,13 @@ kN·m ; capacité d'un pieu en kN (variante 4 pieux) ou en tonnes (BASE). Biblio
     nouvelle_fondation(type)   une fondation aux valeurs du classeur de son schéma
     normaliser(f)              copie complétée et contrôlée ; ValueError (message clair) hors du domaine
     lire(f, chemin) / poser(f, chemin, valeur)   accès par chemin « support/inf/0/n »
+
+Chaque fondation porte aussi ses OPTIONS DE CONCEPTION (``f["conception"]``, ``beton/fondation_grue/conception.py``) :
+ce que le plan demande et que le calcul ne fixe pas. Le calcul ne les lit pas ; une note d'avant les reçoit par défaut.
 """
 import copy
 
+from . import conception as CO
 from . import donnees as D
 
 SEMELLES8, CADRE4, DIAGONALES8 = "semelles8", "cadre4", "diagonales8"
@@ -183,6 +187,7 @@ def nouvelle_fondation(type_: str = SEMELLES8, nom: str = "Fondation de grue 1")
     for cle in CHAMPS_TEXTE:
         if cle in f:
             f[cle] = ""
+    f["conception"] = CO.defauts()
     return f
 
 
@@ -405,4 +410,6 @@ def normaliser(f: dict) -> dict:
             d = sec["h"] * 10 - out["enrobage"] - et - max(g["d"] if g["n"] > 0 else 0 for g in sec["inf"]) / 2
             _exiger(d - out["enrobage"] > 0, f"{nom} : hauteur trop faible pour l'enrobage et les armatures (hauteur utile ≤ 0)")
     out["renfort"], out["perfos"] = renfort, perfos
+    # les options de conception (le dessin seulement) : celles de la fondation, ou les défauts (une note d'avant)
+    out["conception"] = CO.normaliser(src.get("conception"))
     return out

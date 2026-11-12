@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|exporter|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -1618,6 +1618,84 @@ const principal = async () => {
     verif('télécharger · téléphone : aucune violation de la politique de sécurité, aucune erreur JavaScript',
       !(await tl.evaluate(() => window.__csp.length)) && !tl.erreurs.length, tl.erreurs.join(' | ').slice(0, 300));
     await tl.context().close();
+  }
+
+  // ---------------------------------------------------------------- le menu « Exporter » (fondations de grues, 12/11/2026)
+  // UN bouton en bas des résultats, son menu (etabli_compact.exporter ; js/compact.js l'ouvre, vers le haut quand la place
+  // manque) : au PC, en tablette portrait et au téléphone. Ce que l'œil voit : le menu ouvert VU, entier dans l'écran,
+  // chaque ligne atteinte (le point touché en son centre est bien elle), assez haute pour le doigt, aucun texte coupé ;
+  // « DWG pour AutoCAD » télécharge le fichier « rbar.ouvrage » de la note (son cartouche dit la note et son chantier) et
+  // referme le menu ; « Contrôle avant export » ouvre sa fenêtre (ce qui part, d'où, prêt à partir).
+  //   filtre « exporter »
+  if (!FILTRE || FILTRE === 'exporter') {
+    const fs = require('fs');
+    const LIGNES = ['Contrôle avant export', 'DWG pour AutoCAD', 'Plan de principe (.dxf)', 'Armatures (.csv)', 'Cas de la grue (.csv)',
+      'Modèles de poutre pour RBAR (.json)'];
+    const B = '#resultat .et-exp [data-menu]';
+    for (const [fmt, w, h, tel, nom] of [['PC', 1440, 900, false, 'pc'], ['tablette portrait', 820, 1180, false, 'tab_portrait'], ['téléphone', 390, 844, true, 'tel']]) {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
+      const g = await c.newPage();
+      const erreursPage = [];
+      g.on('pageerror', (e) => erreursPage.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') erreursPage.push(m.text().slice(0, 300)); });
+      const toucher = (s) => (tel ? g.tap(s) : g.click(s));
+      // (l'adresse SANS « .html » : le serveur local jette la requête d'une adresse en « .html », plus sévère que Cloudflare)
+      await g.goto(`${BASE}/fondations-grues?chantier=${encodeURIComponent('Greenwood')}&nom=${encodeURIComponent('Fondation grue tour GT1')}`);
+      await pretEcran(g);
+      if (tel) { await g.click('.mtabs [data-onglet="resultat"]'); await g.waitForTimeout(250); }
+      await g.locator(B).scrollIntoViewIfNeeded();
+      const bouton = await g.evaluate((s) => {
+        const e = document.querySelectorAll(s);
+        if (e.length !== 1) return { n: e.length };
+        const r = e[0].getBoundingClientRect();
+        return { n: 1, vu: e[0].checkVisibility({ visibilityProperty: true, opacityProperty: true }), w: Math.round(r.width), h: Math.round(r.height),
+          texte: e[0].textContent.trim(), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 };
+      }, B);
+      verif(`exporter · ${fmt} : UN bouton « Exporter » dans les résultats, vu, entier, assez grand pour le doigt`,
+        bouton.n === 1 && bouton.vu && bouton.dedans && bouton.texte === 'Exporter' && bouton.h >= (tel ? 40 : 28) && bouton.w >= 80, JSON.stringify(bouton));
+      await toucher(B);
+      await g.waitForTimeout(250);
+      // (« atteinte » : le point touché est bien la ligne, à son bord gauche — l'icône —, en son centre et à son bord droit ;
+      //  le 12/11/2026, au PC, le centre l'était, mais la colonne coupait le bord gauche : les icônes ne se voyaient plus)
+      const menu = await g.evaluate(() => {
+        const m = document.querySelector('#resultat .et-exp'), l = m.querySelector('.et-mn-l'), q = l.getBoundingClientRect(), entrees = [...l.querySelectorAll('button')];
+        const col = document.getElementById('resultat').getBoundingClientRect();
+        const atteinte = (e) => { e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(), y = (r.top + r.bottom) / 2;
+          return [r.left + 6, (r.left + r.right) / 2, r.right - 6].every((x) => { const t = document.elementFromPoint(x, y); return !!t && e.contains(t); }); };
+        return { vu: l.checkVisibility({ visibilityProperty: true, opacityProperty: true }), ouvert: m.querySelector('[data-menu]').getAttribute('aria-expanded') === 'true',
+          dedans: q.left >= -0.5 && q.top >= -0.5 && q.right <= innerWidth + 0.5 && q.bottom <= innerHeight + 0.5
+            && q.left >= col.left - 0.5 && q.right <= col.right + 0.5 && q.top >= col.top - 0.5 && q.bottom <= col.bottom + 0.5,
+          touche: entrees.length > 0 && entrees.every(atteinte), defile: l.scrollHeight > l.clientHeight + 1,
+          titres: entrees.map((e) => (e.querySelector('b') || e).textContent), eteintes: entrees.filter((e) => e.disabled).map((e) => (e.querySelector('b') || e).textContent),
+          hMin: Math.round(Math.min(...entrees.map((x) => x.getBoundingClientRect().height))),
+          coupes: entrees.filter((e) => [...e.querySelectorAll('b, small')].some((t) => t.scrollWidth > t.clientWidth + 1)).map((e) => (e.querySelector('b') || e).textContent),
+          boite: [q.left, q.top, q.right, q.bottom].map(Math.round).join(','), haut: l.classList.contains('haut') };
+      });
+      verif(`exporter · ${fmt} : le menu s'ouvre, VU et entier dans l'écran ET dans la colonne des résultats, chaque ligne atteinte d'un bord à l'autre (rien ne la couvre), haute d'au moins 40 px, `
+        + 'aucun texte coupé ; ses six lignes dans l\'ordre, aucune éteinte (la note neuve est prête à partir)',
+      menu.vu && menu.ouvert && menu.dedans && menu.touche && menu.hMin >= 40 && !menu.coupes.length && JSON.stringify(menu.titres) === JSON.stringify(LIGNES)
+        && !menu.eteintes.length, JSON.stringify(menu));
+      await g.screenshot({ path: path.join(OUT, `site_exporter_${nom}.png`) });
+      const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 60000 }), toucher('#resultat .et-exp-l [data-telecharger="ouvrage"]')]);
+      let o = null;
+      try { o = JSON.parse(fs.readFileSync(await dl.path(), 'utf8')); } catch (e) { /* illisible : le contrôle rougit */ }
+      await g.waitForTimeout(200);
+      const ferme = await g.evaluate(() => document.querySelector('#resultat .et-exp .et-mn-l').hidden);
+      verif(`exporter · ${fmt} : « DWG pour AutoCAD » télécharge le fichier « rbar.ouvrage » de la note (cartouche : la note, son chantier, la date), et le menu se referme`,
+        dl.suggestedFilename() === 'F1 - ouvrage RBAR.json' && !!o && o.format === 'rbar.ouvrage' && o.version === 1 && !!o.cartouche
+          && o.cartouche.projet === 'Greenwood' && o.cartouche.titre === 'Fondation grue tour GT1' && /^\d{4}-\d{2}-\d{2}$/.test(o.cartouche.date || '') && ferme,
+        JSON.stringify({ nom: dl.suggestedFilename(), cartouche: o && o.cartouche, ferme }));
+      await toucher(B);
+      await g.waitForTimeout(200);
+      await toucher('#resultat .et-exp-l [data-calcul="export"]');
+      await g.waitForTimeout(400);
+      const fen = await g.evaluate(() => { const f = document.querySelector('.flyout.on.calcul'); return f ? { vu: f.checkVisibility(), texte: f.textContent.replace(/\s+/g, ' ') } : null; });
+      verif(`exporter · ${fmt} : « Contrôle avant export » ouvre sa fenêtre — ce qui part et d'où (les cellules du classeur), prêt à partir`,
+        !!fen && fen.vu && /G129:G132/.test(fen.texte) && /prêt à partir/.test(fen.texte), fen && fen.texte.slice(0, 200));
+      await g.screenshot({ path: path.join(OUT, `site_exporter_controle_${nom}.png`) });
+      verif(`exporter · ${fmt} : aucune erreur JavaScript`, !erreursPage.length, erreursPage.join(' | ').slice(0, 300));
+      await c.close();
+    }
   }
 
   // ---------------------------------------------------------------- la météo du lieu (Open-Meteo), de bout en bout
@@ -5634,7 +5712,7 @@ const principal = async () => {
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

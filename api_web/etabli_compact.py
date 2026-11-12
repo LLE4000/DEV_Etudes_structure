@@ -54,6 +54,25 @@ def action(attrs: str, icone: str, texte: str, danger: bool = False, actif: bool
             f'{C.icon(icone)}{C.esc(texte)}</button>')
 
 
+def ligne_export(attrs: str, icone: str, titre: str, texte: str = "", actif: bool = True) -> str:
+    """Une ligne du menu « Exporter » : son titre, puis EN CLAIR ce qu'elle produit (``texte``) ; ``attrs`` : ce que
+    js/etabli.js lit (``data-telecharger="<quoi>"``, ``data-calcul="<fenêtre>"``). Éteinte (``actif`` faux), elle dit
+    pourquoi dans son texte."""
+    t = f'<small>{C.esc(texte)}</small>' if texte else ""
+    return (f'<button type="button" role="menuitem" class="et-exp-i" {attrs}{"" if actif else " disabled"}>{C.icon(icone)}'
+            f'<span><b>{C.esc(titre)}</b>{t}</span></button>')
+
+
+def exporter(lignes: Sequence[str], titre: str = "Exporter") -> str:
+    """Le bouton « Exporter » et son menu (un menu discret du kit, ouvert vers le haut quand la place manque en bas :
+    js/compact.js) : UN endroit pour tous les fichiers d'une note — une ligne par export (``ligne_export``)."""
+    # (le chevron pointe vers le haut — le menu s'ouvre au-dessus : css/etabli.css retourne celui du kit)
+    bouton = f'{C.icon("download")}<span>{C.esc(titre)}</span>{C.icon("chevron-down")}'
+    return (f'<div class="et-mn et-exp"><button type="button" class="btn sm et-exp-b" data-menu="1" aria-haspopup="menu" '
+            f'aria-expanded="false" title="{C.esc(titre)} : les fichiers de cette note">{bouton}</button>'
+            f'<div class="et-mn-l et-exp-l" role="menu" hidden>{"".join(lignes)}</div></div>')
+
+
 def plus(chemin: Sequence, valeur: str, texte: str) -> str:
     """« + Lit », « + Section » : un bouton qui ajoute (le chemin finit par « + »)."""
     return (f'<button type="button" class="et-add" data-chemin="{C._attr_chemin(chemin)}" data-valeur="{C.esc(valeur)}">'

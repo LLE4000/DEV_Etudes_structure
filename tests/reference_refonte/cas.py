@@ -451,13 +451,22 @@ cas("fondation_grue", "Greenwood, un second groupe de barres (2Ø16) et un 7e ca
     _FG + [mod("support/inf/1/n", "2"), mod("charges/cas/+", "1"), mod("charges/cas/6/A", "900"), mod("charges/cas/6/B", "900")], {"sans_message": True},
     fichiers=True)
 cas("fondation_grue", "pieu PAS OK (capacité 40 T) : l'export vers RBAR est bloqué", LIM, _FG + [mod("pieux/capacite", "40")],
-    {"niveau": "r", "texte": "Export vers RBAR bloqué"}, fichiers=True)
+    {"niveau": "r", "texte": "Fichier pour RBAR bloqué"}, fichiers=True)
 cas("fondation_grue", "cisaillement au-delà de la zone 3 (poutre support de 60 cm de large)", LIM, _FG + [mod("support/b", "60")], {"niveau": "r"})
 cas("fondation_grue", "géométrie non respectée (entredistance des pieux 150 cm < 3 Ø)", LIM, _FG + [mod("pieux/entraxe", "150")], {"texte": "Non respecté"})
 cas("fondation_grue", "un seul cas de la grue", LIM, _FG + [mod("charges/cas/1/-", "1")] * 5, {"sans_message": True})
 cas("fondation_grue", "excentricité hors domaine refusée (e = 80 cm : le pied sortirait de la portée)", LIM, [neuf(), mod("e_support", "80")], {"message": True})
 cas("fondation_grue", "diamètre hors de la liste refusé (Ø17)", LIM, [neuf(), mod("support/inf/0/d", "17")], {"message": True})
 cas("fondation_grue", "le dernier cas de la grue ne se retire pas", LIM, _FG + [mod("charges/cas/1/-", "1")] * 5 + [mod("charges/cas/0/-", "1")], {"message": True})
+# les options de conception du plan (12/11/2026, beton/fondation_grue/conception.py) : elles ne changent aucun calcul ;
+# elles changent le fichier « rbar.ouvrage » (photographié : fichiers=True) — docs/beton/FONDATIONS_GRUE_OUVRAGE.md
+cas("fondation_grue", "options de conception : retours arrêtés à 10 cm sous la face opposée, mise en page du châssis 8,00 m", REF,
+    _FG + [mod("conception/support/retour", "arret"), mod("conception/semelle/retour", "arret"), mod("conception/mise_en_page", "800")],
+    {"taux": [98, 98], "niveau": "v", "sans_message": True}, fichiers=True)
+cas("fondation_grue", "retour plus haut que la poutre : le fichier pour RBAR est bloqué", LIM, _FG + [mod("conception/support/retour_mm", "650")],
+    {"taux": [98, 98], "avis": "ne tient pas dans la hauteur"}, fichiers=True)
+cas("fondation_grue", "option de conception hors domaine refusée (longueur scellée plus longue que la barre)", LIM,
+    [neuf(), mod("conception/perfos/scelle_mm", "900")], {"message": True})
 cas("fondation_grue", "fondation ajoutée, passée en cadre de 4 pieux", LIM, [neuf(), act("ajouter"), mod("type", "cadre4")], {"elements": 2})
 cas("fondation_grue", "note abîmée (châssis négatif)", LIM, [calc({"version": 1, "fondations": [{"type": "semelles8", "chassis": -5}], "actif": 0})],
     {"erreur": True})

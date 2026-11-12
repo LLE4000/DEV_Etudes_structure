@@ -634,6 +634,39 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   (186 OK), `…_poteau.py` (138), `…_pied.py` (93), `tests/test_note_assemblages.py` (32), harnais `module:assemblages`,
   `formats:assemblages`, `note_pdf`.
 
+## Fait ensuite, le fichier « rbar.ouvrage » et les options de conception (même branche, sur 5cca773, 12/11/2026)
+
+**Demande du propriétaire (12/11/2026).** La conversation RBAR a défini le format qu'elle dessine (« rbar.ouvrage ») et
+demandé au site de l'écrire, avec un seul bouton « Exporter ». Ce que le calcul ne fixe pas : « prends les valeurs de
+Greenwood par défaut… dans le site, options de conception… qu'on ait le choix », et dire dans le dépôt quelles
+valeurs il faudra donner ; « si tu as des limites… tu le signales clairement ».
+
+- **Le fichier** (`beton/fondation_grue/ouvrage.py`) : l'ouvrage complet au format de RBAR — pieux, poutres, les
+  armatures de la note et d'où vient chacune (poste et cellules du classeur), les cages de renfort, les perfos, la
+  mise en page des deux feuilles, le cartouche et l'indice. Pour Greenwood, c'est l'exemple de RBAR à ses écarts voulus
+  près ; passé dans le VRAI lecteur de RBAR (son noyau compilé hors de son dépôt) : aucun refus, les deux feuilles
+  dessinées (`docs/site/mesures/2026-11-12_fichier_rbar_lu_par_rbar.md`).
+- **Les options de conception** (`beton/fondation_grue/conception.py`, rubrique 7 de l'écran) : retours, zones
+  d'étriers serrés, latérales, coupes, cages, perfos, niveaux, textes, mise en page ; valeurs de Greenwood par défaut ;
+  dans la note (pas dans le navigateur) ; elles ne changent aucun résultat. Le retour « arrêté sous la face opposée »
+  est la pratique du bureau dite le 12/11 (arrêt à 10 cm) : h − enrobage − Ø étrier − arrêt ; un retour qui ne tient
+  pas dans les étriers bloque l'export.
+- **Le bouton « Exporter »** (composant commun `etabli_compact.exporter`, le même aux trois formats) : Contrôle avant
+  export, DWG pour AutoCAD (le fichier, puis `RBAROUVRAGE` dans AutoCAD), Plan de principe, Armatures, Cas de la grue,
+  Modèles de poutre pour RBAR ; une ligne qui ne peut pas partir est éteinte et dit pourquoi. « Plans PDF » attend le
+  moteur de RBAR.
+- **Limites, dites à l'écran et dans `docs/beton/FONDATIONS_GRUE_OUVRAGE.md` § 6** : seulement 8 pieux sur semelles
+  (pas les variantes 4 et 8 pieux, ni la paroi) ; pas de charge horizontale des pieux ; l'indice courant seulement ;
+  cartouche incomplet ; RBAR ne lit pas encore `feuilles.echelles`, `cartouche`, `revisions` (en cours de son côté).
+- **Le harnais a trouvé** (filtre `exporter`, nouveau) : le menu restait ouvert après un téléchargement (`js/etabli.js`
+  fait le téléchargement à la capture du clic et l'arrête) ; plus large que la colonne des résultats, il y perdait ses
+  icônes au PC, et la colonne courte de la tablette portrait le coupait. Corrigé dans `js/compact.js`, pour tous les
+  menus de l'établi compact : un menu reste dans sa colonne (décalé, rétréci, ouvert du côté où il tient, et il défile
+  s'il ne tient d'aucun côté). Les textes du menu tiennent sur une ligne.
+- Preuves : `tests/test_fondation_grue_ouvrage.py` (nouveau), `tests/test_api_web_fondation_grue.py`,
+  `tests/test_etabli_compact.py`, `tests/test_reference_refonte.py` (regel écrit dans la photo, trois cas nouveaux), la
+  mesure du 12/11, le harnais `exporter`, `module:fondation_grue`, `formats`.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage
@@ -808,6 +841,12 @@ vérification finale d'ensemble ; petit rangement du code (en partie : e043d15, 
       bulles ⓘ au doigt existe dans le harnais (filtre « doigt »).
     - En ligne : vérifier que Cloudflare Pages sert bien `X-Robots-Tag: noindex, nofollow` (`curl -I`) après la mise en
       ligne.
+
+15. Nouvelle (fondations de grues, 12/11/2026) : **les valeurs du bureau pour les options de conception du plan** —
+    retours (la pratique « arrêt à 10 cm sous la face opposée » par défaut ?), zones d'étriers serrés, latérales,
+    passage des brins aux cadres des cages, perfos, niveaux, coupes, textes, table de mise en page, cartouche. La liste,
+    question par question, avec la valeur d'aujourd'hui (Greenwood) : `docs/beton/FONDATIONS_GRUE_OUVRAGE.md` § 5.
+    Chaque réponse ira dans une option, dans le classeur Excel, ou dans le code.
 
 ## 5. Ce qui se fait sans attendre de décision (session de nuit)
 

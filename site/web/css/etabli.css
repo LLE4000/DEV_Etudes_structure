@@ -177,8 +177,22 @@
 .et-mn-b:hover, .et-mn-b[aria-expanded="true"] { background: var(--bg); color: var(--ink); }
 .et-mn-b svg.i { width: 16px; height: 16px; }
 .et-mn-l { position: absolute; z-index: 30; top: calc(100% + 2px); right: 0; min-width: 196px; padding: 4px; display: flex; flex-direction: column;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-2); }
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-2);
+  /* (js/compact.js lui donne une hauteur maximale quand il ne tient d'aucun côté de son bouton : il défile) */
+  overflow-y: auto; overscroll-behavior: contain; }
+.et-mn-l > button { flex: none; }
 .et-mn-l.haut { top: auto; bottom: calc(100% + 2px); }
+/* le menu « Exporter » (le pied de la colonne des résultats) : un bouton pleine largeur, et une ligne par export —
+   son titre, puis en clair ce qu'il produit (api_web/etabli_compact.exporter) */
+.et-exp { flex: 1 1 auto; min-width: 0; }
+.et-exp-b { width: 100%; justify-content: center; gap: 8px; }
+.et-exp-b > svg.i:last-child { transform: rotate(180deg); }
+.et-exp-l { right: 0; left: auto; min-width: 0; width: min(380px, calc(100vw - 24px)); gap: 2px; }
+.et-exp-l button.et-exp-i { height: auto; min-height: 44px; padding: 8px 10px; align-items: flex-start; white-space: normal; line-height: 1.3; }
+.et-exp-l button.et-exp-i > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.et-exp-l button.et-exp-i b { font-weight: 600; font-size: 12.5px; color: inherit; }
+.et-exp-l button.et-exp-i small { font-size: 11.5px; font-weight: 450; color: var(--ink-3); }
+.et-exp-l button.et-exp-i svg.i { margin-top: 1px; flex: none; }
 .et-mn-l button { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; font-weight: 550; color: var(--ink); text-align: left; white-space: nowrap; }
 .et-mn-l button svg.i { width: 15px; height: 15px; color: var(--ink-3); }
 .et-mn-l button:hover:not(:disabled), .et-mn-l button:focus-visible { background: var(--bg); }
@@ -428,6 +442,7 @@
   [data-etabli="compact"] #donnees .sechd { height: 44px; }
   [data-etabli="compact"] #donnees .rows .seg.full button { min-height: 44px; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; }
+  [data-etabli="compact"] .et-exp-l button.et-exp-i { height: auto; min-height: 44px; }
   [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 44px; height: auto; }
   [data-etabli="compact"] .zoom .zpct { width: 44px; }
   /* (le segment d'une lettre — la direction principale « Y · X » — gardait sa largeur de texte : 34 px) */

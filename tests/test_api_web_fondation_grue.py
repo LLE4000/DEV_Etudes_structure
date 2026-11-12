@@ -41,10 +41,12 @@ from beton.fondation_grue import ecriture as W  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import fondation_grue as FG  # noqa: E402
 from api_web import routeur as R  # noqa: E402
+from beton.fondation_grue import conception as CO  # noqa: E402
 from beton.fondation_grue import entree as EN  # noqa: E402
 from beton.fondation_grue import export as X  # noqa: E402
 from beton.fondation_grue import geometrie as G  # noqa: E402
 from beton.fondation_grue import moteur as MO  # noqa: E402
+from beton.fondation_grue import ouvrage as O  # noqa: E402
 from beton.fondation_grue import schemas as SC  # noqa: E402
 
 OK, KO = [], []
@@ -248,14 +250,20 @@ def fautes_resultat(mod, etat, cas):
         n += 1
     if len(bl) != n:
         faute("un bloc de trop", [b[2] for b in bl])
-    # --- le pied : l'export
-    ctl = X.controle(r)
+    # --- le pied : UN bouton « Exporter » (12/11/2026, message de la conversation RBAR) — le contrôle, puis une ligne par
+    # fichier ; rien n'a disparu des exports d'avant ; une ligne qui ne peut pas partir est éteinte et dit pourquoi
+    ctl, ctl_o = X.controle(r), O.controle(r)
     boutons = re.findall(r'data-telecharger="([^"]*)"', h)
-    attendus = (["rbar"] if ctl["pret"] else []) + ["dxf", "tableau"] + (["cas"] if f["type"] == EN.SEMELLES8 else [])
+    attendus = ["ouvrage", "dxf", "tableau"] + (["cas"] if f["type"] == EN.SEMELLES8 else []) + ["rbar"]
     if boutons != attendus:
-        faute("les boutons d'export", (boutons, attendus))
-    if ("Export vers RBAR bloqué" in h) != (not ctl["pret"]):
-        faute("le message « export bloqué »")
+        faute("les lignes d'export", (boutons, attendus))
+    eteints = re.findall(r'data-telecharger="([^"]*)" disabled', h)
+    if eteints != ([] if ctl_o["pret"] else ["ouvrage"]) + ([] if ctl["pret"] else ["rbar"]):
+        faute("les exports éteints", (eteints, ctl_o["bloquants"], ctl["bloquants"]))
+    if h.count('class="et-mn et-exp"') != 1 or h.count('data-calcul="export"') != 1 or "Exporter" not in h:
+        faute("un seul bouton « Exporter », le contrôle dans son menu")
+    if ("Fichier pour RBAR bloqué" in h) != (O.possible(f) is None and not ctl_o["pret"]):
+        faute("le message « fichier pour RBAR bloqué »")
     # --- le résumé de la note
     if rep["resume"]["taux"] != C.pct(r["taux_max"]) or rep["resume"]["niveau"] != attendu:
         faute("le résumé de la note", rep["resume"])
@@ -268,8 +276,10 @@ e0 = FG.nouvel_etat()
 r0 = req(action="calculer", etat=copy.deepcopy(e0))
 chk("la note neuve : version 1, une fondation à 8 pieux sur semelles, aux valeurs du classeur BASE (chantier et grue vides)",
     e0["version"] == 1 and len(e0["fondations"]) == 1 and e0["fondations"][0]["type"] == EN.SEMELLES8 and e0["fondations"][0]["projet"] == ""
-    and {k: v for k, v in e0["fondations"][0].items() if k not in ("nom", *EN.CHAMPS_TEXTE)}
-    == {k: v for k, v in EN.exemple("BASE").items() if k not in ("nom", *EN.CHAMPS_TEXTE)})
+    and {k: v for k, v in e0["fondations"][0].items() if k not in ("nom", "conception", *EN.CHAMPS_TEXTE)}
+    == {k: v for k, v in EN.exemple("BASE").items() if k not in ("nom", *EN.CHAMPS_TEXTE)}
+    # (12/11/2026) et ses options de conception du plan : celles de Greenwood
+    and e0["fondations"][0]["conception"] == CO.defauts())
 chk("elle se calcule ; la réponse porte le résultat, les fenêtres, trois vues (plan, poutre support, semelle), les données",
     r0.get("ok") and [v["cle"] for v in r0["vues"]] == ["plan", "mv_support", "mv_semelle"] and all(r0[k] for k in ("resultat", "volets", "donnees")), r0.get("erreur"))
 secs = re.findall(r'<div class="sec( open)?" data-sec="(\w+)"><div class="sechd" data-replier="1"><span class="n">(\d)</span><span class="tt">(.*?)</span>', r0["donnees"])
@@ -324,7 +334,9 @@ def fautes_champs(mod, exemple):
     e = mod.normaliser(note(exemple=exemple))
     donnees = mod.resultat(copy.deepcopy(e))["donnees"]
     for chemin, sorte, valeur in CHAMPS.findall(donnees):
-        if sorte == "texte":
+        # (les options de conception ne changent AUCUN calcul, par construction : tests/test_fondation_grue_ouvrage.py
+        # vérifie qu'elles n'y entrent pas et qu'elles changent le fichier pour RBAR)
+        if sorte == "texte" or chemin.startswith("conception/"):
             continue
         avant = EN.lire(e["fondations"][0], chemin)
         x = avant + 1 if sorte == "entier" else round(avant * 1.1 + 1, 3)
@@ -366,8 +378,9 @@ chk("redire le même schéma ne remet rien à zéro ; un schéma inconnu est ref
     FG.modifier(e, ["poutre", "b"], "95") is None and FG.modifier(e, ["type"], EN.CADRE4) is None and e["fondations"][0]["poutre"]["b"] == 95.0
     and "inconnu" in (FG.modifier(e, ["type"], "radier") or ""))
 chk("« reprendre un classeur » : toutes ses valeurs, le nom gardé ; le choix vide ne fait rien ; un classeur inconnu est refusé",
-    FG.modifier(e, ["exemple"], "VAR8") is None and {k: v for k, v in e["fondations"][0].items() if k != "nom"} == {k: v for k, v in EN.exemple("VAR8").items() if k != "nom"}
-    and e["fondations"][0]["nom"] == "Grue G1" and FG.modifier(e, ["exemple"], "") is None and "inconnu" in (FG.modifier(e, ["exemple"], "XYZ") or ""))
+    FG.modifier(e, ["exemple"], "VAR8") is None
+    and {k: v for k, v in e["fondations"][0].items() if k not in ("nom", "conception")} == {k: v for k, v in EN.exemple("VAR8").items() if k != "nom"}
+    and e["fondations"][0]["nom"] == "Grue G1" and e["fondations"][0]["conception"] == avant["conception"] and FG.modifier(e, ["exemple"], "") is None and "inconnu" in (FG.modifier(e, ["exemple"], "XYZ") or ""))
 e = note(exemple="GWW")
 n_cas = len(e["fondations"][0]["charges"]["cas"])
 chk("un cas de la grue de plus (« CAS 7 », en service, à zéro), puis de moins ; le dernier ne se retire pas ; au plus douze",
@@ -501,13 +514,25 @@ def fautes_fenetres(mod, etat, cas):
         for e in r["ecarts"]:
             if texte(html.escape(e["message"])) not in texte(w) or texte(html.escape(e["titre"])) not in texte(w) or (e.get("cellule") or "") not in texte(w):
                 fautes.append((cas, "écart", e["code"]))
-    # le contrôle avant export : une ligne par armature, sa valeur exportée
+    # le contrôle avant export : 8 pieux sur semelles, le fichier pour RBAR (chaque valeur qui part et d'où elle vient, ce
+    # qui bloque) ; les autres schémas, l'ancien fichier (une ligne par armature, sa valeur exportée)
     w = fenetre(volets, "export") or ""
-    for a in r["armatures"]:
-        if texte(html.escape(a["texte"])) not in texte(w):
-            fautes.append((cas, "contrôle avant export", a["designation"]))
-    if ("prêt à partir" in w) != X.controle(r)["pret"]:
-        fautes.append((cas, "l'état de l'export"))
+    if O.possible(r["fondation"]) is None:
+        co = O.controle(r)
+        for li in co["lignes"]:
+            if texte(html.escape(li["valeur"])) not in texte(w) or texte(html.escape(li["source"])) not in texte(w):
+                fautes.append((cas, "contrôle avant export", li["quoi"]))
+        for x in co["bloquants"] + co["a_regarder"] + co["manques"]:
+            if texte(html.escape(x)) not in texte(w):
+                fautes.append((cas, "contrôle avant export, liste", x[:40]))
+        if ("prêt à partir" in w) != co["pret"]:
+            fautes.append((cas, "l'état de l'export"))
+    else:
+        for a in r["armatures"]:
+            if texte(html.escape(a["texte"])) not in texte(w):
+                fautes.append((cas, "contrôle avant export", a["designation"]))
+        if ("prêt à partir" in w) != X.controle(r)["pret"]:
+            fautes.append((cas, "l'état de l'export"))
     # les cas de la grue : pour chaque position, le maximum de chaque grandeur et sa colonne
     if "tableau_cas" in r:
         w = texte(fenetre(volets, "cas") or "")
@@ -925,12 +950,12 @@ MUTATIONS_ECRAN = [
     ("le dernier écart n'est pas montré", '        rows = ""\n        for e in r["ecarts"]:\n            niv = "r" if e["change_verdict"]',
      '        rows = ""\n        for e in r["ecarts"][:-1]:\n            niv = "r" if e["change_verdict"]', tous_resultats),
     ("un contrôle de géométrie non respecté est dit « OK »", 'None, "p" if c["ok"] else "r", etat_txt="OK" if c["ok"] else "Non respecté")', 'None, "p", etat_txt="OK")', tous_resultats),
-    ("l'export RBAR reste proposé quand il est bloqué", '    if ctl["pret"]:\n        boutons += C.bouton_telecharger("rbar"', '    if True:\n        boutons += C.bouton_telecharger("rbar"', tous_resultats),
+    ("le fichier pour RBAR reste proposé quand il est bloqué", '"DWG pour AutoCAD", texte_dwg, actif=ctl_o["pret"])', '"DWG pour AutoCAD", texte_dwg, actif=True)', tous_resultats),
     ("le résumé de la note oublie l'état « PAS OK »", "pire = next((k for k in (MO.NOK, MO.WARN) if any(y.get(\"statut\") == k for y in resultats)), MO.OK)", "pire = MO.OK", tous_resultats),
     ("la ligne d'efforts d'un bloc oublie le tranchant", '("V<sub>max</sub>", "V_max", "kN")):', "):", tous_resultats),
     ("une saisie refusée reste dans l'état", '    except (ValueError, TypeError, IndexError) as e:\n        etat["fondations"][etat["actif"]] = avant', '    except (ValueError, TypeError, IndexError) as e:\n        pass', fautes_refus),
     ("un nombre de barres décimal est accepté", '                if not float(x).is_integer():\n                    return f"Nombre entier attendu : « {valeur} »"', "                if False:\n                    return ''", fautes_refus),
-    ("changer de schéma perd le chantier et la grue", 'for cle in ("projet", "grue", "beton", "acier"):', 'for cle in ("beton", "acier"):', fautes_elements),
+    ("changer de schéma perd le chantier et la grue", 'for cle in ("projet", "grue", "beton", "acier", "conception"):', 'for cle in ("beton", "acier", "conception"):', fautes_elements),
     ("reprendre un classeur écrase le nom", '            f = MO.exemple(valeur)\n            f["nom"] = nom', "            f = MO.exemple(valeur)", fautes_elements),
     ("ajouter une fondation oublie le schéma de celle qui est ouverte", 'fs.append(MO.nouvelle_fondation(_fondation(etat)["type"], _nom_libre(fs)))', "fs.append(MO.nouvelle_fondation(S8, _nom_libre(fs)))", fautes_elements),
     ("la cellule du classeur n'est plus écrite après une formule", '''    cel = f'<span class="fg-cel" title="Cellule du classeur">{C.esc(fx["cellule"])}</span>' if fx.get("cellule") else ""''', '    cel = ""',
