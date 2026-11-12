@@ -381,9 +381,10 @@ def lecture_site(r: dict) -> dict:
     """Ce que le site affiche : son verdict, ses lignes, ses messages, ses tableaux, ses fenêtres de calcul."""
     h = r["resultat"]
     v = re.search(r'<span class="chip xl (\w)"(?: title="([^"]*)")?><small>η</small>([^<]+)</span>', h)
-    lectures = [(nom, sel, niv, taux_lu(ti, tx)) for nom, sel, niv, ti, tx in
-                re.findall(r'<b>([^<]*)</b><span class="prof"><span>(méthode choisie ◀|à titre indicatif)</span></span></div><div class="l2">'
-                           r'.*?<span class="pct (\w)"(?: title="([^"]*)")?>([^<]+)</span>', h)]
+    # (établi compact, 12/11/2026 : le taux est sur la première ligne, « méthode choisie ◀ / à titre indicatif » sur la seconde)
+    lectures = [(nom, sel, niv, taux_lu(ti, tx)) for nom, niv, ti, tx, sel in
+                re.findall(r'<b>([^<]*)</b><span class="pct (\w)"(?: title="([^"]*)")?>([^<]+)</span></div><div class="l2">'
+                           r'<span class="cmp">(méthode choisie ◀|à titre indicatif)</span>', h)]
     msgs = [(bool(g), html.unescape(re.sub(r"<sub>(.*?)</sub>", r"_\1", t))) for g, t in re.findall(r'<div class="msg( grave)?">(.*?)</div>', h)]
     raison = re.search(r"<b>Calcul impossible</b>(.*?)</div>", re.sub(r"<sub>(.*?)</sub>", r"_\1", h))
     vues = {x["cle"]: x["svg"] for x in r["vues"]}
@@ -758,6 +759,12 @@ for bouton, action in ((P + "btn_new", ("ajouter", None)), (P + "btn_copy", ("du
     else:
         S.modifier(e_site, action, 1)
     a = json.loads(json.dumps(etat_st()))
+    if bouton.endswith("btn_new"):
+        # « ＋ Cas » : le site nomme le cas COURT (« S2 » : il tient dans la ligne de l'élément d'une tablette), l'écran
+        # « Cas 2 · Console fléchie » ; tout le reste — la console C3, la méthode du cas ouvert — est le même
+        chk("« ＋ Cas » : le site nomme le cas court (« S2 »), l'écran Streamlit « Cas 2 · Console fléchie »",
+            a["cas"][-1]["nom"] == "Cas 2 · Console fléchie" and e_site["cas"][-1]["nom"] == "S2", (a["cas"][-1]["nom"], e_site["cas"][-1]["nom"]))
+        a["cas"][-1]["nom"] = e_site["cas"][-1]["nom"]
     chk(f"bouton {bouton[len(P):]} : même note dans les deux écrans", a["cas"] == e_site["cas"] and a["actif"] == e_site["actif"],
         json.dumps(a["cas"][-1], ensure_ascii=False)[:200])
 e2 = copy.deepcopy(e0)
@@ -875,7 +882,7 @@ for cfg in CF.CONFIGS:
                 ecarts.append((cfg, f"ligne {ch['nom']}"))
             if f'id="ck-c{i}"' not in r["volets"]:
                 ecarts.append((cfg, f"fenêtre {ch['nom']}"))
-        gov = re.findall(r'<div class="el gov"', r["resultat"])
+        gov = re.findall(r'<div class="el vc gov"', r["resultat"])
         if len(gov) != 1:
             ecarts.append((cfg, f"{len(gov)} lignes gouvernantes"))
 chk("8 configurations × 4 cas : résumé, une ligne par cordon (taux et couleur du moteur), une fenêtre par ligne, une seule gouvernante",
@@ -1075,7 +1082,8 @@ with mutant(S, "gerer_elements", gerer_mute):
     rendre(clics={P + "btn_new"})
     e_site = S.normaliser(copy.deepcopy(e0))
     S.gerer_elements(e_site, "ajouter")
-    chk("mutation : « ＋ Cas » ne garde plus la méthode → la comparaison au bouton de l'écran rougit", etat_st()["cas"] != e_site["cas"])
+    chk("mutation : « ＋ Cas » ne garde plus la méthode → la comparaison au bouton de l'écran rougit (la méthode du cas ajouté diffère)",
+        etat_st()["cas"][-1]["methode"] != e_site["cas"][-1]["methode"] and etat_st()["cas"][-1]["params"] == e_site["cas"][-1]["params"])
 vrai_methode = S._methode
 
 
@@ -1240,6 +1248,94 @@ chk("C5 : le cadre Efforts dit que « V_z saisi » est le « V_y » de la vue de
     "V<sub>z</sub> devient V<sub>y</sub>" in d5 and "devient" not in d8 and 'V<tspan dy="' in face5)
 css = open("site/web/css/modules/soudures.css", encoding="utf-8").read()
 chk("la pastille η du verdict ne se comprime pas sous une comparaison longue (pleine pénétration)", ".verdict .chip.xl { flex-shrink: 0; }" in css)
+
+# ====================================================================== G. l'établi compact
+titre("G · L'établi compact (la mise en forme des poutres, 12/11/2026)")
+e = S.nouvel_etat()
+r = S.resultat(e)
+d, h = r["donnees"], r["resultat"]
+SEC2 = ' data-secondaire="1"'
+
+
+def rubriques(x):
+    return re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', x)
+
+
+def sans_nom(c):
+    return {k: v for k, v in c.items() if k != "nom"}
+
+
+chk("un cas neuf s'appelle « S1 » (court : il tient dans la ligne de l'élément) ; le moteur le nomme « C3 · Console fléchie » ; tout le reste "
+    "de la note neuve est celle du moteur", e["cas"][0]["nom"] == S.NOM_DEFAUT == "S1" and ET.nouvel_etat()["cas"][0]["nom"] == "C3 · Console fléchie"
+    and sans_nom(e["cas"][0]) == sans_nom(ET.nouvel_etat()["cas"][0]) and sans_nom(e) == sans_nom(ET.nouvel_etat()) | {"cas": e["cas"]}, e["cas"][0]["nom"])
+chk("la colonne de gauche est celle de l'établi compact : la ligne du cas ouvert (la configuration se lit dans la liste), puis ses rubriques",
+    'class="et-arbre et-arbre-c" data-cassoudure="0"' in d and d.count('data-chemin="nom"') == 1
+    and '<span class="nom">S1</span><span class="dim">· C3 · Console fléchie</span>' in d and ">Nom<" not in d.split('data-sec="as"')[1].split("</div></div>")[0])
+chk("sept rubriques — l'assemblage (seule ouverte), la géométrie, la soudure, les efforts, les aciers, puis deux secondaires (hypothèses ; "
+    "note PDF et reprise)", rubriques(d) == [(" open", "as", ""), ("", "geo", ""), ("", "so", ""), ("", "ef", ""), ("", "ac", ""), ("", "me", SEC2),
+                                              ("", "fi", SEC2)], rubriques(d))
+d8 = S.resultat(cas_fixe("C8"))["donnees"]
+chk("cordons libres (C8) : une rubrique « Cordons libres » à la place de la géométrie et de la soudure",
+    [k for _, k, _ in rubriques(d8)] == ["as", "c8", "ef", "ac", "me", "fi"], rubriques(d8))
+e_t = S.nouvel_etat()
+S.modifier(e_t, ["params", "troncons", "on"], True)
+d_t = S.resultat(e_t)["donnees"]
+chk("les explications longues sont au survol de ⓘ, plus en paragraphes : ce que fait l'assemblage, ce que change la méthode, les tronçons, "
+    "les cordons libres, l'identification de la note",
+    f'title="{C.esc(CF.CONFIGS["C3"]["description"])}"' in d and 'title="Efforts de calcul (ELU) : EN 1993-1-8 §4.5.3' in d
+    and f'title="{C.esc(S.TRONCONS_AIDE)}"' in d_t and 'class="hint">' + C.esc(S.TRONCONS_AIDE) not in d_t
+    and '<div class="grp">Segments et arcs<span class="aide" title="Chaque ligne est un segment (P1 → P2)' in d8
+    and '<div class="grp">Identification de la note PDF<span class="aide" title="' in d, "")
+chk("la tête du résultat : le nom du cas, puis la configuration et la méthode ; plus de phrase sous le titre de la page",
+    '<div class="et-rp"><b>S1</b><span>C3 · Console fléchie · Eurocode directionnelle</span></div>' in h and r["phrase"] == "", h[:200])
+res_g = ET.verifier(ET.cas_actif(e))
+B = re.findall(r'<section class="et-bloc (\w+)" data-theme="(\d)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>.*?'
+               r'class="et-tout" data-calcul="(\w+)"', h, re.S)
+chk("deux blocs : « Cordons » (son état, son taux ; « tout le calcul » ouvre la fenêtre du cordon gouvernant) et « Les quatre lectures » "
+    "(la fenêtre des quatre méthodes)",
+    B == [("ok", "0", "Cordons", f"Conforme · {C.pc(C.pct(res_g['taux_max']))}{C.NBSP}%", "c0"), ("inc", "1", "Les quatre lectures", "mêmes efforts", "m")], B)
+chk("le bloc « Cordons » dit les efforts saisis et leur nature (ELU ou service)", '<div class="et-bloc-ef">Efforts de calcul (ELU) : V = 60' in h, "")
+g_ = res_g["gouvernant"]
+subs_ = {x.nom: x for x in FO.critere(res_g, g_)}
+cmp_att = f"σ<sub>c</sub> = {C.fr(subs_['σ_c'].res, 1)} ≤ {C.fr(subs_['lim_c'].res, 1)} N/mm² · {g_['position']}"
+L_ = re.findall(r'<div class="el vc( gov)?" data-calcul="(c\d)"[^>]*><div class="l1"><b>([^<]+)</b><button class="prof" data-pk="([^"]+)"[^>]*>.*?'
+                r'<span>([^<]+)</span>.*?<span class="pct (\w)">([^<]+)</span></div><div class="l2"><span class="cmp">(.*?)</span>', h)
+chk("une ligne par cordon : sa gorge (un bouton, elle se choisit), son taux, ce qu'il compare à son point le plus chargé et où ; "
+    "une seule gouvernante ; chacune ouvre sa fenêtre",
+    [(x[1], x[2], x[4]) for x in L_] == [("c0", "Cordon droit", "a = 5 mm"), ("c1", "Cordon gauche", "a = 5 mm")]
+    and [bool(x[0]) for x in L_].count(True) == 1 and all(x[7] == cmp_att for x in L_), (L_, cmp_att))
+chk("le verdict ouvre la fenêtre du cordon gouvernant ; trois fenêtres (deux cordons, les quatre lectures)",
+    '<div class="verdict" data-calcul="c0"' in h and re.findall(r'id="ck-(\w+)"', r["volets"]) == ["c0", "c1", "m"])
+chk("chaque vue porte son en-tête technique : le titre, la configuration, la méthode et son coefficient ; à droite les efforts saisis",
+    all('class="et-ent"' in v.get("entete", "") and "<span>· C3 · Console fléchie</span>" in v["entete"]
+        and '<div class="l2">Eurocode directionnelle · S235 · γM2 = 1,25</div>' in v["entete"].replace(C.NBSP, " ")
+        and v["entete"].count('<div class="et-eff"><span><i>V</i><b>60,0</b><small>kN</small></span></div>') == 1 for v in r["vues"])
+    and [re.search(r"<b>([^<]+)</b>", v["entete"]).group(1) for v in r["vues"]][:3] == ["ÉLÉVATION", "COUPE HORIZONTALE", "VUE DE FACE"],
+    r["vues"][0].get("entete"))
+r5 = S.resultat(cas_fixe("C5"))
+chk("C5 : la ligne « Profilé soudé » porte le profilé (il se choisit) ; l'en-tête des vues porte les efforts saisis avec leur indice",
+    re.search(r'<b>Profilé soudé</b><button class="prof" data-pk="profil"', r5["resultat"]) is not None
+    and "sur la platine · t<sub>p</sub> = " in r5["resultat"] and re.search(r'<i>[VMN]</i><sub>[yz]</sub><b>', r5["vues"][0]["entete"]) is not None,
+    r5["vues"][0]["entete"][-300:])
+chk("plus de cadre « Dans cette note » ; un cas seul : pas de statut de note (le verdict le dit)", r["elements"] == "" and r["statut_html"] == "")
+e2_ = S.nouvel_etat()
+S.gerer_elements(e2_, "ajouter")
+chk("ajouter un cas : « S2 », ouvert ; la note dit alors son statut", [c["nom"] for c in e2_["cas"]] == ["S1", "S2"] and e2_["actif"] == 1
+    and S.resultat(e2_)["statut_html"] != "", [c["nom"] for c in e2_["cas"]])
+S.gerer_elements(e2_, "dupliquer", 0)
+chk("copier S1 (par son rang) : la copie s'insère juste après lui, et s'ouvre", [c["nom"] for c in e2_["cas"]] == ["S1", "S1 (copie)", "S2"]
+    and e2_["actif"] == 1, [c["nom"] for c in e2_["cas"]])
+S.gerer_elements(e2_, "ajouter")
+chk("le cas ajouté prend le premier nom libre : « S4 » (trois cas dans la note)", e2_["cas"][-1]["nom"] == "S4", e2_["cas"][-1]["nom"])
+e_c = S.nouvel_etat()
+ET.changer_config(ET.cas_actif(e_c), "C1")
+chk("un nom court ne suit plus la configuration (« S1 » reste « S1 » en C1) : la liste et la tête des résultats la disent",
+    e_c["cas"][0]["nom"] == "S1" and '<span class="dim">· C1 · Recouvrement</span>' in S.resultat(e_c)["donnees"]
+    and "<span>C1 · Recouvrement · " in S.resultat(e_c)["resultat"])
+e_x = S.nouvel_etat()
+S.modifier(e_x, ["efforts", "V"], "600")
+CMPX = re.findall(r'<span class="cmp">(.*?)</span>', S.resultat(e_x)["resultat"])[:2]
+chk("un cordon dépassé s'écrit « > », jamais « ≤ »", all("&gt;" in x and "≤" not in x for x in CMPX) and len(CMPX) == 2, CMPX)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 sys.exit(1 if KO else 0)

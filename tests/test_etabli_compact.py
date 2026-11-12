@@ -383,6 +383,14 @@ chk("le genre s'accorde : au masculin « en ouvrir un autre, en ajouter un » et
     and _amv is not None and _amv["champ"].startswith('<span class="et-elt-nom lu" title="Le garde-corps est verrouillé : '),
     (_am and _am["titre_liste"], _amv and _amv["champ"][:80]))
 
+# un bloc peut NOMMER la fenêtre que son bouton « tout le calcul » ouvre (les soudures, 12/11/2026 : celle du cordon
+# gouvernant, celle des quatre lectures) ; sans ce nom, c'est « s<i> », à l'octet près
+_b0 = E.bloc(2, "Cordons", "ok", "Conforme", "", "", theme=True)
+_b1 = E.bloc(2, "Cordons", "ok", "Conforme", "", "", theme=True, calcul="c3")
+chk("le bouton « tout le calcul » d'un bloc ouvre s<i>, ou la fenêtre que le module nomme (calcul=) ; rien d'autre ne change",
+    'class="et-tout" data-calcul="s2"' in _b0 and 'class="et-tout" data-calcul="c3"' in _b1
+    and _b1.replace('data-calcul="c3"', 'data-calcul="s2"') == _b0, (_b0[:200], _b1[:200]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

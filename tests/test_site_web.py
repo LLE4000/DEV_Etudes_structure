@@ -337,7 +337,7 @@ chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutr
     "docs/site/LOT_Q_QUATRE_MODULES.md ; chacun a rejoint la liste AVEC son écran refait, jamais avant : sa page serait cassée), "
     "puis les fondations de grues (11/11/2026, né sur l'établi compact : docs/beton/FONDATIONS_GRUE.md), leurs fonctions aux mêmes places ; "
     "les autres modules attendent l'avis du bureau",
-    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol"), SW.ETABLI_COMPACT)
+    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures"), SW.ETABLI_COMPACT)
 # la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
 # dit les chiffres du site) : les modules qui en ont une, chacun avec son ``telecharger(etat, quoi, infos)`` et sa note
 # « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
@@ -664,7 +664,7 @@ chk("js/app.js mène une redirection : ouverte directement, location.replace(bod
     and not os.path.exists(os.path.join(WEB, "js", "redirection.js")), "")
 chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026), des cornières (10/11/2026), des "
     "trois modules du lot Q (poutres bois, maturité, taux d'armature) et des fondations de grues (11/11/2026), un sous-ensemble de l'établi compact",
-    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol"} and len(SW.ARBRE_COMPACT) == 11
+    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures"} and len(SW.ARBRE_COMPACT) == 12
     and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:

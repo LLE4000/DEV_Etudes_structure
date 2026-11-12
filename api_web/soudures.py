@@ -34,8 +34,17 @@ Des retouches d'ÉCRITURE seulement (jamais de calcul), l'écran Streamlit et la
   (``_fr_moteur`` : F_adm = 490,5 s'écrit « 491 » partout) ;
 - sous les efforts réduits, la correspondance entre les efforts saisis et le repère du joint, LUE au moteur
   (``correspondance_axes`` : en C5, V_z saisi est le V_y des dessins et des formules).
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 12/11/2026) : à gauche la ligne
+du cas ouvert (son nom, la liste, copier, supprimer) et ses rubriques en accordéon — Assemblage, Géométrie, Soudure,
+Efforts, Aciers, puis deux rubriques secondaires (Hypothèses ; Note PDF et reprise) ; au centre les vues sous leur
+en-tête technique (la configuration, la méthode ; les efforts saisis dans la bande) ; à droite la tête, le verdict et
+deux blocs : « Cordons » (une ligne par cordon : ce qu'il compare à son point le plus chargé, sa gorge qui se choisit)
+et « Les quatre lectures ». Un cas neuf s'appelle court (« S1 ») : le nom du moteur, « C3 · Console fléchie », ne tient
+pas dans la ligne de l'élément d'une tablette — la configuration se lit dans la liste et en tête des résultats.
 """
 import copy
+import html
 import math
 import re
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -54,10 +63,14 @@ from acier.soudures import methode as MT
 from acier.soudures import schemas as SC
 
 from . import commun as C
+from . import etabli_compact as E
 from . import note_cas as NC
 
 MODULE = "soudures"
 PAGE = "soudures"
+GENRE = E.Genre("Cas", "le cas", "ce cas", "un cas")
+NOM_DEFAUT = "S1"                # le nom d'un cas neuf : court (il tient dans la ligne de l'élément, tablette et téléphone)
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
 
 # ------------------------------------------------------------------ les copies NOMMÉES de l'écran Streamlit
 # (tests/test_api_web_soudures.py, section A, les relit dans le source de modules/soudures.py)
@@ -126,8 +139,11 @@ GROUPES_PROFIL = {"C5": "I/H", "C6": "creux"}
 
 # ------------------------------------------------------------------ l'état de la note : des cas
 def nouvel_etat() -> Dict:
-    """La note neuve de l'écran Streamlit : un cas, la console C3 en méthode Eurocode."""
-    return ET.nouvel_etat()
+    """La note neuve de l'écran Streamlit : un cas, la console C3 en méthode Eurocode — nommé court (« S1 » ; l'écran
+    Streamlit le nomme « C3 · Console fléchie », que la ligne de l'élément couperait sur une tablette)."""
+    e = ET.nouvel_etat()
+    e["cas"][0]["nom"] = NOM_DEFAUT
+    return e
 
 
 def normaliser(etat: Dict) -> Dict:
@@ -243,9 +259,19 @@ def _cas(etat: Dict) -> Dict:
     return ET.cas_actif(etat)
 
 
+def _nom_libre(cas: List[Dict]) -> str:
+    """Le nom d'un cas ajouté : « S<n> », le premier que la note ne porte pas."""
+    pris = {c.get("nom") for c in cas}
+    k = len(cas) + 1
+    while f"S{k}" in pris:
+        k += 1
+    return f"S{k}"
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
     """Les cas de la note, comme la barre d'outils de l'écran Streamlit : ouvrir un cas, « ＋ Cas » (une console C3 qui
-    garde la méthode du cas ouvert), copier le cas ouvert, en supprimer un (jamais le dernier)."""
+    garde la méthode du cas ouvert ; le site la nomme court, « S<n> »), copier un cas (``index`` ; sans : le cas ouvert —
+    la copie s'insère juste après, l'écran Streamlit la posait en fin de note), en supprimer un (jamais le dernier)."""
     cas = etat["cas"]
     if index is not None and not (isinstance(index, int) and not isinstance(index, bool)) \
             and not (isinstance(index, str) and re.fullmatch(r"-?\d+", index)):
@@ -253,16 +279,18 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(cas) - 1)
     elif action == "ajouter":
-        n = len(cas) + 1
-        c = ET.nouveau_cas("C3", f"Cas {n} · Console fléchie")
+        c = ET.nouveau_cas("C3", _nom_libre(cas))
         c["methode"] = copy.deepcopy(_cas(etat)["methode"])
         cas.append(c)
         etat["actif"] = len(cas) - 1
     elif action == "dupliquer":
-        d = copy.deepcopy(_cas(etat))
+        i = etat["actif"] if index is None else int(index)
+        if not 0 <= i < len(cas):
+            raise ValueError(f"cas inconnu : {index!r}")
+        d = copy.deepcopy(cas[i])
         d["nom"] = f"{d['nom']} (copie)"
-        cas.append(d)
-        etat["actif"] = len(cas) - 1
+        cas.insert(i + 1, d)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(cas) > 1:
         i = int(index or 0)
         if not 0 <= i < len(cas):                       # ramené dans la liste, « 99 » supprimerait le dernier cas
@@ -887,14 +915,28 @@ def gorge_optimale(cas: Dict, info: Dict) -> Optional[Dict]:
 
 
 # ------------------------------------------------------------------ le cadre Données
+_BALISES = re.compile(r"<[^>]+>")
+
+
+def _texte(h: str) -> str:
+    """Le TEXTE d'un fragment HTML du module (une phrase de l'écran, des indices <sub>) : pour une aide au survol, une
+    ligne de l'en-tête d'une vue."""
+    return html.unescape(_BALISES.sub("", h))
+
+
+def _grp(titre: str, aide: str = "") -> str:
+    """Un titre de groupe dans une rubrique ; son aide (du TEXTE) au survol de ⓘ, plus en paragraphe."""
+    a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>' if aide else ""
+    return f'<div class="grp">{titre}{a}</div>'
+
+
 def _troncons_html(cas: Dict, cle: str, titre: str) -> str:
     tr = cas["params"].get(cle) or dict(CF.CONTINU)
     on = int(tr.get("n") or 0) >= 1
     out = C.case(["params", cle, "on"], on, titre)
     if on:
-        out += (f'<div class="sdr-deux">{C.ligne("tronçons", C.num(["params", cle, "n"], tr["n"], "", entier=True, mini=1, maxi=N_TRONCONS_MAX), "n")}'
-                f'{C.ligne("longueur", C.num(["params", cle, "l"], tr["l"], "mm", mini=1), "l<sub>t</sub>")}</div>'
-                + C.aide(C.esc(TRONCONS_AIDE)))
+        out += (f'<div class="sdr-deux">{C.ligne("tronçons", C.num(["params", cle, "n"], tr["n"], "", entier=True, mini=1, maxi=N_TRONCONS_MAX), "n", TRONCONS_AIDE)}'
+                f'{C.ligne("longueur", C.num(["params", cle, "l"], tr["l"], "mm", mini=1), "l<sub>t</sub>")}</div>')
     return out
 
 
@@ -1051,7 +1093,7 @@ def _elements_html(cas: Dict, res: Optional[Dict] = None) -> str:
     """Les cordons libres (C8) : une carte par ligne du tableau de l'écran Streamlit, puis le point de référence."""
     p = cas["params"]
     els = CF.elements_c8(p)
-    out = C.aide(C.esc(C8_AIDE).replace("**segment**", "<b>segment</b>").replace("**arc**", "<b>arc</b>"))
+    out = _grp("Segments et arcs", C8_AIDE.replace("**", ""))
     cartes = ""
     for i, el in enumerate(els):
         tr = el.get("troncons") or {}
@@ -1087,16 +1129,18 @@ def _elements_html(cas: Dict, res: Optional[Dict] = None) -> str:
 
 
 def formulaire(etat: Dict, res: Dict) -> str:
-    """Le cadre Données : les sections repliables, chaque champ lié à un chemin de l'état."""
+    """Le cadre Données : les rubriques de l'accordéon (la première seule ouverte), chaque champ lié à un chemin de l'état.
+    Le nom du cas se modifie sur sa ligne, en tête de la colonne ; ce que fait l'assemblage et ce que change la méthode
+    se lisent au survol de ⓘ ; les réglages de la méthode et les fichiers sont des rubriques secondaires."""
     cas = _cas(etat)
     cfg, m, p = cas["config"], cas["methode"], cas["params"]
     L = C.ligne
     # 1 · l'assemblage et la méthode (le switch)
-    s1 = (L("Nom", C.texte(["nom"], cas.get("nom"), "ex. Console C3"), full=True)
-          + L("Assemblage", C.choix(["config"], cfg, [(c, f"{c} · {d['libelle']}") for c, d in CF.CONFIGS.items()]), full=True)
-          + C.aide(C.esc(CF.CONFIGS[cfg]["description"]))
-          + L("Méthode", C.segments(["methode", "mode"], m["mode"], [(K.EUROCODE, "Eurocode (ELU)"), (K.ELS, "ELS (bureau)")]), full=True)
-          + C.aide(phrase_methode(cas)))
+    # (« Type », et non « Assemblage » : avec son icône ⓘ, le libellé long était coupé — mesuré dans le navigateur)
+    s1 = (L("Type", C.choix(["config"], cfg, [(c, f"{c} · {d['libelle']}") for c, d in CF.CONFIGS.items()]), full=True,
+            aide=CF.CONFIGS[cfg]["description"])
+          + L("Méthode", C.segments(["methode", "mode"], m["mode"], [(K.EUROCODE, "Eurocode (ELU)"), (K.ELS, "ELS (bureau)")]), full=True,
+              aide=_texte(phrase_methode(cas))))
     geo, rg, so, rs = _geometrie_et_soudure(cas)
     # les efforts
     nature = ("<b>Efforts de service</b> (méthode ELS du bureau : sans coefficient de charge)" if m["mode"] == K.ELS
@@ -1116,13 +1160,12 @@ def formulaire(etat: Dict, res: Dict) -> str:
     # les aciers
     ac = ET.acier_cordon(p)
     nz = list(ET.nuances())
-    s_ac = (L("Pièce A", C.choix(["params", "nuance_A"], p.get("nuance_A", "S235"), [(n, n) for n in nz]), full=True,
-              aide="Nuance de la pièce A (support). f_u et β_w de référence : la pièce la plus faible (Tab. 4.1)")
-            + L("Pièce B", C.choix(["params", "nuance_B"], p.get("nuance_B", "S235"), [(n, n) for n in nz]), full=True,
-                aide="Nuance de la pièce B (rapportée)")
+    s_ac = (C.ligne2(("Pièce A", C.choix(["params", "nuance_A"], p.get("nuance_A", "S235"), [(n, n) for n in nz]),
+                      "Nuance de la pièce A (support). f_u et β_w de référence : la pièce la plus faible (Tab. 4.1)"),
+                     ("Pièce B", C.choix(["params", "nuance_B"], p.get("nuance_B", "S235"), [(n, n) for n in nz]), "Nuance de la pièce B (rapportée)"))
             + C.aide(f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> (la pièce la plus faible) : f<sub>u</sub> = {C.nb(ac['fu'])} N/mm², "
                      f"β<sub>w</sub> = {C.nb(ac['bw'])} ; f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² (pleine pénétration)."))
-    # la méthode
+    # les hypothèses : les réglages des deux méthodes
     d = K.directionnelle(0, 0, 0, ac["fu"], ac["bw"], m["gamma_M2"])
     s = K.simplifiee(0, 1.0, ac["fu"], ac["bw"], m["gamma_M2"])
     kq = K.k_equivalent_eurocode(ac["fu"], ac["bw"], m["gamma_M2"], m["gamma_F"], m["g"])
@@ -1141,24 +1184,37 @@ def formulaire(etat: Dict, res: Dict) -> str:
                      f"pour le {C.esc(ac['nuance_ref'])}.")
             + '<div class="sdr-ajouts">'
             f'<button type="button" class="addrow" data-chemin="methode/k_eurocode" data-valeur="1">{C.icon("check")}Prendre la valeur Eurocode ({C.fr(kq["k_kg_mm_cm"], 0)})</button>'
-            f'<button type="button" class="addrow" data-chemin="methode/k_bureau" data-valeur="1">{C.icon("history")}Revenir à {C.nb(K.K_BUREAU)}</button></div>'
-            + '<div class="grp">Identification de la note</div>')
-    s_me += (C.aide(NC.AIDE_IDENTIFICATION)
-             + '<div class="grp">Fichier de l\'écran Streamlit</div>'
-             + C.fichier(["import"], "Ouvrir un fichier JSON de Streamlit", ".json")
-             + C.aide("Le fichier « soudures_….json » de l'écran Streamlit (tous ses cas) remplace cette note."))
+            f'<button type="button" class="addrow" data-chemin="methode/k_bureau" data-valeur="1">{C.icon("history")}Revenir à {C.nb(K.K_BUREAU)}</button></div>')
+    # la note PDF et le fichier de l'écran Streamlit
+    s_fi = (_grp("Identification de la note PDF", NC.AIDE_IDENTIFICATION)
+            + C.fichier(["import"], "Ouvrir un fichier JSON de Streamlit", ".json")
+            + C.aide("Le fichier « soudures_….json » de l'écran Streamlit (tous ses cas) remplace cette note."))
     r_me = (f"{'ELS · k ' + C.nb(m['k'], 3) if m['mode'] == K.ELS else CRITERES[m['ec']].split(' (')[0]} · γ<sub>M2</sub> {C.nb(m['gamma_M2'])}")
     secs = [C.section(1, "Assemblage", f"{cfg} · {C.esc(CF.CONFIGS[cfg]['libelle'])} · {'ELS' if m['mode'] == K.ELS else 'Eurocode'}", s1, True, "as")]
     if cfg == "C8":
-        secs.append(C.section(2, "Cordons libres", rg, geo, True, "c8"))
+        secs.append(C.section(2, "Cordons libres", rg, geo, False, "c8"))
     else:
-        secs.append(C.section(2, "Géométrie", rg, geo, True, "geo"))
-        secs.append(C.section(3, "Soudure", rs, so, True, "so"))
+        secs.append(C.section(2, "Géométrie", rg, geo, False, "geo"))
+        secs.append(C.section(3, "Soudure", rs, so, False, "so"))
     n = len(secs) + 1
-    secs.append(C.section(n, "Efforts", r_ef, s_ef, True, "ef"))
+    secs.append(C.section(n, "Efforts", r_ef, s_ef, False, "ef"))
     secs.append(C.section(n + 1, "Aciers", f"{C.esc(p.get('nuance_A', 'S235'))} / {C.esc(p.get('nuance_B', 'S235'))}", s_ac, False, "ac"))
-    secs.append(C.section(n + 2, "Méthode", r_me, s_me, False, "me"))
+    secs.append(C.section(n + 2, "Hypothèses", r_me, s_me, False, "me", secondaire=True))
+    secs.append(C.section(n + 3, "Note PDF et reprise", "en-tête de la note · fichier Streamlit", s_fi, False, "fi", secondaire=True))
     return "".join(secs)
+
+
+def _dims(c: Dict) -> str:
+    """« · C3 · Console fléchie » : ce qu'on lit d'un cas dans la liste de la note (HTML)."""
+    return f"· {C.esc(c['config'])} · {C.esc(CF.CONFIGS[c['config']]['libelle'])}"
+
+
+def arbre(etat: Dict, res: Dict) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne du cas
+    ouvert (son nom, qu'un clic modifie ; la liste des cas de la note ; copier, supprimer), que l'écran pose dans
+    l'en-tête du panneau, puis ses rubriques."""
+    noms = [(c.get("nom") or f"S{i + 1}", _dims(c), False) for i, c in enumerate(etat["cas"])]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, res), "cassoudure", compact=True)
 
 
 # ------------------------------------------------------------------ le résultat
@@ -1224,8 +1280,8 @@ def _lignes_critere(res: Dict, pt: Dict) -> List[Dict]:
 
 
 def _verdict_comparaison(res: Dict, g: Dict) -> str:
-    """« valeur ≤ limite » de la vérification gouvernante, nommée par le moteur (formules.critere) — court : la
-    formule de la limite est dans la fenêtre de calcul."""
+    """« valeur ≤ limite » de la vérification d'un point (le gouvernant dans le verdict ; le plus chargé d'un cordon sur
+    sa ligne), nommée par le moteur (formules.critere) — court : la formule de la limite est dans la fenêtre de calcul."""
     subs = {s.nom: s for s in FO.critere(res, g)}
     cle = FO.methode_du_point(res, g)
     op = "≤" if g["taux"] <= 1 else "&gt;"
@@ -1445,20 +1501,8 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    """« Dans cette note » : chaque cas avec son taux ; un clic l'ouvre."""
-    items = ""
-    for i, (c, r) in enumerate(zip(etat["cas"], resultats)):
-        t = _taux(r)
-        niv = C.niveau(t) if t is not None else "x"
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["cas"]) > 1 else ""
-        nom = c.get("nom") or f"Cas {i + 1}"
-        # la configuration quand le nom ne la dit pas (un nom saisi) ; la méthode est dans la section 1 et le pied du résultat
-        quoi = "" if nom.startswith(c["config"]) else f' <span>· {C.esc(c["config"])}</span>'
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(nom)}{quoi}</span>'
-                  f'<span class="pct {niv}">{_pct(t)}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["cas"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier le cas ouvert">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter un cas</div></div>')
+    """Rien : les cas de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 def _ligne_methode(res: Dict) -> Tuple[str, str]:
@@ -1470,16 +1514,38 @@ def _ligne_methode(res: Dict) -> Tuple[str, str]:
     return (f"Eurocode {CRITERES[m.ec].split(' (')[0]} · {C.esc(ac['nuance_ref'])}", f"γ<sub>M2</sub>{C.NBSP}={C.NBSP}{C.nb(m.gamma_M2)}")
 
 
+def _efforts_saisis(cas: Dict) -> List[Tuple[str, float, str]]:
+    """Les efforts saisis NON NULS du cas : (symbole du moteur — « V_z » —, valeur, unité), dans l'ordre de l'écran."""
+    return [(lib.split(" (")[0], float(cas["efforts"][cle]), unite) for cle, lib, unite, _ in CF.EFFORTS[cas["config"]]
+            if cas["efforts"].get(cle)]
+
+
+def _entete(cas: Dict, res: Dict, v: Dict) -> str:
+    """L'en-tête technique d'une vue : son titre ; la configuration ; la méthode et son coefficient ; à droite les efforts
+    saisis (non nuls) ; ce qu'on lit sur le dessin quand ce n'est pas la configuration elle-même."""
+    cfg = cas["config"]
+    lib = f"{cfg} · {CF.CONFIGS[cfg]['libelle']}"
+    meth, coef = _ligne_methode(res)
+    bande = [(sym.partition("_")[0], sym.partition("_")[2], x, u) for sym, x, u in _efforts_saisis(cas)]
+    return E.entete(v["titre"].upper(), C.esc(lib), [f"{_texte(meth)} · {_texte(coef)}"], bande or None,
+                    "" if v.get("legende") == lib else v.get("legende", ""))
+
+
 def resultat(etat: Dict) -> Dict:
-    """Le calcul et sa mise en forme : le cadre Résultat, les fenêtres de calcul, la toile, le résumé de la note, le
-    cadre Données et la liste des cas."""
+    """Le calcul et sa mise en forme : la tête (le nom du cas ; la configuration, la méthode), le verdict, le bloc
+    « Cordons » (une ligne par cordon : sa gorge, qui se choisit ; ce qu'il compare à son point le plus chargé ; sa
+    jauge), le bloc « Les quatre lectures », les messages du moteur ; les fenêtres de calcul, les vues sous leur en-tête
+    technique, le résumé de la note et la colonne de gauche."""
     cas = _cas(etat)
     res = ET.verifier(cas)
     resultats = [res if i == etat["actif"] else ET.verifier(c) for i, c in enumerate(etat["cas"])]
     g = res.get("gouvernant")
     ch_de = _chaine_de(res)
-    rows, volets = "", ""
+    blocs, volets = "", ""
     msgs = list(res.get("messages", []))
+    cfg = cas["config"]
+    lecture = "méthode ELS du bureau" if cas["methode"]["mode"] == K.ELS else f"Eurocode {CRITERES[cas['methode']['ec']].split(' (')[0]}"
+    tete = E.tete_resultats(C.esc(cas.get("nom") or "Cas"), f"{cfg} · {C.esc(CF.CONFIGS[cfg]['libelle'])} · {lecture}")
     if res["statut"] == ET.REFUS:
         niv = "x"
         # la raison du refus (l'écran Streamlit montre le premier message, souvent une simple note d'espacement)
@@ -1491,12 +1557,12 @@ def resultat(etat: Dict) -> Dict:
         t = res["taux_max"]
         niv = C.niveau(t)
         nom_g = ch_de.get(g["cordon"], g["cordon"])
-        verdict = (f'<div class="verdict">{C.chip(C.pct(t), niv, xl=True)}<div class="gov"><b>{C.esc(_maj(nom_g))} · {C.esc(g["position"])}</b>'
+        i_g = next((i for i, c in enumerate(res["chaines"]) if c["nom"] == ch_de.get(g["cordon"])), 0)
+        verdict = (f'<div class="verdict" data-calcul="c{i_g}" title="Voir le calcul">{C.chip(C.pct(t), niv, xl=True)}<div class="gov">'
+                   f'<b>{C.esc(_maj(nom_g))} · {C.esc(g["position"])}</b>'
                    f'{"pleine pénétration : " if g.get("pleine") else ""}{_verdict_comparaison(res, g)}</div></div>')
         hyps = _hypotheses(res)
-        m = res["methode"]
-        titre = "Cordons · " + ("méthode ELS du bureau" if m.mode == K.ELS else f"Eurocode {CRITERES[m.ec].split(' (')[0]}")
-        rows += f'<div class="elgrp">{titre}<span class="pct {niv}">{_pct(t)}</span></div>'
+        rows = ""
         optimaux = {}
         for i, ch in enumerate(res["chaines"]):
             info = _param_gorge(cas, ch)
@@ -1508,30 +1574,39 @@ def resultat(etat: Dict) -> Dict:
                 o = optimaux[info["role"]]
                 if o and abs(o["valeur"] - float(info["valeur"])) > 1e-9:
                     leger = f"La plus petite {'pénétration' if info['sym'].startswith('p') else 'gorge'} qui tient : {C.nb(o['valeur'])} mm · {_pct(o['taux'])}"
-            rows += C.ligne_res(_maj(ch["nom"]), _piece(ch, info), C.pct(ch["taux"]), C.niveau(ch["taux"]), calcul=f"c{i}",
-                                pk=info["role"] if info else "", gov=ch["nom"] == ch_de.get(g["cordon"]), leger=leger)
+            # ce que le cordon compare à SON point le plus chargé (la vérification de la méthode choisie), et où
+            pt = _pire_point(res, ch["nom"])
+            quoi = f"{_verdict_comparaison(res, pt)} · {C.esc(pt['position'])}" if pt else _longueur(ch)
+            rows += C.ligne_verif(_maj(ch["nom"]), quoi, C.pct(ch["taux"]), C.niveau(ch["taux"]), calcul=f"c{i}", pk=info["role"] if info else "",
+                                  piece=_piece(ch, info), gov=ch["nom"] == ch_de.get(g["cordon"]), leger=leger)
             volets += _fenetre_chaine(i, ch, res, info, hyps)
-        if cas["config"] in GROUPES_PROFIL:
-            rows += f'<div class="elgrp">{"Profilé soudé" if cas["config"] == "C5" else "Tube soudé"}</div>'
-            rows += C.ligne_res("Sur la platine", C.esc(cas["params"].get("profil", "")), C.pct(t), niv, calcul=f"c{next((i for i, c in enumerate(res['chaines']) if c['nom'] == ch_de.get(g['cordon'])), 0)}",
-                                pk="profil")
+        if cfg in GROUPES_PROFIL:
+            rows += C.ligne_verif("Profilé soudé" if cfg == "C5" else "Tube soudé", f"sur la platine · t<sub>p</sub> = {C.nb(cas['params'].get('tp'))} mm",
+                                  C.pct(t), niv, calcul=f"c{i_g}", pk="profil", piece=C.esc(cas["params"].get("profil", "")))
+        nature = "Efforts de service" if res["methode"].mode == K.ELS else "Efforts de calcul (ELU)"
+        saisis = " · ".join(f"{C.symb_math(sym)} = {C.nb(x).replace('-', '−')}{C.NBSP}{u}" for sym, x, u in _efforts_saisis(cas)) or "aucun effort"
+        blocs = E.bloc(0, "Cordons", CLASSES_BLOC.get(niv, "inc"), f"{C.STATUTS[niv][1]} · {_pct(t)}", f"{nature} : {saisis}", rows, theme=True,
+                       calcul=f"c{i_g}")
         comp = comparaison(res)
         if comp:
-            rows += '<div class="elgrp">Les quatre lectures · mêmes efforts</div>'
-            for c in comp:
-                rows += C.ligne_res(c["libelle"], "méthode choisie ◀" if c["choisie"] else "à titre indicatif", C.pct(c["taux"]), C.niveau(c["taux"]),
-                                    calcul="m", gov=False)
+            rows = "".join(C.ligne_verif(c["libelle"], "méthode choisie ◀" if c["choisie"] else "à titre indicatif", C.pct(c["taux"]),
+                                         C.niveau(c["taux"]), calcul="m") for c in comp)
+            blocs += E.bloc(1, "Les quatre lectures", "inc", "mêmes efforts", "chaque méthode à son point le plus chargé ; la méthode choisie "
+                            "décide du statut", rows, theme=True, calcul="m")
             volets += _fenetre_comparaison(res, hyps)
     messages = "".join(C.message(_texte_indices(texte_fr(msg)), message_grave(msg)) for msg in msgs)
     meth, coef = _ligne_methode(res)
     pied = (f'<div class="pfoot"><div class="mass"><span>{meth}</span><b>{coef}</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
-    cfg = cas["config"]
-    phrase = f"{cfg} · {C.esc(CF.CONFIGS[cfg]['libelle'])} · " + ("méthode ELS du bureau" if cas["methode"]["mode"] == K.ELS
-                                                                 else f"Eurocode {CRITERES[cas['methode']['ec']].split(' (')[0]}")
-    return {"resultat": f'<div class="pbody">{verdict}<div class="els">{rows}</div>{messages}</div>{pied}', "volets": volets, "vues": vues(res),
-            "phrase": phrase, "statut_html": C.statut(niv), "resume": resume_note(etat, resultats), "donnees": formulaire(etat, res),
-            "elements": elements(etat, resultats)}
+    vs = vues(res)
+    for v in vs:
+        v["entete"] = _entete(cas, res, v)
+    # le statut de la NOTE (dès deux cas) : le moins bon de ses cas ; seul, le verdict le dit déjà
+    nivs = [C.niveau(x) if (x := _taux(r)) is not None else "x" for r in resultats]
+    statut = C.statut(next((n for n in ("x", "r", "f") if n in nivs), "p")) if len(resultats) > 1 else ""
+    corps = f'{tete}{verdict}<div class="et-blocs">{blocs}</div>{messages}' if blocs else f"{tete}{verdict}{messages}"
+    return {"resultat": f'<div class="pbody">{corps}</div>{pied}', "volets": volets, "vues": vs, "phrase": "", "statut_html": statut,
+            "resume": resume_note(etat, resultats), "donnees": arbre(etat, res), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ la note PDF

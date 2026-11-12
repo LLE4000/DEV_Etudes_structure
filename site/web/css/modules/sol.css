@@ -16,9 +16,6 @@
 /* une ligne du résultat dit une VALEUR (k, w) et non un état : elle se lit comme un nombre, pas comme une pastille grise
    (la pastille reste pour ce qui est un état : « — » en rouge, la formule biaisée en orange) */
 .et-bloc .el.vc .et-mot.c { background: none; padding: 0; color: var(--ink); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-/* un titre de groupe et son aide ⓘ (l'import d'un essai, les couches) : l'explication au survol, plus en paragraphe */
-.rows .grp .aide { display: inline-grid; vertical-align: -2px; margin-left: 4px; cursor: help; }
-.rows .grp .aide svg.i { width: 12px; height: 12px; color: var(--ink-4); }
 
 /* les cartes : sondages (liste) et couches (saisie) */
 .sol-carte .sh2 .pct { font-size: 12px; }

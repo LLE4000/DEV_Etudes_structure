@@ -1,6 +1,13 @@
 {
  "module": "soudures",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-12",
+   "raison": "Soudures sur l'établi compact (12/11/2026) : un cas neuf s'appelle court, S1 puis S2 (le nom du moteur, « C3 · Console fléchie », ne tient pas dans la ligne de l'élément d'une tablette ; la configuration se lit dans la liste et en tête des résultats) ; aucune valeur affichée n'a disparu",
+   "ecarts": ["note neuve : etat changé", "C1 en ELS : etat changé", "chargé près de 100 % (V = 97 kN) : etat changé", "C3 sur poteau HEA, pénétration partielle : etat changé", "gorge nulle refusée : etat changé", "console de 10 mm : calcul impossible : etat changé", "effort nul : etat changé", "soudure discontinue (tronçons) : etat changé", "cas ajouté, configuration C5 : etat changé"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",
@@ -13,23 +20,24 @@
      "taux": 61,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C3 · Console fléchie · cordon droit, haut"
+     "gouvernant": "S1 · cordon droit, haut"
     },
-    "statut": "Conforme",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "61 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "61 %"],
      ["Cordon droit · haut σ c =", "218,5", "≤", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "61 %"],
+     ["Cordons Conforme ·", "61 %"],
+     ["Efforts de calcul (ELU) : V =", "60 kN"],
      ["Cordon droit a =", "5 mm", "61 %"],
-     ["Cordon gauche a =", "5 mm", "61 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "61 %"],
-     ["EC3 simplifiée à titre indicatif", "74 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif", "156 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "110 %"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+     ["haut Cordon gauche a =", "5 mm", "61 %"],
+     ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+     ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "61 %"],
+     ["méthode choisie ◀ EC3 simplifiée", "74 %"],
+     ["à titre indicatif ELS bureau k =", "100", "156 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
+     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -147,7 +155,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -225,7 +233,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}},
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}},
     "selecteurs": {
      "gorge-a": [
       ["Gorge · cordon droit, cordon gauche triées par épaisseur · chaque ligne recalculée · un clic la retient a =", "3 mm", "1 164", "97 %"],
@@ -263,25 +271,30 @@
      "taux": 53,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C1 · Recouvrement · latéral haut, gauche"
+     "gouvernant": "S1 · latéral haut, gauche"
     },
-    "statut": "Conforme",
-    "phrase": "C1 · Recouvrement · méthode ELS du bureau",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "53 %"],
+     ["S1 C1 · Recouvrement · méthode ELS du bureau η", "53 %"],
      ["Latéral haut · gauche |f| =", "258", "≤"],
      ["F adm =", "491 N/mm"],
-     ["Cordons · méthode ELS du bureau", "53 %"],
+     ["Cordons Conforme ·", "53 %"],
+     ["Efforts de service : N =", "80 kN"],
      ["Latéral haut a =", "5 mm", "53 %"],
-     ["Latéral bas a =", "5 mm", "53 %"],
-     ["Frontal (bout de B) a =", "5 mm", "53 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle à titre indicatif", "25 %"],
-     ["EC3 simplifiée à titre indicatif", "25 %"],
-     ["ELS bureau k =", "100"],
-     ["méthode choisie ◀", "53 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "37 %"],
-     ["Méthode ELS du bureau : efforts de service, résultante ≤ k·a avec k =", "100"],
+     ["|f| =", "258", "≤"],
+     ["F adm =", "491 N/mm", "·"],
+     ["gauche Latéral bas a =", "5 mm", "53 %"],
+     ["|f| =", "258", "≤"],
+     ["F adm =", "491 N/mm", "·"],
+     ["gauche Frontal (bout de B) a =", "5 mm", "53 %"],
+     ["|f| =", "258", "≤"],
+     ["F adm =", "491 N/mm", "·"],
+     ["bas Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "25 %"],
+     ["à titre indicatif EC3 simplifiée", "25 %"],
+     ["à titre indicatif ELS bureau k =", "100", "53 %"],
+     ["méthode choisie ◀ ELS k Eurocode =", "141", "37 %"],
+     ["à titre indicatif Méthode ELS du bureau : efforts de service, résultante ≤ k·a avec k =", "100"],
      ["kg/(mm·cm) =", "98,1 N/mm²", ";"],
      ["l'Eurocode donnerait f vw,d /1,5 =", "138,6 N/mm²", "(141"],
      ["kg/(mm·cm)) pour le S235 ELS du bureau · k =", "100"],
@@ -434,7 +447,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "els",
-     "nom": "C1 · Recouvrement",
+     "nom": "S1",
      "params/L_rec": "120",
      "params/a": "5",
      "params/b": "100",
@@ -502,7 +515,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C1 · Recouvrement", "config": "C1", "params": {"b": 100.0, "tB": 10.0, "tA": 10.0, "L_rec": 120.0, "lateraux": true, "frontaux": 1, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 80.0, "V": 0.0}, "methode": {"mode": "els", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C1", "params": {"b": 100.0, "tB": 10.0, "tA": 10.0, "L_rec": 120.0, "lateraux": true, "frontaux": 1, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 80.0, "V": 0.0}, "methode": {"mode": "els", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -518,23 +531,24 @@
      "taux": 98,
      "niveau": "f",
      "statut": "Conforme, attention",
-     "gouvernant": "C3 · Console fléchie · cordon droit, haut"
+     "gouvernant": "S1 · cordon droit, haut"
     },
-    "statut": "Conforme, attention",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "98 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "98 %"],
      ["Cordon droit · haut σ c =", "353,2", "≤", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "98 %"],
+     ["Cordons Conforme, attention ·", "98 %"],
+     ["Efforts de calcul (ELU) : V =", "97 kN"],
      ["Cordon droit a =", "5 mm", "98 %"],
-     ["Cordon gauche a =", "5 mm", "98 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "98 %"],
-     ["EC3 simplifiée à titre indicatif", "119 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif", "252 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "178 %"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["σ c =", "353,2", "≤", "360,0 N/mm²", "·"],
+     ["haut Cordon gauche a =", "5 mm", "98 %"],
+     ["σ c =", "353,2", "≤", "360,0 N/mm²", "·"],
+     ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "98 %"],
+     ["méthode choisie ◀ EC3 simplifiée", "119 %"],
+     ["à titre indicatif ELS bureau k =", "100", "252 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", "178 %"],
+     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -652,7 +666,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -730,7 +744,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 97.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 97.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -744,16 +758,18 @@
      "taux": 62,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C3 · Console fléchie · cordon, haut"
+     "gouvernant": "S1 · cordon, haut"
     },
-    "statut": "Conforme",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "62 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "62 %"],
      ["Cordon · haut pleine pénétration : σ c =", "144,7", "≤", "235,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "62 %"],
+     ["Cordons Conforme ·", "62 %"],
+     ["Efforts de calcul (ELU) : V =", "60 kN"],
      ["Cordon pleine · t =", "10 mm", "62 %"],
-     ["cordon : pénétration partielle des deux faces avec p₁ + p₂ =", "12", "≥"],
+     ["σ c =", "144,7", "≤", "235,0 N/mm²", "·"],
+     ["haut cordon : pénétration partielle des deux faces avec p₁ + p₂ =", "12", "≥"],
      ["t =", "10 mm"],
      ["et c =", "0", "≤"],
      ["min(t/5 ;", "3 mm)", "→"],
@@ -801,7 +817,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/deux_cordons": true,
      "params/e": "150",
      "params/h": "200",
@@ -880,7 +896,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "partielle", "p": 6.0, "renfort": 0.0, "poteau": "HEA 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "partielle", "p": 6.0, "renfort": 0.0, "poteau": "HEA 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -896,23 +912,24 @@
      "taux": 61,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C3 · Console fléchie · cordon droit, haut"
+     "gouvernant": "S1 · cordon droit, haut"
     },
-    "statut": "Conforme",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "61 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "61 %"],
      ["Cordon droit · haut σ c =", "218,5", "≤", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "61 %"],
+     ["Cordons Conforme ·", "61 %"],
+     ["Efforts de calcul (ELU) : V =", "60 kN"],
      ["Cordon droit a =", "5 mm", "61 %"],
-     ["Cordon gauche a =", "5 mm", "61 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "61 %"],
-     ["EC3 simplifiée à titre indicatif", "74 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif", "156 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "110 %"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+     ["haut Cordon gauche a =", "5 mm", "61 %"],
+     ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+     ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "61 %"],
+     ["méthode choisie ◀ EC3 simplifiée", "74 %"],
+     ["à titre indicatif ELS bureau k =", "100", "156 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
+     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -1030,7 +1047,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -1108,7 +1125,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -1126,10 +1143,10 @@
      "statut": "Calcul impossible",
      "gouvernant": ""
     },
-    "statut": "Calcul impossible",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["Calcul impossible Refus : aucun cordon utile (gorge ≥", "3 mm"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle Calcul impossible Refus : aucun cordon utile (gorge ≥", "3 mm"],
      ["et longueur efficace ≥ max(30 mm ; 6a)) cordon droit : ne compte pas (gorge ≥", "3 mm"],
      ["et l eff ≥ max(30 mm ; 6a) exigés ; a =", "5 l,"],
      ["eff =", "0 mm)"],
@@ -1150,7 +1167,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -1207,7 +1224,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 10.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 10.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -1221,23 +1238,23 @@
      "taux": 0,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C3 · Console fléchie · cordon droit, haut"
+     "gouvernant": "S1 · cordon droit, haut"
     },
-    "statut": "Conforme",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "0 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "0 %"],
      ["Cordon droit · haut σ c =", "0,0", "≤", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "0 %"],
-     ["Cordon droit a =", "5 mm", "0 %"],
-     ["Cordon gauche a =", "5 mm", "0 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "0 %"],
-     ["EC3 simplifiée à titre indicatif", "0 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif", "0 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "0 %"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["Cordons Conforme ·", "0 %"],
+     ["Efforts de calcul (ELU) : aucun effort Cordon droit a =", "5 mm", "0 %"],
+     ["σ c =", "0,0", "≤", "360,0 N/mm²", "·"],
+     ["haut Cordon gauche a =", "5 mm", "0 %"],
+     ["σ c =", "0,0", "≤", "360,0 N/mm²", "·"],
+     ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "0 %"],
+     ["méthode choisie ◀ EC3 simplifiée", "0 %"],
+     ["à titre indicatif ELS bureau k =", "100", "0 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", "0 %"],
+     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -1355,7 +1372,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -1433,7 +1450,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 0.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 0.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -1447,26 +1464,27 @@
      "taux": 850,
      "niveau": "r",
      "statut": "Non conforme",
-     "gouvernant": "C3 · Console fléchie · cordon droit · tronçon 1, haut"
+     "gouvernant": "S1 · cordon droit · tronçon 1, haut"
     },
-    "statut": "Non conforme",
-    "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+    "statut": "",
+    "phrase": "",
     "resultat": [
-     ["η", "850 %"],
+     ["S1 C3 · Console fléchie · Eurocode directionnelle η", "850 %"],
      ["Cordon droit · tronçon", "1", "·"],
      ["haut σ c =", "3", "061,8", ">", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "850 %"],
+     ["Cordons Non conforme ·", "850 %"],
+     ["Efforts de calcul (ELU) : V =", "60 kN"],
      ["Cordon droit · tronçon", "1"],
      ["a =", "5 mm", "850 %"],
-     ["Cordon gauche · tronçon", "1"],
+     ["σ c =", "3", "061,8", ">", "360,0 N/mm²", "·"],
+     ["haut Cordon gauche · tronçon", "1"],
      ["a =", "5 mm", "850 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "850 %"],
-     ["EC3 simplifiée à titre indicatif >", "999 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif >", "999 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif >", "999 %"],
-     ["Soudure discontinue (cordons verticaux) :", "1"],
+     ["σ c =", "3", "061,8", ">", "360,0 N/mm²", "·"],
+     ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "850 %"],
+     ["méthode choisie ◀ EC3 simplifiée >", "999 %"],
+     ["à titre indicatif ELS bureau k =", "100", ">", "999 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", ">", "999 %"],
+     ["à titre indicatif Soudure discontinue (cordons verticaux) :", "1"],
      ["tronçon de", "60 mm"],
      ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
@@ -1600,7 +1618,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C3 · Console fléchie",
+     "nom": "S1",
      "params/a": "5",
      "params/deux_cordons": true,
      "params/e": "150",
@@ -1680,7 +1698,7 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 1, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 1, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
    }
   },
   {
@@ -1696,30 +1714,39 @@
      "taux": 68,
      "niveau": "p",
      "statut": "Conforme",
-     "gouvernant": "C5 · Platine d'about de profilé · semelle sup. ext., gauche"
+     "gouvernant": "S2 · semelle sup. ext., gauche"
     },
     "statut": "Conforme",
-    "phrase": "C5 · Platine d'about de profilé · Eurocode directionnelle",
+    "phrase": "",
     "resultat": [
-     ["η", "68 %"],
+     ["S2 C5 · Platine d'about de profilé · Eurocode directionnelle η", "68 %"],
      ["Semelle sup. ext. · gauche σ c =", "243,9", "≤", "360,0 N/mm²"],
-     ["Cordons · Eurocode directionnelle", "68 %"],
+     ["Cordons Conforme ·", "68 %"],
+     ["Efforts de calcul (ELU) : V z =", "60 kN", "·"],
+     ["M y =", "30 kN·m"],
      ["Semelle sup. ext. a =", "5 mm", "68 %"],
-     ["Semelle inf. ext. a =", "5 mm", "68 %"],
-     ["Semelle sup. int. droite a =", "5 mm", "55 %"],
-     ["Semelle sup. int. gauche a =", "5 mm", "55 %"],
-     ["Semelle inf. int. droite a =", "5 mm", "55 %"],
-     ["Semelle inf. int. gauche a =", "5 mm", "55 %"],
-     ["Âme droite a =", "4 mm", "51 %"],
-     ["Âme gauche a =", "4 mm", "51 %"],
-     ["Profilé soudé Sur la platine IPE", "200", "68 %"],
-     ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "68 %"],
-     ["EC3 simplifiée à titre indicatif", "78 %"],
-     ["ELS bureau k =", "100"],
-     ["à titre indicatif", "166 %"],
-     ["ELS k Eurocode =", "141"],
-     ["à titre indicatif", "117 %"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["σ c =", "243,9", "≤", "360,0 N/mm²", "·"],
+     ["gauche Semelle inf. ext. a =", "5 mm", "68 %"],
+     ["σ c =", "243,9", "≤", "360,0 N/mm²", "·"],
+     ["gauche Semelle sup. int. droite a =", "5 mm", "55 %"],
+     ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+     ["gauche Semelle sup. int. gauche a =", "5 mm", "55 %"],
+     ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+     ["gauche Semelle inf. int. droite a =", "5 mm", "55 %"],
+     ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+     ["gauche Semelle inf. int. gauche a =", "5 mm", "55 %"],
+     ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+     ["gauche Âme droite a =", "4 mm", "51 %"],
+     ["σ c =", "184,9", "≤", "360,0 N/mm²", "·"],
+     ["bas Âme gauche a =", "4 mm", "51 %"],
+     ["σ c =", "184,9", "≤", "360,0 N/mm²", "·"],
+     ["bas Profilé soudé IPE", "200", "68 %"],
+     ["sur la platine · t p =", "15 mm"],
+     ["Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "68 %"],
+     ["méthode choisie ◀ EC3 simplifiée", "78 %"],
+     ["à titre indicatif ELS bureau k =", "100", "166 %"],
+     ["à titre indicatif ELS k Eurocode =", "141", "117 %"],
+     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
     ],
     "calculs": [
      ["Semelle sup. ext. a =", "5 mm", "·"],
@@ -2057,7 +2084,7 @@
      "methode/gamma_M2": "1,25",
      "methode/k": "100",
      "methode/mode": "eurocode",
-     "nom": "C5 · Platine d'about de profilé",
+     "nom": "S2",
      "params/a_f": "5",
      "params/a_w": "4",
      "params/ame": true,
@@ -2132,47 +2159,57 @@
       "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
-    "etat": {"version": 1, "cas": [{"nom": "C3 · Console fléchie", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}, {"nom": "C5 · Platine d'about de profilé", "config": "C5", "params": {"profil": "IPE 200", "a_f": 5.0, "a_w": 4.0, "semelles": "deux faces", "ame": true, "retours": true, "jonction_semelles": "angle", "p_f": 6.0, "renfort_f": 0.0, "jonction_ame": "angle", "p_w": 4.0, "renfort_w": 0.0, "troncons_semelles": {"n": 0, "l": 60.0}, "troncons_ame": {"n": 0, "l": 60.0}, "tp": 15.0, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 0.0, "Vz": 60.0, "Vy": 0.0, "My": 30.0, "Mz": 0.0, "T": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 1, "identification": {"projet": "", "partie": "", "indice": "0"}},
+    "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}, {"nom": "S2", "config": "C5", "params": {"profil": "IPE 200", "a_f": 5.0, "a_w": 4.0, "semelles": "deux faces", "ame": true, "retours": true, "jonction_semelles": "angle", "p_f": 6.0, "renfort_f": 0.0, "jonction_ame": "angle", "p_w": 4.0, "renfort_w": 0.0, "troncons_semelles": {"n": 0, "l": 60.0}, "troncons_ame": {"n": 0, "l": 60.0}, "tp": 15.0, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 0.0, "Vz": 60.0, "Vy": 0.0, "My": 30.0, "Mz": 0.0, "T": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 1, "identification": {"projet": "", "partie": "", "indice": "0"}},
     "elements": [
      {
-      "phrase": "C3 · Console fléchie · Eurocode directionnelle",
+      "phrase": "",
       "resultat": [
-       ["η", "61 %"],
+       ["S1 C3 · Console fléchie · Eurocode directionnelle η", "61 %"],
        ["Cordon droit · haut σ c =", "218,5", "≤", "360,0 N/mm²"],
-       ["Cordons · Eurocode directionnelle", "61 %"],
+       ["Cordons Conforme ·", "61 %"],
+       ["Efforts de calcul (ELU) : V =", "60 kN"],
        ["Cordon droit a =", "5 mm", "61 %"],
-       ["Cordon gauche a =", "5 mm", "61 %"],
-       ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "61 %"],
-       ["EC3 simplifiée à titre indicatif", "74 %"],
-       ["ELS bureau k =", "100"],
-       ["à titre indicatif", "156 %"],
-       ["ELS k Eurocode =", "141"],
-       ["à titre indicatif", "110 %"],
-       ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+       ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+       ["haut Cordon gauche a =", "5 mm", "61 %"],
+       ["σ c =", "218,5", "≤", "360,0 N/mm²", "·"],
+       ["haut Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "61 %"],
+       ["méthode choisie ◀ EC3 simplifiée", "74 %"],
+       ["à titre indicatif ELS bureau k =", "100", "156 %"],
+       ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
+       ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
       ]
      },
      {
-      "phrase": "C5 · Platine d'about de profilé · Eurocode directionnelle",
+      "phrase": "",
       "resultat": [
-       ["η", "68 %"],
+       ["S2 C5 · Platine d'about de profilé · Eurocode directionnelle η", "68 %"],
        ["Semelle sup. ext. · gauche σ c =", "243,9", "≤", "360,0 N/mm²"],
-       ["Cordons · Eurocode directionnelle", "68 %"],
+       ["Cordons Conforme ·", "68 %"],
+       ["Efforts de calcul (ELU) : V z =", "60 kN", "·"],
+       ["M y =", "30 kN·m"],
        ["Semelle sup. ext. a =", "5 mm", "68 %"],
-       ["Semelle inf. ext. a =", "5 mm", "68 %"],
-       ["Semelle sup. int. droite a =", "5 mm", "55 %"],
-       ["Semelle sup. int. gauche a =", "5 mm", "55 %"],
-       ["Semelle inf. int. droite a =", "5 mm", "55 %"],
-       ["Semelle inf. int. gauche a =", "5 mm", "55 %"],
-       ["Âme droite a =", "4 mm", "51 %"],
-       ["Âme gauche a =", "4 mm", "51 %"],
-       ["Profilé soudé Sur la platine IPE", "200", "68 %"],
-       ["Les quatre lectures · mêmes efforts EC3 directionnelle méthode choisie ◀", "68 %"],
-       ["EC3 simplifiée à titre indicatif", "78 %"],
-       ["ELS bureau k =", "100"],
-       ["à titre indicatif", "166 %"],
-       ["ELS k Eurocode =", "141"],
-       ["à titre indicatif", "117 %"],
-       ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+       ["σ c =", "243,9", "≤", "360,0 N/mm²", "·"],
+       ["gauche Semelle inf. ext. a =", "5 mm", "68 %"],
+       ["σ c =", "243,9", "≤", "360,0 N/mm²", "·"],
+       ["gauche Semelle sup. int. droite a =", "5 mm", "55 %"],
+       ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+       ["gauche Semelle sup. int. gauche a =", "5 mm", "55 %"],
+       ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+       ["gauche Semelle inf. int. droite a =", "5 mm", "55 %"],
+       ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+       ["gauche Semelle inf. int. gauche a =", "5 mm", "55 %"],
+       ["σ c =", "196,3", "≤", "360,0 N/mm²", "·"],
+       ["gauche Âme droite a =", "4 mm", "51 %"],
+       ["σ c =", "184,9", "≤", "360,0 N/mm²", "·"],
+       ["bas Âme gauche a =", "4 mm", "51 %"],
+       ["σ c =", "184,9", "≤", "360,0 N/mm²", "·"],
+       ["bas Profilé soudé IPE", "200", "68 %"],
+       ["sur la platine · t p =", "15 mm"],
+       ["Les quatre lectures mêmes efforts chaque méthode à son point le plus chargé ; la méthode choisie décide du statut EC3 directionnelle", "68 %"],
+       ["méthode choisie ◀ EC3 simplifiée", "78 %"],
+       ["à titre indicatif ELS bureau k =", "100", "166 %"],
+       ["à titre indicatif ELS k Eurocode =", "141", "117 %"],
+       ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
       ]
      }
     ]

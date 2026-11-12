@@ -584,6 +584,22 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   Une rubrique de sondage ne s'ouvre d'elle-même que lorsqu'un essai attend d'être versé. Aucune valeur affichée n'a
   disparu (photo refigée : les fenêtres prennent le nom de leur bloc). Preuves : `tests/test_api_web_sol.py` (97 OK,
   dont le § 10), harnais `module:sol`, `formats:sol`.
+- **Soudures** (`api_web/soudures.py`, huit configurations, note PDF) : sept rubriques — Assemblage (le type et la
+  méthode), Géométrie, Soudure (ou « Cordons libres » en C8), Efforts, Aciers, puis deux secondaires : Hypothèses (les
+  réglages des deux méthodes) et « Note PDF et reprise ». À droite : deux blocs. « Cordons » : une ligne par cordon —
+  sa gorge (elle se choisit), son taux, ce qu'il compare à SON point le plus chargé (« σ_c = 218,5 ≤ 360,0 N/mm² ·
+  haut ») ; le bloc dit les efforts saisis et leur nature (ELU ou service). « Les quatre lectures » : les quatre
+  méthodes, la choisie marquée. Les fenêtres gardent leurs noms (`c<i>`, `m`) : le kit sait désormais qu'un bloc peut
+  NOMMER la fenêtre que son bouton « tout le calcul » ouvre (`E.bloc(…, calcul=)`, `tests/test_etabli_compact.py`).
+  Un cas neuf s'appelle court, « S1 » : le nom du moteur (« C3 · Console fléchie ») ne tient pas dans la ligne de
+  l'élément d'une tablette ; la configuration se lit dans la liste et en tête des résultats — et « ＋ Cas » nomme « S2 »
+  là où l'écran Streamlit nommait « Cas 2 · Console fléchie » (seul écart avec lui, voulu et testé). Retiré de l'écran :
+  le bloc « Dans cette note », le champ Nom, la phrase au-dessus du dessin, cinq paragraphes (ce que fait l'assemblage,
+  ce que change la méthode, les tronçons, les cordons libres, l'identification de la note : au survol de ⓘ). Les efforts
+  réduits au point de référence restent écrits dans la rubrique Efforts (la parité les relit). Le harnais a TROUVÉ :
+  le libellé « Assemblage » coupé par son icône ⓘ, aux six formats — il s'appelle « Type ». Preuves :
+  `tests/test_api_web_soudures.py` (226 OK : la parité avec l'écran Streamlit rejoué, et le § G), la note PDF
+  (`tests/test_note_soudures.py`, 31 OK), harnais `module:soudures`, `formats:soudures`, `note_pdf`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

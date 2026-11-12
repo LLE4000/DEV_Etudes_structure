@@ -135,6 +135,7 @@ for nom, e in ETATS.items():
         # chaque cordon : son taux, sa gorge ; puis le profilé soudé ; les quatre lectures ne sont pas dans la note
         lignes = O.lignes_resultat(r["resultat"])
         par_nom = {S._maj(ch["nom"]): ch for ch in site["chaines"]}
+        lectures = {x["libelle"] for x in S.comparaison(site)}       # les quatre lectures, nommées par le site (établi compact)
         for nom_l, piece, niv, txt in lignes:
             ch = par_nom.get(nom_l)
             if ch is not None:
@@ -146,10 +147,10 @@ for nom, e in ETATS.items():
                 if (txt != O.pct_note(ch["taux"]) or not m or m.group(2) != txt
                         or (gorge and abs(nombre(m.group(1)) - nombre(gorge.group(1))) > 1e-9)):
                     ecarts.append((nom, i, nom_l, piece, txt, m and m.groups()))
-            elif nom_l == "Sur la platine":
+            elif nom_l in ("Profilé soudé", "Tube soudé"):          # (établi compact : la ligne du profilé, sur la platine)
                 if piece not in p12:
                     ecarts.append((nom, i, "profilé", piece))
-            elif "à titre indicatif" in piece or "méthode choisie" in piece:
+            elif nom_l in lectures:
                 comparaisons += 1
             else:
                 ecarts.append((nom, i, "ligne inconnue", nom_l, piece))
@@ -213,7 +214,7 @@ with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf
     modules_site = " ".join(fh.read().split())
 chk("l'écran ne montre plus de champ d'identification (un seul composant, les trois formats) : il dit d'où vient celle "
     "de la note PDF ; l'écrit suit (MODULES_SITE.md)",
-    'data-chemin="identification/' not in donnees and NC.AIDE_IDENTIFICATION in donnees
+    'data-chemin="identification/' not in donnees and f'title="{C.esc(NC.AIDE_IDENTIFICATION)}"' in donnees         # (au survol de ⓘ)
     and "L'INDICE a une seule source" in modules_site, donnees.count("identification"))
 
 # 4. le routeur, les refus
