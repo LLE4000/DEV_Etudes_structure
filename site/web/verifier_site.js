@@ -1752,6 +1752,35 @@ const principal = async () => {
       verif(`exporter · ${fmt} : aucune erreur JavaScript`, !erreursPage.length, erreursPage.join(' | ').slice(0, 300));
       await c.close();
     }
+    // TABLETTE PAYSAGE, le format du propriétaire (Chrome sur une tablette Samsung : ≈ 1 280 × 654 de page, tactile) : une
+    // valeur changée, puis « Exporter » touché AUSSITÔT — le champ perd le focus, le calcul part, et sa réponse refait la
+    // colonne des résultats PENDANT que le menu est ouvert. Le 12/11/2026, elle le refermait : sur sa tablette, le
+    // propriétaire ne voyait jamais le menu. (Le témoin posé sur l'ancien menu prouve que la réponse l'a bien refait.)
+    {
+      const c = await b.newContext({ viewport: { width: 1280, height: 654 }, deviceScaleFactor: 1, hasTouch: true, acceptDownloads: true });
+      const g = await c.newPage();
+      const erreursPage = [];
+      g.on('pageerror', (e) => erreursPage.push(e.message));
+      await g.goto(`${BASE}/fondations-grues?chantier=${encodeURIComponent('Greenwood')}&nom=${encodeURIComponent('Fondation grue tour GT1')}`);
+      await pretEcran(g);
+      const CHAMP = '#donnees input[data-chemin="grue"]';
+      await g.tap(CHAMP);
+      await g.fill(CHAMP, 'Liebherr 172 EC-B');
+      await g.evaluate(() => { document.querySelector('#resultat .et-exp').dataset.temoin = 'avant'; });
+      await g.tap(B);
+      await g.waitForTimeout(2500); // la réponse du moteur est arrivée (≈ 0,3 s au poste de contrôle)
+      const m = await g.evaluate((champ) => {
+        const ex = document.querySelector('#resultat .et-exp'), l = ex.querySelector('.et-mn-l'), p = l.querySelector('[data-plans]');
+        const r = p.getBoundingClientRect(), t = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+        return { refait: !ex.dataset.temoin, ouvert: !l.hidden && l.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
+          aria: ex.querySelector('[data-menu]').getAttribute('aria-expanded'), plans: !!t && p.contains(t), grue: document.querySelector(champ).value };
+      }, CHAMP);
+      verif('exporter · tablette paysage (1 280 × 654, tactile : le format du propriétaire) : une valeur changée puis « Exporter » touché aussitôt — '
+        + 'le menu RESTE ouvert quand la réponse du moteur refait les résultats, « Plans PDF » y est atteint ; aucune erreur JavaScript',
+      m.refait && m.ouvert && m.aria === 'true' && m.plans && m.grue === 'Liebherr 172 EC-B' && !erreursPage.length, JSON.stringify({ ...m, erreursPage }));
+      await g.screenshot({ path: path.join(OUT, 'site_exporter_tab_paysage.png') });
+      await c.close();
+    }
     // QUITTER l'écran pendant un plan : le message tenu (il ne s'efface pas seul) s'en va avec l'écran — rien ne le redit sur
     // l'écran suivant ; le plan, fini en fond, n'est ni enregistré ni annoncé ; aucune erreur
     {

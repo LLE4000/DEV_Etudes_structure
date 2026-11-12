@@ -452,7 +452,12 @@ export function ouvrirEtabli(hote, ctx) {
       const defR = $("#resultat .pbody") ? $("#resultat .pbody").scrollTop : 0;
       // (le nom de l'élément peut être un champ de la tête des résultats, colonne de gauche compacte : la frappe en cours y survit aussi)
       const saisieR = saisieEnCours($("#resultat"));
+      // le menu « Exporter » ouvert le RESTE quand un calcul refait le résultat : une valeur changée puis « Exporter » touché
+      // aussitôt — le champ perd le focus, le calcul part, sa réponse arrive menu ouvert. Elle le refermait : sur la tablette
+      // du propriétaire (plus lente), le menu se refermait avant même d'être vu (12/11/2026, harnais « exporter »)
+      const exportOuvert = !!$("#resultat .et-exp .et-mn-l:not([hidden])");
       $("#resultat").innerHTML = r.resultat;
+      if (exportOuvert && $("#resultat .et-exp [data-menu]")) $("#resultat .et-exp [data-menu]").click();
       poserVerification($("#resultat"), MODULE);    // « Module vérifié · LLE · 11/11/2026 », au pied (js/marques.js)
       if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
       reprendreSaisie($("#resultat"), saisieR);

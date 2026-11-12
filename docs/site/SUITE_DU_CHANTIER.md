@@ -703,6 +703,14 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   regardait que l'en-tête et la taille des PDF). Le PDF unique les a toutes ; le message final les compte par plan,
   d'après le compte rendu de RBAR, et le harnais vérifie que le PDF a autant de pages (« 5 feuilles (coffrage 2,
   armatures 3) »). Mesure : `docs/site/mesures/2026-11-12_plans_pdf_un_seul_fichier.md`.
+- **Deuxième essai sur la tablette (Chrome, tablette Samsung en paysage, ≈ 1 280 × 654 de page, 23 h 52)** : « j'ai
+  appuyé sur Exporter » — et le menu ne se voyait pas. Défaut de l'établi trouvé par l'usage : chaque réponse du moteur
+  refait toute la colonne des résultats (`peindre`, js/etabli.js), menu « Exporter » compris, qui revenait FERMÉ. Une
+  valeur changée puis « Exporter » touché aussitôt : le champ perd le focus, le calcul part, sa réponse arrive menu
+  ouvert et le referme — 0,26 s au poste de contrôle, avant même d'être vu sur la tablette, plus lente. Corrigé : le menu
+  ouvert le reste quand le résultat est refait. Le harnais `exporter` joue désormais ce cas au format du propriétaire
+  (tablette paysage, tactile ; un témoin posé sur l'ancien menu prouve que la réponse l'a bien refait) ; il ne jouait
+  jusqu'ici ni ce format, ni un champ modifié juste avant le menu.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
