@@ -311,6 +311,29 @@ npy = lock["packages"]["numpy"]
 chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, npy["file_name"])) == npy["sha256"])
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
+# 4 bis. le moteur de PLANS de RBAR déposé (outils/vendre_rbar_plans.py, 12/11/2026) : chaque fichier a l'empreinte relevée
+# — et celle que le chargeur de .NET vérifie lui-même (blazor.boot.json : un fichier changé est refusé) ; rien d'autre dans
+# le dossier ; aucun au-delà de 25 Mio (la limite d'un fichier publié par Cloudflare) ; le travailleur des plans charge la
+# version déposée (une COPIE de construire.RBAR_PLANS) ; la licence du moteur et de ses polices est dite
+import base64 as _b64  # noqa: E402
+_vr = os.path.join(WEB, SW.RBAR_PLANS)
+_empr = json.load(open(os.path.join(_vr, "empreintes.json"), encoding="utf-8"))
+_deposes = sorted(os.path.relpath(os.path.join(r, n), _vr).replace(os.sep, "/") for r, _, ns in os.walk(_vr) for n in ns if n != "empreintes.json")
+_faux = [f for f, h in _empr["fichiers"].items() if not os.path.exists(os.path.join(_vr, f)) or sha(os.path.join(_vr, f)) != h]
+_boot = json.load(open(os.path.join(_vr, "_framework", "blazor.boot.json"), encoding="utf-8"))
+_integ = {"_framework/" + nom: _b64.b64decode(v[len("sha256-"):]).hex() for g in _boot["resources"].values() if isinstance(g, dict)
+          for nom, v in g.items() if isinstance(v, str) and v.startswith("sha256-")}
+chk(f"les {len(_empr['fichiers'])} fichiers du moteur de plans de RBAR ont les empreintes relevées et celles que le chargeur de .NET "
+    "vérifie ; rien d'autre dans le dossier ; aucun au-delà de 25 Mio",
+    not _faux and _deposes == sorted(_empr["fichiers"]) and len(_integ) >= 6 and all(_empr["fichiers"].get(f) == h for f, h in _integ.items())
+    and all(os.path.getsize(os.path.join(_vr, f)) <= 25 * 1024 * 1024 for f in _deposes),
+    (_faux, sorted(set(_deposes) ^ set(_empr["fichiers"])), [f for f, h in _integ.items() if _empr["fichiers"].get(f) != h]))
+_licences = open(os.path.join(WEB, "LICENCES.md"), encoding="utf-8").read()
+chk("le travailleur des plans charge la version déposée du moteur de RBAR ; LICENCES.md dit sa licence et celle de ses polices",
+    f'"../{SW.RBAR_PLANS}/rbar-plans.js"' in open(os.path.join(WEB, "js", "plans-travailleur.js"), encoding="utf-8").read()
+    and f"`{SW.RBAR_PLANS}/`" in _licences and f"`{SW.RBAR_PLANS}/polices/`" in _licences and "SIL Open Font License" in _licences
+    and os.path.exists(os.path.join(_vr, "polices", "LICENCE-Liberation.txt")))
+
 # 5. les identifiants que les scripts cherchent existent dans leur page (S4, partie « écrans » : l'établi est un écran
 # montable, il ne nomme plus le VOILE retiré — #demarrage, #demarrage-etape — : plus aucune exception à cette règle)
 VOILE_RETIRE = ()

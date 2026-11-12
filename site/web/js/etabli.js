@@ -28,6 +28,7 @@ import { cablerCompact } from "./compact.js";
 import { cablerRangement } from "./rangement.js";
 import { poserVerification } from "./marques.js";
 import { cablerPanneauBibliotheque } from "./biblio_note.js";
+import { plansPdf, prechaufferPlans } from "./plans.js";
 
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
 // « selecteur », « bibliotheque » ne font que la lire
@@ -1026,6 +1027,57 @@ export function ouvrirEtabli(hote, ctx) {
       ev.preventDefault();
       ev.stopPropagation();
       telechargerFichier(b.dataset.telecharger);
+    }, { capture: true, signal });
+
+    // -------------------------------------------------------------- les PLANS d'un ouvrage, en PDF (le moteur de RBAR)
+    // Le module pose <button data-plans="coffrage|armatures" data-ouvrage="<quoi>" data-nom="<nom du PDF>"> : le moteur
+    // Python rend le fichier « rbar.ouvrage » (action « telecharger » de ce quoi — le même que « DWG pour AutoCAD ») et le
+    // moteur de RBAR (js/plans.js) en fait les feuilles ; celle demandée est enregistrée sous ce nom. Un refus, de l'un ou
+    // de l'autre, est dit tel quel ; la durée aussi — mesurée sur l'appareil même (RBAR la demande pour la tablette et le
+    // téléphone).
+    async function faireUnPlan(b) {
+      occupe(1);
+      toast("Plans en cours… (le moteur de RBAR, quelques secondes)");
+      const debut = performance.now();
+      try {
+        const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
+        let r;
+        try {
+          r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi: b.dataset.ouvrage, infos }));
+        } catch (e) { if (e && e.name === "EcranFerme") return; throw e; }
+        if (fini()) return;
+        const f = r && r.ok ? r.fichier : null;
+        if (!f || typeof f.texte !== "string") {
+          toast(`Plans refusés : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu le fichier de l'ouvrage"}`, true);
+          return;
+        }
+        const p = await plansPdf(f.texte, f.nom);
+        if (fini()) return;
+        if (!p.rapport || !p.rapport.ok) {
+          toast(`Plans refusés par RBAR : ${(p.rapport && p.rapport.refus) || "sans raison donnée"}`, true);
+          return;
+        }
+        const pdf = (p.pdfs || []).find((x) => x.plan === b.dataset.plans);
+        if (!pdf) { toast(`RBAR n'a pas rendu le plan « ${b.dataset.plans} »`, true); return; }
+        const nom = telecharger(`${b.dataset.nom || pdf.nom}.pdf`, pdf.octets, "application/pdf");
+        const s = ((performance.now() - debut) / 1000).toFixed(1).replace(".", ",");
+        const notes = p.rapport.notes || [];
+        toast(`${nom} téléchargé (${s} s)` + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
+      } catch (e) {
+        toast(`Plans : ${(e && e.message) || e}`, true);
+      } finally { occupe(-1); }
+    }
+    bench.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-plans]");
+      if (b) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!b.disabled) faireUnPlan(b);
+        return;
+      }
+      // le menu qui propose des plans s'ouvre : le moteur de RBAR se charge déjà (≈ 2 s de gagnées sur le premier plan)
+      const m = ev.target.closest("[data-menu]");
+      if (m && m.parentElement && m.parentElement.querySelector("[data-plans]:not([disabled])")) prechaufferPlans();
     }, { capture: true, signal });
 
     // -------------------------------------------------------------- envoyer l'élément ouvert à un autre module

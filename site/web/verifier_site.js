@@ -1629,8 +1629,9 @@ const principal = async () => {
   //   filtre « exporter »
   if (!FILTRE || FILTRE === 'exporter') {
     const fs = require('fs');
-    const LIGNES = ['Contrôle avant export', 'DWG pour AutoCAD', 'Plan de principe (.dxf)', 'Armatures (.csv)', 'Cas de la grue (.csv)',
-      'Modèles de poutre pour RBAR (.json)'];
+    const LIGNES = ['Contrôle avant export', 'Plan de coffrage (PDF)', "Plan d'armatures (PDF)", 'DWG pour AutoCAD', 'Plan de principe (.dxf)',
+      'Armatures (.csv)', 'Cas de la grue (.csv)', 'Modèles de poutre pour RBAR (.json)'];
+    const DUREES = {};
     const B = '#resultat .et-exp [data-menu]';
     for (const [fmt, w, h, tel, nom] of [['PC', 1440, 900, false, 'pc'], ['tablette portrait', 820, 1180, false, 'tab_portrait'], ['téléphone', 390, 844, true, 'tel']]) {
       const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
@@ -1672,7 +1673,7 @@ const principal = async () => {
           boite: [q.left, q.top, q.right, q.bottom].map(Math.round).join(','), haut: l.classList.contains('haut') };
       });
       verif(`exporter · ${fmt} : le menu s'ouvre, VU et entier dans l'écran ET dans la colonne des résultats, chaque ligne atteinte d'un bord à l'autre (rien ne la couvre), haute d'au moins 40 px, `
-        + 'aucun texte coupé ; ses six lignes dans l\'ordre, aucune éteinte (la note neuve est prête à partir)',
+        + 'aucun texte coupé ; ses huit lignes dans l\'ordre, aucune éteinte (la note neuve est prête à partir)',
       menu.vu && menu.ouvert && menu.dedans && menu.touche && menu.hMin >= 40 && !menu.coupes.length && JSON.stringify(menu.titres) === JSON.stringify(LIGNES)
         && !menu.eteintes.length, JSON.stringify(menu));
       await g.screenshot({ path: path.join(OUT, `site_exporter_${nom}.png`) });
@@ -1685,6 +1686,29 @@ const principal = async () => {
         dl.suggestedFilename() === 'F1 - ouvrage RBAR.json' && !!o && o.format === 'rbar.ouvrage' && o.version === 1 && !!o.cartouche
           && o.cartouche.projet === 'Greenwood' && o.cartouche.titre === 'Fondation grue tour GT1' && /^\d{4}-\d{2}-\d{2}$/.test(o.cartouche.date || '') && ferme,
         JSON.stringify({ nom: dl.suggestedFilename(), cartouche: o && o.cartouche, ferme }));
+      // les PLANS PDF : le moteur de RBAR (WebAssembly, js/plans.js) les fait dans le navigateur, du même fichier ; le premier
+      // charge le moteur (le menu ouvert l'a préchauffé), le second sort du même calcul. Chronométrés du clic au fichier reçu.
+      const plan = async (cle, nomAttendu) => {
+        await toucher(B);
+        await g.waitForTimeout(150);
+        const t0 = Date.now();
+        const [d] = await Promise.all([g.waitForEvent('download', { timeout: 180000 }), toucher(`#resultat .et-exp-l [data-plans="${cle}"]`)]);
+        const ms = Date.now() - t0;
+        const o = fs.readFileSync(await d.path());
+        await g.waitForTimeout(200);
+        const toast = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
+        return { nom: d.suggestedFilename(), entete: o.subarray(0, 8).toString('latin1'), octets: o.length, ms, toast };
+      };
+      const coffrage = await plan('coffrage');
+      const armatures = await plan('armatures');
+      DUREES[fmt] = { coffrage: coffrage.ms, armatures: armatures.ms };
+      verif(`exporter · ${fmt} : « Plan de coffrage (PDF) » et « Plan d'armatures (PDF) » : le moteur de RBAR fait les deux plans DANS le navigateur — `
+        + 'deux vrais PDF, au nom de la fondation, la durée dite à l\'écran ; le second sort du même calcul',
+      coffrage.nom === 'F1 - plan de coffrage.pdf' && armatures.nom === "F1 - plan d'armatures.pdf"
+        && coffrage.entete.startsWith('%PDF-1.') && armatures.entete.startsWith('%PDF-1.') && coffrage.octets > 20000 && armatures.octets > 20000
+        && /^F1 - plan de coffrage\.pdf téléchargé \(\d+,\d s\)$/.test(coffrage.toast.texte) && !coffrage.toast.erreur && !armatures.toast.erreur
+        && armatures.ms < coffrage.ms,
+      JSON.stringify({ coffrage, armatures }));
       await toucher(B);
       await g.waitForTimeout(200);
       await toucher('#resultat .et-exp-l [data-calcul="export"]');
@@ -1696,6 +1720,7 @@ const principal = async () => {
       verif(`exporter · ${fmt} : aucune erreur JavaScript`, !erreursPage.length, erreursPage.join(' | ').slice(0, 300));
       await c.close();
     }
+    console.log(`exporter · durées des plans PDF (ms, du clic au fichier reçu ; processeur du poste de contrôle, pas celui d'une tablette) : ${JSON.stringify(DUREES)}`);
   }
 
   // ---------------------------------------------------------------- la météo du lieu (Open-Meteo), de bout en bout

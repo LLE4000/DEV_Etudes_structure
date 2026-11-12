@@ -667,6 +667,26 @@ valeurs il faudra donner ; « si tu as des limites… tu le signales clairement 
   `tests/test_etabli_compact.py`, `tests/test_reference_refonte.py` (regel écrit dans la photo, trois cas nouveaux), la
   mesure du 12/11, le harnais `exporter`, `module:fondation_grue`, `formats`.
 
+## Fait ensuite, les plans PDF dans le navigateur — le moteur de RBAR (même branche, 12/11/2026 au soir)
+
+**Ce qui s'est passé le même soir.** RBAR a livré son moteur de plans (0.4.37, programme .NET), puis sa version pour le
+navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : aucune note, les deux plans justes
+(mesures `docs/site/mesures/2026-11-12_plans_pdf_par_rbar_plans.md`).
+
+- **Le moteur de RBAR est dans le site** : `site/web/vendor/rbar-plans-web-0.4.38/`, déposé tel quel par
+  `site/web/outils/vendre_rbar_plans.py` (l'empreinte de l'archive est celle que RBAR a annoncée ; chaque fichier a celle
+  de la notice et celle que le chargeur de .NET vérifie ; aucun au-delà de 25 Mio) ; `tests/test_site_web.py` le garde.
+- **« Plan de coffrage (PDF) » et « Plan d'armatures (PDF) »** dans le menu « Exporter » des fondations de grues : le
+  moteur Python écrit le fichier « rbar.ouvrage », le moteur de RBAR en fait les plans dans un travailleur à part
+  (`js/plans.js`, `js/plans-travailleur.js`) ; une ligne par feuille (un fichier par geste) ; la durée est dite à
+  l'écran. Harnais `exporter` aux trois formats : premier plan ~6 s sur le poste de contrôle, second 0,1 s
+  (`docs/site/mesures/2026-11-12_plans_pdf_dans_le_navigateur.md`).
+- Le site refuse lui-même un nom, un chantier ou un indice trop longs pour le cartouche de RBAR (il refuserait tout le
+  fichier).
+- **Reste** : l'aperçu des deux feuilles au centre de l'écran (le moteur le fait déjà) ; un seul PDF de deux pages
+  (demandé à RBAR) ; le cartouche du bureau (son standard, si le propriétaire le veut) ; la durée sur une vraie
+  tablette, à lire à l'écran.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

@@ -42,6 +42,8 @@ MQ = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(MQ)
 
 PYODIDE = "vendor/pyodide-0.29.5"
+# le moteur de PLANS de RBAR pour le navigateur (outils/vendre_rbar_plans.py ; js/plans-travailleur.js en porte une COPIE)
+RBAR_PLANS = "vendor/rbar-plans-web-0.4.38"
 DATE_ZIP = (2026, 1, 1, 0, 0, 0)
 # les modules du site : le registre (un fichier api_web/<clé>.py qui déclare MODULE) ; les autres tuiles de l'accueil
 # disent « bientôt »

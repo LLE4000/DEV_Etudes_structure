@@ -264,6 +264,13 @@ def fautes_resultat(mod, etat, cas):
         faute("un seul bouton « Exporter », le contrôle dans son menu")
     if ("Fichier pour RBAR bloqué" in h) != (O.possible(f) is None and not ctl_o["pret"]):
         faute("le message « fichier pour RBAR bloqué »")
+    # les PLANS PDF (le moteur de RBAR, dans le navigateur : js/plans.js) : une ligne par feuille, faite du même fichier que
+    # « DWG pour AutoCAD » (data-ouvrage), éteinte avec lui ; le PDF porte le nom de la fondation (échappé)
+    plans = re.findall(r'data-plans="([^"]*)" data-ouvrage="([^"]*)" data-nom="([^"]*)"( disabled)?', h)
+    if [(p, q) for p, q, _, _ in plans] != [("coffrage", "ouvrage"), ("armatures", "ouvrage")] \
+            or any(bool(d) == ctl_o["pret"] for _, _, _, d in plans) \
+            or [n for _, _, n, _ in plans] != [html.escape(f"{f['nom']} - plan de coffrage"), html.escape(f"{f['nom']} - plan d'armatures")]:
+        faute("les plans PDF : deux lignes, éteintes avec le fichier pour RBAR, au nom de la fondation", plans)
     # --- le résumé de la note
     if rep["resume"]["taux"] != C.pct(r["taux_max"]) or rep["resume"]["niveau"] != attendu:
         faute("le résumé de la note", rep["resume"])
@@ -951,6 +958,9 @@ MUTATIONS_ECRAN = [
      '        rows = ""\n        for e in r["ecarts"][:-1]:\n            niv = "r" if e["change_verdict"]', tous_resultats),
     ("un contrôle de géométrie non respecté est dit « OK »", 'None, "p" if c["ok"] else "r", etat_txt="OK" if c["ok"] else "Non respecté")', 'None, "p", etat_txt="OK")', tous_resultats),
     ("le fichier pour RBAR reste proposé quand il est bloqué", '"DWG pour AutoCAD", texte_dwg, actif=ctl_o["pret"])', '"DWG pour AutoCAD", texte_dwg, actif=True)', tous_resultats),
+    ("les plans PDF restent proposés quand l'envoi est bloqué", 'texte_ok if ctl_o["pret"] else texte_dwg, actif=ctl_o["pret"]))',
+     'texte_ok if ctl_o["pret"] else texte_dwg, actif=True))', tous_resultats),
+    ("le PDF d'un plan sans le nom de la fondation", 'nom_pdf = f"{nom_f} - {titre[:-6].lower()}"', 'nom_pdf = titre[:-6].lower()', tous_resultats),
     ("le résumé de la note oublie l'état « PAS OK »", "pire = next((k for k in (MO.NOK, MO.WARN) if any(y.get(\"statut\") == k for y in resultats)), MO.OK)", "pire = MO.OK", tous_resultats),
     ("la ligne d'efforts d'un bloc oublie le tranchant", '("V<sub>max</sub>", "V_max", "kN")):', "):", tous_resultats),
     ("une saisie refusée reste dans l'état", '    except (ValueError, TypeError, IndexError) as e:\n        etat["fondations"][etat["actif"]] = avant', '    except (ValueError, TypeError, IndexError) as e:\n        pass', fautes_refus),

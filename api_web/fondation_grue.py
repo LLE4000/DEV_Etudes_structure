@@ -862,6 +862,15 @@ def _export(r: Dict) -> str:
         texte_dwg = "Bloqué : " + " ; ".join(ctl_o["bloquants"]) + "."
     else:
         texte_dwg = "Fichier RBAR, puis RBAROUVRAGE dans AutoCAD"
+    # les PLANS en PDF : le moteur de RBAR dans le navigateur (js/plans.js) les fait du même fichier que « DWG pour
+    # AutoCAD » (data-ouvrage) ; une ligne par feuille — un fichier par geste : le téléphone ne demande pas d'autoriser
+    # plusieurs téléchargements ; la seconde sort du même calcul, sans attendre
+    nom_f = f.get("nom") or NOM_DEFAUT
+    for plan, titre, texte_ok in (("coffrage", "Plan de coffrage (PDF)", "Dessiné par RBAR, en quelques secondes"),
+                                  ("armatures", "Plan d'armatures (PDF)", "Avec le bordereau, dessiné par RBAR")):
+        nom_pdf = f"{nom_f} - {titre[:-6].lower()}"
+        lignes.append(E.ligne_export(f'data-plans="{plan}" data-ouvrage="ouvrage" data-nom="{C.esc(nom_pdf)}"', "file-text", titre,
+                                     texte_ok if ctl_o["pret"] else texte_dwg, actif=ctl_o["pret"]))
     lignes.append(E.ligne_export('data-telecharger="ouvrage"', "file-down", "DWG pour AutoCAD", texte_dwg, actif=ctl_o["pret"]))
     lignes.append(E.ligne_export('data-telecharger="dxf"', "download", "Plan de principe (.dxf)",
                                  "Pieux, contours et axes, en cm"))

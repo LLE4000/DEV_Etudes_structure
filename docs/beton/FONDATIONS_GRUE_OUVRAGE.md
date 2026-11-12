@@ -49,22 +49,36 @@ Un seul bouton, en bas de la colonne des résultats, le même sur PC, tablette e
 
 1. **Contrôle avant export** — ce qui part (chaque valeur, et d'où elle vient), ce qui est à regarder, ce qui manque,
    ce qui bloque ;
-2. **DWG pour AutoCAD** — étape 1 : le fichier « rbar.ouvrage » ; dans AutoCAD, commande `RBAROUVRAGE`, puis choisir
-   ce fichier. Éteinte quand l'envoi est bloqué, avec la raison ;
-3. **Plan de principe (.dxf)**, **Armatures (.csv)**, **Cas de la grue (.csv)** — inchangés ;
-4. **Modèles de poutre pour RBAR (.json)** — l'ancien fichier, inchangé.
+2. **Plan de coffrage (PDF)** et **Plan d'armatures (PDF)** (12/11/2026, soir) — les plans de RBAR, faits DANS le
+   navigateur par son moteur (§ 3 bis) ; une ligne par feuille : un fichier par geste, le téléphone ne demande pas
+   d'autoriser plusieurs téléchargements ; la seconde sort du même calcul, sans attendre ;
+3. **DWG pour AutoCAD** — étape 1 : le fichier « rbar.ouvrage » ; dans AutoCAD, commande `RBAROUVRAGE`, puis choisir
+   ce fichier. Éteinte quand l'envoi est bloqué, avec la raison (les plans PDF aussi) ;
+4. **Plan de principe (.dxf)**, **Armatures (.csv)**, **Cas de la grue (.csv)** — inchangés ;
+5. **Modèles de poutre pour RBAR (.json)** — l'ancien fichier, inchangé.
 
 **On garde toutes ces lignes pour l'instant** (décision du propriétaire du 12/11/2026, soir : la conversation RBAR
 travaille en parallèle, rien d'utile ne doit disparaître). À terme : trois exports — DWG, PDF, Excel, ce dernier
 remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIONS_GRUE.md` § 9.2).
 
-**« Plans PDF » n'apparaît pas encore.** Le moteur de plans de RBAR existe depuis le 12/11/2026 au soir (`rbar-plans`,
-RBAR 0.4.37 : le moteur de `RBAROUVRAGE`, un PDF par feuille et un compte rendu) ; passé sur le fichier Greenwood du site :
-aucun refus, aucune note, les deux plans en 2,4 s (`docs/site/mesures/2026-11-12_plans_pdf_par_rbar_plans.md`). Mais
-c'est un programme .NET, et le site n'a pas de serveur : il attend sa version WebAssembly, demandée à RBAR (dans le
-navigateur, sans réseau, chaque fichier sous 25 Mo — la limite de Cloudflare Pages). L'état « en cours… » viendra avec lui, et un
-aperçu des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3) ; l'étape 2 du DWG (le DWG fait sans
-AutoCAD), plus tard.
+### 3 bis. Les plans PDF, dans le navigateur (le moteur de RBAR)
+
+- **Le moteur** : celui de RBAR, en WebAssembly (RBAR 0.4.38, livré le 12/11/2026 au soir) — le même que la commande
+  `RBAROUVRAGE` d'AutoCAD et que son programme `rbar-plans` : le site ne dessine aucun plan. Il est **déposé dans le site**,
+  tel quel, par `site/web/outils/vendre_rbar_plans.py` : l'empreinte de l'archive est celle que RBAR a annoncée, chaque
+  fichier a celle de sa notice et celle que le chargeur de .NET vérifie lui-même, aucun ne dépasse 25 Mio
+  (`vendor/rbar-plans-web-0.4.38/empreintes.json` ; `tests/test_site_web.py` le garde). 36 fichiers, 15,1 Mio ; rien ne
+  vient d'un tiers, rien ne passe par le réseau pendant le calcul.
+- **Le chemin d'un clic** (`js/etabli.js`, `js/plans.js`, `js/plans-travailleur.js`) : le moteur Python écrit le fichier
+  « rbar.ouvrage » (le même que « DWG pour AutoCAD », avec le cartouche de la note) ; le moteur de RBAR, dans un
+  travailleur à part (l'écran ne se fige pas), en fait les deux feuilles ; celle demandée est enregistrée au nom de la
+  fondation (« F1 - plan de coffrage.pdf »). Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site
+  ou de RBAR est dit tel quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.
+- **Durées** (harnais `exporter`, poste de contrôle, du clic au fichier reçu) : premier plan 5,5 à 6,1 s (chargement du
+  moteur compris), second 0,1 s. Sur une tablette ou un téléphone, c'est plus long : le message à l'écran le dit.
+- Ce qui reste : l'**aperçu** des deux feuilles au centre de l'écran (`FONDATIONS_GRUE.md` § 9.3 : le moteur le fait
+  déjà, `apercu()`) ; un seul PDF de deux pages (demandé à RBAR) ; le cartouche du bureau (son standard, à transmettre
+  au moteur si le propriétaire le veut) ; l'étape 2 du DWG (le DWG fait sans AutoCAD), plus tard.
 
 **Ce qui bloque l'envoi** (le fichier n'est jamais écrit, la ligne est éteinte, la raison est dite) : une vérification
 du classeur PAS OK ; des étriers de Ø différents aux extrémités et au centre (un modèle de RBAR n'a qu'un Ø
