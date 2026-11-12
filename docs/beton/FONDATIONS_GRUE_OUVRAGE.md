@@ -78,9 +78,11 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
   moteur compris), second 0,1 s. Sur une tablette ou un téléphone, c'est plus long : le message à l'écran le dit.
 - **Ce que l'écran dit pendant l'attente** (depuis le premier essai du propriétaire sur sa tablette, 12/11/2026 au soir :
   « 30 secondes, rien reçu » — le message « Plans en cours… » s'effaçait après 2,6 s, et rien ne disait si le moteur se
-  téléchargeait, dessinait ou était bloqué). Le message reste, redit chaque seconde jusqu'au fichier : « Plans en cours —
-  *étape* · *n* s », l'étape étant l'écriture du fichier de l'ouvrage, le chargement du moteur de RBAR (avec les Mo déjà
-  reçus, quand le navigateur les donne) ou le dessin des feuilles. Le message final dit la durée et, pour le plan qui a
+  téléchargeait, dessinait ou était bloqué). Le message est TENU (il ne s'efface pas seul) jusqu'au message final :
+  « Plans en cours — *étape*… », l'étape étant l'écriture du fichier de l'ouvrage, le chargement du moteur de RBAR (avec
+  les Mo déjà reçus, redits chaque seconde par le travailleur, quand le navigateur les donne) ou le dessin des feuilles ;
+  « Calcul… » tourne à côté. Il s'en va avec l'écran si on le quitte pendant le plan (aucune minuterie dans un écran :
+  `tests/test_app_navigation.py` ; le plan, fini en fond, n'est pas enregistré). Le message final dit la durée et, pour le plan qui a
   fait le calcul, celle du dessin (« … téléchargé (5,8 s — dessin 5,2 s) » ; « moteur prêt en *x* s » quand il a fallu
   l'attendre) : ce sont les chiffres à rapporter à RBAR. **L'attente a une fin** : sans réponse après 120 s
   (`DELAI_PLANS_S`, `js/plans.js`), le moteur est arrêté et le message d'échec — l'étape où il en était, le dernier

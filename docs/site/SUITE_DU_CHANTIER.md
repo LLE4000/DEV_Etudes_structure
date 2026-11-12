@@ -690,9 +690,11 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   d'écran trouvé par l'usage, pas par le harnais : le message « Plans en cours… » s'effaçait après 2,6 s (la durée de
   tout message du site), alors qu'au poste de contrôle le plan en prend 6 et qu'une tablette est plus lente — l'écran
   restait muet sans dire si le moteur se téléchargeait (15 Mio la première fois), dessinait ou était bloqué. Corrigé le
-  soir même : le message reste et dit l'étape, les secondes et les Mo reçus ; l'attente a une fin (120 s, puis un
-  message d'échec qui dit où il en était) ; le harnais relève maintenant le message PENDANT l'attente
-  (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). La durée réelle sur la tablette reste à lire.
+  soir même : le message est tenu et dit l'étape et les Mo reçus ; l'attente a une fin (120 s, puis un message d'échec
+  qui dit où il en était) ; le harnais relève maintenant le message PENDANT l'attente, et ce qui reste à l'écran quand
+  on le quitte pendant un plan (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). Une première version redisait le message chaque
+  seconde par une minuterie : `tests/test_app_navigation.py` l'a refusée (elle survivait à l'écran). La durée réelle sur
+  la tablette reste à lire.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
