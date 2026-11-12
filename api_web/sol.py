@@ -11,6 +11,13 @@ substitution des valeurs dans les formules affichées (contrôlée par tests/tes
 Une note : ``{"version": 1, "fondations": [fondation, …], "actif": 0}`` ; une fondation est celle du moteur (voir la
 docstring de sol/rigidite.py), plus ``trace`` : l'indice du sondage dessiné (le menu « Sondage » des graphiques de
 l'écran Streamlit).
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 12/11/2026) : à gauche la ligne
+de la fondation ouverte (son nom, la liste, copier, supprimer) et ses rubriques en accordéon — « Fondation » (la méthode
+et ce qu'elle demande : la semelle et sa charge, ou les champs du mode), « Sondages » et un sondage par rubrique, puis
+les rubriques secondaires (options de calcul, reprise d'un fichier Streamlit, fiche mémo) ; au centre les vues sous leur
+en-tête technique ; à droite la tête, le k en grand, puis des blocs — « À encoder dans SCIA », « Zonage de la dalle »,
+ou celui de la méthode. k n'est pas VÉRIFIÉ, il est calculé : une ligne dit une valeur, jamais un taux.
 """
 import copy
 import json
@@ -23,9 +30,12 @@ from sol import rigidite as R
 
 from . import commun as C
 from . import dessin_sol as DS
+from . import etabli_compact as E
 
 MODULE = "sol"
 PAGE = "rigidite-sol"
+GENRE = E.Genre("Fondations", "la fondation", "cette fondation", "une fondation")
+BLOC = E.bloc                    # (« E » est aussi le module de Young, dans la comparaison des théories : le bloc a son nom)
 
 SB, ST = R.SB, R.ST
 # les six modes de l'écran (« Que veux-tu faire ? »), libellés COURTS : le menu tient dans sa colonne sans être coupé
@@ -67,6 +77,16 @@ SANS_FS = ("Pas de frottement latéral fs dans ce fichier : la classification au
            "Les couches seront créées d'après qc seul et le type de sol restera à choisir.")
 NOTE_DIFFUSION = ("Δσ(z) = q<sub>net</sub>·I(z), avec I(z) = 4·I<sub>coin</sub>(B/2 ; L/2 ; z) au centre (Boussinesq intégré par "
                   "Newmark), sommé par tranches de 5 cm sous l'assise.")
+AIDE_IMPORT = ("Les valeurs sont lues directement dans le fichier, jamais estimées. Par ordre de fidélité : fichier GEF (format "
+               "d'échange belge/néerlandais, pas réel de 2 cm) → CSV → tableau collé. Un PDF à courbes vectorielles se relit dans "
+               "l'écran Streamlit ; un scan ou une photo ne contient aucune donnée lisible.")
+AIDE_COUCHES = ("Saisir tout le profil depuis la surface : le niveau d'assise est appliqué par le calcul, il ne faut pas retirer les "
+                "couches supérieures à la main. M est le module OEDOMÉTRIQUE (déformation latérale empêchée) : c'est lui qui entre "
+                "dans le tassement, pas le module de Young E — M = E(1 − ν) / ((1 + ν)(1 − 2ν)), soit ≈ 1,35·E pour ν = 0,30. "
+                "γ sert au poids des terres σ'v0, donc à la profondeur d'influence.")
+AIDE_SONDAGES = "Plusieurs sondages sous une même fondation : le résultat les enveloppe et zone la dalle."
+WINKLER_RIVE = ("Le centre tasse plus que les bords, donc k y est plus faible. Encoder un k unique concentre artificiellement les "
+                "réactions en rive : c'est le défaut connu du modèle de Winkler, pas de ce calcul.")
 TABLE_VIDE = ('<table class="vtab"><thead><tr><th>Vérification</th><th class="fo">Formule</th><th class="n">Valeur</th>'
               '<th class="n">Limite</th><th class="n">Taux</th></tr></thead><tbody></tbody></table>')
 
@@ -111,21 +131,30 @@ def _f(etat: Dict) -> Dict:
     return etat["fondations"][etat["actif"]]
 
 
+def _indice(x) -> int:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return 0
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les fondations de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la dernière)."""
+    """Les fondations de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte — la copie
+    s'insère juste après), en supprimer une (jamais la dernière)."""
     fs = etat["fondations"]
     if action == "activer":
-        etat["actif"] = min(max(0, int(index or 0)), len(fs) - 1)
+        etat["actif"] = min(max(0, _indice(index)), len(fs) - 1)
     elif action == "ajouter":
         fs.append(_fondation(f"F{len(fs) + 1}"))
         etat["actif"] = len(fs) - 1
     elif action == "dupliquer":
-        g = copy.deepcopy(fs[etat["actif"]])
+        i = etat["actif"] if index is None else min(max(0, _indice(index)), len(fs) - 1)
+        g = copy.deepcopy(fs[i])
         g["nom"] = f"{g.get('nom') or 'Fondation'} (copie)"
-        fs.append(g)
-        etat["actif"] = len(fs) - 1
+        fs.insert(i + 1, g)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(fs) > 1:
-        i = min(max(0, int(index or 0)), len(fs) - 1)
+        i = min(max(0, _indice(index)), len(fs) - 1)
         del fs[i]
         if etat["actif"] > i or etat["actif"] >= len(fs):
             etat["actif"] = max(0, etat["actif"] - 1)
@@ -363,16 +392,26 @@ def _v(x: float, nd: int = 2) -> str:
 
 
 # ------------------------------------------------------------------ les briques propres à un module de consultation
-def _ligne_k(nom: str, piece: str, gauche: float, droite: float, texte: str, calcul: str = "", gov: bool = False, niv: str = "") -> str:
-    """Une ligne du résultat SANS taux (k n'est pas vérifié, il est calculé) : le nom et la pièce, puis la plage de k sur
-    une barre commune à la note (``gauche`` et ``droite`` en fractions de la barre) et sa valeur. Même structure et mêmes
-    classes que C.ligne_res, qui ne sait écrire qu'un taux."""
-    ouvre = f' data-calcul="{C.esc(calcul)}" title="Voir le calcul"' if calcul else ""
-    g = min(max(gauche, 0.0), 1.0) * 100
-    w = max(min(max(droite, 0.0), 1.0) * 100 - g, 1.4) if droite > 0 else 0.0
-    bar = f'<div class="bar sol-bar"><b class="sol-k{" " + niv if niv else ""}" style="margin-left:{g:.1f}%;width:{w:.1f}%"></b></div>'
-    return (f'<div class="el{" gov" if gov else ""}"{ouvre}><div class="l1"><b>{C.esc(nom)}</b><span class="prof"><span>{piece}</span></span></div>'
-            f'<div class="l2">{bar}<span class="pct sol-kv{" " + niv if niv else ""}">{texte}</span></div></div>')
+_BALISES = re.compile(r"<[^>]+>")
+
+
+def _sans_balises(h: str) -> str:
+    """Le texte d'un fragment HTML du module (des indices <sub>, jamais une saisie) : pour une aide au survol, une ligne
+    de l'en-tête d'une vue."""
+    return _BALISES.sub("", h)
+
+
+def _ligne(nom: str, quoi: str, valeur: str, calcul: str = "", gov: bool = False, niv: str = "c") -> str:
+    """Une ligne du résultat SANS taux (k n'est pas vérifié, il est calculé) : le nom et la valeur (``valeur``, du
+    texte), puis ce qu'elle est (``quoi``, du HTML du module). La ligne de l'établi compact (C.ligne_verif), sa valeur
+    dite en mots à la place du taux — comme les quantités du taux d'armature."""
+    return C.ligne_verif(nom, quoi, None, niv, calcul=calcul, gov=gov, etat_txt=valeur)
+
+
+def _grp(titre: str, aide: str = "") -> str:
+    """Un titre de groupe dans une rubrique ; son aide (du TEXTE) au survol de ⓘ, plus en paragraphe."""
+    a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>' if aide else ""
+    return f'<div class="grp">{titre}{a}</div>'
 
 
 def _verdict(valeur: str, titre: str, texte: str, niv: str = "", unite: str = "MN/m³", lettre: str = "k") -> str:
@@ -468,21 +507,8 @@ def resume_note(etat: Dict, calculs: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, calculs: List[Dict]) -> str:
-    items = ""
-    for i, (f, c) in enumerate(zip(etat["fondations"], calculs)):
-        if c["k"]:
-            kb, kh = c["k"]
-            nd = 0 if c["mode"] == "plat" else 1
-            txt = _plage_courte(kb, kh, nd)
-        else:
-            txt = "—" if c["mode"] != "abaque" else "abaque"
-        niv = {"c": "c", "x": "r"}.get(c["niveau"], "")
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["fondations"]) > 1 else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(f.get("nom") or f"Fondation {i + 1}")} '
-                  f'<span>· {C.esc(COURTS[f["mode"]])}</span></span><span class="pct {niv}" title="k en MN/m³">{txt}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["fondations"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier la fondation ouverte">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter une fondation</div></div>')
+    """Rien : les fondations de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 # ------------------------------------------------------------------ le cadre Données
@@ -495,38 +521,70 @@ def _n(chemin: List, valeur, unite: str, cle: str, dec: int = 3) -> str:
     return C.num(chemin, valeur, unite, dec=dec, **_bornes(cle))
 
 
-def _section_fondation(f: Dict) -> str:
-    L = C.ligne
-    corps = (L("Nom", C.texte(["nom"], f.get("nom"), "ex. F1 · semelle S3"), full=True)
-             + L("Méthode", C.choix(["mode"], f["mode"], METHODES), full=True)
-             + C.aide(AIDES_MODES[f["mode"]])
-             + f'<div class="sol-reprise">{C.fichier(["streamlit"], "Reprendre un fichier de l’écran Streamlit", ".json")}'
-               f'<span class="hint">raideur_sol.json, le fichier « Enregistrer » de Streamlit : il remplace cette fondation.</span></div>')
-    return C.section(1, f"Fondation {C.esc(f.get('nom') or '')}", C.esc(COURTS[f["mode"]]), corps, True, "fo")
+def _champs_mode(f: Dict) -> Tuple[str, str]:
+    """Les champs des modes 3 à 6 (ceux de l'écran Streamlit) et leur résumé."""
+    m, L = f["mode"], C.ligne
+    if m == "rapide":
+        x = f["rapide"]
+        return (L("pression", _n(["rapide", "q"], x["q"], "kPa", "rapide.q"), "q")
+                + L("tassement", _n(["rapide", "w"], x["w"], "mm", "rapide.w"), "w",
+                    "Valable si w provient d'un vrai calcul de tassement, pour cette fondation et cette charge."),
+                f"q {C.nb(x['q'])} kPa · w {C.nb(x['w'])} mm")
+    if m == "theories":
+        x = f["theories"]
+        return (L("module de Young", _n(["theories", "E"], x["E"], "MPa", "theories.E"), "E",
+                  "Sol homogène de 60 m, q = 150 kPa (pression brute), assise au terrain naturel, critère 20 %.")
+                + L("largeur", _n(["theories", "B"], x["B"], "m", "theories.B"), "B")
+                + L("longueur", _n(["theories", "L"], x["L"], "m", "theories.L"), "L")
+                + L("coefficient de Poisson", _n(["theories", "nu"], x["nu"], "", "theories.nu"), "ν"),
+                f"E {C.nb(x['E'])} MPa · {C.nb(x['B'])} × {C.nb(x['L'])} m · ν {C.nb(x['nu'])}")
+    if m == "abaque":
+        x = f["abaque"]
+        return (L("largeur de fondation", _n(["abaque", "B"], x["B"], "m", "abaque.B"), "B")
+                + L("tassement de référence", _n(["abaque", "w_ref"], x["w_ref"], "mm", "abaque.w_ref"), "w<sub>réf</sub>",
+                    "La dernière colonne de l'abaque donne la pression qui produit ce tassement."),
+                f"B {C.nb(x['B'])} m · w<sub>réf</sub> {C.nb(x['w_ref'])} mm")
+    x = f["plat"]
+    corps = (L("largeur", _n(["plat", "B"], x["B"], "mm", "plat.B"), "B")
+             + L("longueur", _n(["plat", "L"], x["L"], "mm", "plat.L"), "L")
+             + L("hauteur mobilisée", _n(["plat", "alpha"], x["alpha"], "", "plat.alpha"), "α", "h_c = α·min(B, L)")
+             + L("module du béton", _n(["plat", "E"], x["E"], "GPa", "plat.E"), "E<sub>c</sub>")
+             + C.case(["plat", "mortier"], x["mortier"], "Lit de mortier"))
+    if x["mortier"]:
+        corps += (L("épaisseur du mortier", _n(["plat", "tg"], x["tg"], "mm", "plat.tg"), "t<sub>g</sub>")
+                  + L("module du mortier", _n(["plat", "Eg"], x["Eg"], "GPa", "plat.Eg"), "E<sub>g</sub>"))
+    return corps, f"{C.nb(x['B'])} × {C.nb(x['L'])} mm · α {C.nb(x['alpha'])}" + (" · mortier" if x["mortier"] else "")
 
 
-def _section_semelle(f: Dict, p: Dict) -> str:
+def _section_fondation(f: Dict, p: Optional[Dict]) -> str:
+    """La rubrique 1 : la méthode (ce qu'elle fait : au survol de ⓘ), puis ce qu'elle demande — la semelle et sa charge
+    (sondage, profil ; ``p`` : les paramètres relus par le moteur) ou les champs du mode (``p`` None)."""
     L = C.ligne
-    corps = (C.aide("k dépend de la fondation : sans elle, le calcul n'a pas de sens.")
-             + L("largeur", _n(["B"], f["B"], "m", "B"), "B", "Petit côté de la zone chargée (B et L sont échangés si L < B).")
-             + L("longueur", _n(["L"], f["L"], "m", "L"), "L")
-             + L("assise sous le TN", _n(["D"], f["D"], "m", "D"), "D",
-                 "Profondeur du dessous de fondation sous le terrain naturel. Les couches au-dessus sont automatiquement écartées "
-                 "du calcul.")
-             + L("pression ELS", _n(["q"], f["q"], "kPa", "q"), "q", "Pression de contact à l'ELS sous la fondation.")
-             + C.case(["nappe_active"], f["nappe_active"], "Nappe"))
+    corps = L("Méthode", C.choix(["mode"], f["mode"], METHODES), aide=_sans_balises(AIDES_MODES[f["mode"]]), full=True)
+    if p is None:
+        champs, resume = _champs_mode(f)
+        return C.section(1, "Fondation", f"{C.esc(COURTS[f['mode']])} · {resume}", corps + champs, True, "fo")
+    corps += (L("largeur", _n(["B"], f["B"], "m", "B"), "B",
+                "Petit côté de la zone chargée (B et L sont échangés si L < B). k dépend de la fondation : sans elle, le calcul n'a pas de sens.")
+              + L("longueur", _n(["L"], f["L"], "m", "L"), "L")
+              + L("assise sous le TN", _n(["D"], f["D"], "m", "D"), "D",
+                  "Profondeur du dessous de fondation sous le terrain naturel. Les couches au-dessus sont automatiquement écartées "
+                  "du calcul.")
+              + L("pression ELS", _n(["q"], f["q"], "kPa", "q"), "q", "Pression de contact à l'ELS sous la fondation.")
+              + C.case(["nappe_active"], f["nappe_active"], "Nappe"))
     if f["nappe_active"]:
         corps += L("nappe sous le TN", _n(["nappe"], f["nappe"], "m", "nappe"), "z<sub>w</sub>")
     if p["echange"]:
         corps += C.aide("B est le petit côté par convention : B et L ont été échangés pour le calcul.")
     # la position de référence SCIA : dans l'écran Streamlit, elle se choisit DANS le panneau des résultats (toujours
-    # visible) ; le cadre Résultat du site n'a pas de champ, elle vient donc ici, ouverte, et non dans les options repliées
+    # visible) ; le cadre Résultat du site n'a pas de champ, elle vient donc ici, dans la rubrique ouverte, et non dans les
+    # options repliées
     corps += L("k SCIA", C.choix(["position"], f["position"], list(ST.POSITIONS.items())), "",
                "La position de référence des valeurs à encoder dans SCIA (paramètres de sol C1z) : centre, milieu d'un côté ou angle. "
                "Le zonage de la dalle donne les quatre.", full=True)
-    resume = (f"{C.nb(f['B'])} × {C.nb(f['L'])} m · D {C.nb(f['D'])} m · q {C.nb(f['q'])} kPa"
+    resume = (f"{C.esc(COURTS[f['mode']])} · {C.nb(f['B'])} × {C.nb(f['L'])} m · D {C.nb(f['D'])} m · q {C.nb(f['q'])} kPa"
               + (f" · nappe {C.nb(f['nappe'])} m" if f["nappe_active"] else ""))
-    return C.section(2, "Semelle et charge", resume, corps, True, "se")
+    return C.section(1, "Fondation", resume, corps, True, "fo")
 
 
 def _carte_sondage(f: Dict, i: int, s: Dict, r: Optional[Dict]) -> str:
@@ -545,21 +603,17 @@ def _carte_sondage(f: Dict, i: int, s: Dict, r: Optional[Dict]) -> str:
             + (f" · {len(s['points'])} mesures CPT" if s["points"] else "") + (" · essai en attente" if s["import"] else "") + "</div></div>")
 
 
-def _section_sondages(f: Dict, res: Dict) -> str:
+def _section_sondages(n: int, f: Dict, res: Dict) -> str:
     par_index = {r["index"]: r for r in res["resultats"]}
     cartes = "".join(_carte_sondage(f, i, s, par_index.get(i)) for i, s in enumerate(f["sondages"]))
     corps = (f'<div class="secards">{cartes}</div>'
-             f'<button type="button" class="addrow" data-chemin="sondages/+" data-valeur="1">{C.icon("plus")}Ajouter un sondage</button>')
+             f'<button type="button" class="addrow" data-chemin="sondages/+" data-valeur="1" title="{C.esc(AIDE_SONDAGES)}">'
+             f'{C.icon("plus")}Ajouter un sondage</button>')
     if len(f["sondages"]) > 1:
         corps += C.ligne("Dessiné", C.choix(["trace"], f["trace"], [(i, s["nom"] or f"Sondage {i + 1}") for i, s in enumerate(f["sondages"])]),
                          full=True)
-    if f["mode"] == "profil":
-        corps += C.aide("Saisir les couches depuis le terrain naturel, avec leur module OEDOMÉTRIQUE M. Choisir un type de sol "
-                        "préremplit les valeurs.")
-    else:
-        corps += C.aide("Plusieurs sondages sous une même fondation : le résultat les enveloppe et zone la dalle.")
     titre = "Profil" if f["mode"] == "profil" else "Sondages"
-    return C.section(3, titre, f"{len(f['sondages'])} sondage{'s' if len(f['sondages']) > 1 else ''}", corps, True, "so")
+    return C.section(n, titre, f"{len(f['sondages'])} sondage{'s' if len(f['sondages']) > 1 else ''}", corps, False, "so")
 
 
 def _legende_couche(c: Dict) -> str:
@@ -601,10 +655,7 @@ def _bloc_import(f: Dict, i: int, s: Dict) -> str:
     """L'import d'un essai : un fichier, ou un tableau collé ; puis l'aperçu (réglages du découpage, couches découpées)
     et « Remplir le tableau » — l'expander « 📥 Importer un sondage » de l'écran."""
     base = ["sondages", i]
-    out = ('<div class="grp">Importer un essai</div>'
-           + C.aide("Les valeurs sont lues directement dans le fichier, jamais estimées. Par ordre de fidélité : fichier GEF (format "
-                    "d'échange belge/néerlandais, pas réel de 2 cm) → CSV → tableau collé. Un PDF à courbes vectorielles se relit dans "
-                    "l'écran Streamlit ; un scan ou une photo ne contient aucune donnée lisible.")
+    out = (_grp("Importer un essai", AIDE_IMPORT)
            + f'<div class="sol-import">{C.fichier(base + ["fichier"], "Fichier GEF, CSV, TXT", ".gef,.csv,.txt,.asc")}</div>'
            + C.zone_texte(base + ["colle"], s["colle"], 3, "ou coller un tableau : profondeur [m] ; qc [MPa] ; fs [kPa]"))
     imp = s["import"]
@@ -642,9 +693,8 @@ def _bloc_import(f: Dict, i: int, s: Dict) -> str:
                          f'<b>{C.esc(x["type"] or "—")}</b></div>'
                          for x in ap["lignes"])
         out += (f'<div class="sol-decs">{lignes}</div>'
-                + C.aide("Le type de sol est déduit de qc et fs par l'indice de comportement Ic (Robertson) — aucune saisie, aucune "
-                         "estimation. Le module M est encadré car les corrélations CPT divergent d'un facteur 2 à 4. Le détail est dans "
-                         "la vue « Import » de la toile."))
+                + C.aide("Le type de sol est déduit de q<sub>c</sub> et f<sub>s</sub> (Robertson), le module M est encadré : le détail est "
+                         "dans les vues « Import » et « Découpage » de la toile."))
     actions = ""
     if ap and ap["couches"] and not erreur:
         actions += (f'<button type="button" class="btn sm primary" data-chemin="{C._attr_chemin(b + ["valider"])}" data-valeur="1">'
@@ -667,12 +717,7 @@ def _section_sondage(n: int, f: Dict, i: int, s: Dict, r: Optional[Dict]) -> str
     if s["source"]:
         corps += C.aide(f"Source : {C.esc(s['source'])}")
     corps += _bloc_import(f, i, s)
-    corps += ('<div class="grp">Couches, depuis le terrain naturel</div>'
-              + C.aide("Saisir tout le profil depuis la surface : le niveau d'assise est appliqué par le calcul, il ne faut pas "
-                       "retirer les couches supérieures à la main.")
-              + C.aide("<b>M</b> est le module OEDOMÉTRIQUE (déformation latérale empêchée) : c'est lui qui entre dans le tassement, "
-                       "pas le module de Young E — M = E(1 − ν) / ((1 + ν)(1 − 2ν)), soit ≈ 1,35·E pour ν = 0,30. <b>γ</b> sert au "
-                       "poids des terres σ'<sub>v0</sub>, donc à la profondeur d'influence."))
+    corps += _grp("Couches, depuis le terrain naturel", AIDE_COUCHES)
     z = 0.0
     cartes = ""
     for j, c in enumerate(s["couches"]):
@@ -696,8 +741,9 @@ def _section_sondage(n: int, f: Dict, i: int, s: Dict, r: Optional[Dict]) -> str
     else:
         resume = "k non calculé"
     titre = f"Sondage {C.esc(s['nom'] or str(i + 1))}"
+    # ouverte d'elle-même tant qu'un essai attend d'être versé dans le tableau (c'est ce qu'on est en train de faire)
     return C.section(n, titre, f"{len(s['couches'])} couche{'s' if len(s['couches']) > 1 else ''} · {resume}", corps,
-                     i == f["trace"] or s["import"] is not None, f"s{s['id']}")
+                     s["import"] is not None, f"s{s['id']}")
 
 
 def _section_options(n: int, f: Dict) -> str:
@@ -710,60 +756,51 @@ def _section_options(n: int, f: Dict) -> str:
              + C.case(["q_net"], f["q_net"], "Utiliser la pression NETTE (q − poids des terres excavées)")
              + C.aide("Usage normal en fondation : le sol a déjà supporté le poids des terres retirées."))
     resume = f"Δσ ≤ {f['critere']} % · ν {C.nb(f['nu'])} · pression {'nette' if f['q_net'] else 'brute'}"
-    return C.section(n, "Options de calcul", resume, corps, False, "op")
+    return C.section(n, "Options de calcul", resume, corps, False, "op", secondaire=True)
+
+
+def _section_reprise(n: int) -> str:
+    """Reprendre le fichier « Enregistrer » de l'écran Streamlit : une rubrique secondaire (on n'y vient qu'une fois)."""
+    corps = (f'<div class="sol-reprise">{C.fichier(["streamlit"], "Reprendre un fichier de l’écran Streamlit", ".json")}'
+             f'<span class="hint">raideur_sol.json, le fichier « Enregistrer » de Streamlit : il remplace cette fondation.</span></div>')
+    return C.section(n, "Reprise de Streamlit", "raideur_sol.json", corps, False, "rs", secondaire=True)
 
 
 def _section_memo(n: int) -> str:
-    return C.section(n, "Fiche mémo", "ce que k est, et ce qu'il n'est pas", f'<div class="sol-memo">{MEMO}</div>', False, "me")
-
-
-def _section_mode(f: Dict) -> str:
-    """La section 2 des modes 3 à 6 : leurs champs (ceux de l'écran Streamlit)."""
-    m, L = f["mode"], C.ligne
-    if m == "rapide":
-        x = f["rapide"]
-        corps = (L("pression", _n(["rapide", "q"], x["q"], "kPa", "rapide.q"), "q")
-                 + L("tassement", _n(["rapide", "w"], x["w"], "mm", "rapide.w"), "w")
-                 + C.aide("Valable si w provient d'un vrai calcul de tassement, pour cette fondation et cette charge."))
-        return C.section(2, "k à partir d'un couple (q, w)", f"q {C.nb(x['q'])} kPa · w {C.nb(x['w'])} mm", corps, True, "m3")
-    if m == "theories":
-        x = f["theories"]
-        corps = (L("module de Young", _n(["theories", "E"], x["E"], "MPa", "theories.E"), "E")
-                 + L("largeur", _n(["theories", "B"], x["B"], "m", "theories.B"), "B")
-                 + L("longueur", _n(["theories", "L"], x["L"], "m", "theories.L"), "L")
-                 + L("coefficient de Poisson", _n(["theories", "nu"], x["nu"], "", "theories.nu"), "ν")
-                 + C.aide("Sol homogène de 60 m, q = 150 kPa (pression brute), assise au terrain naturel, critère 20 %."))
-        return C.section(2, "Comparaison des théories", f"E {C.nb(x['E'])} MPa · {C.nb(x['B'])} × {C.nb(x['L'])} m · ν {C.nb(x['nu'])}",
-                         corps, True, "m4")
-    if m == "abaque":
-        x = f["abaque"]
-        corps = (L("largeur de fondation", _n(["abaque", "B"], x["B"], "m", "abaque.B"), "B")
-                 + L("tassement de référence", _n(["abaque", "w_ref"], x["w_ref"], "mm", "abaque.w_ref"), "w<sub>réf</sub>",
-                     "La dernière colonne de l'abaque donne la pression qui produit ce tassement."))
-        return C.section(2, "Abaque des sols", f"B {C.nb(x['B'])} m · w<sub>réf</sub> {C.nb(x['w_ref'])} mm", corps, True, "m5")
-    x = f["plat"]
-    corps = (L("largeur", _n(["plat", "B"], x["B"], "mm", "plat.B"), "B")
-             + L("longueur", _n(["plat", "L"], x["L"], "mm", "plat.L"), "L")
-             + L("hauteur mobilisée", _n(["plat", "alpha"], x["alpha"], "", "plat.alpha"), "α", "h_c = α·min(B, L)")
-             + L("module du béton", _n(["plat", "E"], x["E"], "GPa", "plat.E"), "E<sub>c</sub>")
-             + C.case(["plat", "mortier"], x["mortier"], "Lit de mortier"))
-    if x["mortier"]:
-        corps += (L("épaisseur du mortier", _n(["plat", "tg"], x["tg"], "mm", "plat.tg"), "t<sub>g</sub>")
-                  + L("module du mortier", _n(["plat", "Eg"], x["Eg"], "GPa", "plat.Eg"), "E<sub>g</sub>"))
-    return C.section(2, "Raideur d'un plat en béton", f"{C.nb(x['B'])} × {C.nb(x['L'])} mm · α {C.nb(x['alpha'])}"
-                     + (" · mortier" if x["mortier"] else ""), corps, True, "m6")
+    return C.section(n, "Fiche mémo", "ce que k est, et ce qu'il n'est pas", f'<div class="sol-memo">{MEMO}</div>', False, "me", secondaire=True)
 
 
 def formulaire(f: Dict, c: Dict) -> str:
+    """Les rubriques de la fondation ouverte : 1 « Fondation » (la méthode et ce qu'elle demande, seule ouverte), puis —
+    sondage, profil — 2 « Sondages » et un sondage par rubrique ; enfin les rubriques secondaires : options de calcul,
+    reprise d'un fichier Streamlit, fiche mémo. Le nom de la fondation se modifie sur sa ligne, en tête de la colonne."""
     if f["mode"] in ("cpt", "profil"):
         res = c["res"]
         par_index = {r["index"]: r for r in res["resultats"]}
-        out = _section_fondation(f) + _section_semelle(f, res["parametres"]) + _section_sondages(f, res)
+        out = _section_fondation(f, res["parametres"]) + _section_sondages(2, f, res)
         for i, s in enumerate(f["sondages"]):
-            out += _section_sondage(4 + i, f, i, s, par_index.get(i))
-        n = 4 + len(f["sondages"])
-        return out + _section_options(n, f) + _section_memo(n + 1)
-    return _section_fondation(f) + _section_mode(f) + _section_memo(3)
+            out += _section_sondage(3 + i, f, i, s, par_index.get(i))
+        n = 3 + len(f["sondages"])
+        return out + _section_options(n, f) + _section_reprise(n + 1) + _section_memo(n + 2)
+    return _section_fondation(f, None) + _section_reprise(2) + _section_memo(3)
+
+
+def _dims(f: Dict, c: Dict) -> str:
+    """« · Sondage CPT · k 12,3–24,7 MN/m³ » : ce qu'on lit d'une fondation dans la liste de la note (HTML)."""
+    if c["k"]:
+        kb, kh = c["k"]
+        k = f" · k {_plage_courte(kb, kh, 0 if c['mode'] == 'plat' else 1)}{C.NBSP}MN/m³"
+    else:
+        k = "" if c["mode"] == "abaque" else " · k non calculé"
+    return f"· {C.esc(COURTS[f['mode']])}{k}"
+
+
+def arbre(etat: Dict, c: Dict, calculs: List[Dict]) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne de la
+    fondation ouverte (son nom, qu'un clic modifie ; la liste des fondations de la note ; copier, supprimer), que l'écran
+    pose dans l'en-tête du panneau, puis ses rubriques."""
+    noms = [(g.get("nom") or f"F{i + 1}", _dims(g, x), False) for i, (g, x) in enumerate(zip(etat["fondations"], calculs))]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(_f(etat), c), "fondationsol", compact=True)
 
 
 # ------------------------------------------------------------------ modes 1 et 2 : le résultat
@@ -808,7 +845,7 @@ def _groupes_tassement(det: Dict, titre: str, p: Dict) -> str:
     return _groupe(titre, lignes, NOTE_DIFFUSION)
 
 
-def _fenetre_sondage(f: Dict, r: Dict, p: Dict) -> str:
+def _fenetre_sondage(f: Dict, r: Dict, p: Dict, ident: str) -> str:
     det, deth = r["detail"], r["zones"]["centre"]["detail_haut"]
     hyps = [f"Semelle <b>{C.nb(p['B'])} × {C.nb(p['L'])} m</b>" + (" (B et L échangés)" if p["echange"] else "") + f" · assise D = {C.nb(p['D'])} m",
             f"q = {C.nb(p['q'])} kPa · pression {'nette' if p['q_net'] else 'brute'}",
@@ -849,7 +886,7 @@ def _fenetre_sondage(f: Dict, r: Dict, p: Dict) -> str:
     if det.get("h_sans_module", 0) > 0:
         pied += C.message(f"{C.fr(det['h_sans_module'], 2)} m de profil sans module M n'ont pas été comptés : compléter ces couches.", True)
     sous = f"k au centre = {_plage(r['k_bas'], r['k_haut'])} MN/m³ · Boussinesq/Newmark, module oedométrique"
-    return _fenetre(f"s{r['index']}", f"{C.esc(f.get('nom') or 'Fondation')} · sondage {C.esc(r['nom'])}", sous, hyps, table, detail, pied)
+    return _fenetre(ident, f"{C.esc(f.get('nom') or 'Fondation')} · sondage {C.esc(r['nom'])}", sous, hyps, table, detail, pied)
 
 
 def _fenetre_zonage(f: Dict, res: Dict) -> str:
@@ -865,7 +902,7 @@ def _fenetre_zonage(f: Dict, res: Dict) -> str:
     pied = ('<div class="sol-note">Le centre tasse plus que les bords, donc k y est plus faible. Encoder un k unique concentre '
             "artificiellement les réactions en rive : c'est le défaut connu du modèle de Winkler, pas de ce calcul.</div>")
     hyps = [f"Semelle <b>{C.nb(p['B'])} × {C.nb(p['L'])} m</b> · q = {C.nb(p['q'])} kPa", f"{len(noms)} sondage(s) calculé(s)"]
-    return _fenetre("zon", f"{C.esc(f.get('nom') or 'Fondation')} · zonage de la dalle", "sans module itératif sol-structure, la façon "
+    return _fenetre("s1", f"{C.esc(f.get('nom') or 'Fondation')} · zonage de la dalle", "sans module itératif sol-structure, la façon "
                     "d'approcher la raideur variable", hyps, table, detail, pied)
 
 
@@ -929,25 +966,25 @@ def _resultat_profil(f: Dict, c: Dict) -> Dict:
         h0 = r["detail"].get("h_sans_module", 0)
         if h0 > 0 and r["nom"] not in res["incalculables"]:
             msgs.append(C.message(f"{C.esc(r['nom'])} : {C.fr(h0, 2)} m de profil sans module M n'ont pas été comptés : compléter ces couches."))
-    # les lignes : SCIA puis zonage, sur une même échelle de k
-    kmax = max([x["k_haut"] for x in res["scia"]] + [z["k_haut"] for z in res["zonage"]] + [1e-9])
-    rows = f'<div class="elgrp">À encoder dans SCIA · {C.esc(lab)}</div>'
+    # deux blocs : ce qui s'encode dans SCIA (un k par sondage, à la position de référence), puis le zonage de la dalle.
+    # La fenêtre du PREMIER sondage calculé s'appelle « s0 » (celle du bouton « tout le calcul » du bloc 0), les autres
+    # « sd<indice> » ; celle du zonage « s1 » (le bloc 1)
+    idents = {r["index"]: ("s0" if n_ == 0 else f"sd{r['index']}") for n_, r in enumerate(rs)}
+    rows = ""
     for x, r in zip(res["scia"], rs):
         inc = r["nom"] in res["incalculables"]
         if inc or x["k_haut"] <= 0:
-            rows += _ligne_k(x["nom"], "k non calculable" if inc else _conv(r["convergence"]), 0, 0, "—", f"s{r['index']}", niv="r")
+            rows += _ligne(x["nom"], "k non calculable" if inc else _conv(r["convergence"]), "—", idents[r["index"]], niv="r")
             continue
-        piece = f"w = {_plage(x['w_bas'], x['w_haut'], 1)} mm"
-        rows += _ligne_k(x["nom"], piece, x["k_bas"] / kmax, x["k_haut"] / kmax, f"{_plage_courte(x['k_bas'], x['k_haut'])} MN/m³",
-                         f"s{r['index']}", gov=(len(rs) > 1 and x["k_bas"] == min(y["k_bas"] for y in res["scia"])))
-    rows += '<div class="elgrp">Zonage de la dalle</div>'
-    for z in res["zonage"]:
-        rows += _ligne_k(z["libelle"], f"{_plage(z['k_bas'] * 1000, z['k_haut'] * 1000, 0)} kN/m³", z["k_bas"] / kmax, z["k_haut"] / kmax,
-                         f"{_plage_courte(z['k_bas'], z['k_haut'])} MN/m³", "zon", gov=z["position"] == pos)
-    msgs.append(C.message("Le centre tasse plus que les bords, donc k y est plus faible. Encoder un k unique concentre artificiellement les "
-                          "réactions en rive : c'est le défaut connu du modèle de Winkler, pas de ce calcul."))
-    volets = "".join(_fenetre_sondage(f, r, p) for r in rs) + _fenetre_zonage(f, res)
-    return {"html": verdict + "".join(graves) + f'<div class="els">{rows}</div>' + "".join(msgs), "volets": volets, "niveau": c["niveau"]}
+        rows += _ligne(x["nom"], f"w = {_plage(x['w_bas'], x['w_haut'], 1)} mm", f"{_plage_courte(x['k_bas'], x['k_haut'])} MN/m³",
+                       idents[r["index"]], gov=(len(rs) > 1 and x["k_bas"] == min(y["k_bas"] for y in res["scia"])))
+    blocs = BLOC(0, "À encoder dans SCIA", "inc", lab, "k = q<sub>net</sub> / w · paramètre de sol C1z", rows, theme=True)
+    rows_z = "".join(_ligne(z["libelle"], f"{_plage(z['k_bas'] * 1000, z['k_haut'] * 1000, 0)} kN/m³",
+                            f"{_plage_courte(z['k_bas'], z['k_haut'])} MN/m³", "s1", gov=z["position"] == pos) for z in res["zonage"])
+    blocs += BLOC(1, "Zonage de la dalle", "inc", f"{len(res['zonage'])} zones",
+                    "par position : le plus petit k bas et le plus grand k haut des sondages", rows_z, C.message(WINKLER_RIVE), theme=True)
+    volets = "".join(_fenetre_sondage(f, r, p, idents[r["index"]]) for r in rs) + _fenetre_zonage(f, res)
+    return {"html": verdict + "".join(graves) + f'<div class="et-blocs">{blocs}</div>' + "".join(msgs), "volets": volets, "niveau": c["niveau"]}
 
 
 def _vues_profil(f: Dict, c: Dict) -> List[Dict]:
@@ -1038,14 +1075,15 @@ def _resultat_rapide(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
         verdict = _verdict(_k(x["k_MNm3"]), "Coefficient de réaction", f"k = q / w = {_v(q)} / {_v(w / 1000.0, 5)} = {C.fr(k, 0)} kN/m³")
     else:
         verdict = _verdict("—", "Calcul impossible", "k nul : la pression q est nulle.", "c", "")
-    rows = (_ligne_k("k", f"{C.fr(k, 0)} kN/m³", 0, 1 if k > 0 else 0, f"{_k(x['k_MNm3'])} MN/m³", "rap", True)
-            + _ligne_k("Tassement", f"q = {C.nb(q)} kPa", 0, 0, f"{C.nb(w)} mm", "rap"))
-    html = verdict + f'<div class="els">{rows}</div>' + C.message("Valable si w provient d'un vrai calcul de tassement, pour cette "
-                                                                   "fondation et cette charge.")
+    rows = (_ligne("k", f"q / w = {_v(q)} / {_v(w / 1000.0, 5)} = {C.fr(k, 0)} kN/m³", f"{_k(x['k_MNm3'])} MN/m³", "s0", True)
+            + _ligne("Tassement", f"sous q = {C.nb(q)} kPa", f"{C.nb(w)} mm", "s0"))
+    bloc = BLOC(0, "Loi de Winkler", "inc", "k = q / w", f"q = {C.nb(q)} kPa · w = {C.nb(w)} mm", rows, theme=True)
+    html = verdict + f'<div class="et-blocs">{bloc}</div>' + C.message("Valable si w provient d'un vrai calcul de tassement, pour cette "
+                                                                       "fondation et cette charge.")
     detail = _groupe("Loi de Winkler", [_fx(["k", "q / w", f"{_v(q)} / {_v(w / 1000.0, 5)}"], f"{C.fr(k, 0)} kN/m³ = {_k(x['k_MNm3'])} MN/m³")])
     table = _vtab([("Grandeur", False), ("Formule", False), ("Valeur", True)],
                   [["k", "q / w", f"{C.fr(k, 0)} kN/m³"], ["k", "k / 1 000", f"{_k(x['k_MNm3'])} MN/m³"]], gov=1)
-    volet = _fenetre("rap", f"{C.esc(f.get('nom') or 'Fondation')} · k = q / w", "un tassement déjà calculé", [f"q = {C.nb(q)} kPa",
+    volet = _fenetre("s0", f"{C.esc(f.get('nom') or 'Fondation')} · k = q / w", "un tassement déjà calculé", [f"q = {C.nb(q)} kPa",
                      f"w = {C.nb(w)} mm"], table, detail)
     vues = [{"cle": "winkler", "titre": "Loi de Winkler", "court": "q = k·w", "svg": DS.droite_qw("sol_qw", x), "legende": "q = k·w"}]
     return html, volet, vues, f"q = {C.nb(q)} kPa · w = {C.nb(w)} mm"
@@ -1060,11 +1098,12 @@ def _resultat_theories(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
                            f"Tassement {C.fr(tas['w_mm'], 1)} mm, profondeur d'influence {C.fr(tas['z_influence'], 2)} m.")
     else:
         verdict = _verdict("—", "Calcul impossible", _conv(tas["convergence"]), "c", "")
-    kmax = max([m["k"] for m in t["methodes"]] + [1e-9])
-    pieces = {"tassement": "retenue", "ancienne": "biaisée"}
-    rows = "".join(_ligne_k(m["nom"].replace(" (retenue)", ""), pieces.get(m["cle"], ""), 0, m["k"] / kmax, f"{_k(m['k'])} MN/m³", "th",
-                            gov=m["cle"] == "tassement", niv="att" if m["cle"] == "ancienne" else "") for m in t["methodes"])
-    html = (verdict + f'<div class="els">{rows}</div>'
+    pieces = {"tassement": " · retenue", "ancienne": " · biaisée"}
+    rows = "".join(_ligne(m["nom"].replace(" (retenue)", ""), C.esc(m["domaine"]) + pieces.get(m["cle"], ""), f"{_k(m['k'])} MN/m³", "s0",
+                          gov=m["cle"] == "tassement", niv="v" if m["cle"] == "ancienne" else "c") for m in t["methodes"])
+    bloc = BLOC(0, "Théories comparées", "inc", f"{len(t['methodes'])} méthodes",
+                  "sol homogène de 60 m · q = 150 kPa brute · assise au TN · critère 20 %", rows, theme=True)
+    html = (verdict + f'<div class="et-blocs">{bloc}</div>'
             + C.message(f"Sol homogène E = {C.fr(E, 0)} MPa (soit M = {C.fr(M, 0)} MPa pour ν = {C.fr(nu, 2)}), semelle {C.fr(B, 1)}×{C.fr(L, 1)} m, "
                         f"q = {C.fr(t['q'], 0)} kPa. La dernière ligne est la formule de la version 4 : elle donne exactement E/(2B), donc un "
                         "résultat piloté par la règle des 2B et non par le sol — d'où le facteur 2 à 2,5 d'écart."))
@@ -1081,7 +1120,7 @@ def _resultat_theories(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
               + _groupe("Formules élastiques (massif homogène semi-infini)", g3))
     table = _vtab([("Méthode", False), ("Domaine", False), ("k [MN/m³]", True)],
                   [[C.esc(m["nom"]), C.esc(m["domaine"]), _k(m["k"])] for m in t["methodes"]], gov=0)
-    volet = _fenetre("th", f"{C.esc(f.get('nom') or 'Fondation')} · théories comparées", "un ordre de grandeur, jamais la valeur retenue",
+    volet = _fenetre("s0", f"{C.esc(f.get('nom') or 'Fondation')} · théories comparées", "un ordre de grandeur, jamais la valeur retenue",
                      [f"E = {C.nb(E)} MPa", f"ν = {C.nb(nu)}", f"B × L = {C.nb(B)} × {C.nb(L)} m", "q = 150 kPa (brute)",
                       "critère 20 %, assise au TN"], table, detail)
     vues = [{"cle": "theories", "titre": "Théories comparées", "court": "Comparaison", "svg": DS.theories("sol_th", t),
@@ -1097,9 +1136,6 @@ def _resultat_theories(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
 def _resultat_abaque(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
     a = c["x"]
     B, w = a["B"], a["w_ref"]
-    vals = [v for x in a["lignes"] for v in (x["k_bas"], x["k_haut"]) if v > 0]
-    lo, hi = math.log10(min(vals)), math.log10(max(vals))
-    frac = lambda v: (math.log10(max(v, 10 ** lo)) - lo) / ((hi - lo) or 1)  # noqa: E731 — l'échelle logarithmique des barres
     verdict = _verdict(C.nb(B), "Abaque des sols · correction de Terzaghi",
                        f"{len(a['lignes'])} sols de la base : k de plaque 0,30 m corrigé pour la largeur B ; q pour w<sub>réf</sub> = {C.nb(w)} mm",
                        "", "m", "B")
@@ -1108,13 +1144,15 @@ def _resultat_abaque(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
         if x["categorie"] != cat:
             cat = x["categorie"]
             rows += f'<div class="elgrp">{C.esc(cat)}</div>'
-        rows += _ligne_k(x["type"], f"plaque {DS.nombre(x['kp_min'], 0)} – {DS.nombre(x['kp_max'], 0)}", frac(x["k_bas"]), frac(x["k_haut"]),
-                         f"{_plage_courte(x['k_bas'], x['k_haut'], 1)} MN/m³", "ab")
+        rows += _ligne(x["type"], f"plaque de 0,30 m : {DS.nombre(x['kp_min'], 0)} – {DS.nombre(x['kp_max'], 0)}",
+                       f"{_plage_courte(x['k_bas'], x['k_haut'], 1)} MN/m³", "s0")
+    bloc = BLOC(0, "Abaque des sols", "inc", f"B = {C.nb(B)} m",
+                  f"k de plaque corrigé pour la largeur B (Terzaghi), en MN/m³ · q pour w<sub>réf</sub> = {C.nb(w)} mm", rows, theme=True)
     html = (verdict + C.message("Les deux colonnes de k ne sont pas interchangeables. Celle de la plaque est la valeur mesurée sur une "
                                 "plaque de 0,30 m (tables de Terzaghi 1955) ; l'autre lui applique la correction de taille pour la largeur "
                                 "choisie. Utiliser la valeur de plaque pour une fondation réelle surestime k d'un facteur 3 à 30. La version "
                                 "4 de ce module ne faisait pas cette correction.")
-            + f'<div class="els">{rows}</div>'
+            + f'<div class="et-blocs">{bloc}</div>'
             + C.message("Un abaque reste un ordre de grandeur : la méthode « Sondage CPT » calcule la valeur pour le sol et la fondation."))
     fs, fa = ((B + 0.30) / (2.0 * B)) ** 2, 0.30 / B
     detail = (_groupe("Correction de taille (Terzaghi 1955)",
@@ -1124,7 +1162,7 @@ def _resultat_abaque(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
     lignes = [[C.esc(x["type"]), C.esc(x["nature"]), f"{DS.nombre(x['kp_min'], 0)} – {DS.nombre(x['kp_max'], 0)}", f"{C.fr(x['k_bas'], 1)} – {C.fr(x['k_haut'], 1)}",
                f"{C.fr(x['q_bas'], 0)} – {C.fr(x['q_haut'], 0)}"] for x in a["lignes"]]
     table = _vtab([("Type de sol", False), ("Nature", False), ("k plaque", True), (f"k pour B = {C.fr(B, 1)} m", True), ("q pour w réf [kPa]", True)], lignes)
-    volet = _fenetre("ab", f"{C.esc(f.get('nom') or 'Fondation')} · abaque des sols", "correction de taille sans correction de forme (L "
+    volet = _fenetre("s0", f"{C.esc(f.get('nom') or 'Fondation')} · abaque des sols", "correction de taille sans correction de forme (L "
                      "n'est pas transmis, comme dans l'écran)", [f"B = {C.nb(B)} m", f"w<sub>réf</sub> = {C.nb(w)} mm"], table, detail)
     rows_t = [[C.esc(x["categorie"]), C.esc(x["type"]), C.fr(x["gamma"], 1), f"{C.fr(x['M_min'], 0)} – {C.fr(x['M_max'], 0)}" if x["M_min"] else "—",
                f"{DS.nombre(x['kp_min'], 0)} – {DS.nombre(x['kp_max'], 0)}", f"{C.fr(x['k_bas'], 1)} – {C.fr(x['k_haut'], 1)}",
@@ -1148,12 +1186,14 @@ def _resultat_plat(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
                            + (" · plat sur lit de mortier" if p["mortier"] else ""))
     else:
         verdict = _verdict("—", "Calcul impossible", "k nul", "c", "")
-    kmax = max(p["kc"], p["kg"], keq, 1e-9)
-    rows = _ligne_k("Béton", f"h<sub>c</sub> = {C.fr(p['hc_m'] * 1000, 1)} mm", 0, p["kc"] / kmax, f"{C.fr(p['kc'] / 1000.0, 0)} MN/m³", "pl")
+    rows = _ligne("Béton", f"k<sub>c</sub> = E<sub>c</sub> / h<sub>c</sub> · h<sub>c</sub> = {C.fr(p['hc_m'] * 1000, 1)} mm",
+                  f"{C.fr(p['kc'] / 1000.0, 0)} MN/m³", "s0")
     if p["mortier"]:
-        rows += _ligne_k("Mortier", f"t<sub>g</sub> = {C.nb(p['tg'])} mm", 0, p["kg"] / kmax, f"{C.fr(p['kg'] / 1000.0, 0)} MN/m³", "pl")
-    rows += _ligne_k("Contact", "en série" if p["mortier"] else "béton seul", 0, keq / kmax, f"{C.fr(keq / 1000.0, 0)} MN/m³", "pl", True)
-    html = verdict + f'<div class="els">{rows}</div>'
+        rows += _ligne("Mortier", f"k<sub>g</sub> = E<sub>g</sub> / t<sub>g</sub> · t<sub>g</sub> = {C.nb(p['tg'])} mm",
+                       f"{C.fr(p['kg'] / 1000.0, 0)} MN/m³", "s0")
+    rows += _ligne("Contact", "béton et mortier en série" if p["mortier"] else "béton seul", f"{C.fr(keq / 1000.0, 0)} MN/m³", "s0", True)
+    bloc = BLOC(0, "Raideur du contact", "inc", "k = E / h", "compression 1D du contact", rows, theme=True)
+    html = verdict + f'<div class="et-blocs">{bloc}</div>'
     g = [_fx(["h_c", "α·min(B ; L)", f"{_v(p['alpha'])} × min({_v(p['B'])} ; {_v(p['L'])})"], f"{C.fr(p['hc_m'] * 1000, 1)} mm"),
          _fx(["k_c", "E_c / h_c", f"{_v(p['E'])} × 10⁶ / {_v(p['hc_m'], 5)}"], f"{C.fr(p['kc'] / 1000.0, 0)} MN/m³")]
     if p["mortier"]:
@@ -1169,14 +1209,29 @@ def _resultat_plat(f: Dict, c: Dict) -> Tuple[str, str, List[Dict], str]:
     hyps = [f"Plat {C.nb(p['B'])} × {C.nb(p['L'])} mm", f"α = {C.nb(p['alpha'])}", f"E<sub>c</sub> = {C.nb(p['E'])} GPa"]
     if p["mortier"]:
         hyps.append(f"mortier t<sub>g</sub> = {C.nb(p['tg'])} mm · E<sub>g</sub> = {C.nb(p['Eg'])} GPa")
-    volet = _fenetre("pl", f"{C.esc(f.get('nom') or 'Fondation')} · plat en béton", "contact assimilé à une compression 1D : k = E / h_c",
+    volet = _fenetre("s0", f"{C.esc(f.get('nom') or 'Fondation')} · plat en béton", "contact assimilé à une compression 1D : k = E / h_c",
                      hyps, table, detail)
     vues = [{"cle": "plat", "titre": "Plat en béton", "court": "Coupe", "svg": DS.plat("sol_plat", p), "legende": "à l'échelle · mm"}]
     return html, volet, vues, f"plat {C.nb(p['B'])} × {C.nb(p['L'])} mm · α = {C.nb(p['alpha'])} · E<sub>c</sub> = {C.nb(p['E'])} GPa"
 
 
 # ------------------------------------------------------------------ resultat
+def _entete(f: Dict, c: Dict, v: Dict, phrase: str) -> str:
+    """L'en-tête technique d'une vue : son titre et ce qu'elle dessine (le sondage, le sol ; sinon la fondation) ; la
+    méthode et les données de la fondation ; k quand il est calculé ; ce qu'on lit sur le dessin."""
+    titre, _, quoi = v["titre"].partition(" · ")
+    lignes = [f"{COURTS[f['mode']]} · {_sans_balises(phrase)}"]
+    if c["k"]:
+        kb, kh = c["k"]
+        pos = f" ({ST.POSITIONS[f['position']].lower()})" if c["mode"] in ("cpt", "profil") else ""
+        lignes.append(f"k = {_plage(kb, kh, 0 if c['mode'] == 'plat' else 2)} MN/m³{pos}")
+    return E.entete(titre.upper(), C.esc(quoi or f.get("nom") or "Fondation"), lignes, None, v.get("legende", ""))
+
+
 def resultat(etat: Dict) -> Dict:
+    """Le calcul de la fondation ouverte et sa mise en forme : la tête (le nom ; la méthode et ses données), le k en grand,
+    les messages graves, les blocs, les autres messages, l'avertissement de pré-dimensionnement ; les fenêtres de calcul,
+    les vues sous leur en-tête technique, la colonne de gauche, le résumé de la note."""
     f = _f(etat)
     calculs = [calculer(g) for g in etat["fondations"]]
     c = calculs[etat["actif"]]
@@ -1185,17 +1240,22 @@ def resultat(etat: Dict) -> Dict:
         html, volets, vues = r["html"], r["volets"], _vues_profil(f, c)
         p = c["res"]["parametres"]
         phrase = (f"semelle {C.nb(p['B'])} × {C.nb(p['L'])} m à D = {C.nb(p['D'])} m · q = {C.nb(p['q'])} kPa"
-                  + (f" · nappe {C.nb(p['nappe'])} m" if p["nappe"] is not None else "")
-                  + f" · {C.esc(f['sondages'][f['trace']]['nom'])}")
+                  + (f" · nappe {C.nb(p['nappe'])} m" if p["nappe"] is not None else ""))
     else:
         fn = {"rapide": _resultat_rapide, "theories": _resultat_theories, "abaque": _resultat_abaque, "plat": _resultat_plat}[f["mode"]]
         html, volets, vues, phrase = fn(f, c)
+    for v in vues:
+        v["entete"] = _entete(f, c, v, phrase)
+    tete = E.tete_resultats(C.esc(f.get("nom") or "Fondation"), f"{C.esc(COURTS[f['mode']])} · {phrase}")
     # le pied, comme celui de la poutre : la méthode et le moteur, la version de l'écran Streamlit (l'avertissement de
     # pré-dimensionnement est le dernier message du résultat, une seule fois)
     meth = "Boussinesq · Newmark" if f["mode"] in ("cpt", "profil", "theories") else C.esc(COURTS[f["mode"]])
     pied = f'<div class="pfoot"><div class="mass"><span>{meth} · moteur rigidite_sol</span><b>{C.esc(R.VERSION)}</b></div></div>'
-    return {"resultat": f'<div class="pbody">{html}{C.message(PIED)}</div>{pied}', "volets": volets, "vues": vues, "phrase": phrase,
-            "statut_html": C.statut(c["niveau"]), "resume": resume_note(etat, calculs), "donnees": formulaire(f, c),
+    # le statut de la NOTE (dès deux fondations) : le moins bon de ses éléments ; seule, le résultat le dit déjà
+    ordre = {"x": 0, "c": 1, "i": 2}
+    statut = C.statut(min((x["niveau"] for x in calculs), key=lambda n: ordre.get(n, 2))) if len(calculs) > 1 else ""
+    return {"resultat": f'<div class="pbody">{tete}{html}{C.message(PIED)}</div>{pied}', "volets": volets, "vues": vues, "phrase": "",
+            "statut_html": statut, "resume": resume_note(etat, calculs), "donnees": arbre(etat, c, calculs),
             "elements": elements(etat, calculs)}
 
 

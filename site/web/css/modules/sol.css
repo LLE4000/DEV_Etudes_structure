@@ -1,6 +1,7 @@
 /* Rigidité du sol : un module de CONSULTATION (k se calcule, il ne se vérifie pas à un taux). Chargée par l'établi
    rigidite-sol seul. Les briques communes restent celles de la charte ; ici, ce qu'elles n'avaient pas : la valeur de k
-   en grand, la plage de k sur une barre, les cartes de couches, l'import d'un essai, les tableaux de la toile. */
+   en grand, les cartes de couches, l'import d'un essai, les tableaux de la toile. Les lignes du résultat sont celles de
+   l'établi compact (C.ligne_verif) : une valeur dite en mots, pas de taux — rien à styler ici. */
 
 /* le verdict : k en grand (MN/m³), violet comme les courbes de k */
 .chip.xl.sol-k { background: #F1ECFE; color: #4C1D95; gap: 6px; }
@@ -11,14 +12,13 @@
 .verdict.sol-v { align-items: center; }
 .verdict.sol-v .gov { font-size: 12px; }
 
-/* une ligne de résultat sans taux : la plage de k sur une barre commune à la note */
-.bar.sol-bar b.sol-k { background: #8B5CF6; }
-.bar.sol-bar b.sol-k.att { background: #F59E0B; }
-.bar.sol-bar b.sol-k.r { background: var(--nok); }
-.el .l2 .pct.sol-kv { min-width: 0; font-size: 12.5px; }
-.el .l2 .pct.sol-kv.r { color: var(--nok); }
-.el .l2 .pct.sol-kv.att { color: #B45309; }
 .pbody > .msg:first-of-type { margin-top: 0; }
+/* une ligne du résultat dit une VALEUR (k, w) et non un état : elle se lit comme un nombre, pas comme une pastille grise
+   (la pastille reste pour ce qui est un état : « — » en rouge, la formule biaisée en orange) */
+.et-bloc .el.vc .et-mot.c { background: none; padding: 0; color: var(--ink); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+/* un titre de groupe et son aide ⓘ (l'import d'un essai, les couches) : l'explication au survol, plus en paragraphe */
+.rows .grp .aide { display: inline-grid; vertical-align: -2px; margin-left: 4px; cursor: help; }
+.rows .grp .aide svg.i { width: 12px; height: 12px; color: var(--ink-4); }
 
 /* les cartes : sondages (liste) et couches (saisie) */
 .sol-carte .sh2 .pct { font-size: 12px; }

@@ -273,7 +273,8 @@ for nom, (e, niv, phrase) in cas.items():
         (r.get("erreur"), r.get("resume"), texte(r.get("resultat", ""))[:300]))
 r = req(module="sol", action="calculer", etat=cas["écarté"][0])
 chk("plusieurs sondages : la vue « Sondages » (côte à côte, même échelle) et une fenêtre de calcul par sondage calculé, plus le zonage",
-    "sondages" in [v["cle"] for v in r["vues"]] and 'id="ck-s1"' in r["volets"] and 'id="ck-zon"' in r["volets"] and 'id="ck-s0"' not in r["volets"])
+    "sondages" in [v["cle"] for v in r["vues"]] and re.findall(r'id="ck-(\w+)"', r["volets"]) == ["s0", "s1"]
+    and "zonage de la dalle" in texte(r["volets"]).split("sondage", 1)[1], re.findall(r'id="ck-(\w+)"', r["volets"]))
 
 # ================================================================== 7. les formules substituées
 print("\n=== 7. Les formules de la fenêtre de calcul : les valeurs substituées redonnent le résultat du moteur")
@@ -312,8 +313,8 @@ chk("mode plat : h_c = α·min(B ; L) = 0,5 × min(200 ; 300) = 100 mm, k_c, k_g
 print("\n=== 8. Plusieurs fondations, l'échappement, la note abîmée")
 r = req(module="sol", action="ajouter", etat=e0)
 r = mod(r["etat"], ["mode"], "plat")
-chk("deux fondations dans la note, chacune sa méthode et son k dans la liste", r["elements"].count('data-activer="') == 2
-    and "Sondage CPT" in r["elements"] and "Plat en béton" in r["elements"])
+chk("deux fondations dans la note, chacune sa méthode et son k dans la liste de la ligne de l'élément", r["donnees"].count('data-activer="') == 2
+    and '<span class="dim">· Sondage CPT · k ' in r["donnees"] and '<span class="dim">· Plat en béton · k ' in r["donnees"] and r["elements"] == "")
 r = req(module="sol", action="dupliquer", etat=r["etat"])
 chk("copier la fondation ouverte : « F2 (copie) »", r["etat"]["fondations"][-1]["nom"] == "F2 (copie)" and r["etat"]["actif"] == 2)
 r = req(module="sol", action="calculer", etat={"version": 1, "fondations": [e0["fondations"][0], cas["tous écartés"][0]["fondations"][0]], "actif": 0})
@@ -380,8 +381,8 @@ chk("aucun indice écrit « à la développeur » dans les dessins (q_net, h_c, 
 chk("les nombres des dessins et des tableaux : espace fine insécable des milliers (un « 1 000 » ne se coupe pas)",
     DS.nombre(1234.5, 1) == "1 234,5" and DS.nombre(-12000, 0) == "-12 000" and DS.nombre(0.25) == "0,25")
 sec = {m.group(1): m.group(2) for m in re.finditer(r'data-sec="(\w+)".*?<div class="rows">(.*?)(?=<div class="sec|$)', r0["donnees"], re.S)}
-chk("la position de référence SCIA se choisit dans « Semelle et charge » (ouverte), plus dans les options repliées",
-    'data-chemin="position"' in sec.get("se", "") and 'data-chemin="position"' not in sec.get("op", "x"), list(sec))
+chk("la position de référence SCIA se choisit dans la première rubrique, « Fondation » (ouverte), pas dans les options repliées",
+    'data-chemin="position"' in sec.get("fo", "") and 'data-chemin="position"' not in sec.get("op", "x"), list(sec))
 chk("les libellés du menu Méthode tiennent dans leur colonne (27 caractères au plus)", max(len(t) for _, t in M.METHODES) <= 27)
 court = fondation([[(4.0, "Argile ferme / raide", 30.0, 19.0)]], B=2.0, L=2.0, D=2.0)
 rr = req(module="sol", action="calculer", etat=court)
@@ -404,6 +405,75 @@ rr = req(module="sol", action="calculer", etat=inc)
 tout = rr["resultat"] + rr["volets"]
 chk("le motif d'arrêt du moteur (« profil incomplet : 2.00 m … zone d'influence ») écrit à la française (2,00 m), sans double "
     "échappement (« &amp;#x27; »)", "2,00 m sans module" in tout and "2.00 m" not in tout and "&amp;" not in tout, texte(tout)[:200])
+
+# ================================================================== 10. l'établi compact (la mise en forme des poutres, 12/11/2026)
+print("\n=== 10. L'établi compact")
+d0, h0 = r0["donnees"], r0["resultat"]
+RUB = lambda h: re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', h)  # noqa: E731
+SEC2 = ' data-secondaire="1"'
+chk("la colonne de gauche est celle de l'établi compact : la ligne de la fondation ouverte, puis ses rubriques",
+    'class="et-arbre et-arbre-c" data-fondationsol="0"' in d0 and d0.count('data-chemin="nom"') == 1, d0[:200])
+chk("sondage CPT : « Fondation » (seule ouverte), « Sondages », un sondage par rubrique, puis trois rubriques secondaires "
+    "(options de calcul, reprise de Streamlit, fiche mémo)",
+    RUB(d0) == [(" open", "fo", ""), ("", "so", ""), ("", "s1", ""), ("", "op", SEC2), ("", "rs", SEC2), ("", "me", SEC2)], RUB(d0))
+chk("la première rubrique porte la méthode ET la semelle : B, L, D, q, la nappe, la position de référence SCIA",
+    all(f'data-chemin="{k}"' in sec.get("fo", "") for k in ("mode", "B", "L", "D", "q", "nappe_active", "position")), list(sec))
+chk("les explications longues sont au survol de ⓘ, plus en paragraphes : la méthode, l'import d'un essai, les couches",
+    '<div class="grp">Importer un essai<span class="aide" title="Les valeurs sont lues directement dans le fichier' in d0
+    and '<div class="grp">Couches, depuis le terrain naturel<span class="aide" title="Saisir tout le profil depuis la surface' in d0
+    and 'title="Importer un essai (GEF, CSV, TXT, ou un tableau collé)' in d0 and "module OEDOMÉTRIQUE (déformation" not in texte(d0), "")
+for m_, champs in (("rapide", ("rapide/q", "rapide/w")), ("theories", ("theories/E", "theories/B", "theories/L", "theories/nu")),
+                   ("abaque", ("abaque/B", "abaque/w_ref")), ("plat", ("plat/B", "plat/L", "plat/alpha", "plat/E", "plat/mortier"))):
+    rm = mod(e0, ["mode"], m_)
+    fo = re.split(r'<div class="sec(?: open)?" data-sec=', rm["donnees"])[1]              # la première rubrique, entière
+    chk(f"mode {m_} : ses champs sont dans la rubrique « Fondation », sous la méthode ; deux rubriques secondaires ; un bloc, une fenêtre",
+        RUB(rm["donnees"]) == [(" open", "fo", ""), ("", "rs", SEC2), ("", "me", SEC2)] and 'data-chemin="mode"' in fo
+        and all(f'data-chemin="{k}"' in fo for k in champs) and re.findall(r'id="ck-(\w+)"', rm["volets"]) == ["s0"]
+        and rm["resultat"].count('<section class="et-bloc inc" data-theme="0">') == 1 and 'class="et-tout" data-calcul="s0"' in rm["resultat"]
+        and all('class="et-ent"' in v.get("entete", "") for v in rm["vues"]), (RUB(rm["donnees"]), re.findall(r'id="ck-(\w+)"', rm["volets"])))
+pos0 = R.ST.POSITIONS[f0["position"]]
+chk("la tête du résultat : le nom de la fondation, puis la méthode, la semelle et sa charge ; plus de phrase sous le titre de la page",
+    '<div class="et-rp"><b>F1</b><span>Sondage CPT · semelle 2 × 2 m à D = 1 m · q = 150 kPa</span></div>' in h0 and r0["phrase"] == "", h0[:300])
+B0 = re.findall(r'<section class="et-bloc inc" data-theme="(\d)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>', h0, re.S)
+chk("deux blocs : « À encoder dans SCIA » (la position de référence) et « Zonage de la dalle » (quatre zones)",
+    B0 == [("0", "À encoder dans SCIA", pos0), ("1", "Zonage de la dalle", "4 zones")], B0)
+L0 = re.findall(r'<div class="el vc( gov)?" data-calcul="(\w+)"[^>]*><div class="l1"><b>([^<]+)</b><span class="et-mot c">([^<]+)</span></div>'
+                r'<div class="l2"><span class="cmp">(.*?)</span></div></div>', h0)
+chk("une ligne dit une VALEUR, jamais un taux : le sondage (son k, son tassement) puis les quatre zones (k en MN/m³, puis en kN/m³) ; "
+    "chacune ouvre son calcul ; la zone de référence est marquée",
+    len(L0) == 5 and "pct" not in "".join(re.findall(r'<div class="el vc.*?</div></div></div>', h0, re.S))
+    and L0[0][1] == "s0" and L0[0][3] == texte(f"{C.fr(x['k_bas'], 2)} MN/m³") and L0[0][4] == f"w = {C.fr(x['w_bas'], 1)} mm"
+    and [li[1] for li in L0[1:]] == ["s1"] * 4 and [li[2] for li in L0[1:]] == [z["libelle"] for z in res["zonage"]]
+    and all(li[3].endswith("MN/m³") and li[4].endswith("kN/m³") for li in L0[1:])
+    and [bool(li[0]) for li in L0[1:]] == [z["position"] == f0["position"] for z in res["zonage"]], L0)
+chk("le rappel « le centre tasse plus que les bords » est dans le bloc du zonage (et dans sa fenêtre), plus en bas de la colonne",
+    h0.count("Le centre tasse plus que les bords") == 1 and "Le centre tasse plus que les bords" in h0.split('data-theme="1"')[1].split("</section>")[0]
+    and "Le centre tasse plus que les bords" in r0["volets"], "")
+chk("deux fenêtres de calcul : celle du sondage (s0, le bouton « tout le calcul » du premier bloc) et celle du zonage (s1)",
+    re.findall(r'id="ck-(\w+)"', r0["volets"]) == ["s0", "s1"] and 'class="et-tout" data-calcul="s0"' in h0 and 'class="et-tout" data-calcul="s1"' in h0)
+ENT = [texte(v["entete"]) for v in r0["vues"]]
+chk("chaque vue porte son en-tête technique : le titre et ce qu'elle dessine, la méthode et la semelle, k à la position de référence ; "
+    "pas de bande d'efforts (k n'est pas un effort)",
+    all('class="et-ent"' in v["entete"] and "et-eff" not in v["entete"] for v in r0["vues"])
+    and all("Sondage CPT · semelle 2 × 2 m à D = 1 m · q = 150 kPa" in t_ and f"k = {texte(C.fr(x['k_bas'], 2))} MN/m³ ({pos0.lower()})" in t_ for t_ in ENT)
+    and ENT[0].startswith("DIFFUSION ·") and ENT[3].startswith("À ENCODER DANS SCIA · " + pos0), ENT)
+chk("plus de cadre « Dans cette note » ; une fondation seule : pas de statut de note", r0["elements"] == "" and r0["statut_html"] == "")
+deux_f = req(module="sol", action="ajouter", etat=e0)
+chk("deux fondations : la note dit son statut", deux_f["statut_html"] != "" and deux_f["etat"]["actif"] == 1, deux_f["statut_html"])
+cp = req(module="sol", action="dupliquer", etat=deux_f["etat"], index=0)
+chk("copier F1 (par son rang) : la copie s'insère juste après elle, et s'ouvre", [g["nom"] for g in cp["etat"]["fondations"]] == ["F1", "F1 (copie)", "F2"]
+    and cp["etat"]["actif"] == 1, [g["nom"] for g in cp["etat"]["fondations"]])
+rt = mod(e0, ["mode"], "theories")
+LT = re.findall(r'<div class="el vc( gov)?" data-calcul="s0"[^>]*><div class="l1"><b>([^<]+)</b><span class="et-mot (\w)">', rt["resultat"])
+chk("théories : la méthode retenue est marquée, la formule biaisée de la version 4 est en orange ; chaque ligne dit son domaine",
+    len(LT) == 5 and [bool(g) for g, _, _ in LT] == [True, False, False, False, False] and [n for _, _, n in LT] == ["c", "c", "c", "c", "v"]
+    and "· retenue</span>" in rt["resultat"] and "· biaisée</span>" in rt["resultat"], LT)
+ri = req(module="sol", action="calculer", etat=inc)
+chk("un sondage au k non calculable : sa ligne le dit en rouge, sans valeur", '<span class="et-mot r">—</span>' in ri["resultat"]
+    and "k non calculable" in ri["resultat"], texte(ri["resultat"])[:300])
+ra = req(module="sol", action="calculer", etat=mod(e0, ["sondages", "0", "fichier"], {"nom": "CPT-DEMO.gef", "texte": M.ESSAI_DEMO})["etat"])
+chk("un essai en attente : la rubrique de son sondage s'ouvre d'elle-même (c'est ce qu'on est en train de faire)",
+    (" open", "s1", "") in RUB(ra["donnees"]) and ra["vues"][0]["cle"] == "import" and 'class="et-ent"' in ra["vues"][0]["entete"], RUB(ra["donnees"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

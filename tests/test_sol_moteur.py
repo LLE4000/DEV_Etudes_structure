@@ -1507,7 +1507,10 @@ def ecarts_site(f):
         blocs = [e for e in ev if e[0] == "bloc"]
         metr = [e for e in ev if e[0] == "metric"]
         for k, r in enumerate(R.resultats_profil(f)["resultats"]):
-            m = re.search(r'id="ck-s' + str(r["index"]) + r'">(.*?)(?=<div class="flyout calcul"|$)', rep["volets"], re.S)
+            # la fenêtre d'un sondage (établi compact, 12/11/2026) : « s0 » pour le premier sondage CALCULÉ — celle du bouton
+            # « tout le calcul » du bloc « À encoder dans SCIA » —, « sd<indice> » pour les suivants (« s1 » est le zonage)
+            ident = "s0" if k == 0 else f"sd{r['index']}"
+            m = re.search(r'id="ck-' + ident + r'">(.*?)(?=<div class="flyout calcul"|$)', rep["volets"], re.S)
             vt = _txt(m.group(1)) if m else ""
             a, b = re.match(r"w = ([0-9.]+) à ([0-9.]+) mm", blocs[k][2]).groups()
             a, b = a.replace(".", ","), b.replace(".", ",")

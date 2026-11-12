@@ -572,6 +572,18 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   dans l'article) : « Garde-corps de la note : en ouvrir **un** autre, en ajouter **un** », « L'élément est
   verrouillé » — la phrase était écrite au féminin pour tous (les coulages et les garde-corps la portaient à tort).
   `tests/test_etabli_compact.py` (28 OK) rougit sans l'accord.
+- **Rigidité du sol** (`api_web/sol.py`, six méthodes) : la première rubrique, « Fondation », porte la méthode ET ce
+  qu'elle demande (la semelle et sa charge, ou les champs du mode) ; puis « Sondages » et un sondage par rubrique ; les
+  options de calcul, la reprise d'un fichier Streamlit et la fiche mémo sont des rubriques secondaires. À droite : le k
+  en grand, les messages graves, puis des blocs — « À encoder dans SCIA » (un k par sondage, à la position de
+  référence) et « Zonage de la dalle » (quatre zones), ou le bloc de la méthode. k n'est pas vérifié, il est calculé :
+  une ligne dit une valeur, jamais un taux (`C.ligne_verif`, la valeur en mots, comme le taux d'armature). Les barres de
+  plage de k ont disparu (les vues les dessinent). Retiré de l'écran : le bloc « Dans cette note », le champ Nom, la
+  phrase au-dessus du dessin, les cinq paragraphes d'explication (la méthode, l'import, les couches : au survol de ⓘ),
+  le rappel « le centre tasse plus que les bords » en bas de colonne (il est dans le bloc du zonage et dans sa fenêtre).
+  Une rubrique de sondage ne s'ouvre d'elle-même que lorsqu'un essai attend d'être versé. Aucune valeur affichée n'a
+  disparu (photo refigée : les fenêtres prennent le nom de leur bloc). Preuves : `tests/test_api_web_sol.py` (97 OK,
+  dont le § 10), harnais `module:sol`, `formats:sol`.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
