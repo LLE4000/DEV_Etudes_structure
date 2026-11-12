@@ -559,6 +559,19 @@ comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1
   s'insère juste après elle. Aucune valeur affichée n'a disparu (`tests/test_reference_refonte.py`, refigé avec sa
   raison : seule la fenêtre de calcul change de nom, `fl` → `s0`). Preuves : `tests/test_api_web_flambement.py`
   (200 OK, dont le § 13), harnais `module:flambement`, `formats:flambement`.
+- **Choix de profilé** (`api_web/profil.py`) : quatre rubriques (Efforts, Profilés comparés — l'acier y est rangé avec
+  les familles, le filtre et le profilé retenu —, Instabilités, Hypothèses) ; un bloc « Vérifications » : la ligne du
+  profilé retenu d'abord (il s'y choisit ; sa masse et le plus léger qui tient : « 51,2 kg/m · plus léger : HEA 220,
+  50,5 kg/m »), puis chaque vérification (« |M_y,Ed| 60 ≤ M_y,Rd 100,0 kN·m »). La sélection en chiffres n'est plus un
+  tableau de trois faits : ce qui est comparé et ce qui tient est la première ligne du bloc et de l'en-tête des vues ;
+  l'optimal de l'écran est dit là où il se décide, sous la case « Suivre l'optimal ». Les efforts saisis sont dans la
+  bande de l'en-tête des vues. Retiré de l'écran : la rubrique « Élément » (elle ne portait plus que l'acier), le bloc
+  « Dans cette note », la phrase au-dessus du dessin. Aucune valeur affichée n'a disparu (photo refigée avec sa
+  raison). Preuves : `tests/test_api_web_profil.py` (125 OK, dont le § 11), harnais `module:profil`, `formats:profil`.
+- **Le kit** (`api_web/etabli_compact.py`) accorde désormais la ligne de l'élément avec le genre (`Genre.masculin`, lu
+  dans l'article) : « Garde-corps de la note : en ouvrir **un** autre, en ajouter **un** », « L'élément est
+  verrouillé » — la phrase était écrite au féminin pour tous (les coulages et les garde-corps la portaient à tort).
+  `tests/test_etabli_compact.py` (28 OK) rougit sans l'accord.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

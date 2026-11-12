@@ -372,6 +372,17 @@ muter("le nom de l'ouvert non échappé (le champ, la confirmation)", E.arbre_co
 muter("les noms de la liste non échappés", E.arbre_compact, '<span class="nom">{C.esc(n)}</span>', '<span class="nom">{n}</span>', ctl_pieges)
 muter("menu() sans « bouton » ne rend plus « ⋯ »", E.menu, 'C.icon("ellipsis")', 'C.icon("chevron-down")', ctl_menu)
 
+# la ligne de l'élément s'ACCORDE avec le genre (11/11/2026) : « un garde-corps », « un coulage », « un élément » sont
+# masculins — la liste disait « en ouvrir une autre, en ajouter une » pour tous, et « est verrouillée »
+_GC = E.Genre("Garde-corps", "le garde-corps", "ce garde-corps", "un garde-corps")
+_am = anatomie(E.arbre(_GC, [("G1", "· 3,60 m", False), ("G2", "· 2,40 m", False)], 0, "", "gardecorps", compact=True))
+_amv = anatomie(E.arbre(_GC, [("G1", "· 3,60 m", True)], 0, "", "gardecorps", compact=True))
+chk("le genre s'accorde : au masculin « en ouvrir un autre, en ajouter un » et « est verrouillé » ; au féminin, rien ne change",
+    _GC.masculin and not E.DALLE.masculin and not E.POUTRE.masculin
+    and _am is not None and _am["titre_liste"] == "Garde-corps de la note : en ouvrir un autre, en ajouter un"
+    and _amv is not None and _amv["champ"].startswith('<span class="et-elt-nom lu" title="Le garde-corps est verrouillé : '),
+    (_am and _am["titre_liste"], _amv and _amv["champ"][:80]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

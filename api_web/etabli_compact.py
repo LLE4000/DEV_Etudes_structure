@@ -22,11 +22,16 @@ _SANS_BALISES = re.compile(r"<[^>]+>")   # les dimensions sont du HTML (« · 25
 
 class Genre(NamedTuple):
     """Les mots d'un élément de la note, pour les libellés de l'arborescence : (« Poutres », « la poutre »,
-    « cette poutre », « une poutre »)."""
+    « cette poutre », « une poutre »). Le genre se lit dans l'article (« un garde-corps », « une barre ») : les phrases
+    de la ligne de l'élément s'accordent avec lui (``masculin``)."""
     liste: str
     le: str
     ce: str
     un: str
+
+    @property
+    def masculin(self) -> bool:
+        return self.un.startswith("un ")
 
 
 POUTRE = Genre("Poutres", "la poutre", "cette poutre", "une poutre")
@@ -122,7 +127,7 @@ def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif
     nom_txt, _dims, verrou = elements[actif]
     nom = C.esc(nom_txt)
     if verrou:
-        champ = (f'<span class="et-elt-nom lu" title="{C.esc(genre.le.capitalize())} est verrouillée : son nom se lit (la case '
+        champ = (f'<span class="et-elt-nom lu" title="{C.esc(genre.le.capitalize())} est verrouillé{"" if genre.masculin else "e"} : son nom se lit (la case '
                  f'« Verrouiller » de la première rubrique la déverrouille)">{C.icon("lock")}<span>{nom}</span></span>')
     else:
         champ = (f'<input data-chemin="nom" data-sorte="texte" value="{nom}" class="et-elt-nom" size="{max(4, len(nom_txt) + 1)}" '
@@ -136,7 +141,8 @@ def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif
                   f'<span class="nom">{C.esc(n)}</span><span class="dim">{d}</span></button>')
     items += action('data-ajouter="1"', "plus", f"Ajouter {genre.un}")
     compte = f'<span class="n">{len(elements)}</span>' if not seul else ""
-    liste = menu(items, f"{genre.liste} de la note : en ouvrir une autre, en ajouter une", C.icon("chevron-down") + compte, "et-elt-liste")
+    un = "un" if genre.masculin else "une"
+    liste = menu(items, f"{genre.liste} de la note : en ouvrir {un} autre, en ajouter {un}", C.icon("chevron-down") + compte, "et-elt-liste")
     copier = (f'<button type="button" class="et-elt-b" data-dupliquer-index="{actif}" title="Copier {genre.le} (la copie s\'ajoute juste après)" '
               f'aria-label="Copier {genre.le}">{C.icon("copy")}</button>')
     supprimer = (f'<button type="button" class="et-elt-b danger" data-supprimer="{actif}" data-confirmer="Supprimer {genre.le} « {nom} » de la note ?" '

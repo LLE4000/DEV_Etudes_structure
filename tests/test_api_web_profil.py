@@ -62,7 +62,7 @@ def texte(h):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", h).replace(C.NBSP, " ").replace("\u202f", " ")).strip()
 
 
-LIGNE = re.compile(r'<div class="el( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span>', re.S)
+LIGNE = re.compile(r'<div class="el vc( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span>', re.S)
 
 # ------------------------------------------------------------------ 1. la note neuve
 print("=== 1. La note neuve : l'écran Streamlit à son ouverture")
@@ -88,7 +88,7 @@ chk(f"le retenu est l'optimal de l'écran ({m['optimal']}) et le plus léger qui
 chk("le résumé de la note : le taux du moteur arrondi sans changer de bande, sa couleur, son gouvernant",
     r["resume"] == {"taux": C.pct(m["taux_max"]), "niveau": C.niveau(m["taux_max"]), "statut": C.STATUTS[C.niveau(m["taux_max"])][1],
                     "gouvernant": "P1 · HEB 180 · interaction N + M"}, r["resume"])
-verdict = texte(re.search(r'<div class="verdict">.*?</div></div>', r["resultat"], re.S).group(0))
+verdict = texte(re.search(r'<div class="verdict"[^>]*>.*?</div></div>', r["resultat"], re.S).group(0))
 chk("le verdict : η 99 %, « HEB 180 · interaction N + M », η_N + η_My + η_Mz = 0,391 + 0,600 + 0,000 = 0,991 ≤ 1",
     "99 %" in verdict and "HEB 180 · interaction N + M" in verdict and "0,391 + 0,600 + 0,000 = 0,991 ≤ 1" in verdict, verdict)
 lignes = {nom: (bool(gov), niv, pc) for gov, nom, niv, pc in LIGNE.findall(r["resultat"])}
@@ -103,12 +103,17 @@ chk("une ligne par vérification affichée (N, M_y, N + M, V_z, flambement), son
     {k: (g, n, p.replace(C.NBSP, " ")) for k, (g, n, p) in lignes.items()} == attendu, lignes)
 chk("M_z et V_y non saisis : pas de ligne ; l'interaction est montrée car N est saisi", "Flexion autour de z" not in lignes
     and "Cisaillement selon y" not in lignes)
-sel = texte(re.search(r'<div class="pf-sel">.*?</dl></div>', r["resultat"], re.S).group(0))
-chk("sous le retenu : le plus léger qui tient (HEA 220 · 50,5 kg/m · 89 %), l'optimal de l'écran (HEB 180 · 51,2 kg/m · 99 %), 48 comparés, 38 tiennent",
-    "HEA 220 · 50,5 kg/m · 89 %" in sel and "HEB 180 · 51,2 kg/m · 99 %" in sel and "48 (HEA, HEB) · 38 tiennent" in sel, sel)
+RETENU = texte(re.search(r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>Profilé retenu</b>.*?</div></div>', r["resultat"], re.S).group(0))
+chk("la ligne du retenu dit sa masse et le plus léger qui tient (« 51,2 kg/m · plus léger : HEA 220, 50,5 kg/m »)",
+    "HEB 180" in RETENU and "51,2 kg/m · plus léger : HEA 220, 50,5 kg/m" in RETENU, RETENU)
+chk("l'optimal de l'écran (HEB 180 · 51,2 kg/m · 99 %) est dit là où il se décide : sous la case « Suivre l'optimal » des données",
+    "Optimal de l'écran : HEB 180 · 51,2 kg/m · 99 %." in texte(r["donnees"]), texte(r["donnees"])[-500:])
+chk("le bloc dit la sélection : 48 profilés comparés (HEA, HEB) · 38 tiennent",
+    '<div class="et-bloc-ef">48 profilés comparés (HEA, HEB) · 38 tiennent</div>' in r["resultat"], texte(r["resultat"])[:400])
 chk("la ligne du profilé ouvre le sélecteur (data-pk) et son étoile nomme le plus léger qui tient",
     'data-pk="profil"' in r["resultat"] and "Le plus léger qui tient : HEA 220 · 89 %" in r["resultat"])
-chk("chaque ligne ouvre la fenêtre de calcul du profilé", r["resultat"].count('data-calcul="profil"') == 6 and 'id="ck-profil"' in r["volets"])
+chk("chaque ligne ouvre la fenêtre de calcul du profilé", len(re.findall(r'class="el vc[^"]*" data-calcul="s0"', r["resultat"])) == 6
+    and 'id="ck-s0"' in r["volets"])
 chk("le pied : la masse du profilé retenu (51,2 kg/m) et la légende des couleurs", "51,2" in texte(r["resultat"].split('class="pfoot"')[1])
     and C.legende() in r["resultat"])
 
@@ -181,20 +186,23 @@ chk("la courbe taux / masse : un point par profilé, le retenu cerclé, le plus 
 chk("le flambement : les cinq courbes, la retenue nommée, les deux points du retenu",
     vues["flambement"]["svg"].count("<polyline") == 5 and "c · α = 0,49 · retenue" in vues["flambement"]["svg"]
     and vues["flambement"]["svg"].count('r="5.5"') == 2)
-chk("la phrase sous le titre : le retenu, l'acier et les efforts", texte(r["phrase"]) == "HEB 180 · S235 · My,Ed = 60 kN·m · Vz,Ed = 40 kN · NEd = 600 kN",
-    texte(r["phrase"]))
+TETE = re.search(r'<div class="et-rp">.*?</div>', r["resultat"]).group(0)
+chk("la tête du résultat : le nom, puis le retenu, l'acier et les efforts ; plus de phrase sous le titre de la page",
+    TETE.startswith('<div class="et-rp"><b>P1</b><span>') and texte(TETE).endswith("HEB 180 · S235 · My,Ed = 60 kN·m · Vz,Ed = 40 kN · NEd = 600 kN")
+    and r["phrase"] == "", TETE)
 
 # ------------------------------------------------------------------ 5. les avertissements
 print("\n=== 5. Les avertissements du moteur, rouges quand ils sont non conservatifs")
 rv = req(action="calculer", etat=note(My=40.0, Vz=20.0, avec_Vy=True, Vy=150.0))
 chk("V_y saisi : la ligne « Cisaillement selon y » dit « non vérifié », sans taux, et le message est rouge",
-    re.search(r"<b>Cisaillement selon y</b>.*?A<sub>v,y</sub> absent · non vérifié.*?à compléter", rv["resultat"], re.S) is not None
+    ('<b>Cisaillement selon y</b><span class="et-mot c">non vérifié</span></div><div class="l2"><span class="cmp">A<sub>v,y</sub> absent : '
+     'V<sub>y,Ed</sub> n\'est pas vérifié</span></div></div>') in rv["resultat"]
     and '<div class="msg grave">V<sub>y,Ed</sub> n\'est PAS vérifié' in rv["resultat"])
 rt_ = req(action="calculer", etat=note(familles=["IPE"], My=80.0, Vz=20.0, avec_N=True, N=-300.0))
 chk("traction : le message rouge « se RETRANCHE »", "se RETRANCHE" in rt_["resultat"] and 'msg grave">N<sub>Ed</sub> négatif' in rt_["resultat"])
-jauge_n = re.search(r'<b>Effort normal</b>.*?style="(width:[^"]*)".*?<span class="pct \w">([^<]*)<', rt_["resultat"], re.S)
+jauge_n = re.search(r'<b>Effort normal</b><span class="pct \w">([^<]*)<.*?style="(width:[^"]*)"', rt_["resultat"], re.S)
 chk("traction : η_N négatif écrit tel quel (−38 %), sa jauge VIDE (une largeur négative serait ignorée : jauge pleine) ; aucune largeur "
-    "négative nulle part", jauge_n and jauge_n.group(1) == "width:0%" and jauge_n.group(2).startswith("-38")
+    "négative nulle part", jauge_n and jauge_n.group(2) == "width:0%" and jauge_n.group(1).startswith("-38")
     and not re.search(r"width:-", rt_["resultat"]), jauge_n and jauge_n.groups())
 rf = req(action="calculer", etat=note(familles=["HD"], My=250.0, profil="HD 320x300.0"))
 chk("paroi de 48 mm : f_y non réduit, message rouge (215 N/mm² au tableau 3.1)", 'msg grave">Paroi de 48 mm' in rf["resultat"]
@@ -251,7 +259,7 @@ gros = saisir(note(familles=["IPE A"], My=1e6, profil="IPE A 80"), "Mz", "0")
 chk("le pire cas admis (M_y = 10⁶ kN·m sur l'IPE A 80) : un taux fini, en rouge", gros.get("ok") and gros["resume"]["niveau"] == "r"
     and isinstance(gros["resume"]["taux"], int) and gros["resume"]["taux"] < 10 ** 9, gros.get("resume"))
 chk("le pire cas admis : la puce du verdict se resserre (classe pf-long) pour tenir ses huit chiffres",
-    '<div class="verdict pf-long">' in gros["resultat"])
+    '<div class="verdict pf-long" data-calcul="s0"' in gros["resultat"])
 ch = req(action="calculer", etat=note(familles=["IPE"], My=5000.0, profil="IPE 300"))
 au = req(action="calculer", etat=note(familles=["IPE"], My=5000.0))
 moins = MO.verifier(note(familles=["IPE"], My=5000.0)["elements"][0])["lignes"][0]["nom"]
@@ -271,7 +279,7 @@ chk("cocher IPE : HEA et IPE, dans l'ordre de l'écran", out["etat"]["elements"]
 out = saisir(out["etat"], "familles/HEA", False)
 out = saisir(out["etat"], "familles/IPE", False)
 chk("tout décocher : aucune famille = toutes (275 profilés), dit en clair", out["etat"]["elements"][0]["familles"] == []
-    and "<b>toutes</b> sont comparées" in out["donnees"] and "275 (toutes les familles)" in texte(out["resultat"]))
+    and "<b>toutes</b> sont comparées" in out["donnees"] and "275 profilés comparés (toutes les familles)" in texte(out["resultat"]))
 d0 = req(action="calculer", etat=note())["donnees"]
 chk("les efforts optionnels : la case seule tant qu'elle est décochée", 'data-chemin="avec_N"' in d0 and 'data-chemin="N"' not in d0)
 d1 = saisir(note(), "avec_N", True)["donnees"]
@@ -331,8 +339,8 @@ a2 = req(action="dupliquer", etat=a["etat"])
 chk("copier : « P2 (copie) », ouvert", a2["etat"]["elements"][2]["nom"] == "P2 (copie)" and a2["etat"]["actif"] == 2)
 chk("le résumé de la note : son élément le plus chargé (P1 · HEB 180 · 99 %), quel que soit l'élément ouvert",
     a2["resume"]["taux"] == 99 and a2["resume"]["gouvernant"].startswith("P1 · HEB 180"), a2["resume"])
-chk("la liste : chaque élément avec son profilé retenu et son taux", "P1 <span>· HEB 180 · S235</span>" in a2["elements"]
-    and a2["elements"].count('data-activer="') == 3)
+chk("la liste de la ligne de l'élément : chaque élément avec son profilé retenu et son acier",
+    '<span class="nom">P1</span><span class="dim">· HEB 180 · S235</span>' in a2["donnees"] and a2["donnees"].count('data-activer="') == 3)
 a3 = req(action="supprimer", etat=a2["etat"], index=0)
 chk("supprimer P1 : il en reste deux, l'ouvert suit", [x["nom"] for x in a3["etat"]["elements"]] == ["P2", "P2 (copie)"] and a3["etat"]["actif"] == 1)
 a4 = req(action="ajouter", etat=a3["etat"])
@@ -349,7 +357,7 @@ for abime, morceau in (({"elements": "abîmé"}, "illisibles"), ({"elements": [{
 PIEGE = '<img src=x onerror=alert(1)>'
 x = saisir(ETAT, "nom", PIEGE)
 frag = x["resultat"] + x["volets"] + x["donnees"] + x["elements"] + x["phrase"] + "".join(v["svg"] for v in x["vues"])
-chk("un nom piégé est échappé partout (données, éléments, fenêtre, vues)", "<img" not in frag and "&lt;img" in x["elements"] and "&lt;img" in x["volets"])
+chk("un nom piégé est échappé partout (données, éléments, fenêtre, vues)", "<img" not in frag and "&lt;img" in x["donnees"] and "&lt;img" in x["resultat"] and "&lt;img" in x["volets"])
 tout = r["resultat"] + r["volets"] + r["donnees"] + r["elements"] + "".join(v["svg"] for v in r["vues"]) + s["html"]
 chk("aucun script, aucun gestionnaire « on…= », aucune ressource externe", not re.search(r"<script|\son[a-z]+\s*=|https?://(?!www\.w3\.org)", tout, re.I))
 
@@ -359,6 +367,57 @@ chk("_n : le format des tableaux de l'écran (fmt_no_trailing_zeros, 26,2455 →
     P._n(210000.0, 0) == "210\u202f000" and P._n(1294070.0) == "1\u202f294\u202f070" and P._n(26.2455) == CA.fmt_sans_zeros(26.2455).replace(".", ",") == "26,245" and P._n(-300.0) == "−300"
     and P._n(-0.0) == "0" and P._n(None) == "—" and P._n(0.5) == "0,5")
 chk("_t et _r : les formats de l'écran (« :.3f », « :.1f ») à la virgule", P._t(0.99104) == "0,991" and P._r(1533.4999) == "1\u202f533,5")
+
+# ------------------------------------------------------------------ 11. l'établi compact (la mise en forme des poutres, 11/11/2026)
+print("\n=== 11. L'établi compact")
+d = r["donnees"]
+res = r["resultat"]
+chk("la colonne de gauche est celle de l'établi compact : la ligne de l'élément ouvert, puis ses rubriques",
+    'class="et-arbre et-arbre-c" data-choixprofil="0"' in d and d.count('data-chemin="nom"') == 1 and ">Nom<" not in d)
+RUBRIQUES = re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', d)
+chk("quatre rubriques — les efforts (seule ouverte), les profilés comparés, les instabilités, les hypothèses (secondaire)",
+    RUBRIQUES == [(" open", "ef", ""), ("", "pf", ""), ("", "in", ""), ("", "co", ' data-secondaire="1"')], RUBRIQUES)
+chk("chaque rubrique repliée dit l'essentiel : les efforts, l'acier et les familles, l'instabilité vérifiée, γ_M0 et γ_M1",
+    all(x in texte(d) for x in ("My 60 · Vz 40 · N 600", "S235 · HEA, HEB", "flambement, courbe c", "γM0 1 · γM1 1")), texte(d)[:300])
+chk("l'acier se choisit dans la rubrique des profilés (elle n'a plus de rubrique à elle)",
+    'data-chemin="acier"' in d.split('data-sec="pf"')[1].split('data-sec="in"')[0])
+BLOC = re.search(r'<section class="et-bloc (\w+)" data-theme="0">.*?</section>', res, re.S)
+niv_m = C.niveau(m["taux_max"])
+chk("un bloc « Vérifications » : son état et son taux (ceux du verdict), la fenêtre « tout le calcul »",
+    BLOC and BLOC.group(1) == {"p": "ok", "f": "warn", "r": "nok"}[niv_m] and "Vérifications" in BLOC.group(0)
+    and f"{C.STATUTS[niv_m][1]} · 99 %" in texte(BLOC.group(0)) and 'class="et-tout" data-calcul="s0"' in BLOC.group(0), BLOC and texte(BLOC.group(0))[:200])
+CMP = [texte(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', res)]
+AXE = min(m["profil"]["axes"], key=lambda a_: a_["Nb_Rd_N"])["axe"]          # l'axe dont N_b,Rd est le plus faible (le moteur)
+chk("chaque ligne dit ce qu'elle compare : l'effort face à sa résistance, la somme de l'interaction face à 1, N_Ed face à N_b,Rd et son axe",
+    CMP == ["51,2 kg/m · plus léger : HEA 220, 50,5 kg/m", "NEd 600 ≤ NRd 1 533,5 kN", "|My,Ed| 60 ≤ My,Rd 100,0 kN·m", "ηN + ηMy + ηMz = 0,991 ≤ 1",
+            "|Vz,Ed| 40 ≤ Vz,Rd 274,7 kN", f"NEd 600 ≤ Nb,Rd {texte(P._r(v['flambement']['limite']))} kN · axe {AXE}-{AXE}"] and AXE == "y", CMP)
+chk("le verdict ouvre la même fenêtre ; il n'y a qu'UNE fenêtre de calcul", '<div class="verdict" data-calcul="s0"' in res and r["volets"].count('id="ck-') == 1)
+chk("chaque vue porte son en-tête technique : le titre, le retenu et l'acier, la sélection ; à droite les efforts saisis, une fois",
+    all('class="et-ent"' in x.get("entete", "") and "<span>· HEB 180 · S235</span>" in x["entete"]
+        and "48 profilés comparés (HEA, HEB) · 38 tiennent" in texte(x["entete"])
+        and x["entete"].count('<span><i>M</i><sub>y,Ed</sub><b>60,0</b><small>kN·m</small></span><span><i>V</i><sub>z,Ed</sub><b>40,0</b><small>kN</small></span>'
+                              '<span><i>N</i><sub>Ed</sub><b>600,0</b><small>kN</small></span>') == 1 for x in r["vues"])
+    and [re.search(r'<b>([^<]+)</b>', x["entete"]).group(1) for x in r["vues"]] == ["SECTION", "TABLEAU DES PROFILÉS", "TAUX ET MASSE", "FLAMBEMENT"],
+    r["vues"][0].get("entete"))
+chk("aucun en-tête n'écrit un indice brut (« M_y,Ed ») : ses lignes sont du texte", not any("_" in texte(x["entete"]) for x in r["vues"]))
+chk("plus de cadre « Dans cette note » ni de phrase ; un élément seul : pas de statut de note (le verdict le dit)",
+    r["elements"] == "" and r["phrase"] == "" and r["statut_html"] == "")
+chk("deux éléments : la note dit son statut, le moins bon des deux", "Conforme" in a["statut_html"] and a["statut_html"] != "", a["statut_html"])
+n3 = req(action="dupliquer", etat=a["etat"], index=0)
+chk("copier P1 (par son rang) : la copie s'insère juste après lui, et s'ouvre", [x["nom"] for x in n3["etat"]["elements"]] == ["P1", "P1 (copie)", "P2"]
+    and n3["etat"]["actif"] == 1, [x["nom"] for x in n3["etat"]["elements"]])
+CMPX = [texte(x) for x in re.findall(r'<span class="cmp">(.*?)</span>', ch["resultat"])]
+chk("une vérification dépassée s'écrit « > », jamais « ≤ » (IPE 300 sous 5 000 kN·m)", any("|My,Ed| 5 000 &gt; My,Rd" in x for x in CMPX) and not any("≤" in x for x in CMPX[1:2])
+    and "aucun profilé comparé ne tient" in CMPX[0], CMPX)
+chk("le pire cas admis : l'état du bloc plafonne à « > 999 % » (huit chiffres casseraient son en-tête)",
+    "Non conforme · &gt; 999 %" in texte(re.search(r'<section class="et-bloc nok".*?</section>', gros["resultat"], re.S).group(0)))
+chk("aucun profilé : la tête dit l'acier et les efforts, l'en-tête de la toile dit qu'il n'y a rien à comparer",
+    '<div class="et-rp"><b>P1</b><span>S235 · ' in ra["resultat"] and "aucun profilé à comparer (HEA)" in texte(ra["vues"][0]["entete"])
+    and "et-bloc" not in ra["resultat"], texte(ra["resultat"])[:200])
+un = req(action="calculer", etat=note(familles=["HEA"], My=45.0, Vz=30.0))
+chk("le retenu est le plus léger qui tient : la ligne le dit, sans étoile", "kg/m · le plus léger qui tient" in texte(un["resultat"])
+    and 'class="leger"' not in un["resultat"] and MO.verifier(un["etat"]["elements"][0])["plus_leger"] == MO.verifier(un["etat"]["elements"][0])["retenu"],
+    texte(un["resultat"])[:300])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

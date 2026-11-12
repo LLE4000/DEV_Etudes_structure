@@ -15,20 +15,25 @@
      "statut": "Conforme",
      "gouvernant": "P1 · HEA 100 · flexion autour de y"
     },
-    "statut": "Conforme",
-    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "100", "·"],
+     ["S235 · M y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "0 %"],
      ["HEA", "100", "·"],
      ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
      ["M y,Rd =", "17,1 kN·m"],
-     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
-     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "24"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Conforme ·", "0 %", "24"],
+     ["profilés comparés (HEA) ·", "24"],
+     ["tiennent Profilé retenu HEA", "100", "0 %", "16,7 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "0 %"],
+     ["|M y,Ed |", "0", "≤"],
+     ["M y,Rd", "17,1 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "102,5 kN"],
      ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
     ],
     "calculs": [
@@ -87,7 +92,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -164,20 +169,25 @@
      "statut": "Conforme",
      "gouvernant": "P1 · IPE 330 · flexion autour de y"
     },
-    "statut": "Conforme",
-    "phrase": "IPE 330 · S235 · M y,Ed = 150 kN·m · V z,Ed = 100 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 IPE", "330", "·"],
+     ["S235 · M y,Ed =", "150 kN·m", "·"],
+     ["V z,Ed =", "100 kN"],
      ["η", "89 %"],
      ["IPE", "330", "·"],
      ["flexion autour de y |M y,Ed | =", "150 kN·m", "≤"],
      ["M y,Rd =", "167,6 kN·m"],
-     ["Profilé Profilé retenu IPE", "330", "89 %", "★"],
-     ["Le plus léger qui tient IPE", "330", "·", "49,1 kg/m", "·", "89 %"],
-     ["Optimal de l'écran IPE", "330", "·", "49,1 kg/m", "·", "89 %"],
-     ["Profilés comparés", "23"],
-     ["(IPE) ·", "12"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "150 kN·m", "89 %"],
-     ["Cisaillement selon z V z,Ed =", "100 kN", "24 %"],
+     ["Vérifications Conforme ·", "89 %", "23"],
+     ["profilés comparés (IPE) ·", "12"],
+     ["tiennent Profilé retenu IPE", "330", "89 %", "49,1 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "89 %"],
+     ["|M y,Ed |", "150", "≤"],
+     ["M y,Rd", "167,6 kN·m"],
+     ["Cisaillement selon z", "24 %"],
+     ["|V z,Ed |", "100", "≤"],
+     ["V z,Rd", "418,0 kN"],
      ["Masse du profilé retenu", "49,1 kg/m"]
     ],
     "calculs": [
@@ -236,7 +246,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -278,20 +288,25 @@
      "statut": "Conforme, attention",
      "gouvernant": "P1 · IPE 300 · flexion autour de y"
     },
-    "statut": "Conforme, attention",
-    "phrase": "IPE 300 · S235 · M y,Ed = 130 kN·m · V z,Ed = 0 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 IPE", "300", "·"],
+     ["S235 · M y,Ed =", "130 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "99 %"],
      ["IPE", "300", "·"],
      ["flexion autour de y |M y,Ed | =", "130 kN·m", "≤"],
      ["M y,Rd =", "130,9 kN·m"],
-     ["Profilé Profilé retenu IPE", "300", "99 %", "★"],
-     ["Le plus léger qui tient IPE", "300", "·", "42,2 kg/m", "·", "99 %"],
-     ["Optimal de l'écran IPE", "300", "·", "42,2 kg/m", "·", "99 %"],
-     ["Profilés comparés", "47"],
-     ["(HEA, IPE) ·", "30"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "130 kN·m", "99 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Conforme, attention ·", "99 %", "47"],
+     ["profilés comparés (HEA, IPE) ·", "30"],
+     ["tiennent Profilé retenu IPE", "300", "99 %", "42,2 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "99 %"],
+     ["|M y,Ed |", "130", "≤"],
+     ["M y,Rd", "130,9 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "348,5 kN"],
      ["Masse du profilé retenu", "42,2 kg/m"]
     ],
     "calculs": [
@@ -350,7 +365,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -390,24 +405,34 @@
      "statut": "Conforme",
      "gouvernant": "P1 · HEA 220 · interaction N + M"
     },
-    "statut": "Conforme",
-    "phrase": "HEA 220 · S235 · M y,Ed = 80 kN·m · V z,Ed = 0 kN · N Ed = 200 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "220", "·"],
+     ["S235 · M y,Ed =", "80 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["N Ed =", "200 kN"],
      ["η", "79 %"],
      ["HEA", "220", "·"],
      ["interaction N + M η N + η My + η Mz =", "0,132", "+", "0,661", "+", "0,000", "=", "0,793", "≤", "1"],
-     ["Profilé Profilé retenu HEA", "220", "79 %", "★"],
-     ["Le plus léger qui tient HEA", "220", "·", "50,5 kg/m", "·", "79 %"],
-     ["Optimal de l'écran HEA", "220", "·", "50,5 kg/m", "·", "79 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "18"],
-     ["tiennent Résistance de la section Effort normal N Ed =", "200 kN", "13 %"],
-     ["Flexion autour de y M y,Ed =", "80 kN·m", "66 %"],
-     ["Interaction N + M η N + η My + η Mz", "79 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
-     ["Instabilité Flambement χ z =", "0,741", "·"],
-     ["axe z-z", "18 %"],
-     ["Déversement non vérifié : le module ne calcule ni M cr ni χ LT ; la longueur L LT saisie n'est pas utilisée. Masse du profilé retenu", "50,5 kg/m"]
+     ["Vérifications Conforme ·", "79 %", "24"],
+     ["profilés comparés (HEA) ·", "18"],
+     ["tiennent Profilé retenu HEA", "220", "79 %", "50,5 kg/m", "·"],
+     ["le plus léger qui tient Effort normal", "13 %"],
+     ["N Ed", "200", "≤"],
+     ["N Rd", "1 512,1 kN"],
+     ["Flexion autour de y", "66 %"],
+     ["|M y,Ed |", "80", "≤"],
+     ["M y,Rd", "121,1 kN·m"],
+     ["Interaction N + M", "79 %"],
+     ["η N + η My + η Mz =", "0,793", "≤", "1"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "280,5 kN"],
+     ["Flambement", "18 %"],
+     ["N Ed", "200", "≤"],
+     ["N b,Rd", "1 120,6 kN", "·"],
+     ["axe z-z Déversement non vérifié : le module ne calcule ni M cr ni χ LT ; la longueur L LT saisie n'est pas utilisée. Masse du profilé retenu", "50,5 kg/m"]
     ],
     "calculs": [
      ["P1 · HEA", "220 M"],
@@ -496,7 +521,7 @@
      "acier": "3 · c2d0d73f97d3",
      "courbe": "5 · b246bf66538e"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -545,20 +570,25 @@
      "statut": "Conforme",
      "gouvernant": "P1 · HEA 100 · flexion autour de y"
     },
-    "statut": "Conforme",
-    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "100", "·"],
+     ["S235 · M y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "0 %"],
      ["HEA", "100", "·"],
      ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
      ["M y,Rd =", "17,1 kN·m"],
-     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
-     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "24"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Conforme ·", "0 %", "24"],
+     ["profilés comparés (HEA) ·", "24"],
+     ["tiennent Profilé retenu HEA", "100", "0 %", "16,7 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "0 %"],
+     ["|M y,Ed |", "0", "≤"],
+     ["M y,Rd", "17,1 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "102,5 kN"],
      ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
     ],
     "calculs": [
@@ -617,7 +647,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -659,20 +689,25 @@
      "statut": "Conforme",
      "gouvernant": "P1 · HEA 100 · flexion autour de y"
     },
-    "statut": "Conforme",
-    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "100", "·"],
+     ["S235 · M y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "0 %"],
      ["HEA", "100", "·"],
      ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
      ["M y,Rd =", "17,1 kN·m"],
-     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
-     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "24"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Conforme ·", "0 %", "24"],
+     ["profilés comparés (HEA) ·", "24"],
+     ["tiennent Profilé retenu HEA", "100", "0 %", "16,7 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "0 %"],
+     ["|M y,Ed |", "0", "≤"],
+     ["M y,Rd", "17,1 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "102,5 kN"],
      ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
     ],
     "calculs": [
@@ -731,7 +766,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -774,18 +809,24 @@
      "statut": "Non conforme",
      "gouvernant": "P1 · HEA 1000 · flexion autour de y"
     },
-    "statut": "Non conforme",
-    "phrase": "HEA 1000 · S235 · M y,Ed = 5 000 kN·m · V z,Ed = 0 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "1000", "·"],
+     ["S235 · M y,Ed =", "5 000 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "190 %"],
      ["HEA", "1000", "·"],
      ["flexion autour de y |M y,Ed | =", "5 000 kN·m", ">"],
      ["M y,Rd =", "2 629,5 kN·m"],
-     ["Profilé Profilé retenu HEA", "1000", "190 %", "★"],
-     ["Le plus léger qui tient aucun Optimal de l'écran aucun Profilés comparés", "24"],
-     ["(HEA) ·", "0"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "5 000 kN·m", "190 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Non conforme ·", "190 %", "24"],
+     ["profilés comparés (HEA) · aucun ne tient Profilé retenu HEA", "1000", "190 %", "272,3 kg/m", "·"],
+     ["aucun profilé comparé ne tient Flexion autour de y", "190 %"],
+     ["|M y,Ed |", "5 000", ">"],
+     ["M y,Rd", "2 629,5 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "2 504,2 kN"],
      ["Aucun profilé de la sélection ne tient : l'écran retient le moins chargé, HEA", "1000."],
      ["Masse du profilé retenu", "272,3 kg/m"]
     ],
@@ -845,7 +886,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -887,20 +928,25 @@
      "statut": "Conforme",
      "gouvernant": "P1 · HEA 100 · cisaillement selon z"
     },
-    "statut": "Conforme",
-    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = −50 kN",
+    "statut": "",
+    "phrase": "",
     "resultat": [
+     ["P1 HEA", "100", "·"],
+     ["S235 · M y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "−50 kN"],
      ["η", "49 %"],
      ["HEA", "100", "·"],
      ["cisaillement selon z |V z,Ed | =", "50 kN", "≤"],
      ["V z,Rd =", "102,5 kN"],
-     ["Profilé Profilé retenu HEA", "100", "49 %", "★"],
-     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "49 %"],
-     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "49 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "24"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
-     ["Cisaillement selon z V z,Ed =", "50 kN", "49 %"],
+     ["Vérifications Conforme ·", "49 %", "24"],
+     ["profilés comparés (HEA) ·", "24"],
+     ["tiennent Profilé retenu HEA", "100", "49 %", "16,7 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "0 %"],
+     ["|M y,Ed |", "0", "≤"],
+     ["M y,Rd", "17,1 kN·m"],
+     ["Cisaillement selon z", "49 %"],
+     ["|V z,Ed |", "50", "≤"],
+     ["V z,Rd", "102,5 kN"],
      ["Masse du profilé retenu", "16,7 kg/m"]
     ],
     "calculs": [
@@ -959,7 +1005,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -1002,19 +1048,24 @@
      "gouvernant": "P2 · HEA 180 · flexion autour de y"
     },
     "statut": "Conforme",
-    "phrase": "HEA 180 · S235 · M y,Ed = 60 kN·m · V z,Ed = 0 kN",
+    "phrase": "",
     "resultat": [
+     ["P2 HEA", "180", "·"],
+     ["S235 · M y,Ed =", "60 kN·m", "·"],
+     ["V z,Ed =", "0 kN"],
      ["η", "87 %"],
      ["HEA", "180", "·"],
      ["flexion autour de y |M y,Ed | =", "60 kN·m", "≤"],
      ["M y,Rd =", "69,0 kN·m"],
-     ["Profilé Profilé retenu HEA", "180", "87 %", "★"],
-     ["Le plus léger qui tient HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
-     ["Optimal de l'écran HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
-     ["Profilés comparés", "24"],
-     ["(HEA) ·", "20"],
-     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "60 kN·m", "87 %"],
-     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Vérifications Conforme ·", "87 %", "24"],
+     ["profilés comparés (HEA) ·", "20"],
+     ["tiennent Profilé retenu HEA", "180", "87 %", "35,5 kg/m", "·"],
+     ["le plus léger qui tient Flexion autour de y", "87 %"],
+     ["|M y,Ed |", "60", "≤"],
+     ["M y,Rd", "69,0 kN·m"],
+     ["Cisaillement selon z", "0 %"],
+     ["|V z,Ed |", "0", "≤"],
+     ["V z,Rd", "196,4 kN"],
      ["Masse du profilé retenu", "35,5 kg/m"]
     ],
     "calculs": [
@@ -1073,7 +1124,7 @@
     "menus": {
      "acier": "3 · c2d0d73f97d3"
     },
-    "actions": ["calcul:profil", "pk:profil"],
+    "actions": ["calcul:s0", "pk:profil"],
     "vues": [
      {
       "cle": "section",
@@ -1100,36 +1151,46 @@
     "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}, {"nom": "P2", "familles": ["HEA"], "acier": "S235", "My": 60.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 1},
     "elements": [
      {
-      "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+      "phrase": "",
       "resultat": [
+       ["P1 HEA", "100", "·"],
+       ["S235 · M y,Ed =", "0 kN·m", "·"],
+       ["V z,Ed =", "0 kN"],
        ["η", "0 %"],
        ["HEA", "100", "·"],
        ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
        ["M y,Rd =", "17,1 kN·m"],
-       ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
-       ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-       ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
-       ["Profilés comparés", "24"],
-       ["(HEA) ·", "24"],
-       ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
-       ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+       ["Vérifications Conforme ·", "0 %", "24"],
+       ["profilés comparés (HEA) ·", "24"],
+       ["tiennent Profilé retenu HEA", "100", "0 %", "16,7 kg/m", "·"],
+       ["le plus léger qui tient Flexion autour de y", "0 %"],
+       ["|M y,Ed |", "0", "≤"],
+       ["M y,Rd", "17,1 kN·m"],
+       ["Cisaillement selon z", "0 %"],
+       ["|V z,Ed |", "0", "≤"],
+       ["V z,Rd", "102,5 kN"],
        ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
       ]
      },
      {
-      "phrase": "HEA 180 · S235 · M y,Ed = 60 kN·m · V z,Ed = 0 kN",
+      "phrase": "",
       "resultat": [
+       ["P2 HEA", "180", "·"],
+       ["S235 · M y,Ed =", "60 kN·m", "·"],
+       ["V z,Ed =", "0 kN"],
        ["η", "87 %"],
        ["HEA", "180", "·"],
        ["flexion autour de y |M y,Ed | =", "60 kN·m", "≤"],
        ["M y,Rd =", "69,0 kN·m"],
-       ["Profilé Profilé retenu HEA", "180", "87 %", "★"],
-       ["Le plus léger qui tient HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
-       ["Optimal de l'écran HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
-       ["Profilés comparés", "24"],
-       ["(HEA) ·", "20"],
-       ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "60 kN·m", "87 %"],
-       ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+       ["Vérifications Conforme ·", "87 %", "24"],
+       ["profilés comparés (HEA) ·", "20"],
+       ["tiennent Profilé retenu HEA", "180", "87 %", "35,5 kg/m", "·"],
+       ["le plus léger qui tient Flexion autour de y", "87 %"],
+       ["|M y,Ed |", "60", "≤"],
+       ["M y,Rd", "69,0 kN·m"],
+       ["Cisaillement selon z", "0 %"],
+       ["|V z,Ed |", "0", "≤"],
+       ["V z,Rd", "196,4 kN"],
        ["Masse du profilé retenu", "35,5 kg/m"]
       ]
      }

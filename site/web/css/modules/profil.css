@@ -1,4 +1,4 @@
-/* Choix de profilé : la grille des familles (cadre Données), la sélection en chiffres (Résultat), la vue « Tableau »
+/* Choix de profilé : la grille des familles (cadre Données), la vue « Tableau »
    (le tableau de l'écran Streamlit, posé dans la feuille comme un dessin) et les graphiques (sans « à l'échelle »).
    Chargée par l'établi choix-profile seul. */
 
@@ -7,11 +7,7 @@
 .pf-fams .case { white-space: nowrap; min-width: 0; }
 .pf-fams .case span { overflow: hidden; text-overflow: ellipsis; }
 
-/* la sélection en chiffres, sous les vérifications */
-.pf-sel { padding: 2px 16px 12px; border-bottom: 1px solid var(--line); }
-.pf-sel .facts { grid-template-columns: auto minmax(0, 1fr); font-size: 11.5px; gap: 5px 10px; }
-.pf-sel .facts dt { white-space: nowrap; }
-.pf-sel .facts dd { margin: 0; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 0; }
+/* l'étoile du plus léger qui tient (tableau, sélecteur) */
 .pf-or { color: #E0A100; }
 /* λ̄ : la barre posée sur la lettre (le macron combinant se décale) */
 .pf-barre { text-decoration: overline; }
@@ -59,12 +55,10 @@
 .pf-tab tbody tr:hover td, .pf-tab tbody tr:hover th { filter: brightness(.97); }
 .pf-tab tbody tr td.mk:empty::after { content: ""; }
 
-/* tablette : le tableau se resserre, la sélection en chiffres passe sur deux lignes par fait */
+/* tablette : le tableau se resserre */
 @media (min-width: 701px) and (max-width: 1360px) {
   .pf-tab th, .pf-tab td { padding: 0 3px; }
   .pf-tab { font-size: clamp(9px, calc((100cqw - 30px) / 70), 12px); }
-  .pf-sel .facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .pf-sel .facts dd { text-align: left; margin-bottom: 5px; }
 }
 /* téléphone : le tableau prend sa hauteur et défile en largeur */
 @media (max-width: 700px) {

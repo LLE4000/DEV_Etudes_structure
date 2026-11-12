@@ -8,6 +8,12 @@ Le calcul est celui du moteur ``acier/choix_profil`` (extrait de l'écran Stream
 reproduit les résultats au bit près — tests/test_choix_profil_moteur.py). Ce fichier MET EN FORME : il ne calcule rien.
 Ce que le site fait de plus que l'écran (le plus léger qui tient, le gouvernant, les formules développées, les
 avertissements) vient lui aussi du moteur, qui le nomme comme un ajout.
+
+L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 11/11/2026) : à gauche la ligne
+de l'élément ouvert (son nom, la liste, copier, supprimer) et quatre rubriques en accordéon — Efforts, Profilés comparés,
+Instabilités, Hypothèses (secondaire) ; au centre les vues sous leur en-tête technique (le profilé retenu, l'acier, la
+sélection ; les efforts dans la bande) ; à droite la tête, le verdict et le bloc « Vérifications » : le profilé retenu
+(il s'y choisit, avec le plus léger qui tient) puis chaque vérification, qui dit ce qu'elle compare.
 """
 import copy
 import re
@@ -21,11 +27,14 @@ from acier.profiles import familles as FA
 
 from . import commun as C
 from . import dessin_profil as DP
+from . import etabli_compact as E
 
 MODULE = "profil"
 PAGE = "choix-profile"
 
 ROLE = "profil"                 # le seul sélecteur du module : le profilé de l'élément ouvert
+GENRE = E.Genre("Éléments", "l'élément", "cet élément", "un élément")
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
 NB = C.NBSP
 FINE = "\u202f"                # l'espace fine des milliers (celle de commun.fr)
 
@@ -88,21 +97,30 @@ def _nom_libre(etat: Dict) -> str:
     return f"P{k}"
 
 
+def _indice(x) -> int:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return 0
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les éléments de la note : en ouvrir un, en ajouter, copier l'ouvert, en supprimer un (jamais le dernier)."""
+    """Les éléments de la note : en ouvrir un, en ajouter, en copier un (``index`` ; sans : l'ouvert — la copie s'insère
+    juste après), en supprimer un (jamais le dernier)."""
     els = etat["elements"]
     if action == "activer":
-        etat["actif"] = min(max(0, int(index or 0)), len(els) - 1)
+        etat["actif"] = min(max(0, _indice(index)), len(els) - 1)
     elif action == "ajouter":
         els.append(EN.nouvel_element(_nom_libre(etat)))
         etat["actif"] = len(els) - 1
     elif action == "dupliquer":
-        e = copy.deepcopy(els[etat["actif"]])
+        i = etat["actif"] if index is None else min(max(0, _indice(index)), len(els) - 1)
+        e = copy.deepcopy(els[i])
         e["nom"] = f"{e.get('nom') or 'Élément'} (copie)"
-        els.append(e)
-        etat["actif"] = len(els) - 1
+        els.insert(i + 1, e)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(els) > 1:
-        i = min(max(0, int(index or 0)), len(els) - 1)
+        i = min(max(0, _indice(index)), len(els) - 1)
         del els[i]
         if etat["actif"] > i or etat["actif"] >= len(els):
             etat["actif"] = max(0, etat["actif"] - 1)
@@ -236,74 +254,108 @@ def _efforts_txt(r: Dict, html: bool = True) -> str:
     return " · ".join(f"{s} = {_n(v)} {u}" for s, v, u in morceaux)
 
 
+def _selection_txt(r: Dict) -> str:
+    """La sélection en une ligne (du TEXTE) : ce que l'écran compare et ce qui tient."""
+    fams = ", ".join(r["familles"]) if r["element"]["familles"] else "toutes les familles"
+    n, n_t = r["n_profils"], r["n_tiennent"]
+    if not n:
+        return f"aucun profilé à comparer ({fams})"
+    tient = "aucun ne tient" if not n_t else ("1 tient" if n_t == 1 else f"{n_t} tiennent")
+    return f"{'1 profilé comparé' if n == 1 else f'{n} profilés comparés'} ({fams}) · {tient}"
+
+
+def _candidat_txt(r: Dict, nom: Optional[str]) -> str:
+    """Un profilé de la sélection en une ligne (HTML) : « HEB 180 · 51,2 kg/m · 99 % » ; « aucun » s'il n'y en a pas."""
+    li = next((x for x in r["lignes"] if x["nom"] == nom), None) if nom else None
+    if not li:
+        return "aucun"
+    return f"<b>{C.esc(nom)}</b> · {_n(li['masse'], 1)}{NB}kg/m · {C.pc(C.pct(li['taux']))}{NB}%"
+
+
 def formulaire(etat: Dict, r: Dict) -> str:
+    """Les quatre rubriques de l'élément ouvert : 1 Efforts (ELU), 2 Profilés comparés (l'acier, les familles, le filtre,
+    le profilé retenu), 3 Instabilités, 4 Hypothèses (secondaire). Le nom de l'élément se modifie sur sa ligne, en tête
+    de la colonne."""
     el = _el(etat)
     L = C.ligne
     num = C.num
-    # 1 · l'élément
-    s1 = (L("Nom", C.texte(["nom"], el.get("nom"), "ex. P1 · panne"), full=True)
-          + L("Acier", C.segments(["acier"], el["acier"], [(a, a) for a in EN.ACIERS]), full=True)
-          + C.aide(f"f<sub>y</sub> = {r['acier']['fy']} N/mm² (la nuance de l'écran, sans réduction pour l'épaisseur)."))
-    # 2 · les efforts
-    s2 = (L("moment", num(["My"], el["My"], "kN·m", dec=4), "M<sub>y,Ed</sub>", "Moment autour de l'axe fort y-y (valeur absolue).")
+    # 1 · les efforts
+    s1 = (L("moment", num(["My"], el["My"], "kN·m", dec=4), "M<sub>y,Ed</sub>", "Moment autour de l'axe fort y-y (valeur absolue).")
           + L("tranchant", num(["Vz"], el["Vz"], "kN", dec=4), "V<sub>z,Ed</sub>", "Parallèle à l'âme (valeur absolue).")
           + '<div class="grp">Autres efforts</div>'
           + C.case(["avec_N"], el["avec_N"], "Effort normal N<sub>Ed</sub> (compression +)"))
     if el["avec_N"]:
-        s2 += L("normal", num(["N"], el["N"], "kN", dec=4), "N<sub>Ed</sub>", "Positif en compression ; négatif : traction.")
-    s2 += C.case(["avec_Mz"], el["avec_Mz"], "Moment M<sub>z,Ed</sub> (axe faible)")
+        s1 += L("normal", num(["N"], el["N"], "kN", dec=4), "N<sub>Ed</sub>", "Positif en compression ; négatif : traction.")
+    s1 += C.case(["avec_Mz"], el["avec_Mz"], "Moment M<sub>z,Ed</sub> (axe faible)")
     if el["avec_Mz"]:
-        s2 += L("moment", num(["Mz"], el["Mz"], "kN·m", dec=4), "M<sub>z,Ed</sub>", "Moment autour de l'axe faible z-z.")
-    s2 += C.case(["avec_Vy"], el["avec_Vy"], "Effort tranchant V<sub>y,Ed</sub>")
+        s1 += L("moment", num(["Mz"], el["Mz"], "kN·m", dec=4), "M<sub>z,Ed</sub>", "Moment autour de l'axe faible z-z.")
+    s1 += C.case(["avec_Vy"], el["avec_Vy"], "Effort tranchant V<sub>y,Ed</sub>")
     if el["avec_Vy"]:
-        s2 += L("tranchant", num(["Vy"], el["Vy"], "kN", dec=4), "V<sub>y,Ed</sub>", "Parallèle aux semelles.")
-    s2 += C.case(["avec_T"], el["avec_T"], "Torsion T<sub>Ed</sub>")
+        s1 += L("tranchant", num(["Vy"], el["Vy"], "kN", dec=4), "V<sub>y,Ed</sub>", "Parallèle aux semelles.")
+    s1 += C.case(["avec_T"], el["avec_T"], "Torsion T<sub>Ed</sub>")
     if el["avec_T"]:
-        s2 += (L("torsion", num(["T"], el["T"], "kN·m", dec=4), "T<sub>Ed</sub>")
+        s1 += (L("torsion", num(["T"], el["T"], "kN·m", dec=4), "T<sub>Ed</sub>")
                + C.aide("La torsion n'entre dans aucun calcul de l'écran Streamlit : elle n'est pas vérifiée."))
-    # 3 · les profilés comparés
+    # 2 · les profilés comparés : l'acier, les familles, le filtre, le profilé retenu
     cases = "".join(C.case(["familles", f], f in el["familles"], C.esc(f)) for f in r["familles_disponibles"])
     tous = not el["familles"]
-    s3 = (f'<div class="pf-fams">{cases}</div>'
+    s2 = (L("Acier", C.segments(["acier"], el["acier"], [(a, a) for a in EN.ACIERS]), full=True)
+          + C.aide(f"f<sub>y</sub> = {r['acier']['fy']} N/mm² (la nuance de l'écran, sans réduction pour l'épaisseur).")
+          + '<div class="grp">Familles comparées</div>'
+          + f'<div class="pf-fams">{cases}</div>'
           + C.aide("Aucune famille cochée : <b>toutes</b> sont comparées (comme l'écran Streamlit)." if tous else
                    f"{r['n_profils']} profilés comparés, {r['n_tiennent']} tiennent.")
           + L("filtre", num(["Iy_min"], el["Iy_min"], "cm⁴", dec=4, mini=0), "I<sub>y,min</sub>",
               "Inertie minimale : les profilés d'inertie I_y inférieure sont écartés (un critère de flèche, par exemple) ; 0 : sans filtre.")
           + '<div class="grp">Profilé retenu</div>'
           + C.case(["auto"], el["profil"] is None, "Suivre l'optimal (le plus chargé qui tient)"))
+    optimal = f"Optimal de l'écran : {_candidat_txt(r, r.get('optimal'))}."
     if el["profil"] is not None:
-        s3 += C.aide(f"<b>{C.esc(el['profil'])}</b> est choisi à la main (ligne « Profilé retenu » du résultat) ; "
-                     "cocher la case le rend au choix de l'écran.")
+        s2 += C.aide(f"<b>{C.esc(el['profil'])}</b> est choisi à la main (ligne « Profilé retenu » du résultat) ; "
+                     f"cocher la case le rend au choix de l'écran. {optimal}")
     else:
-        s3 += C.aide("Un autre profilé se choisit dans le résultat, ligne « Profilé retenu ».")
-    # 4 · les instabilités
-    s4 = C.case(["flambement"], el["flambement"], "Vérifier le flambement (si N<sub>Ed</sub> &gt; 0)")
+        s2 += C.aide(f"{optimal} Un autre profilé se choisit dans le résultat, ligne « Profilé retenu ».")
+    # 3 · les instabilités
+    s3 = C.case(["flambement"], el["flambement"], "Vérifier le flambement (si N<sub>Ed</sub> &gt; 0)")
     if el["flambement"]:
-        s4 += (L("selon y-y", num(["Lcr_y"], el["Lcr_y"], "m", dec=4, mini=0), "L<sub>cr,y</sub>", "Longueur de flambement autour de y-y ; 0 : pas de flambement selon y.")
+        s3 += (L("selon y-y", num(["Lcr_y"], el["Lcr_y"], "m", dec=4, mini=0), "L<sub>cr,y</sub>", "Longueur de flambement autour de y-y ; 0 : pas de flambement selon y.")
                + L("selon z-z", num(["Lcr_z"], el["Lcr_z"], "m", dec=4, mini=0), "L<sub>cr,z</sub>", "Longueur de flambement autour de z-z ; 0 : pas de flambement selon z.")
                + L("Courbe", C.choix(["courbe"], el["courbe"], [(k, f"{k} · α = {C.nb(a)}") for k, a, _ in EN.COURBES]), full=True))
         if not el["avec_N"] or el["N"] <= 0:
-            s4 += C.aide("Le flambement n'est calculé qu'en compression : cocher N<sub>Ed</sub> et le saisir positif.")
-    s4 += C.case(["deversement"], el["deversement"], "Vérifier le déversement")
+            s3 += C.aide("Le flambement n'est calculé qu'en compression : cocher N<sub>Ed</sub> et le saisir positif.")
+    s3 += C.case(["deversement"], el["deversement"], "Vérifier le déversement")
     if el["deversement"]:
-        s4 += (L("non tenue", num(["L_LT"], el["L_LT"], "m", dec=4, mini=0), "L<sub>LT</sub>", "Longueur non maintenue latéralement.")
+        s3 += (L("non tenue", num(["L_LT"], el["L_LT"], "m", dec=4, mini=0), "L<sub>LT</sub>", "Longueur non maintenue latéralement.")
                + C.aide("L'écran Streamlit ne calcule pas le déversement (ni M<sub>cr</sub> ni χ<sub>LT</sub>) : cette longueur n'est pas utilisée."))
-    # 5 · les coefficients
-    s5 = (L("sections", num(["gamma_M0"], el["gamma_M0"], "", dec=4, mini=EN.GAMMA_MIN, maxi=EN.GAMMA_MAX), "γ<sub>M0</sub>",
-            "Résistances de section : N_Rd, M_Rd, V_Rd (entre 0,8 et 1,5).")
-          + L("instabilités", num(["gamma_M1"], el["gamma_M1"], "", dec=4, mini=EN.GAMMA_MIN, maxi=EN.GAMMA_MAX), "γ<sub>M1</sub>",
-              "Flambement : N_b,Rd (entre 0,8 et 1,5)."))
+    # 4 · les hypothèses : les coefficients partiels
+    s4 = (C.ligne2(("γ<sub>M0</sub>", num(["gamma_M0"], el["gamma_M0"], "", dec=4, mini=EN.GAMMA_MIN, maxi=EN.GAMMA_MAX),
+                    "Résistances de section : N_Rd, M_Rd, V_Rd (entre 0,8 et 1,5)."),
+                   ("γ<sub>M1</sub>", num(["gamma_M1"], el["gamma_M1"], "", dec=4, mini=EN.GAMMA_MIN, maxi=EN.GAMMA_MAX),
+                    "Flambement : N_b,Rd (entre 0,8 et 1,5)."))
+          + C.aide("Section élastique (W<sub>el</sub>) · interaction linéaire N + M · f<sub>y</sub> de la nuance, sans réduction pour l'épaisseur."))
     fams = ", ".join(el["familles"]) if el["familles"] else "toutes les familles"
     inst = " · ".join(x for x in (f"flambement, courbe {el['courbe']}" if el["flambement"] else "",
                                   "déversement" if el["deversement"] else "") if x) or "aucune"
     efforts = " · ".join(f"{s} {_n(v)}" for s, v in (("M<sub>y</sub>", el["My"]), ("V<sub>z</sub>", el["Vz"]))) \
         + (f" · N {_n(el['N'])}" if el["avec_N"] else "")
-    return (C.section(1, f"Élément {C.esc(el.get('nom') or '')}", f"{el['acier']}", s1, True, "el")
-            + C.section(2, "Efforts (ELU)", efforts, s2, True, "ef")
-            + C.section(3, "Profilés comparés", C.esc(fams), s3, True, "pf")
-            + C.section(4, "Instabilités", inst, s4, False, "in")
-            + C.section(5, "Coefficients partiels", f"γ<sub>M0</sub> {C.nb(el['gamma_M0'])} · γ<sub>M1</sub> {C.nb(el['gamma_M1'])}",
-                        s5, False, "co"))
+    return (C.section(1, "Efforts (ELU)", efforts, s1, True, "ef")
+            + C.section(2, "Profilés comparés", f"{el['acier']} · {C.esc(fams)}", s2, False, "pf")
+            + C.section(3, "Instabilités", inst, s3, False, "in")
+            + C.section(4, "Hypothèses", f"γ<sub>M0</sub> {C.nb(el['gamma_M0'])} · γ<sub>M1</sub> {C.nb(el['gamma_M1'])}", s4, False, "co",
+                        secondaire=True))
+
+
+def _dims(e: Dict, r: Optional[Dict]) -> str:
+    """« · HEB 180 · S235 » : ce qu'on lit d'un élément dans la liste de la note (HTML)."""
+    return f"· {C.esc((r or {}).get('retenu') or 'aucun profilé')} · {C.esc(e['acier'])}"
+
+
+def arbre(etat: Dict, r: Dict, resultats: List[Dict]) -> str:
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que la poutre) : la ligne de
+    l'élément ouvert (son nom, qu'un clic modifie ; la liste des éléments de la note ; copier, supprimer), que l'écran
+    pose dans l'en-tête du panneau, puis ses quatre rubriques."""
+    noms = [(e.get("nom") or f"P{i + 1}", _dims(e, x), False) for i, (e, x) in enumerate(zip(etat["elements"], resultats))]
+    return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, r), "choixprofil", compact=True)
 
 
 # ------------------------------------------------------------------ le résultat
@@ -385,6 +437,24 @@ def _comparaison(v: Dict, r: Dict) -> Dict[str, str]:
     lim = f"N<sub>b,Rd</sub> = {_r(v['limite'])}{NB}kN"
     return {"formule": "η<sub>b</sub> = N<sub>Ed</sub> / min(N<sub>b,Rd,y</sub> ; N<sub>b,Rd,z</sub>)", "valeur": val, "limite": lim,
             "verdict": f"{val} {signe} {lim}"}
+
+
+def _cmp_ligne(v: Dict, r: Dict) -> str:
+    """Ce qu'une ligne du résultat compare, en court (HTML) : « |M_y,Ed| 60 ≤ M_y,Rd 100,0 kN·m »."""
+    k = v["cle"]
+    signe = "≤" if v["taux"] <= 1 else "&gt;"
+    if k in ("N", "My", "Mz", "Vz", "Vy"):
+        if k == "Vy" and v["resistance_absente"]:
+            return "A<sub>v,y</sub> absent : V<sub>y,Ed</sub> n'est pas vérifié"
+        s_ed = {"N": "N<sub>Ed</sub>", "My": "|M<sub>y,Ed</sub>|", "Mz": "|M<sub>z,Ed</sub>|", "Vz": "|V<sub>z,Ed</sub>|", "Vy": "|V<sub>y,Ed</sub>|"}[k]
+        s_rd = {"N": "N<sub>Rd</sub>", "My": "M<sub>y,Rd</sub>", "Mz": "M<sub>z,Rd</sub>", "Vz": "V<sub>z,Rd</sub>", "Vy": "V<sub>y,Rd</sub>"}[k]
+        if v["limite"] is None:
+            return f"{s_rd} : donnée absente"
+        return f"{s_ed} {_n(v['valeur'])} {signe} {s_rd} {_r(v['limite'])}{NB}{v['unite']}"
+    if k == "NM":
+        return f"η<sub>N</sub> + η<sub>My</sub> + η<sub>Mz</sub> = {_t(v['valeur'])} {signe} 1"
+    a = _axe_gouvernant(r)
+    return f"N<sub>Ed</sub> {_n(v['valeur'])} {signe} N<sub>b,Rd</sub> {_r(v['limite'])}{NB}kN · axe {a['axe']}-{a['axe']}"
 
 
 def _niv_ligne(v: Dict) -> str:
@@ -486,7 +556,7 @@ def _fenetre(r: Dict) -> str:
     hyps.append(f"<b>{C.esc(p['nom'])}</b> · {_n(p['masse'], 2)} kg/m")
     pied = ('<div class="ck-autres">Unités de l\'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f<sub>y</sub> '
             'et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m.</div>')
-    return C.fenetre_calcul("profil", f"{C.esc(el.get('nom') or 'Élément')} · {C.esc(p['nom'])}", _efforts_txt(r) + " · EN 1993-1-1, section élastique",
+    return C.fenetre_calcul("s0", f"{C.esc(el.get('nom') or 'Élément')} · {C.esc(p['nom'])}", _efforts_txt(r) + " · EN 1993-1-1, section élastique",
                             hyps, lignes, detail, pied)
 
 
@@ -501,23 +571,33 @@ def _verdict(r: Dict) -> str:
     # un taux démesuré (un profilé choisi à la main bien trop faible) s'écrit en entier : la puce se resserre pour le tenir
     chiffres = len(C.pc(C.pct(t)))
     long_ = " pf-long" if chiffres >= 7 else (" pf-moyen" if chiffres >= 5 else "")
-    return (f'<div class="verdict{long_}">{C.chip(C.pct(t), C.niveau(t), xl=True)}<div class="gov"><b>{C.esc(r["retenu"])} · {C.esc(_bas(NOMS[g]))}</b>'
+    return (f'<div class="verdict{long_}" data-calcul="s0" title="Voir le calcul">{C.chip(C.pct(t), C.niveau(t), xl=True)}<div class="gov">'
+            f'<b>{C.esc(r["retenu"])} · {C.esc(_bas(NOMS[g]))}</b>'
             f'{c["verdict"]}</div></div>')
 
 
-def _ligne_selection(r: Dict) -> str:
-    """La sélection en chiffres : ce que l'écran compare, ce qui tient, son optimal et le plus léger qui tient."""
+def _ligne_retenu(r: Dict) -> str:
+    """La ligne « Profilé retenu » : le bouton qui ouvre le sélecteur (une étoile quand un plus léger tient), le taux du
+    profilé, puis sa masse et le plus léger qui tient."""
+    t = r["taux_max"]
+    pl = r["plus_leger"]
     par = {li["nom"]: li for li in r["lignes"]}
-    opt, pl = r["optimal"], r["plus_leger"]
-    fams = ", ".join(r["familles"]) if r["element"]["familles"] else "toutes les familles"
+    leger = ""
+    if not pl:
+        quoi = "aucun profilé comparé ne tient"
+    elif pl == r["retenu"]:
+        quoi = "le plus léger qui tient"
+    else:
+        quoi = f"plus léger : {C.esc(pl)}, {_n(par[pl]['masse'], 1)}{NB}kg/m"
+        leger = f"Le plus léger qui tient : {pl} · {C.pc(C.pct(par[pl]['taux']))} %"
+    return C.ligne_verif("Profilé retenu", f"{_n(r['profil']['masse'], 1)}{NB}kg/m · {quoi}", C.pct(t), C.niveau(t), calcul="s0", pk=ROLE,
+                         piece=C.esc(r["retenu"]), leger=leger)
 
-    def quoi(nom):
-        li = par[nom]
-        return f"{C.esc(nom)} · {_n(li['masse'], 1)}{NB}kg/m · {C.pc(C.pct(li['taux']))}{NB}%"
-    dd = [('<span class="pf-or">★</span> Le plus léger qui tient', quoi(pl) if pl else "aucun"),
-          ("Optimal de l'écran", quoi(opt) if opt else "aucun"),
-          ("Profilés comparés", f"{r['n_profils']} ({C.esc(fams)}) · {r['n_tiennent']} tiennent")]
-    return '<div class="pf-sel"><dl class="facts">' + "".join(f"<dt>{a}</dt><dd>{b}</dd>" for a, b in dd) + "</dl></div>"
+
+def _etat_bloc(t: float) -> str:
+    """L'état du bloc (du texte) : « Conforme · 63 % » ; un taux démesuré s'écrit « > 999 % », comme dans les lignes."""
+    p = C.pct(t)
+    return f"{C.STATUTS[C.niveau(t)][1]} · " + (f">{NB}{C.PLAFOND_TAUX}{NB}%" if p > C.PLAFOND_TAUX else f"{C.pc(p)}{NB}%")
 
 
 def _messages(r: Dict) -> str:
@@ -532,33 +612,27 @@ def _messages(r: Dict) -> str:
     return out
 
 
-def _resultat_html(r: Dict) -> str:
+def _resultat_html(r: Dict, nom: str) -> str:
+    """Le cadre des résultats : la tête (le nom de l'élément ; le profilé retenu, l'acier, les efforts), le verdict, le
+    bloc « Vérifications » — le profilé retenu d'abord, puis chaque vérification (deux lignes : ce qu'elle compare, sa
+    jauge) —, les avertissements du moteur, la masse."""
+    quoi = f"{C.esc(r['retenu'])} · " if r["profil"] else ""
+    tete = E.tete_resultats(C.esc(nom), f"{quoi}{C.esc(r['element']['acier'])} · {_efforts_txt(r)}")
     if not r["profil"]:
-        return (f'<div class="pbody">{_verdict(r)}{_messages(r)}</div>'
+        return (f'<div class="pbody">{tete}{_verdict(r)}{_messages(r)}</div>'
                 f'<div class="pfoot"><div class="legend">{C.legende()}</div></div>')
     gov = _gov_cle(r)
     t = r["taux_max"]
-    pl = r["plus_leger"]
-    par = {li["nom"]: li for li in r["lignes"]}
-    leger = f"Le plus léger qui tient : {pl} · {C.pc(C.pct(par[pl]['taux']))} %" if pl and pl != r["retenu"] else ""
-    rows = '<div class="elgrp">Profilé</div>'
-    rows += C.ligne_res("Profilé retenu", C.esc(r["retenu"]), C.pct(t), C.niveau(t), calcul="profil", pk=ROLE, leger=leger)
-    rows += _ligne_selection(r)
-    section = [v for v in _lignes_affichees(r) if v["cle"] != "flambement"]
-    rows += '<div class="elgrp">Résistance de la section</div>'
-    for v in section:
-        ligne = C.ligne_res(NOMS[v["cle"]], _piece(v, r), _taux_ligne(v), _niv_ligne(v), calcul="profil", gov=v["cle"] == gov)
-        # η_N d'une traction est NÉGATIF (défaut D2 de l'écran, écrit tel quel) : la jauge reste vide — une largeur CSS
-        # négative serait ignorée par le navigateur et la jauge s'afficherait PLEINE
-        rows += re.sub(r'style="width:-[0-9.]+%"', 'style="width:0%"', ligne)
-    fl = [v for v in r["verifications"] if v["cle"] == "flambement"]
-    if fl:
-        rows += '<div class="elgrp">Instabilité</div>'
-        rows += C.ligne_res(NOMS["flambement"], _piece(fl[0], r), C.pct(fl[0]["taux"]), C.niveau(fl[0]["taux"]), calcul="profil",
-                            gov=gov == "flambement")
+    rows = _ligne_retenu(r)
+    for v in _lignes_affichees(r):
+        # η_N d'une traction est NÉGATIF (défaut D2 de l'écran, écrit tel quel) : sa jauge reste vide (commun._largeur)
+        absent = v["cle"] == "Vy" and v["resistance_absente"]
+        rows += C.ligne_verif(NOMS[v["cle"]], _cmp_ligne(v, r), _taux_ligne(v), _niv_ligne(v), calcul="s0", gov=v["cle"] == gov,
+                              etat_txt="non vérifié" if absent else "")
+    bloc = E.bloc(0, "Vérifications", CLASSES_BLOC.get(C.niveau(t), "inc"), _etat_bloc(t), C.esc(_selection_txt(r)), rows, theme=True)
     pied = (f'<div class="pfoot"><div class="mass"><span>Masse du profilé retenu</span><b>{_n(r["profil"]["masse"], 1)}{NB}kg/m</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
-    return f'<div class="pbody">{_verdict(r)}<div class="els">{rows}</div>{_messages(r)}</div>{pied}'
+    return f'<div class="pbody">{tete}{_verdict(r)}<div class="et-blocs">{bloc}</div>{_messages(r)}</div>{pied}'
 
 
 # ------------------------------------------------------------------ les vues
@@ -633,19 +707,42 @@ def _vue_vide(r: Dict) -> str:
             f'(cadre Données, section 3).</span></div></div>')
 
 
+def _bande(r: Dict) -> List[tuple]:
+    """Les efforts saisis, pour la bande de l'en-tête des vues : (symbole, indice, valeur, unité) — M_y et V_z toujours,
+    les autres quand leur case est cochée (l'ordre de l'écran)."""
+    el = r["element"]
+    out = [("M", "y,Ed", el["My"], "kN·m"), ("V", "z,Ed", el["Vz"], "kN")]
+    for case, s, x, k, u in (("avec_N", "N", "Ed", "N", "kN"), ("avec_Mz", "M", "z,Ed", "Mz", "kN·m"), ("avec_Vy", "V", "y,Ed", "Vy", "kN"),
+                             ("avec_T", "T", "Ed", "T", "kN·m")):
+        if el[case]:
+            out.append((s, x, el[k], u))
+    return out
+
+
+def _entete(r: Dict, titre: str, legende: str) -> str:
+    """L'en-tête technique d'une vue : le profilé retenu et l'acier ; la sélection (ce qui est comparé, ce qui tient) ; à
+    droite, les efforts saisis."""
+    sous = (f"{C.esc(r['retenu'])} · " if r["profil"] else "") + C.esc(r["element"]["acier"])
+    return E.entete(titre.upper(), sous, [_selection_txt(r)], _bande(r), legende)
+
+
 def _vues(r: Dict) -> List[Dict]:
     if not r["profil"]:
-        return [{"cle": "tableau", "titre": "Tableau des profilés", "court": "Tableau", "svg": _vue_vide(r), "legende": "aucun profilé"}]
+        return [{"cle": "tableau", "titre": "Tableau des profilés", "court": "Tableau", "svg": _vue_vide(r), "legende": "aucun profilé",
+                 "entete": _entete(r, "Tableau des profilés", "")}]
     p = r["profil"]
     vues = [{"cle": "section", "titre": f"Section {p['nom']}", "court": "Section", "svg": _vue_section(r),
-             "legende": f"{p['nom']} · à l'échelle"},
+             "legende": f"{p['nom']} · à l'échelle", "entete": _entete(r, "Section", "le profilé retenu, à l'échelle ; ses dimensions et ses propriétés")},
             {"cle": "tableau", "titre": "Tableau des profilés", "court": "Tableau", "svg": _vue_tableau(r),
-             "legende": f"{r['n_profils']} profilés · {r['n_tiennent']} tiennent"},
+             "legende": f"{r['n_profils']} profilés · {r['n_tiennent']} tiennent",
+             "entete": _entete(r, "Tableau des profilés", "triés par masse ; ✓ le retenu, ★ le plus léger qui tient")},
             {"cle": "courbe", "titre": "Taux et masse", "court": "Taux / masse", "svg": _vue_courbe(r),
-             "legende": "le taux de chaque profilé de la sélection en fonction de sa masse"}]
+             "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+             "entete": _entete(r, "Taux et masse", "le taux de chaque profilé de la sélection en fonction de sa masse")}]
     if r["flambement"]["calcule"] and p["axes"]:
         vues.append({"cle": "flambement", "titre": "Flambement", "court": "Flambement", "svg": _vue_flambement(r),
-                     "legende": f"courbes χ(λ̄) · courbe {r['element']['courbe']} retenue"})
+                     "legende": f"courbes χ(λ̄) · courbe {r['element']['courbe']} retenue",
+                     "entete": _entete(r, "Flambement", f"les courbes de flambement ; la courbe {r['element']['courbe']} est retenue, un point par axe")})
     return vues
 
 
@@ -670,28 +767,19 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    items = ""
-    for i, (e, r) in enumerate(zip(etat["elements"], resultats)):
-        t = r.get("taux_max")
-        niv = C.niveau(t) if t is not None else "x"
-        txt = f"{C.pc(C.pct(t))}{NB}%" if t is not None else "—"
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["elements"]) > 1 else ""
-        quoi = C.esc(r.get("retenu") or "aucun profilé")
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{C.esc(e.get("nom") or f"Élément {i + 1}")} '
-                  f'<span>· {quoi} · {C.esc(e["acier"])}</span></span><span class="pct {niv}">{txt}</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["elements"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier l\'élément ouvert">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter un élément</div></div>')
+    """Rien : les éléments de la note sont la LIGNE de l'élément, en tête de la colonne de gauche (``arbre``)."""
+    return ""
 
 
 def resultat(etat: Dict) -> Dict:
     el = _el(etat)
     r = MO.verifier(el)
     resultats = [r if i == etat["actif"] else _calculer(e) for i, e in enumerate(etat["elements"])]
-    niv = C.niveau(r["taux_max"]) if r["profil"] else "x"
-    phrase = (f"{C.esc(r['retenu'])} · {C.esc(el['acier'])} · {_efforts_txt(r)}" if r["profil"] else "")
-    return {"resultat": _resultat_html(r), "volets": _fenetre(r) if r["profil"] else "", "vues": _vues(r), "phrase": phrase,
-            "statut_html": C.statut(niv), "resume": resume_note(etat, resultats), "donnees": formulaire(etat, r),
+    # le statut de la NOTE (dès deux éléments) : le moins bon de ses éléments ; seul, le verdict le dit déjà
+    nivs = [C.niveau(x["taux_max"]) if x.get("taux_max") is not None else "x" for x in resultats]
+    statut = C.statut(next((n for n in ("x", "r", "f") if n in nivs), "p")) if len(resultats) > 1 else ""
+    return {"resultat": _resultat_html(r, el.get("nom") or "Élément"), "volets": _fenetre(r) if r["profil"] else "", "vues": _vues(r),
+            "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": arbre(etat, r, resultats),
             "elements": elements(etat, resultats)}
 
 
