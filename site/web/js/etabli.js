@@ -457,10 +457,10 @@ export function ouvrirEtabli(hote, ctx) {
       // du propriétaire (plus lente), le menu se refermait avant même d'être vu (12/11/2026, harnais « exporter »)
       const exportOuvert = !!$("#resultat .et-exp .et-mn-l:not([hidden])");
       $("#resultat").innerHTML = r.resultat;
-      if (exportOuvert && $("#resultat .et-exp [data-menu]")) $("#resultat .et-exp [data-menu]").click();
       poserVerification($("#resultat"), MODULE);    // « Module vérifié · LLE · 11/11/2026 », au pied (js/marques.js)
       if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
       reprendreSaisie($("#resultat"), saisieR);
+      if (exportOuvert && $("#resultat .et-exp [data-menu]")) $("#resultat .et-exp [data-menu]").click();
       const ouvert = $(".flyout.on.calcul");
       $("#volets").innerHTML = r.volets || "";
       if (ouvert) ouvrir(ouvert.id, $(`#resultat [data-calcul="${ouvert.id.slice(3)}"]`), true);
