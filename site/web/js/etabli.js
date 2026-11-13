@@ -391,10 +391,9 @@ export function ouvrirEtabli(hote, ctx) {
     }, { signal });
 
     // -------------------------------------------------------------- l'affichage
+    // la rubrique OUVERTE des données (UNE seule à la fois — le propriétaire, 13/11/2026 : « quand on appuie sur Armatures,
+    // les autres se ferment », pour la lisibilité ; une rubrique fermée garde sa ligne de résumé) ; gardée pour la session
     const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
-    // (établi compact) les rubriques ouvertes À LA MAIN (un clic sur leur en-tête) : elles restent ouvertes quand le dessin
-    // amène à une autre rubrique ; celles que le dessin a ouvertes se replient quand il en ouvre une autre
-    const voulues = new Set(COMPACT ? memoire.lire(`stab.sec.${MODULE}.voulues`, []) : []);
     // un VOLET dépliable des données (<details data-volet="k"> : le volet « Détails » de la fiche du catalogue des cornières,
     // api_web/corniere.py) garde son état d'ouverture d'un calcul à l'autre — le cadre est refait à chaque saisie — et pour la
     // session, comme les rubriques ; replié par défaut (le moteur ne l'ouvre jamais)
@@ -404,7 +403,13 @@ export function ouvrirEtabli(hote, ctx) {
     }
     function garderRubriques() {
       memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
-      if (COMPACT) memoire.ecrire(`stab.sec.${MODULE}.voulues`, [...voulues]);
+    }
+    // ouvre la rubrique « cle » et referme toutes les autres (cle nulle : toutes fermées)
+    function ouvrirSeule(cle) {
+      $("#donnees").querySelectorAll(".sec[data-sec]").forEach((x) => x.classList.toggle("open", x.dataset.sec === cle));
+      ouvertes.clear();
+      if (cle) ouvertes.add(cle);
+      garderRubriques();
     }
     let premier = true;
     let vueCourante = null;
@@ -550,23 +555,14 @@ export function ouvrirEtabli(hote, ctx) {
         reprendreSaisie(ELT, saisieElt);
       }
       separerNoms(zone);
-      // les sections gardent leur état (ouvert, fermé) d'un calcul à l'autre (l'aperçu les montre ainsi, sans rien en garder)
-      const ouv = apercu ? new Set(ouvertes) : ouvertes;
-      if (COMPACT) {
-        // les rubriques gardées de la session ; à la première ouverture, celle que le moteur ouvre (une seule, par défaut)
-        const secs = [...zone.querySelectorAll(".sec[data-sec]")];
-        if (premier && !secs.some((s) => ouv.has(s.dataset.sec))) {
-          const k = (secs.find((s) => s.classList.contains("open")) || secs[0] || {}).dataset?.sec;
-          if (k) ouv.add(k);
-        }
-        secs.forEach((s) => s.classList.toggle("open", ouv.has(s.dataset.sec)));
-      } else {
-        zone.querySelectorAll(".sec[data-sec]").forEach((s) => {
-          const cle = s.dataset.sec;
-          if (premier) { if (s.classList.contains("open")) ouv.add(cle); }
-          else s.classList.toggle("open", ouv.has(cle));
-        });
-      }
+      // UNE rubrique ouverte, gardée d'un calcul à l'autre : celle de la session ; à la première ouverture, celle que le
+      // moteur ouvre (à défaut, la première) ; une mémoire d'avant (plusieurs rubriques) n'en garde que la première
+      // (l'aperçu les montre ainsi, sans rien en garder)
+      const secs = [...zone.querySelectorAll(".sec[data-sec]")];
+      let ouverte = secs.map((s) => s.dataset.sec).find((k) => ouvertes.has(k));
+      if (premier && ouverte === undefined) ouverte = (secs.find((s) => s.classList.contains("open")) || (COMPACT ? secs[0] : null) || {}).dataset?.sec;
+      secs.forEach((s) => s.classList.toggle("open", s.dataset.sec === ouverte));
+      if (!apercu && secs.length) { ouvertes.clear(); if (ouverte) ouvertes.add(ouverte); }
       if (!apercu) premier = false;
       poserVolets(zone);
       zone.scrollTop = defile;
@@ -818,14 +814,9 @@ export function ouvrirEtabli(hote, ctx) {
       if (seg) { if (!seg.classList.contains("on") || seg.dataset.bascule) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
       const hd = ev.target.closest(".sechd[data-replier]");
       if (hd) {
-        const s = hd.parentElement, k = s.dataset.sec;
-        s.classList.toggle("open");
-        const on = s.classList.contains("open");
-        if (on) ouvertes.add(k); else ouvertes.delete(k);
-        // (établi compact) un en-tête ouvre ou referme SA rubrique, sans toucher aux autres : on en garde plusieurs ouvertes
-        // si on le veut ; ce choix fait à la main survit à la navigation depuis le dessin
-        if (COMPACT) { if (on) voulues.add(k); else voulues.delete(k); }
-        garderRubriques();
+        // un en-tête ouvre SA rubrique et referme les autres ; sur la rubrique ouverte, il la referme
+        const s = hd.parentElement;
+        ouvrirSeule(s.classList.contains("open") ? null : s.dataset.sec);
         return;
       }
       // le sélecteur d'armatures (« Proposer ») et « Renommer » d'un élément, posés dans les données
@@ -859,16 +850,10 @@ export function ouvrirEtabli(hote, ctx) {
       agirElement(ev);
     }, { signal });
 
-    // l'établi compact : le DESSIN amène à la rubrique d'une pièce. Elle s'ouvre ; les rubriques que le dessin avait ouvertes
-    // se replient, celles ouvertes à la main (voulues) restent ouvertes
+    // l'établi compact : le DESSIN amène à la rubrique d'une pièce. Elle s'ouvre, les autres se referment
     function ouvrirRubrique(cle) {
       const zone = $("#donnees");
-      zone.querySelectorAll(".sec[data-sec]").forEach((x) => {
-        const k = x.dataset.sec, on = k === cle || voulues.has(k);
-        x.classList.toggle("open", on);
-        if (on) ouvertes.add(k); else ouvertes.delete(k);
-      });
-      garderRubriques();
+      ouvrirSeule(cle);
       const s = zone.querySelector(`.sec[data-sec="${CSS.escape(cle)}"]`);
       if (s) image(() => s.scrollIntoView({ block: "nearest" }));
     }
@@ -889,7 +874,7 @@ export function ouvrirEtabli(hote, ctx) {
       const champ = $('#donnees input[data-chemin="nom"]');
       if (!champ) return;
       const rub = champ.closest(".sec[data-sec]");
-      if (rub && COMPACT) ouvrirRubrique(rub.dataset.sec); else if (rub) rub.classList.add("open");
+      if (rub) ouvrirRubrique(rub.dataset.sec);
       champ.focus();
       champ.select();
     }

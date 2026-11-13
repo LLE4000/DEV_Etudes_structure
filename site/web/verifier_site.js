@@ -2970,7 +2970,8 @@ const principal = async () => {
         contrat.premier && !contrat.anciens.length && /^B:V1 \| SPAN:20 × 40 cm · /.test(contrat.rp || ''), JSON.stringify(contrat));
       const lg0 = await ligneElement(g);
       verif('pilote · PC 1440 : la ligne de la poutre tient dans l\'en-tête (une rangée, rien ne déborde ni ne se chevauche, le nom entier)', lg0 && !lg0.fautes.length && lg0.nomEntier, JSON.stringify(lg0));
-      // l'accordéon : un en-tête ouvre SA rubrique sans fermer les autres (plusieurs, si on le veut), et la referme ;
+      // l'accordéon : un en-tête ouvre SA rubrique et referme les autres — UNE seule ouverte à la fois (UI1, décision du
+      // propriétaire du 13/11/2026 ; le harnais suit : avant, les autres restaient ouvertes) — et la referme ;
       // chaque champ s'atteint (une pièce choisie montre son détail) — le nom aussi, dans la ligne de la poutre
       const cles = await g.$$eval('#donnees .et-arbre .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
       const CHAMPS = '#donnees [data-chemin], .panel.left .phead [data-chemin]';
@@ -2978,13 +2979,11 @@ const principal = async () => {
       const vus = new Set();
       const accordeon = [];
       const noterVus = async () => (await g.$$eval(CHAMPS, (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
-      const deja = [];
       for (const k of cles) {
         if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
         await g.waitForTimeout(100);
-        deja.push(k);
         e = await lireEtat();
-        if (e.ouvertes.join() !== deja.join()) accordeon.push(`${k}: ${e.ouvertes.join()}`);
+        if (e.ouvertes.join() !== k) accordeon.push(`${k}: ${e.ouvertes.join()}`);
         await noterVus();
         const pieces = await g.$$eval(`#donnees .sec[data-sec="${k}"] .et-piece [data-deplier].et-dep`, (x) => x.length);
         for (let i = 0; i < pieces; i++) {
@@ -3001,13 +3000,13 @@ const principal = async () => {
           await g.keyboard.press('Escape');
         }
       }
-      verif(`pilote : accordéon — chaque en-tête (${cles.join(', ')}) ouvre SA rubrique et garde les autres ouvertes`, cles.length === 4 && !accordeon.length, accordeon.join(' | '));
+      verif(`pilote : accordéon — chaque en-tête (${cles.join(', ')}) ouvre SA rubrique et referme les autres (une seule ouverte à la fois)`, cles.length === 4 && !accordeon.length, accordeon.join(' | '));
       const caches = champs.filter((x) => !vus.has(x));
       verif(`pilote : chacun des ${champs.length} champs des données s'atteint (rubrique ouverte, pièce dépliée ; le nom dans la ligne de la poutre)`, !caches.length && champs.includes('nom'), caches.join(', '));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_rubriques.png') });
-      for (const k of cles) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      await g.click(`#donnees .sec[data-sec="${cles[cles.length - 1]}"] > .sechd`);
       await g.waitForTimeout(100);
-      verif('pilote : un second clic sur un en-tête referme sa rubrique (les quatre fermées)', !(await lireEtat()).ouvertes.length, JSON.stringify((await lireEtat()).ouvertes));
+      verif('pilote : un clic sur l\'en-tête de la rubrique ouverte la referme (les quatre fermées)', !(await lireEtat()).ouvertes.length, JSON.stringify((await lireEtat()).ouvertes));
       // le dessin : un clic sur le béton ouvre « Poutre » ; un GLISSER ne choisit rien ; un clic sur un lit l'ouvre dans « Armatures »
       await g.keyboard.press('Escape');
       const centre = async (sel) => g.$eval(`#stage .view.on ${sel}`, (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
@@ -3031,15 +3030,15 @@ const principal = async () => {
       verif('pilote : un clic sur l\'étiquette « L1 » du dessin ouvre « Armatures », éclaire la ligne du lit et ses barres',
         e.ouvertes.join() === 'arm' && e.cibles.join() === 's0.lit-inf-0' && e.surlignees.join() === 's0.lit-inf-0', JSON.stringify(e));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_clic_dessin.png') });
-      // une rubrique ouverte À LA MAIN reste ouverte quand le dessin amène ailleurs ; celle que le dessin avait ouverte se replie
+      // le dessin amène à une rubrique : elle s'ouvre et TOUTES les autres se referment, même ouvertes à la main (UI1 — avant,
+      // une rubrique ouverte à la main restait ouverte : le harnais suit la décision du 13/11/2026)
       await g.click('#donnees .sec[data-sec="so"] > .sechd');
       const pb = await centre('[data-sel="s0.beton"] rect');
       await g.mouse.click(pb.x, pb.y);
       await g.waitForTimeout(200);
       e = await lireEtat();
-      verif('pilote : le béton cliqué ouvre « Poutre », replie « Armatures » (ouverte par le dessin), garde « Sections » (ouverte à la main)',
-        e.ouvertes.join() === 'pt,so' && e.surlignees.join() === 's0.beton', JSON.stringify(e));
-      await g.click('#donnees .sec[data-sec="so"] > .sechd');
+      verif('pilote : le béton cliqué ouvre « Poutre » et referme les autres, « Sections » aussi (ouverte à la main) — une seule ouverte',
+        e.ouvertes.join() === 'pt' && e.surlignees.join() === 's0.beton', JSON.stringify(e));
       const an2 = await centre('[data-sel="s0.lit-inf-0"] text.an');
       await g.mouse.click(an2.x, an2.y);
       await g.waitForTimeout(200);
@@ -3545,7 +3544,10 @@ const principal = async () => {
       const lireBulle = () => g.evaluate(() => { const x = document.querySelector('.aide-bulle'); const q = x && x.getBoundingClientRect();
         return { vu: !!x && x.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: x ? x.textContent : '',
           dedans: !!q && q.left >= 0 && q.top >= 0 && q.right <= innerWidth && q.bottom <= innerHeight }; });
-      for (const k of ['pt', 'op']) if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.tap(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      // (UI1, 13/11/2026 : une seule rubrique ouverte — l'aide de l'enrobage est dans « Poutre », celle du jeu dans
+      //  « Options » : chacune s'ouvre à son tour ; le harnais suit, il les ouvrait ensemble)
+      const ouvrirRub = async (k) => { if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.tap(`#donnees .sec[data-sec="${k}"] > .sechd`); };
+      await ouvrirRub('pt');
       const enr = '#donnees .row:has(input[data-chemin="enrobage"]) .aide';
       await g.$eval(enr, (x) => x.scrollIntoView({ block: 'center' }));
       await g.waitForTimeout(150);
@@ -3555,6 +3557,7 @@ const principal = async () => {
       const b2 = await lireBulle();
       await g.tap('#donnees .row:has(input[data-chemin="enrobage"]) > label > span:not(.aide):not(.sym)');
       const b2l = await lireBulle();
+      await ouvrirRub('op');
       const jeu = '#donnees .row2:has(input[data-chemin="jeu_premier_lit"]) .aide';
       await g.$eval(jeu, (x) => x.scrollIntoView({ block: 'center' }));
       await g.waitForTimeout(150);
@@ -3691,7 +3694,11 @@ const principal = async () => {
       await g.click('#donnees details.et-volet[data-volet="fiche"] > summary');
       await g.waitForTimeout(150);
       const v1o = await volet();
+      // (UI1, 13/11/2026 : une seule rubrique ouverte — dy est dans « Ancrage » : on l'ouvre pour la saisie, puis on revient
+      //  à « Cornière » lire le volet ; le harnais suit, il saisissait dans une rubrique restée ouverte)
+      await ouvrirRub('an');
       await saisir('input[data-chemin="dy"]', '6');
+      await ouvrirRub('co');
       const v2 = await volet();
       await g.click('#donnees details.et-volet[data-volet="fiche"] > summary');
       await g.waitForTimeout(150);
@@ -3699,6 +3706,7 @@ const principal = async () => {
       verif('cornière : le volet « Détails » (fiche du catalogue) est replié par défaut, s\'ouvre au clic (la fiche se voit), reste ouvert après une saisie, se referme',
         v0.present && !v0.ouvert && !v0.fiche && /Détails/.test(v0.sommaire) && /26,64/.test(v0.sommaire) && v1o.ouvert && v1o.fiche && v2.ouvert && v2.fiche && !v3.ouvert && !v3.fiche,
         JSON.stringify({ v0, v1o, v2, v3 }));
+      await ouvrirRub('an');
       await saisir('input[data-chemin="dy"]', '5');
       // ---- § 9.5 : la bascule ELS → ELU — la limite passe de 236,7 à 355 N/mm², coef et R_ELU disparaissent, le taux change ; l'ELS les rend
       const champs = () => g.evaluate(() => ({ coef: document.querySelectorAll('#donnees input[data-chemin="coef"]').length, relu: document.querySelectorAll('#donnees input[data-chemin="R_ELU"]').length,

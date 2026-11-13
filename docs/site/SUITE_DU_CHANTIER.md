@@ -790,6 +790,10 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
 - **DAL9 — les mots des armatures** : « Armature inférieure / supérieure » au lieu de « nappe », partout où un texte se
   voit (écran, dessins, messages, note PDF) ; le troisième type d'armature s'appelle « Mixte » (`DALLES_FUSION.md`
   § 8.9). Aucun chiffre ne change.
+- **Lot 1 (UI1) — une seule rubrique ouverte à la fois**, dans tous les modules (`CHARTE_ERGONOMIE.md` E14).
+- **La taille du code, module par module** : `docs/site/TAILLE_DU_CODE.md` (l'outil `outils/taille_du_code.py`) ;
+  mesure de départ du 13/11/2026 : 85 533 lignes de code pour le site (poutre 3 618, dalles et prédalles 5 019).
+  Lot 2 (rangement) d'abord ; une mesure après chaque lot.
 - **UNI0 — l'unification poutre / dalle pleine / prédalle (état des lieux du 13/11/2026, rien de modifié)** : trois
   règles de position aujourd'hui (poutre, dalle, prédalle), écrites à quatre endroits ; les barres secondaires d'une
   prédalle sont posées SUR la peau (h_p + Ø/2) alors que le propriétaire les veut DEDANS ; seul le demi-diamètre est
