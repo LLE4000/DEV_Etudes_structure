@@ -79,3 +79,39 @@ mesure de départ.
 | **Total du site** | **84 931** | **116 454** | **374** | **−602** |
 | Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
 | Tests (hors site) | 65 954 | 80 810 | 146 | −609 |
+
+## Mesure du 13/11/2026 — après le lot 3 (commit 85a6a83) : la règle de position des barres
+
+La règle de position est écrite une seule fois (`beton/position.py`, 41 lignes de code, rangé dans le code commun) pour
+la poutre, la dalle pleine et la prédalle. Depuis le lot 2a, le site gagne **+161** lignes (dalles et prédalles +30,
+poutre +70, code commun +61) : ce que la règle ajoute — le détail de chaque axe dans la fenêtre de calcul, la position
+réelle et l'axe de calcul de chaque couche, la relecture des anciennes notes, le cran des flèches, l'import Streamlit de
+la poutre corrigé — pèse plus que ce qu'elle retire (les deux comparaisons ancienne/nouvelle règle, `chiffres_changes`,
+l'ancienne fonction d'axe). La baisse attendue viendra du rangement des moteurs (une lecture des matériaux, un dessin
+commun dalle/prédalle), reporté à un lot suivant (`SUITE_DU_CHANTIER.md`). L'écart se lit depuis la mesure de départ.
+
+| Module | Lignes de code | Avec commentaires | Fichiers | Écart depuis le 2026-11-13 (avant l'unification (poutre, dalle, prédalle)) |
+|---|---:|---:|---:|---:|
+| Poutres béton armé | 3 688 | 5 324 | 13 | +70 |
+| Dalles et prédalles | 4 461 | 6 850 | 20 | −558 |
+| Charges sur plancher | 4 608 | 6 120 | 20 | — |
+| Fondations de grues | 5 307 | 6 990 | 19 | — |
+| Taux d'armature | 2 263 | 3 176 | 9 | — |
+| Enrobage | 1 076 | 1 526 | 7 | — |
+| Maturité du béton | 3 007 | 4 214 | 10 | — |
+| Tableau des armatures | 903 | 1 282 | 6 | — |
+| Données béton | 1 151 | 1 617 | 10 | — |
+| Choix de profilé | 1 453 | 1 999 | 7 | — |
+| Catalogue des profilés | 2 085 | 2 918 | 8 | — |
+| Cornières | 2 902 | 4 228 | 8 | — |
+| Flambement | 1 311 | 1 807 | 8 | — |
+| Assemblages métalliques | 18 397 | 25 054 | 97 | — |
+| Soudures | 3 771 | 4 934 | 13 | — |
+| Garde-corps | 3 032 | 3 983 | 11 | — |
+| Poutres bois | 1 828 | 2 712 | 9 | — |
+| Rigidité du sol | 3 228 | 4 404 | 8 | — |
+| Bibliothèques (béton, acier, autres) | 5 648 | 7 308 | 23 | — |
+| Code commun (écran, note PDF, construction) | 14 973 | 20 272 | 69 | +47 |
+| **Total du site** | **85 092** | **116 718** | **375** | **−441** |
+| Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
+| Tests (hors site) | 66 171 | 81 161 | 147 | −392 |
