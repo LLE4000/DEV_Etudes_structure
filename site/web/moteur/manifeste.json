@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "9a34026aa9451ae2ffc0b676d8a7b5e9d5051178132e4ea810f78a9ff6fd884c",
+ "sha256": "35bbfd40e2372780a0be33ce3e32f37b8bf2024913b0b68f5db40d23ce0126f8",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -195,7 +195,6 @@
   "api_web/note_cas.py",
   "api_web/note_corniere.py",
   "api_web/note_dalle.py",
-  "api_web/note_dalle_planche.py",
   "api_web/note_fondation_grue.py",
   "api_web/note_poutre.py",
   "api_web/parcours.py",
@@ -321,8 +320,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "b71d0b47c565f5a8024208386199a8175b5f3bdf5124431ad205a14a0c423759",
-  "octets": 2228360,
+  "sha256": "0fcadbb84786bfb9eaa1bd87ba00d43cb4fc562b4f9960edc4e7b369d2ba7e88",
+  "octets": 2227497,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -349,7 +348,7 @@
   "bois": "8f2ad99577d68381",
   "catalogue": "3ffa4b30b8ac00ba",
   "corniere": "8a7ec359d7b0851c",
-  "dalle": "6aaa9aa31b1d3b72",
+  "dalle": "ef14c80ba81604de",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "b4e677fb81276534",
@@ -362,5 +361,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "710a2a00b5669ffe"
+ "version": "0e17b48dd9e8fdb7"
 }

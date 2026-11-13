@@ -686,7 +686,8 @@ def _comparaison(v: Dict, s: Dict):
     """(valeur, limite) de la vérification, en HTML : « 541 mm² » face à « A_s = 785 mm² »."""
     g, N = s["grandeurs"], C.NBSP
     if v["cle"] == "hauteur":
-        return _egal("h<sub>min</sub>", f"{_n(g['h_min'], 'cm')}{N}cm"), _egal("h", f"{C.nb(g['h'])}{N}cm")
+        # (DAL8 : la part calculée + l'enrobage, « h_min = 12,6 + 3,5 = 16,1 cm » — plaque_compact.valeur_hauteur)
+        return PC.valeur_hauteur(sys.modules[__name__], v), _egal("h", f"{C.nb(g['h'])}{N}cm")
     if v["cle"] == "tau":
         return (_egal("τ", f"{_n(g['tau'], 'N/mm²')}{N}N/mm²"),
                 _egal("τ<sub>adm,I</sub>", f"{_n(g['tau_adm'], 'N/mm²')}{N}N/mm²"))

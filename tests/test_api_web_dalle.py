@@ -167,6 +167,43 @@ cmp_ = CMP.findall(r["resultat"])
 chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,néc = 770 ≤ A_s = 1 124 mm² »",
     cmp_[1][1] == "Inférieure Y" and cmp_[1][2] == "A<sub>s,néc</sub>{0}={0}770 ≤ A<sub>s</sub>{0}={0}{1}{0}mm²".format(
         C.NBSP, P._n(ref["sections"][0]["faces"]["inf_y"]["As"], "mm²")), cmp_[1])
+# DAL8 (le propriétaire, 13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : la
+# ligne Hauteur détaille h_min = h_u,min + y_G — les grandeurs du moteur, écrites comme la fenêtre de calcul — pour la
+# dalle et pour la prédalle (plaque_compact.valeur_hauteur, une source)
+N_ = C.NBSP
+
+
+def ligne_hauteur(g_):
+    return (f"h<sub>min</sub>{N_}={N_}{P._n(g_['hu_min'], 'cm')}{N_}+{N_}{P._cm(g_['yG_hauteur'])}{N_}={N_}"
+            f"{P._n(g_['h_min'], 'cm')}{N_}cm ≤ h{N_}={N_}{C.nb(g_['h'])}{N_}cm")
+
+
+def lignes_hauteur(etat_):
+    """(la ligne Hauteur de chaque section à l'écran, celle qu'on attend des grandeurs du moteur)."""
+    r_ = P.resultat(copy.deepcopy(etat_))
+    vues = [c_ for _, nom_, c_ in CMP.findall(r_["resultat"]) if nom_ == "Hauteur"]
+    return vues, [ligne_hauteur(s_["grandeurs"]) for s_ in P._calculer(etat_["dalles"][etat_["actif"]])["sections"]]
+
+
+vues_h, attendues_h = lignes_hauteur(etat)
+e_pd = copy.deepcopy(etat)
+assert P.modifier(e_pd, ["type"], "predalle") is None
+vues_p, attendues_p = lignes_hauteur(e_pd)
+somme_juste = all(abs(float(a.replace(",", ".")) + float(b.replace(",", ".")) - float(c_.replace(",", "."))) <= 0.11
+                  for v_ in vues_h + vues_p
+                  for a, b, c_ in re.findall(r"=\xa0([\d,]+)\xa0\+\xa0([\d,]+)\xa0=\xa0([\d,]+)\xa0cm", v_))
+chk("DAL8 : la ligne Hauteur détaille la part calculée et l'enrobage, h_min = h_u,min + y_G (une dalle de 20 cm et M_y,inf = "
+    "35 kN·m : « h_min = 12,6 + 3,5 = 16,1 cm ≤ h = 20 cm ») — les grandeurs du moteur, écrites comme la fenêtre de calcul, "
+    "dalle et prédalle, chaque section ; la somme lue tombe juste",
+    vues_h == attendues_h and vues_p == attendues_p and len(vues_h) == 2 and len(vues_p) == 2 and somme_juste
+    and all(" + " in v_.replace(N_, " ") for v_ in vues_h + vues_p), (vues_h, attendues_h, vues_p))
+vrai_vh = PC.valeur_hauteur
+PC.valeur_hauteur = lambda M_, v_: f"h<sub>min</sub>{N_}={N_}{M_._n(v_['valeur'], 'cm')}{N_}cm"     # la somme seule (avant DAL8)
+try:
+    mut_h = lignes_hauteur(etat)
+finally:
+    PC.valeur_hauteur = vrai_vh
+chk("mutation · la ligne Hauteur réduite à la somme (avant DAL8) : le contrôle rougit", mut_h[0] != mut_h[1], mut_h[0][:1])
 chk("un bloc par section, coloré par son état, titré par sa section : A et B conformes",
     BLOC.findall(r["resultat"]) == [("ok", "0", "Section A", "Conforme"), ("ok", "1", "Section B", "Conforme")], BLOC.findall(r["resultat"]))
 # (13/11/2026 : « éviter de proposer à nouveau l'édition des armatures dans les résultats » — la nappe y est NOMMÉE, en

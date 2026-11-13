@@ -18,20 +18,19 @@ par « ycdg » (« ycdg_auto » vrai sinon). Le calcul de la planche est alors c
 axes (``tests/test_note_dalle.py`` le prouve cas par cas, et ``ecarts`` le revérifie à chaque note : un écart lève,
 la note ne sort pas).
 
-CE QUE LE SITE ÉCRIT LUI-MÊME (le générateur donne la coupe et les chiffres ; la planche est celle du site) :
-- le CONTENU de la planche (lot DAL6, demande du propriétaire du 13/11/2026, point 8 — ``api_web/note_dalle_planche``) :
-  l'en-tête compact sous le titre (la dalle, le béton, l'acier, « Non vérifié(e)s : … » en une phrase), les
-  sollicitations en tableau, la hauteur minimale DÉTAILLÉE, les sections minimale et maximale communes calculées une
-  fois, les nappes avec leur armature posée en résultat, l'effort tranchant — composés des grandeurs que le moteur du
-  site nomme. Le bloc « Observations » du panneau de gauche n'existe plus : les avertissements de l'écran (rares)
-  s'écrivent en fin de planche, seulement s'il y en a ;
+CE QUE LE SITE AJOUTE À LA PLANCHE (le générateur ne le sait pas) :
 - l'ÉTAT : « Données incomplètes » pour une section sans aucun effort (jamais « Vérifié »), « Non vérifié » / « Vérifié »
   sinon — l'état de l'écran (api_web/plaque_compact.etat_bloc) ;
 - les NIVEAUX DESSINÉS de la coupe : ceux du calcul (le générateur écartait deux axes trop proches pour le dessin —
   ``_coupe_dalle_depuis_R._niveaux`` — et dessinait un renfort, posé dans le plan de sa base, plus haut qu'il n'est
-  compté) ; chaque couche est dessinée à l'axe qui entre dans d, comme sur la coupe de l'écran ; les titres des
-  schémas sont ceux de l'écran (« Direction Y · principale », « Direction X ») et, dans le schéma de la direction
-  secondaire, les fils d'un treillis unique ne répètent pas sa désignation (« fils du treillis », DAL5a).
+  compté) ; chaque couche est dessinée à l'axe qui entre dans d, comme sur la coupe de l'écran ;
+- le VERDICT d'une nappe non conforme alors que A_s ≥ A_s,néc : acier excessif (A_s > A_s,max) ou d utile ≤ 0 — le
+  générateur y écrirait « A_s < A_s,requise », qui est faux ;
+- les OBSERVATIONS : les avertissements que l'écran affiche sous la section (enrobage nul lu 3 cm, nappes au même
+  niveau par un axe saisi, base hors de la prédalle, couches croisées sur la prédalle, d utile ≤ 0) et, une fois par
+  dalle, le périmètre d'une prédalle (ce qui n'est PAS vérifié) — les textes mêmes de l'écran, sans leur balisage ;
+  écrites sous les données du panneau de gauche (la coupe cède, s'il le faut, le juste nécessaire sans descendre sous
+  ``coupe_min``), sinon en fin de planche (la planche, seule, en trois colonnes si elle déborde : ``document``).
 
 Plusieurs dalles : une note, une planche par section, dans l'ordre des dalles. Chaque dalle est traduite à part (γs et
 le jeu sont ceux de la note sur le site, mais une note relue pourrait en porter de différents), puis les planches sont
@@ -56,16 +55,28 @@ ETAT_INCOMPLET = "Données incomplètes"
 PARTIE = "Dalles en béton armé"
 # la tolérance de ``ecarts`` (relative) : les deux calculs font les mêmes opérations sur les mêmes flottants
 TOLERANCE = 1e-9
-# la plus petite coupe à deux schémas dont les textes ne se chevauchent pas — MESURÉ le 09/11/2026 (en réduisant la coupe
-# de 5 en 5 pt jusqu'au premier chevauchement) : 180 à 200 pt pour h = 10 à 15 cm, 225 (20 cm), 240 (30 cm), 245 (40 cm),
-# 260 (50 cm), 280 (60 cm), CSP comme prédalle ; COUPE_MIN = (a, b) par nombre de schémas : a + b·h (h en cm), au-dessus
-# de chaque mesure d'au moins 10 pt. Depuis DAL6 (13/11/2026) le panneau de gauche ne porte plus que la coupe et les
-# sollicitations : la coupe garde toute sa hauteur (``Style.coupe_h``), au-dessus de COUPE_MIN pour h ≤ 60 cm —
-# tests/test_note_dalle.py le revérifie (h de 12 à 60 cm, aucun texte de la coupe n'en chevauche un autre).
+TITRE_OBSERVATIONS = "Observations"
+# les OBSERVATIONS s'écrivent sous les données du panneau de gauche ; quand la place y manque, la coupe cède le juste
+# nécessaire, sans descendre sous ``coupe_min`` ; au-delà, elles passent en fin de planche (``_observations_en_colonnes``).
+# MESURÉ le 09/11/2026 (en réduisant la coupe de 5 en 5 pt jusqu'au premier chevauchement de deux de ses textes) : la plus
+# petite coupe à deux schémas sans chevauchement fait 180 à 200 pt pour h = 10 à 15 cm, 225 (20 cm), 240 (30 cm), 245
+# (40 cm), 260 (50 cm), 280 (60 cm), CSP comme prédalle — sous elle, l'étiquette de la nappe supérieure monte sur la
+# ligne du titre de son schéma (« filants : dir. Y »). COUPE_MIN = (a, b) par nombre de schémas : a + b·h (h en cm),
+# au-dessus de chaque mesure d'au moins 10 pt ; tests/test_note_dalle.py le revérifie (h de 12 à 60 cm).
 COUPE_MIN = {1: (110.0, 0.75), 2: (205.0, 1.5)}
-# la hauteur demandée pour la coupe (pt) : la place que l'en-tête compact et le tableau des sollicitations laissent dans le
-# panneau de gauche — le kit la borne à ce qui reste au-dessus de la réserve du panneau (``styles.planche``)
-COUPE_H = 400.0
+TETE_OBSERVATIONS = 17.0      # pt : le titre « OBSERVATIONS » et son filet, au-dessus du texte
+ECART_OBSERVATIONS = 2.5      # pt : entre deux observations
+INTERLIGNE = 1.32             # l'interligne des paragraphes du kit (Doc.para)
+MARGE_PANNEAU = 2.0           # pt : la dernière ligne au-dessus de la marge de la page (le panneau descend à marge − 4)
+CLE_HC = "hauteur_coupe"      # la hauteur de la coupe à la dernière construction (pt)
+# la place des étiquettes à droite de la coupe : celle que ndc_pdf/styles.planche donne à draw_section (label_w=96) —
+# le dessinateur des planches qui ont des observations dessine la même coupe (tests/test_note_dalle.py le compare)
+LARGEUR_ETIQUETTES = 96
+# les deux retouches du propriétaire (13/11/2026) sur la planche du générateur : le symbole d'une ligne clé-valeur collé à
+# sa valeur (``Style.sym_col_v`` : 1.0, au lieu de 0,52 de la colonne) ; les lignes d'une accolade sans alignement
+# des « = » (``Style.cases_align``)
+SYMBOLE_COLLE = 1.0
+EGALITES_ALIGNEES = False
 
 
 def _beton() -> Dict:
@@ -136,15 +147,19 @@ def _messages(fragment: str) -> List[str]:
     return [_texte(m) for m in re.findall(r'<div class="msg[^"]*">(.*?)</div>', fragment, flags=re.S)]
 
 
-def avertissements(d: Dict, r: Dict, i: int) -> List[str]:
-    """Les AVERTISSEMENTS que l'écran affiche sous la section ``i`` (ceux du type : api_web/dalle._avertissements_de) ;
-    sur la première planche de la dalle, ceux de la dalle entière (sans section) — les textes de l'écran, sans balisage.
-    Ce qui n'est pas vérifié n'en est plus (DAL6) : une phrase dans l'en-tête de chaque planche
-    (``note_dalle_planche.entete``, ``api_web/dalle.non_verifies``)."""
+def observations(d: Dict, r: Dict, i: int) -> List[str]:
+    """Ce que l'écran affiche sous la section ``i`` en plus des vérifications : ses avertissements (ceux du type :
+    api_web/dalle._avertissements_de) ; sur la première planche de la dalle, ceux de la dalle entière (sans section)
+    puis le périmètre du type (ce qui n'est pas vérifié : la prédalle, et depuis le 10/11/2026 la dalle coulée en place,
+    api_web/dalle.texte_perimetre) — l'écran le dit une fois, sous le résultat de la dalle. Les textes de l'écran, sans
+    balisage."""
     from . import dalle as DL
     out = _messages(DL._avertissements_de(d, r, i))
     if i == 0:                           # ce qui vaut pour toute la dalle : une fois, sur sa première planche
         out += _messages(DL._avertissements_de(d, r))
+        perimetre = DL.texte_perimetre(d)
+        if perimetre:
+            out.append(_texte(perimetre))
     return out
 
 
@@ -218,8 +233,8 @@ def ecarts(R: Dict, rs: Dict) -> List[Tuple]:
 def resultats(etat: Dict) -> List[Dict]:
     """Les planches de la note (les payloads de ``ndc_pdf.data.construire_sections_dalle``) : celles du PDF Streamlit,
     une par section de chaque dalle, complétées de ce que l'écran dit (« site » : la section calculée par le moteur du
-    site, l'état, les avertissements ; « etat_dalle », « indice » : la dalle du site et le rang de sa section). Lève
-    ValueError si une planche ne dit pas les chiffres de l'écran (``ecarts``) : la note ne sort pas."""
+    site, l'état, les observations). Lève ValueError si une planche ne dit pas les chiffres de l'écran (``ecarts``) :
+    la note ne sort pas."""
     from modules import export_pdf_dalle as EPD
     from . import dalle as DL
     beton = _beton()
@@ -237,9 +252,8 @@ def resultats(etat: Dict) -> List[Dict]:
                 raise ValueError(f"La note PDF ne dirait pas les chiffres de l'écran pour « {d['nom']} · {rs['titre']} » "
                                  f"({nom} : {a!r} dans la note, {b!r} à l'écran) : elle n'est pas produite.")
             pl["site"] = rs
-            pl["etat_dalle"], pl["indice"] = d, i
             pl["etat_label"] = etat_label(rs)
-            pl["avertissements"] = avertissements(d, r, i)
+            pl["observations"] = observations(d, r, i)
             out.append(pl)
     return out
 
@@ -259,49 +273,99 @@ def _niveaux_du_calcul(coupe: Dict, R: Dict) -> None:
                     c_dessin["e"] = float(c["e"]) * 10.0
 
 
-class Panneau(list):
-    """Le panneau de gauche d'une planche, sous la coupe : les SOLLICITATIONS de la section en tableau
-    (``note_dalle_planche.sollicitations``). Pour le kit, une liste d'un bloc de quatre lignes (sa réserve de place sous
-    la coupe : ``styles.planche``) ; ``_style`` le dessine (``_ecrire_sollicitations``). DIMENSIONS et MATÉRIAUX n'y sont
-    plus : l'en-tête compact de la planche les dit une fois (DAL6)."""
-    def __init__(self, sollicitations: Dict):
-        super().__init__([(sollicitations["titre"], [None] * 4)])
-        self.sollicitations = sollicitations
+def _verdict_site(v_pdf: Dict, v: Dict, rs: Dict) -> None:
+    """Le verdict d'une nappe que le moteur déclare non conforme pour une raison que « A_s ≥ A_s,néc » ne dit pas : acier
+    excessif (A_s couvre A_s,néc), ou d ≤ 0 QUEL QUE SOIT le taux — la comparaison qui la rend non conforme, comme
+    l'écran (api_web/dalle._verdict). (13/11/2026 : « d ≤ 0 » n'est plus répété dans les observations, l'écran le dit
+    dans la ligne de la face ; au-delà de 100 %, le verdict disait seulement « A_s < A_s,néc » — la raison n'était que
+    dans l'observation.)"""
+    from ndc_pdf import data as ND
+    if v["etat"] != MO.NOK or (v["taux"] > 1 and "d_utile_negatif" not in v["motifs"]):
+        return
+    cote, dk = v["cle"].split("_")
+    face = "inférieure" if cote == "inf" else "supérieure"
+    if "acier_excessif" in v["motifs"] and v["taux"] <= 1:
+        txt = (f"Section d'armature {face} {dk.upper()} : {ND.fn(v['limite'], 0)} mm² > section d'armature maximale : "
+               f"{ND.fn(v['As_max'], 0)} mm² (acier excessif)")
+    elif "d_utile_negatif" in v["motifs"]:
+        d_u = rs["grandeurs"]["d_" + v["cle"]]
+        txt = (f"Hauteur utile {face} {dk.upper()} : d = {ND.fn(d_u, 1)} cm ≤ 0 — position des couches incompatible avec "
+               "l'épaisseur")
+    else:
+        return
+    v_pdf["verdicts"] = [dict(etat="ko", texte=ND._unites_insecables(txt))]
 
 
-def _ecrire_sollicitations(d, S, x: float, y: float, w: float, so: Dict) -> float:
-    """Le tableau des sollicitations sous la coupe, à partir de ``y`` : un titre comme les blocs du kit, puis une ligne par
-    direction (M⁺ · inf. tendue, M⁻ · sup. tendue) et l'effort tranchant — ``kit.table``, textes riches. Rend le bas."""
-    from ndc_pdf.kit import Frame, mix, table
-    fr = Frame(x, y, w, 0)
-    fr.down(9)
-    d.t(fr.x, fr.y, so["titre"].upper(), S.f_v, 6.3, S.acc, track=1.15)
+class _Blocs(list):
+    """Les blocs de données d'une planche (``sec["blocs"]`` : DIMENSIONS, MATÉRIAUX, SOLLICITATIONS), qui portent en
+    plus les OBSERVATIONS de l'écran à écrire dessous (``observations``) — et, après une construction, la place qui leur
+    a manqué (``manque``, pt). Une liste ordinaire pour le kit : ``_data`` la parcourt comme avant."""
+    def __init__(self, blocs=(), observations=()):
+        super().__init__(blocs)
+        self.observations = list(observations)
+        self.manque = 0.0
+
+
+def _hauteur_observations(d, S, textes: List[str], largeur: float) -> float:
+    """La hauteur (pt) des observations repliées dans ``largeur`` : le titre, puis chaque texte."""
+    return TETE_OBSERVATIONS + sum(len(d.wrap(t, S.f_b, S.s_lab, largeur)) * S.s_lab * INTERLIGNE + ECART_OBSERVATIONS
+                                   for t in textes)
+
+
+def _ecrire_observations(d, S, x: float, haut: float, w: float, textes: List[str]) -> None:
+    """Les observations sous les données du panneau de gauche, à partir de ``haut`` : un titre comme « DIMENSIONS »,
+    puis chaque texte replié dans la largeur du panneau."""
+    from ndc_pdf.kit import Frame, mix
+    fr = Frame(x, haut, w, 0)
+    fr.down(12)
+    d.t(fr.x, fr.y, TITRE_OBSERVATIONS.upper(), S.f_v, 6.3, S.acc, track=1.15)
     fr.down(3)
     d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.12), 0.5)
-    fr.down(11)
-    largeurs = (0.30 * w, 0.35 * w, 0.35 * w)
-    cols = [(ent, lg, "left" if k == 0 else "right") for k, (ent, lg) in enumerate(zip(so["entetes"], largeurs))]
-    lignes = [[("lab", dk), ("num", f"{m_inf} kNm"), ("num", f"{m_sup} kNm")] for dk, m_inf, m_sup in so["lignes"]]
-    lignes.append([("lab", "Effort tranchant $V$"), ("num", f"{so['V']} kN"), ("lab", "")])
-    return table(d, fr, cols, lignes, S, 7.4, 11.0, s_ent=6.0, ms=S._ms_col)
+    for t in textes:
+        fr.down(ECART_OBSERVATIONS)
+        d.para(fr, t, S.f_b, S.s_lab, S.ink, lead=INTERLIGNE)
 
 
 def _style(n_cols: int):
     """Le style de la note : celui du générateur (``export_pdf._style_ndc`` : la palette, le repli en trois colonnes),
-    dont le panneau de gauche, sous la coupe, dit les sollicitations en tableau (``Panneau``). Hériter du style est
-    l'extension du kit : le kit ne change que par ses extensions rétro-compatibles (l'en-tête compact, ``Style.entete``)."""
+    dont les DONNÉES du panneau de gauche (``_data``) sont suivies des observations de l'écran, quand la planche en a
+    (``_Blocs.observations``) et que la place, sous les données, les contient ; sinon la place qui manque est notée
+    (``_Blocs.manque``) et rien n'est écrit — ``document`` fait alors de la place (la coupe moins haute) ou reporte les
+    observations en fin de planche. Hériter du style est l'extension du kit : ni le kit ni le générateur ne changent."""
     from modules import export_pdf as EP
     base = EP._style_ndc(n_cols)
 
     class StyleNote(type(base)):
+        # le propriétaire, 13/11/2026 (« je préférais l'ancienne note », deux retouches) : le symbole d'une ligne
+        # « Moment inférieur Y  M_y,inf  35,0 kNm » collé à sa valeur (le kit le pose au milieu de la colonne), et chaque
+        # ligne de l'accolade « A_s,min = max { … } » avec son « = » à côté de son calcul (le kit les aligne tous)
+        sym_col_v = SYMBOLE_COLLE
+        cases_align = EGALITES_ALIGNEES
+
         def _data(self, d, ms, x, y, w, blocs, *a, **k):
-            so = getattr(blocs, "sollicitations", None)
-            if so is None:
-                return super()._data(d, ms, x, y, w, blocs, *a, **k)
-            return _ecrire_sollicitations(d, self, x, y, w, so)
+            bas = super()._data(d, ms, x, y, w, blocs, *a, **k)
+            textes = getattr(blocs, "observations", None)
+            if textes:
+                besoin = _hauteur_observations(d, self, textes, w)
+                place = bas - (self.margin + MARGE_PANNEAU)
+                blocs.manque = max(0.0, besoin - place)
+                if not blocs.manque:
+                    _ecrire_observations(d, self, x, bas, w, textes)
+            return bas
     s = StyleNote()
     s.n_cols = base.n_cols
     return s
+
+
+def _hauteur_coupe(sec: Dict):
+    """Le dessinateur du panneau de gauche (l'extension ``sec["dessin"]`` du kit) d'une planche qui a des observations :
+    la coupe telle que le kit la dessine (``draw_section``, ``LARGEUR_ETIQUETTES``), sa hauteur notée (``CLE_HC``) —
+    pour la réduire, s'il le faut, du juste nécessaire."""
+    def dessin(d, x, y, w, h, S):
+        from ndc_pdf import styles as STY
+        sec[CLE_HC] = h
+        STY.draw_section(d.c, x, y, w, h, sec["coupe"], S.sec_style(), label_w=LARGEUR_ETIQUETTES)
+    return dessin
 
 
 def coupe_min(sec: Dict) -> float:
@@ -311,107 +375,95 @@ def coupe_min(sec: Dict) -> float:
     return a + b * float(sec["coupe"]["h"]) / 10.0
 
 
-# les titres des vérifications d'une planche en TROIS colonnes, dits plus court pour y tenir (la colonne fait 143 pt) :
-# rien ne se perd — le titre garde la face, la direction et son rôle
+# les titres des vérifications d'une planche en TROIS colonnes : ceux du générateur n'y tiennent pas (« Armatures
+# supérieures — direction principale » fait 160 pt au plus petit corps du kit, la colonne 123) ; dits plus court, sans
+# rien perdre (le premier élément de chaque vérification nomme encore la face et la direction : « Moment supérieur Y »)
 TITRES_COURTS = (("Armatures inférieures", "Armatures inf."), ("Armatures supérieures", "Armatures sup."),
-                 ("Sections d'acier minimale et maximale", "Acier minimal et maximal"))
-
-
-def forme_courte(expr: str) -> str:
-    """La forme courte d'une formule « symbole = expression en symboles = substitution = résultat » : sans l'expression en
-    symboles (« A_s,req = 35·10⁶ / (333,3 · 0,9 · 165) = 707 mm² ») — pour une planche en trois colonnes ; une formule
-    plus courte, ou qui commence par « = », reste telle quelle."""
-    parts = expr.split(" = ")
-    if len(parts) >= 4 and parts[0].strip():
-        return " = ".join([parts[0]] + parts[2:])
-    return expr
+                 (" — direction principale", " — principale"), (" — direction secondaire", " — secondaire"))
 
 
 def _trois_colonnes(sec: Dict) -> None:
     """Une planche qui déborde en deux colonnes passe, seule, en trois (``sec["n_cols"]``, l'extension du kit), ses
-    titres raccourcis (TITRES_COURTS), les formules dans leur forme courte (le 4ᵉ élément d'une ligne « f » quand
-    ``note_dalle_planche`` en donne une, sinon ``forme_courte``), les lignes en gras dans la leur (le 3ᵉ élément d'une ligne
-    « t ») — la colonne fait 143 pt."""
+    titres raccourcis (TITRES_COURTS)."""
     sec["n_cols"] = 3
     for v in sec["verifs"]:
         for long_, court in TITRES_COURTS:
             v["titre"] = v["titre"].replace(long_, court)
-        items = []
-        for it in v["items"]:
-            if it[0] == "f":
-                items.append((it[0], it[1], it[3] if len(it) > 3 else forme_courte(it[2])))
-            elif it[0] == "t" and len(it) > 2:      # une ligne en gras : sa forme en trois colonnes (une ligne, ou repliée)
-                items += [("t", it[2])] if isinstance(it[2], str) else list(it[2])
-            else:
-                items.append(it)
-        v["items"] = items
 
 
-def _titres_coupe(coupe: Dict, principale: str) -> None:
-    """Les titres des schémas de la coupe, ceux de l'écran (DAL5a) : « Direction Y · principale », « Direction X » ; un
-    seul schéma (directions identiques) : « Directions Y et X (identiques) · principale Y »."""
-    p, s = principale.upper(), MO.direction_secondaire(principale).upper()
-    sch = coupe["schemas"]
-    if len(sch) == 1:
-        sch[0]["titre"] = f"Directions {p} et {s} (identiques) · principale {p}"
-    else:
-        sch[0]["titre"], sch[1]["titre"] = f"Direction {p} · principale", f"Direction {s}"
-
-
-def _treillis_une_fois(coupe: Dict, d: Dict, s: Dict, principale: str) -> None:
-    """Dans le schéma de la direction SECONDAIRE, les fils d'un treillis unique ne répètent pas sa désignation, que le
-    schéma principal donne déjà (point 4 du propriétaire, DAL5a sur l'écran) : « Inf. X : fils du treillis », avec la
-    section de ses fils (mm²/m), qui reste propre à la direction."""
-    if len(coupe["schemas"]) < 2:
-        return
-    sec_ = coupe["schemas"][1]
-    q = MO.direction_secondaire(principale).upper()
-    for cote in ("inf", "sup"):
-        labs = sec_.get(f"labs_{cote}") or []
-        if labs and POS.treillis(d, s, cote):
-            labs[0] = (f"{'Inf.' if cote == 'inf' else 'Sup.'} {q} : fils du treillis", labs[0][1])
+def _observations_en_colonnes(sec: Dict) -> None:
+    """Le repli : les observations en fin de planche, une vérification de plus (du texte, sans verdict) ; la coupe
+    reprend sa hauteur."""
+    textes = list(sec["blocs"].observations)
+    sec["blocs"].observations = []
+    sec.pop("coupe_h", None)
+    sec["verifs"].append(dict(num=len(sec["verifs"]) + 1, titre=TITRE_OBSERVATIONS,
+                              items=[("p", t) for t in textes], verdicts=[]))
 
 
 def sections(etat: Dict) -> List[Dict]:
-    """Les planches mises en forme : la coupe du générateur (``construire_sections_dalle`` : ses niveaux remplacés par
-    ceux du calcul, ses titres par ceux de l'écran, le treillis nommé une fois) ; le CONTENU du site
-    (``note_dalle_planche``) — l'en-tête compact, les sollicitations en tableau, les vérifications détaillées, les
-    avertissements s'il y en a ; l'état de l'écran."""
+    """Les planches mises en forme (``construire_sections_dalle``), complétées : l'état de l'écran, les niveaux du
+    calcul sur la coupe, le verdict d'une nappe non conforme sous 100 %, les observations de l'écran (sous les données
+    du panneau de gauche : ``sec["blocs"].observations``)."""
     from ndc_pdf import data as ND
-    from . import note_dalle_planche as NP
     planches = resultats(etat)
     out = ND.construire_sections_dalle(planches)
     for sec, pl in zip(out, planches):
-        rs, d, i = pl["site"], pl["etat_dalle"], pl["indice"]
-        p = pl["R"]["principale"]
+        rs = pl["site"]
         sec["etat"] = pl["etat_label"]
         _niveaux_du_calcul(sec["coupe"], pl["R"])
-        _titres_coupe(sec["coupe"], p)
-        _treillis_une_fois(sec["coupe"], d, d["sections"][i], p)
-        sec["entete"] = NP.entete(d, rs)
-        sec["blocs"] = Panneau(NP.sollicitations(rs))
-        sec["coupe_h"] = COUPE_H
-        sec["verifs"] = NP.verifications(d, i, rs, pl["avertissements"])
+        # les vérifications 2 à 5 de la planche : les quatre nappes dans l'ordre du générateur (principale puis
+        # secondaire, en bas puis en haut) — celui de l'écran, MO.ordre_faces
+        par_cle = {v["cle"]: v for v in rs["verifications"]}
+        for v_pdf, f in zip(sec["verifs"][1:5], MO.ordre_faces(pl["R"]["principale"])):
+            _verdict_site(v_pdf, par_cle[f], rs)
+        sec["blocs"] = _Blocs(sec["blocs"])
+        if pl["observations"]:
+            sec["blocs"].observations = list(pl["observations"])
+            sec["dessin"] = _hauteur_coupe(sec)
     return out
 
 
-def avertissements_de(sec: Dict) -> List[str]:
-    """Les avertissements écrits sur une planche (le bloc « ! » de fin de planche), en texte."""
-    from . import note_dalle_planche as NP
-    return [it[1] for v in sec.get("verifs", []) if v.get("titre") == NP.TITRE_AVERTISSEMENTS for it in v["items"]
-            if it[0] == "p"]
+def observations_de(sec: Dict) -> List[str]:
+    """Les observations d'une planche, où qu'elles soient écrites (sous les données, ou en fin de planche)."""
+    textes = list(getattr(sec.get("blocs"), "observations", []) or [])
+    for v in sec.get("verifs", []):
+        if v.get("titre") == TITRE_OBSERVATIONS:
+            textes += [it[1] for it in v["items"] if it[0] == "p"]
+    return textes
 
 
 # ------------------------------------------------------------------ le document
 def document(etat: Dict, infos: Optional[Dict], chemin: str):
     """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` (même
-    construction, même repli en trois colonnes si une planche déborde). ``d.warnings`` : ce qui déborde encore ;
-    ``d.colonnes`` : 2, ou 3 quand une planche au moins a dû passer en trois colonnes ; ``d.trois_colonnes`` : celles
-    qui sont, seules, en trois colonnes."""
+    construction, même repli en trois colonnes si une planche déborde). Les observations d'une planche s'écrivent sous
+    ses données ; quand la place manque, la coupe cède le juste nécessaire tant qu'elle garde COUPE_MIN (ses étiquettes
+    ne se chevauchent pas), sinon elles passent en fin de planche. ``d.warnings`` : ce qui déborde encore ;
+    ``d.colonnes`` : 2, ou 3 quand une planche au moins a dû passer en trois colonnes ; ``d.replis`` : les planches
+    dont les observations sont en fin de planche ; ``d.coupes_reduites`` : celles dont la coupe a cédé de la place ;
+    ``d.trois_colonnes`` : celles qui sont, seules, en trois colonnes."""
     from ndc_pdf import data as ND
     secs = sections(etat)
     doc_meta = ND.construire_doc(infos or {}, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     d = _style(2).build(chemin, sections=secs, doc=doc_meta)
+    reduites, replis = 0, 0
+    for sec in secs:
+        manque = sec["blocs"].manque
+        if not manque:
+            continue
+        if sec[CLE_HC] - manque - 1.0 >= coupe_min(sec):
+            sec["coupe_h"] = sec[CLE_HC] - manque - 1.0
+            reduites += 1
+        else:
+            _observations_en_colonnes(sec)
+            replis += 1
+    if reduites or replis:
+        d = _style(2).build(chemin, sections=secs, doc=doc_meta)
+        for sec in secs:                 # (une coupe réduite fait toujours la place : par sûreté, le repli)
+            if sec["blocs"].manque and sec["blocs"].observations:
+                _observations_en_colonnes(sec)
+                replis += 1
+                d = _style(2).build(chemin, sections=secs, doc=doc_meta)
     d.colonnes = 2
     trois = [sec for sec in secs if any(w.startswith(f"{sec['poutre']} — {sec['section']} :") for w in d.warnings)]
     if trois:                            # la planche qui déborde (seule) en trois colonnes, ses titres raccourcis
@@ -422,7 +474,7 @@ def document(etat: Dict, infos: Optional[Dict], chemin: str):
     if d.warnings:                       # le repli du générateur : toute la note en trois colonnes
         d = _style(3).build(chemin, sections=secs, doc=doc_meta)
         d.colonnes = 3
-    d.trois_colonnes = len(trois)
+    d.replis, d.coupes_reduites, d.trois_colonnes = replis, reduites, len(trois)
     return d
 
 

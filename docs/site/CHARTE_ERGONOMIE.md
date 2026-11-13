@@ -24,6 +24,13 @@ la disposition change d'un format à l'autre.*
 | E11 | **Les options** : la méthode en une ligne ; chaque réglage avec une infobulle courte ; un réglage commun à la note reste dans les options de la note. | DAL1 | dalle, prédalle | les autres modules |
 | E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle | poutre (son en-tête répète ses aciers et ses étriers), les autres dessins |
 
+### Décidé le 13/11/2026 — la note PDF et la ligne Hauteur
+
+- La note PDF de la dalle garde sa mise en page (« je préférais l'ancienne note ») : symbole d'une ligne clé-valeur
+  collé à sa valeur, « = » d'une accolade à côté de leur calcul — `DALLES_FUSION.md` § 8.8.
+- À l'écran, une somme se DÉTAILLE dans la colonne des résultats : « h_min = 12,6 + 3,5 = 16,1 cm ≤ h » (la part
+  calculée + l'enrobage) — dalle et prédalle ; la poutre, si le propriétaire le veut.
+
 ## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
 
 Le propriétaire donnera les pas ; ceux-ci sont la proposition de départ.

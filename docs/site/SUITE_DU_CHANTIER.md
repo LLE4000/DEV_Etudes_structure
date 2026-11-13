@@ -779,11 +779,10 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
 - **DAL5c — Monter, descendre une couche** : ▲▼ de 0,5 cm collées au champ de l'axe (44 px au doigt), et sur le dessin
   la barre de la couche choisie (son axe, ▲ ▼ ↺) ; un pas qui traverserait une autre couche ou l'enrobage est refusé, le
   message dit pourquoi ; les fils soudés d'un treillis suivent ses fils porteurs.
-- **DAL6 — La note PDF** (`DALLES_FUSION.md` § 8.8) : la page de garde intacte ; sous le titre de chaque planche, un
-  en-tête compact (la dalle, le béton, l'acier, « Non vérifié(e)s : … ») ; la hauteur minimale détaillée (la formule, les
-  valeurs, le résultat, l'enrobage mécanique décomposé, h_min ≤ h et le taux) ; les sections minimale et maximale une
-  fois ; les armatures posées en résultat (« 785 mm² posés ≥ 707 mm² requis — taux 90 % ») ; plus de bloc
-  « Observations » — les avertissements rares en fin de planche, seulement s'il y en a. Le calcul ne change pas.
+- **La note PDF reste celle d'avant** (`DALLES_FUSION.md` § 8.8) : refaite le 13/11 (DAL6) sur un malentendu, remise le
+  même jour à la demande du propriétaire, avec deux retouches — le symbole du moment collé à sa valeur, les « = » de
+  « Section d'acier min » à côté de leur calcul. Ce qu'il voulait : à l'écran, la ligne Hauteur détaillée (DAL8 :
+  « h_min = 12,6 + 3,5 = 16,1 cm ≤ h = 20 cm », la part calculée + l'enrobage).
 - **Décidé le 13/11/2026** : les flèches de pas, variante B (discrète), partout où l'on saisit une dimension, le même style
   dans toute l'application ; les pas donnés par le propriétaire (« une poutre, plutôt du 5 cm ; un enrobage, du 1 cm ») —
   `docs/site/CHARTE_ERGONOMIE.md` (E9 et § 2). La position verticale des armatures (lot 5) : niveaux par défaut, puis

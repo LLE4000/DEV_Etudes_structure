@@ -5380,7 +5380,8 @@ const principal = async () => {
     // Le chip du verdict arrondit η à l'unité (commun.pct) ; une note qui imprime η à la décimale (les cornières :
     // « η max 95,8 % ») le porte à la précision du chip — son η max est à moins d'une unité du chip (10/11/2026)
     const CHIFFRES = [
-      ['h min', /hmin\s*=\s*(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
+      // (DAL8, 13/11/2026 : la dalle détaille « hmin = 12,6 + 3,5 = 16,1 cm » — on lit la somme, le dernier membre)
+      ['h min', /hmin\s*=\s*(?:[\d,]+\s*\+\s*[\d,]+\s*=\s*)?(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s', /As\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['η', /η\s*(\d+)\s*%/, (v) => `${v} %`],
     ];

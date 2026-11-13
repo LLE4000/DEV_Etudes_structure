@@ -35,6 +35,9 @@ class Style:
     m_var, m_rom, m_res = "Carlito-Italic", "Carlito", "Carlito-Bold"
     frac, cases, tight, cases_align = "inline", "rule", 0.88, True
     min_form = 6.0
+    # la place du symbole d'une ligne clé-valeur des vérifications (« Moment inférieur Y  M_y,inf  35,0 kNm »), en
+    # fraction de la colonne ; 1.0 : collé à sa valeur (la note des dalles, 13/11/2026 — extension rétro-compatible)
+    sym_col_v = 0.52
     # --- corps
     s_form, s_kv, s_lab, s_verd, s_tit = 8.0, 7.8, 6.3, 7.3, 9.8
     # --- grille
@@ -228,10 +231,6 @@ class Style:
             d.t(W - m - wc - 8, y - 16, mat, S.f_v, 8, S.ink, "right")
         d.line(m, y - 28, W - m, y - 28, S.ink, 1.0)
         top = y - 38
-        if sec.get("entete"):
-            # extension rétro-compatible (la note des dalles, 13/11/2026) : l'EN-TÊTE COMPACT de la planche, sous le titre
-            # — sans la clé, la planche est celle d'avant, à l'octet près
-            top = self.entete(d, m, y - 28, W - 2 * m, sec["entete"])
 
         # colonne de gauche : figure puis données, sur fond sobre.
         # Extension rétro-compatible (notes acier) : une section peut fournir
@@ -282,46 +281,6 @@ class Style:
             if f.overflow() > 1.0:
                 d.warnings.append(f"{nom} : {f.overflow():.0f} pt")
         return d
-
-    # ------------------------------------- l'en-tête compact (extension rétro-compatible : la note des dalles)
-    S_ENTETE = 7.6             # le corps des valeurs de l'en-tête compact (pt)
-    S_ENTETE_MIN = 6.4         # … jamais plus petit, même si les cases ne tiennent pas dans la largeur
-    S_ENTETE_TITRE = 6.0       # le corps des titres des cases (petites capitales d'accent)
-    ECART_ENTETE = 22.0        # entre deux cases (un filet fin au milieu)
-
-    def entete(self, d, x, y, w, entete):
-        """L'EN-TÊTE COMPACT d'une planche (``sec["entete"]``), sous le filet du titre ``y`` : des CASES côte à côte
-        (``entete["cases"]`` : (titre, texte riche) — le titre en petites capitales d'accent, le texte dessous, composé
-        par ``riche`` : « $f_{ck}$ = 30 N/mm² »), séparées d'un filet fin, puis une REMARQUE en gris sur une ligne
-        (``entete["note"]``, texte riche, tronqué à la largeur ``w``). Des cases trop larges pour la page s'écrivent plus
-        petit, jamais sous S_ENTETE_MIN. Rend le haut du contenu : le panneau et les colonnes commencent dessous."""
-        from . import riche as RI
-        S = self
-        cases = list(entete.get("cases") or [])
-        size, ecart, st = S.S_ENTETE, S.ECART_ENTETE, S.S_ENTETE_TITRE
-        ms = S._ms_col(S.ink)
-
-        def largeurs(sz):
-            return [max(d.w(t.upper(), S.f_v, st) + 1.15 * len(t), RI.largeur(v, S.f_b, sz, ms)) for t, v in cases]
-        ws = largeurs(size)
-        if cases and sum(ws) + ecart * (len(ws) - 1) > w:
-            size = max(S.S_ENTETE_MIN, size * (w - ecart * (len(ws) - 1)) / sum(ws))
-            ws = largeurs(size)
-        y_t = y - 11.0
-        y_v = y_t - size * 1.5
-        xx = x
-        for k, ((titre, txt), wk) in enumerate(zip(cases, ws)):
-            if k:
-                d.line(xx - ecart / 2, y_t + 6.0, xx - ecart / 2, y_v - 2.5, mix(S.rule, S.ink, 0.10), 0.5)
-            d.t(xx, y_t, titre.upper(), S.f_v, st, S.acc, track=1.15)
-            RI.texte(d, xx, y_v, txt, S.f_b, size, S.ink, ms)
-            xx += wk + ecart
-        bas = y_v if cases else y
-        note = entete.get("note")
-        if note:
-            bas -= size * 1.55
-            RI.texte(d, x, bas, note, S.f_b, size - 0.6, S.mut, S._ms_col(S.mut), width=w)
-        return bas - 12.0
 
     # ---------------------------------------------------------- fragments
     def _data(self, d, ms, x, y, w, blocs, size=7.6, gap=14):
@@ -432,7 +391,7 @@ class Style:
                 place(S.s_kv * 1.45)
                 kv_rows(d, fr, [(it[1], it[2], it[3], it[4])], ms, S.f_b,
                         S.f_v, S.s_kv, S.ink, S.mut, S.rule, mode="flat",
-                        sym_col=0.52, lead=1.45)
+                        sym_col=S.sym_col_v, lead=1.45)
             elif it[0] == "t":
                 place(S.s_kv * 1.5)
                 fr.down(S.s_kv * 1.5)
@@ -454,16 +413,6 @@ class Style:
                 place(n * S.s_lab * 1.32 + 3)
                 fr.down(2)
                 d.para(fr, it[1], S.f_b, S.s_lab, S.mut, lead=1.32)
-            elif it[0] == "r":
-                # paragraphe RICHE : le « p » dont les symboles sont composés (ndc_pdf.riche : « $\alpha_{b}$ ») —
-                # extension rétro-compatible (la note des dalles, 13/11/2026)
-                from . import riche as RI
-                ms_m = S._ms_col(S.mut)
-                n = len(RI.envelopper(it[1], S.f_b, S.s_lab, ms_m, fr.w))
-                place(n * S.s_lab * 1.32 + 5.5)
-                fr.down(2)
-                RI.paragraphe(d, fr, it[1], S.f_b, S.s_lab, S.mut, ms_m, lead=1.32)
-                fr.down(2.5)
             else:
                 k = v["verdicts"][it[1]]
                 n = len(d.wrap(k["texte"], S.f_b, S.s_verd, fr.w - 15))

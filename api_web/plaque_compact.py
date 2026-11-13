@@ -261,6 +261,21 @@ def comparaison(M, v: Dict, s: Dict) -> str:
             f"A<sub>s</sub>{C.NBSP}={C.NBSP}{M._n(v['limite'], 'mm²')}{C.NBSP}mm²{motif}")
 
 
+def valeur_hauteur(M, v: Dict) -> str:
+    """La valeur de la ligne « Hauteur » de la colonne des résultats, la somme DÉTAILLÉE (DAL8 — le propriétaire,
+    13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : « h_min = 12,6 + 3,5 =
+    16,1 cm » — h_u,min (la part calculée) + y_G (l'enrobage mécanique), les termes de la formule « h_min » que le moteur
+    nomme, écrits comme la fenêtre de calcul (``M._n``, ``M._cm``). ``M`` : api_web.dalle ou api_web.predalle. Sans la
+    formule (un moteur qui ne la nommerait pas), la seule somme, comme avant."""
+    N = C.NBSP
+    f = next((f for f in v.get("formules", []) if f["cle"] == "h_min"), None)
+    if f is None:
+        return f"h<sub>min</sub>{N}={N}{M._n(v['valeur'], 'cm')}{N}cm"
+    t = {x["symbole"]: x["valeur"] for x in f["termes"]}
+    return (f"h<sub>min</sub>{N}={N}{M._n(t['hu_min'], 'cm')}{N}+{N}{M._cm(t['yG'])}{N}={N}"
+            f"{M._n(f['resultat'], 'cm')}{N}cm")
+
+
 def piece_courte(v: Dict, s: Dict) -> str:
     """La nappe qu'une vérification de face nomme sur sa ligne 1, à côté de son taux : la désignation courte de sa base
     (« 10/10/100/100 », « Ø10/150 », « 3 Ø12 »), ses renforts ajoutés (« Ø10/150 + 3 Ø12 », « … + 2 renforts »)."""
