@@ -71,9 +71,9 @@ la disposition change d'un format à l'autre.*
   lit (c'était déjà le cas ; le parcours du navigateur le contrôle désormais sur une barre).
 - y_G imposé ne se montre que dès deux lits sur la face, ou imposé (d'un lit seul, y_G est sa position).
 
-## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
+## 2. Les pas des flèches (E9) — confirmés par le propriétaire (13/11/2026)
 
-Le propriétaire donnera les pas ; ceux-ci sont la proposition de départ.
+Confirmés tels quels le 13/11/2026 (« c'est bon comme tu as fait ; dans le pire des cas, on les changera »).
 
 | Grandeur | Pas proposé | Remarque |
 |---|---|---|

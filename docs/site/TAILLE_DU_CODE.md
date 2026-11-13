@@ -115,3 +115,38 @@ commun dalle/prédalle), reporté à un lot suivant (`SUITE_DU_CHANTIER.md`). L'
 | **Total du site** | **85 092** | **116 718** | **375** | **−441** |
 | Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
 | Tests (hors site) | 66 171 | 81 161 | 147 | −392 |
+
+## Mesure du 13/11/2026 — après le lot 4 (commit 3a245b5) : la poutre comme la dalle
+
+La poutre prend l'organisation, les mots et les boutons des dalles (`CHARTE_ERGONOMIE.md` E15). Depuis le lot 3, le site
+gagne **+81** lignes : la poutre +54 (le cadenas et la lecture seule d'une poutre verrouillée, le verrou qui suit ses
+poutres, le tableau des efforts), les dalles −25 et le code commun +52 — les « mots communs du béton armé » écrits une
+fois dans `api_web/etabli_compact.py` (la hauteur détaillée, « A_s,néc ≤ A_s », « A_s néc. » / « A_s posé », les titres
+des efforts, la ligne Méthode, le verrou), que la poutre, la dalle et la prédalle lisent ; les copies des dalles sont
+retirées. La baisse attendue reste celle du rangement des moteurs (lot 7). L'écart se lit depuis la mesure de départ.
+
+| Module | Lignes de code | Avec commentaires | Fichiers | Écart depuis le 2026-11-13 (avant l'unification (poutre, dalle, prédalle)) |
+|---|---:|---:|---:|---:|
+| Poutres béton armé | 3 742 | 5 424 | 13 | +124 |
+| Dalles et prédalles | 4 436 | 6 815 | 20 | −583 |
+| Charges sur plancher | 4 608 | 6 120 | 20 | — |
+| Fondations de grues | 5 307 | 6 990 | 19 | — |
+| Taux d'armature | 2 263 | 3 176 | 9 | — |
+| Enrobage | 1 076 | 1 526 | 7 | — |
+| Maturité du béton | 3 007 | 4 214 | 10 | — |
+| Tableau des armatures | 903 | 1 282 | 6 | — |
+| Données béton | 1 151 | 1 617 | 10 | — |
+| Choix de profilé | 1 453 | 1 999 | 7 | — |
+| Catalogue des profilés | 2 085 | 2 918 | 8 | — |
+| Cornières | 2 902 | 4 228 | 8 | — |
+| Flambement | 1 311 | 1 807 | 8 | — |
+| Assemblages métalliques | 18 397 | 25 054 | 97 | — |
+| Soudures | 3 771 | 4 934 | 13 | — |
+| Garde-corps | 3 032 | 3 983 | 11 | — |
+| Poutres bois | 1 828 | 2 712 | 9 | — |
+| Rigidité du sol | 3 228 | 4 404 | 8 | — |
+| Bibliothèques (béton, acier, autres) | 5 648 | 7 308 | 23 | — |
+| Code commun (écran, note PDF, construction) | 15 025 | 20 398 | 69 | +99 |
+| **Total du site** | **85 173** | **116 909** | **375** | **−360** |
+| Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
+| Tests (hors site) | 66 307 | 81 327 | 147 | −256 |

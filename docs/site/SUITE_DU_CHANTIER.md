@@ -869,7 +869,24 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   profilés (`test_catalogue_moteur.py`, 431 s) n'est rejouée que si on la touche. Le parcours du navigateur : ciblé
   30 à 45 s, complet ≈ 33 min (3 317 contrôles), gardé pour les changements de tout le site. Proposé : suivre
   pdftotext (il ne lit que le PDF du test), puis les suites node.
-- **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
+- ~~**À confirmer par le propriétaire** : les pas proposés des flèches~~ — confirmés le 13/11/2026 (`CHARTE_ERGONOMIE.md`
+  § 2).
+- **Décidé par le propriétaire le 13/11/2026 (nuit), après le lot 4** :
+  · les lots 5 (barres de couture de la prédalle) et 6 (gabarit du bureau) se font EN UNE FOIS ; le jeu entre lits de la
+    poutre passe à **2,5 cm par défaut** (une valeur du gabarit, lot 6) — « il faudra quand même vérifier » les **paquets
+    de barres** (EC2 8.9 : deux barres en contact, l'une sur l'autre) : à étudier plus tard ;
+  · les **anciennes notes** sont des notes de DÉVELOPPEMENT (« on s'en fout des notes qui sont déjà faites ») : plus aucun
+    code de reprise ni d'avis à leur ouverture — l'existant reste, rien ne s'y ajoute — jusqu'à ce que le propriétaire
+    dise que ses notes sont bonnes ;
+  · la **note PDF de la poutre** aux mots de la dalle : en attente de sa vérification ;
+  · le **lanceur de tests** d'abord (« faire plein de trucs en même temps … sans se tromper ») : le parcours du
+    navigateur en morceaux joués ensemble, chaque contrôle d'un passage complet retrouvé ; les suites qui relisent leur
+    note PDF suivies ;
+  · le **rangement des moteurs** : un lot à lui seul (lot 7), après les lots 5 et 6 — aucun chiffre ne doit bouger ;
+  · deux demandes nouvelles : la marque « Module vérifié » **argentée** (un administrateur) puis **dorée** (un deuxième,
+    une autre personne) ; des **remarques d'amélioration** (une capture et un mot, envoyés par chacun, une liste que le
+    propriétaire trie tous les un ou deux mois) — elles demandent un stockage en ligne (question 8 : les comptes Supabase),
+    proposé après le lot 7.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
@@ -997,7 +1014,7 @@ vérification finale d'ensemble ; petit rangement du code (en partie : e043d15, 
 8. Comptes en ligne : Supabase, et quand ?
 9. Ordre des modules à passer sur l'établi compact.
 10. Cornière : les 10 questions sur le classeur Excel.
-11. Plus petits : jeu entre lits par défaut (1 cm ou 2,1 cm) ; espacement maximal et 20 % secondaire de l'EC2 pour les
+11. Plus petits : ~~jeu entre lits par défaut (1 cm ou 2,1 cm)~~ — tranché le 13/11/2026 : 2,5 cm (lot 6) ; espacement maximal et 20 % secondaire de l'EC2 pour les
     dalles ; empiler les couches basses de la prédalle ; la branche du dépôt partagé à mettre à jour.
 12. Nouvelles (relectures du 09/11) : ~~S5 (nappe secondaire sur un renfort principal plus épais, § 1)~~ (fait,
     c33dfd1) ; ~~garde-corps dont la note déborde~~ (fait : une page de suite dans le générateur, df6a8ea — la mise en
