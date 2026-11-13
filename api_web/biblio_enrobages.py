@@ -52,8 +52,9 @@ def _q(x, unite: str) -> str:
 
 
 def _m(texte: str) -> str:
-    """Une expression du moteur écrite comme dans la note (indices ; Ø_étrier et Ø_ext indicés aussi)."""
-    return C.symb_math(texte).replace("Ø_étrier", "Ø<sub>étrier</sub>").replace("Ø_ext", "Ø<sub>ext</sub>")
+    """Une expression du moteur écrite comme dans la note (indices ; Ø_étrier et Ø_ext indicés aussi — par
+    ``C.symb_math``, depuis le 13/11/2026 : le diamètre Ø porte son indice comme une lettre)."""
+    return C.symb_math(texte)
 
 
 # ================================================================================================ les paramètres

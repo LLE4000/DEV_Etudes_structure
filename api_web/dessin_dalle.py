@@ -48,6 +48,7 @@ plan), le béton ``s<i>.beton`` et les sollicitations ``s<i>.efforts`` — les m
 from html import escape
 from typing import Callable, Dict, List, Optional, Tuple
 
+from . import commun as C
 from . import dalle_nappes as NAP
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
@@ -212,18 +213,24 @@ def entrees_nappe(s: Dict, cote: str, principale: str, pose: Callable[..., str])
         fils = [(dk, s["faces"][f"{cote}_{dk}"]["couches"][0]) for dk in (principale, autre)]
         ps = [pose(c, fil=True) for _, c in fils]
         if ps[0] == ps[1]:
-            axes = " · ".join(f"{dk.upper()} à {_mm(c['e'] * 10.0)}" for dk, c in fils) + (f" · {ps[0]}" if ps[0] else "")
+            axes = " · ".join(f"{dk.upper()} à {_mm(c['e_reel'] * 10.0)}" for dk, c in fils) + (f" · {ps[0]}" if ps[0] else "")
         else:
-            axes = " · ".join(f"{dk.upper()} à {_mm(c['e'] * 10.0)}" + (f" {p}" if p else "") for (dk, c), p in zip(fils, ps))
+            axes = " · ".join(f"{dk.upper()} à {_mm(c['e_reel'] * 10.0)}" + (f" {p}" if p else "") for (dk, c), p in zip(fils, ps))
         out.append((0, f"Treillis {t['designation']} · porteurs {t['porteurs'].upper()}", f"axes : {axes}"))
     for dk in (principale, autre):
         for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
             if j == 0 and t is not None:
                 continue
             p = pose(c)
-            out.append((j, f"{dk.upper() if j == 0 else f'R{j} {dk.upper()}'} · {c['libelle']} · axe à {_mm(c['e'] * 10.0)}"
+            out.append((j, f"{dk.upper() if j == 0 else f'R{j} {dk.upper()}'} · {c['libelle']} · axe à {_mm(c['e_reel'] * 10.0)}"
                         + (f" · {p}" if p else ""), ""))
     return out
+
+
+def rappel_jeu(dalle: Dict) -> str:
+    """La ligne discrète sous la légende des coupes : les barres à leur position réelle, le jeu de pose et l'arrondi
+    dans le calcul seulement (``C.rappel_jeu``, la même pour la poutre)."""
+    return C.rappel_jeu(dalle.get("jeu_premier_lit"), dalle.get("arrondi"), "Barres dessinées")
 
 
 def legende_nappes(s: Dict, principale: str, W: float, u: float, y0: float, pose: Callable[..., str],
@@ -292,7 +299,7 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
     for cote in ("inf", "sup"):
         for d_ in (dk, autre):
             for j, c in enumerate(s["faces"][f"{cote}_{d_}"]["couches"]):
-                y = (h_mm - c["e"] * 10.0) if cote == "inf" else c["e"] * 10.0
+                y = (h_mm - c["e_reel"] * 10.0) if cote == "inf" else c["e_reel"] * 10.0
                 couches.append((cote, d_, j, c, y))
     y_bas = max([h_mm] + [y + c["d"] / 2 for *_, c, y in couches])
     y_haut = min([0.0] + [y - c["d"] / 2 for *_, c, y in couches])
@@ -322,10 +329,10 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
     xd = W + 1.3 * u
     for cote in ("inf", "sup"):
         c = s["faces"][f"{cote}_{dk}"]["couches"][0]
-        y = (h_mm - c["e"] * 10.0) if cote == "inf" else c["e"] * 10.0
+        y = (h_mm - c["e_reel"] * 10.0) if cote == "inf" else c["e_reel"] * 10.0
         y_face = h_mm if cote == "inf" else 0.0
         g.append(_attache(W + 0.2 * u, yc + y, xd + 0.4 * u, yc + y, u)
-                 + _cote_v(xd, yc + min(y, y_face), yc + max(y, y_face), _mm(c["e"] * 10.0), u, droite=True))
+                 + _cote_v(xd, yc + min(y, y_face), yc + max(y, y_face), _mm(c["e_reel"] * 10.0), u, droite=True))
     # la hauteur utile de la face TENDUE de la direction coupée (sup. si son moment l'emporte, comme la poutre) : du
     # parement comprimé au centre de gravité des couches tendues
     tendue = "sup" if s[f"M{dk}_sup"] > s[f"M{dk}_inf"] else "inf"
@@ -373,6 +380,10 @@ def svg_coupe(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
     y0 = y + 0.4 * u
     legende, hl = legende_nappes(s, p, W, u, y0, lambda c, fil=False: pose_dalle(c, p, fil))
     g.append(legende)
+    note = rappel_jeu(dalle)
+    if note:                                        # (le jeu et l'arrondi : dans le calcul seulement, dit discrètement)
+        g.append(_txt(0.0, y0 + hl + 0.5 * u, escape(note), 0.66 * u, ancre="start", couleur=COTE, gras=False))
+        hl += 1.0 * u
     y = y0 + hl + 0.6 * u                           # (le bas du cadre : 0,6 u sous la dernière ligne, ses jambages compris)
     largeur = max(W + 8.4 * u, 31.0 * u)            # une bande étroite garde la place des titres et de la légende
     haut = -1.2 * u if i is None else -0.3 * u
@@ -394,7 +405,7 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
     traits = []
     for dk in ("x", "y"):
         for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
-            haut = c["e"] if cote == "inf" else -c["e"]
+            haut = c["e_reel"] if cote == "inf" else -c["e_reel"]
             traits.append((haut, dk, j, c))
     traits.sort(key=lambda t: t[0])
     for _, dk, j, c in traits:

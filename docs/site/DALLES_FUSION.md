@@ -297,6 +297,11 @@ nappe est une demande du rapport FUS3.
 
 ## 4. Les NIVEAUX des deux directions (FUS4)
 
+> **Révision du 13/11/2026 (lot 3)** — les chiffres de ce § 4 (axes arrondis au demi-diamètre, jeu 0) sont ceux de la
+> règle d'AVANT. La règle de position décidée par le propriétaire les remplace : positions RÉELLES au dessin, jeu de pose
+> et arrondi dans le calcul seulement, la base secondaire d'une prédalle dans la peau — **§ 9**. Le principe d'ici
+> (la secondaire posée sur la principale, S3, S5, DAL5b) reste, en positions réelles.
+
 ### 4.1 La règle
 
 Les deux directions d'une nappe se croisent : leurs axes sont à des hauteurs différentes. Direction principale au
@@ -945,3 +950,67 @@ nappe ; on peut mettre armature inférieure, armature supérieure ».*
   affichable ne le dit (clés internes et docstrings mis à part). La note PDF : 25 notes relues par pdftotext, aucune
   occurrence. Rouges classés : tous « le harnais suit » (les contrôles citaient les anciens libellés ; l'expression
   des segments admet le survol).
+
+## 9. La RÈGLE DE POSITION (lot 3, 13/11/2026 — décision du propriétaire)
+
+*Le propriétaire : « dessiner les barres à leur position réelle ; le jeu et l'arrondi seulement dans le calcul, détaillés
+— 3 + 0,6 + 1 (jeu) = 4,6 → 5,0 cm » ; un seul arrondi, à la fin (« façon A ») ; jeu de pose 1 cm et arrondi 0,5 cm par
+défaut, réglables dans les Options ; la même règle pour la poutre (E15, `docs/site/CHARTE_ERGONOMIE.md`).*
+
+**Une source : `beton/position.py`** (bibliothèque standard ; `tests/test_position.py`). Chaque barre a deux positions,
+mesurées depuis le parement de sa face :
+- la position **RÉELLE** — ce que les dessins montrent : au contact de l'enrobage, `c + Ø/2` ; posée sur une autre
+  couche, le dessus de celle-ci (sa position + Ø/2) + le jeu entre couches (0) + Ø/2 ; les Ø réels, aucun arrondi ;
+- l'axe de **CALCUL** : `e = ⌈réel + jeu⌉` au pas d'arrondi (0 · 0,5 · 1 cm), vers l'intérieur (d diminue). Une
+  position SAISIE à l'écran est une position réelle : le calcul lui ajoute le jeu et l'arrondit de même.
+
+**Dalle coulée.** Le moteur (`beton/dalle/moteur.py`) pose chaque couche au contact de l'enrobage et calcule l'axe de
+chacune (`e_reel`, `e`, et le détail terme à terme `detail`). Le site (`api_web/dalle_positions.py`) empile, en
+positions réelles : la direction secondaire (base ET renforts, S3) sur la couche principale la plus haute de son lit
+(S5) ; un treillis unique a ses fils X soudés sur les fils Y et ses renforts principaux posés sur lui (DAL5b). Il envoie
+au moteur la position réelle d'une couche empilée (`pour_moteur`), que le moteur convertit comme une saisie.
+`position_auto` (réelle), `positions` (réelles), `axes` (calcul) ; `annoter` pose sur chaque couche `reel_auto`,
+`e_auto`, `empilee`, `sur` et la formule « e » détaillée de la fenêtre de calcul (`commun.fx_axe`, la même ligne que la
+poutre : « e₁ = c + Ø_Y + Ø/2 + jeu = 3 + 1,2 + 0,5 + 1 = 5,7 → 6,0 cm · posée sur la base Y »).
+
+**Prédalle.** Les DEUX bases inférieures sont dans la peau : la principale au contact de l'enrobage, la secondaire posée
+sur elle (barres comme treillis) ; les renforts inférieurs sur la prédalle, `h_p + Ø/2` ; les faces supérieures comme la
+dalle. Le jeu de pose vaut pour toutes les couches (la prédalle de 6 cm, c = 3, garde son dessin dans la peau : Ø12 de
+3,0 à 4,2 cm, Ø10 posé dessus de 4,2 à 5,2). Le croisement « base X sur la prédalle / renfort Y » n'existe plus ; deux
+renforts X et Y sur la prédalle se signalent encore (`croisement_sur_predalle`). La base secondaire qui sort de la peau :
+l'avertissement grave `secondaire_hors_predalle` (il remplace `treillis_hors_predalle`, pour des barres comme pour un
+treillis).
+
+**Écran.** Le champ s'appelle « Position » (« auto · 4,7 » : la position réelle) ; « ↺ Revenir à la position
+automatique » ; les dessins (coupes de l'écran et de la note PDF) placent chaque couche à sa position réelle et le
+rappellent sous la légende (« Barres dessinées à leur position réelle · le calcul ajoute un jeu de pose de 10 mm et
+l'arrondi au 5 mm ») ; la cote d reste celle du calcul. Options : « Jeu de pose » et « Arrondi » (aucun · 0,5 · 1 cm),
+communs à la note. Les flèches ▲▼ : la position automatique, réelle, tombe rarement sur la grille de 0,5 cm — elle est un
+CRAN : un pas qui l'atteint ou la franchit s'y arrête (▲ puis ▼ ramènent la couche). Deux armatures au même niveau ne
+peuvent venir que d'une position saisie : une phrase pour les deux types (« … une position saisie les y met … Rendre la
+position saisie à l'automatique (↺) »).
+
+**Anciennes notes.** Version 5 de l'état. Une note d'une version plus petite est relue avec son jeu de pose porté à
+1 cm au moins (`position.jeu_note_d_avant` : la poutre, la dalle, la prédalle et un fichier Streamlit de la poutre le
+relisent par elle ; un jeu plus grand est gardé) et l'arrondi par défaut ; l'avis « regle » le dit une fois, à
+l'ouverture. Il se dit pour TOUTE note d'avant : la règle change les chiffres de toutes (`chiffres_changes`, qui
+comparait l'ancienne règle et la nouvelle, est retiré).
+
+**Chiffres, calculés à la main** (c = 3 cm, jeu 1 cm, arrondi 0,5 cm) :
+
+| cas | avant | après |
+|---|---|---|
+| dalle 20 cm, treillis 10/10/100/100 : fils Y / fils X | axes 3,5 / 4,5 | posés 3,5 / 4,5 ; calcul 4,5 / 5,5 |
+| dalle 22 cm, M_y = 30 kN·m/m : d inf. Y, A_s,néc | 18,5 cm ; 541 mm² | 17,5 cm ; 571 mm² |
+| prédalle de l'ancien module (h 22, M = 30, Ø10/100 + 3 Ø12) : A_s,néc inf. Y / inf. X | 573 / 645 mm² | 608 / 606 mm² (la base X dans la peau) |
+| barres Ø10/100 + renfort principal 3 Ø25 (S5), M_x = 20 : base X, d, A_s,néc | 6,5 ; 13,5 cm ; 494 mm² | posée 6,0, calcul 7,0 ; 13,0 cm ; 513 mm² |
+| les cas de référence « chargés près de 100 % » | 99 % | 105 % (dalle), 104 % (prédalle) : leur moment est ramené |
+
+Le regel des photos de référence est accepté, la raison écrite dans chaque photo (clé « regels »).
+
+**Tests** : `test_position` (17), `test_api_web_dalle_positions` (120 : la règle à la main, les cas limites, S3, S5,
+DAL5b, le cran des flèches, 18 mutations), `test_api_web_dalle` (149), `test_api_web_dalles_fusion` (78),
+`test_note_dalle` (49 : le dessin de la note aux positions réelles, ses chiffres à la main), `test_dalle_moteur` (170),
+`test_predalle_moteur` (151). Les parités Streamlit des moteurs sont GARDÉES : l'écran Streamlit reçoit les axes de
+calcul du moteur en surcharge (ses formules restent prouvées), les positions sont prouvées à la main.
+

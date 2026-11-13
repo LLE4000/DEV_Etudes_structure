@@ -173,6 +173,10 @@ majus = "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ"
 manque = [g for g in minus + majus if C.symb_math(f"{g}_Ed") != f"{g}<sub>Ed</sub>"]
 chk(f"symb_math : chacune des {len(minus + majus)} lettres grecques (minuscules, majuscules, variantes) porte un indice",
     not manque, manque)
+chk("symb_math : le diamètre Ø porte son indice comme une lettre — Ø_Y, Ø_étr, Ø_l, Ø_ext (la règle de position du 13/11/2026 : « c + "
+    "Ø_Y + Ø/2 + jeu » ; avant, le tiret bas restait à l'écran) ; « Ø/2 » ne bouge pas",
+    C.symb_math("c + Ø_Y + Ø/2 + jeu · Ø_étr · Ø_l · Ø_ext") == "c + Ø<sub>Y</sub> + Ø/2 + jeu · Ø<sub>étr</sub> · Ø<sub>l</sub> · Ø<sub>ext</sub>",
+    C.symb_math("c + Ø_Y + Ø/2 + jeu · Ø_étr · Ø_l · Ø_ext"))
 chk("symb_math : une lettre grecque DANS l'indice (M_Rd,θ ; ε_c,ρ) et σ_⊥, τ_∥ (soudures)",
     C.symb_math("M_Rd,θ ε_c,ρ σ_⊥ τ_∥") == "M<sub>Rd,θ</sub> ε<sub>c,ρ</sub> σ<sub>⊥</sub> τ<sub>∥</sub>", C.symb_math("M_Rd,θ ε_c,ρ σ_⊥ τ_∥"))
 chk("symb_math : les symboles latins d'avant (q_h, W_el,y, τ_adm,I, f_ck,cube, β_w) inchangés",

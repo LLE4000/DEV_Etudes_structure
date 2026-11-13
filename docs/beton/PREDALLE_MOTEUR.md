@@ -60,6 +60,13 @@ copies Streamlit change, le test rougit.
 | toute autre couche inférieure (base secondaire, tous les renforts) | `sur_predalle` | h_pre + ⌈Ø/2⌉₀,₅ | Ø10 : 6 + 0,5 = 6,5 ; Ø12 : 6 + 1 = 7,0 |
 | couche supérieure | `superieure` | c + ⌈Ø/2⌉₀,₅ + jeu premier lit (la règle de la dalle) | Ø10, jeu 0 : 3,5 |
 
+> **Révisé le 13/11/2026 (lot 3, la règle de position, `beton/position.py` ; `docs/site/DALLES_FUSION.md` § 9)** — le
+> tableau ci-dessus est la règle de l'écran Streamlit. Le moteur pose désormais chaque couche à sa position RÉELLE (les
+> Ø réels, sans arrondi) et calcule l'axe ⌈réel + jeu de pose⌉ au pas d'arrondi, pour TOUTES les couches (le jeu vaut
+> aussi dans la peau) : les deux bases inférieures sont dans la peau (`predalle` : c + Ø/2 ; la secondaire, posée sur la
+> principale, est empilée par le site), les renforts inférieurs sur la prédalle (`sur_predalle` : h_pre + Ø/2), les
+> couches supérieures c + Ø/2. Exemple (c = 3, h_pre = 6, jeu 1) : base Ø10 3,5 → 4,5 ; renfort Ø12 6,6 → 8,0.
+
 ⌈x⌉₀,₅ : arrondi au 0,5 cm **supérieur** de Ø/2 (Ø en mm, /20 → cm). Un enrobage nul est lu 3,0 cm (« or 3.0 ») et une
 peau nulle 6,0 cm (« or 6.0 », inatteignable : h_pre ≥ 3). Un axe saisi (colonne « Dist. axe ») remplace l'automatique ;
 un centre de gravité saisi (« CDG ») remplace Σ As·e / Σ As. Chaque direction garde ainsi SA hauteur utile : d principal

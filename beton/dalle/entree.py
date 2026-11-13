@@ -19,6 +19,7 @@ import math
 import os
 from string import ascii_uppercase
 
+from beton import position as P
 from beton import treillis as TR
 
 CHEMIN_CLASSES = os.path.join(os.path.dirname(__file__), "..", "..", "beton_classes.json")
@@ -53,7 +54,11 @@ DEFAUTS_DALLE = {
     "enrobage": 3.0,          # cm
     "dir_principale": "Y",    # « Dir. principale » : Y par défaut (convention du bureau)
     "gamma_s": 1.5,           # « Coefficient acier ELS » (paramètre global de l'écran, partagé avec Poutre)
-    "jeu_premier_lit": 0.0,   # « Jeu premier lit (cm) » (paramètre global, 0 par défaut : retour bureau 01/09)
+    # le JEU DE POSE (cm) : la clé garde son nom d'avant (« jeu premier lit »), sa règle est celle de beton/position.py
+    # (ajouté à la position réelle AVANT l'arrondi) ; 1 cm par défaut, décision du propriétaire du 13/11/2026 (c'était 0,
+    # retour bureau 01/09, ajouté APRÈS l'arrondi du demi-Ø)
+    "jeu_premier_lit": P.JEU_POSE,
+    "arrondi": P.ARRONDI,     # cm : le pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS : 0, 0,5 ou 1)
 }
 COUCHE_BASE = {"type": "treillis", "treillis": TR.TREILLIS_DEFAUT, "d": 12, "esp": 150, "n": 3, "dist": None}
 COUCHE_RENFORT = {"type": "n_barres", "treillis": TR.TREILLIS_DEFAUT, "d": 12, "esp": 150, "n": 3, "dist": None}
@@ -98,7 +103,7 @@ def nouvelle_section(nom: str = "A") -> dict:
 
 def nouvelle_dalle() -> dict:
     """Une dalle aux valeurs par défaut de l'écran : « Dalle 1 », bande de 100 cm, 20 cm, C30/37, B500, enrobage 3 cm,
-    direction principale Y, γs 1,5, jeu 0, une section « A »."""
+    direction principale Y, γs 1,5, jeu de pose 1 cm, arrondi 0,5 cm, une section « A »."""
     d = copy.deepcopy(DEFAUTS_DALLE)
     d["sections"] = [nouvelle_section("A")]
     return d
@@ -245,6 +250,7 @@ def normaliser(dalle: dict) -> dict:
     d["dir_principale"] = dp.strip().upper()
     d["gamma_s"] = _nombre(_val(dalle, "gamma_s", D["gamma_s"]), "gamma_s", minimum=GAMMA_S_MIN, maximum=GAMMA_S_MAX)
     d["jeu_premier_lit"] = _nombre(_val(dalle, "jeu_premier_lit", D["jeu_premier_lit"]), "jeu_premier_lit")
+    d["arrondi"] = P.lire_arrondi(_val(dalle, "arrondi", D["arrondi"]))
     sections = dalle.get("sections")
     if sections is None:
         d["sections"] = [nouvelle_section("A")]

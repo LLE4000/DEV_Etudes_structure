@@ -10,8 +10,9 @@ qui refait le calcul avec ``_compute_section``, le calcul du PDF Streamlit — p
 site sait en plus.
 
 LES AXES. Le site pose les nappes l'une sur l'autre (api_web/dalle_positions.py : la direction secondaire, base et
-renforts, sur la principale ; la règle de pose de la prédalle) ; le générateur, lui, poserait X et Y au même niveau
-(``_auto_dist_couche``). Chaque couche reçoit donc son axe EFFECTIF du site (``POS.axes``) comme une distance SAISIE
+renforts, sur la principale ; la règle de pose de la prédalle) et en fait l'axe de calcul (jeu de pose, arrondi :
+beton/position.py) ; le générateur, lui, poserait X et Y au même niveau, à sa règle d'avant (``_auto_dist_couche``).
+Chaque couche reçoit donc son axe de CALCUL du site (``POS.axes``) comme une distance SAISIE
 (« dist_auto » faux, « dist_axe » = l'axe, écrit sans arrondi) — ce que l'écran Prédalle de Streamlit faisait déjà pour
 sa note (``modules/predalle._valeurs_pour_export``, qui figeait l'axe à 0,01 cm près). Le centre de gravité imposé passe
 par « ycdg » (« ycdg_auto » vrai sinon). Le calcul de la planche est alors celui de l'écran : mêmes formules, mêmes
@@ -21,9 +22,9 @@ la note ne sort pas).
 CE QUE LE SITE AJOUTE À LA PLANCHE (le générateur ne le sait pas) :
 - l'ÉTAT : « Données incomplètes » pour une section sans aucun effort (jamais « Vérifié »), « Non vérifié » / « Vérifié »
   sinon — l'état de l'écran (api_web/plaque_compact.etat_bloc) ;
-- les NIVEAUX DESSINÉS de la coupe : ceux du calcul (le générateur écartait deux axes trop proches pour le dessin —
-  ``_coupe_dalle_depuis_R._niveaux`` — et dessinait un renfort, posé dans le plan de sa base, plus haut qu'il n'est
-  compté) ; chaque couche est dessinée à l'axe qui entre dans d, comme sur la coupe de l'écran ;
+- les NIVEAUX DESSINÉS de la coupe : les positions RÉELLES du site (le générateur écartait deux axes trop proches pour
+  le dessin — ``_coupe_dalle_depuis_R._niveaux``) ; chaque couche est dessinée là où elle est posée, comme sur la coupe
+  de l'écran (règle du 13/11/2026 : le jeu de pose et l'arrondi n'entrent que dans le calcul) ;
 - le VERDICT d'une nappe non conforme alors que A_s ≥ A_s,néc : acier excessif (A_s > A_s,max) ou d utile ≤ 0 — le
   générateur y écrirait « A_s < A_s,requise », qui est faux ;
 - les OBSERVATIONS : les avertissements que l'écran affiche sous la section (enrobage nul lu 3 cm, nappes au même
@@ -258,9 +259,11 @@ def resultats(etat: Dict) -> List[Dict]:
     return out
 
 
-def _niveaux_du_calcul(coupe: Dict, R: Dict) -> None:
-    """Les niveaux dessinés de la coupe = les axes du calcul (mm, depuis la face), couche par couche — dans l'ordre des
-    schémas du générateur (la direction principale, puis la secondaire ; une seule quand elles sont identiques)."""
+def _niveaux_reels(coupe: Dict, R: Dict, rs: Dict) -> None:
+    """Les niveaux dessinés de la coupe = les positions RÉELLES des couches (mm, depuis la face : la règle du
+    13/11/2026, beton/position.py — le dessin montre les barres là où elles sont posées ; le jeu de pose et l'arrondi
+    n'entrent que dans le calcul), couche par couche, lues dans le résultat du SITE ``rs`` — dans l'ordre des schémas
+    du générateur (la direction principale, puis la secondaire ; une seule quand elles sont identiques)."""
     p = R["principale"]
     s = MO.direction_secondaire(p)
     montrees = [p, s][:len(coupe["schemas"])]
@@ -268,9 +271,8 @@ def _niveaux_du_calcul(coupe: Dict, R: Dict) -> None:
         o = MO.direction_secondaire(dk)
         for cle, direction in (("points", dk), ("filants", o)):
             for face in ("inf", "sup"):
-                geo = R["dirs"][direction][f"geo_{face}"]["couches"]
-                for c_dessin, c in zip(sch[f"{cle}_{face}"], geo):
-                    c_dessin["e"] = float(c["e"]) * 10.0
+                for c_dessin, c in zip(sch[f"{cle}_{face}"], rs["faces"][f"{face}_{direction}"]["couches"]):
+                    c_dessin["e"] = float(c["e_reel"]) * 10.0
 
 
 def _verdict_site(v_pdf: Dict, v: Dict, rs: Dict) -> None:
@@ -411,7 +413,7 @@ def sections(etat: Dict) -> List[Dict]:
     for sec, pl in zip(out, planches):
         rs = pl["site"]
         sec["etat"] = pl["etat_label"]
-        _niveaux_du_calcul(sec["coupe"], pl["R"])
+        _niveaux_reels(sec["coupe"], pl["R"], rs)
         # les vérifications 2 à 5 de la planche : les quatre nappes dans l'ordre du générateur (principale puis
         # secondaire, en bas puis en haut) — celui de l'écran, MO.ordre_faces
         par_cle = {v["cle"]: v for v in rs["verifications"]}

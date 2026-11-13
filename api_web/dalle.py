@@ -46,6 +46,7 @@ import copy
 import sys
 from typing import Dict, List, Optional, Sequence
 
+from beton import position as P
 from beton import treillis as TR
 from beton.dalle import entree as EN
 from beton.dalle import moteur as MO
@@ -65,9 +66,10 @@ MODULE = "dalle"
 PAGE = "dalle"
 # l'état fusionné (docs/site/DALLES_FUSION.md § 2.1) ; 3 depuis le 09/11/2026 : les nappes toujours posées l'une sur
 # l'autre, plus de clé « empilement » — une note d'une version plus petite est une note D'AVANT (voir CLE_AVIS) ; 4 depuis
-# le 13/11/2026 (DAL5b, § 8.6) : un treillis soudé posé tel qu'il est (ses fils en contact, les renforts principaux sur
-# le treillis) — l'état ne change pas de forme, mais une note 3 dont les chiffres en changent reçoit l'avis « treillis »
-VERSION = 4
+# le 13/11/2026 (DAL5b, § 8.6) : un treillis soudé posé tel qu'il est ; 5 depuis le 13/11/2026 au soir (lot 3, la règle
+# de position commune, beton/position.py : position réelle + jeu de pose, arrondi ; la clé « arrondi », le jeu de pose
+# d'une note d'avant porté à 1 cm au moins) — toute note d'une version plus petite reçoit l'avis « regle » (CLE_AVIS)
+VERSION = 5
 
 # les TYPES de dalle : la clé de l'état et son libellé (les segments de la rubrique « 1 — Caractéristiques »)
 # (libellés courts, demande de l'ingénieur du 09/11/2026 : CSP = coulé sur place ; l'aide du champ le dit en entier)
@@ -104,11 +106,10 @@ CLES_ANCIENNES = ("empilement",)
 # l'état : la note rendue, enregistrée par l'écran, est dans la forme d'aujourd'hui et ne le redit pas.
 CLE_AVIS = "avis_ouverture"
 AVIS = {
-    "note": ("Note d'avant le 09/11/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre (la "
-             "secondaire, base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
-    "treillis": ("Note d'avant le 13/11/2026 : un treillis soudé est désormais posé tel qu'il est — ses deux directions de "
-                 "fils soudées l'une sur l'autre (dans la peau d'une prédalle), les renforts de la direction principale "
-                 "posés sur le treillis ; A<sub>s,req</sub> peut différer de l'ancienne note."),
+    "regle": ("Note d'avant le 13/11/2026 : les armatures sont désormais placées selon la règle du bureau — dessinées à "
+              "leur position réelle, calculées avec un jeu de pose (1 cm au moins) et un arrondi au 0,5 cm (Options) ; les "
+              "deux directions posées l'une sur l'autre, un treillis soudé tel qu'il est. A<sub>s,req</sub> peut différer "
+              "de l'ancienne note."),
 }
 # Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant) : un nom de dalle
 # ou de section de plus de NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
@@ -201,26 +202,6 @@ def nouvel_etat() -> Dict:
     return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0, "espacements": list(ESPACEMENTS)}
 
 
-def chiffres_changes(d: Dict, deja_empilee: bool = False) -> bool:
-    """Les chiffres d'une dalle relue (du site, normalisée) changent-ils avec ses nappes posées l'une sur l'autre ? Oui
-    dès qu'une couche est posée par le site sur la nappe principale (``POS.empilee`` : base ou renfort secondaire
-    automatique) — sauf, pour une dalle dont l'option d'avant était cochée (``deja_empilee``), une BASE secondaire,
-    que l'option posait déjà ainsi, sur la base principale : seul un renfort secondaire y change (S3, 09/11/2026), ou
-    une base secondaire qu'un renfort principal plus haut porte désormais (S5 : ``POS.appui`` n'est plus la base). Un
-    axe saisi ne change pas."""
-    return any(POS.empilee(d, s, f, j) and (j > 0 or not deja_empilee or POS.appui(d, s, f.split("_")[0])["couche"] != 0)
-               for s in d["sections"] for f in EN.FACES for j in range(len(s["faces"][f]["couches"])))
-
-
-def chiffres_changes_treillis(d: Dict) -> bool:
-    """Les chiffres d'une dalle relue (du site, normalisée) changent-ils avec le treillis posé tel qu'il est (DAL5b,
-    VERSION 4) ? Oui dès qu'une couche AUTOMATIQUE a un autre axe que par la règle d'avant (``POS.axe_auto(...,
-    treillis_reel=False)`` : le treillis lu comme des barres) — un renfort principal d'un treillis unique, des fils
-    secondaires qu'il soulevait, les fils secondaires d'une prédalle. Un axe saisi ne change pas."""
-    return any(c.get("dist") is None and POS.axe_auto(d, s, f, j) != POS.axe_auto(d, s, f, j, treillis_reel=False)
-               for s in d["sections"] for f in EN.FACES for j, c in enumerate(s["faces"][f]["couches"]))
-
-
 def _bool_relu(x, quoi: str, rang: int) -> bool:
     if not isinstance(x, bool):
         raise ValueError(f"dalle n° {rang + 1} : {quoi} vrai ou faux attendu")
@@ -258,11 +239,11 @@ def normaliser(etat: Dict) -> Dict:
     ``actif`` conservé, rien n'est perdu), et une note qui porte les DEUX clés est abîmée : refusée. Une note sans dalle
     est une note neuve ; une liste qui n'en est pas une est une note abîmée (refusée, jamais remplacée en silence par
     une note neuve). Les nappes sont posées l'une sur l'autre quelle que soit la note : la clé « empilement » d'avant
-    (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < 3) dont les chiffres en
-    changent (``chiffres_changes``) reçoit l'avis d'ouverture « note » (CLE_AVIS, que ``resultat`` dit et retire) ; une note
-    3 dont les chiffres changent avec le treillis posé tel qu'il est (``chiffres_changes_treillis``, DAL5b), l'avis
-    « treillis ». Un nom
-    de plus de NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis le dit (CLE_NOMS) : la note s'ouvre."""
+    (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < VERSION) est relue avec
+    la règle de position d'aujourd'hui (beton/position.py) : son jeu de pose porté à 1 cm au moins (P.JEU_POSE : la
+    valeur du bureau ; un jeu plus grand est gardé), l'arrondi par défaut, et l'avis d'ouverture « regle » (CLE_AVIS, que
+    ``resultat`` dit et retire). Un nom de plus de NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis
+    le dit (CLE_NOMS) : la note s'ouvre."""
     if not isinstance(etat, dict):
         return nouvel_etat()
     if "dalles" in etat and "predalles" in etat:
@@ -275,11 +256,8 @@ def normaliser(etat: Dict) -> Dict:
         raise ValueError(f"note illisible : « {cle} » doit être une liste (reçu {type(liste).__name__})")
     version = etat.get("version")
     lue = version if isinstance(version, int) and not isinstance(version, bool) else 0
-    d_avant = lue < 3                     # d'avant les nappes posées l'une sur l'autre (09/11/2026) : l'avis « note »
-    d_avant_treillis = lue < VERSION      # d'avant le treillis posé tel qu'il est (13/11/2026) : l'avis « treillis »
+    d_avant = lue < VERSION               # d'avant la règle de position du 13/11/2026 : l'avis « regle »
     out = {"version": VERSION, "dalles": []}
-    avis = False
-    avis_treillis = False
     coupes = []
     for i, d in enumerate(liste):
         if not isinstance(d, dict):
@@ -291,7 +269,10 @@ def normaliser(etat: Dict) -> Dict:
         if t not in TYPES_TXT:
             raise ValueError(f"dalle n° {i + 1} : type « coulee » ou « predalle » attendu (reçu {t!r})")
         try:
-            dd = _site(_sans_site(d), v, t)
+            src = _sans_site(d)
+            if d_avant:                        # le jeu de pose du bureau (une note d'avant : 0 par défaut)
+                src["jeu_premier_lit"] = P.jeu_note_d_avant(src.get("jeu_premier_lit"))
+            dd = _site(src, v, t)
             coupes += _couper_noms(dd)
             _bornes_site(dd)
             for s in dd["sections"]:          # un nom vide (possible dans un .stab, pas à l'écran) : la première lettre libre
@@ -300,16 +281,12 @@ def normaliser(etat: Dict) -> Dict:
             out["dalles"].append(dd)
         except ValueError as e:
             raise ValueError(f"dalle « {d.get('nom', i + 1)} » : {e}") from None
-        avis = avis or (d_avant and chiffres_changes(dd, d.get("empilement") is True))
-        avis_treillis = avis_treillis or (d_avant_treillis and chiffres_changes_treillis(dd))
     a = etat.get("actif", 0)
     a = a if isinstance(a, int) and not isinstance(a, bool) else 0
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
     out["espacements"] = espacements_relus(etat.get("espacements"))
-    if avis:
-        out[CLE_AVIS] = "note"              # (il dit déjà que A_s,req peut différer : il couvre le treillis aussi)
-    elif avis_treillis:
-        out[CLE_AVIS] = "treillis"
+    if d_avant:
+        out[CLE_AVIS] = "regle"
     if coupes:
         out[CLE_NOMS] = coupes
     return out
@@ -372,7 +349,7 @@ NOMBRES = {  # clé → (libellé, unité, mini, maxi, mini exclu, entier, maxi 
     "h_total": ("Épaisseur totale", "cm", EN.H_MIN, EN.H_MAX, False, True, False),   # (une prédalle : _epaisseur_totale)
     "enrobage": ("Enrobage", "cm", 0.0, EN.ENROBAGE_MAX, False, False, False),
     "gamma_s": ("Coefficient acier γs", "", EN.GAMMA_S_MIN, EN.GAMMA_S_MAX, False, False, False),
-    "jeu_premier_lit": ("Jeu premier lit", "cm", 0.0, EN.H_MAX, False, False, True),
+    "jeu_premier_lit": ("Jeu de pose", "cm", 0.0, EN.H_MAX, False, False, True),
     "esp": ("Espacement", "mm", EN.ESP_MIN, EN.ESP_MAX, False, True, False),
     "n": ("Nombre de barres", "", EN.N_MIN, EN.N_MAX, False, True, False),
     "dist": ("Axe de la couche", "cm", 0.0, EN.H_MAX, True, False, True),
@@ -380,7 +357,23 @@ NOMBRES = {  # clé → (libellé, unité, mini, maxi, mini exclu, entier, maxi 
 }
 SOLLICITATIONS = {"Mx_inf": "M<sub>x,inf</sub>", "Mx_sup": "M<sub>x,sup</sub>", "My_inf": "M<sub>y,inf</sub>",
                   "My_sup": "M<sub>y,sup</sub>", "V": "V"}
-NOTE_ENTIERE = ("gamma_s", "jeu_premier_lit")
+NOTE_ENTIERE = ("gamma_s", "jeu_premier_lit", "arrondi")
+# les pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS), en segments dans les options
+ARRONDIS_TXT = C.ARRONDIS_TXT        # (commun : une source pour la poutre et les dalles)
+
+
+def _arrondi_lu(valeur) -> float:
+    """Le pas d'arrondi tel que l'écran l'envoie (un segment des options : « 0.5 ») : l'un de P.ARRONDIS, sinon _Refus."""
+    x = C.lire_nombre(valeur)
+    try:
+        return P.lire_arrondi(x)
+    except ValueError:
+        raise _Refus(f"Arrondi : {', '.join(t for _, t in ARRONDIS_TXT)}, pas « {valeur} »") from None
+
+
+def _txt_arrondi(d: Dict) -> str:
+    """Le pas d'arrondi de la dalle en mots : « 0,5 cm », « aucun »."""
+    return C.txt_arrondi(d.get("arrondi"))
 
 
 def saisi(x: float) -> str:
@@ -457,7 +450,7 @@ def _bornes_site(d: Dict) -> None:
     """Les bornes propres au site (voir SOLLICITATION_MAX) sur une dalle relue (fichier .stab, fichier Streamlit) :
     ValueError claire."""
     if d["jeu_premier_lit"] > EN.H_MAX:
-        raise ValueError(f"jeu premier lit de {saisi(d['jeu_premier_lit'])} cm : au plus {EN.H_MAX} cm")
+        raise ValueError(f"jeu de pose de {saisi(d['jeu_premier_lit'])} cm : au plus {EN.H_MAX} cm")
     if len(d["nom"]) > NOM_MAX:
         raise ValueError(f"nom de {len(d['nom'])} caractères : {NOM_MAX} au plus")
     for s in d["sections"]:
@@ -614,7 +607,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
     elif champ in ("esp", "n"):
         c[champ] = _nombre(champ, valeur)
     elif champ == "dist":
-        c["dist"] = _auto_ou_impose("dist", valeur, c["dist"], POS.axe_auto(d, s, f, j))
+        c["dist"] = _auto_ou_impose("dist", valeur, c["dist"], POS.position_auto(d, s, f, j))
     elif champ == "deplacer":
         # (DAL5c : les flèches ▲▼ de l'axe — « 1 » monte la couche, « -1 » la descend, d'un pas de POS.PAS_AXE ; le
         #  refus dit ce qu'elle traverserait ; revenue sur son axe automatique, elle le redevient et suit à nouveau)
@@ -625,7 +618,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
             e = POS.deplacer(d, i, f, j, sens)
         except ValueError as x:
             raise _Refus(str(x)) from None
-        c["dist"] = None if abs(e - POS.axe_auto(d, s, f, j)) < 1e-9 else e
+        c["dist"] = None if abs(e - POS.position_auto(d, s, f, j)) < 1e-9 else e
     else:
         raise _Refus(f"champ inconnu : {champ}")
 
@@ -667,9 +660,9 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             liste.sort()
         return None
     if chemin and chemin[0] in NOTE_ENTIERE and len(chemin) == 1:
-        # γs et le jeu premier lit sont des paramètres de la NOTE (l'écran Streamlit les partage entre ses dalles)
+        # γs, le jeu de pose et l'arrondi sont des paramètres de la NOTE (l'écran Streamlit partageait γs et le jeu)
         try:
-            x = _nombre(chemin[0], valeur)
+            x = _arrondi_lu(valeur) if chemin[0] == "arrondi" else _nombre(chemin[0], valeur)
         except _Refus as e:
             return str(e)
         for k, dd in enumerate(etat["dalles"]):
@@ -711,11 +704,11 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
 # ------------------------------------------------------------------ les données : la colonne de gauche
 # la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit) — celle de la prédalle : AP.LEGENDES
 LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p": "vue de dessus · barres X horizontales, Y verticales"}
-AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — direction principale : enrobage + ½ Ø arrondi au "
-            "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale, sur "
-            "la plus haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son axe + ½ Ø_p + ½ Ø. "
-            "Un treillis soudé : ses fils de répartition soudés sur les porteurs, les renforts de la direction principale posés "
-            "sur le treillis. Une valeur saisie l'impose.")
+AIDE_AXE = ("Du parement à l'axe des barres, là où elles sont posées (le dessin). Vide : la position automatique — direction "
+            "principale : enrobage + ½ Ø ; direction secondaire (sa base et ses renforts), posée sur la principale, sur la plus "
+            "haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son dessus + ½ Ø. Un treillis "
+            "soudé : ses fils de répartition soudés sur les porteurs, les renforts de la direction principale posés sur le "
+            "treillis. Une valeur saisie l'impose. Le calcul y ajoute le jeu de pose et arrondit (Options).")
 AIDE_TYPE = ("Dalle pleine : toute l'épaisseur est coulée sur place (moteur beton/dalle). Prédalle : la partie basse h_p est "
              "préfabriquée, la base inférieure de la direction principale y est posée en fond de moule — un treillis soudé y est "
              "en entier, ses deux directions de fils —, les autres couches inférieures sur la prédalle (moteur beton/predalle). "
@@ -769,17 +762,19 @@ def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
     un appui l'ajoute ou le retire — 13/11/2026, § 8.4).
     (La reprise d'une note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre ; l'option
     « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes sont toujours posées l'une sur l'autre.)"""
-    jeu = ("Écart ajouté entre l'enrobage et le premier lit des armatures SUPÉRIEURES (les armatures inférieures sont "
-           "posées dans et sur la prédalle)." if est_predalle(d) else
-           "Écart ajouté entre l'enrobage et le premier lit : il éloigne du parement l'axe automatique de la direction "
-           "principale ; la secondaire, posée dessus, le suit.")
+    jeu = ("La tolérance de pose des barres : le calcul les compte plus loin du parement que dessiné, de ce jeu (« 3 + "
+           "0,6 + 1 (jeu) = 4,6 → 5,0 cm »). Le dessin les montre à leur position réelle.")
+    arr = ("Le pas auquel l'axe de calcul est arrondi, vers l'intérieur (plus loin du parement), une fois, à la fin : "
+           "4,6 → 5,0 cm au pas de 0,5 cm.")
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
             f'<b title="{C.esc(_MO(d).REFERENCE)}">Méthode du bureau · ELS · z = 0,9 d</b></div>'
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
                         "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
                         "dalles de la note."),
-                       ("Jeu 1er lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
+                       ("Jeu de pose", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
                         f"{jeu} Commun à toutes les dalles de la note."))
+            + C.ligne("Arrondi", C.segments(["arrondi"], d["arrondi"], ARRONDIS_TXT),
+                      aide=f"{arr} Commun à toutes les dalles de la note.", full=True)
             + _puces_espacements(espacements))
 
 
@@ -867,7 +862,7 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     resume1 = (f"Prédalle h<sub>p</sub> = {C.nb(d['h_pre'])} cm · {C.esc(d['beton'])} · B{d['fyk']}" if est_predalle(d)
                else f"Dalle pleine · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
-                         s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm",
+                         s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu de pose {C.nb(d['jeu_premier_lit'])} cm · arrondi {_txt_arrondi(d)}",
                          _options(d, etat.get("espacements", ESPACEMENTS)))
 
 
@@ -1017,25 +1012,16 @@ def _formule(f: Dict) -> Dict:
     r = _n(f["resultat"], u) + (f" {u}" if u else "")
     k = f["cle"]
     if k == "e":
-        # (l'axe d'une couche : seul le moteur des prédalles nomme cette formule — la branche de l'ancien module)
-        s_ = f"e_{f['couche'] + 1}"
-        if f.get("empilee") and "e_p" in t:
-            # une couche secondaire posée par le SITE sur la nappe principale (module fusionné, § 4.1 ; les termes e_p,
-            # demi_p, demi_s sont posés par dalle_positions.annoter, e_p et demi_p ceux de la couche qui porte : la base,
-            # ou un renfort principal plus haut, S5) : le moteur a reçu l'axe imposé, la formule dit d'où il vient
-            parts = [s_, "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", f"{_v(t['e_p'])} + {_v(t['demi_p'])} + {_v(t['demi_s'])}"]
-            r += f" · posée sur {AP.sur_principale(f)}"
-        elif "saisi" in t:
-            parts = [s_, "axe saisi"]
-            r += " · saisi"
-        elif f["pose"] == "sur_predalle":
-            parts = [s_, "h_p + ⌈Ø/2⌉", f"{_v(t['h_pre'])} + {_v(t['demi_d'])}"]
-            r += " · sur la prédalle"
-        elif f["pose"] == "predalle":
-            parts = [s_, "c + ⌈Ø/2⌉", f"{_v(t['c'])} + {_v(t['demi_d'])}"]
-            r += " · dans la prédalle"
-        else:
-            parts = [s_, "c + ⌈Ø/2⌉ + j", f"{_v(t['c'])} + {_v(t['demi_d'])} + {_v(t['jeu'])}"]
+        # l'axe de CALCUL d'une couche, terme à terme (api_web/dalle_positions.formule_axe, beton/position.detail) :
+        # « e₁ = c + Ø/2 + jeu = 3 + 0,6 + 1 = 4,6 → 5,0 cm » — sa position réelle, le jeu de pose, puis l'arrondi
+        ligne = C.fx_axe(f)
+        parts, r = ligne["parts"], ligne["res"]
+        if f.get("empilee") and f.get("sur"):
+            r += f" · posée sur {f['sur']}"
+        elif not f.get("auto", True):
+            r += " · position saisie"
+        elif f.get("pose") in ("sur_predalle", "predalle"):
+            r += f" · {AP.POSES_TXT[f['pose']]}"
     elif k == "hu_min":
         parts = (["h_u,min", "√(M·10⁶ / (α_b·b·μ)) / 10",
                   f"√({_v(t['M'])} × 10⁶ / ({_v(t['alpha_b'])} × {_v(t['b'])} × {_v(t['mu'])})) / 10"] if t["M"] > 0
@@ -1144,24 +1130,23 @@ def elements(etat: Dict, resultats: List[Dict]) -> str:
 
 def _avertissements_de(d: Dict, r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements selon le type : ceux de la dalle coulée (ci-dessous), ou ceux de la prédalle (api_web/dalle_predalle :
-    base qui sort de la peau, couches croisées sur la prédalle, bases X et Y trop proches). Des bases SUPÉRIEURES
-    confondues d'une prédalle sont dites comme celles de la dalle coulée : le site y pose la direction secondaire sur la
-    principale (api_web/dalle_positions), seul un axe SAISI les y met — la phrase de l'aide prédalle (« comme dans l'écran
-    Streamlit… Saisir son axe ») ne vaut plus que pour ses faces INFÉRIEURES, posées par la règle de la prédalle
-    (relecture du 09/11/2026)."""
+    base qui sort de la peau, couches croisées sur la prédalle). Des bases X et Y confondues sont dites par la même phrase
+    pour les deux types : le site pose toujours la direction secondaire sur la principale — en haut, et depuis la règle de
+    position du 13/11/2026 en bas d'une prédalle aussi (les deux bases dans la peau) —, seule une position SAISIE les y
+    met (relecture du 09/11/2026)."""
     if not est_predalle(d):
         return _avertissements(r, i)
 
-    def sup(a):
-        return a["code"] == "nappes_confondues" and a.get("face") == "sup"
-    return (AP.avertissements(dict(r, avertissements=[a for a in r["avertissements"] if not sup(a)]), i)
-            + _avertissements(dict(r, avertissements=[a for a in r["avertissements"] if sup(a)]), i))
+    def conf(a):
+        return a["code"] == "nappes_confondues"
+    return (AP.avertissements(dict(r, avertissements=[a for a in r["avertissements"] if not conf(a)]), i)
+            + _avertissements(dict(r, avertissements=[a for a in r["avertissements"] if conf(a)]), i))
 
 
 def _avertissements(r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements du moteur des dalles : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de
-    la dalle entière ; les nappes X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase —
-    le site posant la secondaire sur la principale, seul un axe SAISI les y met : la phrase dit comment le rendre."""
+    la dalle entière ; les armatures X et Y d'une même face posées trop près l'une de l'autre sont dites en une phrase —
+    le site posant la secondaire sur la principale, seule une position SAISIE les y met : la phrase dit comment la rendre."""
     out = ""
     confondues: List[Dict] = []
     for a in r["avertissements"]:
@@ -1180,9 +1165,10 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
         mini = max(a["ecart_mini"] for a in confondues)
         niveau = ("au même niveau" if all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in confondues)
                   else "à des niveaux trop proches pour se croiser")
-        out += C.message(f"{C.esc(s['titre'])} : les armatures X et Y {faces} sont calculées {niveau} ({axes}) — un axe saisi "
-                         f"les y pose. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm d'axe à axe) : son d est "
-                         "plus petit. Rendre l'axe saisi à l'automatique (↺) pose la direction secondaire sur la principale.")
+        out += C.message(f"{C.esc(s['titre'])} : les armatures X et Y {faces} sont posées {niveau} ({axes}) — une position "
+                         f"saisie les y met. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm d'axe à axe) : son d "
+                         "est plus petit. Rendre la position saisie à l'automatique (↺) pose la direction secondaire sur la "
+                         "principale.")
     return out
 
 
@@ -1213,7 +1199,7 @@ def _hypotheses(d: Dict, m: Dict) -> List[str]:
             f"f<sub>ctm</sub> = 0,30·f<sub>ck</sub><sup>2/3</sup> = {C.fr(m['fctm'], 2)} N/mm²",
             f"Acier <b>B{int(m['fyk'])}</b> · f<sub>yd</sub> = {int(m['fyk'])} / {C.nb(m['gamma_s'])} = {C.fr(m['fyd'], 1)} N/mm²",
             f"α<sub>b</sub> = {C.nb(m['alpha_b'])} · μ = {C.nb(m['mu'], 4)}",
-            f"Bande b × h = {C.nb(d['b'])} × {C.nb(d['h'])} cm · enrobage {C.nb(d['enrobage'])} cm · jeu {C.nb(d['jeu_premier_lit'])} cm"]
+            f"Bande b × h = {C.nb(d['b'])} × {C.nb(d['h'])} cm · enrobage {C.nb(d['enrobage'])} cm · jeu de pose {C.nb(d['jeu_premier_lit'])} cm · arrondi {_txt_arrondi(d)}"]
 
 
 def _efforts_txt(s: Dict) -> str:

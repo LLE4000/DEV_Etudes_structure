@@ -279,13 +279,13 @@ def _couche_lue(EN_, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str 
             f'<div class="et-ty">{_lu(genre)}</div><div class="et-tr">{_lu(valeur)}</div>'
             f'<button type="button" class="et-dep" data-deplier="1" title="Axe et détail">{C.icon("chevron-down")}</button></div>')
     if verrou:
-        axe = _lu(f"{PC._cm(geo_c['e'])} cm · {'imposé' if c['dist'] is not None else 'auto'}")
+        axe = _lu(f"{PC._cm(geo_c['e_reel'])} cm · {'imposée' if c['dist'] is not None else 'auto'}")
     else:
-        axe = PC.auto_ou_saisi(base + ["dist"], c["dist"], geo_c["e_auto"], "Revenir à l'axe automatique",
+        axe = PC.auto_ou_saisi(base + ["dist"], c["dist"], geo_c["reel_auto"], "Revenir à la position automatique",
                                base if deplacer else None)
         if c["dist"] is not None and dit_auto:
-            info += f" · axe saisi, l'automatique serait {PC._cm(geo_c['e_auto'])} cm"
-    det = (C.ligne("e axe", axe, "", aide_axe or "Du parement à l'axe des barres. Vide : l'axe automatique ; une valeur saisie l'impose.")
+            info += f" · position saisie, l'automatique serait {PC._cm(geo_c['reel_auto'])} cm"
+    det = (C.ligne("Position", axe, "", aide_axe or "Du parement à l'axe des barres, là où elles sont posées (le dessin). Vide : la position automatique ; une valeur saisie l'impose. Le calcul y ajoute le jeu de pose et arrondit (Options).")
            + details
            + f'<div class="hint et-info">{C.esc(info)} · A<sub>s</sub> = {C.fr(geo_c["As_pm"], 0)}{C.NBSP}mm²/m</div>')
     return f'<div class="et-piece" data-cible="s{i}.{f}-{j}">{tete}<div class="et-det">{det}</div></div>'

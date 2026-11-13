@@ -144,8 +144,9 @@ champs += [(c_, "choix", v_) for c_, v_ in re.findall(r'<select data-chemin="([^
 champs += re.findall(r'<button type="button" class="on" data-chemin="([^"]+)" data-sorte="(choix)" data-valeur="([^"]*)"', r["donnees"])
 # poutre (nom, béton, acier, b, h, enrobage) + par section (nom, M_inf, M_sup, V ; par lit : n, Ø, répartition, position
 # [+ entraxe horizontal] ; y_G imposé des deux faces ; latérales n et Ø ; par ligne d'étriers : type, Ø — ses barres se
-# CHOISISSENT, data-plage, plus bas ; pas) + options (γs, deux jeux, d_g, Ø et écart des latérales automatiques)
-n_attendu = 6 + 6 + sum(4 + sum(4 + (lit.get("rep") == "entraxe") for f in ("inf", "sup") for lit in s_[f]) + 2 + 2
+# CHOISISSENT, data-plage, plus bas ; pas) + options (γs, deux jeux, l'arrondi — un segment, depuis le 13/11/2026 —,
+# d_g, Ø et écart des latérales automatiques)
+n_attendu = 6 + 7 + sum(4 + sum(4 + (lit.get("rep") == "entraxe") for f in ("inf", "sup") for lit in s_[f]) + 2 + 2
                         + sum(2 for _e in s_["etriers"]) + 1 for s_ in p["sections"])
 chk(f"le cadre Données porte tous les champs de la poutre ({len(champs)})", len(champs) == n_attendu, (len(champs), n_attendu))
 vus = {c_ for c_, _, _ in champs}
@@ -370,11 +371,13 @@ for chemin, valeur in ((["sections", "0", "M_inf"], "40"), (["sections", "0", "V
     P.modifier(e, chemin, valeur)
 out = req(module="poutre", action="calculer", etat=e)
 d0 = MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]
-chk("deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres < 25 mm, NON CONFORME (EC2 8.2(2) : un minimum, pas un avis)",
-    any(it["cle"] == "entre_lits" and abs(it["libre"] - 14.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "nok" for it in d0["items"])
+# (règle du 13/11/2026, beton/position.py : les lits posés l'un sur l'autre au jeu près, sans arrondi — 0,8 + 1 + 0,8 =
+#  2,6 cm d'entraxe, 26 − 16 = 10 mm libres ; c'était 1 + 1 + 1 = 3 cm et 14 mm, les demi-Ø arrondis)
+chk("deux lits Ø16 au jeu du bureau (1 cm) : 10 mm libres < 25 mm, NON CONFORME (EC2 8.2(2) : un minimum, pas un avis)",
+    any(it["cle"] == "entre_lits" and abs(it["libre"] - 10.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "nok" for it in d0["items"])
     and out["resume"]["niveau"] == "r", (out["resume"], [i for i in d0["items"] if i["etat"] != "ok"]))
-chk("… et les Options le disent, avec le jeu qui suffirait (2,1 cm : 1 + 2,1 + 1 = 4,1 cm d'entraxe, 41 − 16 = 25 mm libres)",
-    f"gardent 14{C.NBSP}mm libres" in out["donnees"] and "non conforme" in out["donnees"] and f"Porter ce jeu à 2,1{C.NBSP}cm" in out["donnees"])
+chk("… et les Options le disent, avec le jeu qui suffirait (2,5 cm : le jour libre entre deux lits, 25 mm)",
+    f"gardent 10{C.NBSP}mm libres" in out["donnees"] and "non conforme" in out["donnees"] and f"Porter ce jeu à 2,5{C.NBSP}cm" in out["donnees"])
 # une non-conformité trouvée SANS AUCUN EFFORT (deux lits trop serrés) n'est pas cachée par « Données incomplètes » :
 # le bloc de la section est rouge, comme la note (l'ordre de poutre._etat_bloc : non conforme d'abord)
 e = P.nouvel_etat()

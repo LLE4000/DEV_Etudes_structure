@@ -40,7 +40,7 @@ from html import escape
 from typing import Dict, List, Optional, Tuple
 
 from . import dalle_nappes as NAP
-from .dessin_dalle import entrees_plan, legende_nappes, piece
+from .dessin_dalle import entrees_plan, legende_nappes, piece, rappel_jeu
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
 PEAU, HACHURE = "#D3DAE3", "#8C97A6"                          # la prédalle préfabriquée : un gris plus soutenu, hachuré
@@ -197,7 +197,7 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
     for cote in ("inf", "sup"):
         for d_ in (dk, autre):
             for j, c in enumerate(s["faces"][f"{cote}_{d_}"]["couches"]):
-                y = (h_mm - c["e"] * 10.0) if cote == "inf" else c["e"] * 10.0
+                y = (h_mm - c["e_reel"] * 10.0) if cote == "inf" else c["e_reel"] * 10.0
                 couches.append((cote, d_, j, c, y))
     y_bas = max([h_mm] + [y + c["d"] / 2 for *_, c, y in couches])
     # le béton : coulé en place (uni) au-dessus, prédalle (hachurée, plus soutenue) dessous ; bordés de lignes de rupture
@@ -253,10 +253,10 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
     xd = W + 1.3 * u
     for cote in ("inf", "sup"):
         c = s["faces"][f"{cote}_{dk}"]["couches"][0]
-        y = (h_mm - c["e"] * 10.0) if cote == "inf" else c["e"] * 10.0
+        y = (h_mm - c["e_reel"] * 10.0) if cote == "inf" else c["e_reel"] * 10.0
         y_face = h_mm if cote == "inf" else 0.0
         g.append(_attache(W + 0.2 * u, yc + y, xd + 0.4 * u, yc + y, u)
-                 + _cote_v(xd, yc + min(y, y_face), yc + max(y, y_face), _mm(c["e"] * 10.0), u, droite=True))
+                 + _cote_v(xd, yc + min(y, y_face), yc + max(y, y_face), _mm(c["e_reel"] * 10.0), u, droite=True))
     # la hauteur utile de la face TENDUE de la direction coupée (sup. si son moment l'emporte, comme la coupe des dalles) :
     # du parement comprimé au centre de gravité des couches tendues — y_G du calcul
     tendue = "sup" if s[f"M{dk}_sup"] > s[f"M{dk}_inf"] else "inf"
@@ -320,6 +320,10 @@ def svg_coupe(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> s
     y0 = y + hk + 0.4 * u
     legende, hl = legende_nappes(s, p, W, u, y0, lambda c, fil=False: _pose_txt(c, p, fil), taille=0.74)
     g.append(cle + legende)
+    note = rappel_jeu(predalle)
+    if note:                                        # (le jeu et l'arrondi : dans le calcul seulement, dit discrètement)
+        g.append(_txt(0.0, y0 + hl + 0.5 * u, escape(note), 0.66 * u, ancre="start", couleur=COTE, gras=False))
+        hl += 1.0 * u
     y = y0 + hl + 0.6 * u                           # (le bas du cadre : 0,6 u sous la dernière ligne, ses jambages compris)
     largeur = max(W + 10.2 * u, 32.8 * u)
     haut = -1.2 * u if i is None else -0.3 * u
@@ -340,7 +344,7 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
     traits = []
     for dk in ("x", "y"):
         for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
-            haut = c["e"] if cote == "inf" else -c["e"]
+            haut = c["e_reel"] if cote == "inf" else -c["e_reel"]
             traits.append((haut, dk, j, c))
     traits.sort(key=lambda t: t[0])
     for _, dk, j, c in traits:

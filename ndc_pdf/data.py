@@ -114,10 +114,12 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None, cadres_geo=None):
 
     def _lits(geo):
         # (site, 11/2026) clés FACULTATIVES d'un lit : « x » (cm depuis la face gauche, une par barre — la
-        # répartition du ferraillage détaillé) et « label » (« L1 : 2Ø16 »). Absentes : le rendu d'origine.
+        # répartition du ferraillage détaillé), « label » (« L1 : 2Ø16 ») et « e_reel » (cm : la position RÉELLE du
+        # lit, où le dessin le pose — règle du 13/11/2026, beton/position.py ; « e » reste l'axe de calcul). Absentes :
+        # le rendu d'origine.
         lits, labs = [], []
         for lit in geo["lits"]:
-            l_ = dict(n=int(lit["n"]), dia=int(lit["d"]), e=lit["e"] * 10.0)
+            l_ = dict(n=int(lit["n"]), dia=int(lit["d"]), e=float(lit.get("e_reel", lit["e"])) * 10.0)
             if lit.get("x"):
                 l_["xs"] = [x * 10.0 for x in lit["x"]]
             lits.append(l_)

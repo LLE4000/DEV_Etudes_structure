@@ -834,11 +834,25 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   les dalles suit dans la poutre. Ordre des lots proposé (à confirmer) : 3 la règle de position (poutre, dalle,
   prédalle) et le rangement des moteurs ; 4 la poutre comme la dalle (UNI4) ; 5 les barres de couture ; 6 le gabarit
   du bureau.
+- **Lot 3 — la règle de position (fait le 13/11/2026 ; `DALLES_FUSION.md` § 9)** : une source, `beton/position.py`, pour
+  la poutre, la dalle pleine et la prédalle — positions RÉELLES au dessin, axe de calcul ⌈réel + jeu de pose⌉ au pas
+  d'arrondi (« façon A ») ; jeu de pose 1 cm et arrondi 0,5 cm par défaut, dans les Options ; le détail de chaque axe dans
+  la fenêtre de calcul (« e₁ = c + Ø/2 + jeu = 3 + 0,6 + 1 = 4,6 → 5,0 cm ») ; la base secondaire d'une prédalle DANS la
+  peau ; les anciennes notes relues avec un jeu de 1 cm au moins et un avis à l'ouverture (dalle : état 5 ; poutre :
+  état 2) ; un fichier Streamlit de la poutre relu sans compter le jeu deux fois. Chiffres : A_s,req + 5 à + 7 % pour une
+  dalle de 20 à 22 cm (d − 1 cm) ; une poutre 30 × 60 de 92 à 94 % ; une poutre de 40 cm reçoit une barre de peau par
+  face (120 → 135 kg/m³). Regel des références accepté, raison écrite. **Reste** : le rangement des MOTEURS prévu ici
+  (une seule lecture des matériaux, `beton/methode.py` ; un seul module de dessin dalle/prédalle) — seule la fonction de
+  position est unifiée, le reste passe à un lot suivant ; « toucher une barre ouvre sa rubrique » pour la poutre (lot 4,
+  UNI4) ; le jeu entre couches réglable et les réglages « coulé en place » / « préfabriqué » (le gabarit du bureau,
+  lot 6).
 - **Le temps des vérifications (relevé du 13/11/2026)** : la batterie ne rejoue que les suites touchées (lot 2a :
   46 jouées en 460 s sur 3 processus, 90 sautées ; DAL9, code commun touché : 69 jouées en 776 s), mais 30 suites
   sont rejouées à CHAQUE passage, leurs sous-processus échappant au suivi (`.temoin_tests/`) : 10 relisent leur note
   PDF (pdftotext, ≈ 457 s de calcul), 5 tournent sous node (≈ 347 s, dont `test_moteur_partage.py` 284 s), 14 lancent
-  un Python isolé (≈ 170 s, dont les 11 parités Streamlit que le lot 3 remplace), 1 lit git. La bibliothèque des
+  un Python isolé (≈ 170 s, dont les 11 parités Streamlit), 1 lit git. *(Corrigé le 13/11/2026, lot 3 : les parités
+  Streamlit n'ont PAS été remplacées — elles sont gardées, l'écran Streamlit recevant les axes de calcul du moteur ; elles
+  restent rejouées à chaque passage, leur contrôle de pureté lançant un Python isolé.)* La bibliothèque des
   profilés (`test_catalogue_moteur.py`, 431 s) n'est rejouée que si on la touche. Le parcours du navigateur : ciblé
   30 à 45 s, complet ≈ 33 min (3 317 contrôles), gardé pour les changements de tout le site. Proposé : suivre
   pdftotext (il ne lit que le PDF du test), puis les suites node.

@@ -93,6 +93,8 @@ chk("un fichier qu'aucune règle ne range est REFUSÉ (ValueError) : le tableau 
 chk("la dalle et la prédalle sont un seul groupe ; la poutre le sien (les moteurs, l'écran, la note PDF)",
     T.groupe_de("beton/predalle/moteur.py") == T.groupe_de("api_web/dalle.py") == T.groupe_de("modules/export_pdf_dalle.py") == "dalle"
     and T.groupe_de("beton/poutre/moteur.py") == T.groupe_de("modules/export_pdf.py") == "poutre")
+chk("la règle de position des armatures (beton/position.py, lot 3 du 13/11/2026), partagée par la poutre et les dalles, est du "
+    "code COMMUN — comme api_web/commun.py qui la lit", T.groupe_de("beton/position.py") == T.groupe_de("api_web/commun.py") == "commun")
 
 print("=== 3 · Le tableau")
 with warnings.catch_warnings():

@@ -14,18 +14,19 @@ from . import commun as C
 
 POSES_TXT = {"predalle": "dans la prédalle", "sur_predalle": "sur la prédalle", "superieure": "depuis le dessus"}
 
-POSES_AIDE = {"predalle": "Axe automatique : la base principale est posée en fond de moule, DANS la prédalle — enrobage + ½ Ø "
-                          "arrondi au 0,5 cm (sans jeu premier lit).",
-              "sur_predalle": "Axe automatique : couche posée SUR la prédalle, au chantier — épaisseur de la prédalle + ½ Ø "
-                              "arrondi au 0,5 cm.",
-              "superieure": "Axe automatique, depuis le dessus : enrobage + ½ Ø arrondi au 0,5 cm + jeu premier lit."}
+POSES_AIDE = {"predalle": "Position automatique : la base est posée en fond de moule, DANS la prédalle — enrobage + ½ Ø (la "
+                          "base secondaire, sur la principale) ; le calcul y ajoute le jeu de pose et arrondit.",
+              "sur_predalle": "Position automatique : un renfort posé SUR la prédalle, au chantier — épaisseur de la prédalle "
+                              "+ ½ Ø ; le calcul y ajoute le jeu de pose et arrondit.",
+              "superieure": "Position automatique, depuis le dessus : enrobage + ½ Ø ; le calcul y ajoute le jeu de pose et "
+                            "arrondit."}
 
 # la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit)
 LEGENDES = {"c": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
             "p": "vue de dessus · barres X horizontales, Y verticales"}
 
 # ------------------------------------------------------------------ les données : l'arborescence (colonne de gauche)
-REGLES_TXT = {"predalle": "c + ½ Ø", "sur_predalle": "h<sub>p</sub> + ½ Ø", "superieure": "c + ½ Ø + j"}
+REGLES_TXT = {"predalle": "c + ½ Ø", "sur_predalle": "h<sub>p</sub> + ½ Ø", "superieure": "c + ½ Ø"}
 
 # Le pictogramme de la POSE d'une couche : une coupe en miniature (la peau hachurée en bas, ou le dessus de la dalle),
 # et la barre à sa place — dans la peau, posée sur la peau, ou sous le dessus. Dessiné à la main : aucun identifiant.
@@ -41,13 +42,14 @@ def _picto_pose(pose: str) -> str:
     return f'<svg class="pd-m pd-{pose}" viewBox="0 0 18 12" aria-hidden="true">{PICTOS_POSE[pose]}</svg>'
 
 def sur_principale(x: Dict) -> str:
-    """Sur quoi repose une couche (ou sa formule « e ») que le site a empilée, dans les mots de la prédalle : « la base
-    principale » (comme avant S5), sinon ce que ``dalle_positions.annoter`` en dit (``sur`` : « le renfort Y », « le
-    renfort R2 Y ») — S5 : un renfort principal plus haut que la base porte la nappe secondaire ; DAL5b : un renfort
-    principal posé sur un treillis unique (``appui_sec``) repose sur « le treillis » ou sur « le renfort X »."""
+    """Sur quoi repose une couche (ou sa formule « e ») que le site a empilée : ce que ``dalle_positions.annoter`` en dit
+    (``sur`` : « la base Y », « le renfort Y », « le renfort R2 Y » — les mots de la formule « e » et de la légende des
+    coupes, une source), « la base principale » sans lui — S5 : un renfort principal plus haut que la base porte la nappe
+    secondaire ; DAL5b : un renfort principal posé sur un treillis unique (``appui_sec``) repose sur « le treillis » ou
+    sur « le renfort X »."""
     if x.get("appui_sec"):
         return x.get("sur") or "le treillis"
-    return "la base principale" if not x.get("appui") else (x.get("sur") or "l'armature principale")
+    return x.get("sur") or "la base principale"
 
 def pose_couche(c: Dict, geo_c: Dict) -> str:
     """OÙ la règle de la prédalle pose une couche (dans la prédalle, sur la prédalle, depuis le dessus), et l'axe
@@ -58,37 +60,26 @@ def pose_couche(c: Dict, geo_c: Dict) -> str:
     pose = geo_c["pose"]
     if geo_c.get("empilee"):
         # (une couche supérieure secondaire que le site a posée sur la principale : « depuis le dessus (c + ½ Ø + j) » mentirait)
-        txt = (f"axe auto · posée sur {sur_principale(geo_c)} (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)")
+        txt = (f"position auto · posée sur {sur_principale(geo_c)} (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)")
     elif c["dist"] is None:
-        txt = f"axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
+        txt = f"position auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
     else:
-        txt = f"axe saisi · l'automatique serait {C.nb(geo_c['e_auto'])} cm, {POSES_TXT[pose]}"
+        txt = f"position saisie · l'automatique serait {C.nb(geo_c['reel_auto'])} cm, {POSES_TXT[pose]}"
     return f'<div class="pd-pose" title="{C.esc(POSES_AIDE[pose])}">{_picto_pose(pose)}<span>{txt}</span></div>'
 
 def avertissements(r: Dict, i: Optional[int] = None) -> str:
-    """Les avertissements du moteur : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la
-    prédalle entière ; les bases X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase."""
+    """Les avertissements PROPRES à la prédalle (base hors de la peau, couches croisées sur la prédalle) : ceux de la
+    section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la prédalle entière. Les bases X et Y confondues sont
+    dites par la phrase des dalles (api_web/dalle._avertissements : seule une position saisie les y met, depuis la
+    règle de position du 13/11/2026 en bas aussi)."""
     out = ""
-    confondues: List[Dict] = []
     for a in r["avertissements"]:
-        if a.get("section") != i:
+        if a.get("section") != i or a["code"] == "nappes_confondues":
             continue
-        if a["code"] == "nappes_confondues":
-            confondues.append(a)
-        elif a["code"] == "enrobage_nul":
+        if a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
         elif a["code"] != "d_utile_negatif":      # (d ≤ 0 : la ligne de la face le dit, en rouge — PC.comparaison)
-            out += C.message(C.esc(a["message"]), grave=a["code"] in ("base_hors_predalle", "treillis_hors_predalle"))
-    if confondues:
-        s = r["sections"][i]
-        faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
-        axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in confondues)
-        mini = max(a["ecart_mini"] for a in confondues)
-        meme = all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in confondues)
-        niveau = "au même niveau" if meme else "à des niveaux trop proches pour se croiser"
-        out += C.message(f"{C.esc(s['titre'])} : les bases X et Y {faces} sont calculées {niveau} ({axes}), comme dans "
-                         f"l'écran Streamlit. Croisées, l'une passe sur l'autre (il faut au moins {C.fr(mini, 1)} cm d'axe à "
-                         f"axe) : son d est plus petit que celui calculé. Saisir son axe pour en tenir compte.")
+            out += C.message(C.esc(a["message"]), grave=a["code"] in ("base_hors_predalle", "secondaire_hors_predalle"))
     return out
 
 # Ce que le module VÉRIFIE, et ce qu'il ne vérifie pas : en entier dans chaque fenêtre de calcul, pour qu'un
@@ -107,4 +98,4 @@ def hypotheses(p: Dict, m: Dict) -> List[str]:
             f"α<sub>b</sub> = {C.nb(m['alpha_b'])} · μ = {C.nb(m['mu'], 4)}",
             f"Bande b × h = {C.nb(p['b'])} × {C.nb(p['h'])} cm, dont prédalle <b>{C.nb(p['h_pre'])} cm</b> et "
             f"{C.nb(p['h'] - p['h_pre'])} cm coulés en place",
-            f"Enrobage {C.nb(p['enrobage'])} cm · jeu premier lit {C.nb(p['jeu_premier_lit'])} cm (armatures supérieures)"]
+            f"Enrobage {C.nb(p['enrobage'])} cm · jeu de pose {C.nb(p['jeu_premier_lit'])} cm · arrondi {C.txt_arrondi(p.get('arrondi'))}"]

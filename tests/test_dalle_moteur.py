@@ -356,8 +356,16 @@ if D is not None:
         D._sync_dist_state(1, 1, which, 1)
         D._sync_ycdg_state(1, 1, which)
     defaut = lire_session(1)
-    chk("nouvelle_dalle() = l'état de l'écran au premier affichage (bande 100 × 20, C30/37, B500, Y, treillis 10/10/100/100…)",
-        not ecarts_json(M.nouvelle_dalle(), defaut), ecarts_json(M.nouvelle_dalle(), defaut))
+    # (la règle de position du 13/11/2026, beton/position.py : le jeu de pose du bureau vaut 1 cm — l'écran disait 0 — et
+    #  l'arrondi est une clé nouvelle ; tout le reste est l'état de l'écran)
+    neuve = M.nouvelle_dalle()
+    chk("nouvelle_dalle() : le jeu de pose du bureau (1 cm) et l'arrondi (0,5 cm) de la règle du 13/11/2026",
+        neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut["jeu_premier_lit"] == 0.0,
+        (neuve["jeu_premier_lit"], neuve.get("arrondi")))
+    neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi")}
+    defaut.pop("jeu_premier_lit")
+    chk("nouvelle_dalle() = l'état de l'écran au premier affichage (bande 100 × 20, C30/37, B500, Y, treillis "
+        "10/10/100/100…), hors jeu de pose et arrondi", not ecarts_json(neuve, defaut), ecarts_json(neuve, defaut))
     D._add_section(1)
     D._add_couche(1, 2, "inf_y")
     for which in E.FACES:
@@ -393,14 +401,17 @@ r1 = M.verifier(cas("bidirectionnelle complète")[0])["sections"][0]
 g1 = r1["grandeurs"]
 v1 = {v["cle"]: v for v in r1["verifications"]}
 fyd = 500 / 1.5
-e = 30 + 5                                                              # enrobage 30 mm + ⌈10/2⌉ (au 5 mm), jeu nul
+# la règle de position du 13/11/2026 (beton/position.py) : ⌈c + Ø/2 + jeu de pose⌉ au pas de 5 mm, une fois — le moteur
+# seul ne pose pas une direction sur l'autre (le site le fait : tests/test_api_web_dalle_positions.py)
+e = math.ceil((30 + 5 + 10) / 5) * 5                                    # ⌈30 + 5 + 10⌉₅ = 45 mm
 As10 = math.pi * 10 ** 2 / 4 * 1000 / 100                               # treillis 10/10/100/100 : 785,4 mm²/m
 req = {f: m * 1e6 / (fyd * 0.9 * (200 - e)) for f, m in (("inf_y", 35), ("inf_x", 28), ("sup_y", 9), ("sup_x", 12))}
 fctm = 0.30 * 30 ** (2 / 3)
-chk("H1 axes à 35 mm (30 + ⌈Ø10/2⌉ au 0,5 cm), d = 165 mm sur les quatre faces",
+chk("H1 axes de calcul à 45 mm (⌈30 + Ø10/2 + 10 (jeu)⌉ au 5 mm), d = 155 mm sur les quatre faces",
     all(proche(g1[f"yG_{f}"] * 10, e) and proche(g1[f"d_{f}"] * 10, 200 - e) for f in E.FACES))
-chk("H1 As,req indépendants des quatre familles : 707 / 566 / 182 / 242 mm² (test_dalle_bidir)",
-    all(proche(g1[f"As_req_{f}"], req[f]) for f in req) and [round(req[f]) for f in ("inf_y", "inf_x", "sup_y", "sup_x")] == [707, 566, 182, 242],
+chk("H1 As,req indépendants des quatre familles : 753 / 602 / 194 / 258 mm² (d = 155 mm ; 707 / 566 / 182 / 242 à "
+    "d = 165 mm, l'écran Streamlit : test_dalle_bidir)",
+    all(proche(g1[f"As_req_{f}"], req[f]) for f in req) and [round(req[f]) for f in ("inf_y", "inf_x", "sup_y", "sup_x")] == [753, 602, 194, 258],
     {f: g1[f"As_req_{f}"] for f in req})
 As_min = {f: max(0.26 * fctm / 500 * 1000 * 200, 0.0013 * 1000 * 200, 0.25 * req[o])
           for f, o in (("inf_y", "sup_y"), ("sup_y", "inf_y"), ("inf_x", "sup_x"), ("sup_x", "inf_x"))}
@@ -409,8 +420,8 @@ chk(f"H1 As,min = max(0,26·fctm/fyk·b·h = {fr(0.26 * fctm / 500 * 2e5, 1)} ; 
 chk("H1 taux = max(As,req ; As,min) / As fourni (785,4 mm² sur la bande d'un mètre)",
     all(proche(v1[f]["taux"], max(req[f], As_min[f]) / As10) for f in req))
 hu = math.sqrt(35e6 / (12.96 * 1000 * 0.1709))                          # mm
-chk(f"H1 hauteur : hu,min(35) + y_G = {fr(hu / 10, 2)} + 3,5 = {fr(hu / 10 + 3.5, 2)} cm (inf. Y gouverne)",
-    proche(g1["h_min"], hu / 10 + 3.5) and g1["face_hauteur"] == "inf_y" and fr(g1["hu_min"], 1) == "12,6")
+chk(f"H1 hauteur : hu,min(35) + y_G = {fr(hu / 10, 2)} + 4,5 = {fr(hu / 10 + 4.5, 2)} cm (inf. Y gouverne)",
+    proche(g1["h_min"], hu / 10 + 4.5) and g1["face_hauteur"] == "inf_y" and fr(g1["hu_min"], 1) == "12,6")
 tau = 60e3 / (0.75 * 1000 * 200)
 chk(f"H1 τ = V/(0,75·b·h) = {fr(tau, 4)} ≤ τ_adm,I = 0,016·37/1,05 = {fr(0.016 * 37 / 1.05, 4)} N/mm², sans étriers",
     proche(g1["tau"], tau) and proche(v1["tau"]["taux"], tau / (0.016 * 37 / 1.05)) and v1["tau"]["etat"] == "ok")
@@ -419,13 +430,18 @@ chk("H2 renfort 3 Ø12 dans la bande : 3·π·12²/4 = 339 mm²/m, As fourni = 7
     proche(r2["faces"]["inf_y"]["couches"][1]["As_pm"], 3 * math.pi * 144 / 4) and round(r2["grandeurs"]["As_pm_inf_y"]) == 1125
     and r2["faces"]["inf_y"]["libelle"] == "Treillis 10/10/100/100 + 3 Ø12")
 r3 = M.verifier(cas("renfort posé à 8,0 cm")[0])["sections"][0]
-yG = (As10 * 3.5 + 3 * math.pi * 144 / 4 * 8.0) / (As10 + 3 * math.pi * 144 / 4)
-chk(f"H3 axe saisi 8,0 cm : y_G = Σ As·e / Σ As = {fr(yG, 3)} cm (« 4,9 » à l'écran), As,req = 770 mm² (test_dalle_bidir)",
-    proche(r3["grandeurs"]["yG_inf_y"], yG) and fr(yG, 1) == "4,9" and round(r3["grandeurs"]["As_req_inf_y"]) == 770)
+# le renfort posé à 8,0 cm (position saisie, réelle) : axe de calcul ⌈8,0 + 1⌉ = 9,0 cm ; le treillis 4,5 cm
+yG = (As10 * 4.5 + 3 * math.pi * 144 / 4 * 9.0) / (As10 + 3 * math.pi * 144 / 4)
+chk(f"H3 position saisie 8,0 cm (axe de calcul 9,0) : y_G = Σ As·e / Σ As = {fr(yG, 3)} cm (« 5,9 » à l'écran), "
+    "As,req = 35·10⁶ / (333,3 × 0,9 × 141,4) = 825 mm²",
+    proche(r3["grandeurs"]["yG_inf_y"], yG) and fr(yG, 1) == "5,9" and round(r3["grandeurs"]["As_req_inf_y"]) == 825,
+    (r3["grandeurs"]["yG_inf_y"], r3["grandeurs"]["As_req_inf_y"]))
 r4 = M.verifier(cas("audit C-1")[0])["sections"][0]
-chk("H4 audit C-1 : hu,min(30) + 8,0 = 11,6 + 8,0 = 19,6 cm (et non 12,0 + 3,5 = 15,5)",
+chk("H4 audit C-1 : la famille posée à 8,0 cm (axe de calcul 9,0) gouverne, hu,min(30) + 9,0 = 11,6 + 9,0 = 20,6 cm "
+    "(et non hu,min(32) + 4,5 = 12,0 + 4,5 = 16,5)",
     r4["grandeurs"]["face_hauteur"] == "inf_y" and r4["grandeurs"]["M_hauteur"] == 30
-    and (fr(r4["grandeurs"]["hu_min"], 1), fr(r4["grandeurs"]["h_min"], 1)) == ("11,6", "19,6"))
+    and (fr(r4["grandeurs"]["hu_min"], 1), fr(r4["grandeurs"]["h_min"], 1)) == ("11,6", "20,6"),
+    (r4["grandeurs"]["hu_min"], r4["grandeurs"]["h_min"]))
 
 # ------------------------------------------------------------------ 3. parité
 ICONES = {"🟢": "ok", "🟡": "warn", "🔴": "nok"}
@@ -482,6 +498,12 @@ def charger(dalles):
     ss = st.session_state
     ss.clear()
     D._ensure_global_defaults()
+    # la POSITION de chaque couche : la règle du 13/11/2026 (beton/position.py — position réelle, jeu de pose, arrondi),
+    # que l'écran ne connaît pas ; il reçoit l'axe de calcul du moteur comme un axe saisi (« Dist. axe », comme la note
+    # PDF : api_web/note_dalle.valeurs) — la parité porte alors sur tout le reste (formules, états, écran), au bit près ;
+    # les positions sont prouvées à la main (tests/test_position.py, tests/test_api_web_dalle_positions.py)
+    axes = [[{f: [c["e"] for c in sec_["faces"][f]["couches"]] for f in E.FACES} for sec_ in M.verifier(d)["sections"]]
+            for d in dalles]
     ss["gamma_s"], ss["jeu_enrobage_cm"] = dalles[0]["gamma_s"], dalles[0]["jeu_premier_lit"]
     ss.dalles = [{"id": k + 1, "nom": d["nom"], "sections": [{"id": i + 1, "nom": s["nom"]} for i, s in enumerate(d["sections"])]}
                  for k, d in enumerate(dalles)]
@@ -503,9 +525,9 @@ def charger(dalles):
                     for cle_ecran, v in (("arm_type", TYPES_ECRAN[c["type"]]), ("treillis", c["treillis"]), ("ø_barres", c["d"]),
                                          ("esp_barres", c["esp"]), ("n_barres", c["n"])):
                         ss[D.KS(f"{cle_ecran}_{which}_c{j}", did, sid)] = v
-                    if c["dist"] is not None:   # le champ « Dist. axe » saisi à la française
-                        ss[D.KS(f"dist_axe_{which}_c{j}", did, sid)] = DIR_TXT(c["dist"])
-                        ss[D.KS(f"dist_auto_{which}_c{j}", did, sid)] = False
+                    # le champ « Dist. axe » saisi à la française : l'axe de calcul du moteur
+                    ss[D.KS(f"dist_axe_{which}_c{j}", did, sid)] = DIR_TXT(axes[k][i][which][j - 1])
+                    ss[D.KS(f"dist_auto_{which}_c{j}", did, sid)] = False
                 if f["yG"] is not None:         # le champ « CDG (cm) »
                     ss[D.KS(f"ycdg_{which}", did, sid)] = DIR_TXT(f["yG"])
                     ss[D.KS(f"ycdg_auto_{which}", did, sid)] = False
@@ -610,7 +632,7 @@ def comparer(es, md, ecarts):
         cmp(f"{f}.yG_impose", geo["yG_impose"], mf["yG_impose"])
         cmp(f"{f}.couches", len(geo["couches"]), len(mf["couches"]))
         for j, (a, b) in enumerate(zip(geo["couches"], mf["couches"]), start=1):
-            for cle in ("As_pm", "e", "e_auto", "libelle", "d"):
+            for cle in ("As_pm", "e", "libelle", "d"):      # (« e_auto » : la règle du 13/11/2026, que l'écran ignore)
                 cmp(f"{f}.couche {j}.{cle}", a[cle], b[cle])
     for v in es["verifications"]:
         cmp(f"motifs {v['cle']} (vides si et seulement si l'état est ok)", not v["motifs"], v["etat"] == "ok")
@@ -801,9 +823,16 @@ if D is not None:
             gv = max(pcts, key=lambda x: x[2])
             if not (egal(r["taux_max"], gv[2] / 100.0) and (r["gouvernant"]["section"], r["gouvernant"]["titre"]) == gv[:2]):
                 ecarts.append(f"gouvernant : moteur {r['gouvernant']} ≠ écran {gv}")
-        # le fichier que l'écran écrit, relu par le moteur, redonne la note
+        # le fichier que l'écran écrit, relu par le moteur, redonne la note — chaque couche avec l'axe que l'écran a reçu
+        # (l'axe de calcul du moteur, « Dist. axe » saisi : voir charger)
         lu = FI.lire(payload)
-        diff = ecarts_json(lu["dalles"], dalles)
+        attendues = copy.deepcopy(dalles)
+        for d_, r_ in zip(attendues, res):
+            for s_, rs_ in zip(d_["sections"], r_["sections"]):
+                for f_ in E.FACES:
+                    for c_, cr_ in zip(s_["faces"][f_]["couches"], rs_["faces"][f_]["couches"]):
+                        c_["dist"] = cr_["e"]
+        diff = ecarts_json(lu["dalles"], attendues)
         if diff or lu["remarques"]:
             ecarts.append(f"fichier relu : {diff[:3]} {lu['remarques'][:2]}")
         COUV |= faits(dalles, res, calc)
@@ -1110,12 +1139,12 @@ if D is not None:
         ("h_u,min : b en cm au lieu de mm", "math.sqrt((m * 1e6) / (alpha_b * b * 10 * mu)) / 10", "math.sqrt((m * 1e6) / (alpha_b * b * mu)) / 10"),
         ("fctm : 0,30·fck^(2/3) → 0,30·fck^0,66", "K_FCTM * (fck ** (2.0 / 3.0))", "K_FCTM * (fck ** 0.66)"),
         ("fyd = fyk / γs → fyk / 1,15", "fyd = fyk / gamma_s", "fyd = fyk / 1.15"),
-        ("axe : demi-Ø arrondi au 0,5 cm le plus proche (et non supérieur)", "return math.ceil(float(x_cm) * 2.0) / 2.0",
-         "return round(float(x_cm) * 2.0) / 2.0"),
-        ("axe : le jeu premier lit oublié", "return enrob + arrondi_demi_cm(couche_diametre(c) / 20.0) + jeu1",
-         "return enrob + arrondi_demi_cm(couche_diametre(c) / 20.0)"),
-        ("enrobage nul lu 0 (et non 3,0 cm comme l'écran)", "enrob = float(enrobage or ENROBAGE_SI_NUL)", "enrob = float(enrobage)"),
-        ("axe saisi ignoré", 'e = auto if c["dist"] is None else c["dist"]', "e = auto"),
+        ("axe : le jeu de pose oublié (règle du 13/11/2026)", "e = P.axe_calcul(reel, jeu, arrondi)",
+         "e = P.axe_calcul(reel, 0.0, arrondi)"),
+        ("axe : l'arrondi oublié", "e = P.axe_calcul(reel, jeu, arrondi)", "e = P.axe_calcul(reel, jeu, 0.0)"),
+        ("enrobage nul lu 0 (et non 3,0 cm comme l'écran)", "P.sur_parement(float(enrobage or ENROBAGE_SI_NUL), couche_diametre(c))",
+         "P.sur_parement(float(enrobage), couche_diametre(c))"),
+        ("position saisie ignorée", 'reel = reel_auto if c["dist"] is None else float(c["dist"])', "reel = reel_auto"),
         ("centre de gravité saisi ignoré", '"yG": yG_calcule if yG is None else yG', '"yG": yG_calcule'),
         ("« n barres » : la largeur de bande ignorée", "/ max(0.01, bb / 100.0)", "/ 1.0"),
         ("As de la face : la largeur de bande ignorée", '"As": As_pm_tot * (float(b) / 100.0)', '"As": As_pm_tot'),

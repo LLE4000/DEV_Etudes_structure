@@ -377,19 +377,25 @@ ch1 = champs(e1["donnees"])
 chk("la case cochée : les trois réglages et la longueur de la section apparaissent ; sans longueur, la tête dit quoi faire",
     not e1.get("message") and e1["etat"]["poutres"][0]["taux"] == {"actif": True} and ch1.get("taux/majoration") == ("nombre", "5")
     and ch1.get("sections/0/longueur") == ("texte", "") and "donner une longueur aux sections" in texte(e1["resultat"])
-    and "Taux d'armature 115 kg/m³" in texte(e1["resultat"]), (e1.get("message"), ch1))
+    and "Taux d'armature 135 kg/m³" in texte(e1["resultat"]), (e1.get("message"), ch1))
 e2 = saisir(e1["etat"], ["sections", "0", "longueur"], "4,5")
-chk("longueur « 4,5 » : écrite 4,5 m dans la section ; la tête donne le taux de la poutre (115 kg/m³, 41,1 kg, 0,360 m³, 4,50 m)",
+# (la poutre neuve, 20 × 40, 2Ø16 + 2Ø16, cadre Ø10 à 30 cm, retour 10 cm, + 5 %, arrondi 5 kg/m³ : 4 × 1,5783 +
+#  (100/30) × (2 × (14 + 34) + 2 × 10) / 100 × 0,6165 + 2 × 0,6165 = 9,930 kg/m — les deux barres de peau Ø10, une par
+#  face : depuis la règle de position du 13/11/2026, l'écart RÉEL entre les lits 1 fait 40 − 2 × 4,8 = 30,4 cm > 30 cm ;
+#  × 1,05 = 10,43 kg/m ; / 0,08 m³/m = 130,3 → 135 kg/m³ ; × 4,5 m = 46,9 kg — c'était 115 kg/m³ et 41,1 kg, sans peau)
+chk("longueur « 4,5 » : écrite 4,5 m dans la section ; la tête donne le taux de la poutre (135 kg/m³, 46,9 kg, 0,360 m³, 4,50 m)",
     not e2.get("message") and e2["etat"]["poutres"][0]["sections"][0]["longueur"] == 4.5
-    and "Taux d'armature 115 kg/m³ 41,1 kg · 0,360 m³ · 4,50 m" in texte(e2["resultat"]), texte(e2["resultat"])[:200])
+    and "Taux d'armature 135 kg/m³ 46,9 kg · 0,360 m³ · 4,50 m" in texte(e2["resultat"]), texte(e2["resultat"])[:200])
 e3 = saisir(e2["etat"], ["taux", "majoration"], "10")
 e3 = saisir(e3["etat"], ["taux", "retour"], "12")
 e3 = saisir(e3["etat"], ["taux", "arrondi"], "1")
-# 20 × 40, 2Ø16 + 2Ø16, cadre Ø10 à 30 cm : 4·1,5783 + (100/30)·(2·(14 + 34) + 24)/100·0,6165 = 8,7795 kg/m ; × 1,10 / 0,08 = 120,7 → 121
-m3 = 4 * 7850 * math.pi * 0.016 ** 2 / 4 + (100 / 30.0) * (2 * (14 + 34) + 2 * 12) / 100.0 * 7850 * math.pi * 0.010 ** 2 / 4
-chk("réglages 10 %, 12 cm, 1 kg/m³ : l'état les porte et le taux devient ⌈8,78 · 1,10 / 0,08⌉ = 121 kg/m³",
+# 20 × 40, 2Ø16 + 2Ø16, cadre Ø10 à 30 cm, deux barres de peau Ø10 : 4·1,5783 + (100/30)·(2·(14 + 34) + 24)/100·0,6165
+# + 2·0,6165 = 10,012 kg/m ; × 1,10 / 0,08 = 137,7 → 138
+m3 = (4 * 7850 * math.pi * 0.016 ** 2 / 4 + (100 / 30.0) * (2 * (14 + 34) + 2 * 12) / 100.0 * 7850 * math.pi * 0.010 ** 2 / 4
+      + 2 * 7850 * math.pi * 0.010 ** 2 / 4)
+chk("réglages 10 %, 12 cm, 1 kg/m³ : l'état les porte et le taux devient ⌈10,01 · 1,10 / 0,08⌉ = 138 kg/m³",
     e3["etat"]["poutres"][0]["taux"] == {"actif": True, "majoration": 10.0, "retour": 12.0, "arrondi": 1}
-    and math.ceil(m3 * 1.10 / 0.08) == 121 and "Taux d'armature 121 kg/m³" in texte(e3["resultat"]), (e3["etat"]["poutres"][0]["taux"], m3))
+    and math.ceil(m3 * 1.10 / 0.08) == 138 and "Taux d'armature 138 kg/m³" in texte(e3["resultat"]), (e3["etat"]["poutres"][0]["taux"], m3))
 for nom, chemin, valeur, mot in (("majoration de 80 %", ["taux", "majoration"], "80", "majoration"),
                                  ("retour « dix »", ["taux", "retour"], "dix", "illisible"),
                                  ("arrondi de 2,5", ["taux", "arrondi"], "2,5", "arrondi"),

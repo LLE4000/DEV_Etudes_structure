@@ -118,6 +118,14 @@ Unités du module : b, h, distances en cm ; Ø en mm ; M en kN·m ; V en kN ; ai
 2. **Position des lits** (automatique) : lit 1 = c + arr½(Ø_étrier/10 + Ø₁/20) + jeu premier lit ;
    lit i = lit(i−1) + arr½(Ø(i−1)/20) + jeu entre lits + arr½(Øᵢ/20) — arr½ : arrondi au 0,5 cm
    supérieur ; Ø_étrier = le plus grand Ø des étriers et épingles ; un enrobage c nul est lu 3,0 cm.
+   **Révisé le 13/11/2026 (lot 3, la règle de position, `beton/position.py` ; `docs/site/DALLES_FUSION.md` § 9)** :
+   chaque lit a sa position RÉELLE — lit 1 = c + Ø_étrier + Ø₁/2 (la barre dans l'angle du cadre), lit i = lit(i−1) +
+   Ø(i−1)/2 + jeu entre lits + Øᵢ/2, les Ø réels, sans arrondi : c'est ce que les dessins montrent, et ce que lisent les
+   dispositions constructives (l'espace libre entre lits = le jeu entre lits) et les armatures de peau ; l'axe de
+   CALCUL est ⌈réel + jeu de pose⌉ au pas d'arrondi (0,5 cm par défaut ; « jeu_premier_lit » est le jeu de pose, 1 cm
+   par défaut ; clé « arrondi »). Exemple : étrier Ø8, Ø16, c = 3 : 3 + 0,8 + 0,8 = 4,6 cm réel, 4,6 + 1 = 5,6 → 6,0 cm
+   au calcul. Une position imposée (« pos ») est une position réelle (lit 1 : depuis le parement ; lit i : l'entraxe
+   depuis le lit précédent).
 3. **Centre de gravité et hauteurs utiles.** y_G = Σ Asᵢ·eᵢ / Σ Asᵢ (ou la valeur imposée) ;
    flexion : d = h − y_G de la face ; cisaillement : d_v = h − min(lit 1 inf. ; lit 1 sup.).
    d ≤ 0 rend la vérification « nok » ; les formules prennent max(d ; 0,1 cm).

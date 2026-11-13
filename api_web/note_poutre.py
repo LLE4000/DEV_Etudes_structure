@@ -65,6 +65,7 @@ def resultats(etat: Dict) -> List[Dict]:
             for face in ("inf", "sup"):
                 for j, (lit, geo) in enumerate(zip(R[f"geo_{face}"]["lits"], rs["geometrie"][face]["lits"])):
                     lit["x"] = list(geo["x"])
+                    lit["e_reel"] = geo["reel"]          # le dessin pose le lit à sa position réelle (beton/position.py)
                     lit["label"] = f"L{j + 1} : {geo['n']}Ø{geo['d']}"
             lat = rs["geometrie"]["laterales"]
             # les axes des latérales : au contact du nu intérieur de l'étrier (le dessin du site, dispositions.py)

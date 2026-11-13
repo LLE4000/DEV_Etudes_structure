@@ -289,8 +289,16 @@ if P is not None:
                      "fyk": ss[KB("fyk", 1)], "gamma_s": ss["gamma_s"], "enrobage": ss[KB("enrobage_beton", 1)],
                      "jeu_premier_lit": ss["jeu_enrobage_cm"], "jeu_entre_lits": ss["jeu_entre_lits_cm"],
                      "sections": [lire_section(1)]}
-    chk("nouvelle_poutre() = l'état du module au premier affichage (20 × 40, C30/37, B500, γs 1,5, 2Ø16, étrier Ø10…)",
-        not ecarts_json(M.nouvelle_poutre(), defaut_module), ecarts_json(M.nouvelle_poutre(), defaut_module))
+    # (la règle de position du 13/11/2026, beton/position.py : le jeu de pose du bureau vaut 1 cm — le module disait 0 —
+    #  et l'arrondi est une clé nouvelle ; tout le reste est l'état du module)
+    neuve = M.nouvelle_poutre()
+    chk("nouvelle_poutre() : le jeu de pose du bureau (1 cm) et l'arrondi (0,5 cm) de la règle du 13/11/2026",
+        neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut_module["jeu_premier_lit"] == 0.0,
+        (neuve["jeu_premier_lit"], neuve.get("arrondi")))
+    neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi")}
+    defaut_module.pop("jeu_premier_lit")
+    chk("nouvelle_poutre() = l'état du module au premier affichage (20 × 40, C30/37, B500, γs 1,5, 2Ø16, étrier Ø10…), "
+        "hors jeu de pose et arrondi", not ecarts_json(neuve, defaut_module), ecarts_json(neuve, defaut_module))
     P._add_section(1)
     chk("nouvelle_section() = la section que le bouton ➕ du module ajoute, et nom_section_suivant() = sa lettre",
         not ecarts_json(M.nouvelle_section(M.nom_section_suivant(M.nouvelle_poutre())), lire_section(2)),
@@ -328,7 +336,8 @@ r1 = M.verifier(cas("V1 du site"))["sections"][0]
 g1 = r1["grandeurs"]
 v1 = {v["cle"]: v for v in r1["verifications"]}
 fyd = 500 / 1.5
-e_inf, e_sup = 30 + arr5(8 + 20 / 2), 30 + arr5(8 + 16 / 2)           # 50 et 50 mm
+# la règle de position du 13/11/2026 (beton/position.py) : ⌈c + Ø étrier + Ø/2 + jeu de pose⌉ au pas de 5 mm, une fois
+e_inf, e_sup = arr5(30 + 8 + 20 / 2 + 10), arr5(30 + 8 + 16 / 2 + 10)  # ⌈58⌉ = 60 et ⌈56⌉ = 60 mm
 hu = math.sqrt(122e6 / (12.96 * 300 * 0.1709))                          # mm
 As_req = 122e6 / (fyd * 0.9 * (500 - e_inf))                            # mm²
 fctm = 0.30 * 30 ** (2 / 3)
@@ -338,9 +347,9 @@ As3, As2 = 3 * math.pi * 20 ** 2 / 4, 2 * math.pi * 16 ** 2 / 4
 tau, tau_1 = 60e3 / (0.75 * 300 * 500), 0.016 * 37 / 1.05
 s_th = 2 * math.pi * 8 ** 2 / 4 * fyd * (500 - min(e_inf, e_sup)) / 60e3    # mm
 s_lim = min(s_th, min(0.75 * (500 - min(e_inf, e_sup)), 300.0))
-chk("H1 lits : axe à 50 mm en bas (30 + ⌈8 + 10⌉₅) et en haut (30 + ⌈8 + 8⌉₅)",
+chk("H1 lits : axe de calcul à 60 mm en bas (⌈30 + 8 + 10 + 10 (jeu)⌉₅ = ⌈58⌉₅) et en haut (⌈30 + 8 + 8 + 10⌉₅ = ⌈56⌉₅)",
     proche(g1["dist_lit1_inf"] * 10, e_inf) and proche(g1["dist_lit1_sup"] * 10, e_sup), (g1["dist_lit1_inf"], g1["dist_lit1_sup"]))
-chk(f"H1 hauteur : h_min = √(M/(α_b·b·μ)) + y_G = {fr(hu / 10, 2)} + 5,0 = {fr(hu / 10 + 5, 2)} cm, taux h_min/h",
+chk(f"H1 hauteur : h_min = √(M/(α_b·b·μ)) + y_G = {fr(hu / 10, 2)} + 6,0 = {fr(hu / 10 + 6, 2)} cm, taux h_min/h",
     proche(g1["h_min"], hu / 10 + e_inf / 10) and proche(v1["hauteur"]["taux"], (hu + e_inf) / 500), g1["h_min"])
 chk(f"H1 As,req = M/(fyd·0,9·d) = {fr(As_req, 1)} mm², taux = As,req/As = {fr(As_req / As3, 4)}",
     proche(g1["As_req_inf"], As_req) and proche(v1["inf"]["taux"], As_req / As3), (g1["As_req_inf"], v1["inf"]["taux"]))
@@ -353,17 +362,18 @@ chk(f"H1 s_th = Ast·fyd·d/V = {fr(s_th / 10, 3)} cm, s_lim = min(s_th ; 30 cm)
     proche(g1["s_th"] * 10, s_th) and proche(g1["s_lim"] * 10, s_lim) and proche(v1["pas"]["taux"], 200 / s_lim)
     and g1["s_th_tronque"] == math.floor(s_th) / 10, (g1["s_th"], g1["s_th_tronque"]))
 
-# H2 : audit C-1 — 300 × 600, trois lits 2Ø16 en bas (d₁ = 80 mm), un lit en haut (d₁ = 50 mm) ;
-#      M_inf = 150 < M_sup = 160 kN·m, mais c'est M_inf qui exige le plus : 47,5 + 8,0 = 55,5 cm
+# H2 : audit C-1 — 300 × 600, trois lits 2Ø16 en bas (y_G = 85 mm), un lit en haut (60 mm) ; M_inf = 150 < M_sup =
+#      160 kN·m, mais c'est M_inf qui exige le plus : 47,5 + 8,5 = 56,0 cm > 49,1 + 6,0 = 55,1 cm. Les lits du bas, aux
+#      positions RÉELLES 48, 74 et 100 mm (30 + 10 + 8 ; + 8 + 10 + 8 ; + 26), à ⌈réel + 10⌉₅ = 60, 85, 110 mm
 r2 = M.verifier(cas("audit C-1"))["sections"][0]
 g2 = r2["grandeurs"]
-e1 = 30 + arr5(10 + 8)                                                   # étrier Ø10 par défaut
-lits = [e1, e1 + arr5(8) + 10 + arr5(8), e1 + 2 * (arr5(8) + 10 + arr5(8))]
+r1 = 30 + 10 + 8                                                         # étrier Ø10 par défaut, Ø16 / 2
+lits = [arr5(r + 10) for r in (r1, r1 + 8 + 10 + 8, r1 + 2 * (8 + 10 + 8))]   # 60, 85, 110 mm
 hu150, hu160 = (math.sqrt(m * 1e6 / (12.96 * 300 * 0.1709)) for m in (150, 160))
-chk("H2 lits du bas à 50, 80, 110 mm ; y_G = 80 mm", [round(x["distance"] * 10, 9) for x in r2["geometrie"]["inf"]["lits"]] == lits
+chk("H2 lits du bas à 60, 85, 110 mm (calcul) ; y_G = 85 mm", [round(x["distance"] * 10, 9) for x in r2["geometrie"]["inf"]["lits"]] == lits
     and proche(g2["yG_inf"] * 10, sum(lits) / 3), r2["geometrie"]["inf"]["lits"])
-chk(f"H2 la famille inférieure gouverne : {fr(hu150 / 10, 2)} + 8,0 = {fr((hu150 + 80) / 10, 2)} cm > {fr((hu160 + 50) / 10, 2)} cm",
-    g2["face_hauteur"] == "inf" and proche(g2["h_min"], (hu150 + 80) / 10) and g2["M_hauteur"] == 150, (g2["face_hauteur"], g2["h_min"]))
+chk(f"H2 la famille inférieure gouverne : {fr(hu150 / 10, 2)} + 8,5 = {fr((hu150 + 85) / 10, 2)} cm > {fr((hu160 + 60) / 10, 2)} cm",
+    g2["face_hauteur"] == "inf" and proche(g2["h_min"], (hu150 + 85) / 10) and g2["M_hauteur"] == 150, (g2["face_hauteur"], g2["h_min"]))
 tau2 = 120e3 / (0.75 * 300 * 600)
 chk(f"H2 τ = {fr(tau2, 4)} N/mm² entre τ_adm,I et τ_adm,II = 0,032·37/1,05 : bande II, état ok",
     proche(g2["tau"], tau2) and g2["bande_tau"] == "II" and proche(g2["tau_lim"], 0.032 * 37 / 1.05))
@@ -421,13 +431,16 @@ class FauxSt:
         return False
 
 
-def charger(p):
+def charger(p, position="distance"):
     """L'état du module pour la poutre p (au format du moteur), puis le début d'un run de son écran
-    (_ensure_global_defaults, _init_beams_if_needed : défauts, migrations, coercitions)."""
+    (_ensure_global_defaults, _init_beams_if_needed : défauts, migrations, coercitions). La position de chaque lit est
+    celle du moteur, en surcharge (``position`` : « distance », l'axe de calcul ; « reel », la position réelle — les
+    armatures de peau du taux, que le module compte entre les lits 1 comme le moteur)."""
     ss = st.session_state
     ss.clear()
     P._ensure_global_defaults()
     P._init_beams_if_needed()
+    geos = [x["geometrie"] for x in M.verifier(p)["sections"]]
     ss.beams[0]["sections"] = [{"id": i + 1, "nom": s["nom"]} for i, s in enumerate(p["sections"])]
     ss["meta_beam_nom_1"] = p["nom"]
     ss["gamma_s"], ss["jeu_enrobage_cm"], ss["jeu_entre_lits_cm"] = p["gamma_s"], p["jeu_premier_lit"], p["jeu_entre_lits"]
@@ -444,6 +457,13 @@ def charger(p):
                 suf = "" if j == 1 else f"_l{j}"
                 ss[KS(f"n_as_{face}{suf}", 1, sid)] = lit["n"]
                 ss[KS(f"ø_as_{face}{suf}", 1, sid)] = lit["d"]
+                # la POSITION du lit : la règle du 13/11/2026 (beton/position.py — position réelle, jeu de pose,
+                # arrondi), que le module ne connaît pas ; il reçoit l'axe de calcul du moteur par la surcharge de son
+                # écran (« distance axe lit », comme la note PDF : api_web/poutre_streamlit.valeurs) — la parité porte
+                # alors sur tout le reste (formules, états, écran), au bit près ; les positions sont prouvées à la main
+                cle = f"enrob_calc_{face}" if j == 1 else f"dist_{face}_l{j}"
+                ss[KS(f"{cle}_override", 1, sid)] = True
+                ss[KS(cle, 1, sid)] = geos[i][face]["lits"][j - 1][position]
             if s[f"yG_{face}"] is not None:  # le champ « CDG (cm) » saisi à la française
                 ss[KS(f"ycdg_{face}", 1, sid)] = repr(float(s[f"yG_{face}"])).replace(".", ",")
         ss[KS("shear_n_lines", 1, sid)] = len(s["etriers"])
@@ -788,7 +808,16 @@ FORMULES = {
     "s_th": lambda t: t["Ast"] * t["fyd"] * t["d"] / (t["V"] * 1e3),                           # d en cm → cm
     "s_max": lambda t: min(t["k"] * t["d"], t["plafond"]),
     "s_lim": lambda t: min(t["s_th"], t["s_max"]),
+    "d": lambda t: t["h"] - t["yG"],
 }
+
+
+def axe_attendu(f):
+    """L'axe de calcul d'un lit recalculé ICI, sans beton/position.py : Σ termes (la position réelle) + jeu, arrondi au
+    pas SUPÉRIEUR (le quotient arrondi à 1e-6 : 6,0 / 0,5 = 12,000000000000002 n'est pas 12,5)."""
+    det = f["detail"]
+    brut = sum(x["valeur"] for x in f["termes"]) + det["jeu"]
+    return math.ceil(round(brut / det["pas"], 6)) * det["pas"] if det["pas"] else brut
 VALEUR_LIMITE = {"hauteur": ("h_min", None), "inf": ("besoin", None), "sup": ("besoin", None), "tau": ("tau", "tau_lim"),
                  "pas": (None, "s_lim")}
 fautes, n_formules = [], 0
@@ -800,8 +829,9 @@ for (desc, p), res in zip(CAS, tous):
                 n_formules += 1
                 t = {x["symbole"]: x["valeur"] for x in f["termes"]}
                 resultats[f["cle"]] = f["resultat"]
-                if not proche(FORMULES[f["cle"]](t), f["resultat"]):
-                    fautes.append(f"{p['nom']}/{s['nom']}/{f['cle']} : {FORMULES[f['cle']](t)!r} ≠ {f['resultat']!r}")
+                attendu = axe_attendu(f) if f["cle"] == "e" else FORMULES[f["cle"]](t)
+                if not proche(attendu, f["resultat"]):
+                    fautes.append(f"{p['nom']}/{s['nom']}/{f['cle']} : {attendu!r} ≠ {f['resultat']!r}")
                 if "resultat_tronque" in f and f["resultat_tronque"] != math.floor(f["resultat"] * 10) / 10:
                     fautes.append(f"{p['nom']}/{s['nom']}/{f['cle']} : tronqué {f['resultat_tronque']!r}")
             cv, cl = VALEUR_LIMITE[v["cle"]]
@@ -946,7 +976,7 @@ if P is not None:
                 s["longueur"] = lg
         p["taux"] = dict(regl, actif=True)
         res = M.verifier(p)["taux_armature"]
-        charger(p0)
+        charger(p0, "reel")              # (les armatures de peau se comptent aux positions RÉELLES des lits 1)
         ss = st.session_state
         ss["taux_arm_show_app"] = True
         r = TA.reglages(regl)

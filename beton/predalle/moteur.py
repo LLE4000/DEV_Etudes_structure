@@ -43,6 +43,7 @@ SORTIE de verifier — celle du moteur des dalles (même format, mêmes clés), 
 """
 import copy
 
+from beton import position as P
 from beton import treillis as TR
 from beton.dalle import moteur as MD
 
@@ -69,44 +70,57 @@ lire_candidat = MD.lire_candidat
 
 # ============================================================ la règle prédalle
 def pose(face: str, rang: int, principale: str) -> str:
-    """Où la règle de l'écran pose la couche ``rang`` (0 = la base) d'une face : « predalle » (la base inférieure de la
-    direction principale, dans la peau), « sur_predalle » (toute autre couche inférieure), « superieure »."""
-    cote, dk = face.split("_")
+    """Où la règle pose la couche ``rang`` (0 = la base) d'une face : « predalle » (une BASE inférieure, de l'une ou de
+    l'autre direction : dans la peau, en usine — la base secondaire DEDANS aussi depuis le 13/11/2026, la demande du
+    propriétaire ; l'écran Streamlit la posait sur la prédalle), « sur_predalle » (un renfort inférieur, posé au
+    chantier), « superieure ». ``principale`` n'est plus lue (gardée pour les appelants)."""
+    cote, _ = face.split("_")
     if cote == "inf":
-        return "predalle" if (rang == 0 and dk == str(principale).lower()) else "sur_predalle"
+        return "predalle" if rang == 0 else "sur_predalle"
     return "superieure"
 
 
-def distance_auto(c: dict, rang: int, face: str, principale: str, enrobage: float, jeu: float, h_pre: float) -> float:
-    """L'axe AUTOMATIQUE de la couche (cm) — _auto_dist_couche de l'écran prédalle, mêmes opérations dans le même
-    ordre (les flottants sont ceux de l'écran au bit près) :
-      base inférieure principale : enrobage + ⌈Ø/2⌉₀,₅ (sans jeu premier lit) ;
-      autre couche inférieure    : h_pre + ⌈Ø/2⌉₀,₅ ;
-      couche supérieure          : enrobage + ⌈Ø/2⌉₀,₅ + jeu premier lit.
-    Un enrobage nul est lu 3,0 cm (« or 3.0 »), comme l'écran."""
+def position_auto(c: dict, rang: int, face: str, principale: str, enrobage: float, h_pre: float) -> float:
+    """La position RÉELLE automatique de la couche (cm, depuis son parement) : un renfort inférieur sur la prédalle,
+    h_pre + Ø/2 ; toute autre couche au contact de l'enrobage, c + Ø/2 (beton/position.py). Le moteur ne pose pas une
+    couche sur une autre : la base secondaire de la peau, posée sur la principale, l'est par le site
+    (api_web/dalle_positions.py) ; seul, le moteur la dit au niveau de la principale (« nappes_confondues »)."""
     d = MD.couche_diametre(c)
-    enrob = float(enrobage or MD.ENROBAGE_SI_NUL)
-    p = pose(face, rang, principale)
-    if p == "sur_predalle":
-        return float(h_pre or H_PRE_SI_NUL) + MD.arrondi_demi_cm(d / 20.0)
-    if p == "predalle":
-        return enrob + MD.arrondi_demi_cm(d / 20.0)
-    return enrob + MD.arrondi_demi_cm(d / 20.0) + float(jeu or 0.0)
+    if pose(face, rang, principale) == "sur_predalle":
+        return float(h_pre or H_PRE_SI_NUL) + d / 20.0
+    return P.sur_parement(float(enrobage or MD.ENROBAGE_SI_NUL), d)
 
 
-def _axes_auto(p: dict) -> list:
-    """Pour chaque section, {face: [axe automatique de chaque couche]}."""
+def termes_auto(c: dict, rang: int, face: str, principale: str, enrobage: float, h_pre: float) -> list:
+    """La position réelle automatique en termes, pour le détail du calcul : [(« h_p », …), (« Ø/2 », …)] sur la
+    prédalle, sinon [(« c », …), (« Ø/2 », …)]."""
+    d = MD.couche_diametre(c)
+    if pose(face, rang, principale) == "sur_predalle":
+        return [("h_p", float(h_pre or H_PRE_SI_NUL)), ("Ø/2", d / 20.0)]
+    return [("c", float(enrobage or MD.ENROBAGE_SI_NUL)), ("Ø/2", d / 20.0)]
+
+
+def distance_auto(c: dict, rang: int, face: str, principale: str, enrobage: float, jeu: float, h_pre: float,
+                  arrondi: float = P.ARRONDI) -> float:
+    """L'axe de CALCUL automatique (cm) : ⌈position réelle + jeu de pose⌉ au pas d'arrondi — le jeu vaut pour toute
+    couche, celles de la peau comprises (décision du propriétaire du 13/11/2026 : une prédalle de 6 cm garde c = 3 cm et
+    le jeu de 1 cm)."""
+    return P.axe_calcul(position_auto(c, rang, face, principale, enrobage, h_pre), jeu, arrondi)
+
+
+def _positions_auto(p: dict) -> list:
+    """Pour chaque section, {face: [position réelle automatique de chaque couche]}."""
     pr = p["dir_principale"]
-    return [{f: [distance_auto(c, j, f, pr, p["enrobage"], p["jeu_premier_lit"], p["h_pre"])
-                 for j, c in enumerate(s["faces"][f]["couches"])] for f in E.FACES} for s in p["sections"]]
+    return [{f: [position_auto(c, j, f, pr, p["enrobage"], p["h_pre"]) for j, c in enumerate(s["faces"][f]["couches"])]
+             for f in E.FACES} for s in p["sections"]]
 
 
-def figer(p: dict, autos: list = None) -> dict:
-    """La prédalle (normalisée) en DALLE du moteur des dalles : l'axe de chaque couche automatique est FIGÉ à
-    l'automatique de la prédalle — ce que l'écran fait pour sa note (_valeurs_pour_export)."""
-    autos = _axes_auto(p) if autos is None else autos
+def figer(p: dict, reels: list = None) -> dict:
+    """La prédalle (normalisée) en DALLE du moteur des dalles : la position de chaque couche automatique est FIGÉE à la
+    position réelle de la prédalle (« dist ») ; le moteur des dalles en fait l'axe de calcul (jeu, arrondi)."""
+    reels = _positions_auto(p) if reels is None else reels
     d = {k: copy.deepcopy(v) for k, v in p.items() if k != "h_pre"}
-    for s, a in zip(d["sections"], autos):
+    for s, a in zip(d["sections"], reels):
         for f in E.FACES:
             for j, c in enumerate(s["faces"][f]["couches"]):
                 if c["dist"] is None:
@@ -127,21 +141,12 @@ def _f(cle: str, termes: list, resultat, unite: str) -> dict:
     return {"cle": cle, "termes": termes, "resultat": resultat, "unite": unite}
 
 
-def _formule_axe(c_p: dict, geo_c: dict, j: int, f: str, p: dict) -> dict:
-    """La formule de l'axe d'une couche : sa règle et ses termes (ou l'axe saisi)."""
-    d = geo_c["d"]
-    demi = MD.arrondi_demi_cm(d / 20.0)
-    if c_p["dist"] is not None:
-        termes = [_t("saisi", c_p["dist"], "cm")]
-    elif geo_c["pose"] == "sur_predalle":
-        termes = [_t("h_pre", p["h_pre"], "cm"), _t("demi_d", demi, "cm"), _t("d", d, "mm")]
-    elif geo_c["pose"] == "predalle":
-        termes = [_t("c", float(p["enrobage"] or MD.ENROBAGE_SI_NUL), "cm"), _t("demi_d", demi, "cm"), _t("d", d, "mm")]
-    else:
-        termes = [_t("c", float(p["enrobage"] or MD.ENROBAGE_SI_NUL), "cm"), _t("demi_d", demi, "cm"), _t("d", d, "mm"),
-                  _t("jeu", float(p["jeu_premier_lit"] or 0.0), "cm")]
-    out = _f("e", termes, geo_c["e"], "cm")
-    out.update(couche=j, pose=geo_c["pose"], auto=c_p["dist"] is None, libelle=geo_c["libelle"])
+def _formule_axe(geo_c: dict, j: int) -> dict:
+    """La formule de l'axe d'une couche : son calcul terme à terme (``detail`` : la position réelle, le jeu, l'arrondi —
+    beton/position.py), l'axe de calcul pour résultat."""
+    det = geo_c["detail"]
+    out = _f("e", [_t(t["symbole"], t["valeur"], "cm") for t in det["termes"]], geo_c["e"], "cm")
+    out.update(couche=j, pose=geo_c["pose"], auto=geo_c["auto"], libelle=geo_c["libelle"], detail=det)
     return out
 
 
@@ -149,25 +154,28 @@ def verifier(predalle: dict) -> dict:
     """Calcule chaque section de la prédalle (format en tête du fichier). Lève ValueError si la prédalle sort du
     domaine de l'écran."""
     p = normaliser(predalle)
-    autos = _axes_auto(p)
-    r = MD.verifier(figer(p, autos))
+    reels = _positions_auto(p)
+    r = MD.verifier(figer(p, reels))
     r["reference"] = REFERENCE
     del r["dalle"]
     r["predalle"] = p
-    for s, sp, a in zip(r["sections"], p["sections"], autos):
+    pr = p["dir_principale"]
+    for s, sp, a in zip(r["sections"], p["sections"], reels):
         g = s["grandeurs"]
         g["h_pre"] = p["h_pre"]
         g["h_coule"] = p["h"] - p["h_pre"]
         for f in E.FACES:
             for j, (c, cp) in enumerate(zip(s["faces"][f]["couches"], sp["faces"][f]["couches"])):
                 c["auto"] = cp["dist"] is None
-                c["e_auto"] = a[f][j]
-                c["pose"] = pose(f, j, p["dir_principale"])
+                c["reel_auto"] = a[f][j]
+                c["e_auto"] = P.axe_calcul(a[f][j], p["jeu_premier_lit"], p["arrondi"])
+                c["pose"] = pose(f, j, pr)
+                if c["auto"]:                     # le moteur des dalles a reçu une position figée : ses termes
+                    c["detail"] = P.detail(termes_auto(cp, j, f, pr, p["enrobage"], p["h_pre"]), p["jeu_premier_lit"],
+                                           p["arrondi"])
         for v in s["verifications"]:
             if v["cle"] in E.FACES:
-                axes = [_formule_axe(cp, c, j, v["cle"], p)
-                        for j, (cp, c) in enumerate(zip(sp["faces"][v["cle"]]["couches"], s["faces"][v["cle"]]["couches"]))]
-                v["formules"] = axes + v["formules"]
+                v["formules"] = [_formule_axe(c, j) for j, c in enumerate(s["faces"][v["cle"]]["couches"])] + v["formules"]
     r["avertissements"] += _avertissements(p, r)
     return r
 
@@ -185,14 +193,14 @@ def _avertissements(p: dict, r: dict) -> list:
     for i, s in enumerate(r["sections"]):
         f_p = f"inf_{pr}"
         c0 = s["faces"][f_p]["couches"][0]
-        haut = c0["e"] + c0["d"] / 20.0
+        haut = P.dessus(c0["e_reel"], c0["d"])
         if c0["auto"] and haut > p["h_pre"] + 1e-9:
-            out.append({"code": "base_hors_predalle", "section": i, "face": f_p, "e": c0["e"], "d": c0["d"], "haut": haut,
+            out.append({"code": "base_hors_predalle", "section": i, "face": f_p, "e": c0["e_reel"], "d": c0["d"], "haut": haut,
                         "h_pre": p["h_pre"],
-                        "message": f"{s['titre']} · armature inférieure {pr.upper()} (base, dans la prédalle) : axe à {_fr(c0['e'])} cm, "
-                                   f"Ø{c0['d']:g} ; le dessus des barres ({_fr(haut, 2)} cm) sort de la peau de "
-                                   f"{_fr(p['h_pre'])} cm. L'écran Streamlit calcule sans le signaler : épaissir la prédalle "
-                                   "ou saisir l'axe de la couche."})
+                        "message": f"{s['titre']} · armature inférieure {pr.upper()} (base, dans la prédalle) : posée à "
+                                   f"{_fr(c0['e_reel'])} cm, Ø{c0['d']:g} ; le dessus des "
+                                   f"{'fils' if c0['type'] == 'treillis' else 'barres'} ({_fr(haut, 2)} cm) sort de "
+                                   f"la peau de {_fr(p['h_pre'])} cm. Épaissir la prédalle ou saisir la position de la couche."})
         paires = []
         fx, fy = s["faces"]["inf_x"]["couches"], s["faces"]["inf_y"]["couches"]
         for jx, cx in enumerate(fx):
@@ -202,21 +210,21 @@ def _avertissements(p: dict, r: dict) -> list:
                 if cx["pose"] != "sur_predalle" or cy["pose"] != "sur_predalle" or not (cx["auto"] and cy["auto"]):
                     continue
                 mini = (cx["d"] + cy["d"]) / 2.0
-                if abs(cx["e"] - cy["e"]) * 10.0 < mini - 1e-9:
+                if abs(cx["e_reel"] - cy["e_reel"]) * 10.0 < mini - 1e-9:
                     paires.append((jx, cx, jy, cy, mini))
         if paires:
             jx, cx, jy, cy, mini = paires[0]
 
             def nom(dk, j, c):
-                return f"{dk.upper()} {'base' if j == 0 else f'renfort {j}'} ({c['valeur']}, axe {_fr(c['e'])} cm)"
+                return f"{dk.upper()} {'base' if j == 0 else f'renfort {j}'} ({c['valeur']}, posé à {_fr(c['e_reel'])} cm)"
             plus = f" (et {len(paires) - 1} autre(s) paire(s))" if len(paires) > 1 else ""
             out.append({"code": "croisement_sur_predalle", "section": i, "paires": [[a, b] for a, _, b, _, _ in paires],
                         "ecart_mini": max(x[4] for x in paires) / 10.0,
                         "message": f"{s['titre']} · armatures inférieures : {nom('x', jx, cx)} et {nom('y', jy, cy)} sont posées "
                                    f"toutes deux sur la prédalle, à des niveaux trop proches pour se croiser (il faut au moins "
-                                   f"{_fr(mini / 10.0)} cm d'axe à axe), comme dans l'écran Streamlit{plus}. Croisées, l'une "
-                                   "passe sur l'autre : son d est plus petit que celui calculé. Saisir son axe pour en tenir "
-                                   "compte."})
+                                   f"{_fr(mini / 10.0)} cm d'axe à axe){plus}. Croisées, l'une "
+                                   "passe sur l'autre : son d est plus petit que celui calculé. Saisir sa position pour en "
+                                   "tenir compte."})
     return out
 
 

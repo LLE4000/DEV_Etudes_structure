@@ -2,11 +2,14 @@
 """Poutre en béton armé — la GÉOMÉTRIE des aciers : position de chaque lit (distance parement → axe),
 centre de gravité y_G d'une face, aires des barres, section des armatures d'effort tranchant.
 
-Chaque fonction reprend l'expression du module ``modules/poutre.py`` (la fonction d'origine est
-nommée), DANS LE MÊME ORDRE d'opérations : les flottants sont identiques au bit près, ce que
-``tests/test_poutre_moteur.py`` vérifie. Unités : Ø en mm, distances en cm, aires en mm².
+Les aires et la section des armatures d'effort tranchant reprennent l'expression du module ``modules/poutre.py`` (la
+fonction d'origine est nommée) ; la POSITION des lits suit la règle du 13/11/2026, commune à la poutre, à la dalle et à
+la prédalle (``beton/position.py`` : la position réelle pour le dessin, l'axe de calcul avec le jeu de pose et
+l'arrondi). Unités : Ø en mm, distances en cm, aires en mm².
 """
 import math
+
+from beton import position as P
 
 from .entree import BRINS
 
@@ -38,35 +41,57 @@ def diametre_etrier(etriers: list) -> float:
     return max(diams) if diams else D_ETRIER_SI_AUCUN
 
 
-def distances_lits(lits: list, enrobage_calc: float, d_etrier: float, jeu_premier_lit: float,
-                   jeu_entre_lits: float) -> list:
-    """Distance parement → axe de chaque lit (cm), AUTOMATIQUE comme à l'écran — _auto_dist_lit et
-    _get_dist_lit (l'ancienne saisie manuelle n'est plus offerte par le module) :
+def positions_lits(lits: list, enrobage_calc: float, d_etrier: float, jeu_entre_lits: float) -> list:
+    """La position RÉELLE de chaque lit (cm, parement → axe) — ce que les dessins montrent (beton/position.py) :
 
-        lit 1 : enrobage + arr½(Ø_étrier/10 + Ø₁/20) + jeu premier lit
-        lit i : dist(i−1) + arr½(Ø(i−1)/20) + jeu entre lits + arr½(Øᵢ/20)
+        lit 1 : c + Ø_étrier + Ø₁/2                 (la barre dans l'angle du cadre)
+        lit i : dessus du lit i−1 + jeu entre lits + Øᵢ/2 = pos(i−1) + Ø(i−1)/2 + jeu entre lits + Øᵢ/2
 
-    arr½ = arrondi au 0,5 cm supérieur ; Ø_étrier = le plus grand des étriers et épingles.
-
-    Une position IMPOSÉE (clé « pos » du lit, site) remplace la règle : lit 1, la distance parement → axe ; lit i > 1,
-    l'entraxe vertical depuis le lit précédent (dist(i) = dist(i−1) + pos). C'est la « distance axe lit » que l'écran
-    Streamlit permettait d'imposer (clés dist_*_override, que la note PDF lit encore). Sans « pos », le calcul est
-    celui du module, au bit près."""
+    les Ø réels, sans arrondi (Ø_étrier = le plus grand des étriers et épingles). Une position IMPOSÉE (clé « pos » du
+    lit, site) remplace la règle : lit 1, la distance parement → axe ; lit i > 1, l'entraxe vertical depuis le lit
+    précédent (pos(i) = pos(i−1) + « pos »)."""
     out = []
     for i, lit in enumerate(lits):
         pos = lit.get("pos")
         if i == 0:
-            dist = (float(pos) if pos is not None
-                    else enrobage_calc + arrondi_demi_cm(d_etrier / 10.0 + lit["d"] / 20.0) + jeu_premier_lit)
+            r = float(pos) if pos is not None else P.sur_parement(enrobage_calc, lit["d"], d_etrier)
         elif pos is not None:
-            dist = out[-1] + float(pos)
+            r = out[-1] + float(pos)
         else:
-            dist = (out[-1]
-                    + arrondi_demi_cm(lits[i - 1]["d"] / 20.0)
-                    + jeu_entre_lits
-                    + arrondi_demi_cm(lit["d"] / 20.0))
-        out.append(dist)
+            r = P.sur_couche(P.dessus(out[-1], lits[i - 1]["d"]), lit["d"], jeu_entre_lits)
+        out.append(r)
     return out
+
+
+def distances_lits(lits: list, enrobage_calc: float, d_etrier: float, jeu_premier_lit: float,
+                   jeu_entre_lits: float, arrondi: float = P.ARRONDI) -> list:
+    """L'axe de CALCUL de chaque lit (cm, parement → axe) : ⌈position réelle + jeu de pose⌉ au pas d'arrondi
+    (beton/position.py, règle du 13/11/2026 — « jeu_premier_lit » est le jeu de pose). C'était, dans le module
+    Streamlit : lit 1, c + ⌈Ø_étrier/10 + Ø₁/20⌉ + jeu ; lit i, dist(i−1) + ⌈Ø(i−1)/20⌉ + jeu entre lits + ⌈Øᵢ/20⌉."""
+    return [P.axe_calcul(r, jeu_premier_lit, arrondi) for r in positions_lits(lits, enrobage_calc, d_etrier, jeu_entre_lits)]
+
+
+def details_lits(lits: list, enrobage_calc: float, d_etrier: float, jeu_premier_lit: float, jeu_entre_lits: float,
+                 arrondi: float = P.ARRONDI) -> list:
+    """Le calcul de l'axe de chaque lit, terme à terme (``P.detail``) — « c + Ø_étr + Ø/2 + jeu = 3 + 0,8 + 0,8 + 1 =
+    5,6 → 6,0 cm » ; un lit au-dessus d'un autre reprend les termes de celui-ci, son demi-Ø devenu son Ø entier (le
+    dessus du lit), puis le jeu entre lits et son demi-Ø ; une position imposée : « posé », ou « lit i−1 » + « e_v »."""
+    reels = positions_lits(lits, enrobage_calc, d_etrier, jeu_entre_lits)
+    termes = []
+    for i, lit in enumerate(lits):
+        pos = lit.get("pos")
+        if i == 0:
+            tt = ([("posé", float(pos))] if pos is not None
+                  else [("c", float(enrobage_calc)), ("Ø_étr", float(d_etrier) / 10.0), ("Ø/2", lit["d"] / 20.0)])
+        elif pos is not None:
+            tt = [(f"lit {i}", reels[i - 1]), ("e_v", float(pos))]
+        else:
+            avant = termes[-1]
+            dessous = (avant[:-1] + [(f"Ø_{i}", lits[i - 1]["d"] / 10.0)] if avant[-1][0] == "Ø/2"
+                       else avant + [(f"Ø_{i}/2", lits[i - 1]["d"] / 20.0)])
+            tt = dessous + [("jeu lits", float(jeu_entre_lits)), ("Ø/2", lit["d"] / 20.0)]
+        termes.append(tt)
+    return [P.detail(tt, jeu_premier_lit, arrondi) for tt in termes]
 
 
 # ============================================================ le détail horizontal (site) : dessin, note, dispositions

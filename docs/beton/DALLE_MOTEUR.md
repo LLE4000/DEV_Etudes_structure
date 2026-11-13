@@ -95,7 +95,10 @@ Unités : b, h, axes en cm ; Ø et espacements en mm ; M en kN·m et V en kN **p
    π·Ø²/4 × 1000 / e ; « n barres » : n·π·Ø²/4 / (b/100) — n barres posées dans la bande. Les couches d'une nappe
    **s'additionnent** ; As de la nappe = Σ As/m × b/100.
 3. **Axe d'une couche** (automatique) : enrobage + ½ Ø arrondi au 0,5 cm **supérieur** + jeu premier lit (Ø porteur
-   pour un treillis) ; un enrobage nul est lu 3,0 cm. Un axe saisi le remplace.
+   pour un treillis) ; un enrobage nul est lu 3,0 cm. Un axe saisi le remplace. **Révisé le 13/11/2026 (lot 3, la règle
+   de position, `beton/position.py` ; `docs/site/DALLES_FUSION.md` § 9)** : la position RÉELLE de la couche est
+   c + Ø/2 (Ø réel) — ou la position saisie ; son axe de CALCUL est ⌈réel + jeu de pose⌉ au pas d'arrondi (0,5 cm par
+   défaut) : Ø12, c = 3, jeu 1 : 3 + 0,6 + 1 = 4,6 → 5,0 cm.
 4. **Centre de gravité et hauteur utile.** y_G = Σ As/m·e / Σ As/m (ou la valeur saisie) ; d = h − y_G ; d ≤ 0 rend
    la nappe « nok » ; les formules prennent max(d ; 0,1 cm).
 5. **Hauteur.** h_u,min(M) = √(M·10⁶ / (α_b·b·μ)) (b en mm) ; CHAQUE famille sollicitée (inf. X, sup. X, inf. Y,
@@ -125,7 +128,8 @@ Unités : b, h, axes en cm ; Ø et espacements en mm ; M en kN·m et V en kN **p
 | `tau_1`, `tau_2`, `tau_4` | τ_adm,I, II, IV (seul I est employé) | `r["tau_1"]`, `r["tau_2"]`, `r["tau_4"]` |
 | `b`, `h` | largeur de bande, épaisseur (cm) | `r["b"]`, `r["h"]` |
 | `enrobage`, `enrobage_calcul` | saisi ; lu par le calcul (0 → 3,0) | `KD("enrobage_beton")`, `_auto_dist_couche` (« or 3.0 ») |
-| `jeu_premier_lit` | jeu ajouté à l'axe automatique | `jeu_enrobage_cm` (paramètre global) |
+| `jeu_premier_lit` | le JEU DE POSE (règle du 13/11/2026, `beton/position.py`) : ajouté à la position réelle de chaque couche avant l'arrondi ; 1 cm par défaut | `jeu_enrobage_cm` (paramètre global ; l'écran l'ajoutait après le demi-Ø arrondi, 0 par défaut) |
+| `arrondi` | le pas d'arrondi de l'axe de calcul (0, 0,5 ou 1 cm ; 0,5 par défaut) : e = ⌈réel + jeu⌉ | — (l'écran arrondissait le seul demi-Ø, au 0,5 cm) |
 | `Mx_inf`, `Mx_sup`, `My_inf`, `My_sup`, `V` | sollicitations de la section | `KS("Mx_inf")`… ; `r["V_val"]` |
 | `principale` | direction principale (« x » / « y ») | `r["principale"]` |
 | `As_pm_<f>` | Σ As/m des couches | `D["As_inf_pm"]`, `D["As_sup_pm"]` |

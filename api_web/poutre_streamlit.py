@@ -16,6 +16,7 @@ ce que Streamlit calculait pour ce fichier, le site le calcule (tests/test_note_
 import math
 from typing import Dict, List, Optional, Tuple
 
+from beton import position as P
 from beton.poutre import entree as EN
 from beton.poutre import geometrie as G
 from beton.poutre import moteur as MO
@@ -32,8 +33,8 @@ def _ks(base: str, bid: int, sid: int) -> str:
 def valeurs(p: Dict, bid: int = 1) -> Tuple[List[Dict], Dict]:
     """(beams, values) de l'écran Streamlit pour UNE poutre NORMALISÉE du site (``bid`` : son numéro dans la note).
 
-    Les positions IMPOSÉES (« pos ») passent par les surcharges de l'écran (enrob_calc_*_override, dist_*_l*_override)
-    avec la distance que le moteur du site a calculée ; les centres de gravité imposés par ycdg_* ; les barres entourées
+    La position de CHAQUE lit passe par les surcharges de l'écran (enrob_calc_*_override, dist_*_l*_override) avec l'axe
+    de calcul du moteur du site (règle du 13/11/2026, beton/position.py) ; les centres de gravité imposés par ycdg_* ; les barres entourées
     d'un cadre partiel par shear_line*_from / _to (celles que le moteur a retenues)."""
     calc = MO.verifier(p)
     v = {"gamma_s": p["gamma_s"], "jeu_enrobage_cm": p["jeu_premier_lit"], "jeu_entre_lits_cm": p["jeu_entre_lits"],
@@ -55,10 +56,12 @@ def valeurs(p: Dict, bid: int = 1) -> Tuple[List[Dict], Dict]:
                 suf = "" if i == 1 else f"_l{i}"
                 v[_ks(f"n_as_{face}{suf}", bid, sid)] = lit["n"]
                 v[_ks(f"ø_as_{face}{suf}", bid, sid)] = lit["d"]
-                if lit.get("pos") is not None:
-                    cle = f"enrob_calc_{face}" if i == 1 else f"dist_{face}_l{i}"
-                    v[_ks(f"{cle}_override", bid, sid)] = True
-                    v[_ks(cle, bid, sid)] = geo["distance"]
+                # chaque lit passe par la surcharge de l'écran avec l'axe de CALCUL du moteur du site (la règle de
+                # position du 13/11/2026, beton/position.py : jeu de pose et arrondi) — le générateur ne refait plus
+                # la position d'un lit par sa règle d'avant (_auto_dist_lit)
+                cle = f"enrob_calc_{face}" if i == 1 else f"dist_{face}_l{i}"
+                v[_ks(f"{cle}_override", bid, sid)] = True
+                v[_ks(cle, bid, sid)] = geo["distance"]
             yG = s[f"yG_{face}"]
             v[_ks(f"ycdg_auto_{face}", bid, sid)] = yG is None
             v[_ks(f"ycdg_{face}", bid, sid)] = "" if yG is None else repr(float(yG))
@@ -113,7 +116,10 @@ def depuis_streamlit(payload: Dict) -> Dict:
         raise ValueError("ce fichier n'est pas un enregistrement de l'écran Streamlit « Poutre en béton armé »")
     v = payload["values"]
     g = lambda k, d=None: v.get(k, d)  # noqa: E731
-    reglages = {"gamma_s": _nombre(g("gamma_s"), 1.5) or 1.5, "jeu_premier_lit": _nombre(g("jeu_enrobage_cm"), 0.0),
+    # (un fichier de l'écran Streamlit est une note d'AVANT la règle de position du 13/11/2026 : son jeu de pose relu par
+    #  elle, 1 cm au moins — comme une note d'avant du site, api_web/poutre._jeu_du_bureau)
+    reglages = {"gamma_s": _nombre(g("gamma_s"), 1.5) or 1.5,
+                "jeu_premier_lit": P.jeu_note_d_avant(_nombre(g("jeu_enrobage_cm"), 0.0)),
                 "jeu_entre_lits": _nombre(g("jeu_entre_lits_cm"), 1.0), "peau_d": _entier(g("techno_d_mm"), 10),
                 "peau_smax": _nombre(g("techno_s_max_cm"), 30.0)}
     poutres = []
@@ -161,9 +167,14 @@ def depuis_streamlit(payload: Dict) -> Dict:
                             e["de"] = frm
                         etriers.append(e)
             sec["etriers"] = etriers
-            # les lits, et leurs positions imposées (surcharges de l'écran : distance absolue parement → axe)
+            # les lits, et leurs positions imposées. Une surcharge de l'écran est l'axe de CALCUL du lit (distance absolue
+            # parement → axe, celle que le calcul utilise) ; le site saisit une position RÉELLE, que le calcul augmente du
+            # jeu de pose et arrondit (beton/position.py). L'axe automatique du site retrouvé : le lit reste automatique
+            # (l'aller-retour d'une note du site, api_web/note_poutre.py) ; un autre axe A : la position réelle A − jeu,
+            # que le calcul ramène à A (A sur la grille de l'arrondi ; sinon au pas supérieur : d diminue)
             enrob = G.enrobage_de_calcul(p["enrobage"])
             d_et = G.diametre_etrier(etriers)
+            arrondi = EN.DEFAUTS_POUTRE["arrondi"]
             for face in ("inf", "sup"):
                 lits = []
                 for i in range(1, max(1, min(EN.MAX_LITS, _entier(g(ks(f"nlits_{face}")), 1))) + 1):
@@ -173,12 +184,11 @@ def depuis_streamlit(payload: Dict) -> Dict:
                     cle = f"enrob_calc_{face}" if i == 1 else f"dist_{face}_l{i}"
                     if bool(g(ks(f"{cle}_override"), False)):
                         absolu = _nombre(g(ks(cle)), float("nan"))
-                        if math.isfinite(absolu):
-                            if i == 1:
-                                lit["pos"] = absolu
-                            else:
-                                avant = G.distances_lits(lits[:i - 1], enrob, d_et, p["jeu_premier_lit"], p["jeu_entre_lits"])[-1]
-                                lit["pos"] = absolu - avant
+                        auto = G.distances_lits(lits[:i], enrob, d_et, p["jeu_premier_lit"], p["jeu_entre_lits"], arrondi)[-1]
+                        if math.isfinite(absolu) and abs(absolu - auto) > 1e-9:
+                            reel = absolu - p["jeu_premier_lit"]
+                            avant = G.positions_lits(lits[:i - 1], enrob, d_et, p["jeu_entre_lits"])[-1] if i > 1 else 0.0
+                            lit["pos"] = reel - avant
                 sec[face] = lits
                 yG = None
                 if not bool(g(ks(f"ycdg_auto_{face}"), False)):

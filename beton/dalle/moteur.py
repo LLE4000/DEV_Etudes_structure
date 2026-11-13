@@ -76,7 +76,7 @@ SORTIE de verifier — JSON-sérialisable, nombres non arrondis (le site formate
 
   <section>["grandeurs"] (cm, mm², mm²/m, N/mm², kN, kN·m) :
      matériaux  beton fck fck_cube fctm alpha_b mu fyk gamma_s fyd tau_1 tau_2 tau_4
-     section    b h enrobage enrobage_calcul jeu_premier_lit Mx_inf Mx_sup My_inf My_sup V principale
+     section    b h enrobage enrobage_calcul jeu_premier_lit arrondi Mx_inf Mx_sup My_inf My_sup V principale
      par face   As_pm_<f> As_<f> yG_<f> yG_calcule_<f> yG_impose_<f> d_<f> d_calc_<f> geometrie_<f>_ok M_<f>
                 As_req_<f> As_min_opposee_<f> As_min_<f> As_min_terme_<f> besoin_<f> etat_<f>   (f = inf_x sup_x …)
      communes   As_min_ec As_min_plancher As_min_base As_max
@@ -97,6 +97,7 @@ recalculée (le Ø déplace l'axe automatique, donc d). Triées par section au m
 import copy
 import math
 
+from beton import position as P
 from beton import treillis as TR
 
 from . import entree as E
@@ -217,31 +218,44 @@ def couche_valeur(c: dict) -> str:
     return f"Ø{c['d']}/{esp_txt}"
 
 
-def distance_auto(c: dict, enrobage: float, jeu: float) -> float:
-    """Axe automatique de la couche (cm) — _auto_dist_couche : enrobage + demi-Ø arrondi au 0,5 cm supérieur + jeu
-    premier lit ; un enrobage nul est lu 3,0 cm (« or 3.0 »)."""
-    enrob = float(enrobage or ENROBAGE_SI_NUL)
-    jeu1 = float(jeu or 0.0)
-    return enrob + arrondi_demi_cm(couche_diametre(c) / 20.0) + jeu1
+def position_auto(c: dict, enrobage: float) -> float:
+    """La position RÉELLE automatique de la couche (cm) : au contact de l'enrobage, c + Ø/2 (beton/position.py) ; un
+    enrobage nul est lu 3,0 cm (« or 3.0 », la lecture de l'écran Streamlit)."""
+    return P.sur_parement(float(enrobage or ENROBAGE_SI_NUL), couche_diametre(c))
 
 
-def _face(couches: list, yG, b: float, enrobage: float, jeu: float) -> dict:
-    """Une face d'une direction — _layers_geometry : As au mètre (Σ des couches), As sur la bande, y_G = Σ As·e / Σ As
-    (ou la valeur imposée)."""
+def distance_auto(c: dict, enrobage: float, jeu: float, arrondi: float = P.ARRONDI) -> float:
+    """L'axe de CALCUL automatique de la couche (cm) : ⌈c + Ø/2 + jeu de pose⌉ au pas d'arrondi (beton/position.py,
+    la règle du 13/11/2026 — c'était c + ⌈Ø/2⌉ + jeu, l'arrondi sur le seul demi-Ø)."""
+    return P.axe_calcul(position_auto(c, enrobage), jeu, arrondi)
+
+
+def detail_auto(c: dict, enrobage: float, jeu: float, arrondi: float = P.ARRONDI) -> dict:
+    """Le calcul de l'axe automatique terme à terme (``P.detail``) : c, Ø/2, puis le jeu et l'arrondi."""
+    return P.detail([("c", float(enrobage or ENROBAGE_SI_NUL)), ("Ø/2", couche_diametre(c) / 20.0)], jeu, arrondi)
+
+
+def _face(couches: list, yG, b: float, enrobage: float, jeu: float, arrondi: float = P.ARRONDI) -> dict:
+    """Une face d'une direction : As au mètre (Σ des couches), As sur la bande, y_G = Σ As·e / Σ As (ou la valeur
+    imposée). Chaque couche a sa position RÉELLE (``e_reel`` : l'axe saisi « dist », sinon au contact de l'enrobage) et
+    son axe de CALCUL ``e`` = ⌈réel + jeu⌉ au pas d'arrondi (beton/position.py) ; y_G et d lisent ``e``."""
     As_pm_tot = 0.0
     somme = 0.0
     lignes = []
     for c in couches:
         As_pm = couche_as_par_m(c, b)
-        auto = distance_auto(c, enrobage, jeu)
-        e = auto if c["dist"] is None else c["dist"]
+        reel_auto = position_auto(c, enrobage)
+        reel = reel_auto if c["dist"] is None else float(c["dist"])
+        e = P.axe_calcul(reel, jeu, arrondi)
         As_pm_tot += As_pm
         somme += As_pm * e
         t = TR.parse_designation(c["treillis"]) if c["type"] == "treillis" else None
+        det = (detail_auto(c, enrobage, jeu, arrondi) if c["dist"] is None
+               else P.detail([("posé", reel)], jeu, arrondi))
         lignes.append({"type": c["type"], "libelle": couche_libelle(c), "valeur": couche_valeur(c), "d": couche_diametre(c),
                        "esp": float(t[2]) if t else float(c["esp"]), "n": c["n"] if c["type"] == "n_barres" else 0,
-                       "treillis": list(t) if t else None, "As_pm": As_pm, "e": e, "auto": c["dist"] is None,
-                       "e_auto": auto})
+                       "treillis": list(t) if t else None, "As_pm": As_pm, "e": e, "e_reel": reel, "auto": c["dist"] is None,
+                       "e_auto": P.axe_calcul(reel_auto, jeu, arrondi), "reel_auto": reel_auto, "detail": det})
     yG_calcule = (somme / As_pm_tot) if As_pm_tot > 0 else lignes[0]["e"]
     return {"couches": lignes, "As_pm": As_pm_tot, "As": As_pm_tot * (float(b) / 100.0), "yG_calcule": yG_calcule,
             "yG": yG_calcule if yG is None else yG, "yG_impose": yG is not None,
@@ -268,12 +282,14 @@ def _calcul(d: dict, s: dict, mat: dict) -> dict:
          "mu": mu, "fyk": fyk, "gamma_s": mat["gamma_s"], "fyd": fyd, "tau_1": mat["tau_1"], "tau_2": mat["tau_2"],
          "tau_4": mat["tau_4"], "b": b, "h": h, "enrobage": d["enrobage"],
          "enrobage_calcul": float(d["enrobage"] or ENROBAGE_SI_NUL), "jeu_premier_lit": d["jeu_premier_lit"],
+         "arrondi": d["arrondi"],
          "Mx_inf": s["Mx_inf"], "Mx_sup": s["Mx_sup"], "My_inf": s["My_inf"], "My_sup": s["My_sup"], "V": s["V"],
          "principale": principale, "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher,
          "As_min_base": As_min_base, "As_max": As_max}
     faces = {}
     for f in E.FACES:
-        faces[f] = _face(s["faces"][f]["couches"], s["faces"][f]["yG"], d["b"], d["enrobage"], d["jeu_premier_lit"])
+        faces[f] = _face(s["faces"][f]["couches"], s["faces"][f]["yG"], d["b"], d["enrobage"], d["jeu_premier_lit"],
+                         d["arrondi"])
     # une passe par direction : la face opposée du critère 0,25·As,req est celle de la MÊME direction
     for dk in E.DIRECTIONS:
         fi, fs = f"inf_{dk}", f"sup_{dk}"
@@ -422,16 +438,16 @@ def _avertissements(d: dict, sections: list) -> list:
         # les nappes croisées d'une même face calculées au même niveau (l'écran ne les superpose pas)
         for cote in ("inf", "sup"):
             fx, fy = s["faces"][f"{cote}_x"]["couches"][0], s["faces"][f"{cote}_y"]["couches"][0]
-            ecart = abs(fx["e"] - fy["e"]) * 10.0
+            ecart = abs(fx["e_reel"] - fy["e_reel"]) * 10.0
             mini = (fx["d"] + fy["d"]) / 2.0
             if ecart < mini - 1e-9:
-                out.append({"code": "nappes_confondues", "section": i, "face": cote, "e_x": fx["e"], "e_y": fy["e"],
+                out.append({"code": "nappes_confondues", "section": i, "face": cote, "e_x": fx["e_reel"], "e_y": fy["e_reel"],
                             "ecart_mini": mini / 10.0,
                             "message": f"{s['titre']} · armatures {'inférieures' if cote == 'inf' else 'supérieures'} X et Y : "
-                                       f"axes à {_fr(fx['e'])} et {_fr(fy['e'])} cm, calculés comme l'écran Streamlit, sans "
-                                       f"tenir compte du croisement ; posées l'une sur l'autre, leurs axes sont distants "
-                                       f"d'au moins {_fr(mini / 10.0)} cm et l'armature du dessus a un d plus petit. "
-                                       "Saisir son axe pour en tenir compte."})
+                                       f"posées à {_fr(fx['e_reel'])} et {_fr(fy['e_reel'])} cm, sans tenir compte du "
+                                       f"croisement ; posées l'une sur l'autre, leurs axes sont distants d'au moins "
+                                       f"{_fr(mini / 10.0)} cm et l'armature du dessus a un d plus petit. "
+                                       "Saisir sa position pour en tenir compte."})
     return out
 
 

@@ -19,6 +19,7 @@ résultats à droite : chaque bloc porte ``data-section``, l'écran n'en montre 
 import copy
 from typing import Dict, List, Optional, Sequence
 
+from beton import position as P
 from beton.poutre import dispositions as DI
 from beton.poutre import entree as EN
 from beton.poutre import geometrie as G
@@ -38,20 +39,44 @@ PAGE = "poutre"
 def nouvel_etat() -> Dict:
     p = EN.nouvelle_poutre()
     p["nom"] = "V1"
-    return {"version": 1, "poutres": [p], "actif": 0}
+    return {"version": VERSION, "poutres": [p], "actif": 0}
+
+
+# l'état : 2 depuis le 13/11/2026 (lot 3, la règle de position commune, beton/position.py) — une note d'une version plus
+# petite (ou un fichier Streamlit) est relue avec son jeu de pose porté à 1 cm au moins et l'arrondi par défaut, et
+# l'avis « regle » le dit une fois, à l'ouverture (CLE_AVIS, que ``resultat`` dit et retire)
+VERSION = 2
+CLE_AVIS = "avis_ouverture"
+AVIS = {"regle": ("Note d'avant le 13/11/2026 : les lits sont désormais placés selon la règle du bureau — dessinés à "
+                  "leur position réelle, calculés avec un jeu de pose (1 cm au moins) et un arrondi au 0,5 cm (Options). "
+                  "A<sub>s,req</sub> peut différer de l'ancienne note.")}
+
+
+def _jeu_du_bureau(p) -> Dict:
+    """Une poutre d'une note d'avant : son jeu de pose relu par la règle (``P.jeu_note_d_avant`` : 1 cm au moins ; c'était
+    le « jeu sous L1 », 0 par défaut). Une poutre illisible passe telle quelle : le moteur la refuse."""
+    if not isinstance(p, dict):
+        return p
+    return dict(p, jeu_premier_lit=P.jeu_note_d_avant(p.get("jeu_premier_lit")))
 
 
 def normaliser(etat: Dict) -> Dict:
     """L'état reçu de l'écran relu par le moteur ; une poutre illisible (fichier abîmé) lève une erreur claire. Un
     fichier de l'écran Streamlit ouvert sur le site arrive tel quel ({"streamlit": {"beams", "values"}}, js/notes.js) :
-    il est traduit ici, une fois (api_web/poutre_streamlit.py)."""
+    il est traduit ici, une fois (api_web/poutre_streamlit.py). Une note d'avant (version < VERSION) : ``_jeu_du_bureau``
+    et l'avis « regle »."""
     if isinstance(etat, dict) and isinstance(etat.get("streamlit"), dict):
         from . import poutre_streamlit as PS
         etat = PS.depuis_streamlit(etat["streamlit"])
     poutres = etat.get("poutres") if isinstance(etat, dict) else None
     if not poutres:
         return nouvel_etat()
-    out = {"version": 1, "poutres": [_noms_uniques(EN.normaliser(p)) for p in poutres]}
+    version = etat.get("version")
+    d_avant = not (isinstance(version, int) and not isinstance(version, bool) and version >= VERSION)
+    out = {"version": VERSION, "poutres": [_noms_uniques(EN.normaliser(_jeu_du_bureau(p) if d_avant else p))
+                                           for p in poutres]}
+    if d_avant:
+        out[CLE_AVIS] = "regle"
     out["actif"] = min(max(0, int(etat.get("actif", 0) or 0)), len(out["poutres"]) - 1)
     # les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : relues strictement ; la clé reste
     # ABSENTE quand il n'y en a aucune (une note d'avant reste identique à l'octet)
@@ -103,6 +128,8 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 ENTIERS = {"n", "d", "fyk", "de", "a", "peau_d"}
 # les champs « vide = automatique » (commun.num(..., auto=…)) : un champ vidé rend la valeur au calcul du module
 AUTO = {"pos", "sh", "de", "a", "yG_inf", "yG_sup", "longueur"}
+# les pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS), en segments dans les options
+ARRONDIS_TXT = C.ARRONDIS_TXT        # (commun : une source pour la poutre et les dalles)
 TEXTES = {"nom", "beton", "type", "rep"}
 
 
@@ -428,12 +455,14 @@ def _lit(i: int, face: str, j: int, lit: Dict, n_lits: int, rs: Dict) -> str:
         det += C.ligne("s<sub>h</sub> entraxe", C.num(ch + ["sh"], lit.get("sh"), "cm", auto=f"auto · {_cm(pas)}" if pas else "auto"),
                        "", "Axe à axe des barres du lit, groupe centré dans la largeur.")
     if j == 0:
-        det += C.ligne("e<sub>1</sub> axe", C.num(ch + ["pos"], lit.get("pos"), "cm", auto=f"auto · {_cm(geo['distance'])}"), "",
-                       "Distance du parement à l'axe du lit 1 ; vide : enrobage + Ø étrier + Ø/2 arrondis + jeu (méthode du bureau).")
+        det += C.ligne("e<sub>1</sub> position", C.num(ch + ["pos"], lit.get("pos"), "cm", auto=f"auto · {_cm(geo['reel'])}"), "",
+                       "Du parement à l'axe du lit 1, là où il est posé (le dessin) ; vide : enrobage + Ø étrier + Ø/2. "
+                       "Le calcul y ajoute le jeu de pose et arrondit (Options).")
     else:
-        auto = geo["distance"] - lits[j - 1]["distance"]
+        auto = geo["reel"] - lits[j - 1]["reel"]
         det += C.ligne(f"e<sub>v</sub> / L{j}", C.num(ch + ["pos"], lit.get("pos"), "cm", auto=f"auto · {_cm(auto)}"), "",
-                       "Entraxe vertical, axe à axe depuis le lit précédent ; vide : demi-Ø arrondis + jeu entre lits (méthode du bureau).")
+                       "Entraxe vertical, axe à axe depuis le lit précédent, là où il est posé ; vide : demi-Ø + jeu entre "
+                       "lits + demi-Ø.")
     det += _espacements(dispo, face, j)
     if n_lits > 1:
         det += E.retirer(ch + ["-"], "Retirer ce lit")
@@ -611,18 +640,24 @@ def _options_taux(p: Dict) -> str:
 def _options(p: Dict) -> str:
     L = C.ligne
     dg = float(p.get("dg") or EN.DEFAUTS_DETAIL["dg"])
-    # ce que le jeu entre lits donne pour deux lits Ø16 (le cas courant), lu sur les règles du moteur
-    libre16 = (2 * G.arrondi_demi_cm(16 / 20.0) + float(p["jeu_entre_lits"])) * 10.0 - 16.0
+    # le jour libre entre deux lits Ø16 (le cas courant) : le jeu entre lits lui-même (beton/position.py : les lits sont
+    # posés l'un sur l'autre à ce jour près, sans arrondi)
+    libre16 = float(p["jeu_entre_lits"]) * 10.0
     smin16 = DI.s_min(16, 16, dg)
     alerte = (f'<div class="et-avert r"><b>Jeu entre lits insuffisant</b> : deux lits Ø16 gardent {_mm(libre16)}{C.NBSP}mm libres, '
               f'sous le minimum de l\'EC2 8.2(2) ({_mm(smin16)}{C.NBSP}mm) — non conforme. Porter ce jeu à '
-              f'{C.nb((smin16 + 16.0) / 10.0 - 2 * G.arrondi_demi_cm(0.8))}{C.NBSP}cm, ou imposer l\'entraxe vertical des lits.</div>'
-              if libre16 < smin16 else "")
+              f'{C.nb(smin16 / 10.0)}{C.NBSP}cm, ou imposer l\'entraxe vertical des lits.</div>'
+              if libre16 < smin16 - 1e-9 else "")
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
             f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
-            + C.ligne2(("Jeu sous L1", C.num(["jeu_premier_lit"], p.get("jeu_premier_lit"), "cm"), "Ajouté sous le lit 1, après l'enrobage et l'étrier."),
+            + C.ligne2(("Jeu de pose", C.num(["jeu_premier_lit"], p.get("jeu_premier_lit"), "cm"),
+                        "La tolérance de pose des barres : le calcul compte chaque lit plus loin du parement que dessiné, "
+                        "de ce jeu (« 3 + 1 + 0,8 + 1 (jeu) = 5,8 → 6,0 cm »). Le dessin les montre à leur position réelle."),
                        ("Jeu entre lits", C.num(["jeu_entre_lits"], p.get("jeu_entre_lits"), "cm"),
-                        "Ajouté entre les demi-diamètres arrondis de deux lits."))
+                        "Le jour libre entre deux lits, d'une barre à l'autre."))
+            + C.ligne("Arrondi", C.segments(["arrondi"], p.get("arrondi", P.ARRONDI), ARRONDIS_TXT),
+                      aide="Le pas auquel l'axe de calcul d'un lit est arrondi, vers l'intérieur (plus loin du parement), "
+                           "une fois, à la fin : 5,8 → 6,0 cm au pas de 0,5 cm.", full=True)
             + alerte
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], p.get("gamma_s"), ""), "Coefficient de l'acier : f_yd = f_yk / γ_s."),
                        ("d<sub>g</sub> granulat", C.num(["dg"], dg, "mm"),
@@ -711,7 +746,12 @@ def _formule(f: Dict) -> Dict:
     u = f["unite"]
     r = _n(f["resultat"], u) + (f" {u}" if u else "")
     k = f["cle"]
-    if k == "hu_min":
+    if k == "e":
+        ligne = C.fx_axe(f)                       # la ligne de l'axe, la même que la dalle (règle du 13/11/2026)
+        return dict(ligne, res=ligne["res"] + ("" if f.get("auto", True) else " · position imposée"))
+    if k == "d":
+        parts = ["d", "h − y_G", f"{_v(t['h'])} − {_v(t['yG'])}"]
+    elif k == "hu_min":
         parts = ["h_u,min", "√(M·10⁶ / (α_b·b·μ)) / 10", f"√({_v(t['M'])} × 10⁶ / ({_v(t['alpha_b'])} × {_v(t['b'])} × {_v(t['mu'])})) / 10"]
     elif k == "h_min":
         parts = ["h_min", "h_u,min + y_G", f"{_v(t['hu_min'])} + {_v(t['yG'])}"]
@@ -1189,6 +1229,9 @@ def resultat(etat: Dict) -> Dict:
         blocs += h
         volets += v
     messages = "".join(C.message(C.esc(a["message"])) for a in r.get("avertissements", []))
+    avis = AVIS.get(etat.pop(CLE_AVIS, None), "")
+    if avis:
+        messages = C.message(avis) + messages
     tete = E.tete_resultats(nom_p, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}')
     if ta:
         tete += _ta_tete(ta, bool((p.get("taux") or {}).get("note")))

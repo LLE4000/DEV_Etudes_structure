@@ -32,6 +32,8 @@ import math
 from html import escape
 from typing import Dict, List
 
+from . import commun as C
+
 ENCRE = "#1B2230"
 BETON = "#F6F7F9"
 BETON_BORD = "#2A3240"
@@ -203,7 +205,8 @@ def coupe(geo: Dict, i: int, d_utile=None, avec_cotes: bool = True, titre: str =
     out.append(f'<g class="pc beton" data-sel="{p}beton">{beton}{cotes}</g>')
 
     def y_lit(face, lit):
-        return h - lit["distance"] * 10.0 if face == "inf" else lit["distance"] * 10.0
+        e = lit.get("reel", lit["distance"])       # la position RÉELLE du lit (beton/position.py) : le dessin
+        return h - e * 10.0 if face == "inf" else e * 10.0
 
     lits_inf, lits_sup = geo["inf"]["lits"], geo["sup"]["lits"]
     r_inf1, r_sup1 = lits_inf[0]["d"] / 2.0, lits_sup[0]["d"] / 2.0
@@ -302,6 +305,10 @@ def coupe(geo: Dict, i: int, d_utile=None, avec_cotes: bool = True, titre: str =
         y_top -= 1.4 * pl.F
     x_debut = (-3.2 * pl.F - 1.6 * pl.F) if avec_cotes else -pl.F
     y_fin = (yb + 0.9 * pl.F) if avec_cotes else (h + pl.F)
+    rappel = C.rappel_jeu(geo.get("jeu_pose"), geo.get("arrondi"), "Lits dessinés") if avec_cotes else ""
+    if rappel:                                 # (le jeu et l'arrondi : dans le calcul seulement, dit discrètement)
+        out.append(_txt(x_debut, y_fin + 0.5 * pl.F, _esc(rappel), pl.f * 0.8, "start", DOUX, 450))
+        y_fin += 1.3 * pl.F
     barres = ",".join(_f(x) for x in xs_inf1)
     corps = f'<g class="coupe" data-section="{i}" data-barres="{barres}" data-b="{_f(b)}">{"".join(out)}</g>'
     return {"svg": corps, "x0": x_debut, "x1": x_fin, "y0": y_top - 0.4 * pl.F, "y1": y_fin, "u": pl.u}

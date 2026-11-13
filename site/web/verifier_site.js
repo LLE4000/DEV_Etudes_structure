@@ -3545,7 +3545,8 @@ const principal = async () => {
         return { vu: !!x && x.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: x ? x.textContent : '',
           dedans: !!q && q.left >= 0 && q.top >= 0 && q.right <= innerWidth && q.bottom <= innerHeight }; });
       // (UI1, 13/11/2026 : une seule rubrique ouverte — l'aide de l'enrobage est dans « Poutre », celle du jeu dans
-      //  « Options » : chacune s'ouvre à son tour ; le harnais suit, il les ouvrait ensemble)
+      //  « Options » : chacune s'ouvre à son tour ; le harnais suit, il les ouvrait ensemble. Lot 3, la règle de position :
+      //  l'aide du jeu de pose dit la tolérance de pose — c'était « Ajouté sous le lit 1 » ; le harnais suit)
       const ouvrirRub = async (k) => { if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.tap(`#donnees .sec[data-sec="${k}"] > .sechd`); };
       await ouvrirRub('pt');
       const enr = '#donnees .row:has(input[data-chemin="enrobage"]) .aide';
@@ -3569,7 +3570,7 @@ const principal = async () => {
       const b4 = await lireBulle();
       verif('doigt : une aide ⓘ s\'ouvre d\'un appui (bulle dans l\'écran, son texte), se ferme d\'un second ; le libellé du champ l\'ouvre aussi ; celle d\'un champ à deux par ligne aussi ; un appui ailleurs la ferme',
         b1.vu && b1.dedans && b1.texte.startsWith('Distance du parement') && !b2.vu && b2l.vu && b2l.texte.startsWith('Distance du parement')
-        && b3b.vu && b3b.dedans && b3b.texte.startsWith('Ajouté sous le lit 1') && !b4.vu,
+        && b3b.vu && b3b.dedans && b3b.texte.startsWith('La tolérance de pose des barres') && !b4.vu,
         JSON.stringify({ b1, b2, b2l, b3b, b4 }));
       verif('doigt : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
     } catch (x) {
@@ -4039,10 +4040,10 @@ const principal = async () => {
         verif('plaques predalle : l\'ancienne note s\'ouvre en PRÉDALLE (type prédalle, h_p = 6 cm, « Ancienne P1 » dans la ligne de l\'élément et en tête des résultats, son nom de note) et devient une note « dalle » en mémoire — rien de perdu',
           ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.titre === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
           && mem && mem.module === 'dalle' && mem.dalles === 'Ancienne P1:predalle:6', JSON.stringify({ ouverte, mem }));
-        // ses nappes supérieures sont désormais posées l'une sur l'autre (décision du 09/11/2026) : l'avis le dit, une fois
-        // (DAL9, 13/11/2026 : « les deux directions d'armature », plus « les nappes » — le harnais suit la phrase)
-        verif('plaques predalle : l\'ancienne note dit, en tête du résultat, « Note d\'avant le 09/11/2026 : les deux directions d\'armature sont désormais posées l\'une sur l\'autre … » (visible)',
-          /^Note d'avant le 09\/11\/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre/.test(ouverte.avis), ouverte.avis);
+        // une note d'avant la règle de position (13/11/2026, beton/position.py) : l'avis le dit, une fois (lot 3 — le harnais
+        // suit la phrase : c'était l'avis du 09/11/2026, « les deux directions d'armature sont désormais posées l'une sur l'autre »)
+        verif('plaques predalle : l\'ancienne note dit, en tête du résultat, « Note d\'avant le 13/11/2026 : les armatures sont désormais placées selon la règle du bureau … » (visible)',
+          /^Note d'avant le 13\/11\/2026 : les armatures sont désormais placées selon la règle du bureau/.test(ouverte.avis), ouverte.avis);
         await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
         // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
         // qui créent la note (l'adresse devient « ?note=… », comme pour toute note demandée par « ?nom= »)
@@ -4467,8 +4468,8 @@ const principal = async () => {
       localStorage.setItem(k, JSON.stringify(notes)); }, [id, nom]);
     const memoireN = (pg, id) => pg.evaluate((i) => { const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[i];
       return n ? { version: n.etat.version, cle: n.etat.dalles.some((d) => 'empilement' in d), avis: 'avis_ouverture' in n.etat } : null; }, id);
-    // (DAL9, 13/11/2026 : « les deux directions d'armature », plus « les nappes » — le harnais suit la phrase)
-    const AVIS = /^Note d'avant le 09\/11\/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre \(la secondaire, base et renforts, sur la principale\) ; As,req peut différer de l'ancienne note\.$/;
+    // (lot 3, 13/11/2026 : l'avis de la règle de position — le harnais suit la phrase ; c'était celui du 09/11/2026)
+    const AVIS = /^Note d'avant le 13\/11\/2026 : les armatures sont désormais placées selon la règle du bureau — dessinées à leur position réelle, calculées avec un jeu de pose \(1 cm au moins\) et un arrondi au 0,5 cm \(Options\) ; les deux directions posées l'une sur l'autre, un treillis soudé tel qu'il est\. As,req peut différer de l'ancienne note\.$/;
     try {
       await ouvrir(g, `${BASE}/index.html`);
       await semer(g, 'ancienne-dalle', 'Ancienne note dalle');
@@ -4477,8 +4478,8 @@ const principal = async () => {
       const a1 = await lireAvis(g);
       const m1 = await memoireN(g, 'ancienne-dalle');
       const sansCase = await g.evaluate(() => !document.querySelector('[data-chemin="empilement"]') && !/Nappes empilées/.test(document.getElementById('donnees').textContent));
-      verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 09/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 4 (DAL5b, 13/11/2026), sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
-        a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 4 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
+      verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 13/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 5 (la règle de position, 13/11/2026), sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
+        a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 5 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
       await g.screenshot({ path: path.join(OUT, 'site_nappes_avis_pc.png') });
       verif('nappes · PC : le résultat se voit à l\'ouverture — l\'avis n\'y est pas répété dans le message de la page', !(await g.isVisible('#et-alerte')));
       await g.reload();
@@ -4497,13 +4498,16 @@ const principal = async () => {
         const v = document.querySelector('#stage .view.on');
         const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
         const cy = (sel, tag) => { const e = v.querySelector(`[data-sel="${sel}"] ${tag}`); if (!vis(e)) return null; const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
-        const leg = [...v.querySelectorAll('text')].find((t) => /X · 3 Ø12 · axe à 50 · sur la base Y/.test(t.textContent));
+        const leg = [...v.querySelectorAll('text')].find((t) => /X · 3 Ø12 · axe à 46 · sur la base Y/.test(t.textContent));
         const ph = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_x/couches/1/dist"]');
         return { y: cy('s0.inf_y-0', 'circle'), baseX: cy('s0.inf_x-0', 'line'), renfort: cy('s0.inf_x-1', 'line'), legende: vis(leg), place: ph && ph.placeholder };
       });
       const rapport = geo.y && geo.baseX && geo.renfort ? (geo.y - geo.renfort) / (geo.y - geo.baseX) : 0;
-      verif('nappes · PC : S3 — le renfort 3 Ø12 ajouté en inf. X est dessiné AU-DESSUS des barres Y, dans le lit de la base X (axe 50 mm contre 45 et 35 : écarts à la base Y dans le rapport 15 / 10 = 1,5 ; au niveau de la base Y, comme avant, il serait de 0,5) ; sa légende « axe à 50 · sur la base Y » se lit ; son champ dit « auto · 5 »',
-        Math.abs(rapport - 1.5) < 0.12 && geo.renfort < geo.baseX && geo.legende && geo.place === 'auto · 5', JSON.stringify({ ...geo, rapport }));
+      // (lot 3, la règle de position : le dessin montre les positions RÉELLES — le renfort Ø12 posé sur les fils Y, 4,0 + 0,6 = 46 mm,
+      //  la base X à 45, les fils Y à 35 : le rapport 11 / 10 = 1,1 ; c'était 15 / 10 = 1,5, à l'axe arrondi de l'ancienne règle —
+      //  le harnais suit)
+      verif('nappes · PC : S3 — le renfort 3 Ø12 ajouté en inf. X est dessiné AU-DESSUS des barres Y, dans le lit de la base X (posé à 46 mm contre 45 et 35 : écarts à la base Y dans le rapport 11 / 10 = 1,1 ; au niveau de la base Y, comme avant S3, il serait de 0,1) ; sa légende « axe à 46 · sur la base Y » se lit ; son champ dit « auto · 5 »',
+        Math.abs(rapport - 1.1) < 0.05 && geo.renfort < geo.baseX && geo.legende && geo.place === 'auto · 4,6', JSON.stringify({ ...geo, rapport }));
       await g.screenshot({ path: path.join(OUT, 'site_nappes_s3_pc.png') });
       // au téléphone (R1 : le même composant) — la coupe dans l'onglet Dessin ; l'avis d'une AUTRE note d'avant dans l'onglet Résultat
       const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
@@ -4524,8 +4528,8 @@ const principal = async () => {
       });
       const rapportT = geoT.y && geoT.baseX && geoT.renfort ? (geoT.y - geoT.renfort) / (geoT.y - geoT.baseX) : 0;
       await t.screenshot({ path: path.join(OUT, 'site_nappes_s3_tel.png') });
-      verif('nappes · téléphone : la même coupe, le renfort secondaire dans le lit de la base X, au-dessus des barres Y (rapport 1,5)',
-        Math.abs(rapportT - 1.5) < 0.15 && geoT.renfort < geoT.baseX, JSON.stringify({ ...geoT, rapportT }));
+      verif('nappes · téléphone : la même coupe, le renfort secondaire dans le lit de la base X, au-dessus des barres Y (rapport 1,1)',
+        Math.abs(rapportT - 1.1) < 0.08 && geoT.renfort < geoT.baseX, JSON.stringify({ ...geoT, rapportT }));
       await ouvrir(t, `${BASE}/index.html`);
       await semer(t, 'ancienne-dalle-tel', 'Ancienne note téléphone');
       await pretN(t, { apres: await ouvrir(t, `${BASE}/dalle?note=ancienne-dalle-tel`) });
@@ -4576,10 +4580,11 @@ const principal = async () => {
       verif('nappes · téléphone : aucune erreur JavaScript', !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
       await ct.close();
       // DAL5b (13/11/2026 ; avant : S5, la nappe X posée sur le renfort Y) : un RENFORT PRINCIPAL 3 Ø20 en inf. Y sur un TREILLIS
-      // unique — posé SUR le treillis, sur sa couche X la plus haute (le renfort S3 3 Ø12, axe 50, dessus 60 à l'arrondi ⌈Ø/2⌉ du
-      // moteur) : axe 70. Ses points passent AU-DESSUS des traits X sans les traverser — le bas des points 4 mm au-dessus du haut du
-      // trait du renfort X (l'arrondi), 10 mm au-dessus de celui des fils X ; les fils X restent soudés sur les fils Y (axe 45) ; la
-      // légende commune le dit (« R1 Y · 3 Ø20 · axe à 70 · sur renfort X ») et TIENT dans sa colonne. Ce que l'œil voit : le bas des
+      // unique — posé SUR le treillis, sur sa couche X la plus haute (le renfort S3 3 Ø12, posé à 46, dessus 52) : à 52 + 10 = 62 mm
+      // (lot 3, la règle de position : les positions RÉELLES, au contact ; c'était 70, à l'arrondi ⌈Ø/2⌉ — le harnais suit). Ses points
+      // passent AU-DESSUS des traits X sans les traverser — le bas des points AU CONTACT du haut du trait du renfort X, 2 mm au-dessus
+      // de celui des fils X ; les fils X restent soudés sur les fils Y (45) ; la
+      // légende commune le dit (« R1 Y · 3 Ø20 · axe à 62 · sur renfort X ») et TIENT dans sa colonne. Ce que l'œil voit : le bas des
       // points et le haut des traits, lus à l'écran (matrice de l'écran du dessin), visibles ; le bout de la plus longue ligne de la
       // nappe inférieure et le début de la colonne de la supérieure, à l'écran.
       const mesureS5 = () => {
@@ -4604,7 +4609,7 @@ const principal = async () => {
           jeu_legende_px: supG - infD };
       };
       const legT = (x) => x.leg.length === 4 && x.leg.filter((l) => l === 'axes : Y à 35 · X à 45').length === 2
-        && x.leg.includes('R1 Y · 3 Ø20 · axe à 70 · sur renfort X') && x.leg.includes('R1 X · 3 Ø12 · axe à 50 · sur la base Y');
+        && x.leg.includes('R1 Y · 3 Ø20 · axe à 62 · sur renfort X') && x.leg.includes('R1 X · 3 Ø12 · axe à 46 · sur la base Y');
       if (!(await g.$eval('#donnees .sec[data-sec="arm"]', (x) => x.classList.contains('open')))) await g.click('#donnees .sec[data-sec="arm"] > .sechd');
       await g.waitForTimeout(150);
       await g.$eval('#donnees .et-add[data-chemin="sections/0/faces/inf_y/couches/+"]', (x) => x.click());
@@ -4615,8 +4620,8 @@ const principal = async () => {
       await g.waitForTimeout(250);
       const s5 = await g.evaluate(mesureS5);
       await g.screenshot({ path: path.join(OUT, 'site_nappes_s5_pc.png') });
-      verif('nappes · PC : DAL5b — un renfort principal 3 Ø20 en inf. Y sur le treillis : ses points AU-DESSUS des traits X, sans les traverser (leur bas 4 mm au-dessus du haut du trait du renfort X, l\'arrondi ⌈Ø/2⌉, et 10 mm au-dessus de celui des fils X, restés à 45 mm, soudés) ; la légende commune dit « R1 Y · 3 Ø20 · axe à 70 · sur renfort X », « R1 X · 3 Ø12 · axe à 50 · sur la base Y » et les axes des deux treillis, une fois chacun, et chaque ligne de la nappe inférieure s\'arrête avant la colonne de la supérieure ; le champ du renfort Y dit « auto · 7 »',
-        s5.vu && s5.ecartRenfX > 3.7 && s5.ecartRenfX < 4.3 && s5.ecartFils > 9.7 && s5.ecartFils < 10.3 && legT(s5) && s5.place === 'auto · 7'
+      verif('nappes · PC : DAL5b — un renfort principal 3 Ø20 en inf. Y sur le treillis : ses points AU-DESSUS des traits X, sans les traverser (leur bas au contact du haut du trait du renfort X, la position réelle, et 2 mm au-dessus de celui des fils X, restés à 45 mm, soudés) ; la légende commune dit « R1 Y · 3 Ø20 · axe à 70 · sur renfort X », « R1 X · 3 Ø12 · axe à 50 · sur la base Y » et les axes des deux treillis, une fois chacun, et chaque ligne de la nappe inférieure s\'arrête avant la colonne de la supérieure ; le champ du renfort Y dit « auto · 7 »',
+        s5.vu && s5.ecartRenfX > -0.3 && s5.ecartRenfX < 0.3 && s5.ecartFils > 1.7 && s5.ecartFils < 2.3 && legT(s5) && s5.place === 'auto · 6,2'
         && s5.jeu_legende_px > 0, JSON.stringify(s5));
       // au téléphone (R1 : le même dessin, la même note) — l'onglet Dessin
       const ct5 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
@@ -4631,8 +4636,8 @@ const principal = async () => {
       await t5.waitForTimeout(300);
       const s5T = await t5.evaluate(mesureS5);
       await t5.screenshot({ path: path.join(OUT, 'site_nappes_s5_tel.png') });
-      verif('nappes · téléphone : DAL5b — la même coupe, le renfort Y Ø20 au-dessus des traits X (4 mm au-dessus du renfort X, 10 mm au-dessus des fils X), la légende commune, qui tient dans ses colonnes',
-        s5T.vu && s5T.ecartRenfX > 3.7 && s5T.ecartRenfX < 4.3 && s5T.ecartFils > 9.7 && s5T.ecartFils < 10.3 && legT(s5T)
+      verif('nappes · téléphone : DAL5b — la même coupe, le renfort Y Ø20 au-dessus des traits X (au contact du renfort X, 2 mm au-dessus des fils X), la légende commune, qui tient dans ses colonnes',
+        s5T.vu && s5T.ecartRenfX > -0.3 && s5T.ecartRenfX < 0.3 && s5T.ecartFils > 1.7 && s5T.ecartFils < 2.3 && legT(s5T)
         && s5T.jeu_legende_px > 0, JSON.stringify(s5T));
       verif('nappes · téléphone (DAL5b) : aucune erreur JavaScript', !t5.erreurs.length, t5.erreurs.join(' | ').slice(0, 300));
       await ct5.close();

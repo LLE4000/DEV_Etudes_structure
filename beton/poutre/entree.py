@@ -20,6 +20,8 @@ import math
 import os
 from string import ascii_uppercase
 
+from beton import position as P
+
 from . import taux as T
 
 CHEMIN_CLASSES = os.path.join(os.path.dirname(__file__), "..", "..", "beton_classes.json")
@@ -43,8 +45,12 @@ DEFAUTS_POUTRE = {
     "fyk": 500,              # N/mm²
     "gamma_s": 1.5,          # « Coefficient acier ELS » : fyd = fyk / γs
     "enrobage": 3.0,         # cm
-    "jeu_premier_lit": 0.0,  # cm (« 0 par défaut, retour bureau 01/09 »)
-    "jeu_entre_lits": 1.0,   # cm
+    # le JEU DE POSE (cm) : la clé garde son nom d'avant (« jeu sous L1 »), sa règle est celle de beton/position.py
+    # (ajouté à la position réelle de chaque lit AVANT l'arrondi) ; 1 cm par défaut, décision du propriétaire du
+    # 13/11/2026 (c'était 0, « retour bureau 01/09 », ajouté après les demi-Ø arrondis)
+    "jeu_premier_lit": P.JEU_POSE,
+    "jeu_entre_lits": 1.0,   # cm : le jour libre entre deux lits (position réelle, sans arrondi)
+    "arrondi": P.ARRONDI,    # cm : le pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS : 0, 0,5 ou 1)
 }
 LIT_DEFAUT = {"n": 2, "d": 16}
 ETRIER_DEFAUT = {"type": "etrier", "d": 10}
@@ -112,7 +118,7 @@ def nouvelle_section(nom: str = "A") -> dict:
 
 def nouvelle_poutre() -> dict:
     """Une poutre aux valeurs par défaut du module : « Poutre 1 », 20 × 40 cm, C30/37, B500, γs = 1,5,
-    enrobage 3 cm, jeux 0 et 1 cm, une section « A »."""
+    enrobage 3 cm, jeu de pose 1 cm, 1 cm entre lits, arrondi 0,5 cm, une section « A »."""
     p = copy.deepcopy(DEFAUTS_POUTRE)
     p["sections"] = [nouvelle_section("A")]
     return p
@@ -347,6 +353,7 @@ def normaliser(poutre: dict) -> dict:
     p["gamma_s"] = _nombre(_val(poutre, "gamma_s", DEFAUTS_POUTRE["gamma_s"]), "gamma_s", strict=True)
     for k in ("enrobage", "jeu_premier_lit", "jeu_entre_lits"):
         p[k] = _nombre(_val(poutre, k, DEFAUTS_POUTRE[k]), k)
+    p["arrondi"] = P.lire_arrondi(_val(poutre, "arrondi", DEFAUTS_POUTRE["arrondi"]))
     # le détail du ferraillage : seulement s'il diffère du défaut
     if poutre.get("dg") is not None and float(poutre["dg"]) != DEFAUTS_DETAIL["dg"]:
         p["dg"] = _nombre(poutre["dg"], "dg", strict=True)

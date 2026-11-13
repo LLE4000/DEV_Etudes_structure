@@ -189,7 +189,9 @@ CAS += [
     ("jeu premier lit 1,0 cm, enrobage 2,5 cm", note(pre("J10", [TP], enrobage=2.5), jeu=1.0)),
     ("enrobage nul : l'écran le lit 3,0 cm", note(pre("E0", [TP], enrobage=0.0))),
     ("enrobage 5 cm (la base principale à 5,5 cm, sur une peau de 6)", note(pre("E5", [TP], enrobage=5.0))),
-    ("enrobage 20 cm (borne) sur 22 cm : d ≤ 0 en haut", note(pre("E20", [sec("A", 5, 5, 5, 5, 10)], enrobage=20.0))),
+    # (la règle du 13/11/2026 : barres Ø20 en haut, réel 20 + 1,0 = 21,0, calcul ⌈21,0 + 1⌉ = 22,0 → d = 22 − 22 = 0 ≤ 0)
+    ("enrobage 20 cm (borne) sur 22 cm : d ≤ 0 en haut", note(pre("E20", [sec("A", 5, 5, 5, 5, 10, sup_y=fa(ba(20, 150)))],
+                                                               enrobage=20.0))),
     ("largeur de bande minimale (20 cm) et « n barres »", note(pre("B20", [sec("A", 8, 0, 9, 0, 15, inf_y=fa(nb(2, 10)))], b=20))),
     ("largeur de bande maximale (500 cm)", note(pre("B500", [sec("A", 140, 60, 175, 45, 300, inf_y=fa(tr("10/10/100/100"), nb(12, 12)),
                                                                 sup_x=fa(ba(10, 125)))], b=500))),
@@ -324,8 +326,16 @@ if D is not None:
     D._init_dalles_if_needed()
     synchroniser()
     defaut = lire_session(1)
-    chk("nouvelle_predalle() = l'état de l'écran au premier affichage (bande 100 × 22, peau 6, C30/37, B500, Y…)",
-        not ecarts_json(M.nouvelle_predalle(), defaut), ecarts_json(M.nouvelle_predalle(), defaut))
+    # (la règle de position du 13/11/2026 : le jeu de pose du bureau vaut 1 cm — l'écran disait 0 — et l'arrondi est une
+    #  clé nouvelle ; tout le reste est l'état de l'écran)
+    neuve = M.nouvelle_predalle()
+    chk("nouvelle_predalle() : le jeu de pose du bureau (1 cm) et l'arrondi (0,5 cm) de la règle du 13/11/2026",
+        neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut["jeu_premier_lit"] == 0.0,
+        (neuve["jeu_premier_lit"], neuve.get("arrondi")))
+    neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi")}
+    defaut.pop("jeu_premier_lit")
+    chk("nouvelle_predalle() = l'état de l'écran au premier affichage (bande 100 × 22, peau 6, C30/37, B500, Y…), hors jeu "
+        "de pose et arrondi", not ecarts_json(neuve, defaut), ecarts_json(neuve, defaut))
     D._add_section(1)
     D._add_couche(1, 2, "inf_y")
     synchroniser()
@@ -354,42 +364,53 @@ def fr(x, nd):
     return f"{x:.{nd}f}".replace(".", ",")
 
 
+# La règle du 13/11/2026 (beton/position.py) : position réelle (c + Ø/2 ; un renfort inférieur sur la peau, h_p + Ø/2),
+# axe de calcul ⌈réel + jeu de pose⌉ au 0,5 cm — le jeu (1 cm) pour TOUTE couche, celles de la peau comprises. Les deux
+# BASES inférieures sont DANS la peau (pose « predalle ») ; le moteur seul les pose au même niveau (la base secondaire
+# posée sur la principale, c'est le site : tests/test_api_web_dalle_positions.py), et le dit (« nappes_confondues »).
 r1 = M.verifier(cas("test_predalle 1")[0])["sections"][0]
 g1 = r1["grandeurs"]
 fyd = 500 / 1.5
 As10 = math.pi * 10 ** 2 / 4 * 1000 / 100                          # treillis 10/10/100/100 : 785,4 mm²/m
-e_p, e_s = 30 + 5, 60 + 5                                          # mm : 3,0 + ⌈Ø10/2⌉ (sans jeu) ; peau 6,0 + ⌈Ø10/2⌉
-chk("H1 base inférieure principale (Y) DANS la peau, sans jeu : 3,5 cm ; base secondaire (X) SUR la peau : 6,5 cm",
-    r1["faces"]["inf_y"]["couches"][0]["e"] == 3.5 and r1["faces"]["inf_x"]["couches"][0]["e"] == 6.5
-    and r1["faces"]["inf_y"]["couches"][0]["pose"] == "predalle" and r1["faces"]["inf_x"]["couches"][0]["pose"] == "sur_predalle")
-req = {f: m * 1e6 / (fyd * 0.9 * (220 - e)) for f, m, e in (("inf_y", 30, e_p), ("inf_x", 30, e_s), ("sup_y", 9, 35), ("sup_x", 12, 35))}
-chk("H1 chaque direction garde SON d : As,req 541 (principale) / 645 (secondaire) / 162 / 216 mm² (test_predalle)",
-    all(proche(g1[f"As_req_{f}"], req[f]) for f in req) and [round(req[f]) for f in ("inf_y", "inf_x", "sup_y", "sup_x")] == [541, 645, 162, 216],
+e_peau = math.ceil((30 + 5 + 10) / 5) * 5                          # mm : ⌈3,0 + Ø10/2 + 1 (jeu)⌉ = 4,5 cm
+chk("H1 les deux bases inférieures DANS la peau : réel 3 + 0,5 = 3,5 cm, calcul 3,5 + 1 (jeu) = 4,5 cm",
+    [r1["faces"][f]["couches"][0]["e_reel"] for f in ("inf_y", "inf_x")] == [3.5, 3.5]
+    and [r1["faces"][f]["couches"][0]["e"] for f in ("inf_y", "inf_x")] == [4.5, 4.5]
+    and [r1["faces"][f]["couches"][0]["pose"] for f in ("inf_y", "inf_x")] == ["predalle", "predalle"])
+req = {f: m * 1e6 / (fyd * 0.9 * (220 - e_peau)) for f, m in (("inf_y", 30), ("inf_x", 30), ("sup_y", 9), ("sup_x", 12))}
+chk("H1 As,req = M / (f_yd · 0,9 · (220 − 45)) : 571 / 571 / 171 / 229 mm²",
+    all(proche(g1[f"As_req_{f}"], req[f]) for f in req) and [round(req[f]) for f in ("inf_y", "inf_x", "sup_y", "sup_x")] == [571, 571, 171, 229],
     {f: g1[f"As_req_{f}"] for f in req})
 hu = math.sqrt(30e6 / (12.96 * 1000 * 0.1709))                     # mm
-chk(f"H1 hauteur : la famille inf. X (sur la peau) gouverne : hu,min(30) + 6,5 = {fr(hu / 10 + 6.5, 2)} cm ≤ 22 (« 18,1 » à l'écran)",
-    proche(g1["h_min"], hu / 10 + 6.5) and g1["face_hauteur"] == "inf_x" and fr(g1["h_min"], 1) == "18,1")
+chk(f"H1 hauteur : hu,min(30) + 4,5 = {fr(hu / 10 + 4.5, 2)} cm ≤ 22 (« 16,1 » à l'écran)",
+    proche(g1["h_min"], hu / 10 + 4.5) and g1["M_hauteur"] == 30 and fr(g1["h_min"], 1) == "16,1", g1["h_min"])
 r2 = M.verifier(cas("test_predalle 2")[0])["sections"][0]
 c2 = r2["faces"]["inf_y"]["couches"]
-yG = (As10 * 3.5 + 3 * math.pi * 144 / 4 * 7.0) / (As10 + 3 * math.pi * 144 / 4)
-chk(f"H2 renfort 3 Ø12 SUR la peau : 6,0 + ⌈1,2/2⌉ = 7,0 cm ; y_G = {fr(yG, 3)} (« 4,6 »), As,req = 573 mm² (test_predalle)",
-    c2[1]["e"] == 7.0 and c2[1]["pose"] == "sur_predalle" and proche(r2["grandeurs"]["yG_inf_y"], yG) and fr(yG, 1) == "4,6"
-    and round(r2["grandeurs"]["As_req_inf_y"]) == 573 and r2["faces"]["inf_y"]["libelle"] == "Treillis 10/10/100/100 + 3 Ø12")
+yG = (As10 * 4.5 + 3 * math.pi * 144 / 4 * 8.0) / (As10 + 3 * math.pi * 144 / 4)
+As_req2 = 30e6 / (fyd * 0.9 * (220 - yG * 10))
+chk(f"H2 renfort 3 Ø12 SUR la peau : réel 6 + 0,6 = 6,6 cm, calcul ⌈7,6⌉ = 8,0 cm ; y_G = {fr(yG, 3)} (« 5,6 »), "
+    f"As,req = {fr(As_req2, 0)} mm²",
+    c2[1]["e_reel"] == 6.6 and c2[1]["e"] == 8.0 and c2[1]["pose"] == "sur_predalle" and proche(r2["grandeurs"]["yG_inf_y"], yG)
+    and fr(yG, 1) == "5,6" and round(r2["grandeurs"]["As_req_inf_y"]) == 608
+    and r2["faces"]["inf_y"]["libelle"] == "Treillis 10/10/100/100 + 3 Ø12", (c2[1]["e"], r2["grandeurs"]["As_req_inf_y"]))
 r3 = M.verifier(cas("test_predalle 3")[0])["sections"][0]
-chk("H3 X principale : X passe dans la peau (3,5), Y au-dessus (6,5), le renfort Y reste au-dessus (7,0)",
-    [r3["faces"]["inf_x"]["couches"][0]["e"], r3["faces"]["inf_y"]["couches"][0]["e"], r3["faces"]["inf_y"]["couches"][1]["e"]] == [3.5, 6.5, 7.0])
+chk("H3 X principale : les deux bases dans la peau (4,5 au calcul), le renfort Y sur la peau (8,0)",
+    [r3["faces"]["inf_x"]["couches"][0]["e"], r3["faces"]["inf_y"]["couches"][0]["e"], r3["faces"]["inf_y"]["couches"][1]["e"]] == [4.5, 4.5, 8.0])
 r4 = M.verifier(cas("audit C-1")[0])["sections"][0]
-chk("H4 audit C-1 : hu,min + d₁ = 15,8 + 6,5 = 22,3 cm > h = 20 cm (la secondaire gouverne ; l'ancienne règle disait 16,5 + 3,5)",
-    r4["grandeurs"]["face_hauteur"] == "inf_x" and (fr(r4["grandeurs"]["hu_min"], 1), fr(r4["grandeurs"]["yG_hauteur"], 1),
-                                                    fr(r4["grandeurs"]["h_min"], 1)) == ("15,8", "6,5", "22,3")
-    and r4["verifications"][0]["etat"] == "nok")
+chk("H4 audit C-1 (moteur seul, bases au même niveau) : la famille au plus grand hu,min + y_G gouverne, inf. Y : "
+    "16,5 + 4,5 = 21,0 cm > h = 20 cm",
+    r4["grandeurs"]["face_hauteur"] == "inf_y" and (fr(r4["grandeurs"]["hu_min"], 1), fr(r4["grandeurs"]["yG_hauteur"], 1),
+                                                    fr(r4["grandeurs"]["h_min"], 1)) == ("16,5", "4,5", "21,0")
+    and r4["verifications"][0]["etat"] == "nok", (r4["grandeurs"]["face_hauteur"], r4["grandeurs"]["h_min"]))
 r5 = M.verifier(cas("peau fractionnaire")[0])["sections"][0]
-chk("H5 base principale Ø20 : 3,0 + 1,0 = 4,0 cm (le retour du bureau du 01/09 : pas 5,0) ; secondaire Ø10 : 5,5 + 0,5 = 6,0",
-    r5["faces"]["inf_y"]["couches"][0]["e"] == 4.0 and r5["faces"]["inf_x"]["couches"][0]["e"] == 6.0)
+chk("H5 base principale Ø20 : réel 3,0 + 1,0 = 4,0 cm, calcul ⌈5,0⌉ = 5,0 ; base secondaire Ø10 : réel 3,5, calcul 4,5",
+    (r5["faces"]["inf_y"]["couches"][0]["e_reel"], r5["faces"]["inf_y"]["couches"][0]["e"]) == (4.0, 5.0)
+    and (r5["faces"]["inf_x"]["couches"][0]["e_reel"], r5["faces"]["inf_x"]["couches"][0]["e"]) == (3.5, 4.5))
 r6 = M.verifier(cas("jeu premier lit 0,5")[0])["sections"][0]
-chk("H6 le jeu premier lit (0,5) ne touche QUE les nappes supérieures : sup. 4,0 ; inf. 3,5 / 6,5 / 7,0 inchangées",
+chk("H6 le jeu de pose (0,5) vaut pour TOUTES les couches, la peau comprise : sup. ⌈3,5 + 0,5⌉ = 4,0 ; inf. 4,0 / 4,0 ; "
+    "le renfort sur la peau ⌈6,6 + 0,5⌉ = 7,5",
     r6["faces"]["sup_y"]["couches"][0]["e"] == 4.0 and r6["faces"]["sup_x"]["couches"][0]["e"] == 4.0
-    and [r6["faces"]["inf_y"]["couches"][0]["e"], r6["faces"]["inf_x"]["couches"][0]["e"], r6["faces"]["inf_y"]["couches"][1]["e"]] == [3.5, 6.5, 7.0])
+    and [r6["faces"]["inf_y"]["couches"][0]["e"], r6["faces"]["inf_x"]["couches"][0]["e"], r6["faces"]["inf_y"]["couches"][1]["e"]] == [4.0, 4.0, 7.5])
 chk("H7 coulé en place = h − peau, rendu par le moteur (22 − 6 = 16 cm)", g1["h_pre"] == 6.0 and g1["h_coule"] == 16.0)
 
 # ------------------------------------------------------------------ 3. parité
@@ -446,6 +467,12 @@ def charger(predalles):
     ss = st.session_state
     ss.clear()
     D._ensure_global_defaults()
+    # la POSITION de chaque couche : la règle du 13/11/2026 (beton/position.py — position réelle, jeu de pose, arrondi ;
+    # la base secondaire dans la peau), que l'écran ne connaît pas ; il reçoit l'axe de calcul du moteur comme un axe
+    # saisi (« Dist. axe »), comme la note PDF — la parité porte alors sur tout le reste (formules, états, écran) ; les
+    # positions sont prouvées à la main (section 2, tests/test_position.py, tests/test_api_web_dalle_positions.py)
+    axes = [[{f: [c["e"] for c in sec_["faces"][f]["couches"]] for f in E.FACES} for sec_ in M.verifier(p_)["sections"]]
+            for p_ in predalles]
     ss["gamma_s"], ss["jeu_enrobage_cm"] = predalles[0]["gamma_s"], predalles[0]["jeu_premier_lit"]
     ss.predalles = [{"id": k + 1, "nom": p["nom"], "sections": [{"id": i + 1, "nom": s["nom"]} for i, s in enumerate(p["sections"])]}
                     for k, p in enumerate(predalles)]
@@ -467,9 +494,8 @@ def charger(predalles):
                     for cle_ecran, v in (("arm_type", TYPES_ECRAN[c["type"]]), ("treillis", c["treillis"]), ("ø_barres", c["d"]),
                                          ("esp_barres", c["esp"]), ("n_barres", c["n"])):
                         ss[D.KS(f"{cle_ecran}_{which}_c{j}", did, sid)] = v
-                    if c["dist"] is not None:
-                        ss[D.KS(f"dist_axe_{which}_c{j}", did, sid)] = DIR_TXT(c["dist"])
-                        ss[D.KS(f"dist_auto_{which}_c{j}", did, sid)] = False
+                    ss[D.KS(f"dist_axe_{which}_c{j}", did, sid)] = DIR_TXT(axes[k][i][which][j - 1])
+                    ss[D.KS(f"dist_auto_{which}_c{j}", did, sid)] = False
                 if f["yG"] is not None:
                     ss[D.KS(f"ycdg_{which}", did, sid)] = DIR_TXT(f["yG"])
                     ss[D.KS(f"ycdg_auto_{which}", did, sid)] = False
@@ -565,7 +591,7 @@ def comparer(es, md, ecarts):
         cmp(f"{f}.yG_impose", geo["yG_impose"], mf["yG_impose"])
         cmp(f"{f}.couches", len(geo["couches"]), len(mf["couches"]))
         for j, (a, b) in enumerate(zip(geo["couches"], mf["couches"]), start=1):
-            for cle in ("As_pm", "e", "e_auto", "libelle", "d", "auto"):
+            for cle in ("As_pm", "e", "libelle", "d"):      # (« e_auto », « auto » : la règle du 13/11/2026, que l'écran ignore)
                 cmp(f"{f}.couche {j}.{cle}", a[cle], b[cle])
     for v in es["verifications"]:
         cmp(f"motifs {v['cle']} (vides si et seulement si l'état est ok)", not v["motifs"], v["etat"] == "ok")
@@ -752,8 +778,15 @@ if D is not None:
             gv = max(pcts, key=lambda x: x[2])
             if not (egal(r["taux_max"], gv[2] / 100.0) and (r["gouvernant"]["section"], r["gouvernant"]["titre"]) == gv[:2]):
                 ecarts.append(f"gouvernant : moteur {r['gouvernant']} ≠ écran {gv}")
+        # (chaque couche avec l'axe que l'écran a reçu : l'axe de calcul du moteur, « Dist. axe » saisi — voir charger)
         lu = FI.lire(payload)
-        diff = ecarts_json(lu["predalles"], predalles)
+        attendues = copy.deepcopy(predalles)
+        for p_, r_ in zip(attendues, res):
+            for s_, rs_ in zip(p_["sections"], r_["sections"]):
+                for f_ in E.FACES:
+                    for c_, cr_ in zip(s_["faces"][f_]["couches"], rs_["faces"][f_]["couches"]):
+                        c_["dist"] = cr_["e"]
+        diff = ecarts_json(lu["predalles"], attendues)
         if diff or lu["remarques"]:
             ecarts.append(f"fichier relu : {diff[:3]} {lu['remarques'][:2]}")
         COUV |= faits(predalles, res, calc)
@@ -926,19 +959,30 @@ chk("les bornes de la peau sont ADMISES (3 cm ; 15 cm sur 40 ; h − 1 sur 10 ; 
 codes = {a["code"] for r in tous for a in r["avertissements"]}
 r_hors = M.verifier(cas("peau minimale")[0])
 a_hors = [a for a in r_hors["avertissements"] if a["code"] == "base_hors_predalle"]
-chk("« base_hors_predalle » : la base Ø12 à 4,0 cm sur une peau de 3 cm dépasse (4,6 cm) — signalé ; jamais sur la peau de 6 cm par défaut",
-    a_hors and a_hors[0]["haut"] == 4.6 and not [a for a in M.verifier(cas("défauts")[0])["avertissements"] if a["code"] == "base_hors_predalle"],
+chk("« base_hors_predalle » : la base Ø12 posée à 3,6 cm sur une peau de 3 cm dépasse (3 + 1,2 = 4,2 cm) — signalé ; "
+    "jamais sur la peau de 6 cm par défaut",
+    a_hors and proche(a_hors[0]["haut"], 4.2) and not [a for a in M.verifier(cas("défauts")[0])["avertissements"] if a["code"] == "base_hors_predalle"],
     a_hors)
-r_cr = M.verifier(cas("test_predalle 2")[0])
+# (depuis le 13/11/2026 les deux BASES sont dans la peau : seuls deux RENFORTS croisés se posent tous deux sur la prédalle)
+CROISES = sec("A", 30, 12, 30, 9, 60, inf_x=fa(tr("10/10/100/100"), nb(4, 10)), inf_y=fa(tr("10/10/100/100"), nb(3, 12)))
+r_cr = M.verifier(note(pre("CR", [CROISES]))[0])
 a_cr = [a for a in r_cr["avertissements"] if a["code"] == "croisement_sur_predalle"]
-chk("« croisement_sur_predalle » : le renfort Y (7,0) et la base X (6,5), posés tous deux sur la peau, se croisent — signalé ; "
-    "absent si l'axe est saisi",
-    a_cr and a_cr[0]["paires"] == [[0, 1]]
-    and not [a for a in M.verifier(cas("axe saisi sur la base secondaire")[0])["avertissements"]
-             if a["code"] == "croisement_sur_predalle" and [0, 1] in a.get("paires", [])], a_cr)
+saisi = copy.deepcopy(CROISES)
+saisi["faces"]["inf_x"]["couches"][1]["dist"] = 8.0
+chk("« croisement_sur_predalle » : le renfort X (6 + 0,5 = 6,5) et le renfort Y (6 + 0,6 = 6,6), posés tous deux sur la peau, "
+    "se croisent (1 mm d'axe à axe, il en faut 11) — signalé ; absent si l'axe de l'un est saisi",
+    a_cr and a_cr[0]["paires"] == [[1, 1]]
+    and not [a for a in M.verifier(note(pre("CR", [saisi]))[0])["avertissements"] if a["code"] == "croisement_sur_predalle"], a_cr)
+def axe_attendu(f):
+    """L'axe de calcul d'une couche recalculé ICI, sans beton/position.py : Σ termes (la position réelle) + jeu, arrondi
+    au pas SUPÉRIEUR (le quotient arrondi à 1e-6)."""
+    det = f["detail"]
+    brut = sum(x["valeur"] for x in f["termes"]) + det["jeu"]
+    return math.ceil(round(brut / det["pas"], 6)) * det["pas"] if det["pas"] else brut
+
+
 FORMULES = {
-    "e": lambda t: t["saisi"] if "saisi" in t else ((t["h_pre"] + t["demi_d"]) if "h_pre" in t else
-                                                    (t["c"] + t["demi_d"] + t["jeu"]) if "jeu" in t else (t["c"] + t["demi_d"])),
+    "e": None,              # l'axe : recalculé par axe_attendu (ses termes, le jeu, l'arrondi : f["detail"])
     "hu_min": lambda t: math.sqrt(t["M"] * 1e6 / (t["alpha_b"] * t["b"] * t["mu"])) / 10,
     "h_min": lambda t: t["hu_min"] + t["yG"],
     "d": lambda t: t["h"] - t["yG"],
@@ -965,11 +1009,9 @@ for r in tous:
                 n_axes += f["cle"] == "e"
                 t = {x["symbole"]: x["valeur"] for x in f["termes"]}
                 resultats[f["cle"]] = f["resultat"]
-                calcule = FORMULES[f["cle"]](t)
+                calcule = axe_attendu(f) if f["cle"] == "e" else FORMULES[f["cle"]](t)
                 if not (calcule == f["resultat"] or proche(calcule, f["resultat"])):
                     fautes.append(f"{r['predalle']['nom']}/{s['nom']}/{v['cle']}/{f['cle']} : {calcule!r} ≠ {f['resultat']!r}")
-                if f["cle"] == "e" and "demi_d" in t and t["demi_d"] != math.ceil(t["d"] / 20 * 2) / 2:
-                    fautes.append(f"{r['predalle']['nom']}/{s['nom']}/{v['cle']} : demi-Ø {t['demi_d']} pour Ø{t['d']}")
             cv, cl = VALEUR_LIMITE.get(v["cle"], ("besoin", "As"))
             if v["valeur"] != resultats[cv] or (cl and v["limite"] != resultats[cl]) or v["taux"] != v["valeur"] / v["limite"]:
                 fautes.append(f"{r['predalle']['nom']}/{s['nom']}/{v['cle']} : valeur, limite et taux ≠ formules")
@@ -1047,29 +1089,20 @@ if D is not None:
     print("\n=== 9. Mutations : le moteur altéré, la parité avec l'écran rougit ===")
     SOURCE_P = lire("beton", "predalle", "moteur.py")
     SOURCE_D = lire("beton", "dalle", "moteur.py")
-    MUTATIONS_P = [
-        ("base principale : le jeu premier lit ajouté (l'en-tête de l'écran le dit, son code non)",
-         "        return enrob + MD.arrondi_demi_cm(d / 20.0)\n    return",
-         "        return enrob + MD.arrondi_demi_cm(d / 20.0) + float(jeu or 0.0)\n    return"),
-        ("toute couche inférieure sur la peau (même la base principale)",
-         'return "predalle" if (rang == 0 and dk == str(principale).lower()) else "sur_predalle"', 'return "sur_predalle"'),
-        ("les renforts principaux dans la peau avec la base (et non sur la peau)",
-         'return "predalle" if (rang == 0 and dk == str(principale).lower()) else "sur_predalle"',
-         'return "predalle" if dk == str(principale).lower() else "sur_predalle"'),
-        ("sur la peau : enrobage + demi-Ø (la règle de la dalle)",
-         "return float(h_pre or H_PRE_SI_NUL) + MD.arrondi_demi_cm(d / 20.0)", "return enrob + MD.arrondi_demi_cm(d / 20.0)"),
-        ("sur la peau : h_pre + Ø/2 sans l'arrondi au 0,5 cm", "return float(h_pre or H_PRE_SI_NUL) + MD.arrondi_demi_cm(d / 20.0)",
-         "return float(h_pre or H_PRE_SI_NUL) + d / 20.0"),
-        ("sur la peau : h_pre + Ø entier (et non le demi-Ø)", "return float(h_pre or H_PRE_SI_NUL) + MD.arrondi_demi_cm(d / 20.0)",
-         "return float(h_pre or H_PRE_SI_NUL) + MD.arrondi_demi_cm(d / 10.0)"),
-        ("direction principale ignorée (toujours Y)", 'return "predalle" if (rang == 0 and dk == str(principale).lower())',
-         'return "predalle" if (rang == 0 and dk == "y")'),
+    MUTATIONS_P = [   # (la règle du 13/11/2026 : beton/predalle/moteur.pose et position_auto)
+        ("toute couche inférieure sur la peau (même les bases)", 'return "predalle" if rang == 0 else "sur_predalle"',
+         'return "sur_predalle"'),
+        ("les renforts inférieurs dans la peau avec la base (et non sur la peau)",
+         'return "predalle" if rang == 0 else "sur_predalle"', 'return "predalle"'),
+        ("sur la peau : enrobage + demi-Ø (la règle de la dalle)", "return float(h_pre or H_PRE_SI_NUL) + d / 20.0",
+         "return float(enrobage or MD.ENROBAGE_SI_NUL) + d / 20.0"),
+        ("sur la peau : h_pre + Ø entier (et non le demi-Ø)", "return float(h_pre or H_PRE_SI_NUL) + d / 20.0",
+         "return float(h_pre or H_PRE_SI_NUL) + d / 10.0"),
         ("peau lue 6 cm quelle qu'elle soit", "return float(h_pre or H_PRE_SI_NUL) +", "return float(H_PRE_SI_NUL) +"),
         ("axe saisi écrasé par l'automatique", '                if c["dist"] is None:\n                    c["dist"] = a[f][j]',
          '                if True:\n                    c["dist"] = a[f][j]'),
-        ("supérieures : le jeu premier lit oublié", "return enrob + MD.arrondi_demi_cm(d / 20.0) + float(jeu or 0.0)",
-         "return enrob + MD.arrondi_demi_cm(d / 20.0)"),
-        ("enrobage nul lu 0 (et non 3,0 cm comme l'écran)", "enrob = float(enrobage or MD.ENROBAGE_SI_NUL)", "enrob = float(enrobage)"),
+        ("enrobage nul lu 0 (et non 3,0 cm comme l'écran)", "P.sur_parement(float(enrobage or MD.ENROBAGE_SI_NUL), d)",
+         "P.sur_parement(float(enrobage), d)"),
     ]
     MUTATIONS_D = [
         ("formules partagées : bras de levier 0,9·d → 0,85·d", "K_BRAS_DE_LEVIER = 0.9 ", "K_BRAS_DE_LEVIER = 0.85 "),
@@ -1081,6 +1114,8 @@ if D is not None:
         ("formules partagées : As ≤ As,max oublié", " and As <= As_max) else NOK", ") else NOK"),
         ("formules partagées : « n barres » sans la largeur de bande", "/ max(0.01, bb / 100.0)", "/ 1.0"),
         ("formules partagées : y_G saisi ignoré", '"yG": yG_calcule if yG is None else yG', '"yG": yG_calcule'),
+        ("position : le jeu de pose oublié", "e = P.axe_calcul(reel, jeu, arrondi)", "e = P.axe_calcul(reel, 0.0, arrondi)"),
+        ("position : l'arrondi oublié", "e = P.axe_calcul(reel, jeu, arrondi)", "e = P.axe_calcul(reel, jeu, 0.0)"),
     ]
 
     def charger_source(source, nom, paquet):

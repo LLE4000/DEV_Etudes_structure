@@ -2,10 +2,12 @@
 """Le FERRAILLAGE DÉTAILLÉ et les DISPOSITIONS CONSTRUCTIVES du moteur poutre (beton/poutre/geometrie.py,
 dispositions.py ; site, 11/2026), vérifiés à la main.
 
-- sans aucune clé du détail, la poutre normalisée et son calcul sont ceux d'avant (la parité Streamlit est intacte) ;
-- les positions imposées (« pos ») placent les lits ; d et y_G les suivent (Σ A·e / Σ A) ;
+- sans aucune clé du détail, la poutre normalisée est celle d'avant (aucune clé ajoutée) ;
+- les positions (beton/position.py, règle du 13/11/2026) : la position RÉELLE d'un lit (c + Ø étrier + Ø/2, le dessin ;
+  une position imposée « pos » en est une) et son axe de CALCUL (+ jeu de pose 1 cm, arrondi au 0,5 cm) ; d et y_G
+  suivent les axes de calcul (Σ A·e / Σ A), les dispositions et les latérales les positions réelles ;
 - les abscisses : uniforme entre les montants de l'étrier, « aligne » sur le lit 1, « entraxe » centré ;
-- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres → « non conforme » (décision
+- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu du bureau (1 cm) : 10 mm libres → « non conforme » (décision
   du bureau, 11/2026 : un espacement sous le minimum de l'EC2 est une non-conformité, pas une observation) ;
 - des barres qui se chevauchent, ou qui sortent de l'étrier, sont « non conformes » et « impossibles » (le sélecteur ne
   les propose pas) ; un espacement positif sous s_min est non conforme mais se pose (« serrée ») ;
@@ -63,15 +65,18 @@ chk("des clés du détail à leur valeur par défaut disparaissent (la poutre d'
 # 2. les positions imposées
 p = poutre(s={"M_inf": 120.0, "inf": [{"n": 3, "d": 20}, {"n": 2, "d": 16, "pos": 4.0}]})
 d = MO.verifier(p)["sections"][0]["geometrie"]["inf"]["lits"]
-e1 = 3.0 + G.arrondi_demi_cm(1.0 + 1.0)            # enrobage + arr½(Ø étrier 10/10 + Ø20/20) = 3 + 2 = 5 cm
-chk("lit 1 à la position du module (5 cm), lit 2 à 4 cm d'entraxe vertical (9 cm)", proche(d[0]["distance"], e1) and proche(d[1]["distance"], e1 + 4.0),
-    [x["distance"] for x in d])
+# lit 1 : réel 3 + 1,0 (étrier Ø10) + 1,0 (Ø20/2) = 5,0 cm, calcul 5,0 + 1 (jeu) = 6,0 → 6,0 ; lit 2 imposé à 4 cm
+# d'entraxe : réel 9,0, calcul 10,0 → 10,0
+chk("lit 1 : réel 3 + 1 + 1 = 5 cm, calcul 5 + 1 (jeu) = 6 cm ; lit 2 à 4 cm d'entraxe : réel 9 cm, calcul 10 cm",
+    [x["reel"] for x in d] == [5.0, 9.0] and [x["distance"] for x in d] == [6.0, 10.0], [(x["reel"], x["distance"]) for x in d])
 A1, A2 = 3 * math.pi * 100, 2 * math.pi * 64
 g = MO.verifier(p)["sections"][0]["grandeurs"]
-chk("y_G = Σ A·e / Σ A et d = h − y_G suivent les positions", proche(g["yG_inf"], (A1 * 5 + A2 * 9) / (A1 + A2)) and proche(g["d_inf"], 40 - g["yG_inf"]),
-    (g["yG_inf"], g["d_inf"]))
+chk("y_G = Σ A·e / Σ A et d = h − y_G suivent les axes de CALCUL (6 et 10 cm)",
+    proche(g["yG_inf"], (A1 * 6 + A2 * 10) / (A1 + A2)) and proche(g["d_inf"], 40 - g["yG_inf"]), (g["yG_inf"], g["d_inf"]))
 p = poutre(s={"inf": [{"n": 2, "d": 16, "pos": 6.5}]})
-chk("une position imposée du lit 1 est la distance parement → axe", proche(MO.verifier(p)["sections"][0]["geometrie"]["inf"]["lits"][0]["distance"], 6.5))
+lit = MO.verifier(p)["sections"][0]["geometrie"]["inf"]["lits"][0]
+chk("une position imposée du lit 1 est la position RÉELLE (6,5 cm, le dessin) ; le calcul y ajoute le jeu : 6,5 + 1 = 7,5 cm",
+    lit["reel"] == 6.5 and lit["distance"] == 7.5, lit)
 
 # 3. les abscisses
 p = poutre(b=30.0, s={"inf": [{"n": 4, "d": 20}, {"n": 2, "d": 16, "rep": "aligne"}, {"n": 3, "d": 12, "rep": "entraxe", "sh": 7.0}]})
@@ -87,11 +92,11 @@ chk("s_min = max(Ø ; d_g + 5 ; 20) : Ø16, d_g 20 → 25 mm ; Ø32 → 32 mm ; 
     DI.s_min(16, 16, 20) == 25 and DI.s_min(32, 16, 20) == 32 and DI.s_min(12, 12, 10) == 20)
 p = poutre(s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("deux lits Ø16 au jeu du bureau : 3 cm d'entraxe, 14 mm libres < 25 mm → « non conforme », mais posable",
-    proche(it["libre"], 14.0) and it["mini"] == 25 and it["etat"] == DI.NOK and not it["impossible"], it)
-p = poutre(jeu_entre_lits=2.1, s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
+chk("deux lits Ø16 au jeu du bureau : 0,8 + 1 + 0,8 = 2,6 cm d'entraxe réel, 10 mm libres < 25 mm → « non conforme », "
+    "mais posable", proche(it["libre"], 10.0) and it["mini"] == 25 and it["etat"] == DI.NOK and not it["impossible"], it)
+p = poutre(jeu_entre_lits=2.5, s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("… avec un jeu de 2,1 cm : 25 mm libres → conforme", proche(it["libre"], 25.0) and it["etat"] == DI.OK, it)
+chk("… avec un jeu entre lits de 2,5 cm : 25 mm libres → conforme", proche(it["libre"], 25.0) and it["etat"] == DI.OK, it)
 p = poutre(s={"inf": [{"n": 8, "d": 32}]})
 dis = MO.verifier(p)["sections"][0]["dispositions"]
 chk("8Ø32 dans 20 cm : les barres se chevauchent → « non conforme »", dis["etat"] == DI.NOK
@@ -107,11 +112,15 @@ chk("enrobage 1,5 cm + Ø6 = 21 mm < Ø32 → « non conforme » (adhérence, c_
 # 5. les latérales
 p = poutre(h=90.0)
 lat = MO.verifier(p)["sections"][0]["geometrie"]["laterales"]
-e_inf = MO.verifier(p)["sections"][0]["geometrie"]["inf"]["lits"][0]["distance"]
-ecart = 90 - 2 * e_inf
-chk("automatiques : n = ⌈écart / 30⌉ − 1 par face, réparties entre les lits 1", lat["auto"] and lat["n"] == math.ceil(ecart / 30) - 1
-    and proche(lat["ys"][0], e_inf + ecart / (lat["n"] + 1)), lat)
-chk("une poutre de 40 cm n'en a pas (écart ≤ 30 cm)", MO.verifier(poutre())["sections"][0]["geometrie"]["laterales"]["n"] == 0)
+# les latérales se mesurent aux positions RÉELLES des lits 1 (3 + 1,0 + 0,8 = 4,8 cm) : h = 90, écart 90 − 9,6 = 80,4 cm,
+# n = ⌈80,4 / 30⌉ − 1 = 2, la première à 4,8 + 80,4 / 3 = 31,6 cm
+chk("automatiques : n = ⌈écart / 30⌉ − 1 par face, réparties entre les lits 1 (aux positions réelles : 2 barres, "
+    "écart 80,4 cm, la première à 31,6 cm)", lat["auto"] and lat["n"] == 2 and proche(lat["ecart"], 80.4)
+    and proche(lat["ys"][0], 31.6), lat)
+lat40 = MO.verifier(poutre())["sections"][0]["geometrie"]["laterales"]
+chk("une poutre de 40 cm en a UNE par face : écart réel 40 − 2 × 4,8 = 30,4 cm > 30 cm (avant le 13/11/2026, aux "
+    "positions arrondies 5,0 cm, l'écart faisait 30 cm et il n'y en avait pas)", lat40["n"] == 1 and proche(lat40["ecart"], 30.4), lat40)
+chk("une poutre de 39 cm n'en a pas : 39 − 9,6 = 29,4 cm ≤ 30 cm", MO.verifier(poutre(h=39.0))["sections"][0]["geometrie"]["laterales"]["n"] == 0)
 p = poutre(s={"laterales": {"n": 2, "d": 12}})
 lat = MO.verifier(p)["sections"][0]["geometrie"]["laterales"]
 chk("imposées : 2 Ø12 par face, même sous 30 cm d'écart", not lat["auto"] and lat["n"] == 2 and lat["d"] == 12, lat)

@@ -66,7 +66,9 @@ cas("poutre", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
 _P_REAL = [neuf(), mod("b", "30"), mod("h", "60"), mod("beton", "C25/30"), mod("sections/0/inf/0/n", "3"),
            mod("sections/0/inf/0/d", "20"), mod("sections/0/M_inf", "120"), mod("sections/0/V", "40"), mod("sections/0/pas", "20")]
 cas("poutre", "poutre 30 × 60 réaliste (3Ø20, M = 120 kN·m, V = 40 kN, étriers à 20 cm)", REF, _P_REAL, {"niveau": "p"}, selecteurs=True)
-cas("poutre", "chargée près de 100 % (M = 142 kN·m, V = 60 kN)", REF, _P_REAL[:6] + [mod("sections/0/V", "60"), mod("sections/0/M_inf", "142")],
+# (la règle de position du 13/11/2026 — le jeu de pose de 1 cm — porte la hauteur de 142 kN·m à 102 % : le moment ramené à 136 kN·m,
+#  la hauteur à 99,6 %, l'espacement des étriers à 100 %)
+cas("poutre", "chargée près de 100 % (M = 136 kN·m, V = 60 kN)", REF, _P_REAL[:6] + [mod("sections/0/V", "60"), mod("sections/0/M_inf", "136")],
     {"taux": [95, 100]})
 cas("poutre", "deux sections (sur appui M_sup = 90 kN·m)", REF,
     _P_REAL + [mod("sections/+", None), mod("sections/1/M_sup", "90"), mod("sections/1/sup/0/n", "3")])
@@ -94,7 +96,9 @@ cas("poutre", "taux d'armature : majoration de 80 % refusée, puis une section s
 cas("dalle", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
 _D_REAL = [neuf(), mod("h", "22"), mod("sections/0/My_inf", "30"), mod("sections/0/Mx_inf", "15"), mod("sections/0/V", "60")]
 cas("dalle", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m)", REF, _D_REAL, {"niveau": "p"})
-cas("dalle", "chargée près de 100 % (M_y = 38,5 kN·m/m)", REF, [neuf(), mod("sections/0/My_inf", "38,5")], {"taux": [95, 100]})
+# (la règle de position du 13/11/2026 : d = 20 − 4,5 = 15,5 cm — 38,5 kN·m/m donnait 105 % ; 36 kN·m/m : A_s,req = 36·10⁶ / (300 × 155)
+#  = 774 mm² sur 785, 99 %)
+cas("dalle", "chargée près de 100 % (M_y = 36 kN·m/m)", REF, [neuf(), mod("sections/0/My_inf", "36")], {"taux": [95, 100]})
 cas("dalle", "barres Ø12/150 en nappe inférieure Y", REF, _D_REAL + [act("choisir", role="inf_y-0", nom="Ø12/150")])
 cas("dalle", "moment négatif refusé (PARCOURS)", LIM, [neuf(), mod("sections/0/Mx_inf", "-20")], {"message": True})
 cas("dalle", "espacement de 600 mm refusé", LIM, [neuf(), mod("sections/0/faces/inf_x/couches/0/type", "barres"),
@@ -119,7 +123,8 @@ _P_REAL = [neuf(), mod("type", "predalle"), mod("h", "24"), mod("sections/0/My_i
            mod("sections/0/V", "50")]
 cas("dalle", "prédalle · note neuve (h = 22, h_p = 6)", REF, _P_NEUVE)
 cas("dalle", "prédalle · 24 cm réaliste", REF, _P_REAL, {"niveau": "p"})
-cas("dalle", "prédalle · chargée près de 100 % (M_y = 43 kN·m/m)", REF, _P_NEUVE + [mod("sections/0/My_inf", "43")], {"taux": [95, 100]})
+# (la règle de position : d = 22 − 4,5 = 17,5 cm — 43 kN·m/m donnait 104 % ; 40,5 : A_s,req = 40,5·10⁶ / (300 × 175) = 771 mm², 98 %)
+cas("dalle", "prédalle · chargée près de 100 % (M_y = 40,5 kN·m/m)", REF, _P_NEUVE + [mod("sections/0/My_inf", "40,5")], {"taux": [95, 100]})
 cas("dalle", "prédalle · barres Ø12/150 en armature inférieure Y", REF, _P_REAL + [act("choisir", role="inf_y-0", nom="Ø12/150")])
 cas("dalle", "prédalle · plus épaisse que la dalle : refusée", LIM, _P_NEUVE + [mod("h_pre", "21")], {"message": True})
 cas("dalle", "prédalle · dalle de 6 cm refusée", LIM, _P_NEUVE + [mod("h", "6")], {"message": True})

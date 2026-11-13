@@ -24,8 +24,10 @@ par défaut du module ; une clé inconnue ou une valeur hors du domaine de l'éc
      "fyk": 500,                         nuance : 400 ou 500 (N/mm²)
      "gamma_s": 1.5,                     coefficient acier (> 0) : fyd = fyk / γs
      "enrobage": 3.0,                    enrobage béton (cm, ≥ 0) ; 0 est lu 3,0 cm, comme le module
-     "jeu_premier_lit": 0.0,             jeu ajouté sous le lit 1 (cm, ≥ 0)
-     "jeu_entre_lits": 1.0,              jeu libre entre deux lits (cm, ≥ 0)
+     "jeu_premier_lit": 1.0,             JEU DE POSE (cm, ≥ 0) : ajouté à la position réelle de chaque lit avant
+                                         l'arrondi (beton/position.py, règle du 13/11/2026)
+     "jeu_entre_lits": 1.0,              jour libre entre deux lits (cm, ≥ 0 ; position réelle)
+     "arrondi": 0.5,                     pas d'arrondi de l'axe de calcul (cm : 0, 0,5 ou 1)
      "sections": [                       une section au moins
        {"nom": "A",                      sans nom : la première lettre libre
         "M_inf": 0.0,                    moment qui tend la face INFÉRIEURE (kN·m, ≥ 0 ; travée)
@@ -103,7 +105,8 @@ SORTIE de verifier — JSON-sérialisable, nombres non arrondis (le site formate
      étriers    Ast pas s_th s_max s_lim s_th_tronque s_max_tronque s_lim_tronque
 
   <section>["geometrie"] = {"b", "h", "enrobage", "enrobage_calcul",
-       "inf" | "sup": {"lits": [{"n", "d", "distance", "As"}, ...], "As", "yG", "yG_calcule", "libelle"},
+       "inf" | "sup": {"lits": [{"n", "d", "distance" (axe de calcul), "reel" (position réelle : le dessin),
+                                 "detail" (beton/position.detail), "As"}, ...], "As", "yG", "yG_calcule", "libelle"},
        "etriers": {"lignes": [{"type", "d", "brins"}, ...], "d_max", "pas", "Ast", "resume"}}
      distance = parement → axe du lit (cm), calculée comme le module (_auto_dist_lit / _get_dist_lit).
 
@@ -114,6 +117,8 @@ face, chacune calculée par ``verifier`` (le Ø change la position du lit, donc 
       aire « ok »)}, ...]
 """
 import math
+
+from beton import position as P
 
 from . import dispositions as DI
 from . import entree as E
@@ -205,9 +210,12 @@ def _calcul(p: dict, s: dict, mat: dict) -> dict:
     d_et = G.diametre_etrier(s["etriers"])
     geo = {}
     for face in ("inf", "sup"):
-        dist = G.distances_lits(s[face], enrob, d_et, p["jeu_premier_lit"], p["jeu_entre_lits"])
+        reels = G.positions_lits(s[face], enrob, d_et, p["jeu_entre_lits"])
+        dist = [P.axe_calcul(r, p["jeu_premier_lit"], p["arrondi"]) for r in reels]
         As, yG_calcule, yG = G.face(s[face], dist, s[f"yG_{face}"])
-        geo[face] = {"distances": dist, "As": As, "yG_calcule": yG_calcule, "yG": yG}
+        geo[face] = {"distances": dist, "reels": reels, "As": As, "yG_calcule": yG_calcule, "yG": yG,
+                     "details": G.details_lits(s[face], enrob, d_et, p["jeu_premier_lit"], p["jeu_entre_lits"],
+                                               p["arrondi"])}
     fyk, fyd, alpha_b, mu, fctm = mat["fyk"], mat["fyd"], mat["alpha_b"], mat["mu"], mat["fctm"]
     yG_inf, yG_sup = geo["inf"]["yG"], geo["sup"]["yG"]
     dist1_inf, dist1_sup = geo["inf"]["distances"][0], geo["sup"]["distances"][0]
@@ -333,7 +341,12 @@ def _verifications(c: dict, s: dict) -> list:
         As, besoin = g[f"As_{face}"], g[f"besoin_{face}"]
         motifs = ([] if g[f"geometrie_{face}_ok"] else ["d_utile_negatif"]) \
             + (["acier_insuffisant"] if As < besoin else []) + (["acier_excessif"] if As > g["As_max"] else [])
-        formules = [
+        # l'axe de calcul de chaque lit (beton/position.py : position réelle, jeu de pose, arrondi), puis d = h − y_G
+        axes = [dict(_f("e", [_t(x["symbole"], x["valeur"], "cm") for x in det["termes"]], dist, "cm"), couche=k,
+                     detail=det, auto=lit.get("pos") is None)
+                for k, (lit, dist, det) in enumerate(zip(s[face], c["geo"][face]["distances"], c["geo"][face]["details"]))]
+        formules = axes + [
+            _f("d", [_t("h", g["h"], "cm"), _t("yG", g[f"yG_{face}"], "cm")], g[f"d_{face}"], "cm"),
             _f("As_req", [_t("M", g[f"M_{face}"], "kN·m"), _t("fyd", g["fyd"], "N/mm²"),
                           _t("k", K_BRAS_DE_LEVIER), _t("d", g[f"d_calc_{face}"], "cm")], g[f"As_req_{face}"], "mm²"),
             _f("As_min_ec", [_t("k", K_AS_MIN_EC), _t("fctm", g["fctm"], "N/mm²"), _t("fyk", g["fyk"], "N/mm²"),
@@ -375,11 +388,14 @@ def _geometrie(p: dict, s: dict, c: dict, dispo: dict) -> dict:
     les armatures latérales. Les clés d'avant gardent leurs valeurs ; « x », « rep », « pos », « cadres » et
     « laterales » s'y ajoutent (site)."""
     g, geo = c["g"], c["geo"]
-    out = {"b": g["b"], "h": g["h"], "enrobage": p["enrobage"], "enrobage_calcul": g["enrobage_calcul"]}
+    out = {"b": g["b"], "h": g["h"], "enrobage": p["enrobage"], "enrobage_calcul": g["enrobage_calcul"],
+           "jeu_pose": p["jeu_premier_lit"], "arrondi": p["arrondi"]}
     for face in ("inf", "sup"):
         lits = []
-        for lit, e, xs in zip(s[face], geo[face]["distances"], dispo["abscisses"][face]):
-            lits.append({"n": lit["n"], "d": lit["d"], "distance": e, "As": lit["n"] * G.aire_barre(lit["d"]),
+        for lit, e, r, det, xs in zip(s[face], geo[face]["distances"], geo[face]["reels"], geo[face]["details"],
+                                      dispo["abscisses"][face]):
+            lits.append({"n": lit["n"], "d": lit["d"], "distance": e, "reel": r, "detail": det,
+                         "As": lit["n"] * G.aire_barre(lit["d"]),
                          "x": xs, "rep": lit.get("rep", "uniforme"), "pos": lit.get("pos"), "sh": lit.get("sh")})
         out[face] = {"lits": lits, "As": geo[face]["As"], "yG": geo[face]["yG"], "yG_calcule": geo[face]["yG_calcule"],
                      "libelle": G.libelle_lits(s[face])}
@@ -396,7 +412,7 @@ def _section(p: dict, s: dict, mat: dict) -> dict:
     verifs = _verifications(c, s)
     gouv = max(verifs, key=lambda v: v["taux"])
     dispo = DI.controler(p, s, c["g"]["enrobage_calcul"], c["g"]["d_etrier"],
-                         {f: c["geo"][f]["distances"] for f in ("inf", "sup")})
+                         {f: c["geo"][f]["reels"] for f in ("inf", "sup")})
     # « statut » : la méthode du bureau seule (parité avec l'écran Streamlit) ; « statut_complet » y ajoute les
     # dispositions constructives (site). « sollicitee » : la section porte au moins un effort — sans aucun, ses
     # vérifications ne disent rien de la poutre (elles passent toutes), le site la dit « données incomplètes » et
@@ -461,7 +477,7 @@ def candidats_armatures(poutre: dict, nom_section: str, face: str) -> list:
             # sortent de l'étrier (la disposition ne se pose pas : le site ne la propose pas), « serree » sous
             # l'espacement minimal de l'EC2 (elle se pose, mais n'est pas conforme)
             dispo = DI.controler(p, essai, g["enrobage_calcul"], g["d_etrier"],
-                                 {f: c["geo"][f]["distances"] for f in ("inf", "sup")})
+                                 {f: c["geo"][f]["reels"] for f in ("inf", "sup")})
             du_lit = [it for it in dispo["items"] if it["face"] == face and it["cle"] in ("lit", "cadre")]
             out.append({"n": n, "d": d, "nom": f"{n}Ø{d}", "aire": g[f"As_{face}"],
                         "distance": g[f"dist_lit1_{face}"], "yG": g[f"yG_{face}"],

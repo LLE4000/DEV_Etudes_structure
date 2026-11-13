@@ -22,6 +22,7 @@ import unicodedata
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from acier import js as JS
+from beton import position as POSITION
 from acier.garde_corps import membres as ME
 
 from .icones import ICONES
@@ -124,6 +125,11 @@ def nb(x: Optional[float], dec: int = 3) -> str:
     return s.replace(".", ",")
 
 
+# les pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS) en mots — les segments des options de la poutre et des
+# dalles, leurs résumés, les hypothèses de la prédalle : une source
+ARRONDIS_TXT = tuple((a, "aucun" if not a else f"{nb(a)} cm") for a in POSITION.ARRONDIS)
+
+
 def qte(x: Optional[float], unite: str, nd: int = 1) -> str:
     """Une QUANTITÉ : la valeur (``fr``) et son unité liées par une espace insécable — « 1 380,5 kg/m³ » ne se coupe
     jamais entre le nombre et l'unité, ni dans l'unité (« t / m³ » : ses espaces deviennent insécables). ``unite`` est
@@ -174,13 +180,16 @@ def esc(s) -> str:
 
 _GRECQUES = "Α-Ωα-ωϐϑϕϖϰϱϵ"
 _CAR_INDICE = rf"A-Za-z0-9éèàùêç{_GRECQUES}⊥∥"
-_SYMBOLE = re.compile(rf"([A-Za-z{_GRECQUES}][\u0300-\u036f]*)_([{_CAR_INDICE}]+(?:,[{_CAR_INDICE}]+)*)")
+# (le diamètre Ø porte son indice comme une lettre — Ø_Y, Ø_étr, Ø_l : la règle de position du 13/11/2026 écrit
+#  « c + Ø_Y + Ø/2 + jeu » ; avant, il restait « Ø_Y », le tiret bas à l'écran)
+_SYMBOLE = re.compile(rf"([A-Za-z{_GRECQUES}Øø][\u0300-\u036f]*)_([{_CAR_INDICE}]+(?:,[{_CAR_INDICE}]+)*)")
 
 
 def symb_math(s: str) -> str:
     """Un symbole du moteur écrit comme dans la note : q_h → q<sub>h</sub>, W_el,y → W<sub>el,y</sub>, χ_LT →
-    χ<sub>LT</sub>, λ̄_LT → λ̄<sub>LT</sub>, σ_⊥ → σ<sub>⊥</sub>, M_Rd,θ → M<sub>Rd,θ</sub> : toutes les lettres
-    grecques, minuscules et majuscules (et leurs variantes ϕ ϑ ϵ), portent un indice (texte échappé)."""
+    χ<sub>LT</sub>, λ̄_LT → λ̄<sub>LT</sub>, σ_⊥ → σ<sub>⊥</sub>, M_Rd,θ → M<sub>Rd,θ</sub>, Ø_Y → Ø<sub>Y</sub> : toutes
+    les lettres grecques, minuscules et majuscules (et leurs variantes ϕ ϑ ϵ), et le diamètre Ø portent un indice (texte
+    échappé)."""
     return _SYMBOLE.sub(r"\1<sub>\2</sub>", html.escape(str(s), quote=False))
 
 
@@ -313,6 +322,41 @@ def lignes_fx(lignes: List[Dict]) -> str:
         res = f'<span class="chip {li["niveau"]}">{esc(li["res"])}</span>' if li.get("niveau") else f'<span class="r">{esc(li["res"])}</span>'
         out += f'<div class="fx">{h}<span class="eq">=</span>{res}</div>'
     return out
+
+
+def txt_arrondi(pas_cm) -> str:
+    """Le pas d'arrondi de l'axe de calcul en mots (beton/position.py) : « 0,5 cm », « aucun »."""
+    return dict(ARRONDIS_TXT).get(pas_cm, f"{nb(pas_cm)} cm")
+
+
+def rappel_jeu(jeu_cm: float, pas_cm: float, sujet: str = "Barres dessinées") -> str:
+    """La ligne DISCRÈTE sous un dessin d'armatures (décision du propriétaire du 13/11/2026) : les barres sont dessinées à
+    leur position réelle ; le jeu de pose et l'arrondi n'entrent que dans le calcul (beton/position.py). « » sans l'un
+    ni l'autre. Les longueurs en mm, comme les cotes des dessins. ``sujet`` : le nom ET son participe accordé
+    (« Barres dessinées », « Lits dessinés »)."""
+    jeu, pas = float(jeu_cm or 0.0), float(pas_cm or 0.0)
+    morceaux = [x for x in ((f"un jeu de pose de {nb(jeu * 10.0, 1)} mm" if jeu else ""),
+                            (f"l'arrondi au {nb(pas * 10.0, 1)} mm" if pas else "")) if x]
+    return f"{sujet} à leur position réelle · le calcul ajoute {' et '.join(morceaux)}" if morceaux else ""
+
+
+def fx_axe(f: Dict) -> Dict:
+    """La ligne du détail de l'AXE de calcul d'une couche (dalle, prédalle) ou d'un lit (poutre) — la règle de position du
+    13/11/2026 (beton/position.py), la même ligne pour les trois modules : « e₁ = c + Ø/2 + jeu = 3 + 0,6 + 1 = 4,6 →
+    5,0 cm » (la position réelle terme à terme, le jeu de pose, puis l'arrondi quand il change le nombre). ``f`` : une
+    formule « e » du moteur, ``{"couche": rang, "detail": P.detail(...)}``."""
+    det = f["detail"]
+    jeu = det["jeu"] > 0
+
+    def cm(x: float) -> str:
+        return nb(round(x, 2), 2)
+
+    def cm1(x: float) -> str:
+        return fr(x, 1) if abs(round(x, 1) - x) < 1e-9 else fr(x, 2)
+    parts = [f"e_{f['couche'] + 1}", " + ".join(t["symbole"] for t in det["termes"]) + (" + jeu" if jeu else ""),
+             " + ".join(cm(t["valeur"]) for t in det["termes"]) + (f" + {cm(det['jeu'])}" if jeu else "")]
+    res = (f"{cm1(det['brut'])} → " if abs(det["axe"] - det["brut"]) > 1e-9 else "") + f"{cm1(det['axe'])} cm"
+    return {"parts": parts, "res": res, "niveau": ""}
 
 
 COLONNES = ("Vérification", "Formule", "Valeur", "Limite", "Taux")

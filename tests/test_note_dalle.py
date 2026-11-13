@@ -120,11 +120,12 @@ CAS = {
         (S0 + ["My_sup"], 14), (S0 + ["V"], 30)),
     "Prédalle · peau de 4 cm, base Ø16 qui en sort": cas(
         (["type"], "predalle"), (["h_pre"], 4), (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 16), (S0 + ["My_inf"], 25)),
-    # (DAL5b : un treillis unique a ses fils X soudés DANS la peau — plus de croisement ; en barres, la base X reste SUR la
-    #  prédalle, la règle du moteur, et y croise le renfort Y)
-    "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": cas(
+    # (DAL5b : un treillis unique a ses fils X soudés DANS la peau ; la règle de position du 13/11/2026 : en barres aussi, la base
+    #  X est dans la peau, posée sur la base Y — seuls deux RENFORTS, X et Y, se croisent encore sur la prédalle)
+    "Prédalle · couches croisées sur la prédalle (renforts X et Y)": cas(
         (["type"], "predalle"), (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 10), (F("inf_y") + [0, "esp"], 100),
-        (F("inf_x") + [0, "d"], 10), (F("inf_x") + [0, "esp"], 100), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 10)),
+        (F("inf_x") + [0, "d"], 10), (F("inf_x") + [0, "esp"], 100), (F("inf_y") + ["+"], 1), (F("inf_x") + ["+"], 1), (S0 + ["My_inf"], 30),
+        (S0 + ["Mx_inf"], 10)),
     "Prédalle · gros Ø en haut (renfort 4 Ø20 secondaire empilé)": cas(
         (["type"], "predalle"), (["h"], 25), (F("sup_x") + ["+"], 1), (F("sup_x") + [1, "n"], 4), (F("sup_x") + [1, "d"], 20),
         (S0 + ["Mx_sup"], 40), (S0 + ["My_sup"], 30), (S0 + ["My_inf"], 22)),
@@ -309,13 +310,18 @@ d_s3 = CAS[nom_s3]["dalles"][0]
 sec, pl = planche(nom_s3)
 axes = [c["e"] for c in pl["R"]["dirs"]["x"]["geo_inf"]["couches"]]
 axes_y = [c["e"] for c in pl["R"]["dirs"]["y"]["geo_inf"]["couches"]]
-chk("S3 et DAL5b : la planche compte les axes du site — les fils X du treillis soudés sur les fils Y (3,5 + 0,5 + 0,5 = 4,5), le renfort X "
-    "(S3) dans leur plan (3,5 + 0,5 + 1,0 = 5,0) ; le renfort Y que « Treillis + renforts » ajoute posé SUR le treillis, sur le renfort X "
-    "(6,0 + 1,0 = 7,0) — avant DAL5b : 5,5 et 6,0, la nappe X soulevée par le renfort Y resté dans le plan des fils Y (4,0)",
-    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [4.5, 5.0]
-    and axes_y == POS.axes(d_s3, d_s3["sections"][0])["inf_y"] == [3.5, 7.0], (axes, axes_y))
+# (la règle de position du 13/11/2026 : les positions réelles, puis l'axe de calcul ⌈réel + 1⌉ au 0,5 cm)
+chk("S3 et DAL5b : la planche compte les axes de calcul du site — les fils X du treillis soudés sur les fils Y (3,5 + 0,5 + 0,5 = 4,5 → "
+    "5,5), le renfort X (S3) dans leur plan, sur les fils Y (4,0 + 0,6 = 4,6 → 6,0) ; le renfort Y du « Mixte » posé SUR le treillis, sur le "
+    "renfort X (5,2 + 0,6 = 5,8 → 7,0) ; les fils Y 3,5 → 4,5",
+    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [5.5, 6.0]
+    and axes_y == POS.axes(d_s3, d_s3["sections"][0])["inf_y"] == [4.5, 7.0]
+    and [round(x, 9) for x in POS.positions(d_s3, d_s3["sections"][0])["inf_x"]] == [4.5, 4.6]
+    and [round(x, 9) for x in POS.positions(d_s3, d_s3["sections"][0])["inf_y"]] == [3.5, 5.8],
+    (axes, axes_y, POS.positions(d_s3, d_s3["sections"][0])))
 # S5 de bout en bout : un renfort principal 3 Ø25 sous la nappe secondaire — le calcul, la planche, la coupe et le PDF disent la même
-# chose (la nappe X sur le renfort Y : axe 6,5, d = 13,5 cm), et pas la base seule (4,5 : d = 15,5). DAL5b : S5 vaut pour des BARRES
+# chose (la nappe X posée sur le renfort Y : dessus 3 + 2,5 = 5,5, position 6,0, axe ⌈7,0⌉ = 7,0, d = 13,0 cm, A_s,req = 20·10⁶ /
+# (300 × 130) = 513 mm²), et pas la base seule (position 4,5, axe 5,5 : d = 14,5, 460 mm²). DAL5b : S5 vaut pour des BARRES
 # (Ø10/100 : le Ø et la section du treillis 10/10/100/100) ; le treillis, lui, pose son renfort Y sur lui (plus bas, DAL5b de bout en bout)
 nom_s5 = "CSP · barres Ø10/100 + renfort principal 3 Ø25 (S5)"
 e_s5 = cas((S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 10), (F("inf_y") + [0, "esp"], 100),
@@ -337,21 +343,24 @@ def s5_bout_en_bout():
     shutil.rmtree(tmp_, ignore_errors=True)
     leg_ = re.findall(r"X · Ø10/100 · axe à \d+ · sur [^<]+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
     e_ = r_["sections"][0]["faces"]["inf_x"]["couches"][0]["e"]
-    passe = (e_ == 6.5 and g_["d_inf_x"] == 13.5 and round(g_["As_req_inf_x"]) == 494
-             and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [6.5] and not ecarts_parite(e_s5)
-             and rf"\res{{{ND.fn(13.5, 1)} \u{{cm}}}}" in txt_ and rf"\res{{494 \u{{mm}}^{{2}}}}" in txt_
-             and rf"\res{{{ND.fn(15.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{430 \u{{mm}}^{{2}}}}" not in txt_
-             and leg_ == ["X · Ø10/100 · axe à 65 · sur renfort Y"]          # la légende commune (DAL5) : une fois
-             and "13,5 cm" in pdf_ and "494 mm" in pdf_)
+    passe = (e_ == 7.0 and g_["d_inf_x"] == 13.0 and round(g_["As_req_inf_x"]) == 513
+             and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [7.0] and not ecarts_parite(e_s5)
+             and rf"\res{{{ND.fn(13.0, 1)} \u{{cm}}}}" in txt_ and rf"\res{{513 \u{{mm}}^{{2}}}}" in txt_
+             and rf"\res{{{ND.fn(14.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{460 \u{{mm}}^{{2}}}}" not in txt_
+             and leg_ == ["X · Ø10/100 · axe à 60 · sur renfort Y"]          # la légende commune (DAL5) : une fois, la position
+             and "13,0 cm" in pdf_ and "513 mm" in pdf_)
     return passe, (e_, g_["d_inf_x"], round(g_["As_req_inf_x"], 1), leg_, txt_[:200])
 
 
 passe5, lu5 = s5_bout_en_bout()
-chk("S5 de bout en bout (renfort principal 3 Ø25 en inf. Y, M_x,inf = 20) : le calcul pose la base inf. X sur le renfort (axe 6,5, d = 13,5 cm, "
-    "A_s,req = 494 mm²) ; la planche compte la couche à 6,5 et écrit d = 13,5 cm et 494 mm² (et non 15,5 cm, 430 mm² de la base seule) ; "
-    "la légende commune des coupes dit « X · Ø10/100 · axe à 65 · sur renfort Y » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
-# DAL5b de bout en bout : le même renfort 3 Ø25 sur un TREILLIS (la note neuve en « Treillis + renforts ») — posé SUR le treillis
-# (4,5 + 0,5 + 1,5 = 6,5), les fils X soudés restent à 4,5 : le calcul, la planche, la coupe et le PDF disent la même chose
+chk("S5 de bout en bout (renfort principal 3 Ø25 en inf. Y, M_x,inf = 20) : le calcul pose la base inf. X sur le renfort (position 6,0, axe "
+    "7,0, d = 13,0 cm, A_s,req = 513 mm²) ; la planche compte la couche à 7,0 et écrit d = 13,0 cm et 513 mm² (et non 14,5 cm, 460 mm² de "
+    "la base seule) ; la légende commune des coupes dit la position, « X · Ø10/100 · axe à 60 · sur renfort Y » ; pdftotext lit 13,0 cm "
+    "et 513 mm dans le PDF", passe5, lu5)
+# DAL5b de bout en bout : le même renfort 3 Ø25 sur un TREILLIS (la note neuve en « Mixte ») — posé SUR le treillis, sur les fils
+# X (dessus 5,0) : position 5,0 + 1,25 = 6,25, axe ⌈7,25⌉ = 7,5 ; les fils X soudés restent à 4,5 (axe 5,5 : d_x = 14,5) ; y_G =
+# (785,4 × 4,5 + 1 472,6 × 7,5) / 2 258,0 = 6,46 — d_y = 13,54 cm, A_s,req = 30·10⁶ / (300 × 135,4) = 738 mm² : le calcul, la
+# planche, la coupe et le PDF disent la même chose
 e_t5 = cas((S0 + ["nappes", "inf", "mode"], "treillis_renforts"), (F("inf_y") + [1, "d"], 25), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
 r_t5 = P._calculer(e_t5["dalles"][0])
 g_t5 = r_t5["sections"][0]["grandeurs"]
@@ -365,38 +374,46 @@ pdf_t5 = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_t5, "t5.pdf"),
 shutil.rmtree(tmp_t5, ignore_errors=True)
 sv_t5 = P.resultat(copy.deepcopy(e_t5))["vues"][0]["svg"]
 d_y5 = ND.fn(g_t5["d_inf_y"], 1)
-chk(f"DAL5b de bout en bout (3 Ø25 en inf. Y sur le treillis, M_y,inf = 30) : le calcul pose le renfort à 6,5 (sur les fils X, 4,5) — "
-    f"d_y = {d_y5} cm, A_s,req = {round(g_t5['As_req_inf_y'])} mm² ; d_x = 15,5 cm (les fils X ne montent plus) ; la planche compte les "
-    "couches Y à 3,5 et 6,5 ; la formule écrit d_y ; la légende dit « R1 Y · 3 Ø25 · axe à 65 · sur le treillis » ; pdftotext lit d_y",
-    [c["e"] for c in r_t5["sections"][0]["faces"]["inf_y"]["couches"]] == [3.5, 6.5] and r_t5["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 4.5
-    and g_t5["d_inf_x"] == 15.5 and [c["e"] for c in pls_t5[0]["R"]["dirs"]["y"]["geo_inf"]["couches"]] == [3.5, 6.5] and not ecarts_parite(e_t5)
-    and rf"\res{{{d_y5} \u{{cm}}}}" in txt_t5 and "R1 Y · 3 Ø25 · axe à 65 · sur le treillis" in sv_t5
+chk(f"DAL5b de bout en bout (3 Ø25 en inf. Y sur le treillis, M_y,inf = 30) : le calcul pose le renfort à 6,25 (sur les fils X), axe 7,5 — "
+    f"d_y = {d_y5} cm, A_s,req = {round(g_t5['As_req_inf_y'])} mm² (calculés à la main : 13,5 cm, 738 mm²) ; d_x = 14,5 cm (les fils X ne "
+    "montent pas) ; la planche compte les couches Y à 4,5 et 7,5 ; la formule écrit d_y ; la légende dit la position, « R1 Y · 3 Ø25 · axe "
+    "à 62,5 · sur le treillis » ; pdftotext lit d_y",
+    [c["e"] for c in r_t5["sections"][0]["faces"]["inf_y"]["couches"]] == [4.5, 7.5] and r_t5["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 5.5
+    and d_y5 == "13,5" and round(g_t5["As_req_inf_y"]) == 738
+    and g_t5["d_inf_x"] == 14.5 and [c["e"] for c in pls_t5[0]["R"]["dirs"]["y"]["geo_inf"]["couches"]] == [4.5, 7.5] and not ecarts_parite(e_t5)
+    and rf"\res{{{d_y5} \u{{cm}}}}" in txt_t5 and "R1 Y · 3 Ø25 · axe à 62,5 · sur le treillis" in sv_t5
     and "axes : Y à 35 · X à 45" in sv_t5 and f"{d_y5} cm" in pdf_t5,
     (g_t5["d_inf_y"], g_t5["As_req_inf_y"], re.findall(r"R1 Y[^<]+", sv_t5), txt_t5[:160]))
 
 
-def niveaux_coupe(sec, R_):
-    """(niveau dessiné, axe du calcul) de chaque couche de chaque schéma (mm)."""
+def niveaux_coupe(sec, R_, rs):
+    """(niveau dessiné, position RÉELLE du site, axe de calcul du générateur) de chaque couche de chaque schéma (mm) — ``rs`` :
+    la section du résultat du site (api_web/dalle._calculer)."""
     p = R_["principale"]
     out = []
     for sch, dk in zip(sec["coupe"]["schemas"], [p, MO.direction_secondaire(p)]):
         for cle, dd in (("points", dk), ("filants", MO.direction_secondaire(dk))):
             for face in ("inf", "sup"):
-                for c_d, c in zip(sch[f"{cle}_{face}"], R_["dirs"][dd][f"geo_{face}"]["couches"]):
-                    out.append((round(c_d["e"], 6), round(c["e"] * 10.0, 6)))
+                for c_d, c, c_r in zip(sch[f"{cle}_{face}"], R_["dirs"][dd][f"geo_{face}"]["couches"], rs["faces"][f"{face}_{dd}"]["couches"]):
+                    out.append((round(c_d["e"], 6), round(c_r["e_reel"] * 10.0, 6), round(c["e"] * 10.0, 6)))
     return out
 
 
 def coupe_juste(nom):
     sec, pl = planche(nom)
-    return all(a == b for a, b in niveaux_coupe(sec, pl["R"]))
+    rs = P._calculer(CAS[nom]["dalles"][0])["sections"][0]
+    n_ = niveaux_coupe(sec, pl["R"], rs)
+    return bool(n_) and all(a == b for a, b, _ in n_)
 
 
 faux = [n for n in CAS if not coupe_juste(n)]
-chk("la coupe dessine chaque couche (base et renforts, coupée ou filante) à l'axe du calcul — tous les cas", not faux, faux[:3])
+_rs3 = P._calculer(CAS[nom_s3]["dalles"][0])["sections"][0]
+chk("la coupe dessine chaque couche (base et renforts, coupée ou filante) à sa position RÉELLE, celle de l'écran — tous les cas ; jamais à "
+    "l'axe de calcul (le jeu de pose et l'arrondi n'entrent que dans le calcul : le cas S3, aucune couche au même niveau)",
+    not faux and all(a != c_ for a, _, c_ in niveaux_coupe(planche(nom_s3)[0], planche(nom_s3)[1]["R"], _rs3)), faux[:3])
 brut = ND.construire_sections_dalle(N.resultats(CAS[nom_s3]))[0]
-chk("… ce que le générateur seul ne fait pas : il écartait le renfort de sa base pour le dessin (le cas S3 le montre)",
-    any(a != b for a, b in niveaux_coupe(brut, pl["R"])), niveaux_coupe(brut, pl["R"]))
+chk("… ce que le générateur seul ne fait pas : il dessine ses axes de calcul, et écartait le renfort de sa base (le cas S3 le montre)",
+    any(a != b for a, b, _ in niveaux_coupe(brut, pl["R"], _rs3)), niveaux_coupe(brut, pl["R"], _rs3))
 
 sec, pl = planche("CSP · acier excessif (Ø40/100 en bas)")
 vd = sec["verifs"][1]["verdicts"][0]
@@ -406,14 +423,16 @@ chk("acier excessif : le verdict dit A_s > A_s,max (le générateur seul écrira
     and "<" in vb["texte"], (vd, vb["texte"]))
 sec, pl = planche("CSP · d utile ≤ 0 (axe saisi au-delà de h)")
 vd = sec["verifs"][1]["verdicts"][0]
-chk("d utile ≤ 0 : le verdict dit d = −1,0 cm ≤ 0 (position des couches incompatible), en rouge",
-    vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " "), vd)
+# (les fils Y saisis à 21 cm sur h = 20 : leur axe de calcul ⌈21 + 1⌉ = 22,0 ; d = 20 − 22 = −2,0 cm — avant la règle du 13/11/2026 :
+#  21 + 0, d = −1,0)
+chk("d utile ≤ 0 : le verdict dit d = −2,0 cm ≤ 0 (position des couches incompatible), en rouge",
+    vd["etat"] == "ko" and "d = -2,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " "), vd)
 # (13/11/2026) au-delà de 100 % aussi : la raison est dans le verdict de la face — l'observation qui la répétait est
 # retirée (l'écran la dit dans la ligne rouge, api_web/plaque_compact.comparaison)
 sec, pl = planche("CSP · d utile ≤ 0 au-delà de 100 % (moment sur la face)")
 vd = sec["verifs"][1]["verdicts"][0]
-chk("d utile ≤ 0 AU-DELÀ de 100 % (un moment sur la face) : le verdict dit encore d = −1,0 cm ≤ 0, et aucune observation ne le répète",
-    vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " ")
+chk("d utile ≤ 0 AU-DELÀ de 100 % (un moment sur la face) : le verdict dit encore d = −2,0 cm ≤ 0, et aucune observation ne le répète",
+    vd["etat"] == "ko" and "d = -2,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " ")
     and not any("d utile ≤ 0" in o for o in N.observations_de(sec)), (vd, N.observations_de(sec)))
 
 sec, pl = planche("CSP neuve (sans effort)")
@@ -432,9 +451,10 @@ chk("prédalle : DIMENSIONS dit la peau et le coulé en place (6 + 14 cm), la co
 OBS = {
     "Prédalle · neuve sollicitée": ["Non vérifiés : la phase provisoire"],
     "Prédalle · peau de 4 cm, base Ø16 qui en sort": ["sort de la peau de 4,0 cm", "Non vérifiés"],
-    "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": ["à des niveaux trop proches pour se croiser", "Non vérifiés"],
+    "Prédalle · couches croisées sur la prédalle (renforts X et Y)": ["à des niveaux trop proches pour se croiser", "Non vérifiés"],
     "CSP · enrobage nul (lu 3 cm) et jeu premier lit 0,5": ["Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm."],
-    "CSP · nappes X et Y au même niveau (axe saisi)": ["les armatures X et Y inférieures sont calculées au même niveau", "Rendre l'axe saisi à l'automatique"],
+    "CSP · nappes X et Y au même niveau (axe saisi)": ["les armatures X et Y inférieures sont posées au même niveau",
+                                                       "Rendre la position saisie à l'automatique"],
 }
 faux = []
 for nom, attendus in OBS.items():
@@ -758,9 +778,13 @@ for nom, e in CAS.items():
         lu = FI.lire({"dalles": dalles, "values": vals})
         if lu["remarques"]:
             ecarts.append((nom, "remarques", lu["remarques"][:2]))
-        a, b = P._calculer(d), MO.verifier(lu["dalles"][0])
+        # (les axes du fichier sont des axes de CALCUL — ceux que le générateur utilise, jeu de pose et arrondi compris : relus,
+        #  ils vont au moteur sans jeu ni arrondi de plus ; ces deux réglages-là ne se comparent pas)
+        a, b = P._calculer(d), MO.verifier(dict(lu["dalles"][0], jeu_premier_lit=0.0, arrondi=0.0))
         for sa, sb in zip(a["sections"], b["sections"]):
             for k, x in sb["grandeurs"].items():
+                if k in ("jeu_premier_lit", "arrondi"):
+                    continue
                 y = sa["grandeurs"][k]
                 if (isinstance(x, float) and not proche(x, y)) or (not isinstance(x, float) and x != y):
                     ecarts.append((nom, sa["nom"], k, x, y))
@@ -807,8 +831,11 @@ mutation("une dalle oubliée par le générateur (la dernière planche perdue) �
 
 
 def axes_non_empiles(d, s):
-    return {f: [c["dist"] if c.get("dist") is not None else POS._auto_moteur(d, c, j, f) for j, c in enumerate(s["faces"][f]["couches"])]
-            for f in EN.FACES}
+    """Les axes de calcul SANS le site : chaque couche à la position du moteur seul (au contact de l'enrobage), plus le jeu
+    de pose, arrondie (beton/position.py)."""
+    j_, a_ = POS._jeu(d), POS._arrondi(d)
+    return {f: [POS.P.axe_calcul(c["dist"] if c.get("dist") is not None else POS._reel_moteur(d, c, j, f), j_, a_)
+                for j, c in enumerate(s["faces"][f]["couches"])] for f in EN.FACES}
 
 
 mutation("l'axe empilé non transmis (l'automatique du moteur, nappes au même niveau) → parité et note refusée",
@@ -820,7 +847,8 @@ mutation("S5 retiré (le lit de contact réduit à la base principale : la nappe
 mutation("l'état de l'écran retiré (« Vérifié » sans effort)",
          lambda: remplace(N, "etat_label", lambda rs: "Vérifié"),
          lambda: planche("CSP neuve (sans effort)")[0]["etat"] == N.ETAT_INCOMPLET)
-mutation("les niveaux du calcul retirés de la coupe", lambda: remplace(N, "_niveaux_du_calcul", lambda coupe, R_: None),
+mutation("les positions réelles retirées de la coupe (le générateur dessine ses axes de calcul)",
+         lambda: remplace(N, "_niveaux_reels", lambda coupe, R_, rs: None),
          lambda: coupe_juste(nom_s3))
 mutation("le verdict de l'acier excessif retiré", lambda: remplace(N, "_verdict_site", lambda v_pdf, v, rs: None),
          lambda: "acier excessif" in planche("CSP · acier excessif (Ø40/100 en bas)")[0]["verifs"][1]["verdicts"][0]["texte"])

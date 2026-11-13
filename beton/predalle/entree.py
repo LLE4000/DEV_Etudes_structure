@@ -58,7 +58,7 @@ def h_pre_max(h: float) -> float:
 
 def nouvelle_predalle() -> dict:
     """Une prédalle aux valeurs par défaut de l'écran : « Prédalle 1 », bande de 100 cm, 22 cm dont 6 cm de peau
-    préfabriquée, C30/37, B500, enrobage 3 cm, direction principale Y, γs 1,5, jeu 0, une section « A »."""
+    préfabriquée, C30/37, B500, enrobage 3 cm, direction principale Y, γs 1,5, jeu de pose 1 cm, arrondi 0,5 cm, une section « A »."""
     p = copy.deepcopy(DEFAUTS_PREDALLE)
     p["sections"] = [nouvelle_section("A")]
     return p

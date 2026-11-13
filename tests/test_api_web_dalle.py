@@ -144,8 +144,12 @@ chk("« Ajouter une section » crée la section B ; « Ajouter un renfort » pos
     d["sections"][0]["faces"]["inf_y"])
 ref = MO.verifier(moteur_de(etat))
 g = ref["sections"][0]["grandeurs"]
-chk("les chiffres de test_dalle_bidir : y_G = 4,86 cm et As,req inf. Y = 770 mm² (renfort posé à 8 cm)",
-    round(g["yG_inf_y"], 2) == 4.86 and round(g["As_req_inf_y"]) == 770, (g["yG_inf_y"], g["As_req_inf_y"]))
+# (la règle de position du 13/11/2026, beton/position.py : le renfort SAISI à 8 cm est une position réelle, son axe de calcul
+#  8 + 1 (jeu) = 9,0 ; les fils Y du treillis à 3 + 0,5 = 3,5, axe 3,5 + 1 = 4,5 — y_G = (785,4 × 4,5 + 339,3 × 9,0) /
+#  1 124,7 = 5,86 cm ; d = 20 − 5,86 = 14,14 cm ; A_s,req = 35·10⁶ / (333,3 × 0,9 × 141,4) = 825 mm². Avant la règle : le
+#  renfort à 8, la base à 3,5, y_G 4,86 et 770 mm²)
+chk("les chiffres de test_dalle_bidir sous la règle de position : y_G = 5,86 cm et As,req inf. Y = 825 mm² (renfort posé à 8 cm, "
+    "calculé à 9,0)", round(g["yG_inf_y"], 2) == 5.86 and round(g["As_req_inf_y"]) == 825, (g["yG_inf_y"], g["As_req_inf_y"]))
 lignes = LIGNE.findall(r["resultat"])
 attendues = [(v, s) for s in ref["sections"] for v in s["verifications"]]
 chk(f"une ligne de résultat par vérification du moteur ({len(attendues)})", len(lignes) == len(attendues), (len(lignes), len(attendues)))
@@ -160,13 +164,19 @@ i_gov = [k for k, x in enumerate(lignes) if x[0]]
 chk("la ligne gouvernante est celle du moteur, et elle seule", len(i_gov) == 1 and attendues[i_gov[0]][0]["cle"] == gv["cle"]
     and attendues[i_gov[0]][1]["nom"] == gv["nom"], (i_gov, gv))
 gov_cmp = [c_ for g_, _, c_ in CMP.findall(r["resultat"]) if g_]
-chk("la ligne gouvernante dit sa comparaison « valeur ≤ limite » (ici τ ≤ τ_adm,I), nommée ; le résumé de la note, le taux maximal",
-    gv["cle"] == "tau" and gov_cmp == ["τ{0}={0}0,50{0}N/mm² ≤ τ<sub>adm,I</sub>{0}={0}0,56{0}N/mm²".format(C.NBSP)]
-    and r["resume"]["taux"] == C.pct(ref["taux_max"]), (gov_cmp, r["resume"]))
+# (la hauteur gouverne depuis la règle de position : h_min = 12,6 + 5,86 = 18,4 cm, 92 % ; l'effort tranchant de la section B,
+#  τ = 0,50 / 0,56 = 89 %, gouvernait avec y_G 4,86 — h_min 17,4 cm, 87 %)
+chk("la ligne gouvernante dit sa comparaison « valeur ≤ limite », nommée (ici la hauteur : « h_min = 12,6 + 5,86 = 18,4 cm ≤ h = "
+    "20 cm », 92 %) ; le résumé de la note, le taux maximal",
+    gv["cle"] == "hauteur" and gov_cmp == ["h<sub>min</sub>{0}={0}12,6{0}+{0}5,86{0}={0}18,4{0}cm ≤ h{0}={0}20{0}cm".format(C.NBSP)]
+    and r["resume"]["taux"] == C.pct(ref["taux_max"]) == 92, (gov_cmp, r["resume"]))
 cmp_ = CMP.findall(r["resultat"])
-chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,néc = 770 ≤ A_s = 1 124 mm² »",
-    cmp_[1][1] == "Inférieure Y" and cmp_[1][2] == "A<sub>s,néc</sub>{0}={0}770 ≤ A<sub>s</sub>{0}={0}{1}{0}mm²".format(
-        C.NBSP, P._n(ref["sections"][0]["faces"]["inf_y"]["As"], "mm²")), cmp_[1])
+chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,néc = 825 ≤ A_s = 1 125 mm² » ; l'effort tranchant "
+    "aussi : « τ = 0,50 N/mm² ≤ τ_adm,I = 0,56 N/mm² » (section B)",
+    cmp_[1][1] == "Inférieure Y" and cmp_[1][2] == "A<sub>s,néc</sub>{0}={0}825 ≤ A<sub>s</sub>{0}={0}{1}{0}mm²".format(
+        C.NBSP, P._n(ref["sections"][0]["faces"]["inf_y"]["As"], "mm²"))
+    and cmp_[11][1] == "Effort tranchant" and cmp_[11][2] == "τ{0}={0}0,50{0}N/mm² ≤ τ<sub>adm,I</sub>{0}={0}0,56{0}N/mm²".format(C.NBSP),
+    (cmp_[1], cmp_[11]))
 # DAL8 (le propriétaire, 13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : la
 # ligne Hauteur détaille h_min = h_u,min + y_G — les grandeurs du moteur, écrites comme la fenêtre de calcul — pour la
 # dalle et pour la prédalle (plaque_compact.valeur_hauteur, une source)
@@ -225,21 +235,34 @@ chk("deux sections : la coupe et le plan de chacune, puis « Toutes » (comme la
 ck = fenetre(r["volets"], "s0")
 chk("fenêtre de calcul : une ligne du tableau par vérification de la section", ck.count("<tr class=") == len(ref["sections"][0]["verifications"]))
 fx = re.findall(r'<div class="fx">(.*?)</div>', ck, re.S)
-n_formules = sum(len(v["formules"]) + 1 for v in ref["sections"][0]["verifications"])
-chk(f"fenêtre de calcul : chaque formule du moteur, plus le taux de chaque vérification ({n_formules} lignes)", len(fx) == n_formules, len(fx))
+# (le résultat ANNOTÉ par le site — api_web/dalle_positions.annoter : chaque face commence par la formule « e » de chacune de
+#  ses couches, sa position et son axe de calcul ; section A : 2 + 1 + 1 + 1 = 5 couches)
+ann = POS.annoter(copy.deepcopy(ref), etat["dalles"][0])
+n_formules = sum(len(v["formules"]) + 1 for v in ann["sections"][0]["verifications"])
+chk(f"fenêtre de calcul : chaque formule du moteur, plus la formule « e » de chaque couche (5), plus le taux de chaque vérification "
+    f"({n_formules} lignes)", len(fx) == n_formules == sum(len(v["formules"]) + 1 for v in ref["sections"][0]["verifications"]) + 5, len(fx))
 textes = [re.sub(r"<[^>]+>", "", x) for x in fx]
-chk("A_s,req = M·10⁶ / (f_yd·0,9·d) = 35 × 10⁶ / (333,3 × 0,9 × 151,4) = 770 mm² (valeurs substituées, comme à la main)",
-    "As,req=M·10⁶ / (fyd·0,9·d)=35 × 10⁶ / (333,3 × 0,9 × 151,4)=770 mm²" in textes,
+chk("A_s,req = M·10⁶ / (f_yd·0,9·d) = 35 × 10⁶ / (333,3 × 0,9 × 141,4) = 825 mm² (valeurs substituées, comme à la main)",
+    "As,req=M·10⁶ / (fyd·0,9·d)=35 × 10⁶ / (333,3 × 0,9 × 141,4)=825 mm²" in textes,
     [t for t in textes if t.startswith("As,req")][:2])
-chk("y_G = Σ A_s·e / Σ A_s = (785 × 3,5 + 339 × 8) / (785 + 339) = 4,9 cm",
-    any(t.startswith("yG=Σ As·e / Σ As=(785 × 3,5 + 339 × 8) / (785 + 339)") and t.endswith("4,9 cm") for t in textes),
+chk("y_G = Σ A_s·e / Σ A_s = (785 × 4,5 + 339 × 9) / (785 + 339) = 5,9 cm (les axes de CALCUL : jeu de pose compris)",
+    any(t.startswith("yG=Σ As·e / Σ As=(785 × 4,5 + 339 × 9) / (785 + 339)") and t.endswith("5,9 cm") for t in textes),
     [t for t in textes if t.startswith("yG")])
-res_moteur = [f["resultat"] for v in ref["sections"][0]["verifications"] for f in v["formules"]]
+chk("la formule « e » de chaque couche d'inf. Y : les fils du treillis 3 + 0,5 + 1 = 4,5 cm, le renfort saisi 8 + 1 = 9,0 cm",
+    "e1=c + Ø/2 + jeu=3 + 0,5 + 1=4,5 cm" in textes and "e2=posé + jeu=8 + 1=9,0 cm · position saisie" in textes,
+    [t for t in textes if t.startswith("e")][:5])
+
+
+def nombre_affiche(s_):
+    """Le nombre RÉSULTAT d'une ligne de formule : le dernier avant l'unité (« 5,7 → 6,0 cm » : 6,0)."""
+    return s_.split("→")[-1].strip().split(" ")[0]
+
+
+f_ann = [f for v in ann["sections"][0]["verifications"] for f in v["formules"]]
 res_site = [re.search(r'<span class="r">([^<]+)</span>', x).group(1) for x in fx if '<span class="r">' in x]
-chk("chaque résultat de formule affiché est celui du moteur, à la précision d'usage",
-    len(res_site) == len(res_moteur) and all(s.split(" ")[0] == P._n(m, f["unite"]) for s, m, f in
-                                             zip(res_site, res_moteur, [f for v in ref["sections"][0]["verifications"] for f in v["formules"]])),
-    list(zip(res_site, res_moteur))[:4])
+chk("chaque résultat de formule affiché est celui du moteur (et du site pour les axes), à la précision d'usage",
+    len(res_site) == len(f_ann) and all(nombre_affiche(s_) == P._n(f["resultat"], f["unite"]) for s_, f in zip(res_site, f_ann)),
+    [(s_, f["resultat"]) for s_, f in zip(res_site, f_ann) if nombre_affiche(s_) != P._n(f["resultat"], f["unite"])][:4])
 
 # ------------------------------------------------------------------ 3. rouge sous 100 % quand le moteur dit non conforme
 e2 = nouveau()["etat"]      # le cas ASMAX de la parité : bande de 20 cm, h = 8 cm, Ø25/100
@@ -303,12 +326,12 @@ r5 = saisir(etat, "sections/0/faces/inf_y/couches/1/-", "1")
 chk("« Retirer ce renfort » le retire", len(dalle_de(r5["etat"])["sections"][0]["faces"]["inf_y"]["couches"]) == 1)
 r5 = saisir(etat, "sections/0/faces/inf_y/couches/1/dist", "")
 chk("un axe vidé revient à l'automatique (null)", dalle_de(r5["etat"])["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None)
-# (inf. X, direction secondaire : son automatique est celui du SITE, posée sur la base Y — treillis Ø10 sur Ø10 à 3,5 cm :
-# 3,5 + 0,5 + 0,5 = 4,5 cm ; le moteur seul dirait 3,5)
-auto = POS.axe_auto(etat["dalles"][0], etat["dalles"][0]["sections"][0], "inf_x", 0)
+# (inf. X, direction secondaire : sa position automatique est celle du SITE, les fils X du treillis soudés sur les fils Y —
+# Ø10 sur Ø10 à 3,5 cm : 3,5 + 0,5 + 0,5 = 4,5 cm ; le moteur seul dirait 3,5)
+auto = POS.position_auto(etat["dalles"][0], etat["dalles"][0]["sections"][0], "inf_x", 0)
 r5 = saisir(etat, "sections/0/faces/inf_x/couches/0/dist", C.nb(auto))
-chk(f"l'axe automatique affiché ({C.nb(auto)} cm, la direction secondaire posée sur la principale), réécrit, reste automatique "
-    "(comme le champ de l'écran)",
+chk(f"la position automatique affichée ({C.nb(auto)} cm, la direction secondaire posée sur la principale), réécrite, reste "
+    "automatique (comme le champ de l'écran)",
     auto == 4.5 and dalle_de(r5["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None)
 r5 = saisir(etat, "sections/0/faces/inf_x/couches/0/dist", "5")
 chk("un autre axe est imposé : son champ le montre, et se VIDE pour revenir à l'automatique (dit en clair : « auto · 4,5 »)",
@@ -480,7 +503,7 @@ chk(f"coupe : chaque barre coupée est un cercle de son Ø ({n_points} dans les 
     or svg.count('stroke="#FFFFFF"') == n_points, (svg.count("<circle"), n_points))
 chk("coupe : le renfort 3 Ø12 posé à 8 cm est un point de rayon 6 mm à 80 mm du dessous (y = 2,4u + 200 − 80)",
     re.search(r'<circle cx="[\d.]+" cy="([\d.]+)" r="6" fill="#1F5FA8"', svg) is not None)
-chk("coupe : les cotes h = 200, b = 1 000 et d = 151,4 (y_G = 4,86 cm)", all(t in svg for t in ("h = 200", "b = 1 000", "d = 151,4")))
+chk("coupe : les cotes h = 200, b = 1 000 et d = 141,4 (y_G = 5,86 cm, le calcul)", all(t in svg for t in ("h = 200", "b = 1 000", "d = 141,4")))
 chk("« n barres » : n barres également réparties dans la bande (une demi-maille aux bords)",
     DD.positions({"type": "n_barres", "n": 4, "d": 12, "esp": 150}, 1000.0, 1) == [125.0, 375.0, 625.0, 875.0])
 chk("barres et treillis : b / e barres, centrées ; un renfort de même pas s'intercale d'une demi-maille",
@@ -572,21 +595,28 @@ ap = nouveau()["etat"]
 for ch, x in (("sections/0/My_sup", "30"), ("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "12"),
               ("sections/0/faces/sup_y/couches/0/type", "barres"), ("sections/0/faces/sup_y/couches/0/d", "12")):
     ap = saisir(ap, ch, x)["etat"]
-ra = MO.verifier(moteur_de(ap))
+# (le résultat que l'écran dessine : annoté par le site — sans annoter, la légende dirait « axe saisi » des couches que le site
+#  a posées ; tests/test_api_web_dalle_positions.py, (e). La règle de position du 13/11/2026 : sup. Y Ø12 à 3 + 0,6 = 3,6 cm,
+#  calculée à ⌈3,6 + 1⌉ = 5,0 — d = 15,0 ; inf. Y, les fils Y du treillis à 3,5, calculés à 4,5 — d = 15,5 ; inf. X, les fils
+#  X soudés sur eux à 4,5, calculés à 5,5 — d = 14,5. Avant la règle : 16,0, 16,5 et 15,5)
+ra = POS.annoter(MO.verifier(moteur_de(ap)), ap["dalles"][0])
 ca = DD.svg_coupe("t", ra["sections"][0], ra["dalle"])
 coupes = ca.split("data-coupe=")
-chk("coupe ⊥ Y (M_y,sup > M_y,inf) : d = 160 de la nappe supérieure Y (axe Ø12 à 40 mm), et non 165 de l'inférieure",
-    "d = 160" in coupes[1] and "d = 165" not in coupes[1], re.findall(r"d = \d+", ca))
-chk("coupe ⊥ X (M_x,inf seul) : d = 155 de la nappe inférieure X — posée sur la base Y (Ø10 sur Ø10 à 35 mm : axe 45 mm)",
-    "d = 155" in coupes[2], re.findall(r"d = \d+", coupes[2]))
-chk("la légende des couches dit l'axe en toutes lettres (« axe à 40 » ; un treillis unique, ses deux fils : « axes : Y à 35 · X à 45 ») "
-    "— jamais « e = », l'espacement s'écrit Ø/e : « Ø12/150 »",
-    "Y · Ø12/150 · axe à 40" in ca and "axes : Y à 35 · X à 45" in ca and "e = 35" not in ca, re.findall(r"axes? [^<]+", ca))
+chk("coupe ⊥ Y (M_y,sup > M_y,inf) : d = 150 de la face supérieure Y (Ø12 posé à 36 mm, calculé à 3,6 + 1 = 4,6 → 5,0 cm), et non 155 "
+    "de l'inférieure", "d = 150" in coupes[1] and "d = 155" not in coupes[1], re.findall(r"d = \d+", ca))
+chk("coupe ⊥ X (M_x,inf seul) : d = 145 de la face inférieure X — les fils X soudés sur les fils Y (Ø10 sur Ø10 à 35 mm : 45 mm, "
+    "calculés à 4,5 + 1 = 5,5 cm)", "d = 145" in coupes[2], re.findall(r"d = \d+", coupes[2]))
+chk("la légende des couches dit la position en toutes lettres, la RÉELLE (« axe à 36 » ; un treillis unique, ses deux fils : « axes : "
+    "Y à 35 · X à 45 » ; posée sur la base : « axe à 47 · sur la base Y ») — jamais « e = » ni « axe saisi » d'une couche que le site a "
+    "posée ; l'espacement s'écrit Ø/e : « Ø12/150 »",
+    "Y · Ø12/150 · axe à 36" in ca and "axes : Y à 35 · X à 45" in ca and "axe à 47 · sur la base Y" in ca and "e = 35" not in ca
+    and "axe saisi" not in ca, re.findall(r"axes? [^<]+", ca))
 fo = saisir(ap, "nom", "Dalle 1")["donnees"]
-chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), son axe est nommé « e axe » et vide = automatique",
-    "porteurs Ø10 tous les 100 mm" in fo and fo.count(">e axe<") == 4
+chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), sa position est nommée « Position » et vide = automatique "
+    "(la position réelle : « auto · 3,6 » pour le Ø12 sup. Y)",
+    "porteurs Ø10 tous les 100 mm" in fo and fo.count(">Position<") == 4
     and 'data-chemin="sections/0/faces/sup_y/couches/0/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" '
-        'placeholder="auto · 4"' in fo, re.findall(r'placeholder="auto · [^"]+"', fo))
+        'placeholder="auto · 3,6"' in fo, (fo.count(">Position<"), re.findall(r'placeholder="auto · [^"]+"', fo)))
 
 # ------------------------------------------------------------------ 13. l'établi compact : les fonctions aux places de la poutre
 ar = req(module="dalle", action="calculer", etat=etat)
@@ -694,13 +724,16 @@ chk("… b porte son ⓘ (« Bande de calcul : 100 cm = 1 m de dalle »), c et l
     and all(f'<span class="et-sym" title="{t}">{k}</span>' in rub1
             for k, t in (("b", "Largeur de la bande de calcul"), ("h", "Épaisseur de la dalle"), ("c", "Enrobage"))), _aides1)
 aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
-chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale, γs et "
-    "jeu communs à la note) sont dans les ⓘ de leur champ ; plus d'option « nappes empilées » (décision du 09/11/2026), et "
-    "l'aide de l'axe dit la règle (la direction secondaire, base et renforts, posée sur la principale)",
+chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale ; γs, jeu de pose "
+    "et arrondi communs à la note) sont dans les ⓘ de leur champ ; plus d'option « nappes empilées » (décision du 09/11/2026), et "
+    "l'aide de la position dit la règle (la direction secondaire, base et renforts, posée sur la principale ; le jeu et l'arrondi dans le "
+    "calcul seulement) — plus l'ancienne (« arrondi au 0,5 cm supérieur + jeu premier lit »)",
     any(t.startswith("La direction principale ordonne les vérifications") for t in aides_)
-    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 2
+    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 3
     and not any("empil" in t.lower() for t in aides_) and 'data-chemin="empilement"' not in don
-    and any("direction secondaire (sa base et ses renforts), posée sur la principale" in t for t in aides_), aides_)
+    and any("direction secondaire (sa base et ses renforts), posée sur la principale" in t
+            and "Le calcul y ajoute le jeu de pose et arrondit (Options)" in t for t in aides_)
+    and not any("jeu premier lit" in t for t in aides_), aides_)
 chk("DAL5 : aucune vue ne répète sa légende dans son en-tête (le dessin la porte : la légende commune des coupes, celle du plan) ; "
     "« legende » reste la clé de chaque vue (ce qu'un écran sans en-tête écrirait sous son titre)",
     len(ar["vues"]) == 5 and all('class="lg"' not in v_["entete"] and 'class="l2"' not in v_["entete"]
@@ -740,19 +773,20 @@ def saisis(el):
 
 ax_ = saisir(saisir(etat, "sections/0/faces/inf_x/couches/0/dist", "5")["etat"], "sections/0/faces/sup_y/yG", "4")
 d_ax = ax_["donnees"]
-# (l'automatique du SITE : la base inf. X posée sur la base Y — ce que la couche dit, ce que « ↺ » rend)
-e_auto = P._calculer(ax_["etat"]["dalles"][0])["sections"][0]["faces"]["inf_x"]["couches"][0]["e_auto"]
+# (la position automatique du SITE : la base inf. X posée sur la base Y — ce que la couche dit, ce que « ↺ » rend ; la
+#  position RÉELLE, celle que le champ montre, pas l'axe de calcul)
+e_auto = P._calculer(ax_["etat"]["dalles"][0])["sections"][0]["faces"]["inf_x"]["couches"][0]["reel_auto"]
 t_ax = re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), d_ax)
 t_yg = re.search(RAZ.format("sections/0/faces/sup_y/yG"), d_ax)
-chk("un axe saisi : « ↺ Revenir à l'axe automatique (… cm) » à côté du champ, et la couche dit l'automatique ; un centre de "
-    "gravité imposé : « ↺ Revenir au centre de gravité calculé » ; un bouton par valeur SAISIE, aucun sur un champ automatique",
-    t_ax is not None and html.unescape(t_ax.group(1)) == f"Revenir à l'axe automatique ({PC._cm(e_auto)} cm)"
-    and f"axe saisi, l'automatique serait {PC._cm(e_auto)} cm" in html.unescape(d_ax)
+chk("une position saisie : « ↺ Revenir à la position automatique (4,5 cm) » à côté du champ, et la couche dit l'automatique ; un "
+    "centre de gravité imposé : « ↺ Revenir au centre de gravité calculé » ; un bouton par valeur SAISIE, aucun sur un champ automatique",
+    t_ax is not None and html.unescape(t_ax.group(1)) == f"Revenir à la position automatique ({PC._cm(e_auto)} cm)" and e_auto == 4.5
+    and f"position saisie, l'automatique serait {PC._cm(e_auto)} cm" in html.unescape(d_ax)
     and t_yg is not None and html.unescape(t_yg.group(1)).startswith("Revenir au centre de gravité calculé (")
     and all(raz_chemins(r_["donnees"]) == saisis(r_["etat"]["dalles"][0]) for r_ in (ar, ax_)) and len(saisis(ax_["etat"]["dalles"][0])) == 3,
     (t_ax and t_ax.group(1), raz_chemins(d_ax), saisis(ax_["etat"]["dalles"][0])))
 raz_ = saisir(ax_["etat"], "sections/0/faces/inf_x/couches/0/dist", "")
-chk("… et « ↺ » (la valeur vidée) rend l'axe automatique : la clé du moteur redevient None, le bouton disparaît",
+chk("… et « ↺ » (la valeur vidée) rend la position automatique : la clé du moteur redevient None, le bouton disparaît",
     raz_["etat"]["dalles"][0]["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None
     and re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), raz_["donnees"]) is None)
 
@@ -775,15 +809,18 @@ chk("la dalle CSP dit ce qui n'est PAS vérifié (la flèche, la fissuration), c
 # d utile ≤ 0 (13/11/2026) : la LIGNE de la face le dit, quel que soit son taux — et plus un message sous le bloc, qui
 # répétait ce que le rouge disait déjà ; au-delà de 100 %, la ligne disait « A_s,néc = 16 667 > A_s = 785 mm² » et la
 # raison n'était que dans ce message
+# (h = 8 cm ; les fils Y saisis à 6,5 cm, calculés à 6,5 + 1 = 7,5 : d = 0,5 cm ; les fils X soudés sur eux à 7,5, calculés à
+#  8,5 : d = 8 − 8,5 = −0,5 cm. Avant la règle du 13/11/2026, les fils Y saisis à 7,5 donnaient le même cas)
 _dn = saisir(P.nouvel_etat(), "h", "8")["etat"]
-for _ch, _v in (("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "5"), ("sections/0/faces/inf_y/couches/0/dist", "7.5")):
+for _ch, _v in (("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "5"), ("sections/0/faces/inf_y/couches/0/dist", "6.5")):
     _dn = saisir(_dn, _ch, _v)["etat"]
 _rdn = req(module="dalle", action="calculer", etat=_dn)
 _vdn = next(v for v in MO.verifier(moteur_de(_dn))["sections"][0]["verifications"] if v["cle"] == "inf_x")
 _cdn = dict((n, c_) for _, n, c_ in CMP.findall(_rdn["resultat"]))
 chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · armature hors de l'épaisseur », en rouge ; aucun message ne "
     "le répète sous le bloc",
-    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · armature hors de l'épaisseur" in _cdn.get("Inférieure X", "")
+    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1
+    and _cdn.get("Inférieure X", "") == "d{0}={0}-0,5{0}cm ≤ 0 · armature hors de l'épaisseur".format(C.NBSP)
     and _rdn["resultat"].count("hors de l'épaisseur") == 1 and "incompatible avec l'épaisseur" not in _rdn["resultat"]
     and 'class="msg' not in _rdn["resultat"], (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("hors de l'épaisseur")))
 
@@ -838,7 +875,7 @@ _avis9 = " ".join(t for t in visibles(_rep9) if "dans la prédalle" in t or "sur
 chk("DAL9 : les situations du contrôle montrent bien leurs messages (base et treillis hors de la peau, renforts croisés sur "
     "la prédalle, armatures X et Y au même niveau, refus) — sinon le contrôle ne lirait rien",
     all(m in _avis9 for m in ("le treillis est dans la prédalle", "(base, dans la prédalle)", "sont posées toutes deux sur la prédalle",
-                              "sont calculées au même niveau"))
+                              "sont posées au même niveau"))
     and "Cette armature porte 1 renfort" in (_rep9[4]["message"] or "") and "« Mixte »" in (_rep9[4]["message"] or "")
     and "ne se retire pas" in (_rep9[5]["message"] or ""),
     (_avis9[:300], _rep9[4]["message"], _rep9[5]["message"]))

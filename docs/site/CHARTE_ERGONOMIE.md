@@ -61,8 +61,8 @@ Le propriétaire donnera les pas ; ceux-ci sont la proposition de départ.
 | Bande de calcul b | 5 cm | 100 cm presque toujours |
 | Enrobage c | 1 cm | le propriétaire : « un enrobage, ce sera du 1 cm » |
 | Épaisseur d'une prédalle h_p | 1 cm | |
-| Axe d'une couche d'armatures | 0,5 cm | aussi le réglage de la position verticale (§ 3) |
-| Jeu du premier lit | 0,5 cm | |
+| Position d'une couche d'armatures | 0,5 cm | aussi le réglage de la position verticale (§ 3) ; la position automatique est un cran (§ 3, point 2) |
+| Jeu de pose | 0,5 cm | (c'était le « jeu du premier lit » : depuis le 13/11/2026, il s'ajoute à la position de chaque couche, dans le calcul) |
 | Largeur et hauteur d'une poutre | 5 cm | le propriétaire : « plutôt du 5 cm » |
 
 ## 3. La position verticale des armatures — la proposition du 13/11/2026, acceptée (« Ok lot 5 »)
@@ -73,7 +73,10 @@ Le propriétaire donnera les pas ; ceux-ci sont la proposition de départ.
 2. Pour changer un niveau : toucher la couche (dans le dessin ou dans « Armatures ») ; les flèches ▲▼ de son axe la
    montent ou la descendent de 0,5 cm ; le dessin et d suivent aussitôt ; « Annuler » défait ; ↺ rend le niveau par défaut.
    Une couche ne traverse ni une autre couche ni l'enrobage. **Fait (DAL5c, 13/11/2026)** : les flèches dans le champ de
-   l'axe, et sur le dessin la barre de la couche choisie (▲ ▼ ↺) — `docs/site/DALLES_FUSION.md` § 8.7.
+   l'axe, et sur le dessin la barre de la couche choisie (▲ ▼ ↺) — `docs/site/DALLES_FUSION.md` § 8.7. **Revu (lot 3,
+   13/11/2026)** : le champ dit la position RÉELLE (« Position », la règle E15) ; la position automatique, réelle, tombe
+   rarement sur la grille de 0,5 cm (3,6 ; 4,7 ; 5,6 cm) — elle est un CRAN : un pas qui l'atteint ou la franchit s'y
+   arrête, et ▲ puis ▼ ramènent la couche où elle était (`DALLES_FUSION.md` § 9).
 3. Glisser une couche à la souris : plus tard, au PC seulement, comme raccourci (aimanté à 0,5 cm) — la donnée reste
    l'axe de la couche, que l'on lit en chiffres ; au téléphone, une barre de 1 cm dans un dessin qu'on déplace et zoome
    ne s'attrape pas proprement.

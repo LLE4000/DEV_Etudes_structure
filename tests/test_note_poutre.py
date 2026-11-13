@@ -150,9 +150,13 @@ pl = NP.resultats(CAS["poutre neuve (sans effort)"])
 chk("une section sans effort n'est jamais « Vérifié » : « Données incomplètes »", pl[0]["etat_label"] == NP.ETAT_INCOMPLET
     and ND.construire_sections(pl)[0]["etat"] == NP.ETAT_INCOMPLET, pl[0].get("etat_label"))
 pl = NP.resultats(cas((S0 + ["M_inf"], 40), (S0 + ["V"], 20), (S0 + ["pas"], 20), (S0 + ["inf", "+"], 1)))
-chk("deux lits Ø16 au jeu du bureau : la planche est « Non vérifié » (14 mm libres < 25 mm : non conforme, EC2 8.2(2))",
+# (la règle de position du 13/11/2026 : les lits posés l'un sur l'autre à leurs positions RÉELLES, séparés du seul jeu entre
+#  lits — 1 cm par défaut, 10 mm libres ; l'ancienne règle, arrondie, en laissait 14)
+chk("deux lits Ø16 au jeu du bureau : la planche est « Non vérifié » (10 mm libres — le jeu entre lits — < 25 mm : non conforme, "
+    "EC2 8.2(2))",
     pl[0]["etat_label"] == "Non vérifié"
-    and any(v["etat"] == "ko" and "14 mm" in v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"]), pl[0]["etat_label"])
+    and any(v["etat"] == "ko" and "10 mm" in v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"]),
+    (pl[0]["etat_label"], [v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"] if v["etat"] == "ko"]))
 pl = NP.resultats(CAS["latérales imposées (h = 90)"])
 chk("les latérales imposées (3 Ø12 par face) remplacent la règle automatique", pl[0]["peau"]["n"] == 3 and pl[0]["peau"]["d"] == 12
     and "2×3 Ø12" in ND.construire_sections(pl)[0]["coupe"]["peau"]["label"], pl[0]["peau"])
@@ -353,11 +357,12 @@ for nom, p in CAS_COUPE.items():
     manquent = []
     for face in ("inf", "sup"):
         for j, lit in enumerate(geo[face]["lits"]):
-            y = lit["distance"] * 10.0 if face == "inf" else v["h"] - lit["distance"] * 10.0
+            y = lit["reel"] * 10.0 if face == "inf" else v["h"] - lit["reel"] * 10.0      # la position RÉELLE (le dessin)
             for x in lit["x"]:
                 if not any(abs(bx - x * 10.0) < 0.2 and abs(by - y) < 0.2 for bx, by, _ in v["barres"]):
                     manquent.append(f"{face} L{j + 1} x={x * 10.0:.1f}")
-    chk(f"note · {nom} : chaque barre est dessinée où le moteur la place (mm, face gauche du béton)", not manquent,
+    chk(f"note · {nom} : chaque barre est dessinée où le moteur la pose — sa position RÉELLE, pas l'axe de calcul (mm, face gauche "
+        "du béton)", not manquent,
         (manquent, sorted(round(b_[0], 1) for b_ in v["barres"])))
     fermes = [cd for cd in geo["etriers"]["cadres"] if cd["type"] != "epingle"]
     ecarts = []
