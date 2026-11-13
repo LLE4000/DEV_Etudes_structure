@@ -801,6 +801,19 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   6,2 cm) — un contrôle le dira ; garder ces valeurs ? (3) longueur des barres de couture : recouvrement l₀ (proposé :
   Ø10 54 cm de chaque côté, C30/37 B500) ou ancrage l_bd (36 cm) — le tableau du bureau est encore vide ; (4) les
   valeurs par défaut : jeu de pose 1 cm, pas 1 cm, 0 entre couches.
+  **Tranché par le propriétaire le 13/11/2026 (au soir)** :
+  · les DESSINS montrent les barres à leur position RÉELLE (enrobage + Ø/2, le Ø dessiné à sa vraie épaisseur) —
+    « si la barre est dessinée à 4 cm d'enrobage au lieu de 3, il la mettra à 5 » ; le jeu et l'arrondi n'entrent que
+    dans le CALCUL, qui les détaille (« 3 + 0,6 + 1 (jeu) = 4,6 → 5,0 cm ») ; le dessin peut les rappeler dans un
+    coin discret ; toucher une barre ouvre sa rubrique Armatures ; les dessins sont VÉRIFIÉS à la mesure ;
+  · barres de couture : la longueur de RECOUVREMENT par défaut (le propriétaire vérifiera la norme), ARRONDIE au
+    5 cm supérieur de chaque côté (Ø10 : 53,6 → 55 cm, 110 cm en tout) ;
+  · un GABARIT DU BUREAU : dans les options du site, les options par défaut de chaque module (jeu de pose, pas
+    d'arrondi, arrondi des longueurs…), que le responsable fixe ; chaque note peut changer une valeur au cas par cas
+    (« pour cette dalle-là, pas de jeu ») — la proposition DAL7 (`MODELES_DIMENSIONNEMENT.md`) prend cette forme.
+  Encore ouvert : (1) l'arrondi d'une couche posée sur une autre (exemple chiffré envoyé), (2) la prédalle de 6 cm,
+  (4) les valeurs par défaut ; et la question de l'ingénieur au propriétaire : une seule rubrique ouverte à la fois
+  dans la colonne de gauche (proposé).
 - **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
