@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "Rbar.Plans.Web",
   "resources": {
-    "hash": "sha256-XEBKeRIcbfSAZ+DE8YwglJUaxW6YPt9ftUUSJ2Hml8U=",
+    "hash": "sha256-nLzqKZejhtGotm5dO7h+IA19UMhYeFlqIt5m88w75OY=",
     "jsModuleNative": {
       "dotnet.native.8.0.32.0nw8qdht41.js": "sha256-6mDkQm8wcqsePLieS1uDjmZJGTlxyzuaoKrjt7Rlztk="
     },
@@ -15,9 +15,9 @@
       "icudt_EFIGS.dat": "sha256-8fItetYY8kQ0ww6oxwTLiT3oXlBwHKumbeP2pRF4yTc="
     },
     "assembly": {
-      "Rbar.Core.wasm": "sha256-vy27pXWcK59YlkROqVfqZDwe1fHD+aQziDcmgq0Q+Ys=",
-      "Rbar.Plans.wasm": "sha256-cyaoxqcDk1v8P1/NN9iVAHxS5bwNWBYcZjh5axACXzs=",
-      "Rbar.Plans.Web.wasm": "sha256-KV09dyKJB8dJycBfVGmXkj5LrDZiShSaKSNs9GO7bps=",
+      "Rbar.Core.wasm": "sha256-fwAk806TNY+nznaCTjTpoLhnPQmvKsq+Z/tKd1elUM0=",
+      "Rbar.Plans.wasm": "sha256-kGTBfVXcrB3k2tp8npsC0FB63POLcfb7UvWZbtcPflk=",
+      "Rbar.Plans.Web.wasm": "sha256-GoGtRzgDkf9NtTzIW38MfQf1KPKgCr9lJa1op+dH204=",
       "System.Collections.Concurrent.wasm": "sha256-ZxGwv/OzgVhmdUrVdHISCZYCFzGCW5lbH/YB5FvyPbQ=",
       "System.Collections.NonGeneric.wasm": "sha256-D6wYJ1Cam1hrGExQhtZ921/nv/d1F250J3v8Xs7ffCg=",
       "System.Collections.wasm": "sha256-gPhBptH2ys5AawoTtLd2tyzk1cqcBPh7+wwjssGs/A0=",

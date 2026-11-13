@@ -21,7 +21,7 @@ Une version REMPLACE la précédente, dossier entier : les fichiers de deux vers
 porte l'empreinte de chacun), et un ancien dossier laissé dans ``vendor/`` serait publié pour rien — tout autre dossier
 ``rbar-plans-web-*`` est retiré. L'archive range ses fichiers à sa racine (0.4.40) ou sous ``rbar-plans-web/`` (0.4.38).
 
-    python3 site/web/outils/vendre_rbar_plans.py <rbar-plans-web-0.4.40.zip>
+    python3 site/web/outils/vendre_rbar_plans.py <rbar-plans-web-0.4.41.zip>
 """
 import base64
 import hashlib
@@ -33,10 +33,10 @@ import shutil
 import sys
 import zipfile
 
-VERSION = "0.4.40"
-# l'empreinte de l'archive annoncée par RBAR (« rbar-plans-web-0.4.40.zip.sha256 », joint à « MESSAGE-AU-SITE-un-seul-pdf-0440 »,
-# 12/11/2026 au soir) : copie NOMMÉE
-ARCHIVE_SHA256 = "0d7bc3f5edb076525f97d0a99da7ea46ccf7056bb6233a002024c1c01faebb51"
+VERSION = "0.4.41"
+# l'empreinte de l'archive annoncée par RBAR (« rbar-plans-web-0.4.41.zip.sha256 », joint à « MESSAGE-AU-SITE-pieux-sur-la-face-0441 »,
+# 13/11/2026) : copie NOMMÉE
+ARCHIVE_SHA256 = "603d66b39da14e53b80acd0a36728325a9d12778ef39ca4e29aa2071ea85765c"
 RACINE_ARCHIVE = "rbar-plans-web/"  # (0.4.38 ; depuis 0.4.40, les fichiers sont à la racine de l'archive)
 NON_DEPOSES = ("LISEZMOI.md", "exemple.html", "exemple-worker.js")
 TAILLE_MAX = 25 * 1024 * 1024

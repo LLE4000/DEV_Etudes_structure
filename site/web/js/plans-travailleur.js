@@ -16,7 +16,7 @@
 // Le paquet est chargé ICI, à la première demande (import dynamique), et non en tête du fichier : un échec de chargement
 // devient une erreur qui dit pourquoi, rendue à la demande — et non un travailleur mort sans un mot.
 // (le chemin du paquet est une COPIE de construire.RBAR_PLANS : tests/test_site_web.py les lie)
-const PAQUET = "../vendor/rbar-plans-web-0.4.40/rbar-plans.js";
+const PAQUET = "../vendor/rbar-plans-web-0.4.41/rbar-plans.js";
 
 let moteurPret = null; // le moteur, une fois chargé
 let pretMs = null; // quand il l'a été (ms depuis la naissance du travailleur, c.-à-d. depuis l'ouverture du menu)

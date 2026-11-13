@@ -732,6 +732,11 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
     vers RBAR (13/11, nuit). En attendant : « Mise en page des plans » → « RBAR choisit » redonne 2 feuilles (ses
     échelles ; les pieux en trop restent). Ce que le propriétaire trouve encore « incomplet » dans un plan de 2 feuilles
     reste à préciser avec lui — c'est RBAR qui décide de ce qu'un plan contient.
+- **RBAR 0.4.41 (13/11/2026)** : le cas limite corrigé chez RBAR — un pieu est porté par la poutre dont l'emprise contient
+  son centre, le plus loin d'un bord (à 1 mm près) ; une famille ne montre que les pieux qui touchent son emprise. La note
+  neuve fait deux feuilles (6 et 9 vues) aux échelles imposées. Paquet déposé à la place de 0.4.40 ; le harnais exige
+  désormais deux feuilles (coffrage 1, armatures 1) pour la note neuve (`docs/site/mesures/2026-11-13_plans_pdf_rbar_0441.md`).
+  Limite que RBAR signale : un pieu au centre EXACT d'un croisement compte pour la première poutre du fichier.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
