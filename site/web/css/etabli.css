@@ -298,6 +298,33 @@
 .et-raz { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; color: var(--ink-3); }
 .et-raz:hover { background: var(--accent-soft); color: var(--accent-hover); }
 .et-raz svg.i { width: 14px; height: 14px; }
+/* (DAL5c) les flèches de l'AXE d'une couche — la charte d'ergonomie E9, variante B : discrètes, collées au champ à droite
+   (▲ monte la couche, ▼ la descend, de 0,5 cm) ; au doigt (tablette, téléphone), côte à côte à la hauteur du champ */
+.et-auto > .et-pas { flex: 1 1 auto; min-width: 0; }
+.et-pas { display: flex; align-items: stretch; min-width: 0; }
+.et-pas > .field { flex: 0 1 116px; min-width: 96px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* la ligne de l'axe prend la place des flèches (le champ garde « auto · 6,5 cm » entier), le libellé la sienne */
+.et-piece .et-det .row:has(.et-pas) { grid-template-columns: auto minmax(0, 1fr); }
+.et-piece .et-det .row:has(.et-pas) > .et-pas, .et-piece .et-det .row:has(.et-pas) > .et-auto { justify-self: end; }
+.et-fl { flex: none; display: grid; grid-template-rows: 1fr 1fr; width: 26px; border: 1px solid var(--line); border-left: 0;
+         border-radius: 0 8px 8px 0; background: var(--panel); overflow: hidden; }
+.et-fl button { display: grid; place-items: center; min-height: 0; padding: 0; color: var(--ink-3); }
+.et-fl button + button { border-top: 1px solid var(--line-2); }
+.et-fl button:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.et-fl svg.i { width: 13px; height: 13px; }
+/* (DAL5c) la barre de la couche choisie, sur le dessin (js/compact.js, poserBarre) : son repère, son axe, ▲ ▼ ↺ —
+   flottante en bas du dessin, au-dessus du cartouche et des messages (un refus s'y lit sans la cacher) ; au téléphone,
+   au-dessus des boutons du pied de page */
+.et-bp { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center;
+         gap: 6px; max-width: calc(100% - 24px); padding: 6px 6px 6px 12px; background: var(--panel); border: 1px solid var(--line);
+         border-radius: 12px; box-shadow: 0 8px 24px rgba(16, 24, 40, .14); font-size: 13px; white-space: nowrap; }
+.et-bp[hidden] { display: none; }
+.et-bp-n { font-weight: 600; color: var(--ink); }
+.et-bp-a { color: var(--ink-3); font-variant-numeric: tabular-nums; margin-right: 4px; overflow: hidden; text-overflow: ellipsis; }
+.et-bp button { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 8px;
+                border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); }
+.et-bp button:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.et-bp svg.i { width: 16px; height: 16px; }
 .et-arm { display: none; flex-direction: column; gap: 4px; }
 .et-arm.on { display: flex; }
 .et-secsel { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
@@ -481,6 +508,14 @@
   [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 44px; height: auto; }
   [data-etabli="compact"] .zoom .zpct { width: 44px; }
   [data-etabli="compact"] .et-puces .fchip { min-height: 44px; min-width: 44px; justify-content: center; }
+  /* (DAL5c) les flèches de l'axe, au doigt : côte à côte, 44 px chacune, à la hauteur du champ (44 px aussi) ; celles de
+     la barre du dessin aussi */
+  [data-etabli="compact"] #donnees .et-pas, [data-etabli="compact"] #donnees .et-pas > .field { height: 44px; }
+  [data-etabli="compact"] .et-fl { grid-template-rows: none; grid-template-columns: 44px 44px; width: auto; border: 0; }
+  [data-etabli="compact"] .et-fl button { height: 44px; border: 1px solid var(--line); border-left: 0; }
+  [data-etabli="compact"] .et-fl button:last-child { border-radius: 0 8px 8px 0; }
+  [data-etabli="compact"] .et-fl svg.i { width: 16px; height: 16px; }
+  [data-etabli="compact"] .et-bp button { width: 44px; height: 44px; }
   /* (le segment d'une lettre — la direction principale « Y · X » — gardait sa largeur de texte : 34 px) */
   [data-etabli="compact"] #donnees .rows .seg.full button, [data-etabli="compact"] #donnees .seg button { min-width: 44px; }
 }
@@ -506,6 +541,16 @@
   [data-etabli="compact"] .et-tag { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout,
   [data-etabli="compact"] .et-raz { width: 44px; height: 44px; }
+  /* (DAL5c) les flèches de l'axe, au doigt : côte à côte, 44 px chacune, à la hauteur du champ (44 px aussi) */
+  [data-etabli="compact"] #donnees .et-pas, [data-etabli="compact"] #donnees .et-pas > .field { height: 44px; }
+  [data-etabli="compact"] .et-fl { grid-template-rows: none; grid-template-columns: 44px 44px; width: auto; border: 0; }
+  [data-etabli="compact"] .et-fl button { height: 44px; border: 1px solid var(--line); border-left: 0; }
+  [data-etabli="compact"] .et-fl button:last-child { border-radius: 0 8px 8px 0; }
+  [data-etabli="compact"] .et-fl svg.i { width: 16px; height: 16px; }
+  /* la barre de la couche choisie : le canevas n'est plus positionné au téléphone — elle se fixe à l'écran, au-dessus
+     des boutons du pied de page ; ses boutons à 44 px */
+  [data-etabli="compact"] .et-bp { position: fixed; bottom: 96px; }
+  [data-etabli="compact"] .et-bp button { width: 44px; height: 44px; }
   [data-etabli="compact"] .et-mn-b { opacity: 1 !important; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; font-size: 14px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 44px; font-size: 13px; }

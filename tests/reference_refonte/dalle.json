@@ -289,7 +289,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -798,7 +798,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1074,7 +1074,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1394,7 +1394,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_x/couches/0/deplacer", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1664,7 +1664,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1938,7 +1938,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_x/couches/0/deplacer", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2208,7 +2208,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2478,7 +2478,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2810,7 +2810,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -3140,7 +3140,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/1/-", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/inf_y/couches/1/-", "chemin:sections/0/faces/inf_y/couches/1/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -3498,7 +3498,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/inf_y/couches/0/deplacer", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/faces/sup_y/couches/0/deplacer", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",

@@ -776,6 +776,9 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   le treillis. A_s,req de la direction principale + 3,5 à + 9 % ; celui de la secondaire − 5 à − 13 % (elle n'est plus
   soulevée par un renfort principal : c'était impossible pour des fils soudés). Les barres ne changent pas. Une note
   d'avant le dit à l'ouverture (avis « treillis », version 4).
+- **DAL5c — Monter, descendre une couche** : ▲▼ de 0,5 cm collées au champ de l'axe (44 px au doigt), et sur le dessin
+  la barre de la couche choisie (son axe, ▲ ▼ ↺) ; un pas qui traverserait une autre couche ou l'enrobage est refusé, le
+  message dit pourquoi ; les fils soudés d'un treillis suivent ses fils porteurs.
 - **Décidé le 13/11/2026** : les flèches de pas, variante B (discrète), partout où l'on saisit une dimension, le même style
   dans toute l'application ; les pas donnés par le propriétaire (« une poutre, plutôt du 5 cm ; un enrobage, du 1 cm ») —
   `docs/site/CHARTE_ERGONOMIE.md` (E9 et § 2). La position verticale des armatures (lot 5) : niveaux par défaut, puis

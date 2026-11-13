@@ -613,6 +613,40 @@ chk("nappes confondues par un axe saisi (faces supérieures) : la dalle coulée 
     "empile) ; les bases inférieures d'une prédalle trop proches par la règle de pose gardent la phrase de la prédalle",
     ctl_confondues(), [messages(note_confondue("predalle", *SAISIE_SUP))])
 
+# ------------------------------------------------------------------ 8 ter. DAL5c : monter, descendre une couche
+print("\n=== 8 ter. DAL5c : les flèches de l'axe d'une couche ===")
+er = saisir(e0, "sections/0/faces/inf_y/couches/+", "1")
+don_r = er["donnees"]
+FL = '<button type="button" class="et-fl-{h}" data-chemin="sections/0/faces/{f}/couches/{j}/deplacer" data-valeur="{v}" title="{t} la couche de 0,5 cm"'
+chk("les flèches de l'axe : sur le renfort Y et sur les fils PORTEURS (Y) — ▲ « Monter la couche de 0,5 cm » (valeur 1), ▼ « Descendre… » "
+    "(-1), un chemin « …/deplacer » ; pas sur les fils de RÉPARTITION (X), soudés aux porteurs ; les deux bases d'une nappe de barres en ont",
+    all(FL.format(h=h, f=f, j=j, v=v, t=t_) in don_r for f, j in (("inf_y", 1), ("inf_y", 0), ("sup_y", 0))
+        for h, v, t_ in (("h", "1", "Monter"), ("b", "-1", "Descendre")))
+    and 'data-chemin="sections/0/faces/inf_x/couches/0/deplacer"' not in don_r and 'data-chemin="sections/0/faces/sup_x/couches/0/deplacer"' not in don_r
+    and 'data-chemin="sections/0/faces/inf_x/couches/0/deplacer"' in saisir(er["etat"], "sections/0/nappes/inf/mode", "barres")["donnees"],
+    re.findall(r'data-chemin="([^"]*deplacer)"', don_r))
+up_ = saisir(er["etat"], "sections/0/faces/inf_y/couches/1/deplacer", "1")
+c_up = actif(up_["etat"])["sections"][0]["faces"]["inf_y"]["couches"][1]
+back = saisir(up_["etat"], "sections/0/faces/inf_y/couches/1/deplacer", "-1")
+refus = req(action="modifier", etat=back["etat"], chemin=["sections", "0", "faces", "inf_y", "couches", "1", "deplacer"], valeur="-1")
+chk("▲ sur le renfort Y : son axe saisi passe à 6,5 (le champ le montre ; ↺ apparaît) ; ▼ le ramène à 6,0, son automatique — il le "
+    "redevient (vide) ; ▼ encore : refusé, avec la raison, la dalle intacte",
+    c_up["dist"] == 6.5 and 'value="6,5"' in up_["donnees"] and 'data-chemin="sections/0/faces/inf_y/couches/1/dist" data-valeur=""' in up_["donnees"]
+    and actif(back["etat"])["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None
+    and refus["ok"] and refus["message"].startswith("Impossible de descendre le renfort Y de 0,5 cm : la couche croiserait les fils X du treillis")
+    and refus["etat"] == back["etat"], refus.get("message"))
+mauvais_ = req(action="modifier", etat=er["etat"], chemin=["sections", "0", "faces", "inf_y", "couches", "1", "deplacer"], valeur="2")
+soudes_ = req(action="modifier", etat=er["etat"], chemin=["sections", "0", "faces", "inf_x", "couches", "0", "deplacer"], valeur="1")
+verr_ = req(action="modifier", etat=saisir(er["etat"], "verrou", "true")["etat"], chemin=["sections", "0", "faces", "inf_y", "couches", "1", "deplacer"], valeur="1")
+chk("refus clairs : une valeur autre que 1 ou -1 ; les fils X soudés déplacés seuls ; une dalle verrouillée (le cadenas) — la dalle intacte",
+    "« 1 » (monter) ou « -1 » (descendre)" in mauvais_["message"] and mauvais_["etat"] == er["etat"]
+    and soudes_["message"].startswith("Les fils X du treillis sont soudés sur les fils Y") and soudes_["etat"] == er["etat"]
+    and verr_["message"] and "verrouillée" in verr_["message"], (mauvais_.get("message"), soudes_.get("message"), verr_.get("message")))
+pr_ = saisir(saisir(er["etat"], "type", "predalle")["etat"], "sections/0/faces/sup_y/couches/0/deplacer", "-1")
+chk("prédalle : la même flèche (▼ sur les fils porteurs du dessus : 3,5 → 4,0 depuis le dessus ; les fils X soudés suivent, 5,0)",
+    actif(pr_["etat"])["sections"][0]["faces"]["sup_y"]["couches"][0]["dist"] == 4.0
+    and POS.axes(actif(pr_["etat"]), actif(pr_["etat"])["sections"][0])["sup_x"] == [5.0], pr_.get("message"))
+
 # ------------------------------------------------------------------ 9. les mutations : une altération du code fait rougir un contrôle
 print("\n=== 9. Les mutations ===")
 

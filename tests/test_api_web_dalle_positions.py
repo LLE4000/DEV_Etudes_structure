@@ -861,6 +861,77 @@ ec15 = [c["nom"] for c, c15 in zip(cands_t, M15.candidats_base(t12, 0, "inf_y", 
 chk("mutation 15 — le sélecteur sans la transposée : un treillis candidat d'un autre Ø rend la nappe « incohérente » pendant l'essai "
     "(S5, renfort dans le plan des fils) — ses y_G diffèrent du choix → le contrôle du sélecteur rougit", len(ec15) >= 5, ec15)
 
+# ------------------------------------------------------------------ (i) DAL5c : monter, descendre une couche
+print("\n=== (i) DAL5c : les flèches de l'axe — un pas de 0,5 cm, jamais au travers d'une couche ni de l'enrobage ===")
+from api_web import plaque_compact as PCx  # noqa: E402
+
+
+def dep(d, f, j, sens, i=0):
+    try:
+        return POS.deplacer(d, i, f, j, sens)
+    except ValueError as e:
+        return str(e)
+
+
+u = dalle_s5(treillis=True)                    # treillis 10/10/100/100, renfort 3 Ø12 en inf. Y (6,0 sur le treillis)
+chk("le pas : POS.PAS_AXE = 0,5 cm, et l'écran le dit (plaque_compact.PAS_TXT « 0,5 cm » — deux copies nommées, liées ici)",
+    POS.PAS_AXE == 0.5 and PCx.PAS_TXT == "0,5 cm")
+chk("▲ monte, ▼ descend — en BAS l'axe grandit (renfort inf. Y : 6,0 → 6,5), en HAUT il diminue (base sup. Y : 3,5 → 4,0 pour ▼) ; "
+    "rien n'est écrit dans la dalle (l'appelant écrit l'axe rendu)",
+    dep(u, "inf_y", 1, 1) == 6.5 and dep(u, "sup_y", 0, -1) == 4.0 and u["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None)
+m1 = dep(u, "inf_y", 1, -1)
+chk("▼ refusé quand la couche traverserait une autre direction : le renfort Y (6,0) descendrait à 5,5, à 1,0 cm d'axe des fils X "
+    "(4,5) — il faut ½ (12 + 10) = 1,1 cm ; le message le dit, en mots",
+    m1 == "Impossible de descendre le renfort Y de 0,5 cm : la couche croiserait les fils X du treillis (axe à 4,5 cm de son parement).", m1)
+m2 = dep(u, "inf_y", 0, -1)
+m3 = dep(u, "sup_y", 0, 1)
+chk("▼ des fils porteurs inférieurs (3,5) et ▲ des supérieurs (3,5 depuis le dessus) refusés : ils entreraient dans l'enrobage (3 cm)",
+    "entrerait dans l'enrobage (3,0 cm)" in m2 and m2.startswith("Impossible de descendre les fils Y du treillis") and
+    "entrerait dans l'enrobage" in m3 and m3.startswith("Impossible de monter les fils Y du treillis"), (m2, m3))
+m4 = dep(u, "inf_x", 0, 1)
+chk("les fils X d'un treillis unique ne se déplacent pas seuls : soudés sur les fils Y, le treillis se déplace par eux",
+    m4.startswith("Les fils X du treillis sont soudés sur les fils Y"), m4)
+u2 = copy.deepcopy(u)
+u2["sections"][0]["faces"]["inf_y"]["couches"][0]["dist"] = dep(u, "inf_y", 0, 1)
+chk("▲ des fils Y : le treillis entier suit — les fils X soudés (5,0) et le renfort posé dessus (6,5) montent avec eux",
+    POS.axes(u2, u2["sections"][0])["inf_y"] == [4.0, 6.5] and POS.axes(u2, u2["sections"][0])["inf_x"] == [5.0])
+ub = dalle_s5(renforts=((12,),), sec_renfort=12)              # des barres Ø10/100 : S3 et S5
+chk("des barres : le renfort Y dans le plan de sa base se monte (4,0 → 4,5 : il porte alors la base X, qui le suit, S5) ; le renfort X "
+    "(6,0) descend à 5,5 (1,5 cm d'axe au-dessus du renfort Y, 4,0 : il en faut 1,2) ; la base X (5,5) descendue à 5,0 croiserait le "
+    "renfort Y (1,0 cm d'axe à axe, il en faut ½ (10 + 12) = 1,1) — refusé",
+    dep(ub, "inf_y", 1, 1) == 4.5 and dep(ub, "inf_x", 1, -1) == 5.5
+    and dep(ub, "inf_x", 0, -1) == "Impossible de descendre la base X de 0,5 cm : la couche croiserait le renfort Y (axe à 4,0 cm de son parement).",
+    (dep(ub, "inf_y", 1, 1), dep(ub, "inf_x", 1, -1), dep(ub, "inf_x", 0, -1)))
+ug = copy.deepcopy(u)
+ug["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] = 6.3
+chk("un axe hors de la grille revient sur elle : 6,3 → ▲ 7,0, ▼ 6,0 (le pas arrondi au 0,5 cm)",
+    dep(ug, "inf_y", 1, 1) == 7.0 and dep(ug, "inf_y", 1, -1) == 6.0, (dep(ug, "inf_y", 1, 1), dep(ug, "inf_y", 1, -1)))
+uc = copy.deepcopy(u)
+uc["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] = 3.5     # les fils X saisis au travers des fils Y : un conflit déjà là
+chk("… les fils X saisis au niveau des fils Y (un conflit déjà là, l'avertissement du moteur le dit) : le renfort Y se monte encore",
+    ("croise", "inf_x", 0, "inf_y", 0) in POS.conflits(uc, uc["sections"][0]) or ("croise", "inf_y", 0, "inf_x", 0) in POS.conflits(uc, uc["sections"][0]))
+chk("… et se monte bien (son axe automatique + 0,5)", dep(uc, "inf_y", 1, 1) == POS.axe_auto(uc, uc["sections"][0], "inf_y", 1) + 0.5,
+    dep(uc, "inf_y", 1, 1))
+up = dalle_s5("predalle", treillis=True)
+chk("prédalle : le renfort inf. Y posé sur la prédalle (7,0) monte (7,5) et descend (6,5 : 2,0 cm d'axe au-dessus des fils X de la "
+    "peau, 4,5) ; les fils de la peau ne descendent pas dans l'enrobage",
+    dep(up, "inf_y", 1, 1) == 7.5 and dep(up, "inf_y", 1, -1) == 6.5 and "enrobage" in dep(up, "inf_y", 0, -1),
+    (dep(up, "inf_y", 1, 1), dep(up, "inf_y", 1, -1), dep(up, "inf_y", 0, -1)))
+M16 = muter("dalle_positions.py", "    nouveaux = sorted(conflits(essai, s2) - conflits(d, s))\n", "    nouveaux = []\n", "positions_m16")
+chk("mutation 16 — les flèches sans contrôle : le renfort Y descendrait à 5,5, au travers des fils X → le contrôle (i) rougit",
+    M16.deplacer(u, 0, "inf_y", 1, -1) == 5.5)
+M17 = muter("dalle_positions.py", "    delta = PAS_AXE if (sens > 0) == (cote == \"inf\") else -PAS_AXE\n", "    delta = PAS_AXE * sens\n", "positions_m17")
+def dep_m(M, d, f, j, sens):
+    try:
+        return M.deplacer(d, 0, f, j, sens)
+    except ValueError as e:
+        return str(e)
+
+
+chk("mutation 17 — ▼ qui diminuerait l'axe partout (en haut, la couche MONTERAIT) : la base sup. Y « descendue » irait à 3,0, dans "
+    "l'enrobage du dessus (refusée) au lieu de 4,0 → le contrôle du sens rougit",
+    dep_m(M17, u, "sup_y", 0, -1) != 4.0 and "enrobage" in str(dep_m(M17, u, "sup_y", 0, -1)))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

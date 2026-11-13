@@ -76,24 +76,43 @@ def cartes(sections: Sequence[Dict]) -> str:
 
 
 # ------------------------------------------------------------------ rubrique 3 : les armatures de la section courante
-def auto_ou_saisi(chemin: Sequence, valeur: Optional[float], auto: float, revenir: str) -> str:
+PAS_TXT = "0,5 cm"     # le pas des flèches de l'axe, en mots (dalle_positions.PAS_AXE : 0,5 cm ; lié par un test)
+
+
+def fleches(couche: Sequence) -> str:
+    """Les deux flèches de l'AXE d'une couche (DAL5c, la charte d'ergonomie E9, variante B : discrètes, collées au champ) :
+    ▲ monte la couche, ▼ la descend, d'un pas — des boutons à chemin (« …/couches/j/deplacer », valeur « 1 » ou « -1 »)
+    que js/etabli.js envoie comme un segment ; le module refuse, avec un message, un pas qui ferait traverser une autre
+    couche ou l'enrobage. ``couche`` : le chemin de la couche."""
+    ch = C._attr_chemin(list(couche) + ["deplacer"])
+    return (f'<span class="et-fl"><button type="button" class="et-fl-h" data-chemin="{ch}" data-valeur="1" '
+            f'title="Monter la couche de {PAS_TXT}" aria-label="Monter la couche de {PAS_TXT}">{C.icon("chevron-up")}</button>'
+            f'<button type="button" class="et-fl-b" data-chemin="{ch}" data-valeur="-1" title="Descendre la couche de {PAS_TXT}" '
+            f'aria-label="Descendre la couche de {PAS_TXT}">{C.icon("chevron-down")}</button></span>')
+
+
+def auto_ou_saisi(chemin: Sequence, valeur: Optional[float], auto: float, revenir: str, couche: Optional[Sequence] = None) -> str:
     """Un axe ou un centre de gravité « vide = automatique » : le champ (l'automatique en texte indicatif) ; SAISI, le
     bouton « ↺ » à côté le rend à l'automatique (la valeur vidée, comme l'écran d'avant du site), son infobulle dit ce
-    que serait l'automatique. ``revenir`` : « Revenir à l'axe automatique »…"""
+    que serait l'automatique. ``revenir`` : « Revenir à l'axe automatique »… ``couche`` (l'axe d'une couche des dalles,
+    DAL5c) : le chemin de la couche — le champ porte ses flèches ▲▼ (``fleches``)."""
     champ = C.num(chemin, valeur, "cm", auto=f"auto · {_cm(auto)}")
+    if couche is not None:
+        champ = f'<div class="et-pas">{champ}{fleches(couche)}</div>'
     if valeur is None:
         return champ
     return (f'<div class="et-auto">{champ}<button type="button" class="et-raz" data-chemin="{C._attr_chemin(chemin)}" '
             f'data-valeur="" title="{C.esc(revenir)} ({_cm(auto)} cm)" aria-label="{C.esc(revenir)}">{C.icon("undo-2")}</button></div>')
 
 
-def couche(EN, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", aide_axe: str = "", dit_auto: bool = True) -> str:
+def couche(EN, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", aide_axe: str = "", dit_auto: bool = True,
+           deplacer: bool = False) -> str:
     """Une COUCHE d'une nappe, sur une ligne : son repère (B la base, R1… les renforts), son type, puis le treillis ou
     le Ø et l'espacement (ou le nombre de barres) ; dépliée (un clic sur le repère, ou sur le dessin) : son axe
     (vide = automatique ; saisi, « ↺ » le rend à l'automatique), ``details`` (ce que le module ajoute : la pose d'une
     couche de prédalle), sa section au mètre — et, l'axe saisi, ce que serait l'automatique (``dit_auto`` ; la
     prédalle le dit dans sa pose) —, et « Retirer » pour un renfort. ``EN`` : le module d'entrée du moteur (ses bornes
-    et ses Ø)."""
+    et ses Ø). ``deplacer`` (DAL5c, le module des dalles) : l'axe porte les flèches ▲▼ (``fleches``)."""
     base = ["sections", i, "faces", f, "couches", j]
     tag = "B" if j == 0 else f"R{j}"
     nom = "Couche de base" if j == 0 else f"Renfort {j}"
@@ -118,7 +137,8 @@ def couche(EN, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", 
             f'<button type="button" class="et-dep" data-deplier="1" title="Axe et détail">{C.icon("chevron-down")}</button></div>')
     if c["dist"] is not None and dit_auto:
         info += f" · axe saisi, l'automatique serait {_cm(geo_c['e_auto'])} cm"
-    det = (C.ligne("e axe", auto_ou_saisi(base + ["dist"], c["dist"], geo_c["e_auto"], "Revenir à l'axe automatique"), "",
+    det = (C.ligne("e axe", auto_ou_saisi(base + ["dist"], c["dist"], geo_c["e_auto"], "Revenir à l'axe automatique",
+                                          base if deplacer else None), "",
                    aide_axe or "Du parement à l'axe des barres. Vide : l'axe automatique ; une valeur saisie l'impose.")
            + details
            + f'<div class="hint et-info">{C.esc(info)} · A<sub>s</sub> = {C.fr(geo_c["As_pm"], 0)}{C.NBSP}mm²/m</div>')

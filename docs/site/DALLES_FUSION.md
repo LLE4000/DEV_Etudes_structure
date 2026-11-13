@@ -851,3 +851,37 @@ chiffres) ; `test_api_web_dalles_fusion` (l'avis « treillis » d'une note 3, la
 `test_note_dalle` (DAL5b de bout en bout : calcul, planche, légende, PDF) ; références : deux cas neufs gèlent la règle
 (« treillis + renfort principal 3 Ø16 posé sur le treillis », « prédalle 22 cm : le treillis inférieur dans la peau ») ;
 harnais (filtre « nappes ») : le renfort Ø20 dessiné au-dessus des traits X, sans les traverser.
+
+### 8.7 DAL5c — Monter, descendre une couche : les flèches de l'axe
+
+La demande (point 5) : « l'utilisateur doit pouvoir modifier facilement la position verticale des renforts pour les
+placer différemment entre les nappes ; un réglage simple, sans multiplier les champs techniques » ; la proposition
+acceptée (« Ok lot 5 », `CHARTE_ERGONOMIE.md` § 3) : toucher la couche, ▲▼ de 0,5 cm, ↺ rend le niveau par défaut, une
+couche ne traverse ni une autre couche ni l'enrobage.
+
+- **La règle** (`dalle_positions.deplacer`) : ▲ MONTE la couche, ▼ la DESCEND, d'un pas `PAS_AXE` = 0,5 cm, sur la grille
+  du pas — vers le haut de la dalle : l'axe d'une couche inférieure grandit, celui d'une supérieure diminue (les flèches
+  disent ce que l'œil voit sur la coupe). Les couches posées sur elle, automatiques, la suivent (des fils Y montés de
+  0,5 cm emportent les fils X soudés et le renfort posé dessus). Revenue sur son axe automatique, la couche le redevient
+  (vide) et suit à nouveau.
+- **Les refus** (un message en mots, la dalle intacte) : un pas qui ferait traverser une autre couche — deux directions
+  plus proches, d'axe à axe, que la demi-somme de leurs Ø RÉELS (le critère du moteur des prédalles) — ou l'enrobage (c
+  depuis chaque parement) ; seul un conflit NOUVEAU est refusé (`conflits` avant et après : un axe saisi au travers, déjà
+  là et que l'avertissement du moteur dit, ne bloque pas les autres couches) ; les fils secondaires d'un treillis
+  unique ne se déplacent pas seuls (soudés : le treillis se déplace par ses fils principaux — ils n'ont pas de flèches).
+  Exemple : le renfort 3 Ø12 posé sur un treillis 10/10/100/100 (6,0) ne descend pas à 5,5 : « Impossible de descendre le
+  renfort Y de 0,5 cm : la couche croiserait les fils X du treillis (axe à 4,5 cm de son parement). »
+- **L'écran** : les flèches collées au champ « e axe » de la ligne dépliée (la charte, E9 variante B : discrètes au PC,
+  côte à côte et 44 px au doigt ; `plaque_compact.fleches`, des boutons à chemin « …/deplacer », valeur 1 ou -1, que
+  `js/etabli.js` envoie comme un segment — aucun calcul à l'écran) ; et sur le DESSIN, la barre de la couche choisie
+  (`js/compact.js`, `poserBarre`) : un appui sur une couche la montre — son repère et sa nappe, son axe (« axe 6 cm ·
+  auto »), ▲ ▼ et ↺ — ses boutons appuient sur ceux de la ligne (le même composant, la même requête) ; au téléphone, la
+  couche se règle sans quitter l'onglet Dessin. « Annuler » défait un pas comme toute saisie.
+- Glisser une couche à la souris (§ 3, point 3 de la charte) : plus tard, au PC seulement.
+- Tests : `test_api_web_dalle_positions` (i) — le sens en bas et en haut, les refus (une autre couche, l'enrobage, les
+  fils soudés), le treillis qui suit, des barres, la grille, un conflit déjà là, la prédalle ; mutations 16 (sans
+  contrôle) et 17 (le sens inversé en haut) ; `test_api_web_dalles_fusion` 8 ter — les flèches au bon endroit, ▲ puis ▼
+  (retour à l'automatique), les refus (valeur, fils soudés, dalle verrouillée), la prédalle ; références : la dalle
+  regelée (des actions « …/deplacer » en plus, aucun calcul) ; harnais (filtre « plaques ») : au PC, les flèches de la
+  ligne, la coupe 5 mm plus haut, la barre, le refus en rouge ; au téléphone, la barre dans l'onglet Dessin et les
+  flèches à 44 × 44 px.

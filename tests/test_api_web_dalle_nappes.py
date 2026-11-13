@@ -345,7 +345,8 @@ h9 = html_de(d9)
 inf9 = nappe_html(h9, "inf")
 aujourdhui = "".join(
     PC.nappe(EN, 0, f, d9["sections"][0]["faces"][f], rs9["faces"][f], v9[f], "y",
-             "".join(PC.couche(EN, 0, f, j, c, rs9["faces"][f]["couches"][j], aide_axe="Aide axe") for j, c in enumerate(d9["sections"][0]["faces"][f]["couches"])),
+             "".join(PC.couche(EN, 0, f, j, c, rs9["faces"][f]["couches"][j], aide_axe="Aide axe", deplacer=True)   # (DAL5c : les flèches de l'axe)
+                     for j, c in enumerate(d9["sections"][0]["faces"][f]["couches"])),
              "Aide renfort")
     for f in ("inf_y", "inf_x"))
 chk("en mode BARRES, le détail des deux directions est EXACTEMENT l'écran d'aujourd'hui (plaque_compact.nappe + couche, la principale d'abord)",

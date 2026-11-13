@@ -242,7 +242,7 @@ def _lu(valeur: str) -> str:
 
 
 def _couche_lue(EN_, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", aide_axe: str = "", dit_auto: bool = True,
-                verrou: bool = False, role: str = "") -> str:
+                verrou: bool = False, role: str = "", deplacer: bool = False) -> str:
     """Une couche dont le type et la désignation se LISENT (la base d'une nappe de treillis : son treillis et son
     orientation se règlent par la nappe, pas par la direction) — même ligne, même repère, même clé ``data-cible`` et
     mêmes arguments nommés que plaque_compact.couche ; son axe reste réglable (vide = automatique, « ↺ »), son détail
@@ -276,7 +276,8 @@ def _couche_lue(EN_, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str 
     if verrou:
         axe = _lu(f"{PC._cm(geo_c['e'])} cm · {'imposé' if c['dist'] is not None else 'auto'}")
     else:
-        axe = PC.auto_ou_saisi(base + ["dist"], c["dist"], geo_c["e_auto"], "Revenir à l'axe automatique")
+        axe = PC.auto_ou_saisi(base + ["dist"], c["dist"], geo_c["e_auto"], "Revenir à l'axe automatique",
+                               base if deplacer else None)
         if c["dist"] is not None and dit_auto:
             info += f" · axe saisi, l'automatique serait {PC._cm(geo_c['e_auto'])} cm"
     det = (C.ligne("e axe", axe, "", aide_axe or "Du parement à l'axe des barres. Vide : l'axe automatique ; une valeur saisie l'impose.")
@@ -340,6 +341,9 @@ def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, princip
         couches = ""
         for j, (c, g) in enumerate(zip(face["couches"], geo["couches"])):
             kw = aide_axe(f, j, c, g) if callable(aide_axe) else {"aide_axe": aide_axe}
+            # (DAL5c) les flèches ▲▼ de l'axe : sur toute couche réglable, sauf les fils secondaires d'un treillis unique —
+            # soudés sur les fils principaux, le treillis se déplace par ceux-ci (dalle_positions.deplacer le refuse aussi)
+            kw["deplacer"] = not (j == 0 and en_treillis and dk != principale)
             if verrou or (j == 0 and en_treillis):
                 role = ("porteurs" if m["porteurs"] == dk else "répartition") if (j == 0 and en_treillis) else ""
                 couches += _couche_lue(EN_, i, f, j, c, g, verrou=verrou, role=role, **kw)

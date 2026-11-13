@@ -4288,6 +4288,41 @@ const principal = async () => {
           ph: document.querySelector(`#donnees input[data-chemin="${a}"]`)?.placeholder, raz: !!document.querySelector(`#donnees .et-raz[data-chemin="${a}"]`) }), axe);
         verif(`plaques ${cle} : un axe saisi (5 cm) montre « ↺ » ; un clic le rend à l'automatique (champ vide, « auto · … »)`,
           razVu && apres.v === '' && /^auto · /.test(apres.ph || '') && !apres.raz, JSON.stringify({ razVu, apres }));
+        // (DAL5c, 13/11/2026) les FLÈCHES de l'axe : la couche choisie (la base Y, ses fils porteurs) monte d'un pas — dans les
+        // données (▲ collée au champ), puis sur le DESSIN (la barre de la couche choisie : son repère, son axe, ▲ ▼ ↺) ; un
+        // pas qui la ferait entrer dans l'enrobage est refusé, le message le dit et rien ne bouge. Ce que l'œil voit : les
+        // flèches et la barre visibles, à leur taille ; les points de la couche montés de 5 mm sur la coupe
+        const lireAxe = () => g.evaluate((a) => { const e = document.querySelector(`#donnees input[data-chemin="${a}"]`); return { v: e && e.value, ph: e && e.placeholder }; }, axe);
+        const cyBase = () => g.evaluate(() => { const c = document.querySelector('#stage .view.on [data-sel="s0.inf_y-0"] circle'); return c ? +c.getAttribute('cy') : null; });
+        const fl = await g.evaluate(() => [...document.querySelectorAll('#donnees [data-cible="s0.inf_y-0"] .et-fl button')].map((x) => {
+          const q = x.getBoundingClientRect(); return { vu: x.checkVisibility({ visibilityProperty: true, opacityProperty: true }), l: Math.round(q.width), h: Math.round(q.height), t: x.title }; }));
+        const cy0 = await cyBase();
+        await g.click('#donnees [data-cible="s0.inf_y-0"] .et-fl-h');
+        await tranquille();
+        await g.waitForTimeout(150);
+        const a1 = await lireAxe();
+        const cy1 = await cyBase();
+        const barre = await g.evaluate(() => { const e = document.querySelector('.et-bp'); const bs = e ? [...e.querySelectorAll('button')] : [];
+          return { vu: !!e && !e.hidden && e.checkVisibility(), t: e ? e.textContent.replace(/\s+/g, ' ').trim() : '', bs: bs.map((x) => Math.round(x.getBoundingClientRect().width)) }; });
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_fleches.png`) });
+        await g.click('.et-bp .et-bp-b');
+        await tranquille();
+        await g.waitForTimeout(150);
+        const a2 = await lireAxe();
+        await g.click('.et-bp .et-bp-b');
+        await tranquille();
+        await g.waitForTimeout(250);
+        const a3 = await lireAxe();
+        const refus = await g.evaluate(() => { const x = document.getElementById('toast'); return { vu: !!x && !x.hidden && x.checkVisibility(), t: x ? x.textContent : '', erreur: !!x && x.classList.contains('erreur') }; });
+        verif(`plaques ${cle} : DAL5c — les flèches de l'axe (▲ « Monter la couche de 0,5 cm », ▼ « Descendre… ») visibles dans la ligne dépliée ; ▲ monte les fils Y à 4 cm (le champ dit « 4 », la coupe les montre 5 mm plus haut) ; la barre de la couche choisie, sur le dessin, dit « B · inf. Y » et « axe 4 cm » ; son ▼ les ramène à l'automatique (champ vide), un second ▼ est refusé — le message « Impossible de descendre les fils Y du treillis… enrobage », en rouge, et rien ne bouge`,
+          fl.length === 2 && fl.every((x) => x.vu && x.l >= 20 && x.h >= 12) && fl[0].t === 'Monter la couche de 0,5 cm' && fl[1].t === 'Descendre la couche de 0,5 cm'
+          && a1.v === '4' && cy0 !== null && cy1 !== null && Math.abs((cy0 - cy1) - 5) < 0.06
+          && barre.vu && /^B · inf\. Y ?axe 4 cm/.test(barre.t) && barre.bs.length === 3 && barre.bs.every((l) => l >= 30)
+          && a2.v === '' && /^auto · 3,5/.test(a2.ph || '') && a3.v === '' && refus.vu && refus.erreur
+          && /^Impossible de descendre les fils Y du treillis de 0,5 cm : la couche entrerait dans l'enrobage/.test(refus.t),
+          JSON.stringify({ fl, a1, cy0, cy1, barre, a2, a3, refus }));
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
         // la section courante : une seconde section ; du PLAN de A au plan de B, le bloc de B seul à droite
         await ouvrirRub('so');
         await g.click('#donnees .et-add[data-chemin="sections/+"]');
@@ -4360,6 +4395,31 @@ const principal = async () => {
         verif(`plaques ${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données, chaque bouton à 44 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter l'onglet (16 px) ; « D3 » + Entrée renomme (la note, la tête des résultats)`,
           lgTel && !lgTel.fautes.length && mnTel.vu && mnTel.dedans && mnTel.touche && mnTel.items === 'D2*' && tel.onglet === 'donnees' && tel.champ && tel.vu && tel.taille >= 44 && tel.police >= 16
           && telNom.champ === 'D3' && telNom.rp === 'D3' && telNom.note === 'D3', JSON.stringify({ lgTel, mnTel, tel, telNom }));
+        // (DAL5c) au téléphone, la couche choisie sur le DESSIN se règle sans quitter l'onglet : la barre de la couche, ses
+        // boutons à 44 px ; dans les données, les flèches côte à côte, 44 px chacune, à la hauteur du champ
+        await t.tap('.mtabs [data-onglet="dessin"]');
+        await t.waitForTimeout(300);
+        await t.tap('#vues [data-vue="c0"]').catch(() => {});
+        await t.waitForTimeout(300);
+        const ptT = await t.$eval('#stage .view.on [data-sel="s0.inf_y-0"] circle', (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
+        await t.touchscreen.tap(ptT.x, ptT.y);
+        await t.waitForTimeout(400);
+        const bT = await t.evaluate(() => { const e = document.querySelector('.et-bp'); const bs = e ? [...e.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height)]; }) : [];
+          return { vu: !!e && !e.hidden && e.checkVisibility(), t: e ? e.textContent.replace(/\s+/g, ' ').trim() : '', bs, onglet: document.querySelector('.bench').dataset.tab }; });
+        await t.tap('.et-bp .et-bp-h');
+        await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await t.waitForTimeout(250);
+        const bT2 = await t.evaluate(() => ((document.querySelector('.et-bp') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+        await t.screenshot({ path: path.join(OUT, `site_plaques_${cle}_tel_barre.png`) });
+        await t.tap('.et-bp .et-bp-b');
+        await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await t.waitForTimeout(250);
+        await t.tap('.mtabs [data-onglet="donnees"]');
+        await t.waitForTimeout(300);
+        const flT = await t.evaluate(() => [...document.querySelectorAll('#donnees [data-cible="s0.inf_y-0"] .et-fl button')].map((x) => { const q = x.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height), x.checkVisibility()]; }));
+        verif(`plaques ${cle} · téléphone : DAL5c — un appui sur la couche du dessin montre sa barre, dans l'onglet Dessin (« B · inf. Y · axe 3,5 cm · auto », boutons à 44 px) ; son ▲ monte la couche (« axe 4 cm »), son ▼ la rend à l'automatique ; dans les données, les flèches côte à côte, 44 × 44 px`,
+          bT.vu && bT.onglet === 'dessin' && /^B · inf\. Y ?axe 3,5 cm · auto/.test(bT.t) && bT.bs.length === 2 && bT.bs.every(([l, h]) => l >= 44 && h >= 44)
+          && /axe 4 cm/.test(bT2) && flT.length === 2 && flT.every(([l, h, v]) => v && l >= 44 && h >= 44), JSON.stringify({ bT, bT2, flT }));
         verif(`plaques ${cle} · téléphone : aucune erreur JavaScript`, !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
         await ct.close();
       }

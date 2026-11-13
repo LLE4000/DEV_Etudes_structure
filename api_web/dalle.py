@@ -560,6 +560,17 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         c[champ] = _nombre(champ, valeur)
     elif champ == "dist":
         c["dist"] = _auto_ou_impose("dist", valeur, c["dist"], POS.axe_auto(d, s, f, j))
+    elif champ == "deplacer":
+        # (DAL5c : les flèches ▲▼ de l'axe — « 1 » monte la couche, « -1 » la descend, d'un pas de POS.PAS_AXE ; le
+        #  refus dit ce qu'elle traverserait ; revenue sur son axe automatique, elle le redevient et suit à nouveau)
+        sens = {"1": 1, "+1": 1, "-1": -1}.get(str(valeur).strip())
+        if sens is None:
+            raise _Refus(f"Déplacer une couche : « 1 » (monter) ou « -1 » (descendre), pas « {valeur} »")
+        try:
+            e = POS.deplacer(d, i, f, j, sens)
+        except ValueError as x:
+            raise _Refus(str(x)) from None
+        c["dist"] = None if abs(e - POS.axe_auto(d, s, f, j)) < 1e-9 else e
     else:
         raise _Refus(f"champ inconnu : {champ}")
 

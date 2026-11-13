@@ -16,7 +16,7 @@
 //   - la LISTE DE CONTRÔLE des dispositions : une observation « à examiner » se marque examinée, avec une justification
 //     facultative, gardée dans la note ; le moteur refuse de le faire pour une non-conformité.
 //   - les COLONNES se redimensionnent (poignées .et-poignee, PC), la largeur est gardée dans ce navigateur.
-import { toast } from "./commun.js";
+import { esc, toast } from "./commun.js";
 
 const memoire = {
   lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
@@ -44,6 +44,13 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer, signal 
   const resultat = document.getElementById("resultat");
   const stage = document.getElementById("stage");
   const bench = document.querySelector(".bench");
+  // (DAL5c) la barre de la couche choisie, posée sur le dessin dès le montage (poserBarre la remplit : plus bas)
+  const barre = document.createElement("div");
+  barre.className = "et-bp";
+  barre.setAttribute("role", "toolbar");
+  barre.setAttribute("aria-label", "La couche choisie");
+  barre.hidden = true;
+  (stage.closest(".canvas") || stage.parentElement).appendChild(barre);
   // (colonne compacte) la ligne de l'élément ouvert, posée par js/etabli.js dans l'en-tête du panneau des données : son
   // menu (la liste des éléments) s'ouvre et se referme comme ceux des données
   const elt = document.querySelector(".panel.left .phead .et-elt");
@@ -142,6 +149,35 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer, signal 
     });
     donnees.querySelectorAll("[data-cible]").forEach((e) => e.classList.toggle("et-cible", !!sel && e.dataset.cible === (/\.beton$/.test(sel) ? "beton" : sel)));
     resultat.querySelectorAll(".et-obs[data-piece]").forEach((e) => e.classList.toggle("et-cible", !!sel && e.dataset.piece === sel));
+    poserBarre();
+  }
+  // (DAL5c) la BARRE de la couche choisie, sur le dessin : une pièce dont la ligne des données porte les flèches de l'axe
+  // (.et-fl : une couche des dalles) — son repère, sa nappe et son axe, et ses boutons, qui appuient sur ceux de SA ligne
+  // (▲ monte la couche, ▼ la descend, ↺ la rend à l'automatique : le même composant, la même requête, rien n'est recopié).
+  // Au téléphone, les données sont dans un autre onglet : la barre règle la couche sans quitter le dessin.
+  barre.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-bp]");
+    const c = b && cibleDonnees(sel);
+    const cible = c && c.querySelector(b.dataset.bp);
+    if (cible && !cible.disabled) cible.click();
+  }, { signal });
+  function poserBarre() {
+    const c = sel ? cibleDonnees(sel) : null;
+    const h = c && c.querySelector(".et-fl-h");
+    const bas = c && c.querySelector(".et-fl-b");
+    if (!h || !bas) { barre.hidden = true; barre.innerHTML = ""; return; }
+    const tag = ((c.querySelector(".et-tag") || {}).textContent || "").trim();
+    const m = /\.(inf|sup)_([xy])-\d+$/.exec(sel);
+    const ou = m ? `${m[1] === "inf" ? "inf." : "sup."} ${m[2].toUpperCase()}` : "";
+    const champ = c.querySelector('input[data-chemin$="/dist"]');
+    const auto = champ && !champ.value;
+    const axe = !champ ? "" : (auto ? (champ.placeholder || "").replace(/^auto · /, "") : champ.value);
+    const raz = c.querySelector(".et-raz");
+    const bouton = (sel_, x, cls) => `<button type="button" class="${cls}" data-bp="${sel_}" title="${esc(x.title)}" aria-label="${esc(x.title)}">${x.innerHTML}</button>`;
+    barre.innerHTML = `<span class="et-bp-n">${esc(tag)}${ou ? ` · ${esc(ou)}` : ""}</span>`
+      + `<span class="et-bp-a">axe ${esc(axe)} cm${auto ? " · auto" : ""}</span>`
+      + bouton(".et-fl-h", h, "et-bp-h") + bouton(".et-fl-b", bas, "et-bp-b") + (raz ? bouton(".et-raz", raz, "et-bp-r") : "");
+    barre.hidden = false;
   }
   // depuis le DESSIN (ou une observation des résultats) : la poutre se déplie, la rubrique s'ouvre, la ligne se déplie
   // et vient sous les yeux

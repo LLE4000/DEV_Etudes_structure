@@ -134,6 +134,10 @@ API
                                            sur_court) — ce que l'écran et les dessins lisent
     candidats_base(d, i, f, familles)      le sélecteur de la nappe de base, chaque candidat posé à SON axe empilé (les
                                            couches secondaires posées sur lui le suivent)
+    deplacer(d, i, f, j, sens) -> float    DAL5c : l'axe de la couche montée (sens 1) ou descendue (− 1) de PAS_AXE, sur la
+                                           grille ; ValueError (le message) si elle traverserait une couche ou l'enrobage
+    conflits(d, s) -> set                  ce qui se traverse dans la section (couches croisées, enrobage), aux Ø réels
+    nom_couche(d, s, f, j, nappe) -> str   la couche en mots (« les fils Y du treillis », « le renfort R2 Y »)
     moteur(d), type_dalle(d), principale(d)
 
 ``d`` est une dalle du SITE (normalisée par le moteur de son type, plus ``verrou`` et ``type`` ∈ {coulee, predalle} —
@@ -465,6 +469,97 @@ def _peau_treillis(r: Dict, d: Dict) -> None:
 def _fr(x: float, nd: int = 1) -> str:
     """Un nombre à la française pour un message (« 4,5 », « 5,02 ») — l'écriture des messages du moteur."""
     return f"{x:.{nd}f}".replace(".", ",")
+
+
+# ------------------------------------------------------------------ monter, descendre une couche (DAL5c)
+PAS_AXE = 0.5           # cm : le pas des flèches ▲▼ de l'axe d'une couche (charte d'ergonomie E9 et § 3 : accepté le 13/11/2026)
+TOL_CONTACT = 1e-6      # cm : deux couches au contact exact ne se traversent pas (les arrondis des flottants, rien de plus)
+
+
+def _niveaux(d: Dict, s: Dict) -> List[tuple]:
+    """Chaque couche de la section ``s`` à son axe EFFECTIF, mesuré depuis le DESSOUS de la dalle (cm) : (face, rang, y,
+    ½ Ø réel en cm, direction)."""
+    h = float(d["h"])
+    ax = axes(d, s)
+    out = []
+    for f in FACES:
+        cote, dk = f.split("_")
+        for j, c in enumerate(s["faces"][f]["couches"]):
+            e = ax[f][j]
+            out.append((f, j, e if cote == "inf" else h - e, MO_D.couche_diametre(c) / 20.0, dk))
+    return out
+
+
+def conflits(d: Dict, s: Dict) -> set:
+    """Ce qui se traverse dans la section ``s`` aux axes effectifs (DAL5c) : ``("enrobage", f, j)``, une couche dont le
+    bord entre dans l'enrobage (c depuis chaque parement) ; ``("croise", f1, j1, f2, j2)``, deux couches de directions
+    différentes plus proches, d'axe à axe, que la demi-somme de leurs Ø — elles se croisent, l'une traverse l'autre (le
+    critère du moteur des prédalles, « croisement_sur_predalle »). Les Ø RÉELS : les niveaux automatiques, posés par
+    demi-Ø arrondis au 0,5 cm supérieur, laissent toujours ce jeu. Deux couches de la MÊME direction peuvent partager un
+    plan (un renfort entre les barres de sa base) : elles ne se gênent pas."""
+    c = float(d.get("enrobage") or MO_D.ENROBAGE_SI_NUL)
+    h = float(d["h"])
+    niv = _niveaux(d, s)
+    out = set()
+    for f, j, y, r, _ in niv:
+        if y - r < c - TOL_CONTACT or y + r > h - c + TOL_CONTACT:
+            out.add(("enrobage", f, j))
+    for k, (f1, j1, y1, r1, d1) in enumerate(niv):
+        for f2, j2, y2, r2, d2 in niv[k + 1:]:
+            if d1 != d2 and abs(y1 - y2) < r1 + r2 - TOL_CONTACT:
+                out.add(("croise", f1, j1, f2, j2))
+    return out
+
+
+def nom_couche(d: Dict, s: Dict, f: str, j: int, nappe: bool = False) -> str:
+    """La couche en mots, pour un message : « les fils Y du treillis », « la base X », « le renfort Y », « le renfort R2
+    Y » (les repères de la rubrique Armatures) ; ``nappe`` : la nappe dite en plus (« … de la nappe supérieure »)."""
+    cote, dk = f.split("_")
+    if j == 0:
+        nom = f"les fils {dk.upper()} du treillis" if treillis(d, s, cote) else f"la base {dk.upper()}"
+    else:
+        n = len(s["faces"][f]["couches"]) - 1
+        nom = f"le renfort {dk.upper()}" if n == 1 else f"le renfort R{j} {dk.upper()}"
+    return nom + (f" de la nappe {'inférieure' if cote == 'inf' else 'supérieure'}" if nappe else "")
+
+
+def deplacer(d: Dict, i: int, f: str, j: int, sens: int) -> float:
+    """L'axe (cm, depuis le parement de sa face) de la couche ``j`` de la face ``f`` de la section ``i``, MONTÉE
+    (``sens`` = 1) ou DESCENDUE (− 1) d'un pas (``PAS_AXE``) et posée sur la grille du pas — vers le haut de la dalle :
+    l'axe d'une couche inférieure grandit, celui d'une supérieure diminue (DAL5c : les flèches disent ce que l'œil voit
+    sur la coupe). Les couches posées sur elle (automatiques) la suivent. REFUSÉ (ValueError, un message en français) si
+    la couche, ou une couche qui la suit, traverserait alors une autre couche ou l'enrobage (un conflit qui n'existait
+    pas : ``conflits``), et pour les fils secondaires d'un treillis unique (soudés : le treillis se déplace par ses fils
+    principaux). La dalle n'est pas modifiée : l'appelant écrit l'axe rendu (« dist »)."""
+    s = d["sections"][i]
+    c = s["faces"][f]["couches"][j]
+    cote, dk = f.split("_")
+    verbe = "monter" if sens > 0 else "descendre"
+    p = principale(d)
+    if j == 0 and dk != p and treillis(d, s, cote):
+        raise ValueError(f"Les fils {dk.upper()} du treillis sont soudés sur les fils {p.upper()} : le treillis se déplace "
+                         f"par ses fils {p.upper()} (porteurs de la direction principale).")
+    e = c["dist"] if c.get("dist") is not None else axe_auto(d, s, f, j)
+    delta = PAS_AXE if (sens > 0) == (cote == "inf") else -PAS_AXE
+    e2 = round((e + delta) / PAS_AXE) * PAS_AXE
+    essai = copy.deepcopy(d)
+    s2 = essai["sections"][i]
+    s2["faces"][f]["couches"][j]["dist"] = e2
+    nouveaux = sorted(conflits(essai, s2) - conflits(d, s))
+    if nouveaux:
+        x = nouveaux[0]
+        if x[0] == "enrobage":
+            qui = "la couche" if (x[1], x[2]) == (f, j) else nom_couche(essai, s2, x[1], x[2], x[1].split("_")[0] != cote)
+            raison = f"{qui} entrerait dans l'enrobage ({_fr(float(d.get('enrobage') or MO_D.ENROBAGE_SI_NUL))} cm)"
+        else:
+            a, b = (x[1], x[2]), (x[3], x[4])
+            autre = b if a == (f, j) else a
+            un = "la couche" if (f, j) in (a, b) else nom_couche(essai, s2, *(a if autre == b else b))
+            e_autre = axes(essai, s2)[autre[0]][autre[1]]
+            raison = (f"{un} croiserait {nom_couche(essai, s2, autre[0], autre[1], autre[0].split('_')[0] != cote)} "
+                      f"(axe à {_fr(e_autre)} cm de son parement)")
+        raise ValueError(f"Impossible de {verbe} {nom_couche(d, s, f, j)} de {_fr(PAS_AXE)} cm : {raison}.")
+    return e2
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
