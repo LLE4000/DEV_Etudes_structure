@@ -794,7 +794,10 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
 - **Lot 2a (rangement) — l'écran de l'ancien module Prédalles retiré** : ses pièces encore employées dans
   `api_web/dalle.py` et `api_web/dalle_predalle.py` ; les cas de référence des prédalles passent par l'écran des
   dalles (identiques avant et après) ; dalles et prédalles : 5 019 → 4 431 lignes de code (`DALLES_FUSION.md` § 2.4).
-  Suite du lot 2 : une seule lecture des matériaux (poutre, dalle), une seule fonction de position.
+  Le rangement des MOTEURS (une seule lecture des matériaux et des coefficients — `beton/methode.py` —, une seule
+  fonction de position, un seul module de dessin dalle/prédalle) passe au lot 3 : il réécrit ce même code, et les
+  tests qui gardent ces constantes (la parité avec l'écran Streamlit, par mutation du source) y sont remplacés par des
+  cas calculés à la main — les réécrire avant serait du travail perdu.
 - **La taille du code, module par module** : `docs/site/TAILLE_DU_CODE.md` (l'outil `outils/taille_du_code.py`) ;
   mesure de départ du 13/11/2026 : 85 533 lignes de code pour le site (poutre 3 618, dalles et prédalles 5 019).
   Lot 2 (rangement) d'abord ; une mesure après chaque lot.
