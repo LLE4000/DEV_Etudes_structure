@@ -312,7 +312,7 @@ GROUPE = r'<g class="pc couche" data-sel="s0\.{}">(.*?)</g>'
 
 def niveaux(svg, cle_points, cle_traits):
     """Dans la PREMIÈRE coupe (⊥ principale) : les cy des cercles de la couche ``cle_points`` et les y1 des traits de ``cle_traits``."""
-    coupe = svg.split("Coupe ⊥")[1]
+    coupe = svg.split("data-coupe=")[1]
     pts = re.search(GROUPE.format(re.escape(cle_points)), coupe).group(1)
     trs = re.search(GROUPE.format(re.escape(cle_traits)), coupe).group(1)
     return ({float(x) for x in re.findall(r'<circle cx="[\d.]+" cy="([\d.]+)"', pts)},
@@ -366,15 +366,15 @@ for type_, DDm, MO in (("coulee", DD, MO_D), ("predalle", DP, MO_P)):
             and "béton coulé en place · 160 mm" in sv1)
         chk("légende prédalle : les couches empilées (sup. X, son renfort) disent « sur la base Y », jamais « axe saisi » (le site les a posées, "
             "pas l'ingénieur) ; les inférieures disent la pose du moteur",
-            "e = 55 · sur la base Y" in sv1 and "e = 60 · sur la base Y" in sv1 and "axe saisi" not in sv1
-            and "e = 40 · dans la prédalle" in sv1 and "e = 65 · sur la prédalle" in sv1, re.findall(r"e = \d+[^<]*", sv1)[:8])
+            "axe à 55 · sur la base Y" in sv1 and "axe à 60 · sur la base Y" in sv1 and "axe saisi" not in sv1
+            and "axe à 40 · dans la prédalle" in sv1 and "axe à 65 · sur la prédalle" in sv1, re.findall(r"axe à \d+[^<]*", sv1)[:8])
     # chaque couche est dessinée à son e : les y des points et des traits sont h − e (inf.) ou e (sup.), en mm, à 0,05 près (arrondi SVG)
     yc = None
     faute = []
     for cote in ("inf", "sup"):
         for dk in ("x", "y"):
             for j, c in enumerate(r1["sections"][0]["faces"][f"{cote}_{dk}"]["couches"]):
-                coupe = sv1.split("Coupe ⊥")[1]                                    # ⊥ Y : Y en points, X en traits
+                coupe = sv1.split("data-coupe=")[1]                                    # ⊥ Y : Y en points, X en traits
                 m = re.search(GROUPE.format(re.escape(f"{cote}_{dk}-{j}")), coupe)
                 ys = [float(x) for x in re.findall(r'cy="([\d.]+)"' if dk == "y" else r'y1="([\d.]+)"', m.group(1))]
                 attendu = (h - c["e"] * 10.0) if cote == "inf" else c["e"] * 10.0
@@ -386,7 +386,7 @@ for type_, DDm, MO in (("coulee", DD, MO_D), ("predalle", DP, MO_P)):
         not faute, faute)
     # les cotes de d : celles du calcul, pour la face tendue de chaque direction (ici les inférieures : M_inf > M_sup)
     g1 = r1["sections"][0]["grandeurs"]
-    coupes = sv1.split("Coupe ⊥")
+    coupes = sv1.split("data-coupe=")
     f_emp = "d_inf_x" if type_ == "coulee" else "d_sup_x"               # la face que l'empilement abaisse (prédalle : en haut seulement)
     chk(f"{type_} : la cote d de la coupe ⊥ Y est h − y_G inf. Y du calcul ({DDm._mm(g1['d_inf_y'] * 10)}), celle de la coupe ⊥ X h − y_G inf. X "
         f"({DDm._mm(g1['d_inf_x'] * 10)}) ; {f_emp} plus petit que celui du moteur seul",
@@ -408,16 +408,16 @@ sv_brut = DP.svg_coupe("t", r_brut["sections"][0], r_brut["predalle"], 0)
 sv_ann = DP.svg_coupe("t", POS.annoter(copy.deepcopy(r_brut), dalle("predalle"))["sections"][0], r_brut["predalle"], 0)
 chk("prédalle SANS annoter : les niveaux sont justes (les mêmes qu'annoté), mais la légende dit « axe saisi » de la couche que le site a "
     "posée — c'est pourquoi api_web/dalle.py doit passer par annoter",
-    niveaux(sv_brut, "sup_y-0", "sup_x-0") == niveaux(sv_ann, "sup_y-0", "sup_x-0") and "e = 55 · axe saisi" in sv_brut
-    and "e = 55 · sur la base Y" in sv_ann)
+    niveaux(sv_brut, "sup_y-0", "sup_x-0") == niveaux(sv_ann, "sup_y-0", "sup_x-0") and "axe à 55 · axe saisi" in sv_brut
+    and "axe à 55 · sur la base Y" in sv_ann)
 # la cote de d d'une prédalle suit la face TENDUE (comme la dalle) : sup. quand son moment l'emporte
 da = dalle("predalle")
 da["sections"][0].update(My_inf=5.0, My_sup=30.0)                      # (M_x,inf = 15 > M_x,sup = 5 : X reste tendue en bas)
 ra, sva = dessin(POS, DP, da, MO_P)
 ga = ra["sections"][0]["grandeurs"]
 chk("prédalle, M_y,sup > M_y,inf : la coupe ⊥ Y cote d = h − y_G SUP. Y (comme la coupe des dalles), la coupe ⊥ X d inf. X",
-    f"d = {DP._mm(ga['d_sup_y'] * 10)}" in sva.split("Coupe ⊥")[1] and f"d = {DP._mm(ga['d_inf_y'] * 10)}" not in sva.split("Coupe ⊥")[1]
-    and f"d = {DP._mm(ga['d_inf_x'] * 10)}" in sva.split("Coupe ⊥")[2], re.findall(r"d = [\d ,]+", sva))
+    f"d = {DP._mm(ga['d_sup_y'] * 10)}" in sva.split("data-coupe=")[1] and f"d = {DP._mm(ga['d_inf_y'] * 10)}" not in sva.split("data-coupe=")[1]
+    and f"d = {DP._mm(ga['d_inf_x'] * 10)}" in sva.split("data-coupe=")[2], re.findall(r"d = [\d ,]+", sva))
 # svg_toutes et svg_plan tournent sur un résultat annoté (plan : la couche la plus haute recouvre, l'ordre lit e)
 chk("svg_plan et svg_toutes (dalle et prédalle) acceptent le résultat annoté et gardent les pièces",
     all("data-sel=" in m.svg_plan("t", r_["sections"][0], r_[k], 0) and "s0." in m.svg_toutes("t", r_["sections"], r_[k])
@@ -435,6 +435,7 @@ def muter(fichier, ancien, nouveau, nom):
     assert src.count(ancien) == 1, (fichier, ancien, src.count(ancien))
     m = types.ModuleType(nom)
     m.__file__ = chemin
+    m.__package__ = "api_web"          # ses imports relatifs (dessin_dalle lit dalle_nappes, DAL5) : les modules du paquet
     exec(compile(src.replace(ancien, nouveau), chemin, "exec"), m.__dict__)
     return m
 
@@ -664,7 +665,7 @@ chk("candidats_base, base principale sous un renfort Ø16 (dessus 5,0) : Ø8 (de
 
 def bords(svg, cle_points, cle_trait):
     """Dans la coupe ⊥ Y : (haut des cercles de ``cle_points`` : min(cy − r), bas du trait de ``cle_trait`` : y1 + épaisseur/2), mm."""
-    coupe = svg.split("Coupe ⊥")[1]
+    coupe = svg.split("data-coupe=")[1]
     pts = re.search(GROUPE.format(re.escape(cle_points)), coupe).group(1)
     trs = re.search(GROUPE.format(re.escape(cle_trait)), coupe).group(1)
     haut = min(float(cy) - float(r_) for cy, r_ in re.findall(r'<circle cx="[\d.]+" cy="([\d.]+)" r="([\d.]+)"', pts))
@@ -678,12 +679,12 @@ haut20, bas20 = bords(sv20, "inf_y-1", "inf_x-0")
 chk("coupe ⊥ Y (renfort principal 3 Ø20 sous la nappe X) : le bas du trait de la base X (axe 55, Ø10) touche le haut des points du renfort Y "
     "(axe 40, Ø20) — au contact, sans le traverser (avant S5 : axe 45, 10 mm dans le renfort)",
     abs(bas20 - haut20) < 0.06 and r20["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 5.5, (haut20, bas20))
-chk("… la légende dit sur quoi la nappe X repose, en forme courte (la ligne tient dans sa colonne) : « X · Treillis 10/10/100/100 · axe à 55 "
-    "· sur renfort Y », « X · 3 Ø12 · axe à 60 · sur renfort Y » ; la légende de la prédalle aussi (« e = 55 · sur renfort Y ») ; plusieurs "
-    "renforts : « sur renfort Y » encore (le repère R2 est dans la forme longue, formule et pose : « le renfort R2 Y »)",
-    "X · Treillis 10/10/100/100 · axe à 55 · sur renfort Y" in sv20 and "X · 3 Ø12 · axe à 60 · sur renfort Y" in sv20
-    and "e = 55 · sur renfort Y" in dessin(POS, DP, dps, MO_P)[1]
-    and "X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y" in dessin(POS, DD, dalle_s5(renforts=((12,), (25, 2))), MO_D)[1]
+chk("… la légende commune (DAL5) dit l'axe des deux fils du treillis (« axes : Y à 35 · X à 55 ») et sur quoi le renfort X repose, en "
+    "forme courte (la ligne tient dans sa colonne) : « R1 X · 3 Ø12 · axe à 60 · sur renfort Y » ; la prédalle aussi (en haut : « axes : "
+    "Y à 35 · X à 55 ») ; plusieurs renforts : X à 65 (le repère R2 est dans la forme longue, formule et pose : « le renfort R2 Y »)",
+    "axes : Y à 35 · X à 55" in sv20 and "R1 X · 3 Ø12 · axe à 60 · sur renfort Y" in sv20
+    and "axes : Y à 35 · X à 55" in dessin(POS, DP, dps, MO_P)[1]
+    and "axes : Y à 35 · X à 65" in dessin(POS, DD, dalle_s5(renforts=((12,), (25, 2))), MO_D)[1]
     and POS.nom_appui(dalle_s5(renforts=((12,), (25, 2))), dalle_s5(renforts=((12,), (25, 2)))["sections"][0], "inf", court=True) == "renfort Y",
     re.findall(r"axe à \d+[^<]*", sv20)[:6])
 # les mutations S5 (en mémoire)
@@ -706,10 +707,10 @@ M9 = muter("dalle_positions.py", "    k = next(j for j in lit if pts[j][1] + pts
 chk("mutation 9 — l'égalité donnée au dernier renfort au lieu de la base : dalle() (base et renfort Ø12) dirait « sur le renfort Y » → les "
     "légendes d'avant S5 et les égalités des cas limites rougissent", M9.nom_appui(dalle(), dalle()["sections"][0], "inf") == "le renfort Y"
     and M9.nom_appui(dalle(), dalle()["sections"][0], "inf") != POS.nom_appui(dalle(), dalle()["sections"][0], "inf"))
-M10 = muter("dessin_dalle.py", """                          + (f" · sur {c.get('sur_court') or 'la base ' + principale.upper()}" if c.get("empilee") else ""),\n""",
-            """                          + (f" · sur la base {principale.upper()}" if c.get("empilee") else ""),\n""", "dessin_m10")
-chk("mutation 10 — la légende d'avant (« sur la base Y » pour toute couche empilée) : la coupe dirait « sur la base Y » d'une nappe que le "
-    "renfort Y porte → le contrôle de la légende rougit", "axe à 55 · sur la base Y" in dessin(POS, M10, d20, MO_D)[1]
+M10 = muter("dessin_dalle.py", """        return f"sur {c.get('sur_court') or 'la base ' + principale.upper()}"\n""",
+            """        return f"sur la base {principale.upper()}"\n""", "dessin_m10")
+chk("mutation 10 — la légende d'avant (« sur la base Y » pour toute couche empilée) : la coupe dirait « sur la base Y » d'un renfort X que "
+    "le renfort Y porte → le contrôle de la légende rougit", "R1 X · 3 Ø12 · axe à 60 · sur la base Y" in dessin(POS, M10, d20, MO_D)[1]
     and "sur renfort Y" not in dessin(POS, M10, d20, MO_D)[1])
 M11 = muter("dalle_positions.py", LIT, "            if p[1] - p[2] <= dessus + TOL_LIT:\n", "positions_m11")
 chk("mutation 11 — une couche automatique jugée sur son seul dessous (le lit d'avant la relecture) : sous la base Ø8 saisie à 3,4, le renfort "

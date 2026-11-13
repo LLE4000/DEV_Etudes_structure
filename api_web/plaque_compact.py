@@ -181,34 +181,26 @@ def bande(s: Dict) -> List[Tuple[str, str, float, str]]:
             ("M", "y,sup", s["My_sup"], "kN·m"), ("V", "", s["V"], "kN")]
 
 
-def _nappes_txt(rs: Dict, cote: str) -> str:
-    """« Inf. Y 10/10/100/100 + 3 Ø12 · X Ø8/200 » : les nappes d'une face, la direction principale d'abord."""
-    p = rs["principale"]
-    autre = "x" if p == "y" else "y"
-    return (("Inf." if cote == "inf" else "Sup.") + " "
-            + " · ".join(f"{dk.upper()} {rs['faces'][f'{cote}_{dk}']['libelle']}" for dk in (p, autre)))
-
-
 def vues(sections: Sequence[Dict], element: Dict, dessin, prefixe: str, sous_titre: str, legendes: Dict[str, str]) -> List[Dict]:
     """Les vues de l'élément : pour chaque section, ses coupes (« c<i> ») et le plan de ses nappes (« p<i> »), sous le
-    même en-tête technique, dont la dernière ligne est la légende du dessin (``legendes`` : « c » les coupes, « p » le
-    plan — ce qu'on lit sur le dessin : barres coupées en points…) ; dès deux sections, « Toutes » (la coupe principale
-    de chacune, à la même échelle, sous la légende des coupes). ``dessin`` : api_web/dessin_dalle ou dessin_predalle ; ``sous_titre`` : les
-    dimensions et les matériaux (HTML)."""
+    même en-tête technique — le titre de la section (ses dimensions, ses matériaux, sa direction principale) et la bande
+    des sollicitations, RIEN d'autre (DAL5, 13/11/2026 : les deux lignes des nappes et la ligne de légende répétaient ce
+    que le dessin dit, sa légende commune nommant chaque armature une fois) ; dès deux sections, « Toutes » (la coupe
+    principale de chacune, à la même échelle). ``dessin`` : api_web/dessin_dalle ou dessin_predalle ; ``sous_titre`` :
+    les dimensions et les matériaux (HTML). ``legendes`` (« c » les coupes, « p » le plan) reste la clé « legende » de
+    chaque vue : ce qu'un écran sans en-tête écrirait sous son titre (js/etabli.js), plus dans l'en-tête."""
     out = []
     for i, s in enumerate(sections):
         nom = s["nom"] if not s["nom"].lower().startswith("section") else s["titre"]
         for cle, titre, court, svg in (("c", "Coupes", "Coupe", dessin.svg_coupe), ("p", "Plan des nappes", "Plan", dessin.svg_plan)):
-            ent = E.entete(s["titre"], f"{sous_titre} · principale {s['principale'].upper()}",
-                           [_nappes_txt(s, "inf"), _nappes_txt(s, "sup")], bande(s), legendes[cle])
+            ent = E.entete(s["titre"], f"{sous_titre} · principale {s['principale'].upper()}", [], bande(s))
             out.append({"cle": f"{cle}{i}", "titre": f"{titre} · {s['titre']}", "court": f"{court} {nom}"[:24],
                         "svg": svg(f"{prefixe}_{cle}{i}", s, element, i), "entete": ent, "legende": legendes[cle]})
     if len(sections) > 1:
         out.append({"cle": "toutes", "titre": "Toutes les sections", "court": "Toutes",
                     "svg": dessin.svg_toutes(f"{prefixe}_toutes", sections, element),
-                    "entete": E.entete("Toutes les sections", sous_titre,
-                                       [f"{len(sections)} sections · même échelle · la coupe perpendiculaire à la direction "
-                                        "principale de chacune"], None, legendes["c"]),
+                    "entete": E.entete("Toutes les sections", f"{sous_titre} · {len(sections)} sections à la même échelle",
+                                       [], None),
                     "legende": legendes["c"]})
     return out
 

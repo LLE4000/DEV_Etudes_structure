@@ -26,6 +26,16 @@ comptées. La cote de d est h − y_G du calcul, pour la face tendue de la direc
 sur la nappe principale (``empilee``, posé par ``dalle_positions.annoter`` : base ou renfort secondaire) le dit dans la
 légende, avec ce qui la porte (``sur`` : la base principale, ou un renfort principal plus haut qu'elle — S5).
 
+LA LÉGENDE (DAL5, 13/11/2026 — le propriétaire : « éviter de répéter inutilement la même désignation de treillis dans les
+deux coupes ; une identification commune doit suffire ; les renforts spécifiques à chaque direction conservent leurs
+propres annotations ») : UNE légende sous les deux coupes, une colonne par nappe, où chaque armature est nommée une
+fois — un treillis unique (``treillis_nappe`` : la règle de l'écran des armatures, api_web/dalle_nappes.mode) en une
+entrée « Treillis a/b/ea/eb · porteurs Y », l'axe de ses fils dans chaque direction en seconde ligne ; chaque autre
+couche avec son repère (« Y » pour une base de barres, « R1 Y » pour un renfort : les repères de la rubrique Armatures),
+son armature, son axe et sa pose. La pastille d'une entrée est un point de la couleur de la couche (ses barres coupées)
+et un trait de sa teinte (ses barres parallèles au plan) : elle se lit dans les deux coupes. Chaque coupe porte un
+titre simple, la direction dont les barres sont coupées : « Direction Y · principale », « Direction X ».
+
 Le style est celui des dessins du site (api_web/dessin_poutre.py) : traits noirs, béton gris clair, cotes fines,
 sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.
 
@@ -36,7 +46,9 @@ plan), le béton ``s<i>.beton`` et les sollicitations ``s<i>.efforts`` — les m
 à l'octet près.
 """
 from html import escape
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
+
+from . import dalle_nappes as NAP
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
 PAPIER_PLAN = "#F1F3F6"
@@ -156,24 +168,123 @@ def _teinte(j: int) -> str:
     return TEINTES[j % len(TEINTES)]
 
 
-def _nom_couche(j: int) -> str:
-    return "base" if j == 0 else f"renfort {j}"
-
 
 def _texte_vue(b_mm: float, W: float) -> str:
     return f"b = {_mm(b_mm)}" if W >= b_mm else f"{_mm(W)} vus sur b = {_mm(b_mm)}"
+
+
+# ------------------------------------------------------------------ la légende commune (DAL5)
+def treillis_nappe(s: Dict, cote: str) -> Optional[Dict]:
+    """Le treillis UNIQUE de la nappe ``cote`` (« inf » | « sup ») de la section CALCULÉE ``s`` — ses deux bases, l'une
+    la transposée de l'autre —, ``{"designation": vue depuis les porteurs, "porteurs": « x » | « y »}``, sinon None. La
+    règle est celle de la rubrique Armatures (api_web/dalle_nappes.mode : une source), lue sur les couches du résultat
+    (« valeur » y porte la désignation)."""
+    vue = {"faces": {f"{cote}_{dk}": {"couches": [{"type": c["type"], "treillis": c.get("valeur")}
+                                                  for c in s["faces"][f"{cote}_{dk}"]["couches"]]} for dk in ("x", "y")}}
+    m = NAP.mode(vue, cote, s["principale"])
+    if m["mode"] not in ("treillis", "treillis_renforts"):
+        return None
+    return {"designation": m["treillis"], "porteurs": m["porteurs"]}
+
+
+def pose_dalle(c: Dict, principale: str, fil: bool = False) -> str:
+    """Ce que la légende d'une dalle dit de la pose d'une couche : sur quoi le site l'a posée (``sur_court`` de
+    dalle_positions.annoter : « la base Y », « renfort Y »), « axe saisi » pour un axe imposé dans l'état, sinon rien (la
+    règle du moteur). ``fil`` : un fil d'un treillis unique — ses deux directions sont soudées, l'une sur l'autre :
+    « sur la base Y » n'apprend rien, seul un axe saisi se dit."""
+    if c.get("empilee") and not fil:
+        return f"sur {c.get('sur_court') or 'la base ' + principale.upper()}"
+    if not c.get("auto", True):
+        return "axe saisi"
+    return ""
+
+
+def entrees_nappe(s: Dict, cote: str, principale: str, pose: Callable[..., str]) -> List[Tuple[int, str, str]]:
+    """Les entrées de la légende d'une NAPPE, chaque armature nommée UNE fois pour les deux coupes : ``(rang de couleur,
+    texte, seconde ligne)``. Un treillis unique : « Treillis a/b/ea/eb · porteurs Y », et en seconde ligne l'axe de ses
+    fils, direction principale d'abord (« axes : Y à 35 · X à 45 », la pose des fils si elle se dit) ; puis chaque autre
+    couche, la direction principale d'abord, avec son repère — « Y » (une base de barres), « R1 Y » (un renfort) —, son
+    armature, son axe et sa pose (``pose(c, fil=False)``)."""
+    autre = "x" if principale == "y" else "y"
+    t = treillis_nappe(s, cote)
+    out = []
+    if t is not None:
+        fils = [(dk, s["faces"][f"{cote}_{dk}"]["couches"][0]) for dk in (principale, autre)]
+        ps = [pose(c, fil=True) for _, c in fils]
+        if ps[0] == ps[1]:
+            axes = " · ".join(f"{dk.upper()} à {_mm(c['e'] * 10.0)}" for dk, c in fils) + (f" · {ps[0]}" if ps[0] else "")
+        else:
+            axes = " · ".join(f"{dk.upper()} à {_mm(c['e'] * 10.0)}" + (f" {p}" if p else "") for (dk, c), p in zip(fils, ps))
+        out.append((0, f"Treillis {t['designation']} · porteurs {t['porteurs'].upper()}", f"axes : {axes}"))
+    for dk in (principale, autre):
+        for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
+            if j == 0 and t is not None:
+                continue
+            p = pose(c)
+            out.append((j, f"{dk.upper() if j == 0 else f'R{j} {dk.upper()}'} · {c['libelle']} · axe à {_mm(c['e'] * 10.0)}"
+                        + (f" · {p}" if p else ""), ""))
+    return out
+
+
+def legende_nappes(s: Dict, principale: str, W: float, u: float, y0: float, pose: Callable[..., str],
+                   taille: float = 0.78) -> Tuple[str, float]:
+    """La légende COMMUNE des coupes d'une section, posée à l'ordonnée ``y0`` : (svg, hauteur occupée). La nappe
+    inférieure à gauche, la supérieure à droite — l'une sous l'autre quand la bande est étroite, comme l'ancienne
+    légende ; chaque entrée (``entrees_nappe``) précédée de sa pastille : un point de la couleur de la couche, un trait
+    de sa teinte."""
+    g = []
+    deux_colonnes = W + 4.6 * u >= 32 * u          # sinon (bande étroite) la supérieure sous l'inférieure
+    y, bas = y0, y0
+    for k, cote in enumerate(("inf", "sup")):
+        xl = k * (W + 4.6 * u) / 2 if deux_colonnes else 0.0
+        if k == 1:
+            y = y0 if deux_colonnes else bas + 0.9 * u
+        g.append(_txt(xl, y, "Nappe inférieure" if cote == "inf" else "Nappe supérieure", taille * u, ancre="start", couleur=COTE))
+        for j, texte, second in entrees_nappe(s, cote, principale, pose):
+            y += 1.3 * u
+            g.append(f'<circle cx="{_f(xl + 0.3 * u)}" cy="{_f(y - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>'
+                     + _ligne(xl + 0.65 * u, y - 0.3 * u, xl + 1.3 * u, y - 0.3 * u, _teinte(j), 0.24 * u))
+            g.append(_txt(xl + 1.6 * u, y, escape(texte), taille * u, ancre="start", gras=False))
+            if second:
+                y += 1.1 * u
+                g.append(_txt(xl + 1.6 * u, y, escape(second), 0.92 * taille * u, ancre="start", couleur=COTE, gras=False))
+        bas = max(bas, y)
+    return "".join(g), bas + 0.6 * u - y0
+
+
+def entrees_plan(s: Dict, cote: str, principale: str, pose: Optional[Callable[..., str]] = None) -> List[Tuple[int, str, bool]]:
+    """Les entrées de la légende du PLAN d'une nappe, chaque armature nommée une fois (comme les coupes) : ``(rang de
+    couleur, texte, gras)`` — un treillis unique « Treillis a/b/ea/eb · porteurs Y verticaux », puis chaque autre couche
+    avec son repère et son sens (« R1 Y · 3 Ø12 · verticales ») ; ``pose`` (la prédalle) ajoute où elle est posée. La
+    base de la direction principale (ou le treillis) en gras."""
+    autre = "x" if principale == "y" else "y"
+    t = treillis_nappe(s, cote)
+    out = []
+    if t is not None:
+        sens = "horizontaux" if t["porteurs"] == "x" else "verticaux"
+        out.append((0, f"Treillis {t['designation']} · porteurs {t['porteurs'].upper()} {sens}", True))
+    for dk in (principale, autre):
+        for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
+            if j == 0 and t is not None:
+                continue
+            p = pose(c) if pose else ""
+            out.append((j, f"{dk.upper() if j == 0 else f'R{j} {dk.upper()}'} · {c['libelle']} · "
+                           f"{'horizontales' if dk == 'x' else 'verticales'}" + (f" · {p}" if p else ""),
+                        dk == principale and j == 0))
+    return out
 
 
 # ------------------------------------------------------------------ la coupe
 def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float, y0: float,
            i: Optional[int] = None) -> Tuple[str, float]:
     """Une coupe de la bande perpendiculaire à la direction ``dk`` (ses barres en points, celles de l'autre direction en
-    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée)."""
+    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée) — un groupe ``data-coupe="<dk>"``. Sa légende est
+    COMMUNE aux deux coupes, sous elles (``legende_nappes``, DAL5)."""
     autre = "x" if dk == "y" else "y"
     x0, W = fenetre(b_mm)
     g = []
-    # le titre de la coupe
-    titre = f"Coupe ⊥ {dk.upper()} · barres {dk.upper()} en coupe" + (" (principale)" if dk == principale else "")
+    # le titre de la coupe : la direction dont les barres sont coupées (DAL5 : simple, la direction dite)
+    titre = f"Direction {dk.upper()}" + (" · principale" if dk == principale else "")
     g.append(_txt(0, y0 + 0.9 * u, escape(titre), 0.95 * u, ancre="start"))
     yc = y0 + 2.4 * u                                            # le dessus du béton
     # les niveaux : axe de chaque couche, depuis le dessus du béton
@@ -226,33 +337,7 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
         y1, y2 = yc + yG, yc + h_mm          # du centre de gravité des couches supérieures au dessous du béton
     g.append(_attache(W + 0.2 * u, y1, xd2 + 0.4 * u, y1, u) + _attache(W + 0.2 * u, y2, xd2 + 0.4 * u, y2, u)
              + _cote_v(xd2, y1, y2, f"d = {_mm(h_mm - yG)}", u, droite=True))
-    # la légende : les couches, inférieures à gauche, supérieures à droite (points : la direction coupée)
-    y_leg = y_cote + 1.6 * u
-    n_max = 0
-    deux_colonnes = W + 4.6 * u >= 32 * u          # sinon (bande étroite) les supérieures sous les inférieures
-    for k, cote in enumerate(("inf", "sup")):
-        lignes = [(d_, j, c) for d_ in (dk, autre) for j, c in enumerate(s["faces"][f"{cote}_{d_}"]["couches"])]
-        xl = k * (W + 4.6 * u) / 2 if deux_colonnes else 0.0
-        if not deux_colonnes and k == 1:
-            y_leg += (n_max + 1.4) * 1.3 * u
-            n_max = 0
-        g.append(_txt(xl, y_leg, "Inférieures" if cote == "inf" else "Supérieures", 0.78 * u, ancre="start", couleur=COTE))
-        for n, (d_, j, c) in enumerate(lignes):
-            yy = y_leg + (n + 1) * 1.3 * u
-            if d_ == dk:
-                g.append(f'<circle cx="{_f(xl + 0.35 * u)}" cy="{_f(yy - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>')
-            else:
-                g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
-            # l'axe réel de la couche (celui du calcul) ; posée par le site sur la nappe principale : dit sur QUOI elle
-            # repose (``sur_court`` de dalle_positions.annoter : « la base Y », ou le renfort plus haut qu'elle, S5 —
-            # court : la ligne doit tenir dans sa colonne ; « posée sur la base Y » débordait sur la colonne des
-            # supérieures, vu sur la capture du 09/11/2026, et « sur le renfort Y » aussi, capture S5)
-            g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · axe à {_mm(c['e'] * 10.0)}"
-                          + (f" · sur {c.get('sur_court') or 'la base ' + principale.upper()}" if c.get("empilee") else ""),
-                          0.78 * u, ancre="start", gras=False))
-        n_max = max(n_max, len(lignes))
-    hauteur = (y_leg + (n_max + 0.6) * 1.3 * u) - y0
-    return "".join(g), hauteur
+    return f'<g data-coupe="{dk}">{"".join(g)}</g>', y_cote + 0.6 * u - y0
 
 
 def _efforts(s: Dict) -> str:
@@ -270,8 +355,8 @@ def _efforts(s: Dict) -> str:
 
 
 def svg_coupe(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
-    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle ; ``i`` : le rang de la
-    section, pour ses pièces cliquables."""
+    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle, puis leur légende COMMUNE
+    (``legende_nappes``) ; ``i`` : le rang de la section, pour ses pièces cliquables."""
     b_mm, h_mm = dalle["b"] * 10.0, dalle["h"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 34.0
@@ -285,6 +370,10 @@ def svg_coupe(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
         morceau, hh = _coupe(s, dk, p, b_mm, h_mm, u, y, i)
         g.append(morceau)
         y += hh + 0.8 * u
+    y0 = y + 0.4 * u
+    legende, hl = legende_nappes(s, p, W, u, y0, lambda c, fil=False: pose_dalle(c, p, fil))
+    g.append(legende)
+    y = y0 + hl + 0.6 * u                           # (le bas du cadre : 0,6 u sous la dernière ligne, ses jambages compris)
     largeur = max(W + 8.4 * u, 31.0 * u)            # une bande étroite garde la place des titres et de la légende
     haut = -1.2 * u if i is None else -0.3 * u
     vb = f"{_f(-3.2 * u)} {_f(haut)} {_f(largeur)} {_f(y + 0.6 * u - haut - 1.2 * u)}"
@@ -336,17 +425,14 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
         else:
             g.append(_attache(a, W + 0.15 * u, a, W + 1.6 * u, u) + _attache(b, W + 0.15 * u, b, W + 1.6 * u, u)
                      + _cote_h(a, b, W + 1.3 * u, _mm(b - a), u))
-    # la légende : la direction principale d'abord
+    # la légende : chaque armature une fois (un treillis unique en une entrée), la direction principale d'abord
     y_leg = W + 3.0 * u
     n = 0
-    for dk in (principale, "x" if principale == "y" else "y"):
-        for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
-            yy = y_leg + n * 1.35 * u
-            g.append(_ligne(0, yy - 0.3 * u, 0.8 * u, yy - 0.3 * u, _couleur(j), 0.22 * u))
-            sens = "horizontales" if dk == "x" else "verticales"
-            g.append(_txt(1.1 * u, yy, f"{dk.upper()} {_nom_couche(j)} · {escape(c['libelle'])} · {sens}", 0.8 * u,
-                          ancre="start", gras=dk == principale and j == 0))
-            n += 1
+    for j, texte, gras in entrees_plan(s, cote, principale):
+        yy = y_leg + n * 1.35 * u
+        g.append(_ligne(0, yy - 0.3 * u, 0.8 * u, yy - 0.3 * u, _couleur(j), 0.22 * u))
+        g.append(_txt(1.1 * u, yy, escape(texte), 0.8 * u, ancre="start", gras=gras))
+        n += 1
     g.append("</g>")
     return "".join(g), y_leg + n * 1.35 * u
 
@@ -384,19 +470,24 @@ def svg_plan(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
 # ------------------------------------------------------------------ toutes les sections (l'établi compact, vue « Toutes »)
 def svg_toutes(ident: str, sections: List[Dict], dalle: Dict) -> str:
     """Toutes les sections l'une sous l'autre, à la même échelle : pour chacune, son nom et ses sollicitations, puis sa
-    coupe perpendiculaire à sa direction principale (les barres principales en points), avec ses pièces cliquables."""
+    coupe perpendiculaire à sa direction principale (les barres principales en points), avec ses pièces cliquables, et
+    la légende de ses nappes."""
     b_mm, h_mm = dalle["b"] * 10.0, dalle["h"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 34.0
     large = max(W, 27.8 * u)
     g, y = [], 0.0
     for i, s in enumerate(sections):
+        p = s["principale"]
         g.append(_txt(0, y + 0.3 * u, escape(s["titre"]), 1.05 * u, ancre="start"))
         g.append(piece(i, "efforts", _txt(large, y + 0.3 * u, _efforts(s), 0.85 * u, ancre="end", couleur=COTE, gras=False), "efforts"))
         y += 1.0 * u
-        morceau, hh = _coupe(s, s["principale"], s["principale"], b_mm, h_mm, u, y, i)
+        morceau, hh = _coupe(s, p, p, b_mm, h_mm, u, y, i)
         g.append(morceau)
-        y += hh + 1.8 * u
+        y += hh + 0.4 * u
+        legende, hl = legende_nappes(s, p, W, u, y + 0.4 * u, lambda c, fil=False, p=p: pose_dalle(c, p, fil))
+        g.append(legende)
+        y += hl + 1.8 * u
     largeur = max(W + 8.4 * u, 31.0 * u)
     vb = f"{_f(-3.2 * u)} {_f(-1.4 * u)} {_f(largeur)} {_f(y)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '

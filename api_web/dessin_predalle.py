@@ -39,7 +39,7 @@ import math
 from html import escape
 from typing import Dict, List, Optional, Tuple
 
-from .dessin_dalle import piece
+from .dessin_dalle import entrees_plan, legende_nappes, piece
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
 PEAU, HACHURE = "#D3DAE3", "#8C97A6"                          # la prédalle préfabriquée : un gris plus soutenu, hachuré
@@ -159,24 +159,25 @@ def _teinte(j: int) -> str:
     return TEINTES[j % len(TEINTES)]
 
 
-def _nom_couche(j: int) -> str:
-    return "base" if j == 0 else f"renfort {j}"
-
 
 def _texte_vue(b_mm: float, W: float) -> str:
     return f"b = {_mm(b_mm)}" if W >= b_mm else f"{_mm(W)} vus sur b = {_mm(b_mm)}"
 
 
-def _pose_txt(c: Dict, principale: str = "") -> str:
+def _pose_txt(c: Dict, principale: str = "", fil: bool = False) -> str:
     """Où la couche est posée, pour la légende : posée par le site sur la nappe principale (``empilee``) — sur ce qui la
     porte, ``sur_court`` de dalle_positions.annoter (la base, ou un renfort principal plus haut qu'elle, S5) —, « axe
-    saisi » (imposé dans l'état), ou la règle de la prédalle."""
-    if c.get("empilee"):
+    saisi » (imposé dans l'état), ou la règle de la prédalle. ``fil`` : un fil d'un treillis unique (la légende commune,
+    dessin_dalle.entrees_nappe) — « sur la base Y » n'en dit rien, ses deux directions sont soudées ; sa règle de pose,
+    si."""
+    if c.get("empilee") and not fil:
         if c.get("sur_court"):
             return f"sur {c['sur_court']}"                 # la forme courte : la ligne tient dans sa colonne
         return f"sur la base {principale.upper()}" if principale else "sur la base principale"
     if not c.get("auto", True):
         return "axe saisi"
+    if c.get("empilee"):                                   # un fil empilé : aucune règle de la prédalle à dire
+        return ""
     return POSES.get(c.get("pose"), "")
 
 
@@ -184,11 +185,12 @@ def _pose_txt(c: Dict, principale: str = "") -> str:
 def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: float, u: float, y0: float,
            i: Optional[int] = None) -> Tuple[str, float]:
     """Une coupe de la bande perpendiculaire à la direction ``dk`` (ses barres en points, celles de l'autre direction en
-    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée)."""
+    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée) — un groupe ``data-coupe="<dk>"``. La clé des deux bétons
+    et la légende des nappes sont COMMUNES aux deux coupes, sous elles (``_cle_betons``, dessin_dalle.legende_nappes)."""
     autre = "x" if dk == "y" else "y"
     x0, W = fenetre(b_mm)
     g = []
-    titre = f"Coupe ⊥ {dk.upper()} · barres {dk.upper()} en coupe" + (" (principale)" if dk == principale else "")
+    titre = f"Direction {dk.upper()}" + (" · principale" if dk == principale else "")
     g.append(_txt(0, y0 + 0.9 * u, escape(titre), 0.95 * u, ancre="start"))
     yc = y0 + 2.4 * u                                            # le dessus du béton
     yp = yc + h_mm - hp_mm                                       # le plan de reprise : dessus de la prédalle
@@ -267,37 +269,21 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
         y1, y2 = yc + yG, yc + h_mm          # du centre de gravité des couches supérieures au dessous du béton
     g.append(_attache(W + 0.2 * u, y1, xd2 + 0.4 * u, y1, u) + _attache(W + 0.2 * u, y2, xd2 + 0.4 * u, y2, u)
              + _cote_v(xd2, y1, y2, f"d = {_mm(h_mm - yG)}", u, droite=True))
-    # la clé des deux bétons, puis la légende des couches (inférieures à gauche, supérieures à droite)
-    yk = y_cote + 1.5 * u
-    g.append(f'<rect x="0" y="{_f(yk - 0.62 * u)}" width="{_f(1.3 * u)}" height="{_f(0.75 * u)}" fill="{PEAU}" stroke="{ENCRE}" '
-             f'stroke-width="{_f(0.03 * u)}"/>' + _hachures(0, yk - 0.62 * u, 1.3 * u, 0.75 * u, 0.3 * u, 0.03 * u))
-    g.append(_txt(1.7 * u, yk, f"prédalle préfabriquée · {_mm(hp_mm)} mm", 0.74 * u, ancre="start", gras=False))
+    return f'<g data-coupe="{dk}">{"".join(g)}</g>', y_cote + 0.6 * u - y0
+
+
+def _cle_betons(W: float, u: float, y: float, h_mm: float, hp_mm: float) -> Tuple[str, float]:
+    """La clé des deux bétons, une fois sous les coupes (DAL5 : elle se répétait sous chacune) : la prédalle préfabriquée
+    (hachurée) et le béton coulé en place, avec leurs épaisseurs. (svg, hauteur occupée)."""
+    yk = y + 0.6 * u
+    g = [f'<rect x="0" y="{_f(yk - 0.62 * u)}" width="{_f(1.3 * u)}" height="{_f(0.75 * u)}" fill="{PEAU}" stroke="{ENCRE}" '
+         f'stroke-width="{_f(0.03 * u)}"/>' + _hachures(0, yk - 0.62 * u, 1.3 * u, 0.75 * u, 0.3 * u, 0.03 * u),
+         _txt(1.7 * u, yk, f"prédalle préfabriquée · {_mm(hp_mm)} mm", 0.74 * u, ancre="start", gras=False)]
     xk = max(14.5 * u, (W + 4.6 * u) / 2)
     g.append(f'<rect x="{_f(xk)}" y="{_f(yk - 0.62 * u)}" width="{_f(1.3 * u)}" height="{_f(0.75 * u)}" fill="{BETON}" stroke="{ENCRE}" '
              f'stroke-width="{_f(0.03 * u)}"/>')
     g.append(_txt(xk + 1.7 * u, yk, f"béton coulé en place · {_mm(h_mm - hp_mm)} mm", 0.74 * u, ancre="start", gras=False))
-    y_leg = yk + 1.7 * u
-    n_max = 0
-    deux_colonnes = W + 4.6 * u >= 32 * u
-    for k, cote in enumerate(("inf", "sup")):
-        lignes = [(d_, j, c) for d_ in (dk, autre) for j, c in enumerate(s["faces"][f"{cote}_{d_}"]["couches"])]
-        xl = k * (W + 4.6 * u) / 2 if deux_colonnes else 0.0
-        if not deux_colonnes and k == 1:
-            y_leg += (n_max + 1.4) * 1.3 * u
-            n_max = 0
-        g.append(_txt(xl, y_leg, "Inférieures" if cote == "inf" else "Supérieures", 0.78 * u, ancre="start", couleur=COTE))
-        for n, (d_, j, c) in enumerate(lignes):
-            yy = y_leg + (n + 1) * 1.3 * u
-            if d_ == dk:
-                g.append(f'<circle cx="{_f(xl + 0.35 * u)}" cy="{_f(yy - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>')
-            else:
-                g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
-            pose = _pose_txt(c, principale)              # l'axe réel (celui du calcul) et sa pose
-            g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · e = {_mm(c['e'] * 10.0)}"
-                          + (f" · {pose}" if pose else ""), 0.74 * u, ancre="start", gras=False))
-        n_max = max(n_max, len(lignes))
-    hauteur = (y_leg + (n_max + 0.6) * 1.3 * u) - y0
-    return "".join(g), hauteur
+    return "".join(g), 1.6 * u
 
 
 def _efforts(s: Dict) -> str:
@@ -315,8 +301,9 @@ def _efforts(s: Dict) -> str:
 
 
 def svg_coupe(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> str:
-    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle ; ``i`` : le rang de la
-    section, pour ses pièces cliquables."""
+    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle, puis, une fois, la clé des
+    deux bétons et la légende COMMUNE des nappes (dessin_dalle.legende_nappes, la pose de la prédalle dite) ; ``i`` : le
+    rang de la section, pour ses pièces cliquables."""
     b_mm, h_mm, hp_mm = predalle["b"] * 10.0, predalle["h"] * 10.0, predalle["h_pre"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 34.0
@@ -330,6 +317,11 @@ def svg_coupe(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> s
         morceau, hh = _coupe(s, dk, p, b_mm, h_mm, hp_mm, u, y, i)
         g.append(morceau)
         y += hh + 0.8 * u
+    cle, hk = _cle_betons(W, u, y, h_mm, hp_mm)
+    y0 = y + hk + 0.4 * u
+    legende, hl = legende_nappes(s, p, W, u, y0, lambda c, fil=False: _pose_txt(c, p, fil), taille=0.74)
+    g.append(cle + legende)
+    y = y0 + hl + 0.6 * u                           # (le bas du cadre : 0,6 u sous la dernière ligne, ses jambages compris)
     largeur = max(W + 10.2 * u, 32.8 * u)
     haut = -1.2 * u if i is None else -0.3 * u
     vb = f"{_f(-5.0 * u)} {_f(haut)} {_f(largeur)} {_f(y + 0.6 * u - haut - 1.2 * u)}"
@@ -379,16 +371,14 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
         else:
             g.append(_attache(a, W + 0.15 * u, a, W + 1.6 * u, u) + _attache(b, W + 0.15 * u, b, W + 1.6 * u, u)
                      + _cote_h(a, b, W + 1.3 * u, _mm(b - a), u))
+    # la légende : chaque armature une fois (un treillis unique en une entrée), avec sa pose (dans / sur la prédalle)
     y_leg = W + 3.0 * u
     n = 0
-    for dk in (principale, "x" if principale == "y" else "y"):
-        for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
-            yy = y_leg + n * 1.35 * u
-            g.append(_ligne(0, yy - 0.3 * u, 0.8 * u, yy - 0.3 * u, _couleur(j), 0.22 * u))
-            pose = _pose_txt(c, principale)
-            g.append(_txt(1.1 * u, yy, f"{dk.upper()} {_nom_couche(j)} · {escape(c['libelle'])}" + (f" · {pose}" if pose else ""),
-                          0.7 * u, ancre="start", gras=dk == principale and j == 0))
-            n += 1
+    for j, texte, gras in entrees_plan(s, cote, principale, lambda c: _pose_txt(c, principale)):
+        yy = y_leg + n * 1.35 * u
+        g.append(_ligne(0, yy - 0.3 * u, 0.8 * u, yy - 0.3 * u, _couleur(j), 0.22 * u))
+        g.append(_txt(1.1 * u, yy, escape(texte), 0.7 * u, ancre="start", gras=gras))
+        n += 1
     g.append("</g>")
     return "".join(g), y_leg + n * 1.35 * u
 
@@ -426,19 +416,27 @@ def svg_plan(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> st
 # ------------------------------------------------------------------ toutes les sections (l'établi compact, vue « Toutes »)
 def svg_toutes(ident: str, sections: List[Dict], predalle: Dict) -> str:
     """Toutes les sections l'une sous l'autre, à la même échelle : pour chacune, son nom et ses sollicitations, puis sa
-    coupe perpendiculaire à sa direction principale (la prédalle hachurée), avec ses pièces cliquables."""
+    coupe perpendiculaire à sa direction principale (la prédalle hachurée), avec ses pièces cliquables, et la légende de
+    ses nappes ; la clé des deux bétons une fois, à la fin (la même pour toutes)."""
     b_mm, h_mm, hp_mm = predalle["b"] * 10.0, predalle["h"] * 10.0, predalle["h_pre"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 34.0
     large = max(W, 27.8 * u)
     g, y = [], 0.0
     for i, s in enumerate(sections):
+        p = s["principale"]
         g.append(_txt(0, y + 0.3 * u, escape(s["titre"]), 1.05 * u, ancre="start"))
         g.append(piece(i, "efforts", _txt(large, y + 0.3 * u, _efforts(s), 0.85 * u, ancre="end", couleur=COTE, gras=False), "efforts"))
         y += 1.0 * u
-        morceau, hh = _coupe(s, s["principale"], s["principale"], b_mm, h_mm, hp_mm, u, y, i)
+        morceau, hh = _coupe(s, p, p, b_mm, h_mm, hp_mm, u, y, i)
         g.append(morceau)
-        y += hh + 1.8 * u
+        y += hh + 0.4 * u
+        legende, hl = legende_nappes(s, p, W, u, y + 0.4 * u, lambda c, fil=False, p=p: _pose_txt(c, p, fil), taille=0.74)
+        g.append(legende)
+        y += hl + 1.8 * u
+    cle, hk = _cle_betons(W, u, y - 1.4 * u, h_mm, hp_mm)
+    g.append(cle)
+    y += hk
     largeur = max(W + 10.2 * u, 32.8 * u)
     vb = f"{_f(-5.0 * u)} {_f(-1.4 * u)} {_f(largeur)} {_f(y)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '

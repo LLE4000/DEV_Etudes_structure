@@ -22,6 +22,7 @@ la disposition change d'un format à l'autre.*
 | E9 | **Les flèches de pas (variante B)** dans tout champ de DIMENSION : deux petites flèches dans le champ au PC, côte à côte et à la hauteur du champ au doigt ; le pas défini avec le champ (à côté de son minimum et de son maximum), donné par le propriétaire. Pas de flèches sur les efforts ni sur les coefficients. | maquette du 13/11, choix B | — (à construire) | tous les modules, d'un même composant |
 | E10 | **Le menu « ⋯ » d'une section** : « Dupliquer », « Supprimer » ; pas de verrou par section. | DAL1 | dalle | poutre (« Copier la section ») |
 | E11 | **Les options** : la méthode en une ligne ; chaque réglage avec une infobulle courte ; un réglage commun à la note reste dans les options de la note. | DAL1 | dalle, prédalle | les autres modules |
+| E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle | poutre (son en-tête répète ses aciers et ses étriers), les autres dessins |
 
 ## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
 

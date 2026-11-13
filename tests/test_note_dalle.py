@@ -327,15 +327,14 @@ def s5_bout_en_bout():
         fh.write(N.pdf(e_s5, {"nom_projet": nom_s5}))
     pdf_ = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_, "s5.pdf"), "-"], capture_output=True, text=True).stdout
     shutil.rmtree(tmp_, ignore_errors=True)
-    leg_ = re.findall(r"X · Treillis 10/10/100/100 · axe à \d+ · sur [^<]+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
+    leg_ = re.findall(r"axes : Y à \d+ · X à \d+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
     e_ = r_["sections"][0]["faces"]["inf_x"]["couches"][0]["e"]
     passe = (e_ == 6.5 and g_["d_inf_x"] == 13.5 and round(g_["As_req_inf_x"]) == 494
              and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [6.5] and not ecarts_parite(e_s5)
              and rf"\res{{{ND.fn(13.5, 1)} \u{{cm}}}}" in txt_ and rf"\res{{494 \u{{mm}}^{{2}}}}" in txt_
              and rf"\res{{{ND.fn(15.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{430 \u{{mm}}^{{2}}}}" not in txt_
-             and leg_.count("X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y") == 2              # inf. X, dans les deux coupes
-             and set(leg_) == {"X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y",
-                               "X · Treillis 10/10/100/100 · axe à 45 · sur la base Y"}              # sup. X : pas de renfort sup. Y
+             and leg_ == ["axes : Y à 35 · X à 65", "axes : Y à 35 · X à 45"]   # la légende commune (DAL5) : chaque treillis une
+                                                                             # fois, inf. puis sup. (sup. X : pas de renfort sup. Y)
              and "13,5 cm" in pdf_ and "494 mm" in pdf_)
     return passe, (e_, g_["d_inf_x"], round(g_["As_req_inf_x"], 1), leg_, txt_[:200])
 
@@ -343,7 +342,7 @@ def s5_bout_en_bout():
 passe5, lu5 = s5_bout_en_bout()
 chk("S5 de bout en bout (renfort principal 3 Ø25 en inf. Y, M_x,inf = 20) : le calcul pose la base inf. X sur le renfort (axe 6,5, d = 13,5 cm, "
     "A_s,req = 494 mm²) ; la planche compte la couche à 6,5 et écrit d = 13,5 cm et 494 mm² (et non 15,5 cm, 430 mm² de la base seule) ; "
-    "la coupe de l'écran dit « axe à 65 · sur renfort Y » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
+    "la légende commune des coupes dit « axes : Y à 35 · X à 65 » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
 
 
 def niveaux_coupe(sec, R_):

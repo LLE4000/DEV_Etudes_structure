@@ -537,12 +537,14 @@ for ch, x in (("sections/0/My_sup", "30"), ("sections/0/My_inf", "5"), ("section
     ap = saisir(ap, ch, x)["etat"]
 ra = MO.verifier(moteur_de(ap))
 ca = DD.svg_coupe("t", ra["sections"][0], ra["dalle"])
-coupes = ca.split("Coupe ⊥")
+coupes = ca.split("data-coupe=")
 chk("coupe ⊥ Y (M_y,sup > M_y,inf) : d = 160 de la nappe supérieure Y (axe Ø12 à 40 mm), et non 165 de l'inférieure",
     "d = 160" in coupes[1] and "d = 165" not in coupes[1], re.findall(r"d = \d+", ca))
 chk("coupe ⊥ X (M_x,inf seul) : d = 155 de la nappe inférieure X — posée sur la base Y (Ø10 sur Ø10 à 35 mm : axe 45 mm)",
     "d = 155" in coupes[2], re.findall(r"d = \d+", coupes[2]))
-chk("la légende des couches dit « axe à 35 » (l'espacement s'écrit Ø/e : « Ø12/150 »)", "axe à 35" in ca and "e = 35" not in ca)
+chk("la légende des couches dit l'axe en toutes lettres (« axe à 40 » ; un treillis unique, ses deux fils : « axes : Y à 35 · X à 45 ») "
+    "— jamais « e = », l'espacement s'écrit Ø/e : « Ø12/150 »",
+    "Y · Ø12/150 · axe à 40" in ca and "axes : Y à 35 · X à 45" in ca and "e = 35" not in ca, re.findall(r"axes? [^<]+", ca))
 fo = saisir(ap, "nom", "Dalle 1")["donnees"]
 chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), son axe est nommé « e axe » et vide = automatique",
     "porteurs Ø10 tous les 100 mm" in fo and fo.count(">e axe<") == 4
@@ -610,10 +612,11 @@ chk("la section courante : ses armatures (.et-arm), son résumé (.et-r3) et son
     and len(re.findall(r'class="et-r3" data-section="\d"', don)) == 2 and len(re.findall(r'data-section-courante="\d"', don)) == 4
     and [b_[1] for b_ in BLOC.findall(ar["resultat"])] == ["0", "1"])
 ent = ar["vues"][0]["entete"]
-chk("l'en-tête de la vue : la section, la bande, les matériaux et la direction principale ; les nappes inférieures et supérieures "
-    "(la principale d'abord) ; la bande des quatre moments et de V, une fois",
+chk("l'en-tête de la vue : la section, la bande, les matériaux et la direction principale, puis la bande des quatre moments et de V, "
+    "une fois — RIEN d'autre (DAL5, 13/11/2026 : les lignes des nappes et de la légende répétaient le dessin, dont la légende "
+    "commune nomme chaque armature une fois)",
     "<b>Section A</b><span>· 100 × 20 cm · C30/37 · B500 · principale Y</span>" in ent
-    and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
+    and 'class="l2"' not in ent and 'class="l3"' not in ent and 'class="lg"' not in ent and "Treillis" not in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>28,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="dl".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
 # (13/11/2026, § 8.2) la rubrique 1 en SYMBOLES : le type en deux segments sans libellé (« Dalle pleine » · « Prédalle »), b
@@ -661,10 +664,12 @@ chk("condensées, les données ne perdent aucune explication : les paragraphes d
     and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 2
     and not any("empil" in t.lower() for t in aides_) and 'data-chemin="empilement"' not in don
     and any("direction secondaire (sa base et ses renforts), posée sur la principale" in t for t in aides_), aides_)
-chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
-    len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
-                                 == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),
-    [(v_["cle"], v_["legende"]) for v_ in ar["vues"]])
+chk("DAL5 : aucune vue ne répète sa légende dans son en-tête (le dessin la porte : la légende commune des coupes, celle du plan) ; "
+    "« legende » reste la clé de chaque vue (ce qu'un écran sans en-tête écrirait sous son titre)",
+    len(ar["vues"]) == 5 and all('class="lg"' not in v_["entete"] and 'class="l2"' not in v_["entete"]
+                                 and v_["legende"] == P.LEGENDES["p" if v_["cle"][0] == "p" else "c"] for v_ in ar["vues"])
+    and all("Nappe inférieure" in v_["svg"] and "Nappe supérieure" in v_["svg"] for v_ in ar["vues"]),
+    [(v_["cle"], v_["entete"][-120:]) for v_ in ar["vues"]])
 chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
     "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DD.svg_coupe("t", ref["sections"][0], ref["dalle"]))
 chk("la tête des résultats : le nom de la dalle (un titre qui se lit : le champ est dans la ligne de la dalle) et ses dimensions "

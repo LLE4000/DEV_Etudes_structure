@@ -310,14 +310,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0},
@@ -869,14 +869,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 175 180 180 180 180 205 240 240 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 175 180 180 180 205 240 240 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 24, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 40.0, "My_sup": 0.0, "V": 50.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -1189,14 +1189,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 43.5, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -1552,14 +1552,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 175 180 180 180 180 200 240 240 35 35 35 35 35 35 40 40 40 60 60 60 60 65 65 65 Ø12/150 Ø12/150"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 175 180 180 180 200 240 240 35 35 35 35 40 40 60 60 60 65 65 Ø12/150"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 24, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 40.0, "My_sup": 0.0, "V": 50.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -1866,14 +1866,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -2180,14 +2180,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -2494,14 +2494,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -2806,14 +2806,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 140 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 80 80 80"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 140 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 80 80"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": 8.0}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 0}
@@ -3127,14 +3127,14 @@
       "titre": "Coupes · Section A",
       "court": "Coupe A",
       "legende": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 155 160 160 160 160 185 220 220 35 35 35 35 35 35 35 35 35 60 60 60 60 65 65 65"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 155 160 160 160 185 220 220 35 35 35 35 35 35 60 60 60 65 65"
      },
      {
       "cle": "p0",
       "titre": "Plan des nappes · Section A",
       "court": "Plan A",
       "legende": "vue de dessus · barres X horizontales, Y verticales",
-      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
+      "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
     "etat": {"version": 1, "predalles": [{"nom": "Prédalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}, {"nom": "Prédalle 2", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "h_pre": 6.0, "verrou": false}], "actif": 1},

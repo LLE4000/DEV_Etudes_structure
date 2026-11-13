@@ -4521,12 +4521,13 @@ const principal = async () => {
         const bas = (l) => { const m = l.getScreenCTM(); return m.d * (l.y1.baseVal.value + parseFloat(l.getAttribute('stroke-width')) / 2) + m.f; };
         const m = trait.getScreenCTM();
         const haut = Math.min(...pts.map((c) => { const mc = c.getScreenCTM(); return mc.d * (c.cy.baseVal.value - c.r.baseVal.value) + mc.f; }));
-        const leg = [...v.querySelectorAll('text')].filter((t) => /^X · .* · axe à \d+ · sur renfort Y$/.test(t.textContent) && vis(t)).map((t) => t.textContent);
+        // (DAL5 : la légende COMMUNE des deux coupes — chaque armature une fois, le treillis en une entrée et ses deux axes ensemble)
+        const leg = [...v.querySelectorAll('text')].filter((t) => (/^R\d X · .* · axe à \d+ · sur renfort Y$/.test(t.textContent) || /^axes : Y à \d+ · X à \d+$/.test(t.textContent)) && vis(t)).map((t) => t.textContent);
         const champ = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_x/couches/0/dist"]');
         // les deux colonnes de chaque légende : le début des supérieures, le bout de la plus longue ligne des inférieures (px)
         const textes = [...v.querySelectorAll('text')].filter(vis);
-        const supG = Math.min(...textes.filter((t) => t.textContent === 'Supérieures').map((t) => t.getBoundingClientRect().left));
-        const infD = Math.max(...textes.filter((t) => /^[XY] · /.test(t.textContent) && t.getBoundingClientRect().left < supG - 1).map((t) => t.getBoundingClientRect().right));
+        const supG = Math.min(...textes.filter((t) => t.textContent === 'Nappe supérieure').map((t) => t.getBoundingClientRect().left));
+        const infD = Math.max(...textes.filter((t) => /^(Treillis |R\d |[XY] · |axes : )/.test(t.textContent) && t.getBoundingClientRect().left < supG - 1).map((t) => t.getBoundingClientRect().right));
         return { vu: true, pts: pts.length, ecart: (haut - bas(trait)) / m.d, ecartRenfX: (haut - bas(renfX)) / m.d, px_mm: m.d, leg, place: champ && champ.placeholder,
           jeu_legende_px: supG - infD };
       };
@@ -4540,9 +4541,9 @@ const principal = async () => {
       await g.waitForTimeout(250);
       const s5 = await g.evaluate(mesureS5);
       await g.screenshot({ path: path.join(OUT, 'site_nappes_s5_pc.png') });
-      verif('nappes · PC : S5 — un renfort principal 3 Ø20 en inf. Y : la base X (axe 55 mm) passe AU-DESSUS de ses points, au contact (le bas du trait au haut des points, à 0,3 mm près), le bas de son renfort S3 (3 Ø12, axe 60) 4 mm au-dessus ; avant S5, la base X 10 mm dedans ; les légendes de la base X et de son renfort disent « sur renfort Y », dans les deux coupes, et chaque ligne des inférieures s\'arrête avant la colonne des supérieures ; le champ de la base X dit « auto · 5,5 »',
-        s5.vu && Math.abs(s5.ecart) < 0.3 && s5.ecartRenfX > 3.7 && s5.ecartRenfX < 4.3 && s5.leg.length === 4 && new Set(s5.leg).size === 2
-        && s5.leg.some((x) => /axe à 55 · sur renfort Y/.test(x)) && s5.leg.some((x) => /axe à 60 · sur renfort Y/.test(x)) && s5.place === 'auto · 5,5'
+      verif('nappes · PC : S5 — un renfort principal 3 Ø20 en inf. Y : la base X (axe 55 mm) passe AU-DESSUS de ses points, au contact (le bas du trait au haut des points, à 0,3 mm près), le bas de son renfort S3 (3 Ø12, axe 60) 4 mm au-dessus ; avant S5, la base X 10 mm dedans ; la légende commune dit l\'axe des deux fils du treillis (« axes : Y à 35 · X à 55 ») et « sur renfort Y » du renfort X, une fois, et chaque ligne de la nappe inférieure s\'arrête avant la colonne de la supérieure ; le champ de la base X dit « auto · 5,5 »',
+        s5.vu && Math.abs(s5.ecart) < 0.3 && s5.ecartRenfX > 3.7 && s5.ecartRenfX < 4.3 && s5.leg.length === 3 && new Set(s5.leg).size === 3
+        && s5.leg.includes('axes : Y à 35 · X à 55') && s5.leg.includes('axes : Y à 35 · X à 45') && s5.leg.some((x) => /^R1 X · 3 Ø12 · axe à 60 · sur renfort Y$/.test(x)) && s5.place === 'auto · 5,5'
         && s5.jeu_legende_px > 0, JSON.stringify(s5));
       // au téléphone (R1 : le même dessin, la même note) — l'onglet Dessin
       const ct5 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
@@ -4557,8 +4558,8 @@ const principal = async () => {
       await t5.waitForTimeout(300);
       const s5T = await t5.evaluate(mesureS5);
       await t5.screenshot({ path: path.join(OUT, 'site_nappes_s5_tel.png') });
-      verif('nappes · téléphone : S5 — la même coupe, la base X au contact au-dessus du renfort Y Ø20 (à 0,3 mm près), le bas de son renfort 4 mm plus haut, les légendes « sur renfort Y », qui tiennent dans leur colonne',
-        s5T.vu && Math.abs(s5T.ecart) < 0.3 && s5T.ecartRenfX > 3.7 && s5T.ecartRenfX < 4.3 && s5T.leg.length === 4 && new Set(s5T.leg).size === 2
+      verif('nappes · téléphone : S5 — la même coupe, la base X au contact au-dessus du renfort Y Ø20 (à 0,3 mm près), le bas de son renfort 4 mm plus haut, la légende commune (les axes du treillis, « sur renfort Y » du renfort X), qui tient dans ses colonnes',
+        s5T.vu && Math.abs(s5T.ecart) < 0.3 && s5T.ecartRenfX > 3.7 && s5T.ecartRenfX < 4.3 && s5T.leg.length === 3 && new Set(s5T.leg).size === 3
         && s5T.jeu_legende_px > 0, JSON.stringify(s5T));
       verif('nappes · téléphone (S5) : aucune erreur JavaScript', !t5.erreurs.length, t5.erreurs.join(' | ').slice(0, 300));
       await ct5.close();

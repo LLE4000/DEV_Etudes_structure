@@ -744,3 +744,35 @@ par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce q
 - Aucun chiffre ne change : références de la dalle et de la prédalle regelées (la clé « espacements », les champs
   y<sub>G</sub> d'une couche seule).
 
+
+### 8.5 DAL5a — Les coupes : un titre simple, chaque armature nommée une fois
+
+La demande (point 4) : garder le titre récapitulatif de la section et le résumé des sollicitations ; retirer les trois
+lignes redondantes sous le titre ; des titres de coupe simples qui disent la direction ; un treillis identifié une fois
+quand c'est le même dans les deux coupes, les renforts gardant leurs annotations.
+
+- **L'en-tête des vues** (`plaque_compact.vues`) : le titre de la section (dimensions, matériaux, direction principale) et
+  la bande des sollicitations, RIEN d'autre — les deux lignes des nappes (« Inf. Y Treillis … · X Treillis … ») et la
+  ligne de légende (« barres coupées en points… ») sont retirées : le dessin les dit. « Toutes » : « N sections à la même
+  échelle » dans le sous-titre, sans ligne d'explication (chaque coupe dit sa direction). La clé « legende » de chaque vue
+  reste (un écran sans en-tête l'écrirait sous son titre, `js/etabli.js`).
+- **Le titre d'une coupe** : la direction dont les barres sont coupées — « Direction Y · principale », « Direction X »
+  (c'était « Coupe ⊥ Y · barres Y en coupe (principale) »). Chaque coupe est un groupe `data-coupe="y|x"`.
+- **Une légende COMMUNE** sous les deux coupes (`dessin_dalle.legende_nappes`, la prédalle la réemploie), une colonne
+  par nappe : un treillis unique (la règle de la rubrique Armatures, `dalle_nappes.mode`, lue sur le résultat :
+  `treillis_nappe`) en UNE entrée « Treillis 10/10/100/100 · porteurs Y », l'axe de ses deux fils en seconde ligne
+  (« axes : Y à 35 · X à 45 », la pose des fils d'une prédalle s'il y a lieu) ; chaque autre couche avec le repère de la
+  rubrique Armatures (« Y » une base de barres, « R1 Y » un renfort), son armature, son axe et sa pose (« sur la base Y »,
+  « sur renfort Y », « axe saisi », « dans / sur la prédalle »). La pastille d'une entrée est un point de la couleur de la
+  couche et un trait de sa teinte : elle se lit dans les deux coupes. Avant : chaque coupe listait toutes les couches —
+  « Treillis 10/10/100/100 » quatre fois par coupe, huit fois en tout. La légende d'une prédalle dit « axe à » comme celle
+  d'une dalle (elle disait « e = », l'écriture de l'espacement).
+- **La clé des deux bétons** d'une prédalle (« prédalle préfabriquée · 60 mm », « béton coulé en place · 160 mm ») une
+  fois sous les coupes (elle se répétait sous chacune) ; dans « Toutes », une fois à la fin.
+- **Le plan des nappes** suit la même règle : un treillis unique en une entrée (« Treillis 10/10/100/100 · porteurs Y
+  verticaux »), les renforts avec leur repère (« R1 Y · 3 Ø12 · verticales »).
+- Ce que la légende montre désormais à nu : dans une prédalle, les fils d'un treillis de la nappe inférieure ne sont pas
+  en contact (« axes : Y à 35 dans la prédalle · X à 65 sur la prédalle ») — la règle du moteur ; corrigé par DAL5b.
+- Aucun calcul ne change : références de la dalle et de la prédalle regelées avec la raison (les nombres « disparus »
+  sont des répétitions). Tests : les coupes se séparent par `data-coupe=` ; les légendes S3/S5 lues dans la légende
+  commune ; la mutation 10 vise `dessin_dalle.pose_dalle`. Harnais (filtre « nappes ») : la légende S5 lue une fois.

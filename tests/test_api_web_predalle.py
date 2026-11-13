@@ -371,7 +371,8 @@ chk("la coupe : la peau hachurée (hachures dessinées, aucun motif SVG à ident
     'stroke="#8C97A6"' in sv and "<pattern" not in sv and "prédalle préfabriquée · 60 mm" in sv and "béton coulé en place · 160 mm" in sv)
 chk("la chaîne de cotes : h = 220 = 60 + 160 ; axes 35 / 65 ; hauteur utile d = 174,4 (le CDG du renfort sur la peau)",
     ">h = 220<" in sv and ">60<" in sv and ">160<" in sv and ">35<" in sv and ">65<" in sv and ">d = 174,4<" in sv)
-chk("la légende dit la pose : « dans la prédalle », « sur la prédalle »", "e = 35 · dans la prédalle" in sv and "e = 70 · sur la prédalle" in sv)
+chk("la légende commune dit la pose : les fils du treillis (« Y à 35 dans la prédalle »), le renfort « axe à 70 · sur la prédalle »",
+    "Y à 35 dans la prédalle" in sv and "R1 Y · 3 Ø12 · axe à 70 · sur la prédalle" in sv, re.findall(r"axes? [^<]+", sv))
 rond = re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="5"', sv)
 chk("à l'échelle : les fils Ø10 dessinés en cercles de 5 mm de rayon, les Ø12 de 6 mm", len(rond) >= 10 and 'r="6"' in sv)
 chk("le plan : les nappes inférieure et supérieure, le fond grisé de la prédalle, le repère", "Nappe inférieure" in vues[1]["svg"]
@@ -791,10 +792,10 @@ chk("la section courante : ses armatures (.et-arm), son résumé (.et-r3) et son
     and len(re.findall(r'class="et-r3" data-section="\d"', don)) == 2 and len(re.findall(r'data-section-courante="\d"', don)) == 4
     and [b_[1] for b_ in BLOC.findall(ar["resultat"])] == ["0", "1"])
 ent = ar["vues"][0]["entete"]
-chk("l'en-tête de la vue : la section, la bande et la peau, les matériaux, la direction principale ; les nappes (la principale "
-    "d'abord) ; la bande des quatre moments et de V, une fois",
+chk("l'en-tête de la vue : la section, la bande et la peau, les matériaux, la direction principale, puis la bande des quatre "
+    "moments et de V, une fois — RIEN d'autre (DAL5 : les lignes des nappes et de la légende répétaient le dessin)",
     "<b>Section A</b><span>· 100 × 22 cm, prédalle 6 cm · C30/37 · B500 · principale Y</span>" in ent
-    and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
+    and 'class="l2"' not in ent and 'class="lg"' not in ent and "Treillis" not in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>30,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
 tete_on = re.search(r'<div class="et-pt on" data-predalle="0"><div class="et-pt-l">(.*?)<div class="et-mn">', don, re.S).group(1)
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="pd".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
@@ -809,10 +810,12 @@ chk("condensées, les données ne perdent aucune explication : les paragraphes d
     "DANS la prédalle, γs et jeu communs à la note) sont dans les ⓘ de leur champ",
     any(t.startswith("La base inférieure de la direction principale est posée DANS la prédalle") for t in aides_)
     and sum("Commun à toutes les prédalles de la note" in t for t in aides_) == 2, aides_)
-chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
-    len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
-                                 == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),
-    [(v_["cle"], v_["legende"]) for v_ in ar["vues"]])
+chk("DAL5 : aucune vue ne répète sa légende dans son en-tête (le dessin la porte : la légende commune des coupes, celle du plan) ; "
+    "« legende » reste la clé de chaque vue (ce qu'un écran sans en-tête écrirait sous son titre)",
+    len(ar["vues"]) == 5 and all('class="lg"' not in v_["entete"] and 'class="l2"' not in v_["entete"]
+                                 and v_["legende"] == P.LEGENDES["p" if v_["cle"][0] == "p" else "c"] for v_ in ar["vues"])
+    and all("Nappe inférieure" in v_["svg"] and "Nappe supérieure" in v_["svg"] for v_ in ar["vues"]),
+    [(v_["cle"], v_["entete"][-120:]) for v_ in ar["vues"]])
 chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
     "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DP.svg_coupe("t", m["sections"][0], m["predalle"]))
 chk("la tête des résultats : le nom de la prédalle et ses dimensions (comme la poutre)",

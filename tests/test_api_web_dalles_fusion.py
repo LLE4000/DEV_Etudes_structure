@@ -385,7 +385,7 @@ GROUPE = r'<g class="pc couche" data-sel="s0\.{}">(.*?)</g>'
 def niveaux(svg, cle_points, cle_traits):
     """Dans la PREMIÈRE coupe (⊥ principale) : les cy des cercles de la couche ``cle_points`` et les y1 des traits de
     ``cle_traits`` (tests/test_api_web_dalle_positions.py, lot FUS4)."""
-    coupe = svg.split("Coupe ⊥")[1]
+    coupe = svg.split("data-coupe=")[1]
     pts = re.search(GROUPE.format(re.escape(cle_points)), coupe).group(1)
     trs = re.search(GROUPE.format(re.escape(cle_traits)), coupe).group(1)
     return ({float(x) for x in re.findall(r'<circle cx="[\d.]+" cy="([\d.]+)"', pts)},
@@ -400,10 +400,11 @@ chk("la hauteur utile de la direction secondaire est celle de sa nappe posée su
     (g_on["d_inf_x"], g_brut["d_inf_x"], g_on["d_inf_y"], g_brut["d_inf_y"]) == (15.5, 16.5, 16.5, 16.5)
     and "20 − 4,5" in r0["volets"], (g_on["d_inf_x"], g_brut["d_inf_x"]))
 chk("la coupe du site dessine les deux directions à des niveaux distincts (les traits de la base X 10 mm au-dessus de ceux que le moteur seul "
-    "poserait), et sa légende dit « sur la base Y » — le dessin dit ce que le calcul utilise",
+    "poserait), et sa légende commune dit les axes des deux fils du treillis (« axes : Y à 35 · X à 45 », DAL5) — le dessin dit ce que le "
+    "calcul utilise",
     n_on[0] == n_brut[0] and len(n_on[1]) == len(n_brut[1]) == 1 and abs(min(n_on[1]) - min(n_brut[1]) + 10.0) < 0.06
-    and "· sur la base Y" in r0["vues"][0]["svg"] and "sur la base" not in sv_brut and "axe saisi" not in r0["vues"][0]["svg"],
-    (n_on, n_brut))
+    and "axes : Y à 35 · X à 45" in r0["vues"][0]["svg"] and "sur la base" not in sv_brut and "axe saisi" not in r0["vues"][0]["svg"],
+    (n_on, n_brut, re.findall(r"axes? [^<]+", r0["vues"][0]["svg"])))
 # S3 (décision du 09/11/2026) : un RENFORT de la direction secondaire posé sur sa nappe, de bout en bout par le routeur
 s3 = saisir(e0, "sections/0/faces/inf_x/couches/+", "1")
 d_s3 = actif(s3["etat"])
@@ -416,7 +417,7 @@ chk("S3 — un renfort 3 Ø12 ajouté en inf. X (secondaire) : son champ dit « 
 # le contrôle croisé DESSIN ↔ CALCUL : chaque couche de la coupe ⊥ Y (points Y, traits X) est à h − e (inf.) ou e (sup.) de l'axe que le
 # MOTEUR a reçu, renfort secondaire compris — rien ne montre un niveau autre que celui du calcul
 r_s3 = MO.verifier(POS.pour_moteur(d_s3))
-coupe_s3 = s3["vues"][0]["svg"].split("Coupe ⊥")[1]
+coupe_s3 = s3["vues"][0]["svg"].split("data-coupe=")[1]
 y0_ = None
 faux = []
 for cote in ("inf", "sup"):
