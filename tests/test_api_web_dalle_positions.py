@@ -440,8 +440,8 @@ def muter(fichier, ancien, nouveau, nom):
     return m
 
 
-REGLE = '    return appui(d, s, cote)["dessus"] + _demi(c)\n'
-M1 = muter("dalle_positions.py", REGLE, '    return appui(d, s, cote)["dessus"]\n', "positions_m1")
+REGLE = '    return appui(d, s, cote, treillis_reel)["dessus"] + _demi(c)\n'
+M1 = muter("dalle_positions.py", REGLE, '    return appui(d, s, cote, treillis_reel)["dessus"]\n', "positions_m1")
 chk("mutation 1 — la règle sans ⌈Ø/2⌉ de la couche posée : inf. X vaudrait 5,0 et non 5,5 → le contrôle (b) rougit",
     autos_site(M1, dalle())["inf_x"][0] == 5.0 != 5.5)
 M2 = muter("dalle_positions.py", "                        c_m[\"dist\"] = a\n", "                        c_m[\"dist\"] = None\n", "positions_m2")
@@ -454,13 +454,13 @@ rm, svm = dessin(POS, M3, dalle(), MO_D)
 cym, ym = niveaux(svm, "inf_y-0", "inf_x-0")
 chk("mutation 3 — le dessin lit l'automatique du moteur au lieu de e (l'axe utilisé) : X et Y reviennent au plan du moteur (écart −5 mm, "
     "pas 15) → le contrôle (e) rougit", abs((min(cym) - min(ym)) - (-5.0)) < 1e-6, (cym, ym))
-GARDE = '    if dk == principale(d) or (cote == "inf" and type_dalle(d) == "predalle"):\n'
-M4 = muter("dalle_positions.py", GARDE, '    if j > 0 or dk == principale(d) or (cote == "inf" and type_dalle(d) == "predalle"):\n', "positions_m4")
+GARDE = '    if peau and not (j == 0 and soude):\n'
+M4 = muter("dalle_positions.py", GARDE, '    if j > 0 or (peau and not (j == 0 and soude)):\n', "positions_m4")
 chk("mutation 4 — S3 retiré (un renfort reste à l'automatique du moteur) : le renfort inf. X retombe à 4,0 (au niveau de la base Y) et le "
     "sup. X de la prédalle à 4,0 → les contrôles S3 de (b), (c) et (d) rougissent",
     autos_site(M4, dalle_s3())["inf_x"][1] == 4.0 != 6.0 and autos_site(M4, dalle_s3("predalle"))["sup_x"][1] == 4.0
     and not M4.empilee(dalle_s3(), dalle_s3()["sections"][0], "inf_x", 1))
-M5 = muter("dalle_positions.py", GARDE, '    if not d.get("empilement") or dk == principale(d) or (cote == "inf" and type_dalle(d) == "predalle"):\n',
+M5 = muter("dalle_positions.py", GARDE, '    if not d.get("empilement") or (peau and not (j == 0 and soude)):\n',
            "positions_m5")
 chk("mutation 5 — l'option revenue (clé « empilement » absente lue fausse) : toutes les couches reviennent à l'automatique du moteur, la base "
     "inf. X à 3,5 → les contrôles (a) et (b) rougissent",
@@ -474,16 +474,23 @@ def renfort(diam, n=3, dist=None, type_="n_barres", treillis="10/10/100/100"):
     return {"type": type_, "treillis": treillis, "d": diam, "esp": 150, "n": n, "dist": dist}
 
 
-def dalle_s5(type_="coulee", principale="Y", cote="inf", renforts=((12,),), base=None, sec_renfort=None, **modifs):
-    """La note NEUVE du site (treillis 10/10/100/100 partout, c = 3 cm, jeu 0 ; prédalle h = 22, h_p = 6) en mode
-    « Treillis + renforts » : des RENFORTS sur la face principale ``cote`` (``renforts`` : (Ø, n, dist) ; par défaut le
-    3 Ø12 de « + Renfort »), ``base`` : une autre base principale, ``sec_renfort`` : le Ø d'un renfort S3 sur la
-    secondaire de la même face ; moments sur les quatre faces (M_x,inf = 20)."""
+def dalle_s5(type_="coulee", principale="Y", cote="inf", renforts=((12,),), base=None, sec_renfort=None, treillis=False,
+             **modifs):
+    """La note neuve du site (c = 3 cm, jeu 0 ; prédalle h = 22, h_p = 6) aux bases de BARRES Ø10/100 partout — DAL5b
+    (13/11/2026) : S5 vaut pour des barres ; un treillis unique pose ses renforts principaux sur lui (section (h)) ; les
+    barres Ø10/100 ont le Ø et la section au mètre du treillis 10/10/100/100 d'avant, les chiffres de S5 sont les mêmes —
+    ou, ``treillis`` vrai, la note neuve telle quelle (treillis 10/10/100/100 partout, « Treillis + renforts ») ; des
+    RENFORTS sur la face principale ``cote`` (``renforts`` : (Ø, n, dist) ; par défaut le 3 Ø12 de « + Renfort »),
+    ``base`` : une autre base principale, ``sec_renfort`` : le Ø d'un renfort S3 sur la secondaire de la même face ;
+    moments sur les quatre faces (M_x,inf = 20)."""
     d = EN_D.nouvelle_dalle() if type_ == "coulee" else EN_P.nouvelle_predalle()
     d["dir_principale"] = principale
     p = principale.lower()
     q = "x" if p == "y" else "y"
     s = d["sections"][0]
+    if not treillis:
+        for f_ in EN_D.FACES:
+            s["faces"][f_]["couches"][0] = {"type": "barres", "treillis": "10/10/100/100", "d": 10, "esp": 100, "n": 3, "dist": None}
     if base:
         s["faces"][f"{cote}_{p}"]["couches"][0] = dict(base)
     for r_ in renforts:
@@ -513,7 +520,7 @@ def nom(d, cote="inf"):
 
 # la règle
 d12 = dalle_s5()
-chk("le mode par défaut « Treillis + renforts » (base inf. Y treillis Ø10 à 3,5, renfort 3 Ø12 à 4,0 : le même dessous 3,0) : le lit "
+chk("des barres Ø10/100 et le renfort de « + Renfort » (base inf. Y Ø10 à 3,5, renfort 3 Ø12 à 4,0 : le même dessous 3,0) : le lit "
     "contient les deux, le renfort porte (dessus 5,0 contre 4,0) — la base inf. X à 5,0 + 0,5 = 5,5 (sur la base seule : 4,5), « le "
     "renfort Y » ; la face sup. (sans renfort) reste sur sa base, 4,5",
     POS.lit_contact(d12, d12["sections"][0], "inf") == [0, 1] and ap(d12)["couche"] == 1 and ap(d12)["dessus"] == 5.0
@@ -679,12 +686,12 @@ haut20, bas20 = bords(sv20, "inf_y-1", "inf_x-0")
 chk("coupe ⊥ Y (renfort principal 3 Ø20 sous la nappe X) : le bas du trait de la base X (axe 55, Ø10) touche le haut des points du renfort Y "
     "(axe 40, Ø20) — au contact, sans le traverser (avant S5 : axe 45, 10 mm dans le renfort)",
     abs(bas20 - haut20) < 0.06 and r20["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 5.5, (haut20, bas20))
-chk("… la légende commune (DAL5) dit l'axe des deux fils du treillis (« axes : Y à 35 · X à 55 ») et sur quoi le renfort X repose, en "
-    "forme courte (la ligne tient dans sa colonne) : « R1 X · 3 Ø12 · axe à 60 · sur renfort Y » ; la prédalle aussi (en haut : « axes : "
-    "Y à 35 · X à 55 ») ; plusieurs renforts : X à 65 (le repère R2 est dans la forme longue, formule et pose : « le renfort R2 Y »)",
-    "axes : Y à 35 · X à 55" in sv20 and "R1 X · 3 Ø12 · axe à 60 · sur renfort Y" in sv20
-    and "axes : Y à 35 · X à 55" in dessin(POS, DP, dps, MO_P)[1]
-    and "axes : Y à 35 · X à 65" in dessin(POS, DD, dalle_s5(renforts=((12,), (25, 2))), MO_D)[1]
+chk("… la légende commune (DAL5) dit sur quoi la nappe X repose, en forme courte (la ligne tient dans sa colonne) : « X · Ø10/100 · "
+    "axe à 55 · sur renfort Y », « R1 X · 3 Ø12 · axe à 60 · sur renfort Y » ; la prédalle aussi (en haut) ; plusieurs renforts : « sur "
+    "renfort Y » encore (le repère R2 est dans la forme longue, formule et pose : « le renfort R2 Y »)",
+    "X · Ø10/100 · axe à 55 · sur renfort Y" in sv20 and "R1 X · 3 Ø12 · axe à 60 · sur renfort Y" in sv20
+    and "X · Ø10/100 · axe à 55 · sur renfort Y" in dessin(POS, DP, dps, MO_P)[1]
+    and "X · Ø10/100 · axe à 65 · sur renfort Y" in dessin(POS, DD, dalle_s5(renforts=((12,), (25, 2))), MO_D)[1]
     and POS.nom_appui(dalle_s5(renforts=((12,), (25, 2))), dalle_s5(renforts=((12,), (25, 2)))["sections"][0], "inf", court=True) == "renfort Y",
     re.findall(r"axe à \d+[^<]*", sv20)[:6])
 # les mutations S5 (en mémoire)
@@ -717,6 +724,142 @@ chk("mutation 11 — une couche automatique jugée sur son seul dessous (le lit 
     "Ø20 automatique sort du lit, la base inf. X retombe à 4,4, au travers du renfort → le contrôle « relecture S5 » rougit",
     M11.lit_contact(dbb, dbb["sections"][0], "inf") == [0] and M11.axe_auto(dbb, dbb["sections"][0], "inf_x", 0) == 4.4
     and M11.axe_auto(dbb0, dbb0["sections"][0], "inf_x", 0) == 3.4)
+
+# ------------------------------------------------------------------ (h) DAL5b : le treillis posé tel qu'il est
+print("\n=== (h) DAL5b : un treillis unique a ses fils soudés l'une sur l'autre ; ses renforts principaux posés sur lui ===")
+t12 = dalle_s5(treillis=True)
+s12 = t12["sections"][0]
+at12 = POS.appui_treillis(t12, s12, "inf")
+chk("la note neuve « Treillis + renforts » (treillis 10/10/100/100, 3 Ø12 en inf. Y) : un treillis unique ; les fils X SOUDÉS sur les "
+    "fils Y (3,5 + 0,5 + 0,5 = 4,5 — le renfort ne les soulève pas : avant, 5,5) ; le renfort Y posé SUR le treillis (4,5 + 0,5 + 1,0 = 6,0 ; "
+    "avant, 4,0 dans le plan des fils Y) — « le treillis » ; la règle d'avant se relit (treillis_reel=False)",
+    POS.treillis(t12, s12, "inf") and ax(t12, "inf_y", 1) == 6.0 and ax(t12, "inf_x") == 4.5
+    and POS.appui(t12, s12, "inf") == {"couche": 0, "e": 3.5, "d": 10.0, "demi": 0.5, "dessus": 4.0, "lit": [0]}
+    and at12 == {"couche": 0, "e": 4.5, "d": 10.0, "demi": 0.5, "dessus": 5.0, "lit": [0], "face": "inf_x"}
+    and POS.nom_support(t12, s12, "inf_y", 1) == "le treillis" == POS.nom_support(t12, s12, "inf_y", 1, court=True)
+    and POS.empilee(t12, s12, "inf_y", 1) and POS.empilee(t12, s12, "inf_x", 0) and not POS.empilee(t12, s12, "inf_y", 0)
+    and POS.axe_auto(t12, s12, "inf_y", 1, treillis_reel=False) == 4.0 and POS.axe_auto(t12, s12, "inf_x", 0, treillis_reel=False) == 5.5,
+    (POS.axes(t12, s12)["inf_y"], POS.axes(t12, s12)["inf_x"], at12))
+t2 = dalle_s5(treillis=True, sec_renfort=12)
+s2 = t2["sections"][0]
+chk("avec un renfort X 3 Ø12 aussi : il est dans le plan des fils X, posé sur les fils Y (3,5 + 0,5 + 1,0 = 5,0, dessus 6,0) ; le renfort Y "
+    "monte sur lui (6,0 + 1,0 = 7,0) — « le renfort X », « renfort X » (légende)",
+    ax(t2, "inf_x", 1) == 5.0 and ax(t2, "inf_y", 1) == 7.0 and POS.appui_treillis(t2, s2, "inf")["couche"] == 1
+    and POS.nom_support(t2, s2, "inf_y", 1) == "le renfort X" and POS.nom_support(t2, s2, "inf_y", 1, court=True) == "renfort X",
+    POS.axes(t2, s2))
+t2b = dalle_s5(treillis=True, renforts=((12,), (16, 2)), sec_renfort=12)
+t2c = dalle_s5(treillis=True)
+t2c["sections"][0]["faces"]["inf_x"]["couches"].append(renfort(12, dist=12.0))
+chk("deux renforts Y : tous deux sur la couche X la plus haute (le renfort X, dessus 6,0 : 7,0 et 7,0) ; un renfort X SAISI à 12 cm "
+    "(dessous 11,4… hors du lit des fils X) ne porte rien : le renfort Y reste sur le treillis, 6,0",
+    [ax(t2b, "inf_y", k) for k in (1, 2)] == [7.0, 7.0] and ax(t2c, "inf_y", 1) == 6.0
+    and POS.appui_treillis(t2c, t2c["sections"][0], "inf")["lit"] == [0], (POS.axes(t2b, t2b["sections"][0])["inf_y"], POS.axes(t2c, t2c["sections"][0])))
+ts = dalle_s5(treillis=True, cote="sup")
+tx = dalle_s5(treillis=True, principale="X", renforts=((25,),))
+chk("la même règle en haut (chapeaux 3 Ø12 en sup. Y : 6,0 depuis le dessus, sous les fils X à 4,5) et principale X (renfort inf. X "
+    "Ø25 : 4,5 + 0,5 + 1,5 = 6,5 sur les fils Y à 4,5)",
+    ax(ts, "sup_y", 1) == 6.0 and ax(ts, "sup_x") == 4.5 and ax(tx, "inf_x", 1) == 6.5 and ax(tx, "inf_y") == 4.5,
+    (POS.axes(ts, ts["sections"][0])["sup_y"], POS.axes(tx, tx["sections"][0])["inf_x"]))
+tp = dalle_s5("predalle", treillis=True)
+sp = tp["sections"][0]
+rtp = POS.annoter(MO_P.verifier(POS.pour_moteur(tp)), tp)
+cx = rtp["sections"][0]["faces"]["inf_x"]["couches"][0]
+chk("prédalle : le treillis de la nappe inférieure est DANS la peau, ses fils X soudés sur les fils Y (4,5 ; la règle du moteur les posait "
+    "SUR la prédalle, 6,5) — leur pose dit « predalle » ; le renfort Y reste SUR la prédalle (7,0, la règle du moteur) ; plus de "
+    "« croisement_sur_predalle » (les fils X ne sont plus sur la prédalle) ; aucun avertissement de peau (dessus des fils 5,0 ≤ 6)",
+    ax(tp, "inf_x") == 4.5 and ax(tp, "inf_y", 1) == 7.0 == autos_moteur(tp)["inf_y"][1] and cx["pose"] == "predalle" and cx["empilee"]
+    and cx["sur"] == "la base Y" and not POS.empilee(tp, sp, "inf_y", 1)
+    and not {"croisement_sur_predalle", "treillis_hors_predalle"} & {a_["code"] for a_ in rtp["avertissements"]},
+    (POS.axes(tp, sp), [a_["code"] for a_ in rtp["avertissements"]]))
+tm = dalle_s5("predalle", treillis=True, h_pre=4.5)
+rtm = POS.annoter(MO_P.verifier(POS.pour_moteur(tm)), tm)
+av_ = [a_ for a_ in rtm["avertissements"] if a_["code"] == "treillis_hors_predalle"]
+chk("prédalle de 4,5 cm : les fils X soudés (axe 4,5, Ø10) ont leur dessus à 5,0 cm — hors de la peau : l'avertissement le dit (grave à "
+    "l'écran, comme la base hors de la peau)",
+    len(av_) == 1 and av_[0]["haut"] == 5.0 and "sort de la peau de 4,5 cm" in av_[0]["message"]
+    and 'class="msg grave"' in AP.avertissements(rtm, 0), [a_["message"] for a_ in av_])
+dp_sup = dalle_s5("predalle", treillis=True, cote="sup", renforts=((20,),))
+rps = POS.annoter(MO_P.verifier(POS.pour_moteur(dp_sup)), dp_sup)
+fo_e = [fo for v in rps["sections"][0]["verifications"] if v["cle"] == "sup_y" for fo in v["formules"]
+        if fo.get("cle") == "e" and fo.get("couche") == 1]
+chk("prédalle, chapeaux 3 Ø20 en sup. Y sur le treillis : 4,5 + 0,5 + 1,0 = 6,0 ; sa formule « e » prend les termes des fils X (e_p 4,5, "
+    "Ø_p 10, ⌈Ø_p/2⌉ 0,5) et dit « posée sur le treillis » (appui_sec) ; la pose aussi",
+    ax(dp_sup, "sup_y", 1) == 6.0 and len(fo_e) == 1 and fo_e[0].get("appui_sec") is True
+    and {x_["symbole"]: x_["valeur"] for x_ in fo_e[0]["termes"]}.get("e_p") == 4.5
+    and "· posée sur le treillis" in AP._formule(fo_e[0])["res"]
+    and "posée sur le treillis" in AP.pose_couche(dp_sup["sections"][0]["faces"]["sup_y"]["couches"][1], rps["sections"][0]["faces"]["sup_y"]["couches"][1]),
+    fo_e)
+# le dessin : le renfort Y au-dessus des fils X, sans les traverser ; les fils Y au contact des fils X
+rt12, sv12 = dessin(POS, DD, t12, MO_D)
+coupe12 = sv12.split("data-coupe=")[1]
+cy_r = [float(x) for x in re.findall(r'cy="([\d.]+)"', re.search(GROUPE.format("inf_y-1"), coupe12).group(1))]
+cy_b = [float(x) for x in re.findall(r'cy="([\d.]+)"', re.search(GROUPE.format("inf_y-0"), coupe12).group(1))]
+y_x = float(re.search(r'y1="([\d.]+)"', re.search(GROUPE.format("inf_x-0"), coupe12).group(1)).group(1))
+chk("coupe ⊥ Y : les fils Y (points, Ø10) touchent le trait des fils X (Ø10) — 10 mm d'axe à axe, en contact ; le renfort Y (Ø12, axe 60) "
+    "au-dessus du trait des fils X, sans le traverser (le bas de ses points 4 mm au-dessus du haut du trait : l'arrondi ⌈Ø/2⌉ du moteur) ; "
+    "la légende dit « R1 Y · 3 Ø12 · axe à 60 · sur le treillis » et « axes : Y à 35 · X à 45 »",
+    abs((min(cy_b) - y_x) - 10.0) < 0.06 and abs((y_x - 5.0) - (max(cy_r) + 6.0) - 4.0) < 0.06
+    and "R1 Y · 3 Ø12 · axe à 60 · sur le treillis" in sv12 and "axes : Y à 35 · X à 45" in sv12,
+    (cy_b[:1], y_x, cy_r[:1], re.findall(r"axes? [^<]+", sv12)))
+# le sens de la sécurité, mesuré par le moteur : la direction PRINCIPALE ne gagne jamais (son renfort monte) ; la secondaire
+# d'un treillis ne monte plus sur un renfort principal — elle gagne, c'est la géométrie réelle (chiffrée au § 8.6)
+
+
+def avant_dal5b(d):
+    """La dalle aux axes de la règle d'AVANT (le treillis lu comme des barres), imposés : ce que le site calculait."""
+    e = copy.deepcopy(d)
+    for f in EN_D.FACES:
+        for j, c in enumerate(e["sections"][0]["faces"][f]["couches"]):
+            if c["dist"] is None:
+                c["dist"] = POS.axe_auto(d, d["sections"][0], f, j, treillis_reel=False)
+    return e
+
+
+gain, perte, n_s = [], [], 0
+for x in EN_D.DIAMETRES:
+    for type_, cote in (("coulee", "inf"), ("coulee", "sup"), ("predalle", "sup")):
+        dd = dalle_s5(type_, cote=cote, renforts=((x,),), treillis=True)
+        M = POS.moteur(dd)
+        g_n = M.verifier(POS.pour_moteur(dd))["sections"][0]["grandeurs"]
+        g_a = M.verifier(POS.pour_moteur(avant_dal5b(dd)))["sections"][0]["grandeurs"]
+        n_s += 1
+        if g_n[f"As_req_{cote}_y"] < g_a[f"As_req_{cote}_y"] - 1e-9:
+            perte.append((type_, cote, x, g_a[f"As_req_{cote}_y"], g_n[f"As_req_{cote}_y"]))
+        if g_n[f"As_req_{cote}_x"] > g_a[f"As_req_{cote}_x"] + 1e-9:
+            gain.append((type_, cote, x, g_a[f"As_req_{cote}_x"], g_n[f"As_req_{cote}_x"]))
+chk(f"le sens de la sécurité ({n_s} cas : chaque Ø de renfort principal, dalle inf./sup., prédalle sup.) : A_s,req de la direction "
+    "PRINCIPALE ne baisse jamais (son renfort monte sur le treillis) ; celui de la secondaire ne monte jamais (ses fils ne sont plus "
+    "soulevés) — le changement chiffré du § 8.6",
+    not perte and not gain and n_s == 3 * len(EN_D.DIAMETRES), (perte[:3], gain[:3]))
+# le sélecteur de la base : un treillis candidat sur un treillis unique pose sa transposée sur l'autre direction, comme le choix
+cands_t = [c for c in POS.candidats_base(t12, 0, "inf_y", ("treillis",))]
+ecarts_t = []
+for c in cands_t:
+    e = copy.deepcopy(t12)
+    e["sections"][0]["faces"]["inf_y"]["couches"][0].update(type="treillis", treillis=c["treillis"])
+    e["sections"][0]["faces"]["inf_x"]["couches"][0].update(type="treillis", treillis=POS.NAP.transposee(c["treillis"]))
+    g_ = MO_D.verifier(POS.pour_moteur(e))["sections"][0]["grandeurs"]
+    if abs(c["yG"] - g_["yG_inf_y"]) > 1e-9 or c["statut_section"] != MO_D.verifier(POS.pour_moteur(e))["sections"][0]["statut"]:
+        ecarts_t.append((c["nom"], c["yG"], g_["yG_inf_y"]))
+chk(f"candidats_base sur un treillis unique ({len(cands_t)} treillis) : chaque candidat est calculé comme le choix le poserait (sa "
+    "transposée sur l'autre direction : la nappe reste un treillis, le renfort Y sur ses fils X) — y_G et statut identiques",
+    len(cands_t) == len(TR.liste_choix()) and not ecarts_t, ecarts_t[:3])
+# les mutations DAL5b (en mémoire)
+M12 = muter("dalle_positions.py", "        if j > 0 and soude and not peau:\n", "        if False:\n", "positions_m12")
+chk("mutation 12 — le renfort principal laissé à l'automatique du moteur (dans le plan des fils) : 4,0 au lieu de 6,0 → le contrôle de la "
+    "note neuve rougit", M12.axe_auto(t12, s12, "inf_y", 1) == 4.0 != 6.0)
+M13 = muter("dalle_positions.py", "    lit = [0] if treillis_reel and treillis(d, s, cote) else lit_contact(d, s, cote)\n",
+            "    lit = lit_contact(d, s, cote)\n", "positions_m13")
+chk("mutation 13 — S5 appliqué au treillis (les fils X soulevés par le renfort Y, à l'automatique du moteur) : 5,5 au lieu de 4,5 → le "
+    "contrôle de la note neuve rougit", M13.axe_auto(t12, s12, "inf_x", 0) == 5.5 != 4.5)
+M14 = muter("dalle_positions.py", "    if peau and not (j == 0 and soude):\n", "    if peau:\n", "positions_m14")
+chk("mutation 14 — la prédalle garde ses fils X sur la prédalle : 6,5 au lieu de 4,5 → le contrôle de la prédalle rougit",
+    M14.axe_auto(tp, sp, "inf_x", 0) == 6.5 != 4.5)
+M15 = muter("dalle_positions.py", '            autre.update({"type": "treillis", "treillis": NAP.transposee(cand["treillis"])})\n', "            pass\n",
+            "positions_m15")
+ec15 = [c["nom"] for c, c15 in zip(cands_t, M15.candidats_base(t12, 0, "inf_y", ("treillis",))) if abs(c["yG"] - c15["yG"]) > 1e-9]
+chk("mutation 15 — le sélecteur sans la transposée : un treillis candidat d'un autre Ø rend la nappe « incohérente » pendant l'essai "
+    "(S5, renfort dans le plan des fils) — ses y_G diffèrent du choix → le contrôle du sélecteur rougit", len(ec15) >= 5, ec15)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

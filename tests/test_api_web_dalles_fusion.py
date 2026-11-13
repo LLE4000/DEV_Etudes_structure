@@ -108,9 +108,15 @@ def lignes_moteur(r, M):
             for i, s in enumerate(r["sections"]) for v in s["verifications"]]
 
 
+BARRES_10 = {"type": "barres", "treillis": "10/10/100/100", "d": 10, "esp": 100, "n": 3, "dist": None}
+
+
 def note_predalle():
     """Une note de l'ANCIEN module Prédalles (clé « predalles », sans « type » ni « empilement »), chargée comme la note des
-    tests de l'écran : Mx = My = 30, sup 12 / 9, V 60, un renfort 3 Ø12 en inf. Y, et une section d'appui."""
+    tests de l'écran : Mx = My = 30, sup 12 / 9, V 60, un renfort 3 Ø12 en inf. Y, et une section d'appui — ses bases en
+    BARRES Ø10/100 (DAL5b, 13/11/2026 : un treillis unique a désormais ses fils soudés dans la peau, la règle du moteur
+    ne vaut plus que pour des barres ; Ø10/100 a le Ø et la section au mètre du treillis 10/10/100/100 de l'écran : les
+    chiffres de l'écran Streamlit restent ceux-ci — le treillis, lui : le § 5 bis)."""
     p = EN_P.nouvelle_predalle()
     s = p["sections"][0]
     s.update({"Mx_inf": 30.0, "My_inf": 30.0, "Mx_sup": 12.0, "My_sup": 9.0, "V": 60.0})
@@ -118,6 +124,9 @@ def note_predalle():
     b = EN_P.nouvelle_section("B")
     b.update({"Mx_sup": 22.0, "My_sup": 30.0, "V": 85.0})
     p["sections"].append(b)
+    for s_ in p["sections"]:
+        for f_ in EN.FACES:
+            s_["faces"][f_]["couches"][0] = dict(BARRES_10)
     return {"version": 1, "predalles": [dict(p, verrou=False)], "actif": 0}
 
 
@@ -126,9 +135,9 @@ print("=== 1. La note neuve, l'état fusionné, les clés du site ===")
 r0 = req(action="nouveau")
 e0 = r0["etat"]
 d0 = actif(e0)
-chk("une note neuve : version 3, UNE dalle « coulee », déverrouillée, la dalle de l'écran Streamlit, et plus de clé « empilement » "
-    "(décision du 09/11/2026 : plus d'option) ni d'avis",
-    r0["ok"] and e0["version"] == 3 == P.VERSION and len(e0["dalles"]) == 1 and d0["type"] == "coulee" and d0["verrou"] is False
+chk("une note neuve : version 4 (3 depuis le 09/11/2026, 4 depuis DAL5b, le 13/11/2026), UNE dalle « coulee », déverrouillée, la dalle "
+    "de l'écran Streamlit, et plus de clé « empilement » (décision du 09/11/2026 : plus d'option) ni d'avis",
+    r0["ok"] and e0["version"] == 4 == P.VERSION and len(e0["dalles"]) == 1 and d0["type"] == "coulee" and d0["verrou"] is False
     and "empilement" not in d0 and P.CLE_AVIS not in e0 and sans_site(d0) == EN.nouvelle_dalle() and avis(r0) is None,
     (e0.get("version"), {k: d0.get(k) for k in P.CLES_SITE}))
 chk("les clés du site sont nommées une fois par module et liées ici : dalle.CLES_SITE = dalle_positions.CLES_SITE, et la copie "
@@ -155,9 +164,9 @@ chk("le type se lit dans la rubrique 1 : deux segments SANS libellé, « Dalle p
 print("\n=== 2. Les trois formes d'état relues ; la note abîmée refusée ===")
 ra = req(action="calculer", etat={"version": 1, "dalles": [{"nom": "Ancienne", "h": 18}], "actif": 0})
 da = actif(ra["etat"])
-chk("{« dalles »} d'avant, sans type : relue coulée en place, version 3, ses nappes posées l'une sur l'autre comme toutes (la base "
+chk("{« dalles »} d'avant, sans type : relue coulée en place, version 4, ses nappes posées l'une sur l'autre comme toutes (la base "
     "inf. X sur la base Y : 3,5 + 0,5 + 0,5 = 4,5 cm), et l'avis d'ouverture le dit",
-    ra["ok"] and da["type"] == "coulee" and "empilement" not in da and da["h"] == 18 and ra["etat"]["version"] == 3
+    ra["ok"] and da["type"] == "coulee" and "empilement" not in da and da["h"] == 18 and ra["etat"]["version"] == 4
     and axe_inf_x(da) == 4.5 and avis(ra) == P.AVIS["note"], ra.get("erreur"))
 NP = note_predalle()
 NP["predalles"].append(dict(EN_P.nouvelle_predalle(), nom="Appui", h=24, h_pre=7.0))
@@ -248,11 +257,14 @@ print("\n=== 4. La peau, le complément lu, les refus géométriques ===")
 PR = saisir(e0, "type", "predalle")["etat"]
 PR = saisir(PR, "h", "22")["etat"]
 r75 = saisir(PR, "h_pre", "7,5")
-chk("h_pre 7,5 cm sur h = 22 : stockée ; le complément 14,5 cm est AFFICHÉ, jamais stocké (aucune clé de plus dans l'état) ; le moteur "
-    "prédalle pose la base secondaire à 8,0 et le renfort… à 8,5 comme l'ancien module",
+r75r = saisir(r75["etat"], "sections/0/faces/inf_y/couches/+", "1")
+chk("h_pre 7,5 cm sur h = 22 : stockée ; le complément 14,5 cm est AFFICHÉ, jamais stocké (aucune clé de plus dans l'état) ; le treillis "
+    "de la peau garde ses fils X soudés sur les fils Y (4,5 : DAL5b) et un renfort inf. Y se pose SUR la prédalle, à 7,5 + 1,0 = 8,5 "
+    "comme dans l'ancien module",
     actif(r75["etat"])["h_pre"] == 7.5 and '<span class="dl-ro">14,5 cm</span>' in r75["donnees"]
     and set(actif(r75["etat"])) == set(actif(PR)) and "coule" not in json.dumps(r75["etat"])
-    and MO_P.verifier(POS.pour_moteur(actif(r75["etat"])))["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 8.0)
+    and MO_P.verifier(POS.pour_moteur(actif(r75["etat"])))["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 4.5
+    and [c_["e"] for c_ in MO_P.verifier(POS.pour_moteur(actif(r75r["etat"])))["sections"][0]["faces"]["inf_y"]["couches"]] == [3.5, 8.5])
 r30 = saisir(r75["etat"], "h", "30")
 chk("h 30 cm : le complément suit (22,5 cm) et la borne haute de h_p aussi (15 cm) ; h 10 cm avec h_pre 7,5 : borne 9 cm",
     '<span class="dl-ro">22,5 cm</span>' in r30["donnees"] and 'data-chemin="h_pre" data-sorte="nombre" inputmode="decimal" value="7,5" data-min="3.0" data-max="15.0"' in r30["donnees"]
@@ -454,24 +466,61 @@ chk("seulement quand les chiffres changent : une note du 09/11 dont l'option ét
 # S5 : la même note cochée, avec un RENFORT PRINCIPAL plus haut que sa base (3 Ø25 en inf. Y) — sa base secondaire, que l'option posait
 # sur la base principale, repose désormais sur le renfort : ses chiffres changent, l'avis le dit ; un renfort principal Ø10, au même
 # dessus que la base treillis Ø10, ne change rien et ne dit rien
+# (DAL5b : S5 vaut pour des BARRES — un treillis unique pose ses renforts principaux sur lui, ses fils ne se soulèvent pas ;
+# la note cochée a donc ici sa nappe inférieure en barres Ø10/100, le Ø et la section du treillis 10/10/100/100)
 v2_s5, v2_s5_bas = copy.deepcopy(v2), copy.deepcopy(v2)
+for v_ in (v2_s5, v2_s5_bas):
+    for f_ in ("inf_x", "inf_y"):
+        v_["dalles"][0]["sections"][0]["faces"][f_]["couches"][0] = {"type": "barres", "treillis": "10/10/100/100", "d": 10, "esp": 100,
+                                                                     "n": 3, "dist": None}
 v2_s5["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"].append(dict(EN.nouvelle_couche(base=False), d=25))
 v2_s5_bas["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"].append(dict(EN.nouvelle_couche(base=False), d=10))
 r_v2s5 = req(action="calculer", etat=v2_s5)
-chk("S5 — une note d'avant cochée dont la base secondaire repose désormais sur un renfort principal plus haut (3 Ø25 en inf. Y : la base "
-    "inf. X 4,5 → 6,5) le dit à l'ouverture (S3 seul ne l'aurait pas vu : aucun renfort secondaire) ; un renfort principal Ø10 (même dessus "
-    "que la base) ne change rien et ne dit rien",
+chk("S5 — une note d'avant cochée (en barres Ø10/100) dont la base secondaire repose désormais sur un renfort principal plus haut (3 Ø25 "
+    "en inf. Y : la base inf. X 4,5 → 6,5) le dit à l'ouverture (S3 seul ne l'aurait pas vu : aucun renfort secondaire) ; un renfort "
+    "principal Ø10 (même dessus que la base) ne change rien et ne dit rien",
     avis(r_v2s5) == P.AVIS["note"] and P.chiffres_changes(actif(P.normaliser(v2_s5)), True)
     and not P.chiffres_changes(actif(P.normaliser(v2_s5_bas)), True) and avis(req(action="calculer", etat=v2_s5_bas)) is None
     and axe_inf_x(actif(r_v2s5["etat"])) == 6.5 and axe_inf_x(actif(P.normaliser(v2_s5_bas))) == 4.5,
     (avis(r_v2s5), axe_inf_x(actif(r_v2s5["etat"]))))
-pr_on = saisir(saisir(e0, "type", "predalle")["etat"], "sections/0/faces/sup_x/couches/0/treillis", "12/12/150/150")
+# DAL5b (13/11/2026) : une note 3 dont les chiffres changent avec le treillis posé tel qu'il est le dit une fois à l'ouverture
+v3_t = {"version": 3, "dalles": [dict(copy.deepcopy(sans_site(d0)), type="coulee", verrou=False)], "actif": 0,
+        "espacements": [100, 125, 150, 200, 250]}
+v3_t["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"].append(dict(EN.nouvelle_couche(base=False)))
+v3_seul = {"version": 3, "dalles": [dict(copy.deepcopy(sans_site(d0)), type="coulee", verrou=False)], "actif": 0}
+v3_b = copy.deepcopy(v3_t)
+for f_ in ("inf_x", "inf_y"):
+    v3_b["dalles"][0]["sections"][0]["faces"][f_]["couches"][0] = {"type": "barres", "treillis": "10/10/100/100", "d": 10, "esp": 100,
+                                                                    "n": 3, "dist": None}
+v3_p = {"version": 3, "dalles": [dict(sans_site(EN_P.nouvelle_predalle()), type="predalle", verrou=False)], "actif": 0}
+v3_saisi = copy.deepcopy(v3_t)
+v3_saisi["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] = 6.0     # déjà saisi sur le treillis : rien ne bouge
+r_v3t = req(action="calculer", etat=v3_t)
+chk("DAL5b — une note 3 en « Treillis + renforts » (le renfort Y passe de 4,0 à 6,0, sur le treillis ; les fils X de 5,5 à 4,5) le dit à "
+    "l'ouverture : l'avis « treillis », une fois ; une note 3 sans renfort (rien ne bouge), en barres (S5 inchangé) ou au renfort déjà "
+    "SAISI sur le treillis (6,0 ; saisi à 4,0, il soulevait les fils X : ceux-là bougent) ne le dit pas ; une prédalle 3 au treillis inférieur, oui (ses fils X descendent dans la peau) ; une note 4 jamais",
+    avis(r_v3t) == P.AVIS["treillis"] and "13/11/2026" in P.AVIS["treillis"] and r_v3t["etat"]["version"] == 4
+    and P.CLE_AVIS not in r_v3t["etat"] and avis(req(action="calculer", etat=r_v3t["etat"])) is None
+    and avis(req(action="calculer", etat=v3_seul)) is None and avis(req(action="calculer", etat=v3_b)) is None
+    and avis(req(action="calculer", etat=v3_saisi)) is None and avis(req(action="calculer", etat=v3_p)) == P.AVIS["treillis"]
+    and [c_["e"] for c_ in MO.verifier(POS.pour_moteur(actif(r_v3t["etat"])))["sections"][0]["faces"]["inf_y"]["couches"]] == [3.5, 6.0],
+    (avis(r_v3t), avis(req(action="calculer", etat=v3_p))))
+rv3p = req(action="calculer", etat=v3_p)
+chk("… et la prédalle le DESSINE : la légende commune dit les deux fils du treillis inférieur dans la peau (« axes : Y à 35 · X à 45 · dans la "
+    "prédalle ») ; plus de « croisement » ni de fils « sur la prédalle »",
+    "axes : Y à 35 · X à 45 · dans la prédalle" in rv3p["vues"][0]["svg"] and "sur la prédalle" not in rv3p["vues"][0]["svg"]
+    and "croisées" not in rv3p["resultat"], re.findall(r"axes? [^<]+", rv3p["vues"][0]["svg"]))
+pr_on = saisir(saisir(saisir(e0, "type", "predalle")["etat"], "sections/0/faces/sup_x/couches/0/treillis", "12/12/150/150")["etat"],
+               "sections/0/faces/inf_y/couches/+", "1")
+poses_on = re.findall(r'<svg class="pd-m pd-(\w+)"[^>]*>.*?</svg><span>([^<]+)', pr_on["donnees"])
 chk("prédalle, nappes empilées : la base SUPÉRIEURE secondaire est posée sur la principale — la pose le dit (« posée sur la base principale »), la "
-    "formule e aussi, et jamais « axe saisi » ; les inférieures gardent la règle du moteur (dans / sur la prédalle)",
+    "formule e aussi, et jamais « axe saisi » ; en bas, le treillis est DANS la peau, ses fils X soudés sur les fils Y (DAL5b : « posée sur la "
+    "base principale », pictogramme « dans la prédalle »), le renfort Y SUR la prédalle (la règle du moteur)",
     "posée sur la base principale (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)" in pr_on["donnees"]
     and "posée sur la base principale" in pr_on["volets"] and "axe saisi" not in pr_on["volets"] + pr_on["donnees"]
-    and "axe auto · dans la prédalle (c + ½ Ø)" in pr_on["donnees"] and "axe auto · sur la prédalle" in pr_on["donnees"],
-    re.findall(r"axe auto · [^<]+", pr_on["donnees"])[:6])
+    and poses_on[:3] == [("predalle", "axe auto · dans la prédalle (c + ½ Ø)"), ("sur_predalle", "axe auto · sur la prédalle (h"),
+                         ("predalle", "axe auto · posée sur la base principale (e")],
+    poses_on[:6])
 
 # ------------------------------------------------------------------ 8. les points d'ancrage des autres lots, branchés
 print("\n=== 8. Les points d'ancrage : nappes (FUS3), positions (FUS4), colonne compacte (FUS5) ===")
@@ -624,6 +673,8 @@ muter("la clé d'avant n'est plus relue sans effet (une note qui porte « empile
       lambda: all(req(action="calculer", etat={"version": 2, "dalles": [{"nom": "T", "empilement": v}]})["ok"] for v in (True, False)))
 muter("l'avis d'ouverture ne se dit plus", P, "chiffres_changes", lambda *a, **k: False,
       lambda: avis(req(action="calculer", etat={"version": 1, "dalles": [{"nom": "A"}]})) == P.AVIS["note"])
+muter("DAL5b oublié par l'avis (une note 3 dont le treillis change ne dit rien)", P, "chiffres_changes_treillis", lambda d: False,
+      lambda: avis(req(action="calculer", etat=v3_t)) == P.AVIS["treillis"])
 muter("S5 oublié par l'avis (une note cochée : seul un renfort secondaire change, comme avant S5)", P, "chiffres_changes",
       lambda d, deja=False: any(POS.empilee(d, s, f, j) and (j > 0 or not deja) for s in d["sections"] for f in EN.FACES
                                 for j in range(len(s["faces"][f]["couches"]))),

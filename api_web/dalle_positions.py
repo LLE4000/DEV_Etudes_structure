@@ -65,6 +65,30 @@ base à 4,4, le traversait sans rien dire, A_s,req 427,4 au lieu de 493,8 mm²).
   dessus de la secondaire) n'est pas du lit et rien ne le signale — l'axe saisi est celui qu'on a voulu (écrit dans
   docs/site/DALLES_FUSION.md § 4.3, révision S5).
 
+LE TREILLIS RÉEL (DAL5b, 13/11/2026 — le propriétaire : « un treillis soudé est constitué de deux directions de fils
+superposés et en contact ; le dessin doit respecter systématiquement cette géométrie » ; « les barres de renfort
+doivent être disposées directement au-dessus du treillis »). Quand une nappe est un treillis UNIQUE (``treillis`` : ses
+deux bases, l'une la transposée de l'autre — la règle de la rubrique Armatures, api_web/dalle_nappes.mode), ses deux
+directions de fils sont SOUDÉES l'une sur l'autre ; rien ne passe entre elles :
+  · les fils de la direction principale : l'automatique du moteur (inchangé) ;
+  · les fils de la direction secondaire : SUR eux, toujours — ``e_p + ⌈Ø_p/2⌉ + ⌈Ø/2⌉`` (la base principale seule, quel
+    que soit un renfort principal : S5 ne s'applique pas à un treillis, ses fils ne se soulèvent pas) — y compris dans la
+    PEAU d'une prédalle (la règle du moteur les posait SUR la prédalle, à h_p + ⌈Ø/2⌉ : impossible pour des fils soudés ;
+    cette part de la question 11 est tranchée par la phrase du propriétaire) ;
+  · un renfort de la direction secondaire : dans le plan de ses fils, posé sur les fils principaux — la même formule
+    (S3) ;
+  · un renfort de la direction PRINCIPALE : posé SUR le treillis, côté intérieur (au-dessus pour la nappe inférieure,
+    dessous pour la supérieure ; en convention du moteur, plus loin du parement), sur la couche secondaire la plus haute
+    de son lit de contact (``appui_treillis`` : les fils, ou un renfort secondaire plus épais qu'eux qui les dépasse) :
+    ``max(e_k + ⌈Ø_k/2⌉) + ⌈Ø/2⌉``, le max sur les couches secondaires k du lit ;
+  · prédalle, faces INFÉRIEURES : les renforts restent posés SUR la prédalle (la règle du moteur : ils sont mis en place
+    au chantier, au-dessus de la peau et donc du treillis).
+Sens de la sécurité : un renfort principal monte (son d baisse, A_s,req augmente) ; mais la nappe secondaire d'un
+treillis ne monte plus sur un renfort principal (S5), et les fils secondaires d'une prédalle descendent dans la peau :
+leur d AUGMENTE — c'est la géométrie réelle, chiffrée dans docs/site/DALLES_FUSION.md § 8.6. ``axe_auto(...,
+treillis_reel=False)`` rend la règle d'avant (le treillis lu comme des barres) : ce qui dit à l'ouverture d'une note
+d'avant que ses chiffres changent (api_web/dalle.chiffres_changes_treillis).
+
 EXEMPLE (dalle coulée, c = 3 cm, jeu 0, principale Y, bases Ø12 en Y et treillis 10/10/100/100 en X) :
   inf. Y (principale) : 3 + ⌈1,2/2⌉₀,₅ = 3 + 1,0 = 4,0 cm ;
   inf. X (secondaire) : 4,0 + 1,0 + ⌈1,0/2⌉₀,₅ = 4,0 + 1,0 + 0,5 = 5,5 cm ;
@@ -78,14 +102,28 @@ EXEMPLE (dalle coulée, c = 3 cm, jeu 0, principale Y, bases Ø12 en Y et treill
   Même dalle en PRÉDALLE (h_pre = 6 cm) : inf. Y 4,0 (dans la peau), inf. X 6 + 0,5 = 6,5 (sur la prédalle, règle du
   moteur), renfort inf. Y 6 + 1,0 = 7,0 et renfort inf. X 6 + 1,0 = 7,0 (règle du moteur) ; sup. Y 4,0, sup. X 5,5
   (empilées), un renfort 3 Ø16 en sup. X : 4,0 + 1,0 + 1,0 = 6,0 (S3).
+  DAL5b — un TREILLIS UNIQUE 10/10/100/100 sur les deux directions (la note neuve) : fils Y 3,5, fils X 3,5 + 0,5 + 0,5
+  = 4,5 ; un renfort 3 Ø12 en inf. Y : posé sur les fils X, 4,5 + 0,5 + 1,0 = 6,0 (avant : 4,0, dans le plan des fils Y,
+  et les fils X soulevés à 5,5 par lui) ; avec aussi un renfort 3 Ø12 en inf. X (dans le plan des fils X : 3,5 + 0,5 +
+  1,0 = 5,0, dessus 6,0), le renfort Y monte sur lui : 6,0 + 1,0 = 7,0. En prédalle : fils X 4,5 dans la peau (avant
+  6,5, sur la prédalle) ; le renfort inf. Y reste sur la prédalle, 7,0.
 
 API
 ---
-    axe_auto(d, s, f, j) -> float          l'axe automatique DU SITE (cm, depuis le parement) de la couche j de la face f
+    axe_auto(d, s, f, j, treillis_reel=True) -> float
+                                           l'axe automatique DU SITE (cm, depuis le parement) de la couche j de la face f
+                                           (treillis_reel=False : la règle d'avant DAL5b, le treillis lu comme des barres)
+    treillis(d, s, cote) -> bool           la nappe est un treillis unique (ses fils soudés : DAL5b)
     lit_contact(d, s, cote) -> [rangs]     les couches principales de la face (inf | sup) que la nappe secondaire croise
-    appui(d, s, cote) -> dict              celle sur laquelle elle repose : {couche, e, d, demi, dessus, lit}
+    appui(d, s, cote) -> dict              celle sur laquelle elle repose : {couche, e, d, demi, dessus, lit} (un treillis
+                                           unique : ses fils principaux, toujours)
+    appui_treillis(d, s, cote) -> dict     DAL5b : la couche SECONDAIRE sur laquelle reposent les renforts principaux d'un
+                                           treillis unique (ses fils, ou un renfort secondaire qui les dépasse), même forme
+    support(d, s, f, j) -> dict            ce qui porte une couche empilée : appui, ou appui_treillis (« sec » : vrai)
     nom_appui(d, s, cote, court) -> str    la même, en mots : « la base Y », « le renfort Y », « le renfort R2 Y » ;
                                            court (légendes) : « la base Y », « renfort Y »
+    nom_support(d, s, f, j, court) -> str  ce qui porte une couche empilée, en mots : nom_appui, ou « le treillis »,
+                                           « le renfort X », « le renfort R2 X » (court : « le treillis », « renfort X »)
     empilee(d, s, f, j) -> bool            la couche est-elle posée par le site sur la nappe principale (axe du site ≠ moteur)
     axes(d, s) -> {face: [axe effectif…]}  imposé, sinon l'automatique du site — pour le dessin et l'écran
     pour_moteur(d) -> dict                 la dalle telle que le moteur la lit : sans les clés du site, ``dist`` renseigné
@@ -110,6 +148,8 @@ from typing import Dict, List, Optional, Sequence
 from beton.dalle import entree as EN_D
 from beton.dalle import moteur as MO_D
 from beton.predalle import moteur as MO_P
+
+from . import dalle_nappes as NAP
 
 FACES = EN_D.FACES
 TYPES = ("coulee", "predalle")
@@ -150,17 +190,33 @@ def _demi(c: Dict) -> float:
 
 
 # ------------------------------------------------------------------ l'axe automatique du site
-def axe_auto(d: Dict, s: Dict, f: str, j: int) -> float:
+def treillis(d: Dict, s: Dict, cote: str) -> bool:
+    """La nappe ``cote`` (« inf » | « sup ») de la section ``s`` est-elle un treillis UNIQUE — ses deux bases, l'une la
+    transposée de l'autre (la règle de la rubrique Armatures : api_web/dalle_nappes.mode, une source) ? Ses deux
+    directions de fils sont alors soudées l'une sur l'autre (DAL5b, en tête du fichier)."""
+    return NAP.mode(s, cote, principale(d))["mode"] in ("treillis", "treillis_renforts")
+
+
+def axe_auto(d: Dict, s: Dict, f: str, j: int, treillis_reel: bool = True) -> float:
     """L'axe automatique DU SITE (cm, depuis le parement de la face) de la couche ``j`` de la face ``f`` de la section
     ``s`` — la règle et l'exemple chiffré sont en tête du fichier. Direction principale (base et renforts), face
     inférieure d'une prédalle : exactement ``distance_auto`` du moteur du type. Direction secondaire, sa base ET ses
     renforts (S3) : posée sur la nappe principale de la même face, sur la couche la plus haute de son lit de contact
-    (S5) — le dessus de cette couche (son axe effectif + ⌈Ø_p/2⌉) + ⌈Ø/2⌉."""
+    (S5) — le dessus de cette couche (son axe effectif + ⌈Ø_p/2⌉) + ⌈Ø/2⌉. Un TREILLIS UNIQUE (DAL5b) : ses fils
+    secondaires soudés sur ses fils principaux (une prédalle aussi, dans sa peau), un renfort principal posé sur le
+    treillis (``appui_treillis``), hors faces inférieures d'une prédalle. ``treillis_reel=False`` : la règle d'avant
+    DAL5b (le treillis lu comme des barres), pour dire qu'une note d'avant change."""
     c = s["faces"][f]["couches"][j]
     cote, dk = f.split("_")
-    if dk == principale(d) or (cote == "inf" and type_dalle(d) == "predalle"):
+    peau = cote == "inf" and type_dalle(d) == "predalle"          # les faces inférieures d'une prédalle : sa règle
+    soude = treillis_reel and treillis(d, s, cote)
+    if dk == principale(d):
+        if j > 0 and soude and not peau:
+            return appui_treillis(d, s, cote)["dessus"] + _demi(c)   # un renfort principal, posé sur le treillis
         return _auto_moteur(d, c, j, f)
-    return appui(d, s, cote)["dessus"] + _demi(c)
+    if peau and not (j == 0 and soude):
+        return _auto_moteur(d, c, j, f)
+    return appui(d, s, cote, treillis_reel)["dessus"] + _demi(c)
 
 
 def _couches_principales(d: Dict, s: Dict, cote: str) -> List[tuple]:
@@ -179,6 +235,13 @@ def lit_contact(d: Dict, s: Dict, cote: str) -> List[int]:
     chaque couche admise. Triés."""
     pts = _couches_principales(d, s, cote)
     auto = [c.get("dist") is None for c in s["faces"][f"{cote}_{principale(d)}"]["couches"]]
+    return _lit(pts, auto)
+
+
+def _lit(pts: List[tuple], auto: List[bool]) -> List[int]:
+    """Le LIT DE CONTACT d'une face (en tête du fichier), ``pts`` ses couches (rang, axe effectif, ⌈Ø/2⌉), base
+    d'abord, ``auto`` lesquelles sont automatiques : la base, toute couche automatique, puis toute couche dont le dessous
+    ne dépasse pas le dessus du lit, le dessus montant à chaque couche admise. Triés."""
     dans, reste = [pts[0]], pts[1:]
     dessus = pts[0][1] + pts[0][2]
     entre = True
@@ -193,18 +256,68 @@ def lit_contact(d: Dict, s: Dict, cote: str) -> List[int]:
     return sorted(p[0] for p in dans)
 
 
-def appui(d: Dict, s: Dict, cote: str) -> Dict:
+def _plus_haute(pts: Dict[int, tuple], lit: List[int], c_de) -> Dict:
+    """La couche du lit au plus grand dessus e + ⌈Ø/2⌉, la base (ou le premier rang) à égalité, à ``TOL_LIT`` près."""
+    haut = max(pts[j][1] + pts[j][2] for j in lit)
+    k = next(j for j in lit if pts[j][1] + pts[j][2] >= haut - TOL_LIT)
+    return {"couche": k, "e": pts[k][1], "d": MO_D.couche_diametre(c_de(k)), "demi": pts[k][2], "dessus": pts[k][1] + pts[k][2],
+            "lit": lit}
+
+
+def appui(d: Dict, s: Dict, cote: str, treillis_reel: bool = True) -> Dict:
     """La couche principale sur laquelle repose la nappe secondaire de la face ``cote`` (S5) : la plus HAUTE du lit de
     contact (le plus grand dessus e + ⌈Ø/2⌉), la base à égalité (à ``TOL_LIT`` près) — ``{"couche": rang, "e": axe
     effectif, "d": Ø (mm, Øl d'un treillis), "demi": ⌈Ø/2⌉, "dessus": e + ⌈Ø/2⌉, "lit": rangs du lit}``. Le dessus est
-    calculé de la couche retenue elle-même (axe + demi) : la base retenue rend, au flottant près, la formule d'avant S5."""
+    calculé de la couche retenue elle-même (axe + demi) : la base retenue rend, au flottant près, la formule d'avant S5.
+    Un TREILLIS UNIQUE (DAL5b ; ``treillis_reel=False`` : la règle d'avant) : ses fils principaux, toujours — les fils
+    secondaires y sont soudés, un renfort principal se pose sur le treillis, pas dessous."""
     pts = {p[0]: p for p in _couches_principales(d, s, cote)}
-    lit = lit_contact(d, s, cote)
-    haut = max(pts[j][1] + pts[j][2] for j in lit)
-    k = next(j for j in lit if pts[j][1] + pts[j][2] >= haut - TOL_LIT)
-    c = s["faces"][f"{cote}_{principale(d)}"]["couches"][k]
-    return {"couche": k, "e": pts[k][1], "d": MO_D.couche_diametre(c), "demi": pts[k][2], "dessus": pts[k][1] + pts[k][2],
-            "lit": lit}
+    lit = [0] if treillis_reel and treillis(d, s, cote) else lit_contact(d, s, cote)
+    return _plus_haute(pts, lit, lambda k: s["faces"][f"{cote}_{principale(d)}"]["couches"][k])
+
+
+def _secondaire(d: Dict) -> str:
+    return "x" if principale(d) == "y" else "y"
+
+
+def appui_treillis(d: Dict, s: Dict, cote: str) -> Dict:
+    """DAL5b — la couche SECONDAIRE d'un treillis unique sur laquelle reposent ses renforts principaux : la plus haute
+    du lit de contact de la face secondaire (``_lit`` : ses fils, toute couche automatique, une couche saisie qui les
+    touche) — ses fils, ou un renfort secondaire plus épais qui les dépasse. Même forme qu'``appui``, plus « face »
+    (la face secondaire). Les axes sont EFFECTIFS : saisis, sinon l'automatique du site (posé sur les fils principaux
+    seuls : aucune boucle)."""
+    f = f"{cote}_{_secondaire(d)}"
+    couches = s["faces"][f]["couches"]
+    liste = [(k, c["dist"] if c.get("dist") is not None else axe_auto(d, s, f, k), _demi(c)) for k, c in enumerate(couches)]
+    lit = _lit(liste, [c.get("dist") is None for c in couches])
+    return dict(_plus_haute({p[0]: p for p in liste}, lit, lambda k: couches[k]), face=f)
+
+
+def support(d: Dict, s: Dict, f: str, j: int) -> Dict:
+    """Ce qui porte la couche ``j`` de la face ``f`` quand le site l'empile : une couche secondaire repose sur la nappe
+    principale (``appui``) ; un renfort principal d'un treillis unique repose sur le treillis (``appui_treillis``,
+    DAL5b) — « sec » le dit."""
+    cote, dk = f.split("_")
+    if dk == principale(d):
+        return dict(appui_treillis(d, s, cote), sec=True)
+    return dict(appui(d, s, cote), sec=False)
+
+
+def nom_support(d: Dict, s: Dict, f: str, j: int, court: bool = False) -> str:
+    """``support`` en mots : celui d'une couche secondaire, ``nom_appui`` (« la base Y », « le renfort Y »…) ; celui d'un
+    renfort principal posé sur un treillis (DAL5b), « le treillis » (ses fils secondaires), « le renfort X » ou « le
+    renfort R2 X » (un renfort secondaire plus haut) — court (légendes) : « le treillis », « renfort X »."""
+    cote, dk = f.split("_")
+    if dk != principale(d):
+        return nom_appui(d, s, cote, court)
+    k = appui_treillis(d, s, cote)["couche"]
+    q = _secondaire(d).upper()
+    if k == 0:
+        return "le treillis"
+    if court:
+        return f"renfort {q}"
+    n = len(s["faces"][f"{cote}_{_secondaire(d)}"]["couches"]) - 1
+    return f"le renfort {q}" if n == 1 else f"le renfort R{k} {q}"
 
 
 def nom_appui(d: Dict, s: Dict, cote: str, court: bool = False) -> str:
@@ -278,12 +391,13 @@ def annoter(r: Dict, d: Dict) -> Dict:
     """Le résultat du moteur (``moteur(d).verifier(pour_moteur(d))``) relu avec la notion d'automatique DU SITE, en place :
     pour chaque couche, ``auto`` = l'axe est automatique dans l'ÉTAT (le moteur, lui, a reçu un axe imposé pour une base
     empilée), ``e_auto`` = l'automatique du site (ce que le champ vide affiche : « auto · 5,5 »), ``e_auto_moteur`` =
-    l'automatique du moteur (gardé), ``empilee`` = posée par le site sur la nappe principale ; une couche empilée reçoit
-    aussi ``appui`` (le rang de la couche principale qui la porte, S5), ``sur`` (la même en mots : ``nom_appui``, ce que
-    disent la formule et la pose) et ``sur_court`` (sa forme courte, ce que disent les légendes des coupes). Les formules
-    « e » d'une prédalle reçoivent ``auto``, ``empilee`` et, empilée, ``appui``,
-    ``sur`` et les termes ``e_p``, ``d_p``, ``demi_p`` (la couche principale qui porte : la base, ou le renfort plus
-    haut qu'elle, S5), ``d_s``, ``demi_s`` (la couche posée, base ou renfort de la direction secondaire ; le terme
+    l'automatique du moteur (gardé), ``empilee`` = posée par le site sur la nappe principale — ou, un renfort principal
+    d'un treillis unique, sur le treillis (DAL5b) ; une couche empilée reçoit aussi ``appui`` (le rang de la couche qui la
+    porte : principale, S5 ; secondaire pour un renfort posé sur le treillis, et alors ``appui_sec`` vrai), ``sur`` (la
+    même en mots : ``nom_support``, ce que disent la formule et la pose) et ``sur_court`` (sa forme courte, ce que disent
+    les légendes des coupes). Les formules « e » d'une prédalle reçoivent ``auto``, ``empilee`` et, empilée, ``appui``
+    (``appui_sec``), ``sur`` et les termes ``e_p``, ``d_p``, ``demi_p`` (la couche qui porte : la base, le renfort plus
+    haut qu'elle, S5, ou la couche secondaire du treillis, DAL5b), ``d_s``, ``demi_s`` (la couche posée ; le terme
     « saisi » du moteur reste : la formule se lit encore sans rien d'autre). Rend ``r``."""
     for s_d, s_r in zip(d.get("sections") or [], r["sections"]):
         for f in FACES:
@@ -293,9 +407,12 @@ def annoter(r: Dict, d: Dict) -> Dict:
                 c_r["auto"] = c_d.get("dist") is None
                 c_r["empilee"] = c_r["auto"] and c_r["e_auto"] != c_r["e_auto_moteur"]
                 if c_r["empilee"]:
-                    c_r["appui"] = appui(d, s_d, f.split("_")[0])["couche"]
-                    c_r["sur"] = nom_appui(d, s_d, f.split("_")[0])
-                    c_r["sur_court"] = nom_appui(d, s_d, f.split("_")[0], court=True)
+                    a = support(d, s_d, f, j)
+                    c_r["appui"] = a["couche"]
+                    c_r["sur"] = nom_support(d, s_d, f, j)
+                    c_r["sur_court"] = nom_support(d, s_d, f, j, court=True)
+                    if a["sec"]:
+                        c_r["appui_sec"] = True          # DAL5b : un renfort principal posé sur le treillis
         for v in s_r["verifications"]:
             if v["cle"] not in FACES:
                 continue
@@ -305,15 +422,49 @@ def annoter(r: Dict, d: Dict) -> Dict:
                 c_r = s_r["faces"][v["cle"]]["couches"][fo["couche"]]
                 fo["auto"], fo["empilee"] = c_r["auto"], c_r["empilee"]
                 if c_r["empilee"]:
-                    a = appui(d, s_d, v["cle"].split("_")[0])
+                    a = support(d, s_d, v["cle"], fo["couche"])
                     fo["appui"], fo["sur"] = c_r["appui"], c_r["sur"]
+                    if a["sec"]:
+                        fo["appui_sec"] = True
                     fo["termes"] = fo["termes"] + [
                         {"symbole": "e_p", "valeur": a["e"], "unite": "cm"},
                         {"symbole": "d_p", "valeur": a["d"], "unite": "mm"},
                         {"symbole": "demi_p", "valeur": a["demi"], "unite": "cm"},
                         {"symbole": "d_s", "valeur": c_r["d"], "unite": "mm"},
                         {"symbole": "demi_s", "valeur": _demi(s_d["faces"][v["cle"]]["couches"][fo["couche"]]), "unite": "cm"}]
+    if type_dalle(d) == "predalle":
+        _peau_treillis(r, d)
     return r
+
+
+def _peau_treillis(r: Dict, d: Dict) -> None:
+    """DAL5b, prédalle : un treillis unique de la nappe inférieure est DANS la peau, ses fils secondaires soudés sur les
+    principaux — leur pose devient « predalle » (le moteur, par le rang de la couche, la disait « sur_predalle » : le
+    pictogramme, l'aide et la légende diraient « sur la prédalle ») ; et si le dessus de ces fils (axe + Ø/2, comme
+    « base_hors_predalle » du moteur pour la base principale) sort de la peau, l'avertissement « treillis_hors_predalle »."""
+    p, q = principale(d), _secondaire(d)
+    h_pre = float(d.get("h_pre") or MO_P.H_PRE_SI_NUL)
+    for i, (s_d, s_r) in enumerate(zip(d.get("sections") or [], r["sections"])):
+        if not treillis(d, s_d, "inf"):
+            continue
+        c_r = s_r["faces"][f"inf_{q}"]["couches"][0]
+        if not c_r["auto"]:
+            continue
+        c_r["pose"] = "predalle"
+        haut = c_r["e"] + c_r["d"] / 20.0
+        if haut > h_pre + 1e-9:
+            r["avertissements"].append({
+                "code": "treillis_hors_predalle", "section": i, "face": f"inf_{q}", "e": c_r["e"], "d": c_r["d"], "haut": haut,
+                "h_pre": h_pre,
+                "message": f"{s_r['titre']} · nappe inférieure : le treillis est dans la prédalle, ses fils {q.upper()} soudés sur "
+                           f"les fils {p.upper()} (axe à {_fr(c_r['e'])} cm, Ø{c_r['d']:g}) ; le dessus des fils "
+                           f"{q.upper()} ({_fr(haut, 2)} cm) sort de la peau de {_fr(h_pre)} cm. Épaissir la prédalle "
+                           "ou choisir un treillis plus mince."})
+
+
+def _fr(x: float, nd: int = 1) -> str:
+    """Un nombre à la française pour un message (« 4,5 », « 5,02 ») — l'écriture des messages du moteur."""
+    return f"{x:.{nd}f}".replace(".", ",")
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
@@ -336,12 +487,19 @@ def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = 
     fams = tuple(x for x in (familles or MO_D.FAMILLES) if x in MO_D.FAMILLES) or MO_D.FAMILLES
     base = sections[i]["faces"][f]["couches"][0]
     out = []
+    cote, dk = f.split("_")
+    soude = treillis(d, sections[i], cote)
     for cand in MO._liste_candidats(fams):
         if espacements is not None and cand["type"] == "barres" and cand["esp"] not in espacements:
             continue
         essai = copy.deepcopy(d)
         c1 = essai["sections"][i]["faces"][f]["couches"][0]
         c1.update(cand)
+        if soude and cand["type"] == "treillis":
+            # (comme api_web/dalle.choisir_section : sur un treillis unique, un treillis choisi pose sa transposée sur
+            # l'autre direction — la nappe reste un treillis, ses fils soudés, DAL5b)
+            autre = essai["sections"][i]["faces"][f"{cote}_{'y' if dk == 'x' else 'x'}"]["couches"][0]
+            autre.update({"type": "treillis", "treillis": NAP.transposee(cand["treillis"])})
         s = MO.verifier(pour_moteur(essai))["sections"][i]
         g, geo = s["grandeurs"], s["faces"][f]["couches"][0]
         retenue = base["type"] == cand["type"] and (base["treillis"] == cand["treillis"] if cand["type"] == "treillis"

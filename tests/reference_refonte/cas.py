@@ -105,6 +105,11 @@ cas("dalle", "section ajoutée, dalle ajoutée", LIM, [neuf(), mod("sections/+",
 # (« Reprendre une note Streamlit » retirée le 13/11/2026 : le chemin d'hier est refusé comme tout champ inconnu)
 cas("dalle", "reprise Streamlit retirée : chemin refusé", LIM, [neuf(), mod("fichier_streamlit", {"nom": "abime.json", "texte": "{pas du json"})],
     {"message": True})
+# (DAL5b, 13/11/2026 : un treillis soudé posé tel qu'il est — ses fils en contact, le renfort principal SUR le treillis ; une
+#  prédalle garde son treillis inférieur DANS la peau, ses fils X soudés sur les fils Y)
+cas("dalle", "treillis + renfort principal 3 Ø16 posé sur le treillis (DAL5b)", REF,
+    _D_REAL + [mod("sections/0/faces/inf_y/couches/+", "1"), mod("sections/0/faces/inf_y/couches/1/d", "16")], {"niveau": "p"})
+cas("dalle", "prédalle 22 cm : le treillis inférieur dans la peau (DAL5b)", REF, _D_REAL + [mod("type", "predalle")], {"niveau": "p"})
 
 # ====================================================================== prédalle
 cas("predalle", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)

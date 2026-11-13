@@ -4407,8 +4407,8 @@ const principal = async () => {
       const a1 = await lireAvis(g);
       const m1 = await memoireN(g, 'ancienne-dalle');
       const sansCase = await g.evaluate(() => !document.querySelector('[data-chemin="empilement"]') && !/Nappes empilées/.test(document.getElementById('donnees').textContent));
-      verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 09/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 3, sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
-        a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 3 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
+      verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 09/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 4 (DAL5b, 13/11/2026), sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
+        a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 4 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
       await g.screenshot({ path: path.join(OUT, 'site_nappes_avis_pc.png') });
       verif('nappes · PC : le résultat se voit à l\'ouverture — l\'avis n\'y est pas répété dans le message de la page', !(await g.isVisible('#et-alerte')));
       await g.reload();
@@ -4505,12 +4505,13 @@ const principal = async () => {
         aT.vu && AVIS.test(aT.texte) && !aT.grave, JSON.stringify(aT));
       verif('nappes · téléphone : aucune erreur JavaScript', !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
       await ct.close();
-      // S5 (relecture du 09/11/2026) : un RENFORT PRINCIPAL 3 Ø20 en inf. Y, plus épais que la base (le treillis Ø10), posé dans
-      // son lit — la nappe X (sa base, son renfort S3) repose sur lui : ses traits passent AU-DESSUS des points du renfort Y, au
-      // contact, sans les traverser (avant S5 : la base X à 45 mm, 10 mm DANS le renfort) ; la légende dit « sur renfort Y » et
-      // TIENT dans sa colonne (« sur le renfort Y » débordait sur celle des supérieures : vu sur la première capture S5). Ce que
-      // l'œil voit : le bas du trait et le haut des points, lus à l'écran (matrice de l'écran du dessin), visibles ; le bout de la
-      // plus longue ligne des inférieures et le début de la colonne des supérieures, à l'écran.
+      // DAL5b (13/11/2026 ; avant : S5, la nappe X posée sur le renfort Y) : un RENFORT PRINCIPAL 3 Ø20 en inf. Y sur un TREILLIS
+      // unique — posé SUR le treillis, sur sa couche X la plus haute (le renfort S3 3 Ø12, axe 50, dessus 60 à l'arrondi ⌈Ø/2⌉ du
+      // moteur) : axe 70. Ses points passent AU-DESSUS des traits X sans les traverser — le bas des points 4 mm au-dessus du haut du
+      // trait du renfort X (l'arrondi), 10 mm au-dessus de celui des fils X ; les fils X restent soudés sur les fils Y (axe 45) ; la
+      // légende commune le dit (« R1 Y · 3 Ø20 · axe à 70 · sur renfort X ») et TIENT dans sa colonne. Ce que l'œil voit : le bas des
+      // points et le haut des traits, lus à l'écran (matrice de l'écran du dessin), visibles ; le bout de la plus longue ligne de la
+      // nappe inférieure et le début de la colonne de la supérieure, à l'écran.
       const mesureS5 = () => {
         const v = document.querySelector('#stage .view.on');
         const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -4518,19 +4519,21 @@ const principal = async () => {
         const trait = v && v.querySelector('[data-sel="s0.inf_x-0"] line');
         const renfX = v && v.querySelector('[data-sel="s0.inf_x-1"] line');
         if (!pts.length || !vis(trait) || !vis(renfX)) return { vu: false, pts: pts.length };
-        const bas = (l) => { const m = l.getScreenCTM(); return m.d * (l.y1.baseVal.value + parseFloat(l.getAttribute('stroke-width')) / 2) + m.f; };
+        const haut = (l) => { const m = l.getScreenCTM(); return m.d * (l.y1.baseVal.value - parseFloat(l.getAttribute('stroke-width')) / 2) + m.f; };
         const m = trait.getScreenCTM();
-        const haut = Math.min(...pts.map((c) => { const mc = c.getScreenCTM(); return mc.d * (c.cy.baseVal.value - c.r.baseVal.value) + mc.f; }));
+        const bas = Math.max(...pts.map((c) => { const mc = c.getScreenCTM(); return mc.d * (c.cy.baseVal.value + c.r.baseVal.value) + mc.f; }));
         // (DAL5 : la légende COMMUNE des deux coupes — chaque armature une fois, le treillis en une entrée et ses deux axes ensemble)
-        const leg = [...v.querySelectorAll('text')].filter((t) => (/^R\d X · .* · axe à \d+ · sur renfort Y$/.test(t.textContent) || /^axes : Y à \d+ · X à \d+$/.test(t.textContent)) && vis(t)).map((t) => t.textContent);
-        const champ = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_x/couches/0/dist"]');
+        const leg = [...v.querySelectorAll('text')].filter((t) => (/^R\d [XY] · .* · axe à \d+ · sur .+$/.test(t.textContent) || /^axes : Y à \d+ · X à \d+$/.test(t.textContent)) && vis(t)).map((t) => t.textContent);
+        const champ = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_y/couches/1/dist"]');
         // les deux colonnes de chaque légende : le début des supérieures, le bout de la plus longue ligne des inférieures (px)
         const textes = [...v.querySelectorAll('text')].filter(vis);
         const supG = Math.min(...textes.filter((t) => t.textContent === 'Nappe supérieure').map((t) => t.getBoundingClientRect().left));
         const infD = Math.max(...textes.filter((t) => /^(Treillis |R\d |[XY] · |axes : )/.test(t.textContent) && t.getBoundingClientRect().left < supG - 1).map((t) => t.getBoundingClientRect().right));
-        return { vu: true, pts: pts.length, ecart: (haut - bas(trait)) / m.d, ecartRenfX: (haut - bas(renfX)) / m.d, px_mm: m.d, leg, place: champ && champ.placeholder,
+        return { vu: true, pts: pts.length, ecartFils: (haut(trait) - bas) / m.d, ecartRenfX: (haut(renfX) - bas) / m.d, px_mm: m.d, leg, place: champ && champ.placeholder,
           jeu_legende_px: supG - infD };
       };
+      const legT = (x) => x.leg.length === 4 && x.leg.filter((l) => l === 'axes : Y à 35 · X à 45').length === 2
+        && x.leg.includes('R1 Y · 3 Ø20 · axe à 70 · sur renfort X') && x.leg.includes('R1 X · 3 Ø12 · axe à 50 · sur la base Y');
       if (!(await g.$eval('#donnees .sec[data-sec="arm"]', (x) => x.classList.contains('open')))) await g.click('#donnees .sec[data-sec="arm"] > .sechd');
       await g.waitForTimeout(150);
       await g.$eval('#donnees .et-add[data-chemin="sections/0/faces/inf_y/couches/+"]', (x) => x.click());
@@ -4541,9 +4544,8 @@ const principal = async () => {
       await g.waitForTimeout(250);
       const s5 = await g.evaluate(mesureS5);
       await g.screenshot({ path: path.join(OUT, 'site_nappes_s5_pc.png') });
-      verif('nappes · PC : S5 — un renfort principal 3 Ø20 en inf. Y : la base X (axe 55 mm) passe AU-DESSUS de ses points, au contact (le bas du trait au haut des points, à 0,3 mm près), le bas de son renfort S3 (3 Ø12, axe 60) 4 mm au-dessus ; avant S5, la base X 10 mm dedans ; la légende commune dit l\'axe des deux fils du treillis (« axes : Y à 35 · X à 55 ») et « sur renfort Y » du renfort X, une fois, et chaque ligne de la nappe inférieure s\'arrête avant la colonne de la supérieure ; le champ de la base X dit « auto · 5,5 »',
-        s5.vu && Math.abs(s5.ecart) < 0.3 && s5.ecartRenfX > 3.7 && s5.ecartRenfX < 4.3 && s5.leg.length === 3 && new Set(s5.leg).size === 3
-        && s5.leg.includes('axes : Y à 35 · X à 55') && s5.leg.includes('axes : Y à 35 · X à 45') && s5.leg.some((x) => /^R1 X · 3 Ø12 · axe à 60 · sur renfort Y$/.test(x)) && s5.place === 'auto · 5,5'
+      verif('nappes · PC : DAL5b — un renfort principal 3 Ø20 en inf. Y sur le treillis : ses points AU-DESSUS des traits X, sans les traverser (leur bas 4 mm au-dessus du haut du trait du renfort X, l\'arrondi ⌈Ø/2⌉, et 10 mm au-dessus de celui des fils X, restés à 45 mm, soudés) ; la légende commune dit « R1 Y · 3 Ø20 · axe à 70 · sur renfort X », « R1 X · 3 Ø12 · axe à 50 · sur la base Y » et les axes des deux treillis, une fois chacun, et chaque ligne de la nappe inférieure s\'arrête avant la colonne de la supérieure ; le champ du renfort Y dit « auto · 7 »',
+        s5.vu && s5.ecartRenfX > 3.7 && s5.ecartRenfX < 4.3 && s5.ecartFils > 9.7 && s5.ecartFils < 10.3 && legT(s5) && s5.place === 'auto · 7'
         && s5.jeu_legende_px > 0, JSON.stringify(s5));
       // au téléphone (R1 : le même dessin, la même note) — l'onglet Dessin
       const ct5 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
@@ -4558,10 +4560,10 @@ const principal = async () => {
       await t5.waitForTimeout(300);
       const s5T = await t5.evaluate(mesureS5);
       await t5.screenshot({ path: path.join(OUT, 'site_nappes_s5_tel.png') });
-      verif('nappes · téléphone : S5 — la même coupe, la base X au contact au-dessus du renfort Y Ø20 (à 0,3 mm près), le bas de son renfort 4 mm plus haut, la légende commune (les axes du treillis, « sur renfort Y » du renfort X), qui tient dans ses colonnes',
-        s5T.vu && Math.abs(s5T.ecart) < 0.3 && s5T.ecartRenfX > 3.7 && s5T.ecartRenfX < 4.3 && s5T.leg.length === 3 && new Set(s5T.leg).size === 3
+      verif('nappes · téléphone : DAL5b — la même coupe, le renfort Y Ø20 au-dessus des traits X (4 mm au-dessus du renfort X, 10 mm au-dessus des fils X), la légende commune, qui tient dans ses colonnes',
+        s5T.vu && s5T.ecartRenfX > 3.7 && s5T.ecartRenfX < 4.3 && s5T.ecartFils > 9.7 && s5T.ecartFils < 10.3 && legT(s5T)
         && s5T.jeu_legende_px > 0, JSON.stringify(s5T));
-      verif('nappes · téléphone (S5) : aucune erreur JavaScript', !t5.erreurs.length, t5.erreurs.join(' | ').slice(0, 300));
+      verif('nappes · téléphone (DAL5b) : aucune erreur JavaScript', !t5.erreurs.length, t5.erreurs.join(' | ').slice(0, 300));
       await ct5.close();
       verif('nappes : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
     } catch (x) {

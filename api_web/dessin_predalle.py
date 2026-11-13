@@ -176,9 +176,7 @@ def _pose_txt(c: Dict, principale: str = "", fil: bool = False) -> str:
         return f"sur la base {principale.upper()}" if principale else "sur la base principale"
     if not c.get("auto", True):
         return "axe saisi"
-    if c.get("empilee"):                                   # un fil empilé : aucune règle de la prédalle à dire
-        return ""
-    return POSES.get(c.get("pose"), "")
+    return POSES.get(c.get("pose"), "")       # (un fil soudé de la peau : « dans la prédalle », posé par annoter, DAL5b)
 
 
 # ------------------------------------------------------------------ la coupe

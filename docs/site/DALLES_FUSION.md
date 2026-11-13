@@ -487,6 +487,11 @@ rubrique 4 — Options, case « Nappes empilées : direction secondaire posée s
 Faux → `axe_auto` du site = celui du moteur, et le dessin montre les deux directions au même niveau (ce que le calcul
 fait vraiment : le dessin ne ment jamais).
 
+*Révision du 13/11/2026 (DAL5b, § 8.6)* : S5 et le lit de contact ne valent plus que pour des BARRES. Un treillis unique a ses
+fils secondaires soudés sur ses fils principaux (la base principale seule, aussi dans la peau d'une prédalle), et ses
+renforts principaux posés SUR le treillis (`appui_treillis`) — hors faces inférieures d'une prédalle, où ils restent sur
+la prédalle.
+
 ### 4.4 Le dessin
 
 Coupes (`dessin_dalle._coupe`, `dessin_predalle`) : barres coupées en points/cercles, barres parallèles en traits ;
@@ -776,3 +781,73 @@ quand c'est le même dans les deux coupes, les renforts gardant leurs annotation
 - Aucun calcul ne change : références de la dalle et de la prédalle regelées avec la raison (les nombres « disparus »
   sont des répétitions). Tests : les coupes se séparent par `data-coupe=` ; les légendes S3/S5 lues dans la légende
   commune ; la mutation 10 vise `dessin_dalle.pose_dalle`. Harnais (filtre « nappes ») : la légende S5 lue une fois.
+
+### 8.6 DAL5b — Le treillis posé tel qu'il est (changement de calcul, chiffré)
+
+La demande (point 4 et point 5) : « un treillis soudé est constitué de deux directions de fils superposés et en contact ;
+le dessin doit respecter systématiquement cette géométrie » ; « les barres de renfort doivent être disposées directement
+au-dessus du treillis » ; accepté le 13/11 (« Ok lot 5 », la proposition de `docs/site/CHARTE_ERGONOMIE.md` § 3).
+
+**La règle** (`dalle_positions.axe_auto`, en tête du fichier : « LE TREILLIS RÉEL ») — quand une nappe est un treillis
+UNIQUE (`treillis` : la règle de la rubrique Armatures, `dalle_nappes.mode`) :
+- ses fils secondaires sont SOUDÉS sur ses fils principaux : `e_p + ⌈Ø_p/2⌉ + ⌈Ø/2⌉`, la base principale seule — S5 ne
+  s'applique plus à un treillis (un renfort principal ne soulève pas des fils soudés) ; dans une prédalle aussi : le
+  treillis inférieur est DANS la peau (la règle du moteur posait ses fils secondaires SUR la prédalle) ;
+- un renfort secondaire : dans le plan de ses fils, posé sur les fils principaux (S3, inchangé) ;
+- un renfort PRINCIPAL : posé SUR le treillis, côté intérieur, sur la couche secondaire la plus haute de son lit de contact
+  (`appui_treillis` : les fils, ou un renfort secondaire qui les dépasse) ; aux faces inférieures d'une prédalle, il
+  reste SUR la prédalle (la règle du moteur : il est posé au chantier, au-dessus de la peau et donc du treillis) ;
+- des BARRES : rien ne change (S3, S5).
+
+**Ce que l'écran en dit** : la légende des coupes (« R1 Y · 3 Ø12 · axe à 60 · sur le treillis », « axes : Y à 35 · X à
+45 · dans la prédalle »), la pose et la formule « e » d'une prédalle (« posée sur le treillis », `appui_sec`), l'aide de
+l'axe et du renfort, l'aide du type ; le pictogramme des fils soudés d'une prédalle dit « dans la prédalle » ; un treillis
+dont les fils secondaires sortiraient de la peau (une prédalle mince) : l'avertissement grave « treillis_hors_predalle ».
+Le sélecteur de la base calcule un treillis candidat comme le choix le poserait (sa transposée sur l'autre direction).
+Une note 3 (d'avant) dont les chiffres changent le dit une fois à l'ouverture (l'avis « treillis », `VERSION = 4`,
+`chiffres_changes_treillis` : la règle d'avant se relit, `axe_auto(..., treillis_reel=False)`).
+
+**Mesures** (`dalle_positions` d'avant — eaa2150 — et d'après, sur le moteur ; c = 3 cm, jeu 0, C30/37, B500, γs 1,5 ;
+principale Y ; M_x,inf = 20, M_y,inf = 30 kN·m/m sauf indication) :
+
+| Cas | Face | Axes (cm) avant → après | d (cm) | A_s,req (mm²/m) |
+|---|---|---|---|---|
+| dalle 20, treillis 10/10/100/100, sans renfort | toutes | inchangés | — | — |
+| + renfort 3 Ø12 inf. Y | inf. Y | 3,5 · 4,0 → 3,5 · **6,0** | 16,35 → 15,75 | 612 → **635** (+ 3,8 %) |
+|  | inf. X | 5,5 → **4,5** | 14,50 → 15,50 | 460 → **430** (− 6,5 %) |
+| + renfort 3 Ø25 inf. Y (le cas S5) | inf. Y | 3,5 · 4,5 → 3,5 · **6,5** | 15,85 → 14,54 | 631 → **688** (+ 9,0 %) |
+|  | inf. X | 6,5 → **4,5** | 13,50 → 15,50 | 494 → **430** (− 12,9 %) |
+| + renfort secondaire 3 Ø12 inf. X seul | toutes | inchangés (S3) | — | — |
+| + renforts 3 Ø12 inf. Y et inf. X | inf. Y | 3,5 · 4,0 → 3,5 · **7,0** | 16,35 → 15,44 | 612 → **647** (+ 5,7 %) |
+|  | inf. X | 5,5 · 6,0 → **4,5 · 5,0** | 14,35 → 15,35 | 465 → **434** (− 6,7 %) |
+| chapeaux 3 Ø12 sup. Y (M_y,sup = 25) | sup. Y | 3,5 · 4,0 → 3,5 · **6,0** | 16,35 → 15,75 | 510 → **529** (+ 3,7 %) |
+|  | sup. X | 5,5 → **4,5** | 14,50 → 15,50 | 345 → **323** (− 6,4 %) |
+| dalle 25, treillis 8/8/150/150 + 5 Ø16 inf. Y (M_y = 45) | inf. Y | 3,5 · 4,0 → 3,5 · **6,0** | 21,12 → 19,62 | 710 → **764** (+ 7,6 %) |
+|  | inf. X | 5,5 → **4,5** | 19,50 → 20,50 | 427 → **407** (− 4,7 %) |
+| prédalle 22/6, treillis | inf. X | 6,5 → **4,5** (dans la peau) | 15,50 → 17,50 | 430 → **381** (− 11,4 %) |
+| prédalle + 3 Ø12 inf. Y | inf. Y | inchangé (sur la prédalle, 7,0) | — | — |
+|  | inf. X | 6,5 → **4,5** ; plus de « croisement_sur_predalle » | 15,50 → 17,50 | 430 → **381** |
+| prédalle + chapeaux 3 Ø12 sup. Y | sup. Y | 3,5 · 4,0 → 3,5 · **6,0** | 18,35 → 17,75 | 454 → **470** (+ 3,5 %) |
+| dalle 20, barres Ø12/150 + 3 Ø12 inf. Y | toutes | inchangés (des barres) | — | — |
+
+**Sens de la sécurité** : la direction PRINCIPALE d'un treillis renforcé perd du d (son renfort monte sur le treillis) :
+A_s,req augmente de 3,5 à 9 %. La direction SECONDAIRE ne monte plus sur un renfort principal (S5 la soulevait au travers
+de fils soudés, ce qui est impossible), et les fils secondaires d'une prédalle descendent dans la peau : A_s,req baisse de
+5 à 13 %. Ce n'est pas un relâchement : c'est la géométrie réelle du treillis, que la règle d'avant ne savait pas
+représenter ; elle est demandée par le propriétaire (point 4, « systématiquement »). Prouvé par le moteur dans
+`tests/test_api_web_dalle_positions.py` (h) : sur chaque Ø de renfort, dalle en bas et en haut, prédalle en haut, A_s,req
+de la principale ne baisse jamais et celui de la secondaire ne monte jamais ; et par quatre mutations (le renfort laissé
+dans le plan des fils, S5 rendu au treillis, les fils de la prédalle remis sur la prédalle, le sélecteur sans la
+transposée) qui font rougir leur contrôle.
+
+**Ce qui s'écarte de l'écran Streamlit** : une prédalle au treillis inférieur (ses fils secondaires étaient SUR la
+prédalle) — les tests de parité gardent des BARRES Ø10/100 (le Ø et la section du treillis 10/10/100/100), où la règle du
+moteur vaut toujours, et les chiffres de l'écran (573 et 645 mm²) restent les mêmes. La question 11 de l'ingénieur
+(« empiler les couches basses de la prédalle ») est tranchée pour le treillis ; pour des barres et pour les renforts posés
+sur la prédalle (ils s'y croisent : l'avertissement du moteur), elle reste ouverte.
+
+Tests : `test_api_web_dalle_positions` (h) — 14 contrôles dont 4 mutations, et (g) S5 passé sur des barres Ø10/100 (mêmes
+chiffres) ; `test_api_web_dalles_fusion` (l'avis « treillis » d'une note 3, la prédalle dessinée, la version 4) ;
+`test_note_dalle` (DAL5b de bout en bout : calcul, planche, légende, PDF) ; références : deux cas neufs gèlent la règle
+(« treillis + renfort principal 3 Ø16 posé sur le treillis », « prédalle 22 cm : le treillis inférieur dans la peau ») ;
+harnais (filtre « nappes ») : le renfort Ø20 dessiné au-dessus des traits X, sans les traverser.

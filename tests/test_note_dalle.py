@@ -120,8 +120,11 @@ CAS = {
         (S0 + ["My_sup"], 14), (S0 + ["V"], 30)),
     "Prédalle · peau de 4 cm, base Ø16 qui en sort": cas(
         (["type"], "predalle"), (["h_pre"], 4), (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 16), (S0 + ["My_inf"], 25)),
+    # (DAL5b : un treillis unique a ses fils X soudés DANS la peau — plus de croisement ; en barres, la base X reste SUR la
+    #  prédalle, la règle du moteur, et y croise le renfort Y)
     "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": cas(
-        (["type"], "predalle"), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 10)),
+        (["type"], "predalle"), (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 10), (F("inf_y") + [0, "esp"], 100),
+        (F("inf_x") + [0, "d"], 10), (F("inf_x") + [0, "esp"], 100), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 10)),
     "Prédalle · gros Ø en haut (renfort 4 Ø20 secondaire empilé)": cas(
         (["type"], "predalle"), (["h"], 25), (F("sup_x") + ["+"], 1), (F("sup_x") + [1, "n"], 4), (F("sup_x") + [1, "d"], 20),
         (S0 + ["Mx_sup"], 40), (S0 + ["My_sup"], 30), (S0 + ["My_inf"], 22)),
@@ -305,14 +308,19 @@ nom_s3 = "CSP · treillis + renforts, renfort secondaire empilé (S3)"
 d_s3 = CAS[nom_s3]["dalles"][0]
 sec, pl = planche(nom_s3)
 axes = [c["e"] for c in pl["R"]["dirs"]["x"]["geo_inf"]["couches"]]
-chk("S3 et S5 : la direction secondaire (inf. X) est comptée aux axes empilés du site — posée sur le renfort 3 Ø12 que « Treillis + "
-    "renforts » met sur la principale (axe 4,0, dessus 5,0, plus haut que le treillis Ø10 : S5) : sa base à 5,0 + 0,5 = 5,5, son renfort "
-    "(S3) à 5,0 + 1,0 = 6,0 cm (avant S5 : 4,5 et 5,0, au travers du renfort Y)",
-    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [5.5, 6.0], axes)
+axes_y = [c["e"] for c in pl["R"]["dirs"]["y"]["geo_inf"]["couches"]]
+chk("S3 et DAL5b : la planche compte les axes du site — les fils X du treillis soudés sur les fils Y (3,5 + 0,5 + 0,5 = 4,5), le renfort X "
+    "(S3) dans leur plan (3,5 + 0,5 + 1,0 = 5,0) ; le renfort Y que « Treillis + renforts » ajoute posé SUR le treillis, sur le renfort X "
+    "(6,0 + 1,0 = 7,0) — avant DAL5b : 5,5 et 6,0, la nappe X soulevée par le renfort Y resté dans le plan des fils Y (4,0)",
+    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [4.5, 5.0]
+    and axes_y == POS.axes(d_s3, d_s3["sections"][0])["inf_y"] == [3.5, 7.0], (axes, axes_y))
 # S5 de bout en bout : un renfort principal 3 Ø25 sous la nappe secondaire — le calcul, la planche, la coupe et le PDF disent la même
-# chose (la nappe X sur le renfort Y : axe 6,5, d = 13,5 cm), et pas la base seule (4,5 : d = 15,5)
-nom_s5 = "CSP · treillis + renfort principal 3 Ø25 (S5)"
-e_s5 = cas((S0 + ["nappes", "inf", "mode"], "treillis_renforts"), (F("inf_y") + [1, "d"], 25), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
+# chose (la nappe X sur le renfort Y : axe 6,5, d = 13,5 cm), et pas la base seule (4,5 : d = 15,5). DAL5b : S5 vaut pour des BARRES
+# (Ø10/100 : le Ø et la section du treillis 10/10/100/100) ; le treillis, lui, pose son renfort Y sur lui (plus bas, DAL5b de bout en bout)
+nom_s5 = "CSP · barres Ø10/100 + renfort principal 3 Ø25 (S5)"
+e_s5 = cas((S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 10), (F("inf_y") + [0, "esp"], 100),
+           (F("inf_x") + [0, "d"], 10), (F("inf_x") + [0, "esp"], 100), (F("inf_y") + ["+"], 1), (F("inf_y") + [1, "d"], 25),
+           (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
 
 
 def s5_bout_en_bout():
@@ -327,14 +335,13 @@ def s5_bout_en_bout():
         fh.write(N.pdf(e_s5, {"nom_projet": nom_s5}))
     pdf_ = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_, "s5.pdf"), "-"], capture_output=True, text=True).stdout
     shutil.rmtree(tmp_, ignore_errors=True)
-    leg_ = re.findall(r"axes : Y à \d+ · X à \d+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
+    leg_ = re.findall(r"X · Ø10/100 · axe à \d+ · sur [^<]+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
     e_ = r_["sections"][0]["faces"]["inf_x"]["couches"][0]["e"]
     passe = (e_ == 6.5 and g_["d_inf_x"] == 13.5 and round(g_["As_req_inf_x"]) == 494
              and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [6.5] and not ecarts_parite(e_s5)
              and rf"\res{{{ND.fn(13.5, 1)} \u{{cm}}}}" in txt_ and rf"\res{{494 \u{{mm}}^{{2}}}}" in txt_
              and rf"\res{{{ND.fn(15.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{430 \u{{mm}}^{{2}}}}" not in txt_
-             and leg_ == ["axes : Y à 35 · X à 65", "axes : Y à 35 · X à 45"]   # la légende commune (DAL5) : chaque treillis une
-                                                                             # fois, inf. puis sup. (sup. X : pas de renfort sup. Y)
+             and leg_ == ["X · Ø10/100 · axe à 65 · sur renfort Y"]          # la légende commune (DAL5) : une fois
              and "13,5 cm" in pdf_ and "494 mm" in pdf_)
     return passe, (e_, g_["d_inf_x"], round(g_["As_req_inf_x"], 1), leg_, txt_[:200])
 
@@ -342,7 +349,30 @@ def s5_bout_en_bout():
 passe5, lu5 = s5_bout_en_bout()
 chk("S5 de bout en bout (renfort principal 3 Ø25 en inf. Y, M_x,inf = 20) : le calcul pose la base inf. X sur le renfort (axe 6,5, d = 13,5 cm, "
     "A_s,req = 494 mm²) ; la planche compte la couche à 6,5 et écrit d = 13,5 cm et 494 mm² (et non 15,5 cm, 430 mm² de la base seule) ; "
-    "la légende commune des coupes dit « axes : Y à 35 · X à 65 » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
+    "la légende commune des coupes dit « X · Ø10/100 · axe à 65 · sur renfort Y » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
+# DAL5b de bout en bout : le même renfort 3 Ø25 sur un TREILLIS (la note neuve en « Treillis + renforts ») — posé SUR le treillis
+# (4,5 + 0,5 + 1,5 = 6,5), les fils X soudés restent à 4,5 : le calcul, la planche, la coupe et le PDF disent la même chose
+e_t5 = cas((S0 + ["nappes", "inf", "mode"], "treillis_renforts"), (F("inf_y") + [1, "d"], 25), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
+r_t5 = P._calculer(e_t5["dalles"][0])
+g_t5 = r_t5["sections"][0]["grandeurs"]
+secs_t5, pls_t5 = lire_planches(e_t5)
+v_t5 = next(v for v in secs_t5[0]["verifs"][1:5] if v["items"][0][1].endswith(" Y") and "inférieur" in v["items"][0][1])
+txt_t5 = "\n".join(str(it[2]) for it in v_t5["items"] if len(it) > 2) + "\n".join(str(it[1]) for it in v_t5["items"])
+tmp_t5 = tempfile.mkdtemp()
+with open(os.path.join(tmp_t5, "t5.pdf"), "wb") as fh:
+    fh.write(N.pdf(e_t5, {"nom_projet": "DAL5b"}))
+pdf_t5 = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_t5, "t5.pdf"), "-"], capture_output=True, text=True).stdout
+shutil.rmtree(tmp_t5, ignore_errors=True)
+sv_t5 = P.resultat(copy.deepcopy(e_t5))["vues"][0]["svg"]
+d_y5 = ND.fn(g_t5["d_inf_y"], 1)
+chk(f"DAL5b de bout en bout (3 Ø25 en inf. Y sur le treillis, M_y,inf = 30) : le calcul pose le renfort à 6,5 (sur les fils X, 4,5) — "
+    f"d_y = {d_y5} cm, A_s,req = {round(g_t5['As_req_inf_y'])} mm² ; d_x = 15,5 cm (les fils X ne montent plus) ; la planche compte les "
+    "couches Y à 3,5 et 6,5 ; la formule écrit d_y ; la légende dit « R1 Y · 3 Ø25 · axe à 65 · sur le treillis » ; pdftotext lit d_y",
+    [c["e"] for c in r_t5["sections"][0]["faces"]["inf_y"]["couches"]] == [3.5, 6.5] and r_t5["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 4.5
+    and g_t5["d_inf_x"] == 15.5 and [c["e"] for c in pls_t5[0]["R"]["dirs"]["y"]["geo_inf"]["couches"]] == [3.5, 6.5] and not ecarts_parite(e_t5)
+    and rf"\res{{{d_y5} \u{{cm}}}}" in txt_t5 and "R1 Y · 3 Ø25 · axe à 65 · sur le treillis" in sv_t5
+    and "axes : Y à 35 · X à 45" in sv_t5 and f"{d_y5} cm" in pdf_t5,
+    (g_t5["d_inf_y"], g_t5["As_req_inf_y"], re.findall(r"R1 Y[^<]+", sv_t5), txt_t5[:160]))
 
 
 def niveaux_coupe(sec, R_):

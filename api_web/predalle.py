@@ -493,7 +493,10 @@ def _picto_pose(pose: str) -> str:
 def sur_principale(x: Dict) -> str:
     """Sur quoi repose une couche (ou sa formule « e ») que le site a empilée, dans les mots de la prédalle : « la base
     principale » (comme avant S5), sinon ce que ``dalle_positions.annoter`` en dit (``sur`` : « le renfort Y », « le
-    renfort R2 Y ») — S5 : un renfort principal plus haut que la base porte la nappe secondaire."""
+    renfort R2 Y ») — S5 : un renfort principal plus haut que la base porte la nappe secondaire ; DAL5b : un renfort
+    principal posé sur un treillis unique (``appui_sec``) repose sur « le treillis » ou sur « le renfort X »."""
+    if x.get("appui_sec"):
+        return x.get("sur") or "le treillis"
     return "la base principale" if not x.get("appui") else (x.get("sur") or "la nappe principale")
 
 
@@ -874,7 +877,7 @@ def avertissements(r: Dict, i: Optional[int] = None) -> str:
         elif a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
         elif a["code"] != "d_utile_negatif":      # (d ≤ 0 : la ligne de la face le dit, en rouge — PC.comparaison)
-            out += C.message(C.esc(a["message"]), grave=a["code"] == "base_hors_predalle")
+            out += C.message(C.esc(a["message"]), grave=a["code"] in ("base_hors_predalle", "treillis_hors_predalle"))
     if confondues:
         s = r["sections"][i]
         faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)

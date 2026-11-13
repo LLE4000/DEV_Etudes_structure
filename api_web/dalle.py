@@ -62,8 +62,10 @@ from . import predalle as AP          # l'AIDE du type prédalle : ses textes, s
 MODULE = "dalle"
 PAGE = "dalle"
 # l'état fusionné (docs/site/DALLES_FUSION.md § 2.1) ; 3 depuis le 09/11/2026 : les nappes toujours posées l'une sur
-# l'autre, plus de clé « empilement » — une note d'une version plus petite est une note D'AVANT (voir CLE_AVIS)
-VERSION = 3
+# l'autre, plus de clé « empilement » — une note d'une version plus petite est une note D'AVANT (voir CLE_AVIS) ; 4 depuis
+# le 13/11/2026 (DAL5b, § 8.6) : un treillis soudé posé tel qu'il est (ses fils en contact, les renforts principaux sur
+# le treillis) — l'état ne change pas de forme, mais une note 3 dont les chiffres en changent reçoit l'avis « treillis »
+VERSION = 4
 
 # les TYPES de dalle : la clé de l'état et son libellé (les segments de la rubrique « 1 — Caractéristiques »)
 # (libellés courts, demande de l'ingénieur du 09/11/2026 : CSP = coulé sur place ; l'aide du champ le dit en entier)
@@ -102,6 +104,9 @@ CLE_AVIS = "avis_ouverture"
 AVIS = {
     "note": ("Note d'avant le 09/11/2026 : les nappes sont désormais posées l'une sur l'autre (la direction secondaire, "
              "base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
+    "treillis": ("Note d'avant le 13/11/2026 : un treillis soudé est désormais posé tel qu'il est — ses deux directions de "
+                 "fils soudées l'une sur l'autre (dans la peau d'une prédalle), les renforts de la direction principale "
+                 "posés sur le treillis ; A<sub>s,req</sub> peut différer de l'ancienne note."),
 }
 # Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant) : un nom de dalle
 # ou de section de plus de AP.NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
@@ -204,6 +209,15 @@ def chiffres_changes(d: Dict, deja_empilee: bool = False) -> bool:
                for s in d["sections"] for f in EN.FACES for j in range(len(s["faces"][f]["couches"])))
 
 
+def chiffres_changes_treillis(d: Dict) -> bool:
+    """Les chiffres d'une dalle relue (du site, normalisée) changent-ils avec le treillis posé tel qu'il est (DAL5b,
+    VERSION 4) ? Oui dès qu'une couche AUTOMATIQUE a un autre axe que par la règle d'avant (``POS.axe_auto(...,
+    treillis_reel=False)`` : le treillis lu comme des barres) — un renfort principal d'un treillis unique, des fils
+    secondaires qu'il soulevait, les fils secondaires d'une prédalle. Un axe saisi ne change pas."""
+    return any(c.get("dist") is None and POS.axe_auto(d, s, f, j) != POS.axe_auto(d, s, f, j, treillis_reel=False)
+               for s in d["sections"] for f in EN.FACES for j, c in enumerate(s["faces"][f]["couches"]))
+
+
 def _bool_relu(x, quoi: str, rang: int) -> bool:
     if not isinstance(x, bool):
         raise ValueError(f"dalle n° {rang + 1} : {quoi} vrai ou faux attendu")
@@ -241,8 +255,10 @@ def normaliser(etat: Dict) -> Dict:
     ``actif`` conservé, rien n'est perdu), et une note qui porte les DEUX clés est abîmée : refusée. Une note sans dalle
     est une note neuve ; une liste qui n'en est pas une est une note abîmée (refusée, jamais remplacée en silence par
     une note neuve). Les nappes sont posées l'une sur l'autre quelle que soit la note : la clé « empilement » d'avant
-    (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < VERSION) dont les
-    chiffres en changent (``chiffres_changes``) reçoit l'avis d'ouverture (CLE_AVIS, que ``resultat`` dit et retire). Un nom
+    (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < 3) dont les chiffres en
+    changent (``chiffres_changes``) reçoit l'avis d'ouverture « note » (CLE_AVIS, que ``resultat`` dit et retire) ; une note
+    3 dont les chiffres changent avec le treillis posé tel qu'il est (``chiffres_changes_treillis``, DAL5b), l'avis
+    « treillis ». Un nom
     de plus de AP.NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis le dit (CLE_NOMS) : la note s'ouvre."""
     if not isinstance(etat, dict):
         return nouvel_etat()
@@ -255,9 +271,12 @@ def normaliser(etat: Dict) -> Dict:
     if not isinstance(liste, list):
         raise ValueError(f"note illisible : « {cle} » doit être une liste (reçu {type(liste).__name__})")
     version = etat.get("version")
-    d_avant = not (isinstance(version, int) and not isinstance(version, bool) and version >= VERSION)
+    lue = version if isinstance(version, int) and not isinstance(version, bool) else 0
+    d_avant = lue < 3                     # d'avant les nappes posées l'une sur l'autre (09/11/2026) : l'avis « note »
+    d_avant_treillis = lue < VERSION      # d'avant le treillis posé tel qu'il est (13/11/2026) : l'avis « treillis »
     out = {"version": VERSION, "dalles": []}
     avis = False
+    avis_treillis = False
     coupes = []
     for i, d in enumerate(liste):
         if not isinstance(d, dict):
@@ -279,12 +298,15 @@ def normaliser(etat: Dict) -> Dict:
         except ValueError as e:
             raise ValueError(f"dalle « {d.get('nom', i + 1)} » : {e}") from None
         avis = avis or (d_avant and chiffres_changes(dd, d.get("empilement") is True))
+        avis_treillis = avis_treillis or (d_avant_treillis and chiffres_changes_treillis(dd))
     a = etat.get("actif", 0)
     a = a if isinstance(a, int) and not isinstance(a, bool) else 0
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
     out["espacements"] = espacements_relus(etat.get("espacements"))
     if avis:
-        out[CLE_AVIS] = "note"
+        out[CLE_AVIS] = "note"              # (il dit déjà que A_s,req peut différer : il couvre le treillis aussi)
+    elif avis_treillis:
+        out[CLE_AVIS] = "treillis"
     if coupes:
         out[CLE_NOMS] = coupes
     return out
@@ -625,13 +647,16 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
 LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p": "vue de dessus · barres X horizontales, Y verticales"}
 AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — direction principale : enrobage + ½ Ø arrondi au "
             "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale, sur "
-            "la plus haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son axe + ½ Ø_p + ½ Ø ; "
-            "une valeur saisie l'impose.")
+            "la plus haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son axe + ½ Ø_p + ½ Ø. "
+            "Un treillis soudé : ses fils de répartition soudés sur les porteurs, les renforts de la direction principale posés "
+            "sur le treillis. Une valeur saisie l'impose.")
 AIDE_TYPE = ("Dalle pleine : toute l'épaisseur est coulée sur place (moteur beton/dalle). Prédalle : la partie basse h_p est "
-             "préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres couches "
-             "inférieures sur la prédalle (moteur beton/predalle). Changer de type garde les sections, les armatures et les "
-             "positions saisies ; vers la prédalle, h_p prend 6 cm (borné à l'épaisseur).")
-AIDE_RENFORT = "Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base"
+             "préfabriquée, la base inférieure de la direction principale y est posée en fond de moule — un treillis soudé y est "
+             "en entier, ses deux directions de fils —, les autres couches inférieures sur la prédalle (moteur beton/predalle). "
+             "Changer de type garde les sections, les armatures et les positions saisies ; vers la prédalle, h_p prend 6 cm "
+             "(borné à l'épaisseur).")
+AIDE_RENFORT = ("Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base — sur un "
+                "treillis soudé, un renfort de la direction principale est posé sur le treillis")
 
 
 def _legendes(d: Dict) -> Dict[str, str]:
@@ -1170,7 +1195,10 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     i_o = next((k for k, c in enumerate(cands) if c["optimal"]), 0)
     i_c = next((k for k, c in enumerate(cands) if c["retenue"]), i_o)
     base = d["sections"][i]["faces"][face]["couches"][0]
-    pose = AP.POSES_TXT[MO_P.pose(face, 0, d["dir_principale"])] if predalle else ""
+    pose_k = MO_P.pose(face, 0, d["dir_principale"])
+    if predalle and pose_k == "sur_predalle" and POS.treillis(d, d["sections"][i], "inf"):
+        pose_k = "predalle"                # DAL5b : les fils secondaires d'un treillis unique, soudés, sont dans la peau
+    pose = AP.POSES_TXT[pose_k] if predalle else ""
 
     def prop(c):
         axe = ""

@@ -41,7 +41,8 @@ Le propriétaire donnera les pas ; ceux-ci sont la proposition de départ.
 ## 3. La position verticale des armatures — la proposition du 13/11/2026, acceptée (« Ok lot 5 »)
 
 1. Par défaut, des niveaux par RÈGLE (DAL5) : les fils d'un treillis en contact ; les renforts posés directement sur le
-   treillis (côté intérieur) ; la direction secondaire posée sur la principale.
+   treillis (côté intérieur) ; la direction secondaire posée sur la principale. **Fait (DAL5b, 13/11/2026)** : la règle et
+   ses chiffres, `docs/site/DALLES_FUSION.md` § 8.6.
 2. Pour changer un niveau : toucher la couche (dans le dessin ou dans « Armatures ») ; les flèches ▲▼ de son axe la
    montent ou la descendent de 0,5 cm ; le dessin et d suivent aussitôt ; « Annuler » défait ; ↺ rend le niveau par défaut.
    Une couche ne traverse ni une autre couche ni l'enrobage.
