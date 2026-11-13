@@ -811,9 +811,12 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   · un GABARIT DU BUREAU : dans les options du site, les options par défaut de chaque module (jeu de pose, pas
     d'arrondi, arrondi des longueurs…), que le responsable fixe ; chaque note peut changer une valeur au cas par cas
     (« pour cette dalle-là, pas de jeu ») — la proposition DAL7 (`MODELES_DIMENSIONNEMENT.md`) prend cette forme.
-  Encore ouvert : (1) l'arrondi d'une couche posée sur une autre (exemple chiffré envoyé), (2) la prédalle de 6 cm,
-  (4) les valeurs par défaut ; et la question de l'ingénieur au propriétaire : une seule rubrique ouverte à la fois
-  dans la colonne de gauche (proposé).
+  **Tranché ensuite (13/11/2026)** : (1) une couche posée sur une autre se calcule « façon A » — tout depuis le
+  béton, UN arrondi à la fin (c 3 + jeu 1 + Ø12 1,2 + Ø10/2 0,5 = 5,7 → 6,0 cm ; et non 5,0 + 0,6 + 0,5 = 6,1 → 7,0,
+  l'arrondi compté deux fois) ; (2) la prédalle de 6 cm garde c = 3 cm et le jeu de 1 cm — au dessin (position
+  réelle) Ø12 + Ø10 tiennent (dessus à 5,2 cm), seul l'axe de CALCUL dépasse (jeu compris) ; un avertissement plus
+  tard, peut-être ; (4) valeurs par défaut : jeu de pose 1 cm, ARRONDI 0,5 cm, 0 entre deux couches ; et une seule
+  rubrique ouverte à la fois dans la colonne de gauche, dans tous les modules.
 - **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
