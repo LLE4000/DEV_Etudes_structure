@@ -123,7 +123,8 @@ finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------- 3. les regels d'avant la garde, écrits
-HISTOIRE = {"poutre": ["98085c7", "50c37dd"], "dalle": ["b3ec83a"], "predalle": ["b3ec83a"]}
+# (« predalle » : sa photo est retirée avec l'écran de l'ancien module, le 13/11/2026 — ses cas passent par les dalles)
+HISTOIRE = {"poutre": ["98085c7", "50c37dd"], "dalle": ["b3ec83a"]}
 for cle, commits in HISTOIRE.items():
     with open(os.path.join(T.DOSSIER, f"{cle}.json"), encoding="utf-8") as f:
         regels = json.load(f).get("regels") or []

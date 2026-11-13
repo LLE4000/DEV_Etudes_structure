@@ -865,7 +865,7 @@ chk("DAL9 : MUTATION — « Nappe inférieure » remis au titre : la garde le vo
 # attribut data-nappe) ou le chemin technique d'un refus de requête mal formée ; les docstrings et les commentaires parlent
 # encore de nappes — ils ne s'affichent pas
 INTERNES9 = {'"nappes"', '"nappes_confondues"', "'nappes'", "'nappes_confondues'"}
-SOURCES9 = ("api_web/dalle.py", "api_web/predalle.py", "api_web/dalle_nappes.py", "api_web/dalle_positions.py",
+SOURCES9 = ("api_web/dalle.py", "api_web/dalle_predalle.py", "api_web/dalle_nappes.py", "api_web/dalle_positions.py",
             "api_web/dessin_dalle.py", "api_web/dessin_predalle.py", "api_web/plaque_compact.py", "api_web/note_dalle.py",
             "beton/dalle/moteur.py", "beton/predalle/moteur.py")
 

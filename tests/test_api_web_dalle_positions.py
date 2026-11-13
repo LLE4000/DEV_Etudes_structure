@@ -641,7 +641,8 @@ chk("annoter : la base et le renfort inf. X empilés portent appui = 1, « le re
     "base principale, non empilée, rien",
     [(c["appui"], c["sur"], c["sur_court"]) for c in cs25] == [(1, "le renfort Y", "renfort Y")] * 2 and "sur" not in r25["sections"][0]["faces"]["inf_y"]["couches"][0]
     and "sur" not in POS.annoter(MO_D.verifier(POS.pour_moteur(dalle())), dalle())["sections"][0]["faces"]["inf_y"]["couches"][0])
-from api_web import predalle as AP  # noqa: E402
+from api_web import dalle as P_D  # noqa: E402  (les formules de la fenêtre de calcul : celles de l'écran des dalles)
+from api_web import dalle_predalle as AP  # noqa: E402  (le type prédalle à l'affichage ; l'ancien écran est retiré)
 rps = POS.annoter(MO_P.verifier(POS.pour_moteur(dps)), dps)
 fe5 = [fo for v in rps["sections"][0]["verifications"] if v["cle"] == "sup_x" for fo in v["formules"] if fo["cle"] == "e"]
 gx5 = rps["sections"][0]["faces"]["sup_x"]["couches"][0]
@@ -649,9 +650,9 @@ chk("prédalle (renfort sup. Y Ø20) : la formule « e » de la base sup. X pren
     "s'écrit « 4 + 1 + 0,5 = 5,5 cm · posée sur le renfort Y » ; la pose dit « posée sur le renfort Y » ; une base porteuse garde « la base "
     "principale »",
     len(fe5) == 1 and {t["symbole"]: t["valeur"] for t in fe5[0]["termes"]} == {"saisi": 5.5, "e_p": 4.0, "d_p": 20.0, "demi_p": 1.0, "d_s": 10.0, "demi_s": 0.5}
-    and fe5[0]["sur"] == "le renfort Y" and AP._formule(fe5[0])["res"] == "5,5 cm · posée sur le renfort Y"
-    and AP._formule(fe5[0])["parts"] == ["e_1", "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", "4 + 1 + 0,5"] and "posée sur le renfort Y (e" in AP.pose_couche(dps["sections"][0]["faces"]["sup_x"]["couches"][0], gx5)
-    and "posée sur la base principale" in AP._formule(fe[0])["res"], (fe5, AP._formule(fe5[0]) if fe5 else None))
+    and fe5[0]["sur"] == "le renfort Y" and P_D._formule(fe5[0])["res"] == "5,5 cm · posée sur le renfort Y"
+    and P_D._formule(fe5[0])["parts"] == ["e_1", "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", "4 + 1 + 0,5"] and "posée sur le renfort Y (e" in AP.pose_couche(dps["sections"][0]["faces"]["sup_x"]["couches"][0], gx5)
+    and "posée sur la base principale" in P_D._formule(fe[0])["res"], (fe5, P_D._formule(fe5[0]) if fe5 else None))
 # le sélecteur : un candidat de la base secondaire repose sur le renfort principal ; un candidat de la base principale ne fait pas
 # descendre la secondaire sous le renfort, un plus gros la fait monter
 c5 = {c["nom"]: c for c in POS.candidats_base(d12, 0, "inf_x")}
@@ -786,7 +787,7 @@ chk("prédalle, chapeaux 3 Ø20 en sup. Y sur le treillis : 4,5 + 0,5 + 1,0 = 6,
     "Ø_p 10, ⌈Ø_p/2⌉ 0,5) et dit « posée sur le treillis » (appui_sec) ; la pose aussi",
     ax(dp_sup, "sup_y", 1) == 6.0 and len(fo_e) == 1 and fo_e[0].get("appui_sec") is True
     and {x_["symbole"]: x_["valeur"] for x_ in fo_e[0]["termes"]}.get("e_p") == 4.5
-    and "· posée sur le treillis" in AP._formule(fo_e[0])["res"]
+    and "· posée sur le treillis" in P_D._formule(fo_e[0])["res"]
     and "posée sur le treillis" in AP.pose_couche(dp_sup["sections"][0]["faces"]["sup_y"]["couches"][1], rps["sections"][0]["faces"]["sup_y"]["couches"][1]),
     fo_e)
 # le dessin : le renfort Y au-dessus des fils X, sans les traverser ; les fils Y au contact des fils X

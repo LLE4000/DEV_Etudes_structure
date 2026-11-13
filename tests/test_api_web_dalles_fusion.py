@@ -41,7 +41,7 @@ from api_web import dalle as P  # noqa: E402
 from api_web import dalle_nappes as NAP  # noqa: E402
 from api_web import dalle_positions as POS  # noqa: E402
 from api_web import dessin_dalle as DD  # noqa: E402
-from api_web import predalle as AP  # noqa: E402
+from api_web import dalle_predalle as AP  # noqa: E402  (le type prédalle à l'affichage ; l'ancien écran est retiré)
 from api_web import routeur as R  # noqa: E402
 from beton import treillis as TR  # noqa: E402
 from beton.dalle import entree as EN  # noqa: E402
@@ -181,20 +181,10 @@ chk("{« predalles »} de l'ancien module : chaque prédalle devient une dalle d
     and sans_site(rp["etat"]["dalles"][0]) == EN_P.normaliser(sans_site(NP["predalles"][0])) if rp["ok"] else False, rp.get("erreur"))
 
 
-def par_nom(rep):
-    return {(c, n): (niv, t) for c, n, niv, t in lignes(rep)}
-
-
-ecarts = []
-for k in (0, 1):
-    neuf_ = par_nom(req(action="calculer", etat=dict(copy.deepcopy(NP), actif=k)))
-    vieux_ = par_nom(json.loads(R.traiter(json.dumps(dict(module="predalle", action="calculer", etat=dict(copy.deepcopy(NP), actif=k))))))
-    ecarts.append({cle for cle in neuf_ if neuf_[cle] != vieux_.get(cle)})
-chk("… ses CHIFFRES sont ceux de l'ancien module Prédalles aux faces INFÉRIEURES (la règle du moteur : dans / sur la prédalle) et à "
-    "l'effort tranchant ; seule la nappe supérieure secondaire (X) et la hauteur qui en dépend diffèrent — le prix de la décision du "
-    "09/11/2026, dit par l'avis",
-    all(e_ <= {(c, n) for c in ("s0", "s1") for n in ("Supérieure X", "Hauteur")} for e_ in ecarts)
-    and any(("s0", "Supérieure X") in e_ or ("s1", "Supérieure X") in e_ for e_ in ecarts), ecarts)
+# (Jusqu'au 13/11/2026, ses chiffres étaient comparés à ceux de l'ancien module Prédalles, rejoué par le routeur : son écran,
+#  que plus aucune page n'ouvrait, est retiré — lot 2, rangement ; la comparaison avait servi à la fusion du 09/11/2026.
+#  Les prédalles se calculent désormais par l'écran des dalles seul, et les cas de référence le figent :
+#  tests/reference_refonte/cas.py, « prédalle · … ».)
 # (l'ancienne clé « empilement » est relue SANS EFFET, quelle que soit sa valeur : une note qui la porte n'est jamais refusée pour elle)
 tolerees = [req(action="calculer", etat={"version": 2, "dalles": [{"nom": "T", "empilement": v}], "actif": 0}) for v in (True, False, "oui", 3)]
 chk("une note d'avant qui porte « empilement » (vrai, faux, « oui », 3) se relit — jamais refusée pour cette clé, qui disparaît de "
@@ -297,10 +287,10 @@ m_d = MO.verifier({k: v for k, v in sans_site(dp1).items() if k != "h_pre"})
 chk("type predalle : chaque ligne du résultat — nom, couleur, taux — est celle de beton.predalle.moteur.verifier sur la copie que le site "
     "lui envoie (pour_moteur) ; le résumé aussi ; et ce N'EST PAS ce que dirait le moteur des dalles (base inf. secondaire à 6,5, sur la "
     "prédalle, et non 3,5)",
-    lignes(rep_p) == lignes_moteur(m_p, AP) and rep_p["resume"]["taux"] == C.pct(m_p["taux_max"])
-    and lignes_moteur(m_p, AP) != lignes_moteur(m_d, P)
+    lignes(rep_p) == lignes_moteur(m_p, P) and rep_p["resume"]["taux"] == C.pct(m_p["taux_max"])
+    and lignes_moteur(m_p, P) != lignes_moteur(m_d, P)
     and m_p["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 6.5 and m_d["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 3.5,
-    (lignes(rep_p)[:3], lignes_moteur(m_p, AP)[:3]))
+    (lignes(rep_p)[:3], lignes_moteur(m_p, P)[:3]))
 chk("… les chiffres de l'écran Streamlit prédalle (tests/test_api_web_predalle.py) : As,req 573 mm² (principale) et 645 mm² (secondaire)",
     round(m_p["sections"][0]["grandeurs"]["As_req_inf_y"]) == 573 and round(m_p["sections"][0]["grandeurs"]["As_req_inf_x"]) == 645
     and "573" in rep_p["volets"] and "645" in rep_p["volets"])
@@ -669,7 +659,7 @@ def muter(nom, module, attr, remplacant, controle):
 
 def ctl_moteur():
     r_ = req(action="calculer", etat=note_predalle())
-    return r_["ok"] and lignes(r_) == lignes_moteur(MO_P.verifier(POS.pour_moteur(actif(r_["etat"]))), AP)
+    return r_["ok"] and lignes(r_) == lignes_moteur(MO_P.verifier(POS.pour_moteur(actif(r_["etat"]))), P)
 
 
 muter("le moteur des dalles appelé quel que soit le type", P, "_MO", lambda d: MO, ctl_moteur)
@@ -732,7 +722,7 @@ muter("une prédalle dit ses bases supérieures confondues avec la phrase d'avan
       lambda d, r, i=None: AP.avertissements(r, i) if P.est_predalle(d) else P._avertissements(r, i), ctl_confondues)
 
 # ------------------------------------------------------------------ les NOMS trop longs d'une note relue (petits chantiers, 10/11/2026)
-# Avant : un nom de dalle ou de section de plus de AP.NOM_MAX (60) caractères faisait REFUSER toute l'ancienne note
+# Avant : un nom de dalle ou de section de plus de P.NOM_MAX (60) caractères faisait REFUSER toute l'ancienne note
 # (``_bornes_site``) — elle ne s'ouvrait plus. Désormais, à la relecture (note enregistrée, .stab, fichier Streamlit), le
 # nom est COUPÉ à la limite et un avis le dit une fois, à l'ouverture ; la SAISIE garde son refus clair.
 print("\n=== 10. Les noms de plus de 60 caractères d'une note relue : coupés, et l'avis le dit ===")
@@ -742,16 +732,16 @@ n_long = {"version": 3, "dalles": [dict(sans_site(d0), type="coulee", verrou=Fal
 r_long = req(action="calculer", etat=n_long)
 d_long = actif(r_long["etat"]) if r_long.get("ok") else {}
 chk(f"une note dont la dalle ({len(LONG_D)} caractères) et une section ({len(LONG_S)}) ont un nom trop long S'OUVRE : les noms coupés à "
-    f"{AP.NOM_MAX} caractères (rien d'autre ne change), l'état rendu ne porte pas la liste",
-    r_long.get("ok") and d_long["nom"] == LONG_D[:AP.NOM_MAX].rstrip() and d_long["sections"][0]["nom"] == LONG_S[:AP.NOM_MAX]
-    and len(d_long["nom"]) <= AP.NOM_MAX and P.CLE_NOMS not in r_long["etat"]
+    f"{P.NOM_MAX} caractères (rien d'autre ne change), l'état rendu ne porte pas la liste",
+    r_long.get("ok") and d_long["nom"] == LONG_D[:P.NOM_MAX].rstrip() and d_long["sections"][0]["nom"] == LONG_S[:P.NOM_MAX]
+    and len(d_long["nom"]) <= P.NOM_MAX and P.CLE_NOMS not in r_long["etat"]
     and d_long["sections"][0]["My_inf"] == sans_site(d0)["sections"][0]["My_inf"] and lignes(r_long) == lignes(req(action="calculer", etat=r_long["etat"])),
     r_long.get("erreur") or d_long.get("nom"))
 _av = r_long.get("avis") or []
 chk("… et l'avis le dit, en tête du résultat ET dans « avis » (le message de la page au téléphone) : la limite, chaque nom coupé et sa "
     "longueur d'origine — un avis (« msg »), pas une erreur",
-    len(_av) == 1 and f"coupé à {AP.NOM_MAX}" in _av[0] and f"({len(LONG_D)} caractères)" in _av[0] and f"({len(LONG_S)} caractères)" in _av[0]
-    and C.esc(LONG_D[:AP.NOM_MAX].rstrip()) in _av[0] and f'<div class="msg">{_av[0]}</div>' in r_long["resultat"], _av)
+    len(_av) == 1 and f"coupé à {P.NOM_MAX}" in _av[0] and f"({len(LONG_D)} caractères)" in _av[0] and f"({len(LONG_S)} caractères)" in _av[0]
+    and C.esc(LONG_D[:P.NOM_MAX].rstrip()) in _av[0] and f'<div class="msg">{_av[0]}</div>' in r_long["resultat"], _av)
 r_long2 = req(action="calculer", etat=r_long["etat"])
 chk("… UNE fois : la note rouverte telle qu'enregistrée ne le redit pas", "avis" not in r_long2 and "coupé à" not in r_long2["resultat"], r_long2.get("avis"))
 chk("la SAISIE garde son refus clair : un nom de 61 caractères est refusé, la dalle inchangée",
@@ -765,7 +755,7 @@ try:
 finally:
     ND.fichier = _fichier
 chk("la note PDF ne reçoit pas la liste des noms coupés (un avis de l'écran), mais les noms coupés",
-    P.CLE_NOMS not in _vu.get("etat", {P.CLE_NOMS: 1}) and actif(_vu["etat"])["nom"] == LONG_D[:AP.NOM_MAX].rstrip(), list(_vu.get("etat", {})))
+    P.CLE_NOMS not in _vu.get("etat", {P.CLE_NOMS: 1}) and actif(_vu["etat"])["nom"] == LONG_D[:P.NOM_MAX].rstrip(), list(_vu.get("etat", {})))
 muter("un nom trop long refuse de nouveau toute la note (rien n'est coupé)", P, "_couper_noms", lambda d: [],
       lambda: req(action="calculer", etat=n_long).get("ok") is True)
 muter("le nom est coupé sans le dire", P, "avis_noms", lambda c: "",

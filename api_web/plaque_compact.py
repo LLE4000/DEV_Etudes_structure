@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""L'établi compact des DALLES et des PRÉDALLES béton armé (api_web/dalle.py, api_web/predalle.py) : ce que les deux
+"""L'établi compact des DALLES et des PRÉDALLES béton armé (api_web/dalle.py, api_web/dalle_predalle.py) : ce que les deux
 écrans partagent — l'écran Streamlit prédalle est la copie adaptée de l'écran dalle, et leurs moteurs partagent les
 formules (beton/predalle s'appuie sur beton/dalle). Les fonctions sont aux MÊMES PLACES que celles de la poutre
 (api_web/etabli_compact.py ; docs/site/REFONTE_ETABLI.md) :
@@ -239,7 +239,7 @@ def etat_bloc(MO, rs: Dict) -> Tuple[str, str]:
 
 def niveau_element(MO, M, r: Dict) -> str:
     """Le niveau d'un élément calculé (la pastille de la note) : non conforme > données incomplètes (une section sans
-    effort) > le taux de sa vérification gouvernante. ``M`` : le module (api_web.dalle, api_web.predalle)."""
+    effort) > le taux de sa vérification gouvernante. ``M`` : le module (api_web.dalle)."""
     if r["statut"] == MO.NOK:
         return "r"
     if not r["sollicitee"]:
@@ -265,7 +265,7 @@ def valeur_hauteur(M, v: Dict) -> str:
     """La valeur de la ligne « Hauteur » de la colonne des résultats, la somme DÉTAILLÉE (DAL8 — le propriétaire,
     13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : « h_min = 12,6 + 3,5 =
     16,1 cm » — h_u,min (la part calculée) + y_G (l'enrobage mécanique), les termes de la formule « h_min » que le moteur
-    nomme, écrits comme la fenêtre de calcul (``M._n``, ``M._cm``). ``M`` : api_web.dalle ou api_web.predalle. Sans la
+    nomme, écrits comme la fenêtre de calcul (``M._n``, ``M._cm``). ``M`` : api_web.dalle. Sans la
     formule (un moteur qui ne la nommerait pas), la seule somme, comme avant."""
     N = C.NBSP
     f = next((f for f in v.get("formules", []) if f["cle"] == "h_min"), None)
@@ -291,7 +291,7 @@ def bloc(M, i: int, s: Dict, nom_element: str, hyps: List[str], gov: Optional[Tu
          pied_calcul: str = "", pied: str = "") -> Tuple[str, str]:
     """Le bloc d'UNE section (api_web/etabli_compact.bloc) : l'en-tête (son titre, son état, coloré), les efforts, les
     vérifications (deux lignes ; un clic ouvre le détail de la vérification, le bouton de l'en-tête tout le calcul de
-    la section), puis ``pied`` (les avertissements de la section). ``M`` : le module (api_web.dalle, api_web.predalle)
+    la section), puis ``pied`` (les avertissements de la section). ``M`` : le module (api_web.dalle)
     dont on lit les formules mises en mots ; ``gov`` : (section, vérification) qui gouverne la note, marquée. Rend
     (html, volets).
 

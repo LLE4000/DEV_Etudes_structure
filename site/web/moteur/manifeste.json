@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "b4441cbe42ec0d2eaac14b16c1e43e25e4f602b1a8e35032163b217f151ebf1e",
+ "sha256": "5d78698338f403e614aa5bd84be00a22c7b8f41c3929aac419dc84dac630794f",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -168,6 +168,7 @@
   "api_web/dalle.py",
   "api_web/dalle_nappes.py",
   "api_web/dalle_positions.py",
+  "api_web/dalle_predalle.py",
   "api_web/dessin_age.py",
   "api_web/dessin_biblio_enrobage.py",
   "api_web/dessin_biblio_hourdis.py",
@@ -203,7 +204,6 @@
   "api_web/plaque_compact.py",
   "api_web/poutre.py",
   "api_web/poutre_streamlit.py",
-  "api_web/predalle.py",
   "api_web/profil.py",
   "api_web/registre.py",
   "api_web/routeur.py",
@@ -361,5 +361,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "28fc18d9caacbfa9"
+ "version": "83d802db85d16ffa"
 }

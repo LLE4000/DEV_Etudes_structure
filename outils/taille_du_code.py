@@ -69,7 +69,7 @@ REGLES = (
     ("poutre", _R(r"^(beton/poutre/|api_web/(poutre|note_poutre|dessin_poutre|coupe_ba|poutre_streamlit)\.py$|"
                   r"modules/export_pdf\.py$|site/web/css/modules/poutre\.css$)")),
     ("dalle", _R(r"^(beton/(dalle|predalle)/|beton/treillis\.py$|api_web/(dalle|dalle_nappes|dalle_positions|dessin_dalle|"
-                 r"note_dalle|plaque_compact|predalle|dessin_predalle)\.py$|modules/export_pdf_dalle\.py$|"
+                 r"note_dalle|plaque_compact|dalle_predalle|dessin_predalle)\.py$|modules/export_pdf_dalle\.py$|"
                  r"site/web/css/modules/(dalle|predalle)\.css$)")),
     ("plancher", _R(r"^(plancher/|api_web/(plancher|dessin_plancher)\.py$|site/web/css/modules/plancher\.css$)")),
     ("fondation_grue", _R(r"^(beton/fondation_grue/|api_web/(fondation_grue|note_fondation_grue)\.py$|"

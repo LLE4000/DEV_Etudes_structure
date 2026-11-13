@@ -202,6 +202,15 @@ de `api_web/predalle.py`, réemployé comme AIDE du type prédalle (ses fonction
 - `js/notes.js` : le module « predalle » d'une note en mémoire ou d'un .stab est servi par la page `dalle` (table des
   alias) ; l'état est relu par `api_web/dalle.normaliser` (§ 2.1). Le module `predalle` du registre reste servi
   (anciens liens, harnais) tant que la redirection n'est pas prouvée.
+  **Retiré le 13/11/2026 (lot 2, rangement)** : la redirection prouvée (harnais « plaques »), l'écran de l'ancien
+  module (`api_web/predalle.py`) est supprimé — plus aucune page ne l'ouvrait, et il calculait les axes par la seule
+  règle de son moteur, sans la pose du site. Ses pièces encore employées sont dans `api_web/dalle.py` (la saisie de
+  la peau et de l'épaisseur totale ; la formule de l'axe d'une couche et la ligne du tableau qui dit d et la pose de
+  la base, dans `_formule` et `_ligne_tableau`) et dans `api_web/dalle_predalle.py` (l'affichage propre à la
+  prédalle : la pose des couches, la légende, ses avertissements, ses hypothèses, son périmètre). La page
+  `predalle.html` reste une redirection (`construire.REDIRECTIONS`, hors du registre) ; ses cas de référence passent
+  par l'écran des dalles (`tests/reference_refonte/cas.py`, « prédalle · … »), figés avant le retrait et identiques
+  après. 588 lignes de code en moins (`TAILLE_DU_CODE.md`).
 
 **Construit (FUS5, 09/11/2026)** :
 - `site/web/construire.py` : `REDIRECTIONS = {"predalle": "dalle"}` (la SEULE table d'alias ; `js/modules.js` la porte

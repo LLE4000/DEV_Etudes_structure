@@ -65,7 +65,8 @@ chk("le manifeste liste les fichiers du paquet", man["fichiers"] == noms)
 # numpy pèse une à deux secondes au démarrage : le travailleur ne le charge d'emblée que pour ces modules-là
 # (S4 : « avec_numpy » couvre aussi les BIBLIOTHÈQUES, sous « biblio_<k> » — la clé que le travailleur lit dans une
 # requête « consulter » ; mesuré : la Bibliothèque Acier charge numpy, celle du béton non)
-_CLES_NUMPY = set(SW.ADRESSES) | {SW.PREFIXE_BIBLIOTHEQUE + b for b in SW.BIBLIOTHEQUES}
+# (les ÉTABLIS : une redirection — l'ancien module Prédalles, son écran retiré le 13/11/2026 — n'a pas de module à relever)
+_CLES_NUMPY = set(SW.etablis()) | {SW.PREFIXE_BIBLIOTHEQUE + b for b in SW.BIBLIOTHEQUES}
 chk(f"le manifeste nomme les modules et les bibliothèques (biblio_<k>) qui chargent numpy, comme le relevé ({', '.join(RELEVE['avec_numpy'])})",
     man.get("avec_numpy") == RELEVE["avec_numpy"] and set(RELEVE["avec_numpy"]) < _CLES_NUMPY
     and "biblio_acier" in RELEVE["avec_numpy"] and "biblio_beton" not in RELEVE["avec_numpy"], (man.get("avec_numpy"), RELEVE["avec_numpy"]))
@@ -142,8 +143,8 @@ print(json.dumps(out))
         res = {"_": (False, p.stderr[-400:], None)}
 chk("déballé seul, le paquet calcule chaque module et rend chaque rubrique de chaque bibliothèque (le paquet porte ce que la "
     "Bibliothèque Acier lit : le catalogue, bibliotheques.json, le moteur du flambement…)", res and all(v[0] for v in res.values()), res)
-chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted(k for k in res if not k.startswith("@")) == sorted(SW.ADRESSES),
-    (list(res), list(SW.ADRESSES)))
+chk(f"chaque module du registre est dans le paquet ({len(SW.etablis())})", sorted(k for k in res if not k.startswith("@")) == sorted(SW.etablis()),
+    (list(res), SW.etablis()))
 chk("chaque rubrique de chaque bibliothèque du site a été rendue par le paquet seul",
     sorted(k for k in res if k.startswith("@")) == sorted(f"@{b}:{r}" for b, (c, _t, _f) in SW.BIBLIOTHEQUES.items()
                                                           for r in importlib.import_module(c).CLES), [k for k in res if k.startswith("@")])
@@ -1346,7 +1347,7 @@ sys.path.insert(0, RACINE)
 from api_web import routeur as RT  # noqa: E402
 
 fautes = []
-for mod in SW.ADRESSES:
+for mod in SW.etablis():
     out = json.loads(RT.traiter(json.dumps({"module": mod, "action": "nouveau"})))
     for k in ("resultat", "volets", "donnees", "elements", "statut_html"):
         if EN_LIGNE.search(out[k]):

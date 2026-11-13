@@ -110,18 +110,26 @@ cas("dalle", "reprise Streamlit retirée : chemin refusé", LIM, [neuf(), mod("f
 cas("dalle", "treillis + renfort principal 3 Ø16 posé sur le treillis (DAL5b)", REF,
     _D_REAL + [mod("sections/0/faces/inf_y/couches/+", "1"), mod("sections/0/faces/inf_y/couches/1/d", "16")], {"niveau": "p"})
 cas("dalle", "prédalle 22 cm : le treillis inférieur dans la peau (DAL5b)", REF, _D_REAL + [mod("type", "predalle")], {"niveau": "p"})
+# Les PRÉDALLES par l'écran des dalles (lot 2, 13/11/2026) : les cas de l'ancien module « predalle », rejoués là où l'écran
+# les calcule vraiment — le type « Prédalle » des dalles (l'ancien module calculait les axes par la seule règle de son
+# moteur, sans la pose du site : une règle que plus aucun écran ne montrait ; ses photos sont retirées avec lui). Base :
+# la prédalle neuve de l'ancien module, h = 22 cm, h_p = 6 cm.
+_P_NEUVE = [neuf(), mod("type", "predalle"), mod("h", "22")]
+_P_REAL = [neuf(), mod("type", "predalle"), mod("h", "24"), mod("sections/0/My_inf", "40"), mod("sections/0/Mx_inf", "15"),
+           mod("sections/0/V", "50")]
+cas("dalle", "prédalle · note neuve (h = 22, h_p = 6)", REF, _P_NEUVE)
+cas("dalle", "prédalle · 24 cm réaliste", REF, _P_REAL, {"niveau": "p"})
+cas("dalle", "prédalle · chargée près de 100 % (M_y = 43 kN·m/m)", REF, _P_NEUVE + [mod("sections/0/My_inf", "43")], {"taux": [95, 100]})
+cas("dalle", "prédalle · barres Ø12/150 en armature inférieure Y", REF, _P_REAL + [act("choisir", role="inf_y-0", nom="Ø12/150")])
+cas("dalle", "prédalle · plus épaisse que la dalle : refusée", LIM, _P_NEUVE + [mod("h_pre", "21")], {"message": True})
+cas("dalle", "prédalle · dalle de 6 cm refusée", LIM, _P_NEUVE + [mod("h", "6")], {"message": True})
+cas("dalle", "prédalle · distance vidée : automatique", LIM, _P_NEUVE + [mod("sections/0/faces/sup_x/couches/0/dist", "")],
+    {"sans_message": True})
+cas("dalle", "prédalle · couche de la prédalle déplacée (dist = 8 cm)", LIM, _P_NEUVE + [mod("sections/0/faces/inf_x/couches/0/dist", "8")])
+cas("dalle", "prédalle · une dalle ajoutée", LIM, _P_NEUVE + [act("ajouter"), mod("sections/0/My_inf", "30")], {"elements": 2})
 
-# ====================================================================== prédalle
-cas("predalle", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-_PR_REAL = [neuf(), mod("h", "24"), mod("sections/0/My_inf", "40"), mod("sections/0/Mx_inf", "15"), mod("sections/0/V", "50")]
-cas("predalle", "prédalle 24 cm réaliste", REF, _PR_REAL, {"niveau": "p"})
-cas("predalle", "chargée près de 100 % (M_y = 43,5 kN·m/m)", REF, [neuf(), mod("sections/0/My_inf", "43,5")], {"taux": [95, 100]})
-cas("predalle", "barres Ø12/150 en nappe inférieure Y", REF, _PR_REAL + [act("choisir", role="inf_y-0", nom="Ø12/150")])
-cas("predalle", "prédalle plus épaisse que la dalle refusée", LIM, [neuf(), mod("h_pre", "21")], {"message": True})
-cas("predalle", "dalle de 6 cm refusée", LIM, [neuf(), mod("h", "6")], {"message": True})
-cas("predalle", "distance vidée : automatique", LIM, [neuf(), mod("sections/0/faces/sup_x/couches/0/dist", "")], {"sans_message": True})
-cas("predalle", "nappe de la prédalle déplacée (dist = 8 cm)", LIM, [neuf(), mod("sections/0/faces/inf_x/couches/0/dist", "8")])
-cas("predalle", "prédalle ajoutée", LIM, [neuf(), act("ajouter"), mod("sections/0/My_inf", "30")], {"elements": 2})
+# (prédalle : l'ancien module « predalle », son écran retiré le 13/11/2026 — ses cas passent par l'écran des dalles,
+#  type « Prédalle », ci-dessus)
 
 # ====================================================================== garde-corps
 cas("garde_corps", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)

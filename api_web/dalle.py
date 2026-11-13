@@ -13,8 +13,10 @@ DEUX MOTEURS, INCHANGÉS, et le site choisit lequel appeler selon ``d["type"]`` 
 - « coulee » : ``beton/dalle`` (extrait de l'écran Streamlit modules/dalle.py v2.2 — tests/test_dalle_moteur.py) ;
 - « predalle » : ``beton/predalle`` (modules/predalle.py v1.1 — tests/test_predalle_moteur.py) ; la partie basse de la
   dalle (la peau, ``h_pre``) est préfabriquée, la base inférieure principale y est posée en fond de moule.
-Ce qui est propre au type prédalle (ses textes, sa pose, ses avertissements, son périmètre, ses formules d'axe mises en
-mots) vient de ``api_web/predalle.py``, réemployé comme AIDE (``AP``), jamais recopié ; ce qui est propre aux positions
+Ce qui est propre au type prédalle À L'AFFICHAGE (la pose de chaque couche, la légende des dessins, ses avertissements,
+ses hypothèses, son périmètre) est dans ``api_web/dalle_predalle.py`` (``AP``) — l'écran de l'ancien module Prédalles,
+que plus aucune page n'ouvrait, est retiré le 13/11/2026 (lot 2) ; sa saisie (la peau, l'épaisseur totale) est ici,
+avec les autres saisies ; ce qui est propre aux positions
 des couches vient de ``api_web/dalle_positions.py`` (``POS`` : l'axe automatique du site, la copie envoyée au moteur) et
 ce qui est propre aux NAPPES de ``api_web/dalle_nappes.py`` (``NAP``). Ce fichier MET EN FORME : il ne calcule rien.
 
@@ -38,7 +40,7 @@ Ce que le site fait de plus que les écrans Streamlit, sans changer un chiffre :
 - la reprise d'un fichier de l'écran Streamlit — « dalle_ba.json » OU celui de l'écran prédalle, le type déduit du
   fichier — avec ce que l'écran y remplaçait en silence ;
 - un verdict qui, dans une dalle non conforme, nomme une vérification NON conforme (gouvernante()) ;
-- des bornes contre l'absurde, que l'écran n'a pas (SOLLICITATION_MAX, EN.H_MAX pour les longueurs saisies, AP.NOM_MAX).
+- des bornes contre l'absurde, que l'écran n'a pas (SOLLICITATION_MAX, EN.H_MAX pour les longueurs saisies, NOM_MAX).
 """
 import copy
 import sys
@@ -57,7 +59,7 @@ from . import dessin_dalle as DD
 from . import dessin_predalle as DP
 from . import etabli_compact as E
 from . import plaque_compact as PC
-from . import predalle as AP          # l'AIDE du type prédalle : ses textes, sa pose, ses avertissements (réemployés)
+from . import dalle_predalle as AP    # le type prédalle à l'affichage : la pose des couches, ses avertissements, ses textes
 
 MODULE = "dalle"
 PAGE = "dalle"
@@ -109,10 +111,10 @@ AVIS = {
                  "posés sur le treillis ; A<sub>s,req</sub> peut différer de l'ancienne note."),
 }
 # Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant) : un nom de dalle
-# ou de section de plus de AP.NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
+# ou de section de plus de NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
 # note ne s'ouvrait plus. Il est désormais COUPÉ à la limite, et l'avis le dit une fois, à l'ouverture (comme CLE_AVIS :
 # ``normaliser`` pose la liste sous CLE_NOMS, ``resultat`` la dit et la retire).
-# La SAISIE garde son refus clair (AP.nom_saisi) : un nom ne s'allonge jamais au-delà à l'écran.
+# La SAISIE garde son refus clair (nom_saisi) : un nom ne s'allonge jamais au-delà à l'écran.
 CLE_NOMS = "noms_coupes"
 
 # des requêtes de plus pour le parcours (api_web/parcours.py) : les champs que le parcours automatique n'essaie pas —
@@ -165,9 +167,10 @@ def _MO(d: Dict):
 
 
 def _M(d: Dict):
-    """Le module dont api_web/plaque_compact.py lit les formules mises en mots : l'aide prédalle (ses formules d'axe,
-    sa pose sur la ligne du tableau) pour une prédalle, ce module-ci sinon."""
-    return AP if est_predalle(d) else _MOI
+    """Le module dont api_web/plaque_compact.py lit les formules mises en mots : ce module-ci, pour les deux types (lot 2,
+    13/11/2026 : l'ancien écran Prédalles prêtait les siens à une prédalle ; ses deux différences — la formule de l'axe
+    d'une couche, la ligne du tableau qui dit d et la pose de la base — sont ici, dans ``_formule`` et ``_ligne_tableau``)."""
+    return _MOI
 
 
 def _sans_site(d: Dict) -> Dict:
@@ -225,17 +228,17 @@ def _bool_relu(x, quoi: str, rang: int) -> bool:
 
 
 def _couper_noms(d: Dict) -> List[str]:
-    """Coupe à AP.NOM_MAX caractères le nom d'une dalle relue et ceux de ses sections ; rend ce qui a été coupé, en mots
+    """Coupe à NOM_MAX caractères le nom d'une dalle relue et ceux de ses sections ; rend ce qui a été coupé, en mots
     (HTML échappé) — une liste vide si rien ne l'est."""
     coupes = []
-    if isinstance(d.get("nom"), str) and len(d["nom"]) > AP.NOM_MAX:
+    if isinstance(d.get("nom"), str) and len(d["nom"]) > NOM_MAX:
         n = len(d["nom"])
-        d["nom"] = d["nom"][:AP.NOM_MAX].rstrip()
+        d["nom"] = d["nom"][:NOM_MAX].rstrip()
         coupes.append(f"la dalle « {C.esc(d['nom'])}… » ({n} caractères)")
     for s in d.get("sections", []):
-        if isinstance(s.get("nom"), str) and len(s["nom"]) > AP.NOM_MAX:
+        if isinstance(s.get("nom"), str) and len(s["nom"]) > NOM_MAX:
             n = len(s["nom"])
-            s["nom"] = s["nom"][:AP.NOM_MAX].rstrip()
+            s["nom"] = s["nom"][:NOM_MAX].rstrip()
             coupes.append(f"la section « {C.esc(s['nom'])}… » de « {C.esc(d.get('nom') or 'Dalle')} » ({n} caractères)")
     return coupes
 
@@ -244,7 +247,7 @@ def avis_noms(coupes: Sequence[str]) -> str:
     """L'avis des noms coupés à la relecture (CLE_NOMS), ou « » s'il n'y en a pas."""
     if not coupes:
         return ""
-    return (f"Nom de plus de {AP.NOM_MAX} caractères, coupé à {AP.NOM_MAX} à l'ouverture (la limite du site ; une saisie plus "
+    return (f"Nom de plus de {NOM_MAX} caractères, coupé à {NOM_MAX} à l'ouverture (la limite du site ; une saisie plus "
             f"longue est refusée) : " + " ; ".join(coupes) + ".")
 
 
@@ -259,7 +262,7 @@ def normaliser(etat: Dict) -> Dict:
     changent (``chiffres_changes``) reçoit l'avis d'ouverture « note » (CLE_AVIS, que ``resultat`` dit et retire) ; une note
     3 dont les chiffres changent avec le treillis posé tel qu'il est (``chiffres_changes_treillis``, DAL5b), l'avis
     « treillis ». Un nom
-    de plus de AP.NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis le dit (CLE_NOMS) : la note s'ouvre."""
+    de plus de NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis le dit (CLE_NOMS) : la note s'ouvre."""
     if not isinstance(etat, dict):
         return nouvel_etat()
     if "dalles" in etat and "predalles" in etat:
@@ -359,11 +362,14 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 #   dalle, EN.H_MAX ;
 # - une sollicitation au plus égale à SOLLICITATION_MAX : la plus forte bande du domaine de l'écran (5 m × 100 cm,
 #   C50/60) porte moins de 20 000 kN·m et 4 000 kN ;
-# - un nom de dalle ou de section d'au plus AP.NOM_MAX caractères (il titre la note, les coupes, la fenêtre de calcul).
+# - un nom de dalle ou de section d'au plus NOM_MAX caractères (il titre la note, les coupes, la fenêtre de calcul).
 SOLLICITATION_MAX = 1e5
+# un nom de dalle ou de section : NOM_MAX caractères au plus (il titre la note, les coupes, la fenêtre de calcul)
+NOM_MAX = 60
 NOMBRES = {  # clé → (libellé, unité, mini, maxi, mini exclu, entier, maxi propre au site)
     "b": ("Largeur de bande", "cm", EN.B_MIN, EN.B_MAX, False, True, False),
     "h": ("Épaisseur", "cm", EN.H_MIN, EN.H_MAX, False, True, False),
+    "h_total": ("Épaisseur totale", "cm", EN.H_MIN, EN.H_MAX, False, True, False),   # (une prédalle : _epaisseur_totale)
     "enrobage": ("Enrobage", "cm", 0.0, EN.ENROBAGE_MAX, False, False, False),
     "gamma_s": ("Coefficient acier γs", "", EN.GAMMA_S_MIN, EN.GAMMA_S_MAX, False, False, False),
     "jeu_premier_lit": ("Jeu premier lit", "cm", 0.0, EN.H_MAX, False, False, True),
@@ -377,6 +383,54 @@ SOLLICITATIONS = {"Mx_inf": "M<sub>x,inf</sub>", "Mx_sup": "M<sub>x,sup</sub>", 
 NOTE_ENTIERE = ("gamma_s", "jeu_premier_lit")
 
 
+def saisi(x: float) -> str:
+    """Un nombre SAISI, rappelé dans un message de refus : exact s'il est raisonnable, en puissance de dix sinon (un
+    1e300 tapé ne s'écrit pas sur trois cents chiffres)."""
+    if abs(x) < 1e7:
+        ent, _, dec = C.nb(x, 6).partition(",")
+        signe, ent = ("-", ent[1:]) if ent.startswith("-") else ("", ent)
+        return signe + f"{int(ent):,}".replace(",", C.NBSP) + ("," + dec if dec else "")
+    m, e = f"{x:.2e}".split("e")
+    exposant = str(int(e)).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
+    return f"{m.replace('.', ',')} × 10{exposant}"
+
+
+def nom_saisi(valeur, quoi: str, vide_admis: bool) -> str:
+    """Un nom saisi (prédalle, dalle, section) : NOM_MAX caractères au plus ; vide refusé pour une section."""
+    t = str(valeur)
+    if not vide_admis and not t.strip():
+        raise _Refus(f"Nom {quoi} vide")
+    if len(t) > NOM_MAX:
+        raise _Refus(f"Nom {quoi} : {NOM_MAX} caractères au plus ({len(t)} saisis) — il titre la note, les coupes et la "
+                     "fenêtre de calcul")
+    return t
+
+
+def _peau(p: Dict, valeur) -> float:
+    """L'épaisseur de la prédalle : de 3 cm à min(15 ; h − 1) cm. L'écran Streamlit ramenait une valeur hors de ces
+    bornes sans le dire ; le site la refuse."""
+    x = C.lire_nombre(valeur)
+    if x is None:
+        raise _Refus(f"Épaisseur de la prédalle : nombre illisible « {valeur} »")
+    maxi = EN_P.h_pre_max(p["h"])
+    if not EN_P.H_PRE_MIN <= x <= maxi:
+        raise _Refus(f"Épaisseur de la prédalle : entre {C.nb(EN_P.H_PRE_MIN)} et {C.nb(maxi)} cm pour une épaisseur totale de "
+                     f"{C.nb(p['h'])} cm (au moins {C.nb(EN_P.COULE_MIN)} cm coulé en place, {C.nb(EN_P.H_PRE_MAX)} cm au plus), "
+                     f"pas {saisi(x)} cm")
+    return x
+
+
+def _epaisseur_totale(p: Dict, valeur) -> int:
+    """L'épaisseur totale d'une prédalle : dans les bornes de l'écran, et telle qu'elle contienne encore la peau (au
+    moins COULE_MIN coulé en place) — sinon refusée : l'écran ramenait la peau sans le dire."""
+    h = _nombre("h_total", valeur)
+    if p["h_pre"] > EN_P.h_pre_max(h):
+        raise _Refus(f"Épaisseur totale : la prédalle de {C.nb(p['h_pre'])} cm demande au moins "
+                     f"{C.nb(p['h_pre'] + EN_P.COULE_MIN)} cm (un centimètre coulé en place) ; réduire d'abord la prédalle. "
+                     "L'écran Streamlit ramenait la prédalle sans le dire.")
+    return h
+
+
 def _nombre(cle: str, valeur):
     nom, u, mini, maxi, exclu, entier, site = NOMBRES[cle]
     x = C.lire_nombre(valeur)
@@ -386,15 +440,15 @@ def _nombre(cle: str, valeur):
     if (x <= mini) if exclu else (x < mini):
         borne = (f"entre {C.nb(mini)} et {C.nb(maxi)}{unite}" if maxi is not None and not site
                  else (f"plus de {C.nb(mini)}{unite}" if exclu else f"au moins {C.nb(mini)}{unite}"))
-        raise _Refus(f"{nom} : {borne} (bornes de l'écran Streamlit), pas {AP.saisi(x)}{unite}")
+        raise _Refus(f"{nom} : {borne} (bornes de l'écran Streamlit), pas {saisi(x)}{unite}")
     if maxi is not None and x > maxi:
         if site:
             raise _Refus(f"{nom} : au plus {C.nb(maxi)}{unite}, l'épaisseur maximale d'une dalle (au-delà, la saisie n'a "
-                         f"pas de sens), pas {AP.saisi(x)}{unite}")
-        raise _Refus(f"{nom} : entre {C.nb(mini)} et {C.nb(maxi)}{unite} (bornes de l'écran Streamlit), pas {AP.saisi(x)}{unite}")
+                         f"pas de sens), pas {saisi(x)}{unite}")
+        raise _Refus(f"{nom} : entre {C.nb(mini)} et {C.nb(maxi)}{unite} (bornes de l'écran Streamlit), pas {saisi(x)}{unite}")
     if entier:
         if x != int(x):
-            raise _Refus(f"{nom} : un nombre entier{unite}, pas {AP.saisi(x)}")
+            raise _Refus(f"{nom} : un nombre entier{unite}, pas {saisi(x)}")
         return int(x)
     return x
 
@@ -403,12 +457,12 @@ def _bornes_site(d: Dict) -> None:
     """Les bornes propres au site (voir SOLLICITATION_MAX) sur une dalle relue (fichier .stab, fichier Streamlit) :
     ValueError claire."""
     if d["jeu_premier_lit"] > EN.H_MAX:
-        raise ValueError(f"jeu premier lit de {AP.saisi(d['jeu_premier_lit'])} cm : au plus {EN.H_MAX} cm")
-    if len(d["nom"]) > AP.NOM_MAX:
-        raise ValueError(f"nom de {len(d['nom'])} caractères : {AP.NOM_MAX} au plus")
+        raise ValueError(f"jeu premier lit de {saisi(d['jeu_premier_lit'])} cm : au plus {EN.H_MAX} cm")
+    if len(d["nom"]) > NOM_MAX:
+        raise ValueError(f"nom de {len(d['nom'])} caractères : {NOM_MAX} au plus")
     for s in d["sections"]:
-        if len(s["nom"]) > AP.NOM_MAX:
-            raise ValueError(f"section : nom de {len(s['nom'])} caractères, {AP.NOM_MAX} au plus")
+        if len(s["nom"]) > NOM_MAX:
+            raise ValueError(f"section : nom de {len(s['nom'])} caractères, {NOM_MAX} au plus")
         for k in EN.MOMENTS + ("V",):
             if s[k] > SOLLICITATION_MAX:
                 raise ValueError(f"section « {s['nom']} » : {k} au-delà de {C.fr(SOLLICITATION_MAX, 0)} (valeur absurde)")
@@ -446,14 +500,14 @@ def _changer_type(d: Dict, valeur) -> None:
 
 
 def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
-    """Écrit une saisie dans la dalle ``d`` (une copie) ; _Refus (ou AP.Refus) si la valeur sort du domaine de l'écran.
+    """Écrit une saisie dans la dalle ``d`` (une copie) ; _Refus si la valeur sort du domaine de l'écran.
     Les chemins « sections/i/nappes/… » vont à api_web/dalle_nappes.ecrire ; les positions (axe automatique) à
     api_web/dalle_positions."""
     k = chemin[0]
     predalle = est_predalle(d)
     if len(chemin) == 1:
         if k == "nom":
-            d["nom"] = AP.nom_saisi(valeur, "de la dalle", True)
+            d["nom"] = nom_saisi(valeur, "de la dalle", True)
         elif k == "type":
             _changer_type(d, valeur)
         elif k == "beton":
@@ -471,12 +525,12 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
             d["dir_principale"] = str(valeur).upper()
         elif k == "h":
             # une prédalle : l'épaisseur totale doit encore contenir la peau (le refus de l'ancien module)
-            d["h"] = AP.epaisseur_totale(d, valeur) if predalle else _nombre("h", valeur)
+            d["h"] = _epaisseur_totale(d, valeur) if predalle else _nombre("h", valeur)
         elif k == "h_pre":
             if not predalle:
                 raise _Refus("Épaisseur de la prédalle : une dalle coulée en place n'a pas de prédalle — choisir "
                              f"« {TYPES_TXT['predalle']} » d'abord")
-            d["h_pre"] = AP.peau(d, valeur)
+            d["h_pre"] = _peau(d, valeur)
         elif k in ("b", "enrobage"):
             d[k] = _nombre(k, valeur)
         else:
@@ -507,7 +561,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         secs.append(c)
         return
     if chemin[2] == "nom":
-        s["nom"] = AP.nom_saisi(valeur, "de section", False)
+        s["nom"] = nom_saisi(valeur, "de section", False)
         return
     if chemin[2] in SOLLICITATIONS:
         x = C.lire_nombre(valeur)
@@ -517,12 +571,12 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
             # (13/11/2026 : les colonnes s'appellent M⁺ et M⁻ — le signe est celui de la colonne, la valeur se saisit
             #  sans lui ; un négatif est refusé, jamais ramené à 0 ni retourné en silence)
             if chemin[2] == "V":
-                raise _Refus(f"L'effort tranchant se saisit sans signe : {AP.saisi(-x)}, pas {AP.saisi(x)}.")
+                raise _Refus(f"L'effort tranchant se saisit sans signe : {saisi(-x)}, pas {saisi(x)}.")
             raise _Refus("Sans signe : la colonne dit déjà la face tendue (M⁺ : la face inférieure, M⁻ : la face "
-                         f"supérieure) — saisir {AP.saisi(-x)}, pas {AP.saisi(x)}.")
+                         f"supérieure) — saisir {saisi(-x)}, pas {saisi(x)}.")
         if x > SOLLICITATION_MAX:
             u = "kN" if chemin[2] == "V" else "kN·m"
-            raise _Refus(f"Au plus {C.fr(SOLLICITATION_MAX, 0)} {u}, pas {AP.saisi(x)} {u} : la plus forte bande de dalle "
+            raise _Refus(f"Au plus {C.fr(SOLLICITATION_MAX, 0)} {u}, pas {saisi(x)} {u} : la plus forte bande de dalle "
                          "(5 m de large, 100 cm d'épaisseur) porte moins de 20 000 kN·m et 4 000 kN.")
         s[chemin[2]] = x
         return
@@ -625,7 +679,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     try:
         _ecrire(etat, travail, chemin, valeur)
         etat["dalles"][a] = _site(_sans_site(travail), d["verrou"], travail["type"])
-    except (_Refus, AP.Refus) as e:
+    except _Refus as e:
         return str(e)
     except ValueError as e:
         return f"Saisie refusée : {e}"
@@ -782,7 +836,7 @@ def _caracteristiques(d: Dict) -> str:
 
 def _aide_axe(d: Dict):
     """Ce que dalle_nappes.html passe à plaque_compact.couche pour chaque couche : un texte d'aide (dalle coulée), ou,
-    pour une prédalle, la fonction qui donne la POSE de la couche (son pictogramme, sa règle : api_web/predalle)."""
+    pour une prédalle, la fonction qui donne la POSE de la couche (son pictogramme, sa règle : api_web/dalle_predalle)."""
     if not est_predalle(d):
         return AIDE_AXE
     return lambda f, j, c, g: {"details": AP.pose_couche(c, g), "aide_axe": AP.POSES_AIDE[g["pose"]], "dit_auto": False}
@@ -962,7 +1016,27 @@ def _formule(f: Dict) -> Dict:
     u = f["unite"]
     r = _n(f["resultat"], u) + (f" {u}" if u else "")
     k = f["cle"]
-    if k == "hu_min":
+    if k == "e":
+        # (l'axe d'une couche : seul le moteur des prédalles nomme cette formule — la branche de l'ancien module)
+        s_ = f"e_{f['couche'] + 1}"
+        if f.get("empilee") and "e_p" in t:
+            # une couche secondaire posée par le SITE sur la nappe principale (module fusionné, § 4.1 ; les termes e_p,
+            # demi_p, demi_s sont posés par dalle_positions.annoter, e_p et demi_p ceux de la couche qui porte : la base,
+            # ou un renfort principal plus haut, S5) : le moteur a reçu l'axe imposé, la formule dit d'où il vient
+            parts = [s_, "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", f"{_v(t['e_p'])} + {_v(t['demi_p'])} + {_v(t['demi_s'])}"]
+            r += f" · posée sur {AP.sur_principale(f)}"
+        elif "saisi" in t:
+            parts = [s_, "axe saisi"]
+            r += " · saisi"
+        elif f["pose"] == "sur_predalle":
+            parts = [s_, "h_p + ⌈Ø/2⌉", f"{_v(t['h_pre'])} + {_v(t['demi_d'])}"]
+            r += " · sur la prédalle"
+        elif f["pose"] == "predalle":
+            parts = [s_, "c + ⌈Ø/2⌉", f"{_v(t['c'])} + {_v(t['demi_d'])}"]
+            r += " · dans la prédalle"
+        else:
+            parts = [s_, "c + ⌈Ø/2⌉ + j", f"{_v(t['c'])} + {_v(t['demi_d'])} + {_v(t['jeu'])}"]
+    elif k == "hu_min":
         parts = (["h_u,min", "√(M·10⁶ / (α_b·b·μ)) / 10",
                   f"√({_v(t['M'])} × 10⁶ / ({_v(t['alpha_b'])} × {_v(t['b'])} × {_v(t['mu'])})) / 10"] if t["M"] > 0
                  else ["h_u,min", "aucun moment appliqué"])
@@ -1028,6 +1102,12 @@ def _ligne_tableau(v: Dict, s: Dict, gov: bool) -> Dict:
     else:
         f = "max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub> ≤ A<sub>s,max</sub>"
         sous = _piece(v, s) + (" · principale" if v.get("principale") else "")
+        if "h_pre" in s["grandeurs"]:
+            # (une prédalle — ce que faisait l'écran de l'ancien module : d, et la pose de la base inférieure)
+            c0 = s["faces"][k]["couches"][0]
+            sous += f" · d = {_n(s['grandeurs'][f'd_{k}'], 'cm')} cm"
+            if k.startswith("inf"):
+                sous += f" · base {AP.POSES_TXT[c0['pose']]}" if c0["auto"] else ""
     if v.get("motifs"):
         sous += " · " + _motifs(v)
     return {"nom": C.esc(nom_ligne(v)), "sous": sous, "formule": f, "valeur": val, "limite": lim, "taux": C.pct(v["taux"]),
@@ -1063,7 +1143,7 @@ def elements(etat: Dict, resultats: List[Dict]) -> str:
 
 
 def _avertissements_de(d: Dict, r: Dict, i: Optional[int] = None) -> str:
-    """Les avertissements selon le type : ceux de la dalle coulée (ci-dessous), ou ceux de la prédalle (api_web/predalle :
+    """Les avertissements selon le type : ceux de la dalle coulée (ci-dessous), ou ceux de la prédalle (api_web/dalle_predalle :
     base qui sort de la peau, couches croisées sur la prédalle, bases X et Y trop proches). Des bases SUPÉRIEURES
     confondues d'une prédalle sont dites comme celles de la dalle coulée : le site y pose la direction secondaire sur la
     principale (api_web/dalle_positions), seul un axe SAISI les y met — la phrase de l'aide prédalle (« comme dans l'écran
@@ -1118,7 +1198,7 @@ PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, les quatre armatur
 
 def texte_perimetre(d: Dict) -> str:
     """Ce que le calcul de la dalle vérifie et ne vérifie PAS, en entier (les fenêtres de calcul) : celui de la prédalle
-    (api_web/predalle.PERIMETRE), celui de la dalle coulée en place (PERIMETRE_CSP) — une source pour les deux."""
+    (api_web/dalle_predalle.PERIMETRE), celui de la dalle coulée en place (PERIMETRE_CSP) — une source pour les deux."""
     return AP.PERIMETRE if est_predalle(d) else PERIMETRE_CSP
 
 
@@ -1194,6 +1274,19 @@ def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
+def description_candidat(c: Dict, axe: str = "") -> str:
+    """La ligne de détail d'un candidat du sélecteur : ses fils ou ses barres, sa section au mètre, son axe (``axe``,
+    un texte — vide quand le module ne le dit pas), la section et le centre de gravité de la face qu'il donne."""
+    if c["type"] == "treillis":
+        t = TR.fils(c["treillis"])
+        q = f"treillis soudé · porteurs Ø{t[0]} tous les {t[2]} mm · répartition Ø{t[1]} tous les {t[3]} mm"
+    else:
+        q = f"barres Ø{c['d']} tous les {c['esp']} mm"
+    milieu = f" · {axe}" if axe else ""
+    return (f"{q} · {C.fr(c['As_pm'], 0)} mm²/m{milieu} · face : A<sub>s</sub> = {C.fr(c['As'], 0)} mm², "
+            f"y<sub>G</sub> = {C.fr(c['yG'], 2)} cm")
+
+
 def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     """Les nappes de base possibles d'une face (treillis de la base, barres Ø8 à Ø25 de 100 à 250 mm), triées par section
     au mètre, calculées par le moteur du type aux niveaux du site (api_web/dalle_positions.candidats_base) : la retenue
@@ -1217,7 +1310,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         axe = ""
         if predalle and "e" in c:
             axe = f"axe {C.fr(c['e'], 1)} cm" + ("" if base["dist"] is not None else f" ({pose})")
-        return AP.description_candidat(c, axe)
+        return description_candidat(c, axe)
     rows = [{"nom": c["nom"], "col": C.fr(c["As_pm"], 0), "taux": C.pct(min(c["taux"], 9.99)),
              "niveau": "r" if c["etat"] == MO.NOK else C.niveau(c["taux"]), "cur": c["retenue"], "opt": c["optimal"],
              "prop": prop(c)} for c in cands]

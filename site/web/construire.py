@@ -51,9 +51,18 @@ sys.path.insert(0, RACINE)
 from api_web import registre as REG  # noqa: E402
 
 _FAMILLES = {k for _, _, mods in MQ.FAMILLES for k, _ in mods}
+# Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
+# est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
+# s'ouvre dans le module fusionné. Ils ne sont plus au registre (leur écran est retiré : le routeur ne les sert plus), sont
+# masqués de l'accueil (MASQUES, site/maquettes/construire.py), et js/modules.js les porte avec « vers » — la table
+# d'alias que js/notes.js lit pour ouvrir leurs notes par la bonne page.
+REDIRECTIONS = {"predalle": "dalle"}
 # clé → adresse de l'établi, SANS « .html » (Cloudflare la sert ainsi) ; une clé hors des familles de l'accueil n'a
 # ni nom ni icône : elle est écartée (tests/test_site_web.py le signale)
 ADRESSES = {k: v for k, v in REG.pages().items() if k in _FAMILLES}
+# les modules ABSORBÉS (REDIRECTIONS, ci-dessus) n'ont plus de module au registre (l'écran de l'ancien module Prédalles est
+# retiré le 13/11/2026, lot 2) : leur adresse reste leur clé, leur page une redirection
+ADRESSES.update({k: k for k in REDIRECTIONS if k in _FAMILLES})
 PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
 # L'établi COMPACT (l'arborescence de la note à gauche, le dessin et son en-tête au centre, un bloc de résultats par
@@ -74,12 +83,6 @@ ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondatio
 # § 8.2) : la ligne de l'élément garde la place pour son nom, à droite le cadenas, copier, supprimer. Au téléphone, le
 # dessin est un onglet à part : les trois restent dans l'en-tête des données (css/etabli.css choisit, selon le format).
 OUTILS_AU_DESSIN = ("dalle",)
-# Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
-# est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
-# s'ouvre dans le module fusionné. Ils restent au registre (le routeur les sert encore : anciens liens, harnais), sont
-# masqués de l'accueil (MASQUES, site/maquettes/construire.py), et js/modules.js les porte avec « vers » — la table
-# d'alias que js/notes.js lit pour ouvrir leurs notes par la bonne page.
-REDIRECTIONS = {"predalle": "dalle"}
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : une page par famille, hors du registre des modules (une
 # consultation n'est pas une note) ; la clé est celle que le routeur reçoit (action « consulter », « bibliotheque ») :
 # clé → (module de rendu, titre, famille). La Bibliothèque Acier (BIB5) porte le catalogue des profilés : le module
@@ -195,7 +198,8 @@ def releve(modules=None) -> dict:
     que pour eux — il pèse une à deux secondes au démarrage ; un fichier qui l'importe, même dans une fonction que le
     parcours n'a pas suivie, compte). Un sous-processus par module, quatre à la fois. Les BIBLIOTHÈQUES sont relevées
     aussi, toujours (clés « biblio_<k> » : la Bibliothèque Acier charge numpy — le travailleur le charge avant elle)."""
-    cles = list(modules or ADRESSES) + [PREFIXE_BIBLIOTHEQUE + k for k in BIBLIOTHEQUES]
+    # (une REDIRECTION n'a pas de module à relever : son écran est retiré, sa page ne charge rien — etablis())
+    cles = list(modules or etablis()) + [PREFIXE_BIBLIOTHEQUE + k for k in BIBLIOTHEQUES]
     with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 1))) as ex:
         par_module = dict(zip(cles, ex.map(_releve_un, cles)))
     fichiers = set().union(*(set(r["fichiers"]) for r in par_module.values()))

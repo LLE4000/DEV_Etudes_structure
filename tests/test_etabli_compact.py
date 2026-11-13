@@ -320,7 +320,7 @@ chk("tete_resultats : plus de paramètre « chemin_nom » ni « verrou » (la t�
 print("\n=== 6 bis. Le rangement du 10/11/2026 : les styles de l'ANCIENNE arborescence, retirés ===")
 # css/etabli.css n'est chargé que par les pages des établis compacts (construire.ETABLI_COMPACT) ; chacun de ces modules
 # rend sa colonne COMPACTE, en dur (``E.arbre(…, compact=True)``) ; la seule à rendre encore l'ancienne arborescence est
-# api_web/predalle.py, dont la page REDIRIGE vers les dalles (construire.REDIRECTIONS) et ne charge pas ce fichier. Les
+# l'ancien api_web/predalle.py (écran retiré le 13/11/2026), dont la page REDIRIGE vers les dalles (construire.REDIRECTIONS). Les
 # règles .et-pt…, .et-arbre-h n'avaient donc plus rien à habiller : retirées de css/etabli.css et css/modules/dalle.css
 # (la pastille .et-pt-e et la couleur --et-pt-bg, employées, restent). Ce contrôle garde les trois prémisses.
 sys.path.insert(0, os.path.join(RACINE, "site", "web"))
