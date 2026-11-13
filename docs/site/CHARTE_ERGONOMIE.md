@@ -25,6 +25,7 @@ la disposition change d'un format à l'autre.*
 | E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle | poutre (son en-tête répète ses aciers et ses étriers), les autres dessins |
 | E13 | **Les mots des armatures** : « Armature inférieure », « Armature supérieure » — jamais « nappe », ni à l'écran, ni dans les dessins, les messages, les aides au survol ou la note PDF ; le troisième type d'armature s'appelle **« Mixte »** (le survol dit « Treillis soudé et barres de renfort »). | DAL9 | dalle, prédalle (et leurs deux moteurs) | tout module qui dirait « nappe » |
 | E14 | **Une seule rubrique ouverte à la fois** dans la colonne des données : ouvrir une rubrique referme les autres (une rubrique fermée garde sa ligne de résumé) ; le dessin qui amène à une pièce ouvre sa rubrique et referme toutes les autres ; un appui sur la rubrique ouverte la referme. | UI1 | **tout le site** (`js/etabli.js`) | — |
+| E15 | **Une discipline commune au béton armé** : poutre, dalle et prédalle ont la même organisation et les mêmes règles — les armatures se saisissent dans la colonne de gauche SEULEMENT (la colonne de droite ne montre que des résultats), les mêmes mots, les mêmes boutons, la même règle de position des barres (jeu de pose, arrondi, dessin à la position réelle). Un changement demandé pour la dalle passe aussi dans la poutre, dans le même lot. | demande du 13/11 | dalle, prédalle | poutre : la règle de position au lot 3, l'organisation au lot 4 (UNI4) |
 
 ### Décidé le 13/11/2026 — la note PDF et la ligne Hauteur
 
@@ -40,6 +41,15 @@ la disposition change d'un format à l'autre.*
   ne s'affichent pas.
 - Le troisième type d'armature s'appelle « Mixte » : « Treillis + renforts » passait sur deux lignes ; « Mixte » se
   comprend (le treillis plus des barres de renfort) et le survol le dit en entier — `DALLES_FUSION.md` § 8.9.
+
+### Décidé le 13/11/2026 (soir) — la discipline commune (E15)
+
+- « Toutes nos règles de jeu doivent être aussi appliquées dans poutre » : la règle de position décidée pour les dalles
+  (jeu de pose 1 cm, arrondi 0,5 cm, « façon A », dessin à la position réelle, calcul détaillé) vaut aussi pour la
+  poutre.
+- « On ne doit pas pouvoir encoder les armatures dans la fenêtre de droite » : la poutre suit l'organisation de la
+  dalle et de la prédalle — les armatures à gauche seulement, la colonne de droite pour les résultats.
+- Tout petit changement demandé pour les dalles suit dans la poutre : il ne se livre pas sans elle.
 
 ## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
 

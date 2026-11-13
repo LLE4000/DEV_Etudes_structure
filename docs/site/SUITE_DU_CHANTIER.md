@@ -828,6 +828,20 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   réelle) Ø12 + Ø10 tiennent (dessus à 5,2 cm), seul l'axe de CALCUL dépasse (jeu compris) ; un avertissement plus
   tard, peut-être ; (4) valeurs par défaut : jeu de pose 1 cm, ARRONDI 0,5 cm, 0 entre deux couches ; et une seule
   rubrique ouverte à la fois dans la colonne de gauche, dans tous les modules.
+- **Décidé le 13/11/2026 (soir) — la discipline commune** (`CHARTE_ERGONOMIE.md` E15) : « toutes nos règles de jeu
+  doivent être aussi appliquées dans poutre » ; la poutre prend l'organisation de la dalle et de la prédalle — les
+  armatures se saisissent à gauche seulement, jamais dans la colonne des résultats ; un petit changement demandé pour
+  les dalles suit dans la poutre. Ordre des lots proposé (à confirmer) : 3 la règle de position (poutre, dalle,
+  prédalle) et le rangement des moteurs ; 4 la poutre comme la dalle (UNI4) ; 5 les barres de couture ; 6 le gabarit
+  du bureau.
+- **Le temps des vérifications (relevé du 13/11/2026)** : la batterie ne rejoue que les suites touchées (lot 2a :
+  46 jouées en 460 s sur 3 processus, 90 sautées ; DAL9, code commun touché : 69 jouées en 776 s), mais 30 suites
+  sont rejouées à CHAQUE passage, leurs sous-processus échappant au suivi (`.temoin_tests/`) : 10 relisent leur note
+  PDF (pdftotext, ≈ 457 s de calcul), 5 tournent sous node (≈ 347 s, dont `test_moteur_partage.py` 284 s), 14 lancent
+  un Python isolé (≈ 170 s, dont les 11 parités Streamlit que le lot 3 remplace), 1 lit git. La bibliothèque des
+  profilés (`test_catalogue_moteur.py`, 431 s) n'est rejouée que si on la touche. Le parcours du navigateur : ciblé
+  30 à 45 s, complet ≈ 33 min (3 317 contrôles), gardé pour les changements de tout le site. Proposé : suivre
+  pdftotext (il ne lit que le PDF du test), puis les suites node.
 - **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
