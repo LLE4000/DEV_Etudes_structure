@@ -156,13 +156,13 @@ def nappe(EN, i: int, f: str, face: Dict, geo: Dict, v: Dict, principale: str, c
     _, dk = f.split("_")
     princ = '<span class="et-princ" title="Direction principale">princ.</span>' if dk == principale else ""
     prop = ("" if verrou else f'<button type="button" class="et-prop" data-pk="{f}-{i}" title="Choisir la couche de base dans la '
-            f'liste des nappes, triées par section (★ : la plus petite qui tient)">{C.icon("list-filter")}</button>')
+            f'liste des armatures, triées par section (★ : la plus petite qui tient)">{C.icon("list-filter")}</button>')
     ajouter = (E.plus(["sections", i, "faces", f, "couches", "+"], "1", "Renfort") if len(face["couches"]) < EN.MAX_COUCHES else "")
     aide = f'<span class="et-pied-a" title="{C.esc(aide_renfort)}">A<sub>s</sub> posé {C.fr(geo["As_pm"], 0)}{C.NBSP}mm²/m</span>'
     yg = ("" if len(face["couches"]) < 2 and face["yG"] is None else
           C.ligne("y<sub>G</sub> imposé", auto_ou_saisi(["sections", i, "faces", f, "yG"], face["yG"], geo["yG_calcule"],
                                                         "Revenir au centre de gravité calculé"),
-                  "", "Centre de gravité des couches de la nappe, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A). "
+                  "", "Centre de gravité des couches, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A). "
                       "L'imposer remplace le calcul dans d = h − y_G."))
     return (f'<div class="et-grp"><div class="et-gh"><span class="t">{titre_face(f)}</span>{princ}'
             f'<span class="et-req">A<sub>s</sub> néc. <b>{C.fr(v["valeur"], 0)}</b>{C.NBSP}mm²</span>{prop}</div>'
@@ -212,7 +212,7 @@ def vues(sections: Sequence[Dict], element: Dict, dessin, prefixe: str, sous_tit
     out = []
     for i, s in enumerate(sections):
         nom = s["nom"] if not s["nom"].lower().startswith("section") else s["titre"]
-        for cle, titre, court, svg in (("c", "Coupes", "Coupe", dessin.svg_coupe), ("p", "Plan des nappes", "Plan", dessin.svg_plan)):
+        for cle, titre, court, svg in (("c", "Coupes", "Coupe", dessin.svg_coupe), ("p", "Plan des armatures", "Plan", dessin.svg_plan)):
             ent = E.entete(s["titre"], f"{sous_titre} · principale {s['principale'].upper()}", [], bande(s))
             out.append({"cle": f"{cle}{i}", "titre": f"{titre} · {s['titre']}", "court": f"{court} {nom}"[:24],
                         "svg": svg(f"{prefixe}_{cle}{i}", s, element, i), "entete": ent, "legende": legendes[cle]})

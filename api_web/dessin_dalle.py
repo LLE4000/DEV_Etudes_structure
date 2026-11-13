@@ -239,7 +239,7 @@ def legende_nappes(s: Dict, principale: str, W: float, u: float, y0: float, pose
         xl = k * (W + 4.6 * u) / 2 if deux_colonnes else 0.0
         if k == 1:
             y = y0 if deux_colonnes else bas + 0.9 * u
-        g.append(_txt(xl, y, "Nappe inférieure" if cote == "inf" else "Nappe supérieure", taille * u, ancre="start", couleur=COTE))
+        g.append(_txt(xl, y, NAP.TITRES[cote], taille * u, ancre="start", couleur=COTE))   # « Armature inférieure »
         for j, texte, second in entrees_nappe(s, cote, principale, pose):
             y += 1.3 * u
             g.append(f'<circle cx="{_f(xl + 0.3 * u)}" cy="{_f(y - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>'
@@ -386,7 +386,7 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
     """La nappe ``cote`` vue de dessus, dans un carré de la largeur vue : barres X horizontales, Y verticales."""
     x0, W = fenetre(b_mm)
     g = [f'<g transform="translate({_f(dx)} 0)">']
-    g.append(_txt(W / 2, -2.6 * u, "Nappe inférieure" if cote == "inf" else "Nappe supérieure", 1.0 * u))
+    g.append(_txt(W / 2, -2.6 * u, NAP.TITRES[cote], 1.0 * u))   # « Armature inférieure » (plus « Nappe », 13/11/2026)
     # la limite de la vue (la nappe continue au-delà) : un trait mixte fin
     g.append(f'<rect x="0" y="0" width="{_f(W)}" height="{_f(W)}" fill="{PAPIER_PLAN}" stroke="{COTE}" stroke-width="{_f(0.05 * u)}" '
              f'stroke-dasharray="{_f(0.6 * u)} {_f(0.18 * u)} {_f(0.1 * u)} {_f(0.18 * u)}"/>')
@@ -464,7 +464,7 @@ def svg_plan(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
     haut = max(y_rep + 0.8 * u, h2)
     vb = f"{_f(-0.8 * u)} {_f(-3.8 * u)} {_f(2 * W + gap + 3.4 * u)} {_f(haut + 4.0 * u)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
-            f'aria-label="Plan des nappes, section {escape(s["nom"])}">{g1}{g2}{rep}</svg>')
+            f'aria-label="Plan des armatures, section {escape(s["nom"])}">{g1}{g2}{rep}</svg>')
 
 
 # ------------------------------------------------------------------ toutes les sections (l'établi compact, vue « Toutes »)

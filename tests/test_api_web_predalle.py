@@ -168,7 +168,7 @@ chk("une fenêtre par vérification, et une par section (ck-s0, ck-s1 : tout le 
     'id="ck-s0"' in v and 'id="ck-s1"' in v and v.count('class="flyout calcul"') == n_verifs + 2
     and all(f'id="ck-s{i}-{x["cle"]}"' in v for i, s_ in enumerate(m["sections"]) for x in s_["verifications"]))
 chk("les hypothèses disent la peau et le coulé en place (« dont prédalle 6 cm et 16 cm coulés en place »)",
-    "dont prédalle <b>6 cm</b> et 16 cm coulés en place" in v and "jeu premier lit 0 cm (nappes supérieures)" in v)
+    "dont prédalle <b>6 cm</b> et 16 cm coulés en place" in v and "jeu premier lit 0 cm (armatures supérieures)" in v)
 fen0 = fenetre(v, "s0")
 chk("l'axe de chaque couche et sa règle : base principale c + ⌈Ø/2⌉ = 3 + 0,5 = 3,5 cm dans la prédalle ; renfort h_p + ⌈Ø/2⌉ = 6 + 1 = 7 cm sur la prédalle",
     re.search(r"e<sub>1</sub></span><span class=\"eq\">=</span><span>c \+ ⌈Ø/2⌉</span><span class=\"eq\">=</span><span>3 \+ 0,5</span>"
@@ -375,8 +375,8 @@ chk("la légende commune dit la pose : les fils du treillis (« Y à 35 dans la 
     "Y à 35 dans la prédalle" in sv and "R1 Y · 3 Ø12 · axe à 70 · sur la prédalle" in sv, re.findall(r"axes? [^<]+", sv))
 rond = re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="5"', sv)
 chk("à l'échelle : les fils Ø10 dessinés en cercles de 5 mm de rayon, les Ø12 de 6 mm", len(rond) >= 10 and 'r="6"' in sv)
-chk("le plan : les nappes inférieure et supérieure, le fond grisé de la prédalle, le repère", "Nappe inférieure" in vues[1]["svg"]
-    and "Nappe supérieure" in vues[1]["svg"] and "fond grisé : la prédalle" in vues[1]["svg"])
+chk("le plan : les nappes inférieure et supérieure, le fond grisé de la prédalle, le repère", "Armature inférieure" in vues[1]["svg"]
+    and "Armature supérieure" in vues[1]["svg"] and "fond grisé : la prédalle" in vues[1]["svg"])
 eb = saisir(copy.deepcopy(e0), "b", "250")["etat"]
 chk("une bande de 2,50 m : seule sa partie centrale est dessinée, et la cote le dit (« 1 200 vus sur b = 2 500 »)",
     "1 200 vus sur b = 2 500" in req(action="calculer", etat=eb)["vues"][0]["svg"])
@@ -814,7 +814,7 @@ chk("DAL5 : aucune vue ne répète sa légende dans son en-tête (le dessin la p
     "« legende » reste la clé de chaque vue (ce qu'un écran sans en-tête écrirait sous son titre)",
     len(ar["vues"]) == 5 and all('class="lg"' not in v_["entete"] and 'class="l2"' not in v_["entete"]
                                  and v_["legende"] == P.LEGENDES["p" if v_["cle"][0] == "p" else "c"] for v_ in ar["vues"])
-    and all("Nappe inférieure" in v_["svg"] and "Nappe supérieure" in v_["svg"] for v_ in ar["vues"]),
+    and all("Armature inférieure" in v_["svg"] and "Armature supérieure" in v_["svg"] for v_ in ar["vues"]),
     [(v_["cle"], v_["entete"][-120:]) for v_ in ar["vues"]])
 chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
     "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DP.svg_coupe("t", m["sections"][0], m["predalle"]))

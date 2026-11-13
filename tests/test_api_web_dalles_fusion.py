@@ -530,8 +530,8 @@ chk("un chemin « sections/0/nappes/inf/mode » passe par dalle_nappes.ecrire : 
     not nb["message"] and [actif(nb["etat"])["sections"][0]["faces"][f]["couches"][0]["type"] for f in ("inf_x", "inf_y", "sup_x", "sup_y")]
     == ["barres", "barres", "treillis", "treillis"], nb["message"])
 o = req(action="modifier", etat=e0, chemin=["sections", "0", "nappes", "inf", "zzz"], valeur="1")
-chk("un chemin de nappe inconnu : le refus de dalle_nappes (ValueError) devient un message, la dalle intacte",
-    o["message"] and "Champ de nappe inconnu" in o["message"] and o["etat"] == e0, o.get("message"))
+chk("un chemin d'armature inconnu : le refus de dalle_nappes (ValueError) devient un message, la dalle intacte",
+    o["message"] and "Champ d'armature inconnu" in o["message"] and o["etat"] == e0, o.get("message"))
 chk("la rubrique « 3 — Armatures » est le HTML de dalle_nappes (les segments « Treillis soudé · Barres · Treillis + renforts » par nappe), "
     "et chaque couche garde sa clé data-cible « s0.<face>-0 »",
     r0["donnees"].count('data-chemin="sections/0/nappes/inf/mode"') == 3 and r0["donnees"].count('data-chemin="sections/0/nappes/sup/mode"') == 3

@@ -471,10 +471,15 @@ def choix_groupes(chemin: Sequence, valeur, groupes: Iterable[Tuple], desactive:
 
 
 def segments(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = False) -> str:
-    """Un choix court en segments (deux à quatre options) ; ``desactive`` : verrouillé (aucun segment ne répond)."""
+    """Un choix court en segments (deux à quatre options) ; ``desactive`` : verrouillé (aucun segment ne répond).
+    Une option est (valeur, libellé) ou (valeur, libellé, explication au survol) — le troisième terme, facultatif
+    (« Mixte » des dalles, 13/11/2026), ajoute un ``title`` ; sans lui, la sortie est la même, à l'octet près."""
     off = " disabled" if desactive else ""
-    bt = "".join(f'<button type="button" class="{"on" if k == valeur else ""}" data-chemin="{_attr_chemin(chemin)}" data-sorte="choix" data-valeur="{esc(k)}"{off}>{esc(t)}</button>'
-                 for k, t in options)
+
+    def survol(o):
+        return f' title="{esc(o[2])}"' if len(o) > 2 and o[2] else ""
+    bt = "".join(f'<button type="button" class="{"on" if o[0] == valeur else ""}" data-chemin="{_attr_chemin(chemin)}" data-sorte="choix" data-valeur="{esc(o[0])}"{survol(o)}{off}>{esc(o[1])}</button>'
+                 for o in options)
     return f'<div class="seg full{" locked" if desactive else ""}">{bt}</div>'
 
 

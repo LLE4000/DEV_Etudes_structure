@@ -23,6 +23,7 @@ la disposition change d'un format à l'autre.*
 | E10 | **Le menu « ⋯ » d'une section** : « Dupliquer », « Supprimer » ; pas de verrou par section. | DAL1 | dalle | poutre (« Copier la section ») |
 | E11 | **Les options** : la méthode en une ligne ; chaque réglage avec une infobulle courte ; un réglage commun à la note reste dans les options de la note. | DAL1 | dalle, prédalle | les autres modules |
 | E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle | poutre (son en-tête répète ses aciers et ses étriers), les autres dessins |
+| E13 | **Les mots des armatures** : « Armature inférieure », « Armature supérieure » — jamais « nappe », ni à l'écran, ni dans les dessins, les messages, les aides au survol ou la note PDF ; le troisième type d'armature s'appelle **« Mixte »** (le survol dit « Treillis soudé et barres de renfort »). | DAL9 | dalle, prédalle (et leurs deux moteurs) | tout module qui dirait « nappe » |
 
 ### Décidé le 13/11/2026 — la note PDF et la ligne Hauteur
 
@@ -30,6 +31,14 @@ la disposition change d'un format à l'autre.*
   collé à sa valeur, « = » d'une accolade à côté de leur calcul — `DALLES_FUSION.md` § 8.8.
 - À l'écran, une somme se DÉTAILLE dans la colonne des résultats : « h_min = 12,6 + 3,5 = 16,1 cm ≤ h » (la part
   calculée + l'enrobage) — dalle et prédalle ; la poutre, si le propriétaire le veut.
+
+### Décidé le 13/11/2026 — les mots des armatures (DAL9)
+
+- « Je ne veux plus les mots nappe » : « Armature inférieure », « Armature supérieure » partout où un texte se voit
+  (E13). Les CLÉS internes gardent leur nom (chemin « nappes », code « nappes_confondues », attribut data-nappe) : elles
+  ne s'affichent pas.
+- Le troisième type d'armature s'appelle « Mixte » : « Treillis + renforts » passait sur deux lignes ; « Mixte » se
+  comprend (le treillis plus des barres de renfort) et le survol le dit en entier — `DALLES_FUSION.md` § 8.9.
 
 ## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
 

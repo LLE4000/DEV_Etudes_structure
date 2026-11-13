@@ -39,6 +39,7 @@ import math
 from html import escape
 from typing import Dict, List, Optional, Tuple
 
+from . import dalle_nappes as NAP
 from .dessin_dalle import entrees_plan, legende_nappes, piece
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
@@ -332,7 +333,7 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
     """La nappe ``cote`` vue de dessus, dans un carré de la largeur vue : barres X horizontales, Y verticales."""
     x0, W = fenetre(b_mm)
     g = [f'<g transform="translate({_f(dx)} 0)">']
-    g.append(_txt(W / 2, -2.6 * u, "Nappe inférieure" if cote == "inf" else "Nappe supérieure", 1.0 * u))
+    g.append(_txt(W / 2, -2.6 * u, NAP.TITRES[cote], 1.0 * u))   # « Armature inférieure » (plus « Nappe », 13/11/2026)
     fond = PEAU if cote == "inf" else PAPIER_PLAN
     g.append(f'<rect x="0" y="0" width="{_f(W)}" height="{_f(W)}" fill="{fond}" stroke="{COTE}" stroke-width="{_f(0.05 * u)}" '
              f'stroke-dasharray="{_f(0.6 * u)} {_f(0.18 * u)} {_f(0.1 * u)} {_f(0.18 * u)}"/>')
@@ -408,7 +409,7 @@ def svg_plan(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> st
     haut = y_rep + 0.8 * u
     vb = f"{_f(-0.8 * u)} {_f(-3.8 * u)} {_f(2 * W + gap + 3.4 * u)} {_f(haut + 4.0 * u)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
-            f'aria-label="Plan des nappes, section {escape(s["nom"])}">{g1}{g2}{rep}</svg>')
+            f'aria-label="Plan des armatures, section {escape(s["nom"])}">{g1}{g2}{rep}</svg>')
 
 
 # ------------------------------------------------------------------ toutes les sections (l'établi compact, vue « Toutes »)

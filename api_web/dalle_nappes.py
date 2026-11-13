@@ -57,10 +57,15 @@ from . import plaque_compact as PC
 
 COTES = ("inf", "sup")
 DIRECTIONS = ("x", "y")
-# les trois segments de l'écran : (valeur du chemin « mode », libellé)
-MODES = (("treillis", "Treillis soudé"), ("barres", "Barres"), ("treillis_renforts", "Treillis + renforts"))
+# les trois segments de l'écran : (valeur du chemin « mode », libellé[, explication au survol]) — le troisième s'appelle
+# « Mixte » (le propriétaire, 13/11/2026 : « Treillis + renforts » passait sur deux lignes ; « Mixte » se comprend : le
+# treillis plus des barres de renfort, ce que le survol dit en entier)
+MIXTE = "Mixte"
+MODES = (("treillis", "Treillis soudé"), ("barres", "Barres"),
+         ("treillis_renforts", MIXTE, "Treillis soudé et barres de renfort"))
 CHAMPS = ("mode", "treillis", "porteurs")
-TITRES = {"inf": "Nappe inférieure", "sup": "Nappe supérieure"}
+# (« Armature », plus « Nappe » : le propriétaire, 13/11/2026 — le mot ne s'affiche plus nulle part)
+TITRES = {"inf": "Armature inférieure", "sup": "Armature supérieure"}
 AVERTISSEMENT = "Deux armatures de base différentes en X et en Y — ce n'est pas un treillis unique"
 
 
@@ -102,7 +107,7 @@ def _principale(principale: Optional[str]) -> str:
 def mode(s: Dict, cote: str, principale: Optional[str] = None) -> Dict:
     """Le mode d'une nappe (« inf » ou « sup ») de la section ``s``, DÉDUIT de ses deux bases : voir l'en-tête."""
     if cote not in COTES:
-        raise ValueError(f"Nappe : « inf » ou « sup » attendu, pas « {cote} »")
+        raise ValueError(f"Armature : « inf » ou « sup » attendu, pas « {cote} »")
     p = _principale(principale)
     bx, by = _bases(s, cote)
     renforts = {dk: len(s["faces"][f"{cote}_{dk}"]["couches"]) - 1 for dk in DIRECTIONS}
@@ -167,16 +172,16 @@ def _en_barres(s: Dict, cote: str) -> None:
 
 
 def _ecrire_mode(s: Dict, cote: str, valeur, principale: str) -> None:
-    if valeur not in dict(MODES):
-        raise ValueError(f"Mode de nappe inconnu : « {valeur} » (treillis, barres ou treillis_renforts)")
+    if valeur not in {o[0] for o in MODES}:
+        raise ValueError(f"Type d'armature inconnu : « {valeur} » (treillis, barres ou treillis_renforts)")
     m = mode(s, cote, principale)
     if valeur == "barres":
         _en_barres(s, cote)
         return
     if valeur == "treillis" and m["mode"] == "treillis_renforts":
         n = m["renforts"]["x"] + m["renforts"]["y"]
-        raise ValueError(f"Cette nappe porte {n} renfort{'s' if n > 1 else ''} : « Treillis soudé » seul les retirerait. Les retirer "
-                         "un à un (« Retirer ce renfort », dans le détail de chaque renfort), ou garder « Treillis + renforts ».")
+        raise ValueError(f"Cette armature porte {n} renfort{'s' if n > 1 else ''} : « Treillis soudé » seul les retirerait. Les "
+                         f"retirer un à un (« Retirer ce renfort », dans le détail de chaque renfort), ou garder « {MIXTE} ».")
     _en_treillis(s, cote, principale)
     if valeur == "treillis_renforts":
         m = mode(s, cote, principale)
@@ -208,7 +213,7 @@ def _ecrire_porteurs(s: Dict, cote: str, valeur, principale: str) -> None:
         raise ValueError(f"Orientation des porteurs : X ou Y, pas « {valeur} »")
     m = mode(s, cote, principale)
     if m["mode"] not in ("treillis", "treillis_renforts"):
-        raise ValueError("Orientation des porteurs : cette nappe n'est pas un treillis unique (choisir d'abord « Treillis soudé »)")
+        raise ValueError("Orientation des porteurs : cette armature n'est pas un treillis unique (choisir d'abord « Treillis soudé »)")
     if dk == m["porteurs"]:
         return
     bx, by = _bases(s, cote)
@@ -221,7 +226,7 @@ def ecrire(d: Dict, chemin: List, valeur) -> None:
     montrer tel quel) pour toute valeur refusée ; la dalle n'est alors pas touchée. Les renforts, les axes et les centres
     de gravité restent par face, par les chemins existants de api_web/dalle._ecrire."""
     if len(chemin) != 5 or chemin[0] != "sections" or chemin[2] != "nappes":
-        raise ValueError(f"Chemin de nappe attendu (sections/i/nappes/inf|sup/champ), pas « {'/'.join(map(str, chemin))} »")
+        raise ValueError(f"Chemin d'armature attendu (sections/i/nappes/inf|sup/champ), pas « {'/'.join(map(str, chemin))} »")
     try:
         i = int(chemin[1])
         s = d["sections"][i]
@@ -229,9 +234,9 @@ def ecrire(d: Dict, chemin: List, valeur) -> None:
         raise ValueError(f"Section introuvable : « {chemin[1]} »") from None
     cote, champ = chemin[3], chemin[4]
     if cote not in COTES:
-        raise ValueError(f"Nappe : « inf » ou « sup » attendu, pas « {cote} »")
+        raise ValueError(f"Armature : « inf » ou « sup » attendu, pas « {cote} »")
     if champ not in CHAMPS:
-        raise ValueError(f"Champ de nappe inconnu : « {champ} » (mode, treillis ou porteurs)")
+        raise ValueError(f"Champ d'armature inconnu : « {champ} » (mode, treillis ou porteurs)")
     p = d["dir_principale"].lower()
     {"mode": _ecrire_mode, "treillis": _ecrire_treillis, "porteurs": _ecrire_porteurs}[champ](s, cote, valeur, p)
 
@@ -292,7 +297,7 @@ def _nappe_lue(i: int, f: str, face: Dict, geo: Dict, v: Dict, principale: str, 
     _, dk = f.split("_")
     princ = '<span class="et-princ" title="Direction principale">princ.</span>' if dk == principale else ""
     yg = C.ligne("y<sub>G</sub>", _lu(f"{PC._cm(geo['yG'])} cm · {'imposé' if face['yG'] is not None else 'calculé'}"), "",
-                 "Centre de gravité des couches de la nappe, mesuré depuis le parement.")
+                 "Centre de gravité des couches, mesuré depuis le parement.")
     return (f'<div class="et-grp"><div class="et-gh"><span class="t">{PC.titre_face(f)}</span>{princ}'
             f'<span class="et-req">A<sub>s</sub> néc. <b>{C.fr(v["valeur"], 0)}</b>{C.NBSP}mm²</span></div>'
             f'{couches}<div class="et-pied"><span class="et-pied-a">A<sub>s</sub> posé {C.fr(geo["As_pm"], 0)}{C.NBSP}mm²/m</span></div>{yg}</div>')
@@ -360,7 +365,7 @@ def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, princip
 def html(EN, i: int, s: Dict, rs: Dict, verifs: Dict, principale: str, aide_axe: Union[str, Callable],
          aide_renfort: Union[str, Callable], verrou: bool = False) -> str:
     """Les DEUX nappes (inférieure, puis supérieure) de la section ``i`` : pour chacune, son titre, les segments du mode
-    (« Treillis soudé · Barres · Treillis + renforts », déduit), puis — treillis — le sélecteur unique et l'orientation
+    (« Treillis soudé · Barres · Mixte », déduit), puis — treillis — le sélecteur unique et l'orientation
     des porteurs, — incohérente — l'avertissement et « En faire un treillis » ; puis le détail de chaque direction (la
     principale d'abord) : plaque_compact.nappe et .couche, la base d'un treillis en lecture — ce que SA direction reçoit,
     « porteurs · Ø10 e 100 » (son axe reste réglable). Les arguments : voir l'en-tête du module."""

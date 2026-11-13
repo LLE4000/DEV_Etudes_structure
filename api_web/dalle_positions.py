@@ -460,7 +460,7 @@ def _peau_treillis(r: Dict, d: Dict) -> None:
             r["avertissements"].append({
                 "code": "treillis_hors_predalle", "section": i, "face": f"inf_{q}", "e": c_r["e"], "d": c_r["d"], "haut": haut,
                 "h_pre": h_pre,
-                "message": f"{s_r['titre']} · nappe inférieure : le treillis est dans la prédalle, ses fils {q.upper()} soudés sur "
+                "message": f"{s_r['titre']} · armature inférieure : le treillis est dans la prédalle, ses fils {q.upper()} soudés sur "
                            f"les fils {p.upper()} (axe à {_fr(c_r['e'])} cm, Ø{c_r['d']:g}) ; le dessus des fils "
                            f"{q.upper()} ({_fr(haut, 2)} cm) sort de la peau de {_fr(h_pre)} cm. Épaissir la prédalle "
                            "ou choisir un treillis plus mince."})
@@ -513,14 +513,14 @@ def conflits(d: Dict, s: Dict) -> set:
 
 def nom_couche(d: Dict, s: Dict, f: str, j: int, nappe: bool = False) -> str:
     """La couche en mots, pour un message : « les fils Y du treillis », « la base X », « le renfort Y », « le renfort R2
-    Y » (les repères de la rubrique Armatures) ; ``nappe`` : la nappe dite en plus (« … de la nappe supérieure »)."""
+    Y » (les repères de la rubrique Armatures) ; ``nappe`` : l'armature dite en plus (« … de l'armature supérieure »)."""
     cote, dk = f.split("_")
     if j == 0:
         nom = f"les fils {dk.upper()} du treillis" if treillis(d, s, cote) else f"la base {dk.upper()}"
     else:
         n = len(s["faces"][f]["couches"]) - 1
         nom = f"le renfort {dk.upper()}" if n == 1 else f"le renfort R{j} {dk.upper()}"
-    return nom + (f" de la nappe {'inférieure' if cote == 'inf' else 'supérieure'}" if nappe else "")
+    return nom + (f" de l'armature {'inférieure' if cote == 'inf' else 'supérieure'}" if nappe else "")
 
 
 def deplacer(d: Dict, i: int, f: str, j: int, sens: int) -> float:

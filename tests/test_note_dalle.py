@@ -434,7 +434,7 @@ OBS = {
     "Prédalle · peau de 4 cm, base Ø16 qui en sort": ["sort de la peau de 4,0 cm", "Non vérifiés"],
     "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": ["à des niveaux trop proches pour se croiser", "Non vérifiés"],
     "CSP · enrobage nul (lu 3 cm) et jeu premier lit 0,5": ["Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm."],
-    "CSP · nappes X et Y au même niveau (axe saisi)": ["les nappes X et Y inférieures sont calculées au même niveau", "Rendre l'axe saisi à l'automatique"],
+    "CSP · nappes X et Y au même niveau (axe saisi)": ["les armatures X et Y inférieures sont calculées au même niveau", "Rendre l'axe saisi à l'automatique"],
 }
 faux = []
 for nom, attendus in OBS.items():

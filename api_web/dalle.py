@@ -102,8 +102,8 @@ CLES_ANCIENNES = ("empilement",)
 # l'état : la note rendue, enregistrée par l'écran, est dans la forme d'aujourd'hui et ne le redit pas.
 CLE_AVIS = "avis_ouverture"
 AVIS = {
-    "note": ("Note d'avant le 09/11/2026 : les nappes sont désormais posées l'une sur l'autre (la direction secondaire, "
-             "base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
+    "note": ("Note d'avant le 09/11/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre (la "
+             "secondaire, base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
     "treillis": ("Note d'avant le 13/11/2026 : un treillis soudé est désormais posé tel qu'il est — ses deux directions de "
                  "fils soudées l'une sur l'autre (dans la peau d'une prédalle), les renforts de la direction principale "
                  "posés sur le treillis ; A<sub>s,req</sub> peut différer de l'ancienne note."),
@@ -415,7 +415,8 @@ def _bornes_site(d: Dict) -> None:
         for f in EN.FACES:
             face = s["faces"][f]
             if any(x is not None and x > EN.H_MAX for x in [face["yG"]] + [c["dist"] for c in face["couches"]]):
-                raise ValueError(f"section « {s['nom']} », nappe {f} : axe ou centre de gravité au-delà de {EN.H_MAX} cm")
+                raise ValueError(f"section « {s['nom']} », armature {FACES_TXT[f.split('_')[0]]} {f.split('_')[1].upper()} : axe ou "
+                                 f"centre de gravité au-delà de {EN.H_MAX} cm")
 
 
 def _auto_ou_impose(cle: str, valeur, actuel, auto: float):
@@ -541,7 +542,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
     champ = chemin[6]
     if champ == "-":
         if j == 0:
-            raise _Refus("La couche de base ne se retire pas ; changer son type ou sa nappe")
+            raise _Refus("La couche de base ne se retire pas ; changer son type ou son armature")
         del couches[j]
     elif champ == "type":
         if valeur not in dict(TYPES):
@@ -714,8 +715,8 @@ def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
     un appui l'ajoute ou le retire — 13/11/2026, § 8.4).
     (La reprise d'une note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre ; l'option
     « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes sont toujours posées l'une sur l'autre.)"""
-    jeu = ("Écart ajouté entre l'enrobage et le premier lit des nappes SUPÉRIEURES (les nappes inférieures sont posées "
-           "dans et sur la prédalle)." if est_predalle(d) else
+    jeu = ("Écart ajouté entre l'enrobage et le premier lit des armatures SUPÉRIEURES (les armatures inférieures sont "
+           "posées dans et sur la prédalle)." if est_predalle(d) else
            "Écart ajouté entre l'enrobage et le premier lit : il éloigne du parement l'axe automatique de la direction "
            "principale ; la secondaire, posée dessus, le suit.")
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
@@ -944,7 +945,7 @@ def _verdict(v: Dict, s: Dict) -> str:
     if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
         # (court : la ligne du résultat tient sur une ligne au PC — « position des couches incompatible avec
         #  l'épaisseur » y était coupée, 13/11/2026 ; la fenêtre de calcul et la note PDF gardent la phrase longue)
-        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · nappe hors de l'épaisseur"
+        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · armature hors de l'épaisseur"
     val, lim = _comparaison(v, s)
     motif = f" · {_motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
     return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}{motif}"
@@ -1099,7 +1100,7 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
         mini = max(a["ecart_mini"] for a in confondues)
         niveau = ("au même niveau" if all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in confondues)
                   else "à des niveaux trop proches pour se croiser")
-        out += C.message(f"{C.esc(s['titre'])} : les nappes X et Y {faces} sont calculées {niveau} ({axes}) — un axe saisi "
+        out += C.message(f"{C.esc(s['titre'])} : les armatures X et Y {faces} sont calculées {niveau} ({axes}) — un axe saisi "
                          f"les y pose. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm d'axe à axe) : son d est "
                          "plus petit. Rendre l'axe saisi à l'automatique (↺) pose la direction secondaire sur la principale.")
     return out
@@ -1111,7 +1112,7 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
 # sous le résultat, la seule phrase « Non vérifiées » (NON_VERIFIEES_CSP) : ce qui est vérifié, les lignes du résultat
 # le montrent déjà (le propriétaire, 13/11/2026 : « supprimer les messages explicatifs redondants »).
 NON_VERIFIEES_CSP = "Non vérifiées : la flèche et la fissuration."
-PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, quatre nappes : A<sub>s,req</sub>, minimum et maximum) et "
+PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, les quatre armatures : A<sub>s,req</sub>, minimum et maximum) et "
                  "τ ≤ τ<sub>adm,I</sub> (une dalle sans étriers). " + NON_VERIFIEES_CSP)
 
 
@@ -1234,7 +1235,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     dk = face.split("_")[1]
     princ = " (principale)" if dk == d["dir_principale"].lower() else ""
     ou = f", {pose}" if predalle else ""
-    return C.selecteur(role, f"Nappe {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
+    return C.selecteur(role, f"Armature {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
                        f"couche de base{princ}{ou} · triée par section au mètre · un clic la retient{note}", filtres, rows,
                        max(0, min(i_o, i_c) - 4), "mm²/m", etoile="la plus petite section qui tient")
 

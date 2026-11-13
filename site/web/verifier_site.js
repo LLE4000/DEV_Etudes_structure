@@ -4032,8 +4032,9 @@ const principal = async () => {
           ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.titre === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
           && mem && mem.module === 'dalle' && mem.dalles === 'Ancienne P1:predalle:6', JSON.stringify({ ouverte, mem }));
         // ses nappes supérieures sont désormais posées l'une sur l'autre (décision du 09/11/2026) : l'avis le dit, une fois
-        verif('plaques predalle : l\'ancienne note dit, en tête du résultat, « Note d\'avant le 09/11/2026 : les nappes sont désormais posées l\'une sur l\'autre … » (visible)',
-          /^Note d'avant le 09\/11\/2026 : les nappes sont désormais posées l'une sur l'autre/.test(ouverte.avis), ouverte.avis);
+        // (DAL9, 13/11/2026 : « les deux directions d'armature », plus « les nappes » — le harnais suit la phrase)
+        verif('plaques predalle : l\'ancienne note dit, en tête du résultat, « Note d\'avant le 09/11/2026 : les deux directions d\'armature sont désormais posées l\'une sur l\'autre … » (visible)',
+          /^Note d'avant le 09\/11\/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre/.test(ouverte.avis), ouverte.avis);
         await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
         // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
         // qui créent la note (l'adresse devient « ?note=… », comme pour toute note demandée par « ?nom= »)
@@ -4458,7 +4459,8 @@ const principal = async () => {
       localStorage.setItem(k, JSON.stringify(notes)); }, [id, nom]);
     const memoireN = (pg, id) => pg.evaluate((i) => { const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[i];
       return n ? { version: n.etat.version, cle: n.etat.dalles.some((d) => 'empilement' in d), avis: 'avis_ouverture' in n.etat } : null; }, id);
-    const AVIS = /^Note d'avant le 09\/11\/2026 : les nappes sont désormais posées l'une sur l'autre \(la direction secondaire, base et renforts, sur la principale\) ; As,req peut différer de l'ancienne note\.$/;
+    // (DAL9, 13/11/2026 : « les deux directions d'armature », plus « les nappes » — le harnais suit la phrase)
+    const AVIS = /^Note d'avant le 09\/11\/2026 : les deux directions d'armature sont désormais posées l'une sur l'autre \(la secondaire, base et renforts, sur la principale\) ; As,req peut différer de l'ancienne note\.$/;
     try {
       await ouvrir(g, `${BASE}/index.html`);
       await semer(g, 'ancienne-dalle', 'Ancienne note dalle');
@@ -4587,7 +4589,8 @@ const principal = async () => {
         const champ = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_y/couches/1/dist"]');
         // les deux colonnes de chaque légende : le début des supérieures, le bout de la plus longue ligne des inférieures (px)
         const textes = [...v.querySelectorAll('text')].filter(vis);
-        const supG = Math.min(...textes.filter((t) => t.textContent === 'Nappe supérieure').map((t) => t.getBoundingClientRect().left));
+        // (DAL9, 13/11/2026 : « Armature supérieure », plus « Nappe supérieure » — le harnais suit le libellé)
+        const supG = Math.min(...textes.filter((t) => t.textContent === 'Armature supérieure').map((t) => t.getBoundingClientRect().left));
         const infD = Math.max(...textes.filter((t) => /^(Treillis |R\d |[XY] · |axes : )/.test(t.textContent) && t.getBoundingClientRect().left < supG - 1).map((t) => t.getBoundingClientRect().right));
         return { vu: true, pts: pts.length, ecartFils: (haut(trait) - bas) / m.d, ecartRenfX: (haut(renfX) - bas) / m.d, px_mm: m.d, leg, place: champ && champ.placeholder,
           jeu_legende_px: supG - infD };

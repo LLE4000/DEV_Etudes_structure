@@ -94,7 +94,8 @@ def nappe_html(h, cote):
     return next(p for p in parts if f'data-nappe="{cote}"' in p)
 
 
-SEG = r'<button type="button" class="(on)?" data-chemin="{}" data-sorte="choix" data-valeur="([^"]+)"( disabled)?>([^<]+)</button>'
+# (DAL9, 13/11/2026 : un segment peut porter son explication au survol, title="…" — « Mixte »)
+SEG = r'<button type="button" class="(on)?" data-chemin="{}" data-sorte="choix" data-valeur="([^"]+)"(?: title="[^"]*")?( disabled)?>([^<]+)</button>'
 
 # ------------------------------------------------------------------ 1. le mode se déduit des deux bases
 print("=== 1 · Le mode, déduit")
@@ -242,9 +243,9 @@ chk("une désignation écrite avec des espaces est lue et canonisée (« 8 / 8 /
     refus(NAP.ecrire, copy.deepcopy(d), CH("sup", "treillis"), " 8 / 8 / 150 / 150 ") is None)
 chk("un côté inconnu est refusé (« sections/0/nappes/milieu/mode »)", "inf » ou « sup" in (refus(NAP.ecrire, d, CH("milieu", "mode"), "barres") or ""))
 chk("un champ inconnu est refusé", "mode, treillis ou porteurs" in (refus(NAP.ecrire, d, CH("inf", "axe"), "3") or ""))
-chk("un mode inconnu est refusé", "Mode de nappe inconnu" in (refus(NAP.ecrire, d, CH("inf", "mode"), "grille") or ""))
+chk("un type d'armature inconnu est refusé", "Type d'armature inconnu" in (refus(NAP.ecrire, d, CH("inf", "mode"), "grille") or ""))
 chk("une section introuvable est refusée (ValueError, jamais IndexError)", "introuvable" in (refus(NAP.ecrire, d, CH("inf", "mode", 9), "barres") or ""))
-chk("un chemin qui n'est pas celui d'une nappe est refusé", "Chemin de nappe" in (refus(NAP.ecrire, d, ["sections", 0, "faces", "inf_x", "yG"], "3") or ""))
+chk("un chemin qui n'est pas celui d'une armature est refusé", "Chemin d'armature" in (refus(NAP.ecrire, d, ["sections", 0, "faces", "inf_x", "yG"], "3") or ""))
 d6 = EN.nouvelle_dalle()
 NAP.ecrire(d6, CH("inf", "mode"), "barres")
 chk("« porteurs » sur une nappe de barres : refusé (« pas un treillis unique »)", "treillis unique" in (refus(NAP.ecrire, d6, CH("inf", "porteurs"), "x") or ""))
@@ -281,13 +282,14 @@ NAP.ecrire(d8, CH("inf", "porteurs"), "x")
 s8["faces"]["inf_y"]["couches"].append(EN.nouvelle_couche(base=False))
 h = html_de(d8)
 inf, sup = nappe_html(h, "inf"), nappe_html(h, "sup")
-chk("les deux nappes, l'inférieure puis la supérieure, titrées « Nappe inférieure » / « Nappe supérieure »",
-    h.index('data-nappe="inf"') < h.index('data-nappe="sup"') and "Nappe inférieure" in inf and "Nappe supérieure" in sup
+chk("les deux armatures, l'inférieure puis la supérieure, titrées « Armature inférieure » / « Armature supérieure » (DAL9 : plus "
+    "« Nappe », le propriétaire, 13/11/2026)",
+    h.index('data-nappe="inf"') < h.index('data-nappe="sup"') and "Armature inférieure" in inf and "Armature supérieure" in sup
     and h.count('class="et-nap"') == 2)
 segs = re.findall(SEG.format("sections/0/nappes/inf/mode"), inf)
-chk("les segments du mode de la nappe inférieure : Treillis soudé · Barres · Treillis + renforts, le mode déduit marqué (ici « Treillis + "
-    "renforts » : un renfort en Y)",
-    [(v, t) for _, v, _, t in segs] == [("treillis", "Treillis soudé"), ("barres", "Barres"), ("treillis_renforts", "Treillis + renforts")]
+chk("les segments du type de l'armature inférieure : Treillis soudé · Barres · Mixte (DAL9 : « Mixte », plus « Treillis + renforts » "
+    "sur deux lignes), le type déduit marqué (ici « Mixte » : un renfort en Y)",
+    [(v, t) for _, v, _, t in segs] == [("treillis", "Treillis soudé"), ("barres", "Barres"), ("treillis_renforts", "Mixte")]
     and [v for on, v, _, _ in segs if on] == ["treillis_renforts"], segs)
 chk("… la supérieure (treillis symétrique, sans renfort) marque « Treillis soudé »",
     [v for on, v, _, _ in re.findall(SEG.format("sections/0/nappes/sup/mode"), sup) if on] == ["treillis"])
@@ -382,7 +384,7 @@ actifs = re.findall(r'<(?:select|input|button)(?![^>]*\bdisabled\b)[^>]*data-che
 chk("verrouillée : tout se lit — aucun champ ni bouton actif qui porte un chemin, ni « + Renfort », ni « Retirer », ni sélecteur ; les "
     "pièces gardent leur data-cible (le dessin les sélectionne encore)",
     not actifs and "et-add" not in hv and "et-ret" not in hv and "et-prop" not in hv and "En faire un treillis" not in hv
-    and set(re.findall(r'data-cible="([^"]+)"', hv)) == set(cibles) and "Treillis + renforts" in hv, actifs[:3])
+    and set(re.findall(r'data-cible="([^"]+)"', hv)) == set(cibles) and ">Mixte</button>" in hv, actifs[:3])
 # aide_axe et aide_renfort : textes ou fonctions (le contrat posé par le lot FUS2, pour la prédalle)
 hf = html_de(d8, aide_axe=lambda f, j, c, g: {"aide_axe": "AXE·" + f, "details": f"<i>POSE {f}-{j}</i>", "dit_auto": False},
              aide_renfort=lambda f: "RENFORT·" + f)

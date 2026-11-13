@@ -492,7 +492,7 @@ chk("une bande de 5 m se dessine en partie (1,20 m) et la cote le dit",
     and "1 200 vus sur b = 5 000" in DD.svg_plan("t", large["sections"][0], large["dalle"]))
 plan = DD.svg_plan("t", s0, ref["dalle"])
 chk("plan : les deux nappes, leurs espacements cotés et le repère (principale Y)",
-    all(t in plan for t in ("Nappe inférieure", "Nappe supérieure", ">100<", "direction principale : Y")), plan[:200])
+    all(t in plan for t in ("Armature inférieure", "Armature supérieure", ">100<", "direction principale : Y")), plan[:200])
 
 # ------------------------------------------------------------------ 11. le site affiche le moteur, sur des dalles tirées au sort
 rng = random.Random(20261107)
@@ -705,7 +705,7 @@ chk("DAL5 : aucune vue ne répète sa légende dans son en-tête (le dessin la p
     "« legende » reste la clé de chaque vue (ce qu'un écran sans en-tête écrirait sous son titre)",
     len(ar["vues"]) == 5 and all('class="lg"' not in v_["entete"] and 'class="l2"' not in v_["entete"]
                                  and v_["legende"] == P.LEGENDES["p" if v_["cle"][0] == "p" else "c"] for v_ in ar["vues"])
-    and all("Nappe inférieure" in v_["svg"] and "Nappe supérieure" in v_["svg"] for v_ in ar["vues"]),
+    and all("Armature inférieure" in v_["svg"] and "Armature supérieure" in v_["svg"] for v_ in ar["vues"]),
     [(v_["cle"], v_["entete"][-120:]) for v_ in ar["vues"]])
 chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
     "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DD.svg_coupe("t", ref["sections"][0], ref["dalle"]))
@@ -781,11 +781,115 @@ for _ch, _v in (("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "5"), ("sectio
 _rdn = req(module="dalle", action="calculer", etat=_dn)
 _vdn = next(v for v in MO.verifier(moteur_de(_dn))["sections"][0]["verifications"] if v["cle"] == "inf_x")
 _cdn = dict((n, c_) for _, n, c_ in CMP.findall(_rdn["resultat"]))
-chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · nappe hors de l'épaisseur », en rouge ; aucun message ne "
+chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · armature hors de l'épaisseur », en rouge ; aucun message ne "
     "le répète sous le bloc",
-    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · nappe hors de l'épaisseur" in _cdn.get("Inférieure X", "")
+    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · armature hors de l'épaisseur" in _cdn.get("Inférieure X", "")
     and _rdn["resultat"].count("hors de l'épaisseur") == 1 and "incompatible avec l'épaisseur" not in _rdn["resultat"]
     and 'class="msg' not in _rdn["resultat"], (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("hors de l'épaisseur")))
+
+# ------------------------------------------------------------------ DAL9 : « Armature », plus « nappe » ; « Mixte »
+# Le propriétaire, 13/11/2026 : « je ne veux plus les mots nappe » (« Armature inférieure », « Armature supérieure ») ; le
+# troisième type d'armature s'appelle « Mixte » (« Treillis + renforts » passait sur deux lignes). Ce qui se VOIT est lu
+# dans les réponses de l'écran — le texte, les dessins, les aides au survol (title, aria-label) —, l'état mis à part
+# (ses clés « nappes » ne s'affichent pas) ; puis dans les SOURCES, toute chaîne qui n'est pas une clé interne.
+print("=== DAL9 · le vocabulaire : « Armature », « Mixte »")
+import io  # noqa: E402
+import tokenize  # noqa: E402
+
+from api_web import dalle_nappes as NAP  # noqa: E402
+
+ATTR_VISIBLES = re.compile(r'\b(?:title|aria-label|placeholder|alt)="([^"]*)"')
+
+
+def visibles(x):
+    """Les textes qu'une réponse de l'écran MONTRE : chaque chaîne sans ses balises, plus ses aides au survol ; l'état
+    (« etat ») n'est pas montré."""
+    if isinstance(x, dict):
+        return [t for k, v in x.items() if k != "etat" for t in visibles(v)]
+    if isinstance(x, list):
+        return [t for v in x for t in visibles(v)]
+    if isinstance(x, str):
+        return [html.unescape(t) for t in ATTR_VISIBLES.findall(x)] + [html.unescape(re.sub(r"<[^>]+>", " ", x))]
+    return []
+
+
+def nappes_vues(*reponses):
+    return [t.strip()[:160] for r_ in reponses for t in visibles(r_) if re.search(r"nappe", t, re.I)]
+
+
+def _modif(etat_, chemin, valeur):
+    return req(module="dalle", action="modifier", etat=etat_, chemin=chemin.split("/"), valeur=valeur)
+
+
+_n9 = nouveau()
+_e9 = _n9["etat"]
+_m9 = saisir(_e9, "sections/0/faces/inf_y/couches/+", "1")                           # un renfort Y : l'armature est « Mixte »
+_rep9 = [_n9, _m9, saisir(_m9["etat"], "verrou", True),
+         req(module="dalle", action="selecteur", etat=_e9, role="inf_y-0"),
+         _modif(_m9["etat"], "sections/0/nappes/inf/mode", "treillis"),             # « Cette armature porte 1 renfort »
+         _modif(_e9, "sections/0/faces/inf_y/couches/0/-", "1"),                   # la couche de base ne se retire pas
+         saisir(saisir(_e9, "sections/0/faces/inf_x/couches/0/dist", "3.5")["etat"], "sections/0/My_inf", "20"),  # X, Y confondues
+         _rdn]
+_p9 = saisir(saisir(_e9, "type", "predalle")["etat"], "h_pre", "3")["etat"]        # treillis et base hors de la peau
+_p9b = saisir(saisir(_m9["etat"], "type", "predalle")["etat"], "sections/0/faces/inf_x/couches/+", "1")["etat"]  # renforts croisés
+_rep9 += [req(module="dalle", action="calculer", etat=_p9), req(module="dalle", action="calculer", etat=_p9b),
+          saisir(_p9, "verrou", True), req(module="dalle", action="selecteur", etat=_p9, role="inf_x-0")]
+_avis9 = " ".join(t for t in visibles(_rep9) if "dans la prédalle" in t or "sur la prédalle" in t or "même niveau" in t)
+chk("DAL9 : les situations du contrôle montrent bien leurs messages (base et treillis hors de la peau, renforts croisés sur "
+    "la prédalle, armatures X et Y au même niveau, refus) — sinon le contrôle ne lirait rien",
+    all(m in _avis9 for m in ("le treillis est dans la prédalle", "(base, dans la prédalle)", "sont posées toutes deux sur la prédalle",
+                              "sont calculées au même niveau"))
+    and "Cette armature porte 1 renfort" in (_rep9[4]["message"] or "") and "« Mixte »" in (_rep9[4]["message"] or "")
+    and "ne se retire pas" in (_rep9[5]["message"] or ""),
+    (_avis9[:300], _rep9[4]["message"], _rep9[5]["message"]))
+chk("DAL9 : le mot « nappe » ne se voit plus nulle part — données, dessins (coupes, plan), résultats, fenêtres de calcul, "
+    "messages, refus, sélecteur, aides au survol ; dalle pleine et prédalle, ouvertes et verrouillées",
+    not nappes_vues(*_rep9), nappes_vues(*_rep9)[:4])
+_seg9 = re.search(r'<button type="button" class="(?:on)?" data-chemin="sections/0/nappes/inf/mode" data-sorte="choix" '
+                  r'data-valeur="treillis_renforts"( title="([^"]*)")?>([^<]+)</button>', _n9["volets"] + _n9["donnees"])
+chk("DAL9 : le troisième type d'armature s'appelle « Mixte », et le survol dit ce qu'il est (« Treillis soudé et barres de "
+    "renfort ») ; les dessins titrent « Armature inférieure » et « Armature supérieure »",
+    bool(_seg9) and _seg9.group(3) == "Mixte" and _seg9.group(2) == "Treillis soudé et barres de renfort"
+    and all("Armature inférieure" in v_["svg"] and "Armature supérieure" in v_["svg"] for v_ in _n9["vues"]),
+    _seg9 and _seg9.groups())
+# la garde rougit si on la retire : l'ancien titre remis, elle le voit
+_titres9 = dict(NAP.TITRES)
+NAP.TITRES.update(inf="Nappe inférieure")
+try:
+    _mut9 = nappes_vues(nouveau())
+finally:
+    NAP.TITRES.update(_titres9)
+chk("DAL9 : MUTATION — « Nappe inférieure » remis au titre : la garde le voit (dans la rubrique et dans les dessins)",
+    len(_mut9) >= 2 and any("Nappe inférieure" in t for t in _mut9), _mut9[:3])
+# les SOURCES : une chaîne qui contient « nappe » n'est qu'une CLÉ interne (chemin « nappes », code « nappes_confondues »,
+# attribut data-nappe) ou le chemin technique d'un refus de requête mal formée ; les docstrings et les commentaires parlent
+# encore de nappes — ils ne s'affichent pas
+INTERNES9 = {'"nappes"', '"nappes_confondues"', "'nappes'", "'nappes_confondues'"}
+SOURCES9 = ("api_web/dalle.py", "api_web/predalle.py", "api_web/dalle_nappes.py", "api_web/dalle_positions.py",
+            "api_web/dessin_dalle.py", "api_web/dessin_predalle.py", "api_web/plaque_compact.py", "api_web/note_dalle.py",
+            "beton/dalle/moteur.py", "beton/predalle/moteur.py")
+
+
+def chaines_nappe(chemin):
+    toks = list(tokenize.generate_tokens(io.StringIO(open(os.path.join(RACINE, chemin), encoding="utf-8").read()).readline))
+    out = []
+    for k, t in enumerate(toks):
+        if t.type not in (tokenize.STRING, getattr(tokenize, "FSTRING_MIDDLE", -1)) or not re.search(r"nappe", t.string, re.I):
+            continue
+        avant = toks[k - 1].type if k else tokenize.NEWLINE
+        apres = toks[k + 1].type if k + 1 < len(toks) else tokenize.NEWLINE
+        if (t.string.startswith(('"""', "'''")) and avant in (tokenize.INDENT, tokenize.NEWLINE, tokenize.DEDENT, tokenize.NL)
+                and apres == tokenize.NEWLINE):
+            continue                                                  # une docstring
+        if t.string in INTERNES9 or 'data-nappe="' in t.string or "sections/i/nappes/inf|sup/champ" in t.string:
+            continue
+        out.append(f"{chemin}:{t.start[0]} {t.string[:90]}")
+    return out
+
+
+_src9 = [x for p_ in SOURCES9 for x in chaines_nappe(p_)]
+chk(f"DAL9 : dans les {len(SOURCES9)} sources de l'écran des dalles et de leurs deux moteurs, plus aucune chaîne affichable ne dit "
+    "« nappe » (les clés internes, data-nappe et les docstrings mis à part)", not _src9, _src9[:4])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

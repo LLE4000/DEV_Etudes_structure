@@ -787,6 +787,20 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   dans toute l'application ; les pas donnés par le propriétaire (« une poutre, plutôt du 5 cm ; un enrobage, du 1 cm ») —
   `docs/site/CHARTE_ERGONOMIE.md` (E9 et § 2). La position verticale des armatures (lot 5) : niveaux par défaut, puis
   toucher la couche et la déplacer aux flèches (« Ok lot 5 ») — § 3 de la charte.
+- **DAL9 — les mots des armatures** : « Armature inférieure / supérieure » au lieu de « nappe », partout où un texte se
+  voit (écran, dessins, messages, note PDF) ; le troisième type d'armature s'appelle « Mixte » (`DALLES_FUSION.md`
+  § 8.9). Aucun chiffre ne change.
+- **UNI0 — l'unification poutre / dalle pleine / prédalle (état des lieux du 13/11/2026, rien de modifié)** : trois
+  règles de position aujourd'hui (poutre, dalle, prédalle), écrites à quatre endroits ; les barres secondaires d'une
+  prédalle sont posées SUR la peau (h_p + Ø/2) alors que le propriétaire les veut DEDANS ; seul le demi-diamètre est
+  arrondi. Règle voulue : axe = c (+ Ø étrier) + Ø/2 + jeu de pose, arrondi vers l'intérieur au pas choisi (0,5, 1
+  ou 5 cm), réglages « coulé en place » et « préfabriqué », barres de couture au joint des prédalles (le sens
+  secondaire vérifié deux fois). Avec jeu 1 cm et pas 1 cm (c = 3) : A_s,req + 3 à + 11 %. **À trancher par le
+  propriétaire avant le code** : (1) une couche posée sur une autre part de la position RÉELLE de celle du dessous
+  (proposé) ou de son axe arrondi ; (2) prédalle de 6 cm, c = 3 et jeu 1 cm : Ø12 + Ø10 n'y tiennent pas (dessus à
+  6,2 cm) — un contrôle le dira ; garder ces valeurs ? (3) longueur des barres de couture : recouvrement l₀ (proposé :
+  Ø10 54 cm de chaque côté, C30/37 B500) ou ancrage l_bd (36 cm) — le tableau du bureau est encore vide ; (4) les
+  valeurs par défaut : jeu de pose 1 cm, pas 1 cm, 0 entre couches.
 - **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste

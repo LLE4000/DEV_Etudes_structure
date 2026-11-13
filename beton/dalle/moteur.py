@@ -427,10 +427,10 @@ def _avertissements(d: dict, sections: list) -> list:
             if ecart < mini - 1e-9:
                 out.append({"code": "nappes_confondues", "section": i, "face": cote, "e_x": fx["e"], "e_y": fy["e"],
                             "ecart_mini": mini / 10.0,
-                            "message": f"{s['titre']} · nappes {'inférieures' if cote == 'inf' else 'supérieures'} X et Y : "
+                            "message": f"{s['titre']} · armatures {'inférieures' if cote == 'inf' else 'supérieures'} X et Y : "
                                        f"axes à {_fr(fx['e'])} et {_fr(fy['e'])} cm, calculés comme l'écran Streamlit, sans "
                                        f"tenir compte du croisement ; posées l'une sur l'autre, leurs axes sont distants "
-                                       f"d'au moins {_fr(mini / 10.0)} cm et la nappe du dessus a un d plus petit. "
+                                       f"d'au moins {_fr(mini / 10.0)} cm et l'armature du dessus a un d plus petit. "
                                        "Saisir son axe pour en tenir compte."})
     return out
 
@@ -459,7 +459,7 @@ def candidat_nom(c: dict) -> str:
 def lire_candidat(nom: str) -> dict:
     """« Treillis 8/8/150/150 » → {type, treillis} ; « Ø12/150 » → {type, d, esp} ; ValueError sinon."""
     if not isinstance(nom, str):
-        raise ValueError(f"nappe : texte attendu (reçu {nom!r})")
+        raise ValueError(f"armature : texte attendu (reçu {nom!r})")
     if nom.startswith("Treillis "):
         des = nom[len("Treillis "):]
         if not TR.est_canonique(des):
@@ -469,7 +469,7 @@ def lire_candidat(nom: str) -> dict:
         a, _, b = nom[1:].partition("/")
         if a.isdigit() and b.isdigit():
             return {"type": "barres", "d": int(a), "esp": int(b)}
-    raise ValueError(f"nappe illisible : « {nom} » (« Treillis Øl/Øt/el/et » ou « Ø12/150 »)")
+    raise ValueError(f"armature illisible : « {nom} » (« Treillis Øl/Øt/el/et » ou « Ø12/150 »)")
 
 
 def _liste_candidats(familles) -> list:

@@ -913,3 +913,26 @@ devant un doute, demander « la note PDF ou l'écran ? » avant de refaire un do
   rougissent), et les autres notes du kit inchangées ; `test_api_web_dalle` (143) — la ligne Hauteur de chaque section,
   dalle et prédalle, = les grandeurs du moteur, et la somme lue tombe juste ; mutation (la somme seule) ; harnais
   (filtre « note_pdf ») : sa lecture de h_min à l'écran suit le nouveau format (le harnais suit).
+
+### 8.9 DAL9 — « Armature », plus « nappe » ; « Mixte »
+
+*Le propriétaire, 13/11/2026 : « la troisième case en deux lignes, on pourrait mettre mixte […] je ne veux plus les mots
+nappe ; on peut mettre armature inférieure, armature supérieure ».*
+
+- **« Mixte »** : le troisième segment du type d'armature (« Treillis soudé · Barres · Mixte ») ; son survol dit
+  « Treillis soudé et barres de renfort ». `dalle_nappes.MODES` ; le composant partagé `commun.segments` accepte une
+  explication au survol par option (facultative : sans elle, la sortie est la même à l'octet près — le gel de
+  référence des autres modules le prouve). Le refus « Treillis soudé seul les retirerait » renvoie à « Mixte ».
+- **« Armature inférieure », « Armature supérieure »** : une source, `dalle_nappes.TITRES`, que lisent la rubrique
+  Armatures, la légende des coupes et le plan (« Plan des armatures »). Partout ailleurs où le mot se voyait, il est
+  remplacé : aides au survol, refus, avis d'ouverture, périmètre (« les quatre armatures »), la ligne « d ≤ 0 ·
+  armature hors de l'épaisseur », le titre du sélecteur, et les messages des deux MOTEURS qui s'affichent tels quels
+  (base ou treillis hors de la prédalle, renforts croisés sur la prédalle, armatures X et Y confondues).
+- **Aucun chiffre ne change** : rejouées avec les anciens mots, les 20 photos gelées des dalles et prédalles sont
+  identiques à l'octet près ; regel accepté pour les mots seuls (clé « regels » des photos).
+- Tests : `test_api_web_dalle` (148) — ce que l'écran MONTRE (texte, dessins, aides au survol, refus, sélecteur), dalle
+  pleine et prédalle, ouvertes et verrouillées, avec chaque message qui disait « nappe » provoqué : plus un seul ; la
+  mutation (« Nappe inférieure » remis) rougit ; dans les sources de l'écran et des deux moteurs, plus aucune chaîne
+  affichable ne le dit (clés internes et docstrings mis à part). La note PDF : 25 notes relues par pdftotext, aucune
+  occurrence. Rouges classés : tous « le harnais suit » (les contrôles citaient les anciens libellés ; l'expression
+  des segments admet le survol).

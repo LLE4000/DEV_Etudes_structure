@@ -189,7 +189,7 @@ def _avertissements(p: dict, r: dict) -> list:
         if c0["auto"] and haut > p["h_pre"] + 1e-9:
             out.append({"code": "base_hors_predalle", "section": i, "face": f_p, "e": c0["e"], "d": c0["d"], "haut": haut,
                         "h_pre": p["h_pre"],
-                        "message": f"{s['titre']} · nappe inférieure {pr.upper()} (base, dans la prédalle) : axe à {_fr(c0['e'])} cm, "
+                        "message": f"{s['titre']} · armature inférieure {pr.upper()} (base, dans la prédalle) : axe à {_fr(c0['e'])} cm, "
                                    f"Ø{c0['d']:g} ; le dessus des barres ({_fr(haut, 2)} cm) sort de la peau de "
                                    f"{_fr(p['h_pre'])} cm. L'écran Streamlit calcule sans le signaler : épaissir la prédalle "
                                    "ou saisir l'axe de la couche."})
@@ -212,7 +212,7 @@ def _avertissements(p: dict, r: dict) -> list:
             plus = f" (et {len(paires) - 1} autre(s) paire(s))" if len(paires) > 1 else ""
             out.append({"code": "croisement_sur_predalle", "section": i, "paires": [[a, b] for a, _, b, _, _ in paires],
                         "ecart_mini": max(x[4] for x in paires) / 10.0,
-                        "message": f"{s['titre']} · nappes inférieures : {nom('x', jx, cx)} et {nom('y', jy, cy)} sont posées "
+                        "message": f"{s['titre']} · armatures inférieures : {nom('x', jx, cx)} et {nom('y', jy, cy)} sont posées "
                                    f"toutes deux sur la prédalle, à des niveaux trop proches pour se croiser (il faut au moins "
                                    f"{_fr(mini / 10.0)} cm d'axe à axe), comme dans l'écran Streamlit{plus}. Croisées, l'une "
                                    "passe sur l'autre : son d est plus petit que celui calculé. Saisir son axe pour en tenir "

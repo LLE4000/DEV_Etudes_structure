@@ -260,7 +260,8 @@ def bornes_site(p: Dict) -> None:
         for f in EN.FACES:
             face = s["faces"][f]
             if any(x is not None and x > EN.H_MAX for x in [face["yG"]] + [c["dist"] for c in face["couches"]]):
-                raise ValueError(f"section « {s['nom']} », nappe {f} : axe ou centre de gravité au-delà de {EN.H_MAX} cm")
+                raise ValueError(f"section « {s['nom']} », armature {FACES_TXT[f.split('_')[0]]} {f.split('_')[1].upper()} : axe ou "
+                                 f"centre de gravité au-delà de {EN.H_MAX} cm")
 
 
 _bornes_site = bornes_site
@@ -399,7 +400,7 @@ def _ecrire(p: Dict, chemin: List, valeur) -> None:
     champ = chemin[6]
     if champ == "-":
         if j == 0:
-            raise _Refus("La couche de base ne se retire pas ; changer son type ou sa nappe")
+            raise _Refus("La couche de base ne se retire pas ; changer son type ou son armature")
         del couches[j]
     elif champ == "type":
         if valeur not in dict(TYPES):
@@ -497,7 +498,7 @@ def sur_principale(x: Dict) -> str:
     principal posé sur un treillis unique (``appui_sec``) repose sur « le treillis » ou sur « le renfort X »."""
     if x.get("appui_sec"):
         return x.get("sur") or "le treillis"
-    return "la base principale" if not x.get("appui") else (x.get("sur") or "la nappe principale")
+    return "la base principale" if not x.get("appui") else (x.get("sur") or "l'armature principale")
 
 
 def pose_couche(c: Dict, geo_c: Dict) -> str:
@@ -556,8 +557,8 @@ def _options(p: Dict) -> str:
                         "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
                         "prédalles de la note."),
                        ("Jeu 1er lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0),
-                        "Écart ajouté entre l'enrobage et le premier lit des nappes SUPÉRIEURES (les nappes inférieures sont "
-                        "posées dans et sur la prédalle). Commun à toutes les prédalles de la note.")))
+                        "Écart ajouté entre l'enrobage et le premier lit des armatures SUPÉRIEURES (les armatures inférieures "
+                        "sont posées dans et sur la prédalle). Commun à toutes les prédalles de la note.")))
 
 
 def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
@@ -735,7 +736,7 @@ def _verdict(v: Dict, s: Dict) -> str:
     if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
         # (court : la ligne du résultat tient sur une ligne au PC — « position des couches incompatible avec
         #  l'épaisseur » y était coupée, 13/11/2026 ; la fenêtre de calcul et la note PDF gardent la phrase longue)
-        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · nappe hors de l'épaisseur"
+        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · armature hors de l'épaisseur"
     val, lim = _comparaison(v, s)
     motif = f" · {_motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
     return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}{motif}"
@@ -899,7 +900,7 @@ _avertissements = avertissements
 # ce qui est vérifié, les lignes du résultat le montrent déjà (le propriétaire, 13/11/2026).
 NON_VERIFIES = ("Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface "
                 "prédalle / béton coulé en place, la flèche et la fissuration.")
-PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, quatre nappes) "
+PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, les quatre armatures) "
              "et τ ≤ τ<sub>adm,I</sub>. " + NON_VERIFIES)
 
 
@@ -910,7 +911,7 @@ def hypotheses(p: Dict, m: Dict) -> List[str]:
             f"α<sub>b</sub> = {C.nb(m['alpha_b'])} · μ = {C.nb(m['mu'], 4)}",
             f"Bande b × h = {C.nb(p['b'])} × {C.nb(p['h'])} cm, dont prédalle <b>{C.nb(p['h_pre'])} cm</b> et "
             f"{C.nb(p['h'] - p['h_pre'])} cm coulés en place",
-            f"Enrobage {C.nb(p['enrobage'])} cm · jeu premier lit {C.nb(p['jeu_premier_lit'])} cm (nappes supérieures)"]
+            f"Enrobage {C.nb(p['enrobage'])} cm · jeu premier lit {C.nb(p['jeu_premier_lit'])} cm (armatures supérieures)"]
 
 
 _hypotheses = hypotheses
@@ -988,7 +989,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         note += f" · la base actuelle ({base['n']} Ø{base['d']}) n'est pas dans la liste"
     dk = face.split("_")[1]
     princ = " (principale)" if dk == p["dir_principale"].lower() else ""
-    return C.selecteur(role, f"Nappe {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
+    return C.selecteur(role, f"Armature {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
                        f"couche de base{princ}, {pose} · triée par section au mètre · un clic la retient{note}", filtres, rows,
                        max(0, min(i_o, i_c) - 4), "mm²/m", etoile="la plus petite section qui tient")
 
