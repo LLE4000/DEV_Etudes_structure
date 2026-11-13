@@ -562,9 +562,14 @@ for k in ETABLIS:
             f"les {len(_ids_compact)} identifiants cherchés existent, une seule fois",
             not absents and 'data-etabli="compact"' in html and 'href="css/etabli.css"' in html
             and all(html.count(f'id="{i}"') == 1 for i in _ids_compact)
-            # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule
-            and all(html.count(f'data-{a}="{c}"') == 1 for a in ("coll", "poignee") for c in "gd")
-            and all(html.count(f'data-historique="{h}"') == 1 for h in ("annuler", "retablir")), (absents, _ids_compact))
+            # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule — une fois ;
+            # DEUX fois « Annuler », « Rétablir » et « Replier les données » pour un module de OUTILS_AU_DESSIN (la dalle,
+            # 13/11/2026) : en haut à gauche du dessin (PC, tablette) et dans l'en-tête des données (téléphone)
+            and all(html.count(f'data-{a}="{c}"') == (2 if (k in SW.OUTILS_AU_DESSIN and (a, c) == ("coll", "g")) else 1)
+                    for a in ("coll", "poignee") for c in "gd")
+            and all(html.count(f'data-historique="{h}"') == (2 if k in SW.OUTILS_AU_DESSIN else 1) for h in ("annuler", "retablir"))
+            and (('data-outils-dessin="1"' in html and '<div class="ctool"><div class="et-outils"' in html) == (k in SW.OUTILS_AU_DESSIN)),
+            (absents, _ids_compact))
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
             "data-etabli" not in html and "etabli.css" not in html and 'id="liste"' not in html)
@@ -862,6 +867,9 @@ chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des p
     "trois modules du lot Q (poutres bois, maturité, taux d'armature) et des fondations de grues (11/11/2026), un sous-ensemble de l'établi compact",
     set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages"} and len(SW.ARBRE_COMPACT) == 14
     and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
+chk("OUTILS_AU_DESSIN : « Annuler », « Rétablir » et « Replier » en haut à gauche du dessin — la dalle seule (13/11/2026, demande "
+    "du propriétaire ; « ne pas commencer la refonte des poutres »), un sous-ensemble des colonnes compactes",
+    tuple(SW.OUTILS_AU_DESSIN) == ("dalle",) and set(SW.OUTILS_AU_DESSIN) <= set(SW.ARBRE_COMPACT), SW.OUTILS_AU_DESSIN)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
@@ -886,8 +894,8 @@ for k in SW.ETABLI_COMPACT:
     chk(f"{k} : le moteur rend {'la colonne compacte (et-arbre-c ; la ligne .et-elsel, le nom en champ) et la tête des résultats sans champ' if _compact else 'l arbre d avant (en-tête de liste, ligne d élément) et la tête des résultats sans champ'}"
         " — comme ARBRE_COMPACT le dit",
         _out.get("ok") and ('class="et-arbre et-arbre-c"' in _out["donnees"]) == _compact and ('class="et-arbre-h"' in _out["donnees"]) == (not _compact)
-        and (re.search(r'<div class="et-elsel" data-elements="1"><input data-chemin="nom" data-sorte="texte" value="[^"]*" class="et-elt-nom"',
-                       _out["donnees"]) is not None) == _compact
+        and (re.search(r'<div class="et-elsel(?: et-elsel-d)?" data-elements="1"><input data-chemin="nom" data-sorte="texte" value="[^"]*" '
+                       r'class="et-elt-nom(?: et-n-\w+)?"', _out["donnees"]) is not None) == _compact
         and '<input data-chemin="nom"' in _out["donnees"] and "data-chemin" not in _out["resultat"].split('<div class="et-blocs">')[0]
         and 'class="et-rp-nom"' not in _out["resultat"], _out.get("erreur"))
 # … et l'écran la déplace : js/etabli.js cherche l'emplacement dans l'en-tête du panneau de gauche, y pose la ligne .et-elsel
@@ -901,7 +909,7 @@ chk("js/etabli.js déplace la ligne .et-elsel de #donnees dans l'emplacement .et
     'const ELT = $(".panel.left .phead .et-elt");' in _js_etabli and _poser is not None
     and _js_etabli.index("zone.innerHTML = elements + html;") < _poser.start()
     and "const saisieElt = ELT ? saisieEnCours(ELT) : null;" in _js_etabli
-    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}(, \{ signal \})?\)', _js_etabli) is not None
+    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{\s*if \(agirElement\(ev\)\) return;', _js_etabli) is not None
     and re.search(r'ELT\.addEventListener\("focusout", .*?valider\(el\);', _js_etabli, re.S) is not None
     # (12/11/2026 : la colonne des résultats a aussi ses menus — « Exporter » des fondations de grues)
     and 'document.querySelector(".panel.left .phead .et-elt")' in _src_compact and "zonesMenus = [donnees, elt, resultat]" in _src_compact)

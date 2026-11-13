@@ -67,7 +67,9 @@ VERSION = 3
 
 # les TYPES de dalle : la clé de l'état et son libellé (les segments de la rubrique « 1 — Caractéristiques »)
 # (libellés courts, demande de l'ingénieur du 09/11/2026 : CSP = coulé sur place ; l'aide du champ le dit en entier)
-TYPES_DALLE = (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))
+# (les libellés : « Dalle pleine » et « Prédalle », demande du propriétaire du 13/11/2026 — c'étaient « Dalle CSP » et
+#  « Prédalle + dalle CSP », les libellés courts du 09/11/2026 ; les clés de l'état ne changent pas)
+TYPES_DALLE = (("coulee", "Dalle pleine"), ("predalle", "Prédalle"))
 TYPES_TXT = dict(TYPES_DALLE)
 # les clés que le SITE ajoute à une dalle et que les moteurs ne lisent pas (api_web/dalle_positions.CLES_SITE les
 # retire de la copie envoyée au moteur : tests/test_api_web_dalles_fusion.py lie les deux copies)
@@ -591,11 +593,10 @@ AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — direc
             "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale, sur "
             "la plus haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son axe + ½ Ø_p + ½ Ø ; "
             "une valeur saisie l'impose.")
-AIDE_TYPE = ("CSP : coulé sur place. Dalle CSP : toute l'épaisseur est coulée au chantier (moteur beton/dalle). Prédalle + dalle "
-             "CSP : la partie basse "
-             "h_p est préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres "
-             "couches inférieures sur la prédalle (moteur beton/predalle). Changer de type garde les sections, les armatures et "
-             "les positions saisies ; vers la prédalle, h_p prend 6 cm (borné à l'épaisseur).")
+AIDE_TYPE = ("Dalle pleine : toute l'épaisseur est coulée sur place (moteur beton/dalle). Prédalle : la partie basse h_p est "
+             "préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres couches "
+             "inférieures sur la prédalle (moteur beton/predalle). Changer de type garde les sections, les armatures et les "
+             "positions saisies ; vers la prédalle, h_p prend 6 cm (borné à l'épaisseur).")
 AIDE_RENFORT = "Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base"
 
 
@@ -615,16 +616,17 @@ def _lecture(label: str, valeur: str, sym: str = "") -> str:
 
 
 def _formulaire_verrouille(d: Dict, r: Dict) -> str:
-    """Une dalle verrouillée : ses données en lecture seule (son type aussi), et la case pour la déverrouiller."""
-    peau = (_lecture("prédalle · coulé en place", f"{C.nb(d['h_pre'])} + {C.nb(d['h'] - d['h_pre'])} cm", "h<sub>p</sub>")
+    """Une dalle verrouillée : ses données en lecture seule (son type aussi) ; le cadenas de la ligne de la dalle la
+    déverrouille (13/11/2026 : ce n'est plus une case de la rubrique)."""
+    peau = (_lecture("prédalle + coulé en place", f"{C.nb(d['h_pre'])} + {C.nb(d['h'] - d['h_pre'])} cm", "h<sub>p</sub>")
             if est_predalle(d) else "")
-    s1 = (C.case(["verrou"], True, "Verrouiller la dalle (lecture seule)")
-          + C.aide("La dalle est verrouillée : ses données se lisent, elles ne se modifient pas.")
+    s1 = (C.aide("La dalle est verrouillée : ses données se lisent, elles ne se modifient pas. Le cadenas, à droite de son "
+                 "nom, la déverrouille.")
           + _lecture("type", C.esc(TYPES_TXT[d["type"]]))
           + _lecture("béton, acier", f"{C.esc(d['beton'])} · B{d['fyk']}")
-          + _lecture("largeur de bande", f"{C.nb(d['b'])} cm", "b")
-          + _lecture("épaisseur totale" if est_predalle(d) else "épaisseur", f"{C.nb(d['h'])} cm", "h") + peau
-          + _lecture("enrobage", f"{C.nb(d['enrobage'])} cm", "c") + _lecture("direction principale", d["dir_principale"]))
+          + _lecture("", f"{C.nb(d['b'])} cm", "b")
+          + _lecture("", f"{C.nb(d['h'])} cm", "h") + peau
+          + _lecture("", f"{C.nb(d['enrobage'])} cm", "c") + _lecture("principale", d["dir_principale"]))
     s2 = ""
     for s, rs in zip(d["sections"], r["sections"]):
         mom = " · ".join(f"{SOLLICITATIONS[k]} {C.nb(s[k])}" for k in EN.MOMENTS)
@@ -654,39 +656,42 @@ def _options(d: Dict) -> str:
 
 
 def _caracteristiques(d: Dict) -> str:
-    """La rubrique « 1 — Caractéristiques » (§ 2.2) : les segments du type, puis les champs d'aujourd'hui, deux par
-    ligne ; une prédalle ajoute « h_p prédalle » (bornes H_PRE_MIN..h_pre_max(h)) et le COMPLÉMENT coulé en place
-    h − h_p, en lecture seule (recalculé à chaque saisie, jamais stocké). Les explications dans l'infobulle ⓘ de
-    leur champ (données condensées, demande de l'ingénieur, 11/2026)."""
+    """La rubrique « 1 — Caractéristiques » (§ 2.2, revue le 13/11/2026 — § 8.2) : le type en deux segments SANS libellé
+    (« Dalle pleine » · « Prédalle » : le choix se lit, son explication au survol), béton et acier, puis les dimensions
+    en SYMBOLES — b (et son ⓘ : la bande de calcul de 1 m), h, c —, la direction principale ; une prédalle ajoute h_p
+    (bornes H_PRE_MIN..h_pre_max(h)) et le COMPLÉMENT coulé en place h − h_p, en lecture seule (recalculé à chaque saisie,
+    jamais stocké). Les mots « bande », « épaisseur », « enrobage » ne se répètent plus à côté du symbole : le survol du
+    symbole les dit. Le verrou n'est plus une case de cette rubrique : c'est le cadenas de la ligne de la dalle."""
     predalle = est_predalle(d)
-    aide_h = ("Épaisseur totale : prédalle et béton coulé en place ensemble ; c'est h qui entre dans les formules." if predalle
-              else "")
-    aide_c = ("Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm, comme dans "
-              "l'écran Streamlit." if predalle else "Du parement au nu des armatures. 0 est lu 3 cm, comme dans l'écran Streamlit.")
+
+    def sym(lettre: str, mot: str) -> str:
+        return f'<span class="et-sym" title="{C.esc(mot)}">{lettre}</span>'
+    aide_c = ("Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm." if predalle
+              else "Du parement au nu des armatures. 0 est lu 3 cm.")
     aide_p = ("La base inférieure de la direction principale est posée DANS la prédalle (fond de moule) ; la base secondaire et "
               "tous les renforts inférieurs SUR la prédalle. Elle ordonne aussi les vérifications et les coupes." if predalle
               else "La direction principale ordonne les vérifications, les coupes et la note ; aucune formule ne la lit.")
     peau = ""
     if predalle:
         maxi = EN_P.h_pre_max(d["h"])
-        peau = C.ligne2(("h<sub>p</sub> prédalle", C.num(["h_pre"], d["h_pre"], "cm", mini=EN_P.H_PRE_MIN, maxi=maxi),
+        peau = C.ligne2((sym("h<sub>p</sub>", "Épaisseur de la prédalle"), C.num(["h_pre"], d["h_pre"], "cm", mini=EN_P.H_PRE_MIN, maxi=maxi),
                          f"Épaisseur de la prédalle préfabriquée : de {C.nb(EN_P.H_PRE_MIN)} à {C.nb(maxi)} cm ici (au moins "
                          f"{C.nb(EN_P.COULE_MIN)} cm coulé en place, {C.nb(EN_P.H_PRE_MAX)} cm au plus). Elle fixe la position des "
                          "couches inférieures."),
-                        ("coulé h − h<sub>p</sub>", f'<span class="dl-ro">{C.nb(d["h"] - d["h_pre"])} cm</span>',
+                        (sym("h − h<sub>p</sub>", "Épaisseur coulée en place"), f'<span class="dl-ro">{C.nb(d["h"] - d["h_pre"])} cm</span>',
                          "Épaisseur du béton coulé en place au chantier, sur la prédalle : h − h_p, recalculée à chaque saisie."))
     return ('<div class="et-piece et-plat" data-cible="beton">'
-            + C.ligne("Type", C.segments(["type"], d["type"], TYPES_DALLE), "", AIDE_TYPE, full=True)
+            + f'<div class="row full et-type" title="{C.esc(AIDE_TYPE)}">{C.segments(["type"], d["type"], TYPES_DALLE)}</div>'
             + C.ligne2(("Béton", C.choix(["beton"], d["beton"], [(k, k) for k in MO.classes_beton()]), ""),
                        ("Acier", C.choix(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), ""))
-            + C.ligne2(("b bande", C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX),
-                        "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande."),
-                       ("h totale" if predalle else "h épaisseur", C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX),
-                        aide_h))
+            + C.ligne2((sym("b", "Largeur de la bande de calcul"), C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX),
+                        "Bande de calcul : 100 cm = 1 m de dalle. Les moments et l'effort tranchant saisis sont ceux de la bande."),
+                       (sym("h", "Épaisseur totale (prédalle et béton coulé en place)" if predalle else "Épaisseur de la dalle"),
+                        C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), ""))
             + peau
-            + C.ligne2(("c enrobage", C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), aide_c),
+            + C.ligne2((sym("c", "Enrobage"), C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), aide_c),
                        ("Principale", C.segments(["dir_principale"], d["dir_principale"], [("Y", "Y"), ("X", "X")]), aide_p))
-            + "</div>" + C.case(["verrou"], False, "Verrouiller la dalle (lecture seule)"))
+            + "</div>")
 
 
 def _aide_axe(d: Dict):
@@ -720,20 +725,21 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     s3, r3 = PC.rubrique_armatures([s["nom"] for s in d["sections"]], contenus, resumes)
     # le résumé de la rubrique 1 dit le TYPE
     resume1 = (f"Prédalle h<sub>p</sub> = {C.nb(d['h_pre'])} cm · {C.esc(d['beton'])} · B{d['fyk']}" if est_predalle(d)
-               else f"Dalle CSP · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
+               else f"Dalle pleine · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
                          s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm", _options(d))
 
 
-def arbre(etat: Dict, r: Optional[Dict] = None) -> str:
+def arbre(etat: Dict, r: Optional[Dict] = None, niveaux: Optional[List[str]] = None) -> str:
     """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact — docs/site/DALLES_FUSION.md § 1) : la ligne
     de la dalle ouverte (son nom, qu'un clic modifie ; la liste des dalles « nom · b × h cm », la peau d'une prédalle
-    dite, un cadenas si elle est verrouillée, et « Ajouter une dalle » ; copier, supprimer), posée par l'écran dans
-    l'en-tête du panneau, puis les rubriques de la dalle ouverte."""
+    dite, un cadenas si elle est verrouillée, et « Ajouter une dalle » ; à droite le cadenas, copier, supprimer), posée
+    par l'écran dans l'en-tête du panneau, puis les rubriques de la dalle ouverte. ``niveaux`` (un par dalle, ceux du
+    résultat : PC.niveau_element) : l'état de chaque dalle, dit par la couleur de son nom (§ 8.2)."""
     elements = [(d.get("nom") or f"Dalle {i + 1}",
                  f"· {C.nb(d['b'])} × {C.nb(d['h'])} cm" + (f", prédalle {C.nb(d['h_pre'])} cm" if est_predalle(d) else ""), d["verrou"])
                 for i, d in enumerate(etat["dalles"])]
-    return E.arbre(E.DALLE, elements, etat["actif"], formulaire(etat, r), "dalle", compact=True)
+    return E.arbre(E.DALLE, elements, etat["actif"], formulaire(etat, r), "dalle", compact=True, cadenas=True, niveaux=niveaux)
 
 
 # ------------------------------------------------------------------ le résultat
@@ -849,8 +855,9 @@ def _verdict(v: Dict, s: Dict) -> str:
         return (f"{_egal('A<sub>s</sub>', _n(v['limite'], 'mm²') + N + 'mm²')} &gt; "
                 f"{_egal('A<sub>s,max</sub>', _n(v['As_max'], 'mm²') + N + 'mm²')} · acier excessif")
     if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
-        return (f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · position des couches incompatible avec "
-                "l'épaisseur")
+        # (court : la ligne du résultat tient sur une ligne au PC — « position des couches incompatible avec
+        #  l'épaisseur » y était coupée, 13/11/2026 ; la fenêtre de calcul et la note PDF gardent la phrase longue)
+        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · nappe hors de l'épaisseur"
     val, lim = _comparaison(v, s)
     motif = f" · {_motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
     return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}{motif}"
@@ -1075,6 +1082,7 @@ def resultat(etat: Dict) -> Dict:
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur {"prédalle" if predalle else "dalle"}</span>'
             f'<b>v{C.esc(_MO(d).REFERENCE.split(" v")[-1])}</b></div><div class="legend">{C.legende()}</div></div>')
     # l'état de la NOTE (toutes ses dalles) dans l'en-tête du panneau : utile dès deux dalles ; seule, chaque section dit le sien
+    # (l'état de CHAQUE dalle colore aussi son nom, dans la ligne et dans la liste des dalles : ``arbre``)
     nivs = [PC.niveau_element(_MO(q), _M(q), x) for q, x in zip(etat["dalles"], resultats)]
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     element = r["predalle"] if predalle else r["dalle"]
@@ -1082,7 +1090,7 @@ def resultat(etat: Dict) -> Dict:
                         f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{C.aide(non_verifies(d))}</div>{pied}',
             **({"avis": avis} if avis else {}), "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,
-            "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
+            "resume": resume_note(etat, resultats), "donnees": arbre(etat, r, nivs), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ la note PDF

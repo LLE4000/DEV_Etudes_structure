@@ -69,6 +69,11 @@ ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondati
 # avec ``etabli_compact.arbre(…, compact=True)``, js/etabli.js la pose dans l'emplacement ``.et-elt``) à côté
 # d'« Annuler » et « Rétablir » (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
 ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages")
+# … et parmi eux, ceux dont « Annuler », « Rétablir » et « Replier les données » sont en haut à gauche du DESSIN, près du
+# titre de la section, au PC et à la tablette (la dalle, demande du propriétaire du 13/11/2026 — docs/site/DALLES_FUSION.md
+# § 8.2) : la ligne de l'élément garde la place pour son nom, à droite le cadenas, copier, supprimer. Au téléphone, le
+# dessin est un onglet à part : les trois restent dans l'en-tête des données (css/etabli.css choisit, selon le format).
+OUTILS_AU_DESSIN = ("dalle",)
 # Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
 # est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
 # s'ouvre dans le module fusionné. Ils restent au registre (le routeur les sert encore : anciens liens, harnais), sont
@@ -966,7 +971,7 @@ def page_module(cle: str, titre: str) -> str:
     # l'établi compact qui sait la préremplir ; sa feuille de style vient avec
     biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
     if cle in ETABLI_COMPACT:
-        corps = compact(corps, biblio, cle in ARBRE_COMPACT)
+        corps = compact(corps, biblio, cle in ARBRE_COMPACT, cle in OUTILS_AU_DESSIN)
     css = f"css/modules/{cle}.css"
     return tete(f"{titre} · Stab Méthodes", "css/etabli.css" if cle in ETABLI_COMPACT else "", "css/bibliotheque.css" if biblio else "",
                 css if os.path.exists(os.path.join(ICI, css)) else "") + corps
@@ -1023,7 +1028,7 @@ def page_bibliotheque(cle: str) -> str:
     return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css", propre if os.path.exists(os.path.join(ICI, propre)) else "") + corps
 
 
-def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
+def compact(corps: str, bibliotheque=None, arbre_compact: bool = False, outils_au_dessin: bool = False) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
     - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
@@ -1038,6 +1043,10 @@ def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
       d'établi, ``bouton_ranger``) ;
     - (la note PDF n'est plus son affaire : ``page_module`` allume le bouton de tout module de NOTE_PDF, compact ou non,
       par ``boutons_note_pdf``) ;
+    - ``outils_au_dessin`` (OUTILS_AU_DESSIN) : « Annuler », « Rétablir » et « Replier les données » AUSSI en haut à gauche
+      du dessin (``.et-outils``, au début de la barre de la toile) ; la page le dit (body data-outils-dessin) et
+      css/etabli.css montre l'un ou l'autre selon le format — le dessin au PC et à la tablette, l'en-tête des données au
+      téléphone (les mêmes attributs : js/etabli.js les sert tous, « [data-historique] », « [data-coll] ») ;
     - ``bibliotheque`` (la clé d'une bibliothèque, docs/site/BIBLIOTHEQUES.md § 2.4) : un bouton discret « Bibliothèque »
       dans la barre du haut et dans le menu ⋯ du téléphone, et le PANNEAU #et-bibliotheque (le gabarit de la page de la
       bibliothèque, dans une fenêtre modale large ; js/biblio_note.js) — la page le dit (body data-bibliotheque)."""
@@ -1062,6 +1071,16 @@ def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
         corps = corps.replace(marque, f'<div class="et-poignee" data-poignee="{nom}" role="separator" aria-orientation="vertical" '
                               f'title="Glisser pour élargir ; double-clic : largeur d\'origine"></div>' + marque, 1)
     corps = corps.replace('<body data-page="module"', '<body data-page="module" data-etabli="compact"', 1)
+    if outils_au_dessin:
+        outils = ('<div class="et-outils" role="group" aria-label="Annuler, rétablir, replier les données">'
+                  f'<button type="button" class="et-hist et-replier" data-coll="g" title="Replier ou déplier les données" '
+                  f'aria-label="Replier ou déplier les données">{MQ.icon("panel-left")}</button>'
+                  f'<button type="button" class="et-hist" data-historique="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled>{MQ.icon("undo-2")}</button>'
+                  f'<button type="button" class="et-hist" data-historique="retablir" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled>{MQ.icon("redo-2")}</button></div>')
+        barre = '<div class="ctool"><div class="seg" id="vues"></div>'
+        assert corps.count(barre) == 1, barre
+        corps = corps.replace(barre, '<div class="ctool">' + outils + '<div class="seg" id="vues"></div>', 1)
+        corps = corps.replace('<body data-page="module" data-etabli="compact"', '<body data-page="module" data-etabli="compact" data-outils-dessin="1"', 1)
     # « ajuster » le dessin : une icône — « 100 % » laissait croire à une échelle d'impression, le dessin s'ajuste à la
     # feuille ; le pourcentage reste dans le bouton, caché par la feuille de l'établi (js/toile.js l'écrit)
     avant = '<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille">100 %</button>'

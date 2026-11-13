@@ -224,9 +224,9 @@ def niveau_element(MO, M, r: Dict) -> str:
 def comparaison(M, v: Dict, s: Dict) -> str:
     """La ligne 2 d'une vérification : la valeur et sa limite, NOMMÉES (« A_s,néc = 707 ≤ A_s = 785 mm² ») ; une
     vérification non conforme sous 100 % (acier excessif) dit ce qui la rend non conforme (M._verdict) ; une face dont
-    le d utile est ≤ 0 le dit, QUEL QUE SOIT son taux (« d = −0,5 cm ≤ 0 · position des couches incompatible avec
-    l'épaisseur ») — c'est la ligne qui le dit, plus un message sous le bloc (13/11/2026 : au-delà de 100 %, la ligne
-    disait « A_s,néc = 16 667 > A_s = 785 mm² » et la raison n'était que dans ce message)."""
+    le d utile est ≤ 0 le dit, QUEL QUE SOIT son taux (« d = −0,5 cm ≤ 0 · nappe hors de l'épaisseur ») — c'est la
+    ligne qui le dit, plus un message sous le bloc (13/11/2026 : au-delà de 100 %, la ligne disait « A_s,néc = 16 667 >
+    A_s = 785 mm² » et la raison n'était que dans ce message)."""
     if M._sous_limite_non_conforme(v) or v["cle"] not in M.EN.FACES or "d_utile_negatif" in v["motifs"]:
         return M._verdict(v, s)
     le = "≤" if v["taux"] <= 1 else "&gt;"

@@ -220,6 +220,45 @@ chk("compact, la poutre : les mots de son genre (data-poutre, « Nom de cette po
     and balises(_ap["supprimer"])[0][1].get("data-confirmer") == "Supprimer la poutre « V1 » de la note ?"
     and balises(_ap["supprimer"])[0][1].get("title") == "Une note garde au moins une poutre", _hp[:300])
 
+# (13/11/2026, la dalle) deux options de la ligne : le CADENAS (un bouton à chemin « verrou », à droite avec copier et
+# supprimer) et l'ÉTAT de chaque élément (la couleur de son nom) ; sans elles, la sortie est la même, à l'octet près
+def ctl_cadenas():
+    ouv = E.arbre(E.DALLE, TROIS, 0, "", "dalle", compact=True, cadenas=True)
+    ver = E.arbre(E.DALLE, TROIS, 1, "", "dalle", compact=True, cadenas=True)
+    b_o = re.search(r'<button type="button" class="et-elt-b et-verrou[^"]*"[^>]*>', ouv)
+    b_v = re.search(r'<button type="button" class="et-elt-b et-verrou[^"]*"[^>]*>', ver)
+    if not (b_o and b_v):
+        return False, (ouv[:300], ver[:300])
+    a_o, a_v = balises(b_o.group(0))[0][1], balises(b_v.group(0))[0][1]
+    ordre = [ouv.index(x) for x in ('class="et-elt-nom', 'et-elt-liste', 'et-verrou', 'data-dupliquer-index', 'data-supprimer=')]
+    return (a_o.get("data-chemin") == "verrou" and a_o.get("data-valeur") == "true" and a_o.get("aria-pressed") == "false"
+            and a_o.get("title") == "Verrouiller la dalle (lecture seule)" and C.icon("lock-open") in ouv
+            and a_v.get("data-valeur") == "false" and a_v.get("aria-pressed") == "true" and a_v.get("title") == "Déverrouiller la dalle"
+            and "et-verrou on" in b_v.group(0) and ordre == sorted(ordre) and "et-elsel et-elsel-d" in ouv
+            and "le cadenas, à droite, la déverrouille" in ver
+            and E.arbre(E.DALLE, TROIS, 0, "", "dalle", compact=True) == E.arbre(E.DALLE, TROIS, 0, "", "dalle", compact=True, cadenas=False)
+            and "et-verrou" not in E.arbre(E.DALLE, TROIS, 0, "", "dalle", compact=True)), (a_o, a_v, ordre)
+
+
+chk("compact, le CADENAS (option) : un bouton de la ligne, après la liste, avant copier et supprimer ; ouverte : « Verrouiller la dalle "
+    "(lecture seule) », la valeur « true », cadenas ouvert ; verrouillée : « Déverrouiller la dalle », « false », allumé ; sans "
+    "l'option, la ligne d'avant à l'octet", *ctl_cadenas())
+
+
+def ctl_niveaux():
+    h = E.arbre(E.DALLE, TROIS, 2, "", "dalle", compact=True, niveaux=["p", "r", "n"])
+    noms = re.findall(r'<span class="nom( et-n-\w+)?">', h)
+    champ = re.search(r'<input data-chemin="nom"[^>]*class="et-elt-nom( et-n-\w+)?"[^>]*title="([^"]*)"', h)
+    return (noms == [" et-n-ok", " et-n-nok", " et-n-inc"] and champ is not None and champ.group(1) == " et-n-inc"
+            and champ.group(2).endswith("— données incomplètes") and "(non conforme)" in h and "(conforme)" in h
+            and E.arbre(E.DALLE, TROIS, 2, "", "dalle", compact=True, niveaux=["f", "r", "p"]).count("et-n-ok") == 3
+            and "et-n-" not in E.arbre(E.DALLE, TROIS, 2, "", "dalle", compact=True)), (noms, champ and champ.groups())
+
+
+chk("compact, l'ÉTAT de chaque élément (option ``niveaux``) : le nom en vert s'il est conforme (p, f), en rouge sinon (r), neutre "
+    "sans effort (n) — dans la liste et sur la ligne (le champ, son infobulle le dit) ; sans l'option, aucune classe d'état",
+    *ctl_niveaux())
+
 # ------------------------------------------------------------------ 4. les attributs : ceux que l'écran lit (deux copies, liées)
 ATTRS = {"data-elements", "data-chemin", "data-sorte", "data-menu", "data-activer", "data-ajouter", "data-dupliquer-index",
          "data-supprimer", "data-confirmer"}
@@ -231,11 +270,15 @@ _js = open(os.path.join(RACINE, "site", "web", "js", "etabli.js"), encoding="utf
 # (lot S4 : l'établi est un écran montable, ses fonctions sont dans ouvrirEtabli — la fin de agirElement est l'accolade
 #  à SA propre indentation ; ses écouteurs portent le signal du montage)
 _agir = re.search(r"\n( *)function agirElement\(ev\) \{.*?\n\1\}", _js, re.S)
+# (13/11/2026 : la ligne de la dalle porte aussi le CADENAS, un bouton à chemin — « verrou » — que l'écouteur de la ligne
+#  envoie comme un segment des données quand agirElement ne l'a pas pris)
+_elt = re.search(r'ELT\.addEventListener\("click", \(ev\) => \{(.*?)\n\s*\}, \{ signal \}\);', _js, re.S)
 chk("js/etabli.js lit ces attributs-là : agirElement (supprimer + sa confirmation, activer, ajouter, copier) — et la ligne de l'élément "
-    "posée dans l'en-tête lui passe ses clics",
+    "posée dans l'en-tête lui passe ses clics, puis envoie un bouton à chemin (le cadenas) comme un segment",
     _agir is not None and all(x in _agir.group(0) for x in ('closest("[data-supprimer]")', "dataset.confirmer", 'closest("[data-activer]")',
                                                              'closest("[data-ajouter]")', 'closest("[data-dupliquer-index]")'))
-    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}(, \{ signal \})?\)', _js) is not None)
+    and _elt is not None and "if (agirElement(ev)) return;" in _elt.group(1)
+    and 'closest("button[data-chemin][data-valeur]")' in _elt.group(1) and 'envoyer("modifier"' in _elt.group(1), _elt and _elt.group(1)[:200])
 
 # ------------------------------------------------------------------ 5. les noms piégés
 PIEGES = ['<img src=x onerror=alert(1)>', 'x" onfocus="alert(1)', "Dalle & 'q'"]
@@ -369,7 +412,9 @@ def muter(titre, fonction, avant, apres, controle):
 muter("Supprimer allumé quand l'élément est seul", E.arbre_compact, '{" disabled" if seul else ""}', '{""}', ctl_un_supprimer)
 muter("la liste sans data-activer (on ne peut plus ouvrir un autre élément)", E.arbre_compact, 'data-activer="{i}" ', "", ctl_deux)
 muter("le nom de l'ouvert non échappé (le champ, la confirmation)", E.arbre_compact, "nom = C.esc(nom_txt)", "nom = nom_txt", ctl_pieges)
-muter("les noms de la liste non échappés", E.arbre_compact, '<span class="nom">{C.esc(n)}</span>', '<span class="nom">{n}</span>', ctl_pieges)
+muter("les noms de la liste non échappés", E.arbre_compact, '">{C.esc(n)}</span><span class="dim">', '">{n}</span><span class="dim">', ctl_pieges)
+muter("le cadenas pose la valeur courante (un clic ne change rien)", E.arbre_compact, '{"false" if verrou else "true"}', '{"true" if verrou else "false"}', ctl_cadenas)
+muter("l'état oublie « f » (95 à 100 % : conforme, donc vert)", E.arbre_compact, 'ETATS_NOM.get(n, "inc")', '{"p": "ok", "r": "nok"}.get(n, "inc")', ctl_niveaux)
 muter("menu() sans « bouton » ne rend plus « ⋯ »", E.menu, 'C.icon("ellipsis")', 'C.icon("chevron-down")', ctl_menu)
 
 # la ligne de l'élément s'ACCORDE avec le genre (11/11/2026) : « un garde-corps », « un coulage », « un élément » sont

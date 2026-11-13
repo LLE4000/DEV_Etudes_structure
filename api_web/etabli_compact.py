@@ -86,7 +86,8 @@ def retirer(chemin: Sequence, texte: str) -> str:
 
 
 # ------------------------------------------------------------------ à gauche : l'arborescence de la note
-def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, corps: str, marque: str, compact: bool = False) -> str:
+def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, corps: str, marque: str, compact: bool = False,
+          **ligne) -> str:
     """La colonne de gauche : l'ARBORESCENCE de la note. Chaque élément ``(nom, dimensions, verrou)`` — le nom en texte,
     les dimensions en HTML (« · 25 × 50 cm ») — s'écrit sans taux ni pastille (le résultat est à droite) ; l'élément
     ouvert (``actif``) se développe et montre ``corps``, ses rubriques ; un clic sur un autre l'ouvre (le premier se
@@ -96,9 +97,10 @@ def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, c
     ``data-dalle``…).
 
     ``compact`` (docs/site/DALLES_FUSION.md § 1 ; la dalle et la poutre l'emploient, site/web/construire.ARBRE_COMPACT) :
-    la colonne sans en-tête « LISTE (n) » ni arborescence — ``arbre_compact``."""
+    la colonne sans en-tête « LISTE (n) » ni arborescence — ``arbre_compact`` (``ligne`` : ses options, ``cadenas``,
+    ``niveaux``)."""
     if compact:
-        return arbre_compact(genre, elements, actif, corps, marque)
+        return arbre_compact(genre, elements, actif, corps, marque, **ligne)
     out = ""
     seul = len(elements) == 1
     for i, (nom_txt, dims, verrou) in enumerate(elements):
@@ -128,7 +130,14 @@ def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, c
             f'{out}<button type="button" class="et-pt-add" data-ajouter="1">{C.icon("plus")}Ajouter {genre.un}</button></div>')
 
 
-def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, corps: str, marque: str) -> str:
+# l'ÉTAT d'un élément, dit par la couleur de son nom (``niveaux`` d'arbre_compact) : le niveau de la note (C.niveau, ou
+# « r » non conforme, « n » données incomplètes) → la classe du nom : conforme (vert), non conforme (rouge), incomplet
+ETATS_NOM = {"p": "ok", "f": "ok", "r": "nok", "n": "inc"}
+ETATS_TXT = {"ok": "conforme", "nok": "non conforme", "inc": "données incomplètes"}
+
+
+def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, corps: str, marque: str, *,
+                  cadenas: bool = False, niveaux: Optional[Sequence[str]] = None) -> str:
     """La colonne de gauche COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni
     en-tête « LISTE (n) », ni arborescence ; les rubriques de l'élément ouvert (``corps``) sous UNE LIGNE ``.et-elsel``,
     que js/etabli.js pose dans l'en-tête du panneau, à côté d'« Annuler » et « Rétablir » (l'emplacement ``.et-elt``,
@@ -140,24 +149,37 @@ def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif
       « Ajouter … », ``data-ajouter``) — le compte sur le bouton dès deux éléments ;
     - COPIER l'élément ouvert (``data-dupliquer-index``, la copie s'insère après lui) et le SUPPRIMER (``data-supprimer``,
       avec confirmation ; éteint quand il est seul : une note garde au moins un élément).
-    Les attributs sont ceux que js/etabli.js lisait déjà sur l'arborescence (agirElement)."""
+    Les attributs sont ceux que js/etabli.js lisait déjà sur l'arborescence (agirElement).
+
+    Deux options (la dalle, 13/11/2026, demande du propriétaire — sans elles, la sortie est la même, à l'octet près) :
+    - ``cadenas`` : le VERROU de l'élément ouvert est un bouton de la ligne, à droite avec copier et supprimer
+      (``data-chemin="verrou"``, la valeur qu'un clic pose) — et non plus une case de la première rubrique ;
+    - ``niveaux`` (un par élément : « p », « f », « r », « n ») : l'ÉTAT de chaque élément dit par la couleur de son nom,
+      dans la liste et sur la ligne — vert conforme (taux ≤ 100 %), rouge non conforme, neutre sans effort — pour
+      reconnaître d'un coup d'œil l'élément ouvert et son état."""
     seul = len(elements) == 1
     actif = min(max(0, actif), len(elements) - 1)
     nom_txt, _dims, verrou = elements[actif]
     nom = C.esc(nom_txt)
+    etats = [ETATS_NOM.get(n, "inc") for n in niveaux] if niveaux is not None else None
+    cl_etat = f" et-n-{etats[actif]}" if etats else ""
+    dit_etat = f" — {ETATS_TXT[etats[actif]]}" if etats else ""
+    e_ = "" if genre.masculin else "e"
     if verrou:
-        champ = (f'<span class="et-elt-nom lu" title="{C.esc(genre.le.capitalize())} est verrouillé{"" if genre.masculin else "e"} : son nom se lit (la case '
-                 f'« Verrouiller » de la première rubrique la déverrouille)">{C.icon("lock")}<span>{nom}</span></span>')
+        ou = "le cadenas, à droite, " if cadenas else "la case « Verrouiller » de la première rubrique "
+        champ = (f'<span class="et-elt-nom lu{cl_etat}" title="{C.esc(genre.le.capitalize())} est verrouillé{e_} : son nom se lit '
+                 f'({ou}la déverrouille){dit_etat}">{C.icon("lock")}<span>{nom}</span></span>')
     else:
-        champ = (f'<input data-chemin="nom" data-sorte="texte" value="{nom}" class="et-elt-nom" size="{max(4, len(nom_txt) + 1)}" '
-                 f'spellcheck="false" autocomplete="off" aria-label="Nom de {genre.ce}" title="Nom de {genre.ce} : cliquer pour le modifier">')
+        champ = (f'<input data-chemin="nom" data-sorte="texte" value="{nom}" class="et-elt-nom{cl_etat}" size="{max(4, len(nom_txt) + 1)}" '
+                 f'spellcheck="false" autocomplete="off" aria-label="Nom de {genre.ce}" title="Nom de {genre.ce} : cliquer pour le modifier{dit_etat}">')
     items = ""
     for i, (n, d, v) in enumerate(elements):
         on = i == actif
+        etat_i = f" ({ETATS_TXT[etats[i]]})" if etats else ""
         items += (f'<button type="button" role="menuitemradio" aria-checked="{"true" if on else "false"}" class="et-elt-i{" on" if on else ""}" '
-                  f'data-activer="{i}" title="{"Ouvert" if on else f"Ouvrir {genre.ce}"} : {C.esc(n)} {C.esc(_SANS_BALISES.sub("", d).strip())}">'
+                  f'data-activer="{i}" title="{"Ouvert" if on else f"Ouvrir {genre.ce}"} : {C.esc(n)} {C.esc(_SANS_BALISES.sub("", d).strip())}{etat_i}">'
                   f'{C.icon("check") if on else "<span class=\"ic\"></span>"}{C.icon("lock") if v else ""}'
-                  f'<span class="nom">{C.esc(n)}</span><span class="dim">{d}</span></button>')
+                  f'<span class="nom{f" et-n-{etats[i]}" if etats else ""}">{C.esc(n)}</span><span class="dim">{d}</span></button>')
     items += action('data-ajouter="1"', "plus", f"Ajouter {genre.un}")
     compte = f'<span class="n">{len(elements)}</span>' if not seul else ""
     un = "un" if genre.masculin else "une"
@@ -167,8 +189,14 @@ def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif
     supprimer = (f'<button type="button" class="et-elt-b danger" data-supprimer="{actif}" data-confirmer="Supprimer {genre.le} « {nom} » de la note ?" '
                  f'title="{f"Supprimer {genre.le}" if not seul else f"Une note garde au moins {genre.un}"}" aria-label="Supprimer {genre.le}"'
                  f'{" disabled" if seul else ""}>{C.icon("trash-2")}</button>')
-    return (f'<div class="et-arbre et-arbre-c" data-{marque}="{actif}"><div class="et-elsel" data-elements="{len(elements)}">'
-            f'{champ}{liste}{copier}{supprimer}</div>{corps}</div>')
+    verrouiller = ""
+    if cadenas:
+        quoi = f"Déverrouiller {genre.le}" if verrou else f"Verrouiller {genre.le} (lecture seule)"
+        verrouiller = (f'<button type="button" class="et-elt-b et-verrou{" on" if verrou else ""}" data-chemin="verrou" '
+                       f'data-valeur="{"false" if verrou else "true"}" aria-pressed="{"true" if verrou else "false"}" title="{quoi}" '
+                       f'aria-label="{quoi}">{C.icon("lock" if verrou else "lock-open")}</button>')
+    return (f'<div class="et-arbre et-arbre-c" data-{marque}="{actif}"><div class="et-elsel{" et-elsel-d" if cadenas else ""}" '
+            f'data-elements="{len(elements)}">{champ}{liste}{verrouiller}{copier}{supprimer}</div>{corps}</div>')
 
 
 # ------------------------------------------------------------------ au centre : l'en-tête technique d'une vue

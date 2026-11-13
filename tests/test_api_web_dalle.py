@@ -74,7 +74,8 @@ def niveau_de(v):
     return "r" if v["etat"] == MO.NOK else C.niveau(v["taux"])
 
 
-NOMS = re.compile(r'(?:<span class="nom">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" value="([^"]*)"[^>]*>)'
+# (le nom d'une dalle de la liste peut porter la classe de son état, « nom et-n-ok » : 13/11/2026, § 8.2)
+NOMS = re.compile(r'(?:<span class="nom(?: et-n-\w+)?">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" value="([^"]*)"[^>]*>)'
                   r'<span class="dim">([^<]+)</span>')
 
 
@@ -303,18 +304,23 @@ chk("une dalle ajoutée prend γs et le jeu de la note, et le premier nom libre"
 r8 = saisir(etat, "verrou", True)
 out = req(module="dalle", action="modifier", etat=r8["etat"], chemin=["sections", "0", "Mx_inf"], valeur="99")
 chk("dalle verrouillée : une saisie est refusée, la dalle reste intacte", "verrouillée" in (out["message"] or "") and out["etat"] == r8["etat"])
-chk("dalle verrouillée : le cadre Données est en lecture seule (aucun champ, la case pour déverrouiller), le type dit (« Dalle CSP »), "
-    "un cadenas devant le nom dans la LIGNE de la dalle (colonne de gauche compacte, 09/11/2026 : la ligne que l'écran pose dans "
-    "l'en-tête du panneau), la tête des résultats un simple titre, et aucun sélecteur",
-    'data-sorte="nombre"' not in r8["donnees"] and 'data-chemin="verrou"' in r8["donnees"] and "data-pk=" not in r8["resultat"]
-    and '<span class="dl-ro">Dalle CSP</span>' in r8["donnees"]
-    and re.search(r'<div class="et-elsel" data-elements="1"><span class="et-elt-nom lu"[^>]*>' + re.escape(C.icon("lock"))
+# (13/11/2026, § 8.2) le VERROU est le cadenas de la ligne de la dalle — plus une case de la rubrique 1 : un bouton à chemin
+# « verrou » dont la valeur est celle qu'un clic pose (« false » sur une dalle verrouillée)
+chk("dalle verrouillée : le cadre Données est en lecture seule (aucun champ, plus de case), le type dit (« Dalle pleine »), un "
+    "cadenas devant le nom dans la LIGNE de la dalle et le CADENAS allumé à droite (un clic déverrouille), la tête des résultats "
+    "un simple titre, et aucun sélecteur",
+    'data-sorte="nombre"' not in r8["donnees"] and 'type="checkbox"' not in r8["donnees"] and "data-pk=" not in r8["resultat"]
+    and '<span class="dl-ro">Dalle pleine</span>' in r8["donnees"]
+    and re.search(r'<div class="et-elsel et-elsel-d" data-elements="1"><span class="et-elt-nom lu[^"]*"[^>]*>' + re.escape(C.icon("lock"))
                   + r'<span>Dalle 1</span></span>', r8["donnees"]) is not None
+    and re.search(r'<button type="button" class="et-elt-b et-verrou on" data-chemin="verrou" data-valeur="false" aria-pressed="true" '
+                  r'title="Déverrouiller la dalle"', r8["donnees"]) is not None
     and '<div class="et-rp"><b>Dalle 1</b>' in r8["resultat"])
 chk("dalle verrouillée : son nom se LIT dans la ligne de la dalle (aucun champ « nom » nulle part) ; plus de « Renommer » (un clic sur "
     "le nom suffit) ; déverrouillée, le nom redevient un champ — dans la ligne de la dalle, jamais dans la tête des résultats",
     'data-chemin="nom"' not in r8["donnees"] + r8["resultat"] and "data-renommer" not in r8["donnees"]
-    and '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-elt-nom"' in (r9 := saisir(r8["etat"], "verrou", False))["donnees"]
+    and '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-elt-nom' in (r9 := saisir(r8["etat"], "verrou", "false"))["donnees"]
+    and 'class="et-elt-b et-verrou" data-chemin="verrou" data-valeur="true" aria-pressed="false"' in r9["donnees"]
     and 'data-chemin="nom"' not in r9["resultat"] and "et-elt-nom lu" not in r9["donnees"] and "data-renommer" not in r9["donnees"])
 chk("… et déverrouillée, elle se modifie de nouveau", saisir(r8["etat"], "verrou", False)["etat"] == etat)
 
@@ -506,13 +512,13 @@ chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), son ax
 ar = req(module="dalle", action="calculer", etat=etat)
 don = ar["donnees"]
 # la LIGNE de la dalle ouverte (etabli_compact.arbre_compact) : de son début aux premières rubriques
-ligne_ = re.search(r'<div class="et-elsel" data-elements="\d+">.*?(?=<div class="sec)', don, re.S)
+ligne_ = re.search(r'<div class="et-elsel et-elsel-d" data-elements="\d+">.*?(?=<div class="sec)', don, re.S)
 ligne_ = ligne_.group(0) if ligne_ else ""
 chk("la colonne de gauche COMPACTE (fusion, § 1, revue le 09/11/2026) : une seule dalle, ni en-tête « Dalles (1) » ni arborescence — "
     "la LIGNE de la dalle (que l'écran pose dans l'en-tête du panneau) puis ses rubriques ; « Ajouter une dalle » dans la liste des "
     "dalles ; la liste « Dans cette note » de l'ancien écran n'existe plus ; aucun taux sur la ligne",
     "et-arbre-h" not in don and not re.search(r'class="et-pt(?: on)?"|class="et-pt-(?:l|corps|nom|add)\b', don)
-    and re.search(r'<div class="et-arbre et-arbre-c" data-dalle="0"><div class="et-elsel" data-elements="1">', don) is not None
+    and re.search(r'<div class="et-arbre et-arbre-c" data-dalle="0"><div class="et-elsel et-elsel-d" data-elements="1">', don) is not None
     and noms_arbre(ligne_) == [("Dalle 1", "· 100 × 20 cm")] and 'data-ajouter="1"' in ligne_ and "Ajouter une dalle" in ligne_
     and ar["elements"] == "" and ligne_ and "%" not in ligne_, ligne_[:300])
 chk("sous la dalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Caractéristiques (le type et les dimensions), "
@@ -520,9 +526,13 @@ chk("sous la dalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Car
     re.findall(r'<div class="sec[^"]*" data-sec="([^"]+)"', don) == ["dl", "so", "arm", "op"]
     and re.findall(r'<span class="tt">([^<]+)</span>', don) == ["Caractéristiques", "Sections et sollicitations", "Armatures", "Options"]
     and re.search(r'<div class="sec" data-sec="op" data-secondaire="1">', don) is not None)
-chk("la ligne de la dalle : son NOM en champ, la liste des dalles (la seule, cochée ; « Ajouter une dalle »), Copier la dalle, "
-    "Supprimer la dalle (éteint : c'est la seule) — plus de menu « ⋯ » ni de « Renommer »",
-    ligne_.startswith('<div class="et-elsel" data-elements="1"><input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-elt-nom"')
+chk("la ligne de la dalle : son NOM en champ (vert : la dalle est conforme), la liste des dalles (la seule, cochée ; « Ajouter une "
+    "dalle »), puis à droite le CADENAS (ouvert : un clic verrouille), Copier la dalle, Supprimer la dalle (éteint : c'est la seule) — "
+    "plus de menu « ⋯ » ni de « Renommer »",
+    ligne_.startswith('<div class="et-elsel et-elsel-d" data-elements="1"><input data-chemin="nom" data-sorte="texte" value="Dalle 1" '
+                      'class="et-elt-nom et-n-ok"')
+    and ligne_.index("et-elt-liste") < ligne_.index('class="et-elt-b et-verrou"') < ligne_.index("data-dupliquer-index")
+    and 'data-chemin="verrou" data-valeur="true" aria-pressed="false" title="Verrouiller la dalle (lecture seule)"' in ligne_
     and re.search(r'aria-checked="true" class="et-elt-i on" data-activer="0"', ligne_) is not None
     and 'data-dupliquer-index="0"' in ligne_ and 'aria-label="Copier la dalle"' in ligne_
     and re.search(r'data-supprimer="0" data-confirmer="Supprimer la dalle « Dalle 1 » de la note \?" title="[^"]*" aria-label="Supprimer la '
@@ -532,11 +542,11 @@ deux_ = req(module="dalle", action="ajouter", etat=etat)
 chk("deux dalles : la LISTE de la ligne les nomme dans l'ordre (la seconde ouverte, cochée), le compte « 2 » sur son bouton, le champ "
     "porte le nom de l'ouverte ; les rubriques d'une seule dalle ; une seule liste ; Supprimer allumé",
     re.findall(r'class="et-elt-i( on)?" data-activer="(\d)"', deux_["donnees"]) == [("", "0"), (" on", "1")]
-    and re.search(r'<div class="et-arbre et-arbre-c" data-dalle="1"><div class="et-elsel" data-elements="2"><input data-chemin="nom" '
-                  r'data-sorte="texte" value="Dalle 2" class="et-elt-nom"', deux_["donnees"]) is not None
+    and re.search(r'<div class="et-arbre et-arbre-c" data-dalle="1"><div class="et-elsel et-elsel-d" data-elements="2"><input data-chemin="nom" '
+                  r'data-sorte="texte" value="Dalle 2" class="et-elt-nom et-n-inc"', deux_["donnees"]) is not None
     and '<span class="n">2</span></button>' in deux_["donnees"]
     and deux_["donnees"].count('data-sec="dl"') == 1 and deux_["donnees"].count('class="et-mn et-elt-liste"') == 1
-    and re.search(r'<span class="nom">Dalle 1</span>.*<span class="nom">Dalle 2</span>', deux_["donnees"], re.S) is not None
+    and re.search(r'<span class="nom et-n-ok">Dalle 1</span>.*<span class="nom et-n-inc">Dalle 2</span>', deux_["donnees"], re.S) is not None
     and re.search(r'data-supprimer="1" data-confirmer="Supprimer la dalle « Dalle 2 » de la note \?" title="Supprimer la dalle" '
                   r'aria-label="Supprimer la dalle">', deux_["donnees"]) is not None)
 cibles = set(re.findall(r'data-cible="([^"]+)"', don))
@@ -565,16 +575,28 @@ chk("l'en-tête de la vue : la section, la bande, les matériaux et la direction
     and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>28,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="dl".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
-chk("le NOM de l'élément ouvert se modifie dans la LIGNE de la dalle (09/11/2026 : même chemin « nom » qu'avant ; plus dans la tête "
-    "des résultats) ; la rubrique 1 n'a pas de ligne Nom, ouvre sur les segments du type (« Dalle CSP » retenu) et tient en 3 lignes "
-    "de deux champs (béton | acier, b | h, c | principale), l'acier en menu déroulant ; les explications dans les ⓘ",
-    '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-elt-nom"' in ligne_ and 'data-chemin="nom"' not in rub1
+# (13/11/2026, § 8.2) la rubrique 1 en SYMBOLES : le type en deux segments sans libellé (« Dalle pleine » · « Prédalle »), b
+# (son ⓘ : la bande de calcul de 1 m), h, c — le mot au survol du symbole ; plus de case « Verrouiller » (le cadenas de la ligne)
+_lab1 = [re.sub(r"<[^>]+>", "", x) for x in re.findall(r'<label><span>(.*?)</span>(?:<span class="aide"|</label>)', rub1)]
+chk("le NOM de l'élément ouvert se modifie dans la LIGNE de la dalle (même chemin « nom » qu'avant ; plus dans la tête des résultats) ; "
+    "la rubrique 1 ouvre sur les deux segments du type SANS libellé (« Dalle pleine » retenu, « Prédalle »), puis 3 lignes de deux "
+    "champs aux libellés COURTS (Béton | Acier, b | h, c | Principale), l'acier en menu déroulant ; ni « Type », ni case à cocher",
+    '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-elt-nom' in ligne_ and 'data-chemin="nom"' not in rub1
     and 'data-chemin="nom"' not in ar["resultat"]
-    and re.search(r'<button type="button" class="on" data-chemin="type" data-sorte="choix" data-valeur="coulee">Dalle CSP</button>', rub1) is not None
-    and 'data-chemin="h_pre"' not in rub1
-    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3 == rub1.count('class="row2 n2"')
+    and re.search(r'<div class="row full et-type" title="[^"]+"><div class="seg full"><button type="button" class="on" data-chemin="type" '
+                  r'data-sorte="choix" data-valeur="coulee">Dalle pleine</button><button type="button" class="" data-chemin="type" '
+                  r'data-sorte="choix" data-valeur="predalle">Prédalle</button></div></div>', rub1) is not None
+    and ">Type<" not in rub1 and "type=\"checkbox\"" not in rub1 and "Verrouiller" not in rub1 and 'data-chemin="h_pre"' not in rub1
+    and rub1.count('class="row2 n2"') == 3 and _lab1 == ["Béton", "Acier", "b", "h", "c", "Principale"]
+    and all(m not in rub1 for m in (">b bande<", ">h épaisseur<", ">c enrobage<"))
     and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None and 'class="hint"' not in rub1,
-    re.findall(r'<div class="row[^"]*"', rub1))
+    (_lab1, re.findall(r'<div class="row[^"]*"', rub1)))
+_aides1 = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', rub1)]
+chk("… b porte son ⓘ (« Bande de calcul : 100 cm = 1 m de dalle »), c et la direction principale le leur ; chaque symbole dit son mot "
+    "au survol (b : largeur de la bande de calcul, h : épaisseur de la dalle, c : enrobage)",
+    _aides1[0].startswith("Bande de calcul : 100 cm = 1 m de dalle") and len(_aides1) == 3
+    and all(f'<span class="et-sym" title="{t}">{k}</span>' in rub1
+            for k, t in (("b", "Largeur de la bande de calcul"), ("h", "Épaisseur de la dalle"), ("c", "Enrobage"))), _aides1)
 aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
 chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale, γs et "
     "jeu communs à la note) sont dans les ⓘ de leur champ ; plus d'option « nappes empilées » (décision du 09/11/2026), et "
@@ -661,11 +683,11 @@ for _ch, _v in (("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "5"), ("sectio
 _rdn = req(module="dalle", action="calculer", etat=_dn)
 _vdn = next(v for v in MO.verifier(moteur_de(_dn))["sections"][0]["verifications"] if v["cle"] == "inf_x")
 _cdn = dict((n, c_) for _, n, c_ in CMP.findall(_rdn["resultat"]))
-chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · position des couches incompatible avec l'épaisseur », en rouge ; "
-    "aucun message ne le répète sous le bloc",
-    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · position des couches incompatible" in _cdn.get("Inférieure X", "")
-    and _rdn["resultat"].count("incompatible avec l'épaisseur") == 1 and 'class="msg' not in _rdn["resultat"],
-    (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("incompatible avec l'épaisseur")))
+chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · nappe hors de l'épaisseur », en rouge ; aucun message ne "
+    "le répète sous le bloc",
+    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · nappe hors de l'épaisseur" in _cdn.get("Inférieure X", "")
+    and _rdn["resultat"].count("hors de l'épaisseur") == 1 and "incompatible avec l'épaisseur" not in _rdn["resultat"]
+    and 'class="msg' not in _rdn["resultat"], (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("hors de l'épaisseur")))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

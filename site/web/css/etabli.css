@@ -171,6 +171,28 @@
 .et-elt-b:disabled { opacity: .35; cursor: default; }
 .et-elt-b svg.i { width: 15px; height: 15px; }
 
+/* LA DALLE (13/11/2026, demande du propriétaire — docs/site/DALLES_FUSION.md § 8.2) :
+   - la ligne de la dalle : le nom et la liste à gauche ; le CADENAS (etabli_compact.arbre_compact, ``cadenas``), copier et
+     supprimer à DROITE ; verrouillée, le cadenas est allumé ;
+   - l'ÉTAT de chaque dalle dit par la couleur de son nom (``niveaux``) : vert conforme, rouge non conforme, neutre sans
+     effort — dans la liste et sur la ligne (un nom qu'on modifie reprend l'encre) ;
+   - « Annuler », « Rétablir », « Replier les données » en haut à gauche du DESSIN (construire.OUTILS_AU_DESSIN) au PC et
+     à la tablette ; au téléphone (plus bas), ils restent dans l'en-tête des données — le dessin y est un onglet à part. */
+.et-elsel-d > .et-verrou { margin-left: auto; }
+.et-elt-b.et-verrou.on { color: var(--ink); background: var(--bg); }
+.et-elt-nom.et-n-ok, .et-elt-i .nom.et-n-ok { color: var(--att); }
+.et-elt-nom.et-n-nok, .et-elt-i .nom.et-n-nok { color: var(--nok); }
+.et-elt-nom.et-n-ok:focus, .et-elt-nom.et-n-nok:focus { color: var(--ink); }
+.ctool > .et-outils { grid-column: 1; grid-row: 1; justify-self: start; display: flex; align-items: center; gap: 2px; }
+[data-outils-dessin] .panel.left .phead > .et-hist { display: none; }
+[data-outils-dessin] .bench:not(.sans-g) .panel.left .phead > .pcoll { display: none; }
+.bench.plein .ctool > .et-outils > .et-replier { display: none; }
+/* la rubrique 1 de la dalle : le type en deux segments SANS libellé, sur toute la largeur ; les symboles (b, h, c) disent
+   leur mot au survol */
+#donnees .row.full.et-type { display: block; }
+#donnees .row.full.et-type > .seg.full { width: 100%; }
+.et-sym { cursor: help; font-style: italic; }
+
 /* le menu ⋯ d'une poutre, d'une section : discret, ses actions dans une liste */
 .et-mn { position: relative; flex: none; }
 .et-mn-b { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-3); }
@@ -482,8 +504,11 @@
   [data-etabli="compact"] #donnees .rows .seg.full button, [data-etabli="compact"] #donnees .seg button { min-width: 44px; }
   [data-etabli="compact"] .et-piece .et-det { padding-left: 8px; }
   [data-etabli="compact"] .panel .phead .pcoll { display: none; }
-  /* « Annuler » et « Rétablir » restent à portée au téléphone : l'en-tête des données s'affiche (la charte le cache) */
+  /* « Annuler » et « Rétablir » restent à portée au téléphone : l'en-tête des données s'affiche (la charte le cache) —
+     la dalle aussi : ses outils du dessin (.et-outils) ne s'y montrent pas, ceux de l'en-tête des données oui */
   [data-etabli="compact"] .panel.left .phead { display: flex; height: 52px; }
+  .ctool > .et-outils { display: none; }
+  [data-outils-dessin] .panel.left .phead > .et-hist { display: grid; }
   [data-etabli="compact"] .et-bloc-t, [data-etabli="compact"] .et-bloc-h { min-height: 46px; height: auto; }
   [data-etabli="compact"] .et-bloc .el.vc { padding: 10px 14px; }
   [data-etabli="compact"] .el.vc .l2 .cmp { white-space: normal; }

@@ -352,9 +352,12 @@ const principal = async () => {
     if (!l) return null;
     const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
     if (!vu(l)) return { fautes: ['la ligne ne se voit pas'] };
-    const nommer = (e) => (e.classList.contains('et-elt-nom') ? 'nom' : e.classList.contains('et-elt-liste') ? 'liste' : e.hasAttribute('data-dupliquer-index') ? 'copier'
-      : e.hasAttribute('data-supprimer') ? 'supprimer' : e.dataset.historique || (e.dataset.coll ? 'replier' : e.id || e.className));
-    const ATTENDUES = ['nom', 'liste', 'copier', 'supprimer', 'annuler', 'retablir'];
+    const nommer = (e) => (e.classList.contains('et-elt-nom') ? 'nom' : e.classList.contains('et-elt-liste') ? 'liste' : e.classList.contains('et-verrou') ? 'verrou'
+      : e.hasAttribute('data-dupliquer-index') ? 'copier' : e.hasAttribute('data-supprimer') ? 'supprimer' : e.dataset.historique || (e.dataset.coll ? 'replier' : e.id || e.className));
+    // (la dalle, 13/11/2026 : le CADENAS dans la ligne, avant copier ; « Annuler », « Rétablir » et « Replier » en haut à
+    //  gauche du DESSIN au PC et à la tablette — construire.OUTILS_AU_DESSIN —, dans l'en-tête des données au téléphone)
+    const auDessin = document.body.dataset.outilsDessin === '1' && !vu(ph.querySelector('[data-historique="annuler"]'));
+    const ATTENDUES = ['nom', 'liste', ...(l.querySelector('.et-verrou') ? ['verrou'] : []), 'copier', 'supprimer', ...(auDessin ? [] : ['annuler', 'retablir'])];
     // (la liste : son BOUTON — le menu, caché, n'a pas de place ; « Calcul… » n'en a que pendant un calcul : ignoré)
     const pieces = [...l.children, ...ph.children].filter((e) => !e.classList.contains('et-elt') && vu(e)).map((e) => {
       const r = (e.classList.contains('et-elt-liste') ? e.querySelector('[data-menu]') : e).getBoundingClientRect();
@@ -373,10 +376,28 @@ const principal = async () => {
       if (doigt && Math.min(r.width, r.height) < doigt - 0.5) fautes.push(`${x.n} ${x.t} (moins de ${doigt} px au doigt)`);
     });
     if (ph.scrollWidth > ph.clientWidth + 1 || l.scrollWidth > l.clientWidth + 1) fautes.push('la ligne déborde de l\'en-tête');
+    let outils = '';
+    if (auDessin) {
+      // les outils du dessin : replier, annuler, rétablir — visibles, dans cet ordre, sur une rangée, à gauche des vues
+      // (sans les toucher), chacun à la taille du doigt quand il le faut
+      const bo = [...document.querySelectorAll('.ctool > .et-outils > button')].filter(vu);
+      const noms = bo.map((e) => e.dataset.historique || (e.dataset.coll ? 'replier' : '?'));
+      outils = noms.join();
+      if (outils !== 'replier,annuler,retablir') fautes.push(`outils du dessin : ${outils || 'absents'}`);
+      const rv = document.querySelector('#vues') && document.querySelector('#vues').getBoundingClientRect();
+      const rc = document.querySelector('.canvas').getBoundingClientRect();
+      bo.forEach((e, i) => {
+        const r = e.getBoundingClientRect();
+        if (r.left < rc.left - 0.5 || r.top < rc.top - 0.5) fautes.push(`${noms[i]} hors du dessin`);
+        if (rv && r.right > rv.left + 0.5 && r.left < rv.right) fautes.push(`${noms[i]} sur les vues`);
+        if (i && r.left < bo[i - 1].getBoundingClientRect().right - 0.5) fautes.push(`${noms[i - 1]} / ${noms[i]} se chevauchent`);
+        if (doigt && Math.min(r.width, r.height) < doigt - 0.5) fautes.push(`${noms[i]} ${Math.round(r.width)}×${Math.round(r.height)} (moins de ${doigt} px au doigt)`);
+      });
+    }
     if (document.documentElement.scrollWidth > innerWidth) fautes.push('la page déborde');
     const n = l.querySelector('input.et-elt-nom') || l.querySelector('.et-elt-nom.lu > span');
     return { fautes, nomEntier: !!n && n.scrollWidth <= n.clientWidth + 1, pieces: pieces.map((x) => `${x.n} ${x.t}`).join(', '),
-      entete: `${Math.round(rp.width)}×${Math.round(rp.height)}` };
+      entete: `${Math.round(rp.width)}×${Math.round(rp.height)}`, ...(auDessin ? { outils } : {}) };
   }, doigt);
   // la LISTE des éléments, le menu de cette ligne : l'ouvrir (un clic, ou un appui au doigt), puis ce que l'œil voit —
   // dans l'écran, chaque entrée atteinte (le point touché en son centre est bien elle : rien ne la couvre), les noms
@@ -3923,7 +3944,7 @@ const principal = async () => {
   // d'« Annuler » et « Rétablir » : son NOM en champ (un clic, et on le renomme ; Entrée valide, Échap rend l'ancien nom,
   // vide refusé — la liste, la tête des résultats, la confirmation de « Supprimer » et la note enregistrée suivent), la
   // LISTE des dalles (un menu : l'ouverte cochée, « Ajouter une dalle » ; le compte dès deux), COPIER, SUPPRIMER
-  // (confirmé, éteint quand elle est seule) ; les rubriques tout en haut des données ; le type « Prédalle + dalle CSP »
+  // (confirmé, éteint quand elle est seule) ; les rubriques tout en haut des données ; le type « Prédalle »
   // fait apparaître h_p et le complément coulé (§ 2.2).
   // Les fonctions aux places de la poutre (REFONTE_ETABLI.md) : un bloc par section (« Données incomplètes » sans
   // effort), un clic sur une couche du DESSIN qui la déplie dans les données, la section courante que le dessin et les
@@ -4038,7 +4059,8 @@ const principal = async () => {
           const phead = document.querySelector('.panel.left .phead'), don = document.getElementById('donnees'), arbre = don.querySelector('.et-arbre');
           const premier = don.querySelector('.sec[data-sec]'), l = phead.querySelector(':scope > .et-elt > .et-elsel'), n = l && l.querySelector('input.et-elt-nom');
           const rp = document.querySelector('#resultat .et-rp');
-          return { titre: !!phead.querySelector('.h3'), hist: vis(phead.querySelector('[data-historique="annuler"]')),
+          return { titre: !!phead.querySelector('.h3'), hist: !vis(phead.querySelector('[data-historique="annuler"]')) && vis(document.querySelector('.ctool > .et-outils [data-historique="annuler"]')),
+            cadenas: vis(l && l.querySelector('button.et-verrou[data-chemin="verrou"][data-valeur="true"]')),
             enTete: !!document.querySelector('#donnees .et-arbre-h'), lignes: document.querySelectorAll('#donnees .et-pt').length,
             compacte: !!arbre && arbre === don.firstElementChild && arbre.matches('.et-arbre-c[data-dalle="0"]'), selecteur: !!document.querySelector('.et-elsel .seg'),
             elselDonnees: !!don.querySelector('.et-elsel'), ligne: !!l && l.dataset.elements === '1' && vis(l.querySelector('.et-elt-liste [data-menu]'))
@@ -4051,13 +4073,14 @@ const principal = async () => {
             pastille: !!document.querySelector('#donnees .et-arbre .chip, #donnees .et-arbre .pct, #donnees .et-arbre .status, .phead .et-elsel .chip, .phead .et-elsel .pct') };
         });
         verif(`plaques ${cle} : la colonne de gauche compacte — ni « Données », ni « DALLES (1) », ni arborescence, ni champ « nom » dans les données ; la LIGNE de « ${nom} » dans l'en-tête du panneau (la liste, copier ; supprimer éteint), à côté d'Annuler ; les rubriques tout en haut`,
-          !colonne.titre && colonne.hist && !colonne.enTete && colonne.lignes === 0 && colonne.compacte && !colonne.selecteur && !colonne.elselDonnees && colonne.ligne
+          !colonne.titre && colonne.hist && colonne.cadenas && !colonne.enTete && colonne.lignes === 0 && colonne.compacte && !colonne.selecteur && !colonne.elselDonnees && colonne.ligne
           && colonne.nomGauche === 0 && colonne.enHaut && !colonne.pastille, JSON.stringify(colonne));
         verif(`plaques ${cle} : le NOM « ${nom} » est un champ dans la ligne de l'élément ; la tête des résultats le LIT (un titre, plus un champ), « ${dims} · … » dessous ; quatre rubriques (dl, so, arm, op), la première seule ouverte`,
           colonne.nom === nom && colonne.champ && colonne.titreRp === nom && !colonne.nomResultat && (colonne.dims || '').startsWith(`${dims} · `) && colonne.rubs === 'dl*,so,arm,op',
           JSON.stringify(colonne));
         const lg0 = await ligneElement(g);
-        verif(`plaques ${cle} · PC 1440 : la ligne de la dalle tient dans l'en-tête (une rangée, rien ne déborde ni ne se chevauche, le nom entier)`, lg0 && !lg0.fautes.length && lg0.nomEntier, JSON.stringify(lg0));
+        verif(`plaques ${cle} · PC 1440 : la ligne de la dalle tient dans l'en-tête (une rangée — le nom, la liste, puis à droite le cadenas, copier, supprimer —, rien ne déborde ni ne se chevauche, le nom entier) ; replier, annuler et rétablir en haut à gauche du dessin`,
+          lg0 && !lg0.fautes.length && lg0.nomEntier && lg0.outils === 'replier,annuler,retablir', JSON.stringify(lg0));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_colonne.png`) });
         // 2. la LISTE (une seule dalle : elle, cochée, et « Ajouter une dalle ») ; « Copier » : une seconde dalle, ouverte —
         // la liste en montre deux, « 2 » sur son bouton, supprimer s'allume
@@ -4133,6 +4156,33 @@ const principal = async () => {
           bande: [...document.querySelectorAll('#stage .view.on .et-eff span')].map((x) => x.textContent.replace(/\s+/g, '')) }));
         verif(`plaques ${cle} : M_y,inf = 20 saisi — le bloc dit « Conforme » (vert), la bande de l'en-tête porte M_y,inf 20,0 kN·m`,
           e1.e === 'Conforme' && e1.ok && e1.bande.includes('My,inf20,0kN·m'), JSON.stringify(e1));
+        // (13/11/2026, la dalle — docs/site/DALLES_FUSION.md § 8.2) l'ÉTAT de la dalle dit par la couleur de son nom (vert :
+        // conforme) ; le CADENAS de la ligne la verrouille d'un clic (le nom se lit, la rubrique 1 aussi, le cadenas
+        // s'allume) ; « Annuler » du DESSIN défait le verrou ; « Replier » du dessin replie puis déplie les données
+        const nomVu = () => g.evaluate((s) => { const n = document.querySelector(`${s} .et-elt-nom`), v = document.querySelector(`${s} .et-verrou`);
+          return { classe: n ? [...n.classList].filter((c) => c.startsWith('et-n-')).join() : '', couleur: n ? getComputedStyle(n).color : '', champ: !!(n && n.matches('input')),
+            verrou: v ? `${v.dataset.valeur}${v.classList.contains('on') ? '*' : ''}` : '', saisies: document.querySelectorAll('#donnees .sec[data-sec="dl"] input, #donnees .sec[data-sec="dl"] select').length }; }, LIGNE);
+        const vert = await g.evaluate(() => { const e = document.createElement('i'); e.style.color = 'var(--att)'; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; });
+        const ouvert = await nomVu();
+        await g.click(`${LIGNE} .et-verrou`);
+        await tranquille();
+        await g.waitForTimeout(200);
+        const ferme = await nomVu();
+        await g.click('.ctool > .et-outils [data-historique="annuler"]');
+        await tranquille();
+        await g.waitForTimeout(200);
+        const defait = await nomVu();
+        await g.click('.ctool > .et-outils [data-coll="g"]');
+        await g.waitForTimeout(250);
+        const replie = await g.evaluate(() => ({ sans: document.querySelector('.bench').classList.contains('sans-g'),
+          rubriques: !!document.querySelector('#donnees .sec[data-sec="dl"]') && document.querySelector('#donnees .sec[data-sec="dl"]').checkVisibility() }));
+        await g.click('.ctool > .et-outils [data-coll="g"]');
+        await g.waitForTimeout(250);
+        const deplie = await g.evaluate(() => !document.querySelector('.bench').classList.contains('sans-g'));
+        verif(`plaques ${cle} : conforme, le nom de la dalle est VERT ; le cadenas la verrouille (le nom se lit, la rubrique 1 sans saisie, le cadenas allumé) ; « Annuler » du dessin la déverrouille ; « Replier » du dessin replie puis déplie les données`,
+          ouvert.classe === 'et-n-ok' && ouvert.couleur === vert && ouvert.champ && ouvert.verrou === 'true' && ouvert.saisies > 0
+          && !ferme.champ && ferme.verrou === 'false*' && ferme.saisies === 0 && defait.champ && defait.verrou === 'true' && defait.saisies > 0
+          && replie.sans && !replie.rubriques && deplie, JSON.stringify({ ouvert, ferme, defait, replie, deplie, vert }));
         // UN endroit pour modifier les armatures (le propriétaire, 13/11/2026) : le résultat NOMME la nappe de chaque face,
         // sans bouton ni étoile ; le sélecteur s'ouvre depuis la rubrique « Armatures » (le bouton de la nappe) — le
         // contrôle commun des modules (« #resultat .prof[data-pk] ») ne le trouve plus pour les dalles : il est ici
@@ -4201,7 +4251,7 @@ const principal = async () => {
         const st = await sync();
         verif(`plaques ${cle} : la vue « Toutes » montre les blocs des deux sections`, st.vue === 'toutes' && st.blocs.join() === '0,1', JSON.stringify(st));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_toutes.png`) });
-        // 6. le TYPE « Prédalle + dalle CSP » (rubrique 1 ; CSP : coulé sur place, libellés courts du 09/11/2026) : h_p
+        // 6. le TYPE « Prédalle » (rubrique 1 ; « Dalle pleine » · « Prédalle », libellés du 13/11/2026) : h_p
         // apparaît, le complément coulé se lit, l'état le porte
         await ouvrirRub('dl');
         await g.click('#donnees button[data-chemin="type"][data-valeur="predalle"]');
@@ -4213,14 +4263,14 @@ const principal = async () => {
           return { on: on && on.dataset.valeur, h: vis(h), hv: h && h.value, complement: (rub.querySelector('.dl-ro') || {}).textContent || '', coule: /coul/i.test(rub.textContent),
             libelles: [...document.querySelectorAll('#donnees button[data-chemin="type"]')].map((x) => x.textContent.trim()).join(' | ') }; });
         const memPre = await noteMemoire();
-        verif(`plaques ${cle} : les deux types s'appellent « Dalle CSP » et « Prédalle + dalle CSP » ; le second fait apparaître h_p (h_pre, 6 cm par défaut) et le complément coulé (h − h_p = 14 cm) ; la note le porte (type prédalle)`,
-          pre.libelles === 'Dalle CSP | Prédalle + dalle CSP' && pre.on === 'predalle' && pre.h && pre.hv === '6' && /14\s*cm/.test(pre.complement) && memPre && memPre.dalles === 'D2:predalle:6',
+        verif(`plaques ${cle} : les deux types s'appellent « Dalle pleine » et « Prédalle » (13/11/2026) ; le second fait apparaître h_p (h_pre, 6 cm par défaut) et le complément coulé (h − h_p = 14 cm) ; la note le porte (type prédalle)`,
+          pre.libelles === 'Dalle pleine | Prédalle' && pre.on === 'predalle' && pre.h && pre.hv === '6' && /14\s*cm/.test(pre.complement) && memPre && memPre.dalles === 'D2:predalle:6',
           JSON.stringify({ pre, memPre }));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_predalle.png`) });
         await g.click('#donnees button[data-chemin="type"][data-valeur="coulee"]');
         await tranquille();
         await g.waitForTimeout(200);
-        verif(`plaques ${cle} : retour à « Dalle CSP » : h_p disparaît, la note aussi l'oublie`,
+        verif(`plaques ${cle} : retour à « Dalle pleine » : h_p disparaît, la note aussi l'oublie`,
           !(await g.$('#donnees input[data-chemin="h_pre"]')) && ((await noteMemoire()) || {}).dalles === 'D2:coulee', JSON.stringify(await noteMemoire()));
         // 7. au téléphone (R1 : la fonction aux trois formats) : la ligne de l'élément en tête de l'onglet Données, chaque
         // bouton à 44 px au doigt (40 avant le 10/11/2026) ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter

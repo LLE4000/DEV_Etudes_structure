@@ -766,7 +766,12 @@ export function ouvrirEtabli(hote, ctx) {
         if (ev.key === "Enter") el.blur();
         else if (ev.key === "Escape") { el.value = el.defaultValue; el.blur(); }
       }, { signal });
-      ELT.addEventListener("click", (ev) => { agirElement(ev); }, { signal });
+      ELT.addEventListener("click", (ev) => {
+        if (agirElement(ev)) return;
+        // (la dalle, 13/11/2026) le CADENAS de la ligne : un bouton à chemin, comme un segment des données (« verrou »)
+        const b = ev.target.closest("button[data-chemin][data-valeur]");
+        if (b && !b.disabled) envoyer("modifier", { chemin: b.dataset.chemin.split("/"), valeur: b.dataset.valeur });
+      }, { signal });
     }
     // « Dans cette note » : supprimer, ouvrir, ajouter, copier un élément. Le bloc vient du cadre Données ; l'établi compact
     // le déplace dans la liste de gauche (js/compact.js) : les deux cadres répondent par cette même fonction.

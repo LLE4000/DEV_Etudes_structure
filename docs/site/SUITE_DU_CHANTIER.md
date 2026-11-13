@@ -758,6 +758,10 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   « Armatures ») ; sous le résultat, une phrase « Non vérifiées : … » au lieu du périmètre entier ; « d utile ≤ 0 » dit
   par la ligne rouge elle-même, plus par un message en double (au-delà de 100 %, la raison n'était QUE dans ce
   message) ; menu « ⋯ » d'une section : « Dupliquer » et « Supprimer ». Aucun chiffre ne change.
+- **DAL2 — En-tête et caractéristiques** : la ligne de la dalle — le nom, la liste (nom en vert si la dalle est conforme,
+  en rouge sinon), puis à droite le cadenas, copier, supprimer ; « Annuler », « Rétablir », « Replier » en haut à gauche
+  du dessin au PC et à la tablette (au téléphone, dans l'en-tête des données) ; le type « Dalle pleine | Prédalle » sans
+  libellé ; b ⓘ, h, c en symboles. « B » majuscule demandé : gardé « b », comme les formules et l'EC2.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

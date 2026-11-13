@@ -725,8 +725,9 @@ def _verdict(v: Dict, s: Dict) -> str:
         return (f"{_egal('A<sub>s</sub>', _n(v['limite'], 'mm²') + N + 'mm²')} &gt; "
                 f"{_egal('A<sub>s,max</sub>', _n(v['As_max'], 'mm²') + N + 'mm²')} · acier excessif")
     if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
-        return (f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · position des couches incompatible avec "
-                "l'épaisseur")
+        # (court : la ligne du résultat tient sur une ligne au PC — « position des couches incompatible avec
+        #  l'épaisseur » y était coupée, 13/11/2026 ; la fenêtre de calcul et la note PDF gardent la phrase longue)
+        return f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · nappe hors de l'épaisseur"
     val, lim = _comparaison(v, s)
     motif = f" · {_motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
     return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}{motif}"

@@ -674,3 +674,28 @@ par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce q
 - Aucun chiffre ne change : références regelées (`tests/test_reference_refonte.py`, clé « regels » des photos dalle et
   prédalle) pour les textes retirés et le cas limite renommé.
 
+### 8.2 DAL2 — L'en-tête de la dalle et les caractéristiques
+
+- **La ligne de la dalle** (en tête du panneau des données) : le NOM, modifiable d'un clic ; la LISTE des dalles ; puis, à
+  DROITE, le **cadenas** (verrouiller / déverrouiller : un bouton à chemin « verrou », allumé quand la dalle est
+  verrouillée — ce n'est plus une case de la rubrique 1), **copier** et **supprimer** (`etabli_compact.arbre_compact`,
+  options ``cadenas`` et ``niveaux`` ; la poutre, qui ne les passe pas, reste à l'octet près).
+- **L'état de chaque dalle**, dit par la couleur de son nom, dans la liste ET sur la ligne : vert conforme (taux
+  ≤ 100 %), rouge non conforme, neutre sans effort (« données incomplètes ») ; l'infobulle le dit en mots. La dalle
+  ouverte est cochée dans la liste et nommée sur la ligne.
+- **« Annuler », « Rétablir », « Replier les données »** en haut à gauche du DESSIN, près du titre de la section, au PC et
+  à la tablette (`construire.OUTILS_AU_DESSIN`) ; **au téléphone**, ils restent dans l'en-tête des données : le dessin y
+  est un onglet à part, et annuler une saisie depuis l'onglet Données y est plus direct (R1 : les mêmes fonctions aux
+  trois formats, la disposition adaptée). Les deux jeux portent les mêmes attributs : `js/etabli.js` les sert tous ;
+  `css/etabli.css` montre l'un ou l'autre selon le format.
+- **La rubrique « Caractéristiques »** : le type en deux segments SANS libellé, « Dalle pleine » · « Prédalle » (c'étaient
+  « Dalle CSP » · « Prédalle + dalle CSP » ; les clés de l'état ne changent pas), son explication au survol ; béton et
+  acier ; puis les SYMBOLES **b** (son ⓘ : la bande de calcul de 1 m), **h**, **c** (son ⓘ : du parement au nu des
+  armatures) — le mot (« largeur de la bande », « épaisseur », « enrobage ») au survol du symbole, plus écrit à côté ;
+  une prédalle ajoute h<sub>p</sub> et h − h<sub>p</sub>.
+- La raison « d ≤ 0 » de la ligne d'une face (DAL1) est raccourcie : « nappe hors de l'épaisseur » (la phrase longue,
+  coupée au PC, reste dans la fenêtre de calcul et la note PDF).
+- **Point de désaccord, dit au propriétaire** : il écrivait « B = 100 cm » ; le site garde **b** minuscule, comme les
+  formules des fenêtres de calcul, la note PDF et l'EC2 (b, la largeur de la section).
+- Aucun chiffre ne change : la référence de la dalle est regelée (le champ « verrou » devenu le bouton cadenas).
+
