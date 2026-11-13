@@ -23,6 +23,11 @@
    "date": "2026-11-13",
    "raison": "13/11/2026 (DAL1, demande du propriétaire) : « Reprendre une note Streamlit » retirée avec son code d'import (le chemin fichier_streamlit est refusé, le cas limite renommé) ; sous le résultat, la seule phrase « Non vérifié(e)s » au lieu du périmètre entier (gardé dans les fenêtres de calcul, sans « comme dans l'écran Streamlit ») ; aucun chiffre ne change",
    "ecarts": ["fichier Streamlit illisible refusé : cas retiré"]
+  },
+  {
+   "date": "2026-11-13",
+   "raison": "13/11/2026 (DAL3, demande du propriétaire) : les colonnes des sollicitations s'appellent M⁺ (face inférieure tendue) et M⁻ (face supérieure tendue) ; le refus d'un moment signé le dit (« Sans signe : la colonne dit déjà la face tendue ») au lieu de « se saisissent positifs » ; aucun chiffre ne change",
+   "ecarts": ["moment négatif refusé (PARCOURS) : messages changé"]
   }
  ],
  "cas": [
@@ -1423,7 +1428,7 @@
    },
    "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["sections", "0", "Mx_inf"], "valeur": "-20"}],
    "photo": {
-    "messages": [null, "Les moments et l'effort tranchant se saisissent positifs : la face tendue se choisit par la colonne (inf. tend le bas, sup. tend le haut). L'écran Streamlit ramenait un négatif à 0 sans le dire."],
+    "messages": [null, "Sans signe : la colonne dit déjà la face tendue (M⁺ : la face inférieure, M⁻ : la face supérieure) — saisir 20, pas -20."],
     "resume": {
      "taux": null,
      "niveau": "n",

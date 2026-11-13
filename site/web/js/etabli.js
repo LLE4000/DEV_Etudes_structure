@@ -732,6 +732,26 @@ export function ouvrirEtabli(hote, ctx) {
       const el = ev.target.closest("select[data-chemin], input[type=checkbox][data-chemin]");
       if (el) valider(el);
     }, { signal });
+    // (13/11/2026, le propriétaire : « si je clique sur un 0, je dois l'effacer — je préfère que la case soit vide ») un
+    // champ NUMÉRIQUE se VIDE quand on y entre : sa valeur reste écrite en gris (l'indication), on tape directement la
+    // nouvelle ; quitté sans rien taper, il reprend sa valeur et rien n'est envoyé. Ce second écouteur passe AVANT celui
+    // qui valide (phase de capture) ; une saisie en cours reprise après un calcul (reprendreSaisie) n'est pas touchée.
+    const NUMERIQUE = 'input[data-sorte="nombre"]:not([readonly]):not(:disabled), input[data-sorte="entier"]:not([readonly]):not(:disabled)';
+    $("#donnees").addEventListener("focusin", (ev) => {
+      const el = ev.target.closest(NUMERIQUE);
+      if (!el || el.dataset.indication !== undefined || el.defaultValue === "") return;
+      if (el.value !== el.defaultValue && el.value !== "") return;
+      el.dataset.indication = el.placeholder;
+      el.placeholder = el.defaultValue;
+      el.value = "";
+    }, { signal });
+    $("#donnees").addEventListener("focusout", (ev) => {
+      const el = ev.target.closest(NUMERIQUE);
+      if (!el || el.dataset.indication === undefined) return;
+      if (el.value.trim() === "") el.value = el.defaultValue;
+      el.placeholder = el.dataset.indication;
+      delete el.dataset.indication;
+    }, { capture: true, signal });
     $("#donnees").addEventListener("focusout", (ev) => {
       const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-chemin]");
       if (el && el.value !== el.defaultValue) valider(el);

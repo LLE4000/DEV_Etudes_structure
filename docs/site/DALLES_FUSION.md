@@ -699,3 +699,23 @@ par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce q
   formules des fenêtres de calcul, la note PDF et l'EC2 (b, la largeur de la section).
 - Aucun chiffre ne change : la référence de la dalle est regelée (le champ « verrou » devenu le bouton cadenas).
 
+### 8.3 DAL3 — Les sollicitations en tableau ; un champ numérique se vide quand on y entre
+
+- **Chaque section en un tableau compact** (`plaque_compact.cartes`) : une ligne par DIRECTION — X (les moments portés
+  par les barres X), Y (par les barres Y) —, une colonne par face tendue — **M⁺** (moment positif : la face inférieure
+  est tendue, en travée), **M⁻** (moment négatif : la face supérieure est tendue, sur appui) — et **V** à côté, sur les
+  deux lignes : il n'y a qu'UN effort tranchant par section (τ = V / (k·b·h) ne lit pas la direction). Deux lignes au lieu
+  de quatre ; les unités restent dans les champs ; les explications au survol des titres ; plus de « bas tendu »,
+  « haut tendu », « effort tranchant » écrits. Les chemins de l'état ne changent pas (Mx_inf, Mx_sup, My_inf, My_sup, V).
+- **Les valeurs se saisissent sans signe** : la colonne dit le sens. Un négatif est refusé, et le message le dit
+  (« Sans signe : la colonne dit déjà la face tendue (M⁺ : la face inférieure, M⁻ : la face supérieure) — saisir 20, pas
+  −20 ») ; jamais ramené à 0 ni retourné en silence.
+- **Un champ numérique se VIDE quand on y entre** (demande du propriétaire : « si je clique sur un 0, je dois l'effacer ») :
+  sa valeur reste écrite en gris, on tape directement la nouvelle ; quitté sans rien taper, il reprend sa valeur et rien
+  n'est envoyé (`js/etabli.js`, un écouteur en phase de capture, avant celui qui valide ; une saisie en cours reprise
+  après un calcul n'est pas touchée). C'est le comportement de TOUS les champs numériques du site — un même geste
+  partout ; à limiter aux dalles si le propriétaire le préfère.
+- Le message d'une dalle verrouillée dit le cadenas (« le cadenas, à droite de son nom, la déverrouille ») : il parlait
+  encore de la case d'avant le lot 2.
+- Aucun chiffre ne change : la référence de la dalle est regelée (le message du moment signé).
+

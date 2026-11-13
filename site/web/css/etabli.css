@@ -346,6 +346,12 @@
 .et-mom .d { font-size: 11.5px; font-weight: 700; color: var(--ink-2); text-align: center; }
 .et-mom .vh { font-size: 11px; color: var(--ink-3); padding-left: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .et-mom > .field { height: 28px; min-width: 0; }
+/* la dalle (13/11/2026, § 8.3) : le tableau des sollicitations — X et Y en lignes, M⁺ (face inférieure tendue), M⁻ (face
+   supérieure tendue) et V en colonnes ; V, un par section, tient sur les deux lignes */
+.et-mom4 { grid-template-columns: 16px minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 1fr); }
+.et-mom4 .h sup { font-size: 9px; line-height: 0; }
+.et-mom4 > .et-v { grid-column: 4; grid-row: 2 / span 2; display: flex; align-items: center; min-width: 0; }
+.et-mom4 > .et-v > .field { width: 100%; height: 28px; min-width: 0; }
 /* une couche : son repère, son type, puis le treillis — ou le Ø et l'espacement (le nombre et le Ø) */
 .et-piece .et-l1 > .et-ty { flex: 0 0 88px; min-width: 0; }
 .et-piece .et-l1 > .et-tr { flex: 1 1 auto; min-width: 0; }
@@ -487,7 +493,7 @@
   [data-etabli="compact"] .et-piece .et-l1 { min-height: 46px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field { height: 36px; flex-basis: 58px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field.select { flex-basis: 84px; }
-  [data-etabli="compact"] .et-piece .et-l1 > div > .field, [data-etabli="compact"] .et-mom > .field { height: 36px; }
+  [data-etabli="compact"] .et-piece .et-l1 > div > .field, [data-etabli="compact"] .et-mom > .field, [data-etabli="compact"] .et-mom4 > .et-v > .field { height: 36px; }
   [data-etabli="compact"] .et-piece .et-l1 > .et-ty { flex-basis: 92px; }
   [data-etabli="compact"] .et-tag { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout,

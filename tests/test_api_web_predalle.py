@@ -232,7 +232,8 @@ chk("le cadre Données dit la pose de chaque couche : « dans la prédalle (c + 
 
 # ------------------------------------------------------------------ 4. les saisies
 print("\n=== 4. Les saisies : chaque champ, les refus, les boutons ===")
-REFUS = [("sections/0/Mx_inf", "-20", "positifs"), ("sections/0/V", "x", "illisible"), ("b", "15", "entre 20 et 500"),
+# (13/11/2026 : « Sans signe » — les colonnes s'appellent M⁺ et M⁻, la valeur se saisit sans le signe)
+REFUS = [("sections/0/Mx_inf", "-20", "saisir 20, pas -20"), ("sections/0/V", "x", "illisible"), ("b", "15", "entre 20 et 500"),
          ("b", "100,5", "entier"), ("h", "101", "entre 5 et 100"), ("enrobage", "25", "entre 0 et 20"),
          ("gamma_s", "0,9", "entre 1 et 2"), ("jeu_premier_lit", "-1", "au moins 0"),
          ("sections/0/faces/inf_x/couches/0/esp", "600", "entre 25 et 500"), ("sections/0/faces/inf_x/couches/0/d", "14", "n'est pas proposé"),

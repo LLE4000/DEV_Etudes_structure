@@ -475,8 +475,12 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         if x is None:
             raise _Refus(f"Nombre illisible : « {valeur} »")
         if x < 0:
-            raise _Refus("Les moments et l'effort tranchant se saisissent positifs : la face tendue se choisit par la "
-                         "colonne (inf. tend le bas, sup. tend le haut). L'écran Streamlit ramenait un négatif à 0 sans le dire.")
+            # (13/11/2026 : les colonnes s'appellent M⁺ et M⁻ — le signe est celui de la colonne, la valeur se saisit
+            #  sans lui ; un négatif est refusé, jamais ramené à 0 ni retourné en silence)
+            if chemin[2] == "V":
+                raise _Refus(f"L'effort tranchant se saisit sans signe : {AP.saisi(-x)}, pas {AP.saisi(x)}.")
+            raise _Refus("Sans signe : la colonne dit déjà la face tendue (M⁺ : la face inférieure, M⁻ : la face "
+                         f"supérieure) — saisir {AP.saisi(-x)}, pas {AP.saisi(x)}.")
         if x > SOLLICITATION_MAX:
             u = "kN" if chemin[2] == "V" else "kN·m"
             raise _Refus(f"Au plus {C.fr(SOLLICITATION_MAX, 0)} {u}, pas {AP.saisi(x)} {u} : la plus forte bande de dalle "
@@ -543,7 +547,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         d["verrou"] = lu
         return None
     if d["verrou"]:
-        return "Dalle verrouillée : décocher « Verrouiller la dalle » pour la modifier"
+        return "Dalle verrouillée : le cadenas, à droite de son nom, la déverrouille"
     if chemin and chemin[0] in NOTE_ENTIERE and len(chemin) == 1:
         # γs et le jeu premier lit sont des paramètres de la NOTE (l'écran Streamlit les partage entre ses dalles)
         try:

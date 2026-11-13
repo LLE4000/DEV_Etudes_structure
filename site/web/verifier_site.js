@@ -4183,6 +4183,33 @@ const principal = async () => {
           ouvert.classe === 'et-n-ok' && ouvert.couleur === vert && ouvert.champ && ouvert.verrou === 'true' && ouvert.saisies > 0
           && !ferme.champ && ferme.verrou === 'false*' && ferme.saisies === 0 && defait.champ && defait.verrou === 'true' && defait.saisies > 0
           && replie.sans && !replie.rubriques && deplie, JSON.stringify({ ouvert, ferme, defait, replie, deplie, vert }));
+        // (13/11/2026, § 8.3) le TABLEAU des sollicitations : un champ à 0 se VIDE quand on y entre (« 0 » en gris) — on tape
+        // directement ; quitté sans rien taper, il reprend sa valeur et RIEN n'est envoyé (le même champ, pas de nouveau calcul)
+        await ouvrirRub('so');
+        const MX = '#donnees input[data-chemin="sections/0/Mx_inf"]', MY = '#donnees input[data-chemin="sections/0/My_inf"]';
+        await g.click(MX);
+        const z0 = await g.evaluate((s) => { const e = document.querySelector(s); return { v: e.value, ph: e.placeholder, foc: document.activeElement === e }; }, MX);
+        await g.keyboard.type('15');
+        await g.keyboard.press('Enter');
+        await tranquille();
+        await g.waitForTimeout(200);
+        const z1 = { v: await g.inputValue(MX) };
+        await g.click(MY);
+        const z2 = await g.evaluate((s) => { const e = document.querySelector(s); window.__champ = e; return { v: e.value, ph: e.placeholder }; }, MY);
+        await g.evaluate(() => document.activeElement.blur());
+        await g.waitForTimeout(600);
+        const z3 = await g.evaluate(() => ({ v: window.__champ.value, ph: window.__champ.placeholder, meme: window.__champ.isConnected,
+          erreur: !!document.querySelector('#donnees .field.erreur') }));
+        const tab = await g.evaluate(() => { const t = document.querySelector('#donnees .et-sec[data-section="0"] .et-mom4'); if (!t) return null;
+          const v = (e) => !!e && e.checkVisibility(); const r = (e) => e.getBoundingClientRect();
+          const champs = [...t.querySelectorAll('input')].map((e) => ({ c: e.dataset.chemin.split('/').pop(), l: Math.round(r(e).left), t: Math.round(r(e).top), lu: e.scrollWidth <= e.clientWidth + 1 }));
+          const vv = r(t.querySelector('.et-v')), x = r(t.querySelector('input[data-chemin$="/Mx_inf"]')), y = r(t.querySelector('input[data-chemin$="/My_inf"]'));
+          return { titres: [...t.querySelectorAll('.h')].filter(v).map((e) => e.textContent.trim()).join(' | '), lus: champs.every((c) => c.lu),
+            lignes: x.top < y.top && Math.abs(vv.top + vv.height / 2 - (x.top + y.bottom) / 2) < 6, champs }; });
+        verif(`plaques ${cle} : les sollicitations en TABLEAU (M⁺ · inf. tendue | M⁻ · sup. tendue | V ; X puis Y ; V centré sur les deux lignes, chaque valeur lisible) ; un champ à 0 se vide au clic (« 0 » en gris), « 15 » s'y tape directement ; un champ quitté sans rien taper reprend sa valeur, sans calcul ni erreur`,
+          tab && tab.titres === 'M+ · inf. tendue | M− · sup. tendue | V' && tab.lus && tab.lignes
+          && z0.v === '' && z0.ph === '0' && z0.foc && z1.v === '15' && z2.v === '' && z2.ph === '20'
+          && z3.v === '20' && z3.ph === '' && z3.meme && !z3.erreur, JSON.stringify({ tab, z0, z1, z2, z3 }));
         // UN endroit pour modifier les armatures (le propriétaire, 13/11/2026) : le résultat NOMME la nappe de chaque face,
         // sans bouton ni étoile ; le sélecteur s'ouvre depuis la rubrique « Armatures » (le bouton de la nappe) — le
         // contrôle commun des modules (« #resultat .prof[data-pk] ») ne le trouve plus pour les dalles : il est ici

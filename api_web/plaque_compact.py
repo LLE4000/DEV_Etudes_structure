@@ -46,21 +46,33 @@ def ordre_faces(principale: str) -> List[str]:
 
 # ------------------------------------------------------------------ rubrique 2 : les sections et leurs sollicitations
 def cartes(sections: Sequence[Dict]) -> str:
-    """Une carte par section (api_web/etabli_compact.carte_section) : son nom, son menu « ⋯ », et ses sollicitations —
-    les quatre moments (X / Y × inf. / sup.) et l'effort tranchant."""
+    """Une carte par section (api_web/etabli_compact.carte_section) : son nom, son menu « ⋯ » (Dupliquer, Supprimer), et
+    ses sollicitations en un TABLEAU compact (13/11/2026, demande du propriétaire — docs/site/DALLES_FUSION.md § 8.3) :
+    une ligne par DIRECTION (X : les moments portés par les barres X ; Y : par les barres Y), une colonne par face
+    tendue — M⁺ (moment positif : la face inférieure est tendue, en travée), M⁻ (moment négatif : la face supérieure est
+    tendue, sur appui), saisis sans signe — et V, l'effort tranchant de la section, à côté (UN par section : τ ne lit pas
+    la direction). Deux lignes au lieu de quatre ; les unités dans les champs ; les explications au survol des titres."""
     seule = len(sections) == 1
+    tete = ('<span></span>'
+            '<span class="h" title="Moment positif : la face INFÉRIEURE est tendue (en travée). Saisi sans signe.">'
+            'M<sup>+</sup> · inf. tendue</span>'
+            '<span class="h" title="Moment négatif : la face SUPÉRIEURE est tendue (sur appui). Saisi sans signe.">'
+            'M<sup>−</sup> · sup. tendue</span>'
+            '<span class="h" title="Effort tranchant de la section : un seul, τ = V / (k·b·h) ne dépend pas de la direction.">V</span>')
     out = ""
     for i, s in enumerate(sections):
         ch = ["sections", i]
-        corps = ('<div class="et-mom"><span></span><span class="h">M<sub>inf</sub> · bas tendu</span><span class="h">M<sub>sup</sub> · haut tendu</span>'
-                 f'<span class="d">X</span>{C.num(ch + ["Mx_inf"], s["Mx_inf"], "kN·m")}{C.num(ch + ["Mx_sup"], s["Mx_sup"], "kN·m")}'
-                 f'<span class="d">Y</span>{C.num(ch + ["My_inf"], s["My_inf"], "kN·m")}{C.num(ch + ["My_sup"], s["My_sup"], "kN·m")}'
-                 f'<span class="d">V</span>{C.num(ch + ["V"], s["V"], "kN")}<span class="vh">effort tranchant</span></div>')
+        corps = (f'<div class="et-mom et-mom4">{tete}'
+                 f'<span class="d" title="X : les moments portés par les barres X">X</span>'
+                 f'{C.num(ch + ["Mx_inf"], s["Mx_inf"], "kN·m")}{C.num(ch + ["Mx_sup"], s["Mx_sup"], "kN·m")}'
+                 f'<div class="et-v">{C.num(ch + ["V"], s["V"], "kN")}</div>'
+                 f'<span class="d" title="Y : les moments portés par les barres Y">Y</span>'
+                 f'{C.num(ch + ["My_inf"], s["My_inf"], "kN·m")}{C.num(ch + ["My_sup"], s["My_sup"], "kN·m")}</div>')
         out += E.carte_section(i, s["nom"], ch + ["copie"], ch + ["-"], seule, corps, copier_txt="Dupliquer la section")
     return (f'<div class="et-secs">{out}</div>'
-            + E.pied_sections("M_x : moments portés par les barres X, M_y par les barres Y, sur la bande de largeur b ; inf. tend "
-                              "le bas (travée), sup. tend le haut (appui). Valeurs de service, en positif.",
-                              "M<sub>x</sub> barres X · M<sub>y</sub> barres Y · ELS"))
+            + E.pied_sections("Valeurs de service (ELS), sur la bande de largeur b, saisies sans signe. X : les moments portés "
+                              "par les barres X ; Y : par les barres Y. M⁺ tend la face inférieure (travée), M⁻ la face "
+                              "supérieure (appui).", "ELS · bande b"))
 
 
 # ------------------------------------------------------------------ rubrique 3 : les armatures de la section courante

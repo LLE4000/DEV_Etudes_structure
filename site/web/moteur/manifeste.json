@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "c62a4c20c254d032f9300bb718c573005f88d1065cfc5de6d84787a8d3c687f8",
+ "sha256": "a0c5938413616573ea9738744c91bde91a346610278f357100555ba8a604db46",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -348,7 +348,7 @@
   "bois": "8f2ad99577d68381",
   "catalogue": "3ffa4b30b8ac00ba",
   "corniere": "8a7ec359d7b0851c",
-  "dalle": "e005938c9c7dce08",
+  "dalle": "aa2d9381170ead5e",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "b4e677fb81276534",
@@ -361,5 +361,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "ab801881a48edf2a"
+ "version": "ada7946c5b5ead19"
 }

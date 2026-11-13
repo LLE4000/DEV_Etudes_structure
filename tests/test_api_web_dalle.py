@@ -230,7 +230,9 @@ chk("acier excessif sans aucun effort : le bloc dit « Non conforme » (rouge), 
     and r0_["resume"]["niveau"] == "r", (BLOC.findall(r0_["resultat"]), r0_["resume"]))
 
 # ------------------------------------------------------------------ 4. les saisies refusées (la dalle reste intacte)
-REFUS = [("sections/0/Mx_inf", "-20", "positifs"), ("sections/0/V", "-1", "positifs"), ("b", "15", "entre 20 et 500"),
+# (13/11/2026 : « Sans signe » — les colonnes s'appellent M⁺ et M⁻, la valeur se saisit sans le signe ; V de même)
+REFUS = [("sections/0/Mx_inf", "-20", "saisir 20, pas -20"), ("sections/0/Mx_sup", "-20", "M⁻ : la face supérieure"),
+         ("sections/0/V", "-1", "sans signe : 1, pas -1"), ("b", "15", "entre 20 et 500"),
          ("b", "100,5", "entier"), ("h", "101", "entre 5 et 100"), ("enrobage", "25", "entre 0 et 20"), ("gamma_s", "0,9", "entre 1 et 2"),
          ("jeu_premier_lit", "-0,5", "au moins 0"), ("sections/0/faces/inf_x/couches/0/type", "grille", "inconnu"),
          ("sections/0/faces/inf_x/couches/0/d", "14", "Ø14"), ("sections/0/faces/sup_x/couches/0/treillis", "10/10/abc/100", "Øl/Øt/el/et"),
@@ -591,6 +593,21 @@ chk("le NOM de l'élément ouvert se modifie dans la LIGNE de la dalle (même ch
     and all(m not in rub1 for m in (">b bande<", ">h épaisseur<", ">c enrobage<"))
     and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None and 'class="hint"' not in rub1,
     (_lab1, re.findall(r'<div class="row[^"]*"', rub1)))
+# (13/11/2026, § 8.3) la rubrique 2 : chaque section en un TABLEAU compact — X et Y en lignes, M⁺ (face inférieure
+# tendue) et M⁻ (face supérieure tendue) en colonnes, V (un par section) à côté, sur les deux lignes ; plus de textes
+# répétés (« bas tendu », « haut tendu », « effort tranchant ») ; « Dupliquer la section » dans le menu « ⋯ »
+rub2 = re.search(r'<div class="sec[^"]*" data-sec="so".*?(?=<div class="sec[^"]*" data-sec="arm")', don, re.S).group(0)
+_tab = re.search(r'<div class="et-mom et-mom4">(.*?)(?=</div></div><div class="et-(?:sec |pied))', rub2, re.S)
+_tab_txt = re.sub(r"<[^>]+>", "", _tab.group(1)) if _tab else ""
+_ordre = re.findall(r'data-chemin="sections/0/(Mx_inf|Mx_sup|V|My_inf|My_sup)"', _tab.group(0)) if _tab else []
+chk("la rubrique 2 : un TABLEAU par section — titres « M⁺ · inf. tendue », « M⁻ · sup. tendue », « V » ; lignes X (Mx,inf | Mx,sup) "
+    "et Y (My,inf | My,sup) ; V à côté, dans son cadre .et-v (sur les deux lignes) ; les unités dans les champs ; plus de « bas tendu », "
+    "« haut tendu », « effort tranchant » écrits ; « Dupliquer la section »",
+    _tab is not None and "M+ · inf. tendue" in _tab_txt and "M− · sup. tendue" in _tab_txt and _tab_txt.startswith("M+ · inf. tendueM− · sup. tendueVX")
+    and _ordre == ["Mx_inf", "Mx_sup", "V", "My_inf", "My_sup"] and '<div class="et-v">' in _tab.group(0)
+    and _tab.group(0).count("kN·m") == 4 and _tab.group(0).count(">kN<") == 1
+    and all(t not in rub2 for t in ("bas tendu", "haut tendu", "effort tranchant", "M<sub>inf</sub>", "M<sub>sup</sub>"))
+    and "Dupliquer la section" in rub2 and "Copier la section" not in rub2, (_tab_txt[:120], _ordre))
 _aides1 = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', rub1)]
 chk("… b porte son ⓘ (« Bande de calcul : 100 cm = 1 m de dalle »), c et la direction principale le leur ; chaque symbole dit son mot "
     "au survol (b : largeur de la bande de calcul, h : épaisseur de la dalle, c : enrobage)",
