@@ -45,6 +45,7 @@ from api_web import commun as C  # noqa: E402
 from api_web import dalle as P  # noqa: E402
 from api_web import dalle_positions as POS  # noqa: E402
 from api_web import dessin_dalle as DD  # noqa: E402
+from api_web import etabli_compact as E  # noqa: E402
 from api_web import plaque_compact as PC  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton import treillis as TR  # noqa: E402
@@ -179,7 +180,7 @@ chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,
     (cmp_[1], cmp_[11]))
 # DAL8 (le propriétaire, 13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : la
 # ligne Hauteur détaille h_min = h_u,min + y_G — les grandeurs du moteur, écrites comme la fenêtre de calcul — pour la
-# dalle et pour la prédalle (plaque_compact.valeur_hauteur, une source)
+# dalle et pour la prédalle (etabli_compact.valeur_hauteur, une source pour la poutre et les dalles — E15)
 N_ = C.NBSP
 
 
@@ -207,12 +208,12 @@ chk("DAL8 : la ligne Hauteur détaille la part calculée et l'enrobage, h_min = 
     "dalle et prédalle, chaque section ; la somme lue tombe juste",
     vues_h == attendues_h and vues_p == attendues_p and len(vues_h) == 2 and len(vues_p) == 2 and somme_juste
     and all(" + " in v_.replace(N_, " ") for v_ in vues_h + vues_p), (vues_h, attendues_h, vues_p))
-vrai_vh = PC.valeur_hauteur
-PC.valeur_hauteur = lambda M_, v_: f"h<sub>min</sub>{N_}={N_}{M_._n(v_['valeur'], 'cm')}{N_}cm"     # la somme seule (avant DAL8)
+vrai_vh = E.valeur_hauteur
+E.valeur_hauteur = lambda v_: f"h<sub>min</sub>{N_}={N_}{P._n(v_['valeur'], 'cm')}{N_}cm"     # la somme seule (avant DAL8)
 try:
     mut_h = lignes_hauteur(etat)
 finally:
-    PC.valeur_hauteur = vrai_vh
+    E.valeur_hauteur = vrai_vh
 chk("mutation · la ligne Hauteur réduite à la somme (avant DAL8) : le contrôle rougit", mut_h[0] != mut_h[1], mut_h[0][:1])
 chk("un bloc par section, coloré par son état, titré par sa section : A et B conformes",
     BLOC.findall(r["resultat"]) == [("ok", "0", "Section A", "Conforme"), ("ok", "1", "Section B", "Conforme")], BLOC.findall(r["resultat"]))

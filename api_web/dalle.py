@@ -623,10 +623,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         raise _Refus(f"champ inconnu : {champ}")
 
 
-def _lire_bool(valeur):
-    """Une case à cocher telle que l'écran l'envoie (vrai/faux, « true »/« false », « 1 »/« 0 ») ; None sinon."""
-    return {True: True, False: False, "true": True, "false": False, "1": True, "0": False}.get(
-        valeur.strip().lower() if isinstance(valeur, str) else valeur)
+_lire_bool = C.lire_bool      # une case à cocher telle que l'écran l'envoie ; None sinon
 
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
@@ -644,7 +641,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         d["verrou"] = lu
         return None
     if d["verrou"]:
-        return "Dalle verrouillée : le cadenas, à droite de son nom, la déverrouille"
+        return E.verrou_refus(E.DALLE)
     if chemin == ["espacements"]:
         # une puce des options : son espacement entre dans la liste ou en sort (jamais le dernier)
         x = C.lire_nombre(valeur)
@@ -729,8 +726,7 @@ def _dims(d: Dict) -> str:
     return f"{C.nb(d['b'])} × {C.nb(d['h'])} cm{peau} · {C.esc(d['beton'])} · B{d['fyk']}"
 
 
-def _lecture(label: str, valeur: str, sym: str = "") -> str:
-    return C.ligne(label, f'<span class="dl-ro">{valeur}</span>', sym)
+_lecture = E.lecture          # une donnée d'une dalle verrouillée, en lecture seule (la poutre aussi : E15)
 
 
 def _formulaire_verrouille(d: Dict, r: Dict) -> str:
@@ -738,8 +734,7 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
     déverrouille (13/11/2026 : ce n'est plus une case de la rubrique)."""
     peau = (_lecture("prédalle + coulé en place", f"{C.nb(d['h_pre'])} + {C.nb(d['h'] - d['h_pre'])} cm", "h<sub>p</sub>")
             if est_predalle(d) else "")
-    s1 = (C.aide("La dalle est verrouillée : ses données se lisent, elles ne se modifient pas. Le cadenas, à droite de son "
-                 "nom, la déverrouille.")
+    s1 = (C.aide(E.verrou_aide(E.DALLE))
           + _lecture("type", C.esc(TYPES_TXT[d["type"]]))
           + _lecture("béton, acier", f"{C.esc(d['beton'])} · B{d['fyk']}")
           + _lecture("", f"{C.nb(d['b'])} cm", "b")
@@ -766,8 +761,7 @@ def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
            "0,6 + 1 (jeu) = 4,6 → 5,0 cm »). Le dessin les montre à leur position réelle.")
     arr = ("Le pas auquel l'axe de calcul est arrondi, vers l'intérieur (plus loin du parement), une fois, à la fin : "
            "4,6 → 5,0 cm au pas de 0,5 cm.")
-    return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
-            f'<b title="{C.esc(_MO(d).REFERENCE)}">Méthode du bureau · ELS · z = 0,9 d</b></div>'
+    return (E.ligne_methode(_MO(d).REFERENCE)
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
                         "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
                         "dalles de la note."),
@@ -798,9 +792,7 @@ def _caracteristiques(d: Dict) -> str:
     jamais stocké). Les mots « bande », « épaisseur », « enrobage » ne se répètent plus à côté du symbole : le survol du
     symbole les dit. Le verrou n'est plus une case de cette rubrique : c'est le cadenas de la ligne de la dalle."""
     predalle = est_predalle(d)
-
-    def sym(lettre: str, mot: str) -> str:
-        return f'<span class="et-sym" title="{C.esc(mot)}">{lettre}</span>'
+    sym = E.symbole           # (le symbole, le mot au survol : les mots communs de la poutre et des dalles, E15)
     aide_c = ("Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm." if predalle
               else "Du parement au nu des armatures. 0 est lu 3 cm.")
     aide_p = ("La base inférieure de la direction principale est posée DANS la prédalle (fond de moule) ; la base secondaire et "
@@ -862,7 +854,7 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     resume1 = (f"Prédalle h<sub>p</sub> = {C.nb(d['h_pre'])} cm · {C.esc(d['beton'])} · B{d['fyk']}" if est_predalle(d)
                else f"Dalle pleine · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
-                         s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu de pose {C.nb(d['jeu_premier_lit'])} cm · arrondi {_txt_arrondi(d)}",
+                         s3, r3, E.resume_options(d["gamma_s"], d["jeu_premier_lit"], d.get("arrondi")),
                          _options(d, etat.get("espacements", ESPACEMENTS)))
 
 
@@ -950,8 +942,9 @@ def _comparaison(v: Dict, s: Dict):
     g = s["grandeurs"]
     N = C.NBSP
     if v["cle"] == "hauteur":
-        # (DAL8 : la part calculée + l'enrobage, « h_min = 12,6 + 3,5 = 16,1 cm » — plaque_compact.valeur_hauteur)
-        return PC.valeur_hauteur(sys.modules[__name__], v), _egal("h", f"{C.nb(g['h'])}{N}cm")
+        # (DAL8 : la part calculée + l'enrobage, « h_min = 12,6 + 3,5 = 16,1 cm » — etabli_compact.valeur_hauteur, les
+        #  mots communs de la poutre et des dalles, E15)
+        return E.valeur_hauteur(v), _egal("h", f"{C.nb(g['h'])}{N}cm")
     if v["cle"] == "tau":
         return (_egal("τ", f"{_n(g['tau'], 'N/mm²')}{N}N/mm²"),
                 _egal("τ<sub>adm,I</sub>", f"{_n(g['tau_adm'], 'N/mm²')}{N}N/mm²"))
@@ -989,8 +982,7 @@ def _verdict(v: Dict, s: Dict) -> str:
     qui la rend non conforme (A_s > A_s,max) ; pour une face dont le d utile est ≤ 0, quel que soit son taux, « d ≤ 0 »."""
     g, N = s["grandeurs"], C.NBSP
     if _sous_limite_non_conforme(v) and "acier_excessif" in v["motifs"]:
-        return (f"{_egal('A<sub>s</sub>', _n(v['limite'], 'mm²') + N + 'mm²')} &gt; "
-                f"{_egal('A<sub>s,max</sub>', _n(v['As_max'], 'mm²') + N + 'mm²')} · acier excessif")
+        return E.acier_excessif(_n(v['limite'], 'mm²'), _n(v['As_max'], 'mm²'))
     if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
         # (court : la ligne du résultat tient sur une ligne au PC — « position des couches incompatible avec
         #  l'épaisseur » y était coupée, 13/11/2026 ; la fenêtre de calcul et la note PDF gardent la phrase longue)
@@ -1000,9 +992,7 @@ def _verdict(v: Dict, s: Dict) -> str:
     return f"{val} {'≤' if v['taux'] <= 1 else '&gt;'} {lim}{motif}"
 
 
-def _cm(x: float) -> str:
-    """Une longueur CALCULÉE en cm (y_G, d, axe) au plus au 1/100 : 3,5 ; 4,86 ; 3,8 (et non 3,7951)."""
-    return C.nb(round(x, 2), 2)
+_cm = E.cm_calcule      # une longueur CALCULÉE en cm (y_G, d, axe) au plus au 1/100 : 3,5 ; 4,86 ; 3,8 (et non 3,7951)
 
 
 def _formule(f: Dict) -> Dict:
@@ -1177,7 +1167,7 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
 # minimum et maximum, τ ≤ τ_adm,I sans étriers ; ni flèche ni fissuration). En entier dans chaque fenêtre de calcul ;
 # sous le résultat, la seule phrase « Non vérifiées » (NON_VERIFIEES_CSP) : ce qui est vérifié, les lignes du résultat
 # le montrent déjà (le propriétaire, 13/11/2026 : « supprimer les messages explicatifs redondants »).
-NON_VERIFIEES_CSP = "Non vérifiées : la flèche et la fissuration."
+NON_VERIFIEES_CSP = E.NON_VERIFIEES_FLEXION      # (la même phrase que la poutre : les mots communs, E15)
 PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, les quatre armatures : A<sub>s,req</sub>, minimum et maximum) et "
                  "τ ≤ τ<sub>adm,I</sub> (une dalle sans étriers). " + NON_VERIFIEES_CSP)
 

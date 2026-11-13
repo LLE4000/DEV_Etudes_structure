@@ -648,7 +648,8 @@ MUT_ECRAN = (
     ("la fenêtre de la poutre montre la masse au mètre à la place de la masse de la section",
      '''"valeur": f"{C.fr(sec['masse_majoree'] * sec['longueur'], 1)}{C.NBSP}kg" if a_lg else "—",''',
      '''"valeur": f"{C.fr(sec['masse_majoree'], 1)}{C.NBSP}kg" if a_lg else "—",'''),
-    ("la longueur d'une section n'est plus un champ", '+ (_longueur(i, s) if ta_on else ""))', '+ "")'),
+    # (lot 4 : la carte de la section porte copier_txt — le texte visé suit ; le harnais suit)
+    ("la longueur d'une section n'est plus un champ", '+ (_longueur(i, s) if ta_on else ""), copier_txt=', '+ "", copier_txt='),
     ("les réglages ne sont plus montrés", "    if not _ta_actif(p):\n        return f'<div class=\"row full pt-ta\">{case}</div>'", "    if True:\n        return f'<div class=\"row full pt-ta\">{case}</div>'"),
 )
 survivants = []

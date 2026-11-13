@@ -247,6 +247,116 @@ def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, p
             f'<div class="et-bloc-ef">{efforts}</div><div class="els">{rows}</div>{pied}</div></section>')
 
 
+# ------------------------------------------------------------------ à droite : les MOTS communs du béton armé (E15)
+# La poutre, la dalle pleine et la prédalle disent leurs résultats avec les MÊMES mots (docs/site/CHARTE_ERGONOMIE.md
+# E15, lot 4) : écrits une fois, ici. Ce qu'un calcul de flexion de la méthode du bureau ne vérifie PAS (la poutre, la
+# dalle coulée en place ; la prédalle a sa phrase, plus longue) — une phrase sous la colonne des résultats.
+NON_VERIFIEES_FLEXION = "Non vérifiées : la flèche et la fissuration."
+
+
+def cm_calcule(x: float) -> str:
+    """Une longueur CALCULÉE en cm (un axe, un centre de gravité y_G) au plus au 1/100 : 3,5 ; 4,86 ; 6."""
+    return C.nb(round(x, 2), 2)
+
+
+def valeur_hauteur(v) -> str:
+    """La valeur de la ligne « Hauteur » de la colonne des résultats, la somme DÉTAILLÉE (DAL8 — le propriétaire,
+    13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : « h_min = 12,6 + 3,5 =
+    16,1 cm » — h_u,min (la part calculée) + y_G (l'enrobage mécanique), les termes de la formule « h_min » que le moteur
+    nomme (la dalle, la prédalle et la poutre la nomment de même). Sans la formule (un moteur qui ne la nommerait pas),
+    la seule somme."""
+    N = C.NBSP
+    f = next((f for f in v.get("formules", []) if f["cle"] == "h_min"), None)
+    if f is None:
+        return f"h<sub>min</sub>{N}={N}{C.fr(v['valeur'], 1)}{N}cm"
+    t = {x["symbole"]: x["valeur"] for x in f["termes"]}
+    return f"h<sub>min</sub>{N}={N}{C.fr(t['hu_min'], 1)}{N}+{N}{cm_calcule(t['yG'])}{N}={N}{C.fr(f['resultat'], 1)}{N}cm"
+
+
+def comparaison_acier(necessaire: str, pose: str, depasse: bool, suite: str = "") -> str:
+    """La ligne 2 d'une vérification d'ARMATURE : « A_s,néc = 707 ≤ A_s = 785 mm² » — la section nécessaire
+    (max(A_s,req ; A_s,min)) face à la section posée, nommées ; ``necessaire`` et ``pose`` déjà écrits (mm² entiers) ;
+    ``depasse`` : « > » au lieu de « ≤ » ; ``suite`` (HTML) : ce que le module ajoute (« · acier excessif »…)."""
+    N = C.NBSP
+    return f"A<sub>s,néc</sub>{N}={N}{necessaire} {'&gt;' if depasse else '≤'} A<sub>s</sub>{N}={N}{pose}{N}mm²{suite}"
+
+
+def acier_excessif(pose: str, maxi: str) -> str:
+    """La ligne 2 d'une armature NON CONFORME sous 100 % parce qu'elle dépasse le maximum : « A_s = 4 825 mm² >
+    A_s,max = 3 200 mm² · acier excessif » — la comparaison qui la rend non conforme, et non un taux qui tient."""
+    N = C.NBSP
+    return f"A<sub>s</sub>{N}={N}{pose}{N}mm² &gt; A<sub>s,max</sub>{N}={N}{maxi}{N}mm² · acier excessif"
+
+
+# ------------------------------------------------------------------ à gauche : les MOTS communs du béton armé (E15)
+# Les rubriques de la poutre, de la dalle pleine et de la prédalle disent les mêmes choses avec les MÊMES mots
+# (docs/site/CHARTE_ERGONOMIE.md E15, lot 4) : écrits une fois, ici.
+def symbole(lettre: str, mot: str) -> str:
+    """Une dimension dite par son SYMBOLE (« b », « h », « c ») : le mot se lit au survol (13/11/2026, § 8.2 des
+    dalles : « bande », « épaisseur », « enrobage » ne se répètent plus à côté du symbole). ``lettre`` : du HTML."""
+    return f'<span class="et-sym" title="{C.esc(mot)}">{lettre}</span>'
+
+
+def entetes_moments(titre_v: str) -> str:
+    """Les titres du tableau des efforts d'une section : M⁺ (la face inférieure tendue), M⁻ (la face supérieure
+    tendue), saisis sans signe, et V — leur explication au survol. ``titre_v`` : ce que le survol de V dit."""
+    return ('<span class="h" title="Moment positif : la face INFÉRIEURE est tendue (en travée). Saisi sans signe.">'
+            'M<sup>+</sup> · inf. tendue</span>'
+            '<span class="h" title="Moment négatif : la face SUPÉRIEURE est tendue (sur appui). Saisi sans signe.">'
+            'M<sup>−</sup> · sup. tendue</span>'
+            f'<span class="h" title="{C.esc(titre_v)}">V</span>')
+
+
+def as_necessaire(valeur: str) -> str:
+    """La section NÉCESSAIRE d'une armature, dans le titre de son groupe : « A_s néc. 588 mm² »."""
+    return f'<span class="et-req">A<sub>s</sub> néc. <b>{valeur}</b>{C.NBSP}mm²</span>'
+
+
+def as_pose(valeur: str, unite: str, aide: str) -> str:
+    """La section POSÉE d'une armature, au pied de son groupe, à droite : « A_s posé 785 mm²/m » ; ``aide`` au survol."""
+    return f'<span class="et-pied-a" title="{C.esc(aide)}">A<sub>s</sub> posé {valeur}{C.NBSP}{unite}</span>'
+
+
+def bouton_liste(pk: str, quoi: str) -> str:
+    """Le bouton qui ouvre la LISTE des armatures possibles d'une face (le sélecteur, triées par section ; ★ la plus
+    petite qui tient) — une icône de liste (c'était une ampoule, 13/11/2026). ``quoi`` : ce que la liste choisit."""
+    return (f'<button type="button" class="et-prop" data-pk="{C.esc(pk)}" title="Choisir {C.esc(quoi)} dans la liste des armatures, '
+            f'triées par section (★ : la plus petite qui tient)">{C.icon("list-filter")}</button>')
+
+
+def ligne_methode(reference: str) -> str:
+    """La ligne « Méthode » des Options : la méthode du bureau en clair ; la référence du moteur au survol."""
+    return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
+            f'<b title="{C.esc(reference)}">Méthode du bureau · ELS · z = 0,9 d</b></div>')
+
+
+def resume_options(gamma_s: float, jeu: float, pas) -> str:
+    """Le résumé de la rubrique « Options », repliée : « γs 1,5 · jeu de pose 1 cm · arrondi 0,5 cm »."""
+    return f"γ<sub>s</sub> {C.nb(gamma_s)} · jeu de pose {C.nb(jeu)} cm · arrondi {C.txt_arrondi(pas)}"
+
+
+# ------------------------------------------------------------------ à gauche : un élément VERROUILLÉ (le cadenas)
+def verrou_aide(genre: Genre) -> str:
+    """La phrase en tête d'un élément verrouillé : « La dalle est verrouillée : ses données se lisent, elles ne se
+    modifient pas. Le cadenas, à droite de son nom, la déverrouille. » (la dalle, la poutre : E15)."""
+    e_, pron = ("", "le") if genre.masculin else ("e", "la")
+    return (f"{genre.le[0].upper()}{genre.le[1:]} est verrouillé{e_} : ses données se lisent, elles ne se modifient pas. "
+            f"Le cadenas, à droite de son nom, {pron} déverrouille.")
+
+
+def verrou_refus(genre: Genre) -> str:
+    """Le refus d'une saisie dans un élément verrouillé : « Dalle verrouillée : le cadenas, à droite de son nom, la
+    déverrouille »."""
+    e_, pron = ("", "le") if genre.masculin else ("e", "la")
+    nom = genre.le.split(" ", 1)[1]
+    return f"{nom[0].upper()}{nom[1:]} verrouillé{e_} : le cadenas, à droite de son nom, {pron} déverrouille"
+
+
+def lecture(label: str, valeur: str, sym: str = "") -> str:
+    """Une donnée d'un élément verrouillé, en lecture seule (``valeur`` : du HTML du module)."""
+    return C.ligne(label, f'<span class="dl-ro">{valeur}</span>', sym)
+
+
 # ------------------------------------------------------------------ à gauche : les sections et la section courante
 def carte_section(i: int, nom: str, copier: Sequence, supprimer: Sequence, seule: bool, corps: str, *,
                   copier_txt: str = "Copier la section") -> str:

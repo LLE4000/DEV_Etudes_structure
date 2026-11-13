@@ -23,6 +23,7 @@
     python3 tests/test_api_web_poutre.py
 """
 import copy
+import html
 import itertools
 import json
 import os
@@ -113,8 +114,11 @@ chk("une ligne « Dispositions constructives » par section, qui déplie SA list
     re.findall(r'class="el vc et-dispo" data-dispo="(\d)"', r["resultat"]) == [str(i) for i in range(len(p["sections"]))]
     and re.findall(r'class="et-obs-l" data-dispo-l="(\d)"', r["resultat"]) == [str(i) for i in range(len(p["sections"]))], ouvre)
 chk("une vue par section, et « Toutes » quand il y en a plusieurs", [v["cle"] for v in r["vues"]] == ["s0", "s1", "toutes"], [v["cle"] for v in r["vues"]])
-chk("le choix d'armatures s'ouvre sur les deux faces de chaque section, depuis le résultat et depuis les données",
-    re.findall(r'data-pk="([^"]+)"', r["resultat"]) == ["inf-0", "sup-0", "inf-1", "sup-1"]
+# E15 (le propriétaire, 13/11/2026 : « on ne doit pas pouvoir encoder les armatures dans la fenêtre de droite ») : le
+# choix d'armatures s'ouvre depuis les DONNÉES seulement ; le résultat NOMME les barres posées, en texte
+chk("le choix d'armatures s'ouvre sur les deux faces de chaque section, depuis les données SEULEMENT — jamais depuis le "
+    "résultat, qui nomme les barres en texte (E15)",
+    re.findall(r'data-pk="([^"]+)"', r["resultat"]) == [] and 'class="prof"><span>' in r["resultat"]
     and re.findall(r'data-pk="([^"]+)"', r["donnees"]) == ["inf-0", "sup-0", "inf-1", "sup-1"], re.findall(r'data-pk="([^"]+)"', r["resultat"]))
 # la fenêtre de calcul : chaque formule du moteur a sa ligne, et son résultat est celui du moteur
 fx = sum(len(v["formules"]) for v in ref["sections"][0]["verifications"])
@@ -134,7 +138,7 @@ for j in range(EN.MAX_LITS):
     out = saisir(e, f"sections/0/inf/{j}/d", "32")
     e = out["etat"]
 v = next(v for v in MO.verifier(e["poutres"][0])["sections"][0]["verifications"] if v["cle"] == "inf")
-ligne_inf = [x for x in LIGNE.findall(out["resultat"]) if x[1] == "Armatures inférieures"][0]
+ligne_inf = [x for x in LIGNE.findall(out["resultat"]) if x[1] == "Armature inférieure"][0]
 chk("acier excessif : le moteur le déclare non conforme sous 100 %", v["etat"] == MO.NOK and v["taux"] < 1, (v["etat"], v["taux"]))
 chk("… et la ligne est rouge, pas verte", ligne_inf[2] == "r", ligne_inf)
 
@@ -143,10 +147,12 @@ champs = re.findall(r'<input data-chemin="([^"]+)" data-sorte="(\w+)"[^>]*?value
 champs += [(c_, "choix", v_) for c_, v_ in re.findall(r'<select data-chemin="([^"]+)" data-sorte="choix"[^>]*>.*?<option value="([^"]*)" selected', r["donnees"], re.S)]
 champs += re.findall(r'<button type="button" class="on" data-chemin="([^"]+)" data-sorte="(choix)" data-valeur="([^"]*)"', r["donnees"])
 # poutre (nom, béton, acier, b, h, enrobage) + par section (nom, M_inf, M_sup, V ; par lit : n, Ø, répartition, position
-# [+ entraxe horizontal] ; y_G imposé des deux faces ; latérales n et Ø ; par ligne d'étriers : type, Ø — ses barres se
-# CHOISISSENT, data-plage, plus bas ; pas) + options (γs, deux jeux, l'arrondi — un segment, depuis le 13/11/2026 —,
-# d_g, Ø et écart des latérales automatiques)
-n_attendu = 6 + 7 + sum(4 + sum(4 + (lit.get("rep") == "entraxe") for f in ("inf", "sup") for lit in s_[f]) + 2 + 2
+# [+ entraxe horizontal] ; y_G imposé d'une face de DEUX lits ou plus, ou imposé — comme les dalles, E15, lot 4 : d'un lit
+# seul, y_G est son axe ; latérales n et Ø ; par ligne d'étriers : type, Ø — ses barres se CHOISISSENT, data-plage, plus
+# bas ; pas) + options (γs, deux jeux, l'arrondi — un segment, depuis le 13/11/2026 —, d_g, Ø et écart des latérales
+# automatiques)
+n_attendu = 6 + 7 + sum(4 + sum(4 + (lit.get("rep") == "entraxe") for f in ("inf", "sup") for lit in s_[f])
+                        + sum(1 for f in ("inf", "sup") if len(s_[f]) > 1 or s_[f"yG_{f}"] is not None) + 2
                         + sum(2 for _e in s_["etriers"]) + 1 for s_ in p["sections"])
 chk(f"le cadre Données porte tous les champs de la poutre ({len(champs)})", len(champs) == n_attendu, (len(champs), n_attendu))
 vus = {c_ for c_, _, _ in champs}
@@ -231,7 +237,7 @@ chk(f"choisir {best} le pose en un lit et recalcule : la face inférieure passe"
     r2["ok"] and r2["etat"]["poutres"][0]["sections"][0]["inf"] == [{"n": int(best.split("Ø")[0]), "d": int(best.split("Ø")[1])}] and v2["etat"] == MO.OK,
     (r2.get("erreur"), v2["etat"]))
 s = req(module="poutre", action="selecteur", etat=etat, role="sup-1")
-chk("le sélecteur de la face supérieure de la section B se titre ainsi", "Armatures supérieures · section B" in s["html"])
+chk("le sélecteur de la face supérieure de la section B se titre ainsi (le mot des dalles, E15)", "Armature supérieure · section B" in s["html"])
 
 # 8. les poutres de la note
 e = copy.deepcopy(etat)
@@ -246,24 +252,26 @@ chk("le résumé de la note est sa poutre la plus chargée (ici V1, fermée)",
     rn["resume"]["taux"] == C.pct(t_max) and rn["resume"]["gouvernant"].startswith("V1 ·"), (rn["resume"], t_max))
 # la colonne de gauche COMPACTE (demande de l'ingénieur du 09/11/2026, etabli_compact.arbre_compact) : la LIGNE de la
 # poutre ouverte (que l'écran pose dans l'en-tête du panneau) — son nom en champ, la LISTE des poutres en menu (chacune
-# « nom · b × h cm », l'ouverte cochée), copier, supprimer — puis ses rubriques ; plus d'arborescence
-ligne_ = re.search(r'<div class="et-elsel" data-elements="\d+">.*?(?=<div class="sec)', rn["donnees"], re.S)
+# « nom · b × h cm », l'ouverte cochée), le cadenas, copier, supprimer (lot 4 : la ligne des dalles, E15) — puis ses
+# rubriques ; plus d'arborescence. L'état de chaque poutre se dit par la COULEUR de son nom (et-n-ok, et-n-nok, et-n-inc),
+# jamais par un taux ni une pastille
+ligne_ = re.search(r'<div class="et-elsel et-elsel-d" data-elements="\d+">.*?(?=<div class="sec)', rn["donnees"], re.S)
 ligne_ = ligne_.group(0) if ligne_ else ""
-pts_ = re.findall(r'aria-checked="(true|false)" class="et-elt-i( on)?" data-activer="(\d)" title="[^"]*">.*?<span class="nom">([^<]+)</span>'
+pts_ = re.findall(r'aria-checked="(true|false)" class="et-elt-i( on)?" data-activer="(\d)" title="[^"]*">.*?<span class="nom et-n-\w+">([^<]+)</span>'
                   r'<span class="dim">([^<]+)</span>', ligne_, re.S)
 chk("la LISTE des poutres (la ligne de la poutre ouverte) montre chaque poutre « nom · b × h cm », l'ouverte cochée, leur compte ; "
-    "les rubriques de la seule ouverte — plus d'arborescence, sans taux ni pastille d'état",
+    "les rubriques de la seule ouverte — plus d'arborescence, sans taux ni pastille d'état (son état : la couleur du nom)",
     [(c, o, i, n) for c, o, i, n, _ in pts_] == [("false", "", "0", "V1"), ("true", " on", "1", "V2"), ("false", "", "2", "V2 (copie)")]
     and all(d == f"· {C.nb(x['b'])} × {C.nb(x['h'])} cm" for (*_, d), x in zip(pts_, e["poutres"]))
-    and re.search(r'<div class="et-arbre et-arbre-c" data-poutre="1"><div class="et-elsel" data-elements="3">', rn["donnees"]) is not None
+    and re.search(r'<div class="et-arbre et-arbre-c" data-poutre="1"><div class="et-elsel et-elsel-d" data-elements="3">', rn["donnees"]) is not None
     and '<span class="n">3</span></button>' in ligne_ and "et-arbre-h" not in rn["donnees"]
     and not re.search(r'class="et-pt(?: on)?"|class="et-pt-(?:l|corps|nom|add)\b', rn["donnees"])
     and rn["donnees"].count('data-sec="pt"') == 1 and rn["elements"] == ""
     and not re.search(r'class="(chip|status|pct)\b', ligne_), (pts_, ligne_[:300]))
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="pt".*?(?=<div class="sec[^"]*" data-sec="so")', rn["donnees"], re.S).group(0)
-chk("le NOM de la poutre ouverte se modifie dans SA ligne (champ « nom » : un clic, et on le renomme) ; la rubrique « Poutre » n'a "
-    "plus de ligne Nom, et ses données tiennent en trois lignes (béton | acier, b | h, enrobage)",
-    ligne_.startswith('<div class="et-elsel" data-elements="3"><input data-chemin="nom" data-sorte="texte" value="V2" class="et-elt-nom"')
+chk("le NOM de la poutre ouverte se modifie dans SA ligne (champ « nom » : un clic, et on le renomme) ; la rubrique « Caractéristiques » "
+    "n'a plus de ligne Nom, et ses données tiennent en trois lignes (béton | acier, b | h, enrobage)",
+    ligne_.startswith('<div class="et-elsel et-elsel-d" data-elements="3"><input data-chemin="nom" data-sorte="texte" value="V2" class="et-elt-nom')
     and rn["donnees"].count('data-chemin="nom"') == 1 and 'data-chemin="nom"' not in rub1 and 'data-chemin="nom"' not in rn["resultat"]
     and rub1.count('class="row2 n2"') == 2 and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None
     and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3, (ligne_[:300], re.findall(r'<div class="row[^"]*"', rub1)))
@@ -547,9 +555,13 @@ chk("chaque observation désigne une pièce du dessin (un clic la montre)", not 
 # 17. le dessin : l'en-tête technique de chaque vue ; les poignées des cadres cachées tant que rien n'est choisi
 out = req(module="poutre", action="calculer", etat=etat)
 ent = out["vues"][0]["entete"]
-chk("chaque vue a son en-tête : la section et ses matériaux, les aciers, les étriers, et la bande des trois efforts",
+# (lot 4, E15 — comme les dalles, DAL5a : la ligne des lits « Inf. 2Ø16 · Sup. 2Ø16 » répétait ce que le dessin nomme,
+#  « L1 : 2Ø16 » ; la ligne des étriers reste, le dessin ne dit ni leur Ø ni leur pas)
+chk("chaque vue a son en-tête : la section et ses matériaux, les étriers, et la bande des trois efforts — plus la ligne des "
+    "lits, que le dessin nomme (lot 4)",
     all("entete" in v for v in out["vues"]) and "<b>SECTION A</b>" in ent and "· 20 × 40 cm · C30/37 · B500" in ent
-    and "Inf. 2Ø16 · Sup. 2Ø16" in ent and "1 cadre Ø10 · e = 30 cm" in ent and ent.count("<span><i>") == 3 and ">122,0<" in ent and ">60,0<" in ent, ent)
+    and "Inf. 2Ø16" not in ent and "Sup. 2Ø16" not in ent and "L1 : 2Ø16" in html.unescape(re.sub(r"<[^>]+>", "", out["vues"][0]["svg"]))
+    and "1 cadre Ø10 · e = 30 cm" in ent and ent.count("<span><i>") == 3 and ">122,0<" in ent and ">60,0<" in ent, ent)
 chk("le dessin ne porte plus « mm · à l'échelle » (il s'ajuste à la feuille) : l'écran ne l'écrit pas pour l'établi compact",
     "const echelle = (v) => !COMPACT &&" in _js_etabli)
 svg0 = out["vues"][0]["svg"]
@@ -571,7 +583,7 @@ chk("l'effort tranchant nomme ce que demande sa bande à côté de son titre (ja
 e = P.nouvel_etat()
 out = req(module="poutre", action="calculer", etat=e)
 chk("une poutre seule : sa ligne offre le nom en champ (plus de « Renommer »), « Copier la poutre » et « Supprimer » éteint",
-    '<input data-chemin="nom" data-sorte="texte" value="V1" class="et-elt-nom"' in out["donnees"] and "data-renommer" not in out["donnees"]
+    '<input data-chemin="nom" data-sorte="texte" value="V1" class="et-elt-nom et-n-inc"' in out["donnees"] and "data-renommer" not in out["donnees"]
     and re.search(r'<button type="button" class="et-elt-b" data-dupliquer-index="0" [^>]*aria-label="Copier la poutre">', out["donnees"]) is not None
     and re.search(r'class="et-elt-b danger" data-supprimer="0" data-confirmer="Supprimer la poutre « V1 » de la note \?" '
                   r'title="Une note garde au moins une poutre" aria-label="Supprimer la poutre" disabled>', out["donnees"]) is not None)
@@ -579,6 +591,128 @@ P.gerer_elements(e, "ajouter")
 out = req(module="poutre", action="dupliquer", etat=e, index=0)
 chk("« Copier la poutre » (V1, V2 ouverte) : la copie de V1 s'insère après elle, et s'ouvre",
     out["ok"] and [x["nom"] for x in out["etat"]["poutres"]] == ["V1", "V1 (copie)", "V2"] and out["etat"]["actif"] == 1, [x["nom"] for x in out["etat"]["poutres"]])
+
+# 20. lot 4 (E15, 13/11/2026 — le propriétaire : « on ne doit pas pouvoir encoder les armatures dans la fenêtre de droite »,
+# « toutes nos règles … aussi appliquées dans poutre ») : la poutre prend l'organisation, les MOTS et les BOUTONS de la dalle
+from api_web import dalle as D  # noqa: E402
+from api_web import etabli_compact as E  # noqa: E402
+N = C.NBSP
+e4 = P.nouvel_etat()
+for ch_, x_ in ((["sections", "0", "M_inf"], "60"), (["sections", "0", "V"], "40")):
+    assert P.modifier(e4, ch_, x_) is None
+out4 = req(module="poutre", action="calculer", etat=e4)
+res4, don4 = out4["resultat"], out4["donnees"]
+rs4 = MO.verifier(e4["poutres"][0])["sections"][0]
+v_inf = next(v for v in rs4["verifications"] if v["cle"] == "inf")
+v_h = next(v for v in rs4["verifications"] if v["cle"] == "hauteur")
+cmp4 = dict((nom_, html.unescape(re.sub(r"<[^>]+>", "", c_)))
+            for nom_, c_ in re.findall(r'<div class="l1"><b>([^<]+)</b>.*?<span class="cmp">(.*?)</span>', res4, re.S))
+f_h = next(f for f in v_h["formules"] if f["cle"] == "h_min")
+t_h = {x["symbole"]: x["valeur"] for x in f_h["termes"]}
+chk("lot 4 · résultat : les mots des dalles — « Armature inférieure », « A_s,néc = 588 > A_s = 402 mm² » ; la hauteur détaillée "
+    "« h_min = 36,8 + 6 = 42,8 cm > h = 40 cm » (les termes du moteur) ; plus « A_s,requis » ni « A_s,posé »",
+    cmp4.get("Armature inférieure") == f"As,néc{N}={N}{C.fr(v_inf['valeur'], 0)} > As{N}={N}{C.fr(v_inf['limite'], 0)}{N}mm²"
+    and cmp4.get("Hauteur") == f"hmin{N}={N}{C.fr(t_h['hu_min'], 1)}{N}+{N}{C.nb(round(t_h['yG'], 2), 2)}{N}={N}{C.fr(f_h['resultat'], 1)}{N}cm > h{N}={N}40{N}cm"
+    and "Armature supérieure" in cmp4 and "s,requis" not in res4 and "s,posé" not in res4 and "Armatures inférieures" not in res4,
+    (cmp4.get("Armature inférieure"), cmp4.get("Hauteur")))
+chk("lot 4 · résultat : AUCUN bouton d'armature (data-pk) ; les barres posées s'y nomment en texte ; « Non vérifiées : la "
+    "flèche et la fissuration. » sous les blocs, la phrase de la dalle coulée en place (une source)",
+    "data-pk" not in res4 and res4.count('<span class="prof"><span>2Ø16</span></span>') == 2
+    and C.aide(E.NON_VERIFIEES_FLEXION) in res4 and D.NON_VERIFIEES_CSP is E.NON_VERIFIEES_FLEXION, re.findall(r'data-pk="[^"]+"', res4))
+# une source pour les mots : la poutre ET la dalle les tiennent de etabli_compact (changer la fonction change les deux écrans)
+vrai_cmp = E.comparaison_acier
+E.comparaison_acier = lambda *a_, **k_: "MOTS-COMMUNS"
+try:
+    mut_p = P.resultat(copy.deepcopy(e4))["resultat"]
+    e_d = D.nouvel_etat()
+    D.modifier(e_d, ["sections", 0, "My_inf"], "20")
+    mut_d = D.resultat(e_d)["resultat"]
+finally:
+    E.comparaison_acier = vrai_cmp
+chk("lot 4 · une source pour les mots des armatures : etabli_compact.comparaison_acier écrit la ligne de la poutre ET celle de la "
+    "dalle (la remplacer change les deux écrans)", "MOTS-COMMUNS" in mut_p and "MOTS-COMMUNS" in mut_d)
+# à gauche : « Caractéristiques » et ses symboles ; les efforts en tableau ; « Armature inférieure », A_s néc., la LISTE, A_s posé
+rub = {k_: re.search(rf'<div class="sec[^"]*" data-sec="{k_}".*?(?=<div class="sec(?: [^"]*)?" data-sec=|$)', don4, re.S).group(0)
+       for k_ in ("pt", "so", "arm", "op")}
+chk("lot 4 · rubrique 1 « Caractéristiques » (le titre des dalles), les dimensions en SYMBOLES b, h, c (le mot au survol)",
+    ">Caractéristiques<" in rub["pt"] and all(f'<span class="et-sym" title="{m_}">{l_}</span>' in rub["pt"]
+                                              for l_, m_ in (("b", "Largeur de la poutre"), ("h", "Hauteur de la poutre"), ("c", "Enrobage")))
+    and "b largeur" not in rub["pt"] and ">Poutre<" not in rub["pt"], rub["pt"][:200])
+chk("lot 4 · rubrique 2 : les efforts en TABLEAU, comme les dalles — « M⁺ · inf. tendue », « M⁻ · sup. tendue », V (leurs titres : "
+    "etabli_compact.entetes_moments), plus le trio M_inf / M_sup ; le menu ⋯ de la section dit « Dupliquer la section » (E10)",
+    '<div class="et-mom et-mom3">' in rub["so"] and "M<sup>+</sup> · inf. tendue" in rub["so"] and "M<sup>−</sup> · sup. tendue" in rub["so"]
+    and 'class="trio"' not in rub["so"] and all(f'data-chemin="sections/0/{k_}"' in rub["so"] for k_ in ("M_inf", "M_sup", "V"))
+    and "Dupliquer la section" in rub["so"] and "Copier la section" not in rub["so"], rub["so"][:300])     # (E10 : le mot des dalles)
+geo_inf = MO.verifier(e4["poutres"][0])["sections"][0]["geometrie"]["inf"]
+chk("lot 4 · rubrique 3 : « Armature inférieure » / « Armature supérieure », « A_s néc. », le bouton de la LISTE (l'icône des "
+    "dalles, plus l'ampoule), « + Lit » et « A_s posé » au pied ; l'aire d'un lit dans son détail",
+    rub["arm"].count('<span class="t">Armature inférieure</span>') == 1 and rub["arm"].count('<span class="t">Armature supérieure</span>') == 1
+    and E.as_necessaire(C.fr(v_inf["valeur"], 0)) in rub["arm"] and "A<sub>s</sub> requis" not in rub["arm"]
+    and rub["arm"].count('class="et-prop" data-pk=') == 2 and "lightbulb" not in rub["arm"] and C.icon("lightbulb") not in rub["arm"]
+    and rub["arm"].count(C.icon("list-filter")) == 2
+    and f'A<sub>s</sub> posé {C.fr(geo_inf["As"], 0)}{N}mm²</span>' in rub["arm"] and 'class="et-as"' not in rub["arm"]
+    and f"2 barres Ø16 · A<sub>s</sub> = {C.fr(geo_inf['lits'][0]['As'], 0)}{N}mm²" in rub["arm"], rub["arm"][:400])
+# y_G : caché pour un lit seul (son axe est la position du lit), montré dès deux lits ou quand il est imposé
+e5 = copy.deepcopy(e4)
+yg = lambda e_: re.findall(r'data-chemin="sections/0/(yG_inf|yG_sup)"', P.resultat(copy.deepcopy(e_))["donnees"])  # noqa: E731
+y_un = yg(e5)
+assert P.modifier(e5, ["sections", "0", "inf", "+"], 1) is None
+y_deux = yg(e5)
+e6 = copy.deepcopy(e4)
+assert P.modifier(e6, ["sections", "0", "yG_sup"], "5") is None
+y_imp = yg(e6)
+chk("lot 4 · « y_G imposé » caché pour un lit seul (comme une couche seule des dalles), montré dès deux lits sur la face, ou quand "
+    "il est imposé", y_un == [] and y_deux == ["yG_inf"] and y_imp == ["yG_sup"], (y_un, y_deux, y_imp))
+chk("lot 4 · rubrique 4 : la ligne « Méthode » des dalles (« Méthode du bureau · ELS · z = 0,9 d », la référence au survol), et son "
+    "résumé « γs · jeu de pose · arrondi »",
+    E.ligne_methode(MO.REFERENCE) in rub["op"] and C.esc(MO.REFERENCE) + " · ELS" not in rub["op"]
+    and re.search(r'data-sec="op".*?γ<sub>s</sub> 1,5 · jeu de pose 1 cm · arrondi 0,5 cm', don4, re.S) is not None, rub["op"][:300])
+# le CADENAS : comme une dalle — la poutre verrouillée se lit, rien ne s'y écrit ; le verrou vit à côté des poutres
+e7 = copy.deepcopy(e4)
+P.gerer_elements(e7, "ajouter")                                   # V1, V2 (ouverte)
+e7["actif"] = 0
+ligne7 = req(module="poutre", action="calculer", etat=e7)["donnees"]
+chk("lot 4 · la ligne de la poutre a le CADENAS, à droite avec copier et supprimer (la ligne des dalles) ; pas de liste "
+    "« verrous » tant qu'aucune poutre n'est verrouillée (une note d'avant reste identique)",
+    'class="et-elt-b et-verrou" data-chemin="verrou" data-valeur="true"' in ligne7 and '<div class="et-elsel et-elsel-d"' in ligne7
+    and "verrous" not in e7, ligne7[:300])
+avant7 = copy.deepcopy(e7["poutres"])
+msg_v = P.modifier(e7, ["verrou"], "true")
+refus = [P.modifier(e7, ch_, x_) for ch_, x_ in ((["h"], "50"), (["sections", "0", "M_inf"], "80"), (["sections", "0", "inf", "+"], 1),
+                                               (["gamma_s"], "1.15"), (["sections", "0", "etriers", "0", "plage"], "1-2"))]
+try:
+    P.choisir_section(e7, "inf-0", "3Ø20")
+    choisi = True
+except ValueError:
+    choisi = False
+out7 = req(module="poutre", action="calculer", etat=e7)
+chk("lot 4 · verrouillée : toute saisie est REFUSÉE avec le message des dalles (dimensions, efforts, lits, options, cadres), le "
+    "choix d'armatures aussi ; la poutre reste intacte",
+    msg_v is None and e7.get("verrous") == [True, False] and all(m_ == E.verrou_refus(E.POUTRE) for m_ in refus) and not choisi
+    and e7["poutres"] == avant7 and E.verrou_refus(E.POUTRE) == "Poutre verrouillée : le cadenas, à droite de son nom, la déverrouille", refus)
+chk("lot 4 · verrouillée : ses données en LECTURE SEULE (aucun champ, aucun bouton de saisie, ni la liste des armatures), la "
+    "phrase des dalles en tête ; le cadenas allumé dans sa ligne ; son nom se lit, un cadenas devant",
+    E.verrou_aide(E.POUTRE) in out7["donnees"] and 'data-chemin="h"' not in out7["donnees"] and "et-prop" not in out7["donnees"]
+    and 'class="et-elt-b et-verrou on" data-chemin="verrou" data-valeur="false"' in out7["donnees"]
+    and 'class="et-elt-nom lu' in out7["donnees"] and "2Ø16" in out7["donnees"], out7["donnees"][:300])
+P.gerer_elements(e7, "dupliquer", 0)                              # V1 (verrouillée), sa copie, V2
+v_copie = list(e7["verrous"])
+P.gerer_elements(e7, "supprimer", 0)
+v_suppr = list(e7.get("verrous") or [])
+e7["actif"] = 0
+P.modifier(e7, ["verrou"], "false")
+chk("lot 4 · le verrou SUIT sa poutre : la copie d'une poutre verrouillée l'est aussi (comme une dalle) ; supprimer retire son "
+    "verrou ; déverrouiller la dernière efface la liste",
+    v_copie == [True, True, False] and v_suppr == [True, False] and "verrous" not in e7, (v_copie, v_suppr, e7.get("verrous")))
+n8 = P.normaliser({"version": P.VERSION, "poutres": copy.deepcopy(e4["poutres"]) * 3, "actif": 0, "verrous": [True, "true", 1]})
+n9 = P.normaliser({"version": P.VERSION, "poutres": copy.deepcopy(e4["poutres"]), "actif": 0, "verrous": "abîmé"})
+chk("lot 4 · un fichier relu : seul « true » verrouille (« \"true\" », 1 non) ; une liste abîmée n'en verrouille aucune ; le moteur "
+    "ne voit jamais le verrou (les poutres restent celles du moteur)",
+    n8.get("verrous") == [True, False, False] and "verrous" not in n9 and all("verrou" not in x_ for x_ in n8["poutres"]), (n8.get("verrous"), n9.get("verrous")))
+# l'état de chaque poutre, dit par la COULEUR de son nom (comme les dalles) : V1 non conforme, V2 sans effort
+cls_n = re.findall(r'class="nom (et-n-\w+)">([^<]+)</span>', ligne7)
+chk("lot 4 · l'état de chaque poutre se lit à la couleur de son nom, dans la liste : V1 (146 %) non conforme, V2 sans effort neutre",
+    cls_n == [("et-n-nok", "V1"), ("et-n-inc", "V2")], cls_n)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

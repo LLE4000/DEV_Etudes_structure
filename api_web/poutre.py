@@ -78,11 +78,37 @@ def normaliser(etat: Dict) -> Dict:
     if d_avant:
         out[CLE_AVIS] = "regle"
     out["actif"] = min(max(0, int(etat.get("actif", 0) or 0)), len(out["poutres"]) - 1)
+    # les verrous (le cadenas, lot 4) : un booléen par poutre, relus strictement (seul « true » verrouille)
+    lus = etat.get("verrous") if isinstance(etat.get("verrous"), list) else []
+    _poser_verrous(out, [i < len(lus) and lus[i] is True for i in range(len(out["poutres"]))])
     # les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : relues strictement ; la clé reste
     # ABSENTE quand il n'y en a aucune (une note d'avant reste identique à l'octet)
     if etat.get("fiches"):
         out["fiches"] = FI.relire_toutes(etat["fiches"])
     return out
+
+
+# ------------------------------------------------------------------ le VERROU d'une poutre (le cadenas des dalles, E15)
+# Une poutre verrouillée se lit et ne se modifie pas : le cadenas de sa ligne (etabli_compact.arbre_compact, ``cadenas``)
+# la verrouille et la déverrouille, comme une dalle (lot 4, 13/11/2026). Le verrou n'est pas une donnée du calcul, et le
+# moteur refuse toute clé qu'il ne connaît pas (beton/poutre/entree.CLES_POUTRE) : il vit donc À CÔTÉ des poutres, dans
+# ``etat["verrous"]`` — un booléen par poutre, tenu avec elles (ajouter, copier, supprimer) —, liste ABSENTE quand aucune
+# n'est verrouillée (une note d'avant reste identique à l'octet).
+def verrous(etat: Dict) -> List[bool]:
+    """Le verrou de chaque poutre de la note (False pour une poutre que la liste ne couvre pas)."""
+    v = etat.get("verrous") or []
+    return [i < len(v) and v[i] is True for i in range(len(etat["poutres"]))]
+
+
+def _poser_verrous(etat: Dict, v: List[bool]) -> None:
+    if any(v):
+        etat["verrous"] = [bool(x) for x in v]
+    else:
+        etat.pop("verrous", None)
+
+
+def _verrouillee(etat: Dict) -> bool:
+    return verrous(etat)[etat["actif"]]
 
 
 def _noms_uniques(p: Dict) -> Dict:
@@ -104,24 +130,29 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
     """Les poutres de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte), en supprimer
     une (jamais la dernière)."""
     ps = etat["poutres"]
+    v = verrous(etat)                     # (les verrous suivent leurs poutres : la copie d'une poutre verrouillée l'est aussi)
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(ps) - 1)
     elif action == "ajouter":
         p = EN.nouvelle_poutre()
         p["nom"] = f"V{len(ps) + 1}"
         ps.append(p)
+        v.append(False)
         etat["actif"] = len(ps) - 1
     elif action == "dupliquer":
         i = etat["actif"] if index is None else min(max(0, int(index)), len(ps) - 1)
         p = copy.deepcopy(ps[i])
         p["nom"] = f"{p.get('nom') or 'Poutre'} (copie)"
         ps.insert(i + 1, p)
+        v.insert(i + 1, v[i])
         etat["actif"] = i + 1
     elif action == "supprimer" and len(ps) > 1:
         i = min(max(0, int(index or 0)), len(ps) - 1)
         del ps[i]
+        del v[i]
         if etat["actif"] > i or etat["actif"] >= len(ps):
             etat["actif"] = max(0, etat["actif"] - 1)
+    _poser_verrous(etat, v)
 
 
 # ------------------------------------------------------------------ la saisie
@@ -142,6 +173,17 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     retirer). Le moteur relit la poutre : une valeur hors de son domaine est refusée avec un message, et la poutre reste
     intacte. Une saisie qui retire des barres au lit 1 inférieur ramène les cadres qui les entouraient sur les barres
     qui restent, et le dit."""
+    if list(chemin) == ["verrou"]:
+        # le cadenas de la ligne de la poutre (lot 4, comme les dalles) : la valeur qu'un clic pose
+        lu = C.lire_bool(valeur)
+        if lu is None:
+            return f"Verrou : verrouillée ou non, pas « {valeur} »"
+        v = verrous(etat)
+        v[etat["actif"]] = lu
+        _poser_verrous(etat, v)
+        return None
+    if _verrouillee(etat):
+        return E.verrou_refus(E.POUTRE)
     p = _poutre(etat)
     avant = copy.deepcopy(p)
     chemin = [int(c) if isinstance(c, str) and c.lstrip("-").isdigit() and c != "-" else c for c in chemin]
@@ -351,6 +393,8 @@ def _aller(d, chemin: Sequence):
 
 def choisir_section(etat: Dict, role: str, nom: str) -> None:
     """Le sélecteur d'armatures : « inf-0 » (face inférieure de la section 0) reçoit la disposition « 3Ø20 » en un lit."""
+    if _verrouillee(etat):
+        raise ValueError("poutre verrouillée")
     face, i = role.split("-")
     n, d = nom.split("Ø")
     p = _poutre(etat)
@@ -442,10 +486,11 @@ def _lit(i: int, face: str, j: int, lit: Dict, n_lits: int, rs: Dict) -> str:
     dispo = rs["dispositions"]
     cible = f"s{i}.lit-{face}-{j}"
     pire = _pire(_items(dispo, face, j, "lit", "entre_lits", "superposes", "cadre"))
+    # (la ligne dit n et Ø ; l'aire du lit est dans son détail, la section posée de la face au pied du groupe — « A_s
+    #  posé », comme les dalles : E15, lot 4)
     tete = (f'<div class="et-l1"><button type="button" class="et-tag" data-deplier="1" title="Détail du lit">L{j + 1}</button>'
             f'{C.num(ch + ["n"], lit["n"], "", entier=True, mini=1)}'
-            f'{C.choix(ch + ["d"], lit["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES])}'
-            f'<span class="et-as">{_mm(geo["As"])}{C.NBSP}mm²</span>{_point(pire)}'
+            f'{C.choix(ch + ["d"], lit["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES])}{_point(pire)}'
             f'<button type="button" class="et-dep" data-deplier="1" title="Répartition et espacements">{C.icon("chevron-down")}</button></div>')
     rep = lit.get("rep", "uniforme")
     det = _repartition(ch, rep, j)
@@ -464,24 +509,33 @@ def _lit(i: int, face: str, j: int, lit: Dict, n_lits: int, rs: Dict) -> str:
                        "Entraxe vertical, axe à axe depuis le lit précédent, là où il est posé ; vide : demi-Ø + jeu entre "
                        "lits + demi-Ø.")
     det += _espacements(dispo, face, j)
+    det += (f'<div class="hint et-info">{lit["n"]} barre{"s" if lit["n"] > 1 else ""} Ø{lit["d"]} · '
+            f'A<sub>s</sub> = {_mm(geo["As"])}{C.NBSP}mm²</div>')
     if n_lits > 1:
         det += E.retirer(ch + ["-"], "Retirer ce lit")
     return f'<div class="et-piece" data-cible="{cible}">{tete}<div class="et-det">{det}</div></div>'
 
 
+TITRES_FACES = {"inf": "Armature inférieure", "sup": "Armature supérieure"}     # (les mots des dalles, DAL9 et E15)
+
+
 def _face(i: int, face: str, s: Dict, rs: Dict) -> str:
-    nom = "Inférieures" if face == "inf" else "Supérieures"
+    """Une FACE, comme une armature des dalles (E15, lot 4) : son titre, la section nécessaire et le bouton de la
+    liste des armatures (le sélecteur : un lit qui tient) ; ses lits ; au pied « + Lit » et la section posée ; le
+    centre de gravité imposé — seulement dès DEUX lits ou quand il est imposé : d'un lit seul, y_G est son axe, que le
+    lit règle déjà (sa position)."""
     geo = rs["geometrie"][face]
     v = next(x for x in rs["verifications"] if x["cle"] == face)
     corps = "".join(_lit(i, face, j, lit, len(s[face]), rs) for j, lit in enumerate(s[face]))
     ajouter = E.plus(["sections", i, face, "+"], "1", "Lit") if len(s[face]) < EN.MAX_LITS else ""
-    yg = C.ligne("y<sub>G</sub> imposé", C.num(["sections", i, f"yG_{face}"], s[f"yG_{face}"], "cm", auto=f"auto · {_cm(geo['yG_calcule'])}"),
-                 "", "Centre de gravité des lits de la face, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A) sur les "
-                     "positions réelles des lits. L'imposer remplace le calcul dans d = h − y_G.")
-    prop = (f'<button type="button" class="et-prop" data-pk="{face}-{i}" title="Proposer une disposition qui tient (sélecteur)">'
-            f'{C.icon("lightbulb")}</button>')
-    return (f'<div class="et-grp"><div class="et-gh"><span class="t">{nom}</span><span class="et-req">A<sub>s</sub> requis '
-            f'<b>{_mm(v["valeur"])}</b>{C.NBSP}mm²</span>{prop}</div>{corps}<div class="et-pied">{ajouter}</div>{yg}</div>')
+    pose = E.as_pose(_mm(geo["As"]), "mm²", "La section des barres posées sur la face, tous les lits.")
+    yg = ("" if len(s[face]) < 2 and s[f"yG_{face}"] is None else
+          C.ligne("y<sub>G</sub> imposé", C.num(["sections", i, f"yG_{face}"], s[f"yG_{face}"], "cm", auto=f"auto · {_cm(geo['yG_calcule'])}"),
+                  "", "Centre de gravité des lits de la face, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A) sur les "
+                      "positions réelles des lits. L'imposer remplace le calcul dans d = h − y_G."))
+    prop = E.bouton_liste(f"{face}-{i}", "les barres de la face (un lit)")
+    return (f'<div class="et-grp"><div class="et-gh"><span class="t">{TITRES_FACES[face]}</span>{E.as_necessaire(_mm(v["valeur"]))}'
+            f'{prop}</div>{corps}<div class="et-pied">{ajouter}{pose}</div>{yg}</div>')
 
 
 def _barres(ch: List, e: Dict, cd: Dict, n1: int) -> str:
@@ -562,46 +616,75 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     courante), 4 Options. ``res`` : le calcul de la poutre ouverte (``MO.verifier``), refait s'il manque."""
     p = _poutre(etat)
     res = res or MO.verifier(p)
-    L = C.ligne
-    # condensée (demande de l'ingénieur, 11/2026) : le nom se modifie dans l'arborescence ; béton et acier, largeur et
-    # hauteur, chacun sur une ligne ; l'enrobage dessous
+    if _verrouillee(etat):
+        return _formulaire_verrouille(p, res)
+    sym = E.symbole
+    # « Caractéristiques », comme les dalles (E15, lot 4) : le nom se modifie dans la ligne de la poutre ; béton et
+    # acier, puis les dimensions en SYMBOLES (b, h, c — le mot au survol)
     s1 = ('<div class="et-piece et-plat" data-cible="beton">'
           + C.ligne2(("Béton", C.choix(["beton"], p.get("beton"), [(k, k) for k in EN.classes_beton()]), ""),
                      ("Acier", C.choix(["fyk"], p.get("fyk"), [(n, f"B{n}") for n in EN.NUANCES]), ""))
-          + C.ligne2(("b largeur", C.num(["b"], p.get("b"), "cm"), ""), ("h hauteur", C.num(["h"], p.get("h"), "cm"), ""))
-          + L("c enrobage", C.num(["enrobage"], p.get("enrobage"), "cm"), "", "Distance du parement au nu de l'étrier.")
+          + C.ligne2((sym("b", "Largeur de la poutre"), C.num(["b"], p.get("b"), "cm"), ""),
+                     (sym("h", "Hauteur de la poutre"), C.num(["h"], p.get("h"), "cm"), ""))
+          + C.ligne(sym("c", "Enrobage"), C.num(["enrobage"], p.get("enrobage"), "cm"), "", "Du parement au nu de l'étrier.")
           + "</div>")
     seule = len(p["sections"]) == 1
     ta_on = _ta_actif(p)
+    # les efforts d'une section en TABLEAU, comme les dalles (E15, lot 4) : M⁺ (la face inférieure tendue), M⁻ (la face
+    # supérieure tendue), saisis sans signe, et V — les titres et leur survol : etabli_compact.entetes_moments
+    tete = E.entetes_moments("Effort tranchant de la section.")
     cartes = "".join(E.carte_section(i, s["nom"], ["sections", i, "dup"], ["sections", i, "-"], seule,
-                                     f'<div class="trio">'
-                                     f'<label><span>M<sub>inf</sub></span>{C.num(["sections", i, "M_inf"], s["M_inf"], "kN·m")}</label>'
-                                     f'<label><span>M<sub>sup</sub></span>{C.num(["sections", i, "M_sup"], s["M_sup"], "kN·m")}</label>'
-                                     f'<label><span>V</span>{C.num(["sections", i, "V"], s["V"], "kN")}</label></div>'
-                                     + (_longueur(i, s) if ta_on else ""))
+                                     f'<div class="et-mom et-mom3">{tete}'
+                                     f'{C.num(["sections", i, "M_inf"], s["M_inf"], "kN·m")}{C.num(["sections", i, "M_sup"], s["M_sup"], "kN·m")}'
+                                     f'{C.num(["sections", i, "V"], s["V"], "kN")}</div>'
+                                     + (_longueur(i, s) if ta_on else ""), copier_txt="Dupliquer la section")
                      for i, s in enumerate(p["sections"]))
     s2 = (f'<div class="et-secs">{cartes}</div>'
-          + E.pied_sections("M_inf tend le bas (travée), M_sup tend le haut (appui) ; valeurs de service (ELS).",
-                            "M<sub>inf</sub> travée · M<sub>sup</sub> appui · ELS"))
+          + E.pied_sections("Valeurs de service (ELS), saisies sans signe. M⁺ tend la face inférieure (travée), M⁻ la face "
+                            "supérieure (appui).", "ELS"))
     s3 = E.armatures([s["nom"] for s in p["sections"]],
                      [_face(i, "inf", s, res["sections"][i]) + _face(i, "sup", s, res["sections"][i]) + _cadres(i, s, res["sections"][i])
                       + _laterales(i, s, res["sections"][i]) for i, s in enumerate(p["sections"])])
     noms = " · ".join(C.esc(s["nom"]) for s in p["sections"][:3]) + (" …" if len(p["sections"]) > 3 else "")
     resumes3 = "".join(f'<span class="et-r3" data-section="{i}">{C.esc(_resume_section(s))}</span>' for i, s in enumerate(p["sections"]))
-    return (C.section(1, "Poutre", f"{C.esc(p['beton'])} · B{p['fyk']} · c = {C.nb(p['enrobage'])} cm", s1, True, "pt")
+    return (C.section(1, "Caractéristiques", f"{C.esc(p['beton'])} · B{p['fyk']} · c = {C.nb(p['enrobage'])} cm", s1, True, "pt")
             + C.section(2, "Sections et sollicitations", noms, s2, False, "so")
             + C.section(3, "Armatures", resumes3, s3, False, "arm")
-            + C.section(4, "Options", "méthode du bureau", _options(p), False, "op", secondaire=True))
+            + C.section(4, "Options", E.resume_options(p["gamma_s"], p["jeu_premier_lit"], p.get("arrondi", P.ARRONDI)), _options(p),
+                        False, "op", secondaire=True))
 
 
-def arbre(etat: Dict, res: Optional[Dict] = None) -> str:
+def _formulaire_verrouille(p: Dict, res: Dict) -> str:
+    """Une poutre verrouillée : ses données en lecture seule, comme une dalle (lot 4) ; le cadenas de la ligne de la
+    poutre la déverrouille."""
+    L = E.lecture
+    s1 = (C.aide(E.verrou_aide(E.POUTRE))
+          + L("béton, acier", f"{C.esc(p['beton'])} · B{p['fyk']}")
+          + L("", f"{C.nb(p['b'])} cm", "b") + L("", f"{C.nb(p['h'])} cm", "h") + L("", f"{C.nb(p['enrobage'])} cm", "c"))
+    s2 = ""
+    for s, rs in zip(p["sections"], res["sections"]):
+        geo = rs["geometrie"]
+        s2 += (f'<div class="grp">Section {C.esc(s["nom"])}</div>'
+               + L("moments (kN·m)", f"M<sup>+</sup> {C.nb(s['M_inf'])} · M<sup>−</sup> {C.nb(s['M_sup'])}")
+               + L("effort tranchant", f"{C.nb(s['V'])} kN", "V")
+               + L(TITRES_FACES["inf"].lower(), C.esc(geo["inf"]["libelle"]))
+               + L(TITRES_FACES["sup"].lower(), C.esc(geo["sup"]["libelle"]))
+               + L("étriers", C.esc(_resume_etriers(geo))))
+    return (C.section(1, f"Caractéristiques {C.icon('lock')}", "verrouillée", s1, True, "pt")
+            + C.section(2, "Sections et armatures", f"{len(p['sections'])} section(s)", s2, False, "sl"))
+
+
+def arbre(etat: Dict, res: Optional[Dict] = None, niveaux: Optional[List[str]] = None) -> str:
     """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que les dalles — demande de
     l'ingénieur du 09/11/2026) : la ligne de la poutre ouverte (son nom, qu'un clic modifie ; la liste des poutres
-    « nom · b × h cm », sans taux ni pastille, et « Ajouter une poutre » ; copier, supprimer), posée par l'écran dans
-    l'en-tête du panneau, puis ses quatre rubriques."""
-    elements = [(p.get("nom") or f"Poutre {i + 1}", f"· {C.nb(p['b'])} × {C.nb(p['h'])} cm", False)
+    « nom · b × h cm », un cadenas si elle est verrouillée, et « Ajouter une poutre » ; à droite le cadenas, copier,
+    supprimer — lot 4, comme les dalles), posée par l'écran dans l'en-tête du panneau, puis ses quatre rubriques.
+    ``niveaux`` (un par poutre, ceux du résultat : ``_niveau_note``) : l'état de chaque poutre, dit par la couleur de
+    son nom."""
+    v = verrous(etat)
+    elements = [(p.get("nom") or f"Poutre {i + 1}", f"· {C.nb(p['b'])} × {C.nb(p['h'])} cm", v[i])
                 for i, p in enumerate(etat["poutres"])]
-    return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre", compact=True)
+    return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre", compact=True, cadenas=True, niveaux=niveaux)
 
 
 def _ta_actif(p: Dict) -> bool:
@@ -648,8 +731,7 @@ def _options(p: Dict) -> str:
               f'sous le minimum de l\'EC2 8.2(2) ({_mm(smin16)}{C.NBSP}mm) — non conforme. Porter ce jeu à '
               f'{C.nb(smin16 / 10.0)}{C.NBSP}cm, ou imposer l\'entraxe vertical des lits.</div>'
               if libre16 < smin16 - 1e-9 else "")
-    return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
-            f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
+    return (E.ligne_methode(MO.REFERENCE)          # (la ligne des dalles : la référence du moteur au survol, E15)
             + C.ligne2(("Jeu de pose", C.num(["jeu_premier_lit"], p.get("jeu_premier_lit"), "cm"),
                         "La tolérance de pose des barres : le calcul compte chaque lit plus loin du parement que dessiné, "
                         "de ce jeu (« 3 + 1 + 0,8 + 1 (jeu) = 5,8 → 6,0 cm »). Le dessin les montre à leur position réelle."),
@@ -680,7 +762,8 @@ MOTIFS = {"hauteur_insuffisante": "hauteur insuffisante", "acier_insuffisant": "
           "barres_inclinees": "barres inclinées nécessaires", "cisaillement_excessif": "cisaillement excessif",
           "pas_trop_grand": "pas trop grand"}
 # les noms courts des lignes du résultat (les titres complets du module restent dans le détail du calcul)
-COURTS = {"hauteur": "Hauteur", "inf": "Armatures inférieures", "sup": "Armatures supérieures", "tau": "Effort tranchant",
+# (« Armature inférieure », « Armature supérieure » : les mots des dalles, DAL9 et E15 — lot 4, 13/11/2026)
+COURTS = {"hauteur": "Hauteur", "inf": "Armature inférieure", "sup": "Armature supérieure", "tau": "Effort tranchant",
           "pas": "Espacement des étriers"}
 # ce que dit la bande de τ atteinte : jamais « pas besoin d'étriers » à côté d'une ligne qui vérifie les étriers posés
 BESOINS = {"pas_d_etriers": "étriers de calcul non requis (minimum constructif)", "etriers": "étriers de calcul requis",
@@ -689,8 +772,8 @@ BESOINS = {"pas_d_etriers": "étriers de calcul non requis (minimum constructif)
 BESOINS_COURTS = {"pas_d_etriers": "minimum constructif", "etriers": "étriers requis",
                   "barres_inclinees_et_etriers": "barres inclinées + étriers", "inacceptable": "section insuffisante"}
 CRITERES = {"hauteur": "h<sub>min</sub> = h<sub>u,min</sub> + y<sub>G</sub> ≤ h",
-            "inf": "A<sub>s,requis</sub> = max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s,posé</sub> ≤ A<sub>s,max</sub>",
-            "sup": "A<sub>s,requis</sub> = max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s,posé</sub> ≤ A<sub>s,max</sub>",
+            "inf": "A<sub>s,néc</sub> = max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub> ≤ A<sub>s,max</sub>",
+            "sup": "A<sub>s,néc</sub> = max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub> ≤ A<sub>s,max</sub>",
             "tau": "τ = V / (0,75·b·h) ≤ τ<sub>adm</sub> (bandes I, II, IV du béton)",
             "pas": "e ≤ s<sub>lim</sub> = min(s<sub>th</sub> ; s<sub>max</sub>)"}
 
@@ -754,7 +837,8 @@ def _formule(f: Dict) -> Dict:
     elif k == "hu_min":
         parts = ["h_u,min", "√(M·10⁶ / (α_b·b·μ)) / 10", f"√({_v(t['M'])} × 10⁶ / ({_v(t['alpha_b'])} × {_v(t['b'])} × {_v(t['mu'])})) / 10"]
     elif k == "h_min":
-        parts = ["h_min", "h_u,min + y_G", f"{_v(t['hu_min'])} + {_v(t['yG'])}"]
+        # (écrite comme la ligne du résultat et comme la dalle : « 38,8 + 6 », E15)
+        parts = ["h_min", "h_u,min + y_G", f"{_n(t['hu_min'], 'cm')} + {E.cm_calcule(t['yG'])}"]
     elif k == "As_req":
         parts = ["A_s,req", "M·10⁶ / (f_yd·0,9·d)", f"{_v(t['M'])} × 10⁶ / ({_v(t['fyd'])} × 0,9 × {_v(t['d'] * 10)})"]
     elif k == "As_min_ec":
@@ -767,7 +851,7 @@ def _formule(f: Dict) -> Dict:
         parts = ["A_s,min", "max(A_s,min,EC ; A_s,min,pl ; A_s,min,opp)",
                  f"max({_n(t['As_min_ec'], 'mm²')} ; {_n(t['As_min_plancher'], 'mm²')} ; {_n(t['As_min_opposee'], 'mm²')})"]
     elif k == "besoin":
-        parts = ["A_s,requis", "max(A_s,req ; A_s,min)", f"max({_n(t['As_req'], 'mm²')} ; {_n(t['As_min'], 'mm²')})"]
+        parts = ["A_s,nécessaire", "max(A_s,req ; A_s,min)", f"max({_n(t['As_req'], 'mm²')} ; {_n(t['As_min'], 'mm²')})"]
     elif k == "As_max":
         parts = ["A_s,max", "0,04·b·h", f"0,04 × {_v(t['b'])} × {_v(t['h'])}"]
     elif k == "tau":
@@ -793,26 +877,36 @@ def _limite_pas(s: Dict) -> str:
     return "s<sub>max</sub>" if g["s_max"] <= g["s_th"] else "s<sub>th</sub>"
 
 
+def _egal(a: str, b: str) -> str:
+    """« a = b » sans retour à la ligne (espaces insécables), comme la dalle : une comparaison se coupe à son signe."""
+    return f"{a}{C.NBSP}={C.NBSP}{b}"
+
+
 def _comparaison(v: Dict, s: Dict) -> str:
-    """La ligne 2 d'une vérification : la valeur calculée et sa limite, nommées, en clair."""
-    g = s["grandeurs"]
+    """La ligne 2 d'une vérification : la valeur calculée et sa limite, nommées, en clair — avec les MOTS des dalles
+    (E15, lot 4 : etabli_compact.valeur_hauteur, comparaison_acier, acier_excessif) : « h_min = 38,8 + 6 = 44,8 cm > h =
+    40 cm », « A_s,néc = 588 > A_s = 402 mm² », « τ = 0,67 N/mm² ≤ τ_adm,II = 1,13 N/mm² »."""
+    g, N = s["grandeurs"], C.NBSP
     k = v["cle"]
     le = "≤" if v["taux"] <= 1 else "&gt;"
     if k == "hauteur":
-        return f"h<sub>min</sub> = {_n(v['valeur'])}{C.NBSP}cm {le} h = {_n(v['limite'])}{C.NBSP}cm"
+        h = C.nb(v["limite"])
+        return f"{E.valeur_hauteur(v)} {le} {_egal('h', h + N + 'cm')}"
     if k in ("inf", "sup"):
-        t = f"A<sub>s,requis</sub> = {_n(v['valeur'], 'mm²')} {le} A<sub>s,posé</sub> = {_n(v['limite'], 'mm²')}{C.NBSP}mm²"
-        if "acier_excessif" in v.get("motifs", []):
-            t += f" &gt; A<sub>s,max</sub> = {_n(v['As_max'], 'mm²')}"
-        return t
+        if v.get("etat") == MO.NOK and v["taux"] <= 1 and "acier_excessif" in v.get("motifs", []):
+            return E.acier_excessif(_n(v["limite"], "mm²"), _n(v["As_max"], "mm²"))
+        return E.comparaison_acier(_n(v["valeur"], "mm²"), _n(v["limite"], "mm²"), v["taux"] > 1)
     if k == "tau":
-        return f"τ = {_n(v['valeur'])} {le} τ<sub>adm,{C.esc(v.get('bande') or '')}</sub> = {_n(v['limite'])}{C.NBSP}N/mm²"
+        tau, adm = _n(v["valeur"], "N/mm²"), _n(v["limite"], "N/mm²")
+        bande = C.esc(v.get("bande") or "")
+        return f"{_egal('τ', tau + N + 'N/mm²')} {le} {_egal(f'τ<sub>adm,{bande}</sub>', adm + N + 'N/mm²')}"
     return f"e = {_n(v['valeur'])} {le} s<sub>lim</sub> = {_n(g.get('s_lim_tronque') or v['limite'])}{C.NBSP}cm ({_limite_pas(s)})"
 
 
 def _piece_verif(v: Dict, s: Dict) -> str:
-    """Ce que la ligne 1 d'une vérification nomme à côté de son titre : les barres posées (un bouton qui ouvre le
-    sélecteur, ``_bloc``), la bande de τ et ce qu'elle demande, les brins des étriers."""
+    """Ce que la ligne 1 d'une vérification nomme à côté de son titre : les barres posées (en TEXTE — elles se
+    choisissent à gauche, rubrique « Armatures », jamais dans les résultats : E15, lot 4), la bande de τ et ce qu'elle
+    demande, les brins des étriers."""
     if v["cle"] in ("inf", "sup"):
         return C.esc(s["geometrie"][v["cle"]]["libelle"])
     if v["cle"] == "tau":
@@ -838,10 +932,11 @@ def _ligne_tableau(v: Dict, s: Dict, gov: bool) -> Dict:
     g = s["grandeurs"]
     k = v["cle"]
     if k == "hauteur":
-        f, val, lim = "h<sub>min</sub> = h<sub>u,min</sub> + y<sub>G</sub> ≤ h", f"h<sub>min</sub> = {_n(v['valeur'])} cm", f"h = {_n(v['limite'])} cm"
+        f, val, lim = "h<sub>min</sub> = h<sub>u,min</sub> + y<sub>G</sub> ≤ h", E.valeur_hauteur(v), _egal("h", f"{C.nb(v['limite'])}{C.NBSP}cm")
     elif k in ("inf", "sup"):
-        f, val, lim = ("max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub>", f"A<sub>s,requis</sub> = {_n(v['valeur'], 'mm²')} mm²",
-                       f"A<sub>s,posé</sub> = {_n(v['limite'], 'mm²')} mm²")
+        # (les mots des dalles, E15 : la section nécessaire, la section posée A_s)
+        f, val, lim = ("max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub> ≤ A<sub>s,max</sub>", _egal("A<sub>s,néc</sub>", f"{_n(v['valeur'], 'mm²')}{C.NBSP}mm²"),
+                       _egal("A<sub>s</sub>", f"{_n(v['limite'], 'mm²')}{C.NBSP}mm²"))
     elif k == "tau":
         f = "τ = V / (0,75·b·h) ≤ τ<sub>adm</sub>"
         val, lim = f"τ = {_n(v['valeur'])} N/mm²", f"τ<sub>adm,{C.esc(v.get('bande') or '')}</sub> = {_n(v['limite'])} N/mm²"
@@ -868,7 +963,8 @@ def _efforts_plat(s: Dict) -> str:
 
 
 def _resume_etriers(geo: Dict) -> str:
-    """« 2 cadres Ø10 + 1 épingle Ø8 · e = 20 cm » : la ligne 3 de l'en-tête du dessin."""
+    """« 2 cadres Ø10 + 1 épingle Ø8 · e = 20 cm » : la ligne 2 de l'en-tête du dessin (et la lecture d'une poutre
+    verrouillée)."""
     compte: Dict = {}
     for cd in geo["etriers"]["cadres"]:
         cle = ("épingle" if cd["type"] == "epingle" else "cadre", int(cd["d"]))
@@ -882,8 +978,8 @@ def _resume_etriers(geo: Dict) -> str:
 
 
 def _entete(p: Dict, titre: str, lignes: List[str], efforts: Optional[Dict]) -> str:
-    """L'en-tête technique d'une vue (api_web/etabli_compact.py) : trois lignes (la section et ses matériaux ; les
-    aciers ; les étriers) et, à droite, la bande compacte des efforts — une fois, sans couleur d'alerte."""
+    """L'en-tête technique d'une vue (api_web/etabli_compact.py) : deux lignes (la section et ses matériaux ; les
+    étriers) et, à droite, la bande compacte des efforts — une fois, sans couleur d'alerte."""
     bande = None if efforts is None else [("M", "inf", efforts["M_inf"], "kN·m"), ("M", "sup", efforts["M_sup"], "kN·m"),
                                           ("V", "", efforts["V"], "kN")]
     return E.entete(titre, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}', lignes, bande)
@@ -902,7 +998,9 @@ def _vues(p: Dict, r: Dict) -> List[Dict]:
     vues = []
     for i, s in enumerate(r["sections"]):
         geo = s["geometrie"]
-        lignes = [f"Inf. {geo['inf']['libelle']} · Sup. {geo['sup']['libelle']}", _resume_etriers(geo)]
+        # l'en-tête, comme celui des dalles (DAL5a ; lot 4, E15) : le titre et la bande des efforts — plus la ligne des
+        # lits, que le dessin nomme (« L1 : 2Ø16 ») ; la ligne des étriers reste : le dessin ne dit ni leur Ø ni leur pas
+        lignes = [_resume_etriers(geo)]
         vues.append({"cle": f"s{i}", "titre": f"Section {s['nom']}", "court": s["nom"], "svg": CB.svg(f"pba_{i}", [_coupe(s, i)]),
                      "entete": _entete(p, f"SECTION {s['nom']}", lignes, s), "legende": ""})
     if len(r["sections"]) > 1:
@@ -1196,10 +1294,9 @@ def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: st
     rows, volets = "", ""
     t_s = max(v["taux"] for v in s["verifications"])
     for v in s["verifications"]:
-        pk = f"{v['cle']}-{i}" if v["cle"] in ("inf", "sup") else ""
-        piece = _piece_verif(v, s)
+        # (les barres se NOMMENT ici, en texte : elles se choisissent à gauche seulement — E15, lot 4, comme les dalles)
         rows += C.ligne_verif(COURTS.get(v["cle"], v["nom"]), _comparaison(v, s), C.pct(v["taux"]), _niv(v), calcul=f"s{i}-{v['cle']}",
-                              pk=pk, piece=piece, gov=(s["nom"] == gouv["section"] and v["cle"] == gouv["cle"] and niv_note != "n"))
+                              piece=_piece_verif(v, s), gov=(s["nom"] == gouv["section"] and v["cle"] == gouv["cle"] and niv_note != "n"))
         detail = f'<div class="ck-g"><div class="ck-t">{C.esc(v["nom"])}</div>{C.lignes_fx([_formule(f) for f in v["formules"]])}</div>'
         volets += C.fenetre_calcul(f"s{i}-{v['cle']}", f"{nom_p} · section {C.esc(s['nom'])} · {C.esc(COURTS.get(v['cle'], v['nom']).lower())}",
                                    f"{_efforts_txt(s)} · méthode du bureau", hyps, [_ligne_tableau(v, s, True)], detail, _pied(CRITERES[v["cle"]]))
@@ -1241,9 +1338,11 @@ def resultat(etat: Dict) -> Dict:
     # l'état de la NOTE (toutes ses poutres) dans l'en-tête du panneau : utile dès deux poutres ; seule, chaque section dit le sien
     statut = C.statut(_niveau_note_note(resultats)) if len(etat["poutres"]) > 1 else ""
     fiches_ = etat.get("fiches") or []
-    return {"resultat": f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{messages}</div>{pied}', "volets": volets,
+    # sous les blocs, ce que le calcul ne vérifie pas, en une phrase (la même que la dalle coulée en place, E15)
+    return {"resultat": f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{messages}{C.aide(E.NON_VERIFIEES_FLEXION)}</div>{pied}',
+            "volets": volets,
             "vues": _vues(p, r) + FI.vues(fiches_), "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats),
-            "donnees": arbre(etat, r) + FI.bloc(fiches_), "elements": elements(etat, resultats)}
+            "donnees": arbre(etat, r, [_niveau_note(x) for x in resultats]) + FI.bloc(fiches_), "elements": elements(etat, resultats)}
 
 
 def _niveau_note_note(resultats: List[Dict]) -> str:
@@ -1359,6 +1458,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         return t
     rows = [{"nom": c["nom"], "col": C.fr(c["aire"], 0), "taux": C.pct(min(c["taux"], 9.99)), "niveau": "r" if c["etat"] == MO.NOK else C.niveau(c["taux"]),
              "cur": c["retenue"], "opt": c is opt, "prop": prop(c)} for c in cands]
-    face_txt = "inférieures" if face == "inf" else "supérieures"
-    return C.selecteur(role, f"Armatures {face_txt} · section {C.esc(s['nom'])}", "un lit · triées par section d'acier · un clic retient la disposition",
+    face_txt = "inférieure" if face == "inf" else "supérieure"
+    # (« Armature inférieure » : le mot des dalles, E15)
+    return C.selecteur(role, f"Armature {face_txt} · section {C.esc(s['nom'])}", "un lit · triées par section d'acier · un clic retient la disposition",
                        "", rows, max(0, min(i_o, i_c) - 4), "mm²", etoile="la plus petite section qui tient et se pose")

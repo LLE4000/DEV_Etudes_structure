@@ -11,21 +11,21 @@ la disposition change d'un format à l'autre.*
 
 | N° | Règle | Origine | Appliquée | À faire |
 |---|---|---|---|---|
-| E1 | **Une information est encodée à UN endroit.** Le résultat dit ce qui tient ; il ne propose plus de modifier (pas de sélecteur ni d'étoile dans les lignes du résultat). | DAL1 | dalle, prédalle | poutre (son résultat propose encore les armatures), les autres modules |
-| E2 | **Pas de message qui répète ce que le rouge dit déjà.** La raison d'une non-conformité est dans la LIGNE de la vérification (« d = −1 cm ≤ 0 · nappe hors de l'épaisseur »), pas dans un message en double dessous. Ce qui n'est PAS vérifié : une seule phrase sous le résultat ; le périmètre entier dans les fenêtres de calcul. | DAL1 | dalle, prédalle | poutre, puis chaque module |
-| E3 | **La ligne de l'élément** : le nom (modifiable d'un clic) et la liste à gauche ; le cadenas, copier, supprimer à DROITE. | DAL2 | dalle | poutre et les modules à colonne compacte |
-| E4 | **L'état de chaque élément** se lit à la couleur de son nom (liste et ligne) : vert conforme, rouge non conforme, neutre sans effort. | DAL2 | dalle | poutre, puis tous |
-| E5 | **Annuler, rétablir, replier les données** en haut à gauche du DESSIN au PC et à la tablette ; au téléphone, dans l'en-tête des données. | DAL2 | dalle (`construire.OUTILS_AU_DESSIN`) | ajouter les modules à OUTILS_AU_DESSIN un par un, en relisant leur ligne |
-| E6 | **Des symboles, pas des mots répétés** : « b », « h », « c » ; le mot (« largeur de bande », « épaisseur », « enrobage ») au survol ; un ⓘ seulement quand l'explication est utile (b : la bande de calcul de 1 m). Les symboles en italique, comme dans les formules. Un choix évident n'a pas de libellé (« Dalle pleine · Prédalle »). Les symboles restent ceux des normes : **b minuscule** (confirmé le 13/11). | DAL2 | dalle | poutre (b, h, enrobage…), puis tous |
-| E7 | **Les efforts en tableau** : une ligne par direction, une colonne par sens (M⁺ face inférieure tendue, M⁻ face supérieure tendue), V à côté ; valeurs **sans signe**, refus expliqué d'un négatif ; les unités dans les champs. | DAL3 | dalle, prédalle | poutre (ses efforts par section) |
+| E1 | **Une information est encodée à UN endroit.** Le résultat dit ce qui tient ; il ne propose plus de modifier (pas de sélecteur ni d'étoile dans les lignes du résultat). | DAL1 | dalle, prédalle, poutre (lot 4) | les autres modules |
+| E2 | **Pas de message qui répète ce que le rouge dit déjà.** La raison d'une non-conformité est dans la LIGNE de la vérification (« d = −1 cm ≤ 0 · nappe hors de l'épaisseur »), pas dans un message en double dessous. Ce qui n'est PAS vérifié : une seule phrase sous le résultat ; le périmètre entier dans les fenêtres de calcul. | DAL1 | dalle, prédalle, poutre (lot 4 : « Non vérifiées » en une phrase) | chaque module |
+| E3 | **La ligne de l'élément** : le nom (modifiable d'un clic) et la liste à gauche ; le cadenas, copier, supprimer à DROITE. | DAL2 | dalle, poutre (lot 4 : le cadenas) | les modules à colonne compacte |
+| E4 | **L'état de chaque élément** se lit à la couleur de son nom (liste et ligne) : vert conforme, rouge non conforme, neutre sans effort. | DAL2 | dalle, poutre (lot 4) | tous |
+| E5 | **Annuler, rétablir, replier les données** en haut à gauche du DESSIN au PC et à la tablette ; au téléphone, dans l'en-tête des données. | DAL2 | dalle, poutre (lot 4) (`construire.OUTILS_AU_DESSIN`) | ajouter les modules à OUTILS_AU_DESSIN un par un, en relisant leur ligne |
+| E6 | **Des symboles, pas des mots répétés** : « b », « h », « c » ; le mot (« largeur de bande », « épaisseur », « enrobage ») au survol ; un ⓘ seulement quand l'explication est utile (b : la bande de calcul de 1 m). Les symboles en italique, comme dans les formules. Un choix évident n'a pas de libellé (« Dalle pleine · Prédalle »). Les symboles restent ceux des normes : **b minuscule** (confirmé le 13/11). | DAL2 | dalle, poutre (lot 4 : b, h, c) | tous |
+| E7 | **Les efforts en tableau** : une ligne par direction, une colonne par sens (M⁺ face inférieure tendue, M⁻ face supérieure tendue), V à côté ; valeurs **sans signe**, refus expliqué d'un négatif ; les unités dans les champs. | DAL3 | dalle, prédalle, poutre (lot 4 : M⁺, M⁻, V) | — |
 | E8 | **Un champ numérique se vide quand on y entre** : sa valeur en gris, on tape directement ; quitté sans rien taper, il la reprend et rien n'est envoyé. | DAL3 | **tout le site** (`js/etabli.js`) | — |
 | E9 | **Les flèches de pas (variante B)** dans tout champ de DIMENSION : deux petites flèches dans le champ au PC, côte à côte et à la hauteur du champ au doigt ; le pas défini avec le champ (à côté de son minimum et de son maximum), donné par le propriétaire. Pas de flèches sur les efforts ni sur les coefficients. | maquette du 13/11, choix B | l'axe des couches des dalles (DAL5c : 0,5 cm, ▲ monte, ▼ descend ; `plaque_compact.fleches`, le style `.et-pas` / `.et-fl`) | les autres dimensions (h, b, c, h_p…) dès que le propriétaire confirme leurs pas (§ 2), puis tous les modules, du même composant |
-| E10 | **Le menu « ⋯ » d'une section** : « Dupliquer », « Supprimer » ; pas de verrou par section. | DAL1 | dalle | poutre (« Copier la section ») |
+| E10 | **Le menu « ⋯ » d'une section** : « Dupliquer », « Supprimer » ; pas de verrou par section. | DAL1 | dalle, poutre (lot 4) | — |
 | E11 | **Les options** : la méthode en une ligne ; chaque réglage avec une infobulle courte ; un réglage commun à la note reste dans les options de la note. | DAL1 | dalle, prédalle | les autres modules |
-| E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle | poutre (son en-tête répète ses aciers et ses étriers), les autres dessins |
+| E12 | **Un dessin nomme chaque objet UNE fois** : l'en-tête d'une vue = le titre de l'élément et la bande des sollicitations, rien d'autre ; le titre d'une coupe dit la direction (« Direction Y · principale ») ; une légende commune sous les coupes, où un treillis est une entrée et chaque renfort garde son repère (« R1 Y ») et son annotation. | DAL5a | dalle, prédalle ; poutre (lot 4 : plus la ligne des lits) | poutre : la ligne des étriers reste dans l'en-tête tant que le dessin ne dit pas leur Ø et leur pas (« C1 » seul) ; les autres dessins |
 | E13 | **Les mots des armatures** : « Armature inférieure », « Armature supérieure » — jamais « nappe », ni à l'écran, ni dans les dessins, les messages, les aides au survol ou la note PDF ; le troisième type d'armature s'appelle **« Mixte »** (le survol dit « Treillis soudé et barres de renfort »). | DAL9 | dalle, prédalle (et leurs deux moteurs) | tout module qui dirait « nappe » |
 | E14 | **Une seule rubrique ouverte à la fois** dans la colonne des données : ouvrir une rubrique referme les autres (une rubrique fermée garde sa ligne de résumé) ; le dessin qui amène à une pièce ouvre sa rubrique et referme toutes les autres ; un appui sur la rubrique ouverte la referme. | UI1 | **tout le site** (`js/etabli.js`) | — |
-| E15 | **Une discipline commune au béton armé** : poutre, dalle et prédalle ont la même organisation et les mêmes règles — les armatures se saisissent dans la colonne de gauche SEULEMENT (la colonne de droite ne montre que des résultats), les mêmes mots, les mêmes boutons, la même règle de position des barres (jeu de pose, arrondi, dessin à la position réelle). Un changement demandé pour la dalle passe aussi dans la poutre, dans le même lot. | demande du 13/11 | dalle, prédalle | poutre : la règle de position au lot 3, l'organisation au lot 4 (UNI4) |
+| E15 | **Une discipline commune au béton armé** : poutre, dalle et prédalle ont la même organisation et les mêmes règles — les armatures se saisissent dans la colonne de gauche SEULEMENT (la colonne de droite ne montre que des résultats), les mêmes mots, les mêmes boutons, la même règle de position des barres (jeu de pose, arrondi, dessin à la position réelle). Un changement demandé pour la dalle passe aussi dans la poutre, dans le même lot. | demande du 13/11 | dalle, prédalle ; poutre (règle de position : lot 3 ; organisation, mots et boutons : lot 4, UNI4) | la note PDF de la poutre (ses mots, la hauteur détaillée) — `SUITE_DU_CHANTIER.md` |
 
 ### Décidé le 13/11/2026 — la note PDF et la ligne Hauteur
 
@@ -50,6 +50,26 @@ la disposition change d'un format à l'autre.*
 - « On ne doit pas pouvoir encoder les armatures dans la fenêtre de droite » : la poutre suit l'organisation de la
   dalle et de la prédalle — les armatures à gauche seulement, la colonne de droite pour les résultats.
 - Tout petit changement demandé pour les dalles suit dans la poutre : il ne se livre pas sans elle.
+
+### Fait le 13/11/2026 (lot 4, UNI4) — la poutre comme la dalle
+
+- **À droite, des résultats seulement** : la ligne d'une armature NOMME les barres posées (« 2Ø16 »), sans bouton ; le
+  choix des armatures s'ouvre dans la rubrique « Armatures », par le bouton de la LISTE de chaque face (l'icône des dalles,
+  plus l'ampoule).
+- **Les mêmes mots, écrits une fois** (`api_web/etabli_compact.py`, « les mots communs du béton armé ») : « Armature
+  inférieure / supérieure » ; « A_s,néc = 588 > A_s = 402 mm² » (plus « A_s,requis », « A_s,posé ») ; la hauteur
+  détaillée « h_min = 36,8 + 6 = 42,8 cm > h = 40 cm » ; « Non vérifiées : la flèche et la fissuration. » sous les blocs ;
+  à gauche « A_s néc. » en tête de chaque face et « A_s posé » à son pied ; « Caractéristiques » et les symboles b, h, c ;
+  les efforts en tableau « M⁺ · inf. tendue | M⁻ · sup. tendue | V » ; la ligne « Méthode du bureau · ELS · z = 0,9 d »
+  et le résumé « γs · jeu de pose · arrondi » des Options. La dalle et la prédalle lisent les mêmes fonctions : leur écran
+  est resté identique à l'octet (contrôlé).
+- **Les mêmes boutons** : le CADENAS dans la ligne de la poutre (une poutre verrouillée se lit, rien ne s'y écrit ; la
+  copie d'une poutre verrouillée l'est aussi) ; « Annuler », « Rétablir », « Replier » en haut à gauche du dessin (PC,
+  tablette ; l'en-tête des données au téléphone) ; l'état de chaque poutre dit par la couleur de son nom.
+- **Le dessin** : l'en-tête de la coupe ne répète plus les lits (le dessin les nomme, « L1 : 2Ø16 ») ; la ligne des
+  étriers reste (le dessin ne dit ni leur Ø ni leur pas). Toucher une barre ouvre « Armatures » et déplie la ligne de son
+  lit (c'était déjà le cas ; le parcours du navigateur le contrôle désormais sur une barre).
+- y_G imposé ne se montre que dès deux lits sur la face, ou imposé (d'un lit seul, y_G est sa position).
 
 ## 2. Les pas des flèches (E9) — à confirmer par le propriétaire
 

@@ -846,6 +846,19 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   position est unifiée, le reste passe à un lot suivant ; « toucher une barre ouvre sa rubrique » pour la poutre (lot 4,
   UNI4) ; le jeu entre couches réglable et les réglages « coulé en place » / « préfabriqué » (le gabarit du bureau,
   lot 6).
+- **Lot 4 — la poutre comme la dalle (UNI4, fait le 13/11/2026 ; `CHARTE_ERGONOMIE.md` E15)** : à droite des résultats
+  seulement — la ligne d'une armature NOMME ses barres, le choix s'ouvre dans « Armatures » (le bouton de la liste) ; les
+  mots des dalles, écrits UNE fois (`api_web/etabli_compact.py`, « les mots communs du béton armé ») et lus par la poutre,
+  la dalle et la prédalle — « Armature inférieure », « A_s,néc ≤ A_s », la hauteur détaillée, « Non vérifiées : … »,
+  « A_s néc. » / « A_s posé », « Caractéristiques » et ses symboles, les efforts en tableau M⁺ / M⁻ / V, la ligne
+  « Méthode » ; l'écran des dalles est resté identique à l'octet ; les boutons des dalles — le cadenas (le verrou vit à côté
+  des poutres, `etat["verrous"]` : le moteur refuse toute clé inconnue), annuler / rétablir / replier près du dessin, le nom
+  coloré par l'état ; l'en-tête de la coupe sans la ligne des lits ; y_G imposé caché pour un lit seul. Aucun chiffre ne
+  change (le moteur n'est pas touché) : les photos de référence de la poutre sont regelées pour l'affichage seul (la
+  hauteur écrite « 50,5 + 6 = 56,5 cm »). **Reste** : la note PDF de la poutre (ses mots : « A_s,requis » ; la hauteur
+  détaillée ; « Non vérifiées » en une ligne — ce que DAL6 a fait pour la dalle) ; la couleur du nom d'une poutre « à
+  vérifier » (une observation à examiner : neutre aujourd'hui, les dalles n'ont pas cet état) ; la ligne des étriers de
+  l'en-tête de la coupe, tant que le dessin ne dit pas leur Ø et leur pas.
 - **Le temps des vérifications (relevé du 13/11/2026)** : la batterie ne rejoue que les suites touchées (lot 2a :
   46 jouées en 460 s sur 3 processus, 90 sautées ; DAL9, code commun touché : 69 jouées en 776 s), mais 30 suites
   sont rejouées à CHAQUE passage, leurs sous-processus échappant au suivi (`.temoin_tests/`) : 10 relisent leur note

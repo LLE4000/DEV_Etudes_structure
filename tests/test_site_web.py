@@ -868,9 +868,9 @@ chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des p
     "trois modules du lot Q (poutres bois, maturité, taux d'armature) et des fondations de grues (11/11/2026), un sous-ensemble de l'établi compact",
     set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages"} and len(SW.ARBRE_COMPACT) == 14
     and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
-chk("OUTILS_AU_DESSIN : « Annuler », « Rétablir » et « Replier » en haut à gauche du dessin — la dalle seule (13/11/2026, demande "
-    "du propriétaire ; « ne pas commencer la refonte des poutres »), un sous-ensemble des colonnes compactes",
-    tuple(SW.OUTILS_AU_DESSIN) == ("dalle",) and set(SW.OUTILS_AU_DESSIN) <= set(SW.ARBRE_COMPACT), SW.OUTILS_AU_DESSIN)
+chk("OUTILS_AU_DESSIN : « Annuler », « Rétablir » et « Replier » en haut à gauche du dessin — la dalle (13/11/2026, demande "
+    "du propriétaire) et la poutre (lot 4, la discipline commune E15), un sous-ensemble des colonnes compactes",
+    tuple(SW.OUTILS_AU_DESSIN) == ("dalle", "poutre") and set(SW.OUTILS_AU_DESSIN) <= set(SW.ARBRE_COMPACT), SW.OUTILS_AU_DESSIN)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()

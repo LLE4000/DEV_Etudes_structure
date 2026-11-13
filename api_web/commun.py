@@ -543,6 +543,13 @@ def section(n: int, titre: str, resume: str, corps: str, ouvert: bool = True, cl
             f'<div class="rows">{corps}</div></div>')
 
 
+def lire_bool(valeur):
+    """Une case à cocher ou un bouton bascule tel que l'écran l'envoie (vrai/faux, « true »/« false », « 1 »/« 0 ») ;
+    None sinon (la saisie est refusée par le module, avec un message)."""
+    return {True: True, False: False, "true": True, "false": False, "1": True, "0": False}.get(
+        valeur.strip().lower() if isinstance(valeur, str) else valeur)
+
+
 def aide(texte_: str) -> str:
     return f'<div class="hint">{texte_}</div>'
 

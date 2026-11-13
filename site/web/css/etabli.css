@@ -259,7 +259,9 @@
 .et-tag.l { font-size: 9.5px; letter-spacing: .04em; }
 [data-theme="dark"] .et-tag.c { color: var(--ink-2); }
 .et-piece.et-cible .et-tag { background: var(--accent); color: var(--on-accent); }
-.et-as { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+/* la ligne d'un lit de la poutre (n, Ø) : sa pastille et son chevron à droite — l'aire du lit est dans son détail, la
+   section posée de la face au pied du groupe (« A_s posé », comme les dalles : E15, lot 4) */
+.et-piece .et-l1 > .field.select + .et-pt-e, .et-piece .et-l1 > .field.select + .et-dep { margin-left: auto; }
 .et-txt { flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .et-dep { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-3); }
 .et-dep:hover { background: var(--bg); color: var(--ink); }
@@ -381,6 +383,9 @@
 /* la dalle (13/11/2026, § 8.3) : le tableau des sollicitations — X et Y en lignes, M⁺ (face inférieure tendue), M⁻ (face
    supérieure tendue) et V en colonnes ; V, un par section, tient sur les deux lignes */
 .et-mom4 { grid-template-columns: 16px minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 1fr); }
+/* la poutre (E15, lot 4) : le même tableau, sans la colonne des directions — M⁺, M⁻, V */
+.et-mom3 { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 1fr); }
+.et-mom3 .h sup { font-size: 9px; line-height: 0; }
 .et-mom4 .h sup { font-size: 9px; line-height: 0; }
 .et-mom4 > .et-v { grid-column: 4; grid-row: 2 / span 2; display: flex; align-items: center; min-width: 0; }
 .et-mom4 > .et-v > .field { width: 100%; height: 28px; min-width: 0; }
@@ -402,6 +407,9 @@
 .et-rp b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .et-rp span { font-size: 12px; color: var(--ink-3); }
 .et-blocs { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
+/* sous les blocs, la phrase « Non vérifiées : … » (poutre, dalle, prédalle) : alignée sur le bord des blocs — elle
+   touchait le bord de la colonne (relevé du lot 4, 13/11/2026) */
+.et-blocs ~ .hint { padding: 0 10px; }
 .et-bloc { border: 1px solid var(--et-inc-line); border-radius: 10px; overflow: hidden; background: var(--panel); }
 .et-bloc-h { display: flex; align-items: center; gap: 2px; min-height: 38px; padding: 0 4px 0 2px; background: var(--et-inc-bg); color: var(--et-inc-ink); }
 .et-bloc-t { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 6px; text-align: left; color: inherit; }

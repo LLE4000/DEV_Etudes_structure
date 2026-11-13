@@ -27,9 +27,7 @@ TYPES = (("treillis", "Treillis"), ("barres", "Barres"), ("n_barres", "n barres"
 FACES_TXT = {"inf": "inférieure", "sup": "supérieure"}
 
 
-def _cm(x: float) -> str:
-    """Une longueur CALCULÉE en cm (axe, y_G) au plus au 1/100 : 3,5 ; 4,86."""
-    return C.nb(round(x, 2), 2)
+_cm = E.cm_calcule      # une longueur CALCULÉE en cm (axe, y_G) au plus au 1/100 : 3,5 ; 4,86
 
 
 def titre_face(f: str) -> str:
@@ -53,12 +51,7 @@ def cartes(sections: Sequence[Dict]) -> str:
     tendue, sur appui), saisis sans signe — et V, l'effort tranchant de la section, à côté (UN par section : τ ne lit pas
     la direction). Deux lignes au lieu de quatre ; les unités dans les champs ; les explications au survol des titres."""
     seule = len(sections) == 1
-    tete = ('<span></span>'
-            '<span class="h" title="Moment positif : la face INFÉRIEURE est tendue (en travée). Saisi sans signe.">'
-            'M<sup>+</sup> · inf. tendue</span>'
-            '<span class="h" title="Moment négatif : la face SUPÉRIEURE est tendue (sur appui). Saisi sans signe.">'
-            'M<sup>−</sup> · sup. tendue</span>'
-            '<span class="h" title="Effort tranchant de la section : un seul, τ = V / (k·b·h) ne dépend pas de la direction.">V</span>')
+    tete = '<span></span>' + E.entetes_moments("Effort tranchant de la section : un seul, τ = V / (k·b·h) ne dépend pas de la direction.")
     out = ""
     for i, s in enumerate(sections):
         ch = ["sections", i]
@@ -155,17 +148,16 @@ def nappe(EN, i: int, f: str, face: Dict, geo: Dict, v: Dict, principale: str, c
     quand il est imposé : d'une couche seule, y_G est son axe, que la couche règle déjà (13/11/2026, § 8.4)."""
     _, dk = f.split("_")
     princ = '<span class="et-princ" title="Direction principale">princ.</span>' if dk == principale else ""
-    prop = ("" if verrou else f'<button type="button" class="et-prop" data-pk="{f}-{i}" title="Choisir la couche de base dans la '
-            f'liste des armatures, triées par section (★ : la plus petite qui tient)">{C.icon("list-filter")}</button>')
+    prop = "" if verrou else E.bouton_liste(f"{f}-{i}", "la couche de base")
     ajouter = (E.plus(["sections", i, "faces", f, "couches", "+"], "1", "Renfort") if len(face["couches"]) < EN.MAX_COUCHES else "")
-    aide = f'<span class="et-pied-a" title="{C.esc(aide_renfort)}">A<sub>s</sub> posé {C.fr(geo["As_pm"], 0)}{C.NBSP}mm²/m</span>'
+    aide = E.as_pose(C.fr(geo["As_pm"], 0), "mm²/m", aide_renfort)
     yg = ("" if len(face["couches"]) < 2 and face["yG"] is None else
           C.ligne("y<sub>G</sub> imposé", auto_ou_saisi(["sections", i, "faces", f, "yG"], face["yG"], geo["yG_calcule"],
                                                         "Revenir au centre de gravité calculé"),
                   "", "Centre de gravité des couches, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A). "
                       "L'imposer remplace le calcul dans d = h − y_G."))
     return (f'<div class="et-grp"><div class="et-gh"><span class="t">{titre_face(f)}</span>{princ}'
-            f'<span class="et-req">A<sub>s</sub> néc. <b>{C.fr(v["valeur"], 0)}</b>{C.NBSP}mm²</span>{prop}</div>'
+            f'{E.as_necessaire(C.fr(v["valeur"], 0))}{prop}</div>'
             f'{couches}<div class="et-pied">{ajouter}{aide}</div>{yg}</div>')
 
 
@@ -255,25 +247,8 @@ def comparaison(M, v: Dict, s: Dict) -> str:
     A_s = 785 mm² » et la raison n'était que dans ce message)."""
     if M._sous_limite_non_conforme(v) or v["cle"] not in M.EN.FACES or "d_utile_negatif" in v["motifs"]:
         return M._verdict(v, s)
-    le = "≤" if v["taux"] <= 1 else "&gt;"
     motif = f" · {M._motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
-    return (f"A<sub>s,néc</sub>{C.NBSP}={C.NBSP}{M._n(v['valeur'], 'mm²')} {le} "
-            f"A<sub>s</sub>{C.NBSP}={C.NBSP}{M._n(v['limite'], 'mm²')}{C.NBSP}mm²{motif}")
-
-
-def valeur_hauteur(M, v: Dict) -> str:
-    """La valeur de la ligne « Hauteur » de la colonne des résultats, la somme DÉTAILLÉE (DAL8 — le propriétaire,
-    13/11/2026 : « on doit voir la part qui a été calculée plus ce qu'on prend comme enrobage ») : « h_min = 12,6 + 3,5 =
-    16,1 cm » — h_u,min (la part calculée) + y_G (l'enrobage mécanique), les termes de la formule « h_min » que le moteur
-    nomme, écrits comme la fenêtre de calcul (``M._n``, ``M._cm``). ``M`` : api_web.dalle. Sans la
-    formule (un moteur qui ne la nommerait pas), la seule somme, comme avant."""
-    N = C.NBSP
-    f = next((f for f in v.get("formules", []) if f["cle"] == "h_min"), None)
-    if f is None:
-        return f"h<sub>min</sub>{N}={N}{M._n(v['valeur'], 'cm')}{N}cm"
-    t = {x["symbole"]: x["valeur"] for x in f["termes"]}
-    return (f"h<sub>min</sub>{N}={N}{M._n(t['hu_min'], 'cm')}{N}+{N}{M._cm(t['yG'])}{N}={N}"
-            f"{M._n(f['resultat'], 'cm')}{N}cm")
+    return E.comparaison_acier(M._n(v['valeur'], 'mm²'), M._n(v['limite'], 'mm²'), v["taux"] > 1, motif)
 
 
 def piece_courte(v: Dict, s: Dict) -> str:

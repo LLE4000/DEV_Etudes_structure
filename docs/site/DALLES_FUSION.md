@@ -686,7 +686,7 @@ par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce q
   reste au pied de chaque fenêtre de calcul (`dalle.non_verifies`, `texte_perimetre` : une source, la phrase courte est
   la fin du périmètre). Le message « d utile ≤ 0 » sous le bloc répétait la ligne rouge : il est retiré, et c'est la
   LIGNE de la face qui le dit, quel que soit son taux — au-delà de 100 %, elle disait « A_s,néc = 16 667 > A_s = 785 mm² »
-  et la raison n'était QUE dans ce message (`plaque_compact.comparaison`). Les autres avertissements (base hors de la
+  et la raison n'était QUE dans ce message (`plaque_compact.comparaison` ; ses mots : `etabli_compact.comparaison_acier`, lot 4). Les autres avertissements (base hors de la
   peau, nappes croisées trop proches) disent ce que les pourcentages ne disent pas : ils restent.
 - **Le menu « ⋯ » d'une section** : « Dupliquer la section » (était « Copier la section ») et « Supprimer la section ».
   Pas de verrou par section (demande explicite).
@@ -921,7 +921,11 @@ devant un doute, demander « la note PDF ou l'écran ? » avant de refaire un do
   somme (« h_min = 16,1 cm ≤ h = 20 cm ») ; elle la détaille : « h_min = 12,6 + 3,5 = 16,1 cm ≤ h = 20 cm » — h_u,min (la
   part calculée) + y_G (l'enrobage mécanique), les termes de la formule « h_min » que le moteur nomme, écrits comme la
   fenêtre de calcul. Dalle et prédalle, une source : `plaque_compact.valeur_hauteur`. La poutre a la même ligne
-  (« h_min = … ≤ h ») : à étendre si le propriétaire le veut.
+  (« h_min = … ≤ h ») : à étendre si le propriétaire le veut. *(Révisé le 13/11/2026, lot 4 — la discipline commune
+  E15 : la poutre la détaille aussi ; la source unique est désormais `etabli_compact.valeur_hauteur`, avec les autres
+  « mots communs du béton armé » — `comparaison_acier`, `acier_excessif`, `as_necessaire`, `as_pose`,
+  `entetes_moments`, `ligne_methode`, `verrou_aide`… — que la poutre, la dalle et la prédalle lisent ; l'écran des
+  dalles est resté identique à l'octet.)*
 - Tests : `test_note_dalle` (49) — les deux retouches MESURÉES sur le dessin des planches (266 lignes clé-valeur : 4 à
   12 pt entre symbole et valeur ; 248 accolades : aucun « = » aligné), leur mutation (le kit tel quel : les deux
   rougissent), et les autres notes du kit inchangées ; `test_api_web_dalle` (143) — la ligne Hauteur de chaque section,

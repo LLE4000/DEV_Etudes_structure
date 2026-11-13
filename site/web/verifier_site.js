@@ -598,11 +598,18 @@ const principal = async () => {
       await capture('poutre_calcul');
       await p.keyboard.press('Escape');
     }
-    const pk = await p.$('#resultat .prof[data-pk]');
+    // (lot 4, E15 — le propriétaire : « on ne doit pas pouvoir encoder les armatures dans la fenêtre de droite ») : le
+    // résultat NOMME les barres, sans bouton ; le choix des armatures s'ouvre depuis la rubrique « Armatures », le bouton
+    // de la liste de chaque face — le harnais suit : il ouvrait le choix depuis le résultat
+    verif('poutre : le résultat ne propose plus de choisir les armatures — il nomme les barres posées (E15)',
+      !(await p.$('#resultat [data-pk]')) && (await p.$$eval('#resultat .el .prof > span', (x) => x.filter((e) => /Ø/.test(e.textContent)).length)) >= 2);
+    await ouvrir('arm');
+    const pk = await p.$('#donnees .et-prop[data-pk="inf-0"]');
+    verif('poutre : le bouton de la liste des armatures est dans « Armatures », à côté de « A_s néc. »', !!pk && await pk.isVisible());
     if (pk) {
       await pk.click();
       await p.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 });
-      verif('poutre : le choix des armatures s\'ouvre', await p.isVisible('.flyout.on.picker'));
+      verif('poutre : le choix des armatures s\'ouvre depuis « Armatures »', await p.isVisible('.flyout.on.picker'));
       await capture('poutre_armatures');
       await p.keyboard.press('Escape');
     }
@@ -916,7 +923,16 @@ const principal = async () => {
         await pg.waitForTimeout(150);
         verif(`${cle} · ${fmt} : la fenêtre de calcul se referme`, !(await vis(pg, '.flyout.on')));
       }
-      const pk = await pg.$('#resultat .prof[data-pk]');
+      // (E15, lot 4 : la poutre et les dalles choisissent leurs armatures dans la rubrique « Armatures » — le bouton de la
+      //  liste —, jamais dans le résultat : le sélecteur s'ouvre de là, à chaque format ; le harnais suit — il ne
+      //  l'ouvrait que depuis le résultat, et les sautait donc)
+      let pk = await pg.$('#resultat .prof[data-pk]');
+      if (!pk && await pg.$('#donnees .et-prop[data-pk]')) {
+        if (fmt === 'téléphone') { await pg.click('.mtabs [data-onglet="donnees"]'); await pg.waitForTimeout(200); }
+        if (!(await pg.$eval('#donnees .sec[data-sec="arm"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="arm"] > .sechd');
+        await pg.waitForTimeout(200);
+        pk = await pg.$('#donnees .et-prop[data-pk]');
+      }
       if (pk) {
         await pk.click();
         await pg.waitForSelector('.flyout.on.picker', { timeout: 60000 });
@@ -2938,7 +2954,7 @@ const principal = async () => {
       const etatBloc = await g.$eval('#resultat .et-bloc .et-bloc-h .e', (x) => x.textContent);
       verif('pilote : une note sans effort dit « Données incomplètes », jamais « Conforme »',
         etatBloc === 'Données incomplètes' && !e.statut.includes('Conforme') && (await g.$eval('#resultat .et-bloc', (x) => x.classList.contains('inc'))), `${etatBloc} · ${e.statut}`);
-      verif('pilote : une seule rubrique ouverte par défaut, la « Poutre »', e.ouvertes.join() === 'pt', JSON.stringify(e.ouvertes));
+      verif('pilote : une seule rubrique ouverte par défaut, « Caractéristiques » (lot 4 : le titre des dalles)', e.ouvertes.join() === 'pt', JSON.stringify(e.ouvertes));
       // (colonne de gauche compacte, 09/11/2026) plus d'arborescence : la LIGNE de la poutre ouverte est dans l'EN-TÊTE du
       // panneau, à côté d'« Annuler » et « Rétablir » — son NOM en champ (le seul champ « nom » de la page : ni dans les
       // données, ni dans les résultats, qui le LISENT), la liste des poutres (« V1 · 20 × 40 cm », cochée ; « Ajouter une
@@ -3007,7 +3023,8 @@ const principal = async () => {
       await g.click(`#donnees .sec[data-sec="${cles[cles.length - 1]}"] > .sechd`);
       await g.waitForTimeout(100);
       verif('pilote : un clic sur l\'en-tête de la rubrique ouverte la referme (les quatre fermées)', !(await lireEtat()).ouvertes.length, JSON.stringify((await lireEtat()).ouvertes));
-      // le dessin : un clic sur le béton ouvre « Poutre » ; un GLISSER ne choisit rien ; un clic sur un lit l'ouvre dans « Armatures »
+      // le dessin : un clic sur le béton ouvre « Caractéristiques » (lot 4 : le titre des dalles) ; un GLISSER ne choisit rien ;
+      // un clic sur un lit l'ouvre dans « Armatures »
       await g.keyboard.press('Escape');
       const centre = async (sel) => g.$eval(`#stage .view.on ${sel}`, (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
       const pt0 = await centre('[data-sel="s0.beton"] rect');
@@ -3030,6 +3047,14 @@ const principal = async () => {
       verif('pilote : un clic sur l\'étiquette « L1 » du dessin ouvre « Armatures », éclaire la ligne du lit et ses barres',
         e.ouvertes.join() === 'arm' && e.cibles.join() === 's0.lit-inf-0' && e.surlignees.join() === 's0.lit-inf-0', JSON.stringify(e));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_clic_dessin.png') });
+      // (lot 4, E15 — le propriétaire : « toucher une barre ouvre sa rubrique Armatures », comme les dalles) : une BARRE du
+      // lit supérieur, touchée sur le dessin, ouvre « Armatures » et déplie la ligne de SON lit
+      const bs = await centre('.pc.lit[data-sel="s0.lit-sup-0"] > circle');
+      await g.mouse.click(bs.x, bs.y);
+      await g.waitForTimeout(250);
+      e = await lireEtat();
+      verif('pilote : toucher une BARRE du dessin (lit supérieur) ouvre « Armatures » et déplie la ligne de son lit (lot 4)',
+        e.ouvertes.join() === 'arm' && e.cibles.join() === 's0.lit-sup-0' && e.surlignees.join() === 's0.lit-sup-0', JSON.stringify(e));
       // le dessin amène à une rubrique : elle s'ouvre et TOUTES les autres se referment, même ouvertes à la main (UI1 — avant,
       // une rubrique ouverte à la main restait ouverte : le harnais suit la décision du 13/11/2026)
       await g.click('#donnees .sec[data-sec="so"] > .sechd');
@@ -3037,7 +3062,7 @@ const principal = async () => {
       await g.mouse.click(pb.x, pb.y);
       await g.waitForTimeout(200);
       e = await lireEtat();
-      verif('pilote : le béton cliqué ouvre « Poutre » et referme les autres, « Sections » aussi (ouverte à la main) — une seule ouverte',
+      verif('pilote : le béton cliqué ouvre « Caractéristiques » et referme les autres, « Sections » aussi (ouverte à la main) — une seule ouverte',
         e.ouvertes.join() === 'pt' && e.surlignees.join() === 's0.beton', JSON.stringify(e));
       const an2 = await centre('[data-sel="s0.lit-inf-0"] text.an');
       await g.mouse.click(an2.x, an2.y);
@@ -3103,8 +3128,10 @@ const principal = async () => {
       await g.keyboard.press('Escape');
       // ---- (deuxième passe) l'en-tête technique du dessin ; le zoom discret
       const ent = await g.evaluate(() => { const x = document.querySelector('#stage .view.on .et-ent'); return x ? { t: x.textContent.replace(/\s+/g, ' ').trim(), eff: x.querySelectorAll('.et-eff > span').length } : null; });
-      verif('pilote : l\'en-tête du dessin nomme la section, ses matériaux, ses aciers et ses étriers, et la bande des trois efforts',
-        ent && /^SECTION A\s*· 20 × 40 cm · C30\/37 · B500\s*Inf\. 2Ø16 · Sup\. 2Ø16\s*1 cadre Ø10 · e = 30 cm/.test(ent.t) && ent.eff === 3, JSON.stringify(ent));
+      // (lot 4, E15 — comme les dalles, DAL5a : la ligne des lits « Inf. 2Ø16 · Sup. 2Ø16 » répétait ce que le dessin nomme,
+      //  « L1 : 2Ø16 » ; elle est retirée, celle des étriers reste — le dessin ne dit ni leur Ø ni leur pas ; le harnais suit)
+      verif('pilote : l\'en-tête du dessin nomme la section, ses matériaux et ses étriers, et la bande des trois efforts — plus les lits, que le dessin nomme',
+        ent && /^SECTION A\s*· 20 × 40 cm · C30\/37 · B500\s*1 cadre Ø10 · e = 30 cm/.test(ent.t) && !/Inf\. 2Ø16|Sup\. 2Ø16/.test(ent.t) && ent.eff === 3, JSON.stringify(ent));
       await g.mouse.move(5, 450);
       await g.waitForTimeout(300);
       const zLoin = await g.$eval('#zoom', (x) => +getComputedStyle(x).opacity);
@@ -3368,12 +3395,14 @@ const principal = async () => {
         aj.n === '2' && aj.nom === 'V2' && aj.rp === 'V2' && aj.liste === 'V1,V2*' && aj.compte === '2' && aj.supprimer, JSON.stringify(aj));
       // les colonnes : repli (la toile gagne la place), poignée (la largeur suit et se garde)
       const l0 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
-      await g.click('.panel.left [data-coll="g"]');
+      // (lot 4 : « Replier les données » est en haut à gauche du DESSIN, comme la dalle — construire.OUTILS_AU_DESSIN ; le
+      //  harnais suit, il le cherchait dans l'en-tête des données)
+      await g.click('.ctool > .et-outils [data-coll="g"]');
       await g.waitForTimeout(400);
       const l1 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
       const bande = await g.$eval('.panel.left', (x) => { const q = x.getBoundingClientRect(); return { l: Math.round(q.width), t: Math.round(q.height) }; });
       verif('pilote : les données se replient en une bande sur toute la hauteur, la toile gagne la place', l1 > l0 + 150 && bande.l <= 50 && bande.t > 600, JSON.stringify({ l0, l1, bande }));
-      await g.click('.panel.left [data-coll="g"]');
+      await g.click('.ctool > .et-outils [data-coll="g"]');
       await g.waitForTimeout(400);
       const w0 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
       // on vise le TRAIT (le bord du panneau), comme à la main
@@ -3569,7 +3598,8 @@ const principal = async () => {
       await g.tap('#donnees .row.et-meth > label > span');
       const b4 = await lireBulle();
       verif('doigt : une aide ⓘ s\'ouvre d\'un appui (bulle dans l\'écran, son texte), se ferme d\'un second ; le libellé du champ l\'ouvre aussi ; celle d\'un champ à deux par ligne aussi ; un appui ailleurs la ferme',
-        b1.vu && b1.dedans && b1.texte.startsWith('Distance du parement') && !b2.vu && b2l.vu && b2l.texte.startsWith('Distance du parement')
+        // (lot 4 : l'aide de c dit « Du parement au nu de l'étrier. », écrite comme celle des dalles ; le harnais suit)
+        b1.vu && b1.dedans && b1.texte.startsWith('Du parement au nu de l\'étrier') && !b2.vu && b2l.vu && b2l.texte.startsWith('Du parement au nu de l\'étrier')
         && b3b.vu && b3b.dedans && b3b.texte.startsWith('La tolérance de pose des barres') && !b4.vu,
         JSON.stringify({ b1, b2, b2l, b3b, b4 }));
       verif('doigt : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));

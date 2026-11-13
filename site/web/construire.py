@@ -80,9 +80,10 @@ ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondati
 ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages")
 # … et parmi eux, ceux dont « Annuler », « Rétablir » et « Replier les données » sont en haut à gauche du DESSIN, près du
 # titre de la section, au PC et à la tablette (la dalle, demande du propriétaire du 13/11/2026 — docs/site/DALLES_FUSION.md
-# § 8.2) : la ligne de l'élément garde la place pour son nom, à droite le cadenas, copier, supprimer. Au téléphone, le
-# dessin est un onglet à part : les trois restent dans l'en-tête des données (css/etabli.css choisit, selon le format).
-OUTILS_AU_DESSIN = ("dalle",)
+# § 8.2 ; la poutre au lot 4, la discipline commune E15) : la ligne de l'élément garde la place pour son nom, à droite le
+# cadenas, copier, supprimer. Au téléphone, le dessin est un onglet à part : les trois restent dans l'en-tête des données
+# (css/etabli.css choisit, selon le format).
+OUTILS_AU_DESSIN = ("dalle", "poutre")
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : une page par famille, hors du registre des modules (une
 # consultation n'est pas une note) ; la clé est celle que le routeur reçoit (action « consulter », « bibliotheque ») :
 # clé → (module de rendu, titre, famille). La Bibliothèque Acier (BIB5) porte le catalogue des profilés : le module
