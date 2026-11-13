@@ -1729,16 +1729,21 @@ const principal = async () => {
       //  transversale, en faisaient cinq — un « Détail 1 » sur toute la poutre, des pieux de l'autre semelle — 13/11/2026)
       // (le nom porte l'heure de l'export : un plan dépassé ne garde plus le nom du nouveau — 13/11/2026)
       const NOM = /^F1 - plans - \d{4}-\d{2}-\d{2} \d{2}h\d{2}\.pdf$/;
-      const FINAL = /^F1 - plans - \d{4}-\d{2}-\d{2} \d{2}h\d{2}\.pdf téléchargé : (\d+) feuilles \(coffrage (\d+), armatures (\d+)\) en \d+,\d s( — (moteur prêt en \d+,\d s, )?dessin \d+,\d s)?$/;
-      const [, n1, c1, a1, dessin1] = FINAL.exec(coffrage.toast.texte) || [];
-      const [, n2, , , dessin2] = FINAL.exec(encore.toast.texte) || [];
+      // (et ce que RBAR change à la note sans le noter, dit à l'écran : depuis 0.4.43, la cage de la poutre support passe entre
+      //  les lits des semelles au croisement — son enrobage est RELEVÉ ; la note neuve, poutres de même hauteur : 61 et 65 mm
+      //  au lieu de 40. Ces mots sont ceux de RBAR : s'ils changent, ce contrôle rougit — js/etabli.js les cherche)
+      const FINAL = /^F1 - plans - \d{4}-\d{2}-\d{2} \d{2}h\d{2}\.pdf téléchargé : (\d+) feuilles \(coffrage (\d+), armatures (\d+)\) en \d+,\d s( — (moteur prêt en \d+,\d s, )?dessin \d+,\d s)?( — RBAR : (.+))?$/;
+      const [, n1, c1, a1, dessin1, , , rbar1] = FINAL.exec(coffrage.toast.texte) || [];
+      const [, n2, , , dessin2, , , rbar2] = FINAL.exec(encore.toast.texte) || [];
+      const RELEVE = /cage emboîtée .* enrobage du dessus 61 mm et du dessous 65 mm \(40 mm dans le modèle\)/;
       verif(`exporter · ${fmt} : « Plans PDF » : le moteur de RBAR fait les plans DANS le navigateur — UN vrai PDF au nom de la fondation, `
         + 'une page par feuille, TOUTES les feuilles (autant de pages que le compte rendu de RBAR en compte, dites à l\'écran) — deux pour la note neuve, '
-        + 'une de coffrage, une d\'armatures (RBAR 0.4.41), '
+        + 'une de coffrage, une d\'armatures (RBAR 0.4.41) ; l\'enrobage relevé par RBAR au croisement (0.4.43) dit à l\'écran, '
         + 'la durée dite (et celle du dessin) ; un second clic ne refait pas le calcul',
       NOM.test(coffrage.nom) && NOM.test(encore.nom) && coffrage.entete.startsWith('%PDF-1.') && coffrage.octets > 40000
         && !!n1 && Number(n1) === coffrage.pages && Number(n1) === 2 && Number(c1) === 1 && Number(a1) === 1 && !!dessin1
         && n2 === n1 && !dessin2 && encore.octets === coffrage.octets && encore.pages === coffrage.pages
+        && RELEVE.test(rbar1 || '') && RELEVE.test(rbar2 || '')
         && !coffrage.toast.erreur && !encore.toast.erreur && encore.ms < coffrage.ms,
       JSON.stringify({ premier: { ...coffrage, attente: undefined }, encore: { ...encore, attente: undefined } }));
       verif(`exporter · ${fmt} : PENDANT le premier plan, le message reste à l'écran jusqu'au fichier et dit l'étape (le dessin `

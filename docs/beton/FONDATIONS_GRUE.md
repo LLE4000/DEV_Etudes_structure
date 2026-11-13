@@ -81,7 +81,7 @@ export », puis une ligne par fichier, son titre et en clair ce qu'il produit ; 
 
 | Fichier | Contenu | Usage |
 |---|---|---|
-| **Plans PDF** | les plans de RBAR, faits dans le navigateur par son moteur (WebAssembly, 12/11/2026) depuis le fichier « rbar.ouvrage » : un fichier, une page par feuille, toutes les feuilles (la note neuve : coffrage 1, armatures 1 — RBAR 0.4.41) — [`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) § 3 bis | à imprimer, à envoyer — 8 pieux sur semelles seulement |
+| **Plans PDF** | les plans de RBAR, faits dans le navigateur par son moteur (WebAssembly, 12/11/2026) depuis le fichier « rbar.ouvrage » : un fichier, une page par feuille, toutes les feuilles (la note neuve : coffrage 1, armatures 1 — RBAR 0.4.41 et suivants) — [`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) § 3 bis | à imprimer, à envoyer — 8 pieux sur semelles seulement |
 | **DWG pour AutoCAD** (`.json`, format « rbar.ouvrage ») | l'ouvrage complet au format que RBAR lit : pieux, poutres, armatures de la note, d'où vient chaque barre, options de conception, mise en page des deux feuilles, cartouche — [`FONDATIONS_GRUE_OUVRAGE.md`](FONDATIONS_GRUE_OUVRAGE.md) | dans AutoCAD : commande `RBAROUVRAGE`, puis choisir ce fichier (étape 1 ; le DWG fait sans AutoCAD et les plans PDF viendront avec le moteur de RBAR) — 8 pieux sur semelles seulement |
 | Modèles de poutre pour RBAR (`.json`) | les **modèles de poutre** au format que RBAR importe déjà (palette › modèles › « Importer JSON… ») : un modèle par pièce et par zone d'étriers — barres basses et hautes, second groupe en 2ᵉ lit, étriers (Ø, pas, brins), enrobage quand le classeur en a un ; le type de pieu et de massif ; l'implantation en mm ; le tableau des armatures | le dessinateur importe les modèles, puis dessine |
 | Plan `.dxf` | le plan de principe (DXF R12, en cm) : contours, axes, pieux en cercles au diamètre réel, pieds de la grue | s'ouvre dans AutoCAD ; `RBARPIEU › Objets` reprend les cercles |
@@ -263,7 +263,7 @@ feuille rendue aussi en image (SVG ; son noyau sait le faire : `OuvrageSheetSvg.
 12/11/2026). Demandé à la conversation RBAR le 12/11. Le moteur existe depuis le 12/11 au soir comme programme .NET
 (`rbar-plans`, RBAR 0.4.37) : sur le fichier Greenwood du site, les deux plans en PDF, aucune note
 (`docs/site/mesures/2026-11-12_plans_pdf_par_rbar_plans.md`). **Sa version pour le navigateur est livrée et déposée**
-(0.4.38, puis 0.4.40 et son PDF unique, 12/11/2026 au soir, puis 0.4.41, 13/11 : « Plans PDF » du menu « Exporter ») ; elle fait aussi l'aperçu (`apercu()` : une image SVG
+(0.4.38, puis 0.4.40 et son PDF unique, 12/11/2026 au soir, puis 0.4.41 et 0.4.43, 13/11 : « Plans PDF » du menu « Exporter ») ; elle fait aussi l'aperçu (`apercu()` : une image SVG
 par feuille, ~3 s sur un poste) — il reste à le montrer au centre de l'écran. Ensuite, du côté du site : ses fichiers copiés dans le site
 (chacun sous 25 Mo, aucun CDN), chargés au premier aperçu dans un travailleur (l'écran ne se fige pas), la ligne
 « Plans PDF », les deux onglets, et les mesures aux trois formats (taille, durée au téléphone).

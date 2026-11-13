@@ -63,11 +63,11 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
 
 ### 3 bis. Les plans PDF, dans le navigateur (le moteur de RBAR)
 
-- **Le moteur** : celui de RBAR, en WebAssembly (RBAR 0.4.41, livré le 13/11/2026 ; 0.4.38 puis 0.4.40 avant) — le même que la commande
+- **Le moteur** : celui de RBAR, en WebAssembly (RBAR 0.4.43, livré le 13/11/2026 ; 0.4.38, 0.4.40 et 0.4.41 avant) — le même que la commande
   `RBAROUVRAGE` d'AutoCAD et que son programme `rbar-plans` : le site ne dessine aucun plan. Il est **déposé dans le site**,
   tel quel, par `site/web/outils/vendre_rbar_plans.py` : l'empreinte de l'archive est celle que RBAR a annoncée, chaque
   fichier a celle de sa notice et celle que le chargeur de .NET vérifie lui-même, aucun ne dépasse 25 Mio
-  (`vendor/rbar-plans-web-0.4.41/empreintes.json` ; `tests/test_site_web.py` le garde). 38 fichiers, 15,2 Mio, dont les
+  (`vendor/rbar-plans-web-0.4.43/empreintes.json` ; `tests/test_site_web.py` le garde). 38 fichiers, 15,2 Mio, dont les
   licences du runtime .NET (`licences/`) et des polices ; une version remplace la précédente, dossier entier (le
   chargeur de .NET refuse deux versions mêlées). Rien ne vient d'un tiers, rien ne passe par le réseau pendant le calcul.
 - **Le chemin d'un clic** (`js/etabli.js`, `js/plans.js`, `js/plans-travailleur.js`) : le moteur Python écrit le fichier
@@ -81,7 +81,13 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
   étaient comptés comme des pieux de cette poutre — un « Détail 1 » sur toute sa longueur, des pieux de l'autre semelle
   dans la vue des poutres longitudinales ; cause trouvée par le site, corrigée par RBAR le 13/11). Le message final les
   compte, d'après le compte rendu de RBAR (« F1 - plans - … .pdf téléchargé : 2 feuilles (coffrage 1, armatures 1) en
-  4,8 s — dessin 4,0 s ») ; le harnais vérifie que le PDF en a autant de pages, et deux pour la note neuve. Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site ou de RBAR est dit tel
+  4,8 s — dessin 4,0 s ») ; le harnais vérifie que le PDF en a autant de pages, et deux pour la note neuve.
+  **Ce que RBAR change à la note sans le noter est dit aussi** (depuis 0.4.43, « cages emboîtées ») : au croisement, la
+  cage de la poutre support passe entre les lits des semelles, et son ENROBAGE est relevé — Greenwood (support 70 cm,
+  semelle 75) : dessus 61 mm ; note neuve (les deux à 75 cm) : dessus 61 et dessous 65 mm, au lieu des 40 mm de la note.
+  RBAR le dit dans ses messages, pas dans ses notes : le message final reprend sa ligne (« — RBAR : PT1 et PT2 : cage
+  emboîtée … enrobage du dessus 61 mm et du dessous 65 mm (40 mm dans le modèle) … »), tenu 15 s. La note, elle, calcule
+  la hauteur utile avec l'enrobage saisi : question **Q13** (§ 5). Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site ou de RBAR est dit tel
   quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.
 - **Défaut de la première version (0.4.38, une ligne par plan), trouvé et corrigé le même soir** : chaque ligne
   n'enregistrait que la PREMIÈRE feuille de son plan (la recherche du PDF « coffrage » s'arrêtait au premier) — 2 feuilles
@@ -183,6 +189,7 @@ moteur la reprend), ou **le code dur** (une règle fixe, plus une option).
 | Q10 | **Textes du plan** | « Implantation », « Poutres transversales », « Poutres longitudinales », « Châssis de la grue », trois remarques de pose | le vocabulaire du bureau |
 | Q11 | **Mise en page** | la table du 12/11 ; châssis absent : la ligne immédiatement plus grande ; au-delà de 10 m : RBAR choisit | les valeurs définitives de la table ; la règle d'un châssis absent ; où la modifier (aujourd'hui dans le code, `conception.MISES_EN_PAGE` ; plus tard un réglage du bureau) |
 | Q12 | **Cartouche** | le site écrit le chantier, le nom de la note, la date | d'où viennent le numéro de projet, le bâtiment, la phase, la discipline, « vérifié par », les intervenants ? « dessiné par » = la personne connectée ? |
+| Q13 | **Enrobage de la poutre support au croisement — À TRANCHER EN PRIORITÉ (sens de la sécurité)** | la note calcule d = h − c − Øétrier − Ø/2 avec c = l'enrobage saisi (40 mm), pour la poutre support comme pour la semelle ; depuis RBAR 0.4.43 (13/11/2026), le PLAN fait passer la cage de la poutre support entre les lits des semelles et relève son enrobage, sur toute sa longueur — Greenwood (70 / 75 cm) : dessus 61 mm ; note neuve (75 / 75 cm) : dessus 61 et **dessous 65 mm** : la hauteur utile des aciers inférieurs DESSINÉS est de 25 mm plus petite que celle de la note (688 → 663 mm, −3,6 %), les étriers plus courts de 46 mm. Le message final du plan le dit à chaque export | la note doit-elle vérifier la poutre support avec les enrobages du plan (le site applique la même règle, ou reprend ce que RBAR annonce) ? ou la pratique du bureau est-elle de faire passer l'autre cage (la semelle plus haute, ou ses lits décalés) ? ou une poutre support de même hauteur que les semelles doit-elle être signalée, voire refusée ? |
 
 ## 6. Les limites — ce que le fichier ne fait pas encore
 

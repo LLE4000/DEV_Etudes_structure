@@ -1104,8 +1104,16 @@ export function ouvrirEtabli(hote, ctx) {
         const detail = p.reutilise || !Number.isFinite(p.calcul_ms) ? ""
           : " — " + (p.chargement_ms > 100 && Number.isFinite(p.pret_ms) ? `moteur prêt en ${secondes(p.pret_ms)} s, ` : "") + `dessin ${secondes(p.calcul_ms)} s`;
         const notes = p.rapport.notes || [];
+        // ce que RBAR CHANGE à la note sans le noter : depuis 0.4.43, au croisement, la cage de la poutre qui traverse passe
+        // entre les lits de la poutre porteuse — son enrobage est RELEVÉ (note neuve : 61 et 65 mm au lieu de 40), alors que
+        // la note calcule la hauteur utile avec l'enrobage saisi. RBAR le dit dans ses messages, pas dans ses notes : la
+        // ligne est dite ici, tenue 15 s, à chaque plan (question Q13 au propriétaire, FONDATIONS_GRUE_OUVRAGE.md § 5).
+        // (« cage emboîtée », « croisement à vérifier » : COPIES des mots de RBAR 0.4.43 — le harnais « exporter » les lit
+        //  sur la note neuve et rougit s'ils changent)
+        const remarques = (p.rapport.messages || []).filter((m) => /cage emboîtée|croisement à vérifier/i.test(m));
         toast(`${nom} téléchargé : ${quoi} en ${secondes(performance.now() - debut)} s${detail}${cacheeDit()}`
-          + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : ""));
+          + (notes.length ? ` — RBAR note : ${notes.join(" ; ")}` : "")
+          + (remarques.length ? ` — RBAR : ${remarques.join(" ; ")}` : ""), false, notes.length || remarques.length ? 15000 : 0);
       } catch (e) {
         toast(`Plans : ${(e && e.message) || e} — ${diagnosticPlans({ ...ou, depuis_ms: performance.now() - ou.depuis })}`, true, 20000);
       } finally {

@@ -737,6 +737,14 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   neuve fait deux feuilles (6 et 9 vues) aux échelles imposées. Paquet déposé à la place de 0.4.40 ; le harnais exige
   désormais deux feuilles (coffrage 1, armatures 1) pour la note neuve (`docs/site/mesures/2026-11-13_plans_pdf_rbar_0441.md`).
   Limite que RBAR signale : un pieu au centre EXACT d'un croisement compte pour la première poutre du fichier.
+- **RBAR 0.4.43 (13/11/2026) : les cages emboîtées au croisement**, comme sur le plan du bureau (0.4.42 n'a pas été reçu).
+  Paquet déposé à la place de 0.4.41 ; la note neuve garde deux feuilles (dessin 4,1 s au poste de contrôle).
+  **À TRANCHER PAR LE PROPRIÉTAIRE, EN PRIORITÉ (sens de la sécurité) — Q13** (`docs/beton/FONDATIONS_GRUE_OUVRAGE.md`
+  § 5) : RBAR relève l'enrobage de la poutre support sur toute sa longueur pour faire passer sa cage entre les lits des
+  semelles — note neuve (poutres de même hauteur, 75 cm) : dessus 61 et DESSOUS 65 mm, au lieu des 40 mm avec lesquels la
+  note calcule la hauteur utile : les aciers inférieurs dessinés ont 25 mm de bras de moins que ceux de la note (−3,6 %).
+  En attendant sa réponse, le message final du plan reprend la ligne de RBAR, à chaque export (le harnais la lit sur la
+  note neuve) ; rien n'est changé au calcul.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
