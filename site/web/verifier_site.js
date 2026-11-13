@@ -4133,6 +4133,25 @@ const principal = async () => {
           bande: [...document.querySelectorAll('#stage .view.on .et-eff span')].map((x) => x.textContent.replace(/\s+/g, '')) }));
         verif(`plaques ${cle} : M_y,inf = 20 saisi — le bloc dit « Conforme » (vert), la bande de l'en-tête porte M_y,inf 20,0 kN·m`,
           e1.e === 'Conforme' && e1.ok && e1.bande.includes('My,inf20,0kN·m'), JSON.stringify(e1));
+        // UN endroit pour modifier les armatures (le propriétaire, 13/11/2026) : le résultat NOMME la nappe de chaque face,
+        // sans bouton ni étoile ; le sélecteur s'ouvre depuis la rubrique « Armatures » (le bouton de la nappe) — le
+        // contrôle commun des modules (« #resultat .prof[data-pk] ») ne le trouve plus pour les dalles : il est ici
+        const res1 = await g.evaluate(() => ({ boutons: document.querySelectorAll('#resultat .prof[data-pk], #resultat button[data-pk]').length,
+          etoiles: document.querySelectorAll('#resultat .leger').length,
+          nappes: [...document.querySelectorAll('#resultat .et-bloc[data-section="0"] .el .prof > span')].map((x) => x.textContent.trim()).filter(Boolean).length,
+          nonVerifie: [...document.querySelectorAll('#resultat .pbody > .hint')].map((x) => x.textContent.trim()) }));
+        await ouvrirRub('arm');
+        const prop = g.locator('#donnees .et-arm[data-section="0"] .et-prop[data-pk="inf_y-0"]');
+        const propVu = (await prop.count()) === 1 && await prop.evaluate((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+        if (propVu) await prop.click();
+        await g.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 }).catch(() => {});
+        const pick = await g.evaluate(() => ({ vu: !!document.querySelector('.flyout.on.picker'),
+          lignes: [...document.querySelectorAll('.flyout.on.picker .pk-row')].filter((e) => e.checkVisibility()).length }));
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
+        verif(`plaques ${cle} : le résultat nomme la nappe de chaque face (4) sans la proposer (ni bouton, ni étoile) et dit en une phrase ce qui n'est pas vérifié ; le sélecteur s'ouvre depuis « Armatures »`,
+          res1.boutons === 0 && res1.etoiles === 0 && res1.nappes === 4 && res1.nonVerifie.length === 1 && /^Non vérifié(e)?s : /.test(res1.nonVerifie[0])
+          && propVu && pick.vu && pick.lignes > 0, JSON.stringify({ res1, propVu, pick }));
         // le DESSIN → les données : un clic sur la couche de base de la nappe inférieure Y
         await g.keyboard.press('Escape');
         const k0 = 's0.inf_y-0';

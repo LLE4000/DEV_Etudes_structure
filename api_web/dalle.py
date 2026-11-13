@@ -41,16 +41,13 @@ Ce que le site fait de plus que les écrans Streamlit, sans changer un chiffre :
 - des bornes contre l'absurde, que l'écran n'a pas (SOLLICITATION_MAX, EN.H_MAX pour les longueurs saisies, AP.NOM_MAX).
 """
 import copy
-import json
 import sys
 from typing import Dict, List, Optional, Sequence
 
 from beton import treillis as TR
 from beton.dalle import entree as EN
-from beton.dalle import fichier as FI
 from beton.dalle import moteur as MO
 from beton.predalle import entree as EN_P
-from beton.predalle import fichier as FI_P
 from beton.predalle import moteur as MO_P
 
 from . import commun as C
@@ -88,25 +85,16 @@ CLE_AVIS = "avis_ouverture"
 AVIS = {
     "note": ("Note d'avant le 09/11/2026 : les nappes sont désormais posées l'une sur l'autre (la direction secondaire, "
              "base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
-    "streamlit": ("Fichier Streamlit : les nappes sont posées l'une sur l'autre (la direction secondaire, base et renforts, "
-                  "sur la principale), l'écran Streamlit les posait au même niveau ; A<sub>s,req</sub> peut différer du "
-                  "sien."),
 }
-# Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant, un fichier Streamlit) : un nom de dalle
+# Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant) : un nom de dalle
 # ou de section de plus de AP.NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
 # note ne s'ouvrait plus. Il est désormais COUPÉ à la limite, et l'avis le dit une fois, à l'ouverture (comme CLE_AVIS :
-# ``normaliser`` ou la reprise d'un fichier Streamlit posent la liste sous CLE_NOMS, ``resultat`` la dit et la retire).
+# ``normaliser`` pose la liste sous CLE_NOMS, ``resultat`` la dit et la retire).
 # La SAISIE garde son refus clair (AP.nom_saisi) : un nom ne s'allonge jamais au-delà à l'écran.
 CLE_NOMS = "noms_coupes"
 
 # des requêtes de plus pour le parcours (api_web/parcours.py) : les champs que le parcours automatique n'essaie pas —
 # pour les deux types (une note de prédalle, prête, pour les chemins propres à la peau)
-_V1 = {"dalles": [{"id": 1, "nom": "Dalle 1", "sections": [{"id": 1, "nom": "A"}]}],
-       "values": {"dal1_sec1_M_inf": 28.0, "dal1_sec1_M_sup_raw": "-12,0", "dal1_sec1_V": 55.0, "dal1_sec1_ncouches_inf": 2,
-                  "dal1_sec1_arm_type_inf_c2": "Barres", "dal1_sec1_ø_barres_inf_c2": 12, "gamma_s": 1.5}}
-_FICHIER_P = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Prédalle 1", "sections": [{"id": 1, "nom": "A"}]}],
-              "values": {"pre1_sec1_Mx_inf": 28.0, "pre1_sec1_My_inf_raw": "-12,0", "pre1_sec1_V": 55.0, "pre1_h": 8,
-                         "pre1_h_pre": 12.0, "pre1_sec1_ncouches_inf_y": 2, "pre1_sec1_arm_type_inf_y_c2": "Barres", "gamma_s": 1.5}}
 _NOTE_P = {"predalles": [EN_P.nouvelle_predalle()], "actif": 0}
 PARCOURS = [
     {"action": "modifier", "chemin": ["sections", "0", "faces", "inf_y", "couches", "0", "dist"], "valeur": "5"},
@@ -115,9 +103,6 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["sections", "0", "Mx_inf"], "valeur": "-20"},
     {"action": "modifier", "chemin": ["sections", "0", "faces", "inf_x", "couches", "0", "esp"], "valeur": "600"},
     {"action": "modifier", "chemin": ["h_pre"], "valeur": "8"},
-    {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "dalle_ba.json", "texte": json.dumps(_V1)}},
-    {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "predalle_ba.json", "texte": json.dumps(_FICHIER_P)}},
-    {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "abime.json", "texte": "{pas du json"}},
     {"action": "selecteur", "role": "sup_x-0", "familles": ["treillis"]},
     {"action": "choisir", "role": "inf_y-0", "nom": "Ø12/150"},
     {"action": "modifier", "etat": _NOTE_P, "chemin": ["sections", "0", "faces", "inf_x", "couches", "0", "dist"], "valeur": "8"},
@@ -547,8 +532,6 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     ou « - ». Une valeur hors du domaine de l'écran est refusée avec un message, et la dalle reste intacte. « verrou »,
     « type », « h_pre » sont ceux de la dalle ouverte ; γs et le jeu ceux de la NOTE (toutes ses dalles)."""
     chemin = [int(c) if isinstance(c, str) and c.isdigit() else c for c in chemin]
-    if chemin == ["fichier_streamlit"]:
-        return _ouvrir_streamlit(etat, valeur)
     a = etat["actif"]
     d = etat["dalles"][a]
     if chemin == ["verrou"]:
@@ -578,43 +561,6 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return f"Saisie refusée : {e}"
     except (KeyError, IndexError, TypeError, AttributeError):
         return f"Saisie refusée : champ introuvable « {'/'.join(map(str, chemin))} »"
-    return None
-
-
-def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
-    """Un fichier de l'écran Streamlit (« 💾 Enregistrer ») remplace les dalles de la note : « dalle_ba.json » de l'écran
-    Dalle (clé « dalles »), ou le fichier de l'écran Prédalle (clé « predalles ») — le TYPE est celui du fichier
-    (beton/dalle/fichier.py, beton/predalle/fichier.py, inchangés) ; ce que l'écran remplaçait en silence (moment négatif
-    lu 0, peau ramenée, type inconnu…) est dit. Les dalles reprises ont leurs nappes posées l'une sur l'autre, comme
-    toutes (l'écran Streamlit les posait au même niveau) : si leurs chiffres en changent, l'avis « streamlit » (CLE_AVIS)
-    le dit en tête du résultat."""
-    if not isinstance(valeur, dict) or not isinstance(valeur.get("texte"), str):
-        return "Fichier illisible"
-    nom = str(valeur.get("nom") or "fichier")
-    try:
-        charge = json.loads(valeur["texte"])
-    except json.JSONDecodeError:
-        return f"« {nom} » n'est pas un fichier JSON lisible"
-    predalle = isinstance(charge, dict) and "predalles" in charge
-    cle, type_ = ("predalles", "predalle") if predalle else ("dalles", "coulee")
-    try:
-        lu = (FI_P if predalle else FI).lire(charge)
-        ds = [_site(x, False, type_) for x in lu[cle]]
-        coupes = [c for x in ds for c in _couper_noms(x)]
-        for x in ds:
-            _bornes_site(x)
-    except (ValueError, TypeError, AttributeError, KeyError) as e:
-        return f"« {nom} » refusé : {e}"
-    etat["dalles"] = ds
-    etat["actif"] = 0
-    if any(chiffres_changes(x) for x in ds):
-        etat[CLE_AVIS] = "streamlit"
-    if coupes:
-        etat[CLE_NOMS] = coupes
-    if lu["remarques"]:
-        r = lu["remarques"]
-        return (f"« {nom} » repris ({len(ds)} {'prédalle' if predalle else 'dalle'}(s)). L'écran Streamlit y remplaçait en "
-                "silence : " + " ; ".join(r[:4]) + (f" ; et {len(r) - 4} autre(s)" if len(r) > 4 else ""))
     return None
 
 
@@ -691,25 +637,20 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
 
 
 def _options(d: Dict) -> str:
-    """La rubrique « 4 — Options » : la méthode (celle du moteur du type), γs et le jeu (communs à la note), la reprise
-    d'une note Streamlit (les deux écrans). (L'option « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes
-    sont toujours posées l'une sur l'autre.)"""
-    jeu = ("Ajouté à l'axe automatique des couches SUPÉRIEURES seulement — de la direction principale, la secondaire posée "
-           "dessus le suit (la base principale inférieure est en fond de moule, les autres couches inférieures posées sur la "
-           "prédalle)." if est_predalle(d) else
-           "Ajouté à l'axe automatique de la direction principale ; la direction secondaire, posée sur elle, le suit.")
-    return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
-            f'{C.esc(_MO(d).REFERENCE)} · ELS, z = 0,9·d</span></div>'
+    """La rubrique « 4 — Options » : la méthode (une ligne), puis γs et le jeu du premier lit, communs à toute la note.
+    (La reprise d'une note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre ; l'option
+    « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes sont toujours posées l'une sur l'autre.)"""
+    jeu = ("Écart ajouté entre l'enrobage et le premier lit des nappes SUPÉRIEURES (les nappes inférieures sont posées "
+           "dans et sur la prédalle)." if est_predalle(d) else
+           "Écart ajouté entre l'enrobage et le premier lit : il éloigne du parement l'axe automatique de la direction "
+           "principale ; la secondaire, posée dessus, le suit.")
+    return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
+            f'<b title="{C.esc(_MO(d).REFERENCE)}">Méthode du bureau · ELS · z = 0,9 d</b></div>'
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
-                        "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes "
-                        "les dalles de la note, comme dans l'écran Streamlit."),
+                        "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
+                        "dalles de la note."),
                        ("Jeu 1er lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
-                        f"{jeu} Commun à toutes les dalles de la note, comme dans l'écran Streamlit."))
-            + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
-            + C.aide("Le fichier « dalle_ba.json » de l'écran Dalle, ou celui de l'écran Prédalle (bouton Enregistrer) : ses dalles "
-                     "ou prédalles remplacent celles de cette note, avec le type du fichier ; ce que l'écran y remplaçait en silence "
-                     "est signalé.")
-            + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
+                        f"{jeu} Commun à toutes les dalles de la note.")))
 
 
 def _caracteristiques(d: Dict) -> str:
@@ -902,12 +843,12 @@ def gouvernante_section(s: Dict) -> Dict:
 
 def _verdict(v: Dict, s: Dict) -> str:
     """La comparaison du verdict : « valeur ≤ limite » ; pour une vérification non conforme sous 100 %, la comparaison
-    qui la rend non conforme (A_s > A_s,max ; d ≤ 0)."""
+    qui la rend non conforme (A_s > A_s,max) ; pour une face dont le d utile est ≤ 0, quel que soit son taux, « d ≤ 0 »."""
     g, N = s["grandeurs"], C.NBSP
     if _sous_limite_non_conforme(v) and "acier_excessif" in v["motifs"]:
         return (f"{_egal('A<sub>s</sub>', _n(v['limite'], 'mm²') + N + 'mm²')} &gt; "
                 f"{_egal('A<sub>s,max</sub>', _n(v['As_max'], 'mm²') + N + 'mm²')} · acier excessif")
-    if _sous_limite_non_conforme(v) and "d_utile_negatif" in v["motifs"]:
+    if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
         return (f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · position des couches incompatible avec "
                 "l'épaisseur")
     val, lim = _comparaison(v, s)
@@ -1026,19 +967,6 @@ def elements(etat: Dict, resultats: List[Dict]) -> str:
     return ""
 
 
-def _optimaux(d: Dict, r: Dict) -> Dict:
-    """La plus petite nappe de base qui tient, pour chaque face de chaque section (l'étoile des lignes du résultat) —
-    les candidats du moteur du type, posés aux niveaux du site (api_web/dalle_positions.candidats_base)."""
-    out = {}
-    for i, s in enumerate(r["sections"]):
-        for f in EN.FACES:
-            cands = POS.candidats_base(d, i, f)
-            o = next((c for c in cands if c["optimal"]), None)
-            if o is not None and not o["retenue"]:
-                out[(i, f)] = o
-    return out
-
-
 def _avertissements_de(d: Dict, r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements selon le type : ceux de la dalle coulée (ci-dessous), ou ceux de la prédalle (api_web/predalle :
     base qui sort de la peau, couches croisées sur la prédalle, bases X et Y trop proches). Des bases SUPÉRIEURES
@@ -1068,8 +996,8 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
             confondues.append(a)
         elif a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
-        else:
-            out += C.message(C.esc(a["message"]), grave=a["code"] == "d_utile_negatif")
+        elif a["code"] != "d_utile_negatif":      # (d ≤ 0 : la ligne de la face le dit, en rouge — PC.comparaison)
+            out += C.message(C.esc(a["message"]))
     if confondues:
         s = r["sections"][i]
         faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
@@ -1085,17 +1013,24 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
 
 # Ce que le calcul d'une dalle COULÉE EN PLACE vérifie et ne vérifie pas (petits chantiers, 10/11/2026 : la dalle CSP
 # le dit comme la prédalle — même composant, même place ; le moteur beton/dalle : hauteur, les quatre nappes avec leurs
-# minimum et maximum, τ ≤ τ_adm,I sans étriers ; ni flèche ni fissuration, pas plus que l'écran Streamlit)
+# minimum et maximum, τ ≤ τ_adm,I sans étriers ; ni flèche ni fissuration). En entier dans chaque fenêtre de calcul ;
+# sous le résultat, la seule phrase « Non vérifiées » (NON_VERIFIEES_CSP) : ce qui est vérifié, les lignes du résultat
+# le montrent déjà (le propriétaire, 13/11/2026 : « supprimer les messages explicatifs redondants »).
+NON_VERIFIEES_CSP = "Non vérifiées : la flèche et la fissuration."
 PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, quatre nappes : A<sub>s,req</sub>, minimum et maximum) et "
-                 "τ ≤ τ<sub>adm,I</sub> (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et "
-                 "la fissuration.")
+                 "τ ≤ τ<sub>adm,I</sub> (une dalle sans étriers). " + NON_VERIFIEES_CSP)
 
 
 def texte_perimetre(d: Dict) -> str:
-    """Ce que le calcul de la dalle vérifie et ne vérifie PAS, tel que l'écran le dit sous le résultat (et la note PDF
-    dans ses observations, api_web/note_dalle.py) : celui de la prédalle (api_web/predalle.PERIMETRE), celui de la dalle
-    coulée en place (PERIMETRE_CSP) — une source pour les deux."""
+    """Ce que le calcul de la dalle vérifie et ne vérifie PAS, en entier (les fenêtres de calcul) : celui de la prédalle
+    (api_web/predalle.PERIMETRE), celui de la dalle coulée en place (PERIMETRE_CSP) — une source pour les deux."""
     return AP.PERIMETRE if est_predalle(d) else PERIMETRE_CSP
+
+
+def non_verifies(d: Dict) -> str:
+    """Ce que le calcul ne vérifie PAS, en une phrase : sous le résultat, et dans l'en-tête de la dalle de la note PDF
+    (api_web/note_dalle.py) — la fin de ``texte_perimetre``, la même source."""
+    return AP.NON_VERIFIES if est_predalle(d) else NON_VERIFIEES_CSP
 
 
 def _hypotheses(d: Dict, m: Dict) -> List[str]:
@@ -1129,12 +1064,11 @@ def resultat(etat: Dict) -> Dict:
     predalle = est_predalle(d)
     M = _M(d)
     hyps = AP.hypotheses(d, r["materiaux"]) if predalle else _hypotheses(d, r["materiaux"])
-    opt = {} if d["verrou"] else _optimaux(d, r)
     gouv = gouvernante(r)
-    perimetre = C.aide(texte_perimetre(d)) if texte_perimetre(d) else ""
+    perimetre = C.aide(texte_perimetre(d))
     blocs, volets = "", ""
     for i, s in enumerate(r["sections"]):
-        h, v = PC.bloc(M, i, s, nom, hyps, gouv, opt, d["verrou"], pied_calcul=perimetre, pied=_avertissements_de(d, r, i))
+        h, v = PC.bloc(M, i, s, nom, hyps, gouv, pied_calcul=perimetre, pied=_avertissements_de(d, r, i))
         blocs += h
         volets += v
     dims = _dims(d)
@@ -1145,7 +1079,7 @@ def resultat(etat: Dict) -> Dict:
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     element = r["predalle"] if predalle else r["dalle"]
     return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}{"".join(C.message(a) for a in avis)}'
-                        f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{perimetre}</div>{pied}',
+                        f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{C.aide(non_verifies(d))}</div>{pied}',
             **({"avis": avis} if avis else {}), "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,
             "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}

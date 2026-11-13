@@ -107,6 +107,7 @@ CAS = {
     "CSP · acier excessif (Ø40/100 en bas)": cas(
         (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 40), (F("inf_y") + [0, "esp"], 100), (S0 + ["My_inf"], 20)),
     "CSP · d utile ≤ 0 (axe saisi au-delà de h)": cas((F("inf_y") + [0, "dist"], "21"), (S0 + ["Mx_sup"], 10)),
+    "CSP · d utile ≤ 0 au-delà de 100 % (moment sur la face)": cas((F("inf_y") + [0, "dist"], "21"), (S0 + ["My_inf"], 10)),
     "CSP · hauteur insuffisante et τ > τ_adm,I": cas((S0 + ["My_inf"], 160), (S0 + ["V"], 400)),
     "CSP · nappes X et Y au même niveau (axe saisi)": cas((F("inf_x") + [0, "dist"], "3,5"), (S0 + ["My_inf"], 20), (S0 + ["Mx_inf"], 15)),
     "CSP · trois sections": cas(
@@ -232,10 +233,10 @@ for nom, e in CAS.items():
             verdict = v_pdf["verdicts"][0]["texte"].replace(C.NBSP, " ")
             if par_cle[f]["etat"] == MO.OK:
                 attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² ≥", f"{ND.fn(g[f'besoin_{f}'], 0)} mm²"]
-            elif par_cle[f]["taux"] > 1:
+            elif par_cle[f]["taux"] > 1 and "d_utile_negatif" not in par_cle[f]["motifs"]:
                 attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² <", f"{ND.fn(g[f'besoin_{f}'], 0)} mm²"]
             else:
-                attendus_v = []                      # acier excessif, d ≤ 0 : contrôlés plus bas
+                attendus_v = []                      # acier excessif, d ≤ 0 (quel que soit le taux) : contrôlés plus bas
             manques += [(nom, rs["nom"], f, t, verdict) for t in attendus_v if t not in verdict]
             if (v_pdf["verdicts"][0]["etat"] == "ok") != (par_cle[f]["etat"] == MO.OK):
                 manques.append((nom, rs["nom"], f, "couleur du verdict"))
@@ -275,8 +276,8 @@ for nom, e in CAS.items():
             if ETATS_ECRAN.get(etats_ecran[k]) != sec["etat"]:
                 ecran.append((nom, s["nom"], etats_ecran[k], sec["etat"]))
             for v in s["verifications"]:
-                if v["cle"] not in EN.FACES or P._sous_limite_non_conforme(v):
-                    continue                      # acier excessif, d ≤ 0 : leur comparaison est contrôlée plus bas
+                if v["cle"] not in EN.FACES or P._sous_limite_non_conforme(v) or "d_utile_negatif" in v["motifs"]:
+                    continue                      # acier excessif, d ≤ 0 (quel que soit le taux) : contrôlés plus bas
                 for x in (v["valeur"], v["limite"]):
                     n_ecran += 1
                     if f"{C.fr(x, 0).replace(C.FINE, ' ')}" not in html_:
@@ -378,6 +379,13 @@ sec, pl = planche("CSP · d utile ≤ 0 (axe saisi au-delà de h)")
 vd = sec["verifs"][1]["verdicts"][0]
 chk("d utile ≤ 0 : le verdict dit d = −1,0 cm ≤ 0 (position des couches incompatible), en rouge",
     vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " "), vd)
+# (13/11/2026) au-delà de 100 % aussi : la raison est dans le verdict de la face — l'observation qui la répétait est
+# retirée (l'écran la dit dans la ligne rouge, api_web/plaque_compact.comparaison)
+sec, pl = planche("CSP · d utile ≤ 0 au-delà de 100 % (moment sur la face)")
+vd = sec["verifs"][1]["verdicts"][0]
+chk("d utile ≤ 0 AU-DELÀ de 100 % (un moment sur la face) : le verdict dit encore d = −1,0 cm ≤ 0, et aucune observation ne le répète",
+    vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " ")
+    and not any("d utile ≤ 0" in o for o in N.observations_de(sec)), (vd, N.observations_de(sec)))
 
 sec, pl = planche("CSP neuve (sans effort)")
 chk("une section sans aucun effort n'est jamais « Vérifié » : « Données incomplètes » (l'écran aussi)",
@@ -393,12 +401,11 @@ chk("prédalle : DIMENSIONS dit la peau et le coulé en place (6 + 14 cm), la co
 
 # ---------------------------------------------------------------- 4. les OBSERVATIONS de l'écran
 OBS = {
-    "Prédalle · neuve sollicitée": ["Non vérifiés, comme dans l'écran Streamlit : la phase provisoire"],
+    "Prédalle · neuve sollicitée": ["Non vérifiés : la phase provisoire"],
     "Prédalle · peau de 4 cm, base Ø16 qui en sort": ["sort de la peau de 4,0 cm", "Non vérifiés"],
     "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": ["à des niveaux trop proches pour se croiser", "Non vérifiés"],
     "CSP · enrobage nul (lu 3 cm) et jeu premier lit 0,5": ["Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm."],
     "CSP · nappes X et Y au même niveau (axe saisi)": ["les nappes X et Y inférieures sont calculées au même niveau", "Rendre l'axe saisi à l'automatique"],
-    "CSP · d utile ≤ 0 (axe saisi au-delà de h)": ["d utile ≤ 0"],
 }
 faux = []
 for nom, attendus in OBS.items():
@@ -418,12 +425,17 @@ chk("les observations de la planche sont celles que l'écran affiche sous la sec
 r_p = P.resultat(copy.deepcopy(CAS["Prédalle · neuve sollicitée"]))
 _d_csp = CAS["CSP · M_y,inf = 28 (treillis par défaut)"]
 r_c = P.resultat(copy.deepcopy(_d_csp))
+# (13/11/2026 : sous le résultat, la seule phrase « Non vérifié(e)s » — la fin du périmètre, ``non_verifies`` ; le
+#  périmètre entier au pied de chaque fenêtre de calcul, et sur la première planche de la note)
+_p0 = CAS["Prédalle · neuve sollicitée"]["dalles"][0]
 chk("le périmètre de la prédalle, et celui de la dalle CSP (flèche, fissuration non vérifiées), sont le texte de l'écran "
-    "(api_web/dalle.texte_perimetre, une source pour les deux) — dans le résultat et sur la première planche de la note",
-    P.texte_perimetre(CAS["Prédalle · neuve sollicitée"]["dalles"][0]) in r_p["resultat"]
-    and N._texte(P.texte_perimetre(CAS["Prédalle · neuve sollicitée"]["dalles"][0])) in N.observations_de(planche("Prédalle · neuve sollicitée")[0])
+    "(api_web/dalle.texte_perimetre, une source pour les deux) — entier dans les fenêtres de calcul et sur la première planche de "
+    "la note, sa dernière phrase (« Non vérifié(e)s : … ») sous le résultat",
+    P.texte_perimetre(_p0) in r_p["volets"] and P.non_verifies(_p0) in r_p["resultat"] and P.texte_perimetre(_p0).endswith(P.non_verifies(_p0))
+    and N._texte(P.texte_perimetre(_p0)) in N.observations_de(planche("Prédalle · neuve sollicitée")[0])
     and P.texte_perimetre(_d_csp["dalles"][0]) == P.PERIMETRE_CSP and "la flèche et la fissuration" in P.PERIMETRE_CSP
-    and P.PERIMETRE_CSP in r_c["resultat"] and _csp in N.observations_de(planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]), "")
+    and P.PERIMETRE_CSP in r_c["volets"] and P.NON_VERIFIEES_CSP in r_c["resultat"]
+    and _csp in N.observations_de(planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]), "")
 
 
 # ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche tient, en deux colonnes

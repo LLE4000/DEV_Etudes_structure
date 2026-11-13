@@ -20,13 +20,11 @@ Ce que le site fait de plus que l'écran Streamlit, sans changer un chiffre :
   par la règle de la prédalle, la retenue (✓) et la plus petite qui tient (★) marquées ;
 - les avertissements du moteur (nappes croisées calculées trop près, base qui sort de la peau, enrobage nul lu
   3 cm, d utile ≤ 0) ;
-- la reprise d'un fichier de l'écran Streamlit (« predalle_ba.json ») avec ce que l'écran y remplaçait en silence ;
 - un verdict qui, dans une prédalle non conforme, nomme une vérification NON conforme (gouvernante()) : acier excessif
   et d utile ≤ 0 le sont sous 100 % ;
 - des bornes contre l'absurde, que l'écran n'a pas (SOLLICITATION_MAX, EN.H_MAX pour les longueurs saisies, NOM_MAX).
 """
 import copy
-import json
 import sys
 from typing import Dict, List, Optional, Sequence
 
@@ -44,9 +42,6 @@ MODULE = "predalle"
 PAGE = "predalle"
 
 # des requêtes de plus pour le parcours (api_web/parcours.py) : les champs que le parcours automatique n'essaie pas
-_FICHIER = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Prédalle 1", "sections": [{"id": 1, "nom": "A"}]}],
-            "values": {"pre1_sec1_Mx_inf": 28.0, "pre1_sec1_My_inf_raw": "-12,0", "pre1_sec1_V": 55.0, "pre1_h": 8,
-                       "pre1_h_pre": 12.0, "pre1_sec1_ncouches_inf_y": 2, "pre1_sec1_arm_type_inf_y_c2": "Barres", "gamma_s": 1.5}}
 PARCOURS = [
     {"action": "modifier", "chemin": ["sections", "0", "faces", "inf_x", "couches", "0", "dist"], "valeur": "8"},
     {"action": "modifier", "chemin": ["sections", "0", "faces", "inf_y", "yG"], "valeur": "4,2"},
@@ -56,8 +51,6 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["h"], "valeur": "6"},
     {"action": "modifier", "chemin": ["h_pre"], "valeur": "3"},
     {"action": "modifier", "chemin": ["sections", "0", "faces", "inf_x", "couches", "0", "esp"], "valeur": "600"},
-    {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "predalle_ba.json", "texte": json.dumps(_FICHIER)}},
-    {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "abime.json", "texte": "{pas du json"}},
     {"action": "selecteur", "role": "sup_x-0", "familles": ["treillis"]},
     {"action": "choisir", "role": "inf_y-0", "nom": "Ø12/150"},
 ]
@@ -431,8 +424,6 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     « + », « copie » ou « - ». Une valeur hors du domaine de l'écran est refusée avec un message, et la prédalle reste
     intacte."""
     chemin = [int(c) if isinstance(c, str) and c.isdigit() else c for c in chemin]
-    if chemin == ["fichier_streamlit"]:
-        return _ouvrir_streamlit(etat, valeur)
     a = etat["actif"]
     p = etat["predalles"][a]
     if chemin == ["verrou"]:
@@ -463,33 +454,6 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return f"Saisie refusée : {e}"
     except (KeyError, IndexError, TypeError, AttributeError):
         return f"Saisie refusée : champ introuvable « {'/'.join(map(str, chemin))} »"
-    return None
-
-
-def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
-    """Un fichier de l'écran Streamlit (« 💾 Enregistrer » : predalle_ba.json) remplace les prédalles de la note ; ce
-    que l'écran remplaçait en silence (peau ramenée, moment négatif lu 0, type inconnu…) est dit."""
-    if not isinstance(valeur, dict) or not isinstance(valeur.get("texte"), str):
-        return "Fichier illisible"
-    nom = str(valeur.get("nom") or "fichier")
-    try:
-        lu = FI.lire(json.loads(valeur["texte"]))
-    except json.JSONDecodeError:
-        return f"« {nom} » n'est pas un fichier JSON lisible"
-    except (ValueError, TypeError, AttributeError, KeyError) as e:
-        return f"« {nom} » refusé : {e}"
-    try:
-        ps = [_site(p) for p in lu["predalles"]]
-        for p in ps:
-            _bornes_site(p)
-    except ValueError as e:
-        return f"« {nom} » refusé : {e}"
-    etat["predalles"] = ps
-    etat["actif"] = 0
-    if lu["remarques"]:
-        r = lu["remarques"]
-        return (f"« {nom} » repris ({len(lu['predalles'])} prédalle(s)). L'écran Streamlit y remplaçait en silence : "
-                + " ; ".join(r[:4]) + (f" ; et {len(r) - 4} autre(s)" if len(r) > 4 else ""))
     return None
 
 
@@ -577,20 +541,16 @@ def _formulaire_verrouille(p: Dict, r: Dict) -> str:
 
 
 def _options(p: Dict) -> str:
-    L = C.ligne
-    return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
-            f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
+    """La rubrique « Options » : la méthode (une ligne), γs et le jeu du premier lit, communs à la note (la reprise d'une
+    note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre)."""
+    return (f'<div class="row full et-meth"><label><span>Méthode</span></label>'
+            f'<b title="{C.esc(MO.REFERENCE)}">Méthode du bureau · ELS · z = 0,9 d</b></div>'
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], p["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
-                        "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes "
-                        "les prédalles de la note, comme dans l'écran Streamlit."),
+                        "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
+                        "prédalles de la note."),
                        ("Jeu 1er lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0),
-                        "Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, "
-                        "les autres couches inférieures posées sur la prédalle). Commun à toutes les prédalles de la note, comme "
-                        "dans l'écran Streamlit."))
-            + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
-            + C.aide("Le fichier « predalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses prédalles remplacent "
-                     "celles de cette note ; ce que l'écran y remplaçait en silence est signalé.")
-            + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
+                        "Écart ajouté entre l'enrobage et le premier lit des nappes SUPÉRIEURES (les nappes inférieures sont "
+                        "posées dans et sur la prédalle). Commun à toutes les prédalles de la note.")))
 
 
 def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
@@ -759,12 +719,12 @@ def _cm(x: float) -> str:
 
 def _verdict(v: Dict, s: Dict) -> str:
     """La comparaison du verdict : « valeur ≤ limite » ; pour une vérification non conforme sous 100 %, la comparaison
-    qui la rend non conforme (A_s > A_s,max ; d ≤ 0)."""
+    qui la rend non conforme (A_s > A_s,max) ; pour une face dont le d utile est ≤ 0, quel que soit son taux, « d ≤ 0 »."""
     g, N = s["grandeurs"], C.NBSP
     if _sous_limite_non_conforme(v) and "acier_excessif" in v["motifs"]:
         return (f"{_egal('A<sub>s</sub>', _n(v['limite'], 'mm²') + N + 'mm²')} &gt; "
                 f"{_egal('A<sub>s,max</sub>', _n(v['As_max'], 'mm²') + N + 'mm²')} · acier excessif")
-    if _sous_limite_non_conforme(v) and "d_utile_negatif" in v["motifs"]:
+    if "d_utile_negatif" in v["motifs"]:          # (quel que soit le taux : la raison, et non un taux sans objet)
         return (f"{_egal('d', _cm(g['d_' + v['cle']]) + N + 'cm')} ≤ 0 · position des couches incompatible avec "
                 "l'épaisseur")
     val, lim = _comparaison(v, s)
@@ -896,18 +856,6 @@ def elements(etat: Dict, resultats: List[Dict]) -> str:
     return ""
 
 
-def _optimaux(p: Dict, r: Dict) -> Dict:
-    """La plus petite nappe de base qui tient, pour chaque face de chaque section (l'étoile des lignes du résultat)."""
-    out = {}
-    for i, s in enumerate(r["sections"]):
-        for f in EN.FACES:
-            cands = MO.candidats_base(_moteur(p), i, f)
-            o = next((c for c in cands if c["optimal"]), None)
-            if o is not None and not o["retenue"]:
-                out[(i, f)] = o
-    return out
-
-
 def avertissements(r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements du moteur : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la
     prédalle entière ; les bases X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase."""
@@ -920,8 +868,8 @@ def avertissements(r: Dict, i: Optional[int] = None) -> str:
             confondues.append(a)
         elif a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
-        else:
-            out += C.message(C.esc(a["message"]), grave=a["code"] in ("d_utile_negatif", "base_hors_predalle"))
+        elif a["code"] != "d_utile_negatif":      # (d ≤ 0 : la ligne de la face le dit, en rouge — PC.comparaison)
+            out += C.message(C.esc(a["message"]), grave=a["code"] == "base_hors_predalle")
     if confondues:
         s = r["sections"][i]
         faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
@@ -937,11 +885,13 @@ def avertissements(r: Dict, i: Optional[int] = None) -> str:
 
 _avertissements = avertissements
 
-# Ce que le module VÉRIFIE, et ce qu'il ne vérifie pas (l'écran Streamlit non plus) : dit sous chaque résultat et dans
-# chaque fenêtre de calcul, pour qu'un « conforme » ne se lise pas plus large qu'il n'est.
+# Ce que le module VÉRIFIE, et ce qu'il ne vérifie pas : en entier dans chaque fenêtre de calcul, pour qu'un
+# « conforme » ne se lise pas plus large qu'il n'est ; sous le résultat, la seule phrase « Non vérifiés » (NON_VERIFIES) —
+# ce qui est vérifié, les lignes du résultat le montrent déjà (le propriétaire, 13/11/2026).
+NON_VERIFIES = ("Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface "
+                "prédalle / béton coulé en place, la flèche et la fissuration.")
 PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, quatre nappes) "
-             "et τ ≤ τ<sub>adm,I</sub>. Non vérifiés, comme dans l'écran Streamlit : la phase provisoire (prédalle seule, "
-             "étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration.")
+             "et τ ≤ τ<sub>adm,I</sub>. " + NON_VERIFIES)
 
 
 def hypotheses(p: Dict, m: Dict) -> List[str]:
@@ -969,11 +919,10 @@ def resultat(etat: Dict) -> Dict:
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["predalles"])]
     nom = p.get("nom") or "Prédalle"
     hyps = _hypotheses(p, r["materiaux"])
-    opt = {} if p["verrou"] else _optimaux(p, r)
     gouv = gouvernante(r)
     blocs, volets = "", ""
     for i, s in enumerate(r["sections"]):
-        h, v = PC.bloc(_MOI, i, s, nom, hyps, gouv, opt, p["verrou"], pied_calcul=C.aide(PERIMETRE), pied=_avertissements(r, i))
+        h, v = PC.bloc(_MOI, i, s, nom, hyps, gouv, pied_calcul=C.aide(PERIMETRE), pied=_avertissements(r, i))
         blocs += h
         volets += v
     dims = f"{C.nb(p['b'])} × {C.nb(p['h'])} cm, prédalle {C.nb(p['h_pre'])} cm · {C.esc(p['beton'])} · B{p['fyk']}"
@@ -983,7 +932,7 @@ def resultat(etat: Dict) -> Dict:
     nivs = [PC.niveau_element(MO, _MOI, x) for x in resultats]
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}<div class="et-blocs">{blocs}</div>'
-                        f'{_avertissements(r)}{C.aide(PERIMETRE)}</div>{pied}',
+                        f'{_avertissements(r)}{C.aide(NON_VERIFIES)}</div>{pied}',
             "volets": volets, "vues": PC.vues(r["sections"], r["predalle"], DP, "pd", dims, LEGENDES), "phrase": "", "statut_html": statut,
             "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 

@@ -102,6 +102,10 @@ Relecture (`api_web/dalle.normaliser`) :
 - une note qui a les deux clés : refusée avec un message clair (abîmée), jamais remplacée par une note neuve.
 Le fichier Streamlit `dalle_ba.json` et celui des prédalles s'importent l'un et l'autre (les `fichier.py` des deux
 moteurs, inchangés) : le type est déduit du fichier.
+*Révision du 13/11/2026 (§ 8, demande du propriétaire)* : « Reprendre une note Streamlit » est RETIRÉE, avec son code
+d'import (`api_web/dalle.py`, `api_web/predalle.py`) — le bureau n'a aucune ancienne note à reprendre. Le chemin
+`fichier_streamlit` est refusé comme tout champ inconnu, la note intacte. Les lecteurs `beton/dalle/fichier.py` et
+`beton/predalle/fichier.py` restent (la note PDF et le moteur prédalle en lisent encore des fonctions).
 
 ### 2.2 Le sélecteur et les champs
 
@@ -637,3 +641,36 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   liste) ; là où le résultat ne se VOIT pas à l'ouverture — le téléphone s'ouvre sur l'onglet Données —, `js/etabli.js`
   dit le même texte dans le message de la page (`#et-alerte`, le composant des trois formats), qui reste jusqu'à ce qu'on
   le ferme. Au PC et à la tablette, le résultat se voit : l'avis n'y est pas répété.
+
+## 8. La révision de l'ergonomie (13/11/2026, demande du propriétaire)
+
+Le propriétaire a demandé une révision complète des deux types (dalle CSP, prédalle + dalle CSP) : moins de doublons,
+un encodage plus rapide, des coupes fidèles, des notes plus claires — sans toucher à la rigueur du calcul. Elle se fait
+par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce que chaque lot a changé, et pourquoi.
+
+### 8.1 DAL1 — Options et colonne des résultats
+
+- **« Reprendre une note Streamlit » retirée** (§ 2.1, révision) ; la rubrique « Options » dit la méthode en une ligne
+  (« Méthode du bureau · ELS · z = 0,9 d », la référence du moteur au survol), puis γ<sub>s</sub> et le jeu du premier
+  lit, chacun avec une infobulle courte. Ces deux réglages sont COMMUNS à toutes les dalles de la note
+  (`dalle.NOTE_ENTIERE`) : ils ne concernent pas une section, ils restent donc dans les options de la note (le
+  propriétaire demandait de les mettre « dans les options de section lorsqu'ils concernent une section particulière » —
+  ce n'est pas le cas).
+- **Le résultat NOMME la nappe de chaque face, il ne la propose plus** : ni bouton qui ouvre le sélecteur, ni étoile
+  (« plus petite nappe qui tient ») sur ses lignes (`plaque_compact.bloc`). Les armatures se modifient à UN endroit, la
+  rubrique « Armatures » ; son sélecteur garde la retenue ✓ et la plus petite qui tient ★. Le harnais (`plaques`) le
+  vérifie, et vérifie que le sélecteur s'ouvre depuis « Armatures » (le contrôle commun des modules, qui cherchait le
+  bouton dans le résultat, ne le trouve plus pour les dalles).
+- **Les messages redondants** : le paragraphe « Vérifié : … Non vérifiées … » sous le résultat devient la seule phrase
+  « Non vérifiées : la flèche et la fissuration. » (prédalle : « Non vérifiés : la phase provisoire …, le cisaillement à
+  l'interface …, la flèche et la fissuration. ») — ce qui EST vérifié, les lignes le montrent déjà ; le périmètre entier
+  reste au pied de chaque fenêtre de calcul (`dalle.non_verifies`, `texte_perimetre` : une source, la phrase courte est
+  la fin du périmètre). Le message « d utile ≤ 0 » sous le bloc répétait la ligne rouge : il est retiré, et c'est la
+  LIGNE de la face qui le dit, quel que soit son taux — au-delà de 100 %, elle disait « A_s,néc = 16 667 > A_s = 785 mm² »
+  et la raison n'était QUE dans ce message (`plaque_compact.comparaison`). Les autres avertissements (base hors de la
+  peau, nappes croisées trop proches) disent ce que les pourcentages ne disent pas : ils restent.
+- **Le menu « ⋯ » d'une section** : « Dupliquer la section » (était « Copier la section ») et « Supprimer la section ».
+  Pas de verrou par section (demande explicite).
+- Aucun chiffre ne change : références regelées (`tests/test_reference_refonte.py`, clé « regels » des photos dalle et
+  prédalle) pour les textes retirés et le cas limite renommé.
+

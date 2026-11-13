@@ -168,8 +168,12 @@ chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,
         C.NBSP, P._n(ref["sections"][0]["faces"]["inf_y"]["As"], "mm²")), cmp_[1])
 chk("un bloc par section, coloré par son état, titré par sa section : A et B conformes",
     BLOC.findall(r["resultat"]) == [("ok", "0", "Section A", "Conforme"), ("ok", "1", "Section B", "Conforme")], BLOC.findall(r["resultat"]))
-chk("chaque nappe ouvre le sélecteur de sa couche de base ; hauteur et tranchant n'en ont pas",
-    sorted(set(re.findall(r'data-pk="([^"]+)"', r["resultat"]))) == sorted(f"{f}-{i}" for i in range(2) for f in EN.FACES))
+# (13/11/2026 : « éviter de proposer à nouveau l'édition des armatures dans les résultats » — la nappe y est NOMMÉE, en
+#  texte ; son sélecteur s'ouvre depuis la rubrique « Armatures », un seul endroit pour modifier les armatures)
+chk("aucune ligne du résultat n'ouvre le sélecteur : la nappe y est nommée en texte ; chaque nappe de la rubrique « Armatures » l'ouvre",
+    "data-pk" not in r["resultat"] and 'class="prof"' not in r["resultat"].replace('<span class="prof">', "")
+    and sorted(set(re.findall(r'data-pk="([^"]+)"', r["donnees"]))) == sorted(f"{f}-{i}" for i in range(2) for f in EN.FACES),
+    (re.findall(r'data-pk="([^"]+)"', r["resultat"])[:4], sorted(set(re.findall(r'data-pk="([^"]+)"', r["donnees"])))))
 n_verifs = sum(len(s_["verifications"]) for s_ in ref["sections"])
 chk("chaque ligne ouvre SA fenêtre de calcul, l'en-tête d'un bloc celle de toute la section (comme la poutre)",
     set(re.findall(r'data-calcul="([^"]+)"', r["resultat"])) == {f"s{i}-{v['cle']}" for i, s_ in enumerate(ref["sections"]) for v in s_["verifications"]} | {"s0", "s1"}
@@ -337,9 +341,8 @@ chk(f"choisir « {opt['nom']} » remplace la couche de base ; le renfort posé �
 chk("… et le taux de la face devient celui que le sélecteur annonçait",
     MO.verifier(moteur_de(r9["etat"]))["sections"][0]["grandeurs"]["besoin_inf_y"] / MO.verifier(moteur_de(r9["etat"]))["sections"][0]["grandeurs"]["As_inf_y"]
     == opt["taux"])
-leger = re.findall(r'<span class="leger" title="([^"]+)">', r["resultat"])
-chk("l'étoile d'une ligne dit la plus petite nappe de base qui tient, quand ce n'est pas la retenue",
-    any(opt["nom"] in x for x in leger), leger[:2])
+chk("la plus petite nappe qui tient (★) se lit dans le sélecteur, et plus dans le résultat (aucune étoile sur ses lignes)",
+    'class="leger"' not in r["resultat"] and "la plus petite section qui tient" in s["html"], re.findall(r'class="leger"[^>]*>', r["resultat"])[:2])
 r10 = req(module="dalle", action="choisir", etat=etat, role="sup_x-1", nom="Ø12/150")
 chk("choisir « Ø12/150 » pose des barres Ø12 tous les 150 mm", {k: dalle_de(r10["etat"])["sections"][1]["faces"]["sup_x"]["couches"][0][k]
                                                                for k in ("type", "d", "esp")} == {"type": "barres", "d": 12, "esp": 150})
@@ -364,21 +367,14 @@ chk("une seconde dalle plus chargée devient le résumé de la note, nommée dan
     lourd["resume"]["taux"] == C.pct(MO.verifier(moteur_de(lourd["etat"]))["taux_max"]) and lourd["resume"]["gouvernant"].startswith("Dalle 2"),
     lourd["resume"])
 
-# ------------------------------------------------------------------ 8. le fichier de l'écran Streamlit
-V1 = {"dalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}]}],
-      "values": {"dal1_sec1_M_inf": 28.0, "dal1_sec1_M_sup_raw": "-12,0", "dal1_sec1_V": 55.0, "dal1_sec1_ncouches_inf": 2,
-                 "dal1_sec1_arm_type_inf_c2": "Barres", "dal1_sec1_ø_barres_inf_c2": 12, "gamma_s": 1.5}}
+# ------------------------------------------------------------------ 8. « Reprendre une note Streamlit » : retirée
+# (le propriétaire, 13/11/2026 : « supprimer définitivement » — le bureau n'a aucune ancienne note à reprendre ; le code
+#  d'import est retiré avec l'option : le chemin n'existe plus, il est refusé comme tout champ inconnu, la note intacte)
+V1 = {"dalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}]}], "values": {"dal1_sec1_M_inf": 28.0}}
 f = req(module="dalle", action="modifier", etat=etat, chemin=["fichier_streamlit"], valeur={"nom": "dalle_ba.json", "texte": json.dumps(V1)})
-d_f = dalle_de(f["etat"])
-chk("un fichier v1 de l'écran Streamlit remplace les dalles de la note (migration : M_inf → Mx,inf, couches → direction X)",
-    len(f["etat"]["dalles"]) == 1 and d_f["nom"] == "Plancher" and d_f["sections"][0]["Mx_inf"] == 28.0
-    and len(d_f["sections"][0]["faces"]["inf_x"]["couches"]) == 2, d_f["sections"][0]["Mx_inf"])
-chk("… et ce que l'écran y remplaçait en silence est dit (M_sup « -12,0 » lu 0)", "lu 0" in (f["message"] or ""), f["message"])
-f2 = req(module="dalle", action="modifier", etat=etat, chemin=["fichier_streamlit"], valeur={"nom": "x.json", "texte": "{pas du json"})
-chk("un fichier illisible est refusé avec un message, la note reste", "JSON" in (f2["message"] or "") and f2["etat"] == etat, f2.get("message"))
-f3 = req(module="dalle", action="modifier", etat=etat, chemin=["fichier_streamlit"],
-         valeur={"nom": "x.json", "texte": json.dumps({"values": {"dal1_b": 800}})})
-chk("un fichier hors des bornes de l'écran (b = 800 cm) est refusé avec un message", "refusé" in (f3["message"] or "") and f3["etat"] == etat)
+chk("« Reprendre une note Streamlit » n'existe plus : ni dans les options, ni comme chemin (refusé, « champ inconnu », la note intacte)",
+    "fichier_streamlit" not in r["donnees"] and "Streamlit" not in r["donnees"].split('data-sec="op"')[-1]
+    and f["message"] == "champ inconnu : fichier_streamlit" and f["etat"] == etat, (f.get("message"), f["etat"] == etat))
 
 # ------------------------------------------------------------------ 9. l'échappement
 PIEGE = '<img src=x onerror=alert(1)>'
@@ -641,15 +637,35 @@ chk("… et « ↺ » (la valeur vidée) rend l'axe automatique : la clé du mot
     and re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), raz_["donnees"]) is None)
 
 # ce que le calcul NE vérifie PAS (petits chantiers, 10/11/2026) : la dalle CSP le dit comme la prédalle — le même composant
-# (C.aide) aux mêmes places : sous le résultat, et au pied de la fenêtre de calcul de chaque vérification
+# (C.aide) aux mêmes places. Sous le résultat, la seule phrase « Non vérifié(e)s » (13/11/2026 : ce qui EST vérifié, les
+# lignes le montrent déjà — le paragraphe entier était un message redondant) ; en entier au pied de chaque fenêtre de calcul.
 _vp = saisir(saisir(P.nouvel_etat(), "sections/0/My_inf", "28")["etat"], "type", "predalle")
 _vc = saisir(P.nouvel_etat(), "sections/0/My_inf", "28")
+_court_c, _court_p = C.aide(P.non_verifies(_vc["etat"]["dalles"][0])), C.aide(P.non_verifies(_vp["etat"]["dalles"][0]))
 _aide_c, _aide_p = C.aide(P.PERIMETRE_CSP), C.aide(P.texte_perimetre(_vp["etat"]["dalles"][0]))
-chk("la dalle CSP dit ce qui n'est PAS vérifié (la flèche, la fissuration), comme la prédalle : le même composant à la même place — sous le "
-    "résultat (après les avertissements, avant le pied) et au pied de chaque fenêtre de calcul",
-    "la flèche et la fissuration" in P.PERIMETRE_CSP and _aide_c in _vc["resultat"] and _aide_p in _vp["resultat"]
-    and _vc["resultat"].index(_aide_c) > _vc["resultat"].index('<div class="et-blocs">') and _vc["resultat"].index(_aide_c) < _vc["resultat"].index('<div class="pfoot">')
+chk("la dalle CSP dit ce qui n'est PAS vérifié (la flèche, la fissuration), comme la prédalle : une phrase sous le résultat (après les "
+    "avertissements, avant le pied), le périmètre entier au pied de chaque fenêtre de calcul ; ni « Vérifié : » sous le résultat, ni « Streamlit »",
+    _court_c == C.aide("Non vérifiées : la flèche et la fissuration.") and P.PERIMETRE_CSP.endswith(P.NON_VERIFIEES_CSP)
+    and _court_c in _vc["resultat"] and _court_p in _vp["resultat"] and "Non vérifiés : la phase provisoire" in _court_p
+    and _vc["resultat"].index(_court_c) > _vc["resultat"].index('<div class="et-blocs">') and _vc["resultat"].index(_court_c) < _vc["resultat"].index('<div class="pfoot">')
+    and "Vérifié :" not in _vc["resultat"] and "Vérifié :" not in _vp["resultat"]
+    and "Streamlit" not in _vc["resultat"] + _vp["resultat"] + _vc["volets"] + _vp["volets"]
     and _vc["volets"].count(_aide_c) >= 1 and _vp["volets"].count(_aide_p) >= 1, (_vc["volets"].count(_aide_c), _vp["volets"].count(_aide_p)))
+
+# d utile ≤ 0 (13/11/2026) : la LIGNE de la face le dit, quel que soit son taux — et plus un message sous le bloc, qui
+# répétait ce que le rouge disait déjà ; au-delà de 100 %, la ligne disait « A_s,néc = 16 667 > A_s = 785 mm² » et la
+# raison n'était que dans ce message
+_dn = saisir(P.nouvel_etat(), "h", "8")["etat"]
+for _ch, _v in (("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "5"), ("sections/0/faces/inf_y/couches/0/dist", "7.5")):
+    _dn = saisir(_dn, _ch, _v)["etat"]
+_rdn = req(module="dalle", action="calculer", etat=_dn)
+_vdn = next(v for v in MO.verifier(moteur_de(_dn))["sections"][0]["verifications"] if v["cle"] == "inf_x")
+_cdn = dict((n, c_) for _, n, c_ in CMP.findall(_rdn["resultat"]))
+chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤ 0 · position des couches incompatible avec l'épaisseur », en rouge ; "
+    "aucun message ne le répète sous le bloc",
+    "d_utile_negatif" in _vdn["motifs"] and _vdn["taux"] > 1 and "≤ 0 · position des couches incompatible" in _cdn.get("Inférieure X", "")
+    and _rdn["resultat"].count("incompatible avec l'épaisseur") == 1 and 'class="msg' not in _rdn["resultat"],
+    (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("incompatible avec l'épaisseur")))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

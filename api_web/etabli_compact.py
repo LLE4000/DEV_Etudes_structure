@@ -220,11 +220,14 @@ def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, p
 
 
 # ------------------------------------------------------------------ à gauche : les sections et la section courante
-def carte_section(i: int, nom: str, copier: Sequence, supprimer: Sequence, seule: bool, corps: str) -> str:
+def carte_section(i: int, nom: str, copier: Sequence, supprimer: Sequence, seule: bool, corps: str, *,
+                  copier_txt: str = "Copier la section") -> str:
     """La carte d'une section (rubrique « Sections et sollicitations ») : le bouton qui la rend COURANTE (dessin et
     résultats), son nom, son menu « ⋯ » (copier, supprimer — jamais la dernière), puis ses efforts (``corps``, HTML du
-    module). ``copier``, ``supprimer`` : les chemins que le module lit (« sections/0/dup », « sections/0/- »…)."""
-    actions = (action(f'data-chemin="{C._attr_chemin(copier)}" data-valeur="1"', "copy", "Copier la section")
+    module). ``copier``, ``supprimer`` : les chemins que le module lit (« sections/0/dup », « sections/0/- »…) ;
+    ``copier_txt`` : le libellé de la copie (les dalles : « Dupliquer la section », 13/11/2026) — sans lui, la sortie
+    est la même, à l'octet près."""
+    actions = (action(f'data-chemin="{C._attr_chemin(copier)}" data-valeur="1"', "copy", copier_txt)
                + action(f'data-chemin="{C._attr_chemin(supprimer)}" data-valeur="1"', "trash-2", "Supprimer la section", True, not seule))
     return (f'<div class="et-sec et-piece" data-cible="s{i}.efforts" data-section="{i}">'
             f'<div class="et-sec-h"><button type="button" class="et-sec-pick" data-section-courante="{i}" '

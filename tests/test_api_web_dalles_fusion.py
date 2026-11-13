@@ -12,10 +12,11 @@ vérifié en Python ordinaire à travers le routeur (les mêmes requêtes JSON q
 - le MOTEUR est choisi selon le type (beton/dalle ou beton/predalle, inchangés) : les lignes du résultat sont celles de
   l'appel direct du moteur du type sur la copie que le site lui envoie (dalle_positions.pour_moteur) ; l'en-tête, le
   pied, les hypothèses, le périmètre, les avertissements et les dessins sont ceux du type ;
-- l'import des DEUX fichiers Streamlit (dalle_ba.json, predalle_ba.json : le type déduit du fichier) ;
+- « Reprendre une note Streamlit » n'existe plus (retirée le 13/11/2026, le code d'import avec elle) : le chemin est
+  refusé pour les deux types, la note intacte ;
 - les nappes TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026) : plus d'option (ni case, ni
   chemin « empilement »), une note neuve, une note d'avant (clé absente, fausse, vraie, illisible : relue sans effet), une
-  note de l'ancien module Prédalles, un fichier Streamlit — tous empilés ; une note d'avant dont les chiffres changent le
+  note de l'ancien module Prédalles — tous empilés ; une note d'avant dont les chiffres changent le
   dit UNE fois, à l'ouverture (un avis, pas une erreur), et seulement elle (S5 compris : une note cochée dont la base
   secondaire repose désormais sur un renfort principal plus haut que sa base) ;
 - l'ampoule (sélecteur de nappe de base) garde une nappe de treillis unique cohérente (la transposée sur l'autre face) ;
@@ -335,45 +336,22 @@ chk("une prédalle verrouillée : la rubrique « Caractéristiques » en lecture
     and 'data-chemin="nom"' not in rv["donnees"] + rv["resultat"] and '<div class="et-rp"><b>Prédalle 1</b>' in rv["resultat"]
     and "verrouillée" in req(action="modifier", etat=rv["etat"], chemin=["h_pre"], valeur="8")["message"])
 
-# ------------------------------------------------------------------ 6. l'import des deux fichiers Streamlit
-print("\n=== 6. La reprise des deux fichiers Streamlit ===")
-V1 = {"dalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}]}],
-      "values": {"dal1_sec1_M_inf": 28.0, "dal1_sec1_M_sup_raw": "-12,0", "dal1_sec1_V": 55.0, "gamma_s": 1.5}}
-FP = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Plancher P", "sections": [{"id": 1, "nom": "A"}, {"id": 2, "nom": "Appui"}]}],
-      "values": {"pre1_h": 20, "pre1_h_pre": 5.0, "pre1_sec1_My_inf": 35.0, "pre1_sec1_Mx_inf_raw": "-12,0", "pre1_sec2_My_sup": 18.0,
-                 "pre1_sec1_ncouches_inf_y": 2, "pre1_sec1_arm_type_inf_y_c2": "n barres", "gamma_s": 1.5}}
-fd = saisir(copy.deepcopy(NP1), "fichier_streamlit", {"nom": "dalle_ba.json", "texte": json.dumps(V1)})
-dd_ = actif(fd["etat"])
-chk("dalle_ba.json (écran Dalle) ouvert dans une note de prédalles : la note devient UNE dalle COULÉE (le type vient du fichier), "
-    "« Plancher », Mx,inf 28, ses nappes posées l'une sur l'autre (inf. X à 4,5 cm, l'écran Streamlit disait 3,5) et l'avis « Fichier "
-    "Streamlit » en tête du résultat ; ce que l'écran remplaçait en silence est dit (M_sup « -12,0 » lu 0)",
-    len(fd["etat"]["dalles"]) == 1 and dd_["type"] == "coulee" and "h_pre" not in dd_ and dd_["nom"] == "Plancher"
-    and dd_["sections"][0]["Mx_inf"] == 28.0 and "empilement" not in dd_ and axe_inf_x(dd_) == 4.5 and avis(fd) == P.AVIS["streamlit"]
-    and P.CLE_AVIS not in fd["etat"] and "lu 0" in (fd["message"] or "") and "1 dalle(s)" in fd["message"],
-    (fd["message"], avis(fd)))
-fp = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "predalle_ba.json", "texte": json.dumps(FP)})
-pp = actif(fp["etat"])
-chk("predalle_ba.json (écran Prédalle) ouvert dans une note neuve : UNE PRÉDALLE, peau 5 cm, ses deux sections et son renfort, "
-    "ses nappes supérieures posées l'une sur l'autre (l'avis le dit) ; le moment négatif lu 0 est dit",
-    pp["type"] == "predalle" and pp["h_pre"] == 5.0 and pp["nom"] == "Plancher P" and [s["nom"] for s in pp["sections"]] == ["A", "Appui"]
-    and len(pp["sections"][0]["faces"]["inf_y"]["couches"]) == 2 and pp["sections"][0]["My_inf"] == 35.0 and "empilement" not in pp
-    and axe_inf_x(pp) == 4.5 and avis(fp) == P.AVIS["streamlit"]
-    and "lu 0" in (fp["message"] or "") and "1 prédalle(s)" in fp["message"], fp["message"])
-chk("… et le calcul qui suit est celui du moteur prédalle sur la copie que le site lui envoie (le fichier comme beton.predalle.fichier.lire "
-    "le lit, les nappes supérieures empilées)",
-    lignes(fp) == lignes_moteur(MO_P.verifier(POS.pour_moteur(pp)), AP))
-f_peau = copy.deepcopy(FP)
-f_peau["values"].update({"pre1_h": 8, "pre1_h_pre": 12.0})
-o = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "p.json", "texte": json.dumps(f_peau)})
-chk("une peau de 12 cm sur 8 cm dans le fichier : reprise à 7 cm comme l'écran, et c'est dit", actif(o["etat"])["h_pre"] == 7.0 and "ramenée à 7 cm" in o["message"])
-f_abs = copy.deepcopy(FP)
-f_abs["values"]["pre1_sec1_My_inf"] = 1e300
-o1 = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "absurde.json", "texte": json.dumps(f_abs)})
-o2 = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "x.json", "texte": "{pas du json"})
-o3 = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "x.json", "texte": json.dumps({"values": {"dal1_b": 800}})})
-chk("un fichier aux valeurs absurdes, un fichier qui n'est pas du JSON, un fichier hors des bornes de l'écran : refusés, la note intacte",
-    all(o_["message"] and o_["etat"] == e0 for o_ in (o1, o2, o3)) and "refusé" in o1["message"] and "JSON" in o2["message"] and "refusé" in o3["message"],
-    [o_.get("message") for o_ in (o1, o2, o3)])
+# ------------------------------------------------------------------ 6. « Reprendre une note Streamlit » : retirée
+# (le propriétaire, 13/11/2026 : « supprimer définitivement » — le bureau n'a aucune ancienne note à reprendre ; le code
+#  d'import des deux fichiers est retiré avec l'option : le chemin est refusé comme tout champ inconnu, pour les deux types)
+print("\n=== 6. « Reprendre une note Streamlit » : retirée ===")
+V1 = {"dalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}]}], "values": {"dal1_sec1_M_inf": 28.0}}
+FP = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Plancher P", "sections": [{"id": 1, "nom": "A"}]}],
+      "values": {"pre1_h": 20, "pre1_h_pre": 5.0, "pre1_sec1_My_inf": 35.0}}
+_ep = saisir(copy.deepcopy(e0), "type", "predalle")
+fd = req(action="modifier", etat=copy.deepcopy(e0), chemin=["fichier_streamlit"], valeur={"nom": "dalle_ba.json", "texte": json.dumps(V1)})
+fp = req(action="modifier", etat=copy.deepcopy(_ep["etat"]), chemin=["fichier_streamlit"],
+         valeur={"nom": "predalle_ba.json", "texte": json.dumps(FP)})
+chk("le chemin « fichier_streamlit » est refusé (« champ inconnu »), la note intacte, dans une dalle coulée comme dans une prédalle ; "
+    "l'option n'est plus dans les options ; le module n'a plus d'avis « Fichier Streamlit »",
+    fd["message"] == fp["message"] == "champ inconnu : fichier_streamlit" and fd["etat"] == e0 and fp["etat"] == _ep["etat"]
+    and all("fichier_streamlit" not in x and "Streamlit" not in x.split('data-sec="op"')[-1] for x in (r0["donnees"], _ep["donnees"]))
+    and "streamlit" not in P.AVIS and not hasattr(P, "FI") and not hasattr(P, "FI_P"), (fd["message"], fp["message"], sorted(P.AVIS)))
 
 # ------------------------------------------------------------------ 7. les nappes toujours posées l'une sur l'autre
 print("\n=== 7. Les nappes TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026) ; l'avis d'ouverture ===")
@@ -385,11 +363,10 @@ chk("plus d'option : le chemin « empilement » est un champ inconnu (refusé, l
     and all("empilement" not in d for d in o["etat"]["dalles"])
     and 'data-chemin="empilement"' not in o["donnees"] + saisir(e0, "type", "predalle")["donnees"], o.get("message"))
 FORMES = {"note neuve": actif(e0), "note d'avant sans la clé": da, "note d'avant, clé fausse": actif(tolerees[1]["etat"]),
-          "note d'avant, clé « oui »": actif(tolerees[2]["etat"]), "dalle_ba.json": dd_,
-          "prédalles d'avant (sup. X)": actif(rp["etat"], 0), "fichier Prédalle (sup. X)": pp}
-chk("toutes les formes de note sont empilées — note neuve, note d'avant (clé absente, fausse, illisible), fichier Streamlit : la base inf. X "
-    "reçue par le moteur à 4,5 cm (posée sur la base Y), jamais à l'automatique du moteur (3,5) ; prédalles d'avant et fichier Prédalle : la "
-    "base sup. X à 4,5 (depuis le dessus)",
+          "note d'avant, clé « oui »": actif(tolerees[2]["etat"]), "prédalles d'avant (sup. X)": actif(rp["etat"], 0)}
+chk("toutes les formes de note sont empilées — note neuve, note d'avant (clé absente, fausse, illisible) : la base inf. X reçue par le "
+    "moteur à 4,5 cm (posée sur la base Y), jamais à l'automatique du moteur (3,5) ; prédalles d'avant : la base sup. X à 4,5 (depuis le "
+    "dessus)",
     all(axe_inf_x(d_) == 4.5 for d_ in FORMES.values()), {k: axe_inf_x(d_) for k, d_ in FORMES.items()})
 r_on = MO.verifier(POS.pour_moteur(d0))
 r_brut = MO.verifier(sans_site(d0))
@@ -621,8 +598,6 @@ def _type_sans_peau(d, valeur):
 
 
 muter("la bascule vers la prédalle n'ajoute pas h_pre bornée à h_pre_max(h)", P, "_changer_type", _type_sans_peau, ctl_bascule)
-muter("le type du fichier Streamlit n'est plus déduit (le lecteur des dalles lit tout)", P, "FI_P", P.FI,
-      lambda: actif(saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "p.json", "texte": json.dumps(FP)})["etat"]).get("h_pre") == 5.0)
 muter("une case lit n'importe quel texte comme cochée", P, "_lire_bool", lambda v: bool(v),
       lambda: "coché ou décoché" in (req(action="modifier", etat=e0, chemin=["verrou"], valeur="peut-être")["message"] or ""))
 # l'OPTION qui revient (décision du 09/11/2026 : les nappes toujours empilées)
@@ -692,11 +667,6 @@ r_long2 = req(action="calculer", etat=r_long["etat"])
 chk("… UNE fois : la note rouverte telle qu'enregistrée ne le redit pas", "avis" not in r_long2 and "coupé à" not in r_long2["resultat"], r_long2.get("avis"))
 chk("la SAISIE garde son refus clair : un nom de 61 caractères est refusé, la dalle inchangée",
     "60 caractères au plus (61 saisis)" in (req(action="modifier", etat=r_long["etat"], chemin=["nom"], valeur="N" * 61)["message"] or ""))
-_fd_long = {"dalles": [{"id": 1, "nom": "D" * 70, "sections": [{"id": 1, "nom": "A"}]}], "values": {"dal1_sec1_M_inf": 28.0}}
-r_fl = req(action="modifier", etat=copy.deepcopy(e0), chemin=["fichier_streamlit"], valeur={"nom": "long.json", "texte": json.dumps(_fd_long)})
-chk("un fichier Streamlit dont la dalle a un nom de 70 caractères est repris (nom coupé, l'avis le dit) au lieu d'être refusé",
-    r_fl.get("ok") and actif(r_fl["etat"])["nom"] == "D" * AP.NOM_MAX and any("(70 caractères)" in a for a in r_fl.get("avis") or [])
-    and "refusé" not in (r_fl.get("message") or ""), (r_fl.get("message"), r_fl.get("avis")))
 from api_web import note_dalle as ND  # noqa: E402
 _vu = {}
 _fichier = ND.fichier

@@ -18,6 +18,11 @@
    "date": "2026-11-09",
    "raison": "Décision de l'ingénieur du 09/11/2026 : nappes toujours empilées (anciennes notes comprises), renfort de la direction secondaire posé sur sa nappe (S3)",
    "ecarts": ["note neuve : etat changé", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : etat changé", "chargée près de 100 % (M_y = 38,5 kN·m/m) : etat changé", "barres Ø12/150 en nappe inférieure Y : etat changé", "moment négatif refusé (PARCOURS) : etat changé", "espacement de 600 mm refusé : etat changé", "distance vidée : automatique : etat changé", "section ajoutée, dalle ajoutée : etat changé", "fichier Streamlit illisible refusé : etat changé"]
+  },
+  {
+   "date": "2026-11-13",
+   "raison": "13/11/2026 (DAL1, demande du propriétaire) : « Reprendre une note Streamlit » retirée avec son code d'import (le chemin fichier_streamlit est refusé, le cas limite renommé) ; sous le résultat, la seule phrase « Non vérifié(e)s » au lieu du périmètre entier (gardé dans les fenêtres de calcul, sans « comme dans l'écran Streamlit ») ; aucun chiffre ne change",
+   "ecarts": ["fichier Streamlit illisible refusé : cas retiré"]
   }
  ],
  "cas": [
@@ -54,7 +59,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -73,7 +78,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "4,5", "=", "4,5 cm"],
      ["η = h min / h =", "4,5", "/", "20", "=", "23 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -95,7 +100,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -117,7 +122,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -139,7 +144,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -161,7 +166,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -225,7 +230,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -274,7 +279,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -525,7 +530,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -547,7 +552,7 @@
      ["Le détail du calcul Vérification de la hauteur · la famille inf. Y gouverne (la plus exigeante) h u,min = √(M·10⁶ / (α b ·b·μ)) /", "10", "=", "√(30", "×", "10⁶", "/", "(12,96", "×", "1000", "×", "0,1709))", "/", "10", "=", "11,6 cm"],
      ["h min = h u,min + y G =", "11,6", "+", "3,5", "=", "15,1 cm"],
      ["η = h min / h =", "15,1", "/", "22", "=", "69 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -572,7 +577,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(541 ;", "331)", "=", "541 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "541", "/", "785", "=", "69 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -597,7 +602,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(286 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -622,7 +627,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -647,7 +652,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · effort tranchant M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -666,7 +671,7 @@
      ["Le détail du calcul Vérification de l'effort tranchant τ = V·10³ / (0,75·b·h) =", "60", "×", "10³", "/", "(0,75", "×", "1000", "×", "220)", "=", "0,36 N/mm²"],
      ["τ adm,I = 0,016·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,56 N/mm²"],
      ["η = τ / τ adm,I =", "0,36", "/", "0,56", "=", "64 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -739,7 +744,7 @@
      ["Vérification de l'effort tranchant τ = V·10³ / (0,75·b·h) =", "60", "×", "10³", "/", "(0,75", "×", "1000", "×", "220)", "=", "0,36 N/mm²"],
      ["τ adm,I = 0,016·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,56 N/mm²"],
      ["η = τ / τ adm,I =", "0,36", "/", "0,56", "=", "64 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -788,7 +793,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -843,7 +848,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -863,7 +868,7 @@
      ["Le détail du calcul Vérification de la hauteur · la famille inf. Y gouverne (la plus exigeante) h u,min = √(M·10⁶ / (α b ·b·μ)) /", "10", "=", "√(38,5", "×", "10⁶", "/", "(12,96", "×", "1000", "×", "0,1709))", "/", "10", "=", "13,2 cm"],
      ["h min = h u,min + y G =", "13,2", "+", "3,5", "=", "16,7 cm"],
      ["η = h min / h =", "16,7", "/", "20", "=", "83 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y M y,inf =", "38,5 kN·m", "·"],
      ["méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
@@ -886,7 +891,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(778 ;", "301)", "=", "778 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "778", "/", "785", "=", "99 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X M y,inf =", "38,5 kN·m", "·"],
      ["méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
@@ -909,7 +914,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y M y,inf =", "38,5 kN·m", "·"],
      ["méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
@@ -932,7 +937,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X M y,inf =", "38,5 kN·m", "·"],
      ["méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
@@ -955,7 +960,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A M y,inf =", "38,5 kN·m", "·"],
      ["méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
@@ -1020,7 +1025,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -1069,7 +1074,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1127,7 +1132,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1149,7 +1154,7 @@
      ["Le détail du calcul Vérification de la hauteur · la famille inf. Y gouverne (la plus exigeante) h u,min = √(M·10⁶ / (α b ·b·μ)) /", "10", "=", "√(30", "×", "10⁶", "/", "(12,96", "×", "1000", "×", "0,1709))", "/", "10", "=", "11,6 cm"],
      ["h min = h u,min + y G =", "11,6", "+", "4", "=", "15,6 cm"],
      ["η = h min / h =", "15,6", "/", "22", "=", "71 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1174,7 +1179,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(556 ;", "331)", "=", "556 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "556", "/", "754", "=", "74 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1199,7 +1204,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(303 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1224,7 +1229,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1249,7 +1254,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "331)", "=", "331 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "220", "=", "8 800 mm²"],
      ["η = A s,nécessaire / A s =", "331", "/", "785", "=", "42 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · effort tranchant M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1268,7 +1273,7 @@
      ["Le détail du calcul Vérification de l'effort tranchant τ = V·10³ / (0,75·b·h) =", "60", "×", "10³", "/", "(0,75", "×", "1000", "×", "220)", "=", "0,36 N/mm²"],
      ["τ adm,I = 0,016·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,56 N/mm²"],
      ["η = τ / τ adm,I =", "0,36", "/", "0,56", "=", "64 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1341,7 +1346,7 @@
      ["Vérification de l'effort tranchant τ = V·10³ / (0,75·b·h) =", "60", "×", "10³", "/", "(0,75", "×", "1000", "×", "220)", "=", "0,36 N/mm²"],
      ["τ adm,I = 0,016·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,56 N/mm²"],
      ["η = τ / τ adm,I =", "0,36", "/", "0,56", "=", "64 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -1394,7 +1399,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1449,7 +1454,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1468,7 +1473,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "4,5", "=", "4,5 cm"],
      ["η = h min / h =", "4,5", "/", "20", "=", "23 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1490,7 +1495,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1512,7 +1517,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1534,7 +1539,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1556,7 +1561,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1620,7 +1625,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -1669,7 +1674,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1724,7 +1729,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1743,7 +1748,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "5", "=", "5,0 cm"],
      ["η = h min / h =", "5,0", "/", "20", "=", "25 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1765,7 +1770,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1787,7 +1792,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "754", "=", "40 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1809,7 +1814,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1831,7 +1836,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -1895,7 +1900,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -1948,7 +1953,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2003,7 +2008,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -2022,7 +2027,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "4,5", "=", "4,5 cm"],
      ["η = h min / h =", "4,5", "/", "20", "=", "23 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2044,7 +2049,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2066,7 +2071,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2088,7 +2093,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2110,7 +2115,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2174,7 +2179,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -2223,7 +2228,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2278,7 +2283,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "2", "·"],
@@ -2297,7 +2302,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "4,5", "=", "4,5 cm"],
      ["η = h min / h =", "4,5", "/", "20", "=", "23 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "2", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "2", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2319,7 +2324,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "2", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "2", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2341,7 +2346,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "2", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "2", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2363,7 +2368,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "2", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "2", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2385,7 +2390,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "2", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "2", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2449,7 +2454,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -2498,7 +2503,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2552,7 +2557,7 @@
        ["Supérieure X 10/10/100/100", "38 %"],
        ["A s,néc =", "301", "≤"],
        ["A s =", "785 mm²"],
-       ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
       ]
      },
      {
@@ -2574,21 +2579,21 @@
        ["Supérieure X 10/10/100/100", "38 %"],
        ["A s,néc =", "301", "≤"],
        ["A s =", "785 mm²"],
-       ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
       ]
      }
     ]
    }
   },
   {
-   "nom": "fichier Streamlit illisible refusé",
+   "nom": "reprise Streamlit retirée : chemin refusé",
    "sorte": "limite",
    "attendu": {
     "message": true
    },
    "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["fichier_streamlit"], "valeur": {"nom": "abime.json", "texte": "{pas du json"}}],
    "photo": {
-    "messages": [null, "« abime.json » n'est pas un fichier JSON lisible"],
+    "messages": [null, "champ inconnu : fichier_streamlit"],
     "resume": {
      "taux": null,
      "niveau": "n",
@@ -2615,7 +2620,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -2634,7 +2639,7 @@
      ["Le détail du calcul Vérification de la hauteur h u,min = aucun moment appliqué =", "0,0 cm"],
      ["h min = h u,min + y G =", "0,0", "+", "4,5", "=", "4,5 cm"],
      ["η = h min / h =", "4,5", "/", "20", "=", "23 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2656,7 +2661,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · inférieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2678,7 +2683,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure Y aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2700,7 +2705,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A · supérieure X aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2722,7 +2727,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration. Dalle", "1", "·"],
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration. Dalle", "1", "·"],
      ["Section A aucun moment · méthode du bureau Béton C30/37 · f ck =", "30", "·"],
      ["f ck,cube =", "37 N/mm²"],
      ["f ctm = 0,30·f ck 2/3 =", "2,90 N/mm²"],
@@ -2786,7 +2791,7 @@
      ["A s,nécessaire = max(A s,req ; A s,min ) = max(0 ;", "301)", "=", "301 mm²"],
      ["A s,max = 0,04·b·h =", "0,04", "×", "1000", "×", "200", "=", "8 000 mm²"],
      ["η = A s,nécessaire / A s =", "301", "/", "785", "=", "38 %"],
-     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et la fissuration."]
+     ["Vérifié : la section en flexion (hauteur, quatre nappes : A s,req , minimum et maximum) et τ ≤ τ adm,I (une dalle sans étriers). Non vérifiées : la flèche et la fissuration."]
     ],
     "avis": [],
     "champs": {
@@ -2835,7 +2840,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:fichier_streamlit", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",

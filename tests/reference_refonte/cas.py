@@ -102,7 +102,8 @@ cas("dalle", "espacement de 600 mm refusé", LIM, [neuf(), mod("sections/0/faces
 cas("dalle", "distance vidée : automatique", LIM, [neuf(), mod("sections/0/faces/sup_x/couches/0/dist", "")], {"sans_message": True})
 cas("dalle", "section ajoutée, dalle ajoutée", LIM, [neuf(), mod("sections/+", None), mod("sections/1/My_inf", "30"), act("ajouter")],
     {"elements": 2})
-cas("dalle", "fichier Streamlit illisible refusé", LIM, [neuf(), mod("fichier_streamlit", {"nom": "abime.json", "texte": "{pas du json"})],
+# (« Reprendre une note Streamlit » retirée le 13/11/2026 : le chemin d'hier est refusé comme tout champ inconnu)
+cas("dalle", "reprise Streamlit retirée : chemin refusé", LIM, [neuf(), mod("fichier_streamlit", {"nom": "abime.json", "texte": "{pas du json"})],
     {"message": True})
 
 # ====================================================================== prédalle

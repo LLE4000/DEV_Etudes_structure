@@ -56,7 +56,7 @@ def cartes(sections: Sequence[Dict]) -> str:
                  f'<span class="d">X</span>{C.num(ch + ["Mx_inf"], s["Mx_inf"], "kN·m")}{C.num(ch + ["Mx_sup"], s["Mx_sup"], "kN·m")}'
                  f'<span class="d">Y</span>{C.num(ch + ["My_inf"], s["My_inf"], "kN·m")}{C.num(ch + ["My_sup"], s["My_sup"], "kN·m")}'
                  f'<span class="d">V</span>{C.num(ch + ["V"], s["V"], "kN")}<span class="vh">effort tranchant</span></div>')
-        out += E.carte_section(i, s["nom"], ch + ["copie"], ch + ["-"], seule, corps)
+        out += E.carte_section(i, s["nom"], ch + ["copie"], ch + ["-"], seule, corps, copier_txt="Dupliquer la section")
     return (f'<div class="et-secs">{out}</div>'
             + E.pied_sections("M_x : moments portés par les barres X, M_y par les barres Y, sur la bande de largeur b ; inf. tend "
                               "le bas (travée), sup. tend le haut (appui). Valeurs de service, en positif.",
@@ -223,8 +223,11 @@ def niveau_element(MO, M, r: Dict) -> str:
 
 def comparaison(M, v: Dict, s: Dict) -> str:
     """La ligne 2 d'une vérification : la valeur et sa limite, NOMMÉES (« A_s,néc = 707 ≤ A_s = 785 mm² ») ; une
-    vérification non conforme sous 100 % (acier excessif, d utile ≤ 0) dit ce qui la rend non conforme (M._verdict)."""
-    if M._sous_limite_non_conforme(v) or v["cle"] not in M.EN.FACES:
+    vérification non conforme sous 100 % (acier excessif) dit ce qui la rend non conforme (M._verdict) ; une face dont
+    le d utile est ≤ 0 le dit, QUEL QUE SOIT son taux (« d = −0,5 cm ≤ 0 · position des couches incompatible avec
+    l'épaisseur ») — c'est la ligne qui le dit, plus un message sous le bloc (13/11/2026 : au-delà de 100 %, la ligne
+    disait « A_s,néc = 16 667 > A_s = 785 mm² » et la raison n'était que dans ce message)."""
+    if M._sous_limite_non_conforme(v) or v["cle"] not in M.EN.FACES or "d_utile_negatif" in v["motifs"]:
         return M._verdict(v, s)
     le = "≤" if v["taux"] <= 1 else "&gt;"
     motif = f" · {M._motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
@@ -243,13 +246,18 @@ def piece_courte(v: Dict, s: Dict) -> str:
     return C.esc(f"{cs[0]['valeur']} + {len(cs) - 1} renforts")
 
 
-def bloc(M, i: int, s: Dict, nom_element: str, hyps: List[str], gov: Optional[Tuple[int, Dict]], opt: Dict, verrou: bool,
+def bloc(M, i: int, s: Dict, nom_element: str, hyps: List[str], gov: Optional[Tuple[int, Dict]],
          pied_calcul: str = "", pied: str = "") -> Tuple[str, str]:
     """Le bloc d'UNE section (api_web/etabli_compact.bloc) : l'en-tête (son titre, son état, coloré), les efforts, les
     vérifications (deux lignes ; un clic ouvre le détail de la vérification, le bouton de l'en-tête tout le calcul de
     la section), puis ``pied`` (les avertissements de la section). ``M`` : le module (api_web.dalle, api_web.predalle)
-    dont on lit les formules mises en mots ; ``gov`` : (section, vérification) qui gouverne la note, marquée ;
-    ``opt`` : la plus petite nappe de base qui tient, par (section, face) — l'étoile. Rend (html, volets)."""
+    dont on lit les formules mises en mots ; ``gov`` : (section, vérification) qui gouverne la note, marquée. Rend
+    (html, volets).
+
+    La nappe d'une face y est NOMMÉE (« 10/10/100/100 »), en texte : elle ne s'y choisit plus. Le résultat dit ce qui
+    tient ; les armatures se modifient à UN endroit, la rubrique « Armatures » (son sélecteur garde la retenue ✓ et la
+    plus petite qui tient ★) — le propriétaire, 13/11/2026 : « éviter de proposer à nouveau l'édition des armatures
+    dans les résultats ; une information doit être encodée une seule fois »."""
     cls, etat_txt = etat_bloc(M.MO, s)
     v_s = M.gouvernante_section(s)
     rows, volets, tout = "", "", ""
@@ -257,12 +265,9 @@ def bloc(M, i: int, s: Dict, nom_element: str, hyps: List[str], gov: Optional[Tu
     sous_titre = f"{M._efforts_txt(s)} · méthode du bureau"
     for v in s["verifications"]:
         face = v["cle"] in M.EN.FACES
-        o = opt.get((i, v["cle"])) if face else None
-        leger = f"Plus petite nappe de base qui tient : {o['nom']} · {C.pc(C.pct(o['taux']))} %" if o else ""
         piece = piece_courte(v, s) if face else ""
         rows += C.ligne_verif(M.nom_ligne(v), comparaison(M, v, s), C.pct(v["taux"]), M._niv(v), calcul=f"s{i}-{v['cle']}",
-                              pk=f"{v['cle']}-{i}" if face and not verrou else "", piece=piece,
-                              gov=gov is not None and gov[0] == i and gov[1] is v and cls != "inc", leger=leger)
+                              piece=piece, gov=gov is not None and gov[0] == i and gov[1] is v and cls != "inc")
         titre = v["titre"]
         if v["cle"] == "hauteur" and v.get("face"):
             cote, dk = v["face"].split("_")

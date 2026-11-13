@@ -746,6 +746,19 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   En attendant sa réponse, le message final du plan reprend la ligne de RBAR, à chaque export (le harnais la lit sur la
   note neuve) ; rien n'est changé au calcul.
 
+## Fait ensuite, la révision de l'ergonomie des dalles et prédalles (même branche, 13/11/2026)
+
+Demande du propriétaire (13/11/2026) : simplifier les deux types, supprimer les répétitions, rendre les coupes et les
+notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DAL7), détaillés dans
+`docs/site/DALLES_FUSION.md` § 8.
+
+- **DAL1 — Options et résultats** : « Reprendre une note Streamlit » retirée avec son code d'import ; la méthode en une
+  ligne, γs et le jeu du premier lit avec une infobulle courte (communs à la note : ils restent dans les options) ; le
+  résultat NOMME la nappe de chaque face sans la proposer (un seul endroit pour modifier les armatures, la rubrique
+  « Armatures ») ; sous le résultat, une phrase « Non vérifiées : … » au lieu du périmètre entier ; « d utile ≤ 0 » dit
+  par la ligne rouge elle-même, plus par un message en double (au-delà de 100 %, la raison n'était QUE dans ce
+  message) ; menu « ⋯ » d'une section : « Dupliquer » et « Supprimer ». Aucun chiffre ne change.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

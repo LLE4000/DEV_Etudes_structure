@@ -14,9 +14,10 @@ requêtes JSON que le navigateur).
   message et la prédalle reste intacte ; ajouter / copier / retirer (sections, renforts), axe et centre de gravité
   automatiques ou imposés, γs et jeu communs à la note, le verrou ;
 - le sélecteur de la nappe de base : trié par section au mètre, retenue ✓ et plus petite qui tient ★ (celles du
-  moteur), axe recalculé par la règle de la prédalle ; le choix garde les renforts ; l'étoile des lignes du résultat ;
+  moteur), axe recalculé par la règle de la prédalle ; le choix garde les renforts ; le résultat NOMME la nappe sans
+  la proposer (ni sélecteur ni étoile : un seul endroit pour modifier les armatures, 13/11/2026) ;
 - les prédalles de la note s'ajoutent, se copient, se suppriment (jamais la dernière) ;
-- la reprise d'un fichier de l'écran Streamlit (predalle_ba.json) et ce qu'il remplaçait en silence ;
+- « Reprendre une note Streamlit » n'existe plus (retirée le 13/11/2026) : le chemin est refusé, la note intacte ;
 - les avertissements (base hors de la peau, couches croisées sur la peau, nappes confondues) ;
 - les dessins à l'échelle (peau hachurée, plan de reprise, chaîne de cotes, axes, légende de pose) ; un nom saisi est
   échappé partout.
@@ -140,8 +141,10 @@ chk("le résumé de la note : taux, niveau, statut, gouvernant (prédalle · sec
     rep["resume"]["taux"] == C.pct(m["taux_max"]) and rep["resume"]["niveau"] == ("r" if m["statut"] == "nok" else C.niveau(m["taux_max"]))
     and rep["resume"]["gouvernant"].startswith("Prédalle 1 · Section"), rep["resume"])
 s0 = m["sections"][0]
-chk("la ligne « Inférieure Y » : la nappe et le renfort (« 10/10/100/100 + 3 Ø12 »), le sélecteur de la nappe de base",
-    'data-pk="inf_y-0"' in rep["resultat"] and "10/10/100/100 + 3 Ø12" in rep["resultat"])
+chk("la ligne « Inférieure Y » NOMME la nappe et le renfort (« 10/10/100/100 + 3 Ø12 ») sans les proposer : le sélecteur s'ouvre "
+    "depuis la rubrique « Armatures », plus depuis le résultat",
+    "data-pk" not in rep["resultat"] and '<span class="prof"><span>10/10/100/100 + 3 Ø12</span></span>' in rep["resultat"]
+    and 'data-pk="inf_y-0"' in rep["donnees"])
 chk("les chiffres de l'écran Streamlit (test_predalle) : As,req 573 (principale, renfort sur la peau) et 645 mm² (secondaire)",
     round(s0["grandeurs"]["As_req_inf_y"]) == 573 and round(s0["grandeurs"]["As_req_inf_x"]) == 645)
 # un acier excessif : rouge même si le taux reste sous 100 %
@@ -303,8 +306,8 @@ ch = req(action="choisir", etat=E, role="inf_y-0", nom="Ø12/150")
 cs = pd(ch["etat"])["sections"][0]["faces"]["inf_y"]["couches"]
 chk("choisir « Ø12/150 » : la base devient des barres Ø12 tous les 150 mm, le renfort est gardé",
     ch["ok"] and (cs[0]["type"], cs[0]["d"], cs[0]["esp"]) == ("barres", 12, 150) and len(cs) == 2)
-etoiles = re.findall(r'<span class="leger" title="Plus petite nappe de base qui tient : ([^"]+)">', rep["resultat"])
-chk("l'étoile des lignes du résultat : la plus petite nappe qui tient, quand ce n'est pas la retenue", len(etoiles) >= 4, etoiles[:3])
+chk("la plus petite nappe qui tient (★) se lit dans le sélecteur, plus dans le résultat (aucune étoile sur ses lignes)",
+    'class="leger"' not in rep["resultat"] and opt and "la plus petite section qui tient" in s["html"])
 
 # ------------------------------------------------------------------ 6. les éléments de la note
 print("\n=== 6. Les prédalles de la note ===")
@@ -323,23 +326,16 @@ chk("l'arborescence : chaque prédalle « nom · b × h cm », sans taux (le ré
 sup = req(action="supprimer", etat=copy.deepcopy(deux), index=0)
 chk("supprimer : il en reste une, ouverte", len(sup["etat"]["predalles"]) == 1 and sup["etat"]["predalles"][0]["nom"] == "Prédalle 2")
 
-# ------------------------------------------------------------------ 7. le fichier de l'écran Streamlit
-print("\n=== 7. La reprise d'un fichier de l'écran Streamlit ===")
-fichier = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}, {"id": 2, "nom": "Appui"}]}],
-           "values": {"pre1_h": 20, "pre1_h_pre": 5.0, "pre1_sec1_My_inf": 35.0, "pre1_sec1_Mx_inf_raw": "-12,0", "pre1_sec2_My_sup": 18.0,
-                      "pre1_sec1_ncouches_inf_y": 2, "pre1_sec1_arm_type_inf_y_c2": "n barres", "gamma_s": 1.5}}
+# ------------------------------------------------------------------ 7. « Reprendre une note Streamlit » : retirée
+# (le propriétaire, 13/11/2026 : « supprimer définitivement » ; le code d'import est retiré avec l'option — le lecteur
+#  beton/predalle/fichier reste, le moteur en lit encore yG_calcule)
+print("\n=== 7. « Reprendre une note Streamlit » : retirée ===")
+fichier = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Plancher", "sections": [{"id": 1, "nom": "A"}]}],
+           "values": {"pre1_h": 20, "pre1_h_pre": 5.0, "pre1_sec1_My_inf": 35.0}}
 o = saisir(copy.deepcopy(E), "fichier_streamlit", {"nom": "predalle_ba.json", "texte": json.dumps(fichier)})
-p0 = pd(o["etat"])
-chk("predalle_ba.json : la prédalle, ses deux sections, sa peau de 5 cm et son renfort sont repris",
-    p0["nom"] == "Plancher" and [s_["nom"] for s_ in p0["sections"]] == ["A", "Appui"] and p0["h_pre"] == 5.0
-    and len(p0["sections"][0]["faces"]["inf_y"]["couches"]) == 2 and p0["sections"][0]["My_inf"] == 35.0)
-chk("… et ce que l'écran y remplaçait en silence est dit (le moment négatif lu 0)", o["message"] and "lu 0" in o["message"], o["message"])
-o = saisir(copy.deepcopy(E), "fichier_streamlit", {"nom": "x.json", "texte": "{pas du json"})
-chk("un fichier qui n'est pas du JSON : refusé, la note intacte", o["message"] and "JSON" in o["message"] and o["etat"] == E)
-f_peau = copy.deepcopy(fichier)
-f_peau["values"].update({"pre1_h": 8, "pre1_h_pre": 12.0})
-o = saisir(copy.deepcopy(E), "fichier_streamlit", {"nom": "p.json", "texte": json.dumps(f_peau)})
-chk("une peau de 12 cm sur 8 cm : reprise à 7 cm comme l'écran, et c'est dit", pd(o["etat"])["h_pre"] == 7.0 and "ramenée à 7 cm" in o["message"])
+chk("le chemin « fichier_streamlit » n'existe plus : refusé (« champ inconnu »), la note intacte ; l'option n'est plus dans les options",
+    o["message"] == "champ inconnu : fichier_streamlit" and o["etat"] == E and "fichier_streamlit" not in rep["donnees"]
+    and "Streamlit" not in rep["donnees"].split('data-sec="op"')[-1], o["message"])
 
 # ------------------------------------------------------------------ 8. les avertissements
 print("\n=== 8. Les avertissements ===")
@@ -418,10 +414,6 @@ chk("une note .stab abîmée (« predalles » qui n'est pas une liste, valeurs a
 vide = req(action="calculer", etat={"predalles": [{"sections": [{"nom": " "}, {"nom": "A"}]}]})
 chk("un nom de section vide dans un .stab prend la première lettre libre (pas de « Section  » muette)",
     vide["ok"] and [s_["nom"] for s_ in pd(vide["etat"])["sections"]] == ["B", "A"], vide.get("etat", {}).get("predalles"))
-f_abs = copy.deepcopy(fichier)
-f_abs["values"]["pre1_sec1_My_inf"] = 1e300
-o = saisir(copy.deepcopy(E), "fichier_streamlit", {"nom": "absurde.json", "texte": json.dumps(f_abs)})
-chk("un fichier Streamlit aux valeurs absurdes : refusé, la note intacte", o["message"] and "refusé" in o["message"] and o["etat"] == E, o["message"])
 # le verdict d'une prédalle non conforme nomme une vérification NON conforme (d utile ≤ 0, acier excessif sous 100 %)
 ej30 = saisir(copy.deepcopy(e0), "jeu_premier_lit", "30")["etat"]
 rj = req(action="calculer", etat=ej30)

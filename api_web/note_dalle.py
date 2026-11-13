@@ -269,14 +269,17 @@ def _niveaux_du_calcul(coupe: Dict, R: Dict) -> None:
 
 
 def _verdict_site(v_pdf: Dict, v: Dict, rs: Dict) -> None:
-    """Le verdict d'une nappe que le moteur déclare non conforme alors que A_s couvre A_s,néc (acier excessif, d ≤ 0) :
-    la comparaison qui la rend non conforme, comme l'écran (api_web/dalle._verdict)."""
+    """Le verdict d'une nappe que le moteur déclare non conforme pour une raison que « A_s ≥ A_s,néc » ne dit pas : acier
+    excessif (A_s couvre A_s,néc), ou d ≤ 0 QUEL QUE SOIT le taux — la comparaison qui la rend non conforme, comme
+    l'écran (api_web/dalle._verdict). (13/11/2026 : « d ≤ 0 » n'est plus répété dans les observations, l'écran le dit
+    dans la ligne de la face ; au-delà de 100 %, le verdict disait seulement « A_s < A_s,néc » — la raison n'était que
+    dans l'observation.)"""
     from ndc_pdf import data as ND
-    if v["etat"] != MO.NOK or v["taux"] > 1:
+    if v["etat"] != MO.NOK or (v["taux"] > 1 and "d_utile_negatif" not in v["motifs"]):
         return
     cote, dk = v["cle"].split("_")
     face = "inférieure" if cote == "inf" else "supérieure"
-    if "acier_excessif" in v["motifs"]:
+    if "acier_excessif" in v["motifs"] and v["taux"] <= 1:
         txt = (f"Section d'armature {face} {dk.upper()} : {ND.fn(v['limite'], 0)} mm² > section d'armature maximale : "
                f"{ND.fn(v['As_max'], 0)} mm² (acier excessif)")
     elif "d_utile_negatif" in v["motifs"]:
