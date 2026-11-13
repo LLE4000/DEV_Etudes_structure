@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "8a06985121991ec57d605090c445dde89fbe73a75af796132526c830073801a4",
+ "sha256": "9a34026aa9451ae2ffc0b676d8a7b5e9d5051178132e4ea810f78a9ff6fd884c",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -195,6 +195,7 @@
   "api_web/note_cas.py",
   "api_web/note_corniere.py",
   "api_web/note_dalle.py",
+  "api_web/note_dalle_planche.py",
   "api_web/note_fondation_grue.py",
   "api_web/note_poutre.py",
   "api_web/parcours.py",
@@ -320,8 +321,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "d9a3ccc793410b5647bc746e9252607af17a4164228983dbcaf0dd2306fc3ef6",
-  "octets": 2227381,
+  "sha256": "b71d0b47c565f5a8024208386199a8175b5f3bdf5124431ad205a14a0c423759",
+  "octets": 2228360,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -361,5 +362,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "5e2b0ed89fd67927"
+ "version": "710a2a00b5669ffe"
 }

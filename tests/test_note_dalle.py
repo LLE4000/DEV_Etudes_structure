@@ -41,6 +41,7 @@ from api_web import commun as C  # noqa: E402
 from api_web import dalle as P  # noqa: E402
 from api_web import dalle_positions as POS  # noqa: E402
 from api_web import note_dalle as N  # noqa: E402
+from api_web import note_dalle_planche as NP  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton.dalle import entree as EN  # noqa: E402
 from beton.dalle import fichier as FI  # noqa: E402
@@ -125,6 +126,9 @@ CAS = {
     "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": cas(
         (["type"], "predalle"), (S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 10), (F("inf_y") + [0, "esp"], 100),
         (F("inf_x") + [0, "d"], 10), (F("inf_x") + [0, "esp"], 100), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 10)),
+    # (DAL6) la base X d'une prédalle en barres, posée SUR la prédalle (h_p + Ø/2 = 6,5), dimensionne la hauteur
+    "Prédalle · barres, la base X posée sur la prédalle dimensionne": cas(
+        (["type"], "predalle"), (S0 + ["nappes", "inf", "mode"], "barres"), (S0 + ["Mx_inf"], 30), (S0 + ["My_inf"], 5)),
     "Prédalle · gros Ø en haut (renfort 4 Ø20 secondaire empilé)": cas(
         (["type"], "predalle"), (["h"], 25), (F("sup_x") + ["+"], 1), (F("sup_x") + [1, "n"], 4), (F("sup_x") + [1, "d"], 20),
         (S0 + ["Mx_sup"], 40), (S0 + ["My_sup"], 30), (S0 + ["My_inf"], 22)),
@@ -203,19 +207,39 @@ def lire_planches(etat):
     return N.sections(etat), N.resultats(etat)
 
 
-def textes_planche(sec):
-    """Tout le texte d'une planche : formules, lignes, verdicts, données."""
+def formules(v):
+    """Le texte des lignes d'une vérification : libellés, expressions (et leurs formes courtes), lignes en gras."""
     out = []
-    for v in sec["verifs"]:
-        out.append(v["titre"])
-        for it in v["items"]:
-            out += [str(x) for x in it[1:]]
-        out += [k["texte"] for k in v["verdicts"]]
-    for _, rows in sec["blocs"]:
-        out += [" ".join(str(x) for x in row if x) for row in rows]
+    for it in v["items"]:
+        for x in it[1:]:
+            out += [str(y[1]) for y in x] if isinstance(x, list) else [str(x)]
     return "\n".join(out)
 
 
+def textes_planche(sec):
+    """Tout le texte d'une planche : l'en-tête compact, les sollicitations, les vérifications et leurs verdicts."""
+    out = [t for case in sec["entete"]["cases"] for t in case] + [sec["entete"]["note"]]
+    so = sec["blocs"].sollicitations
+    out += [" ".join(ligne) for ligne in so["lignes"]] + [so["V"]]
+    for v in sec["verifs"]:
+        out += [str(v["titre"]), formules(v)] + [k["texte"] for k in v["verdicts"]]
+    return "\n".join(out)
+
+
+TITRES = {"hauteur": NP.TITRE_HAUTEUR, "minmax": NP.TITRE_MINMAX, "tau": NP.TITRE_TRANCHANT, "!": NP.TITRE_AVERTISSEMENTS}
+
+
+def verif(sec, cle):
+    """La vérification d'une planche par sa clé : « hauteur », « minmax », « tau », « ! » ou une face (« inf_y »…)."""
+    return next((v for v in sec["verifs"] if v.get("cle") == cle or v["titre"] == TITRES.get(cle)), None)
+
+
+def res(x, nd, unite):
+    """Un résultat de formule de la note : « \\res{16,5 \\u{cm}} »."""
+    return rf"\res{{{ND.fn(x, nd)} \u{{{unite}}}}}"
+
+
+MM2 = "mm}^{2"
 manques, n_chiffres = [], 0
 for nom, e in CAS.items():
     secs, pls = lire_planches(e)
@@ -223,43 +247,52 @@ for nom, e in CAS.items():
         rs, g = pl["site"], pl["site"]["grandeurs"]
         par_cle = {v["cle"]: v for v in rs["verifications"]}
         p = rs["principale"]
-        # 1 hauteur : h_u,min et h_min au dixième
-        v1 = sec["verifs"][0]
-        attendus = [(v1, rf"\res{{{ND.fn(g['hu_min'], 1)} \u{{cm}}}}"), (v1, rf"\res{{{ND.fn(g['h_min'], 1)} \u{{cm}}}}")]
-        # 2 à 5 : chaque nappe, dans l'ordre de l'écran
-        for v_pdf, f in zip(sec["verifs"][1:5], MO.ordre_faces(p)):
-            cote, dk = f.split("_")
-            if not v_pdf["items"][0][1].endswith(f" {dk.upper()}") or ("inférieur" in v_pdf["items"][0][1]) != (cote == "inf"):
-                manques.append((nom, rs["nom"], f, "ordre", v_pdf["items"][0][1]))
-            attendus += [(v_pdf, rf"\res{{{ND.fn(g[f'd_{f}'], 1)} \u{{cm}}}}"), (v_pdf, rf"\res{{{ND.fn(g[f'As_req_{f}'], 0)} \u{{mm}}^{{2}}}}"),
-                         (v_pdf, rf"\res{{{ND.fn(g[f'As_min_{f}'], 0)} \u{{mm}}^{{2}}}}"), (v_pdf, f"({ND.fn(g[f'As_pm_{f}'], 0)} mm²/m)")]
+        if [v["titre"] for v in sec["verifs"][:2]] != [NP.TITRE_HAUTEUR, NP.TITRE_MINMAX]:
+            manques.append((nom, rs["nom"], "ordre 1-2", [v["titre"] for v in sec["verifs"][:2]]))
+        # 1 la hauteur : h_u,min (si un moment) et h_min au dixième
+        v1, v2 = verif(sec, "hauteur"), verif(sec, "minmax")
+        attendus = [(v1, res(g["h_min"], 1, "cm"))] + ([(v1, res(g["hu_min"], 1, "cm"))] if g["M_hauteur"] > 0 else [])
+        # 2 les sections minimale et maximale, UNE fois
+        attendus += [(v2, res(g[k], 0, MM2)) for k in ("As_min_ec", "As_min_plancher", "As_min_base", "As_max")]
+        # 3 à 6 : chaque nappe, dans l'ordre de l'écran
+        for v_pdf, f in zip(sec["verifs"][2:6], MO.ordre_faces(p)):
+            if v_pdf.get("cle") != f:
+                manques.append((nom, rs["nom"], f, "ordre", v_pdf.get("cle")))
+                continue
+            attendus += [(v_pdf, res(g[f"d_{f}"], 1, "cm")), (v_pdf, res(g[f"As_req_{f}"], 0, MM2)),
+                         (v_pdf, res(g[f"As_min_{f}"], 0, MM2)), (v_pdf, f"{ND.fn(g[f'As_pm_{f}'], 0)} mm²/m")]
             verdict = v_pdf["verdicts"][0]["texte"].replace(C.NBSP, " ")
-            if par_cle[f]["etat"] == MO.OK:
-                attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² ≥", f"{ND.fn(g[f'besoin_{f}'], 0)} mm²"]
-            elif par_cle[f]["taux"] > 1 and "d_utile_negatif" not in par_cle[f]["motifs"]:
-                attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² <", f"{ND.fn(g[f'besoin_{f}'], 0)} mm²"]
+            vv = par_cle[f]
+            if vv["etat"] == MO.OK:
+                attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² posés", " ≥ ", f"{ND.fn(g[f'besoin_{f}'], 0)} mm² requis",
+                              f"taux {C.pc(C.pct(vv['taux']))} %"]
+            elif vv["taux"] > 1 and "d_utile_negatif" not in vv["motifs"]:
+                attendus_v = [f"{ND.fn(g[f'As_{f}'], 0)} mm² posés", " < ", f"{ND.fn(g[f'besoin_{f}'], 0)} mm² requis"]
             else:
                 attendus_v = []                      # acier excessif, d ≤ 0 (quel que soit le taux) : contrôlés plus bas
             manques += [(nom, rs["nom"], f, t, verdict) for t in attendus_v if t not in verdict]
-            if (v_pdf["verdicts"][0]["etat"] == "ok") != (par_cle[f]["etat"] == MO.OK):
+            if (v_pdf["verdicts"][0]["etat"] == "ok") != (vv["etat"] == MO.OK):
                 manques.append((nom, rs["nom"], f, "couleur du verdict"))
-            n_chiffres += 4 + len(attendus_v)
+            n_chiffres += len(attendus_v)
         if g["V"] > 0:
-            v6 = sec["verifs"][5]
-            attendus += [(v6, rf"\res{{{ND.fn(g['tau'], 2)} \u{{N/mm}}^{{2}}}}")]
-            if ND.fn(g["tau_adm"], 2) not in v6["items"][1][3]:
-                manques.append((nom, rs["nom"], "tau_adm"))
+            v7 = verif(sec, "tau")
+            attendus += [(v7, res(g["tau"], 2, "N/mm}^{2")), (v7, res(g["tau_adm"], 2, "N/mm}^{2"))]
+        elif verif(sec, "tau") is not None:
+            manques.append((nom, rs["nom"], "τ sans V"))
         for v_pdf, t in attendus:
             n_chiffres += 1
-            if t not in "\n".join(str(it[2]) for it in v_pdf["items"] if len(it) > 2) + "\n".join(str(it[1]) for it in v_pdf["items"]):
-                manques.append((nom, rs["nom"], v_pdf["titre"], t))
-        soll = dict((row[1], row[2]) for row in sec["blocs"][2][1])
-        for k, sym in (("Mx_inf", "M_{x,inf}"), ("Mx_sup", "M_{x,sup}"), ("My_inf", "M_{y,inf}"), ("My_sup", "M_{y,sup}"), ("V", "V_{max}")):
+            if v_pdf is None or t not in formules(v_pdf):
+                manques.append((nom, rs["nom"], v_pdf and v_pdf["titre"], t))
+        so = sec["blocs"].sollicitations
+        lu = {"Mx_inf": so["lignes"][0][1], "Mx_sup": so["lignes"][0][2], "My_inf": so["lignes"][1][1], "My_sup": so["lignes"][1][2],
+              "V": so["V"]}
+        for k, x in lu.items():
             n_chiffres += 1
-            if soll.get(sym) != ND.fn(rs[k], 1):
-                manques.append((nom, rs["nom"], k, soll.get(sym), rs[k]))
-chk(f"le texte de chaque planche écrit les chiffres du moteur du site ({n_chiffres} chiffres : h_u,min, h_min, d, A_s,req, "
-    "A_s,min, A_s/m, A_s, A_s,néc, τ, τ_adm, efforts), dans l'ordre des nappes de l'écran", not manques, manques[:4])
+            if x != ND.fn(rs[k], 1):
+                manques.append((nom, rs["nom"], k, x, rs[k]))
+chk(f"le texte de chaque planche écrit les chiffres du moteur du site ({n_chiffres} chiffres : h_u,min, h_min, les sections "
+    "minimale et maximale communes, d, A_s,req, A_s,min, A_s/m, A_s, A_s,néc et le taux, τ, τ_adm, les efforts), les nappes "
+    "dans l'ordre de l'écran", not manques, manques[:4])
 
 # l'écran affiche les mêmes chiffres (la ligne de chaque nappe : A_s,néc et A_s, et l'état du bloc), aux mêmes arrondis
 ecran, ecarts_arrondi, n_ecran = [], [], 0
@@ -269,11 +302,11 @@ for nom, e in CAS.items():
     for i in range(len(e["dalles"])):
         ee = copy.deepcopy(e)
         ee["actif"] = i
-        res = P.resultat(ee)
-        html_ = res["resultat"].replace(C.FINE, " ")
+        res_ = P.resultat(ee)
+        html_ = res_["resultat"].replace(C.FINE, " ")
         secs = N.sections(ee)
         debut = sum(len(d["sections"]) for d in e["dalles"][:i])
-        etats_ecran = [x[2] for x in BLOC.findall(res["resultat"])]
+        etats_ecran = [x[2] for x in BLOC.findall(res_["resultat"])]
         for k, s in enumerate(P._calculer(e["dalles"][i])["sections"]):
             sec = secs[debut + k]
             if ETATS_ECRAN.get(etats_ecran[k]) != sec["etat"]:
@@ -293,17 +326,126 @@ chk("… écrits pareil : aucun chiffre n'est arrondi autrement dans la note (C.
     "ils ne diffèrent que sur une valeur binaire exactement à mi-chemin)", not ecarts_arrondi, ecarts_arrondi[:3])
 
 
-# ---------------------------------------------------------------- 3. ce que le site ajoute : treillis par nappe, empilement, coupe, verdict, état
+# ---------------------------------------------------------------- 3. la HAUTEUR détaillée, l'en-tête, sans répétition (DAL6, point 8)
 def planche(nom, k=0):
     secs, pls = lire_planches(CAS[nom])
     return secs[k], pls[k]
 
 
+def nombres(expr):
+    """Les nombres d'une expression de la note (« 3 + 0,5 + 0,5 = 4,0 » → [3.0, 0.5, 0.5, 4.0])."""
+    return [float(x.replace(",", ".")) for x in re.findall(r"(?<![\w{])-?\d+(?:,\d+)?", expr)]
+
+
+def decompositions(sec):
+    """(somme lue, résultat lu) de chaque y_G décomposé de la hauteur : « y_G = c + Ø/2 = 3 + 0,5 = \\res{3,5 …} »."""
+    out = []
+    for it in verif(sec, "hauteur")["items"]:
+        if it[0] == "f" and it[2].startswith("y_{G} = ") and r"\sum" not in it[2]:
+            valeurs = it[2].split(" = ")[-2]
+            out.append((round(sum(nombres(valeurs)), 6), nombres(it[2].split(r"\res{")[1])[0]))
+    return out
+
+
+# la hauteur : le moment et sa face, h_u,min en symboles PUIS en valeurs, l'enrobage mécanique, h_min ≤ h — point 8
+sec, pl = planche("CSP · moments sur les deux faces et les deux directions, V")
+v1 = verif(sec, "hauteur")
+f_ = [it for it in v1["items"] if it[0] == "f"]
+textes_v1 = formules(v1)
+chk("hauteur minimale DÉTAILLÉE (M_y,inf = 35 kN·m, C30/37, B500) : le moment dimensionnant et sa face, h_u,min en symboles "
+    "(√(M / (α_b·b·μ))) puis en valeurs (√(35·10⁶ / (12,96 · 1000 · 0,1709))) = 12,6 cm, α_b et μ dits, l'enrobage mécanique "
+    "décomposé (y_G = c + Ø/2 = 3 + 0,5 = 3,5 cm), puis h_min = 12,6 + 3,5 = 16,1 cm ≤ h = 20 cm, et le taux (80 %)",
+    v1["items"][0][:4] == ("v", "Moment dimensionnant", "M_{y,inf}", "35,0")
+    and f_[0][2] == r"h_{u,min} = \sqrt{\frac{M}{\alpha_{b} \cdot b \cdot \mu}}"
+    and f_[1][2] == r"= \sqrt{\frac{35 \cdot 10^{6}}{12,96 \cdot 1000 \cdot 0,1709}} = \res{12,6 \u{cm}}"
+    and "Face inférieure Y : la plus exigeante" in textes_v1 and r"$\alpha_{b}$ = 12,96 N/mm²" in textes_v1
+    and r"$\mu$ = 0,1709" in textes_v1
+    and r"y_{G} = c + \frac{\phi}{2} = 3 + 0,5 = \res{3,5 \u{cm}}" in textes_v1
+    and r"h_{min} = h_{u,min} + y_{G} = 12,6 + 3,5 = \res{16,1 \u{cm}} \le h = 20 \u{cm}" in textes_v1
+    and v1["verdicts"][0]["texte"].replace(C.NBSP, " ") == "Épaisseur 20 cm ≥ hauteur minimale 16,1 cm — taux 80 %",
+    textes_v1[:400])
+# chaque décomposition de y_G écrite redonne le y_G du moteur (la note n'écrit jamais une somme fausse) — tous les cas
+faux, n_dec, sortes = [], 0, set()
+for nom, e in CAS.items():
+    for sec in N.sections(e):
+        for somme, lu in decompositions(sec):
+            n_dec += 1
+            if abs(somme - lu) > 0.051:
+                faux.append((nom, sec["section"], somme, lu))
+        sortes |= {("appui" if "e_{appui}" in it[2] else "jeu" if "+ jeu" in it[2] else "hp" if "h_{p} +" in it[2] else "c")
+                   for it in verif(sec, "hauteur")["items"] if it[0] == "f" and it[2].startswith("y_{G} = ") and r"\sum" not in it[2]}
+chk(f"chaque enrobage mécanique décomposé dans la hauteur redonne y_G ({n_dec} décompositions : enrobage + demi-Ø, + jeu, la "
+    "couche porteuse + demi-Ø, ou la prédalle + demi-Ø)", not faux and n_dec >= 20 and sortes == {"c", "jeu", "appui", "hp"},
+    (faux[:3], sortes))
+t_ = formules(verif(planche("deux dalles : CSP puis prédalle", 1)[0], "hauteur"))
+t2_ = formules(verif(planche("Prédalle · barres, la base X posée sur la prédalle dimensionne")[0], "hauteur"))
+chk("… une face secondaire dimensionnante : posée sur la principale, y_G = e_appui + Ø_appui/2 + Ø/2 = 3,5 + 0,5 + 0,5 = 4,5 cm "
+    "(« posée sur la base Y ») ; posée sur la prédalle (Ø12, son demi-diamètre arrondi au 0,5 cm supérieur), y_G = h_p + Ø/2 = 6 + 1 "
+    "= 7,0 cm",
+    r"y_{G} = e_{appui} + \frac{\phi_{appui}}{2} + \frac{\phi}{2} = 3,5 + 0,5 + 0,5 = \res{4,5 \u{cm}}" in t_
+    and "posée sur la base Y" in t_ and r"y_{G} = h_{p} + \frac{\phi}{2} = 6 + 1 = \res{7,0 \u{cm}}" in t2_
+    and "posée sur la prédalle" in t2_ and "(Ø 12, arrondi au 0,5 cm supérieur)" in t2_, (t_[-300:], t2_[-300:]))
+sec, pl = planche("CSP · trois renforts sur une face (n barres, barres, treillis)")
+v3 = verif(sec, "inf_y")
+chk("… une face à plusieurs couches : y_G = Σ A_s,i·e_i / Σ A_s,i dans sa nappe (au-delà de trois couches, les couches en "
+    "texte), et la hauteur y renvoie (« calculé en 3 ») au lieu de la répéter",
+    r"y_{G} = \frac{\sum A_{s,i} \cdot e_{i}}{\sum A_{s,i}}" in formules(v3) and "Les 4 couches" in formules(v3)
+    and "calculé en 3" in formules(verif(sec, "hauteur")) and r"\sum" not in formules(verif(sec, "hauteur")), formules(v3)[:300])
+sec, pl = planche("CSP neuve (sans effort)")
+chk("sans aucun moment, la hauteur le dit (h_u,min = 0) et compare encore h_min à h",
+    "Aucun moment appliqué" in formules(verif(sec, "hauteur")) and r"h_{min} = h_{u,min} + y_{G} = 0,0 + " in formules(verif(sec, "hauteur")), "")
+
+# l'EN-TÊTE compact : une fois sous le titre, les données de la dalle, du béton, de l'acier, et ce qui n'est pas vérifié
+mauvais = []
+for nom, e in CAS.items():
+    secs = N.sections(e)
+    k = 0
+    for d in e["dalles"]:
+        for s_ in P._calculer(d)["sections"]:
+            sec, k = secs[k], k + 1
+            g = s_["grandeurs"]
+            ent = sec["entete"]
+            titres = [c_[0] for c_ in ent["cases"]]
+            texte = " ".join(c_[1] for c_ in ent["cases"])
+            attendus = [f"$b$ = {C.nb(g['b'])} cm", f"$h$ = {C.nb(g['h'])} cm", f"$c$ = {C.nb(g['enrobage_calcul'])} cm",
+                        f"principale {g['principale'].upper()}", f"$f_{{ck}}$ = {ND.fn(g['fck'], 0)}",
+                        f"$f_{{ctm}}$ = {ND.fn(g['fctm'], 2)}", f"= {ND.fn(g['fyd'], 1)} N/mm²",
+                        rf"$\alpha_{{b}}$ = {ND.fn(g['alpha_b'], 2)}", rf"$\mu$ = {ND.fn(g['mu'], 4)}"]
+            attendus += [f"$h_{{p}}$ = {C.nb(g['h_pre'])} cm"] if P.est_predalle(d) else []
+            attendus += ["(0 saisi)"] if not g["enrobage"] else []
+            attendus += [f"jeu {C.nb(g['jeu_premier_lit'])} cm"] if g["jeu_premier_lit"] else []
+            if (titres != [("Prédalle" if P.est_predalle(d) else "Dalle pleine"), f"Béton {g['beton']}", f"Acier B{int(g['fyk'])}"]
+                    or ent["note"] != P.non_verifies(d) or any(a not in texte for a in attendus)):
+                mauvais.append((nom, titres, ent["note"][:30], [a for a in attendus if a not in texte]))
+chk("l'EN-TÊTE compact de chaque planche (point 8) : le type (« Dalle pleine », « Prédalle »), b, h, h_p, c (« 0 saisi »), le "
+    "jeu, la direction principale ; le béton (f_ck, f_ctm, α_b) ; l'acier (f_yd = f_yk/γ_s, μ) ; et « Non vérifié(e)s : … » "
+    "en une phrase, celle de l'écran (api_web/dalle.non_verifies)", not mauvais, mauvais[:2])
+# « sans les répéter inutilement à chaque calcul » : f_ctm et les sections minimale et maximale UNE fois par planche
+rep = []
+for nom, e in CAS.items():
+    for sec, pl in zip(*lire_planches(e)):
+        g = pl["site"]["grandeurs"]
+        tout = "\n".join(formules(v) for v in sec["verifs"])
+        for x in (rf"\frac{{{ND.fn(g['fctm'], 2)}}}", res(g["As_max"], 0, MM2), "A_{s,min,EC} = ", "A_{s,max} = "):
+            if tout.count(x) != 1:
+                rep.append((nom, sec["section"], x, tout.count(x)))
+        if [t for t, _ in sec["blocs"]] != [NP.TITRE_SOLLICITATIONS]:
+            rep.append((nom, "panneau", [t for t, _ in sec["blocs"]]))
+chk("sans répétition (point 8) : f_ctm, A_s,min,EC et A_s,max s'écrivent UNE fois par planche (les sections communes), plus "
+    "dans chaque nappe ; le panneau de gauche n'a plus DIMENSIONS ni MATÉRIAUX (l'en-tête les dit), seulement les sollicitations",
+    not rep, rep[:3])
 sec, pl = planche("CSP · treillis par nappe 8/10/100/150 en bas, 6/6/150/150 en haut")
 t = textes_planche(sec)
-chk("treillis par nappe : la planche dit le treillis de chaque direction (8/10/100/150 en Y, sa transposée 10/8/150/100 en X)",
-    "On prend Treillis 8/10/100/150 (503 mm²/m)" in t and "On prend Treillis 10/8/150/100 (524 mm²/m)" in t, t[:200])
+chk("les armatures POSÉES sont un résultat (point 8) : « Armatures posées : Treillis 8/10/100/150 — 503 mm²/m » en Y, sa "
+    "transposée 10/8/150/100 (524 mm²/m) en X ; le verdict dit posé ≥ requis et le taux",
+    "Armatures posées : Treillis 8/10/100/150 — 503 mm²/m" in t and "Armatures posées : Treillis 10/8/150/100 — 524 mm²/m" in t
+    and "On prend" not in t, t[:200])
+sec, pl = planche("CSP · B400, γs 1,15, C20/25, bande de 50 cm")
+chk("… une bande de 50 cm : le verdict dit les mm² posés SUR LA BANDE (A_s = A_s/m · b)",
+    "393 mm² posés sur la bande de 50 cm" in verif(sec, "inf_y")["verdicts"][0]["texte"].replace(C.NBSP, " "),
+    verif(sec, "inf_y")["verdicts"][0]["texte"])
 
+# ---------------------------------------------------------------- 4. ce que le site ajoute : empilement, coupe, verdict, état, avertissements
 nom_s3 = "CSP · treillis + renforts, renfort secondaire empilé (S3)"
 d_s3 = CAS[nom_s3]["dalles"][0]
 sec, pl = planche(nom_s3)
@@ -323,24 +465,28 @@ e_s5 = cas((S0 + ["nappes", "inf", "mode"], "barres"), (F("inf_y") + [0, "d"], 1
            (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
 
 
+def pdftexte(etat, nom_):
+    tmp_ = tempfile.mkdtemp()
+    with open(os.path.join(tmp_, "n.pdf"), "wb") as fh:
+        fh.write(N.pdf(etat, {"nom_projet": nom_}))
+    txt_ = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_, "n.pdf"), "-"], capture_output=True, text=True).stdout
+    shutil.rmtree(tmp_, ignore_errors=True)
+    return txt_
+
+
 def s5_bout_en_bout():
     """Le calcul, la planche, la coupe de l'écran et le PDF (pdftotext) de la note S5 : (passe, ce qu'on a lu)."""
     r_ = P._calculer(e_s5["dalles"][0])
     g_ = r_["sections"][0]["grandeurs"]
     secs_, pls_ = lire_planches(e_s5)
-    v_ = next(v for v in secs_[0]["verifs"][1:5] if v["items"][0][1].endswith(" X") and "inférieur" in v["items"][0][1])
-    txt_ = "\n".join(str(it[2]) for it in v_["items"] if len(it) > 2) + "\n".join(str(it[1]) for it in v_["items"])
-    tmp_ = tempfile.mkdtemp()
-    with open(os.path.join(tmp_, "s5.pdf"), "wb") as fh:
-        fh.write(N.pdf(e_s5, {"nom_projet": nom_s5}))
-    pdf_ = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_, "s5.pdf"), "-"], capture_output=True, text=True).stdout
-    shutil.rmtree(tmp_, ignore_errors=True)
+    txt_ = formules(verif(secs_[0], "inf_x"))
+    pdf_ = pdftexte(e_s5, nom_s5)
     leg_ = re.findall(r"X · Ø10/100 · axe à \d+ · sur [^<]+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
     e_ = r_["sections"][0]["faces"]["inf_x"]["couches"][0]["e"]
     passe = (e_ == 6.5 and g_["d_inf_x"] == 13.5 and round(g_["As_req_inf_x"]) == 494
              and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [6.5] and not ecarts_parite(e_s5)
-             and rf"\res{{{ND.fn(13.5, 1)} \u{{cm}}}}" in txt_ and rf"\res{{494 \u{{mm}}^{{2}}}}" in txt_
-             and rf"\res{{{ND.fn(15.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{430 \u{{mm}}^{{2}}}}" not in txt_
+             and res(13.5, 1, "cm") in txt_ and res(494, 0, MM2) in txt_
+             and res(15.5, 1, "cm") not in txt_ and res(430, 0, MM2) not in txt_
              and leg_ == ["X · Ø10/100 · axe à 65 · sur renfort Y"]          # la légende commune (DAL5) : une fois
              and "13,5 cm" in pdf_ and "494 mm" in pdf_)
     return passe, (e_, g_["d_inf_x"], round(g_["As_req_inf_x"], 1), leg_, txt_[:200])
@@ -356,13 +502,8 @@ e_t5 = cas((S0 + ["nappes", "inf", "mode"], "treillis_renforts"), (F("inf_y") + 
 r_t5 = P._calculer(e_t5["dalles"][0])
 g_t5 = r_t5["sections"][0]["grandeurs"]
 secs_t5, pls_t5 = lire_planches(e_t5)
-v_t5 = next(v for v in secs_t5[0]["verifs"][1:5] if v["items"][0][1].endswith(" Y") and "inférieur" in v["items"][0][1])
-txt_t5 = "\n".join(str(it[2]) for it in v_t5["items"] if len(it) > 2) + "\n".join(str(it[1]) for it in v_t5["items"])
-tmp_t5 = tempfile.mkdtemp()
-with open(os.path.join(tmp_t5, "t5.pdf"), "wb") as fh:
-    fh.write(N.pdf(e_t5, {"nom_projet": "DAL5b"}))
-pdf_t5 = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_t5, "t5.pdf"), "-"], capture_output=True, text=True).stdout
-shutil.rmtree(tmp_t5, ignore_errors=True)
+txt_t5 = formules(verif(secs_t5[0], "inf_y"))
+pdf_t5 = pdftexte(e_t5, "DAL5b")
 sv_t5 = P.resultat(copy.deepcopy(e_t5))["vues"][0]["svg"]
 d_y5 = ND.fn(g_t5["d_inf_y"], 1)
 chk(f"DAL5b de bout en bout (3 Ø25 en inf. Y sur le treillis, M_y,inf = 30) : le calcul pose le renfort à 6,5 (sur les fils X, 4,5) — "
@@ -394,80 +535,83 @@ def coupe_juste(nom):
 
 faux = [n for n in CAS if not coupe_juste(n)]
 chk("la coupe dessine chaque couche (base et renforts, coupée ou filante) à l'axe du calcul — tous les cas", not faux, faux[:3])
+sec, pl = planche(nom_s3)
 brut = ND.construire_sections_dalle(N.resultats(CAS[nom_s3]))[0]
 chk("… ce que le générateur seul ne fait pas : il écartait le renfort de sa base pour le dessin (le cas S3 le montre)",
     any(a != b for a, b in niveaux_coupe(brut, pl["R"])), niveaux_coupe(brut, pl["R"]))
+sch = sec["coupe"]["schemas"]
+chk("les titres des schémas sont ceux de l'écran (« Direction Y · principale », « Direction X ») et, dans le schéma secondaire, "
+    "les fils du treillis ne répètent pas sa désignation (« Inf. X : fils du treillis », sa section au mètre gardée) — DAL5a",
+    [x["titre"] for x in sch] == ["Direction Y · principale", "Direction X"] and sch[1]["labs_inf"][0][0] == "Inf. X : fils du treillis"
+    and sch[1]["labs_inf"][0][1] == f"{ND.fn(pl['R']['dirs']['x']['geo_inf']['couches'][0]['As_pm'], 0)} mm²/m"
+    and sch[0]["labs_inf"][0][0] == "Inf. Y : 10/10/100/100", ([x["titre"] for x in sch], sch[1]["labs_inf"][:1]))
+sec, pl = planche("CSP · gros Ø (Ø25/150 en bas, Ø20/200 en haut), h = 30")
+chk("… des BARRES dans les deux directions : chaque schéma garde sa désignation", "fils du treillis" not in str(sec["coupe"]), "")
 
 sec, pl = planche("CSP · acier excessif (Ø40/100 en bas)")
-vd = sec["verifs"][1]["verdicts"][0]
+vd = verif(sec, "inf_y")["verdicts"][0]
 vb = ND.construire_sections_dalle(N.resultats(CAS["CSP · acier excessif (Ø40/100 en bas)"]))[0]["verifs"][1]["verdicts"][0]
 chk("acier excessif : le verdict dit A_s > A_s,max (le générateur seul écrirait « A_s < requise », faux)",
     vd["etat"] == "ko" and "12566 mm² > section d'armature maximale : 8000 mm² (acier excessif)" in vd["texte"].replace(C.NBSP, " ")
     and "<" in vb["texte"], (vd, vb["texte"]))
 sec, pl = planche("CSP · d utile ≤ 0 (axe saisi au-delà de h)")
-vd = sec["verifs"][1]["verdicts"][0]
+vd = verif(sec, "inf_y")["verdicts"][0]
 chk("d utile ≤ 0 : le verdict dit d = −1,0 cm ≤ 0 (position des couches incompatible), en rouge",
     vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " "), vd)
-# (13/11/2026) au-delà de 100 % aussi : la raison est dans le verdict de la face — l'observation qui la répétait est
-# retirée (l'écran la dit dans la ligne rouge, api_web/plaque_compact.comparaison)
 sec, pl = planche("CSP · d utile ≤ 0 au-delà de 100 % (moment sur la face)")
-vd = sec["verifs"][1]["verdicts"][0]
-chk("d utile ≤ 0 AU-DELÀ de 100 % (un moment sur la face) : le verdict dit encore d = −1,0 cm ≤ 0, et aucune observation ne le répète",
+vd = verif(sec, "inf_y")["verdicts"][0]
+chk("d utile ≤ 0 AU-DELÀ de 100 % (un moment sur la face) : le verdict dit encore d = −1,0 cm ≤ 0, et aucun avertissement ne le répète",
     vd["etat"] == "ko" and "d = -1,0 cm ≤ 0" in vd["texte"].replace(C.NBSP, " ")
-    and not any("d utile ≤ 0" in o for o in N.observations_de(sec)), (vd, N.observations_de(sec)))
+    and not any("d utile ≤ 0" in o for o in N.avertissements_de(sec)), (vd, N.avertissements_de(sec)))
 
 sec, pl = planche("CSP neuve (sans effort)")
 chk("une section sans aucun effort n'est jamais « Vérifié » : « Données incomplètes » (l'écran aussi)",
     sec["etat"] == N.ETAT_INCOMPLET and pl["R"]["etat_global"] == "ok", sec["etat"])
 sec, pl = planche("CSP · hauteur insuffisante et τ > τ_adm,I")
 chk("hauteur insuffisante et τ > τ_adm,I : « Non vérifié », verdicts rouges (hauteur, τ)",
-    sec["etat"] == "Non vérifié" and sec["verifs"][0]["verdicts"][0]["etat"] == "ko" and sec["verifs"][5]["verdicts"][0]["etat"] == "ko",
+    sec["etat"] == "Non vérifié" and verif(sec, "hauteur")["verdicts"][0]["etat"] == "ko" and verif(sec, "tau")["verdicts"][0]["etat"] == "ko",
     sec["etat"])
 sec, pl = planche("Prédalle · neuve sollicitée")
-dims = dict((row[0], row[2]) for row in sec["blocs"][0][1])
-chk("prédalle : DIMENSIONS dit la peau et le coulé en place (6 + 14 cm), la coupe la teinte",
-    dims.get("dont prédalle préf.") == "6" and dims.get("dont coulé en place") == "14" and sec["coupe"]["h_pre"] == 60.0, dims)
+chk("prédalle : l'en-tête dit la peau (« Prédalle », h_p = 6 cm), la coupe la teinte (6 cm de prédalle, 14 coulés en place)",
+    sec["entete"]["cases"][0][0] == "Prédalle" and "(prédalle $h_{p}$ = 6 cm)" in sec["entete"]["cases"][0][1]
+    and sec["coupe"]["h_pre"] == 60.0 and "coulé en place : 14 cm" in sec["coupe"]["h_pre_label"], sec["entete"]["cases"][0])
 
-# ---------------------------------------------------------------- 4. les OBSERVATIONS de l'écran
-OBS = {
-    "Prédalle · neuve sollicitée": ["Non vérifiés : la phase provisoire"],
-    "Prédalle · peau de 4 cm, base Ø16 qui en sort": ["sort de la peau de 4,0 cm", "Non vérifiés"],
-    "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": ["à des niveaux trop proches pour se croiser", "Non vérifiés"],
+# les AVERTISSEMENTS de l'écran : en fin de planche (« ! »), seulement s'il y en a — le bloc « Observations » n'existe plus
+AVERT = {
+    "Prédalle · peau de 4 cm, base Ø16 qui en sort": ["sort de la peau de 4,0 cm"],
+    "Prédalle · couches croisées sur la prédalle (renfort Y, base X)": ["à des niveaux trop proches pour se croiser"],
     "CSP · enrobage nul (lu 3 cm) et jeu premier lit 0,5": ["Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm."],
     "CSP · nappes X et Y au même niveau (axe saisi)": ["les nappes X et Y inférieures sont calculées au même niveau", "Rendre l'axe saisi à l'automatique"],
 }
 faux = []
-for nom, attendus in OBS.items():
+for nom, attendus in AVERT.items():
     sec, pl = planche(nom)
-    obs = " | ".join(N.observations_de(sec))
-    faux += [(nom, a, obs[:120]) for a in attendus if a not in obs]
-    if "<" in obs or "&" in obs:
-        faux.append((nom, "balisage", obs[:120]))
-# (petits chantiers, 10/11/2026) une dalle CSP dit AUSSI ce qui n'est pas vérifié (flèche, fissuration) — son périmètre,
-# sur sa première planche — : une dalle CSP sans avertissement n'a QUE lui
-_csp = N._texte(P.PERIMETRE_CSP)
-sans = [n for n in CAS if n not in OBS and not n.startswith(("Prédalle", "deux dalles")) and N.observations_de(planche(n)[0]) != [_csp]]
-chk("les observations de la planche sont celles que l'écran affiche sous la section (avertissements, périmètre de la "
-    "prédalle ou de la dalle CSP), en texte ; une dalle CSP sans avertissement n'a que son périmètre (flèche, fissuration non vérifiées)",
-    not faux and not sans, (faux[:2], sans[:3]))
-# le périmètre : une source pour l'écran et la note (api_web/dalle.texte_perimetre)
+    av = " | ".join(N.avertissements_de(sec))
+    faux += [(nom, a, av[:120]) for a in attendus if a not in av]
+    if "<" in av or "&" in av:
+        faux.append((nom, "balisage", av[:120]))
+    if sec["verifs"][-1]["num"] != NP.NUM_AVERTISSEMENTS or sec["verifs"][-1]["verdicts"]:
+        faux.append((nom, "pas en fin de planche, ou un verdict"))
+sans = [(n, s_["section"]) for n in CAS if n not in AVERT for s_ in N.sections(CAS[n]) if N.avertissements_de(s_)]
+chk("les avertissements de l'écran (rares : axe saisi, peau, croisement, enrobage nul) s'écrivent en fin de planche, seulement s'il "
+    "y en a, en texte, sans verdict (l'état de la planche reste celui de l'écran) ; aucun autre cas n'en a ; plus de bloc « Observations »",
+    not faux and not sans and not hasattr(N, "observations") and not hasattr(N, "TITRE_OBSERVATIONS"), (faux[:2], sans[:3]))
+# ce qui n'est pas vérifié : une source pour l'écran et la note (api_web/dalle.non_verifies, la fin de texte_perimetre)
 r_p = P.resultat(copy.deepcopy(CAS["Prédalle · neuve sollicitée"]))
 _d_csp = CAS["CSP · M_y,inf = 28 (treillis par défaut)"]
 r_c = P.resultat(copy.deepcopy(_d_csp))
-# (13/11/2026 : sous le résultat, la seule phrase « Non vérifié(e)s » — la fin du périmètre, ``non_verifies`` ; le
-#  périmètre entier au pied de chaque fenêtre de calcul, et sur la première planche de la note)
 _p0 = CAS["Prédalle · neuve sollicitée"]["dalles"][0]
 chk("le périmètre de la prédalle, et celui de la dalle CSP (flèche, fissuration non vérifiées), sont le texte de l'écran "
-    "(api_web/dalle.texte_perimetre, une source pour les deux) — entier dans les fenêtres de calcul et sur la première planche de "
-    "la note, sa dernière phrase (« Non vérifié(e)s : … ») sous le résultat",
+    "(api_web/dalle.texte_perimetre, une source pour les deux) — entier dans les fenêtres de calcul ; sa dernière phrase "
+    "(« Non vérifié(e)s : … ») sous le résultat et dans l'en-tête de chaque planche de la note",
     P.texte_perimetre(_p0) in r_p["volets"] and P.non_verifies(_p0) in r_p["resultat"] and P.texte_perimetre(_p0).endswith(P.non_verifies(_p0))
-    and N._texte(P.texte_perimetre(_p0)) in N.observations_de(planche("Prédalle · neuve sollicitée")[0])
+    and planche("Prédalle · neuve sollicitée")[0]["entete"]["note"] == P.non_verifies(_p0)
     and P.texte_perimetre(_d_csp["dalles"][0]) == P.PERIMETRE_CSP and "la flèche et la fissuration" in P.PERIMETRE_CSP
     and P.PERIMETRE_CSP in r_c["volets"] and P.NON_VERIFIEES_CSP in r_c["resultat"]
-    and _csp in N.observations_de(planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]), "")
+    and planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]["entete"]["note"] == P.NON_VERIFIEES_CSP, "")
 
 
-# ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche tient, en deux colonnes
+# ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche tient, en deux colonnes, rien ne dépasse
 def construire(etat):
     fd, chemin = tempfile.mkstemp(suffix=".pdf")
     os.close(fd)
@@ -477,29 +621,59 @@ def construire(etat):
         os.remove(chemin)
 
 
-debordes, trois, replis, reduites = [], [], [], []
+debordes, trois = [], []
 for nom, e in CAS.items():
     d_ = construire(e)
     if d_.warnings:
         debordes.append((nom, d_.warnings))
     if d_.colonnes != 2:
         trois.append(nom)
-    if d_.replis:
-        replis.append(nom)
-    if d_.coupes_reduites:
-        reduites.append(nom)
 chk("chaque planche de chaque cas tient sur sa page (rien ne déborde)", not debordes, debordes[:2])
-chk(f"… en DEUX colonnes, les observations sous les données de la coupe ({len(reduites)} cas où la coupe leur cède de la "
-    f"place : {', '.join(reduites)}) ; aucune en fin de planche ni en trois colonnes", not trois and not replis, (trois, replis))
-# MESURER CE QUE L'ŒIL VOIT : sous ses observations, la coupe garde la place de ses étiquettes — aucun texte de la coupe
-# n'en chevauche un autre (on espionne chaque texte écrit par la coupe, mesuré dans sa police et son corps ; les cotes
-# verticales, écrites dans un repère tourné, sont à part). Balayage : épaisseurs de 12 à 60 cm, prédalle et CSP, de 0 à
-# 4 observations, une coupe à un schéma (directions identiques) et à deux.
+chk("… en DEUX colonnes, toutes (l'en-tête compact, les sections communes et les nappes sans libellés y font la place)",
+    not trois, trois)
+# MESURER CE QUE L'ŒIL VOIT : aucune ligne ne dépasse sa colonne en LARGEUR (le kit réduit une formule jusqu'à min_form, une
+# ligne en gras jusqu'à 6 pt, puis la laisse déborder sur la colonne voisine) — la largeur des colonnes du kit, liée à
+# NP.LARGEUR_COLONNE (la note s'en sert pour replier la ligne des armatures posées)
+from ndc_pdf import mathx as MX  # noqa: E402
+from ndc_pdf import styles as STY  # noqa: E402
+from ndc_pdf.fonts import register_all, string_width  # noqa: E402
+register_all()
+
+
+def largeur_colonne(n_cols):
+    S_ = N._style(n_cols)
+    W_ = STY.A4L[0]
+    return (W_ - S_.margin - (S_.margin + S_.coupe_w + S_.gap) - S_.col_gap * (n_cols - 1)) / n_cols
+
+
+def trop_larges(sec, n_cols):
+    """Les lignes d'une planche plus larges que leur colonne, à leur plus petit corps : formules (min_form), lignes en gras (6 pt)."""
+    S_ = N._style(n_cols)
+    gw, ms_ = largeur_colonne(n_cols), N._style(n_cols).ms()
+    out = []
+    for v in sec["verifs"]:
+        for it in v["items"]:
+            if it[0] == "f" and MX.measure(MX.parse(it[2]), ms_, S_.min_form).w > gw + 0.5:
+                out.append((sec["section"], v["titre"], it[2][:50]))
+            elif it[0] == "t" and string_width(it[1], S_.f_v, 6.0) > gw + 0.5:
+                out.append((sec["section"], v["titre"], it[1][:50]))
+    return out
+
+
+larges = [(nom,) + x for nom, e in CAS.items() for sec in N.sections(e) for x in trop_larges(sec, 2)]
+chk(f"aucune formule ni ligne en gras ne dépasse sa colonne en largeur (deux colonnes : {largeur_colonne(2):.0f} pt), y compris "
+    "y_G à quatre couches et les armatures posées à trois renforts (repliées)",
+    not larges and abs(largeur_colonne(2) - NP.LARGEUR_COLONNE[2]) < 1 and abs(largeur_colonne(3) - NP.LARGEUR_COLONNE[3]) < 1,
+    (larges[:3], largeur_colonne(2), largeur_colonne(3)))
+# MESURER CE QUE L'ŒIL VOIT : la coupe garde la place de ses étiquettes — aucun texte de la coupe n'en chevauche un autre (on
+# espionne chaque texte écrit par la coupe, mesuré dans sa police et son corps ; les cotes verticales, écrites dans un repère
+# tourné, sont à part), et sa hauteur reste au-dessus de COUPE_MIN (mesuré le 09/11/2026). Balayage : épaisseurs de 12 à
+# 60 cm, prédalle et CSP, une coupe à un schéma (directions identiques) et à deux.
 import ndc_pdf.section as SEC  # noqa: E402
 
 
-def chevauchements_coupe(etat, n_obs):
-    boites, vrai_txt, vrai_obs = [], SEC.draw_text, N.observations
+def chevauchements_coupe(etat):
+    boites, hauteurs, vrai_txt, vrai_ds = [], [], SEC.draw_text, STY.draw_section
 
     def espion(c, x, y, txt, font, size, color=None, align="left", **k):
         lw = vrai_txt(c, x, y, txt, font, size, color, align, **k)
@@ -509,85 +683,58 @@ def chevauchements_coupe(etat, n_obs):
             g = x - (lw if align == "right" else (lw / 2 if align == "center" else 0))
             boites.append((c, txt, g, g + lw, y - 0.22 * size, y + 0.78 * size))
         return lw
-    SEC.draw_text = espion
-    N.observations = lambda d, r, i: ([P.texte_perimetre(d) or "Observation d'essai, assez longue pour tenir sur deux lignes "
-                                       "du panneau de gauche de la planche, sous la coupe de la section."] * n_obs)
+
+    def espion_ds(c, x, y, w, h, coupe, *a, **k):
+        hauteurs.append((h, coupe))
+        return vrai_ds(c, x, y, w, h, coupe, *a, **k)
+    SEC.draw_text, STY.draw_section = espion, espion_ds
     try:
         d_ = construire(etat)
     finally:
-        SEC.draw_text, N.observations = vrai_txt, vrai_obs
+        SEC.draw_text, STY.draw_section = vrai_txt, vrai_ds
     out = [(a[1], b[1]) for i, a in enumerate(boites) for b in boites[i + 1:]
            if a[2] < b[3] - 0.5 and b[2] < a[3] - 0.5 and a[4] < b[5] - 0.5 and b[4] < a[5] - 0.5]
-    return out, d_
+    basses = [round(h_) for h_, co in hauteurs if h_ < N.coupe_min({"coupe": co})]
+    return out, d_, basses
 
 
-faux, n_essais, n_reduites, n_replis, n_trois = [], 0, 0, 0, 0
-for type_ in ("coulee", "predalle"):
-    for h in (12, 20, 30, 45, 60):
-        base_ = cas((["type"], type_), (["h"], h), (S0 + ["My_inf"], 20), (S0 + ["Mx_sup"], 6), (S0 + ["V"], 30),
-                    (F("sup_x") + ["+"], 1))
-        for n_obs in range(5):
-            n_essais += 1
-            ch_, d_ = chevauchements_coupe(base_, n_obs)
-            n_reduites, n_replis, n_trois = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_trois + (d_.colonnes == 3)
-            if ch_ or d_.warnings:
-                faux.append((type_, h, n_obs, ch_[:2], d_.warnings))
-une = cas((F("inf_x") + [0, "dist"], "3,5"), (F("sup_x") + [0, "dist"], "3,5"), (S0 + ["My_inf"], 20))   # X et Y au même niveau
-chk("… une coupe à UN schéma (directions identiques, axes saisis)", len(N.sections(une)[0]["coupe"]["schemas"]) == 1)
-for n_obs in range(5):
-    n_essais += 1
-    ch_, d_ = chevauchements_coupe(une, n_obs)
-    n_reduites, n_replis, n_trois = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_trois + (d_.colonnes == 3)
-    if ch_ or d_.warnings:
-        faux.append(("un schéma", 20, n_obs, ch_[:2], d_.warnings))
-chk(f"sous ses observations, aucun texte de la coupe n'en chevauche un autre, et rien ne déborde ({n_essais} planches : "
-    f"h de 12 à 60 cm, CSP et prédalle, 0 à 4 observations, un ou deux schémas ; {n_reduites} coupes réduites, "
-    f"{n_replis} observations en fin de planche, {n_trois} planches en trois colonnes)",
-    not faux and n_reduites > 0 and n_replis > 0, faux[:3])
+def balayage():
+    """Les planches (CSP, prédalle ; h de 12 à 60 cm ; un et deux schémas) dont la coupe se chevauche, déborde ou passe sous
+    COUPE_MIN : (fautes, nombre d'essais)."""
+    fautes, n_ = [], 0
+    for type_ in ("coulee", "predalle"):
+        for h in (12, 20, 30, 45, 60):
+            base_ = cas((["type"], type_), (["h"], h), (S0 + ["My_inf"], 20), (S0 + ["Mx_sup"], 6), (S0 + ["V"], 30),
+                        (F("sup_x") + ["+"], 1))
+            n_ += 1
+            ch_, d_, basses = chevauchements_coupe(base_)
+            if ch_ or d_.warnings or basses:
+                fautes.append((type_, h, ch_[:2], d_.warnings, basses))
+    une = cas((F("inf_x") + [0, "dist"], "3,5"), (F("sup_x") + [0, "dist"], "3,5"), (S0 + ["My_inf"], 20))   # X et Y au même niveau
+    n_ += 1
+    ch_, d_, basses = chevauchements_coupe(une)
+    if ch_ or d_.warnings or basses or len(N.sections(une)[0]["coupe"]["schemas"]) != 1:
+        fautes.append(("un schéma", 20, ch_[:2], d_.warnings, basses))
+    return fautes, n_
 
 
-def textes_coupe(secs):
-    """Les textes écrits par la coupe (texte, x, y) pendant la construction des planches ``secs``."""
-    vus, vrai_txt = [], SEC.draw_text
-
-    def espion(c, x, y, txt, *a, **k):
-        vus.append((txt, round(x, 3), round(y, 3)))
-        return vrai_txt(c, x, y, txt, *a, **k)
-    SEC.draw_text = espion
-    try:
-        fd, chemin = tempfile.mkstemp(suffix=".pdf")
-        os.close(fd)
-        N._style(2).build(chemin, sections=secs, doc=ND.construire_doc({}, "x"))
-        os.remove(chemin)
-    finally:
-        SEC.draw_text = vrai_txt
-    return vus
-
-
-secs_a = N.sections(CAS[nom_s3])
-secs_b = N.sections(CAS[nom_s3])
-for s_ in secs_b:
-    s_["dessin"] = N._hauteur_coupe(s_)
-chk("le dessinateur des planches à observations dessine la coupe même du kit (LARGEUR_ETIQUETTES = la place que "
-    "styles.planche donne aux étiquettes) : mêmes textes aux mêmes places", textes_coupe(secs_a) == textes_coupe(secs_b)
-    and len(textes_coupe(secs_a)) > 10, "")
-vrai_min = dict(N.COUPE_MIN)
-N.COUPE_MIN.update({1: (40.0, 0.0), 2: (80.0, 0.0)})
+faux, n_essais = balayage()
+chk(f"la coupe : aucun de ses textes n'en chevauche un autre, sa hauteur reste au-dessus de COUPE_MIN, rien ne déborde ({n_essais} "
+    "planches : h de 12 à 60 cm, CSP et prédalle, un ou deux schémas)", not faux, faux[:3])
+vrai_h = N.COUPE_H
+N.COUPE_H = 120.0
 try:
-    ch_, _ = chevauchements_coupe(cas((["type"], "predalle"), (["h"], 45), (S0 + ["My_inf"], 20), (S0 + ["Mx_sup"], 6),
-                                      (S0 + ["V"], 30), (F("sup_x") + ["+"], 1)), 3)
+    faux_m, _ = balayage()
 finally:
-    N.COUPE_MIN.clear()
-    N.COUPE_MIN.update(vrai_min)
-chk("mutation · COUPE_MIN trop petit : la coupe tassée sous ses observations, ses étiquettes se chevauchent — le contrôle rougit",
-    bool(ch_), ch_)
-# le dernier recours : des observations trop longues pour le panneau passent en fin de planche ; la planche qui déborde
-# alors passe SEULE en trois colonnes, ses titres raccourcis pour y tenir (ceux du générateur en sortent)
-from ndc_pdf.fonts import string_width  # noqa: E402
+    N.COUPE_H = vrai_h
+chk("mutation · COUPE_H trop petit : la coupe tassée sous COUPE_MIN, ses étiquettes se chevauchent — le contrôle rougit", bool(faux_m), faux_m[:1])
+# le dernier recours : une planche trop longue (des avertissements nombreux) passe SEULE en trois colonnes — ses titres
+# raccourcis et ses formules dans leur forme courte y tiennent, en hauteur comme en largeur
 long_ = cas((["type"], "predalle"), (["h"], 40), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_sup"], 8),
             (S0 + ["V"], 40), (["sections", "+"], 1), (["sections", 1, "My_inf"], 12))
-vrai_obs = N.observations
-N.observations = lambda d, r, i: vrai_obs(d, r, i) * (3 if i == 0 else 1)
+vrai_av = N.avertissements
+N.avertissements = lambda d, r, i: (["Avertissement d'essai, assez long pour tenir sur trois lignes de la colonne de calcul, "
+                                     "en fin de planche, après l'effort tranchant."] * 8 if i == 0 else [])
 vrai_build = N._style
 
 
@@ -597,23 +744,25 @@ def espion_style(n_cols):
 
     def planche_(d, doc, sec):
         if sec.get("n_cols") == 3:
-            gw = (d.W - s_.margin - (s_.margin + s_.coupe_w + s_.gap) - 2 * s_.col_gap) / 3
-            larges.extend(v["titre"] for v in sec["verifs"] if string_width(v["titre"], s_.f_h, 7.0) > gw - (s_.s_tit * 1.25 + 8))
+            gw = largeur_colonne(3)
+            titres_l.extend(v["titre"] for v in sec["verifs"] if string_width(v["titre"], s_.f_h, 7.0) > gw - (s_.s_tit * 1.25 + 8))
             vus.append(sec["section"])
+            larges3.extend(trop_larges(sec, 3))
         return vrai_planche(d, doc, sec)
     s_.planche = planche_
     return s_
 
 
-larges, vus = [], []
+titres_l, vus, larges3 = [], [], []
 N._style = espion_style
 try:
     d_ = construire(long_)
 finally:
-    N.observations, N._style = vrai_obs, vrai_build
-chk("des observations trop longues : en fin de planche, la planche seule en trois colonnes (l'autre section en deux), "
-    "chaque titre y tient, rien ne déborde", not d_.warnings and d_.replis == 1 and d_.trois_colonnes == 1 and vus
-    and not larges and set(vus) == {"Section A"}, (d_.warnings, d_.replis, d_.trois_colonnes, vus, larges))
+    N.avertissements, N._style = vrai_av, vrai_build
+chk("une planche trop longue : elle seule en trois colonnes (l'autre section en deux), chaque titre et chaque ligne y tiennent, "
+    "rien ne déborde", not d_.warnings and d_.trois_colonnes == 1 and vus and not titres_l and not larges3 and set(vus) == {"Section A"},
+    (d_.warnings, d_.trois_colonnes, vus, titres_l, larges3[:2]))
+
 
 # ---------------------------------------------------------------- 6. le PDF, lu par pdftotext ; le routeur
 e = CAS["deux dalles : CSP puis prédalle"]
@@ -623,17 +772,25 @@ chk("la note est un PDF : la garde et une planche par section (1 + 3 pages)", oc
 tmp = tempfile.mkdtemp()
 with open(os.path.join(tmp, "n.pdf"), "wb") as f:
     f.write(octets)
-txt = subprocess.run(["pdftotext", "-layout", os.path.join(tmp, "n.pdf"), "-"], capture_output=True, text=True).stdout
+txt = subprocess.run(["pdftotext", "-layout", os.path.join(tmp, "n.pdf"), "-"], capture_output=True, text=True).stdout.replace("\xa0", " ")
 shutil.rmtree(tmp, ignore_errors=True)
 d0, d1 = e["dalles"]
 g0 = P._calculer(d0)["sections"][0]["grandeurs"]
 g1 = P._calculer(d1)["sections"][0]["grandeurs"]
 attendus = [f"{d0['nom']} — Section A", f"{d1['nom']} — Section A", f"{d1['nom']} — Section B", "Chantier Essai",
-            f"{ND.fn(g0['As_req_inf_y'], 0)} mm", f"{ND.fn(g1['d_inf_x'], 1)} cm", "dont prédalle préf.", "OBSERVATIONS",
+            f"{ND.fn(g0['As_req_inf_y'], 0)} mm", f"{ND.fn(g1['d_inf_x'], 1)} cm", "DALLE PLEINE", "PRÉDALLE", "BÉTON C30/37",
+            "ACIER B500", "Non vérifiées : la flèche et la fissuration.", "Non vérifiés : la phase provisoire", "Hauteur minimale",
+            "Hauteur utile minimale", "Enrobage mécanique", "Sections d'acier minimale et maximale",
+            "Armatures posées : Treillis 10/10/100/100 — 785 mm²/m",
+            f"taux {C.pc(C.pct(next(v for v in P._calculer(d0)['sections'][0]['verifications'] if v['cle'] == 'hauteur')['taux']))} %",
             "VÉRIFIÉ"]
 manque = [a for a in attendus if a not in txt]
 chk("pdftotext lit dans la note le nom de chaque dalle et de chaque section, le chantier, des chiffres de l'écran (A_s,req, d), "
-    "la peau de la prédalle et ses observations", not manque, manque)
+    "l'en-tête compact (le type, le béton, l'acier, ce qui n'est pas vérifié), la hauteur détaillée, les sections communes, les "
+    "armatures posées et leur taux", not manque, manque)
+chk("… et plus de bloc « Observations » (ni DIMENSIONS, ni MATÉRIAUX : l'en-tête les dit), ni « On prend »",
+    not any(x in txt for x in ("OBSERVATIONS", "Observations", "DIMENSIONS", "MATÉRIAUX", "On prend")),
+    [x for x in ("OBSERVATIONS", "Observations", "DIMENSIONS", "MATÉRIAUX", "On prend") if x in txt])
 
 r = json.loads(R.traiter(json.dumps({"module": "dalle", "action": "telecharger", "etat": e, "quoi": "note_pdf",
                                      "infos": {"nom": "Plancher <R+1>", "chantier": "", "indice": "B", "date": "10/11/2026"}})))
@@ -731,10 +888,20 @@ mutation("l'état de l'écran retiré (« Vérifié » sans effort)",
          lambda: planche("CSP neuve (sans effort)")[0]["etat"] == N.ETAT_INCOMPLET)
 mutation("les niveaux du calcul retirés de la coupe", lambda: remplace(N, "_niveaux_du_calcul", lambda coupe, R_: None),
          lambda: coupe_juste(nom_s3))
-mutation("le verdict de l'acier excessif retiré", lambda: remplace(N, "_verdict_site", lambda v_pdf, v, rs: None),
-         lambda: "acier excessif" in planche("CSP · acier excessif (Ø40/100 en bas)")[0]["verifs"][1]["verdicts"][0]["texte"])
-mutation("les observations retirées", lambda: remplace(N, "observations", lambda d, r, i: []),
-         lambda: "Non vérifiés" in " ".join(N.observations_de(planche("Prédalle · neuve sollicitée")[0])))
+mutation("le verdict de l'acier excessif retiré (la comparaison générique de la nappe)",
+         lambda: remplace(NP, "verdict_nappe", lambda v, rs: dict(etat="ko", texte="12566 mm² posés ≥ 707 mm² requis")),
+         lambda: "acier excessif" in verif(planche("CSP · acier excessif (Ø40/100 en bas)")[0], "inf_y")["verdicts"][0]["texte"])
+mutation("les avertissements retirés", lambda: remplace(N, "avertissements", lambda d, r, i: []),
+         lambda: "sort de la peau" in " ".join(N.avertissements_de(planche("Prédalle · peau de 4 cm, base Ø16 qui en sort")[0])))
+mutation("la phrase « Non vérifiés » retirée de l'en-tête", lambda: remplace(NP, "entete", (lambda vrai: lambda d, rs: dict(vrai(d, rs), note=""))(NP.entete)),
+         lambda: planche("Prédalle · neuve sollicitée")[0]["entete"]["note"].startswith("Non vérifiés : la phase provisoire"))
+mutation("la décomposition de y_G écrite sans la vérifier (la tolérance infinie : une somme fausse s'écrirait)",
+         lambda: remplace(NP, "TOLERANCE_AXE", 1e9),
+         lambda: all(abs(a - b) <= 0.051 for nom_ in CAS for s_ in N.sections(CAS[nom_]) for a, b in decompositions(s_)))
+mutation("les sections minimale et maximale répétées dans chaque nappe (la nappe rend aussi A_s,max)",
+         lambda: remplace(NP, "verif_nappe", (lambda vrai: lambda d, s, rs, v, num: dict(vrai(d, s, rs, v, num), items=vrai(d, s, rs, v, num)["items"]
+                                                                                       + [("f", "", r"A_{s,max} = 0,04 \cdot b \cdot h")]))(NP.verif_nappe)),
+         lambda: all("\n".join(formules(v) for v in sec_["verifs"]).count("A_{s,max} = ") == 1 for sec_ in N.sections(CAS[nom_m])))
 mutation("le contrôle de la note sans effet (N.ecarts vide) sur une traduction fausse → la parité du test le voit encore",
          lambda: (lambda r1, r2: lambda: (r1(), r2()))(remplace(N, "ecarts", lambda R_, rs: []), remplace(N, "valeurs", decale)),
          lambda: not ecarts_parite(CAS[nom_m]))

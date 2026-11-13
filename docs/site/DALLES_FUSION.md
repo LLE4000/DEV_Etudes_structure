@@ -590,6 +590,9 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   observations passent en fin de planche, et la planche qui déborde alors passe SEULE en trois colonnes, ses titres
   raccourcis (« Armatures sup. — principale » : ceux du générateur ne tiennent pas dans une colonne sur trois). Les
   24 cas du test tiennent en deux colonnes ; le dernier recours est testé à part.
+  *Révision du 13/11/2026 (DAL6, § 8.8) : le bloc « Observations » n'existe plus — le périmètre est une phrase de
+  l'en-tête de chaque planche, les avertissements s'écrivent en fin de planche s'il y en a ; le contenu de la planche
+  (hauteur détaillée, sections communes, armatures posées) est composé par le site (`note_dalle_planche`).*
 
 ### 6.3 La parité (`tests/test_note_dalle.py`)
 
@@ -608,6 +611,8 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
 
 ### 6.4 Ce que la note ne dit pas, ce qui n'est pas vérifié
 
+- *(Révision du 13/11/2026, DAL6 : le taux est dans chaque verdict, l'axe de la couche dimensionnante est décomposé
+  dans la hauteur, « posée sur la base Y » y est dit — § 8.8.)*
 - Le TAUX η de chaque vérification (l'écran l'affiche ; la note dit A_s ≥ A_s,néc, comme celle de Streamlit) ; le plan
   des nappes ; la formule d'axe de chaque couche (la note donne d = h − y_G) ; la mention « sur la base Y » (ou « sur
   renfort Y », S5) ; l'étoile du sélecteur. Aucun de ces manques ne contredit l'écran : la note reçoit les axes du site,
@@ -885,3 +890,63 @@ couche ne traverse ni une autre couche ni l'enrobage.
   regelée (des actions « …/deplacer » en plus, aucun calcul) ; harnais (filtre « plaques ») : au PC, les flèches de la
   ligne, la coupe 5 mm plus haut, la barre, le refus en rouge ; au téléphone, la barre dans l'onglet Dessin et les
   flèches à 44 × 44 px.
+
+### 8.8 DAL6 — La note PDF : la hauteur détaillée, un en-tête compact, les armatures en résultats
+
+La demande (point 8) : « voir clairement le calcul détaillé de la hauteur minimale » (la formule, les valeurs, le
+résultat, l'ajout de l'enrobage et la vérification) ; « regrouper béton, f_ck, f_ctm, B… dans un en-tête compact et
+homogène, sans les répéter à chaque calcul » ; « les valeurs d'armatures doivent être des résultats » ; « la page de
+garde est bonne : la conserver ; supprimer le bloc Observations en bas à gauche ».
+
+- **Le contenu de la planche est celui du site** (`api_web/note_dalle_planche.py`) : composé des grandeurs que le moteur
+  du site NOMME (la section calculée, ses `grandeurs` et les termes de ses formules) ; la note ne calcule rien. Le
+  générateur Streamlit donne encore la coupe, et ses chiffres sont comparés à ceux du site avant chaque note
+  (`note_dalle.ecarts`, inchangé). La page de garde est intacte.
+- **L'en-tête compact**, sous le titre de chaque planche (extension du kit `ndc_pdf.styles.Style.entete`, sans effet sur
+  les autres notes) : trois cases — « Dalle pleine » / « Prédalle » (b, h, h_p, c — « 0 saisi » pour un enrobage nul lu
+  3 cm —, le jeu, la direction principale), « Béton C30/37 » (f_ck, f_ctm, α_b), « Acier B500 » (f_yd = f_yk / γ_s, μ) —
+  puis « Non vérifié(e)s : … » en une phrase (`api_web/dalle.non_verifies`, la phrase de l'écran). Le panneau de gauche
+  n'a plus DIMENSIONS ni MATÉRIAUX : la coupe (plus haute) et les sollicitations en tableau (M⁺ · inf. tendue, M⁻ · sup.
+  tendue par direction, puis V — la saisie de l'écran).
+- **1 · Hauteur minimale, détaillée** : le moment dimensionnant et sa face (la plus exigeante des faces sollicitées :
+  h_u,min + y_G le plus grand) ; h_u,min = √(M / (α_b·b·μ)) en symboles, PUIS en valeurs (√(35·10⁶ / (12,96 · 1000 ·
+  0,1709)) = 12,6 cm), α_b et μ dits ; l'ENROBAGE MÉCANIQUE y_G décomposé — c + Ø/2 (le demi-Ø arrondi au 0,5 cm
+  supérieur, comme le moteur), + le jeu, la couche porteuse (« posée sur la base Y » : e_appui + Ø_appui/2 + Ø/2), ou la
+  prédalle (h_p + Ø/2) — seulement quand la décomposition redonne EXACTEMENT l'axe du moteur (à 1e-9 près ; sinon la
+  valeur et pourquoi : axe saisi, y_G imposé, plusieurs couches renvoyées à leur nappe) ; puis h_min = h_u,min + y_G ≤ h
+  et le verdict avec son TAUX (« Épaisseur 20 cm ≥ hauteur minimale 16,1 cm — taux 80 % »).
+- **2 · Sections d'acier minimale et maximale, UNE fois** : A_s,min,EC = 0,26·f_ctm/f_yk·b·h, A_s,min,pl = 0,0013·b·h,
+  A_s,min,0 = max des deux, A_s,max = 0,04·b·h. f_ctm, b et h ne se répètent plus dans les quatre nappes (avant : quatre
+  fois chaque formule).
+- **3 à 6 · Les nappes**, dans l'ordre de l'écran : y_G (plusieurs couches : Σ A_s,i·e_i / Σ A_s,i ; au-delà de trois
+  couches, les couches en texte), d = h − y_G, A_s,req = M / (f_yd·0,9·d), A_s,min = max(A_s,min,0 ; 0,25·A_s,req de la
+  face opposée) — sans libellé au-dessus, le symbole le dit ; puis l'armature POSÉE, un résultat : « Armatures posées :
+  Treillis 10/10/100/100 — 785 mm²/m » (repliée quand la désignation est trop longue) et le verdict « 785 mm² posés ≥
+  707 mm² requis — taux 90 % » (« sur la bande de 50 cm » pour une bande d'autre largeur ; acier excessif et d ≤ 0 :
+  leur raison, comme l'écran). Plus de « On prend » : la note ne choisit rien.
+- **7 · Effort tranchant** : τ = V / (0,75·b·h) et τ_adm,I = 0,016·f_ck,cube / 1,05 en formules, le verdict et son taux.
+- **Le bloc « Observations » n'existe plus.** Les AVERTISSEMENTS de l'écran (rares : un axe saisi qui met deux nappes
+  au même niveau, une base qui sort de la peau d'une prédalle, deux couches croisées sur la prédalle, un enrobage nul)
+  s'écrivent en fin de planche (« ! »), seulement s'il y en a, sans verdict — la couleur de l'état reste celle de
+  l'écran. *Désaccord dit au propriétaire : les supprimer aussi ferait taire, dans un document opposable, une hypothèse
+  que l'écran signale ; ils restent, à leur place, quand ils existent.*
+- **La coupe** : ses titres sont ceux de l'écran (« Direction Y · principale », « Direction X ») ; dans le schéma
+  secondaire, les fils d'un treillis unique ne répètent plus sa désignation (« Inf. X : fils du treillis », leur
+  section au mètre gardée) — DAL5a appliqué à la note.
+- **La place** : les 26 cas du test (32 planches) tiennent en DEUX colonnes (avant : la coupe cédait de la hauteur aux
+  observations). Une planche trop longue passe seule en trois colonnes, ses titres et ses formules dans leur forme
+  courte (sans l'expression en symboles : `note_dalle.forme_courte`). MESURÉ : aucune formule ni ligne en gras ne
+  dépasse sa colonne en largeur (225 pt en deux colonnes, 143 en trois — `note_dalle_planche.LARGEUR_COLONNE`, liées au
+  kit par le test) ; aucun texte de la coupe n'en chevauche un autre, h de 12 à 60 cm, sa hauteur au-dessus de
+  `COUPE_MIN` (la mesure du 09/11/2026, gardée).
+- **Kit** (`ndc_pdf/styles.py`) : deux extensions rétro-compatibles — `sec["entete"]` (l'en-tête compact) et la ligne
+  « r » (un paragraphe RICHE, `ndc_pdf.riche` : « $\alpha_{b}$ ») ; sans elles, les notes de la poutre, des assemblages,
+  des soudures… sont celles d'avant (`test_export_pdf_ndc`, `test_note_poutre` verts).
+- Tests : `tests/test_note_dalle.py` (58) — le texte de chaque planche écrit les chiffres du moteur (h_u,min, h_min, les
+  sections communes, d, A_s,req, A_s,min, A_s/m, A_s, A_s,néc et le taux, τ, τ_adm, les efforts) ; la hauteur détaillée
+  (formule, valeurs, y_G décomposé, taux) ; chaque décomposition de y_G redonne y_G (les quatre règles) ; l'en-tête de
+  chaque planche ; f_ctm, A_s,min,EC et A_s,max une fois par planche ; les armatures posées ; les avertissements à leur
+  place ; deux colonnes, la largeur, la coupe ; pdftotext lit l'en-tête, la hauteur, les sections communes, les
+  armatures posées et le taux, et plus aucun « Observations », « DIMENSIONS », « MATÉRIAUX », « On prend ». Mutations :
+  la décomposition écrite sans être vérifiée, les sections répétées dans chaque nappe, la phrase « Non vérifiés »
+  retirée, les avertissements retirés, le verdict de l'acier excessif, COUPE_H trop petit — chacune rougit.
