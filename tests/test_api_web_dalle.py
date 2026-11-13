@@ -355,6 +355,45 @@ r10 = req(module="dalle", action="choisir", etat=etat, role="sup_x-1", nom="Ø12
 chk("choisir « Ø12/150 » pose des barres Ø12 tous les 150 mm", {k: dalle_de(r10["etat"])["sections"][1]["faces"]["sup_x"]["couches"][0][k]
                                                                for k in ("type", "d", "esp")} == {"type": "barres", "d": 12, "esp": 150})
 
+# (13/11/2026, § 8.4) le bouton du sélecteur est une LISTE (plus une ampoule) ; les ESPACEMENTS admis des barres proposées :
+# un réglage de la note (tous par défaut), des puces dans les options (un appui bascule ; jamais le dernier), que le
+# sélecteur suit (les barres aux espacements admis seulement, la ★ choisie parmi elles) ; une note d'avant, sans la clé,
+# les a tous ; une liste abîmée est refusée
+_n0 = nouveau()
+_don0 = _n0["donnees"]
+_puces = re.findall(r'<button type="button" class="fchip( on)?" data-chemin="espacements" data-valeur="(\d+)" data-bascule="1"', _don0)
+chk("le sélecteur s'ouvre d'un bouton « liste » (plus d'ampoule) ; les options portent une puce par espacement du moteur, toutes allumées "
+    "(la note neuve les admet tous)",
+    C.icon("list-filter") in _don0 and C.icon("lightbulb") not in _don0 and _n0["etat"]["espacements"] == list(P.ESPACEMENTS) == [100, 125, 150, 200, 250]
+    and _puces == [(" on", str(e)) for e in P.ESPACEMENTS], _puces)
+_e1 = req(module="dalle", action="modifier", etat=_n0["etat"], chemin=["espacements"], valeur="125")
+_e2 = req(module="dalle", action="modifier", etat=_e1["etat"], chemin=["espacements"], valeur="150")
+_sel = req(module="dalle", action="selecteur", etat=_e2["etat"], role="inf_y-0", familles=["barres"])
+_esp_sel = sorted({int(x) for x in re.findall(r'data-choix="Ø\d+/(\d+)"', _sel["html"])})
+_cands_adm = POS.candidats_base(_e2["etat"]["dalles"][0], 0, "inf_y", ("barres",), espacements=[100, 200, 250])
+chk("un appui sur « 12,5 » puis « 15 » les retire (la puce s'éteint) ; le sélecteur ne propose plus que des barres à 10, 20 et 25 cm, et le "
+    "dit ; sa ★ est la plus petite qui tient PARMI elles (celle de dalle_positions, filtrée)",
+    _e1["message"] is None and _e2["etat"]["espacements"] == [100, 200, 250]
+    and 'class="fchip" data-chemin="espacements" data-valeur="125"' in _e2["donnees"] and _esp_sel == [100, 200, 250]
+    and "espacements admis : 10 · 20 · 25 cm" in _sel["html"]
+    and re.findall(r'<button class="pk-row(?: cur)? opt" data-choix="([^"]+)"', _sel["html"]) == [c["nom"] for c in _cands_adm if c["optimal"]],
+    (_esp_sel, _e2["etat"]["espacements"]))
+_e3 = _e2["etat"]
+for _v in ("100", "200"):
+    _e3 = req(module="dalle", action="modifier", etat=_e3, chemin=["espacements"], valeur=_v)["etat"]
+_dernier = req(module="dalle", action="modifier", etat=_e3, chemin=["espacements"], valeur="250")
+_retour = req(module="dalle", action="modifier", etat=_e3, chemin=["espacements"], valeur="150")
+chk("le dernier espacement ne se retire pas (« Au moins un espacement »), la note intacte ; un appui sur une puce éteinte la rallume",
+    _e3["espacements"] == [250] and "Au moins un espacement" in (_dernier["message"] or "") and _dernier["etat"] == _e3
+    and _retour["etat"]["espacements"] == [150, 250], (_e3["espacements"], _dernier.get("message")))
+_vieille = req(module="dalle", action="calculer", etat={"version": 3, "dalles": [{"nom": "D"}], "actif": 0})
+_abimees = [req(module="dalle", action="calculer", etat={"dalles": [{"nom": "D"}], "espacements": x}) for x in ([], [99], "100", [True])]
+chk("une note d'avant (sans la clé) admet tous les espacements ; une liste abîmée (vide, hors du moteur, texte, booléen) est REFUSÉE avec "
+    "un message, jamais remplacée en silence ; un espacement inconnu saisi est refusé",
+    _vieille["etat"]["espacements"] == list(P.ESPACEMENTS) and all(not x["ok"] and "espacements admis" in (x.get("erreur") or "") for x in _abimees)
+    and "Espacement : l'un de" in (req(module="dalle", action="modifier", etat=_n0["etat"], chemin=["espacements"], valeur="175")["message"] or ""),
+    [x.get("erreur") for x in _abimees])
+
 # ------------------------------------------------------------------ 7. les dalles de la note
 a = req(module="dalle", action="ajouter", etat=etat)
 chk("« Ajouter une dalle » : Dalle 2 ouverte, neuve", len(a["etat"]["dalles"]) == 2 and a["etat"]["actif"] == 1

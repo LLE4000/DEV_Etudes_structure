@@ -103,8 +103,8 @@ def couche(EN, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", 
             opts = opts + [c["treillis"]]          # un ancien fichier : la désignation reste utilisable
         nappe = f'<div class="et-tr">{C.choix(base + ["treillis"], c["treillis"], [(x, x) for x in opts])}</div>'
         t = geo_c["treillis"]
-        info = (f"treillis soudé : porteurs Ø{t[0]} tous les {t[2]} mm ; répartition Ø{t[1]} tous les {t[3]} mm (non comptés, "
-                "comme dans l'écran Streamlit)")
+        info = (f"treillis soudé : porteurs Ø{t[0]} tous les {t[2]} mm, comptés dans cette direction ; répartition Ø{t[1]} "
+                f"tous les {t[3]} mm, non comptés ici")
     else:
         dia = f'<div class="et-dia">{C.choix(base + ["d"], c["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES])}</div>'
         if c["type"] == "barres":
@@ -130,18 +130,20 @@ def couche(EN, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", 
 def nappe(EN, i: int, f: str, face: Dict, geo: Dict, v: Dict, principale: str, couches: str, aide_renfort: str,
           verrou: bool = False) -> str:
     """Une NAPPE (face × direction) : son titre (la principale marquée), la section nécessaire que la vérification
-    demande, le bouton du sélecteur de la couche de base ; ses couches (``couches``, HTML), « + Renfort » ; le centre de
-    gravité (vide = calculé)."""
+    demande, le bouton du sélecteur de la couche de base (une LISTE à choisir — c'était une ampoule, 13/11/2026) ; ses
+    couches (``couches``, HTML), « + Renfort » ; le centre de gravité (vide = calculé) — seulement dès DEUX couches ou
+    quand il est imposé : d'une couche seule, y_G est son axe, que la couche règle déjà (13/11/2026, § 8.4)."""
     _, dk = f.split("_")
     princ = '<span class="et-princ" title="Direction principale">princ.</span>' if dk == principale else ""
-    prop = ("" if verrou else f'<button type="button" class="et-prop" data-pk="{f}-{i}" title="Proposer une nappe de base qui tient '
-            f'(sélecteur)">{C.icon("lightbulb")}</button>')
+    prop = ("" if verrou else f'<button type="button" class="et-prop" data-pk="{f}-{i}" title="Choisir la couche de base dans la '
+            f'liste des nappes, triées par section (★ : la plus petite qui tient)">{C.icon("list-filter")}</button>')
     ajouter = (E.plus(["sections", i, "faces", f, "couches", "+"], "1", "Renfort") if len(face["couches"]) < EN.MAX_COUCHES else "")
     aide = f'<span class="et-pied-a" title="{C.esc(aide_renfort)}">A<sub>s</sub> posé {C.fr(geo["As_pm"], 0)}{C.NBSP}mm²/m</span>'
-    yg = C.ligne("y<sub>G</sub> imposé", auto_ou_saisi(["sections", i, "faces", f, "yG"], face["yG"], geo["yG_calcule"],
-                                                       "Revenir au centre de gravité calculé"),
-                 "", "Centre de gravité des couches de la nappe, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A). "
-                     "L'imposer remplace le calcul dans d = h − y_G.")
+    yg = ("" if len(face["couches"]) < 2 and face["yG"] is None else
+          C.ligne("y<sub>G</sub> imposé", auto_ou_saisi(["sections", i, "faces", f, "yG"], face["yG"], geo["yG_calcule"],
+                                                        "Revenir au centre de gravité calculé"),
+                  "", "Centre de gravité des couches de la nappe, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A). "
+                      "L'imposer remplace le calcul dans d = h − y_G."))
     return (f'<div class="et-grp"><div class="et-gh"><span class="t">{titre_face(f)}</span>{princ}'
             f'<span class="et-req">A<sub>s</sub> néc. <b>{C.fr(v["valeur"], 0)}</b>{C.NBSP}mm²</span>{prop}</div>'
             f'{couches}<div class="et-pied">{ajouter}{aide}</div>{yg}</div>')

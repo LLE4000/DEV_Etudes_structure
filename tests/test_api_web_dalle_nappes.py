@@ -10,7 +10,7 @@ ordinaire, sur des états construits avec beton.dalle.entree.nouvelle_dalle() / 
    l'orientation s'échange, treillis → barres garde Ø et espacement, barres → treillis pose un treillis unique, une
    désignation ou un côté illisible est refusé, et rien d'autre ne bouge (renforts, axes, centres de gravité) ;
 3. le HTML : les segments du mode, UN sélecteur de treillis par nappe, l'orientation des porteurs (la principale marquée,
-   grisée pour un treillis symétrique), la ligne « X : Ø10 e 100 · Y : Ø12 e 150 », la base lue (son axe réglable) en
+   grisée pour un treillis symétrique), la base lue — ce que sa direction reçoit, « porteurs · Ø10 e 100 » — (son axe réglable) en
    mode treillis, l'écran d'aujourd'hui en mode barres, l'avertissement et « En faire un treillis » en mode incohérent,
    aucun doublon de data-cible, le verrou sans aucun bouton ;
 4. trois MUTATIONS : chaque garantie ci-dessus rougit quand on casse ce qu'elle surveille.
@@ -306,19 +306,31 @@ chk("l'orientation des porteurs : deux segments X / Y (« Y · princ. » était 
 orient_s = re.findall(SEG.format("sections/0/nappes/sup/porteurs"), sup)
 chk("… la supérieure (treillis symétrique) : les segments sont GRISÉS (l'orientation est sans effet), la principale allumée",
     all(off for _, _, off, _ in orient_s) and [v for on, v, _, _ in orient_s if on] == ["y"] and "sans effet" in sup, orient_s)
-chk("la ligne de ce que chaque direction reçoit : « X : Ø10 e 100 · Y : Ø12 e 150 » (inférieure) ; « X : Ø10 e 100 · Y : Ø10 e 100 » (supérieure)",
-    "X : Ø10 e 100 · Y : Ø12 e 150" in inf and "X : Ø10 e 100 · Y : Ø10 e 100" in sup)
+# (13/11/2026, § 8.4) plus de ligne « X : … · Y : … » sous le réglage : chaque direction dit CE QU'ELLE REÇOIT sur la ligne
+# de sa base — « porteurs · Ø10 e 100 », « répartition · Ø12 e 150 » —, une fois, sans répéter « Treillis » ni la désignation
+def _base_lue(h_, f):
+    p_ = re.search(r'<div class="et-piece" data-cible="s0\.' + f + r'-0">.*?<div class="et-det">', h_, re.S)
+    return re.findall(r'<span class="et-lu">([^<]+)</span>', p_.group(0)) if p_ else None
+chk("ce que chaque direction reçoit, sur la ligne de SA base : inférieure X « porteurs · Ø10 e 100 », Y « répartition · Ø12 e 150 » ; "
+    "supérieure (symétrique) : Y porteurs, X répartition, Ø10 e 100 ; plus de ligne « X : … · Y : … »",
+    _base_lue(inf, "inf_x") == ["porteurs", "Ø10 e 100"] and _base_lue(inf, "inf_y") == ["répartition", "Ø12 e 150"]
+    and _base_lue(sup, "sup_y") == ["porteurs", "Ø10 e 100"] and _base_lue(sup, "sup_x") == ["répartition", "Ø10 e 100"]
+    and "et-nap-xy" not in h and "X : Ø10 e 100" not in h, (_base_lue(inf, "inf_x"), _base_lue(inf, "inf_y")))
 chk("en mode treillis, la base de chaque direction se LIT (ni menu « type » ni menu « treillis » sur la couche 0) mais son axe reste réglable, "
     "et le renfort garde tous ses champs",
     'data-chemin="sections/0/faces/inf_x/couches/0/type"' not in inf and 'data-chemin="sections/0/faces/inf_x/couches/0/treillis"' not in inf
     and 'data-chemin="sections/0/faces/inf_y/couches/0/type"' not in inf
     and 'data-chemin="sections/0/faces/inf_x/couches/0/dist"' in inf and 'data-chemin="sections/0/faces/inf_y/couches/0/dist"' in inf
     and all(f'data-chemin="sections/0/faces/inf_y/couches/1/{k}"' in inf for k in ("type", "n", "d", "dist", "-")))
-chk("… la base lue dit son type et sa désignation (« Treillis », « 10/12/100/150 » en X, « 12/10/150/100 » en Y), et où elle se règle",
-    '<span class="et-lu">Treillis</span>' in inf and '<span class="et-lu">10/12/100/150</span>' in inf and '<span class="et-lu">12/10/150/100</span>' in inf
-    and "par la nappe" in inf)
-chk("le détail de chaque direction, la principale (Y) d'abord : « Inférieure Y » puis « Inférieure X », avec « + Renfort » et y_G de chacune",
-    inf.index("Inférieure Y") < inf.index("Inférieure X") and all(f'data-chemin="sections/0/faces/{f}/{k}"' in inf for f in ("inf_x", "inf_y") for k in ("couches/+", "yG")))
+chk("… la base lue ne répète ni « Treillis » ni la désignation (la nappe les porte) ; son détail dit ses fils (« fils porteurs du "
+    "treillis : Ø10 tous les 100 mm », « fils de répartition du treillis : Ø12 tous les 150 mm ») ; plus de « Streamlit »",
+    '<span class="et-lu">Treillis</span>' not in inf and '<span class="et-lu">10/12/100/150</span>' not in inf
+    and "fils porteurs du treillis : Ø10 tous les 100 mm" in inf and "fils de répartition du treillis : Ø12 tous les 150 mm" in inf
+    and "Streamlit" not in h)
+chk("le détail de chaque direction, la principale (Y) d'abord : « Inférieure Y » puis « Inférieure X », avec « + Renfort » ; y_G dès DEUX "
+    "couches seulement (Y : base et renfort ; X, une couche : son axe suffit — 13/11/2026)",
+    inf.index("Inférieure Y") < inf.index("Inférieure X") and all(f'data-chemin="sections/0/faces/{f}/couches/+"' in inf for f in ("inf_x", "inf_y"))
+    and 'data-chemin="sections/0/faces/inf_y/yG"' in inf and 'data-chemin="sections/0/faces/inf_x/yG"' not in inf)
 cibles = re.findall(r'data-cible="([^"]+)"', h)
 chk("chaque couche de chaque face a sa pièce data-cible, une seule fois, sous la clé du dessin (s0.<face>-<j>)",
     len(cibles) == len(set(cibles)) and set(cibles) == {f"s0.{f}-{j}" for f in EN.FACES for j in range(len(s8["faces"][f]["couches"]))}, cibles)

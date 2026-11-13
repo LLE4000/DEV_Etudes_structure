@@ -4210,6 +4210,25 @@ const principal = async () => {
           tab && tab.titres === 'M+ · inf. tendue | M− · sup. tendue | V' && tab.lus && tab.lignes
           && z0.v === '' && z0.ph === '0' && z0.foc && z1.v === '15' && z2.v === '' && z2.ph === '20'
           && z3.v === '20' && z3.ph === '' && z3.meme && !z3.erreur, JSON.stringify({ tab, z0, z1, z2, z3 }));
+        // (13/11/2026, § 8.4) les ESPACEMENTS admis : une puce par espacement dans les options ; un appui sur une puce ALLUMÉE
+        // l'éteint (data-bascule : js/etabli.js l'envoie quand même — un segment allumé, lui, ne renvoie rien), un second la
+        // rallume ; la note les garde
+        await ouvrirRub('op');
+        const PUCE = '#donnees .et-esp button[data-chemin="espacements"][data-valeur="125"]';
+        const puce = async () => g.evaluate((s) => { const b = document.querySelector(s); const id = new URLSearchParams(location.search).get('note');
+          const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+          return { on: !!b && b.classList.contains('on'), vu: !!b && b.checkVisibility(), note: n && n.etat && (n.etat.espacements || []).join() }; }, PUCE);
+        const p0 = await puce();
+        await g.click(PUCE);
+        await tranquille();
+        await g.waitForTimeout(200);
+        const p1 = await puce();
+        await g.click(PUCE);
+        await tranquille();
+        await g.waitForTimeout(200);
+        const p2 = await puce();
+        verif(`plaques ${cle} : les espacements admis — la puce « 12,5 » allumée ; un appui l'éteint (la note ne l'admet plus), un second la rallume`,
+          p0.vu && p0.on && !p1.on && p1.note === '100,150,200,250' && p2.on && p2.note === '100,125,150,200,250', JSON.stringify({ p0, p1, p2 }));
         // UN endroit pour modifier les armatures (le propriétaire, 13/11/2026) : le résultat NOMME la nappe de chaque face,
         // sans bouton ni étoile ; le sélecteur s'ouvre depuis la rubrique « Armatures » (le bouton de la nappe) — le
         // contrôle commun des modules (« #resultat .prof[data-pk] ») ne le trouve plus pour les dalles : il est ici
@@ -4218,6 +4237,18 @@ const principal = async () => {
           nappes: [...document.querySelectorAll('#resultat .et-bloc[data-section="0"] .el .prof > span')].map((x) => x.textContent.trim()).filter(Boolean).length,
           nonVerifie: [...document.querySelectorAll('#resultat .pbody > .hint')].map((x) => x.textContent.trim()) }));
         await ouvrirRub('arm');
+        // (13/11/2026) ce que l'œil lit dans « Armatures » : la désignation du treillis en entier (elle se lisait « 10/10/10… »),
+        // le type et le Ø d'un renfort aussi (« n bar… », « Ø… » au téléphone) — le texte de chaque menu tient dans sa case
+        const menusLus = await g.evaluate(() => {
+          const c = document.createElement('canvas').getContext('2d');
+          return [...document.querySelectorAll('#donnees .et-arm.on .et-nap select')].filter((x) => x.checkVisibility()).map((x) => {
+            const st = getComputedStyle(x); c.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
+            const t = x.options[x.selectedIndex].text, besoin = c.measureText(t).width + parseFloat(st.paddingLeft) + parseFloat(st.paddingRight);
+            return { t, ok: x.clientWidth >= besoin - 1, l: Math.round(x.clientWidth), b: Math.round(besoin) };
+          });
+        });
+        verif(`plaques ${cle} : dans « Armatures », le texte de chaque menu se lit en entier (la désignation du treillis, le type et le Ø des couches)`,
+          menusLus.length >= 2 && menusLus.every((x) => x.ok), JSON.stringify(menusLus.filter((x) => !x.ok).concat(menusLus.slice(0, 2))));
         const prop = g.locator('#donnees .et-arm[data-section="0"] .et-prop[data-pk="inf_y-0"]');
         const propVu = (await prop.count()) === 1 && await prop.evaluate((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
         if (propVu) await prop.click();

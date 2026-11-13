@@ -28,6 +28,11 @@
    "date": "2026-11-13",
    "raison": "13/11/2026 (DAL3, demande du propriétaire) : les colonnes des sollicitations s'appellent M⁺ (face inférieure tendue) et M⁻ (face supérieure tendue) ; le refus d'un moment signé le dit (« Sans signe : la colonne dit déjà la face tendue ») au lieu de « se saisissent positifs » ; aucun chiffre ne change",
    "ecarts": ["moment négatif refusé (PARCOURS) : messages changé"]
+  },
+  {
+   "date": "2026-11-13",
+   "raison": "13/11/2026 (DAL4, demande du propriétaire) : les espacements admis des barres proposées (clé de note « espacements », tous par défaut ; les puces des options, action chemin:espacements) ; y_G d'une nappe d'une seule couche n'est plus un champ (son axe le règle) ; aucun chiffre ne change",
+   "ecarts": ["note neuve : etat changé", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : etat changé", "chargée près de 100 % (M_y = 38,5 kN·m/m) : etat changé", "barres Ø12/150 en nappe inférieure Y : etat changé", "moment négatif refusé (PARCOURS) : etat changé", "espacement de 600 mm refusé : etat changé", "distance vidée : automatique : etat changé", "section ajoutée, dalle ajoutée : etat changé", "reprise Streamlit retirée : chemin refusé : etat changé"]
   }
  ],
  "cas": [
@@ -254,13 +259,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -283,7 +284,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -300,7 +301,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0},
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]},
     "selecteurs": {
      "inf_y-0": [
       ["Nappe inférieure Y · Section A couche de base (principale) · triée par section au mètre · un clic la retient Treillis Barres Treillis 5/5/150/150", "131", "230 %"],
@@ -767,13 +768,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "60",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -796,7 +793,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -813,7 +810,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -1047,13 +1044,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -1076,7 +1069,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1093,7 +1086,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 38.5, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 38.5, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -1369,16 +1362,12 @@
      "sections/0/faces/inf_x/couches/0/dist": "",
      "sections/0/faces/inf_x/couches/0/treillis": "10/10/100/100",
      "sections/0/faces/inf_x/couches/0/type": "treillis",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/d": "12",
      "sections/0/faces/inf_y/couches/0/dist": "",
      "sections/0/faces/inf_y/couches/0/esp": "150",
      "sections/0/faces/inf_y/couches/0/type": "barres",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/sup/mode": "treillis",
      "sections/0/nappes/sup/porteurs": "y",
      "sections/0/nappes/sup/treillis": "10/10/100/100",
@@ -1400,7 +1389,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "calcul:s0-tau", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1417,7 +1406,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -1645,13 +1634,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -1674,7 +1659,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1691,7 +1676,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -1922,15 +1907,11 @@
      "sections/0/faces/inf_x/couches/0/dist": "",
      "sections/0/faces/inf_x/couches/0/esp": "150",
      "sections/0/faces/inf_x/couches/0/type": "barres",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
      "sections/0/faces/inf_y/couches/0/treillis": "10/10/100/100",
      "sections/0/faces/inf_y/couches/0/type": "treillis",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/sup/mode": "treillis",
      "sections/0/nappes/sup/porteurs": "y",
      "sections/0/nappes/sup/treillis": "10/10/100/100",
@@ -1952,7 +1933,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:sections/0/nappes/inf/mode", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -1969,7 +1950,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -2197,13 +2178,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -2226,7 +2203,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2243,7 +2220,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   },
   {
@@ -2471,13 +2448,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -2500,7 +2473,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2517,7 +2490,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}, {"nom": "B", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}, {"nom": "Dalle 2", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 1},
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}, {"nom": "B", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}, {"nom": "Dalle 2", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 1, "espacements": [100, 125, 150, 200, 250]},
     "elements": [
      {
       "phrase": "",
@@ -2807,13 +2780,9 @@
      "sections/0/My_sup": "0",
      "sections/0/V": "0",
      "sections/0/faces/inf_x/couches/0/dist": "",
-     "sections/0/faces/inf_x/yG": "",
      "sections/0/faces/inf_y/couches/0/dist": "",
-     "sections/0/faces/inf_y/yG": "",
      "sections/0/faces/sup_x/couches/0/dist": "",
-     "sections/0/faces/sup_x/yG": "",
      "sections/0/faces/sup_y/couches/0/dist": "",
-     "sections/0/faces/sup_y/yG": "",
      "sections/0/nappes/inf/mode": "treillis",
      "sections/0/nappes/inf/porteurs": "y",
      "sections/0/nappes/inf/treillis": "10/10/100/100",
@@ -2836,7 +2805,7 @@
      "sections/0/nappes/sup/treillis": "10 · 2922ed317223",
      "type": "2 · e535e366c3dc"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf_x", "calcul:s0-inf_y", "calcul:s0-sup_x", "calcul:s0-sup_y", "chemin:espacements", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/copie", "chemin:sections/0/faces/inf_x/couches/+", "chemin:sections/0/faces/inf_y/couches/+", "chemin:sections/0/faces/sup_x/couches/+", "chemin:sections/0/faces/sup_y/couches/+", "chemin:verrou", "pk:inf_x-0", "pk:inf_y-0", "pk:sup_x-0", "pk:sup_y-0"],
     "vues": [
      {
       "cle": "c0",
@@ -2853,7 +2822,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0, "espacements": [100, 125, 150, 200, 250]}
    }
   }
  ]

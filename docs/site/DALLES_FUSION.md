@@ -719,3 +719,28 @@ par lots (DAL1 à DAL7), chacun testé et livré à part. Ce paragraphe dit ce q
   encore de la case d'avant le lot 2.
 - Aucun chiffre ne change : la référence de la dalle est regelée (le message du moment signé).
 
+### 8.4 DAL4 — Les armatures : un seul endroit, sans répétition ; les espacements admis
+
+- **Le bouton du sélecteur** de la couche de base est une LISTE (icône « list-filter » : choisir dans les nappes triées
+  par section, ★ la plus petite qui tient) — c'était une ampoule.
+- **Un treillis ne se répète plus** : sa désignation et son type se lisent une fois, sur la nappe (« Treillis soudé »,
+  le menu du treillis, l'orientation des porteurs) ; la base de CHAQUE direction dit ce qu'elle reçoit — « porteurs ·
+  Ø10 e 100 », « répartition · Ø12 e 150 » (`dalle_nappes._couche_lue`, ``role``) ; la ligne « X : … · Y : … » sous le
+  réglage est retirée (elle le disait une deuxième fois). Les textes de détail ne parlent plus de l'écran Streamlit.
+- **y<sub>G</sub>** ne se montre que dès DEUX couches, ou imposé : d'une couche seule, y<sub>G</sub> est son axe, que la
+  couche règle déjà (`plaque_compact.nappe`).
+- **Ce que l'œil lit** (défauts trouvés sur les photos du lot, 13/11/2026) : la désignation du treillis se lisait
+  « 10/10/10… » (PC et tablette) — plus de libellé « Treillis » devant son menu (« Treillis soudé », juste au-dessus, le
+  dit déjà), le menu prend la place ; le type et le Ø d'un renfort se lisaient « n bar… » et « Ø… » au téléphone — ils
+  gardent la largeur de leur texte, le nombre prend le reste. Le harnais (plaques) mesure désormais que le texte de chaque
+  menu de « Armatures » tient dans sa case.
+- **Les espacements admis** des barres que le sélecteur propose : un réglage de la NOTE (la clé « espacements », à côté de
+  « dalles » ; mm), parmi ceux du moteur (10 · 12,5 · 15 · 20 · 25 cm) ; tous par défaut, et pour une note d'avant ; des
+  PUCES dans les options (un appui bascule ; jamais le dernier — « Au moins un espacement ») ; le sélecteur ne propose
+  que les barres aux espacements admis et le dit, sa ★ choisie parmi elles (`dalle_positions.candidats_base`,
+  ``espacements``). Une liste abîmée dans un .stab est refusée avec un message. Aucun calcul n'en dépend : une barre se
+  saisit toujours à la main, à n'importe quel espacement. `js/etabli.js` : une puce à bascule (``data-bascule``) s'envoie
+  même allumée (un segment allumé, lui, ne renvoie rien).
+- Aucun chiffre ne change : références de la dalle et de la prédalle regelées (la clé « espacements », les champs
+  y<sub>G</sub> d'une couche seule).
+

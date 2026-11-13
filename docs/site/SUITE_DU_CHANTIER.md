@@ -765,8 +765,14 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
 - **DAL3 — Les sollicitations en tableau** : X et Y en lignes, M⁺ (face inférieure tendue) et M⁻ (face supérieure tendue)
   en colonnes, V à côté (un par section) ; valeurs sans signe (un négatif est refusé, le message dit pourquoi). Et, pour
   tout le site : un champ numérique se vide quand on y entre (sa valeur en gris), quitté sans rien taper il la reprend.
-- **À trancher par le propriétaire** : les boutons « + / − » d'un champ (maquette envoyée le 13/11 : A de part et
-  d'autre, B flèches dans le champ, C les pas −5 −1 +1 +5 sous le champ touché — préférence C) et leurs pas (b, h, c).
+- **DAL4 — Les armatures** : le sélecteur s'ouvre d'un bouton « liste » ; la base d'un treillis dit ce que sa direction
+  reçoit (« porteurs · Ø10 e 100 ») au lieu de répéter la désignation ; y_G seulement dès deux couches ; les espacements
+  admis des barres proposées (des puces dans les options, tous par défaut).
+- **Décidé le 13/11/2026** : les flèches de pas, variante B (discrète), partout où l'on saisit une dimension, le même style
+  dans toute l'application ; les pas donnés par le propriétaire (« une poutre, plutôt du 5 cm ; un enrobage, du 1 cm ») —
+  `docs/site/CHARTE_ERGONOMIE.md` (E9 et § 2). La position verticale des armatures (lot 5) : niveaux par défaut, puis
+  toucher la couche et la déplacer aux flèches (« Ok lot 5 ») — § 3 de la charte.
+- **À confirmer par le propriétaire** : les pas proposés des flèches (`docs/site/CHARTE_ERGONOMIE.md` § 2).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

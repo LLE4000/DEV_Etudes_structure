@@ -74,6 +74,21 @@ TYPES_TXT = dict(TYPES_DALLE)
 # les clés que le SITE ajoute à une dalle et que les moteurs ne lisent pas (api_web/dalle_positions.CLES_SITE les
 # retire de la copie envoyée au moteur : tests/test_api_web_dalles_fusion.py lie les deux copies)
 CLES_SITE = ("verrou", "type")
+# les ESPACEMENTS des barres que le sélecteur de la couche de base propose (13/11/2026, demande du propriétaire —
+# docs/site/DALLES_FUSION.md § 8.4) : un réglage de la NOTE (une clé de l'état, à côté de « dalles »), choisi parmi ceux
+# du moteur (MO.CANDIDATS_ESP, mm) ; tous par défaut ; jamais aucun. Il ne touche aucun calcul : il trie ce que le
+# sélecteur propose (la plus petite qui tient ★ parmi les espacements admis) ; une barre se saisit toujours à la main.
+ESPACEMENTS = tuple(MO.CANDIDATS_ESP)
+
+
+def espacements_relus(x) -> List[int]:
+    """Les espacements admis d'une note relue : absents (une note d'avant), tous ; sinon une liste non vide de valeurs du
+    moteur (mm), rendue triée — une liste abîmée est refusée avec un message (jamais remplacée en silence)."""
+    if x is None:
+        return list(ESPACEMENTS)
+    if (not isinstance(x, list) or not x or any(isinstance(v, bool) or not isinstance(v, int) or v not in ESPACEMENTS for v in x)):
+        raise ValueError(f"espacements admis : une liste non vide parmi {', '.join(map(str, ESPACEMENTS))} mm (reçu {x!r})")
+    return sorted(set(x))
 # les clés qu'une version d'avant du site écrivait sur chaque dalle et qui ne pilotent plus rien : relues sans effet,
 # jamais une raison de refuser la note — « empilement », l'option « nappes empilées » retirée le 09/11/2026 (décision de
 # l'ingénieur : les nappes se posent toujours l'une sur l'autre ; vraie, elle disait seulement que la base secondaire
@@ -175,7 +190,7 @@ def _resite(d: Dict, **modifs) -> Dict:
 def nouvel_etat() -> Dict:
     """Une note neuve : une dalle coulée en place aux défauts de l'écran (ses nappes posées l'une sur l'autre, comme
     toutes : api_web/dalle_positions.py)."""
-    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0}
+    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0, "espacements": list(ESPACEMENTS)}
 
 
 def chiffres_changes(d: Dict, deja_empilee: bool = False) -> bool:
@@ -267,6 +282,7 @@ def normaliser(etat: Dict) -> Dict:
     a = etat.get("actif", 0)
     a = a if isinstance(a, int) and not isinstance(a, bool) else 0
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
+    out["espacements"] = espacements_relus(etat.get("espacements"))
     if avis:
         out[CLE_AVIS] = "note"
     if coupes:
@@ -548,6 +564,20 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return None
     if d["verrou"]:
         return "Dalle verrouillée : le cadenas, à droite de son nom, la déverrouille"
+    if chemin == ["espacements"]:
+        # une puce des options : son espacement entre dans la liste ou en sort (jamais le dernier)
+        x = C.lire_nombre(valeur)
+        if x is None or x != int(x) or int(x) not in ESPACEMENTS:
+            return f"Espacement : l'un de {', '.join(C.nb(e / 10) for e in ESPACEMENTS)} cm, pas « {valeur} »"
+        liste = etat.setdefault("espacements", list(ESPACEMENTS))
+        if int(x) in liste:
+            if len(liste) == 1:
+                return "Au moins un espacement : sans lui, le sélecteur n'aurait plus de barres à proposer"
+            liste.remove(int(x))
+        else:
+            liste.append(int(x))
+            liste.sort()
+        return None
     if chemin and chemin[0] in NOTE_ENTIERE and len(chemin) == 1:
         # γs et le jeu premier lit sont des paramètres de la NOTE (l'écran Streamlit les partage entre ses dalles)
         try:
@@ -642,8 +672,10 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
             + C.section(2, "Sections et armatures", f"{len(d['sections'])} section(s)", s2, False, "sl"))
 
 
-def _options(d: Dict) -> str:
-    """La rubrique « 4 — Options » : la méthode (une ligne), puis γs et le jeu du premier lit, communs à toute la note.
+def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
+    """La rubrique « 4 — Options » : la méthode (une ligne), puis γs et le jeu du premier lit, communs à toute la note,
+    et les ESPACEMENTS admis des barres proposées (des puces, une par espacement du moteur, allumée quand il est admis :
+    un appui l'ajoute ou le retire — 13/11/2026, § 8.4).
     (La reprise d'une note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre ; l'option
     « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes sont toujours posées l'une sur l'autre.)"""
     jeu = ("Écart ajouté entre l'enrobage et le premier lit des nappes SUPÉRIEURES (les nappes inférieures sont posées "
@@ -656,7 +688,20 @@ def _options(d: Dict) -> str:
                         "Coefficient partiel de l'acier : f_yd = f_yk / γs (1,5 : méthode du bureau). Commun à toutes les "
                         "dalles de la note."),
                        ("Jeu 1er lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
-                        f"{jeu} Commun à toutes les dalles de la note.")))
+                        f"{jeu} Commun à toutes les dalles de la note."))
+            + _puces_espacements(espacements))
+
+
+def _puces_espacements(espacements: Sequence[int]) -> str:
+    """Les espacements admis des barres que le sélecteur propose : une puce par espacement du moteur (en cm), allumée
+    quand il est admis ; ``data-bascule`` : un appui sur une puce allumée l'éteint (js/etabli.js l'envoie quand même)."""
+    puces = "".join(f'<button type="button" class="fchip{" on" if e in espacements else ""}" data-chemin="espacements" '
+                    f'data-valeur="{e}" data-bascule="1" aria-pressed="{"true" if e in espacements else "false"}">{C.nb(e / 10)}</button>'
+                    for e in ESPACEMENTS)
+    aide = ("Les espacements des barres que le sélecteur de la couche de base propose (la plus petite qui tient ★ est "
+            "choisie parmi eux). Une barre se saisit toujours à la main, à n'importe quel espacement. Commun à toute la note.")
+    return (f'<div class="row full et-esp"><label><span>Espacements</span><span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>'
+            f'</label><div class="et-puces">{puces}<span class="u">cm</span></div></div>')
 
 
 def _caracteristiques(d: Dict) -> str:
@@ -731,7 +776,8 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     resume1 = (f"Prédalle h<sub>p</sub> = {C.nb(d['h_pre'])} cm · {C.esc(d['beton'])} · B{d['fyk']}" if est_predalle(d)
                else f"Dalle pleine · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
-                         s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm", _options(d))
+                         s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm",
+                         _options(d, etat.get("espacements", ESPACEMENTS)))
 
 
 def arbre(etat: Dict, r: Optional[Dict] = None, niveaux: Optional[List[str]] = None) -> str:
@@ -1119,7 +1165,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     d = _actif(etat)
     predalle = est_predalle(d)
     fams = tuple(f for f in (familles or MO.FAMILLES) if f in MO.FAMILLES) or MO.FAMILLES
-    cands = POS.candidats_base(d, i, face, fams)
+    esp = etat.get("espacements", list(ESPACEMENTS))
+    cands = POS.candidats_base(d, i, face, fams, espacements=esp)
     i_o = next((k for k, c in enumerate(cands) if c["optimal"]), 0)
     i_c = next((k for k, c in enumerate(cands) if c["retenue"]), i_o)
     base = d["sections"][i]["faces"][face]["couches"][0]
@@ -1140,6 +1187,10 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     note = f" · {renforts} renfort(s) gardé(s)" if renforts else ""
     if base["type"] == "n_barres":
         note += f" · la base actuelle ({base['n']} Ø{base['d']}) n'est pas dans la liste"
+    elif base["type"] == "barres" and base["esp"] not in esp:
+        note += f" · la base actuelle (Ø{base['d']}/{base['esp']}) n'est pas à un espacement admis"
+    if list(esp) != list(ESPACEMENTS):
+        note += f" · espacements admis : {' · '.join(C.nb(e / 10) for e in esp)} cm"
     dk = face.split("_")[1]
     princ = " (principale)" if dk == d["dir_principale"].lower() else ""
     ou = f", {pose}" if predalle else ""

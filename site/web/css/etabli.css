@@ -192,6 +192,11 @@
 #donnees .row.full.et-type { display: block; }
 #donnees .row.full.et-type > .seg.full { width: 100%; }
 .et-sym { cursor: help; font-style: italic; }
+/* les espacements admis (options de la dalle, 13/11/2026) : une puce par espacement, allumée quand il est admis */
+#donnees .row.full.et-esp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+#donnees .row.full.et-esp > label { flex: 0 0 auto; }
+.et-puces { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.et-puces .u { font-size: 12px; color: var(--ink-3); margin-left: 2px; }
 
 /* le menu ⋯ d'une poutre, d'une section : discret, ses actions dans une liste */
 .et-mn { position: relative; flex: none; }
@@ -353,10 +358,12 @@
 .et-mom4 > .et-v { grid-column: 4; grid-row: 2 / span 2; display: flex; align-items: center; min-width: 0; }
 .et-mom4 > .et-v > .field { width: 100%; height: 28px; min-width: 0; }
 /* une couche : son repère, son type, puis le treillis — ou le Ø et l'espacement (le nombre et le Ø) */
-.et-piece .et-l1 > .et-ty { flex: 0 0 88px; min-width: 0; }
+/* (13/11/2026 : au téléphone, « n barres » et « Ø12 » se lisaient « n bar… » et « Ø… » pendant que le nombre « 3 »
+   prenait toute la place — le type et le Ø gardent la largeur de leur texte, le nombre et l'espacement prennent le reste) */
+.et-piece .et-l1 > .et-ty { flex: 0 0 auto; min-width: 88px; }
 .et-piece .et-l1 > .et-tr { flex: 1 1 auto; min-width: 0; }
-.et-piece .et-l1 > .et-dia { flex: 0 0 64px; min-width: 0; }
-.et-piece .et-l1 > .et-e { flex: 1 1 60px; min-width: 52px; }
+.et-piece .et-l1 > .et-dia { flex: 0 0 auto; min-width: 64px; }
+.et-piece .et-l1 > .et-e { flex: 1 1 52px; min-width: 44px; }
 .et-piece .et-l1 > div > .field { height: 28px; width: 100%; min-width: 0; }
 /* la nappe de la direction principale */
 .et-princ { flex: none; height: 16px; padding: 0 5px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700;
@@ -473,6 +480,7 @@
   [data-etabli="compact"] .et-exp-l button.et-exp-i { height: auto; min-height: 44px; }
   [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 44px; height: auto; }
   [data-etabli="compact"] .zoom .zpct { width: 44px; }
+  [data-etabli="compact"] .et-puces .fchip { min-height: 44px; min-width: 44px; justify-content: center; }
   /* (le segment d'une lettre — la direction principale « Y · X » — gardait sa largeur de texte : 34 px) */
   [data-etabli="compact"] #donnees .rows .seg.full button, [data-etabli="compact"] #donnees .seg button { min-width: 44px; }
 }
@@ -494,7 +502,7 @@
   [data-etabli="compact"] .et-piece .et-l1 > .field { height: 36px; flex-basis: 58px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field.select { flex-basis: 84px; }
   [data-etabli="compact"] .et-piece .et-l1 > div > .field, [data-etabli="compact"] .et-mom > .field, [data-etabli="compact"] .et-mom4 > .et-v > .field { height: 36px; }
-  [data-etabli="compact"] .et-piece .et-l1 > .et-ty { flex-basis: 92px; }
+  [data-etabli="compact"] .et-piece .et-l1 > .et-ty { flex-basis: auto; min-width: 92px; }
   [data-etabli="compact"] .et-tag { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout,
   [data-etabli="compact"] .et-raz { width: 44px; height: 44px; }
@@ -524,6 +532,7 @@
   /* au doigt, 44 px : l'onglet d'une section au nom d'une lettre (« A »), le bouton « ajuster » */
   [data-etabli="compact"] .ctool .seg button { min-width: 44px; }
   [data-etabli="compact"] .zoom .zpct { width: 44px; }
+  [data-etabli="compact"] .et-puces .fchip { min-height: 44px; min-width: 44px; justify-content: center; font-size: 13px; }
 }
 
 /* ------------------------------------------------------------------ les JUSTIFICATIONS de la bibliothèque (api_web/fiches.py) */
@@ -601,6 +610,11 @@
 .et-nap-h .t { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink); }
 .et-nap > .seg.full button { font-size: 11.5px; padding: 0 6px; }
 .et-nap > .row2 { margin-top: 2px; }
+/* (13/11/2026 : la désignation du treillis se lisait « 10/10/10… » — plus de libellé « Treillis » devant son menu, qui
+   prend la place ; l'orientation des porteurs garde la sienne) */
+.et-nap > .row2.et-treillis { grid-template-columns: minmax(0, 1fr) auto auto; }
+.et-nap > .row2.et-treillis > .et-tr-sel { min-width: 0; }
+.et-nap > .row2.et-treillis > .et-tr-sel > .field { width: 100%; min-width: 0; }
 .et-nap > .row2 > .field.select { min-width: 0; }
 .et-nap > .row2 > .seg button { padding: 0 8px; }
 .et-nap-xy { padding: 0 4px 2px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }

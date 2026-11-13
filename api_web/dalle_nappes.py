@@ -242,29 +242,36 @@ def _lu(valeur: str) -> str:
 
 
 def _couche_lue(EN_, i: int, f: str, j: int, c: Dict, geo_c: Dict, details: str = "", aide_axe: str = "", dit_auto: bool = True,
-                verrou: bool = False) -> str:
+                verrou: bool = False, role: str = "") -> str:
     """Une couche dont le type et la désignation se LISENT (la base d'une nappe de treillis : son treillis et son
     orientation se règlent par la nappe, pas par la direction) — même ligne, même repère, même clé ``data-cible`` et
     mêmes arguments nommés que plaque_compact.couche ; son axe reste réglable (vide = automatique, « ↺ »), son détail
-    dit ses fils et sa section. ``verrou`` : l'axe aussi se lit, et aucun bouton ne modifie."""
+    dit ses fils et sa section. ``verrou`` : l'axe aussi se lit, et aucun bouton ne modifie.
+
+    ``role`` (« porteurs » ou « répartition » : la base d'une nappe de TREILLIS, 13/11/2026 — § 8.4) : la ligne dit ce que
+    CETTE direction reçoit, « porteurs · Ø10 e 100 », au lieu de répéter le type et la désignation que la nappe porte
+    déjà (le propriétaire : « éviter de réafficher plusieurs fois le type d'armature »)."""
     base = ["sections", i, "faces", f, "couches", j]
     tag = "B" if j == 0 else f"R{j}"
     nom = "Couche de base" if j == 0 else f"Renfort {j}"
     if c["type"] == "treillis":
         t = geo_c["treillis"]
-        valeur = c["treillis"]
-        info = (f"treillis soudé : porteurs Ø{t[0]} tous les {t[2]} mm ; répartition Ø{t[1]} tous les {t[3]} mm (non comptés, "
-                "comme dans l'écran Streamlit)")
-        if not verrou and j == 0:
-            info += " · désignation et orientation : par la nappe, ci-dessus"
+        if role:
+            valeur = f"Ø{t[0]} e {t[2]}"
+            info = f"fils {'porteurs' if role == 'porteurs' else 'de répartition'} du treillis : Ø{t[0]} tous les {t[2]} mm"
+        else:
+            valeur = c["treillis"]
+            info = (f"treillis soudé : porteurs Ø{t[0]} tous les {t[2]} mm, comptés dans cette direction ; répartition Ø{t[1]} "
+                    f"tous les {t[3]} mm, non comptés ici")
     elif c["type"] == "barres":
         valeur = f"Ø{c['d']} e {c['esp']}"
         info = f"barres Ø{c['d']} tous les {c['esp']} mm"
     else:
         valeur = f"{c['n']} Ø{c['d']}"
         info = f"{c['n']} barres Ø{c['d']} réparties dans la bande"
+    genre = role if role and c["type"] == "treillis" else dict(PC.TYPES)[c["type"]]
     tete = (f'<div class="et-l1"><button type="button" class="et-tag" data-deplier="1" title="{nom} : axe et détail">{tag}</button>'
-            f'<div class="et-ty">{_lu(dict(PC.TYPES)[c["type"]])}</div><div class="et-tr">{_lu(valeur)}</div>'
+            f'<div class="et-ty">{_lu(genre)}</div><div class="et-tr">{_lu(valeur)}</div>'
             f'<button type="button" class="et-dep" data-deplier="1" title="Axe et détail">{C.icon("chevron-down")}</button></div>')
     if verrou:
         axe = _lu(f"{PC._cm(geo_c['e'])} cm · {'imposé' if c['dist'] is not None else 'auto'}")
@@ -290,12 +297,6 @@ def _nappe_lue(i: int, f: str, face: Dict, geo: Dict, v: Dict, principale: str, 
             f'{couches}<div class="et-pied"><span class="et-pied-a">A<sub>s</sub> posé {C.fr(geo["As_pm"], 0)}{C.NBSP}mm²/m</span></div>{yg}</div>')
 
 
-def ligne_xy(s: Dict, cote: str) -> str:
-    """« X : Ø10 e 100 · Y : Ø12 e 150 » : ce que chaque direction d'une nappe de treillis reçoit."""
-    r = recues(s, cote)
-    return " · ".join(f"{dk.upper()} : Ø{r[dk][0]} e {r[dk][1]}" for dk in DIRECTIONS)
-
-
 def _reglage_treillis(ch: List, m: Dict, s: Dict, cote: str, principale: str, verrou: bool) -> str:
     """Le réglage d'une nappe de treillis : UN sélecteur de treillis, l'orientation des porteurs (la principale marquée ;
     sans effet, donc grisée, pour un treillis symétrique), et la ligne de ce que chaque direction reçoit."""
@@ -310,11 +311,14 @@ def _reglage_treillis(ch: List, m: Dict, s: Dict, cote: str, principale: str, ve
     aide_o = (("Treillis symétrique : même armature en X et en Y, l'orientation est sans effet." if sym
                else "La direction des fils porteurs (Øl tous les el) ; l'autre direction reçoit les fils de répartition (Øt tous les et).")
               + f" Direction principale : {principale.upper()}.")
-    return (C.ligne2(("Treillis", sel, "La désignation Øl/Øt/el/et pose les DEUX directions : les porteurs dans la direction choisie, "
-                                     "la répartition dans l'autre (la transposée de la désignation)."),
-                     ("Porteurs", orient, aide_o))
-            + f'<div class="hint et-nap-xy" title="Ce que le moteur compte dans chaque direction : le Ø et l\'espacement des fils de la '
-              f'direction">{C.esc(ligne_xy(s, cote))}</div>')
+    # (13/11/2026 : plus de ligne « X : Ø10 e 100 · Y : Ø10 e 100 » — chaque direction le dit sur la ligne de sa base,
+    #  « porteurs · Ø10 e 100 », une fois ; plus de libellé « Treillis » devant le menu — « Treillis soudé », juste
+    #  au-dessus, le dit déjà, et la désignation y était coupée, « 10/10/10… » : le menu prend la place, son explication
+    #  au survol)
+    aide_t = ("La désignation Øl/Øt/el/et pose les DEUX directions : les porteurs dans la direction choisie, la répartition "
+              "dans l'autre (la transposée de la désignation).")
+    return (f'<div class="row2 et-treillis"><div class="et-tr-sel" title="{C.esc(aide_t)}">{sel}</div>'
+            f'<label><span>Porteurs</span><span class="aide" title="{C.esc(aide_o)}">{C.icon("info")}</span></label>{orient}</div>')
 
 
 def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, principale: str, aide_axe: Union[str, Callable],
@@ -337,7 +341,8 @@ def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, princip
         for j, (c, g) in enumerate(zip(face["couches"], geo["couches"])):
             kw = aide_axe(f, j, c, g) if callable(aide_axe) else {"aide_axe": aide_axe}
             if verrou or (j == 0 and en_treillis):
-                couches += _couche_lue(EN_, i, f, j, c, g, verrou=verrou, **kw)
+                role = ("porteurs" if m["porteurs"] == dk else "répartition") if (j == 0 and en_treillis) else ""
+                couches += _couche_lue(EN_, i, f, j, c, g, verrou=verrou, role=role, **kw)
             else:
                 couches += PC.couche(EN_, i, f, j, c, g, **kw)
         aide = aide_renfort(f) if callable(aide_renfort) else aide_renfort
@@ -351,9 +356,9 @@ def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, princip
 def html(EN, i: int, s: Dict, rs: Dict, verifs: Dict, principale: str, aide_axe: Union[str, Callable],
          aide_renfort: Union[str, Callable], verrou: bool = False) -> str:
     """Les DEUX nappes (inférieure, puis supérieure) de la section ``i`` : pour chacune, son titre, les segments du mode
-    (« Treillis soudé · Barres · Treillis + renforts », déduit), puis — treillis — le sélecteur unique, l'orientation des
-    porteurs et la ligne « X : … · Y : … », — incohérente — l'avertissement et « En faire un treillis » ; puis le détail de
-    chaque direction (la principale d'abord) : plaque_compact.nappe et .couche, la base d'un treillis en lecture (son axe
-    reste réglable). Les arguments : voir l'en-tête du module."""
+    (« Treillis soudé · Barres · Treillis + renforts », déduit), puis — treillis — le sélecteur unique et l'orientation
+    des porteurs, — incohérente — l'avertissement et « En faire un treillis » ; puis le détail de chaque direction (la
+    principale d'abord) : plaque_compact.nappe et .couche, la base d'un treillis en lecture — ce que SA direction reçoit,
+    « porteurs · Ø10 e 100 » (son axe reste réglable). Les arguments : voir l'en-tête du module."""
     p = _principale(principale)
     return "".join(_nappe_html(EN, i, s, rs, verifs, cote, p, aide_axe, aide_renfort, verrou) for cote in COTES)

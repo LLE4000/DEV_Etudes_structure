@@ -813,7 +813,9 @@ export function ouvrirEtabli(hote, ctx) {
     }
     $("#donnees").addEventListener("click", (ev) => {
       const seg = ev.target.closest("button[data-chemin][data-valeur]");
-      if (seg) { if (!seg.classList.contains("on")) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
+      // (un segment allumé ne renvoie rien : il est déjà choisi ; une PUCE à bascule — data-bascule, les espacements admis
+      //  de la dalle, 13/11/2026 — s'éteint d'un appui : elle part allumée ou non)
+      if (seg) { if (!seg.classList.contains("on") || seg.dataset.bascule) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
       const hd = ev.target.closest(".sechd[data-replier]");
       if (hd) {
         const s = hd.parentElement, k = s.dataset.sec;

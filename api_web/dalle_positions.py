@@ -317,14 +317,16 @@ def annoter(r: Dict, d: Dict) -> Dict:
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
-def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = None) -> List[Dict]:
+def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = None,
+                   espacements: Optional[Sequence[int]] = None) -> List[Dict]:
     """Le sélecteur de la nappe de BASE d'une face (``candidats_base`` du moteur du type), les niveaux du site respectés :
     le Ø d'un candidat déplace l'axe empilé — le sien (base secondaire) ou celui des couches secondaires posées sur lui
     (base principale : la base ET les renforts de la direction secondaire, S3 — tant qu'elle est la plus haute de son
     lit : sous un renfort principal plus haut, ce renfort les porte et un candidat plus mince ne les fait pas
     descendre, S5) —, que le moteur ne sait pas recalculer sur un axe imposé ; la dalle est donc recomposée candidat
     par candidat, et chacune calculée par le moteur (``verifier(pour_moteur(essai))``). Mêmes clés que le moteur (plus
-    « e », l'axe de la couche), même tri."""
+    « e », l'axe de la couche), même tri. ``espacements`` (mm, les espacements ADMIS de la note — api_web/dalle.py,
+    13/11/2026) : les barres à un autre espacement ne sont pas proposées ; sans lui, toutes celles du moteur."""
     MO = moteur(d)
     if f not in FACES:
         raise ValueError(f"face : {' '.join(FACES)} attendu (reçu {f!r})")
@@ -335,6 +337,8 @@ def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = 
     base = sections[i]["faces"][f]["couches"][0]
     out = []
     for cand in MO._liste_candidats(fams):
+        if espacements is not None and cand["type"] == "barres" and cand["esp"] not in espacements:
+            continue
         essai = copy.deepcopy(d)
         c1 = essai["sections"][i]["faces"][f]["couches"][0]
         c1.update(cand)
