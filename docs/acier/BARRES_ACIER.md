@@ -290,6 +290,12 @@ l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻
 « À pointer » : la valeur est celle de l'EN, connue ; il reste à la lire sur le texte belge. « À CONFIRMER » : la valeur
 change un résultat et sa source n'est pas le texte — elle est imprimée comme telle dans la note.
 
+**Les combinaisons, telles que le moteur les écrit** (`acier/barre/combinaisons.py`, lot 5) : pour chaque ARRANGEMENT
+des cas variables (chacun présent ou absent — c'est la recherche de la disposition défavorable, travée par travée) et
+chaque nature dominante parmi les présents, γ_G·ΣG + γ_Q·Q_dominante + Σ γ_Q·ψ₀·Q_autres, avec γ_G = 1,35 puis 1,00
+(G favorable). Les cas d'une MÊME nature sont une seule action disposée librement : ils reçoivent tous γ_Q quand leur
+nature domine. Au plus quatre cas variables. Méthode historique : G + ΣQ à 100 % pour chaque arrangement.
+
 ### 5.9 EN 1993-1-5 : âme et raidisseurs (vérifié)
 Voilement par cisaillement (§ 5 : à vérifier si h_w/t_w > 72ε/η ; V_bw,Rd, χ_w du tableau 5.1, V_bf,Rd ; k_τ = 5,34 +
 4·(h_w/a)² si a/h_w ≥ 1, sinon 4 + 5,34·(h_w/a)²). Âme sous charge concentrée (§ 6 : types (a), (b), (c) ; k_F ;
@@ -379,6 +385,28 @@ Un paquet neuf, `acier/barre/`, bibliothèque standard seule (il tourne dans le 
 Chaque vérification rend `{id, methode, titre, reference, formule, termes, valeur, limite, taux, statut, unite,
 hypotheses, messages}` ; le moteur calcule et nomme, l'écran et la note composent et formatent.
 
+**La barre chargée** (`statique.py`, `entree.py`, `moteur.py`, lot 5). Deux modes : « efforts » (les classeurs : les
+efforts de service vont à la méthode historique, ceux de calcul à l'Eurocode) et « chargee » — appuis (deux appuis,
+console, encastrée–appuyée, bi-encastrée, continue de 2 à 5 travées), cas de charge (répartie, triangulaire,
+ponctuelle, couple ; un effort normal par cas), poids propre, maintiens (complet, semelle haute, semelle basse). La
+statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, puis superposée.
+- L'enveloppe : pour chaque vérification, l'occurrence la plus défavorable — sa combinaison, son abscisse ou son
+  tronçon, et les formules de CETTE occurrence.
+- Eurocode 3 : la SECTION dans chaque section à vérifier (appuis, ruptures de chargement, extremum du moment), avec les
+  efforts qui s'y trouvent ENSEMBLE ; la BARRE par tronçon de déversement, sous le diagramme réel (M_cr numérique,
+  charges à leur niveau). k_c n'est lu dans le tableau 6.6 que si le tronçon EST un de ses cas ; C_my,0 par la formule
+  générale (flèche et moment de la portée) sur deux appuis, sinon moment constant.
+- Méthode historique : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
+  semelle ne compte que si elle est comprimée sur tout le tronçon.
+- Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
+  encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
+- Une méthode qui REFUSE la barre (semelle de plus de 80 mm, hors du tableau 3.1) est rendue « non couverte » avec son
+  motif ; l'autre reste calculée.
+- Hors de la barre chargée (v1) : la flexion d'axe faible et les charges horizontales (le mode « efforts » les
+  prend) ; la flèche de service est donnée à titre d'information, sans verdict.
+- R2 du brief, de bout en bout depuis les charges : M_Ed 68,70 kN·m, V_Ed 27,80 kN, déversement 89,5 % (Eurocode 3) —
+  et **184 % par la méthode historique** : le déversement de la doc, sur 6 m sans maintien, est très sévère (Q4).
+
 **Intégration** : dans « Choix de profilé » (demande du propriétaire). Le module garde ce qu'il sait faire — comparer
 des profilés et retenir le plus léger qui tient — et gagne la barre : ses appuis, ses charges, ses maintiens, ses
 raidisseurs ; ses deux méthodes ; sa note. La copie de l'ancien écran (`acier/choix_profil`) est remplacée quand le
@@ -391,7 +419,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs | R4 | à faire |
-| 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons | R2 de bout en bout | à faire |
+| 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) | harnais, photos | à faire |
 | 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
 

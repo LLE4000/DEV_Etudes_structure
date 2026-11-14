@@ -104,14 +104,18 @@ def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callab
     "M_max" (N·mm), "noeuds"}.
 
     ``L`` (mm) ; ``EIz`` (N·mm²), ``EIw`` (N·mm⁴), ``GIt`` (N·mm²) ; ``moment(x)`` : M_y en N·mm, x de 0 à L ;
-    ``reparties`` : [(x1, x2, q, z_g)] (q en N/mm, vers le bas) ; ``ponctuelles`` : [(x, P, z_g)] (P en N) ;
+    ``reparties`` : [(x1, x2, q, z_g)] ou [(x1, x2, q1, q2, z_g)] — q en N/mm, vers le bas, linéaire de x1 à x2 ;
+    ``ponctuelles`` : [(x, P, z_g)] (P en N) ;
     ``appuis`` : les deux bouts ; ``maintiens`` : [(x, z)] — déplacement latéral nul à la cote z ; ``M_max`` : le plus
     grand |M_y| du tronçon (échantillonné si absent)."""
     if not (L > 0 and EIz > 0 and GIt > 0 and EIw >= 0):
         raise ValueError("tronçon : L, E·I_z, G·I_t positifs et E·I_w positif ou nul")
     if any(a not in APPUIS for a in appuis) or len(appuis) != 2:
         raise ValueError(f"appuis : deux bouts parmi {APPUIS}")
-    xs = _noeuds(L, [x for x, _, _ in ponctuelles] + [x for x, _ in maintiens] + [x for a, b, _, _ in reparties for x in (a, b)], elements)
+    rep = [(r[0], r[1], r[2], r[2], r[3]) if len(r) == 4 else tuple(r) for r in reparties]      # (x1, x2, q1, q2, z_g)
+    if any(len(r) != 5 or not r[1] > r[0] for r in rep):
+        raise ValueError("charge répartie : (x1, x2, q, z_g) ou (x1, x2, q1, q2, z_g), avec x2 > x1")
+    xs = _noeuds(L, [x for x, _, _ in ponctuelles] + [x for x, _ in maintiens] + [x for r in rep for x in (r[0], r[1])], elements)
     nn = len(xs)
     nd = 4 * nn
     K = [[0.0] * nd for _ in range(nd)]
@@ -121,11 +125,13 @@ def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callab
         iv = (4 * e, 4 * e + 1, 4 * e + 4, 4 * e + 5)
         ip = (4 * e + 2, 4 * e + 3, 4 * e + 6, 4 * e + 7)
         xm = x0 + 0.5 * Le
-        qz = sum(q * zg for a, b, q, zg in reparties if a - 1e-9 * L <= xm <= b + 1e-9 * L)
+        dessus = [r for r in rep if r[0] - 1e-9 * L <= xm <= r[1] + 1e-9 * L]
         for xi, w in _G4:
             N, dN, ddN = _hermite(xi, Le)
             wt = w * Le
-            M = moment(x0 + xi * Le)
+            x = x0 + xi * Le
+            M = moment(x)
+            qz = sum((q1 + (q2 - q1) * (x - a) / (b - a)) * zg for a, b, q1, q2, zg in dessus)
             for a in range(4):
                 for b in range(4):
                     K[iv[a]][iv[b]] += wt * EIz * ddN[a] * ddN[b]

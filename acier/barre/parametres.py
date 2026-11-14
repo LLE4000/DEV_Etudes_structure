@@ -40,6 +40,20 @@ PARAMETRES: Dict[str, Dict] = {
     "gamma_G_sup": {"valeur": 1.35, "nom": "γ_G,sup", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
     "gamma_G_inf": {"valeur": 1.00, "nom": "γ_G,inf", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
     "gamma_Q": {"valeur": 1.50, "nom": "γ_Q", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
+    # ---- coefficients (ψ₀ ; ψ₁ ; ψ₂) des actions variables (NBN EN 1990 ANB, tableau A1.1)
+    "psi_A": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie A", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_B": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie B", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_C": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie C", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_D": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie D", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_E": {"valeur": (1.0, 0.9, 0.8), "nom": "ψ, catégorie E", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_F": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie F", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_G": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie G", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_H": {"valeur": (0.0, 0.0, 0.0), "nom": "ψ, catégorie H", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
+    "psi_neige": {"valeur": (0.5, 0.2, 0.0), "nom": "ψ, neige", "statut": A_CONFIRMER,
+                  "source": "valeurs de l'EN 1990 (altitude ≤ 1 000 m) — l'annexe belge est à lire"},
+    "psi_vent": {"valeur": (0.6, 0.2, 0.0), "nom": "ψ, vent", "statut": A_CONFIRMER, "source": "valeurs de l'EN 1990 — l'annexe belge est à lire"},
+    "psi_temperature": {"valeur": (0.6, 0.5, 0.0), "nom": "ψ, température", "statut": A_CONFIRMER,
+                        "source": "valeurs de l'EN 1990 — l'annexe belge est à lire"},
 }
 
 
