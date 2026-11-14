@@ -8,6 +8,7 @@ Le moteur rend des blocs ``{cle, gabarit, symbole, termes [{symbole, valeur, uni
 
     ecrire(bloc, symboles=None) -> {"symbole", "litteral", "numerique", "resultat"}        du texte, sans mise en forme
     morceaux(bloc, symboles=None) -> ([symbole, littéral, numérique], résultat)            les membres à joindre par « = »
+                                     (sans le littéral quand il répète le symbole)
     relire(bloc) -> float            le gabarit évalué sur les valeurs TELLES QU'IMPRIMÉES
     relecture_juste(bloc) -> bool    … redonne-t-il le résultat imprimé ?
     nombre(v, nd=None) -> str        un nombre imprimé
@@ -141,9 +142,12 @@ def ecrire(bloc: Dict, symboles: Optional[Sequence[str]] = None) -> Dict[str, st
 
 
 def morceaux(bloc: Dict, symboles: Optional[Sequence[str]] = None) -> Tuple[List[str], str]:
-    """``([symbole, littéral, numérique], résultat)`` : les membres à joindre par « = », puis le résultat."""
+    """``([symbole, littéral, numérique], résultat)`` : les membres à joindre par « = », puis le résultat. Quand la
+    formule en symboles EST le symbole (le rapport « N_Ed/N_cr,y »), elle n'est pas écrite deux fois : ``([symbole,
+    numérique], résultat)``."""
     e = ecrire(bloc, symboles)
-    return [e["symbole"], e["litteral"], e["numerique"]], e["resultat"]
+    membres = [e["symbole"]] + ([e["litteral"]] if e["litteral"] != e["symbole"] else []) + [e["numerique"]]
+    return membres, e["resultat"]
 
 
 def relire(bloc: Dict) -> float:

@@ -221,7 +221,7 @@ def controles(M=None):
     # ---- 3. R2 de bout en bout
     r = mo.verifier(barre(**R2))
     stq = r["statique"]
-    i3 = stq["x"].index(3.0)
+    i3 = stq["enveloppes"]["ec3"]["x"].index(3.0)
     e3 = r["methodes"]["ec3"]
     c("R2 (IPE 300 S235, 6 m, G = 2,42 kN/m + 10 kN à mi-portée, Q = 15 kN à mi-portée) : q_Ed = 1,35·2,42 = 3,267 kN/m, P_Ed = 36 kN → "
       "M_Ed = 68,70 kN·m à mi-portée, V_Ed = 27,80 kN à l'appui ; combinaison gouvernante 1,35·G + 1,5·Q",
@@ -269,9 +269,22 @@ def controles(M=None):
       r1["methodes"]["ec3"]["grandeurs"]["deversement"]["kc"] == 0.94 and r2["methodes"]["ec3"]["grandeurs"]["deversement"]["kc"] == 0.86)
 
     # ---- 4. l'enveloppe
+    # ses abscisses : R2 (une charge ponctuelle à mi-portée) — V saute de P_Ed à 3 m, pas M
+    eR2 = mo.verifier(barre(**R2))["statique"]["enveloppes"]["ec3"]
+    i_g = eR2["x"].index(3.0)
+    VA = 3.267 * 3 + 18.0
+    c("les enveloppes portent LEURS abscisses : doublée là où V saute (la charge ponctuelle à 3 m : la lecture de gauche +8,0 kN, puis celle de "
+      "droite −28,0 — un saut de P_Ed = 36 kN, vertical au tracé), une seule ailleurs ; aux deux bouts de la barre, la seule lecture du côté de la "
+      "barre (V = +27,8 kN en A et −27,8 en B : jamais le zéro du dehors, ni dans les maximums ni dans les minimums)",
+      eR2["x"].count(3.0) == 2 and eR2["x"][i_g + 1] == 3.0 and proche(eR2["V_max"][i_g], VA - 3.267 * 3) and proche(eR2["V_min"][i_g + 1], -VA + 3.267 * 3)
+      and proche(eR2["V_max"][i_g] - eR2["V_min"][i_g + 1], 36.0) and proche(eR2["M_max"][i_g], eR2["M_max"][i_g + 1])
+      and eR2["x"].count(0.0) == 1 and eR2["x"].count(6.0) == 1 and eR2["x"].count(1.5) == 1 and eR2["x"] == sorted(eR2["x"])
+      and proche(eR2["V_max"][0], VA) and eR2["V_min"][0] > 1.0 and proche(eR2["V_min"][-1], -VA) and eR2["V_max"][-1] < -1.0
+      and len({len(eR2[k]) for k in ("x", "M_max", "M_min", "V_max", "V_min")}) == 1,
+      (eR2["x"][i_g - 1:i_g + 3], eR2["V_max"][i_g:i_g + 2], eR2["V_min"][i_g:i_g + 2], eR2["V_min"][0], eR2["V_max"][-1]))
     r = mo.verifier(barre(**CONTINUE))
     env = r["statique"]["enveloppes"]["ec3"]
-    xg = r["statique"]["x"]
+    xg = env["x"]
     q1 = 1.35 * 6 + 1.5 * 8
     MB_tout = -q1 * 25 / 8
     RA = q1 * 5 / 2 - (q1 + 1.35 * 6) * 25 / 16 / 5
@@ -454,6 +467,11 @@ MUTATIONS = [
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
     ("moteur", "déversement : le plus grand moment du tronçon remplacé par zéro", '"NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,', '"NEd": C.N * 1e3, "MyEd": 0.0, "axes": axes,'),
     ("moteur", "méthode historique : l'effort tranchant de la section oublié", '"P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,', '"P": C.N * 1e3, "My": M * 1e6, "Vz": 0.0, "axes": axes,'),
+    ("moteur", "enveloppe : le zéro du dehors compté aux deux bouts de la barre", 'cotes = ("d",) if x <= EPS else (("g",) if x >= Lt - EPS else ("g", "d"))',
+     'cotes = ("g", "d")'),
+    ("moteur", "enveloppe : un saut de diagramme écrasé en un seul point", '                cotes = ("d",)                                       # diagrammes continus ici : un seul point',
+     '                pass\n            cotes = cotes[-1:]'),
+    ("moteur", "enveloppe : chaque abscisse doublée, saut ou non", "abs(e[k + \"_g\"] - e[k + \"_d\"]) <= SAUT * max(1.0, abs(e[k + \"_g\"]), abs(e[k + \"_d\"]))", "False"),
     ("moteur", "la flèche rendue en mètres", '        fleche["valeur"] *= 1e3  ', '        fleche["valeur"] *= 1.0  '),
     ("entree", "le poids propre éteint par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": False, "niveau": "haut", "maintiens": [],'),
     ("entree", "les charges au centre de cisaillement par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": True, "niveau": "centre", "maintiens": [],'),
@@ -509,7 +527,7 @@ def main():
     r = MO.verifier(barre(**R2))
     chk("la sortie : la barre relue, le profilé, sa masse, la statique (abscisses, enveloppes, réactions par cas, flèche, tronçons), les méthodes, "
         "le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "longueurs", "methodes", "statut", "comparaison"}
-        and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and len(r["statique"]["x"]) == len(r["statique"]["enveloppes"]["ec3"]["M_max"])
+        and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and set(r["statique"]["enveloppes"]["ec3"]) == {"x", "M_max", "M_min", "V_max", "V_min"}
         and [a["R"] for a in r["statique"]["cas"][0]["reactions"]] == [2.42 * 3 + 5.0] * 2, sorted(r["statique"]))
     plantes, n = [], 0
     for i, p in enumerate(CAT.profils()):

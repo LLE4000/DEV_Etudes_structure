@@ -151,6 +151,10 @@ def controles(e=None):
     c("flambement : « N_b,z,Rd = χ_z·A·f_y/γ_M1 = 0,31022 × 7808 × 235 / 1,0 / 10³ = 569,2 kN » — le facteur d'unités est ôté de la "
       "formule en symboles et imprimé « / 10³ » dans celle en valeurs ; le coefficient partiel garde sa décimale",
       ligne(e, b1) == "N_b,z,Rd = χ_z·A·f_y/γ_M1 = 0,31022 × 7808 × 235 / 1,0 / 10³ = 569,2 kN", ligne(e, b1))
+    br = bloc("e_rapport", "N_Ed/N_cr,y", [("N_Ed", 400.0), ("N_cr,y", 3279.6)], 400.0 / 3279.6)
+    c("un bloc dont la formule en symboles EST le symbole ne l'écrit qu'une fois : « N_Ed/N_cr,y = 400 / 3279,6 = 0,122 » (et non "
+      "« N_Ed/N_cr,y = N_Ed/N_cr,y = … ») ; les autres gardent leurs trois membres",
+      ligne(e, br) == "N_Ed/N_cr,y = 400 / 3279,6 = 0,122" and len(e.morceaux(br)[0]) == 2 and len(e.morceaux(b1)[0]) == 3, ligne(e, br))
     b2 = bloc("e_N_cr", "N_cr,y", [("E", 210000.0), ("I_y", 8356.0), ("L_cr,y", 6.0)], math.pi ** 2 * 210000.0 * 8356.0 / 36.0 / 1e5, "kN")
     c("charge critique : « N_cr,y = π²·E·I_y/L_cr,y² = π² × 210000 × 8356 / 6² / 10⁵ = 4811 kN » (π, le carré, / 10⁵)",
       ligne(e, b2) == "N_cr,y = π²·E·I_y/L_cr,y² = π² × 210000 × 8356 / 6² / 10⁵ = 4811 kN", ligne(e, b2))
@@ -260,6 +264,7 @@ MUTATIONS = [
     ("le signe moins du clavier", 'MOINS = "−"', 'MOINS = "-"'),
     ("les symboles donnés (le critère d'un taux) ignorés", 'syms = list(symboles) if symboles is not None else [t["symbole"] for t in bloc["termes"]]',
      'syms = [t["symbole"] for t in bloc["termes"]]'),
+    ("le symbole répété quand la formule en symboles le redit", 'if e["litteral"] != e["symbole"] else []', "if True else []"),
     ("un bloc mal formé accepté", "    if len(noms) != len(bloc[\"termes\"]):", "    if False:"),
     ("la relecture sur les valeurs exactes (elle ne jugerait plus l'impression)", 'env = {n: _lu(nombre(t["valeur"])) for n, t in zip(noms, bloc["termes"])}',
      'env = {n: t["valeur"] for n, t in zip(noms, bloc["termes"])}'),

@@ -53,6 +53,7 @@ SUJETS = (("Flambement, axe faible", ("H-N-z",), ("E-Nb-z", "E-Nb-T")), ("Flambe
 POINTS_DIAGRAMME = 40            # points par travée des enveloppes rendues pour le dessin
 BALAYAGE_TRONCON = 24            # points par tronçon pour le plus grand moment
 EPS = 1e-9
+SAUT = 1e-9                      # l'écart relatif entre les lectures de gauche et de droite qui fait un saut de diagramme
 
 
 def _rang(v: Dict) -> Tuple[int, float]:
@@ -295,14 +296,23 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     methodes = {}
 
     def enveloppe_diagrammes(nom: str, combs: List[ST.Combinaison]) -> None:
-        M_max, M_min, V_max, V_min = [], [], [], []
+        """Les enveloppes de M et de V, avec LEURS abscisses : là où un diagramme saute (un appui, une charge ponctuelle,
+        un couple), l'abscisse y est deux fois — la lecture de gauche, puis celle de droite — pour que le saut se trace
+        vertical ; aux deux bouts de la barre, seule la lecture du côté de la barre compte (dehors, il n'y a rien)."""
+        xs, M_max, M_min, V_max, V_min = [], [], [], [], []
         for x in grille:
             es = [c.lire(x) for c in combs]
-            M_max.append(max(max(e["M_g"], e["M_d"]) for e in es))
-            M_min.append(min(min(e["M_g"], e["M_d"]) for e in es))
-            V_max.append(max(max(e["V_g"], e["V_d"]) for e in es))
-            V_min.append(min(min(e["V_g"], e["V_d"]) for e in es))
-        statique["enveloppes"][nom] = {"M_max": M_max, "M_min": M_min, "V_max": V_max, "V_min": V_min}
+            cotes = ("d",) if x <= EPS else (("g",) if x >= Lt - EPS else ("g", "d"))
+            if len(cotes) == 2 and all(abs(e[k + "_g"] - e[k + "_d"]) <= SAUT * max(1.0, abs(e[k + "_g"]), abs(e[k + "_d"]))
+                                       for e in es for k in ("M", "V")):
+                cotes = ("d",)                                       # diagrammes continus ici : un seul point
+            for cote in cotes:
+                xs.append(x)
+                M_max.append(max(e["M_" + cote] for e in es))
+                M_min.append(min(e["M_" + cote] for e in es))
+                V_max.append(max(e["V_" + cote] for e in es))
+                V_min.append(min(e["V_" + cote] for e in es))
+        statique["enveloppes"][nom] = {"x": xs, "M_max": M_max, "M_min": M_min, "V_max": V_max, "V_min": V_min}
 
     def ec3() -> Dict:
         env = Enveloppe(EC.METHODE, EC.NORME)
