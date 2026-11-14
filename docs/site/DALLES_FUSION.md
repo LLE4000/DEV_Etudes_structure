@@ -601,9 +601,12 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   source pour l'écran et la note). Où : sous les données du panneau de gauche (le style du générateur hérité, `_data`
   suivi des observations) ; si la place manque, la coupe cède le juste nécessaire sans descendre sous `coupe_min`
   (mesuré : sous elle, les étiquettes de la coupe se chevauchent — 225 pt à h = 20 cm, 280 pt à 60 cm) ; sinon les
-  observations passent en fin de planche, et la planche qui déborde alors passe SEULE en trois colonnes, ses titres
-  raccourcis (« Armatures sup. — principale » : ceux du générateur ne tiennent pas dans une colonne sur trois). Les
-  24 cas du test tiennent en deux colonnes ; le dernier recours est testé à part.
+  observations passent en fin de planche, et la planche qui déborde alors se POURSUIT sur une page suivante
+  (« Section A (suite) » : le même en-tête, le même panneau de gauche, deux colonnes ; la garde compte ses pages) —
+  jamais une troisième colonne (le propriétaire, 14/11/2026 : « il ne faut pas que tu me crées une troisième colonne
+  qui est moche » ; la poutre, la dalle et la prédalle ont la même planche, `planche_suite` du kit `ndc_pdf/styles.py`,
+  sans effet sur les autres notes : le chemin par défaut est celui d'avant, à l'octet près). Les cas du test tiennent sur
+  une page, sauf une prédalle qui vérifie aussi l'effort tranchant (§ 10) ; le dernier recours est testé à part.
 
 ### 6.3 La parité (`tests/test_note_dalle.py`)
 
@@ -1039,8 +1042,14 @@ longueur est celle du recouvrement, arrondie au 5 cm de chaque côté ; le pas e
 - **Dessin** : sous les deux coupes, le joint — deux peaux hachurées et leur jour, la base secondaire coupée, la barre de
   couture à sa longueur (2 × 550 mm à l'échelle de la vue) et à sa position réelle, ses deux longueurs cotées ; la toucher
   ouvre sa ligne dans « Armatures ».
-- **Note PDF** : au bloc de l'armature inférieure secondaire, « Au joint des prédalles » — la couture, d, A_s,req, la
-  longueur, le verdict.
+- **Note PDF** : au bloc de l'armature inférieure secondaire, « Au joint des prédalles » — COURT (le propriétaire,
+  14/11/2026 : « juste le texte dans armature de couture, on va réduire ça ») : une ligne (« Barres de couture Ø10/100 sur
+  la prédalle, 2 × 55 cm : d = 20 − 7,5 = 12,5 cm »), les formules sans libellé (A_s,req ; A_s,min et la hauteur minimale
+  au joint quand ils gouvernent), un verdict d'une ligne — 61 à 78 pt au lieu de 90 à 117 ; l₀ et la pose détaillée
+  restent dans la fenêtre de calcul de l'écran. MESURÉ : la planche d'une prédalle tient alors sur UNE page, en deux
+  colonnes, avec les titres de la dalle (l'exemple du lot 5 compris) ; seule celle qui vérifie AUSSI l'effort tranchant
+  (déjà pleine sans le joint : 9 pt libres) se poursuit, l'effort tranchant en page suivante — jamais une troisième
+  colonne. Gagner cette page : montrer A_s,max une fois au lieu de quatre (≈ 78 pt), à décider.
 - **Options** (lot 6) : la ligne « Couture » (1 · 5 · 10 cm) pour une prédalle ; la page « Paramètres » en fixe le départ
   pour les notes neuves (`MODELES_DIMENSIONNEMENT.md` § 7). Corrigé : une dalle ajoutée reprend l'ARRONDI de la note (elle
   prenait 0,5 cm).

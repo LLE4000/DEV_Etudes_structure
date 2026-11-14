@@ -917,8 +917,15 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
     **2,5 cm** (25 mm libres entre deux Ø16 : le minimum de l'EC2 — « il faudra vérifier » les paquets de barres, plus tard) ;
   · **corrigé en chemin** : une dalle ajoutée à une note ne reprenait pas l'arrondi de la note (elle prenait 0,5 cm même
     si la note était à 1 cm : moins prudent, sans le dire) — elle reprend désormais les trois paramètres communs.
+  · **la note PDF, retour du propriétaire** (« il ne faut pas que tu me crées une troisième colonne qui est moche » ;
+    « juste le texte dans armature de couture, on va réduire ça ») : le bloc du joint est COURT (une ligne pour les
+    barres, les formules sans libellé, un verdict d'une ligne) — la prédalle tient sur une page, en deux colonnes, avec les
+    titres de la dalle ; une planche qui déborde encore (une prédalle qui vérifie aussi l'effort tranchant) se POURSUIT
+    sur une page suivante, à la même mise en page — la poutre, la dalle et la prédalle pareil (`planche_suite` du kit) ;
+    plus jamais de troisième colonne (`DALLES_FUSION.md` § 6.2 et § 10).
   · **Reste** (à trancher) : des réglages « coulé en place » / « préfabriqué » distincts ; le jeu entre deux couches d'une
-    dalle ; la géométrie de départ et le taux visé dans le gabarit ; les paquets de barres (EC2 8.9).
+    dalle ; la géométrie de départ et le taux visé dans le gabarit ; les paquets de barres (EC2 8.9) ; gagner la page de
+    la prédalle avec effort tranchant (A_s,max écrit une fois au lieu de quatre, ≈ 78 pt).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

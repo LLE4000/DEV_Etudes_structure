@@ -31,7 +31,10 @@ CE QUE LE SITE AJOUTE À LA PLANCHE (le générateur ne le sait pas) :
   niveau par un axe saisi, base hors de la prédalle, couches croisées sur la prédalle, d utile ≤ 0) et, une fois par
   dalle, le périmètre d'une prédalle (ce qui n'est PAS vérifié) — les textes mêmes de l'écran, sans leur balisage ;
   écrites sous les données du panneau de gauche (la coupe cède, s'il le faut, le juste nécessaire sans descendre sous
-  ``coupe_min``), sinon en fin de planche (la planche, seule, en trois colonnes si elle déborde : ``document``).
+  ``coupe_min``), sinon en fin de planche ;
+- la SUITE d'une planche qui déborde ses deux colonnes : une page suivante, à la même mise en page — jamais une troisième
+  colonne (le propriétaire, 14/11/2026 : « il ne faut pas que tu me crées une troisième colonne qui est moche » ;
+  ``planche_suite`` du kit). La dalle, la prédalle et la poutre (api_web/note_poutre.py) ont la même planche.
 
 Plusieurs dalles : une note, une planche par section, dans l'ordre des dalles. Chaque dalle est traduite à part (γs et
 le jeu sont ceux de la note sur le site, mais une note relue pourrait en porter de différents), puis les planches sont
@@ -304,42 +307,46 @@ def _verdict_site(v_pdf: Dict, v: Dict, rs: Dict) -> None:
 def joindre(v_pdf: Dict, rs: Dict, R: Dict) -> None:
     """Le JOINT d'une prédalle (lot 5, beton/predalle/joint.py) ajouté au bloc de l'armature inférieure SECONDAIRE
     (``v_pdf``, dans la forme du générateur : ``ndc_pdf.data._verif_armatures_dalle``) — la direction secondaire vérifiée
-    deux fois, en pleine prédalle puis au joint : une ligne qui dit les barres de couture (leur pose, leur axe de calcul,
-    leur longueur : 2 × le côté arrondi, l₀), d au joint, A_s,req au joint (A_s,min quand il gouverne ; la hauteur
-    minimale au joint quand elle gouverne celle de la section) ; un second verdict. Les chiffres du SITE : ``rs["joint"]``,
-    la vérification « joint », les grandeurs « …_joint »."""
+    deux fois, en pleine prédalle puis au joint.
+
+    COURT, pour que la planche d'une prédalle tienne sur sa page comme celle d'une dalle (le propriétaire, 14/11/2026 :
+    « juste le texte dans armature de couture, on va réduire ça ») : un sous-titre ; UNE ligne qui dit les barres de
+    couture (posées sur la prédalle, leur longueur : 2 × le côté arrondi) et d au joint ; les formules sans libellé (le
+    sous-titre dit « au joint » une fois) — A_s,req au joint, A_s,min quand il gouverne, la hauteur minimale au joint
+    quand elle gouverne celle de la section ; un verdict d'une ligne. MESURÉ le 14/11/2026 : 61 à 78 pt au lieu de 90 à
+    117 (l'exemple du lot 5 : 76 au lieu de 115) — sa planche tient sur une page (tests/test_note_dalle.py, avec la
+    mutation qui le rallonge). Les chiffres du SITE : ``rs["joint"]``, la vérification « joint », les grandeurs
+    « …_joint » ; l₀, la pose détaillée : la fenêtre de calcul de l'écran."""
     from ndc_pdf import data as ND
     fn = ND.fn
     j, g = rs["joint"], rs["grandeurs"]
     v = next(x for x in rs["verifications"] if x["cle"] == "joint")
-    sec, c0, lg = j["direction"], j["couture"], j["longueur"]
+    sec, lg = j["direction"], j["longueur"]
     ok = v["etat"] == MO.OK
     if "d_utile_negatif" in v["motifs"]:
-        txt = f"Hauteur utile au joint {sec.upper()} : d = {fn(j['d'], 1)} cm ≤ 0 — barres de couture hors de l'épaisseur"
+        txt = f"Au joint {sec.upper()} : d = {fn(j['d'], 1)} cm ≤ 0 — barres de couture hors de l'épaisseur"
     else:
-        txt = (f"Section d'armature au joint {sec.upper()} : {fn(v['limite'], 0)} mm² {'≥' if ok else '<'} section "
-               f"d'armature requise : {fn(v['valeur'], 0)} mm²")
+        txt = (f"Au joint {sec.upper()} : {fn(v['limite'], 0)} mm² {'≥' if ok else '<'} section d'armature requise : "
+               f"{fn(v['valeur'], 0)} mm²")
     verdicts = [dict(etat="ok" if ok else "ko", texte=ND._unites_insecables(txt))]
     ok_h = g["etat_hauteur_joint"] == MO.OK
     if not ok_h:
         verdicts.append(dict(etat="ko", texte=ND._unites_insecables(
-            f"Hauteur de la dalle : {fn(g['h'], 0)} cm < hauteur minimale au joint : {fn(g['h_min_joint'], 1)} cm")))
+            f"Épaisseur de la dalle : {fn(g['h'], 0)} cm < hauteur minimale au joint : {fn(g['h_min_joint'], 1)} cm")))
     M = g["M_joint"]
-    # (un sous-titre, puis un paragraphe REPLIÉ — « p » : les barres, leur pose, d au joint, leur longueur —, les formules,
-    #  enfin le verdict du joint : le gabarit dessine le verdict k là où il trouve (« k », k))
+    # (un sous-titre, la ligne des barres — « p », repliée s'il le faut —, les formules, enfin le verdict du joint : le
+    #  gabarit dessine le verdict k là où il trouve (« k », k))
     items = [("s", "Au joint des prédalles"),
-             ("p", f"{j['geometrie']['libelle']} ({fn(j['As_pm'], 0)} mm²/m), sur la prédalle : e = {fn(c0['e'], 1)} cm, "
-                   f"d = {fn(g['h'], 0)} − {fn(j['yG'], 1)} = {fn(j['d'], 1)} cm ; 2 × {fn(lg['cote'], 0)} cm (l₀ = {fn(lg['l0'], 0)} mm)"),
-             ("f", "Acier requis au joint",
-              rf"A_{{s,req}} = \frac{{{ND.sci(M * 1e6)}}}{{{fn(R['fyd'], 1)} \cdot 0,9 \cdot {fn(j['d'] * 10, 0)}}}"
-              rf" = \res{{{fn(j['As_req'], 0)} \u{{mm}}^{{2}}}}")]
+             ("p", f"Barres de couture {j['geometrie']['libelle']} sur la prédalle, 2 × {fn(lg['cote'], 0)} cm : "
+                   f"d = {fn(g['h'], 0)} − {fn(j['yG'], 1)} = {fn(j['d'], 1)} cm"),
+             ("f", "", rf"A_{{s,req}} = \frac{{{ND.sci(M * 1e6)}}}{{{fn(R['fyd'], 1)} \cdot 0,9 \cdot {fn(j['d'] * 10, 0)}}}"
+                       rf" = \res{{{fn(j['As_req'], 0)} \u{{mm}}^{{2}}}}")]
     if j["As_min"] > j["As_req"]:
-        items.append(("f", "Section d'acier min", rf"A_{{s,min}} = \res{{{fn(j['As_min'], 0)} \u{{mm}}^{{2}}}}"))
+        items.append(("f", "", rf"A_{{s,min}} = \res{{{fn(j['As_min'], 0)} \u{{mm}}^{{2}}}}"))
     hv = next(x for x in rs["verifications"] if x["cle"] == "hauteur")
     if hv.get("face") == "joint" or not ok_h:
-        items.append(("f", "Hauteur minimale au joint",
-                      rf"h_{{u,min}} + d_{{1}} = {fn(g['hu_min_joint'], 1)} + {fn(g['yG_joint'], 1)}"
-                      rf" = \res{{{fn(g['h_min_joint'], 1)} \u{{cm}}}} {r'\le' if ok_h else '>'} h = {fn(g['h'], 0)} \u{{cm}}"))
+        items.append(("f", "", rf"h_{{u,min}} + d_{{1}} = {fn(g['hu_min_joint'], 1)} + {fn(g['yG_joint'], 1)}"
+                               rf" = \res{{{fn(g['h_min_joint'], 1)} \u{{cm}}}} {r'\le' if ok_h else '>'} h = {fn(g['h'], 0)} \u{{cm}}"))
     n0 = len(v_pdf["verdicts"])
     v_pdf["items"] = list(v_pdf["items"]) + items + [("k", n0 + k) for k in range(len(verdicts))]
     v_pdf["verdicts"] = list(v_pdf["verdicts"]) + verdicts
@@ -375,14 +382,16 @@ def _ecrire_observations(d, S, x: float, haut: float, w: float, textes: List[str
         d.para(fr, t, S.f_b, S.s_lab, S.ink, lead=INTERLIGNE)
 
 
-def _style(n_cols: int):
-    """Le style de la note : celui du générateur (``export_pdf._style_ndc`` : la palette, le repli en trois colonnes),
-    dont les DONNÉES du panneau de gauche (``_data``) sont suivies des observations de l'écran, quand la planche en a
-    (``_Blocs.observations``) et que la place, sous les données, les contient ; sinon la place qui manque est notée
-    (``_Blocs.manque``) et rien n'est écrit — ``document`` fait alors de la place (la coupe moins haute) ou reporte les
-    observations en fin de planche. Hériter du style est l'extension du kit : ni le kit ni le générateur ne changent."""
+def _style():
+    """Le style de la note : celui du générateur (``export_pdf._style_ndc`` : la palette, deux colonnes de calcul), dont
+    une planche qui déborde se POURSUIT sur une page suivante (``planche_suite`` du kit — jamais une troisième colonne,
+    le propriétaire, 14/11/2026), et dont les DONNÉES du panneau de gauche (``_data``) sont suivies des observations de
+    l'écran, quand la planche en a (``_Blocs.observations``) et que la place, sous les données, les contient ; sinon la
+    place qui manque est notée (``_Blocs.manque``) et rien n'est écrit — ``document`` fait alors de la place (la coupe
+    moins haute) ou reporte les observations en fin de planche. Hériter du style est l'extension du kit : ni le kit ni
+    le générateur ne changent."""
     from modules import export_pdf as EP
-    base = EP._style_ndc(n_cols)
+    base = EP._style_ndc(2)
 
     class StyleNote(type(base)):
         # le propriétaire, 13/11/2026 (« je préférais l'ancienne note », deux retouches) : le symbole d'une ligne
@@ -390,6 +399,7 @@ def _style(n_cols: int):
         # ligne de l'accolade « A_s,min = max { … } » avec son « = » à côté de son calcul (le kit les aligne tous)
         sym_col_v = SYMBOLE_COLLE
         cases_align = EGALITES_ALIGNEES
+        planche_suite = True
 
         def _data(self, d, ms, x, y, w, blocs, *a, **k):
             bas = super()._data(d, ms, x, y, w, blocs, *a, **k)
@@ -422,22 +432,6 @@ def coupe_min(sec: Dict) -> float:
     COUPE_MIN de son nombre de schémas, pour son épaisseur."""
     a, b = COUPE_MIN[min(2, max(1, len(sec["coupe"]["schemas"])))]
     return a + b * float(sec["coupe"]["h"]) / 10.0
-
-
-# les titres des vérifications d'une planche en TROIS colonnes : ceux du générateur n'y tiennent pas (« Armatures
-# supérieures — direction principale » fait 160 pt au plus petit corps du kit, la colonne 123) ; dits plus court, sans
-# rien perdre (le premier élément de chaque vérification nomme encore la face et la direction : « Moment supérieur Y »)
-TITRES_COURTS = (("Armatures inférieures", "Armatures inf."), ("Armatures supérieures", "Armatures sup."),
-                 (" — direction principale", " — principale"), (" — direction secondaire", " — secondaire"))
-
-
-def _trois_colonnes(sec: Dict) -> None:
-    """Une planche qui déborde en deux colonnes passe, seule, en trois (``sec["n_cols"]``, l'extension du kit), ses
-    titres raccourcis (TITRES_COURTS)."""
-    sec["n_cols"] = 3
-    for v in sec["verifs"]:
-        for long_, court in TITRES_COURTS:
-            v["titre"] = v["titre"].replace(long_, court)
 
 
 def _observations_en_colonnes(sec: Dict) -> None:
@@ -488,17 +482,17 @@ def observations_de(sec: Dict) -> List[str]:
 
 # ------------------------------------------------------------------ le document
 def document(etat: Dict, infos: Optional[Dict], chemin: str):
-    """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` (même
-    construction, même repli en trois colonnes si une planche déborde). Les observations d'une planche s'écrivent sous
-    ses données ; quand la place manque, la coupe cède le juste nécessaire tant qu'elle garde COUPE_MIN (ses étiquettes
-    ne se chevauchent pas), sinon elles passent en fin de planche. ``d.warnings`` : ce qui déborde encore ;
-    ``d.colonnes`` : 2, ou 3 quand une planche au moins a dû passer en trois colonnes ; ``d.replis`` : les planches
-    dont les observations sont en fin de planche ; ``d.coupes_reduites`` : celles dont la coupe a cédé de la place ;
-    ``d.trois_colonnes`` : celles qui sont, seules, en trois colonnes."""
+    """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` — chaque
+    planche en DEUX colonnes de calcul ; celle qui déborde se poursuit sur une page suivante, à la même mise en page,
+    jamais une troisième colonne (le propriétaire, 14/11/2026 ; ``planche_suite`` du kit, la garde compte ses pages).
+    Les observations d'une planche s'écrivent sous ses données ; quand la place manque, la coupe cède le juste
+    nécessaire tant qu'elle garde COUPE_MIN (ses étiquettes ne se chevauchent pas), sinon elles passent en fin de
+    planche. ``d.warnings`` : ce qui déborde encore ; ``d.replis`` : les planches dont les observations sont en fin de
+    planche ; ``d.coupes_reduites`` : celles dont la coupe a cédé de la place."""
     from ndc_pdf import data as ND
     secs = sections(etat)
     doc_meta = ND.construire_doc(infos or {}, date_defaut=datetime.today().strftime("%d/%m/%Y"))
-    d = _style(2).build(chemin, sections=secs, doc=doc_meta)
+    d = _style().build(chemin, sections=secs, doc=doc_meta)
     reduites, replis = 0, 0
     for sec in secs:
         manque = sec["blocs"].manque
@@ -511,30 +505,20 @@ def document(etat: Dict, infos: Optional[Dict], chemin: str):
             _observations_en_colonnes(sec)
             replis += 1
     if reduites or replis:
-        d = _style(2).build(chemin, sections=secs, doc=doc_meta)
+        d = _style().build(chemin, sections=secs, doc=doc_meta)
         for sec in secs:                 # (une coupe réduite fait toujours la place : par sûreté, le repli)
             if sec["blocs"].manque and sec["blocs"].observations:
                 _observations_en_colonnes(sec)
                 replis += 1
-                d = _style(2).build(chemin, sections=secs, doc=doc_meta)
-    d.colonnes = 2
-    trois = [sec for sec in secs if any(w.startswith(f"{sec['poutre']} — {sec['section']} :") for w in d.warnings)]
-    if trois:                            # la planche qui déborde (seule) en trois colonnes, ses titres raccourcis
-        for sec in trois:
-            _trois_colonnes(sec)
-        d = _style(2).build(chemin, sections=secs, doc=doc_meta)
-        d.colonnes = 3
-    if d.warnings:                       # le repli du générateur : toute la note en trois colonnes
-        d = _style(3).build(chemin, sections=secs, doc=doc_meta)
-        d.colonnes = 3
-    d.replis, d.coupes_reduites, d.trois_colonnes = replis, reduites, len(trois)
+                d = _style().build(chemin, sections=secs, doc=doc_meta)
+    d.replis, d.coupes_reduites = replis, reduites
     return d
 
 
 def pdf(etat: Dict, infos: Optional[Dict] = None) -> bytes:
-    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section. Une planche qui déborde encore en
-    trois colonnes est REFUSÉE avec un message : ce qui sort de la page serait perdu sans un mot — jamais une note
-    tronquée."""
+    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section (une page, ou plusieurs quand elle
+    se poursuit). Ce qui déborderait encore (un texte plus haut qu'une colonne entière, le panneau de gauche) est
+    REFUSÉ avec un message : ce qui sort de la page serait perdu sans un mot — jamais une note tronquée."""
     import tempfile
     fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_dalle_")
     os.close(fd)

@@ -247,18 +247,19 @@ for nom, e in CAS.items():
                 manques.append((nom, rs["nom"], f, "couleur du verdict"))
             n_chiffres += 4 + len(attendus_v)
         if rs.get("joint"):
-            # le JOINT (lot 5) : dans le bloc de l'armature inférieure SECONDAIRE (3e) — d et A_s,req au joint, la ligne des
-            # barres de couture (2 × le côté, l₀), A_s,min et la hauteur au joint quand ils gouvernent ; son verdict, le second
+            # le JOINT (lot 5) : dans le bloc de l'armature inférieure SECONDAIRE (3e) — la ligne des barres de couture
+            # (2 × le côté, d au joint), A_s,req au joint, A_s,min et la hauteur au joint quand ils gouvernent ; son verdict,
+            # le second (COURT, 14/11/2026 : l₀ et la pose détaillée sont dans la fenêtre de calcul de l'écran)
             vj = sec["verifs"][2]
             jt = rs["joint"]
-            attendus += [(vj, f"= {ND.fn(g['d_joint'], 1)} cm ;"), (vj, rf"\res{{{ND.fn(g['As_req_joint'], 0)} \u{{mm}}^{{2}}}}"),
-                         (vj, f"2 × {ND.fn(jt['longueur']['cote'], 0)} cm (l₀ = {ND.fn(jt['longueur']['l0'], 0)} mm)")]
+            attendus += [(vj, f"2 × {ND.fn(jt['longueur']['cote'], 0)} cm : d = {ND.fn(g['h'], 0)} − {ND.fn(jt['yG'], 1)} = "
+                              f"{ND.fn(g['d_joint'], 1)} cm"), (vj, rf"\res{{{ND.fn(g['As_req_joint'], 0)} \u{{mm}}^{{2}}}}")]
             if g["As_min_joint"] > g["As_req_joint"]:
                 attendus.append((vj, rf"\res{{{ND.fn(g['As_min_joint'], 0)} \u{{mm}}^{{2}}}}"))
             if par_cle["hauteur"].get("face") == "joint":
                 attendus.append((vj, rf"\res{{{ND.fn(g['h_min_joint'], 1)} \u{{cm}}}}"))
             vjs = next(v_ for v_ in rs["verifications"] if v_["cle"] == "joint")
-            if len(vj["verdicts"]) < 2 or (vj["verdicts"][1]["etat"] == "ok") != (vjs["etat"] == MO.OK) or "au joint" not in vj["verdicts"][1]["texte"]:
+            if len(vj["verdicts"]) < 2 or (vj["verdicts"][1]["etat"] == "ok") != (vjs["etat"] == MO.OK) or not vj["verdicts"][1]["texte"].startswith("Au joint"):
                 manques.append((nom, rs["nom"], "joint", "verdict", vj["verdicts"]))
             n_joints += 1
         if g["V"] > 0:
@@ -277,7 +278,7 @@ for nom, e in CAS.items():
                 manques.append((nom, rs["nom"], k, soll.get(sym), rs[k]))
 chk(f"le texte de chaque planche écrit les chiffres du moteur du site ({n_chiffres} chiffres : h_u,min, h_min, d, A_s,req, "
     "A_s,min, A_s/m, A_s, A_s,néc, τ, τ_adm, efforts), dans l'ordre des nappes de l'écran — et, chaque prédalle, le bloc du JOINT "
-    f"dans le bloc de l'armature inférieure secondaire ({n_joints} planches : d, A_s,req, 2 × le côté et l₀, son verdict ; "
+    f"dans le bloc de l'armature inférieure secondaire ({n_joints} planches : 2 × le côté, d, A_s,req, son verdict ; "
     "A_s,min et la hauteur au joint quand ils gouvernent)", not manques and n_joints >= 3, manques[:4])
 
 # l'écran affiche les mêmes chiffres (la ligne de chaque nappe : A_s,néc et A_s, et l'état du bloc), aux mêmes arrondis
@@ -505,35 +506,107 @@ chk("le périmètre de la prédalle, et celui de la dalle CSP (flèche, fissurat
     and _csp in N.observations_de(planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]), "")
 
 
-# ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche tient, en deux colonnes
-def construire(etat):
+# ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche en DEUX colonnes ; la suite
+# d'une planche qui déborde : une page suivante, à la même mise en page — jamais une troisième colonne (le propriétaire,
+# 14/11/2026 : « il ne faut pas que tu me crées une troisième colonne qui est moche » ; « le petit bout sur une deuxième
+# page »). Chaque page dessinée est espionnée (``_page_planche`` du kit) : son nombre de colonnes, son titre de suite.
+def construire(etat, pages=None, garde=None, suite=True):
+    """Le document d'une note ; ``pages`` reçoit chaque page de planche du document RENDU (section, suite ?, colonnes),
+    ``garde`` les lignes de son sommaire (section, nombre de pages annoncé) — les tracés à blanc de la garde et les
+    constructions de mesure sont écartés. ``suite`` faux : la mutation, le kit sans ``planche_suite``."""
     fd, chemin = tempfile.mkstemp(suffix=".pdf")
     os.close(fd)
+    vues, gardes, vrai = [], [], N._style
+
+    def espion():
+        s_ = vrai()
+        s_.planche_suite = suite
+        vrai_page, vrai_garde = s_._page_planche, s_.garde_lignes
+
+        def page_(d, doc, sec, ms, suite=False):
+            C_, cols_ = vrai_page(d, doc, sec, ms, suite)
+            vues.append((d, f"{sec['poutre']} — {sec['section']}", suite, len(cols_)))
+            return C_, cols_
+
+        def garde_(d, doc, lignes, *a, **k):
+            gardes.append((d, [(lg["titre"], lg.get("pages", 1)) for lg in lignes]))
+            return vrai_garde(d, doc, lignes, *a, **k)
+        s_._page_planche, s_.garde_lignes = page_, garde_
+        return s_
+    N._style = espion
     try:
-        return N.document(etat, {}, chemin)
+        d_ = N.document(etat, {}, chemin)
     finally:
+        N._style = vrai
         os.remove(chemin)
+    if pages is not None:
+        pages.extend((nom_, suite_, n) for d0, nom_, suite_, n in vues if d0 is d_)
+    if garde is not None:
+        garde.extend(next(lg for d0, lg in gardes if d0 is d_))
+    return d_
 
 
-debordes, trois, replis, reduites, trois_p = [], [], [], [], []
+def avec_effort_tranchant(e):
+    return any(s.get("V") for dd in e.get("dalles", []) for s in dd.get("sections", []))
+
+
+debordes, replis, reduites, colonnes, suites, attendues = [], [], [], [], [], []
 for nom, e in CAS.items():
-    d_ = construire(e)
+    pages_ = []
+    d_ = construire(e, pages_)
     if d_.warnings:
         debordes.append((nom, d_.warnings))
-    # (une note qui a une PRÉDALLE : son bloc d'armature inférieure secondaire dit aussi le JOINT — lot 5, la direction
-    #  secondaire vérifiée deux fois ; la planche passe en trois colonnes. Une dalle coulée en place garde ses deux colonnes.)
-    if any(dd.get("type") == "predalle" for dd in e.get("dalles", [])):
-        trois_p.append(d_.colonnes)
-    elif d_.colonnes != 2:
-        trois.append(nom)
+    colonnes += [(nom, p) for p in pages_ if p[2] != 2]
+    n_suites = sum(1 for p in pages_ if p[1])
+    # (une PRÉDALLE dit aussi le JOINT — la direction secondaire vérifiée deux fois. Son bloc COURT la garde sur UNE page,
+    #  comme la dalle ; seule la planche qui vérifie aussi l'effort tranchant — déjà pleine sans le joint : 9 pt libres —
+    #  se poursuit, l'effort tranchant en page suivante)
+    predalle = any(dd.get("type") == "predalle" for dd in e.get("dalles", []))
+    if n_suites:
+        suites.append(nom)
+        if not (predalle and avec_effort_tranchant(e)):
+            attendues.append((nom, n_suites))
     if d_.replis:
         replis.append(nom)
     if d_.coupes_reduites:
         reduites.append(nom)
-chk("chaque planche de chaque cas tient sur sa page (rien ne déborde)", not debordes, debordes[:2])
-chk(f"… en DEUX colonnes (une dalle coulée en place ; une prédalle, qui dit aussi le joint : trois — {len(trois_p)} notes), les "
+    if d_.n != 1 + len(pages_):
+        debordes.append((nom, "pages", d_.n, len(pages_)))
+chk("chaque planche de chaque cas tient sur ses pages (rien ne déborde, rien n'est perdu)", not debordes, debordes[:2])
+chk(f"chaque page de chaque planche en DEUX colonnes de calcul — jamais trois ; sur UNE page, la dalle comme la prédalle et "
+    f"son joint, sauf une prédalle qui vérifie aussi l'effort tranchant (sa suite en page suivante : {', '.join(suites)}) ; les "
     f"observations sous les données de la coupe ({len(reduites)} cas où la coupe leur cède de la place : {', '.join(reduites)}) ; "
-    "aucune en fin de planche", not trois and not replis and trois_p and set(trois_p) <= {3}, (trois, replis, trois_p))
+    "aucune en fin de planche", not colonnes and not attendues and suites and not replis, (colonnes, attendues, replis))
+# l'exemple du lot 5 (prédalle 20 cm, M_x = 30 kN·m/m, le joint à 102 %) : UNE page, les titres de la dalle — mesuré sur la
+# planche que le propriétaire a vue en trois colonnes le 14/11/2026 ; et la MUTATION : le bloc du joint rallongé de deux
+# lignes (le paragraphe d'avant) — la planche se poursuit, le contrôle rougit
+EX_JOINT = cas((["type"], "predalle"), (S0 + ["Mx_inf"], 30), (S0 + ["My_inf"], 20))
+EX_DALLE = cas((S0 + ["Mx_inf"], 30), (S0 + ["My_inf"], 20))
+_pj, _pd = [], []
+construire(EX_JOINT, _pj)
+construire(EX_DALLE, _pd)
+_titres_j = [v["titre"] for v in N.sections(EX_JOINT)[0]["verifs"]]
+_titres_d = [v["titre"] for v in N.sections(EX_DALLE)[0]["verifs"]]
+vrai_joindre = N.joindre
+
+
+def joindre_long(v, rs, R):
+    vrai_joindre(v, rs, R)
+    v["items"].insert(-1, ("p", "Ø10/100 (785 mm²/m), sur la prédalle : e = 7,5 cm, d = 20 − 7,5 = 12,5 cm ; 2 × 55 cm "
+                                "(l₀ = 536 mm), la pose et la longueur dites deux fois, comme avant le 14/11/2026"))
+
+
+N.joindre = joindre_long
+try:
+    _pm = []
+    construire(EX_JOINT, _pm)
+finally:
+    N.joindre = vrai_joindre
+chk("l'exemple du lot 5 (prédalle, le joint à 102 %) : UNE page à deux colonnes, comme la dalle de mêmes efforts, et les "
+    "MÊMES titres (« Armatures inférieures — direction secondaire »…) ; mutation — le bloc du joint rallongé de deux lignes : "
+    "la planche se poursuit, le contrôle rougit",
+    _pj == _pd == [("Dalle 1 — Section A", False, 2)] and _titres_j == _titres_d
+    and "Armatures inférieures — direction secondaire" in _titres_j and len(_pm) == 2, (_pj, _pd, _titres_j, _pm))
 # MESURER CE QUE L'ŒIL VOIT : sous ses observations, la coupe garde la place de ses étiquettes — aucun texte de la coupe
 # n'en chevauche un autre (on espionne chaque texte écrit par la coupe, mesuré dans sa police et son corps ; les cotes
 # verticales, écrites dans un repère tourné, sont à part). Balayage : épaisseurs de 12 à 60 cm, prédalle et CSP, de 0 à
@@ -546,11 +619,12 @@ def chevauchements_coupe(etat, n_obs):
 
     def espion(c, x, y, txt, font, size, color=None, align="left", **k):
         lw = vrai_txt(c, x, y, txt, font, size, color, align, **k)
-        if boites and boites[-1][0] is not c:              # un nouveau document (le repli reconstruit la note)
+        if boites and boites[-1][0][0] is not c:           # un nouveau document (le repli reconstruit la note)
             boites.clear()
         if abs(x) > 1.0:                                   # (0, y) : une cote verticale, dans un repère tourné
             g = x - (lw if align == "right" else (lw / 2 if align == "center" else 0))
-            boites.append((c, txt, g, g + lw, y - 0.22 * size, y + 0.78 * size))
+            # (la PAGE aussi : une planche qui se poursuit redessine sa coupe sur sa page de suite, aux mêmes places)
+            boites.append(((c, c.getPageNumber()), txt, g, g + lw, y - 0.22 * size, y + 0.78 * size))
         return lw
     SEC.draw_text = espion
     N.observations = lambda d, r, i: ([P.texte_perimetre(d) or "Observation d'essai, assez longue pour tenir sur deux lignes "
@@ -560,11 +634,11 @@ def chevauchements_coupe(etat, n_obs):
     finally:
         SEC.draw_text, N.observations = vrai_txt, vrai_obs
     out = [(a[1], b[1]) for i, a in enumerate(boites) for b in boites[i + 1:]
-           if a[2] < b[3] - 0.5 and b[2] < a[3] - 0.5 and a[4] < b[5] - 0.5 and b[4] < a[5] - 0.5]
+           if a[0] == b[0] and a[2] < b[3] - 0.5 and b[2] < a[3] - 0.5 and a[4] < b[5] - 0.5 and b[4] < a[5] - 0.5]
     return out, d_
 
 
-faux, n_essais, n_reduites, n_replis, n_trois = [], 0, 0, 0, 0
+faux, n_essais, n_reduites, n_replis, n_suites = [], 0, 0, 0, 0
 for type_ in ("coulee", "predalle"):
     for h in (12, 20, 30, 45, 60):
         base_ = cas((["type"], type_), (["h"], h), (S0 + ["My_inf"], 20), (S0 + ["Mx_sup"], 6), (S0 + ["V"], 30),
@@ -572,7 +646,7 @@ for type_ in ("coulee", "predalle"):
         for n_obs in range(5):
             n_essais += 1
             ch_, d_ = chevauchements_coupe(base_, n_obs)
-            n_reduites, n_replis, n_trois = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_trois + (d_.colonnes == 3)
+            n_reduites, n_replis, n_suites = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_suites + (d_.n - 2)
             if ch_ or d_.warnings:
                 faux.append((type_, h, n_obs, ch_[:2], d_.warnings))
 une = cas((F("inf_x") + [0, "dist"], "3,5"), (F("sup_x") + [0, "dist"], "3,5"), (S0 + ["My_inf"], 20))   # X et Y au même niveau
@@ -580,12 +654,12 @@ chk("… une coupe à UN schéma (directions identiques, axes saisis)", len(N.se
 for n_obs in range(5):
     n_essais += 1
     ch_, d_ = chevauchements_coupe(une, n_obs)
-    n_reduites, n_replis, n_trois = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_trois + (d_.colonnes == 3)
+    n_reduites, n_replis, n_suites = n_reduites + d_.coupes_reduites, n_replis + d_.replis, n_suites + (d_.n - 2)
     if ch_ or d_.warnings:
         faux.append(("un schéma", 20, n_obs, ch_[:2], d_.warnings))
 chk(f"sous ses observations, aucun texte de la coupe n'en chevauche un autre, et rien ne déborde ({n_essais} planches : "
     f"h de 12 à 60 cm, CSP et prédalle, 0 à 4 observations, un ou deux schémas ; {n_reduites} coupes réduites, "
-    f"{n_replis} observations en fin de planche, {n_trois} planches en trois colonnes)",
+    f"{n_replis} observations en fin de planche, {n_suites} pages de suite)",
     not faux and n_reduites > 0 and n_replis > 0, faux[:3])
 
 
@@ -600,7 +674,7 @@ def textes_coupe(secs):
     try:
         fd, chemin = tempfile.mkstemp(suffix=".pdf")
         os.close(fd)
-        N._style(2).build(chemin, sections=secs, doc=ND.construire_doc({}, "x"))
+        N._style().build(chemin, sections=secs, doc=ND.construire_doc({}, "x"))
         os.remove(chemin)
     finally:
         SEC.draw_text = vrai_txt
@@ -625,38 +699,28 @@ finally:
 chk("mutation · COUPE_MIN trop petit : la coupe tassée sous ses observations, ses étiquettes se chevauchent — le contrôle rougit",
     bool(ch_), ch_)
 # le dernier recours : des observations trop longues pour le panneau passent en fin de planche ; la planche qui déborde
-# alors passe SEULE en trois colonnes, ses titres raccourcis pour y tenir (ceux du générateur en sortent)
-from ndc_pdf.fonts import string_width  # noqa: E402
+# alors se POURSUIT sur une page suivante (« Section A (suite) »), en deux colonnes — et la garde compte ses pages : le
+# sommaire annonce chaque section à sa page. MUTATION : sans la suite (``planche_suite`` faux, le kit d'avant), la planche
+# déborde — le contrôle rougit.
 long_ = cas((["type"], "predalle"), (["h"], 40), (F("inf_y") + ["+"], 1), (S0 + ["My_inf"], 30), (S0 + ["Mx_sup"], 8),
             (S0 + ["V"], 40), (["sections", "+"], 1), (["sections", 1, "My_inf"], 12))
 vrai_obs = N.observations
 N.observations = lambda d, r, i: vrai_obs(d, r, i) * (3 if i == 0 else 1)
-vrai_build = N._style
-
-
-def espion_style(n_cols):
-    s_ = vrai_build(n_cols)
-    vrai_planche = s_.planche
-
-    def planche_(d, doc, sec):
-        if sec.get("n_cols") == 3:
-            gw = (d.W - s_.margin - (s_.margin + s_.coupe_w + s_.gap) - 2 * s_.col_gap) / 3
-            larges.extend(v["titre"] for v in sec["verifs"] if string_width(v["titre"], s_.f_h, 7.0) > gw - (s_.s_tit * 1.25 + 8))
-            vus.append(sec["section"])
-        return vrai_planche(d, doc, sec)
-    s_.planche = planche_
-    return s_
-
-
-larges, vus = [], []
-N._style = espion_style
 try:
-    d_ = construire(long_)
+    _pl, _gl = [], []
+    d_ = construire(long_, _pl, _gl)
+    d_m = construire(long_, suite=False)
 finally:
-    N.observations, N._style = vrai_obs, vrai_build
-chk("des observations trop longues : en fin de planche (la section A seule), les planches de la prédalle en trois colonnes "
-    "(le joint, lot 5), chaque titre y tient, rien ne déborde", not d_.warnings and d_.replis == 1 and vus
-    and not larges and set(vus) == {"Section A", "Section B"}, (d_.warnings, d_.replis, d_.trois_colonnes, vus, larges))
+    N.observations = vrai_obs
+_compte = {}
+for nom_, suite_, n_ in _pl:
+    _compte[nom_] = _compte.get(nom_, 0) + 1
+chk(f"des observations trop longues : en fin de planche (la section A seule) ; la planche qui déborde alors se poursuit sur "
+    f"une page suivante, en DEUX colonnes ({_compte.get('Dalle 1 — Section A')} pages pour la section A), le sommaire compte "
+    "ses pages, rien ne déborde ; mutation — sans la suite, la planche déborde : le contrôle rougit",
+    not d_.warnings and d_.replis == 1 and _compte.get("Dalle 1 — Section A", 0) >= 2 and all(n_ == 2 for _, _, n_ in _pl)
+    and [s_ for _, s_, _ in _pl].count(True) == sum(_compte.values()) - len(_compte) and dict(_gl) == _compte
+    and bool(d_m.warnings), (d_.warnings, d_.replis, _pl, _gl, d_m.warnings))
 
 # ---------------------------------------------------------------- 5 bis. les deux RETOUCHES du propriétaire (13/11/2026)
 # « Je préférais l'ancienne note » : la planche neuve de DAL6 est retirée (le propriétaire parlait de la colonne des
@@ -667,7 +731,7 @@ chk("des observations trop longues : en fin de planche (la section A seule), les
 #   N.EGALITES_ALIGNEES → Style.cases_align).
 import ndc_pdf.kit as KIT  # noqa: E402
 import ndc_pdf.mathx as MX  # noqa: E402
-S_KV = N._style(2).s_kv          # le corps des lignes clé-valeur des vérifications (le panneau de gauche : 7,6 pt)
+S_KV = N._style().s_kv          # le corps des lignes clé-valeur des vérifications (le panneau de gauche : 7,6 pt)
 
 
 def retouches(etat):
@@ -746,7 +810,7 @@ chk("mutation · le kit tel quel (symbole au milieu de la colonne, « = » align
 from modules import export_pdf as EP_  # noqa: E402
 chk("… et les autres notes du kit gardent sa mise en page (la planche de la poutre : symbole à 52 % de la colonne, « = » "
     "alignés)", EP_._style_ndc(2).sym_col_v == 0.52 and EP_._style_ndc(2).cases_align is True
-    and N._style(2).sym_col_v == 1.0 and N._style(2).cases_align is False, "")
+    and N._style().sym_col_v == 1.0 and N._style().cases_align is False, "")
 
 
 # ---------------------------------------------------------------- 6. le PDF, lu par pdftotext ; le routeur

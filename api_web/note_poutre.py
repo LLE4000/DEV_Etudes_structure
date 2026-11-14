@@ -90,8 +90,10 @@ def resultats(etat: Dict) -> List[Dict]:
 
 
 def document(etat: Dict, infos: Optional[Dict], chemin: str):
-    """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` (même
-    construction, même repli en trois colonnes si une planche déborde). ``d.warnings`` : ce qui déborde encore."""
+    """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` — chaque
+    planche en DEUX colonnes de calcul ; celle qui déborde se poursuit sur une page suivante, à la même mise en page,
+    jamais une troisième colonne (le propriétaire, 14/11/2026 : la poutre, la dalle et la prédalle ont la même planche ;
+    ``planche_suite`` du kit, la garde compte ses pages). ``d.warnings`` : ce qui déborde encore."""
     from modules import export_pdf as EP
     from ndc_pdf import data as ndc_data
     infos = infos or {}
@@ -101,16 +103,15 @@ def document(etat: Dict, infos: Optional[Dict], chemin: str):
     # les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : après les planches, les pages
     # « Justifications de la bibliothèque » — rien quand la note n'en a aucune
     fiches = etat.get("fiches") or None
-    d = EP._style_ndc(2).build(chemin, sections=sections, doc=doc_meta, fiches=fiches)
-    if d.warnings:
-        d = EP._style_ndc(3).build(chemin, sections=sections, doc=doc_meta, fiches=fiches)
-    return d
+    style = EP._style_ndc(2)
+    style.planche_suite = True
+    return style.build(chemin, sections=sections, doc=doc_meta, fiches=fiches)
 
 
 def pdf(etat: Dict, infos: Optional[Dict] = None) -> bytes:
-    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section. Une planche qui déborde encore en
-    trois colonnes est REFUSÉE avec un message : ce qui sort de la page serait perdu sans un mot (une observation des
-    dispositions, un verdict) — jamais une note tronquée."""
+    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section (une page, ou plusieurs quand elle
+    se poursuit). Ce qui déborderait encore (le panneau de gauche, un texte plus haut qu'une colonne entière) est REFUSÉ
+    avec un message : ce qui sort de la page serait perdu sans un mot — jamais une note tronquée."""
     import tempfile
     fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
     os.close(fd)

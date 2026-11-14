@@ -8,6 +8,10 @@ Mise en page unique, validée : A4 paysage, une seule page.
   · flux continu — une vérification qui ne tient pas dans la colonne se
     poursuit dans la suivante, avec un rappel « (suite) ».
 
+Extension (les notes du site, 14/11/2026) : ``planche_suite`` — une planche
+qui déborde ses deux colonnes se POURSUIT sur une page suivante, à la même
+mise en page, au lieu de déborder ; la garde compte ses pages.
+
 Les dix variantes ne changent que la palette : teinte du panneau, couleur
 d'accent, teinte du béton. Même grille, mêmes polices, même composition.
 """
@@ -49,6 +53,17 @@ class Style:
     n_cols = 2
     lead = 1.25
     title_gap = 13
+    # une planche qui DÉBORDE ses colonnes. Faux : le débordement est dit dans ``d.warnings`` (le générateur Streamlit
+    # repasse alors en trois colonnes). Vrai : elle se POURSUIT sur une page suivante — même en-tête (« (suite) »), même
+    # panneau de gauche, mêmes colonnes, le flux continu avec son rappel « (suite) » — et la garde compte ses pages
+    # (``pages_planche``). Les notes du site (le propriétaire, 14/11/2026 : « il ne faut pas que tu me crées une
+    # troisième colonne qui est moche » ; ce qui déborde, « le petit bout sur une deuxième page »). Extension
+    # rétro-compatible : faux, le document est celui d'avant, à l'octet près.
+    planche_suite = False
+    # pt : ce qu'une colonne peut dépasser sa marge du bas sans que ce soit dit (``d.warnings``) — invisible, la marge
+    # fait 28 pt. Une planche qui se poursuit ne passe à la page suivante qu'au-delà : elle tient sur une page
+    # exactement quand l'ancienne planche ne débordait pas.
+    debord_admis = 1.0
 
     # ------------------------------------------------------------ outils
     def ms(self):
@@ -105,7 +120,7 @@ class Style:
         d'assemblages ait la même garde."""
         lignes = [dict(titre=f"{sec['poutre']} — {sec['section']}",
                        sous=f"{sec.get('beton', '')} / {sec.get('acier', '')}".strip(" /"),
-                       etat=sec.get("etat", ""), couleur=self.coul_etat(sec), pages=1)
+                       etat=sec.get("etat", ""), couleur=self.coul_etat(sec), pages=self.pages_planche(doc, sec))
                   for sec in sections]
         if fiches:
             n = len(fiches)
@@ -210,18 +225,62 @@ class Style:
         return self.ok
 
     # --------------------------------------------- une planche (paysage)
+    def pages_planche(self, doc, sec):
+        """Le nombre de pages d'une planche : 1 ; quand elle se poursuit (``planche_suite``), le compte d'un tracé à
+        blanc — le même code que le tracé, donc le même compte (le sommaire de la garde en a besoin avant elle)."""
+        if not self.planche_suite:
+            return 1
+        import io
+        d2 = Doc(io.BytesIO(), self.page)
+        d2.warnings = []
+        d2.new_page(self.page)
+        self.planche(d2, doc, sec)
+        return d2.n
+
     def planche(self, d, doc, sec):
+        S = self
+        ms = S.ms()
+        C, cols = self._page_planche(d, doc, sec, ms)
+        suivante = None
+        if S.planche_suite:
+            def suivante():
+                # la page est pleine : la planche se poursuit sur la suivante, à la même mise en page ; ``cols`` prend
+                # ses colonnes (le flux continue dans la première)
+                d.new_page(S.page)
+                cols[:] = self._page_planche(d, doc, sec, ms, suite=True)[1]
+                return cols[0]
+
+        # colonnes de calcul, en flux continu
+        fr = cols[0]
+        for v in sec.get("verifs", []):
+            if not fr.fits(58):
+                if cols.index(fr) + 1 < len(cols):
+                    fr = cols[cols.index(fr) + 1]
+                elif suivante is not None:
+                    fr = suivante()
+            self._titre(d, fr, v)
+            fr = self._items(d, fr, v, ms, cols, suivante)
+
+        nom = f"{sec['poutre']} — {sec['section']}"
+        for f in [C] + cols:
+            if f.overflow() > S.debord_admis:
+                d.warnings.append(f"{nom} : {f.overflow():.0f} pt")
+        return d
+
+    def _page_planche(self, d, doc, sec, ms, suite=False):
+        """Une page de la planche : l'en-tête, le panneau de gauche (la coupe, puis les données) et les colonnes de calcul,
+        vides. Rend (le cadre du panneau, les colonnes). ``suite`` : une page de suite (``planche_suite``), son titre le
+        dit."""
         S = self
         W, H = d.W, d.H
         m = S.margin
-        ms = S.ms()
 
         # en-tête
         y = H - m - 2
         d.t(m, y, doc.get("bureau", ""), S.f_v, 8.4, S.ink)
         d.t(W - m, y, f"{doc.get('date', '')} · indice {doc.get('indice', '')}",
             S.f_b, 8, S.mut, "right")
-        d.t(m, y - 18, f"{sec['poutre']} — {sec['section']}", S.f_h, 14, S.ink)
+        d.t(m, y - 18, f"{sec['poutre']} — {sec['section']}" + (" (suite)" if suite else ""), S.f_h, 14, S.ink)
         wc = 0
         if sec.get("etat"):
             wc = chip(d, W - m, y - 20, sec["etat"].upper(), S.f_v, 6.6,
@@ -268,19 +327,7 @@ class Style:
         for fr in cols[1:]:
             d.line(fr.x - S.col_gap / 2, top + 4, fr.x - S.col_gap / 2, m + 2,
                    S.rule, 0.45)
-
-        fr = cols[0]
-        for v in sec.get("verifs", []):
-            if not fr.fits(58) and cols.index(fr) + 1 < len(cols):
-                fr = cols[cols.index(fr) + 1]
-            self._titre(d, fr, v)
-            fr = self._items(d, fr, v, ms, cols)
-
-        nom = f"{sec['poutre']} — {sec['section']}"
-        for f in [C] + cols:
-            if f.overflow() > 1.0:
-                d.warnings.append(f"{nom} : {f.overflow():.0f} pt")
-        return d
+        return C, cols
 
     # ---------------------------------------------------------- fragments
     def _data(self, d, ms, x, y, w, blocs, size=7.6, gap=14):
@@ -364,15 +411,20 @@ class Style:
         fr.down(h)
         return fr.y
 
-    def _items(self, d, fr, v, ms, cols):
-        """Flux continu : on bascule de colonne dès que la place manque."""
+    def _items(self, d, fr, v, ms, cols, suivante=None):
+        """Flux continu : on bascule de colonne dès que la place manque — après la dernière, sur la page suivante quand
+        la planche se poursuit (``suivante()`` rend la première colonne de la page neuve)."""
         S = self
 
         def place(besoin):
             nonlocal fr
-            if not fr.fits(besoin) and cols.index(fr) + 1 < len(cols):
-                fr = cols[cols.index(fr) + 1]
-                self._suite(d, fr, v)
+            if not fr.fits(besoin):
+                if cols.index(fr) + 1 < len(cols):
+                    fr = cols[cols.index(fr) + 1]
+                    self._suite(d, fr, v)
+                elif suivante is not None and not fr.fits(besoin - S.debord_admis):
+                    fr = suivante()
+                    self._suite(d, fr, v)
             return fr
 
         for it in v["items"]:

@@ -416,6 +416,58 @@ largeur_pleine = SEC.string_width(LONGUE, "Poppins-Medium", 6.4)
 chk("note · une étiquette plus longue que la place est réduite pour tenir dans le cadre (garde-fou)",
     t_ is not None and t_[2] <= vues[0]["bord"] + 0.01 and t_[2] - t_[1] < largeur_pleine - 5, (t_, vues[0]["bord"], largeur_pleine))
 
+# ---------------------------------------------------------------- une planche qui DÉBORDE se poursuit sur une page suivante
+# (le propriétaire, 14/11/2026 : « il ne faut pas que tu me crées une troisième colonne qui est moche » — la poutre, la
+# dalle et la prédalle ont la même planche, ``planche_suite`` du kit) : une section aux vérifications rallongées (trois
+# d'entre elles recopiées) — deux pages, deux colonnes chacune, la seconde « (suite) », le sommaire compte ses pages.
+# MUTATION : la suite ignorée (le kit d'avant) — la planche déborde, la note serait refusée : le contrôle rougit.
+import tempfile  # noqa: E402
+import ndc_pdf.styles as STY  # noqa: E402
+vrai_cs, vrai_page, vrai_gl = ND.construire_sections, STY.Style._page_planche, STY.Style.garde_lignes
+vues_p, gardes_p = [], []
+
+
+def cs_long(planches):
+    secs = vrai_cs(planches)
+    v0 = secs[0]["verifs"]
+    secs[0]["verifs"] = v0 + [dict(v, num=len(v0) + k + 1) for k, v in enumerate(v0[1:4])]
+    return secs
+
+
+def page_(self, d, doc, sec, ms, suite=False):
+    C_, cols_ = vrai_page(self, d, doc, sec, ms, suite)
+    vues_p.append((d, f"{sec['poutre']} — {sec['section']}" + (" (suite)" if suite else ""), len(cols_)))
+    return C_, cols_
+
+
+def gl_(self, d, doc, lignes, *a, **k):
+    gardes_p.append((d, [lg.get("pages", 1) for lg in lignes]))
+    return vrai_gl(self, d, doc, lignes, *a, **k)
+
+
+fd_, chemin_ = tempfile.mkstemp(suffix=".pdf")
+os.close(fd_)
+p_long = {"poutres": [poutre_bureau([{"type": "etrier", "d": 10}])]}
+ND.construire_sections, STY.Style._page_planche, STY.Style.garde_lignes = cs_long, page_, gl_
+try:
+    d_p = NP.document(p_long, {}, chemin_)
+    STY.Style.planche_suite = property(lambda s_: False, lambda s_, v_: None)
+    try:
+        d_m = NP.document(p_long, {}, chemin_)
+    finally:
+        STY.Style.planche_suite = False
+finally:
+    ND.construire_sections, STY.Style._page_planche, STY.Style.garde_lignes = vrai_cs, vrai_page, vrai_gl
+    os.remove(chemin_)
+pages_p = [(t, n) for d0, t, n in vues_p if d0 is d_p]
+garde_p = next(g for d0, g in gardes_p if d0 is d_p)
+chk("note · une planche qui déborde se poursuit sur une page suivante — deux colonnes sur chaque page, la seconde "
+    "« (suite) », le sommaire compte ses pages ; mutation — sans la suite, la planche déborde : le contrôle rougit",
+    not d_p.warnings and [n for _, n in pages_p] == [2] * len(pages_p) and len(pages_p) >= 2
+    and [t.endswith("(suite)") for t, _ in pages_p] == [False] + [True] * (len(pages_p) - 1)
+    and garde_p == [len(pages_p)] and d_p.n == 1 + len(pages_p) and bool(d_m.warnings),
+    (d_p.warnings, pages_p, garde_p, d_p.n, d_m.warnings))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

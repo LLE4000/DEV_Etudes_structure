@@ -244,12 +244,12 @@ chk(f"la version d'un module (js/versions.js) : une par établi ({len(_VERSIONS_
     and any(f.startswith("beton/poutre/") for f in _propres["poutre"]) and not any(f.startswith("beton/poutre/") for f in _propres["soudures"])
     and all(_VERSIONS_MODULES[k] == SW.empreinte_module(RELEVE["par_module"][k]) for k in _VERSIONS_MODULES),
     {k: len(v) for k, v in _propres.items()})
-# la version (S4-D3, C7) : la MÊME balise sur les 25 pages (21 + la Bibliothèque Autres, puis Projets et Équipe, puis les Fondations de grues,
-# 11/11/2026), la valeur recalculée,
+# la version (S4-D3, C7) : la MÊME balise sur les 26 pages (21 + la Bibliothèque Autres, puis Projets et Équipe, puis les Fondations de grues,
+# 11/11/2026, puis Paramètres, 14/11/2026), la valeur recalculée,
 # la même dans le manifeste
 _versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
 chk(f"même stab-version sur les {len(_PAGES_RENDUES)} pages (une balise chacune, dans <head>), égale à la version recalculée et à celle du manifeste",
-    len(_PAGES_RENDUES) == 25 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
+    len(_PAGES_RENDUES) == 26 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
     and all(open(os.path.join(WEB, n), encoding="utf-8").read().index('name="stab-version"') < open(os.path.join(WEB, n), encoding="utf-8").read().index("</head>")
             for n in _PAGES_RENDUES), ({n: v for n, v in _versions.items() if v != [VERSION]}, VERSION, man.get("version")))
 # un seul script de module, js/app.js, sur chaque page ; js/theme.js reste le seul script classique, en tête (S4-D1)
@@ -269,7 +269,7 @@ for n in _PAGES_RENDUES:
     _secours[n] = (_h.count('class="secours-demarrage"') == 1 and _h.endswith(SW.SECOURS + SW.SCRIPT_APP + "</body>\n</html>\n")
                    and _tete.count(SW.STYLE_SECOURS) == 1 and _h.count("<style>") == 1)
 chk(f"chaque page ({len(_secours)}) : le message de secours une fois, juste avant js/app.js, et sa feuille en ligne une fois dans <head>",
-    len(_secours) == 25 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
+    len(_secours) == 26 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
 chk(f"le message de secours : caché tant que l'application démarre (body[data-montage] … display:none), visible au bout de {SW.SECOURS_S} s "
     "par une animation sans script (opacity et visibility), fixé dans l'écran, un lien « Recharger la page » vers la page même",
     "body[data-montage] .secours-demarrage{display:none}" in SW.STYLE_SECOURS
