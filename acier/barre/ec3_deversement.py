@@ -94,7 +94,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         return
     My = G["My_calcul"]
     dev = d["deversement"]
-    D: Dict = {"cas": SANS_OBJET, "chi_LT": 1.0, "lambda_0": 0.0, "C1": 1.0, "kc": 1.0}
+    D: Dict = {"cas": SANS_OBJET, "chi_LT": 1.0, "symbole_chi": "χ_LT", "lambda_0": 0.0, "C1": 1.0, "kc": 1.0}
     G["deversement"] = D
     if not My > 0 or s["forme"] not in ("I", "tube_rect"):
         return
@@ -156,12 +156,14 @@ def ajouter(J: Journal, d: Dict) -> None:
     D.update({"cas": CALCULE, "troncon": {"L": tr["L"], "appuis": list(tr["appuis"]), "maintiens": [list(m) for m in tr["maintiens"]]},
               "M_cr": Mcr, "M_cr0": Mcr0, "lambda_LT": lbLT, "lambda_0": lb0, "courbe": courbe, "alpha_LT": alpha, "lambda_LT0": lbLT0,
               "beta": beta, "kc": kc, "kc_tabule": tabule, "C1": 1.0 / kc ** 2, "methode": methode, "W_y": Wy})
+    nom_chi = "χ_LT"                             # le nom du facteur que M_b,Rd emploie : celui de la ligne qui le donne
     if lbLT <= seuil or My / Mcr <= seuil ** 2:
         D.update({"cas": NEGLIGE, "Phi_LT": None, "chi_LT_brut": 1.0, "f": 1.0, "chi_LT": 1.0})
         chi = 1.0
         messages = [f"Déversement négligeable (λ̄_LT = {_fr(lbLT, 2)} ≤ {_fr(seuil, 2)})." if lbLT <= seuil else
                     "Déversement négligeable (M_Ed/M_cr ≤ λ̄_LT,0²)."]
     else:
+        messages = []
         Phi = 0.5 * (1.0 + alpha * (lbLT - lbLT0) + beta * lbLT ** 2)
         brut = 1.0 / (Phi + math.sqrt(Phi ** 2 - beta * lbLT ** 2))
         plafond = min(1.0, 1.0 / lbLT ** 2)
@@ -179,13 +181,18 @@ def ajouter(J: Journal, d: Dict) -> None:
             if f < 1.0:
                 cles.append(J.f("f", "f", [_t("k_c", kc), _t("λ̄_LT", lbLT)], f, "", "e_f"))
         chi = min(chi0 / f, plafond)
-        if f < 1.0 and chi0 / f <= plafond:
-            cles.append(J.f("chi_LT_mod", "χ_LT,mod", [_t("χ_LT", chi0), _t("f", f)], chi, "", "e_chi_LT_mod"))
-        D.update({"Phi_LT": Phi, "chi_LT_brut": chi0, "f": f, "chi_LT": chi})
-        messages = []
+        if f < 1.0:                              # χ_LT,mod = χ_LT/f, plafonné à 1 et à 1/λ̄_LT² : la ligne dit lequel
+            nom_chi = "χ_LT,mod"
+            if chi0 / f <= plafond:
+                cles.append(J.f("chi_LT_mod", "χ_LT,mod", [_t("χ_LT", chi0), _t("f", f)], chi, "", "e_chi_LT_mod"))
+            elif plafond < 1.0:
+                cles.append(J.f("chi_LT_mod", "χ_LT,mod", [_t("λ̄_LT", lbLT)], chi, "", "e_chi_LT_plafond"))
+            else:
+                messages.append("χ_LT/f ≥ 1 : χ_LT,mod = 1.")
+        D.update({"Phi_LT": Phi, "chi_LT_brut": chi0, "f": f, "chi_LT": chi, "symbole_chi": nom_chi})
     MbRd = chi * Wy * fy / gM1
     D["M_b_Rd"] = MbRd
-    cles.append(J.f("M_b_Rd", "M_b,Rd", [_t("χ_LT", chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
+    cles.append(J.f("M_b_Rd", "M_b,Rd", [_t(nom_chi, chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
                     "kN·m", "e_M_b_Rd"))
     D["formules"] = cles
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)

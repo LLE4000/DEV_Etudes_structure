@@ -99,6 +99,7 @@ def barres():
 
 
 BLOCS = []                        # toutes les formules du moteur sur ces barres : (profilé, méthode, bloc)
+SUITES = []                       # … et, par vérification, ses formules dans l'ordre : (profilé, méthode, identifiant, blocs)
 
 
 def blocs_du_moteur():
@@ -107,7 +108,24 @@ def blocs_du_moteur():
             r = MO.verifier(b)
             for m, x in r["methodes"].items():
                 BLOCS.extend((b["profil"], m, f) for f in x["calcul"])
+                par = {f["cle"]: f for f in x["calcul"]}
+                SUITES.extend((b["profil"], m, v["id"], [par[k] for k in v["formules"]]) for v in x["verifications"])
     return BLOCS
+
+
+def redites(suites):
+    """Dans une même vérification, un terme qui porte le symbole d'une ligne écrite plus haut doit en avoir la valeur :
+    [(profilé, méthode, vérification, clé, symbole, valeur de la ligne, valeur du terme)] pour chaque écart."""
+    faux = []
+    for prof, m, id_, blocs in suites:
+        vus = {}
+        for f in blocs:
+            for t in f["termes"]:
+                v = vus.get(t["symbole"])
+                if v is not None and abs(v - t["valeur"]) > 1e-9 * max(1.0, abs(v)):
+                    faux.append((prof, m, id_, f["cle"], t["symbole"], v, t["valeur"]))
+            vus[f["symbole"]] = f["resultat"]
+    return faux
 
 
 # ------------------------------------------------------------------ les contrôles (rejoués par les mutations)
@@ -270,6 +288,14 @@ def main():
     chk(f"{len(blocs)} formules du moteur ({len(vus)} gabarits ; efforts imposés sur sept profilés, quatre diagrammes ; trois barres chargées) : "
         "refaite à la main avec ses nombres IMPRIMÉS, chacune redonne son résultat IMPRIMÉ", len(blocs) > 8000 and len(vus) >= 88 and not faux, faux[:3])
     chk("… aucune ne garde un identifiant, un opérateur de programme ou un résultat vide", not restes and not vides, (restes[:2], vides[:2]))
+    faux = redites(SUITES)
+    termes = sum(len(f["termes"]) for _p, _m, _i, blocs in SUITES for f in blocs)
+    chk(f"dans une vérification, une grandeur écrite deux fois garde sa valeur : un terme qui porte le symbole d'une ligne écrite plus haut en a "
+        f"le résultat ({len(SUITES)} vérifications, {termes} termes) — le lecteur retrouve chaque nombre", len(SUITES) > 1500 and not faux, faux[:3])
+    piege = [("X", "ec3", "E-Mb", [bloc("e_chi_LT_mod", "χ_LT,mod", [("χ_LT", 0.5), ("f", 0.9)], 0.5 / 0.9),
+                                   bloc("e_M_b_Rd", "M_b,Rd", [("χ_LT,mod", 0.6), ("W_pl,y", 628.4), ("f_y", 235.0), ("γ_M1", 1.0)], 88.6, "kN·m")])]
+    chk("… et ce contrôle voit l'écart : une ligne « χ_LT,mod = 0,556 » suivie d'un terme « χ_LT,mod » à 0,6 est relevée",
+        [x[3:5] for x in redites(piege)] == [("x", "χ_LT,mod")], redites(piege))
     b = EN.nouvelle_barre("R2")
     b.update({"poids_propre": False, "cas": [
         {"nom": "G", "nature": "permanent", "N": 80.0, "charges": [{"type": "q", "v": 2.42, "a": 0.0, "b": 6.0}, {"type": "P", "v": 10.0, "a": 3.0}]},

@@ -416,6 +416,34 @@ def controles(M=None):
       "1/(1,33 − 0,33·ψ) ; f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1 ; χ_LT,mod = χ_LT/f ; M_cr des quatre diagrammes : 90,47 ; 102,31 ; "
       "123,12 kN·m…", all(x[0] for x in lb_kc.values()) and [lb_kc[k][1] for k in (("constant", 1.0), ("reparti", 1.0), ("ponctuel", 1.0))] == [90.47, 102.31, 123.12]
       and lb_kc[("lineaire", -1.0)][2] < lb_kc[("ponctuel", 1.0)][2] < lb_kc[("reparti", 1.0)][2] < 1.0, lb_kc)
+    # le facteur que M_b,Rd et (6.61) emploient porte le NOM et la VALEUR de la ligne qui le donne
+    def facteur(r):
+        par = {f["cle"]: f for f in r["calcul"]}
+        mb = par["M_b_Rd"]["termes"][0]
+        ligne = next((par[k] for k in verif(r, "E-Mb")["formules"] if par[k]["symbole"] == mb["symbole"]), None)
+        t661 = next((t for t in par["eq_661"]["termes"] if t["symbole"].startswith("χ_LT")), None) if "eq_661" in par else None
+        lb = r["grandeurs"]["deversement"]["lambda_LT"]
+        return {"nom": mb["symbole"], "valeur": mb["valeur"], "ligne": ligne and (ligne["gabarit"], ligne["resultat"]),
+                "messages": list(verif(r, "E-Mb")["messages"]), "661": t661 and (t661["symbole"], t661["valeur"]),
+                "critere": (verif(r, "E-661") or {}).get("critere", ""), "lb": lb, "chi": min(chi_de(lb, 0.34, 0.4, 0.75), 1 / lb ** 2)}
+
+    def f_de(kc, lb):
+        return min(1 - 0.5 * (1 - kc) * (1 - 2 * (lb - 0.8) ** 2), 1.0)
+
+    fc = facteur(v(s, "S235", L, MyEd=60e6))                                                                    # moment constant : f = 1
+    fm = facteur(v(s, "S235", L, MyEd=60e6, NEd=50e3, flexion={"y": {"diagramme": "reparti"}}))                 # χ_LT,mod = χ_LT/f
+    fp = facteur(v(s, "S235", L, MyEd=60e6, deversement={"kc": 0.3}))                                           # plafond 1/λ̄_LT²
+    fu = facteur(v(s, "S235", 2000.0, MyEd=140e6, flexion={"y": {"diagramme": "ponctuel"}}))                    # plafond 1
+    mod = fm["chi"] / f_de(0.94, fm["lb"])
+    c("le facteur écrit dans M_b,Rd porte le nom et la valeur de la ligne qui le donne : « χ_LT » quand f = 1 ; « χ_LT,mod » = χ_LT/f ; "
+      "« χ_LT,mod » = 1/λ̄_LT² quand ce plafond gouverne ; « χ_LT,mod » = 1 avec son message quand χ_LT/f ≥ 1 — et (6.61) l'écrit du même nom",
+      fc["nom"] == "χ_LT" and proche(fc["valeur"], fc["chi"]) and fc["ligne"][0] == "e_chi_LT" and proche(fc["ligne"][1], fc["chi"]) and not fc["messages"]
+      and fm["nom"] == "χ_LT,mod" and proche(fm["valeur"], mod) and mod < 1 / fm["lb"] ** 2 and fm["ligne"][0] == "e_chi_LT_mod"
+      and proche(fm["ligne"][1], mod) and fm["661"][0] == "χ_LT,mod" and proche(fm["661"][1], mod) and "χ_LT,mod·M_y,Rk" in fm["critere"]
+      and fp["nom"] == "χ_LT,mod" and fp["chi"] / f_de(0.3, fp["lb"]) > 1 / fp["lb"] ** 2 and proche(fp["valeur"], 1 / fp["lb"] ** 2)
+      and fp["ligne"][0] == "e_chi_LT_plafond" and proche(fp["ligne"][1], 1 / fp["lb"] ** 2) and not fp["messages"]
+      and fu["nom"] == "χ_LT,mod" and fu["chi"] / f_de(0.86, fu["lb"]) > 1 and fu["valeur"] == 1.0 and fu["ligne"] is None
+      and fu["messages"] == ["χ_LT/f ≥ 1 : χ_LT,mod = 1."], (fc, fm, fp, fu))
     D0 = v(s, "S235", L, MyEd=60e6, flexion={"y": {"diagramme": "lineaire", "psi": 0.0}})["grandeurs"]["deversement"]
     c("moment linéaire ψ = 0 par le chemin des efforts imposés : M_cr = C₁·M_cr,0 avec C₁ entre 1,75 et 1,90 ; λ̄_0 reste celui du moment constant",
       1.75 < D0["M_cr"] / exact < 1.90 and proche(D0["M_cr0"], exact), D0["M_cr"] / exact)
@@ -701,6 +729,11 @@ MUTATIONS = [
     ("ec3_deversement", "plafond 1/λ̄_LT² oublié", "plafond = min(1.0, 1.0 / lbLT ** 2)", "plafond = 1.0"),
     ("ec3_deversement", "f : sans le carré", "f = min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lbLT - 0.8) ** 2), 1.0)", "f = min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lbLT - 0.8)), 1.0)"),
     ("ec3_deversement", "χ_LT,mod = χ_LT·f", "chi = min(chi0 / f, plafond)", "chi = min(chi0 * f, plafond)"),
+    ("ec3_deversement", "M_b,Rd écrit « χ_LT » alors que sa valeur est χ_LT,mod", '            nom_chi = "χ_LT,mod"\n', '            nom_chi = "χ_LT"\n'),
+    ("ec3_deversement", "la ligne du plafond 1/λ̄_LT² de χ_LT,mod oubliée", "            elif plafond < 1.0:\n", "            elif False:\n"),
+    ("ec3_deversement", "χ_LT,mod plafonné à 1 sans le dire", '                messages.append("χ_LT/f ≥ 1 : χ_LT,mod = 1.")\n', "                pass\n"),
+    ("ec3_deversement", "le nom du facteur non transmis à la flexion composée", '"chi_LT": chi, "symbole_chi": nom_chi})', '"chi_LT": chi})'),
+    ("ec3_interaction", "(6.61) écrit « χ_LT » alors que sa valeur est χ_LT,mod", 'nom_chi = D.get("symbole_chi", "χ_LT")', 'nom_chi = "χ_LT"'),
     ("ec3_deversement", "déversement jamais négligé", "if lbLT <= seuil or My / Mcr <= seuil ** 2:", "if False:"),
     ("ec3_deversement", "couples (λ̄_LT,0 ; β) échangés", 'lbLT0 = P["lambda_LT0_avec_maintiens" if avec else "lambda_LT0_sans_maintiens"]',
      'lbLT0 = P["lambda_LT0_sans_maintiens" if avec else "lambda_LT0_avec_maintiens"]'),

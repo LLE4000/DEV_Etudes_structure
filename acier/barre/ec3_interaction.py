@@ -105,6 +105,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     NcrT = F["T"]["N_cr"] if "T" in F else None
     ry, rz, rT = (N / x if x else 0.0 for x in (Ncry, Ncrz, NcrT))
     chiy, chiz, chiLT = F["y"]["chi"], F["z"]["chi"], D["chi_LT"]
+    nom_chi = D.get("symbole_chi", "χ_LT")               # « χ_LT,mod » quand le déversement l'a modifié : le nom de SA ligne
     lby, lbz, lb0 = F["y"]["lambda_bar"], F["z"]["lambda_bar"], D["lambda_0"]
     lbmax = max(lby, lbz)
     titre = "Flexion composée et flambement" if N > 0 else "Flexion déviée et déversement"
@@ -193,7 +194,7 @@ def ajouter(J: Journal, d: Dict) -> None:
             cles.append(J.f("w_z", "w_z", [_t("W_pl,z", s["Wpl_z"] / 1e3, "cm³"), _t("W_el,z", s["Wel_z"] / 1e3, "cm³")], wz, "", "e_w"))
         if N > 0:
             cles.append(J.f("n_pl", "n_pl", [_t("N_Ed", N / 1e3, "kN"), _t("N_Rk", NRk / 1e3, "kN"), _t("γ_M1", gM1)], npl, "", "e_npl"))
-        t_My = [_t("M_y,Ed", My / 1e6, "kN·m"), _t("χ_LT", chiLT), _t("M_pl,y,Rd", Mply / 1e6, "kN·m")]
+        t_My = [_t("M_y,Ed", My / 1e6, "kN·m"), _t(nom_chi, chiLT), _t("M_pl,y,Rd", Mply / 1e6, "kN·m")]
         t_Mz = [_t("M_z,Ed", Mz / 1e6, "kN·m"), _t("M_pl,z,Rd", Mplz / 1e6, "kN·m")]
         avec_LT = aLT > 0 and lb0 > 0 and My > 0
         if avec_LT:
@@ -253,7 +254,7 @@ def ajouter(J: Journal, d: Dict) -> None:
             parts.append("N")
         if My > 0:
             taux += ky * My / (chiLT * MyRk / gM1)
-            termes += [_t(f"k_{a}y", ky), _t("M_y,Ed", My / 1e6, "kN·m"), _t("χ_LT", chiLT), _t("M_y,Rk", MyRk / 1e6, "kN·m")]
+            termes += [_t(f"k_{a}y", ky), _t("M_y,Ed", My / 1e6, "kN·m"), _t(nom_chi, chiLT), _t("M_y,Rk", MyRk / 1e6, "kN·m")]
             parts.append("My")
         if Mz > 0:
             taux += kz * Mz / (MzRk / gM1)
@@ -261,7 +262,7 @@ def ajouter(J: Journal, d: Dict) -> None:
             parts.append("Mz")
         termes.append(_t("γ_M1", gM1))
         cle = J.f(f"eq_{eq.replace('.', '')}", "η", termes, taux, "", "e_66_" + "_".join(parts))
-        critere = " + ".join(x for x, p in ((f"N_Ed/(χ_{a}·N_Rk/γ_M1)", "N"), (f"k_{a}y·M_y,Ed/(χ_LT·M_y,Rk/γ_M1)", "My"),
+        critere = " + ".join(x for x, p in ((f"N_Ed/(χ_{a}·N_Rk/γ_M1)", "N"), (f"k_{a}y·M_y,Ed/({nom_chi}·M_y,Rk/γ_M1)", "My"),
                                             (f"k_{a}z·M_z,Ed/(M_z,Rk/γ_M1)", "Mz")) if p in parts) + " ≤ 1"
         J.verif(id_, f"{titre} ({eq})", REF, critere, taux, 1.0, "", cles + [cle], taux=taux)
     J.hyp.append("Flexion composée avec instabilité : méthode 1 (annexe A) — annexe belge, à confirmer.")
