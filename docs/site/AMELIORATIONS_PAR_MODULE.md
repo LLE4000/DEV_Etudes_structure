@@ -47,6 +47,7 @@ Ce qui est déjà un travail décidé vit dans `SUITE_DU_CHANTIER.md` ; les déf
 | A4 | **Tube rectangulaire en flexion déviée** (Eurocode 3) : ses parois sont classées en compression uniforme, du côté sûr — la classe peut tomber de 1 à 4 dès qu'un petit moment d'axe faible s'ajoute (RHS 200x100x5 S355). | Classer chaque paroi avec son gradient réel de contrainte. | Résultat prudent aujourd'hui, jamais faux ; à affiner si ces tubes servent souvent en flexion déviée. | **à trancher** |
 | A5 | **Tube rond en flexion composée** : critère linéaire n + M/M_pl,Rd ≤ 1 (prudent). | La formule M_N,Rd = M_pl,Rd·(1 − n^1,7) du corrigendum de l'EN 1993-1-1, à lire sur le texte. | Gain de quelques pour cent. | **à trancher** |
 | A6 | **Effort tranchant élevé avec effort normal** (§ 6.2.10) : la limite d'élasticité est réduite sur TOUTE la section, du côté sûr. | La réduire sur la seule aire de cisaillement. | Rare (V_Ed > 0,5·V_pl,Rd avec N et M). | **à trancher** |
+| A7 | **Tube rectangulaire au déversement** : cas général de l'Eurocode 3, courbe d (« autres sections ») — sévère pour un tube (RHS 300x100x8 sur 8 m : χ_LT = 0,81). | Une courbe plus favorable si l'annexe belge ou la pratique du bureau l'admet. | Rare : il faut un tube étroit, long et très sollicité. | **à trancher** |
 
 ## Tout le site
 

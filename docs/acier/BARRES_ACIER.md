@@ -218,6 +218,12 @@ deviennent lisibles, ou sur des cas recalculés par le bureau dans son logiciel.
 χ, Φ, λ̄ = √(A·f_y/N_cr) ; α : a₀ 0,13, a 0,21, b 0,34, c 0,49, d 0,76 ; tableau 6.2 ; négligé si λ̄ ≤ 0,2 ou
 N_Ed/N_cr ≤ 0,04. Flambement par torsion des I/H (§ 6.3.1.4) : N_cr,T = (G·I_t + π²·E·I_w/L_T²)/i₀², courbe de l'axe z.
 
+**Ce que le moteur a tranché** (`acier/barre/ec3_flambement.py`, lot 3) : les courbes et χ sont ceux du module
+Flambement en service (une seule source) ; s'y ajoutent le I soudé (b et c, puis c et d au-delà de 40 mm de semelle) et
+le caisson soudé (b). La torsion n'est rendue que si N_cr,T < N_cr,z — sinon elle ne peut pas gouverner. À défaut
+d'indication, la torsion et le déversement prennent la longueur de l'axe faible. Le HEB 200 du classeur (7,20 m,
+432,72 kN) : N_b,z,Rd = 569,2 kN, taux 76 % (la méthode historique : 112 %).
+
 ### 5.6 Déversement — § 6.3.2 (vérifié ; E1)
 M_b,Rd = χ_LT·W_y·f_y/γ_M1 ; laminés (§ 6.3.2.3) : Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − λ̄_LT,0) + β·λ̄_LT²], χ_LT ≤ 1 et
 ≤ 1/λ̄_LT² ; tableau 6.5 (h/b ≤ 2 : b ; > 2 : c). Facteur f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1 ; k_c
@@ -233,10 +239,37 @@ z_g > 0 pour une charge vers le bas appliquée au-dessus du centre de cisailleme
 M_cr = λ_cr·|M_y|max. Par TRONÇON entre deux sections tenues en déplacement latéral ET en torsion ; un maintien d'une
 seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·φ = 0). Contrôle : formule du NCCI SN003.
 
+**Ce que le moteur fait** (`acier/barre/mcr.py`, `ec3_deversement.py`, lot 3) :
+- le solveur est en Python pur (il tourne dans le navigateur) : matrices en bande, décomposition LDLᵀ, comptage des
+  pivots négatifs, bissection — 2 centièmes de seconde par moment critique. Convention : z vers le haut, φ dans le sens
+  direct, u(z) = v − z·φ, donc Π porte **− ∫M_y·v″·φ** (le signe ne compte que pour un maintien d'une seule semelle) ;
+- il redonne les sept valeurs R1 du solveur indépendant au centième de kN·m, la formule fermée à 10⁻⁶, la console
+  classique (4,013), et « un maintien de la semelle comprimée à mi-portée vaut un maintien complet » (250,95 kN·m) ;
+- bouts d'un tronçon : fourche, encastrement, libre (la console) ; maintien d'une semelle : liaison exacte ;
+- mode « efforts imposés » : quatre diagrammes (constant, linéaire ψ, charge répartie, charge concentrée), la charge
+  au centre de cisaillement, sur la semelle haute ou sous la basse ; un diagramme non décrit est pris CONSTANT ;
+- un tube rectangulaire relève du cas général (§ 6.3.2.2, courbe d) ; tubes ronds et carrés : pas de déversement ;
+- le couple (λ̄_LT,0 ; β) : (0,4 ; 0,75) pour un tronçon nu, (0,2 ; 1,0) dès qu'un maintien d'une seule semelle entre
+  dans M_cr — **à confirmer**, et le résultat le dit (`grandeurs["a_confirmer"]`).
+
 ### 5.7 Flexion composée avec instabilité — § 6.3.3, annexe A (vérifié ; E2)
 (6.61) et (6.62) ; méthode 1. Tableau A.2 : moment linéaire C_mi,0 = 0,79 + 0,21ψ + 0,36·(ψ − 0,33)·N_Ed/N_cr,i ;
 charge répartie **1 + 0,03**·N_Ed/N_cr,i ; charge concentrée **1 − 0,18**·N_Ed/N_cr,i ; cas général
 1 + (π²·E·I_i·|δ_x|/(L²·|M_i,Ed(x)|) − 1)·N_Ed/N_cr,i.
+
+**Ce que le moteur fait** (`acier/barre/ec3_interaction.py`, lot 3) : (6.61) et (6.62) avec tous les facteurs de
+l'annexe A (μ, w ≤ 1,5, n_pl, a_LT, C_my, C_mz, C_mLT, b_LT à e_LT, C_yy à C_zz et leurs planchers, k_yy à k_zz ;
+facteurs élastiques en classes 3 et 4) ; C₁ = 1/k_c² ; une barre sans déversement possible a λ̄_0 = 0 ; une flexion
+déviée SANS effort normal passe par les mêmes expressions ; une barre tendue est prise sans effort normal (du côté
+sûr). La borne inférieure de C_mi,0 (supposée 1 − N_Ed/N_cr,i) est active par défaut et **change un résultat** : sur
+l'exemple 5 de l'ECCS, C_mz,0 passe de 0,771 à 0,842 — à confirmer (Q1).
+
+**Le benchmark 21 de l'aide de SCIA Engineer** (ECCS N°119, exemple 5 : IPE 500 S235, 3,75 m, N_Ed = 500 kN, flexion
+déviée). Sa page n'est pas joignable d'ici ; la recherche en a rendu les données et une partie des résultats. Sont
+reproduits : classe 1, N_c,Rd 2 715 kN, M_c,y,Rd 516, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN (0,3 %), V_pl,y,Rd 912 kN
+(1 %) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %). Les
+facteurs qui dépendent du diagramme de M_y (b_LT à e_LT, C_yy…) attendent la page elle-même (Q8) ; en attendant,
+l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹.
 
 ### 5.8 Les paramètres nationaux (une seule table dans le moteur : `acier/barre/parametres.py`)
 
@@ -337,6 +370,7 @@ Un paquet neuf, `acier/barre/`, bibliothèque standard seule (il tourne dans le 
 | `historique.py` | la méthode du § 4 |
 | `resultat.py` | la forme commune de ce que rend une méthode (vérifications, blocs de formules, alertes, synthèse) |
 | `ec3_classe.py`, `ec3_section.py`, `ec3_flambement.py`, `mcr.py`, `ec3_deversement.py`, `ec3_interaction.py` | EN 1993-1-1 |
+| `ec3.py` | la barre vérifiée selon l'Eurocode 3 : la lecture, puis la section, le flambement, le déversement, l'annexe A |
 | `ec3_ame.py`, `raidisseurs.py` | EN 1993-1-5 |
 | `combinaisons.py`, `statique.py` | les cas de charge, les combinaisons, les efforts le long de la barre (sur `rdm/poutres.py`) |
 | `entree.py`, `moteur.py` | la barre, sa relecture ; les deux méthodes, la synthèse |
@@ -355,7 +389,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
 | 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
-| 3 | flambement, torsion, déversement (M_cr), annexe A | § 6.4 ; exemples publiés | à faire |
+| 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs | R4 | à faire |
 | 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons | R2 de bout en bout | à faire |
 | 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) | harnais, photos | à faire |
@@ -372,3 +406,4 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q5 | Tube Ø610 : fini à chaud (courbe a) ou formé à froid et soudé (c) ; horizontal ou vertical (poids propre) | a ; non compté |
 | Q6 | Seuil du statut « à la limite » dans la note | celui des notes existantes (95 %) |
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
+| Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |

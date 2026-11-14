@@ -205,6 +205,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     J.hyp.append(f"Efforts de calcul (ELU) ; γ_M0 = {_fr(gM0, 2)}.")
     nuance = f"Acier {d['nuance']}" if d["nuance"] else "Acier"
     J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm²" + (f" (épaisseur {_fr(d['t'], 1)} mm)." if d["fy_tableau"] else " (donnée)."))
+    G["couvert"] = False                                             # (vrai plus bas : les vérifications de la barre en dépendent)
     if forme not in FORMES:
         J.verif("E-SECTION", "Résistance de la section", NORME, "", None, None, "", [], statut=NON_COUVERT,
                 messages=[J.alerte("forme", "attention", "Cornière, U ou té : hors du module (compression simple : module Flambement).")])
@@ -225,6 +226,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         Vz, Vy = math.hypot(Vz, Vy), 0.0
     comprime = N > 0
     flechi = My > 0 or Mz > 0
+    G["My_calcul"], G["Mz_calcul"] = My, Mz
 
     # ---- la classe (une par combinaison) et, en classe 4, la section efficace
     cl = _classification(J, d, N, My, Mz)
@@ -269,7 +271,7 @@ def ajouter(J: Journal, d: Dict) -> None:
                                                                  _t("γ_M0", gM0)], MyRd / 1e6, "kN·m", "e_M_Rd")
     if Mz > 0:
         cle_Mz = J.f("M_z_Rd", "M_c,z,Rd", [_t(f"{nomW},z", Wz / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)], MzRd / 1e6, "kN·m", "e_M_Rd")
-    G.update({"A_N": A_N, "W_y": Wy, "W_z": Wz, "N_Rd": NRd, "M_y_Rd": MyRd, "M_z_Rd": MzRd})
+    G.update({"A_N": A_N, "W_y": Wy, "W_z": Wz, "N_Rd": NRd, "M_y_Rd": MyRd, "M_z_Rd": MzRd, "couvert": True})
     ef_cles = ef["formules"] if ef is not None else {"A": [], "y": [], "z": []}
 
     if N != 0:

@@ -7,7 +7,8 @@ L'ORDRE des termes du moteur. C'est la forme des notes acier existantes (acier/c
 des substitutions « grandeur = formule = valeurs = résultat » avec le même kit.
 
 Chaque gabarit est TESTÉ : évalué sur les termes non arrondis du moteur, il redonne le résultat du moteur à 10⁻⁹ près
-(tests/test_barre_historique.py, tests/test_barre_ec3_section.py) — la preuve que la formule imprimée EST celle du calcul.
+(tests/test_barre_historique.py, tests/test_barre_ec3_section.py, tests/test_barre_ec3_barre.py) — la preuve que la
+formule imprimée EST celle du calcul.
 
 Unités imprimées de la méthode historique : celles des classeurs du bureau — kN, kN·m, cm, cm², cm⁴, cm³, mm², N/mm² ;
 E en kN/cm² (21 000) dans la charge critique, qui s'écrit alors sans facteur : π²·E·I/(u·L)² en kN.
@@ -43,7 +44,7 @@ GABARITS_HISTORIQUE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
 }
 # ---- Eurocode 3 (acier/barre/ec3_*.py) : kN, kN·m, mm, mm², cm³, cm⁴, N/mm². Un gabarit n'a NI plafond NI plancher :
 # le moteur n'écrit le bloc que là où la formule s'applique telle quelle (α entre 0 et 1, ρ < 1, a ≤ 0,5…).
-GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
+GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     # classe de la section (EN 1993-1-1 tableau 5.2)
     "e_eps": (("fy",), "sqrt(235/fy)", 3),
     "e_alpha": (("N", "c", "t", "fy"), "0.5 + N*1000/(2*c*t*fy)", 3),
@@ -83,6 +84,63 @@ GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_lineaire2": (("E1", "R1", "E2", "R2"), "E1/R1 + E2/R2", -1),
     "e_lineaire3": (("E1", "R1", "E2", "R2", "E3", "R3"), "E1/R1 + E2/R2 + E3/R3", -1),
 }
+GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
+    # flambement (EN 1993-1-1 § 6.3.1) : I en cm⁴, I_w en cm⁶, L en m, forces en kN
+    "e_N_cr": (("E", "I", "Lcr"), "pi**2*E*I/Lcr**2/100000", 0),
+    "e_lambda_bar": (("A", "fy", "Ncr"), "sqrt(A*fy/(Ncr*1000))", 3),
+    "e_Phi": (("alpha", "lb"), "0.5*(1 + alpha*(lb - 0.2) + lb**2)", 3),
+    "e_chi": (("Phi", "lb"), "1/(Phi + sqrt(Phi**2 - lb**2))", 3),
+    "e_N_b_Rd": (("chi", "A", "fy", "gM1"), "chi*A*fy/gM1/1000", 1),
+    "e_i0": (("iy", "iz"), "sqrt(iy**2 + iz**2)", 1),
+    "e_N_cr_T": (("G", "It", "E", "Iw", "LT", "i0"), "(G*It*10000 + pi**2*E*Iw/LT**2)/i0**2/1000", 0),
+    # déversement (§ 6.3.2)
+    "e_M_cr": (("lam", "Mmax"), "lam*Mmax", 1),
+    "e_lambda_LT": (("W", "fy", "Mcr"), "sqrt(W*fy/(Mcr*1000))", 3),
+    "e_Phi_LT": (("alpha", "lb", "lb0", "beta"), "0.5*(1 + alpha*(lb - lb0) + beta*lb**2)", 3),
+    "e_chi_LT": (("Phi", "beta", "lb"), "1/(Phi + sqrt(Phi**2 - beta*lb**2))", 3),
+    "e_chi_LT_plafond": (("lb",), "1/lb**2", 3),
+    "e_kc_lineaire": (("psi",), "1/(1.33 - 0.33*psi)", 3),
+    "e_f": (("kc", "lb"), "1 - 0.5*(1 - kc)*(1 - 2*(lb - 0.8)**2)", 3),
+    "e_chi_LT_mod": (("chi", "f"), "chi/f", 3),
+    "e_M_b_Rd": (("chi", "W", "fy", "gM1"), "chi*W*fy/gM1/1000", 1),
+    # flexion composée avec instabilité (§ 6.3.3, annexe A)
+    "e_rapport": (("N", "Ncr"), "N/Ncr", 4),
+    "e_mu": (("r", "chi"), "(1 - r)/(1 - chi*r)", 3),
+    "e_w": (("Wpl", "Wel"), "Wpl/Wel", 3),
+    "e_npl": (("N", "NRk", "gM1"), "N/(NRk/gM1)", 3),
+    "e_aLT": (("It", "Iy"), "1 - It/Iy", 3),
+    "e_lambda_0_lim": (("C1", "rz", "rT"), "0.2*sqrt(C1)*((1 - rz)*(1 - rT))**0.25", 3),
+    "e_Cm0_lineaire": (("psi", "N", "Ncr"), "0.79 + 0.21*psi + 0.36*(psi - 0.33)*N/Ncr", 3),
+    "e_Cm0_lineaire_sans_N": (("psi",), "0.79 + 0.21*psi", 3),
+    "e_Cm0_reparti": (("N", "Ncr"), "1 + 0.03*N/Ncr", 3),
+    "e_Cm0_ponctuel": (("N", "Ncr"), "1 - 0.18*N/Ncr", 3),
+    "e_Cm0_general": (("E", "I", "delta", "L", "M", "N", "Ncr"), "1 + (pi**2*E*I*delta/(L**2*M)/100000000 - 1)*N/Ncr", 3),
+    "e_Cm0_borne": (("N", "Ncr"), "1 - N/Ncr", 3),
+    "e_eps_y": (("M", "N", "A", "W"), "M*A/(N*W)", 3),
+    "e_Cmy": (("Cm0", "epsy", "aLT"), "Cm0 + (1 - Cm0)*sqrt(epsy)*aLT/(1 + sqrt(epsy)*aLT)", 3),
+    "e_CmLT": (("Cmy", "aLT", "rz", "rT"), "Cmy**2*aLT/sqrt((1 - rz)*(1 - rT))", 3),
+    "e_bLT": (("aLT", "lb0", "My", "chiLT", "Mply", "Mz", "Mplz"), "0.5*aLT*lb0**2*My/(chiLT*Mply)*Mz/Mplz", 3),
+    "e_cLT": (("aLT", "lb0", "lbz", "My", "Cmy", "chiLT", "Mply"), "10*aLT*lb0**2/(5 + lbz**4)*My/(Cmy*chiLT*Mply)", 3),
+    "e_dLT": (("aLT", "lb0", "lbz", "My", "Cmy", "chiLT", "Mply", "Mz", "Cmz", "Mplz"),
+              "2*aLT*lb0/(0.1 + lbz**4)*My/(Cmy*chiLT*Mply)*Mz/(Cmz*Mplz)", 3),
+    "e_eLT": (("aLT", "lb0", "lbz", "My", "Cmy", "chiLT", "Mply"), "1.7*aLT*lb0/(0.1 + lbz**4)*My/(Cmy*chiLT*Mply)", 3),
+    "e_Cyy": (("w", "Cm", "lbmax", "npl", "LT"), "1 + (w - 1)*((2 - 1.6/w*Cm**2*lbmax - 1.6/w*Cm**2*lbmax**2)*npl - LT)", 3),
+    "e_Czz": (("w", "Cm", "lbmax", "npl", "LT"), "1 + (w - 1)*((2 - 1.6/w*Cm**2*lbmax - 1.6/w*Cm**2*lbmax**2)*npl - LT)", 3),
+    "e_Cyz": (("w", "Cm", "lbmax", "npl", "LT"), "1 + (w - 1)*((2 - 14*Cm**2*lbmax**2/w**5)*npl - LT)", 3),
+    "e_Czy": (("w", "Cm", "lbmax", "npl", "LT"), "1 + (w - 1)*((2 - 14*Cm**2*lbmax**2/w**5)*npl - LT)", 3),
+    "e_kyy": (("Cmy", "CmLT", "mu", "r", "C"), "Cmy*CmLT*mu/(1 - r)/C", 3),
+    "e_kzy": (("Cmy", "CmLT", "mu", "r", "C", "wy", "wz"), "Cmy*CmLT*mu/(1 - r)/C*0.6*sqrt(wy/wz)", 3),
+    "e_kyz": (("Cmz", "mu", "r", "C", "wz", "wy"), "Cmz*mu/(1 - r)/C*0.6*sqrt(wz/wy)", 3),
+    "e_kzz": (("Cmz", "mu", "r", "C"), "Cmz*mu/(1 - r)/C", 3),
+    "e_k_el_y": (("Cmy", "CmLT", "mu", "r"), "Cmy*CmLT*mu/(1 - r)", 3),
+    "e_k_el_z": (("Cmz", "mu", "r"), "Cmz*mu/(1 - r)", 3),
+    "e_66_N_My_Mz": (("N", "chi", "NRk", "ky", "My", "chiLT", "MyRk", "kz", "Mz", "MzRk", "gM1"),
+                     "N/(chi*NRk/gM1) + ky*My/(chiLT*MyRk/gM1) + kz*Mz/(MzRk/gM1)", -1),
+    "e_66_N_My": (("N", "chi", "NRk", "ky", "My", "chiLT", "MyRk", "gM1"), "N/(chi*NRk/gM1) + ky*My/(chiLT*MyRk/gM1)", -1),
+    "e_66_N_Mz": (("N", "chi", "NRk", "kz", "Mz", "MzRk", "gM1"), "N/(chi*NRk/gM1) + kz*Mz/(MzRk/gM1)", -1),
+    "e_66_My_Mz": (("ky", "My", "chiLT", "MyRk", "kz", "Mz", "MzRk", "gM1"), "ky*My/(chiLT*MyRk/gM1) + kz*Mz/(MzRk/gM1)", -1),
+}
+GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE}
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_HISTORIQUE, **GABARITS_EC3}
 _FONCTIONS = {"sqrt": math.sqrt, "pi": math.pi, "min": min, "max": max, "abs": abs}
 

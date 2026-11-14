@@ -355,6 +355,14 @@ def controles(C_=CL, S_=ES):
       and proche(limite(r, "E-Vz"), Vplz / 1e3) and proche(limite(r, "E-Vy"), Vply / 1e3)
       and [round(limite(r, k), 1) for k in ("E-N", "E-My", "E-Mz", "E-Vz", "E-Vy")] == [1264.6, 147.7, 29.4, 348.5, 461.8],
       [limite(r, k) for k in ("E-N", "E-My", "E-Mz", "E-Vz", "E-Vy")])
+    r = v("IPE 500", "S235", NEd=500e3, MyEd=200e6, MzEd=25e6, VzEd=100e3, VyEd=50e3)
+    cl5 = {q["role"]: q["classe"] for q in r["grandeurs"]["classification"]["parois"]}
+    ref21 = {"E-N": 2715.0, "E-My": 516.0, "E-Mz": 78.9, "E-Vz": 814.0, "E-Vy": 912.0}
+    ecarts21 = {k: limite(r, k) / x - 1 for k, x in ref21.items()}
+    c("exemple 5 de l'ECCS N°119 (benchmark 21 de l'aide de SCIA Engineer — IPE 500 S235, N_Ed = 500 kN, flexion déviée) : semelles et âme "
+      "de classe 1 ; N_c,Rd 2 715 kN, M_c,y,Rd 516 kN·m, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN à moins de 0,3 % ; V_pl,y,Rd 912 kN à moins de 1 %",
+      cl5 == {"semelle": 1, "ame": 1} and all(abs(ecarts21[k]) < 0.003 for k in ("E-N", "E-My", "E-Mz", "E-Vz")) and abs(ecarts21["E-Vy"]) < 0.01,
+      (cl5, {k: round(x, 4) for k, x in ecarts21.items()}))
     r = v("HEB 200", "S235", NEd=432.72e3)
     c("HEB 200 S235 (la barre du classeur du bureau, 432,72 kN) : N_c,Rd = 78,08 cm²·235 = 1 835,0 kN, taux 23,6 % ; une seule vérification",
       [x["id"] for x in r["verifications"]] == ["E-N"] and proche(limite(r, "E-N"), brut("HEB 200")["A"] * 100 * 0.235) and round(taux(r, "E-N"), 3) == 0.236, r["verifications"])
@@ -691,8 +699,8 @@ def main():
                 faux.append((b["section"]["nom"], "classification / section efficace", "formules absentes"))
     chk(f"chaque bloc de formule du moteur se recalcule par son gabarit, sur ses seuls termes, à 10⁻⁹ ({n} formules, {len(cas_formules())} sections) ; "
         "clés uniques ; chaque vérification nomme des formules qui existent", n > 200 and not faux, faux[:4])
-    morts = set(FO.GABARITS_EC3) - utilises
-    chk("chaque gabarit de l'Eurocode 3 sert à un contrôle (aucun n'est mort)", not morts, sorted(morts))
+    morts = set(FO.GABARITS_EC3_SECTION) - utilises
+    chk("chaque gabarit de la section (Eurocode 3) sert à un contrôle (aucun n'est mort)", not morts, sorted(morts))
     chk("les gabarits des deux méthodes ne se marchent pas dessus (clés distinctes)", not set(FO.GABARITS_EC3) & set(FO.GABARITS_HISTORIQUE))
     r = ES.verifier({"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "NEd": 400e3, "MyEd": 100e6})
     npl = next(f for f in r["calcul"] if f["cle"] == "N_Rd")
