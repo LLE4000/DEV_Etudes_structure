@@ -630,6 +630,31 @@ dessus = {titre: recouvrements(d) for titre, d in DESSINS.items()}
 chk(f"dans le dessin d'une barre, aucun texte n'en recouvre un autre — {len(DESSINS)} barres : la neuve, une poutre continue à trois cas, trois travées avec "
     "une ponctuelle (la cote du minimum de V ne passe pas sur la légende des maintiens), une console, une bi-encastrée à deux ponctuelles et un couple",
     len(DESSINS) >= 6 and all(len(boites(d)) >= 10 for d in DESSINS.values()) and not any(dessus.values()), {k: v[:3] for k, v in dessus.items() if v})
+# (demande du propriétaire, 14/11/2026 : « l'effort tranchant il retombe à 0 […] là tu l'arrêtes en l'air ») — chaque
+# trait d'enveloppe (M et V, ses deux courbes) PART de l'axe et Y RETOMBE : son premier et son dernier point sont sur
+# l'axe du diagramme, à l'abscisse des extrémités de la barre, et le trait monte puis descend à la verticale
+def _traits_enveloppe(dessin, couleur):
+    """[(points du trait, y de l'axe)] : les courbes d'enveloppe d'une couleur, et l'axe (le trait d'encre qui les suit)."""
+    out = []
+    for m in re.finditer(r'<path d="(M[^"]+)" fill="none" stroke="' + re.escape(couleur) + r'" stroke-width="1\.5"', dessin):
+        pts = [tuple(float(v) for v in c.strip().split()) for c in m.group(1)[1:].split("L")]
+        axe = re.search(r'<path d="M([-\d.]+) ([-\d.]+)H([-\d.]+)"', dessin[m.end():])
+        out.append((pts, float(axe.group(2)) if axe else None))
+    return out
+
+
+_fermes = {}
+for titre, d in DESSINS.items():
+    for nom, coul in (("V", DB.DIAG_V), ("M", DB.DIAG_M)):
+        traits = _traits_enveloppe(d, coul)
+        _fermes[f"{titre} · {nom}"] = len(traits) == 2 and all(
+            y0 is not None and abs(p[0][1] - y0) < 0.051 and abs(p[-1][1] - y0) < 0.051 and abs(p[0][0] - p[1][0]) < 0.051
+            and abs(p[-1][0] - p[-2][0]) < 0.051 for p, y0 in traits)
+_v_neuve = _traits_enveloppe(DESSINS["la note neuve"], DB.DIAG_V)
+chk(f"le diagramme de l'effort tranchant (et celui du moment) RETOMBE À ZÉRO aux extrémités — {len(DESSINS)} barres : chaque trait d'enveloppe "
+    "part de l'axe, monte à la verticale jusqu'à V(0), suit la courbe, puis redescend à la verticale sur l'axe en L (plus de trait arrêté en l'air)",
+    all(_fermes.values()) and len(_fermes) == 2 * len(DESSINS) and all(abs(p[1][1] - p[0][1]) > 10 for p, _ in _v_neuve),
+    {k: v for k, v in _fermes.items() if not v})
 bande = texte(REPONSES["la note neuve"]["vues"][0]["entete"])
 chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses maintiens, et les plus grands efforts de calcul",
     "BARRE ET EFFORTS · IPE 300 · S235" in bande and "Deux appuis · 6,00 m · 2 cas de charge, 2 charges" in bande and "Maintiens : complet à 3,00 m" in bande

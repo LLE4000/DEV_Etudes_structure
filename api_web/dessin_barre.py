@@ -203,8 +203,11 @@ def _diagramme(titre: str, unite: str, xs: Sequence[float], hauts: Sequence[floa
         aire = (f"M{X(xs[0]):.1f} {y0:.1f} L" + " L".join(f"{X(x):.1f} {Y(borne(v, 0.0)):.1f}" for x, v in zip(xs, vals))
                 + f" L{X(xs[-1]):.1f} {y0:.1f}Z")
         out.append(f'<path d="{aire}" fill="{couleur}" fill-opacity="0.13"/>')
+    # (chaque trait part de l'AXE et y retombe : l'effort tranchant d'une barre redescend à zéro à ses extrémités — un
+    # trait arrêté en l'air à V(0) et V(L) se lisait comme une barre qui continue ; demande du propriétaire, 14/11/2026)
     for vals in (hauts, bas):
-        out.append(_trait("M" + " L".join(f"{X(x):.1f} {Y(v):.1f}" for x, v in zip(xs, vals)), couleur, 1.5))
+        out.append(_trait(f"M{X(xs[0]):.1f} {y0:.1f} L" + " L".join(f"{X(x):.1f} {Y(v):.1f}" for x, v in zip(xs, vals))
+                          + f" L{X(xs[-1]):.1f} {y0:.1f}", couleur, 1.5))
     out.append(_trait(f"M{X(0):.1f} {y0:.1f}H{X(Lt):.1f}", DP.ENCRE, 0.9))
     for vals, choisir in ((hauts, max), (bas, min)):
         v = choisir(vals)
