@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "02aba26510e3691d335342d09944e3b5478d3b225d82c2d02ce91f0926aa7baf",
+ "sha256": "da20db6ba7563145981d91672ec06e0678ff605f466c7edcecf955488ae7c969",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -201,6 +201,7 @@
   "api_web/dessin_poutre.py",
   "api_web/dessin_predalle.py",
   "api_web/dessin_profil.py",
+  "api_web/dessin_saf.py",
   "api_web/dessin_sol.py",
   "api_web/dessin_taux.py",
   "api_web/donnees_beton.py",
@@ -219,6 +220,7 @@
   "api_web/note_fondation_grue.py",
   "api_web/note_poutre.py",
   "api_web/note_profil.py",
+  "api_web/note_saf.py",
   "api_web/parcours.py",
   "api_web/pdf_reunion.py",
   "api_web/plancher.py",
@@ -231,6 +233,9 @@
   "api_web/profil_saisie.py",
   "api_web/registre.py",
   "api_web/routeur.py",
+  "api_web/saf.py",
+  "api_web/saf_resultat.py",
+  "api_web/saf_saisie.py",
   "api_web/sol.py",
   "api_web/soudures.py",
   "api_web/taux.py",
@@ -307,6 +312,10 @@
   "bois/poutre/entree.py",
   "bois/poutre/moteur.py",
   "docs/validation/exemples_publies.json",
+  "grues/__init__.py",
+  "grues/chassis/__init__.py",
+  "grues/chassis/acces.py",
+  "grues/chassis/donnees/chassis_grues.json",
   "plancher/__init__.py",
   "plancher/charges/__init__.py",
   "plancher/charges/bibliotheque.py",
@@ -328,6 +337,18 @@
   "rdm/plaques.py",
   "rdm/poutres.py",
   "rdm/sections.py",
+  "saf/__init__.py",
+  "saf/classeur.py",
+  "saf/fondation_grue/__init__.py",
+  "saf/fondation_grue/chassis.py",
+  "saf/fondation_grue/ecriture.py",
+  "saf/fondation_grue/geometrie.py",
+  "saf/fondation_grue/ndc_type.json",
+  "saf/fondation_grue/plaque.py",
+  "saf/fondation_grue/positions.py",
+  "saf/fondation_grue/projet.py",
+  "saf/fondation_grue/proposition.py",
+  "saf/fondation_grue/verification.py",
   "sol/__init__.py",
   "sol/base.py",
   "sol/imports.py",
@@ -343,6 +364,7 @@
   "garde_corps",
   "plancher",
   "profil",
+  "saf",
   "soudures"
  ],
  "note": {
@@ -359,6 +381,7 @@
    "plancher",
    "poutre",
    "profil",
+   "saf",
    "soudures"
   ],
   "avec_numpy": [
@@ -366,6 +389,7 @@
    "garde_corps",
    "plancher",
    "profil",
+   "saf",
    "soudures"
   ]
  },
@@ -385,9 +409,10 @@
   "plancher": "eb59f2a541093dba",
   "poutre": "617eb168036b4bd8",
   "profil": "091380ce1f42e98a",
+  "saf": "e6847ff389e8d53b",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "f11410e50a370a40"
+ "version": "0326090098a28890"
 }

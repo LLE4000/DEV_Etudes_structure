@@ -1,0 +1,1152 @@
+{
+ "entree_LLE_DONNEE": {
+  "ordre_des_feuilles": [
+   "LLE_DONNEE",
+   "Project",
+   "Model",
+   "StructuralMaterial",
+   "StructuralCrossSection",
+   "StructuralPointConnection",
+   "StructuralSurfaceMember",
+   "StructuralSurfaceMemberOpening",
+   "StructuralSurfaceConnection",
+   "StructuralLoadGroup",
+   "StructuralLoadCase",
+   "StructuralLoadCombination",
+   "StructuralSurfaceAction",
+   "StructuralSurfaceActionFree"
+  ],
+  "projet": null,
+  "grue_chassis_texte": null,
+  "indice": "A",
+  "entraxe_chassis_m": 6,
+  "plaque_m": [
+   0.5,
+   0.5
+  ],
+  "ex_m": 0,
+  "ey_m": 0,
+  "distance_mini_bord_m": 0.5,
+  "Lx_m": 8,
+  "Ly_m": 8,
+  "epaisseur_m": 0.5,
+  "reactions_kN_P1_P4": {
+   "jeu1": [
+    350,
+    440,
+    440,
+    350
+   ],
+   "jeu2": [
+    150,
+    150,
+    550,
+    550
+   ],
+   "jeu3": [
+    135,
+    100,
+    800,
+    135
+   ]
+  },
+  "k_MN_m3": 12
+ },
+ "feuilles": [
+  {
+   "feuille": "Project",
+   "lignes": [
+    [
+     "Name",
+     "Project data"
+    ],
+    [
+     "Description",
+     null
+    ],
+    [
+     "Project nr",
+     null
+    ],
+    [
+     "Created",
+     "2024-03-20 06:44:50.716000"
+    ],
+    [
+     "Last update",
+     "2024-03-20 06:44:50.716000"
+    ],
+    [
+     "Project type",
+     "Fondation grue"
+    ],
+    [
+     "Project kind",
+     null
+    ],
+    [
+     "Building type",
+     null
+    ],
+    [
+     "Status",
+     null
+    ],
+    [
+     "Location",
+     null
+    ],
+    [
+     "Id",
+     "b27db1ad-a6e8-476e-8494-56e98bf2dcf5"
+    ]
+   ]
+  },
+  {
+   "feuille": "Model",
+   "lignes": [
+    [
+     "Name",
+     null
+    ],
+    [
+     "Description",
+     null
+    ],
+    [
+     "Discipline",
+     null
+    ],
+    [
+     "Level of detail",
+     null
+    ],
+    [
+     "Status",
+     null
+    ],
+    [
+     "Owner",
+     null
+    ],
+    [
+     "Revision number",
+     "A"
+    ],
+    [
+     "Created",
+     "2024-03-20 06:44:50.716000"
+    ],
+    [
+     "Last update",
+     "2024-03-20 06:44:50.716000"
+    ],
+    [
+     "Source type",
+     null
+    ],
+    [
+     "Source application",
+     "Scia enginneer"
+    ],
+    [
+     "Source company",
+     null
+    ],
+    [
+     "Global coordinate system",
+     "Z vertical"
+    ],
+    [
+     "LCS of cross-section",
+     "ZYX"
+    ],
+    [
+     "System of units",
+     "Metric"
+    ],
+    [
+     "National code",
+     "EC-NBN-EN (Belgian NA)"
+    ],
+    [
+     "SAF Version",
+     "2.1.0"
+    ],
+    [
+     "Module version",
+     "1.7.0+Branch.master.Sha.e90fb24862892efb2682f8112bbe5c88aedd3a52"
+    ],
+    [
+     "Ignored objects",
+     "Rel connects rigid cross"
+    ],
+    [
+     "Ignored groups",
+     null
+    ],
+    [
+     "Id",
+     "b7a9b9c1-f38a-46ee-bd2a-5d5fc12fcda4"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralMaterial",
+   "tableau": "tblStructuralMaterial",
+   "plage": "A1:K2",
+   "colonnes": [
+    "Name",
+    "Type",
+    "Subtype",
+    "Quality",
+    "Unit mass [kg/m3]",
+    "E modulus [MPa]",
+    "G modulus [MPa]",
+    "Poisson coefficient",
+    "Thermal expansion [1/K]",
+    "Design properties",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "C30/37",
+     "Concrete",
+     null,
+     "C30/37",
+     2500,
+     32800,
+     13666.666666666668,
+     0.2,
+     1e-05,
+     null,
+     "c2a693dd-2909-42eb-8b00-9da0f783a839"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralCrossSection",
+   "tableau": "tblStructuralCrossSection",
+   "plage": "A1:P2",
+   "colonnes": [
+    "Name",
+    "Material",
+    "Cross-section Type",
+    "Shape",
+    "Parameters [mm]",
+    "Profile",
+    "Form code",
+    "Description ID of the profile",
+    "A [m2]",
+    "Iy [m4]",
+    "Iz [m4]",
+    "It [m4]",
+    "Iw [m6]",
+    "Wply [m3]",
+    "Wplz [m3]",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "CS1",
+     "C30/37",
+     "Parametric",
+     "Rectangle",
+     "350;1000",
+     null,
+     null,
+     null,
+     0.35000000000000003,
+     0.003572916666666667,
+     0.029166666666666674,
+     0.011141150781553756,
+     0,
+     0,
+     0,
+     "79f6952d-8167-4589-a820-97e690af588d"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralPointConnection",
+   "tableau": "tblStructuralPointConnection",
+   "plage": "A1:E9",
+   "colonnes": [
+    "Name",
+    "Coordinate X [m]",
+    "Coordinate Y [m]",
+    "Coordinate Z [m]",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "N1",
+     0,
+     0,
+     0,
+     "21674468-c3ae-4da1-b328-9394b3714726"
+    ],
+    [
+     "N2",
+     8,
+     0,
+     0,
+     "12573439-9afa-4083-a9e2-e0c2ed21530f"
+    ],
+    [
+     "N3",
+     8,
+     8,
+     0,
+     "39977853-846b-42b6-b204-d0b0bd5a0e0d"
+    ],
+    [
+     "N4",
+     0,
+     8,
+     0,
+     "a626aa10-30de-4a77-8086-dcf5dad88906"
+    ],
+    [
+     "N5",
+     -0.02,
+     -0.02,
+     0,
+     "214fd9df-52ca-4713-9c0a-17289e8ef513"
+    ],
+    [
+     "N6",
+     8.02,
+     -0.02,
+     0,
+     "78859508-8455-482b-be98-6c4f5e0ca036"
+    ],
+    [
+     "N7",
+     8.02,
+     8.02,
+     0,
+     "b094903e-1792-46c7-8103-5edaf757eff8"
+    ],
+    [
+     "N8",
+     -0.02,
+     8.02,
+     0,
+     "1fc261c7-42f5-4fed-8844-b8695ff0f885"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralSurfaceMember",
+   "tableau": "tblStructuralSurfaceMember",
+   "plage": "A1:W3",
+   "colonnes": [
+    "Name",
+    "Material",
+    "Type",
+    "Thickness type",
+    "Thickness [mm]",
+    "System plane at",
+    "Nodes",
+    "Internal nodes",
+    "Edges",
+    "Area [m2]",
+    "Layer",
+    "LCS Type",
+    "Coordinate X [m]",
+    "Coordinate Y [m]",
+    "Coordinate Z [m]",
+    "LCS Rotation [deg]",
+    "Structural Z Eccentricity [mm]",
+    "Analysis Z Eccentricity [mm]",
+    "Shape",
+    "Behavior in analysis",
+    "Color",
+    "Parent ID",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "D1",
+     "C30/37",
+     "Plate",
+     "Constant",
+     500,
+     "Centre",
+     "N1;N2;N3;N4",
+     null,
+     "Line;Line;Line;Line",
+     52.5,
+     "Calque1",
+     "X by vector",
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     "Flat",
+     "Isotropic",
+     "#FFFFFF00",
+     null,
+     "e29c4e7f-c4de-4c36-88ef-f7b56c7f8029"
+    ],
+    [
+     "D2",
+     "C30/37",
+     "Plate",
+     "Constant",
+     500,
+     "Centre",
+     "N5;N6;N7;N8",
+     null,
+     "Line;Line;Line;Line",
+     0.5815999999999946,
+     "Calque1",
+     "X by vector",
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     "Flat",
+     "Isotropic",
+     "#FFFFFF00",
+     null,
+     "e9244913-f789-4de3-9fe8-19b15cbf87d5"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralSurfaceMemberOpening",
+   "tableau": "tblStructuralSurfaceMemberOpening",
+   "plage": "A1:G2",
+   "colonnes": [
+    "Name",
+    "2D Member",
+    "Nodes",
+    "Edges",
+    "Area [m2]",
+    "Parent ID",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "O1",
+     "D2",
+     "N1;N2;N3;N4",
+     "Line;Line;Line;Line",
+     52.5,
+     null,
+     "1b784deb-6dd0-4cf5-8548-67cedcebf14d"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralSurfaceConnection",
+   "tableau": "tblStructuralSurfaceConnection",
+   "plage": "A1:M3",
+   "colonnes": [
+    "Name",
+    "2D Member",
+    "2D Member Region",
+    "Subsoil",
+    "Description",
+    "C1x [MN/m3]",
+    "C1y [MN/m3]",
+    "C1z Spring",
+    "C1z [MN/m3]",
+    "C2x [MN/m]",
+    "C2y [MN/m]",
+    "Parent ID",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "SS1",
+     "D1",
+     null,
+     "12 MN/m³",
+     null,
+     1.2,
+     12,
+     "Linear",
+     12,
+     1.2,
+     1.2,
+     null,
+     "a733f722-4faa-4a4f-930f-b193df200e9e"
+    ],
+    [
+     "SS2",
+     "D2",
+     null,
+     "12 MN/m³",
+     null,
+     1.2,
+     12,
+     "Linear",
+     12,
+     1.2,
+     1.2,
+     null,
+     "a20ab1c9-6cfd-4fd3-b624-e9b547c9a04a"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralLoadGroup",
+   "tableau": "tblStructuralLoadGroup",
+   "plage": "A1:E4",
+   "colonnes": [
+    "Name",
+    "Load group type",
+    "Relation",
+    "Load type",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "LG1",
+     "Permanent",
+     "Standard",
+     null,
+     "d779b2f8-e176-4bbf-8d8d-215865686402"
+    ],
+    [
+     "LG2",
+     "Variable",
+     "Exclusive",
+     "Construction loads",
+     "6cc12be6-14d7-487f-b0c8-accbf00d4a0a"
+    ],
+    [
+     "LG3",
+     "Variable",
+     "Exclusive",
+     "Construction loads",
+     "3fe9d633-2722-41c4-932f-79fa5e6408a7"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralLoadCase",
+   "tableau": "tblStructuralLoadCase",
+   "plage": "A1:G8",
+   "colonnes": [
+    "Name",
+    "Description",
+    "Action type",
+    "Load group",
+    "Load type",
+    "Duration",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "LC1",
+     "Poids propre",
+     "Permanent",
+     "LG1",
+     "Others",
+     null,
+     "175b14a8-e9a5-4b47-b431-5a1e56dc0fab"
+    ],
+    [
+     "LC2",
+     "Réactions CAS 1.a",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "d110d185-8420-4c42-8bab-34d3ed438063"
+    ],
+    [
+     "LC3",
+     "Réactions CAS 2.a",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "ba43e519-4976-4bde-8294-f547ba78b049"
+    ],
+    [
+     "LC4",
+     "Réactions CAS 3.a",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "3c58360e-4fb7-4109-a115-d584462fe9c8"
+    ],
+    [
+     "LC5",
+     "Réactions CAS 1.b",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "a557299a-7c33-47be-b1a4-2b94f0b320c8"
+    ],
+    [
+     "LC6",
+     "Réactions CAS 2.b",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "bbe61996-9c52-4f5e-924a-4bb8d64f9235"
+    ],
+    [
+     "LC7",
+     "Réactions CAS 3.b",
+     "Variable",
+     "LG2",
+     "Static",
+     "Short",
+     "97fe70d5-1dca-48c0-884b-71351039343b"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralLoadCombination",
+   "tableau": "tblStructuralLoadCombination",
+   "plage": "A1:L8",
+   "colonnes": [
+    "Name",
+    "Description",
+    "Category",
+    "National standard",
+    "Type",
+    "Load Factor 1",
+    "Multiplier 1",
+    "Load Case name 1",
+    "Load Factor 2",
+    "Multiplier 2",
+    "Load Case name 2",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "ELS-Car (auto)1",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     null,
+     null,
+     null,
+     "3b880748-4a3a-4095-94bd-e3b7a751ed9e"
+    ],
+    [
+     "ELS-Car (auto)2",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC2",
+     "6a2da841-5d5b-4369-b545-3fae250d0dcf"
+    ],
+    [
+     "ELS-Car (auto)3",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC3",
+     "834f12d1-13fa-4a2e-9ca2-9642713e5f6c"
+    ],
+    [
+     "ELS-Car (auto)4",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC4",
+     "0983390b-f95b-4e29-8bea-79497da477d1"
+    ],
+    [
+     "ELS-Car (auto)5",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC5",
+     "e099ad21-842e-4352-b123-5eb73c23baaa"
+    ],
+    [
+     "ELS-Car (auto)6",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC6",
+     "808fdbb0-5631-4049-9422-f624137d19ac"
+    ],
+    [
+     "ELS-Car (auto)7",
+     "",
+     "SLS (Serviceability Limit State)",
+     null,
+     "Linear",
+     1,
+     1,
+     "LC1",
+     1,
+     1,
+     "LC7",
+     "0d46069f-e8fb-49e8-9bcf-6b2cd46b4529"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralSurfaceAction",
+   "tableau": "tblStructuralSurfaceAction",
+   "plage": "A1:M2",
+   "colonnes": [
+    "Name",
+    "Direction",
+    "Type",
+    "Force action",
+    "Value [kN/m2]",
+    "2D Member",
+    "2D Member Region",
+    "2D Member Distribution",
+    "Load case",
+    "Coordinate system",
+    "Location",
+    "Parent ID",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "SF1",
+     "Z",
+     "Standard",
+     "On 2D member",
+     -12.5,
+     "D1",
+     null,
+     null,
+     "LC1",
+     "Local",
+     "Length",
+     null,
+     "fbff1411-b91d-49d3-b6bb-9a630b9b4760"
+    ]
+   ]
+  },
+  {
+   "feuille": "StructuralSurfaceActionFree",
+   "tableau": "tblStructuralSurfaceActionFree",
+   "plage": "A1:M25",
+   "colonnes": [
+    "Name",
+    "Direction",
+    "Type",
+    "Distribution",
+    "q [kN/m2]",
+    "Load case",
+    "Coordinate X [m]",
+    "Coordinate Y [m]",
+    "Coordinate Z [m]",
+    "Edges",
+    "Coordinate system",
+    "Location",
+    "Id"
+   ],
+   "lignes": [
+    [
+     "FF1",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1400,
+     "LC2",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "a31ae608-d859-4d2e-a7b0-9f50f5e1b53f"
+    ],
+    [
+     "FF2",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1760,
+     "LC2",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "80732d94-f7c3-4e6f-845c-0ad10a905afb"
+    ],
+    [
+     "FF3",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1760,
+     "LC2",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "12dbe855-68e8-42fe-b11a-6564eb8f7e93"
+    ],
+    [
+     "FF4",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1400,
+     "LC2",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "308b5594-7561-49e5-aacb-eed36252b524"
+    ],
+    [
+     "FF5",
+     "Z",
+     "Standard",
+     "Uniform",
+     -600,
+     "LC3",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "8dffd51e-ac81-48e3-a9dc-d95c484c2b14"
+    ],
+    [
+     "FF6",
+     "Z",
+     "Standard",
+     "Uniform",
+     -600,
+     "LC3",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "40358983-f83f-4901-86a1-c65f12ee4ad9"
+    ],
+    [
+     "FF7",
+     "Z",
+     "Standard",
+     "Uniform",
+     -2200,
+     "LC3",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "f6741af9-e253-48ff-a042-3f37620912e7"
+    ],
+    [
+     "FF8",
+     "Z",
+     "Standard",
+     "Uniform",
+     -2200,
+     "LC3",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "34a500f0-d245-49de-b8f2-e3b8ea19b991"
+    ],
+    [
+     "FF9",
+     "Z",
+     "Standard",
+     "Uniform",
+     -540,
+     "LC4",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "77af6027-1653-46e1-b3af-d099a8e03c1d"
+    ],
+    [
+     "FF10",
+     "Z",
+     "Standard",
+     "Uniform",
+     -400,
+     "LC4",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "2ed05789-591a-438f-b2d8-9d66866601ce"
+    ],
+    [
+     "FF11",
+     "Z",
+     "Standard",
+     "Uniform",
+     -3200,
+     "LC4",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "463b7523-c4af-482e-8672-ef74f4b843eb"
+    ],
+    [
+     "FF12",
+     "Z",
+     "Standard",
+     "Uniform",
+     -540,
+     "LC4",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "e91997a4-28f9-464f-9163-9015e1a8bb5f"
+    ],
+    [
+     "FF13",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1760,
+     "LC5",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "ff37f5a4-3562-4932-92fb-e98da5977f07"
+    ],
+    [
+     "FF14",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1760,
+     "LC5",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "622d5a38-a7ab-491a-b711-55508475d28d"
+    ],
+    [
+     "FF15",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1400,
+     "LC5",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "9814f540-9f6b-4a10-ab1e-78e3eba138a1"
+    ],
+    [
+     "FF16",
+     "Z",
+     "Standard",
+     "Uniform",
+     -1400,
+     "LC5",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "0fbef1ea-7b20-4af7-a2c7-40d85bb0d609"
+    ],
+    [
+     "FF17",
+     "Z",
+     "Standard",
+     "Uniform",
+     -600,
+     "LC6",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "3d21f3d2-b6f3-409e-b24b-9da845ceaf0a"
+    ],
+    [
+     "FF18",
+     "Z",
+     "Standard",
+     "Uniform",
+     -2200,
+     "LC6",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "ee7bd6df-1412-4594-bab2-76f464ca37b0"
+    ],
+    [
+     "FF19",
+     "Z",
+     "Standard",
+     "Uniform",
+     -2200,
+     "LC6",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "759ee553-cc42-4885-a4cf-dc0fdbd8ecb1"
+    ],
+    [
+     "FF20",
+     "Z",
+     "Standard",
+     "Uniform",
+     -600,
+     "LC6",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "bb2f9160-a197-4912-aac6-78d4edb0bb29"
+    ],
+    [
+     "FF21",
+     "Z",
+     "Standard",
+     "Uniform",
+     -540,
+     "LC7",
+     "0.75;1.25;1.25;0.75;0.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "7c67a4f5-0716-4e84-b421-09510e48bf9d"
+    ],
+    [
+     "FF22",
+     "Z",
+     "Standard",
+     "Uniform",
+     -540,
+     "LC7",
+     "6.75;7.25;7.25;6.75;6.75",
+     "7.25;7.25;6.75;6.75;7.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "93c3d1aa-8bfc-4722-b4cc-bc9a46f248c4"
+    ],
+    [
+     "FF23",
+     "Z",
+     "Standard",
+     "Uniform",
+     -400,
+     "LC7",
+     "6.75;7.25;7.25;6.75;6.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "52b3725e-8e73-408e-8ed4-536524867f14"
+    ],
+    [
+     "FF24",
+     "Z",
+     "Standard",
+     "Uniform",
+     -3200,
+     "LC7",
+     "0.75;1.25;1.25;0.75;0.75",
+     "1.25;1.25;0.75;0.75;1.25",
+     "0;0;0;0;0",
+     "Line;Line;Line;Line",
+     "Global",
+     "Length",
+     "d6020ba3-0477-438c-a27d-ecd8b65d6a50"
+    ]
+   ]
+  }
+ ]
+}

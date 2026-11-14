@@ -1259,6 +1259,84 @@ def resultat(etat: Dict) -> Dict:
             "elements": elements(etat, calculs)}
 
 
+# ------------------------------------------------------------------ ce qu'un autre module REPREND d'une note (le Générateur SAF)
+def page_resultats(etat: Dict) -> Dict:
+    """Ce qu'un AUTRE module reprend de la fondation OUVERTE d'une note de raideur du sol — le « Générateur SAF »
+    (api_web/saf.py, bloc Sol, bouton « Reprendre » : cahier des charges de la fondation de grue, § 9) : ses valeurs de k
+    et sa page de résultats, en TEXTE, jointe en annexe de la note de calcul de la fondation.
+
+        {"fondation" (son nom), "methode", "phrase" (ses données, en une ligne), "k": [bas, haut] en MN/m³ ([] : k n'est
+         pas calculé — l'abaque, un profil à compléter), "resume" (« k = 8,50 à 21,30 MN/m³ »),
+         "blocs": [{"titre", "sous", "lignes": [[nom, détail, valeur]]}], "messages": [texte…], "moteur" (sa version)}
+
+    Les nombres sont ceux de la colonne des résultats, écrits par les mêmes fonctions (``_plage``, ``_k``…) ; ce sont les
+    lignes de ses blocs, sans leur habillage — tests/test_api_web_saf.py lie les deux (chaque valeur de la page se lit
+    dans le résultat de l'écran)."""
+    etat = normaliser(etat)
+    f = _f(etat)
+    c = calculer(f)
+    mode = f["mode"]
+    blocs, messages = [], []
+    if mode in ("cpt", "profil"):
+        res = c["res"]
+        p = res["parametres"]
+        phrase = (f"semelle {C.nb(p['B'])} × {C.nb(p['L'])} m à D = {C.nb(p['D'])} m · q = {C.nb(p['q'])} kPa"
+                  + (f" · nappe {C.nb(p['nappe'])} m" if p["nappe"] is not None else ""))
+        lab = ST.POSITIONS[f["position"]]
+        lignes = []
+        for x, r in zip(res["scia"], res["resultats"]):
+            if r["nom"] in res["incalculables"] or x["k_haut"] <= 0:
+                lignes.append([x["nom"], "k non calculable", "—"])
+            else:
+                lignes.append([x["nom"], f"w = {_plage(x['w_bas'], x['w_haut'], 1)} mm", f"{_plage_courte(x['k_bas'], x['k_haut'])} MN/m³"])
+        if lignes:
+            blocs.append({"titre": "À encoder dans SCIA", "sous": f"{lab} · k = q_net / w · paramètre de sol C1z", "lignes": lignes})
+            blocs.append({"titre": "Zonage de la dalle", "sous": "par position : le plus petit k bas et le plus grand k haut des sondages",
+                          "lignes": [[z["libelle"], f"{_plage(z['k_bas'] * 1000, z['k_haut'] * 1000, 0)} kN/m³",
+                                      f"{_plage_courte(z['k_bas'], z['k_haut'])} MN/m³"] for z in res["zonage"]]})
+        env = res["enveloppe"]
+        if env and not env["unique"]:
+            messages.append("La dalle doit être vérifiée aux DEUX bornes : un k faible augmente les tassements, un k élevé augmente les "
+                            "moments de pointe.")
+        if res["ecartes"]:
+            messages.append(f"{', '.join(res['ecartes'])} n'entre pas dans les résultats : aucune couche ne porte de module M.")
+        if res["courts"]:
+            messages.append(f"Profil trop court pour {', '.join(res['courts']['noms'])} : k est surestimé.")
+        nd = 2
+    elif mode == "rapide":
+        x = c["x"]
+        phrase = f"q = {C.nb(x['q'])} kPa · w = {C.nb(x['w'])} mm"
+        blocs.append({"titre": "Loi de Winkler", "sous": "k = q / w", "lignes": [
+            ["k", f"q / w = {_v(x['q'])} / {_v(x['w'] / 1000.0, 5)} = {C.fr(x['k_kNm3'], 0)} kN/m³", f"{_k(x['k_MNm3'])} MN/m³"],
+            ["Tassement", f"sous q = {C.nb(x['q'])} kPa", f"{C.nb(x['w'])} mm"]]})
+        messages.append("Valable si w provient d'un vrai calcul de tassement, pour cette fondation et cette charge.")
+        nd = 2
+    elif mode == "theories":
+        t = c["x"]
+        phrase = f"E = {C.nb(t['E'])} MPa · {C.nb(t['B'])} × {C.nb(t['L'])} m · ν = {C.nb(t['nu'])}"
+        if c["k"]:
+            blocs.append({"titre": "Valeur retenue", "sous": "tassement calculé", "lignes": [
+                ["k", f"tassement {C.fr(t['tassement']['w_mm'], 1)} mm, profondeur d'influence {C.fr(t['tassement']['z_influence'], 2)} m",
+                 f"{_k(t['k_retenu'])} MN/m³"]]})
+        messages.append("Sol homogène : un ordre de grandeur, jamais la valeur retenue d'un projet.")
+        nd = 2
+    elif mode == "abaque":
+        phrase = f"B = {C.nb(f['abaque']['B'])} m"
+        messages.append("L'abaque des sols ne donne pas une valeur de k à reprendre.")
+        nd = 2
+    else:
+        x = c["x"]
+        phrase = f"plat {C.nb(x['B'])} × {C.nb(x['L'])} mm · α = {C.nb(x['alpha'])} · E_c = {C.nb(x['E'])} GPa"
+        if c["k"]:
+            blocs.append({"titre": "Raideur du contact", "sous": "compression 1D du contact : k = E / h",
+                          "lignes": [["Contact", "béton et mortier en série" if x["mortier"] else "béton seul", f"{C.fr(x['keq'] / 1000.0, 0)} MN/m³"]]})
+        nd = 0
+    k = [round(v, nd) for v in c["k"]] if c["k"] and mode != "abaque" else []
+    return {"fondation": f.get("nom") or "Fondation", "methode": COURTS[mode], "phrase": phrase, "k": k,
+            "resume": f"k = {_plage(k[0], k[1], nd)} MN/m³" if k else "k non calculé", "blocs": blocs, "messages": messages + [PIED],
+            "moteur": R.VERSION}
+
+
 # ------------------------------------------------------------------ le parcours propre (api_web/parcours.py)
 def _essai_demo() -> str:
     """Un essai GEF de démonstration (limon puis sable dense, nappe à 2,4 m) : le parcours l'importe."""

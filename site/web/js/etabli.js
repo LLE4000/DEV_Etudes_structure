@@ -30,6 +30,8 @@ import { cablerRangement } from "./rangement.js";
 import { poserVerification } from "./marques.js";
 import { cablerPanneauBibliotheque } from "./biblio_note.js";
 import { plansPdf, prechaufferPlans, ETAPES_PLAN, diagnosticPlans, garderEcranAllume, horodatage } from "./plans.js";
+import { cablerPlan } from "./plan.js";
+import * as CN from "./carnet.js";
 
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
 // « selecteur », « bibliotheque » ne font que la lire
@@ -121,6 +123,9 @@ export function ouvrirEtabli(hote, ctx) {
     const ELT = $(".panel.left .phead .et-elt");
     // le module fait sa note PDF dans le navigateur (construire.NOTE_PDF) ; sinon « Note PDF » dit qu'elle arrive bientôt
     const NOTE_PDF = hote.dataset.notePdf === "1";
+    // le module a un CARNET (api_web/registre.carnets : ce qui sert d'une note à l'autre — les grues enregistrées du
+    // « Générateur SAF ») : il part avec chaque requête et la réponse le rend (js/carnet.js le garde, dans ce navigateur)
+    const CARNET = hote.dataset.carnet === "1";
 
     // -------------------------------------------------------------- la note
     note = demandee && N.lire(demandee);
@@ -284,11 +289,13 @@ export function ouvrirEtabli(hote, ctx) {
       let avant = null, r;
       try {
         marquerUneFois("requete1_envoyee");
-        r = await client.demander(() => { avant = note.etat; return { module: MODULE, action, etat: note.etat, ...extra }; }, { modifie });
+        r = await client.demander(() => { avant = note.etat; return { module: MODULE, action, etat: note.etat, ...(CARNET ? { carnet: CN.lire(MODULE) } : {}), ...extra }; }, { modifie });
       } catch (e) {
         if (e && e.name === "EcranFerme") return null;
         throw e;
       } finally { occupe(-1); if (modifie) modifsEnVol--; }
+      // le carnet que le moteur rend (une grue enregistrée, retirée) se garde tout de suite — même l'écran fermé
+      if (CARNET && r && r.ok && Array.isArray(r.carnet)) CN.ecrire(MODULE, r.carnet);
       if (fini()) { if (modifie) garderApresFermeture(r, action, avant, modification); return null; }
       marquerUneFois("reponse1_recue");
       if (!r.ok) {
@@ -422,6 +429,10 @@ export function ouvrirEtabli(hote, ctx) {
       cle: MODULE, note: () => note, ouvrirRubrique, envoyer, signal,
       vue: { courante: () => vueCourante, choisir: choisirVue, ajuster: () => image(() => toile.vue(vueCourante)) },
     }) : null;
+
+    // le PLAN qui se manipule (js/plan.js : un objet du dessin se déplace, se tourne, une cote se tape — le moteur écrit dans
+    // le dessin ce que chaque geste règle), et les contrôles « data-agir » du résultat et du dessin
+    cablerPlan({ bench, stage: $("#stage"), envoyer, ouvrirRubrique, notes: N, toast, signal });
 
     function appliquer(r, action, date = false) {
       note.etat = r.etat;
@@ -993,16 +1004,19 @@ export function ouvrirEtabli(hote, ctx) {
     // -------------------------------------------------------------- un fichier propre au module (export JSON…)
     // Le module pose dans ses fragments <button data-telecharger="<quoi>"> ; le moteur rend le fichier
     // ({"fichier": {"nom", "type", "texte"}}) et le navigateur l'enregistre sous ce nom, nettoyé (commun.js).
-    async function telechargerFichier(quoi) {
+    // ``avecNote`` (le bouton porte data-avec-note) : le fichier CONTIENT la note PDF (l'export du « Générateur SAF » : les
+    // SAF et la note dans une archive) — le paquet de la note se charge, comme pour « note_pdf »
+    async function telechargerFichier(quoi, avecNote = false) {
       occupe(1);
       // la note PDF : la première se prépare quelques secondes (le paquet de la note se charge), on le dit
       if (quoi === "note_pdf") toast("Préparation de la note de calcul PDF…");
+      else if (avecNote) toast("Préparation de l'export…");
       try {
         // le nom, le chantier, l'indice de la note : la page de garde d'une note PDF (un module qui ne les attend pas les ignore)
         const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
         let r;
         try {
-          r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos }), { note: quoi === "note_pdf" });
+          r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos }), { note: quoi === "note_pdf" || avecNote });
         } catch (e) { if (e && e.name === "EcranFerme") return; throw e; }
         if (fini()) return;   // l'écran s'est fermé : le fichier ne part pas (le corps est celui de l'écran suivant)
         const f = r && r.ok ? r.fichier : null;
@@ -1020,7 +1034,8 @@ export function ouvrirEtabli(hote, ctx) {
       if (!b) return;
       ev.preventDefault();
       ev.stopPropagation();
-      telechargerFichier(b.dataset.telecharger);
+      if (b.disabled) return;
+      telechargerFichier(b.dataset.telecharger, b.dataset.avecNote === "1");
     }, { capture: true, signal });
 
     // -------------------------------------------------------------- les PLANS d'un ouvrage, en PDF (le moteur de RBAR)

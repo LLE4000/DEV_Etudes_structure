@@ -57,6 +57,9 @@ MOD = {
     "soudures": glyph('<path d="M3 16h11M14 16l6-7.5"/><path d="M6.5 16v-4.5l4.5 4.5" fill="currentColor" fill-opacity=".18"/>'),
     "garde_corps": glyph('<path d="M3 6.5h18M3 16.5h18M3 20h18"/><path d="M5 6.5V20M19 6.5V20M9.5 6.5v10M12 6.5v10M14.5 6.5v10"/>'),
     "bois": glyph('<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M5.5 11c2.5-1.2 5 1.2 7.5 0s4.5-1.2 5.5 0M5.5 13.5c2.5 1.2 5-1.2 7.5 0"/>'),
+    # le générateur SAF (fondation de grue) : la dalle vue en plan, ses quatre appuis, le centre du châssis
+    "saf": glyph('<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><rect x="6.6" y="6.6" width="2.6" height="2.6"/><rect x="14.8" y="6.6" width="2.6" height="2.6"/>'
+                 '<rect x="6.6" y="14.8" width="2.6" height="2.6"/><rect x="14.8" y="14.8" width="2.6" height="2.6"/><path d="M12 10.3v3.4M10.3 12h3.4"/>'),
     "sol": glyph('<rect x="6.5" y="4" width="11" height="4" rx=".8"/><path d="M8.5 8l-1.2 1.4 2.4 1.4-2.4 1.4 2.4 1.4-1.2 1.4M15.5 8l-1.2 1.4 2.4 1.4-2.4 1.4 2.4 1.4-1.2 1.4"/>'
                   '<path d="M3 17h18M5 20l2.5-3M10 20l2.5-3M15 20l2.5-3"/>'),
 }
@@ -72,7 +75,8 @@ FAMILLES = [
                         ("donnees_beton", "Données béton")]),
     ("acier", "Acier", [("profil", "Choix de profilé"), ("catalogue", "Catalogue des profilés"), ("corniere", "Cornières"),
                         ("flambement", "Flambement"), ("assemblages", "Assemblages métalliques"), ("soudures", "Soudures")]),
-    ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol")]),
+    ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol"),
+                          ("saf", "Générateur SAF")]),
 ]
 # les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace,
 # le « Catalogue des profilés » que la Bibliothèque Acier porte désormais (BIB5, rubrique « Profilés ») — et « predalle »,

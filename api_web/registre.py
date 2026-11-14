@@ -16,6 +16,7 @@ import re
 ICI = os.path.dirname(os.path.abspath(__file__))
 _MODULE = re.compile(r'^MODULE\s*=\s*"([a-z_]+)"\s*$', re.M)
 _PAGE = re.compile(r'^PAGE\s*=\s*"([a-z0-9-]+)"\s*$', re.M)
+_CARNET = re.compile(r'^CARNET\s*=\s*True\b', re.M)
 
 
 def _lire(fichier: str) -> str:
@@ -47,6 +48,12 @@ def pages() -> dict:
     if len(set(out.values())) != len(out):
         raise ValueError(f"deux modules ont la même adresse : {out}")
     return out
+
+
+def carnets() -> list:
+    """Les clés des modules qui ont un CARNET (``CARNET = True`` : ce qui sert d'une note à l'autre, api_web/routeur.py),
+    lues sans les importer."""
+    return [cle for cle in cles() if _CARNET.search(_lire(cle + ".py"))]
 
 
 _CLE = re.compile(r"[a-z_]+")

@@ -518,3 +518,29 @@ cas("fondation_grue", "option de conception hors domaine refusée (longueur scel
 cas("fondation_grue", "fondation ajoutée, passée en cadre de 4 pieux", LIM, [neuf(), act("ajouter"), mod("type", "cadre4")], {"elements": 2})
 cas("fondation_grue", "note abîmée (châssis négatif)", LIM, [calc({"version": 1, "fondations": [{"type": "semelles8", "chassis": -5}], "actif": 0})],
     {"erreur": True})
+
+# ---- le GÉNÉRATEUR SAF, fondation de grue (14/11/2026, docs/saf/GENERATEUR_SAF.md) : la dalle type du cahier des charges
+# (8,00 × 8,00 × 0,50 m, C30/37, châssis saisi 6 × 6 m, appuis 0,50 × 0,50 m, les trois jeux de réactions) — la contrainte
+# de contact face à la limite, par raideur de sol (k = 2 ; 5 ; 10 cochés « SCIA », 20 et 30 affichés). Les fichiers de
+# l'export (un .zip binaire) ne sont pas photographiés ici : tests/test_api_web_saf.py les compare à l'octet au moteur.
+_SAF_JEUX = [(350, 440, 440, 350), (150, 150, 550, 550), (135, 100, 800, 135)]
+_SAF = [neuf()] + [p for j, P in enumerate(_SAF_JEUX) for p in ([mod("reactions/+", "1")] if j else []) + [mod(f"reactions/{j}/P/{i}", str(v)) for i, v in enumerate(P)]]
+cas("saf", "note neuve (poids propre seul, export éteint)", REF, [neuf()], {"niveau": "n"}, selecteurs=True, fichiers=True)
+cas("saf", "dalle type, trois jeux de réactions (cahier des charges § 11)", REF, _SAF, {"taux": [224, 226], "niveau": "r", "sans_message": True})
+cas("saf", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %)", REF, _SAF + [mod("limite", "1,15")], {"taux": [97, 99], "niveau": "f"})
+cas("saf", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite", REF, _SAF + [mod("dalle/Lx", "10,7"), mod("dalle/Ly", "10,7")],
+    {"taux": [97, 99], "niveau": "f"})
+cas("saf", "châssis Liebherr 132 HC de la bibliothèque, appuis réels à 45°", REF,
+    [neuf(), act("choisir", role="chassis", nom="Liebherr Châssis 132 HC – 4,6 m × 4,6 m")] + _SAF[1:], {"niveau": "r", "sans_message": True})
+cas("saf", "dalle 10 × 10, plots coulés en place 2,00 × 2,00 × 0,35", REF, _SAF + [mod("grue/plots/type", "coule"), mod("dalle/Lx", "10"), mod("dalle/Ly", "10")],
+    {"niveau": "r", "sans_message": True})
+cas("saf", "une surface d'appui hors de la dalle : calcul impossible, export éteint", LIM, _SAF + [mod("grue/position", [1.05, 0.0])], {"niveau": "x"})
+cas("saf", "deux valeurs de k égales refusées", LIM, [neuf(), mod("sol/k/1/k", "2")], {"message": True})
+cas("saf", "L_x illisible refusée", LIM, [neuf(), mod("dalle/Lx", "abc")], {"message": True})
+cas("saf", "nom de 61 caractères refusé", LIM, [neuf(), mod("nom", "x" * 61)], {"message": True})
+cas("saf", "contour : le dernier sommet de trop ne se retire pas (trois au moins)", LIM,
+    [neuf(), mod("dalle/forme", "contour"), mod("dalle/sommets/0/-", "1"), mod("dalle/sommets/0/-", "1")], {"message": True})
+cas("saf", "un jeu ajouté puis retiré, une valeur de k ajoutée", LIM, _SAF + [mod("reactions/+", "1"), mod("reactions/3/-", "1"), mod("sol/k/+", "1")],
+    {"niveau": "r", "sans_message": True})
+cas("saf", "fondation ajoutée (deux fondations dans la note)", LIM, _SAF + [act("ajouter")], {"elements": 2})
+cas("saf", "note abîmée (épaisseur négative)", LIM, [calc({"version": 1, "fondations": [{"dalle": {"h": -1}}], "actif": 0})], {"erreur": True})

@@ -42,6 +42,7 @@ faire de commit ni de push : l'intégrateur s'en charge.
 MODULE = "<clé>"          # la clé des familles de l'accueil (site/maquettes/construire.py, FAMILLES)
 PAGE = "<adresse>"        # « charges-plancher » → établi charges-plancher.html (servi sans « .html »)
 PARCOURS = [...]          # facultatif : requêtes de plus pour le parcours (api_web/parcours.py)
+CARNET = True             # facultatif : le module a un CARNET dans le navigateur (§ 4 septies) ; il écrit alors lire_carnet
 
 def nouvel_etat() -> dict                         # la note neuve (les défauts de l'écran Streamlit)
 def normaliser(etat) -> dict                      # relit un état reçu (fichier .stab, navigateur) ; ValueError claire si abîmé
@@ -446,6 +447,30 @@ La conversion vit dans le MOTEUR de la destination (`beton/taux/depuis_poutre.co
 Contrôles : `tests/test_api_web_commun.py` § 9 ter (la mécanique, avec de faux modules, et six mutations du routeur) ; le
 gel (`data-transmettre` est une ACTION relevée : le bouton ne disparaît pas sans qu'une photo rougisse) ; le harnais,
 filtre « envoi ».
+
+### 4 septies. Le carnet d'un module, le plan qui se manipule, le .zip (14/11/2026, le Générateur SAF)
+
+**Le carnet** : une liste propre au MODULE (et non à une note) qui vit dans le navigateur —
+`localStorage["stab.carnets.v1"]`, `site/web/js/carnet.js` — et sert d'une note à l'autre (les grues enregistrées du
+Générateur SAF). Un module qui déclare `CARNET = True` (la page porte alors `data-carnet="1"`, `registre.carnets()`)
+reçoit la liste avec chaque requête : le routeur la pose dans `etat["carnet"]` après `normaliser`, le module la lit et
+la modifie (`modifier` : « carnet/garder », « carnet/prendre »…), et le routeur rend `mod.lire_carnet(etat.pop("carnet"))`
+dans la réponse (`"carnet"`), que la page réécrit. Le carnet n'est **jamais** dans la note : `lire_carnet` relit chaque
+entrée (une entrée abîmée est écartée, la liste est bornée).
+
+**Le plan qui se manipule** (`site/web/js/plan.js`, branché par l'établi pour tous les modules) : le moteur écrit dans
+son dessin ce que chaque geste règle, et la page ne sait rien d'autre —
+`data-plan-glisser` (un objet qui se déplace : chemin, valeurs de départ, échelle, grille, accroches),
+`data-plan-tourner` (une poignée de rotation), `data-plan-cote` (une cote qui se tape), `data-plan-clic` (ce qu'un appui
+bref règle), `data-plan-sec` (la rubrique qu'un clic ouvre), `data-plan-bord` et `data-plan-fond` (un sommet ajouté).
+Au lâcher, la valeur part en « modifier » ; le moteur la relit (un refus remet l'objet en place) et redessine. Hors du
+dessin : `data-agir` (un bouton, un menu ou une case du résultat qui modifie la note), `data-suite` (une suite de
+lectures `selecteur` avec barre de progression et « Arrêter » — « Proposer »), `data-reprendre` (choisir une note d'un
+AUTRE module de ce navigateur ; son nom et son état partent au chemin donné), `data-plan-volet` (un `<details>` qui reste
+ouvert d'un calcul à l'autre). Le détail : l'en-tête de `plan.js`, et `docs/saf/GENERATEUR_SAF.md`.
+
+**Un .zip** : `telecharger` peut rendre `application/zip` (`commun.TYPES_BINAIRES`), en base64 comme un PDF ; un bouton
+`data-avec-note="1"` fait d'abord charger le paquet de la note PDF (l'archive la contient).
 
 ## 5. Les règles
 

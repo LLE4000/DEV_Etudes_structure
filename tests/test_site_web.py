@@ -245,11 +245,11 @@ chk(f"la version d'un module (js/versions.js) : une par établi ({len(_VERSIONS_
     and all(_VERSIONS_MODULES[k] == SW.empreinte_module(RELEVE["par_module"][k]) for k in _VERSIONS_MODULES),
     {k: len(v) for k, v in _propres.items()})
 # la version (S4-D3, C7) : la MÊME balise sur les 26 pages (21 + la Bibliothèque Autres, puis Projets et Équipe, puis les Fondations de grues,
-# 11/11/2026, puis Paramètres, 14/11/2026), la valeur recalculée,
+# 11/11/2026, puis Paramètres, 14/11/2026, puis le Générateur SAF, 14/11/2026 : 27), la valeur recalculée,
 # la même dans le manifeste
 _versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
 chk(f"même stab-version sur les {len(_PAGES_RENDUES)} pages (une balise chacune, dans <head>), égale à la version recalculée et à celle du manifeste",
-    len(_PAGES_RENDUES) == 26 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
+    len(_PAGES_RENDUES) == 27 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
     and all(open(os.path.join(WEB, n), encoding="utf-8").read().index('name="stab-version"') < open(os.path.join(WEB, n), encoding="utf-8").read().index("</head>")
             for n in _PAGES_RENDUES), ({n: v for n, v in _versions.items() if v != [VERSION]}, VERSION, man.get("version")))
 # un seul script de module, js/app.js, sur chaque page ; js/theme.js reste le seul script classique, en tête (S4-D1)
@@ -269,7 +269,7 @@ for n in _PAGES_RENDUES:
     _secours[n] = (_h.count('class="secours-demarrage"') == 1 and _h.endswith(SW.SECOURS + SW.SCRIPT_APP + "</body>\n</html>\n")
                    and _tete.count(SW.STYLE_SECOURS) == 1 and _h.count("<style>") == 1)
 chk(f"chaque page ({len(_secours)}) : le message de secours une fois, juste avant js/app.js, et sa feuille en ligne une fois dans <head>",
-    len(_secours) == 26 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
+    len(_secours) == 27 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
 chk(f"le message de secours : caché tant que l'application démarre (body[data-montage] … display:none), visible au bout de {SW.SECOURS_S} s "
     "par une animation sans script (opacity et visibility), fixé dans l'écran, un lien « Recharger la page » vers la page même",
     "body[data-montage] .secours-demarrage{display:none}" in SW.STYLE_SECOURS
@@ -534,16 +534,16 @@ chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutr
     "docs/site/LOT_Q_QUATRE_MODULES.md ; chacun a rejoint la liste AVEC son écran refait, jamais avant : sa page serait cassée), "
     "puis les fondations de grues (11/11/2026, né sur l'établi compact : docs/beton/FONDATIONS_GRUE.md), leurs fonctions aux mêmes places ; "
     "les autres modules attendent l'avis du bureau",
-    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages"), SW.ETABLI_COMPACT)
+    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf"), SW.ETABLI_COMPACT)
 # la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
 # dit les chiffres du site) : les modules qui en ont une, chacun avec son ``telecharger(etat, quoi, infos)`` et sa note
 # « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
 import inspect  # noqa: E402
 import importlib  # noqa: E402
 chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher, "
-    "les assemblages, les cornières d'appui (10/11/2026), les fondations de grues (11/11/2026) et les barres en acier (14/11/2026) ; chacun rend "
+    "les assemblages, les cornières d'appui (10/11/2026), les fondations de grues (11/11/2026), les barres en acier et le Générateur SAF (14/11/2026) ; chacun rend "
     "« telecharger(etat, quoi, infos) » et a sa note riche au relevé du paquet de la note",
-    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil")
+    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf")
     and sorted(SW.NOTES_RELEVE) == sorted(SW.NOTE_PDF) and set(SW.NOTE_PDF) <= set(ETABLIS)
     and all("infos" in inspect.signature(getattr(importlib.import_module(f"api_web.{k}"), "telecharger")).parameters for k in SW.NOTE_PDF),
     (SW.NOTE_PDF, sorted(SW.NOTES_RELEVE)))
@@ -866,7 +866,7 @@ chk("js/app.js mène une redirection : ouverte directement, location.replace(bod
     and not os.path.exists(os.path.join(WEB, "js", "redirection.js")), "")
 chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026), des cornières (10/11/2026), des "
     "trois modules du lot Q (poutres bois, maturité, taux d'armature) et des fondations de grues (11/11/2026), un sous-ensemble de l'établi compact",
-    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages"} and len(SW.ARBRE_COMPACT) == 14
+    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf"} and len(SW.ARBRE_COMPACT) == 15
     and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 chk("OUTILS_AU_DESSIN : « Annuler », « Rétablir » et « Replier » en haut à gauche du dessin — la dalle (13/11/2026, demande "
     "du propriétaire) et la poutre (lot 4, la discipline commune E15), un sous-ensemble des colonnes compactes",

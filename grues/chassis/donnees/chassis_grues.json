@@ -1,0 +1,6375 @@
+{
+ "meta": {
+  "titre": "Bibliothèque des châssis de grue à tour",
+  "version": "1.0",
+  "date": "2026-11-14",
+  "unites": {
+   "longueur": "mm",
+   "masse": "kg",
+   "angle": "degré",
+   "aire": "m²"
+  },
+  "repere": "Origine au centre du châssis. Axes x et y parallèles aux côtés du carré d'appuis. Appuis numérotés 1 à 4 dans le sens trigonométrique à partir de (−x/2 ; −y/2).",
+  "platine": "a = dimension perpendiculaire au bras (à la diagonale) ; b = dimension dans le sens du bras. rotation_deg = 45 : platine alignée sur la diagonale ; 0 : platine parallèle aux axes x et y. excentrement_radial : décalage du centre de la platine par rapport à l'axe d'appui, le long de la diagonale, positif vers l'extérieur.",
+  "origines": {
+   "cote": "valeur écrite sur le document source",
+   "mesure": "valeur mesurée sur le dessin source, non cotée (tolérance en note)",
+   "calcul": "valeur déduite de valeurs cotées",
+   "indicatif": "valeur de dessin uniquement, absente de la source"
+  },
+  "sources": [
+   {
+    "fichier": "alle_chassis.pdf",
+    "contenu": "WOLFFKRAN – System-Komponente – WOLFF Kreuzrahmen – Technische Informationen, Stand 06/2013, 18 pages (13 Kreuzrahmen)",
+    "note": "Document protégé par le droit d'auteur (mention de l'éditeur) : seules les cotes sont reprises, les dessins sont refaits."
+   },
+   {
+    "fichier": "all.pdf",
+    "contenu": "16 pages : plans Van Der Spek des châssis Liebherr 63 LC, 132 HC, 200 HC, 290 HC, 390 HC (p. 1 à 13), notice Liebherr « Onderwagen stationair » (p. 14-15), plan Liebherr de la base cruciforme 16EC160CB-0380m (p. 16)",
+    "note": "Pages 4 et 5 identiques aux pages 3 et 2. Le plan de la page 16 est classé confidentiel par Liebherr."
+   }
+  ],
+  "hors_perimetre": "Les réactions d'appui ne figurent pas dans ces documents : elles viennent des tableaux de charges de chaque grue."
+ },
+ "chassis": [
+  {
+   "id": "liebherr-base-cruciforme-16ec160cb-0380",
+   "constructeur": "Liebherr",
+   "famille": "Base cruciforme",
+   "nom": "Base cruciforme 16EC160CB-0380m – 3,8 m × 3,8 m",
+   "titre_source": "BASE CRUCIFORME 16EC160CB-0380m",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "12EC100 – 12EC100AS (□ 1062,1 mm)",
+     "12EC125 – 16EC160AS (□ 1062,1 mm)",
+     "16EC160 – 16EC160AS (□ 1462,1 mm)"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "pages": [
+     16
+    ],
+    "emetteur": "Liebherr Industrias Metalicas S.A.",
+    "reference": "Plan n° C076.300-311.000 – index 0.5 – code article 90809680",
+    "date": "créé 11.05.2017 – modifié 31.01.2018 – libéré 28.02.2018",
+    "echelle": "1:20",
+    "format": "A2",
+    "confidentialite": "Plan classé confidentiel par Liebherr : ne pas le copier ni le transmettre à des tiers sans leur accord."
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 3800,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 3800,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 4370,
+     "origine": "mesure",
+     "note": "non coté ; 3800 + (430 + 380)/√2 avec la platine mesurée, ± 10 mm",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -1900.0,
+      "y": -1900.0
+     },
+     {
+      "n": 2,
+      "x": 1900.0,
+      "y": -1900.0
+     },
+     {
+      "n": 3,
+      "x": 1900.0,
+      "y": 1900.0
+     },
+     {
+      "n": 4,
+      "x": -1900.0,
+      "y": 1900.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine soudée sous l'extrémité de chaque bras, posée à plat sur la fondation.",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 430,
+      "origine": "mesure",
+      "note": "mesuré 428 mm sur le plan, ± 5 mm"
+     },
+     "b": {
+      "valeur": 380,
+      "origine": "mesure",
+      "note": "mesuré 377 mm sur le plan, ± 5 mm"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "platine alignée sur le bras (vue en plan)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le coin du carré de 3800 (mesuré sur l'image, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1634,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 404,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 45,
+     "origine": "mesure",
+     "note": "mesuré sur l'élévation, ± 3 mm"
+    }
+   },
+   "mat": {
+    "designations": [
+     "12EC100",
+     "12EC100AS",
+     "12EC125",
+     "16EC160AS",
+     "16EC160"
+    ],
+    "entraxes_de_liaison": [
+     {
+      "valeur": 1062.1,
+      "origine": "cote",
+      "mats": "12EC100 – 12EC100AS ; 12EC125 – 16EC160AS"
+     },
+     {
+      "valeur": 1462.1,
+      "origine": "cote",
+      "mats": "16EC160 – 16EC160AS"
+     }
+    ],
+    "entraxe": {
+     "valeur": 1462.1,
+     "origine": "cote",
+     "note": "plus grand carré de liaison"
+    }
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 910,
+     "origine": "cote",
+     "note": "du dessous des platines au dessus de la liaison du mât"
+    },
+    "hauteur_poutre": {
+     "valeur": 700,
+     "origine": "mesure",
+     "note": "poutre en I mesurée 697 mm, ± 5 mm"
+    },
+    "largeur_semelle": {
+     "valeur": 300,
+     "origine": "mesure",
+     "note": "mesuré 299 mm"
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "Aucune partie ne descend sous le plan d'appui sur l'élévation : dalle plane possible."
+   },
+   "lest_central": null,
+   "masses": {
+    "chassis": {
+     "valeur": 4670,
+     "origine": "cote",
+     "note": "Gewicht/Peso/Weight"
+    },
+    "pivots_de_mat": []
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 300,
+     "origine": "mesure",
+     "note": "largeur de semelle mesurée"
+    },
+    "bras_depassement": {
+     "valeur": 150,
+     "origine": "mesure",
+     "note": "extrémité de la semelle à 150 mm au-delà de l'axe d'appui"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 120,
+      "origine": "mesure",
+      "note": "± 20 mm"
+     },
+     "axe": {
+      "valeur": 1900,
+      "origine": "mesure",
+      "note": "± 20 mm"
+     },
+     "demi_longueur": {
+      "valeur": 1550,
+      "origine": "mesure",
+      "note": "± 30 mm"
+     },
+     "cotes": [
+      "O",
+      "E"
+     ]
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "3800",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "910",
+     "signification": "hauteur hors-tout"
+    },
+    {
+     "vue": "plan",
+     "texte": "□ 1062.1",
+     "signification": "carré de liaison du mât (12EC100, 12EC125)"
+    },
+    {
+     "vue": "plan",
+     "texte": "□ 1462.1",
+     "signification": "carré de liaison du mât (16EC160)"
+    },
+    {
+     "vue": "cartouche",
+     "texte": "4670",
+     "signification": "masse en kg"
+    },
+    {
+     "vue": "cartouche",
+     "texte": "1:20",
+     "signification": "échelle"
+    }
+   ],
+   "nomenclature": [
+    {
+     "repere": "111",
+     "designation": "Arm I"
+    },
+    {
+     "repere": "211",
+     "designation": "Arm II"
+    },
+    {
+     "repere": "400",
+     "designation": "Tension rod"
+    },
+    {
+     "repere": "101",
+     "designation": "Bol.75x575x435"
+    },
+    {
+     "repere": "102",
+     "designation": "Splint 10x100"
+    },
+    {
+     "repere": "103",
+     "designation": "Schr. M16x80-8.8"
+    },
+    {
+     "repere": "104",
+     "designation": "Mutter M16"
+    },
+    {
+     "repere": "510",
+     "designation": "Transport lashing"
+    },
+    {
+     "repere": "105",
+     "designation": "Pl.3"
+    },
+    {
+     "repere": "106",
+     "designation": "Pl.4"
+    }
+   ],
+   "remarques": [
+    "Plan fourni en image (non vectoriel) : toutes les valeurs non cotées sont mesurées sur l'image à 590 points par pouce (1,16 pixel par mm)."
+   ],
+   "a_verifier": [
+    "Platine d'appui non cotée sur le plan : 430 × 380 mesuré (428 × 377). À confirmer auprès de Liebherr.",
+    "Deux tirants seulement sur le plan (côtés ouest et est)."
+   ]
+  },
+  {
+   "id": "liebherr-63lc-croix-3800-pyramides",
+   "constructeur": "Liebherr",
+   "famille": "Croix de fondation",
+   "nom": "Croix de fondation 63 LC – 3,8 m × 3,8 m – sur pyramides",
+   "titre_source": "Funderingskruis 63 LC – 3.8 m x 3.8 m – op piramiden / Croix de fondation 63 LC – 3.8 m x 3.8 m – sur pyramides",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "63 LC"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     1
+    ],
+    "reference": "FK 63 LC – 3.8 m x 3.8m",
+    "date": "18/08/2015",
+    "echelle": "1/50",
+    "edition": "A",
+    "feuille": "1/1",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL."
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 3800,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 3800,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 4900,
+     "origine": "cote",
+     "nature": "hors-tout des pyramides"
+    },
+    "hors_tout_acier": {
+     "valeur": 4200,
+     "origine": "cote",
+     "nature": "hors-tout de la croix (acier)"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -1900.0,
+      "y": -1900.0
+     },
+     {
+      "n": 2,
+      "x": 1900.0,
+      "y": -1900.0
+     },
+     {
+      "n": 3,
+      "x": 1900.0,
+      "y": 1900.0
+     },
+     {
+      "n": 4,
+      "x": -1900.0,
+      "y": 1900.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "pyramide",
+    "description": "Chaque bras repose par un pied à vis réglable sur une pyramide posée sur la fondation. La charge arrive au sol par la base de la pyramide.",
+    "appui": {
+     "forme": "octogone",
+     "cote_sur_plats": {
+      "valeur": 1100,
+      "origine": "cote"
+     },
+     "rotation_deg": 0,
+     "origine_forme": "octogone régulier mesuré sur la vue en plan (pans coupés de 322 mm, côté de 455 mm)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "pyramide centrée sur l'axe d'appui"
+     },
+     "aire_m2": {
+      "valeur": 1.0024,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 1001,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "hauteur_pyramide": {
+     "valeur": 500,
+     "origine": "cote"
+    },
+    "sommet_pyramide_diametre": {
+     "valeur": 450,
+     "origine": "mesure",
+     "note": "mesuré sur le plan, ± 5 mm"
+    },
+    "hauteur_totale": {
+     "valeur": 1518,
+     "origine": "cote",
+     "min": 1475,
+     "max": 1560,
+     "note": "du dessous de la pyramide au dessus de la croix ; réglable par le pied à vis (min. 1475 / max. 1560)"
+    },
+    "epaisseur_partie_superieure": {
+     "valeur": 35,
+     "origine": "cote",
+     "note": "cote 35 repérée « Parte superior »"
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 1086,
+     "origine": "mesure",
+     "note": "axe des membrures mesuré sur le plan (membrures de 1016 à 1156 mm), ± 5 mm"
+    },
+    "hors_tout": {
+     "valeur": 1156,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_poutre": {
+     "valeur": 635,
+     "origine": "mesure",
+     "note": "mesuré sur la vue Y, ± 5 mm"
+    },
+    "hauteur_totale": {
+     "valeur": 1518,
+     "origine": "cote",
+     "note": "min. 1475 / max. 1560"
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "Croix surélevée de 500 mm + pied à vis au-dessus de la fondation : aucune réservation à prévoir."
+   },
+   "lest_central": null,
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 300,
+     "origine": "mesure",
+     "note": "mesuré sur le plan"
+    },
+    "bras_depassement": {
+     "valeur": 133,
+     "origine": "calcul",
+     "note": "extrémité du bras au-delà de l'axe d'appui, déduite du hors-tout 4200"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "3800",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "4900",
+     "signification": "hors-tout des pyramides (3800 + 1100)"
+    },
+    {
+     "vue": "plan",
+     "texte": "4200",
+     "signification": "hors-tout de la croix"
+    },
+    {
+     "vue": "plan",
+     "texte": "1100",
+     "signification": "base de la pyramide"
+    },
+    {
+     "vue": "vue Y",
+     "texte": "1100",
+     "signification": "base de la pyramide"
+    },
+    {
+     "vue": "vue Y",
+     "texte": "500",
+     "signification": "hauteur de la pyramide"
+    },
+    {
+     "vue": "vue Y",
+     "texte": "1518",
+     "signification": "hauteur du dessous de la pyramide au dessus de la croix"
+    },
+    {
+     "vue": "vue Y",
+     "texte": "min.1475/max.1560",
+     "signification": "plage de réglage de cette hauteur"
+    },
+    {
+     "vue": "vue Y",
+     "texte": "35",
+     "signification": "épaisseur en partie supérieure (« Parte superior »)"
+    }
+   ],
+   "remarques": [
+    "La vue Z de la source (liaison mât – croix) n'est pas reprise."
+   ],
+   "a_verifier": [
+    "Nature de la pyramide (acier ou béton) non précisée sur le plan.",
+    "Dimensions du mât mesurées, non cotées."
+   ]
+  },
+  {
+   "id": "liebherr-132hc-chassis-4600",
+   "constructeur": "Liebherr",
+   "famille": "Châssis à bracons (onderwagen)",
+   "nom": "Châssis 132 HC – 4,6 m × 4,6 m",
+   "titre_source": "132 HC onderwagen – 4.6 m x 4.6 m / 132 HC châssis – 4.6 m x 4.6 m",
+   "type": "chassis_bracons",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "132 HC"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     2,
+     3
+    ],
+    "reference": "132 HC onderwagen – 4.6 m x 4.6 m",
+    "date": "14-01-2013",
+    "echelle": "1/40",
+    "edition": "A",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL.",
+    "feuilles": {
+     "plan": "1/2 (p. 2)",
+     "elevation": "2/2 (p. 3)"
+    }
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 4600,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 4600,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 5293,
+     "origine": "cote",
+     "nature": "hors-tout des platines",
+     "verification": "4600 + (580 + 400)/√2 = 5293"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 2,
+      "x": 2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 3,
+      "x": 2300.0,
+      "y": 2300.0
+     },
+     {
+      "n": 4,
+      "x": -2300.0,
+      "y": 2300.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "sabot_plat",
+    "description": "Sabot plat (ankerschoen) boulonné sous l'extrémité du bras : platine posée à plat sur la fondation, bloquée par deux broches Ø 35.",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 580,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "détail coté du plan (580 perpendiculaire au bras, 400 dans le sens du bras)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur l'axe d'appui (mesuré, ± 2 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.232,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 482,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 30,
+     "origine": "calcul",
+     "note": "180 − 150 (sous-face des poutres – dessus du massif)"
+    },
+    "broches": {
+     "diametre": {
+      "valeur": 35,
+      "origine": "cote",
+      "note": "D35"
+     },
+     "trous_oblongs": {
+      "valeur": [
+       35,
+       75
+      ],
+      "origine": "cote",
+      "note": "35 × 75"
+     },
+     "note": "Deux trous oblongs par sabot pour des broches Ø 35 scellées dans la fondation (blocage contre le glissement).",
+     "entraxe_demi_cercles": {
+      "valeur": 40,
+      "origine": "cote",
+      "note": "cote 40 du trou oblong"
+     },
+     "position": {
+      "valeur": 240,
+      "origine": "mesure",
+      "note": "trous à ≈ 240 mm de part et d'autre de l'axe du bras (mesuré, ± 5 mm)"
+     }
+    },
+    "largeur_bras_sur_platine": {
+     "valeur": 226,
+     "origine": "cote",
+     "note": "cote 226 du détail"
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 1544,
+     "origine": "cote",
+     "note": "axe des membrures"
+    },
+    "hors_tout": {
+     "valeur": 1652,
+     "origine": "cote"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 3807,
+     "origine": "cote",
+     "note": "du plan d'appui au sommet de l'élément de base"
+    },
+    "hauteur_depuis_niveau_bas": {
+     "valeur": 3957,
+     "origine": "cote",
+     "note": "depuis le niveau bas entre les massifs (3807 + 150)"
+    },
+    "hauteur_axe_pied_de_mat_au_sommet": {
+     "valeur": 3402,
+     "origine": "cote"
+    },
+    "largeur_hors_tout": {
+     "valeur": 5188,
+     "origine": "cote"
+    },
+    "poutre": {
+     "sous_face": {
+      "valeur": 30,
+      "origine": "calcul",
+      "note": "épaisseur de la platine"
+     },
+     "dessus": {
+      "valeur": 309,
+      "origine": "mesure",
+      "note": "mesuré, ± 3 mm"
+     },
+     "demi_longueur": {
+      "valeur": 2594,
+      "origine": "calcul",
+      "note": "5188 / 2"
+     }
+    },
+    "axe_pied_de_mat": {
+     "valeur": 405,
+     "origine": "calcul",
+     "note": "3807 − 3402"
+    },
+    "bracon": {
+     "pied": {
+      "valeur": [
+       2178,
+       437
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     },
+     "tete": {
+      "valeur": [
+       857,
+       3507
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     }
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 100,
+     "origine": "calcul",
+     "note": "130 − 30 : la partie centrale descend 130 mm sous la sous-face des poutres"
+    },
+    "centre_sous_poutres": {
+     "valeur": 130,
+     "origine": "cote"
+    },
+    "variante_plots": {
+     "surelevation": {
+      "valeur": 150,
+      "origine": "cote"
+     },
+     "note": "massifs surélevés de 150 mm par rapport au niveau bas ; sous-face des poutres à 180 mm du niveau bas"
+    },
+    "variante_reservation": {
+     "cote": {
+      "valeur": 1200,
+      "origine": "cote",
+      "note": "réservation carrée ■1200"
+     },
+     "profondeur": {
+      "valeur": 250,
+      "origine": "cote"
+     }
+    },
+    "note": "La partie centrale descend sous le plan d'appui : massifs surélevés (150 mm sur le plan) ou réservation centrale de 1200 × 1200 × 250 dans la dalle."
+   },
+   "lest_central": {
+    "blocs": [
+     {
+      "nom": "Bloc A",
+      "longueur": {
+       "valeur": 4350,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1250,
+       "origine": "cote"
+      },
+      "nombre": 2,
+      "contours": [
+       [
+        [
+         -2175,
+         892
+        ],
+        [
+         2175,
+         892
+        ],
+        [
+         2175,
+         1692
+        ],
+        [
+         1725,
+         2143
+        ],
+        [
+         -1725,
+         2143
+        ],
+        [
+         -2175,
+         1692
+        ]
+       ],
+       [
+        [
+         -2175,
+         -892
+        ],
+        [
+         2175,
+         -892
+        ],
+        [
+         2175,
+         -1692
+        ],
+        [
+         1725,
+         -2143
+        ],
+        [
+         -1725,
+         -2143
+        ],
+        [
+         -2175,
+         -1692
+        ]
+       ]
+      ]
+     },
+     {
+      "nom": "Bloc B",
+      "longueur": {
+       "valeur": 3550,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1300,
+       "origine": "mesure",
+       "note": "mesuré"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         975,
+         -775
+        ],
+        [
+         1975,
+         -1775
+        ],
+        [
+         2275,
+         -1775
+        ],
+        [
+         2275,
+         1775
+        ],
+        [
+         1975,
+         1775
+        ],
+        [
+         975,
+         775
+        ]
+       ],
+       [
+        [
+         -975,
+         -775
+        ],
+        [
+         -1975,
+         -1775
+        ],
+        [
+         -2275,
+         -1775
+        ],
+        [
+         -2275,
+         1775
+        ],
+        [
+         -1975,
+         1775
+        ],
+        [
+         -975,
+         775
+        ]
+       ],
+       [
+        [
+         -775,
+         975
+        ],
+        [
+         -1775,
+         1975
+        ],
+        [
+         -1775,
+         2275
+        ],
+        [
+         1775,
+         2275
+        ],
+        [
+         1775,
+         1975
+        ],
+        [
+         775,
+         975
+        ]
+       ],
+       [
+        [
+         -775,
+         -975
+        ],
+        [
+         -1775,
+         -1975
+        ],
+        [
+         -1775,
+         -2275
+        ],
+        [
+         1775,
+         -2275
+        ],
+        [
+         1775,
+         -1975
+        ],
+        [
+         775,
+         -975
+        ]
+       ]
+      ]
+     }
+    ],
+    "ouverture_centrale": {
+     "valeur": 1800,
+     "origine": "cote",
+     "note": "entre les blocs A"
+    },
+    "origine_contours": "mesure"
+   },
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 190,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "bras_depassement": {
+     "valeur": 301,
+     "origine": "calcul",
+     "note": "extrémité du bras au-delà de l'axe d'appui, déduite du hors-tout 5160"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 105,
+      "origine": "mesure",
+      "note": "90 à 120 mm mesuré"
+     },
+     "axe": {
+      "valeur": 2270,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "demi_longueur": {
+      "valeur": 1875,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "4600",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "2300 + 2300",
+     "signification": "demi-entraxes"
+    },
+    {
+     "vue": "plan",
+     "texte": "5293",
+     "signification": "hors-tout des platines"
+    },
+    {
+     "vue": "plan",
+     "texte": "5160",
+     "signification": "hors-tout des extrémités de bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "1544",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "1652",
+     "signification": "hors-tout du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "1800",
+     "signification": "ouverture entre les blocs de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "4350 (A-Block)",
+     "signification": "longueur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "1250 (A-Block)",
+     "signification": "largeur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "3550 (B-Block)",
+     "signification": "longueur du bloc de lest B"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "580",
+     "signification": "platine, perpendiculairement au bras"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "400",
+     "signification": "platine, dans le sens du bras"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "226",
+     "signification": "largeur du bras sur la platine"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "D35",
+     "signification": "diamètre des trous de broche"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "35 / 75",
+     "signification": "largeur et longueur du trou oblong"
+    },
+    {
+     "vue": "détail du pied",
+     "texte": "40",
+     "signification": "entraxe des deux demi-cercles du trou oblong"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1544",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "élévation",
+     "texte": "3807",
+     "signification": "hauteur du plan d'appui au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "3957",
+     "signification": "hauteur du niveau bas au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "3402",
+     "signification": "hauteur de l'axe du pied de mât au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "95",
+     "signification": "axe du pied de mât au-dessus du dessus des poutres"
+    },
+    {
+     "vue": "élévation",
+     "texte": "5188",
+     "signification": "largeur hors-tout en élévation"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4600",
+     "signification": "entraxe des appuis"
+    },
+    {
+     "vue": "élévation",
+     "texte": "150",
+     "signification": "surélévation des massifs par rapport au niveau bas"
+    },
+    {
+     "vue": "élévation",
+     "texte": "180",
+     "signification": "sous-face des poutres au-dessus du niveau bas"
+    },
+    {
+     "vue": "élévation",
+     "texte": "190",
+     "signification": "axe du tirant au-dessus de la sous-face des poutres"
+    },
+    {
+     "vue": "élévation",
+     "texte": "130",
+     "signification": "dépassement de la partie centrale sous la sous-face des poutres"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "■1200",
+     "signification": "réservation carrée au centre de la dalle"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "250",
+     "signification": "profondeur de la réservation"
+    }
+   ],
+   "remarques": [
+    "Les pages 4 et 5 du PDF répètent les pages 3 et 2."
+   ],
+   "a_verifier": [
+    "Épaisseur de platine (30) déduite de 180 − 150, non cotée directement."
+   ]
+  },
+  {
+   "id": "liebherr-200hc-chassis-6000",
+   "constructeur": "Liebherr",
+   "famille": "Châssis à bracons (onderwagen)",
+   "nom": "Châssis 200 HC – 6,0 m × 6,0 m",
+   "titre_source": "200 HC onderwagen – 6.0 m x 6.0 m / 200 HC Châssis – 6.0 m x 6.0 m",
+   "type": "chassis_bracons",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "200 HC"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     6,
+     7
+    ],
+    "reference": "200 HC onderwagen – 6.0 m x 6.0 m",
+    "date": "18/05/2017 (plan) – 29/05/2015 (élévation)",
+    "echelle": "1/50 (plan) – 1/40 (élévation)",
+    "edition": "A",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL.",
+    "feuilles": {
+     "plan": "1/2 (p. 6)",
+     "elevation": "2/2 (p. 7)"
+    }
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 6690,
+     "origine": "cote",
+     "nature": "hors-tout des platines",
+     "verification": "6000 + (580 + 400)/√2 = 6693"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "sabot_plat",
+    "description": "Sabot plat (ankerschoen) boulonné sous l'extrémité du bras : platine posée à plat sur la fondation, bloquée par deux broches Ø 35.",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 580,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "cotes du plan (580 perpendiculaire au bras, 400 dans le sens du bras)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur l'axe d'appui (mesuré, ± 3 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.232,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 482,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 30,
+     "origine": "cote"
+    },
+    "broches": {
+     "note": "Trous de broche dessinés sur le plan, non cotés sur cette feuille (mêmes sabots 580 × 400 que le 132 HC : Ø 35, trous oblongs 35 × 75)."
+    },
+    "autre_cote": {
+     "valeur": 480,
+     "origine": "cote",
+     "note": "seconde cote perpendiculaire au bras portée sur le pied ; élément non identifié avec certitude"
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 1980,
+     "origine": "cote",
+     "note": "axe des membrures"
+    },
+    "hors_tout": {
+     "valeur": 2112,
+     "origine": "cote"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 4112,
+     "origine": "cote",
+     "note": "du plan d'appui au sommet de l'élément de base"
+    },
+    "hauteur_axe_pied_de_mat_au_sommet": {
+     "valeur": 3627,
+     "origine": "cote"
+    },
+    "largeur_hors_tout": {
+     "valeur": 6609,
+     "origine": "cote"
+    },
+    "poutre": {
+     "sous_face": {
+      "valeur": 30,
+      "origine": "cote",
+      "note": "épaisseur de la platine"
+     },
+     "dessus": {
+      "valeur": 380,
+      "origine": "mesure",
+      "note": "mesuré : poutre de 350 mm, ± 3 mm"
+     },
+     "demi_longueur": {
+      "valeur": 3304,
+      "origine": "calcul",
+      "note": "6609 / 2"
+     }
+    },
+    "axe_pied_de_mat": {
+     "valeur": 485,
+     "origine": "calcul",
+     "note": "4112 − 3627"
+    },
+    "bracon": {
+     "pied": {
+      "valeur": [
+       2745,
+       553
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     },
+     "tete": {
+      "valeur": [
+       1108,
+       3747
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     }
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 145,
+     "origine": "calcul",
+     "note": "175 − 30 : la partie centrale descend 175 mm sous la sous-face des poutres"
+    },
+    "centre_sous_poutres": {
+     "valeur": 175,
+     "origine": "cote"
+    },
+    "variante_plots": {
+     "surelevation": {
+      "valeur": 200,
+      "origine": "calcul",
+      "note": "230 − 30"
+     },
+     "cote_massif": {
+      "valeur": 2000,
+      "origine": "cote",
+      "note": "massifs carrés de 2000 dessinés en plan, 8000 hors-tout"
+     },
+     "note": "sous-face des poutres à 230 mm du niveau bas ; massifs carrés de 2000 × 2000 centrés sur les appuis (8000 hors-tout)"
+    },
+    "variante_reservation": {
+     "cote": {
+      "valeur": 1000,
+      "origine": "cote",
+      "note": "réservation carrée ■1000"
+     },
+     "profondeur": {
+      "valeur": 250,
+      "origine": "cote"
+     }
+    },
+    "note": "La partie centrale descend sous le plan d'appui : massifs surélevés (200 mm sur le plan) ou réservation centrale de 1000 × 1000 × 250 dans la dalle."
+   },
+   "lest_central": {
+    "blocs": [
+     {
+      "nom": "Bloc A",
+      "longueur": {
+       "valeur": 5800,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1400,
+       "origine": "cote"
+      },
+      "nombre": 2,
+      "contours": [
+       [
+        [
+         -2900,
+         1140
+        ],
+        [
+         2900,
+         1140
+        ],
+        [
+         2900,
+         2540
+        ],
+        [
+         -2900,
+         2540
+        ]
+       ],
+       [
+        [
+         -2900,
+         -2540
+        ],
+        [
+         2900,
+         -2540
+        ],
+        [
+         2900,
+         -1140
+        ],
+        [
+         -2900,
+         -1140
+        ]
+       ]
+      ]
+     },
+     {
+      "nom": "Bloc B",
+      "longueur": {
+       "valeur": 4400,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1830,
+       "origine": "cote"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         1139,
+         -1051
+        ],
+        [
+         2250,
+         -2200
+        ],
+        [
+         2970,
+         -2200
+        ],
+        [
+         2970,
+         2200
+        ],
+        [
+         2250,
+         2200
+        ],
+        [
+         1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1139,
+         -1051
+        ],
+        [
+         -2320,
+         -2200
+        ],
+        [
+         -2970,
+         -2200
+        ],
+        [
+         -2970,
+         2200
+        ],
+        [
+         -2320,
+         2200
+        ],
+        [
+         -1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1050,
+         1140
+        ],
+        [
+         -2201,
+         2319
+        ],
+        [
+         -2201,
+         2971
+        ],
+        [
+         2199,
+         2971
+        ],
+        [
+         2199,
+         2319
+        ],
+        [
+         1050,
+         1140
+        ]
+       ],
+       [
+        [
+         -1050,
+         -1140
+        ],
+        [
+         -2201,
+         -2321
+        ],
+        [
+         -2201,
+         -2971
+        ],
+        [
+         2199,
+         -2971
+        ],
+        [
+         2199,
+         -2321
+        ],
+        [
+         1050,
+         -1140
+        ]
+       ]
+      ]
+     }
+    ],
+    "ouverture_centrale": {
+     "valeur": 2300,
+     "origine": "cote",
+     "note": "entre les blocs A"
+    },
+    "origine_contours": "mesure"
+   },
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 170,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 130,
+      "origine": "mesure",
+      "note": "110 à 150 mm mesuré"
+     },
+     "axe": {
+      "valeur": 3000,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "demi_longueur": {
+      "valeur": 2400,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "6000",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "1980",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2112",
+     "signification": "hors-tout du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2300",
+     "signification": "ouverture entre les blocs de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "5800 (A-Block)",
+     "signification": "longueur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "1400 (A-Block)",
+     "signification": "largeur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "4400 (B-Block)",
+     "signification": "longueur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "1830 (B-Block)",
+     "signification": "largeur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "6690",
+     "signification": "hors-tout des platines"
+    },
+    {
+     "vue": "plan",
+     "texte": "8000",
+     "signification": "hors-tout des massifs de fondation dessinés"
+    },
+    {
+     "vue": "plan",
+     "texte": "2000",
+     "signification": "côté des massifs de fondation dessinés"
+    },
+    {
+     "vue": "plan",
+     "texte": "400",
+     "signification": "platine, dans le sens du bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "580",
+     "signification": "platine, perpendiculairement au bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "480",
+     "signification": "seconde cote perpendiculaire au bras (élément non identifié avec certitude)"
+    },
+    {
+     "vue": "plan",
+     "texte": "1990 / 200",
+     "signification": "longueur et largeur d'un élément porté par un bras (non repris)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1980",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4112",
+     "signification": "hauteur du plan d'appui au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "3627",
+     "signification": "hauteur de l'axe du pied de mât au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "105",
+     "signification": "axe du pied de mât au-dessus du dessus des poutres"
+    },
+    {
+     "vue": "élévation",
+     "texte": "6609",
+     "signification": "largeur hors-tout en élévation"
+    },
+    {
+     "vue": "élévation",
+     "texte": "30",
+     "signification": "épaisseur de la platine d'appui"
+    },
+    {
+     "vue": "élévation",
+     "texte": "230",
+     "signification": "sous-face des poutres au-dessus du niveau bas"
+    },
+    {
+     "vue": "élévation",
+     "texte": "175",
+     "signification": "dépassement de la partie centrale sous la sous-face des poutres"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "■1000",
+     "signification": "réservation carrée au centre de la dalle"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "250",
+     "signification": "profondeur de la réservation"
+    }
+   ],
+   "remarques": [
+    "La feuille en plan (2017) et la feuille en élévation (2015) n'ont pas la même date."
+   ],
+   "a_verifier": [
+    "Cote 480 du pied : élément non identifié avec certitude sur le plan."
+   ]
+  },
+  {
+   "id": "liebherr-290hc-21hc290-chassis-6000",
+   "constructeur": "Liebherr",
+   "famille": "Châssis à bracons (onderwagen)",
+   "nom": "Châssis 290 HC / 21 HC 290 – 6,0 m × 6,0 m",
+   "titre_source": "290HC/21HC290 onderwagen – 6.0 m x 6.0 m / 290HC/21HC290 châssis – 6.0 m x 6.0 m",
+   "type": "chassis_bracons",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "290 HC",
+     "21 HC 290"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     8,
+     9
+    ],
+    "reference": "290HC/21HC290 onderwagen – 6.0 m x 6.0 m",
+    "date": "29/05/2015",
+    "echelle": "1/40",
+    "edition": "A",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL.",
+    "feuilles": {
+     "plan": "1/2 (p. 8)",
+     "elevation": "2/2 (p. 9)"
+    }
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 6835,
+     "origine": "cote",
+     "nature": "hors-tout des platines",
+     "verification": "6000 + (600 + 560)/√2 + 2 × 10/√2 = 6834"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "sabot_plat",
+    "description": "Sabot plat (ankerschoen) boulonné sous l'extrémité du bras : platine posée à plat sur la fondation, bloquée par deux broches Ø 35.",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 600,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 560,
+      "origine": "cote",
+      "note": "cotée sur la feuille « 290 HC » (p. 11) ; mesurée 555 sur la feuille « 290HC/21HC290 »"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "cotes du plan (600 perpendiculaire au bras, 560 dans le sens du bras)",
+     "excentrement_radial": {
+      "valeur": 10,
+      "origine": "calcul",
+      "note": "290 − 560/2 : l'axe d'appui est à 290 mm du bord extérieur du sabot (mesuré 12 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.336,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 580,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 30,
+     "origine": "mesure",
+     "note": "380 (cote) − poutre de 350 (mesuré)"
+    },
+    "broches": {
+     "trous_oblongs": {
+      "valeur": [
+       35,
+       75
+      ],
+      "origine": "cote",
+      "note": "35 × 75"
+     },
+     "note": "Deux trous oblongs 35 × 75 par sabot pour des broches scellées dans la fondation."
+    },
+    "axe_au_bord_exterieur": {
+     "valeur": 290,
+     "origine": "cote",
+     "note": "cotée sur la feuille « 290 HC » (p. 11)"
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 1980,
+     "origine": "cote",
+     "note": "axe des membrures"
+    },
+    "hors_tout": {
+     "valeur": 2112,
+     "origine": "cote"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 4112,
+     "origine": "mesure",
+     "note": "non cotée sur cette feuille ; mesurée, identique à celle du 200 HC (± 5 mm)"
+    },
+    "hauteur_dessus_poutres": {
+     "valeur": 380,
+     "origine": "cote",
+     "note": "du plan d'appui au dessus des poutres"
+    },
+    "largeur_hors_tout": {
+     "valeur": 6835,
+     "origine": "mesure",
+     "note": "mesuré, égal au hors-tout en plan"
+    },
+    "poutre": {
+     "sous_face": {
+      "valeur": 30,
+      "origine": "mesure"
+     },
+     "dessus": {
+      "valeur": 380,
+      "origine": "cote"
+     },
+     "demi_longueur": {
+      "valeur": 3304,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    },
+    "axe_pied_de_mat": {
+     "valeur": 485,
+     "origine": "calcul",
+     "note": "380 + 105"
+    },
+    "bracon": {
+     "pied": {
+      "valeur": [
+       2745,
+       553
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     },
+     "tete": {
+      "valeur": [
+       1108,
+       3747
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     }
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 110,
+     "origine": "mesure",
+     "note": "mesuré, ± 5 mm"
+    },
+    "variante_plots": {
+     "surelevation": {
+      "valeur": 200,
+      "origine": "mesure",
+      "note": "mesuré, non coté"
+     },
+     "note": "massifs surélevés dessinés (≈ 200 mm, non cotés)"
+    },
+    "variante_reservation": {
+     "cote": {
+      "valeur": 1300,
+      "origine": "cote",
+      "note": "réservation carrée ■1300"
+     },
+     "profondeur": {
+      "valeur": 250,
+      "origine": "cote"
+     }
+    },
+    "note": "La partie centrale descend sous le plan d'appui : massifs surélevés ou réservation centrale de 1300 × 1300 × 250 dans la dalle."
+   },
+   "lest_central": {
+    "blocs": [
+     {
+      "nom": "Bloc A",
+      "longueur": {
+       "valeur": 5800,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1400,
+       "origine": "cote"
+      },
+      "nombre": 2,
+      "contours": [
+       [
+        [
+         -2900,
+         1140
+        ],
+        [
+         2900,
+         1140
+        ],
+        [
+         2900,
+         2540
+        ],
+        [
+         -2900,
+         2540
+        ]
+       ],
+       [
+        [
+         -2900,
+         -2540
+        ],
+        [
+         2900,
+         -2540
+        ],
+        [
+         2900,
+         -1140
+        ],
+        [
+         -2900,
+         -1140
+        ]
+       ]
+      ]
+     },
+     {
+      "nom": "Bloc B",
+      "longueur": {
+       "valeur": 4400,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1830,
+       "origine": "cote"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         1139,
+         -1051
+        ],
+        [
+         2250,
+         -2200
+        ],
+        [
+         2970,
+         -2200
+        ],
+        [
+         2970,
+         2200
+        ],
+        [
+         2250,
+         2200
+        ],
+        [
+         1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1139,
+         -1051
+        ],
+        [
+         -2320,
+         -2200
+        ],
+        [
+         -2970,
+         -2200
+        ],
+        [
+         -2970,
+         2200
+        ],
+        [
+         -2320,
+         2200
+        ],
+        [
+         -1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1050,
+         1140
+        ],
+        [
+         -2201,
+         2319
+        ],
+        [
+         -2201,
+         2971
+        ],
+        [
+         2199,
+         2971
+        ],
+        [
+         2199,
+         2319
+        ],
+        [
+         1050,
+         1140
+        ]
+       ],
+       [
+        [
+         -1050,
+         -1140
+        ],
+        [
+         -2201,
+         -2321
+        ],
+        [
+         -2201,
+         -2971
+        ],
+        [
+         2199,
+         -2971
+        ],
+        [
+         2199,
+         -2321
+        ],
+        [
+         1050,
+         -1140
+        ]
+       ]
+      ]
+     }
+    ],
+    "ouverture_centrale": {
+     "valeur": 2300,
+     "origine": "cote",
+     "note": "entre les blocs A"
+    },
+    "origine_contours": "mesure"
+   },
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 170,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 130,
+      "origine": "mesure",
+      "note": "110 à 150 mm mesuré"
+     },
+     "axe": {
+      "valeur": 3000,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "demi_longueur": {
+      "valeur": 2400,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "6000",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "1980",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2112",
+     "signification": "hors-tout du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2300",
+     "signification": "ouverture entre les blocs de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "5800 (A-Block)",
+     "signification": "longueur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "1400 (A-Block)",
+     "signification": "largeur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "4400 (B-Block)",
+     "signification": "longueur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "1830 (B-Block)",
+     "signification": "largeur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "6835",
+     "signification": "hors-tout des platines"
+    },
+    {
+     "vue": "plan",
+     "texte": "600",
+     "signification": "platine, perpendiculairement au bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "35 / 75",
+     "signification": "largeur et longueur du trou oblong"
+    },
+    {
+     "vue": "élévation",
+     "texte": "380",
+     "signification": "du plan d'appui au dessus des poutres"
+    },
+    {
+     "vue": "élévation",
+     "texte": "105",
+     "signification": "axe du pied de mât au-dessus du dessus des poutres"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "■1300",
+     "signification": "réservation carrée au centre de la dalle"
+    },
+    {
+     "vue": "élévation (variante dalle)",
+     "texte": "250",
+     "signification": "profondeur de la réservation"
+    }
+   ],
+   "remarques": [
+    "Même géométrie que le châssis 200 HC (mât, bracons, poutres) ; seuls les sabots diffèrent (600 × 560 au lieu de 580 × 400)."
+   ],
+   "a_verifier": [
+    "Dimension 560 du sabot reprise de la feuille « 290 HC » (p. 11), non cotée sur celle-ci.",
+    "Hauteur totale non cotée sur cette feuille (mesurée 4112)."
+   ]
+  },
+  {
+   "id": "liebherr-290hc-chassis-6000-pieds-a-vis",
+   "constructeur": "Liebherr",
+   "famille": "Châssis à bracons (onderwagen)",
+   "nom": "Châssis 290 HC – 6,0 m × 6,0 m – pieds à vis",
+   "titre_source": "290 HC onderwagen – 6.0 m x 6.0 m / 290 HC châssis – 6.0 m x 6.0 m",
+   "type": "chassis_bracons",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "290 HC"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     10,
+     11
+    ],
+    "reference": "290 HC onderwagen – 6.0 m x 6.0 m",
+    "date": "29/05/2015",
+    "echelle": "1/40",
+    "edition": "A",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL.",
+    "feuilles": {
+     "plan": "1/2 (p. 11)",
+     "elevation": "2/2 (p. 10)"
+    }
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 6835,
+     "origine": "cote",
+     "nature": "hors-tout des sabots (acier)"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "pied_a_vis",
+    "description": "Pied à vis sous chaque sabot, terminé par une platine ronde posée sur la fondation. La charge arrive au sol par cette platine.",
+    "appui": {
+     "forme": "cercle",
+     "diametre": {
+      "valeur": 500,
+      "origine": "cote",
+      "note": "cote 500 ; cercle mesuré Ø 500"
+     },
+     "rotation_deg": 0,
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur l'axe d'appui"
+     },
+     "aire_m2": {
+      "valeur": 0.1963,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 443,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 30,
+     "origine": "cote"
+    },
+    "hauteur_sous_poutre": {
+     "valeur": 484,
+     "origine": "mesure",
+     "note": "du plan d'appui à la sous-face des poutres, ± 5 mm ; pied réglable"
+    },
+    "sabot": {
+     "a": {
+      "valeur": 600,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 560,
+      "origine": "cote"
+     },
+     "axe_au_bord_exterieur": {
+      "valeur": 290,
+      "origine": "cote"
+     },
+     "trous_oblongs": {
+      "valeur": [
+       35,
+       75
+      ],
+      "origine": "cote",
+      "note": "35 × 75"
+     }
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 1980,
+     "origine": "cote",
+     "note": "axe des membrures"
+    },
+    "hors_tout": {
+     "valeur": 2112,
+     "origine": "cote"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 4566,
+     "origine": "mesure",
+     "note": "non cotée ; mesurée du plan d'appui au sommet, ± 10 mm, pied à vis dans la position dessinée"
+    },
+    "largeur_hors_tout": {
+     "valeur": 6835,
+     "origine": "cote"
+    },
+    "poutre": {
+     "sous_face": {
+      "valeur": 484,
+      "origine": "mesure"
+     },
+     "dessus": {
+      "valeur": 834,
+      "origine": "mesure",
+      "note": "484 + poutre de 350 mesurée"
+     },
+     "demi_longueur": {
+      "valeur": 3304,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    },
+    "axe_pied_de_mat": {
+     "valeur": 939,
+     "origine": "calcul",
+     "note": "834 + 105"
+    },
+    "bracon": {
+     "pied": {
+      "valeur": [
+       2745,
+       1007
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     },
+     "tete": {
+      "valeur": [
+       1108,
+       4201
+      ],
+      "origine": "mesure",
+      "note": "± 15 mm"
+     }
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "centre_au_dessus_plan_appui": {
+     "valeur": 344,
+     "origine": "mesure",
+     "note": "la partie centrale reste 344 mm au-dessus du plan d'appui"
+    },
+    "fondation_dessinee": {
+     "type": "longrine périphérique",
+     "hors_tout": {
+      "valeur": 7000,
+      "origine": "cote"
+     },
+     "largeur": {
+      "valeur": 800,
+      "origine": "cote"
+     },
+     "debord_exterieur": {
+      "valeur": 500,
+      "origine": "cote",
+      "note": "de l'axe d'appui au bord extérieur"
+     },
+     "debord_interieur": {
+      "valeur": 300,
+      "origine": "cote",
+      "note": "de l'axe d'appui au bord intérieur"
+     }
+    },
+    "note": "Avec les pieds à vis, la partie centrale reste au-dessus du plan d'appui : dalle plane possible, sans réservation. Le plan dessine une longrine périphérique de 800 mm (7000 hors-tout)."
+   },
+   "lest_central": {
+    "blocs": [
+     {
+      "nom": "Bloc A",
+      "longueur": {
+       "valeur": 5800,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1400,
+       "origine": "cote"
+      },
+      "nombre": 2,
+      "contours": [
+       [
+        [
+         -2900,
+         1140
+        ],
+        [
+         2900,
+         1140
+        ],
+        [
+         2900,
+         2540
+        ],
+        [
+         -2900,
+         2540
+        ]
+       ],
+       [
+        [
+         -2900,
+         -2540
+        ],
+        [
+         2900,
+         -2540
+        ],
+        [
+         2900,
+         -1140
+        ],
+        [
+         -2900,
+         -1140
+        ]
+       ]
+      ]
+     },
+     {
+      "nom": "Bloc B",
+      "longueur": {
+       "valeur": 4400,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 1830,
+       "origine": "cote"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         1139,
+         -1051
+        ],
+        [
+         2250,
+         -2200
+        ],
+        [
+         2970,
+         -2200
+        ],
+        [
+         2970,
+         2200
+        ],
+        [
+         2250,
+         2200
+        ],
+        [
+         1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1139,
+         -1051
+        ],
+        [
+         -2320,
+         -2200
+        ],
+        [
+         -2970,
+         -2200
+        ],
+        [
+         -2970,
+         2200
+        ],
+        [
+         -2320,
+         2200
+        ],
+        [
+         -1139,
+         1049
+        ]
+       ],
+       [
+        [
+         -1050,
+         1140
+        ],
+        [
+         -2201,
+         2319
+        ],
+        [
+         -2201,
+         2971
+        ],
+        [
+         2199,
+         2971
+        ],
+        [
+         2199,
+         2319
+        ],
+        [
+         1050,
+         1140
+        ]
+       ],
+       [
+        [
+         -1050,
+         -1140
+        ],
+        [
+         -2201,
+         -2321
+        ],
+        [
+         -2201,
+         -2971
+        ],
+        [
+         2199,
+         -2971
+        ],
+        [
+         2199,
+         -2321
+        ],
+        [
+         1050,
+         -1140
+        ]
+       ]
+      ]
+     }
+    ],
+    "ouverture_centrale": {
+     "valeur": 2300,
+     "origine": "cote",
+     "note": "entre les blocs A"
+    },
+    "origine_contours": "mesure"
+   },
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 170,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 130,
+      "origine": "mesure",
+      "note": "110 à 150 mm mesuré"
+     },
+     "axe": {
+      "valeur": 3000,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "demi_longueur": {
+      "valeur": 2400,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "6000",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "1980",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2112",
+     "signification": "hors-tout du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2300",
+     "signification": "ouverture entre les blocs de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "5800 (A-Block)",
+     "signification": "longueur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "1400 (A-Block)",
+     "signification": "largeur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "4400 (B-Block)",
+     "signification": "longueur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "1830 (B-Block)",
+     "signification": "largeur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "6835",
+     "signification": "hors-tout des sabots"
+    },
+    {
+     "vue": "plan",
+     "texte": "600",
+     "signification": "sabot, perpendiculairement au bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "560",
+     "signification": "sabot, dans le sens du bras"
+    },
+    {
+     "vue": "plan",
+     "texte": "290",
+     "signification": "de l'axe d'appui au bord extérieur du sabot"
+    },
+    {
+     "vue": "plan",
+     "texte": "500",
+     "signification": "diamètre de la platine ronde du pied à vis"
+    },
+    {
+     "vue": "plan",
+     "texte": "35 / 75",
+     "signification": "largeur et longueur du trou oblong"
+    },
+    {
+     "vue": "plan",
+     "texte": "7000",
+     "signification": "hors-tout de la fondation dessinée"
+    },
+    {
+     "vue": "plan",
+     "texte": "800 = 500 + 300",
+     "signification": "largeur de la longrine : 500 à l'extérieur de l'axe d'appui, 300 à l'intérieur"
+    },
+    {
+     "vue": "élévation",
+     "texte": "105",
+     "signification": "axe du pied de mât au-dessus du dessus des poutres"
+    },
+    {
+     "vue": "élévation",
+     "texte": "30",
+     "signification": "épaisseur de la platine ronde"
+    }
+   ],
+   "remarques": [
+    "Même châssis que le 290 HC / 21 HC 290, posé sur quatre pieds à vis au lieu de reposer directement sur ses sabots."
+   ],
+   "a_verifier": [
+    "Hauteur du pied à vis et hauteur totale mesurées, non cotées (pied réglable)."
+   ],
+   "variante": "pieds à vis sur platine ronde Ø 500"
+  },
+  {
+   "id": "liebherr-390hc-chassis-8000",
+   "constructeur": "Liebherr",
+   "famille": "Châssis à bracons (onderwagen)",
+   "nom": "Châssis 390 HC – 8,0 m × 8,0 m",
+   "titre_source": "390 HC onderwagen – 8.0 m x 8.0 m / 390 HC châssis – 8.0 m x 8.0 m",
+   "type": "chassis_bracons",
+   "compatibilite": {
+    "nature": "grue",
+    "valeurs": [
+     "390 HC"
+    ]
+   },
+   "source": {
+    "fichier": "all.pdf",
+    "emetteur": "Van Der Spek",
+    "pages": [
+     12,
+     13
+    ],
+    "reference": "390 HC onderwagen – 8.0 m x 8.0 m",
+    "date": "29/09/2016",
+    "echelle": "1/50",
+    "edition": "A",
+    "dessine_par": "EJ",
+    "verifie_par": "KVL.",
+    "feuilles": {
+     "plan": "2/2 (p. 12)",
+     "elevation": "1/2 (p. 13)"
+    }
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 8000,
+     "origine": "cote"
+    },
+    "entraxe_y": {
+     "valeur": 8000,
+     "origine": "cote"
+    },
+    "hors_tout": {
+     "valeur": 8700,
+     "origine": "cote",
+     "nature": "hors-tout des platines",
+     "verification": "8000 + 700 = 8700"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 2,
+      "x": 4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 3,
+      "x": 4000.0,
+      "y": 4000.0
+     },
+     {
+      "n": 4,
+      "x": -4000.0,
+      "y": 4000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "sabot_pyramidal",
+    "description": "Sabot d'ancrage (ankerschoen) à platine carrée sous chaque extrémité de bras, bloqué par des broches Ø 35 scellées dans la fondation.",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 700,
+      "origine": "calcul",
+      "note": "8700 − 8000 ; mesuré 700 ; notice Liebherr : □ 0,7 m"
+     },
+     "b": {
+      "valeur": 700,
+      "origine": "calcul",
+      "note": "8700 − 8000 ; mesuré 700 ; notice Liebherr : □ 0,7 m"
+     },
+     "rotation_deg": 0,
+     "origine_rotation": "platine parallèle aux côtés du châssis (plan et notice)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur l'axe d'appui"
+     },
+     "aire_m2": {
+      "valeur": 0.49,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 700,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": {
+     "valeur": 25,
+     "origine": "mesure",
+     "note": "mesuré, ± 3 mm"
+    },
+    "hauteur_sous_poutre": {
+     "valeur": 300,
+     "origine": "mesure",
+     "note": "du plan d'appui à la sous-face des poutres, ± 5 mm"
+    },
+    "dessus_sabot": {
+     "valeur": 420,
+     "origine": "mesure",
+     "note": "côté du dessus du sabot, mesuré"
+    },
+    "broches": {
+     "diametre": {
+      "valeur": 35,
+      "origine": "cote",
+      "note": "Ø 35 mm (notice Liebherr)"
+     },
+     "note": "Notice Liebherr : bloquer le châssis contre le glissement par des broches Ø 35 mm dans la fondation ; sabots fixés aux poutres par 12 boulons."
+    }
+   },
+   "mat": {
+    "entraxe": {
+     "valeur": 2200,
+     "origine": "cote",
+     "note": "axe des membrures"
+    },
+    "hors_tout": {
+     "valeur": 2450,
+     "origine": "cote"
+    },
+    "designations": []
+   },
+   "elevation": {
+    "hauteur_totale": {
+     "valeur": 7300,
+     "origine": "cote",
+     "note": "du plan d'appui au sommet de l'élément de base"
+    },
+    "largeur_hors_tout": {
+     "valeur": 8700,
+     "origine": "calcul",
+     "note": "hors-tout en plan"
+    },
+    "poutre": {
+     "sous_face": {
+      "valeur": 300,
+      "origine": "mesure"
+     },
+     "dessus": {
+      "valeur": 700,
+      "origine": "mesure",
+      "note": "poutre de 400 mm mesurée"
+     },
+     "demi_longueur": {
+      "valeur": 4330,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    },
+    "axe_pied_de_mat": {
+     "valeur": 860,
+     "origine": "mesure",
+     "note": "mesuré, ± 20 mm"
+    },
+    "bracon": {
+     "pied": {
+      "valeur": [
+       3790,
+       880
+      ],
+      "origine": "mesure",
+      "note": "± 20 mm"
+     },
+     "tete": {
+      "valeur": [
+       1310,
+       5570
+      ],
+      "origine": "mesure",
+      "note": "± 20 mm"
+     }
+    }
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "centre_au_dessus_plan_appui": {
+     "valeur": 130,
+     "origine": "mesure",
+     "note": "la partie centrale reste ≈ 130 mm au-dessus du plan d'appui"
+    },
+    "note": "La partie centrale reste au-dessus du plan d'appui : dalle plane possible, sans réservation. La notice Liebherr dessine quatre massifs (« fundatieplaten ») à dimensionner selon les réactions d'angle et le sol."
+   },
+   "lest_central": {
+    "blocs": [
+     {
+      "nom": "Bloc A",
+      "longueur": {
+       "valeur": 7000,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 650,
+       "origine": "cote"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         -3251,
+         -3501
+        ],
+        [
+         -2601,
+         -3501
+        ],
+        [
+         -2601,
+         3501
+        ],
+        [
+         -3251,
+         3501
+        ]
+       ],
+       [
+        [
+         -2032,
+         -3501
+        ],
+        [
+         -1380,
+         -3501
+        ],
+        [
+         -1380,
+         3501
+        ],
+        [
+         -2032,
+         3501
+        ]
+       ],
+       [
+        [
+         1380,
+         -3501
+        ],
+        [
+         2030,
+         -3501
+        ],
+        [
+         2030,
+         3501
+        ],
+        [
+         1380,
+         3501
+        ]
+       ],
+       [
+        [
+         2599,
+         -3501
+        ],
+        [
+         3249,
+         -3501
+        ],
+        [
+         3249,
+         3501
+        ],
+        [
+         2599,
+         3501
+        ]
+       ]
+      ]
+     },
+     {
+      "nom": "Bloc B",
+      "longueur": {
+       "valeur": 5000,
+       "origine": "cote"
+      },
+      "largeur": {
+       "valeur": 2000,
+       "origine": "cote"
+      },
+      "nombre": 4,
+      "contours": [
+       [
+        [
+         1501,
+         -1001
+        ],
+        [
+         3001,
+         -2500
+        ],
+        [
+         3501,
+         -2500
+        ],
+        [
+         3501,
+         2500
+        ],
+        [
+         3001,
+         2500
+        ],
+        [
+         1501,
+         1001
+        ]
+       ],
+       [
+        [
+         -1501,
+         -1001
+        ],
+        [
+         -3001,
+         -2500
+        ],
+        [
+         -3501,
+         -2500
+        ],
+        [
+         -3501,
+         2500
+        ],
+        [
+         -3001,
+         2500
+        ],
+        [
+         -1501,
+         1001
+        ]
+       ],
+       [
+        [
+         -1001,
+         1501
+        ],
+        [
+         -2500,
+         3001
+        ],
+        [
+         -2500,
+         3501
+        ],
+        [
+         2500,
+         3501
+        ],
+        [
+         2500,
+         3001
+        ],
+        [
+         1001,
+         1501
+        ]
+       ],
+       [
+        [
+         -1001,
+         -1501
+        ],
+        [
+         -2500,
+         -3001
+        ],
+        [
+         -2500,
+         -3501
+        ],
+        [
+         2500,
+         -3501
+        ],
+        [
+         2500,
+         -3001
+        ],
+        [
+         1001,
+         -1501
+        ]
+       ]
+      ]
+     }
+    ],
+    "origine_contours": "mesure"
+   },
+   "masses": null,
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 300,
+     "origine": "mesure",
+     "note": "mesuré"
+    },
+    "tirants": {
+     "largeur": {
+      "valeur": 180,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "axe": {
+      "valeur": 3985,
+      "origine": "mesure",
+      "note": "mesuré"
+     },
+     "demi_longueur": {
+      "valeur": 3600,
+      "origine": "mesure",
+      "note": "mesuré"
+     }
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "8000",
+     "signification": "entraxe des appuis (deux directions)"
+    },
+    {
+     "vue": "plan",
+     "texte": "8700",
+     "signification": "hors-tout des platines"
+    },
+    {
+     "vue": "plan",
+     "texte": "2200",
+     "signification": "entraxe des membrures du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "2450",
+     "signification": "hors-tout du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "7000 (A-Block)",
+     "signification": "longueur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "650 (A-Block)",
+     "signification": "largeur du bloc de lest A"
+    },
+    {
+     "vue": "plan",
+     "texte": "5000 (B-Block)",
+     "signification": "longueur du bloc de lest B"
+    },
+    {
+     "vue": "plan",
+     "texte": "2000 (B-Block)",
+     "signification": "largeur du bloc de lest B"
+    },
+    {
+     "vue": "élévation",
+     "texte": "7300",
+     "signification": "hauteur du plan d'appui au sommet"
+    },
+    {
+     "vue": "élévation",
+     "texte": "8000",
+     "signification": "entraxe des appuis"
+    },
+    {
+     "vue": "notice Liebherr",
+     "texte": "8 m",
+     "signification": "entraxe des appuis"
+    },
+    {
+     "vue": "notice Liebherr",
+     "texte": "8,7 m",
+     "signification": "hors-tout des sabots"
+    },
+    {
+     "vue": "notice Liebherr",
+     "texte": "□ 0,7 m",
+     "signification": "sabot carré de 0,7 m"
+    },
+    {
+     "vue": "notice Liebherr",
+     "texte": "7,2 m",
+     "signification": "hauteur au-dessus des massifs"
+    },
+    {
+     "vue": "notice Liebherr",
+     "texte": "Ø 35 mm",
+     "signification": "broches de blocage dans la fondation"
+    }
+   ],
+   "remarques": [
+    "Le cartouche numérote la vue en plan « 2/2 » et l'élévation « 1/2 »."
+   ],
+   "a_verifier": [
+    "La notice Liebherr jointe (p. 14-15, « Onderwagen stationair ») ne nomme pas la grue : rattachée au 390 HC parce que ses cotes sont les mêmes (8 m, 8,7 m, □ 0,7 m). À confirmer.",
+    "Hauteur : 7300 sur le plan Van Der Spek, 7,2 m sur la notice Liebherr."
+   ],
+   "sources_complementaires": [
+    {
+     "fichier": "all.pdf",
+     "pages": [
+      14,
+      15
+     ],
+     "emetteur": "Liebherr",
+     "document": "Notice de montage – Onderwagen stationair (pages 9 et 10)",
+     "reference": "355uw9.dsf / 355u10.dsf – c032_017_310nl.doc",
+     "langue": "néerlandais"
+    }
+   ]
+  },
+  {
+   "id": "wolff-kr-6-40",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 6-40",
+   "titre_source": "1 Kreuzrahmen KR 6-40",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TFS 12",
+     "TFS 15",
+     "UV 15"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     5
+    ],
+    "reference": "§ 1 Kreuzrahmen KR 6-40"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 4000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 4000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 4460,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 4453,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2000.0,
+      "y": -2000.0
+     },
+     {
+      "n": 2,
+      "x": 2000.0,
+      "y": -2000.0
+     },
+     {
+      "n": 3,
+      "x": 2000.0,
+      "y": 2000.0
+     },
+     {
+      "n": 4,
+      "x": -2000.0,
+      "y": 2000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1024,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 320,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "20 mm"
+   },
+   "mat": {
+    "designations": [
+     "TFS 12",
+     "TFS 15",
+     "UV 15"
+    ],
+    "largeur_dessin": {
+     "valeur": 1500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 700,
+     "origine": "cote",
+     "note": "0,7 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m (TFS 15 / UV 15)"
+     },
+     {
+      "valeur": 5750,
+      "origine": "cote",
+      "texte": "5,75 m (TFS 12)"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "La source dessine le châssis sur des massifs ; aucune cote de dégagement n'est donnée."
+   },
+   "lest_central": {
+    "designations": [
+     "ZBA 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 2900,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 93.4 E15",
+      "mats": "TFS12, TFS15",
+      "masse": 262
+     },
+     {
+      "designation": "4 × AZ 120 M",
+      "mats": "UV15",
+      "masse": 314
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 220,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 4,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 4,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 4,46 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "320 mm x 320 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m (TFS 15 / UV 15)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "5,75 m (TFS 12)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,7 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-7-32",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 7-32",
+   "titre_source": "2 Kreuzrahmen KR 7-32",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TSL 15",
+     "TFS 15",
+     "UV 15"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     6
+    ],
+    "reference": "§ 2 Kreuzrahmen KR 7-32"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 3200,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 3200,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 3700,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 3667,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -1600.0,
+      "y": -1600.0
+     },
+     {
+      "n": 2,
+      "x": 1600.0,
+      "y": -1600.0
+     },
+     {
+      "n": 3,
+      "x": 1600.0,
+      "y": 1600.0
+     },
+     {
+      "n": 4,
+      "x": -1600.0,
+      "y": 1600.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 330,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 330,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1089,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 330,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "20 mm"
+   },
+   "mat": {
+    "designations": [
+     "TSL 15",
+     "TFS 15",
+     "UV 15"
+    ],
+    "largeur_dessin": {
+     "valeur": 1500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 700,
+     "origine": "cote",
+     "note": "0,7 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "La source dessine le châssis sur des massifs ; aucune cote de dégagement n'est donnée."
+   },
+   "lest_central": {
+    "designations": [
+     "ZBA 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 5090,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 85 E 20.5",
+      "mats": "TSL15",
+      "masse": 192
+     },
+     {
+      "designation": "4 × AZ 93.4 E15",
+      "mats": "TFS15",
+      "masse": 200
+     },
+     {
+      "designation": "4 × AZ 120 M",
+      "mats": "UV15",
+      "masse": 272
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 230,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 3,2 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 3,2 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 3,7 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "330 mm x 330 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,7 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-krv-7-32",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KRV 7-32",
+   "titre_source": "3 Kreuzrahmen KRV 7-32",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TFS 12",
+     "TSL 15",
+     "TFS 15",
+     "UV 15"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     7
+    ],
+    "reference": "§ 3 Kreuzrahmen KRV 7-32"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 3200,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 3200,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 3700,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 3653,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -1600.0,
+      "y": -1600.0
+     },
+     {
+      "n": 2,
+      "x": 1600.0,
+      "y": -1600.0
+     },
+     {
+      "n": 3,
+      "x": 1600.0,
+      "y": 1600.0
+     },
+     {
+      "n": 4,
+      "x": -1600.0,
+      "y": 1600.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1024,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 320,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "20 mm"
+   },
+   "mat": {
+    "designations": [
+     "TFS 12",
+     "TSL 15",
+     "TFS 15",
+     "UV 15"
+    ],
+    "largeur_dessin": {
+     "valeur": 1500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 800,
+     "origine": "cote",
+     "note": "0,8 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "La source dessine le châssis sur des massifs ; aucune cote de dégagement n'est donnée."
+   },
+   "lest_central": {
+    "designations": [
+     "ZBA 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 3660,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 85 E 20.5",
+      "mats": "TFS12, TSL15",
+      "masse": 232
+     },
+     {
+      "designation": "4 × AZ 93.4 E15",
+      "mats": "TFS15",
+      "masse": 262
+     },
+     {
+      "designation": "4 × AZ 120 M",
+      "mats": "UV15, TFS20, UV20",
+      "masse": 314
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 220,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 3,2 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 3,2 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 3,7 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "320 mm x 320 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,8 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-krv-7-32-46",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KRV 7-32/46",
+   "titre_source": "4 Kreuzrahmen KRV 7-32/46",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TFS 12",
+     "TSL 15",
+     "TFS 15",
+     "UV 15",
+     "TFS 20",
+     "UV 20"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     8
+    ],
+    "reference": "§ 4 Kreuzrahmen KRV 7-32/46"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 5100,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 5053,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 2,
+      "x": 2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 3,
+      "x": 2300.0,
+      "y": 2300.0
+     },
+     {
+      "n": 4,
+      "x": -2300.0,
+      "y": 2300.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 320,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1024,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 320,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "20 mm"
+   },
+   "mat": {
+    "designations": [
+     "TFS 12",
+     "TSL 15",
+     "TFS 15",
+     "UV 15",
+     "TFS 20",
+     "UV 20"
+    ],
+    "largeur_dessin": {
+     "valeur": 2000,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 800,
+     "origine": "cote",
+     "note": "0,8 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m (TSL15, TFS15, UV15, TFS20, UV20)"
+     },
+     {
+      "valeur": 5750,
+      "origine": "cote",
+      "texte": "5,75 m (TFS12)"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": null,
+    "note": "La source dessine le châssis sur des massifs ; aucune cote de dégagement n'est donnée."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 5090,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 85 E 20.5",
+      "mats": "TFS12, TSL15",
+      "masse": 232
+     },
+     {
+      "designation": "4 × AZ 93.4 E 15",
+      "mats": "TFS15",
+      "masse": 262
+     },
+     {
+      "designation": "4 × AZ 120 M",
+      "mats": "UV15, TFS20, UV20",
+      "masse": 314
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 220,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 5,1 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "320 mm x 320 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m (TSL15, TFS15, UV15, TFS20, UV20)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "5,75 m (TFS12)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,8 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le tableau de la source est intitulé « Technische Daten KR 7-32/46 » (sans V) et donne 5090 kg, la même masse que le KR 7-32 : valeurs reprises telles quelles."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-8-46",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 8-46",
+   "titre_source": "5 Kreuzrahmen KR 8-46",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TSL 15",
+     "TFS 15",
+     "TFS 20",
+     "UV 15",
+     "UV 20"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     9
+    ],
+    "reference": "§ 5 Kreuzrahmen KR 8-46"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 5100,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 5166,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 2,
+      "x": 2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 3,
+      "x": 2300.0,
+      "y": 2300.0
+     },
+     {
+      "n": 4,
+      "x": -2300.0,
+      "y": 2300.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.16,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 400,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "20 mm"
+   },
+   "mat": {
+    "designations": [
+     "TSL 15",
+     "TFS 15",
+     "TFS 20",
+     "UV 15",
+     "UV 20"
+    ],
+    "largeur_dessin": {
+     "valeur": 2000,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1200,
+     "origine": "cote",
+     "note": "1,2 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 92,
+     "origine": "cote",
+     "texte": "92 mm"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 4300,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 85 20.5",
+      "mats": "TSL15",
+      "masse": 192
+     },
+     {
+      "designation": "4 × AZ 93.4",
+      "mats": "TFS15, TFS20",
+      "masse": 200
+     },
+     {
+      "designation": "4 × AZ 120 M",
+      "mats": "UV15, UV20",
+      "masse": 272
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 280,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 5,1 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "400 mm x 400 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,2 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "92 mm",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le hors-tout des platines (5166 mm, calculé) dépasse le hors-tout X du cadre (5100 mm) de 33 mm de chaque côté : X est la cote du cadre, pas celle des platines."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-10-46",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 10-46",
+   "titre_source": "6 Kreuzrahmen KR 10-46",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     10
+    ],
+    "reference": "§ 6 Kreuzrahmen KR 10-46"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 4600,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 5100,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 5201,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 2,
+      "x": 2300.0,
+      "y": -2300.0
+     },
+     {
+      "n": 3,
+      "x": 2300.0,
+      "y": 2300.0
+     },
+     {
+      "n": 4,
+      "x": -2300.0,
+      "y": 2300.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 450,
+      "origine": "cote",
+      "note": "dimension vue perpendiculairement au bras"
+     },
+     "b": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "note": "dimension écrite entre parenthèses dans la source",
+     "note_sens": "450 perpendiculairement au bras, 400 dans le sens du bras : sens mesuré sur la vue en plan du KR 10-46/60 (453 × 406 mm)",
+     "aire_m2": {
+      "valeur": 0.18,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 424,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "ca. 20 mm"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20"
+    ],
+    "largeur_dessin": {
+     "valeur": 2000,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1200,
+     "origine": "cote",
+     "note": "1,2 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 71,
+     "origine": "cote",
+     "texte": "71 mm"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": null,
+   "masses": {
+    "chassis": {
+     "valeur": 7000,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZR 120 E 15,5",
+      "mats": "UV20",
+      "masse": 560
+     },
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV20",
+      "masse": 684
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 320,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 4,6 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 5,1 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "(450 mm x 400 mm)",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,2 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "71 mm",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = ca. 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le hors-tout des platines (5201 mm, calculé) dépasse le hors-tout X du cadre (5100 mm) de 50 mm de chaque côté : X est la cote du cadre, pas celle des platines.",
+    "Lest central dessiné sur la source, sans désignation."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source.",
+    "Dimension de la platine écrite entre parenthèses dans la source ; même platine que le KR 10-46/60."
+   ]
+  },
+  {
+   "id": "wolff-kr-10-46-60",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 10-46/60",
+   "titre_source": "7 Kreuzrahmen KR 10-46/60",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     11
+    ],
+    "reference": "§ 7 Kreuzrahmen KR 10-46/60"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 6500,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 6601,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 450,
+      "origine": "cote",
+      "note": "dimension vue perpendiculairement au bras"
+     },
+     "b": {
+      "valeur": 400,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "note_sens": "450 perpendiculairement au bras, 400 dans le sens du bras : sens mesuré sur la vue en plan du KR 10-46/60 (453 × 406 mm)",
+     "aire_m2": {
+      "valeur": 0.18,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 424,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "ca. 20 mm"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20"
+    ],
+    "largeur_dessin": {
+     "valeur": 2000,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1200,
+     "origine": "cote",
+     "note": "1,2 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 71,
+     "origine": "cote",
+     "texte": "71 mm"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": null,
+   "masses": {
+    "chassis": {
+     "valeur": 8805,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZR 120 E 15,5",
+      "mats": "UV20",
+      "masse": 560
+     },
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV20",
+      "masse": 684
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 320,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 6,5 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "450 mm x 400 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,2 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "71 mm",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = ca. 20 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le hors-tout des platines (6601 mm, calculé) dépasse le hors-tout X du cadre (6500 mm) de 50 mm de chaque côté : X est la cote du cadre, pas celle des platines.",
+    "Lest central dessiné sur la source, sans désignation."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-krv-10-60-a60",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KRV 10-60 – appuis à 6,0 m",
+   "titre_source": "8 Kreuzrahmen KRV 10-60",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20",
+     "TV 23",
+     "TV 25"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     12
+    ],
+    "reference": "§ 8 Kreuzrahmen KRV 10-60"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 6700,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "autre_configuration": {
+     "entraxe": {
+      "valeur": 5000,
+      "origine": "cote",
+      "note": "A*, B*"
+     },
+     "id": "wolff-krv-10-60-a50"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Bras posé sur la fondation, tenu latéralement par des butées (repère C). Dimension d'appui non donnée dans la source.",
+    "appui": null,
+    "epaisseur_platine": null,
+    "butee_laterale_C": "non chiffré (Sicherung gegen das seitliche Verschieben)"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20",
+     "TV 23",
+     "TV 25"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1040,
+     "origine": "cote",
+     "note": "1,04 m"
+    },
+    "hauteurs_mat_de_base": []
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 300,
+     "origine": "cote",
+     "texte": "0,30 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": null,
+   "masses": {
+    "chassis": {
+     "valeur": 9990,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 120 E 15,5",
+      "mats": "UV 20",
+      "masse": 730
+     },
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV 20",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 140 M KRV 10-60",
+      "mats": "TV 23",
+      "masse": 875
+     },
+     {
+      "designation": "4 × AZ 140 E 10",
+      "mats": "TV 25",
+      "masse": 790
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 350,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 6,7 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,04 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,30 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,80 m",
+     "signification": "du dessus du châssis au niveau de liaison du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "A* = B* = 5,0 m",
+     "signification": "second entraxe d'appui possible (Eckabstand A*, B*)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = non chiffré (Sicherung gegen das seitliche Verschieben)",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le KRV 10-60 se pose au choix sur un entraxe de 6,0 m (A, B) ou de 5,0 m (A*, B*), selon le chantier (texte de la source).",
+    "Pas de mât dessiné sur la source ; liaison du mât 0,80 m au-dessus du châssis."
+   ],
+   "a_verifier": [
+    "Dimension de la platine d'appui non indiquée dans la source : à demander à Wolffkran avant modélisation."
+   ]
+  },
+  {
+   "id": "wolff-krv-10-60-a50",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KRV 10-60 – appuis à 5,0 m (A*, B*)",
+   "titre_source": "8 Kreuzrahmen KRV 10-60",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20",
+     "TV 23",
+     "TV 25"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     12
+    ],
+    "reference": "§ 8 Kreuzrahmen KRV 10-60"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 5000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 5000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 6700,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "autre_configuration": {
+     "entraxe": {
+      "valeur": 6000,
+      "origine": "cote",
+      "note": "A, B"
+     },
+     "id": "wolff-krv-10-60-a60"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -2500.0,
+      "y": -2500.0
+     },
+     {
+      "n": 2,
+      "x": 2500.0,
+      "y": -2500.0
+     },
+     {
+      "n": 3,
+      "x": 2500.0,
+      "y": 2500.0
+     },
+     {
+      "n": 4,
+      "x": -2500.0,
+      "y": 2500.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Bras posé sur la fondation, tenu latéralement par des butées (repère C). Dimension d'appui non donnée dans la source.",
+    "appui": null,
+    "epaisseur_platine": null,
+    "butee_laterale_C": "non chiffré (Sicherung gegen das seitliche Verschieben)"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20",
+     "TV 23",
+     "TV 25"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1040,
+     "origine": "cote",
+     "note": "1,04 m"
+    },
+    "hauteurs_mat_de_base": []
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 300,
+     "origine": "cote",
+     "texte": "0,30 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": null,
+   "masses": {
+    "chassis": {
+     "valeur": 9990,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 120 E 15,5",
+      "mats": "UV 20",
+      "masse": 730
+     },
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV 20",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 140 M KRV 10-60",
+      "mats": "TV 23",
+      "masse": 875
+     },
+     {
+      "designation": "4 × AZ 140 E 10",
+      "mats": "TV 25",
+      "masse": 790
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 350,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 5,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 5,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 6,7 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,04 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,30 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,80 m",
+     "signification": "du dessus du châssis au niveau de liaison du mât"
+    },
+    {
+     "vue": "plan",
+     "texte": "A* = B* = 5,0 m",
+     "signification": "second entraxe d'appui possible (Eckabstand A*, B*)"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = non chiffré (Sicherung gegen das seitliche Verschieben)",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le KRV 10-60 se pose au choix sur un entraxe de 6,0 m (A, B) ou de 5,0 m (A*, B*), selon le chantier (texte de la source).",
+    "Pas de mât dessiné sur la source ; liaison du mât 0,80 m au-dessus du châssis."
+   ],
+   "a_verifier": [
+    "Dimension de la platine d'appui non indiquée dans la source : à demander à Wolffkran avant modélisation."
+   ]
+  },
+  {
+   "id": "wolff-kr-12-60",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 12-60",
+   "titre_source": "9 Kreuzrahmen KR 12-60",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20",
+     "TV 25",
+     "UV 25",
+     "TV 23",
+     "HT 23"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     13
+    ],
+    "reference": "§ 9 Kreuzrahmen KR 12-60"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 6000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 6800,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 6778,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 2,
+      "x": 3000.0,
+      "y": -3000.0
+     },
+     {
+      "n": 3,
+      "x": 3000.0,
+      "y": 3000.0
+     },
+     {
+      "n": 4,
+      "x": -3000.0,
+      "y": 3000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.3025,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 550,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "min. 20 mm (sans tôles de calage – ohne Unterlegbleche)"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20",
+     "TV 25",
+     "UV 25",
+     "TV 23",
+     "HT 23"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1400,
+     "origine": "cote",
+     "note": "1,4 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 600,
+     "origine": "cote",
+     "texte": "0,6 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 10"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 14271,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV 20",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 120 E 15,5",
+      "mats": "UV 20",
+      "masse": 730
+     },
+     {
+      "designation": "4 × AZ 140 E 17",
+      "mats": "TV 23",
+      "masse": 880
+     },
+     {
+      "designation": "4 × AZ 160 HT 23",
+      "mats": "HT 23",
+      "masse": 905
+     },
+     {
+      "designation": "4 × AZ 140 E 10",
+      "mats": "TV 25",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 156 M",
+      "mats": "UV 25",
+      "masse": 840
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 380,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 6,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 6,8 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "550 mm x 550 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,4 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,6 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = min. 20 mm (sans tôles de calage – ohne Unterlegbleche)",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-12-60-80",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 12-60/80",
+   "titre_source": "10 Kreuzrahmen KR 12-60/80",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "UV 20",
+     "TV 20",
+     "TV 25",
+     "UV 25",
+     "TV 23",
+     "HT 23"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     14
+    ],
+    "reference": "§ 10 Kreuzrahmen KR 12-60/80"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 8600,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 8778,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 2,
+      "x": 4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 3,
+      "x": 4000.0,
+      "y": 4000.0
+     },
+     {
+      "n": 4,
+      "x": -4000.0,
+      "y": 4000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.3025,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 550,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "min. 20 mm (sans tôles de calage – ohne Unterlegbleche)"
+   },
+   "mat": {
+    "designations": [
+     "UV 20",
+     "TV 20",
+     "TV 25",
+     "UV 25",
+     "TV 23",
+     "HT 23"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1400,
+     "origine": "cote",
+     "note": "1,4 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 600,
+     "origine": "cote",
+     "texte": "0,6 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 10"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 17732,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 140 M",
+      "mats": "TV 20",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 120 E 15,5",
+      "mats": "UV 20",
+      "masse": 730
+     },
+     {
+      "designation": "4 × AZ 140 E 17",
+      "mats": "TV 23",
+      "masse": 880
+     },
+     {
+      "designation": "4 × AZ 160 HT 23",
+      "mats": "HT 23",
+      "masse": 905
+     },
+     {
+      "designation": "4 × AZ 140 E 10",
+      "mats": "TV 25",
+      "masse": 790
+     },
+     {
+      "designation": "4 × AZ 156 M",
+      "mats": "UV 25",
+      "masse": 840
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 380,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 8,6 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "550 mm x 550 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,4 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,6 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = min. 20 mm (sans tôles de calage – ohne Unterlegbleche)",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le hors-tout des platines (8778 mm, calculé) dépasse le hors-tout X du cadre (8600 mm) de 89 mm de chaque côté : X est la cote du cadre, pas celle des platines."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-1000-8",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 1000-8",
+   "titre_source": "11 Kreuzrahmen KR 1000-8",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TV 25",
+     "UV 25"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     15
+    ],
+    "reference": "§ 11 Kreuzrahmen KR 1000-8"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 8600,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 8622,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 2,
+      "x": 4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 3,
+      "x": 4000.0,
+      "y": 4000.0
+     },
+     {
+      "n": 4,
+      "x": -4000.0,
+      "y": 4000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 440,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 440,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.1936,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 440,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "40 mm"
+   },
+   "mat": {
+    "designations": [
+     "TV 25",
+     "UV 25"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1200,
+     "origine": "cote",
+     "note": "1,2 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 380,
+     "origine": "cote",
+     "texte": "380 mm"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 18230,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 140 E 10",
+      "mats": "TV25",
+      "masse": 684
+     },
+     {
+      "designation": "4 × AZ 156 M",
+      "mats": "UV25",
+      "masse": 748
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 310,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 8,6 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "440 mm x 440 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,2 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "380 mm",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 40 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [
+    "Le hors-tout des platines (8622 mm, calculé) dépasse le hors-tout X du cadre (8600 mm) de 11 mm de chaque côté : X est la cote du cadre, pas celle des platines."
+   ],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-16-80",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 16-80",
+   "titre_source": "12 Kreuzrahmen KR 16-80",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TV 25",
+     "UV 25",
+     "UV 25S",
+     "BT 29"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     16
+    ],
+    "reference": "§ 12 Kreuzrahmen KR 16-80"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 8000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 8800,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 8778,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 2,
+      "x": 4000.0,
+      "y": -4000.0
+     },
+     {
+      "n": 3,
+      "x": 4000.0,
+      "y": 4000.0
+     },
+     {
+      "n": 4,
+      "x": -4000.0,
+      "y": 4000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.3025,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 550,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "40 mm"
+   },
+   "mat": {
+    "designations": [
+     "TV 25",
+     "UV 25",
+     "UV 25S",
+     "BT 29"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1800,
+     "origine": "cote",
+     "note": "1,8 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m (TV 25, UV25, UV 25S)"
+     },
+     {
+      "valeur": 10000,
+      "origine": "cote",
+      "texte": "10,0 m (BT 29)"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 500,
+     "origine": "cote",
+     "texte": "0,5 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 12,5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 21540,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 140 E KR16-80",
+      "mats": "TV25",
+      "masse": 620
+     },
+     {
+      "designation": "4 × AZ 156 M KR16-80",
+      "mats": "UV25",
+      "masse": 680
+     },
+     {
+      "designation": "4 × AZ 156S M KR16-80",
+      "mats": "UV25S",
+      "masse": 675
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 380,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 8,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 8,8 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "550 mm x 550 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m (TV 25, UV25, UV 25S)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "10,0 m (BT 29)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,8 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,5 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 40 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  },
+  {
+   "id": "wolff-kr-16-80-100",
+   "constructeur": "Wolffkran",
+   "famille": "Kreuzrahmen (croix)",
+   "nom": "Kreuzrahmen KR 16-80/100",
+   "titre_source": "13 Kreuzrahmen KR 16-80/100",
+   "type": "croix",
+   "compatibilite": {
+    "nature": "mâts",
+    "valeurs": [
+     "TV 25",
+     "UV 25",
+     "UV 25S",
+     "BT 29"
+    ]
+   },
+   "source": {
+    "fichier": "alle_chassis.pdf",
+    "document": "WOLFF Kreuzrahmen – Technische Informationen (System-Komponente)",
+    "emetteur": "WOLFFKRAN GmbH",
+    "edition": "Stand 06/2013",
+    "langue": "allemand",
+    "pages": [
+     17
+    ],
+    "reference": "§ 13 Kreuzrahmen KR 16-80/100"
+   },
+   "appuis": {
+    "entraxe_x": {
+     "valeur": 10000,
+     "origine": "cote",
+     "note": "Eckabstand B"
+    },
+    "entraxe_y": {
+     "valeur": 10000,
+     "origine": "cote",
+     "note": "Eckabstand A"
+    },
+    "hors_tout": {
+     "valeur": 10800,
+     "origine": "cote",
+     "note": "Außenmaß X",
+     "nature": "hors-tout du cadre"
+    },
+    "hors_tout_platines": {
+     "valeur": 10778,
+     "origine": "calcul",
+     "note": "entraxe + (a + b)/√2, platines à 45°",
+     "nature": "hors-tout des platines"
+    },
+    "positions": [
+     {
+      "n": 1,
+      "x": -5000.0,
+      "y": -5000.0
+     },
+     {
+      "n": 2,
+      "x": 5000.0,
+      "y": -5000.0
+     },
+     {
+      "n": 3,
+      "x": 5000.0,
+      "y": 5000.0
+     },
+     {
+      "n": 4,
+      "x": -5000.0,
+      "y": 5000.0
+     }
+    ]
+   },
+   "pied": {
+    "type": "platine_sous_bras",
+    "description": "Platine sous l'extrémité de chaque bras, posée sur la fondation, tenue latéralement par des butées (repère C).",
+    "appui": {
+     "forme": "rectangle",
+     "a": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "b": {
+      "valeur": 550,
+      "origine": "cote"
+     },
+     "rotation_deg": 45,
+     "origine_rotation": "lu sur la vue en plan de la source : platine alignée sur le bras diagonal, butées C sur ses deux côtés latéraux (contrôlé par mesure sur le KR 10-46/60)",
+     "excentrement_radial": {
+      "valeur": 0,
+      "origine": "mesure",
+      "note": "platine centrée sur le point d'appui sur les vues en plan (contrôlé sur le KR 10-46/60, ± 10 mm)"
+     },
+     "aire_m2": {
+      "valeur": 0.3025,
+      "origine": "calcul"
+     },
+     "cote_carre_meme_aire": {
+      "valeur": 550,
+      "origine": "calcul",
+      "note": "côté du carré de même aire, pour une charge répartie simplifiée"
+     }
+    },
+    "epaisseur_platine": null,
+    "butee_laterale_C": "70 mm"
+   },
+   "mat": {
+    "designations": [
+     "TV 25",
+     "UV 25",
+     "UV 25S",
+     "BT 29"
+    ],
+    "largeur_dessin": {
+     "valeur": 2500,
+     "origine": "indicatif",
+     "note": "largeur de dessin déduite de la désignation du mât ; non cotée dans la source"
+    }
+   },
+   "elevation": {
+    "hauteur_chassis": {
+     "valeur": 1800,
+     "origine": "cote",
+     "note": "1,8 m"
+    },
+    "hauteurs_mat_de_base": [
+     {
+      "valeur": 4500,
+      "origine": "cote",
+      "texte": "4,5 m (TV 25 / UV 25 / UV25S)"
+     },
+     {
+      "valeur": 10000,
+      "origine": "cote",
+      "texte": "10,0 m (BT 29)"
+     }
+    ]
+   },
+   "fondation": {
+    "centre_sous_plan_appui": {
+     "valeur": 400,
+     "origine": "cote",
+     "texte": "0,4 m"
+    },
+    "note": "La partie centrale descend sous le plan d'appui : prévoir des massifs surélevés ou une réservation au centre."
+   },
+   "lest_central": {
+    "designations": [
+     "ZB 5",
+     "ZBKN 12,5"
+    ]
+   },
+   "masses": {
+    "chassis": {
+     "valeur": 25400,
+     "origine": "cote",
+     "note": "sans lest central ni pivots (ohne Zentralballast und ohne Aufschraubzapfen)"
+    },
+    "pivots_de_mat": [
+     {
+      "designation": "4 × AZ 140 E KR 16-80",
+      "mats": "",
+      "masse": 620
+     },
+     {
+      "designation": "4 × AZ 156 M KR 16-80",
+      "mats": "",
+      "masse": 680
+     },
+     {
+      "designation": "4 × AZ 156S M KR 16-80",
+      "mats": "",
+      "masse": 675
+     }
+    ]
+   },
+   "dessin": {
+    "bras_largeur": {
+     "valeur": 380,
+     "origine": "indicatif",
+     "note": "largeur de bras de dessin ; non cotée dans la source"
+    }
+   },
+   "cotes_source": [
+    {
+     "vue": "plan",
+     "texte": "A = 10,0 m",
+     "signification": "entraxe des appuis (Eckabstand A)"
+    },
+    {
+     "vue": "plan",
+     "texte": "B = 10,0 m",
+     "signification": "entraxe des appuis (Eckabstand B)"
+    },
+    {
+     "vue": "plan",
+     "texte": "X = 10,8 m",
+     "signification": "hors-tout du cadre (Außenmaß X)"
+    },
+    {
+     "vue": "détail X",
+     "texte": "550 mm x 550 mm",
+     "signification": "platine d'appui sous l'extrémité du bras"
+    },
+    {
+     "vue": "élévation",
+     "texte": "4,5 m (TV 25 / UV 25 / UV25S)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "10,0 m (BT 29)",
+     "signification": "hauteur de l'élément de mât de base"
+    },
+    {
+     "vue": "élévation",
+     "texte": "1,8 m",
+     "signification": "hauteur du châssis (plan d'appui → base du mât)"
+    },
+    {
+     "vue": "élévation",
+     "texte": "0,4 m",
+     "signification": "dépassement de la partie centrale sous le plan d'appui"
+    },
+    {
+     "vue": "tableau",
+     "texte": "C = 70 mm",
+     "signification": "butée latérale (Sicherung gegen das seitliche Verschieben)"
+    }
+   ],
+   "remarques": [],
+   "a_verifier": [
+    "Orientation de la platine (45°, alignée sur le bras) lue sur la vue en plan, non écrite dans la source.",
+    "Épaisseur de la platine non indiquée dans la source."
+   ]
+  }
+ ]
+}

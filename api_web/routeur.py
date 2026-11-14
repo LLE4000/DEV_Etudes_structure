@@ -38,6 +38,13 @@ LE GABARIT DU BUREAU (lot 6, 14/11/2026 ; api_web/gabarit.py) — les options de
               du module pour ce gabarit, "valeurs", "usine", "ecarts" (ce que la page enregistre), "message", "refus"} ;
               un module sans gabarit : {"ok": false, "erreur"}. Rien n'est enregistré par le moteur.
 
+LE CARNET D'UN MODULE (le « Générateur SAF », 14/11/2026 : ses grues enregistrées) — ce qui sert d'une note à l'AUTRE n'est
+pas dans une note : l'écran le garde (js/carnet.js, dans ce navigateur) et le joint à chaque requête ; un module qui
+déclare ``CARNET = True`` le reçoit dans ``etat["carnet"]`` le temps de la requête (jamais dans l'état rendu), et sa
+version relue (``lire_carnet`` du module) repart dans la réponse, que l'écran enregistre :
+
+    {"module", "action", "etat", "carnet": [...]} → {"ok": true, "etat" (sans carnet), "carnet": [...], …}
+
 TRANSMETTRE l'élément ouvert à un AUTRE module, qui en fait une note neuve (le bouton ``data-transmettre="<clé>"`` :
 « Détailler dans Taux d'armature » d'une poutre, docs/site/LOT_Q_QUATRE_MODULES.md § 6.2) :
 
@@ -219,6 +226,9 @@ def traiter(requete: str) -> str:
         if action == "gabarit":
             return _json(G.page(mod, q))
         etat = mod.normaliser(q["etat"]) if q.get("etat") and action != "nouveau" else mod.nouvel_etat()
+        carnet = bool(getattr(mod, "CARNET", False))
+        if carnet:                                               # (voir l'en-tête : le carnet voyage avec la requête)
+            etat["carnet"] = q.get("carnet") if isinstance(q.get("carnet"), list) else []
         if action == "bibliotheque":
             return _json(bibliotheque(mod, q, etat))
         message = None
@@ -239,6 +249,8 @@ def traiter(requete: str) -> str:
                 return _json(_refus("Ce module ne garde pas de fiches de la bibliothèque."))
             message = fonction(etat, q.get("quoi"), q.get("fiche"), q.get("index"))
         out = mod.resultat(etat)
+        if carnet:
+            out["carnet"] = mod.lire_carnet(etat.pop("carnet", []))
         out.update({"ok": True, "etat": etat, "message": message})
         return _json(out)
     except Exception as e:  # noqa: BLE001 — l'écran montre l'erreur ; la trace part dans la console

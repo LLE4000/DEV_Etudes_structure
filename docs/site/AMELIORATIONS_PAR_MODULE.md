@@ -61,6 +61,16 @@ Ce qui est déjà un travail décidé vit dans `SUITE_DU_CHANTIER.md` ; les déf
 | A18 | **Le raidisseur est PROPOSÉ par le module** (la première épaisseur de 8 à 20 mm qui porte, la largeur de la demi-semelle) : on ne peut ni imposer d'autres plats, ni poser un raidisseur là où l'âme suffit. | Une saisie « raidisseur imposé » par lieu (largeur, épaisseur), vérifiée de la même façon. | Utile pour vérifier un existant ou uniformiser les plats d'une poutre. | **à trancher** |
 | A19 | **La ligne d'un lieu dont l'interaction avec la flexion gouverne** écrit « η = 0,428 ≤ 1 » — juste, mais muet sur ce qu'elle additionne. | « η₂ + 0,8·η₁ = 0,60 ≤ 1,4 » sur la ligne (le détail est dans la fenêtre du lieu). | Cosmétique. | **à trancher** |
 
+## Générateur SAF — fondation de grue (`saf`)
+
+| # | Constat | Ce que ça changerait | Avis donné | État |
+|---|---|---|---|---|
+| G1 | **Changer la dalle recalcule en ≈ 0,45 à 0,6 s dans le navigateur** (cinq k à refactoriser ; déplacer la grue : ≈ 0,22 s, la dalle factorisée est gardée en cache). La cible du cahier des charges est 0,3 s. | Ne recalculer pendant le geste que le k affiché, les autres au lâcher ; ou une maille plus grosse pendant le geste. | À mesurer sur la machine du bureau avant de choisir. | **à trancher** |
+| G2 | **« Proposer » aux valeurs par défaut prend ≈ 34 s** (dix épaisseurs, trois k, trois jeux), sous sa barre de progression. | Commencer par les épaisseurs proches de la dalle saisie ; ou partir de la dalle trouvée pour l'épaisseur voisine. | Le résultat est juste ; c'est l'attente. | **à trancher** |
+| G3 | **L'écran de la bibliothèque des châssis de grue** n'est pas dans le site : la base est lue par le Générateur SAF, on ne peut pas la feuilleter ni voir un châssis dessiné à part. | Un module de consultation (comme les bibliothèques béton et acier), sur le moteur de dessin livré (`grues/chassis/src/chassis_dessin.js`). | Utile quand d'autres outils liront la bibliothèque. | **à trancher** |
+| G4 | **L'accroche « plaque à la distance mini »** n'existe que pour une dalle rectangulaire. | La même accroche le long de chaque bord d'un contour (la distance de la plaque la plus proche). | Moins utile que pour un rectangle. | **à trancher** |
+| G5 | **Les grues enregistrées vivent dans ce navigateur** (le carnet du module) : elles ne passent pas d'un appareil à l'autre ni d'un collègue à l'autre. | Un carnet du bureau, en ligne, comme le gabarit partagé. | Dépend des comptes. | **à trancher** |
+
 ## Tout le site
 
 | # | Constat | Ce que ça changerait | Avis donné | État |

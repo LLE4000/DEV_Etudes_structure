@@ -95,6 +95,11 @@ chk("la dalle et la prédalle sont un seul groupe ; la poutre le sien (les moteu
     and T.groupe_de("beton/poutre/moteur.py") == T.groupe_de("modules/export_pdf.py") == "poutre")
 chk("la règle de position des armatures (beton/position.py, lot 3 du 13/11/2026), partagée par la poutre et les dalles, est du "
     "code COMMUN — comme api_web/commun.py qui la lit", T.groupe_de("beton/position.py") == T.groupe_de("api_web/commun.py") == "commun")
+chk("le Générateur SAF a son groupe (le moteur saf/, l'écran, la note, les gestes du plan) ; les châssis de grue sont rangés "
+    "avec les bibliothèques ; le carnet d'un module est du code commun ; les plans des fondations de grues gardent le leur",
+    T.groupe_de("saf/fondation_grue/plaque.py") == T.groupe_de("api_web/saf_resultat.py") == T.groupe_de("site/web/js/plan.js")
+    == T.groupe_de("site/web/css/modules/saf.css") == "saf" and T.groupe_de("grues/chassis/acces.py") == "bibliotheques"
+    and T.groupe_de("site/web/js/carnet.js") == "commun" and T.groupe_de("site/web/js/plans.js") == "fondation_grue")
 
 print("=== 3 · Le tableau")
 with warnings.catch_warnings():

@@ -262,3 +262,41 @@ navigateur. L'écart se lit depuis la mesure de départ.
 | **Total du site** | **90 303** | **124 132** | **402** | **+4 770** |
 | Ancien logiciel Streamlit (hors site) | 24 399 | 33 372 | 75 | +481 |
 | Tests (hors site) | 71 747 | 87 812 | 156 | +5 184 |
+
+## Mesure du 14/11/2026 — après les lots 1 et 2 du Générateur SAF : la fondation de grue
+
+Depuis le lot 4 des barres, le site gagne **+3 630** lignes : un module neuf, le **Générateur SAF** (3 439 lignes, 19
+fichiers — le moteur et l'écriture des fichiers SAF, `saf/` ; l'écran, son plan et sa note, `api_web/saf*.py`,
+`dessin_saf.py`, `note_saf.py` ; les gestes du plan, `js/plan.js` ; sa feuille de style), la fonction d'accès à la
+bibliothèque des châssis de grue rangée avec les bibliothèques (`grues/chassis/acces.py`, +79 ; sa base est une donnée,
+non comptée), la page de résultats que « Rigidité du sol » prête au Générateur (+64), et le code commun (+48 : le carnet
+d'un module, le routeur qui le porte, le .zip). Aucun autre module ne bouge. Les tests +2 789 : le calcul de référence
+de l'annexe A, les suites du moteur, de l'export et de l'écran, le filtre « saf » du harnais du navigateur, les cas de
+référence du module. L'écart se lit depuis la mesure de départ.
+
+| Module | Lignes de code | Avec commentaires | Fichiers | Écart depuis le 2026-11-13 (avant l'unification (poutre, dalle, prédalle)) |
+|---|---:|---:|---:|---:|
+| Poutres béton armé | 3 754 | 5 454 | 13 | +136 |
+| Dalles et prédalles | 4 845 | 7 437 | 21 | −174 |
+| Charges sur plancher | 4 608 | 6 120 | 20 | — |
+| Fondations de grues | 5 307 | 6 990 | 19 | — |
+| Taux d'armature | 2 263 | 3 176 | 9 | — |
+| Enrobage | 1 076 | 1 526 | 7 | — |
+| Maturité du béton | 3 007 | 4 214 | 10 | — |
+| Tableau des armatures | 903 | 1 282 | 6 | — |
+| Données béton | 1 151 | 1 617 | 10 | — |
+| Choix de profilé | 5 586 | 7 703 | 30 | +4 133 |
+| Catalogue des profilés | 2 085 | 2 918 | 8 | — |
+| Cornières | 2 902 | 4 228 | 8 | — |
+| Flambement | 1 311 | 1 807 | 8 | — |
+| Assemblages métalliques | 18 397 | 25 054 | 97 | — |
+| Soudures | 3 771 | 4 934 | 13 | — |
+| Garde-corps | 3 032 | 3 983 | 11 | — |
+| Poutres bois | 1 828 | 2 712 | 9 | — |
+| Rigidité du sol | 3 292 | 4 482 | 8 | +64 |
+| Générateur SAF | 3 439 | 4 586 | 19 | +3 439 |
+| Bibliothèques (béton, acier, autres) | 5 727 | 7 443 | 27 | +79 |
+| Code commun (écran, note PDF, construction) | 15 649 | 21 353 | 73 | +723 |
+| **Total du site** | **93 933** | **129 019** | **426** | **+8 400** |
+| Ancien logiciel Streamlit (hors site) | 24 399 | 33 372 | 75 | +481 |
+| Tests (hors site) | 74 536 | 91 059 | 161 | +7 973 |

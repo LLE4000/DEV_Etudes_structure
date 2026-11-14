@@ -71,13 +71,13 @@ ACCUEIL = "./"
 # décision D1 — vaut pour TOUS les modules depuis le 10/11/2026 : chaque carte de l'accueil ouvre le calcul directement,
 # la note est provisoire jusqu'à la première modification, « Enregistrer comme note… » est sur toute page d'établi :
 # ``page_module``.)
-ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages")
+ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf")
 # … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur
 # le 09/11/2026) : ni titre « Données », ni en-tête « POUTRES (n) », ni arborescence — l'en-tête du panneau porte la
 # LIGNE de l'élément ouvert (son nom qu'un clic modifie, la liste des éléments, copier, supprimer : le moteur la rend
 # avec ``etabli_compact.arbre(…, compact=True)``, js/etabli.js la pose dans l'emplacement ``.et-elt``) à côté
 # d'« Annuler » et « Rétablir » (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
-ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages")
+ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf")
 # … et parmi eux, ceux dont « Annuler », « Rétablir » et « Replier les données » sont en haut à gauche du DESSIN, près du
 # titre de la section, au PC et à la tablette (la dalle, demande du propriétaire du 13/11/2026 — docs/site/DALLES_FUSION.md
 # § 8.2 ; la poutre au lot 4, la discipline commune E15) : la ligne de l'élément garde la place pour son nom, à droite le
@@ -121,13 +121,17 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
 # les paquets de calcul propres au site, empaquetés ENTIERS (un import paresseux n'y manque jamais) ; acier et plancher,
 # qui portent aussi les écrans Streamlit, sont relevés fichier par fichier
-PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement", "rdm")
+PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement", "rdm", "saf", "grues")
+# … et les DONNÉES que ces paquets lisent à la demande (le parcours d'un module les relève quand il les ouvre ; celles-ci
+# sont dans le paquet même si un parcours ne les ouvrait pas) : la bibliothèque des châssis de grue et le contenu du
+# fichier SAF du bureau, lus par le « Générateur SAF » — au choix d'un châssis, à l'export
+DONNEES_ENTIERES = ("grues/chassis/donnees/chassis_grues.json", "saf/fondation_grue/ndc_type.json")
 INTERDITS = ("streamlit", "reportlab", "matplotlib", "pandas", "fitz", "scipy", "PIL")
 
 
@@ -216,6 +220,7 @@ def releve(modules=None) -> dict:
             continue
         for d, _, fs in os.walk(os.path.join(RACINE, paquet_)):
             fichiers |= {os.path.relpath(os.path.join(d, f), RACINE) for f in fs if f.endswith(".py")}
+    fichiers |= {f for f in DONNEES_ENTIERES if os.path.isfile(os.path.join(RACINE, f))}
     return {"fichiers": sorted(f for f in fichiers if "__pycache__" not in f and not f.endswith(".pyc")),
             "avec_numpy": sorted(avec_numpy),
             # ce que CHAQUE module charge (la version d'un module en est l'empreinte : ``versions_modules``)
@@ -399,6 +404,20 @@ assert FG.modifier(etat, ["exemple"], "VAR8") is None
     # la charge répartie, le dessin de la barre et ses enveloppes, la comparaison, les paramètres à confirmer) ; un poteau
     # en efforts imposés, comprimé et fléchi, en tube rectangulaire (la section dessinée, le flambement, l'annexe A et
     # ses longues formules coupées) ; une poutre continue à l'Eurocode seul (trois travées, les indices des portées)
+    # le Générateur SAF : la dalle type sur un châssis de la bibliothèque, des plots, une note de raideur du sol reprise (son
+    # annexe) ; puis une fondation en contour, châssis saisi de 4 × 4 m tourné de 30° (il tient dans la dalle), sans réaction (le
+    # poids propre seul) ; la note s'ouvre sur la première (le harnais lit son verdict et le retrouve dans la note)
+    "saf": """
+from api_web import saf as P, sol as SOL
+etat = P._avec(dalle={"Lx": 9.0, "Ly": 9.0}, grue={"chassis": "liebherr-132hc-chassis-4600", "plots": {"type": "coule", "a": 2.0, "b": 2.0, "h": 0.35}})
+for ch, v in ((["projet", "projet"], "Projet"), (["projet", "grue"], "132 HC"), (["sol", "reprise"], {"nom": "Sol", "chantier": "", "etat": SOL.nouvel_etat()})):
+    assert P.modifier(etat, ch, v) is None, ch
+P.gerer_elements(etat, "ajouter")
+for ch, v in ((["dalle", "forme"], "contour"), (["dalle", "sommet", "+"], {"x": 4.0, "y": 10.0}), (["grue", "a"], "4"), (["grue", "b"], "4"),
+              (["grue", "beta"], 30), (["grue", "rect", "angle"], "45")):
+    assert P.modifier(etat, ch, v) is None, ch
+etat["actif"] = 0
+""",
     "profil": """
 from api_web import profil as P
 etat = P.nouvel_etat()
@@ -1036,6 +1055,10 @@ def page_module(cle: str, titre: str) -> str:
     biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
     if cle in ETABLI_COMPACT:
         corps = compact(corps, biblio, cle in ARBRE_COMPACT, cle in OUTILS_AU_DESSIN)
+    # un module qui a un CARNET (api_web/registre.carnets : ce qui sert d'une note à l'autre) : l'écran le joint à ses requêtes
+    if cle in REG.carnets():
+        assert corps.count(f'data-module="{cle}"') == 1
+        corps = corps.replace(f'data-module="{cle}"', f'data-module="{cle}" data-carnet="1"', 1)
     css = f"css/modules/{cle}.css"
     return tete(f"{titre} · Stab Méthodes", "css/etabli.css" if cle in ETABLI_COMPACT else "", "css/bibliotheque.css" if biblio else "",
                 css if os.path.exists(os.path.join(ICI, css)) else "") + corps

@@ -58,6 +58,7 @@ GROUPES = (
     ("garde_corps", "Garde-corps"),
     ("bois", "Poutres bois"),
     ("sol", "Rigidité du sol"),
+    ("saf", "Générateur SAF"),
     ("bibliotheques", "Bibliothèques (béton, acier, autres)"),
     ("commun", "Code commun (écran, note PDF, construction)"),
 )
@@ -92,7 +93,11 @@ REGLES = (
     ("garde_corps", _R(r"^(acier/garde_corps/|api_web/garde_corps\.py$|site/web/css/modules/garde_corps\.css$)")),
     ("bois", _R(r"^(bois/|api_web/(bois|dessin_bois)\.py$|site/web/css/modules/bois\.css$)")),
     ("sol", _R(r"^(sol/|api_web/(sol|dessin_sol)\.py$|site/web/css/modules/sol\.css$)")),
-    ("bibliotheques", _R(r"^(beton/(bibliotheque|hourdis)/|api_web/(biblio_\w+|dessin_biblio_\w+)\.py$|"
+    # le Générateur SAF : le moteur et l'écriture des fichiers (saf/), l'écran, la note, et les gestes du plan (plan.js :
+    # glisser, tourner, cote à taper), que lui seul câble aujourd'hui. Les châssis de grue (grues/) sont une bibliothèque
+    ("saf", _R(r"^(saf/|api_web/(saf|saf_saisie|saf_resultat|dessin_saf|note_saf)\.py$|"
+               r"site/web/css/modules/saf\.css$|site/web/js/plan\.js$)")),
+    ("bibliotheques", _R(r"^(beton/(bibliotheque|hourdis)/|grues/|api_web/(biblio_\w+|dessin_biblio_\w+)\.py$|"
                          r"site/web/css/bibliotheque[\w-]*\.css$|site/web/js/(biblio|biblio_note|bibliotheque)\.js$)")),
     ("commun", _R(r"^(api_web/(__init__|commun|etabli_compact|routeur|registre|parcours|fiches|icones|note_cas|pdf_reunion|gabarit)\.py$|"
                   r"beton/__init__\.py$|beton/position\.py$|acier/|rdm/|ndc_pdf/|site/note_pdf/|site/web/js/|site/web/css/|"
