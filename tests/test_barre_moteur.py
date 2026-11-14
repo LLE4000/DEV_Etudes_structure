@@ -494,13 +494,21 @@ def main():
                     faux.append((b["profil"], m, v["id"], "sans combinaison ni lieu"))
     chk(f"six barres (deux appuis, continue, poteau-poutre à trois cas, console, efforts imposés, tube) : JSON strict ; {n} formules recalculées par "
         "leur gabarit, clés uniques ; chaque vérification d'une barre chargée dit sa combinaison et son lieu", n > 250 and not faux, faux[:4])
+    Ls = [MO.verifier(barre(**k))["longueurs"] for k in (dict(), dict(maintiens=[{"x": 2.0, "genre": "complet"}]),
+                                                           dict(modele="console", travees=[2.0], cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 2.0)]}]),
+                                                           dict(flambement={"y": {"L": 4.5, "u": 0.7}, "z": {"L": 1.5}}))]
+    chk("les longueurs de flambement PRISES sont rendues (m) : la portée et la plus grande distance entre sections tenues quand la barre "
+        "ne les donne pas (6 et 6 m ; 6 et 4 m avec un maintien complet à 2 m ; 2 × 2 m pour une console), celles de la barre sinon",
+        [(x["y"]["L"], x["z"]["L"], x["y"]["auto"], x["z"]["auto"]) for x in Ls]
+        == [(6.0, 6.0, True, True), (6.0, 4.0, True, True), (4.0, 2.0, True, True), (4.5, 1.5, False, False)] and Ls[3]["y"]["u"] == 0.7,
+        [(x["y"], x["z"]) for x in Ls])
     b0 = barre(**CONTINUE)
     b1 = copy.deepcopy(b0)
     MO.verifier(b1)
     chk("verifier ne modifie pas la barre reçue", b1 == b0)
     r = MO.verifier(barre(**R2))
     chk("la sortie : la barre relue, le profilé, sa masse, la statique (abscisses, enveloppes, réactions par cas, flèche, tronçons), les méthodes, "
-        "le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "methodes", "statut", "comparaison"}
+        "le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "longueurs", "methodes", "statut", "comparaison"}
         and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and len(r["statique"]["x"]) == len(r["statique"]["enveloppes"]["ec3"]["M_max"])
         and [a["R"] for a in r["statique"]["cas"][0]["reactions"]] == [2.42 * 3 + 5.0] * 2, sorted(r["statique"]))
     plantes, n = [], 0

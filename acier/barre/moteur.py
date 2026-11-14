@@ -188,6 +188,12 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     return out
 
 
+def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
+    """Les longueurs de flambement PRISES, en mètres : {"y": {"L", "u", "auto"}, "z": …} ; « auto » quand la barre ne
+    la donne pas (l'écran l'écrit dans le champ vide)."""
+    return {a: {"L": axes[a]["L"] / 1e3, "u": axes[a]["u"], "auto": b["flambement"][a]["L"] is None} for a in ("y", "z")}
+
+
 # ------------------------------------------------------------------ efforts imposés
 def _efforts_imposes(b: Dict, s: Dict) -> Dict:
     axes = _longueurs(b, None)
@@ -216,7 +222,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
                 methodes[nom] = calcul()
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
-    return {"statique": None, "methodes": methodes}
+    return {"statique": None, "methodes": methodes, "longueurs": _longueurs_rendues(b, axes)}
 
 
 # ------------------------------------------------------------------ barre chargée
@@ -371,7 +377,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 methodes[nom] = calcul()
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
-    return {"statique": statique, "methodes": methodes}
+    return {"statique": statique, "methodes": methodes, "longueurs": _longueurs_rendues(b, axes)}
 
 
 def _comparaison(methodes: Dict) -> List[Dict]:
@@ -391,8 +397,9 @@ def _comparaison(methodes: Dict) -> List[Dict]:
 
 def verifier(barre: Dict) -> Dict:
     """La barre vérifiée : {"barre" (relue), "profil", "masse" (kg/m), "statique" (None en efforts imposés),
-    "methodes": {"historique": …, "ec3": …} (la forme de acier/barre/resultat.py ; en barre chargée, chaque
-    vérification dit sa combinaison et son lieu), "statut", "comparaison"}."""
+    "longueurs" (de flambement, celles qui sont prises), "methodes": {"historique": …, "ec3": …} (la forme de
+    acier/barre/resultat.py ; en barre chargée, chaque vérification dit sa combinaison et son lieu), "statut",
+    "comparaison"}."""
     b = EN.normaliser(barre)
     s = SE.du_catalogue(b["profil"])
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
