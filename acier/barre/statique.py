@@ -56,12 +56,26 @@ class Lecture:
     def __init__(self, sol):
         self.sol = sol
         self.lus: Dict[float, Dict] = {}
+        self.moments: Dict[float, float] = {}
 
     def evaluer(self, x: float) -> Dict:
         e = self.lus.get(x)
         if e is None:
             e = self.lus[x] = self.sol.evaluer(x)
         return e
+
+    def moment(self, x: float) -> float:
+        """M dans la section x — à droite ; à gauche au bout de la barre : la valeur de ``evaluer``, sans le reste
+        (effort tranchant, rotation, flèche). Le moment critique lit le moment en une centaine de points par tronçon."""
+        m = self.moments.get(x)
+        if m is None:
+            sol = self.sol
+            xc = min(sol.L, max(0.0, x))
+            droite = xc < sol.L
+            t = next((t for t in sol.travees if xc < t.x0 + t.L or (xc == t.x0 + t.L and (not droite or t is sol.travees[-1]))),
+                     sol.travees[-1])
+            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), droite)
+        return m
 
     def __getattr__(self, nom: str):
         return getattr(self.sol, nom)
@@ -102,9 +116,9 @@ class Combinaison:
         return o
 
     def M(self, x: float) -> float:
-        """Le moment dans la section x (à droite ; à gauche au bout de la barre) — continu sauf sous un couple."""
-        e = self.lire(x)
-        return e["M_g"] if x >= self.L else e["M_d"]
+        """Le moment dans la section x (à droite ; à gauche au bout de la barre) — continu sauf sous un couple. C'est
+        la valeur de ``lire`` (M_d, ou M_g au bout), lue sans l'effort tranchant ni la flèche."""
+        return sum(f * s.moment(x) for f, s in self.paires)
 
 
 def ruptures(sols: Sequence) -> List[float]:

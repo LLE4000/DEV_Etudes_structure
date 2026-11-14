@@ -167,6 +167,18 @@ def controles(M=None):
     comb2 = st.Combinaison("x", sol2, [1.0], [0.0])
     c("poutre continue de 2 × 5 m sous charge uniforme : l'extremum de CHAQUE travée est une section à vérifier (à 3/8 de la portée : "
       "1,875 et 8,125 m)", st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 5.0, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
+    # le moment lu seul (M) est celui de la lecture complète (lire) : à droite, à gauche au bout — couple et appuis compris
+    bm2 = en.normaliser(barre(modele="continue", travees=[4.0, 6.0], poids_propre=False,
+                              cas=[{"nom": "G", "nature": "permanent", "charges": [q(7.0, 0.0, 10.0), {"type": "C", "v": 12.0, "a": 2.5}, P_(9.0, 7.0)]}]))
+    solm = st.resoudre(bm2, st.cas_complets(bm2, s), 1.0e4)
+    combm = st.Combinaison("x", solm, [1.35], [0.0])
+    ecarts_M = [x for x in [0.0, 1.0, 2.5, 3.999, 4.0, 4.001, 7.0, 9.3, 10.0, 10.5, -1.0]
+                if combm.M(x) != (combm.lire(x)["M_g"] if x >= 10.0 else combm.lire(x)["M_d"])]
+    saut = combm.lire(2.5)
+    c("le moment lu seul (pour le moment critique) est celui de la lecture complète, au bit près : à DROITE d'un couple (le saut de "
+      "12 × 1,35 kN·m est là), sur un appui intermédiaire, au bout de la barre (à gauche) et hors de la barre",
+      not ecarts_M and proche(saut["M_d"] - saut["M_g"], 1.35 * 12.0, 1e-9) and combm.M(2.5) == saut["M_d"] and combm.M(10.0) == combm.lire(10.0)["M_g"],
+      (ecarts_M, saut["M_g"], saut["M_d"]))
     # les lectures sont gardées : une section déjà lue n'est pas recalculée
     lus = [0]
     for sol_ in sols:
@@ -410,6 +422,10 @@ MUTATIONS = [
     ("statique", "mémoire d'un cas : la lecture d'une autre section rendue", "        e = self.lus.get(x)\n", "        e = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'une combinaison : la lecture d'une autre section rendue", "        o = self.lus.get(x)\n", "        o = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'un cas retirée (chaque combinaison recalcule)", "            e = self.lus[x] = self.sol.evaluer(x)\n", "            e = self.sol.evaluer(x)\n"),
+    ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), droite)\n",
+     "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), False)\n"),
+    ("statique", "moment lu seul : la mémoire rend une autre section", "        m = self.moments.get(x)\n", "        m = self.moments.get(0.0)\n"),
+    ("statique", "moment d'une combinaison non pondéré", "        return sum(f * s.moment(x) for f, s in self.paires)", "        return sum(s.moment(x) for f, s in self.paires)"),
     ("statique", "racines de l'effort tranchant : la seconde oubliée", "        r = [q / A] + ([y0 / q] if q != 0 else [])", "        r = [q / A]"),
     ("statique", "extremum du moment non cherché", '        for t in _racines(eu["V_d"], comb.lire(0.5 * (u + v))["V_d"], ev["V_g"], seuil):', "        for t in []:"),
     ("statique", "bout libre d'une console pris en fourche", "        tenus[round(L, 9)] = MC.LIBRE\n", "        tenus[round(L, 9)] = MC.FOURCHE\n"),
