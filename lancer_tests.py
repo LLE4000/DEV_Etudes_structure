@@ -14,7 +14,10 @@ lu pendant qu'elle tournait : modules du dépôt importés, fichiers ouverts en 
 (le suivi est ``outils/suivi_tests/sitecustomize.py``, posé sur PYTHONPATH le temps de la suite). À la prochaine
 demande, une suite dont AUCUNE de ces empreintes n'a bougé est dite INCHANGÉE et n'est pas rejouée : son vert
 d'alors vaut toujours. Tout doute rejoue : une suite jamais vue, une suite rouge, un Python différent, un
-sous-processus que le suivi n'a pas pu lire (« python -I », node, pdftotext…), une dépendance disparue.
+sous-processus que le suivi n'a pas pu lire (« python -I », node…), une dépendance disparue. Un fils « pdftotext »,
+« pdffonts » ou « pdfinfo » (la relecture d'une note PDF que la suite vient d'écrire) est SUIVI : il ne lit que son
+entrée standard ou le fichier qu'on lui nomme — un fichier du dépôt ainsi nommé devient une dépendance — et sa version
+est gardée au témoin (une autre version rejoue la suite).
 La couverture ne baisse pas : ce qui a changé est rejoué, ce qui n'a pas changé a déjà été prouvé sur ces octets-là.
 
 Code de sortie : 0 si toutes les suites jouées sont vertes, 1 sinon.
@@ -96,6 +99,9 @@ def raison_de_rejouer(racine, suite, temoin):
         return f"Python {temoin.get('python')} → {sys.version.split()[0]}"
     if not temoin.get("suivie", False):
         return "non suivie : " + (temoin.get("raison") or "sous-processus")
+    for nom, v in (temoin.get("outils") or {}).items():
+        if nom not in OUTILS_PURS or version_outil(nom) != v:
+            return f"{nom} : {v} → {version_outil(nom) if nom in OUTILS_PURS else 'inconnu'}"
     for rel, h in temoin["fichiers"].items():
         if empreinte_fichier(os.path.join(racine, rel)) != h:
             return f"{rel} a changé"
@@ -108,6 +114,39 @@ def raison_de_rejouer(racine, suite, temoin):
 # ------------------------------------------------------------------ le suivi d'une suite
 def _est_python(commande):
     return os.path.basename(commande).lower().startswith("python")
+
+
+# les OUTILS qui ne lisent que ce qu'on leur donne (l'entrée standard, les fichiers nommés sur leur ligne de commande) :
+# un fils de cette liste n'empêche pas le suivi ; sa version (la commande qui la dit) est gardée au témoin
+OUTILS_PURS = {"pdftotext": ["pdftotext", "-v"], "pdffonts": ["pdffonts", "-v"], "pdfinfo": ["pdfinfo", "-v"]}   # (poppler)
+
+
+_VERSIONS = {}
+
+
+def version_outil(nom):
+    """La version d'un outil pur (sa première ligne non vide), ou « absent » — lue une fois par passage."""
+    if nom not in _VERSIONS:
+        try:
+            p = subprocess.run(OUTILS_PURS[nom], capture_output=True, text=True, timeout=20)
+            lignes = [l.strip() for l in (p.stdout + "\n" + p.stderr).splitlines() if l.strip()]
+            _VERSIONS[nom] = lignes[0] if lignes else "absent"
+        except (OSError, subprocess.SubprocessError):
+            _VERSIONS[nom] = "absent"
+    return _VERSIONS[nom]
+
+
+def fichiers_nommes(racine, enfant, cwd=None):
+    """Les fichiers DU DÉPÔT qu'un outil pur lirait : chaque argument qui n'est pas une option (« -layout ») ni « - »
+    (l'entrée ou la sortie standard), résolu depuis ``cwd`` (la racine par défaut) ; ceux qui sont dans le dépôt."""
+    out = []
+    for a in enfant[1:]:
+        if a == "-" or a.startswith("-"):
+            continue
+        chemin = os.path.abspath(os.path.join(cwd or racine, a))
+        if os.path.commonpath([chemin, racine]) == racine and os.path.isfile(chemin):
+            out.append(os.path.relpath(chemin, racine).replace(os.sep, "/"))
+    return out
 
 
 def depouiller_suivi(racine, suite, fichier_suivi):
@@ -129,6 +168,7 @@ def depouiller_suivi(racine, suite, fichier_suivi):
         return False, "la suite n'a pas écrit son suivi", {}, {}
     suivie, raison = True, ""
     fichiers, dossiers = set(), set()
+    outils = {}
     for l in lignes:
         fichiers.update(l.get("fichiers", []))
         dossiers.update(l.get("dossiers", []))
@@ -137,8 +177,14 @@ def depouiller_suivi(racine, suite, fichier_suivi):
         for enfant in l.get("enfants", []):
             if not enfant:
                 continue
+            nom = os.path.basename(enfant[0])
+            if nom in OUTILS_PURS:
+                # (un outil pur : les fichiers du dépôt qu'il lit deviennent des dépendances, sa version est gardée)
+                fichiers.update(fichiers_nommes(racine, enfant))
+                outils[nom] = version_outil(nom)
+                continue
             if not _est_python(enfant[0]):
-                suivie, raison = False, f"sous-processus {os.path.basename(enfant[0])}"
+                suivie, raison = False, f"sous-processus {nom}"
                 break
             python_lances += 1
         if not suivie:
@@ -152,7 +198,7 @@ def depouiller_suivi(racine, suite, fichier_suivi):
     fichiers.add(os.path.relpath(suite, racine).replace(os.sep, "/"))
     emp_f = {rel: empreinte_fichier(os.path.join(racine, rel)) for rel in sorted(fichiers)}
     emp_d = {rel: listing(os.path.join(racine, rel if rel != "." else "")) for rel in sorted(dossiers)}
-    return suivie, raison, emp_f, emp_d
+    return suivie, raison, emp_f, emp_d, outils
 
 
 def jouer(racine, suite):
@@ -176,9 +222,10 @@ def jouer(racine, suite):
     etat = "IGNORÉ" if ignore else ("VERT" if p.returncode == 0 and ko == 0 else "ROUGE")
     temoin = None
     if etat == "VERT":
-        suivie, raison, fichiers, dossiers = depouiller_suivi(racine, suite, fichier_suivi)
+        suivie, raison, fichiers, dossiers, outils = depouiller_suivi(racine, suite, fichier_suivi)
         temoin = {"version": VERSION_TEMOIN, "python": sys.version.split()[0], "quand": datetime.now().isoformat(timespec="seconds"),
-                  "duree": round(duree, 1), "ok": ok, "suivie": suivie, "raison": raison, "fichiers": fichiers, "dossiers": dossiers}
+                  "duree": round(duree, 1), "ok": ok, "suivie": suivie, "raison": raison, "fichiers": fichiers, "dossiers": dossiers,
+                  "outils": outils}
     try:
         os.remove(fichier_suivi)
     except OSError:

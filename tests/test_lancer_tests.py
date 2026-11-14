@@ -29,6 +29,12 @@ RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LANCEUR = os.path.join(RACINE, "lancer_tests.py")
 SUIVI = os.path.join(RACINE, "outils", "suivi_tests", "sitecustomize.py")
 
+import importlib.util  # noqa: E402
+
+_spec_l = importlib.util.spec_from_file_location("lancer_tests", LANCEUR)
+L = importlib.util.module_from_spec(_spec_l)
+_spec_l.loader.exec_module(L)
+
 OK, KO = [], []
 
 
@@ -210,6 +216,83 @@ mutation("6. sans l'appariement des fils Python, la suite au fils « -I » serai
 mut3 = suivi_src.replace('elif evenement in ("os.listdir", "os.scandir"):', 'elif evenement in ("os.listdir_", "os.scandir_"):')
 chk("6. mutation 3 préparée", mut3 != suivi_src)
 mutation("6. sans « os.listdir », un fichier ajouté dans un dossier listé passe inaperçu", mut3, lanceur_src, sans_listdir)
+
+# ------------------------------------------------------------------ 7. pdftotext suivi (13/11/2026)
+# Un fils « pdftotext » (la relecture d'une note PDF que la suite vient d'écrire) ne lit que ce qu'on lui donne : la suite
+# reste SUIVIE ; un fichier du dépôt qu'on lui nomme devient une dépendance ; sa version est gardée au témoin.
+PDF = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+       b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+       b"4 0 obj<</Length 38>>stream\nBT /F1 18 Tf 20 40 Td (Bonjour) Tj ET\nendstream endobj\n"
+       b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
+SUITE_G = """import os, subprocess
+racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+pdf = open(os.path.join(racine, "data", "x.pdf"), "rb").read()
+p = subprocess.run(["pdftotext", "-layout", "-", "-"], input=pdf, capture_output=True)
+ok = b"Bonjour" in p.stdout
+print(f"RÉSULTAT : {int(ok)} OK, {int(not ok)} échec(s)")
+"""
+SUITE_H = """import os, subprocess
+racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+p = subprocess.run(["pdftotext", "-layout", os.path.join("data", "y.pdf"), "-"], capture_output=True, cwd=racine)
+ok = b"Bonjour" in p.stdout
+print(f"RÉSULTAT : {int(ok)} OK, {int(not ok)} échec(s)")
+"""
+
+
+def depot_pdf(dossier, suivi=SUIVI):
+    fabriquer(dossier, suivi)
+    for f in ("test_a.py", "test_b.py", "test_c.py", "test_d.py", "test_e.py"):
+        os.remove(os.path.join(dossier, "tests", f))
+    for f in ("x.pdf", "y.pdf"):
+        with open(os.path.join(dossier, "data", f), "wb") as fh:
+            fh.write(PDF)
+    ecrire(dossier, "tests/test_g.py", SUITE_G)
+    ecrire(dossier, "tests/test_h.py", SUITE_H)
+
+
+if shutil.which("pdftotext"):
+    d7 = tempfile.mkdtemp(prefix="lanceur_pdf_")
+    depot_pdf(d7)
+    code, etats, fin, _ = lancer(d7)
+    tg, th = temoin(d7, "test_g.py"), temoin(d7, "test_h.py")
+    chk("7. un fils pdftotext (sur l'entrée standard) : la suite est SUIVIE, la version de pdftotext gardée au témoin",
+        code == 0 and tg is not None and tg["suivie"] is True and tg["outils"].get("pdftotext", "").startswith("pdftotext version"), tg)
+    chk("7. pdftotext sur un fichier du dépôt : ce fichier devient une dépendance",
+        th is not None and th["suivie"] is True and "data/y.pdf" in th["fichiers"], th and th["fichiers"])
+    chk("7. pdffonts et pdfinfo, de la même famille (poppler), sont des outils purs eux aussi",
+        {"pdftotext", "pdffonts", "pdfinfo"} <= set(L.OUTILS_PURS))
+    code, etats, fin, _ = lancer(d7)
+    chk("7. puis les deux sont inchangées : plus rejouées pour rien", etats.get("test_g.py") == "INCHANGÉ" and etats.get("test_h.py") == "INCHANGÉ", etats)
+    with open(os.path.join(d7, "data", "y.pdf"), "ab") as fh:
+        fh.write(b"% change\n")
+    code, etats, fin, sortie = lancer(d7, "--pourquoi")
+    chk("7. le PDF nommé change → la suite qui le relit est rejouée, l'autre non (la raison nomme le fichier)",
+        etats.get("test_h.py") == "VERT" and etats.get("test_g.py") == "INCHANGÉ" and "data/y.pdf a changé" in sortie, etats)
+    tg = temoin(d7, "test_g.py")
+    tg["outils"]["pdftotext"] = "pdftotext version 0.0"
+    with open(os.path.join(d7, ".temoin_tests", "test_g.py.json"), "w", encoding="utf-8") as fh:
+        json.dump(tg, fh)
+    code, etats, fin, sortie = lancer(d7, "--pourquoi")
+    chk("7. une autre version de pdftotext → la suite est rejouée, et la raison le dit",
+        etats.get("test_g.py") == "VERT" and "pdftotext version 0.0 →" in sortie, (etats, sortie[-300:]))
+    shutil.rmtree(d7, ignore_errors=True)
+
+    def sans_outils_purs(depot, lanceur):
+        for f in os.listdir(os.path.join(depot, "tests")):
+            os.remove(os.path.join(depot, "tests", f))
+        for f in ("x.pdf", "y.pdf"):
+            with open(os.path.join(depot, "data", f), "wb") as fh:
+                fh.write(PDF)
+        ecrire(depot, "tests/test_g.py", SUITE_G)
+        lancer(depot, lanceur=lanceur)
+        return lancer(depot, lanceur=lanceur)[1].get("test_g.py") != "INCHANGÉ"   # le contrôle 7 rougirait
+
+    mut4 = lanceur_src.replace("            if nom in OUTILS_PURS:\n", "            if False:\n")
+    chk("7. mutation 4 préparée", mut4 != lanceur_src)
+    mutation("7. sans les outils purs, la suite qui relit son PDF redevient « non suivie », rejouée à chaque fois", suivi_src, mut4,
+             sans_outils_purs)
+else:
+    print("     (pdftotext absent : le suivi de pdftotext n'est pas rejoué sur cette machine)")
 
 shutil.rmtree(tmp, ignore_errors=True)
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")

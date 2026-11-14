@@ -859,6 +859,11 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   détaillée ; « Non vérifiées » en une ligne — ce que DAL6 a fait pour la dalle) ; la couleur du nom d'une poutre « à
   vérifier » (une observation à examiner : neutre aujourd'hui, les dalles n'ont pas cet état) ; la ligne des étriers de
   l'en-tête de la coupe, tant que le dessin ne dit pas leur Ø et leur pas.
+- **Le lanceur plus rapide (fait le 14/11/2026 ; `docs/TESTS.md`)** : le parcours du navigateur se joue EN MORCEAUX, trois
+  à la fois (`outils/parcours_parallele.py`) — 17 min au lieu de 31, chaque contrôle d'un passage complet retrouvé
+  (3 296 noms), la liste des morceaux liée aux sections du parcours par un test ; les suites qui relisent leur note PDF
+  (pdftotext) sont désormais suivies, plus rejouées quand rien de ce qu'elles lisent n'a changé. Restent rejouées à
+  chaque passage : les suites sous node et celles qui lancent un Python isolé (« -I »).
 - **Le temps des vérifications (relevé du 13/11/2026)** : la batterie ne rejoue que les suites touchées (lot 2a :
   46 jouées en 460 s sur 3 processus, 90 sautées ; DAL9, code commun touché : 69 jouées en 776 s), mais 30 suites
   sont rejouées à CHAQUE passage, leurs sous-processus échappant au suivi (`.temoin_tests/`) : 10 relisent leur note
