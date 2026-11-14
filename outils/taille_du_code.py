@@ -80,7 +80,7 @@ REGLES = (
     ("armatures", _R(r"^(beton/armatures/|api_web/armatures\.py$|site/web/css/modules/armatures\.css$)")),
     ("donnees_beton", _R(r"^(beton/donnees/|api_web/donnees_beton\.py$|site/web/css/modules/donnees_beton\.css$|"
                          r"beton_classes\.json$|docs/validation/exemples_publies\.json$)")),
-    ("profil", _R(r"^(acier/choix_profil/|api_web/(profil|dessin_profil)\.py$|site/web/css/modules/profil\.css$)")),
+    ("profil", _R(r"^(acier/choix_profil/|acier/barre/|api_web/(profil|dessin_profil)\.py$|site/web/css/modules/profil\.css$)")),
     ("catalogue", _R(r"^(acier/profiles/|api_web/(catalogue|dessin_catalogue)\.py$|site/web/css/modules/catalogue\.css$)")),
     ("corniere", _R(r"^(acier/corniere/|api_web/(corniere|dessin_corniere|note_corniere)\.py$|"
                     r"site/web/css/modules/corniere\.css$)")),
