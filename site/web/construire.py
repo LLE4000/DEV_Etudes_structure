@@ -525,8 +525,12 @@ def marque_verifie(cle: str) -> str:
     return f'<span class="ok" data-verifie="{cle}" hidden>{MQ.icon("badge-check")}</span>'
 
 
-def legende_verifie(texte: str = "vérifié par un administrateur") -> str:
-    return f'<span class="okleg">{MQ.icon("badge-check")}{MQ.esc(texte)}</span>'
+def legende_verifie(texte: str = "vérifié par un administrateur", deux: str = "par deux") -> str:
+    """La légende de la marque, là où on la voit : ARGENTÉE, un administrateur l'a vérifié ; DORÉE, deux administrateurs
+    différents (demande du propriétaire, 14/11/2026). Les couleurs sont celles de la marque (css/site.css)."""
+    i = MQ.icon("badge-check")
+    return (f'<span class="okleg"><span class="okleg-i" data-niveau="argent">{i}</span><span class="okleg-t">{MQ.esc(texte)}</span> '
+            f'<span class="okleg-i" data-niveau="or">{i}</span><span class="okleg-t">{MQ.esc(deux)}</span></span>')
 
 
 def rail(actif: str) -> str:

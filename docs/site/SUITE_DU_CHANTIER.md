@@ -892,6 +892,14 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
     une autre personne) ; des **remarques d'amélioration** (une capture et un mot, envoyés par chacun, une liste que le
     propriétaire trie tous les un ou deux mois) — elles demandent un stockage en ligne (question 8 : les comptes Supabase),
     proposé après le lot 7.
+- **14/11/2026 — la marque ARGENT puis OR, faite** (`docs/site/PROJETS_EQUIPE.md` § 8.2) : un administrateur vérifie, la
+  marque est argentée ; un deuxième, une autre personne, vérifie la même version, elle devient dorée avec les deux noms
+  (accueil, volet, « Nouvelle note », pied du résultat, page Équipe — « Vérifier aussi »). Le registre garde une ligne
+  par administrateur ; l'ancienne forme se lit comme de l'argent. Contrôles : `test_site_bureau.py` (scènes de l'or, du
+  registre en listes, des couleurs lues ; 6 mutations de plus), harnais `bureau` (Marie, administrateur à son tour,
+  dore la poutre ; Louis argente les soudures ; chaque couleur comparée à son jeton). Le contrôle du pied du résultat
+  vérifie maintenant que rien ne recouvre la ligne au bout du défilement (au téléphone, la capture la montrait sous la
+  barre des boutons : la capture seule — la ligne est lisible au bout du défilement, le contrôle le prouve).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

@@ -5894,7 +5894,11 @@ const principal = async () => {
         return { roles: [...document.querySelectorAll('#eq-membres tr[data-membre]')].map((t) => [t.querySelector('.avatar').textContent, ((t.querySelector('.bu-mr .role') || {}).textContent || '').trim(), vis(t.querySelector('.bu-mr .role')), vis(t.querySelector('.bu-role-m'))]),
           nb: document.getElementById('eq-verif-nb').textContent,
           modules: [...document.querySelectorAll('#eq-modules tr[data-module-verif]')].map((t) => [t.dataset.moduleVerif, t.dataset.etat, ((t.querySelector('.bu-ve .valid') || {}).textContent || '').trim(), ((t.querySelector('.bu-vqui') || {}).textContent || '').trim(),
-            [...t.querySelectorAll('.bu-vg button')].filter(vis).map((x) => x.textContent.trim()).join()]),
+            [...t.querySelectorAll('.bu-vg button')].filter(vis).map((x) => x.textContent.trim()).join(), ((t.querySelector('.bu-ve .valid') || { dataset: {} }).dataset.niveau || ''),
+            t.querySelector('.bu-ve .valid') ? getComputedStyle(t.querySelector('.bu-ve .valid')).color : '']),
+          // (les jetons de la charte, résolus en couleurs : ce que l'œil voit se compare à eux)
+          jetons: Object.fromEntries(['argent', 'or'].map((n) => { const i = document.createElement('i'); i.style.color = `var(--${n})`; document.body.appendChild(i); const c = getComputedStyle(i).color; i.remove(); return [n, c]; })),
+          voletNiveaux: ['poutre', 'dalle', 'soudures'].map((k) => document.querySelector(`.modpanel [data-verifie="${k}"]`).dataset.niveau || ''),
           note: (document.querySelector('.bu-verif-note') || {}).textContent || '', menuRole: !!document.querySelector('#eq-membres form[data-edit] [name="role"]'),
           volet: ['poutre', 'dalle', 'soudures'].map((k) => !document.querySelector(`.modpanel [data-verifie="${k}"]`).hidden) }; });
       a = await etatEquipe();
@@ -5927,7 +5931,8 @@ const principal = async () => {
         && lg('poutre')[3] === `LLLouis Lejeune · ${jour}` && lg('poutre')[4] === 'Retirer' && lg('dalle')[1] === 'verifie' && a.modules.filter((m) => m[1] === 'non').length === 12
         && JSON.stringify(a.volet) === '[true,true,false]', JSON.stringify({ toastVerif, nb: a.nb, poutre: lg('poutre'), dalle: lg('dalle'), volet: a.volet }));
       // le CALCUL d'un module change (l'empreinte du site n'est plus celle de la vérification) : la marque tombe d'elle-même
-      await g.evaluate(() => { const r = JSON.parse(localStorage.getItem('stab.verifications.v1')); r.dalle.version = '0123456789abcdef'; localStorage.setItem('stab.verifications.v1', JSON.stringify(r)); });
+      // (le registre garde une LISTE par module, une ligne par administrateur — 14/11/2026)
+      await g.evaluate(() => { const r = JSON.parse(localStorage.getItem('stab.verifications.v1')); r.dalle = r.dalle.map((v) => ({ ...v, version: '0123456789abcdef' })); localStorage.setItem('stab.verifications.v1', JSON.stringify(r)); });
       await g.reload();
       await pretBureau(g, 'equipe');
       a = await etatEquipe();
@@ -5939,12 +5944,37 @@ const principal = async () => {
         await g.click('#eq-membres form[data-edit] button[type="submit"]'); await g.waitForTimeout(220); return vuToast(g); };
       const toastNomme = await nommer(idMarie, 'admin');
       const deuxAdmins = (await etatEquipe()).roles.map((r) => r[1]).join();
+      // ARGENT puis OR (demande du propriétaire, 14/11/2026) : Marie, administrateur à son tour, prend le poste et vérifie AUSSI la
+      // poutre que Louis a vérifiée — la marque devient dorée ; Louis, revenu, vérifie les soudures — argentées
+      await g.selectOption('#eq-jesuis', idMarie);
+      await g.waitForTimeout(150);
+      const avantOr = await etatEquipe();
+      await g.click('#eq-modules [data-verifier="poutre"]');
+      await g.waitForTimeout(200);
+      const toastOr = await vuToast(g);
+      const enOr = await etatEquipe();
+      await g.selectOption('#eq-jesuis', idLouis);
+      await g.waitForTimeout(150);
+      await g.click('#eq-modules [data-verifier="soudures"]');
+      await g.waitForTimeout(200);
+      const deuxNiveaux = await etatEquipe();
+      const lgx = (e, cle) => e.modules.find((m) => m[0] === cle) || [];
+      verif(`${dit} · ARGENT puis OR : Marie, administrateur à son tour, voit la poutre vérifiée par Louis — écusson argenté, « Vérifier aussi » ; elle la vérifie : « Vérifié deux fois », doré, les deux noms, il ne reste que « Retirer » ; Louis vérifie les soudures : argentées ; le volet suit — chaque couleur est celle de son jeton`,
+        lgx(avantOr, 'poutre')[4] === 'Vérifier aussi,Retirer' && lgx(avantOr, 'poutre')[5] === 'argent' && lgx(avantOr, 'poutre')[6] === avantOr.jetons.argent
+        && toastOr && !toastOr.erreur && /Poutres béton armé » vérifié deux fois : la marque est dorée/.test(toastOr.texte)
+        && lgx(enOr, 'poutre')[2] === 'Vérifié deux fois' && lgx(enOr, 'poutre')[3] === `LLMDULouis Lejeune et Marie Dubois · ${jour}` && lgx(enOr, 'poutre')[4] === 'Retirer'
+        && lgx(enOr, 'poutre')[5] === 'or' && lgx(enOr, 'poutre')[6] === enOr.jetons.or && enOr.jetons.or !== enOr.jetons.argent
+        && lgx(deuxNiveaux, 'soudures')[2] === 'Vérifié' && lgx(deuxNiveaux, 'soudures')[5] === 'argent' && lgx(deuxNiveaux, 'soudures')[6] === deuxNiveaux.jetons.argent
+        && lgx(deuxNiveaux, 'poutre')[4] === 'Retirer' && deuxNiveaux.nb === '2 vérifiés sur 14' && JSON.stringify(deuxNiveaux.voletNiveaux) === '["or","","argent"]',
+        JSON.stringify({ avant: lgx(avantOr, 'poutre'), toastOr, or: lgx(enOr, 'poutre'), soudures: lgx(deuxNiveaux, 'soudures'), nb: deuxNiveaux.nb, jetons: deuxNiveaux.jetons, volet: deuxNiveaux.voletNiveaux }));
+      // (pas de capture pleine page ici : elle fausse la mesure « au doigt » de la page, qui suit, jusqu'à la prochaine navigation ;
+      //  la capture de la page Équipe, plus bas, montre déjà l'or et l'argent)
       await nommer(idMarie, 'membre');
       const toastRefus = await nommer(idLouis, 'membre');
       await g.click('#eq-membres [data-annuler]');
       await g.waitForTimeout(120);
       a = await etatEquipe();
-      const lignesRoles = (await memoire(g)).journal.slice(0, 2);
+      const lignesRoles = (await memoire(g)).journal.filter((l) => /^membre\./.test(l[0])).slice(0, 2);
       verif(`${dit} · un administrateur en nomme un autre (Marie) puis lui reprend le rôle — le journal dit les deux ; le DERNIER administrateur ne peut pas se retirer le sien : refusé, la raison est dite, rien ne change`,
         toastNomme && !toastNomme.erreur && deuxAdmins === 'Membre,Administrateur,Administrateur' && toastRefus && toastRefus.erreur && /toujours un administrateur/.test(toastRefus.texte)
         && a.roles.map((r) => r[1]).join() === 'Membre,Administrateur,Membre' && JSON.stringify(lignesRoles) === '[["membre.membre","LL","Marie Dubois"],["membre.admin","LL","Marie Dubois"]]',
@@ -5963,17 +5993,24 @@ const principal = async () => {
           projets: [...document.querySelectorAll('#chantiers a.site')].map((s) => [s.querySelector('b').textContent, s.querySelector('.nb').textContent, [...s.querySelectorAll('.avatar')].filter(vis).map((x) => x.textContent).join()]),
           fil: [...document.querySelectorAll('#activite .feed')].filter(vis).map((f) => f.querySelector('.avatar').textContent + ' ' + f.querySelector('div').textContent.slice(0, 44)),
           carte: [...document.querySelectorAll('#recentes .rcard')].map((r) => [r.querySelector('.t').textContent, r.querySelector('.ou').textContent, (r.querySelector('.avatar') || {}).textContent]) }; });
-      verif(`${dit} · l'accueil, intégré : « Bonjour Louis » et ma pastille (LL) ; le projet « Réalex – Lot 2 » (1 note, la pastille de qui y a travaillé) ; l'activité — six lignes au plus, chacune avec la pastille de son auteur ; la note à reprendre dit son projet et son auteur`,
-        a.bonjour === 'Bonjour Louis' && a.moi === 'LL' && JSON.stringify(a.projets) === '[["Réalex – Lot 2","1 note","LLE"]]' && a.fil.length === 6 && a.fil.every((l) => /^(LLE|LL) Vous avez /.test(l))
+      verif(`${dit} · l'accueil, intégré : « Bonjour Louis » et ma pastille (LL) ; le projet « Réalex – Lot 2 » (1 note, la pastille de qui y a travaillé) ; l'activité — six lignes au plus, chacune avec la pastille de son auteur (Marie, qui a vérifié la poutre, avec la sienne) ; la note à reprendre dit son projet et son auteur`,
+        a.bonjour === 'Bonjour Louis' && a.moi === 'LL' && JSON.stringify(a.projets) === '[["Réalex – Lot 2","1 note","LLE"]]' && a.fil.length === 6
+        && a.fil.every((l) => /^(LLE|LL) Vous avez |^MDU Marie a vérifié le module Poutres béton armé/.test(l)) && a.fil.filter((l) => /^MDU /.test(l)).length === 1
         && a.carte.length === 1 && a.carte[0][0] === 'Poutres R+1' && /Réalex – Lot 2 › Charpente/.test(a.carte[0][1]) && a.carte[0][2] === 'LLE', JSON.stringify(a));
       // ---- les détails de l'accueil : la marque des modules vérifiés, « Nouvelle note », le volet, la pastille du poste, la recherche
       a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
-        const vues = [...document.querySelectorAll('.accueil a.tile [data-verifie]')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return [e.dataset.verifie, e.title, Math.round(r.width), Math.round(r.height)]; });
+        const teinte = (n) => { const i = document.createElement('i'); i.style.color = `var(--${n})`; document.body.appendChild(i); const c = getComputedStyle(i).color; i.remove(); return c; };
+        const vues = [...document.querySelectorAll('.accueil a.tile [data-verifie]')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return [e.dataset.verifie, e.title, Math.round(r.width), Math.round(r.height), e.dataset.niveau, getComputedStyle(e).color]; });
         const t = document.querySelector('.accueil a.tile[data-module="poutre"]').getBoundingClientRect(), m = document.querySelector('.accueil a.tile[data-module="poutre"] [data-verifie]').getBoundingClientRect();
         const leg = document.querySelector('.accueil .okleg');
-        return { vues, n: document.querySelectorAll('.accueil a.tile [data-verifie]').length, dedans: m.left >= t.left && m.right <= t.right && m.top >= t.top && m.bottom <= t.bottom, legende: vis(leg) && leg.textContent.trim() }; });
-      verif(`${dit} · l'accueil marque le module VÉRIFIÉ — « Poutres béton armé », et lui seul des 13 : la marque se voit dans sa tuile (14 px au moins) et dit « Vérifié · LL · ${jour} » ; « Dalles », dont le calcul a changé, ne la porte plus ; la légende l'explique`,
-        a.n === 14 && a.vues.length === 1 && a.vues[0][0] === 'poutre' && a.vues[0][1] === `Vérifié · LL · ${jour}` && a.vues[0][2] >= 14 && a.vues[0][3] >= 14 && a.dedans && a.legende === 'vérifié par un administrateur', JSON.stringify(a));
+        return { vues, n: document.querySelectorAll('.accueil a.tile [data-verifie]').length, dedans: m.left >= t.left && m.right <= t.right && m.top >= t.top && m.bottom <= t.bottom, legende: vis(leg) && leg.textContent.replace(/\s+/g, ' ').trim(),
+          legendeTeintes: [...document.querySelectorAll('.accueil .okleg .okleg-i')].map((i) => [i.dataset.niveau, getComputedStyle(i.querySelector('svg')).color, vis(i.querySelector('svg'))]), jetons: { argent: teinte('argent-vif'), or: teinte('or-vif') } }; });
+      const tuile = (cle) => a.vues.find((v) => v[0] === cle) || [];
+      verif(`${dit} · l'accueil marque les modules VÉRIFIÉS, et eux seuls des 14 : « Poutres béton armé » DORÉE (« Vérifié · LL, MDU · ${jour} »), « Soudures » ARGENTÉE (« Vérifié · LL · ${jour} ») — chaque marque dans sa tuile, 14 px au moins, de la couleur de son jeton ; « Dalles », dont le calcul a changé, ne la porte plus ; la légende montre les deux couleurs`,
+        a.n === 14 && a.vues.length === 2 && tuile('poutre')[1] === `Vérifié · LL, MDU · ${jour}` && tuile('poutre')[4] === 'or' && tuile('poutre')[5] === a.jetons.or
+        && tuile('soudures')[1] === `Vérifié · LL · ${jour}` && tuile('soudures')[4] === 'argent' && tuile('soudures')[5] === a.jetons.argent && a.jetons.or !== a.jetons.argent
+        && a.vues.every((v) => v[2] >= 14 && v[3] >= 14) && a.dedans && a.legende === 'vérifié par un administrateur par deux'
+        && JSON.stringify(a.legendeTeintes) === JSON.stringify([['argent', a.jetons.argent, true], ['or', a.jetons.or, true]]), JSON.stringify(a));
       await g.click('#ouvrir-nouvelle');
       await g.waitForTimeout(250);
       const dansNouvelle = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -5986,7 +6023,7 @@ const principal = async () => {
         await g.waitForTimeout(300);
         volet = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
           const leg = document.querySelector('.modpanel .okleg');
-          return { ouvert: vis(document.querySelector('.modpanel a.navitem')), vues: [...document.querySelectorAll('.modpanel [data-verifie]')].filter(vis).map((e) => [e.dataset.verifie, Math.round(e.getBoundingClientRect().width)]), legende: vis(leg) && leg.textContent.trim() }; });
+          return { ouvert: vis(document.querySelector('.modpanel a.navitem')), vues: [...document.querySelectorAll('.modpanel [data-verifie]')].filter(vis).map((e) => [e.dataset.verifie, Math.round(e.getBoundingClientRect().width)]), legende: vis(leg) && leg.textContent.replace(/\s+/g, ' ').trim() }; });
         await g.click('.modpanel [data-modules]');
         await g.waitForTimeout(250);
         barre = await g.evaluate(() => { const e = document.querySelector('.nav [data-moi-rail]'), p = e.querySelector('.avatar'), n = document.querySelector('.nav').getBoundingClientRect();
@@ -5995,9 +6032,9 @@ const principal = async () => {
           return { vu: p.checkVisibility({ visibilityProperty: true, opacityProperty: true }), ini: p.textContent, rond: Math.abs(r.width - r.height) < 0.6, dans: r.left >= n.left && r.right <= n.right && r.bottom <= innerHeight && r.top >= 0,
             href: e.getAttribute('href'), tip: e.dataset.tip, cible: [Math.round(l.width), Math.round(l.height)] }; });
       }
-      verif(`${dit} · la même marque là où le module est nommé : « Nouvelle note » (la poutre seule)${tel ? '' : ', le volet des modules (la poutre seule ; sa légende « vérifié ») ; au pied de la barre, MA pastille (LL, ronde, dans la barre) mène à l\'équipe' + (doigt ? ' — une cible de 40 px' : '')}`,
-        dansNouvelle.ouverte && dansNouvelle.n === 14 && JSON.stringify(dansNouvelle.vues) === '["poutre"]'
-        && (tel || (volet.ouvert && volet.vues.length === 1 && volet.vues[0][0] === 'poutre' && volet.vues[0][1] >= 14 && volet.legende === 'vérifié'
+      verif(`${dit} · la même marque là où le module est nommé : « Nouvelle note » (la poutre et les soudures)${tel ? '' : ', le volet des modules (les mêmes ; sa légende « vérifié · par deux ») ; au pied de la barre, MA pastille (LL, ronde, dans la barre) mène à l\'équipe' + (doigt ? ' — une cible de 40 px' : '')}`,
+        dansNouvelle.ouverte && dansNouvelle.n === 14 && JSON.stringify([...dansNouvelle.vues].sort()) === '["poutre","soudures"]'
+        && (tel || (volet.ouvert && volet.vues.length === 2 && JSON.stringify(volet.vues.map((v) => v[0]).sort()) === '["poutre","soudures"]' && volet.vues.every((v) => v[1] >= 14) && volet.legende === 'vérifié par deux'
           && barre && barre.vu && barre.ini === 'LL' && barre.rond && barre.dans && barre.href === 'equipe' && /^Louis Lejeune/.test(barre.tip) && (!doigt || (barre.cible[0] >= 40 && barre.cible[1] >= 40)))),
         JSON.stringify({ dansNouvelle, volet, barre }));
       // la RECHERCHE : un module (vérifié : il le dit), une note, un projet ; le clavier ; rien ne porte ce nom
@@ -6046,18 +6083,32 @@ const principal = async () => {
         await g.waitForSelector('#resultat .pfoot .et-verif', { timeout: 120000, state: 'attached' });
         if (tel) await g.click('.mtabs [data-onglet="resultat"]');
         await g.waitForTimeout(350);
-        return g.evaluate(() => { const e = document.querySelector('#resultat .pfoot .et-verif'); e.scrollIntoView({ block: 'end' });
+        return g.evaluate(async () => { const e = document.querySelector('#resultat .pfoot .et-verif');
+          // au BOUT de ce qu'on peut faire défiler (la page, et ce qui défile dedans) — comme on lit la fin d'un résultat ; « scrollIntoView »
+          // la posait au ras du bas de l'écran, sous la barre des boutons du téléphone : présente dans le DOM, cachée à l'œil
+          for (const d of [document.scrollingElement, ...[...document.querySelectorAll('*')].filter((x) => /(auto|scroll)/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 2)]) d.scrollTop = d.scrollHeight;
+          await new Promise((ok) => setTimeout(ok, 250));
           const r = e.getBoundingClientRect(), t = e.querySelector('.et-verif-t'), tr = t.getBoundingClientRect(), pied = e.closest('.pfoot').getBoundingClientRect();
+          const dessus = document.elementFromPoint(tr.left + Math.min(20, tr.width / 2), tr.top + tr.height / 2);
           const icones = [...e.querySelectorAll('.et-verif-i')].filter((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map((x) => x.className.replace('et-verif-i ', ''));
+          const teinte = (n) => { const i = document.createElement('i'); i.style.color = `var(--${n})`; document.body.appendChild(i); const c = getComputedStyle(i).color; i.remove(); return c; };
           return { vu: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), etat: e.dataset.etat, texte: t.textContent, titre: e.title, entier: t.scrollWidth <= t.clientWidth + 1, police: parseFloat(getComputedStyle(t).fontSize),
-            dans: r.left >= pied.left - 1 && r.right <= pied.right + 1 && r.right <= innerWidth && tr.width > 40 && r.bottom <= innerHeight + 1, icones, n: document.querySelectorAll('#resultat .et-verif').length,
+            niveau: e.dataset.niveau, couleur: getComputedStyle(e).color, jetons: { argent: teinte('argent'), or: teinte('or') },
+            picto: (() => { const i = [...e.querySelectorAll('.et-verif-i')].find((x) => x.checkVisibility()); return i ? getComputedStyle(i).color : ''; })(), vifs: { argent: teinte('argent-vif'), or: teinte('or-vif') },
+            dans: r.left >= pied.left - 1 && r.right <= pied.right + 1 && r.right <= innerWidth && tr.width > 40 && r.bottom <= innerHeight + 1 && !!dessus && e.contains(dessus),
+            icones, n: document.querySelectorAll('#resultat .et-verif').length,
             boutons: e.querySelectorAll('button, a').length, auDoigt: matchMedia('(pointer: coarse)').matches }; });
       };
       const pv = await piedModule('poutre');
-      verif(`${dit} · dans « Poutres béton armé », le pied du cadre Résultat dit « Module vérifié · LL · ${jour} » : une seule ligne, lue en entier (11 px au moins), dans le cadre et dans l'écran, son pictogramme — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)`,
-        pv.vu && pv.etat === 'verifie' && pv.texte === `Module vérifié · LL · ${jour}` && /vérifié par Louis Lejeune/.test(pv.titre) && pv.entier && pv.police >= 11 && pv.dans && JSON.stringify(pv.icones) === '["et-verif-oui"]'
-        && pv.n === 1 && pv.boutons === 0 && pv.auDoigt === doigt, JSON.stringify(pv));
+      verif(`${dit} · dans « Poutres béton armé », le pied du cadre Résultat dit « Module vérifié deux fois · LL, MDU · ${jour} », en OR : une seule ligne, lue en entier (11 px au moins), dans le cadre et dans l'écran, rien ne la recouvre au bout du défilement, son pictogramme — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)`,
+        pv.vu && pv.etat === 'verifie' && pv.texte === `Module vérifié deux fois · LL, MDU · ${jour}` && /vérifié par Louis Lejeune et Marie Dubois/.test(pv.titre) && pv.entier && pv.police >= 11 && pv.dans
+        && JSON.stringify(pv.icones) === '["et-verif-oui"]' && pv.niveau === 'or' && pv.couleur === pv.jetons.or && pv.picto === pv.vifs.or && pv.n === 1 && pv.boutons === 0 && pv.auDoigt === doigt, JSON.stringify(pv));
       await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_module_verifie.png`) });
+      const ps = await piedModule('soudures');
+      verif(`${dit} · dans « Soudures », vérifié par un seul administrateur : « Module vérifié · LL · ${jour} », en ARGENT, lu en entier, dans le cadre`,
+        ps.vu && ps.etat === 'verifie' && ps.texte === `Module vérifié · LL · ${jour}` && /vérifié par Louis Lejeune le /.test(ps.titre) && ps.entier && ps.dans && ps.niveau === 'argent' && ps.couleur === ps.jetons.argent && ps.picto === ps.vifs.argent
+        && ps.jetons.argent !== ps.jetons.or && JSON.stringify(ps.icones) === '["et-verif-oui"]', JSON.stringify(ps));
+      await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_module_argent.png`) });
       const pd = await piedModule('dalle'), pn = await piedModule('corniere');
       verif(`${dit} · « Dalles béton armé », dont le calcul a changé depuis sa vérification, dit « Module à revérifier » ; « Cornières », que personne n'a vérifié, « Module à vérifier » — jamais « vérifié »`,
         pd.vu && pd.etat === 'change' && pd.texte === 'Module à revérifier' && /son calcul a changé/.test(pd.titre) && JSON.stringify(pd.icones) === '["et-verif-non"]' && pd.dans && pd.entier

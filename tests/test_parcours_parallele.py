@@ -8,8 +8,10 @@ complet, sans un contrôle de moins.
 - le journal se lit : les contrôles, OK ou KO, leur NOM sans le détail mesuré, et la clé de comparaison qui neutralise les
   mesures d'un nom (« 18 pages, 3.8 s ») ;
 - la couverture : un contrôle du passage de référence absent de l'union des morceaux est nommé, et le passage rougit ;
-- mutations : un morceau retiré, une section nouvelle sans morceau, la clé sans neutralisation — chacune fait rougir le
-  contrôle qui la garde.
+- les morceaux SEULS (ceux qui mesurent des temps, « demarrage ») commencent quand tous les autres ont fini, et rien ne
+  tourne avec eux (un faux « jouer » note les heures) ;
+- mutations : un morceau retiré, une section nouvelle sans morceau, la clé sans neutralisation, aucun morceau seul —
+  chacune fait rougir le contrôle qui la garde.
 
     /usr/bin/python3.12 tests/test_parcours_parallele.py
 """
@@ -119,6 +121,49 @@ with tempfile.TemporaryDirectory() as tmp:
     vus = {PP.cle_controle(n) for r in morceaux for n in r["noms"]}
     chk("couverture : le contrôle « c » de la référence, absent des morceaux, est nommé ; « b (3 s) » et « b (5 s) » sont le même",
         sorted(refs - vus) == ["c"], sorted(refs - vus))
+
+# ---------------------------------------------------------------- 4. les morceaux SEULS : après les autres, sans personne
+import threading  # noqa: E402
+
+chk("« demarrage » est joué SEUL (il mesure des temps) ; c'est un vrai morceau", "demarrage" in PP.SEULS and set(PP.SEULS) <= set(PP.MORCEAUX), PP.SEULS)
+
+
+def ordre_joue(seuls) -> dict:
+    """Les heures (début, fin) de chaque morceau, joués par PP.principal avec un faux « jouer » (aucun navigateur) ;
+    ``seuls`` remplace PP.SEULS le temps de l'essai, le témoin des durées est écrit à part."""
+    heures, verrou = {}, threading.Lock()
+    vrai_jouer, vrais_seuls, vrai_temoin = PP.jouer, PP.SEULS, PP.TEMOIN
+
+    def faux(base, dossier, morceau):
+        t0 = time.time()
+        time.sleep(0.15)
+        with verrou:
+            heures[morceau] = (t0, time.time())
+        return {"morceau": morceau, "code": 0, "duree": 0.15, "ok": 1, "ko": [], "noms": [f"{morceau} : un contrôle"], "journal": ""}
+    with tempfile.TemporaryDirectory() as tmp:
+        PP.jouer, PP.SEULS, PP.TEMOIN = faux, seuls, os.path.join(tmp, "parcours.json")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = PP.principal(["http://x", tmp, "-j", "3", "demarrage", "garde", "poutre", "bureau"])
+        finally:
+            PP.jouer, PP.SEULS, PP.TEMOIN = vrai_jouer, vrais_seuls, vrai_temoin
+    return {"code": code, "heures": heures}
+
+
+import contextlib  # noqa: E402
+import io  # noqa: E402
+import time  # noqa: E402
+
+o = ordre_joue(PP.SEULS)
+h = o["heures"]
+autres = [v for k, v in h.items() if k != "demarrage"]
+chk("« demarrage » commence quand les trois autres ont fini, et rien ne tourne avec lui (les trois autres, eux, tournent ensemble)",
+    o["code"] == 0 and len(h) == 4 and h["demarrage"][0] >= max(f for _, f in autres) - 1e-6
+    and max(d for d, _ in autres) < min(f for _, f in autres), {k: (round(a % 100, 2), round(b % 100, 2)) for k, (a, b) in h.items()})
+m = ordre_joue(())
+hm = m["heures"]
+chk("mutation · aucun morceau seul : « demarrage » tourne avec les autres — le contrôle rougit",
+    not (hm["demarrage"][0] >= max(f for k, (_, f) in hm.items() if k != "demarrage") - 1e-6))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

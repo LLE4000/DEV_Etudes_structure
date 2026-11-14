@@ -419,6 +419,18 @@ label.fichier { width: max-content; }
 [data-theme="dark"] .et-verif[data-etat="verifie"] { color: var(--accent); }
 .et-verif[data-etat="verifie"] .et-verif-oui, .et-verif:not([data-etat="verifie"]) .et-verif-non { display: grid; }
 .et-verif[data-etat="change"] { color: var(--ink); }
+/* ARGENT (un administrateur) puis OR (deux administrateurs différents) : js/marques.js écrit data-niveau sur chaque marque,
+   js/ecran_equipe.js sur l'écusson « Vérifié » — la couleur l'emporte sur celle de la charte, dans les deux thèmes */
+/* (le texte : --argent, --or ; le pictogramme seul : --argent-vif, --or-vif, plus clairs) */
+.pfoot .et-verif[data-etat="verifie"][data-niveau="argent"] { color: var(--argent); }
+.pfoot .et-verif[data-etat="verifie"][data-niveau="or"] { color: var(--or); }
+span.ok[data-verifie][data-niveau="argent"], .okleg .okleg-i[data-niveau="argent"], .pfoot .et-verif[data-niveau="argent"] .et-verif-i { color: var(--argent-vif); }
+span.ok[data-verifie][data-niveau="or"], .okleg .okleg-i[data-niveau="or"], .pfoot .et-verif[data-niveau="or"] .et-verif-i { color: var(--or-vif); }
+.okleg .okleg-i { display: grid; flex: none; }
+.okleg .okleg-i svg.i { color: inherit; }
+.okleg .okleg-i + .okleg-i, .okleg .okleg-t + .okleg-i { margin-left: 4px; }
+td .valid.ok[data-niveau="argent"] { color: var(--argent); background: var(--argent-soft); }
+td .valid.ok[data-niveau="or"] { color: var(--or); background: var(--or-soft); }
 .et-verif-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------------------------------------------------------------- impression : le dessin et le résultat */

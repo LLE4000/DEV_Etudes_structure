@@ -251,7 +251,8 @@ jouer("verifications", new Memoire(), (mem) => {
   const membre = [VF.verifier("dalle"), VF.retirer("poutre")], encore = VF.etat("poutre").etat, dalle = VF.etat("dalle").etat;
   E.choisirMoi(a.id);
   // le calcul du module change : l'empreinte du site n'est plus celle de la vérification
-  const r = JSON.parse(mem.getItem(VF.CLE)); r.poutre.version = "0123456789abcdef"; mem.setItem(VF.CLE, JSON.stringify(r));
+  // (le registre garde une LISTE par module, une ligne par administrateur — 14/11/2026)
+  const r = JSON.parse(mem.getItem(VF.CLE)); r.poutre = r.poutre.map((v) => ({ ...v, version: "0123456789abcdef" })); mem.setItem(VF.CLE, JSON.stringify(r));
   const e2 = VF.etat("poutre"), d2 = VF.dire("poutre"), nb2 = VF.tous().filter((m) => m.etat === "verifie").length;
   const v2 = VF.verifier("poutre"), e3 = VF.etat("poutre");        // revérifier : la version du jour
   const nb3 = VF.tous().filter((m) => m.etat === "verifie").map((m) => [m.cle, m.nom, m.par.ini]);
@@ -272,6 +273,40 @@ jouer("verifications_abimees", new Memoire(() => null, { "stab.verifications.v1"
   const avant = VF.etat("poutre").etat, v = VF.verifier("poutre");
   return { avant, ok: v.ok, copies: [...mem.m.keys()].filter((k) => k.startsWith("stab.verifications.v1.illisible.")).map((k) => mem.getItem(k)), apres: VF.etat("poutre").etat };
 });
+// ARGENT puis OR (14/11/2026) : un administrateur, la marque est argentée ; un DEUXIÈME administrateur, différent, la rend dorée
+jouer("verifications_or", new Memoire(), (mem) => {
+  const a = E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true }).membre, b = E.ajouter({ nom: "Marie Durand" }).membre, c = E.ajouter({ nom: "Paul Martin" }).membre;
+  const nomme = E.nommer(b.id, "admin").ok;
+  const v1 = VF.verifier("poutre"), e1 = VF.etat("poutre"), signeLouis = VF.aSigne(e1, a), signeMarie = VF.aSigne(e1, b);
+  const v1b = VF.verifier("poutre"), e1b = VF.etat("poutre"), lignes1 = JSON.parse(mem.getItem(VF.CLE)).poutre.length;   // Louis encore : il ne compte qu'une fois
+  E.choisirMoi(b.id);
+  const v2 = VF.verifier("poutre"), e2 = VF.etat("poutre"), d2 = VF.dire("poutre"), nb2 = VF.tous().filter((m) => m.etat === "verifie").length;
+  E.choisirMoi(c.id);
+  const membre = VF.verifier("poutre"), e2m = VF.etat("poutre").niveau;                                                   // Paul est membre
+  E.choisirMoi(a.id);
+  const lignes2 = JSON.parse(mem.getItem(VF.CLE)).poutre.length;
+  // le calcul change : les DEUX signatures tombent ensemble ; revérifier repart de l'argent, la ligne périmée s'efface
+  const r = JSON.parse(mem.getItem(VF.CLE)); r.poutre = r.poutre.map((v) => ({ ...v, version: "0123456789abcdef" })); mem.setItem(VF.CLE, JSON.stringify(r));
+  const e3 = VF.etat("poutre"), v3 = VF.verifier("poutre"), e4 = VF.etat("poutre"), lignes3 = JSON.parse(mem.getItem(VF.CLE)).poutre.length;
+  E.choisirMoi(b.id);
+  VF.verifier("poutre");
+  const ret = VF.retirer("poutre"), e5 = VF.etat("poutre"), apres = Object.hasOwn(JSON.parse(mem.getItem(VF.CLE)), "poutre");
+  return { nomme, v1: [v1.ok, v1.niveau], e1: [e1.etat, e1.niveau, e1.pars.map((p) => p.ini)], signes: [signeLouis, signeMarie], v1b: [v1b.ok, v1b.niveau],
+           e1b: [e1b.etat, e1b.niveau, e1b.pars.length], lignes1, v2: [v2.ok, v2.niveau], e2: [e2.etat, e2.niveau, e2.pars.map((p) => p.ini), e2.par.ini, e2.t >= e1b.t],
+           d2, nb2, membre: [membre.ok, e2m], lignes2, e3: [e3.etat, e3.niveau, e3.par.ini], v3: v3.niveau, e4: [e4.etat, e4.niveau, e4.pars.map((p) => p.ini)], lignes3,
+           ret: ret.ok, e5: [e5.etat, e5.niveau, e5.pars.length], apres };
+});
+// un registre écrit à la main, en LISTES : une personne n'est comptée qu'une fois, une ligne mal formée ou périmée ne compte pas pour l'or
+const SIG2 = { id: "y", ini: "MDU", nom: "Marie Dubois", c: 1 }, VS_ = VS.VERSIONS;
+jouer("verifications_listes", new Memoire(() => null, { "stab.verifications.v1": JSON.stringify({
+  poutre: [{ par: SIG, t: 5, version: VS_.poutre }, { par: { ...SIG, ini: "LL" }, t: 9, version: VS_.poutre }],
+  dalle: [{ par: SIG, t: 5, version: VS_.dalle }, { par: { ini: "<script>", nom: "x" }, t: 6, version: VS_.dalle }],
+  bois: [{ par: SIG, t: 5, version: VS_.bois }, { par: SIG2, t: 7, version: VS_.bois }],
+  soudures: [{ par: SIG, t: 5, version: "0123456789abcdef" }, { par: SIG2, t: 7, version: VS_.soudures }],
+  corniere: [{ par: SIG, t: 5, version: "0123456789abcdef" }, { par: SIG2, t: 7, version: "0123456789abcdef" }],
+  flambement: [{ par: { ini: "AB", nom: "Sans identifiant" }, t: 5, version: VS_.flambement }, { par: { ini: "CD", nom: "Autre" }, t: 6, version: VS_.flambement }] }) }), () => (
+  { niveaux: Object.fromEntries(["poutre", "dalle", "bois", "soudures", "corniere", "flambement"].map((k) => { const e = VF.etat(k); return [k, [e.etat, e.niveau, e.pars.map((p) => p.ini).join()]]; })),
+    dire: [VF.dire("bois").court, VF.dire("bois").qui.split(" · ")[0], VF.dire("poutre").court] }));
 out.marques = { sansDocument: MQ.marquer() === undefined, sansRacine: MQ.marquer(null) === undefined, poser: MQ.poserVerification(null, "poutre") === undefined };
 
 // ---- la RECHERCHE de l'accueil : modules, bibliothèques, projets, sous-projets, notes
@@ -475,6 +510,31 @@ chk("un registre des vérifications réécrit à la main : une signature « <scr
 VA = D.get("verifications_abimees", {})
 chk("un registre des vérifications ABÎMÉ se lit vide (aucun module vérifié) ; vérifier COPIE d'abord son texte à part",
     VA == {"avant": "non", "ok": True, "copies": ["[1,2"], "apres": "verifie"}, VA)
+VO = D.get("verifications_or", {})
+chk("ARGENT : un administrateur vérifie — la marque est argentée, sa signature seule ; il l'a signée, l'autre administrateur pas encore",
+    VO.get("nomme") is True and VO.get("v1") == [True, "argent"] and VO.get("e1") == ["verifie", "argent", ["LLE"]] and VO.get("signes") == [True, False],
+    (VO.get("v1"), VO.get("e1"), VO.get("signes")))
+chk("le MÊME administrateur revérifie : il ne compte qu'une fois — la marque reste argentée, sa ligne est remplacée (une seule dans le registre)",
+    VO.get("v1b") == [True, "argent"] and VO.get("e1b") == ["verifie", "argent", 1] and VO.get("lignes1") == 1, (VO.get("v1b"), VO.get("e1b"), VO.get("lignes1")))
+chk("OR : un DEUXIÈME administrateur, différent, vérifie la même version — la marque est dorée, « Vérifié deux fois · LLE, MDU · la date », "
+    "les deux noms dans la phrase ; le module compte une fois",
+    VO.get("v2") == [True, "or"] and VO.get("e2") == ["verifie", "or", ["LLE", "MDU"], "LLE", True] and (VO.get("d2") or {}).get("court") == "Vérifié deux fois"
+    and re.fullmatch(r"LLE, MDU · \d\d/\d\d/\d{4}", VO["d2"]["qui"]) is not None and "vérifié par Louis Lejeune et Marie Durand" in VO["d2"]["long"]
+    and "relue par deux administrateurs" in VO["d2"]["long"] and "Chaque note reste à relire" in VO["d2"]["long"] and VO.get("nb2") == 1 and VO.get("lignes2") == 2,
+    (VO.get("v2"), VO.get("e2"), VO.get("d2"), VO.get("nb2"), VO.get("lignes2")))
+chk("un MEMBRE ne fait pas l'or : refusé, la marque ne change pas",
+    VO.get("membre") == [False, "or"], VO.get("membre"))
+chk("le CALCUL change : les deux signatures tombent ENSEMBLE (« à revérifier », la dernière signature est dite) ; revérifier repart de l'ARGENT "
+    "— la ligne périmée s'efface du registre ; retirer efface tout, or compris",
+    VO.get("e3") == ["change", "", "MDU"] and VO.get("v3") == "argent" and VO.get("e4") == ["verifie", "argent", ["LLE"]] and VO.get("lignes3") == 1
+    and VO.get("ret") is True and VO.get("e5") == ["non", "", 0] and VO.get("apres") is False, (VO.get("e3"), VO.get("v3"), VO.get("e4"), VO.get("lignes3"), VO.get("e5")))
+VL = D.get("verifications_listes", {})
+chk("un registre en listes écrit à la main : la même personne deux fois (même identifiant, initiales changées) reste ARGENT, sous sa dernière signature ; une signature piégée ne "
+    "compte pas ; deux personnes sur la version du jour font l'OR ; une ligne périmée ne compte pas ; toutes périmées : « à revérifier » ; sans "
+    "identifiant, deux noms différents sont deux personnes",
+    VL.get("niveaux") == {"poutre": ["verifie", "argent", "LL"], "dalle": ["verifie", "argent", "LLE"], "bois": ["verifie", "or", "LLE,MDU"],
+                          "soudures": ["verifie", "argent", "MDU"], "corniere": ["change", "", "MDU"], "flambement": ["verifie", "or", "AB,CD"]}
+    and VL.get("dire") == ["Vérifié deux fois", "LLE, MDU", "Vérifié"], VL)
 chk("js/marques.js ne peut pas faire échouer un écran : sans document, sans racine, sans cadre Résultat, il ne fait rien et ne lève pas",
     D.get("marques") == {"sansDocument": True, "sansRacine": True, "poser": True}, D.get("marques"))
 RC = D.get("recherche", {})
@@ -645,9 +705,12 @@ chk("chaque module de calcul porte SA marque là où il est nommé : sa tuile de
     and len(_mopt) == 14 and all(marques(c) == [k] for k, c in _mopt)
     and len(_volets) == 25 - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
     (len(_tuiles), len(_mopt), len(_volets), [k for k, c in _tuiles + _mopt if marques(c) != [k]]))
-chk("la marque est EXPLIQUÉE là où on la voit : « vérifié par un administrateur » au-dessus des modules de l'accueil, « vérifié » en tête du volet",
-    re.search(r'<div class="h2">Modules</div>.*?<span class="okleg">.*?vérifié par un administrateur</span>', ACC, re.S) is not None
-    and all(re.search(r'<div class="mp-h"><div class="h2">Modules</div><span class="okleg">.*?vérifié</span>', v, re.S) for v in _volets.values()))
+_LEG = (r'<span class="okleg"><span class="okleg-i" data-niveau="argent"><svg[^>]*>.*?</svg></span><span class="okleg-t">{}</span> '
+        r'<span class="okleg-i" data-niveau="or"><svg[^>]*>.*?</svg></span><span class="okleg-t">par deux</span></span>')
+chk("la marque est EXPLIQUÉE là où on la voit, ses DEUX couleurs : « [argentée] vérifié par un administrateur [dorée] par deux » au-dessus des "
+    "modules de l'accueil, « [argentée] vérifié [dorée] par deux » en tête du volet",
+    re.search(r'<div class="h2">Modules</div>.*?' + _LEG.format("vérifié par un administrateur"), ACC, re.S) is not None
+    and all(re.search(r'<div class="mp-h"><div class="h2">Modules</div>' + _LEG.format("vérifié"), v, re.S) for v in _volets.values()))
 _etablis_v = {n: re.findall(r'<template id="et-verif-gabarit">(.*?)</template>', h, re.S) for n, h in PAGES_R.items() if 'id="resultat"' in h}
 _cle_de = {v: k for k, v in SW.ADRESSES.items()}
 chk(f"dans les {len(_etablis_v)} pages d'établi, le gabarit de la ligne « Module vérifié / à vérifier » (js/marques.js la pose au pied du cadre Résultat) "
@@ -758,7 +821,7 @@ chk("le journal sait dire les quatre gestes du lot (nommer administrateur, retir
     "l'équipe note les deux premiers, js/verifications.js les deux autres — après l'écriture, jamais avant",
     all(f'"{k}": ' in JO_ for k in ("membre.admin", "membre.membre", "module.verifie", "module.retire"))
     and 'J.noter(choisi.value === "admin" ? "membre.admin" : "membre.membre", { membre: r.membre.nom });' in EE
-    and re.search(r"if \(!M\.changer\(CLE, vide, valide, \(r\) => \{ r\[cle\] = v; \}\)\) return \{ ok: false, erreur: ECHEC \};\n  J\.noter\(\"module\.verifie\"", VF_JS) is not None
+    and "  if (!M.changer(CLE, vide, valide, (r) => { r[cle] = [...garder(r[cle]), v]; })) return { ok: false, erreur: ECHEC };\n  J.noter(\"module.verifie\"" in VF_JS
     and re.search(r"if \(!M\.changer\(CLE, vide, valide, \(r\) => \{ delete r\[cle\]; \}\)\) return \{ ok: false, erreur: ECHEC \};\n  J\.noter\(\"module\.retire\"", VF_JS) is not None)
 chk("« hidden » l'emporte sur la charte (qui affiche « .tile .ok » en grille) : css/site.css le dit, sinon TOUS les modules porteraient la marque",
     "[data-verifie][hidden] { display: none !important; }" in SITE_CSS and re.search(r"\.tile \.ok \{[^}]*display: grid", CHARTE) is not None)
@@ -768,9 +831,36 @@ chk("js/marques.js ne MONTRE une marque que pour l'état « verifie » (ni « ch
     and re.search(r"etat\.ecran = OUVRIR\[sorte\]\(corps, ctx\);\n(?:\s*//[^\n]*\n)*\s*marquer\(corps\);", APP) is not None
     and re.search(r'\$\("#resultat"\)\.innerHTML = r\.resultat;\s*\n\s*poserVerification\(\$\("#resultat"\), MODULE\);', ET_JS) is not None
     and "marquer(document);" in AC_JS and "marquer(document);" in EE)
-chk("déclarer un module vérifié demande une confirmation qui dit ce qu'on affirme (« relu la méthode ») ; les boutons n'existent que pour un administrateur",
-    re.search(r"if \(!confirm\(poser \? `Déclarer le module « \$\{nom\} » VÉRIFIÉ \?", EE) is not None and "relu la méthode" in EE
-    and re.search(r'const geste = !admin \? "" : m\.etat === "verifie"', EE) is not None and "const admin = E.estAdmin(eq.moi);" in EE)
+chk("les marques prennent la couleur de leur NIVEAU partout où on les voit (la marque des modules, la ligne du pied du résultat, la légende, "
+    "l'écusson de la page Équipe) : js/marques.js et l'écran de l'équipe écrivent data-niveau, css/site.css peint l'argent et l'or avec leurs jetons ; "
+    "« Vérifier aussi » n'est proposé qu'à un administrateur qui n'a pas encore signé une marque argentée",
+    'el.dataset.niveau = e.niveau; }' in MQ_JS and 'el.dataset.niveau = e.niveau || "";' in MQ_JS and 'data-niveau="${esc(m.niveau)}"' in EE
+    and 'm.niveau === "argent" && !VF.aSigne(m, eq.moi) ? poser("Vérifier aussi", ' in EE
+    and all(f'.pfoot .et-verif[data-etat="verifie"][data-niveau="{n}"] {{ color: var(--{n}); }}' in SITE_CSS
+            and f'span.ok[data-verifie][data-niveau="{n}"], .okleg .okleg-i[data-niveau="{n}"], .pfoot .et-verif[data-niveau="{n}"] .et-verif-i {{ color: var(--{n}-vif); }}' in SITE_CSS
+            and f'td .valid.ok[data-niveau="{n}"] {{ color: var(--{n}); background: var(--{n}-soft); }}' in SITE_CSS for n in ("argent", "or")))
+_jetons = {}
+for _theme, _motif in (("clair", r":root \{(.*?)\n\}"), ("sombre", r'\[data-theme="dark"\] \{(.*?)\n\}')):
+    _m = re.search(_motif, CHARTE, re.S)
+    _jetons[_theme] = dict(re.findall(r"--([\w-]+): (#[0-9A-Fa-f]{6});", _m.group(1))) if _m else {}
+
+
+def contraste(x, y):
+    lx, ly = sorted((luminance(x), luminance(y)), reverse=True)
+    return round((lx + 0.05) / (ly + 0.05), 2)
+
+
+_lus = {f"{t} : {n} sur {f}": contraste(j[n], j[f]) for t, j in _jetons.items() for n in ("argent", "or") for f in ("panel", f"{n}-soft") if n in j and f in j}
+_vus = {f"{t} : {n}-vif sur {f}": contraste(j[f"{n}-vif"], j[f]) for t, j in _jetons.items() for n in ("argent", "or") for f in ("panel", "bg") if f"{n}-vif" in j and f in j}
+chk("l'ARGENT et l'OR se LISENT : le texte contre le panneau et contre son fond doux, 4,5 contre 1 au moins (WCAG AA, texte) ; le pictogramme seul (-vif) "
+    "contre le panneau et le fond de page, 3 contre 1 au moins (WCAG AA, graphisme) — dans les deux thèmes ; l'argent et l'or sont différents",
+    len(_lus) == 8 and min(_lus.values()) >= 4.5 and len(_vus) == 8 and min(_vus.values()) >= 3
+    and all(j.get("argent") and j.get("argent") != j.get("or") and j.get("argent-vif") != j.get("or-vif") for j in _jetons.values()), {**_lus, **_vus})
+chk("déclarer un module vérifié (ou le vérifier AUSSI) demande une confirmation qui dit ce qu'on affirme (« relu la méthode ») ; les boutons "
+    "n'existent que pour un administrateur",
+    re.search(r"if \(!confirm\(aussi \? `Vérifier AUSSI le module « \$\{nom\} » \?\\n\\nVous dites en avoir relu la méthode", EE) is not None
+    and re.search(r"\n\s*: poser \? `Déclarer le module « \$\{nom\} » VÉRIFIÉ \?\\n\\nVous dites en avoir relu la méthode", EE) is not None
+    and re.search(r'const geste = !admin \? "" : m\.etat !== "verifie"', EE) is not None and "const admin = E.estAdmin(eq.moi);" in EE)
 _tel2 = BU[BU.index("@media (max-width: 700px) {"):BU.index("/* ================================================================ au doigt")]
 chk("css/bureau.css : au PC le rôle est une colonne (l'écusson après le nom est caché — plus précisément que la charte, qui affiche tout « .who2 > div "
     "span ») ; au téléphone la colonne s'efface et l'écusson paraît",
@@ -831,7 +921,15 @@ if not REJOUE:
         ("un rôle piégé pris pour « admin »", [("js/equipe.js", '                    role: x.role === "admin" ? "admin" : "membre" };', '                    role: String(x.role).includes("admin") ? "admin" : "membre" };')], None),
         ("un membre ordinaire déclare un module vérifié", [("js/verifications.js", '  if (!E.estAdmin(moi)) return { ok: false, erreur: "Seul un administrateur peut déclarer un module vérifié." };\n', "")], None),
         ("un membre ordinaire retire une vérification", [("js/verifications.js", '  if (!E.estAdmin(moi)) return { ok: false, erreur: "Seul un administrateur peut retirer une vérification." };\n', "")], None),
-        ("la marque RESTE quand le calcul a changé", [("js/verifications.js", 'return { etat: v.version === actuelle ? "verifie" : "change", ...v, actuelle };', 'return { etat: "verifie", ...v, actuelle };')], None),
+        ("la marque RESTE quand le calcul a changé", [("js/verifications.js", "  const du_jour = toutes.filter((v) => v.version === actuelle);", "  const du_jour = toutes;")], None),
+        ("l'or avec un seul administrateur", [("js/verifications.js", 'niveau: du_jour.length >= 2 ? "or" : "argent"', 'niveau: du_jour.length >= 1 ? "or" : "argent"')], None),
+        ("une personne comptée deux fois dans un registre", [("js/verifications.js", "    const k = `${qui(v.par)}@${v.version}`;", "    const k = `${v.t}@${v.version}`;")], None),
+        ("revérifier ajoute une ligne au lieu de remplacer la sienne", [("js/verifications.js", "w.version === v.version && qui(w.par) !== qui(v.par)", "w.version === v.version")], None),
+        ("les lignes périmées gardées au registre", [("js/verifications.js", "w.version === v.version && qui(w.par) !== qui(v.par)", "qui(w.par) !== qui(v.par)")], None),
+        ("la marque sans son niveau (ni argent ni or)", [("js/marques.js", " el.dataset.niveau = e.niveau; }", " }")], None),
+        ("l'or peint comme l'argent", [("css/site.css", 'span.ok[data-verifie][data-niveau="or"], .okleg .okleg-i[data-niveau="or"], .pfoot .et-verif[data-niveau="or"] .et-verif-i { color: var(--or-vif); }\n', "")], None),
+        ("un or trop pâle pour se lire", [("css/charte.css", "  --or: #8C6400;\n", "  --or: #D4A72C;\n")], None),
+        ("une marque dorée trop pâle pour se voir", [("css/charte.css", "  --or-vif: #B07D00;\n", "  --or-vif: #F0D58A;\n")], None),
         ("une vérification sans version", [("js/verifications.js", "  const v = { par: E.signatureDe(moi), t: Date.now(), version: VERSIONS[cle] };", '  const v = { par: E.signatureDe(moi), t: Date.now(), version: "0000000000000000" };')], None),
         ("une signature piégée fait une marque", [("js/verifications.js", "  const par = E.signaturePropre(x.par);", "  const par = x.par;")], None),
         ("un module que l'accueil ne montre pas se vérifie", [("js/verifications.js", "!MODULES[k].masque && !MODULES[k].vers && Object.hasOwn(VERSIONS, k)", "!MODULES[k].vers && Object.hasOwn(VERSIONS, k)")], None),

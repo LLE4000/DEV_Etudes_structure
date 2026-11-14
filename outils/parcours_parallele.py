@@ -23,6 +23,11 @@ Ce qui garantit qu'on ne perd rien :
 
 Les durées du dernier passage (``.temoin_tests/parcours.json``, jamais versionné) ordonnent les morceaux, les plus longs
 d'abord.
+
+Les morceaux qui MESURENT DES TEMPS (``SEULS`` : « demarrage », ses délais de démarrage, ses tâches longues) sont joués
+SEULS, APRÈS les autres : joués en même temps que deux autres navigateurs, la machine est trop chargée (14/11/2026 :
+charge 3,8 à 6,9 sur 4 cœurs) — le morceau refuse alors de conclure (« temps : non mesurable », code 3) et ses contrôles
+réglés sur des délais ne prouvent plus rien.
 """
 import argparse
 import concurrent.futures
@@ -39,6 +44,8 @@ TEMOIN = os.path.join(RACINE, ".temoin_tests", "parcours.json")
 # les morceaux : l'union est le passage complet (test : tests/test_parcours_parallele.py)
 MORCEAUX = ("formats", "modules", "garde", "poutre", "telecharger", "exporter", "meteo", "sonde", "enregistrement",
             "ouverture", "pilote", "corniere", "plaques", "piege", "bibliotheque", "note_pdf", "bureau", "demarrage")
+# les morceaux joués SEULS, après les autres (ils mesurent des temps : une machine chargée les rend « non mesurés »)
+SEULS = ("sonde", "demarrage")
 LIGNE = re.compile(r"^(OK|KO)\s{2}(.*?)(?:\s{2}.*)?$")
 NOMBRE = re.compile(r"\d+(?:[.,]\d+)*")
 
@@ -85,7 +92,7 @@ def principal(argv) -> int:
     a.add_argument("-j", type=int, default=3)
     a.add_argument("--reference", help="le journal d'un passage complet : chacun de ses contrôles doit se retrouver")
     a.add_argument("morceaux", nargs="*", help="(défaut : tous)")
-    x = a.parse_args(argv)
+    x = a.parse_intermixed_args(argv)      # (« … -j 1 sonde demarrage » : les morceaux après une option)
     os.makedirs(x.dossier, exist_ok=True)
     morceaux = list(x.morceaux or MORCEAUX)
     try:
@@ -94,17 +101,23 @@ def principal(argv) -> int:
     except (OSError, ValueError):
         durees = {}
     morceaux.sort(key=lambda m: -durees.get(m, 1e9))
+    ensemble = [m for m in morceaux if m not in SEULS]
+    seuls = [m for m in morceaux if m in SEULS]
     t0 = time.time()
     res = []
+
+    def dire(r):
+        res.append(r)
+        etat = "VERT " if r["code"] == 0 else ("NON MESURÉ" if r["code"] == 3 else "ROUGE")
+        print(f"{etat:6} {r['morceau']:16} {r['ok']:5} OK  {len(r['ko']):3} KO  {r['duree']:7.1f} s", flush=True)
+        for n in r["ko"][:10]:
+            print(f"         KO  {n[:160]}", flush=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, x.j)) as ex:
-        futs = {ex.submit(jouer, x.base, x.dossier, m): m for m in morceaux}
+        futs = {ex.submit(jouer, x.base, x.dossier, m): m for m in ensemble}
         for f in concurrent.futures.as_completed(futs):
-            r = f.result()
-            res.append(r)
-            etat = "VERT " if r["code"] == 0 else ("NON MESURÉ" if r["code"] == 3 else "ROUGE")
-            print(f"{etat:6} {r['morceau']:16} {r['ok']:5} OK  {len(r['ko']):3} KO  {r['duree']:7.1f} s", flush=True)
-            for n in r["ko"][:10]:
-                print(f"         KO  {n[:160]}", flush=True)
+            dire(f.result())
+    for m in seuls:                       # (seuls, la machine au calme : ils mesurent des temps)
+        dire(jouer(x.base, x.dossier, m))
     total = time.time() - t0
     durees.update({r["morceau"]: round(r["duree"], 1) for r in res})
     os.makedirs(os.path.dirname(TEMOIN), exist_ok=True)

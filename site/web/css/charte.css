@@ -23,6 +23,15 @@
   --accent-soft: #EEF1FE;
   --accent-line: #CDD6FD;
   --on-accent: #FFFFFF;
+  /* la marque d'un module vérifié (14/11/2026) : ARGENT, un administrateur ; OR, deux administrateurs différents. Le texte
+     se lit à 4,5 contre 1 au moins sur le panneau et sur son fond doux ; le pictogramme seul (-vif), plus clair, à 3 contre
+     1 sur le panneau et sur le fond de page (tests/test_site_bureau.py) */
+  --argent: #5E6B7D;
+  --argent-vif: #7A8699;
+  --argent-soft: #EEF0F3;
+  --or: #8C6400;
+  --or-vif: #B07D00;
+  --or-soft: #FBF3DE;
 
   /* le code couleur des taux — tranché par le bureau le 06/11/2026 */
   --nok: #DC2626;
@@ -70,6 +79,12 @@
   --accent-soft: #19213A;
   --accent-line: #2D3B69;
   --on-accent: #0A0E16;
+  --argent: #B4BECC;
+  --argent-vif: #B4BECC;
+  --argent-soft: #1B212C;
+  --or: #E2B13C;
+  --or-vif: #E2B13C;
+  --or-soft: #2A2210;
   --nok: #EF4444;
   --att: #22A35A;
   --ok-bg: #123321;

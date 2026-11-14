@@ -92,13 +92,20 @@ export function ouvrirEquipe(hote, ctx) {
     $("eq-verif-nb").textContent = `${faits} vérifié${faits > 1 ? "s" : ""} sur ${tous.length}`;
     const ligne = (m) => {
       const d = VF.dire(m.cle, m);
-      const etat = m.etat === "verifie" ? `<span class="valid ok">${V.icone("badge-check")}Vérifié</span>`
+      // (vérifié : l'écusson ARGENTÉ, un administrateur ; DORÉ, deux administrateurs différents — leurs deux noms)
+      const etat = m.etat === "verifie" ? `<span class="valid ok" data-niveau="${esc(m.niveau)}">${V.icone("badge-check")}${esc(d.court)}</span>`
         : `<span class="valid non${m.etat === "change" ? " change" : ""}">${V.icone("shield-check")}${esc(d.court)}</span>`;
-      const qui = m.etat === "non" ? "" : `${E.pastille(m.par, "sm")}<span class="muted" title="${esc(d.long)}">${esc(m.par.nom)} · ${esc(d.qui.split(" · ")[1])}`
+      const signes = m.etat === "verifie" ? m.pars : m.par ? [m.par] : [];
+      const noms = signes.map((p) => esc(p.nom));
+      const qui = m.etat === "non" ? "" : `${signes.map((p) => E.pastille(p, "sm")).join("")}<span class="muted" title="${esc(d.long)}">`
+        + `${noms.length > 1 ? `${noms.slice(0, -1).join(", ")} et ${noms[noms.length - 1]}` : noms[0]} · ${esc(d.qui.split(" · ")[1])}`
         + `${m.etat === "change" ? " · le calcul a changé depuis" : ""}</span>`;
-      const geste = !admin ? "" : m.etat === "verifie"
-        ? `<button type="button" class="btn sm ghost" data-retirer-verif="${esc(m.cle)}" aria-label="Retirer la vérification du module ${esc(m.nom)}">Retirer</button>`
-        : `<button type="button" class="btn sm" data-verifier="${esc(m.cle)}" aria-label="Déclarer vérifié le module ${esc(m.nom)}">${V.icone("badge-check")}${m.etat === "change" ? "Revérifier" : "Vérifier"}</button>`;
+      const retirer = `<button type="button" class="btn sm ghost" data-retirer-verif="${esc(m.cle)}" aria-label="Retirer la vérification du module ${esc(m.nom)}">Retirer</button>`;
+      const poser = (mot, dire) => `<button type="button" class="btn sm" data-verifier="${esc(m.cle)}" aria-label="${dire} le module ${esc(m.nom)}">${V.icone("badge-check")}${mot}</button>`;
+      // un administrateur : « Vérifier » ; « Vérifier aussi » s'il n'a pas encore signé une marque argentée (elle deviendra dorée) ;
+      // « Retirer » dès qu'elle est posée
+      const geste = !admin ? "" : m.etat !== "verifie" ? poser(m.etat === "change" ? "Revérifier" : "Vérifier", "Déclarer vérifié")
+        : m.niveau === "argent" && !VF.aSigne(m, eq.moi) ? poser("Vérifier aussi", "Vérifier à votre tour") + " " + retirer : retirer;
       return `<tr data-module-verif="${esc(m.cle)}" data-etat="${m.etat}"><td class="bu-vm"><a class="mod bu-lien" href="${esc(N.pageDe(m.cle))}"><span class="modic ${esc(m.famille)}">${V.iconeModule(m.cle)}</span><b>${esc(m.nom)}</b></a></td>`
         + `<td class="bu-ve">${etat}</td><td class="bu-vq"><span class="bu-vqui">${qui}</span></td><td class="n bu-vg">${geste}</td></tr>`;
     };
@@ -106,7 +113,8 @@ export function ouvrirEquipe(hote, ctx) {
       + `<tbody>${tous.map(ligne).join("")}</tbody></table></div>`
       + `<p class="hint bu-verif-note">${admin ? "Vous êtes administrateur : « Vérifier » dit que vous avez relu la méthode du module. "
         : eq.moi ? "Seul un administrateur déclare un module vérifié. " : "Présentez-vous pour savoir si vous pouvez vérifier un module. "}`
-      + `La marque tombe d'elle-même si le calcul du module change.</p>`;
+      + `La marque est argentée ; elle devient dorée quand un deuxième administrateur vérifie le module à son tour. `
+      + `Elle tombe d'elle-même si le calcul du module change.</p>`;
   }
 
   function afficher() {
@@ -144,12 +152,13 @@ export function ouvrirEquipe(hote, ctx) {
     const eq = E.equipe();
     if ("verifier" in b.dataset || "retirerVerif" in b.dataset) {
       const cle = b.dataset.verifier || b.dataset.retirerVerif, nom = (N.MODULES[cle] || {}).nom || cle;
-      const poser = "verifier" in b.dataset;
-      if (!confirm(poser ? `Déclarer le module « ${nom} » VÉRIFIÉ ?\n\nVous dites en avoir relu la méthode. Votre nom et la date s'afficheront sur l'accueil et dans le module ; la marque tombera d'elle-même si son calcul change.`
+      const poser = "verifier" in b.dataset, aussi = poser && VF.etat(cle).etat === "verifie";
+      if (!confirm(aussi ? `Vérifier AUSSI le module « ${nom} » ?\n\nVous dites en avoir relu la méthode, à votre tour. Avec deux administrateurs, la marque devient dorée et porte vos deux noms ; elle tombera d'elle-même si son calcul change.`
+        : poser ? `Déclarer le module « ${nom} » VÉRIFIÉ ?\n\nVous dites en avoir relu la méthode. Votre nom et la date s'afficheront sur l'accueil et dans le module ; la marque tombera d'elle-même si son calcul change.`
         : `Retirer la vérification du module « ${nom} » ? Il redeviendra « à vérifier ».`)) return;
       const r = poser ? VF.verifier(cle) : VF.retirer(cle);
       if (!r.ok) { toast(r.erreur, true); return; }
-      toast(poser ? `Module « ${nom} » vérifié.` : `Le module « ${nom} » est de nouveau à vérifier.`);
+      toast(!poser ? `Le module « ${nom} » est de nouveau à vérifier.` : r.niveau === "or" ? `Module « ${nom} » vérifié deux fois : la marque est dorée.` : `Module « ${nom} » vérifié.`);
       afficher();
       return;
     }

@@ -26,23 +26,25 @@ export function marquer(racine = typeof document === "undefined" ? null : docume
         const e = etats.get(el.dataset.verifie);
         const vu = !!e && e.etat === "verifie";
         el.hidden = !vu;
-        if (vu) { const d = V.dire(e.cle, e); el.title = `Vérifié · ${d.qui}`; el.setAttribute("aria-label", d.long); }
-        else { el.removeAttribute("title"); el.removeAttribute("aria-label"); }
+        // (argent : un administrateur ; or : deux administrateurs différents — js/verifications.js, 14/11/2026)
+        if (vu) { const d = V.dire(e.cle, e); el.title = `Vérifié · ${d.qui}`; el.setAttribute("aria-label", d.long); el.dataset.niveau = e.niveau; }
+        else { el.removeAttribute("title"); el.removeAttribute("aria-label"); delete el.dataset.niveau; }
       }
     }
     for (const el of racine.querySelectorAll(".et-verif[data-verif-module]")) peindre(el);
   } catch (e) { console.error(e); }
 }
 
-// la marque d'un module, au pied de son cadre Résultat : « Module vérifié · LLE · 11/11/2026 », « Module à vérifier »,
-// « Module à revérifier » (son calcul a changé depuis)
+// la marque d'un module, au pied de son cadre Résultat : « Module vérifié · LLE · 11/11/2026 » (argentée), « Module vérifié
+// deux fois · LLE, MDU · 14/11/2026 » (dorée), « Module à vérifier », « Module à revérifier » (son calcul a changé depuis)
 function peindre(el) {
   const cle = el.dataset.verifModule;
   const e = V.etat(cle), d = V.dire(cle, e);
   el.dataset.etat = e.etat;
+  el.dataset.niveau = e.niveau || "";
   el.title = d.long;
   const t = el.querySelector(".et-verif-t");
-  if (t) t.textContent = e.etat === "verifie" ? `Module vérifié · ${d.qui}` : e.etat === "change" ? "Module à revérifier" : "Module à vérifier";
+  if (t) t.textContent = e.etat === "verifie" ? `Module ${d.court.toLowerCase()} · ${d.qui}` : e.etat === "change" ? "Module à revérifier" : "Module à vérifier";
 }
 
 // Poser la marque au pied du cadre Résultat d'un établi (js/etabli.js, après chaque rendu du résultat : le pied « .pfoot »

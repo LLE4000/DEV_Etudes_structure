@@ -182,6 +182,20 @@ l'ingénieur : **vérifié**.
   L'infobulle et la page Équipe le rappellent.
 - Seul un administrateur vérifie ou **retire** une vérification ; chaque geste laisse sa ligne au journal
   (`module.verifie`, `module.retire`, et `membre.admin` / `membre.membre` pour les rôles).
+- **ARGENT puis OR** (demande du propriétaire, 14/11/2026 : « deux personnes qui valident un module, c'est plus sûr
+  qu'une ») : la marque est **argentée** quand un administrateur a vérifié la version du jour, **dorée** quand **deux
+  administrateurs différents** l'ont vérifiée — « Module vérifié deux fois · LLE, MDU · 14/11/2026 », les deux noms dans
+  l'infobulle et sur la page Équipe. Les règles, écrites dans `etat()` et `verifier()` :
+  - le registre garde **une ligne par administrateur** (`{ <module>: [{ par, t, version }, …] }`) ; l'ancienne forme (une
+    seule ligne) se lit encore, comme une marque argentée ;
+  - une personne ne compte **qu'une fois** (son identifiant ; à défaut, ses initiales et son nom) : revérifier remplace
+    sa ligne, la marque reste argentée ;
+  - seules les signatures de la **version du jour** comptent : quand le calcul change, les deux tombent ensemble
+    (« à revérifier ») ; revérifier repart de l'argent et efface les lignes périmées ;
+  - **« Vérifier aussi »** n'est proposé qu'à un administrateur qui n'a pas encore signé une marque argentée ; « Retirer »
+    efface tout, or compris ;
+  - les couleurs sont des jetons de la charte (`--argent`, `--or` pour le texte, lus à 4,5 contre 1 ; `--argent-vif`,
+    `--or-vif` pour le pictogramme seul, à 3 contre 1 — dans les deux thèmes, un test les mesure).
 
 ### 8.3 · La version d'un module : l'empreinte de son calcul (`construire.empreinte_module`, `js/versions.js`)
 
@@ -208,7 +222,8 @@ qu'on pense à changer. C'est l'**empreinte des fichiers que le module charge po
   résultats au plus, d'abord ce dont le nom commence par la recherche. Au clavier : flèches, Entrée, Échap ; **Ctrl K**
   y ramène. Elle ne propose pas les modules masqués.
 - **« Tout voir »** au-dessus des notes à reprendre (vers la page Projets).
-- **La légende** « vérifié par un administrateur » au-dessus des modules.
+- **La légende** « [argentée] vérifié par un administrateur [dorée] par deux » au-dessus des modules (« vérifié · par
+  deux » en tête du volet).
 - **La pastille de la personne du poste au pied de la barre**, sur toutes les pages (PC et tablettes) : elle mène à
   l'équipe. Au téléphone, la barre n'existe pas : la pastille est en tête de l'accueil et l'onglet Équipe y mène.
   (C'est pourquoi les règles de la pastille sont passées de `css/bureau.css` à `css/site.css`.)
@@ -241,6 +256,6 @@ la tient) ; les classes de la ligne du module n'avaient pas le préfixe « et- �
    deviendra celle du bureau avec les comptes.
 2. **Un rôle est une DÉCLARATION** : « Ce n'est pas vous ? » change de personne sans mot de passe ; sur un poste
    partagé, n'importe qui peut prendre la place de l'administrateur. La marque dit ce que le poste a déclaré.
-3. La note PDF ne dit pas encore si son module était vérifié le jour où elle a été produite.
+3. La note PDF ne dit pas encore si son module était vérifié le jour où elle a été produite (ni argent, ni or).
 4. Le mot : « **vérifié** » (celui de l'ingénieur) ; le cahier des charges et la maquette disaient « validé ».
 

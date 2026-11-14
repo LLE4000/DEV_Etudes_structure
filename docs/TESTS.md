@@ -97,6 +97,16 @@ l'accueil, au début et à la fin. Les plus longs : « formats » 481 s, « dema
 durées sont gardées (`.temoin_tests/parcours.json`) et le passage suivant commence par les plus longs. Le passage
 complet d'une traite reste disponible (`node site/web/verifier_site.js <base> <captures>`).
 
+**Les morceaux qui mesurent des TEMPS sont joués SEULS, après les autres** (`SEULS` : « sonde », « demarrage » —
+14/11/2026). Le passage du badge argent/or les avait joués avec deux autres navigateurs : charge de 7 sur 4 cœurs, et
+quatre rouges — deux « temps : non mesurable » (le morceau refuse de conclure sur une machine chargée), la fermeture au
+téléphone (une attente fixe de 600 ms après la réponse) et l'ordre des marques de la sonde ; rejoués SEULS, machine au
+calme : 179/0 et 26/0. Ce n'était ni le site ni le harnais, mais le lanceur qui les jouait mal ; un contrôle le tient
+désormais (`tests/test_parcours_parallele.py` : « demarrage » commence quand les autres ont fini, et rien ne tourne avec
+lui ; mutation : aucun morceau seul). Les morceaux se nomment aussi après une option (`… -j 1 sonde demarrage`).
+Mesure du même passage : 16 morceaux en 864 s, 3 à la fois, puis les deux morceaux seuls en 436 s — **1 300 s (22 min)**
+au lieu de 1 860 s d'une traite.
+
 ### Mesure
 
 Avant (lot 3, 09/11/2026) : 103 suites, une à la fois, 1 845 s (le catalogue 512 s, les pieds de poteau 355 s, les
