@@ -170,9 +170,26 @@ S235 235/360 puis 215/360 ; S275 275/430 puis 255/410 ; S355 355/510 puis 335/47
 62ε·(1 − ψ)·√(−ψ). Semelle en console comprimée 9ε / 10ε / 14ε. Tube rond d/t ≤ 50ε² / 70ε² / 90ε². Parois d'un
 tube rectangulaire : c = h − 3t, b − 3t. La classe se refait par combinaison (elle dépend de N).
 
+**Ce que le moteur a tranché** (`acier/barre/ec3_classe.py`, lot 2) :
+- UNE classe par combinaison — celle de l'état réel (N et M ensemble) — employée par toutes les vérifications de la
+  combinaison (comme le logiciel du bureau) ;
+- âme fléchie et comprimée : α = 0,5 + N_Ed/(2·c·t_w·f_y) (deux âmes pour un tube : 2·t) et ψ = 2·N_Ed/(A·f_y) − 1,
+  les formules d'usage ; N_Ed = 0 redonne 72ε / 83ε / 124ε ;
+- du côté sûr : une semelle — ou la paroi d'un tube qui sert de semelle à l'un des deux moments — est classée en
+  compression UNIFORME. Pour un I, rien n'est perdu. Pour un tube rectangulaire en flexion DÉVIÉE, la classe peut en
+  être dégradée (RHS 200x100x5 S355 : classe 1 sous M_y, classe 4 dès qu'un M_z s'ajoute) — dit dans les hypothèses,
+  et inscrit aux améliorations (`AMELIORATIONS_PAR_MODULE.md`, B1).
+
 ### 5.3 Classe 4 — EN 1993-1-5 § 4.4 (vérifié)
 λ̄_p = (b̄/t)/(28,4·ε·√k_σ) ; paroi interne ρ = (λ̄_p − 0,055·(3 + ψ))/λ̄_p² ≤ 1 au-delà de 0,5 + √(0,085 − 0,055ψ) ;
 console ρ = (λ̄_p − 0,188)/λ̄_p² ≤ 1 au-delà de 0,748. A_eff, W_eff, e_N. Tube rond de classe 4 : non couvert.
+
+**Ce que le moteur a tranché** : A_eff sous la compression SEULE et W_eff sous la flexion SEULE (EN 1993-1-5 § 4.3(3)
+et (4)) ; e_N = 0 (deux axes de symétrie) ; pour W_eff, la membrure comprimée d'abord, puis l'âme avec le ψ de la
+section à membrure réduite (§ 4.4(3)) ; les parties inefficaces sont RETIRÉES de la section brute du catalogue, congés
+compris ; W_eff se rapporte à la fibre comprimée de la section BRUTE (du côté sûr quand le bout d'une console est
+retiré). I, H, tubes carrés et rectangulaires — le brief ne demandait que les I et H. Contrôle : recalcul par
+ASSEMBLAGE des parties efficaces sur des sections sans congé, à 10⁻⁹.
 
 ### 5.4 Résistances de section — § 6.2 (vérifié)
 N_pl,Rd, N_c,Rd, M_c,Rd par classe ; V_pl,Rd = A_v·(f_y/√3)/γ_M0 — A_v,z = A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w
@@ -180,6 +197,22 @@ N_pl,Rd, N_c,Rd, M_c,Rd par classe ; V_pl,Rd = A_v·(f_y/√3)/γ_M0 — A_v,z =
 par analogie avec le cas (e), `À CONFIRMER`) ; tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
 Tube rond en N + M : critère linéaire (6.2), prudent.
+
+**Ce que le moteur a tranché** (`acier/barre/ec3_section.py`, lot 2) :
+- tube rond : la RÉSULTANTE des deux moments et celle des deux efforts tranchants (il n'a pas d'axe) ; n + M/M_pl,Rd ≤ 1 ;
+- effort tranchant élevé (V_Ed > 0,5·V_pl,Rd) : (6.30) pour un I de classe 1 ou 2 fléchi autour de l'axe fort ; partout
+  ailleurs, et dès qu'un effort normal s'ajoute (§ 6.2.10), (1 − ρ) sur TOUTE la section — du côté sûr, et c'est dit ;
+- le plancher η·h_w·t_w de l'aire de cisaillement gouverne pour 58 profilés du catalogue (IPE 750, HL, HE 900 et 1000) ;
+- h_w/t_w > 72·ε/η : le voilement par cisaillement relève du lot 4 — en attendant, la vérification « E-Vb » est rendue
+  « non couverte », jamais « ok » (11 profilés en S235, 46 en S355, 93 en S460 — tous des tubes minces en S235) ;
+- chaque paramètre se lit dans `parametres.py` ; une barre peut en surcharger (`"parametres": {…}`) pour rejouer un
+  exemple publié avec d'autres coefficients.
+
+**Les benchmarks ECCS N°119** (critère d'acceptation du brief pour ce lot) : leurs pages (aide de SCIA Engineer) ne
+sont pas joignables d'ici (domaine hors de la liste autorisée du réseau). Les classes et les résistances sont donc
+prouvées autrement : limites du texte aux points donnés en clair, profilés de classe connue, calculs à la main sur les
+valeurs du catalogue, recoupement avec le module Flambement en service sur tout le catalogue. À rejouer si les pages
+deviennent lisibles, ou sur des cas recalculés par le bureau dans son logiciel.
 
 ### 5.5 Flambement — § 6.3.1 (vérifié ; déjà en service dans `acier/flambement`)
 χ, Φ, λ̄ = √(A·f_y/N_cr) ; α : a₀ 0,13, a 0,21, b 0,34, c 0,49, d 0,76 ; tableau 6.2 ; négligé si λ̄ ≤ 0,2 ou
@@ -302,6 +335,7 @@ Un paquet neuf, `acier/barre/`, bibliothèque standard seule (il tourne dans le 
 | `parametres.py` | LA table des paramètres nationaux (valeur, source, statut) |
 | `section.py` | un profilé du catalogue — ou des propriétés saisies — vu par les deux méthodes |
 | `historique.py` | la méthode du § 4 |
+| `resultat.py` | la forme commune de ce que rend une méthode (vérifications, blocs de formules, alertes, synthèse) |
 | `ec3_classe.py`, `ec3_section.py`, `ec3_flambement.py`, `mcr.py`, `ec3_deversement.py`, `ec3_interaction.py` | EN 1993-1-1 |
 | `ec3_ame.py`, `raidisseurs.py` | EN 1993-1-5 |
 | `combinaisons.py`, `statique.py` | les cas de charge, les combinaisons, les efforts le long de la barre (sur `rdm/poutres.py`) |
@@ -320,7 +354,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 |---|---|---|---|
 | 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
 | 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
-| 2 | matériau, classes, section efficace, résistances de section | cas à la main | à faire |
+| 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
 | 3 | flambement, torsion, déversement (M_cr), annexe A | § 6.4 ; exemples publiés | à faire |
 | 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs | R4 | à faire |
 | 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons | R2 de bout en bout | à faire |

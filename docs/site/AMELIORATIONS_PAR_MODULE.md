@@ -44,6 +44,9 @@ Ce qui est déjà un travail décidé vit dans `SUITE_DU_CHANTIER.md` ; les déf
 | A1 | **Le module « Flambement »** (compression seule, Eurocode 3) fera double emploi quand « Choix de profilé » vérifiera une barre complète par les deux méthodes (`docs/acier/BARRES_ACIER.md`). | Le fondre dans « Choix de profilé », ou le garder comme outil rapide. | À décider quand le module des barres sera en ligne. | **à trancher** |
 | A2 | **Cornières, tés, U** : hors du périmètre de la première version des barres (compression simple de la méthode historique seulement). | Le flambement par flexion-torsion (EN 1993-1-1 §6.3.1.4, NCCI SN001a). | Lot ultérieur. | **à trancher** |
 | A3 | **Flèches** des barres en acier : hors de la première version. | Une vérification ELS de plus. | Lot ultérieur. | **à trancher** |
+| A4 | **Tube rectangulaire en flexion déviée** (Eurocode 3) : ses parois sont classées en compression uniforme, du côté sûr — la classe peut tomber de 1 à 4 dès qu'un petit moment d'axe faible s'ajoute (RHS 200x100x5 S355). | Classer chaque paroi avec son gradient réel de contrainte. | Résultat prudent aujourd'hui, jamais faux ; à affiner si ces tubes servent souvent en flexion déviée. | **à trancher** |
+| A5 | **Tube rond en flexion composée** : critère linéaire n + M/M_pl,Rd ≤ 1 (prudent). | La formule M_N,Rd = M_pl,Rd·(1 − n^1,7) du corrigendum de l'EN 1993-1-1, à lire sur le texte. | Gain de quelques pour cent. | **à trancher** |
+| A6 | **Effort tranchant élevé avec effort normal** (§ 6.2.10) : la limite d'élasticité est réduite sur TOUTE la section, du côté sûr. | La réduire sur la seule aire de cisaillement. | Rare (V_Ed > 0,5·V_pl,Rd avec N et M). | **à trancher** |
 
 ## Tout le site
 

@@ -32,6 +32,7 @@ import math
 from typing import Dict, List, Optional
 
 from . import section as SE
+from .resultat import Refus, formule as _f, fr as _fr, terme as _t  # noqa: F401 — Refus : celui de tout le module
 
 METHODE = "historique"
 NORME = "NBN B 51-001"
@@ -57,10 +58,6 @@ COURBES_FABRICATION = {
     "caisson_recuit": ("a", "a"),
 }
 NOMS_AXE = {"y": "fort", "z": "faible"}
-
-
-class Refus(ValueError):
-    """Une donnée hors du domaine de la méthode : le calcul est refusé, avec ce message."""
 
 
 # ------------------------------------------------------------------ la norme
@@ -170,19 +167,8 @@ def deversement(s: Dict, Lc: Optional[float], fy: float, courbe_z: str) -> Dict:
     return {"cas": "non_couvert", "phi": None}
 
 
-# ------------------------------------------------------------------ les blocs de formules (unités des classeurs)
-def _t(symbole: str, valeur, unite: str = "") -> Dict:
-    return {"symbole": symbole, "valeur": valeur, "unite": unite}
-
-
-def _f(cle: str, symbole: str, termes: List[Dict], resultat, unite: str = "", gabarit: Optional[str] = None) -> Dict:
-    """Une formule nommée : ``gabarit`` est la clé de acier/barre/formules.GABARITS (``cle`` à défaut)."""
-    return {"cle": cle, "gabarit": gabarit or cle, "symbole": symbole, "termes": termes, "resultat": resultat, "unite": unite}
-
-
-def _fr(x: float, nd: int = 0) -> str:
-    """Un nombre dans une alerte : virgule, espace fine des milliers."""
-    return f"{x:,.{nd}f}".replace(",", " ").replace(".", ",")
+# (les blocs de formules ``_t``, ``_f`` et l'écriture des nombres ``_fr`` : acier/barre/resultat.py ; les termes sont
+# rendus dans les unités des classeurs)
 
 
 # ------------------------------------------------------------------ la vérification

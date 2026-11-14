@@ -5,7 +5,8 @@ FABRICATION — lus dans le catalogue (acier/donnees/profiles.json, source uniqu
     {"nom", "famille", "forme", "fabrication", "axes": ("y-y", "z-z"),
      "h", "b", "tw", "tf", "r", "t", "d"            (mm ; None quand la forme n'en a pas)
      "A" (mm²), "Iy", "Iz" (mm⁴), "iy", "iz" (mm), "Wel_y", "Wel_z", "Wpl_y", "Wpl_z" (mm³),
-     "It" (mm⁴), "Iw" (mm⁶), "Avz", "Avy" (mm²), "masse" (kg/m)}
+     "It" (mm⁴), "Iw" (mm⁶), "Avz", "Avy" (mm²), "masse" (kg/m),
+     "cf_tf", "cw_tw"                                (c/t des parois, définitions du tableau 5.2 de l'EN 1993-1-1)}
 
 FORME : « I » (I et H à deux axes de symétrie), « tube_rond », « tube_carre », « tube_rect », « U », « L », « autre ».
 FABRICATION : celle qui choisit la courbe de flambement — « lamine », « creux_chaud », « creux_froid » pour le
@@ -62,6 +63,8 @@ def du_catalogue(nom: str) -> Dict:
         s[k] = _valeur(p, k, 1.0)
     for cle, src, f in _PROPRIETES + _AXES[forme == "L"]:
         s[cle] = _valeur(p, src, f)
+    # c/t des parois : ceux du catalogue (semelle ou paroi b ; âme ou paroi h) — une seule source avec acier/flambement
+    s["cf_tf"], s["cw_tw"] = _valeur(p, "cf_tf", 1.0), _valeur(p, "cw_tw", 1.0)
     return s
 
 
@@ -73,7 +76,7 @@ def saisie(forme: str, fabrication: str, nom: str = "section saisie", **propriet
         raise ValueError(f"forme inconnue : {forme!r}")
     if fabrication not in FABRICATIONS:
         raise ValueError(f"fabrication inconnue : {fabrication!r}")
-    connues = set(DIMENSIONS) | {c for c, _, _ in _PROPRIETES + _AXES[False]} | {"A_ame", "A_ailes"}
+    connues = set(DIMENSIONS) | {c for c, _, _ in _PROPRIETES + _AXES[False]} | {"A_ame", "A_ailes", "cf_tf", "cw_tw"}
     inconnues = sorted(set(proprietes) - connues)
     if inconnues:
         raise ValueError(f"propriété(s) inconnue(s) : {', '.join(inconnues)}")
@@ -85,6 +88,14 @@ def saisie(forme: str, fabrication: str, nom: str = "section saisie", **propriet
     manquent = [k for k in OBLIGATOIRES if not s[k] or s[k] <= 0]
     if manquent:
         raise ValueError(f"propriété(s) manquante(s) ou nulle(s) : {', '.join(manquent)}")
+    # c/t des parois d'un I dont on donne les dimensions : semelle en console (b − t_w − 2r)/2, âme h − 2·t_f − 2r
+    # (r = 0 : une section soudée, parois prises entre nus — du côté sûr)
+    if forme == "I" and all(s.get(k) for k in ("h", "b", "tw", "tf")):
+        r = s.get("r") or 0.0
+        if s["cf_tf"] is None:
+            s["cf_tf"] = (s["b"] - s["tw"] - 2.0 * r) / 2.0 / s["tf"]
+        if s["cw_tw"] is None:
+            s["cw_tw"] = (s["h"] - 2.0 * s["tf"] - 2.0 * r) / s["tw"]
     return s
 
 

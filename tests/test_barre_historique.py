@@ -492,7 +492,8 @@ def main():
     chk(f"chaque bloc de formule du moteur se recalcule par son gabarit, sur ses seuls termes, à 10⁻⁹ ({n} formules, {len(cas_formules())} barres) ; "
         "chaque vérification nomme des formules qui existent", n > 150 and not faux, faux[:4])
     utilises = {f["gabarit"] for b in cas_formules() for f in HI.verifier(b)["calcul"]}
-    chk("chaque gabarit de la méthode historique sert à un contrôle (aucun n'est mort)", utilises == set(FO.GABARITS), set(FO.GABARITS) ^ utilises)
+    chk("chaque gabarit de la méthode historique sert à un contrôle (aucun n'est mort)", utilises == set(FO.GABARITS_HISTORIQUE),
+        set(FO.GABARITS_HISTORIQUE) ^ utilises)
     r = HI.verifier(barre_classeur(RECENTS["HEB 200"]))
     pcr = next(f for f in r["calcul"] if f["cle"] == "P_cr_z")
     chk("la charge critique s'écrit comme dans le classeur : π²·E·I/(u·L)² avec E = 21 000 kN/cm², I en cm⁴, L en cm → 800,8 kN",
