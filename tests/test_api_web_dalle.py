@@ -184,16 +184,22 @@ chk("une nappe compare ce qu'elle demande et ce qui est posé, nommés : « A_s,
 N_ = C.NBSP
 
 
-def ligne_hauteur(g_):
-    return (f"h<sub>min</sub>{N_}={N_}{P._n(g_['hu_min'], 'cm')}{N_}+{N_}{P._cm(g_['yG_hauteur'])}{N_}={N_}"
-            f"{P._n(g_['h_min'], 'cm')}{N_}cm ≤ h{N_}={N_}{C.nb(g_['h'])}{N_}cm")
+def ligne_hauteur(s_):
+    """La ligne Hauteur attendue, des grandeurs du moteur : celles de la pleine dalle — ou, une prédalle dont le JOINT
+    gouverne la hauteur (lot 5 : la famille du joint, y_G des barres de couture), celles du joint."""
+    g_ = s_["grandeurs"]
+    v_h = next(v_ for v_ in s_["verifications"] if v_["cle"] == "hauteur")
+    hu, yg, hm = ((g_["hu_min_joint"], g_["yG_joint"], g_["h_min_joint"]) if v_h.get("face") == "joint"
+                  else (g_["hu_min"], g_["yG_hauteur"], g_["h_min"]))
+    return (f"h<sub>min</sub>{N_}={N_}{P._n(hu, 'cm')}{N_}+{N_}{P._cm(yg)}{N_}={N_}"
+            f"{P._n(hm, 'cm')}{N_}cm ≤ h{N_}={N_}{C.nb(g_['h'])}{N_}cm")
 
 
 def lignes_hauteur(etat_):
     """(la ligne Hauteur de chaque section à l'écran, celle qu'on attend des grandeurs du moteur)."""
     r_ = P.resultat(copy.deepcopy(etat_))
     vues = [c_ for _, nom_, c_ in CMP.findall(r_["resultat"]) if nom_ == "Hauteur"]
-    return vues, [ligne_hauteur(s_["grandeurs"]) for s_ in P._calculer(etat_["dalles"][etat_["actif"]])["sections"]]
+    return vues, [ligne_hauteur(s_) for s_ in P._calculer(etat_["dalles"][etat_["actif"]])["sections"]]
 
 
 vues_h, attendues_h = lignes_hauteur(etat)
@@ -459,6 +465,17 @@ chk("une note d'avant (sans la clé) admet tous les espacements ; une liste abî
 a = req(module="dalle", action="ajouter", etat=etat)
 chk("« Ajouter une dalle » : Dalle 2 ouverte, neuve", len(a["etat"]["dalles"]) == 2 and a["etat"]["actif"] == 1
     and dalle_de(a["etat"]) == dict(EN.nouvelle_dalle(), nom="Dalle 2"))
+# les paramètres COMMUNS de la note (P.NOTE_ENTIERE : γs, jeu de pose, arrondi) passent à la dalle ajoutée — l'arrondi
+# n'y passait pas avant le 14/11/2026 (une note au pas de 1 cm ajoutait une dalle au pas de 0,5 cm : moins prudent)
+_reglee = etat
+for _ch, _v in ((["arrondi"], "1"), (["jeu_premier_lit"], "0,5"), (["gamma_s"], "1,15")):
+    _reglee = req(module="dalle", action="modifier", etat=_reglee, chemin=_ch, valeur=_v)["etat"]
+_ajoutee = req(module="dalle", action="ajouter", etat=_reglee)["etat"]
+chk("« Ajouter une dalle » à une note réglée (arrondi 1 cm, jeu 0,5 cm, γs 1,15) : la dalle ajoutée prend les TROIS paramètres "
+    "communs de la note — l'arrondi compris",
+    P.NOTE_ENTIERE == ("gamma_s", "jeu_premier_lit", "arrondi")
+    and [(x["gamma_s"], x["jeu_premier_lit"], x["arrondi"]) for x in _ajoutee["dalles"]] == [(1.15, 0.5, 1.0)] * 2,
+    [(x["gamma_s"], x["jeu_premier_lit"], x["arrondi"]) for x in _ajoutee["dalles"]])
 cp = req(module="dalle", action="dupliquer", etat=etat)
 chk("« Copier » : la dalle ouverte, nommée « (copie) »", dalle_de(cp["etat"]) == dict(d, nom="Dalle 1 (copie)"))
 trois = req(module="dalle", action="ajouter", etat=cp["etat"])["etat"]
@@ -825,6 +842,121 @@ chk("d utile ≤ 0 au-delà de 100 % : la ligne « Inférieure X » dit « d ≤
     and _rdn["resultat"].count("hors de l'épaisseur") == 1 and "incompatible avec l'épaisseur" not in _rdn["resultat"]
     and 'class="msg' not in _rdn["resultat"], (_vdn["taux"], _cdn.get("Inférieure X"), _rdn["resultat"].count("hors de l'épaisseur")))
 
+# ------------------------------------------------------------------ 14. le joint des prédalles et ses barres de couture (lot 5)
+print("\n=== 14. Le joint des prédalles : la couture dans Armatures, la ligne « Joint », la fenêtre de calcul ===")
+ej = P.nouvel_etat()
+assert P.modifier(ej, ["type"], "predalle") is None
+for ch_, v_ in ((["sections", 0, "Mx_inf"], "30"), (["sections", 0, "My_inf"], "20")):
+    assert P.modifier(ej, ch_, v_) is None
+fj = P.formulaire(ej)
+rj = P.resultat(copy.deepcopy(ej))
+cout = fj[fj.index('class="et-grp et-cout"'):fj.index('data-nappe="sup"')] if 'class="et-grp et-cout"' in fj else ""
+chk("prédalle : la rubrique Armatures montre les BARRES DE COUTURE à la fin de l'armature inférieure — « joint X », la section que le "
+    "joint demande, le Ø et l'espacement (Ø10 · 100 mm : la base secondaire 10/10/100/100 reprise en barres), sans ↺ (automatique) ; "
+    "dépliées : la pose (h_p + ½ Ø = 6 + 0,5 = 6,5 cm, sur la prédalle, axe de calcul 7,5 cm) et la longueur (2 × 55 cm · l₀ = 536 mm)",
+    bool(cout) and "joint X" in cout and re.search(r'<option value="10" selected>Ø10</option>', cout) is not None
+    and 'data-chemin="sections/0/couture/esp" data-sorte="entier" inputmode="decimal" value="100"' in cout and "et-raz" not in cout
+    and "6 + 0,5 = 6,5" in cout and "sur la prédalle, axe de calcul 7,5" in cout and "2 × 55" in cout and "536" in cout
+    and "automatique : la base secondaire (Treillis 10/10/100/100) reprise en barres" in cout
+    and fj.index('data-nappe="inf"') < fj.index('class="et-grp et-cout"') < fj.index('data-nappe="sup"'), cout[:300])
+lig_j = [(nom_, c_) for g_, nom_, c_ in CMP.findall(rj["resultat"])]
+chk("le résultat : la ligne « Joint X » suit l'inférieure X — au joint d = 20 − 7,5 = 12,5 cm, A_s,néc = 800 > 785 mm² : ROUGE (102 %), "
+    "quand la pleine prédalle tient (690 ≤ 785 : 88 %) ; la section est non conforme",
+    [n_ for n_, _ in lig_j] == ["Hauteur", "Inférieure Y", "Inférieure X", "Joint X", "Supérieure Y", "Supérieure X"]
+    and "800" in dict(lig_j)["Joint X"] and "&gt;" in dict(lig_j)["Joint X"] and "690" in dict(lig_j)["Inférieure X"]
+    and re.search(r'<span class="pct r">102\W%</span>', rj["resultat"]) is not None and 'class="et-bloc nok"' in rj["resultat"], lig_j)
+vj = rj["volets"][rj["volets"].index('data-calcul-id="s0-joint"') if 'data-calcul-id="s0-joint"' in rj["volets"] else 0:][:9000]
+chk("la fenêtre de calcul du joint : l'axe des barres de couture (« sur la prédalle »), d, A_s,req, A_s,min, puis la longueur — "
+    "l_b,rqd = Ø/4 · σ_sd / f_bd, l₀ = max(α6·l_b,rqd ; l₀,min), ⌈53,6⌉ → 55 cm, 110 cm en tout",
+    "barres de couture, sur la prédalle" in rj["volets"] and "l<sub>b,rqd</sub>" in rj["volets"]
+    and "max(α6·l<sub>b,rqd</sub> ; l₀,min)" in rj["volets"] and "max(1,5 × 357 ; 200)" in rj["volets"]
+    and "⌈53,6⌉" in rj["volets"] and "55 cm · 110 cm en tout" in rj["volets"], re.findall(r"l<sub>b,rqd[^=]{0,80}", rj["volets"])[:2])
+chk("la HAUTEUR : la famille du joint gouverne (h_u,min + 7,5) — la ligne la dit « famille joint X », la fenêtre « le joint X gouverne »",
+    "le joint X gouverne" in rj["volets"] and "famille joint X" in rj["volets"])
+e2_ = copy.deepcopy(ej)
+m1 = P.modifier(e2_, ["sections", 0, "couture", "d"], "12")
+f2_ = P.formulaire(e2_)
+r2_ = P.resultat(copy.deepcopy(e2_))
+m2 = P.modifier(e2_, ["sections", 0, "couture", "esp"], "150")
+c2_ = P._actif(e2_)["sections"][0]["couture"]
+m3 = P.modifier(e2_, ["sections", 0, "couture"], "")
+chk("régler la couture : le Ø (12) garde l'espacement de l'automatique (100) — des barres SAISIES, « ↺ » paraît, la ligne « Joint X » "
+    "dit Ø12/100 ; puis l'espacement (150) ; « ↺ » (le chemin sans champ, valeur vide) rend l'automatique",
+    m1 is None and m2 is None and m3 is None and 'class="et-raz" data-chemin="sections/0/couture"' in f2_
+    and "<span>Ø12/100</span>" in r2_["resultat"] and c2_ == {"d": 12, "esp": 150} and P._actif(e2_)["sections"][0]["couture"] is None,
+    (m1, m2, m3, c2_))
+avant_ = copy.deepcopy(ej)
+refus_ = [P.modifier(ej, ["sections", 0, "couture", "d"], "11"), P.modifier(ej, ["sections", 0, "couture", "esp"], "20"),
+          P.modifier(ej, ["sections", 0, "couture", "esp"], "abc"), P.modifier(ej, ["sections", 0, "couture"], "x"),
+          P.modifier(ej, ["sections", 0, "couture", "n"], "3")]
+coulee_ = P.nouvel_etat()
+refus_c = P.modifier(coulee_, ["sections", 0, "couture", "d"], "12")
+chk("les refus : Ø11, un espacement de 20 mm ou illisible, « ↺ » avec une valeur, un champ inconnu — chacun un message, la prédalle "
+    "INTACTE ; sur une dalle coulée : « n'a pas de joint »",
+    all(refus_) and "Ø11 n'est pas proposé" in refus_[0] and ej == avant_ and refus_c and "n'a pas de joint" in refus_c, (refus_, refus_c))
+e3_ = copy.deepcopy(ej)
+assert P.modifier(e3_, ["sections", 0, "couture", "d"], "12") is None
+m_t = P.modifier(e3_, ["type"], "coulee")
+r3_ = P.resultat(copy.deepcopy(e3_))
+chk("prédalle → dalle coulée : la couture part avec la peau (aucune section ne la garde), le résultat n'a plus de ligne « Joint », la "
+    "rubrique plus de barres de couture",
+    m_t is None and all("couture" not in s_ for s_ in P._actif(e3_)["sections"]) and "Joint X" not in r3_["resultat"]
+    and "et-cout" not in P.formulaire(e3_), m_t)
+# (lot 6) le PAS d'arrondi de la longueur des barres de couture : une option de la NOTE (1, 5 ou 10 cm), portée par chacune
+# de ses prédalles — saisie, refusée, reprise par une prédalle ajoutée et par une dalle qui devient prédalle
+ep_ = copy.deepcopy(ej)
+opt5 = P.formulaire(ep_)
+m10 = P.modifier(ep_, ["pas_couture"], "10")
+P.gerer_elements(ep_, "ajouter")                                   # une prédalle de plus : le pas de la note
+ep_["actif"] = 0
+r10 = P.resultat(copy.deepcopy(ep_))
+refus_p = [P.modifier(ep_, ["pas_couture"], x) for x in ("2", "abc", "")]
+P.gerer_elements(ep_, "ajouter")
+assert P.modifier(ep_, ["type"], "coulee") is None                 # la 3ᵉ, coulée, puis de nouveau prédalle : le pas de la note
+m_t2 = P.modifier(ep_, ["type"], "predalle")
+coulee_p = P.nouvel_etat()
+m_c = P.modifier(coulee_p, ["pas_couture"], "10")                  # une note encore sans prédalle : le pas est gardé…
+m_c2 = P.modifier(coulee_p, ["type"], "predalle")                   # … et la dalle qui devient prédalle le prend
+relue_p = P.normaliser({"dalles": [{"type": "predalle", "pas_couture": 1}, {"type": "predalle"}], "actif": 0, "pas_couture": 10})
+chk("(lot 6) l'option « Couture » des Options d'une prédalle : 1 · 5 · 10 cm (5 allumé) ; une dalle coulée ne l'a pas ; 10 cm "
+    "saisi : la NOTE le garde et chaque prédalle le prend, celles ajoutées ou devenues prédalles aussi ; la longueur suit (⌈53,6⌉ "
+    "au 10 cm → 60 cm, 120 cm en tout) ; refusés : 2, un texte, vide ; une note sans prédalle le garde pour celles qui viendront ; "
+    "relue, chaque prédalle reprend le pas de la note (sa copie est une vue)",
+    'data-chemin="pas_couture" data-sorte="choix" data-valeur="5.0"' in opt5 and re.search(r'class="on" data-chemin="pas_couture"[^>]*data-valeur="5\.0"', opt5)
+    and "pas_couture" not in P.formulaire(P.nouvel_etat()) and m10 is None
+    and [d_.get("pas_couture") for d_ in ep_["dalles"]] == [10.0, 10.0, 10.0] and m_t2 is None
+    and "60 cm · 120 cm en tout" in r10["volets"] and "⌈l₀⌉ au 10 cm" in r10["volets"]
+    and all(x and "Longueur des barres de couture : arrondie à 1 cm, 5 cm ou 10 cm" in x for x in refus_p) and ep_["pas_couture"] == 10.0
+    and m_c is None and m_c2 is None and coulee_p["pas_couture"] == 10.0 and P._actif(coulee_p)["pas_couture"] == 10.0
+    and relue_p["pas_couture"] == 10.0 and [d_["pas_couture"] for d_ in relue_p["dalles"]] == [10.0, 10.0]
+    and P.nouvel_etat()["pas_couture"] == 5.0,
+    (m10, [d_.get("pas_couture") for d_ in ep_["dalles"]], refus_p, m_c, m_c2))
+sel_ = P.selecteur(ej, "inf_x-0", ("barres",))
+chk("le sélecteur de la base secondaire d'une prédalle (couture automatique) compte le JOINT : chaque candidat dit son taux au joint, "
+    "et la plus petite qui tient (★) tient aussi au joint",
+    sel_.count(" · joint ") > 10 and all(c_["ok"] == (c_["etat"] == "ok") for c_ in POS.candidats_base(P._actif(ej), 0, "inf_x", ("barres",)))
+    and all(c_["joint"]["etat"] == "ok" for c_ in POS.candidats_base(P._actif(ej), 0, "inf_x", ("barres",)) if c_["optimal"]))
+# le DESSIN du joint (sous les deux coupes) : MESURÉ — la barre de couture centrée sur le joint, 2 × 550 mm à l'échelle de la
+# vue (k = min(1 ; W / L), L = 2 × 550 + 2 × 200 mm de marge, W = 1 000 mm), à sa position réelle (6,5 cm du dessous) ;
+# une pièce qui ouvre la couture ; une dalle coulée n'en a pas
+svg_j = rj["vues"][0]["svg"]
+mj = re.search(r'<g class="pc couche" data-sel="s0\.joint-0"><line x1="([\d.-]+)" y1="([\d.-]+)" x2="([\d.-]+)" y2="([\d.-]+)"', svg_j)
+k_j = min(1.0, 1000.0 / (2 * 550 + 2 * 200))
+bloc_j = svg_j[svg_j.index('<g data-joint="x">'):] if '<g data-joint="x">' in svg_j else ""
+dessus_j = re.search(r'<rect x="0" y="([\d.-]+)" width="[\d.-]+" height="([\d.-]+)" fill="#E6EAEF"/>', bloc_j)
+chk("le dessin du JOINT, mesuré : sous les deux coupes, la barre de couture centrée sur le joint, 2 × 550 mm à l'échelle de la vue "
+    "(733 mm dessinés pour une vue de 1 000), à 6,5 cm du dessous (sa position réelle) ; ses deux longueurs cotées « 550 » ; une "
+    "pièce s0.joint-0 (toucher la barre ouvre la couture) ; une dalle coulée n'en a pas",
+    mj is not None and dessus_j is not None and abs((float(mj.group(3)) - float(mj.group(1))) - 1100 * k_j) < 0.2
+    and abs(float(mj.group(2)) - (float(dessus_j.group(1)) + (200 - 65) * k_j)) < 0.2
+    and abs((float(mj.group(1)) + float(mj.group(3))) / 2 - 750 * k_j) < 0.2 and bloc_j.count(">550<") == 2
+    and 'data-joint' not in P.resultat(copy.deepcopy(P.nouvel_etat()))["vues"][0]["svg"],
+    (mj.groups() if mj else None, dessus_j.groups() if dessus_j else None, bloc_j.count(">550<")))
+ev_ = copy.deepcopy(ej)
+assert P.modifier(ev_, ["verrou"], "1") is None
+chk("une prédalle verrouillée se lit avec ses barres de couture (« barres de couture · joint X : Ø10/100 (automatique) · 55 cm de chaque "
+    "côté »)", "barres de couture · joint X" in P.formulaire(ev_) and "Ø10/100 (automatique) · 55 cm de chaque côté" in P.formulaire(ev_))
+
 # ------------------------------------------------------------------ DAL9 : « Armature », plus « nappe » ; « Mixte »
 # Le propriétaire, 13/11/2026 : « je ne veux plus les mots nappe » (« Armature inférieure », « Armature supérieure ») ; le
 # troisième type d'armature s'appelle « Mixte » (« Treillis + renforts » passait sur deux lignes). Ce qui se VOIT est lu
@@ -905,7 +1037,7 @@ chk("DAL9 : MUTATION — « Nappe inférieure » remis au titre : la garde le vo
 INTERNES9 = {'"nappes"', '"nappes_confondues"', "'nappes'", "'nappes_confondues'"}
 SOURCES9 = ("api_web/dalle.py", "api_web/dalle_predalle.py", "api_web/dalle_nappes.py", "api_web/dalle_positions.py",
             "api_web/dessin_dalle.py", "api_web/dessin_predalle.py", "api_web/plaque_compact.py", "api_web/note_dalle.py",
-            "beton/dalle/moteur.py", "beton/predalle/moteur.py")
+            "beton/dalle/moteur.py", "beton/predalle/moteur.py", "beton/predalle/joint.py")
 
 
 def chaines_nappe(chemin):

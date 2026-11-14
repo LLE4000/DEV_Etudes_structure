@@ -50,6 +50,11 @@ TEINTES = ("#A3AEC0", "#93B9E6", "#E2BE84", "#8FC7A6")      # les mêmes, en cla
 POLICE = "system-ui,Arial,sans-serif"
 LARGEUR_VUE_MAX = 1200.0                                     # mm : au-delà, la bande est dessinée en partie
 POSES = {"predalle": "dans la prédalle", "sur_predalle": "sur la prédalle", "superieure": ""}
+# le JOINT (lot 5) : les barres de couture, d'une couleur à elles ; le jour dessiné entre deux prédalles et la marge vue au-delà
+# des barres (conventions de dessin, pas des données de calcul)
+COUTURE = "#B5470B"
+JOUR_JOINT = 20.0                                            # mm
+MARGE_JOINT = 200.0                                          # mm, de chaque côté, au-delà du bout des barres
 
 
 def _f(x: float) -> str:
@@ -271,6 +276,73 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
     return f'<g data-coupe="{dk}">{"".join(g)}</g>', y_cote + 0.6 * u - y0
 
 
+def _coupe_joint(s: Dict, principale: str, h_mm: float, hp_mm: float, W: float, u: float, y0: float,
+                 i: Optional[int] = None) -> Tuple[str, float]:
+    """Le JOINT de deux prédalles (lot 5), coupé selon la direction SECONDAIRE, posé à l'ordonnée ``y0`` : les deux
+    peaux (hachurées), le jour du joint rempli de béton coulé en place ; la base secondaire, dans la peau, qui s'arrête à
+    l'enrobage de chaque bord ; les barres principales de la peau en points ; les renforts et la nappe supérieure ; les
+    BARRES DE COUTURE à leur position réelle (``s["joint"]``), centrées sur le joint, leurs deux longueurs cotées. Tout est
+    dessiné à une même échelle ``k`` (la vue tient dans la largeur ``W`` des coupes). (svg, hauteur occupée) — un groupe
+    ``data-joint="<direction>"``, la couture une pièce ``s<i>.joint-0``."""
+    j = s["joint"]
+    sec, c0, lg = j["direction"], j["couture"], j["longueur"]
+    cote_mm = lg["cote"] * 10.0
+    L = 2.0 * cote_mm + 2.0 * MARGE_JOINT
+    k = min(1.0, W / L)
+    xj = L / 2.0
+    X = lambda x: x * k                                     # noqa: E731 — l'échelle de la vue
+    g = [_txt(0, y0 + 0.9 * u, escape(f"Joint des prédalles · direction {sec.upper()}"), 0.95 * u, ancre="start")]
+    yc = y0 + 2.4 * u
+    H, HP = h_mm * k, hp_mm * k
+    yp = yc + H - HP
+    jour = JOUR_JOINT / 2.0
+    enr = s["grandeurs"]["enrobage_calcul"] * 10.0
+    beton = (f'<rect x="0" y="{_f(yc)}" width="{_f(X(L))}" height="{_f(H)}" fill="{BETON}"/>'
+             + "".join(f'<rect x="{_f(X(a))}" y="{_f(yp)}" width="{_f(X(b_ - a))}" height="{_f(HP)}" fill="{PEAU}"/>'
+                       + _hachures(X(a), yp, X(b_ - a), HP, 0.55 * u, 0.035 * u) for a, b_ in ((0.0, xj - jour), (xj + jour, L)))
+             + _ligne(0, yc, X(L), yc, ENCRE, 0.09 * u) + _ligne(0, yc + H, X(L), yc + H, ENCRE, 0.09 * u)
+             + _ligne(0, yp, X(xj - jour), yp, ENCRE, 0.06 * u) + _ligne(X(xj + jour), yp, X(L), yp, ENCRE, 0.06 * u)
+             + _ligne(X(xj - jour), yp, X(xj - jour), yc + H, ENCRE, 0.06 * u) + _ligne(X(xj + jour), yp, X(xj + jour), yc + H, ENCRE, 0.06 * u))
+    g.append(piece(i, "beton", beton, "beton"))
+    g.append(_rupture_v(0, yc, yc + H, u) + _rupture_v(X(L), yc, yc + H, u))
+    lignes, points = [], []
+    for cote in ("inf", "sup"):
+        for d_ in (sec, principale):
+            for jj, c in enumerate(s["faces"][f"{cote}_{d_}"]["couches"]):
+                y = yc + ((h_mm - c["e_reel"] * 10.0) if cote == "inf" else c["e_reel"] * 10.0) * k
+                ep = max(c["d"] * k, 0.04 * u)
+                dans_peau = cote == "inf" and jj == 0               # (une base inférieure : dans la peau, coupée au joint)
+                if d_ == sec:
+                    morceaux = ((enr, xj - jour - enr), (xj + jour + enr, L - enr)) if dans_peau else ((0.0, L),)
+                    lignes.append(piece(i, f"{cote}_{d_}-{jj}", "".join(_ligne(X(a), y, X(b_), y, _teinte(jj), ep) for a, b_ in morceaux)))
+                else:
+                    r = c["d"] * k / 2.0
+                    pas = float(c["esp"]) if c["type"] != "n_barres" else 200.0
+                    xs, x = [], pas / 2.0
+                    while x < L:
+                        if not (dans_peau and abs(x - xj) < jour + enr):
+                            xs.append(x)
+                        x += pas
+                    points.append(piece(i, f"{cote}_{d_}-{jj}", "".join(
+                        f'<circle cx="{_f(X(xx))}" cy="{_f(y)}" r="{_f(max(r, 0.05 * u))}" fill="{_couleur(jj)}" stroke="#FFFFFF" '
+                        f'stroke-width="{_f(max(0.3 * r, 0.03 * u))}" paint-order="stroke"/>' for xx in xs)))
+    g += lignes + points
+    yb = yc + (h_mm - c0["e_reel"] * 10.0) * k
+    g.append(piece(i, "joint-0", _ligne(X(xj - cote_mm), yb, X(xj + cote_mm), yb, COUTURE, max(c0["d"] * k, 0.06 * u)), "couche"))
+    # le joint : son axe, en tirets, et son nom ; les deux longueurs de la couture, cotées sous la vue
+    g.append(_ligne(X(xj), yc - 0.4 * u, X(xj), yc + H + 0.4 * u, COTE, 0.04 * u, ' stroke-dasharray="4 3"'))
+    g.append(_txt(X(xj), yc - 0.6 * u, "joint", 0.7 * u, couleur="#4A5563"))
+    yq = yc + H + 1.4 * u
+    g.append(_cote_h(X(xj - cote_mm), X(xj), yq, _mm(cote_mm), u) + _cote_h(X(xj), X(xj + cote_mm), yq, _mm(cote_mm), u))
+    # à droite : la position réelle de la couture, depuis le dessous
+    xd = X(L) + 1.3 * u
+    g.append(_attache(X(L) + 0.2 * u, yb, xd + 0.4 * u, yb, u) + _cote_v(xd, yb, yc + H, _mm(c0["e_reel"] * 10.0), u, droite=True))
+    lib = f"barres de couture {c0['libelle']} · 2 × {_mm(cote_mm)} mm (l₀ = {_mm(round(lg['l0']))} mm)"
+    g.append(f'<rect x="0" y="{_f(yq + 1.0 * u)}" width="{_f(1.3 * u)}" height="{_f(0.22 * u)}" fill="{COUTURE}"/>')
+    g.append(_txt(1.7 * u, yq + 1.35 * u, escape(lib), 0.74 * u, ancre="start", gras=False))
+    return f'<g data-joint="{sec}">{"".join(g)}</g>', yq + 1.9 * u - y0
+
+
 def _cle_betons(W: float, u: float, y: float, h_mm: float, hp_mm: float) -> Tuple[str, float]:
     """La clé des deux bétons, une fois sous les coupes (DAL5 : elle se répétait sous chacune) : la prédalle préfabriquée
     (hachurée) et le béton coulé en place, avec leurs épaisseurs. (svg, hauteur occupée)."""
@@ -314,6 +386,10 @@ def svg_coupe(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> s
     y = 0.9 * u if i is None else 0.0
     for dk in (p, "x" if p == "y" else "y"):
         morceau, hh = _coupe(s, dk, p, b_mm, h_mm, hp_mm, u, y, i)
+        g.append(morceau)
+        y += hh + 0.8 * u
+    if s.get("joint"):                              # (le joint des prédalles et ses barres de couture, lot 5)
+        morceau, hh = _coupe_joint(s, p, h_mm, hp_mm, W, u, y, i)
         g.append(morceau)
         y += hh + 0.8 * u
     cle, hk = _cle_betons(W, u, y, h_mm, hp_mm)

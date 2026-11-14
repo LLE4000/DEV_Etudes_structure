@@ -150,3 +150,39 @@ retirées. La baisse attendue reste celle du rangement des moteurs (lot 7). L'é
 | **Total du site** | **85 173** | **116 909** | **375** | **−360** |
 | Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
 | Tests (hors site) | 66 307 | 81 327 | 147 | −256 |
+
+## Mesure du 14/11/2026 — après les lots 5 et 6 : le joint des prédalles, le gabarit du bureau
+
+Deux fonctions nouvelles, donc du code en plus : depuis le lot 4, le site gagne **+631** lignes. Les dalles et prédalles
++427 — le joint des prédalles (`beton/predalle/joint.py` : la couture, sa pose, la vérification au joint, la longueur ;
+son bloc dans « Armatures », sa ligne, sa fenêtre de calcul, son dessin, sa note PDF) et l'option du pas de la couture ;
+la poutre +13 (son gabarit) ; le code commun +191 — le gabarit du bureau (`api_web/gabarit.py`, la page « Paramètres »,
+`js/gabarit.js`, `js/ecran_parametres.js`) et la lecture d'une saisie partagée par les notes et la page
+(`commun.valeurSaisie`, `viderAuFocus`, `segmentAEnvoyer` : sorties de `js/etabli.js`, pas recopiées). La baisse
+attendue reste celle du rangement des moteurs (lot 7). L'écart se lit depuis la mesure de départ.
+
+| Module | Lignes de code | Avec commentaires | Fichiers | Écart depuis le 2026-11-13 (avant l'unification (poutre, dalle, prédalle)) |
+|---|---:|---:|---:|---:|
+| Poutres béton armé | 3 755 | 5 453 | 13 | +137 |
+| Dalles et prédalles | 4 863 | 7 453 | 21 | −156 |
+| Charges sur plancher | 4 608 | 6 120 | 20 | — |
+| Fondations de grues | 5 307 | 6 990 | 19 | — |
+| Taux d'armature | 2 263 | 3 176 | 9 | — |
+| Enrobage | 1 076 | 1 526 | 7 | — |
+| Maturité du béton | 3 007 | 4 214 | 10 | — |
+| Tableau des armatures | 903 | 1 282 | 6 | — |
+| Données béton | 1 151 | 1 617 | 10 | — |
+| Choix de profilé | 1 453 | 1 999 | 7 | — |
+| Catalogue des profilés | 2 085 | 2 918 | 8 | — |
+| Cornières | 2 902 | 4 228 | 8 | — |
+| Flambement | 1 311 | 1 807 | 8 | — |
+| Assemblages métalliques | 18 397 | 25 054 | 97 | — |
+| Soudures | 3 771 | 4 934 | 13 | — |
+| Garde-corps | 3 032 | 3 983 | 11 | — |
+| Poutres bois | 1 828 | 2 712 | 9 | — |
+| Rigidité du sol | 3 228 | 4 404 | 8 | — |
+| Bibliothèques (béton, acier, autres) | 5 648 | 7 308 | 23 | — |
+| Code commun (écran, note PDF, construction) | 15 216 | 20 716 | 70 | +290 |
+| **Total du site** | **85 804** | **117 894** | **377** | **+271** |
+| Ancien logiciel Streamlit (hors site) | 23 918 | 32 653 | 71 | — |
+| Tests (hors site) | 67 086 | 82 250 | 148 | +523 |

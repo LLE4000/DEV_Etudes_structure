@@ -139,8 +139,9 @@ CAS = [  # (description, poutre)
     ("deux lits inférieurs (2Ø20 + 2Ø16), jeu entre lits 2 cm",
      poutre("2L", [sec("A", 220, 0, 140, ((2, 20), (2, 16)), ((2, 12),), (("etrier", 10),), 15)],
             b=30, h=60, jeu_entre_lits=2.0)),
+    # (le jeu entre lits de l'audit : 1 cm, le défaut d'alors — 2,5 cm depuis le 13/11/2026 ; voir H2b)
     ("audit C-1 : trois lits en bas, la famille la plus exigeante gouverne la hauteur",
-     poutre("C-1", [sec("A", 150, 160, 120, ((2, 16),) * 3, ((2, 16),))], b=30, h=60)),
+     poutre("C-1", [sec("A", 150, 160, 120, ((2, 16),) * 3, ((2, 16),))], b=30, h=60, jeu_entre_lits=1.0)),
     ("quatre lits en bas, deux en haut, deux étriers Ø12, grande section",
      poutre("4L", [sec("A", 600, 250, 400, ((3, 25), (3, 25), (2, 20), (2, 16)), ((3, 20), (2, 16)),
                        (("etrier", 12), ("etrier", 12)), 10)], b=40, h=80)),
@@ -290,15 +291,19 @@ if P is not None:
                      "jeu_premier_lit": ss["jeu_enrobage_cm"], "jeu_entre_lits": ss["jeu_entre_lits_cm"],
                      "sections": [lire_section(1)]}
     # (la règle de position du 13/11/2026, beton/position.py : le jeu de pose du bureau vaut 1 cm — le module disait 0 —
-    #  et l'arrondi est une clé nouvelle ; tout le reste est l'état du module)
+    #  et l'arrondi est une clé nouvelle ; le jeu entre lits vaut 2,5 cm — le module disait 1 cm, sous le minimum de
+    #  l'EC2 8.2(2) pour deux lits Ø16, décision du propriétaire du 13/11/2026 ; tout le reste est l'état du module)
     neuve = M.nouvelle_poutre()
-    chk("nouvelle_poutre() : le jeu de pose du bureau (1 cm) et l'arrondi (0,5 cm) de la règle du 13/11/2026",
-        neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut_module["jeu_premier_lit"] == 0.0,
-        (neuve["jeu_premier_lit"], neuve.get("arrondi")))
-    neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi")}
+    chk("nouvelle_poutre() : le jeu de pose du bureau (1 cm) et l'arrondi (0,5 cm) de la règle du 13/11/2026 ; le jeu entre "
+        "lits de 2,5 cm (le module : 1 cm)",
+        neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut_module["jeu_premier_lit"] == 0.0
+        and neuve["jeu_entre_lits"] == 2.5 and defaut_module["jeu_entre_lits"] == 1.0,
+        (neuve["jeu_premier_lit"], neuve.get("arrondi"), neuve["jeu_entre_lits"], defaut_module["jeu_entre_lits"]))
+    neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi", "jeu_entre_lits")}
     defaut_module.pop("jeu_premier_lit")
+    defaut_module.pop("jeu_entre_lits")
     chk("nouvelle_poutre() = l'état du module au premier affichage (20 × 40, C30/37, B500, γs 1,5, 2Ø16, étrier Ø10…), "
-        "hors jeu de pose et arrondi", not ecarts_json(neuve, defaut_module), ecarts_json(neuve, defaut_module))
+        "hors jeu de pose, arrondi et jeu entre lits", not ecarts_json(neuve, defaut_module), ecarts_json(neuve, defaut_module))
     P._add_section(1)
     chk("nouvelle_section() = la section que le bouton ➕ du module ajoute, et nom_section_suivant() = sa lettre",
         not ecarts_json(M.nouvelle_section(M.nom_section_suivant(M.nouvelle_poutre())), lire_section(2)),
@@ -374,6 +379,15 @@ chk("H2 lits du bas à 60, 85, 110 mm (calcul) ; y_G = 85 mm", [round(x["distanc
     and proche(g2["yG_inf"] * 10, sum(lits) / 3), r2["geometrie"]["inf"]["lits"])
 chk(f"H2 la famille inférieure gouverne : {fr(hu150 / 10, 2)} + 8,5 = {fr((hu150 + 85) / 10, 2)} cm > {fr((hu160 + 60) / 10, 2)} cm",
     g2["face_hauteur"] == "inf" and proche(g2["h_min"], (hu150 + 85) / 10) and g2["M_hauteur"] == 150, (g2["face_hauteur"], g2["h_min"]))
+# H2b : le JEU ENTRE LITS du bureau, 2,5 cm (décision du 13/11/2026) — deux lits 2Ø16 en bas d'une poutre neuve : réels
+#       48 mm (30 + 10 + 8) et 48 + 8 + 25 + 8 = 89 mm, soit 25 mm LIBRES (le minimum de l'EC2 8.2(2) : max(Ø ; d_g + 5 ;
+#       20) pour d_g = 20 mm) ; axes de calcul ⌈réel + 10⌉₅ = 60 et 100 mm
+p2b = M.nouvelle_poutre()
+p2b["sections"][0]["inf"] = [{"n": 2, "d": 16}, {"n": 2, "d": 16}]
+l2b = M.verifier(p2b)["sections"][0]["geometrie"]["inf"]["lits"]
+chk("H2b deux lits 2Ø16 au jeu du bureau (2,5 cm) : réels 48 et 89 mm (25 mm libres), calcul 60 et 100 mm",
+    [round(x["reel"] * 10, 9) for x in l2b] == [48.0, 89.0] and [round(x["distance"] * 10, 9) for x in l2b] == [60.0, 100.0]
+    and round((l2b[1]["reel"] - l2b[0]["reel"]) * 10 - 16, 9) == 25.0, l2b)
 tau2 = 120e3 / (0.75 * 300 * 600)
 chk(f"H2 τ = {fr(tau2, 4)} N/mm² entre τ_adm,I et τ_adm,II = 0,032·37/1,05 : bande II, état ok",
     proche(g2["tau"], tau2) and g2["bande_tau"] == "II" and proche(g2["tau_lim"], 0.032 * 37 / 1.05))

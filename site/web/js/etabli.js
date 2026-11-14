@@ -20,7 +20,8 @@
 //     body[data-ecran] dit l'état : demarrage, apercu, pret, erreur.
 import * as N from "./notes.js";
 import { toast, retirerToast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, SUITE_LECTURE,
-  SUITE_APERCU, ACTIONS_SANS_MOTEUR, texteEchecDemarrage } from "./commun.js";
+  SUITE_APERCU, ACTIONS_SANS_MOTEUR, texteEchecDemarrage, valeurSaisie, segmentAEnvoyer, viderAuFocus } from "./commun.js";
+import * as GB from "./gabarit.js";
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
@@ -705,22 +706,14 @@ export function ouvrirEtabli(hote, ctx) {
     }, { signal });
 
     // -------------------------------------------------------------- la saisie
-    function lireChamp(el) {
-      if (el.type === "checkbox") return el.checked;
-      return el.value;
-    }
-
     // les menus et les cases partent à la sélection ; les champs de texte, en quittant le champ (ou Entrée) — et
-    // seulement si leur valeur diffère de celle du moteur (defaultValue), même après un rafraîchissement
+    // seulement si leur valeur diffère de celle du moteur (defaultValue), même après un rafraîchissement. La valeur :
+    // commun.valeurSaisie (la même que la page « Paramètres »)
     function valider(el) {
-      if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") {
-        const t = el.value.replace(/[\s  ]/g, "").replace(",", ".");
-        const x = Number(t);
-        const ko = t === "" || !Number.isFinite(x) || (el.dataset.min !== undefined && x < +el.dataset.min) || (el.dataset.max !== undefined && x > +el.dataset.max);
-        el.closest(".field").classList.toggle("erreur", ko);
-        if (ko) { toast(`Valeur refusée : « ${el.value} »`, true); return; }
-      }
-      envoyer("modifier", { chemin: el.dataset.chemin.split("/"), valeur: lireChamp(el) });
+      const v = valeurSaisie(el);
+      if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") el.closest(".field").classList.toggle("erreur", !v.ok);
+      if (!v.ok) { toast(`Valeur refusée : « ${el.value} »`, true); return; }
+      envoyer("modifier", { chemin: el.dataset.chemin.split("/"), valeur: v.valeur });
     }
     $("#donnees").addEventListener("change", (ev) => {
       const f = ev.target.closest("input[type=file][data-chemin]");
@@ -728,26 +721,10 @@ export function ouvrirEtabli(hote, ctx) {
       const el = ev.target.closest("select[data-chemin], input[type=checkbox][data-chemin]");
       if (el) valider(el);
     }, { signal });
-    // (13/11/2026, le propriétaire : « si je clique sur un 0, je dois l'effacer — je préfère que la case soit vide ») un
-    // champ NUMÉRIQUE se VIDE quand on y entre : sa valeur reste écrite en gris (l'indication), on tape directement la
-    // nouvelle ; quitté sans rien taper, il reprend sa valeur et rien n'est envoyé. Ce second écouteur passe AVANT celui
-    // qui valide (phase de capture) ; une saisie en cours reprise après un calcul (reprendreSaisie) n'est pas touchée.
-    const NUMERIQUE = 'input[data-sorte="nombre"]:not([readonly]):not(:disabled), input[data-sorte="entier"]:not([readonly]):not(:disabled)';
-    $("#donnees").addEventListener("focusin", (ev) => {
-      const el = ev.target.closest(NUMERIQUE);
-      if (!el || el.dataset.indication !== undefined || el.defaultValue === "") return;
-      if (el.value !== el.defaultValue && el.value !== "") return;
-      el.dataset.indication = el.placeholder;
-      el.placeholder = el.defaultValue;
-      el.value = "";
-    }, { signal });
-    $("#donnees").addEventListener("focusout", (ev) => {
-      const el = ev.target.closest(NUMERIQUE);
-      if (!el || el.dataset.indication === undefined) return;
-      if (el.value.trim() === "") el.value = el.defaultValue;
-      el.placeholder = el.dataset.indication;
-      delete el.dataset.indication;
-    }, { capture: true, signal });
+    // (13/11/2026, le propriétaire : « si je clique sur un 0, je dois l'effacer ») un champ NUMÉRIQUE se VIDE quand on y
+    // entre (commun.viderAuFocus : la même règle que la page « Paramètres ») ; une saisie en cours reprise après un calcul
+    // (reprendreSaisie) n'est pas touchée.
+    viderAuFocus($("#donnees"), { signal });
     $("#donnees").addEventListener("focusout", (ev) => {
       const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-chemin]");
       if (el && el.value !== el.defaultValue) valider(el);
@@ -811,7 +788,7 @@ export function ouvrirEtabli(hote, ctx) {
       const seg = ev.target.closest("button[data-chemin][data-valeur]");
       // (un segment allumé ne renvoie rien : il est déjà choisi ; une PUCE à bascule — data-bascule, les espacements admis
       //  de la dalle, 13/11/2026 — s'éteint d'un appui : elle part allumée ou non)
-      if (seg) { if (!seg.classList.contains("on") || seg.dataset.bascule) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
+      if (seg) { if (segmentAEnvoyer(seg)) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
       const hd = ev.target.closest(".sechd[data-replier]");
       if (hd) {
         // un en-tête ouvre SA rubrique et referme les autres ; sur la rubrique ouverte, il la referme
@@ -1275,13 +1252,17 @@ export function ouvrirEtabli(hote, ctx) {
     // L'action du premier calcul se décide AVANT de peindre quoi que ce soit : « nouveau » pour un calcul neuf (sans
     // état : depuis sa carte, « Nouvelle note », une note absente), « calculer » pour une note rouverte.
     const premiere = note.etat ? "calculer" : "nouveau";
+    // (lot 6) le GABARIT DU BUREAU (js/gabarit.js, la page « Paramètres ») : une note NEUVE reçoit les options que
+    // l'administrateur a fixées pour ce module — le moteur les écrit et les contrôle (api_web/gabarit.py) ; l'APERÇU, calculé
+    // aux valeurs d'usine, n'est pas montré quand un gabarit s'applique (il différerait de la première réponse)
+    const gabarit = premiere === "nouveau" ? GB.lire(MODULE) : null;
     if (note.etat) montrerRouverte();
-    else if (ctx.moteur.etat !== "pret") apercu();
+    else if (ctx.moteur.etat !== "pret" && !gabarit) apercu();
     (async () => {
       try {
         await ctx.moteur.pret;
         if (fini()) return;
-        const r = await envoyer(premiere);
+        const r = await envoyer(premiere, gabarit ? { gabarit } : {});
         if (fini()) return;
         marquer("reponse1_appliquee");
         if (!r) throw Object.assign(new Error((dernierRefus && dernierRefus.erreur) || "le premier calcul a échoué"), { refus: !!dernierRefus && !dernierRefus.mort });

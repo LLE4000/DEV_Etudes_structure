@@ -7,8 +7,9 @@ dispositions.py ; site, 11/2026), vérifiés à la main.
   une position imposée « pos » en est une) et son axe de CALCUL (+ jeu de pose 1 cm, arrondi au 0,5 cm) ; d et y_G
   suivent les axes de calcul (Σ A·e / Σ A), les dispositions et les latérales les positions réelles ;
 - les abscisses : uniforme entre les montants de l'étrier, « aligne » sur le lit 1, « entraxe » centré ;
-- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu du bureau (1 cm) : 10 mm libres → « non conforme » (décision
-  du bureau, 11/2026 : un espacement sous le minimum de l'EC2 est une non-conformité, pas une observation) ;
+- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu d'avant le 13/11/2026 (1 cm) : 10 mm libres → « non conforme »
+  (décision du bureau, 11/2026 : un espacement sous le minimum de l'EC2 est une non-conformité, pas une observation) ; au
+  jeu du bureau d'aujourd'hui (2,5 cm, le défaut) : 25 mm libres → conforme ;
 - des barres qui se chevauchent, ou qui sortent de l'étrier, sont « non conformes » et « impossibles » (le sélecteur ne
   les propose pas) ; un espacement positif sous s_min est non conforme mais se pose (« serrée ») ;
 - EC2 8.2(3) : des lits dont les barres ne sont pas superposées sont « à examiner » ;
@@ -90,13 +91,14 @@ chk("« entraxe » : trois barres centrées à 7 cm", proche(xs[2][1], 15.0) and
 # 4. l'espacement minimal et les états
 chk("s_min = max(Ø ; d_g + 5 ; 20) : Ø16, d_g 20 → 25 mm ; Ø32 → 32 mm ; d_g 10 → 20 mm",
     DI.s_min(16, 16, 20) == 25 and DI.s_min(32, 16, 20) == 32 and DI.s_min(12, 12, 10) == 20)
+p = poutre(jeu_entre_lits=1.0, s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
+it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
+chk("deux lits Ø16 au jeu d'avant (1 cm) : 0,8 + 1 + 0,8 = 2,6 cm d'entraxe réel, 10 mm libres < 25 mm → « non conforme », "
+    "mais posable", proche(it["libre"], 10.0) and it["mini"] == 25 and it["etat"] == DI.NOK and not it["impossible"], it)
 p = poutre(s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("deux lits Ø16 au jeu du bureau : 0,8 + 1 + 0,8 = 2,6 cm d'entraxe réel, 10 mm libres < 25 mm → « non conforme », "
-    "mais posable", proche(it["libre"], 10.0) and it["mini"] == 25 and it["etat"] == DI.NOK and not it["impossible"], it)
-p = poutre(jeu_entre_lits=2.5, s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
-it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("… avec un jeu entre lits de 2,5 cm : 25 mm libres → conforme", proche(it["libre"], 25.0) and it["etat"] == DI.OK, it)
+chk("… au jeu entre lits du bureau (2,5 cm, le défaut depuis le 13/11/2026) : 25 mm libres → conforme",
+    EN.DEFAUTS_POUTRE["jeu_entre_lits"] == 2.5 and proche(it["libre"], 25.0) and it["etat"] == DI.OK, it)
 p = poutre(s={"inf": [{"n": 8, "d": 32}]})
 dis = MO.verifier(p)["sections"][0]["dispositions"]
 chk("8Ø32 dans 20 cm : les barres se chevauchent → « non conforme »", dis["etat"] == DI.NOK
@@ -149,8 +151,8 @@ chk("sans aucun effort : « sollicitee » faux (section et poutre) ; τ et étri
     and [x["cle"] for x in r["sections"][0]["non_verifiees"]] == ["tau", "pas"] and "V = 0" in r["sections"][0]["non_verifiees"][0]["raison"])
 r = MO.verifier(poutre(s={"V": 30.0}))
 chk("avec V : rien de non vérifié", r["sections"][0]["sollicitee"] and r["sections"][0]["non_verifiees"] == [])
-r = MO.verifier(poutre(s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
-chk("« statut » reste celui de la méthode ; « statut_complet » y ajoute les dispositions (14 mm libres : non conforme)",
+r = MO.verifier(poutre(jeu_entre_lits=1.0, s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
+chk("« statut » reste celui de la méthode ; « statut_complet » y ajoute les dispositions (10 mm libres : non conforme)",
     r["statut"] == MO.OK and r["statut_complet"] == MO.NOK, (r["statut"], r["statut_complet"]))
 
 # 9. EC2 8.2(3) : les lits superposés
@@ -197,12 +199,12 @@ rk = MO.verifier(pk)["sections"][0]
 ak = next(x for x in rk["dispositions"]["items"] if x["id"] == "angles_cadre:1")
 chk("la disposition change : la justification devient « à revoir », l'observation redevient « à examiner »",
     ak["etat_eff"] == DI.WARN and "justification" not in ak and ak["justification_perimee"].startswith("Deux barres") and rk["statut_complet"] == MO.WARN, ak)
-pn = copy.deepcopy(poutre(s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
+pn = copy.deepcopy(poutre(jeu_entre_lits=1.0, s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
 itn = next(x for x in MO.verifier(pn)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
 pn["sections"][0]["justifs"] = {itn["id"]: {"texte": "Validé", "empreinte": itn["empreinte"]}}
 rn = MO.verifier(EN.normaliser(pn))["sections"][0]
 itn2 = next(x for x in rn["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("une NON-CONFORMITÉ ne se justifie pas : 14 mm pour 25 mm reste non conforme, justification ou pas",
+chk("une NON-CONFORMITÉ ne se justifie pas : 10 mm pour 25 mm reste non conforme, justification ou pas",
     itn2["etat_eff"] == DI.NOK and "justification" not in itn2 and rn["statut_complet"] == MO.NOK, itn2)
 for mauvais, quoi in (({"x": "texte"}, "valeur non dict"), ({"x": {"texte": "a", "auteur": "b"}}, "clé inconnue"),
                       ({"x": {"texte": "a" * 601}}, "texte trop long"), ({"": {"texte": "a"}}, "identifiant vide")):

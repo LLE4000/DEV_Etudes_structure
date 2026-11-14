@@ -572,10 +572,18 @@ def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = 
         g, geo = s["grandeurs"], s["faces"][f]["couches"][0]
         retenue = base["type"] == cand["type"] and (base["treillis"] == cand["treillis"] if cand["type"] == "treillis"
                                                     else (base["d"], base["esp"]) == (cand["d"], cand["esp"]))
-        out.append({"nom": MO_D.candidat_nom(c1), "famille": cand["type"], "type": cand["type"], "treillis": c1["treillis"],
-                    "d": c1["d"], "esp": c1["esp"], "As_pm": geo["As_pm"], "As": g[f"As_{f}"], "e": geo["e"], "yG": g[f"yG_{f}"],
-                    "taux": g[f"besoin_{f}"] / g[f"As_{f}"], "etat": g[f"etat_{f}"], "ok": g[f"etat_{f}"] == MO_D.OK,
-                    "statut_section": s["statut"], "retenue": retenue, "optimal": False})
+        c = {"nom": MO_D.candidat_nom(c1), "famille": cand["type"], "type": cand["type"], "treillis": c1["treillis"],
+             "d": c1["d"], "esp": c1["esp"], "As_pm": geo["As_pm"], "As": g[f"As_{f}"], "e": geo["e"], "yG": g[f"yG_{f}"],
+             "taux": g[f"besoin_{f}"] / g[f"As_{f}"], "etat": g[f"etat_{f}"], "ok": g[f"etat_{f}"] == MO_D.OK,
+             "statut_section": s["statut"], "retenue": retenue, "optimal": False}
+        j = s.get("joint")
+        if j and j["face"] == f and essai["sections"][i].get("couture") is None:
+            # (une prédalle, la base SECONDAIRE inférieure, la couture automatique — lot 5 : le candidat est aussi la couture
+            #  du joint ; il ne « tient » que si le joint tient aussi, et son taux est le plus fort des deux)
+            vj = next(v for v in s["verifications"] if v["cle"] == "joint")
+            c.update(joint={"taux": vj["taux"], "etat": vj["etat"]}, taux=max(c["taux"], vj["taux"]),
+                     etat=MO_D.NOK if MO_D.NOK in (c["etat"], vj["etat"]) else c["etat"], ok=c["ok"] and vj["etat"] == MO_D.OK)
+        out.append(c)
     out.sort(key=lambda x: (x["As_pm"], MO_D.FAMILLES.index(x["famille"]), x["d"]))
     optimal = next((x for x in out if x["ok"]), None)
     if optimal is not None:

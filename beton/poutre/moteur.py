@@ -26,7 +26,8 @@ par défaut du module ; une clé inconnue ou une valeur hors du domaine de l'éc
      "enrobage": 3.0,                    enrobage béton (cm, ≥ 0) ; 0 est lu 3,0 cm, comme le module
      "jeu_premier_lit": 1.0,             JEU DE POSE (cm, ≥ 0) : ajouté à la position réelle de chaque lit avant
                                          l'arrondi (beton/position.py, règle du 13/11/2026)
-     "jeu_entre_lits": 1.0,              jour libre entre deux lits (cm, ≥ 0 ; position réelle)
+     "jeu_entre_lits": 2.5,              jour libre entre deux lits (cm, ≥ 0 ; position réelle ; 2,5 depuis le
+                                         14/11/2026 — c'était 1)
      "arrondi": 0.5,                     pas d'arrondi de l'axe de calcul (cm : 0, 0,5 ou 1)
      "sections": [                       une section au moins
        {"nom": "A",                      sans nom : la première lettre libre

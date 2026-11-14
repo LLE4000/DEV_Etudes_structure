@@ -69,3 +69,45 @@ valeurs par défaut. Le reste attend la décision.
 3. Les **treillis du stock** : la liste actuelle (dix treillis, de 5/5/150/150 à 12/12/100/100) est-elle celle du
    bureau ?
 4. La note PDF doit-elle **nommer le modèle** de départ ?
+
+## 7. Ce qui est construit — le GABARIT DU BUREAU (lot 6, 14/11/2026)
+
+*Décision du propriétaire du 13/11/2026 (au soir) : « dans les options du site, les options par défaut de chaque module
+— que le responsable fixe ; chaque note peut changer une valeur au cas par cas (« pour cette dalle-là, pas de jeu ») » ;
+son exemple : « on prend la longueur de recouvrement et on l'arrondit tout le temps au 5 cm près ou à 10 cm près ». Les
+questions du § 6 restent ouvertes, sauf la première : le gabarit est celui du POSTE aujourd'hui (comme l'équipe), celui
+du BUREAU avec les comptes.*
+
+- **La page « Paramètres »** (le menu : l'icône ⚙ du rail, le dernier onglet du téléphone ; elle disait « bientôt ») :
+  « Le site » (le thème : Clair · Sombre · Comme l'appareil), puis « Gabarit du bureau » — une carte par module qui en a
+  un (poutre ; dalles et prédalles), sa rubrique **Options RENDUE PAR LE MOTEUR** (l'action « gabarit » du routeur,
+  `api_web/gabarit.py`) : le même composant que dans la note — mêmes champs, mêmes bornes, mêmes refus (R1, R2). Une
+  valeur du bureau (un écart à l'usine) est **encadrée**, l'usine au survol ; « Valeurs d'usine » efface le module.
+- **Ce qu'il contient** — les options de la rubrique Options, rien d'autre : *poutre* — jeu de pose, jeu entre lits,
+  arrondi, γs, d_g, Ø et s_max des armatures de peau, l'option « Taux d'armature » et ses réglages ; *dalles et
+  prédalles* — γs, jeu de pose, arrondi, **le pas d'arrondi de la longueur des barres de couture** (1, 5 ou 10 cm : une
+  option nouvelle, l'exemple du propriétaire), les espacements admis. Les clés : `GABARIT` de chaque module.
+- **Qui le change** : un **administrateur** (`js/equipe.js`) ; un membre le LIT (contrôles éteints) ; personne présenté :
+  la page renvoie à l'Équipe. Chaque changement laisse une ligne au journal (« a changé le gabarit du bureau : Dalles
+  béton armé », une par visite ; « a rendu aux valeurs d'usine … »).
+- **Ce qui est gardé** : les ÉCARTS à l'usine que le moteur a rendus (`js/gabarit.js`, `stab.gabarit.v1` : `{ modules: {
+  <module>: { <option>: valeur } }, par, t }`) — ni valeur d'usine, ni borne, ni libellé. Une valeur égale à l'usine
+  n'est pas gardée : elle SUIT l'usine (si le moteur change un défaut, le gabarit ne le fige pas).
+- **Ce qui le reçoit** : une note **NEUVE** — la requête « nouveau » de `js/etabli.js` porte le gabarit du module ; le
+  moteur écrit chaque valeur par la saisie du module (`modifier` : le contrôle de la rubrique Options) et DIT un refus
+  (« … — gabarit du bureau : la valeur d'usine est gardée »). L'aperçu d'un calcul neuf (calculé aux valeurs d'usine) n'est
+  pas montré quand un gabarit s'applique. Une note **existante** ne bouge jamais (« calculer », « modifier » ignorent le
+  gabarit) ; dans sa rubrique Options, chaque valeur se change au cas par cas.
+- **Le moteur ne lit pas le gabarit pour calculer** : il choisit des données, vérifiées comme toutes les autres (§ 1).
+- **Les contrôles** : `tests/test_gabarit.py` (l'usine LUE des tables du moteur, la note neuve et son calcul, les refus,
+  la note existante intacte, l'action « gabarit », 5 mutations) ; `tests/test_site_bureau.py` (le registre joué dans
+  node : écarts, signature, mémoire abîmée copiée, stockage plein ; la page et le menu ; 5 mutations) ; le harnais
+  (`site/web/verifier_site.js`, filtre « bureau ») aux quatre formats — la page mesurée (rien ne dépasse, 40 px au doigt,
+  le contour d'une valeur du bureau), un administrateur change, une note neuve reçoit (couture « 2 × 60 cm »), une note
+  existante garde 1 cm, un membre lit, « Valeurs d'usine » efface.
+
+**Pas encore fait** (une décision du propriétaire d'abord) : des réglages distincts « coulé en place » / « préfabriqué »
+(un jeu de pose propre aux barres de la peau d'une prédalle — le propriétaire a dit « on peut avoir le choix », sans
+valeur différente : 1 cm pour les deux) ; le jeu entre deux couches d'une dalle (0 aujourd'hui, fixé le 13/11/2026) ;
+la géométrie de départ (enrobage, h_p) et le taux visé (§ 6, question 2) ; la liste des treillis du stock (question 3) ;
+la note PDF qui nomme le gabarit de départ (question 4).

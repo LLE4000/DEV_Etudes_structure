@@ -65,6 +65,7 @@ globalThis.localStorage = new Memoire();
 const base = %s;
 const E = await import(base + "equipe.js"), J = await import(base + "journal.js"), P = await import(base + "projets.js"), N = await import(base + "notes.js");
 const VF = await import(base + "verifications.js"), VS = await import(base + "versions.js"), A = await import(base + "accueil.js"), MQ = await import(base + "marques.js");
+const GB = await import(base + "gabarit.js");
 const out = {};
 const jouer = (nom, memoire, f) => { globalThis.localStorage = memoire; try { out[nom] = f(memoire); } catch (e) { out[nom] = { erreur: String(e && e.stack || e) }; } };
 const T = 1762862400000;                         // un instant fixe pour les heures du journal
@@ -322,6 +323,20 @@ jouer("recherche", new Memoire(), () => {
            note: [note.sorte, note.href === `dalle?note=${encodeURIComponent(n.id)}`, note.sous, note.module], projet: [projet.sorte, projet.href], sous: [sous.sorte, sous.href, sous.sous],
            module: [module.sorte, module.href, module.module, module.sous], piege: A.indexRecherche({ x: null, y: { module: "__proto__", nom: "X" }, z: "texte" }).filter((x) => x.sorte === "Note").length };
 });
+// ---- (lot 6) le GABARIT DU BUREAU : ce que la page « Paramètres » garde — les écarts à l'usine, par module, signés
+jouer("gabarit", new Memoire(), (mem) => {
+  const vide = { lire: GB.lire("dalle"), dernier: GB.dernier() };
+  E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true });
+  const ok = GB.ecrire("dalle", { jeu_premier_lit: 0.5, pas_couture: 10 }, T);
+  const lu = GB.lire("dalle"), autre = GB.lire("poutre"), d = GB.dernier();
+  const usine = GB.ecrire("dalle", {}, T + 1);
+  return { vide, ok, lu, autre, dernier: d && [d.par && d.par.ini, d.t], usine, apres: GB.lire("dalle"), brut: JSON.parse(mem.getItem(GB.CLE)) };
+});
+jouer("gabarit_abime", new Memoire(() => null, { "stab.gabarit.v1": "[1, 2]" }), (mem) => ({ lire: GB.lire("dalle"), ecrit: GB.ecrire("dalle", { arrondi: 1 }, T),
+  copies: [...mem.m.keys()].filter((k) => k.startsWith("stab.gabarit.v1.illisible.")).length, lu: GB.lire("dalle") }));
+jouer("gabarit_plein", new Memoire(() => new Error("QuotaExceededError")), () => ({ ecrit: GB.ecrire("dalle", { arrondi: 1 }, T), lu: GB.lire("dalle") }));
+out.gabarit_journal = ["gabarit.change", "gabarit.usine"].map((k) => { const p = J.phrase({ t: T, q: { ini: "LLE", nom: "Louis Lejeune" }, k, n: null, p: "", s: "", de: "", x: "Dalles béton armé" });
+  return [p.qui, p.verbe, p.objet]; });
 console.log(JSON.stringify(out));
 """ % json.dumps("file://" + JS + "/")
 
@@ -583,9 +598,28 @@ chk("js/versions.js (écrit par la construction) : une version par page de calcu
     sorted(_vdit) == sorted(k for k in SW.PAGES if k not in SW.REDIRECTIONS) and len(set(_vdit.values())) == len(_vdit)
     and SW.versions_js(_vdit).strip() == _vjs.strip() and set(_vdit) == set(SW.versions_modules({k: [] for k in _vdit})), sorted(set(_vdit) ^ set(SW.PAGES)))
 
+# ------------------------------------------------------------------------------- (lot 6) le gabarit du bureau (js/gabarit.js)
+print("\n=== 3 ter · Le gabarit du bureau (js/gabarit.js)")
+GBD = D.get("gabarit", {})
+chk("gabarit : vide au départ (aucun module, personne) ; écrit, il garde les ÉCARTS du module tels quels — {jeu de pose 0,5, pas de couture 10} "
+    "pour les dalles —, rien pour la poutre ; signé (LLE) et daté",
+    GBD.get("vide") == {"lire": None, "dernier": None} and GBD.get("ok") is True and GBD.get("lu") == {"jeu_premier_lit": 0.5, "pas_couture": 10}
+    and GBD.get("autre") is None and GBD.get("dernier") == ["LLE", 1762862400000], GBD)
+chk("gabarit : « valeurs d'usine » (des écarts vides) retire le module — la note neuve redevient celle d'usine ; le registre garde sa forme "
+    "{modules, par, t}",
+    GBD.get("usine") is True and GBD.get("apres") is None and (GBD.get("brut") or {}).get("modules") == {} and set(GBD.get("brut") or {}) == {"modules", "par", "t"}, GBD)
+GBA, GBP = D.get("gabarit_abime", {}), D.get("gabarit_plein", {})
+chk("gabarit abîmé (un tableau) : lu comme vide, jamais écrasé sans copie (une copie « .illisible. »), puis réécrit ; stockage plein : rien n'est "
+    "écrit, et on le sait (faux)",
+    GBA.get("lire") is None and GBA.get("ecrit") is True and GBA.get("copies") == 1 and GBA.get("lu") == {"arrondi": 1}
+    and GBP.get("ecrit") is False and GBP.get("lu") is None, (GBA, GBP))
+chk("le journal dit le geste : « Louis Lejeune a changé le gabarit du bureau : Dalles béton armé » ; « … a rendu aux valeurs d'usine le gabarit : … »",
+    D.get("gabarit_journal") == [["Louis Lejeune", "a changé le gabarit du bureau :", "Dalles béton armé"],
+                                 ["Louis Lejeune", "a rendu aux valeurs d'usine le gabarit :", "Dalles béton armé"]], D.get("gabarit_journal"))
+
 # ================================================================================================ 4 · les sources
 print("\n=== 4 · Les sources")
-for f in ("memoire.js", "equipe.js", "journal.js", "projets.js", "verifications.js", "versions.js"):
+for f in ("memoire.js", "equipe.js", "journal.js", "projets.js", "verifications.js", "versions.js", "gabarit.js"):
     s = source(f)
     chk(f"js/{f} : aucun effet au chargement et rien du document (ni document, ni window, ni history) — il tourne dans node",
         not re.search(r"\b(document|window|history)\.", s), re.findall(r"\b(?:document|window|history)\.\w+", s)[:4])
@@ -605,6 +639,7 @@ if _mut_page:
     assert _av in PAGES_R[_f], (_f, _av)
     PAGES_R = {**PAGES_R, _f: PAGES_R[_f].replace(_av, _ap)}
 ACC, PRJ, EQU = PAGES_R["index.html"], PAGES_R.get("projets.html", ""), PAGES_R.get("equipe.html", "")
+PAR = PAGES_R.get("parametres.html", "")
 
 
 def ids(html):
@@ -615,27 +650,37 @@ def corps(html):
     return dict(re.findall(r'\s([\w-]+)="([^"]*)"', re.search(r"<body[^>]*>", html).group(0))) if "<body" in html else {}
 
 
-chk("les pages Projets et Équipe existent (projets.html, equipe.html), le corps dit leur écran (data-page) — 25 pages au site",
-    len(PAGES_R) == 25 and corps(PRJ) == {"data-page": "projets"} and corps(EQU) == {"data-page": "equipe"}
-    and SW.PAGES_BUREAU == {"projets": "projets.html", "equipe": "equipe.html"}, (len(PAGES_R), corps(PRJ), corps(EQU)))
-# le MENU : depuis CHAQUE page, la barre (PC, tablette) et les onglets du téléphone (là où il y en a) mènent aux projets
-# et à l'équipe — des LIENS, plus « bientôt » ; Paramètres, lui, attend encore les comptes
+chk("les pages Projets, Équipe et Paramètres existent (projets.html, equipe.html, parametres.html — lot 6), le corps dit leur écran "
+    "(data-page) — 26 pages au site",
+    len(PAGES_R) == 26 and corps(PRJ) == {"data-page": "projets"} and corps(EQU) == {"data-page": "equipe"} and corps(PAR) == {"data-page": "parametres"}
+    and SW.PAGES_BUREAU == {"projets": "projets.html", "equipe": "equipe.html", "parametres": "parametres.html"}, (len(PAGES_R), corps(PRJ), corps(EQU), corps(PAR)))
+# le MENU : depuis CHAQUE page, la barre (PC, tablette) et les onglets du téléphone (là où il y en a) mènent aux projets,
+# à l'équipe et (lot 6) aux paramètres — des LIENS, plus aucun « bientôt »
 # (une page de REDIRECTION — predalle — n'a ni barre ni écran : elle renvoie à une autre)
 _rail = {n: re.search(r'<nav class="nav">.*?</nav>', h, re.S).group(0) for n, h in PAGES_R.items() if '<nav class="nav">' in h}
 _mnav = {n: re.search(r'<nav class="mnav">.*?</nav>', h, re.S).group(0) for n, h in PAGES_R.items() if '<nav class="mnav">' in h}
 _rail_ko = [n for n, r in _rail.items() if not ('data-tip="Projets" href="projets"' in r and 'data-tip="Équipe" href="equipe"' in r
-                                                and "Projets · bientôt" not in r and "Équipe · bientôt" not in r and r.count('data-bientot="1"') == 1
-                                                and 'data-tip="Paramètres · bientôt" aria-disabled="true" data-bientot="1"' in r)]
+                                                and 'data-tip="Paramètres" href="parametres"' in r and "bientôt" not in r and "data-bientot" not in r)]
 _mnav_ko = [n for n, r in _mnav.items() if not (re.search(r'<a class="(on)?" href="projets">', r) and re.search(r'<a class="(on)?" href="equipe">', r)
-                                                and r.count('data-bientot="1"') == 1 and len(re.findall(r"<a ", r)) == 5)]
-chk(f"le menu mène aux Projets et à l'Équipe depuis les {len(_rail)} pages (la barre) et depuis les {len(_mnav)} pages qui ont les onglets du "
-    "téléphone : des liens, plus « bientôt » — seul Paramètres attend encore",
-    len(_rail) == 25 - len(SW.REDIRECTIONS) and not _rail_ko and len(_mnav) == 6 and not _mnav_ko, (len(_rail), _rail_ko, _mnav_ko))
-chk("chaque page du bureau allume SON entrée du menu (et elle seule) : Accueil, Projets, Équipe",
+                                                and re.search(r'<a class="(on)?" href="parametres">', r)
+                                                and "data-bientot" not in r and len(re.findall(r"<a ", r)) == 5)]
+chk(f"le menu mène aux Projets, à l'Équipe et aux Paramètres depuis les {len(_rail)} pages (la barre) et depuis les {len(_mnav)} pages qui ont "
+    "les onglets du téléphone : des liens, plus aucun « bientôt »",
+    len(_rail) == 26 - len(SW.REDIRECTIONS) and not _rail_ko and len(_mnav) == 7 and not _mnav_ko, (len(_rail), _rail_ko, _mnav_ko))
+chk("chaque page du bureau allume SON entrée du menu (et elle seule) : Accueil, Projets, Équipe, Paramètres",
     all(len(re.findall(r'class="navitem on"', _rail[n])) == 1 and f'class="navitem on" data-tip="{nom}"' in _rail[n]
         and re.search(rf'<a class="on" href="{href}">', _mnav[n]) and len(re.findall(r'<a class="on"', _mnav[n])) == 1
-        for n, nom, href in (("index.html", "Accueil", r"\./"), ("projets.html", "Projets", "projets"), ("equipe.html", "Équipe", "equipe"))),
-    {n: re.findall(r'<a class="(?:navitem )?on"[^>]*>', _rail[n] + _mnav[n]) for n in ("index.html", "projets.html", "equipe.html")})
+        for n, nom, href in (("index.html", "Accueil", r"\./"), ("projets.html", "Projets", "projets"), ("equipe.html", "Équipe", "equipe"),
+                             ("parametres.html", "Paramètres", "parametres"))),
+    {n: re.findall(r'<a class="(?:navitem )?on"[^>]*>', _rail[n] + _mnav[n]) for n in ("index.html", "projets.html", "equipe.html", "parametres.html")})
+# (lot 6) la page PARAMÈTRES : le thème, puis une carte par module du gabarit (construire.MODULES_GABARIT), que
+# js/ecran_parametres.js remplit avec la rubrique Options rendue par le moteur ; ses feuilles : celles des modules
+chk("la page Paramètres : le thème (Clair · Sombre · Comme l'appareil), une carte par module du gabarit (poutre, dalle) avec son bouton « Valeurs "
+    "d'usine » caché, la note « dans ce navigateur » ; les feuilles de l'établi et des modules du gabarit",
+    re.findall(r'data-theme-choix="([^"]*)"', PAR) == ["light", "dark", ""] and re.findall(r'class="card pa-mod" data-gabarit="(\w+)"', PAR) == list(SW.MODULES_GABARIT) == ["poutre", "dalle"]
+    and all(f'data-usine="{k}" hidden' in PAR and f'data-options="{k}"' in PAR for k in SW.MODULES_GABARIT) and "dans ce " in PAR
+    and all(f'href="css/{f}"' in PAR for f in ("bureau.css", "etabli.css", "modules/poutre.css", "modules/dalle.css")),
+    re.findall(r'data-gabarit="(\w+)"', PAR))
 
 
 def une_fois(html, noms):
@@ -703,7 +748,7 @@ chk("chaque module de calcul porte SA marque là où il est nommé : sa tuile de
     "son bouton de « Nouvelle note » — une fois, et la sienne",
     len(_tuiles) == 14 and all(marques(c) == [k] for k, c in _tuiles) and sorted(k for k, _ in _tuiles) == sorted(_pages_calcul)
     and len(_mopt) == 14 and all(marques(c) == [k] for k, c in _mopt)
-    and len(_volets) == 25 - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
+    and len(_volets) == len(PAGES_R) - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
     (len(_tuiles), len(_mopt), len(_volets), [k for k, c in _tuiles + _mopt if marques(c) != [k]]))
 _LEG = (r'<span class="okleg"><span class="okleg-i" data-niveau="argent"><svg[^>]*>.*?</svg></span><span class="okleg-t">{}</span> '
         r'<span class="okleg-i" data-niveau="or"><svg[^>]*>.*?</svg></span><span class="okleg-t">par deux</span></span>')
@@ -745,10 +790,11 @@ EQ, PJ, JO_, VB, EP, EE = source("equipe.js"), source("projets.js"), source("jou
 BU, SITE_CSS = feuille("bureau.css"), feuille("site.css")
 _app_pages = re.search(r'export const PAGES_BUREAU = \[([^\]]*)\];', APP)
 chk("les pages du bureau : construire.PAGES_BUREAU et js/app.js PAGES_BUREAU disent les mêmes, dans le même ordre ; l'application les monte sans moteur, "
-    "chacune par son écran",
+    "SAUF les paramètres (le moteur y rend la rubrique Options de chaque module), chacune par son écran",
     _app_pages is not None and re.findall(r'"(\w+)"', _app_pages.group(1)) == list(SW.PAGES_BUREAU) == list(SW.ADRESSES_BUREAU)
-    and 'const SANS_MOTEUR = new Set(["accueil", ...PAGES_BUREAU]);' in APP
-    and re.search(r"accueil: ouvrirAccueil,\s*projets: ouvrirProjets,\s*equipe: ouvrirEquipe,", APP) is not None, _app_pages and _app_pages.group(0))
+    and 'export const BUREAU_AVEC_MOTEUR = ["parametres"];' in APP
+    and 'const SANS_MOTEUR = new Set(["accueil", ...PAGES_BUREAU.filter((k) => !BUREAU_AVEC_MOTEUR.includes(k))]);' in APP
+    and re.search(r"accueil: ouvrirAccueil,\s*projets: ouvrirProjets,\s*equipe: ouvrirEquipe,\s*parametres: ouvrirParametres,", APP) is not None, _app_pages and _app_pages.group(0))
 _n_teintes = int(re.search(r"export const COULEURS = (\d+);", EQ).group(1))
 # (la pastille est dans css/site.css depuis que la barre de TOUTE page porte celle de la personne du poste : css/bureau.css
 #  n'est chargée que par les trois pages du bureau)
@@ -908,7 +954,12 @@ if not REJOUE:
         ("une teinte en moins dans la feuille", [("css/site.css", ".avatar.c7 { background: #475569; color: #fff; }", "")], None),
         ("une teinte trop claire pour le blanc", [("css/site.css", ".avatar.c1 { background: #0B7A6E; color: #fff; }", ".avatar.c1 { background: #2FB5A6; color: #fff; }")], None),
         ("au téléphone, les notes d'un projet cachées (la règle de la charte)", [("css/bureau.css", "  .bu-proj .list .tablecard { display: block; }\n", "")], None),
-        ("la page des projets oubliée par l'application", [("js/app.js", 'export const PAGES_BUREAU = ["projets", "equipe"];', 'export const PAGES_BUREAU = ["equipe"];')], None),
+        ("la page des projets oubliée par l'application", [("js/app.js", 'export const PAGES_BUREAU = ["projets", "equipe", "parametres"];', 'export const PAGES_BUREAU = ["equipe", "parametres"];')], None),
+        ("(lot 6) la page des paramètres montée sans moteur", [("js/app.js", 'export const BUREAU_AVEC_MOTEUR = ["parametres"];', 'export const BUREAU_AVEC_MOTEUR = [];')], None),
+        ("(lot 6) le menu d'une page ne mène plus aux paramètres", [], ("poutre.html", 'data-tip="Paramètres" href="parametres"', 'data-tip="Paramètres · bientôt" aria-disabled="true" data-bientot="1"')),
+        ("(lot 6) le gabarit d'un module lu pour tous", [("js/gabarit.js", "const v = M.lire(CLE, vide, valide).valeur.modules[module];", 'const v = M.lire(CLE, vide, valide).valeur.modules.dalle;')], None),
+        ("(lot 6) « valeurs d'usine » ne vide pas le gabarit", [("js/gabarit.js", "    else delete g.modules[module];\n", "")], None),
+        ("(lot 6) le gabarit changé sans signature", [("js/gabarit.js", "    g.par = signature();\n", "")], None),
         ("une icône demandée par un écran, absente des pages", [("js/ecran_projets.js", 'V.icone("layers")', 'V.icone("rocket")')], None),
         ("le premier inscrit n'est pas administrateur", [("js/equipe.js", '                   role: Object.keys(e.membres).length ? "membre" : "admin" };', '                   role: "membre" };'),
                                                          ("js/equipe.js", "  const premier = sansAdministrateur(membres);\n  if (premier) membres[premier].role = \"admin\";\n", "")], None),

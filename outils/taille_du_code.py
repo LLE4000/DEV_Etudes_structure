@@ -94,7 +94,7 @@ REGLES = (
     ("sol", _R(r"^(sol/|api_web/(sol|dessin_sol)\.py$|site/web/css/modules/sol\.css$)")),
     ("bibliotheques", _R(r"^(beton/(bibliotheque|hourdis)/|api_web/(biblio_\w+|dessin_biblio_\w+)\.py$|"
                          r"site/web/css/bibliotheque[\w-]*\.css$|site/web/js/(biblio|biblio_note|bibliotheque)\.js$)")),
-    ("commun", _R(r"^(api_web/(__init__|commun|etabli_compact|routeur|registre|parcours|fiches|icones|note_cas|pdf_reunion)\.py$|"
+    ("commun", _R(r"^(api_web/(__init__|commun|etabli_compact|routeur|registre|parcours|fiches|icones|note_cas|pdf_reunion|gabarit)\.py$|"
                   r"beton/__init__\.py$|beton/position\.py$|acier/|rdm/|ndc_pdf/|site/note_pdf/|site/web/js/|site/web/css/|"
                   r"site/web/construire\.py$|site/maquettes/construire\.py$)")),
 )

@@ -25,6 +25,7 @@ export const VERBES = {
   "membre.ajoute": "a ajouté à l'équipe", "membre.arrive": "a rejoint l'équipe", "membre.retire": "a retiré de l'équipe",
   "membre.admin": "a nommé administrateur", "membre.membre": "a retiré le rôle d'administrateur à",
   "module.verifie": "a vérifié le module", "module.retire": "a retiré la vérification du module",
+  "gabarit.change": "a changé le gabarit du bureau :", "gabarit.usine": "a rendu aux valeurs d'usine le gabarit :",
 };
 
 const texte = (x, max = 120) => (typeof x === "string" ? x : "").slice(0, max);
@@ -124,6 +125,7 @@ export function phrase(e) {
   if (e.k.startsWith("sous.")) return { qui, verbe: VERBES[e.k], objet: e.s, lieu: e.p, suite: e.k === "sous.renomme" && e.de ? `(avant : ${e.de})` : "" };
   if (e.k === "membre.arrive") return { qui, verbe: VERBES[e.k], objet: "", lieu: "", suite: "" };
   // un module vérifié, un rôle donné ou retiré : le geste, puis son objet (le nom du module, de la personne)
-  if (e.k.startsWith("module.") || e.k === "membre.admin" || e.k === "membre.membre") return { qui, verbe: VERBES[e.k], objet: e.x, lieu: "", suite: "" };
+  // (et, lot 6, le gabarit du bureau d'un module : son nom)
+  if (e.k.startsWith("module.") || e.k.startsWith("gabarit.") || e.k === "membre.admin" || e.k === "membre.membre") return { qui, verbe: VERBES[e.k], objet: e.x, lieu: "", suite: "" };
   return { qui, verbe: e.k === "membre.retire" ? "a retiré" : "a ajouté", objet: e.x, lieu: "", suite: e.k === "membre.retire" ? "de l'équipe" : "à l'équipe" };
 }

@@ -333,6 +333,13 @@ if D is not None:
         neuve["jeu_premier_lit"] == 1.0 and neuve["arrondi"] == 0.5 and defaut["jeu_premier_lit"] == 0.0,
         (neuve["jeu_premier_lit"], neuve.get("arrondi")))
     neuve = {k: v for k, v in neuve.items() if k not in ("jeu_premier_lit", "arrondi")}
+    # (et la couture de chaque section — le joint des prédalles, lot 5 du 14/11/2026 — que l'écran ne connaît pas)
+    chk("nouvelle_predalle() : la couture de sa section est automatique (None : les barres de la base secondaire)",
+        [s_.get("couture", "absente") for s_ in neuve["sections"]] == [None])
+    neuve["sections"] = [{k: v for k, v in s_.items() if k != "couture"} for s_ in neuve["sections"]]
+    # (et le pas d'arrondi de la longueur des barres de couture — lot 6, 14/11/2026 : 5 cm par défaut)
+    chk("nouvelle_predalle() : la longueur des barres de couture arrondie au 5 cm (pas_couture, lot 6)",
+        neuve.pop("pas_couture", None) == 5.0)
     defaut.pop("jeu_premier_lit")
     chk("nouvelle_predalle() = l'état de l'écran au premier affichage (bande 100 × 22, peau 6, C30/37, B500, Y…), hors jeu "
         "de pose et arrondi", not ecarts_json(neuve, defaut), ecarts_json(neuve, defaut))
@@ -561,8 +568,19 @@ def _fr(x, nd=1):
     return f"{float(x):.{nd}f}".replace(".", ",")
 
 
+def pleine(es):
+    """La section telle que l'écran Streamlit la calcule — SANS LE JOINT (lot 5, 14/11/2026 : beton/predalle/joint.py
+    vérifie une seconde fois la direction secondaire, au joint de deux prédalles ; l'écran ne le fait pas) : la
+    vérification « joint » retirée, la hauteur, le statut, le taux et le gouvernant de la PLEINE prédalle, que le moteur
+    garde (``pleine_predalle``) ; ses grandeurs sont celles du moteur des dalles, inchangées."""
+    pp = es["pleine_predalle"]
+    verifs = [pp["hauteur"] if v["cle"] == "hauteur" else v for v in es["verifications"] if v["cle"] != "joint"]
+    return dict(es, verifications=verifs, statut=pp["statut"], taux_max=pp["taux_max"], gouvernant=pp["gouvernant"])
+
+
 def comparer(es, md, ecarts):
     """Une section du moteur (es) contre l'écran (md : calcul, couches, affichage, note PDF)."""
+    es = pleine(es)
     def cmp(nom, a, b):
         if not egal(a, b):
             ecarts.append(f"{es['nom']}.{nom} : moteur {a!r} ≠ écran {b!r}")
@@ -680,7 +698,7 @@ def faits(predalles, res, calc):
         out.add("plusieurs prédalles")
     k = 0
     for p, r in zip(predalles, res):
-        out |= {f"béton {p['beton']}", f"B{p['fyk']}", f"principale {p['dir_principale']}", f"prédalle {r['statut']}"}
+        out |= {f"béton {p['beton']}", f"B{p['fyk']}", f"principale {p['dir_principale']}", f"prédalle {r['pleine_predalle']['statut']}"}
         if p["h_pre"] == E.H_PRE_MIN:
             out.add("peau minimale")
         if p["h_pre"] == E.h_pre_max(p["h"]):
@@ -692,6 +710,7 @@ def faits(predalles, res, calc):
         for s, es in zip(p["sections"], r["sections"]):
             md = calc[k]
             k += 1
+            es = pleine(es)                     # (ce que l'écran calcule : sans le joint)
             g = es["grandeurs"]
             out |= {f"statut {es['statut']}", f"hauteur {g['face_hauteur']}", f"état hauteur {g['etat_hauteur']}"}
             for v in es["verifications"]:
@@ -769,15 +788,17 @@ if D is not None:
         if len(es_tous) != len(calc):
             ecarts.append(f"{len(es_tous)} sections au moteur, {len(calc)} à l'écran")
         for r, t in zip(res, titres):
-            if not egal(r["statut"], ICONES.get(t[:1])) or t[2:] != r["predalle"]["nom"]:
-                ecarts.append(f"prédalle {r['predalle']['nom']} : moteur {r['statut']} ≠ écran {t}")
+            # (la prédalle de l'écran : sans le joint — le moteur garde son statut dans « pleine_predalle »)
+            if not egal(r["pleine_predalle"]["statut"], ICONES.get(t[:1])) or t[2:] != r["predalle"]["nom"]:
+                ecarts.append(f"prédalle {r['predalle']['nom']} : moteur {r['pleine_predalle']['statut']} ≠ écran {t}")
         k0 = 0
         for r in res:
             pcts = [(i, b["bloc"][0], b["bloc"][3]) for i, md in enumerate(calc[k0:k0 + len(r["sections"])]) for b in md["ecran"]["blocs"]]
             k0 += len(r["sections"])
             gv = max(pcts, key=lambda x: x[2])
-            if not (egal(r["taux_max"], gv[2] / 100.0) and (r["gouvernant"]["section"], r["gouvernant"]["titre"]) == gv[:2]):
-                ecarts.append(f"gouvernant : moteur {r['gouvernant']} ≠ écran {gv}")
+            rp = r["pleine_predalle"]
+            if not (egal(rp["taux_max"], gv[2] / 100.0) and (rp["gouvernant"]["section"], rp["gouvernant"]["titre"]) == gv[:2]):
+                ecarts.append(f"gouvernant : moteur {rp['gouvernant']} ≠ écran {gv}")
         # (chaque couche avec l'axe que l'écran a reçu : l'axe de calcul du moteur, « Dist. axe » saisi — voir charger)
         lu = FI.lire(payload)
         attendues = copy.deepcopy(predalles)
@@ -997,6 +1018,10 @@ FORMULES = {
     "As_max": lambda t: t["k"] * t["b"] * t["h"],
     "tau": lambda t: t["V"] * 1e3 / (t["k"] * t["b"] * t["h"]),
     "tau_lim": lambda t: t["k"] * t["fck_cube"] / t["gamma"],
+    # le joint (lot 5) : la longueur des barres de couture — EN 1992-1-1 §8.4.3 et §8.7.3, recalculée ici
+    "lb_rqd": lambda t: t["phi"] / 4 * t["sigma_sd"] / t["fbd"],
+    "l0": lambda t: max(t["alpha6"] * t["lb_rqd"], 0.3 * t["alpha6"] * t["lb_rqd"], 15 * t["phi"], 200.0),
+    "l_couture": lambda t: math.ceil(t["l0"] / 10 / t["pas"] - 1e-9) * t["pas"],
 }
 VALEUR_LIMITE = {"hauteur": ("h_min", None), "tau": ("tau", "tau_lim")}
 fautes, n_formules, n_axes = [], 0, 0
@@ -1019,9 +1044,9 @@ chk(f"« formule = valeurs = résultat » : les {n_formules} formules (dont {n_a
     "à partir de leurs seuls termes, et valeur / limite = taux", not fautes and n_formules > 1500 and n_axes > 300, fautes[:4])
 doc = lire("docs", "beton", "PREDALLE_MOTEUR.md")
 manque_doc = [k for k in ("h_pre", "h_coule", "e_auto", "pose", "base_hors_predalle", "croisement_sur_predalle", "predalle",
-                          "sur_predalle", "superieure") if f"`{k}`" not in doc or k not in (M.__doc__ + M.pose.__doc__)]
-chk("ce que le moteur prédalle ajoute (h_pre, h_coule, e_auto, pose, avertissements) est nommé dans sa docstring ET dans "
-    "docs/beton/PREDALLE_MOTEUR.md", not manque_doc, manque_doc)
+                          "sur_predalle", "superieure", "joint", "couture", "pleine_predalle") if f"`{k}`" not in doc or k not in (M.__doc__ + M.pose.__doc__)]
+chk("ce que le moteur prédalle ajoute (h_pre, h_coule, e_auto, pose, avertissements, le joint et sa couture, la pleine "
+    "prédalle gardée) est nommé dans sa docstring ET dans docs/beton/PREDALLE_MOTEUR.md", not manque_doc, manque_doc)
 
 # ------------------------------------------------------------------ 8. pureté
 print("\n=== 8. Pureté : le moteur se charge et calcule SANS streamlit, avec la seule bibliothèque standard ===")

@@ -1018,3 +1018,34 @@ DAL5b, le cran des flèches, 18 mutations), `test_api_web_dalle` (149), `test_ap
 `test_predalle_moteur` (151). Les parités Streamlit des moteurs sont GARDÉES : l'écran Streamlit reçoit les axes de
 calcul du moteur en surcharge (ses formules restent prouvées), les positions sont prouvées à la main.
 
+
+## 10. Le JOINT des prédalles et ses barres de couture (lot 5) ; les options de la note (lot 6) — 14/11/2026
+
+*Décisions du propriétaire du 13/11/2026 : les barres de couture sont posées SUR la prédalle, à cheval sur le joint ; leur
+longueur est celle du recouvrement, arrondie au 5 cm de chaque côté ; le pas est une option que le gabarit du bureau fixe
+(« au 5 cm près ou à 10 cm près »). Le calcul : `docs/beton/PREDALLE_MOTEUR.md` § 10.*
+
+- **L'état** : chaque section d'une prédalle porte `couture` (`null` = automatique : la base secondaire reprise en barres ;
+  sinon `{d, esp}`) ; la NOTE porte `pas_couture` (1, 5 ou 10 cm ; 5 par défaut), recopié dans chacune de ses prédalles —
+  la copie d'une prédalle est une vue, réalignée sur la note à la relecture (`normaliser`). Une dalle qui devient coulée
+  perd sa couture et son pas ; une dalle qui devient prédalle, ou une prédalle ajoutée, prend le pas de la note.
+- **Armatures** : à la fin de l'armature inférieure d'une prédalle, « Barres de couture · joint X · A_s néc. » — le repère
+  C, le Ø, l'espacement, « ↺ » (rendre l'automatique) ; dépliées : la pose (« h_p + ½ Ø = 6 + 0,5 = 6,5 cm »), la longueur
+  (« 2 × 55 cm · l₀ = 536 mm »), d'une traite. Refus : un Ø hors de la liste, un espacement hors bornes, une dalle coulée
+  (« n'a pas de joint »).
+- **Résultat** : la ligne « Joint X » sous l'inférieure X (Ø, A_s,néc comparé, taux), sa fenêtre de calcul (l'axe de la
+  couture, d, A_s,req, A_s,min, puis l_b,rqd, l₀ et la longueur arrondie) ; la hauteur peut être gouvernée par la famille
+  du joint (« famille joint X »). Le sélecteur de la base secondaire compte le joint (« · joint 102 % »).
+- **Dessin** : sous les deux coupes, le joint — deux peaux hachurées et leur jour, la base secondaire coupée, la barre de
+  couture à sa longueur (2 × 550 mm à l'échelle de la vue) et à sa position réelle, ses deux longueurs cotées ; la toucher
+  ouvre sa ligne dans « Armatures ».
+- **Note PDF** : au bloc de l'armature inférieure secondaire, « Au joint des prédalles » — la couture, d, A_s,req, la
+  longueur, le verdict.
+- **Options** (lot 6) : la ligne « Couture » (1 · 5 · 10 cm) pour une prédalle ; la page « Paramètres » en fixe le départ
+  pour les notes neuves (`MODELES_DIMENSIONNEMENT.md` § 7). Corrigé : une dalle ajoutée reprend l'ARRONDI de la note (elle
+  prenait 0,5 cm).
+- **Contrôles** : `test_predalle_joint` (36 : cas à la main, 11 mutations), `test_predalle_moteur` (153),
+  `test_api_web_dalle` (161 : le bloc de couture, la ligne, la fenêtre, le dessin mesuré, les refus, l'option du pas),
+  `test_api_web_dalles_fusion` (78), `test_note_dalle` (49) ; le harnais (`plaques`, `module:predalle`) aux trois formats —
+  le bloc dans l'écran, la ligne rouge à 102 %, la fenêtre, la barre du dessin à sa longueur (73,3 % de la peau) et sous
+  le doigt, la pose et la longueur sur une ligne, Ø12 saisi puis « ↺ ».

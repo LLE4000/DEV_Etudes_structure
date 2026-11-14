@@ -30,6 +30,11 @@
    "date": "2026-11-13",
    "raison": "Lot 4 (E15, 13/11/2026) : la poutre écrit ses résultats avec les mots et la précision des dalles — h = 40 cm (et non 40,0) ; la hauteur détaillée h_min = 36,8 + 6 = 42,8 cm (h_u,min au mm, y_G au 1/100, la somme au mm : c'était 50,49 + 6 dans la fenêtre de calcul, 6,00 cm sans moment) ; A_s,néc ≤ A_s au lieu de A_s,requis ≤ A_s,posé. Le moteur n'est pas touché : verdicts, états et messages identiques (la garde le contrôle), aucun chiffre calculé ne change.",
    "ecarts": ["note neuve : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "poutre 30 × 60 réaliste (3Ø20, M = 120 kN·m, V = 40 kN, étriers à 20 cm) : valeurs qui ne se voient plus [\"50,49\", \"60,0\"]", "chargée près de 100 % (M = 136 kN·m, V = 60 kN) : valeurs qui ne se voient plus [\"53,75\", \"60,0\"]", "deux sections (sur appui M_sup = 90 kN·m) : valeurs qui ne se voient plus [\"43,73\", \"50,49\", \"60,0\"]", "moments nuls (valeur minimale admise) : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "largeur négative refusée : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "nombre illisible refusé : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "dernier lit non retiré : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "surchargée (M = 400 kN·m) : valeurs qui ne se voient plus [\"60,0\", \"92,19\"]", "poutres ajoutée, copiée, la première supprimée : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "8Ø32 dans 20 cm : barres qui ne tiennent pas (rouge sous 100 %) : valeurs qui ne se voient plus [\"40,0\", \"7,00\"]", "note abîmée : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]", "taux d'armature : deux sections de 4 m et 2 m (option allumée, 30 × 60) : valeurs qui ne se voient plus [\"43,73\", \"50,49\", \"60,0\"]", "taux d'armature : majoration de 80 % refusée, puis une section sans longueur : valeurs qui ne se voient plus [\"40,0\", \"6,00\"]"]
+  },
+  {
+   "date": "2026-11-14",
+   "raison": "Lot 6 (14/11/2026), décision du propriétaire du 13/11/2026 : le jeu entre lits d'une poutre NEUVE passe de 1 à 2,5 cm (25 mm libres entre deux lits Ø16, le minimum de l'EC2 8.2(2) pour d_g = 20 mm) ; les 14 cas n'ont qu'un lit par face : seuls le champ « jeu entre lits » (1 → 2,5) et l'état changent, aucun calcul ni verdict",
+   "ecarts": ["note neuve : etat changé", "poutre 30 × 60 réaliste (3Ø20, M = 120 kN·m, V = 40 kN, étriers à 20 cm) : etat changé", "chargée près de 100 % (M = 136 kN·m, V = 60 kN) : etat changé", "deux sections (sur appui M_sup = 90 kN·m) : etat changé", "moments nuls (valeur minimale admise) : etat changé", "largeur négative refusée : etat changé", "nombre illisible refusé : etat changé", "dernier lit non retiré : etat changé", "surchargée (M = 400 kN·m) : etat changé", "poutres ajoutée, copiée, la première supprimée : etat changé", "8Ø32 dans 20 cm : barres qui ne tiennent pas (rouge sous 100 %) : etat changé", "note abîmée : etat changé", "taux d'armature : deux sections de 4 m et 2 m (option allumée, 30 × 60) : etat changé", "taux d'armature : majoration de 80 % refusée, puis une section sans longueur : etat changé"]
   }
  ],
  "cas": [
@@ -173,7 +178,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -221,7 +226,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0},
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0},
     "selecteurs": {
      "inf-0": [
       ["Armature inférieure · section A un lit · triées par section d'acier · un clic retient la disposition 2Ø10", "157", "77 %"],
@@ -478,7 +483,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "60",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -526,7 +531,7 @@
       "nombres": "10 2Ø16 30 300 3Ø20 5 540 600 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0},
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0},
     "selecteurs": {
      "inf-0": [
       ["Armature inférieure · section A un lit · triées par section d'acier · un clic retient la disposition 2Ø10", "157", "467 %"],
@@ -794,7 +799,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "60",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -842,7 +847,7 @@
       "nombres": "10 2Ø16 30 300 3Ø20 5 540 600 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 136.0, "M_sup": 0.0, "V": 60.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 136.0, "M_sup": 0.0, "V": 60.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -1149,7 +1154,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "60",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -1235,7 +1240,7 @@
       "nombres": "0,0 10 10 120,0 2Ø16 2Ø16 30 30 300 300 3Ø16 3Ø20 40,0 5 5 540 540 600 600 90,0 C1 C1 L1 L1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null}, {"nom": "B", "M_inf": 0.0, "M_sup": 90.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 3, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null}, {"nom": "B", "M_inf": 0.0, "M_sup": 90.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 3, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -1380,7 +1385,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -1428,7 +1433,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -1573,7 +1578,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -1621,7 +1626,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -1766,7 +1771,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -1814,7 +1819,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -1959,7 +1964,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -2007,7 +2012,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -2156,7 +2161,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "60",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -2204,7 +2209,7 @@
       "nombres": "10 2Ø16 30 300 3Ø20 5 540 600 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 400.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 400.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -2349,7 +2354,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V2 (copie)",
      "peau_d": "10",
@@ -2397,7 +2402,7 @@
       "nombres": "10 250 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V2", "b": 25.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}, {"nom": "V2 (copie)", "b": 25.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 1},
+    "etat": {"version": 2, "poutres": [{"nom": "V2", "b": 25.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}, {"nom": "V2 (copie)", "b": 25.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 1},
     "elements": [
      {
       "phrase": "",
@@ -2597,7 +2602,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -2645,7 +2650,7 @@
       "nombres": "10 200 2Ø16 30 330 400 5 8Ø32 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 8, "d": 32}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 8, "d": 32}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -2788,7 +2793,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -2836,7 +2841,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   },
   {
@@ -3217,7 +3222,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "60",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -3309,7 +3314,7 @@
       "nombres": "0,0 10 10 120,0 2Ø16 2Ø16 30 30 300 300 3Ø16 3Ø20 40,0 5 5 540 540 600 600 90,0 C1 C1 L1 L1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "taux": {"actif": true}, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null, "longueur": 4.0}, {"nom": "B", "M_inf": 0.0, "M_sup": 90.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 3, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null, "longueur": 2.0}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 30.0, "h": 60.0, "beton": "C25/30", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "taux": {"actif": true}, "sections": [{"nom": "A", "M_inf": 120.0, "M_sup": 0.0, "V": 40.0, "inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 20.0, "yG_inf": null, "yG_sup": null, "longueur": 4.0}, {"nom": "B", "M_inf": 0.0, "M_sup": 90.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 3, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null, "longueur": 2.0}]}], "actif": 0}
    }
   },
   {
@@ -3489,7 +3494,7 @@
      "fyk": "500",
      "gamma_s": "1,5",
      "h": "40",
-     "jeu_entre_lits": "1",
+     "jeu_entre_lits": "2,5",
      "jeu_premier_lit": "1",
      "nom": "V1",
      "peau_d": "10",
@@ -3542,7 +3547,7 @@
       "nombres": "10 200 2Ø16 2Ø16 30 340 400 5 C1 L1 L1"
      }
     ],
-    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 1.0, "arrondi": 0.5, "taux": {"actif": true, "retour": 12.0}, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
+    "etat": {"version": 2, "poutres": [{"nom": "V1", "b": 20.0, "h": 40.0, "beton": "C30/37", "fyk": 500, "gamma_s": 1.5, "enrobage": 3.0, "jeu_premier_lit": 1.0, "jeu_entre_lits": 2.5, "arrondi": 0.5, "taux": {"actif": true, "retour": 12.0}, "sections": [{"nom": "A", "M_inf": 0.0, "M_sup": 0.0, "V": 0.0, "inf": [{"n": 2, "d": 16}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}], "pas": 30.0, "yG_inf": null, "yG_sup": null}]}], "actif": 0}
    }
   }
  ]

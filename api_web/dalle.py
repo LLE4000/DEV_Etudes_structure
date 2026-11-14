@@ -51,6 +51,7 @@ from beton import treillis as TR
 from beton.dalle import entree as EN
 from beton.dalle import moteur as MO
 from beton.predalle import entree as EN_P
+from beton.predalle import joint as JP
 from beton.predalle import moteur as MO_P
 
 from . import commun as C
@@ -199,7 +200,8 @@ def _resite(d: Dict, **modifs) -> Dict:
 def nouvel_etat() -> Dict:
     """Une note neuve : une dalle coulée en place aux défauts de l'écran (ses nappes posées l'une sur l'autre, comme
     toutes : api_web/dalle_positions.py)."""
-    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0, "espacements": list(ESPACEMENTS)}
+    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0, "espacements": list(ESPACEMENTS),
+            "pas_couture": EN_P.DEFAUTS_PREDALLE["pas_couture"]}
 
 
 def _bool_relu(x, quoi: str, rang: int) -> bool:
@@ -285,6 +287,15 @@ def normaliser(etat: Dict) -> Dict:
     a = a if isinstance(a, int) and not isinstance(a, bool) else 0
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
     out["espacements"] = espacements_relus(etat.get("espacements"))
+    # (lot 6) le pas des barres de couture : celui de la NOTE (absent : celui de sa première prédalle, sinon le défaut),
+    # recopié dans chacune de ses prédalles — une copie TENUE, jamais une seconde vérité
+    pc = etat.get("pas_couture")
+    if pc is None:
+        pc = next((d["pas_couture"] for d in out["dalles"] if est_predalle(d)), EN_P.DEFAUTS_PREDALLE["pas_couture"])
+    out["pas_couture"] = JP.lire_pas(pc)
+    for k, dd in enumerate(out["dalles"]):
+        if est_predalle(dd) and dd["pas_couture"] != out["pas_couture"]:
+            out["dalles"][k] = _resite(dd, pas_couture=out["pas_couture"])
     if d_avant:
         out[CLE_AVIS] = "regle"
     if coupes:
@@ -306,8 +317,10 @@ def _nom_libre(etat: Dict, base: str = "Dalle") -> str:
 
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
     """Les dalles de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte), en supprimer une
-    (jamais la dernière). Une dalle ajoutée prend le TYPE de la dalle ouverte, et le γs et le jeu de la note (paramètres
-    communs, comme dans l'écran Streamlit)."""
+    (jamais la dernière). Une dalle ajoutée prend le TYPE de la dalle ouverte, et les paramètres COMMUNS de la note
+    (``NOTE_ENTIERE`` : γs, le jeu de pose, l'arrondi — l'écran Streamlit partageait γs et le jeu). (Jusqu'au 14/11/2026,
+    l'arrondi n'était pas repris : une dalle ajoutée à une note réglée au pas de 1 cm se calculait au pas de 0,5 cm —
+    moins prudent que la note, sans le dire.)"""
     ds = etat["dalles"]
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(ds) - 1)
@@ -315,7 +328,10 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         ouverte = _actif(etat)
         d = EN_P.nouvelle_predalle() if est_predalle(ouverte) else EN.nouvelle_dalle()
         d["nom"] = _nom_libre(etat, "Prédalle" if est_predalle(ouverte) else "Dalle")
-        d["gamma_s"], d["jeu_premier_lit"] = ds[0]["gamma_s"], ds[0]["jeu_premier_lit"]
+        for k in NOTE_ENTIERE:
+            d[k] = ds[0][k]
+        if est_predalle(ouverte):
+            d["pas_couture"] = pas_couture_note(etat)
         ds.append(_site(d, False, ouverte["type"]))
         etat["actif"] = len(ds) - 1
     elif action == "dupliquer":
@@ -358,8 +374,48 @@ NOMBRES = {  # clé → (libellé, unité, mini, maxi, mini exclu, entier, maxi 
 SOLLICITATIONS = {"Mx_inf": "M<sub>x,inf</sub>", "Mx_sup": "M<sub>x,sup</sub>", "My_inf": "M<sub>y,inf</sub>",
                   "My_sup": "M<sub>y,sup</sub>", "V": "V"}
 NOTE_ENTIERE = ("gamma_s", "jeu_premier_lit", "arrondi")
+# (lot 6, 14/11/2026) le PAS d'arrondi de la longueur des barres de couture : un paramètre de la NOTE, porté par chacune de
+# ses PRÉDALLES (une dalle coulée n'a pas de joint) — beton/predalle/joint.PAS_COUTURE
+PAS_COUTURE_TXT = tuple((v, f"{C.nb(v)} cm") for v in JP.PAS_COUTURE)
+
+
+def pas_couture_note(etat: Dict) -> float:
+    """Le pas d'arrondi des barres de couture de la NOTE (``etat["pas_couture"]`` : la source ; chaque prédalle en porte
+    une copie, que ``normaliser`` réaligne) ; une note sans la clé : le défaut du moteur."""
+    return etat.get("pas_couture", EN_P.DEFAUTS_PREDALLE["pas_couture"])
 # les pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS), en segments dans les options
 ARRONDIS_TXT = C.ARRONDIS_TXT        # (commun : une source pour la poutre et les dalles)
+
+
+# ------------------------------------------------------------------ le gabarit du bureau (lot 6, 14/11/2026)
+# Les OPTIONS de la note que le gabarit du bureau fixe (page « Paramètres », api_web/gabarit.py) : celles de la rubrique
+# Options, communes à toute la note. Une note NEUVE les reçoit ; une note existante ne bouge jamais.
+GABARIT = ("gamma_s", "jeu_premier_lit", "arrondi", "pas_couture", "espacements")
+
+
+def lire_gabarit(etat: Dict) -> Dict:
+    """Les valeurs des options du gabarit dans la note (celles de sa dalle ouverte : elles sont communes à toutes)."""
+    d = _actif(etat)
+    return {"gamma_s": d["gamma_s"], "jeu_premier_lit": d["jeu_premier_lit"], "arrondi": d["arrondi"],
+            "pas_couture": pas_couture_note(etat), "espacements": list(etat.get("espacements", ESPACEMENTS))}
+
+
+def ecrire_gabarit(etat: Dict, cle: str, valeur) -> Optional[str]:
+    """Une valeur du gabarit écrite dans la note : les espacements, une LISTE (relue par ``espacements_relus``) ; les
+    autres par ``modifier`` (le contrôle de la rubrique Options). Rend le message du refus."""
+    if cle == "espacements":
+        try:
+            etat["espacements"] = espacements_relus(valeur)
+        except ValueError as e:
+            return str(e)
+        return None
+    return modifier(etat, [cle], valeur)
+
+
+def options_gabarit(etat: Dict) -> str:
+    """La rubrique Options telle que la page « Paramètres » la montre : celle de la note, la ligne « Couture » des
+    prédalles comprise (le gabarit vaut pour les dalles pleines et les prédalles)."""
+    return _options(_actif(etat), etat.get("espacements", ESPACEMENTS), pas_couture_note(etat))
 
 
 def _arrondi_lu(valeur) -> float:
@@ -477,9 +533,11 @@ def _auto_ou_impose(cle: str, valeur, actuel, auto: float):
     return x
 
 
-def _changer_type(d: Dict, valeur) -> None:
+def _changer_type(d: Dict, valeur, pas_note: float = None) -> None:
     """Le TYPE de la dalle (§ 2.2) : coulee → predalle ajoute la peau (le défaut de l'écran prédalle, bornée à
-    h_pre_max(h)) ; predalle → coulee la retire ; sections, faces, couches, positions imposées et noms sont conservés."""
+    h_pre_max(h)) et le pas d'arrondi des barres de couture de la NOTE (``pas_note`` : celui de ses autres prédalles,
+    sinon le défaut) ; predalle → coulee les retire ; sections, faces, couches, positions imposées et noms sont
+    conservés."""
     t = valeur.strip().lower() if isinstance(valeur, str) else valeur
     if t not in TYPES_TXT:
         raise _Refus(f"Type de dalle : « coulee » ou « predalle », pas « {valeur} »")
@@ -487,8 +545,12 @@ def _changer_type(d: Dict, valeur) -> None:
         return
     if t == "predalle":
         d["h_pre"] = min(max(EN_P.DEFAUTS_PREDALLE["h_pre"], EN_P.H_PRE_MIN), EN_P.h_pre_max(d["h"]))
+        d["pas_couture"] = EN_P.DEFAUTS_PREDALLE["pas_couture"] if pas_note is None else pas_note
     else:
         d.pop("h_pre", None)
+        d.pop("pas_couture", None)
+        for s in d.get("sections", []):
+            s.pop("couture", None)               # (une dalle coulée n'a pas de joint : lot 5)
     d["type"] = t
 
 
@@ -502,7 +564,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         if k == "nom":
             d["nom"] = nom_saisi(valeur, "de la dalle", True)
         elif k == "type":
-            _changer_type(d, valeur)
+            _changer_type(d, valeur, pas_couture_note(etat))
         elif k == "beton":
             if valeur not in MO.classes_beton():
                 raise _Refus(f"Béton : classe « {valeur} » inconnue")
@@ -555,6 +617,9 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         return
     if chemin[2] == "nom":
         s["nom"] = nom_saisi(valeur, "de section", False)
+        return
+    if chemin[2] == "couture":
+        _ecrire_couture(d, s, chemin[3:], valeur)
         return
     if chemin[2] in SOLLICITATIONS:
         x = C.lire_nombre(valeur)
@@ -623,6 +688,30 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         raise _Refus(f"champ inconnu : {champ}")
 
 
+def _ecrire_couture(d: Dict, s: Dict, reste: List, valeur) -> None:
+    """Les BARRES DE COUTURE d'une section de prédalle (lot 5, beton/predalle/joint.py) : « d » (le Ø) ou « esp »
+    (l'espacement, mm) écrit des barres SAISIES — l'autre valeur prise à la couture actuelle, l'automatique compris ; le
+    chemin sans champ, une valeur vide, la rend AUTOMATIQUE (« ↺ » : la base secondaire reprise en barres)."""
+    if not est_predalle(d):
+        raise _Refus("Barres de couture : une dalle coulée en place n'a pas de joint — choisir « Prédalle » d'abord")
+    if not reste:
+        if valeur not in ("", None):
+            raise _Refus(f"Barres de couture : une valeur vide les rend automatiques, pas « {valeur} »")
+        s["couture"] = None
+        return
+    reg = JP.reglage_couture(s, MO.direction_secondaire(d["dir_principale"].lower()), d["b"])
+    if reste == ["d"]:
+        x = C.lire_nombre(valeur)
+        if x not in EN.DIAMETRES:
+            raise _Refus(f"Ø{valeur} n'est pas proposé ({' '.join(map(str, EN.DIAMETRES))})")
+        reg["d"] = int(x)
+    elif reste == ["esp"]:
+        reg["esp"] = int(_nombre("esp", valeur))
+    else:
+        raise _Refus(f"champ inconnu : couture/{'/'.join(map(str, reste))}")
+    s["couture"] = reg
+
+
 _lire_bool = C.lire_bool      # une case à cocher telle que l'écran l'envoie ; None sinon
 
 
@@ -655,6 +744,18 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         else:
             liste.append(int(x))
             liste.sort()
+        return None
+    if chemin == ["pas_couture"]:
+        # le pas des barres de couture : un paramètre de la note, écrit dans chacune de ses prédalles
+        try:
+            x = JP.lire_pas(C.lire_nombre(valeur))
+        except (TypeError, ValueError):
+            return (f"Longueur des barres de couture : arrondie à {', '.join(t for _, t in PAS_COUTURE_TXT[:-1])} ou "
+                    f"{PAS_COUTURE_TXT[-1][1]}, pas « {valeur} »")
+        etat["pas_couture"] = x                  # (une note sans prédalle le garde : celles qui viendront le prennent)
+        for k, dd in enumerate(etat["dalles"]):
+            if est_predalle(dd):
+                etat["dalles"][k] = _resite(dd, pas_couture=x)
         return None
     if chemin and chemin[0] in NOTE_ENTIERE and len(chemin) == 1:
         # γs, le jeu de pose et l'arrondi sont des paramètres de la NOTE (l'écran Streamlit partageait γs et le jeu)
@@ -747,14 +848,21 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
         for f in MO.ordre_faces(rs["principale"]):
             s2 += _lecture(PC.titre_face(f).lower() + (" · principale" if f.endswith(rs["principale"]) else ""),
                            C.esc(rs["faces"][f]["libelle"]))
+        if rs.get("joint"):
+            # (une prédalle verrouillée : ses barres de couture se lisent aussi — lot 5)
+            j = rs["joint"]
+            s2 += _lecture(f"barres de couture · joint {j['direction'].upper()}",
+                           f"{C.esc(j['couture']['libelle'])}{' (automatique)' if j['auto'] else ''} · "
+                           f"{C.nb(j['longueur']['cote'])} cm de chaque côté")
     return (C.section(1, f"Caractéristiques {C.icon('lock')}", "verrouillée", s1, True, "dl")
             + C.section(2, "Sections et armatures", f"{len(d['sections'])} section(s)", s2, False, "sl"))
 
 
-def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
+def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS, pas_couture: Optional[float] = None) -> str:
     """La rubrique « 4 — Options » : la méthode (une ligne), puis γs et le jeu du premier lit, communs à toute la note,
-    et les ESPACEMENTS admis des barres proposées (des puces, une par espacement du moteur, allumée quand il est admis :
-    un appui l'ajoute ou le retire — 13/11/2026, § 8.4).
+    l'arrondi, pour une prédalle le PAS de la longueur des barres de couture (lot 6 : 1, 5 ou 10 cm, commun aux prédalles
+    de la note), et les ESPACEMENTS admis des barres proposées (des puces, une par espacement du moteur, allumée quand il
+    est admis : un appui l'ajoute ou le retire — 13/11/2026, § 8.4).
     (La reprise d'une note Streamlit est retirée le 13/11/2026 : le bureau n'a aucune ancienne note à reprendre ; l'option
     « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes sont toujours posées l'une sur l'autre.)"""
     jeu = ("La tolérance de pose des barres : le calcul les compte plus loin du parement que dessiné, de ce jeu (« 3 + "
@@ -769,6 +877,10 @@ def _options(d: Dict, espacements: Sequence[int] = ESPACEMENTS) -> str:
                         f"{jeu} Commun à toutes les dalles de la note."))
             + C.ligne("Arrondi", C.segments(["arrondi"], d["arrondi"], ARRONDIS_TXT),
                       aide=f"{arr} Commun à toutes les dalles de la note.", full=True)
+            + (C.ligne("Couture", C.segments(["pas_couture"], pas_couture, PAS_COUTURE_TXT),
+                       aide=("La longueur des barres de couture — le recouvrement l₀, de chaque côté du joint — arrondie au "
+                             "pas supérieur : Ø10, 53,6 → 55 cm au pas de 5 cm (110 cm en tout). Commun à toutes les "
+                             "prédalles de la note."), full=True) if pas_couture is not None else "")
             + _puces_espacements(espacements))
 
 
@@ -847,7 +959,8 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     contenus, resumes = [], []
     for i, (s, rs) in enumerate(zip(d["sections"], r["sections"])):
         verifs = {v["cle"]: v for v in rs["verifications"]}
-        contenus.append(NAP.html(EN_, i, s, rs, verifs, rs["principale"], _aide_axe(d), _aide_renfort(d), False))
+        contenus.append(NAP.html(EN_, i, s, rs, verifs, rs["principale"], _aide_axe(d), _aide_renfort(d), False,
+                                 apres_inf=_couture(d, i, s, rs) if est_predalle(d) else ""))
         resumes.append(PC.resume_armatures(rs))
     s3, r3 = PC.rubrique_armatures([s["nom"] for s in d["sections"]], contenus, resumes)
     # le résumé de la rubrique 1 dit le TYPE
@@ -855,7 +968,60 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
                else f"Dalle pleine · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
                          s3, r3, E.resume_options(d["gamma_s"], d["jeu_premier_lit"], d.get("arrondi")),
-                         _options(d, etat.get("espacements", ESPACEMENTS)))
+                         _options(d, etat.get("espacements", ESPACEMENTS), pas_couture_note(etat) if est_predalle(d) else None))
+
+
+AIDE_COUTURE = ("Au joint de deux prédalles, la peau est coupée : la base secondaire s'y interrompt. Les barres de couture, "
+                "posées SUR les prédalles au chantier, à cheval sur le joint, rendent la continuité — le calcul vérifie la "
+                "direction secondaire une seconde fois, au joint (la ligne « Joint » du résultat). Automatique : la base "
+                "secondaire reprise en barres ; « ↺ » y revient.")
+
+
+SYMBOLES_POSE = {"h_p": "h<sub>p</sub>", "Ø/2": "½ Ø", "Ø_X": "Ø<sub>X</sub>", "Ø_Y": "Ø<sub>Y</sub>"}
+
+
+def _couture(d: Dict, i: int, s: Dict, rs: Dict, verrou: bool = False) -> str:
+    """Les BARRES DE COUTURE d'une section de prédalle (lot 5) : sous la nappe inférieure, un groupe comme une nappe —
+    son titre et la section que le joint demande, la couche « C » (le Ø, l'espacement ; « ↺ » rend l'automatique) et,
+    dépliée, sa pose (sur la prédalle, h_p + ½ Ø, et l'axe de calcul), sa longueur (le recouvrement l₀, arrondi au 5 cm
+    de chaque côté du joint) et ce que l'automatique reprend ; au pied, la section posée au joint (couture et renforts).
+    ``verrou`` : en lecture seule."""
+    j = rs["joint"]
+    sec, c0, lg = j["direction"], j["couture"], j["longueur"]
+    reg = JP.reglage_couture(s, sec, d["b"])
+    v = next(x for x in rs["verifications"] if x["cle"] == JP.CLE)
+    ch = ["sections", i, "couture"]
+    dia = f'<div class="et-dia">{C.choix(ch + ["d"], reg["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES], desactive=verrou)}</div>'
+    esp = (f'<div class="et-e">{C.num(ch + ["esp"], reg["esp"], "mm", entier=True, mini=EN.ESP_MIN, maxi=EN.ESP_MAX, desactive=verrou)}'
+           f'</div>')
+    raz = ("" if j["auto"] or verrou else
+           f'<button type="button" class="et-raz" data-chemin="{C._attr_chemin(ch)}" data-valeur="" title="Revenir à la couture '
+           f'automatique : la base secondaire reprise en barres" aria-label="Revenir à la couture automatique">{C.icon("undo-2")}</button>')
+    tete = (f'<div class="et-l1"><button type="button" class="et-tag" data-deplier="1" title="Barres de couture : pose et '
+            f'longueur">C</button>{dia}{esp}{raz}<button type="button" class="et-dep" data-deplier="1" title="Pose et longueur">'
+            f'{C.icon("chevron-down")}</button></div>')
+    base = rs["faces"][j["face"]]["couches"][0]
+    origine = (f"automatique : la base secondaire ({C.esc(base['libelle'])}) reprise en barres" if j["auto"]
+               else "saisie — « ↺ » rend l'automatique (la base secondaire reprise en barres)")
+    termes = c0["detail"]["termes"]
+    syms = " + ".join(SYMBOLES_POSE.get(t["symbole"], C.esc(t["symbole"])) for t in termes)
+    vals = " + ".join(C.nb(round(t["valeur"], 2)) for t in termes)
+    ou = "sur le renfort principal posé sur la prédalle" if c0.get("sur") else "sur la prédalle"
+    det = (C.ligne("Pose", f'<span class="et-cout-pose">{syms} = {vals} = {_cm(c0["e_reel"])}{C.NBSP}cm</span>',
+                   "", "Posées au chantier SUR les prédalles, à cheval sur le joint — sur un renfort principal posé sur la prédalle "
+                       "quand il y en a un (le côté sûr) ; le calcul y ajoute le jeu de pose et arrondit (Options).")
+           + C.ligne("Longueur", f'<span class="et-cout-l">2 × {C.nb(lg["cote"])}{C.NBSP}cm · l<sub>0</sub> = {C.fr(lg["l0"], 0)}{C.NBSP}mm</span>',
+                     "", "La longueur de recouvrement l₀ (EN 1992-1-1 §8.7.3 : barres droites tendues, bonnes conditions "
+                         "d'adhérence, toutes recouvertes dans la même section — α6 = 1,5), arrondie au 5 cm supérieur de "
+                         "chaque côté du joint : la barre fait deux fois cette longueur.")
+           + f'<div class="hint et-info">{C.esc(c0["libelle"])} {ou}, axe de calcul {_cm(c0["e"])}{C.NBSP}cm · {origine} · '
+             f'A<sub>s</sub> = {C.fr(c0["As_pm"], 0)}{C.NBSP}mm²/m</div>')
+    aide = ("La section posée AU JOINT : la couture et les renforts secondaires (la base secondaire, dans la peau, y est "
+            "coupée).")
+    return (f'<div class="et-grp et-cout" data-cible="s{i}.joint"><div class="et-gh"><span class="t">Barres de couture</span>'
+            f'<span class="et-princ" title="{C.esc(AIDE_COUTURE)}">joint {sec.upper()}</span>{E.as_necessaire(C.fr(v["valeur"], 0))}</div>'
+            f'<div class="et-piece" data-cible="s{i}.joint-0">{tete}<div class="et-det">{det}</div></div>'
+            f'<div class="et-pied">{E.as_pose(C.fr(j["As_pm"], 0), "mm²/m", aide)}</div></div>')
 
 
 def arbre(etat: Dict, r: Optional[Dict] = None, niveaux: Optional[List[str]] = None) -> str:
@@ -906,6 +1072,8 @@ def nom_ligne(v: Dict) -> str:
         return "Hauteur"
     if v["cle"] == "tau":
         return "Effort tranchant"
+    if v["cle"] == JP.CLE:
+        return f"Joint {v['direction'].upper()}"      # (le joint des prédalles, ses barres de couture : lot 5)
     return f"{FACES_TXT[v['face']].capitalize()} {v['direction'].upper()}"
 
 
@@ -921,14 +1089,19 @@ def _piece(v: Dict, s: Dict) -> str:
         return f"h = {C.nb(g['h'])} cm"
     if v["cle"] == "tau":
         return f"V = {C.nb(s['V'])} kN"
-    geo = s["faces"][v["cle"]]
-    cs = geo["couches"]
+    cs = couches_de(v, s)
     if len(cs) == 1:
         return C.esc(cs[0]["libelle"])
     # avec des renforts, la base s'écrit par sa seule désignation (« 10/10/100/100 » se lit treillis) : la ligne tient
     if len(cs) == 2:
         return C.esc(f"{cs[0]['valeur']} + {cs[1]['valeur']}")
     return C.esc(f"{cs[0]['valeur']} + {len(cs) - 1} renforts")
+
+
+def couches_de(v: Dict, s: Dict) -> List[Dict]:
+    """Les couches qu'une vérification d'armature lit : celles de sa face, ou — le joint d'une prédalle — la couture et
+    les renforts secondaires (``s["joint"]["geometrie"]``)."""
+    return s["joint"]["geometrie"]["couches"] if v["cle"] == JP.CLE else s["faces"][v["cle"]]["couches"]
 
 
 def _egal(a: str, b: str) -> str:
@@ -1006,7 +1179,9 @@ def _formule(f: Dict) -> Dict:
         # « e₁ = c + Ø/2 + jeu = 3 + 0,6 + 1 = 4,6 → 5,0 cm » — sa position réelle, le jeu de pose, puis l'arrondi
         ligne = C.fx_axe(f)
         parts, r = ligne["parts"], ligne["res"]
-        if f.get("empilee") and f.get("sur"):
+        if f.get("couture"):
+            r += " · barres de couture, sur la prédalle"
+        elif f.get("empilee") and f.get("sur"):
             r += f" · posée sur {f['sur']}"
         elif not f.get("auto", True):
             r += " · position saisie"
@@ -1047,6 +1222,13 @@ def _formule(f: Dict) -> Dict:
         parts = ["τ", "V·10³ / (0,75·b·h)", f"{_v(t['V'])} × 10³ / (0,75 × {_v(t['b'])} × {_v(t['h'])})"]
     elif k == "tau_lim":
         parts = ["τ_adm,I", "0,016·f_ck,cube / 1,05", f"{C.nb(t['k'])} × {_v(t['fck_cube'])} / {C.nb(t['gamma'])}"]
+    elif k == "lb_rqd":
+        parts = ["l_b,rqd", "Ø/4 · σ_sd / f_bd", f"{C.nb(t['phi'])} / 4 × {_v(t['sigma_sd'])} / {_v(t['fbd'])}"]
+    elif k == "l0":
+        parts = ["l₀", "max(α6·l_b,rqd ; l₀,min)", f"max({C.nb(t['alpha6'])} × {_n(t['lb_rqd'], 'mm')} ; {_n(t['l0_min'], 'mm')})"]
+    elif k == "l_couture":
+        parts = ["l (de chaque côté)", f"⌈l₀⌉ au {C.nb(t['pas'])} cm", f"⌈{C.fr(t['l0'] / 10, 1)}⌉"]
+        r = f"{C.nb(f['resultat'])} cm · {C.nb(f['total'])} cm en tout"
     else:                                                         # pragma: no cover — une formule nouvelle du moteur
         parts = [k, " · ".join(f"{s} = {x}" for s, x in t.items())]
     return {"parts": parts, "res": r, "niveau": ""}
@@ -1056,7 +1238,8 @@ def _taux_fx(v: Dict, s: Dict) -> Dict:
     """La ligne du taux, en pastille de couleur : η = valeur / limite."""
     g = s["grandeurs"]
     if v["cle"] == "hauteur":
-        parts = ["η", "h_min / h", f"{_n(g['h_min'], 'cm')} / {C.nb(g['h'])}"]
+        # (la valeur de la VÉRIFICATION : celle du joint d'une prédalle quand il gouverne, lot 5 — g garde la pleine prédalle)
+        parts = ["η", "h_min / h", f"{_n(v['valeur'], 'cm')} / {C.nb(g['h'])}"]
     elif v["cle"] == "tau":
         parts = ["η", "τ / τ_adm,I", f"{_n(g['tau'], 'N/mm²')} / {_n(g['tau_adm'], 'N/mm²')}"]
     else:
@@ -1070,7 +1253,9 @@ def _ligne_tableau(v: Dict, s: Dict, gov: bool) -> Dict:
     if k == "hauteur":
         f = "h<sub>min</sub> = h<sub>u,min</sub> + y<sub>G</sub> ≤ h"
         sous = f"{C.nb(s['grandeurs']['b'])} × {C.nb(s['grandeurs']['h'])} cm"
-        if v.get("face"):
+        if v.get("face") == JP.CLE:
+            sous += f" · famille joint {s['joint']['direction'].upper()}"
+        elif v.get("face"):
             cote, dk = v["face"].split("_")
             sous += f" · famille {cote}. {dk.upper()}"
     elif k == "tau":
@@ -1078,7 +1263,12 @@ def _ligne_tableau(v: Dict, s: Dict, gov: bool) -> Dict:
     else:
         f = "max(A<sub>s,req</sub> ; A<sub>s,min</sub>) ≤ A<sub>s</sub> ≤ A<sub>s,max</sub>"
         sous = _piece(v, s) + (" · principale" if v.get("principale") else "")
-        if "h_pre" in s["grandeurs"]:
+        if k == JP.CLE:
+            # (le joint des prédalles, lot 5 : d au joint, la couture sur la prédalle, sa longueur)
+            lg = s["joint"]["longueur"]
+            sous += (f" · d = {_n(s['grandeurs']['d_joint'], 'cm')} cm · couture sur la prédalle · "
+                     f"{C.nb(lg['cote'])} cm de chaque côté")
+        elif "h_pre" in s["grandeurs"]:
             # (une prédalle — ce que faisait l'écran de l'ancien module : d, et la pose de la base inférieure)
             c0 = s["faces"][k]["couches"][0]
             sous += f" · d = {_n(s['grandeurs'][f'd_{k}'], 'cm')} cm"
@@ -1286,6 +1476,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         axe = ""
         if predalle and "e" in c:
             axe = f"axe {C.fr(c['e'], 1)} cm" + ("" if base["dist"] is not None else f" ({pose})")
+        if "joint" in c:                   # (la couture automatique en est faite : le joint compte, lot 5)
+            axe += f" · joint {C.pct(c['joint']['taux'])} %"
         return description_candidat(c, axe)
     rows = [{"nom": c["nom"], "col": C.fr(c["As_pm"], 0), "taux": C.pct(min(c["taux"], 9.99)),
              "niveau": "r" if c["etat"] == MO.NOK else C.niveau(c["taux"]), "cur": c["retenue"], "opt": c["optimal"],

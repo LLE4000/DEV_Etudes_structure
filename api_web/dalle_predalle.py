@@ -78,7 +78,7 @@ def avertissements(r: Dict, i: Optional[int] = None) -> str:
             continue
         if a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
-        elif a["code"] != "d_utile_negatif":      # (d ≤ 0 : la ligne de la face le dit, en rouge — PC.comparaison)
+        elif a["code"] not in ("d_utile_negatif", "joint_d_utile_negatif"):   # (d ≤ 0 : la ligne le dit, en rouge)
             out += C.message(C.esc(a["message"]), grave=a["code"] in ("base_hors_predalle", "secondaire_hors_predalle"))
     return out
 
@@ -88,7 +88,8 @@ def avertissements(r: Dict, i: Optional[int] = None) -> str:
 NON_VERIFIES = ("Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface "
                 "prédalle / béton coulé en place, la flèche et la fissuration.")
 
-PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, les quatre armatures) "
+PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, les quatre armatures), "
+             "le joint de deux prédalles (la direction secondaire avec les barres de couture, leur longueur de recouvrement) "
              "et τ ≤ τ<sub>adm,I</sub>. " + NON_VERIFIES)
 
 def hypotheses(p: Dict, m: Dict) -> List[str]:

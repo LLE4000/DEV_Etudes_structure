@@ -95,11 +95,12 @@ PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
 ADRESSES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}" for k in BIBLIOTHEQUES}
 # les modules masqués de l'accueil (site/maquettes/construire.py, MASQUES) : servis, plus listés
 MASQUES = frozenset(MQ.MASQUES)
-# Les pages du BUREAU (docs/site/PROJETS_EQUIPE.md) : les projets et l'équipe. Ni module ni bibliothèque : des écrans que
-# js/app.js monte comme l'accueil (body data-page), sans moteur. Leur feuille : css/bureau.css (l'accueil la charge aussi :
-# il porte les projets, les pastilles et le fil d'activité).
-PAGES_BUREAU = {"projets": "projets.html", "equipe": "equipe.html"}
-ADRESSES_BUREAU = {"projets": "projets", "equipe": "equipe"}
+# Les pages du BUREAU (docs/site/PROJETS_EQUIPE.md) : les projets, l'équipe et, depuis le lot 6 (14/11/2026), les
+# PARAMÈTRES (le gabarit du bureau). Ni module ni bibliothèque : des écrans que js/app.js monte comme l'accueil (body
+# data-page) — sans moteur, sauf les paramètres (le moteur y rend la rubrique Options de chaque module). Leur feuille :
+# css/bureau.css (l'accueil la charge aussi : il porte les projets, les pastilles et le fil d'activité).
+PAGES_BUREAU = {"projets": "projets.html", "equipe": "equipe.html", "parametres": "parametres.html"}
+ADRESSES_BUREAU = {"projets": "projets", "equipe": "equipe", "parametres": "parametres"}
 FEUILLE_BUREAU = "css/bureau.css"
 # les icônes que ces écrans posent eux-mêmes (js/vues_bureau.js les lit dans la page : rien n'est chargé d'ailleurs)
 ICONES_BUREAU = ("plus", "x", "check", "pencil-line", "trash-2", "ellipsis", "chevron-right", "chevron-left", "folder", "folder-open",
@@ -535,14 +536,13 @@ def legende_verifie(texte: str = "vérifié par un administrateur", deux: str = 
 
 def rail(actif: str) -> str:
     """La barre de cinq icônes. Projets et Équipe mènent à leurs pages (11/11/2026 : elles étaient « bientôt ») ;
-    Paramètres viendra avec les comptes du bureau."""
+    Paramètres aussi, depuis le lot 6 (14/11/2026 : le gabarit du bureau)."""
     def it(ic, nom, cle, attr):
         return f'<a class="navitem{" on" if cle == actif else ""}" data-tip="{nom}"{attr}>{MQ.icon(ic)}</a>'
-    bientot = ' aria-disabled="true" data-bientot="1"'
     return (f'<nav class="nav"><a class="brand" href="{ACCUEIL}" title="Accueil"><div class="logo">{MQ.LOGO}</div></a>'
             + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", f' href="{ADRESSES_BUREAU["projets"]}"')
             + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe", "equipe", f' href="{ADRESSES_BUREAU["equipe"]}"')
-            + it("settings", "Paramètres · bientôt", "parametres", bientot)
+            + it("settings", "Paramètres", "parametres", f' href="{ADRESSES_BUREAU["parametres"]}"')
             # en bas : le thème, puis la PASTILLE de la personne du poste (js/marques.js l'écrit ; elle mène à l'équipe)
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
               f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{MQ.icon("sun-moon")}</a>'
@@ -552,13 +552,12 @@ def rail(actif: str) -> str:
 
 def mnav(actif: str) -> str:
     """Les onglets du bas du téléphone : les cinq entrées de la barre du PC, dans le même ordre (cahier des charges
-    § 1 bis) ; Paramètres viendra avec les comptes."""
+    § 1 bis) ; Paramètres mène à sa page depuis le lot 6 (14/11/2026)."""
     def it(ic, nom, cle, attr):
         return f'<a class="{"on" if cle == actif else ""}"{attr}>{MQ.icon(ic)}<span>{nom}</span></a>'
-    bientot = ' aria-disabled="true" data-bientot="1" title="Bientôt"'
     return ('<nav class="mnav">' + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", f' href="{ADRESSES_BUREAU["projets"]}"')
             + it("layout-grid", "Modules", "modules", ' data-modules="1" role="button"') + it("users", "Équipe", "equipe", f' href="{ADRESSES_BUREAU["equipe"]}"')
-            + it("settings", "Paramètres", "parametres", bientot) + "</nav>")
+            + it("settings", "Paramètres", "parametres", f' href="{ADRESSES_BUREAU["parametres"]}"') + "</nav>")
 
 
 def modpanel() -> str:
@@ -803,6 +802,45 @@ def page_equipe() -> str:
              f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
              f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     return tete("Équipe · Stab Méthodes", FEUILLE_BUREAU) + corps
+
+
+# les modules qui ont un GABARIT DU BUREAU (lot 6 : api_web/gabarit.py — le module déclare GABARIT), dans l'ordre de la page
+MODULES_GABARIT = ("poutre", "dalle")
+
+
+def page_parametres() -> str:
+    """La page PARAMÈTRES (lot 6, 14/11/2026 ; docs/site/MODELES_DIMENSIONNEMENT.md) : les options du SITE (le thème),
+    puis le GABARIT DU BUREAU — les options de départ de chaque module, fixées par un administrateur, reçues par chaque
+    note NEUVE ; chaque note les change au cas par cas dans sa rubrique Options. Un gabarit vide : js/ecran_parametres.js
+    le remplit — la rubrique Options de chaque module RENDUE PAR LE MOTEUR (le même composant que dans la note)."""
+    cartes = "".join(f'<div class="card pa-mod" data-gabarit="{k}"><div class="sechead"><div class="h3"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>'
+                     f'{MQ.esc(_module(k)[1])}</div><span class="pa-ecarts muted" data-ecarts="{k}"></span>'
+                     f'<button type="button" class="btn sm" data-usine="{k}" hidden>{MQ.icon("undo-2")}Valeurs d\'usine</button></div>'
+                     f'<div class="pa-options" data-options="{k}"><p class="muted pa-attente">Le moteur prépare les options…</p></div></div>'
+                     for k in MODULES_GABARIT)
+    corps = (f'<body data-page="parametres"><div class="app rail">{rail("parametres")}<main class="main">'
+             f'<header class="top"><div class="crumbs">{MQ.icon("settings")}<b>Paramètres</b></div><span class="spacer"></span>'
+             f'<span class="muted bu-nb" id="pa-qui"></span></header>{mhead("Paramètres")}'
+             f'<div class="pa-page">'
+             f'<div class="card" id="pa-site"><div class="h3">Le site</div>'
+             f'<div class="row full pa-theme"><label><span>Thème</span></label><div class="seg full" id="pa-theme" role="group" aria-label="Thème">'
+             f'<button type="button" data-theme-choix="light">Clair</button><button type="button" data-theme-choix="dark">Sombre</button>'
+             f'<button type="button" data-theme-choix="">Comme l\'appareil</button></div></div></div>'
+             f'<div class="card pa-tete"><div class="h3">Gabarit du bureau</div>'
+             f'<p>Les options de départ de chaque module, fixées par un <b>administrateur</b> : chaque note <b>neuve</b> les reçoit. '
+             f'Une note peut toujours changer une valeur dans sa rubrique <b>Options</b> (« pour cette dalle-là, pas de jeu ») ; '
+             f'une note existante ne bouge jamais quand le gabarit change.</p>'
+             f'<p class="pa-role" id="pa-role"></p></div>'
+             f'<div class="pa-mods">{cartes}</div>'
+             f'<div class="card note-locale"><div class="h3">Où est enregistré le gabarit ?</div><p>Pour l\'instant, <b>dans ce '
+             f'navigateur</b>, comme l\'équipe et les notes : chaque poste a le sien. Il deviendra celui du bureau avec les comptes. '
+             f'Une valeur égale à celle d\'usine n\'est pas gardée : elle suit l\'usine.</p></div>'
+             f'</div>{mnav("parametres")}</main></div>'
+             f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
+    # (les feuilles des modules du gabarit : leur rubrique Options s'y montre comme dans la note — css/modules/<clé>.css)
+    feuilles = [f"css/modules/{k}.css" for k in MODULES_GABARIT if os.path.exists(os.path.join(ICI, f"css/modules/{k}.css"))]
+    return tete("Paramètres · Stab Méthodes", FEUILLE_BUREAU, "css/etabli.css", *feuilles) + corps
 
 
 def _bouton(icone: str, libelle: str, attrs: str, cls: str = "btn") -> str:
@@ -1265,8 +1303,9 @@ def fichiers_publies(dossier: str) -> list:
 
 def pages_rendues() -> dict:
     """Les pages du site, telles que les gabarits les rendent (version VIDE) : {fichier publié: HTML} — l'accueil, les
-    deux pages du bureau (projets, équipe), une par module, une par bibliothèque."""
-    pages = {"index.html": page_accueil(), PAGES_BUREAU["projets"]: page_projets(), PAGES_BUREAU["equipe"]: page_equipe()}
+    trois pages du bureau (projets, équipe, paramètres), une par module, une par bibliothèque."""
+    pages = {"index.html": page_accueil(), PAGES_BUREAU["projets"]: page_projets(), PAGES_BUREAU["equipe"]: page_equipe(),
+             PAGES_BUREAU["parametres"]: page_parametres()}
     pages.update({fichier: page(cle) for cle, fichier in PAGES.items()})
     pages.update({fichier: page_bibliotheque(cle) for cle, fichier in PAGES_BIBLIOTHEQUES.items()})
     return pages

@@ -49,7 +49,10 @@ DEFAUTS_POUTRE = {
     # (ajouté à la position réelle de chaque lit AVANT l'arrondi) ; 1 cm par défaut, décision du propriétaire du
     # 13/11/2026 (c'était 0, « retour bureau 01/09 », ajouté après les demi-Ø arrondis)
     "jeu_premier_lit": P.JEU_POSE,
-    "jeu_entre_lits": 1.0,   # cm : le jour libre entre deux lits (position réelle, sans arrondi)
+    # le JOUR LIBRE entre deux lits (cm ; position réelle, sans arrondi) : 2,5 cm par défaut, décision du propriétaire du
+    # 13/11/2026 (lots 5 et 6 ; c'était 1 cm — sous le minimum de l'EC2 8.2(2) pour deux lits Ø16 et un granulat de
+    # 20 mm : max(Ø ; d_g + 5 ; 20) = 25 mm, l'écran le disait « non conforme ») ; une note garde le sien
+    "jeu_entre_lits": 2.5,
     "arrondi": P.ARRONDI,    # cm : le pas d'arrondi de l'axe de calcul (beton/position.ARRONDIS : 0, 0,5 ou 1)
 }
 LIT_DEFAUT = {"n": 2, "d": 16}

@@ -231,10 +231,13 @@ for ch, x in (("nom", "Ma dalle"), ("sections/0/Mx_inf", "28"), ("sections/0/My_
 dc = actif(E)
 bp = saisir(E, "type", "predalle")
 dp = actif(bp["etat"])
-chk("coulee → predalle : « h_pre » ajoutée (6 cm, le défaut de l'écran prédalle), le type écrit, tout le reste conservé — nom, "
-    "sections, renfort posé à 8 cm, y_G imposé",
-    not bp["message"] and dp["type"] == "predalle" and dp["h_pre"] == EN_P.DEFAUTS_PREDALLE["h_pre"] == 6.0
-    and {k: v for k, v in dp.items() if k != "h_pre"} == dict(dc, type="predalle") and dp["nom"] == "Ma dalle"
+chk("coulee → predalle : « h_pre » ajoutée (6 cm, le défaut de l'écran prédalle) et le pas des barres de couture de la note "
+    "(lot 6 : 5 cm, aucune autre prédalle), le type écrit, tout le reste conservé — nom, sections, renfort posé à 8 cm, y_G imposé",
+    not bp["message"] and dp["type"] == "predalle" and dp["h_pre"] == EN_P.DEFAUTS_PREDALLE["h_pre"] == 6.0 and dp["pas_couture"] == 5.0
+    and {k: v for k, v in dp.items() if k not in ("h_pre", "pas_couture", "sections")} == {k: v for k, v in dict(dc, type="predalle").items() if k != "sections"}
+    # (les sections gardées telles quelles, plus la COUTURE de chacune — automatique, le joint des prédalles, lot 5)
+    and [{k: v for k, v in s_.items() if k != "couture"} for s_ in dp["sections"]] == dc["sections"]
+    and [s_["couture"] for s_ in dp["sections"]] == [None] * len(dc["sections"]) and dp["nom"] == "Ma dalle"
     and dp["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] == 8.0 and dp["sections"][0]["faces"]["sup_x"]["yG"] == 4.2, bp["message"])
 chk("… la rubrique 1 dit le type (« Prédalle h_p = 6 cm »), montre h_p (bornes 3 à 15 cm pour h = 20) et le complément 14 cm ; "
     "l'en-tête des résultats dit « 100 × 20 cm, prédalle 6 cm »",
@@ -243,8 +246,8 @@ chk("… la rubrique 1 dit le type (« Prédalle h_p = 6 cm »), montre h_p (bor
     and '<span class="dl-ro">14 cm</span>' in bp["donnees"] and "<span>100 × 20 cm, prédalle 6 cm · C30/37 · B500</span>" in bp["resultat"],
     re.findall(r'data-chemin="h_pre"[^>]*>', bp["donnees"]))
 bc = saisir(bp["etat"], "type", "coulee")
-chk("predalle → coulee : « h_pre » retirée, la dalle redevient EXACTEMENT celle d'avant la bascule",
-    not bc["message"] and actif(bc["etat"]) == dc and "h_pre" not in actif(bc["etat"]), bc["message"])
+chk("predalle → coulee : « h_pre » et le pas des barres de couture retirés, la dalle redevient EXACTEMENT celle d'avant la bascule",
+    not bc["message"] and actif(bc["etat"]) == dc and "h_pre" not in actif(bc["etat"]) and "pas_couture" not in actif(bc["etat"]), bc["message"])
 mince = saisir(saisir(e0, "h", "5")["etat"], "type", "predalle")
 chk("coulee → predalle sur une dalle de 5 cm : h_pre bornée à h_pre_max(5) = 4 cm (au moins 1 cm coulé en place)",
     not mince["message"] and actif(mince["etat"])["h_pre"] == 4.0 == EN_P.h_pre_max(5), mince["message"])
@@ -300,7 +303,8 @@ NP1 = note_predalle()
 rep_p = req(action="calculer", etat=NP1)
 dp1 = actif(rep_p["etat"])
 m_p = MO_P.verifier(POS.pour_moteur(dp1))
-m_d = MO.verifier({k: v for k, v in sans_site(dp1).items() if k != "h_pre"})
+m_d = MO.verifier(dict({k: v for k, v in sans_site(dp1).items() if k not in EN_P.CLES_PROPRES},
+                        sections=[{k: v for k, v in s_.items() if k != "couture"} for s_ in sans_site(dp1)["sections"]]))
 chk("type predalle : chaque ligne du résultat — nom, couleur, taux — est celle de beton.predalle.moteur.verifier sur la copie que le site "
     "lui envoie (pour_moteur) ; le résumé aussi ; et ce N'EST PAS ce que dirait le moteur des dalles (base inf. secondaire dans la peau, "
     "posée sur la base Y : 4,5 + 1 = 5,5, et non au contact de l'enrobage, 3,5 + 1 = 4,5)",

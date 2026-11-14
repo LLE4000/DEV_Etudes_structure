@@ -193,8 +193,9 @@
 #donnees .row.full.et-type > .seg.full { width: 100%; }
 .et-sym { cursor: help; font-style: italic; }
 /* les espacements admis (options de la dalle, 13/11/2026) : une puce par espacement, allumée quand il est admis */
-#donnees .row.full.et-esp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-#donnees .row.full.et-esp > label { flex: 0 0 auto; }
+/* (la ligne des espacements admis, où qu'elle soit rendue : les données d'une note, la page « Paramètres » — lot 6) */
+.row.full.et-esp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.row.full.et-esp > label { flex: 0 0 auto; }
 .et-puces { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .et-puces .u { font-size: 12px; color: var(--ink-3); margin-left: 2px; }
 
@@ -308,6 +309,11 @@
 /* la ligne de l'axe prend la place des flèches (le champ garde « auto · 6,5 cm » entier), le libellé la sienne */
 .et-piece .et-det .row:has(.et-pas) { grid-template-columns: auto minmax(0, 1fr); }
 .et-piece .et-det .row:has(.et-pas) > .et-pas, .et-piece .et-det .row:has(.et-pas) > .et-auto { justify-self: end; }
+/* (lot 5) les BARRES DE COUTURE d'une prédalle : la pose (« hp + ½ Ø = 6 + 0,5 = 6,5 cm ») et la longueur (« 2 × 55 cm ·
+   l0 = 536 mm ») se lisent d'une traite — la colonne des valeurs (132 px) les coupait en deux lignes ; comme l'axe d'une
+   couche, le libellé prend sa place, la valeur le reste */
+.et-piece .et-det .row:has(> .et-cout-pose), .et-piece .et-det .row:has(> .et-cout-l) { grid-template-columns: auto minmax(0, 1fr); }
+.et-cout-pose, .et-cout-l { justify-self: end; text-align: right; }
 .et-fl { flex: none; display: grid; grid-template-rows: 1fr 1fr; width: 26px; border: 1px solid var(--line); border-left: 0;
          border-radius: 0 8px 8px 0; background: var(--panel); overflow: hidden; }
 .et-fl button { display: grid; place-items: center; min-height: 0; padding: 0; color: var(--ink-3); }

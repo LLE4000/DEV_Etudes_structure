@@ -149,11 +149,12 @@ chk("… et une cinquième vérification : les dispositions constructives", [v["
 pl = NP.resultats(CAS["poutre neuve (sans effort)"])
 chk("une section sans effort n'est jamais « Vérifié » : « Données incomplètes »", pl[0]["etat_label"] == NP.ETAT_INCOMPLET
     and ND.construire_sections(pl)[0]["etat"] == NP.ETAT_INCOMPLET, pl[0].get("etat_label"))
-pl = NP.resultats(cas((S0 + ["M_inf"], 40), (S0 + ["V"], 20), (S0 + ["pas"], 20), (S0 + ["inf", "+"], 1)))
+pl = NP.resultats(cas((["jeu_entre_lits"], 1), (S0 + ["M_inf"], 40), (S0 + ["V"], 20), (S0 + ["pas"], 20), (S0 + ["inf", "+"], 1)))
 # (la règle de position du 13/11/2026 : les lits posés l'un sur l'autre à leurs positions RÉELLES, séparés du seul jeu entre
-#  lits — 1 cm par défaut, 10 mm libres ; l'ancienne règle, arrondie, en laissait 14)
-chk("deux lits Ø16 au jeu du bureau : la planche est « Non vérifié » (10 mm libres — le jeu entre lits — < 25 mm : non conforme, "
-    "EC2 8.2(2))",
+#  lits — 1 cm saisi ici, le défaut d'avant le 13/11/2026 (2,5 cm depuis) : 10 mm libres ; l'ancienne règle, arrondie, en
+#  laissait 14)
+chk("deux lits Ø16 au jeu d'avant (1 cm, saisi) : la planche est « Non vérifié » (10 mm libres — le jeu entre lits — < 25 mm : "
+    "non conforme, EC2 8.2(2))",
     pl[0]["etat_label"] == "Non vérifié"
     and any(v["etat"] == "ko" and "10 mm" in v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"]),
     (pl[0]["etat_label"], [v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"] if v["etat"] == "ko"]))

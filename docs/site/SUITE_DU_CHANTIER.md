@@ -900,6 +900,25 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   dore la poutre ; Louis argente les soudures ; chaque couleur comparée à son jeton). Le contrôle du pied du résultat
   vérifie maintenant que rien ne recouvre la ligne au bout du défilement (au téléphone, la capture la montrait sous la
   barre des boutons : la capture seule — la ligne est lisible au bout du défilement, le contrôle le prouve).
+- **14/11/2026 — les lots 5 et 6, faits ensemble** :
+  · **lot 5, le joint des prédalles** (`docs/beton/PREDALLE_MOTEUR.md` § 10) : la direction secondaire d'une prédalle est
+    vérifiée une seconde fois AU JOINT, avec les barres de couture posées SUR la prédalle (h_p + Ø/2, au-dessus d'un renfort
+    principal s'il y en a un), la base secondaire de la peau coupée, les renforts gardés ; automatiquement la base
+    secondaire reprise en barres, ou saisie (Ø, espacement) dans « Armatures » ; la longueur = le recouvrement l₀ arrondi
+    au 5 cm de chaque côté (Ø10 : 53,6 → 55 cm, 110 en tout) ; la hauteur du joint est une famille de plus ; la ligne
+    « Joint X » du résultat, sa fenêtre de calcul, le dessin du joint sous les coupes (la barre à sa longueur, sous le doigt,
+    elle ouvre sa ligne), la note PDF (le bloc de l'armature inférieure secondaire). Exemple : une prédalle de 20 cm,
+    M_x = 30 kN·m/m — au joint 800 > 785 mm² (102 %, ROUGE) quand la pleine prédalle tient (690 : 88 %). Aucun verdict des
+    références ne change (10 cas : la ligne « Joint X » apparaît, 42 à 46 %) ;
+  · **lot 6, le gabarit du bureau** (`docs/site/MODELES_DIMENSIONNEMENT.md` § 7, `PROJETS_EQUIPE.md` § 9) : la page
+    « Paramètres » (le thème ; les options de départ de la poutre, des dalles et prédalles — leur rubrique Options rendue
+    par le moteur), un administrateur la change, une note NEUVE la reçoit, une note existante jamais ; le pas d'arrondi de
+    la longueur des barres de couture devient une option (1, 5 ou 10 cm) ; le jeu entre lits d'une poutre neuve passe à
+    **2,5 cm** (25 mm libres entre deux Ø16 : le minimum de l'EC2 — « il faudra vérifier » les paquets de barres, plus tard) ;
+  · **corrigé en chemin** : une dalle ajoutée à une note ne reprenait pas l'arrondi de la note (elle prenait 0,5 cm même
+    si la note était à 1 cm : moins prudent, sans le dire) — elle reprend désormais les trois paramètres communs.
+  · **Reste** (à trancher) : des réglages « coulé en place » / « préfabriqué » distincts ; le jeu entre deux couches d'une
+    dalle ; la géométrie de départ et le taux visé dans le gabarit ; les paquets de barres (EC2 8.9).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

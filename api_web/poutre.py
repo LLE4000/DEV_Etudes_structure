@@ -699,6 +699,31 @@ def _longueur(i: int, s: Dict) -> str:
             f'{C.num(["sections", i, "longueur"], s.get("longueur"), "m", auto="sans")}</div>')
 
 
+# ------------------------------------------------------------------ le gabarit du bureau (lot 6, 14/11/2026)
+# Les OPTIONS d'une poutre que le gabarit du bureau fixe (page « Paramètres », api_web/gabarit.py) : celles de la
+# rubrique Options — les jeux, l'arrondi, γs, le granulat, les armatures de peau, l'option « Taux d'armature ». Une note
+# NEUVE les reçoit (sa première poutre) ; une note existante ne bouge jamais.
+GABARIT = ("jeu_premier_lit", "jeu_entre_lits", "arrondi", "gamma_s", "dg", "peau_d", "peau_smax",
+           "taux/actif", "taux/note", "taux/majoration", "taux/retour", "taux/arrondi")
+
+
+def lire_gabarit(etat: Dict) -> Dict:
+    """Les valeurs des options du gabarit dans la note (sa poutre ouverte)."""
+    p = _poutre(etat)
+    r = TA.reglages(p.get("taux"))
+    return {"jeu_premier_lit": p["jeu_premier_lit"], "jeu_entre_lits": p["jeu_entre_lits"], "arrondi": p.get("arrondi", P.ARRONDI),
+            "gamma_s": p["gamma_s"], "dg": float(p.get("dg") or EN.DEFAUTS_DETAIL["dg"]),
+            "peau_d": int(p.get("peau_d") or EN.DEFAUTS_DETAIL["peau_d"]),
+            "peau_smax": float(p.get("peau_smax") or EN.DEFAUTS_DETAIL["peau_smax"]),
+            "taux/actif": _ta_actif(p), "taux/note": bool((p.get("taux") or {}).get("note")),
+            "taux/majoration": r["majoration"], "taux/retour": r["retour"], "taux/arrondi": r["arrondi"]}
+
+
+def options_gabarit(etat: Dict) -> str:
+    """La rubrique Options telle que la page « Paramètres » la montre : celle de la poutre ouverte de la note."""
+    return _options(_poutre(etat))
+
+
 def _options_taux(p: Dict) -> str:
     """L'option « Taux d'armature » : la case, et — allumée — la case « dans la note de calcul » (éteinte par défaut :
     le taux reste à l'écran, la note ne le donne pas) puis ses trois réglages. Les deux cases de l'écran Streamlit

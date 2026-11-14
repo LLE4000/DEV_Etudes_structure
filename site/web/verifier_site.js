@@ -4087,6 +4087,164 @@ const principal = async () => {
         // (une adresse sans note ni nom : la page des dalles, telle quelle)
         await pretG({ apres: await ouvrir(g, `${BASE}/predalle`) });
         verif('plaques predalle : « predalle » seul mène à « dalle »', /\/dalle$/.test(new URL(g.url()).pathname), g.url());
+        // ---- LOT 5 (14/11/2026) : le JOINT des prédalles et ses BARRES DE COUTURE, aux trois formats (R1) ----
+        // Une note neuve en « Prédalle » (h = 20 cm, h_p = 6 cm), M_x,inf = 30 et M_y,inf = 20 kN·m/m : le cas calculé à la
+        // main de tests/test_api_web_dalle.py § 14 — au joint, d = 20 − 7,5 = 12,5 cm et A_s,néc = 800 > 785 mm² (102 %,
+        // rouge), quand la pleine prédalle tient (690 ≤ 785 mm²). Ce que l'œil voit : le bloc dans l'écran, la barre de
+        // couture dessinée À SA LONGUEUR (2 × 550 mm : 733 pour la peau de 1 000 dessinée, centrée sur le joint) et sous le
+        // doigt ; la toucher ouvre SA ligne dans « Armatures ».
+        const txtJ = (s) => String(s || '').replace(/[\s  ]+/g, ' ').trim();
+        const lireJoint = (p) => p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const tx = (e) => (e ? e.textContent : '').replace(/[\s  ]+/g, ' ').trim();
+          const inf = document.querySelector('#donnees .et-nap[data-nappe="inf"]'), cout = document.querySelector('#donnees .et-cout');
+          const piece = cout && cout.querySelector('.et-piece[data-cible="s0.joint-0"]');
+          const d = piece && piece.querySelector('select[data-chemin="sections/0/couture/d"]'), e = piece && piece.querySelector('input[data-chemin="sections/0/couture/esp"]');
+          const r = cout && cout.getBoundingClientRect(), j = document.querySelector('#resultat .el.vc[data-calcul="s0-joint"]');
+          return { dansInf: !!inf && !!cout && [...inf.querySelectorAll(':scope > .et-grp')].pop() === cout, vu: vis(cout),
+            dedans: !!r && r.width > 0 && r.left >= -0.5 && r.right <= innerWidth + 0.5, tete: cout ? [...cout.querySelectorAll('.et-gh > span')].map(tx).join(' | ') : '',
+            tag: tx(piece && piece.querySelector('.et-tag')), d: d ? d.value : null, dVu: vis(d), e: e ? e.value : null, eVu: vis(e),
+            raz: vis(cout && cout.querySelector('.et-raz[data-chemin="sections/0/couture"]')),
+            lignes: [...document.querySelectorAll('#resultat .et-bloc:not([hidden]) .el.vc')].map((x) => tx(x.querySelector('.l1 b'))),
+            joint: j ? { vu: vis(j), prof: tx(j.querySelector('.prof')), pct: tx(j.querySelector('.pct')), rouge: !!j.querySelector('.pct.r'), cmp: tx(j.querySelector('.cmp')) } : null,
+            bloc: (document.querySelector('#resultat .et-bloc:not([hidden])') || {}).className || '' };
+        });
+        // le dessin du joint, MESURÉ à l'écran : la barre (son tracé) rapportée à la peau dessinée, son milieu, un point
+        // au quart de la barre (au milieu passe l'axe du joint) — dans la vue et sous le doigt
+        const lireDessin = (p) => p.evaluate(() => {
+          const j = document.querySelector('#stage .view.on g[data-joint="x"]');
+          const l = j && j.querySelector('[data-sel="s0.joint-0"] line'), bt = j && j.querySelector('.pc.beton rect');
+          if (!l || !bt) return { j: !!j, l: !!l, b: !!bt };
+          const rl = l.getBoundingClientRect(), rb = bt.getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect();
+          const x = rl.left + rl.width / 4, y = rl.top + rl.height / 2, sous = document.elementFromPoint(x, y);
+          return { j: true, vu: l.checkVisibility({ visibilityProperty: true, opacityProperty: true }), ratio: rb.width ? +(rl.width / rb.width).toFixed(3) : 0,
+            larg: Math.round(rl.width), centre: rb.width ? +(((rl.left + rl.right) / 2 - rb.left) / rb.width).toFixed(3) : 0,
+            dansVue: x >= Math.max(0, st.left) && x <= Math.min(innerWidth, st.right) && y >= Math.max(0, st.top) && y <= Math.min(innerHeight, st.bottom),
+            sousDoigt: !!sous && !!sous.closest('[data-sel="s0.joint-0"]'), x: Math.round(x), y: Math.round(y),
+            cotes: [...j.querySelectorAll('text')].filter((t) => t.textContent.trim() === '550').length };
+        });
+        const choixCouture = (p) => p.evaluate(() => {
+          const v = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const tx = (e) => (e ? e.textContent : '').replace(/[\s  ]+/g, ' ').trim();
+          const pc = document.querySelector('#donnees .et-piece[data-cible="s0.joint-0"]');
+          // d'une traite : le premier et le dernier caractère de la valeur sur la même ligne (lot 5 : la colonne des valeurs,
+          // 132 px, coupait la pose et la longueur en deux lignes)
+          const uneLigne = (e) => {
+            if (!e) return false;
+            const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), ns = [];
+            while (w.nextNode()) if (w.currentNode.data.trim()) ns.push(w.currentNode);
+            if (!ns.length) return false;
+            const r = document.createRange(), a = ns[0], z = ns[ns.length - 1];
+            r.setStart(a, 0); r.setEnd(a, 1);
+            const t0 = r.getBoundingClientRect().top;
+            r.setStart(z, z.data.length - 1); r.setEnd(z, z.data.length);
+            return Math.abs(r.getBoundingClientRect().top - t0) < 4;
+          };
+          return { arm: document.querySelector('#donnees .sec[data-sec="arm"]').classList.contains('open'), cible: !!pc && pc.classList.contains('et-cible'),
+            det: v(pc && pc.querySelector('.et-det')), pose: tx(pc && pc.querySelector('.et-cout-pose')), longueur: tx(pc && pc.querySelector('.et-cout-l')),
+            uneLigne: !!pc && [pc.querySelector('.et-cout-pose'), pc.querySelector('.et-cout-l')].every(uneLigne),
+            sel: [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))].join(), barre: v(document.querySelector('.et-bp')) };
+        });
+        const coutureMem = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+          return n && n.etat && n.etat.dalles ? JSON.stringify(n.etat.dalles[0].sections[0].couture) : 'absente'; });
+        const POSE_J = /^hp \+ ½ Ø = 6 \+ 0,5 = 6,5 cm$/, LONG_J = /^2 × 55 cm · l0 = 536 mm$/;
+        await pretG({ apres: await ouvrir(g, `${BASE}/dalle?nom=Joint%20des%20pr%C3%A9dalles&chantier=R%C3%A9alex`) });
+        await tranquille();
+        await ouvrirRub('dl');
+        await g.click('#donnees button[data-chemin="type"][data-valeur="predalle"]');
+        await tranquille();
+        await ouvrirRub('so');
+        await saisir('#donnees input[data-chemin="sections/0/Mx_inf"]', '30');
+        await saisir('#donnees input[data-chemin="sections/0/My_inf"]', '20');
+        await ouvrirRub('arm');
+        const jPc = await lireJoint(g);
+        verif('plaques predalle · joint : « Armatures » montre les BARRES DE COUTURE à la fin de l\'armature inférieure (« Barres de couture | joint X | As néc. 800 mm² », repère C, Ø10 · 100 mm : la base secondaire reprise en barres, sans ↺), dans la colonne',
+          jPc.dansInf && jPc.vu && jPc.dedans && jPc.tete === 'Barres de couture | joint X | As néc. 800 mm²' && jPc.tag === 'C' && jPc.d === '10' && jPc.dVu
+          && jPc.e === '100' && jPc.eVu && !jPc.raz, JSON.stringify(jPc));
+        verif('plaques predalle · joint : le résultat a sa ligne « Joint X » sous l\'inférieure X — « Ø10/100 », « As,néc = 800 > As = 785 mm² », ROUGE à 102 % ; la section est non conforme (la pleine prédalle tenait)',
+          jPc.lignes.join() === 'Hauteur,Inférieure Y,Inférieure X,Joint X,Supérieure Y,Supérieure X' && !!jPc.joint && jPc.joint.vu && jPc.joint.prof === 'Ø10/100'
+          && jPc.joint.pct === '102 %' && jPc.joint.rouge && jPc.joint.cmp === 'As,néc = 800 > As = 785 mm²' && /\bnok\b/.test(jPc.bloc), JSON.stringify(jPc));
+        await g.click('#resultat .el.vc[data-calcul="s0-joint"]');
+        await g.waitForTimeout(250);
+        const fenJ = await g.evaluate(() => { const f = document.getElementById('ck-s0-joint');
+          return { vu: !!f && f.checkVisibility({ visibilityProperty: true, opacityProperty: true }), t: f ? f.textContent : '' }; });
+        await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_joint_fenetre.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
+        const tFen = txtJ(fenJ.t);
+        verif('plaques predalle · joint : la ligne ouvre SA fenêtre de calcul — l\'axe des barres de couture (« sur la prédalle »), puis la longueur : l₀ = max(1,5 × 357 ; 200), ⌈53,6⌉ → 55 cm, « 55 cm · 110 cm en tout »',
+          fenJ.vu && tFen.includes('barres de couture, sur la prédalle') && tFen.includes('max(1,5 × 357 ; 200)') && tFen.includes('⌈53,6⌉') && tFen.includes('55 cm · 110 cm en tout'),
+          JSON.stringify({ vu: fenJ.vu, t: tFen.slice(0, 400) }));
+        // le DESSIN → les données : « Armatures » refermée d'abord (une autre rubrique ouverte), le dessin doit la rouvrir
+        await ouvrirRub('so');
+        if (await g.$('#vues [data-vue="c0"]')) { await g.click('#vues [data-vue="c0"]'); await g.waitForTimeout(250); }
+        const dPc = await lireDessin(g);
+        if (dPc.x !== undefined) await g.mouse.click(dPc.x, dPc.y);
+        await g.waitForTimeout(350);
+        const sPc = await choixCouture(g);
+        await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_joint_pc.png') });
+        verif('plaques predalle · joint · PC 1440 : sous les deux coupes, le joint — la barre de couture À SA LONGUEUR (73,3 % de la peau dessinée : 2 × 550 mm pour 1 000), centrée sur le joint, ses deux longueurs cotées « 550 », dans la vue et sous le pointeur',
+          dPc.vu && Math.abs(dPc.ratio - 0.733) <= 0.01 && Math.abs(dPc.centre - 0.5) <= 0.01 && dPc.larg >= 80 && dPc.dansVue && dPc.sousDoigt && dPc.cotes === 2, JSON.stringify(dPc));
+        verif('plaques predalle · joint · PC 1440 : un clic sur la barre de couture rouvre « Armatures » et y déplie SA ligne (la pose « hp + ½ Ø = 6 + 0,5 = 6,5 cm », la longueur « 2 × 55 cm · l0 = 536 mm », chacune d\'une traite, sur une ligne) ; la barre s\'éclaire, sans barre de couche (sa position se calcule)',
+          sPc.arm && sPc.cible && sPc.det && POSE_J.test(sPc.pose) && LONG_J.test(sPc.longueur) && sPc.uneLigne && sPc.sel === 's0.joint-0' && !sPc.barre, JSON.stringify(sPc));
+        // RÉGLER la couture : Ø12 (des barres saisies, l'espacement de l'automatique gardé), puis « ↺ » (l'automatique)
+        await g.selectOption('#donnees select[data-chemin="sections/0/couture/d"]', '12');
+        await tranquille();
+        await g.waitForTimeout(250);
+        const j12 = await lireJoint(g), m12 = await coutureMem();
+        const razJ = await g.$('#donnees .et-raz[data-chemin="sections/0/couture"]');
+        if (razJ) { await razJ.click(); await tranquille(); await g.waitForTimeout(250); }
+        const jAuto = await lireJoint(g), mAuto = await coutureMem();
+        verif('plaques predalle · joint : Ø12 choisi — des barres SAISIES (« ↺ » paraît, l\'espacement 100 gardé), la ligne « Joint X » dit Ø12/100, la note garde {d: 12, esp: 100} ; « ↺ » rend l\'automatique (Ø10 · 100, la note : null)',
+          j12.d === '12' && j12.e === '100' && j12.raz && !!j12.joint && j12.joint.prof === 'Ø12/100' && m12 === '{"d":12,"esp":100}'
+          && jAuto.d === '10' && jAuto.e === '100' && !jAuto.raz && !!jAuto.joint && jAuto.joint.prof === 'Ø10/100' && mAuto === 'null', JSON.stringify({ j12, m12, jAuto, mAuto }));
+        // les MÊMES, à la tablette (au doigt) et au téléphone : la même note (le stockage du navigateur du PC repris)
+        for (const [fmt, opts] of [['tablette 1024', { viewport: { width: 1024, height: 768 }, hasTouch: true }],
+          ['téléphone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]]) {
+          const cf = await b.newContext({ ...opts, storageState: await c.storageState() });
+          const f = await cf.newPage();
+          f.erreurs = [];
+          f.on('pageerror', (e) => f.erreurs.push(e.message));
+          await pretEcran(f, { apres: await ouvrir(f, g.url()) });
+          await f.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+          const onglet = async (k) => { const o = await f.$(`.mtabs [data-onglet="${k}"]`); if (o && await o.isVisible()) { await o.tap(); await f.waitForTimeout(300); } };
+          const rubrique = async (k) => {
+            if (!(await f.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await f.tap(`#donnees .sec[data-sec="${k}"] > .sechd`);
+            await f.waitForTimeout(150);
+          };
+          await onglet('donnees');
+          await rubrique('arm');
+          await f.$eval('#donnees .et-cout', (x) => x.scrollIntoView({ block: 'center' }));
+          await f.waitForTimeout(200);
+          const jf = await lireJoint(f);
+          await f.screenshot({ path: path.join(OUT, `site_plaques_predalle_joint_${fmt.split(' ')[0]}_couture.png`) });
+          await onglet('resultat');
+          await f.$eval('#resultat .el.vc[data-calcul="s0-joint"]', (x) => x.scrollIntoView({ block: 'center' }));
+          await f.waitForTimeout(200);
+          const rf = await lireJoint(f);
+          await onglet('donnees');
+          await rubrique('so');
+          await onglet('dessin');
+          if (await f.$('#vues [data-vue="c0"]') && await f.isVisible('#vues [data-vue="c0"]')) { await f.tap('#vues [data-vue="c0"]'); await f.waitForTimeout(300); }
+          await f.$eval('#stage .view.on g[data-joint="x"]', (x) => x.scrollIntoView({ block: 'center' })).catch(() => {});
+          await f.waitForTimeout(250);
+          const df = await lireDessin(f);
+          if (df.x !== undefined) await f.touchscreen.tap(df.x, df.y);
+          await f.waitForTimeout(400);
+          const selF = await f.evaluate(() => [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))].join());
+          await f.screenshot({ path: path.join(OUT, `site_plaques_predalle_joint_${fmt.split(' ')[0]}_dessin.png`) });
+          await onglet('donnees');
+          await f.waitForTimeout(250);
+          const sf = await choixCouture(f);
+          verif(`plaques predalle · joint · ${fmt} : les barres de couture dans « Armatures » (Ø10 · 100 mm, repère C), tenues dans l'écran ; la ligne « Joint X » des résultats (Ø10/100, rouge à 102 %)`,
+            jf.vu && jf.dedans && jf.tete === 'Barres de couture | joint X | As néc. 800 mm²' && jf.tag === 'C' && jf.d === '10' && jf.dVu && jf.e === '100' && jf.eVu
+            && !!rf.joint && rf.joint.vu && rf.joint.prof === 'Ø10/100' && rf.joint.pct === '102 %' && rf.joint.rouge, JSON.stringify({ jf, rf: rf.joint }));
+          verif(`plaques predalle · joint · ${fmt} : le dessin du joint, la barre À SA LONGUEUR (73,3 % de la peau, centrée), dans la vue et sous le doigt ; un appui l'éclaire et, dans « Armatures » rouverte, déplie SA ligne (la pose, la longueur, chacune sur une ligne)`,
+            df.vu && Math.abs(df.ratio - 0.733) <= 0.01 && Math.abs(df.centre - 0.5) <= 0.01 && df.larg >= 60 && df.dansVue && df.sousDoigt && df.cotes === 2
+            && selF === 's0.joint-0' && sf.arm && sf.cible && sf.det && POSE_J.test(sf.pose) && LONG_J.test(sf.longueur) && sf.uneLigne, JSON.stringify({ df, selF, sf }));
+          verif(`plaques predalle · joint · ${fmt} : aucune erreur JavaScript`, !f.erreurs.length, f.erreurs.join(' | ').slice(0, 300));
+          await cf.close();
+        }
       } else {
         const nom = 'Dalle 1', dims = '100 × 20 cm';
         await ouvrir(g, `${BASE}/index.html`);
@@ -5641,12 +5799,12 @@ const principal = async () => {
       let a = await g.evaluate((menu) => {
         const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
         const lien = (h) => { const e = document.querySelector(`${menu} a[href="${h}"]`); return !!e && vis(e) && e.getAttribute('aria-disabled') !== 'true' && !e.dataset.bientot; };
-        return { projets: lien('projets'), equipe: lien('equipe'), qui: vis(document.querySelector('#ac-qui form[data-qui]')), moi: document.querySelector('#moi .avatar').textContent,
+        return { projets: lien('projets'), equipe: lien('equipe'), parametres: lien('parametres'), qui: vis(document.querySelector('#ac-qui form[data-qui]')), moi: document.querySelector('#moi .avatar').textContent,
           inconnu: document.querySelector('#moi .avatar').classList.contains('inconnu'), bonjour: document.getElementById('bonjour').textContent,
           vide: document.getElementById('chantiers').textContent, champ: vis(document.getElementById('ac-projet')), creer: vis(document.getElementById('ac-projet-creer')) };
       }, menu);
-      verif(`${dit} · accueil d'un poste neuf : le menu mène aux Projets et à l'Équipe (des liens, plus « bientôt ») ; « Qui êtes-vous ? » se voit, la pastille est un « ? », aucun projet — le champ qui en crée un est là`,
-        a.projets && a.equipe && a.qui && a.moi === '?' && a.inconnu && a.bonjour === 'Bonjour' && /Aucun projet/.test(a.vide) && a.champ && !a.creer, JSON.stringify(a));
+      verif(`${dit} · accueil d'un poste neuf : le menu mène aux Projets, à l'Équipe et aux Paramètres (des liens, plus « bientôt » — lot 6) ; « Qui êtes-vous ? » se voit, la pastille est un « ? », aucun projet — le champ qui en crée un est là`,
+        a.projets && a.equipe && a.parametres && a.qui && a.moi === '?' && a.inconnu && a.bonjour === 'Bonjour' && /Aucun projet/.test(a.vide) && a.champ && !a.creer, JSON.stringify(a));
       await photo(g, `${nomF}_accueil_neuf`, 'accueil');
 
       // ---- se présenter : le nom ; les initiales sont proposées (LLE), l'adresse préremplie quand le site la connaît
@@ -6120,6 +6278,102 @@ const principal = async () => {
       a = await g.evaluate(() => [document.getElementById('bonjour').textContent, document.querySelectorAll('#chantiers a.site').length, document.querySelectorAll('#activite .feed').length]);
       verif(`${dit} · tout est enregistré dans ce navigateur : après un rechargement, « Bonjour Louis », le projet, l'activité sont là ; aucune erreur JavaScript de tout le parcours`,
         JSON.stringify(a) === '["Bonjour Louis",1,6]' && !g.erreurs.length, JSON.stringify(a) + ' ' + g.erreurs.join(' | ').slice(0, 300));
+
+      // ---- (lot 6, 14/11/2026) la page PARAMÈTRES : le thème, puis le GABARIT DU BUREAU — la rubrique Options de chaque
+      // module, rendue par le moteur ; un administrateur la change, une note NEUVE la reçoit, une note existante ne bouge
+      // pas ; « Valeurs d'usine » l'efface. Ce que l'œil voit : rien ne dépasse, les cibles à 40 px au doigt, la valeur du
+      // bureau encadrée (un contour mesuré)
+      const ZONE_PARAM = '.pa-page button, .pa-page input:not([type=checkbox]), .pa-page select, .pa-page .case, .pa-page a';
+      const gabaritLu = () => g.evaluate(() => { try { return JSON.parse(localStorage.getItem('stab.gabarit.v1') || 'null'); } catch (e) { return 'illisible'; } });
+      const lirePage = () => g.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const carte = (k) => { const c = document.querySelector(`.pa-mod[data-gabarit="${k}"]`), z = c && c.querySelector(`[data-options="${k}"]`);
+          return { vu: vis(c), chemins: z ? [...new Set([...z.querySelectorAll('[data-chemin]')].map((x) => x.dataset.chemin))].join() : '',
+            ecarts: (c.querySelector('[data-ecarts]') || {}).textContent || '', usine: vis(c.querySelector('[data-usine]')),
+            eteints: z ? z.querySelectorAll('input:disabled, select:disabled, button:disabled').length : -1,
+            encadres: z ? [...z.querySelectorAll('.pa-bureau')].filter((x) => getComputedStyle(x).outlineStyle === 'solid' && parseFloat(getComputedStyle(x).outlineWidth) >= 2)
+              .map((x) => (x.querySelector('[data-chemin]') || x).dataset.chemin) : [] }; };
+        return { titres: [...document.querySelectorAll('.pa-mod .sechead .h3')].map((x) => Math.round(x.getBoundingClientRect().height)),
+          theme: [...document.querySelectorAll('#pa-theme [data-theme-choix]')].map((x) => x.textContent + (x.classList.contains('on') ? '*' : '')).join(' | '),
+          role: (document.getElementById('pa-role') || {}).textContent || '', poutre: carte('poutre'), dalle: carte('dalle') };
+      });
+      // (au PC : une note des dalles créée AVANT le gabarit — elle ne doit pas bouger)
+      let avant = null;
+      if (nomF === 'pc') {
+        await g.goto(`${BASE}/dalle?nom=Avant%20le%20gabarit&chantier=R%C3%A9alex`);
+        await g.waitForFunction(() => document.body.dataset.ecran === 'pret', null, { timeout: 120000 });
+        avant = await g.evaluate(() => new URLSearchParams(location.search).get('note'));
+      }
+      await g.goto(`${BASE}/parametres`);
+      await pretBureau(g, 'parametres');
+      let pa = await lirePage();
+      mes = await mesureBureau(g, w, ZONE_PARAM);
+      verif(`${dit} · la page Paramètres : le thème (« Clair | Sombre | Comme l'appareil »), le gabarit du bureau — « Vous êtes administrateur » —, une carte par module avec SA rubrique Options rendue par le moteur (poutre : jeux, arrondi, γs, d_g, peau, taux ; dalles : γs, jeu, arrondi, couture, espacements), le nom de chaque module sur une ligne ; rien ne dépasse${doigt ? ', les cibles à 40 px au moins' : ''}`,
+        /^Clair \| Sombre \| Comme l'appareil\*?$|Clair\*? \| Sombre\*? \| Comme l'appareil\*?/.test(pa.theme) && (pa.theme.match(/\*/g) || []).length === 1 && /^Vous êtes administrateur/.test(pa.role)
+        && pa.poutre.vu && pa.poutre.chemins === 'jeu_premier_lit,jeu_entre_lits,arrondi,gamma_s,dg,peau_d,peau_smax,taux/actif' && pa.poutre.ecarts === "valeurs d'usine" && !pa.poutre.usine
+        && pa.dalle.vu && pa.dalle.chemins === 'gamma_s,jeu_premier_lit,arrondi,pas_couture,espacements' && pa.dalle.ecarts === "valeurs d'usine" && pa.poutre.eteints === 0 && pa.dalle.eteints === 0
+        && pa.titres.length === 2 && pa.titres.every((x) => x <= 32)
+        && mes.page <= w && !mes.hors.length && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 20)), JSON.stringify({ pa, mes }));
+      // un administrateur change : la longueur de couture arrondie à 10 cm (un segment), et — au PC — le jeu de pose des dalles à 0,5 cm (un champ)
+      const appui = async (sel) => { if (doigt) await g.tap(sel); else await g.click(sel); };
+      await appui('[data-options="dalle"] button[data-chemin="pas_couture"][data-valeur="10.0"]');
+      await g.waitForFunction(() => /2 valeurs|1 valeur/.test((document.querySelector('[data-ecarts="dalle"]') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
+      if (nomF === 'pc') {
+        const champ = '[data-options="dalle"] input[data-chemin="jeu_premier_lit"]';
+        await g.click(champ);
+        await g.keyboard.type('0,5');
+        await g.keyboard.press('Enter');
+        await g.waitForFunction(() => /2 valeurs/.test((document.querySelector('[data-ecarts="dalle"]') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
+      }
+      await g.waitForTimeout(200);
+      pa = await lirePage();
+      const gab1 = await gabaritLu();
+      await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_parametres.png`), fullPage: true });
+      const attendu = nomF === 'pc' ? { jeu_premier_lit: 0.5, pas_couture: 10 } : { pas_couture: 10 };
+      verif(`${dit} · Paramètres : un administrateur fixe la longueur de couture au 10 cm${nomF === 'pc' ? ' et le jeu de pose à 0,5 cm' : ''} — la page garde les ÉCARTS à l'usine, signés (LL) ; la carte le dit (« … du bureau, encadrée… »), le contrôle est ENCADRÉ (un contour de 2 px, mesuré), « Valeurs d'usine » paraît ; le nom du module reste sur une ligne`,
+        pa.titres.every((x) => x <= 32) && !!gab1 && JSON.stringify(gab1.modules.dalle) === JSON.stringify(attendu) && !gab1.modules.poutre && gab1.par && gab1.par.ini === 'LL'
+        && /du bureau, encadrée/.test(pa.dalle.ecarts) && pa.dalle.encadres.includes('pas_couture') && (nomF !== 'pc' || pa.dalle.encadres.includes('jeu_premier_lit')) && pa.dalle.usine,
+        JSON.stringify({ gab1, dalle: pa.dalle }));
+      if (nomF === 'pc') {
+        // une note EXISTANTE ne bouge pas ; une note NEUVE reçoit le gabarit — et le calcul le suit (la couture au pas de 10 cm)
+        const jeuNote = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'), n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+          return n && n.etat && n.etat.dalles ? [n.etat.dalles[0].jeu_premier_lit, n.etat.pas_couture] : null; });
+        await g.goto(`${BASE}/dalle?nom=Note%20du%20gabarit&chantier=R%C3%A9alex`);
+        await g.waitForFunction(() => document.body.dataset.ecran === 'pret', null, { timeout: 120000 });
+        const neuve = await jeuNote();
+        if (!(await g.$eval('#donnees .sec[data-sec="dl"]', (x) => x.classList.contains('open')))) await g.click('#donnees .sec[data-sec="dl"] > .sechd');
+        await g.click('#donnees button[data-chemin="type"][data-valeur="predalle"]');
+        await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await g.waitForTimeout(200);
+        const couture = await g.evaluate(() => ((document.querySelector('#donnees .et-cout-l') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+        const relue = avant ? await (async () => { await g.goto(`${BASE}/dalle?note=${encodeURIComponent(avant)}`);
+          await g.waitForFunction(() => document.body.dataset.ecran === 'pret', null, { timeout: 120000 }); return jeuNote(); })() : 'pas de note « Avant le gabarit »';
+        verif(`${dit} · une note NEUVE des dalles reçoit le gabarit (jeu de pose 0,5 cm, couture au 10 cm) et le calcul le suit — devenue prédalle, ses barres de couture font « 2 × 60 cm » ; une note EXISTANTE garde les siennes (1 cm)`,
+          JSON.stringify(neuve) === '[0.5,10]' && /^2 × 60 cm/.test(couture) && Array.isArray(relue) && relue[0] === 1, JSON.stringify({ neuve, couture, relue }));
+        // un MEMBRE lit le gabarit : contrôles éteints, pas de « Valeurs d'usine » (Louis devient « Marie », puis revient)
+        const equipe0 = await g.evaluate(() => localStorage.getItem('stab.equipe.v1'));
+        await g.evaluate(() => { const e = JSON.parse(localStorage.getItem('stab.equipe.v1')); const m = { id: 'membre-essai', nom: 'Paul Membre', email: '', initiales: 'PME', couleur: 4, cree: Date.now(), role: 'membre' };
+          e.membres[m.id] = m; e.moi = m.id; localStorage.setItem('stab.equipe.v1', JSON.stringify(e)); });
+        await g.goto(`${BASE}/parametres`);
+        await pretBureau(g, 'parametres');
+        const lu = await lirePage();
+        await g.evaluate((e0) => localStorage.setItem('stab.equipe.v1', e0), equipe0);
+        verif(`${dit} · un MEMBRE lit le gabarit : « Seul un administrateur change le gabarit : vous le lisez », chaque contrôle éteint, pas de « Valeurs d'usine » — la valeur du bureau reste encadrée`,
+          /^Seul un administrateur change le gabarit : vous le lisez/.test(lu.role) && lu.dalle.eteints >= 10 && lu.poutre.eteints >= 10 && !lu.dalle.usine && lu.dalle.encadres.includes('pas_couture'),
+          JSON.stringify(lu));
+        await g.goto(`${BASE}/parametres`);
+        await pretBureau(g, 'parametres');
+      }
+      // « Valeurs d'usine » : le module revient à l'usine (rien n'est gardé), la carte le dit ; le journal a ses deux gestes
+      await appui('[data-usine="dalle"]');
+      await g.waitForFunction(() => ((document.querySelector('[data-ecarts="dalle"]') || {}).textContent || '') === "valeurs d'usine", null, { timeout: 30000 }).catch(() => {});
+      const gab2 = await gabaritLu();
+      pa = await lirePage();
+      const gestes = await g.evaluate(() => JSON.parse(localStorage.getItem('stab.journal.v1') || '[]').slice(0, 8).map((e) => `${e.k}:${e.x}`));
+      verif(`${dit} · « Valeurs d'usine » : les dalles reviennent à l'usine (rien n'est gardé pour elles), la carte dit « valeurs d'usine », le bouton se retire ; le journal dit « a changé le gabarit du bureau : Dalles béton armé » puis « a rendu aux valeurs d'usine … » ; aucune erreur JavaScript`,
+        !!gab2 && !gab2.modules.dalle && pa.dalle.ecarts === "valeurs d'usine" && !pa.dalle.usine && !pa.dalle.encadres.length
+        && gestes[0] === 'gabarit.usine:Dalles béton armé' && gestes.includes('gabarit.change:Dalles béton armé') && !g.erreurs.length,
+        JSON.stringify({ gab2, dalle: pa.dalle, gestes, erreurs: g.erreurs.slice(0, 3) }));
       await c.close();
     }
   }

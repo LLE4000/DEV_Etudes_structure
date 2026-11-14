@@ -225,8 +225,11 @@ def ecarts(R: Dict, rs: Dict) -> List[Tuple]:
                 out.append(("etat_tau", Sh["etat_tau"], g["etat_tau"]))
     elif Sh is not None:
         out.append(("tau sans V", Sh["tau"], 0.0))
-    if R["etat_global"] != rs["statut"]:
-        out.append(("statut", R["etat_global"], rs["statut"]))
+    # (une prédalle : la planche est celle de la PLEINE prédalle — le joint, lot 5, est ajouté par le site ; le moteur garde
+    #  son statut d'avant le joint dans « pleine_predalle »)
+    statut = rs.get("pleine_predalle", rs)["statut"]
+    if R["etat_global"] != statut:
+        out.append(("statut", R["etat_global"], statut))
     return out
 
 
@@ -296,6 +299,50 @@ def _verdict_site(v_pdf: Dict, v: Dict, rs: Dict) -> None:
     else:
         return
     v_pdf["verdicts"] = [dict(etat="ko", texte=ND._unites_insecables(txt))]
+
+
+def joindre(v_pdf: Dict, rs: Dict, R: Dict) -> None:
+    """Le JOINT d'une prédalle (lot 5, beton/predalle/joint.py) ajouté au bloc de l'armature inférieure SECONDAIRE
+    (``v_pdf``, dans la forme du générateur : ``ndc_pdf.data._verif_armatures_dalle``) — la direction secondaire vérifiée
+    deux fois, en pleine prédalle puis au joint : une ligne qui dit les barres de couture (leur pose, leur axe de calcul,
+    leur longueur : 2 × le côté arrondi, l₀), d au joint, A_s,req au joint (A_s,min quand il gouverne ; la hauteur
+    minimale au joint quand elle gouverne celle de la section) ; un second verdict. Les chiffres du SITE : ``rs["joint"]``,
+    la vérification « joint », les grandeurs « …_joint »."""
+    from ndc_pdf import data as ND
+    fn = ND.fn
+    j, g = rs["joint"], rs["grandeurs"]
+    v = next(x for x in rs["verifications"] if x["cle"] == "joint")
+    sec, c0, lg = j["direction"], j["couture"], j["longueur"]
+    ok = v["etat"] == MO.OK
+    if "d_utile_negatif" in v["motifs"]:
+        txt = f"Hauteur utile au joint {sec.upper()} : d = {fn(j['d'], 1)} cm ≤ 0 — barres de couture hors de l'épaisseur"
+    else:
+        txt = (f"Section d'armature au joint {sec.upper()} : {fn(v['limite'], 0)} mm² {'≥' if ok else '<'} section "
+               f"d'armature requise : {fn(v['valeur'], 0)} mm²")
+    verdicts = [dict(etat="ok" if ok else "ko", texte=ND._unites_insecables(txt))]
+    ok_h = g["etat_hauteur_joint"] == MO.OK
+    if not ok_h:
+        verdicts.append(dict(etat="ko", texte=ND._unites_insecables(
+            f"Hauteur de la dalle : {fn(g['h'], 0)} cm < hauteur minimale au joint : {fn(g['h_min_joint'], 1)} cm")))
+    M = g["M_joint"]
+    # (un sous-titre, puis un paragraphe REPLIÉ — « p » : les barres, leur pose, d au joint, leur longueur —, les formules,
+    #  enfin le verdict du joint : le gabarit dessine le verdict k là où il trouve (« k », k))
+    items = [("s", "Au joint des prédalles"),
+             ("p", f"{j['geometrie']['libelle']} ({fn(j['As_pm'], 0)} mm²/m), sur la prédalle : e = {fn(c0['e'], 1)} cm, "
+                   f"d = {fn(g['h'], 0)} − {fn(j['yG'], 1)} = {fn(j['d'], 1)} cm ; 2 × {fn(lg['cote'], 0)} cm (l₀ = {fn(lg['l0'], 0)} mm)"),
+             ("f", "Acier requis au joint",
+              rf"A_{{s,req}} = \frac{{{ND.sci(M * 1e6)}}}{{{fn(R['fyd'], 1)} \cdot 0,9 \cdot {fn(j['d'] * 10, 0)}}}"
+              rf" = \res{{{fn(j['As_req'], 0)} \u{{mm}}^{{2}}}}")]
+    if j["As_min"] > j["As_req"]:
+        items.append(("f", "Section d'acier min", rf"A_{{s,min}} = \res{{{fn(j['As_min'], 0)} \u{{mm}}^{{2}}}}"))
+    hv = next(x for x in rs["verifications"] if x["cle"] == "hauteur")
+    if hv.get("face") == "joint" or not ok_h:
+        items.append(("f", "Hauteur minimale au joint",
+                      rf"h_{{u,min}} + d_{{1}} = {fn(g['hu_min_joint'], 1)} + {fn(g['yG_joint'], 1)}"
+                      rf" = \res{{{fn(g['h_min_joint'], 1)} \u{{cm}}}} {r'\le' if ok_h else '>'} h = {fn(g['h'], 0)} \u{{cm}}"))
+    n0 = len(v_pdf["verdicts"])
+    v_pdf["items"] = list(v_pdf["items"]) + items + [("k", n0 + k) for k in range(len(verdicts))]
+    v_pdf["verdicts"] = list(v_pdf["verdicts"]) + verdicts
 
 
 class _Blocs(list):
@@ -419,6 +466,10 @@ def sections(etat: Dict) -> List[Dict]:
         par_cle = {v["cle"]: v for v in rs["verifications"]}
         for v_pdf, f in zip(sec["verifs"][1:5], MO.ordre_faces(pl["R"]["principale"])):
             _verdict_site(v_pdf, par_cle[f], rs)
+        if rs.get("joint"):
+            # (une prédalle : le JOINT, lot 5 — dans le bloc de l'armature inférieure secondaire, la direction secondaire
+            #  vérifiée deux fois : en pleine prédalle, puis au joint ; la planche garde ses deux colonnes)
+            joindre(sec["verifs"][2], rs, pl["R"])
         sec["blocs"] = _Blocs(sec["blocs"])
         if pl["observations"]:
             sec["blocs"].observations = list(pl["observations"])

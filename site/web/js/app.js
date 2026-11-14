@@ -4,7 +4,7 @@
 // l'écran courant, synchronise les feuilles de style, échange le <body>, pousse l'adresse et monte l'écran de la cible.
 // Le moteur Python (js/moteur.js, moteurPartage) reste démarré d'un écran à l'autre.
 //
-// Les écrans (js/etabli.js, js/accueil.js, js/bibliotheque.js, js/ecran_projets.js, js/ecran_equipe.js) n'ont aucun effet à leur chargement ; ils rendent
+// Les écrans (js/etabli.js, js/accueil.js, js/bibliotheque.js, js/ecran_projets.js, js/ecran_equipe.js, js/ecran_parametres.js) n'ont aucun effet à leur chargement ; ils rendent
 // { fermer } de façon synchrone et ne touchent jamais à l'historique, à l'adresse ni au titre : ils passent par le ctx
 // que ce fichier leur donne (adresse, titre, naviguer). C'est ici SEULEMENT que history, location et document.title
 // s'écrivent (tests/test_app_navigation.py, contrôle statique).
@@ -48,6 +48,7 @@ import { ouvrirAccueil } from "./accueil.js";
 import { ouvrirBibliotheque } from "./bibliotheque.js";
 import { ouvrirProjets } from "./ecran_projets.js";
 import { ouvrirEquipe } from "./ecran_equipe.js";
+import { ouvrirParametres } from "./ecran_parametres.js";
 import { marquer } from "./marques.js";
 
 // le dossier des pages (les pages sont à la racine du site, les scripts dans js/)
@@ -79,11 +80,14 @@ for (const [k, m] of Object.entries(MODULES)) {
   PAGES.set(m.page, m.vers ? { sorte: "redirection", cle: k, vers: MODULES[m.vers].page } : { sorte: "module", cle: k, vers: null });
 }
 for (const [b, x] of Object.entries(BIBLIOTHEQUES)) PAGES.set(x.page, { sorte: "bibliotheque", cle: b, vers: null });
-// les pages du BUREAU (construire.PAGES_BUREAU : deux copies, liées par tests/test_site_bureau.py) : les projets, l'équipe
-export const PAGES_BUREAU = ["projets", "equipe"];
+// les pages du BUREAU (construire.PAGES_BUREAU : deux copies, liées par tests/test_site_bureau.py) : les projets, l'équipe,
+// les paramètres (lot 6 : le gabarit du bureau)
+export const PAGES_BUREAU = ["projets", "equipe", "parametres"];
 for (const k of PAGES_BUREAU) PAGES.set(k, { sorte: k, cle: null, vers: null });
+// les pages du bureau qui DEMANDENT le moteur : les paramètres (il y rend la rubrique Options de chaque module)
+export const BUREAU_AVEC_MOTEUR = ["parametres"];
 // les écrans qui n'ont PAS besoin du moteur de calcul : ils sont prêts dès qu'ils sont montés
-const SANS_MOTEUR = new Set(["accueil", ...PAGES_BUREAU]);
+const SANS_MOTEUR = new Set(["accueil", ...PAGES_BUREAU.filter((k) => !BUREAU_AVEC_MOTEUR.includes(k))]);
 
 // {sorte: "accueil"|"projets"|"equipe"|"module"|"bibliotheque"|"redirection"|null, cle, page, vers} d'une adresse
 // (relative : à la racine)
@@ -269,7 +273,8 @@ function appliquerCorrection({ memePage = false } = {}) {
 }
 
 // ------------------------------------------------------------------ monter, fermer un écran
-const OUVRIR = { accueil: ouvrirAccueil, projets: ouvrirProjets, equipe: ouvrirEquipe, module: ouvrirEtabli, bibliotheque: ouvrirBibliotheque };
+const OUVRIR = { accueil: ouvrirAccueil, projets: ouvrirProjets, equipe: ouvrirEquipe, parametres: ouvrirParametres, module: ouvrirEtabli,
+  bibliotheque: ouvrirBibliotheque };
 
 // ``defile`` : le défilement à rendre (un retour, une avance), sinon null
 function monter(sorte, url, cle, defile = null) {

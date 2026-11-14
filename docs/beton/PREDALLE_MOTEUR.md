@@ -236,3 +236,42 @@ saisi ignoré. Un témoin (le moteur rechargé sans altération) reste vert.
   (le détail au survol) et légende du plan raccourcie : plus rien de coupé au format PC.
 - **Reste à l'enveloppe commune** (signalé, non bricolé) : au téléphone, aucun onglet n'atteint le Résultat ni le
   dessin ; en tablette portrait, la toile centrale étroite rend les coupes petites.
+
+## 10 · Le joint des prédalles et ses barres de couture (lot 5, 14/11/2026)
+
+Décision du propriétaire (13/11/2026) : la direction SECONDAIRE est vérifiée DEUX FOIS — en pleine prédalle (la base
+secondaire posée dans la peau) et AU JOINT de deux prédalles, où la peau est coupée et où des barres de COUTURE, posées
+sur les prédalles au chantier, rendent la continuité. Le module : `beton/predalle/joint.py` (son en-tête dit les
+règles) ; le moteur l'appelle à la fin de `verifier`.
+
+- **La donnée** : `couture` dans chaque section — `None` (automatique : la base secondaire inférieure reprise en barres —
+  un treillis Øl/Øt/el/et donne Øl tous les el, relevé au premier Ø du moteur ; des barres ou « n barres » telles quelles)
+  ou `{"d": Ø, "esp": e}` (barres saisies). Le moteur des dalles ne la connaît pas : `normaliser` la retire avant lui et
+  la contrôle à part (`sections[i].couture.d` dans le message d'un refus) ; `figer` ne la lui transmet pas.
+- **Le calcul** : les formules du moteur des dalles, une seule copie, sur une copie de la dalle figée où la face
+  inférieure secondaire reçoit la couture (posée SUR la prédalle, h_p + Ø/2 — ou sur le renfort principal inférieur qui
+  y repose, h_p + Ø_principal + Ø/2 : la direction secondaire sur la principale, le côté sûr ; l'axe de calcul
+  ⌈réel + jeu⌉ au pas) à la place de la base, les renforts secondaires gardés, le y_G imposé ignoré (il décrit la pleine
+  prédalle).
+- **La sortie** : la vérification `joint` (après la face inférieure secondaire ; titre « Joint des prédalles — dir. X
+  (barres de couture) » ; ses formules : l'axe de chaque couche, celles de la face, puis `lb_rqd`, `l0` et `l_couture`) ;
+  `section["joint"]` (la couture, sa géométrie, A_s, y_G, d, A_s,req, A_s,min, le besoin, l'état, la longueur) ; les
+  grandeurs `M_joint`, `yG_joint`, `d_joint`, `As_joint`, `As_req_joint`, `As_min_joint`, `besoin_joint`, `etat_joint`,
+  `hu_min_joint`, `h_min_joint`, `etat_hauteur_joint`.
+- **La hauteur** : le joint est une famille de plus de h_min = h_u,min(M) + y_G — la ligne « Hauteur » prend celle du
+  joint quand elle excède celle de la pleine prédalle (`face` : « joint »).
+- **La pleine prédalle gardée** (`pleine_predalle`) : les grandeurs du moteur des dalles ne changent pas ; `section["pleine_predalle"]` et
+  `r["pleine_predalle"]` gardent le statut, le taux et le gouvernant d'avant le joint (et la vérification de hauteur) —
+  ce que l'écran Streamlit et la note PDF calculent, ce que leurs contrôles de parité comparent.
+- **La longueur** : le recouvrement l₀ d'EN 1992-1-1 §8.7.3 (`beton/bibliotheque/ancrages.py` : bonnes conditions,
+  barre droite tendue, σ_sd = f_yd, ρ1 = 100 %, α6 = 1,5), arrondi au PAS supérieur de chaque côté — 5 cm par défaut :
+  Ø10, C30/37, B500 : 536,1 mm → 55 cm, 110 cm en tout. Depuis le lot 6 (14/11/2026), le pas est une **option de la
+  note** (`"pas_couture"` : 1, 5 ou 10 cm, `joint.PAS_COUTURE` ; contrôlée par `joint.lire_pas`, refusée hors liste avec
+  le chemin du champ) : au cm, 54 cm (108) ; au 10 cm, 60 cm (120). L'écran la porte dans la note et la recopie dans
+  chacune de ses prédalles (`api_web/dalle.py`, une copie tenue, réalignée à la relecture) ; le gabarit du bureau peut
+  la fixer pour les notes neuves (`docs/site/MODELES_DIMENSIONNEMENT.md` § 7).
+- **Les avertissements** : `joint_d_utile_negatif` (la couture hors de l'épaisseur), `joint_gros_diametre` (§8.8, repris
+  des ancrages). Un renfort principal posé sur la prédalle ne « croise » pas la couture : elle est posée sur lui.
+- **Les contrôles** : `tests/test_predalle_joint.py` (cas calculés à la main, 8 mutations du module) ; la parité de
+  `tests/test_predalle_moteur.py` compare la pleine prédalle (`pleine()`), et les formules de la longueur se recalculent
+  depuis leurs seuls termes.

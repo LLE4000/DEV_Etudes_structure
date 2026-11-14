@@ -73,6 +73,15 @@ changerait les notes existantes) : il le **signale** — « Non conforme » dans
 passe : un espacement sous le minimum est une non-conformité), et une phrase dans les Options qui chiffre le jeu
 suffisant, calculée sur les règles du moteur. Avec deux lits Ø20 : 1 + 1 + 1 = 3 cm d'entraxe, **10 mm libres**.
 
+**Tranché par le propriétaire le 13/11/2026 (lots 5 et 6, fait le 14/11/2026)** : le jeu entre lits d'une poutre NEUVE
+vaut **2,5 cm** (`beton/poutre/entree.DEFAUTS_POUTRE`) — deux lits Ø16 posés à leurs positions réelles (règle de position
+du 13/11/2026 : 0,8 + 2,5 + 0,8 cm d'entraxe) gardent **25 mm libres**, le minimum de l'EC2 8.2(2) pour d_g = 20 mm :
+conformes, plus d'alerte dans les Options. Une note existante garde le sien (l'état porte la valeur) ; l'écran Streamlit
+garde son 1 cm (les parités lui donnent la valeur du moteur). C'est une valeur du **gabarit du bureau** (la page
+« Paramètres », `docs/site/MODELES_DIMENSIONNEMENT.md` § 7) : un administrateur peut en fixer une autre pour les notes
+neuves. « Il faudra quand même vérifier » les **paquets de barres** (EC2 8.9 : deux barres en contact, l'une sur
+l'autre) — à étudier plus tard. Regel des références de la poutre : le champ seul (aucun cas de référence n'a deux lits).
+
 ## 4. Ce que le site montre et rend
 
 - **Écran** (`api_web/poutre.py`, deuxième passe 11/2026 — `docs/site/REFONTE_ETABLI.md`, « La deuxième passe ») : à gauche l'arborescence

@@ -9,14 +9,71 @@ export function cablerRail() {
     const t = ev.target.closest("[data-theme-toggle]");
     if (t) {
       const sombre = racine.dataset.theme === "dark" || (!racine.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-      racine.dataset.theme = sombre ? "light" : "dark";
-      try { localStorage.setItem("stab.theme", racine.dataset.theme); } catch (e) { /* navigation privée */ }
+      poserTheme(sombre ? "light" : "dark");
       return;
     }
     const m = ev.target.closest("[data-modules]");
     if (m) { document.body.classList.toggle("show-modules"); return; }
     if (!ev.target.closest(".modpanel")) document.body.classList.remove("show-modules");
   });
+}
+
+// Le THÈME (une source : le bouton du rail, l'en-tête du téléphone et la page « Paramètres » le posent ici) : « light »,
+// « dark », ou « » — celui de l'appareil (la clé retirée : js/theme.js n'impose rien). themeChoisi() le relit.
+export function poserTheme(choix) {
+  const racine = document.documentElement;
+  if (choix === "light" || choix === "dark") racine.dataset.theme = choix;
+  else delete racine.dataset.theme;
+  try {
+    if (choix === "light" || choix === "dark") localStorage.setItem("stab.theme", choix);
+    else localStorage.removeItem("stab.theme");
+  } catch (e) { /* navigation privée : le thème vaut pour cette page */ }
+}
+export function themeChoisi() {
+  const t = document.documentElement.dataset.theme;
+  return t === "light" || t === "dark" ? t : "";
+}
+
+// LA VALEUR D'UNE SAISIE — un champ, un menu, une case que le moteur a écrits (api_web/commun.py : data-chemin,
+// data-sorte, data-min, data-max) — telle qu'elle part au moteur. Une source : js/etabli.js (les notes) et
+// js/ecran_parametres.js (le gabarit du bureau) la lisent. Un nombre illisible ou hors de ses bornes : { ok: false }.
+export function valeurSaisie(el) {
+  if (el.type === "checkbox") return { ok: true, valeur: el.checked };
+  if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") {
+    const t = el.value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
+    const x = Number(t);
+    const ko = t === "" || !Number.isFinite(x) || (el.dataset.min !== undefined && x < +el.dataset.min) || (el.dataset.max !== undefined && x > +el.dataset.max);
+    if (ko) return { ok: false, valeur: el.value };
+  }
+  return { ok: true, valeur: el.value };
+}
+// un SEGMENT part s'il n'est pas déjà choisi ; une PUCE à bascule (data-bascule : les espacements admis des dalles)
+// part toujours — allumée, elle s'éteint
+export function segmentAEnvoyer(b) {
+  return !b.classList.contains("on") || !!b.dataset.bascule;
+}
+// (13/11/2026, le propriétaire : « si je clique sur un 0, je dois l'effacer — je préfère que la case soit vide ») un champ
+// NUMÉRIQUE de ``racine`` se VIDE quand on y entre : sa valeur reste écrite en gris (l'indication), on tape directement la
+// nouvelle ; quitté sans rien taper, il reprend sa valeur et rien n'est envoyé. L'écouteur de sortie passe AVANT celui qui
+// valide (phase de capture) ; une saisie en cours reprise après un calcul n'est pas touchée. Une source : les notes
+// (js/etabli.js) et la page « Paramètres ».
+export const NUMERIQUE = 'input[data-sorte="nombre"]:not([readonly]):not(:disabled), input[data-sorte="entier"]:not([readonly]):not(:disabled)';
+export function viderAuFocus(racine, { signal } = {}) {
+  racine.addEventListener("focusin", (ev) => {
+    const el = ev.target.closest(NUMERIQUE);
+    if (!el || el.dataset.indication !== undefined || el.defaultValue === "") return;
+    if (el.value !== el.defaultValue && el.value !== "") return;
+    el.dataset.indication = el.placeholder;
+    el.placeholder = el.defaultValue;
+    el.value = "";
+  }, { signal });
+  racine.addEventListener("focusout", (ev) => {
+    const el = ev.target.closest(NUMERIQUE);
+    if (!el || el.dataset.indication === undefined) return;
+    if (el.value.trim() === "") el.value = el.defaultValue;
+    el.placeholder = el.dataset.indication;
+    delete el.dataset.indication;
+  }, { capture: true, signal });
 }
 
 // L'entrée « bientôt » de la barre (Paramètres) : elle viendra avec les comptes du bureau ; d'ici là, un clic le dit.

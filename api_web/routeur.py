@@ -3,7 +3,7 @@
 
     {"module": "<clé d'un module du registre>", "action": "nouveau" | "calculer" | "modifier" | "choisir" |
      "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer" | "telecharger" | "bibliotheque" | "fiches" |
-     "transmettre",
+     "transmettre" | "gabarit",
      "etat": {...}, "chemin": [...], "valeur": ..., "role": "...", "nom": "...", "familles": [...], "froid": true,
      "index": 0, "quoi": "...", "rubrique": "...", "params": {...}, "fiche": {...}, "vers": "..."}
 
@@ -29,6 +29,15 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
               module rend None, ou lève ValueError avec son message), nom absurde, type hors liste, texte de plus de
               5 Mo (les règles : ``commun.refus_fichier``). Jamais une exception.
 
+LE GABARIT DU BUREAU (lot 6, 14/11/2026 ; api_web/gabarit.py) — les options de départ d'un module, fixées sur la page
+« Paramètres » :
+
+    {"module", "action": "nouveau", "gabarit": {...}} → la note neuve reçoit chaque option du gabarit (écrite par le
+              module, contrôlée comme une saisie) ; un refus est dit dans « message », la valeur d'usine reste
+    {"module", "action": "gabarit", "gabarit": {...}[, "chemin", "valeur"]} → {"ok": true, "html": la rubrique Options
+              du module pour ce gabarit, "valeurs", "usine", "ecarts" (ce que la page enregistre), "message", "refus"} ;
+              un module sans gabarit : {"ok": false, "erreur"}. Rien n'est enregistré par le moteur.
+
 TRANSMETTRE l'élément ouvert à un AUTRE module, qui en fait une note neuve (le bouton ``data-transmettre="<clé>"`` :
 « Détailler dans Taux d'armature » d'une poutre, docs/site/LOT_Q_QUATRE_MODULES.md § 6.2) :
 
@@ -50,6 +59,7 @@ import re
 import traceback
 
 from . import commun as C
+from . import gabarit as G
 from . import registre
 
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : hors du registre des modules — une consultation n'est pas
@@ -206,10 +216,15 @@ def traiter(requete: str) -> str:
             return _json(telecharger(mod, q))
         if action == "transmettre":
             return _json(transmettre(mod, q))
+        if action == "gabarit":
+            return _json(G.page(mod, q))
         etat = mod.normaliser(q["etat"]) if q.get("etat") and action != "nouveau" else mod.nouvel_etat()
         if action == "bibliotheque":
             return _json(bibliotheque(mod, q, etat))
         message = None
+        if action == "nouveau" and q.get("gabarit") is not None and G.a_un_gabarit(mod):
+            # (lot 6) le GABARIT DU BUREAU : une note neuve reçoit les options que l'administrateur a fixées
+            message = " ; ".join(G.appliquer(mod, etat, q["gabarit"])) or None
         if action == "modifier":
             message = mod.modifier(etat, q["chemin"], q.get("valeur"))
         elif action == "choisir":

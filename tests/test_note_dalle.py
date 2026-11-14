@@ -217,18 +217,19 @@ def textes_planche(sec):
     return "\n".join(out)
 
 
-manques, n_chiffres = [], 0
+manques, n_chiffres, n_joints = [], 0, 0
 for nom, e in CAS.items():
     secs, pls = lire_planches(e)
     for sec, pl in zip(secs, pls):
         rs, g = pl["site"], pl["site"]["grandeurs"]
         par_cle = {v["cle"]: v for v in rs["verifications"]}
         p = rs["principale"]
+        verifs_ = sec["verifs"]
         # 1 hauteur : h_u,min et h_min au dixième
-        v1 = sec["verifs"][0]
+        v1 = verifs_[0]
         attendus = [(v1, rf"\res{{{ND.fn(g['hu_min'], 1)} \u{{cm}}}}"), (v1, rf"\res{{{ND.fn(g['h_min'], 1)} \u{{cm}}}}")]
         # 2 à 5 : chaque nappe, dans l'ordre de l'écran
-        for v_pdf, f in zip(sec["verifs"][1:5], MO.ordre_faces(p)):
+        for v_pdf, f in zip(verifs_[1:5], MO.ordre_faces(p)):
             cote, dk = f.split("_")
             if not v_pdf["items"][0][1].endswith(f" {dk.upper()}") or ("inférieur" in v_pdf["items"][0][1]) != (cote == "inf"):
                 manques.append((nom, rs["nom"], f, "ordre", v_pdf["items"][0][1]))
@@ -245,8 +246,23 @@ for nom, e in CAS.items():
             if (v_pdf["verdicts"][0]["etat"] == "ok") != (par_cle[f]["etat"] == MO.OK):
                 manques.append((nom, rs["nom"], f, "couleur du verdict"))
             n_chiffres += 4 + len(attendus_v)
+        if rs.get("joint"):
+            # le JOINT (lot 5) : dans le bloc de l'armature inférieure SECONDAIRE (3e) — d et A_s,req au joint, la ligne des
+            # barres de couture (2 × le côté, l₀), A_s,min et la hauteur au joint quand ils gouvernent ; son verdict, le second
+            vj = sec["verifs"][2]
+            jt = rs["joint"]
+            attendus += [(vj, f"= {ND.fn(g['d_joint'], 1)} cm ;"), (vj, rf"\res{{{ND.fn(g['As_req_joint'], 0)} \u{{mm}}^{{2}}}}"),
+                         (vj, f"2 × {ND.fn(jt['longueur']['cote'], 0)} cm (l₀ = {ND.fn(jt['longueur']['l0'], 0)} mm)")]
+            if g["As_min_joint"] > g["As_req_joint"]:
+                attendus.append((vj, rf"\res{{{ND.fn(g['As_min_joint'], 0)} \u{{mm}}^{{2}}}}"))
+            if par_cle["hauteur"].get("face") == "joint":
+                attendus.append((vj, rf"\res{{{ND.fn(g['h_min_joint'], 1)} \u{{cm}}}}"))
+            vjs = next(v_ for v_ in rs["verifications"] if v_["cle"] == "joint")
+            if len(vj["verdicts"]) < 2 or (vj["verdicts"][1]["etat"] == "ok") != (vjs["etat"] == MO.OK) or "au joint" not in vj["verdicts"][1]["texte"]:
+                manques.append((nom, rs["nom"], "joint", "verdict", vj["verdicts"]))
+            n_joints += 1
         if g["V"] > 0:
-            v6 = sec["verifs"][5]
+            v6 = verifs_[5]
             attendus += [(v6, rf"\res{{{ND.fn(g['tau'], 2)} \u{{N/mm}}^{{2}}}}")]
             if ND.fn(g["tau_adm"], 2) not in v6["items"][1][3]:
                 manques.append((nom, rs["nom"], "tau_adm"))
@@ -260,7 +276,9 @@ for nom, e in CAS.items():
             if soll.get(sym) != ND.fn(rs[k], 1):
                 manques.append((nom, rs["nom"], k, soll.get(sym), rs[k]))
 chk(f"le texte de chaque planche écrit les chiffres du moteur du site ({n_chiffres} chiffres : h_u,min, h_min, d, A_s,req, "
-    "A_s,min, A_s/m, A_s, A_s,néc, τ, τ_adm, efforts), dans l'ordre des nappes de l'écran", not manques, manques[:4])
+    "A_s,min, A_s/m, A_s, A_s,néc, τ, τ_adm, efforts), dans l'ordre des nappes de l'écran — et, chaque prédalle, le bloc du JOINT "
+    f"dans le bloc de l'armature inférieure secondaire ({n_joints} planches : d, A_s,req, 2 × le côté et l₀, son verdict ; "
+    "A_s,min et la hauteur au joint quand ils gouvernent)", not manques and n_joints >= 3, manques[:4])
 
 # l'écran affiche les mêmes chiffres (la ligne de chaque nappe : A_s,néc et A_s, et l'état du bloc), aux mêmes arrondis
 ecran, ecarts_arrondi, n_ecran = [], [], 0
@@ -497,20 +515,25 @@ def construire(etat):
         os.remove(chemin)
 
 
-debordes, trois, replis, reduites = [], [], [], []
+debordes, trois, replis, reduites, trois_p = [], [], [], [], []
 for nom, e in CAS.items():
     d_ = construire(e)
     if d_.warnings:
         debordes.append((nom, d_.warnings))
-    if d_.colonnes != 2:
+    # (une note qui a une PRÉDALLE : son bloc d'armature inférieure secondaire dit aussi le JOINT — lot 5, la direction
+    #  secondaire vérifiée deux fois ; la planche passe en trois colonnes. Une dalle coulée en place garde ses deux colonnes.)
+    if any(dd.get("type") == "predalle" for dd in e.get("dalles", [])):
+        trois_p.append(d_.colonnes)
+    elif d_.colonnes != 2:
         trois.append(nom)
     if d_.replis:
         replis.append(nom)
     if d_.coupes_reduites:
         reduites.append(nom)
 chk("chaque planche de chaque cas tient sur sa page (rien ne déborde)", not debordes, debordes[:2])
-chk(f"… en DEUX colonnes, les observations sous les données de la coupe ({len(reduites)} cas où la coupe leur cède de la "
-    f"place : {', '.join(reduites)}) ; aucune en fin de planche ni en trois colonnes", not trois and not replis, (trois, replis))
+chk(f"… en DEUX colonnes (une dalle coulée en place ; une prédalle, qui dit aussi le joint : trois — {len(trois_p)} notes), les "
+    f"observations sous les données de la coupe ({len(reduites)} cas où la coupe leur cède de la place : {', '.join(reduites)}) ; "
+    "aucune en fin de planche", not trois and not replis and trois_p and set(trois_p) <= {3}, (trois, replis, trois_p))
 # MESURER CE QUE L'ŒIL VOIT : sous ses observations, la coupe garde la place de ses étiquettes — aucun texte de la coupe
 # n'en chevauche un autre (on espionne chaque texte écrit par la coupe, mesuré dans sa police et son corps ; les cotes
 # verticales, écrites dans un repère tourné, sont à part). Balayage : épaisseurs de 12 à 60 cm, prédalle et CSP, de 0 à
@@ -631,9 +654,9 @@ try:
     d_ = construire(long_)
 finally:
     N.observations, N._style = vrai_obs, vrai_build
-chk("des observations trop longues : en fin de planche, la planche seule en trois colonnes (l'autre section en deux), "
-    "chaque titre y tient, rien ne déborde", not d_.warnings and d_.replis == 1 and d_.trois_colonnes == 1 and vus
-    and not larges and set(vus) == {"Section A"}, (d_.warnings, d_.replis, d_.trois_colonnes, vus, larges))
+chk("des observations trop longues : en fin de planche (la section A seule), les planches de la prédalle en trois colonnes "
+    "(le joint, lot 5), chaque titre y tient, rien ne déborde", not d_.warnings and d_.replis == 1 and vus
+    and not larges and set(vus) == {"Section A", "Section B"}, (d_.warnings, d_.replis, d_.trois_colonnes, vus, larges))
 
 # ---------------------------------------------------------------- 5 bis. les deux RETOUCHES du propriétaire (13/11/2026)
 # « Je préférais l'ancienne note » : la planche neuve de DAL6 est retirée (le propriétaire parlait de la colonne des

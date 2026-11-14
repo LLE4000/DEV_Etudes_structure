@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "9c02ee4efcc58cfdeb9dc21c46e5b62f13dba11ce1ff6168646ed0d95a738568",
+ "sha256": "10d2bac96e0f54ed54b5793764efd85f14e4055f8c76b3c8a4c3b605b8386ac3",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -190,6 +190,7 @@
   "api_web/fiches.py",
   "api_web/flambement.py",
   "api_web/fondation_grue.py",
+  "api_web/gabarit.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
   "api_web/note_assemblages.py",
@@ -266,6 +267,7 @@
   "beton/predalle/__init__.py",
   "beton/predalle/entree.py",
   "beton/predalle/fichier.py",
+  "beton/predalle/joint.py",
   "beton/predalle/moteur.py",
   "beton/taux/__init__.py",
   "beton/taux/depuis_poutre.py",
@@ -349,18 +351,18 @@
   "bois": "8f2ad99577d68381",
   "catalogue": "3ffa4b30b8ac00ba",
   "corniere": "8a7ec359d7b0851c",
-  "dalle": "c6f210dcc4f9c5a4",
+  "dalle": "d904ab659d6f78ee",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "b4e677fb81276534",
   "fondation_grue": "7400039d62e0db89",
   "garde_corps": "9d6a2b474d4321ad",
   "plancher": "eb59f2a541093dba",
-  "poutre": "f1e35d491c1fe46d",
+  "poutre": "617eb168036b4bd8",
   "profil": "bf858ad6e3b9393f",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "6447b252794ab3e3"
+ "version": "56e9b4ecf9b4c638"
 }

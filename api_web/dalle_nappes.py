@@ -328,7 +328,7 @@ def _reglage_treillis(ch: List, m: Dict, s: Dict, cote: str, principale: str, ve
 
 
 def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, principale: str, aide_axe: Union[str, Callable],
-                aide_renfort: Union[str, Callable], verrou: bool) -> str:
+                aide_renfort: Union[str, Callable], verrou: bool, apres: str = "") -> str:
     m = mode(s, cote, principale)
     ch = ["sections", i, "nappes", cote]
     tete = (f'<div class="et-nap-h"><span class="t">{TITRES[cote]}</span></div>'
@@ -359,15 +359,17 @@ def _nappe_html(EN_, i: int, s: Dict, rs: Dict, verifs: Dict, cote: str, princip
             faces += _nappe_lue(i, f, face, geo, verifs[f], principale, couches)
         else:
             faces += PC.nappe(EN_, i, f, face, geo, verifs[f], principale, couches, aide, verrou)
-    return f'<div class="et-nap" data-nappe="{cote}">{tete}{corps}{faces}</div>'
+    return f'<div class="et-nap" data-nappe="{cote}">{tete}{corps}{faces}{apres}</div>'
 
 
 def html(EN, i: int, s: Dict, rs: Dict, verifs: Dict, principale: str, aide_axe: Union[str, Callable],
-         aide_renfort: Union[str, Callable], verrou: bool = False) -> str:
+         aide_renfort: Union[str, Callable], verrou: bool = False, apres_inf: str = "") -> str:
     """Les DEUX nappes (inférieure, puis supérieure) de la section ``i`` : pour chacune, son titre, les segments du mode
     (« Treillis soudé · Barres · Mixte », déduit), puis — treillis — le sélecteur unique et l'orientation
     des porteurs, — incohérente — l'avertissement et « En faire un treillis » ; puis le détail de chaque direction (la
     principale d'abord) : plaque_compact.nappe et .couche, la base d'un treillis en lecture — ce que SA direction reçoit,
-    « porteurs · Ø10 e 100 » (son axe reste réglable). Les arguments : voir l'en-tête du module."""
+    « porteurs · Ø10 e 100 » (son axe reste réglable). Les arguments : voir l'en-tête du module. ``apres_inf`` : ce que le
+    module pose à la fin de la nappe inférieure (une prédalle : ses barres de couture, lot 5)."""
     p = _principale(principale)
-    return "".join(_nappe_html(EN, i, s, rs, verifs, cote, p, aide_axe, aide_renfort, verrou) for cote in COTES)
+    return "".join(_nappe_html(EN, i, s, rs, verifs, cote, p, aide_axe, aide_renfort, verrou, apres_inf if cote == "inf" else "")
+                   for cote in COTES)

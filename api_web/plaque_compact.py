@@ -245,7 +245,7 @@ def comparaison(M, v: Dict, s: Dict) -> str:
     le d utile est ≤ 0 le dit, QUEL QUE SOIT son taux (« d = −0,5 cm ≤ 0 · nappe hors de l'épaisseur ») — c'est la
     ligne qui le dit, plus un message sous le bloc (13/11/2026 : au-delà de 100 %, la ligne disait « A_s,néc = 16 667 >
     A_s = 785 mm² » et la raison n'était que dans ce message)."""
-    if M._sous_limite_non_conforme(v) or v["cle"] not in M.EN.FACES or "d_utile_negatif" in v["motifs"]:
+    if M._sous_limite_non_conforme(v) or v["cle"] not in (*M.EN.FACES, "joint") or "d_utile_negatif" in v["motifs"]:
         return M._verdict(v, s)
     motif = f" · {M._motifs(v)}" if v["motifs"] and v["taux"] <= 1 else ""
     return E.comparaison_acier(M._n(v['valeur'], 'mm²'), M._n(v['limite'], 'mm²'), v["taux"] > 1, motif)
@@ -254,7 +254,7 @@ def comparaison(M, v: Dict, s: Dict) -> str:
 def piece_courte(v: Dict, s: Dict) -> str:
     """La nappe qu'une vérification de face nomme sur sa ligne 1, à côté de son taux : la désignation courte de sa base
     (« 10/10/100/100 », « Ø10/150 », « 3 Ø12 »), ses renforts ajoutés (« Ø10/150 + 3 Ø12 », « … + 2 renforts »)."""
-    cs = s["faces"][v["cle"]]["couches"]
+    cs = s["joint"]["geometrie"]["couches"] if v["cle"] == "joint" else s["faces"][v["cle"]]["couches"]
     if len(cs) == 1:
         return C.esc(cs[0]["valeur"])
     if len(cs) == 2:
@@ -280,12 +280,14 @@ def bloc(M, i: int, s: Dict, nom_element: str, hyps: List[str], gov: Optional[Tu
     titre_calcul = f"{C.esc(nom_element)} · {C.esc(s['titre'])}"
     sous_titre = f"{M._efforts_txt(s)} · méthode du bureau"
     for v in s["verifications"]:
-        face = v["cle"] in M.EN.FACES
+        face = v["cle"] in M.EN.FACES or v["cle"] == "joint"      # (le joint d'une prédalle : sa couture, lot 5)
         piece = piece_courte(v, s) if face else ""
         rows += C.ligne_verif(M.nom_ligne(v), comparaison(M, v, s), C.pct(v["taux"]), M._niv(v), calcul=f"s{i}-{v['cle']}",
                               piece=piece, gov=gov is not None and gov[0] == i and gov[1] is v and cls != "inc")
         titre = v["titre"]
-        if v["cle"] == "hauteur" and v.get("face"):
+        if v["cle"] == "hauteur" and v.get("face") == "joint":
+            titre += f" · le joint {s['joint']['direction'].upper()} gouverne (la plus exigeante)"
+        elif v["cle"] == "hauteur" and v.get("face"):
             cote, dk = v["face"].split("_")
             titre += f" · la famille {cote}. {dk.upper()} gouverne (la plus exigeante)"
         detail = (f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}</div>'

@@ -11,7 +11,7 @@ d'accueil, ça doit être très bien intégré. »*
 
 | Où | Quoi |
 |---|---|
-| Le menu (les 23 pages qui ont la barre, les onglets du téléphone) | **Projets** et **Équipe** sont des liens (ils disaient « bientôt ») ; Paramètres attend encore les comptes. |
+| Le menu (les pages qui ont la barre, les onglets du téléphone) | **Projets**, **Équipe** et, depuis le lot 6 (14/11/2026), **Paramètres** sont des liens (ils disaient « bientôt »). |
 | **Accueil** | La pastille de la personne et « Bonjour Louis » ; la carte **Projets** (un champ qui en crée un — le nom, Entrée —, les six plus récemment actifs, « Sans projet », « Tout voir ») ; la carte **Activité** (les six dernières lignes du journal, chacune avec la pastille de son auteur ; « Qui êtes-vous ? » tant que personne ne s'est présenté) ; les notes à reprendre disent leur projet et leur auteur. |
 | **Projets** (`projets`, `projets?p=<projet>&s=<sous-projet>`, `projets?sans=1`) | L'arbre des projets et de leurs sous-projets — son champ **cherche et crée** —, les notes du projet groupées par sous-projet, les faits et l'activité du projet. Renommer en écrivant par-dessus le titre ; ranger une note par un menu ; archiver ; supprimer ce qui est vide. |
 | **Équipe** (`equipe`) | Ma fiche (nom, initiales, e-mail, teinte de la pastille), les membres, l'ajout d'un collègue, le journal entier (filtrable par membre). |
@@ -53,6 +53,7 @@ d'accueil, ça doit être très bien intégré. »*
 | `stab.projets.v1` | `{ <cle>: { nom, cree, par (signature), archive, sous: [noms] } }` — le REGISTRE : il fait exister un projet ou un sous-projet vide, et garde l'ordre des sous-projets | `js/projets.js` |
 | `stab.journal.v1` | `[ { t, q (signature), k (le geste), n: { id, nom, m }, p, s, de, x } ]`, les plus récentes d'abord | `js/journal.js` |
 | `stab.notes.v1` | (inchangée) + `auteur`, `par` : des signatures `{ id, ini, nom, c }` | `js/notes.js` |
+| `stab.gabarit.v1` | (lot 6) `{ modules: { <module>: { <option>: valeur } }, par (signature), t }` — les ÉCARTS à l'usine du gabarit du bureau, qu'un administrateur fixe (§ 9) | `js/gabarit.js` |
 
 - **Le modèle affiché** (`projets.modele()`) réunit le registre et les notes : un projet que seules des notes nomment
   existe quand même (il entre au registre au premier geste, sans date de création inventée).
@@ -258,4 +259,22 @@ la tient) ; les classes de la ligne du module n'avaient pas le préfixe « et- �
    partagé, n'importe qui peut prendre la place de l'administrateur. La marque dit ce que le poste a déclaré.
 3. La note PDF ne dit pas encore si son module était vérifié le jour où elle a été produite (ni argent, ni or).
 4. Le mot : « **vérifié** » (celui de l'ingénieur) ; le cahier des charges et la maquette disaient « validé ».
+
+## 9 · La page PARAMÈTRES et le gabarit du bureau (lot 6, 14/11/2026)
+
+*Décision du propriétaire du 13/11/2026 : les options par défaut de chaque module, que le responsable fixe ; chaque note
+peut changer une valeur au cas par cas. Le détail : `docs/site/MODELES_DIMENSIONNEMENT.md` § 7.*
+
+- **La page** (`parametres`, `js/ecran_parametres.js`) : « Le site » (le thème : Clair · Sombre · Comme l'appareil — le
+  bouton du rail et celui de l'en-tête du téléphone posent le même, `commun.poserTheme`), puis le **gabarit du bureau** :
+  une carte par module (`construire.MODULES_GABARIT`, liée au registre du moteur par `tests/test_gabarit.py`), sa
+  rubrique Options **rendue par le moteur** — c'est la seule page du bureau qui DEMANDE le moteur
+  (`app.js BUREAU_AVEC_MOTEUR`). Elle lit ses champs comme une note (`commun.valeurSaisie`, `viderAuFocus`,
+  `segmentAEnvoyer` : une source pour les deux).
+- **Les rôles** : un administrateur change le gabarit ; un membre le lit, ses contrôles éteints ; personne présenté : la
+  page renvoie à l'Équipe (le premier inscrit du poste est administrateur, § 8.1).
+- **Le journal** : `gabarit.change` (« a changé le gabarit du bureau : <module> », une ligne par visite) et
+  `gabarit.usine` (« a rendu aux valeurs d'usine le gabarit : <module> »).
+- **Les limites** (dites sur la page) : le gabarit est celui de CE navigateur, comme l'équipe — il deviendra celui du
+  bureau avec les comptes ; une note neuve le reçoit, une note existante jamais.
 

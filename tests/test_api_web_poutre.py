@@ -374,14 +374,26 @@ chk("sans effort tranchant : τ et étriers « non effectuée » (et pourquoi), 
     and "sans effort tranchant (V = 0)" in out["resultat"], non_eff)
 dispo = re.findall(r'<b>Dispositions constructives</b><span class="et-mot (\w)">([^<]+)</span>', out["resultat"])
 chk("les dispositions constructives disent leur état en mots, sans pourcentage", dispo == [("p", "Conforme")], dispo)
+# au JEU ENTRE LITS DU BUREAU (2,5 cm depuis le 13/11/2026 — décision du propriétaire) : deux lits Ø16 gardent 25 mm
+# libres, le minimum de l'EC2 8.2(2) (d_g = 20 mm) — conformes, et les Options n'ont plus d'alerte
 e = P.nouvel_etat()
 for chemin, valeur in ((["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
     P.modifier(e, chemin, valeur)
 out = req(module="poutre", action="calculer", etat=e)
+d25 = MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]
+chk("deux lits Ø16 au jeu du bureau (2,5 cm, 13/11/2026) : 25 mm libres = le minimum, CONFORME ; les Options sans alerte",
+    out["etat"]["poutres"][0]["jeu_entre_lits"] == 2.5
+    and any(it["cle"] == "entre_lits" and abs(it["libre"] - 25.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "ok" for it in d25["items"])
+    and "Jeu entre lits insuffisant" not in out["donnees"], [i for i in d25["items"] if i["cle"] == "entre_lits"])
+e = P.nouvel_etat()
+for chemin, valeur in ((["jeu_entre_lits"], "1"), (["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
+    P.modifier(e, chemin, valeur)
+out = req(module="poutre", action="calculer", etat=e)
 d0 = MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]
 # (règle du 13/11/2026, beton/position.py : les lits posés l'un sur l'autre au jeu près, sans arrondi — 0,8 + 1 + 0,8 =
-#  2,6 cm d'entraxe, 26 − 16 = 10 mm libres ; c'était 1 + 1 + 1 = 3 cm et 14 mm, les demi-Ø arrondis)
-chk("deux lits Ø16 au jeu du bureau (1 cm) : 10 mm libres < 25 mm, NON CONFORME (EC2 8.2(2) : un minimum, pas un avis)",
+#  2,6 cm d'entraxe, 26 − 16 = 10 mm libres ; c'était 1 + 1 + 1 = 3 cm et 14 mm, les demi-Ø arrondis ; 1 cm : le jeu
+#  entre lits d'avant le 13/11/2026, saisi ici)
+chk("deux lits Ø16 au jeu d'avant (1 cm, saisi) : 10 mm libres < 25 mm, NON CONFORME (EC2 8.2(2) : un minimum, pas un avis)",
     any(it["cle"] == "entre_lits" and abs(it["libre"] - 10.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "nok" for it in d0["items"])
     and out["resume"]["niveau"] == "r", (out["resume"], [i for i in d0["items"] if i["etat"] != "ok"]))
 chk("… et les Options le disent, avec le jeu qui suffirait (2,5 cm : le jour libre entre deux lits, 25 mm)",
@@ -389,7 +401,7 @@ chk("… et les Options le disent, avec le jeu qui suffirait (2,5 cm : le jour l
 # une non-conformité trouvée SANS AUCUN EFFORT (deux lits trop serrés) n'est pas cachée par « Données incomplètes » :
 # le bloc de la section est rouge, comme la note (l'ordre de poutre._etat_bloc : non conforme d'abord)
 e = P.nouvel_etat()
-for chemin, valeur in ((["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
+for chemin, valeur in ((["jeu_entre_lits"], "1"), (["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
     P.modifier(e, chemin, valeur)
 out = req(module="poutre", action="calculer", etat=e)
 r0 = MO.verifier(out["etat"]["poutres"][0])
@@ -531,9 +543,9 @@ chk("la géométrie change : la justification ne vaut plus (« à examiner » de
     it_["etat_eff"] == "warn" and it_.get("justification_perimee") == "Barres de montage Ø8 au plan.", it_)
 out = req(module="poutre", action="modifier", etat=out["etat"], chemin=["sections", "0", "justifs", cible["id"]], valeur=None)
 chk("« Annuler » retire la justification (la clé disparaît de la note)", out["ok"] and "justifs" not in out["etat"]["poutres"][0]["sections"][0], out["etat"]["poutres"][0]["sections"][0].get("justifs"))
-# une non-conformité : 2 lits Ø20 au jeu du bureau (10 mm libres < 25 mm)
+# une non-conformité : 2 lits Ø20 au jeu d'avant le 13/11/2026 (1 cm, saisi : 10 mm libres < 25 mm)
 e5 = P.nouvel_etat()
-for chemin, valeur in ((["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "inf", "0", "d"], "20"), (["sections", "0", "inf", "+"], 1)):
+for chemin, valeur in ((["jeu_entre_lits"], "1"), (["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "inf", "0", "d"], "20"), (["sections", "0", "inf", "+"], 1)):
     P.modifier(e5, chemin, valeur)
 nok = next(x for x in MO.verifier(e5["poutres"][0])["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
 out = req(module="poutre", action="modifier", etat=e5, chemin=["sections", "0", "justifs", nok["id"]], valeur={"texte": "vu", "empreinte": nok["empreinte"]})

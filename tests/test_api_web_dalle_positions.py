@@ -408,8 +408,10 @@ for type_, DDm, MO in (("coulee", DD, MO_D), ("predalle", DP, MO_P)):
     chk(f"{type_} : le jeu de pose est rappelé sous la légende, discrètement : « Barres dessinées à leur position réelle · le calcul "
         "ajoute un jeu de pose de 10 mm et l'arrondi au 5 mm »",
         "Barres dessinées à leur position réelle · le calcul ajoute un jeu de pose de 10 mm et l'arrondi au 5 mm" in html.unescape(sv1))
-    chk(f"{type_} : les pièces cliquables gardent leurs clés (s0.<face>-<j>, s0.beton)",
-        {k for k in re.findall(r'data-sel="([^"]+)"', sv1)} == {f"s0.{f}-{j}" for f in EN_D.FACES for j in range(len(r1["sections"][0]["faces"][f]["couches"]))} | {"s0.beton"})
+    # (une prédalle a aussi, depuis le lot 5, la barre de couture du dessin du joint : s0.joint-0)
+    chk(f"{type_} : les pièces cliquables gardent leurs clés (s0.<face>-<j>, s0.beton{', s0.joint-0' if type_ == 'predalle' else ''})",
+        {k for k in re.findall(r'data-sel="([^"]+)"', sv1)} == {f"s0.{f}-{j}" for f in EN_D.FACES for j in range(len(r1["sections"][0]["faces"][f]["couches"]))}
+        | {"s0.beton"} | ({"s0.joint-0"} if type_ == "predalle" else set()))
 r1, sv1 = dessin(POS, DD, dalle_s3(), MO_D)
 chk("légende dalle : les couches empilées disent « axe à 47 · sur la base Y » (la base X) et « axe à 48 · sur la base Y » (son "
     "renfort, S3) ; la principale « axe à 36 » sans plus",

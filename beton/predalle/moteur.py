@@ -30,7 +30,9 @@ API
     candidats_base(predalle, i_section, face, familles=None) -> list   le sélecteur de la nappe de base d'une face
 
 ENTRÉE — celle du moteur des dalles (docstring de ``beton/dalle/moteur.py``) plus ``"h_pre"`` : l'épaisseur de la peau
-préfabriquée (cm, 3 ≤ h_pre ≤ min(15 ; h − 1)) ; défauts de l'écran prédalle : « Prédalle 1 », h = 22, h_pre = 6.
+préfabriquée (cm, 3 ≤ h_pre ≤ min(15 ; h − 1)) ; défauts de l'écran prédalle : « Prédalle 1 », h = 22, h_pre = 6 ; et,
+depuis le lot 6 (14/11/2026), ``"pas_couture"`` : le pas d'arrondi de la longueur des barres de couture (cm : 1, 5 ou 10 ;
+5 par défaut, beton/predalle/joint.py) ; chaque section peut porter ``"couture"`` (lot 5).
 
 SORTIE de verifier — celle du moteur des dalles (même format, mêmes clés), avec :
     "reference": "modules/predalle.py v1.1", "predalle": l'entrée normalisée (à la place de "dalle") ;
@@ -39,7 +41,11 @@ SORTIE de verifier — celle du moteur des dalles (même format, mêmes clés), 
     chaque vérification de face : en tête de ses "formules", une formule « e » par couche (l'axe et sa règle) ;
     "avertissements" : ceux du moteur des dalles, plus deux propres à la prédalle (absents de l'écran Streamlit, voir
     la doc) : « base_hors_predalle » (la base posée dans la peau dépasse la peau) et « croisement_sur_predalle » (deux
-    couches inférieures croisées, posées toutes deux sur la prédalle à des niveaux trop proches pour se croiser).
+    couches inférieures croisées, posées toutes deux sur la prédalle à des niveaux trop proches pour se croiser) ;
+    LE JOINT (lot 5, beton/predalle/joint.py) : la vérification « joint » de chaque section (la direction secondaire
+    vérifiée une seconde fois, au joint de deux prédalles, avec les barres de couture), ``section["joint"]``, la hauteur
+    du joint quand elle gouverne, les grandeurs « …_joint », les statuts recalculés — ceux de la pleine prédalle (l'écran
+    Streamlit, la note PDF) gardés dans ``pleine_predalle`` —, et ses avertissements (« joint_… »).
 """
 import copy
 
@@ -48,7 +54,8 @@ from beton import treillis as TR
 from beton.dalle import moteur as MD
 
 from . import entree as E
-from .entree import (classes_beton, h_pre_max, nom_section_suivant, normaliser, nouvelle_couche,  # noqa: F401
+from . import joint as J
+from .entree import (CLES_PROPRES, classes_beton, h_pre_max, nom_section_suivant, normaliser, nouvelle_couche,  # noqa: F401
                      nouvelle_predalle, nouvelle_section)
 
 REFERENCE = "modules/predalle.py v1.1"
@@ -119,7 +126,9 @@ def figer(p: dict, reels: list = None) -> dict:
     """La prédalle (normalisée) en DALLE du moteur des dalles : la position de chaque couche automatique est FIGÉE à la
     position réelle de la prédalle (« dist ») ; le moteur des dalles en fait l'axe de calcul (jeu, arrondi)."""
     reels = _positions_auto(p) if reels is None else reels
-    d = {k: copy.deepcopy(v) for k, v in p.items() if k != "h_pre"}
+    d = {k: copy.deepcopy(v) for k, v in p.items() if k not in CLES_PROPRES}
+    for s in d["sections"]:
+        s.pop("couture", None)                   # (le joint : beton/predalle/joint.py — le moteur des dalles l'ignore)
     for s, a in zip(d["sections"], reels):
         for f in E.FACES:
             for j, c in enumerate(s["faces"][f]["couches"]):
@@ -155,7 +164,8 @@ def verifier(predalle: dict) -> dict:
     domaine de l'écran."""
     p = normaliser(predalle)
     reels = _positions_auto(p)
-    r = MD.verifier(figer(p, reels))
+    figee = figer(p, reels)
+    r = MD.verifier(figee)
     r["reference"] = REFERENCE
     del r["dalle"]
     r["predalle"] = p
@@ -177,6 +187,7 @@ def verifier(predalle: dict) -> dict:
             if v["cle"] in E.FACES:
                 v["formules"] = [_formule_axe(c, j) for j, c in enumerate(s["faces"][v["cle"]]["couches"])] + v["formules"]
     r["avertissements"] += _avertissements(p, r)
+    J.joints(p, figee, r, _formule_axe)          # le JOINT des prédalles et ses barres de couture (lot 5)
     return r
 
 
