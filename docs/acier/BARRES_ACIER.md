@@ -240,8 +240,13 @@ M_cr = λ_cr·|M_y|max. Par TRONÇON entre deux sections tenues en déplacement 
 seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·φ = 0). Contrôle : formule du NCCI SN003.
 
 **Ce que le moteur fait** (`acier/barre/mcr.py`, `ec3_deversement.py`, lot 3) :
-- le solveur est en Python pur (il tourne dans le navigateur) : matrices en bande, décomposition LDLᵀ, comptage des
-  pivots négatifs, bissection — 2 centièmes de seconde par moment critique. Convention : z vers le haut, φ dans le sens
+- le solveur est en Python pur (il tourne dans le navigateur) : matrices en bande, décomposition LDLᵀ. Le COMPTE des
+  pivots négatifs encadre le premier multiplicateur critique ; dans l'encadrement, la sécante sur le déterminant (le
+  produit des pivots) converge en une dizaine de décompositions — la bissection seule en demandait 35. Deux chargements
+  proportionnels (1,35·G et 1,00·G ; G et Q de même forme) ont le même M_cr : il n'est calculé qu'une fois. Mesuré le
+  14/11/2026 : 5 millièmes de seconde par moment critique (33 avant), 9 pour la barre neuve de l'écran (80 avant),
+  140 pour une poutre continue de trois travées à trois cas (590 avant) — résultats inchangés à 10⁻¹⁰.
+  Convention : z vers le haut, φ dans le sens
   direct, u(z) = v − z·φ, donc Π porte **− ∫M_y·v″·φ** (le signe ne compte que pour un maintien d'une seule semelle) ;
 - il redonne les sept valeurs R1 du solveur indépendant au centième de kN·m, la formule fermée à 10⁻⁶, la console
   classique (4,013), et « un maintien de la semelle comprimée à mi-portée vaut un maintien complet » (250,95 kN·m) ;
@@ -392,7 +397,10 @@ ponctuelle, couple ; un effort normal par cas), poids propre, maintiens (complet
 statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, puis superposée.
 - L'enveloppe : pour chaque vérification, l'occurrence la plus défavorable — sa combinaison, son abscisse ou son
   tronçon, et les formules de CETTE occurrence.
-- Eurocode 3 : la SECTION dans chaque section à vérifier (appuis, ruptures de chargement, extremum du moment), avec les
+- Les sections à vérifier : les appuis, chaque rupture de chargement et les extremums du moment — là où l'effort
+  tranchant de la combinaison s'annule (entre deux ruptures, V est un polynôme de degré 2 au plus : ses racines sont
+  exactes, sans balayage). Les lectures des cas sont gardées : toutes les combinaisons relisent les mêmes sections.
+- Eurocode 3 : la SECTION dans chaque section à vérifier, avec les
   efforts qui s'y trouvent ENSEMBLE ; la BARRE par tronçon de déversement, sous le diagramme réel (M_cr numérique,
   charges à leur niveau). k_c n'est lu dans le tableau 6.6 que si le tronçon EST un de ses cas ; C_my,0 par la formule
   générale (flèche et moment de la portée) sur deux appuis, sinon moment constant.

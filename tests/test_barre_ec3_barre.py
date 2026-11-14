@@ -305,9 +305,43 @@ def controles(M=None):
     c("R1, charge répartie puis charge centrale, appliquées au centre de cisaillement, sur la semelle haute, sous la semelle basse : "
       "102,31 ; 78,83 ; 132,69 ; 123,12 ; 89,19 ; 168,95 kN·m (solveur indépendant numpy/scipy du deuxième avis)",
       r1 == [102.31, 78.83, 132.69, 123.12, 89.19, 168.95], r1)
+    # (la mémoire des chargements proportionnels est VIDÉE entre les deux calculs : c'est le solveur qui est jugé ici)
+    mc._GARDES.clear()
+    fort = mcr(lambda x: 37.0 * Mq(x), reparties=[(0, L, 37.0, 150.0)])
+    mc._GARDES.clear()
     c("le moment critique ne dépend pas de l'intensité de la charge (M_cr = λ_cr·|M|max) ni du maillage (16 ou 64 éléments : 10⁻⁴)",
-      proche(mcr(lambda x: 37.0 * Mq(x), reparties=[(0, L, 37.0, 150.0)]), mcr(Mq, reparties=[(0, L, 1.0, 150.0)]), 1e-8)
+      proche(fort, mcr(Mq, reparties=[(0, L, 1.0, 150.0)]), 1e-8)
       and proche(mcr(Mp, ponctuelles=[(L / 2, 1.0, 150.0)], elements=16), mcr(Mp, ponctuelles=[(L / 2, 1.0, 150.0)], elements=64), 1e-4))
+    # la recherche du multiplicateur critique : le nombre de décompositions LDLᵀ, compté
+    compte = [0]
+    decomposer = mc._decomposition
+
+    def espion(*a):
+        compte[0] += 1
+        return decomposer(*a)
+
+    mc._decomposition = espion
+    try:
+        couts = []
+        for k in ({"reparties": [(0, L, 1.0, 150.0)]}, {"reparties": [(0, L, 1.0, -150.0)]}, {"maintiens": [(L / 2, -144.65)]}):
+            mc._GARDES.clear()
+            compte[0] = 0
+            mcr(Mq, **k)
+            couts.append(compte[0])
+        c("la sécante sur le déterminant trouve le multiplicateur critique à 10⁻¹⁰ en moins de 16 décompositions (la bissection "
+          "seule en demande 35)", all(0 < n < 16 for n in couts), couts)
+        compte[0] = 0
+        encore = mcr(lambda x: 37.0 * Mq(x), reparties=[(0, L, 37.0, 150.0)], M_max=37.0 * L * L / 8.0)
+        mc._GARDES.clear()
+        frais = mcr(lambda x: 37.0 * Mq(x), reparties=[(0, L, 37.0, 150.0)], M_max=37.0 * L * L / 8.0)
+        gratuit = compte[0]
+        compte[0] = 0
+        mcr(Mq, reparties=[(0, L, 1.0, 150.0)], M_max=L * L / 8.0)                       # la même forme, 37 fois plus faible
+        c("deux chargements PROPORTIONNELS : le second ne coûte aucune décomposition et rend le M_cr du premier ; la mémoire "
+          "vidée, le solveur redonne la même valeur", gratuit > 0 and compte[0] == 0 and proche(encore, frais, 1e-9)
+          and proche(mcr(Mq, reparties=[(0, L, 1.0, 150.0)], M_max=L * L / 8.0), frais, 1e-9), (gratuit, compte[0]))
+    finally:
+        mc._decomposition = decomposer
     c1 = {psi: mcr(lambda x, psi=psi: 1e6 * (1 - (1 - psi) * x / L)) / exact for psi in (0.5, 0.0, -0.5, -1.0)}
     c("moment linéaire : C₁ = M_cr/M_cr,0 croît quand ψ décroît — 1,30 (ψ = 0,5) ; 1,75 à 1,90 (ψ = 0) ; plus de 2,2 (ψ = −0,5) ; 2,5 à 2,8 (ψ = −1)",
       1.28 < c1[0.5] < 1.34 and 1.75 < c1[0.0] < 1.90 and c1[-0.5] > 2.2 and 2.5 < c1[-1.0] < 2.8 and c1[0.5] < c1[0.0] < c1[-0.5],
@@ -638,6 +672,13 @@ MUTATIONS = [
     ("mcr", "M_cr rendu sans |M|max", 'out.update({"M_cr": lam * M_max, "lambda": lam})', 'out.update({"M_cr": lam, "lambda": lam})'),
     ("mcr", "formule fermée : π² oublié devant E·I_w", "math.sqrt(1.0 + math.pi ** 2 * EIw / (L ** 2 * GIt))", "math.sqrt(1.0 + EIw / (L ** 2 * GIt))"),
     ("mcr", "bissection grossière (tolérance 10 %)", "TOLERANCE = 1e-10 ", "TOLERANCE = 1e-1 "),
+    ("mcr", "la sécante retirée (bissection seule : 35 décompositions)", "        if f_haut is not None and pas < SECANTES:", "        if False:"),
+    ("mcr", "mémoire : la hauteur d'application des charges réparties oubliée dans la signature",
+     "tuple(round(qz * L / M_max, CHIFFRES) for _, qz in gauss),", "(),"),
+    ("mcr", "mémoire : la forme du diagramme oubliée dans la signature", "tuple(round(M / M_max, CHIFFRES) for M, _ in gauss),", "(),"),
+    ("mcr", "mémoire : la cote des maintiens oubliée dans la signature", "tuple((round(x, 6), z) for x, z in maintiens),", "(),"),
+    ("mcr", "mémoire : la hauteur d'application des charges ponctuelles oubliée dans la signature",
+     "tuple((noeud(x), round(P * zg / M_max, CHIFFRES)) for x, P, zg in ponctuelles))", "())"),
     ("ec3_flambement", "N_cr avec L au lieu de u·L", "Ncr = math.pi ** 2 * E * inertie / Lcr ** 2", 'Ncr = math.pi ** 2 * E * inertie / ax["L"] ** 2'),
     ("ec3_flambement", "λ̄ avec A au lieu de A_eff (classe 4)", "        lb = math.sqrt(A_N * fy / Ncr)\n        Phi, chi = NO.phi_chi(lb, alpha)\n        NbRd",
      '        lb = math.sqrt(s["A"] * fy / Ncr)\n        Phi, chi = NO.phi_chi(lb, alpha)\n        NbRd'),

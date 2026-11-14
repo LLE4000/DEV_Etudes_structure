@@ -147,6 +147,41 @@ def controles(M=None):
     c("les sections à vérifier : les appuis, chaque rupture de chargement (1, 2 et 5 m) et l'extremum du moment de la travée, au millionième",
       {0.0, 1.0, 2.0, 5.0, 6.0} <= set(xs) and max(comb.M(x) for x in xs) >= Mmax and proche(max(comb.M(x) for x in xs), Mmax, 1e-6)
       and len(xs) == 6, (xs, Mmax))
+    # l'extremum EXACT : l'effort tranchant est un polynôme de degré 2 au plus entre deux ruptures
+    bt = en.normaliser(barre(travees=[6.0], poids_propre=False,
+                             cas=[{"nom": "G", "nature": "permanent", "charges": [{"type": "tri", "v": 9.0, "a": 0.0, "b": 6.0, "sens": "croissante"}]}]))
+    solt = st.resoudre(bt, st.cas_complets(bt, s), 1.0e4)
+    combt = st.Combinaison("x", solt, [1.0], [0.0])
+    xt = st.sections(bt, combt, st.ruptures(solt))
+    bd = en.normaliser(barre(travees=[6.0], poids_propre=False,
+                             cas=[{"nom": "G", "nature": "permanent", "charges": [{"type": "tri", "v": 9.0, "a": 0.0, "b": 6.0, "sens": "decroissante"}]}]))
+    sold = st.resoudre(bd, st.cas_complets(bd, s), 1.0e4)
+    xd = st.sections(bd, st.Combinaison("x", sold, [1.0], [0.0]), st.ruptures(sold))
+    c("charge triangulaire sur deux appuis : le moment est maximal en L/√3 = 3,464102 m (en L − L/√3 = 2,535898 m quand le triangle "
+      "décroît) et vaut q·L²/(9·√3) = 20,785 kN·m — trouvé par la racine de l'effort tranchant, au millionième",
+      xt == [0.0, round(6.0 / math.sqrt(3.0), 6), 6.0] and xd == [0.0, round(6.0 - 6.0 / math.sqrt(3.0), 6), 6.0]
+      and proche(combt.M(xt[1]), 9.0 * 36.0 / (9.0 * math.sqrt(3.0)), 1e-9), (xt, xd, combt.M(xt[1])))
+    b2 = en.normaliser(barre(modele="continue", travees=[5.0, 5.0], poids_propre=False,
+                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(8.0, 0.0, 10.0)]}]))
+    sol2 = st.resoudre(b2, st.cas_complets(b2, s), 1.0e4)
+    comb2 = st.Combinaison("x", sol2, [1.0], [0.0])
+    c("poutre continue de 2 × 5 m sous charge uniforme : l'extremum de CHAQUE travée est une section à vérifier (à 3/8 de la portée : "
+      "1,875 et 8,125 m)", st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 5.0, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
+    # les lectures sont gardées : une section déjà lue n'est pas recalculée
+    lus = [0]
+    for sol_ in sols:
+        def compter(x, f_=sol_.sol.evaluer):
+            lus[0] += 1
+            return f_(x)
+        sol_.sol.evaluer = compter
+    autre = st.Combinaison("y", sols, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0])
+    deja = [autre.lire(x)["M_d"] for x in (1.0, 2.0, 2.5)]
+    n_deja = lus[0]
+    neuf = autre.lire(4.32171)
+    c("les lectures sont gardées : une autre combinaison relit les sections déjà lues sans rien recalculer ; une section neuve est "
+      "calculée une fois par cas ; une lecture répétée rend le même objet", n_deja == 0 and lus[0] == len(sols)
+      and autre.lire(4.32171) is neuf and lus[0] == len(sols)
+      and all(proche(v_, sum(sol_.sol.evaluer(x)["M_d"] for sol_ in sols), 1e-12) for v_, x in zip(deja, (1.0, 2.0, 2.5))), (n_deja, lus[0]))
     tr = st.troncons(b, s)
     c("deux appuis : un tronçon, d'une fourche à l'autre", [(t["x1"], t["x2"], t["appuis"], t["maintiens"]) for t in tr] == [(0.0, 6.0, ("fourche", "fourche"), [])])
     bm = en.normaliser(barre(maintiens=[{"x": 4.0, "genre": "bas"}, {"x": 2.0, "genre": "complet"}, {"x": 3.0, "genre": "haut"}]))
@@ -372,7 +407,11 @@ MUTATIONS = [
     ("statique", "poids propre oublié", '    if barre.get("poids_propre", True):', "    if False:"),
     ("statique", "effort normal non pondéré", "self.N = sum(f * n for f, n in zip(facteurs, N_cas))", "self.N = sum(n for f, n in zip(facteurs, N_cas))"),
     ("statique", "efforts des cas additionnés sans leurs facteurs", "                o[k] += f * e[k]\n", "                o[k] += e[k]\n"),
-    ("statique", "extremum du moment non cherché", "            if 0 < i < BALAYAGE and vals[i] > 0:", "            if False:"),
+    ("statique", "mémoire d'un cas : la lecture d'une autre section rendue", "        e = self.lus.get(x)\n", "        e = self.lus.get(0.0)\n"),
+    ("statique", "mémoire d'une combinaison : la lecture d'une autre section rendue", "        o = self.lus.get(x)\n", "        o = self.lus.get(0.0)\n"),
+    ("statique", "mémoire d'un cas retirée (chaque combinaison recalcule)", "            e = self.lus[x] = self.sol.evaluer(x)\n", "            e = self.sol.evaluer(x)\n"),
+    ("statique", "racines de l'effort tranchant : la seconde oubliée", "        r = [q / A] + ([y0 / q] if q != 0 else [])", "        r = [q / A]"),
+    ("statique", "extremum du moment non cherché", '        for t in _racines(eu["V_d"], comb.lire(0.5 * (u + v))["V_d"], ev["V_g"], seuil):', "        for t in []:"),
     ("statique", "bout libre d'une console pris en fourche", "        tenus[round(L, 9)] = MC.LIBRE\n", "        tenus[round(L, 9)] = MC.FOURCHE\n"),
     ("statique", "racine d'une console en fourche", "tenus = {0.0: MC.ENCASTRE if console else MC.FOURCHE}", "tenus = {0.0: MC.FOURCHE}"),
     ("statique", "maintien d'une semelle compté comme complet", '        if genre == "complet":\n            tenus.setdefault', "        if True:\n            tenus.setdefault"),

@@ -8,15 +8,18 @@ positive ; M > 0 tend la fibre inférieure (la fibre HAUTE est comprimée) ; fl�
 
     poids propre   g = masse linéique × 9,81 / 1000 (kN/m), un cas permanent de plus
     une combinaison  M(x) = Σ γ_i·M_i(x),  V(x) = Σ γ_i·V_i(x),  N = Σ γ_i·N_i,  f(x) = Σ γ_i·f_i(x)
-    sections à vérifier : les appuis, chaque rupture de chargement, et l'extremum du moment de chaque travée
-    (cherché sur la somme, par balayage puis resserrement)
+    sections à vérifier : les appuis, chaque rupture de chargement, et les extremums du moment — là où l'effort
+    tranchant de la combinaison s'annule. Entre deux ruptures, V est un polynôme de degré 2 au plus (charges
+    uniformes et triangulaires) : trois lectures donnent ses racines, sans balayage.
+
+Les lectures sont GARDÉES : toutes les combinaisons relisent les mêmes sections des mêmes cas.
 
 LES TRONÇONS DE DÉVERSEMENT : entre deux sections tenues en déplacement latéral ET en torsion — les appuis (pris en
 fourche : hypothèse dite dans la note), l'encastrement d'une console, et chaque maintien « complet ». Un maintien d'une
 seule semelle (« haut », « bas ») reste À L'INTÉRIEUR de son tronçon. Le bout libre d'une console est libre.
 """
 import math
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from rdm import poutres as PO
 
@@ -26,7 +29,7 @@ from .resultat import Refus
 G_PESANTEUR = 9.81               # m/s²
 POIDS_PROPRE = "Poids propre"
 GENRES_MAINTIEN = ("complet", "haut", "bas")
-BALAYAGE = 48                    # points par travée pour situer l'extremum du moment d'une combinaison
+NEGLIGEABLE = 1e-9               # un effort tranchant plus petit que cette part du plus grand est pris nul
 
 
 def poids_propre(s: Dict) -> float:
@@ -46,12 +49,30 @@ def cas_complets(barre: Dict, s: Dict) -> List[Dict]:
     return cas
 
 
-def resoudre(barre: Dict, cas: Sequence[Dict], EI: Optional[float] = None) -> List:
+class Lecture:
+    """Un cas résolu par le formulaire, dont les sections lues sont gardées (``evaluer``) ; le reste de la solution —
+    travées, appuis, réactions — se lit comme sur elle."""
+
+    def __init__(self, sol):
+        self.sol = sol
+        self.lus: Dict[float, Dict] = {}
+
+    def evaluer(self, x: float) -> Dict:
+        e = self.lus.get(x)
+        if e is None:
+            e = self.lus[x] = self.sol.evaluer(x)
+        return e
+
+    def __getattr__(self, nom: str):
+        return getattr(self.sol, nom)
+
+
+def resoudre(barre: Dict, cas: Sequence[Dict], EI: Optional[float] = None) -> List[Lecture]:
     """Une solution du formulaire par cas (``EI`` en kN·m² pour la flèche)."""
     out = []
     for c in cas:
         try:
-            out.append(PO.resoudre(barre["modele"], barre["travees"], c.get("charges") or [], EI))
+            out.append(Lecture(PO.resoudre(barre["modele"], barre["travees"], c.get("charges") or [], EI)))
         except PO.ErreurDonnees as e:
             raise Refus(f"cas « {c['nom']} » : {e}") from None
     return out
@@ -65,10 +86,14 @@ class Combinaison:
         self.paires = [(f, s) for f, s in zip(facteurs, sols) if f]
         self.N = sum(f * n for f, n in zip(facteurs, N_cas))
         self.L = sols[0].L if sols else 0.0
+        self.lus: Dict[float, Dict] = {}
 
     def lire(self, x: float) -> Dict:
-        """M et V de part et d'autre de la section x, la flèche (None sans E·I)."""
-        o = {"x": x, "M_g": 0.0, "M_d": 0.0, "V_g": 0.0, "V_d": 0.0, "f": 0.0}
+        """M et V de part et d'autre de la section x, la flèche (None sans E·I). Le résultat est gardé : ne pas l'écrire."""
+        o = self.lus.get(x)
+        if o is not None:
+            return o
+        o = self.lus[x] = {"x": x, "M_g": 0.0, "M_d": 0.0, "V_g": 0.0, "V_d": 0.0, "f": 0.0}
         for f, s in self.paires:
             e = s.evaluer(x)
             for k in ("M_g", "M_d", "V_g", "V_d"):
@@ -95,35 +120,36 @@ def ruptures(sols: Sequence) -> List[float]:
     return sorted(pts)
 
 
-def _resserrer(f: Callable[[float], float], a: float, b: float) -> float:
-    """Le maximum de f sur [a ; b] (f unimodale entre deux points du balayage) : section dorée."""
-    phi = (math.sqrt(5.0) - 1.0) / 2.0
-    c, d = b - phi * (b - a), a + phi * (b - a)
-    fc, fd = f(c), f(d)
-    for _ in range(60):
-        if fc < fd:
-            a, c, fc = c, d, fd
-            d = a + phi * (b - a)
-            fd = f(d)
-        else:
-            b, d, fd = d, c, fc
-            c = b - phi * (b - a)
-            fc = f(c)
-    return 0.5 * (a + b)
+def _racines(y0: float, ym: float, y1: float, seuil: float) -> List[float]:
+    """Les racines dans ]0 ; 1[ du polynôme de degré 2 au plus qui passe par (0, y0), (½, ym), (1, y1) ; aucune quand
+    les trois valeurs sont sous ``seuil`` (un effort tranchant nul sur tout l'intervalle : le moment y est constant)."""
+    ech = max(abs(y0), abs(ym), abs(y1))
+    if ech <= seuil:
+        return []
+    A = 2.0 * (y0 + y1 - 2.0 * ym)
+    B = y1 - y0 - A
+    if abs(A) < 1e-12 * ech:
+        r = [-y0 / B] if abs(B) > 1e-12 * ech else []
+    else:
+        d = B * B - 4.0 * A * y0
+        if d < 0:
+            return []
+        q = -(B + math.copysign(math.sqrt(d), B)) / 2.0             # la forme stable
+        r = [q / A] + ([y0 / q] if q != 0 else [])
+    return sorted(t for t in r if 1e-12 < t < 1.0 - 1e-12)
 
 
 def sections(barre: Dict, comb: Combinaison, pts: Sequence[float]) -> List[float]:
-    """Les sections à vérifier pour cette combinaison : ``pts`` (les ruptures) et, par travée, les extremums du moment."""
+    """Les sections à vérifier pour cette combinaison : ``pts`` (les ruptures, triées) et les extremums du moment — les
+    racines de l'effort tranchant entre deux ruptures."""
     out = set(pts)
-    x0 = 0.0
-    for L in barre["travees"]:
-        xs = [x0 + L * i / BALAYAGE for i in range(BALAYAGE + 1)]
-        for signe in (1.0, -1.0):
-            vals = [signe * comb.M(x) for x in xs]
-            i = max(range(len(xs)), key=lambda k: vals[k])
-            if 0 < i < BALAYAGE and vals[i] > 0:
-                out.add(round(_resserrer(lambda x, s=signe: s * comb.M(x), xs[i - 1], xs[i + 1]), 6))
-        x0 += L
+    lus = [comb.lire(x) for x in pts]
+    seuil = NEGLIGEABLE * max((max(abs(e["V_g"]), abs(e["V_d"])) for e in lus), default=0.0)
+    for u, v, eu, ev in zip(pts, pts[1:], lus, lus[1:]):
+        if v - u <= 1e-9:
+            continue
+        for t in _racines(eu["V_d"], comb.lire(0.5 * (u + v))["V_d"], ev["V_g"], seuil):
+            out.add(round(u + t * (v - u), 6))
     return sorted(out)
 
 
