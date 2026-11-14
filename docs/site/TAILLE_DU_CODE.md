@@ -225,3 +225,40 @@ le filtre « barres » du harnais du navigateur. L'écart se lit depuis la mesur
 | **Total du site** | **89 379** | **122 823** | **398** | **+3 846** |
 | Ancien logiciel Streamlit (hors site) | 24 399 | 33 372 | 75 | +481 |
 | Tests (hors site) | 70 795 | 86 650 | 155 | +4 232 |
+
+## Mesure du 14/11/2026 — après le lot 4 des barres en acier : l'âme et ses raidisseurs
+
+Depuis le lot 6 des barres, le site gagne **+924** lignes, toutes dans « Choix de profilé » (de 4 662 à 5 586 lignes,
+de 26 à 30 fichiers) : la partie 1-5 de l'Eurocode 3 — le voilement de l'âme par cisaillement, l'âme sous une force
+concentrée et ses interactions (`acier/barre/ec3_ame.py`), la paire de plats d'un raidisseur (`raidisseurs.py`), le
+bloc de l'âme d'une barre et sa décision lieu par lieu (`ame.py`) —, l'enveloppe des vérifications sortie du moteur
+dans son fichier (`enveloppe.py`), et ce que l'écran et la note en montrent (la rubrique « Appuis », le bloc « Âme et
+raidisseurs », le raidisseur dessiné sur la barre). Le code commun ne bouge pas. Les tests +952 : la suite de l'âme
+(`tests/test_barre_ame.py`), les contrôles de l'arrondi d'affichage unique, le filtre « barres » du harnais du
+navigateur. L'écart se lit depuis la mesure de départ.
+
+| Module | Lignes de code | Avec commentaires | Fichiers | Écart depuis le 2026-11-13 (avant l'unification (poutre, dalle, prédalle)) |
+|---|---:|---:|---:|---:|
+| Poutres béton armé | 3 754 | 5 454 | 13 | +136 |
+| Dalles et prédalles | 4 845 | 7 437 | 21 | −174 |
+| Charges sur plancher | 4 608 | 6 120 | 20 | — |
+| Fondations de grues | 5 307 | 6 990 | 19 | — |
+| Taux d'armature | 2 263 | 3 176 | 9 | — |
+| Enrobage | 1 076 | 1 526 | 7 | — |
+| Maturité du béton | 3 007 | 4 214 | 10 | — |
+| Tableau des armatures | 903 | 1 282 | 6 | — |
+| Données béton | 1 151 | 1 617 | 10 | — |
+| Choix de profilé | 5 586 | 7 703 | 30 | +4 133 |
+| Catalogue des profilés | 2 085 | 2 918 | 8 | — |
+| Cornières | 2 902 | 4 228 | 8 | — |
+| Flambement | 1 311 | 1 807 | 8 | — |
+| Assemblages métalliques | 18 397 | 25 054 | 97 | — |
+| Soudures | 3 771 | 4 934 | 13 | — |
+| Garde-corps | 3 032 | 3 983 | 11 | — |
+| Poutres bois | 1 828 | 2 712 | 9 | — |
+| Rigidité du sol | 3 228 | 4 404 | 8 | — |
+| Bibliothèques (béton, acier, autres) | 5 648 | 7 308 | 23 | — |
+| Code commun (écran, note PDF, construction) | 15 601 | 21 265 | 72 | +675 |
+| **Total du site** | **90 303** | **124 132** | **402** | **+4 770** |
+| Ancien logiciel Streamlit (hors site) | 24 399 | 33 372 | 75 | +481 |
+| Tests (hors site) | 71 747 | 87 812 | 156 | +5 184 |

@@ -287,7 +287,8 @@ fondations — Greenwood avec une paroi de pieux sécants, un second groupe de b
 4 pieux avec un pieu PAS OK ; la variante 8 pieux) — et, depuis le 14/11/2026, les barres en acier du module « Choix de
 profilé » (`api_web/note_profil.py`, `docs/acier/BARRES_ACIER.md` § 9 : la planche des notes Poutre et Dalle, dans
 `api_web` elle aussi ; sa note riche : une barre chargée aux deux méthodes, un poteau comprimé et fléchi en tube
-rectangulaire, une poutre continue à l'Eurocode seul). Il tient en trois points, chacun prouvé :
+rectangulaire, une poutre continue à l'Eurocode seul ; depuis le lot 4, chaque planche porte aussi le bloc de l'âme et de
+ses raidisseurs — EN 1993-1-5 —, quelle que soit la méthode cochée). Il tient en trois points, chacun prouvé :
 
 - **Le bouton** : `construire.boutons_note_pdf` est UN composant posé aux trois emplacements (barre du haut du PC et de
   la tablette, menu ⋯ et barre du bas du téléphone) par `page_module`, pour TOUTE page d'établi, compacte ou non (avant,

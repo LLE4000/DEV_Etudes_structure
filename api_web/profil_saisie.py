@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Barres en acier (module « Choix de profilé ») — la SAISIE : les quatre rubriques de la barre ouverte, dans la colonne
-de gauche de l'établi compact (api_web/profil.py les pose sous la ligne de la barre).
+"""Barres en acier (module « Choix de profilé ») — la SAISIE : les rubriques de la barre ouverte, dans la colonne de
+gauche de l'établi compact (api_web/profil.py les pose sous la ligne de la barre).
 
     1 Barre                       le mode (barre chargée, efforts imposés), le modèle, les portées, le poids propre,
                                   l'acier, le profilé (il ouvre le sélecteur)
-    2 Charges | Efforts           les cas de charge (nature, effort normal, charges) et leur niveau d'application ;
-                                  ou les efforts de service et de calcul, et la forme des diagrammes
+    2 Charges | Efforts           les cas de charge (nature, effort normal, charges — une ponctuelle dit sa longueur
+                                  d'appui) et leur niveau d'application ; ou les efforts de service et de calcul, et la
+                                  forme des diagrammes
     3 Maintiens et flambement     les sections tenues, les longueurs de flambement (vides : automatiques)
-    4 Méthodes (secondaire)       historique, Eurocode 3 ou les deux ; s, C, déversement ; γ_M0, γ_M1
+    4 Appuis (barre chargée qui a un appui simple)   posée ou tenue par l'âme ; longueur d'appui, débord en rive —
+                                  ce que l'âme reçoit de ses appuis (EN 1993-1-5)
+    5 Méthodes (secondaire)       historique, Eurocode 3 ou les deux ; s, C, déversement ; γ_M0, γ_M1
 
 Ce fichier MET EN FORME : aucun calcul. Les chemins (``data-chemin``) sont ceux que ``profil.modifier`` lit.
 """
@@ -73,8 +76,9 @@ def _resume_barre(el: Dict) -> str:
 
 
 # ------------------------------------------------------------------ 2 · les charges (barre chargée)
-def _charge(i: int, j: int, ch: Dict) -> str:
-    """Une charge d'un cas, sur deux lignes : son type et sa valeur ; puis où elle est."""
+def _charge(i: int, j: int, ch: Dict, appuie: bool) -> str:
+    """Une charge d'un cas, sur deux lignes : son type et sa valeur ; puis où elle est. Une charge ponctuelle qui
+    ``appuie`` sur une semelle (elle n'est pas appliquée au centre de cisaillement) dit aussi sa longueur d'appui."""
     base = ["cas", i, "charges", j]
     t = ch["type"]
     retirer = _retirer(base + ["-"], "Retirer cette charge")
@@ -84,6 +88,9 @@ def _charge(i: int, j: int, ch: Dict) -> str:
         sens = C.choix(base + ["sens"], ch.get("sens", "croissante"), M.SENS) if t == "tri" else ""
         l2 = (f'<div class="pf-ch-2{" tri" if t == "tri" else ""}"><span>de</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}'
               f'<span>à</span>{C.num(base + ["b"], ch["b"], "m", dec=3, mini=0)}{sens}</div>')
+    elif t == "P" and appuie:
+        l2 = (f'<div class="pf-ch-2 ss"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}'
+              f'<span title="{C.esc(M.AIDE_SS)}">sur</span>{C.num(base + ["ss"], ch.get("ss", 0.0), "mm", dec=0, mini=0, maxi=EN.SS_MAX)}</div>')
     else:
         l2 = f'<div class="pf-ch-2 un"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}<span>de l\'appui gauche</span></div>'
     return f'<div class="pf-ch" data-charge="{j}">{l1}{l2}</div>'
@@ -96,7 +103,7 @@ def _cas(el: Dict) -> str:
     for i, c in enumerate(cas):
         base = ["cas", i]
         retirer = _retirer(base + ["-"], "Retirer ce cas de charge") if len(cas) > 1 else ""
-        charges = "".join(_charge(i, j, ch) for j, ch in enumerate(c["charges"]))
+        charges = "".join(_charge(i, j, ch, el["niveau"] != "centre") for j, ch in enumerate(c["charges"]))
         ajouts = ""
         if len(c["charges"]) < PO.CHARGES_MAX:
             ajouts = E.plus(base + ["charges", "+"], "q", "Répartie") + E.plus(base + ["charges", "+"], "P", "Ponctuelle")
@@ -111,9 +118,11 @@ def _cas(el: Dict) -> str:
 
 
 def _rubrique_charges(el: Dict) -> str:
-    return (_cas(el) + _titre("Niveau d'application")
-            + C.segments(["niveau"], el["niveau"], M.NIVEAUX)
-            + C.aide("Compte pour le déversement : une charge posée sur la semelle haute l'aggrave."))
+    ponctuelle = any(ch["type"] == "P" for c in el["cas"] for ch in c["charges"])
+    aide = "Compte pour le déversement : une charge posée sur la semelle haute l'aggrave."
+    if ponctuelle and el["niveau"] != "centre":
+        aide += " Une charge ponctuelle appuie sur l'âme : « sur » est sa longueur d'appui (0 : le plus défavorable)."
+    return _cas(el) + _titre("Niveau d'application") + C.segments(["niveau"], el["niveau"], M.NIVEAUX) + C.aide(aide)
 
 
 def _resume_charges(el: Dict) -> str:
@@ -200,7 +209,33 @@ def _resume_maintiens(el: Dict, r: Dict) -> str:
     return f"{fl}{N}m"
 
 
-# ------------------------------------------------------------------ 4 · les méthodes
+# ------------------------------------------------------------------ 4 · les appuis (ce que l'âme en reçoit)
+def a_des_appuis(el: Dict) -> bool:
+    """La barre chargée a-t-elle un appui SIMPLE (une console, une barre bi-encastrée n'en ont pas) ?"""
+    return el["mode"] == "chargee" and el["modele"] in ("appuis", "enc_app", "continue")
+
+
+def _rubrique_appuis(el: Dict) -> str:
+    ap = el["appuis"]
+    s = C.segments(["appuis", "mode"], ap["mode"], M.MODES_APPUI)
+    if ap["mode"] == "poses":
+        s += C.ligne("longueur d'appui", C.num(["appuis", "ss"], ap["ss"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "s<sub>s</sub>", M.AIDE_SS)
+        s += C.ligne("débord en rive", C.num(["appuis", "c"], ap["c"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "c", M.AIDE_DEBORD)
+        s += C.aide("La réaction appuie sur l'âme (EN 1993-1-5) : le module dit s'il faut un raidisseur. Longueur d'appui à 0 : le cas le "
+                    "plus défavorable.")
+    else:
+        s += C.aide("Platine d'about, cornières, gousset : la réaction entre par l'âme, sans force concentrée sur une semelle.")
+    return s
+
+
+def _resume_appuis(el: Dict) -> str:
+    ap = el["appuis"]
+    if ap["mode"] != "poses":
+        return M.NOM_MODE_APPUI[ap["mode"]]
+    return f"{M.NOM_MODE_APPUI['poses']} · s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" + (f" · c {M.n(ap['c'], 0)}{N}mm" if ap["c"] else "")
+
+
+# ------------------------------------------------------------------ 5 · les méthodes
 def choix_methodes(el: Dict) -> str:
     return "deux" if len(el["methodes"]) == 2 else el["methodes"][0]
 
@@ -236,13 +271,15 @@ def _resume_methodes(el: Dict) -> str:
 
 # ------------------------------------------------------------------ la colonne
 def formulaire(el: Dict, r: Optional[Dict]) -> str:
-    """Les quatre rubriques de la barre ouverte ; ``r`` : son résultat (les longueurs automatiques, la masse, ce qui
-    reste à confirmer). Le nom se modifie sur la ligne de la barre, en tête de la colonne."""
+    """Les rubriques de la barre ouverte ; ``r`` : son résultat (les longueurs automatiques, la masse, ce qui reste à
+    confirmer). Le nom se modifie sur la ligne de la barre, en tête de la colonne."""
     r = r or {}
     charge = el["mode"] == "chargee"
+    appuis = a_des_appuis(el)
     return (C.section(1, "Barre", _resume_barre(el), _rubrique_barre(el, r), True, "ba")
             + (C.section(2, "Charges", _resume_charges(el), _rubrique_charges(el), False, "ch") if charge else
                C.section(2, "Efforts", _resume_efforts(el), _rubrique_efforts(el), False, "ef"))
             + C.section(3, "Maintiens et flambement" if charge else "Flambement et déversement", _resume_maintiens(el, r),
                         _rubrique_maintiens(el, r), False, "mt")
-            + C.section(4, "Méthodes", _resume_methodes(el), _rubrique_methodes(el, r), False, "me", secondaire=True))
+            + (C.section(4, "Appuis", _resume_appuis(el), _rubrique_appuis(el), False, "ap") if appuis else "")
+            + C.section(5 if appuis else 4, "Méthodes", _resume_methodes(el), _rubrique_methodes(el, r), False, "me", secondaire=True))

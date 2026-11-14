@@ -387,9 +387,17 @@ def controles(C_=CL, S_=ES):
     c("η = 1,0 (valeur prudente) : le plancher ne gouverne plus, l'aire du catalogue revient",
       proche(limite(r, "E-Vz"), pt["Avz"] * 100 * 235.0 / R3 / 1e3) and "Av_z" not in verif(r, "E-Vz")["formules"], limite(r, "E-Vz"))
     r = v("IPE 750x147", "S355", VzEd=500e3)
-    c("IPE 750x147 S355 sous effort tranchant : h_w/t_w = 54,5 > 72·ε/η = 48,8 → voilement par cisaillement NON vérifié ici, statut « non couvert »",
-      r["statut"] == RE.NON_COUVERT and verif(r, "E-Vb")["statut"] == RE.NON_COUVERT and verif(r, "E-Vz")["statut"] == RE.OK
+    c("IPE 750x147 S355 sous effort tranchant : h_w/t_w = 54,5 > 72·ε/η = 48,8 → le voilement par cisaillement est VÉRIFIÉ (A-Vb, EN 1993-1-5 "
+      "§ 5 : V_bw,Rd = 2 083,7 kN, sous V_pl,z,Rd = 2 334 kN) — depuis le lot 4, plus « non couvert » ; une âme trapue (IPE 300) n'a pas cette ligne",
+      r["statut"] == RE.OK and verif(r, "A-Vb")["statut"] == RE.OK and round(limite(r, "A-Vb"), 1) == 2083.7 and limite(r, "A-Vb") < limite(r, "E-Vz")
+      and verif(r, "E-Vb") is None and verif(r, "E-Vz")["statut"] == RE.OK and verif(v("IPE 300", "S355", VzEd=100e3), "A-Vb") is None
       and v("IPE 300", "S355", VzEd=100e3)["statut"] == RE.OK, r["statut"])
+    r = v("IPE 750x147", "S355", MyEd=1500e6, VzEd=1200e3)
+    Mf_, Mpl_ = pt["b"] * pt["tf"] * (pt["h"] - pt["tf"]) * 355.0 / 1e6, pt["Wpl_y"] * 1e3 * 355.0 / 1e6
+    c("… sous V_z,Ed = 1 200 kN > 0,5·V_bw,Rd et M_y,Ed = 1 500 kN·m > M_f,Rd : l'interaction (7.1) de l'EN 1993-1-5 est vérifiée avec le moment "
+      "d'AXE FORT (A-VbM = η̄₁ + (1 − M_f,Rd/M_pl,Rd)·(2·η̄₃ − 1)²)",
+      verif(r, "A-VbM") is not None and proche(verif(r, "A-VbM")["valeur"], 1500.0 / Mpl_ + (1.0 - Mf_ / Mpl_) * (2.0 * 1200.0 / limite(r, "A-Vb") - 1.0) ** 2),
+      verif(r, "A-VbM"))
     # flexion + effort tranchant (6.30) : IPE 300 S235, V = 250 kN
     rho = (2 * 250e3 / Vplz - 1) ** 2
     Aw = (p["h"] - 2 * p["tf"]) * p["tw"]
@@ -624,8 +632,10 @@ def mutations():
         ("section", "ρ sans le carré", "rho[a] = min((2.0 * V / Vpl - 1.0) ** 2, 1.0)", "rho[a] = min(2.0 * V / Vpl - 1.0, 1.0)"),
         ("section", "(6.30) : A_w² / (2·t_w)", "MV = min((s[\"Wpl_y\"] - r * Aw ** 2 / (4.0 * s[\"tw\"])) * fy / gM0, MRd)", "MV = min((s[\"Wpl_y\"] - r * Aw ** 2 / (2.0 * s[\"tw\"])) * fy / gM0, MRd)"),
         ("section", "(6.30) appliquée à une classe 3", 'if a == "y" and s["forme"] == "I" and classe <= 2 and rho["y"] == 0.0:', 'if a == "y" and s["forme"] == "I" and rho["y"] == 0.0:'),
-        ("section", "voilement par cisaillement : seuil 72ε sans η", 'if ame is not None and ame["hw"] / ame["tw"] > VOILEMENT_AME * eps / eta:', 'if ame is not None and ame["hw"] / ame["tw"] > VOILEMENT_AME * eps:'),
-        ("section", "voilement par cisaillement passé sous silence", "VOILEMENT_AME = 72.0 ", "VOILEMENT_AME = 720.0 "),
+        # (le seuil 72·ε/η et la résistance V_bw,Rd sont dans acier/barre/ec3_ame.py : leurs mutations, dans tests/test_barre_ame.py)
+        ("section", "voilement par cisaillement passé sous silence", '            if d["voilement"]: ', "            if False: "),
+        ("section", "voilement par cisaillement : le moment de l'autre axe", "AM.cisaillement(J, s, fy, P, V, My if a == \"z\" else Mz, N, direction=a)",
+         "AM.cisaillement(J, s, fy, P, V, Mz if a == \"z\" else My, N, direction=a)"),
         ("section", "(6.36) : 1 − a au lieu de 1 − 0,5·a (I)", "            f_ = (1.0 - n) / (1.0 - 0.5 * a)\n", "            f_ = (1.0 - n) / (1.0 - a)\n"),
         ("section", "(6.36) : plafond de a porté à 1", "A_MAX = 0.5 ", "A_MAX = 1.0 "),
         ("section", "(6.38) : sans le carré", "MNz = MzRd * (1.0 - ((n - a) / (1.0 - a)) ** 2)", "MNz = MzRd * (1.0 - ((n - a) / (1.0 - a)))"),

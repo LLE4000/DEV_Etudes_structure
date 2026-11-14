@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Les dessins d'une BARRE CHARGÉE du module « Choix de profilé » : ses cas de charge (une bande par cas), la poutre —
-ses appuis, ses maintiens, ses portées —, puis les enveloppes du moment et de l'effort tranchant ; et les TAUX de
-toutes les vérifications, méthode par méthode.
+ses appuis, ses maintiens, ses raidisseurs, ses portées —, puis les enveloppes du moment et de l'effort tranchant ; et
+les TAUX de toutes les vérifications, méthode par méthode.
 
 Rien n'est calculé ici : les enveloppes viennent du moteur (``resultat["statique"]``), les taux de ses vérifications ;
 ce fichier les POSE. Du SVG en unités d'écran, aux couleurs des dessins du module (api_web/dessin_profil). La scène de la
@@ -22,6 +22,7 @@ ML, MR = 78.0, 30.0              # à gauche : le nom d'un cas et sa nature, le 
 H_CAS = 44.0                     # la hauteur de la bande d'un cas de charge
 H_DIAG = 84.0
 CHARGE, CHARGE_FOND, DIAG_M, DIAG_V = "#9C3341", "#F6E3E6", "#2B4BCF", "#0F766E"
+RAIDISSEUR = "#B45309"           # un raidisseur transversal : un plat debout, à cheval sur la poutre
 FS = 11.0
 
 
@@ -150,8 +151,13 @@ def _appuis(el: Dict) -> List[Tuple[float, str]]:
     return [(x, "articule") for x in xs]
 
 
-def _poutre(el: Dict, yb: float, K: Cadre) -> Tuple[str, float]:
-    """La poutre, ses appuis, ses maintiens et ses cotes : (SVG, ordonnée du bas)."""
+def _plat(x: float, y: float) -> str:
+    """Le signe d'un raidisseur : un plat debout, centré en (x, y)."""
+    return f'<rect x="{x - 1.9:.1f}" y="{y - 8:.1f}" width="3.8" height="16" rx="0.8" fill="{RAIDISSEUR}" stroke="#fff" stroke-width="0.7"/>'
+
+
+def _poutre(el: Dict, yb: float, K: Cadre, raidisseurs: Sequence[float] = ()) -> Tuple[str, float]:
+    """La poutre, ses appuis, ses maintiens, ses raidisseurs (leurs abscisses) et ses cotes : (SVG, ordonnée du bas)."""
     X, Lt = K.X, K.Lt
     out = [_trait(f"M{X(0):.1f} {yb:.1f}H{X(Lt):.1f}", DP.ENCRE, 3.4)]
     for k, (x0, genre) in enumerate(_appuis(el)):
@@ -170,6 +176,7 @@ def _poutre(el: Dict, yb: float, K: Cadre) -> Tuple[str, float]:
         haut = f'<path d="M{x:.1f} {yb - 3:.1f}l-4.5 -8h9z" fill="{DP.ACCENT}"/>'
         bas = f'<path d="M{x:.1f} {yb + 3:.1f}l-4.5 8h9z" fill="{DP.ACCENT}"/>'
         out.append({"complet": haut + bas, "haut": haut, "bas": bas}[mt["genre"]])
+    out += [_plat(X(x), yb) for x in raidisseurs]
     yc = yb + 48
     x0 = 0.0
     for i, L in enumerate(el["travees"]):
@@ -233,7 +240,8 @@ def barre(ident: str, el: Dict, r: Dict, largeur: float = W, legende: bool = Tru
         y += H_CAS
         corps.append(_bande_cas(c, y, K, vmax))
     yb = y + 40.0
-    p, y = _poutre(el, yb, K)
+    raidis = [L["x"] for L in M.raidis(r.get("ame") or {})]
+    p, y = _poutre(el, yb, K, raidis)
     corps.append(p)
     env = enveloppes(r)
     if env:
@@ -252,6 +260,11 @@ def barre(ident: str, el: Dict, r: Dict, largeur: float = W, legende: bool = Tru
         corps.append(f'<path d="M{ML:.1f} {y - 3:.1f}l-4.5 -8h9z" fill="{DP.ACCENT}"/>')
         corps.append(_t(ML + 9, y - 4, "maintien latéral : au-dessus de la barre, la semelle haute ; en dessous, la basse ; les deux : complet", 9.5,
                         "start", DP.MUET))
+        y += 6
+    if raidis and legende:
+        y += 16 if el["maintiens"] else 18
+        corps.append(_plat(ML, y - 7))
+        corps.append(_t(ML + 9, y - 4, "raidisseur transversal : une paire de plats, de part et d'autre de l'âme", 9.5, "start", DP.MUET))
         y += 6
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {K.w:.0f} {y + 6:.0f}" width="100%" role="img" '
             f'aria-label="La barre : ses cas de charge, ses appuis et ses maintiens, les enveloppes du moment et de l\'effort tranchant">'

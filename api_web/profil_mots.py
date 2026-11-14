@@ -20,7 +20,16 @@ MOINS = "−"
 
 METHODES = {"historique": "Méthode historique", "ec3": "Eurocode 3"}
 METHODES_COURT = {"historique": "Historique", "ec3": "Eurocode 3"}
-PREFIXE = {"historique": "h", "ec3": "e"}          # le préfixe des fenêtres de calcul d'une méthode
+AME = "ame"                                        # le bloc de l'âme (EN 1993-1-5) : ni l'une ni l'autre méthode, toujours rendu
+TITRE_AME = "Âme et raidisseurs"
+TITRE_AME_SEUL = "Contrôles complémentaires EN 1993-1-5"      # son titre dans une note « méthode historique seule »
+PREFIXE = {"historique": "h", "ec3": "e", AME: "a"}          # le préfixe des fenêtres de calcul d'une méthode, de l'âme
+MODES_APPUI = (("poses", "Posée", "La barre repose sur ses appuis : la réaction appuie sur l'âme."),
+               ("ame", "Par l'âme", "Platine d'about, cornières, gousset : aucune force concentrée sur l'âme aux appuis."))
+NOM_MODE_APPUI = {"poses": "posée", "ame": "par l'âme"}
+AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre dans la semelle (largeur de l'appui, platine, semelle du "
+           "poteau qui charge). 0 : le cas le plus défavorable.")
+AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
          ("efforts", "Efforts imposés", "Les efforts sont donnés : ceux de service pour la méthode historique, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),
@@ -55,15 +64,15 @@ _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+
 
 # ------------------------------------------------------------------ nombres
 def n(x: Optional[float], dec: int = 3) -> str:
-    """Une saisie ou une donnée du catalogue, sans zéro inutile, à la française, les milliers séparés ; « — » sans valeur."""
+    """Une saisie ou une donnée du catalogue, sans zéro inutile, à la française, les milliers séparés ; « — » sans valeur.
+    L'arrondi est celui du site (``commun.nb`` : demi vers l'extérieur) — le catalogue et la barre écrivent le même
+    chiffre d'un profilé (HEB 180 : I_y = 3 831,25 cm⁴ → « 3 831,3 », que l'arrondi de Python écrivait « 3 831,2 »)."""
     if x is None:
         return "—"
-    s = f"{float(x):.{dec}f}"
-    if "." in s:
-        s = s.rstrip("0").rstrip(".")
-    if float(s) == 0:
-        s = "0"
-    ent, _, d = s.partition(".")
+    s = C.nb(float(x), dec)
+    if s == "—":
+        return s
+    ent, _, d = s.partition(",")
     signe = MOINS if ent.startswith("-") else ""
     ent = f"{int(ent.lstrip('-')):,}".replace(",", FINE)
     return signe + ent + ("," + d if d else "")
@@ -94,6 +103,27 @@ def sub(s: str) -> str:
     h = C.symb_math(_PRIME.sub("\\1\\2⁣\\3⁣", s))
     h = re.sub("([′'])⁣([^⁣]*)⁣", r"\1<sub>\2</sub>", h)
     return h.replace("λ̄", '<span class="pf-barre">λ</span>')
+
+
+# ------------------------------------------------------------------ l'âme et ses raidisseurs
+def raidis(a: Dict) -> list:
+    """Les lieux du bloc de l'âme qui reçoivent un raidisseur."""
+    return [L for L in a.get("lieux") or [] if L["decision"] == "raidisseur"]
+
+
+def resume_ame(a: Dict) -> str:
+    """Ce que le bloc de l'âme décide, en une phrase (du texte) : « Pas de raidisseur nécessaire » ; « Raidisseurs :
+    2 plats 70 × 12 mm (appui A, appui B) » ; « Âme élancée vérifiée au cisaillement » ; vide quand rien n'appuie sur
+    l'âme. La même à l'écran et dans la note."""
+    r = raidis(a)
+    if r:
+        par = {}
+        for L in r:
+            par.setdefault(L["raidisseur"]["designation"], []).append(L["nom"][:1].lower() + L["nom"][1:])
+        return ("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
+    if a.get("lieux"):
+        return "Pas de raidisseur nécessaire"
+    return "Âme élancée vérifiée au cisaillement" if a.get("verifications") else ""
 
 
 def niveau(v: Dict) -> str:

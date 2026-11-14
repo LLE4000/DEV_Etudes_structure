@@ -31,6 +31,7 @@ from typing import Dict, List, Optional
 
 from acier.flambement import normes as NO
 
+from . import ec3_ame as AM
 from . import ec3_classe as CL
 from . import parametres as PA
 from . import section as SE
@@ -44,7 +45,6 @@ SEUIL_V = 0.5                    # § 6.2.8(2) : pas de réduction tant que V_Ed
 A_MAX = 0.5                      # a, a_w, a_f ≤ 0,5 (§ 6.2.9.1(5))
 ALPHA_I = 2.0                    # (6.41), I et H
 ALPHA_TUBE_MAX = 6.0             # (6.41), tubes carrés et rectangulaires
-VOILEMENT_AME = 72.0             # h_w/t_w ≤ 72·ε/η (EN 1993-1-5 § 5.1(2))
 EFFORTS = ("NEd", "MyEd", "MzEd", "VzEd", "VyEd")
 NOMS_W = {1: "W_pl", 2: "W_pl", 3: "W_el", 4: "W_eff"}
 
@@ -56,7 +56,9 @@ def epaisseur(s: Dict) -> float:
 
 def lire(barre: Dict) -> Dict:
     """Les données, complétées et contrôlées (une COPIE) : {"section", "nuance", "fy", "t", "fy_tableau", "parametres",
-    "NEd", "MyEd", "MzEd", "VzEd", "VyEd"}. ``fy`` donné passe devant le tableau 3.1."""
+    "NEd", "MyEd", "MzEd", "VzEd", "VyEd", "voilement"}. ``fy`` donné passe devant le tableau 3.1. ``voilement`` faux :
+    sans le voilement par cisaillement d'une âme élancée — le moteur des barres le range dans SON bloc de l'âme
+    (acier/barre/ame.py), avec les autres vérifications de l'EN 1993-1-5."""
     if not isinstance(barre, dict) or not isinstance(barre.get("section"), dict):
         raise Refus("la barre doit porter une section")
     s = barre["section"]
@@ -64,7 +66,7 @@ def lire(barre: Dict) -> Dict:
         P = PA.jeu(barre.get("parametres"))
     except KeyError as e:
         raise Refus(f"paramètre inconnu : {e.args[0]!r}") from None
-    d = {"section": s, "parametres": P, "nuance": barre.get("nuance"), "t": epaisseur(s)}
+    d = {"section": s, "parametres": P, "nuance": barre.get("nuance"), "t": epaisseur(s), "voilement": bool(barre.get("voilement", True))}
     for k in EFFORTS:
         v = barre.get(k, 0.0)
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(float(v)):
@@ -195,8 +197,9 @@ def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: fl
 
 
 def ajouter(J: Journal, d: Dict) -> None:
-    """Les vérifications de la SECTION, versées dans le journal : E-N, E-My, E-Mz, E-Vz, E-Vy, E-Vb (voilement par
-    cisaillement, non couvert ici), puis E-MV (flexion et effort tranchant) ou E-NM (flexion composée, déviée)."""
+    """Les vérifications de la SECTION, versées dans le journal : E-N, E-My, E-Mz, E-Vz, E-Vy, le voilement par
+    cisaillement d'une âme élancée (A-Vb, A-VbM : ec3_ame.py), puis E-MV (flexion et effort tranchant) ou E-NM (flexion
+    composée, déviée)."""
     s, fy, P = d["section"], d["fy"], d["parametres"]
     gM0, eta = P["gamma_M0"], P["eta"]
     N = d["NEd"]
@@ -311,13 +314,8 @@ def ajouter(J: Journal, d: Dict) -> None:
                 if V < Vpl:
                     cles_rho.append(J.f(f"rho_{a}", "ρ" if rond else f"ρ_{a}", [_t("V_Ed" if rond else f"V_{a},Ed", V / 1e3, "kN"),
                                                                                  _t(nomV, Vpl / 1e3, "kN")], rho[a], "", "e_rho_V"))
-            ame = CL.hauteur_cisaillee(s, a)
-            if ame is not None and ame["hw"] / ame["tw"] > VOILEMENT_AME * eps / eta:
-                G[f"voilement_cisaillement_{a}"] = {"hw_tw": ame["hw"] / ame["tw"], "limite": VOILEMENT_AME * eps / eta}
-                J.verif("E-Vb" if a == "z" else "E-Vb-y", "Voilement de l'âme par cisaillement", "EN 1993-1-5 § 5", "", None, None, "", [],
-                        statut=NON_COUVERT, messages=[J.alerte(f"voilement_cisaillement_{a}", "attention",
-                                                               f"Âme élancée (h_w/t_w = {_fr(ame['hw'] / ame['tw'], 1)} > 72·ε/η = "
-                                                               f"{_fr(VOILEMENT_AME * eps / eta, 1)}) : voilement par cisaillement non vérifié.")])
+            if d["voilement"]:                               # une âme élancée : EN 1993-1-5 § 5 et § 7.1 (« A-Vb », « A-VbM »)
+                AM.cisaillement(J, s, fy, P, V, My if a == "z" else Mz, N, direction=a)
         if forme == "I" and Vy > 0:
             J.alerte("a_confirmer_Avy", "info", "A_v,y = A − h_w·t_w : par analogie avec les sections soudées (à confirmer).")
     G["rho_z"], G["rho_y"] = rho["z"], rho["y"]

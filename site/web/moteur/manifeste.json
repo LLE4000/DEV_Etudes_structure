@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "ddb5bfba20d5cc3b256feb104c7453054810a20caf44db6cfb5dfca1f82f52cd",
+ "sha256": "02aba26510e3691d335342d09944e3b5478d3b225d82c2d02ce91f0926aa7baf",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -95,8 +95,10 @@
   "acier/assemblages/poutre_poutre/platine_about/synthese.py",
   "acier/assemblages/poutre_poutre/platine_about/texte.py",
   "acier/barre/__init__.py",
+  "acier/barre/ame.py",
   "acier/barre/combinaisons.py",
   "acier/barre/ec3.py",
+  "acier/barre/ec3_ame.py",
   "acier/barre/ec3_classe.py",
   "acier/barre/ec3_deversement.py",
   "acier/barre/ec3_flambement.py",
@@ -104,11 +106,13 @@
   "acier/barre/ec3_section.py",
   "acier/barre/ecriture.py",
   "acier/barre/entree.py",
+  "acier/barre/enveloppe.py",
   "acier/barre/formules.py",
   "acier/barre/historique.py",
   "acier/barre/mcr.py",
   "acier/barre/moteur.py",
   "acier/barre/parametres.py",
+  "acier/barre/raidisseurs.py",
   "acier/barre/resultat.py",
   "acier/barre/section.py",
   "acier/barre/statique.py",
@@ -380,10 +384,10 @@
   "garde_corps": "9d6a2b474d4321ad",
   "plancher": "eb59f2a541093dba",
   "poutre": "617eb168036b4bd8",
-  "profil": "cab3c74107d9787e",
+  "profil": "091380ce1f42e98a",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "fff0447907c2d1e9"
+ "version": "f11410e50a370a40"
 }

@@ -2,13 +2,16 @@
 """Barres en acier (module « Choix de profilé ») — les RÉSULTATS : la colonne de droite et les fenêtres de calcul.
 
 À droite : la tête (la barre, son profilé, son acier) ; un VERDICT par méthode (le taux le plus fort et ce qu'il
-compare) ; le profilé retenu (il ouvre le sélecteur) ; un bloc par méthode — chaque vérification dit ce qu'elle
-compare, où elle a été trouvée, et ouvre SA fenêtre de calcul — ; la comparaison des deux méthodes, sujet par sujet ;
-les avertissements du moteur ; la masse et la flèche de service.
+compare) et, dessous, ce que l'ÂME demande quand elle demande quelque chose (des raidisseurs, un défaut) ; le profilé
+retenu (il ouvre le sélecteur) ; un bloc par méthode — chaque vérification dit ce qu'elle compare, où elle a été
+trouvée, et ouvre SA fenêtre de calcul — ; le bloc de l'âme et de ses raidisseurs (EN 1993-1-5 : une ligne par appui et
+par charge ponctuelle, avec sa décision) ; la comparaison des deux méthodes, sujet par sujet ; les avertissements du
+moteur ; la masse et la flèche de service.
 
-Les fenêtres de calcul : une par vérification (« h-H-SIGMA », « e-E-Mb »), « tout le calcul » de chaque méthode
-(« s1 », « s2 » : le numéro de son bloc), la comparaison (« cmp ») et les paramètres à confirmer (« ac »). Chaque
-formule y est écrite par ``acier/barre/ecriture`` — la même ligne que dans la note PDF.
+Les fenêtres de calcul : une par vérification (« h-H-SIGMA », « e-E-Mb », « a-A-Vb »), une par LIEU de l'âme
+(« a-A-L00 » : toutes ses vérifications), « tout le calcul » de chaque bloc (« s1 », « s2 », « s3 » : son numéro), la
+comparaison (« cmp ») et les paramètres à confirmer (« ac »). Chaque formule y est écrite par ``acier/barre/ecriture``
+— la même ligne que dans la note PDF.
 
 Ce fichier MET EN FORME ce que le moteur a calculé et nommé : il ne calcule rien.
 """
@@ -51,6 +54,23 @@ def gouvernante(x: Dict) -> Optional[Dict]:
     return next((v for v in x["verifications"] if v["statut"] == RE.NON_COUVERT), None)
 
 
+def pire(r: Dict) -> Tuple[Optional[str], Optional[Dict]]:
+    """(la clé, le résultat) du bloc qui porte le taux le plus fort d'une barre : une de ses méthodes ; ou l'âme (clé
+    ``profil_mots.AME``) quand elle NE PASSE PAS et dépasse les méthodes. Une âme qui passe ne compte pas : un raidisseur
+    dimensionné au plus juste est souvent à 95 % et plus — il ne dit rien du profilé. (None, None) sans aucun taux."""
+    blocs = [(k, x) for k, x in r["methodes"].items() if x.get("taux_max") is not None]
+    a = r.get("ame") or {}
+    if a.get("statut") == RE.NOK and a.get("taux_max") is not None:
+        blocs.append((M.AME, a))
+    return max(blocs, key=lambda kx: kx[1]["taux_max"]) if blocs else (None, None)
+
+
+def taux_barre(r: Dict) -> Optional[float]:
+    """Le taux le plus fort d'une barre (``pire``) ; None quand rien n'a de taux."""
+    x = pire(r)[1]
+    return x["taux_max"] if x else None
+
+
 def niveau_methode(x: Dict) -> str:
     """La couleur d'une méthode : rouge si elle refuse, celle de son taux sinon ; « v » (à vérifier) si une vérification
     n'est pas couverte ; « n » si elle n'a rien eu à vérifier."""
@@ -86,9 +106,49 @@ def dims(el: Dict) -> str:
     return s
 
 
+def bloc_ame(r: Dict) -> Optional[int]:
+    """Le numéro du bloc de l'âme, juste après ceux des méthodes ; None quand il n'a rien à montrer (ni vérification, ni
+    avertissement : rien n'appuie sur l'âme)."""
+    a = r["ame"]
+    return len(r["methodes"]) + 1 if (a["verifications"] or a["alertes"]) else None
+
+
+def etat_ame(a: Dict) -> str:
+    """L'état du bloc de l'âme, pour son en-tête (du texte) : « Sans raidisseur · 77 % », « 2 raidisseurs · 97 % »,
+    « Non conforme · 110 % », « À vérifier »."""
+    niv = niveau_methode(a)
+    k = len(M.raidis(a))
+    if niv in ("r", "v") or not a["verifications"]:
+        mot = mot_niveau(niv) if a["verifications"] else "Non vérifiée"
+    elif k:
+        mot = f"{k} raidisseur{'s' if k > 1 else ''}"
+    else:
+        mot = "Sans raidisseur" if a["lieux"] else mot_niveau(niv)
+    if a.get("taux_max") is None:
+        return mot
+    p = C.pct(a["taux_max"])
+    return f"{mot} · " + (f">{N}{C.PLAFOND_TAUX}{N}%" if p > C.PLAFOND_TAUX else f"{C.pc(p)}{N}%")
+
+
+def verdict_ame(r: Dict) -> str:
+    """Sous les verdicts des méthodes, ce que l'âme DEMANDE — une ligne, et seulement s'il y a quelque chose à faire :
+    des raidisseurs à poser, une vérification qui ne passe pas ou qui n'est pas couverte. Elle ouvre tout le calcul du bloc."""
+    a, i = r["ame"], bloc_ame(r)
+    if i is None or (a["statut"] == RE.OK and not M.raidis(a)):
+        return ""
+    if a["statut"] == RE.OK:
+        cls, texte = "warn", M.resume_ame(a)
+    else:
+        g = gouvernante(a)
+        cls = "nok" if a["statut"] == RE.NOK else "inc"
+        texte = f"{M.MOT_STATUT[a['statut']].lower()} — {g['titre'][:1].lower() + g['titre'][1:]}" if g else M.MOT_STATUT[a["statut"]].lower()
+    return (f'<button type="button" class="pf-vame {cls}" data-calcul="s{i}" title="Voir le calcul">{C.icon("triangle-alert")}'
+            f'<span><b>Âme</b> · {C.esc(texte)}</span></button>')
+
+
 def verdicts(r: Dict) -> str:
     """Un verdict par méthode : la pastille de son taux le plus fort, la vérification qui gouverne et ce qu'elle compare ;
-    il ouvre la fenêtre de calcul de cette vérification."""
+    il ouvre la fenêtre de calcul de cette vérification. Dessous, ce que l'âme demande (``verdict_ame``)."""
     out = ""
     ms = methodes(r)
     for _, k, x in ms:
@@ -104,7 +164,7 @@ def verdicts(r: Dict) -> str:
         suite = f'<br><span class="pf-ou">{C.esc(g["combinaison"])}{" · " + C.esc(ou) if ou else ""}</span>' if g.get("combinaison") else ""
         out += (f'<div class="verdict" data-calcul="{fenetre(k, g["id"])}" title="Voir le calcul">{pastille}<div class="gov">'
                 f'<b>{M.METHODES[k]} · {C.esc(g["titre"][:1].lower() + g["titre"][1:])}</b>{M.comparaison(g)}{suite}</div></div>')
-    return f'<div class="pf-verdicts n{len(ms)}">{out}</div>'
+    return f'<div class="pf-verdicts n{len(ms)}">{out}</div>{verdict_ame(r)}'
 
 
 # ------------------------------------------------------------------ les blocs
@@ -114,8 +174,7 @@ def _ligne_profil(r: Dict) -> str:
     note dépendait alors de ce qui avait été ouvert avant, ce que le moteur partagé du site interdit (un écran rend ce
     que rend un moteur neuf ; trouvé par tests/test_moteur_partage.py, P1, le 14/11/2026)."""
     quoi = f"{M.n(r['masse'], 1)}{N}kg/m" if r.get("masse") else ""
-    taux = [x["taux_max"] for x in r["methodes"].values() if x.get("taux_max") is not None]
-    t = max(taux) if taux else None
+    t = taux_barre(r)
     niv = "r" if r["statut"] == RE.NOK else (C.niveau(t) if t is not None else "c")
     return C.ligne_verif("Profilé", quoi, C.pct(t) if t is not None else None, niv, pk=ROLE, piece=C.esc(r["profil"]), etat_txt="—")
 
@@ -138,10 +197,41 @@ def _efforts_bloc(el: Dict, k: str, x: Dict) -> str:
     return f"{C.esc(x['norme'])} · {quoi}" + (f" · {n_c} combinaison{'s' if n_c > 1 else ''}" if n_c else "")
 
 
+def _ligne_lieu(a: Dict, L: Dict, gov: bool) -> str:
+    """Un LIEU de l'âme (un appui, une charge ponctuelle) : sa décision — « sans raidisseur » ou la paire de plats —, ce
+    que sa vérification la plus défavorable compare, son taux ; elle ouvre la fenêtre du lieu (toutes ses vérifications)."""
+    v = next(x for x in a["verifications"] if x["id"] == L["gouvernant"])
+    if L["decision"] == "raidisseur":
+        cmp_ = f'<b class="pf-raid">{C.esc(L["raidisseur"]["designation"])}</b> <span class="pf-ou">· {M.comparaison(v)}</span>'
+    else:
+        cmp_ = f'{M.comparaison(v)} <span class="pf-ou">· sans raidisseur</span>'
+    return C.ligne_verif(L["nom"], cmp_, C.pct(L["taux"]) if L["taux"] is not None else None, M.niveau(v), calcul=fenetre(M.AME, L["base"]),
+                         gov=gov, etat_txt=M.MOT_STATUT[L["statut"]].lower())
+
+
+def _bloc_ame(el: Dict, r: Dict) -> str:
+    """Le bloc de l'âme : le voilement par cisaillement (une âme élancée), puis une ligne par lieu ; ses avertissements."""
+    a, i = r["ame"], bloc_ame(r)
+    if i is None:
+        return ""
+    des_lieux = {k for L in a["lieux"] for k in L["verifications"]}
+    g = a.get("gouvernant")
+    rows = "".join(_ligne(M.AME, v, v["id"] == g) for v in a["verifications"] if v["id"] not in des_lieux)
+    rows += "".join(_ligne_lieu(a, L, g in L["verifications"]) for L in a["lieux"])
+    pied = "".join(C.message(M.sub(x["message"]), x.get("niveau") != "info") for x in a["alertes"])
+    return E.bloc(i, M.TITRE_AME, M.CLASSE_BLOC.get(niveau_methode(a), "inc") if a["verifications"] else "inc", etat_ame(a),
+                  _efforts_bloc(el, M.AME, a), rows, f'<div class="pf-msgs">{pied}</div>' if pied else "", theme=True)
+
+
 def _comparaison(r: Dict) -> str:
-    """Le tableau de la comparaison : un sujet par ligne, le taux de chaque méthode en pastille."""
+    """Le tableau de la comparaison : un sujet par ligne, le taux de chaque méthode en pastille ; l'âme, qui vaut pour
+    les deux, porte UN taux à cheval sur les deux colonnes."""
     rows = '<div class="pf-cmp pf-cmp-h"><span></span><span>Historique</span><span>Eurocode 3</span></div>'
     for li in r["comparaison"]:
+        if li.get("commun") is not None:
+            rows += (f'<div class="pf-cmp pf-cmp-c"><span>{C.esc(li["sujet"])}</span>'
+                     f'{C.chip(C.pct(li["commun"]), "r" if r["ame"]["statut"] == RE.NOK else C.niveau(li["commun"]))}</div>')
+            continue
         cases = ""
         for k in ("historique", "ec3"):
             t = li[k]
@@ -152,7 +242,7 @@ def _comparaison(r: Dict) -> str:
 
 
 def blocs(el: Dict, r: Dict) -> str:
-    """Le profilé, puis un bloc par méthode et, quand les deux sont rendues, leur comparaison."""
+    """Le profilé, puis un bloc par méthode, le bloc de l'âme et, quand les deux méthodes sont rendues, leur comparaison."""
     out = f'<div class="els pf-profil">{_ligne_profil(r)}</div>'
     ms = methodes(r)
     for i, k, x in ms:
@@ -166,12 +256,13 @@ def blocs(el: Dict, r: Dict) -> str:
         #  devant « Conforme, attention · 97 % » ou « Non conforme · 179 % » — trouvé par le harnais des barres, 14/11/2026)
         out += E.bloc(i, M.METHODES_COURT[k], M.CLASSE_BLOC.get(niv, "inc"), etat_methode(x), _efforts_bloc(el, k, x), rows,
                       f'<div class="pf-msgs">{pied}</div>' if pied else "", theme=True)
+    out += _bloc_ame(el, r)
     if comparable(r):
         ecart = next((li for li in r["comparaison"] if li["sujet"] == "Le plus défavorable"), None)
         etat = ""
         if ecart and ecart["historique"] is not None and ecart["ec3"] is not None:
             etat = f"{C.pc(C.pct(ecart['historique']))}{N}% · {C.pc(C.pct(ecart['ec3']))}{N}%"
-        out += E.bloc(len(ms) + 1, "Comparaison", "inc", etat, "le taux le plus fort de chaque méthode, sujet par sujet",
+        out += E.bloc(len(ms) + (2 if bloc_ame(r) else 1), "Comparaison", "inc", etat, "le taux le plus fort de chaque méthode, sujet par sujet",
                       _comparaison(r), theme=True, calcul="cmp")
     return out
 
@@ -270,6 +361,11 @@ def _combinaisons(x: Dict) -> str:
 def _fenetre_comparaison(el: Dict, r: Dict, nom: str) -> str:
     lignes = []
     for li in r["comparaison"]:
+        if li.get("commun") is not None:             # l'âme : un seul taux, il vaut pour les deux méthodes
+            t = li["commun"]
+            lignes.append({"nom": C.esc(li["sujet"]), "sous": "vaut pour les deux méthodes", "formule": "", "valeur": "—", "limite": "—",
+                           "taux": C.pct(t), "niveau": "r" if r["ame"]["statut"] == RE.NOK else C.niveau(t), "gov": False})
+            continue
         h, e = li["historique"], li["ec3"]
         pire = max((t for t in (h, e) if t is not None), default=None)
         lignes.append({"nom": C.esc(li["sujet"]), "sous": "", "formule": "", "valeur": M.taux_txt(h), "limite": M.taux_txt(e),
@@ -318,7 +414,41 @@ def volets(el: Dict, r: Dict, nom: str) -> str:
         lignes = [_ligne_tableau(v, v["id"] == g) for v in x["verifications"]]
         out += C.fenetre_calcul(f"s{i}", f"{nom} · {M.METHODES[k].lower()}", f"{C.esc(x['norme'])} · {sous} · tout le calcul", hyps, lignes,
                                 tout + _combinaisons(x))
+    out += _fenetres_ame(el, r, nom)
     if comparable(r):
         out += _fenetre_comparaison(el, r, nom)
     out += _fenetre_a_confirmer(r, nom)
+    return out
+
+
+def _fenetres_ame(el: Dict, r: Dict, nom: str) -> str:
+    """Les fenêtres du bloc de l'âme : une par vérification du cisaillement, une par LIEU (toutes ses vérifications —
+    l'âme seule, la flexion, ou le raidisseur), et « tout le calcul » du bloc."""
+    a, i = r["ame"], bloc_ame(r)
+    if i is None:
+        return ""
+    out = ""
+    sous = dims(el)
+    hyps = _hyps(el, r, a)
+    g = a.get("gouvernant")
+    par_id = {v["id"]: v for v in a["verifications"]}
+    des_lieux = {k for L in a["lieux"] for k in L["verifications"]}
+    tout = ""
+    for v in a["verifications"]:
+        grp = _groupe(a, v)
+        tout += grp
+        if v["id"] in des_lieux:
+            continue
+        ou = " · ".join(t for t in (v.get("combinaison") or "", M.lieu(v)) if t)
+        out += C.fenetre_calcul(fenetre(M.AME, v["id"]), f"{nom} · {C.esc(v['titre'][:1].lower() + v['titre'][1:])}",
+                                f"{M.TITRE_AME} · {sous}" + (f" · {C.esc(ou)}" if ou else ""), hyps, [_ligne_tableau(v, True)], grp)
+    for L in a["lieux"]:
+        vs = [par_id[k] for k in L["verifications"]]
+        quoi = C.esc(L["raidisseur"]["designation"]) if L["decision"] == "raidisseur" else "sans raidisseur"
+        out += C.fenetre_calcul(fenetre(M.AME, L["base"]), f"{nom} · {C.esc(L['nom'][:1].lower() + L['nom'][1:])}",
+                                f"{M.TITRE_AME} · {sous} · x = {M.m(L['x'])} m · {quoi}", hyps,
+                                [_ligne_tableau(v, v["id"] == L["gouvernant"]) for v in vs], "".join(_groupe(a, v) for v in vs))
+    lignes = [_ligne_tableau(v, v["id"] == g) for v in a["verifications"]]
+    out += C.fenetre_calcul(f"s{i}", f"{nom} · {M.TITRE_AME.lower()}", f"{C.esc(a['norme'])} · {sous} · tout le calcul", hyps, lignes,
+                            tout + _combinaisons(a))
     return out

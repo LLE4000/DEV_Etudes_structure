@@ -29,6 +29,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.flambement import normes as NO
 
+from . import ame as AME
 from . import combinaisons as CO
 from . import ec3 as EC
 from . import ec3_deversement as DV
@@ -40,113 +41,18 @@ from . import parametres as PA
 from . import resultat as RE
 from . import section as SE
 from . import statique as ST
+from .enveloppe import IDS_BARRE, ORDRE, Enveloppe          # noqa: F401 — ORDRE, relu par les tests
 
-ORDRE = {"ec3": ("E-SECTION", "E-N", "E-My", "E-Mz", "E-Vz", "E-Vy", "E-Vb", "E-Vb-y", "E-MV", "E-NM", "E-Nb-y", "E-Nb-z", "E-Nb-T", "E-Mb",
-                 "E-661", "E-662"),
-         "historique": ("H-N-z", "H-N-y", "H-SIGMA", "H-EQ")}
-IDS_BARRE = ("E-Nb", "E-Mb", "E-66")             # les vérifications de la barre (les autres sont celles de la section)
 # la comparaison des deux méthodes : (sujet, vérifications historiques, vérifications de l'Eurocode)
 # (la méthode historique n'a pas de vérification de l'effort tranchant seul : il entre dans la contrainte équivalente)
 SUJETS = (("Flambement, axe faible", ("H-N-z",), ("E-Nb-z", "E-Nb-T")), ("Flambement, axe fort", ("H-N-y",), ("E-Nb-y",)),
           ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
           ("Effort tranchant seul", (), ("E-Vz", "E-Vy")))
+SUJET_AME = "Âme et raidisseurs (EN 1993-1-5)"
 POINTS_DIAGRAMME = 40            # points par travée des enveloppes rendues pour le dessin
 BALAYAGE_TRONCON = 24            # points par tronçon pour le plus grand moment
 EPS = 1e-9
 SAUT = 1e-9                      # l'écart relatif entre les lectures de gauche et de droite qui fait un saut de diagramme
-
-
-def _rang(v: Dict) -> Tuple[int, float]:
-    """L'ordre de gravité d'une occurrence : un refus sans taux passe devant tout taux ; un taux devant le reste."""
-    if v["statut"] == RE.NOK and v["taux"] is None:
-        return (2, 0.0)
-    if v["taux"] is not None:
-        return (1, v["taux"])
-    return (0, 0.0)
-
-
-class Enveloppe:
-    """Par vérification, l'occurrence la plus défavorable rencontrée, et le bilan de chaque combinaison."""
-
-    def __init__(self, methode: str, norme: str):
-        self.methode, self.norme = methode, norme
-        self.pire: Dict[str, Dict] = {}
-        self.bilan: Dict[str, Dict] = {}
-        self.alertes: Dict[str, Dict] = {}
-        self.a_confirmer: Dict[str, Dict] = {}
-
-    def verser(self, r: Dict, ou: Dict, prefixes: Optional[Sequence[str]] = None, sauf: Optional[Sequence[str]] = None) -> None:
-        """Verse le résultat ``r`` d'une méthode, trouvé ``ou`` ({"combinaison", "x" | "troncon"}) ; ``prefixes`` : ne
-        garder que ces vérifications ; ``sauf`` : les écarter."""
-        blocs = {f["cle"]: f for f in r["calcul"]}
-        gardees = []
-        for v in r["verifications"]:
-            if prefixes and not v["id"].startswith(tuple(prefixes)):
-                continue
-            if sauf and v["id"].startswith(tuple(sauf)):
-                continue
-            gardees.append(v)
-            rang = _rang(v)
-            courant = self.pire.get(v["id"])
-            if courant is None or rang > courant["rang"]:
-                self.pire[v["id"]] = {"rang": rang, "v": v, "blocs": [blocs[k] for k in v["formules"]], "ou": ou, "r": r}
-        if gardees:
-            b = self.bilan.setdefault(ou["combinaison"], {"nom": ou["combinaison"], "rang": (0, 0.0), "gouvernant": None, "non_couvert": False})
-            for v in gardees:
-                if _rang(v) > b["rang"]:
-                    b["rang"], b["gouvernant"] = _rang(v), v["id"]
-                b["non_couvert"] = b["non_couvert"] or v["statut"] == RE.NON_COUVERT
-        for a in r["alertes"]:
-            self.alertes.setdefault(a["code"], a)
-        for p in r["grandeurs"].get("a_confirmer") or []:
-            self.a_confirmer.setdefault(p["cle"], p)
-
-    def _grandeurs(self, gouv: Optional[Dict]) -> Dict:
-        """Les grandeurs rendues avec la méthode. Historique : celles de l'occurrence gouvernante. Eurocode 3 : celles de
-        la SECTION la plus sollicitée (classe, résistances…), puis — chacune prise là où SA vérification est la plus
-        défavorable — le flambement, le déversement et l'annexe A."""
-        if gouv is None:
-            return {}
-        if self.methode != "ec3":
-            return gouv["r"]["grandeurs"]
-
-        def de(ids: Sequence[str]) -> Optional[Dict]:
-            trouves = [self.pire[i] for i in ids if i in self.pire]
-            return max(trouves, key=lambda o: o["rang"])["r"]["grandeurs"] if trouves else None
-
-        barre = de([i for i in self.pire if i.startswith(IDS_BARRE)])
-        section = de([i for i in self.pire if not i.startswith(IDS_BARRE)])
-        G = dict(section or barre or {})
-        for cle, ids in (("flambement", ("E-Nb-z", "E-Nb-y", "E-Nb-T")), ("deversement", ("E-Mb",)), ("annexe_A", ("E-661", "E-662"))):
-            g = de(ids) or barre
-            if g is not None and cle in g:
-                G[cle] = g[cle]
-        return G
-
-    def rendre(self) -> Dict:
-        """Le résultat de la méthode sur toute la barre : la forme de acier/barre/resultat.py, où chaque vérification
-        dit sa combinaison et son lieu ; ``calcul`` porte les formules de chaque occurrence retenue (clés « id/clé »)."""
-        verifs, calcul = [], []
-        for id_ in list(ORDRE[self.methode]) + sorted(set(self.pire) - set(ORDRE[self.methode])):
-            if id_ not in self.pire:
-                continue
-            o = self.pire[id_]
-            v = dict(o["v"])
-            v["formules"] = [f"{id_}/{b['cle']}" for b in o["blocs"]]
-            v["messages"] = list(v["messages"])
-            v.update({"combinaison": o["ou"]["combinaison"], "x": o["ou"].get("x"), "troncon": o["ou"].get("troncon")})
-            calcul += [dict(b, cle=f"{id_}/{b['cle']}") for b in o["blocs"]]
-            verifs.append(v)
-        s = RE.synthese(verifs)
-        gouv = self.pire[s["gouvernant"]] if s["gouvernant"] else None
-        combis = [{"nom": b["nom"], "gouvernant": b["gouvernant"], "taux": b["rang"][1] if b["rang"][0] == 1 else None,
-                   "statut": RE.NOK if (b["rang"][0] == 2 or b["rang"][1] > 1.0) else RE.NON_COUVERT if b["non_couvert"] else RE.OK}
-                  for b in self.bilan.values()]
-        return {"methode": self.methode, "norme": self.norme, "statut": s["statut"], "taux_max": s["taux_max"], "gouvernant": s["gouvernant"],
-                "combinaison": gouv["ou"]["combinaison"] if gouv else None, "verifications": verifs, "calcul": calcul,
-                "grandeurs": self._grandeurs(gouv), "alertes": list(self.alertes.values()),
-                "hypotheses": list(gouv["r"]["hypotheses"]) if gouv else [], "a_confirmer": list(self.a_confirmer.values()),
-                "combinaisons": combis}
 
 
 def _refusee(methode: str, norme: str, message: str) -> Dict:
@@ -211,7 +117,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
     def ec3() -> Dict:
         e = b["efforts"]["elu"]
         r = EC.verifier({"section": s, "nuance": b["nuance"], "NEd": e["N"] * 1e3, "MyEd": e["My"] * 1e6, "MzEd": e["Mz"] * 1e6,
-                         "VzEd": e["Vz"] * 1e3, "VyEd": e["Vy"] * 1e3, "axes": axes, "parametres": b["parametres"],
+                         "VzEd": e["Vz"] * 1e3, "VyEd": e["Vy"] * 1e3, "axes": axes, "parametres": b["parametres"], "voilement": False,
                          "flexion": {a: {"diagramme": b["diagramme"][a]["forme"], "psi": b["diagramme"][a]["psi"]} for a in ("y", "z")},
                          "deversement": {"Lc": None if Lc is None else Lc * 1e3, "niveau": b["niveau"]}})
         r["a_confirmer"] = r["grandeurs"].get("a_confirmer", [])
@@ -223,16 +129,10 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
                 methodes[nom] = calcul()
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
-    return {"statique": None, "methodes": methodes, "longueurs": _longueurs_rendues(b, axes)}
+    return {"statique": None, "methodes": methodes, "ame": AME.efforts(b, s), "longueurs": _longueurs_rendues(b, axes)}
 
 
 # ------------------------------------------------------------------ barre chargée
-def _cotes(e: Dict) -> List[Tuple[float, float]]:
-    """Les couples (M, V) de part et d'autre d'une section — un seul quand rien ne saute."""
-    g, d = (e["M_g"], e["V_g"]), (e["M_d"], e["V_d"])
-    return [d] if (abs(g[0] - d[0]) < EPS and abs(g[1] - d[1]) < EPS) else [g, d]
-
-
 def _moment_max(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
     """Le plus grand |M| de la combinaison sur le tronçon (kN·m) : balayage et sections à vérifier."""
     a, b = tr["x1"], tr["x2"]
@@ -322,11 +222,11 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             combs.append(C)
             xs = ST.sections(b, C, pts)
             for x in xs:                                         # la SECTION, là où les efforts sont ensemble
-                for M, V in _cotes(C.lire(x)):
+                for M, V in ST.cotes(C.lire(x), EPS):
                     if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
                         continue
                     r = ES.verifier({"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": M * 1e6, "VzEd": V * 1e3,
-                                     "parametres": b["parametres"]})
+                                     "parametres": b["parametres"], "voilement": False})
                     env.verser(r, {"combinaison": co["nom"], "x": x})
             for i, tr in enumerate(trs):                         # la BARRE, tronçon par tronçon
                 Mmax = _moment_max(C, tr, xs)
@@ -341,7 +241,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                     fl = max(abs(C.lire(x)["f"] or 0.0) for x in grille)
                     flexion = {"diagramme": DV.GENERAL, "delta": fl * 1e3, "L": Lt * 1e3}
                 r = EC.verifier({"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,
-                                 "flexion": {"y": flexion}, "parametres": b["parametres"],
+                                 "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False,
                                  "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr), "zg": zg}})
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
@@ -363,7 +263,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             Lcs = [(tr, _Lc_historique(C, tr, xs)) for tr in trs]
             for x in xs:
                 tr_x = next(((tr, Lc) for tr, Lc in Lcs if tr["x1"] - EPS <= x <= tr["x2"] + EPS), Lcs[-1])
-                for M, V in _cotes(C.lire(x)):
+                for M, V in ST.cotes(C.lire(x), EPS):
                     if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
                         continue
                     r = HI.verifier({"section": s, "fy": fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
@@ -387,11 +287,13 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 methodes[nom] = calcul()
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
-    return {"statique": statique, "methodes": methodes, "longueurs": _longueurs_rendues(b, axes)}
+    return {"statique": statique, "methodes": methodes, "ame": AME.chargee(b, s, cas, sols, N_cas, pts),
+            "longueurs": _longueurs_rendues(b, axes)}
 
 
-def _comparaison(methodes: Dict) -> List[Dict]:
-    """Les deux méthodes côte à côte, sujet par sujet : le plus fort taux de chacune."""
+def _comparaison(methodes: Dict, ame: Dict) -> List[Dict]:
+    """Les deux méthodes côte à côte, sujet par sujet : le plus fort taux de chacune ; puis, sous « Le plus
+    défavorable », le taux de l'âme et de ses raidisseurs (« commun » : il ne se compare pas, il vaut pour les deux)."""
     if len(methodes) < 2:
         return []
 
@@ -402,18 +304,21 @@ def _comparaison(methodes: Dict) -> List[Dict]:
     lignes = [{"sujet": sujet, "historique": pire(methodes["historique"], h), "ec3": pire(methodes["ec3"], e)} for sujet, h, e in SUJETS]
     lignes = [li for li in lignes if li["historique"] is not None or li["ec3"] is not None]
     lignes.append({"sujet": "Le plus défavorable", "historique": methodes["historique"]["taux_max"], "ec3": methodes["ec3"]["taux_max"]})
+    if ame.get("taux_max") is not None:              # l'âme (EN 1993-1-5) vaut pour les deux méthodes : une ligne à part, un seul taux
+        lignes.append({"sujet": SUJET_AME, "historique": None, "ec3": None, "commun": ame["taux_max"]})
     return lignes
 
 
 def verifier(barre: Dict) -> Dict:
     """La barre vérifiée : {"barre" (relue), "profil", "masse" (kg/m), "statique" (None en efforts imposés),
     "longueurs" (de flambement, celles qui sont prises), "methodes": {"historique": …, "ec3": …} (la forme de
-    acier/barre/resultat.py ; en barre chargée, chaque vérification dit sa combinaison et son lieu), "statut",
-    "comparaison"}."""
+    acier/barre/resultat.py ; en barre chargée, chaque vérification dit sa combinaison et son lieu), "ame" (la même
+    forme : l'âme selon l'EN 1993-1-5, toujours calculée, avec la décision de chaque raidisseur — acier/barre/ame.py),
+    "statut" (le plus défavorable des méthodes cochées et de l'âme), "comparaison"}."""
     b = EN.normaliser(barre)
     s = SE.du_catalogue(b["profil"])
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
-    statuts = [r["statut"] for r in out["methodes"].values()]
+    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
     statut = RE.NOK if RE.NOK in statuts else RE.NON_COUVERT if RE.NON_COUVERT in statuts else RE.OK
-    out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "statut": statut, "comparaison": _comparaison(out["methodes"])})
+    out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "statut": statut, "comparaison": _comparaison(out["methodes"], out["ame"])})
     return out

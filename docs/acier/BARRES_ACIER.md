@@ -203,8 +203,9 @@ Tube rond en N + M : critère linéaire (6.2), prudent.
 - effort tranchant élevé (V_Ed > 0,5·V_pl,Rd) : (6.30) pour un I de classe 1 ou 2 fléchi autour de l'axe fort ; partout
   ailleurs, et dès qu'un effort normal s'ajoute (§ 6.2.10), (1 − ρ) sur TOUTE la section — du côté sûr, et c'est dit ;
 - le plancher η·h_w·t_w de l'aire de cisaillement gouverne pour 58 profilés du catalogue (IPE 750, HL, HE 900 et 1000) ;
-- h_w/t_w > 72·ε/η : le voilement par cisaillement relève du lot 4 — en attendant, la vérification « E-Vb » est rendue
-  « non couverte », jamais « ok » (11 profilés en S235, 46 en S355, 93 en S460 — tous des tubes minces en S235) ;
+- h_w/t_w > 72·ε/η : le voilement par cisaillement est VÉRIFIÉ depuis le lot 4 (`ec3_ame.cisaillement`, « A-Vb » et
+  « A-VbM », § 5.9) — il était rendu « non couvert » avant (11 profilés en S235, 46 en S355, 93 en S460 — tous des tubes
+  minces en S235) ;
 - chaque paramètre se lit dans `parametres.py` ; une barre peut en surcharger (`"parametres": {…}`) pour rejouer un
   exemple publié avec d'autres coefficients.
 
@@ -301,14 +302,71 @@ chaque nature dominante parmi les présents, γ_G·ΣG + γ_Q·Q_dominante + Σ 
 (G favorable). Les cas d'une MÊME nature sont une seule action disposée librement : ils reçoivent tous γ_Q quand leur
 nature domine. Au plus quatre cas variables. Méthode historique : G + ΣQ à 100 % pour chaque arrangement.
 
-### 5.9 EN 1993-1-5 : âme et raidisseurs (vérifié)
-Voilement par cisaillement (§ 5 : à vérifier si h_w/t_w > 72ε/η ; V_bw,Rd, χ_w du tableau 5.1, V_bf,Rd ; k_τ = 5,34 +
-4·(h_w/a)² si a/h_w ≥ 1, sinon 4 + 5,34·(h_w/a)²). Âme sous charge concentrée (§ 6 : types (a), (b), (c) ; k_F ;
-F_cr = 0,9·k_F·E·t_w³/h_w ; m₁, m₂ ; l_y ; l_e = k_F·E·t_w²/(2·f_yw·h_w) ≤ s_s + c — le facteur 2 est celui du texte ;
-λ̄_F ; χ_F = 0,5/λ̄_F ≤ 1 ; F_Rd). Interactions (§ 7.1, § 7.2 : η₂ + 0,8·η₁ ≤ 1,4, η₁ élastique). Voilement induit par
-la semelle (§ 8). Raidisseurs (§ 9 : section efficace plats + 15·ε·t_w de chaque côté ; flambement sur 0,75·h_w,
-courbe c ; I_t/I_p ≥ 5,3·f_y/E ; raidisseurs intermédiaires I_st, N_st). La DÉCISION « raidisseur oui / non » se prend à
-chaque appui et sous chaque charge ponctuelle.
+### 5.9 EN 1993-1-5 : âme et raidisseurs (vérifié ; en service depuis le lot 4)
+
+**Le texte** (EN 1993-1-5:2006 ; η = 1,20 jusqu'au S460). Voilement par cisaillement (§ 5 : à vérifier si
+h_w/t_w > 72·ε/η ; V_bw,Rd = χ_w·f_yw·h_w·t/(√3·γ_M1) ; λ̄_w = h_w/(86,4·t·ε) avec des raidisseurs aux seuls appuis ;
+χ_w du tableau 5.1 ; V_bf,Rd ; k_τ = 5,34 + 4·(h_w/a)² si a/h_w ≥ 1, sinon 4 + 5,34·(h_w/a)²). Âme sous une force
+concentrée (§ 6 : types (a), (b), (c) ; k_F ; F_cr = 0,9·k_F·E·t_w³/h_w ; m₁ = f_yf·b_f/(f_yw·t_w) ; m₂ = 0,02·(h_w/t_f)²
+si λ̄_F > 0,5 ; l_y ; l_e = k_F·E·t_w²/(2·f_yw·h_w) ≤ s_s + c — le facteur 2 est celui du texte (6.13) ; λ̄_F ;
+χ_F = 0,5/λ̄_F ≤ 1 ; F_Rd = f_yw·χ_F·l_y·t_w/γ_M1 ; s_s ≤ h_w). Interactions (§ 7.1 ; § 7.2 : η₂ + 0,8·η₁ ≤ 1,4).
+Voilement induit par la semelle (§ 8). Raidisseurs (§ 9 : section efficace — les plats et 15·ε·t_w d'âme de chaque
+côté ; flambement sur 0,75·h_w, courbe c ; I_T/I_p ≥ 5,3·f_y/E ; raidisseurs intermédiaires I_st, N_st).
+
+**Ce que le moteur fait** (`acier/barre/ec3_ame.py`, `raidisseurs.py`, `ame.py` ; lot 4). Un TROISIÈME bloc de
+résultats, « âme », à côté des deux méthodes, et TOUJOURS calculé — sous les combinaisons ELU (6.10) de la barre
+chargée, quelle que soit la méthode cochée : la méthode historique ne traite rien de tout cela (§ 4.6).
+
+- **Voilement par cisaillement** (« A-Vb »), dans chaque section à vérifier de chaque combinaison, dès que l'âme est
+  élancée : V_Ed ≤ V_bw,Rd. Du côté sûr : pas de raidisseur intermédiaire, montant d'extrémité NON rigide
+  (χ_w = 0,83/λ̄_w), la contribution des semelles V_bf,Rd négligée. Un tube carré ou rectangulaire a deux âmes. Puis
+  l'interaction (7.1) (« A-VbM ») quand V_Ed > 0,5·V_bw,Rd et M_Ed > M_f,Rd — vérifiée dans toutes les sections, même à
+  moins de h_w/2 d'un appui (du côté sûr) ; sous un effort normal, ou pour un tube, elle est rendue « non couvert ».
+  150 couples profilé – nuance du catalogue ont une âme élancée (les IPE et HL hauts en S355 et S460, des tubes minces).
+- **Les LIEUX** où une force appuie sur l'âme : chaque APPUI simple où la barre est POSÉE (la réaction pousse la semelle
+  basse) ; chaque CHARGE PONCTUELLE qui pousse la semelle où elle est posée (vers le bas sur la semelle haute, vers le
+  haut sous la semelle basse). Un appui « par l'âme » (platine, cornières, gousset), une charge appliquée au centre de
+  cisaillement, un encastrement n'appuient sur aucune semelle : ils ne sont pas des lieux, et les hypothèses le disent.
+  Les charges ponctuelles de plusieurs cas à la même abscisse sont UNE force (la plus courte de leurs longueurs
+  d'appui) ; une charge au droit d'un appui partage son lieu.
+- **Le TYPE** (figure 6.1) se déduit de la géométrie — il n'est pas saisi : (c) près d'un bout de la barre, tant que
+  2 + 6·(s_s + c)/h_w < 6, c étant la distance du bout de la barre au bord de la longueur chargée (le débord saisi,
+  pour un appui de rive) ; (a) ailleurs ; (b), en plus, pour la force qui passe d'une semelle à l'autre quand un lieu
+  est chargé des deux côtés (la plus petite des deux forces, la plus courte des deux longueurs d'appui).
+- **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
+  et pour chaque charge ponctuelle. NON SAISIE, elle vaut 0 : le cas le plus défavorable, et c'est écrit (hypothèses,
+  message de la vérification). Elle n'est jamais supposée (brief § 8.2).
+- **L'âme seule**, par lieu et par combinaison : η₂ = F_Ed/F_Rd (« A-Lnn-F » ; « A-Lnn-B » pour la force transmise),
+  puis, dès qu'un moment ou un effort normal s'y trouve, (η₂ + 0,8·η₁)/1,4 ≤ 1 (« A-Lnn-FM ») avec η₁ ÉLASTIQUE —
+  |N|/(f_y·A) + |M|/(f_y·W_el), A_eff et W_eff en classe 4 (Q10).
+- **LA DÉCISION**, lieu par lieu : « sans raidisseur », avec les taux ; ou « raidisseur » dès qu'une combinaison dépasse
+  η₂ = 1 ou l'interaction — et à chaque appui posé d'une âme élancée au cisaillement (§ 5.1(2)). La raison est écrite
+  (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 611,2 kN »).
+- **Le raidisseur** : une paire de plats symétriques, sur toute la hauteur de l'âme. Épaisseur : la première de 8, 10,
+  12, 15, 20 mm qui porte la plus grande force du lieu. Largeur : la demi-semelle (b − t_w)/2 au plus, au pas de 5 mm,
+  réduite tant que le plat est trop élancé pour son épaisseur (b_s/t_s ≤ 14·ε ; I_T/I_p ≥ 5,3·f_y/E — c'est la torsion qui
+  décide : b_s/t_s ≤ 12,97 en S235). Chanfrein : le congé du profilé, arrondi à 5 mm vers le haut (un IPN : r₁ = t_w).
+  Deux vérifications : l'ÉCRASEMENT au contact de la semelle, plats moins chanfreins (« A-Lnn-R » : F_Ed ≤ A_c·f_y/γ_M0)
+  — c'est lui qui dimensionne sur un laminé — et le FLAMBEMENT hors du plan de l'âme (« A-Lnn-Rb » : la section en
+  croix, 15·ε·t_w d'âme de chaque côté dans la limite de l'âme disponible — le bout de la barre, la moitié de la
+  distance au raidisseur voisin —, longueur 0,75·h_w, courbe c). Le raidisseur d'appui d'une âme élancée doit aussi
+  avoir la rigidité d'un appui (I_st ≥ 0,75·h_w·t_w³). Il porte TOUTE la force ; il est de la nuance de la barre.
+- **Voilement induit par la semelle** (§ 8), avec k = 0,4 (du côté sûr) : aucun I du catalogue ne le dépasse, même en
+  S460 ; une ligne d'hypothèse le dit, la vérification « A-S » ne paraît que s'il est dépassé.
+- **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
+  pas décrits, et le bloc le dit.
+- **Ce qui n'est PAS fait** (v1), et dit — jamais rendu « ok » : la paroi d'un profil creux sous une force concentrée
+  (EN 1993-1-8 : un avertissement) ; les raidisseurs intermédiaires d'une âme élancée et le montant d'extrémité rigide ;
+  les soudures des raidisseurs (EN 1993-1-8) ; DEUX FORCES RAPPROCHÉES sur la même semelle — leurs longueurs chargées
+  l_y se recouvrent —, que le § 6.3(2) demande de vérifier aussi ensemble : la vérification « A-GR » est alors rendue
+  « non couvert » ; une réaction de soulèvement (ancrage : un avertissement).
+
+**La preuve** — `tests/test_barre_ame.py`, 160 contrôles : le cas R4 du brief (IPE 300 : 283,2 / 387,8 / 425,1 kN en
+type (a), 261,9 / 335,9 kN en type (c), avec leurs valeurs intermédiaires) ; un témoin écrit depuis le texte de la norme,
+égal au moteur sur les 275 I et H du catalogue, deux nuances, douze charges ; l'IPE 750x147 S355 à la main
+(V_bw,Rd = 2 083,7 kN) et l'interaction (7.1) ; les raidisseurs à la main (IPE 300, HEB 300) et la forme du plat sur
+tout le catalogue (4 125 plats : chaque I, trois nuances, cinq épaisseurs) ; la décision lieu par lieu (R2 : la charge de 36 kN, η₂ = 0,093, « pas de
+raidisseur ») ; 623 formules recalculées par leur gabarit et relues sur leurs nombres imprimés ; 82 mutations.
 
 ## 6. Les valeurs de référence
 
@@ -379,10 +437,12 @@ Un paquet neuf, `acier/barre/`, bibliothèque standard seule (il tourne dans le 
 | `parametres.py` | LA table des paramètres nationaux (valeur, source, statut) |
 | `section.py` | un profilé du catalogue — ou des propriétés saisies — vu par les deux méthodes |
 | `historique.py` | la méthode du § 4 |
-| `resultat.py` | la forme commune de ce que rend une méthode (vérifications, blocs de formules, alertes, synthèse) |
+| `resultat.py` | la forme commune de ce que rend une méthode (vérifications, blocs de formules, alertes, synthèse) ; `fixe` : L'ARRONDI D'AFFICHAGE du module, le seul |
 | `ec3_classe.py`, `ec3_section.py`, `ec3_flambement.py`, `mcr.py`, `ec3_deversement.py`, `ec3_interaction.py` | EN 1993-1-1 |
 | `ec3.py` | la barre vérifiée selon l'Eurocode 3 : la lecture, puis la section, le flambement, le déversement, l'annexe A |
-| `ec3_ame.py`, `raidisseurs.py` | EN 1993-1-5 |
+| `ec3_ame.py`, `raidisseurs.py` | EN 1993-1-5 : les formules de l'âme (cisaillement, force concentrée, interactions, semelle) ; la paire de plats |
+| `ame.py` | le bloc de l'âme d'une barre : où une force appuie, sous quelle combinaison, faut-il un raidisseur (§ 5.9) |
+| `enveloppe.py` | l'occurrence la plus défavorable de chaque vérification, sur toutes les combinaisons et les sections |
 | `combinaisons.py`, `statique.py` | les cas de charge, les combinaisons, les efforts le long de la barre (sur `rdm/poutres.py`) |
 | `entree.py`, `moteur.py` | la barre, sa relecture ; les deux méthodes, la synthèse |
 | `formules.py` | les gabarits des formules de la note (un facteur d'unités s'y écrit `1eN`) |
@@ -442,6 +502,14 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   taux côte à côte, sujet par sujet.
 - **Chaque vérification ouvre SA fenêtre de calcul** : ses formules, écrites par `ecriture.py`, la combinaison et
   l'abscisse où elle a été trouvée. « Tout le calcul » d'une méthode y ajoute le bilan de ses combinaisons.
+- **Un seul arrondi d'affichage** : le demi vers l'extérieur, sur la valeur exacte — la règle de l'écran
+  (`api_web/commun.fr`) et des moteurs (`acier/js.to_fixed`), appelée par `resultat.fixe`. Une formule, une phrase, un
+  tableau et la fiche du catalogue écrivent donc le même chiffre d'un même nombre. Trouvé sur une photo du lot 4 :
+  un raidisseur qui porte 1950 × 235 / 10³ = 458,25 kN s'écrivait « 458,3 kN » au tableau et « 458,2 kN » au bout de sa
+  formule — l'arrondi de Python va au chiffre pair sur un demi exact. Le même défaut touchait 29 valeurs du catalogue
+  (HEB 180 : I_y = 3 831,25 cm⁴, écrit « 3 831,2 » dans la barre et « 3 831,3 » dans le catalogue). Aucun calcul ne
+  change : seul le dernier chiffre ÉCRIT d'un demi exact. `tests/test_barre_ecriture.py` et `tests/test_api_web_profil.py`
+  refusent qu'un format de Python (« {x:.1f} ») revienne écrire un nombre du module.
 - **Le sélecteur** : les profilés de la famille de la barre (ou de celles qu'on coche), triés par masse, chacun vérifié
   par le moteur avec les méthodes de la barre ; ✓ le retenu, ★ le plus léger qui tient.
 - **Une note de la version 1** (l'ancien écran) est relue en « efforts imposés », Eurocode seul : ses efforts de calcul,
@@ -505,13 +573,47 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 - **Mesuré** (Chromium sans tête, moteur dans le navigateur) : moteur prêt en 3,5 s ; un recalcul en 0,13 s ; le
   sélecteur d'une famille de 23 profilés en 0,8 s. La note, hors navigateur : 0,5 s pour une barre, 1,1 s pour trois.
 
+**L'âme et ses raidisseurs à l'écran et dans la note** (lot 4, `api_web/profil*.py`, `dessin_barre.py`,
+`note_profil.py`).
+- **La saisie** : une rubrique de plus, « Appuis » (barre chargée qui a un appui simple) — la barre POSÉE sur ses appuis
+  ou tenue « par l'âme » ; posée, sa longueur d'appui s_s et son débord c en rive (mm). Chaque charge ponctuelle dit sa
+  longueur d'appui (« à 3 m · sur 100 mm ») tant que les charges ne sont pas appliquées au centre de cisaillement. Une
+  note d'avant se relit : posée, s_s = 0, c = 0.
+- **Les résultats** : sous les verdicts des deux méthodes, UNE ligne « Âme » — et seulement s'il y a quelque chose à
+  faire : des raidisseurs à poser (« Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m) », en or), une
+  vérification qui ne passe pas ou qui n'est pas couverte (en rouge). Puis, après les blocs des méthodes, le bloc « Âme
+  et raidisseurs » : son état (« Sans raidisseur · 77 % », « 1 raidisseur · 87 % »), une ligne par LIEU — sa décision,
+  ce que sa vérification la plus défavorable compare, son taux — qui ouvre la fenêtre de calcul du lieu (toutes ses
+  vérifications : l'âme seule et la flexion, ou la raison du raidisseur, son écrasement, son flambement). Le bloc
+  s'efface quand rien n'appuie sur l'âme. La comparaison des deux méthodes porte le taux de l'âme sur une ligne à part,
+  à cheval sur les deux colonnes : il vaut pour les deux. Le statut de la barre est le plus sévère des méthodes cochées
+  ET de l'âme ; son taux affiché reste celui des méthodes (un raidisseur dimensionné au plus juste est souvent à 95 %
+  et plus : c'est son métier).
+- **Les dessins** : un raidisseur est un plat debout sur la barre, à son abscisse, avec sa légende ; la vue des taux a un
+  groupe « Âme et raidisseurs », une barre par lieu (« Appui A · 2 plats 70 × 15 »).
+- **La note** : après les méthodes, le bloc « Âme et raidisseurs — NBN EN 1993-1-5 » — « Contrôles complémentaires
+  EN 1993-1-5 » dans une note « méthode historique seule » (brief § 6.5) — : ses hypothèses, le tableau des décisions
+  (lieu, force, décision, taux), le bilan de ses combinaisons, son verdict, puis chaque vérification avec ses formules
+  (deux appuis identiques ne répètent pas leurs facteurs). Le résumé sous le nom de la barre dit les raidisseurs
+  (« … · 52 % Eurocode 3 · 1 raidisseur »). Ce que la note ne vérifie pas : les assemblages, les appuis et les soudures
+  des raidisseurs (EN 1993-1-8), les raidisseurs intermédiaires d'une âme élancée, le feu et la fatigue.
+- **Le harnais du navigateur** (« barres ») : huit gestes de plus — la longueur d'appui des appuis, une charge de
+  150 kN posée près de l'appui (le raidisseur paraît : la ligne « Âme », le plat dessiné), sa longueur d'appui saisie
+  (il s'efface), les appuis « par l'âme » —, la fenêtre d'un lieu, et une quatrième barre aux trois formats (un
+  raidisseur : la ligne « Âme » se lit en entier, à 44 px au doigt).
+- **Trouvé en faisant le lot** : (1) le congé d'un IPN n'est pas rangé sous « r » dans le catalogue (r₁, r₂) — le
+  chanfrein d'un raidisseur d'IPN valait 0 : il prend r₁ = t_w (`tests/test_barre_ame.py`, les 4 125 plats du catalogue) ;
+  (2) deux charges ponctuelles rapprochées n'étaient vérifiées qu'une à une — le § 6.3(2) les veut aussi ensemble : le
+  bloc est rendu « à vérifier » (A14) ; (3) la vérification « E-Vb », « non couverte » depuis le lot 2, est remplacée par
+  le calcul (« A-Vb ») dans `ec3_section.py` aussi : la section vérifiée seule ne se tait pas non plus.
+
 | Lot | Contenu | Preuve | État |
 |---|---|---|---|
 | 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
 | 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs | R4 | à faire |
+| 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs (`ec3_ame.py`, `raidisseurs.py`, `ame.py`, `enveloppe.py`) ; à l'écran et dans la note | `tests/test_barre_ame.py` : 160 contrôles (§ 5.9) ; `tests/test_api_web_profil.py` : 77 ; `tests/test_note_profil.py` : 107 (quinze notes) ; le harnais « barres » : 81 | **fait** (14/11/2026) |
 | 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
 | 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
@@ -529,3 +631,8 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
 | Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode historique y vient la première | ainsi |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |
+| Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
+| Q11 | La longueur d'appui s_s non saisie vaut 0 (le cas le plus défavorable) ; le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | 0, et c'est écrit |
+| Q12 | Les appuis sont « posés » par défaut (la réaction appuie sur l'âme) ; le bureau attache-t-il plutôt ses poutres par l'âme (platine, cornières) ? | posés |
+| Q13 | Les raidisseurs proposés : plats de 8, 10, 12, 15, 20 mm, largeur au pas de 5 mm jusqu'à la demi-semelle, chanfrein égal au congé arrondi à 5 mm — les habitudes de l'atelier ? | ainsi |
+| Q14 | Les jeux de données JRC (« Commentary and worked examples to EN 1993-1-5 ») cités par le brief pour le lot 4 ne sont pas joignables d'ici : en pièce jointe, ils s'ajouteraient au cas R4 | R4, le témoin écrit depuis la norme, les calculs à la main |

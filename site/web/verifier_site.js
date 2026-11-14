@@ -3977,16 +3977,22 @@ const principal = async () => {
     }
   }
 
-  // ---------------------------------------------------------------- les BARRES EN ACIER (« Choix de profilé », lot 6 du 14/11/2026)
-  // L'écran des barres (api_web/profil*.py, dessin_barre.py ; docs/acier/BARRES_ACIER.md § 9) : à gauche quatre rubriques
-  // (Barre, Charges — ou Efforts —, Maintiens et flambement, Méthodes), au centre la barre, sa section et ses taux, à
-  // droite UN VERDICT PAR MÉTHODE puis un bloc par méthode. Le contrôle commun (« module:profil », « formats:profil »)
-  // ouvre la barre neuve ; ici, les GESTES de l'ingénieur, l'un après l'autre, sur la même note :
+  // ---------------------------------------------------------------- les BARRES EN ACIER (« Choix de profilé », lots 6 et 4 du 14/11/2026)
+  // L'écran des barres (api_web/profil*.py, dessin_barre.py ; docs/acier/BARRES_ACIER.md § 9) : à gauche cinq rubriques
+  // (Barre, Charges — ou Efforts —, Maintiens et flambement, Appuis, Méthodes), au centre la barre, sa section et ses
+  // taux, à droite UN VERDICT PAR MÉTHODE, puis un bloc par méthode et le bloc de l'ÂME (EN 1993-1-5 : une ligne par appui
+  // et par charge ponctuelle, avec sa décision — sans raidisseur, ou la paire de plats). Le contrôle commun
+  // (« module:profil », « formats:profil ») ouvre la barre neuve ; ici, les GESTES de l'ingénieur, l'un après l'autre, sur
+  // la même note :
   //  - la barre neuve (IPE 300, 6 m, tenue à mi-portée) : deux verdicts — historique 74 %, Eurocode 3 52 % — ; la barre
   //    DESSINÉE, visible à sa taille, chacun de ses textes dans le dessin ; chaque verdict ouvre SA fenêtre de calcul (les
   //    nombres du verdict s'y retrouvent), « Tout le calcul » celle de la méthode ; les trois vues ;
-  //  - puis vingt gestes : une charge saisie, une ponctuelle ajoutée, déplacée, retirée ; le maintien retiré (la méthode
-  //    historique REFUSE la barre, l'Eurocode la garde) puis remis ; la poutre continue de trois travées (quatre appuis
+  //  - le bloc de l'âme de la barre neuve : « Sans raidisseur · 77 % », une ligne par appui, qui ouvre la fenêtre du LIEU ;
+  //  - puis vingt-huit gestes : une charge saisie, une ponctuelle ajoutée, déplacée, retirée ; le maintien retiré (la
+  //    méthode historique REFUSE la barre, l'Eurocode la garde) puis remis ; L'ÂME — la longueur d'appui des appuis
+  //    (100 mm : la réaction passe de 77 à 17 %), une charge de 150 kN posée près de l'appui (l'âme seule ne suffit pas :
+  //    « Âme · Raidisseur : 2 plats 70 × 8 mm », le plat dessiné sur la barre), sa longueur d'appui saisie (l'âme suffit,
+  //    le raidisseur s'efface), les appuis « par l'âme » (leurs lignes disparaissent) ; la poutre continue de trois travées (quatre appuis
   //    dessinés) ; les méthodes (« Historique » ne laisse qu'un verdict et qu'un bloc) ; un profilé choisi dans le
   //    sélecteur (✓ le retenu, ★ le plus léger qui tient, triés par masse) ; deux saisies refusées — par la page (une
   //    portée hors des bornes du champ : le refus dit la borne, le champ rougit) et par le moteur (une charge qui sort
@@ -4016,6 +4022,15 @@ const principal = async () => {
       ['la charge permanente rendue à 5 kN/m', 'ch', 'cas/0/charges/0/v', '5', 'champ', 'neuve'],
       ['le maintien de mi-portée retiré', 'mt', 'maintiens/0/-', '1', 'clic', 'sans_maintien'],
       ['un maintien remis (le moteur le pose à mi-portée)', 'mt', 'maintiens/+', '1', 'clic', 'neuve'],
+      // l'âme et ses raidisseurs (lot 4)
+      ['la longueur d\'appui des appuis : 100 mm', 'ap', 'appuis/ss', '100', 'champ', 'appui_100'],
+      ['une charge ponctuelle ajoutée au cas G', 'ch', 'cas/0/charges/+', 'P', 'clic', ''],
+      ['la charge ponctuelle portée à 150 kN', 'ch', 'cas/0/charges/1/v', '150', 'champ', ''],
+      ['la charge ponctuelle posée à 0,5 m de l\'appui', 'ch', 'cas/0/charges/1/a', '0,5', 'champ', 'raidisseur'],
+      ['sa longueur d\'appui saisie : 100 mm', 'ch', 'cas/0/charges/1/ss', '100', 'champ', 'sans_raidisseur'],
+      ['les appuis « par l\'âme »', 'ap', 'appuis/mode', 'ame', 'clic', 'par_ame'],
+      ['les appuis de nouveau posés', 'ap', 'appuis/mode', 'poses', 'clic', ''],
+      ['la charge ponctuelle du cas G retirée', 'ch', 'cas/0/charges/1/-', '1', 'clic', 'neuve'],
       ['la poutre devient continue (deux travées)', 'ba', 'modele', 'continue', 'menu', ''],
       ['une troisième travée', 'ba', 'travees/+', '1', 'clic', 'continue'],
       ['retour à deux appuis', 'ba', 'modele', 'appuis', 'menu', ''],
@@ -4162,6 +4177,25 @@ const principal = async () => {
         verif('barres : « Tout le calcul » d\'une méthode ouvre ses combinaisons et toutes ses vérifications (« Poids propre + G + Q », flexion, contrainte équivalente)',
           /Poids propre \+ G \+ Q/.test(tout) && /[Ff]lexion/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
         await g.keyboard.press('Escape');
+        // le bloc de l'âme : une ligne par appui ; chacune ouvre la fenêtre de SON lieu
+        const ame0 = await g.evaluate((VIS) => { const bl = [...document.querySelectorAll('#resultat .et-bloc[data-theme]')].find((x) => /Âme et raidisseurs/.test((x.querySelector('.et-bloc-t .n') || {}).textContent || ''));
+          if (!bl || !bl.checkVisibility(VIS)) return null;
+          return { etat: bl.querySelector('.et-bloc-t .e').textContent.replace(/\s+/g, ' ').trim(), lignes: [...bl.querySelectorAll('.el.vc')].filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.replace(/\s+/g, ' ').trim()),
+            bande: !!document.querySelector('#resultat .pf-vame') }; }, VIS);
+        verif('barres : le bloc « Âme et raidisseurs » de la barre neuve — « Sans raidisseur · 77 % », une ligne par appui (ce que l\'âme compare, « sans raidisseur », son taux) ; rien à poser : pas de ligne « Âme » sous les verdicts',
+          !!ame0 && /^Sans raidisseur · 77\s?%$/.test(ame0.etat) && ame0.lignes.length === 2 && /^Appui A/.test(ame0.lignes[0]) && /^Appui B/.test(ame0.lignes[1])
+          && ame0.lignes.every((t) => /sans raidisseur/.test(t) && /77\s?%/.test(t) && /58,0/.test(t)) && !ame0.bande, JSON.stringify(ame0));
+        await g.click('#resultat .et-bloc .el.vc[data-calcul^="a-A-L00"]');
+        await g.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+        await g.waitForTimeout(200);
+        const lieu0 = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
+          return { texte: x.textContent.replace(/[\s]+/g, ' '), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5, egal: (x.textContent.match(/=/g) || []).length }; }, VIS);
+        verif('barres : la ligne d\'un appui ouvre la fenêtre de SON lieu, dans l\'écran — « appui A », « sans raidisseur », la résistance de l\'âme (F_cr, l_y, F_Rd = 58 kN) et la longueur d\'appui non saisie, dite',
+          !!lieu0 && lieu0.dedans && /appui A/.test(lieu0.texte) && /sans raidisseur/.test(lieu0.texte) && /485,6 kN/.test(lieu0.texte) && /58 kN/.test(lieu0.texte) && /non saisie/.test(lieu0.texte) && lieu0.egal >= 12,
+          JSON.stringify(lieu0).slice(0, 400));
+        await g.screenshot({ path: path.join(OUT, 'site_barres_ame_lieu_pc.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
         // les trois vues, chacune un dessin visible à sa taille
         for (const k of ['section', 'taux', 'barre']) {
           await g.click(`#vues [data-vue="${k}"]`);
@@ -4207,10 +4241,29 @@ const principal = async () => {
           else if (quoi === 'neuve') plus = v.length === 2 && v[0].taux === 74 && v[1].taux === 52;
           else if (quoi === 'sans_maintien') plus = v.length === 2 && v[0].niveau === 'r' && v[0].taux > 100 && v[1].niveau === 'p' && v[1].taux < 100;
           else if (quoi === 'continue') plus = ['|A|', '|B|', '|C|', '|D|'].every((t) => d.includes(t)) && (await g.$$eval('#donnees input[data-chemin^="travees/"]', (e) => e.length)) === 3;
-          else if (quoi === 'historique' || quoi === 'ec3') {
+          else if (['appui_100', 'raidisseur', 'sans_raidisseur', 'par_ame'].includes(quoi)) {
+            // l'âme : l'état de son bloc, ses lignes, la ligne « Âme » sous les verdicts, les plats dessinés sur la barre
+            const a = await g.evaluate((VIS) => { const bl = [...document.querySelectorAll('#resultat .et-bloc[data-theme]')].find((x) => /Âme et raidisseurs/.test((x.querySelector('.et-bloc-t .n') || {}).textContent || ''));
+              const bande = document.querySelector('#resultat .pf-vame');
+              return { etat: bl ? bl.querySelector('.et-bloc-t .e').textContent.replace(/\s+/g, ' ').trim() : null,
+                lignes: bl ? [...bl.querySelectorAll('.el.vc')].filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.replace(/\s+/g, ' ').trim()) : [],
+                bande: bande && bande.checkVisibility(VIS) ? { texte: bande.textContent.replace(/\s+/g, ' ').trim(), or: bande.classList.contains('warn') } : null,
+                plats: [...document.querySelectorAll('#stage .view[data-vue="barre"] .draw svg rect[fill="#B45309"]')].filter((x) => x.checkVisibility(VIS)).map((x) => { const r = x.getBoundingClientRect(); return Math.round(r.width) + '×' + Math.round(r.height); }) }; }, VIS);
+            if (quoi === 'appui_100') plus = /^Sans raidisseur · 17\s?%$/.test(a.etat || '') && a.lignes.length === 2 && a.lignes.every((t) => /261,9/.test(t)) && !a.bande && !a.plats.length
+              && (await g.inputValue('#donnees input[data-chemin="appuis/ss"]')) === '100';
+            else if (quoi === 'raidisseur') {
+              plus = /^1 raidisseur · 98\s?%$/.test(a.etat || '') && !!a.bande && a.bande.or && /Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 0,50 m\)/.test(a.bande.texte)
+                && a.lignes.length === 3 && /^Charge à 0,50 m.*2 plats 70 × 8 mm/.test(a.lignes[1]) && a.plats.length === 2 && a.plats.every((t) => parseInt(t.split('×')[1], 10) >= 8)
+                && d.includes('raidisseurtransversal') && await g.isVisible('#donnees input[data-chemin="cas/0/charges/1/ss"]');
+              await g.screenshot({ path: path.join(OUT, 'site_barres_raidisseur_pc.png') });
+            } else if (quoi === 'sans_raidisseur') plus = /^Sans raidisseur · 88\s?%$/.test(a.etat || '') && !a.bande && !a.plats.length && a.lignes.length === 3 && /^Charge à 0,50 m.*sans raidisseur/.test(a.lignes[1])
+              && !d.includes('raidisseurtransversal');
+            else plus = a.lignes.length === 1 && /^Charge à 0,50 m/.test(a.lignes[0]) && !(await g.$('#donnees input[data-chemin="appuis/ss"]'));
+            detail = JSON.stringify(a).slice(0, 400);
+          } else if (quoi === 'historique' || quoi === 'ec3') {
             const blocsM = await g.$$eval('#resultat .et-bloc .et-bloc-t .n', (e, VIS) => e.filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.trim()), VIS);
             const mot = quoi === 'historique' ? /^Méthode historique/ : /^Eurocode 3/;
-            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'Historique' : 'Eurocode 3');
+            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'Historique,Âme et raidisseurs' : 'Eurocode 3,Âme et raidisseurs');
             detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM });
           } else if (quoi === 'selecteur') {
             // (le témoin, lui, n'a PAS ouvert le sélecteur avant de choisir : la page, qui l'a ouvert — toute la famille vérifiée
@@ -4242,12 +4295,15 @@ const principal = async () => {
           } else if (quoi === 'retour') {
             const rubs = await g.$$eval('#donnees .sec[data-sec]', (e) => e.map((x) => x.dataset.sec));
             await ouvrirRubB(g, 'ch');
-            plus = rubs.join() === 'ba,ch,mt,me' && !!(await g.$('#vues [data-vue="barre"]')) && (await g.inputValue('#donnees input[data-chemin="cas/0/charges/0/v"]')) === '5';
+            plus = rubs.join() === 'ba,ch,mt,ap,me' && !!(await g.$('#vues [data-vue="barre"]')) && (await g.inputValue('#donnees input[data-chemin="cas/0/charges/0/v"]')) === '5';
           }
           verif(`barres : ${nom} — la page dit ce que dit le témoin (résultats, dessin de la barre, vues)${quoi ? `, et ${({ charge: 'les deux taux montent, le dessin écrit « 12 kN/m »',
             ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (74 % et 52 %)',
             sans_maintien: 'la méthode historique REFUSE la barre (rouge, plus de 100 %), l\'Eurocode la garde', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
-            historique: 'un seul verdict et un seul bloc, ceux de la méthode historique', ec3: 'un seul verdict et un seul bloc, ceux de l\'Eurocode 3',
+            appui_100: 'la réaction d\'appui passe de 77 à 17 % (F_Rd = 261,9 kN), toujours sans raidisseur',
+            raidisseur: 'l\'âme seule ne suffit pas — « Âme · Raidisseur : 2 plats 70 × 8 mm (charge à 0,50 m) » sous les verdicts, « 1 raidisseur · 98 % » au bloc, les plats nommés sur la ligne du lieu, le plat DESSINÉ sur la barre avec sa légende, et le champ de la longueur d\'appui de la charge',
+            sans_raidisseur: 'l\'âme suffit (88 %) : la ligne « Âme », le plat du dessin et sa légende disparaissent', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
+            historique: 'un seul verdict ; deux blocs, celui de la méthode historique et celui de l\'âme', ec3: 'un seul verdict ; deux blocs, celui de l\'Eurocode 3 et celui de l\'âme',
             selecteur: 'le sélecteur montre la famille triée par masse, ✓ sur l\'IPE 300, une seule ★, une pastille par ligne ; l\'IPE 330 retenu, le taux baisse — et la page, sélecteur ouvert, rend ce que rend le témoin, qui ne l\'a pas ouvert',
             refus: 'le refus dit la borne (« Valeur refusée : « 80 » — entre 0,05 et 60 »), le champ rougit et garde la saisie à corriger',
             refus_moteur: 'le mot du moteur se lit (« Saisie refusée : … cas « G » … »), la charge est rendue à 6 m — et la portée refusée juste avant aussi', efforts: 'la rubrique Efforts remplace Charges, la vue de la barre s\'efface, aucun taux sans effort',
@@ -4262,6 +4318,8 @@ const principal = async () => {
     // ---- les trois formats, pour trois barres plus chargées que la neuve
     const CONFIGS_B = [
       ['ponctuelle', [['', 'ch', 'cas/1/charges/+', 'P', 'clic']]],
+      // (lot 4) une charge de 150 kN à mi-portée : un raidisseur, la ligne « Âme » sous les verdicts, la rubrique Appuis remplie
+      ['raidisseur', [['', 'ch', 'cas/0/charges/+', 'P', 'clic'], ['', 'ch', 'cas/0/charges/1/v', '150', 'champ'], ['', 'ap', 'appuis/ss', '100', 'champ'], ['', 'ap', 'appuis/c', '50', 'champ']]],
       ['continue', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ba', 'travees/+', '1', 'clic'], ['', 'ch', 'cas/1/charges/+', 'P', 'clic'], ['', 'ch', 'cas/+', '1', 'clic']]],
       ['efforts', [['', 'ba', 'mode', 'efforts', 'clic'], ['', 'ef', 'efforts/elu/N', '100', 'champ'], ['', 'ef', 'efforts/elu/My', '40', 'champ'], ['', 'ef', 'efforts/elu/Vz', '30', 'champ'],
         ['', 'ef', 'efforts/service/N', '70', 'champ'], ['', 'ef', 'efforts/service/My', '28', 'champ'], ['', 'ef', 'efforts/service/Vz', '21', 'champ']]],
@@ -4323,7 +4381,7 @@ const principal = async () => {
             await pg.screenshot({ path: path.join(OUT, `site_barres_${cfg}_${fmt}.png`) });
           }
           verif(`barres ${cfg} · ${fmt} : dans chaque rubrique${tel ? ' et chaque onglet' : ''}, rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ${tel || w < 1200 ? ', chaque bouton vu à 44 px au doigt' : ''}${tel ? ', chaque champ en 16 px' : ''} (${rubs.join(', ')})`,
-            rubs.length === 4 && !fautes.length, fautes.join(' | ').slice(0, 600));
+            rubs.length === (cfg === 'efforts' ? 4 : 5) && !fautes.length, fautes.join(' | ').slice(0, 600));
           const dv = await dessinB(pg);
           verif(`barres ${cfg} · ${fmt} : le dessin est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '400 × 250 au moins'}), dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre`,
             !!dv && dv.dedans && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 400 && dv.h >= 250), JSON.stringify({ ...dv, textes: dv ? dv.textes.length : 0 }).slice(0, 400));
@@ -4331,6 +4389,16 @@ const principal = async () => {
           if (tel) { await pg.click('.mtabs [data-onglet="resultat"]'); await pg.waitForTimeout(250); }
           const vr = await verdictsB(pg);
           verif(`barres ${cfg} · ${fmt} : un verdict par méthode, chacun avec son taux`, vr.length === 2 && vr.every((x) => x.taux > 0), JSON.stringify(vr.map((x) => [x.methode, x.taux])) + (tel ? ` (onglet dessin : ${vs.length})` : ''));
+          if (cfg === 'raidisseur') {
+            // ce que l'âme demande se LIT : la ligne « Âme » entière sous les verdicts, la ligne du lieu avec ses plats
+            const a = await pg.evaluate((VIS) => { const bande = document.querySelector('#resultat .pf-vame'); const raid = document.querySelector('#resultat .pf-raid');
+              const r = bande && bande.checkVisibility(VIS) ? bande.getBoundingClientRect() : null;
+              return { bande: r ? { texte: bande.textContent.replace(/\s+/g, ' ').trim(), l: Math.round(r.width), h: Math.round(r.height), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5,
+                coupe: bande.scrollWidth > bande.clientWidth + 1 } : null, plats: raid && raid.checkVisibility(VIS) ? raid.textContent.trim() : null }; }, VIS);
+            verif(`barres ${cfg} · ${fmt} : la ligne « Âme » se lit en entier sous les verdicts (« Raidisseur : 2 plats 70 × 8 mm (charge à 3,00 m) »), dans l'écran${tel || w < 1200 ? ', à 44 px au doigt' : ''} ; la ligne du lieu nomme ses plats`,
+              !!a.bande && /Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 3,00 m\)/.test(a.bande.texte) && a.bande.dedans && !a.bande.coupe && (tel || w < 1200 ? a.bande.h >= 43.5 : a.bande.h >= 24) && a.plats === '2 plats 70 × 8 mm',
+              JSON.stringify(a));
+          }
         } catch (e) { verif(`barres ${cfg} · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
       }
       verif(`barres · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));

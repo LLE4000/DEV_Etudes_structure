@@ -10,7 +10,11 @@
 Le moteur CALCULE et NOMME ; les gabarits des formules sont dans acier/barre/formules.py ; l'écran et la note
 composent et formatent.
 """
+import decimal
+import math
 from typing import Dict, List, Optional
+
+from .. import js as JS
 
 OK, NOK, NON_COUVERT = "ok", "nok", "non_couvert"
 
@@ -33,9 +37,29 @@ def formule(cle: str, symbole: str, termes: List[Dict], resultat, unite: str = "
     return {"cle": cle, "gabarit": gabarit or cle, "symbole": symbole, "termes": termes, "resultat": resultat, "unite": unite}
 
 
+def fixe(x, nd: int) -> str:
+    """``x`` écrit avec ``nd`` décimales (point décimal) — L'ARRONDI D'AFFICHAGE du module, le seul : DEMI VERS
+    L'EXTÉRIEUR sur la valeur binaire exacte, la règle des moteurs et de l'écran (``acier.js.to_fixed``, celle de
+    ``api_web.commun.fr``), appelée — pas recopiée. Une phrase, une formule et un tableau écrivent ainsi le même
+    chiffre : 458,25 kN → « 458,3 » partout (l'arrondi de Python, au chiffre pair, écrivait « 458,2 » dans la formule,
+    sous un tableau qui disait « 458,3 »). La précision est élargie pour qu'un très grand nombre s'écrive au lieu de
+    lever ; le signe d'un zéro est ôté : jamais « -0 »."""
+    with decimal.localcontext() as ctx:
+        ctx.prec = 420                            # 309 chiffres pour le plus grand flottant, plus les décimales
+        s = JS.to_fixed(x, int(nd))
+    if s.startswith("-") and not s.strip("-0."):
+        s = s[1:]
+    return s
+
+
 def fr(x: float, nd: int = 0) -> str:
-    """Un nombre dans une alerte : virgule, espace fine insécable des milliers."""
-    return f"{x:,.{nd}f}".replace(",", "\u202f").replace(".", ",")
+    """Un nombre dans une phrase (hypothèse, alerte) : virgule, espace fine insécable des milliers ; « — » s'il n'est
+    pas fini."""
+    if not math.isfinite(x):
+        return "—"
+    ent, _, dec = fixe(x, nd).partition(".")
+    signe, chiffres = ("-", ent[1:]) if ent.startswith("-") else ("", ent)
+    return signe + f"{int(chiffres):,}".replace(",", "\u202f") + ("," + dec if dec else "")
 
 
 class Journal:

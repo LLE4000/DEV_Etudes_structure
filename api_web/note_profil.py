@@ -17,8 +17,11 @@ troisième colonne) et elle dit LES CHIFFRES DE L'ÉCRAN : elle ne calcule rien.
 CE QUI S'IMPRIME, par barre : les MÉTHODES que la barre a de cochées à l'écran (rubrique « Méthodes » : la méthode
 historique, l'Eurocode 3, ou les deux) — la note imprime ce que l'écran montre. La méthode historique vient la
 première : ses contraintes admissibles, son flambement et son déversement, tels que les classeurs du bureau les
-écrivent. Avec les deux méthodes, un tableau les compare sujet par sujet. Les paramètres de l'annexe belge dont la source
-reste à confirmer sont nommés, avec la valeur prise ; ce que la note ne vérifie pas est dit.
+écrivent. Puis L'ÂME ET SES RAIDISSEURS (EN 1993-1-5), quelle que soit la méthode cochée — sous le titre « Contrôles
+complémentaires EN 1993-1-5 » dans une note « méthode historique seule » : la décision de chaque appui et de chaque charge
+ponctuelle (sans raidisseur, ou la paire de plats), puis ses vérifications. Avec les deux méthodes, un tableau les
+compare sujet par sujet. Les paramètres de l'annexe belge dont la source reste à confirmer sont nommés, avec la valeur
+prise ; ce que la note ne vérifie pas est dit.
 
     sections(etat) -> [planche]          une planche par barre (le dictionnaire que ``Style.planche`` dessine)
     pdf(etat, infos) -> bytes            infos = {nom, chantier, indice, date} de la note du site
@@ -78,7 +81,7 @@ EFFORTS = {"N": "Effort normal", "My": "Moment, axe fort", "Vz": "Effort trancha
 # facteurs de l'annexe A, communs à (6.61) et (6.62)) ; en dessous, elle les répète : un bloc se lit seul
 COMMUNES_MIN = 4
 # ce que la note ne vérifie pas (docs/acier/BARRES_ACIER.md : le périmètre de la version 1)
-LIMITES = ("le voilement de l'âme, les charges concentrées et les raidisseurs (EN 1993-1-5)", "les assemblages et les appuis",
+LIMITES = ("les assemblages, les appuis et les soudures des raidisseurs (EN 1993-1-8)", "les raidisseurs intermédiaires d'une âme élancée",
            "le feu et la fatigue")
 
 
@@ -147,7 +150,8 @@ def _charge(ch: Dict) -> str:
         sens = "croissante" if ch.get("sens", "croissante") == "croissante" else "décroissante"
         return f"triangulaire {sens}, {v} kN/m, de {M.m(ch['a'])} à {M.m(ch['b'])} m{haut}"
     if t == "P":
-        return f"{v} kN à {M.m(ch['a'])} m{haut}"
+        appui = f", sur {M.n(ch['ss'], 0)} mm" if ch.get("ss") else ""             # sa longueur d'appui rigide, quand elle est saisie
+        return f"{v} kN à {M.m(ch['a'])} m{appui}{haut}"
     return f"couple de {v} kN·m à {M.m(ch['a'])} m"
 
 
@@ -189,13 +193,13 @@ def donnees(el: Dict, r: Dict) -> Dict:
     return {"titre": "La barre et ses charges" if el["mode"] == "chargee" else "La barre et ses efforts", "items": items, "verdicts": []}
 
 
-def _tableau_combinaisons(x: Dict, largeur: float) -> Optional[tuple]:
+def _tableau_combinaisons(x: Dict, largeur: float, noms: Optional[Dict[str, str]] = None) -> Optional[tuple]:
     """Le bilan des combinaisons d'une méthode (deux au moins) : chacune, la vérification qui y gouverne, son taux ;
-    les plus chargées d'abord, COMBINAISONS_MAX au plus."""
+    les plus chargées d'abord, COMBINAISONS_MAX au plus. ``noms`` : un autre nom pour certaines vérifications."""
     combs = x.get("combinaisons") or []
     if len(combs) < 2:
         return None
-    titres = {v["id"]: v["titre"] for v in x["verifications"]}
+    titres = dict({v["id"]: v["titre"] for v in x["verifications"]}, **(noms or {}))
     tri = sorted(combs, key=lambda c: -(c["taux"] if c["taux"] is not None else -1.0))
     lignes = []
     for c in tri[:COMBINAISONS_MAX]:
@@ -227,6 +231,42 @@ def methode(el: Dict, k: str, x: Dict, largeur: float) -> Dict:
                    "riche": True, "cale": taux_ecrit(x["taux_max"]) if x.get("taux_max") is not None else ""}
     items.append(("k", 0))
     return {"titre": f"{M.METHODES[k]} — {x['norme']}", "items": items, "verdicts": [verdict]}
+
+
+def titre_ame(r: Dict) -> str:
+    """Le titre du bloc de l'âme : « Contrôles complémentaires EN 1993-1-5 » dans une note « méthode historique seule »
+    (la méthode historique ne les traite pas) ; « Âme et raidisseurs — NBN EN 1993-1-5 » sinon."""
+    return M.TITRE_AME_SEUL if list(r["methodes"]) == ["historique"] else f"{M.TITRE_AME} — {r['ame']['norme']}"
+
+
+def ame(el: Dict, r: Dict, largeur: float) -> Dict:
+    """Le bloc de tête de l'âme : ses hypothèses, LA DÉCISION de chaque lieu (un appui, une charge ponctuelle : sans
+    raidisseur, ou la paire de plats — et son taux), le bilan de ses combinaisons, ses avertissements, puis son verdict."""
+    a = r["ame"]
+    items: List[tuple] = [("pr", riche(h)) for h in a["hypotheses"]]
+    if a["lieux"]:
+        lignes = []
+        for L in a["lieux"]:
+            plats = L["raidisseur"]["designation"] if L["decision"] == "raidisseur" else "sans raidisseur"
+            gov = a.get("gouvernant") in L["verifications"]
+            lignes.append([("lab", L["nom"], gov), ("ref", f"{M.r1(L['F_Ed'])} kN"), ("lab", plats, L["decision"] == "raidisseur"),
+                           ("eta", taux_ecrit(L["taux"]), L["statut"] != RE.NOK, gov)])
+        cols = [("LIEU", 58, "left"), ("FORCE", 44, "left"), ("DÉCISION", largeur - 58 - 44 - 40, "left"), ("TAUX", 40, "right")]
+        items.append(("tab", cols, lignes))
+    # (dans le bilan des combinaisons, une vérification d'un lieu se dit par son lieu : « appui A »)
+    tab = _tableau_combinaisons(a, largeur, {k: L["nom"] for L in a["lieux"] for k in L["verifications"]})
+    if tab:
+        items.append(tab)
+    items += [("pr", riche(x["message"])) for x in a["alertes"]]
+    verdicts = []
+    if a["verifications"]:
+        niv = R.niveau_methode(a)
+        g = R.gouvernante(a)
+        quoi = M.resume_ame(a) if a["statut"] == RE.OK else (_minuscule(g["titre"]) if g else "")
+        verdicts = [{"texte": f"{R.mot_niveau(niv)} — {_minuscule(quoi)}" if quoi else R.mot_niveau(niv), "etat": COULEURS[niv], "riche": True,
+                     "cale": taux_ecrit(a["taux_max"]) if a.get("taux_max") is not None else ""}]
+        items.append(("k", 0))
+    return {"titre": titre_ame(r), "items": items, "verdicts": verdicts}
 
 
 def lignes_ecrites(x: Dict, v: Dict) -> List[Tuple[Tuple[str, ...], str]]:
@@ -261,7 +301,9 @@ def verification(k: str, x: Dict, v: Dict, precedente: Optional[Tuple[int, List]
     items.append(("k", 0))
     verdict = {"texte": comparaison(v), "etat": etat_verification(v), "riche": True,
                "cale": taux_ecrit(v["taux"]) if v["taux"] is not None else M.MOT_STATUT[v["statut"]].lower()}
-    return {"titre": f"{M.METHODES_COURT[k]} · {_minuscule(v['titre'])}", "items": items, "verdicts": [verdict]}
+    # (une vérification de l'âme porte déjà son lieu : « Appui A : âme sous la réaction »)
+    titre = v["titre"] if k == M.AME else f"{M.METHODES_COURT[k]} · {_minuscule(v['titre'])}"
+    return {"titre": titre, "items": items, "verdicts": [verdict]}
 
 
 def comparaison_methodes(r: Dict, largeur: float) -> Dict:
@@ -269,9 +311,13 @@ def comparaison_methodes(r: Dict, largeur: float) -> Dict:
     def case(t):
         return ("num", "—") if t is None else ("eta", taux_ecrit(t), t <= 1.0, False)
 
-    lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"]), case(li["ec3"])] for li in r["comparaison"]]
+    lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"]), case(li["ec3"])] for li in r["comparaison"]
+              if li.get("commun") is None]
     cols = [("SUJET", largeur - 2 * 52, "left"), ("HISTORIQUE", 52, "right"), ("EUROCODE 3", 52, "right")]
-    return {"titre": "Comparaison des deux méthodes", "items": [("tab", cols, lignes), ("pr", riche(R.NOTE_COMPARAISON))], "verdicts": []}
+    items = [("tab", cols, lignes)]
+    # l'âme vaut pour les deux méthodes : un seul taux, dit sous le tableau (l'écran le pose à cheval sur les deux colonnes)
+    items += [("pr", f"{li['sujet']}, pour les deux méthodes : {taux_ecrit(li['commun'])}.") for li in r["comparaison"] if li.get("commun") is not None]
+    return {"titre": "Comparaison des deux méthodes", "items": items + [("pr", riche(R.NOTE_COMPARAISON))], "verdicts": []}
 
 
 def a_confirmer(r: Dict, largeur: float) -> Optional[Dict]:
@@ -359,7 +405,8 @@ class Planche(Encre):
 def resume(el: Dict, r: Dict, court: bool = False) -> str:
     """« S235 · 6,00 m · 74 % historique · 52 % Eurocode 3 » : sous le nom de la barre, dans la garde et dans l'en-tête ;
     ``court`` : les seuls taux (« 74 % historique · 52 % Eurocode 3 »). Le taux AVANT le nom de la méthode, comme le
-    verdict de l'écran (« 74 % Méthode historique ») : « Eurocode 3 9 % » se lisait « 39 % »."""
+    verdict de l'écran (« 74 % Méthode historique ») : « Eurocode 3 9 % » se lisait « 39 % ». Une barre qui demande des
+    raidisseurs le dit au bout (« · 2 raidisseurs »)."""
     morceaux = [] if court else [el["nuance"]]
     if el["mode"] == "chargee" and not court:
         morceaux.append(f"{' + '.join(M.m(x) for x in el['travees'])} m")
@@ -367,6 +414,9 @@ def resume(el: Dict, r: Dict, court: bool = False) -> str:
         if x.get("taux_max") is not None:
             p = C.pct(x["taux_max"])
             morceaux.append((f"> {C.PLAFOND_TAUX} %" if p > C.PLAFOND_TAUX else f"{C.pc(p)} %") + f" {COURT[k]}")
+    k = len(M.raidis(r["ame"]))
+    if k:                                              # ce que la barre demande en plus de son profilé
+        morceaux.append(f"{k} raidisseur{'s' if k > 1 else ''}")
     return " · ".join(morceaux)
 
 
@@ -403,7 +453,8 @@ def resume_entete(el: Dict, r: Dict, mot: str, style: "Planche") -> str:
 
 def planche(el: Dict, r: Dict, style: Planche) -> Dict:
     """La planche d'une barre : son en-tête, son panneau, ses vérifications numérotées — les données ; par méthode, sa
-    tête puis chacune de ses vérifications ; la comparaison ; les paramètres à confirmer ; ce qui n'est pas vérifié."""
+    tête puis chacune de ses vérifications ; l'âme et ses raidisseurs (sa tête : la décision de chaque lieu ; puis ses
+    vérifications) ; la comparaison ; les paramètres à confirmer ; ce qui n'est pas vérifié."""
     largeur = style.largeur_colonne()
     verifs = [donnees(el, r)]
     for k, x in r["methodes"].items():
@@ -412,6 +463,11 @@ def planche(el: Dict, r: Dict, style: Planche) -> Dict:
         for v in x["verifications"]:
             verifs.append(verification(k, x, v, precedente))
             precedente = (len(verifs), lignes_ecrites(x, v))
+    verifs.append(ame(el, r, largeur))
+    precedente = None
+    for v in r["ame"]["verifications"]:
+        verifs.append(verification(M.AME, r["ame"], v, precedente))
+        precedente = (len(verifs), lignes_ecrites(r["ame"], v))
     if R.comparable(r):
         verifs.append(comparaison_methodes(r, largeur))
     ac = a_confirmer(r, largeur)

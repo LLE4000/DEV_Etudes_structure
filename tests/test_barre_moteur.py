@@ -45,7 +45,7 @@ from acier.profiles import catalogue as CAT  # noqa: E402
 from rdm import poutres as PO  # noqa: E402
 
 OK, KO = [], []
-FICHIERS = ("combinaisons", "statique", "entree", "moteur")
+FICHIERS = ("combinaisons", "statique", "entree", "enveloppe", "moteur")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
 
 
@@ -253,10 +253,13 @@ def controles(M=None):
       h3["combinaison"] == "G + Q" and proche(Ms, 48.39) and proche(verif(h3, "H-SIGMA")["valeur"], verif(hd, "H-SIGMA")["valeur"], 1e-8)
       and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-SIGMA")["x"] == 3.0 and h3["statut"] == RE.NOK
       and proche(Vs, 19.76), (verif(h3, "H-EQ"), Ms, Vs))
-    c("R2 : les deux méthodes côte à côte — la comparaison a une ligne « flexion et contraintes » et la ligne du plus défavorable ; "
-      "le statut de la barre est le plus sévère des deux", [x["sujet"] for x in r["comparaison"]] == ["Flexion et contraintes, déversement compris",
-                                                                                              "Effort tranchant seul", "Le plus défavorable"]
-      and proche(r["comparaison"][-1]["historique"], h3["taux_max"]) and proche(r["comparaison"][-1]["ec3"], e3["taux_max"])
+    c("R2 : les deux méthodes côte à côte — la comparaison a une ligne « flexion et contraintes », la ligne du plus défavorable, puis celle de "
+      "l'âme (EN 1993-1-5 : UN taux, « commun », il vaut pour les deux méthodes) ; le statut de la barre est le plus sévère",
+      [x["sujet"] for x in r["comparaison"]] == ["Flexion et contraintes, déversement compris", "Effort tranchant seul", "Le plus défavorable",
+                                                 "Âme et raidisseurs (EN 1993-1-5)"]
+      and proche(r["comparaison"][2]["historique"], h3["taux_max"]) and proche(r["comparaison"][2]["ec3"], e3["taux_max"])
+      and r["comparaison"][3] == {"sujet": "Âme et raidisseurs (EN 1993-1-5)", "historique": None, "ec3": None, "commun": r["ame"]["taux_max"]}
+      and all("commun" not in x for x in r["comparaison"][:3])
       and r["comparaison"][1]["historique"] is None and r["statut"] == RE.NOK and e3["statut"] == RE.OK, r["comparaison"])
     fl = stq["fleche"]
     EI = 210000.0 * s3["Iy"] / 1e9
@@ -329,10 +332,22 @@ def controles(M=None):
       Lc == {"haut": 3000.0, "bas": 6000.0} and Mcr["haut"] > 1.8 * nu and nu < Mcr["bas"] < 1.3 * nu, (Lc, Mcr, nu))
     r = mo.verifier(barre(profil="IPE 750x147", nuance="S355", travees=[8.0], methodes=["ec3"], maintiens=[{"x": 2.0}, {"x": 4.0}, {"x": 6.0}],
                           cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 8.0)]}]))
-    c("une vérification non couverte (voilement par cisaillement d'une âme élancée, lot 4) traverse l'enveloppe : rien ne dépasse, mais la "
-      "méthode et la barre sont rendues « non couvert », jamais « ok »",
-      verif(r["methodes"]["ec3"], "E-Vb")["statut"] == RE.NON_COUVERT and r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT
+    c("le voilement par cisaillement d'une âme élancée (IPE 750x147 S355) n'est plus « non couvert » : depuis le lot 4 il est VÉRIFIÉ, dans le "
+      "bloc de l'âme (A-Vb) — la méthode Eurocode 3 ne le porte pas, et la barre est conforme",
+      verif(r["methodes"]["ec3"], "E-Vb") is None and verif(r["methodes"]["ec3"], "A-Vb") is None and r["methodes"]["ec3"]["statut"] == RE.OK
+      and verif(r["ame"], "A-Vb")["statut"] == RE.OK and r["ame"]["statut"] == RE.OK and r["statut"] == RE.OK,
+      (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
+    r = mo.verifier(barre(profil="CHS 508x6.3", nuance="S355", methodes=["ec3"]))
+    c("une vérification non couverte (un tube rond de classe 4 : EN 1993-1-6) traverse l'enveloppe : rien ne dépasse, mais la méthode et la barre "
+      "sont rendues « non couvert », jamais « ok »",
+      verif(r["methodes"]["ec3"], "E-SECTION")["statut"] == RE.NON_COUVERT and r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT
       and r["methodes"]["ec3"]["taux_max"] < 1.0 and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["statut"]))
+    r = mo.verifier(barre(profil="IPE 750x147", nuance="S355", travees=[4.0], methodes=["ec3"], maintiens=[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
+                          cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(1100.0, 1.0), P_(1100.0, 3.0)]}]))
+    c("… de même dans le bloc de l'âme : l'interaction flexion – cisaillement d'une âme élancée sous un effort normal (A-VbM) n'est pas "
+      "couverte — l'Eurocode 3 passe (89 %), l'âme et la barre sont « non couvert »",
+      r["methodes"]["ec3"]["statut"] == RE.OK and verif(r["ame"], "A-VbM")["statut"] == RE.NON_COUVERT and verif(r["ame"], "A-Vb")["statut"] == RE.OK
+      and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
     c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, hors du tableau 3.1 de l'Eurocode) est rendue « non couvert » avec son "
       "motif ; l'autre méthode reste calculée",
@@ -417,7 +432,7 @@ def charger(mutation=None):
         mods[k] = mod
     mods["entree"].CO, mods["entree"].ST = mods["combinaisons"], mods["statique"]
     m = mods["moteur"]
-    m.CO, m.ST, m.EN = mods["combinaisons"], mods["statique"], mods["entree"]
+    m.CO, m.ST, m.EN, m.Enveloppe = mods["combinaisons"], mods["statique"], mods["entree"], mods["enveloppe"].Enveloppe
     return mods
 
 
@@ -449,13 +464,13 @@ MUTATIONS = [
     ("statique", "charges hors du tronçon gardées", '                if a - 1e-9 <= ch["a"] <= b + 1e-9:\n', "                if True:\n"),
     ("statique", "charge triangulaire prise uniforme", "                    q1, q2 = q(u), q(v)\n", "                    q1 = q2 = ch[\"v\"]\n"),
     ("statique", "appui intermédiaire d'une poutre continue non tenu", "            tenus[round(x, 9)] = MC.FOURCHE\n", "            pass\n"),
-    ("moteur", "un seul côté de la section vérifié", "    return [d] if (abs(g[0] - d[0]) < EPS and abs(g[1] - d[1]) < EPS) else [g, d]", "    return [d]"),
+    ("statique", "un seul côté de la section vérifié", "    return [d] if (abs(g[0] - d[0]) < eps and abs(g[1] - d[1]) < eps) else [g, d]", "    return [d]"),
     ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] != "appuis" or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:\n        return None', "    if False:\n        return None"),
     ("moteur", "niveau d'application des charges ignoré", 'zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0', "zg = 0.0"),
     ("moteur", "console : flambement sur une fois sa longueur", "                L = 2.0 * L   ", "                L = 1.0 * L   "),
     ("moteur", "axe faible : flambement sur toute la barre malgré les maintiens", 'max(t["x2"] - t["x1"] for t in trs)', 'sum(b["travees"])'),
-    ("moteur", "l'enveloppe garde l'occurrence la plus FAVORABLE", '            if courant is None or rang > courant["rang"]:', '            if courant is None or rang < courant["rang"]:'),
-    ("moteur", "un refus sans taux passe derrière les taux", "        return (2, 0.0)\n", "        return (0, 0.0)\n"),
+    ("enveloppe", "l'enveloppe garde l'occurrence la plus FAVORABLE", '            if courant is None or gravite > courant["rang"]:', '            if courant is None or gravite < courant["rang"]:'),
+    ("enveloppe", "un refus sans taux passe derrière les taux", "        return (2, 0.0)\n", "        return (0, 0.0)\n"),
     ("moteur", "méthode historique : un maintien d'une semelle tendue compté", "        if (z > 0 and haut) or (z < 0 and bas):", "        if True:"),
     ("moteur", "méthode historique sur les combinaisons pondérées", "        for co in CO.service(cas):", "        for co in CO.elu(cas, P):"),
     ("moteur", "Eurocode 3 sur les combinaisons de service", "        for co in CO.elu(cas, P):\n            C = ST.Combinaison", "        for co in CO.service(cas):\n            C = ST.Combinaison"),
@@ -526,7 +541,7 @@ def main():
     chk("verifier ne modifie pas la barre reçue", b1 == b0)
     r = MO.verifier(barre(**R2))
     chk("la sortie : la barre relue, le profilé, sa masse, la statique (abscisses, enveloppes, réactions par cas, flèche, tronçons), les méthodes, "
-        "le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "longueurs", "methodes", "statut", "comparaison"}
+        "l'âme, le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "longueurs", "methodes", "ame", "statut", "comparaison"}
         and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and set(r["statique"]["enveloppes"]["ec3"]) == {"x", "M_max", "M_min", "V_max", "V_min"}
         and [a["R"] for a in r["statique"]["cas"][0]["reactions"]] == [2.42 * 3 + 5.0] * 2, sorted(r["statique"]))
     plantes, n = [], 0

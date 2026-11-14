@@ -38,6 +38,9 @@
 .pf-ch-2 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; font-size: 12px; color: var(--ink-3); }
 .pf-ch-2.tri { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1.1fr); }
 .pf-ch-2.un { grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr); }
+/* une charge ponctuelle qui appuie sur l'âme : « à 3 m · sur 100 mm » (sa longueur d'appui rigide) */
+.pf-ch-2.ss { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); }
+.pf-ch-2.ss > span[title] { cursor: help; border-bottom: 1px dotted var(--ink-3); }
 /* un maintien : son abscisse, son genre, « retirer » */
 .pf-mt { display: grid; grid-template-columns: auto minmax(0, 92px) minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; color: var(--ink-3); }
 
@@ -62,6 +65,16 @@
 .pf-verdicts .chip.xl.pf-mot { font-size: 13px; letter-spacing: 0; font-family: inherit; font-weight: 650; }
 /* où une vérification a été trouvée (la combinaison, l'abscisse) : discret */
 .pf-ou { color: var(--ink-3); font-size: 11.5px; }
+/* ce que l'âme demande, sous les verdicts des méthodes : des raidisseurs à poser (or), un défaut (rouge) */
+.pf-vame { display: flex; align-items: flex-start; gap: 8px; width: calc(100% - 24px); margin: 0 12px 8px; padding: 7px 10px; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--panel-2); color: var(--ink-2); font: inherit; font-size: 12.5px; line-height: 1.35; text-align: left; cursor: pointer; }
+.pf-vame svg { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--ink-3); }
+.pf-vame b { color: var(--ink); font-weight: 650; }
+.pf-vame.warn { border-color: var(--or-vif); background: var(--or-soft); }
+.pf-vame.warn svg { color: var(--or); }
+.pf-vame.nok { border-color: var(--nok); }
+.pf-vame.nok svg, .pf-vame.nok b { color: var(--nok); }
+.pf-raid { font-weight: 650; color: var(--or); }
 /* le profilé retenu, au-dessus des blocs */
 .pf-profil { padding: 2px 0 0; border-bottom: 1px solid var(--line); }
 /* la 2ᵉ ligne d'une vérification passe à la ligne plutôt que d'être coupée (ce qu'elle compare, puis où) */
@@ -81,6 +94,8 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
 .pf-cmp-h { padding-bottom: 0; font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
 .pf-cmp-h span { text-align: center; }
 .pf-cmp-t { border-top: 1px solid var(--line); font-weight: 650; color: var(--ink); }
+/* l'âme : un seul taux, à cheval sur les deux colonnes — il vaut pour les deux méthodes */
+.pf-cmp-c { grid-template-columns: minmax(0, 1fr) 160px; color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- les fenêtres de calcul */
 .pf-msg { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); padding: 2px 0; }
@@ -93,5 +108,6 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
   .pf-ret { width: 44px; height: 44px; }
   .pf-prof { min-height: 44px; }
   .pf-lien { min-height: 44px; }
+  .pf-vame { min-height: 44px; align-items: center; }
   .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 44px; }
 }

@@ -3,7 +3,9 @@
 même dans la fenêtre de calcul de l'écran et dans la note PDF. docs/acier/BARRES_ACIER.md § 9.
 
 Ce que la suite prouve :
-  1. LES NOMBRES — un entier en entier, cinq chiffres significatifs sinon, le vrai signe moins, la virgule.
+  1. LES NOMBRES — un entier en entier, cinq chiffres significatifs sinon, le vrai signe moins, la virgule ; UN SEUL
+     ARRONDI D'AFFICHAGE dans le module (acier/barre/resultat.fixe) : demi vers l'extérieur, celui de l'écran — la
+     formule écrit le chiffre que le tableau écrit (458,25 kN → « 458,3 » des deux côtés).
   2. DES FORMULES ÉCRITES À LA MAIN — la chaîne exacte de formules connues (flambement, charge critique en kN, unités
      × 10³ et / 10⁵, valeur négative, symbole composé, exposants, coefficient partiel, taux d'une vérification) ; la
      relecture, jugée elle-même.
@@ -22,19 +24,31 @@ import os
 import re
 import subprocess
 import sys
+from fractions import Fraction
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
+from acier import js as JS  # noqa: E402
+from acier.barre import combinaisons as CO  # noqa: E402
 from acier.barre import ecriture as EC  # noqa: E402
 from acier.barre import entree as EN  # noqa: E402
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
+from acier.barre import resultat as RE  # noqa: E402
 from acier.barre.resultat import formule, terme  # noqa: E402
 
 OK, KO = [], []
 CHEMIN = os.path.join(RACINE, "acier", "barre", "ecriture.py")
+CHEMIN_RE = os.path.join(RACINE, "acier", "barre", "resultat.py")
+# un format de Python qui ARRONDIT pour écrire (« {x:.1f} », « {x:,.2f} », « %.1f », « .format( ») : au chiffre pair sur
+# un demi exact — l'arrondi que le module n'emploie plus
+FORMAT_PYTHON = re.compile(r"\{[^{}\n]*:,?\.(?:\d+|\{[^{}\n]*\})[feg]\}|%\.\d+[feg]|\.format\(")
+# des demis EXACTS en binaire (k/2, k/4, k/8, k/16), les nombres du défaut constaté, et des nombres ordinaires
+DEMIS = ([k / 8.0 for k in range(-41, 42)] + [100.0 + k / 16.0 for k in range(0, 33)]
+         + [458.25, -458.25, 3831.25, 13052.5, 10.125, 121.25, 258.5, 0.5, 1.5, 2.5, 0.125, 0.375])
+ORDINAIRES = [1.005, 2.675, 0.1 + 0.2, 569.23, 1264.96, 0.627803, 348.2617, 5381.4, 1e-7, 123456.789, 1e21, 0.0, -0.0, -0.04, 235]
 # ce qu'une formule EN VALEURS peut contenir : chiffres, virgule, opérateurs, parenthèses, racine, π, exposants
 VALEURS = re.compile(r"^[0-9 ,()+−×/√π^⁰¹²³⁴⁵⁶⁷⁸⁹]+$")
 PROGRAMME = re.compile(r"\*|sqrt|1e\d|\bpi\b|(?<![A-Za-z_,])\d+\.\d")          # ce qu'une formule en symboles ne doit plus porter
@@ -43,6 +57,14 @@ PROGRAMME = re.compile(r"\*|sqrt|1e\d|\bpi\b|(?<![A-Za-z_,])\d+\.\d")          #
 def chk(nom, cond, info=""):
     (OK if cond else KO).append((nom, info))
     print(("  OK    " if cond else "  ECHEC ") + nom + (f"   [{str(info)[:500]}]" if info and not cond else ""))
+
+
+def demi_exterieur(v, nd):
+    """L'ORACLE de l'arrondi : la valeur binaire EXACTE de ``v`` (une fraction), arrondie à ``nd`` décimales, le demi
+    vers l'extérieur — en arithmétique entière, sans passer par ce que le module appelle."""
+    f = Fraction(v) * 10 ** nd
+    k = math.floor(abs(f) + Fraction(1, 2))
+    return Fraction(-k if f < 0 else k, 10 ** nd)
 
 
 def bloc(gabarit, symbole, termes, resultat, unite=""):
@@ -145,6 +167,14 @@ def controles(e=None):
       lus == ["235", "1", "0,34", "0,6278", "1,1182", "348,26", "68,704", "5381,4", "210000", "−12,5", "0", "0", "0,00023457", "—", "—", "12346"], lus)
     c("les décimales d'un résultat sont celles qu'on lui donne, sans zéro inutile : 569,23 à une décimale → 569,2 ; 0,5 à trois → 0,5 ; "
       "1264,96 à zéro → 1265", [n(569.23, 1), n(0.5, 3), n(1264.96, 0)] == ["569,2", "0,5", "1265"], [n(569.23, 1), n(0.5, 3), n(1264.96, 0)])
+    lus = [n(458.25, 1), n(0.125, 2), n(2.5, 0), n(-2.5, 0), n(258.5, 0), n(3831.25), n(13052.5), n(0.5, 0)]
+    c("un demi EXACT s'arrondit vers l'extérieur, comme à l'écran : 458,25 à une décimale → 458,3 (l'arrondi de Python, au chiffre pair, "
+      "écrivait 458,2 dans la formule, sous un tableau qui disait 458,3) ; 0,125 → 0,13 ; 2,5 → 3 ; −2,5 → −3 ; 258,5 → 259 ; un terme à "
+      "cinq chiffres : 3831,25 → 3831,3 ; 13052,5 → 13053", lus == ["458,3", "0,13", "3", "−3", "259", "3831,3", "13053", "1"], lus)
+    faux = [(v, nd, n(v, nd)) for v in DEMIS + ORDINAIRES for nd in (0, 1, 2, 3) if Fraction(str(e._lu(n(v, nd)))) != demi_exterieur(v, nd)]
+    c(f"… et c'est la règle sur {len(DEMIS + ORDINAIRES)} nombres à 0, 1, 2 et 3 décimales (des demis exacts en binaire, des nombres ordinaires) : "
+      "chaque nombre imprimé est la valeur exacte arrondie le demi vers l'extérieur — l'oracle est refait en fractions entières",
+      len(DEMIS) > 120 and not faux, faux[:4])
 
     # ---- 2. des formules écrites à la main
     b1 = bloc("e_N_b_Rd", "N_b,z,Rd", [("χ_z", 0.31022), ("A", 7808.0), ("f_y", 235.0), ("γ_M1", 1.0)], 0.31022 * 7808.0 * 235.0 / 1e3, "kN")
@@ -230,14 +260,37 @@ def controles(e=None):
     return C
 
 
-def charger(mutation):
-    src = open(CHEMIN, encoding="utf-8").read()
+def controles_arrondi(r=None):
+    """L'arrondi d'affichage du module (acier/barre/resultat.py : ``fixe``, ``fr``) — rejoué par ses mutations."""
+    r = r or RE
+    C = []
+
+    def c(nom, cond, info=""):
+        C.append((nom, bool(cond), info))
+
+    faux = [(v, nd, r.fixe(v, nd)) for v in DEMIS + ORDINAIRES for nd in (0, 1, 2, 3) if Fraction(r.fixe(v, nd)) != demi_exterieur(v, nd)]
+    c(f"l'arrondi du module (resultat.fixe) : la valeur exacte, le demi vers l'extérieur — {len(DEMIS + ORDINAIRES)} nombres à 0, 1, 2 et 3 "
+      "décimales, contre l'oracle en fractions entières", not faux, faux[:4])
+    memes = [(v, nd) for v in DEMIS + ORDINAIRES for nd in (0, 1, 2, 3) if r.fixe(v, nd).lstrip("-") != JS.to_fixed(v, nd).lstrip("-")]
+    c("… c'est la règle des moteurs et de l'écran (acier.js.to_fixed), au chiffre près", not memes, memes[:4])
+    lus = [r.fixe(458.25, 1), r.fixe(-0.04, 1), r.fixe(-0.0, 2), r.fixe(235, 1), r.fixe(1e30, 1)]
+    c("… ses décimales sont toutes écrites (458.3, 235.0), jamais « -0 » (−0,04 à une décimale → 0.0), et un très grand nombre s'écrit au "
+      "lieu de lever (10³⁰, dans sa valeur binaire exacte)", lus == ["458.3", "0.0", "0.00", "235.0", "1000000000000000019884624838656.0"], lus)
+    lus = [r.fr(458.25, 1), r.fr(1234.5), r.fr(13052.5), r.fr(-2.5), r.fr(-0.04, 1), r.fr(235.0), r.fr(float("nan")), r.fr(float("inf"), 1)]
+    c("un nombre dans une phrase (resultat.fr) suit la même règle : 458,25 → « 458,3 » ; 1234,5 → « 1 235 » (espace fine des milliers) ; "
+      "13052,5 → « 13 053 » ; −2,5 → « -3 » ; jamais « -0,0 » ; « — » s'il n'est pas fini",
+      lus == ["458,3", "1\u202f235", "13\u202f053", "-3", "0,0", "235", "—", "—"], lus)
+    return C
+
+
+def charger(mutation, chemin=CHEMIN):
+    src = open(chemin, encoding="utf-8").read()
     if src.count(mutation[0]) != 1:
         return None
-    spec = importlib.util.spec_from_file_location("acier.barre.ecriture_mute", CHEMIN)
+    spec = importlib.util.spec_from_file_location("acier.barre." + os.path.basename(chemin)[:-3] + "_mute", chemin)
     mod = importlib.util.module_from_spec(spec)
     mod.__package__ = "acier.barre"
-    exec(compile(src.replace(mutation[0], mutation[1]), CHEMIN, "exec"), mod.__dict__)
+    exec(compile(src.replace(mutation[0], mutation[1]), chemin, "exec"), mod.__dict__)
     return mod
 
 
@@ -269,6 +322,17 @@ MUTATIONS = [
     ("la relecture sur les valeurs exactes (elle ne jugerait plus l'impression)", 'env = {n: _lu(nombre(t["valeur"])) for n, t in zip(noms, bloc["termes"])}',
      'env = {n: t["valeur"] for n, t in zip(noms, bloc["termes"])}'),
     ("la tolérance de relecture portée à 5 %", "RELECTURE = 5e-4 ", "RELECTURE = 5e-2 "),
+    ("l'arrondi de Python (au chiffre pair) rendu à la formule", "    s = fixe(v, decimales(v) if nd is None else nd)",
+     '    s = f"{v:.{decimales(v) if nd is None else nd}f}"'),
+]
+# celles de l'arrondi du module (acier/barre/resultat.py), jugées par ``controles_arrondi``
+MUTATIONS_ARRONDI = [
+    ("l'arrondi du module rendu à Python (au chiffre pair)", "        s = JS.to_fixed(x, int(nd))\n", '        s = f"{x:.{int(nd)}f}"\n'),
+    ("le signe d'un zéro gardé (« -0,0 »)", '    if s.startswith("-") and not s.strip("-0."):\n        s = s[1:]\n    return s\n', "    return s\n"),
+    ("la précision de l'arrondi laissée à 28 chiffres (un très grand nombre lève)", "        ctx.prec = 420 ", "        ctx.prec = 28 "),
+    ("un nombre non fini écrit dans une phrase", '    if not math.isfinite(x):\n        return "—"\n    ent, _, dec = fixe(x, nd).partition(".")',
+     '    ent, _, dec = fixe(x, nd).partition(".")'),
+    ("les milliers d'une phrase sans leur espace", '.replace(",", "\\u202f") + ("," + dec if dec else "")', '.replace(",", "") + ("," + dec if dec else "")'),
 ]
 
 
@@ -276,6 +340,22 @@ def main():
     print("== 1 à 3. les nombres, des formules écrites à la main, tous les gabarits")
     for nom, ok, info in controles():
         chk(nom, ok, info)
+
+    print("== 1 bis. un seul arrondi d'affichage dans le module")
+    for nom, ok, info in controles_arrondi():
+        chk(nom, ok, info)
+    lus = [CO._fr(1.35), CO._fr(1.5), CO._fr(1.05), CO._fr(0.7 * 1.5), CO._fr(1.125), CO._fr(1.0)]
+    chk("le facteur d'une combinaison suit la même règle : 1,35 ; 1,5 ; 1,05 (0,7 × 1,5) ; un demi exact 1,125 → 1,13",
+        lus == ["1,35", "1,5", "1,05", "1,05", "1,13", "1"], lus)
+    dossier = os.path.join(RACINE, "acier", "barre")
+    fichiers = sorted(f for f in os.listdir(dossier) if f.endswith(".py"))
+    restes = [(f, m.group(0)) for f in fichiers for m in FORMAT_PYTHON.finditer(open(os.path.join(dossier, f), encoding="utf-8").read())]
+    chk(f"aucun des {len(fichiers)} fichiers du moteur des barres n'arrondit un nombre par un format de Python (« {{x:.1f}} », « %.1f », "
+        "« .format( ») : un second arrondi y écrirait un autre chiffre que l'écran", len(fichiers) >= 20 and not restes, restes[:4])
+    chk("… et ce contrôle voit un tel format : « f\"{x:.1f}\" », « f\"{x:,.{nd}f}\" », « \"%.2f\" % x » sont relevés ; « f\"{x}\" » et "
+        "« round(x, 9) » ne le sont pas",
+        all(FORMAT_PYTHON.search(t) for t in ('f"{x:.1f}"', 'f"{x:,.{nd}f}"', '"%.2f" % x', 'f"{v:.{decimales(v) if nd is None else nd}f}"'))
+        and not any(FORMAT_PYTHON.search(t) for t in ('f"{x}"', "round(x, 9)", 'f"{nom:>8}"')))
 
     print("== 4. les formules du moteur")
     blocs = blocs_du_moteur()
@@ -322,6 +402,16 @@ def main():
         except Exception as ex:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
             rouges = [f"exception {type(ex).__name__}: {ex}"]
         chk(f"mutation « {nom} » : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
+    for nom, ancien, nouveau in MUTATIONS_ARRONDI:
+        mod = charger((ancien, nouveau), CHEMIN_RE)
+        if mod is None:
+            chk(f"mutation de l'arrondi « {nom} » : le texte à muter est dans resultat.py, une seule fois", False, "texte absent ou répété")
+            continue
+        try:
+            rouges = [n_ for n_, ok, _ in controles_arrondi(mod) if not ok]
+        except Exception as ex:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
+            rouges = [f"exception {type(ex).__name__}: {ex}"]
+        chk(f"mutation de l'arrondi « {nom} » : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
 
     print("== 6. pureté")
     code = ("import sys\n"

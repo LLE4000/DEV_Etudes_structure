@@ -17,7 +17,7 @@ MÉTHODE HISTORIQUE (charges de service) — pour chaque arrangement : G + ΣQ, 
 from itertools import combinations
 from typing import Dict, List, Sequence
 
-from .resultat import Refus
+from .resultat import Refus, fixe
 
 PERMANENT = "permanent"
 # nature → (libellé, clé du triplet ψ dans la table des paramètres)
@@ -33,7 +33,7 @@ VARIABLES_MAX = 4               # 2⁴ arrangements, au plus quatre dominantes, 
 
 
 def _fr(x: float) -> str:
-    return f"{x:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+    return fixe(x, 2).rstrip("0").rstrip(".").replace(".", ",")
 
 
 def _nom(termes: Sequence) -> str:

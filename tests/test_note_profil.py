@@ -4,16 +4,20 @@ ajouté au kit des notes (ndc_pdf : la barre de λ̄, les substitutions repliée
 riche, le peintre des dessins en mode riche) —, vérifiée en Python ordinaire, à travers le routeur comme le navigateur.
 
   1. TOUTE la note en un PDF valide : la garde du site (projet, partie, date, indice, une ligne par barre, sa page), puis
-     la planche de chaque barre, dans l'ordre — sur douze notes : la barre neuve, la méthode historique seule, l'Eurocode
+     la planche de chaque barre, dans l'ordre — sur quinze notes : la barre neuve, la méthode historique seule, l'Eurocode
      seul, un poteau comprimé et fléchi en efforts imposés (l'annexe A), un tube rectangulaire, un tube rond, une poutre
      continue qui ne tient pas, une barre sans effort, trois barres dans une note, une note de la version 1 relue, un nom
      de 40 caractères sur une poutre de cinq travées au plus long nom de profilé (le résumé de l'en-tête se raccourcit),
-     un nom de 60 caractères, la borne du site (il cède dans l'en-tête et sur la garde, par « … »).
+     un nom de 60 caractères, la borne du site (il cède dans l'en-tête et sur la garde, par « … ») ; et, pour l'âme
+     (lot 4) : une poutre de reprise et son raidisseur, une charge au droit d'un appui (l'interaction, la force
+     transmise d'une semelle à l'autre), une âme élancée (le voilement par cisaillement, des raidisseurs aux appuis).
   2. PARITÉ avec le moteur de l'écran (``profil.calculer``), barre par barre, par pdftotext : son nom, son profilé, son
      acier, son état ; les seules méthodes cochées ; chaque vérification — son titre, les deux membres de son critère,
-     son taux — ; chaque RÉSULTAT et chaque TERME des formules que l'écran écrit ; le bilan des combinaisons ; la
-     comparaison des deux méthodes ; les paramètres à confirmer ; la flèche ; ce que la note ne vérifie pas ; et les
-     valeurs du DESSIN (les charges, la portée, les extrêmes des enveloppes).
+     son taux — ; chaque RÉSULTAT et chaque TERME des formules que l'écran écrit ; le bilan des combinaisons ; L'ÂME ET
+     SES RAIDISSEURS (EN 1993-1-5), imprimée quelle que soit la méthode — ses hypothèses, la décision de chaque lieu
+     (sa force, « sans raidisseur » ou la paire de plats, son taux), chacune de ses vérifications ; la comparaison des
+     deux méthodes, et le taux de l'âme dessous ; les paramètres à confirmer ; la flèche ; ce que la note ne vérifie
+     pas ; et les valeurs du DESSIN (les charges, la portée, les extrêmes des enveloppes).
   3. LA MISE EN PAGE : deux colonnes de calcul, jamais trois ; une planche qui déborde se POURSUIT (« suite ») ; aucun
      mot ne passe d'une colonne à l'autre ni ne sort de la page (une ligne trop longue se coupe devant un opérateur) ;
      les facteurs communs à (6.61) et (6.62) ne sont écrits qu'une fois.
@@ -110,6 +114,16 @@ NOTES = {
     "un nom de 40 caractères sur cinq travées": note(("nom", "Poutre principale du plancher haut R+1 a"), ("profil", "SHS 400x400x12.5 (froid)"),
                                                     ("modele", "continue"), ("travees/+", 1), ("travees/+", 1), ("travees/+", 1)),
     "un nom de 60 caractères": note(("nom", NOM_60), ("profil", "SHS 400x400x12.5 (froid)"), ("modele", "continue"), ("travees/+", 1)),
+    # (lot 4) une charge de 675 kN de calcul sur un HEB 300 : un raidisseur sous la charge, l'âme seule aux appuis (s_s = 200 mm)
+    "une poutre de reprise et son raidisseur": note(("nom", "PR1"), ("profil", "HEB 300"), ("travees/0", "4"), ("appuis/ss", "200"),
+                                                   ("cas/0/charges/0/type", "P"), ("cas/0/charges/0/v", "300"), ("cas/1/charges/0/type", "P"),
+                                                   ("cas/1/charges/0/v", "180")),
+    # … une poutre continue dont l'appui du milieu porte aussi une charge : l'interaction avec la flexion, la force transmise (type b)
+    "une charge au droit d'un appui": note(("nom", "CA1"), ("profil", "HEA 200"), ("modele", "continue"), ("travees/0", "5"), ("travees/1", "5"),
+                                          ("appuis/ss", "80"), ("appuis/c", "20"), ("cas/0/charges/+", "P"), ("cas/0/charges/1/a", "5"),
+                                          ("cas/0/charges/1/v", "20"), ("cas/0/charges/1/ss", "100")),
+    # … une âme élancée (IPE 750x147 en S355) : le voilement par cisaillement vérifié, des raidisseurs aux appuis
+    "une âme élancée": note(("nom", "AE1"), ("profil", "IPE 750x147"), ("nuance", "S355"), ("travees/0", "8"), ("cas/0/charges/0/v", "60")),
 }
 
 
@@ -159,6 +173,9 @@ def resume_attendu(el, r, court=False):
         t = (r["methodes"].get(k) or {}).get("taux_max")
         if t is not None:
             mots.append((f"> {C.PLAFOND_TAUX} %" if C.pct(t) > C.PLAFOND_TAUX else f"{C.pc(C.pct(t))} %") + f" {nom}")
+    k = sum(1 for L in r["ame"]["lieux"] if L["decision"] == "raidisseur")
+    if k:
+        mots.append(f"{k} raidisseur" + ("s" if k > 1 else ""))
     return " · ".join(mots)
 
 
@@ -283,6 +300,44 @@ def parite(etat, pages):
                         nombre(f"un terme de {f['cle']}", W.nombre(t["valeur"]))
                 for msg in v["messages"]:
                     veut(f"un message de {v['id']}", msg, nu(msg.split(" (")[0]) in nu(T))
+        # ---- l'âme et ses raidisseurs (EN 1993-1-5) : imprimée quelle que soit la méthode cochée
+        a = r["ame"]
+        seule = list(r["methodes"]) == ["historique"]
+        veut("la tête du bloc de l'âme", "Contrôles complémentaires EN 1993-1-5" if seule else f"Âme et raidisseurs — {a['norme']}")
+        veut("… sous son seul titre", "l'autre titre", ("Contrôles complémentaires" in T) == seule)
+        for h in a["hypotheses"]:
+            veut("une hypothèse de l'âme", h, nu(h.split(" (")[0])[:60] in nu(T))
+        for L in a["lieux"]:
+            veut("un lieu de l'âme", L["nom"])
+            decision = L["raidisseur"]["designation"] if L["decision"] == "raidisseur" else "sans raidisseur"
+            veut(f"la décision de {L['nom']}", decision)
+            nombre(f"la force de {L['nom']}", f"{M.r1(L['F_Ed'])} kN")
+            if L["taux"] is not None:
+                nombre(f"le taux de {L['nom']}", taux(L["taux"]))
+                # sa LIGNE au tableau des décisions : le lieu, sa force, sa décision, son taux — côte à côte
+                veut(f"la ligne de {L['nom']} au tableau des décisions", f"{L['nom']} {M.r1(L['F_Ed'])} kN {decision} {taux(L['taux'])}",
+                     nu(f"{L['nom']}{M.r1(L['F_Ed'])}kN{decision}{taux(L['taux'])}") in nu(T))
+        if a["verifications"] and a.get("taux_max") is not None:
+            nombre("le taux de tête de l'âme", taux(a["taux_max"]))
+        for v in a["verifications"]:
+            veut("le titre d'une vérification de l'âme", v["titre"])
+            if v["taux"] is not None:
+                nombre(f"le taux de {v['id']}", taux(v["taux"]))
+            if v["valeur"] is not None and not PR.interaction(v):
+                signe = "≤" if v["statut"] != RE.NOK else ">"
+                nombre(f"la valeur de {v['id']}, puis le sens de la comparaison", f"{M.r1(v['valeur'])} {v['unite']} {signe}".replace("  ", " "))
+                nombre(f"la limite de {v['id']}", f"{M.r1(v['limite'])} {v['unite']}".strip())
+            elif v["valeur"] is not None:
+                nombre(f"la somme de {v['id']}", f"η = {C.fr(v['valeur'], 3)}")
+            for f, syms in PR.formules_de(a, v, taux=False):
+                _parts, res = W.morceaux(f, syms)
+                nombre(f"le résultat de {f['cle']}", nombre_de(res))
+                for t in f["termes"]:
+                    nombre(f"un terme de {f['cle']}", W.nombre(t["valeur"]))
+            for msg in v["messages"]:
+                veut(f"un message de {v['id']}", msg, nu(msg.split(" (")[0])[:60] in nu(T))
+        for x_ in a["alertes"]:
+            veut("un avertissement de l'âme", x_["message"], nu(x_["message"])[:60] in nu(T))
         if comparables(r):
             # (le bloc peut passer d'une page à la suivante : l'en-tête de la page de suite, avec son résumé, tombe alors dedans)
             bloc = entre(T, "Comparaison des deux méthodes", ("Paramètres à confirmer", "Ce que la note ne vérifie pas"))
@@ -294,8 +349,12 @@ def parite(etat, pages):
                 for k in ("historique", "ec3"):
                     if li[k] is not None:
                         veut(f"un taux de la comparaison ({li['sujet']}, {k})", taux(li[k]), O.present(taux(li[k]), bloc))
+                if li.get("commun") is not None:          # l'âme : UN taux, sous le tableau — il vaut pour les deux méthodes
+                    veut("le taux de l'âme dans la comparaison", taux(li["commun"]),
+                         O.present(f"pour les deux méthodes : {taux(li['commun'])}", bloc))
             ecrits = len(re.findall(r"\d %", bloc))
-            veut("la comparaison n'écrit que ses taux", ecrits, ecrits == sum(1 for li in r["comparaison"] for k in ("historique", "ec3") if li[k] is not None))
+            veut("la comparaison n'écrit que ses taux", ecrits, ecrits == sum(1 for li in r["comparaison"] for k in ("historique", "ec3", "commun")
+                                                                               if li.get(k) is not None))
         else:
             veut("pas de comparaison sans les deux méthodes", "Comparaison", "Comparaison des deux méthodes" not in T)
         ac = (r["methodes"].get("ec3") or {}).get("a_confirmer") or []
@@ -306,7 +365,7 @@ def parite(etat, pages):
         if fl and fl.get("valeur"):
             nombre("la flèche", f"{C.fr(abs(fl['valeur']), 1)} mm")
         veut("ce que la note ne vérifie pas", "Ce que la note ne vérifie pas")
-        veut("… dont les raidisseurs", "raidisseurs")
+        veut("… dont les raidisseurs intermédiaires d'une âme élancée, les soudures et les assemblages", "raidisseurs intermédiaires")
     return faux
 
 
@@ -407,7 +466,7 @@ def controles(noms=None):
 
 
 def main():
-    print("== 1, 2, 3, 4. douze notes : un PDF valide, les chiffres du moteur, la mise en page, l'identification")
+    print("== 1, 2, 3, 4. quinze notes : un PDF valide, les chiffres du moteur, la mise en page, l'identification")
     for nom, ok, info in controles():
         chk(nom, ok, info)
 
@@ -427,11 +486,14 @@ def main():
     chk("… la flèche de service est donnée (10,0 mm, L/599) et dite non vérifiée ; le poids propre est compté",
         "10,0 mm" in T and "L/599" in T and "elle n'est pas vérifiée" in T and "Poids propre du profilé : compté" in T)
     sec = NP.planche(el, r, NP.Planche())
-    chk("… sa planche : un bloc de données, une tête par méthode, une vérification par bloc numéroté de 1 à n, chacune finie par son verdict",
+    chk("… sa planche : un bloc de données, une tête par méthode, la tête de l'âme, une vérification par bloc numéroté de 1 à n, chacune finie "
+        "par son verdict",
         [v["num"] for v in sec["verifs"]] == list(range(1, len(sec["verifs"]) + 1))
-        and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in r["methodes"].values()) + 3
-        and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"] if " · " in v["titre"] or " — NBN" in v["titre"]),
-        [(v["num"], v["titre"]) for v in sec["verifs"]])
+        and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 3
+        and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"]
+                if " · " in v["titre"] or " — NBN" in v["titre"] or " : âme" in v["titre"])
+        and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : âme sous la réaction",
+                                                          "Appui B : âme sous la réaction"], [(v["num"], v["titre"]) for v in sec["verifs"]])
     _o, pages, _f = faire(NOTES["une poutre continue qui ne tient pas"])
     T = " ".join(pages[1:])
     el, r = barres(NOTES["une poutre continue qui ne tient pas"])[0]
@@ -702,6 +764,21 @@ MUTATIONS = (
      lambda vrai: (lambda el, r, court=False: re.sub(r"(> \d+ %|[\d,]+ %) (historique|Eurocode 3)", r"\2 \1", vrai(el, r, court))),
      ["la barre neuve"]),
     ("le taux écrit sans décimale", NP, "taux_ecrit", lambda vrai: (lambda t: "—" if t is None else f"{t * 100:.0f} %"), ["la barre neuve"]),
+    # ---- l'âme et ses raidisseurs (lot 4)
+    ("le bloc de l'âme n'est plus imprimé", NP, "ame", lambda vrai: (lambda el, r, largeur: {"titre": "Remarques", "items": [], "verdicts": []}),
+     ["la barre neuve"]),
+    ("le tableau des décisions (un lieu, sa force, sa décision, son taux) n'est plus imprimé", NP, "ame",
+     lambda vrai: (lambda el, r, largeur: (lambda o: dict(o, items=[i for i in o["items"] if i[0] != "tab"]))(vrai(el, r, largeur))),
+     ["une poutre de reprise et son raidisseur"]),
+    ("une note « méthode historique seule » perd son titre « Contrôles complémentaires EN 1993-1-5 »", NP, "titre_ame",
+     lambda vrai: (lambda r: f"{M.TITRE_AME} — {r['ame']['norme']}"), ["la méthode historique seule"]),
+    ("le taux de l'âme n'est plus dit sous la comparaison", NP, "comparaison_methodes",
+     lambda vrai: (lambda r, largeur: (lambda o: dict(o, items=[i for i in o["items"] if not (i[0] == "pr" and "pour les deux méthodes" in i[1])]))(
+         vrai(r, largeur))), ["la barre neuve"]),
+    ("le résumé ne dit plus le raidisseur que la barre demande", NP, "resume",
+     lambda vrai: (lambda el, r, court=False: vrai(el, r, court).replace(" · 1 raidisseur", "")), ["une poutre de reprise et son raidisseur"]),
+    ("les vérifications de l'âme ne sont plus imprimées (sa tête seule)", NP, "planche",
+     lambda vrai: (lambda el, r, style: vrai(el, dict(r, ame=dict(r["ame"], verifications=[])), style)), ["une âme élancée"]),
     ("les deux membres d'un critère échangés", NP, "comparaison", lambda vrai: (lambda v: vrai(dict(v, valeur=v.get("limite"), limite=v.get("valeur")))),
      ["une poutre continue qui ne tient pas"]),
 )

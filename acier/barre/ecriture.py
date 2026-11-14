@@ -29,6 +29,7 @@ import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import formules as FO
+from .resultat import fixe
 
 CHIFFRES = 5                     # chiffres significatifs d'un terme imprimé
 DECIMALES_MAX = 12
@@ -53,10 +54,11 @@ def decimales(v) -> int:
 
 
 def nombre(v, nd: Optional[int] = None) -> str:
-    """Un nombre tel qu'il est imprimé : virgule décimale, sans zéro inutile, le vrai signe moins ; « — » s'il manque."""
+    """Un nombre tel qu'il est imprimé : virgule décimale, sans zéro inutile, le vrai signe moins ; « — » s'il manque.
+    L'arrondi est celui du module (``resultat.fixe``) : la formule écrit le chiffre que le tableau écrit."""
     if v is None or isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
         return "—"
-    s = f"{v:.{decimales(v) if nd is None else nd}f}"
+    s = fixe(v, decimales(v) if nd is None else nd)             # l'arrondi du module : demi vers l'extérieur
     if "." in s:
         s = s.rstrip("0").rstrip(".")
     if s in ("-0", ""):

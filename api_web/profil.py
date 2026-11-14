@@ -55,7 +55,7 @@ GAMMA_MIN, GAMMA_MAX = 0.9, 1.5
 FAMILLES = tuple(f for f, (forme, _) in SE.FAMILLES.items() if forme in ("I",) + SE.TUBES)
 # ce qui appartient à chaque mode (l'autre est gardé tel quel dans la note : changer de mode ne perd rien)
 COMMUNS = ("profil", "nuance", "mode", "poids_propre", "niveau", "Lc", "methodes", "historique", "parametres", "flambement")
-CHARGEE = ("modele", "travees", "cas", "maintiens")
+CHARGEE = ("modele", "travees", "cas", "maintiens", "appuis")
 IMPOSES = ("efforts", "diagramme")
 CLES = ("nom",) + COMMUNS + CHARGEE + IMPOSES
 MEMOIRE, MEMOIRE_CANDIDATS = 48, 6000
@@ -254,9 +254,9 @@ def calculer(el: Dict) -> Dict:
 
 
 def _taux(r: Dict) -> Optional[float]:
-    """Le taux le plus fort d'une barre, toutes méthodes confondues ; None quand rien n'a de taux."""
-    t = [x["taux_max"] for x in r["methodes"].values() if x.get("taux_max") is not None]
-    return max(t) if t else None
+    """Le taux le plus fort d'une barre, toutes méthodes confondues — et celui de l'âme quand elle ne passe pas
+    (``profil_resultat.taux_barre``) ; None quand rien n'a de taux."""
+    return R.taux_barre(r)
 
 
 def _niveau(r: Dict) -> str:
@@ -360,6 +360,8 @@ def _charge_neuve(type_: str, L: float, ancienne: Optional[Dict] = None) -> Dict
             ch["sens"] = (ancienne or {}).get("sens", "croissante")
         return ch
     a = ancienne["a"] if ancienne and "b" not in ancienne else (round(0.5 * (ancienne["a"] + ancienne["b"]), 3) if ancienne else round(L / 2.0, 3))
+    if type_ == "P":                         # (sa longueur d'appui rigide, en mm : 0 tant qu'elle n'est pas saisie)
+        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss", 0.0)}
     return {"type": type_, "v": v, "a": a}
 
 
@@ -486,6 +488,8 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                     chs[j]["sens"] = str(valeur)
                 elif champ in ("v", "a") or (champ == "b" and "b" in chs[j]):
                     chs[j][champ] = _lire(valeur, {"v": "valeur de la charge", "a": "abscisse", "b": "abscisse"}[champ])
+                elif champ == "ss" and chs[j]["type"] == "P":
+                    chs[j]["ss"] = _lire(valeur, "longueur d'appui")
                 else:
                     raise KeyError(cle)
             else:
@@ -510,6 +514,12 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 raise KeyError(cle)
         else:
             raise KeyError(cle)
+    elif cle == "appuis/mode":
+        if valeur not in EN.MODES_APPUI:
+            raise ValueError(f"appuis : « {valeur} » inconnu")
+        el["appuis"]["mode"] = valeur
+    elif cle in ("appuis/ss", "appuis/c"):
+        el["appuis"][cles[1]] = _lire(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
     elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("L", "u"):
         if cles[2] == "L" and el["mode"] == "chargee":
             el["flambement"][cles[1]]["L"] = C.lire_auto(valeur)
@@ -622,6 +632,18 @@ def vue_section(el: Dict, ident: str = "pf_section", fiche: bool = True) -> str:
     return DP.section(ident, el["profil"], f["sous"], f["famille"], f["dims"], f["dimensions"], f["proprietes"], "", fiche)
 
 
+def _ame_en_lieux(a: Dict) -> Dict:
+    """Le bloc de l'âme pour la vue des taux : ses vérifications du cisaillement, puis UNE barre par lieu (son taux le
+    plus fort, et la paire de plats quand il en reçoit une) — les titres de ses vérifications sont trop longs pour la
+    marge du dessin, et c'est la décision du lieu qu'on y lit."""
+    des_lieux = {k for L in a["lieux"] for k in L["verifications"]}
+    vs = [v for v in a["verifications"] if v["id"] not in des_lieux]
+    for L in a["lieux"]:
+        plats = f" · {L['raidisseur']['designation'].replace(' mm', '')}" if L["decision"] == "raidisseur" else ""
+        vs.append({"id": L["gouvernant"], "titre": L["nom"] + plats, "taux": L["taux"], "statut": L["statut"]})
+    return {"norme": a["norme"], "gouvernant": a.get("gouvernant"), "verifications": vs}
+
+
 def _vues(el: Dict, r: Dict, ident: str) -> List[Dict]:
     """La barre et ses enveloppes (barre chargée), la section à l'échelle, les taux de toutes les vérifications."""
     vues = []
@@ -632,9 +654,11 @@ def _vues(el: Dict, r: Dict, ident: str) -> List[Dict]:
     leg = "le profilé à l'échelle, ses dimensions et ses propriétés"
     vues.append({"cle": "section", "titre": f"Section {el['profil']}", "court": "Section", "svg": vue_section(el), "legende": leg,
                  "entete": _entete(el, r, "Section", leg)})
-    if any(x["verifications"] for x in r["methodes"].values()):
+    if any(x["verifications"] for x in r["methodes"].values()) or r["ame"]["verifications"]:
         leg = "le taux de chaque vérification ; la limite de 100 % en tireté"
-        ms = [(f"{M.METHODES[k]}", x) for k, x in r["methodes"].items()]
+        ms = [(f"{M.METHODES[k]}", x) for k, x in r["methodes"].items() if x["verifications"]]
+        if r["ame"]["verifications"]:
+            ms.append((M.TITRE_AME, _ame_en_lieux(r["ame"])))
         vues.append({"cle": "taux", "titre": "Taux des vérifications", "court": "Taux", "svg": DB.taux(f"{ident}_taux", ms), "legende": leg,
                      "entete": _entete(el, r, "Taux des vérifications", leg)})
     return vues
@@ -659,9 +683,10 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
     if not avec:
         return {"taux": None, "niveau": niv, "statut": C.STATUTS[niv][1], "gouvernant": ""}
     t, i, x = max(avec, key=lambda a: a[0])
-    k, m = max(((k, m) for k, m in x["methodes"].items() if m.get("taux_max") is not None), key=lambda a: a[1]["taux_max"])
+    k, m = R.pire(x)
     g = R.gouvernante(m)
-    quoi = f" · {g['titre'][:1].lower() + g['titre'][1:]} ({M.METHODES_COURT[k].lower()})" if g else ""
+    ou = "âme" if k == M.AME else M.METHODES_COURT[k].lower()
+    quoi = f" · {g['titre'][:1].lower() + g['titre'][1:]} ({ou})" if g else ""
     return {"taux": C.pct(t), "niveau": niv, "statut": C.STATUTS[niv][1],
             "gouvernant": f"{etat['elements'][i].get('nom') or 'Barre'} · {x['profil']}{quoi}"}
 

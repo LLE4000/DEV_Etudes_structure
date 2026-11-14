@@ -279,6 +279,20 @@ cas("profil", "Eurocode 3 seul, tube carré en S355", REF,
 cas("profil", "note de la version 1 relue (efforts de calcul, Eurocode seul)", REF,
     [calc({"version": 1, "actif": 0, "elements": [{"nom": "P1", "acier": "S355", "familles": ["HEB"], "My": 60.0, "Vz": 40.0, "avec_N": True,
                                                    "N": 600.0, "flambement": True, "Lcr_y": 6.0, "Lcr_z": 3.0, "courbe": "c", "profil": "HEB 200"}]})])
+# (lot 4, 14/11/2026 : l'âme et ses raidisseurs — EN 1993-1-5)
+cas("profil", "poutre de reprise HEB 300, 4 m : 675 kN de calcul à mi-portée — un raidisseur sous la charge (2 plats 140 × 15)", REF,
+    [neuf(), act("choisir", role="profil", nom="HEB 300"), mod("travees/0", "4"), mod("appuis/ss", "200"), mod("cas/0/charges/0/type", "P"),
+     mod("cas/0/charges/0/v", "300"), mod("cas/1/charges/0/type", "P"), mod("cas/1/charges/0/v", "180")], {"niveau": "r"})
+cas("profil", "charge posée au droit de l'appui du milieu d'une poutre continue (HEA 200, 2 × 5 m) : force transmise, type (b)", REF,
+    [neuf(), act("choisir", role="profil", nom="HEA 200"), mod("modele", "continue"), mod("travees/0", "5"), mod("travees/1", "5"),
+     mod("appuis/ss", "80"), mod("appuis/c", "20"), mod("cas/0/charges/+", "P"), mod("cas/0/charges/1/a", "5"), mod("cas/0/charges/1/v", "20"),
+     mod("cas/0/charges/1/ss", "100")])
+cas("profil", "âme élancée (IPE 750x147 en S355, 8 m, 60 kN/m) : voilement par cisaillement vérifié, raidisseurs aux appuis", REF,
+    [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")])
+cas("profil", "appuis par l'âme : rien n'appuie sur l'âme, le bloc s'efface", REF, [neuf(), mod("appuis/mode", "ame")])
+cas("profil", "longueur d'appui négative refusée", LIM, [neuf(), mod("appuis/ss", "-3")], {"message": True})
+cas("profil", "longueur d'appui d'une charge ponctuelle au centre de cisaillement : gardée, sans effet", LIM,
+    [neuf(), mod("cas/0/charges/+", "P"), mod("cas/0/charges/1/ss", "120"), mod("niveau", "centre")], {"sans_message": True})
 cas("profil", "portée négative refusée (PARCOURS)", LIM, [neuf(), mod("travees/0", "-1")], {"message": True})
 cas("profil", "charge hors de la barre refusée", LIM, [neuf(), mod("cas/0/charges/0/b", "9")], {"message": True})
 cas("profil", "longueur de flambement illisible refusée (PARCOURS)", LIM, [neuf(), mod("flambement/y/L", "abc")], {"message": True})

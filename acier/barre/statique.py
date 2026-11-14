@@ -49,6 +49,12 @@ def cas_complets(barre: Dict, s: Dict) -> List[Dict]:
     return cas
 
 
+def cotes(e: Dict, eps: float = 1e-9) -> List[Tuple[float, float]]:
+    """Les couples (M, V) de part et d'autre d'une section lue (``Combinaison.lire``) — un seul quand rien ne saute."""
+    g, d = (e["M_g"], e["V_g"]), (e["M_d"], e["V_d"])
+    return [d] if (abs(g[0] - d[0]) < eps and abs(g[1] - d[1]) < eps) else [g, d]
+
+
 class Lecture:
     """Un cas résolu par le formulaire, dont les sections lues sont gardées (``evaluer``) ; le reste de la solution —
     travées, appuis, réactions — se lit comme sur elle."""

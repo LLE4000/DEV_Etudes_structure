@@ -144,7 +144,51 @@ GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_66_N_Mz": (("N", "chi", "NRk", "kz", "Mz", "MzRk", "gM1"), "N/(chi*NRk/gM1) + kz*Mz/(MzRk/gM1)", -1),
     "e_66_My_Mz": (("ky", "My", "chiLT", "MyRk", "kz", "Mz", "MzRk", "gM1"), "ky*My/(chiLT*MyRk/gM1) + kz*Mz/(MzRk/gM1)", -1),
 }
-GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE}
+# ---- l'âme et ses raidisseurs (EN 1993-1-5 ; acier/barre/ec3_ame.py, raidisseurs.py) : kN, kN·m, mm, mm², cm³, cm⁴
+GABARITS_EC3_AME: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
+    # voilement par cisaillement (§ 5) et son interaction avec la flexion (§ 7.1)
+    "a_elancement": (("hw", "tw"), "hw/tw", 1),
+    "a_limite_cis": (("eps", "eta"), "72*eps/eta", 1),
+    "a_lambda_w": (("hw", "tw", "eps"), "hw/(86.4*tw*eps)", 3),
+    "a_chi_w": (("lw",), "0.83/lw", 3),
+    "a_V_bw": (("chi", "fy", "hw", "tw", "gM1"), "chi*fy*hw*tw/(sqrt(3)*gM1)/1e3", 1),
+    "a_V_bw_n": (("n", "chi", "fy", "hw", "tw", "gM1"), "n*chi*fy*hw*tw/(sqrt(3)*gM1)/1e3", 1),
+    "a_eta3": (("V", "Vbw"), "V/Vbw", 3),
+    "a_M_f": (("b", "tf", "h", "fy", "gM0"), "b*tf*(h - tf)*fy/gM0/1e6", 1),
+    "a_eta1_bar": (("M", "Mpl"), "M/Mpl", 3),
+    "a_71": (("h1", "Mf", "Mpl", "h3"), "h1 + (1 - Mf/Mpl)*(2*h3 - 1)**2", -1),
+    # charge concentrée (§ 6) et son interaction avec la flexion (§ 7.2)
+    "a_kF_c": (("ss", "c", "hw"), "2 + 6*(ss + c)/hw", 3),
+    "a_F_cr": (("kF", "E", "tw", "hw"), "0.9*kF*E*tw**3/hw/1e3", 1),
+    "a_m1": (("bf", "tw"), "bf/tw", 2),
+    "a_m2": (("hw", "tf"), "0.02*(hw/tf)**2", 2),
+    "a_ly": (("ss", "tf", "m1", "m2"), "ss + 2*tf*(1 + sqrt(m1 + m2))", 1),
+    "a_le": (("kF", "E", "tw", "fy", "hw"), "kF*E*tw**2/(2*fy*hw)", 1),
+    "a_ly_c2": (("le", "tf", "m1", "m2"), "le + tf*sqrt(m1/2 + (le/tf)**2 + m2)", 1),
+    "a_ly_c3": (("le", "tf", "m1", "m2"), "le + tf*sqrt(m1 + m2)", 1),
+    "a_lambda_F": (("ly", "tw", "fy", "Fcr"), "sqrt(ly*tw*fy/(Fcr*1e3))", 3),
+    "a_chi_F": (("lF",), "0.5/lF", 3),
+    "a_F_Rd": (("fy", "chi", "ly", "tw", "gM1"), "fy*chi*ly*tw/gM1/1e3", 1),
+    "a_eta2": (("F", "FRd"), "F/FRd", 3),
+    "a_eta1": (("N", "A", "M", "W", "fy", "gM0"), "N*1e3/(A*fy/gM0) + M*1e3/(W*fy/gM0)", 3),
+    "a_eta1_M": (("M", "W", "fy", "gM0"), "M*1e3/(W*fy/gM0)", 3),
+    "a_eta1_N": (("N", "A", "fy", "gM0"), "N*1e3/(A*fy/gM0)", 3),
+    "a_72": (("h2", "h1"), "(h2 + 0.8*h1)/1.4", -1),
+    # voilement de l'âme induit par la semelle (§ 8)
+    "a_semelle": (("k", "E", "fy", "hw", "tw", "bf", "tf"), "k*E/fy*sqrt(hw*tw/(bf*tf))", 1),
+    # raidisseur transversal (§ 9) : N_c,Rd, λ̄, Φ, χ et N_b,Rd sont ceux de la barre (e_N_Rd, e_lambda_bar, e_Phi, e_chi, e_N_b_Rd)
+    "r_A_c": (("bs", "ch", "ts"), "2*(bs - ch)*ts", 0),
+    "r_l_w": (("ts", "eps", "tw"), "ts + 30*eps*tw", 1),
+    "r_l_w_borne": (("ts", "lg", "ld"), "ts + lg + ld", 1),
+    "r_A_st": (("bs", "ts", "lw", "tw"), "2*bs*ts + lw*tw", 0),
+    "r_I_st": (("ts", "bs", "tw", "lw"), "(ts*(2*bs + tw)**3 + (lw - ts)*tw**3)/12/1e4", 1),
+    "r_N_cr": (("E", "I", "hw"), "pi**2*E*I/(0.75*hw)**2*1e1", 0),
+    "r_elancement": (("bs", "ts"), "bs/ts", 2),
+    "r_torsion": (("bs", "ts"), "(bs*ts**3/3)/(bs**3*ts/3 + bs*ts**3/12)", 4),
+    "r_torsion_lim": (("fy", "E"), "5.3*fy/E", 4),
+    "r_I_min": (("hw", "tw"), "0.75*hw*tw**3/1e4", 1),
+}
+GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE, **GABARITS_EC3_AME}
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_HISTORIQUE, **GABARITS_EC3}
 _FONCTIONS = {"sqrt": math.sqrt, "pi": math.pi, "min": min, "max": max, "abs": abs}
 
