@@ -12,6 +12,10 @@ formule imprimée EST celle du calcul.
 
 Unités imprimées de la méthode historique : celles des classeurs du bureau — kN, kN·m, cm, cm², cm⁴, cm³, mm², N/mm² ;
 E en kN/cm² (21 000) dans la charge critique, qui s'écrit alors sans facteur : π²·E·I/(u·L)² en kN.
+
+UN FACTEUR D'UNITÉS s'écrit ``1eN`` (``*1e3``, ``/1e5``…) — jamais ``1000`` : c'est ce qui le distingue d'un coefficient
+de la norme (le 10 de c_LT, le 235 de ε). L'écriture (acier/barre/ecriture.py) l'ôte de la formule en symboles et
+l'imprime « × 10³ » dans la formule en valeurs.
 """
 import math
 from typing import Dict, Tuple
@@ -26,7 +30,7 @@ GABARITS_HISTORIQUE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "A_prime": (("alpha", "lb"), "0.5 + alpha*lb**2", 4),
     "B_prime": (("beta", "lb"), "beta*lb**2", 4),
     "phi": (("Ap", "Bp"), "1/(Ap + sqrt(Ap**2 - Bp))", 3),
-    "P_adm": (("A", "phi", "fy", "s"), "A*phi*fy/s/1000", 1),
+    "P_adm": (("A", "phi", "fy", "s"), "A*phi*fy/s/1e3", 1),
     "P_cr": (("E", "I", "u", "L"), "pi**2*E*I/(u*L)**2", 0),
     "PE": (("s", "P", "Pcr"), "1 - s*P/Pcr", 3),
     "I_d": (("tf", "b"), "tf*b**3/12", 0),
@@ -34,11 +38,11 @@ GABARITS_HISTORIQUE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "r_d": (("Id", "Ad"), "sqrt(Id/Ad)", 2),
     "lambda_ed": (("Lc", "rd"), "Lc/rd", 1),
     "lambda_ed_ferme": (("Lc", "W", "Iz", "It"), "sqrt(pi*sqrt(2.6)*Lc*W/sqrt(Iz*It))", 1),
-    "sigma_P": (("P", "A", "phi"), "P*1000/(A*phi)", 1),
-    "sigma_My": (("C", "M", "phied", "W", "PE"), "C*M*1000/(phied*W*PE)", 1),
-    "sigma_Mz": (("C", "M", "W", "PE"), "C*M*1000/(W*PE)", 1),
+    "sigma_P": (("P", "A", "phi"), "P*1e3/(A*phi)", 1),
+    "sigma_My": (("C", "M", "phied", "W", "PE"), "C*M*1e3/(phied*W*PE)", 1),
+    "sigma_Mz": (("C", "M", "W", "PE"), "C*M*1e3/(W*PE)", 1),
     "sigma": (("sP", "sMy", "sMz"), "sP + sMy + sMz", 1),
-    "tau": (("V", "Av"), "V*1000/Av", 1),
+    "tau": (("V", "Av"), "V*1e3/Av", 1),
     "sigma_eq": (("sig", "tau"), "sqrt(sig**2 + 3*tau**2)", 1),
     "taux": (("v", "lim"), "v/lim", -1),
 }
@@ -47,8 +51,8 @@ GABARITS_HISTORIQUE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
 GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     # classe de la section (EN 1993-1-1 tableau 5.2)
     "e_eps": (("fy",), "sqrt(235/fy)", 3),
-    "e_alpha": (("N", "c", "t", "fy"), "0.5 + N*1000/(2*c*t*fy)", 3),
-    "e_psi": (("N", "A", "fy"), "2*N*1000/(A*fy) - 1", 3),
+    "e_alpha": (("N", "c", "t", "fy"), "0.5 + N*1e3/(2*c*t*fy)", 3),
+    "e_psi": (("N", "A", "fy"), "2*N*1e3/(A*fy) - 1", 3),
     "e_lim": (("k", "eps"), "k*eps", 1),
     "e_lim_tube": (("k", "eps"), "k*eps**2", 1),
     "e_lim12_haut": (("k", "eps", "alpha"), "k*eps/(13*alpha - 1)", 1),
@@ -60,14 +64,14 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_rho_interne": (("lp", "psi"), "(lp - 0.055*(3 + psi))/lp**2", 3),
     "e_rho_console": (("lp",), "(lp - 0.188)/lp**2", 3),
     "e_A_eff": (("A", "n1", "rho1", "c1", "t1", "n2", "rho2", "c2", "t2"), "A - n1*(1 - rho1)*c1*t1 - n2*(1 - rho2)*c2*t2", 0),
-    "e_W_eff": (("Ieff", "v", "e"), "Ieff*10/(v + e)", 1),
+    "e_W_eff": (("Ieff", "v", "e"), "Ieff*1e1/(v + e)", 1),
     # résistances de la section (EN 1993-1-1 § 6.2)
-    "e_N_Rd": (("A", "fy", "gM0"), "A*fy/gM0/1000", 1),
-    "e_M_Rd": (("W", "fy", "gM0"), "W*fy/gM0/1000", 1),
+    "e_N_Rd": (("A", "fy", "gM0"), "A*fy/gM0/1e3", 1),
+    "e_M_Rd": (("W", "fy", "gM0"), "W*fy/gM0/1e3", 1),
     "e_Av_plancher": (("eta", "hw", "tw"), "eta*hw*tw", 0),
-    "e_V_pl": (("Av", "fy", "gM0"), "Av*fy/(sqrt(3)*gM0)/1000", 1),
+    "e_V_pl": (("Av", "fy", "gM0"), "Av*fy/(sqrt(3)*gM0)/1e3", 1),
     "e_rho_V": (("V", "Vpl"), "(2*V/Vpl - 1)**2", 3),
-    "e_M_yV": (("Wpl", "rho", "Aw", "tw", "fy", "gM0"), "(Wpl - rho*Aw**2/(4*tw)/1000)*fy/gM0/1000", 1),
+    "e_M_yV": (("Wpl", "rho", "Aw", "tw", "fy", "gM0"), "(Wpl - rho*Aw**2/(4*tw)/1e3)*fy/gM0/1e3", 1),
     "e_reduit": (("rho", "R"), "(1 - rho)*R", 1),
     "e_resultante": (("a", "b"), "sqrt(a**2 + b**2)", 1),
     "e_n": (("N", "Npl"), "N/Npl", 3),
@@ -77,8 +81,8 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_beta_I": (("n",), "5*n", 2),
     "e_alpha_tube": (("n",), "1.66/(1 - 1.13*n**2)", 2),
     "e_deviee": (("My", "MNy", "al", "Mz", "MNz", "be"), "(My/MNy)**al + (Mz/MNz)**be", -1),
-    "e_sigma2": (("F1", "S1", "F2", "S2"), "F1*1000/S1 + F2*1000/S2", 1),
-    "e_sigma3": (("F1", "S1", "F2", "S2", "F3", "S3"), "F1*1000/S1 + F2*1000/S2 + F3*1000/S3", 1),
+    "e_sigma2": (("F1", "S1", "F2", "S2"), "F1*1e3/S1 + F2*1e3/S2", 1),
+    "e_sigma3": (("F1", "S1", "F2", "S2", "F3", "S3"), "F1*1e3/S1 + F2*1e3/S2 + F3*1e3/S3", 1),
     "e_sigma_Rd": (("fy", "gM0"), "fy/gM0", 1),
     "e_sigma_Rd_V": (("rho", "fy", "gM0"), "(1 - rho)*fy/gM0", 1),
     "e_lineaire2": (("E1", "R1", "E2", "R2"), "E1/R1 + E2/R2", -1),
@@ -86,23 +90,23 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
 }
 GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     # flambement (EN 1993-1-1 § 6.3.1) : I en cm⁴, I_w en cm⁶, L en m, forces en kN
-    "e_N_cr": (("E", "I", "Lcr"), "pi**2*E*I/Lcr**2/100000", 0),
-    "e_lambda_bar": (("A", "fy", "Ncr"), "sqrt(A*fy/(Ncr*1000))", 3),
+    "e_N_cr": (("E", "I", "Lcr"), "pi**2*E*I/Lcr**2/1e5", 0),
+    "e_lambda_bar": (("A", "fy", "Ncr"), "sqrt(A*fy/(Ncr*1e3))", 3),
     "e_Phi": (("alpha", "lb"), "0.5*(1 + alpha*(lb - 0.2) + lb**2)", 3),
     "e_chi": (("Phi", "lb"), "1/(Phi + sqrt(Phi**2 - lb**2))", 3),
-    "e_N_b_Rd": (("chi", "A", "fy", "gM1"), "chi*A*fy/gM1/1000", 1),
+    "e_N_b_Rd": (("chi", "A", "fy", "gM1"), "chi*A*fy/gM1/1e3", 1),
     "e_i0": (("iy", "iz"), "sqrt(iy**2 + iz**2)", 1),
-    "e_N_cr_T": (("G", "It", "E", "Iw", "LT", "i0"), "(G*It*10000 + pi**2*E*Iw/LT**2)/i0**2/1000", 0),
+    "e_N_cr_T": (("G", "It", "E", "Iw", "LT", "i0"), "(G*It*1e4 + pi**2*E*Iw/LT**2)/i0**2/1e3", 0),
     # déversement (§ 6.3.2)
     "e_M_cr": (("lam", "Mmax"), "lam*Mmax", 1),
-    "e_lambda_LT": (("W", "fy", "Mcr"), "sqrt(W*fy/(Mcr*1000))", 3),
+    "e_lambda_LT": (("W", "fy", "Mcr"), "sqrt(W*fy/(Mcr*1e3))", 3),
     "e_Phi_LT": (("alpha", "lb", "lb0", "beta"), "0.5*(1 + alpha*(lb - lb0) + beta*lb**2)", 3),
     "e_chi_LT": (("Phi", "beta", "lb"), "1/(Phi + sqrt(Phi**2 - beta*lb**2))", 3),
     "e_chi_LT_plafond": (("lb",), "1/lb**2", 3),
     "e_kc_lineaire": (("psi",), "1/(1.33 - 0.33*psi)", 3),
     "e_f": (("kc", "lb"), "1 - 0.5*(1 - kc)*(1 - 2*(lb - 0.8)**2)", 3),
     "e_chi_LT_mod": (("chi", "f"), "chi/f", 3),
-    "e_M_b_Rd": (("chi", "W", "fy", "gM1"), "chi*W*fy/gM1/1000", 1),
+    "e_M_b_Rd": (("chi", "W", "fy", "gM1"), "chi*W*fy/gM1/1e3", 1),
     # flexion composée avec instabilité (§ 6.3.3, annexe A)
     "e_rapport": (("N", "Ncr"), "N/Ncr", 4),
     "e_mu": (("r", "chi"), "(1 - r)/(1 - chi*r)", 3),
@@ -114,7 +118,7 @@ GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_Cm0_lineaire_sans_N": (("psi",), "0.79 + 0.21*psi", 3),
     "e_Cm0_reparti": (("N", "Ncr"), "1 + 0.03*N/Ncr", 3),
     "e_Cm0_ponctuel": (("N", "Ncr"), "1 - 0.18*N/Ncr", 3),
-    "e_Cm0_general": (("E", "I", "delta", "L", "M", "N", "Ncr"), "1 + (pi**2*E*I*delta/(L**2*M)/100000000 - 1)*N/Ncr", 3),
+    "e_Cm0_general": (("E", "I", "delta", "L", "M", "N", "Ncr"), "1 + (pi**2*E*I*delta/(L**2*M)/1e8 - 1)*N/Ncr", 3),
     "e_Cm0_borne": (("N", "Ncr"), "1 - N/Ncr", 3),
     "e_eps_y": (("M", "N", "A", "W"), "M*A/(N*W)", 3),
     "e_Cmy": (("Cm0", "epsy", "aLT"), "Cm0 + (1 - Cm0)*sqrt(epsy)*aLT/(1 + sqrt(epsy)*aLT)", 3),

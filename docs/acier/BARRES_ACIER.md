@@ -385,7 +385,8 @@ Un paquet neuf, `acier/barre/`, bibliothèque standard seule (il tourne dans le 
 | `ec3_ame.py`, `raidisseurs.py` | EN 1993-1-5 |
 | `combinaisons.py`, `statique.py` | les cas de charge, les combinaisons, les efforts le long de la barre (sur `rdm/poutres.py`) |
 | `entree.py`, `moteur.py` | la barre, sa relecture ; les deux méthodes, la synthèse |
-| `formules.py` | les gabarits des formules de la note |
+| `formules.py` | les gabarits des formules de la note (un facteur d'unités s'y écrit `1eN`) |
+| `ecriture.py` | ce qui s'imprime : « symbole = formule = valeurs = résultat », la même ligne à l'écran et dans la note ; `relire` refait le calcul sur les nombres imprimés |
 
 Chaque vérification rend `{id, methode, titre, reference, formule, termes, valeur, limite, taux, statut, unite,
 hypotheses, messages}` ; le moteur calcule et nomme, l'écran et la note composent et formatent.

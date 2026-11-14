@@ -143,7 +143,7 @@ def _classification(J: Journal, d: Dict, N: float, My: float, Mz: float) -> Dict
                   "e_lim12_haut": [_t("k", k), _t("ε", eps), _t("α", p["alpha"])], "e_lim12_bas": [_t("k", k), _t("ε", eps), _t("α", p["alpha"])],
                   "e_lim3_haut": [_t("ε", eps), _t("ψ", p["psi"])], "e_lim3_bas": [_t("ε", eps), _t("ψ", p["psi"])]}[gabarit]
         p["limite"] = {"classe": i + 1, "valeur": p["limites"][i], "formule": f"lim_{r}"}
-        cles.append(J.f(f"lim_{r}", f"(c/t)_{i + 1}", termes, p["limites"][i], "", gabarit))
+        cles.append(J.f(f"lim_{r}", f"(c/t){'₁₂₃'[i]}", termes, p["limites"][i], "", gabarit))      # la limite de la classe i + 1
     cl["formules"] = cles
     return cl
 
@@ -158,6 +158,9 @@ def _blocs_paroi(J: Journal, cle: str, p: Dict, eps: float) -> List[str]:
     return out
 
 
+INDICE_PAROI = {"semelle": "f", "ame": "w", "b": "b", "h": "h", "tube": "t"}      # l'indice des parois d'un rôle, dans A_eff
+
+
 def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: float) -> Dict:
     """La section efficace d'une classe 4 : A_eff si la barre est comprimée, W_eff autour de chaque axe fléchi."""
     ef: Dict = {"A_eff": s["A"], "Weff_y": s.get("Wel_y"), "Weff_z": s.get("Wel_z"), "formules": {"A": [], "y": [], "z": []}}
@@ -169,10 +172,11 @@ def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: fl
             for p in a["parois"]:
                 if p["rho"] < 1.0:
                     cles += _blocs_paroi(J, f"N_{p['role']}", p, eps)
-            p1, p2 = a["parois"]
-            cles.append(J.f("A_eff", "A_eff", [_t("A", s["A"], "mm²"), _t("n", p1["n"]), _t("ρ", p1["rho"]), _t("c", p1["c"], "mm"),
-                                               _t("t", p1["t"], "mm"), _t("n", p2["n"]), _t("ρ", p2["rho"]), _t("c", p2["c"], "mm"),
-                                               _t("t", p2["t"], "mm")], a["A_eff"], "mm²", "e_A_eff"))
+            termes = [_t("A", s["A"], "mm²")]
+            for p in a["parois"]:                                    # deux familles de parois, chacune à son indice
+                i = INDICE_PAROI[p["role"]]
+                termes += [_t(f"n_{i}", p["n"]), _t(f"ρ_{i}", p["rho"]), _t(f"c_{i}", p["c"], "mm"), _t(f"t_{i}", p["t"], "mm")]
+            cles.append(J.f("A_eff", "A_eff", termes, a["A_eff"], "mm²", "e_A_eff"))
             ef["formules"]["A"] = cles
     for axe, M in (("y", My), ("z", Mz)):
         if M <= 0:
@@ -410,12 +414,12 @@ def _flexion_composee(J: Journal, d: Dict, classe: int, ef, N: float, My: float,
 
     if classe == 4:
         # (6.44) : A_eff sous compression seule, W_eff sous flexion seule ; e_N = 0 (deux axes de symétrie)
-        couples = [(n_, e_, R_, u_, ech) for n_, e_, R_, u_, ech in (("N", abs(N), NRd, "kN", 1e3), ("M_y", My, MyRd, "kN·m", 1e6),
-                                                                      ("M_z", Mz, MzRd, "kN·m", 1e6)) if e_ > 0]
+        couples = [(n_, e_, R_, u_, ech) for n_, e_, R_, u_, ech in (("N_", abs(N), NRd, "kN", 1e3), ("M_y,", My, MyRd, "kN·m", 1e6),
+                                                                      ("M_z,", Mz, MzRd, "kN·m", 1e6)) if e_ > 0]
         taux = sum(e_ / R_ for _, e_, R_, _, _ in couples)
         termes = []
-        for n_, e_, R_, u_, ech in couples:
-            termes += [_t(f"{n_},Ed", e_ / ech, u_), _t(f"{n_},Rd", R_ / ech, u_)]
+        for n_, e_, R_, u_, ech in couples:                          # « N_Ed », « N_Rd » ; « M_y,Ed », « M_y,Rd »
+            termes += [_t(f"{n_}Ed", e_ / ech, u_), _t(f"{n_}Rd", R_ / ech, u_)]
         cles.append(J.f("interaction", "η", termes, taux, "", f"e_lineaire{len(couples)}"))
         J.verif("E-NM", titre, ref + " (6.44)", "N_Ed/N_Rd + M_y,Ed/M_y,Rd + M_z,Ed/M_z,Rd ≤ 1", taux, 1.0, "", cles, taux=taux)
         return
