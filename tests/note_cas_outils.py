@@ -92,7 +92,7 @@ with _open({etats!r}, encoding="utf-8") as f:
     etats = json.load(f)
 for e in etats:
     e = M.normaliser(e)
-    for i in range(len(e["cas"])):
+    for i in range(len(e[{liste!r}])):
         e["actif"] = i
         M.resultat(e)
 ecran = depot()
@@ -107,8 +107,9 @@ print(json.dumps({{"note": sorted(f for f in note - ecran if not f.endswith(".tt
 """
 
 
-def sonde(module: str, etats, infos) -> dict:
-    """La note de chaque état faite comme dans le navigateur (voir l'en-tête) ; {"erreur"} si elle échoue."""
+def sonde(module: str, etats, infos, liste: str = "cas") -> dict:
+    """La note de chaque état faite comme dans le navigateur (voir l'en-tête) ; {"erreur"} si elle échoue. ``liste`` : la
+    clé des éléments de la note dans l'état du module (« cas » ; « elements » pour les barres en acier)."""
     sys.path.insert(0, os.path.join(RACINE, "site", "web"))
     try:
         import construire as K
@@ -121,7 +122,7 @@ def sonde(module: str, etats, infos) -> dict:
         ch = os.path.join(dossier, "etats.json")
         with open(ch, "w", encoding="utf-8") as f:
             json.dump(etats, f, ensure_ascii=False)
-        code = SONDE.format(racine=RACINE, stub=STUB, refus=REFUS, module=module, etats=ch, infos=infos)
+        code = SONDE.format(racine=RACINE, stub=STUB, refus=REFUS, module=module, etats=ch, infos=infos, liste=liste)
         p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=RACINE,
                            env={**os.environ, "NDC_FONT_DIR": dossier})
     finally:

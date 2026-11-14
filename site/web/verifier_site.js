@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|exporter|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|exporter|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|barres|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -3977,6 +3977,367 @@ const principal = async () => {
     }
   }
 
+  // ---------------------------------------------------------------- les BARRES EN ACIER (« Choix de profilé », lot 6 du 14/11/2026)
+  // L'écran des barres (api_web/profil*.py, dessin_barre.py ; docs/acier/BARRES_ACIER.md § 9) : à gauche quatre rubriques
+  // (Barre, Charges — ou Efforts —, Maintiens et flambement, Méthodes), au centre la barre, sa section et ses taux, à
+  // droite UN VERDICT PAR MÉTHODE puis un bloc par méthode. Le contrôle commun (« module:profil », « formats:profil »)
+  // ouvre la barre neuve ; ici, les GESTES de l'ingénieur, l'un après l'autre, sur la même note :
+  //  - la barre neuve (IPE 300, 6 m, tenue à mi-portée) : deux verdicts — historique 74 %, Eurocode 3 52 % — ; la barre
+  //    DESSINÉE, visible à sa taille, chacun de ses textes dans le dessin ; chaque verdict ouvre SA fenêtre de calcul (les
+  //    nombres du verdict s'y retrouvent), « Tout le calcul » celle de la méthode ; les trois vues ;
+  //  - puis vingt gestes : une charge saisie, une ponctuelle ajoutée, déplacée, retirée ; le maintien retiré (la méthode
+  //    historique REFUSE la barre, l'Eurocode la garde) puis remis ; la poutre continue de trois travées (quatre appuis
+  //    dessinés) ; les méthodes (« Historique » ne laisse qu'un verdict et qu'un bloc) ; un profilé choisi dans le
+  //    sélecteur (✓ le retenu, ★ le plus léger qui tient, triés par masse) ; deux saisies refusées — par la page (une
+  //    portée hors des bornes du champ : le refus dit la borne, le champ rougit) et par le moteur (une charge qui sort
+  //    de la barre : son mot, la valeur rendue) ; les efforts imposés (la rubrique Efforts remplace Charges, la vue de
+  //    la barre s'efface) et le retour à la barre chargée, qui retrouve ses charges.
+  // LE TÉMOIN : les mêmes gestes sont rejoués, hors du navigateur, par le moteur du dépôt (CPython, api_web.routeur) ; après
+  // CHAQUE geste, le texte de la colonne des résultats, les textes du dessin de la barre et la liste des vues sont ceux du
+  // témoin — un bouton qui enverrait un autre champ, un paquet du moteur en retard sur le dépôt, un nombre que Pyodide
+  // calculerait autrement : chacun se voit ici.
+  // Puis les trois formats — PC 1440, tablette 1024 × 768, iPhone 13 — pour trois barres plus chargées que la neuve (une
+  // ponctuelle ; trois travées, trois cas de charge ; des efforts imposés) : rien ne déborde, aucun nom coupé, chaque
+  // valeur saisie se lit en entier dans son champ, les cibles à 44 px au doigt, les champs en 16 px au téléphone, le
+  // dessin à 300 px de large au moins au téléphone. Les captures : site_barres_*.png.
+  //   filtre « barres » ; « module:profil » le rejoue aussi (après le contrôle commun).
+  if (!FILTRE || FILTRE === 'barres' || FILTRE === 'module:profil') {
+    const cpB = require('child_process');
+    const fsB = require('fs');
+    const PYB = process.env.PYTHON || (fsB.existsSync('/usr/bin/python3.12') ? '/usr/bin/python3.12' : 'python3');
+    await p.goto(`${BASE}/`);
+    const PAGE_B = (await p.evaluate(async () => (await import('./js/modules.js')).MODULES)).profil.page;
+    // les gestes : [ce qu'on fait, la rubrique à ouvrir, le chemin du champ ou du bouton, la valeur, le geste, ce qu'on y regarde]
+    const GESTES = [
+      ['la charge permanente passe de 5 à 12 kN/m', 'ch', 'cas/0/charges/0/v', '12', 'champ', 'charge'],
+      ['une charge ponctuelle ajoutée au cas Q', 'ch', 'cas/1/charges/+', 'P', 'clic', 'ponctuelle'],
+      ['la charge ponctuelle déplacée à 2 m', 'ch', 'cas/1/charges/1/a', '2', 'champ', ''],
+      ['la charge ponctuelle retirée', 'ch', 'cas/1/charges/1/-', '1', 'clic', 'sans_ponctuelle'],
+      ['la charge permanente rendue à 5 kN/m', 'ch', 'cas/0/charges/0/v', '5', 'champ', 'neuve'],
+      ['le maintien de mi-portée retiré', 'mt', 'maintiens/0/-', '1', 'clic', 'sans_maintien'],
+      ['un maintien remis (le moteur le pose à mi-portée)', 'mt', 'maintiens/+', '1', 'clic', 'neuve'],
+      ['la poutre devient continue (deux travées)', 'ba', 'modele', 'continue', 'menu', ''],
+      ['une troisième travée', 'ba', 'travees/+', '1', 'clic', 'continue'],
+      ['retour à deux appuis', 'ba', 'modele', 'appuis', 'menu', ''],
+      ['la méthode historique seule', 'me', 'methodes', 'historique', 'clic', 'historique'],
+      ['l\'Eurocode 3 seul', 'me', 'methodes', 'ec3', 'clic', 'ec3'],
+      ['les deux méthodes', 'me', 'methodes', 'deux', 'clic', ''],
+      ['le profilé IPE 330 choisi dans le sélecteur', '', 'profil', 'IPE 330', 'choisir', 'selecteur'],
+      ['une portée de 80 m, refusée par la page', 'ba', 'travees/0', '80', 'champ', 'refus'],
+      ['une charge qui sort de la barre (de 0 à 9 m), refusée par le moteur', 'ch', 'cas/0/charges/0/b', '9', 'champ', 'refus_moteur'],
+      ['les efforts imposés', 'ba', 'mode', 'efforts', 'clic', 'efforts'],
+      ['un moment de calcul de 60 kN·m', 'ef', 'efforts/elu/My', '60', 'champ', ''],
+      ['un moment de service de 42 kN·m', 'ef', 'efforts/service/My', '42', 'champ', 'efforts_calcules'],
+      ['retour à la barre chargée', 'ba', 'mode', 'chargee', 'clic', 'retour'],
+    ];
+    const TEMOIN = [
+      'import html, json, re, sys',
+      'sys.path.insert(0, sys.argv[1])',
+      'from api_web import routeur as R',
+      'def req(**k):',
+      '    return json.loads(R.traiter(json.dumps(dict(module="profil", **k))))',
+      'def nu(t):',
+      '    return re.sub(r"[\\s\\u200b]+", "", html.unescape(re.sub(r"<[^>]+>", "", t)))',
+      'def lu(r):',
+      '    barre = next((v["svg"] for v in r["vues"] if v["cle"] == "barre"), "")',
+      '    return {"resultat": nu(r["resultat"]), "dessin": nu("|".join(re.findall(r"<text[^>]*>(.*?)</text>", barre, re.S))),',
+      '            "vues": [v["cle"] for v in r["vues"]], "message": r.get("message") or ""}',
+      'r = req(action="nouveau")',
+      'out = [lu(r)]',
+      'for nom, rub, chemin, valeur, geste, quoi in json.loads(sys.argv[2]):',
+      '    if geste == "choisir":',
+      '        r = req(action="choisir", etat=r["etat"], role=chemin, nom=valeur)',
+      '    else:',
+      '        r = req(action="modifier", etat=r["etat"], chemin=chemin.split("/"), valeur=valeur)',
+      '    assert r.get("ok"), (nom, r)',
+      '    out.append(lu(r))',
+      'print(json.dumps(out))',
+    ].join('\n');
+    const racineB = path.join(__dirname, '..', '..');
+    const ft = cpB.spawnSync(PYB, ['-c', TEMOIN, racineB, JSON.stringify(GESTES)], { encoding: 'utf8', cwd: racineB, maxBuffer: 1 << 26 });
+    let temoin = null;
+    try { temoin = JSON.parse(ft.stdout.trim().split('\n').pop()); } catch (e) { /* le contrôle rougit */ }
+    verif(`barres : le témoin — le moteur du dépôt, hors du navigateur — rejoue la barre neuve et les ${GESTES.length} gestes`,
+      !!temoin && temoin.length === GESTES.length + 1 && temoin.every((t) => t.resultat.length > 40), String(ft.stderr || '').slice(-300));
+    const VIS = { visibilityProperty: true, opacityProperty: true };
+    // ce que la page montre, comme le témoin le dit : le texte des résultats, les textes du dessin de la barre, les vues
+    // (la marque « Module à vérifier », au pied des résultats, est posée par la page — js/marques.js — et non par le moteur)
+    const lireB = (pg) => pg.evaluate(() => {
+      const nu = (t) => String(t || '').replace(/[\s\u200b]+/g, '');
+      const sansMarque = (r) => { if (!r) return ''; const c = r.cloneNode(true); c.querySelectorAll('.et-verif').forEach((x) => x.remove()); return c.textContent; };
+      return { resultat: nu(sansMarque(document.querySelector('#resultat'))),
+        dessin: nu([...document.querySelectorAll('#stage .view[data-vue="barre"] .draw svg text')].map((t) => t.textContent).join('|')),
+        vues: [...document.querySelectorAll('#vues [data-vue]')].map((b) => b.dataset.vue) };
+    });
+    const verdictsB = (pg) => pg.$$eval('#resultat .pf-verdicts .verdict', (vs, VIS) => vs.filter((v) => v.checkVisibility(VIS)).map((v) => {
+      const c = v.querySelector('.chip.xl');
+      return { methode: ((v.querySelector('.gov b') || {}).textContent || '').trim(), taux: c ? parseFloat(c.textContent.replace(/[^\d,]/g, '').replace(',', '.')) : null,
+        niveau: c ? [...c.classList].filter((k) => k.length === 1).join('') : '', texte: v.textContent.replace(/\s+/g, ' ').trim() };
+    }), VIS);
+    // le dessin de la vue ouverte, comme l'œil le voit : sa taille, sa place dans l'écran, ses textes — ceux qui sortent du
+    // dessin ou n'ont pas de taille sont comptés, et ceux qui se RECOUVRENT (plus de 1 px dans les deux sens : la cote du
+    // minimum de V passait sur la légende des maintiens d'une poutre continue — vu sur une capture, 14/11/2026)
+    const dessinB = (pg) => pg.evaluate((VIS) => {
+      const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility(VIS));
+      const svg = d && d.querySelector(':scope > svg');
+      if (!svg || !svg.checkVisibility(VIS)) return null;
+      const r = svg.getBoundingClientRect();
+      const textes = [...svg.querySelectorAll('text')].map((t) => ({ t: t.textContent.trim(), r: t.getBoundingClientRect() }));
+      const hors = textes.filter((x) => !(x.r.width > 0 && x.r.height > 0 && x.r.left >= r.left - 1 && x.r.right <= r.right + 1 && x.r.top >= r.top - 1 && x.r.bottom <= r.bottom + 1)).map((x) => x.t.slice(0, 30));
+      const hs = textes.map((x) => x.r.height).filter((h) => h > 0).sort((a, b) => a - b);
+      const dessus = [];
+      textes.forEach((a, i) => textes.slice(i + 1).forEach((z) => {
+        if (Math.min(a.r.right, z.r.right) - Math.max(a.r.left, z.r.left) > 1 && Math.min(a.r.bottom, z.r.bottom) - Math.max(a.r.top, z.r.top) > 1) dessus.push(`${a.t.slice(0, 24)} / ${z.t.slice(0, 24)}`);
+      }));
+      return { l: Math.round(r.width), h: Math.round(r.height), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5, textes: textes.map((x) => x.t), hors, dessus,
+        texte: hs.length ? Math.round(hs[Math.floor(hs.length / 2)] * 10) / 10 : null };
+    }, VIS);
+    const calmeB = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+    const ouvrirRubB = async (pg, k) => {
+      if (!k) return;
+      if (!(await pg.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await pg.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      await pg.waitForTimeout(160);
+    };
+    // un geste de la colonne de gauche, comme l'ingénieur le fait : la rubrique ouverte, puis le champ (Entrée), le menu ou le bouton
+    const gesteB = async (pg, [, rub, chemin, valeur, geste]) => {
+      await ouvrirRubB(pg, rub);
+      if (geste === 'champ') { const s = `#donnees input[data-chemin="${chemin}"]`; await pg.fill(s, String(valeur)); await pg.press(s, 'Enter'); }
+      else if (geste === 'menu') await pg.selectOption(`#donnees select[data-chemin="${chemin}"]`, String(valeur));
+      else await pg.click(`#donnees [data-chemin="${chemin}"][data-valeur="${valeur}"]`);
+      await pg.waitForTimeout(120);
+      await calmeB(pg);
+    };
+    const toastB = (pg) => pg.evaluate(() => { const t = document.getElementById('toast'); return { vu: !!t && !t.hidden && t.checkVisibility(), texte: t ? t.textContent : '', erreur: !!t && t.classList.contains('erreur') }; });
+    {
+      const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      // la page montre ce que le témoin dit (on attend jusqu'à 20 s que le résultat y soit ; puis on LIT, et on compare)
+      const parite = async (i) => {
+        const att = temoin && temoin[i];
+        if (!att) return { ok: false, detail: 'pas de témoin' };
+        await g.waitForFunction((res) => { const r = document.querySelector('#resultat'); if (!r) return false; const c = r.cloneNode(true); c.querySelectorAll('.et-verif').forEach((x) => x.remove());
+          return String(c.textContent || '').replace(/[\s\u200b]+/g, '') === res; }, att.resultat, { timeout: 20000 }).catch(() => {});
+        const lu = await lireB(g);
+        const ecarts = ['resultat', 'dessin'].filter((k) => lu[k] !== att[k]).concat(JSON.stringify(lu.vues) === JSON.stringify(att.vues) ? [] : ['vues']);
+        const premier = (a, z) => { let k = 0; while (k < a.length && a[k] === z[k]) k += 1; return `à ${k} : page « ${a.slice(Math.max(0, k - 30), k + 50)} » · témoin « ${z.slice(Math.max(0, k - 30), k + 50)} »`; };
+        return { ok: !ecarts.length, detail: ecarts.map((k) => (k === 'vues' ? `vues ${lu.vues} / ${att.vues}` : `${k} ${premier(lu[k], att[k])}`)).join(' ; ').slice(0, 500) };
+      };
+      try {
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${PAGE_B}?${new URLSearchParams({ nom: 'Barres en acier', chantier: 'Essai barres' })}`) });
+        await calmeB(g);
+        // ---- la barre neuve
+        const p0 = await parite(0);
+        const v0 = await verdictsB(g);
+        verif('barres : la barre neuve (IPE 300, 6 m, tenue à mi-portée) — un verdict par méthode, la méthode historique à 74 % (flexion), l\'Eurocode 3 à 52 % (déversement), verts ; la page dit ce que dit le témoin',
+          p0.ok && v0.length === 2 && /^Méthode historique · flexion/.test(v0[0].methode) && v0[0].taux === 74 && /^Eurocode 3 · déversement/.test(v0[1].methode) && v0[1].taux === 52
+          && v0.every((v) => v.niveau === 'p'), p0.detail || JSON.stringify(v0));
+        const d0 = await dessinB(g);
+        verif('barres : la barre est DESSINÉE — visible, à sa taille (400 × 300 au moins), dans l\'écran, chacun de ses textes dans le dessin et aucun sur un autre : les deux charges, la portée, les extrema de M et de V',
+          !!d0 && d0.l >= 400 && d0.h >= 300 && d0.dedans && !d0.hors.length && !d0.dessus.length && d0.textes.filter((t) => t === '5 kN/m').length === 2
+          && ['L = 6,00 m', '66,6', '44,4', '−44,4', 'A', 'B', 'M (ELU)', 'V (ELU)'].every((t) => d0.textes.includes(t)), JSON.stringify(d0).slice(0, 500));
+        await g.screenshot({ path: path.join(OUT, 'site_barres_neuve_pc.png') });
+        // chaque verdict ouvre SA fenêtre de calcul : les nombres du verdict s'y retrouvent
+        const fenetres = [];
+        for (let i = 0; i < v0.length; i++) {
+          await (await g.$$('#resultat .pf-verdicts .verdict[data-calcul]'))[i].click();
+          await g.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+          await g.waitForTimeout(200);
+          const f = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
+            return { texte: x.textContent.replace(/[\s]+/g, ' '), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5, egal: (x.textContent.match(/=/g) || []).length }; }, VIS);
+          const nombres = (v0[i].texte.match(/\d+,\d+/g) || []).slice(0, 2);
+          fenetres.push({ methode: v0[i].methode, vue: !!f, dedans: !!f && f.dedans, nombres, absents: f ? nombres.filter((n) => !f.texte.includes(n)) : nombres, egal: f ? f.egal : 0 });
+          if (i === 0) await g.screenshot({ path: path.join(OUT, 'site_barres_calcul_pc.png') });
+          await g.keyboard.press('Escape');
+          await g.waitForTimeout(150);
+        }
+        verif('barres : chaque verdict ouvre SA fenêtre de calcul, dans l\'écran — des formules (« = »), et les deux nombres que le verdict compare',
+          fenetres.length === 2 && fenetres.every((f) => f.vue && f.dedans && f.nombres.length === 2 && !f.absents.length && f.egal >= 3), JSON.stringify(fenetres));
+        await g.click('#resultat .et-tout[data-calcul]');
+        await g.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+        await g.waitForTimeout(200);
+        const tout = await g.evaluate(() => { const x = document.querySelector('.flyout.on.calcul'); return x ? x.textContent.replace(/[\s]+/g, ' ') : ''; });
+        verif('barres : « Tout le calcul » d\'une méthode ouvre ses combinaisons et toutes ses vérifications (« Poids propre + G + Q », flexion, contrainte équivalente)',
+          /Poids propre \+ G \+ Q/.test(tout) && /[Ff]lexion/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
+        await g.keyboard.press('Escape');
+        // les trois vues, chacune un dessin visible à sa taille
+        for (const k of ['section', 'taux', 'barre']) {
+          await g.click(`#vues [data-vue="${k}"]`);
+          await g.waitForTimeout(250);
+          const dv = await dessinB(g);
+          verif(`barres : la vue « ${k} » est un dessin visible à sa taille, chacun de ses textes dans le dessin et aucun sur un autre`, !!dv && dv.l >= 300 && dv.h >= 200 && dv.textes.length >= 4 && !dv.hors.length && !dv.dessus.length,
+            JSON.stringify({ ...dv, textes: dv ? dv.textes.length : 0 }).slice(0, 400));
+          if (k !== 'barre') await g.screenshot({ path: path.join(OUT, `site_barres_vue_${k}_pc.png`) });
+        }
+        // ---- les gestes, l'un après l'autre ; après chacun, la page dit ce que dit le témoin
+        let avant = v0;
+        for (let i = 0; i < GESTES.length; i++) {
+          const G = GESTES[i], [nom, , chemin, valeur, geste, quoi] = G;
+          let plus = true, detail = '';
+          try {
+            if (geste === 'choisir') {
+              // le sélecteur : ouvert depuis la ligne « Profilé » des résultats
+              const t0 = Date.now();
+              await g.click('#resultat .prof[data-pk="profil"]');
+              await g.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 });
+              const dt = Date.now() - t0;
+              const sel = await g.evaluate(() => { const rows = [...document.querySelectorAll('.flyout.on.picker .pk-row')];
+                return { n: rows.length, cur: rows.filter((r) => r.classList.contains('cur')).map((r) => r.dataset.choix), opt: rows.filter((r) => r.classList.contains('opt')).map((r) => r.dataset.choix),
+                  pastilles: rows.filter((r) => r.querySelector('.chip')).length, masses: rows.map((r) => parseFloat(r.querySelector('.kg').textContent.replace(/\s/g, '').replace(',', '.'))) }; });
+              const triees = sel.masses.every((m, k) => !k || m >= sel.masses[k - 1]);
+              plus = sel.n >= 15 && sel.cur.join() === 'IPE 300' && sel.opt.length === 1 && sel.pastilles === sel.n && triees;
+              detail = `${JSON.stringify({ ...sel, masses: `${sel.masses.length} masses, ${triees ? 'croissantes' : `dans le désordre : ${sel.masses.join(' ')}`}` })} · ouvert en ${dt} ms`;
+              await g.screenshot({ path: path.join(OUT, 'site_barres_selecteur_pc.png') });
+              await g.click(`.flyout.on.picker .pk-row[data-choix="${valeur}"]`);
+              await g.waitForTimeout(150);
+              await calmeB(g);
+            } else {
+              await gesteB(g, G);
+            }
+          } catch (e) { plus = false; detail = String(e.message).split('\n')[0]; }
+          const dit = await toastB(g);           // (lu tout de suite : un message ne reste que quelques secondes)
+          const par = await parite(i + 1);
+          const v = await verdictsB(g);
+          const d = (await lireB(g)).dessin;
+          if (quoi === 'charge') plus = v.length === 2 && v[0].taux > avant[0].taux && v[1].taux > avant[1].taux && d.includes('12kN/m');
+          else if (quoi === 'ponctuelle') plus = d.includes('|10kN|') && await g.isVisible('#donnees input[data-chemin="cas/1/charges/1/v"]');
+          else if (quoi === 'sans_ponctuelle') plus = !d.includes('|10kN|') && !(await g.$('#donnees input[data-chemin="cas/1/charges/1/v"]'));
+          else if (quoi === 'neuve') plus = v.length === 2 && v[0].taux === 74 && v[1].taux === 52;
+          else if (quoi === 'sans_maintien') plus = v.length === 2 && v[0].niveau === 'r' && v[0].taux > 100 && v[1].niveau === 'p' && v[1].taux < 100;
+          else if (quoi === 'continue') plus = ['|A|', '|B|', '|C|', '|D|'].every((t) => d.includes(t)) && (await g.$$eval('#donnees input[data-chemin^="travees/"]', (e) => e.length)) === 3;
+          else if (quoi === 'historique' || quoi === 'ec3') {
+            const blocsM = await g.$$eval('#resultat .et-bloc .et-bloc-t .n', (e, VIS) => e.filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.trim()), VIS);
+            const mot = quoi === 'historique' ? /^Méthode historique/ : /^Eurocode 3/;
+            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'Historique' : 'Eurocode 3');
+            detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM });
+          } else if (quoi === 'selecteur') {
+            // (le témoin, lui, n'a PAS ouvert le sélecteur avant de choisir : la page, qui l'a ouvert — toute la famille vérifiée
+            //  —, rend quand même ce qu'il rend. Le résultat d'une note ne dépend pas de ce qui a été ouvert avant.)
+            const retenu = await g.$eval('#resultat .prof[data-pk="profil"] > span:not(.leger)', (x) => x.textContent.trim());
+            const ligne = await g.$eval('#resultat .pf-profil', (x) => x.textContent.replace(/\s+/g, ' ').trim());
+            plus = plus && retenu === 'IPE 330' && !/plus léger/.test(ligne) && v.length === 2 && v[0].taux < avant[0].taux;
+            detail += ` · retenu ${retenu}, ligne « ${ligne} », taux ${avant.map((x) => x.taux)} → ${v.map((x) => x.taux)}`;
+          } else if (quoi === 'refus') {
+            // la page refuse elle-même une valeur hors des bornes du champ : elle dit la borne, le champ rougit et garde
+            // ce qui a été tapé (à corriger), rien n'est envoyé au moteur
+            const rouge = await g.$eval('#donnees input[data-chemin="travees/0"]', (e) => e.closest('.field').classList.contains('erreur') && e.value === '80');
+            plus = dit.vu && dit.erreur && /Valeur refusée : « 80 » — entre 0,05 et 60/.test(dit.texte) && rouge;
+            detail = JSON.stringify({ dit, rouge });
+          } else if (quoi === 'refus_moteur') {
+            await ouvrirRubB(g, 'ch');
+            const rendu = await g.inputValue('#donnees input[data-chemin="cas/0/charges/0/b"]');
+            await ouvrirRubB(g, 'ba');
+            const portee = await g.$eval('#donnees input[data-chemin="travees/0"]', (e) => ({ v: e.value, rouge: e.closest('.field').classList.contains('erreur') }));
+            plus = dit.vu && dit.erreur && /Saisie refusée/.test(dit.texte) && /cas « G »/.test(dit.texte) && rendu === '6' && portee.v === '6' && !portee.rouge;
+            detail = JSON.stringify({ dit, rendu, portee });
+          } else if (quoi === 'efforts') {
+            const rubs = await g.$$eval('#donnees .sec[data-sec]', (e) => e.map((x) => x.dataset.sec));
+            plus = rubs.join() === 'ba,ef,mt,me' && !(await g.$('#vues [data-vue="barre"]')) && v.every((x) => x.taux === null);
+            detail = JSON.stringify({ rubs, v: v.map((x) => x.texte) });
+          } else if (quoi === 'efforts_calcules') {
+            plus = v.length === 2 && v.every((x) => x.taux > 0);
+            await g.screenshot({ path: path.join(OUT, 'site_barres_efforts_pc.png') });
+          } else if (quoi === 'retour') {
+            const rubs = await g.$$eval('#donnees .sec[data-sec]', (e) => e.map((x) => x.dataset.sec));
+            await ouvrirRubB(g, 'ch');
+            plus = rubs.join() === 'ba,ch,mt,me' && !!(await g.$('#vues [data-vue="barre"]')) && (await g.inputValue('#donnees input[data-chemin="cas/0/charges/0/v"]')) === '5';
+          }
+          verif(`barres : ${nom} — la page dit ce que dit le témoin (résultats, dessin de la barre, vues)${quoi ? `, et ${({ charge: 'les deux taux montent, le dessin écrit « 12 kN/m »',
+            ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (74 % et 52 %)',
+            sans_maintien: 'la méthode historique REFUSE la barre (rouge, plus de 100 %), l\'Eurocode la garde', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
+            historique: 'un seul verdict et un seul bloc, ceux de la méthode historique', ec3: 'un seul verdict et un seul bloc, ceux de l\'Eurocode 3',
+            selecteur: 'le sélecteur montre la famille triée par masse, ✓ sur l\'IPE 300, une seule ★, une pastille par ligne ; l\'IPE 330 retenu, le taux baisse — et la page, sélecteur ouvert, rend ce que rend le témoin, qui ne l\'a pas ouvert',
+            refus: 'le refus dit la borne (« Valeur refusée : « 80 » — entre 0,05 et 60 »), le champ rougit et garde la saisie à corriger',
+            refus_moteur: 'le mot du moteur se lit (« Saisie refusée : … cas « G » … »), la charge est rendue à 6 m — et la portée refusée juste avant aussi', efforts: 'la rubrique Efforts remplace Charges, la vue de la barre s\'efface, aucun taux sans effort',
+            efforts_calcules: 'chaque méthode rend un taux', retour: 'la rubrique Charges revient avec ses 5 kN/m, la vue de la barre aussi' })[quoi]}` : ''}`,
+            par.ok && plus, [par.detail, detail].filter(Boolean).join(' · ').slice(0, 600));
+          if (v.length === 2 && v.every((x) => x.taux !== null)) avant = v;
+        }
+        verif('barres : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      } catch (e) { verif('barres : le parcours va au bout', false, String(e.message).split('\n')[0]); }
+      await c.close();
+    }
+    // ---- les trois formats, pour trois barres plus chargées que la neuve
+    const CONFIGS_B = [
+      ['ponctuelle', [['', 'ch', 'cas/1/charges/+', 'P', 'clic']]],
+      ['continue', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ba', 'travees/+', '1', 'clic'], ['', 'ch', 'cas/1/charges/+', 'P', 'clic'], ['', 'ch', 'cas/+', '1', 'clic']]],
+      ['efforts', [['', 'ba', 'mode', 'efforts', 'clic'], ['', 'ef', 'efforts/elu/N', '100', 'champ'], ['', 'ef', 'efforts/elu/My', '40', 'champ'], ['', 'ef', 'efforts/elu/Vz', '30', 'champ'],
+        ['', 'ef', 'efforts/service/N', '70', 'champ'], ['', 'ef', 'efforts/service/My', '28', 'champ'], ['', 'ef', 'efforts/service/Vz', '21', 'champ']]],
+    ];
+    for (const [fmt, w, h, tel] of [['pc', 1440, 900, false], ['tab1024', 1024, 768, false], ['iphone13', 390, 844, true]]) {
+      const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const pg = await cx.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      // ce que l'œil voit de l'écran tel qu'il est : débordement, noms coupés, valeurs coupées dans leur champ, cibles trop
+      // petites pour le doigt, champs sous 16 px au téléphone
+      const etatB = () => pg.evaluate(([tel, VIS]) => {
+        const vis = (e) => e.checkVisibility(VIS);
+        const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+        const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, #resultat .et-bloc-t .n, #resultat .et-bloc-t .e, .pf-verdicts .gov b, .row > label > span:not(.sym), '
+          + '.row2 > label > span, .seg button, .et-add, #donnees .sechd .tt, .mtabs button, #vues button')]
+          .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
+        const champs = [...document.querySelectorAll('#donnees .field input:not([type=checkbox])')].filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.dataset.chemin} « ${e.value} »`);
+        const petites = [];
+        if (tel || innerWidth < 1200) {
+          for (const e of document.querySelectorAll('.top button, .top .btn, .mtop button, .mtabs button, .ctool button, .phead button, #donnees button, #resultat button, #resultat .el, .mbar .btn')) {
+            if (!vis(e)) continue;
+            const r = e.getBoundingClientRect();
+            if (r.width >= 1 && Math.min(r.width, r.height) < 43.5) petites.push(`${(e.className || e.tagName).toString().split(' ')[0]} « ${(e.textContent || e.title || '').trim().slice(0, 16)} » ${Math.round(r.width)}×${Math.round(r.height)}`);
+          }
+        }
+        const petits = tel ? [...document.querySelectorAll('#donnees input:not([type=checkbox]), #donnees select, .panel.left .phead input')].filter(vis)
+          .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`) : [];
+        return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, champs, petites, petits };
+      }, [tel, VIS]);
+      for (const [cfg, gestes] of CONFIGS_B) {
+        try {
+          await pretEcran(pg, { apres: await ouvrir(pg, `${BASE}/${PAGE_B}?${new URLSearchParams({ nom: `Barres ${cfg}`, chantier: 'Formats' })}`) });
+          await calmeB(pg);
+          if (tel) { await pg.click('.mtabs [data-onglet="donnees"]'); await pg.waitForTimeout(200); }
+          for (const G of gestes) await gesteB(pg, G);
+          await pg.waitForTimeout(200);
+          // chaque rubrique des données, ouverte l'une après l'autre (l'accordéon n'en montre qu'une)
+          const fautes = [];
+          const noter = (ou, m) => { for (const k of ['coupes', 'champs', 'petites', 'petits']) if (m[k].length) fautes.push(`${ou} · ${k} : ${m[k].join(', ')}`); if (m.deborde) fautes.push(`${ou} : la page déborde`); };
+          const rubs = await pg.$$eval('#donnees .sec[data-sec]', (e) => e.map((x) => x.dataset.sec));
+          for (const k of rubs) {
+            await ouvrirRubB(pg, k);
+            noter(`rubrique ${k}`, await etatB());
+            if (tel) await pg.screenshot({ path: path.join(OUT, `site_barres_${cfg}_${fmt}_donnees_${k}.png`) });
+          }
+          await ouvrirRubB(pg, rubs[1]);
+          if (tel) {
+            for (const o of ['dessin', 'resultat']) {
+              await pg.click(`.mtabs [data-onglet="${o}"]`);
+              await pg.waitForTimeout(250);
+              noter(`onglet ${o}`, await etatB());
+              await pg.screenshot({ path: path.join(OUT, `site_barres_${cfg}_${fmt}_${o}.png`) });
+            }
+            await pg.click('.mtabs [data-onglet="dessin"]');
+            await pg.waitForTimeout(250);
+          } else {
+            await pg.screenshot({ path: path.join(OUT, `site_barres_${cfg}_${fmt}.png`) });
+          }
+          verif(`barres ${cfg} · ${fmt} : dans chaque rubrique${tel ? ' et chaque onglet' : ''}, rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ${tel || w < 1200 ? ', chaque bouton vu à 44 px au doigt' : ''}${tel ? ', chaque champ en 16 px' : ''} (${rubs.join(', ')})`,
+            rubs.length === 4 && !fautes.length, fautes.join(' | ').slice(0, 600));
+          const dv = await dessinB(pg);
+          verif(`barres ${cfg} · ${fmt} : le dessin est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '400 × 250 au moins'}), dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre`,
+            !!dv && dv.dedans && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 400 && dv.h >= 250), JSON.stringify({ ...dv, textes: dv ? dv.textes.length : 0 }).slice(0, 400));
+          const vs = await verdictsB(pg).catch(() => []);
+          if (tel) { await pg.click('.mtabs [data-onglet="resultat"]'); await pg.waitForTimeout(250); }
+          const vr = await verdictsB(pg);
+          verif(`barres ${cfg} · ${fmt} : un verdict par méthode, chacun avec son taux`, vr.length === 2 && vr.every((x) => x.taux > 0), JSON.stringify(vr.map((x) => [x.methode, x.taux])) + (tel ? ` (onglet dessin : ${vs.length})` : ''));
+        } catch (e) { verif(`barres ${cfg} · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
+      }
+      verif(`barres · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      await cx.close();
+    }
+  }
+
   // ---------------------------------------------------------------- l'établi compact des DALLES, et l'ancien module Prédalles
   // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni titre
   // « Données », ni « DALLES (1) », ni arborescence — la LIGNE de la dalle ouverte dans l'EN-TÊTE du panneau, à côté
@@ -5588,6 +5949,10 @@ const principal = async () => {
       ['h min', /hmin\s*=\s*(?:[\d,]+\s*\+\s*[\d,]+\s*=\s*)?(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s', /As\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['η', /η\s*(\d+)\s*%/, (v) => `${v} %`],
+      // (les barres en acier, 14/11/2026 : un verdict par MÉTHODE — sa pastille, puis « Méthode historique · … » ou
+      // « Eurocode 3 · … » ; la note écrit le même taux sous le nom de la barre : « 74 % historique · 52 % Eurocode 3 »)
+      ['taux historique', /(\d+)\s*%\s*Méthode historique ·/, (v) => `${v} % historique`],
+      ['taux Eurocode 3', /(\d+)\s*%\s*Eurocode 3 ·/, (v) => `${v} % Eurocode 3`],
     ];
     const FORMATS_NOTE = [
       ['pc', { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }],
@@ -6385,7 +6750,7 @@ const principal = async () => {
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'barres', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

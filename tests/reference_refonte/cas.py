@@ -258,19 +258,34 @@ cas("flambement", "γ_M1 = 0,9 refusé (PARCOURS)", LIM, [neuf(), mod("gamma_M1"
 cas("flambement", "famille des cornières (PARCOURS)", LIM, [neuf(), mod("famille", "L")])
 cas("flambement", "barre ajoutée", LIM, [neuf(), act("ajouter"), mod("N", "300")], {"elements": 2})
 
-# ====================================================================== choix de profilé
+# ====================================================================== choix de profilé — la vérification d'une barre en acier
+# (lot 6 des barres acier, 14/11/2026 : le module passe du moteur acier/choix_profil — Eurocode élastique, efforts
+#  donnés — au moteur acier/barre — méthode historique et Eurocode 3, barre chargée ou efforts imposés. Ses cas sont
+#  ceux du nouvel écran ; l'ancienne note de la version 1 y est relue.)
 cas("profil", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-cas("profil", "IPE, M_y = 150, V_z = 100", REF, [neuf(), mod("familles/IPE", True), mod("familles/HEA", False), mod("My", "150"), mod("Vz", "100")])
-cas("profil", "chargé près de 100 % (IPE 300 imposé, M_y = 130 kN·m)", REF,
-    [neuf(), mod("auto", False), act("choisir", role="profil", nom="IPE 300"), mod("My", "130")], {"taux": [95, 100]})
-cas("profil", "flexion, effort normal et déversement", REF,
-    [neuf(), mod("My", "80"), mod("avec_N", True), mod("N", "200"), mod("flambement", True), mod("Lcr_y", "4"), mod("Lcr_z", "4"),
-     mod("deversement", True), mod("L_LT", "4")])
-cas("profil", "moment énorme 1e308 refusé (PARCOURS)", LIM, [neuf(), mod("My", "1e308")], {"message": True})
-cas("profil", "longueur de flambement négative refusée", LIM, [neuf(), mod("Lcr_y", "-1")], {"message": True})
-cas("profil", "aucun profilé ne tient (M_y = 5000)", LIM, [neuf(), mod("My", "5000")], {"niveau": "r", "avis": "Aucun profilé"})
-cas("profil", "effort tranchant négatif (signe admis)", LIM, [neuf(), mod("Vz", "-50")], {"sans_message": True})
-cas("profil", "élément ajouté", LIM, [neuf(), act("ajouter"), mod("My", "60")], {"elements": 2})
+cas("profil", "R2 du cahier des charges (IPE 300, 6 m sans maintien, G : 2,42 kN/m et 10 kN, Q : 15 kN à mi-portée)", REF,
+    [neuf(), mod("poids_propre", False), mod("maintiens/0/-", "1"), mod("cas/0/charges/0/v", "2,42"), mod("cas/0/charges/+", "P"),
+     mod("cas/1/charges/0/type", "P"), mod("cas/1/charges/0/v", "15")], {"niveau": "r"}, selecteurs=True)
+cas("profil", "chargée près de 100 % (portée de 6,5 m)", REF, [neuf(), mod("travees/0", "6,5")], {"taux": [95, 100]})
+cas("profil", "poteau-poutre en efforts imposés (HEB 200, 5 m : service 300 kN et 20 kN·m, ELU 420 kN et 28 kN·m)", REF,
+    [neuf(), mod("mode", "efforts"), act("choisir", role="profil", nom="HEB 200"), mod("flambement/y/L", "5"), mod("flambement/z/L", "5"),
+     mod("efforts/service/N", "300"), mod("efforts/service/My", "20"), mod("efforts/service/Vz", "30"), mod("efforts/elu/N", "420"),
+     mod("efforts/elu/My", "28"), mod("efforts/elu/Vz", "42")])
+cas("profil", "poutre continue de 2 × 5 m, neige en plus, semelle haute tenue", REF,
+    [neuf(), mod("travees/0", "5"), mod("modele", "continue"), mod("cas/+", "1"), mod("cas/2/nature", "neige"), mod("cas/2/nom", "S"),
+     mod("cas/2/charges/0/v", "3"), mod("maintiens/0/genre", "haut"), mod("maintiens/0/x", "2,5")])
+cas("profil", "Eurocode 3 seul, tube carré en S355", REF,
+    [neuf(), mod("methodes", "ec3"), mod("nuance", "S355"), act("choisir", role="profil", nom="SHS 200x200x8"), mod("cas/0/N", "200")])
+cas("profil", "note de la version 1 relue (efforts de calcul, Eurocode seul)", REF,
+    [calc({"version": 1, "actif": 0, "elements": [{"nom": "P1", "acier": "S355", "familles": ["HEB"], "My": 60.0, "Vz": 40.0, "avec_N": True,
+                                                   "N": 600.0, "flambement": True, "Lcr_y": 6.0, "Lcr_z": 3.0, "courbe": "c", "profil": "HEB 200"}]})])
+cas("profil", "portée négative refusée (PARCOURS)", LIM, [neuf(), mod("travees/0", "-1")], {"message": True})
+cas("profil", "charge hors de la barre refusée", LIM, [neuf(), mod("cas/0/charges/0/b", "9")], {"message": True})
+cas("profil", "longueur de flambement illisible refusée (PARCOURS)", LIM, [neuf(), mod("flambement/y/L", "abc")], {"message": True})
+cas("profil", "efforts imposés sans effort : données incomplètes", LIM, [neuf(), mod("mode", "efforts")], {"niveau": "n"})
+cas("profil", "sans maintien : la méthode historique refuse la barre", LIM, [neuf(), mod("maintiens/0/-", "1")], {"niveau": "r"})
+cas("profil", "charge nulle (valeur minimale admise)", LIM, [neuf(), mod("cas/1/charges/0/v", "0")], {"sans_message": True})
+cas("profil", "barre ajoutée", LIM, [neuf(), act("ajouter"), mod("travees/0", "4")], {"elements": 2})
 
 # ====================================================================== soudures
 cas("soudures", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)

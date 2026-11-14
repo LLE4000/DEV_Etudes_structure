@@ -421,15 +421,99 @@ des profilés et retenir le plus léger qui tient — et gagne la barre : ses ap
 raidisseurs ; ses deux méthodes ; sa note. La copie de l'ancien écran (`acier/choix_profil`) est remplacée quand le
 nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORATIONS_PAR_MODULE.md`, A1).
 
+**L'écran et la note** (lot 6, 14/11/2026). Le module « Choix de profilé » est l'écran des barres ; son ancien écran
+(un profilé, une flexion, `acier/choix_profil`) n'est plus chargé par le site.
+
+| Fichier | Rôle |
+|---|---|
+| `api_web/profil.py` | la note (version 2 : `{"elements": [barre…], "actif"}`), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 |
+| `api_web/profil_saisie.py` | la colonne de gauche : quatre rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Méthodes |
+| `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
+| `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
+| `api_web/dessin_barre.py` | la barre : ses cas de charge, ses appuis, ses maintiens, les enveloppes de M et de V ; les taux de toutes les vérifications |
+| `api_web/dessin_profil.py` | la section à l'échelle (I, H, tubes ronds, carrés, rectangulaires) |
+| `api_web/note_profil.py` | la note PDF |
+
+- **Une barre garde ses deux modes** : passer de « barre chargée » à « efforts imposés » ne perd aucune saisie. La barre
+  neuve est une IPE 300 de 6 m, tenue à mi-portée : elle tient par les deux méthodes (historique 74 %, Eurocode 52 %) —
+  sans ce maintien, la méthode historique la refuse (178,5 % ; l'écran, qui arrondit vers le défavorable, écrit 179 % — Q4).
+- **Un verdict par méthode**, jamais un seul chiffre : la méthode historique et l'Eurocode 3 ne comparent pas la même
+  chose (des contraintes de service à σ_adm ; des efforts pondérés à des résistances). Le bloc « Comparaison » met leurs
+  taux côte à côte, sujet par sujet.
+- **Chaque vérification ouvre SA fenêtre de calcul** : ses formules, écrites par `ecriture.py`, la combinaison et
+  l'abscisse où elle a été trouvée. « Tout le calcul » d'une méthode y ajoute le bilan de ses combinaisons.
+- **Le sélecteur** : les profilés de la famille de la barre (ou de celles qu'on coche), triés par masse, chacun vérifié
+  par le moteur avec les méthodes de la barre ; ✓ le retenu, ★ le plus léger qui tient.
+- **Une note de la version 1** (l'ancien écran) est relue en « efforts imposés », Eurocode seul : ses efforts de calcul,
+  sa longueur de flambement, son profilé.
+- **La note PDF** a la planche des notes Poutre et Dalle (`ndc_pdf/styles.py` : le panneau de gauche et son dessin, deux
+  colonnes de calcul, des vérifications numérotées, une bande de verdict ; une planche qui déborde se poursuit sur une
+  page suivante). Par barre : la barre et ses charges ; la méthode historique D'ABORD — ses hypothèses, puis chaque
+  vérification comme les classeurs l'écrivent — ; l'Eurocode 3 ; la comparaison ; les paramètres à confirmer ; ce que la
+  note ne vérifie pas. **Elle imprime les méthodes cochées à l'écran** (rubrique « Méthodes » : historique, Eurocode 3,
+  les deux) : ce que l'écran montre est ce qui s'imprime (Q9). Le dessin du panneau est celui de l'écran, peint tel
+  quel ; chaque formule est la ligne de la fenêtre de calcul. Deux allégements, pour la lecture : la ligne du taux n'est
+  pas répétée (le verdict dit les deux membres et le taux) ; (6.62) ne réécrit pas les facteurs que (6.61) vient
+  d'écrire. Sous le nom de la barre, la garde et l'en-tête écrivent le taux AVANT la méthode, comme le verdict de
+  l'écran (« S235 · 6,00 m · 74 % historique · 52 % Eurocode 3 » : « Eurocode 3 9 % » se lisait « 39 % ») ; l'en-tête
+  d'une planche garde ce résumé entier s'il tient, sinon ses seuls taux, sinon rien — et un nom qui passerait sous la
+  pastille d'état cède par « … » (un nom de 60 caractères, sur la garde).
+- **Ce que le kit des notes a reçu** (`ndc_pdf`, sans effet sur les notes qui ne s'en servent pas — les notes de la
+  poutre et des fondations de grues sortent identiques, page à page) : `\bar{λ}` (mathx) ; trois genres d'éléments d'une
+  planche — une substitution repliée sur ses « = » et, si une ligne dépasse encore la colonne, coupée devant un
+  opérateur (jamais réduite tant qu'elle peut se couper) ; un paragraphe en texte riche ; un petit tableau — ; un
+  verdict en texte riche, avec son taux calé à droite ; la hauteur à garder sous la figure du panneau (`reserve`) ; le
+  peintre des dessins en mode riche (indices des symboles, aires translucides).
+- **Trouvé en faisant le lot, et corrigé** : le facteur de déversement écrit « χ_LT » alors que sa valeur était celle
+  de χ_LT,mod (le contrôle « une grandeur écrite deux fois garde sa valeur », 199 000 termes) ; les enveloppes de M et
+  de V portent LEURS abscisses, doublées là où le diagramme saute (le tracé prenait le zéro du dehors aux deux bouts) ;
+  « N_Ed/N_cr,y = N_Ed/N_cr,y = … » écrit deux fois ; la section d'un tube rond, que l'écran ne savait pas dessiner
+  (il n'a ni h ni b) — trouvé par la suite de la note ; le nom d'une barre borné à 40 caractères, quand un élément du
+  site en admet 60 partout (dalle, cornière, fondation de grue) — trouvé par le harnais du navigateur, qui en saisit 58
+  sur la tablette en portrait : la borne est 60 (`profil.NOM_MAX`), 12 pour le nom d'un cas de charge, qui s'écrit sur
+  le dessin (`NOM_CAS_MAX`).
+- **Trouvé par le harnais des barres** (filtre « barres », ci-dessous), et corrigé : le titre d'un bloc de méthode
+  ROGNÉ dès que son état est long (« MÉTHODE HIS… » devant « Conforme, attention · 97 % » ou « Non conforme ·
+  179 % ») — le bloc porte le titre court, celui du bouton de la rubrique Méthodes (« Historique »), et la feuille du
+  module fait passer l'état dessous plutôt que de rogner un titre ; sur une poutre continue, la cote du minimum de V
+  (au milieu de la barre) écrite SUR la légende des maintiens — vu à l'œil sur une capture, mesuré depuis par le
+  harnais (aucun texte du dessin n'en recouvre un autre) et par `tests/test_api_web_profil.py` ; une portée hors des
+  bornes de son champ refusée par la page sans dire la borne (« Valeur refusée : « 80 » ») — le refus dit sa raison,
+  pour tous les modules (`js/commun.js`, `valeurSaisie` et `motRefus` : « … — entre 0,05 et 60 »).
+- **Trouvé par la batterie complète**, et corrigé : (1) la ligne « Profilé » disait « plus léger : IPE 300 » seulement
+  quand le sélecteur avait déjà vérifié la famille — le résultat d'une note dépendait de ce qui avait été ouvert avant,
+  ce que le moteur partagé du site interdit (un écran rend ce que rend un moteur neuf : `tests/test_moteur_partage.py`,
+  P1, la référence rejouée dans l'ordre inverse dans le même interpréteur). La ligne ne le dit plus ; il se lit dans le
+  sélecteur (★), et `tests/test_api_web_profil.py` garde que la même note rend les mêmes octets, sélecteur ouvert ou non
+  (A12 : le redire sur la ligne, calculé en tâche de fond ?). (2) Le mot calé à droite d'un verdict de la note
+  s'appelait « droite » dans le kit — un verdict porte déjà « gauche », « op », « droite », les deux membres de ce
+  qu'il compare (`ndc_pdf/data.py`) : la note de démonstration du kit imprimait son membre de droite une seconde fois
+  (`tests/test_export_pdf_ndc.py` : texte et pixels de la référence). La clé s'appelle « cale ». (3)
+  `tests/test_note_identification.py` ne connaissait pas la note des barres : elle y est, avec les huit autres — le nom,
+  le chantier, l'indice et la date de la note du site, aux endroits prévus.
+- **Le harnais du navigateur** (`site/web/verifier_site.js`) : le contrôle commun (« module:profil », « formats:profil »)
+  ouvre la barre neuve aux cinq formats ; « note_pdf » télécharge la note riche aux trois formats et y relit les taux de
+  l'écran ; le filtre **« barres »** (rejoué par « module:profil ») joue les GESTES de l'ingénieur sur une même note —
+  une charge saisie, une ponctuelle ajoutée, déplacée, retirée, le maintien retiré puis remis, la poutre continue de
+  trois travées, les méthodes, un profilé choisi dans le sélecteur (la page, sélecteur ouvert, rend ce que rend le témoin, qui ne l'a pas ouvert),
+  deux saisies refusées (par la page, par le moteur), les efforts imposés et le retour à la barre chargée. Son TÉMOIN : les mêmes gestes rejoués hors du navigateur par le
+  moteur du dépôt (CPython) ; après chaque geste, le texte de la colonne des résultats, les textes du dessin de la barre
+  et la liste des vues sont ceux du témoin — un bouton qui enverrait un autre champ, un paquet du moteur en retard sur
+  le dépôt, un nombre que Pyodide calculerait autrement se voient là. Puis trois barres plus chargées que la neuve (une
+  ponctuelle ; trois travées et trois cas ; des efforts imposés) aux trois formats : rien ne déborde, aucun nom coupé,
+  chaque valeur lisible dans son champ, les cibles au doigt, le dessin visible et sans texte sur un autre.
+- **Mesuré** (Chromium sans tête, moteur dans le navigateur) : moteur prêt en 3,5 s ; un recalcul en 0,13 s ; le
+  sélecteur d'une famille de 23 profilés en 0,8 s. La note, hors navigateur : 0,5 s pour une barre, 1,1 s pour trois.
+
 | Lot | Contenu | Preuve | État |
 |---|---|---|---|
 | 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
-| 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
-| 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
-| 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
+| 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
+| 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
+| 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs | R4 | à faire |
-| 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; pas encore à l'écran |
-| 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) | harnais, photos | à faire |
+| 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
+| 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
 | 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
 
 ## 10. À confirmer par le bureau
@@ -443,4 +527,5 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q5 | Tube Ø610 : fini à chaud (courbe a) ou formé à froid et soudé (c) ; horizontal ou vertical (poids propre) | a ; non compté |
 | Q6 | Seuil du statut « à la limite » dans la note | celui des notes existantes (95 %) |
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
+| Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode historique y vient la première | ainsi |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |

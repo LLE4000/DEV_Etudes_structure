@@ -7,6 +7,7 @@ Mini-syntaxe (proche LaTeX) :
     \max{a ; b ; c}      accolade avec lignes empilées, alignées sur le "="
     \min{a ; b}          idem
     \u{N/mm^2}           unité (romain, jamais italique)
+    \bar{λ}              une barre au-dessus (l'élancement réduit λ̄)
     \t{texte}            texte courant (romain)
     x^2  x_ck  A_s,req   exposants / indices
     (...)               parenthèses à hauteur variable
@@ -74,6 +75,14 @@ class Paren(Node):
         self.body, self.left, self.right = body, left, right
 
 
+class Bar(Node):
+    """Une barre au-dessus de son corps (λ̄) — une barre combinante se pose mal d'une police à l'autre."""
+    __slots__ = ("body",)
+
+    def __init__(self, body):
+        self.body = body
+
+
 class Cases(Node):
     """Accolade + lignes empilées, alignées sur le premier '=' de chaque ligne."""
     __slots__ = ("rows", "label")
@@ -92,6 +101,7 @@ SYMBOLS = {
     "sigma": "σ", "tau": "τ", "phiG": "φ", "eps": "ε", "inf": "∞",
 }
 OPS = set("=+−-<>≤≥≠±·×/;→≈")
+BARRE_HAUT = 0.78               # la hauteur de la barre de \bar{…} au-dessus de la ligne de base, en corps
 DIGITS = set("0123456789")
 
 
@@ -144,7 +154,7 @@ class _P:
                 self.i += 1
                 g = self.group()
                 sub_node = parse(g, script=True)
-                if items and isinstance(items[-1], (Run, Script, Paren, Seq)):
+                if items and isinstance(items[-1], (Run, Script, Paren, Seq, Bar)):
                     base = items.pop()
                     if isinstance(base, Script):
                         if ch == "^":
@@ -191,6 +201,8 @@ class _P:
             return Frac(parse(self.group()), parse(self.group()))
         if name == "sqrt":
             return Sqrt(parse(self.group()))
+        if name == "bar":
+            return Bar(parse(self.group()))
         if name in ("max", "min", "cases"):
             body = self.group()
             rows = [parse(r) for r in _split_top(body, ";")]
@@ -251,7 +263,7 @@ def _mark_res(n):
         for x in (n.base, n.sup, n.sub):
             if x is not None:
                 _mark_res(x)
-    elif isinstance(n, (Frac, Paren, Sqrt)):
+    elif isinstance(n, (Frac, Paren, Sqrt, Bar)):
         for a in ("num", "den", "body"):
             x = getattr(n, a, None)
             if x is not None:
@@ -269,7 +281,7 @@ def _force_roman(n):
         for x in (n.base, n.sup, n.sub):
             if x is not None:
                 _force_roman(x)
-    elif isinstance(n, (Frac, Paren, Sqrt)):
+    elif isinstance(n, (Frac, Paren, Sqrt, Bar)):
         for a in ("num", "den", "body"):
             x = getattr(n, a, None)
             if x is not None:
@@ -386,6 +398,9 @@ def measure(n, st, size):
     if isinstance(n, Paren):
         b = measure(n.body, st, size)
         return Box(b.w + size * 0.62, max(b.a, size * 0.75), max(b.d, size * 0.24))
+    if isinstance(n, Bar):
+        b = measure(n.body, st, size)
+        return Box(b.w, max(b.a, size * BARRE_HAUT + size * 0.06), b.d)
     if isinstance(n, Cases):
         rows = [_case_parts(r, st, size) for r in n.rows]
         lw = max(r[2] for r in rows)
@@ -500,6 +515,12 @@ def draw(c, n, x, y, st, size):
             c.drawPath(p)
         draw(c, n.body, x + size * 0.34, y, st, size)
         return b.w + size * 0.62
+    if isinstance(n, Bar):
+        w = draw(c, n.body, x, y, st, size)
+        c.setStrokeColor(st.ink)
+        c.setLineWidth(max(0.4, size * 0.05))
+        c.line(x + size * 0.05, y + size * BARRE_HAUT, x + w - size * 0.02, y + size * BARRE_HAUT)
+        return w
     if isinstance(n, Cases):
         rows = [_case_parts(r, st, size) for r in n.rows]
         lw = max(r[2] for r in rows)

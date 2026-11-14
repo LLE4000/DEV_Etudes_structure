@@ -15,7 +15,7 @@ import * as GB from "./gabarit.js";
 import * as E from "./equipe.js";
 import * as J from "./journal.js";
 import { MODULES } from "./modules.js";
-import { esc, toast, poserTheme, themeChoisi, valeurSaisie, segmentAEnvoyer, viderAuFocus, texteEchecDemarrage } from "./commun.js";
+import { esc, toast, poserTheme, themeChoisi, valeurSaisie, motRefus, segmentAEnvoyer, viderAuFocus, texteEchecDemarrage } from "./commun.js";
 
 export function ouvrirParametres(hote, ctx) {
   const { signal } = ctx;
@@ -110,7 +110,7 @@ export function ouvrirParametres(hote, ctx) {
     if (!admin()) return;
     const v = valeurSaisie(el);
     if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") el.closest(".field")?.classList.toggle("erreur", !v.ok);
-    if (!v.ok) { toast(`Valeur refusée : « ${el.value} »`, true); return; }
+    if (!v.ok) { toast(motRefus(el, v), true); return; }
     rendre(moduleDe(el), { chemin: el.dataset.chemin.split("/"), valeur: v.valeur });
   }
   viderAuFocus(zone, { signal });

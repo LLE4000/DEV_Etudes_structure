@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "3a2296716a22b57014d974d3b439ba96318153ee90106e72b50d15b6f1774414",
+ "sha256": "ddb5bfba20d5cc3b256feb104c7453054810a20caf44db6cfb5dfca1f82f52cd",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -94,11 +94,25 @@
   "acier/assemblages/poutre_poutre/platine_about/schemas.py",
   "acier/assemblages/poutre_poutre/platine_about/synthese.py",
   "acier/assemblages/poutre_poutre/platine_about/texte.py",
+  "acier/barre/__init__.py",
+  "acier/barre/combinaisons.py",
+  "acier/barre/ec3.py",
+  "acier/barre/ec3_classe.py",
+  "acier/barre/ec3_deversement.py",
+  "acier/barre/ec3_flambement.py",
+  "acier/barre/ec3_interaction.py",
+  "acier/barre/ec3_section.py",
+  "acier/barre/ecriture.py",
+  "acier/barre/entree.py",
+  "acier/barre/formules.py",
+  "acier/barre/historique.py",
+  "acier/barre/mcr.py",
+  "acier/barre/moteur.py",
+  "acier/barre/parametres.py",
+  "acier/barre/resultat.py",
+  "acier/barre/section.py",
+  "acier/barre/statique.py",
   "acier/bibliotheques.py",
-  "acier/choix_profil/__init__.py",
-  "acier/choix_profil/calcul.py",
-  "acier/choix_profil/entree.py",
-  "acier/choix_profil/moteur.py",
   "acier/corniere/__init__.py",
   "acier/corniere/entree.py",
   "acier/corniere/moteur.py",
@@ -170,6 +184,7 @@
   "api_web/dalle_positions.py",
   "api_web/dalle_predalle.py",
   "api_web/dessin_age.py",
+  "api_web/dessin_barre.py",
   "api_web/dessin_biblio_enrobage.py",
   "api_web/dessin_biblio_hourdis.py",
   "api_web/dessin_bois.py",
@@ -199,6 +214,7 @@
   "api_web/note_dalle.py",
   "api_web/note_fondation_grue.py",
   "api_web/note_poutre.py",
+  "api_web/note_profil.py",
   "api_web/parcours.py",
   "api_web/pdf_reunion.py",
   "api_web/plancher.py",
@@ -206,6 +222,9 @@
   "api_web/poutre.py",
   "api_web/poutre_streamlit.py",
   "api_web/profil.py",
+  "api_web/profil_mots.py",
+  "api_web/profil_resultat.py",
+  "api_web/profil_saisie.py",
   "api_web/registre.py",
   "api_web/routeur.py",
   "api_web/sol.py",
@@ -323,8 +342,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "665db69da683b745e7be82ac432bc912e4bd966b0a3b398f7a0ef1d32f5d2fe7",
-  "octets": 2228448,
+  "sha256": "a9cbd493e610f483588d01511fe6ceb2368c3a6b9de6a7680e6866c9205962c2",
+  "octets": 2232381,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -335,12 +354,14 @@
    "garde_corps",
    "plancher",
    "poutre",
+   "profil",
    "soudures"
   ],
   "avec_numpy": [
    "corniere",
    "garde_corps",
    "plancher",
+   "profil",
    "soudures"
   ]
  },
@@ -359,10 +380,10 @@
   "garde_corps": "9d6a2b474d4321ad",
   "plancher": "eb59f2a541093dba",
   "poutre": "617eb168036b4bd8",
-  "profil": "bf858ad6e3b9393f",
+  "profil": "cab3c74107d9787e",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "8fc984dd33e86329"
+ "version": "fff0447907c2d1e9"
 }

@@ -12,6 +12,23 @@ Extension (les notes du site, 14/11/2026) : ``planche_suite`` — une planche
 qui déborde ses deux colonnes se POURSUIT sur une page suivante, à la même
 mise en page, au lieu de déborder ; la garde compte ses pages.
 
+Extension (la note des barres en acier, 14/11/2026), sans effet sur une
+planche qui ne s'en sert pas — trois genres d'éléments de plus dans une
+vérification, et deux clés de plus dans un verdict :
+  · ("e", libellé ou None, [membres], résultat) : une SUBSTITUTION
+    « symbole = formule = valeurs = résultat » en mini-LaTeX, repliée sur ses
+    « = » puis, si une ligne dépasse encore la colonne, coupée devant un
+    opérateur (jamais réduite tant qu'elle peut se couper) ;
+  · ("pr", texte) : un paragraphe gris en texte RICHE (ndc_pdf.riche : les
+    segments entre « $ » sont composés) ;
+  · ("tab", colonnes, lignes[, note]) : un petit tableau (kit.table) ;
+  · verdict {"riche": True} : son texte est riche ; {"cale": "51,9 %"} :
+    un mot en gras, à la couleur du verdict, calé à droite de sa bande.
+    (La clé ne s'appelle PAS « droite » : un verdict porte déjà « gauche »,
+    « op », « droite » — les deux membres de ce qu'il compare, ndc_pdf/data.py ;
+    le mot calé s'imprimait en double dans la note de démonstration du kit —
+    trouvé par tests/test_export_pdf_ndc.py, 14/11/2026.)
+
 Les dix variantes ne changent que la palette : teinte du panneau, couleur
 d'accent, teinte du béton. Même grille, mêmes polices, même composition.
 """
@@ -20,6 +37,7 @@ from reportlab.lib.pagesizes import A4, landscape
 A4P = A4
 
 from . import mathx as M
+from . import riche as RI
 from .kit import Doc, Frame, hx, mix, sym, formula, kv_rows, chip, table
 from .section import SectionStyle, draw_section
 from . import data as D
@@ -60,6 +78,9 @@ class Style:
     # troisième colonne qui est moche » ; ce qui déborde, « le petit bout sur une deuxième page »). Extension
     # rétro-compatible : faux, le document est celui d'avant, à l'octet près.
     planche_suite = False
+    # une substitution repliée (élément « e ») : l'interligne, le retrait de ses lignes de suite ; un tableau (« tab »)
+    lead_e, retrait_e = 1.36, 9.0
+    s_tab, lead_tab = 6.6, 8.6
     # pt : ce qu'une colonne peut dépasser sa marge du bas sans que ce soit dit (``d.warnings``) — invisible, la marge
     # fait 28 pt. Une planche qui se poursuit ne passe à la page suivante qu'au-delà : elle tient sur une page
     # exactement quand l'ancienne planche ne débordait pas.
@@ -306,6 +327,8 @@ class Style:
         d.line(C.x, C.y, C.x1, C.y, mix(S.rule, S.ink, 0.12), 0.5)
         blocs = sec.get("blocs", [])
         reserve = 26 + 13 * sum(1 + len(r) for _, r in blocs[:2]) if blocs else 0
+        if sec.get("reserve") is not None:      # extension : la hauteur à garder sous la figure, quand la planche la connaît
+            reserve = sec["reserve"]
         hc = min(sec.get("coupe_h", S.coupe_h), C.y - m - max(60, reserve))
         dessin = sec.get("dessin")
         if dessin is not None:
@@ -396,18 +419,32 @@ class Style:
             e = "ok" if k.get("ok", False) else "ko"
         return {"ok": self.ok, "att": self.att, "ko": self.ko}.get(e, self.ko)
 
+    def _lignes_verdict(self, d, fr, k):
+        """Les lignes du texte d'un verdict, repliées dans sa bande — moins la place de son mot de droite, s'il en a un ;
+        des lignes de jetons quand le texte est riche (``k["riche"]``), du texte sinon."""
+        size = self.s_verd
+        wd = d.w(k["cale"], "Carlito-Bold", size) + 10 if k.get("cale") else 0.0
+        if k.get("riche"):
+            return RI.envelopper(k["texte"], self.f_b, size, self._ms_col(self.ink), fr.w - 15 - wd)
+        return d.wrap(k["texte"], self.f_b, size, fr.w - 15 - wd)
+
     def _verdict(self, d, fr, k):
         S = self
         col = S.coul_verdict(k)
         size = S.s_verd
-        lines = d.wrap(k["texte"], S.f_b, size, fr.w - 15)
+        lines = self._lignes_verdict(d, fr, k)
         h = len(lines) * size * 1.28 + 6.5
         fr.down(5)
         t = fr.y
         d.box(fr.x, t - h, fr.w, h, fill=mix(col, "#FFFFFF", 0.90))
         d.box(fr.x, t - h + 1.5, 2.0, h - 3, fill=col)
         for i, ln in enumerate(lines):
-            d.t(fr.x + 9, t - size * (1.02 + i * 1.28), ln, S.f_b, size, S.ink)
+            if k.get("riche"):
+                RI.dessiner(d, fr.x + 9, t - size * (1.02 + i * 1.28), ln, S.f_b, size, S.ink, self._ms_col(S.ink))
+            else:
+                d.t(fr.x + 9, t - size * (1.02 + i * 1.28), ln, S.f_b, size, S.ink)
+        if k.get("cale"):
+            d.t(fr.x1 - 6, t - size * 1.02, k["cale"], "Carlito-Bold", size, col, "right")
         fr.down(h)
         return fr.y
 
@@ -465,9 +502,38 @@ class Style:
                 place(n * S.s_lab * 1.32 + 3)
                 fr.down(2)
                 d.para(fr, it[1], S.f_b, S.s_lab, S.mut, lead=1.32)
+            elif it[0] == "e":
+                # une substitution « symbole = formule = valeurs = résultat », repliée sur ses « = » : les lignes comptées
+                # sont celles que ``formule_calee`` dessine (riche.lignes_suite)
+                res = r"\res{" + it[3] + "}"
+                n = len(RI.lignes_suite(list(it[2]), res, ms, S.s_form, fr.w, S.retrait_e, couper=True))
+                place((S.s_lab * 1.3 if it[1] else 0.0) + n * S.s_form * S.lead_e + 2.5)
+                if it[1]:
+                    fr.down(S.s_lab * 1.3)
+                    d.t(fr.x, fr.y, it[1], S.f_b, S.s_lab, S.mut)
+                RI.formule_calee(d, fr, list(it[2]), res, ms, S.s_form, retrait=S.retrait_e, lead=S.lead_e, min_size=S.min_form,
+                                 cale="suite", couper=True)
+                fr.down(2.5)
+            elif it[0] == "pr":
+                ms_mut = self._ms_col(S.mut)
+                n = len(RI.envelopper(it[1], S.f_b, S.s_lab, ms_mut, fr.w))
+                place(n * S.s_lab * 1.32 + 3)
+                fr.down(2)
+                RI.paragraphe(d, fr, it[1], S.f_b, S.s_lab, S.mut, ms_mut, 1.32)
+            elif it[0] == "tab":
+                # la hauteur d'un tableau se lit sur un brouillon : ses textes se replient dans leurs colonnes
+                note = it[3] if len(it) > 3 else None
+                import io
+                brouillon = Doc(io.BytesIO(), self.page)
+                brouillon.new_page(self.page)
+                f0 = Frame(fr.x, 1.0e6, fr.w, -1.0e9)
+                table(brouillon, f0, it[1], it[2], S, S.s_tab, S.lead_tab, ms=self._ms_col, note=note)
+                place(8.0 + f0.top - f0.min_y)
+                fr.down(8.0)
+                table(d, fr, it[1], it[2], S, S.s_tab, S.lead_tab, ms=self._ms_col, note=note)
             else:
                 k = v["verdicts"][it[1]]
-                n = len(d.wrap(k["texte"], S.f_b, S.s_verd, fr.w - 15))
+                n = len(self._lignes_verdict(d, fr, k))
                 place(5 + n * S.s_verd * 1.28 + 6.5)
                 self._verdict(d, fr, k)
         return fr

@@ -20,7 +20,7 @@
 //     body[data-ecran] dit l'état : demarrage, apercu, pret, erreur.
 import * as N from "./notes.js";
 import { toast, retirerToast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, SUITE_LECTURE,
-  SUITE_APERCU, ACTIONS_SANS_MOTEUR, texteEchecDemarrage, valeurSaisie, segmentAEnvoyer, viderAuFocus } from "./commun.js";
+  SUITE_APERCU, ACTIONS_SANS_MOTEUR, texteEchecDemarrage, valeurSaisie, motRefus, segmentAEnvoyer, viderAuFocus } from "./commun.js";
 import * as GB from "./gabarit.js";
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
@@ -712,7 +712,7 @@ export function ouvrirEtabli(hote, ctx) {
     function valider(el) {
       const v = valeurSaisie(el);
       if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") el.closest(".field").classList.toggle("erreur", !v.ok);
-      if (!v.ok) { toast(`Valeur refusée : « ${el.value} »`, true); return; }
+      if (!v.ok) { toast(motRefus(el, v), true); return; }
       envoyer("modifier", { chemin: el.dataset.chemin.split("/"), valeur: v.valeur });
     }
     $("#donnees").addEventListener("change", (ev) => {

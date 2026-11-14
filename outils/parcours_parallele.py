@@ -43,7 +43,7 @@ VERIF = os.path.join(RACINE, "site", "web", "verifier_site.js")
 TEMOIN = os.path.join(RACINE, ".temoin_tests", "parcours.json")
 # les morceaux : l'union est le passage complet (test : tests/test_parcours_parallele.py)
 MORCEAUX = ("formats", "modules", "garde", "poutre", "telecharger", "exporter", "meteo", "sonde", "enregistrement",
-            "ouverture", "pilote", "corniere", "plaques", "piege", "bibliotheque", "note_pdf", "bureau", "demarrage")
+            "ouverture", "pilote", "corniere", "barres", "plaques", "piege", "bibliotheque", "note_pdf", "bureau", "demarrage")
 # les morceaux joués SEULS, après les autres (ils mesurent des temps : une machine chargée les rend « non mesurés »)
 SEULS = ("sonde", "demarrage")
 LIGNE = re.compile(r"^(OK|KO)\s{2}(.*?)(?:\s{2}.*)?$")

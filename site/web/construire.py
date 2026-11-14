@@ -121,7 +121,7 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -394,6 +394,23 @@ for ch, v in ((["exemple"], "VAR4"), (["pieux", "capacite"], "500")):
     assert FG.modifier(etat, ch, v) is None, ch
 FG.gerer_elements(etat, "ajouter")
 assert FG.modifier(etat, ["exemple"], "VAR8") is None
+""",
+    # trois barres en acier (docs/acier/BARRES_ACIER.md) : une barre chargée aux deux méthodes (une charge ponctuelle sur
+    # la charge répartie, le dessin de la barre et ses enveloppes, la comparaison, les paramètres à confirmer) ; un poteau
+    # en efforts imposés, comprimé et fléchi, en tube rectangulaire (la section dessinée, le flambement, l'annexe A et
+    # ses longues formules coupées) ; une poutre continue à l'Eurocode seul (trois travées, les indices des portées)
+    "profil": """
+from api_web import profil as P
+etat = P.nouvel_etat()
+assert P.modifier(etat, ["cas", 1, "charges", "+"], "P") is None
+P.gerer_elements(etat, "ajouter")
+for ch, v in ((["mode"], "efforts"), (["efforts", "elu", "N"], "400"), (["efforts", "elu", "My"], "45"), (["efforts", "elu", "Vz"], "30"),
+              (["efforts", "service", "N"], "290"), (["efforts", "service", "My"], "32"), (["efforts", "service", "Vz"], "21")):
+    assert P.modifier(etat, ch, v) is None, ch
+P.choisir_section(etat, "profil", "RHS 300x100x8")
+P.gerer_elements(etat, "ajouter")
+for ch, v in ((["modele"], "continue"), (["travees", "+"], 1), (["methodes"], "ec3")):
+    assert P.modifier(etat, ch, v) is None, ch
 """,
 }
 _SONDE_NOTE = """

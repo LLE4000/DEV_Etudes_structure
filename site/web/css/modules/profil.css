@@ -1,78 +1,97 @@
-/* Choix de profilé : la grille des familles (cadre Données), la vue « Tableau »
-   (le tableau de l'écran Streamlit, posé dans la feuille comme un dessin) et les graphiques (sans « à l'échelle »).
+/* Choix de profilé — la vérification d'une barre en acier (api_web/profil.py, sur l'établi compact) : ce que son établi
+   ajoute à la charte (css/charte.css), au site (css/site.css) et à l'établi compact (css/etabli.css).
    Chargée par l'établi choix-profile seul. */
 
-/* les familles : des cases en grille, alignées */
-.pf-fams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 10px; padding: 2px 0 0; }
-.pf-fams .case { white-space: nowrap; min-width: 0; }
-.pf-fams .case span { overflow: hidden; text-overflow: ellipsis; }
-
-/* l'étoile du plus léger qui tient (tableau, sélecteur) */
-.pf-or { color: #E0A100; }
 /* λ̄ : la barre posée sur la lettre (le macron combinant se décale) */
 .pf-barre { text-decoration: overline; }
+/* les dessins du module (la barre, la section, les taux) ne sont pas « à l'échelle » d'une coupe */
+.sheet:has(svg[id$="_barre"]) .stitle .scale, .sheet:has(svg[id$="_taux"]) .stitle .scale { display: none; }
 
-/* les graphiques et le tableau ne sont pas « à l'échelle » */
-.sheet:has(.pf-vue) .stitle .scale, .sheet:has(svg.pf-graphe) .stitle .scale { display: none; }
+/* ---------------------------------------------------------------- les données */
+/* une icône « retirer » en bout de ligne (une travée, un cas, une charge, un maintien) */
+.pf-ret { align-self: center; justify-content: center; width: 28px; height: 28px; margin: 0; padding: 0; flex: none; color: var(--ink-3); }
+.pf-ret svg.i { width: 15px; height: 15px; }
 
-/* la vue « Tableau » : il défile dans la feuille, en-tête et colonne des noms figés */
-.sheet .draw:has(> .pf-vue) { display: block; position: relative; padding: 0; }
-.pf-vue { position: absolute; inset: 4px 14px 10px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; }
-.pf-leg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 11.5px; color: #4A5568; }
-.pf-leg .lg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.pf-leg .lg i { display: inline-block; width: 16px; height: 12px; border-radius: 3px; }
-.pf-leg .lg.opt i { background: #BBF7D0; box-shadow: inset 0 0 0 1px #4ADE80; }
-.pf-leg .lg.ok i { background: #F0FDF4; box-shadow: inset 0 0 0 1px #BBF7D0; }
-.pf-leg .lg.nok i { background: #FEF2F2; box-shadow: inset 0 0 0 1px #FECACA; }
-.pf-leg .or { color: #E0A100; }
-.pf-defile { flex: 1; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; }
-.pf-pied { font-size: 10.5px; color: #8B95A7; line-height: 1.4; }
-/* aucun profilé : le message au centre de la feuille */
-.pf-vide { margin: auto; max-width: 420px; display: flex; flex-direction: column; gap: 8px; text-align: center; color: #4A5568;
-  font-size: 13px; line-height: 1.5; padding: 24px 12px; }
-.pf-vide b { font-size: 15px; color: #0D1525; }
+/* le profilé : un bouton large, qui ouvre le sélecteur — le nom, la masse */
+.pf-prof { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 4px 0 0; padding: 0 10px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); background: var(--panel); font: inherit; color: var(--ink); cursor: pointer; text-align: left; }
+.pf-prof b { font-size: 13.5px; font-weight: 650; }
+.pf-prof span { margin-left: auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pf-prof svg.i { width: 14px; height: 14px; flex: none; color: var(--ink-3); }
+.pf-prof:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
-.pf-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.pf-tab th, .pf-tab td { height: 26px; padding: 0 5px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; text-align: right; color: #0D1525; }
-.pf-tab thead th { position: sticky; top: 0; z-index: 2; height: 40px; padding-top: 4px; padding-bottom: 4px; background: #F4F5F8; color: #4A5568;
-  font-weight: 650; text-align: right; vertical-align: bottom; border-bottom: 1px solid #D3D8E0; line-height: 1.5; }
-.pf-tab thead th sub { line-height: 0; }
-.pf-tab thead th small { display: block; font-size: 9.5px; font-weight: 500; color: #8B95A7; line-height: 1.2; }
-/* au PC, les chiffres prennent la taille que la largeur de la feuille permet (de 10 à 12 px) : aucune colonne cachée */
-@media (min-width: 701px) {
-  .pf-defile { container-type: inline-size; }
-  .pf-tab { font-size: clamp(9.5px, calc((100cqw - 40px) / 78), 12px); }
+/* une travée d'une poutre continue : le libellé, la portée, « retirer » */
+.row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 28px; }
+.row.pf-trav:not(:has(.pf-ret)) { grid-template-columns: minmax(0, 1fr) 132px; }
+
+/* un cas de charge : une carte — son nom, sa nature et « retirer » ; ses charges ; son effort normal */
+.pf-cas { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; padding: 7px 8px 8px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg-sunken); }
+.pf-cas-h { display: grid; grid-template-columns: minmax(0, 4.6em) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.pf-cas-h .field.text input { font-weight: 650; }
+.pf-cas-h .field, .pf-ch .field, .pf-mt .field { min-width: 0; }
+.pf-cas > .row { margin-top: 2px; }
+.pf-cas > .et-pied { padding: 0; }
+/* une charge : son type et sa valeur, puis où elle est */
+.pf-ch { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; border-top: 1px dashed var(--line); }
+.pf-ch-1 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.pf-ch-2 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; font-size: 12px; color: var(--ink-3); }
+.pf-ch-2.tri { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1.1fr); }
+.pf-ch-2.un { grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr); }
+/* un maintien : son abscisse, son genre, « retirer » */
+.pf-mt { display: grid; grid-template-columns: auto minmax(0, 92px) minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; color: var(--ink-3); }
+
+/* les efforts imposés : une colonne par méthode (service, ELU) */
+.pf-eff { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 5px 8px; align-items: center; }
+.pf-eff.n1 { grid-template-columns: auto minmax(0, 1fr); }
+.pf-eff .h { font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); text-align: center; }
+.pf-eff > label { font-size: 12.5px; color: var(--ink-2); min-width: 2.6em; }
+.pf-eff .field { min-width: 0; }
+
+/* « n paramètres à confirmer » : un lien, sous les coefficients de l'Eurocode */
+.pf-lien { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 0; border: 0; background: none; font: inherit; font-size: 12px;
+  font-weight: 600; color: var(--accent); cursor: pointer; text-align: left; }
+.pf-lien svg.i { width: 14px; height: 14px; flex: none; }
+.pf-lien:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------- le résultat */
+/* un verdict par méthode : deux méthodes, deux verdicts l'un sous l'autre, la pastille un peu plus petite */
+.pf-verdicts .verdict { cursor: pointer; }
+.pf-verdicts.n2 .verdict { padding: 10px 16px; }
+.pf-verdicts.n2 .chip.xl { height: 38px; min-width: 86px; justify-content: center; padding: 0 10px; font-size: 21px; }
+.pf-verdicts .chip.xl.pf-mot { font-size: 13px; letter-spacing: 0; font-family: inherit; font-weight: 650; }
+/* où une vérification a été trouvée (la combinaison, l'abscisse) : discret */
+.pf-ou { color: var(--ink-3); font-size: 11.5px; }
+/* le profilé retenu, au-dessus des blocs */
+.pf-profil { padding: 2px 0 0; border-bottom: 1px solid var(--line); }
+/* la 2ᵉ ligne d'une vérification passe à la ligne plutôt que d'être coupée (ce qu'elle compare, puis où) */
+body[data-module="profil"] .el.vc .l2 .cmp { white-space: normal; overflow-wrap: anywhere; }
+/* le titre d'un bloc ne cède JAMAIS (« MÉTHODE HIS… » devant « Conforme, attention · 97 % », trouvé par le harnais des
+   barres le 14/11/2026 — le titre est depuis le court, « Historique ») : si la ligne ne tient pas le titre et l'état,
+   l'état passe dessous, à droite. La hauteur minimale de l'en-tête (38 px ; 44 et 46 px au doigt) reste celle de
+   l'établi : le bouton s'étire à la hauteur de son en-tête. */
+body[data-module="profil"] .et-bloc-t { flex-wrap: wrap; align-content: center; align-self: stretch; height: auto; row-gap: 0; padding-top: 3px; padding-bottom: 3px; }
+body[data-module="profil"] .et-bloc-t .n { flex: none; }
+/* les avertissements du moteur, au pied du bloc de leur méthode */
+.pf-msgs { border-top: 1px solid var(--line); }
+.pf-msgs .msg { border-top: 0; padding: 6px 12px; }
+/* la comparaison : un sujet par ligne, le taux de chaque méthode */
+.pf-cmp { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; gap: 8px; align-items: center; padding: 5px 12px; font-size: 12.5px; color: var(--ink-2); }
+.pf-cmp > .chip { justify-self: center; min-width: 58px; justify-content: center; }
+.pf-cmp-h { padding-bottom: 0; font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.pf-cmp-h span { text-align: center; }
+.pf-cmp-t { border-top: 1px solid var(--line); font-weight: 650; color: var(--ink); }
+
+/* ---------------------------------------------------------------- les fenêtres de calcul */
+.pf-msg { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); padding: 2px 0; }
+/* le bilan des combinaisons : le nom, la vérification qui gouverne, le taux */
+.fx.pf-comb { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; gap: 8px; }
+.fx.pf-comb .s { font-style: normal; font-weight: 600; }
+
+/* ---------------------------------------------------------------- au doigt (tablette, téléphone) */
+@media (max-width: 1199px) {
+  .pf-ret { width: 44px; height: 44px; }
+  .pf-prof { min-height: 44px; }
+  .pf-lien { min-height: 44px; }
+  .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 44px; }
 }
-.pf-tab .mk { width: 18px; padding: 0 0 0 8px; text-align: center; font-weight: 700; color: #2B4BCF; }
-.pf-tab th.nm { position: sticky; left: 0; z-index: 1; text-align: left; font-weight: 650; background: inherit; }
-.pf-tab thead th.nm { z-index: 3; background: #F4F5F8; }
-.pf-tab td:nth-child(3), .pf-tab td:nth-child(4) { font-weight: 650; }
-.pf-tab tbody tr.opt td, .pf-tab tbody tr.opt th { background: #BBF7D0; }
-.pf-tab tbody tr.ok td, .pf-tab tbody tr.ok th { background: #F0FDF4; }
-.pf-tab tbody tr.nok td, .pf-tab tbody tr.nok th { background: #FEF2F2; color: #7F1D1D; }
-.pf-tab tbody tr.cur td:first-child { box-shadow: inset 3px 0 0 #2B4BCF; }
-.pf-tab tbody tr.cur td, .pf-tab tbody tr.cur th { font-weight: 700; }
-.pf-tab tbody tr:hover td, .pf-tab tbody tr:hover th { filter: brightness(.97); }
-.pf-tab tbody tr td.mk:empty::after { content: ""; }
-
-/* tablette : le tableau se resserre */
-@media (min-width: 701px) and (max-width: 1360px) {
-  .pf-tab th, .pf-tab td { padding: 0 3px; }
-  .pf-tab { font-size: clamp(9px, calc((100cqw - 30px) / 70), 12px); }
-}
-/* téléphone : le tableau prend sa hauteur et défile en largeur */
-@media (max-width: 700px) {
-  .pf-fams { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .sheet:has(.pf-vue), .sheet .draw:has(> .pf-vue) { min-width: 0; }
-  .pf-vue { position: static; padding: 2px 10px 10px; }
-  .pf-defile { max-height: 72vh; max-width: calc(100vw - 42px); }
-}
-@media print {
-  .pf-vue { position: static; }
-  .pf-defile { overflow: visible; max-height: none; border: 0; }
-  .pf-tab thead th, .pf-tab th.nm { position: static; }
-}
-
-/* un taux démesuré dans le verdict (un IPE A 80 choisi sous 10⁶ kN·m : 25 777 627 %) : la puce se resserre, rien n'est coupé */
-.verdict.pf-moyen .chip.xl { font-size: 20px; padding: 0 11px; flex-shrink: 0; }
-.verdict.pf-long .chip.xl { font-size: 15px; padding: 0 9px; flex-shrink: 0; }

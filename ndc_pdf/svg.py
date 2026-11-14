@@ -16,6 +16,11 @@ d'un ``line`` est peint par tronçons aux couleurs du ``<linearGradient>``.
 Ignoré : ``style``, ``marker``, ``title``, coins arrondis, ``vector-effect``
 (les traits sont pris en points, bornés).
 
+``riche=True`` (les dessins des barres en acier, 14/11/2026) ajoute, sans rien
+changer aux dessins peints sans lui : ``fill-opacity`` (une aire translucide
+sous une courbe) et les ``tspan`` d'un texte — une taille, un décalage ``dy``
+(l'indice d'un symbole : « W_el,y »), ``text-decoration="overline"`` (λ̄).
+
 Repère : le SVG a l'ordonnée vers le bas, le PDF vers le haut ; la matrice
 de base retourne l'axe y, et les textes sont posés à part, à l'endroit,
 avec l'angle de la matrice courante (un ``rotate(-90)`` du SVG donne un
@@ -114,9 +119,10 @@ def _bbox_svg(svg: str) -> Tuple[float, float, float, float]:
 
 
 class _Ctx:
-    def __init__(self, c, s, police, police_gras, motifs):
+    def __init__(self, c, s, police, police_gras, motifs, riche=False):
         self.c, self.s, self.police, self.police_gras = c, s, police, police_gras
         self.motifs = motifs or {}
+        self.riche = riche
         self.degrades: Dict[str, Dict] = {}
         self.patterns: Dict[str, Dict] = {}
 
@@ -165,10 +171,11 @@ def _couleur(v: Optional[str], defaut=None, motifs: Optional[Dict] = None):
 
 
 def peindre_svg(c, svg: str, x: float, y: float, w: float, h: float, marge: float = 2.0,
-                police: str = POLICE, police_gras: str = POLICE_GRAS, motifs: Optional[Dict] = None) -> float:
+                police: str = POLICE, police_gras: str = POLICE_GRAS, motifs: Optional[Dict] = None, riche: bool = False) -> float:
     """Peint ``svg`` dans le rectangle ``(x, y, w, h)`` du canevas (origine en
     bas à gauche), à l'échelle, centré. Rend l'échelle (points par unité SVG).
-    ``motifs`` : {"url(#id)": "#couleur"} impose un aplat à un motif."""
+    ``motifs`` : {"url(#id)": "#couleur"} impose un aplat à un motif.
+    ``riche`` : les aires translucides et les textes à indices (voir l'en-tête)."""
     register_all()
     root = ET_.fromstring(svg)
     vx, vy, vw, vh = _bbox_svg(svg)
@@ -176,7 +183,7 @@ def peindre_svg(c, svg: str, x: float, y: float, w: float, h: float, marge: floa
     ox = x + (w - vw * s) / 2
     oy = y + h - (h - vh * s) / 2
     base = Mat(s, 0.0, 0.0, -s, ox - vx * s, oy + vy * s)
-    ctx = _Ctx(c, s, police, police_gras, motifs)
+    ctx = _Ctx(c, s, police, police_gras, motifs, riche)
     _lire_defs(ctx, root)
     c.saveState()
     _peindre_noeud(ctx, root, base)
@@ -197,49 +204,63 @@ def _peindre_noeud(ctx: _Ctx, el, ctm: Mat) -> None:
             _peindre_noeud(ctx, ch, m)
             continue
         if tag == "text":
-            _texte(ctx, ch, m, _couleur(ch.get("fill"), HexColor("#000000"), ctx.motifs))
+            (_texte_riche if ctx.riche and _a_des_parties(ch) else _texte)(ctx, ch, m, _couleur(ch.get("fill"), HexColor("#000000"), ctx.motifs))
             continue
-        fill_v, stroke_v = ch.get("fill"), ch.get("stroke")
-        motif = None
-        rid = _ref(fill_v)
-        if rid and f"url(#{rid})" not in ctx.motifs and rid in ctx.patterns:
-            motif = ctx.patterns[rid]
-            fill = None
-        else:
-            fill = _couleur(fill_v, HexColor("#000000"), ctx.motifs)
-        degrade = ctx.degrades.get(_ref(stroke_v) or "")
-        stroke = _couleur(stroke_v, None, ctx.motifs) if degrade is None else None
-        lw = min(1.4, max(0.3, _f(ch, "stroke-width", 1.0) * 0.45)) if (stroke is not None or degrade) else 0.0
-        dash = [max(0.4, float(v) * ctx.s) for v in _NUM.findall(ch.get("stroke-dasharray") or "")] or None
-        evenodd = (ch.get("fill-rule") or "").strip() == "evenodd"
-        if tag == "rect":
-            x0, y0, wd, ht = _f(ch, "x"), _f(ch, "y"), _f(ch, "width"), _f(ch, "height")
-            pts = [m.pt(x0, y0), m.pt(x0 + wd, y0), m.pt(x0 + wd, y0 + ht), m.pt(x0, y0 + ht)]
-            _formes(ctx, [(pts, True)], fill, stroke, lw, dash, motif, m, False)
-        elif tag == "circle":
-            cx, cy = m.pt(_f(ch, "cx"), _f(ch, "cy"))
-            r = _f(ch, "r") * m.echelle()
-            _style(c, fill, stroke, lw, dash)
-            c.circle(cx, cy, r, stroke=1 if stroke is not None else 0, fill=1 if fill is not None else 0)
+        if ctx.riche and ch.get("fill-opacity") is not None:         # une aire translucide : le temps de cette forme
+            c.saveState()
+            _peindre_forme(ctx, ch, tag, m, max(0.0, min(1.0, _f(ch, "fill-opacity", 1.0))))
+            c.restoreState()
+            continue
+        _peindre_forme(ctx, ch, tag, m)
+
+
+def _peindre_forme(ctx: _Ctx, ch, tag: str, m: Mat, opacite: Optional[float] = None) -> None:
+    """Une forme (rect, circle, line, polygon, polyline, path) : son aplat ou ses hachures, puis son contour.
+    ``opacite`` : celle de l'aplat (la couleur la porte : reportlab la remet à 1 à chaque couleur posée)."""
+    c = ctx.c
+    fill_v, stroke_v = ch.get("fill"), ch.get("stroke")
+    motif = None
+    rid = _ref(fill_v)
+    if rid and f"url(#{rid})" not in ctx.motifs and rid in ctx.patterns:
+        motif = ctx.patterns[rid]
+        fill = None
+    else:
+        fill = _couleur(fill_v, HexColor("#000000"), ctx.motifs)
+        if opacite is not None and fill is not None:
+            fill = Color(fill.red, fill.green, fill.blue, alpha=opacite)
+    degrade = ctx.degrades.get(_ref(stroke_v) or "")
+    stroke = _couleur(stroke_v, None, ctx.motifs) if degrade is None else None
+    lw = min(1.4, max(0.3, _f(ch, "stroke-width", 1.0) * 0.45)) if (stroke is not None or degrade) else 0.0
+    dash = [max(0.4, float(v) * ctx.s) for v in _NUM.findall(ch.get("stroke-dasharray") or "")] or None
+    evenodd = (ch.get("fill-rule") or "").strip() == "evenodd"
+    if tag == "rect":
+        x0, y0, wd, ht = _f(ch, "x"), _f(ch, "y"), _f(ch, "width"), _f(ch, "height")
+        pts = [m.pt(x0, y0), m.pt(x0 + wd, y0), m.pt(x0 + wd, y0 + ht), m.pt(x0, y0 + ht)]
+        _formes(ctx, [(pts, True)], fill, stroke, lw, dash, motif, m, False)
+    elif tag == "circle":
+        cx, cy = m.pt(_f(ch, "cx"), _f(ch, "cy"))
+        r = _f(ch, "r") * m.echelle()
+        _style(c, fill, stroke, lw, dash)
+        c.circle(cx, cy, r, stroke=1 if stroke is not None else 0, fill=1 if fill is not None else 0)
+        _fin_dash(c, dash)
+    elif tag == "line":
+        (x1, y1), (x2, y2) = m.pt(_f(ch, "x1"), _f(ch, "y1")), m.pt(_f(ch, "x2"), _f(ch, "y2"))
+        if degrade is not None:
+            _ligne_degradee(ctx, ch, m, degrade, lw, dash)
+        elif stroke is not None:
+            _style(c, None, stroke, lw, dash)
+            c.line(x1, y1, x2, y2)
             _fin_dash(c, dash)
-        elif tag == "line":
-            (x1, y1), (x2, y2) = m.pt(_f(ch, "x1"), _f(ch, "y1")), m.pt(_f(ch, "x2"), _f(ch, "y2"))
-            if degrade is not None:
-                _ligne_degradee(ctx, ch, m, degrade, lw, dash)
-            elif stroke is not None:
-                _style(c, None, stroke, lw, dash)
-                c.line(x1, y1, x2, y2)
-                _fin_dash(c, dash)
-        elif tag in ("polygon", "polyline"):
-            v = [float(t) for t in _NUM.findall(ch.get("points") or "")]
-            pts = [m.pt(v[i], v[i + 1]) for i in range(0, len(v) - 1, 2)]
-            if len(pts) >= 2:
-                _formes(ctx, [(pts, tag == "polygon")], fill if tag == "polygon" else None, stroke, lw, dash, motif, m, False)
-        elif tag == "path":
-            sous = _chemin(ch.get("d") or "")
-            sous = [([m.pt(px, py) for px, py in pts], ferme) for pts, ferme in sous if len(pts) >= 2]
-            if sous:
-                _formes(ctx, sous, fill, stroke, lw, dash, motif, m, evenodd)
+    elif tag in ("polygon", "polyline"):
+        v = [float(t) for t in _NUM.findall(ch.get("points") or "")]
+        pts = [m.pt(v[i], v[i + 1]) for i in range(0, len(v) - 1, 2)]
+        if len(pts) >= 2:
+            _formes(ctx, [(pts, tag == "polygon")], fill if tag == "polygon" else None, stroke, lw, dash, motif, m, False)
+    elif tag == "path":
+        sous = _chemin(ch.get("d") or "")
+        sous = [([m.pt(px, py) for px, py in pts], ferme) for pts, ferme in sous if len(pts) >= 2]
+        if sous:
+            _formes(ctx, sous, fill, stroke, lw, dash, motif, m, evenodd)
 
 
 # ---------------------------------------------------------------- formes, hachures, dégradés
@@ -516,6 +537,68 @@ def _texte(ctx: _Ctx, el, m: Mat, fill):
     if abs(ang) > 0.5:
         c.rotate(ang)
     draw_text(c, 0.0, 0.0, txt, f, taille, fill if fill is not None else HexColor("#000000"), align)
+    c.restoreState()
+
+
+# ---------------------------------------------------------------- textes à parties (``riche``)
+SURLIGNE = 0.80                    # la hauteur du trait d'un surlignement (λ̄), en fraction du corps
+
+
+def _a_des_parties(el) -> bool:
+    """Le texte a-t-il un ``tspan`` qui porte une taille, un décalage ou un surlignement ?"""
+    return any(_tag(ch) == "tspan" and (ch.get("font-size") or ch.get("dy") or ch.get("text-decoration")) for ch in el)
+
+
+def _parties(el) -> List[Tuple[str, float, float, bool]]:
+    """Les parties d'un texte, dans l'ordre : (texte, taille, décalage vertical cumulé, surligné) en unités du SVG. Un
+    ``dy`` décale tout ce qui suit (c'est la règle du SVG : un second ``tspan`` le rend) ; l'espace sans largeur qui ne
+    sert qu'à porter ce retour n'est pas écrit."""
+    taille = _f(el, "font-size", 12.0)
+    out: List[Tuple[str, float, float, bool]] = []
+    dy = 0.0
+
+    def ajouter(t, corps, sur):
+        t = (t or "").replace("\u200b", "")
+        if t:
+            out.append((t, corps, dy, sur))
+
+    ajouter((el.text or "").lstrip(), taille, False)
+    for ch in el:
+        if _tag(ch) == "tspan":
+            dy += _f(ch, "dy", 0.0)
+            ajouter(ch.text, _f(ch, "font-size", taille), (ch.get("text-decoration") or "").strip() == "overline")
+        ajouter(ch.tail, taille, False)
+    if out:
+        t, corps, d_, sur = out[-1]
+        out[-1] = (t.rstrip(), corps, d_, sur)
+    return [p for p in out if p[0]]
+
+
+def _texte_riche(ctx: _Ctx, el, m: Mat, fill):
+    """Un texte dont des parties ont leur taille, leur décalage ou un surlignement : posées l'une après l'autre."""
+    c = ctx.c
+    parties = _parties(el)
+    e = m.echelle()
+    if not parties or _f(el, "font-size", 12.0) * e < 2.2:
+        return
+    f = ctx.police_gras if _f(el, "font-weight", 400.0) >= 600 else ctx.police
+    couleur = fill if fill is not None else HexColor("#000000")
+    largeurs = [string_width(t, f, corps * e) for t, corps, _d, _s in parties]
+    x, y = m.pt(_f(el, "x") + _f(el, "dx", 0.0), _f(el, "y") + _f(el, "dy", 0.0))
+    ancre = el.get("text-anchor", "start")
+    x0 = {"middle": -sum(largeurs) / 2.0, "end": -sum(largeurs)}.get(ancre, 0.0)
+    ang = m.angle()
+    c.saveState()
+    c.translate(x, y)
+    if abs(ang) > 0.5:
+        c.rotate(ang)
+    for (t, corps, dy, sur), w in zip(parties, largeurs):
+        draw_text(c, x0, -dy * e, t, f, corps * e, couleur, "left")
+        if sur:
+            c.setStrokeColor(couleur)
+            c.setLineWidth(max(0.25, 0.055 * corps * e))
+            c.line(x0, -dy * e + SURLIGNE * corps * e, x0 + w, -dy * e + SURLIGNE * corps * e)
+        x0 += w
     c.restoreState()
 
 

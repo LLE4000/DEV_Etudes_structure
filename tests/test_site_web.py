@@ -541,9 +541,9 @@ chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutr
 import inspect  # noqa: E402
 import importlib  # noqa: E402
 chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher, "
-    "les assemblages, les cornières d'appui (10/11/2026) et les fondations de grues (11/11/2026) ; chacun rend « telecharger(etat, quoi, infos) » et a sa note "
-    "riche au relevé du paquet de la note",
-    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue")
+    "les assemblages, les cornières d'appui (10/11/2026), les fondations de grues (11/11/2026) et les barres en acier (14/11/2026) ; chacun rend "
+    "« telecharger(etat, quoi, infos) » et a sa note riche au relevé du paquet de la note",
+    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil")
     and sorted(SW.NOTES_RELEVE) == sorted(SW.NOTE_PDF) and set(SW.NOTE_PDF) <= set(ETABLIS)
     and all("infos" in inspect.signature(getattr(importlib.import_module(f"api_web.{k}"), "telecharger")).parameters for k in SW.NOTE_PDF),
     (SW.NOTE_PDF, sorted(SW.NOTES_RELEVE)))
@@ -1080,6 +1080,41 @@ ACCUEIL_JS = open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(
 chk("l'en-tête du téléphone et la carte de l'accueil écrivent le taux par texteTaux (jamais String(taux) à la main)",
     "texteTaux(res.taux)" in ETABLI_JS and "texteTaux(r.taux)" in ACCUEIL_JS
     and not re.search(r"String\((res|r)\.taux\)", ETABLI_JS + ACCUEIL_JS))
+
+# 5 quater bis. UNE SAISIE REFUSÉE PAR LA PAGE DIT POURQUOI (js/commun.js : valeurSaisie, motRefus — joués par node, sur de
+# faux champs). Un nombre hors des bornes de son champ (data-min, data-max, écrits par le moteur) n'est pas envoyé au
+# moteur : la page le refuse elle-même — et « Valeur refusée : « 80 » » ne disait pas la borne (les barres en acier,
+# 14/11/2026 : une portée de 80 m). Les bornes sont COMPRISES ; la virgule et les espaces des milliers se lisent.
+SAISIES = [
+    # (sorte, min, max, valeur tapée) → (acceptée ?, la raison du refus)
+    (("nombre", "0.05", "60.0", "80"), (False, "entre 0,05 et 60")), (("nombre", "0.05", "60.0", "0,01"), (False, "entre 0,05 et 60")),
+    (("nombre", "0", None, "-1"), (False, "0 au moins")), (("nombre", None, "60", "61"), (False, "60 au plus")),
+    (("nombre", "0.05", "60.0", "abc"), (False, "un nombre est attendu")), (("nombre", None, None, ""), (False, "un nombre est attendu")),
+    (("entier", "1", "6", "7"), (False, "entre 1 et 6")),
+    (("nombre", "0.05", "60.0", "60"), (True, None)), (("nombre", "0.05", "60.0", "0,05"), (True, None)), (("nombre", "0.05", "60.0", "6,5"), (True, None)),
+    (("nombre", None, None, "1\u202f250,5"), (True, None)), (("entier", "1", "6", "3"), (True, None)), (("texte", None, None, "Poutre 80"), (True, None)),
+]
+essai = ("const m = await import(" + json.dumps("file://" + os.path.join(WEB, "js", "commun.js")) + ");"
+         "const champ = ([sorte, min, max, valeur]) => { const dataset = { sorte }; if (min !== null) dataset.min = min; if (max !== null) dataset.max = max;"
+         " return { type: 'text', dataset, value: valeur }; };"
+         "console.log(JSON.stringify(" + json.dumps([c for c, _ in SAISIES]) + ".map((c) => { const el = champ(c), v = m.valeurSaisie(el);"
+         " return { ok: v.ok, pourquoi: v.pourquoi === undefined ? null : v.pourquoi, valeur: v.valeur, dit: v.ok ? null : m.motRefus(el, v) }; })"
+         ".concat([m.valeurSaisie({ type: 'checkbox', checked: true, dataset: {} }), m.motRefus({ value: 'x' }, { ok: false })])));")
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", essai], capture_output=True, text=True, timeout=60)
+    lues = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    lues = [{"erreur": str(e)}] * (len(SAISIES) + 2)
+faux = [(c, lu) for (c, (ok, pourquoi)), lu in zip(SAISIES, lues)
+        if lu.get("ok") is not ok or lu.get("pourquoi") != pourquoi or lu.get("valeur") != c[3]
+        or lu.get("dit") != (None if ok else f"Valeur refusée : « {c[3]} » — {pourquoi}")]
+chk(f"une saisie refusée par la page DIT POURQUOI ({len(SAISIES)} champs : « Valeur refusée : « 80 » — entre 0,05 et 60 », « 0 au moins », « 60 au plus », "
+    "« un nombre est attendu ») ; les bornes sont comprises, la virgule et l'espace des milliers se lisent ; une case rend son état ; sans raison, le "
+    "refus se dit quand même", not faux and len(lues) == len(SAISIES) + 2 and lues[-2] == {"ok": True, "valeur": True} and lues[-1] == "Valeur refusée : « x »",
+    faux[:3] or lues[-2:])
+chk("la page des notes et celle des paramètres disent le refus par la même fonction (motRefus) — jamais un message écrit à la main",
+    all("toast(motRefus(el, v), true)" in open(os.path.join(WEB, "js", f), encoding="utf-8").read()
+        and "Valeur refusée" not in open(os.path.join(WEB, "js", f), encoding="utf-8").read() for f in ("etabli.js", "ecran_parametres.js")))
 
 # 5 quinquies. la mémoire des notes ABÎMÉE n'est jamais écrasée en silence (js/notes.js, joué par node, localStorage
 # simulé). Une mémoire illisible n'est pas une mémoire vide : son texte brut est copié une fois à part

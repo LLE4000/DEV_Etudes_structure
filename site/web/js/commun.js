@@ -36,16 +36,26 @@ export function themeChoisi() {
 
 // LA VALEUR D'UNE SAISIE — un champ, un menu, une case que le moteur a écrits (api_web/commun.py : data-chemin,
 // data-sorte, data-min, data-max) — telle qu'elle part au moteur. Une source : js/etabli.js (les notes) et
-// js/ecran_parametres.js (le gabarit du bureau) la lisent. Un nombre illisible ou hors de ses bornes : { ok: false }.
+// js/ecran_parametres.js (le gabarit du bureau) la lisent. Un nombre illisible ou hors de ses bornes : { ok: false,
+// pourquoi } — « un nombre est attendu », « entre 0,05 et 60 », « 0 au moins », « 60 au plus » : le refus se dit avec sa
+// raison (``motRefus`` ; « Valeur refusée : « 80 » » ne disait pas la borne — les barres en acier, 14/11/2026).
 export function valeurSaisie(el) {
   if (el.type === "checkbox") return { ok: true, valeur: el.checked };
   if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") {
     const t = el.value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
     const x = Number(t);
-    const ko = t === "" || !Number.isFinite(x) || (el.dataset.min !== undefined && x < +el.dataset.min) || (el.dataset.max !== undefined && x > +el.dataset.max);
-    if (ko) return { ok: false, valeur: el.value };
+    const fr = (n) => String(+n).replace(".", ",");
+    const min = el.dataset.min !== undefined ? el.dataset.min : null, max = el.dataset.max !== undefined ? el.dataset.max : null;
+    if (t === "" || !Number.isFinite(x)) return { ok: false, valeur: el.value, pourquoi: "un nombre est attendu" };
+    if ((min !== null && x < +min) || (max !== null && x > +max)) {
+      return { ok: false, valeur: el.value, pourquoi: min !== null && max !== null ? `entre ${fr(min)} et ${fr(max)}` : min !== null ? `${fr(min)} au moins` : `${fr(max)} au plus` };
+    }
   }
   return { ok: true, valeur: el.value };
+}
+// ce qu'on dit d'une saisie refusée par la page : la valeur tapée, puis sa raison
+export function motRefus(el, v) {
+  return `Valeur refusée : « ${el.value} »${v && v.pourquoi ? ` — ${v.pourquoi}` : ""}`;
 }
 // un SEGMENT part s'il n'est pas déjà choisi ; une PUCE à bascule (data-bascule : les espacements admis des dalles)
 // part toujours — allumée, elle s'éteint

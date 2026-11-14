@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""L'IDENTIFICATION imprimée par la note PDF des HUIT modules du site qui la font (poutre, dalle, garde-corps, soudures,
-charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026, fondations de grues depuis le 11/11/2026) :
+"""L'IDENTIFICATION imprimée par la note PDF des NEUF modules du site qui la font (poutre, dalle, garde-corps, soudures,
+charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026, fondations de grues depuis le 11/11/2026, barres
+en acier — « Choix de profilé » — depuis le 14/11/2026) :
 TOUJOURS celle de la note du site (R2 : une
 source unique) — son nom, son chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
 
@@ -14,7 +15,7 @@ demandée au ROUTEUR, comme le fait la page, avec une identification PIÉGÉE �
 apostrophe, tiret long, « & » — et l'indice « C » ; l'identification de l'état (soudures, plancher) est piégée elle
 aussi (« Projet du fichier », indice « Z »). pdftotext doit retrouver, EXACTEMENT :
 
-- poutre, dalle, assemblages : la page de garde — PROJET = le chantier, PARTIE = le nom, DATE, INDICE C ; puis l'en-tête
+- poutre, dalle, assemblages, cornières, fondations de grues, barres en acier : la page de garde — PROJET = le chantier, PARTIE = le nom, DATE, INDICE C ; puis l'en-tête
   de chaque planche ou note (« 03/04/2026 · indice C ») ; pour les assemblages, l'en-tête de chaque note d'assemblage
   porte « chantier · nom · repère » ;
 - garde-corps, soudures, plancher : la première page de chaque cas — « Note de calcul · 03/04/2026 · indice C » et
@@ -111,7 +112,7 @@ def ecarts(module: str, octets: bytes, etat: dict) -> list:
     tout = norm(" ".join(tx))
     out += [f"« {x} » imprimé" for x in INTERDITS if x in tout]
     tete = "Note de calcul · 03/04/2026 · indice C"
-    if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue"):     # la même garde (ndc_pdf : garde_lignes)
+    if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue", "profil"):     # la même garde (ndc_pdf : garde_lignes)
         g = plat(tx[0])
         for lab, val in (("PROJET", CHANTIER), ("PARTIE", NOM), ("DATE", "03/04/2026"), ("INDICE", "C")):
             if plat(lab + val) not in g:
@@ -146,7 +147,7 @@ for mod, e in ETATS.items():
     ec = ecarts(mod, NOTES[mod], e)
     chk(f"{mod} : le nom, le chantier (accents, guillemets, « & »), l'indice C et la date de la note du site, exactement aux "
         f"endroits prévus ({len(pages(NOTES[mod]))} pages) ; rien d'autre", not ec, ec[:4])
-chk("les huit modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 8, sorted(NOTES))
+chk("les neuf modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 9, sorted(NOTES))
 
 # ---------------------------------------------------------------- MUTATIONS : chacune doit faire rougir son module
 vrai_infos = NC.infos_du_cas

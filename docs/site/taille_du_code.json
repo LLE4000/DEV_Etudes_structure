@@ -585,6 +585,123 @@
      148
     ]
    }
+  },
+  {
+   "date": "2026-11-14",
+   "commit": "ab73c83",
+   "etiquette": "Barres en acier, lot 6 : l'écran « Choix de profilé » sur le moteur des barres et sa note PDF (méthode historique, Eurocode 3 ou les deux)",
+   "groupes": {
+    "poutre": [
+     3754,
+     5454,
+     13
+    ],
+    "dalle": [
+     4845,
+     7437,
+     21
+    ],
+    "plancher": [
+     4608,
+     6120,
+     20
+    ],
+    "fondation_grue": [
+     5307,
+     6990,
+     19
+    ],
+    "taux": [
+     2263,
+     3176,
+     9
+    ],
+    "enrobage": [
+     1076,
+     1526,
+     7
+    ],
+    "age": [
+     3007,
+     4214,
+     10
+    ],
+    "armatures": [
+     903,
+     1282,
+     6
+    ],
+    "donnees_beton": [
+     1151,
+     1617,
+     10
+    ],
+    "profil": [
+     4662,
+     6394,
+     26
+    ],
+    "catalogue": [
+     2085,
+     2918,
+     8
+    ],
+    "corniere": [
+     2902,
+     4228,
+     8
+    ],
+    "flambement": [
+     1311,
+     1807,
+     8
+    ],
+    "assemblages": [
+     18397,
+     25054,
+     97
+    ],
+    "soudures": [
+     3771,
+     4934,
+     13
+    ],
+    "garde_corps": [
+     3032,
+     3983,
+     11
+    ],
+    "bois": [
+     1828,
+     2712,
+     9
+    ],
+    "sol": [
+     3228,
+     4404,
+     8
+    ],
+    "bibliotheques": [
+     5648,
+     7308,
+     23
+    ],
+    "commun": [
+     15601,
+     21265,
+     72
+    ],
+    "streamlit": [
+     24399,
+     33372,
+     75
+    ],
+    "tests": [
+     70795,
+     86650,
+     155
+    ]
+   }
   }
  ]
 }

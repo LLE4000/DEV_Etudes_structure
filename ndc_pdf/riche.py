@@ -206,11 +206,116 @@ def paragraphe(d, fr, s, font, size, col, ms, lead=1.32, indent=0, max_lignes=No
 
 
 # ------------------------------------------------------------------ substitutions
-def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8, lead=1.36, min_size=5.0, gap=6.0, cale="droite"):
+_OPERATEURS = ("=", "+", "−", "-", "×", "·", "/")
+
+
+def _mots(s):
+    """Les mots d'une expression en mini-LaTeX : coupée sur ses espaces, hors des accolades (``\res{12,3 kN}`` est un mot)."""
+    out, cur, prof = [], "", 0
+    for ch in s:
+        if ch == "{":
+            prof += 1
+        elif ch == "}":
+            prof -= 1
+        if ch == " " and prof == 0:
+            if cur:
+                out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _appariees(ligne):
+    """Une ligne coupée DANS une parenthèse n'a plus les siennes par paires : toutes y sont alors écrites en glyphes
+    simples — le compositeur, lui, fermerait seul celle qui reste ouverte."""
+    ligne = ligne.replace("\\t{(}", "(").replace("\\t{)}", ")")       # une ligne déjà passée ici : on repart de ses parenthèses
+    prof = 0
+    for ch in ligne:
+        if ch == "(":
+            prof += 1
+        elif ch == ")":
+            prof -= 1
+            if prof < 0:
+                break
+    if prof == 0:
+        return ligne
+    return ligne.replace("(", "\\t{(}").replace(")", "\\t{)}")
+
+
+def _couper(ligne, large, avail, dx, retrait):
+    """Une ligne plus longue que la colonne, coupée DEVANT un opérateur (« = », « + », « − », « × », « / ») : [(texte,
+    retrait)] — la première garde son retrait ``dx``, les suivantes commencent par l'opérateur, un cran plus loin."""
+    termes = []                                   # un opérateur et ce qui le suit, jusqu'à l'opérateur suivant
+    for m in _mots(ligne):
+        if m in _OPERATEURS or not termes:
+            termes.append(m)
+        else:
+            termes[-1] += " " + m
+    out, cur, x = [], termes[0], dx
+    for t in termes[1:]:
+        cand = cur + " " + t
+        if large(_appariees(cand)) <= avail - x:
+            cur = cand
+        else:
+            out.append((_appariees(cur), x))
+            cur, x = t, dx + retrait
+    out.append((_appariees(cur), x))
+    return out
+
+
+def _lignes(parts, res, ms, size, avail, retrait, couper):
+    """Les lignes d'une substitution repliée sur ses « = » : [(texte, retrait)]. ``couper`` : une ligne qui dépasse encore
+    la colonne est coupée devant un opérateur (``_couper``), et le membre suivant la rejoint s'il y tient."""
+    morceaux = [p for p in parts if p] + ([res] if res else [])
+    if not morceaux:
+        return []
+
+    def large(t):
+        return M.width(noeud(t), ms, size)
+
+    lignes, cur = [], morceaux[0]
+    for p in morceaux[1:]:
+        cand = cur + " = " + p
+        if large(cand) <= avail - (retrait if lignes else 0.0):
+            cur = cand
+        else:
+            lignes.append(cur)
+            cur = "= " + p
+    lignes.append(cur)
+    simples = [(l, retrait if i else 0.0) for i, l in enumerate(lignes)]
+    if not couper:
+        return simples
+    out = []
+    for l, dx in simples:
+        if out and out[-1][2] and large(_appariees(out[-1][0] + " " + l)) <= avail - out[-1][1]:
+            out[-1] = (_appariees(out[-1][0] + " " + l), out[-1][1], True)     # le membre suivant tient au bout de la coupe
+        elif large(l) > avail - dx:
+            out += [(t, x, True) for t, x in _couper(l, large, avail, dx, retrait)]
+        else:
+            out.append((l, dx, False))
+    return [(t, x) for t, x, _coupee in out]
+
+
+def lignes_suite(parts, res, ms, size, avail, retrait=8.0, couper=False):
+    """Les lignes d'une substitution « a = b = c = r » repliée sur ses « = » (``formule_calee``, cale « suite ») : la
+    première, puis les suivantes — chacune commence par « = » et se pose en retrait de ``retrait``. ``parts`` et ``res``
+    en mini-LaTeX ; ``avail`` : la largeur disponible ; ``couper`` : comme ``formule_calee``. Celui qui doit connaître la
+    HAUTEUR d'une substitution avant de la poser (une colonne qui bascule) compte ces lignes : ce sont celles que
+    ``formule_calee`` dessine."""
+    return [t for t, _dx in _lignes(parts, res, ms, size, avail, retrait, couper)]
+
+
+def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8, lead=1.36, min_size=5.0, gap=6.0, cale="droite",
+                  couper=False):
     """Une substitution « a = b = c » et son résultat « = r ». ``cale`` « suite » : le résultat
     suit le calcul sur la même ligne ; « droite » : il est calé à droite de la colonne (les taux).
     Si la ligne est trop longue, les morceaux passent à la ligne (« = c » en retrait) ; si une
-    ligne ne tient toujours pas, elle se réduit jusqu'à ``min_size``."""
+    ligne ne tient toujours pas, elle se réduit jusqu'à ``min_size`` — ou, avec ``couper`` (cale
+    « suite »), elle se coupe devant un opérateur et se poursuit un cran plus loin : rien n'est
+    réduit tant qu'un opérateur permet de couper."""
     parts = [p for p in parts if p]
     if not parts:
         return fr.y
@@ -221,18 +326,7 @@ def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8,
         return M.width(noeud(t), st, s)
 
     if cale == "suite":
-        morceaux = parts + ([res] if res else [])
-        lignes, cur = [], morceaux[0]
-        for p in morceaux[1:]:
-            cand = cur + " = " + p
-            if w(cand, size, msr) <= avail - (retrait if lignes else 0.0):
-                cur = cand
-            else:
-                lignes.append(cur)
-                cur = "= " + p
-        lignes.append(cur)
-        for i, l in enumerate(lignes):
-            dx = retrait if i else 0.0
+        for l, dx in _lignes(parts, res, msr, size, avail, retrait, couper):
             sz = size
             wl = w(l, sz, msr)
             if wl > avail - dx:
