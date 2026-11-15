@@ -403,9 +403,10 @@ def revue_15_11(el, m, ef, mo, fer):
     r_bas, f_bas = avec(bx_m=-mo["bx_m"])
     def n(f, face):
         return sum(1 for r in f["renforts"] if r["face"] == face)
-    chk("revue R3 · m_x SCIA tapé +140,8 au lieu de −140,8 : r = 1 (|SCIA| ÷ |module|), les 12 renforts du haut gardés, l'alerte « Signe "
+    chk("revue R3 · m_x SCIA tapé +140,8 au lieu de −140,8 : r = 1,00 affiché et appliqué (|SCIA| ÷ |module|), les 12 renforts du haut gardés, l'alerte « Signe "
         "SCIA opposé à celui du module… » ; M+ SCIA négatif : les renforts du bas gardés ; aucune échelle ≤ 0",
-        f2(r_inv["echelle"]["sup_x"]) == "1.00" and n(f_inv, "sup") == n(f_bon, "sup") == 12 and n(f_bas, "inf") == n(f_bon, "inf")
+        f2(r_inv["echelle"]["sup_x"]) == "1.00" and f2(next(li for li in r_inv["lignes"] if li["cle"] == "mx")["r"]) == "1.00"
+        and n(f_inv, "sup") == n(f_bon, "sup") == 12 and n(f_bas, "inf") == n(f_bon, "inf")
         and r_inv["alertes"] and r_inv["alertes"][0].startswith("Signe SCIA opposé à celui du module sur dalle : m_x le plus négatif")
         and not r_bon["alertes"] and all(v > 0 for r_ in (r_inv, r_bas) for v in r_["echelle"].values()),
         (r_inv["echelle"], r_inv["alertes"], n(f_inv, "sup"), n(f_bas, "inf")))
@@ -566,7 +567,7 @@ MUTATIONS = [
     ("armatures.py", '''    return int(math.ceil(renfort_pm * largeur / aire_barre(d_mm) - 1e-9))''', '''    return int(round(renfort_pm * largeur / aire_barre(d_mm)))''',
      "le nombre de barres arrondi au plus près"),
     ("armatures.py", '''    renfort = max(0.0, besoin - As_tr)''', '''    renfort = besoin''', "un renfort qui ne compte pas le treillis"),
-    ("armatures.py", '''    besoin = g[f"besoin_{cle_sec}"]''', '''    besoin = g[f"As_req_{cle_sec}"]''', "le besoin sans A_s,min"),
+    ("armatures.py", '''    besoin = max(g[f"besoin_{cle_sec}"], mini)''', '''    besoin = g[f"As_req_{cle_sec}"]''', "le besoin sans A_s,min"),
     ("armatures.py", '''    return {"mRd": {f: g[f"As_{f}"] / g[f"As_req_{f}"] for f in CLES}''', '''    return {"mRd": {f: 97.3 for f in CLES}''',
      "un mRd forfaitaire au lieu de celui du moteur Dalles"),
     ("armatures.py", '''"dist": round(POS.sur_couche(dessus_x, ty["d"]), 6)}]''', '''"dist": None}]''', "la couche y posée sur l'enrobage (d trop fort)"),
@@ -576,9 +577,8 @@ MUTATIONS = [
     ("armatures.py", '''               "etat": "ok" if h_min <= h_cm + 1e-9 else "nok", "rep": rep_h}''', '''               "etat": "ok", "rep": rep_h}''',
      "une hauteur de béton insuffisante tue"),
     ("armatures.py", '''            V = abs(V_s)''', '''            pass''', "V SCIA ignoré"),
-    ("armatures.py", '''    if pl and pl["type"] == "coule":
-        nv.append''', '''    if False:
-        nv.append''', "le ferraillage des plots coulés dit vérifié"),
+    ("armatures.py", '''    nv = ["le poinçonnement"] + (["le ferraillage des plots coulés en place"] if coule else [])''',
+     '''    nv = ["le poinçonnement"]''', "le ferraillage des plots coulés dit vérifié"),
     ("armatures.py", '''    if h_plafond(el) > H_MAX_MOTEUR:''', '''    if False:''', "une dalle de plus de 1,00 m passée au moteur Dalles"),
     ("armatures.py", '''        v = V / bd["largeur"]''', '''        v = V''', "l'effort tranchant de la bande entière pris pour un mètre"),
     ("scia.py", '''    echelle = {"inf_x": ech(r["bx_m"]), "inf_y": ech(r["by_m"]), "sup_x": ech(r["mx"]), "sup_y": ech(r["my"])}''',

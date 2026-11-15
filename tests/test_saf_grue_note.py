@@ -20,6 +20,7 @@ import base64
 import copy
 import io
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -348,9 +349,10 @@ def revue_15_11(type_, n, npf, n7, ef, mo):
     nsig = Note(sig)
     nsig2 = Note(mod(mod(mod(sig, ["scia", "bx_m"], repr(round(mo["bx_m"] * 1.02, 4))), ["scia", "bx_v"], repr(round(mo["bx_v"], 4))),
                      ["scia", "mx"], repr(round(mo["mx"] * 0.99, 4))))
-    chk("revue N5 · σ max SCIA seul saisi (0,60 kg/cm² pour k = 2) : la comparaison n'est plus « non saisie », l'écart est à vérifier ; avec "
+    chk("revue N5 · σ max SCIA seul saisi (0,60 kg/cm² pour k = 2) : la comparaison n'est plus « non saisie », la ligne σ dit « à vérifier » ; avec "
         "les moments qui concordent : « Écarts à vérifier … σ max, k = 2 », jamais « concordent »",
         "Valeurs SCIA non saisies" not in nsig.texte and "Écarts à vérifier" in nsig.texte and "sur σ max, k = 2 MN/m³" in nsig.texte
+        and re.search(r"σ max, k = 2 MN/m³ \S+ kg/cm² 0,60 kg/cm² \S+ \S+ % à vérifier", nsig.texte) is not None
         and "Écarts à vérifier" in nsig2.texte and "concordent" not in nsig2.texte, nsig2.texte[nsig2.texte.find("Module / SCIA"):][:400])
     vi = M._avec(dalle={"Lx": 7.4, "Ly": 7.4}, grue={"a": 3.8, "b": 3.8, "plots": {"type": "coule", "a": 3.0, "b": 3.0, "h": 0.35}})
     nvi = Note(mod(vi, ["scia", "bx_v"], "120"))
