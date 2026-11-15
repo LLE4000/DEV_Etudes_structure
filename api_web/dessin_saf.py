@@ -153,7 +153,10 @@ def _couleurs(valeurs: np.ndarray, rampe: Sequence) -> np.ndarray:
 def _echelle(champ: Dict) -> Tuple[Sequence, float]:
     """(la rampe, ce qui vaut 1 sur la rampe) : le dégradé « turbo », de 0 au maximum affiché — le plus grand du maximum
     du champ et de la limite, quand il y en a une (§ 2.3)."""
-    maxi = max(float(np.nanmax(np.where(champ["dalle"].on0, champ["valeurs"], np.nan))), 1e-9)
+    if champ.get("par_element"):
+        maxi = max(float(np.max(champ["valeurs"])) if len(champ["valeurs"]) else 0.0, 1e-9)
+    else:
+        maxi = max(float(np.nanmax(np.where(champ["dalle"].on0, champ["valeurs"], np.nan))), 1e-9)
     if champ.get("limite"):
         maxi = max(maxi, float(champ["limite"]))
     return TURBO, maxi
@@ -206,6 +209,7 @@ def _valeur(champ: Dict, x: float, unite: bool = True) -> str:
     sym, div, nd = champ.get("unite") or ("kPa", 1.0, 1)
     if champ["mode"] == "taux":
         return f"{_n(x * 100.0, 0)} %"
+    x = x * champ.get("signe", 1.0)            # (les moments en haut : la couleur suit |m|, la valeur garde son signe)
     return f"{_n(x / div, nd)} {sym}" if unite else _n(x / div, nd)
 
 
@@ -231,10 +235,34 @@ def _poids(n: int, f: int) -> np.ndarray:
     return W
 
 
+def _image(v: _Vue, d, rgba: np.ndarray, f: int, ident: str) -> str:
+    """Une image (ny·f × nx·f, RGBA, la ligne du HAUT d'abord) posée sur la grille des éléments, découpée au contour."""
+    hauteur, largeur = rgba.shape[:2]
+    donnees = base64.b64encode(_png(largeur, hauteur, rgba.tobytes())).decode("ascii")
+    x, y = v.X(d.x0), v.Y(d.y0 + d.ny * d.b)
+    return (f'<image x="{x:.1f}" y="{y:.1f}" width="{d.nx * d.a * ECH:.1f}" height="{d.ny * d.b * ECH:.1f}" preserveAspectRatio="none" '
+            f'clip-path="url(#{ident}_dalle)" href="data:image/png;base64,{donnees}"/>')
+
+
+def _carte_elements(v: _Vue, champ: Dict, ident: str) -> str:
+    """La carte d'un champ AU CENTRE DES ÉLÉMENTS (les moments de calcul) : une case par élément, à sa couleur, sans
+    lissage — une moyenne à travers le bord d'un plot coulé inventerait des valeurs (§ 4.4)."""
+    d = champ["dalle"]
+    rampe, unite = _echelle(champ)
+    f = max(1, min(8, IMAGE_PIXELS // max(d.nx, d.ny, 1)))
+    rgba = np.zeros((d.ny, d.nx, 4))
+    rgba[d.J, d.I, :3] = _couleurs(np.asarray(champ["valeurs"], float) / unite, rampe)
+    rgba[d.J, d.I, 3] = 255
+    img = np.rint(rgba).astype(np.uint8).repeat(f, axis=0).repeat(f, axis=1)[::-1]
+    return _image(v, d, np.ascontiguousarray(img), f, ident)
+
+
 def _carte_image(v: _Vue, champ: Dict, ident: str) -> str:
     """La carte en IMAGE (l'écran) : les valeurs aux nœuds, interpolées entre eux AVANT d'être mises en couleur (le
     passage de la limite reste une ligne nette), découpées au contour de la dalle. Un point hors de la dalle n'entre pas
     dans l'interpolation : le bord garde ses valeurs."""
+    if champ.get("par_element"):
+        return _carte_elements(v, champ, ident)
     d = champ["dalle"]
     rampe, unite = _echelle(champ)
     dedans = d.on0.reshape(d.ny + 1, d.nnx).astype(float)
@@ -261,8 +289,11 @@ def _carte_vecteur(v: _Vue, champ: Dict) -> str:
     ses quatre nœuds, en paliers ; les cases voisines de même palier sont réunies."""
     d = champ["dalle"]
     rampe, unite = _echelle(champ)
-    val = champ["valeurs"][d.noeuds].mean(axis=1) / unite
-    dec = champ["decolle"][d.noeuds].mean(axis=1) > 0.5
+    if champ.get("par_element"):
+        val, dec = np.asarray(champ["valeurs"], float) / unite, np.zeros(len(d.I), bool)
+    else:
+        val = champ["valeurs"][d.noeuds].mean(axis=1) / unite
+        dec = champ["decolle"][d.noeuds].mean(axis=1) > 0.5
     haut = max(x for x, _ in rampe)
     palier = np.minimum(np.floor(np.clip(val, 0.0, haut) / haut * NIVEAUX_VECTEUR), NIVEAUX_VECTEUR - 1).astype(int)   # (haut = 1)
     palier = np.where(dec, -1, palier)
@@ -315,7 +346,7 @@ def _legende(v: _Vue, champ: Dict, x: float, y: float, hauteur: float) -> str:
     # mordaient de 1 px sur « 61,3 » — vu au harnais, tablette, 14/11/2026)
     titre = champ.get("symbole") or ("σ" if champ["mode"] == "sigma" else "w")
     out += _texte(x, y - t * 0.95, titre + ("" if champ["mode"] == "taux" else f" ({sym})"), t * 0.82, ENCRE, "start", gras=True)
-    if bool(np.any(np.where(champ["dalle"].on0, champ["decolle"], False))):
+    if champ.get("decolle") is not None and bool(np.any(np.where(champ["dalle"].on0, champ["decolle"], False))):
         yy = y + hauteur + t * 0.7
         out += (f'<rect x="{x:.1f}" y="{yy:.1f}" width="{t * 0.9:.1f}" height="{t * 0.9:.1f}" fill="#{DECOLLE[0]:02x}{DECOLLE[1]:02x}{DECOLLE[2]:02x}" '
                 f'stroke="{SCHEMA}" stroke-width="{t * 0.05:.2f}"/>' + _texte(x + t * 1.35, yy + t * 0.72, "décollé", t * 0.82, ENCRE, "start"))
@@ -557,7 +588,8 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
         out.append(f'<g class="sf-max" pointer-events="none"><line x1="{px:.1f}" y1="{py:.1f}" x2="{qx:.1f}" y2="{qy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.08:.2f}"/>'
                    f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{t * 0.3:.1f}" fill="#ffffff" stroke="{ENCRE}" stroke-width="{t * 0.11:.2f}"/>'
                    + _texte(qx + sx * t * 0.25, qy + (t * 0.85 if sy > 0 else -t * 0.2),
-                            f"{champ.get('symbole') or ('σ' if champ['mode'] == 'sigma' else 'w')} max {_valeur(champ, champ['maxi'])}", t * 0.9, ENCRE,
+                            f"{champ.get('symbole') or ('σ' if champ['mode'] == 'sigma' else 'w')} {champ.get('mot', 'max')} {_valeur(champ, champ['maxi'])}",
+                            t * 0.9, ENCRE,
                             "end" if sx < 0 else "start", gras=True) + "</g>")
         out.append(f'<g pointer-events="none">{_legende(v, champ, droite + t * 1.6, v.Y(v.y1) + t * 1.2, min(v.Y(v.y0) - v.Y(v.y1) - t * 4.0, t * 16))}</g>')
     # ---- la feuille

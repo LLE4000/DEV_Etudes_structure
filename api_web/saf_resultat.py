@@ -30,7 +30,10 @@ from . import etabli_compact as E
 from . import saf_saisie as SS
 
 N = C.NBSP
-CARTES = (("sigma", "Contrainte"), ("w", "Tassement"), ("aucune", "Sans carte"))
+CARTES = (("sigma", "Contrainte"), ("w", "Tassement"), ("m", "Moments"), ("aucune", "Sans carte"))
+# la carte « Moments » (§ 2.3) : la face (inférieure, supérieure) et la direction (x, y) ; les moments de CALCUL du § 4.4
+MOMENTS = (("m_inf_x", "inf. · x"), ("m_inf_y", "inf. · y"), ("m_sup_x", "sup. · x"), ("m_sup_y", "sup. · y"))
+MOMENT_UNITE = ("kNm/m", 1.0, 1)
 CLASSES = {"p": "ok", "f": "warn", "r": "nok", "n": "inc", "x": "nok"}
 ETATS = {"ok": "Conforme", "warn": "Conforme", "nok": "Non conforme", "inc": "non vérifié"}
 ENVELOPPE = "Enveloppe"
@@ -108,13 +111,40 @@ def enveloppe_champs(ks: List[Dict], cas: Optional[str]) -> Tuple[np.ndarray, np
     return sig, w
 
 
-def champ(el: Dict, calc: Dict, s: Dict) -> Optional[Dict]:
-    """Le champ dessiné sur le plan (``dessin_saf.plan``) : la contrainte de contact ou le tassement — l'ENVELOPPE des
-    cas et des k retenus (``selection``) ; None sans carte ou sans calcul. Un nœud est « décollé » quand il l'est dans
-    TOUS les cas retenus."""
+def carte_moments(el: Dict) -> bool:
+    """La carte affichée est-elle celle des moments ?"""
+    return el["vue"]["carte"] in PR.CARTES_MOMENTS
+
+
+def champ_moments(el: Dict, ef: Dict) -> Dict:
+    """La carte « Moments » : le moment de CALCUL de la face et de la direction choisies (§ 4.4 : en bas m + |mxy|, en haut
+    m − |mxy|, la torsion selon l'option), au CENTRE de chaque élément — chaque élément avec sa propre épaisseur, sans
+    moyenne à travers le bord d'un plot coulé —, en enveloppe des cas et des k retenus. La couleur suit la VALEUR ABSOLUE
+    (de 0 au plus grand) ; les valeurs s'écrivent avec leur signe (m > 0 : fibre inférieure tendue)."""
+    face, sens = el["vue"]["carte"].split("_")[1:]
+    ch = ef["champ"]
+    brut = np.asarray(ch[f"{face}_{sens}"], float)
+    signe = 1.0 if face == "inf" else -1.0
+    absolu = np.maximum(signe * brut, 0.0)
+    n = V.premier_argmax(absolu)
+    return {"mode": "m", "par_element": True, "valeurs": absolu, "signe": signe, "decolle": None,
+            "maxi": float(absolu[n]), "x": float(ch["x"][n]), "y": float(ch["y"][n]), "limite": None, "unite": MOMENT_UNITE,
+            "symbole": f"m {face}. {sens}", "mot": "max" if face == "inf" else "min"}
+
+
+def champ(el: Dict, calc: Dict, s: Dict, ef: Optional[Dict] = None) -> Optional[Dict]:
+    """Le champ dessiné sur le plan (``dessin_saf.plan``) : la contrainte de contact, le tassement ou les moments de calcul
+    (``champ_moments`` : ``ef``, les efforts de la sélection — ``saf.efforts``) — l'ENVELOPPE des cas et des k retenus
+    (``selection``) ; None sans carte ou sans calcul. Un nœud est « décollé » quand il l'est dans TOUS les cas retenus."""
     mode = el["vue"]["carte"]
     if s.get("r_vue") is None or mode == "aucune":
         return None
+    if mode in PR.CARTES_MOMENTS:
+        if ef is None:
+            return None
+        out = champ_moments(el, ef)
+        out["dalle"] = (selection(el, calc)[0] or [s["r_vue"]])[0]["dalle"]
+        return out
     ks, cas = selection(el, calc)
     if not ks:
         return None
@@ -147,7 +177,10 @@ def entete(el: Dict, calc: Dict, s: Dict, onglets=ONGLETS) -> str:
                    for k, t in onglets)
     out = f'<div class="seg sf-onglets" role="tablist" aria-label="Vue du centre">{tabs}</div>'
     if vue["onglet"] == "plan":
-        out += _menu("vue/carte", vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte")
+        moments = vue["carte"] in PR.CARTES_MOMENTS
+        out += _menu("vue/carte", "m" if moments else vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte")
+        if moments:
+            out += _menu("vue/carte", vue["carte"], MOMENTS, "Les moments de calcul : la face (inférieure, supérieure) et la direction", "sf-m-face")
         r = s.get("r_vue")
         if r is not None and vue["carte"] != "aucune":
             ks, cas = selection(el, calc)

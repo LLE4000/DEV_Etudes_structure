@@ -30,6 +30,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from saf.fondation_grue import chassis as CH
 from saf.fondation_grue import ecriture as EC
+from saf.fondation_grue import efforts as EF
 from saf.fondation_grue import geometrie as G
 from saf.fondation_grue import projet as PR
 from saf.fondation_grue import proposition as PP
@@ -305,7 +306,13 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
         else:
             o[ch[1]] = _nombre(valeur, ch[1])
     elif t == "vue" and len(ch) == 2 and ch[1] in el["vue"]:
-        if ch[1] in ("carte", "onglet"):
+        if ch[1] == "carte":
+            if valeur == "m":
+                valeur = el["vue"]["carte"] if el["vue"]["carte"] in PR.CARTES_MOMENTS else PR.CARTES_MOMENTS[0]
+            if valeur not in PR.CARTES:
+                raise ValueError("carte : contrainte, tassement, moments ou sans carte")
+            el["vue"]["carte"] = valeur
+        elif ch[1] == "onglet":
             el["vue"][ch[1]] = valeur
         elif ch[1] == "cas":
             el["vue"]["cas"] = str(valeur) if valeur not in (None, "") else None
@@ -464,6 +471,39 @@ def calculer(el: Dict) -> Dict:
     return {"modele": m, "par_k": par_k, "refus": refus}
 
 
+# ------------------------------------------------------------------ les efforts ELS (lot 4, § 4)
+_EFFORTS: "OrderedDict[str, Dict]" = OrderedDict()
+
+
+def efforts(el: Dict, calc: Dict, ks: Optional[List[Dict]] = None, cas: Optional[str] = None) -> Optional[Dict]:
+    """Les efforts ELS de la fondation (``saf.fondation_grue.efforts.enveloppe``), LUS dans les solutions déjà calculées —
+    aucun calcul en plus (§ 4.1) : par défaut l'enveloppe de tous les cas et de tous les k cochés « SCIA » (ce que le
+    ferraillage emploie) ; ``ks`` et ``cas`` la restreignent (la carte « Moments » d'un k ou d'un cas choisis). Le
+    résultat est gardé : changer la vue, la limite ou le nom ne le refait pas. None sans calcul.
+    (d, qui borne la lecture de V à d, se donne plus tard — ``efforts.v_a_d`` relit V(s) — : la valeur passée ici,
+    h − 6 cm, ne sert qu'à remplir la clé « V_d ».)"""
+    if calc["par_k"] is None:
+        return None
+    if ks is None:
+        scia = set(PR.k_scia(el))
+        ks = [r for r in calc["par_k"] if r["k"] in scia] or list(calc["par_k"])
+    if not ks:
+        return None
+    torsion = bool(el["options"]["torsion"])
+    cle = json.dumps([_signature_calcul(el), [r["k"] for r in ks], cas, torsion, el["bandes"]["largeur"]])
+    if cle in _EFFORTS:
+        _EFFORTS.move_to_end(cle)
+        return _EFFORTS[cle]
+    if cas is not None:
+        ks = [{"k": r["k"], "dalle": r["dalle"], "deplacements": [x for c, x in zip(r["cas"], r["deplacements"]) if c["nom"] == cas]}
+              for r in ks]
+    ef = EF.enveloppe(calc["modele"], ks, max(el["dalle"]["h"] - 0.06, 0.01), torsion)
+    _EFFORTS[cle] = ef
+    while len(_EFFORTS) > CALCULS_MAX:
+        _EFFORTS.popitem(last=False)
+    return ef
+
+
 # ------------------------------------------------------------------ « Proposer »
 _PROPOSITIONS: "OrderedDict[str, Dict[float, Dict]]" = OrderedDict()
 
@@ -611,7 +651,8 @@ def resultat(etat: Dict) -> Dict:
     s = synth[etat["actif"]]
     html_res, volets = SR.colonne(el, calc, s)
     donnees = arbre(etat, calc, s, carnet)
-    champ = SR.champ(el, calc, s)
+    ef = efforts(el, calc, *SR.selection(el, calc)) if SR.carte_moments(el) and s.get("r_vue") is not None else None
+    champ = SR.champ(el, calc, s, ef)
     vues = [{"cle": "plan", "titre": "Plan", "court": "Plan", "entete": SR.entete(el, calc, s), "echelle": False,
              "svg": DS.plan(el, calc["modele"], champ, legende=el["vue"]["carte"] != "aucune")}]
     nivs = [x["niveau"] for x in synth]

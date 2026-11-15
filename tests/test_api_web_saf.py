@@ -39,6 +39,8 @@ RAPIDE = "--rapide" in ARGS
 os.chdir(RACINE_MOTEUR)
 sys.path.insert(0, RACINE_MOTEUR)
 
+import numpy as np  # noqa: E402
+
 from api_web import commun as C  # noqa: E402
 from api_web import registre as REG  # noqa: E402
 from api_web import routeur  # noqa: E402
@@ -48,6 +50,7 @@ from api_web import saf_saisie as SS  # noqa: E402
 from api_web import sol as SOL  # noqa: E402
 from grues.chassis import acces as BIB  # noqa: E402
 from saf.fondation_grue import ecriture as EC  # noqa: E402
+from saf.fondation_grue import efforts as EF  # noqa: E402
 from saf.fondation_grue import projet as PR  # noqa: E402
 from saf.fondation_grue import proposition as PP  # noqa: E402
 from saf.fondation_grue import verification as V  # noqa: E402
@@ -182,7 +185,7 @@ def rapides():
     ent = r["vues"][0]["entete"]
     menus = re.findall(r'<select data-agir="1" data-chemin="(vue/[a-z]+)"[^>]*>(.*?)</select>', ent, re.S)
     premiers = {c: re.findall(r'<option value="([^"]*)"( selected)?>([^<]+)</option>', o)[0] for c, o in menus}
-    chk("U8 / U3 la barre du centre, sur UNE ligne : l'onglet « Plan », puis trois listes — la carte (Contrainte, Tassement, Sans carte), le "
+    chk("U8 / U3 la barre du centre, sur UNE ligne : l'onglet « Plan », puis trois listes — la carte (Contrainte, Tassement, Moments, Sans carte), le "
         "cas et le k, « Enveloppe » en tête et choisie ; la carte, une image PNG découpée au contour, est l'ENVELOPPE des 16 cas et des 3 k "
         "cochés SCIA : son maximum est celui du moteur, pointé en kg/cm²",
         png[:8] == b"\x89PNG\r\n\x1a\n" and f"σ max {fr(gov['sigma_max'] / V.KG_CM2, 2)} kg/cm²" in svg and 'clip-path="url(#saf_dalle)"' in svg
@@ -190,7 +193,7 @@ def rapides():
         and re.findall(r'data-chemin="vue/onglet" data-valeur="([a-z]+)"', ent) == ["plan"]
         and [c for c, _ in menus] == ["vue/carte", "vue/cas", "vue/k"] and premiers["vue/cas"] == ("", " selected", "Enveloppe")
         and premiers["vue/k"] == ("", " selected", "Enveloppe")
-        and re.findall(r'<option value="([a-z]+)"', dict(menus)["vue/carte"]) == ["sigma", "w", "aucune"], (len(png), premiers))
+        and re.findall(r'<option value="([a-z]+)"', dict(menus)["vue/carte"]) == ["sigma", "w", "m", "aucune"], (len(png), premiers))
     # U3 : l'enveloppe montre les QUATRE coins pareils — les 8 positions du jeu 3 donnent toutes la même contrainte, deux par coin
     ch3 = SR.champ(PR.lire(el), calc, SR.synthese(PR.lire(el), calc))
     d3 = ch3["dalle"]
@@ -203,6 +206,49 @@ def rapides():
         and len({round(c, 6) for c in [float(x) for x in (lambda s3: [s3[:d3.ny // 2 + 1, :d3.nx // 2 + 1].max(), s3[:d3.ny // 2 + 1, d3.nx // 2:].max(),
                                                                    s3[d3.ny // 2:, :d3.nx // 2 + 1].max(), s3[d3.ny // 2:, d3.nx // 2:].max()])(
             SR.enveloppe_champs([x for x in calc["par_k"] if x["k"] == 10.0], "3.a")[0].reshape(d3.ny + 1, d3.nnx))]}) > 1, coins)
+    # U9 (lot 4b, § 2.3 et § 4.4) : la carte « Moments » — la face et la direction, les moments de CALCUL au centre des éléments,
+    # en enveloppe des cas et des k cochés SCIA, la couleur selon |m|, la valeur avec son signe
+    rm_ = mod(type_, ["vue", "carte"], "m")
+    ent_m, svg_m = rm_["vues"][0]["entete"], rm_["vues"][0]["svg"]
+    menus_m = re.findall(r'<select data-agir="1" data-chemin="(vue/[a-z]+)"[^>]*>(.*?)</select>', ent_m, re.S)
+    ef_ = M.efforts(PR.lire(f0(rm_)), calc)
+    scia_ = [x for x in calc["par_k"] if x["k"] in (2.0, 5.0, 10.0)]
+    ef_ref = EF.enveloppe(calc["modele"], scia_, 0.44, True)
+    png_m = base64.b64decode(re.search(r'href="data:image/png;base64,([^"]+)"', svg_m).group(1))
+    w_png, h_png = int.from_bytes(png_m[16:20], "big"), int.from_bytes(png_m[20:24], "big")
+    chk("U9 la carte « Moments » : choisir « Moments » ouvre la face et la direction (inf. · x, inf. · y, sup. · x, sup. · y), inf. · x d'abord ; "
+        f"la carte montre m inf. x = mx + |mxy| au centre des 1 600 éléments, en enveloppe des 16 cas et des 3 k cochés SCIA (max "
+        f"{fr(float(ef_ref['champ']['inf_x'].max()))} kNm/m, celui du moteur des efforts), une case par élément (image 40 × 40 éléments)",
+        f0(rm_)["vue"]["carte"] == "m_inf_x" and [c for c, _ in menus_m] == ["vue/carte", "vue/carte", "vue/cas", "vue/k"]
+        and re.findall(r'<option value="([a-z_]+)"( selected)?>', menus_m[0][1])[2] == ("m", " selected")
+        and re.findall(r'<option value="([a-z_]+)"( selected)?>([^<]+)</option>', menus_m[1][1])
+        == [("m_inf_x", " selected", "inf. · x"), ("m_inf_y", "", "inf. · y"), ("m_sup_x", "", "sup. · x"), ("m_sup_y", "", "sup. · y")]
+        and f"m inf. x max {fr(float(ef_ref['champ']['inf_x'].max()))} kNm/m" in svg_m and "m inf. x (kNm/m)" in svg_m
+        and np.allclose(ef_["champ"]["inf_x"], ef_ref["champ"]["inf_x"]) and len(ef_["champ"]["inf_x"]) == 1600
+        and w_png % 40 == 0 and h_png % 40 == 0 and w_png == h_png and 'clip-path="url(#saf_dalle)"' in svg_m and "décollé" not in svg_m,
+        (f0(rm_)["vue"], [c for c, _ in menus_m], re.findall(r"m (?:inf|sup)\. [xy][^<]*", svg_m)[:3], w_png, h_png))
+    rs_ = mod(rm_["etat"], ["vue", "carte"], "m_sup_y")
+    svg_s = rs_["vues"][0]["svg"]
+    sup_min = float(ef_ref["champ"]["sup_y"].min())
+    chk(f"U9 face supérieure, direction y : m sup. y = my − |mxy|, la valeur la plus négative pointée avec son signe (« m sup. y min "
+        f"{fr(sup_min)} kNm/m »), l'échelle de 0 à {fr(sup_min)} ; « Moments » reste choisi ; « Contrainte » rend la carte de sol",
+        f"m sup. y min {fr(sup_min)} kNm/m" in svg_s and f">{fr(sup_min)}</text>" in svg_s and sup_min < -100
+        and re.findall(r'<option value="m"( selected)?>', rs_["vues"][0]["entete"]) == [" selected"]
+        and "sf-m-face" not in mod(rs_["etat"], ["vue", "carte"], "sigma")["vues"][0]["entete"],
+        re.findall(r"m (?:inf|sup)\. [xy][^<]*", svg_s)[:3])
+    rc_ = mod(rm_["etat"], ["vue", "cas"], "3.a")
+    seul = EF.enveloppe(calc["modele"], [{"k": x["k"], "dalle": x["dalle"], "deplacements": [d_ for c_, d_ in zip(x["cas"], x["deplacements"])
+                                                                                            if c_["nom"] == "3.a"]} for x in scia_], 0.44, True)
+    rt_ = mod(rm_["etat"], ["options", "torsion"], "false")
+    chk(f"U9 un cas choisi (3.a) : la carte ne montre que lui ({fr(float(seul['champ']['inf_x'].max()))} kNm/m) ; l'option « torsion : non » : "
+        f"m inf. x = mx seul ({fr(float(ef_ref['champ']['mx_max'].max()))} kNm/m) ; une carte inconnue est refusée",
+        f"m inf. x max {fr(float(seul['champ']['inf_x'].max()))} kNm/m" in rc_["vues"][0]["svg"]
+        and float(seul["champ"]["inf_x"].max()) < float(ef_ref["champ"]["inf_x"].max())
+        and f"m inf. x max {fr(float(ef_ref['champ']['mx_max'].max()))} kNm/m" in rt_["vues"][0]["svg"]
+        and float(ef_ref["champ"]["mx_max"].max()) < float(ef_ref["champ"]["inf_x"].max())
+        and (lambda rb: rb["message"] == "Carte : contrainte, tassement, moments ou sans carte" and rb["etat"] == type_)(
+            q(action="modifier", etat=type_, chemin=["vue", "carte"], valeur="m_inf_z")),
+        (re.findall(r"m inf\. x max [^<]*", rc_["vues"][0]["svg"])[:1], re.findall(r"m inf\. x max [^<]*", rt_["vues"][0]["svg"])[:1]))
     # U6 : l'unité des contraintes de sol, partout ensemble
     rk, rm = mod(type_, ["options", "unite"], "kpa"), mod(type_, ["options", "unite"], "mpa")
     tk, tm = txt(rk["resultat"]), txt(rm["resultat"])
@@ -591,6 +637,18 @@ MUTATIONS += [
     ("dessin_saf.py", '''            (x1, y1), (x2, y2) = (x2, y2), (x1, y1)
         ux, uy''', '''            pass
         ux, uy''', "le nom d'une bande écrit sous la légende, châssis tourné"),
+]
+MUTATIONS += [
+    ("saf_resultat.py", '''    signe = 1.0 if face == "inf" else -1.0''', '''    signe = 1.0''', "les moments du haut écrits sans leur signe (et la couleur à 0)"),
+    ("saf_resultat.py", '''    brut = np.asarray(ch[f"{face}_{sens}"], float)''', '''    brut = np.asarray(ch[f"inf_{sens}"], float)''', "la face supérieure qui montre la face inférieure"),
+    ("saf.py", '''        ks = [{"k": r["k"], "dalle": r["dalle"], "deplacements": [x for c, x in zip(r["cas"], r["deplacements"]) if c["nom"] == cas]}
+              for r in ks]''', '''        pass''', "le cas choisi ignoré par la carte des moments"),
+    ("saf.py", '''    torsion = bool(el["options"]["torsion"])''', '''    torsion = True''', "l'option « torsion : non » ignorée par la carte"),
+    ("saf.py", '''            if valeur not in PR.CARTES:
+                raise ValueError("carte : contrainte, tassement, moments ou sans carte")''', '''            pass''', "une carte inconnue acceptée"),
+    ("dessin_saf.py", '''    if champ.get("par_element"):
+        return _carte_elements(v, champ, ident)''', '''    if champ.get("par_element"):
+        return ""''', "la carte des moments non peinte"),
 ]
 MUTATIONS = [m for m in MUTATIONS if m[2] is not None]
 TEMOIN = ("saf.py", 'MODULE = "saf"', 'MODULE = "saf"')

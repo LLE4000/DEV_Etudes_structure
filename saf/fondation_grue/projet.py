@@ -39,7 +39,8 @@ PLOTS_DEFAUT = {"prefabrique": (2.5, 2.5, 0.35), "coule": PLOT_DEFAUT}
 FORMES = ("rectangle", "contour")
 # la vue du centre (lot 4, § 2.3) : l'onglet, la carte (« Enveloppe » quand ni le cas ni le k ne sont choisis)
 ONGLETS = ("plan", "ferraillage", "coupes")
-CARTES = ("sigma", "w", "m_inf_x", "m_inf_y", "m_sup_x", "m_sup_y", "aucune")
+CARTES_MOMENTS = ("m_inf_x", "m_inf_y", "m_sup_x", "m_sup_y")      # la carte « Moments » : la face, puis la direction
+CARTES = ("sigma", "w") + CARTES_MOMENTS + ("aucune",)
 # lot 4 (cahier des charges du 15/11/2026) : la maille et les bandes par défaut, l'unité des contraintes de sol, les armatures
 MAILLE_DEFAUT = 0.20             # § 3.1 (0,25 m avant le lot 4 ; une note enregistrée garde la sienne)
 LARGEUR_BANDE_DEFAUT = 0.5       # § 4.3 (1,00 m avant le lot 4)

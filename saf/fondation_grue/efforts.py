@@ -194,9 +194,21 @@ def geometrie_bandes(modele: Dict, d, d_v: float) -> List[Dict]:
         for i in PIEDS[bd["nom"]]:
             proj = [float((np.asarray(v, float) - p0) @ u) for v in zch[i]]
             inter.append((min(proj), max(proj)))
-        ok_v = np.all([(s <= s1 - d_v + 1e-9) | (s >= s2 + d_v - 1e-9) for s1, s2 in inter], axis=0)
+        ok_v = lecture_v(s, inter, d_v)
         out.append({"bande": bd, "zone": z, "p0": p0, "u": u, "L": L, "s": s, "ok_v": ok_v, "charge": inter})
     return out
+
+
+def lecture_v(s: np.ndarray, charge: Sequence[Tuple[float, float]], d_v: float) -> np.ndarray:
+    """Les abscisses où V se lit (§ 4.3) : à d_v ou plus du bord de chaque zone chargée [(s1, s2)] de la bande."""
+    return np.all([(s <= s1 - d_v + 1e-9) | (s >= s2 + d_v - 1e-9) for s1, s2 in charge], axis=0)
+
+
+def v_a_d(bande: Dict, d_v: float) -> float:
+    """V à d d'une bande de l'enveloppe, RELU pour une autre hauteur utile d_v (celle que le moteur poutre donne pour la
+    section de la bande, § 4.3) : le plus grand |V(s)| aux abscisses à d_v ou plus du bord des zones chargées."""
+    ok = lecture_v(bande["s"], bande["charge"], d_v)
+    return float(bande["Vabs"][ok].max()) if ok.any() else 0.0
 
 
 def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool = True) -> Dict:
