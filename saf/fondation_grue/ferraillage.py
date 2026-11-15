@@ -148,7 +148,9 @@ class _Contexte:
         self.hp = pl["hauteur"] if self.coule else 0.0
         ch = ef["champ"]
         self.ch = ch
-        self.controle = ~ch["zone_renfort"] & ~ch["plot"]          # R1 : hors des zones de renfort et des plots coulés
+        # R1 : les éléments contrôlés un à un, PAR DIRECTION — hors des zones des bandes de CETTE direction (une BX ne pose
+        # que des barres en x : dans sa zone, les barres en y restent au treillis et se contrôlent) et hors des plots coulés
+        self.controle = {"x": ~ch["zone_x"] & ~ch["plot"], "y": ~ch["zone_y"] & ~ch["plot"]}
         xs = [p[0] for p in modele["contour"]]
         ys = [p[1] for p in modele["contour"]]
         self.bbox = (min(xs), min(ys), max(xs), max(ys))
@@ -355,7 +357,7 @@ def _locaux(ctx: _Contexte, face: str, sens: str, d_t: int, e_t: float, dessous_
     chaque côté dans le sens des barres, sans sortir de la dalle ; les rectangles qui se chevauchent sont fusionnés."""
     ch = ctx.ch
     As_t = as_pm(d_t, e_t)
-    rouge = np.flatnonzero(ctx.controle & (besoins[d_t] > As_t + EPS))
+    rouge = np.flatnonzero(ctx.controle[sens] & (besoins[d_t] > As_t + EPS))
     if not len(rouge):
         return []
     a, b_ = ch["a"], ch["b"]
@@ -442,12 +444,13 @@ def face(ctx: _Contexte, cote: str, code: str) -> Dict:
         besoin = np.select([d_el == d for d in besoins], [besoins[d] for d in besoins])
         place = out["As_pm"] + As_l
         out["couverture"][sens] = {"besoin": besoin, "besoin_treillis": besoins[d_t], "As_place": place, "d_couche": d_el,
-                                   "dessous": dessous_y if sens == "y" else 0.0, "controle": ctx.controle.copy(),
-                                   "taux_treillis": np.where(ctx.controle, besoins[d_t] / out["As_pm"], 0.0)}
+                                   "dessous": dessous_y if sens == "y" else 0.0, "controle": ctx.controle[sens].copy(),
+                                   "taux_treillis": np.where(ctx.controle[sens], besoins[d_t] / out["As_pm"], 0.0)}
         if sens == "x":
             gros = [d_t] + [r["d"] for r in loc if r["d"]] + [b["renfort"]["d"] for b in out["bandes"].values() if b["renfort"]]
             dessous_y = max(gros)
-        out["ok"] = out["ok"] and bool(np.all(besoin[ctx.controle] <= place[ctx.controle] + 1e-6))
+        ctl = ctx.controle[sens]
+        out["ok"] = out["ok"] and bool(np.all(besoin[ctl] <= place[ctl] + 1e-6))
     out["dessous_y"] = dessous_y
     out["ok"] = out["ok"] and all(b["ok"] for b in out["bandes"].values()) and not any(r["impossible"] for r in out["locaux"])
     out["poids_T"] = poids_treillis(ctx, d_t, e_t)
@@ -497,6 +500,10 @@ def tranchant(ctx: _Contexte, rb: Dict, lit_inf: Dict, lit_sup: Dict, d_t_inf: i
     r0 = poutre(el, b_cm, ctx.h_cm, [section(0.0, 0.0, 0.0, lit_inf, lit_sup)])[0]
     d_v = r0["grandeurs"]["d_cisaillement"] / 100.0
     V = EF.v_a_d(rb, d_v)
+    if V is None:
+        # (aucune abscisse à d ou plus des zones chargées : V à d ne se lit pas — « non vérifié », jamais « V = 0 »)
+        return {"nom": rb["nom"], "V": None, "d_v": d_v, "tau": None, "tau_lim": None, "bande": None, "besoin_tau": None,
+                "taux": 0.0, "etat": "non_verifie", "C": None, "moteur": r0, "V_max": float(rb["Vabs"].max())}
     r = poutre(el, b_cm, ctx.h_cm, [section(0.0, 0.0, V, lit_inf, lit_sup)])[0]
     g = r["grandeurs"]
     etat = next((v["etat"] for v in r["verifications"] if v["cle"] == "tau"), "ok")
@@ -505,10 +512,13 @@ def tranchant(ctx: _Contexte, rb: Dict, lit_inf: Dict, lit_sup: Dict, d_t_inf: i
     if V <= 0 or g["besoin_tau"] in (None, "pas_d_etriers", "inacceptable"):
         return out
     branches = int(math.floor(b_cm / e_t_inf + 1e-9)) + 1
-    ok_s = EF.lecture_v(rb["s"], rb["charge"], d_v)
+    # V à d fixe le CONTRÔLE ; les C, eux, vont partout où |V(s)| dépasse ce que la dalle reprend sans armatures (§ 5.5),
+    # jusqu'au bord de la zone chargée — y compris entre ce bord et d, où |V| est le plus fort. Sous la zone chargée
+    # elle-même (le pied, le plot coulé), aucun C : les brins sous le pied relèvent du poinçonnement (non vérifié).
+    hors = EF.lecture_v(rb["s"], rb["charge"], 0.0)
     secs = [section(0.0, 0.0, float(v), lit_inf, lit_sup) for v in rb["Vabs"]]
     besoins = [x["grandeurs"]["besoin_tau"] for x in poutre(el, b_cm, ctx.h_cm, secs)]
-    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & ok_s
+    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & hors
     for d in D_TRANCHANT:
         rr = poutre(el, b_cm, ctx.h_cm, [section(0.0, 0.0, V, lit_inf, lit_sup, [{"type": "epingle", "d": d}] * branches)])[0]
         s_lim = rr["grandeurs"]["s_lim_tronque"]
@@ -661,11 +671,12 @@ def bordereau(el: Dict, modele: Dict, fer: Dict) -> Dict:
 # ------------------------------------------------------------------ la fondation
 def calculer(el: Dict, modele: Dict, ef: Dict) -> Dict:
     """Le ferraillage de la fondation, à partir de l'enveloppe des efforts ``ef`` (``efforts.enveloppe`` : tous les cas,
-    les k cochés « SCIA »). Pour chaque face, le treillis imposé, ou — « automatique » — celui des quatre qui donne le
-    poids total le plus faible (treillis + renforts locaux + renforts de bandes, § 5.2 ; à égalité, le premier de la
-    liste). Rend {"faces": {"inf", "sup"} (chacune : le treillis, ses bandes, ses renforts locaux, sa couverture, les
+    les k cochés « SCIA »). Pour chaque face, le treillis imposé, ou — « automatique » — parmi les quatre, celui qui
+    CONVIENT avec le poids total le plus faible (treillis + renforts locaux + renforts de bandes, § 5.2 ; à égalité, le
+    premier de la liste ; si aucun ne convient, le plus léger, dit non conforme). Rend {"faces": {"inf", "sup"} (chacune : le treillis, ses bandes, ses renforts locaux, sa couverture, les
     quatre candidats et leur poids), "tranchant" {bande: …}, "hauteur" {…}, "U", "cages", "arrachement", "lignes"
-    (ce que le module ne vérifie pas : [(titre, texte, niveau)]), "non_verifies", "ok"}."""
+    (ce que le module ne vérifie pas : [(titre, texte, niveau)]), "non_verifies", "ok" (aucune vérification faite
+    n'échoue), "a_verifier" (une bande que le module ne peut pas conclure : V à d illisible, τ en bande IV)}."""
     ctx = _Contexte(el, modele, ef)
     faces = {}
     for cote in ("inf", "sup"):
@@ -675,7 +686,10 @@ def calculer(el: Dict, modele: Dict, ef: Dict) -> Dict:
             f["auto"], f["candidats"] = False, []
         else:
             cands = [face(ctx, cote, code) for code in TREILLIS_CHOIX]
-            f = min(cands, key=lambda x: (round(x["poids"], 6), TREILLIS_CHOIX.index(x["code"])))
+            # le plus léger parmi ceux qui CONVIENNENT (un renfort impossible ne pèse rien : sans ce filtre, un candidat
+            # qui ne couvre pas paraîtrait le plus léger) ; si aucun ne convient, le plus léger des quatre, dit non conforme
+            valides = [x for x in cands if x["ok"]] or cands
+            f = min(valides, key=lambda x: (round(x["poids"], 6), TREILLIS_CHOIX.index(x["code"])))
             f["auto"] = True
             f["candidats"] = [{"code": x["code"], "poids": x["poids"], "poids_T": x["poids_T"], "poids_R": x["poids_R"],
                                "poids_L": x["poids_L"], "ok": x["ok"]} for x in cands]
@@ -705,10 +719,23 @@ def calculer(el: Dict, modele: Dict, ef: Dict) -> Dict:
     if arr:
         lignes.append(("Arrachement", "une réaction négative", "nok"))
     nv = ["le poinçonnement"] + (["les brins verticaux sous le pied"] if ctx.coule else []) + (["l'arrachement"] if arr else [])
-    ok = (fi["ok"] and fs["ok"] and all(t["etat"] in ("ok", "warn") for t in tr.values()) and all(h["ok"] for h in haut.values())
-          and not arr)
+    # ce que le module ne peut pas conclure sur une bande : V à d illisible (aucune abscisse à d des zones chargées), ou
+    # τ en bande IV — le moteur poutre demande des barres inclinées ET des étriers (son état « à vérifier »), le module
+    # ne pose que des C verticaux : la bande est « à vérifier », jamais « conforme »
+    illisibles = [n for n, t in tr.items() if t["etat"] == "non_verifie"]
+    inclinees = [n for n, t in tr.items() if t["besoin_tau"] == "barres_inclinees_et_etriers"]
+    if illisibles:
+        lignes.append(("Effort tranchant", f"{', '.join(illisibles)} : aucune abscisse à d des zones chargées — V à d ne se lit pas", "inc"))
+        nv.append(f"l'effort tranchant de {', '.join(illisibles)} (V à d ne se lit pas)")
+    if inclinees:
+        lignes.append(("Barres inclinées", f"{', '.join(inclinees)} : τ en bande IV, le moteur poutre demande des barres inclinées et des "
+                       "étriers — seuls des C verticaux sont posés", "inc"))
+        nv.append(f"les barres inclinées de {', '.join(inclinees)} (τ en bande IV)")
+    a_verifier = bool(illisibles or inclinees)
+    ok = (fi["ok"] and fs["ok"] and all(t["etat"] in ("ok", "warn", "non_verifie") for t in tr.values())
+          and all(h["ok"] for h in haut.values()) and not arr)
     out = {"faces": faces, "tranchant": tr, "hauteur": haut, "U": u_fermeture(ctx, fi, fs), "cages": cages(ctx, fi),
-           "arrachement": arr, "lignes": lignes, "non_verifies": nv, "ok": ok, "enrobage": ctx.c, "h": ctx.h, "hp": ctx.hp,
+           "arrachement": arr, "lignes": lignes, "non_verifies": nv, "ok": ok, "a_verifier": a_verifier, "enrobage": ctx.c, "h": ctx.h, "hp": ctx.hp,
            "coule": ctx.coule}
     out["bordereau"] = bordereau(el, modele, out)
     return out

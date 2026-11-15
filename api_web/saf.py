@@ -651,6 +651,30 @@ def _dims(el: Dict) -> str:
     return f"· {SS.dimensions(el)}"
 
 
+def synthese_note(el: Dict, calc: Dict, s: Dict) -> Dict:
+    """La synthèse d'une fondation pour le RÉSUMÉ de la note et ses pastilles : le sol (``SR.synthese``) ET le
+    ferraillage, le plus défavorable des deux — un ferraillage non conforme rend la fondation non conforme ; une bande
+    que le module ne peut pas conclure (V à d illisible, τ en bande IV) la rend « À vérifier », jamais « Conforme » ; un
+    ferraillage impossible, « Calcul impossible ». Sans réaction (le poids propre seul) ou sans calcul : le sol seul."""
+    if s["niveau"] in ("x", "n") or s.get("r_vue") is None:
+        return s
+    fer = ferraillage(el, calc)
+    if "erreur" in fer:
+        return dict(s, niveau="x", taux=None, phrase=f"ferraillage : {fer['erreur']}")
+    t = SF.taux_max(fer)
+    if not fer["ok"]:
+        t = max(t, 1.01)
+    if not fer["ok"] or (t > s["taux"] and s["niveau"] != "r"):
+        niv = "r" if not fer["ok"] or s["niveau"] == "r" else C.niveau(max(t, s["taux"]))
+        out = dict(s, niveau=niv, taux=max(t, s["taux"]), phrase=f"ferraillage {C.pct(t)} %" if t >= s["taux"] else s["phrase"])
+    else:
+        out = dict(s)
+    if fer.get("a_verifier") and out["niveau"] in ("p", "f"):
+        out = dict(out, niveau="v", phrase="ferraillage à vérifier (" + ", ".join(
+            t_.lower() for t_, _x, _n in fer["lignes"] if t_ in ("Effort tranchant", "Barres inclinées")) + ")")
+    return out
+
+
 def resume_note(etat: Dict, synth: List[Dict]) -> Dict:
     """Le résumé de la NOTE : sa fondation la plus chargée face à la limite. Une fondation sans réaction (le poids propre
     seul) n'a pas de taux : la note est alors « Données incomplètes », jamais « Conforme » ; un calcul impossible passe
@@ -664,6 +688,9 @@ def resume_note(etat: Dict, synth: List[Dict]) -> Dict:
     t, i = max(((s["taux"], -i) for i, s in enumerate(synth)))     # à taux égal, la première de la note
     i = -i
     niv = C.niveau(t)
+    j = next((j for j, s in enumerate(synth) if s["niveau"] == "v"), None)
+    if niv in ("p", "f") and j is not None:                        # (une bande « à vérifier » : jamais « Conforme »)
+        return {"taux": C.pct(t), "niveau": "v", "statut": C.STATUTS["v"][1], "gouvernant": f"{nom(j)} · {synth[j]['phrase']}"}
     return {"taux": C.pct(t), "niveau": niv, "statut": C.STATUTS[niv][1], "gouvernant": f"{nom(i)} · {synth[i]['phrase']}"}
 
 
@@ -705,9 +732,11 @@ def resultat(etat: Dict) -> Dict:
     else:
         svg = DS.plan(el, calc["modele"], champ, legende=el["vue"]["carte"] != "aucune")
     vues = [{"cle": "plan", "titre": "Plan", "court": "Plan", "entete": SR.entete(el, calc, s), "echelle": False, "svg": svg}]
-    nivs = [x["niveau"] for x in synth]
-    statut = C.statut(next((n for n in ("x", "r", "n", "f") if n in nivs), "p")) if len(synth) > 1 else ""
-    return {"resultat": html_res, "volets": volets, "vues": vues, "phrase": "", "statut_html": statut, "resume": resume_note(etat, synth),
+    # (le résumé de la note et sa pastille : le sol ET le ferraillage de chaque fondation)
+    synth_note = [synthese_note(f, calc if i == etat["actif"] else calculer(f), x) for i, (f, x) in enumerate(zip(etat["fondations"], synth))]
+    nivs = [x["niveau"] for x in synth_note]
+    statut = C.statut(next((n for n in ("x", "r", "n", "v", "f") if n in nivs), "p")) if len(synth) > 1 else ""
+    return {"resultat": html_res, "volets": volets, "vues": vues, "phrase": "", "statut_html": statut, "resume": resume_note(etat, synth_note),
             "donnees": donnees, "elements": ""}
 
 

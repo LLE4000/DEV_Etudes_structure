@@ -261,6 +261,11 @@ def _coupe(el: Dict, m: Dict, fer: Dict, ef: Dict, nom_bande: str, lettre: str, 
         return (f'<line x1="{X(s0):.1f}" y1="{Z(z):.1f}" x2="{X(s1):.1f}" y2="{Z(z):.1f}" stroke="{col}" stroke-width="{max(d / 1000 * ech, t * 0.07):.2f}" '
                 f'stroke-linecap="round" data-rep="{rep}"/>')
 
+    def z_lit(bf, cote):
+        """La cote (m, depuis le bas) du lit retenu d'une bande : celui que le moteur poutre a calculé."""
+        pos = bf["retenu"]["lit"]["pos"] / 100.0
+        return pos if cote == "inf" else h - pos
+
     def point(s, z, d, col, rep):
         reps.append(rep)
         return f'<circle cx="{X(s):.1f}" cy="{Z(z):.1f}" r="{max(d / 2000 * ech, t * 0.09):.2f}" fill="{col}" data-rep="{rep}"/>'
@@ -283,8 +288,9 @@ def _coupe(el: Dict, m: Dict, fer: Dict, ef: Dict, nom_bande: str, lettre: str, 
         bf = f["bandes"][nom_bande]
         if bf["renfort"]:
             r = bf["renfort"]
-            dz = (d + r["d"]) / 2000.0 * (1 if cote == "inf" else -1)
-            out.append(barre(c, L - c, zz[sens] + dz, r["d"], col, _rep(fer, "R", bande=nom_bande, cote=cote)[0]))
+            # (au niveau du lit CALCULÉ : dans le plan des barres de sa direction, centré sur la plus grosse barre — pas
+            # empilé sur le treillis, qui ferait perdre au chantier le d du calcul)
+            out.append(barre(c, L - c, z_lit(bf, cote), r["d"], col, _rep(fer, "R", bande=nom_bande, cote=cote)[0]))
         for nb, bx in f["bandes"].items():
             if (nb.startswith("BX") == (sens == "x")) or not bx["renfort"]:
                 continue
@@ -298,7 +304,7 @@ def _coupe(el: Dict, m: Dict, fer: Dict, ef: Dict, nom_bande: str, lettre: str, 
             r = bx["renfort"]
             for k in range(r["n"]):
                 s_ = ext[0] + (k + 0.5) * (ext[1] - ext[0]) / r["n"]
-                out.append(point(s_, zz[autre], r["d"], col, _rep(fer, "R", bande=nb, cote=cote)[0]))
+                out.append(point(s_, z_lit(bx, cote), r["d"], col, _rep(fer, "R", bande=nb, cote=cote)[0]))
         # les renforts locaux que la coupe traverse
         for ln in fer["bordereau"]["lignes"]:
             if ln["famille"] != "L" or ln["cote"] != cote:

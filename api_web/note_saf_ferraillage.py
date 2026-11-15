@@ -20,8 +20,14 @@ from saf.fondation_grue import ferraillage as FE
 from . import commun as C
 from . import dessin_ferraillage as DF
 from . import dessin_saf as DS
+from . import saf_ferraillage as SF
 
 N = C.NBSP
+
+
+def _txt(t: str) -> str:
+    """Une phrase de l'écran (saf_ferraillage), pour la note : les espaces insécables de l'écran redeviennent des espaces."""
+    return t.replace(C.NBSP, " ")
 
 
 def _n(x: float, nd: int = 1) -> str:
@@ -73,7 +79,7 @@ def _tab_bandes(fer: Dict, ef: Dict, largeur: float) -> Dict:
     lignes = []
     for b in ef["bandes"]:
         t = fer["tranchant"][b["nom"]]
-        lignes.append([("lab", b["nom"], True), ("num", _n(b["M_plus"])), ("num", _n(b["M_moins"])), ("num", _n(t["V"])),
+        lignes.append([("lab", b["nom"], True), ("num", _n(b["M_plus"])), ("num", _n(b["M_moins"])), ("num", _n(t["V"]) if t["V"] is not None else "—"),
                        ("lab", f"÷ {_n(b['largeur'], 2)} m")])
     return {"titre": "Efforts des bandes (enveloppe)", "items": [
         ("pr", "M et V intégrés sur la largeur EXACTE de la bande (bords interpolés), en enveloppe de toutes les positions de tous les jeux et des k "
@@ -95,22 +101,20 @@ def _tab_ferraillage(fer: Dict, ef: Dict, largeur: float) -> Dict:
         lignes.append([("lab", nom, True), ("lab", f"{FE.libelle_treillis(f['code'])} (x et y), {'automatique' if f['auto'] else 'imposé'}"
                                                     f"{f', + {n_loc} renfort(s) local(aux)' if n_loc else ''} — A_s = {_n(f['As_pm'], 0)} mm²/m"),
                        ("num", f"{C.pct(t)} %")])
+    reps = {(ln["bande"], ln["cote"]): ln["rep"] for ln in fer["bordereau"]["lignes"] if ln["famille"] == "R"}
     for cote in ("inf", "sup"):
         for nom, bf in fer["faces"][cote]["bandes"].items():
-            r = bf["renfort"]
-            reps = [ln["rep"] for ln in fer["bordereau"]["lignes"] if ln["famille"] == "R" and ln.get("bande") == nom and ln.get("cote") == cote]
-            txt = (f"{cote}. : A_s,néc = {_n(bf['retenu']['necessaire_pm'], 0)} ≤ {_n(bf['As_place_pm'], 0)} mm²/m — "
-                   + (f"{reps[0]} : {r['n']} Ø{r['d']}, L = {_n(r['L'], 2)} m" if r else "treillis seul"))
-            lignes.append([("lab", nom, True), ("lab", txt), ("num", f"{C.pct(bf['taux'])} %")])
+            txt, tf = SF.face_bande(bf, reps.get((nom, cote), "R"))           # (la phrase et le taux de l'écran)
+            lignes.append([("lab", nom, True), ("lab", f"{cote}. : {_txt(txt)}"), ("num", f"{C.pct(tf)} %")])
     for nom, t in fer["tranchant"].items():
-        if t["tau"] is None:
+        if t["V"] is not None and t["tau"] is None:
             continue
-        txt = f"effort tranchant : τ = {_n(t['tau'], 3)} ≤ τ_adm,{t['bande']} = {_n(t['tau_lim'], 3)} N/mm² (V à d = {_n(t['V'])} kN, d = {_n(t['d_v'] * 100)} cm)"
-        if t["C"]:
-            txt += f" — C Ø{t['C']['d']} e = {_n(t['C']['s'])} cm"
-        lignes.append([("lab", nom, True), ("lab", txt), ("num", f"{C.pct(t['taux'])} %")])
+        txt, tt, _niv, etat = SF.ligne_tranchant(t)
+        if t["V"] is not None:
+            txt += f" (V à d = {_n(t['V'])} kN)"
+        lignes.append([("lab", nom, True), ("lab", f"effort tranchant : {_txt(txt)}"), ("num", f"{C.pct(tt)} %") if tt is not None and not etat else ("lab", etat)])
     for nom, hb in fer["hauteur"].items():
-        lignes.append([("lab", "Zone courante" if nom == "courante" else nom, True), ("lab", f"hauteur : h_min = {_n(hb['h_min'])} ≤ h = {_n(hb['h'], 0)} cm"),
+        lignes.append([("lab", "Zone courante" if nom == "courante" else nom, True), ("lab", f"hauteur : {_txt(SF.hauteur(hb))}"),
                        ("num", f"{C.pct(hb['taux'])} %")])
     u = fer["U"]
     lignes.append([("lab", "U1", True), ("lab", f"U de fermeture Ø{u['d']} e = {_n(u['e'], 0)} cm, {u['n']} U (âme {_n(u['ame'], 2)} m, branches {_n(u['branche'], 2)} m)"),
@@ -120,12 +124,28 @@ def _tab_ferraillage(fer: Dict, ef: Dict, largeur: float) -> Dict:
                                                       "à dimensionner"), ("lab", "")])
     for titre, texte, niv in fer["lignes"]:
         lignes.append([("lab", titre, True), ("lab", texte), ("lab", "non traité" if niv == "nok" else "non vérifié")])
+    vs = verdicts(fer)                        # (la planche ne dessine que les verdicts qu'on lui désigne : ("k", rang))
     return {"titre": "Ferraillage", "items": [
         ("pr", "Méthode du bureau, ELS : chaque bande est une poutre de largeur b (section h + plot au droit d'un plot coulé, face inférieure) ; "
                "treillis et renforts locaux par mètre, avec les moments de calcul m ± |mxy| ; l'acier demandé est celui du moteur du module "
                "« Poutres béton armé »."),
-        ("tab", cols, lignes)], "verdicts": [{"etat": "ok" if fer["ok"] else "ko",
-                                              "texte": "Ferraillage conforme" if fer["ok"] else "Ferraillage non conforme"}]}
+        ("tab", cols, lignes)] + [("k", i) for i in range(len(vs))], "verdicts": vs}
+
+
+def verdicts(fer: Dict) -> List[Dict]:
+    """Ce que la planche conclut — et seulement ce qui est vérifié : les contrôles du moteur poutre (conformes ou non) ;
+    une bande que le module ne peut pas conclure (V à d illisible, τ en bande IV) ; les plots coulés, dont les brins
+    sous le pied restent à dimensionner (le poinçonnement n'est pas vérifié) — la même chose que les cartes de l'écran."""
+    if not fer["ok"]:
+        out = [{"etat": "ko", "texte": "Ferraillage non conforme"}]
+    elif fer.get("a_verifier"):
+        out = [{"etat": "att", "texte": "Ferraillage à vérifier — " + " ; ".join(t for t, _x, n in fer["lignes"]
+                                                                                 if t in ("Effort tranchant", "Barres inclinées")).lower()}]
+    else:
+        out = [{"etat": "ok", "texte": "Contrôles du moteur poutre conformes"}]
+    if fer["coule"]:
+        out.append({"etat": "att", "texte": "Plots : non vérifié — brins verticaux sous le pied à dimensionner (poinçonnement non vérifié)"})
+    return out
 
 
 def forme_texte(ln: Dict) -> str:

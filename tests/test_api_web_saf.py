@@ -515,6 +515,75 @@ def rapides():
         not vide["ok"] and "aucun jeu de réactions complet" in vide["erreur"] and not sans_k["ok"] and "aucun k coché" in sans_k["erreur"]
         and 'data-telecharger="export" data-avec-note="1"' in pres["resultat"] and "sous la distance mini de 1,00 m" in txt(pres["resultat"])
         and "Distance au bord Attention 0,750 m < 1,00 m" in txt(pres["resultat"]), (vide.get("erreur"), sans_k.get("erreur")))
+    revue_lot4()
+
+
+# ------------------------------------------------------------------ la relecture du lot 4 (15/11/2026) : l'écran et la note
+def revue_lot4():
+    """La relecture adverse du lot 4, côté écran et note : chaque défaut confirmé, figé (chaque contrôle rougit sans sa
+    correction — les mutations le prouvent)."""
+    from api_web import note_saf as NS
+    from api_web import note_saf_ferraillage as NF
+    print("== relecture du lot 4 : l'écran et la note")
+    type_ = M._etat_type()
+
+    def fer_de(etat):
+        e = M.normaliser(etat)
+        el = M.PR.lire(e["fondations"][e["actif"]])
+        calc = M.calculer(el)
+        return el, calc, M.ferraillage(el, calc)
+
+    # 8. le résumé de la note et les pastilles des planches : le sol ET le ferraillage
+    r = mod(mod(type_, ["dalle", "h"], "0,35")["etat"], ["limite"], "3")
+    secs = NS.sections(M.normaliser(r["etat"]))
+    etats = {x["section"]: x["etat"] for x in secs}
+    chk("relecture 8 · h = 0,35 m, limite 3 kg/cm² : le sol est conforme, la hauteur de la dalle ne l'est pas — le résumé de la note dit "
+        "« Non conforme » ; les planches Plan et données, Efforts, Ferraillage, Coupes, Bordereau aussi ; la vérification rapide (le sol) reste "
+        "« Conforme »",
+        r["resume"]["statut"] == "Non conforme" and all(etats.get(k) == "Non conforme" for k in ("Plan et données", "Efforts", "Ferraillage", "Coupes", "Bordereau"))
+        and etats.get("Vérification rapide") == "Conforme", (r["resume"], etats))
+    # 12. le signe : « > » quand la vérification échoue, à l'écran comme dans la note
+    el, calc, fer = fer_de(r["etat"])
+    lignes_note = " | ".join(str(c[1]) for ln in NF._tab_ferraillage(fer, M.efforts(el, calc), 300.0)["items"][1][2] for c in ln)
+    chk("relecture 12 · h = 0,35 m : « h_min = 36,2 > h = 35 cm » (103 %), à l'écran et dans la note — jamais « ≤ » devant un taux de plus de "
+        "100 %",
+        re.search(r"h_min = 3\d,\d > h = 35 cm", txt(r["resultat"])) is not None and re.search(r"h_min = 3\d,\d > h = 35 cm", lignes_note.replace(C.NBSP, " "))
+        is not None and not re.search(r"h_min = 3[6-9],\d ≤ h = 35", txt(r["resultat"]) + lignes_note), lignes_note[:300])
+    # 13. un renfort de bande impossible : le même texte et le même taux (le vrai) à l'écran et dans la note
+    r = mod(mod(type_, ["reactions", 2, "P", 2], "3000")["etat"], ["dalle", "h"], "0,40")
+    el, calc, fer = fer_de(r["etat"])
+    bf = fer["faces"]["inf"]["bandes"]["BX1"]
+    lignes_note = " ".join(str(c[1]) for ln in NF._tab_ferraillage(fer, M.efforts(el, calc), 300.0)["items"][1][2] for c in ln).replace(C.NBSP, " ")
+    pct = f"{C.pct(max(bf['taux'], 1.01))} %"
+    chk(f"relecture 13 · P3 = 3 000 kN, h = 0,40 m : le renfort de BX1 inf. est impossible — « renfort impossible : augmenter h », le signe « > » et "
+        f"le VRAI taux ({pct}, l'acier demandé ÷ le treillis), à l'écran comme dans la note",
+        bf["impossible"] and "renfort impossible : augmenter h" in txt(r["resultat"]) and "renfort impossible : augmenter h" in lignes_note
+        and re.search(r"Inférieure " + pct + r" A_s,néc = [\d ]+ > 524 mm²/m · treillis 524 · renfort impossible", txt(r["resultat"])) is not None
+        and pct in lignes_note, (pct, lignes_note[:300]))
+    # 3 et 10. τ en bande IV : la carte de la bande dit « à vérifier », jamais « Conforme »
+    r = mod(type_, ["reactions", 2, "P", 2], "1900")
+    chk("relecture 10 · P3 = 1 900 kN : τ en bande IV — la carte BX1 dit « à vérifier » (pas « Conforme ») et « barres inclinées non vérifiées » ; "
+        "« Non vérifiés » les nomme",
+        re.search(r'<span class="n">BX1</span><span class="e">à vérifier</span>', r["resultat"]) is not None
+        and "barres inclinées non vérifiées" in txt(r["resultat"]) and "les barres inclinées de BX1" in txt(r["resultat"]), txt(r["resultat"])[:300])
+    # 5. V à d illisible : « ne se lit pas » à l'écran, « — » dans le tableau des bandes de la note
+    pl = mod(mod(mod(type_, ["grue", "a"], "4")["etat"], ["grue", "b"], "4")["etat"], ["grue", "plots", "type"], "coule")
+    pl = mod(mod(pl["etat"], ["grue", "plots", "a"], "3,2")["etat"], ["grue", "plots", "b"], "3,2")
+    el, calc, fer = fer_de(pl["etat"])
+    tb = NF._tab_bandes(fer, M.efforts(el, calc), 300.0)["items"][1][2]
+    chk("relecture 5 · châssis 4 × 4, plots coulés 3,20 m : « V à d : ne se lit pas » sur chaque carte de bande, la ligne d'effort tranchant "
+        "« non vérifié » ; la note écrit « — » dans la colonne V à d",
+        txt(pl["resultat"]).count("V à d : ne se lit pas") == 4 and "aucune abscisse à d des zones chargées" in txt(pl["resultat"])
+        and all(ln[3][1] == "—" for ln in tb), [ln[3] for ln in tb])
+    # 9. les verdicts de la planche Ferraillage : DESSINÉS, et seulement ce qui est vérifié
+    el, calc, fer = fer_de(type_)
+    t_type = NF._tab_ferraillage(fer, M.efforts(el, calc), 300.0)
+    el, calc, fer_c = fer_de(mod(type_, ["grue", "plots", "type"], "coule")["etat"])
+    v_c = NF.verdicts(fer_c)
+    chk("relecture 9 · la planche Ferraillage DESSINE ses verdicts (« k », rang) : « Contrôles du moteur poutre conformes » — jamais "
+        "« Ferraillage conforme » —, et avec des plots coulés « Plots : non vérifié — brins verticaux sous le pied à dimensionner »",
+        [v["texte"] for v in t_type["verdicts"]] == ["Contrôles du moteur poutre conformes"] and ("k", 0) in t_type["items"]
+        and [v["etat"] for v in v_c] == ["ok", "att"] and v_c[1]["texte"].startswith("Plots : non vérifié"), (t_type["verdicts"], v_c))
 
 
 def complets():
@@ -694,6 +763,23 @@ MUTATIONS += [
      '''        html_res, volets = SR.colonne(el, calc, s, SF.cartes(el, fer, ef))''', "« Non vérifiés » sans le poinçonnement"),
     ("saf_ferraillage.py", '''        if titre == "Brins verticaux sous le pied":
             continue''', '''        pass''', "les brins sous le pied dits deux fois"),
+]
+MUTATIONS += [
+    ("saf_ferraillage.py", '    return "≤" if taux <= 1 + 1e-9 else ">"', '    return "≤"', "le signe « ≤ » écrit même quand la vérification échoue"),
+    ("saf_ferraillage.py", '           + (" · renfort impossible : augmenter h" if bf["impossible"] else ""))', '           )',
+     "le renfort impossible tu"),
+    ("saf_ferraillage.py", '    taux = max(bf["taux"], 1.01) if bf["impossible"] else bf["taux"]', '    taux = 9.99 if bf["impossible"] else bf["taux"]',
+     "un taux inventé (999 %) pour un renfort impossible"),
+    ("saf_ferraillage.py", '        return txt, tt, "c", "à vérifier"', '        return txt, tt, C.niveau(tt), ""', "τ en bande IV dit conforme à l'écran"),
+    ("saf_ferraillage.py", "              else f'<span>V à d : ne se lit pas</span>'))", "              else ''))", "V à d illisible tu à l'écran"),
+    ("note_saf.py", "        sn = M.synthese_note(el, calc, s)", "        sn = s", "les pastilles de la note ne disent que le sol"),
+    ("saf.py", '    synth_note = [synthese_note(f, calc if i == etat["actif"] else calculer(f), x) for i, (f, x) in enumerate(zip(etat["fondations"], synth))]',
+     "    synth_note = synth", "le résumé de la note ne dit que le sol"),
+    ("note_saf_ferraillage.py", '        ("tab", cols, lignes)] + [("k", i) for i in range(len(vs))], "verdicts": vs}', '        ("tab", cols, lignes)], "verdicts": vs}',
+     "les verdicts du ferraillage jamais dessinés"),
+    ("note_saf_ferraillage.py", '        out = [{"etat": "ok", "texte": "Contrôles du moteur poutre conformes"}]',
+     '        out = [{"etat": "ok", "texte": "Ferraillage conforme"}]', "« Ferraillage conforme » alors que des points ne sont pas vérifiés"),
+    ("note_saf_ferraillage.py", '    if fer["coule"]:\n        out.append(', '    if False:\n        out.append(', "les plots coulés dits vérifiés dans la note"),
 ]
 MUTATIONS = [m for m in MUTATIONS if m[2] is not None]
 TEMOIN = ("saf.py", 'MODULE = "saf"', 'MODULE = "saf"')

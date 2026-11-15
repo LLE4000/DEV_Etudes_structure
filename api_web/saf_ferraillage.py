@@ -20,12 +20,54 @@ N = C.NBSP
 CLASSES = {"p": "ok", "f": "warn", "r": "nok", "c": "inc"}
 ETATS = {"ok": "Conforme", "warn": "Conforme", "nok": "Non conforme", "inc": "non vérifié"}
 BLOC_DALLE, BLOC_BANDES, BLOC_PLOTS = 3, 4, 8              # (s0 : sol, s1 : contrôles, s2 : positions)
-MOTS_TAU = {"pas_d_etriers": "sans armature", "etriers": "C verticaux", "barres_inclinees_et_etriers": "C verticaux (barres inclinées à examiner)",
+MOTS_TAU = {"pas_d_etriers": "sans armature", "etriers": "C verticaux",
+            "barres_inclinees_et_etriers": "bande IV : barres inclinées et étriers demandés, seuls des C verticaux posés — barres inclinées non vérifiées",
             "inacceptable": "inacceptable"}
 
 
 def _mm2(x: float) -> str:
     return C.fr(x, 0)
+
+
+# ------------------------------------------------------------------ les phrases d'une bande : l'écran ET la note (une source)
+def signe(taux: float) -> str:
+    """« ≤ » quand la vérification passe, « > » quand elle échoue — jamais « ≤ » devant un taux de plus de 100 %."""
+    return "≤" if taux <= 1 + 1e-9 else ">"
+
+
+def face_bande(bf: Dict, rep: str) -> Tuple[str, float]:
+    """(le texte, le taux) d'une face d'une bande : l'acier demandé contre l'acier en place, le treillis et le renfort ;
+    un renfort IMPOSSIBLE (aucun Ø ni espacement ne couvre) le dit — « augmenter h » — et garde son vrai taux (demandé ÷
+    treillis), porté au-delà de 100 % pour rester rouge."""
+    r = bf["renfort"]
+    taux = max(bf["taux"], 1.01) if bf["impossible"] else bf["taux"]
+    pose = f"treillis {_mm2(bf['As_t_pm'])}" + (f" + {_mm2(r['As_pm'])} ({_renfort(r, rep)})" if r else "")
+    txt = (f"A_s,néc{N}={N}{_mm2(bf['retenu']['necessaire_pm'])} {signe(taux)} {_mm2(bf['As_place_pm'])}{N}mm²/m · {pose}"
+           + (" · renfort impossible : augmenter h" if bf["impossible"] else ""))
+    return txt, taux
+
+
+def ligne_tranchant(t: Dict) -> Tuple[str, object, str, str]:
+    """(texte, taux ou None, niveau, état écrit) de l'effort tranchant d'une bande : V à d illisible → « non vérifié » ;
+    τ en bande IV → « à vérifier » (le moteur poutre demande des barres inclinées, le module ne pose que des C) ; sinon
+    τ contre τ_adm de sa bande, et les C posés."""
+    if t["V"] is None:
+        return (f"aucune abscisse à d des zones chargées : V à d ne se lit pas (|V| max{N}={N}{C.fr(t.get('V_max', 0.0), 1)}{N}kN)",
+                None, "c", "non vérifié")
+    if t["tau"] is None:
+        return f"V à d{N}={N}0", None, "c", "sans objet"
+    tt = t["taux"] if t["besoin_tau"] != "inacceptable" else max(t["taux"], 1.01)
+    c_ = (f" → V : {t['C']['n']} C Ø{t['C']['d']} e{N}={N}{C.fr(t['C']['s'], 1)}{N}cm" if t["C"] else "")
+    txt = (f"τ{N}={N}{C.fr(t['tau'], 3)} {signe(tt)} τ_adm,{t['bande']}{N}={N}{C.fr(t['tau_lim'], 3)}{N}N/mm² "
+           f"(d{N}={N}{C.fr(t['d_v'] * 100, 1)}{N}cm) · {MOTS_TAU.get(t['besoin_tau'], '')}{c_}")
+    if t["besoin_tau"] == "barres_inclinees_et_etriers":
+        return txt, tt, "c", "à vérifier"
+    return txt, tt, C.niveau(tt), ""
+
+
+def hauteur(hb: Dict) -> str:
+    """La hauteur : h_min (moteur poutre) contre h."""
+    return f"h_min{N}={N}{C.fr(hb['h_min'], 1)} {signe(hb['taux'])} h{N}={N}{C.fr(hb['h'], 0)}{N}cm"
 
 
 def _pire(*taux) -> str:
@@ -67,8 +109,7 @@ def carte_dalle(el: Dict, fer: Dict) -> str:
                               C.pct(t), C.niveau(t), calcul=f"s{BLOC_DALLE}")
     hc = fer["hauteur"]["courante"]
     taux.append(hc["taux"])
-    rows += C.ligne_verif("Hauteur (zone courante)", f"h_min{N}={N}{C.fr(hc['h_min'], 1)} ≤ h{N}={N}{C.fr(hc['h'], 0)}{N}cm",
-                          C.pct(hc["taux"]), C.niveau(hc["taux"]), calcul=f"s{BLOC_DALLE}")
+    rows += C.ligne_verif("Hauteur (zone courante)", C.esc(hauteur(hc)), C.pct(hc["taux"]), C.niveau(hc["taux"]), calcul=f"s{BLOC_DALLE}")
     u = fer["U"]
     par = sorted({b["n"] for b in u["bords"]})
     rows += C.ligne_verif("U de fermeture", f"U1 : Ø{u['d']} e{N}={N}{C.fr(u['e'], 0)}{N}cm – "
@@ -108,32 +149,26 @@ def carte_bande(el: Dict, fer: Dict, ef: Dict, i: int, nom: str) -> str:
     t = fer["tranchant"][nom]
     eff = (f'<span>M⁺{N}={N}{C.fr(rb["M_plus"], 1)}{N}kNm ({C.fr(rb["M_plus"] / b, 1)}{N}kNm/m)</span> · '
            f'<span>M⁻{N}={N}{C.fr(rb["M_moins"], 1)}{N}kNm ({C.fr(rb["M_moins"] / b, 1)}{N}kNm/m)</span> · '
-           f'<span>V à d{N}={N}{C.fr(t["V"], 1)}{N}kN ({C.fr(t["V"] / b, 1)}{N}kN/m)</span>')
+           + (f'<span>V à d{N}={N}{C.fr(t["V"], 1)}{N}kN ({C.fr(t["V"] / b, 1)}{N}kN/m)</span>' if t["V"] is not None
+              else f'<span>V à d : ne se lit pas</span>'))
     rows, taux = "", []
     for cote, titre in (("inf", "Inférieure"), ("sup", "Supérieure")):
-        bf = fer["faces"][cote]["bandes"][nom]
-        r = bf["renfort"]
-        pose = f"treillis {_mm2(bf['As_t_pm'])}" + (f" + {_mm2(r['As_pm'])} ({_renfort(r, reps.get((nom, cote), 'R'))})" if r else "")
-        signe = "≤" if bf["taux"] <= 1 + 1e-9 else "&gt;"
-        txt = (f"A_s,néc{N}={N}{_mm2(bf['retenu']['necessaire_pm'])} {signe} {_mm2(bf['As_place_pm'])}{N}mm²/m · {pose}"
-               + (" · renfort impossible : augmenter h" if bf["impossible"] else ""))
-        taux.append(bf["taux"] if not bf["impossible"] else 9.99)
-        rows += C.ligne_verif(titre, txt, C.pct(taux[-1]), C.niveau(taux[-1]), calcul=f"s{BLOC_BANDES + i}")
-    if t["tau"] is None:
-        rows += C.ligne_verif("Effort tranchant", "V à d = 0", None, "c", etat_txt="sans objet")
-    else:
-        tt = t["taux"] if t["besoin_tau"] != "inacceptable" else max(t["taux"], 1.01)
-        quoi = MOTS_TAU.get(t["besoin_tau"], "")
-        c_ = (f" → V : {t['C']['n']} C Ø{t['C']['d']} e{N}={N}{C.fr(t['C']['s'], 1)}{N}cm" if t["C"] else "")
-        rows += C.ligne_verif("Effort tranchant", f"τ{N}={N}{C.fr(t['tau'], 3)} ≤ τ_adm,{t['bande']}{N}={N}{C.fr(t['tau_lim'], 3)}{N}N/mm² "
-                              f"(d{N}={N}{C.fr(t['d_v'] * 100, 1)}{N}cm) · {quoi}{c_}", C.pct(tt), C.niveau(tt), calcul=f"s{BLOC_BANDES + i}")
+        txt, tf = face_bande(fer["faces"][cote]["bandes"][nom], reps.get((nom, cote), "R"))
+        taux.append(tf)
+        rows += C.ligne_verif(titre, C.esc(txt), C.pct(tf), C.niveau(tf), calcul=f"s{BLOC_BANDES + i}")
+    txt, tt, niv, etat = ligne_tranchant(t)
+    rows += C.ligne_verif("Effort tranchant", C.esc(txt), C.pct(tt) if tt is not None else None, niv, calcul=f"s{BLOC_BANDES + i}",
+                          **({"etat_txt": etat} if etat else {}))
+    if tt is not None and niv != "c":
         taux.append(tt)
     hb = fer["hauteur"][nom]
-    rows += C.ligne_verif("Hauteur", f"h_min{N}={N}{C.fr(hb['h_min'], 1)} ≤ h{N}={N}{C.fr(hb['h'], 0)}{N}cm", C.pct(hb["taux"]), C.niveau(hb["taux"]),
-                          calcul=f"s{BLOC_BANDES + i}")
+    rows += C.ligne_verif("Hauteur", C.esc(hauteur(hb)), C.pct(hb["taux"]), C.niveau(hb["taux"]), calcul=f"s{BLOC_BANDES + i}")
     taux.append(hb["taux"])
     cls = _pire(*taux)
-    return E.bloc(BLOC_BANDES + i, nom, cls, ETATS[cls], f'<div class="sf-ef">{eff}</div>', rows, theme=True)
+    mot = ETATS[cls]
+    if etat and cls != "nok":                   # (V à d illisible, τ en bande IV : la bande n'est jamais « Conforme »)
+        cls, mot = "inc", etat
+    return E.bloc(BLOC_BANDES + i, nom, cls, mot, f'<div class="sf-ef">{eff}</div>', rows, theme=True)
 
 
 def carte_plots(el: Dict, fer: Dict, ef: Dict) -> str:
@@ -203,7 +238,7 @@ def _fenetre_dalle(el: Dict, fer: Dict) -> str:
             x0, y0, x1, y1 = r["rect"]
             detail += (f'<div class="ck-g"><div class="ck-t">Renfort local {cote}. {r["sens"]}</div><div class="fx">{r["n"]}{N}Ø{r["d"]} '
                        f'<span class="eq">·</span><span class="r">x {C.fr(x0, 2)} à {C.fr(x1, 2)} · y {C.fr(y0, 2)} à {C.fr(y1, 2)}{N}m</span></div></div>')
-    return C.fenetre_calcul(f"s{BLOC_DALLE}", "Dalle", "le treillis de chaque face : les quatre choix et leur poids total (le plus léger est retenu)",
+    return C.fenetre_calcul(f"s{BLOC_DALLE}", "Dalle", "le treillis de chaque face : les quatre choix et leur poids total (le plus léger de ceux qui conviennent est retenu)",
                             _hyps(el, fer), lignes, detail, colonnes=("Treillis", "Poids", "Total", "", "État"))
 
 
@@ -225,7 +260,7 @@ def _fenetre_bande(el: Dict, fer: Dict, ef: Dict, i: int, nom: str) -> str:
                    f'<div class="fx">A_s demandé <span class="eq">=</span><span class="r">{_mm2(g[f"besoin_{cote}"])}{N}mm² → '
                    f'{_mm2(g[f"besoin_{cote}"] * 100 / g["b"])}{N}mm²/m</span></div></div>')
     t = fer["tranchant"][nom]
-    if t["tau"] is not None:
+    if t["tau"] is not None and t["V"] is not None:
         lignes.append({"nom": "Effort tranchant", "sous": f"d{N}={N}{C.fr(t['d_v'] * 100, 1)}{N}cm", "formule": f"V à d{N}={N}{C.fr(t['V'], 1)}{N}kN",
                        "valeur": f"{C.fr(t['tau'], 3)}{N}N/mm²", "limite": f"{C.fr(t['tau_lim'], 3)}{N}N/mm²", "taux": C.pct(t["taux"]),
                        "niveau": C.niveau(t["taux"])})
@@ -255,6 +290,7 @@ def fenetres(el: Dict, fer: Dict, ef: Dict) -> str:
 def taux_max(fer: Dict) -> float:
     """Le plus grand taux du ferraillage (le résumé de la note)."""
     t = [_taux_treillis(fer["faces"][c]) for c in ("inf", "sup")]
-    t += [fer["faces"][c]["bandes"][n]["taux"] for c in ("inf", "sup") for n in fer["faces"][c]["bandes"]]
-    t += [x["taux"] for x in fer["tranchant"].values()] + [h["taux"] for h in fer["hauteur"].values()]
+    t += [face_bande(fer["faces"][c]["bandes"][n], "")[1] for c in ("inf", "sup") for n in fer["faces"][c]["bandes"]]
+    t += [ligne_tranchant(x)[1] for x in fer["tranchant"].values() if ligne_tranchant(x)[1] is not None]
+    t += [h["taux"] for h in fer["hauteur"].values()]
     return float(np.max(t)) if t else 0.0

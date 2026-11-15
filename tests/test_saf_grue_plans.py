@@ -135,6 +135,19 @@ def rapides():
         and all(re.search(r'<line [^>]*data-rep="' + t_ + '"', grp) for grp, ts in ((svg_c.split('class="df-coupe-B"')[0], ("T1", "T3")),
                                                                               (svg_c.split('class="df-coupe-B"')[1], ("T2", "T4"))) for t_ in ts)
         and re.findall(r'data-chemin="(vue/[a-z]+)"', rc["vues"][0]["entete"]) == ["vue/onglet"] * 3, (reps_c, t_c[:300]))
+    # (relecture du lot 4 : le renfort de la bande coupée est dessiné AU NIVEAU DU LIT CALCULÉ — dans le plan des barres de sa
+    # direction —, pas empilé sur le treillis, ce qui ferait perdre au chantier le d du calcul)
+    _el, _calc, fer_c, _ef = calcul(rc["etat"])
+    grp_a = svg_c.split('class="df-coupe-B"')[0]
+    ech = float(re.search(r'<rect x="[^"]+" y="[^"]+" width="[^"]+" height="([\d.]+)"', grp_a).group(1)) / 0.50
+    rep_r = next(ln["rep"] for ln in fer_c["bordereau"]["lignes"] if ln["famille"] == "R" and ln.get("bande") == "BX1" and ln.get("cote") == "inf")
+    y_t = float(re.search(r'<line [^>]*y1="([\d.]+)"[^>]*data-rep="T1"', grp_a).group(1))
+    y_r = float(re.search(r'<line [^>]*y1="([\d.]+)"[^>]*data-rep="' + rep_r + '"', grp_a).group(1))
+    bf = fer_c["faces"]["inf"]["bandes"]["BX1"]
+    att = (bf["retenu"]["lit"]["pos"] / 100.0 - (0.05 + fer_c["faces"]["inf"]["d"] / 2000.0)) * ech
+    chk(f"D2 coupe A-A : le renfort {rep_r} de BX1 (inf.) est au niveau de son lit CALCULÉ (pos = {bf['retenu']['lit']['pos']} cm), dans le plan "
+        f"des barres en x — {y_t - y_r:.2f} px au-dessus de T1 pour {att:.2f} attendus —, pas empilé sur le treillis",
+        bf["renfort"] is not None and abs((y_t - y_r) - att) <= 0.15, (y_t, y_r, att, ech))
     ec = mod(type_, ["grue", "plots", "type"], "coule")
     el8, _, fer8, _ = calcul(ec["etat"])
     r8 = mod(ec["etat"], ["vue", "onglet"], "coupes")
@@ -194,6 +207,11 @@ MUTATIONS = [
      '''        svg = (DF.plan(el, calc["modele"], fer, ef, None) if onglet == "ferraillage"''', "le fond choisi ignoré"),
     ("note_saf.py", '''            out += NF.planches(el, calc, s, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))''',
      '''            pass''', "la note sans les planches du ferraillage"),
+]
+MUTATIONS += [
+    ("dessin_ferraillage.py", '''            out.append(barre(c, L - c, z_lit(bf, cote), r["d"], col, _rep(fer, "R", bande=nom_bande, cote=cote)[0]))''',
+     '''            out.append(barre(c, L - c, zz[sens] + (d + r["d"]) / 2000.0 * (1 if cote == "inf" else -1), r["d"], col, _rep(fer, "R", bande=nom_bande, cote=cote)[0]))''',
+     "le renfort de la bande coupée empilé sur le treillis"),
 ]
 TEMOIN = ("dessin_ferraillage.py", "ECH = DS.ECH", "ECH = DS.ECH")
 

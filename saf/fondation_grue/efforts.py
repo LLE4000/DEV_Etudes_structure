@@ -16,7 +16,7 @@ linéaire complet. Les formules sont celles du calcul de référence (tests/fond
 
 Convention : m > 0 = fibre INFÉRIEURE tendue. Unités : kNm/m, kN/m aux nœuds ; kNm, kN intégrés sur une bande.
 """
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -204,11 +204,13 @@ def lecture_v(s: np.ndarray, charge: Sequence[Tuple[float, float]], d_v: float) 
     return np.all([(s <= s1 - d_v + 1e-9) | (s >= s2 + d_v - 1e-9) for s1, s2 in charge], axis=0)
 
 
-def v_a_d(bande: Dict, d_v: float) -> float:
+def v_a_d(bande: Dict, d_v: float) -> Optional[float]:
     """V à d d'une bande de l'enveloppe, RELU pour une autre hauteur utile d_v (celle que le moteur poutre donne pour la
-    section de la bande, § 4.3) : le plus grand |V(s)| aux abscisses à d_v ou plus du bord des zones chargées."""
+    section de la bande, § 4.3) : le plus grand |V(s)| aux abscisses à d_v ou plus du bord des zones chargées ; None
+    quand AUCUNE abscisse n'y est (des plots coulés plus proches que 2d, sans porte-à-faux) — V à d ne se lit pas, ce
+    qui n'est pas « V = 0 »."""
     ok = lecture_v(bande["s"], bande["charge"], d_v)
-    return float(bande["Vabs"][ok].max()) if ok.any() else 0.0
+    return float(bande["Vabs"][ok].max()) if ok.any() else None
 
 
 def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool = True) -> Dict:
@@ -220,8 +222,9 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool
     Rend {"bandes": [par bande : "nom", "s" (m), "Mmax", "Mmin" (kNm, intégrés), "Vabs" (kN), "M_plus", "M_moins", "V_d",
            "zone" (t_min, t_max), "prol_inf", "prol_sup" (kNm/m, dans le prolongement jusqu'au bord), "largeur", "p0", "u",
            "L", "ok_v", "charge" (les intervalles chargés le long de l'axe)],
-          "courante": {"inf_x", "inf_y" (max), "sup_x", "sup_y" (min), "plot_inf", "plot_sup"} (kNm/m, hors zones de renfort),
-          "champ": {"x", "y", "h", "zone_renfort", "plot", "inf_x", "inf_y", "sup_x", "sup_y", "mx_max", "my_max",
+          "courante": {"inf_x", "inf_y" (max), "sup_x", "sup_y" (min), "plot_inf", "plot_sup"} (kNm/m, en x hors des zones
+          des BX, en y hors des zones des BY),
+          "champ": {"x", "y", "h", "zone_renfort", "zone_x", "zone_y" (les zones des BX, des BY), "plot", "inf_x", "inf_y", "sup_x", "sup_y", "mx_max", "my_max",
                     "mx_min", "my_min"} (au centre des éléments), "d_v", "torsion", "ks"}"""
     res = None
     pl = modele.get("plots")
@@ -231,6 +234,7 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool
         xc = d.x0 + (d.I + 0.5) * d.a
         yc = d.y0 + (d.J + 0.5) * d.b
         dans_zone = np.zeros(len(xc), bool)
+        zone_sens = {"x": np.zeros(len(xc), bool), "y": np.zeros(len(xc), bool)}
         prol = []
         for g in geo:
             u, p0, z = g["u"], g["p0"], g["zone"]
@@ -239,12 +243,15 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool
             T = (xc - p0[0]) * n[0] + (yc - p0[1]) * n[1]
             dz = (S >= -1e-6) & (S <= g["s"][-1] + 1e-6) & (T >= z[0] - 1e-6) & (T <= z[1] + 1e-6)
             dans_zone |= dz
+            # (une bande BX ne pose que des barres en x, une BY qu'en y : dans la zone d'une BX, les barres en y restent
+            # au treillis — elles se contrôlent élément par élément comme la zone courante)
+            zone_sens["x" if g["bande"]["nom"].startswith("BX") else "y"] |= dz
             prol.append(dz & (np.abs(T) > g["bande"]["largeur"] / 2 + 1e-6))
         dans_plot = np.zeros(len(xc), bool)
         if pl and pl["type"] == "coule":
             for q in pl["polys"]:
                 dans_plot |= dans_polygone(xc, yc, q)
-        cour = ~dans_zone
+        cour = {k: ~v for k, v in zone_sens.items()}
         if res is None:
             nul = lambda: np.zeros(len(xc))  # noqa: E731
             res = {"bandes": [{"nom": g["bande"]["nom"], "s": g["s"], "Mmax": np.full(len(g["s"]), -np.inf), "Mmin": np.full(len(g["s"]), np.inf),
@@ -253,7 +260,7 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool
                                "debut": g["bande"]["debut"], "fin": g["bande"]["fin"]} for g in geo],
                    "courante": {"inf_x": 0.0, "inf_y": 0.0, "sup_x": 0.0, "sup_y": 0.0, "plot_inf": 0.0, "plot_sup": 0.0},
                    "champ": {"x": xc, "y": yc, "h": modele["h"] + np.where(dans_plot, pl["hauteur"] if dans_plot.any() else 0.0, 0.0),
-                             "zone_renfort": dans_zone, "plot": dans_plot, "inf_x": nul(), "inf_y": nul(), "sup_x": nul(), "sup_y": nul(),
+                             "zone_renfort": dans_zone, "zone_x": zone_sens["x"], "zone_y": zone_sens["y"], "plot": dans_plot, "inf_x": nul(), "inf_y": nul(), "sup_x": nul(), "sup_y": nul(),
                              "mx_max": nul(), "my_max": nul(), "mx_min": nul(), "my_min": nul(), "I": d.I, "J": d.J,
                              "a": d.a, "b": d.b, "x0": d.x0, "y0": d.y0},
                    "d_v": d_v, "torsion": torsion, "ks": []}
@@ -286,21 +293,22 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float, torsion: bool
             ch["mx_min"] = np.minimum(ch["mx_min"], Me[:, 0])
             ch["my_min"] = np.minimum(ch["my_min"], Me[:, 1])
             c_ = res["courante"]
-            for zone_, plot_ in ((cour & ~dans_plot, False), (cour & dans_plot, True)):
-                if not zone_.any():
-                    continue
-                if not plot_:
-                    c_["inf_x"] = max(c_["inf_x"], float((Me[:, 0] + ax)[zone_].max()))
-                    c_["inf_y"] = max(c_["inf_y"], float((Me[:, 1] + ax)[zone_].max()))
-                    c_["sup_x"] = min(c_["sup_x"], float((Me[:, 0] - ax)[zone_].min()))
-                    c_["sup_y"] = min(c_["sup_y"], float((Me[:, 1] - ax)[zone_].min()))
-                else:
-                    c_["plot_inf"] = max(c_["plot_inf"], float((np.maximum(Me[:, 0], Me[:, 1]) + ax)[zone_].max()))
-                    c_["plot_sup"] = min(c_["plot_sup"], float((np.minimum(Me[:, 0], Me[:, 1]) - ax)[zone_].min()))
+            # la zone courante, DIRECTION PAR DIRECTION : les moments en x hors des zones des BX, en y hors des zones des BY
+            for i, k in ((0, "x"), (1, "y")):
+                for zone_, plot_ in ((cour[k] & ~dans_plot, False), (cour[k] & dans_plot, True)):
+                    if not zone_.any():
+                        continue
+                    hi, lo = float((Me[:, i] + ax)[zone_].max()), float((Me[:, i] - ax)[zone_].min())
+                    if not plot_:
+                        c_[f"inf_{k}"] = max(c_[f"inf_{k}"], hi)
+                        c_[f"sup_{k}"] = min(c_[f"sup_{k}"], lo)
+                    else:
+                        c_["plot_inf"] = max(c_["plot_inf"], hi)
+                        c_["plot_sup"] = min(c_["plot_sup"], lo)
     if res is None:
         return None
     for rb in res["bandes"]:
         rb["M_plus"] = float(rb["Mmax"].max())
         rb["M_moins"] = float(rb["Mmin"].min())
-        rb["V_d"] = float(rb["Vabs"][rb["ok_v"]].max()) if rb["ok_v"].any() else 0.0
+        rb["V_d"] = float(rb["Vabs"][rb["ok_v"]].max()) if rb["ok_v"].any() else None
     return res

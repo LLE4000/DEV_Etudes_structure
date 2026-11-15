@@ -322,6 +322,42 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
   if (resultat) rouvrir.observe(resultat, { childList: true });
   if (signal) signal.addEventListener("abort", () => rouvrir.disconnect(), { once: true });
 
+  // ------------------------------------------------------------------ data-courts : le libellé court d'un choix qui ne tient pas
+  // (la barre du centre — cahier du lot 4, § 2.3 : « sur tablette, tout tient sur une ligne, avec des libellés courts si
+  // besoin ») : le choix AFFICHÉ prend son libellé court quand le long dépasse la place que le menu lui laisse ; la liste
+  // dépliée garde les longs. Mesuré dans la police du menu ; refait à chaque réponse du moteur et à chaque redimension.
+  const regle = document.createElement("canvas").getContext("2d");
+  const deborde = (s) => {                                        // le texte affiché dépasse-t-il la place du menu ?
+    const o = s.options[s.selectedIndex];
+    if (!o || !s.clientWidth) return false;
+    const cs = getComputedStyle(s);
+    regle.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return regle.measureText(o.textContent).width > s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5;
+  };
+  const passe = (menus) => menus.forEach((s) => {
+    let courts;
+    try { courts = JSON.parse(s.dataset.courts); } catch (e) { return; }
+    [...s.options].forEach((o) => { if (o.dataset.long !== undefined) { o.textContent = o.dataset.long; delete o.dataset.long; } });
+    const o = s.options[s.selectedIndex];
+    if (o && o.value in courts && deborde(s)) { o.dataset.long = o.textContent; o.textContent = courts[o.value]; }
+  });
+  const raccourcir = () => {
+    stage.querySelectorAll(".sf-barre").forEach((barre) => {
+      const menus = [...barre.querySelectorAll("select[data-courts]")];
+      barre.classList.remove("serre");
+      passe(menus);
+      if (menus.some(deborde)) { barre.classList.add("serre"); passe(menus); }   // (même le court ne tient pas : deux lignes)
+    });
+  };
+  let attente = 0;
+  const bientot = () => { cancelAnimationFrame(attente); attente = requestAnimationFrame(() => { veille.disconnect(); raccourcir(); veille.takeRecords(); veille.observe(stage, { childList: true, subtree: true }); }); };
+  const veille = new MutationObserver(bientot);                 // (déconnecté le temps de raccourcir : ses propres changements ne le relancent pas)
+  veille.observe(stage, { childList: true, subtree: true });
+  const taille = typeof ResizeObserver === "function" ? new ResizeObserver(bientot) : null;
+  if (taille) taille.observe(stage);
+  bientot();
+  if (signal) signal.addEventListener("abort", () => { veille.disconnect(); if (taille) taille.disconnect(); cancelAnimationFrame(attente); }, { once: true });
+
   // ------------------------------------------------------------------ data-cherche : la recherche d'un sélecteur
   // les lignes du sélecteur qui ne portent pas tous les mots tapés se cachent (sans tenir compte des accents ni de la casse)
   const simple = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

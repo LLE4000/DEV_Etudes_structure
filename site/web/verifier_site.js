@@ -892,7 +892,9 @@ const principal = async () => {
       // sur la première vue qui est un dessin (un tableau ne se zoome pas : il défile)
       const k = await pg.evaluate(() => { const v = [...document.querySelectorAll('#stage .view')].find((x) => x.querySelector('.draw > svg')); return v ? v.dataset.vue : null; });
       if (!k) return { saute: true };
-      await pg.click(`#vues [data-vue="${k}"]`);
+      // (une page à UNE vue — le Générateur SAF, lot 4 — cache la rangée des vues de l'établi : sa vue est déjà la bonne)
+      const vuesVues = await pg.evaluate(() => { const e = document.querySelector('#vues'); return !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true }); });
+      if (vuesVues) await pg.click(`#vues [data-vue="${k}"]`);
       const lire = () => pg.evaluate(() => { const t = [...document.querySelectorAll('.view.on .draw > svg text')].find((x) => x.getBoundingClientRect().height > 0); return t ? t.getBoundingClientRect().height : document.querySelector('.view.on .draw > svg').getBoundingClientRect().width; });
       const a = await lire();
       await pg.click('#zoom [data-zoom="plus"]'); await pg.click('#zoom [data-zoom="plus"]');
@@ -902,7 +904,7 @@ const principal = async () => {
       await pg.click('#zoom [data-zoom="ajuster"]');
       await pg.waitForTimeout(100);
       const r = await lire();
-      await pg.click('#vues [data-vue]');
+      if (vuesVues) await pg.click('#vues [data-vue]');
       return { a, z, r, pct, ok: z >= a * 1.4 && Math.abs(r - a) < 0.5 };
     };
     // la fenêtre de calcul et le sélecteur s'ouvrent et tiennent dans l'écran
@@ -4970,6 +4972,15 @@ const principal = async () => {
         }
         verif(`saf · ${fmt} : dans chacun des quatre blocs${tel ? ' et chaque onglet' : ''}, rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ, chaque bouton vu à 44 px au doigt${tel ? ', chaque champ à 16 px au moins' : ''}`,
           rubs.length === 4 && !fautes.length, fautes.join(' | ').slice(0, 700));
+        // (lot 4 : au téléphone, la barre du dessin ne passait pas à la ligne — les menus tombaient à « C… », « E… » ; on
+        // MESURE la largeur du texte choisi, dans la police du menu, contre la place que le menu lui laisse)
+        const menus = await pg.evaluate((VIS) => [...document.querySelectorAll('#stage .sf-barre select')].filter((s) => s.checkVisibility(VIS)).map((s) => {
+          const cs = getComputedStyle(s); const sp = document.createElement('span');
+          sp.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
+          sp.textContent = s.options[s.selectedIndex].text; document.body.appendChild(sp); const tw = sp.getBoundingClientRect().width; sp.remove();
+          return { t: sp.textContent, tw: Math.round(tw), place: Math.round(s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) }; }), VIS);
+        verif(`saf · ${fmt} : chaque menu de la barre du dessin montre son choix EN ENTIER (« Contrainte », « Enveloppe »…)`,
+          menus.length >= 2 && menus.every((m) => m.tw <= m.place + 0.5), JSON.stringify(menus));
         const dv = await planS(pg);
         verif(`saf · ${fmt} : le plan est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '450 × 300 au moins'}), dans sa toile et dans l'écran ; la carte est sur la dalle ; chaque texte dans le dessin, aucun sur un autre`,
           !!dv && dv.dedans && dv.carteSurDalle && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 450 && dv.h >= 300), JSON.stringify(dv ? { hors: dv.hors, dessus: dv.dessus, l: dv.l, h: dv.h, zone: dv.zone, dedans: dv.dedans, carte: dv.carteSurDalle, texte: dv.texte } : null).slice(0, 600));
@@ -6638,6 +6649,11 @@ const principal = async () => {
       // comparaison ; la note écrit « σ max = 110,2 kPa (1,12 kg/cm²) »)
       ['σ (kPa)', /Contrainte de contact\s*(\d+,\d)\s*kPa/, (v) => `${v} kPa`],
       ['σ (kg/cm²)', /σ\s*(\d+,\d+)\s*kg\/cm²/, (v) => `${v} kg/cm²`],
+      // (le Générateur SAF, lot 4 : les cartes du module poutre — « σ max = 0,59 kg/cm² » dans la carte SOL, « h_min = 38,8 ≤ h »
+      // et « A_s,néc = 1280 ≤ … » dans les cartes des bandes ; la note les écrit sous la même forme)
+      ['σ max', /σ max\s*=\s*(\d+,\d+)\s*kg\/cm²/, (v) => `σ max = ${v} kg/cm²`],
+      ['h_min', /h_min\s*=\s*(\d+,\d+)\s*≤/, (v) => `h_min = ${v} ≤`],
+      ['A_s,néc', /A_s,néc\s*=\s*(\d+)\s*≤/, (v) => `A_s,néc = ${v} ≤`],
     ];
     const FORMATS_NOTE = [
       ['pc', { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }],

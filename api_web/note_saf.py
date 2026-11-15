@@ -45,8 +45,9 @@ from . import saf_saisie as SS
 
 TITRE = "Fondation de grue"
 MARGE_DESSIN = 2.0
-COULEURS = {"p": "ok", "f": "att", "r": "ko", "n": "att", "x": "ko"}
-MOTS = {"p": "Conforme", "f": "Conforme, à la limite", "r": "Non conforme", "n": "Données incomplètes", "x": "Calcul impossible"}
+COULEURS = {"p": "ok", "f": "att", "r": "ko", "n": "att", "x": "ko", "v": "att"}
+MOTS = {"p": "Conforme", "f": "Conforme, à la limite", "r": "Non conforme", "n": "Données incomplètes", "x": "Calcul impossible",
+        "v": "À vérifier"}
 LEGENDE = "Vert : sous la limite   ·   Ocre : à la limite (95 à 100 %), ou à compléter   ·   Rouge : au-dessus de la limite"
 ORIGINES = {"mesure": "≈ ", "calcule": "calc. "}
 PLOTS = {"aucun": "aucun", "prefabrique": "préfabriqués", "coule": "coulés en place"}
@@ -360,11 +361,13 @@ def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
     for el in etat["fondations"]:
         calc = M.calculer(el)
         s = SR.synthese(el, calc)
-        out += [planche_donnees(el, calc, s, style), planche_verification(el, calc, s, style)]
+        sn = M.synthese_note(el, calc, s)         # (la pastille d'une planche : le sol ET le ferraillage ; la vérification
+        #                                            rapide, qui ne parle que du sol, garde la synthèse du sol)
+        out += [planche_donnees(el, calc, sn, style), planche_verification(el, calc, s, style)]
         fer = M.ferraillage(el, calc) if s.get("r_vue") is not None else None
         if fer is not None and "erreur" not in fer:
             from . import note_saf_ferraillage as NF
-            out += NF.planches(el, calc, s, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))
+            out += NF.planches(el, calc, sn, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))
         annexe = planche_annexe(el, s, style)
         if annexe:
             out.append(annexe)

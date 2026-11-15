@@ -166,6 +166,104 @@ def bandes(nom, el, ef, fer):
         f"la largeur de la zone, longueur de la bande moins deux enrobages", marge >= -1e-6 and ecarts < 1e-6 and regles, (marge, ecarts, regles))
 
 
+# ------------------------------------------------------------------ la relecture du lot 4 (15/11/2026) : dix défauts trouvés
+def zones_independantes(ef):
+    """Les zones de renfort de chaque direction, recalculées ICI depuis la géométrie des bandes (axe, largeur de zone,
+    longueur) : une BX ne pose que des barres en x, une BY qu'en y."""
+    ch = ef["champ"]
+    z = {"x": np.zeros(len(ch["x"]), bool), "y": np.zeros(len(ch["x"]), bool)}
+    for rb in ef["bandes"]:
+        u = np.asarray(rb["u"], float)
+        nrm = np.array([-u[1], u[0]])
+        S = (ch["x"] - rb["p0"][0]) * u[0] + (ch["y"] - rb["p0"][1]) * u[1]
+        T = (ch["x"] - rb["p0"][0]) * nrm[0] + (ch["y"] - rb["p0"][1]) * nrm[1]
+        z["x" if rb["nom"].startswith("BX") else "y"] |= ((S >= -1e-6) & (S <= rb["s"][-1] + 1e-6) & (T >= rb["zone"][0] - 1e-6)
+                                                          & (T <= rb["zone"][1] + 1e-6))
+    return z
+
+
+def revue_lot4():
+    """La relecture adverse du lot 4 : chaque défaut confirmé, figé ici (chaque contrôle rougit sans sa correction)."""
+    print("== relecture du lot 4 : les défauts confirmés, figés")
+    # 1. (non conservatif) dans la zone d'une bande, la direction PERPENDICULAIRE est contrôlée élément par élément
+    for nom, kw in (("dalle type", {}), ("bandes de 1,00 m", {"largeur": 1.0})):
+        el, (m, ef, fer) = None, (None, None, None)
+        el = projet(**kw)
+        m, ef, fer = ferrailler(el)
+        z = zones_independantes(ef)
+        ch = ef["champ"]
+        manque, transverses = 0, 0
+        for cote in ("inf", "sup"):
+            for sens in ("x", "y"):
+                cv = fer["faces"][cote]["couverture"][sens]
+                doit = ~ch["plot"] & ~z[sens]
+                manque += int(np.sum(doit & ~cv["controle"]))
+                autre = "y" if sens == "x" else "x"
+                transverses += int(np.sum(cv["controle"] & z[autre]))
+        chk(f"relecture 1 · {nom} : chaque élément hors plot et hors de la zone d'une bande de SA direction est contrôlé un à un "
+            f"(dans la zone d'une BX, les barres en y le sont aussi : {transverses} contrôles transversaux) — aucun oublié",
+            manque == 0 and transverses > 0, (manque, transverses))
+        if not kw:
+            # la zone courante (la hauteur) : en x hors des zones des BX, en y hors des zones des BY
+            cour = {k: ~ch["plot"] & ~z[k] for k in ("x", "y")}
+            att = {f"inf_{k}": float(ch[f"inf_{k}"][cour[k]].max()) for k in ("x", "y")}
+            chk("relecture 1 · la zone courante se lit direction par direction (les moments transversaux des zones de renfort y entrent) : "
+                f"inf_x = {att['inf_x']:.1f}, inf_y = {att['inf_y']:.1f} kNm/m",
+                all(abs(ef["courante"][k] - v) < 1e-9 for k, v in att.items()), (att, {k: ef["courante"][k] for k in att}))
+            i = int(np.argmin((ch["x"] - 1.3) ** 2 + (ch["y"] - 6.9) ** 2))
+            cv = fer["faces"]["inf"]["couverture"]["y"]
+            chk("relecture 1 · l'élément (1,3 ; 6,9), face inf., direction y — dans la zone de BX1, hors de BY1 — est contrôlé et couvert "
+                f"({cv['besoin'][i]:.1f} ≤ {cv['As_place'][i]:.1f} mm²/m)",
+                bool(cv["controle"][i]) and cv["besoin"][i] <= cv["As_place"][i] + 1e-6 and cv["besoin"][i] > 1400, (cv["besoin"][i], cv["As_place"][i]))
+    # 2. (non conservatif) les C vont partout où |V(s)| demande des armatures, jusqu'au bord de la zone chargée
+    el = projet(h=0.35)
+    m, ef, fer = ferrailler(el)
+    t = fer["tranchant"]["BX1"]
+    rb = next(b for b in ef["bandes"] if b["nom"] == "BX1")
+    li, ls = fer["faces"]["inf"]["bandes"]["BX1"]["retenu"]["lit"], fer["faces"]["sup"]["bandes"]["BX1"]["retenu"]["lit"]
+    bt = [r["grandeurs"]["besoin_tau"] for r in moteur(el, rb["largeur"] * 100, 35.0, [sec(0, 0, float(v), li, ls) for v in rb["Vabs"]])]
+    hors = np.all([(rb["s"] <= s1 + 1e-9) | (rb["s"] >= s2 - 1e-9) for s1, s2 in rb["charge"]], axis=0)
+    demande = [float(s_) for s_, b_, h_ in zip(rb["s"], bt, hors) if h_ and b_ not in (None, "pas_d_etriers")]
+    zs = (t["C"] or {}).get("zones", [])
+    couvert = all(any(z0 - 1e-9 <= s_ <= z1 + 1e-9 for z0, z1 in zs) for s_ in demande)
+    bords = all(any(abs(z1 - s1) < 1e-9 or abs(z0 - s2) < 1e-9 for z0, z1 in zs) for s1, s2 in rb["charge"])
+    chk(f"relecture 2 · h = 0,35 m, BX1 : des C partout où |V(s)| demande des armatures hors de la zone chargée ({len(demande)} abscisses), "
+        f"jusqu'au BORD de la zone chargée — entre ce bord et d, |V| est le plus fort ({t['C'] and t['C']['n']} C)",
+        bool(demande) and couvert and bords, (zs, demande[:6]))
+    # 3. le treillis automatique : le plus léger parmi ceux qui CONVIENNENT
+    el = projet(h=0.35, jeux=[tuple(2 * v for v in j) for j in JEUX])
+    fer = ferrailler(el)[2]
+    fs = fer["faces"]["sup"]
+    valides = [c for c in fs["candidats"] if c["ok"]]
+    leger_faux = [c for c in fs["candidats"] if not c["ok"] and c["poids"] < min(v["poids"] for v in valides)] if valides else []
+    chk("relecture 3 · h = 0,35 m, réactions × 2, face sup. automatique : un candidat plus léger ne convient pas (ses renforts impossibles "
+        f"« pèsent » 0) — le module retient le plus léger de ceux qui conviennent ({fs['code']})",
+        bool(leger_faux) and fs["ok"] and fs["code"] == min(valides, key=lambda c: c["poids"])["code"],
+        ([(c["code"], round(c["poids"]), c["ok"]) for c in fs["candidats"]], fs["code"]))
+    # 4. τ en bande IV : le moteur demande des barres inclinées — la bande est « à vérifier », jamais conforme
+    jeux4 = [list(j) for j in JEUX]
+    jeux4[2][2] = 1900
+    fer = ferrailler(projet(jeux=[tuple(j) for j in jeux4]))[2]
+    t = fer["tranchant"]["BX1"]
+    chk("relecture 4 · P3 = 1 900 kN : τ en bande IV (barres inclinées et étriers demandés), le module ne pose que des C — « à vérifier » : "
+        "une ligne « Barres inclinées » et les barres inclinées dans « Non vérifiés »",
+        t["besoin_tau"] == "barres_inclinees_et_etriers" and fer["a_verifier"] and any(x[0] == "Barres inclinées" for x in fer["lignes"])
+        and any("barres inclinées" in x for x in fer["non_verifies"]), (t["besoin_tau"], fer["a_verifier"], fer["non_verifies"]))
+    # 5. V à d illisible (plots coulés plus proches que 2d) : « non vérifié », jamais V = 0
+    el = PR.nouveau()
+    el["reactions"] = [{"nom": "", "P": list(j)} for j in JEUX]
+    el["grue"]["a"] = el["grue"]["b"] = 4.0
+    el["grue"]["plots"] = {"type": "coule", "a": 3.2, "b": 3.2, "h": 0.35}
+    el = PR.lire(el)
+    m, ef, fer = ferrailler(el)
+    rb = ef["bandes"][0]
+    chk("relecture 5 · châssis 4 × 4, plots coulés 3,20 m : aucune abscisse à d des zones chargées — V à d ne se lit pas (None, pas 0) ; "
+        "l'effort tranchant de chaque bande est « non vérifié » et nommé dans « Non vérifiés »",
+        EF.v_a_d(rb, 0.43) is None and all(t["V"] is None and t["etat"] == "non_verifie" for t in fer["tranchant"].values())
+        and fer["a_verifier"] and any("V à d ne se lit pas" in x for x in fer["non_verifies"]),
+        ({n: (t["V"], t["etat"]) for n, t in fer["tranchant"].items()}, fer["non_verifies"]))
+
+
 # ------------------------------------------------------------------ les contrôles RAPIDES (rejoués par les mutations)
 def rapides():
     t = time.time()
@@ -353,6 +451,8 @@ def rapides():
                 np.allclose(b_, [g[f"besoin_{cote}"] for g in ref], rtol=1e-12, atol=1e-9)
                 and {g[f"As_min_terme_{cote}"] for g in ref} >= {"opposee", "ec"}, (list(b_), [g[f"besoin_{cote}"] for g in ref]))
 
+    revue_lot4()
+
 
 def _pref():
     return ferrailler(projet(plots=PREF, L=10.0))[2]
@@ -389,9 +489,26 @@ MUTATIONS = [
      "le poids sans la longueur"),
     ("ferraillage.py", '(sum(G.aire(q) for q in pl["polys"]) * pl["hauteur"] if pl and pl["type"] == "coule" else 0.0)', '0.0',
      "le béton des plots coulés oublié"),
-    ("ferraillage.py", "            f = min(cands, key=lambda x: (round(x[\"poids\"], 6), TREILLIS_CHOIX.index(x[\"code\"])))",
-     "            f = max(cands, key=lambda x: (round(x[\"poids\"], 6), TREILLIS_CHOIX.index(x[\"code\"])))", "le treillis le plus lourd"),
-    ("ferraillage.py", "    rouge = np.flatnonzero(ctx.controle & (besoins[d_t] > As_t + EPS))", "    rouge = np.flatnonzero(ctx.controle & False)",
+    ("ferraillage.py", "            f = min(valides, key=lambda x: (round(x[\"poids\"], 6), TREILLIS_CHOIX.index(x[\"code\"])))",
+     "            f = max(valides, key=lambda x: (round(x[\"poids\"], 6), TREILLIS_CHOIX.index(x[\"code\"])))", "le treillis le plus lourd"),
+    ("ferraillage.py", '            valides = [x for x in cands if x["ok"]] or cands', "            valides = cands",
+     "le treillis automatique retient un candidat qui ne convient pas (ses renforts impossibles pèsent 0)"),
+    ("ferraillage.py", '        self.controle = {"x": ~ch["zone_x"] & ~ch["plot"], "y": ~ch["zone_y"] & ~ch["plot"]}',
+     '        self.controle = {"x": ~ch["zone_renfort"] & ~ch["plot"], "y": ~ch["zone_renfort"] & ~ch["plot"]}',
+     "la direction perpendiculaire non contrôlée dans les zones de renfort"),
+    ("efforts.py", '            zone_sens["x" if g["bande"]["nom"].startswith("BX") else "y"] |= dz',
+     '            zone_sens["x"] |= dz\n            zone_sens["y"] |= dz', "les zones de renfort réunies pour les deux directions"),
+    ("efforts.py", '                for zone_, plot_ in ((cour[k] & ~dans_plot, False), (cour[k] & dans_plot, True)):',
+     '                for zone_, plot_ in ((cour["x"] & cour["y"] & ~dans_plot, False), (cour["x"] & cour["y"] & dans_plot, True)):',
+     "la zone courante lue hors de TOUTES les zones (les moments transversaux oubliés)"),
+    ("ferraillage.py", '    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & hors',
+     '    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & EF.lecture_v(rb["s"], rb["charge"], d_v)',
+     "les C arrêtés à d du bord de la zone chargée"),
+    ("ferraillage.py", '    inclinees = [n for n, t in tr.items() if t["besoin_tau"] == "barres_inclinees_et_etriers"]', "    inclinees = []",
+     "τ en bande IV dit conforme (les barres inclinées oubliées)"),
+    ("efforts.py", '    return float(bande["Vabs"][ok].max()) if ok.any() else None', '    return float(bande["Vabs"][ok].max()) if ok.any() else 0.0',
+     "V à d illisible pris pour 0"),
+    ("ferraillage.py", "    rouge = np.flatnonzero(ctx.controle[sens] & (besoins[d_t] > As_t + EPS))", "    rouge = np.flatnonzero(ctx.controle[sens] & False)",
      "aucun renfort local"),
     ("ferraillage.py", '            if sens == "x":\n                X0, X1 = X0 - lr, X1 + lr', '            if False:\n                X0, X1 = X0 - lr, X1 + lr',
      "les renforts locaux en x sans recouvrement"),

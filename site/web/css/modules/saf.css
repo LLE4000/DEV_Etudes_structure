@@ -68,15 +68,27 @@
 .canvas > .ctool { position: absolute; right: 10px; bottom: 64px; z-index: 3; padding: 0; display: block; pointer-events: none; }
 .canvas > .ctool > .zoom { pointer-events: auto; }
 .canvas > .ctool > .et-outils { display: none; }
+/* au PC, la toile court SOUS les deux colonnes (son rembourrage leur fait place) : le zoom se pose au bord de la partie
+   VUE, pas au bord de la toile — sinon il tombe sous la colonne des résultats (le harnais navigateur l'a trouvé à 1 280
+   et 1 440 px) ; en plein écran la toile n'a plus de colonnes */
+@media (min-width: 1200px) { .canvas > .ctool { right: calc(var(--pr) + 10px); } }
+.bench.plein .canvas > .ctool { right: 22px; }
 .et-ent.sf-barre { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px; padding: 2px 0 6px; min-width: 0; }
 .sf-barre > .seg { flex: none; }
 .sf-barre .seg button { height: 30px; padding: 0 11px; font-size: 12.5px; }
 .sf-barre .sf-onglets button.on { background: var(--ink); color: var(--panel); }
-.sf-barre > .field.select { height: 30px; min-width: 0; flex: 0 1 auto; }
+/* les menus se partagent la place à PARTS ÉGALES (chacun borné à sa largeur utile) : un menu ne garde pas de la place
+   pendant qu'un autre est coupé ; un choix qui ne tient pas prend son libellé court (js/plan.js, data-courts) ; si même
+   le court ne tient pas (une toile très étroite), la barre passe — exceptionnellement — sur deux lignes (.serre) */
+.sf-barre > .field.select { height: 30px; min-width: 0; flex: 1 1 0; }
 .sf-barre > .field.select select { font-size: 12.5px; min-width: 0; text-overflow: ellipsis; }
-.sf-barre > .sf-m-carte { flex: 0 1 132px; }
-.sf-barre > .sf-m-cas { flex: 0 1 150px; }
-.sf-barre > .sf-m-k { flex: 0 1 112px; }
+.sf-barre > .sf-m-carte { max-width: 132px; }
+.sf-barre > .sf-m-cas { max-width: 150px; }
+.sf-barre > .sf-m-k { max-width: 112px; }
+.sf-barre > .sf-m-face { max-width: 112px; }
+.sf-barre > .sf-m-fond { max-width: 190px; }
+.et-ent.sf-barre.serre { flex-wrap: wrap; }
+.et-ent.sf-barre.serre > .field.select { flex: 1 1 auto; max-width: none; }   /* (à leur largeur : ils passent à la ligne) */
 /* la carte « Sol » : le tableau par k, dépliable dans la carte */
 .sf-tkd { margin: 4px 0 2px; border-top: 1px solid var(--line); }
 .sf-tkd > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 7px 2px; font-size: 12.5px; }
@@ -222,9 +234,15 @@
   .sf-notes-l button { min-height: 44px; padding: 11px 10px; }
 }
 @media (max-width: 700px) {
-  .sf-barre { flex-wrap: wrap; }
-  .sf-barre > .field.select { flex: 1 1 120px; }
-  .canvas > .ctool { display: none; }
+  /* (le téléphone : les onglets sur leur rangée, les menus dessous, chacun lisible — « .et-ent.sf-barre » l'interdisait
+     avec son « nowrap » plus fort : les menus tombaient à « C… » et « E… ») */
+  .et-ent.sf-barre { flex-wrap: wrap; }
+  .sf-barre > .seg { flex: 1 0 100%; display: flex; }
+  .sf-barre > .seg button { flex: 1 1 0; }
+  .sf-barre > .field.select { flex: 1 1 140px; }
+  /* (le téléphone : le zoom et le plein écran restent — R1 — en haut de la toile, à droite, comme les autres modules ; le
+     harnais navigateur a trouvé qu'ils étaient cachés ici) */
+  .canvas > .ctool { position: static; display: flex; justify-content: flex-end; padding: 6px 12px 0; pointer-events: auto; }
   .sf-vue { margin-left: 0; width: 100%; }
   .sf-vue .field.select { max-width: none; flex: 1 1 140px; }
 }

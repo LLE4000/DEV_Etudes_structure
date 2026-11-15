@@ -161,24 +161,31 @@ def champ(el: Dict, calc: Dict, s: Dict, ef: Optional[Dict] = None) -> Optional[
 
 
 # ------------------------------------------------------------------ l'en-tête du plan : la carte, le cas, le k
-def _menu(chemin: str, valeur: str, options, titre: str, classe: str = "") -> str:
-    """Une liste déroulante de la barre du centre (data-agir : js/plan.js l'envoie au moteur)."""
+def _menu(chemin: str, valeur: str, options, titre: str, classe: str = "", courts: Optional[Dict[str, str]] = None) -> str:
+    """Une liste déroulante de la barre du centre (data-agir : js/plan.js l'envoie au moteur). ``courts`` : le libellé
+    court de chaque choix (§ 2.3 : « sur tablette, tout tient sur une ligne, avec des libellés courts si besoin ») —
+    js/plan.js l'affiche à la place du libellé du choix QUAND celui-ci ne tient pas ; la liste dépliée garde les longs."""
     opts = "".join(f'<option value="{C.esc(v)}"{" selected" if v == valeur else ""}>{C.esc(t)}</option>' for v, t in options)
+    dc = f' data-courts="{C.esc(json.dumps(courts, ensure_ascii=False))}"' if courts else ""
     return (f'<div class="field select{(" " + classe) if classe else ""}"><select data-agir="1" data-chemin="{chemin}" aria-label="{C.esc(titre)}" '
-            f'title="{C.esc(titre)}">{opts}</select>{C.icon("chevron-down")}</div>')
+            f'title="{C.esc(titre)}"{dc}>{opts}</select>{C.icon("chevron-down")}</div>')
+
+
+# les libellés courts de la barre du centre (affichés seulement quand le long ne tient pas)
+COURTS_CARTES = {"sigma": "σ", "w": "w", "m": "M", "aucune": "Aucune"}
 
 
 def entete(el: Dict, calc: Dict, s: Dict, onglets=ONGLETS) -> str:
     """La barre du centre, sur UNE ligne (§ 2.3) : les onglets (Plan, Ferraillage, Coupes), le choix de la carte, la liste
-    « Cas » et la liste « k » (« Enveloppe » en tête). Sur tablette, elle tient sur une ligne (saf.css) ; les libellés
-    longs des cartes ont un court (« σ », « w ») qui les remplace quand la place manque."""
+    « Cas » et la liste « k » (« Enveloppe » en tête). Sur tablette, elle tient sur une ligne (saf.css) ; chaque choix
+    a un libellé court (« σ », « w », « Env. k »…) que js/plan.js affiche quand le long ne tient pas."""
     vue = el["vue"]
     tabs = "".join(f'<button type="button" class="{"on" if k == vue["onglet"] else ""}" data-agir="1" data-chemin="vue/onglet" data-valeur="{k}">{t}</button>'
                    for k, t in onglets)
     out = f'<div class="seg sf-onglets" role="tablist" aria-label="Vue du centre">{tabs}</div>'
     if vue["onglet"] == "plan":
         moments = vue["carte"] in PR.CARTES_MOMENTS
-        out += _menu("vue/carte", "m" if moments else vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte")
+        out += _menu("vue/carte", "m" if moments else vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte", COURTS_CARTES)
         if moments:
             out += _menu("vue/carte", vue["carte"], MOMENTS, "Les moments de calcul : la face (inférieure, supérieure) et la direction", "sf-m-face")
         r = s.get("r_vue")
@@ -186,14 +193,16 @@ def entete(el: Dict, calc: Dict, s: Dict, onglets=ONGLETS) -> str:
             ks, cas = selection(el, calc)
             if not s["pp"]:
                 cas_txt = [("", ENVELOPPE)] + [(c["nom"], f"{c['nom']} · {_reactions(c['R'])}") for c in r["cas"]]
-                out += _menu("vue/cas", cas or "", cas_txt, "Le cas affiché : l'enveloppe de tous les cas, ou une position", "sf-m-cas")
+                out += _menu("vue/cas", cas or "", cas_txt, "Le cas affiché : l'enveloppe de tous les cas, ou une position", "sf-m-cas",
+                             {"": "Env. cas", **{c["nom"]: c["nom"] for c in r["cas"]}})
             k_txt = [("", ENVELOPPE)] + [(repr(x["k"]), f"k = {_k(x['k'])}") for x in el["sol"]["k"]]
             out += _menu("vue/k", repr(vue["k"]) if vue["k"] is not None else "", k_txt,
-                         "La raideur de sol affichée : l'enveloppe des k cochés « SCIA », ou un k", "sf-m-k")
+                         "La raideur de sol affichée : l'enveloppe des k cochés « SCIA », ou un k", "sf-m-k",
+                         {"": "Env. k", **{repr(x["k"]): _k(x["k"]) for x in el["sol"]["k"]}})
     if vue["onglet"] == "ferraillage":
         from . import dessin_ferraillage as DF
         out += _menu("vue/fond", vue.get("fond") or "", DF.FONDS, "Le fond du plan ferraillé : le taux de travail du treillis seul, ligne noire à 100 %",
-                     "sf-m-fond")
+                     "sf-m-fond", {"": "Fond", **{k: t.replace("Taux treillis ", "") for k, t in DF.FONDS if k}})
     return f'<div class="et-ent sf-ent sf-barre">{out}</div>'
 
 

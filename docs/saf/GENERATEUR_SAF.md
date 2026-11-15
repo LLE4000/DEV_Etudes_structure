@@ -171,6 +171,41 @@ Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont p
 - **Défaut trouvé par le harnais navigateur** : la vue gardait un k que la liste du sol n'avait plus (« Reprendre »
   pendant que k = 30 était affiché) — plus aucune carte ne se peignait. `projet.lire` rend désormais la vue à
   l'enveloppe ; `tests/test_api_web_saf.py` le tient (le contrôle rougit sans la correction).
+- **Relecture adverse du lot 4 (15/11/2026)** — 15 constats, tous confirmés par un second relecteur chargé de les
+  réfuter, regroupés en 10 défauts, tous corrigés et figés (« relecture 1 » à « relecture 13 » dans
+  `test_saf_grue_ferraillage.py`, `test_api_web_saf.py`, `test_saf_grue_plans.py`, chacun avec sa mutation) :
+  1. *(non conservatif)* dans la zone d'une bande, la direction PERPENDICULAIRE n'était contrôlée nulle part (une BX ne
+     pose que des barres en x) : jusqu'à 180 % de travail affiché « Conforme ». Le contrôle et la zone courante (la
+     hauteur) se lisent désormais direction par direction (`zone_x`, `zone_y`). Dalle type : 16 renforts locaux inf.
+     au lieu de moins, bordereau 2 702 kg au lieu de 2 628.
+  2. *(non conservatif)* les C d'effort tranchant s'arrêtaient à d du bord de la zone chargée, là où |V| est le plus
+     fort (h = 0,35 m : 36 C posés pour 72 demandés). V à d fixe le CONTRÔLE ; les C vont partout où |V(s)| dépasse ce
+     que la dalle reprend sans armatures, jusqu'au bord de la zone chargée.
+  3. le treillis automatique retenait un candidat dont les renforts sont impossibles (ils « pesaient » 0 kg) : il
+     choisit désormais le plus léger de ceux qui CONVIENNENT.
+  4. τ en bande IV (le moteur poutre demande barres inclinées ET étriers) s'affichait « Conforme » : la bande est
+     « à vérifier », la ligne « Barres inclinées » et « Non vérifiés » le disent.
+  5. V à d illisible (aucune abscisse à d des zones chargées, plots coulés proches) valait 0 et passait pour conforme :
+     il est « non vérifié ».
+  6. le résumé de la note et les pastilles des planches ne disaient que le SOL : ils disent le plus défavorable du sol
+     et du ferraillage (« À vérifier » pour une bande que le module ne peut pas conclure).
+  7. la planche Ferraillage ne dessinait pas ses verdicts ; ils disent désormais « Contrôles du moteur poutre
+     conformes » (jamais « Ferraillage conforme ») et, avec des plots coulés, « Plots : non vérifié — brins verticaux
+     sous le pied à dimensionner ».
+  8. « ≤ » était écrit même quand la vérification échoue : le signe suit le taux, écran et note (une seule source,
+     `saf_ferraillage.signe`, `face_bande`, `ligne_tranchant`, `hauteur`).
+  9. un renfort de bande impossible : l'écran inventait 999 %, la note écrivait « treillis seul » à 526 % — les deux
+     disent « renfort impossible : augmenter h » avec le vrai taux.
+  10. les coupes dessinaient le renfort de bande empilé sur le treillis (≈ 1,1 cm de d perdu sur chantier) : il est au
+     niveau du lit CALCULÉ.
+- **Choix faits seul, à revoir avec le bureau (relecture)** : aucun C sous la zone chargée elle-même (le pied, le plot
+  coulé) — les brins sous le pied relèvent du poinçonnement, non vérifié ; une bande en τ bande IV n'est ni conforme ni
+  non conforme mais « à vérifier ».
+- **Barre du centre** : les menus se partagent la place à parts égales ; un choix qui ne tient pas prend son libellé
+  court (σ, w, M, « Env. cas », « Env. k »…, `js/plan.js`, `data-courts`) ; si même le court ne tient pas (toile très
+  étroite : petit portable 1 280 px avec trois menus), la barre passe exceptionnellement sur deux lignes plutôt que de
+  couper un mot. Tablette 1 024 px : une ligne, libellés entiers. Le zoom de la toile est posé au bord de la partie VUE
+  du dessin (il tombait sous la colonne des résultats au PC) et existe au téléphone (il y était caché).
 
 ## 9. Points signalés au bureau (14/11/2026)
 
