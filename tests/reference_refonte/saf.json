@@ -16,6 +16,11 @@
    "date": "2026-11-15",
    "raison": "lot 5 du Générateur SAF (cahier des charges v4, 15/11/2026) : écran simplifié (4 blocs, cartes Sol, Équilibre, Contrôles, Armatures, étapes), principe d'armatures du moteur Dalles, plots en carré de diffusion 0,50 + 2h, ferraillage détaillé retiré — écarts voulus",
    "ecarts": ["note neuve (poids propre seul, export éteint) : etat changé", "note neuve (poids propre seul, export éteint) : valeurs qui ne se voient plus [\"40\"]", "dalle type, trois jeux de réactions (cahier des charges § 11) : etat changé", "dalle type, trois jeux de réactions (cahier des charges § 11) : valeurs qui ne se voient plus [\"-126,7\", \"-63,3\", \"0\", \"0,05\", \"0,25\", \"0,501\", \"0,564\", \"1 028\", \"1 040\", \"1 122\", \"1 131\", \"1 150\", \"1 182\", \"1 220\", \"1 238\", \"1 250\", \"1 326\", \"1 568\", \"…", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %) : etat changé", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %) : verdict, taux 99 → 98", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %) : valeurs qui ne se voient plus [\"-126,7\", \"-63,3\", \"0\", \"0,05\", \"0,25\", \"0,501\", \"0,564\", \"1 028\", \"1 040\", \"1 122\", \"1 131\", \"1 150\", \"1 182\", \"1 220\", \"1 238\", \"1 250\", \"1 326\", \"1 568\", \"…", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite : etat changé", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite : verdict, taux 100 → 99", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite : valeurs qui ne se voient plus [\"-17,3\", \"-34,5\", \"0\", \"0,25\", \"0,40\", \"0,449\", \"0,564\", \"0,82\", \"1 134,2\", \"1 257\", \"1 336\", \"1 389\", \"1 399\", \"1 436\", \"1 518\", \"1 590\", \"1 725\", \"1 768\", \"…", "châssis Liebherr 132 HC de la bibliothèque, appuis réels à 45° : etat changé", "châssis Liebherr 132 HC de la bibliothèque, appuis réels à 45° : valeurs qui ne se voient plus [\"-20,4\", \"-40,8\", \"0\", \"0,25\", \"0,396\", \"0,564\", \"1 056\", \"1 068\", \"1 122\", \"1 201\", \"1 258\", \"1 312\", \"1 464\", \"1 590\", \"1,0\", \"1,40\", \"1,50\", \"126\", \"134\", …", "dalle 10 × 10, plots coulés en place 2,00 × 2,00 × 0,35 : etat changé", "dalle 10 × 10, plots coulés en place 2,00 × 2,00 × 0,35 : valeurs qui ne se voient plus [\"-174,1\", \"-24,7\", \"-49,4\", \"0\", \"0,205\", \"0,25\", \"0,38\", \"0,40\", \"0,564\", \"0,60\", \"0,68\", \"0,75\", \"1 178\", \"1 188\", \"1 221\", \"1 280\", \"1 281\", \"1 313\", \"1 35…", "une surface d'appui hors de la dalle : calcul impossible, export éteint : etat changé", "une surface d'appui hors de la dalle : calcul impossible, export éteint : valeurs qui ne se voient plus [\"40\"]", "deux valeurs de k égales refusées : etat changé", "deux valeurs de k égales refusées : valeurs qui ne se voient plus [\"40\"]", "L_x illisible refusée : etat changé", "L_x illisible refusée : valeurs qui ne se voient plus [\"40\"]", "nom de 61 caractères refusé : etat changé", "nom de 61 caractères refusé : valeurs qui ne se voient plus [\"40\"]", "contour : le dernier sommet de trop ne se retire pas (trois au moins) : etat changé", "contour : le dernier sommet de trop ne se retire pas (trois au moins) : valeurs qui ne se voient plus [\"40\"]", "un jeu ajouté puis retiré, une valeur de k ajoutée : etat changé", "un jeu ajouté puis retiré, une valeur de k ajoutée : valeurs qui ne se voient plus [\"-126,7\", \"-63,3\", \"0\", \"0,05\", \"0,25\", \"0,501\", \"0,564\", \"1 028\", \"1 040\", \"1 122\", \"1 131\", \"1 150\", \"1 182\", \"1 220\", \"1 238\", \"1 250\", \"1 326\", \"1 568\", \"…", "fondation ajoutée (deux fondations dans la note) : etat changé", "fondation ajoutée (deux fondations dans la note) : valeurs qui ne se voient plus [\"-126,7\", \"-63,3\", \"0,40\", \"0,501\", \"0,564\", \"0,60\", \"0,80\", \"1 005\", \"1 110\", \"1 131\", \"1 150\", \"1 238\", \"1 730\", \"1,60\", \"100\", \"11\", \"11,1\", \"13\", \"135\", \"…"]
+  },
+  {
+   "date": "2026-11-15",
+   "raison": "revue indépendante du 15/11/2026 : carte Armatures (acier demandé, U de fermeture, plot coulé), alertes SCIA à l'écran, aide SCIA par face, repères des renforts décalés le long des barres, P1–P4 à 1,8 t de la plaque",
+   "ecarts": ["note neuve (poids propre seul, export éteint) : etat changé", "dalle type, trois jeux de réactions (cahier des charges § 11) : etat changé", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %) : etat changé", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite : etat changé", "châssis Liebherr 132 HC de la bibliothèque, appuis réels à 45° : etat changé", "dalle 10 × 10, plots coulés en place 2,00 × 2,00 × 0,35 : etat changé", "une surface d'appui hors de la dalle : calcul impossible, export éteint : etat changé", "deux valeurs de k égales refusées : etat changé", "L_x illisible refusée : etat changé", "nom de 61 caractères refusé : etat changé", "contour : le dernier sommet de trop ne se retire pas (trois au moins) : etat changé", "un jeu ajouté puis retiré, une valeur de k ajoutée : etat changé", "fondation ajoutée (deux fondations dans la note) : etat changé"]
   }
  ],
  "cas": [
@@ -206,7 +211,7 @@
       "nombres": "0 0 0,13 0,13 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0},
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}, "base": null}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0},
     "selecteurs": {
      "chassis": [
       ["Châssis la bibliothèque des châssis de grue · un clic retient le châssis Liebherr Wolffkran Saisie", "6,00", "×", "6,00 m"],
@@ -289,10 +294,12 @@
      ["Flexion BX1 = BX2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R1–R4 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 110 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R17, R18 :", "2"],
-     ["Ø12 Hauteur BX1 = BX2", "59 %"],
+     ["Ø12 · A s,néc =", "982 mm²/m"],
+     ["Hauteur BX1 = BX2", "59 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "43,0 cm"],
      ["Effort tranchant BX1 = BX2", "89 %"],
@@ -302,10 +309,12 @@
      ["Flexion BY1 = BY2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R5–R8 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 137 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R19, R20 :", "2"],
-     ["Ø12 Hauteur BY1 = BY2", "61 %"],
+     ["Ø12 · A s,néc =", "1 005 mm²/m"],
+     ["Hauteur BY1 = BY2", "61 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "42,0 cm"],
      ["Effort tranchant BY1 = BY2", "89 %"],
@@ -325,7 +334,9 @@
      ["Ø12, R26", "3"],
      ["Ø12, R27", "3"],
      ["Ø12, R28", "3"],
-     ["Ø12 Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(32,0 m)"],
+     ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -613,7 +624,7 @@
       "nombres": "0 0 0,50 0,50 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 1,12 1,12 1,12 1,12 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -665,10 +676,12 @@
      ["Flexion BX1 = BX2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R1–R4 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 110 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R17, R18 :", "2"],
-     ["Ø12 Hauteur BX1 = BX2", "59 %"],
+     ["Ø12 · A s,néc =", "982 mm²/m"],
+     ["Hauteur BX1 = BX2", "59 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "43,0 cm"],
      ["Effort tranchant BX1 = BX2", "89 %"],
@@ -678,10 +691,12 @@
      ["Flexion BY1 = BY2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R5–R8 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 137 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R19, R20 :", "2"],
-     ["Ø12 Hauteur BY1 = BY2", "61 %"],
+     ["Ø12 · A s,néc =", "1 005 mm²/m"],
+     ["Hauteur BY1 = BY2", "61 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "42,0 cm"],
      ["Effort tranchant BY1 = BY2", "89 %"],
@@ -701,7 +716,9 @@
      ["Ø12, R26", "3"],
      ["Ø12, R27", "3"],
      ["Ø12, R28", "3"],
-     ["Ø12 Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(32,0 m)"],
+     ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -989,7 +1006,7 @@
       "nombres": "0 0 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 1,12 1,12 1,15 1,15 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 1.15, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 1.15, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -1041,7 +1058,8 @@
      ["Flexion BX1 = BX2 renforts bas m =", "186,7", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R1–R4 :", "4"],
-     ["Ø12 haut m =", "34,5", "≤"],
+     ["Ø12 · A s,néc =", "1 448 mm²/m"],
+     ["haut m =", "34,5", "≤"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["treillis suffisant Hauteur BX1 = BX2", "68 %"],
      ["d min =", "29,0", "≤"],
@@ -1053,7 +1071,8 @@
      ["Flexion BY1 = BY2 renforts bas m =", "186,7", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R5–R8 :", "4"],
-     ["Ø12 haut m =", "34,5", "≤"],
+     ["Ø12 · A s,néc =", "1 482 mm²/m"],
+     ["haut m =", "34,5", "≤"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["treillis suffisant Hauteur BY1 = BY2", "69 %"],
      ["d min =", "29,0", "≤"],
@@ -1080,7 +1099,9 @@
      ["Ø12, R22", "4"],
      ["Ø12, R23", "4"],
      ["Ø12, R24", "4"],
-     ["Ø12 Zones rouges · haut aucune aucune Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 Zones rouges · haut aucune aucune U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(42,8 m)"],
+     ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -1356,7 +1377,7 @@
       "nombres": "0 0 0,49 0,49 0,50 0,50 10,70 10,70 10,70 10,70 2,10 2,10 2,10 2,10 2,10 2,10 2,10 2,10 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 10.7, "Ly": 10.7, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 10.7, "Ly": 10.7, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -1408,7 +1429,8 @@
      ["Flexion BX1 = BX2 renforts bas m =", "163,3", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R1–R4 :", "3"],
-     ["Ø12 haut m =", "40,8", "≤"],
+     ["Ø12 · A s,néc =", "1 266 mm²/m"],
+     ["haut m =", "40,8", "≤"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["treillis suffisant Hauteur BX1 = BX2", "63 %"],
      ["d min =", "27,2", "≤"],
@@ -1420,7 +1442,8 @@
      ["Flexion BY1 = BY2 renforts bas m =", "163,3", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R5–R8 :", "3"],
-     ["Ø12 haut m =", "40,8", "≤"],
+     ["Ø12 · A s,néc =", "1 296 mm²/m"],
+     ["haut m =", "40,8", "≤"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["treillis suffisant Hauteur BY1 = BY2", "65 %"],
      ["d min =", "27,2", "≤"],
@@ -1447,7 +1470,9 @@
      ["Ø12, R22", "2"],
      ["Ø12, R23", "2"],
      ["Ø12, R24", "3"],
-     ["Ø12 Zones rouges · haut aucune aucune Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 Zones rouges · haut aucune aucune U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(32,0 m)"],
+     ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -1718,7 +1743,7 @@
       "nombres": "0 0 0,50 0,50 0,50 0,50 0,77 0,77 0,77 0,77 1,35 1,35 1,35 1,35 1,35 1,35 1,35 1,35 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "liebherr-132hc-chassis-4600", "a": 6.0, "b": 6.0, "appuis": "reels", "rect": {"a": 0.5, "b": 0.5, "angle": null}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "liebherr-132hc-chassis-4600", "a": 6.0, "b": 6.0, "appuis": "reels", "rect": {"a": 0.5, "b": 0.5, "angle": null}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -1791,7 +1816,9 @@
      ["R1–R8 :", "1"],
      ["Ø12 Zones rouges · haut renforts locaux y", "0,16 m²", "·"],
      ["R9–R12 :", "1"],
-     ["Ø12 Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(40,0 m)"],
+     ["Ferraillage du plot à vérifier à prévoir (non dimensionné) Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, le ferraillage des plots coulés en place, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -2036,7 +2063,7 @@
       "nombres": "0 0 0,35 0,35 0,50 0,50 0,50 0,50 0,64 0,64 0,64 0,64 1,75 1,75 1,75 1,75 1,75 1,75 1,75 1,75 10,00 10,00 10,00 10,00 2,00 2,00 2,00 2,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 10.0, "Ly": 10.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "coule", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 10.0, "Ly": 10.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "coule", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2177,7 +2204,7 @@
       "nombres": "0,75 0,75 0,75 0,75 1,05 1,05 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 1.05, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 1.05, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2367,7 +2394,7 @@
       "nombres": "0 0 0,13 0,13 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2557,7 +2584,7 @@
       "nombres": "0 0 0,13 0,13 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2747,7 +2774,7 @@
       "nombres": "0 0 0,13 0,13 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2883,7 +2910,7 @@
       "nombres": "0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "contour", "Lx": 8.0, "Ly": 8.0, "sommets": [[8.0, 0.0], [8.0, 8.0], [0.0, 8.0]], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "contour", "Lx": 8.0, "Ly": 8.0, "sommets": [[8.0, 0.0], [8.0, 8.0], [0.0, 8.0]], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -2935,10 +2962,12 @@
      ["Flexion BX1 = BX2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R1–R4 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 110 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "97,3 kN·m/m", "·"],
      ["R17, R18 :", "2"],
-     ["Ø12 Hauteur BX1 = BX2", "59 %"],
+     ["Ø12 · A s,néc =", "982 mm²/m"],
+     ["Hauteur BX1 = BX2", "59 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "43,0 cm"],
      ["Effort tranchant BX1 = BX2", "89 %"],
@@ -2948,10 +2977,12 @@
      ["Flexion BY1 = BY2 renforts bas m =", "143,2", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R5–R8 :", "2"],
-     ["Ø12 haut m =", "126,7", ">"],
+     ["Ø12 · A s,néc =", "1 137 mm²/m"],
+     ["haut m =", "126,7", ">"],
      ["m Rd =", "95,0 kN·m/m", "·"],
      ["R19, R20 :", "2"],
-     ["Ø12 Hauteur BY1 = BY2", "61 %"],
+     ["Ø12 · A s,néc =", "1 005 mm²/m"],
+     ["Hauteur BY1 = BY2", "61 %"],
      ["d min =", "25,4", "≤"],
      ["d =", "42,0 cm"],
      ["Effort tranchant BY1 = BY2", "89 %"],
@@ -2971,7 +3002,9 @@
      ["Ø12, R26", "3"],
      ["Ø12, R27", "3"],
      ["Ø12, R28", "3"],
-     ["Ø12 Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+     ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
+     ["sur tout le pourtour", "(32,0 m)"],
+     ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
      ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
     ],
     "calculs": [
@@ -3268,7 +3301,7 @@
       "nombres": "0 0 0,50 0,50 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 1,12 1,12 1,12 1,12 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}, {"k": 50.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}, {"k": 50.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 0}
    }
   },
   {
@@ -3458,7 +3491,7 @@
       "nombres": "0 0 0,13 0,13 0,50 0,50 0,75 0,75 0,75 0,75 0,75 0,75 0,75 0,75 8,00 8,00 8,00 8,00 BX1 BX1 BX2 BX2 BY1 BY1 BY2 BY2 P1 P1 P2 P2 P3 P3 P4 P4"
      }
     ],
-    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}, {"nom": "F2", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 1},
+    "etat": {"version": 1, "fondations": [{"nom": "F1", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [350.0, 440.0, 440.0, 350.0]}, {"nom": "", "P": [150.0, 150.0, 550.0, 550.0]}, {"nom": "", "P": [135.0, 100.0, 800.0, 135.0]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "base": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}, {"nom": "F2", "projet": {"projet": "", "grue": "", "creation": "", "mise_a_jour": "", "indice": ""}, "dalle": {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}, "sol": {"k": [{"k": 2.0, "scia": true}, {"k": 5.0, "scia": true}, {"k": 10.0, "scia": true}, {"k": 20.0, "scia": false}, {"k": 30.0, "scia": false}], "reprise": null}, "grue": {"chassis": "saisie", "a": 6.0, "b": 6.0, "appuis": "rectangle", "rect": {"a": 0.5, "b": 0.5, "angle": 0}, "plots": {"type": "aucun", "a": 2.0, "b": 2.0, "h": 0.35}, "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.5, "repere": null}, "reactions": [{"nom": "", "P": [null, null, null, null]}], "bandes": {"largeur": 0.5}, "limite": 0.5, "armatures": {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": false}, "renfort": "auto", "ancrage": 50.0}, "scia": {"sym": null, "bx_m": null, "by_m": null, "bx_v": null, "by_v": null, "mx": null, "my": null, "sigma": {}, "base": null}, "options": {"maille": 0.2, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre", "aretes": false, "nonlinear": false, "h_min": 0.3, "h_max": 1.2, "h_pas": 0.1, "unite": "kgcm2"}, "vue": {"carte": "sigma", "face": "inf", "cas": null, "k": null}, "proposition": null, "etapes": {"saf": null, "note": null}}], "actif": 1},
     "elements": [
      {
       "phrase": "",
@@ -3493,10 +3526,12 @@
        ["Flexion BX1 = BX2 renforts bas m =", "143,2", ">"],
        ["m Rd =", "97,3 kN·m/m", "·"],
        ["R1–R4 :", "2"],
-       ["Ø12 haut m =", "126,7", ">"],
+       ["Ø12 · A s,néc =", "1 110 mm²/m"],
+       ["haut m =", "126,7", ">"],
        ["m Rd =", "97,3 kN·m/m", "·"],
        ["R17, R18 :", "2"],
-       ["Ø12 Hauteur BX1 = BX2", "59 %"],
+       ["Ø12 · A s,néc =", "982 mm²/m"],
+       ["Hauteur BX1 = BX2", "59 %"],
        ["d min =", "25,4", "≤"],
        ["d =", "43,0 cm"],
        ["Effort tranchant BX1 = BX2", "89 %"],
@@ -3506,10 +3541,12 @@
        ["Flexion BY1 = BY2 renforts bas m =", "143,2", ">"],
        ["m Rd =", "95,0 kN·m/m", "·"],
        ["R5–R8 :", "2"],
-       ["Ø12 haut m =", "126,7", ">"],
+       ["Ø12 · A s,néc =", "1 137 mm²/m"],
+       ["haut m =", "126,7", ">"],
        ["m Rd =", "95,0 kN·m/m", "·"],
        ["R19, R20 :", "2"],
-       ["Ø12 Hauteur BY1 = BY2", "61 %"],
+       ["Ø12 · A s,néc =", "1 005 mm²/m"],
+       ["Hauteur BY1 = BY2", "61 %"],
        ["d min =", "25,4", "≤"],
        ["d =", "42,0 cm"],
        ["Effort tranchant BY1 = BY2", "89 %"],
@@ -3529,7 +3566,9 @@
        ["Ø12, R26", "3"],
        ["Ø12, R27", "3"],
        ["Ø12, R28", "3"],
-       ["Ø12 Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
+       ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
+       ["sur tout le pourtour", "(32,0 m)"],
+       ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
        ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
       ]
      },
