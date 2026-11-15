@@ -207,14 +207,18 @@ def rapides():
         "N12 (1 ; 9), puis N13 à N16 (P2), N17 à N20 (P3), N21 (1 ; 1), N22 (3 ; 1), N23 (3 ; 3), N24 (1 ; 3)",
         [nc[f"N{i}"] for i in (9, 10, 11, 12, 21, 22, 23, 24)] == [(1, 7), (3, 7), (3, 9), (1, 9), (1, 1), (3, 1), (3, 3), (1, 3)]
         and nc["N13"] == (7, 7) and nc["N17"] == (7, 1) and len(nc) == 24, nc)
+    # (lot 5, § 6 et S1b : sous un plot COULÉ EN PLACE aussi, la réaction arrive sur le carré de diffusion de 1,20 m — au lot 4,
+    # elle restait sur la plaque 0,50 × 0,50 : FF1 −1 400 kN/m² sur « 1.75;2.25;2.25;1.75;1.75 ») ; les régions PL ne changent pas
     chk("S1b PL1 = C30/37 ; 850 ; Centre ; D1 ; « N9;N10;N11;N12 » ; « Line;Line;Line;Line » ; 0 ; 4 ; Id = 3f1c3d78-9b4f-5266-ae8b-2eee54702c67 ; "
         "la feuille StructuralSurfaceMemberRegion est juste après StructuralSurfaceMemberOpening, son tableau et ses en-têtes sont ceux du "
-        "cahier des charges ; les FF restent sur les plaques 0,50 × 0,50 ; FP1 à FP4 = −8,75 kN/m²",
+        "cahier des charges ; les FF sur les carrés de diffusion : pour LC2, FF1 = −243,056 kN/m², X « 1.4;2.6;2.6;1.4;1.4 », Y "
+        "« 8.6;8.6;7.4;7.4;8.6 » ; FP1 à FP4 = −8,75 kN/m²",
         [rg["PL1"][c] for c in EC.COLONNES_REGION] == ["PL1", "C30/37", 850, "Centre", "D1", "N9;N10;N11;N12", "Line;Line;Line;Line", 0, 4, None,
                                                          "3f1c3d78-9b4f-5266-ae8b-2eee54702c67"]
         and oc[oc.index("StructuralSurfaceMemberOpening") + 1] == "StructuralSurfaceMemberRegion"
         and fc["StructuralSurfaceMemberRegion"]["tableau"] == ("tblStructuralSurfaceMemberRegion", "A1:K5", EC.COLONNES_REGION)
-        and rg["PL4"]["Nodes"] == "N21;N22;N23;N24" and fac["FF1"]["Coordinate X [m]"] == "1.75;2.25;2.25;1.75;1.75" and fac["FF1"]["q [kN/m2]"] == -1400
+        and rg["PL4"]["Nodes"] == "N21;N22;N23;N24" and fac["FF1"]["Coordinate X [m]"] == "1.4;2.6;2.6;1.4;1.4"
+        and fac["FF1"]["Coordinate Y [m]"] == "8.6;8.6;7.4;7.4;8.6" and fac["FF1"]["q [kN/m2]"] == -243.056 and fac["FF1"]["Load case"] == "LC2"
         and [fac[f"FP{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)] == [-8.75] * 4, rg.get("PL1"))
     # ---- les options
     oa, fa2 = classeur(projet(options={"aretes": True, "nonlinear": True}, dalle={"Lx": 10.0, "Ly": 10.0},

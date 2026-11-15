@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Les RÉSULTATS du « Générateur SAF — Fondation de grue » (api_web/saf.py) : la colonne de droite, la barre du centre
-(l'onglet, la carte, le cas et le k affichés) et le champ dessiné sur le plan.
+(la carte, le cas et le k affichés) et le champ dessiné sur le plan.
 
-La colonne reprend EXACTEMENT les composants du module « Poutres béton armé » (cahier du lot 4, § 2.2) : le nom de la
-fondation et sa ligne grise, puis une CARTE par vérification (E.bloc : un titre, son état à droite — « Conforme »,
-« Non conforme », « non vérifié »), une ligne par contrôle (C.ligne_verif : le nom, le taux en %, la formule avec ses
-valeurs, une petite barre), la ligne grise « Non vérifiés : … », les cas générés, « Proposer », un seul bouton d'export,
-et le pied « Méthode du bureau · moteur poutre » avec la version du moteur. Plus de grand rectangle de contrainte.
+La colonne reprend les composants du module « Poutres béton armé » (lot 5, § 5.2) : le nom de la fondation, la ligne
+d'étapes (1 Données · 2 Vérification · 3 SAF · 4 Efforts SCIA · 5 Note), puis une CARTE par sujet — SOL, ÉQUILIBRE,
+CONTRÔLES, ARMATURES (E.bloc : un titre, son état à droite) —, une ligne par contrôle (C.ligne_verif : le nom, le taux en
+%, la formule avec ses valeurs, une petite barre), la ligne grise « Non vérifiés : … », « Proposer », les boutons
+« Exporter le SAF » et « Imprimer la note », le pied. Pas de grand chiffre en tête.
 
 La carte du plan est en ENVELOPPE par défaut (§ 2.3) : en chaque point, le maximum de tous les cas et de tous les k cochés
 « SCIA » ; un cas ou un k précis se choisit dans les listes, dont « Enveloppe » est la première valeur. Les contraintes de
@@ -23,26 +23,23 @@ from saf.fondation_grue import projet as PR
 from saf.fondation_grue import proposition as PP
 from saf.fondation_grue import verification as V
 
-from beton.poutre import moteur as MOTEUR_POUTRE
+from beton.dalle import moteur as MOTEUR_DALLE
 
 from . import commun as C
 from . import etabli_compact as E
 from . import saf_saisie as SS
 
 N = C.NBSP
-CARTES = (("sigma", "Contrainte"), ("w", "Tassement"), ("m", "Moments"), ("aucune", "Sans carte"))
-# la carte « Moments » (§ 2.3) : la face (inférieure, supérieure) et la direction (x, y) ; les moments de CALCUL du § 4.4
-MOMENTS = (("m_inf_x", "inf. · x"), ("m_inf_y", "inf. · y"), ("m_sup_x", "sup. · x"), ("m_sup_y", "sup. · y"))
-MOMENT_UNITE = ("kNm/m", 1.0, 1)
+CARTES = (("sigma", "Contrainte"), ("w", "Tassement"), ("armatures", "Armatures"), ("aucune", "Sans carte"))
+MOMENT_UNITE = ("kN·m/m", 1.0, 1)
 CLASSES = {"p": "ok", "f": "warn", "r": "nok", "n": "inc", "x": "nok"}
-ETATS = {"ok": "Conforme", "warn": "Conforme", "nok": "Non conforme", "inc": "non vérifié"}
-ENVELOPPE = "Enveloppe"
-# les onglets du centre (§ 2.3) : le plan (la carte), le plan ferraillé et les coupes (lot 4d)
-ONGLETS = (("plan", "Plan"), ("ferraillage", "Ferraillage"), ("coupes", "Coupes"))
-# ce que la méthode ne vérifie pas (§ 9) : la ligne grise sous les cartes
-NON_VERIFIES = ("la fissuration", "les efforts horizontaux et les moments aux pieds de la grue")
-METHODE = "Méthode du bureau · moteur poutre"
-VERSION_MOTEUR = MOTEUR_POUTRE.REFERENCE.split(" (")[0].split()[-1]       # « v2.40 », comme le pied du module poutre
+ETATS = {"ok": "Conforme", "warn": "Conforme", "nok": "Non conforme", "inc": "Données incomplètes"}
+ENVELOPPE_CAS, ENVELOPPE_K = "Enveloppe des cas", "Enveloppe des k"
+# ce que la méthode ne vérifie pas (§ 11) : la ligne grise sous les cartes (les armatures y ajoutent les leurs)
+NON_VERIFIES = ("la fissuration", "les efforts horizontaux et les moments aux pieds de la grue", "la torsion",
+                "les ancrages et les recouvrements (le principe n'est pas un plan d'exécution)")
+METHODE = "Méthode du bureau · moteur Dalles"
+VERSION_MOTEUR = MOTEUR_DALLE.REFERENCE.split()[-1]                       # « v2.2 », la version du moteur du module Dalles
 
 
 def _kpa(x: float) -> str:
@@ -111,40 +108,13 @@ def enveloppe_champs(ks: List[Dict], cas: Optional[str]) -> Tuple[np.ndarray, np
     return sig, w
 
 
-def carte_moments(el: Dict) -> bool:
-    """La carte affichée est-elle celle des moments ?"""
-    return el["vue"]["carte"] in PR.CARTES_MOMENTS
-
-
-def champ_moments(el: Dict, ef: Dict) -> Dict:
-    """La carte « Moments » : le moment de CALCUL de la face et de la direction choisies (§ 4.4 : en bas m + |mxy|, en haut
-    m − |mxy|, la torsion selon l'option), au CENTRE de chaque élément — chaque élément avec sa propre épaisseur, sans
-    moyenne à travers le bord d'un plot coulé —, en enveloppe des cas et des k retenus. La couleur suit la VALEUR ABSOLUE
-    (de 0 au plus grand) ; les valeurs s'écrivent avec leur signe (m > 0 : fibre inférieure tendue)."""
-    face, sens = el["vue"]["carte"].split("_")[1:]
-    ch = ef["champ"]
-    brut = np.asarray(ch[f"{face}_{sens}"], float)
-    signe = 1.0 if face == "inf" else -1.0
-    absolu = np.maximum(signe * brut, 0.0)
-    n = V.premier_argmax(absolu)
-    return {"mode": "m", "par_element": True, "valeurs": absolu, "signe": signe, "decolle": None,
-            "maxi": float(absolu[n]), "x": float(ch["x"][n]), "y": float(ch["y"][n]), "limite": None, "unite": MOMENT_UNITE,
-            "symbole": f"m {face}. {sens}", "mot": "max" if face == "inf" else "min"}
-
-
-def champ(el: Dict, calc: Dict, s: Dict, ef: Optional[Dict] = None) -> Optional[Dict]:
-    """Le champ dessiné sur le plan (``dessin_saf.plan``) : la contrainte de contact, le tassement ou les moments de calcul
-    (``champ_moments`` : ``ef``, les efforts de la sélection — ``saf.efforts``) — l'ENVELOPPE des cas et des k retenus
-    (``selection``) ; None sans carte ou sans calcul. Un nœud est « décollé » quand il l'est dans TOUS les cas retenus."""
+def champ(el: Dict, calc: Dict, s: Dict) -> Optional[Dict]:
+    """Le champ dessiné sur le plan (``dessin_saf.plan``) : la contrainte de contact ou le tassement — l'ENVELOPPE des
+    cas et des k retenus (``selection``) ; None sans carte, sur la carte Armatures (une couche à part) ou sans calcul.
+    Un nœud est « décollé » quand il l'est dans TOUS les cas retenus."""
     mode = el["vue"]["carte"]
-    if s.get("r_vue") is None or mode == "aucune":
+    if s.get("r_vue") is None or mode in ("aucune", "armatures"):
         return None
-    if mode in PR.CARTES_MOMENTS:
-        if ef is None:
-            return None
-        out = champ_moments(el, ef)
-        out["dalle"] = (selection(el, calc)[0] or [s["r_vue"]])[0]["dalle"]
-        return out
     ks, cas = selection(el, calc)
     if not ks:
         return None
@@ -163,8 +133,8 @@ def champ(el: Dict, calc: Dict, s: Dict, ef: Optional[Dict] = None) -> Optional[
 # ------------------------------------------------------------------ l'en-tête du plan : la carte, le cas, le k
 def _menu(chemin: str, valeur: str, options, titre: str, classe: str = "", courts: Optional[Dict[str, str]] = None) -> str:
     """Une liste déroulante de la barre du centre (data-agir : js/plan.js l'envoie au moteur). ``courts`` : le libellé
-    court de chaque choix (§ 2.3 : « sur tablette, tout tient sur une ligne, avec des libellés courts si besoin ») —
-    js/plan.js l'affiche à la place du libellé du choix QUAND celui-ci ne tient pas ; la liste dépliée garde les longs."""
+    court de chaque choix — js/plan.js l'affiche à la place du libellé du choix QUAND celui-ci ne tient pas ; la liste
+    dépliée garde les longs."""
     opts = "".join(f'<option value="{C.esc(v)}"{" selected" if v == valeur else ""}>{C.esc(t)}</option>' for v, t in options)
     dc = f' data-courts="{C.esc(json.dumps(courts, ensure_ascii=False))}"' if courts else ""
     return (f'<div class="field select{(" " + classe) if classe else ""}"><select data-agir="1" data-chemin="{chemin}" aria-label="{C.esc(titre)}" '
@@ -172,43 +142,52 @@ def _menu(chemin: str, valeur: str, options, titre: str, classe: str = "", court
 
 
 # les libellés courts de la barre du centre (affichés seulement quand le long ne tient pas)
-COURTS_CARTES = {"sigma": "σ", "w": "w", "m": "M", "aucune": "Aucune"}
+COURTS_CARTES = {"sigma": "σ", "w": "w", "armatures": "Arm.", "aucune": "Aucune"}
 
 
-def entete(el: Dict, calc: Dict, s: Dict, onglets=ONGLETS) -> str:
-    """La barre du centre, sur UNE ligne (§ 2.3) : les onglets (Plan, Ferraillage, Coupes), le choix de la carte, la liste
-    « Cas » et la liste « k » (« Enveloppe » en tête). Sur tablette, elle tient sur une ligne (saf.css) ; chaque choix
-    a un libellé court (« σ », « w », « Env. k »…) que js/plan.js affiche quand le long ne tient pas."""
+def entete(el: Dict, calc: Dict, s: Dict) -> str:
+    """La barre du centre, sur UNE ligne (lot 5, § 5.1) : le choix de la carte (Contrainte, Tassement, Armatures, Sans
+    carte), puis la liste « Cas » et la liste « k » (« Env. cas », « Env. k » en tête) ; la carte Armatures montre le
+    principe en enveloppe, avec son choix « Bas · Haut » à la place des deux listes."""
     vue = el["vue"]
-    tabs = "".join(f'<button type="button" class="{"on" if k == vue["onglet"] else ""}" data-agir="1" data-chemin="vue/onglet" data-valeur="{k}">{t}</button>'
-                   for k, t in onglets)
-    out = f'<div class="seg sf-onglets" role="tablist" aria-label="Vue du centre">{tabs}</div>'
-    if vue["onglet"] == "plan":
-        moments = vue["carte"] in PR.CARTES_MOMENTS
-        out += _menu("vue/carte", "m" if moments else vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte", COURTS_CARTES)
-        if moments:
-            out += _menu("vue/carte", vue["carte"], MOMENTS, "Les moments de calcul : la face (inférieure, supérieure) et la direction", "sf-m-face")
-        r = s.get("r_vue")
-        if r is not None and vue["carte"] != "aucune":
-            ks, cas = selection(el, calc)
-            if not s["pp"]:
-                cas_txt = [("", ENVELOPPE)] + [(c["nom"], f"{c['nom']} · {_reactions(c['R'])}") for c in r["cas"]]
-                out += _menu("vue/cas", cas or "", cas_txt, "Le cas affiché : l'enveloppe de tous les cas, ou une position", "sf-m-cas",
-                             {"": "Env. cas", **{c["nom"]: c["nom"] for c in r["cas"]}})
-            k_txt = [("", ENVELOPPE)] + [(repr(x["k"]), f"k = {_k(x['k'])}") for x in el["sol"]["k"]]
-            out += _menu("vue/k", repr(vue["k"]) if vue["k"] is not None else "", k_txt,
-                         "La raideur de sol affichée : l'enveloppe des k cochés « SCIA », ou un k", "sf-m-k",
-                         {"": "Env. k", **{repr(x["k"]): _k(x["k"]) for x in el["sol"]["k"]}})
-    if vue["onglet"] == "ferraillage":
-        from . import dessin_ferraillage as DF
-        out += _menu("vue/fond", vue.get("fond") or "", DF.FONDS, "Le fond du plan ferraillé : le taux de travail du treillis seul, ligne noire à 100 %",
-                     "sf-m-fond", {"": "Fond", **{k: t.replace("Taux treillis ", "") for k, t in DF.FONDS if k}})
+    out = _menu("vue/carte", vue["carte"], CARTES, "La carte peinte sur le plan", "sf-m-carte", COURTS_CARTES)
+    r = s.get("r_vue")
+    if vue["carte"] == "armatures":
+        bt = "".join(f'<button type="button" class="{"on" if k == vue["face"] else ""}" data-agir="1" data-chemin="vue/face" data-valeur="{k}">{t}</button>'
+                     for k, t in (("inf", "Bas"), ("sup", "Haut")))
+        out += f'<div class="seg sf-faces" role="group" aria-label="Face des armatures">{bt}</div>'
+    elif r is not None and vue["carte"] != "aucune":
+        ks, cas = selection(el, calc)
+        if not s["pp"]:
+            cas_txt = [("", ENVELOPPE_CAS)] + [(c["nom"], f"{c['nom']} · {_reactions(c['R'])}") for c in r["cas"]]
+            out += _menu("vue/cas", cas or "", cas_txt, "Le cas affiché : l'enveloppe de tous les cas, ou une position", "sf-m-cas",
+                         {"": "Env. cas", **{c["nom"]: c["nom"] for c in r["cas"]}})
+        k_txt = [("", ENVELOPPE_K)] + [(repr(x["k"]), f"k{N}={N}{_k(x['k'])}") for x in el["sol"]["k"]]
+        out += _menu("vue/k", repr(vue["k"]) if vue["k"] is not None else "", k_txt,
+                     "La raideur de sol affichée : l'enveloppe des k cochés « SCIA », ou un k", "sf-m-k",
+                     {"": "Env. k", **{repr(x["k"]): _k(x["k"]) for x in el["sol"]["k"]}})
     return f'<div class="et-ent sf-ent sf-barre">{out}</div>'
+
+
+# ------------------------------------------------------------------ la ligne d'étapes (§ 1)
+def etapes(el: Dict, calc: Dict, s: Dict, fer: Optional[Dict], sc: Optional[Dict], faites_saf: bool, faite_note: bool) -> List[Tuple[str, bool]]:
+    """Les cinq étapes et ce qui est fait (lot 5, § 1) : 1 Données (un jeu complet, un k coché, le calcul possible) ;
+    2 Vérification (le sol et le principe d'armatures calculés) ; 3 SAF (exporté pour ces données) ; 4 Efforts SCIA (le
+    tableau rempli) ; 5 Note (imprimée pour ces données)."""
+    d1 = s.get("r_vue") is not None and not s.get("pp") and bool(PR.k_scia(el))
+    d2 = d1 and fer is not None and not fer.get("hors_domaine")
+    return [("Données", d1), ("Vérification", d2), ("SAF", d1 and faites_saf), ("Efforts SCIA", bool(sc and sc["complet"])),
+            ("Note", faite_note)]
+
+
+def ligne_etapes(items: List[Tuple[str, bool]]) -> str:
+    """La ligne d'étapes en tête de la colonne de droite (composant partagé de l'établi : ``E.etapes``)."""
+    return E.etapes(items)
 
 
 # ------------------------------------------------------------------ la colonne des vérifications
 def _table_k(el: Dict, calc: Dict, s: Dict) -> str:
-    """Le tableau par k : k | σ max | tassement max | surface décollée | case SCIA ; chaque ligne à la couleur de sa
+    """Le tableau par k : k | σ max | tassement max | surface décollée | case SCIA ; chaque σ à la couleur de sa
     contrainte face à la limite ; un clic sur un k l'affiche sur le plan."""
     lignes = ""
     par_k = {r["k"]: r for r in calc["par_k"]}
@@ -226,55 +205,82 @@ def _table_k(el: Dict, calc: Dict, s: Dict) -> str:
             f'<th class="n">décollé</th><th class="c">SCIA</th></tr></thead><tbody>{lignes}</tbody></table>')
 
 
+def _etat_ligne(bon: bool, grave: bool = True) -> Tuple[str, str]:
+    """(niveau, mot) d'une ligne de contrôle sans taux : « OK », « Non conforme », « À vérifier » (les mots de l'établi)."""
+    if bon:
+        return "p", "OK"
+    return ("r", "Non conforme") if grave else ("v", "À vérifier")
+
+
 def _controles(el: Dict, calc: Dict, s: Dict) -> Tuple[str, str]:
-    """(les lignes des contrôles, la classe du bloc)."""
+    """(les lignes de la carte CONTRÔLES, la classe de la carte) : appuis dans la dalle, distance au bord, plots."""
     m = calc["modele"]
     ctl, g = m["controles"], el["grue"]
     rows, pire = "", "ok"
 
     def ligne(nom, texte, bon, grave=True):
-        # (une ligne par contrôle, celle de l'établi — C.ligne_verif : son nom et son état, puis ce qu'il compare ; elle
-        # ouvre le détail des contrôles)
         nonlocal rows, pire
-        niv = "p" if bon else ("r" if grave else "v")
+        niv, mot = _etat_ligne(bon, grave)
         if not bon:
             pire = "nok" if grave or pire == "nok" else "warn"
-        rows += C.ligne_verif(nom, texte, None, niv, calcul="s1", etat_txt="OK" if bon else ("Non" if grave else "Attention"))
+        rows += C.ligne_verif(nom, texte, None, niv, calcul="s1", etat_txt=mot)
     dedans = all(ctl["plaques_dedans"])
     ligne("Appuis dans la dalle", "" if dedans else "une surface d'appui sort", dedans)
     if dedans:
-        ligne("Distance au bord", f"{C.fr(ctl['distance'], 3)}{N}m {'≥' if ctl['distance_ok'] else '&lt;'} {C.fr(g['dmin'], 2)}{N}m",
+        ligne("Distance au bord", f"{C.fr(ctl['distance'], 2)}{N}m {'≥' if ctl['distance_ok'] else '&lt;'} {C.fr(g['dmin'], 2)}{N}m",
               ctl["distance_ok"], grave=False)
     if m["plots"]:
         ligne("Plots dans la dalle", "" if all(ctl["plots_dedans"]) else "un plot sort", all(ctl["plots_dedans"]))
         ligne("Plots séparés", "" if ctl["plots_separes"] else "deux plots se chevauchent", ctl["plots_separes"])
         ligne("Appuis sur leur plot", "" if all(ctl["plots_couvrent"]) else "une surface d'appui déborde", all(ctl["plots_couvrent"]))
-    if s.get("r_vue") is not None:
-        bon = s["equilibre"] <= V.EQUILIBRE
-        ligne("Équilibre", f"écart {C.fr(s['equilibre'] * 100, 4)}{N}%", bon)
     return rows, pire
 
 
-def _positions(el: Dict, calc: Dict, s: Dict) -> str:
-    """Les positions, une à une, pour le k affiché : le nombre de cas générés, et la liste REPLIABLE (repliée d'abord :
-    seize lignes repousseraient « Proposer » et l'export hors de l'écran) de σ max de chacune ; un clic l'affiche sur le
-    plan. L'écran se souvient qu'on l'a dépliée (js/plan.js, data-plan-volet)."""
-    r = s["r_vue"]
-    out = ""
-    for i, c in enumerate(r["cas"]):
-        niv = C.niveau(c["sigma_max"] / s["limite"])
-        out += (f'<button type="button" class="sf-cas{" vu" if i == s["i_cas"] else ""}" data-agir="1" data-chemin="vue/cas" data-valeur="{C.esc(c["nom"])}" '
-                f'title="Afficher cette position sur le plan"><b>{C.esc(c["nom"])}</b><span>{_reactions(c["R"])}</span>'
-                f'<span class="chip {niv}">{SS.sol_nb(el, c["sigma_max"])}</span></button>')
-    n = len(r["cas"])
-    return (f'<details class="sf-pos" data-plan-volet="positions"><summary><b>{n} cas généré{"s" if n > 1 else ""}</b>'
-            f'<span>σ max de chaque position · k{N}={N}{_k(r["k"])}</span>{C.icon("chevron-down")}</summary><div class="sf-cas-l">{out}</div>'
-            f'<button type="button" class="sf-detail" data-calcul="s2">{C.icon("file-text")}Le tableau des positions</button></details>')
+def equilibre_cas(el: Dict, calc: Dict, s: Dict) -> Optional[Dict]:
+    """L'équilibre du cas affiché (lot 5, § 5.2 ; avec l'enveloppe : le cas de σ max) : {"cas", "k", "resultante" (la
+    contrainte de contact intégrée sur la dalle : Σ σ × aire des nœuds, les zones décollées à 0), "grue" (Σ des quatre
+    réactions), "dalle" (25 × h × aire), "plots" (25 × hauteur × aire d'un plot × nombre de plots), "charges", "ecart",
+    "ecart_max" (sur tous les cas et tous les k)}."""
+    r = s.get("r_vue")
+    if r is None:
+        return None
+    c = r["cas"][s["i_cas"]]
+    m = calc["modele"]
+    gamma = m.get("gamma", PR.GAMMA_BETON)
+    dalle_ = gamma * m["h"] * G.aire(m["contour"])
+    pl = m["plots"]
+    plots_ = sum(gamma * pl["hauteur"] * G.aire(q) for q in pl["polys"]) if pl else 0.0
+    grue = float(sum(c["R"]))
+    charges = grue + dalle_ + plots_
+    return {"cas": c["nom"], "k": r["k"], "resultante": c["reaction_sol"], "grue": grue, "dalle": dalle_, "plots": plots_,
+            "charges": charges, "ecart": abs(c["reaction_sol"] - charges) / charges if charges else 0.0, "ecart_max": s["equilibre"],
+            "n_cas": sum(len(x["cas"]) for x in calc["par_k"]), "n_k": len(calc["par_k"])}
+
+
+def phrase_equilibre(q: Dict) -> str:
+    """« Résultante du sol 2 380,0 kN · Charges : grue 1 580,0 + dalle 800,0 + plots 0,0 = 2 380,0 kN · Écart 0,00 % »."""
+    return (f"Résultante du sol {C.fr(q['resultante'], 1)}{N}kN · Charges : grue {C.fr(q['grue'], 1)} + dalle {C.fr(q['dalle'], 1)} "
+            f"+ plots {C.fr(q['plots'], 1)} = {C.fr(q['charges'], 1)}{N}kN · Écart {C.fr(q['ecart'] * 100, 2)}{N}%")
+
+
+ECART_EQUILIBRE = 1e-3          # § 5.2 : pastille verte sous 0,1 %
+
+
+def _carte_equilibre(el: Dict, calc: Dict, s: Dict) -> str:
+    """La carte ÉQUILIBRE (§ 5.2) : la résultante du sol face aux charges, en kN, pour le cas affiché ; dessous, l'écart
+    le plus grand sur tous les cas et tous les k (vert sous 0,1 %)."""
+    q = equilibre_cas(el, calc, s)
+    bon = q["ecart_max"] < ECART_EQUILIBRE
+    rows = (C.ligne_verif(f"Cas {q['cas']} · k{N}={N}{_k(q['k'])}", phrase_equilibre(q), None, "p" if q["ecart"] < ECART_EQUILIBRE else "r",
+                          calcul="s0", etat_txt=f"{C.fr(q['ecart'] * 100, 2)}{N}%")
+            + C.ligne_verif("Écart le plus grand", f"sur {q['n_cas']} cas et {q['n_k']} k{N}: {C.fr(q['ecart_max'] * 100, 2)}{N}% "
+                            f"{'&lt;' if bon else '≥'} 0,1{N}%", None, "p" if bon else "r", calcul="s0", etat_txt="OK" if bon else "Non conforme"))
+    return E.bloc(1, "Équilibre", "ok" if bon else "nok", "Conforme" if bon else "Non conforme", "", rows, theme=True, calcul="s0")
 
 
 def tableau_proposition(el: Dict, lignes: List[Dict], complet: bool = True) -> str:
     """Le tableau de « Proposer » : h | dimensions | σ max | volume de béton (dalle + plots) ; la ligne au plus petit
-    volume est mise en évidence ; un clic sur une ligne l'applique (quand le tableau est gardé dans la note)."""
+    volume est mise en évidence ; un clic sur une ligne l'APPLIQUE (Lx, Ly, h ; § 9) quand le tableau est complet."""
     if not lignes:
         return ""
     best = PP.meilleure(lignes) if complet else None
@@ -296,92 +302,103 @@ def tableau_proposition(el: Dict, lignes: List[Dict], complet: bool = True) -> s
 
 
 def _proposer(el: Dict, calc: Dict, s: Dict) -> str:
-    """Le bouton « Proposer », sa barre de progression (js/plan.js : une suite de lectures, une épaisseur par requête)
-    et son tableau."""
+    """« Proposer » (§ 9), sa barre de progression (js/plan.js : une épaisseur par requête), son tableau ; un clic sur une
+    ligne applique la dalle, « Annuler » rend les dimensions d'avant."""
     possible = bool(calc["modele"]["cas"]) and bool(PR.k_scia(el)) and s.get("r_vue") is not None
     suite = {"role": "proposer", "etapes": [f"{h:.3f}" for h in PR.epaisseurs(el)], "fin": "proposition/garder", "sortie": "#sf-prop-t"}
-    pourquoi = "" if possible else ' title="Il faut un jeu de réactions complet et un k coché « SCIA »."'
+    pourquoi = ' title="La plus petite dalle sous la limite, par épaisseur"' if possible else ' title="Il faut un jeu de réactions complet et un k coché « SCIA »."'
     p = el.get("proposition")
     table = tableau_proposition(el, p["lignes"]) if p else ""
+    annuler = (f'<button type="button" class="btn sm" data-agir="1" data-chemin="proposition/annuler" data-valeur="1" '
+               f'title="Revenir aux dimensions d\'avant">{C.icon("undo-2")}Annuler</button>') if p and p.get("avant") else ""
     retirer = (f'<button type="button" class="sf-x" data-agir="1" data-chemin="proposition/-" data-valeur="1" title="Retirer ce tableau" '
                f'aria-label="Retirer ce tableau">{C.icon("x")}</button>') if p else ""
     return (f'<div class="sf-prop" data-suite-hote="1"><div class="sf-prop-h"><button type="button" class="btn sm" data-suite="{C.esc(json.dumps(suite))}"'
-            f'{"" if possible else " disabled"}{pourquoi}>{C.icon("lightbulb")}Proposer</button>'
-            f'<span class="sf-prop-s">la plus petite dalle sous la limite, par épaisseur</span>{retirer}</div><div id="sf-prop-t">{table}</div></div>')
+            f'{"" if possible else " disabled"}{pourquoi}>{C.icon("lightbulb")}Proposer</button>{annuler}{retirer}</div><div id="sf-prop-t">{table}</div></div>')
 
 
-def _export(el: Dict, calc: Dict) -> str:
-    """Le SEUL bouton d'export (lot 4, § 7) : « Exporter · SAF + note » — UN fichier SAF (le premier k coché « SCIA ») et la
-    note, en un fichier .zip ; ce qui l'empêche est dit dessous, ce qui l'accompagne d'un avertissement aussi."""
+def _boutons(el: Dict, calc: Dict, joindre: bool = True) -> str:
+    """Les deux boutons (§ 5.2, § 10) : « Exporter le SAF » (UN fichier, le premier k coché « SCIA ») et « Imprimer la
+    note » (un PDF) — à côté, « Joindre les notes SCIA » (les PDF de SCIA ajoutés à la fin de la note). Ce qui empêche
+    l'export est dit dessous, ce qui l'accompagne d'un avertissement aussi."""
     from . import saf as M                                        # (les contrôles de l'export sont ceux du module)
     bloque, avertit = M.controles_export(el, calc)
-    # (éteint, le bouton n'annonce aucun fichier : il ne porte pas « data-telecharger »)
-    quoi = ' disabled' if bloque else ' data-telecharger="export" data-avec-note="1"'
     k1 = PR.k_scia(el)[0] if PR.k_scia(el) else None
-    titre = f' title="Le SAF est écrit avec k = {_k(k1)} MN/m³ (le premier coché « SCIA ») ; la note rappelle les k à passer dans SCIA"' if k1 is not None else ""
-    bouton = (f'<button type="button" class="btn primary sf-exp-b"{quoi}{titre}>'
-              f'{C.icon("download")}Exporter · SAF + note</button>')
+    titre = f' title="Le SAF est écrit avec k{N}={N}{_k(k1)}{N}MN/m³ (le premier coché « SCIA »)"' if k1 is not None else ""
+    saf = (f'<button type="button" class="btn primary sf-exp-b"{" disabled" if bloque else " data-telecharger=" + chr(34) + "saf" + chr(34) + " data-apres=" + chr(34) + "etapes/saf" + chr(34)}{titre}>'
+           f'{C.icon("download")}Exporter le SAF</button>')
+    note = (f'<button type="button" class="btn sf-exp-b" data-telecharger="note_pdf" data-apres="etapes/note" title="La note de calcul, un PDF">'
+            f'{C.icon("printer")}Imprimer la note</button>')
+    jn = (f'<button type="button" class="btn sm sf-joindre" data-joindre="note_pdf" data-apres="etapes/note" '
+          f'title="Choisir les PDF de SCIA (un par k) : ils sont ajoutés à la fin de la note">{C.icon("upload")}Joindre les notes SCIA</button>') if joindre else ""
     mots = "".join(C.message(C.esc(SS.phrase(t)), True) for t in bloque) + "".join(C.message(C.esc(SS.phrase(t))) for t in avertit)
-    return f'<div class="sf-export">{bouton}{mots}</div>'
+    return f'<div class="sf-export"><div class="sf-exp-l">{saf}{note}</div>{jn}{mots}</div>'
 
 
 def non_verifies(el: Dict, calc: Dict, extra: Sequence[str] = ()) -> str:
-    """La ligne grise sous les cartes (§ 9) : ce que la méthode ne vérifie pas, selon le cas."""
+    """La ligne grise sous les cartes (§ 11) : ce que la méthode ne vérifie pas, selon le cas."""
     t = list(extra) + list(NON_VERIFIES)
-    return f"Non vérifiés : {', '.join(t)}."
+    m = calc["modele"]
+    if any(any(v < 0 for v in c["R"]) for c in m["cas"]):
+        t.append("l'arrachement")
+    return f"Non vérifiés : {', '.join(dict.fromkeys(t))}."
 
 
 def _carte_sol(el: Dict, calc: Dict, s: Dict) -> str:
-    """La carte SOL : la contrainte de contact (taux = σ max / limite), le tassement max, la surface décollée, σ moyen ;
-    le tableau par k, dépliable dans la carte."""
+    """La carte SOL : la contrainte de contact (taux = σ max / limite, avec le cas et le k), le tassement max, la surface
+    décollée, σ moyen, les cas générés ; le tableau par k, dépliable dans la carte."""
     m = calc["modele"]
     lim = s["limite"]
     retenus, _ = selection(dict(el, vue=dict(el["vue"], k=None, cas=None)), calc)
     w = max(retenus, key=lambda r: r["w_max"])
     dec = max(retenus, key=lambda r: r["decolle"])
     if s["pp"]:
-        cmp_ = f"σ max = {SS.sol(el, s['sigma'])} · poids propre seul · réactions à saisir"
-        ligne = C.ligne_verif("Contrainte de contact", cmp_, None, "c", calcul="s0", etat_txt="non vérifié")
+        cmp_ = f"σ max{N}={N}{SS.sol(el, s['sigma'])} · poids propre seul · réactions à saisir"
+        ligne = C.ligne_verif("Contrainte de contact", cmp_, None, "c", calcul="s0", etat_txt="Données incomplètes")
         cls = "inc"
     else:
         signe = "≤" if s["taux"] <= 1 else "&gt;"
-        cmp_ = f"σ max = {SS.sol(el, s['sigma'])} {signe} {SS.sol(el, lim)} · cas {C.esc(s['cas'])} · k = {_k(s['k'])}"
+        cmp_ = f"σ max{N}={N}{SS.sol(el, s['sigma'])} {signe} {SS.sol(el, lim)} · cas{N}{C.esc(s['cas'])} · k{N}={N}{_k(s['k'])}"
         ligne = C.ligne_verif("Contrainte de contact", cmp_, C.pct(s["taux"]), C.niveau(s["taux"]), calcul="s0")
         cls = CLASSES[s["niveau"]]
     sm = V.sigma_moyen(m)
-    moyen = (f"σ moyen = ({C.fr(sm['dalle'], 0)}" + (f" + {C.fr(sm['plots'], 0)}" if sm["plots"] else "")
-             + (f" + {C.fr(sm['reactions'], 0)}" if sm["reactions"] else "") + f") / {C.fr(sm['aire'], 1)}{N}m² = {SS.sol(el, sm['sigma'])}")
+    moyen = (f"({C.fr(sm['dalle'], 0)}" + (f" + {C.fr(sm['plots'], 0)}" if sm["plots"] else "")
+             + (f" + {C.fr(sm['reactions'], 0)}" if sm["reactions"] else "") + f") ÷ {C.fr(sm['aire'], 1)}{N}m² = {SS.sol(el, sm['sigma'])}")
+    n = len(s["r_vue"]["cas"]) if s.get("r_vue") else 0
     rows = (ligne
-            + C.ligne_verif("Tassement max", f"w max = {C.fr(w['w_max'], 1)}{N}mm · k = {_k(w['k'])}", None, "c", calcul="s0", etat_txt="info")
-            + C.ligne_verif("Surface décollée", f"{C.fr(dec['decolle'], 1)}{N}% · k = {_k(dec['k'])}", None, "c", calcul="s0", etat_txt="info")
-            + C.ligne_verif("σ moyen", moyen, None, "c", etat_txt="repère"))
+            + C.ligne_verif("Tassement max", f"w max{N}={N}{C.fr(w['w_max'], 1)}{N}mm · k{N}={N}{_k(w['k'])}", None, "c", calcul="s0", etat_txt="valeur")
+            + C.ligne_verif("Surface décollée", f"{C.fr(dec['decolle'], 1)}{N}% · k{N}={N}{_k(dec['k'])}", None, "c", calcul="s0", etat_txt="valeur")
+            + C.ligne_verif("σ moyen", moyen, None, "c", calcul="s0", etat_txt="repère")
+            + ("" if s["pp"] else C.ligne_verif("Cas générés", f"{n} positions · σ max de chacune", None, "c", calcul="s2", etat_txt=f"{n}{N}cas")))
     n_scia = len(PR.k_scia(el))
-    table = (f'<details class="sf-tkd" data-plan-volet="tablek"><summary><b>Tableau par k</b><span>{n_scia} k coché{"s" if n_scia > 1 else ""} '
+    table = (f'<details class="sf-tkd" data-plan-volet="tablek"><summary><b>Tableau par k</b><span>{n_scia} coché{"s" if n_scia > 1 else ""} '
              f'« SCIA »</span>{C.icon("chevron-down")}</summary>{_table_k(el, calc, s)}</details>')
-    return E.bloc(0, "Sol", cls, ETATS[cls] if not s["pp"] else "non vérifié", "", rows, table, theme=True)
+    return E.bloc(0, "Sol", cls, ETATS[cls] if not s["pp"] else "Données incomplètes", "", rows, table, theme=True)
 
 
 def pied() -> str:
-    """Le pied de la colonne, comme le module poutre : « Méthode du bureau · moteur poutre » et la version du moteur."""
+    """Le pied de la colonne, comme le module poutre : la méthode et le moteur qui calcule les sections."""
     return (f'<div class="pfoot"><div class="mass"><span>{METHODE}</span><b>{C.esc(VERSION_MOTEUR)}</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
 
 
-def colonne(el: Dict, calc: Dict, s: Dict, cartes_ferraillage: str = "", non_verifies_extra: Sequence[str] = ()) -> Tuple[str, str]:
-    """(la colonne des résultats, les fenêtres de calcul) : SOL, CONTRÔLES (et les cartes du ferraillage, lot 4c), la
-    ligne grise « Non vérifiés », les cas générés, « Proposer », l'export, le pied."""
+def colonne(el: Dict, calc: Dict, s: Dict, carte_armatures: str = "", non_verifies_extra: Sequence[str] = (),
+            etapes_: Optional[List[Tuple[str, bool]]] = None) -> Tuple[str, str]:
+    """(la colonne des résultats, les fenêtres de calcul) : la ligne d'étapes, SOL, ÉQUILIBRE, CONTRÔLES, ARMATURES, la
+    ligne grise « Non vérifiés », « Proposer », « Exporter le SAF » et « Imprimer la note », le pied (§ 5.2)."""
     nom = C.esc(el.get("nom") or "Fondation")
     tete = E.tete_resultats(nom, f"{SS.dimensions(el)} · {C.esc(el['dalle']['beton'])}")
+    tete += ligne_etapes(etapes_ or [(t, False) for t in ("Données", "Vérification", "SAF", "Efforts SCIA", "Note")])
     ctl_rows, ctl_cls = _controles(el, calc, s)
     if s.get("r_vue") is None:
         rows = C.ligne_verif("Calcul", C.esc(s["phrase"]), None, "r", etat_txt="impossible")
-        blocs = E.bloc(0, "Sol", "nok", "Calcul impossible", "", rows, theme=True) + E.bloc(1, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True)
+        blocs = E.bloc(0, "Sol", "nok", "Calcul impossible", "", rows, theme=True) + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True)
         return (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
-                f'{_export(el, calc)}</div>{pied()}', _fenetre_controles(el, calc, s))
-    blocs = _carte_sol(el, calc, s) + E.bloc(1, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True) + cartes_ferraillage
-    positions = "" if s["pp"] else _positions(el, calc, s)
+                f'{_boutons(el, calc, joindre=False)}</div>{pied()}', _fenetre_controles(el, calc, s))
+    blocs = (_carte_sol(el, calc, s) + _carte_equilibre(el, calc, s)
+             + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True) + carte_armatures)
     html = (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
-            f'{positions}{_proposer(el, calc, s)}{_export(el, calc)}</div>{pied()}')
+            f'{_proposer(el, calc, s)}{_boutons(el, calc)}</div>{pied()}')
     volets = _fenetre_k(el, calc, s) + _fenetre_controles(el, calc, s) + ("" if s["pp"] else _fenetre_positions(el, calc, s))
     return html, volets
 
@@ -398,8 +415,8 @@ def hypotheses(el: Dict, calc: Dict) -> List[str]:
             f"C<sub>2x</sub> = k × {C.nb(o['c2x'])} · C<sub>2y</sub> = k × {C.nb(o['c2y'])} (MN/m)",
             f"Charges ELS caractéristiques : poids propre {C.fr(m['gamma'] * m['h'], 2)}{N}kN/m²"
             + (f", plots {C.fr(m['gamma'] * plots['hauteur'], 2)}{N}kN/m²" if plots else "") + ", réactions sur leur surface d'appui"
-            + (" (sous un plot préfabriqué : diffusée à 45° dans le plot, sur un carré centré sur le pied)" if plots and plots["type"] == "prefabrique" else ""),
-            "Une <b>estimation</b> pour fixer la dalle avant SCIA, qui reste la référence"]
+            + (" (sous un plot : diffusée à 45° depuis une plaque de 0,50 × 0,50, sur un carré centré sur le pied)" if plots else ""),
+            "Une <b>vérification complémentaire</b> de SCIA, par un calcul indépendant"]
 
 
 def _fenetre_k(el: Dict, calc: Dict, s: Dict) -> str:

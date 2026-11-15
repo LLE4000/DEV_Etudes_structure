@@ -407,14 +407,18 @@ def _plus_proche_bord(contour: Sequence, poly: Sequence) -> Tuple[Tuple[float, f
 
 # ------------------------------------------------------------------ le plan
 def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = True, carte: str = "image", ident: str = "saf",
-         legende: bool = False) -> str:
+         legende: bool = False, armatures: Optional[Dict] = None, texte: float = 1.0) -> str:
     """Le plan de la fondation (voir l'en-tête du fichier). ``interactif`` faux : le plan de la note PDF, sans poignée ;
     ``carte`` : « image » (l'écran) ou « vecteur » (la note) ; ``legende`` : la place de la légende est GARDÉE même sans
     carte à peindre (l'écran, quand le calcul est impossible : la dalle ne saute pas de côté à l'instant où une surface
-    d'appui sort de la dalle — on veut la ramener, pas la chercher)."""
+    d'appui sort de la dalle — on veut la ramener, pas la chercher) ; ``armatures`` : la carte Armatures (lot 5, § 5.1) —
+    {"ef", "fer", "face"} : les zones rouges et les renforts de la face, et leur légende (dessin_armatures) ; ``texte`` : le
+    facteur de la taille du texte (la note le grossit pour que ses dessins se lisent imprimés : 7 pt au moins, lot 5 § 10.3)."""
     c, g, ctl = m["contour"], el["grue"], m["controles"]
     plots = m["plots"]
     v = _Vue(c, list(m["plaques"]) + (plots["polys"] if plots else []))
+    v.t0 = v.t                     # (l'unité des traits : elle ne grossit pas avec le texte)
+    v.t *= texte
     t = v.t
     rect = el["dalle"]["forme"] == "rectangle"
     cx, cy = m["centre"]
@@ -427,6 +431,9 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
     if champ is not None:
         out.append(f'<g class="sf-carte" pointer-events="none">{_carte_image(v, champ, ident) if carte == "image" else _carte_vecteur(v, champ)}</g>')
         out.append(_iso(v, champ, ident))
+    if armatures is not None:
+        from . import dessin_armatures as DA
+        out.append(DA.couche(v, el, armatures["ef"], armatures["fer"], armatures["face"], ident, _texte, armatures.get("court", False)))
     out.append(f'<polygon class="sf-forme" points="{v.pts(c)}" fill="none" stroke="{BETON_BORD}" stroke-width="{t * 0.11:.2f}" stroke-linejoin="round" pointer-events="none"/>')
     if interactif and rect:
         # un rectangle : son bord droit et son bord haut se tirent (L_x, L_y) — SOUS le châssis : une plaque posée au bord
@@ -582,6 +589,9 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
             poignees.append(f'<circle class="sf-sommet" cx="{v.X(p[0]):.1f}" cy="{v.Y(p[1]):.1f}" r="{t * 0.42:.1f}" fill="#ffffff" stroke="{ENCRE}" '
                             f'stroke-width="{t * 0.1:.2f}" data-plan-glisser="{_attr(d)}"><title>Sommet {i + 1} : le glisser pour le déplacer</title></circle>')
         out.append(f'<g class="sf-contour">{"".join(poignees)}</g>')
+    if armatures is not None:
+        from . import dessin_armatures as DA
+        out.append(DA.reperes(v, armatures["fer"], armatures["face"], _texte, armatures.get("court", False)))
     # ---- la valeur maximale pointée, l'échelle des couleurs
     droite = v.X(max(v.gx1, v.x1))
     if champ is not None:
@@ -595,10 +605,13 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
                             t * 0.9, ENCRE,
                             "end" if sx < 0 else "start", gras=True) + "</g>")
         out.append(f'<g pointer-events="none">{_legende(v, champ, droite + t * 1.6, v.Y(v.y1) + t * 1.2, min(v.Y(v.y0) - v.Y(v.y1) - t * 4.0, t * 16))}</g>')
+    elif armatures is not None:
+        from . import dessin_armatures as DA
+        out.append(DA.legende(v, el, armatures["fer"], armatures["face"], droite + t * 1.6, v.Y(v.y1) + t * 1.2, _texte))
     # ---- la feuille
     x_min = min(gauche, v.X(v.x0)) - t * 5.4
     y_min = v.Y(max(v.gy1, v.y1)) - t * 2.6
-    x_max = droite + (t * 9.5 if champ is not None or legende else t * 3.0)
+    x_max = droite + (t * 9.5 if champ is not None or legende or armatures is not None else t * 3.0)
     y_max = max(bas, v.Y(v.y0)) + t * 4.4
     fond = (f'<rect class="sf-fond" x="{x_min:.1f}" y="{y_min:.1f}" width="{x_max - x_min:.1f}" height="{y_max - y_min:.1f}" fill="#ffffff" fill-opacity="0" '
             f'data-plan-fond="{_attr({"chemin": "dalle/sommet/+", "ech": ECH, "pas": 0.05})}"/>') if interactif and not rect else ""

@@ -412,6 +412,15 @@
 .et-rp { display: flex; flex-direction: column; gap: 1px; padding: 11px 14px 9px; }
 .et-rp b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .et-rp span { font-size: 12px; color: var(--ink-3); }
+/* la ligne d'étapes d'un module à déroulé (le « Générateur SAF », lot 5) : « 1 Données ✓ · 2 Vérification ✓ · 3 SAF… » */
+.et-etapes { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0; padding: 0 10px 9px; list-style: none; }
+.et-etapes li { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 8px 0 3px; border: 1px solid var(--line);
+  border-radius: 12px; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.et-etapes li .n { width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
+  background: var(--line); color: var(--ink-2, var(--ink)); }
+.et-etapes li svg { width: 13px; height: 13px; }
+.et-etapes li.fait { border-color: var(--ok-bar); background: var(--ok-bg); color: var(--ok-ink); }
+.et-etapes li.fait .n { background: var(--ok-ink); color: #fff; }
 .et-blocs { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
 /* sous les blocs, la phrase « Non vérifiées : … » (poutre, dalle, prédalle) : alignée sur le bord des blocs — elle
    touchait le bord de la colonne (relevé du lot 4, 13/11/2026) */

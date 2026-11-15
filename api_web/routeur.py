@@ -146,9 +146,11 @@ def telecharger(mod, q: dict) -> dict:
     raison = C.refus_fichier(f)
     if raison:
         return _refus(f"Le fichier « {_court(quoi)} » est refusé : {raison}.")
+    # (« avis » : ce que le module dit du fichier rendu — le « Générateur SAF » : une note SCIA jointe qu'il n'a pas su lire)
+    avis = {"avis": f["avis"][:300]} if isinstance(f.get("avis"), str) and f["avis"].strip() else {}
     if f["type"] in C.TYPES_BINAIRES:
-        return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "base64": f["base64"]}}
-    return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "texte": f["texte"]}}
+        return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "base64": f["base64"]}, **avis}
+    return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "texte": f["texte"]}, **avis}
 
 
 NOM_NOTE_MAX = 120   # caractères du nom de la note créée par « transmettre »

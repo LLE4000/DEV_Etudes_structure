@@ -12,9 +12,7 @@
 .sf-som .n { font-size: 11px; font-weight: 600; color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
 .sf-som-h { font-size: 11px; color: var(--ink-3); font-style: italic; }
 .sf-som-h > span:not(.n) { padding-left: 8px; }
-.sf-som > .field, .sf-k > .field, .sf-p > .field { height: 30px; min-width: 0; }
-.sf-k { display: grid; grid-template-columns: minmax(0, 1fr) auto 26px; align-items: center; gap: 8px; }
-.sf-k .case { margin: 0; white-space: nowrap; }
+.sf-som > .field, .sf-p > .field { height: 30px; min-width: 0; }
 .sf-pied { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
 .sf-pied .btn.sm svg.i { width: 13px; height: 13px; }
 .sf-repris { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 5px 4px 5px 9px; border-radius: 8px; background: var(--accent-soft);
@@ -23,15 +21,15 @@
 .sf-jeu { display: grid; grid-template-columns: 18px minmax(0, 1fr) 26px; align-items: center; gap: 5px 6px; padding: 6px 0 2px; border-top: 1px solid var(--line); }
 .sf-jeu:first-child, .sf-jeu-h + .sf-jeu { border-top: 0; padding-top: 0; }
 .sf-jeu-h { padding: 0; }
-.sf-jeu-h > .sf-p { grid-column: 2 / 4; font-size: 11px; font-weight: 600; color: #d9480f; text-align: right; }
+.sf-jeu-h > .sf-p { grid-column: 2 / 4; font-size: 11px; font-weight: 600; color: var(--ink-3); text-align: right; }
 .sf-jeu-h > .sf-p > span { padding-right: 7px; }
 .sf-jeu > .n { font-size: 12px; font-weight: 700; color: var(--ink-2); text-align: right; }
 .sf-jeu > .field.text { height: 28px; min-width: 0; }
 .sf-jeu > .sf-p { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .sf-p > .field { padding: 0 6px; }
 .sf-p > .field input { text-align: right; }
-.sf-num-l { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
-.sf-num { width: 96px; height: auto; flex: none; }
+.sf-l-reac .sf-num { width: 74px; height: auto; flex: none; justify-self: end; }
+.sf-p > .field .u { font-size: 10.5px; }
 
 /* la grue : le châssis choisi, ce que la bibliothèque dit, les grues enregistrées */
 .sf-chassis-b { width: 100%; justify-content: space-between; height: 32px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 8px;
@@ -44,12 +42,45 @@
 .sf-lu > b { font-weight: 600; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
 .sf-orig { color: inherit; cursor: help; }
 .sf-saisi { font-weight: 600; color: var(--accent-hover); }
-.sf-pastille { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 2px 8px; border-radius: 999px; background: #FEF3C7; color: #92400E;
+.sf-pastille { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 2px 8px; border-radius: 999px; background: var(--or-soft); color: var(--or);
   font-size: 11px; font-weight: 600; cursor: help; }
 .sf-pastille svg.i { width: 12px; height: 12px; }
-[data-theme="dark"] .sf-pastille { background: #3A2A0C; color: #FCD34D; }
-.sf-grue { display: flex; align-items: center; gap: 4px; }
-.sf-grue-b { flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 8px; border-radius: 7px; text-align: left; font-size: 12.5px; font-weight: 500; color: var(--ink);
+.sf-grue { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 8px; max-width: 100%; }
+.sf-grues { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.sf-grue-l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sf-grue-l > .field.text { flex: 1 1 auto; min-width: 0; }
+/* lot 5, § 4 : le sol en pastilles (k et sa case « SCIA »), les treillis Ø · e, les cases du calcul, le tableau SCIA */
+/* (la ligne Sol : son libellé à gauche, les pastilles qui se suivent sur toute la largeur du bloc, plusieurs par ligne) */
+#donnees .row.full.sf-sol { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+#donnees .row.full.sf-sol > label { flex: 0 0 84px; }
+.sf-kps { display: contents; }
+.sf-kp { display: inline-flex; align-items: center; gap: 2px; padding: 1px 1px 1px 2px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.sf-kp.on { border-color: var(--accent-line); background: var(--accent-soft); }
+.sf-kps > .sf-kp > .field { flex: none; width: 44px; min-width: 0; height: 28px; border: 0; background: transparent; padding: 0 2px; }
+.sf-kp > .field input { text-align: right; }
+.sf-kc { display: inline-flex; align-items: center; gap: 3px; height: 28px; padding: 0 5px; font-size: 10.5px; font-weight: 600; color: var(--ink-3); cursor: pointer; }
+.sf-kc input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.sf-kp .sf-x { width: 24px; height: 24px; }
+.sf-kplus { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px dashed var(--line-strong); border-radius: 9px; color: var(--ink-3); }
+.sf-kplus:hover { border-color: var(--accent); color: var(--accent-hover); }
+.sf-kplus svg.i { width: 14px; height: 14px; }
+.sf-repr svg.i, .sf-garder svg.i, .sf-joindre svg.i { width: 13px; height: 13px; }
+.sf-tr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.sf-tr > .field.select { flex: none; width: 78px; min-width: 0; height: 30px; }
+/* (lot 5, § 4 : « Dimensions L_x · L_y · h », « a · b · h » d'un plot, « e_x · e_y · β » : trois champs sur UNE ligne) */
+#donnees .row2.n3 { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); }
+.sf-tr .case { margin: 0; white-space: nowrap; }
+.sf-cases { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sf-cases .case { margin: 0; }
+.sf-scia-t { display: grid; gap: 6px; margin: 2px 0 4px; }
+.sf-scia-t .case { margin: 0 0 2px; }
+.sf-aide { margin: 2px 0 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.sf-aide > summary { display: flex; align-items: center; gap: 6px; padding: 7px 9px; cursor: pointer; list-style: none; font-size: 12px; }
+.sf-aide > summary::-webkit-details-marker { display: none; }
+.sf-aide > summary svg.i { margin-left: auto; width: 14px; height: 14px; color: var(--ink-3); transition: transform .15s; }
+.sf-aide[open] > summary svg.i { transform: rotate(180deg); }
+.sf-aide ol { margin: 0; padding: 0 12px 9px 28px; display: grid; gap: 3px; font-size: 11.5px; line-height: 1.4; color: var(--ink-2); }
+.sf-grue-b { flex: 0 1 auto; min-width: 0; height: 28px; padding: 0 8px; border-radius: 7px; text-align: left; font-size: 12.5px; font-weight: 500; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sf-grue-b:hover { background: var(--accent-soft); color: var(--accent-hover); }
 
@@ -59,10 +90,10 @@
 .pk-cherche:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .picker .pk-row[hidden] { display: none; }
 
-/* ------------------------------------------------------------------ le centre : la barre sur UNE ligne (lot 4, § 2.3)
-   les onglets (Plan, Ferraillage, Coupes), la carte, le cas, le k — de gauche à droite, sans retour à la ligne ; les onglets
-   de l'établi (#vues) ne servent pas ici : la barre porte les siens (une seule vue de l'établi, dont le dessin suit
-   l'onglet) ; le zoom de l'établi se pose sur le dessin, en bas à droite, hors de la barre */
+/* ------------------------------------------------------------------ le centre : la barre sur UNE ligne (lot 5, § 5.1)
+   la carte (Contrainte, Tassement, Armatures, Sans carte), le cas, le k — ou, sur la carte Armatures, « Bas · Haut » —
+   de gauche à droite, sans retour à la ligne ; plus d'onglets : les onglets de l'établi (#vues) ne servent pas ici (une
+   seule vue) ; le zoom de l'établi se pose sur le dessin, en bas à droite, hors de la barre */
 #vues { display: none; }
 .canvas { position: relative; }
 .canvas > .ctool { position: absolute; right: 10px; bottom: 64px; z-index: 3; padding: 0; display: block; pointer-events: none; }
@@ -76,7 +107,6 @@
 .et-ent.sf-barre { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px; padding: 2px 0 6px; min-width: 0; }
 .sf-barre > .seg { flex: none; }
 .sf-barre .seg button { height: 30px; padding: 0 11px; font-size: 12.5px; }
-.sf-barre .sf-onglets button.on { background: var(--ink); color: var(--panel); }
 /* les menus se partagent la place à PARTS ÉGALES (chacun borné à sa largeur utile) : un menu ne garde pas de la place
    pendant qu'un autre est coupé ; un choix qui ne tient pas prend son libellé court (js/plan.js, data-courts) ; si même
    le court ne tient pas (une toile très étroite), la barre passe — exceptionnellement — sur deux lignes (.serre) */
@@ -85,8 +115,6 @@
 .sf-barre > .sf-m-carte { max-width: 132px; }
 .sf-barre > .sf-m-cas { max-width: 150px; }
 .sf-barre > .sf-m-k { max-width: 112px; }
-.sf-barre > .sf-m-face { max-width: 112px; }
-.sf-barre > .sf-m-fond { max-width: 190px; }
 .et-ent.sf-barre.serre { flex-wrap: wrap; }
 .et-ent.sf-barre.serre > .field.select { flex: 1 1 auto; max-width: none; }   /* (à leur largeur : ils passent à la ligne) */
 /* la carte « Sol » : le tableau par k, dépliable dans la carte */
@@ -118,7 +146,7 @@
 /* pendant un geste, ce qui ne suit pas l'objet se retire : les bandes, les cotes, la valeur pointée, la carte s'estompe */
 .sf-plan.sf-en-geste .sf-bandes, .sf-plan.sf-en-geste .sf-cotes, .sf-plan.sf-en-geste .sf-max { visibility: hidden; }
 .sf-plan.sf-en-geste .sf-carte { opacity: .35; }
-.sf-plan .sf-etiq { font-family: Inter, system-ui, sans-serif; font-weight: 600; fill: #0D1525; text-anchor: middle; paint-order: stroke; stroke: #fff;
+.sf-plan .sf-etiq { font-family: Inter, system-ui, sans-serif; font-weight: 600; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff;
   stroke-linejoin: round; pointer-events: none; }
 /* la cote qu'on tape : un champ posé sur elle */
 .sf-saisie { position: fixed; z-index: 80; height: 30px; border: 2px solid var(--accent); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 13px;
@@ -135,15 +163,6 @@
 .sf-tk tr.vu td { background: var(--accent-soft); }
 .sf-tk tr.vu td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .sf-tk .chip { min-width: 46px; justify-content: center; }
-/* lot 4 : le bordereau dépliable de la carte Dalle (sa propre classe : le parcours compte les lignes de .sf-tk) et les
-   efforts d'une bande, sous son titre */
-.sf-bd { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-.sf-bd th { text-align: left; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 2px 4px 5px; white-space: nowrap; }
-.sf-bd td { padding: 3px 4px; border-top: 1px solid var(--line); }
-.sf-bd .n { text-align: right; white-space: nowrap; }
-.sf-bord-t { margin: 6px 2px 4px; font-size: 11.5px; color: var(--ink-3); }
-.sf-ef { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
-.sf-ef span { white-space: nowrap; }
 .sf-lien { font: inherit; font-weight: 700; color: var(--ink); padding: 2px 6px; margin: -2px -6px; border-radius: 6px; min-width: 30px; text-align: left; }
 .sf-lien:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-hover); }
 .sf-scia { display: inline-grid; place-items: center; width: 28px; height: 24px; cursor: pointer; }
@@ -153,28 +172,6 @@
 .sf-moyen .d { font-size: 11px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
 /* (un contrôle qui n'a rien à comparer tient sur sa première ligne : la seconde, vide, ne prend pas de place) */
 #resultat .el.vc .l2:has(> .cmp:empty:only-child) { display: none; }
-.sf-pos { margin: 10px 10px 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); }
-.sf-pos > summary { display: flex; align-items: baseline; gap: 8px; padding: 9px 10px; cursor: pointer; list-style: none; font-size: 12.5px; }
-.sf-pos > summary::-webkit-details-marker { display: none; }
-.sf-pos > summary > b { color: var(--ink); white-space: nowrap; }
-.sf-pos > summary > span { flex: 1 1 auto; min-width: 0; font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sf-pos > summary > svg.i { flex: none; align-self: center; width: 14px; height: 14px; color: var(--ink-3); transition: transform .15s; }
-.sf-pos[open] > summary > svg.i { transform: rotate(180deg); }
-.sf-pos[open] > summary { border-bottom: 1px solid var(--line); }
-.sf-pos > .sf-cas-l { padding: 4px; }
-.sf-detail { display: inline-flex; align-items: center; gap: 5px; margin: 0 6px 6px; padding: 4px 6px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
-  color: var(--ink-3); }
-.sf-detail:hover { background: var(--bg-sunken); color: var(--ink); }
-.sf-detail svg.i { width: 13px; height: 13px; }
-.sf-cas-l { display: grid; gap: 1px; }
-.sf-cas { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 7px; font: inherit;
-  font-size: 12px; text-align: left; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.sf-cas b { color: var(--ink); }
-.sf-cas > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sf-cas:hover { background: var(--bg-sunken); }
-.sf-cas.vu { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.sf-cas .chip { min-width: 46px; justify-content: center; }
-
 /* « Proposer » : le bouton, la barre de progression, le tableau */
 .sf-prop { margin: 12px 10px 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .sf-prop-h { display: flex; align-items: center; gap: 8px; }
@@ -190,9 +187,11 @@
 .sf-tp tr.cur td { font-weight: 700; }
 .sf-tp tr.non td { color: var(--ink-4); }
 
-/* l'export : UN bouton */
+/* les deux boutons (lot 5, § 5.2) : « Exporter le SAF » et « Imprimer la note », puis « Joindre les notes SCIA » */
 .sf-export { margin: 12px 10px 12px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.sf-exp-l { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
 .sf-exp-b { width: 100%; justify-content: center; height: 38px; }
+.sf-joindre { justify-self: center; }
 .sf-exp-b svg.i { width: 15px; height: 15px; }
 
 /* choisir une note d'un autre module (« Reprendre ») */
@@ -212,9 +211,16 @@
   /* (au doigt, 44 px : la règle de l'établi — chaque bouton, chaque champ d'une ligne à bouton) */
   .sf-x { width: 44px; height: 44px; }
   .sf-som { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr) 44px; }
-  .sf-k { grid-template-columns: minmax(0, 1fr) auto 44px; }
+  .sf-kp > .field, .sf-kc, .sf-kplus { height: 44px; }
+  .sf-kplus { width: 44px; }
+  .sf-kc input { width: 22px; height: 22px; }
+  .sf-kp .sf-x { width: 36px; height: 44px; }
+  .sf-tr > .field.select { height: 44px; }
+  .sf-kps > .sf-kp > .field { height: 44px; }
+  .sf-aide > summary { min-height: 44px; }
+  .sf-grue-b { height: 44px; }
   .sf-jeu { grid-template-columns: 18px minmax(0, 1fr) 44px; }
-  .sf-som > .field, .sf-k > .field, .sf-p > .field, .sf-jeu > .field.text { height: 44px; }
+  .sf-som > .field, .sf-p > .field, .sf-jeu > .field.text { height: 44px; }
   .sf-chassis-b, .sf-grue-b { height: 44px; }
   .sf-vue .seg button, .sf-vue .field.select { height: 44px; }
   .sf-barre .seg button, .sf-barre > .field.select { height: 44px; }
@@ -223,18 +229,15 @@
   .sf-scia { width: 44px; height: 44px; }
   .sf-scia input { width: 20px; height: 20px; }
   .sf-lien { min-width: 44px; min-height: 44px; padding: 0 8px; margin: 0 -8px; }
-  .sf-cas { min-height: 44px; padding: 9px 6px; font-size: 12.5px; }
-  .sf-detail { min-height: 44px; }
-  .sf-pied .et-add { min-width: 44px; }
-  .sf-pos > summary { min-height: 44px; align-items: center; }
+
   /* (une ligne de contrôle ouvre son détail : au doigt, 44 px même quand elle tient sur une ligne) */
   #resultat .et-bloc .el.vc { min-height: 44px; justify-content: center; }
   .sf-exp-b { height: 46px; }
-  .sf-prop-h .btn { height: 44px; }
+  .sf-prop-h .btn, .sf-joindre { height: 44px; }
   .sf-notes-l button { min-height: 44px; padding: 11px 10px; }
 }
 @media (max-width: 700px) {
-  /* (le téléphone : les onglets sur leur rangée, les menus dessous, chacun lisible — « .et-ent.sf-barre » l'interdisait
+  /* (le téléphone : « Bas · Haut » sur sa rangée, les menus à côté, chacun lisible — « .et-ent.sf-barre » l'interdisait
      avec son « nowrap » plus fort : les menus tombaient à « C… » et « E… ») */
   .et-ent.sf-barre { flex-wrap: wrap; }
   .sf-barre > .seg { flex: 1 0 100%; display: flex; }

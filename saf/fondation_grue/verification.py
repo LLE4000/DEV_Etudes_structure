@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """Fondation de grue — la VÉRIFICATION RAPIDE : la contrainte de contact et le tassement de la dalle, pour toutes les
-positions de la grue et plusieurs raideurs de sol. Une ESTIMATION pour fixer la dalle avant SCIA, qui reste la référence.
+positions de la grue et plusieurs raideurs de sol. Une VÉRIFICATION COMPLÉMENTAIRE de SCIA, par un calcul indépendant
+(lot 5, § 10).
 
 Charges ELS caractéristiques, comme les combinaisons du SAF : le poids propre (γ·h sur toute la dalle), le poids des
-plots, et chaque réaction répartie sur sa surface d'appui — ou, sous un plot préfabriqué, sur le carré de diffusion à 45°
-dans l'épaisseur du plot (lot 4, § 3.3 : avant, sur tout le plot ; le poids du plot reste sur tout le plot). Chaque charge
+plots, et chaque réaction répartie sur sa surface d'appui — ou, sous un plot (préfabriqué ou coulé en place), sur le carré
+de diffusion à 45° depuis une plaque de 0,50 × 0,50 dans la hauteur du plot (lot 5, § 6 ; le poids du plot reste sur tout
+le plot). Chaque charge
 est NORMALISÉE : sa somme vaut exactement la réaction (ou le poids du plot), quelle que soit la forme de la surface.
 
     calculer(modele, k, c2x=0, c2y=0, sans_traction=True) -> le résultat pour ce k
@@ -14,7 +16,7 @@ est NORMALISÉE : sa somme vaut exactement la réaction (ou le poids du plot), q
 LE MODÈLE (saf/fondation_grue/projet.py le bâtit depuis le projet) :
     {"contour": [(x, y)…], "h", "E" (MPa), "nu", "maille", "gamma" (kN/m³),
      "plaques": [P1…P4] (les surfaces d'appui), "plots": None | {"type": "prefabrique" | "coule", "polys": [P1…P4],
-     "hauteur", "diffusion" (préfabriqué : [P1…P4] les carrés à 45°)}, "cas": [{"nom", "jeu", "R": (R1…R4)}…]}
+     "hauteur", "diffusion" ([P1…P4] les carrés à 45°, les deux types)}, "cas": [{"nom", "jeu", "R": (R1…R4)}…]}
 Sans aucun cas (aucune réaction saisie), le poids propre est calculé seul (cas « PP »).
 
 LE RÉSULTAT d'un k :
@@ -131,10 +133,10 @@ def calculer(modele: Dict, k: float, c2x: float = 0.0, c2y: float = 0.0, sans_tr
 
 
 def surfaces_chargees(modele: Dict) -> List:
-    """Où arrive chaque réaction sur la dalle : la surface d'appui ; sous un plot préfabriqué, le carré de diffusion à
-    45° (projet.modele, « diffusion »). La même règle pour le calcul et le SAF (lot 4, § 3.3)."""
+    """Où arrive chaque réaction sur la dalle : la surface d'appui ; sous un plot (préfabriqué ou coulé en place), le carré
+    de diffusion à 45° (projet.modele, « diffusion »). La même règle pour le calcul et le SAF (lot 5, § 6)."""
     pl = modele.get("plots")
-    return pl["diffusion"] if pl and pl["type"] == "prefabrique" else modele["plaques"]
+    return pl["diffusion"] if pl else modele["plaques"]
 
 
 def par_k(modele: Dict, ks: Sequence[float], rapport_c2: Tuple[float, float] = (0.1, 0.1), sans_traction: bool = True) -> List[Dict]:

@@ -2,7 +2,8 @@
 """Le module « Générateur SAF » du site — premier outil : FONDATION DE GRUE. On dessine la dalle, on choisit le châssis
 (la bibliothèque des châssis de grue, ou une saisie) et on le place, on donne les réactions des quatre pieds : le module
 fait tourner les charges dans toutes les positions, estime tout de suite la contrainte de contact et le tassement pour
-plusieurs raideurs de sol, place les bandes d'intégration, et exporte les fichiers SAF (un par k) avec la note.
+plusieurs raideurs de sol, place les bandes d'intégration, fait le principe d'armatures, exporte UN fichier SAF et
+imprime UNE note (lot 5 : « une dalle de grue faite en 10 minutes »).
 
 Rien n'est calculé ici : le moteur est ``saf/fondation_grue`` (le projet et son modèle, la plaque sur sol élastique en
 compression seule, « Proposer », l'écriture SAF) ; ce fichier tient l'ÉTAT de la note, écrit les saisies et assemble
@@ -28,20 +29,20 @@ import zipfile
 from collections import OrderedDict
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from saf.fondation_grue import armatures as AR
 from saf.fondation_grue import chassis as CH
 from saf.fondation_grue import ecriture as EC
 from saf.fondation_grue import efforts as EF
-from saf.fondation_grue import ferraillage as FE
 from saf.fondation_grue import geometrie as G
 from saf.fondation_grue import projet as PR
 from saf.fondation_grue import proposition as PP
+from saf.fondation_grue import scia as SC
 from saf.fondation_grue import verification as V
 
 from . import commun as C
-from . import dessin_ferraillage as DF
 from . import dessin_saf as DS
 from . import etabli_compact as E
-from . import saf_ferraillage as SF
+from . import saf_armatures as SA
 from . import saf_resultat as SR
 from . import saf_saisie as SS
 
@@ -53,6 +54,7 @@ GENRE = E.Genre("Fondations", "la fondation", "cette fondation", "une fondation"
 CARNET_MAX = 40                  # grues enregistrées, au plus
 HORS_CALCUL = ("dmin", "repere")  # ce qui, de la grue, ne change pas le calcul (la distance mini demandée, le repère des cotes)
 TYPE_ZIP = "application/zip"
+TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 # ------------------------------------------------------------------ l'état
@@ -287,6 +289,8 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
         elif len(ch) == 4 and ch[2] == "P":
             vide = valeur is None or str(valeur).strip() == ""
             jeux[_indice(ch[1], len(jeux))]["P"][_indice(ch[3], 4)] = None if vide else _nombre(valeur, "la réaction")
+        elif len(ch) == 4 and ch[1] == "coller":
+            return _coller_reactions(el, _indice(ch[2], len(jeux)), _indice(ch[3], 4), valeur)
         else:
             raise ValueError("champ inconnu")
     elif ch == ["bandes", "largeur"]:
@@ -294,15 +298,21 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
     elif ch == ["limite"]:
         # (saisie dans l'unité choisie — lot 4, § 2.4 — et gardée en kg/cm²)
         el["limite"] = _nombre(valeur, "la limite") * SS.unite(el)[1] / V.KG_CM2
-    elif t == "armatures" and len(ch) == 2 and ch[1] in el["armatures"]:
-        if ch[1] == "enrobage":
-            el["armatures"]["enrobage"] = round(_nombre(valeur, "l'enrobage") / 100.0, 4)      # (saisi en cm)
-        else:
-            el["armatures"][ch[1]] = str(valeur)
+    elif t == "armatures":
+        _ecrire_armatures(el, ch[1:], valeur)
+    elif t == "scia":
+        _ecrire_scia(el, ch[1:], valeur)
+    elif ch == ["etapes", "saf"] or ch == ["etapes", "note"]:
+        # (l'écran le dit après un téléchargement réussi : l'étape est faite POUR CES DONNÉES — une donnée qui change la défait)
+        el["etapes"][ch[1]] = signature_etape(el, ch[1])
+    elif ch == ["options", "rond"]:
+        # (la case « platine ronde en 48 côtés » ; une note d'avant le lot 5 envoyait « carre » ou « 48 »)
+        b_ = valeur if valeur in CH.RONDS else ("48" if _bool(valeur) else "carre")
+        o["rond"] = b_
     elif t == "options" and len(ch) == 2 and ch[1] in o:
-        if ch[1] in ("aretes", "nonlinear", "torsion"):
+        if ch[1] in ("aretes", "nonlinear"):
             o[ch[1]] = _bool(valeur)
-        elif ch[1] in ("rond", "unite"):
+        elif ch[1] == "unite":
             o[ch[1]] = valeur
         elif ch[1] == "anneau":
             o["anneau"] = _nombre(valeur, "l'anneau")
@@ -310,19 +320,13 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
             o[ch[1]] = _nombre(valeur, ch[1])
     elif t == "vue" and len(ch) == 2 and ch[1] in el["vue"]:
         if ch[1] == "carte":
-            if valeur == "m":
-                valeur = el["vue"]["carte"] if el["vue"]["carte"] in PR.CARTES_MOMENTS else PR.CARTES_MOMENTS[0]
             if valeur not in PR.CARTES:
-                raise ValueError("carte : contrainte, tassement, moments ou sans carte")
+                raise ValueError("carte : contrainte, tassement, armatures ou sans carte")
             el["vue"]["carte"] = valeur
-        elif ch[1] == "onglet":
-            if valeur not in PR.ONGLETS:
-                raise ValueError("onglet : plan, ferraillage ou coupes")
-            el["vue"][ch[1]] = valeur
-        elif ch[1] == "fond":
-            if (valeur or "") not in PR.FONDS:
-                raise ValueError("fond : sans fond, ou le taux d'un treillis")
-            el["vue"]["fond"] = valeur or ""
+        elif ch[1] == "face":
+            if valeur not in PR.FACES_VUE:
+                raise ValueError("face : bas ou haut")
+            el["vue"]["face"] = valeur
         elif ch[1] == "cas":
             el["vue"]["cas"] = str(valeur) if valeur not in (None, "") else None
         else:
@@ -335,20 +339,113 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
     elif ch == ["proposition", "-"]:
         el["proposition"] = None
     elif ch == ["proposition", "appliquer"]:
+        # (§ 9 : un clic APPLIQUE la proposition — Lx, Ly et h —, et garde les dimensions d'avant pour « Annuler »)
         p = el.get("proposition") or {}
         li = (p.get("lignes") or [])[_indice(valeur, len(p.get("lignes") or []))]
         if li.get("d") is None:
             raise ValueError("cette épaisseur ne tient pas")
+        if not p.get("avant"):
+            p["avant"] = {"forme": d["forme"], "Lx": d["Lx"], "Ly": d["Ly"], "h": d["h"], "sommets": copy.deepcopy(d["sommets"]),
+                          "ex": g["ex"], "ey": g["ey"]}
         d["h"] = li["h"]
         if li.get("sommets"):
             _poser_contour(el, li["sommets"])
         else:
             d["Lx"], d["Ly"] = li["Lx"], li["Ly"]
+    elif ch == ["proposition", "annuler"]:
+        p = el.get("proposition") or {}
+        av = p.get("avant")
+        if not av:
+            raise ValueError("rien à annuler")
+        d["forme"], d["Lx"], d["Ly"], d["h"] = av["forme"], av["Lx"], av["Ly"], av["h"]
+        d["sommets"] = copy.deepcopy(av["sommets"])
+        g["ex"], g["ey"] = av["ex"], av["ey"]
+        p["avant"] = None
     elif t == "carnet":
         return _carnet(etat, el, ch[1:], valeur)
     else:
         raise ValueError("champ inconnu")
     return None
+
+
+def _ecrire_armatures(el: Dict, ch: List[str], valeur) -> None:
+    """Le bloc 3 (lot 5, § 4) : l'enrobage (cm), le Ø et l'espacement d'un treillis (« inf/x/d »…), « x ≠ y »,
+    le bouton rapide « e 10 » du treillis supérieur, le Ø des renforts, l'ancrage (Options)."""
+    a = el["armatures"]
+    if ch == ["enrobage"]:
+        a["enrobage"] = round(_nombre(valeur, "l'enrobage") / 100.0, 4)            # (saisi en cm)
+    elif len(ch) == 3 and ch[0] in ("inf", "sup") and ch[1] in ("x", "y") and ch[2] in ("d", "e"):
+        f = a[ch[0]]
+        v = int(round(_nombre(valeur, "le Ø" if ch[2] == "d" else "l'espacement")))
+        f[ch[1]][ch[2]] = v
+        if ch[1] == "x" and not f["xy"]:
+            f["y"][ch[2]] = v
+    elif len(ch) == 2 and ch[0] in ("inf", "sup") and ch[1] == "xy":
+        f = a[ch[0]]
+        f["xy"] = _bool(valeur)
+        if not f["xy"]:
+            f["y"] = dict(f["x"])
+    elif ch == ["sup", "e10"]:
+        a["sup"]["x"]["e"] = a["sup"]["y"]["e"] = 100
+    elif ch == ["renfort"]:
+        a["renfort"] = "auto" if str(valeur) == "auto" else int(round(_nombre(valeur, "le Ø des renforts")))
+    elif ch == ["ancrage"]:
+        a["ancrage"] = _nombre(valeur, "l'ancrage")
+    else:
+        raise ValueError("champ inconnu")
+
+
+def _ecrire_scia(el: Dict, ch: List[str], valeur) -> None:
+    """Le tableau des efforts SCIA (§ 8.1) : une valeur (vide : non saisie), la case « x = y », σ max d'un k (saisi dans
+    l'unité choisie, gardé en kPa)."""
+    sc = el["scia"]
+    vide = valeur is None or str(valeur).strip() == ""
+    if ch == ["sym"]:
+        sc["sym"] = _bool(valeur)
+    elif len(ch) == 1 and ch[0] in PR.CHAMPS_SCIA:
+        sc[ch[0]] = None if vide else _nombre(valeur, "la valeur SCIA")
+    elif len(ch) == 2 and ch[0] == "sigma":
+        if vide:
+            sc["sigma"].pop(ch[1], None)
+        else:
+            sc["sigma"][ch[1]] = _nombre(valeur, "σ max SCIA") * SS.unite(el)[1]
+    else:
+        raise ValueError("champ inconnu")
+
+
+def _coller_reactions(el: Dict, i: int, p: int, valeur) -> Optional[str]:
+    """Un tableau copié dans Excel, collé dans le champ P<p+1> du jeu i (§ 4, bloc 2) : une ligne par jeu, les valeurs
+    séparées par des tabulations (ou « ; ») ; les jeux manquants sont ajoutés (6 au plus). Rend un message."""
+    lignes = [l_ for l_ in str(valeur or "").replace("\r", "").split("\n") if l_.strip()]
+    if not lignes:
+        raise ValueError("rien à coller")
+    jeux = el["reactions"]
+    n = 0
+    for k, l_ in enumerate(lignes):
+        cases = [c.strip() for c in (l_.split("\t") if "\t" in l_ else l_.split(";"))]
+        if i + k >= PR.JEUX_MAX:
+            break
+        while len(jeux) <= i + k:
+            jeux.append({"nom": "", "P": [None] * 4})
+        for q, c in enumerate(cases):
+            if p + q >= 4:
+                break
+            jeux[i + k]["P"][p + q] = None if c == "" else _nombre(c, "la réaction")
+        n += 1
+    return f"{n} jeu{'x' if n > 1 else ''} collé{'s' if n > 1 else ''}"
+
+
+def signature_etape(el: Dict, etape: str) -> str:
+    """Ce dont une étape faite dépend (§ 1) : « saf » — tout ce que le SAF écrit ; « note » — tout ce que la note porte ;
+    la vue, les étapes et la proposition n'y entrent pas."""
+    hors = {"vue", "etapes", "proposition"} | ({"scia"} if etape == "saf" else set())
+    return json.dumps({k: v for k, v in el.items() if k not in hors}, sort_keys=True, default=str)
+
+
+def etapes_faites(el: Dict) -> Tuple[bool, bool]:
+    """(le SAF est exporté pour ces données, la note est imprimée pour ces données)."""
+    e = el.get("etapes") or {}
+    return e.get("saf") == signature_etape(el, "saf"), e.get("note") == signature_etape(el, "note")
 
 
 def _k_suivant(ks: List[float]) -> float:
@@ -480,61 +577,59 @@ def calculer(el: Dict) -> Dict:
     return {"modele": m, "par_k": par_k, "refus": refus}
 
 
-# ------------------------------------------------------------------ les efforts ELS (lot 4, § 4)
+# ------------------------------------------------------------------ les efforts ELS et le principe d'armatures (lot 5, § 7)
 _EFFORTS: "OrderedDict[str, Dict]" = OrderedDict()
 
 
-def efforts(el: Dict, calc: Dict, ks: Optional[List[Dict]] = None, cas: Optional[str] = None) -> Optional[Dict]:
+def efforts(el: Dict, calc: Dict) -> Optional[Dict]:
     """Les efforts ELS de la fondation (``saf.fondation_grue.efforts.enveloppe``), LUS dans les solutions déjà calculées —
-    aucun calcul en plus (§ 4.1) : par défaut l'enveloppe de tous les cas et de tous les k cochés « SCIA » (ce que le
-    ferraillage emploie) ; ``ks`` et ``cas`` la restreignent (la carte « Moments » d'un k ou d'un cas choisis). Le
-    résultat est gardé : changer la vue, la limite ou le nom ne le refait pas. None sans calcul.
-    (d, qui borne la lecture de V à d, se donne plus tard — ``efforts.v_a_d`` relit V(s) — : la valeur passée ici,
-    h − 6 cm, ne sert qu'à remplir la clé « V_d ».)"""
+    aucun calcul en plus : l'enveloppe de tous les cas et de tous les k cochés « SCIA » (tous, si aucun n'est coché) ; V à
+    d se lit à h − 6 cm du bord des zones chargées (l'annexe A). Gardé : changer la vue, la limite, un treillis ou le nom
+    ne le refait pas. None sans calcul."""
     if calc["par_k"] is None:
         return None
-    if ks is None:
-        scia = set(PR.k_scia(el))
-        ks = [r for r in calc["par_k"] if r["k"] in scia] or list(calc["par_k"])
+    scia = set(PR.k_scia(el))
+    ks = [r for r in calc["par_k"] if r["k"] in scia] or list(calc["par_k"])
     if not ks:
         return None
-    torsion = bool(el["options"]["torsion"])
-    cle = json.dumps([_signature_calcul(el), [r["k"] for r in ks], cas, torsion, el["bandes"]["largeur"]])
+    cle = json.dumps([_signature_calcul(el), [r["k"] for r in ks], el["bandes"]["largeur"]])
     if cle in _EFFORTS:
         _EFFORTS.move_to_end(cle)
         return _EFFORTS[cle]
-    if cas is not None:
-        ks = [{"k": r["k"], "dalle": r["dalle"], "deplacements": [x for c, x in zip(r["cas"], r["deplacements"]) if c["nom"] == cas]}
-              for r in ks]
-    ef = EF.enveloppe(calc["modele"], ks, max(el["dalle"]["h"] - 0.06, 0.01), torsion)
+    ef = EF.enveloppe(calc["modele"], ks, max(el["dalle"]["h"] - 0.06, 0.01))
     _EFFORTS[cle] = ef
     while len(_EFFORTS) > CALCULS_MAX:
         _EFFORTS.popitem(last=False)
     return ef
 
 
-_FERRAILLAGES: "OrderedDict[str, Dict]" = OrderedDict()
+def scia(el: Dict, calc: Dict) -> Optional[Dict]:
+    """Le tableau module / SCIA (``saf.fondation_grue.scia.rapports``) ; None sans efforts."""
+    ef = efforts(el, calc)
+    return SC.rapports(el, ef, calc["par_k"]) if ef is not None else None
 
 
-def ferraillage(el: Dict, calc: Dict) -> Optional[Dict]:
-    """Le ferraillage de la fondation (``saf.fondation_grue.ferraillage.calculer``), sur l'enveloppe des efforts de tous
-    les cas et des k cochés « SCIA » ; gardé (changer la vue ne le refait pas). None sans calcul ou sans réactions ;
-    {"erreur": …} si le moteur poutre refuse."""
+_ARMATURES: "OrderedDict[str, Dict]" = OrderedDict()
+
+
+def armatures(el: Dict, calc: Dict) -> Optional[Dict]:
+    """Le principe d'armatures (``saf.fondation_grue.armatures.calculer``), sur l'enveloppe des efforts et recalé sur les
+    efforts SCIA saisis ; gardé (changer la vue ne le refait pas ; changer un treillis ne refait QUE lui — le sol et les
+    efforts restent en cache, § 3). None sans calcul ou sans réactions."""
     if calc["par_k"] is None or not calc["modele"]["cas"]:
         return None
-    o = el["options"]
-    cle = json.dumps([_signature_calcul(el), PR.k_scia(el), el["bandes"]["largeur"], el["armatures"],
-                      [o[k] for k in ("torsion", "recouvrement", "l_max", "gamma_s", "jeu", "arrondi")]], sort_keys=True)
-    if cle in _FERRAILLAGES:
-        _FERRAILLAGES.move_to_end(cle)
-        return _FERRAILLAGES[cle]
-    try:
-        fer = FE.calculer(el, calc["modele"], efforts(el, calc))
-    except (ValueError, RuntimeError) as e:
-        fer = {"erreur": SS.phrase(str(e))}
-    _FERRAILLAGES[cle] = fer
-    while len(_FERRAILLAGES) > CALCULS_MAX:
-        _FERRAILLAGES.popitem(last=False)
+    ef = efforts(el, calc)
+    if ef is None:
+        return None
+    cle = json.dumps([_signature_calcul(el), PR.k_scia(el), el["bandes"]["largeur"], el["armatures"], el["scia"], el["dalle"]["beton"]],
+                     sort_keys=True)
+    if cle in _ARMATURES:
+        _ARMATURES.move_to_end(cle)
+        return _ARMATURES[cle]
+    fer = AR.calculer(el, calc["modele"], ef, SC.rapports(el, ef, calc["par_k"]))
+    _ARMATURES[cle] = fer
+    while len(_ARMATURES) > CALCULS_MAX:
+        _ARMATURES.popitem(last=False)
     return fer
 
 
@@ -652,26 +747,24 @@ def _dims(el: Dict) -> str:
 
 
 def synthese_note(el: Dict, calc: Dict, s: Dict) -> Dict:
-    """La synthèse d'une fondation pour le RÉSUMÉ de la note et ses pastilles : le sol (``SR.synthese``) ET le
-    ferraillage, le plus défavorable des deux — un ferraillage non conforme rend la fondation non conforme ; une bande
-    que le module ne peut pas conclure (V à d illisible, τ en bande IV) la rend « À vérifier », jamais « Conforme » ; un
-    ferraillage impossible, « Calcul impossible ». Sans réaction (le poids propre seul) ou sans calcul : le sol seul."""
+    """La synthèse d'une fondation pour le RÉSUMÉ de la note et sa pastille : le sol (``SR.synthese``) ET le principe
+    d'armatures, le plus défavorable des deux — une hauteur de béton insuffisante, un effort tranchant qui ne passe pas,
+    un treillis sous le minimum la rendent non conforme ; ce que le module ne peut pas conclure (V à d illisible, renforts
+    serrés, béton hors du moteur Dalles) la rend « À vérifier », jamais « Conforme ». Sans réaction (le poids propre seul)
+    ou sans calcul : le sol seul."""
     if s["niveau"] in ("x", "n") or s.get("r_vue") is None:
         return s
-    fer = ferraillage(el, calc)
-    if "erreur" in fer:
-        return dict(s, niveau="x", taux=None, phrase=f"ferraillage : {fer['erreur']}")
-    t = SF.taux_max(fer)
-    if not fer["ok"]:
-        t = max(t, 1.01)
-    if not fer["ok"] or (t > s["taux"] and s["niveau"] != "r"):
-        niv = "r" if not fer["ok"] or s["niveau"] == "r" else C.niveau(max(t, s["taux"]))
-        out = dict(s, niveau=niv, taux=max(t, s["taux"]), phrase=f"ferraillage {C.pct(t)} %" if t >= s["taux"] else s["phrase"])
-    else:
-        out = dict(s)
-    if fer.get("a_verifier") and out["niveau"] in ("p", "f"):
-        out = dict(out, niveau="v", phrase="ferraillage à vérifier (" + ", ".join(
-            t_.lower() for t_, _x, _n in fer["lignes"] if t_ in ("Effort tranchant", "Barres inclinées")) + ")")
+    fer = armatures(el, calc)
+    if fer is None:
+        return s
+    out = dict(s)
+    if fer["etat"] == "nok":
+        t = max(fer["taux"] or 1.01, 1.01)
+        out = dict(s, niveau="r", taux=max(t, s["taux"]), phrase=fer["alertes"][0][0] if fer["alertes"] else s["phrase"])
+    elif fer.get("taux") is not None and fer["taux"] > s["taux"] and s["niveau"] != "r":
+        out = dict(s, niveau=C.niveau(fer["taux"]), taux=fer["taux"], phrase=f"armatures {C.pct(fer['taux'])} %")
+    if fer["etat"] == "v" and out["niveau"] in ("p", "f"):
+        out = dict(out, niveau="v", phrase=(fer["alertes"][0][0] if fer["alertes"] else "armatures à vérifier"))
     return out
 
 
@@ -699,40 +792,40 @@ def arbre(etat: Dict, calc: Dict, s: Dict, carnet: List[Dict]) -> str:
     fondation ouverte (son nom, la liste des fondations de la note ; copier, supprimer), que l'écran pose dans l'en-tête
     du panneau, puis ses huit rubriques."""
     noms = [(f.get("nom") or f"F{i + 1}", _dims(f), False) for i, f in enumerate(etat["fondations"])]
-    return E.arbre(GENRE, noms, etat["actif"], SS.formulaire(_f(etat), calc, s, carnet), "fondation", compact=True)
+    el = _f(etat)
+    ef = efforts(el, calc) if s.get("r_vue") is not None else None
+    sc = SC.rapports(el, ef, calc["par_k"]) if ef is not None else None
+    fer = armatures(el, calc) if ef is not None else None
+    return E.arbre(GENRE, noms, etat["actif"], SS.formulaire(el, calc, s, carnet, sc, ef, fer), "fondation", compact=True)
 
 
 def resultat(etat: Dict) -> Dict:
-    """Le calcul de la fondation ouverte et sa mise en forme : la colonne des vérifications, les fenêtres de calcul, le
-    plan sous son en-tête, la colonne de gauche, le résumé de la note."""
+    """Le calcul de la fondation ouverte et sa mise en forme : la colonne des résultats (la ligne d'étapes, SOL,
+    ÉQUILIBRE, CONTRÔLES, ARMATURES), les fenêtres de calcul, le plan sous la barre du centre, la colonne de gauche, le
+    résumé de la note."""
     el = _f(etat)
     carnet = lire_carnet(etat.get("carnet"))
     calc = calculer(el)
     synth = [SR.synthese(f, calc if i == etat["actif"] else calculer(f)) for i, f in enumerate(etat["fondations"])]
     s = synth[etat["actif"]]
-    fer = ferraillage(el, calc) if s.get("r_vue") is not None else None
-    ef = None
+    fer = armatures(el, calc) if s.get("r_vue") is not None else None
+    ef = efforts(el, calc) if fer is not None else None
+    sc = SC.rapports(el, ef, calc["par_k"]) if ef is not None else None
+    saf_fait, note_faite = etapes_faites(el)
+    etp = SR.etapes(el, calc, s, fer, sc, saf_fait, note_faite)
     if fer is None:
-        html_res, volets = SR.colonne(el, calc, s)
-    elif "erreur" in fer:
-        html_res, volets = SR.colonne(el, calc, s, SF.carte_erreur(fer["erreur"]))
+        html_res, volets = SR.colonne(el, calc, s, etapes_=etp)
     else:
-        ef = efforts(el, calc)
-        html_res, volets = SR.colonne(el, calc, s, SF.cartes(el, fer, ef), fer["non_verifies"])
-        volets += SF.fenetres(el, fer, ef)
+        html_res, volets = SR.colonne(el, calc, s, SA.carte(el, fer, ef, sc), fer["non_verifies"], etapes_=etp)
+        volets += SA.fenetre(el, fer, ef)
     donnees = arbre(etat, calc, s, carnet)
-    ef_vue = efforts(el, calc, *SR.selection(el, calc)) if SR.carte_moments(el) and s.get("r_vue") is not None else None
-    champ = SR.champ(el, calc, s, ef_vue)
-    onglet = el["vue"]["onglet"]
-    if onglet != "plan" and fer is not None and "erreur" not in fer:
-        svg = (DF.plan(el, calc["modele"], fer, ef, el["vue"].get("fond") or None) if onglet == "ferraillage"
-               else DF.coupes(el, calc["modele"], fer, ef))
-    elif onglet != "plan":
-        svg = DS.plan(el, calc["modele"], None, legende=False)
+    if el["vue"]["carte"] == "armatures" and fer is not None and not fer.get("hors_domaine"):
+        svg = DS.plan(el, calc["modele"], None, armatures={"ef": ef, "fer": fer, "face": el["vue"]["face"]})
     else:
+        champ = SR.champ(el, calc, s)
         svg = DS.plan(el, calc["modele"], champ, legende=el["vue"]["carte"] != "aucune")
     vues = [{"cle": "plan", "titre": "Plan", "court": "Plan", "entete": SR.entete(el, calc, s), "echelle": False, "svg": svg}]
-    # (le résumé de la note et sa pastille : le sol ET le ferraillage de chaque fondation)
+    # (le résumé de la note et sa pastille : le sol ET les armatures de chaque fondation)
     synth_note = [synthese_note(f, calc if i == etat["actif"] else calculer(f), x) for i, (f, x) in enumerate(zip(etat["fondations"], synth))]
     nivs = [x["niveau"] for x in synth_note]
     statut = C.statut(next((n for n in ("x", "r", "n", "v", "f") if n in nivs), "p")) if len(synth) > 1 else ""
@@ -740,7 +833,7 @@ def resultat(etat: Dict) -> Dict:
             "donnees": donnees, "elements": ""}
 
 
-# ------------------------------------------------------------------ l'export : les SAF (un par k coché) et la note
+# ------------------------------------------------------------------ l'export : LE SAF (le premier k coché) et la note
 def controles_export(el: Dict, calc: Dict) -> Tuple[List[str], List[str]]:
     """(ce qui EMPÊCHE l'export, ce qui l'accompagne d'un avertissement) — cahier des charges § 8."""
     m = calc["modele"]
@@ -802,14 +895,22 @@ def fichiers_saf(el: Dict, calc: Dict, infos: Optional[Dict] = None) -> List[Tup
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
-    """« export » : UN fichier .zip — le SAF de chaque fondation (un seul, le premier k coché « SCIA ») et la note PDF, le
-    seul bouton d'export de l'écran ; « note_pdf » : la note seule (le bouton « Note PDF » de la page) ; « saf » : les
-    SAF seuls, dans la même archive sans la note (les essais, le parcours du module — aucun bouton). Un export impossible
-    est refusé avec sa raison (ValueError)."""
+    """« saf » : LE fichier SAF de la fondation ouverte (lot 5, § 1 : un seul export, écrit avec le premier k coché
+    « SCIA ») — « Exporter le SAF » ; « note_pdf » : la note PDF (« Imprimer la note ») — avec ``infos["annexes"]`` (les
+    PDF de SCIA, « Joindre les notes SCIA »), ajoutés à la fin ; « export » : l'ancien export (le SAF et la note dans une
+    archive .zip, pour une note de plusieurs fondations). Un export impossible est refusé avec sa raison (ValueError)."""
     if quoi == "note_pdf":
         from . import note_saf as NS
         return NS.fichier(etat, infos)
-    if quoi not in ("export", "saf"):
+    if quoi == "saf":
+        el = _f(etat)
+        calc = calculer(el)
+        bloque, _ = controles_export(el, calc)
+        if bloque:
+            raise ValueError(f"« {el.get('nom') or 'Fondation'} » ne s'exporte pas : {' ; '.join(bloque)}")
+        (nom, octets), = fichiers_saf(el, calc, infos)
+        return {"nom": nom, "type": TYPE_XLSX, "base64": base64.b64encode(octets).decode("ascii")}
+    if quoi != "export":
         return None
     entrees: List[Tuple[str, bytes]] = []
     for el in etat["fondations"]:
@@ -819,10 +920,9 @@ def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional
             raise ValueError(f"« {el.get('nom') or 'Fondation'} » ne s'exporte pas : {' ; '.join(bloque)}")
         prefixe = f"{C.nom_fichier(el.get('nom') or 'Fondation', '')}/" if len(etat["fondations"]) > 1 else ""
         entrees += [(prefixe + nom, octets) for nom, octets in fichiers_saf(el, calc, infos)]
-    if quoi == "export":
-        from . import note_saf as NS
-        note = NS.fichier(etat, infos)
-        entrees.append((note["nom"], base64.b64decode(note["base64"])))
+    from . import note_saf as NS
+    note = NS.fichier(etat, infos)
+    entrees.append((note["nom"], base64.b64decode(note["base64"])))
     date = _date(infos)
     tampon = io.BytesIO()
     with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:

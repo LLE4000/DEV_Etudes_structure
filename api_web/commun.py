@@ -560,9 +560,9 @@ def message(texte_: str, grave: bool = False) -> str:
 
 # ------------------------------------------------------------------ télécharger un fichier propre au module
 TYPES_FICHIER = ("application/json", "text/csv", "text/plain")
-# les fichiers BINAIRES, rendus en base 64 (clé « base64 » à la place de « texte ») : la note de calcul PDF, et l'archive
-# .zip d'un export en plusieurs fichiers (le « Générateur SAF » : un SAF par raideur de sol, et la note)
-TYPES_BINAIRES = ("application/pdf", "application/zip")
+# les fichiers BINAIRES, rendus en base 64 (clé « base64 » à la place de « texte ») : la note de calcul PDF, l'archive .zip
+# d'un export en plusieurs fichiers, et le classeur .xlsx (le « Générateur SAF » : LE fichier SAF, lot 5)
+TYPES_BINAIRES = ("application/pdf", "application/zip", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 BINAIRE_MAX = 15 * 1024 * 1024        # octets, décodés (15 Mo)
 NOM_FICHIER_MAX = 120                  # caractères
 TEXTE_FICHIER_MAX = 5 * 1024 * 1024    # octets, en UTF-8 (5 Mo)

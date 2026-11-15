@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Générateur SAF — fondation de grue : le MOTEUR DE CALCUL (saf/fondation_grue : geometrie, positions, plaque,
-verification, proposition, projet). Cahier des charges du 14/11/2026, § 11 : les tests T1 à T13.
+verification, proposition, projet). Cahier des charges du 14/11/2026, § 11 : les tests T1 à T13 ; lot 5 (15/11/2026, version
+4) : T13, T16 et T18 à ses valeurs (le carré de diffusion à 45° depuis une plaque de 0,50 × 0,50, pour les deux types de plots).
 
 Ce que la suite prouve :
   1. LES TESTS T1 À T13 — les valeurs du cahier des charges (maille 0,25 m, sol en compression seule, C2 = 0 sauf T4c).
@@ -180,9 +181,11 @@ def rapides():
         "touchent ne se chevauchent pas, deux plots superposés de 10 cm oui",
         G.dans_dalle(rect(8, 8), G.rectangle(1, 1, 2.0, 2.0)) and not G.dans_dalle(rect(8, 8), G.rectangle(1, 1, 2.2, 2.2))
         and not G.se_chevauchent(G.rectangle(1, 1, 2, 2), G.rectangle(3, 1, 2, 2)) and G.se_chevauchent(G.rectangle(1, 1, 2, 2), G.rectangle(2.9, 1, 2, 2)))
-    # (lot 4, § 3.3 et § 10 : sous un plot PRÉFABRIQUÉ, la réaction arrive sur le carré de diffusion à 45° — 1,20 × 1,20 m —
-    # et non plus sur tout le plot : 66,1 / 85,8 / 120,6 kPa, 10,05 mm ; avant, 66,6 / 86,5 / 121,4 kPa, 10,12 mm)
-    for typ, attendu, w in (("prefabrique", [66.1, 85.8, 120.6], 10.05), ("coule", [64.6, 83.9, 114.8], 9.57)):
+    # (lot 5, § 6 : sous un plot — PRÉFABRIQUÉ OU COULÉ EN PLACE —, la réaction arrive sur le carré de diffusion à 45° depuis
+    # une plaque de 0,50 × 0,50 — 1,20 × 1,20 m — : 66,1 / 85,8 / 120,6 kPa, 10,05 mm préfabriqués ; coulés en place (la raideur
+    # du plot comptée) 64,7 / 84,0 / 114,9 kPa, 9,58 mm — au lot 4, la réaction d'un plot coulé restait sur la plaque :
+    # 64,6 / 83,9 / 114,8 kPa)
+    for typ, attendu, w in (("prefabrique", [66.1, 85.8, 120.6], 10.05), ("coule", [64.7, 84.0, 114.9], 9.58)):
         mp = PR.modele(projet(grue={"plots": dict(PLOTS, type=typ)}))
         rp = V.calculer(mp, K)
         chk(f"T13 dalle type, plots 2,00 × 2,00 × 0,35 m {'préfabriqués' if typ == 'prefabrique' else 'coulés en place'} : σ max = "
@@ -190,19 +193,23 @@ def rapides():
             "2110, 2340, 2520 kN (le poids des plots s'ajoute) ; plots dans la dalle, séparés, qui couvrent les surfaces d'appui",
             par_jeu(rp) == attendu and round(rp["w_max"], 2) == w and sorted({round(x["charge_totale"], 1) for x in rp["cas"]}) == [2110.0, 2340.0, 2520.0]
             and mp["controles"]["plots_ok"] and rp["ecart_equilibre"] < 1e-4, (par_jeu(rp), rp["w_max"]))
-    # T16 (lot 4, § 3.3) : le carré de diffusion à 45° d'un plot préfabriqué de 0,35 m — côté du carré de même aire que la
-    # surface d'appui + 2 × 0,35, centré sur elle, borné par le plot
+    # T16 (lot 5, § 6) : le carré de diffusion à 45° depuis une plaque de 0,50 × 0,50 — côté 0,50 + 2 × hauteur du plot, sans
+    # dépasser le plot, la base restant 0,50 quel que soit l'appui —, centré sur la surface d'appui
     def cote(q):
         return round(max(x for x, _ in q) - min(x for x, _ in q), 3), round(max(y for _, y in q) - min(y for _, y in q), 3)
     rond1 = [(1 + 0.25 * math.cos(i * math.pi / 24), 7 + 0.25 * math.sin(i * math.pi / 24)) for i in range(48)]
-    d16 = [G.diffusion_45(G.rectangle(1, 7, 0.5, 0.5), 0.35, 2.0, 2.0), G.diffusion_45(platine_45(1, 7, -1, 1, 0.58, 0.40), 0.35, 2.0, 2.0),
-           G.diffusion_45(rond1, 0.35, 2.0, 2.0), G.diffusion_45(G.rectangle(1, 7, 0.5, 0.5), 0.35, 1.0, 1.0)]
+    d16 = [G.diffusion_45(G.rectangle(1, 7, 0.5, 0.5), 0.35, 2.0, 2.0), G.diffusion_45(G.rectangle(1, 7, 0.5, 0.5), 0.20, 2.0, 2.0),
+           G.diffusion_45(G.rectangle(1, 7, 0.5, 0.5), 0.20, 0.8, 0.8), G.diffusion_45(platine_45(1, 7, -1, 1, 0.58, 0.40), 0.35, 2.0, 2.0),
+           G.diffusion_45(rond1, 0.35, 2.0, 2.0)]
     centres16 = [tuple(round(v, 3) for v in G.centre_gravite(q)) for q in d16]
-    chk("T16 carré de diffusion (plot préfabriqué de 0,35 m) : 1,200 m sous une plaque 0,50 × 0,50 ; 1,182 m sous une platine 0,58 × 0,40 "
-        "à 45° ; 1,142 m sous une platine ronde Ø 0,50 en 48 côtés ; borné à 1,000 m dans un plot de 1,00 × 1,00 ; toujours centré sur la "
-        "surface d'appui (1,000 ; 7,000), côtés parallèles au châssis",
-        [cote(q) for q in d16] == [(1.2, 1.2), (1.182, 1.182), (1.142, 1.142), (1.0, 1.0)] and set(centres16) == {(1.0, 7.0)},
+    chk("T16 carré de diffusion : plot 2,00 × 2,00 × 0,35 → 1,200 m ; 2,00 × 2,00 × 0,20 → 0,900 ; 0,80 × 0,80 × 0,20 → 0,800 (borné par "
+        "le plot) ; 2,00 × 2,00 × 0,35 sous une platine 0,58 × 0,40 à 45° → 1,200 (la base reste 0,50 × 0,50), sous une platine ronde → 1,200 ; "
+        "toujours centré sur la surface d'appui (1,000 ; 7,000), côtés parallèles au châssis",
+        [cote(q) for q in d16] == [(1.2, 1.2), (0.9, 0.9), (0.8, 0.8), (1.2, 1.2), (1.2, 1.2)] and set(centres16) == {(1.0, 7.0)},
         ([cote(q) for q in d16], centres16))
+    mc = PR.modele(projet(grue={"plots": dict(PLOTS, type="coule")}))
+    chk("T16 les deux types : un plot coulé en place reçoit aussi la réaction sur son carré de diffusion de 1,20 m (le SAF et le calcul : "
+        "verification.surfaces_chargees)", [round(G.aire(q), 6) for q in V.surfaces_chargees(mc)] == [1.44] * 4, V.surfaces_chargees(mc))
     mp = PR.modele(projet(grue={"plots": dict(PLOTS), "beta": 30.0}, dalle={"Lx": 10.0, "Ly": 10.0}))
     q0, c0 = mp["plots"]["diffusion"][0], G.centre_gravite(mp["plaques"][0])
     ang = math.degrees(math.atan2(q0[1][1] - q0[0][1], q0[1][0] - q0[0][0]))
@@ -214,18 +221,20 @@ def rapides():
     chk("§ 3.2 : un plot de 2,20 m sous un pied à 1 m du bord sort de la dalle — contrôle rouge, « plots_ok » faux",
         not mg["controles"]["plots_ok"] and mg["controles"]["plots_dedans"] == [False] * 4)
     el = projet()
-    # (lot 4, § 3.1, § 4.3, § 2.4, § 5 : maille 0,20 m, bandes de 0,50 m, contraintes de sol en kg/cm², enrobage 5 cm, treillis
-    # automatiques, torsion dans le treillis, recouvrement 50 Ø, barres de 12 m au plus — le harnais suit le cahier des charges)
+    # (lot 5, § 4 et § 12 : maille 0,20 m, bandes de 0,50 m, contraintes de sol en kg/cm², enrobage 5 cm, treillis CHOISIS Ø12 e 15
+    # en bas et en haut, renforts Ø automatique, ancrage 50 Ø ; plus de torsion, de recouvrement ni de longueur maxi — retirés)
     chk("le projet neuf : dalle 8,00 × 8,00 × 0,50 m en C30/37 (E = 32 800 MPa), k = 2, 5, 10, 20, 30 dont 2, 5, 10 cochés « SCIA », châssis "
         "saisi 6,00 × 6,00 m centré à 0°, appuis 0,50 × 0,50 m, sans plot, distance mini 0,50 m, bandes de 0,50 m, limite 0,5 kg/cm², maille "
-        "0,20 m, anneau 2 cm, C = k/10, unité kg/cm², enrobage 5 cm, treillis automatiques, torsion, 50 Ø, 12 m ; réactions et textes du "
-        "projet VIDES",
+        "0,20 m, anneau 2 cm, C = k/10, unité kg/cm², enrobage 5 cm, treillis Ø12 e 15 en bas et en haut, renforts Ø auto, ancrage 50 Ø, "
+        "efforts SCIA vides, aucune étape faite ; réactions et textes du projet VIDES",
         (lambda n: n["dalle"] == {"forme": "rectangle", "Lx": 8.0, "Ly": 8.0, "sommets": [], "h": 0.5, "beton": "C30/37"}
          and PR.module_E("C30/37") == 32800.0 and [(x["k"], x["scia"]) for x in n["sol"]["k"]] == [(2, True), (5, True), (10, True), (20, False), (30, False)]
          and n["grue"]["chassis"] == "saisie" and (n["grue"]["a"], n["grue"]["b"], n["grue"]["ex"], n["grue"]["ey"], n["grue"]["beta"], n["grue"]["dmin"]) == (6, 6, 0, 0, 0, 0.5)
          and n["grue"]["plots"]["type"] == "aucun" and n["bandes"]["largeur"] == 0.5 and n["limite"] == 0.5 and n["options"]["maille"] == 0.20
-         and n["options"]["unite"] == "kgcm2" and n["options"]["torsion"] is True and n["options"]["recouvrement"] == 50 and n["options"]["l_max"] == 12
-         and n["armatures"] == {"enrobage": 0.05, "treillis_inf": "auto", "treillis_sup": "auto"}
+         and n["options"]["unite"] == "kgcm2" and not {"torsion", "recouvrement", "l_max", "gamma_s", "jeu", "arrondi"} & set(n["options"])
+         and n["armatures"] == {"enrobage": 0.05, "inf": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": False},
+                                "sup": {"x": {"d": 12, "e": 150}, "y": {"d": 12, "e": 150}, "xy": False}, "renfort": "auto", "ancrage": 50.0}
+         and all(v is None for k_, v in n["scia"].items() if k_ != "sigma") and n["scia"]["sigma"] == {} and n["etapes"] == {"saf": None, "note": None}
          and n["options"]["anneau"] == 0.02 and [n["options"][c] for c in ("c1x", "c1y", "c2x", "c2y")] == [0.1] * 4
          and n["reactions"] == [{"nom": "", "P": [None] * 4}] and set(n["projet"].values()) == {""})(PR.lire(PR.nouveau())))
     refus = []
@@ -296,8 +305,8 @@ def complets():
     grande = dict(dalle={"Lx": 12.0, "Ly": 12.0, "h": 0.40})
     v = [round(V.calculer(PR.modele(projet(grue={"plots": pt}, **grande)), 30.0)["sigma_max"], 1)
          for pt in ({"type": "aucun"}, PLOTS, dict(PLOTS, type="coule"))]
-    chk("T13 dalle 12 × 12 × 0,40, k = 30 (le maximum est sous le pied) : 53,1 kPa sans plot ; 52,7 préfabriqués (diffusion à 45°, lot 4 ; "
-        "49,4 avant, réaction sur tout le plot) ; 40,7 coulés en place", v == [53.1, 52.7, 40.7], v)
+    chk("T13 dalle 12 × 12 × 0,40, k = 30 (le maximum est sous le pied) : 53,1 kPa sans plot ; 52,7 préfabriqués ; 40,4 coulés en place "
+        "(la raideur du plot comptée ; lot 5, § 6 : la réaction sur le carré de diffusion, 40,7 au lot 4)", v == [53.1, 52.7, 40.4], v)
     pl_type = [G.rectangle(x, y, 0.5, 0.5) for x, y in G.pieds(4, 4, 6, 6)]
     ch = [(q, R / 0.25) for q, R in zip(pl_type, JEUX[2])]
     s1, s2 = [dd.resoudre([dd.charge(q_uniforme=25 * 0.85, plaques=ch)])[0]["sigma"].max()
@@ -314,6 +323,16 @@ def complets():
         "charges totales 1970 ; 2200 ; 2380 (dalle type), 2110 ; 2340 ; 2520 (avec plots) et 2657,5 ; 2887,5 ; 3067,5 kN (dalle T7)",
         len(equilibre) == 104 and ecart < 1e-4 and totaux == [1970.0, 2110.0, 2200.0, 2340.0, 2380.0, 2520.0, 2657.5, 2887.5, 3067.5],
         (len(equilibre), ecart, totaux))
+    # T18 (lot 5, § 5.2) : la résultante du sol (Σ σ × aire des nœuds) contre grue + dalle + plots, cas 1.a, dalle type, k = 12
+    t18 = []
+    for pt in ({"type": "aucun"}, PLOTS, dict(PLOTS, type="coule")):
+        m18 = PR.modele(projet(grue={"plots": pt}))
+        c18 = next(x for x in V.calculer(m18, K)["cas"] if x["nom"] == "1.a")
+        plots18 = sum(25 * m18["plots"]["hauteur"] * G.aire(q) for q in m18["plots"]["polys"]) if m18["plots"] else 0.0
+        t18.append((round(c18["reaction_sol"], 1), round(sum(c18["R"]) + 25 * 0.5 * 64.0 + plots18, 1), abs(c18["reaction_sol"] / (sum(c18["R"]) + 800.0 + plots18) - 1)))
+    chk("T18 équilibre, dalle type, jeu 1 (cas 1.a) : résultante du sol 2 380,0 kN sans plot ; 2 520,0 kN avec plots préfabriqués ou coulés "
+        "(grue 1 580,0 + dalle 800,0 + plots 140,0) ; écart 0,00 %",
+        [x[:2] for x in t18] == [(2380.0, 2380.0), (2520.0, 2520.0), (2520.0, 2520.0)] and max(x[2] for x in t18) < 5e-5, t18)
     t = time.time()
     t6 = [PP.pour_epaisseur(projet(jeux=[JEUX[2]]), h, ks=[K], rapport_c2=(0.0, 0.0)) for h in (0.4, 0.5, 0.6, 0.8, 1.0)]
     chk(f"T6 « Proposer », dalle type, jeu 3, k = 12, limite 0,5 kg/cm² : h = 0,40 → 10,50 m ; 0,50 → 10,70 ; 0,60 → 10,90 ; 0,80 → 11,30 ; "
@@ -372,15 +391,18 @@ MUTATIONS = [
     ("plaque.py", "                nouveau = on0 & (w > 0)", "                nouveau = on0", "le sol retient la dalle (traction admise)"),
     ("plaque.py", "        return f / total", "        return f", "la charge d'une surface d'appui non normalisée"),
     ("plaque.py", "            self.De[dz] = E_MPa * 1000.0 * hz ** 3 / (12 * (1 - nu * nu))", "            pass", "le plot coulé en place sans sa surépaisseur"),
-    ("verification.py", '    return pl["diffusion"] if pl and pl["type"] == "prefabrique" else modele["plaques"]', '    return modele["plaques"]',
-     "le plot préfabriqué qui ne diffuse pas la réaction (tout sur la platine)"),
-    ("verification.py", '    return pl["diffusion"] if pl and pl["type"] == "prefabrique" else modele["plaques"]',
-     '    return pl["polys"] if pl and pl["type"] == "prefabrique" else modele["plaques"]',
-     "le plot préfabriqué qui répartit la réaction sur TOUT le plot (la règle d'avant le lot 4)"),
+    ("verification.py", '    return pl["diffusion"] if pl else modele["plaques"]', '    return modele["plaques"]',
+     "le plot qui ne diffuse pas la réaction (tout sur la platine)"),
+    ("verification.py", '    return pl["diffusion"] if pl else modele["plaques"]',
+     '    return pl["polys"] if pl else modele["plaques"]', "le plot qui répartit la réaction sur TOUT le plot (la règle d'avant le lot 4)"),
+    ("verification.py", '    return pl["diffusion"] if pl else modele["plaques"]',
+     '    return pl["diffusion"] if pl and pl["type"] == "prefabrique" else modele["plaques"]',
+     "le plot coulé en place qui garde la réaction sur la platine (la règle du lot 4)"),
     ("geometrie.py", '    return rectangle(xc, yc, min(c, a_plot), min(c, b_plot), beta_deg)', '    return rectangle(xc, yc, c, c, beta_deg)',
      "le carré de diffusion qui dépasse le plot"),
-    ("geometrie.py", '    c = math.sqrt(aire(surface)) + 2.0 * h_plot', '    c = math.sqrt(aire(surface)) + h_plot',
-     "la diffusion à 45° d'un seul côté (côté + h au lieu de + 2h)"),
+    ("geometrie.py", '    c = base + 2.0 * h_plot', '    c = base + h_plot', "la diffusion à 45° d'un seul côté (côté + h au lieu de + 2h)"),
+    ("geometrie.py", '    c = base + 2.0 * h_plot', '    c = math.sqrt(aire(surface)) + 2.0 * h_plot',
+     "la diffusion depuis la surface d'appui au lieu d'une plaque de 0,50 × 0,50 (la règle du lot 4)"),
     ("verification.py", '            Fg = Fg + d.charge_unitaire(q) * (gamma * pl["hauteur"] * G.aire(q))', "            pass", "le poids des plots oublié"),
     ("verification.py", '    lourd = max(cas, key=lambda c: sum(c["R"])) if cas else None', '    lourd = cas[-1] if cas else None', "σ moyen sur un autre jeu que le plus lourd"),
     ("geometrie.py", "        f = 1 - tol / max(d, tol)", "        f = 1.0", "le bord sur bord refusé (plus de tolérance de 1 mm)"),

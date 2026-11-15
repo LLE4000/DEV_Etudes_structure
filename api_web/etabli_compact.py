@@ -227,6 +227,15 @@ def tete_resultats(nom: str, dims: str) -> str:
     return f'<div class="et-rp"><b>{nom}</b><span>{dims}</span></div>'
 
 
+def etapes(items: Sequence[Tuple[str, bool]]) -> str:
+    """La LIGNE D'ÉTAPES d'un module à déroulé (le « Générateur SAF », lot 5, § 1 — « 1 Données ✓ · 2 Vérification ✓ ·
+    3 SAF · 4 Efforts SCIA · 5 Note ») : chaque étape (son titre, en texte ; faite ou non) avec son numéro ; une étape
+    faite est cochée. Sous la tête des résultats, sur une ligne (elle passe à la ligne à la largeur d'un téléphone)."""
+    li = "".join(f'<li class="{"fait" if fait else ""}"><span class="n">{i}</span><span class="t">{C.esc(t)}</span>'
+                 f'{C.icon("check") if fait else ""}</li>' for i, (t, fait) in enumerate(items, 1))
+    return f'<ol class="et-etapes" aria-label="Étapes">{li}</ol>'
+
+
 def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, pied: str = "", *, theme: bool = False, calcul: str = "") -> str:
     """Le bloc d'UNE section : l'en-tête (son ``titre`` et son état ``etat_txt``, en texte ; la couleur ``cls`` : ok,
     warn, nok, inc), les efforts (HTML), les vérifications ``rows`` (deux lignes chacune, C.ligne_verif), puis ``pied``

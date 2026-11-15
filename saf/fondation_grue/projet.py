@@ -14,8 +14,7 @@ import copy
 import math
 from typing import Dict, List, Optional, Tuple
 
-from beton import position as POS_BETON
-from beton.poutre.entree import DEFAUTS_POUTRE
+from beton.dalle import moteur as DALLE
 
 from . import chassis as CH
 from . import geometrie as G
@@ -37,22 +36,24 @@ PLOT_DEFAUT = (2.0, 2.0, 0.35)   # a × b × hauteur (m) : les plots COULÉS EN 
 # 2,50 m fois 35 cm de haut ») ; choisir une sorte pose ses dimensions tant que le plot garde celles d'une autre sorte
 PLOTS_DEFAUT = {"prefabrique": (2.5, 2.5, 0.35), "coule": PLOT_DEFAUT}
 FORMES = ("rectangle", "contour")
-# la vue du centre (lot 4, § 2.3) : l'onglet, la carte (« Enveloppe » quand ni le cas ni le k ne sont choisis)
-ONGLETS = ("plan", "ferraillage", "coupes")
-CARTES_MOMENTS = ("m_inf_x", "m_inf_y", "m_sup_x", "m_sup_y")      # la carte « Moments » : la face, puis la direction
-CARTES = ("sigma", "w") + CARTES_MOMENTS + ("aucune",)
-FONDS = ("", "inf_x", "inf_y", "sup_x", "sup_y")    # le fond de l'onglet Ferraillage : le taux de travail du treillis seul (§ 2.3)
-# lot 4 (cahier des charges du 15/11/2026) : la maille et les bandes par défaut, l'unité des contraintes de sol, les armatures
+# la vue du centre (lot 5, § 5.1) : la carte (Contrainte, Tassement, Armatures, Sans carte), la face de la carte Armatures
+# (Bas, Haut), le cas et le k (« Enveloppe » quand ni le cas ni le k ne sont choisis). Plus d'onglets.
+CARTES = ("sigma", "w", "armatures", "aucune")
+FACES_VUE = ("inf", "sup")
+# lot 4 (cahier des charges du 15/11/2026) : la maille et les bandes par défaut, l'unité des contraintes de sol
 MAILLE_DEFAUT = 0.20             # § 3.1 (0,25 m avant le lot 4 ; une note enregistrée garde la sienne)
 LARGEUR_BANDE_DEFAUT = 0.5       # § 4.3 (1,00 m avant le lot 4)
 UNITES = ("kgcm2", "kpa", "mpa")  # § 2.4 : kg/cm² par défaut ; le calcul reste en kPa, seul l'affichage change
-TREILLIS = ("auto", "10-15", "12-15", "10-10", "12-10")   # § 5.2 : Ø (mm) - espacement (cm), les mêmes dans les deux sens
-ENROBAGE_DEFAUT = 0.05           # § 5.1 (m)
-RECOUVREMENT_DEFAUT = 50         # § 5.7 : longueur de recouvrement = 50 Ø, quand le logiciel n'a pas de règle
-L_BARRE_MAX = 12.0               # § 5.7 : longueur maxi des barres (m)
-# les options du MOTEUR POUTRE (§ 2.1, bloc 4), à leurs valeurs par défaut du module « Poutres béton armé » — lues chez lui
-GAMMA_S_DEFAUT = float(DEFAUTS_POUTRE["gamma_s"])             # « coefficient acier ELS » : fyd = fyk / γs
-JEU_DEFAUT, ARRONDI_DEFAUT = POS_BETON.JEU_POSE, POS_BETON.ARRONDI   # cm : le jeu de pose, le pas d'arrondi de l'axe
+ENROBAGE_DEFAUT = 0.05           # § 4, bloc 3 (m)
+# lot 5 (§ 4, bloc 3 ; § 12, décision 3) : les treillis CHOISIS par l'ingénieur — Ø12 tous les 15 cm, en bas et en haut,
+# dans les deux directions ; les listes de Ø et d'espacements sont celles du module Dalles (le sélecteur de sa nappe de base)
+TREILLIS_DEFAUT = {"d": 12, "e": 150}               # Ø (mm), espacement (mm)
+DIAMETRES_TREILLIS = DALLE.CANDIDATS_D
+ESPACEMENTS_TREILLIS = DALLE.CANDIDATS_ESP
+RENFORTS = ("auto", 12, 16, 20)  # § 7.4 : le Ø des renforts, automatique (12, 16 ou 20) ou imposé
+ANCRAGE_DEFAUT = 50.0            # § 7.4 : × Ø — le moteur Dalles n'a pas de règle d'ancrage
+# lot 5 (§ 8.1) : les efforts SCIA recopiés — None : non saisi (le champ reste vide, la note dit « SCIA non saisi »)
+CHAMPS_SCIA = ("bx_m", "by_m", "bx_v", "by_v", "mx", "my")
 
 
 def module_E(classe: str) -> float:
@@ -76,13 +77,16 @@ def nouveau(nom: str = "F1") -> Dict:
         "reactions": [{"nom": "", "P": [None, None, None, None]}],
         "bandes": {"largeur": LARGEUR_BANDE_DEFAUT},
         "limite": 0.5,
-        "armatures": {"enrobage": ENROBAGE_DEFAUT, "treillis_inf": "auto", "treillis_sup": "auto"},
+        "armatures": {"enrobage": ENROBAGE_DEFAUT,
+                      "inf": {"x": dict(TREILLIS_DEFAUT), "y": dict(TREILLIS_DEFAUT), "xy": False},
+                      "sup": {"x": dict(TREILLIS_DEFAUT), "y": dict(TREILLIS_DEFAUT), "xy": False},
+                      "renfort": "auto", "ancrage": ANCRAGE_DEFAUT},
+        "scia": {"sym": None, **{c: None for c in CHAMPS_SCIA}, "sigma": {}},
         "options": {"maille": MAILLE_DEFAUT, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre",
-                    "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10,
-                    "unite": "kgcm2", "torsion": True, "recouvrement": RECOUVREMENT_DEFAUT, "l_max": L_BARRE_MAX,
-                    "gamma_s": GAMMA_S_DEFAUT, "jeu": JEU_DEFAUT, "arrondi": ARRONDI_DEFAUT},
-        "vue": {"onglet": "plan", "carte": "sigma", "cas": None, "k": None, "fond": ""},
+                    "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10, "unite": "kgcm2"},
+        "vue": {"carte": "sigma", "face": "inf", "cas": None, "k": None},
         "proposition": None,
+        "etapes": {"saf": None, "note": None},
     }
 
 
@@ -204,33 +208,76 @@ def lire(el: Dict) -> Dict:
     if o.get("unite", "kgcm2") not in UNITES:
         raise ValueError("unité des contraintes de sol : kg/cm², kPa ou MPa")
     bo["unite"] = o.get("unite", "kgcm2")
-    bo["torsion"] = bool(o.get("torsion", True))
-    bo["recouvrement"] = _nombre(o.get("recouvrement", RECOUVREMENT_DEFAUT), "la longueur de recouvrement", 20.0, 120.0)
-    bo["l_max"] = _nombre(o.get("l_max", L_BARRE_MAX), "la longueur maxi des barres", 3.0, 24.0)
-    bo["gamma_s"] = _nombre(o.get("gamma_s", GAMMA_S_DEFAUT), "γs", 1.0, 3.0)
-    bo["jeu"] = _nombre(o.get("jeu", JEU_DEFAUT), "le jeu de pose", 0.0, 5.0)
-    if float(o.get("arrondi", ARRONDI_DEFAUT)) not in POS_BETON.ARRONDIS:
-        raise ValueError("arrondi de l'axe : 0, 0,5 ou 1 cm")
-    bo["arrondi"] = float(o.get("arrondi", ARRONDI_DEFAUT))
+    # (lot 5, § 2 : la torsion, le recouvrement, la longueur maxi des barres et les options du moteur poutre sont retirés —
+    # une note d'avant les garde dans son fichier, ils ne sont plus lus ; le moteur Dalles a ses γs, jeu et arrondi)
     a = el.get("armatures") or {}
     ba = b["armatures"]
     ba["enrobage"] = _nombre(a.get("enrobage", ENROBAGE_DEFAUT), "l'enrobage", 0.01, 0.15)
-    for face in ("treillis_inf", "treillis_sup"):
-        if a.get(face, "auto") not in TREILLIS:
-            raise ValueError("treillis : automatique, Ø10 ou Ø12, tous les 10 ou 15 cm")
-        ba[face] = a.get(face, "auto")
+    for face in ("inf", "sup"):
+        ba[face] = _treillis_face(a, face)
+    rf = a.get("renfort", "auto")
+    if rf not in RENFORTS:
+        raise ValueError("renforts : Ø automatique, ou Ø12, Ø16, Ø20")
+    ba["renfort"] = rf
+    ba["ancrage"] = _nombre(o.get("ancrage", a.get("ancrage", ANCRAGE_DEFAUT)), "l'ancrage", 10.0, 120.0)
+    b["scia"] = _scia(el.get("scia") or {})
+    et = el.get("etapes") or {}
+    b["etapes"] = {k: et.get(k) if isinstance(et.get(k), str) else None for k in ("saf", "note")}
     v = el.get("vue") or {}
     k_vue = float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None
     if k_vue is not None and not any(abs(k_vue - x["k"]) < 1e-9 for x in b["sol"]["k"]):
         k_vue = None              # (un k qui n'est plus dans la liste du sol — « Reprendre », un k ôté ou changé — rend la
         #                            vue à l'enveloppe : sinon plus aucune carte ne se peint, faute de résultats pour ce k)
-    b["vue"] = {"onglet": v.get("onglet") if v.get("onglet") in ONGLETS else "plan",
-                "carte": v.get("carte") if v.get("carte") in CARTES else "sigma",
+    b["vue"] = {"carte": v.get("carte") if v.get("carte") in CARTES else "sigma",
+                "face": v.get("face") if v.get("face") in FACES_VUE else "inf",
                 "cas": v.get("cas") if isinstance(v.get("cas"), str) else None,
-                "k": k_vue,
-                "fond": v.get("fond") if v.get("fond") in FONDS else ""}
+                "k": k_vue}
     b["proposition"] = copy.deepcopy(el.get("proposition")) if isinstance(el.get("proposition"), dict) else None
     return b
+
+
+# les treillis d'une note d'AVANT le lot 5 (« automatique » ou « 12-15 » : Ø-espacement en cm, les mêmes dans les deux sens)
+_ANCIENS_TREILLIS = {"10-15": (10, 150), "12-15": (12, 150), "10-10": (10, 100), "12-10": (12, 100)}
+
+
+def _un_treillis(t, quoi: str) -> Dict:
+    if not isinstance(t, dict):
+        raise ValueError(f"{quoi} : Ø et espacement attendus")
+    d, e = t.get("d", TREILLIS_DEFAUT["d"]), t.get("e", TREILLIS_DEFAUT["e"])
+    if d not in DIAMETRES_TREILLIS:
+        raise ValueError(f"{quoi} : Ø {', '.join(str(x) for x in DIAMETRES_TREILLIS)} mm")
+    if e not in ESPACEMENTS_TREILLIS:
+        raise ValueError(f"{quoi} : espacement {', '.join(_fr(x / 10) for x in ESPACEMENTS_TREILLIS)} cm")
+    return {"d": int(d), "e": int(e)}
+
+
+def _treillis_face(a: Dict, face: str) -> Dict:
+    """Le treillis d'une face (§ 4, bloc 3) : x et y, et « x ≠ y » (une deuxième ligne) ; une note d'avant le lot 5
+    (« treillis_inf » : automatique ou « Ø-e ») est relue en Ø12 e 15 (l'automatique n'existe plus) ou en son treillis."""
+    nom = "inférieur" if face == "inf" else "supérieur"
+    t = a.get(face)
+    if t is None:
+        ancien = _ANCIENS_TREILLIS.get(a.get(f"treillis_{face}"))
+        x = {"d": ancien[0], "e": ancien[1]} if ancien else dict(TREILLIS_DEFAUT)
+        return {"x": x, "y": dict(x), "xy": False}
+    if not isinstance(t, dict):
+        raise ValueError(f"treillis {nom} : Ø et espacement attendus")
+    x = _un_treillis(t.get("x") or TREILLIS_DEFAUT, f"treillis {nom}")
+    xy = bool(t.get("xy"))
+    y = _un_treillis(t.get("y") or x, f"treillis {nom} y") if xy else dict(x)
+    return {"x": x, "y": y, "xy": xy}
+
+
+def _scia(s: Dict) -> Dict:
+    """Les efforts SCIA recopiés (§ 8.1) : chaque champ None (non saisi) ou un nombre ; « sym » : x = y (None : selon la
+    symétrie de la dalle) ; « sigma » : σ max SCIA par k (kPa)."""
+    out = {"sym": s.get("sym") if isinstance(s.get("sym"), bool) else None}
+    for c in CHAMPS_SCIA:
+        v = s.get(c)
+        out[c] = None if v is None else _nombre(v, "une valeur SCIA", -1e5, 1e5)
+    sg = s.get("sigma") or {}
+    out["sigma"] = {str(k): _nombre(v, "σ max SCIA", 0.0, 1e4) for k, v in sg.items() if v is not None} if isinstance(sg, dict) else {}
+    return out
 
 
 def _controler_contour(sommets: List) -> None:
@@ -279,7 +326,7 @@ def modele(el: Dict) -> Dict:
     """Tout ce qui se déduit du projet (voir l'en-tête du fichier) :
     {"contour", "h", "E", "nu", "maille", "gamma", "beton", "centre" (du châssis), "beta", "chassis" (chassis.lire),
      "pieds" [P1…P4] (les axes d'appui), "plaques" [P1…P4] (les surfaces d'appui posées), "centres" [P1…P4],
-     "plots": None | {"type", "polys", "hauteur", "a", "b", "diffusion" (préfabriqué : [P1…P4] les carrés de diffusion
+     "plots": None | {"type", "polys", "hauteur", "a", "b", "diffusion" ([P1…P4] les carrés de diffusion, les deux types
      à 45°, où arrive chaque réaction)}, "bandes", "jeux", "cas", "carre",
      "controles": {"plaques_dedans" [bool × 4], "distance" (mini plaque–bord), "distances" [× 4], "distance_ok",
                    "plots_dedans" [bool × 4], "plots_separes", "plots_couvrent" [bool × 4], "plots_ok"}}"""
@@ -297,9 +344,8 @@ def modele(el: Dict) -> Dict:
         # (le plot est centré sur le centre de GRAVITÉ de la surface d'appui : la règle de la référence du lot 4)
         polys = [G.rectangle(*G.centre_gravite(s), p["a"], p["b"], g["beta"]) for s in plaques]
         plots = {"type": p["type"], "polys": polys, "hauteur": p["h"], "a": p["a"], "b": p["b"]}
-        # préfabriqué : la réaction arrive sur le carré de diffusion à 45° (lot 4, § 3.3) — le calcul ET le SAF
-        if p["type"] == "prefabrique":
-            plots["diffusion"] = [G.diffusion_45(s, p["h"], p["a"], p["b"], g["beta"]) for s in plaques]
+        # les deux types : la réaction arrive sur le carré de diffusion à 45° (lot 5, § 6) — le calcul ET le SAF
+        plots["diffusion"] = [G.diffusion_45(s, p["h"], p["a"], p["b"], g["beta"]) for s in plaques]
     jeux = jeux_complets(el)
     cas = PO.cas_de_charge([j["P"] for j in jeux], ch["carre"], [j["numero"] for j in jeux])
     for x in cas:                                                # le jeu d'un cas : son numéro dans la liste saisie

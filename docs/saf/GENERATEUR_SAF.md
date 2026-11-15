@@ -3,19 +3,22 @@
 *Module du site « Générateur SAF » (page `generateur-saf`, clé `saf`), livré le 14/11/2026 : lots 1 (calcul et export)
 et 2 (écran et note) du cahier des charges du bureau. Le lot 3 (automatisation SCIA : XML, ESA_XML, assemblage de la
 note) attend les essais S2 à S7 dans SCIA, faits par le bureau. Le lot 4 (15/11/2026 : efforts, ferraillage, plan
-ferraillé, coupes, bordereau, et les corrections d'interface) est décrit au § 8.*
+ferraillé, coupes, bordereau) est décrit au § 8 ; le lot 5 (15/11/2026, cahier des charges version 4 : SIMPLIFICATION —
+principe d'armatures avec le moteur Dalles, efforts SCIA recopiés, note refaite, ferraillage détaillé RETIRÉ) au § 10.
+Là où le § 8 et le § 10 diffèrent, le § 10 fait foi.*
 
 ## 1. Ce que fait le module
 
 Une dalle en béton armé sur sol élastique sous les quatre pieds d'une grue à tour. On dessine la dalle (rectangle ou
 contour), on pose le châssis (celui de la bibliothèque des châssis de grue, ou saisi), on donne les jeux de réactions,
 et l'écran dit **tout de suite** la contrainte de contact face à la limite, pour chaque raideur de sol k. On joue sur la
-dalle, les appuis et les plots en direct ; « Proposer » cherche la plus petite dalle qui tient ; « Exporter » rend en
-un clic un fichier .zip : un fichier SAF par k coché « SCIA » (le classeur Excel que SCIA Engineer importe) et la note
-de calcul PDF.
+dalle, les appuis et les plots en direct ; « Proposer » cherche la plus petite dalle qui tient (un clic l'applique,
+« Annuler » revient) ; « Exporter le SAF » rend LE fichier SAF (le classeur Excel que SCIA Engineer importe, écrit avec
+le premier k coché « SCIA ») ; les efforts lus dans SCIA se recopient dans le bloc 3 ; « Imprimer la note » sort la note
+PDF, les notes SCIA jointes à la fin.
 
-La vérification rapide est une **estimation** pour fixer la dalle avant SCIA, qui reste la référence (décision 4 du
-cahier des charges) : pas de calage sur SCIA.
+Depuis le lot 5, le module est une **vérification complémentaire de SCIA, par un calcul indépendant** (décision 11) :
+« SCIA donne le niveau, le module donne la forme » — les efforts SCIA saisis recalent le principe d'armatures.
 
 ## 2. Les fichiers
 
@@ -30,16 +33,18 @@ cahier des charges) : pas de calage sur SCIA.
 | `saf/fondation_grue/projet.py` | le projet : valeurs par défaut, relecture stricte, modèle (contour, plaques, plots, bandes, cas, contrôles) |
 | `saf/fondation_grue/proposition.py` | « Proposer » : par épaisseur, la plus petite dalle sous la limite |
 | `saf/fondation_grue/ecriture.py` | les feuilles du SAF d'un projet, la règle des Id ; `ndc_type.json` : le fichier SAF du bureau (textes neutralisés) |
-| `saf/fondation_grue/efforts.py` | lot 4 : les efforts ELS lus dans les solutions (champs aux nœuds, bandes intégrées sur la largeur exacte, enveloppes, moments de calcul avec torsion, zones de renfort) |
-| `saf/fondation_grue/ferraillage.py` | lot 4 : le ferraillage, avec le moteur du module « Poutres béton armé » (treillis, renforts de bandes et locaux, effort tranchant, U, cages, bordereau) |
+| `saf/fondation_grue/efforts.py` | les efforts ELS lus dans les solutions (moments aux nœuds, bandes intégrées sur la largeur exacte, enveloppes, le cas et le k de chaque valeur — sans torsion depuis le lot 5) |
+| `saf/fondation_grue/armatures.py` | lot 5 : le principe d'armatures (l'annexe A, `principe`), avec le moteur du module Dalles pour m_Rd, A_s(), la hauteur de béton et l'effort tranchant |
+| `saf/fondation_grue/scia.py` | lot 5 : les efforts SCIA recopiés, r = SCIA ÷ module, l'échelle du principe, l'écart |
 | `grues/chassis/` | la bibliothèque des châssis de grue : la base (`donnees/chassis_grues.json`, 21 châssis), son moteur de dessin d'origine (`src/chassis_dessin.js`) et son test (`tests/verifier_bibliotheque.js`), tels que livrés ; `acces.py` traduit en Python ses fonctions d'accès, sans changer un résultat |
 | `api_web/saf.py` | le module : l'état, la saisie (`modifier`), le sélecteur des châssis, le résultat, l'export, le carnet |
-| `api_web/saf_saisie.py` | la colonne de gauche (quatre blocs, lot 4) |
-| `api_web/saf_resultat.py` | la colonne de droite (cartes SOL et CONTRÔLES, tableau par k, positions, Proposer, export), la barre du centre et les fenêtres de détail |
-| `api_web/saf_ferraillage.py` | lot 4 : les cartes DALLE, BX1 à BY2, PLOTS, le bordereau dépliable et leurs fenêtres de calcul |
-| `api_web/dessin_saf.py` | le plan à l'échelle, ses gestes, ses cotes, la carte (contrainte, tassement, moments) |
-| `api_web/dessin_ferraillage.py` | lot 4 : le plan ferraillé (avec le fond « taux du treillis ») et les coupes A-A et B-B |
-| `api_web/note_saf.py`, `api_web/note_saf_ferraillage.py` | la note de calcul PDF ; ses planches du ferraillage (lot 4) |
+| `api_web/saf_saisie.py` | la colonne de gauche (quatre blocs sans sous-titre : Dalle et sol, Grue et charges, Ferraillage, Options) |
+| `api_web/saf_resultat.py` | la colonne de droite (ligne d'étapes, cartes SOL, ÉQUILIBRE, CONTRÔLES, Proposer, les deux boutons), la barre du centre et les fenêtres de détail |
+| `api_web/saf_armatures.py` | lot 5 : la carte ARMATURES, sa fenêtre, le tableau des efforts SCIA et son aide — les PHRASES, une fois, pour l'écran et la note |
+| `api_web/dessin_saf.py` | le plan à l'échelle, ses gestes, ses cotes, la carte (contrainte, tassement, armatures) |
+| `api_web/dessin_armatures.py` | lot 5 : la couche « Armatures » du plan (zones rouges, renforts, repères, légende) |
+| `api_web/dessin_efforts_saf.py` | lot 5 : les diagrammes enveloppes M(s), V(s) de la note, dessinés en points (7,5 pt imprimés) |
+| `api_web/note_saf.py` | la note de calcul PDF (lot 5, § 10) |
 | `site/web/js/plan.js` | les gestes du plan (glisser, tourner, cote à taper, sommets), au doigt comme à la souris |
 | `site/web/js/carnet.js` | le carnet d'un module (les grues enregistrées), dans le navigateur |
 | `site/web/css/modules/saf.css` | la feuille du module |
@@ -132,11 +137,11 @@ Mêmes fonctions aux trois formats (PC, tablette, téléphone) ; au doigt, chaqu
 | `tests/fondation_grue_ref.py` | le calcul de référence de l'annexe A, joué tel quel : sa sortie est celle du cahier des charges (seules les durées changent) |
 | `tests/test_saf_grue_moteur.py` | T1 à T13, le moteur face au calcul de référence cas par cas, la pureté (aucun scipy chargé), des mutations |
 | `tests/test_saf_grue_export.py` | S1 (non-régression du fichier du bureau), S1b (plots), les règles d'écriture, les options, B1 à B5 côté moteur, la bibliothèque (Python face au moteur d'origine joué par node, sur les 21 châssis, et son propre test), des mutations |
-| `tests/test_api_web_saf.py` | l'écran : la saisie et ses refus, la colonne de droite égale au moteur, le plan et ses gestes, B1 à B5 à l'écran, Proposer, le lien sol, le carnet, l'export à l'octet du moteur, la note PDF, U1 à U9 et R7, R8 à l'écran (lot 4), des mutations |
-| `tests/test_saf_grue_efforts.py` | lot 4 : T14, T15, T17, les règles des efforts, la parité avec le calcul de référence (6 cas), des mutations |
-| `tests/test_saf_grue_ferraillage.py` | lot 4 : R1 à R8 (R1 rejoue le moteur poutre sur tous les éléments), l'effort tranchant, l'arrachement, la pureté, des mutations |
-| `tests/test_saf_grue_plans.py` | lot 4 : D1 à D3 (plan ferraillé, coupes, note PDF), les onglets, le bordereau à l'écran, des mutations |
-| harnais, filtre « saf » | dans le vrai navigateur, aux trois formats : la page égale au moteur du dépôt après chaque pas, les gestes mesurés (souris et doigt), la carte peinte, Proposer, l'export .zip, Reprendre, les grues enregistrées, le contour, 44 px au doigt |
+| `tests/test_api_web_saf.py` | l'écran : la saisie et ses refus, la colonne de droite égale au moteur, le plan et ses gestes, B1 à B5 à l'écran, Proposer appliqué et Annuler, le lien sol, le carnet, S0 (le SAF à l'octet du moteur), U1 à U11, T18, les étapes, le collage, E1 à E4 à l'écran (lot 5), des mutations |
+| `tests/test_saf_grue_efforts.py` | T14, T15, les règles des efforts (sans torsion), la parité avec le calcul de référence (6 cas), des mutations |
+| `tests/test_saf_grue_armatures.py` | lot 5 : T19 (la sortie de l'annexe A, 8 cas), A1 à A4, E1 à E4 côté moteur, la parité avec `principe_armatures` (scipy), A2 (le sol jamais recalculé), la pureté, des mutations |
+| `tests/test_saf_grue_note.py` | lot 5 : NC1 à NC8, A3 dans la note, la taille du texte des dessins, les données, des mutations |
+| harnais, filtre « saf » | dans le vrai navigateur, aux trois formats : la page égale au moteur du dépôt après chaque pas, les gestes mesurés (souris et doigt), la carte peinte, Proposer, le SAF et la note téléchargés (les étapes cochées), les notes SCIA jointes, la carte Armatures, le collage d'Excel, Reprendre, les grues enregistrées, le contour, 44 px au doigt |
 
 Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont produits par le module lui-même.
 
@@ -232,3 +237,64 @@ Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont p
    la meilleure ligne (h = 0,30 m, 11,00 × 11,00 m) tient pour le sol (48,7 ≤ 49,0 kPa) mais la hauteur du ferraillage
    est à 126 %. Depuis la relecture du lot 4, le résumé de la note le dit (« Non conforme · ferraillage 126 % »). Faire
    entrer le ferraillage dans « Proposer » est une décision du bureau (à trancher).
+
+## 10. Lot 5 (15/11/2026) : simplification — cahier des charges version 4
+
+Le cahier des charges version 4 est le seul du lot 5 (il remplace les versions 1 à 3). La référence est son annexe A
+(`tests/fondation_grue_ref.py`, remplacé tel quel ; sa sortie est celle du cahier, seules les durées changent).
+
+- **Retiré** (§ 2) : le treillis automatique, la torsion, les C d'effort tranchant, les cages des plots, les
+  recouvrements et la longueur maxi des barres, le bordereau, les onglets Ferraillage et Coupes, le plan ferraillé
+  détaillé et les coupes, les sous-titres des blocs de gauche ; les fichiers `ferraillage.py`, `saf_ferraillage.py`,
+  `dessin_ferraillage.py`, `note_saf_ferraillage.py` et leurs suites (R1 à R8, D1 à D3, T17).
+- **L'écran** : la ligne d'étapes (Données · Vérification · SAF · Efforts SCIA · Note, cochées au bon moment : une étape
+  faite se décoche quand les données qu'elle porte changent) ; quatre blocs sans sous-titre ; au centre la carte
+  (Contrainte, Tassement, Armatures avec « Bas · Haut », Sans carte), le cas, le k ; à droite les cartes SOL, ÉQUILIBRE
+  (résultante du sol = grue + dalle + plots, en kN), CONTRÔLES, ARMATURES, la ligne « Non vérifiés », Proposer (un clic
+  applique, « Annuler »), « Exporter le SAF », « Imprimer la note », « Joindre les notes SCIA ». Un tableau copié d'Excel
+  se colle dans les réactions (un jeu par ligne).
+- **Plots** (§ 6) : la charge d'un pied sur un plot (préfabriqué ou coulé) est répartie sur le carré de diffusion à 45°
+  depuis une plaque de 0,50 × 0,50 m (0,50 + 2 × hauteur, borné par le plot), centré sur le pied ; un plot coulé garde
+  sa raideur (régions PL du SAF inchangées).
+- **Le principe d'armatures** (§ 7, `armatures.py`) : l'ingénieur CHOISIT les treillis (Ø12 e 15 par défaut) ; le
+  moteur du module Dalles (`beton/dalle/moteur.verifier`, sans le modifier) dit ce que chaque treillis reprend
+  (m_Rd = A_s ÷ A_s,req(1 kNm/m), A_s,req étant linéaire) ; les renforts des bandes (sur toute la largeur de la bande)
+  et les zones rouges / renforts locaux sont ceux de l'annexe A (T19) ; n = ⌈(A_s(m_dim) − A_s du treillis) × largeur ÷
+  aire d'une barre⌉ avec A_s() du moteur ; la hauteur de béton (d_min ≤ d) et l'effort tranchant (τ ≤ τ_adm,I) par le
+  moteur Dalles — les deux seuls cas, avec le sol, où le module dit d'épaissir.
+- **Les efforts SCIA** (§ 8, `scia.py`) : six valeurs (trois quand tout est symétrique, case « x = y »), la valeur du
+  module en gris dans le champ ; r = SCIA ÷ module multiplie les moments du module (le principe est refait) ; V SCIA va
+  directement au moteur ; σ max : comparaison seule ; écart hors de 0,85 à 1,15 : pastille orange ; un champ vide reste
+  vide (r = 1).
+- **La note** (§ 10, `note_saf.py`) : garde en deux parties (la vérification complémentaire, une seule pastille ;
+  l'annexe Note SCIA, jointe ou à joindre) ; la page Données, seule avec la bande grise ; puis les chapitres en flux à
+  deux colonnes (un chapitre court partage la page avec le suivant ; l'en-tête de chaque page nomme ses chapitres) :
+  Charges et combinaisons (lues dans les feuilles du SAF : LC1, R et q des lignes FF, surfaces, combinaisons, sol pour
+  SCIA), Sol (tous les cas pour chaque k coché), Efforts (diagrammes M(s), V(s) en grand, le treillis en tirets, les
+  cartes des moments avec la ligne à m_Rd), Principe d'armatures (deux plans, le tableau des renforts, les contrôles du
+  moteur Dalles, « Principe d'armatures, pas un plan d'exécution. »), Comparaison avec SCIA, l'annexe sol. Le texte des
+  dessins fait 7 pt au moins imprimé (le dessin est grossi jusqu'à ce que ce soit vrai). Les notes SCIA jointes vont à la
+  fin du PDF (`pdf_reunion.reunir`) ; un PDF illisible n'empêche pas la note, l'écran le dit.
+
+**Points signalés (choix faits seul, cahier « prends la solution la plus simple qui respecte le document »)**
+
+1. L'écran du module est celui du site (établi compact), pas un écran Streamlit : l'audit du § 3 a été fait sur lui.
+2. V à d se lit à d = h − 6 cm des zones chargées (l'annexe A) ; le moteur Dalles, lui, calcule d = 43 cm (Ø12, enrobage
+   5 cm) pour la flexion : les deux valeurs coexistent, chacune là où le cahier la met.
+3. Les champs γs, jeu et arrondi (options du moteur poutre) sont retirés : le moteur Dalles prend ses valeurs par défaut
+   (γs = 1,5 ; jeu 1 cm ; arrondi 0,5 cm). h est passé au moteur arrondi au cm inférieur (d plus petit : côté sécurité).
+4. Le moteur Dalles ne connaît ni C45/55, ni C50/60, ni h > 1,00 m : les armatures y sont « non vérifiées » (à
+   vérifier, jamais conformes).
+5. Le moteur Dalles n'a pas de règle d'ancrage : 50 Ø par défaut (Options) ; ni d'espacement mini : celui du moteur
+   Poutres (EC2 8.2(2)).
+6. Le Ø des renforts (« Auto ») est choisi face par face et direction par direction : le plus léger de Ø12, Ø16, Ø20 (à
+   poids égal le plus gros ; un espacement trop serré en dernier). Châssis tourné : une bande prend le m_Rd le plus
+   faible des deux directions de sa face.
+7. La carte Armatures montre toujours l'enveloppe (le principe) : « Bas · Haut » remplace les listes cas et k.
+8. Positions symétriques à égalité : le premier cas dans l'ordre de l'annexe (jeu, puis lettre) donne la valeur ; la
+   parité avec la référence accepte un cas symétrique de même valeur.
+9. Partagés avec les autres modules : le type MIME .xlsx (`commun.TYPES_BINAIRES`), trois crochets JavaScript
+   génériques de l'établi (`data-coller`, `data-apres`, `data-joindre`) et `etabli_compact.etapes` (la ligne d'étapes).
+10. La note : les grands tableaux tiennent dans une colonne (en-têtes courts R1, q1…) plutôt que sur toute la page ;
+    sur les plans du principe, les renforts locaux sont en contour (tirets), sans barres ni repère — le tableau des
+    renforts les dit — pour rester lisibles imprimés.

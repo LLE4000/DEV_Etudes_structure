@@ -754,6 +754,15 @@ export function ouvrirEtabli(hote, ctx) {
     $("#donnees").addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
     }, { signal });
+    // un TABLEAU collé (copié dans Excel : des tabulations ou plusieurs lignes) dans un champ qui porte data-coller part au
+    // moteur EN UNE FOIS, au chemin data-coller (le « Générateur SAF » : les réactions P1 à P4, un jeu par ligne)
+    $("#donnees").addEventListener("paste", (ev) => {
+      const el = ev.target.closest("input[data-coller]");
+      const texte = ev.clipboardData && ev.clipboardData.getData("text");
+      if (!el || !texte || !/[\t\n]/.test(texte.trim())) return;
+      ev.preventDefault();
+      envoyer("modifier", { chemin: el.dataset.coller.split("/"), valeur: texte });
+    }, { signal });
     // la LIGNE de l'élément ouvert, dans l'en-tête du panneau (colonne compacte) : son NOM est un champ — un clic, et on le
     // renomme ; Entrée valide, Échap rend l'ancien nom — ; la liste des éléments, copier, supprimer passent par agirElement
     if (ELT) {
@@ -1006,7 +1015,10 @@ export function ouvrirEtabli(hote, ctx) {
     // ({"fichier": {"nom", "type", "texte"}}) et le navigateur l'enregistre sous ce nom, nettoyé (commun.js).
     // ``avecNote`` (le bouton porte data-avec-note) : le fichier CONTIENT la note PDF (l'export du « Générateur SAF » : les
     // SAF et la note dans une archive) — le paquet de la note se charge, comme pour « note_pdf »
-    async function telechargerFichier(quoi, avecNote = false) {
+    // ``apres`` (le bouton porte data-apres="<chemin>") : le fichier rendu, le moteur est prévenu (envoyer « modifier » à ce
+    // chemin) — le « Générateur SAF » coche ainsi l'étape « SAF » ou « Note » de sa ligne d'étapes (lot 5, § 1) ;
+    // ``annexes`` : des PDF choisis sur l'appareil ({nom, base64}), joints à la note (« Joindre les notes SCIA »)
+    async function telechargerFichier(quoi, avecNote = false, apres = "", annexes = null) {
       occupe(1);
       // la note PDF : la première se prépare quelques secondes (le paquet de la note se charge), on le dit
       if (quoi === "note_pdf") toast("Préparation de la note de calcul PDF…");
@@ -1014,6 +1026,7 @@ export function ouvrirEtabli(hote, ctx) {
       try {
         // le nom, le chantier, l'indice de la note : la page de garde d'une note PDF (un module qui ne les attend pas les ignore)
         const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
+        if (annexes) infos.annexes = annexes;
         let r;
         try {
           r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos }), { note: quoi === "note_pdf" || avecNote });
@@ -1026,7 +1039,30 @@ export function ouvrirEtabli(hote, ctx) {
           return;
         }
         toast(`${telecharger(f.nom, f.base64 ? { base64: f.base64 } : f.texte, f.type || "application/octet-stream")} téléchargé`);
+        if (typeof r.avis === "string") toast(r.avis);
+        if (apres) envoyer("modifier", { chemin: apres.split("/"), valeur: "1" });
       } finally { occupe(-1); }
+    }
+    // « Joindre les notes SCIA » (data-joindre="<quoi>") : des PDF choisis sur l'appareil, lus en base 64, partent avec la
+    // demande du fichier ; rien n'est gardé dans la note (le fichier choisi ne voyage qu'une fois)
+    async function joindrePdf(b) {
+      const choix = document.createElement("input");
+      choix.type = "file"; choix.accept = ".pdf,application/pdf"; choix.multiple = true;
+      choix.addEventListener("change", async () => {
+        const fichiers = [...(choix.files || [])];
+        if (!fichiers.length) return;
+        if (fichiers.reduce((t, f) => t + f.size, 0) > 12 * 1024 * 1024) { toast("Notes SCIA trop lourdes (12 Mo au plus)", true); return; }
+        const lus = [];
+        for (const f of fichiers) {
+          const o = new Uint8Array(await f.arrayBuffer());
+          let bin = "";
+          for (let i = 0; i < o.length; i += 0x8000) bin += String.fromCharCode.apply(null, o.subarray(i, i + 0x8000));
+          lus.push({ nom: f.name, base64: btoa(bin) });
+        }
+        if (fini()) return;
+        telechargerFichier(b.dataset.joindre, false, b.dataset.apres || "", lus);
+      });
+      choix.click();
     }
     // à la capture : les volets arrêtent la propagation de leurs clics
     bench.addEventListener("click", (ev) => {
@@ -1035,7 +1071,14 @@ export function ouvrirEtabli(hote, ctx) {
       ev.preventDefault();
       ev.stopPropagation();
       if (b.disabled) return;
-      telechargerFichier(b.dataset.telecharger, b.dataset.avecNote === "1");
+      telechargerFichier(b.dataset.telecharger, b.dataset.avecNote === "1", b.dataset.apres || "");
+    }, { capture: true, signal });
+    bench.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-joindre]");
+      if (!b) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!b.disabled) joindrePdf(b);
     }, { capture: true, signal });
 
     // -------------------------------------------------------------- les PLANS d'un ouvrage, en PDF (le moteur de RBAR)

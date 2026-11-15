@@ -224,7 +224,7 @@ def feuilles(el: Dict, k: float, date: Optional[datetime.datetime] = None, resul
     # ---- les charges : le poids propre (SF1) ; les réactions (FF) ; le poids des plots (FP)
     sf = _ligne("StructuralSurfaceAction", "SF1")
     sf[ref["StructuralSurfaceAction"]["colonnes"].index("Value [kN/m2]")] = _entier(round(-PR.GAMMA_BETON * h, 9))
-    surfaces = VE.surfaces_chargees(m)          # sous un plot préfabriqué : le carré de diffusion à 45° (lot 4, § 3.3)
+    surfaces = VE.surfaces_chargees(m)          # sous un plot (les deux types) : le carré de diffusion à 45° (lot 5, § 6)
     ecrits = [_polygone(s) for s in surfaces]
     libres = []
     for i_cas, c in enumerate(cas):
@@ -292,7 +292,7 @@ def _recapitulatif(el: Dict, m: Dict, k: float, resultats: Optional[List[Dict]],
     L += [[c["nom"], c["lc"], c["jeu_saisi"]] + list(c["R"]) for c in m["cas"]]
     L += [[], ["BANDES D'INTÉGRATION"], ["Bande", "X début", "Y début", "X fin", "Y fin", "Largeur"]]
     L += [[b["nom"], _mm(b["debut"][0]), _mm(b["debut"][1]), _mm(b["fin"][0]), _mm(b["fin"][1]), b["largeur"]] for b in m["bandes"]]
-    L += [[], ["VÉRIFICATION RAPIDE (estimation avant SCIA)"], ["Limite", el["limite"], "kg/cm²", round(el["limite"] * KG_CM2, 3), "kPa"]]
+    L += [[], ["VÉRIFICATION COMPLÉMENTAIRE (calcul indépendant de SCIA)"], ["Limite", el["limite"], "kg/cm²", round(el["limite"] * KG_CM2, 3), "kPa"]]
     if resultats:
         L += [["k (MN/m³)", "σ max (kPa)", "σ max (kg/cm²)", "Tassement max (mm)", "Décollé (%)", "SCIA", "Cas"]]
         scia = {x["k"] for x in el["sol"]["k"] if x["scia"]}

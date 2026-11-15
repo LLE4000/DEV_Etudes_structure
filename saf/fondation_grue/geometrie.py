@@ -48,14 +48,19 @@ def rectangle(x: float, y: float, ap: float, bp: float, beta_deg: float = 0.0) -
     return tourner(x, y, [(-ap / 2, bp / 2), (ap / 2, bp / 2), (ap / 2, -bp / 2), (-ap / 2, -bp / 2)], beta_deg)
 
 
-def diffusion_45(surface: Sequence[Point], h_plot: float, a_plot: float, b_plot: float, beta_deg: float = 0.0) -> List[Point]:
-    """Plot PRÉFABRIQUÉ : la zone où la réaction du pied arrive sur la dalle — diffusée à 45° dans l'épaisseur du plot
-    (lot 4, § 3.3). Un carré centré sur la surface d'appui (son centre de gravité : l'excentrement compris), côtés
-    parallèles aux axes du châssis (donc aux côtés du plot), de côté = côté du carré de même aire que la surface d'appui
-    + 2 × hauteur du plot, sans dépasser le plot (chaque côté borné par a ou b du plot). Plaque 0,50 × 0,50 et plot de
-    0,35 m : 1,20 × 1,20 m ; platine 0,58 × 0,40 à 45° : 1,18 m (la référence, ``diffusion_45``, test T16)."""
+BASE_DIFFUSION = 0.50   # m : la plaque d'où la réaction se diffuse dans le plot, quel que soit l'appui (lot 5, § 6)
+
+
+def diffusion_45(surface: Sequence[Point], h_plot: float, a_plot: float, b_plot: float, beta_deg: float = 0.0,
+                 base: float = BASE_DIFFUSION) -> List[Point]:
+    """Un plot (préfabriqué OU coulé en place) : la zone où la réaction du pied arrive sur la dalle — diffusée à 45° dans
+    la hauteur du plot depuis une plaque de ``base`` × ``base`` (0,50 × 0,50 m, quel que soit l'appui : réel, rectangle,
+    platine à 45°, platine ronde ; lot 5, § 6). Un carré centré sur la surface d'appui (son centre de gravité :
+    l'excentrement compris), côtés parallèles aux axes du châssis (donc aux côtés du plot), de côté = base + 2 × hauteur
+    du plot, sans dépasser le plot (chaque côté borné par a ou b du plot). Plot de 0,35 m : 1,20 m ; de 0,20 m : 0,90 m ;
+    plot de 0,80 × 0,80 × 0,20 : 0,80 m (la référence, ``diffusion_45``, test T16)."""
     xc, yc = centre_gravite(surface)
-    c = math.sqrt(aire(surface)) + 2.0 * h_plot
+    c = base + 2.0 * h_plot
     return rectangle(xc, yc, min(c, a_plot), min(c, b_plot), beta_deg)
 
 
@@ -239,3 +244,9 @@ def decaler(contour: Sequence[Point], e: float) -> List[Point]:
 def boite(poly: Sequence[Point]) -> Tuple[float, float, float, float]:
     xs, ys = [p[0] for p in poly], [p[1] for p in poly]
     return min(xs), min(ys), max(xs), max(ys)
+
+
+def perimetre(poly: Sequence[Point]) -> float:
+    """Le périmètre d'un polygone fermé (m)."""
+    n = len(poly)
+    return sum(math.dist(poly[i], poly[(i + 1) % n]) for i in range(n))
