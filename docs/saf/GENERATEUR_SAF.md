@@ -168,6 +168,9 @@ Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont p
   cages, repères des coupes ; fond « taux de travail du treillis seul » avec sa ligne noire à 100 %) et les coupes A-A
   (BX1) et B-B (BY1), à l'échelle, avec les repères du bordereau. La note PDF y ajoute quatre planches : Efforts
   (diagrammes M(s), V(s)), Ferraillage, Coupes, Bordereau.
+- **Défaut trouvé par le harnais navigateur** : la vue gardait un k que la liste du sol n'avait plus (« Reprendre »
+  pendant que k = 30 était affiché) — plus aucune carte ne se peignait. `projet.lire` rend désormais la vue à
+  l'enveloppe ; `tests/test_api_web_saf.py` le tient (le contrôle rougit sans la correction).
 
 ## 9. Points signalés au bureau (14/11/2026)
 

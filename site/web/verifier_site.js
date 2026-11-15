@@ -4432,7 +4432,7 @@ const principal = async () => {
     const racineS = path.join(__dirname, '..', '..');
     const VIS = { visibilityProperty: true, opacityProperty: true };
     const JEUX = [[350, 440, 440, 350], [150, 150, 550, 550], [135, 100, 800, 135]];
-    // les pas du témoin : [« modifier », le chemin, la valeur] ou [« choisir », le rôle, le nom]
+    // les pas du témoin : [« modifier », le chemin, la valeur], [« choisir », le rôle, le nom] ou [« etat », l'état gardé, null]
     const TEMOIN_S = [
       'import html, json, re, sys',
       'sys.path.insert(0, sys.argv[1])',
@@ -4447,7 +4447,9 @@ const principal = async () => {
       'r = req(action="nouveau")',
       'out = [lu(r)]',
       'for action, a, b in json.loads(sys.argv[2]):',
-      '    if action == "choisir":',
+      '    if action == "etat":',
+      '        r = req(action="calculer", etat=a)',
+      '    elif action == "choisir":',
       '        r = req(action="choisir", etat=r["etat"], role=a, nom=b)',
       '    else:',
       '        r = req(action="modifier", etat=r["etat"], chemin=a.split("/"), valeur=b)',
@@ -4476,9 +4478,9 @@ const principal = async () => {
     const lireChampS = async (pg, chemin) => Number((await pg.inputValue(`#donnees input[data-chemin="${chemin}"]`)).replace(/\s/g, '').replace('−', '-').replace(',', '.'));
     // les réactions, saisies comme l'ingénieur : la rubrique ouverte, « + Jeu », quatre champs par jeu
     const reactionsS = async (pg, jeux) => {
-      await ouvrirRubS(pg, 'reactions');
+      await ouvrirRubS(pg, 'grue');
       for (let j = 0; j < jeux.length; j++) {
-        if (j > 0) { await pg.click('#donnees .sec[data-sec="reactions"] .et-add[data-chemin="reactions/+"]'); await calmeS(pg); }
+        if (j > 0) { await pg.click('#donnees .sec[data-sec="grue"] .et-add[data-chemin="reactions/+"]'); await calmeS(pg); }
         for (let i = 0; i < 4; i++) await champS(pg, `reactions/${j}/P/${i}`, jeux[j][i]);
       }
     };
@@ -4547,12 +4549,18 @@ const principal = async () => {
       return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, champs, petites, petits };
     }, [tel, VIS]);
     const verdictS = (pg) => pg.evaluate((VIS) => {
-      const v = [...document.querySelectorAll('#resultat .verdict')].find((x) => x.checkVisibility(VIS));
+      const v = [...document.querySelectorAll('#resultat .et-bloc[data-theme="0"] .el')].find((x) => x.checkVisibility(VIS));
       if (!v) return null;
-      const c = v.querySelector('.chip.xl'), r = v.getBoundingClientRect();
+      const c = v.querySelector('.pct') || v.querySelector('.et-mot'), r = v.getBoundingClientRect();
       return { texte: v.textContent.replace(/\s+/g, ' ').trim(), valeur: c ? c.textContent.replace(/\s+/g, ' ').trim() : '', niveau: c ? [...c.classList].filter((k) => k.length === 1).join('') : '',
         dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 };
     }, VIS);
+    // le tableau par k est DÉPLIABLE dans la carte SOL (lot 4) : on le déplie avant de le lire
+    const tableKS = async (pg) => {
+      const ouvert = await pg.evaluate(() => { const d = document.querySelector('#resultat details[data-plan-volet="tablek"]'); return !d || d.open; });
+      if (!ouvert) { await pg.click('#resultat details[data-plan-volet="tablek"] > summary'); await pg.waitForTimeout(150); }
+    };
+    const carteS = async (pg, valeur) => { await pg.selectOption('#stage .et-ent .sf-m-carte select', valeur); await calmeS(pg); };
     // une fenêtre de calcul ouverte : son texte, sa place dans l'écran
     const fenetreS = async (pg, selecteur) => {
       await pg.click(selecteur);
@@ -4601,8 +4609,8 @@ const principal = async () => {
         const v0 = await verdictS(g);
         const exp0 = await g.evaluate((VIS) => { const e = document.querySelector('#resultat .sf-exp-b'); const bas = document.querySelector('#resultat .sf-export');
           return e && e.checkVisibility(VIS) ? { eteint: e.disabled, annonce: e.hasAttribute('data-telecharger'), raison: bas.textContent.replace(/\s+/g, ' ').trim() } : null; }, VIS);
-        verif('saf : la note neuve — le poids propre seul, « à saisir » ; l\'export est ÉTEINT et dit pourquoi dessous (aucun jeu de réactions complet) ; la page dit ce que dit le témoin',
-          p0.ok && !!v0 && /Poids propre seul/.test(v0.texte) && /réactions à saisir/.test(v0.texte) && !!exp0 && exp0.eteint && !exp0.annonce && /Aucun jeu de réactions complet/.test(exp0.raison),
+        verif('saf : la note neuve — la carte SOL dit le poids propre seul, « réactions à saisir » ; l\'export est ÉTEINT et dit pourquoi dessous (aucun jeu de réactions complet) ; la page dit ce que dit le témoin',
+          p0.ok && !!v0 && /poids propre seul/i.test(v0.texte) && /réactions à saisir/.test(v0.texte) && !!exp0 && exp0.eteint && !exp0.annonce && /Aucun jeu de réactions complet/.test(exp0.raison),
           p0.detail || JSON.stringify({ v0, exp0 }));
         const d0 = await planS(g);
         verif('saf : le PLAN est dessiné — visible, à sa taille (500 × 400 au moins), dans sa toile et dans l\'écran ; la dalle, les quatre surfaces d\'appui DANS la dalle, les cotes L_x et L_y, P1 à P4 ; chaque texte dans le dessin, aucun sur un autre',
@@ -4614,19 +4622,20 @@ const principal = async () => {
         pas.push(...pasReactionsS(JEUX));
         const p1 = await parite();
         const v1 = await verdictS(g);
+        await tableKS(g);
         const tk = await g.evaluate((VIS) => [...document.querySelectorAll('#resultat .sf-tk:not(.sf-tp) tbody tr')].filter((x) => x.checkVisibility(VIS)).map((tr) => ({
           k: tr.querySelector('.sf-lien').textContent.trim(), classe: tr.className, n: tr.querySelectorAll('td').length, scia: tr.querySelector('input[type=checkbox]').checked })), VIS);
-        verif('saf : les trois jeux de réactions saisis — le verdict compare σ max à la limite (kg/cm² en grand, kPa dessous, le cas et le k qui gouvernent), en rouge ; le tableau par k a ses cinq lignes '
+        verif('saf : les trois jeux de réactions saisis — la carte SOL compare σ max à la limite (en kg/cm², le cas et le k qui gouvernent), son taux en rouge ; le tableau par k (dépliable) a ses cinq lignes '
           + '(k | σ max | w max | décollé | SCIA), 2 ; 5 ; 10 cochés, UNE ligne affichée ; la page dit ce que dit le témoin',
-          p1.ok && !!v1 && /Contrainte de contact/.test(v1.texte) && /kg\/cm²/.test(v1.texte) && /kPa > 49,0\s?kPa/.test(v1.texte) && /cas \S+ · k\s?=\s?[\d,]+\s?MN\/m³/.test(v1.texte) && v1.niveau === 'r'
+          p1.ok && !!v1 && /Contrainte de contact/.test(v1.texte) && /kg\/cm²/.test(v1.texte) && /> 0,50\s?kg\/cm²/.test(v1.texte) && /cas \S+ · k\s?=\s?[\d,]+/.test(v1.texte) && v1.niveau === 'r'
           && p1.att.niveau === 'r' && tk.length === 5 && tk.map((x) => x.k).join(' ') === '2 5 10 20 30' && tk.every((x) => x.n === 5) && tk.map((x) => x.scia).join() === 'true,true,true,false,false'
           && tk.filter((x) => /\bvu\b/.test(x.classe)).length === 1, p1.detail || JSON.stringify({ v1, tk }));
         const d1 = await planS(g);
         const im1 = await imageS(g);
         const clip = (bx) => ({ x: Math.max(0, Math.floor(bx.g)), y: Math.max(0, Math.floor(bx.h)), width: Math.ceil(bx.l), height: Math.ceil(bx.t) });
         const avecCarte = d1 && d1.dalle ? (await g.screenshot({ clip: clip(d1.dalle) })).length : 0;
-        verif('saf : la CARTE des contraintes est peinte — une image (PNG du moteur) qui se décode, posée sur la dalle, à sa taille ; la légende et le maximum sont écrits ; chaque texte dans le dessin, aucun sur un autre',
-          !!d1 && !!im1 && im1.l >= 60 && im1.h >= 60 && d1.carteSurDalle && d1.href === 'data:image/png;base64,' && d1.textes.some((t) => /kPa/.test(t)) && !d1.hors.length && !d1.dessus.length,
+        verif('saf : la CARTE des contraintes est peinte — une image (PNG du moteur) qui se décode, posée sur la dalle, à sa taille ; la légende et le maximum sont écrits (en kg/cm², l\'unité par défaut du lot 4) ; chaque texte dans le dessin, aucun sur un autre',
+          !!d1 && !!im1 && im1.l >= 60 && im1.h >= 60 && d1.carteSurDalle && d1.href === 'data:image/png;base64,' && d1.textes.some((t) => /kg\/cm²/.test(t)) && !d1.hors.length && !d1.dessus.length,
           JSON.stringify({ im1, carte: d1 && d1.carte, dalle: d1 && d1.dalle, href: d1 && d1.href, hors: d1 && d1.hors, dessus: d1 && d1.dessus }).slice(0, 600));
         await g.screenshot({ path: path.join(OUT, 'site_saf_type_pc.png') });
         {
@@ -4638,32 +4647,29 @@ const principal = async () => {
             for (const q of ['coupes', 'champs']) if (m[q].length) fautes.push(`rubrique ${k} · ${q} : ${m[q].join(', ')}`);
             if (m.deborde) fautes.push(`rubrique ${k} : la page déborde`);
           }
-          verif('saf · pc : les huit rubriques (Projet, Dalle, Sol, Grue, Réactions, Bandes, Limite, Options), ouvertes tour à tour — rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ',
-            rubs.join() === 'projet,dalle,sol,grue,reactions,bandes,limite,options' && !fautes.length, `${rubs.join()} · ${fautes.join(' | ')}`.slice(0, 600));
-          await ouvrirRubS(g, 'reactions');
+          verif('saf · pc : les quatre blocs (Dalle et sol, Grue et charges, Armatures, Options), ouverts tour à tour — rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ',
+            rubs.join() === 'dalle,grue,armatures,options' && !fautes.length, `${rubs.join()} · ${fautes.join(' | ')}`.slice(0, 600));
+          await ouvrirRubS(g, 'grue');
         }
         // « Sans carte » : la dalle redevient unie — la capture de la dalle pèse bien moins ; « Tassement » : une autre carte
-        await g.click('#stage .et-ent [data-chemin="vue/carte"][data-valeur="aucune"]');
-        await calmeS(g);
+        await carteS(g, 'aucune');
         pas.push(['modifier', 'vue/carte', 'aucune']);
         const dSans = await planS(g);
         const sansCarte = dSans && dSans.dalle ? (await g.screenshot({ clip: clip(dSans.dalle) })).length : 0;
-        await g.click('#stage .et-ent [data-chemin="vue/carte"][data-valeur="w"]');
-        await calmeS(g);
+        await carteS(g, 'w');
         pas[pas.length - 1] = ['modifier', 'vue/carte', 'w'];
         const pW = await parite();
         const dW = await planS(g);
         await g.screenshot({ path: path.join(OUT, 'site_saf_tassement_pc.png') });
-        await g.click('#stage .et-ent [data-chemin="vue/carte"][data-valeur="sigma"]');
-        await calmeS(g);
+        await carteS(g, 'sigma');
         pas.pop();
         verif('saf : « Sans carte » ôte l\'image (la capture de la dalle pèse au moins deux fois moins : la carte était bien à l\'écran) ; « Tassement » en peint une autre, en mm, et la page dit ce que dit le témoin',
           !!dSans && !dSans.carte && sansCarte > 0 && avecCarte > 2 * sansCarte && pW.ok && !!dW && dW.carteSurDalle && dW.textes.some((t) => /mm/.test(t)),
           pW.detail || JSON.stringify({ avecCarte, sansCarte, carte: dSans && dSans.carte }));
         // ---- 3. les fenêtres de détail : le verdict, un contrôle, le tableau des positions
-        const f0 = await fenetreS(g, '#resultat .verdict[data-calcul], #resultat .verdict [data-calcul]');
+        const f0 = await fenetreS(g, '#resultat .el.vc[data-calcul="s0"]');
         const f1 = await fenetreS(g, '#resultat .el.vc[data-calcul="s1"]');
-        verif('saf : le verdict ouvre le détail par raideur de sol, une ligne de contrôle ouvre le détail des contrôles — dans l\'écran',
+        verif('saf : la ligne « Contrainte de contact » ouvre le détail par raideur de sol, une ligne de contrôle ouvre le détail des contrôles — dans l\'écran',
           !!f0 && f0.dedans && /MN\/m³/.test(f0.texte) && !!f1 && f1.dedans && /surfaces d'appui/.test(f1.texte), JSON.stringify({ f0: f0 && f0.texte.slice(0, 120), f1: f1 && f1.texte.slice(0, 120) }));
         // ---- 4. déplacer le châssis à la souris : l'étiquette suit, la valeur relâchée est celle des pixels parcourus
         const pxm = d1.dalle.l / 8;                                   // (la dalle fait 8,00 m de large : des pixels par mètre)
@@ -4752,22 +4758,24 @@ const principal = async () => {
           p7.ok && rubrique === 'grue' && lignes >= 21 && filtrees.length === 1 && /132 HC/.test(filtrees[0]) && /132 HC/.test(ch7.nom || '') && ch7.appuis === 'reels',
           p7.detail || JSON.stringify({ rubrique, lignes, filtrees, ch7 }));
         // ---- 8. le tableau par k : un clic sur un k l'affiche ; une case SCIA de plus, un fichier de plus à l'export
+        await tableKS(g);
         await g.click('#resultat .sf-tk:not(.sf-tp) .sf-lien[data-valeur="30.0"]');
         await calmeS(g);
         pas.push(['modifier', 'vue/k', '30.0']);
         const p8 = await parite();
         const k8 = await g.evaluate(() => ({ vu: [...document.querySelectorAll('#resultat .sf-tk:not(.sf-tp) tbody tr.vu .sf-lien')].map((x) => x.textContent.trim()).join(),
           menu: (document.querySelector('#stage .et-ent select[data-chemin="vue/k"]') || { value: null }).value }));
+        await tableKS(g);
         await g.click('#resultat input[data-chemin="sol/k/3/scia"]');
         await calmeS(g);
         pas.push(['modifier', 'sol/k/3/scia', true]);
         const p8b = await parite();
         const bouton8 = await g.evaluate(() => { const e = document.querySelector('#resultat .sf-exp-b'); return e ? { texte: e.textContent.replace(/\s+/g, ' ').trim(), eteint: e.disabled } : null; });
-        verif('saf : un clic sur « 30 » du tableau affiche ce k sur le plan (sa ligne marquée, le menu du plan le dit) ; cocher « SCIA » pour k = 20 annonce « 4 SAF + note » sur le bouton d\'export ; '
-          + 'la page dit ce que dit le témoin',
-          p8.ok && p8b.ok && k8.vu === '30' && k8.menu === '30.0' && !!bouton8 && !bouton8.eteint && /4 SAF \+ note/.test(bouton8.texte), p8.detail || p8b.detail || JSON.stringify({ k8, bouton8 }));
+        verif('saf : un clic sur « 30 » du tableau affiche ce k sur le plan (sa ligne marquée, le menu du plan le dit) ; cocher « SCIA » pour k = 20 garde UN seul bouton « Exporter · SAF + note » (un SAF, '
+          + 'le premier k coché) ; la page dit ce que dit le témoin',
+          p8.ok && p8b.ok && k8.vu === '30' && k8.menu === '30.0' && !!bouton8 && !bouton8.eteint && /^Exporter · SAF \+ note$/.test(bouton8.texte), p8.detail || p8b.detail || JSON.stringify({ k8, bouton8 }));
         // ---- 9. « Reprendre » : les k d'une note de « Rigidité du sol » de ce navigateur
-        await ouvrirRubS(g, 'sol');
+        await ouvrirRubS(g, 'dalle');
         await g.click('#donnees [data-reprendre]');
         await g.waitForSelector('.sf-notes', { timeout: 5000 }).catch(() => {});
         const offertes = await g.$$eval('.sf-notes [data-note]', (bs) => bs.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
@@ -4801,12 +4809,12 @@ const principal = async () => {
         verif('saf : « Proposer » montre sa barre de progression (« i / n », « Arrêter »), puis son tableau — une ligne par épaisseur (h | dalle | σ max | béton), la plus petite en béton mise en évidence ; '
           + 'un clic l\'APPLIQUE : la contrainte passe sous la limite',
           barre && !!progres && progres.arret && prop.length === 3 && prop.filter((x) => /\bbest\b/.test(x.classe)).length === 1 && !!vAvant && vAvant.niveau === 'r' && !!vApres
-          && ['p', 'f'].includes(vApres.niveau) && /kPa ≤ 49,0\s?kPa/.test(vApres.texte), JSON.stringify({ barre, progres, prop, avant: vAvant && vAvant.texte, apres: vApres && vApres.texte, s: sProposer }).slice(0, 700));
+          && ['p', 'f'].includes(vApres.niveau) && /≤ 0,50\s?kg\/cm²/.test(vApres.texte), JSON.stringify({ barre, progres, prop, avant: vAvant && vAvant.texte, apres: vApres && vApres.texte, s: sProposer }).slice(0, 700));
         console.log(`saf · durée : « Proposer », trois épaisseurs, ${sProposer} s`);
         await g.screenshot({ path: path.join(OUT, 'site_saf_applique_pc.png') });
         // ---- 11. l'export en UN clic : un .zip — un SAF par k coché et la note PDF
         const tE = Date.now();
-        const nSaf = await g.evaluate(() => { const m = /(\d+) SAF \+ note/.exec((document.querySelector('#resultat .sf-exp-b') || { textContent: '' }).textContent); return m ? Number(m[1]) : null; });
+        const nSaf = 1;                                              // (lot 4 : UN seul SAF, écrit avec le premier k coché « SCIA »)
         const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 300000 }), g.click('#resultat .sf-exp-b[data-telecharger="export"]')]);
         const zip = path.join(OUT, 'site_saf_export.zip');
         await dl.saveAs(zip);
@@ -4818,10 +4826,58 @@ const principal = async () => {
         let contenu = [];
         try { contenu = JSON.parse(fz.stdout.trim().split('\n').pop()); } catch (e) { /* le contrôle rougit */ }
         const safs = contenu.filter((x) => x.classeur), notes = contenu.filter((x) => x.pdf);
-        verif('saf : l\'export en UN clic rend un fichier .zip nommé du nom de la note — un classeur SAF (.xlsx) par k coché « SCIA », chacun au nom de son k, et la note de calcul PDF ; rien d\'autre',
-          /^SAF - Grue G1.*\.zip$/.test(dl.suggestedFilename()) && nSaf >= 1 && safs.length === nSaf && notes.length === 1 && contenu.length === nSaf + 1 && safs.every((x) => x.octets > 8000 && /k\s?=?\s?[\d,.]+/.test(x.nom))
+        verif('saf : l\'export en UN clic rend un fichier .zip nommé du nom de la note — UN classeur SAF (.xlsx, au nom du projet) et la note de calcul PDF ; rien d\'autre',
+          /^SAF - Grue G1.*\.zip$/.test(dl.suggestedFilename()) && safs.length === nSaf && notes.length === 1 && contenu.length === nSaf + 1 && safs.every((x) => x.octets > 8000 && /\.xlsx$/.test(x.nom))
           && new Set(safs.map((x) => x.nom)).size === nSaf && /^Note de calcul - Grue G1\.pdf$/.test(notes[0].nom) && notes[0].octets > 20000,
           JSON.stringify({ nom: dl.suggestedFilename(), nSaf, contenu, s: sExport, err: String(fz.stderr || '').slice(-200) }).slice(0, 700));
+        // ---- 11 bis. le lot 4 : les cartes du ferraillage ; les onglets Ferraillage et Coupes ; la carte « Moments » ; le bordereau
+        const dessinS = (pg) => pg.evaluate((VIS) => {
+          const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility(VIS));
+          const svg = d && d.querySelector(':scope > svg');
+          if (!svg || !svg.checkVisibility(VIS)) return null;
+          const r = svg.getBoundingClientRect(), z = d.getBoundingClientRect();
+          const textes = [...svg.querySelectorAll('text')].filter((t) => t.checkVisibility(VIS) && t.getAttribute('fill') !== 'none');
+          return { classe: svg.getAttribute('class') || '', l: Math.round(r.width), h: Math.round(r.height), dedans: r.left >= z.left - 1 && r.right <= z.right + 1 && z.left >= -0.5 && z.right <= innerWidth + 0.5,
+            n: textes.length, hors: textes.filter((t) => { const b = t.getBoundingClientRect(); return b.left < r.left - 1 || b.right > r.right + 1 || b.top < r.top - 1 || b.bottom > r.bottom + 1; }).length };
+        }, VIS);
+        // (lot 4 : les pas 9 et 10 — « Reprendre », « Proposer » appliqué — ne sont pas des pas du témoin ; il repart donc de
+        // l'état que la note GARDE dans ce navigateur, et le contrôle reste celui du moteur : la page calculée par le moteur
+        // embarqué dit-elle ce que dit le serveur pour le même état ?)
+        const etat11 = await g.evaluate(() => { try { const id = new URLSearchParams(location.search).get('note');
+          const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id]; return n ? n.etat : null; } catch (e) { return null; } });
+        pas.length = 0;
+        pas.push(['etat', etat11, null]);
+        fsS.writeFileSync(path.join(OUT, 'saf_etat_11bis.json'), JSON.stringify(etat11));
+        const blocs4 = await g.$$eval('#resultat .et-bloc .et-bloc-t .n', (xs) => xs.map((x) => x.textContent.trim()));
+        await g.click('#stage .et-ent button[data-chemin="vue/onglet"][data-valeur="ferraillage"]');
+        await calmeS(g);
+        pas.push(['modifier', 'vue/onglet', 'ferraillage']);
+        const pF = await parite();
+        const dF = await dessinS(g);
+        await g.screenshot({ path: path.join(OUT, 'site_saf_ferraillage_pc.png') });
+        await g.click('#stage .et-ent button[data-chemin="vue/onglet"][data-valeur="coupes"]');
+        await calmeS(g);
+        pas[pas.length - 1] = ['modifier', 'vue/onglet', 'coupes'];
+        const pC = await parite();
+        const dC = await dessinS(g);
+        await g.screenshot({ path: path.join(OUT, 'site_saf_coupes_pc.png') });
+        await g.click('#stage .et-ent button[data-chemin="vue/onglet"][data-valeur="plan"]');
+        await calmeS(g);
+        pas.pop();
+        await carteS(g, 'm');
+        pas.push(['modifier', 'vue/carte', 'm']);
+        const pM = await parite();
+        const dM = await planS(g);
+        await carteS(g, 'sigma');
+        pas.pop();
+        await g.click('#resultat details[data-plan-volet="bordereau"] > summary');
+        await g.waitForTimeout(200);
+        const bd4 = await g.evaluate((VIS) => [...document.querySelectorAll('#resultat .sf-bd tbody tr')].filter((x) => x.checkVisibility(VIS)).length, VIS);
+        verif('saf · lot 4 : les cartes Sol, Contrôles, Dalle, BX1 à BY2 ; l\'onglet Ferraillage peint le plan ferraillé, l\'onglet Coupes les deux coupes (visibles, dans leur toile, aucun texte dehors) ; la carte '
+          + '« Moments » se peint ; le bordereau se déplie (une ligne par repère) ; à chaque pas la page dit ce que dit le témoin',
+          ['Sol', 'Contrôles', 'Dalle', 'BX1', 'BX2', 'BY1', 'BY2'].every((x) => blocs4.includes(x)) && pF.ok && !!dF && /df-plan/.test(dF.classe) && dF.dedans && dF.l >= 450 && !dF.hors
+          && pC.ok && !!dC && /df-coupes/.test(dC.classe) && dC.dedans && !dC.hors && pM.ok && !!dM && dM.carteSurDalle && dM.textes.some((t) => /kNm\/m/.test(t)) && bd4 >= 6,
+          pF.detail || pC.detail || pM.detail || JSON.stringify({ blocs4, dF, dC, carte: dM && dM.carteSurDalle, img: dM && dM.carte, dalle: dM && dM.dalle, m: dM && dM.textes.filter((t) => /kNm/.test(t)), bd4 }).slice(0, 900));
         // ---- 12. les grues enregistrées : gardée ici, offerte dans une AUTRE note (le carnet du module, dans ce navigateur)
         await ouvrirRubS(g, 'grue');
         await g.click('#donnees [data-chemin="carnet/garder"]');
@@ -4835,7 +4891,7 @@ const principal = async () => {
         if (offertes12.length) await g.click('#donnees .sf-grue-b');
         await calmeS(g);
         const ch12 = await g.evaluate(() => { const bt = document.querySelector('#donnees [data-pk="chassis"]'); return bt ? bt.textContent.replace(/\s+/g, ' ').trim() : null; });
-        await ouvrirRubS(g, 'reactions');
+        await ouvrirRubS(g, 'grue');
         const r12 = await g.$$eval('#donnees input[data-chemin^="reactions/"][data-chemin*="/P/"]', (xs) => xs.map((x) => x.value).join(' '));
         const v12 = await verdictS(g);
         verif('saf : « Enregistrer cette grue » la garde (un message le dit) ; dans une AUTRE note, d\'un autre chantier, elle est offerte ; la reprendre pose son châssis et ses trois jeux de réactions — le calcul part aussitôt',
@@ -4896,7 +4952,7 @@ const principal = async () => {
         for (const k of rubs) {
           await ouvrirRubS(pg, k);
           noter(`rubrique ${k}`, await etatS(pg, tel));
-          if (tel && ['dalle', 'sol', 'grue', 'reactions'].includes(k)) await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}_donnees_${k}.png`) });
+          if (tel && ['dalle', 'grue', 'armatures', 'options'].includes(k)) await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}_donnees_${k}.png`) });
         }
         await ouvrirRubS(pg, 'dalle');
         if (tel) {
@@ -4912,8 +4968,8 @@ const principal = async () => {
           noter('écran', await etatS(pg, tel));
           await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}.png`) });
         }
-        verif(`saf · ${fmt} : dans chacune des huit rubriques${tel ? ' et chaque onglet' : ''}, rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ, chaque bouton vu à 44 px au doigt${tel ? ', chaque champ à 16 px au moins' : ''}`,
-          rubs.length === 8 && !fautes.length, fautes.join(' | ').slice(0, 700));
+        verif(`saf · ${fmt} : dans chacun des quatre blocs${tel ? ' et chaque onglet' : ''}, rien ne déborde, aucun nom coupé, chaque valeur saisie se lit en entier dans son champ, chaque bouton vu à 44 px au doigt${tel ? ', chaque champ à 16 px au moins' : ''}`,
+          rubs.length === 4 && !fautes.length, fautes.join(' | ').slice(0, 700));
         const dv = await planS(pg);
         verif(`saf · ${fmt} : le plan est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '450 × 300 au moins'}), dans sa toile et dans l'écran ; la carte est sur la dalle ; chaque texte dans le dessin, aucun sur un autre`,
           !!dv && dv.dedans && dv.carteSurDalle && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 450 && dv.h >= 300), JSON.stringify(dv ? { hors: dv.hors, dessus: dv.dessus, l: dv.l, h: dv.h, zone: dv.zone, dedans: dv.dedans, carte: dv.carteSurDalle, texte: dv.texte } : null).slice(0, 600));
@@ -4944,6 +5000,7 @@ const principal = async () => {
         // ---- le résultat : le verdict, le tableau par k dans l'écran, le bouton d'export vu en entier
         if (tel) { await pg.click('.mtabs [data-onglet="resultat"]'); await pg.waitForTimeout(250); }
         const vr = await verdictS(pg);
+        await tableKS(pg);
         const col = await pg.evaluate((VIS) => {
           const boite = (s) => { const e = [...document.querySelectorAll(s)].find((x) => x.checkVisibility(VIS)); if (!e) return null; const r = e.getBoundingClientRect(); return { g: Math.round(r.left), d: Math.round(r.right), l: Math.round(r.width), t: Math.round(r.height) }; };
           const cadre = boite('.panel.right') || { g: 0, d: innerWidth };
@@ -4952,7 +5009,7 @@ const principal = async () => {
           return { tk, ex, pr, ok: dedans(tk) && dedans(ex) && dedans(pr), lignes: [...document.querySelectorAll('#resultat .sf-tk:not(.sf-tp) tbody tr')].filter((x) => x.checkVisibility(VIS)).length,
             els: [...document.querySelectorAll('#resultat .el.vc')].filter((x) => x.checkVisibility(VIS)).length };
         }, VIS);
-        verif(`saf · ${fmt} : la colonne des vérifications — le verdict (σ max face à la limite), le tableau par k (cinq lignes), les lignes de contrôle, « Proposer » et le bouton d'export, tous DANS leur cadre`,
+        verif(`saf · ${fmt} : la colonne des vérifications — la carte SOL (σ max face à la limite), le tableau par k (cinq lignes), les lignes de contrôle, « Proposer » et le bouton d'export, tous DANS leur cadre`,
           !!vr && vr.dedans && /Contrainte de contact/.test(vr.texte) && col.ok && col.lignes === 5 && col.els >= 3, JSON.stringify({ vr: vr && vr.texte.slice(0, 80), col }));
         if (tel) await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}_resultat_haut.png`) });
       } catch (e) { verif(`saf · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }

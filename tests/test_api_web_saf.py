@@ -469,6 +469,13 @@ def rapides():
         page["k"] and all(li[2].replace(" ", " ") in ecran_sol for b in page["blocs"] for li in b["lignes"])
         and [x["k"] for x in f0(rr)["sol"]["k"]] == sorted(set(page["k"])) and all(x["scia"] for x in f0(rr)["sol"]["k"])
         and "Repris de Sol essai" in txt(rr["donnees"]) and f0(rr)["sol"]["reprise"]["page"]["blocs"] == page["blocs"], (page["k"], f0(rr)["sol"]["k"]))
+    rk = mod(mod(mod(type_, ["vue", "k"], "30")["etat"], ["vue", "carte"], "m")["etat"], ["sol", "reprise"],
+             {"nom": "Sol essai", "chantier": "Chantier A", "etat": sol})
+    svg_k = rk["vues"][0]["svg"]
+    chk("« Reprendre » pendant que la vue montre k = 30, que la note de sol n'a pas : la vue revient à l'enveloppe et la carte « Moments » "
+        "se peint encore (une vue sur un k disparu ne peignait plus AUCUNE carte — le harnais navigateur l'a trouvé)",
+        30.0 not in [x["k"] for x in f0(rk)["sol"]["k"]] and f0(rk)["vue"]["k"] is None and "<image" in svg_k and "kNm/m" in svg_k,
+        (f0(rk)["vue"], [x["k"] for x in f0(rk)["sol"]["k"]]))
     abaque = copy.deepcopy(SOL.nouvel_etat())
     abaque["fondations"][0]["mode"] = "abaque"
     ra = mod(type_, ["sol", "reprise"], {"nom": "Abaque", "etat": abaque})

@@ -220,10 +220,14 @@ def lire(el: Dict) -> Dict:
             raise ValueError("treillis : automatique, Ø10 ou Ø12, tous les 10 ou 15 cm")
         ba[face] = a.get(face, "auto")
     v = el.get("vue") or {}
+    k_vue = float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None
+    if k_vue is not None and not any(abs(k_vue - x["k"]) < 1e-9 for x in b["sol"]["k"]):
+        k_vue = None              # (un k qui n'est plus dans la liste du sol — « Reprendre », un k ôté ou changé — rend la
+        #                            vue à l'enveloppe : sinon plus aucune carte ne se peint, faute de résultats pour ce k)
     b["vue"] = {"onglet": v.get("onglet") if v.get("onglet") in ONGLETS else "plan",
                 "carte": v.get("carte") if v.get("carte") in CARTES else "sigma",
                 "cas": v.get("cas") if isinstance(v.get("cas"), str) else None,
-                "k": float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None,
+                "k": k_vue,
                 "fond": v.get("fond") if v.get("fond") in FONDS else ""}
     b["proposition"] = copy.deepcopy(el.get("proposition")) if isinstance(el.get("proposition"), dict) else None
     return b
