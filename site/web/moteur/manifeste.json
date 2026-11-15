@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "f6785a3e1836d5f848a13b5e5757f95090ded20fee443e5746b2aa9ad4019b33",
+ "sha256": "9638c5b7f35c8486afa3a9ed9c3e4642841583a5409be8d5f762b238c1acee03",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -237,6 +237,7 @@
   "api_web/routeur.py",
   "api_web/saf.py",
   "api_web/saf_armatures.py",
+  "api_web/saf_bandes.py",
   "api_web/saf_resultat.py",
   "api_web/saf_saisie.py",
   "api_web/sol.py",
@@ -354,6 +355,7 @@
   "saf/fondation_grue/projet.py",
   "saf/fondation_grue/proposition.py",
   "saf/fondation_grue/scia.py",
+  "saf/fondation_grue/sections.py",
   "saf/fondation_grue/verification.py",
   "sol/__init__.py",
   "sol/base.py",
@@ -420,5 +422,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "43766f3e3dc419a3"
+ "version": "708294d8e29ec481"
 }

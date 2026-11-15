@@ -5059,6 +5059,21 @@ const principal = async () => {
         verif(`saf · ${fmt} : la colonne des vérifications — la carte SOL (σ max face à la limite), le tableau par k (cinq lignes), les lignes de contrôle, « Proposer » et le bouton d'export, tous DANS leur cadre`,
           !!vr && vr.dedans && /Contrainte de contact/.test(vr.texte) && col.ok && col.lignes === 5 && col.els >= 3, JSON.stringify({ vr: vr && vr.texte.slice(0, 80), col }));
         if (tel) await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}_resultat_haut.png`) });
+        // ---- (lot 6) le CALCUL DES BANDES : la ligne « Flexion BX… » de la carte ARMATURES ouvre la fenêtre « bd-x » — la
+        // section b × h du moteur Dalles (ses quatre vérifications) et le diagramme de couverture de M(s), VU à sa taille
+        await pg.click('#resultat .el[data-calcul="bd-x"]');
+        await pg.waitForTimeout(500);
+        const bd = await pg.evaluate((VIS) => { const f = document.querySelector('#ck-bd-x');
+          if (!f || !f.checkVisibility(VIS)) return null;
+          const r = f.getBoundingClientRect(), s = f.querySelector('.sf-couv svg:last-of-type'), q = s && s.checkVisibility(VIS) ? s.getBoundingClientRect() : null;
+          return { titre: (f.querySelector('.fl-h b') || {}).textContent || '', lignes: [...f.querySelectorAll('.vtab tbody tr')].filter((x) => x.checkVisibility(VIS)).length,
+            dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5, svg: q && { l: Math.round(q.width), h: Math.round(q.height) } }; }, VIS);
+        await pg.screenshot({ path: path.join(OUT, `site_saf_${fmt}_bandes.png`) });
+        verif(`saf · ${fmt} : le calcul des bandes — la ligne « Flexion » de la carte ARMATURES ouvre « Bandes BX… · section de calcul » (hauteur, deux faces, τ : quatre lignes par bande écrite — une pour deux bandes pareilles, deux sinon, comme ici où la grue a été déplacée) dans l'écran, et son diagramme de couverture est VU à sa taille (${tel ? '300' : '450'} px de large au moins)`,
+          !!bd && /^Bandes BX1/.test(bd.titre) && bd.titre.endsWith('section de calcul') && bd.lignes >= 4 && bd.lignes % 4 === 0 && bd.dedans && !!bd.svg && bd.svg.l >= (tel ? 300 : 450) && bd.svg.h >= 100,
+          JSON.stringify(bd));
+        await pg.click('#ck-bd-x [data-fermer]');
+        await pg.waitForTimeout(250);
       } catch (e) { verif(`saf · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
       verif(`saf · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       await cx.close();

@@ -537,21 +537,27 @@ def calculer(el: Dict, modele: Dict, ef: Dict, scia: Optional[Dict] = None) -> D
     if any(t["etat"] == "non_verifie" for t in tranchant.values()):
         alertes.append(("V à d ne se lit pas (zones chargées trop proches) : effort tranchant non vérifié", "v"))
     taux = max([hauteur["taux"]] + [t["taux"] for t in tranchant.values() if t["taux"] is not None])
-    if any(n == "r" for _, n in alertes):
-        etat = "nok"
-    elif alertes:
-        etat = "v"
-    else:
-        etat = "ok"
     # le U de fermeture : le treillis le plus FORT des deux faces (la plus grande section au mètre du moteur ; à égalité, le
     # plus gros Ø — revue du 15/11/2026 : le plus gros Ø très espacé l'emportait), sur tout le pourtour
     fort = max(CLES, key=lambda c_: (round(res["As"][c_], 6), a[c_.split("_")[0]][c_[-1]]["d"]))
     tf = a[fort.split("_")[0]][fort[-1]]
     u = f"U de fermeture : Ø{tf['d']} e {_fr_cm(tf['e'])} cm sur tout le pourtour ({_fr_m(G.perimetre(contour))} m)"
-    return {"res": res, "mRd_bandes": mRd_b, "tourne": tourne_, "renforts": renforts, "zones": zones, "rouge": rouge,
-            "tranchant": tranchant, "hauteur": hauteur, "treillis": treillis, "etat": etat, "taux": taux, "alertes": alertes,
-            "non_verifies": nv, "u": u, "echelle": dict(echelle or {}), "hors_domaine": None,
-            "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres": {cle: retenus[cle][0] for cle in CLES}}
+    out = {"res": res, "mRd_bandes": mRd_b, "tourne": tourne_, "renforts": renforts, "zones": zones, "rouge": rouge,
+           "tranchant": tranchant, "hauteur": hauteur, "treillis": treillis, "taux": taux, "alertes": alertes,
+           "non_verifies": nv, "u": u, "echelle": dict(echelle or {}), "hors_domaine": None,
+           "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres": {cle: retenus[cle][0] for cle in CLES}}
+    # la section de calcul de chaque bande (lot 6, ``sections``) : le moteur Dalles la contrôle avec toute sa méthode — une
+    # face qu'il dit non conforme (la face opposée, le maximum) est une alerte rouge que le principe seul ne voyait pas
+    from . import sections as SB
+    out["sections"] = SB.bandes(el, out, ef)
+    alertes += SB.alerte(out["sections"])
+    if any(n == "r" for _, n in alertes):
+        out["etat"] = "nok"
+    elif alertes:
+        out["etat"] = "v"
+    else:
+        out["etat"] = "ok"
+    return out
 
 
 def _fr_cm(mm: float) -> str:

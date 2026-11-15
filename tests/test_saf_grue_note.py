@@ -276,8 +276,9 @@ def rapides():
         and "m haut min -140,8 kN·m/m" in t, [x for x in t14 if x not in t][:3])
     petits = [(nm, round(tt, 2)) for nm, tt in n.figures if tt < 7.0 - 1e-6]
     chk(f"§ 10.3 les dessins se lisent imprimés : les {len(n.figures)} dessins de la note (plan coté, carte de contrainte, 8 diagrammes, 2 cartes "
-        "des moments, 2 plans du principe) ont un texte de 7 pt au moins une fois posés",
-        len(n.figures) == 15 and not petits, petits or n.figures)
+        "des moments, 2 plans du principe ; lot 6 : la légende et les 2 diagrammes de couverture du calcul des bandes) ont un texte de 7 pt "
+        "au moins une fois posés",
+        len(n.figures) == 18 and sum(nm.startswith("Couverture") for nm, _ in n.figures) == 3 and not petits, petits or n.figures)
     print("== 4. NC7, NC8 : SCIA")
     chk("NC7 sans valeur SCIA : « Valeurs SCIA non saisies », le tableau garde les valeurs du module (r = 1)",
         "Valeurs SCIA non saisies" in t and "Bandes BX : M+ le plus fort (x = y) 71,6 kN·m SCIA non saisi" in t, t[t.find("Module / SCIA"):][:300])
@@ -378,6 +379,45 @@ def revue_15_11(type_, n, npf, n7, ef, mo):
         "négatif sous chaque pied) ; « V à d 84,1 (168,2/m) » écrit sur la courbe ; la note le dit aussi",
         dessus and dessous and "V à d 84,1 (168,2/m)" in svg and "V à d 84,1 (168,2/m)" in n7.texte,
         (y0, [(min(y), max(y)) for y in ys], "V à d 84,1" in svg))
+    lot6_bandes(type_, n7)
+
+
+def lot6_bandes(type_, n7):
+    """Lot 6 (15/11/2026) : le CALCUL DES BANDES — la fenêtre de calcul de l'écran (une par direction, ouverte par les lignes de
+    la carte ARMATURES), le diagramme de couverture de M(s), le chapitre « Calcul des bandes » de la note."""
+    import numpy as np
+    from api_web import dessin_efforts_saf as DE
+    print("== 6 bis. lot 6 : le calcul des bandes (écran et note)")
+    e7 = mod(mod(type_, ["dalle", "Lx"], "10,7"), ["dalle", "Ly"], "10,7")
+    r = q(action="calculer", etat=e7)
+    vol, res = propre(r["volets"]), r["resultat"]
+    i = vol.find('id="ck-bd-x"')
+    bx = vol[i:vol.find('id="ck-bd-y"')] if i >= 0 else ""
+    lignes_bx = re.findall(r'<td class="nm">(.*?)<span>', bx)
+    chk("L6-a l'écran, dalle 10,70 : la fenêtre « Bandes BX1 = BX2 · section de calcul » (une pour les deux bandes pareilles) et celle des "
+        "bandes BY ; ses lignes Hauteur, Inférieure X, Supérieure X, Effort tranchant (724 mm² ≤ A_s = 829 mm² ; V à d = 84,1 kN, au dixième) ; "
+        "son diagramme de couverture (« R1 4 Ø12 : 107,0 ») ; les lignes Flexion, Hauteur et Effort tranchant de la carte l'ouvrent",
+        'id="ck-bd-y"' in vol and "Bandes BX1 = BX2 · section de calcul" in bx and lignes_bx == ["Hauteur", "Inférieure X", "Supérieure X", "Effort tranchant"]
+        and "724 mm²" in bx and "829 mm²" in bx and "V à d = 84,1 kN · sans étriers" in bx and 'class="sf-couv"><svg' in bx
+        and "R1 4 Ø12 : 107,0" in bx and "R2 4 Ø12 : 107,0" in bx
+        and res.count('data-calcul="bd-x"') == 3 and res.count('data-calcul="bd-y"') == 3, (lignes_bx, res.count('data-calcul="bd-x"'), bx[:300]))
+    # la couverture : le treillis, puis le treillis + le renfort, atteint à un ancrage de chaque extrémité (au bord : tout de suite)
+    r_ = {"rep": "R1", "s0": 1.0, "s1": 4.0, "ancrage": 0.6, "mRd_pose": 200.0, "bord0": False, "bord1": False}
+    pts = DE._resistance(6.0, 100.0, [r_])
+    xs, vs = [p_[0] for p_ in pts], [p_[1] for p_ in pts]
+    pb = DE._resistance(6.0, 100.0, [dict(r_, s0=0.0, bord0=True)])
+    lu = [round(float(np.interp(x, xs, vs)), 6) for x in (0.5, 1.3, 1.6, 2.5, 3.7, 4.5)]
+    chk("L6-b le diagramme de couverture : 100 (le treillis) hors du renfort, une rampe sur l'ancrage (150 à mi-ancrage), 200 (treillis + "
+        "renfort) au-delà ; un renfort arrêté au bord de la dalle reprend tout dès le bord",
+        lu == [100.0, 150.0, 200.0, 200.0, 150.0, 100.0] and round(float(np.interp(1e-6, [p_[0] for p_ in pb], [p_[1] for p_ in pb])), 3) == 200.0,
+        (lu, pb[:4]))
+    chk("L6-c la note, dalle 10,70 : le chapitre « Calcul des bandes » (au sommaire), un bloc par direction (« Bande BX1 = BX2 — section 50 "
+        "× 50 cm », « Bande BY1 = BY2 … »), le diagramme de couverture, les vérifications du moteur Dalles avec leurs formules et leurs "
+        "verdicts (724 mm² ≤ A_s = 829 mm², 87 %)",
+        "Calcul des bandes" in n7.pages[0] and "Bande BX1 = BX2 — section 50 × 50 cm" in n7.texte and "Bande BY1 = BY2 — section 50 × 50 cm" in n7.texte
+        and "M(s) [kN·m] ET CE QUE REPRENNENT LES ARMATURES · BANDE BX1" in n7.texte and "R1 4 Ø12 : 107,0" in n7.texte
+        and "724 mm² ≤As = 829 mm² 87 %" in n7.texte and "0,016 × 37 / 1,05 = 0,56" in n7.texte
+        and "93,37 × 10" in n7.texte, n7.texte[n7.texte.find("CALCUL DES BANDES"):][:600])
 
 
 def complets():
@@ -461,6 +501,17 @@ MUTATIONS = [
     ("note_saf.py", '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', None),
     ("dessin_efforts_saf.py", '''    vp, vn = np.asarray(b["Vmax"], float), np.asarray(b["Vmin"], float)''',
      '''    vp, vn = np.asarray(b["Vabs"], float), np.zeros(len(b["s"]))''', "V(s) tracé en valeur absolue"),
+    # (lot 6 : le calcul des bandes)
+    ("saf_armatures.py", '''        ck = ident_bandes(sens) if fer.get("sections") else "a0"''', '''        ck = "a0"''', "les lignes des bandes qui n'ouvrent pas leur calcul"),
+    ("saf.py", '''        volets += SA.fenetre(el, fer, ef) + SB.fenetre(el, fer, ef)''', '''        volets += SA.fenetre(el, fer, ef)''', "la fenêtre du calcul des bandes oubliée"),
+    ("saf_bandes.py", '''            paires = [(g["nom"], max(ss, key=lambda s: s["taux_max"]))]''', '''            paires = [(s["bande"], s) for s in ss]''',
+     "deux bandes pareilles écrites deux fois"),
+    ("saf_bandes.py", '''                    li = dict(li, sous=f"V{N}à{N}d{N}={N}{C.fr(s['V'], 1)}{N}kN · sans étriers")''', '''                    pass''',
+     "V à d écrit à la précision du calcul"),
+    ("dessin_efforts_saf.py", '''            k = min(1.0, 1.0 if r["bord0"] else (x - a) / an, 1.0 if r["bord1"] else (z - x) / an)''', '''            k = 1.0''',
+     "la couverture sans la rampe de l'ancrage"),
+    ("note_saf.py", '''            if fer.get("sections"):
+                chapitres.append(page_bandes(el, calc, ef, fer, F, style))''', '''            pass''', "le chapitre « Calcul des bandes » oublié"),
 ]
 MUTATIONS = [m_ for m_ in MUTATIONS if m_[3] is not None]
 TEMOIN = ("note_saf.py", 'TITRE = "Fondation de grue"', 'TITRE = "Fondation de grue"')

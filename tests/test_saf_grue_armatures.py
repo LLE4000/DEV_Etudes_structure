@@ -364,6 +364,107 @@ def rapides():
         and abs(next(s for s in rsig["sigma"] if s["k"] == 10.0)["r"] - 100 / 110.3) < 1e-12
         and rsig["echelle"] == {"inf_x": 1.0, "inf_y": 1.0, "sup_x": 1.0, "sup_y": 1.0}, (rs["echelle"], rsig["sigma"]))
     revue_15_11(el, m, ef, mo, fer)
+    lot6_sections()
+
+
+def couvert(bd, cov, face, ech=1.0):
+    """Le plus fort dépassement (kN·m/m) du moment de la bande sur ce que reprennent ses armatures — écrit ICI, sans le dessin :
+    le treillis, et sur chaque renfort le treillis + le renfort, atteint à un ancrage de chaque extrémité (au bord : tout de suite)."""
+    s = np.asarray(bd["s"], float)
+    res = np.full(len(s), cov["mRd"])
+    for r in cov["renforts"]:
+        an = r["ancrage"]
+        k = np.minimum(np.ones(len(s)) if r["bord0"] else (s - r["s0"]) / an, np.ones(len(s)) if r["bord1"] else (r["s1"] - s) / an)
+        k = np.where((s >= r["s0"]) & (s <= r["s1"]), np.clip(np.minimum(k, 1.0), 0.0, 1.0), 0.0)
+        res = res + (r["mRd_pose"] - cov["mRd"]) * k
+    m_ = (bd["Mmax"] if face == "inf" else -bd["Mmin"]) / bd["largeur"] * ech
+    return float(np.max((m_ - res)[~bd["dans_plot"]]))
+
+
+def lot6_sections():
+    """Lot 6 (15/11/2026) : la SECTION DE CALCUL de chaque bande (saf/fondation_grue/sections.py) — le moteur Dalles calcule la
+    bande comme une section b × h avec ce que le principe y pose ; elle redit le principe, et le contrôle."""
+    from saf.fondation_grue import sections as SB
+    print("== 3 ter. lot 6 : la section de calcul de chaque bande (moteur Dalles)")
+    e7 = projet(L=10.7)
+    m7, ef7 = efforts(e7)
+    f7 = AR.calculer(e7, m7, ef7)
+    s1 = f7["sections"][0]
+    v1 = {v["cle"]: v for v in s1["verifications"]}
+    g1 = s1["section"]["grandeurs"]
+    r1 = s1["faces"]["inf"]["renfort"]
+    a12 = AR.aire_barre(12)
+    chk("L6-1 dalle 10,70 × 10,70 × 0,50, BX1 : la section 50 × 50 cm du moteur Dalles porte M⁺ = 93,4 kN·m (R1 : 186,7 × 0,50) et "
+        "M⁻ = 17,3 kN·m, le treillis Ø12/150 + 4 Ø12 en bas, V à d = 84,1 kN ; ses vérifications : la hauteur (h_min = 36,0 ≤ 50 cm, 72 %), "
+        "la face inférieure (A_s,néc = 724 ≤ A_s = 754 × 0,5 + 4 × 113,1 = 829 mm², 87 %), la face supérieure (377 ≤ 377 mm² : le minimum), "
+        "τ (80 %) ; conforme, aucune alerte de plus",
+        len(f7["sections"]) == 4 and (s1["b"], s1["h"]) == (50, 50) and list(v1) == ["hauteur", "inf_x", "sup_x", "tau"]
+        and r1["rep"] == "R1" and (r1["n"], r1["d"]) == (4, 12) and f"{s1['faces']['inf']['M']:.1f}" == "93.4"
+        and f"{g1['M_sup_x']:.2f}" == f"{s1['faces']['sup']['M']:.2f}" == "17.25" and f"{s1['V']:.1f}" == "84.1"
+        and abs(v1["inf_x"]["limite"] - (754.0 * 0.5 + 4 * a12)) < 0.6 and f"{v1['inf_x']['valeur']:.1f}" == "723.8"
+        and f"{v1['inf_x']['taux']:.3f}" == "0.873" and f"{v1['sup_x']['valeur']:.1f}" == "376.5" and f"{v1['hauteur']['valeur']:.1f}" == "36.0"
+        and s1["section"]["faces"]["inf_x"]["libelle"] == "Ø12/150 + 4 Ø12" and s1["etat"] == "ok" and f7["etat"] == "ok"
+        and not any(t.startswith("Bande") for t, _ in f7["alertes"]), (s1["faces"]["inf"]["M"], {k: (v["valeur"], v["limite"]) for k, v in v1.items()}))
+    # la section redit le principe : même acier demandé, même acier posé, même τ (sur sept dalles)
+    cas = {"type": projet(), "10,70": e7, "bandes 1,00": projet(largeur=1.0), "plots coulés": projet(plots=COULE),
+           "plots préfabriqués": projet(plots=PREF), "tourné 30°": projet(L=10.7, grue={"beta": 30.0})}
+    ecarts, pires, vus = [], {}, 0
+    for nom, e_ in cas.items():
+        m_, ef_ = efforts(e_)
+        f_ = f7 if e_ is e7 else AR.calculer(e_, m_, ef_)
+        pire = 0.0
+        for s_, bd in zip(f_["sections"], ef_["bandes"]):
+            for face in ("inf", "sup"):
+                F = s_["faces"][face]
+                v = next(x for x in s_["verifications"] if x["cle"] == F["cle"])
+                if F["renfort"]:
+                    vus += 1
+                    if abs(v["valeur"] - F["renfort"]["besoin"] * s_["largeur"]) > 1e-6 or abs(v["limite"] - SB.pose_pm(F["renfort"]) * s_["largeur"]) > 1e-6:
+                        ecarts.append((nom, s_["bande"], face))
+                ech = (f_["echelle"].get(f"inf_{bd['nom'][1].lower()}", 1.0) if face == "inf" else f_["echelle"].get(f"sup_{s_['sens']}", 1.0))
+                pire = max(pire, couvert(bd, s_["couverture"][face], face, ech))
+            t_ = f_["tranchant"][s_["bande"]]
+            vt = next(x for x in s_["verifications"] if x["cle"] == "tau")
+            if abs(vt["taux"] - t_["taux"]) > 1e-12:
+                ecarts.append((nom, s_["bande"], "tau"))
+        pires[nom] = pire
+    chk(f"L6-2 sur six dalles (type, 10,70, bandes 1,00, plots coulés et préfabriqués, châssis tourné de 30°), la section de chaque bande "
+        f"redit le principe : l'acier demandé = A_s,néc du renfort × b, l'acier posé = (treillis + n barres) × b, le même τ ({vus} faces "
+        "renforcées) ; et le moment de chaque bande reste partout sous ce que reprennent le treillis et ses renforts (le renfort atteint "
+        "tout à un ancrage de son extrémité)",
+        not ecarts and vus >= 20 and all(p_ <= 1e-9 for p_ in pires.values()), (ecarts[:4], pires))
+    # SCIA : la section prend les moments × le rapport SCIA de sa face
+    sc = SC.rapports(dict(e7, scia=dict(e7["scia"], mx=round(SC.module(ef7)["mx"] * 1.2, 4))), ef7)
+    fs = AR.calculer(e7, m7, ef7, sc)
+    chk("L6-3 SCIA saisi (m le plus négatif × 1,20) : la section prend M⁻ × 1,20 (17,25 → 20,7 kN·m), M⁺ ne bouge pas",
+        abs(fs["echelle"]["sup_x"] - 1.2) < 1e-4 and abs(fs["sections"][0]["faces"]["sup"]["M"] - fs["echelle"]["sup_x"] * s1["faces"]["sup"]["M"]) < 1e-9
+        and abs(fs["sections"][0]["faces"]["inf"]["M"] - s1["faces"]["inf"]["M"]) < 1e-9, fs["sections"][0]["faces"]["sup"]["M"])
+    # le contrôle : la face opposée (réactions × 2,05) — le principe seul ne la voyait pas
+    e_o = projet(L=10.7)
+    e_o = PR.lire(dict(e_o, reactions=[{"nom": "", "P": [round(p_ * 2.05) for p_ in j]} for j in JEUX]))
+    f_o = AR.calculer(e_o, *efforts(e_o))
+    by = {s_["bande"]: s_ for s_ in f_o["sections"]}
+    g_o = by["BY1"]["section"]["grandeurs"]
+    chk("L6-4 réactions × 2,05 (dalle 10,70) : la hauteur tient (99 %) mais en haut des bandes BY le minimum 0,25·A_s,req de la face "
+        "opposée (le bas) dépasse le treillis — le principe dimensionne chaque face seule et ne le voyait pas ; la section le voit : alerte "
+        "rouge « Bande BY1, armature supérieure Y : sous le minimum 0,25·A_s,req de la face opposée (moteur Dalles) »",
+        f_o["hauteur"]["etat"] == "ok" and by["BY1"]["causes"] == {"sup_y": "opposee"} and by["BY1"]["faces"]["sup"]["renfort"] is None
+        and g_o["As_min_opposee_sup_y"] > g_o["As_sup_y"] > g_o["As_min_base"]
+        and ("Bande BY1, armature supérieure Y : sous le minimum 0,25·A_s,req de la face opposée (moteur Dalles) — renforcer ou épaissir", "r")
+        in f_o["alertes"] and f_o["etat"] == "nok", (by["BY1"]["causes"], [t for t, _ in f_o["alertes"]]))
+    # h qui n'est pas un nombre entier de cm : d au cm inférieur, A_s,min au cm supérieur (comme le principe)
+    e_h = projet(L=10.7, h=0.505)
+    f_h = AR.calculer(e_h, *efforts(e_h))
+    sh = f_h["sections"][0]
+    vh = {v["cle"]: v for v in sh["verifications"]}
+    rh = sh["faces"]["inf"]["renfort"]
+    chk("L6-5 h = 0,505 m : la section est calculée à h = 50 cm (d côté sécurité) et dit A_s,min au cm supérieur (51 cm : 384 mm² sur la "
+        "bande) ; la face renforcée redit le besoin du principe ; le treillis seul en haut est sous ce minimum — le principe le dit déjà "
+        "(« Treillis sous le minimum »), la section ne le redit pas",
+        sh["h"] == 50 and sh["plafond"]["h"] == 51 and f"{sh['plafond']['As_min']['sup_x']:.0f}" == "384"
+        and abs(vh["inf_x"]["valeur"] - rh["besoin"] * 0.5) < 1e-6 and vh["sup_x"]["etat"] == "nok" and sh["causes"] == {"sup_x": "minimum"}
+        and not any(t.startswith("Bande") for t, _ in f_h["alertes"]) and any(t.startswith("Treillis sous le minimum") for t, _ in f_h["alertes"]),
+        (sh["plafond"], sh["causes"], [t for t, _ in f_h["alertes"]]))
 
 
 def revue_15_11(el, m, ef, mo, fer):
@@ -620,6 +721,21 @@ MUTATIONS = [
     ("armatures.py", '''                r = dans_dalle(r, cle, contour)''', '''                pass''', "un renfort local qui entre dans l'encoche d'un L"),
     ("armatures.py", '''                    longueur, largeur = r["x1"] - r["x0"], r["y1"] - r["y0"]''', '''                    largeur, longueur = r["x1"] - r["x0"], r["y1"] - r["y0"]''',
      "la largeur d'un renfort local prise pour sa longueur"),
+    # (lot 6 : la section de calcul de chaque bande)
+    ("sections.py", '''    for f in faces.values():
+        s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', '''    for f in [faces["inf"]]:
+        s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', "la section sans M⁻ (la face opposée oubliée)"),
+    ("sections.py", '''    for f in faces.values():
+        s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', '''    for f in [faces["sup"]]:
+        s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', "la section sans M⁺"),
+    ("sections.py", '''        if r is None or not r["n"]:''', '''        if True:''', "la section sans le renfort de la bande"),
+    ("sections.py", '''        return "opposee"''', '''        return "minimum"''', "la face opposée prise pour le minimum déjà dit"),
+    ("sections.py", '''            if k == "minimum":''', '''            if True:''', "aucune alerte de la section"),
+    ("sections.py", '''    if hc != h:''', '''    if False:''', "A_s,min de la section au cm inférieur"),
+    ("sections.py", '''    return pose_pm(r) * fer["res"]["mRd"][cs] / fer["res"]["As"][cs]''', '''    return r["As_tr"] * fer["res"]["mRd"][cs] / fer["res"]["As"][cs]''',
+     "la couverture sans le renfort"),
+    ("sections.py", '''        e_ = ech.get(f"sup_{AR.axe_bande(bd)}", 1.0)''', '''        e_ = 1.0''', "M⁻ de la section sans le rapport SCIA"),
+    ("armatures.py", '''    alertes += SB.alerte(out["sections"])''', '''    pass''', "le principe sans les alertes de la section"),
 ]
 TEMOIN = ("armatures.py", "CLES = (", "CLES = (")
 

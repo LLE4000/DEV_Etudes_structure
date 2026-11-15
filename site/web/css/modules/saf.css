@@ -254,3 +254,8 @@
 /* les formules des cartes de résultats (lot 4, § 2.2 : « σ max = 1,12 kg/cm² > 0,50 kg/cm² · cas 3.a · k = 10 ») se lisent
    ENTIÈRES : elles passent à la ligne au lieu d'être coupées par « … » */
 #resultat .et-bloc .el .l2 .cmp { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* le calcul des bandes (lot 6) : dans la fenêtre « bd-x » / « bd-y », l'en-tête de la section et son diagramme de
+   couverture prennent toute la largeur ; le diagramme suit la largeur de la fenêtre (téléphone compris) */
+.ck-cols > .ck-g.sf-pleine { grid-column: 1 / -1; }
+.ck-g .sf-couv svg { display: block; width: 100%; max-width: 640px; height: auto; margin: 6px 0 2px; }

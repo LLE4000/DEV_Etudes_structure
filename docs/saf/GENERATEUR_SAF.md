@@ -327,3 +327,41 @@ contre-vérifié par un second ; chaque correction est figée par un contrôle q
   `armatures.calculer` (`dans_dalle`).
 - *Tests renforcés* : T11 à « 0,0000 % » (5·10⁻⁷, au lieu de 0,01 %), A3 (largeur lue sur le rectangle, barres liées à
   leur repère), NC6 (la ligne M−), U8 (la barre du centre sur une ligne à la tablette, harnais).
+
+## 11. Lot 6 (15/11/2026) : le calcul des bandes
+
+Demande du propriétaire : « une note de calcul au droit des bandes, aux appuis », avec ce que le treillis ne couvre pas et
+les renforts inférieurs et supérieurs. Le principe d'armatures (§ 10) calculait déjà les renforts ; le lot 6 les ÉCRIT.
+
+- **La section de calcul de chaque bande** (`saf/fondation_grue/sections.py`) : le moteur du module Dalles
+  (`beton/dalle/moteur.verifier`, sans le modifier) calcule la bande comme UNE section b × h (b = 50 ou 100 cm, h au cm
+  inférieur), avec ce que le principe y pose : le treillis de chaque face et le renfort qui gouverne (« n barres » dans la
+  bande, à l'axe du treillis de sa direction) ; ses moments M⁺ (celui du renfort, le plus fort de son tronçon) et M⁻ (le
+  plus fort de la bande, ou celui de son renfort) pris ENSEMBLE — ils ne sont pas au même endroit de la bande : côté
+  sécurité —, V à d. Ses vérifications : la hauteur, les deux faces de la direction de la bande, τ.
+- **Elle redit le principe** (test L6-2, six dalles) : l'acier demandé est A_s,néc du renfort × b, l'acier posé
+  (treillis + n barres) × b, le même τ ; h non entier (0,505 m) : A_s,min au cm supérieur, comme le principe (L6-5).
+- **Elle le contrôle** : le principe dimensionne chaque face SEULE ; le moteur Dalles applique toute sa méthode, dont le
+  minimum 0,25·A_s,req de la face opposée et le maximum 0,04·b·h. Une face qu'il dit non conforme pour une raison que le
+  principe ne voit pas est une alerte ROUGE (« Bande BY1, armature supérieure Y : sous le minimum 0,25·A_s,req de la face
+  opposée (moteur Dalles) — renforcer ou épaissir ») ; la hauteur, τ et le minimum de la dalle, déjà dits par le principe,
+  ne sont pas redits. *Défaut non conservatif trouvé ainsi* : dalle 10,70 × 0,50, réactions × 2,05 — la hauteur tient
+  (99 %) mais le haut des bandes BY est sous le minimum de la face opposée ; le principe seul le disait conforme en flexion
+  (L6-4). Sur la dalle de contrôle, rien ne change.
+- **La couverture de M(s)** (`dessin_efforts_saf.couverture`) : M⁺ et M⁻ de la bande, et ce que reprennent ses armatures —
+  le treillis, puis sur chaque renfort treillis + renfort (m_Rd = A_s posée ÷ A_s,req(1 kN·m/m), le moteur Dalles étant
+  linéaire), atteint en rampe sur l'ancrage de chaque extrémité (au bord de la dalle : tout de suite). La courbe des moments
+  reste partout dessous (L6-2, six dalles). Dans la zone grise d'un plot coulé, M n'est pas comparé : le plot est hors du
+  principe, son ferraillage est à prévoir (la légende le dit).
+- **L'écran** : une fenêtre de calcul par direction (« bd-x », « bd-y ») — les lignes Flexion, Hauteur et Effort tranchant
+  de la carte ARMATURES l'ouvrent : les hypothèses du module Dalles, le tableau de ses vérifications, la légende et le
+  diagramme de couverture, puis le détail de chaque vérification ; deux bandes pareilles (« BX1 = BX2 ») une fois, la plus
+  chargée ; différentes (la grue décalée), chacune. Les formules sont celles du module Dalles (`api_web/dalle._formule`),
+  une seule écriture (`api_web/saf_bandes.py`).
+- **La note** : le chapitre « Calcul des bandes », après le principe d'armatures — un bloc par section écrite, ses efforts,
+  ses armatures, le diagramme de couverture, chaque vérification avec ses formules et son verdict.
+- **Point signalé au bureau** : la hauteur s'écrit de deux façons équivalentes — le principe (cahier § 7.2) :
+  d_min = h_u,min ≤ d = h − y_G, taux d_min ÷ d (68 % sur la dalle de contrôle) ; la section du module Dalles :
+  h_min = h_u,min + y_G ≤ h, taux h_min ÷ h (72 %). Le verdict est le même ; la fenêtre et la note le disent. Le décalage
+  de la courbe des moments (a_l, EC2 9.2.1.3) n'est pas appliqué au principe (l'annexe A ne le fait pas) : il reste dans
+  les « Non vérifiés » (les ancrages).

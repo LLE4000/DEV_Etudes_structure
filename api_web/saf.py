@@ -43,6 +43,7 @@ from . import commun as C
 from . import dessin_saf as DS
 from . import etabli_compact as E
 from . import saf_armatures as SA
+from . import saf_bandes as SB
 from . import saf_resultat as SR
 from . import saf_saisie as SS
 
@@ -841,7 +842,7 @@ def resultat(etat: Dict) -> Dict:
         html_res, volets = SR.colonne(el, calc, s, etapes_=etp)
     else:
         html_res, volets = SR.colonne(el, calc, s, SA.carte(el, fer, ef, sc), fer["non_verifies"], etapes_=etp)
-        volets += SA.fenetre(el, fer, ef)
+        volets += SA.fenetre(el, fer, ef) + SB.fenetre(el, fer, ef)
     donnees = arbre(etat, calc, s, carnet)
     if el["vue"]["carte"] == "armatures" and fer is not None and not fer.get("hors_domaine"):
         svg = DS.plan(el, calc["modele"], None, armatures={"ef": ef, "fer": fer, "face": el["vue"]["face"]})

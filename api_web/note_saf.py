@@ -60,6 +60,7 @@ from . import dessin_efforts_saf as DE
 from . import dessin_saf as DS
 from . import pdf_reunion as PDF
 from . import saf_armatures as SA
+from . import saf_bandes as SBD
 from . import saf_resultat as SR
 from . import saf_saisie as SS
 
@@ -883,6 +884,23 @@ def page_principe(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Pla
     return sec
 
 
+# ------------------------------------------------------------------ 6 bis. Calcul des bandes (lot 6)
+def page_bandes(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Planche) -> Dict:
+    """Le chapitre « Calcul des bandes » : la section de calcul de chaque bande par le moteur Dalles, avec ses formules
+    (``saf_bandes.verifs_note`` : l'écriture du module Dalles) et le diagramme de couverture de M(s)."""
+    from ndc_pdf import riche as RI
+    sec = dict(F, section="Calcul des bandes", bande=False, n_cols=2)
+    largeur = style.largeur_colonne(sec)
+    sec["verifs"] = SBD.verifs_note(el, fer, ef, largeur, lambda svg, nom: _figure_en_pt(svg, nom, largeur), _riche, RI.tex)
+    return sec
+
+
+def _riche(h: str) -> str:
+    """Un texte HTML du module (« A<sub>s,req</sub> ») en texte riche de la note : ses indices composés (« A_s,req »)."""
+    from ndc_pdf import riche as RI
+    return RI.auto(_texte(re.sub(r"<sub>([^<]*)</sub>", r"_\1", h)))
+
+
 # ------------------------------------------------------------------ 7. Comparaison avec SCIA, l'annexe sol
 def page_scia(el: Dict, calc: Dict, sc: Optional[Dict], F: Dict, style: Planche, s: Dict) -> Dict:
     sec = dict(F, section="Comparaison avec SCIA", bande=False, n_cols=2)
@@ -1008,6 +1026,8 @@ def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
             # (les efforts viennent du module, pas du moteur Dalles : imprimés aussi hors de son domaine — revue du 15/11/2026)
             chapitres.append(page_efforts(el, calc, ef, fer, F, style))
             chapitres.append(page_principe(el, calc, ef, fer, F, style))
+            if fer.get("sections"):
+                chapitres.append(page_bandes(el, calc, ef, fer, F, style))
             chapitres.append(page_scia(el, calc, sc, F, style, s))
         elif el["sol"].get("reprise"):
             chapitres.append(page_scia(el, calc, None, F, style, s))

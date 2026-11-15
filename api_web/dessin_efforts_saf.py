@@ -161,6 +161,80 @@ def moments(b: Dict, mrd_inf: Optional[float], mrd_sup: Optional[float], ech_inf
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" height="{h:.0f}">{"".join(out)}</svg>'
 
 
+COUVERT = "#0f766e"             # ce que reprennent les armatures (le treillis, puis le treillis + le renfort)
+
+
+def _resistance(L: float, mrd: float, renforts: Sequence[Dict]) -> List[Tuple[float, float]]:
+    """Les points (s, kN·m/m) de ce que reprennent les armatures d'une face le long de la bande : le treillis (``mrd``),
+    et sur chaque renfort le treillis + le renfort (``mRd_pose``), atteint à un ancrage de chacune de ses extrémités — en
+    rampe sur l'ancrage (la barre ne reprend tout qu'ancrée) ; au bord de la dalle, pas de rampe (``bord0``, ``bord1``)."""
+    pts = [(0.0, mrd)]
+    for r in renforts:
+        a, z, an, T = r["s0"], r["s1"], max(r["ancrage"], 1e-9), r["mRd_pose"]
+
+        def val(x, a=a, z=z, an=an, T=T, r=r):
+            k = min(1.0, 1.0 if r["bord0"] else (x - a) / an, 1.0 if r["bord1"] else (z - x) / an)
+            return mrd + (T - mrd) * max(k, 0.0)
+        mid = (a + z) / 2
+        xs = sorted({a, z, min(a + an, mid), max(z - an, mid)})
+        pts.append((a, mrd))
+        pts += [(x, val(x)) for x in xs]
+        pts.append((z, mrd))
+    pts.append((L, mrd))
+    return pts
+
+
+def couverture(b: Dict, cov: Dict, ech_inf: float = 1.0, ech_sup: float = 1.0, w: float = 380.0, h: float = 160.0,
+               barres: Optional[Dict[str, str]] = None) -> str:
+    """La COUVERTURE de M(s) de la bande ``b`` (lot 6) : M+ et M− en enveloppe (× l'échelle SCIA de la face), et ce que ses
+    armatures reprennent (``saf.fondation_grue.sections.couverture``, × la largeur) — le treillis, et sur chaque renfort le
+    treillis + le renfort, en rampe sur l'ancrage. Là où la courbe des moments passe au-delà, les armatures ne la couvrent
+    pas. ``barres`` : {repère: « 4 Ø12 »}, écrit sur chaque renfort."""
+    s = np.asarray(b["s"], float)
+    lb = b["largeur"]
+    mp, mn = np.asarray(b["Mmax"], float) * ech_inf, np.asarray(b["Mmin"], float) * ech_sup
+    lignes = {face: [(x, v * lb * (1.0 if face == "inf" else -1.0)) for x, v in _resistance(b["L"], cov[face]["mRd"], cov[face]["renforts"])]
+              for face in ("inf", "sup")}
+    ymax = max(float(mp.max()), max(v for _, v in lignes["inf"]), 0.0) * 1.22 or 1.0
+    ymin = min(float(mn.min()), min(v for _, v in lignes["sup"]), 0.0) * 1.22 or -1.0
+    c = _Cadre(w, h, b["L"], ymin, ymax)
+    out = [_zones(c, b), _axes(c, "kN·m"), _courbe(c, s, mp, M_PLUS), _courbe(c, s, mn, M_MOINS)]
+    for face in ("inf", "sup"):
+        pts = " ".join(f"{c.X(x):.1f},{c.Y(v):.1f}" for x, v in lignes[face])
+        out.append(f'<polyline points="{pts}" fill="none" stroke="{COUVERT}" stroke-width="1.0" stroke-dasharray="4 2.5" stroke-linejoin="round"/>')
+        haut = face == "inf"
+        mrd = cov[face]["mRd"] * lb * (1.0 if haut else -1.0)
+        # (le treillis écrit au bord gauche, les renforts sur leur palier : rien ne se recouvre)
+        out.append(_t(c.x0 + 2, c.Y(mrd) - 2.5 if haut else c.Y(mrd) + 8.5, f"treillis {C.fr(mrd, 1)}", TXT, COUVERT, "start"))
+        for r in cov[face]["renforts"]:
+            T = r["mRd_pose"] * lb * (1.0 if haut else -1.0)
+            x = c.X((r["s0"] + r["s1"]) / 2)
+            mot = f"{r['rep']}" + (f" {barres[r['rep']]}" if barres and r["rep"] in barres else "") + f" : {C.fr(T, 1)}"
+            y = c.Y(T) - 2.5 if haut else c.Y(T) + 8.5
+            out.append(f'<text x="{x:.1f}" y="{y:.1f}" font-size="{TXT:.1f}" font-family="{POLICE}" text-anchor="middle" fill="#ffffff" '
+                       f'stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round">{C.esc(mot)}</text>' + _t(x, y, mot, TXT, COUVERT, "middle"))
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" height="{h:.0f}">{"".join(out)}</svg>'
+
+
+def legende_couverture(w: float = 380.0, plot: bool = False) -> str:
+    """La légende du diagramme de couverture : une ligne ; une seconde avec des plots coulés en place (``plot``) — dans leur
+    zone grise, M n'est pas comparé au treillis : le plot est hors du principe, son ferraillage est à prévoir."""
+    items = [(M_PLUS, "M+ (bas tendu)", ""), (M_MOINS, "M− (haut tendu)", ""),
+             (COUVERT, "ce que reprennent le treillis et les renforts (× b)", "4 2.5")]
+    out, x = [], 2.0
+    for coul, mot, tirets in items:
+        da = f' stroke-dasharray="{tirets}"' if tirets else ""
+        out.append(f'<line x1="{x:.1f}" y1="8" x2="{x + 14:.1f}" y2="8" stroke="{coul}" stroke-width="1.4"{da}/>')
+        out.append(_t(x + 17, 10.6, mot, TXT, ENCRE))
+        x += 22 + len(mot) * 3.6
+    h = 16
+    if plot:
+        out.append(f'<rect x="2" y="20" width="14" height="8" fill="{PLOT}"/>')
+        out.append(_t(19, 27.2, "plot coulé en place : hors du principe, son ferraillage est à prévoir", TXT, ENCRE))
+        h = 31
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h}" width="{w:.0f}" height="{h}">{"".join(out)}</svg>'
+
+
 def tranchant(b: Dict, w: float = 380.0, h: float = 130.0, d_v: Optional[float] = None) -> str:
     """V(s) de la bande ``b`` (kN sur la largeur) AVEC SON SIGNE, comme M(s) : l'enveloppe V max au-dessus de l'axe, V min en
     dessous (V a le signe de dM/ds : positif avant un pied, négatif après) ; les abscisses où V se lit (à d des zones

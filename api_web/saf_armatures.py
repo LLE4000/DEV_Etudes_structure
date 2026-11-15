@@ -134,6 +134,11 @@ def groupe_bandes(fer: Dict, ef: Dict, sens: str) -> Dict:
             "renforts_inf": ri, "renforts_sup": rs, "tranchant": pire_t, "hauteur": hh}
 
 
+def ident_bandes(sens: str) -> str:
+    """L'identifiant de la fenêtre de calcul des bandes d'une direction (``saf_bandes.fenetre``) : « bd-x », « bd-y »."""
+    return f"bd-{sens}"
+
+
 def zones_txt(fer: Dict, face: str) -> str:
     """« x 4,08 m² · y 4,40 m² · R9–R24 : 4 Ø12 » ; « aucune »."""
     z = [(s, fer["zones"][f"{face}_{s}"]) for s in ("x", "y")]
@@ -157,15 +162,17 @@ def carte(el: Dict, fer: Dict, ef: Dict, sc: Optional[Dict]) -> str:
     for sens, _ in SENS:
         g = groupe_bandes(fer, ef, sens)
         mrd_i, mrd_s = fer["mRd_bandes"][f"inf_{sens}"], fer["mRd_bandes"][f"sup_{sens}"]
+        # (lot 6 : les lignes d'une direction ouvrent le calcul de ses bandes — la section b × h du moteur Dalles)
+        ck = ident_bandes(sens) if fer.get("sections") else "a0"
         flex = (f"bas {ligne_flexion(g['m_inf'], mrd_i, g['renforts_inf'])}<br>haut {ligne_flexion(g['m_sup'], mrd_s, g['renforts_sup'])}")
-        rows += C.ligne_verif(f"Flexion {g['nom']}", flex, None, "c", calcul="a0",
+        rows += C.ligne_verif(f"Flexion {g['nom']}", flex, None, "c", calcul=ck,
                               etat_txt="renforts" if g["renforts_inf"] or g["renforts_sup"] else "treillis")
         if g["hauteur"] is not None:
             rows += C.ligne_verif(f"Hauteur {g['nom']}", ligne_hauteur(g["hauteur"]), C.pct(g["hauteur"]["taux"]),
-                                  C.niveau(g["hauteur"]["taux"]) if g["hauteur"]["etat"] == "ok" else "r", calcul="a0")
+                                  C.niveau(g["hauteur"]["taux"]) if g["hauteur"]["etat"] == "ok" else "r", calcul=ck)
         txt, taux, niv, mot = ligne_tranchant(g["tranchant"])
         rows += C.ligne_verif(f"Effort tranchant {g['nom']}", txt, C.pct(taux) if taux is not None else None,
-                              niv if taux is None or g["tranchant"]["etat"] == "ok" else "r", calcul="a0", etat_txt=mot)
+                              niv if taux is None or g["tranchant"]["etat"] == "ok" else "r", calcul=ck, etat_txt=mot)
     h = fer["hauteur"]
     if not any(r["type"] == "bande" for r in fer["renforts"]):
         rows += C.ligne_verif("Hauteur de béton", ligne_hauteur(h), C.pct(h["taux"]), C.niveau(h["taux"]) if h["etat"] == "ok" else "r", calcul="a0")
