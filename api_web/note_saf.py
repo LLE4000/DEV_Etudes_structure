@@ -56,6 +56,12 @@ def _n(x: float, nd: int = 2) -> str:
     return C.fr(x, nd).replace(C.NBSP, " ").replace(C.FINE, " ")
 
 
+def _sol(el: Dict, kpa: float, unite: bool = True) -> str:
+    """Une contrainte de sol dans l'unité choisie (lot 4, § 2.4 : la même que l'écran, jamais deux unités mélangées)."""
+    t = SS.sol(el, kpa) if unite else SS.sol_nb(el, kpa)
+    return t.replace(C.NBSP, " ").replace(C.FINE, " ")
+
+
 def _texte(h: str) -> str:
     """Un texte de l'écran (HTML court) en texte de la note."""
     import html as H
@@ -124,7 +130,7 @@ def _donnees(el: Dict, calc: Dict) -> List[Dict]:
     ch, g, d, p = m["chassis"], el["grue"], el["dalle"], el["projet"]
     blocs = []
     items = [_v(lab, p[k]) for k, lab in (("projet", "Projet"), ("grue", "Grue"), ("creation", "Date de création"), ("mise_a_jour", "Date de mise à jour"),
-                                          ("indice", "Indice")) if p[k]]
+                                          ("indice", "Indice")) if p.get(k)]
     if items:
         blocs.append({"titre": "Projet", "items": items, "verdicts": []})
     items = [_v("Dalle", "rectangle" if d["forme"] == "rectangle" else f"contour de {len(m['contour'])} sommets"),
@@ -132,8 +138,12 @@ def _donnees(el: Dict, calc: Dict) -> List[Dict]:
                 "m" if d["forme"] == "rectangle" else "m²"),
              _v("Épaisseur", _n(d["h"]), "m", "h"), _v(f"Béton {d['beton']}", _n(m["E"], 0), "MPa", "E"),
              _v("Raideurs de sol", " ; ".join(C.nb(x["k"]) for x in el["sol"]["k"]), "MN/m³", "k"),
-             _v("Exportées vers SCIA", " ; ".join(C.nb(k) for k in PR.k_scia(el)) or "aucune", "MN/m³" if PR.k_scia(el) else ""),
-             _v("Contrainte de contact admise", f"{C.nb(el['limite'])} kg/cm² = {_n(el['limite'] * V.KG_CM2, 1)}", "kPa")]
+             _v("Cochées « SCIA » (l'enveloppe)", " ; ".join(C.nb(k) for k in PR.k_scia(el)) or "aucune", "MN/m³" if PR.k_scia(el) else ""),
+             _v("Contrainte de contact admise", _sol(el, SS.limite_kpa(el), False), SS.unite(el)[0])]
+    if PR.k_scia(el):
+        # (lot 4, § 7 : UN seul SAF, écrit avec le premier k coché ; le bureau fait varier k dans SCIA)
+        items.append(("pr", f"Le fichier SAF est écrit avec k = {C.nb(PR.k_scia(el)[0])} MN/m³ (le premier coché « SCIA »). "
+                            f"Les k à passer dans SCIA : {' ; '.join(C.nb(k) for k in PR.k_scia(el))} MN/m³."))
     if d["forme"] == "contour":
         items.append(("pr", "Sommets (x ; y) en m : " + " · ".join(f"({C.nb(round(x, 3))} ; {C.nb(round(y, 3))})" for x, y in m["contour"]) + "."))
     blocs.append({"titre": "Dalle et sol", "items": items, "verdicts": []})
@@ -215,23 +225,23 @@ def _verdict(el: Dict, s: Dict) -> Dict:
     signe = "≤" if s["taux"] <= 1 else ">"
     quoi = "Poids propre seul" if s["pp"] else MOTS[s["niveau"]]
     ou = "les réactions sont à saisir" if s["pp"] else f"cas {s['cas']}, k = {C.nb(s['k'])} MN/m³"
-    return {"texte": f"{quoi} — σ max = {_n(s['sigma'], 1)} kPa ({_n(s['sigma'] / V.KG_CM2, 2)} kg/cm²) {signe} {_n(s['limite'], 1)} kPa "
-                     f"({C.nb(el['limite'])} kg/cm²) · {ou}", "etat": COULEURS[s["niveau"]], "cale": f"{C.pct(s['taux'])} %".replace(C.NBSP, " ")}
+    return {"texte": f"{quoi} — σ max = {_sol(el, s['sigma'])} {signe} {_sol(el, s['limite'])} · {ou}", "etat": COULEURS[s["niveau"]],
+            "cale": f"{C.pct(s['taux'])} %".replace(C.NBSP, " ")}
 
 
 def _par_k(el: Dict, calc: Dict, s: Dict, largeur: float) -> Dict:
     scia = set(PR.k_scia(el))
     w = (38.0, 44.0, 36.0, 40.0, 40.0)
-    cols = [("k [MN/m³]", w[0], "left"), ("σ MAX [kPa]", w[1], "right"), ("CAS", largeur - sum(w), "left"), ("w MAX [mm]", w[2], "right"),
+    cols = [("k [MN/m³]", w[0], "left"), (f"σ MAX [{SS.unite(el)[0]}]", w[1], "right"), ("CAS", largeur - sum(w), "left"), ("w MAX [mm]", w[2], "right"),
             ("DÉCOLLÉ", w[3], "right"), ("SCIA", w[4], "right")]
     lignes = []
     for r in calc["par_k"]:
         gov = r["k"] == s["k"]
-        lignes.append([("lab", C.nb(r["k"]), gov), ("eta", _n(r["sigma_max"], 1), r["sigma_max"] <= s["limite"], gov), ("ref", r["cas_max"]),
+        lignes.append([("lab", C.nb(r["k"]), gov), ("eta", _sol(el, r["sigma_max"], False), r["sigma_max"] <= s["limite"], gov), ("ref", r["cas_max"]),
                        ("num", _n(r["w_max"], 2)), ("num", f"{_n(r['decolle'], 1)} %"), ("num", "oui" if r["k"] in scia else "—")])
     sm = V.sigma_moyen(calc["modele"])
     note = (f"σ moyen = (dalle {_n(sm['dalle'], 0)}" + (f" + plots {_n(sm['plots'], 0)}" if sm["plots"] else "")
-            + (f" + réactions {_n(sm['reactions'], 0)}" if sm["reactions"] else "") + f") kN / {_n(sm['aire'], 1)} m² = {_n(sm['sigma'], 1)} kPa — un repère.")
+            + (f" + réactions {_n(sm['reactions'], 0)}" if sm["reactions"] else "") + f") kN / {_n(sm['aire'], 1)} m² = {_sol(el, sm['sigma'])} — un repère.")
     return {"titre": "Par raideur de sol", "items": [("tab", cols, lignes, note), ("k", 0)], "verdicts": [_verdict(el, s)]}
 
 
@@ -261,10 +271,10 @@ def _controles(el: Dict, calc: Dict, s: Dict) -> Dict:
 def _positions(el: Dict, calc: Dict, s: Dict, largeur: float) -> Dict:
     r = next(x for x in calc["par_k"] if x["k"] == s["k"])
     w = (30.0, 44.0, 40.0, 40.0)
-    cols = [("CAS", w[0], "left"), ("P1 / P2 / P3 / P4 [kN]", largeur - sum(w), "left"), ("σ MAX [kPa]", w[1], "right"), ("w MAX [mm]", w[2], "right"),
+    cols = [("CAS", w[0], "left"), ("P1 / P2 / P3 / P4 [kN]", largeur - sum(w), "left"), (f"σ MAX [{SS.unite(el)[0]}]", w[1], "right"), ("w MAX [mm]", w[2], "right"),
             ("DÉCOLLÉ", w[3], "right")]
     lignes = [[("lab", c["nom"], c["nom"] == r["cas_max"]), ("ref", " / ".join(C.nb(v) for v in c["R"])),
-               ("eta", _n(c["sigma_max"], 1), c["sigma_max"] <= s["limite"], c["nom"] == r["cas_max"]), ("num", _n(c["w_max"], 2)),
+               ("eta", _sol(el, c["sigma_max"], False), c["sigma_max"] <= s["limite"], c["nom"] == r["cas_max"]), ("num", _n(c["w_max"], 2)),
                ("num", f"{_n(c['decolle'], 1)} %")] for c in r["cas"]]
     return {"titre": f"Positions, k = {C.nb(s['k'])} MN/m³", "items": [("tab", cols, lignes)], "verdicts": []}
 
@@ -280,14 +290,13 @@ def planche_verification(el: Dict, calc: Dict, s: Dict, style: Planche) -> Dict:
         verifs.append(_controles(el, calc, s))
         if not s["pp"]:
             verifs.append(_positions(el, calc, s, largeur))
-        # la carte : la contrainte de contact du cas le plus défavorable, au k qui gouverne (jamais la vue de l'écran)
-        r = next(x for x in calc["par_k"] if x["k"] == s["k"])
-        i = [c["nom"] for c in r["cas"]].index(r["cas_max"])
-        sigma, w = r["champs"][i]
-        c = r["cas"][i]
-        champ = {"mode": "sigma", "dalle": r["dalle"], "valeurs": sigma, "decolle": (w < 0) & r["dalle"].on0, "maxi": c["sigma_max"], "x": c["x_max"],
-                 "y": c["y_max"], "limite": s["limite"]}
-        titre = ("CONTRAINTE DE CONTACT — POIDS PROPRE" if s["pp"] else f"CONTRAINTE DE CONTACT — CAS {c['nom']}") + f" · k = {C.nb(s['k'])} MN/m³"
+        # la carte : la contrainte de contact en ENVELOPPE de tous les cas et des k cochés « SCIA » (lot 4, § 2.3) — jamais la
+        # vue de l'écran (un cas, un k choisis)
+        el_env = dict(el, vue=dict(el["vue"], carte="sigma", cas=None, k=None))
+        champ = SR.champ(el_env, calc, s)
+        ks = PR.k_scia(el) or [x["k"] for x in el["sol"]["k"]]
+        titre = ("CONTRAINTE DE CONTACT — POIDS PROPRE" if s["pp"] else "CONTRAINTE DE CONTACT — ENVELOPPE DES CAS") + \
+            f" · k = {' ; '.join(C.nb(k) for k in ks)} MN/m³"
     else:
         verifs.append(_controles(el, calc, s))
     svg = DS.plan(el, m, champ, interactif=False, carte="vecteur", ident="note_carte")
@@ -296,7 +305,7 @@ def planche_verification(el: Dict, calc: Dict, s: Dict, style: Planche) -> Dict:
                          ("Pasternak", "C_2/k", f"{C.nb(o['c2x'])} ; {C.nb(o['c2y'])}", "m")]),
              ("CHARGES", [("Poids propre", "", _n(m["gamma"] * m["h"], 2), "kN/m²")]
               + ([("Plots", "", _n(m["gamma"] * m["plots"]["hauteur"], 2), "kN/m²")] if m["plots"] else [])
-              + [("Cas générés", "", str(len(m["cas"])), ""), ("Limite", "", _n(s["limite"], 1), "kPa")])]
+              + [("Cas générés", "", str(len(m["cas"])), ""), ("Limite", "", _sol(el, s["limite"], False), SS.unite(el)[0])])]
     return _planche(el, s, "Vérification rapide", titre, svg, blocs, verifs, style)
 
 

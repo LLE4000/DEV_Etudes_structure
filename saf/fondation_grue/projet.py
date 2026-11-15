@@ -32,7 +32,10 @@ ANNEAUX = (0.01, 0.02, 0.03)     # la largeur de l'anneau D2 du SAF (m)
 LARGEURS_BANDE = (1.0, 0.5)
 MAILLES = (0.10, 0.50)
 PLOTS = ("aucun", "prefabrique", "coule")
-PLOT_DEFAUT = (2.0, 2.0, 0.35)   # a × b × hauteur (m)
+PLOT_DEFAUT = (2.0, 2.0, 0.35)   # a × b × hauteur (m) : les plots COULÉS EN PLACE (cahier du lot 4, § 8.2)
+# les dimensions par défaut de chaque sorte de plot (le propriétaire, 15/11/2026 : « les plots préfabriqués font 2,50 m par
+# 2,50 m fois 35 cm de haut ») ; choisir une sorte pose ses dimensions tant que le plot garde celles d'une autre sorte
+PLOTS_DEFAUT = {"prefabrique": (2.5, 2.5, 0.35), "coule": PLOT_DEFAUT}
 FORMES = ("rectangle", "contour")
 # la vue du centre (lot 4, § 2.3) : l'onglet, la carte (« Enveloppe » quand ni le cas ni le k ne sont choisis)
 ONGLETS = ("plan", "ferraillage", "coupes")

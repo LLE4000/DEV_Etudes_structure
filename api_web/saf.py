@@ -256,7 +256,12 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
         elif ch[1:] == ["rect", "angle"]:
             g["rect"]["angle"] = {"0": 0, "45": 45}.get(str(valeur))
         elif ch[1:] == ["plots", "type"]:
-            g["plots"]["type"] = valeur
+            # (les dimensions par défaut de la sorte choisie — préfabriqué 2,50 × 2,50 × 0,35 m, coulé 2,00 × 2,00 × 0,35 m —
+            # remplacent celles d'une AUTRE sorte ; des dimensions saisies à la main sont gardées)
+            p_ = g["plots"]
+            if valeur in PR.PLOTS_DEFAUT and (p_["a"], p_["b"], p_["h"]) in [v for k, v in PR.PLOTS_DEFAUT.items() if k != valeur]:
+                p_["a"], p_["b"], p_["h"] = PR.PLOTS_DEFAUT[valeur]
+            p_["type"] = valeur
         elif ch[1] == "plots" and len(ch) == 3 and ch[2] in ("a", "b", "h"):
             g["plots"][ch[2]] = round(_nombre(valeur, "le plot"), 3)
         else:

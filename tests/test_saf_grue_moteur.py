@@ -403,6 +403,9 @@ def muter(fichier, ancien, nouveau):
     with tempfile.TemporaryDirectory() as tmp:
         for paquet in ("saf", "grues"):
             shutil.copytree(os.path.join(RACINE, paquet), os.path.join(tmp, paquet), ignore=shutil.ignore_patterns("__pycache__"))
+        # (le moteur lit les options par défaut du moteur poutre — beton/poutre, beton/position — lot 4 : lié, jamais muté)
+        os.symlink(os.path.join(RACINE, "beton"), os.path.join(tmp, "beton"))
+        os.symlink(os.path.join(RACINE, "beton_classes.json"), os.path.join(tmp, "beton_classes.json"))
         cible = os.path.join(tmp, "saf", "fondation_grue", fichier)
         src = open(cible, encoding="utf-8").read()
         if src.count(ancien) != 1:

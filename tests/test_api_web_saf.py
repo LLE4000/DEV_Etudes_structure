@@ -107,8 +107,8 @@ def rapides():
         and el["reactions"] == [{"nom": "", "P": [None] * 4}] and set(el["projet"].values()) == {""} and "carnet" not in r0["etat"], el)
     chk("sans réaction : le poids propre seul (σ = 25·h = 12,5 kPa = 0,13 kg/cm², l'unité par défaut), la note est « Données incomplètes », le "
         "bloc « Grue et charges » dit « réactions à saisir », et l'export est éteint, avec sa raison écrite dessous — rien en fenêtre surgissante",
-        r0["resume"]["niveau"] == "n" and "poids propre seul" in r0["resume"]["gouvernant"] and "0,13 kg/cm²" in r0["resume"]["gouvernant"]
-        and "à saisir" in txt(r0["donnees"]) and re.search(r'<button type="button" class="btn primary sf-exp-b" disabled>', r0["resultat"]) is not None
+        r0["resume"]["niveau"] == "n" and "poids propre seul" in r0["resume"]["gouvernant"] and "0,13\u00a0kg/cm²" in r0["resume"]["gouvernant"]
+        and "à saisir" in txt(r0["donnees"]) and re.search(r'<button type="button" class="btn primary sf-exp-b" disabled[ >]', r0["resultat"]) is not None
         and "data-telecharger" not in r0["resultat"]
         and "Aucun jeu de réactions complet" in txt(r0["resultat"]), (r0["resume"], txt(r0["resultat"])[-300:]))
     # U1 (lot 4, § 2.1) : QUATRE blocs comme le module « Poutres béton armé », et TOUS les anciens champs y sont (le projet et l'indice
@@ -211,18 +211,39 @@ def rapides():
         "σ max = 110,3 kPa > 49,0 kPa" in tk and "σ max kPa" in tk and "= 37,2 kPa" in tk and "kg/cm²" not in tk + rk["vues"][0]["svg"]
         and "σ max 110,3 kPa" in rk["vues"][0]["svg"] and "σ (kPa)" in rk["vues"][0]["svg"]
         and "σ max = 0,110 MPa > 0,049 MPa" in tm and "MPa" in rm["vues"][0]["svg"] and "kg/cm²" not in tm
-        and re.search(r'data-chemin="limite"[^>]*value="49,0332[0-9]*"', rk["donnees"]) is not None
+        and re.search(r'data-chemin="limite"[^>]*value="49,033"', rk["donnees"]) is not None
         and re.search(r'data-chemin="limite"[^>]*value="0,5"', r["donnees"]) is not None and "kPa" in txt(rk["donnees"]),
         (tk[:220], tm[:160]))
     rl = mod(rk["etat"], ["limite"], "60")
     chk("U6 la limite se saisit dans l'unité choisie : 60 kPa = 0,6118 kg/cm² gardés dans la note, relus « 60 » en kPa",
         abs(f0(rl)["limite"] - 60 / V.KG_CM2) < 1e-12 and re.search(r'data-chemin="limite"[^>]*value="60"', rl["donnees"]) is not None, f0(rl)["limite"])
-    # U7 : le dégradé à plusieurs couleurs, la limite en trait noir sur la légende et en ligne noire sur le plan
+    # U7 : le dégradé à plusieurs couleurs, la limite en trait noir sur la légende et en ligne noire sur le plan — la barre de la
+    # légende, de bas en haut : un bleu foncé, puis du vert, du jaune, jusqu'au rouge
+    barre = re.findall(r'<rect x="[-\d.]+" y="([-\d.]+)" width="[-\d.]+" height="[-\d.]+" fill="#([0-9a-f]{6})"/>', svg)
+    couleurs = [tuple(int(c[i:i + 2], 16) for i in (0, 2, 4)) for _, c in sorted(barre, key=lambda x: -float(x[0]))][:32]
     chk("U7 la carte : un dégradé à plusieurs couleurs (« turbo », du bleu foncé au rouge) de 0 au maximum ; un trait NOIR à 0,50 kg/cm² sur la "
         "légende (« 0,50 limite »), une ligne NOIRE σ = 0,50 kg/cm² sur le plan avec son étiquette ; le tassement : le même dégradé, sans ligne",
         '<g class="sf-iso"' in svg and 'stroke="#000000"' in svg and ">0,50 kg/cm²</text>" in svg and ">0,50 limite</text>" in svg
-        and 'class="sf-lim"' in svg and "#30123b" in svg and "#aa1405" in svg
+        and 'class="sf-lim"' in svg and len(couleurs) >= 24 and couleurs[0][2] > couleurs[0][0] and max(couleurs[0]) < 100 and couleurs[-1][0] > 3 * couleurs[-1][2]
+        and any(c[1] > 200 and c[0] < 120 for c in couleurs) and any(c[0] > 200 and c[1] > 180 and c[2] < 100 for c in couleurs)
         and '<g class="sf-iso"' not in mod(type_, ["vue", "carte"], "w")["vues"][0]["svg"], svg.count("sf-iso"))
+    # (l'échelle monte jusqu'à la limite quand la contrainte reste dessous : le poids propre seul, 0,13 kg/cm² sous 0,50 — le trait
+    # de la limite est EN HAUT de la barre, pas au-dessus d'elle)
+    s0 = r0["vues"][0]["svg"]
+    cadre = re.search(r'<rect x="[-\d.]+" y="([-\d.]+)" width="[-\d.]+" height="([-\d.]+)" fill="none" stroke="#8793a1"', s0)
+    lim0 = re.search(r'<line class="sf-lim" x1="[-\d.]+" y1="([-\d.]+)"', s0)
+    chk("U7 sans réaction (0,13 kg/cm² sous la limite de 0,50) : l'échelle va de 0 à la LIMITE — son trait noir est en haut de la barre",
+        bool(cadre and lim0) and abs(float(lim0.group(1)) - float(cadre.group(1))) < 0.6 and ">0,50 limite</text>" in s0,
+        (cadre and cadre.groups(), lim0 and lim0.group(1)))
+    # ---- les plots : les dimensions par défaut de chaque sorte (le propriétaire, 15/11/2026 : préfabriqués 2,50 × 2,50 × 0,35 m ;
+    # coulés en place 2,00 × 2,00 × 0,35 m, le cahier du lot 4 § 8.2) — une dimension saisie à la main est gardée
+    pf = mod(type_, ["grue", "plots", "type"], "prefabrique")
+    pc = mod(pf["etat"], ["grue", "plots", "type"], "coule")
+    pm = mod(mod(pf["etat"], ["grue", "plots", "a"], "3")["etat"], ["grue", "plots", "type"], "coule")
+    dims = lambda r_: tuple(f0(r_)["grue"]["plots"][c] for c in ("a", "b", "h"))
+    chk("les plots préfabriqués : 2,50 × 2,50 × 0,35 m par défaut ; coulés en place : 2,00 × 2,00 × 0,35 m ; une dimension saisie (a = 3,00 m) "
+        "reste quand on change de sorte",
+        dims(pf) == (2.5, 2.5, 0.35) and dims(pc) == (2.0, 2.0, 0.35) and dims(pm) == (3.0, 2.5, 0.35), (dims(pf), dims(pc), dims(pm)))
     # ---- la saisie
     r1 = mod(type_, ["grue", "position"], [0.25, 0.25])
     r2 = mod(type_, ["sol", "k", 1, "k"], "2")
@@ -445,11 +466,16 @@ def complets():
         "et leur aire, les plots coulés en place 2,00 × 2,00 × 0,35 m, les trois jeux, le béton et E, k, la limite — un champ vide ne s'imprime pas, "
         "aucun libellé n'est coupé (« … »)",
         all(x in t for x in ("Essai 2026", "132 HC", "Liebherr", "liebherr-132hc-chassis-4600", "réels (la bibliothèque)", "rectangle 0,58 × 0,40 m à 45°", "0,2320 m²",
-                             "coulés en place", "2,00 × 2,00 × 0,35 m", "32 800", "0,5 kg/cm² = 49,0", "350", "800"))
-        and "Date de mise à jour" not in t and "…" not in t, t[300:900])
-    chk(f"la note dit LES CHIFFRES DE L'ÉCRAN : σ max = {fr(s['sigma'])} kPa > 49,0 kPa au cas {s['cas']}, le tableau par k (σ max, tassement, "
-        "décollé), les seize cas générés (cas, LC, jeu, P1 à P4), les contrôles",
-        f"σ max = {fr(s['sigma'])} kPa ({fr(s['sigma'] / V.KG_CM2, 2)} kg/cm²) > 49,0 kPa (0,5 kg/cm²) · cas {s['cas']}, k = {C.nb(s['k'])} MN/m³" in t
+                             "coulés en place", "2,00 × 2,00 × 0,35 m", "32 800", "Contrainte de contact admise", "0,50 kg/cm²", "350", "800",
+                             "Le fichier SAF est écrit avec k = ", "Les k à passer dans SCIA"))
+        and "…" not in t, t[300:900])
+    # (lot 4, § 2.4 : la note parle l'unité de l'écran — kg/cm² par défaut —, jamais deux unités mélangées ; la carte est l'enveloppe)
+    chk(f"la note dit LES CHIFFRES DE L'ÉCRAN, dans l'unité choisie : σ max = {fr(s['sigma'] / V.KG_CM2, 2)} kg/cm² > 0,50 kg/cm² au cas {s['cas']}, "
+        "le tableau par k (σ max, tassement, décollé), les seize cas générés (cas, LC, jeu, P1 à P4), les contrôles ; la carte en enveloppe ; "
+        "aucun kPa",
+        f"σ max = {fr(s['sigma'] / V.KG_CM2, 2)} kg/cm² > 0,50 kg/cm² · cas {s['cas']}, k = {C.nb(s['k'])} MN/m³" in t
+        and "kPa" not in t.split("REPRISE")[0]
+        and "ENVELOPPE DES CAS" in t
         and f"{fr(pire['w_max'], 2)}" in t and t.count("LC17") >= 1 and "CAS DE CHARGE GÉNÉRÉS : 16" in t and "3.h" in t
         and "Les quatre surfaces d'appui sont dans la dalle." in t and "Équilibre" in t, t[900:1600])
     b = calc["modele"]["bandes"][0]
@@ -525,6 +551,8 @@ MUTATIONS = [
     ("saf_resultat.py", '''        ks = [r for r in par_k if r["k"] in scia] or list(par_k)''', '''        ks = list(par_k)''',
      "l'enveloppe qui prend aussi les k non cochés « SCIA »"),
     ("dessin_saf.py", '''        out.append(_iso(v, champ, ident))''', '''        pass''', "la ligne noire σ = limite oubliée sur le plan"),
+    ("saf.py", '''                p_["a"], p_["b"], p_["h"] = PR.PLOTS_DEFAUT[valeur]''', '''                pass''',
+     "les plots préfabriqués gardent les dimensions des plots coulés (2,00 m au lieu de 2,50 m)"),
     ("dessin_saf.py", '''        maxi = max(maxi, float(champ["limite"]))''', '''        pass''', "l'échelle qui ne monte pas jusqu'à la limite"),
     ("saf_saisie.py", '''    return f"{sol_nb(el, kpa)}{C.NBSP}{unite(el)[0]}"''', '''    return f"{C.fr(kpa, 1)}{C.NBSP}{unite(el)[0]}"''',
      "une contrainte écrite en kPa sous le nom d'une autre unité"),

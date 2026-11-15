@@ -68,7 +68,7 @@
 .canvas > .ctool { position: absolute; right: 10px; bottom: 64px; z-index: 3; padding: 0; display: block; pointer-events: none; }
 .canvas > .ctool > .zoom { pointer-events: auto; }
 .canvas > .ctool > .et-outils { display: none; }
-.sf-barre { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px; padding: 2px 0 6px; min-width: 0; }
+.et-ent.sf-barre { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px; padding: 2px 0 6px; min-width: 0; }
 .sf-barre > .seg { flex: none; }
 .sf-barre .seg button { height: 30px; padding: 0 11px; font-size: 12.5px; }
 .sf-barre .sf-onglets button.on { background: var(--ink); color: var(--panel); }
@@ -219,3 +219,7 @@
   .sf-vue { margin-left: 0; width: 100%; }
   .sf-vue .field.select { max-width: none; flex: 1 1 140px; }
 }
+
+/* les formules des cartes de résultats (lot 4, § 2.2 : « σ max = 1,12 kg/cm² > 0,50 kg/cm² · cas 3.a · k = 10 ») se lisent
+   ENTIÈRES : elles passent à la ligne au lieu d'être coupées par « … » */
+#resultat .et-bloc .el .l2 .cmp { white-space: normal; overflow: visible; text-overflow: clip; }
