@@ -214,7 +214,8 @@
   .sf-kp > .field, .sf-kc, .sf-kplus { height: 44px; }
   .sf-kplus { width: 44px; }
   .sf-kc input { width: 22px; height: 22px; }
-  .sf-kp .sf-x { width: 36px; height: 44px; }
+  .sf-kp .sf-x { width: 44px; height: 44px; }
+  .btn.sf-e10 { min-width: 44px; }
   .sf-tr > .field.select { height: 44px; }
   .sf-kps > .sf-kp > .field { height: 44px; }
   .sf-aide > summary { min-height: 44px; }

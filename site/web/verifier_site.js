@@ -4786,7 +4786,8 @@ const principal = async () => {
         if (offertes.length) await g.click('.sf-notes [data-note]');
         await calmeS(g);
         const repris = await g.evaluate((VIS) => { const e = document.querySelector('#donnees .sf-repris'); return { texte: e && e.checkVisibility(VIS) ? e.textContent.replace(/\s+/g, ' ').trim() : null,
-          k: [...document.querySelectorAll('#donnees .sf-k input[data-sorte="nombre"]')].map((x) => x.value), scia: [...document.querySelectorAll('#donnees .sf-k input[type=checkbox]')].map((x) => x.checked) }; }, VIS);
+          k: [...document.querySelectorAll('#donnees .sf-kp input[data-chemin^="sol/k/"][data-chemin$="/k"]')].map((x) => x.value),
+          scia: [...document.querySelectorAll('#donnees .sf-kp input[data-chemin^="sol/k/"][data-chemin$="/scia"]')].map((x) => x.checked) }; }, VIS);
         verif('saf : « Reprendre » liste la note « Sol du chantier » de ce navigateur ; choisie, ses valeurs de k remplacent celles de la fondation, toutes cochées « SCIA », et la rubrique dit d\'où elles viennent',
           offertes.length === 1 && /Sol du chantier/.test(offertes[0]) && /Repris de Sol du chantier/.test(repris.texte || '') && repris.k.length >= 1 && repris.k.length <= 2
           && repris.scia.every(Boolean) && repris.scia.length === repris.k.length, JSON.stringify({ offertes, repris, kSol }));
@@ -4881,9 +4882,11 @@ const principal = async () => {
         await carteS(g, 'sigma');
         pas.length = 1;
         verif('saf · lot 5 : les cartes Sol, Équilibre, Contrôles, Armatures ; la carte « Armatures » peint le principe — Bas : les renforts et leurs repères « R1 · n Ø… », la barre du centre '
-          + 'dit « Bas · Haut » à la place des listes cas et k ; Haut : les renforts du haut ; le plan dans sa toile, aucun texte dehors ; à chaque pas la page dit ce que dit le témoin',
+          + 'dit « Bas · Haut » à la place des listes cas et k ; Haut : les renforts du haut — ici AUCUN (le treillis Ø12 e 15 reprend le moment du haut, le témoin le dit), et aucun repère du bas n\'y reste ; '
+          + 'le plan dans sa toile, aucun texte dehors ; à chaque pas la page dit ce que dit le témoin',
           ['Sol', 'Équilibre', 'Contrôles', 'Armatures'].every((x) => blocs5.includes(x)) && pA.ok && aBas.renforts > 0 && aBas.reperes.some((t) => /^R\d+ · \d+ Ø\d+$/.test(t))
-          && aBas.faces === 'Bas+ Haut' && aBas.listes === 0 && !!dA && dA.dedans && !dA.hors.length && pH.ok && aHaut.faces === 'Bas Haut+' && aHaut.renforts > 0,
+          && aBas.faces === 'Bas+ Haut' && aBas.listes === 0 && !!dA && dA.dedans && !dA.hors.length && pH.ok && aHaut.faces === 'Bas Haut+' && aHaut.renforts === 0
+          && !aHaut.reperes.some((t) => aBas.reperes.includes(t)),
           pA.detail || pH.detail || JSON.stringify({ blocs5, aBas, aHaut, hors: dA && dA.hors }).slice(0, 700));
         // le collage : un tableau copié dans Excel (tabulations, une ligne par jeu) collé dans P1 du jeu 1 remplit les jeux
         await ouvrirRubS(g, 'grue');

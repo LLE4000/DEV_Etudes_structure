@@ -1061,7 +1061,7 @@ export function ouvrirEtabli(hote, ctx) {
         }
         if (fini()) return;
         telechargerFichier(b.dataset.joindre, false, b.dataset.apres || "", lus);
-      });
+      }, { once: true, signal });
       choix.click();
     }
     // à la capture : les volets arrêtent la propagation de leurs clics
