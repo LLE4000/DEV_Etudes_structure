@@ -269,6 +269,7 @@ def importer():
     base = charger()
     avant = copy.deepcopy(base)
     ED.corriger(base, ("poste", "GRUTIER", "Grue tour - Loueur A"), "60", "devis", "TT", AUJ)
+    ED.corriger(base, ("grue", "G004", "transport_montage_ff"), "12000", "devis", "TT", AUJ)
     IL.marquer_demande(base, "Loueur A", 2027, "TT", "2026-12-15", "TT", AUJ)
     chk("le dossier passe en « Demande envoyée » quand le fichier est parti", D.dossier(base, "Loueur A", AUJ)["ecusson"] == E.DEMANDE)
     t1 = base["tests_acceptation"][0]
@@ -288,6 +289,9 @@ def importer():
     chk("notre correction n'est pas écrasée : elle reste (60), la valeur du loueur passe dessous (56,5), « à revoir »",
         pg["corrige"] and pg["valeur"] == 60.0 and pg["valeur_loueur"] == 56.5 and pg["correction"].get("a_revoir")
         and ("poste", "GRUTIER", "Grue tour - Loueur A") in n["a_revoir"], pg)
+    pt = B.prix_grue(B.grue(base, "G004"), "transport_montage_ff")
+    chk("… de même sur une grue : notre correction reste (12 000), la valeur du loueur passe dessous (9 500), « à revoir »",
+        pt["corrige"] and pt["valeur"] == 12000.0 and pt["valeur_loueur"] == 9500 and pt["correction"].get("a_revoir"), pt)
     neuve = B.grue(base, n["neuves"][0])
     ids = sorted(int(x["id"][1:]) for x in B.grues(avant) if re.match(r"^G\d+$", x["id"]))
     chk("la nouvelle grue prend le numéro suivant, son année et sa source", neuve["id"] == f"G{ids[-1] + 1:03d}" and neuve["annee_tarif"] == 2027
@@ -346,6 +350,7 @@ def _apres_correction():
     """La base de test, corrigée et « demande envoyée » comme au début de ``importer`` : l'état qu'« Annuler » doit rendre."""
     b = charger()
     ED.corriger(b, ("poste", "GRUTIER", "Grue tour - Loueur A"), "60", "devis", "TT", AUJ)
+    ED.corriger(b, ("grue", "G004", "transport_montage_ff"), "12000", "devis", "TT", AUJ)
     return b
 
 
@@ -366,6 +371,23 @@ def refus():
     raisons = sorted(x["raison"] for x in r["refus"])
     chk("un prix tapé dans une case « — » (un autre fournisseur) et un identifiant inconnu sont REFUSÉS et listés",
         raisons == ["identifiant inconnu", "prix d'un autre fournisseur"], r["refus"])
+    # le fichier du Loueur C (OPTIONS : son châssis hors standard, clé « prix:* ») présenté comme celui du Loueur A : le
+    # châssis n'est pas fourni par le Loueur A — son prix est REFUSÉ, jamais appliqué
+    _, oc = fichier(base, "Loueur C")
+    wc = classeur(oc)
+    m = wc["_META"]
+    for rr in range(1, m.max_row + 1):
+        if m.cell(rr, 1).value == "loueur_id":
+            m.cell(rr, 2).value = "A"
+    wo = wc["OPTIONS"]
+    lig = next(rr for rr in range(1, wo.max_row + 1) if wo.cell(rr, 1).value == "P:CHASSIS_HS_C")
+    wo.cell(lig, 3).value = 250
+    tampon = io.BytesIO()
+    wc.save(tampon)
+    rc = LL.lire(base, tampon.getvalue(), "x.xlsx")
+    chk("un prix « prix:* » d'un poste que CE loueur ne fournit pas (le châssis d'un autre loueur) est refusé, pas un changement",
+        any(x.get("id") == "P:CHASSIS_HS_C" and x.get("raison") == "prix d'un autre fournisseur" for x in rc["refus"])
+        and not any(c["id"] == "P:CHASSIS_HS_C" for c in rc["changements"]), (rc["refus"][:3], rc["resume"]))
     for nom, octets_, mot in (("un fichier qui n'est pas un classeur", b"PK\x03\x04 abime", "classeur"),
                               ("un classeur sans « _META »", _classeur_simple(), "_META")):
         try:

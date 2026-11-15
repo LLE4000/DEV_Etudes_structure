@@ -470,7 +470,7 @@ MUTATIONS = [
     ("api_web/prix_grues_echange.py", '''                if j in imp["choix"]:
                     choix[IL.cle_item(sorte, it)] = imp["choix"][j]''', '''                if False:
                     choix[IL.cle_item(sorte, it)] = imp["choix"][j]''', "« Appliquer » qui oublie les cases décochées à l'écran"),
-    ("api_web/prix_grues_echange.py", '''    return IL.PAR_DEFAUT[sorte] if v is None else v''', '''    return True''',
+    ("api_web/prix_grues_echange.py", '''    return j, IL.PAR_DEFAUT[sorte] if v is None else v''', '''    return j, True''',
      "l'écran qui coche tout (cases vidées comprises)"),
     ("api_web/prix_grues.py", '''        etat.clear()
         etat.update(avant)''', '''        pass''', "un refus qui laisse la note à moitié changée"),
