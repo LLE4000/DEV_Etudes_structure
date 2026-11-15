@@ -363,6 +363,11 @@ def rapport():
     chk(f"le rapport du projet : la synthèse (GT1, GT2), le total du projet ({somme} €), puis le rapport de chaque grue",
         "Total du projet HTVA" in txt and f"{somme:,} €".replace(",", " ") in txt and txt.count("Ce qui est calculé") == 2
         and "Ce qui est calculé · Grue mobile, grutier compris (MA)" in txt, r.get("erreur") or txt[:400])
+    e.envoyer("activer", index=0)
+    r = e.envoyer("telecharger", quoi="note_pdf", infos={"nom": "Façade « Est »", "chantier": "Résidence & Cie", "indice": "C", "date": "03/04/2026"})
+    txt = re.sub(r"[ \u00a0\u202f]+", " ", texte_pdf(base64.b64decode(r["fichier"]["base64"]))) if r.get("ok") else ""
+    chk("l'identification de la note du site dans l'en-tête du rapport : « chantier · nom · date · indice »",
+        "Résidence & Cie · Façade « Est » · 03/04/2026 · indice C" in txt, r.get("erreur") or txt[:200])
     e.envoyer("calculer")
     chk("« À faire (n) » en tête du résultat (retours à valider, questions, fichiers à préparer) et la présentation « ? »",
         "À faire (" in e.r["resultat"] and 'data-calcul="pg-aide"' in e.r["resultat"] and 'id="ck-pg-aide"' in e.r["volets"]
@@ -382,8 +387,12 @@ def echange():
         "(un classeur lu en binaire)", "Préparer le fichier 2027" in res and 'data-telecharger="fichier_loueur"' in res and mail is not None
         and "Mise%20%C3%A0%20jour%20de%20vos%20prix%202027" in mail.group(1) and 'data-chemin="imp/fichier"' in res and 'data-binaire="1"' in res,
         mail.group(1)[:120] if mail else res[:200])
+    avant = json.dumps(e.etat)
     e.m("vb/prep/retour", "31/02/2027")
     chk("une date de retour illisible est refusée par un message", "date" in (e.r["message"] or ""), e.r.get("message"))
+    e.m("vb/prep/annee", "deux mille")
+    chk("une année illisible est refusée par un message, la note EXACTEMENT celle d'avant (rien d'écrit à moitié)",
+        "année" in (e.r["message"] or "") and json.dumps(e.etat) == avant, e.r.get("message"))
     e.m("vb/prep/retour", "15/12/2026")
     e.m("vb/prep/par", "J. T.")
     r = e.envoyer("telecharger", quoi="fichier_loueur")
@@ -465,6 +474,7 @@ MUTATIONS = [
      "l'écran qui coche tout (cases vidées comprises)"),
     ("api_web/prix_grues.py", '''        etat.clear()
         etat.update(avant)''', '''        pass''', "un refus qui laisse la note à moitié changée"),
+    ("api_web/prix_grues_rapport.py", '''(f" · indice {indice}" if indice else "")''', '''""''', "le rapport sans l'indice de la note"),
 ]
 TEMOIN = ("api_web/prix_grues.py", "PAGES = (", "PAGES = (")
 

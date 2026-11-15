@@ -439,7 +439,7 @@ MUTATIONS = [
     ("grues/prix/import_loueur.py", '''    d_ = deja_importe(base, lecture)
     if d_:''', '''    d_ = None
     if d_:''', "le même fichier importé deux fois"),
-    ("grues/prix/import_loueur.py", '''                      for g in gs if g.get("id") not in av["neuves"]]''', '''                      for g in gs]''',
+    ("grues/prix/import_loueur.py", '''for g in gs if g.get("id") not in av["neuves"]]''', '''for g in gs]''',
      "« Annuler » qui garde les grues ajoutées"),
     ("grues/prix/xlsx.py", '''            cols += f'<col min="{c}" max="{c}" width="{w}" customWidth="1"{" hidden=" + chr(34) + "1" + chr(34) if c in self.colonnes_cachees else ""}/>\'''',
      '''            cols += f'<col min="{c}" max="{c}" width="{w}" customWidth="1"/>\'''', "les colonnes cachées qui ne le sont plus"),

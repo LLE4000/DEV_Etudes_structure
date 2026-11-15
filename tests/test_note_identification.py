@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""L'IDENTIFICATION imprimée par la note PDF des DIX modules du site qui la font (poutre, dalle, garde-corps, soudures,
+"""L'IDENTIFICATION imprimée par la note PDF des ONZE modules du site qui la font (poutre, dalle, garde-corps, soudures,
 charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026, fondations de grues depuis le 11/11/2026, barres
-en acier — « Choix de profilé » — et le Générateur SAF depuis le 14/11/2026) :
+en acier — « Choix de profilé » — et le Générateur SAF depuis le 14/11/2026, le rapport des prix des grues depuis le
+15/11/2026) :
 TOUJOURS celle de la note du site (R2 : une
 source unique) — son nom, son chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
 
@@ -20,6 +21,8 @@ aussi (« Projet du fichier », indice « Z »). pdftotext doit retrouver, EXACT
   porte « chantier · nom · repère » ;
 - garde-corps, soudures, plancher : la première page de chaque cas — « Note de calcul · 03/04/2026 · indice C » et
   « chantier · nom · cas … » — puis le cartouche (« indice C », la date) ;
+- prix des grues (le rapport d'une grue) : l'en-tête de CHAQUE page — « chantier · nom · 03/04/2026 · indice C » ; sa base
+  des prix est son CARNET (la recette de NOTES_RELEVE le déclare ; il est joint à la requête, comme l'écran le fait) ;
 - nulle part « indice 0 », « indice A », « indice Z », ni l'identification de l'état.
 
 MUTATIONS (chacune doit faire rougir le module visé) : l'ancienne traduction des modules à cas (la saisie de l'écran
@@ -62,6 +65,9 @@ PIEGE_ETAT = {"projet": "Projet du fichier", "partie": "Partie cachée", "indice
 INTERDITS = ("indice 0", "indice A", "indice Z", "INDICE 0", "INDICE A", "INDICE Z", "Projet du fichier", "Partie cachée")
 
 
+CARNETS = {}       # le carnet que déclare la recette d'un module à carnet (les prix des grues)
+
+
 def etats():
     """La note riche de chaque module (construire.NOTES_RELEVE), l'identification de l'état piégée."""
     out = {}
@@ -69,6 +75,8 @@ def etats():
         ns = {}
         exec(K.NOTES_RELEVE[k], ns)
         e = ns["etat"]
+        if ns.get("carnet") is not None:
+            CARNETS[k] = ns["carnet"]
         if k == "soudures":
             e["identification"] = dict(PIEGE_ETAT)
         if k == "plancher":
@@ -80,7 +88,7 @@ def etats():
 
 def note(module: str, etat: dict):
     r = json.loads(R.traiter(json.dumps({"module": module, "action": "telecharger", "etat": copy.deepcopy(etat),
-                                         "quoi": "note_pdf", "infos": INFOS})))
+                                         "quoi": "note_pdf", "infos": INFOS, "carnet": CARNETS.get(module)})))
     if not r.get("ok"):
         raise AssertionError(f"{module} : {r.get('erreur')}")
     return base64.b64decode(r["fichier"]["base64"])
@@ -112,6 +120,11 @@ def ecarts(module: str, octets: bytes, etat: dict) -> list:
     tout = norm(" ".join(tx))
     out += [f"« {x} » imprimé" for x in INTERDITS if x in tout]
     tete = "Note de calcul · 03/04/2026 · indice C"
+    if module == "prix_grues":       # le rapport d'une grue : l'identification dans l'en-tête de chaque page
+        for i, t in enumerate(tx):
+            if f"{CHANTIER} · {NOM} · 03/04/2026 · indice C" not in norm(t):
+                out.append(f"page {i + 1} : « chantier · nom · 03/04/2026 · indice C » absent de l'en-tête")
+        return out
     if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue", "profil", "saf"):     # la même garde (ndc_pdf : garde_lignes)
         g = plat(tx[0])
         for lab, val in (("PROJET", CHANTIER), ("PARTIE", NOM), ("DATE", "03/04/2026"), ("INDICE", "C")):
@@ -147,7 +160,7 @@ for mod, e in ETATS.items():
     ec = ecarts(mod, NOTES[mod], e)
     chk(f"{mod} : le nom, le chantier (accents, guillemets, « & »), l'indice C et la date de la note du site, exactement aux "
         f"endroits prévus ({len(pages(NOTES[mod]))} pages) ; rien d'autre", not ec, ec[:4])
-chk("les dix modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 10, sorted(NOTES))
+chk("les onze modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 11, sorted(NOTES))
 
 # ---------------------------------------------------------------- MUTATIONS : chacune doit faire rougir son module
 vrai_infos = NC.infos_du_cas

@@ -130,8 +130,8 @@ class Page:
         if self.cle:
             w = d.w(E.LIBELLES.get(self.cle, ""), FB, 9) + 18
             ecusson_mot(d, W - MARGE - w, H - 30, self.cle, 14, 9)
-            if self.raison:
-                d.t(W - MARGE, H - 47, _txt(self.raison), F, 8.5, MUT, "right")
+            if self.raison:      # (sous l'écusson : la ligne de l'identification garde toute la largeur)
+                d.t(W - MARGE, H - 57, _txt(self.raison), F, 7.5, MUT, "right")
         # le pied : la légende des écussons et la page
         y = 26
         d.line(MARGE, y + 14, W - MARGE, y + 14, RULE, 0.5)
@@ -307,7 +307,7 @@ def _jj(iso: str) -> str:
 
 def page_grue(d: Doc, base: Dict, g: Dict, r: Dict, projet: str, date_impr: str):
     titre = f"Prix d'une grue · {g.get('repere') or ''}"
-    sous = f"{projet} · {r.get('modele') or ''} · {r.get('loueur') or ''} · imprimé le {date_impr}"
+    sous = f"{projet} · {date_impr}"
     pg = Page(d, titre, sous, r["ecusson"], r["ecusson_raison"])
     _kv_deux(pg, [("Projet", projet), ("Repère", g.get("repere") or ""), ("Grue", r.get("modele") or ""), ("Loueur", r.get("loueur") or ""),
                   ("Catalogue", r.get("catalogue") or ""), ("Période", _periode_txt(r))])
@@ -355,7 +355,7 @@ def page_projet(d: Doc, etat: Dict, calculs: List[Dict], projet: str, date_impr:
     ecs = [E.pour_ensemble(r["ecusson"], None, dt.date.today()) if r["ecusson"] != E.MANQUANT else E.MANQUANT for r in calculs]
     manq = sum(len(r["manquants"]) for r in calculs)
     cle = E.MANQUANT if manq else E.agreger(ecs, vide=E.A_VERIFIER)
-    pg = Page(d, f"Prix des grues · {projet}", f"Rapport du projet · {len(calculs)} grue{'s' if len(calculs) > 1 else ''} · imprimé le {date_impr}",
+    pg = Page(d, f"Rapport du projet · {len(calculs)} grue{'s' if len(calculs) > 1 else ''}", f"{projet} · {date_impr}",
               cle, f"{manq} prix manquant{'s' if manq > 1 else ''}" if manq else "")
     fr = pg.fr
     cols = (("Repère", 50, "left"), ("Grue", 150, "left"), ("Loueur", 70, "left"), ("Période", 120, "left"), ("Total", 70, "right"),
@@ -392,8 +392,11 @@ def page_projet(d: Doc, etat: Dict, calculs: List[Dict], projet: str, date_impr:
 def pdf(base: Dict, etat: Dict, infos: Optional[Dict], projet_entier: bool, aujourdhui: dt.date) -> bytes:
     """Le rapport (octets) : la grue ouverte, ou le projet entier (la synthèse puis chaque grue calculée)."""
     infos = infos or {}
-    projet = str(infos.get("chantier") or infos.get("nom") or "Projet").strip() or "Projet"
-    date_impr = str(infos.get("date") or "").strip() or aujourdhui.strftime("%d/%m/%Y")
+    # l'identification de la note (la règle commune des notes du site : tests/test_note_identification.py) : le chantier
+    # et le nom, la date, l'indice — sur l'en-tête de CHAQUE page
+    projet = " · ".join(x for x in (str(infos.get("chantier") or "").strip(), str(infos.get("nom") or "").strip()) if x) or "Projet"
+    indice = str(infos.get("indice") or "").strip()
+    date_impr = (str(infos.get("date") or "").strip() or aujourdhui.strftime("%d/%m/%Y")) + (f" · indice {indice}" if indice else "")
     calculs = [K.calculer(base, g, aujourdhui) for g in etat["grues"]]
     choisies = list(range(len(etat["grues"]))) if projet_entier else [etat["actif"]]
     if not any(calculs[i]["pret"] for i in choisies):

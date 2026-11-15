@@ -337,8 +337,10 @@ for (const q of A.biblio) out.biblio1.push(await consulter(q));
 for (let i = A.biblio.length - 1; i >= 0; i--) out.biblio2[i] = await consulter(A.biblio[i]);
 out.ms.biblio = Math.round(performance.now() - t0);
 for (const k of A.notes) {
-  const n = await c.demander(() => ({ module: k, action: "nouveau" }));
-  await c.demander(() => ({ module: k, action: "telecharger", etat: n.etat, quoi: "note_pdf", infos: A.infos }), { note: true });
+  // (un module à CARNET — les prix des grues — : sa note du relevé et son carnet, A.graines ; les autres : une note neuve)
+  const g = (A.graines || {})[k];
+  const n = g ? { etat: g.etat } : await c.demander(() => ({ module: k, action: "nouveau" }));
+  await c.demander(() => ({ module: k, action: "telecharger", etat: n.etat, quoi: "note_pdf", infos: A.infos, ...(g ? { carnet: g.carnet } : {}) }), { note: true });
   out.notes[k] = w.dernier;
 }
 out.ms.notes = Math.round(performance.now() - t0);
@@ -961,8 +963,25 @@ def node(dossier, script, args, timeout=900):
 _NOUVEAU = "import sys, json; sys.path.insert(0, %r); from api_web import routeur; sys.stdout.write(routeur.traiter(json.dumps({'module': sys.argv[1], 'action': 'nouveau'})))" % RACINE
 _NOTE = """import sys, json; sys.path.insert(0, %r); from api_web import routeur
 k = sys.argv[1]
-n = json.loads(routeur.traiter(json.dumps({"module": k, "action": "nouveau"})))
-sys.stdout.write(routeur.traiter(json.dumps({"module": k, "action": "telecharger", "etat": n["etat"], "quoi": "note_pdf", "infos": json.loads(sys.argv[2])})))""" % RACINE
+g = json.loads(sys.argv[3]) if len(sys.argv) > 3 else None
+n = g or json.loads(routeur.traiter(json.dumps({"module": k, "action": "nouveau"})))
+sys.stdout.write(routeur.traiter(json.dumps({"module": k, "action": "telecharger", "etat": n["etat"], "quoi": "note_pdf", "infos": json.loads(sys.argv[2]),
+                                             "carnet": (g or {}).get("carnet")})))""" % RACINE
+
+
+def _graines() -> dict:
+    """Un module à CARNET (``CARNET = True`` : la base des prix des grues, hors de la note) : sa note neuve n'a rien à
+    imprimer. P3 prend, des deux côtés, la note du relevé (construire.NOTES_RELEVE) et le carnet que sa recette déclare."""
+    out = {}
+    for k in SW.NOTE_PDF:
+        if k in REG.carnets():
+            ns = {}
+            exec(SW.NOTES_RELEVE[k], ns)  # noqa: S102 — le code de construire.NOTES_RELEVE
+            out[k] = {"etat": ns["etat"], "carnet": ns.get("carnet")}
+    return out
+
+
+GRAINES = _graines()
 _IMPORT = """import sys, json, importlib; sys.path.insert(0, %r)
 from api_web import routeur, registre
 cle = sys.argv[1]
@@ -987,7 +1006,7 @@ def references(pool):
     """Les réponses de CPython, un processus neuf par clé : « nouveau » (17 établis), note PDF (NOTE_PDF), import ; et
     un processus neuf par consultation de BIBLIO_REQUETES."""
     f_nouveau = {k: pool.submit(cpython, _NOUVEAU, k) for k in ETABLIS}
-    f_note = {k: pool.submit(cpython, _NOTE, k, json.dumps(INFOS_NOTE)) for k in SW.NOTE_PDF}
+    f_note = {k: pool.submit(cpython, _NOTE, k, json.dumps(INFOS_NOTE), *([json.dumps(GRAINES[k])] if k in GRAINES else [])) for k in SW.NOTE_PDF}
     f_import = {k: pool.submit(cpython, _IMPORT, k) for k in CLES_PRECHAUFFAGE}
     f_biblio = [pool.submit(cpython, _CONSULTER, json.dumps(q)) for q in BIBLIO_REQUETES]
     return {"nouveau": {k: f.result() for k, f in f_nouveau.items()}, "note": {k: f.result() for k, f in f_note.items()},
@@ -1348,7 +1367,7 @@ def jouer(B, dossier, site, refs, pilotes, cles=None, parallele=2):
     taches = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
         if "partage" in pilotes:
-            taches["partage"] = ex.submit(node, dossier, "partage.mjs", {"moteur": moteur, "ordre": ORDRE_P2, "notes": list(SW.NOTE_PDF), "infos": INFOS_NOTE,
+            taches["partage"] = ex.submit(node, dossier, "partage.mjs", {"moteur": moteur, "ordre": ORDRE_P2, "notes": list(SW.NOTE_PDF), "infos": INFOS_NOTE, "graines": GRAINES,
                                                                        "biblio": BIBLIO_REQUETES})
         # (le même pilote sous la sonde, en deux processus : les parties d'avant S4-C, et celles du lot « moteur »)
         for cle_pilote in ("sonde", "neufs"):
