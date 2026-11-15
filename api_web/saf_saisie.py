@@ -102,14 +102,16 @@ def surface_appui(ch: Dict) -> str:
 
 
 def _limite(el: Dict) -> str:
-    """La limite de contrainte de contact, dans l'unité choisie (§ 2.4) — gardée en kg/cm² dans le projet."""
+    """Le béton et la limite de contrainte de contact (dans l'unité choisie, § 2.4 — gardée en kg/cm² dans le projet), sur
+    UNE ligne : les matériaux de la dalle et du sol vont ensemble (demande de l'ingénieur, 15/11/2026)."""
     sym, div, nd = unite(el)
-    return C.ligne("Limite", C.num(["limite"], round(limite_kpa(el) / div, nd + 3), sym, mini=0.0), full=True,
-                   aide="La contrainte de contact admise (σ). Le calcul est en kPa ; l'unité se choisit dans Options.")
+    return C.ligne2(("Béton", C.choix(["dalle", "beton"], el["dalle"]["beton"], [(b, b) for b in PR.BETONS]), ""),
+                    ("Limite", C.num(["limite"], round(limite_kpa(el) / div, nd + 3), sym, mini=0.0),
+                     "La contrainte de contact admise (σ). Le calcul est en kPa ; l'unité se choisit dans Options."))
 
 
 def _dalle(el: Dict) -> str:
-    """Les lignes Forme, Dimensions, Béton du bloc 1 (§ 4)."""
+    """Les lignes Forme et Dimensions du bloc 1 (§ 4) ; le béton est sur la ligne de la limite (``_limite``)."""
     d = el["dalle"]
     out = C.ligne("Forme", C.segments(["dalle", "forme"], d["forme"], [("rectangle", "Rectangle"), ("contour", "Contour")]), full=True)
     if d["forme"] == "rectangle":
@@ -124,7 +126,6 @@ def _dalle(el: Dict) -> str:
         out += (f'<div class="sf-tab"><div class="sf-som sf-som-h"><span class="n"></span><span>x</span><span>y</span></div>{lignes}</div>'
                 + E.plus(["dalle", "sommets", "+"], "1", "Sommet")
                 + C.ligne("h", C.num(["dalle", "h"], d["h"], "m", mini=0.1, maxi=3), full=True, aide="Épaisseur de la dalle."))
-    out += C.ligne("Béton", C.choix(["dalle", "beton"], d["beton"], [(b, b) for b in PR.BETONS]), full=True)
     return out
 
 
@@ -254,10 +255,11 @@ def _ferraillage(el: Dict, m: Dict, sc: Optional[Dict], ef: Optional[Dict], fer:
     a = el["armatures"]
     L = C.ligne
     rf = a["renfort"]
-    out = (L("Enrobage", C.num(["armatures", "enrobage"], round(a["enrobage"] * 100, 2), "cm", mini=1, maxi=15), full=True)
+    # (l'enrobage et la largeur des bandes sur UNE ligne — demande de l'ingénieur, 15/11/2026)
+    out = (C.ligne2(("Enrobage", C.num(["armatures", "enrobage"], round(a["enrobage"] * 100, 2), "cm", mini=1, maxi=15), ""),
+                    ("Bandes", C.segments(["bandes", "largeur"], f"{el['bandes']['largeur']:.1f}", [("0.5", "0,50"), ("1.0", "1,00")]),
+                     "La largeur des bandes sous les pieds (BX1, BX2, BY1, BY2), en m, dans le module et dans SCIA."))
            + _treillis(el, "inf") + _treillis(el, "sup")
-           + L("Bandes", C.segments(["bandes", "largeur"], f"{el['bandes']['largeur']:.1f}", [("0.5", "0,50 m"), ("1.0", "1,00 m")]), full=True,
-               aide="La largeur des bandes sous les pieds (BX1, BX2, BY1, BY2), dans le module et dans SCIA.")
            + L("Renforts", C.segments(["armatures", "renfort"], str(rf), [("auto", "Auto", "Ø automatique : 12, 16 ou 20"), ("12", "Ø12"), ("16", "Ø16"), ("20", "Ø20")]), full=True,
                aide="Automatique : le plus léger de Ø12, Ø16 et Ø20 (à poids égal, le plus gros)."))
     out += (f'<div class="row full sf-l-scia"><label><span>Efforts SCIA</span><span class="aide" title="Après le calcul SCIA : la valeur du module est en gris, '
@@ -267,15 +269,16 @@ def _ferraillage(el: Dict, m: Dict, sc: Optional[Dict], ef: Optional[Dict], fer:
 
 
 def _options(el: Dict) -> str:
-    """Le bloc 4 (§ 4) : Unité, Maille, Anneau, Bord, Sol, Calcul, Ancrage, Proposer — une ligne chacune."""
+    """Le bloc 4 (§ 4) : Unité ; Maille et Bord ; Anneau ; le sol du SAF (C1, C2) ; Calcul ; Ancrage ; Proposer."""
     o, g, a = el["options"], el["grue"], el["armatures"]
     L, L2 = C.ligne, C.ligne2
     return (L("Unité", C.segments(["options", "unite"], o["unite"], list(UNITES_TXT)), full=True,
               aide="L'unité des contraintes de sol, partout : carte, résultats, tableau par k, note. Le calcul reste en kPa.")
-            + L("Maille", C.num(["options", "maille"], o["maille"], "m", mini=PR.MAILLES[0], maxi=PR.MAILLES[1]), full=True)
+            # (la maille et la distance au bord sur UNE ligne — demande de l'ingénieur, 15/11/2026)
+            + L2(("Maille", C.num(["options", "maille"], o["maille"], "m", mini=PR.MAILLES[0], maxi=PR.MAILLES[1]), ""),
+                 ("Bord", C.num(["grue", "dmin"], g["dmin"], "m", mini=0, maxi=5), "Distance minimale entre une surface d'appui et le bord de la dalle."))
             + L("Anneau", C.segments(["options", "anneau"], f"{o['anneau']:.2f}", [("0.01", "1 cm"), ("0.02", "2 cm"), ("0.03", "3 cm")]), full=True,
                 aide="L'anneau D2 qui entoure la dalle dans le SAF (avec l'ouverture O1).")
-            + L("Bord", C.num(["grue", "dmin"], g["dmin"], "m", mini=0, maxi=5), full=True, aide="Distance minimale entre une surface d'appui et le bord de la dalle.")
             + L2(("C<sub>1x</sub>", C.num(["options", "c1x"], o["c1x"], "k", mini=0, maxi=1), "Sol dans le SAF : C1x = k × cette valeur (k/10 par défaut)."),
                  ("C<sub>1y</sub>", C.num(["options", "c1y"], o["c1y"], "k", mini=0, maxi=1), ""),
                  ("C<sub>2x</sub>", C.num(["options", "c2x"], o["c2x"], "k", mini=0, maxi=1), "Pasternak, dans le SAF et dans le calcul : C2x = k × cette valeur (MN/m)."),
