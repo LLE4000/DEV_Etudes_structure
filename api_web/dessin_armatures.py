@@ -97,8 +97,14 @@ def reperes(v, fer: Dict, face: str, texte, court: bool = False) -> str:
         if r["face"] != face or (court and r["type"] != "bande"):
             continue
         cs = _coins(r)
-        cx = sum(p[0] for p in cs) / 4
-        cy = sum(p[1] for p in cs) / 4
+        xs, ys = [p[0] for p in cs], [p[1] for p in cs]
+        # (le repère glisse le long de ses barres : au quart gauche pour un renfort en x, au quart haut pour un renfort
+        #  en y — les renforts x et y d'un même pied sont centrés au même point, leurs repères tombaient l'un sur
+        #  l'autre ; revue du 15/11/2026)
+        if r["sens"] == "x":
+            cx, cy = min(xs) + 0.22 * (max(xs) - min(xs)), sum(ys) / 4
+        else:
+            cx, cy = sum(xs) / 4, min(ys) + 0.78 * (max(ys) - min(ys))
         coul = BANDE_R if r["type"] == "bande" else LOCAL_R
         out.append(texte(v.X(cx), v.Y(cy) + t * 0.25, f"{r['rep']} · {r['n']} Ø{r['d']}" if r["n"] and not court else r["rep"], t * 0.62, coul, "middle", gras=True))
     return f'<g class="sf-reperes" pointer-events="none">{"".join(out)}</g>'

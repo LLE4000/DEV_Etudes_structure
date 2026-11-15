@@ -48,6 +48,7 @@ DIAMETRES_RENFORT = (12, 16, 20)       # § 7.4 : le Ø automatique des renforts
 ANCRAGE_DEFAUT = 50.0                  # × Ø : le moteur Dalles n'a pas de règle d'ancrage (§ 7.4, Options)
 ACIER = 7850.0                         # kg/m³ : le poids des renforts, pour choisir le Ø le plus léger
 H_MAX_MOTEUR = DE.H_MAX                # cm : l'épaisseur la plus forte que le moteur Dalles accepte
+PLOT_A_PREVOIR = "Ferraillage du plot : à prévoir (non dimensionné)"      # § 7.5, un plot coulé en place
 GRANULAT = float(DEFAUTS_DETAIL["dg"])  # mm : le plus gros granulat du moteur Poutres, pour l'espacement libre minimal
 
 
@@ -70,15 +71,22 @@ def _moteur(entree: Dict) -> Dict:
 
 
 def h_moteur(el: Dict) -> int:
-    """L'épaisseur (cm, entière) que le moteur Dalles reçoit : h arrondi au cm INFÉRIEUR (d diminue : côté sécurité)."""
+    """L'épaisseur (cm, entière) que le moteur Dalles reçoit : h arrondi au cm INFÉRIEUR (d diminue : côté sécurité pour
+    la flexion, l'effort tranchant et la hauteur de béton)."""
     return int(math.floor(el["dalle"]["h"] * 100 + 1e-9))
+
+
+def h_plafond(el: Dict) -> int:
+    """h arrondi au cm SUPÉRIEUR : celui de A_s,min (0,26·fctm/fyk·b·h grandit avec h — revue du 15/11/2026 : le cm
+    inférieur sous-estimait le minimum d'une dalle de 0,509 m)."""
+    return int(math.ceil(el["dalle"]["h"] * 100 - 1e-9))
 
 
 def hors_domaine(el: Dict) -> Optional[str]:
     """Pourquoi le moteur Dalles ne peut pas calculer cette dalle (texte), ou None."""
     if el["dalle"]["beton"] not in DE.classes_beton():
         return f"le béton {el['dalle']['beton']} n'est pas dans le moteur Dalles"
-    if h_moteur(el) > H_MAX_MOTEUR:
+    if h_plafond(el) > H_MAX_MOTEUR:
         return f"h > {H_MAX_MOTEUR / 100:.2f} m : hors du moteur Dalles".replace(".", ",")
     return None
 
@@ -97,16 +105,27 @@ def _couches(el: Dict) -> Dict:
     return faces
 
 
-def section(el: Dict, moments: Dict[str, float], V: float = 0.0) -> Dict:
+def section(el: Dict, moments: Dict[str, float], V: float = 0.0, h: Optional[int] = None) -> Dict:
     """Le calcul d'UN MÈTRE de dalle (b = 100 cm) par le moteur Dalles, avec les treillis choisis : ``moments``
-    {"inf_x": m…} en kNm/m (≥ 0), V en kN/m. Rend la section calculée du moteur (grandeurs, vérifications)."""
+    {"inf_x": m…} en kNm/m (≥ 0), V en kN/m ; ``h`` (cm) : ``h_moteur`` par défaut. Rend la section calculée du moteur
+    (grandeurs, vérifications)."""
     cle = {"inf_x": "Mx_inf", "sup_x": "Mx_sup", "inf_y": "My_inf", "sup_y": "My_sup"}
     s = {"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": max(0.0, float(V)), "faces": _couches(el)}
     for f, m in moments.items():
         s[cle[f]] = max(0.0, float(m))
-    entree = {"nom": "Fondation de grue", "b": 100, "h": h_moteur(el), "beton": el["dalle"]["beton"],
+    entree = {"nom": "Fondation de grue", "b": 100, "h": h_moteur(el) if h is None else h, "beton": el["dalle"]["beton"],
               "enrobage": round(el["armatures"]["enrobage"] * 100.0, 6), "sections": [s]}
     return _moteur(entree)["sections"][0]
+
+
+def as_min(el: Dict, moments: Dict[str, float], g: Dict, cle: str) -> float:
+    """A_s,min d'une face (mm²/m) : le plus grand de celui du moteur au cm inférieur (``g``, ses grandeurs) et de celui
+    au cm SUPÉRIEUR (``h_plafond``) — h n'étant pas toujours un nombre entier de cm."""
+    v = g[f"As_min_{cle}"]
+    hc = h_plafond(el)
+    if hc != h_moteur(el):
+        v = max(v, section(el, moments, h=hc)["grandeurs"][f"As_min_{cle}"])
+    return v
 
 
 def resistances(el: Dict) -> Dict:
@@ -178,6 +197,31 @@ def etiqueter(masque: np.ndarray) -> Tuple[np.ndarray, int]:
     return lab, n
 
 
+def axe_bande(bd: Dict) -> str:
+    """La direction des barres d'une bande : l'axe de la dalle le plus proche de sa direction (les bandes et leurs
+    renforts suivent le châssis, § 7.2) — à 90°, une bande BX porte des barres en y ; à 45° tout juste, celle de son nom
+    (l'annexe A). Revue du 15/11/2026 : le sens tiré du NOM laissait, à β = 90°, des barres en x sans contrôle au point
+    dans les bandes BX (non conservatif)."""
+    p0, p1 = np.asarray(bd["debut"], float), np.asarray(bd["fin"], float)
+    ux, uy = abs(p1[0] - p0[0]), abs(p1[1] - p0[1])
+    if ux > uy * (1 + 1e-9):
+        return "x"
+    if uy > ux * (1 + 1e-9):
+        return "y"
+    return _sens_bande(bd["nom"])
+
+
+def echelle_carte(ef: Dict, echelle: Optional[Dict]) -> Dict[str, float]:
+    """L'échelle SCIA des moments AU POINT (§ 8.2) : en haut, r de mx et de my ; en bas, celle des bandes dont les barres
+    vont dans ce sens (BX à β = 0, BY à β = 90°), la plus forte s'il y en a plusieurs ou aucune."""
+    e = echelle or {}
+    out = {"sup_x": e.get("sup_x", 1.0), "sup_y": e.get("sup_y", 1.0)}
+    for ax in ("x", "y"):
+        noms = sorted({_sens_bande(bd["nom"]) for bd in ef["bandes"] if axe_bande(bd) == ax})
+        out[f"inf_{ax}"] = max([e.get(f"inf_{n}", 1.0) for n in noms] or [e.get("inf_x", 1.0), e.get("inf_y", 1.0)])
+    return out
+
+
 def principe(ef: Dict, contour: Sequence, mRd: Dict[str, float], ancrage: float = 0.80, echelle: Optional[Dict] = None,
              mRd_bandes: Optional[Dict[str, float]] = None) -> Dict:
     """Le principe d'armatures de l'annexe A (``principe_armatures``), à l'identique (test T19, A1).
@@ -189,10 +233,13 @@ def principe(ef: Dict, contour: Sequence, mRd: Dict[str, float], ancrage: float 
     2. Hors des bandes : là où le moment au point dépasse mRd (mx pour les barres en x, my en y), zone rouge ; chaque
        groupe de nœuds voisins donne un renfort local (une demi-maille autour + l'ancrage dans le sens des barres, sans
        sortir de la dalle ; fusionnés s'ils se chevauchent ; m_dim = le plus grand moment du groupe). Une bande ne couvre
-       que ses barres ; les nœuds des plots coulés sont exclus.
+       que ses barres (celles de sa direction, ``axe_bande``) ; les nœuds des plots coulés sont exclus.
+    L'échelle SCIA : en bas, celle du NOM de la bande (r des bandes BX pour les bandes BX) ; en haut, celle du sens de
+    ses barres ; au point, ``echelle_carte``.
     Rend {"bandes": [{"bande", "cle", "s0", "s1", "x0", "x1", "y0", "y1", "m_dim", "coins"}], "locaux": {cle: [{"x0", "x1",
     "y0", "y1", "aire" (m² de nœuds rouges), "m_dim"}]}, "rouge": {cle: masque nny × nnx}}."""
     echelle = echelle or {}
+    ech_pt = echelle_carte(ef, echelle)
     mRd_b = mRd_bandes or mRd
     xs, ys = [p[0] for p in contour], [p[1] for p in contour]
     X0, X1, Y0, Y1 = min(xs), max(xs), min(ys), max(ys)
@@ -203,7 +250,7 @@ def principe(ef: Dict, contour: Sequence, mRd: Dict[str, float], ancrage: float 
     out = {"bandes": [], "locaux": {}, "rouge": {}}
     dans_bande = {"x": np.zeros((nny, nnx), bool), "y": np.zeros((nny, nnx), bool)}
     for bd in ef["bandes"]:
-        sens = "x" if bd["nom"].startswith("BX") else "y"
+        nom_sens, sens = _sens_bande(bd["nom"]), axe_bande(bd)
         p0, p1 = np.asarray(bd["debut"], float), np.asarray(bd["fin"], float)
         L = float(np.linalg.norm(p1 - p0))
         u = (p1 - p0) / L
@@ -215,7 +262,8 @@ def principe(ef: Dict, contour: Sequence, mRd: Dict[str, float], ancrage: float 
         s = bd["s"]
         for face in ("inf", "sup"):
             cle = f"{face}_{sens}"
-            m = (bd["Mmax"] if face == "inf" else -bd["Mmin"]) / b * echelle.get(cle, 1.0)
+            r_ = echelle.get(f"inf_{nom_sens}", 1.0) if face == "inf" else echelle.get(cle, 1.0)
+            m = (bd["Mmax"] if face == "inf" else -bd["Mmin"]) / b * r_
             dep = (m > mRd_b[cle] + 1e-9) & ~bd["dans_plot"]
             for i0, i1 in _troncons(dep):
                 s0, s1 = max(0.0, float(s[i0]) - ancrage), min(L, float(s[i1]) + ancrage)
@@ -239,7 +287,7 @@ def principe(ef: Dict, contour: Sequence, mRd: Dict[str, float], ancrage: float 
     out["bandes"] = fus
     for cle in CLES:
         v = ef["noeuds"][cle]
-        m = (v if cle.startswith("inf") else -v) * echelle.get(cle, 1.0)
+        m = (v if cle.startswith("inf") else -v) * ech_pt[cle]
         rouge = (m > mRd[cle] + 1e-9) & g["actif"] & ~dans_bande[cle[-1]]
         out["rouge"][cle] = rouge
         lab, nb = etiqueter(rouge)
@@ -312,13 +360,58 @@ def _evaluer(el: Dict, cle: str, cle_sec: str, m_dim: float, largeur: float, lon
     barres, l'espacement, le poids ; et la hauteur de béton (h_min du moteur pour m_dim)."""
     sec = section(el, {cle_sec: m_dim})
     g = sec["grandeurs"]
-    besoin = g[f"besoin_{cle_sec}"]
+    mini = as_min(el, {cle_sec: m_dim}, g, cle_sec)
+    besoin = max(g[f"besoin_{cle_sec}"], mini)          # (le besoin du moteur, avec A_s,min au cm supérieur)
     renfort = max(0.0, besoin - As_tr)
     n = barres(renfort, largeur, d_mm)
-    return {"d": d_mm, "n": n, "besoin": besoin, "As_req": g[f"As_req_{cle_sec}"], "As_min": g[f"As_min_{cle_sec}"],
+    return {"d": d_mm, "n": n, "besoin": besoin, "As_req": g[f"As_req_{cle_sec}"], "As_min": mini,
             "renfort_pm": renfort, "esp": largeur * 1000.0 / n if n else None, "serre": not espacement_ok(largeur, n, d_mm),
             "poids": n * aire_barre(d_mm) * 1e-6 * longueur * ACIER, "h_min": g["h_min"], "hu_min": g["hu_min"],
             "yG": g["yG_hauteur"], "etat_hauteur": g["etat_hauteur"], "d_utile": g[f"d_{cle_sec}"]}
+
+
+def _intervalles(contour: Sequence, p0, d) -> List[Tuple[float, float]]:
+    """Les morceaux de la droite p0 + t·d qui sont dans le contour : [(t1, t2)]."""
+    ts = []
+    n = len(contour)
+    for i in range(n):
+        a_, b_ = contour[i], contour[(i + 1) % n]
+        ex, ey = b_[0] - a_[0], b_[1] - a_[1]
+        den = d[0] * (-ey) - d[1] * (-ex)
+        if abs(den) < 1e-12:
+            continue
+        rx, ry = a_[0] - p0[0], a_[1] - p0[1]
+        t = (rx * (-ey) - ry * (-ex)) / den
+        u = (d[0] * ry - d[1] * rx) / den
+        if -1e-9 <= u <= 1 + 1e-9:
+            ts.append(t)
+    ts = sorted(set(round(t, 9) for t in ts))
+    return [(t1, t2) for t1, t2 in zip(ts[:-1], ts[1:])
+            if G.dans_polygone(p0[0] + d[0] * (t1 + t2) / 2, p0[1] + d[1] * (t1 + t2) / 2, contour)]
+
+
+def dans_dalle(r: Dict, cle: str, contour: Sequence) -> Dict:
+    """Un renfort local coupé par le CONTOUR réel, pas par sa boîte (revue du 15/11/2026 : sur une dalle en L, l'ancrage
+    entrait dans l'encoche, hors du béton — la longueur, le poids et le choix du Ø en étaient faux ; l'annexe A a le même
+    défaut : son principe reste celui de l'annexe, la coupe se fait ici). Les barres en x : sur les lignes y0, milieu, y1,
+    la partie du renfort qui est dans la dalle ; le renfort va de la plus à gauche à la plus à droite de ces parties (une
+    zone à cheval sur l'angle rentrant d'un L garde ses barres longues, là où elles sont dans le béton)."""
+    xc, yc = (r["x0"] + r["x1"]) / 2, (r["y0"] + r["y1"]) / 2
+    if cle.endswith("x"):
+        lignes, d, lo, hi, c = [r["y0"] + 1e-6, yc, r["y1"] - 1e-6], (1.0, 0.0), "x0", "x1", 0
+    else:
+        lignes, d, lo, hi, c = [r["x0"] + 1e-6, xc, r["x1"] - 1e-6], (0.0, 1.0), "y0", "y1", 1
+    debut, fin = [], []
+    for v in lignes:
+        p0 = (0.0, v) if c == 0 else (v, 0.0)
+        for t1, t2 in _intervalles(contour, p0, d):
+            a_, b_ = max(t1, r[lo]), min(t2, r[hi])
+            if b_ > a_ + 1e-9:
+                debut.append(a_)
+                fin.append(b_)
+    if not debut:
+        return dict(r)
+    return dict(r, **{lo: min(debut), hi: max(fin)})
 
 
 def _ancrage(el: Dict, d_mm: float) -> float:
@@ -339,9 +432,13 @@ def calculer(el: Dict, modele: Dict, ef: Dict, scia: Optional[Dict] = None) -> D
     echelle = scia["echelle"] if scia else None
     V_scia = (scia or {}).get("V") or {}
     hd = hors_domaine(el)
+    pl = modele.get("plots")
+    coule = bool(pl and pl["type"] == "coule")
+    nv = ["le poinçonnement"] + (["le ferraillage des plots coulés en place"] if coule else [])
     if hd:
+        # (revue du 15/11/2026 : le poinçonnement et les plots coulés restent non vérifiés hors du moteur Dalles aussi)
         return {"hors_domaine": hd, "etat": "v", "taux": None, "renforts": [], "alertes": [(f"Armatures : non vérifiées — {hd}", "v")],
-                "non_verifies": ["les armatures (" + hd + ")"]}
+                "non_verifies": nv + ["les armatures (" + hd + ")"], "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None}
     res = resistances(el)
     mRd = res["mRd"]
     tourne_ = tourne(el)
@@ -365,6 +462,7 @@ def calculer(el: Dict, modele: Dict, ef: Dict, scia: Optional[Dict] = None) -> D
                 ev = _evaluer(el, cle, cs, r["m_dim"], largeur, longueur, d, res["As"][cs])
                 liste.append(dict(r, type="bande", largeur=largeur, longueur=longueur, As_tr=res["As"][cs], cle_section=cs, **ev))
             for r in pa["locaux"][cle]:
+                r = dans_dalle(r, cle, contour)
                 if cle.endswith("x"):
                     longueur, largeur = r["x1"] - r["x0"], r["y1"] - r["y0"]
                 else:
@@ -412,11 +510,13 @@ def calculer(el: Dict, modele: Dict, ef: Dict, scia: Optional[Dict] = None) -> D
                                 "etat": gg["etat_tau"], "cas": bd["cas_V_d"], "scia": V_s is not None}
     # le treillis seul : A_s,min et la hauteur pour le plus fort moment qu'il porte (au plus mRd)
     ex = ef["extremes"]
-    m_tr = {cle: min(mRd[cle], max(0.0, (ex[cle] if cle.startswith("inf") else -ex[cle]) * (echelle or {}).get(cle, 1.0))) for cle in CLES}
+    ech_pt = echelle_carte(ef, echelle)
+    m_tr = {cle: min(mRd[cle], max(0.0, (ex[cle] if cle.startswith("inf") else -ex[cle]) * ech_pt[cle])) for cle in CLES}
     tr = section(el, m_tr)
     gt = tr["grandeurs"]
-    treillis = {"As_min": {cle: gt[f"As_min_{cle}"] for cle in CLES}, "As": res["As"],
-                "ok_min": {cle: gt[f"As_{cle}"] >= gt[f"As_min_{cle}"] - 1e-9 for cle in CLES}, "h_min": gt["h_min"],
+    mini = {cle: as_min(el, m_tr, gt, cle) for cle in CLES}
+    treillis = {"As_min": mini, "As": res["As"],
+                "ok_min": {cle: gt[f"As_{cle}"] >= mini[cle] - 1e-9 for cle in CLES}, "h_min": gt["h_min"],
                 "etat_hauteur": gt["etat_hauteur"], "m": m_tr}
     # la hauteur de béton (§ 7.2) : le plus exigeant des renforts (h_min du moteur pour m_dim) et du treillis seul ;
     # h_min = h_u,min + y_G ≤ h  ⟺  d_min = h_u,min ≤ d = h − y_G : le taux est d_min ÷ d (le verdict du moteur)
@@ -443,17 +543,15 @@ def calculer(el: Dict, modele: Dict, ef: Dict, scia: Optional[Dict] = None) -> D
         etat = "v"
     else:
         etat = "ok"
-    pl = modele.get("plots")
-    nv = ["le poinçonnement"]
-    if pl and pl["type"] == "coule":
-        nv.append("le ferraillage des plots coulés en place")
-    # le U de fermeture : le treillis le plus fort des deux faces, sur tout le pourtour
-    forts = max(((a[c][s]["d"], -a[c][s]["e"]) for c in ("inf", "sup") for s in ("x", "y")))
-    u = f"U de fermeture : Ø{forts[0]} e {_fr_cm(-forts[1])} cm sur tout le pourtour ({_fr_m(G.perimetre(contour))} m)"
+    # le U de fermeture : le treillis le plus FORT des deux faces (la plus grande section au mètre du moteur ; à égalité, le
+    # plus gros Ø — revue du 15/11/2026 : le plus gros Ø très espacé l'emportait), sur tout le pourtour
+    fort = max(CLES, key=lambda c_: (round(res["As"][c_], 6), a[c_.split("_")[0]][c_[-1]]["d"]))
+    tf = a[fort.split("_")[0]][fort[-1]]
+    u = f"U de fermeture : Ø{tf['d']} e {_fr_cm(tf['e'])} cm sur tout le pourtour ({_fr_m(G.perimetre(contour))} m)"
     return {"res": res, "mRd_bandes": mRd_b, "tourne": tourne_, "renforts": renforts, "zones": zones, "rouge": rouge,
             "tranchant": tranchant, "hauteur": hauteur, "treillis": treillis, "etat": etat, "taux": taux, "alertes": alertes,
             "non_verifies": nv, "u": u, "echelle": dict(echelle or {}), "hors_domaine": None,
-            "plot_coule": bool(pl and pl["type"] == "coule"), "diametres": {cle: retenus[cle][0] for cle in CLES}}
+            "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres": {cle: retenus[cle][0] for cle in CLES}}
 
 
 def _fr_cm(mm: float) -> str:

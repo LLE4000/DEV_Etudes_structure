@@ -109,10 +109,11 @@ def _lisible(angle: float) -> float:
     return angle
 
 
-def _cote(v: _Vue, a, b, decal: float, txt: str, couleur: str = COTE, attrs: str = "", rappel: bool = True) -> str:
+def _cote(v: _Vue, a, b, decal: float, txt: str, couleur: str = COTE, attrs: str = "", rappel: bool = True, au_bout: bool = True) -> str:
     """Une cote entre deux points du modèle. ``decal`` (unités du dessin) : la ligne de cote est décalée de ce côté de
     a→b — positif : à gauche du sens de marche (au-dessus d'une cote qui va de gauche à droite). Le texte est centré
-    au-dessus de la ligne ; une cote trop courte pour lui l'écrit au bout."""
+    au-dessus de la ligne ; une cote trop courte pour lui l'écrit au bout (``au_bout`` faux : centré quand même — la
+    distance plaque–bord, dont le bout est la plaque et son repère « P… »)."""
     ax, ay, bx, by = v.X(a[0]), v.Y(a[1]), v.X(b[0]), v.Y(b[1])
     L = math.hypot(bx - ax, by - ay)
     if L < 0.5:
@@ -132,7 +133,7 @@ def _cote(v: _Vue, a, b, decal: float, txt: str, couleur: str = COTE, attrs: str
     ang = _lisible(math.degrees(math.atan2(uy, ux)))
     hx, hy = math.sin(math.radians(ang)), -math.cos(math.radians(ang))          # « au-dessus » du texte
     large = len(txt) * t * 0.56
-    if L >= large + t * 0.6:
+    if L >= large + t * 0.6 or not au_bout:
         mx, my = (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2
         out += _texte(mx + hx * t * 0.32, my + hy * t * 0.32, txt, t, couleur, "middle", angle=ang, attrs=attrs)
     else:                                                        # au bout de la cote, du côté de b
@@ -515,7 +516,9 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
     for i, ctr in enumerate(m["centres"]):
         dx, dy = cx - ctr[0], cy - ctr[1]
         L = math.hypot(dx, dy) or 1.0
-        r = max(math.hypot(p[0] - ctr[0], p[1] - ctr[1]) for p in m["plaques"][i]) + 1.0 * t / ECH
+        # (1,8 t au-delà de la plaque : la cote plaque–bord s'écrit le long du bord de la plaque, son texte grossi dans la
+        #  note recouvrait « P4 » à 1,0 t — revue du 15/11/2026)
+        r = max(math.hypot(p[0] - ctr[0], p[1] - ctr[1]) for p in m["plaques"][i]) + 1.8 * t / ECH
         ch.append(_texte(v.X(ctr[0] + dx / L * r), v.Y(ctr[1] + dy / L * r) + t * 0.33, f"P{i + 1}", t * 0.95, APPUI, "middle", gras=True))
     # le centre du châssis (une croix) et la poignée de rotation, sur son axe x
     ch.append(f'<path d="M{v.X(cx) - t * 0.5:.1f} {v.Y(cy):.1f}h{t:.1f}M{v.X(cx):.1f} {v.Y(cy) - t * 0.5:.1f}v{t:.1f}" stroke="{AXE}" stroke-width="{t * 0.09:.2f}" fill="none"/>')
@@ -557,16 +560,23 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
     if abs(g["beta"] % 360.0) > 0.005:
         cotes.append(_texte(v.X(hx_) + t * 0.9, v.Y(hy_) - t * 0.5, f"β = {C.nb(round(g['beta'], 2), 2)}°", t * 0.85, AXE, "start",
                             attrs=clic("grue/beta", g["beta"], "°")))
+    # (une carte de la note — contrainte, moments, principe — n'écrit pas les distances plaque–bord, ni les dimensions des
+    #  plots sur le plan : la page Données les cote ; avec le texte grossi pour l'impression, elles recouvraient « P4 », les
+    #  repères des renforts, la valeur pointée — revue du 15/11/2026. La valeur pointée et le plot vont dans la marge.)
+    carte_note = not interactif and (champ is not None or armatures is not None)
+    marge: List[Tuple[str, str, bool]] = []
     # les distances plaque–bord (rouge sous le minimum)
     for i, pl in enumerate(m["plaques"]):
-        if not ctl["plaques_dedans"][i]:
+        if carte_note or not ctl["plaques_dedans"][i]:
             continue
         p, q, dist = _plus_proche_bord(c, pl)
         if dist < 1e-3:
             continue
-        cotes.append(_cote(v, q, p, 0.0, _n(dist), ROUGE if dist < g["dmin"] - G.TOLERANCE else COTE, rappel=False))
+        cotes.append(_cote(v, q, p, 0.0, _n(dist), ROUGE if dist < g["dmin"] - G.TOLERANCE else COTE, rappel=False, au_bout=False))
     # les plots : leurs dimensions, écrites sous le plot de P4
-    if plots:
+    if plots and not interactif:                                 # (la note : dans la marge, à droite)
+        marge += [("plot", PLOT, False), (f"{_n(plots['a'])} × {_n(plots['b'])} × {_n(plots['hauteur'])}", PLOT, False)]
+    elif plots:
         q = plots["polys"][3]
         bas_plot = min(q, key=lambda p: (p[1], p[0]))
         cotes.append(_texte(v.X(sum(p[0] for p in q) / 4), v.Y(bas_plot[1]) + t * 1.15,
@@ -594,25 +604,39 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
         out.append(DA.reperes(v, armatures["fer"], armatures["face"], _texte, armatures.get("court", False)))
     # ---- la valeur maximale pointée, l'échelle des couleurs
     droite = v.X(max(v.gx1, v.x1))
+    bas_leg = v.Y(v.y1) + t * 1.2
     if champ is not None:
         px, py = v.X(champ["x"]), v.Y(champ["y"])
-        sx, sy = (-1.0 if px > v.X(bx) else 1.0), (1.0 if py < v.Y(by) else -1.0)
-        qx, qy = px + sx * t * 1.5, py + sy * t * 1.5
-        out.append(f'<g class="sf-max" pointer-events="none"><line x1="{px:.1f}" y1="{py:.1f}" x2="{qx:.1f}" y2="{qy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.08:.2f}"/>'
-                   f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{t * 0.3:.1f}" fill="#ffffff" stroke="{ENCRE}" stroke-width="{t * 0.11:.2f}"/>'
-                   + _texte(qx + sx * t * 0.25, qy + (t * 0.85 if sy > 0 else -t * 0.2),
-                            f"{champ.get('symbole') or ('σ' if champ['mode'] == 'sigma' else 'w')} {champ.get('mot', 'max')} {_valeur(champ, champ['maxi'])}",
-                            t * 0.9, ENCRE,
-                            "end" if sx < 0 else "start", gras=True) + "</g>")
-        out.append(f'<g pointer-events="none">{_legende(v, champ, droite + t * 1.6, v.Y(v.y1) + t * 1.2, min(v.Y(v.y0) - v.Y(v.y1) - t * 4.0, t * 16))}</g>')
+        sym_max = f"{champ.get('symbole') or ('σ' if champ['mode'] == 'sigma' else 'w')} {champ.get('mot', 'max')}"
+        if carte_note:
+            # (la note : le point sur le plan, sa valeur dans la marge, sous l'échelle)
+            out.append(f'<g class="sf-max" pointer-events="none"><circle cx="{px:.1f}" cy="{py:.1f}" r="{t * 0.3:.1f}" fill="#ffffff" stroke="{ENCRE}" '
+                       f'stroke-width="{t * 0.11:.2f}"/></g>')
+            marge = [(f"○ {sym_max}", ENCRE, True), (_valeur(champ, champ["maxi"]), ENCRE, True)] + marge
+        else:
+            sx, sy = (-1.0 if px > v.X(bx) else 1.0), (1.0 if py < v.Y(by) else -1.0)
+            qx, qy = px + sx * t * 1.5, py + sy * t * 1.5
+            out.append(f'<g class="sf-max" pointer-events="none"><line x1="{px:.1f}" y1="{py:.1f}" x2="{qx:.1f}" y2="{qy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.08:.2f}"/>'
+                       f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{t * 0.3:.1f}" fill="#ffffff" stroke="{ENCRE}" stroke-width="{t * 0.11:.2f}"/>'
+                       + _texte(qx + sx * t * 0.25, qy + (t * 0.85 if sy > 0 else -t * 0.2), f"{sym_max} {_valeur(champ, champ['maxi'])}", t * 0.9, ENCRE,
+                                "end" if sx < 0 else "start", gras=True) + "</g>")
+        h_leg = min(v.Y(v.y0) - v.Y(v.y1) - t * 4.0, t * 16)
+        out.append(f'<g pointer-events="none">{_legende(v, champ, droite + t * 1.6, v.Y(v.y1) + t * 1.2, h_leg)}</g>')
+        bas_leg = v.Y(v.y1) + t * 1.2 + h_leg + t * 1.8
     elif armatures is not None:
         from . import dessin_armatures as DA
         out.append(DA.legende(v, el, armatures["fer"], armatures["face"], droite + t * 1.6, v.Y(v.y1) + t * 1.2, _texte))
+        bas_leg = v.Y(v.y1) + t * 1.2 + t * 5.6
+    marge_bas = bas_leg
+    for k, (txt_, coul_, gras_) in enumerate(marge):
+        yy = bas_leg + t * (1.0 + 1.15 * k)
+        out.append(_texte(droite + t * 1.6, yy, txt_, t * 0.82, coul_, "start", gras=gras_))
+        marge_bas = yy + t * 0.4
     # ---- la feuille
     x_min = min(gauche, v.X(v.x0)) - t * 5.4
     y_min = v.Y(max(v.gy1, v.y1)) - t * 2.6
-    x_max = droite + (t * 9.5 if champ is not None or legende or armatures is not None else t * 3.0)
-    y_max = max(bas, v.Y(v.y0)) + t * 4.4
+    x_max = droite + (t * 9.5 if champ is not None or legende or armatures is not None or marge else t * 3.0)
+    y_max = max(max(bas, v.Y(v.y0)) + t * 4.4, marge_bas + t * 0.8)
     fond = (f'<rect class="sf-fond" x="{x_min:.1f}" y="{y_min:.1f}" width="{x_max - x_min:.1f}" height="{y_max - y_min:.1f}" fill="#ffffff" fill-opacity="0" '
             f'data-plan-fond="{_attr({"chemin": "dalle/sommet/+", "ech": ECH, "pas": 0.05})}"/>') if interactif and not rect else ""
     origine = {"x": round(v.X(v.x0), 2), "y": round(v.Y(v.y0), 2)}

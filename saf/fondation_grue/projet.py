@@ -81,7 +81,7 @@ def nouveau(nom: str = "F1") -> Dict:
                       "inf": {"x": dict(TREILLIS_DEFAUT), "y": dict(TREILLIS_DEFAUT), "xy": False},
                       "sup": {"x": dict(TREILLIS_DEFAUT), "y": dict(TREILLIS_DEFAUT), "xy": False},
                       "renfort": "auto", "ancrage": ANCRAGE_DEFAUT},
-        "scia": {"sym": None, **{c: None for c in CHAMPS_SCIA}, "sigma": {}},
+        "scia": {"sym": None, **{c: None for c in CHAMPS_SCIA}, "sigma": {}, "base": None},
         "options": {"maille": MAILLE_DEFAUT, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre",
                     "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10, "unite": "kgcm2"},
         "vue": {"carte": "sigma", "face": "inf", "cas": None, "k": None},
@@ -270,8 +270,11 @@ def _treillis_face(a: Dict, face: str) -> Dict:
 
 def _scia(s: Dict) -> Dict:
     """Les efforts SCIA recopiés (§ 8.1) : chaque champ None (non saisi) ou un nombre ; « sym » : x = y (None : selon la
-    symétrie de la dalle) ; « sigma » : σ max SCIA par k (kPa)."""
+    symétrie de la dalle) ; « sigma » : σ max SCIA par k (kPa) ; « base » : l'empreinte du modèle pour lequel elles ont été
+    tapées (``scia.signature``), ou None."""
     out = {"sym": s.get("sym") if isinstance(s.get("sym"), bool) else None}
+    b = s.get("base")
+    out["base"] = b if isinstance(b, str) and 0 < len(b) <= 64 else None
     for c in CHAMPS_SCIA:
         v = s.get(c)
         out[c] = None if v is None else _nombre(v, "une valeur SCIA", -1e5, 1e5)

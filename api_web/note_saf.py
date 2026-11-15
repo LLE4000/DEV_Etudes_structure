@@ -35,6 +35,7 @@ Ce fichier ne calcule rien : le calcul est celui de l'écran (``saf.calculer``, 
 """
 import base64
 import io
+import math
 import os
 import re
 import tempfile
@@ -46,6 +47,7 @@ from ndc_pdf import data as ndc_data
 from ndc_pdf.kit import Doc, Frame, chip, mix, table
 from ndc_pdf.styles import Encre
 from ndc_pdf.svg import peindre_svg
+from saf.fondation_grue import armatures as AR
 from saf.fondation_grue import ecriture as EC
 from saf.fondation_grue import efforts as EF
 from saf.fondation_grue import geometrie as G
@@ -101,6 +103,9 @@ def _texte(h: str) -> str:
 
 def _v(label: str, valeur: str, unite: str = "", symbole: str = "") -> tuple:
     return ("v", label, symbole, valeur, unite)
+
+
+K_PAR_TABLEAU = 3               # le tableau « Tous les cas » : trois k au plus par tableau (les en-têtes tiennent)
 
 
 # ------------------------------------------------------------------ la planche : sans bande grise, des figures, des tableaux longs
@@ -181,16 +186,31 @@ class Planche(Encre):
         w, h = _taille_fig(it[1], fr.w, it[3] if len(it) > 3 else None)
         return h + (self.s_lab * 1.6 if it[2] else 0.0) + 6.0
 
+    def _hauteur_texte(self, fr, v, items) -> float:
+        """La hauteur de quelques éléments de texte (paragraphes, lignes) écrits dans la colonne, à blanc."""
+        brouillon = Doc(io.BytesIO(), self.page)
+        brouillon.new_page(self.page)
+        f0 = Frame(fr.x, 1.0e6, fr.w, -1.0e9)
+        super(Planche, self)._items(brouillon, f0, dict(v, items=list(items)), self.ms(), [f0], None)
+        return f0.top - f0.min_y
+
     def hauteur_premier(self, fr, v) -> float:
         """La hauteur du premier élément d'une vérification (pour garder son titre avec lui) : un tableau (son en-tête et
-        trois lignes au moins), une figure."""
+        trois lignes au moins), une figure ; des paragraphes d'abord (une introduction, une légende), puis un tableau ou une
+        figure : les paragraphes ET ce premier tableau ou cette première figure (revue du 15/11/2026 : « BX1 — M(s) et
+        V(s) » restait en bas de page, son diagramme sur la suivante)."""
         if not v or not v["items"]:
             return 0.0
-        it = v["items"][0]
-        if it[0] == "tab":
-            return self._hauteur_tab(fr, it[1], it[2][:3])
-        if it[0] == "fig":
-            return self._hauteur_fig(fr, it)
+        tete, figs = [], 0.0
+        for it in v["items"]:
+            if it[0] == "tab":
+                return (self._hauteur_texte(fr, v, tete) if tete else 0.0) + figs + self._hauteur_tab(fr, it[1], it[2][:3])
+            if it[0] == "fig" and it[2] is None and any(x[0] in ("fig", "tab") for x in v["items"][v["items"].index(it) + 1:]):
+                figs += self._hauteur_fig(fr, it)            # (une figure sans légende — la légende des diagrammes — : on va au-delà)
+                continue
+            if it[0] == "fig":
+                return (self._hauteur_texte(fr, v, tete) if tete else 0.0) + figs + self._hauteur_fig(fr, it)
+            tete.append(it)
         return 24.0
 
     CHAPITRE = 12.0               # pt : le titre d'un chapitre dans le flux
@@ -454,7 +474,7 @@ def _dims(el: Dict) -> str:
 def page_donnees(el: Dict, calc: Dict, F: Dict, style: Planche) -> Dict:
     m = calc["modele"]
     ch, g, d, p = m["chassis"], el["grue"], el["dalle"], el["projet"]
-    sec = dict(F, section="Données", bande=True, coupe_w=300)
+    sec = dict(F, section="Données", bande=True, coupe_w=300, n_cols=1)    # (une colonne large : tout y tient, la seconde restait vide)
     verifs = []
     items = [_v(lab, p[k]) for k, lab in (("projet", "Projet"), ("grue", "Grue"), ("creation", "Date de création"),
                                           ("mise_a_jour", "Date de mise à jour"), ("indice", "Indice")) if p.get(k)]
@@ -570,8 +590,11 @@ def page_charges(el: Dict, calc: Dict, F: Dict, style: Planche) -> Dict:
         lignes.append(li)
     surfaces = V.surfaces_chargees(m)
     s0 = surfaces[0]
-    xs, ys = [p[0] for p in s0], [p[1] for p in s0]
-    a_, b_ = max(xs) - min(xs), max(ys) - min(ys)
+    # (les côtés du carré, pas sa boîte : tourné avec le châssis, sa boîte est plus grande que lui — revue du 15/11/2026)
+    if len(s0) == 4:
+        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])
+    else:
+        a_ = b_ = G.aire(s0) ** 0.5
     if m["plots"]:
         quoi = (f"carré de diffusion {_n(a_, 2)} × {_n(b_, 2)} m = {_n(G.aire(s0), 3)} m² (sous un plot : une plaque de 0,50 × 0,50 m diffusée "
                 f"à 45° sur la hauteur du plot, sans dépasser le plot, § 6)")
@@ -677,21 +700,24 @@ def page_sol(el: Dict, calc: Dict, s: Dict, F: Dict, style: Planche) -> Dict:
     if not s["pp"]:
         retenus = [r for r in calc["par_k"] if r["k"] in set(ks)]
         wc, wl = 30.0, 32.0
-        wk = (largeur - wc - wl) / (2 * len(retenus))
-        cols = [("CAS", wc, "left"), ("LC", wl, "left")]
-        for r in retenus:
-            cols += [(f"σ [{SS.unite(el)[0]}] k = {C.nb(r['k'])}", wk, "right"), (f"w [mm] k = {C.nb(r['k'])}", wk, "right")]
-        lignes = []
         lc = {c["nom"]: c["lc"] for c in m["cas"]}
-        for i, c in enumerate(retenus[0]["cas"]):
-            li = [("lab", c["nom"], False), ("lab", lc.get(c["nom"], ""))]
-            for r in retenus:
-                cc = r["cas"][i]
-                li += [("eta", _sol(el, cc["sigma_max"], False), cc["sigma_max"] <= s["limite"], cc["nom"] == r["cas_max"]), ("num", _n(cc["w_max"], 1))]
-            lignes.append(li)
-        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": [
-            ("pr", f"σ max à la couleur de la limite ({_sol(el, s['limite'])}) ; en gras, le cas le plus défavorable de chaque k."),
-            ("tab", cols, lignes)], "verdicts": []})
+        # (trois k au plus par tableau : au-delà, les en-têtes « σ [kg/cm²] k = 10 » se chevauchent — revue du 15/11/2026)
+        items = [("pr", f"σ max à la couleur de la limite ({_sol(el, s['limite'])}) ; en gras, le cas le plus défavorable de chaque k.")]
+        for g0 in range(0, len(retenus), K_PAR_TABLEAU):
+            groupe = retenus[g0:g0 + K_PAR_TABLEAU]
+            wk = (largeur - wc - wl) / (2 * len(groupe))
+            cols = [("CAS", wc, "left"), ("LC", wl, "left")]
+            for r in groupe:
+                cols += [(f"σ [{SS.unite(el)[0]}] k = {C.nb(r['k'])}", wk, "right"), (f"w [mm] k = {C.nb(r['k'])}", wk, "right")]
+            lignes = []
+            for i, c in enumerate(retenus[0]["cas"]):
+                li = [("lab", c["nom"], False), ("lab", lc.get(c["nom"], ""))]
+                for r in groupe:
+                    cc = r["cas"][i]
+                    li += [("eta", _sol(el, cc["sigma_max"], False), cc["sigma_max"] <= s["limite"], cc["nom"] == r["cas_max"]), ("num", _n(cc["w_max"], 1))]
+                lignes.append(li)
+            items.append(("tab", cols, lignes))
+        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": items, "verdicts": []})
     # σ moyen ; l'équilibre ; les contrôles
     sm = V.sigma_moyen(m)
     q = SR.equilibre_cas(el, calc, s)
@@ -730,15 +756,15 @@ def _champ_moments(calc: Dict, ef: Dict, fer: Dict, face: str) -> Dict:
     directions de la face)."""
     import numpy as np
     d = calc["par_k"][0]["dalle"]
-    ech = fer.get("echelle") or {}
+    ech = AR.echelle_carte(ef, fer.get("echelle"))
     nx, ny = np.nan_to_num(ef["noeuds"][f"{face}_x"]), np.nan_to_num(ef["noeuds"][f"{face}_y"])
     if face == "inf":
-        val = np.maximum(np.maximum(nx * ech.get("inf_x", 1.0), ny * ech.get("inf_y", 1.0)), 0.0).ravel()
+        val = np.maximum(np.maximum(nx * ech["inf_x"], ny * ech["inf_y"]), 0.0).ravel()
     else:
-        val = np.maximum(np.maximum(-nx * ech.get("sup_x", 1.0), -ny * ech.get("sup_y", 1.0)), 0.0).ravel()
+        val = np.maximum(np.maximum(-nx * ech["sup_x"], -ny * ech["sup_y"]), 0.0).ravel()
     val = np.where(d.on0, val, 0.0)
     n = V.premier_argmax(np.where(d.on0, val, -np.inf))
-    mrd = min(fer["res"]["mRd"][f"{face}_x"], fer["res"]["mRd"][f"{face}_y"])
+    mrd = min(fer["res"]["mRd"][f"{face}_x"], fer["res"]["mRd"][f"{face}_y"]) if fer.get("res") else None
     return {"mode": "m", "dalle": d, "valeurs": val, "decolle": np.zeros(len(val), bool), "maxi": float(val[n]),
             "x": d.x0 + (n % d.nnx) * d.a, "y": d.y0 + (n // d.nnx) * d.b, "limite": mrd, "unite": ("kN·m/m", 1.0, 1),
             "symbole": "m bas" if face == "inf" else "m haut", "mot": "max" if face == "inf" else "min", "signe": 1.0 if face == "inf" else -1.0}
@@ -749,16 +775,17 @@ def page_efforts(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Plan
     sec = dict(F, section="Efforts", bande=False, n_cols=2)
     largeur = style.largeur_colonne(sec)
     ech = fer.get("echelle") or {}
-    mrd_b = fer["mRd_bandes"]
+    mrd_b = fer.get("mRd_bandes") or {}               # (hors du moteur Dalles : pas de m_Rd, les efforts restent)
     verifs = []
     leg = _figure_en_pt(DE.legende(largeur), "Efforts : légende", largeur)
     rapport = any(abs(ech.get(c, 1.0) - 1.0) > 1e-9 for c in ech)
     intro = [("pr", f"Enveloppe de tous les cas et des k cochés « SCIA » ({' ; '.join(C.nb(k) for k in ef['ks'])} MN/m³), intégrée sur la largeur de "
                     f"chaque bande ({_n(ef['largeur'])} m), sans torsion ; V se lit à d = h − 6 cm = {_n(ef['d_v'])} m du bord des zones chargées."
-                    + (" Les moments sont ceux du module × le rapport SCIA ÷ module de leur face (§ 8.2)." if rapport else "")), ("fig", leg, None)]
+                    + (" Les moments sont ceux du module × le rapport SCIA ÷ module de leur face (§ 8.2)." if rapport else "")
+                    + (f" Treillis non vérifié ({fer['hors_domaine']}) : pas de trait m_Rd." if fer.get("hors_domaine") else "")), ("fig", leg, None)]
     for i, b in enumerate(ef["bandes"]):
-        s_ = "x" if b["nom"].startswith("BX") else "y"
-        svg_m = _figure_en_pt(DE.moments(b, mrd_b[f"inf_{s_}"], mrd_b[f"sup_{s_}"], ech.get(f"inf_{s_}", 1.0), ech.get(f"sup_{s_}", 1.0), largeur, 150.0),
+        s_, ax = ("x" if b["nom"].startswith("BX") else "y"), AR.axe_bande(b)
+        svg_m = _figure_en_pt(DE.moments(b, mrd_b.get(f"inf_{ax}"), mrd_b.get(f"sup_{ax}"), ech.get(f"inf_{s_}", 1.0), ech.get(f"sup_{ax}", 1.0), largeur, 150.0),
                               f"Efforts : M(s) {b['nom']}", largeur)
         svg_v = _figure_en_pt(DE.tranchant(b, largeur, 105.0), f"Efforts : V(s) {b['nom']}", largeur)
         verifs.append({"titre": f"{b['nom']} — M(s) et V(s)", "items": (intro if i == 0 else [])
@@ -780,11 +807,12 @@ def page_efforts(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Plan
         svg = lisible(lambda f, ch=champ: DS.plan(el, m, ch, interactif=False, carte="vecteur", ident=f"note_m_{face}", texte=f), largeur, 330.0,
                       f"Efforts : carte des moments {FACES[face]}")
         titre = ("EN BAS : LE PLUS GRAND DE mx ET my" if face == "inf" else "EN HAUT : LE PLUS NÉGATIF DE mx ET my") + \
-            f" · LIGNE NOIRE : mRd = {_n(champ['limite'], 1)} kN·m/m"
+            (f" · LIGNE NOIRE : mRd = {_n(champ['limite'], 1)} kN·m/m" if champ["limite"] is not None else "")
         items.append(("fig", svg, titre, 330.0))
     ex, ce = ef["extremes"], ef["cas_extremes"]
-    items.append(("pr", " · ".join(f"m{c[-1]} {'max' if c.startswith('inf') else 'min'} = {_n(ex[c], 1)} kN·m/m ({_cas_k(ce.get(c))})" for c in
-                                   ("inf_x", "inf_y", "sup_x", "sup_y")) + "."))
+    ept = AR.echelle_carte(ef, fer.get("echelle"))
+    items.append(("pr", " · ".join(f"m{c[-1]} {'max' if c.startswith('inf') else 'min'} = {_n(ex[c] * ept[c], 1)} kN·m/m ({_cas_k(ce.get(c))})" for c in
+                                   ("inf_x", "inf_y", "sup_x", "sup_y")) + "." + (" (Valeurs du module × le rapport SCIA, comme les cartes.)" if rapport else "")))
     verifs.append({"titre": "Moments au point : cartes enveloppes", "items": items, "verdicts": []})
     sec["verifs"] = verifs
     return sec
@@ -846,6 +874,8 @@ def page_principe(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Pla
         ver(t, "ko" if n == "r" else "att")
     ver("Poinçonnement : non vérifié (le moteur Dalles ne le vérifie pas).", "att")
     items.append(("pr", fer["u"] + "."))
+    if fer.get("plot"):
+        items.append(("pr", fer["plot"] + "."))           # (§ 7.5 : un plot coulé en place)
     items.append(("pr", SR.non_verifies(el, calc, fer["non_verifies"])))
     items.append(("t", "Principe d'armatures, pas un plan d'exécution."))
     verifs.append({"titre": "Contrôles du moteur Dalles", "items": items, "verdicts": verdicts})
@@ -872,6 +902,10 @@ def page_scia(el: Dict, calc: Dict, sc: Optional[Dict], F: Dict, style: Planche,
             mod = f"{_n(li['module'], 1)} {li['unite']}" if li["module"] is not None else "—"
             if li["scia"] is None:
                 lignes.append([("lab", lib), ("num", mod), ("num", "SCIA non saisi"), ("num", "—"), ("num", "—"), ("num", "r = 1")])
+            elif li["r"] is None:
+                # (le module ne lit pas cette valeur — V à d : aucune abscisse à d des zones chargées ; la valeur SCIA va seule au
+                #  moteur, sans rapport — revue du 15/11/2026 : la note plantait)
+                lignes.append([("lab", lib), ("num", mod), ("num", f"{_n(li['scia'], 1)} {li['unite']}"), ("num", "—"), ("num", "—"), ("num", "SCIA seul")])
             else:
                 lignes.append([("lab", lib), ("num", mod), ("num", f"{_n(li['scia'], 1)} {li['unite']}"), ("num", _n(li["r"], 2)),
                                ("num", f"{_n((li['r'] - 1) * 100, 1)} %"), ("eta", "à vérifier" if li["alerte"] else "concorde", not li["alerte"])])
@@ -880,18 +914,22 @@ def page_scia(el: Dict, calc: Dict, sc: Optional[Dict], F: Dict, style: Planche,
             if x["scia"] is None:
                 lignes.append([("lab", f"σ max, k = {C.nb(x['k'])} MN/m³"), ("num", mod), ("num", "SCIA non saisi"), ("num", "—"), ("num", "—"), ("num", "—")])
             else:
-                e = abs(x["r"] - 1.0) if x["r"] is not None else 0.0
                 lignes.append([("lab", f"σ max, k = {C.nb(x['k'])} MN/m³"), ("num", mod), ("num", _sol(el, x["scia"])), ("num", _n(x["r"], 2) if x["r"] else "—"),
-                               ("num", f"{_n((x['r'] - 1) * 100, 1)} %" if x["r"] else "—"), ("eta", "à vérifier" if e > SCM.ECART else "concorde", e <= SCM.ECART)])
+                               ("num", f"{_n((x['r'] - 1) * 100, 1)} %" if x["r"] else "—"), ("eta", "à vérifier" if x["alerte"] else "concorde", not x["alerte"])])
         items = [("pr", "r = SCIA ÷ module. SCIA donne le niveau, le module la forme : les moments du module sont multipliés par r de leur face et le "
                         "principe d'armatures est refait ; V SCIA va directement au moteur Dalles ; σ max : comparaison seule. Un champ vide reste vide "
                         "(r = 1 : la valeur du module est gardée).")]
-        if not sc["saisi"]:
+        if sc.get("perime"):
+            items.append(("tab", cols, lignes))
+            verdicts = [{"texte": SCM.PERIME + ".", "etat": "att"}]
+            items += [("k", 0)]
+        elif not sc["saisi"]:
             items.append(("t", "Valeurs SCIA non saisies"))
             items.append(("tab", cols, lignes))
             verdicts = []
         else:
             items.append(("tab", cols, lignes))
+            # (les écarts : ceux des moments, de V ET de σ max — le moteur les nomme tous dans « alertes »)
             vus = [li for li in sc["lignes"] if li["r"] is not None and li["cle"] in sc["a_taper"]] + [x for x in sc["sigma"] if x.get("r")]
             pire = max((abs(x["r"] - 1.0) for x in vus), default=0.0)
             if sc["alertes"]:
@@ -967,8 +1005,8 @@ def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
         if fer is not None:
             ef = M.efforts(el, calc)
             sc = SCM.rapports(el, ef, calc["par_k"])
-            if not fer.get("hors_domaine"):
-                chapitres.append(page_efforts(el, calc, ef, fer, F, style))
+            # (les efforts viennent du module, pas du moteur Dalles : imprimés aussi hors de son domaine — revue du 15/11/2026)
+            chapitres.append(page_efforts(el, calc, ef, fer, F, style))
             chapitres.append(page_principe(el, calc, ef, fer, F, style))
             chapitres.append(page_scia(el, calc, sc, F, style, s))
         elif el["sol"].get("reprise"):

@@ -301,7 +301,7 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
     elif t == "armatures":
         _ecrire_armatures(el, ch[1:], valeur)
     elif t == "scia":
-        _ecrire_scia(el, ch[1:], valeur)
+        return _ecrire_scia(el, ch[1:], valeur)
     elif ch == ["etapes", "saf"] or ch == ["etapes", "note"]:
         # (l'écran le dit après un téléchargement réussi : l'étape est faite POUR CES DONNÉES — une donnée qui change la défait)
         el["etapes"][ch[1]] = signature_etape(el, ch[1])
@@ -395,11 +395,19 @@ def _ecrire_armatures(el: Dict, ch: List[str], valeur) -> None:
         raise ValueError("champ inconnu")
 
 
-def _ecrire_scia(el: Dict, ch: List[str], valeur) -> None:
+def _ecrire_scia(el: Dict, ch: List[str], valeur) -> Optional[str]:
     """Le tableau des efforts SCIA (§ 8.1) : une valeur (vide : non saisie), la case « x = y », σ max d'un k (saisi dans
-    l'unité choisie, gardé en kPa)."""
+    l'unité choisie, gardé en kPa). Une valeur tapée est liée au modèle d'aujourd'hui (``scia.signature``) ; si les
+    valeurs déjà là étaient celles d'un AUTRE modèle, elles sont effacées d'abord (on ne recale pas un modèle avec les
+    efforts d'un autre) et un message le dit."""
     sc = el["scia"]
     vide = valeur is None or str(valeur).strip() == ""
+    message = None
+    if ch != ["sym"] and SC.perime(el):
+        for c in PR.CHAMPS_SCIA:
+            sc[c] = None
+        sc["sigma"] = {}
+        message = "Valeurs SCIA de l'ancien modèle effacées : ressaisir les autres"
     if ch == ["sym"]:
         # (la case « x = y » cochée comme le module la coche de lui-même : elle reste automatique — réécrire la case
         # avec la valeur qu'elle montre ne change pas la note)
@@ -414,34 +422,47 @@ def _ecrire_scia(el: Dict, ch: List[str], valeur) -> None:
             sc["sigma"][ch[1]] = _nombre(valeur, "σ max SCIA") * SS.unite(el)[1]
     else:
         raise ValueError("champ inconnu")
+    if ch != ["sym"]:
+        sc["base"] = SC.signature(el) if (any(sc[c] is not None for c in PR.CHAMPS_SCIA) or sc["sigma"]) else None
+    return message
 
 
 def _coller_reactions(el: Dict, i: int, p: int, valeur) -> Optional[str]:
     """Un tableau copié dans Excel, collé dans le champ P<p+1> du jeu i (§ 4, bloc 2) : une ligne par jeu, les valeurs
-    séparées par des tabulations (ou « ; ») ; les jeux manquants sont ajoutés (6 au plus). Rend un message."""
+    séparées par des tabulations (ou « ; ») ; les jeux manquants sont ajoutés (6 au plus). Rend un message.
+    Tout ou rien (revue du 15/11/2026 : un jeu perdu sans le dire peut être le plus chargé) : plus de lignes que de jeux
+    possibles, une case vide, trop ou trop peu de valeurs sur une ligne — le collage est refusé et la raison nommée."""
     lignes = [l_ for l_ in str(valeur or "").replace("\r", "").split("\n") if l_.strip()]
     if not lignes:
         raise ValueError("rien à coller")
-    jeux = el["reactions"]
-    n = 0
-    for k, l_ in enumerate(lignes):
+    place = PR.JEUX_MAX - i
+    if len(lignes) > place:
+        raise ValueError(f"{len(lignes)} lignes collées à partir du jeu {i + 1} : {place} au plus ({PR.JEUX_MAX} jeux en tout) — rien n'est collé")
+    attendu = 4 - p
+    lues = []
+    for k, l_ in enumerate(lignes, 1):
         cases = [c.strip() for c in (l_.split("\t") if "\t" in l_ else l_.split(";"))]
-        if i + k >= PR.JEUX_MAX:
-            break
+        while cases and cases[-1] == "":                       # (Excel ajoute parfois une tabulation en fin de ligne)
+            cases.pop()
+        if len(cases) != attendu or any(c == "" for c in cases):
+            raise ValueError(f"ligne {k} : {attendu} valeurs attendues (P{p + 1} à P4), "
+                             + ("une case vide" if any(c == "" for c in cases) else f"{len(cases)} lues") + " — rien n'est collé")
+        lues.append([_nombre(c, "la réaction") for c in cases])
+    jeux = el["reactions"]
+    for k, vals in enumerate(lues):
         while len(jeux) <= i + k:
             jeux.append({"nom": "", "P": [None] * 4})
-        for q, c in enumerate(cases):
-            if p + q >= 4:
-                break
-            jeux[i + k]["P"][p + q] = None if c == "" else _nombre(c, "la réaction")
-        n += 1
+        for q, v in enumerate(vals):
+            jeux[i + k]["P"][p + q] = v
+    n = len(lues)
     return f"{n} jeu{'x' if n > 1 else ''} collé{'s' if n > 1 else ''}"
 
 
 def signature_etape(el: Dict, etape: str) -> str:
     """Ce dont une étape faite dépend (§ 1) : « saf » — tout ce que le SAF écrit ; « note » — tout ce que la note porte ;
     la vue, les étapes et la proposition n'y entrent pas."""
-    hors = {"vue", "etapes", "proposition"} | ({"scia"} if etape == "saf" else set())
+    # (le SAF n'écrit ni les valeurs SCIA ni les treillis : changer un treillis ne défait pas l'étape « SAF »)
+    hors = {"vue", "etapes", "proposition"} | ({"scia", "armatures"} if etape == "saf" else set())
     return json.dumps({k: v for k, v in el.items() if k not in hors}, sort_keys=True, default=str)
 
 

@@ -552,13 +552,26 @@ def lot5():
     rr = mod(rn["etat"], ["reactions", 0, "P", 0], "360")
     chk("U10 la ligne d'étapes (1 Données · 2 Vérification · 3 SAF · 4 Efforts SCIA · 5 Note) : une note neuve n'a rien de coché ; la dalle "
         "type coche 1 et 2 ; « Exporter le SAF » coche 3 (changer la vue la garde) ; le tableau SCIA à moitié rempli ne coche pas 4, rempli il "
-        "le coche (et le SAF reste coché : il ne dépend pas des valeurs SCIA) ; « Imprimer la note » coche 5 ; changer une réaction décoche 3 et "
-        "5 (le SAF et la note sont à refaire)",
+        "le coche (et le SAF reste coché : il ne dépend pas des valeurs SCIA) ; « Imprimer la note » coche 5 ; changer une réaction décoche 3, 4 "
+        "et 5 (le SAF et la note sont à refaire ; les valeurs SCIA étaient celles de l'ancien modèle — revue du 15/11/2026, le harnais suit)",
         [c for _, c in n0] == [False] * 5 and [t_ for t_, _ in e0] == ["Données", "Vérification", "SAF", "Efforts SCIA", "Note"]
         and [c for _, c in e0] == [True, True, False, False, False] and [c for _, c in _etapes(rs)] == [True, True, True, False, False]
         and [c for _, c in _etapes(rv)] == [True, True, True, False, False] and [c for _, c in _etapes(rsc_part)] == [True, True, True, False, False]
         and [c for _, c in _etapes(rsc)] == [True, True, True, True, False] and [c for _, c in _etapes(rn)] == [True] * 5
-        and [c for _, c in _etapes(rr)] == [True, True, False, True, False], (_etapes(rs), _etapes(rsc), _etapes(rn), _etapes(rr)))
+        and [c for _, c in _etapes(rr)] == [True, True, False, False, False], (_etapes(rs), _etapes(rsc), _etapes(rn), _etapes(rr)))
+    # (revue du 15/11/2026) des valeurs SCIA d'un AUTRE modèle ne servent plus ; changer un treillis ne défait pas le SAF
+    rh = mod(rsc["etat"], ["dalle", "h"], "0.45")
+    rb = mod(rh["etat"], ["scia", "bx_m"], "80")
+    rtr = mod(rs["etat"], ["armatures", "inf", "x", "e"], "100")
+    chk("revue · SCIA tapé puis h changé : la carte ARMATURES dit « Écart module / SCIA · à ressaisir · valeurs SCIA d'un autre modèle : non "
+        "utilisées » et le message du moteur ; l'étape 4 se décoche ; retaper une valeur efface les autres (« Valeurs SCIA de l'ancien modèle "
+        "effacées : ressaisir les autres ») ; changer un treillis après l'export garde l'étape « SAF » (le SAF n'écrit pas les treillis)",
+        "Écart module / SCIA à ressaisir valeurs SCIA d'un autre modèle : non utilisées" in txt(rh["resultat"])
+        and SCM.PERIME in txt(rh["resultat"]).replace("&gt;", ">") and [c for _, c in _etapes(rh)][3] is False
+        and rb["message"] == "Valeurs SCIA de l'ancien modèle effacées : ressaisir les autres"
+        and (f0(rb)["scia"]["bx_m"], f0(rb)["scia"]["bx_v"], f0(rb)["scia"]["mx"]) == (80.0, None, None)
+        and not SCM.perime(PR.lire(f0(rb))) and [c for _, c in _etapes(rtr)][:3] == [True, True, True],
+        (rb.get("message"), f0(rb)["scia"], _etapes(rtr)))
     # le collage d'un tableau Excel dans les réactions (§ 4, bloc 2)
     rp = q(action="modifier", etat=M.nouvel_etat(), chemin=["reactions", "coller", "0", "0"], valeur="350\t440\t440\t350\r\n150\t150\t550\t550\n135\t100\t800\t135\n")
     rp2 = q(action="modifier", etat=type_, chemin=["reactions", "coller", "1", "2"], valeur="600;610")
@@ -568,6 +581,32 @@ def lot5():
         rp["ok"] and rp["message"] == "3 jeux collés" and [x["P"] for x in f0(rp)["reactions"]] == [[350.0, 440.0, 440.0, 350.0], [150.0, 150.0, 550.0, 550.0], [135.0, 100.0, 800.0, 135.0]]
         and f0(rp2)["reactions"][1]["P"] == [150.0, 150.0, 600.0, 610.0] and rp2["message"] == "1 jeu collé"
         and 'data-coller="reactions/coller/2/3"' in q(action="calculer", etat=type_)["donnees"], (rp.get("message"), rp2.get("message")))
+    # (revue du 15/11/2026) la carte ARMATURES : l'acier demandé, le U, le plot coulé ; l'aide « Dans SCIA » : une limite par carte et par face
+    rt_ = q(action="calculer", etat=type_)
+    rco = mod(type_, ["grue", "plots", "type"], "coule")
+    elt = PR.lire(f0(rt_))
+    mr = M.armatures(elt, M.calculer(elt))["res"]["mRd"]
+    lim = (f"m x : {fr(mr['inf_x'], 1)} en bas, −{fr(mr['sup_x'], 1)} en haut ; m y : {fr(mr['inf_y'], 1)} en bas, −{fr(mr['sup_y'], 1)} en haut (kN·m/m)")
+    chk("revue · la carte ARMATURES dit l'acier demandé de chaque direction (« A s,néc = 1 110 mm²/m » en bas pour BX1 = BX2), le U de fermeture "
+        "(« Ø12 e 15 cm sur tout le pourtour (32,0 m) ») et, plots coulés, « Ferraillage du plot · à vérifier · à prévoir (non dimensionné) » ; "
+        "l'aide « Dans SCIA » donne la limite de chaque carte et de chaque face (m x : 97,3 en bas…)",
+        "R1–R4 : 2 Ø12 · A s,néc = 1 110 mm²/m" in txt(rt_["resultat"])
+        and "U de fermeture principe Ø12 e 15 cm sur tout le pourtour (32,0 m)" in txt(rt_["resultat"])
+        and "Ferraillage du plot à vérifier à prévoir (non dimensionné)" in txt(rco["resultat"]) and "Ferraillage du plot" not in txt(rt_["resultat"])
+        and lim in txt(rt_["donnees"]), (txt(rt_["resultat"])[:200], lim))
+    neuf = M.nouvel_etat()
+    r7 = q(action="modifier", etat=neuf, chemin=["reactions", "coller", "0", "0"], valeur="\n".join(["350\t440\t440\t350"] * 6 + ["135\t100\t800\t135"]))
+    rvide = q(action="modifier", etat=neuf, chemin=["reactions", "coller", "0", "0"], valeur="350\t440\t440\t350\n135\t\t800\t135")
+    rtab = q(action="modifier", etat=neuf, chemin=["reactions", "coller", "0", "0"], valeur="350\t440\t440\t350\t\n")
+    chk("revue · le collage est TOUT OU RIEN : 7 lignes dans le jeu 1 — refusé (« 7 lignes collées à partir du jeu 1 : 6 au plus (6 jeux en "
+        "tout) — rien n'est collé »), aucun jeu ajouté ; une case vide — refusé (« Ligne 2 : 4 valeurs attendues (P1 à P4), une case vide — "
+        "rien n'est collé ») ; la tabulation qu'Excel laisse en fin de ligne est acceptée",
+        r7["message"] == "7 lignes collées à partir du jeu 1 : 6 au plus (6 jeux en tout) — rien n'est collé"
+        and [x["P"] for x in f0(r7)["reactions"]] == [[None] * 4]
+        and rvide["message"] == "Ligne 2 : 4 valeurs attendues (P1 à P4), une case vide — rien n'est collé"
+        and [x["P"] for x in f0(rvide)["reactions"]] == [[None] * 4]
+        and rtab["message"] == "1 jeu collé" and f0(rtab)["reactions"][0]["P"] == [350.0, 440.0, 440.0, 350.0],
+        (r7.get("message"), rvide.get("message"), rtab.get("message")))
     # E1 à E4 (§ 8) : le tableau des efforts SCIA
     r = q(action="calculer", etat=type_)
     el = PR.lire(f0(r))
@@ -760,10 +799,12 @@ MUTATIONS += [
                 raise ValueError("carte : contrainte, tassement, armatures ou sans carte")''', '''            pass''', "une carte inconnue (« Moments » du lot 4) acceptée"),
     ("saf.py", '''            if valeur not in PR.FACES_VUE:
                 raise ValueError("face : bas ou haut")''', '''            pass''', "une face inconnue acceptée"),
-    ("saf.py", '''    hors = {"vue", "etapes", "proposition"} | ({"scia"} if etape == "saf" else set())''',
-     '''    hors = {"etapes", "proposition"} | ({"scia"} if etape == "saf" else set())''', "changer la vue décoche « SAF »"),
-    ("saf.py", '''    hors = {"vue", "etapes", "proposition"} | ({"scia"} if etape == "saf" else set())''',
-     '''    hors = {"vue", "etapes", "proposition"}''', "taper une valeur SCIA décoche « SAF »"),
+    ("saf.py", '''    hors = {"vue", "etapes", "proposition"} | ({"scia", "armatures"} if etape == "saf" else set())''',
+     '''    hors = {"etapes", "proposition"} | ({"scia", "armatures"} if etape == "saf" else set())''', "changer la vue décoche « SAF »"),
+    ("saf.py", '''    hors = {"vue", "etapes", "proposition"} | ({"scia", "armatures"} if etape == "saf" else set())''',
+     '''    hors = {"vue", "etapes", "proposition"} | ({"armatures"} if etape == "saf" else set())''', "taper une valeur SCIA décoche « SAF »"),
+    ("saf.py", '''    hors = {"vue", "etapes", "proposition"} | ({"scia", "armatures"} if etape == "saf" else set())''',
+     '''    hors = {"vue", "etapes", "proposition"} | ({"scia"} if etape == "saf" else set())''', "changer un treillis décoche « SAF »"),
     ("saf_resultat.py", '''("SAF", d1 and faites_saf)''', '''("SAF", d1)''', "l'étape « SAF » cochée sans export"),
     ("saf_resultat.py", '''("Efforts SCIA", bool(sc and sc["complet"]))''', '''("Efforts SCIA", bool(sc and sc["saisi"]))''',
      "l'étape « Efforts SCIA » cochée avec un tableau à moitié rempli"),
@@ -795,6 +836,20 @@ MUTATIONS += [
     ("saf.py", '''    cle = json.dumps([_signature_calcul(el), PR.k_scia(el), el["bandes"]["largeur"], el["armatures"], el["scia"], el["dalle"]["beton"]],''',
      '''    cle = json.dumps([_signature_calcul(el), PR.k_scia(el), el["bandes"]["largeur"], el["scia"], el["dalle"]["beton"]],''',
      "un treillis changé qui ne refait pas le principe (cache)"),
+    # (revue du 15/11/2026)
+    ("saf.py", '''    if len(lignes) > place:''', '''    if False:''', "un collage trop long tronqué sans le dire"),
+    ("saf.py", '''        if len(cases) != attendu or any(c == "" for c in cases):''', '''        if False:''', "une case vide collée"),
+    ("saf.py", '''        while cases and cases[-1] == "":''', '''        while False:''', "la tabulation de fin de ligne d'Excel refusée"),
+    ("saf.py", '''    if ch != ["sym"] and SC.perime(el):''', '''    if False:''', "retaper une valeur revalide celles de l'ancien modèle"),
+    ("saf_armatures.py", '''    if sc.get("perime"):''', '''    if False:''', "des valeurs SCIA périmées dites « à saisir »"),
+    ("saf_armatures.py", '''        pied += "".join(C.message(C.esc(t), False) for t in sc["alertes"])''', '''        pass''',
+     "les alertes SCIA (§ 8.2) jamais écrites à l'écran"),
+    ("saf_armatures.py", '''    rows += C.ligne_verif("U de fermeture",''', '''    rows += "" and C.ligne_verif("U de fermeture",''', "la carte sans le U de fermeture"),
+    ("saf_armatures.py", '''    if fer.get("plot"):''', '''    if False:''', "la carte sans la ligne du plot coulé"),
+    ("saf_armatures.py", '''mm²/m" if liste else ""''', '''mm²/m" if False else ""''', "la flexion sans l'acier demandé"),
+    ("saf_armatures.py", '''    if fer and not fer.get("hors_domaine"):
+        r_ = fer["res"]["mRd"]''', '''    if False:
+        r_ = fer["res"]["mRd"]''', "l'aide SCIA sans les limites par face"),
 ]
 MUTATIONS = [m for m in MUTATIONS if m[2] is not None]
 TEMOIN = ("saf.py", 'MODULE = "saf"', 'MODULE = "saf"')

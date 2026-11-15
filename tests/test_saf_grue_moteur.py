@@ -130,8 +130,10 @@ def rapides():
         "somme des forces verticales vaut exactement 1 (sans normaliser : 1,037 et 1,023, soit 3,7 % et 2,3 % d'écart)",
         all(abs(d.charge_unitaire(q)[0::3].sum() - 1.0) < 1e-12 for q in (rond1, G.rectangle(1.01, 7.02, 0.58, 0.40, 45.0)))
         and [round(x, 3) for x in brut] == [1.037, 1.023], brut)
-    chk("T11 équilibre, dalle type : la réaction du sol = poids propre + réactions à moins de 0,01 % ; charges totales 1970, 2200, 2380 kN",
-        r["ecart_equilibre"] < 1e-4 and sorted({round(x["charge_totale"], 1) for x in r["cas"]}) == [1970.0, 2200.0, 2380.0],
+    # (« 0,0000 % » du cahier : un écart relatif sous 5·10⁻⁷ — revue du 15/11/2026, la tolérance de 0,01 % était 200 fois trop large)
+    chk("T11 équilibre, dalle type : la réaction du sol = poids propre + réactions, écart affiché « 0,0000 % » (< 5·10⁻⁷) ; charges totales "
+        "1970, 2200, 2380 kN",
+        r["ecart_equilibre"] < 5e-7 and sorted({round(x["charge_totale"], 1) for x in r["cas"]}) == [1970.0, 2200.0, 2380.0],
         (r["ecart_equilibre"], sorted({round(x["charge_totale"], 1) for x in r["cas"]})))
     r5 = V.calculer(PR.modele(projet(jeux=[])), K)
     chk("T5 poids propre seul (aucune réaction saisie) : 1 cas, σ = 25 × h = 12,5 kPa partout (12,48 à 12,51)",
@@ -319,9 +321,9 @@ def complets():
         equilibre += V.calculer(PR.modele(projet(grue={"plots": dict(PLOTS, type=typ)})), K)["cas"]
     ecart = max(abs(x["reaction_sol"] - x["charge_totale"]) / x["charge_totale"] for x in equilibre)
     totaux = sorted({round(x["charge_totale"], 1) for x in equilibre})
-    chk("T11 équilibre sur les 104 cas de T4, T7, T8, T12 et T13 : réaction du sol = poids propre + plots + réactions à moins de 0,01 % ; "
+    chk("T11 équilibre sur les 104 cas de T4, T7, T8, T12 et T13 : réaction du sol = poids propre + plots + réactions, écart « 0,0000 % » ; "
         "charges totales 1970 ; 2200 ; 2380 (dalle type), 2110 ; 2340 ; 2520 (avec plots) et 2657,5 ; 2887,5 ; 3067,5 kN (dalle T7)",
-        len(equilibre) == 104 and ecart < 1e-4 and totaux == [1970.0, 2110.0, 2200.0, 2340.0, 2380.0, 2520.0, 2657.5, 2887.5, 3067.5],
+        len(equilibre) == 104 and ecart < 5e-7 and f"{100 * ecart:.4f}" == "0.0000" and totaux == [1970.0, 2110.0, 2200.0, 2340.0, 2380.0, 2520.0, 2657.5, 2887.5, 3067.5],
         (len(equilibre), ecart, totaux))
     # T18 (lot 5, § 5.2) : la résultante du sol (Σ σ × aire des nœuds) contre grue + dalle + plots, cas 1.a, dalle type, k = 12
     t18 = []

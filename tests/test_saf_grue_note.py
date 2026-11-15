@@ -128,10 +128,10 @@ def bandes_grises(note):
 
 
 def colonnes_vides(note):
-    """Les pages (sauf la garde, la page Données et la dernière) dont une des deux colonnes n'a rien."""
+    """Les pages (sauf la garde et la dernière) dont une moitié n'a rien (la page Données : la bande et sa colonne large)."""
     out = []
     for ip, p in enumerate(note.doc):
-        if ip in (0, 1) or ip == len(note.doc) - 1:
+        if ip == 0 or ip == len(note.doc) - 1:
             continue
         W = p.rect.width
         spans = [s for b in p.get_text("dict")["blocks"] for li in b.get("lines", []) for s in li["spans"] if s["text"].strip() and s["bbox"][1] > 80]
@@ -141,6 +141,38 @@ def colonnes_vides(note):
         if not (gauche and droite):
             out.append(ip + 1)
     return out
+
+
+def chevauchements(note):
+    """Les mots qui en recouvrent un autre (plus d'1 pt dans les deux sens), le même mot peint deux fois au même point mis
+    à part : [(page, mot, mot)] — ce que l'œil voit : deux textes l'un sur l'autre ne se lisent pas (revue du 15/11/2026)."""
+    import itertools
+    out = []
+    for ip, p in enumerate(note.doc):
+        ws = [w for w in p.get_text("words") if w[4].strip()]
+        for a_, b_ in itertools.combinations(ws, 2):
+            ix = min(a_[2], b_[2]) - max(a_[0], b_[0])
+            iy = min(a_[3], b_[3]) - max(a_[1], b_[1])
+            if ix > 1.0 and iy > 1.0 and not (a_[4] == b_[4] and abs(a_[0] - b_[0]) < 0.01 and abs(a_[1] - b_[1]) < 0.01):
+                out.append((ip + 1, a_[4], b_[4]))
+    return out
+
+
+def titres_sans_dessin(note):
+    """Les titres « BX1 — M(s) et V(s) » dont le diagramme M(s) n'est pas sur la même page : [(page, bande)]."""
+    out = []
+    for ip, t in enumerate(note.pages):
+        for b in ("BX1", "BX2", "BY1", "BY2"):
+            if f"{b} — M(s) et V(s)" in t and f"{b} — M(s) et V(s) (suite)" not in t and f"M(s) [kN·m] · BANDE {b}" not in t:
+                out.append((ip + 1, b))
+    return out
+
+
+def droite_donnees(note):
+    """Jusqu'où va le texte de la page Données (fraction de la largeur) : une colonne large va au bord droit."""
+    p = note.doc[1]
+    xs = [w[2] for w in p.get_text("words") if w[1] > 100]
+    return max(xs) / p.rect.width if xs else 0.0
 
 
 class _Flux:
@@ -232,8 +264,10 @@ def rapides():
     ef = M.efforts(el, calc)
     t14 = [f"{b['nom']} M+ {fr(b['M_plus'])} kN·m {fr(b['M_plus'] / b['largeur'])} kN·m/m {b['cas_M_plus'][0]} · k = {C.nb(b['cas_M_plus'][1])}" for b in ef["bandes"]]
     t14 += [f"{b['nom']} V à d {fr(b['V_d'])} kN {fr(b['V_d'] / b['largeur'])} kN/m {b['cas_V_d'][0]} · k = {C.nb(b['cas_V_d'][1])}" for b in ef["bandes"]]
+    t14 += [f"{b['nom']} M− {fr(b['M_moins'])} kN·m {fr(b['M_moins'] / b['largeur'])} kN·m/m {b['cas_M_moins'][0]} · k = {C.nb(b['cas_M_moins'][1])}"
+            for b in ef["bandes"]]
     chk("NC6 les efforts : les diagrammes M(s) et V(s) des quatre bandes, le treillis du bas et du haut (m_Rd × 0,50 : 48,6 en x, 47,5 en y) en "
-        "trait interrompu, les abscisses de V à d ; le tableau des bandes avec le cas et le k de chaque valeur (T14 : 3.b · k = 2…) ; deux cartes "
+        "trait interrompu, les abscisses de V à d ; le tableau des bandes avec le cas et le k de chaque valeur — M+, M− et V à d (T14 : 3.b · k = 2…) ; deux cartes "
         "enveloppes des moments au point avec la ligne noire à m_Rd",
         all(f"M(s) [kN·m] · BANDE {b} DE 0,50 m" in t and f"V(s) [kN] · BANDE {b}" in t for b in ("BX1", "BX2", "BY1", "BY2"))
         and "treillis bas 48,6" in t and "treillis haut -48,6" in t and "treillis bas 47,5" in t and all(x in t for x in t14)
@@ -276,6 +310,56 @@ def rapides():
         f"{len(lignes_r)} renforts : repère, face, sens, barres, longueur, largeur) ; « Principe d'armatures, pas un plan d'exécution. »",
         all(x in n7.texte for x in lignes_r) and "Principe d'armatures, pas un plan d'exécution." in n7.texte
         and "U de fermeture : Ø12 e 15 cm sur tout le pourtour (42,8 m)." in n7.texte, [x for x in lignes_r if x not in n7.texte][:3])
+    revue_15_11(type_, n, npf, n7, ef, mo)
+
+
+def revue_15_11(type_, n, npf, n7, ef, mo):
+    """Les défauts de la note trouvés par la relecture indépendante du 15/11/2026 (chacun a sa mutation)."""
+    print("== 6. revue du 15/11/2026 : chevauchements, titres, colonnes, SCIA, hors du moteur Dalles")
+    t30 = mod(mod(mod(mod(mod(mod(type_, ["dalle", "Lx"], "13"), ["dalle", "Ly"], "13"), ["grue", "beta"], "30"), ["grue", "plots", "type"], "prefabrique"),
+                  ["grue", "plots", "a"], "2"), ["grue", "plots", "b"], "2")
+    n30 = Note(t30)
+    e5 = copy.deepcopy(type_)
+    e5["fondations"][0]["sol"]["k"] = [{"k": k, "scia": True} for k in (2.0, 5.0, 10.0, 20.0, 30.0)]
+    n5 = Note(e5)
+    ch = {nom: chevauchements(x) for nom, x in (("type", n), ("plots", npf), ("10,70", n7), ("tourné 30°", n30), ("cinq k", n5))}
+    chk("revue N1 · aucun mot n'en recouvre un autre (dalle type, plots, 10,70, châssis tourné de 30°, cinq k cochés) : les repères x et y "
+        "d'un même pied, le liseré des diagrammes, « P4 » et la cote 0,75, la valeur pointée et le plot, les en-têtes « k = … » du tableau "
+        "de tous les cas",
+        not any(ch.values()), {k_: v_[:3] for k_, v_ in ch.items() if v_})
+    chk("revue N2 · le titre « BX1 — M(s) et V(s) » part avec son diagramme (dalle type, 10,70) ; la page Données tient en une colonne large "
+        "(son texte va au bord droit) ; le carré de diffusion d'un châssis tourné : 1,20 × 1,20 m (ses côtés, pas sa boîte)",
+        not titres_sans_dessin(n) and not titres_sans_dessin(n7) and droite_donnees(n7) > 0.9
+        and "carré de diffusion 1,20 × 1,20 m = 1,440 m²" in n30.texte,
+        (titres_sans_dessin(n), titres_sans_dessin(n7), round(droite_donnees(n7), 3), n30.texte[n30.texte.find("Surface de charge"):][:120]))
+    c45 = Note(mod(type_, ["dalle", "beton"], "C45/55"))
+    chk("revue N3 · béton C45/55 (hors du moteur Dalles) : le chapitre Efforts reste (diagrammes, tableau des bandes, cartes), sans trait "
+        "m_Rd, et le dit ; les armatures « non vérifiées »",
+        all(x in c45.texte for x in ("M(s) [kN·m] · BANDE BX1", "Tableau des bandes", "Moments au point", "Treillis non vérifié",
+                                     "Armatures non vérifiées")) and "treillis bas" not in c45.texte, c45.texte[:300])
+    r_ = mod(mod(type_, ["scia", "bx_m"], repr(round(mo["bx_m"] * 1.10, 4))), ["scia", "mx"], repr(round(mo["mx"] * 1.20, 4)))
+    nr = Note(r_)
+    ex = ef["extremes"]
+    chk("revue N4 · SCIA saisi (r = 1,10 en bas, 1,20 en haut) : les valeurs écrites sous les cartes des moments sont celles des cartes "
+        "(× le rapport SCIA) et le disent",
+        f"mx max = {fr(ex['inf_x'] * 1.10)} kN·m/m" in nr.texte and f"mx min = {fr(ex['sup_x'] * 1.20)} kN·m/m" in nr.texte
+        and "Valeurs du module × le rapport SCIA, comme les cartes." in nr.texte, nr.texte[nr.texte.find("mx max"):][:200])
+    sig = mod(type_, ["scia", "sigma", "2"], "0,60")
+    nsig = Note(sig)
+    nsig2 = Note(mod(mod(mod(sig, ["scia", "bx_m"], repr(round(mo["bx_m"] * 1.02, 4))), ["scia", "bx_v"], repr(round(mo["bx_v"], 4))),
+                     ["scia", "mx"], repr(round(mo["mx"] * 0.99, 4))))
+    chk("revue N5 · σ max SCIA seul saisi (0,60 kg/cm² pour k = 2) : la comparaison n'est plus « non saisie », l'écart est à vérifier ; avec "
+        "les moments qui concordent : « Écarts à vérifier … σ max, k = 2 », jamais « concordent »",
+        "Valeurs SCIA non saisies" not in nsig.texte and "Écarts à vérifier" in nsig.texte and "sur σ max, k = 2 MN/m³" in nsig.texte
+        and "Écarts à vérifier" in nsig2.texte and "concordent" not in nsig2.texte, nsig2.texte[nsig2.texte.find("Module / SCIA"):][:400])
+    vi = M._avec(dalle={"Lx": 7.4, "Ly": 7.4}, grue={"a": 3.8, "b": 3.8, "plots": {"type": "coule", "a": 3.0, "b": 3.0, "h": 0.35}})
+    nvi = Note(mod(vi, ["scia", "bx_v"], "120"))
+    chk("revue N6 · V à d illisible (dalle 7,40, châssis 3,80, plots coulés 3,00) et V SCIA saisi : la note s'imprime, la ligne dit « SCIA seul »",
+        "SCIA seul" in nvi.texte, nvi.texte[nvi.texte.find("Module / SCIA"):][:300])
+    vieux = mod(mod(mod(type_, ["scia", "bx_m"], "75"), ["scia", "bx_v"], "90"), ["scia", "mx"], "-130")
+    nv = Note(mod(vieux, ["dalle", "h"], "0,45"))
+    chk("revue N7 · valeurs SCIA tapées puis h changé : la note dit qu'elles sont d'un autre modèle, non utilisées",
+        SCM.PERIME in nv.texte, nv.texte[nv.texte.find("Module / SCIA"):][:300])
 
 
 def complets():
@@ -315,13 +399,13 @@ def complets():
 
 
 MUTATIONS = [
-    ("note_saf.py", '''    sec = dict(F, section="Données", bande=True, coupe_w=300)''', '''    sec = dict(F, section="Données", bande=False, coupe_w=300)''',
+    ("note_saf.py", '''    sec = dict(F, section="Données", bande=True, coupe_w=300, n_cols=1)''', '''    sec = dict(F, section="Données", bande=False, coupe_w=300, n_cols=1)''',
      "la page Données sans sa bande grise"),
     ("note_saf.py", '''            li += [("num", C.nb(c["R"][p_])), ("num", _q(-row[iq]) if row else "—")]''',
      '''            li += [("num", C.nb(c["R"][p_])), ("num", C.nb(c["R"][p_]))]''', "q = R au lieu de la valeur FF du SAF"),
     ("note_saf.py", '''                    parts.append(f"{lc} × {_n(f_, 2)}")''', '''                    parts.append(f"{lc}")''', "les combinaisons sans leurs coefficients"),
-    ("note_saf.py", '''        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": [''',
-     '''        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": [] and [''', "le tableau de tous les cas vide"),
+    ("note_saf.py", '''        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": items, "verdicts": []})''',
+     '''        verifs.append({"titre": "Tous les cas, pour chaque k coché « SCIA »", "items": items[:1], "verdicts": []})''', "le tableau de tous les cas vide"),
     ("note_saf.py", '''TEXTE_MINI = 7.0''', '''TEXTE_MINI = 2.0''', "des dessins au texte trop petit pour être lu imprimé"),
     ("note_saf.py", '''        verifs.append({"titre": "Module / SCIA", "items": [("t", "Valeurs SCIA non saisies")], "verdicts": []})''',
      '''        verifs.append({"titre": "Module / SCIA", "items": [("t", "—")], "verdicts": []})''', None),
@@ -334,7 +418,29 @@ MUTATIONS = [
      "un titre de chapitre laissé seul en bas d'une colonne"),
     ("note_saf.py", '''            besoin = max(58.0, S.title_gap + S.s_tit + self.hauteur_premier(fr, v))''', '''            besoin = 0.0''',
      "un titre laissé seul en bas d'une colonne"),
-    ("dessin_efforts_saf.py", '''    for v, mot in ((tb, "treillis bas"), (th, "treillis haut")):''', '''    for v, mot in ():''', "les diagrammes sans le treillis"),
+    ("dessin_efforts_saf.py", '''    for v, mot in traits:''', '''    for v, mot in ():''', "les diagrammes sans le treillis"),
+    # (revue du 15/11/2026)
+    ("dessin_efforts_saf.py", '''font-weight="600" text-anchor="{ancre}" '
+            f'fill="#ffffff" stroke="#ffffff"''', '''text-anchor="{ancre}" '
+            f'fill="none" stroke="#ffffff"''', "le liseré des diagrammes peint en noir (une ombre décalée)"),
+    ("dessin_armatures.py", '''        if r["sens"] == "x":
+            cx, cy = min(xs) + 0.22 * (max(xs) - min(xs)), sum(ys) / 4''', '''        if True:
+            cx, cy = sum(xs) / 4, sum(ys) / 4''', "les repères x et y d'un même pied l'un sur l'autre"),
+    ("dessin_saf.py", '''    carte_note = not interactif and (champ is not None or armatures is not None)''', '''    carte_note = False''',
+     "la valeur pointée, le plot et les cotes plaque–bord écrits sur les cartes de la note"),
+    ("dessin_saf.py", ''' + 1.8 * t / ECH''', ''' + 1.0 * t / ECH''', "« P4 » collé à la plaque, sous la cote 0,75"),
+    ("note_saf.py", '''K_PAR_TABLEAU = 3 ''', '''K_PAR_TABLEAU = 9 ''', "cinq k dans un seul tableau (les en-têtes se chevauchent)"),
+    ("note_saf.py", '''            if it[0] == "fig" and it[2] is None and any(''', '''            if False and it[0] == "fig" and it[2] is None and any(''',
+     "un titre gardé avec la seule légende (son diagramme sur la page suivante)"),
+    ("note_saf.py", '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''',
+     '''        a_, b_ = max(p[0] for p in s0) - min(p[0] for p in s0), max(p[1] for p in s0) - min(p[1] for p in s0)''', "la boîte d'un carré tourné prise pour son côté"),
+    ("note_saf.py", '''{_n(ex[c] * ept[c], 1)} kN·m/m''', '''{_n(ex[c], 1)} kN·m/m''', "les valeurs sous les cartes sans le rapport SCIA"),
+    ("note_saf.py", '''            chapitres.append(page_efforts(el, calc, ef, fer, F, style))''',
+     '''            chapitres.append(page_efforts(el, calc, ef, fer, F, style)) if not fer.get("hors_domaine") else None''', "le chapitre Efforts retiré hors du moteur Dalles"),
+    ("note_saf.py", '''            elif li["r"] is None:''', '''            elif False:''', "la note qui plante sur une valeur SCIA sans valeur du module"),
+    ("note_saf.py", '''("eta", "à vérifier" if x["alerte"] else "concorde", not x["alerte"])''', '''("eta", "concorde", True)''', "un écart sur σ max dit « concorde »"),
+    ("note_saf.py", '''        if sc.get("perime"):''', '''        if False:''', "des valeurs SCIA périmées dites « non saisies »"),
+    ("note_saf.py", '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', None),
 ]
 MUTATIONS = [m_ for m_ in MUTATIONS if m_[3] is not None]
 TEMOIN = ("note_saf.py", 'TITRE = "Fondation de grue"', 'TITRE = "Fondation de grue"')

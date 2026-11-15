@@ -5006,6 +5006,17 @@ const principal = async () => {
           return { t: sp.textContent, tw: Math.round(tw), place: Math.round(s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) }; }), VIS);
         verif(`saf · ${fmt} : chaque menu de la barre du dessin montre son choix EN ENTIER (« Contrainte », « Enveloppe »…)`,
           menus.length >= 2 && menus.every((m) => m.tw <= m.place + 0.5), JSON.stringify(menus));
+        // (U8, lot 5 — revue du 15/11/2026 : « serre » remet la barre sur deux lignes et ses menus, élargis, passaient le
+        //  contrôle ci-dessus ; à la tablette, la barre du centre tient sur UNE ligne : pas de « serre », tous ses enfants vus
+        //  au même haut, à 1 px près)
+        if (!tel) {
+          const barre = await pg.evaluate((VIS) => { const b = document.querySelector('#stage .sf-barre');
+            if (!b) return null;
+            const hauts = [...b.children].filter((e) => e.checkVisibility(VIS)).map((e) => Math.round(e.getBoundingClientRect().top));
+            return { serre: b.classList.contains('serre'), hauts }; }, VIS);
+          verif(`saf · ${fmt} : U8 la barre du centre tient sur UNE ligne (carte, cas, k) — pas de « serre », ses menus au même haut`,
+            !!barre && !barre.serre && barre.hauts.length >= 2 && Math.max(...barre.hauts) - Math.min(...barre.hauts) <= 1, JSON.stringify(barre));
+        }
         const dv = await planS(pg);
         verif(`saf · ${fmt} : le plan est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '450 × 300 au moins'}), dans sa toile et dans l'écran ; la carte est sur la dalle ; chaque texte dans le dessin, aucun sur un autre`,
           !!dv && dv.dedans && dv.carteSurDalle && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 450 && dv.h >= 300), JSON.stringify(dv ? { hors: dv.hors, dessus: dv.dessus, l: dv.l, h: dv.h, zone: dv.zone, dedans: dv.dedans, carte: dv.carteSurDalle, texte: dv.texte } : null).slice(0, 600));

@@ -298,3 +298,32 @@ Le cahier des charges version 4 est le seul du lot 5 (il remplace les versions 1
 10. La note : les grands tableaux tiennent dans une colonne (en-têtes courts R1, q1…) plutôt que sur toute la page ;
     sur les plans du principe, les renforts locaux sont en contour (tirets), sans barres ni repère — le tableau des
     renforts les dit — pour rester lisibles imprimés.
+
+**Relecture indépendante (15/11/2026) : ce qu'elle a trouvé et ce qui a été corrigé** — cinq relecteurs, chaque défaut
+contre-vérifié par un second ; chaque correction est figée par un contrôle qui rougit sans elle (une mutation le prouve).
+
+- *Non conservatif* : (1) châssis à 90° : le sens d'une bande se tirait de son NOM — les barres en x n'étaient plus
+  contrôlées au point dans les bandes BX devenues verticales ; le sens vient maintenant de la direction de la bande
+  (`armatures.axe_bande`, l'axe le plus proche ; à 45° tout juste, celui du nom comme l'annexe A — à moins de 45°, rien ne
+  change par rapport à l'annexe) ; l'échelle SCIA du bas suit le nom (r des bandes BX pour BX), celle du haut et celle de
+  la carte au point suivent le sens des barres (`echelle_carte`). (2) A_s,min est lu au cm SUPÉRIEUR de h (d reste au cm
+  inférieur) : 0,509 m donnait un treillis « au-dessus du minimum » à tort. (3) r = |SCIA| ÷ |module| : un moment tapé
+  avec le signe opposé effaçait les renforts de la face ; c'est maintenant une alerte. (4) « x = y » n'est cochée d'office
+  que si les appuis, les plots et les ressorts du sol sont symétriques par l'échange x ↔ y. (5) Les valeurs SCIA sont liées
+  au modèle pour lequel elles ont été tapées (`scia.signature`, gardée dans `scia.base`) : les données changent, elles ne
+  servent plus (« à ressaisir »), l'étape 4 se décoche, retaper une valeur efface les autres. (6) Le collage Excel est tout
+  ou rien (plus de lignes que de jeux, case vide : refusé avec la raison).
+- *Faux / écarts au cahier* : σ max SCIA en écart compte dans les alertes et dans « saisi » ; la note ne plante plus sur
+  une valeur SCIA sans valeur du module (« SCIA seul ») ; les valeurs écrites sous les cartes des moments sont × le rapport
+  SCIA ; le carré de diffusion d'un châssis tourné donne ses côtés ; le chapitre Efforts reste hors du moteur Dalles (sans
+  trait m_Rd) ; la page Données tient en une colonne large ; un titre part avec son premier diagramme ; « Tous les cas » :
+  trois k par tableau ; plus aucun texte sur un autre dans la note (repères x et y décalés le long des barres, liseré blanc
+  des diagrammes, valeur pointée et plot dans la marge des cartes imprimées, distances plaque–bord seulement sur la page
+  Données) ; l'étape « SAF » ne se décoche plus quand on change un treillis ; la carte ARMATURES dit l'acier demandé, le U
+  de fermeture (le treillis le plus FORT, A_s au mètre) et « Ferraillage du plot : à prévoir (non dimensionné) » ; « Non
+  vérifiés » garde le poinçonnement et les plots hors du moteur Dalles ; l'aide « Dans SCIA » donne la limite de chaque
+  carte et de chaque face ; les alertes SCIA (§ 8.2) sont écrites à l'écran ; un renfort local est coupé par le contour réel
+  (sur les lignes de ses barres) — l'annexe A a le même défaut, son principe reste celui de l'annexe, la coupe se fait dans
+  `armatures.calculer` (`dans_dalle`).
+- *Tests renforcés* : T11 à « 0,0000 % » (5·10⁻⁷, au lieu de 0,01 %), A3 (largeur lue sur le rectangle, barres liées à
+  leur repère), NC6 (la ligne M−), U8 (la barre du centre sur une ligne à la tablette, harnais).

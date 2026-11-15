@@ -8,6 +8,7 @@ Ce fichier ne calcule rien : il met en mots le principe d'armatures (``saf.fonda
 tableau module / SCIA (``saf.fondation_grue.scia.rapports``)."""
 from typing import Dict, List, Optional, Tuple
 
+from saf.fondation_grue import armatures as AR
 from saf.fondation_grue import scia as SC
 
 from . import commun as C
@@ -71,9 +72,11 @@ def m_txt(x: float) -> str:
 
 
 def ligne_flexion(m: float, mrd: float, liste: List[Dict]) -> str:
-    """La flexion d'une direction : « m = 186,7 &gt; m_Rd = 97,3 kN·m/m · R1–R4 : 4 Ø12 »."""
+    """La flexion d'une direction : « m = 186,7 &gt; m_Rd = 97,3 kN·m/m · R1–R4 : 4 Ø12 · A_s,néc = 1 448 mm²/m » (l'acier
+    demandé du renfort le plus exigeant, § 5.2 — revue du 15/11/2026)."""
     signe = "&gt;" if m > mrd + 1e-9 else "≤"
-    return f"m{N}={N}{C.fr(m, 1)} {signe} m<sub>Rd</sub>{N}={N}{m_txt(mrd)} · {ligne_barres(liste)}"
+    acier = f" · A<sub>s,néc</sub>{N}={N}{C.fr(max(r['besoin'] for r in liste), 0)}{N}mm²/m" if liste else ""
+    return f"m{N}={N}{C.fr(m, 1)} {signe} m<sub>Rd</sub>{N}={N}{m_txt(mrd)} · {ligne_barres(liste)}{acier}"
 
 
 def ligne_acier(r: Dict) -> str:
@@ -107,7 +110,9 @@ def groupe_bandes(fer: Dict, ef: Dict, sens: str) -> Dict:
     bds = [b for b in ef["bandes"] if b["nom"].startswith(pref)]
     ech = fer.get("echelle") or {}
     m_inf = [max(b["Mmax"][~b["dans_plot"]].max() if (~b["dans_plot"]).any() else 0.0, 0.0) / b["largeur"] * ech.get(f"inf_{sens}", 1.0) for b in bds]
-    m_sup = [max(-b["Mmin"][~b["dans_plot"]].min() if (~b["dans_plot"]).any() else 0.0, 0.0) / b["largeur"] * ech.get(f"sup_{sens}", 1.0) for b in bds]
+    # (en haut, l'échelle SCIA du sens des barres de la bande — celui du principe, ``armatures.axe_bande``)
+    m_sup = [max(-b["Mmin"][~b["dans_plot"]].min() if (~b["dans_plot"]).any() else 0.0, 0.0) / b["largeur"] * ech.get(f"sup_{AR.axe_bande(b)}", 1.0)
+             for b in bds]
     tr = [fer["tranchant"][b["nom"]] for b in bds]
     pareil = (len(bds) == 2 and abs(m_inf[0] - m_inf[1]) < 0.05 and abs(m_sup[0] - m_sup[1]) < 0.05
               and all(t["V"] is not None for t in tr) and abs(tr[0]["V"] - tr[1]["V"]) < 0.05)
@@ -168,9 +173,17 @@ def carte(el: Dict, fer: Dict, ef: Dict, sc: Optional[Dict]) -> str:
         z = zones_txt(fer, face)
         rows += C.ligne_verif(f"Zones rouges · {mot.lower()}", z, None, "c", calcul="a0",
                               etat_txt="renforts locaux" if z != "aucune" else "aucune")
+    # (§ 7.5 : le U de fermeture ; un plot coulé en place : son ferraillage à prévoir)
+    rows += C.ligne_verif("U de fermeture", C.esc(fer["u"].split(" : ", 1)[1]), None, "c", calcul="a0", etat_txt="principe")
+    if fer.get("plot"):
+        rows += C.ligne_verif("Ferraillage du plot", C.esc(fer["plot"].split(" : ", 1)[1]), None, "v", etat_txt="à vérifier")
     if sc is not None:
         rows += ligne_scia(sc)
     pied = "".join(C.message(C.esc(t), n == "r") for t, n in fer["alertes"])
+    if sc is not None:
+        # (§ 8.2 : la phrase d'écart « … — vérifier le modèle SCIA (k, bandes, unités) », un signe opposé, des valeurs
+        #  tapées pour un autre modèle — écrites à l'écran, pas seulement dans la note)
+        pied += "".join(C.message(C.esc(t), False) for t in sc["alertes"])
     cls, mot = ETATS[fer["etat"]]
     return E.bloc(3, "Armatures", cls, mot, "", rows, pied, theme=True, calcul="a0")
 
@@ -178,12 +191,16 @@ def carte(el: Dict, fer: Dict, ef: Dict, sc: Optional[Dict]) -> str:
 def ligne_scia(sc: Dict) -> str:
     """La ligne « Écart module / SCIA » de la carte (§ 8.2) : les rapports r saisis ; une pastille orange hors de 0,85 à
     1,15 ; « à saisir » tant que le tableau est vide (étape 4)."""
+    if sc.get("perime"):
+        return C.ligne_verif("Écart module / SCIA", "valeurs SCIA d'un autre modèle : non utilisées", None, "v", etat_txt="à ressaisir")
     if not sc["saisi"]:
         return C.ligne_verif("Écart module / SCIA", "valeurs SCIA à saisir (bloc 3)", None, "c", etat_txt="à saisir")
     vus = [li for li in sc["lignes"] if li["r"] is not None and li["cle"] in sc["a_taper"]]
-    txt = " · ".join(f"{_court(li['cle'], sc['sym'])} r{N}={N}{C.fr(li['r'], 2)}" for li in vus)
-    pire = max((li["ecart"] for li in vus), default=0.0)
-    alerte = any(li["alerte"] for li in vus)
+    sig = [x for x in sc["sigma"] if x["r"] is not None]
+    txt = " · ".join([f"{_court(li['cle'], sc['sym'])} r{N}={N}{C.fr(li['r'], 2)}" for li in vus]
+                     + [f"σ k{N}{C.nb(x['k'])} r{N}={N}{C.fr(x['r'], 2)}" for x in sig])
+    pire = max([li["ecart"] for li in vus] + [x["ecart"] for x in sig], default=0.0)
+    alerte = any(li["alerte"] for li in vus) or any(x["alerte"] for x in sig) or any(li["oppose"] for li in sc["lignes"])
     return C.ligne_verif("Écart module / SCIA", txt, None, "v" if alerte else "p", etat_txt=f"{C.fr(pire * 100, 1)}{N}%" if alerte else "concordent")
 
 
@@ -276,13 +293,19 @@ def aide_scia(el: Dict, m: Dict, ef: Optional[Dict], fer: Optional[Dict]) -> str
         lus = [x for x in xs if -1e-9 <= x <= b["L"] + 1e-9]
         coord = "x" if abs(u[0]) >= abs(u[1]) else "y"
         pos = f"sur {b['nom']}, à {coord} = " + " ; ".join(C.fr((p0[0] if coord == 'x' else p0[1]) + x * (u[0] if coord == 'x' else u[1]), 2) for x in lus) + f"{N}m"
-    mrd = f"{C.fr(min(fer['res']['mRd'].values()), 1)}{N}kN·m/m" if fer and not fer.get("hors_domaine") else "m_Rd du treillis"
+    # (la limite de CHAQUE carte et de chaque face : celle des zones rouges du module — revue du 15/11/2026)
+    if fer and not fer.get("hors_domaine"):
+        r_ = fer["res"]["mRd"]
+        mrd = (f"m<sub>x</sub> : {C.fr(r_['inf_x'], 1)} en bas, −{C.fr(r_['sup_x'], 1)} en haut ; m<sub>y</sub> : {C.fr(r_['inf_y'], 1)} en bas, "
+               f"−{C.fr(r_['sup_y'], 1)} en haut (kN·m/m)")
+    else:
+        mrd = "m_Rd du treillis"
     etapes = ["Ouvrir le SAF, lancer le calcul.",
               f"Créer 4 bandes d'intégration de {lg}{N}m : {bandes}. L'option « arêtes internes » met leurs axes dans le modèle.",
               "Lire M+ le plus fort des bandes x et des bandes y.",
               f"Lire V à d : {pos}." if pos else "Lire V à d à d du nu des zones chargées.",
               "Lire m<sub>x</sub> et m<sub>y</sub> les plus négatifs sur la carte 2D (efforts de base).",
-              f"Contrôle : carte m<sub>x</sub> (puis m<sub>y</sub>), limite de l'échelle à {mrd} ; hors des bandes, ce qui dépasse = les zones rouges.",
+              f"Contrôle : carte m<sub>x</sub> (puis m<sub>y</sub>), limite de l'échelle à m<sub>Rd</sub> — {mrd} ; hors des bandes, ce qui dépasse = les zones rouges.",
               "Imprimer la note SCIA en PDF, pour la joindre."]
     corps = "".join(f"<li>{t}</li>" for t in etapes)
     return (f'<details class="sf-aide" data-plan-volet="aide-scia"><summary><b>Dans SCIA</b>{C.icon("chevron-down")}</summary>'

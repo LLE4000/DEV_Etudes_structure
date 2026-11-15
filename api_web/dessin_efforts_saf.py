@@ -125,29 +125,37 @@ def _etiquette(c: _Cadre, s: float, v: float, txt: str, couleur: str, dessus: bo
     yy = y - 4 if dessus else y + 9
     yy = min(max(yy, c.y0 + 8), c.y1 - 3)
     return (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.8" fill="{couleur}"/>'
-            f'<text x="{x + dx:.1f}" y="{yy:.1f}" font-size="{TXT:.1f}" font-family="{POLICE}" text-anchor="{ancre}" fill="none" '
-            f'stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round">{C.esc(txt)}</text>' + _t(x + dx, yy, txt, TXT, couleur, ancre, True))
+            f'<text x="{x + dx:.1f}" y="{yy:.1f}" font-size="{TXT:.1f}" font-family="{POLICE}" font-weight="600" text-anchor="{ancre}" '
+            f'fill="#ffffff" stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round">{C.esc(txt)}</text>' + _t(x + dx, yy, txt, TXT, couleur, ancre, True))
 
 
-def moments(b: Dict, mrd_inf: float, mrd_sup: float, ech_inf: float = 1.0, ech_sup: float = 1.0, w: float = 380.0, h: float = 150.0) -> str:
+def moments(b: Dict, mrd_inf: Optional[float], mrd_sup: Optional[float], ech_inf: float = 1.0, ech_sup: float = 1.0, w: float = 380.0,
+            h: float = 150.0) -> str:
     """M(s) de la bande ``b`` (kN·m sur la largeur) : M+ et M− en enveloppe (× l'échelle SCIA de la face, § 8.2), le treillis du
-    bas (+ m_Rd × b) et du haut (− m_Rd × b) en trait interrompu, M+ et M− les plus forts écrits (hors des plots coulés)."""
+    bas (+ m_Rd × b) et du haut (− m_Rd × b) en trait interrompu — sans m_Rd (hors du moteur Dalles), pas de trait —, M+ et M−
+    les plus forts écrits (hors des plots coulés)."""
     s = np.asarray(b["s"], float)
     lb = b["largeur"]
     mp, mn = np.asarray(b["Mmax"], float) * ech_inf, np.asarray(b["Mmin"], float) * ech_sup
-    tb, th = mrd_inf * lb, -mrd_sup * lb
+    traits = [] if mrd_inf is None or mrd_sup is None else [(mrd_inf * lb, "treillis bas"), (-mrd_sup * lb, "treillis haut")]
+    tb, th = (traits[0][0], traits[1][0]) if traits else (0.0, 0.0)
     ymax = max(float(mp.max()), tb, 0.0) * 1.18 or 1.0
     ymin = min(float(mn.min()), th, 0.0) * 1.18 or -1.0
     c = _Cadre(w, h, b["L"], ymin, ymax)
     out = [_zones(c, b), _axes(c, "kN·m"), _courbe(c, s, mp, M_PLUS), _courbe(c, s, mn, M_MOINS)]
-    for v, mot in ((tb, "treillis bas"), (th, "treillis haut")):
+    hors = ~np.asarray(b["dans_plot"], bool)
+    ip = int(np.argmax(np.where(hors, mp, -np.inf))) if hors.any() else None
+    im = int(np.argmin(np.where(hors, mn, np.inf))) if hors.any() else None
+    for v, mot in traits:
         y = c.Y(v)
         out.append(f'<line x1="{c.x0:.1f}" y1="{y:.1f}" x2="{c.x1:.1f}" y2="{y:.1f}" stroke="{TREILLIS}" stroke-width="0.9" stroke-dasharray="4 2.5"/>')
-        out.append(_t(c.x1 - 2, y - 2.5 if v > 0 else y + 8.5, f"{mot} {C.fr(v, 1)}", TXT, TREILLIS, "end"))
-    hors = ~np.asarray(b["dans_plot"], bool)
+        # (le texte du treillis du côté OPPOSÉ à la valeur écrite de sa face : à droite tous les deux, ils se recouvraient
+        #  — revue du 15/11/2026)
+        i_ = ip if v > 0 else im
+        gauche = i_ is not None and s[i_] > b["L"] / 2
+        out.append(_t(c.x0 + 2 if gauche else c.x1 - 2, y - 2.5 if v > 0 else y + 8.5, f"{mot} {C.fr(v, 1)}", TXT, TREILLIS,
+                      "start" if gauche else "end"))
     if hors.any():
-        ip = int(np.argmax(np.where(hors, mp, -np.inf)))
-        im = int(np.argmin(np.where(hors, mn, np.inf)))
         out.append(_etiquette(c, s[ip], mp[ip], f"M+ {C.fr(mp[ip], 1)} ({C.fr(mp[ip] / lb, 1)}/m)", M_PLUS, True))
         out.append(_etiquette(c, s[im], mn[im], f"M− {C.fr(mn[im], 1)} ({C.fr(mn[im] / lb, 1)}/m)", M_MOINS, False))
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" height="{h:.0f}">{"".join(out)}</svg>'

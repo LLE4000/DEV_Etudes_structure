@@ -217,15 +217,30 @@ def rapides():
     for r in fer7["renforts"]:
         g = AR.section(e7, {r["cle_section"]: r["m_dim"]})["grandeurs"]
         besoin = max(g[f"As_req_{r['cle_section']}"], g[f"As_min_{r['cle_section']}"])
-        n = math.ceil((besoin - 1000 * math.pi * 12 ** 2 / 4 / 150) * r["largeur"] / (math.pi * r["d"] ** 2 / 4) - 1e-9)
-        if n != r["n"] or abs(r["besoin"] - besoin) > 1e-9:
+        # (la largeur relue sur le RECTANGLE du renfort, pas sur la valeur du module — revue du 15/11/2026 : une largeur
+        #  prise pour la longueur passait)
+        larg = ef7["largeur"] if r["type"] == "bande" else ((r["y1"] - r["y0"]) if r["sens"] == "x" else (r["x1"] - r["x0"]))
+        n = math.ceil((besoin - 1000 * math.pi * 12 ** 2 / 4 / 150) * larg / (math.pi * r["d"] ** 2 / 4) - 1e-9)
+        if n != r["n"] or abs(r["besoin"] - besoin) > 1e-9 or abs(r["largeur"] - larg) > 1e-9:
             faux.append((r["rep"], r["n"], n))
     from api_web import saf_armatures as SAW
+    import re as RE
     sc7 = SC.rapports(e7, ef7, None)
     carte = SAW.carte(e7, fer7, ef7, sc7).replace(" ", " ")
+    # les barres de la carte, renfort par renfort : « R1–R4 : 4 Ø12 », « R1, R3 : 4 Ø12 », « R5 3 Ø12, R6 4 Ø12 »
+    lues = {}
+    for grp, n_, d_ in RE.findall(r"(R\d+(?:–R\d+)?(?:, R\d+)*)\s*:\s*(\d+) Ø(\d+)", carte):
+        for part in grp.split(", "):
+            a_, _, b_ = part.partition("–")
+            for i in range(int(a_[1:]), int((b_ or a_)[1:]) + 1):
+                lues[f"R{i}"] = (int(n_), int(d_))
+    for rep_, n_, d_ in RE.findall(r"(R\d+) (\d+) Ø(\d+)", carte):
+        lues.setdefault(rep_, (int(n_), int(d_)))
+    mal = [(r["rep"], r["n"], lues.get(r["rep"])) for r in fer7["renforts"] if r["n"] and lues.get(r["rep"]) != (r["n"], r["d"])]
     chk(f"A3 dalle 10,70 × 10,70 × 0,50 sans plot, Ø12 e 15 : pour chacun des {len(fer7['renforts'])} renforts, n = ⌈(A_s(m_dim) − 754) × "
-        "largeur ÷ aire d'une barre⌉ avec A_s() du moteur Dalles (max(A_s,req ; A_s,min)) ; la carte ARMATURES de l'écran écrit ces barres",
-        len(fer7["renforts"]) > 8 and not faux and all(f"{r['n']} Ø{r['d']}" in carte for r in fer7["renforts"] if r["n"]), faux[:4])
+        "largeur ÷ aire d'une barre⌉ avec A_s() du moteur Dalles (max(A_s,req ; A_s,min)), la largeur lue sur son rectangle ; la carte "
+        "ARMATURES de l'écran écrit les barres de CHAQUE renfort sous SON repère",
+        len(fer7["renforts"]) > 8 and not faux and not mal, (faux[:4], mal[:4]))
     chk("A3 un renfort de bande de la dalle 10,70 : sur toute la largeur de la bande (0,50 m), de la limite + l'ancrage, m_dim = 186,7 kNm/m "
         "(T19) ; n barres de Ø12",
         (lambda r: r["largeur"] == 0.5 and f"{r['m_dim']:.1f}" == "186.7" and r["n"] >= 2 and r["d"] == 12)(fer7["renforts"][0]),
@@ -348,6 +363,135 @@ def rapides():
         and abs(rs["echelle"]["sup_x"] - 150.0 / -mo["mx"]) < 1e-12 and rs["echelle"]["sup_y"] == 1.0 and len(rs["a_taper"]) == 6
         and abs(next(s for s in rsig["sigma"] if s["k"] == 10.0)["r"] - 100 / 110.3) < 1e-12
         and rsig["echelle"] == {"inf_x": 1.0, "inf_y": 1.0, "sup_x": 1.0, "sup_y": 1.0}, (rs["echelle"], rsig["sigma"]))
+    revue_15_11(el, m, ef, mo, fer)
+
+
+def revue_15_11(el, m, ef, mo, fer):
+    """Les défauts NON CONSERVATIFS trouvés par la relecture indépendante du 15/11/2026 (chacun a sa mutation)."""
+    import copy
+    print("== 3 bis. revue du 15/11/2026 : châssis à 90°, A_s,min, signe SCIA, « x = y », valeurs SCIA d'un autre modèle")
+    # R1 : à β = 90°, la dalle type est la même qu'à β = 0 (châssis carré centré) : mêmes zones rouges, mêmes renforts ;
+    # une bande BX y porte des barres en y
+    e90 = projet(grue={"beta": 90.0})
+    f90 = AR.calculer(e90, *efforts(e90))
+    def compte(f):
+        return ({c: int(f["rouge"][c].sum()) for c in AR.CLES},
+                {c: sorted(r["type"] for r in f["renforts"] if r["cle"] == c) for c in AR.CLES})
+    chk("revue R1 · châssis tourné de 90° (dalle type) : les mêmes nœuds rouges et les mêmes renforts qu'à 0° (16 nœuds rouges en bas en x, "
+        "4 renforts locaux) ; les renforts de la bande BX1 vont en y — le sens d'une bande suit sa direction, pas son nom (§ 7.2, 7.3)",
+        compte(f90) == compte(fer) and compte(fer)[0]["inf_x"] == 16
+        and {r["sens"] for r in f90["renforts"] if r["bande"] == "BX1"} == {"y"}
+        and {r["sens"] for r in fer["renforts"] if r["bande"] == "BX1"} == {"x"}, (compte(fer), compte(f90)))
+    # R2 : h = 0,509 m — A_s,min au cm SUPÉRIEUR (51 cm : 768,1 mm²/m > Ø12 e 15 = 754,0)
+    e51 = projet(h=0.509)
+    f51 = AR.calculer(e51, *efforts(e51))
+    chk("revue R2 · h = 0,509 m : A_s,min lu à 51 cm (768,14 mm²/m) — le treillis Ø12 e 15 (754,0) est SOUS le minimum, « Treillis sous "
+        "le minimum » ; le besoin de chaque renfort compte ce minimum ; d reste lu à 50 cm",
+        # (à la main : 0,26 × f_ctm ÷ f_yk × b × h = 0,26 × 0,30 × 30^(2/3) ÷ 500 × 1000 × 510 = 768,14 mm²/m)
+        f2(f51["treillis"]["As_min"]["inf_x"]) == f2(0.26 * 0.30 * 30 ** (2 / 3) / 500 * 1000 * 510) == "768.14" and not any(f51["treillis"]["ok_min"].values()) and f51["etat"] == "nok"
+        and any("Treillis sous le minimum" in a for a, _ in f51["alertes"]) and AR.h_moteur(e51) == 50 and AR.h_plafond(e51) == 51
+        and all(r["besoin"] >= 768.14 - 1e-6 for r in f51["renforts"]) and all(fer["treillis"]["ok_min"].values()),
+        (f51["treillis"]["As_min"], f51["treillis"]["ok_min"]))
+    # R3 : un moment SCIA tapé avec le signe opposé (140,8 au lieu de −140,8) — r = |SCIA| ÷ |module|, alerte, renforts gardés
+    def avec(**v):
+        e_ = copy.deepcopy(el)
+        e_["scia"].update(v)
+        r_ = SC.rapports(e_, ef)
+        return r_, AR.calculer(e_, m, ef, r_)
+    r_bon, f_bon = avec(mx=mo["mx"])
+    r_inv, f_inv = avec(mx=-mo["mx"])
+    r_bas, f_bas = avec(bx_m=-mo["bx_m"])
+    def n(f, face):
+        return sum(1 for r in f["renforts"] if r["face"] == face)
+    chk("revue R3 · m_x SCIA tapé +140,8 au lieu de −140,8 : r = 1 (|SCIA| ÷ |module|), les 12 renforts du haut gardés, l'alerte « Signe "
+        "SCIA opposé à celui du module… » ; M+ SCIA négatif : les renforts du bas gardés ; aucune échelle ≤ 0",
+        f2(r_inv["echelle"]["sup_x"]) == "1.00" and n(f_inv, "sup") == n(f_bon, "sup") == 12 and n(f_bas, "inf") == n(f_bon, "inf")
+        and r_inv["alertes"] and r_inv["alertes"][0].startswith("Signe SCIA opposé à celui du module sur dalle : m_x le plus négatif")
+        and not r_bon["alertes"] and all(v > 0 for r_ in (r_inv, r_bas) for v in r_["echelle"].values()),
+        (r_inv["echelle"], r_inv["alertes"], n(f_inv, "sup"), n(f_bas, "inf")))
+    # R4 : « x = y » d'office seulement si appuis, plots et sol sont symétriques ; l'alerte d'une ligne y n'est plus cachée
+    def rect(a, b, **k):
+        e_ = projet(**k)
+        e_["grue"]["rect"]["a"], e_["grue"]["rect"]["b"] = a, b
+        return e_
+    e_c2 = projet()
+    e_c2["options"]["c2y"] = 0.2
+    sy = [SC.symetrique(x) for x in (rect(0.5, 0.5), rect(0.70, 0.35), rect(0.60, 0.40), projet(plots=PREF), e_c2, projet(grue={"beta": 90.0}))]
+    e7035 = rect(0.70, 0.35)
+    m7035, ef7035 = efforts(e7035)
+    mo7035 = SC.module(ef7035)
+    e7035["scia"].update(sym=True, bx_m=mo7035["bx_m"], bx_v=mo7035["bx_v"], mx=mo7035["mx"])
+    r7035 = SC.rapports(e7035, ef7035)
+    chk("revue R4 · « x = y » cochée d'office : appuis 0,50 × 0,50, plots carrés, β = 90° — oui ; appuis 0,70 × 0,35 ou 0,60 × 0,40 à 0°, "
+        "C2y ≠ C2x — non ; « x = y » cochée à la main sur les appuis 0,70 × 0,35 : la ligne y (r = 63,0 ÷ 77,1) garde son alerte",
+        sy == [True, False, False, True, False, True]
+        and any("bandes BY : M+ le plus fort" in a for a in r7035["alertes"]), (sy, r7035["alertes"]))
+    # R5 : des valeurs SCIA tapées pour un AUTRE modèle (h changé ensuite) ne servent plus ; le nom ou la limite n'y font rien
+    e_s = copy.deepcopy(el)
+    e_s["scia"].update(bx_m=mo["bx_m"], bx_v=mo["bx_v"] * 0.5, mx=mo["mx"])
+    e_s["scia"]["base"] = SC.signature(e_s)
+    e_h = copy.deepcopy(e_s)
+    e_h["dalle"]["h"] = 0.45
+    e_n = copy.deepcopy(e_s)
+    e_n["nom"], e_n["limite"] = "Autre", 2.0
+    e_n["armatures"]["inf"]["x"]["d"] = 16
+    r_s, r_h, r_n = SC.rapports(e_s, ef), SC.rapports(e_h, ef), SC.rapports(e_n, ef)
+    chk("revue R5 · valeurs SCIA tapées puis h changé : elles ne servent plus (r = 1, V du module, « à ressaisir », étape non complète) ; "
+        "changer le nom, la limite ou un treillis ne les périme pas",
+        not r_s["perime"] and r_s["complet"] and r_s["V"]["x"] is not None
+        and r_h["perime"] and not r_h["complet"] and r_h["V"] == {"x": None, "y": None}
+        and r_h["echelle"] == {"inf_x": 1.0, "inf_y": 1.0, "sup_x": 1.0, "sup_y": 1.0} and r_h["alertes"][0] == SC.PERIME
+        and not r_n["perime"] and r_n["complet"], (r_s["perime"], r_h["perime"], r_n["perime"], r_h["alertes"][:1]))
+    # R6 : σ max SCIA hors de 0,85 à 1,15 — une alerte ; σ seul saisi compte comme saisi
+    e_sig = copy.deepcopy(el)
+    e_sig["scia"]["sigma"] = {"2": 60.0}
+    r_sig = SC.rapports(e_sig, ef, [{"k": 2.0, "sigma_max": 46.0}])
+    chk("revue R6 · σ max SCIA 60 kPa pour 46 du module (r = 1,30) : alerte « Écart module / SCIA : +30,4 % sur σ max, k = 2 MN/m³ » ; "
+        "σ seul saisi : « saisi », pas « complet »",
+        r_sig["saisi"] and not r_sig["complet"] and r_sig["sigma"][0]["alerte"]
+        and any(a_.startswith("Écart module / SCIA : +30,4 % sur σ max, k = 2 MN/m³") for a_ in r_sig["alertes"]), r_sig["alertes"])
+    # R7 : le U de fermeture — le treillis le plus FORT (A_s au mètre), pas le plus gros Ø
+    e_u = copy.deepcopy(el)
+    e_u["armatures"]["inf"]["x"] = {"d": 16, "e": 300}
+    e_u["armatures"]["inf"]["xy"] = True
+    f_u = AR.calculer(e_u, m, ef)
+    chk("revue R7 · U de fermeture : treillis Ø16 e 30 (670 mm²/m) en bas en x et Ø12 e 15 (754) ailleurs — le U est en Ø12 e 15 (le plus "
+        "fort), pas en Ø16 e 30 (le plus gros Ø)",
+        f_u["u"].startswith("U de fermeture : Ø12 e 15 cm"), f_u["u"])
+    # R8 : un plot coulé — « Ferraillage du plot : à prévoir » ; hors du moteur Dalles, « Non vérifiés » garde tout
+    ec_ = projet(plots=COULE)
+    f_c = AR.calculer(ec_, *efforts(ec_))
+    ep_ = projet(plots=PREF)
+    f_p = AR.calculer(ep_, *efforts(ep_))
+    eh_ = projet(plots=COULE, dalle={"beton": "C45/55"})
+    f_h = AR.calculer(eh_, *efforts(eh_))
+    chk("revue R8 · plots coulés : la ligne « Ferraillage du plot : à prévoir (non dimensionné) » (§ 7.5) ; préfabriqués : rien ; C45/55 "
+        "avec plots coulés : « Non vérifiés » nomme le poinçonnement, le ferraillage des plots ET les armatures",
+        f_c["plot"] == "Ferraillage du plot : à prévoir (non dimensionné)" and f_p["plot"] is None
+        and f_h["non_verifies"][:2] == ["le poinçonnement", "le ferraillage des plots coulés en place"]
+        and f_h["non_verifies"][2].startswith("les armatures (") and f_h["plot"] == f_c["plot"], (f_c.get("plot"), f_h["non_verifies"]))
+    # R10 : un renfort local qui entrerait dans l'encoche d'une dalle en L est coupé par le contour réel
+    L_ = [list(p) for p in L_T7]
+    ins = AR.dans_dalle({"x0": 6.0, "x1": 8.0, "y0": 8.0, "y1": 9.0, "aire": 0.04, "m_dim": 120.0}, "inf_x", L_T7)
+    cheval = AR.dans_dalle({"x0": 6.0, "x1": 8.0, "y0": 6.5, "y1": 7.5, "aire": 0.04, "m_dim": 120.0}, "inf_x", L_T7)
+    ins_y = AR.dans_dalle({"x0": 8.0, "x1": 9.0, "y0": 6.0, "y1": 8.0, "aire": 0.04, "m_dim": 120.0}, "inf_y", L_T7)
+    eL = projet(dalle={"forme": "contour", "sommets": L_}, grue={"beta": 30.0})
+    mL, efL = efforts(eL)
+    orig = AR.principe
+    def principe_essai(*a_, **k_):
+        out = orig(*a_, **k_)
+        out["locaux"]["inf_x"] = [{"x0": 6.0, "x1": 8.0, "y0": 8.0, "y1": 9.0, "aire": 0.04, "m_dim": 120.0}]
+        return out
+    AR.principe = principe_essai
+    try:
+        fL = AR.calculer(eL, mL, efL)
+    finally:
+        AR.principe = orig
+    rl = [r for r in fL["renforts"] if r["type"] == "local" and r["cle"] == "inf_x"]
+    chk("revue R10 · dalle en L (encoche x > 7, y > 7) : un renfort local en x de 6 à 8 m à y = 8–9 m s'arrête au bord à 7 m (longueur "
+        "1,00 m) ; à cheval sur l'angle rentrant (y = 6,5–7,5) il garde ses 2 m ; en y, même règle — et le principe complet s'en sert",
+        (ins["x0"], ins["x1"]) == (6.0, 7.0) and (cheval["x0"], cheval["x1"]) == (6.0, 8.0) and (ins_y["y0"], ins_y["y1"]) == (6.0, 7.0)
+        and len(rl) == 1 and abs(rl[0]["x1"] - 7.0) < 1e-9 and abs(rl[0]["longueur"] - 1.0) < 1e-9, (ins, cheval, ins_y, rl[:1]))
 
 
 def complets():
@@ -435,20 +579,47 @@ MUTATIONS = [
     ("armatures.py", '''    if pl and pl["type"] == "coule":
         nv.append''', '''    if False:
         nv.append''', "le ferraillage des plots coulés dit vérifié"),
-    ("armatures.py", '''    if h_moteur(el) > H_MAX_MOTEUR:''', '''    if False:''', "une dalle de plus de 1,00 m passée au moteur Dalles"),
+    ("armatures.py", '''    if h_plafond(el) > H_MAX_MOTEUR:''', '''    if False:''', "une dalle de plus de 1,00 m passée au moteur Dalles"),
     ("armatures.py", '''        v = V / bd["largeur"]''', '''        v = V''', "l'effort tranchant de la bande entière pris pour un mètre"),
-    ("scia.py", '''    echelle = {"inf_x": r["bx_m"] or 1.0, "inf_y": r["by_m"] or 1.0, "sup_x": r["mx"] or 1.0, "sup_y": r["my"] or 1.0}''',
-     '''    echelle = {"inf_x": r["bx_m"] or 1.0, "inf_y": r["by_m"] or 1.0, "sup_x": r["bx_m"] or 1.0, "sup_y": r["by_m"] or 1.0}''',
+    ("scia.py", '''    echelle = {"inf_x": ech(r["bx_m"]), "inf_y": ech(r["by_m"]), "sup_x": ech(r["mx"]), "sup_y": ech(r["my"])}''',
+     '''    echelle = {"inf_x": ech(r["bx_m"]), "inf_y": ech(r["by_m"]), "sup_x": ech(r["bx_m"]), "sup_y": ech(r["by_m"])}''',
      "le haut recalé sur les bandes au lieu de la carte"),
-    ("scia.py", '''                       "alerte": e is not None and e > ECART + 1e-12})''', '''                       "alerte": e is not None and e > 0.5})''',
+    ("scia.py", '''                       "alerte": oppose or (e is not None and e > ECART + 1e-12)})''', '''                       "alerte": oppose or (e is not None and e > 0.5)})''',
      "l'écart de 15 % toléré jusqu'à 50 %"),
     ("scia.py", '''        for y, x in JUMELLES.items():
             s[y] = s[x]''', '''        for y, x in JUMELLES.items():
             pass''', "« x = y » qui ne recopie pas la direction y"),
     ("scia.py", '''    if abs(ch["a"] - ch["b"]) > 1e-9 or abs(g["ex"]) > 1e-9 or abs(g["ey"]) > 1e-9:''',
      '''    if abs(ch["a"] - ch["b"]) > 1e-9 or abs(g["ex"]) > 1e-9:''', "une grue décalée en y dite symétrique"),
-    ("scia.py", '''        r = s / m if (s is not None and m not in (None, 0.0)) else None''', '''        r = m / s if (s is not None and m not in (None, 0.0)) else None''',
+    ("scia.py", '''        r = abs(s) / abs(m) if (s is not None and m not in (None, 0.0)) else None''', '''        r = abs(m) / abs(s) if (s is not None and m not in (None, 0.0)) else None''',
      "r = module ÷ SCIA"),
+    # (revue du 15/11/2026 : les défauts non conservatifs)
+    ("armatures.py", '''        nom_sens, sens = _sens_bande(bd["nom"]), axe_bande(bd)''', '''        nom_sens = sens = _sens_bande(bd["nom"])''',
+     "le sens d'une bande tiré de son nom (β = 90° : barres en x sans contrôle)"),
+    ("armatures.py", '''    if hc != h_moteur(el):''', '''    if False:''', "A_s,min lu au cm inférieur"),
+    ("scia.py", '''        r = abs(s) / abs(m) if (s is not None''', '''        r = s / m if (s is not None''', "r gardant son signe (échelle négative)"),
+    ("scia.py", '''                       "alerte": oppose or (e is not None''', '''                       "alerte": (e is not None''', "un signe opposé sans alerte"),
+    ("scia.py", '''    return all(_memes_polygones(gr, [_echange(cx, cy, p) for p in gr]) for gr in groupes)''', '''    return True''',
+     "des appuis allongés dits symétriques"),
+    ("scia.py", '''    if abs(o["c1x"] - o["c1y"]) > 1e-12 or abs(o["c2x"] - o["c2y"]) > 1e-12:''', '''    if False:''', "des ressorts C2x ≠ C2y dits symétriques"),
+    ("scia.py", '''    alertes = [texte(li) for li in lignes if li["alerte"] and montree(li)]''',
+     '''    alertes = [texte(li) for li in lignes if li["alerte"] and not (s_ and li["cle"] in JUMELLES)]''', "l'alerte d'une ligne y toujours cachée"),
+    ("scia.py", '''    vieux = perime(el)''', '''    vieux = False''', "des valeurs SCIA d'un autre modèle utilisées"),
+    ("scia.py", '''HORS_MODELE = ("nom", "projet", "limite", "armatures",''', '''HORS_MODELE = ("nom", "projet", "armatures",''',
+     "changer la limite périme les valeurs SCIA"),
+    ("scia.py", '''    alertes += [f"Écart module / SCIA : {_pct((x['r'] - 1) * 100)} % sur σ max''', '''    alertes += [] and [f"Écart module / SCIA : {_pct((x['r'] - 1) * 100)} % sur σ max''',
+     "un écart sur σ max sans alerte"),
+    ("scia.py", '''            "saisi": any(sc[c] is not None for c in a_taper) or any(x["scia"] is not None for x in sigma),''',
+     '''            "saisi": any(sc[c] is not None for c in a_taper),''', "σ seul saisi dit « non saisi »"),
+    ("armatures.py", '''    fort = max(CLES, key=lambda c_: (round(res["As"][c_], 6), a[c_.split("_")[0]][c_[-1]]["d"]))''',
+     '''    fort = max(CLES, key=lambda c_: (a[c_.split("_")[0]][c_[-1]]["d"], -a[c_.split("_")[0]][c_[-1]]["e"]))''', "le U du plus gros Ø (pas du plus fort)"),
+    ("armatures.py", '''            "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres"''',
+     '''            "plot_coule": coule, "plot": None, "diametres"''', "la ligne du plot coulé oubliée"),
+    ("armatures.py", '''                "non_verifies": nv + ["les armatures (" + hd + ")"],''', '''                "non_verifies": ["les armatures (" + hd + ")"],''',
+     "hors du moteur Dalles, « Non vérifiés » oublie le poinçonnement"),
+    ("armatures.py", '''                r = dans_dalle(r, cle, contour)''', '''                pass''', "un renfort local qui entre dans l'encoche d'un L"),
+    ("armatures.py", '''                    longueur, largeur = r["x1"] - r["x0"], r["y1"] - r["y0"]''', '''                    largeur, longueur = r["x1"] - r["x0"], r["y1"] - r["y0"]''',
+     "la largeur d'un renfort local prise pour sa longueur"),
 ]
 TEMOIN = ("armatures.py", "CLES = (", "CLES = (")
 
