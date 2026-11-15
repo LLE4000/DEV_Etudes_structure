@@ -528,8 +528,10 @@ _SAF = [neuf()] + [p for j, P in enumerate(_SAF_JEUX) for p in ([mod("reactions/
 cas("saf", "note neuve (poids propre seul, export éteint)", REF, [neuf()], {"niveau": "n"}, selecteurs=True, fichiers=True)
 cas("saf", "dalle type, trois jeux de réactions (cahier des charges § 11)", REF, _SAF, {"taux": [224, 226], "niveau": "r", "sans_message": True})
 cas("saf", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %)", REF, _SAF + [mod("limite", "1,15")], {"taux": [97, 99], "niveau": "f"})
+# (relecture du lot 4 : le résumé de la note est le plus défavorable du sol ET du ferraillage — ici le sol à 98 %, un
+# treillis à 100 % : le résumé dit 100 %, toujours « conforme, attention »)
 cas("saf", "la dalle de « Proposer » pour h = 0,50 m : 10,70 × 10,70 m sous la limite", REF, _SAF + [mod("dalle/Lx", "10,7"), mod("dalle/Ly", "10,7")],
-    {"taux": [97, 99], "niveau": "f"})
+    {"taux": [97, 100], "niveau": "f"})
 cas("saf", "châssis Liebherr 132 HC de la bibliothèque, appuis réels à 45°", REF,
     [neuf(), act("choisir", role="chassis", nom="Liebherr Châssis 132 HC – 4,6 m × 4,6 m")] + _SAF[1:], {"niveau": "r", "sans_message": True})
 cas("saf", "dalle 10 × 10, plots coulés en place 2,00 × 2,00 × 0,35", REF, _SAF + [mod("grue/plots/type", "coule"), mod("dalle/Lx", "10"), mod("dalle/Ly", "10")],

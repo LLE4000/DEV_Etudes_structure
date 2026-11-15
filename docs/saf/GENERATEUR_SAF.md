@@ -175,9 +175,10 @@ Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont p
   réfuter, regroupés en 10 défauts, tous corrigés et figés (« relecture 1 » à « relecture 13 » dans
   `test_saf_grue_ferraillage.py`, `test_api_web_saf.py`, `test_saf_grue_plans.py`, chacun avec sa mutation) :
   1. *(non conservatif)* dans la zone d'une bande, la direction PERPENDICULAIRE n'était contrôlée nulle part (une BX ne
-     pose que des barres en x) : jusqu'à 180 % de travail affiché « Conforme ». Le contrôle et la zone courante (la
-     hauteur) se lisent désormais direction par direction (`zone_x`, `zone_y`). Dalle type : 16 renforts locaux inf.
-     au lieu de moins, bordereau 2 702 kg au lieu de 2 628.
+     pose que des barres en x) : jusqu'à 180 % de travail affiché « Conforme ». Le contrôle des treillis et la hauteur
+     de la zone courante se font désormais direction par direction (`zone_x`, `zone_y`) ; la « zone courante » des
+     efforts reste celle de l'annexe A (hors de toutes les zones : les valeurs T14 du cahier). Dalle type : plus de
+     renforts locaux, bordereau 2 702 kg au lieu de 2 628, hauteur de la zone courante 74 %.
   2. *(non conservatif)* les C d'effort tranchant s'arrêtaient à d du bord de la zone chargée, là où |V| est le plus
      fort (h = 0,35 m : 36 C posés pour 72 demandés). V à d fixe le CONTRÔLE ; les C vont partout où |V(s)| dépasse ce
      que la dalle reprend sans armatures, jusqu'au bord de la zone chargée.

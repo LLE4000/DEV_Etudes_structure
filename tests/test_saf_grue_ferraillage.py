@@ -204,12 +204,18 @@ def revue_lot4():
             f"(dans la zone d'une BX, les barres en y le sont aussi : {transverses} contrôles transversaux) — aucun oublié",
             manque == 0 and transverses > 0, (manque, transverses))
         if not kw:
-            # la zone courante (la hauteur) : en x hors des zones des BX, en y hors des zones des BY
+            # la hauteur de la zone courante : chaque direction hors des seules zones de SA direction — le moteur poutre appelé
+            # ici directement avec ces moments (ceux de l'annexe A, hors de TOUTES les zones, oublient les moments transversaux)
             cour = {k: ~ch["plot"] & ~z[k] for k in ("x", "y")}
-            att = {f"inf_{k}": float(ch[f"inf_{k}"][cour[k]].max()) for k in ("x", "y")}
-            chk("relecture 1 · la zone courante se lit direction par direction (les moments transversaux des zones de renfort y entrent) : "
-                f"inf_x = {att['inf_x']:.1f}, inf_y = {att['inf_y']:.1f} kNm/m",
-                all(abs(ef["courante"][k] - v) < 1e-9 for k, v in att.items()), (att, {k: ef["courante"][k] for k in att}))
+            mi = max(float(ch[f"inf_{k}"][cour[k]].max()) for k in ("x", "y"))
+            ms = max(float(-ch[f"sup_{k}"][cour[k]].min()) for k in ("x", "y"))
+            fi, fs_ = fer["faces"]["inf"], fer["faces"]["sup"]
+            c_cm = el["armatures"]["enrobage"] * 100
+            hm = moteur(el, 100.0, el["dalle"]["h"] * 100, [sec(mi, ms, 0, lit(c_cm, fi["d"], fi["dessous_y"]), lit(c_cm, fs_["d"], fs_["dessous_y"]))])[0]["grandeurs"]["h_min"]
+            union = max(ef["courante"]["inf_x"], ef["courante"]["inf_y"])
+            chk(f"relecture 1 · la hauteur de la zone courante se vérifie direction par direction : m_inf = {mi:.1f} kNm/m (contre {union:.1f} "
+                f"hors de toutes les zones, l'annexe A) — h_min = {hm:.1f} cm, celui du moteur poutre",
+                abs(fer["hauteur"]["courante"]["h_min"] - hm) < 1e-9 and mi > union + 1.0, (fer["hauteur"]["courante"]["h_min"], hm, mi, union))
             i = int(np.argmin((ch["x"] - 1.3) ** 2 + (ch["y"] - 6.9) ** 2))
             cv = fer["faces"]["inf"]["couverture"]["y"]
             chk("relecture 1 · l'élément (1,3 ; 6,9), face inf., direction y — dans la zone de BX1, hors de BY1 — est contrôlé et couvert "
@@ -498,9 +504,9 @@ MUTATIONS = [
      "la direction perpendiculaire non contrôlée dans les zones de renfort"),
     ("efforts.py", '            zone_sens["x" if g["bande"]["nom"].startswith("BX") else "y"] |= dz',
      '            zone_sens["x"] |= dz\n            zone_sens["y"] |= dz', "les zones de renfort réunies pour les deux directions"),
-    ("efforts.py", '                for zone_, plot_ in ((cour[k] & ~dans_plot, False), (cour[k] & dans_plot, True)):',
-     '                for zone_, plot_ in ((cour["x"] & cour["y"] & ~dans_plot, False), (cour["x"] & cour["y"] & dans_plot, True)):',
-     "la zone courante lue hors de TOUTES les zones (les moments transversaux oubliés)"),
+    ("ferraillage.py", '    ch, ctl = ctx.ch, ctx.controle\n',
+     '    ch, ctl = ctx.ch, {k: ~ctx.ch["zone_renfort"] & ~ctx.ch["plot"] for k in ("x", "y")}\n',
+     "la hauteur de la zone courante lue hors de TOUTES les zones (les moments transversaux oubliés)"),
     ("ferraillage.py", '    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & hors',
      '    arm = np.array([bt not in (None, "pas_d_etriers") for bt in besoins]) & EF.lecture_v(rb["s"], rb["charge"], d_v)',
      "les C arrêtés à d du bord de la zone chargée"),

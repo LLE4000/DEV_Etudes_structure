@@ -283,7 +283,7 @@ MUTATIONS = [
     ("efforts.py", '        return pl["diffusion"]\n', '        return pl["polys"]\n', "V lu à d du plot préfabriqué (au lieu du carré de diffusion)"),
     ("efforts.py", "    return np.all([(s <= s1 - d_v + 1e-9) | (s >= s2 + d_v - 1e-9) for s1, s2 in charge], axis=0)",
      "    return np.all([(s <= s1 + 1e-9) | (s >= s2 - 1e-9) for s1, s2 in charge], axis=0)", "V lu au bord de la zone chargée (et non à d)"),
-    ("efforts.py", '    return float(bande["Vabs"][ok].max()) if ok.any() else 0.0', '    return float(bande["Vabs"].max())',
+    ("efforts.py", '    return float(bande["Vabs"][ok].max()) if ok.any() else None', '    return float(bande["Vabs"].max())',
      "V à d relu sans les abscisses à d (le pic sous le pied)"),
     ("efforts.py", "            lim.append(sg * (b / 2 + e) if e < b - 1e-9 else sg * b / 2)", "            lim.append(sg * b / 2)",
      "la zone de renfort jamais prolongée jusqu'au bord"),

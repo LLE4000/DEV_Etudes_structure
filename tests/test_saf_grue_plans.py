@@ -205,7 +205,7 @@ MUTATIONS = [
         b = noms[nom]''', "le plan sans les repères des coupes"),
     ("saf.py", '''        svg = (DF.plan(el, calc["modele"], fer, ef, el["vue"].get("fond") or None) if onglet == "ferraillage"''',
      '''        svg = (DF.plan(el, calc["modele"], fer, ef, None) if onglet == "ferraillage"''', "le fond choisi ignoré"),
-    ("note_saf.py", '''            out += NF.planches(el, calc, s, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))''',
+    ("note_saf.py", '''            out += NF.planches(el, calc, sn, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))''',
      '''            pass''', "la note sans les planches du ferraillage"),
 ]
 MUTATIONS += [

@@ -706,9 +706,13 @@ def calculer(el: Dict, modele: Dict, ef: Dict) -> Dict:
         r = poutre(el, rb["largeur"] * 100.0, ctx.h_cm, [section(max(rb["M_plus"], 0.0), max(-rb["M_moins"], 0.0), 0.0, li, ls)])[0]
         g = r["grandeurs"]
         haut[nom] = {"h_min": g["h_min"], "h": ctx.h_cm, "taux": g["h_min"] / ctx.h_cm, "ok": g["h_min"] <= ctx.h_cm + EPS, "sens": sens}
-    # la hauteur dans la zone courante : les plus grands moments de calcul par mètre (b = 1 m)
-    c_ = ef["courante"]
-    r = poutre(el, 100.0, ctx.h_cm, [section(max(c_["inf_x"], c_["inf_y"], 0.0), max(-c_["sup_x"], -c_["sup_y"], 0.0), 0.0,
+    # la hauteur dans la zone courante : les plus grands moments de calcul par mètre (b = 1 m), DIRECTION PAR DIRECTION —
+    # chaque direction hors des seules zones de SA direction (les moments transversaux des zones de renfort y entrent :
+    # aucune bande ne les porte), les mêmes éléments que le contrôle des treillis
+    ch, ctl = ctx.ch, ctx.controle
+    m_inf = max([float(ch[f"inf_{k}"][ctl[k]].max()) for k in ("x", "y") if ctl[k].any()] + [0.0])
+    m_sup = max([float(-ch[f"sup_{k}"][ctl[k]].min()) for k in ("x", "y") if ctl[k].any()] + [0.0])
+    r = poutre(el, 100.0, ctx.h_cm, [section(m_inf, m_sup, 0.0,
                                              _couche(ctx.c_cm, "y", fi["d"], fi["dessous_y"]), _couche(ctx.c_cm, "y", fs["d"], fs["dessous_y"]))])[0]
     hc = r["grandeurs"]["h_min"]
     haut["courante"] = {"h_min": hc, "h": ctx.h_cm, "taux": hc / ctx.h_cm, "ok": hc <= ctx.h_cm + EPS}
