@@ -401,7 +401,10 @@ def _ecrire_scia(el: Dict, ch: List[str], valeur) -> None:
     sc = el["scia"]
     vide = valeur is None or str(valeur).strip() == ""
     if ch == ["sym"]:
-        sc["sym"] = _bool(valeur)
+        # (la case « x = y » cochée comme le module la coche de lui-même : elle reste automatique — réécrire la case
+        # avec la valeur qu'elle montre ne change pas la note)
+        v = _bool(valeur)
+        sc["sym"] = None if v == SC.symetrique(el) else v
     elif len(ch) == 1 and ch[0] in PR.CHAMPS_SCIA:
         sc[ch[0]] = None if vide else _nombre(valeur, "la valeur SCIA")
     elif len(ch) == 2 and ch[0] == "sigma":

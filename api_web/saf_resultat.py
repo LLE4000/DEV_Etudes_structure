@@ -392,11 +392,11 @@ def colonne(el: Dict, calc: Dict, s: Dict, carte_armatures: str = "", non_verifi
     ctl_rows, ctl_cls = _controles(el, calc, s)
     if s.get("r_vue") is None:
         rows = C.ligne_verif("Calcul", C.esc(s["phrase"]), None, "r", etat_txt="impossible")
-        blocs = E.bloc(0, "Sol", "nok", "Calcul impossible", "", rows, theme=True) + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True)
+        blocs = E.bloc(0, "Sol", "nok", "Calcul impossible", "", rows, theme=True) + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True, calcul="s1")
         return (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
                 f'{_boutons(el, calc, joindre=False)}</div>{pied()}', _fenetre_controles(el, calc, s))
     blocs = (_carte_sol(el, calc, s) + _carte_equilibre(el, calc, s)
-             + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True) + carte_armatures)
+             + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True, calcul="s1") + carte_armatures)
     html = (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
             f'{_proposer(el, calc, s)}{_boutons(el, calc)}</div>{pied()}')
     volets = _fenetre_k(el, calc, s) + _fenetre_controles(el, calc, s) + ("" if s["pp"] else _fenetre_positions(el, calc, s))

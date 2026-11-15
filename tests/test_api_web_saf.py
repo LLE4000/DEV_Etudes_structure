@@ -607,6 +607,18 @@ def lot5():
         and "Écart module / SCIA concordent M+ r = 1,10" in txt(r7["resultat"])
         and re.search(r'<b>Écart module / SCIA</b>.*?<span class="et-mot v">30,0 %</span>', r8["resultat"], re.S) is not None
         and "M+ r = 1,30" in txt(r8["resultat"]), (fer7["echelle"], txt(r8["resultat"])[txt(r8["resultat"]).find("Écart"):][:120]))
+    # (le contrôle des modules l'a trouvé : la case « x = y » réécrite avec la valeur qu'elle montre changeait la note ; le
+    # bouton « Tout le calcul » de la carte CONTRÔLES ouvrait la fenêtre des positions — absente de la note neuve)
+    rsym = mod(type_, ["scia", "sym"], True)
+    rsym2 = mod(mod(type_, ["scia", "sym"], False)["etat"], ["scia", "sym"], False)
+    rn = q(action="nouveau")
+    chk("la case « x = y » réécrite avec la valeur qu'elle montre ne change pas la note (cochée d'office : elle reste automatique ; "
+        "décochée : elle le reste) ; le bouton « Tout le calcul » de la carte CONTRÔLES ouvre SA fenêtre (s1), dans la note type comme dans "
+        "la note neuve",
+        f0(rsym)["scia"]["sym"] is None and f0(rsym)["scia"] == type_["fondations"][0]["scia"] and f0(rsym2)["scia"]["sym"] is False
+        and all(re.search(r'<span class="n">Contrôles</span><span class="e">[^<]*</span></button><button type="button" class="et-tout" data-calcul="s1"', x["resultat"])
+                and 'id="ck-s1"' in x["volets"] for x in (q(action="calculer", etat=type_), rn)),
+        (f0(rsym)["scia"], f0(rsym2)["scia"]))
     # U11 : le recalcul de la dalle type en 2 à 3 s au plus (§ 3), le changement d'un treillis sans relancer le sol (A2)
     import time
     t0 = time.perf_counter()
@@ -764,6 +776,9 @@ MUTATIONS += [
     ("saf.py", '''        cases = [c.strip() for c in (l_.split("\\t") if "\\t" in l_ else l_.split(";"))]''', '''        cases = [c.strip() for c in l_.split(";")]''',
      "le collage d'Excel qui ne lit pas les tabulations"),
     ("saf_saisie.py", '''f'<input data-coller="reactions/coller/{i}/{p}" ', 1)''', '''f'<input ', 1)''', "les champs de réaction sans collage"),
+    ("saf.py", '''        sc["sym"] = None if v == SC.symetrique(el) else v''', '''        sc["sym"] = v''', "la case « x = y » réécrite qui change la note"),
+    ("saf_resultat.py", '''"", ctl_rows, theme=True, calcul="s1") + carte_armatures)''', '''"", ctl_rows, theme=True) + carte_armatures)''',
+     "« Tout le calcul » des contrôles qui ouvre la fenêtre des positions"),
     ("saf.py", '''        sc[ch[0]] = None if vide else _nombre(valeur, "la valeur SCIA")''', '''        sc[ch[0]] = 0.0 if vide else _nombre(valeur, "la valeur SCIA")''',
      "un champ SCIA effacé gardé à 0 (au lieu de vide)"),
     ("saf_armatures.py", '''None, "v" if alerte else "p", etat_txt''', '''None, "p", etat_txt''', "l'écart module / SCIA hors de 15 % sans pastille orange"),

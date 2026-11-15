@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "0e2efca63b58bdff9f8bd562039e1dba85b30fc07b4de5ef81f5bc2077820ae2",
+ "sha256": "56362ccd3ff78eb534ba46d23f79dfb9e447ec99daa261f284c65c36f7128b69",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -415,10 +415,10 @@
   "plancher": "eb59f2a541093dba",
   "poutre": "617eb168036b4bd8",
   "profil": "7b65dec790e578b0",
-  "saf": "2a32a0da803816ab",
+  "saf": "4d4473e0ab684cf9",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "9cde00cb26c8dd6b"
+ "version": "4196095d0305f7de"
 }
