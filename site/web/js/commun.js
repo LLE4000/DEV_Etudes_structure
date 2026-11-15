@@ -242,6 +242,12 @@ export const TEXTE_DEMARRAGE = "Le moteur de calcul démarre";
 // jamais un aperçu, C11 : son dernier enregistrement, montré neutre)
 export const SUITE_LECTURE = "lecture seule";
 export const SUITE_APERCU = "aperçu en lecture seule";
+// un démarrage qui DURE (le propriétaire, 15/11/2026 : « le chargement de l'application tourne dans le vide ») : passé ce
+// délai sans réponse du moteur — un réseau lent ou coupé en route, un appareil à court de mémoire, un fichier jamais
+// arrivé —, le bandeau le DIT et montre « Recharger » ; le démarrage continue (rien n'est arrêté : un moteur qui finit par
+// répondre retire le bandeau comme d'habitude). Avant, rien ne bornait l'attente : le chronomètre tournait sans fin.
+export const DEMARRAGE_LONG_S = 40;
+export const TEXTE_LONG = "Le moteur de calcul tarde à démarrer · réseau lent ? « Recharger » relance le chargement";
 const ZONES_BANDEAU = [[".top", "afterend", "rangee"], [".mtabs", "afterbegin", "onglets"], [".mhead", "afterend", "entete"]];
 // ce qui marche SANS le moteur, et redevient actif quand son démarrage a échoué (revue S4, ecrans-erreur-export) :
 // exporter la note telle qu'elle est enregistrée, imprimer l'écran — jamais les champs, ni la note PDF, ni « ranger »
@@ -281,7 +287,18 @@ export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
     noeuds.push(b);
   }
   const t0 = performance.now();
-  const chrono = () => { const s = Math.floor((performance.now() - t0) / 1000); noeuds.forEach((b) => { b.querySelector(".et-demarre-chrono").textContent = `${s} s`; }); };
+  const chrono = () => {
+    const s = Math.floor((performance.now() - t0) / 1000);
+    noeuds.forEach((b) => {
+      b.querySelector(".et-demarre-chrono").textContent = `${s} s`;
+      // trop long : le bandeau le dit et « Recharger » apparaît (une seule fois ; jamais par-dessus une erreur)
+      if (s >= DEMARRAGE_LONG_S && !b.dataset.etat) {
+        b.dataset.etat = "long";
+        ecrire(b, TEXTE_LONG);
+        b.querySelector("[data-recharger]").hidden = false;
+      }
+    });
+  };
   chrono();
   let minuterie = setInterval(chrono, 1000);
   const arreter = () => { if (minuterie) { clearInterval(minuterie); minuterie = null; } };
@@ -290,8 +307,9 @@ export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
   return {
     // le moteur a répondu : le bandeau s'en va
     retirer() { arreter(); noeuds.forEach((b) => b.remove()); },
-    // le texte du démarrage change (l'aperçu peint : « · aperçu en lecture seule ») ; rien une fois en erreur
-    texte(t) { noeuds.forEach((b) => { if (b.dataset.etat !== "erreur") ecrire(b, t); }); },
+    // le texte du démarrage change (l'aperçu peint : « · aperçu en lecture seule ») ; rien une fois en erreur, ni une fois
+    // le démarrage déclaré trop long (son texte et « Recharger » restent)
+    texte(t) { noeuds.forEach((b) => { if (!b.dataset.etat) ecrire(b, t); }); },
     // le démarrage a échoué : le bandeau reste, en rouge, avec la raison et « Recharger »
     erreur(raison) {
       arreter();

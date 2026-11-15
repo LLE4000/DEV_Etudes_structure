@@ -10,7 +10,10 @@
 //
 // Sous-filtres : statique, moteur, prechauffage, doigt, longues, apercu, etablis, rouverte, premiere, reouverture, focus,
 // fermeture, historique, supprimer, accueil_frais, refus, erreur, lecture, retour_onglet, js, feuilles, ecouteurs,
-// horsligne, lent, version, temps, etalons, secours.
+// horsligne, lent, version, temps, etalons, secours, long.
+// (long, 15/11/2026 : un démarrage qui dure — le moteur retenu 48 s — ne tourne plus dans le vide : passé
+// commun.DEMARRAGE_LONG_S, le bandeau le dit et « Recharger » apparaît, sous le doigt ; le moteur qui finit par répondre
+// retire le bandeau comme d'habitude.)
 // (rouverte, premiere, reouverture, focus : le lot « preuves » de la revue S4 ; accueil_frais, refus, erreur, lecture,
 // retour_onglet : le lot « écrans » ; ceux-ci, quand ils touchent la tablette, la jouent aussi — 820 × 1 180, au doigt —
 // quand le passage est au PC et que DEMARRAGE_FORMATS ne la nomme pas : DEMARRAGE_FORMATS=pc,tab,tel la joue comme un
@@ -1115,6 +1118,42 @@ function noteAvecValeur(notes, module, chemin, valeur) {
           t.startsWith(attendu) && (t.match(/« /g) || []).length === 1 && etat === a0.etat, court({ message: t, attendu, noteInchangee: etat === a0.etat }));
         // (le refus INJECTÉ est écrit à la console par l'établi, comme tout refus du moteur : ce n'est pas une erreur de la page)
         pg.erreurs = pg.erreurs.filter((x) => !/essai de refus|Valeur refusée : essai/.test(x));
+      });
+    }
+
+    // ---- le démarrage qui DURE (le propriétaire, 15/11/2026 : « le chargement de l'application tourne dans le vide ») : le
+    // moteur retenu 48 s ; avant commun.DEMARRAGE_LONG_S, le bandeau ordinaire (sans « Recharger ») ; après, il dit que c'est
+    // long et « Recharger » est VU, dans l'écran, sous le doigt ; le moteur qui répond enfin retire le bandeau (l'écran prêt)
+    if (joue('long')) {
+      await essai('long', async () => {
+        const LONG = +/export const DEMARRAGE_LONG_S = (\d+);/.exec(fs.readFileSync(path.join(__dirname, 'js', 'commun.js'), 'utf8'))[1];
+        const RETENU = (LONG + 8) * 1000;
+        const c2 = await ouvrirContexte(b, fmt, { retenir: RETENU });
+        const p2 = await nouvellePage(c2);
+        const BANDEAU = () => {
+          const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const b0 = [...document.querySelectorAll('.et-demarre')].filter(vu)[0];
+          const rech = b0 ? b0.querySelector('[data-recharger]') : null;
+          const rr = rech && vu(rech) ? rech.getBoundingClientRect() : null;
+          const hit = rr ? document.elementFromPoint(rr.left + rr.width / 2, rr.top + rr.height / 2) : null;
+          return { vu: !!b0, etat: b0 ? b0.dataset.etat || '' : null, texte: b0 ? b0.textContent.replace(/\s+/g, ' ').trim() : '',
+            recharger: rr ? { taille: [Math.round(rr.width), Math.round(rr.height)], dedans: rr.left >= 0 && rr.top >= 0 && rr.right <= innerWidth + 0.5 && rr.bottom <= innerHeight + 0.5,
+              touche: !!hit && rech.contains(hit) } : null, ecran: document.body.dataset.ecran };
+        };
+        const t0 = Date.now();
+        await p2.goto(`${BASE}/${P('poutre')}`, { waitUntil: 'domcontentloaded' });
+        await attendre(Math.max(0, (LONG - 4) * 1000 - (Date.now() - t0)));
+        const avant = await lire(p2, BANDEAU);
+        await attendre(Math.max(0, (LONG + 2) * 1000 - (Date.now() - t0)));
+        const apres = await lire(p2, BANDEAU);
+        let fin = null;
+        try { await p2.waitForFunction(() => document.body.dataset.ecran === 'pret' && !document.querySelector('.et-demarre'), null, { timeout: RETENU + 30000 }); fin = await lire(p2, BANDEAU); } catch (e) { fin = await lire(p2, BANDEAU); }
+        verif(N(`démarrage qui dure : à ${LONG - 4} s le bandeau ordinaire (« démarre », sans « Recharger ») ; à ${LONG + 2} s il dit « tarde à démarrer » et « Recharger » est VU, dans l'écran, sous le doigt ; le moteur qui répond enfin retire le bandeau`),
+          avant.vu && !avant.etat && /démarre/.test(avant.texte) && !avant.recharger
+            && apres.vu && apres.etat === 'long' && /tarde à démarrer/.test(apres.texte) && !!apres.recharger && apres.recharger.dedans && apres.recharger.touche
+            && !fin.vu && fin.ecran === 'pret',
+          court({ avant, apres, fin }, 900));
+        await c2.close();
       });
     }
 

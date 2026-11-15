@@ -225,6 +225,9 @@ label.fichier { width: max-content; }
 .et-demarre[data-etat="erreur"] .et-demarre-t1 { flex: 0 1 auto; min-width: 0; }
 .et-demarre[data-etat="erreur"] .et-demarre-ic { display: none; }
 .et-demarre-recharger { flex: none; }
+/* le démarrage trop long (commun.DEMARRAGE_LONG_S) : la même rangée, en orange, avec « Recharger » ; le cercle tourne encore */
+.et-demarre[data-etat="long"] { background: color-mix(in srgb, var(--att) 14%, var(--panel)); height: auto; min-height: 30px; }
+@media (min-width: 701px) and (max-width: 1199px) { .et-demarre[data-etat="long"] .et-demarre-recharger { min-height: 44px; padding: 0 14px; } }
 .mhead + .et-demarre { display: none; }
 @media (min-width: 701px) and (max-width: 1199px) { .et-demarre[data-etat="erreur"] .et-demarre-recharger { min-height: 44px; padding: 0 14px; } }
 @media (max-width: 700px) {
