@@ -14,6 +14,9 @@ import copy
 import math
 from typing import Dict, List, Optional, Tuple
 
+from beton import position as POS_BETON
+from beton.poutre.entree import DEFAUTS_POUTRE
+
 from . import chassis as CH
 from . import geometrie as G
 from . import positions as PO
@@ -31,6 +34,20 @@ MAILLES = (0.10, 0.50)
 PLOTS = ("aucun", "prefabrique", "coule")
 PLOT_DEFAUT = (2.0, 2.0, 0.35)   # a × b × hauteur (m)
 FORMES = ("rectangle", "contour")
+# la vue du centre (lot 4, § 2.3) : l'onglet, la carte (« Enveloppe » quand ni le cas ni le k ne sont choisis)
+ONGLETS = ("plan", "ferraillage", "coupes")
+CARTES = ("sigma", "w", "m_inf_x", "m_inf_y", "m_sup_x", "m_sup_y", "aucune")
+# lot 4 (cahier des charges du 15/11/2026) : la maille et les bandes par défaut, l'unité des contraintes de sol, les armatures
+MAILLE_DEFAUT = 0.20             # § 3.1 (0,25 m avant le lot 4 ; une note enregistrée garde la sienne)
+LARGEUR_BANDE_DEFAUT = 0.5       # § 4.3 (1,00 m avant le lot 4)
+UNITES = ("kgcm2", "kpa", "mpa")  # § 2.4 : kg/cm² par défaut ; le calcul reste en kPa, seul l'affichage change
+TREILLIS = ("auto", "10-15", "12-15", "10-10", "12-10")   # § 5.2 : Ø (mm) - espacement (cm), les mêmes dans les deux sens
+ENROBAGE_DEFAUT = 0.05           # § 5.1 (m)
+RECOUVREMENT_DEFAUT = 50         # § 5.7 : longueur de recouvrement = 50 Ø, quand le logiciel n'a pas de règle
+L_BARRE_MAX = 12.0               # § 5.7 : longueur maxi des barres (m)
+# les options du MOTEUR POUTRE (§ 2.1, bloc 4), à leurs valeurs par défaut du module « Poutres béton armé » — lues chez lui
+GAMMA_S_DEFAUT = float(DEFAUTS_POUTRE["gamma_s"])             # « coefficient acier ELS » : fyd = fyk / γs
+JEU_DEFAUT, ARRONDI_DEFAUT = POS_BETON.JEU_POSE, POS_BETON.ARRONDI   # cm : le jeu de pose, le pas d'arrondi de l'axe
 
 
 def module_E(classe: str) -> float:
@@ -52,11 +69,14 @@ def nouveau(nom: str = "F1") -> Dict:
                  "plots": {"type": "aucun", "a": PLOT_DEFAUT[0], "b": PLOT_DEFAUT[1], "h": PLOT_DEFAUT[2]},
                  "ex": 0.0, "ey": 0.0, "beta": 0.0, "dmin": 0.50, "repere": None},
         "reactions": [{"nom": "", "P": [None, None, None, None]}],
-        "bandes": {"largeur": 1.0},
+        "bandes": {"largeur": LARGEUR_BANDE_DEFAUT},
         "limite": 0.5,
-        "options": {"maille": 0.25, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre",
-                    "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10},
-        "vue": {"carte": "sigma", "cas": None, "k": None},
+        "armatures": {"enrobage": ENROBAGE_DEFAUT, "treillis_inf": "auto", "treillis_sup": "auto"},
+        "options": {"maille": MAILLE_DEFAUT, "anneau": 0.02, "c1x": 0.1, "c1y": 0.1, "c2x": 0.1, "c2y": 0.1, "rond": "carre",
+                    "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10,
+                    "unite": "kgcm2", "torsion": True, "recouvrement": RECOUVREMENT_DEFAUT, "l_max": L_BARRE_MAX,
+                    "gamma_s": GAMMA_S_DEFAUT, "jeu": JEU_DEFAUT, "arrondi": ARRONDI_DEFAUT},
+        "vue": {"onglet": "plan", "carte": "sigma", "cas": None, "k": None},
         "proposition": None,
     }
 
@@ -153,14 +173,14 @@ def lire(el: Dict) -> Dict:
         P = list((j or {}).get("P") or [None] * 4)[:4] + [None] * 4
         b["reactions"].append({"nom": _texte((j or {}).get("nom"), 40),
                                "P": [None if v is None or v == "" else _nombre(v, "une réaction", 0.0, 1e5) for v in P[:4]]})
-    lb = (el.get("bandes") or {}).get("largeur", 1.0)
+    lb = (el.get("bandes") or {}).get("largeur", LARGEUR_BANDE_DEFAUT)
     if lb not in LARGEURS_BANDE:
         raise ValueError("largeur des bandes : 1,00 ou 0,50 m")
     b["bandes"]["largeur"] = float(lb)
     b["limite"] = _nombre(el.get("limite", 0.5), "la limite", 0.0, 5.0, strict=True)
     o = el.get("options") or {}
     bo = b["options"]
-    bo["maille"] = _nombre(o.get("maille", 0.25), "la maille", MAILLES[0], MAILLES[1])
+    bo["maille"] = _nombre(o.get("maille", MAILLE_DEFAUT), "la maille", MAILLES[0], MAILLES[1])
     if round(float(o.get("anneau", 0.02)), 3) not in ANNEAUX:
         raise ValueError("anneau : 1, 2 ou 3 cm")
     bo["anneau"] = round(float(o.get("anneau", 0.02)), 3)
@@ -173,8 +193,27 @@ def lire(el: Dict) -> Dict:
     bo["h_min"] = _nombre(o.get("h_min", 0.30), "l'épaisseur mini testée", 0.10, 3.0)
     bo["h_max"] = _nombre(o.get("h_max", 1.20), "l'épaisseur maxi testée", bo["h_min"], 3.0)
     bo["h_pas"] = _nombre(o.get("h_pas", 0.10), "le pas des épaisseurs", 0.05, 1.0)
+    if o.get("unite", "kgcm2") not in UNITES:
+        raise ValueError("unité des contraintes de sol : kg/cm², kPa ou MPa")
+    bo["unite"] = o.get("unite", "kgcm2")
+    bo["torsion"] = bool(o.get("torsion", True))
+    bo["recouvrement"] = _nombre(o.get("recouvrement", RECOUVREMENT_DEFAUT), "la longueur de recouvrement", 20.0, 120.0)
+    bo["l_max"] = _nombre(o.get("l_max", L_BARRE_MAX), "la longueur maxi des barres", 3.0, 24.0)
+    bo["gamma_s"] = _nombre(o.get("gamma_s", GAMMA_S_DEFAUT), "γs", 1.0, 3.0)
+    bo["jeu"] = _nombre(o.get("jeu", JEU_DEFAUT), "le jeu de pose", 0.0, 5.0)
+    if float(o.get("arrondi", ARRONDI_DEFAUT)) not in POS_BETON.ARRONDIS:
+        raise ValueError("arrondi de l'axe : 0, 0,5 ou 1 cm")
+    bo["arrondi"] = float(o.get("arrondi", ARRONDI_DEFAUT))
+    a = el.get("armatures") or {}
+    ba = b["armatures"]
+    ba["enrobage"] = _nombre(a.get("enrobage", ENROBAGE_DEFAUT), "l'enrobage", 0.01, 0.15)
+    for face in ("treillis_inf", "treillis_sup"):
+        if a.get(face, "auto") not in TREILLIS:
+            raise ValueError("treillis : automatique, Ø10 ou Ø12, tous les 10 ou 15 cm")
+        ba[face] = a.get(face, "auto")
     v = el.get("vue") or {}
-    b["vue"] = {"carte": v.get("carte") if v.get("carte") in ("sigma", "w", "aucune") else "sigma",
+    b["vue"] = {"onglet": v.get("onglet") if v.get("onglet") in ONGLETS else "plan",
+                "carte": v.get("carte") if v.get("carte") in CARTES else "sigma",
                 "cas": v.get("cas") if isinstance(v.get("cas"), str) else None,
                 "k": float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None}
     b["proposition"] = copy.deepcopy(el.get("proposition")) if isinstance(el.get("proposition"), dict) else None
@@ -227,7 +266,8 @@ def modele(el: Dict) -> Dict:
     """Tout ce qui se déduit du projet (voir l'en-tête du fichier) :
     {"contour", "h", "E", "nu", "maille", "gamma", "beton", "centre" (du châssis), "beta", "chassis" (chassis.lire),
      "pieds" [P1…P4] (les axes d'appui), "plaques" [P1…P4] (les surfaces d'appui posées), "centres" [P1…P4],
-     "plots": None | {"type", "polys", "hauteur", "a", "b"}, "bandes", "jeux", "cas", "carre",
+     "plots": None | {"type", "polys", "hauteur", "a", "b", "diffusion" (préfabriqué : [P1…P4] les carrés de diffusion
+     à 45°, où arrive chaque réaction)}, "bandes", "jeux", "cas", "carre",
      "controles": {"plaques_dedans" [bool × 4], "distance" (mini plaque–bord), "distances" [× 4], "distance_ok",
                    "plots_dedans" [bool × 4], "plots_separes", "plots_couvrent" [bool × 4], "plots_ok"}}"""
     c = contour(el)
@@ -241,8 +281,12 @@ def modele(el: Dict) -> Dict:
     plots = None
     if g["plots"]["type"] != "aucun":
         p = g["plots"]
-        polys = [G.rectangle(*G.centre(s), p["a"], p["b"], g["beta"]) for s in plaques]
+        # (le plot est centré sur le centre de GRAVITÉ de la surface d'appui : la règle de la référence du lot 4)
+        polys = [G.rectangle(*G.centre_gravite(s), p["a"], p["b"], g["beta"]) for s in plaques]
         plots = {"type": p["type"], "polys": polys, "hauteur": p["h"], "a": p["a"], "b": p["b"]}
+        # préfabriqué : la réaction arrive sur le carré de diffusion à 45° (lot 4, § 3.3) — le calcul ET le SAF
+        if p["type"] == "prefabrique":
+            plots["diffusion"] = [G.diffusion_45(s, p["h"], p["a"], p["b"], g["beta"]) for s in plaques]
     jeux = jeux_complets(el)
     cas = PO.cas_de_charge([j["P"] for j in jeux], ch["carre"], [j["numero"] for j in jeux])
     for x in cas:                                                # le jeu d'un cas : son numéro dans la liste saisie

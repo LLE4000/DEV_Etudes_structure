@@ -283,19 +283,25 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
     elif ch == ["bandes", "largeur"]:
         el["bandes"]["largeur"] = _nombre(valeur, "la largeur")
     elif ch == ["limite"]:
-        el["limite"] = _nombre(valeur, "la limite")
+        # (saisie dans l'unité choisie — lot 4, § 2.4 — et gardée en kg/cm²)
+        el["limite"] = _nombre(valeur, "la limite") * SS.unite(el)[1] / V.KG_CM2
+    elif t == "armatures" and len(ch) == 2 and ch[1] in el["armatures"]:
+        if ch[1] == "enrobage":
+            el["armatures"]["enrobage"] = round(_nombre(valeur, "l'enrobage") / 100.0, 4)      # (saisi en cm)
+        else:
+            el["armatures"][ch[1]] = str(valeur)
     elif t == "options" and len(ch) == 2 and ch[1] in o:
-        if ch[1] in ("aretes", "nonlinear"):
+        if ch[1] in ("aretes", "nonlinear", "torsion"):
             o[ch[1]] = _bool(valeur)
-        elif ch[1] == "rond":
-            o["rond"] = valeur
+        elif ch[1] in ("rond", "unite"):
+            o[ch[1]] = valeur
         elif ch[1] == "anneau":
             o["anneau"] = _nombre(valeur, "l'anneau")
         else:
             o[ch[1]] = _nombre(valeur, ch[1])
     elif t == "vue" and len(ch) == 2 and ch[1] in el["vue"]:
-        if ch[1] == "carte":
-            el["vue"]["carte"] = valeur
+        if ch[1] in ("carte", "onglet"):
+            el["vue"][ch[1]] = valeur
         elif ch[1] == "cas":
             el["vue"]["cas"] = str(valeur) if valeur not in (None, "") else None
         else:
@@ -642,16 +648,36 @@ def _date(infos: Optional[Dict]) -> datetime.datetime:
         return datetime.datetime.combine(datetime.date.today(), datetime.time())
 
 
+def projet_de_la_note(el: Dict, infos: Optional[Dict] = None) -> Dict:
+    """Le projet tel que le SAF et la note l'écrivent (lot 4, § 2.1 : le bloc « Projet » a disparu) : le nom du projet et
+    l'indice sont ceux de la barre du haut (le chantier et l'indice de la note), les dates celle de l'export ; une note
+    d'avant le lot 4 garde ce qu'elle avait saisi quand la barre du haut ne dit rien. Le nom de la grue reste le sien
+    (bloc 2)."""
+    i = infos or {}
+    p = dict(el["projet"])
+    p["projet"] = (i.get("chantier") or "").strip() or p["projet"]
+    p["indice"] = (i.get("indice") or "").strip() or p["indice"]
+    jour = _date(infos).strftime("%d/%m/%Y")
+    p["creation"] = p["creation"] or jour
+    p["mise_a_jour"] = jour
+    return dict(el, projet=p)
+
+
 def fichiers_saf(el: Dict, calc: Dict, infos: Optional[Dict] = None) -> List[Tuple[str, bytes]]:
-    """Les fichiers SAF d'une fondation : [(nom, octets)], un par k coché « SCIA »."""
+    """Le fichier SAF d'une fondation : [(nom, octets)] — UN SEUL (lot 4, § 7), écrit avec le PREMIER k coché « SCIA » ;
+    le bureau fait varier k dans SCIA (la note rappelle les k à passer)."""
     nom_note = (infos or {}).get("nom") or el.get("nom") or TITRE
     date = _date(infos)
-    # (la feuille LLE_DONNEE de chaque fichier porte le tableau de TOUS les k et le cas dimensionnant)
-    return [(EC.nom_fichier(el, k, nom_note), EC.fichier(el, k, date, calc["par_k"], nom_note)) for k in PR.k_scia(el)]
+    k = EC.k_du_fichier(el)
+    if k is None:
+        return []
+    ep = projet_de_la_note(el, infos)
+    # (la feuille LLE_DONNEE porte le tableau de TOUS les k et le cas dimensionnant)
+    return [(EC.nom_fichier(ep, nom_note), EC.fichier(ep, k, date, calc["par_k"], nom_note))]
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
-    """« export » : UN fichier .zip — les SAF de chaque fondation (un par k coché « SCIA ») et la note de calcul PDF, le
+    """« export » : UN fichier .zip — le SAF de chaque fondation (un seul, le premier k coché « SCIA ») et la note PDF, le
     seul bouton d'export de l'écran ; « note_pdf » : la note seule (le bouton « Note PDF » de la page) ; « saf » : les
     SAF seuls, dans la même archive sans la note (les essais, le parcours du module — aucun bouton). Un export impossible
     est refusé avec sa raison (ValueError)."""
@@ -682,7 +708,7 @@ def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional
                 nom = f"{base} ({sum(1 for v in vus if v.startswith(base))}).{ext}"
             vus.add(nom)
             z.writestr(zipfile.ZipInfo(nom, date_time=(date.year, date.month, date.day, 0, 0, 0)), octets)
-    base = (infos or {}).get("nom") or _f(etat)["projet"]["projet"] or TITRE
+    base = (infos or {}).get("nom") or (infos or {}).get("chantier") or _f(etat)["projet"]["projet"] or TITRE
     return {"nom": C.nom_fichier(f"SAF - {base}", "zip"), "type": TYPE_ZIP, "base64": base64.b64encode(tampon.getvalue()).decode("ascii")}
 
 

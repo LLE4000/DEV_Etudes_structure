@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
-"""La SAISIE du « Générateur SAF — Fondation de grue » (api_web/saf.py) : la colonne de gauche, en rubriques — Projet,
-Dalle, Sol, Grue, Réactions, Bandes, Limite — et un seul panneau « Options », replié.
+"""La SAISIE du « Générateur SAF — Fondation de grue » (api_web/saf.py) : la colonne de gauche, en QUATRE blocs comme le
+module « Poutres béton armé » (cahier du lot 4, § 2.1) — 1 Dalle et sol, 2 Grue et charges, 3 Armatures, 4 Options. Le
+bloc « Projet » d'avant le lot 4 a disparu : le nom du projet et l'indice sont ceux de la barre du haut, les dates sont
+automatiques (saf.projet_de_la_note) ; le nom de la grue est dans le bloc 2. Aucun champ n'a été supprimé.
+
+L'unité des contraintes de sol (§ 2.4, Options) : kg/cm² par défaut, kPa ou MPa — la même PARTOUT (le champ de la
+limite, les résultats, la carte, la note) ; le calcul reste en kPa. ``unite``, ``sol`` et ``sol_nb`` l'écrivent.
 
 Peu de champs, des libellés courts, les unités dans les champs, aucune phrase d'explication (cahier des charges § 1) :
 ce qui demande un mot se lit au survol de ⓘ. Un champ vide reste vide. Ce fichier ne calcule rien : il lit le projet,
@@ -22,6 +27,34 @@ SAISIE_TXT = "Saisie"            # le châssis hors bibliothèque, dans le séle
 PLOTS_TXT = (("aucun", "Aucun"), ("prefabrique", "Préfab."), ("coule", "Coulés"))
 PLOTS_LONGS = {"aucun": "aucun plot", "prefabrique": "plots préfabriqués", "coule": "plots coulés en place"}
 ORIGINES = {"mesure": ("≈ ", "valeur mesurée sur le document du constructeur"), "calcule": ("calc. ", "valeur calculée")}
+# l'unité des contraintes de sol (§ 2.4) : (symbole, kPa par unité, décimales) — 2 en kg/cm² (1,12), 1 en kPa (110,3), 3 en
+# MPa (0,110) ; 1 kg/cm² = 98,0665 kPa, 1 MPa = 1 000 kPa
+UNITES_SOL = {"kgcm2": ("kg/cm²", V.KG_CM2, 2), "kpa": ("kPa", 1.0, 1), "mpa": ("MPa", 1000.0, 3)}
+UNITES_TXT = (("kgcm2", "kg/cm²"), ("kpa", "kPa"), ("mpa", "MPa"))
+# les treillis (§ 5.2) : automatique, ou imposé — Ø et espacement, les mêmes dans les deux sens
+TREILLIS_TXT = (("auto", "Automatique"), ("10-15", "Ø10 e = 15 cm"), ("12-15", "Ø12 e = 15 cm"), ("10-10", "Ø10 e = 10 cm"),
+                ("12-10", "Ø12 e = 10 cm"))
+
+
+def unite(el: Dict):
+    """(symbole, kPa par unité, décimales) de l'unité des contraintes de sol choisie."""
+    return UNITES_SOL[el["options"]["unite"]]
+
+
+def sol_nb(el: Dict, kpa: float) -> str:
+    """Une contrainte de sol (en kPa) écrite dans l'unité choisie, sans l'unité : « 1,12 »."""
+    sym, div, nd = unite(el)
+    return C.fr(kpa / div, nd)
+
+
+def sol(el: Dict, kpa: float) -> str:
+    """Une contrainte de sol (en kPa) écrite dans l'unité choisie : « 1,12 kg/cm² »."""
+    return f"{sol_nb(el, kpa)}{C.NBSP}{unite(el)[0]}"
+
+
+def limite_kpa(el: Dict) -> float:
+    """La limite de contrainte de contact en kPa (gardée en kg/cm² dans le projet)."""
+    return el["limite"] * V.KG_CM2
 
 
 def phrase(texte: str) -> str:
@@ -70,14 +103,11 @@ def surface_appui(ch: Dict) -> str:
     return f'{dims}{exc} · {C.fr(ch["aire"], 4)}{C.NBSP}m²'
 
 
-def _projet(el: Dict) -> str:
-    p = el["projet"]
-    L = C.ligne
-    return (L("Projet", C.texte(["projet", "projet"], p["projet"]), full=True)
-            + L("Grue", C.texte(["projet", "grue"], p["grue"]), full=True)
-            + C.ligne2(("Création", C.texte(["projet", "creation"], p["creation"], "jj/mm/aaaa"), ""),
-                       ("Mise à jour", C.texte(["projet", "mise_a_jour"], p["mise_a_jour"], "jj/mm/aaaa"), ""))
-            + L("Indice", C.texte(["projet", "indice"], p["indice"])))
+def _limite(el: Dict) -> str:
+    """La limite de contrainte de contact, dans l'unité choisie (§ 2.4) — gardée en kg/cm² dans le projet."""
+    sym, div, nd = unite(el)
+    return C.ligne("Limite σ", C.num(["limite"], round(limite_kpa(el) / div, nd + 3), sym, mini=0.0), full=True,
+                   aide="La contrainte de contact admise. Le calcul est en kPa ; l'unité se choisit dans Options.")
 
 
 def _dalle(el: Dict) -> str:
@@ -122,7 +152,8 @@ def _grue(el: Dict, m: Dict, carnet: List[Dict]) -> str:
     L, L2 = C.ligne, C.ligne2
     nom = (ch["nom"] if ch["constructeur"] and ch["constructeur"].lower() in ch["nom"].lower() else f"{ch['constructeur']} {ch['nom']}".strip()) \
         if ch["id"] else SAISIE_TXT
-    out = L("Châssis", f'<button type="button" class="prof sf-chassis-b" data-pk="chassis" title="Choisir le châssis dans la bibliothèque">'
+    out = L("Grue", C.texte(["projet", "grue"], el["projet"]["grue"], "nom de la grue"), full=True)
+    out += L("Châssis", f'<button type="button" class="prof sf-chassis-b" data-pk="chassis" title="Choisir le châssis dans la bibliothèque">'
                        f'<span>{C.esc(nom)}</span>{C.icon("chevron-down")}</button>', full=True)
     if ch["note_fondation"]:
         out += f'<div class="sf-note" title="Note de la bibliothèque sur la partie centrale du châssis">{C.esc(ch["note_fondation"])}</div>'
@@ -182,10 +213,27 @@ def _reactions(el: Dict) -> str:
             + (E.plus(["reactions", "+"], "1", "Jeu") if len(jeux) < PR.JEUX_MAX else ""))
 
 
+def _armatures(el: Dict) -> str:
+    """Le bloc 3 : l'enrobage, les treillis (automatiques ou imposés), les renforts et les U (automatiques), la largeur
+    des bandes (§ 2.1, § 5)."""
+    a = el["armatures"]
+    L = C.ligne
+    return (L("Enrobage c", C.num(["armatures", "enrobage"], round(a["enrobage"] * 100, 2), "cm", mini=1, maxi=15), full=True)
+            + L("Treillis inférieur", C.choix(["armatures", "treillis_inf"], a["treillis_inf"], list(TREILLIS_TXT)), full=True,
+                aide="Automatique : le plus léger au total (treillis + renforts), parmi Ø10 ou Ø12, tous les 10 ou 15 cm.")
+            + L("Treillis supérieur", C.choix(["armatures", "treillis_sup"], a["treillis_sup"], list(TREILLIS_TXT)), full=True)
+            + '<div class="sf-lu"><span>Renforts</span><b>automatiques · Ø12, Ø16 ou Ø20</b></div>'
+            + '<div class="sf-lu"><span>U de fermeture</span><b>automatiques · Ø et e du treillis le plus fort</b></div>'
+            + L("Bandes", C.segments(["bandes", "largeur"], f"{el['bandes']['largeur']:.1f}", [("0.5", "0,50 m"), ("1.0", "1,00 m")]), full=True,
+                aide="La largeur des bandes d'intégration et de renfort (0,50 m par défaut). La même largeur pour les bandes du SAF."))
+
+
 def _options(el: Dict) -> str:
     o = el["options"]
     L, L2 = C.ligne, C.ligne2
-    return (L("Maille du calcul", C.num(["options", "maille"], o["maille"], "m", mini=PR.MAILLES[0], maxi=PR.MAILLES[1]))
+    return (L("Unité σ sol", C.segments(["options", "unite"], o["unite"], list(UNITES_TXT)), full=True,
+              aide="L'unité des contraintes de sol, partout : carte, résultats, tableau par k, note. Le calcul reste en kPa.")
+            + L("Maille du calcul", C.num(["options", "maille"], o["maille"], "m", mini=PR.MAILLES[0], maxi=PR.MAILLES[1]))
             + L("Anneau D2", C.segments(["options", "anneau"], f"{o['anneau']:.2f}", [("0.01", "1 cm"), ("0.02", "2 cm"), ("0.03", "3 cm")]), full=True,
                 aide="L'anneau qui entoure la dalle dans le SAF (avec l'ouverture O1). Il n'est pas dans la vérification rapide.")
             + L2(("C1x / k", C.num(["options", "c1x"], o["c1x"], "", mini=0, maxi=1), "Frottement du sol dans le SAF : C1x = k × cette valeur."),
@@ -193,37 +241,37 @@ def _options(el: Dict) -> str:
             + L2(("C2x / k", C.num(["options", "c2x"], o["c2x"], "", mini=0, maxi=1), "Pasternak, dans le SAF et dans la vérification rapide : C2x = k × cette valeur (MN/m)."),
                  ("C2y / k", C.num(["options", "c2y"], o["c2y"], "", mini=0, maxi=1), ""))
             + L("Platine ronde", C.segments(["options", "rond"], o["rond"], [("carre", "Carré de même aire"), ("48", "48 côtés")]), full=True)
+            + C.case(["options", "torsion"], o["torsion"], "Torsion dans le treillis (m ± |m<sub>xy</sub>|)")
+            + L2(("Recouvrement", C.num(["options", "recouvrement"], o["recouvrement"], "Ø", mini=20, maxi=120),
+                  "Longueur de recouvrement, en diamètres : le logiciel n'a pas de règle (50 Ø par défaut)."),
+                 ("Barres ≤", C.num(["options", "l_max"], o["l_max"], "m", mini=3, maxi=24), "Longueur maxi des barres ; au-delà, un recouvrement."))
             + C.case(["options", "aretes"], o["aretes"], "Arêtes internes des bandes")
             + C.case(["options", "nonlinear"], o["nonlinear"], "Combinaisons Nonlinear (SAF 2.2.0)")
             + '<div class="grp">Épaisseurs testées par « Proposer »</div>'
             + L2(("de", C.num(["options", "h_min"], o["h_min"], "m", mini=0.1, maxi=3), ""), ("à", C.num(["options", "h_max"], o["h_max"], "m", mini=0.1, maxi=3), ""),
-                 ("pas", C.num(["options", "h_pas"], o["h_pas"], "m", mini=0.05, maxi=1), "")))
+                 ("pas", C.num(["options", "h_pas"], o["h_pas"], "m", mini=0.05, maxi=1), ""))
+            + '<div class="grp">Moteur poutre (méthode du bureau)</div>'
+            + L2(("γ<sub>s</sub>", C.num(["options", "gamma_s"], o["gamma_s"], "", mini=1, maxi=3), "Coefficient acier ELS : f<sub>yd</sub> = f<sub>yk</sub> / γ<sub>s</sub>."),
+                 ("Jeu de pose", C.num(["options", "jeu"], o["jeu"], "cm", mini=0, maxi=5), "Ajouté à la position réelle d'une nappe pour l'axe de calcul."))
+            + L("Arrondi de l'axe", C.segments(["options", "arrondi"], C.nb(o["arrondi"]), [("0", "aucun"), ("0,5", "0,5 cm"), ("1", "1 cm")]), full=True))
 
 
 def formulaire(el: Dict, calc: Dict, s: Dict, carnet: List[Dict]) -> str:
     """Les rubriques de la fondation ouverte. ``s`` : la synthèse du calcul (``saf_resultat.synthese``)."""
     m = calc["modele"]
-    ch, g, p = m["chassis"], el["grue"], el["projet"]
+    ch = m["chassis"]
     ks = el["sol"]["k"]
-    n_scia = sum(1 for x in ks if x["scia"])
-    r_sol = " · ".join(C.nb(x["k"]) for x in ks) + f" · {n_scia} SCIA"
-    r_grue = " · ".join(t for t in ((ch["nom"] or f"saisie {C.fr(ch['a'], 2)} × {C.fr(ch['b'], 2)}"),
-                                    PLOTS_LONGS[g["plots"]["type"]] if g["plots"]["type"] != "aucun" else "",
-                                    f"β {C.nb(round(g['beta'], 2), 2)}°" if abs(g["beta"]) > 1e-9 else "") if t)
     n_jeux = len(m["jeux"])
-    r_reac = f"{n_jeux} jeu{'x' if n_jeux > 1 else ''} · {len(m['cas'])} cas" if n_jeux else "à saisir"
-    limite_kpa = el["limite"] * V.KG_CM2
-    o = el["options"]
-    s7 = (C.ligne("Contrainte admise", C.num(["limite"], el["limite"], "kg/cm²", mini=0.05, maxi=5))
-          + f'<div class="sf-lu"><span>soit</span><b>{C.fr(limite_kpa, 1)}{C.NBSP}kPa</b></div>')
-    return (C.section(1, "Projet", C.esc(" · ".join(t for t in (p["projet"], p["grue"]) if t)), _projet(el), False, "projet")
-            + C.section(2, "Dalle", f"{dimensions(el)} · {C.esc(el['dalle']['beton'])}", _dalle(el), True, "dalle")
-            + C.section(3, "Sol", f"k {r_sol}", _sol(el), False, "sol")
-            + C.section(4, "Grue", C.esc(r_grue), _grue(el, m, carnet), False, "grue")
-            + C.section(5, "Réactions", r_reac, _reactions(el), False, "reactions")
-            + C.section(6, "Bandes", f"{C.fr(el['bandes']['largeur'], 2)}{C.NBSP}m",
-                        C.ligne("Largeur", C.segments(["bandes", "largeur"], f"{el['bandes']['largeur']:.1f}", [("1.0", "1,00 m"), ("0.5", "0,50 m")]), full=True),
-                        False, "bandes")
-            + C.section(7, "Limite", f"{C.nb(el['limite'])}{C.NBSP}kg/cm² · {C.fr(limite_kpa, 1)}{C.NBSP}kPa", s7, False, "limite")
-            + C.section(8, "Options", f"maille {C.fr(o['maille'], 2)}{C.NBSP}m · anneau {C.nb(o['anneau'] * 100)}{C.NBSP}cm", _options(el), False, "options",
-                        secondaire=True))
+    o, a = el["options"], el["armatures"]
+    scia = [C.nb(x["k"]) for x in ks if x["scia"]]
+    r1 = f"{dimensions(el)} · {C.esc(el['dalle']['beton'])} · k {'-'.join(scia) if scia else 'aucun SCIA'} · {sol(el, limite_kpa(el))}"
+    appuis = ch["dims"].replace(" m", "") if ch["appuis"] == "rectangle" else "réels"
+    r2 = (f"châssis {C.fr(ch['a'], 2)} × {C.fr(ch['b'], 2)} · appuis {C.esc(appuis)} · "
+          + (f"{n_jeux} jeu{'x' if n_jeux > 1 else ''}" if n_jeux else "réactions à saisir"))
+    treillis = "auto" if a["treillis_inf"] == a["treillis_sup"] == "auto" else "imposé"
+    r3 = f"c = {C.nb(round(a['enrobage'] * 100, 2))}{C.NBSP}cm · treillis {treillis} · bandes {C.fr(el['bandes']['largeur'], 2)}{C.NBSP}m"
+    r4 = f"maille {C.fr(o['maille'], 2)}{C.NBSP}m · anneau {C.nb(o['anneau'] * 100)}{C.NBSP}cm"
+    return (C.section(1, "Dalle et sol", r1, _dalle(el) + '<div class="grp">Sol</div>' + _sol(el) + _limite(el), True, "dalle")
+            + C.section(2, "Grue et charges", r2, _grue(el, m, carnet) + '<div class="grp">Réactions</div>' + _reactions(el), False, "grue")
+            + C.section(3, "Armatures", r3, _armatures(el), False, "armatures")
+            + C.section(4, "Options", r4, _options(el), False, "options", secondaire=True))

@@ -44,6 +44,7 @@ from api_web import registre as REG  # noqa: E402
 from api_web import routeur  # noqa: E402
 from api_web import saf as M  # noqa: E402
 from api_web import saf_resultat as SR  # noqa: E402
+from api_web import saf_saisie as SS  # noqa: E402
 from api_web import sol as SOL  # noqa: E402
 from grues.chassis import acces as BIB  # noqa: E402
 from saf.fondation_grue import ecriture as EC  # noqa: E402
@@ -94,24 +95,41 @@ def fr(x, nd=1):
 def rapides():
     r0 = q(action="nouveau")
     el = f0(r0)
+    # (lot 4 : maille 0,20 m, bandes de 0,50 m, contraintes de sol en kg/cm², enrobage 5 cm, treillis automatiques — le harnais suit)
     chk("une note neuve : une fondation « F1 » aux valeurs du bureau — 8,00 × 8,00 × 0,50 m, C30/37, k = 2 ; 5 ; 10 ; 20 ; 30 (cochés SCIA : 2 ; 5 ; 10), "
-        "châssis saisi 6 × 6 m, plaques 0,50 × 0,50, sans plot, bandes 1,00 m, limite 0,5 kg/cm² ; les réactions et les textes du projet VIDES ; "
-        "le carnet n'est pas dans la note",
+        "châssis saisi 6 × 6 m, plaques 0,50 × 0,50, sans plot, bandes 0,50 m, maille 0,20 m, limite 0,5 kg/cm², unité kg/cm², enrobage 5 cm, "
+        "treillis automatiques ; les réactions et les textes du projet VIDES ; le carnet n'est pas dans la note",
         r0["ok"] and el["nom"] == "F1" and (el["dalle"]["Lx"], el["dalle"]["Ly"], el["dalle"]["h"], el["dalle"]["beton"]) == (8.0, 8.0, 0.5, "C30/37")
         and [(x["k"], x["scia"]) for x in el["sol"]["k"]] == [(2.0, True), (5.0, True), (10.0, True), (20.0, False), (30.0, False)]
         and el["grue"]["chassis"] == "saisie" and (el["grue"]["appuis"], el["grue"]["rect"]) == ("rectangle", {"a": 0.5, "b": 0.5, "angle": 0})
-        and el["grue"]["plots"]["type"] == "aucun" and el["limite"] == 0.5 and el["bandes"]["largeur"] == 1.0
+        and el["grue"]["plots"]["type"] == "aucun" and el["limite"] == 0.5 and el["bandes"]["largeur"] == 0.5 and el["options"]["maille"] == 0.2
+        and el["options"]["unite"] == "kgcm2" and el["armatures"] == {"enrobage": 0.05, "treillis_inf": "auto", "treillis_sup": "auto"}
         and el["reactions"] == [{"nom": "", "P": [None] * 4}] and set(el["projet"].values()) == {""} and "carnet" not in r0["etat"], el)
-    chk("sans réaction : le poids propre seul (σ = 25·h = 12,5 kPa), la note est « Données incomplètes », la rubrique dit « à saisir », et l'export "
-        "est éteint, avec sa raison écrite dessous — rien en fenêtre surgissante",
-        r0["resume"]["niveau"] == "n" and "poids propre seul" in r0["resume"]["gouvernant"] and "12,5 kPa" in r0["resume"]["gouvernant"]
+    chk("sans réaction : le poids propre seul (σ = 25·h = 12,5 kPa = 0,13 kg/cm², l'unité par défaut), la note est « Données incomplètes », le "
+        "bloc « Grue et charges » dit « réactions à saisir », et l'export est éteint, avec sa raison écrite dessous — rien en fenêtre surgissante",
+        r0["resume"]["niveau"] == "n" and "poids propre seul" in r0["resume"]["gouvernant"] and "0,13 kg/cm²" in r0["resume"]["gouvernant"]
         and "à saisir" in txt(r0["donnees"]) and re.search(r'<button type="button" class="btn primary sf-exp-b" disabled>', r0["resultat"]) is not None
         and "data-telecharger" not in r0["resultat"]
         and "Aucun jeu de réactions complet" in txt(r0["resultat"]), (r0["resume"], txt(r0["resultat"])[-300:]))
-    chk("les huit rubriques, dans l'ordre du cahier des charges : Projet, Dalle, Sol, Grue, Réactions, Bandes, Limite — et UN panneau Options, "
-        "replié, rangé à part (data-secondaire)",
-        re.findall(r'data-sec="([a-z]+)"', r0["donnees"]) == ["projet", "dalle", "sol", "grue", "reactions", "bandes", "limite", "options"]
-        and re.findall(r'data-sec="([a-z]+)" data-secondaire', r0["donnees"]) == ["options"], re.findall(r'data-sec="([a-z]+)"', r0["donnees"]))
+    # U1 (lot 4, § 2.1) : QUATRE blocs comme le module « Poutres béton armé », et TOUS les anciens champs y sont (le projet et l'indice
+    # passent dans la barre du haut : ils ne sont plus des champs de la colonne de gauche)
+    chemins = set(re.findall(r'data-chemin="([^"]+)"', r0["donnees"]))
+    anciens = {"projet/grue", "dalle/forme", "dalle/Lx", "dalle/Ly", "dalle/h", "dalle/beton", "sol/k/0/k", "sol/k/0/scia", "sol/k/+",
+               "grue/a", "grue/b", "grue/appuis", "grue/rect/a", "grue/rect/b", "grue/rect/angle", "grue/plots/type", "grue/ex", "grue/ey",
+               "grue/beta", "grue/dmin", "reactions/0/nom", "reactions/0/P/0", "reactions/+", "bandes/largeur", "limite", "options/maille",
+               "options/anneau", "options/c1x", "options/c1y", "options/c2x", "options/c2y", "options/rond", "options/aretes", "options/nonlinear",
+               "options/h_min", "options/h_max", "options/h_pas", "carnet/garder"}
+    nouveaux = {"armatures/enrobage", "armatures/treillis_inf", "armatures/treillis_sup", "options/unite", "options/torsion",
+                "options/recouvrement", "options/l_max", "options/gamma_s", "options/jeu", "options/arrondi"}
+    titres = re.findall(r'<span class="tt">([^<]+)</span>', r0["donnees"])
+    chk("U1 la colonne de gauche en QUATRE blocs numérotés, dépliables, avec leur résumé : 1 Dalle et sol, 2 Grue et charges, 3 Armatures, "
+        "4 Options (rangé à part) ; tous les anciens champs sont présents, et ceux du lot 4 (enrobage, treillis, unité, torsion, recouvrement, "
+        "longueur des barres, options du moteur poutre)",
+        re.findall(r'data-sec="([a-z]+)"', r0["donnees"]) == ["dalle", "grue", "armatures", "options"]
+        and re.findall(r'data-sec="([a-z]+)" data-secondaire', r0["donnees"]) == ["options"]
+        and titres == ["Dalle et sol", "Grue et charges", "Armatures", "Options"] and anciens <= chemins and nouveaux <= chemins
+        and "projet/projet" not in chemins and "projet/indice" not in chemins,
+        (titres, sorted(anciens - chemins), sorted(nouveaux - chemins)))
     type_ = M._etat_type()
     r = q(action="calculer", etat=type_)
     el = f0(r)
@@ -119,24 +137,30 @@ def rapides():
     par_k = {x["k"]: x for x in calc["par_k"]}
     gov = max((par_k[k] for k in (2.0, 5.0, 10.0)), key=lambda x: x["sigma_max"])
     res = txt(r["resultat"])
-    chk("la dalle type : l'écran dit le MOTEUR — σ max parmi les k cochés SCIA (k = 10 : "
-        f"{fr(gov['sigma_max'])} kPa, cas {gov['cas_max']}), en kg/cm² et en kPa face à la limite 49,0 kPa, en rouge ; le taux de la note",
-        f"{fr(gov['sigma_max'])} kPa > 49,0 kPa · cas {gov['cas_max']} · k = 10 MN/m³" in res and fr(gov["sigma_max"] / V.KG_CM2, 2) in res
-        and r["resume"]["niveau"] == "r" and r["resume"]["taux"] == C.pct(gov["sigma_max"] / (0.5 * V.KG_CM2))
-        and 'class="chip xl r"' in r["resultat"], (res[:300], r["resume"]))
+    # U2 (lot 4, § 2.2) : les cartes du module poutre — plus de grand rectangle (« chip xl »), plus de verdict en très gros
+    chk("U2 la dalle type : l'écran dit le MOTEUR dans la carte SOL — « σ max = 1,12 kg/cm² > 0,50 kg/cm² · cas 3.a · k = 10 », le taux "
+        f"{C.pct(gov['sigma_max'] / (0.5 * V.KG_CM2))} % ; la carte est « Non conforme » (rouge) ; aucun grand rectangle de contrainte ; le pied "
+        "« Méthode du bureau · moteur poutre » et la version du moteur",
+        f"σ max = {fr(gov['sigma_max'] / V.KG_CM2, 2)} kg/cm² > 0,50 kg/cm² · cas {gov['cas_max']} · k = 10" in res and gov["cas_max"] == "3.a"
+        and fr(gov["sigma_max"] / V.KG_CM2, 2) == "1,12" and r["resume"]["niveau"] == "r"
+        and r["resume"]["taux"] == C.pct(gov["sigma_max"] / (0.5 * V.KG_CM2))
+        and 'chip xl' not in r["resultat"] and 'class="verdict' not in r["resultat"] and '<section class="et-bloc nok" data-theme="0">' in r["resultat"]
+        and "Sol Non conforme" in res and "Méthode du bureau · moteur poutre v2.40" in res, (res[:300], r["resume"]))
     lignes = re.findall(r'<tr class="([a-z ]+)"><td><button[^>]*data-valeur="([0-9.]+)"[^>]*>[^<]*</button></td><td class="n"><span class="chip ([a-z])">([^<]+)</span></td>'
                         r'<td class="n">([^<]+)</td><td class="n">([^<]+)</td>.*?<input type="checkbox" data-agir="1" data-chemin="sol/k/(\d)/scia"( checked)?',
                         r["resultat"], re.S)
-    attendu = [(str(k), "r", fr(par_k[k]["sigma_max"]), fr(par_k[k]["w_max"]), fr(par_k[k]["decolle"]) + " %", str(i), " checked" if i < 3 else "")
+    attendu = [(str(k), "r", fr(par_k[k]["sigma_max"] / V.KG_CM2, 2), fr(par_k[k]["w_max"]), fr(par_k[k]["decolle"]) + " %", str(i), " checked" if i < 3 else "")
                for i, k in enumerate((2.0, 5.0, 10.0, 20.0, 30.0))]
-    chk("le tableau par k : k | σ max | tassement max | surface décollée | case SCIA — les cinq k, les nombres du moteur, chaque ligne à la couleur "
-        "de sa contrainte ; la ligne du k affiché est marquée ; les cases règlent « sol/k/i/scia »",
+    chk("le tableau par k (dépliable dans la carte SOL) : k | σ max (kg/cm²) | tassement max | surface décollée | case SCIA — les cinq k, les "
+        "nombres du moteur, chaque ligne à la couleur de sa contrainte ; la ligne du k gouvernant est marquée ; les cases règlent « sol/k/i/scia »",
         [(a[1], a[2], a[3], a[4], a[5].replace(" ", " "), a[6], a[7]) for a in lignes] == attendu
         and [a[0] for a in lignes].count("nok vu") == 1 and lignes[2][0] == "nok vu", lignes)
     sm = V.sigma_moyen(calc["modele"])
-    chk("σ moyen (un repère) : (poids de la dalle + réactions du jeu le plus lourd) ÷ aire = (800 + 1 580) / 64 = 37,2 kPa ; les contrôles : appuis "
-        "dans la dalle, distance au bord 0,750 m ≥ 0,50 m, équilibre ; « 16 cas générés », la liste repliée",
-        abs(sm["sigma"] - 37.1875) < 1e-9 and "σ moyen 37,2 kPa (800 + 1 580) / 64,0 m²" in res and "Distance au bord OK 0,750 m ≥ 0,50 m" in res
+    chk("σ moyen (un repère, dans la carte SOL) : (poids de la dalle + réactions du jeu le plus lourd) ÷ aire = (800 + 1 580) / 64 = 37,2 kPa = "
+        "0,38 kg/cm² ; le tassement max et la surface décollée ; les contrôles : appuis dans la dalle, distance au bord 0,750 m ≥ 0,50 m, "
+        "équilibre ; « 16 cas générés », la liste repliée",
+        abs(sm["sigma"] - 37.1875) < 1e-9 and "σ moyen = (800 + 1 580) / 64,0 m² = 0,38 kg/cm²" in res and "Distance au bord OK 0,750 m ≥ 0,50 m" in res
+        and "Tassement max info w max = " in res and "Surface décollée info" in res
         and "Appuis dans la dalle OK" in res and "Équilibre OK écart 0,0000 %" in res and "16 cas générés" in res
         and '<details class="sf-pos" data-plan-volet="positions">' in r["resultat"] and r["resultat"].count('class="sf-cas') == 17, res[300:700])
     chk("les contrôles sont des LIGNES DE L'ÉTABLI (C.ligne_verif : « el vc », l'état en un mot) — celles des autres modules — et chacune ouvre "
@@ -155,12 +179,50 @@ def rapides():
         and all(f'"chemin":"{c}"' in H.unescape(svg) for c in ("dalle/Lx", "dalle/Ly")) and svg.count('class="sf-appui"') == 4
         and all(f">{t}</text>" in svg for t in ("P1", "P2", "P3", "P4", "BX1", "BX2", "BY1", "BY2")), (glisser, tourner))
     png = base64.b64decode(re.search(r'href="data:image/png;base64,([^"]+)"', svg).group(1))
-    chk("la carte : une image PNG de la contrainte de contact du cas et du k les plus défavorables, découpée au contour de la dalle ; la valeur "
-        "maximale est pointée ; l'en-tête du plan offre contrainte, tassement ou sans carte, la position et le k",
-        png[:8] == b"\x89PNG\r\n\x1a\n" and f"σ max {fr(gov['sigma_max'])} kPa" in svg and 'clip-path="url(#saf_dalle)"' in svg
-        and re.findall(r'data-chemin="vue/carte" data-valeur="([a-z]+)"', r["vues"][0]["entete"]) == ["sigma", "w", "aucune"]
-        and 'data-chemin="vue/cas"' in r["vues"][0]["entete"] and 'data-chemin="vue/k"' in r["vues"][0]["entete"]
-        and f"Cas le plus défavorable ({gov['cas_max']})" in r["vues"][0]["entete"], len(png))
+    ent = r["vues"][0]["entete"]
+    menus = re.findall(r'<select data-agir="1" data-chemin="(vue/[a-z]+)"[^>]*>(.*?)</select>', ent, re.S)
+    premiers = {c: re.findall(r'<option value="([^"]*)"( selected)?>([^<]+)</option>', o)[0] for c, o in menus}
+    chk("U8 / U3 la barre du centre, sur UNE ligne : l'onglet « Plan », puis trois listes — la carte (Contrainte, Tassement, Sans carte), le "
+        "cas et le k, « Enveloppe » en tête et choisie ; la carte, une image PNG découpée au contour, est l'ENVELOPPE des 16 cas et des 3 k "
+        "cochés SCIA : son maximum est celui du moteur, pointé en kg/cm²",
+        png[:8] == b"\x89PNG\r\n\x1a\n" and f"σ max {fr(gov['sigma_max'] / V.KG_CM2, 2)} kg/cm²" in svg and 'clip-path="url(#saf_dalle)"' in svg
+        and ent.startswith('<div class="et-ent sf-ent sf-barre">') and "<br" not in ent and 'class="l1"' not in ent
+        and re.findall(r'data-chemin="vue/onglet" data-valeur="([a-z]+)"', ent) == ["plan"]
+        and [c for c, _ in menus] == ["vue/carte", "vue/cas", "vue/k"] and premiers["vue/cas"] == ("", " selected", "Enveloppe")
+        and premiers["vue/k"] == ("", " selected", "Enveloppe")
+        and re.findall(r'<option value="([a-z]+)"', dict(menus)["vue/carte"]) == ["sigma", "w", "aucune"], (len(png), premiers))
+    # U3 : l'enveloppe montre les QUATRE coins pareils — les 8 positions du jeu 3 donnent toutes la même contrainte, deux par coin
+    ch3 = SR.champ(PR.lire(el), calc, SR.synthese(PR.lire(el), calc))
+    d3 = ch3["dalle"]
+    sig = ch3["valeurs"].reshape(d3.ny + 1, d3.nnx)
+    coins = [float(sig[:d3.ny // 2 + 1, :d3.nx // 2 + 1].max()), float(sig[:d3.ny // 2 + 1, d3.nx // 2:].max()),
+             float(sig[d3.ny // 2:, :d3.nx // 2 + 1].max()), float(sig[d3.ny // 2:, d3.nx // 2:].max())]
+    chk("U3 la carte en enveloppe par défaut : sur la dalle type, les quatre quarts de la dalle montrent la MÊME contrainte maximale, "
+        "110,3 kPa avec la maille de 0,20 m (deux positions par coin) ; une position seule (3.a) ne charge qu'un coin",
+        max(coins) - min(coins) < 1e-6 * max(coins) and fr(max(coins)) == "110,3" and d3.a == 0.2 and ch3["maxi"] == max(coins)
+        and len({round(c, 6) for c in [float(x) for x in (lambda s3: [s3[:d3.ny // 2 + 1, :d3.nx // 2 + 1].max(), s3[:d3.ny // 2 + 1, d3.nx // 2:].max(),
+                                                                   s3[d3.ny // 2:, :d3.nx // 2 + 1].max(), s3[d3.ny // 2:, d3.nx // 2:].max()])(
+            SR.enveloppe_champs([x for x in calc["par_k"] if x["k"] == 10.0], "3.a")[0].reshape(d3.ny + 1, d3.nnx))]}) > 1, coins)
+    # U6 : l'unité des contraintes de sol, partout ensemble
+    rk, rm = mod(type_, ["options", "unite"], "kpa"), mod(type_, ["options", "unite"], "mpa")
+    tk, tm = txt(rk["resultat"]), txt(rm["resultat"])
+    chk("U6 l'unité : dalle type, k = 10, maille 0,20 — 1,12 kg/cm² par défaut, 110,3 kPa, 0,110 MPa ; la carte (légende et valeur pointée), "
+        "la carte SOL, le tableau par k, σ moyen et le champ de la limite changent ENSEMBLE, sans unité mélangée",
+        "σ max = 110,3 kPa > 49,0 kPa" in tk and "σ max kPa" in tk and "= 37,2 kPa" in tk and "kg/cm²" not in tk + rk["vues"][0]["svg"]
+        and "σ max 110,3 kPa" in rk["vues"][0]["svg"] and "σ (kPa)" in rk["vues"][0]["svg"]
+        and "σ max = 0,110 MPa > 0,049 MPa" in tm and "MPa" in rm["vues"][0]["svg"] and "kg/cm²" not in tm
+        and re.search(r'data-chemin="limite"[^>]*value="49,0332[0-9]*"', rk["donnees"]) is not None
+        and re.search(r'data-chemin="limite"[^>]*value="0,5"', r["donnees"]) is not None and "kPa" in txt(rk["donnees"]),
+        (tk[:220], tm[:160]))
+    rl = mod(rk["etat"], ["limite"], "60")
+    chk("U6 la limite se saisit dans l'unité choisie : 60 kPa = 0,6118 kg/cm² gardés dans la note, relus « 60 » en kPa",
+        abs(f0(rl)["limite"] - 60 / V.KG_CM2) < 1e-12 and re.search(r'data-chemin="limite"[^>]*value="60"', rl["donnees"]) is not None, f0(rl)["limite"])
+    # U7 : le dégradé à plusieurs couleurs, la limite en trait noir sur la légende et en ligne noire sur le plan
+    chk("U7 la carte : un dégradé à plusieurs couleurs (« turbo », du bleu foncé au rouge) de 0 au maximum ; un trait NOIR à 0,50 kg/cm² sur la "
+        "légende (« 0,50 limite »), une ligne NOIRE σ = 0,50 kg/cm² sur le plan avec son étiquette ; le tassement : le même dégradé, sans ligne",
+        '<g class="sf-iso"' in svg and 'stroke="#000000"' in svg and ">0,50 kg/cm²</text>" in svg and ">0,50 limite</text>" in svg
+        and 'class="sf-lim"' in svg and "#30123b" in svg and "#aa1405" in svg
+        and '<g class="sf-iso"' not in mod(type_, ["vue", "carte"], "w")["vues"][0]["svg"], svg.count("sf-iso"))
     # ---- la saisie
     r1 = mod(type_, ["grue", "position"], [0.25, 0.25])
     r2 = mod(type_, ["sol", "k", 1, "k"], "2")
@@ -229,10 +291,10 @@ def rapides():
     rv = mod(mod(type_, ["vue", "cas"], "2.b")["etat"], ["vue", "k"], "30")
     champ = SR.champ(PR.lire(f0(rv)), M.calculer(PR.lire(f0(rv))), SR.synthese(PR.lire(f0(rv)), M.calculer(PR.lire(f0(rv)))))
     c2b = next(c for c in par_k[30.0]["cas"] if c["nom"] == "2.b")
-    chk("la position et le k affichés se choisissent (un clic sur une position, sur un k) : la carte est celle du cas 2.b à k = 30, son maximum "
-        "pointé ; le résultat de la note ne change pas (le calcul n'est pas refait)",
+    chk("la position et le k affichés se choisissent dans les listes (« Enveloppe » en tête) : la carte est celle du cas 2.b à k = 30, son "
+        "maximum pointé ; le résultat de la note ne change pas (le calcul n'est pas refait)",
         abs(champ["maxi"] - c2b["sigma_max"]) < 1e-9 and abs(float(champ["valeurs"].max()) - c2b["sigma_max"]) < 1e-9
-        and f"σ max {fr(c2b['sigma_max'])} kPa" in rv["vues"][0]["svg"] and rv["resume"] == r["resume"]
+        and f"σ max {fr(c2b['sigma_max'] / V.KG_CM2, 2)} kg/cm²" in rv["vues"][0]["svg"] and rv["resume"] == r["resume"]
         and mod(type_, ["vue", "carte"], "aucune")["vues"][0]["svg"].count("<image") == 0
         and "w max" in mod(type_, ["vue", "carte"], "w")["vues"][0]["svg"], champ["maxi"])
     # ---- la bibliothèque des châssis (B1 à B5, côté écran)
@@ -284,7 +346,7 @@ def rapides():
     li = PP.pour_epaisseur(PR.lire(f0(r)), 0.5)
     chk("« Proposer », une épaisseur par requête (une LECTURE : la barre de progression avance, la note ne change pas) : pour h = 0,50, la ligne "
         "du moteur — la plus petite dalle sous la limite pour TOUS les k cochés",
-        p5["ok"] and "etat" not in p5 and f"{fr(li['Lx'], 2)} × {fr(li['Ly'], 2)} m" in txt(p5["html"]) and fr(li["sigma_max"]) in txt(p5["html"])
+        p5["ok"] and "etat" not in p5 and f"{fr(li['Lx'], 2)} × {fr(li['Ly'], 2)} m" in txt(p5["html"]) and fr(li["sigma_max"] / V.KG_CM2, 2) in txt(p5["html"])
         and fr(li["volume"]) in txt(p5["html"]) and "disabled" in p5["html"], txt(p5["html"]))
     rg = mod(type_, ["proposition", "garder"], 1)
     chk("« Proposer » n'est gardé dans la note que COMPLET : avec une seule épaisseur faite, la demande est refusée ; le bouton porte la suite "
@@ -332,13 +394,16 @@ def rapides():
     exp = q(action="telecharger", etat=type_, quoi="saf", infos=INFOS)
     z = zipfile.ZipFile(io.BytesIO(base64.b64decode(exp["fichier"]["base64"])))
     date = M._date(INFOS)
-    attendus = {EC.nom_fichier(PR.lire(f0(r)), k, "Grue G1"): EC.fichier(PR.lire(f0(r)), k, date, calc["par_k"], "Grue G1") for k in (2.0, 5.0, 10.0)}
-    chk("l'export : UNE archive « SAF - <note>.zip » — un fichier SAF par k coché, nommé « <Projet>_k02.xlsx » (sans projet : le nom de la note), "
-        "à l'OCTET celui du moteur ; sa feuille LLE_DONNEE porte le tableau de tous les k et le cas dimensionnant",
+    ep = M.projet_de_la_note(PR.lire(f0(r)), INFOS)
+    attendus = {"Chantier A.xlsx": EC.fichier(ep, 2.0, date, calc["par_k"], "Grue G1")}
+    feuille = zipfile.ZipFile(io.BytesIO(z.read("Chantier A.xlsx"))).read("xl/sharedStrings.xml") if "Chantier A.xlsx" in z.namelist() else b""
+    chk("S0 l'export : UNE archive « SAF - <note>.zip » — UN SEUL fichier SAF (lot 4, § 7), « <Projet>.xlsx » (le projet de la barre du haut : "
+        "« Chantier A »), écrit avec le PREMIER k coché « SCIA » (dalle type : 2 MN/m³), à l'OCTET celui du moteur ; sa feuille LLE_DONNEE porte "
+        "le tableau de tous les k et le cas dimensionnant ; le projet et l'indice y sont ceux de la barre du haut ; le bouton dit « Exporter · SAF + note »",
         exp["ok"] and exp["fichier"]["nom"] == "SAF - Grue G1.zip" and exp["fichier"]["type"] == "application/zip"
-        and sorted(z.namelist()) == ["Grue G1_k02.xlsx", "Grue G1_k05.xlsx", "Grue G1_k10.xlsx"]
-        and all(z.read(n) == o for n, o in attendus.items()) and b"CAS DIMENSIONNANT" in zipfile.ZipFile(io.BytesIO(z.read("Grue G1_k02.xlsx"))).read("xl/sharedStrings.xml"),
-        (exp.get("erreur"), z.namelist()))
+        and z.namelist() == ["Chantier A.xlsx"] and all(z.read(n) == o for n, o in attendus.items()) and b"CAS DIMENSIONNANT" in feuille
+        and b"2 MN/m\xc2\xb3" in feuille and ep["projet"]["projet"] == "Chantier A" and ep["projet"]["indice"] == "B"
+        and "Exporter · SAF + note" in txt(r["resultat"]), (exp.get("erreur"), z.namelist()))
     vide = q(action="telecharger", etat=M.nouvel_etat(), quoi="export", infos=INFOS)
     sans_k = q(action="telecharger", etat=mod(mod(mod(type_, ["sol", "k", 0, "scia"], False)["etat"], ["sol", "k", 1, "scia"], False)["etat"], ["sol", "k", 2, "scia"], False)["etat"],
                quoi="saf", infos=INFOS)
@@ -363,8 +428,10 @@ def complets():
     z = zipfile.ZipFile(io.BytesIO(base64.b64decode(exp["fichier"]["base64"]))) if exp["ok"] else None
     noms = z.namelist() if z else []
     k = el["sol"]["k"][0]["k"]
-    chk("l'export en un clic : les SAF (un par k coché — ici le k repris de la note de sol) ET la note de calcul PDF, dans une archive",
-        exp["ok"] and noms == [EC.nom_fichier(el, k, "Grue G1"), "Note de calcul - Grue G1.pdf"] and z.read(noms[1])[:5] == b"%PDF-", (exp.get("erreur"), noms))
+    chk("S0 l'export en un clic : le SAF (un seul, écrit avec le premier k coché — ici le k repris de la note de sol) ET la note de calcul PDF, "
+        "dans une archive",
+        exp["ok"] and noms == ["Chantier A.xlsx", "Note de calcul - Grue G1.pdf"] and z.read(noms[1])[:5] == b"%PDF-"
+        and EC.k_du_fichier(el) == k, (exp.get("erreur"), noms))
     note = q(action="telecharger", etat=etat, quoi="note_pdf", infos=INFOS)
     octets = base64.b64decode(note["fichier"]["base64"])
     t = pdf_texte(octets)
@@ -453,7 +520,16 @@ MUTATIONS = [
     ("saf_resultat.py", '''        niv = C.niveau(r["sigma_max"] / s["limite"])
         vu = s["r_vue"] is r''', '''        niv = "p"
         vu = s["r_vue"] is r''', "le tableau par k toujours vert"),
-    ("saf_resultat.py", '''    sigma, w = r["champs"][s["i_cas"]]''', '''    sigma, w = r["champs"][0]''', "la carte toujours celle du premier cas"),
+    ("saf_resultat.py", '''            sig = s_.copy() if sig is None else np.maximum(sig, s_)''', '''            sig = s_.copy() if sig is None else sig''',
+     "la carte d'un seul cas au lieu de l'enveloppe"),
+    ("saf_resultat.py", '''        ks = [r for r in par_k if r["k"] in scia] or list(par_k)''', '''        ks = list(par_k)''',
+     "l'enveloppe qui prend aussi les k non cochés « SCIA »"),
+    ("dessin_saf.py", '''        out.append(_iso(v, champ, ident))''', '''        pass''', "la ligne noire σ = limite oubliée sur le plan"),
+    ("dessin_saf.py", '''        maxi = max(maxi, float(champ["limite"]))''', '''        pass''', "l'échelle qui ne monte pas jusqu'à la limite"),
+    ("saf_saisie.py", '''    return f"{sol_nb(el, kpa)}{C.NBSP}{unite(el)[0]}"''', '''    return f"{C.fr(kpa, 1)}{C.NBSP}{unite(el)[0]}"''',
+     "une contrainte écrite en kPa sous le nom d'une autre unité"),
+    ("saf.py", '''        el["limite"] = _nombre(valeur, "la limite") * SS.unite(el)[1] / V.KG_CM2''', '''        el["limite"] = _nombre(valeur, "la limite")''',
+     "la limite saisie en kPa gardée comme des kg/cm²"),
     ("saf.py", '''        g["ex"], g["ey"] = round(gx - (x0 + x1) / 2, 3), round(gy - (y0 + y1) / 2, 3)''', '''        pass''', "la grue déplacée par un sommet tiré"),
     ("saf.py", '''    if relu.get("proposition") and relu["proposition"].get("signature") != _signature_proposition(relu):
         relu["proposition"] = None''', '''    pass''', "une proposition périmée gardée"),
@@ -463,9 +539,9 @@ MUTATIONS = [
     ("saf.py", '''        out["carnet"] = mod.lire_carnet(etat.pop("carnet", []))''', None, None),
     ("saf.py", '''            g["repere"] = None if i == g.get("repere") else i''', '''            g["repere"] = i''', "le repère au bord qui ne se relâche plus"),
     ("saf.py", '''    el["sol"]["k"] = [{"k": k, "scia": True} for k in ks]''', '''    el["sol"]["k"] = [{"k": k, "scia": False} for k in ks]''', "les k repris non cochés SCIA"),
-    ("saf.py", '''    return [(EC.nom_fichier(el, k, nom_note), EC.fichier(el, k, date, calc["par_k"], nom_note)) for k in PR.k_scia(el)]''',
-     '''    return [(EC.nom_fichier(el, k, nom_note), EC.fichier(el, k, date, calc["par_k"], nom_note)) for k in [x["k"] for x in el["sol"]["k"]]]''',
-     "un fichier SAF pour chaque k, coché ou non"),
+    ("saf.py", '''    return [(EC.nom_fichier(ep, nom_note), EC.fichier(ep, k, date, calc["par_k"], nom_note))]''',
+     '''    return [(EC.nom_fichier(ep, nom_note) + str(x), EC.fichier(ep, x, date, calc["par_k"], nom_note)) for x in PR.k_scia(el)]''',
+     "un fichier SAF par k coché (la règle d'avant le lot 4)"),
     ("saf_saisie.py", '''    reels_possible = bool(ch["id"]) and not ch["impose"]''', '''    reels_possible = True''', "« Réels » offert sans platine dans la bibliothèque"),
     ("dessin_saf.py", '''        bon = ctl["plaques_dedans"][i] and ctl["distances"][i] >= g["dmin"] - G.TOLERANCE
         coul, fond = (APPUI, APPUI_FOND) if bon else (ROUGE, ROUGE_FOND)''', '''        coul, fond = (APPUI, APPUI_FOND)''',

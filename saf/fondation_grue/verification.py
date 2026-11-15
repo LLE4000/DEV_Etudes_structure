@@ -3,7 +3,8 @@
 positions de la grue et plusieurs raideurs de sol. Une ESTIMATION pour fixer la dalle avant SCIA, qui reste la référence.
 
 Charges ELS caractéristiques, comme les combinaisons du SAF : le poids propre (γ·h sur toute la dalle), le poids des
-plots, et chaque réaction répartie sur sa surface d'appui — ou sur tout le plot quand il est préfabriqué. Chaque charge
+plots, et chaque réaction répartie sur sa surface d'appui — ou, sous un plot préfabriqué, sur le carré de diffusion à 45°
+dans l'épaisseur du plot (lot 4, § 3.3 : avant, sur tout le plot ; le poids du plot reste sur tout le plot). Chaque charge
 est NORMALISÉE : sa somme vaut exactement la réaction (ou le poids du plot), quelle que soit la forme de la surface.
 
     calculer(modele, k, c2x=0, c2y=0, sans_traction=True) -> le résultat pour ce k
@@ -13,14 +14,15 @@ est NORMALISÉE : sa somme vaut exactement la réaction (ou le poids du plot), q
 LE MODÈLE (saf/fondation_grue/projet.py le bâtit depuis le projet) :
     {"contour": [(x, y)…], "h", "E" (MPa), "nu", "maille", "gamma" (kN/m³),
      "plaques": [P1…P4] (les surfaces d'appui), "plots": None | {"type": "prefabrique" | "coule", "polys": [P1…P4],
-     "hauteur"}, "cas": [{"nom", "jeu", "R": (R1…R4)}…]}
+     "hauteur", "diffusion" (préfabriqué : [P1…P4] les carrés à 45°)}, "cas": [{"nom", "jeu", "R": (R1…R4)}…]}
 Sans aucun cas (aucune réaction saisie), le poids propre est calculé seul (cas « PP »).
 
 LE RÉSULTAT d'un k :
     {"k", "cas": [{"nom", "jeu", "R", "sigma_max" (kPa), "w_max" (mm), "decolle" (%), "iterations", "charge_totale",
      "reaction_sol" (kN), "x_max", "y_max" (où σ est maximale)}], "sigma_max", "w_max", "decolle", "cas_max" (le nom
      du cas qui donne σ max), "ecart_equilibre" (le plus grand écart relatif entre la réaction du sol et les charges),
-     "dalle" (la dalle maillée), "champs" ([(σ aux nœuds, w aux nœuds)] par cas : pour les cartes)}
+     "dalle" (la dalle maillée), "champs" ([(σ aux nœuds, w aux nœuds)] par cas : pour les cartes), "deplacements" (les
+     degrés de liberté de chaque cas : les efforts du ferraillage s'y LISENT, saf/fondation_grue/efforts.py — lot 4)}
 """
 from collections import OrderedDict
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -99,7 +101,7 @@ def calculer(modele: Dict, k: float, c2x: float = 0.0, c2y: float = 0.0, sans_tr
     d = dalle(modele, k, c2x, c2y)
     gamma, h = modele.get("gamma", 25.0), modele["h"]
     pl = modele.get("plots")
-    surfaces = pl["polys"] if pl and pl["type"] == "prefabrique" else modele["plaques"]
+    surfaces = surfaces_chargees(modele)
     Fg = d.charge(q_uniforme=gamma * h)
     if pl:
         for q in pl["polys"]:                                      # le poids de chaque plot, somme exacte
@@ -125,7 +127,14 @@ def calculer(modele: Dict, k: float, c2x: float = 0.0, c2y: float = 0.0, sans_tr
     return {"k": k, "cas": lignes, "sigma_max": pire["sigma_max"], "w_max": max(x["w_max"] for x in lignes),
             "decolle": max(x["decolle"] for x in lignes), "cas_max": pire["nom"],
             "ecart_equilibre": max(abs(x["reaction_sol"] - x["charge_totale"]) / x["charge_totale"] for x in lignes),
-            "dalle": d, "champs": champs}
+            "dalle": d, "champs": champs, "deplacements": [s["x"] for s in sol]}
+
+
+def surfaces_chargees(modele: Dict) -> List:
+    """Où arrive chaque réaction sur la dalle : la surface d'appui ; sous un plot préfabriqué, le carré de diffusion à
+    45° (projet.modele, « diffusion »). La même règle pour le calcul et le SAF (lot 4, § 3.3)."""
+    pl = modele.get("plots")
+    return pl["diffusion"] if pl and pl["type"] == "prefabrique" else modele["plaques"]
 
 
 def par_k(modele: Dict, ks: Sequence[float], rapport_c2: Tuple[float, float] = (0.1, 0.1), sans_traction: bool = True) -> List[Dict]:

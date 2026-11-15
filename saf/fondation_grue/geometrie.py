@@ -48,6 +48,17 @@ def rectangle(x: float, y: float, ap: float, bp: float, beta_deg: float = 0.0) -
     return tourner(x, y, [(-ap / 2, bp / 2), (ap / 2, bp / 2), (ap / 2, -bp / 2), (-ap / 2, -bp / 2)], beta_deg)
 
 
+def diffusion_45(surface: Sequence[Point], h_plot: float, a_plot: float, b_plot: float, beta_deg: float = 0.0) -> List[Point]:
+    """Plot PRÉFABRIQUÉ : la zone où la réaction du pied arrive sur la dalle — diffusée à 45° dans l'épaisseur du plot
+    (lot 4, § 3.3). Un carré centré sur la surface d'appui (son centre de gravité : l'excentrement compris), côtés
+    parallèles aux axes du châssis (donc aux côtés du plot), de côté = côté du carré de même aire que la surface d'appui
+    + 2 × hauteur du plot, sans dépasser le plot (chaque côté borné par a ou b du plot). Plaque 0,50 × 0,50 et plot de
+    0,35 m : 1,20 × 1,20 m ; platine 0,58 × 0,40 à 45° : 1,18 m (la référence, ``diffusion_45``, test T16)."""
+    xc, yc = centre_gravite(surface)
+    c = math.sqrt(aire(surface)) + 2.0 * h_plot
+    return rectangle(xc, yc, min(c, a_plot), min(c, b_plot), beta_deg)
+
+
 def aire_signee(poly: Sequence[Point]) -> float:
     """L'aire signée (formule du lacet) : positive dans le sens trigonométrique."""
     n = len(poly)
@@ -62,6 +73,21 @@ def centre(poly: Sequence[Point]) -> Point:
     """Le centre d'une surface d'appui : la moyenne de ses sommets (la règle du calcul de référence)."""
     n = len(poly)
     return (sum(p[0] for p in poly) / n, sum(p[1] for p in poly) / n)
+
+
+def centre_gravite(poly: Sequence[Point]) -> Point:
+    """Le centre de GRAVITÉ d'une surface (formule du lacet) : le centre d'un plot et de son carré de diffusion — la règle
+    du calcul de référence du lot 4 (``centre_poly``). Égal à la moyenne des sommets pour un rectangle ou un polygone
+    régulier ; différent pour une platine dissymétrique de la bibliothèque."""
+    n = len(poly)
+    A = 0.0; sx = 0.0; sy = 0.0
+    for i in range(n):
+        x0, y0 = poly[i]; x1, y1 = poly[(i + 1) % n]
+        c = x0 * y1 - x1 * y0
+        A += c; sx += (x0 + x1) * c; sy += (y0 + y1) * c
+    if abs(A) < 1e-15:
+        return centre(poly)
+    return (sx / (3.0 * A), sy / (3.0 * A))
 
 
 def sens_trigo(poly: Sequence[Point]) -> List[Point]:

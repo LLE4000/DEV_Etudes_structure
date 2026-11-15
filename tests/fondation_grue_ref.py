@@ -10,10 +10,15 @@ Moments aux centres des elements : m > 0 = fibre inferieure tendue.
 Charge de chaque plaque normalisee : la somme des forces verticales vaut exactement R, meme si la
 plaque n'est pas alignee sur le maillage (sinon jusqu'a quelques % d'erreur).
 
-Plots sous les pieds (option) : prefabriques (poids du plot + reaction repartie sur le plot, rigidite
-de la dalle inchangee) ou coules en place (poids du plot + dalle plus epaisse sous le plot).
+Plots sous les pieds (option) : prefabriques (poids du plot + reaction diffusee a 45 deg dans
+l'epaisseur du plot, carre centre sur le pied, rigidite de la dalle inchangee) ou coules en place
+(poids du plot + dalle plus epaisse sous le plot).
 
-Usage : python fondation_grue_ref.py   -> tests T1 a T13.
+Efforts pour le ferraillage (ELS, memes cas que la contrainte de contact) : moments mx, my, mxy et
+efforts tranchants vx, vy aux noeuds, integres sur les bandes (largeur exacte), enveloppe de tous les
+cas et de tous les k.
+
+Usage : python fondation_grue_ref.py   -> tests T1 a T17.
 Dependances : numpy, scipy.
 """
 import numpy as np
@@ -91,6 +96,23 @@ def aire(poly):
     """Aire d'un polygone (formule du lacet)."""
     n = len(poly)
     return 0.5*abs(sum(poly[i][0]*poly[(i+1) % n][1] - poly[(i+1) % n][0]*poly[i][1] for i in range(n)))
+
+
+def centre_poly(poly):
+    """Centre de gravite d'un polygone."""
+    P = np.asarray(poly, float); x, y = P[:, 0], P[:, 1]; x1, y1 = np.roll(x, -1), np.roll(y, -1)
+    c = x*y1 - x1*y; A = c.sum()/2
+    return ((x + x1)*c).sum()/(6*A), ((y + y1)*c).sum()/(6*A)
+
+
+def diffusion_45(p, h_pl, a_pl, b_pl, beta_deg=0.0):
+    """Plot prefabrique : zone ou la reaction arrive sur la dalle. Diffusion a 45 deg dans l'epaisseur
+    du plot : carre centre sur la surface d'appui, cotes paralleles aux axes du chassis (donc aux cotes
+    du plot), cote = cote du carre de meme aire que la surface d'appui + 2 x hauteur du plot, sans
+    depasser le plot. Plaque 0,50 x 0,50 et plot de 0,35 m : 1,20 x 1,20 m."""
+    xc, yc = centre_poly(p)
+    c = np.sqrt(aire(p)) + 2*h_pl
+    return plate_poly(xc, yc, min(c, a_pl), min(c, b_pl), beta_deg)
 
 
 def _croise(p1, p2, q1, q2):
@@ -216,6 +238,8 @@ class Dalle:
         I, J = I.ravel(), J.ravel()
         act = in_poly(self.x0+(I+0.5)*self.a, self.y0+(J+0.5)*self.b, contour)
         self.I, self.J = I[act], J[act]
+        self._garde = np.zeros((self.ny, self.nx), bool)          # elements gardes (grille)
+        self._garde[self.J, self.I] = True
         self.De = np.full(len(self.I), self.D)                     # rigidite de flexion par element
         for poly, hz in zones:
             dz = in_poly(self.x0+(self.I+0.5)*self.a, self.y0+(self.J+0.5)*self.b, poly)
@@ -292,7 +316,7 @@ class Dalle:
                         "sigma_lin": np.where(on0, self.k*w_lin, np.nan),
                         "w": np.where(on0, w, np.nan),
                         "decolle": float(self.area[on0 & ~on].sum()/self.area[on0].sum()),
-                        "mx": mx, "my": my, "iterations": it+1})
+                        "mx": mx, "my": my, "iterations": it+1, "x": x})
         return res
 
 
@@ -308,36 +332,9 @@ def verifier(contour, h, k, chassis, plaque, R_jeux, centre=None, beta=0.0, mail
                       surface d'appui.
     Renvoie une liste de dicts par cas : jeu, R, sigma_max, sigma_min_lin (kPa), w_max (mm),
     decolle (%), m_pos, m_neg (kNm/m), charge_totale, reaction_sol (kN), iterations."""
-    if centre is None:
-        xs, ys = [p[0] for p in contour], [p[1] for p in contour]
-        centre = ((min(xs)+max(xs))/2, (min(ys)+max(ys))/2)
-    a, b = chassis
-    ap, bp = plaque
-    if plaques is not None:
-        pl = plaques
-    else:
-        pl = [plate_poly(x, y, ap, bp, beta) for x, y in legs(centre[0], centre[1], a, b, beta)]
-    pp, zones = [], ()
-    if plots is not None:
-        typ, a_pl, b_pl, h_pl = plots
-        pp = [plate_poly(*np.mean(np.asarray(p, float), axis=0), a_pl, b_pl, beta) for p in pl]
-        if typ == "coule":
-            zones = [(q, h + h_pl) for q in pp]
-        elif typ == "prefabrique":
-            pl = pp                                   # la reaction est repartie sur le plot
-        else:
-            raise ValueError("plots : type 'prefabrique' ou 'coule'")
-    d = Dalle(contour, h, k, E_MPa=E, c2_MNm=c2, maille=maille, zones=zones)
-    Fg = d.charge(q_uniforme=gamma_beton*h)
-    for q in pp:                                      # poids de chaque plot, somme exacte
-        f = d.charge(plaques=[(q, 1.0)])
-        Fg = Fg + f*(gamma_beton*h_pl*aire(q)/f[0::3].sum())
-    Fp = []
-    for p in pl:
-        f = d.charge(plaques=[(p, 1.0)])
-        Fp.append(f/f[0::3].sum())   # charge unitaire EXACTE : somme des forces verticales = 1 kN
-    cas = [(j, r) for j, R in enumerate(R_jeux, 1) for r in positions(R, chassis_carre=(abs(a-b) < 1e-9))]
-    Fs = [Fg + sum(r[i]*Fp[i] for i in range(4)) for _, r in cas]
+    m = _modele(contour, h, k, chassis, plaque, R_jeux, centre, beta, maille, E, c2, gamma_beton,
+                plaques, plots)
+    d, cas, Fs = m["dalle"], m["cas"], m["Fs"]
     sol = d.resoudre(Fs, sans_traction)
     out = []
     for (j, r), s, F in zip(cas, sol, Fs):
@@ -350,6 +347,265 @@ def verifier(contour, h, k, chassis, plaque, R_jeux, centre=None, beta=0.0, mail
                     "reaction_sol": float((s["sigma"]*d.area).sum()),
                     "iterations": s["iterations"]})
     return out
+
+
+def _modele(contour, h, k, chassis, plaque, R_jeux, centre=None, beta=0.0, maille=0.25, E=32800.0,
+            c2=0.0, gamma_beton=25.0, plaques=None, plots=None):
+    """Dalle, surfaces d'appui, plots et vecteurs de charge de tous les cas (ELS : PP + plots + R)."""
+    if centre is None:
+        xs, ys = [p[0] for p in contour], [p[1] for p in contour]
+        centre = ((min(xs)+max(xs))/2, (min(ys)+max(ys))/2)
+    a, b = chassis
+    ap, bp = plaque
+    if plaques is not None:
+        pl = plaques
+    else:
+        pl = [plate_poly(x, y, ap, bp, beta) for x, y in legs(centre[0], centre[1], a, b, beta)]
+    appuis = pl                                       # surfaces d'appui reelles (centres des bandes)
+    pp, zones, h_pl = [], (), 0.0
+    if plots is not None:
+        typ, a_pl, b_pl, h_pl = plots
+        pp = [plate_poly(*centre_poly(p), a_pl, b_pl, beta) for p in pl]
+        if typ == "coule":
+            zones = [(q, h + h_pl) for q in pp]
+            charge = pl
+        elif typ == "prefabrique":
+            charge = [diffusion_45(p, h_pl, a_pl, b_pl, beta) for p in pl]
+        else:
+            raise ValueError("plots : type 'prefabrique' ou 'coule'")
+    else:
+        typ, charge = None, pl
+    d = Dalle(contour, h, k, E_MPa=E, c2_MNm=c2, maille=maille, zones=zones)
+    Fg = d.charge(q_uniforme=gamma_beton*h)
+    for q in pp:                                      # poids de chaque plot, somme exacte
+        f = d.charge(plaques=[(q, 1.0)])
+        Fg = Fg + f*(gamma_beton*h_pl*aire(q)/f[0::3].sum())
+    Fp = []
+    for p in charge:
+        f = d.charge(plaques=[(p, 1.0)])
+        Fp.append(f/f[0::3].sum())   # charge unitaire EXACTE : somme des forces verticales = 1 kN
+    cas = [(j, r) for j, R in enumerate(R_jeux, 1) for r in positions(R, chassis_carre=(abs(a-b) < 1e-9))]
+    Fs = [Fg + sum(r[i]*Fp[i] for i in range(4)) for _, r in cas]
+    # zone chargee de chaque pied, pour l'effort tranchant a d : plaque, carre de diffusion ou plot coule
+    zch = pp if typ == "coule" else charge
+    return {"dalle": d, "cas": cas, "Fs": Fs, "appuis": appuis, "charge": charge, "plots": pp,
+            "type_plot": typ, "zones_chargees": zch, "centre": centre, "chassis": (a, b), "beta": beta}
+
+
+# ---------------------------------------------------------------- efforts pour le ferraillage
+_COINS = [(0, 0), (1, 0), (1, 1), (0, 1)]
+
+
+def champs_noeuds(d, x):
+    """Moments mx, my, mxy (kNm/m) et efforts tranchants vx, vy (kN/m) aux noeuds.
+    Moments : valeurs aux coins des elements, moyennees sur les elements voisins. Efforts tranchants :
+    vx = -D (w,xxx + w,xyy), vy = -D (w,yyy + w,xxy) au centre des elements, moyennes aux noeuds.
+    Convention : m > 0 = fibre inferieure tendue. Noeuds hors dalle : 0."""
+    nn = d.ndof//3
+    en = d.edofs[:, 0::3]//3
+    X, Y = d.a/2, d.b/2
+    z = np.zeros(12)
+    pxxx, pxxy, pxyy, pyyy = z.copy(), z.copy(), z.copy(), z.copy()
+    pxxx[6], pxxx[10] = 6, 6*Y
+    pxxy[7], pxxy[10] = 2, 6*X
+    pxyy[8], pxyy[11] = 2, 6*Y
+    pyyy[9], pyyy[11] = 6, 6*X
+    ue = x[d.edofs]
+    vx = -d.De*(ue @ ((pxxx + pxyy) @ d.Ci))
+    vy = -d.De*(ue @ ((pyyy + pxxy) @ d.Ci))
+    M = np.zeros((nn, 3)); V = np.zeros((nn, 2)); cnt = np.zeros(nn)
+    for ci, (u, v) in enumerate(_COINS):
+        _, _, _, pxx, pyy, pxy = _basis(u*d.a, v*d.b)
+        c = ue @ (np.vstack([pxx, pyy, pxy]) @ d.Ci).T
+        m = np.stack([-d.De*(c[:, 0] + d.nu*c[:, 1]), -d.De*(c[:, 1] + d.nu*c[:, 0]),
+                      -d.De*(1 - d.nu)*c[:, 2]], 1)
+        np.add.at(M, en[:, ci], m); np.add.at(V, en[:, ci], np.stack([vx, vy], 1)); np.add.at(cnt, en[:, ci], 1)
+    ok = cnt > 0
+    M[ok] /= cnt[ok, None]; V[ok] /= cnt[ok, None]
+    return M, V
+
+
+def _interp(d, val, X, Y):
+    """Interpolation bilineaire d'un champ nodal aux points (X, Y). Point hors des elements de la
+    dalle : poids nul (renvoie 0)."""
+    nnx = d.nx + 1
+    fx = (np.asarray(X, float) - d.x0)/d.a; fy = (np.asarray(Y, float) - d.y0)/d.b
+    i = np.clip(np.floor(fx).astype(int), 0, d.nx - 1); j = np.clip(np.floor(fy).astype(int), 0, d.ny - 1)
+    u, v = fx - i, fy - j
+    dedans = (fx >= -1e-9) & (fx <= d.nx + 1e-9) & (fy >= -1e-9) & (fy <= d.ny + 1e-9) & d._garde[j, i]
+    n00 = j*nnx + i
+    r = ((1-u)*(1-v)*val[n00] + u*(1-v)*val[n00+1] + u*v*val[n00+1+nnx] + (1-u)*v*val[n00+nnx])
+    return np.where(dedans, r, 0.0)
+
+
+def integrer_bande(d, val, p0, u, t0, t1, s, nt=None):
+    """Integrale, sur la largeur t in [t0, t1] (exacte, bords interpoles), du champ nodal val, pour
+    chaque abscisse s le long de l'axe p0 + s.u. Renvoie un tableau de meme taille que s."""
+    n = np.array([-u[1], u[0]])
+    if nt is None:
+        nt = 2*int(np.ceil((t1 - t0)/min(d.a, d.b)*8)) + 1
+    t = np.linspace(t0, t1, nt)
+    S, T = np.meshgrid(s, t, indexing="ij")
+    X = p0[0] + S*u[0] + T*n[0]; Y = p0[1] + S*u[1] + T*n[1]
+    F = _interp(d, val, X.ravel(), Y.ravel()).reshape(S.shape)
+    return np.trapezoid(F, t, axis=1)
+
+
+def _etendue(contour, p, n, smax=50.0):
+    """Distance du point p au contour dans la direction n (premier bord rencontre)."""
+    best = smax
+    m = len(contour)
+    for i in range(m):
+        a, b = np.asarray(contour[i], float), np.asarray(contour[(i+1) % m], float)
+        e = b - a
+        den = n[0]*(-e[1]) - n[1]*(-e[0])
+        if abs(den) < 1e-12:
+            continue
+        r = a - p
+        tt = (r[0]*(-e[1]) - r[1]*(-e[0]))/den
+        uu = (n[0]*r[1] - n[1]*r[0])/den
+        if tt > 1e-9 and -1e-9 <= uu <= 1 + 1e-9:
+            best = min(best, tt)
+    return best
+
+
+def zones_renfort(contour, bandes):
+    """Zone de renfort de chaque bande : la bande, prolongee jusqu'au bord de la dalle d'un cote si,
+    sur toute la longueur de la bande, la dalle s'arrete a moins d'une largeur de bande au-dela de son
+    bord (pas de lisiere etroite avec le seul treillis). Renvoie [(t_min, t_max), ...] par bande."""
+    out = []
+    for bd in bandes:
+        p0, p1 = np.asarray(bd["debut"], float), np.asarray(bd["fin"], float)
+        L = np.linalg.norm(p1 - p0); u = (p1 - p0)/L; n = np.array([-u[1], u[0]]); b = bd["largeur"]
+        lim = []
+        for sg in (-1, 1):
+            ext = [_etendue(contour, p0 + s*u + sg*(b/2)*n, sg*n) for s in np.linspace(0.02*L, 0.98*L, 25)]
+            e = max(ext)
+            lim.append(sg*(b/2 + e) if e < b - 1e-9 else sg*b/2)
+        out.append((lim[0], lim[1]))
+    return out
+
+
+def _rot_moments(M, u):
+    """Moments dans le repere (u, n) : m_uu, m_nn, m_un."""
+    c, s_ = u[0], u[1]
+    mx, my, mxy = M[:, 0], M[:, 1], M[:, 2]
+    muu = mx*c*c + my*s_*s_ + 2*mxy*c*s_
+    mnn = mx*s_*s_ + my*c*c - 2*mxy*c*s_
+    mun = (my - mx)*c*s_ + mxy*(c*c - s_*s_)
+    return muu, mnn, mun
+
+
+def efforts(contour, h, k_liste, chassis, plaque, R_jeux, centre=None, beta=0.0, maille=0.20,
+            E=32800.0, c2_rapport=0.1, gamma_beton=25.0, plaques=None, plots=None, largeur=1.0, d_v=None):
+    """Efforts ELS pour le ferraillage : memes cas que la contrainte de contact (PP + plots + reactions,
+    toutes les positions de tous les jeux, sol en compression seule), pour chaque k de k_liste
+    (C2 = c2_rapport x k, comme le module), puis enveloppe.
+    Renvoie un dict :
+      bandes : par bande (BX1, BX2, BY1, BY2) : s (m), Mmax, Mmin (kNm, integres sur la largeur),
+               Vabs (kN), M_plus, M_moins, V_d (max |V| a d ou plus du bord des zones chargees),
+               zone (t_min, t_max de la zone de renfort), prol_inf, prol_sup (moments de calcul
+               par m, torsion comprise, dans le prolongement de la zone au-dela de la bande) ;
+      courante : moments de calcul par m (torsion comprise : m + |mxy| en bas, m - |mxy| en haut),
+               en x et en y, hors zones de renfort : inf_x, inf_y (max), sup_x, sup_y (min), et les memes
+               dans les plots coules (section plus haute) : plot_inf, plot_sup ;
+      champ : enveloppes au centre des elements (x, y, epaisseur h de l'element, masques zone_renfort
+               et plot, moments de calcul inf_x, inf_y, sup_x, sup_y et moments sans torsion mx_max,
+               my_max, mx_min, my_min), pour les cartes, le treillis et les renforts locaux.
+    Bandes : valeurs aux noeuds integrees sur la largeur. Treillis et renforts locaux : valeurs au
+    centre des elements, chaque element avec sa propre epaisseur (pas de moyenne a travers le bord
+    d'un plot coule)."""
+    if d_v is None:
+        d_v = h - 0.06
+    res = None
+    for k in k_liste:
+        m = _modele(contour, h, k, chassis, plaque, R_jeux, centre, beta, maille, E, c2_rapport*k,
+                    gamma_beton, plaques, plots)
+        d = m["dalle"]
+        cen = [centre_poly(p) for p in m["appuis"]]
+        a, b = m["chassis"]
+        bandes = bandes_integration(contour, m["centre"][0], m["centre"][1], a, b, beta, largeur, centres=cen)
+        zr = zones_renfort(contour, bandes)
+        pieds = {"BX1": (0, 1), "BX2": (3, 2), "BY1": (0, 3), "BY2": (1, 2)}
+        geo = []
+        for bd, z in zip(bandes, zr):
+            p0, p1 = np.asarray(bd["debut"], float), np.asarray(bd["fin"], float)
+            L = np.linalg.norm(p1 - p0); u = (p1 - p0)/L
+            s = np.arange(0.0, L + 1e-9, maille/4)
+            inter = []
+            for i in pieds[bd["nom"]]:
+                proj = [(np.asarray(v, float) - p0) @ u for v in m["zones_chargees"][i]]
+                inter.append((min(proj), max(proj)))
+            ok_v = np.all([(s <= s1 - d_v + 1e-9) | (s >= s2 + d_v - 1e-9) for s1, s2 in inter], axis=0)
+            geo.append((bd, z, p0, u, s, ok_v))
+        # controles du treillis : valeurs au centre des elements (pas de moyenne a travers un
+        # changement d'epaisseur), chaque element avec sa propre epaisseur
+        xc = d.x0 + (d.I + 0.5)*d.a; yc = d.y0 + (d.J + 0.5)*d.b
+        dans_zone = np.zeros(len(xc), bool)
+        prol = []
+        for bd, z, p0, u, s, ok_v in geo:
+            n = np.array([-u[1], u[0]])
+            S = (xc - p0[0])*u[0] + (yc - p0[1])*u[1]; T = (xc - p0[0])*n[0] + (yc - p0[1])*n[1]
+            dz = (S >= -1e-6) & (S <= s[-1] + 1e-6) & (T >= z[0] - 1e-6) & (T <= z[1] + 1e-6)
+            dans_zone |= dz
+            prol.append(dz & (np.abs(T) > bd["largeur"]/2 + 1e-6))
+        dans_plot = np.zeros(len(xc), bool)
+        for q in (m["plots"] if m["type_plot"] == "coule" else []):
+            dans_plot |= in_poly(xc, yc, q)
+        cour = ~dans_zone
+        sol = d.resoudre(m["Fs"])
+        if res is None:
+            res = {"bandes": [{"nom": bd["nom"], "s": s, "Mmax": np.full(len(s), -np.inf),
+                               "Mmin": np.full(len(s), np.inf), "Vabs": np.zeros(len(s)), "ok_v": ok_v,
+                               "zone": z, "prol_inf": 0.0, "prol_sup": 0.0}
+                              for bd, z, p0, u, s, ok_v in geo],
+                   "courante": {"inf_x": 0.0, "inf_y": 0.0, "sup_x": 0.0, "sup_y": 0.0,
+                                "plot_inf": 0.0, "plot_sup": 0.0},
+                   "champ": {"x": xc, "y": yc,
+                             "h": h + np.where(dans_plot, plots[3] if dans_plot.any() else 0.0, 0.0),
+                             "zone_renfort": dans_zone, "plot": dans_plot,
+                             "inf_x": np.zeros(len(xc)), "inf_y": np.zeros(len(xc)),
+                             "sup_x": np.zeros(len(xc)), "sup_y": np.zeros(len(xc)),
+                             "mx_max": np.zeros(len(xc)), "my_max": np.zeros(len(xc)),
+                             "mx_min": np.zeros(len(xc)), "my_min": np.zeros(len(xc))}}
+        for sl in sol:
+            M, V = champs_noeuds(d, sl["x"])
+            for rb, (bd, z, p0, u, s, ok_v) in zip(res["bandes"], geo):
+                muu, mnn, mun = _rot_moments(M, u)
+                Mi = integrer_bande(d, muu, p0, u, -bd["largeur"]/2, bd["largeur"]/2, s)
+                Vi = integrer_bande(d, V[:, 0]*u[0] + V[:, 1]*u[1], p0, u, -bd["largeur"]/2, bd["largeur"]/2, s)
+                rb["Mmax"] = np.maximum(rb["Mmax"], Mi); rb["Mmin"] = np.minimum(rb["Mmin"], Mi)
+                rb["Vabs"] = np.maximum(rb["Vabs"], np.abs(Vi))
+            c = sl["x"][d.edofs] @ d.Bc.T
+            Me = np.stack([-d.De*(c[:, 0] + d.nu*c[:, 1]), -d.De*(c[:, 1] + d.nu*c[:, 0]),
+                           -d.De*(1 - d.nu)*c[:, 2]], 1)
+            for rb, (bd, z, p0, u, s, ok_v), pr in zip(res["bandes"], geo, prol):
+                if pr.any():
+                    muu, mnn, mun = _rot_moments(Me, u)
+                    rb["prol_inf"] = max(rb["prol_inf"], float((muu + np.abs(mun))[pr].max()))
+                    rb["prol_sup"] = min(rb["prol_sup"], float((muu - np.abs(mun))[pr].min()))
+            ax = np.abs(Me[:, 2])
+            ch = res["champ"]
+            ch["inf_x"] = np.maximum(ch["inf_x"], Me[:, 0] + ax); ch["inf_y"] = np.maximum(ch["inf_y"], Me[:, 1] + ax)
+            ch["sup_x"] = np.minimum(ch["sup_x"], Me[:, 0] - ax); ch["sup_y"] = np.minimum(ch["sup_y"], Me[:, 1] - ax)
+            ch["mx_max"] = np.maximum(ch["mx_max"], Me[:, 0]); ch["my_max"] = np.maximum(ch["my_max"], Me[:, 1])
+            ch["mx_min"] = np.minimum(ch["mx_min"], Me[:, 0]); ch["my_min"] = np.minimum(ch["my_min"], Me[:, 1])
+            c_ = res["courante"]
+            for zone_, plot_ in ((cour & ~dans_plot, False), (cour & dans_plot, True)):
+                if not zone_.any():
+                    continue
+                if not plot_:
+                    c_["inf_x"] = max(c_["inf_x"], float((Me[:, 0] + ax)[zone_].max()))
+                    c_["inf_y"] = max(c_["inf_y"], float((Me[:, 1] + ax)[zone_].max()))
+                    c_["sup_x"] = min(c_["sup_x"], float((Me[:, 0] - ax)[zone_].min()))
+                    c_["sup_y"] = min(c_["sup_y"], float((Me[:, 1] - ax)[zone_].min()))
+                else:
+                    c_["plot_inf"] = max(c_["plot_inf"], float((np.maximum(Me[:, 0], Me[:, 1]) + ax)[zone_].max()))
+                    c_["plot_sup"] = min(c_["plot_sup"], float((np.minimum(Me[:, 0], Me[:, 1]) - ax)[zone_].min()))
+    for rb in res["bandes"]:
+        rb["M_plus"] = float(rb["Mmax"].max()); rb["M_moins"] = float(rb["Mmin"].min())
+        rb["V_d"] = float(rb["Vabs"][rb["ok_v"]].max()) if rb["ok_v"].any() else 0.0
+    return res
 
 
 def sensibilite_k(contour, h, k_liste, chassis, plaque, R_jeux, **kw):
@@ -505,6 +761,58 @@ if __name__ == "__main__":
     print(f"T13 controle : zone de 0,85 m sur toute la dalle = {s1:.2f} kPa ; dalle de 0,85 m = {s2:.2f} kPa")
     print("T13 controle : plot dans la dalle = "
           + " ; ".join(f"{dans_dalle(_rect(8, 8), plate_poly(1, 1, c, c))} (cote {c:.2f} m)" for c in (2.0, 2.2)))
+
+    # T14 - efforts ELS pour le ferraillage (dalle type, k = 2 ; 5 ; 10, C2 = k/10, maille 0,20 m,
+    #       bandes de 1,00 m, d = 0,44 m) : enveloppe des 16 positions et des 3 k
+    t = time.time()
+    for nom, pt in (("sans plot", None), ("plots prefabriques", ("prefabrique", 2.0, 2.0, 0.35)),
+                    ("plots coules", ("coule", 2.0, 2.0, 0.35))):
+        ef = efforts(_rect(8, 8), h, (2, 5, 10), (6, 6), (0.5, 0.5), jeux, plots=pt, d_v=0.44)
+        B = ef["bandes"]; c_ = ef["courante"]
+        sym = max(max(x["M_plus"] for x in B) - min(x["M_plus"] for x in B),
+                  max(x["M_moins"] for x in B) - min(x["M_moins"] for x in B),
+                  max(x["V_d"] for x in B) - min(x["V_d"] for x in B))
+        print(f"T14 {nom} : bandes M+ = {B[0]['M_plus']:6.1f} kNm ; M- = {B[0]['M_moins']:6.1f} kNm ; "
+              f"V a d = {B[0]['V_d']:6.1f} kN (ecart entre les 4 bandes {sym:.2f})")
+        txt = (f"inf x / y = {c_['inf_x']:5.1f} / {c_['inf_y']:5.1f} ; sup x / y = {c_['sup_x']:6.1f} / {c_['sup_y']:6.1f}")
+        if pt and pt[0] == "coule":
+            txt += f" ; dans les plots : inf {c_['plot_inf']:5.1f} / sup {c_['plot_sup']:6.1f}"
+        print(f"    zone courante, centres d'elements (kNm/m, torsion comprise) : {txt}")
+        print(f"    prolongements des bandes jusqu'au bord (kNm/m) : inf {max(x['prol_inf'] for x in B):5.1f} ; "
+              f"sup {min(x['prol_sup'] for x in B):6.1f}")
+    ef = efforts(_rect(8, 8), h, (2, 5, 10), (6, 6), (0.5, 0.5), jeux, largeur=0.5, d_v=0.44)
+    B = ef["bandes"][0]
+    print(f"T14 bandes de 0,50 m, sans plot : M+ = {B['M_plus']:5.1f} kNm ({B['M_plus']/0.5:5.1f} kNm/m) ; "
+          f"M- = {B['M_moins']:6.1f} kNm ({B['M_moins']/0.5:6.1f} kNm/m) ; V a d = {B['V_d']:5.1f} kN ({B['V_d']/0.5:5.1f} kN/m)")
+    print(f"    ({time.time()-t:.1f} s)")
+
+    # T15 - integration sur la largeur exacte : champ lineaire f = 3 + y sur la bande y = 1,00 +/- 0,50
+    #       (integrale exacte = 4,000), maille 0,20 (bords de bande au milieu des elements) et 0,25
+    for mm in (0.20, 0.25):
+        dd = Dalle(_rect(8, 8), h, k, maille=mm)
+        f = 3 + dd.y0 + (np.arange(dd.ndof//3)//(dd.nx+1))*dd.b
+        v = integrer_bande(dd, f, (0.0, 1.0), np.array([1.0, 0.0]), -0.5, 0.5, np.array([2.0, 4.1, 7.0]))
+        yc = dd.y0 + (dd.J + 0.5)*dd.b; sel = (dd.I == 10) & (np.abs(yc - 1.0) < 0.5)
+        naif = ((3 + yc[sel])*dd.b).sum()
+        print(f"T15 maille {mm:.2f} : integrale = {v[0]:.3f} ; {v[1]:.3f} ; {v[2]:.3f} (exact 4,000) ; "
+              f"centres d'elements strictement dans la bande : {naif:.3f}")
+
+    # T16 - plots prefabriques : carre de diffusion a 45 deg (cote = carre de meme aire + 2 x 0,35)
+    for nom, pq in (("plaque 0,50 x 0,50", plate_poly(1, 7, 0.5, 0.5)),
+                    ("plaque 0,58 x 0,40 a 45 deg", platine_45(1, 7, -1, 1, 0.58, 0.40)),
+                    ("plaque ronde D 0,50 (48 cotes)", plc[0])):
+        q = diffusion_45(pq, 0.35, 2.0, 2.0)
+        xs_, ys_ = [v[0] for v in q], [v[1] for v in q]
+        cx, cy = centre_poly(pq)
+        print(f"T16 {nom} : carre {max(xs_)-min(xs_):.3f} x {max(ys_)-min(ys_):.3f} m, centre ({cx:.3f} ; {cy:.3f})")
+    q = diffusion_45(plate_poly(1, 7, 0.5, 0.5), 0.35, 1.0, 1.0)
+    print(f"T16 plot de 1,00 x 1,00 : carre limite au plot {max(v[0] for v in q)-min(v[0] for v in q):.3f} m")
+
+    # T17 - zones de renfort : bande prolongee jusqu'au bord si la lisiere restante est plus etroite que la bande
+    for nom, L_ in (("dalle 8 x 8", 8.0), ("dalle 10 x 10", 10.0)):
+        bs = bandes_integration(_rect(L_, L_), L_/2, L_/2, 6, 6, 0.0, 1.0)
+        zr = zones_renfort(_rect(L_, L_), bs)
+        print(f"T17 {nom} : " + " ; ".join(f"{x['nom']} t = {z[0]:+.2f} a {z[1]:+.2f}" for x, z in zip(bs, zr)))
 
     # T11 - equilibre : reaction du sol = charges, pour chaque cas de T4, T7, T8, T12 et T13
     ecart = max(abs(x["reaction_sol"] - x["charge_totale"])/x["charge_totale"] for x in equilibre)

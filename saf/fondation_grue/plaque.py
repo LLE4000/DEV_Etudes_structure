@@ -268,7 +268,7 @@ class Dalle:
     def resoudre(self, Fs: Sequence[np.ndarray], sans_traction: bool = True, maxit: int = ITERATIONS_MAX) -> List[Dict]:
         """Résout plusieurs cas. Rend pour chacun : sigma (kPa, aux nœuds), sigma_lin (le calcul linéaire, traction
         possible ; NaN hors de la dalle), w (m ; NaN hors de la dalle), decolle (la part de surface sans contact),
-        iterations."""
+        iterations, x (tous les degrés de liberté : les efforts du ferraillage s'y lisent, lot 4)."""
         on0 = self.on0
         n_dalle = int(on0.sum())
         Y = self._substituer(self._lineaire(), np.array(Fs, dtype=float).T.reshape(self.ndof, -1))
@@ -298,7 +298,7 @@ class Dalle:
             w = x[0::3]
             res.append({"sigma": np.where(on, self.k * w, 0.0), "sigma_lin": np.where(on0, self.k * w_lin, np.nan),
                         "w": np.where(on0, w, np.nan), "decolle": float(self.area[on0 & ~on].sum() / self.area[on0].sum()),
-                        "iterations": it + 1})
+                        "iterations": it + 1, "x": x})
         return res
 
     # ---------------------------------------------------------------- ce que l'écran dessine

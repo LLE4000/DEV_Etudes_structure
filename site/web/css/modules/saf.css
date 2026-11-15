@@ -59,7 +59,31 @@
 .pk-cherche:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .picker .pk-row[hidden] { display: none; }
 
-/* ------------------------------------------------------------------ le plan : son en-tête, ce qui se manipule */
+/* ------------------------------------------------------------------ le centre : la barre sur UNE ligne (lot 4, § 2.3)
+   les onglets (Plan, Ferraillage, Coupes), la carte, le cas, le k — de gauche à droite, sans retour à la ligne ; les onglets
+   de l'établi (#vues) ne servent pas ici : la barre porte les siens (une seule vue de l'établi, dont le dessin suit
+   l'onglet) ; le zoom de l'établi se pose sur le dessin, en bas à droite, hors de la barre */
+#vues { display: none; }
+.canvas { position: relative; }
+.canvas > .ctool { position: absolute; right: 10px; bottom: 64px; z-index: 3; padding: 0; display: block; pointer-events: none; }
+.canvas > .ctool > .zoom { pointer-events: auto; }
+.canvas > .ctool > .et-outils { display: none; }
+.sf-barre { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px; padding: 2px 0 6px; min-width: 0; }
+.sf-barre > .seg { flex: none; }
+.sf-barre .seg button { height: 30px; padding: 0 11px; font-size: 12.5px; }
+.sf-barre .sf-onglets button.on { background: var(--ink); color: var(--panel); }
+.sf-barre > .field.select { height: 30px; min-width: 0; flex: 0 1 auto; }
+.sf-barre > .field.select select { font-size: 12.5px; min-width: 0; text-overflow: ellipsis; }
+.sf-barre > .sf-m-carte { flex: 0 1 132px; }
+.sf-barre > .sf-m-cas { flex: 0 1 150px; }
+.sf-barre > .sf-m-k { flex: 0 1 112px; }
+/* la carte « Sol » : le tableau par k, dépliable dans la carte */
+.sf-tkd { margin: 4px 0 2px; border-top: 1px solid var(--line); }
+.sf-tkd > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 7px 2px; font-size: 12.5px; }
+.sf-tkd > summary::-webkit-details-marker { display: none; }
+.sf-tkd > summary span { color: var(--ink-3); font-size: 11.5px; margin-left: auto; }
+.sf-tkd > summary svg.i { width: 14px; height: 14px; color: var(--ink-3); transition: transform .15s; }
+.sf-tkd[open] > summary svg.i { transform: rotate(180deg); }
 .sf-ent { align-items: flex-start; gap: 10px 14px; flex-wrap: wrap; }
 .sf-vue { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 .sf-vue .seg button { height: 28px; padding: 0 9px; font-size: 12px; }
@@ -172,6 +196,9 @@
   .sf-som > .field, .sf-k > .field, .sf-p > .field, .sf-jeu > .field.text { height: 44px; }
   .sf-chassis-b, .sf-grue-b { height: 44px; }
   .sf-vue .seg button, .sf-vue .field.select { height: 44px; }
+  .sf-barre .seg button, .sf-barre > .field.select { height: 44px; }
+  .sf-barre .seg button { padding: 0 10px; }
+  .sf-tkd > summary { min-height: 44px; }
   .sf-scia { width: 44px; height: 44px; }
   .sf-scia input { width: 20px; height: 20px; }
   .sf-lien { min-width: 44px; min-height: 44px; padding: 0 8px; margin: 0 -8px; }
@@ -186,6 +213,9 @@
   .sf-notes-l button { min-height: 44px; padding: 11px 10px; }
 }
 @media (max-width: 700px) {
+  .sf-barre { flex-wrap: wrap; }
+  .sf-barre > .field.select { flex: 1 1 120px; }
+  .canvas > .ctool { display: none; }
   .sf-vue { margin-left: 0; width: 100%; }
   .sf-vue .field.select { max-width: none; flex: 1 1 140px; }
 }

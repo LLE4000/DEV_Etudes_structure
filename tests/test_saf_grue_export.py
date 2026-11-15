@@ -174,19 +174,29 @@ def rapides():
     chk("§ 13 le sol, un fichier par k : pour k = 2 — Subsoil « 2 MN/m³ », C1z = 2, C1x = C1y = 0,2, C2x = C2y = 0,2 ; le C1y = k du fichier "
         "actuel est une erreur de l'Excel, corrigée", (ss["SS1"]["Subsoil"], ss["SS1"]["C1z [MN/m3]"], ss["SS1"]["C1x [MN/m3]"], ss["SS1"]["C1y [MN/m3]"],
                                                        ss["SS1"]["C2x [MN/m]"], ss["SS2"]["C2y [MN/m]"], ss["SS1"]["C1z Spring"]) == ("2 MN/m³", 2, 0.2, 0.2, 0.2, 0.2, "Linear"), ss["SS1"])
-    chk("§ 8 le nom des fichiers : « <Projet>_k02.xlsx », « _k05 », « _k10 », « _k12 » ; un k non entier : « _k02_5 » ; sans projet, le nom de la note",
-        [EC.nom_fichier(projet(projet={"projet": "Blanc"}), k) for k in (2, 5, 10, 12, 2.5)]
-        == ["Blanc_k02.xlsx", "Blanc_k05.xlsx", "Blanc_k10.xlsx", "Blanc_k12.xlsx", "Blanc_k02_5.xlsx"]
-        and EC.nom_fichier(projet(), 2, "Ma note") == "Ma note_k02.xlsx")
+    # (lot 4, § 7 : UN SEUL SAF par fondation, « <Projet>.xlsx », écrit avec le PREMIER k coché « SCIA » — le bureau fait varier k
+    # dans SCIA ; avant, un fichier par k coché, « <Projet>_k02.xlsx »)
+    el_k = projet()
+    el_k2 = projet(sol={"k": [{"k": 30, "scia": False}, {"k": 12, "scia": True}, {"k": 5, "scia": True}], "reprise": None})
+    chk("S0 / § 7 le nom du SEUL fichier : « <Projet>.xlsx » — le projet de la barre du haut, à défaut celui d'une note d'avant le lot 4, à "
+        "défaut le nom de la note ; il porte le PREMIER k coché « SCIA » (dalle type : 2 MN/m³ ; 30 non coché, puis 12 et 5 cochés : 12)",
+        EC.nom_fichier(projet(projet={"projet": "Blanc"})) == "Blanc.xlsx" and EC.nom_fichier(projet(), "Ma note") == "Ma note.xlsx"
+        and EC.nom_fichier(projet(projet={"projet": "Blanc"}), "Ma note", "Chantier A/B") == "Chantier A-B.xlsx"
+        and EC.k_du_fichier(el_k) == 2 and EC.k_du_fichier(el_k2) == 12,
+        (EC.k_du_fichier(el_k), EC.k_du_fichier(el_k2)))
     # ---- S1b : les plots
     _, fp = classeur(projet(grue={"plots": {"type": "prefabrique", "a": 2.0, "b": 2.0, "h": 0.35}}))
     fa = objets(fp, "StructuralSurfaceActionFree")
-    chk("S1b dalle type + plots préfabriqués 2,00 × 2,00 × 0,35 : pour LC2, FF1 à FF4 = −87,5 ; −110 ; −110 ; −87,5 kN/m² (la réaction sur tout "
-        "le plot) ; FF1 : X « 0;2;2;0;0 », Y « 8;8;6;6;8 » ; FP1 à FP4 = −8,75 kN/m² dans LC1 sur les mêmes polygones ; Id de FP1 = "
-        "48716bfe-954d-504f-8402-7a427ebfd99c ; pas de feuille StructuralSurfaceMemberRegion",
-        [fa[f"FF{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)] == [-87.5, -110, -110, -87.5] and fa["FF1"]["Coordinate X [m]"] == "0;2;2;0;0"
-        and fa["FF1"]["Coordinate Y [m]"] == "8;8;6;6;8" and [fa[f"FP{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)] == [-8.75] * 4
-        and all(fa[f"FP{i}"]["Load case"] == "LC1" and fa[f"FP{i}"]["Coordinate X [m]"] == fa[f"FF{i}"]["Coordinate X [m]"] for i in (1, 2, 3, 4))
+    # (lot 4, § 3.3 et § 10 S1b : la réaction d'un plot préfabriqué arrive sur le carré de diffusion à 45° — 1,20 × 1,20 m centré
+    # sur le pied —, q = −R ÷ 1,44 ; avant, sur tout le plot : −87,5 ; −110 ; −110 ; −87,5 kN/m², FF1 sur « 0;2;2;0;0 »)
+    chk("S1b dalle type + plots préfabriqués 2,00 × 2,00 × 0,35 : pour LC2, FF1 à FF4 = −243,056 ; −305,556 ; −305,556 ; −243,056 kN/m² (la "
+        "réaction diffusée à 45° : carré de 1,20 m) ; FF1 : X « 0.4;1.6;1.6;0.4;0.4 », Y « 7.6;7.6;6.4;6.4;7.6 » ; FP1 à FP4 = −8,75 kN/m² dans "
+        "LC1 sur TOUT le plot (« 0;2;2;0;0 », « 8;8;6;6;8 ») ; Id de FP1 = 48716bfe-954d-504f-8402-7a427ebfd99c ; pas de feuille "
+        "StructuralSurfaceMemberRegion",
+        [fa[f"FF{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)] == [-243.056, -305.556, -305.556, -243.056] and fa["FF1"]["Coordinate X [m]"] == "0.4;1.6;1.6;0.4;0.4"
+        and fa["FF1"]["Coordinate Y [m]"] == "7.6;7.6;6.4;6.4;7.6" and [fa[f"FP{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)] == [-8.75] * 4
+        and fa["FP1"]["Coordinate X [m]"] == "0;2;2;0;0" and fa["FP1"]["Coordinate Y [m]"] == "8;8;6;6;8"
+        and all(fa[f"FP{i}"]["Load case"] == "LC1" for i in (1, 2, 3, 4))
         and fa["FP1"]["Id"] == "48716bfe-954d-504f-8402-7a427ebfd99c" and "StructuralSurfaceMemberRegion" not in fp,
         ([fa[f"FF{i}"]["q [kN/m2]"] for i in (1, 2, 3, 4)], fa["FF1"]["Coordinate X [m]"], fa["FP1"]))
     oc, fc = classeur(projet(dalle={"Lx": 10.0, "Ly": 10.0}, grue={"plots": {"type": "coule", "a": 2.0, "b": 2.0, "h": 0.35}}))
@@ -381,8 +391,10 @@ MUTATIONS = [
      "la réaction vers le haut"),
     ("ecriture.py", '_entier(k * o["c1y"]), "Linear"', '_entier(k), "Linear"', "C1y = k : l'erreur de l'Excel revenue"),
     ("ecriture.py", '    anneau = G.decaler(contour, o["anneau"])', "    anneau = G.decaler(contour, 0.02)", "la largeur de l'anneau ignorée"),
-    ("ecriture.py", '    surfaces = plots["polys"] if plots and plots["type"] == "prefabrique" else m["plaques"]', '    surfaces = m["plaques"]',
-     "la réaction d'un plot préfabriqué écrite sur la plaque"),
+    ("ecriture.py", '    surfaces = VE.surfaces_chargees(m)', '    surfaces = m["plaques"]', "la réaction d'un plot préfabriqué écrite sur la plaque"),
+    ("ecriture.py", '    return ks[0] if ks else None', '    return ks[-1] if ks else None', "le SAF écrit avec le dernier k coché (lot 4, § 7 : le premier)"),
+    ("ecriture.py", '    surfaces = VE.surfaces_chargees(m)', '    surfaces = plots["polys"] if plots and plots["type"] == "prefabrique" else m["plaques"]',
+     "la réaction d'un plot préfabriqué écrite sur tout le plot (la règle d'avant le lot 4)"),
     ("ecriture.py", '";".join(N.nom(p) for p in (q[3], q[2], q[1], q[0]))', '";".join(N.nom(p) for p in q)', "les sommets d'une sous-région dans l'ordre des charges"),
     ("ecriture.py", '    s = f"{round(v, 3):.3f}".rstrip("0").rstrip(".")', '    s = f"{round(v, 3):.3f}"', "des zéros inutiles dans les listes"),
     ("ecriture.py", '    type_combi = "Nonlinear" if o["nonlinear"] else "Linear"', '    type_combi = "Linear"', "l'option Nonlinear sans effet"),

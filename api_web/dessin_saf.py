@@ -21,8 +21,10 @@ geste règle) :
   appuis : un sommet de plus) ; ``data-plan-fond`` : la feuille (un clic hors de la dalle : un sommet de plus, en contour).
 
     plan(el, m, champ=None, interactif=True, carte="image") -> le SVG
-    champ : None | {"mode": "sigma" | "w", "dalle" (la dalle maillée), "valeurs" (aux nœuds), "decolle" (nœuds
-            décollés, booléens), "maxi" (la valeur pointée), "x", "y" (où), "limite" (kPa, pour σ), "titre"}
+    champ : None | {"mode": "sigma" | "w" | "m" | "taux", "dalle" (la dalle maillée), "valeurs" (aux nœuds), "decolle"
+            (nœuds décollés, booléens), "maxi" (la valeur pointée), "x", "y" (où), "limite" (la valeur du trait noir — kPa
+            pour σ, 1 pour un taux de travail — ou None), "unite" ((symbole, diviseur, décimales) de l'affichage : σ en
+            kPa ÷ diviseur ; lot 4, § 2.4), "symbole" (σ, w, m…), "titre"}
 """
 import base64
 import json
@@ -46,14 +48,14 @@ BANDE = "#2c6cb0"
 PLOT, PLOT_FOND = "#475569", "#cbd5e1"
 DECOLLE = (148, 163, 184)                     # la zone décollée, sur la carte
 POLICE = "Inter,system-ui,sans-serif"
-# la carte de la contrainte : du vert pâle (0) au jaune (85 % de la limite), à l'orange (la limite), puis au rouge — du
-# rouge vif juste au-dessus de la limite au rouge sombre du maximum du champ (``_rampe_sigma``)
-RAMPE_SIGMA = ((0.0, (236, 253, 245)), (0.5, (134, 239, 172)), (0.85, (253, 230, 138)), (1.0, (245, 158, 11)))
-ROUGE_VIF, ROUGE_SOMBRE = (239, 68, 68), (127, 29, 29)
-HAUT_MINI = 1.25                              # le haut de l'échelle des contraintes, en limites, quand rien ne dépasse
+# l'échelle des couleurs (lot 4, § 2.3) : UN dégradé à plusieurs couleurs, type « turbo » — bleu foncé, cyan, vert, jaune,
+# orange, rouge —, de 0 au maximum affiché (pour la contrainte : au plus grand de σ max et de la limite). Au-delà de la
+# limite, on ne passe plus en rouge uni : la limite est un TRAIT NOIR sur la légende et une LIGNE NOIRE sur le plan. Le même
+# dégradé pour la contrainte, le tassement, les moments et le taux de travail du treillis.
+TURBO = ((0.0, (48, 18, 59)), (0.13, (65, 88, 206)), (0.27, (40, 160, 240)), (0.40, (27, 214, 200)), (0.53, (70, 245, 120)),
+         (0.66, (170, 250, 55)), (0.77, (240, 215, 50)), (0.87, (252, 150, 40)), (0.95, (225, 70, 15)), (1.0, (170, 20, 5)))
+LIMITE = "#000000"                            # le trait de la limite (légende) et la ligne σ = limite (plan)
 IMAGE_PIXELS = 220                            # la carte en image : son plus grand côté, après lissage
-# … et celle du tassement : du bleu pâle au bleu foncé, du plus petit au plus grand
-RAMPE_W = ((0.0, (239, 246, 255)), (0.5, (147, 197, 253)), (1.0, (30, 64, 175)))
 NIVEAUX_VECTEUR = 14                          # la carte en vecteurs (la note PDF) : des paliers de couleur
 
 
@@ -149,13 +151,62 @@ def _couleurs(valeurs: np.ndarray, rampe: Sequence) -> np.ndarray:
 
 
 def _echelle(champ: Dict) -> Tuple[Sequence, float]:
-    """(la rampe, ce qui vaut 1 sur la rampe) : la limite pour une contrainte — la rampe monte alors jusqu'au maximum
-    du champ, HAUT_MINI limites au moins —, le plus grand tassement sinon."""
+    """(la rampe, ce qui vaut 1 sur la rampe) : le dégradé « turbo », de 0 au maximum affiché — le plus grand du maximum
+    du champ et de la limite, quand il y en a une (§ 2.3)."""
     maxi = max(float(np.nanmax(np.where(champ["dalle"].on0, champ["valeurs"], np.nan))), 1e-9)
-    if champ["mode"] == "sigma":
-        limite = max(champ["limite"], 1e-9)
-        return RAMPE_SIGMA + ((1.0001, ROUGE_VIF), (max(HAUT_MINI, maxi / limite), ROUGE_SOMBRE)), limite
-    return RAMPE_W, maxi
+    if champ.get("limite"):
+        maxi = max(maxi, float(champ["limite"]))
+    return TURBO, maxi
+
+
+def iso_ligne(d, valeurs: np.ndarray, niveau: float) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
+    """La ligne où le champ aux nœuds vaut ``niveau`` (σ = limite, taux = 100 %) : des segments [(x, y), (x, y)] en m,
+    par les carrés marchants, dans les éléments de la dalle seulement."""
+    nnx = d.nx + 1
+    g = np.asarray(valeurs, float)
+    n0 = d.J * nnx + d.I
+    coins = np.stack([n0, n0 + 1, n0 + 1 + nnx, n0 + nnx], 1)
+    v = g[coins] - niveau
+    coupe = (v.min(axis=1) < 0) & (v.max(axis=1) >= 0)
+    segs = []
+    pos = ((0, 0), (1, 0), (1, 1), (0, 1))
+    for e in np.flatnonzero(coupe):
+        x0, y0 = d.x0 + d.I[e] * d.a, d.y0 + d.J[e] * d.b
+        pts = []
+        for k in range(4):
+            a, b = v[e, k], v[e, (k + 1) % 4]
+            if (a < 0) != (b < 0):
+                t = a / (a - b)
+                (ua, va), (ub, vb) = pos[k], pos[(k + 1) % 4]
+                pts.append((x0 + (ua + t * (ub - ua)) * d.a, y0 + (va + t * (vb - va)) * d.b))
+        for k in range(0, len(pts) - 1, 2):
+            segs.append((pts[k], pts[k + 1]))
+    return segs
+
+
+def _iso(v: "_Vue", champ: Dict, ident: str) -> str:
+    """La LIGNE NOIRE de la limite sur le plan (σ = limite ; taux = 100 %), découpée au contour, avec son étiquette."""
+    if not champ.get("limite"):
+        return ""
+    segs = iso_ligne(champ["dalle"], champ["valeurs"], float(champ["limite"]))
+    if not segs:
+        return ""
+    t = v.t
+    d_ = "".join(f"M{v.X(a[0]):.1f} {v.Y(a[1]):.1f}L{v.X(b[0]):.1f} {v.Y(b[1]):.1f}" for a, b in segs)
+    # l'étiquette au segment le plus haut puis le plus à droite (loin des pieds et de leurs repères, en général)
+    a, b = max(segs, key=lambda sg: (round(sg[0][1] + sg[1][1], 3), sg[0][0] + sg[1][0]))
+    xm, ym = v.X((a[0] + b[0]) / 2), v.Y((a[1] + b[1]) / 2)
+    return (f'<g class="sf-iso" pointer-events="none"><path d="{d_}" fill="none" stroke="{LIMITE}" stroke-width="{t * 0.09:.2f}" '
+            f'stroke-linecap="round" clip-path="url(#{ident}_dalle)"/>'
+            + _texte(xm, ym - t * 0.35, _valeur(champ, float(champ["limite"])), t * 0.8, LIMITE, "middle", gras=True) + "</g>")
+
+
+def _valeur(champ: Dict, x: float, unite: bool = True) -> str:
+    """Une valeur du champ dans l'unité de l'affichage (σ : kg/cm², kPa ou MPa — § 2.4 ; un taux : en %)."""
+    sym, div, nd = champ.get("unite") or ("kPa", 1.0, 1)
+    if champ["mode"] == "taux":
+        return f"{_n(x * 100.0, 0)} %"
+    return f"{_n(x / div, nd)} {sym}" if unite else _n(x / div, nd)
 
 
 def _png(largeur: int, hauteur: int, rgba: bytes) -> bytes:
@@ -213,7 +264,7 @@ def _carte_vecteur(v: _Vue, champ: Dict) -> str:
     val = champ["valeurs"][d.noeuds].mean(axis=1) / unite
     dec = champ["decolle"][d.noeuds].mean(axis=1) > 0.5
     haut = max(x for x, _ in rampe)
-    palier = np.minimum(np.floor(np.clip(val, 0.0, haut) / haut * NIVEAUX_VECTEUR), NIVEAUX_VECTEUR - 1).astype(int)
+    palier = np.minimum(np.floor(np.clip(val, 0.0, haut) / haut * NIVEAUX_VECTEUR), NIVEAUX_VECTEUR - 1).astype(int)   # (haut = 1)
     palier = np.where(dec, -1, palier)
     couleurs = _couleurs((np.arange(NIVEAUX_VECTEUR) + 0.5) / NIVEAUX_VECTEUR * haut, rampe)
     out, a, b = [], d.a * ECH, d.b * ECH
@@ -242,19 +293,28 @@ def _legende(v: _Vue, champ: Dict, x: float, y: float, hauteur: float) -> str:
     out = "".join(f'<rect x="{x:.1f}" y="{y + hauteur - (i + 1) * pas:.1f}" width="{t * 0.9:.1f}" height="{pas + 0.4:.1f}" '
                   f'fill="#{int(c[0]):02x}{int(c[1]):02x}{int(c[2]):02x}"/>' for i, c in enumerate(cs))
     out += f'<rect x="{x:.1f}" y="{y:.1f}" width="{t * 0.9:.1f}" height="{hauteur:.1f}" fill="none" stroke="{SCHEMA}" stroke-width="{t * 0.05:.2f}"/>'
-    u = "kPa" if champ["mode"] == "sigma" else "mm"
-    reperes = [(0.0, "0")]
-    if champ["mode"] == "sigma":
-        reperes += [(1.0, f"{_n(champ['limite'], 1)} limite"), (haut, _n(haut * unite, 1))]
-    else:
-        reperes += [(1.0, _n(unite * 1000.0, 1))]
-    for r, txt in reperes:
-        yy = y + hauteur - r / haut * hauteur
-        out += (f'<line x1="{x:.1f}" y1="{yy:.1f}" x2="{x + t * 1.15:.1f}" y2="{yy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.06:.2f}"/>'
-                + _texte(x + t * 1.35, yy + t * 0.33, txt, t * 0.82, ENCRE, "start"))
+    sym = (champ.get("unite") or ("kPa", 1.0, 1))[0]
+    reperes = [(0.0, "0", False), (1.0, _valeur(champ, unite, False) if champ["mode"] != "taux" else _valeur(champ, unite), False)]
+    lim = champ.get("limite")
+    if lim:
+        r_l = float(lim) / unite
+        # (la valeur du haut s'efface quand la limite la touche : deux textes l'un sur l'autre ne se lisent pas)
+        if abs(1.0 - r_l) * hauteur < t * 0.9:
+            reperes = reperes[:1]
+        reperes.append((r_l, (_valeur(champ, float(lim), False) if champ["mode"] != "taux" else _valeur(champ, float(lim))) + " limite", True))
+    for r, txt, noir in reperes:
+        yy = y + hauteur - r * hauteur
+        if noir:
+            # la limite : un petit trait NOIR, épais, en travers de la barre (§ 2.3)
+            out += (f'<line class="sf-lim" x1="{x - t * 0.25:.1f}" y1="{yy:.1f}" x2="{x + t * 1.15:.1f}" y2="{yy:.1f}" stroke="{LIMITE}" '
+                    f'stroke-width="{t * 0.16:.2f}"/>' + _texte(x + t * 1.35, yy + t * 0.33, txt, t * 0.82, LIMITE, "start", gras=True))
+        else:
+            out += (f'<line x1="{x:.1f}" y1="{yy:.1f}" x2="{x + t * 1.15:.1f}" y2="{yy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.06:.2f}"/>'
+                    + _texte(x + t * 1.35, yy + t * 0.33, txt, t * 0.82, ENCRE, "start"))
     # (le titre au-dessus de la valeur du haut de l'échelle, sans la toucher : à 0,55 t, les parenthèses de « (kPa) »
     # mordaient de 1 px sur « 61,3 » — vu au harnais, tablette, 14/11/2026)
-    out += _texte(x, y - t * 0.95, ("σ" if champ["mode"] == "sigma" else "w") + f" ({u})", t * 0.82, ENCRE, "start", gras=True)
+    titre = champ.get("symbole") or ("σ" if champ["mode"] == "sigma" else "w")
+    out += _texte(x, y - t * 0.95, titre + ("" if champ["mode"] == "taux" else f" ({sym})"), t * 0.82, ENCRE, "start", gras=True)
     if bool(np.any(np.where(champ["dalle"].on0, champ["decolle"], False))):
         yy = y + hauteur + t * 0.7
         out += (f'<rect x="{x:.1f}" y="{yy:.1f}" width="{t * 0.9:.1f}" height="{t * 0.9:.1f}" fill="#{DECOLLE[0]:02x}{DECOLLE[1]:02x}{DECOLLE[2]:02x}" '
@@ -332,6 +392,7 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
     out.append(f'<polygon class="sf-dalle sf-forme" points="{v.pts(c)}" fill="{BETON}" stroke="none"{sec}/>')
     if champ is not None:
         out.append(f'<g class="sf-carte" pointer-events="none">{_carte_image(v, champ, ident) if carte == "image" else _carte_vecteur(v, champ)}</g>')
+        out.append(_iso(v, champ, ident))
     out.append(f'<polygon class="sf-forme" points="{v.pts(c)}" fill="none" stroke="{BETON_BORD}" stroke-width="{t * 0.11:.2f}" stroke-linejoin="round" pointer-events="none"/>')
     if interactif and rect:
         # un rectangle : son bord droit et son bord haut se tirent (L_x, L_y) — SOUS le châssis : une plaque posée au bord
@@ -491,13 +552,12 @@ def plan(el: Dict, m: Dict, champ: Optional[Dict] = None, interactif: bool = Tru
     droite = v.X(max(v.gx1, v.x1))
     if champ is not None:
         px, py = v.X(champ["x"]), v.Y(champ["y"])
-        u = "kPa" if champ["mode"] == "sigma" else "mm"
         sx, sy = (-1.0 if px > v.X(bx) else 1.0), (1.0 if py < v.Y(by) else -1.0)
         qx, qy = px + sx * t * 1.5, py + sy * t * 1.5
         out.append(f'<g class="sf-max" pointer-events="none"><line x1="{px:.1f}" y1="{py:.1f}" x2="{qx:.1f}" y2="{qy:.1f}" stroke="{ENCRE}" stroke-width="{t * 0.08:.2f}"/>'
                    f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{t * 0.3:.1f}" fill="#ffffff" stroke="{ENCRE}" stroke-width="{t * 0.11:.2f}"/>'
                    + _texte(qx + sx * t * 0.25, qy + (t * 0.85 if sy > 0 else -t * 0.2),
-                            f"{'σ' if champ['mode'] == 'sigma' else 'w'} max {_n(champ['maxi'], 1 if champ['mode'] == 'sigma' else 2)} {u}", t * 0.9, ENCRE,
+                            f"{champ.get('symbole') or ('σ' if champ['mode'] == 'sigma' else 'w')} max {_valeur(champ, champ['maxi'])}", t * 0.9, ENCRE,
                             "end" if sx < 0 else "start", gras=True) + "</g>")
         out.append(f'<g pointer-events="none">{_legende(v, champ, droite + t * 1.6, v.Y(v.y1) + t * 1.2, min(v.Y(v.y0) - v.Y(v.y1) - t * 4.0, t * 16))}</g>')
     # ---- la feuille

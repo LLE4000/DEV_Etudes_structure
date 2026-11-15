@@ -15,7 +15,7 @@ Les règles (cahier des charges § 8) :
 
     feuilles(el, k, date, resultats=None, nom_note="") -> les feuilles, prêtes pour saf/classeur.ecrire
     fichier(el, k, date, resultats=None, nom_note="")  -> les octets du .xlsx
-    nom_fichier(el, k, nom_note="")                    -> « <Projet>_k02.xlsx »
+    nom_fichier(el, nom_note="", projet="")            -> « <Projet>.xlsx » (lot 4 : UN SEUL SAF, le premier k coché)
 """
 import datetime
 import json
@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Sequence
 from .. import classeur as CL
 from . import geometrie as G
 from . import projet as PR
+from . import verification as VE
 from .verification import KG_CM2, premier_max
 
 ESPACE = uuid.UUID("cd663d86-b1df-5f4f-b40e-3c708345d746")
@@ -84,12 +85,19 @@ def _k_texte(k: float) -> str:
     return f"{k:.3f}".rstrip("0").rstrip(".").replace(".", ",")
 
 
-def nom_fichier(el: Dict, k: float, nom_note: str = "") -> str:
-    """« <Projet>_k02.xlsx » ; sans nom de projet, celui de la note."""
-    base = el["projet"]["projet"] or nom_note or "Fondation de grue"
+def nom_fichier(el: Dict, nom_note: str = "", projet: str = "") -> str:
+    """« <Projet>.xlsx » — UN SEUL SAF par fondation (lot 4, § 7 : il est écrit avec le premier k coché « SCIA » ; le
+    bureau fait varier k dans SCIA). Le projet : celui de la barre du haut (``projet``), à défaut celui d'une note
+    d'avant le lot 4 (le bloc « Projet »), à défaut le nom de la note."""
+    base = projet or el["projet"]["projet"] or nom_note or "Fondation de grue"
     base = "".join("-" if c in '\\/:*?"<>|' else c for c in base).strip(" .") or "Fondation de grue"
-    kk = f"{k:02.0f}" if float(k).is_integer() else f"{int(k):02d}_{f'{k % 1:.3f}'[2:].rstrip('0')}"
-    return f"{base}_k{kk}.xlsx"
+    return f"{base}.xlsx"
+
+
+def k_du_fichier(el: Dict) -> Optional[float]:
+    """Le k du SEUL fichier SAF : le premier coché « SCIA » (None si aucun)."""
+    ks = PR.k_scia(el)
+    return ks[0] if ks else None
 
 
 class _Noeuds:
@@ -216,7 +224,7 @@ def feuilles(el: Dict, k: float, date: Optional[datetime.datetime] = None, resul
     # ---- les charges : le poids propre (SF1) ; les réactions (FF) ; le poids des plots (FP)
     sf = _ligne("StructuralSurfaceAction", "SF1")
     sf[ref["StructuralSurfaceAction"]["colonnes"].index("Value [kN/m2]")] = _entier(round(-PR.GAMMA_BETON * h, 9))
-    surfaces = plots["polys"] if plots and plots["type"] == "prefabrique" else m["plaques"]
+    surfaces = VE.surfaces_chargees(m)          # sous un plot préfabriqué : le carré de diffusion à 45° (lot 4, § 3.3)
     ecrits = [_polygone(s) for s in surfaces]
     libres = []
     for i_cas, c in enumerate(cas):
