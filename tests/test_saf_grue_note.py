@@ -94,16 +94,17 @@ def fr(x, nd=1):
     return propre(C.fr(x, nd))
 
 
-def titres_seuls(note):
-    """Les titres numérotés (Poppins, ~9,8 pt) sans rien dessous dans leur colonne : [(page, titre)]."""
+def titres_seuls(note, garde=True):
+    """Les titres (les titres numérotés et ceux des chapitres : Poppins, ~9,4 à 9,8 pt) sans rien dessous dans leur
+    colonne : [(page, titre)]."""
     out = []
     for ip, p in enumerate(note.doc):
-        if ip == 0:
+        if ip == 0 and garde:
             continue
         spans = [s for b in p.get_text("dict")["blocks"] for li in b.get("lines", []) for s in li["spans"] if s["text"].strip()]
         H = p.rect.height
         for s in spans:
-            if "Poppins" in s["font"] and 8.9 <= s["size"] <= 9.9 and not s["text"].isupper() and s["bbox"][1] > 60:
+            if "Poppins" in s["font"] and 8.9 <= s["size"] <= 9.9 and s["bbox"][1] > 60:
                 x0, y1 = s["bbox"][0], s["bbox"][3]
                 dessous = [t for t in spans if t["bbox"][1] > y1 + 1 and abs(t["bbox"][0] - x0) < 70 and t["bbox"][1] < H - 20]
                 if not dessous:
@@ -142,6 +143,23 @@ def colonnes_vides(note):
     return out
 
 
+class _Flux:
+    """Une planche d'essai en flux de chapitres (sans calcul) : ``n`` lignes de remplissage, un chapitre, puis un tableau."""
+
+    def __init__(self, n):
+        from api_web import note_saf as NS
+        vs = [{"titre": "Remplissage", "items": [("pr", f"Ligne {i} du remplissage.") for i in range(n)], "verdicts": []},
+              {"chapitre": "Chapitre suivant"},
+              {"titre": "Un tableau", "items": [("tab", [("A", 120.0, "left"), ("B", 120.0, "right")],
+                                                 [[("lab", f"ligne {i}"), ("num", str(i))] for i in range(14)])], "verdicts": []}]
+        sec = NS._numeroter({"poutre": "Essai", "section": "Flux", "beton": "", "acier": "", "etat": "", "couleur": "ok", "bande": False,
+                             "n_cols": 2, "verifs": vs})
+        b = io.BytesIO()
+        d = NS.Planche().build(b, sections=[sec], doc={"titre": "Essai", "bureau": "Essai", "date": "", "indice": "A"}, garde=False)
+        d.save()
+        self.doc = fitz.open(stream=b.getvalue(), filetype="pdf")
+
+
 def pdf_essai(lignes, pages=2):
     """Une « note SCIA » d'essai (reportlab), ``pages`` pages."""
     from reportlab.pdfgen import canvas
@@ -172,6 +190,9 @@ def rapides():
         and g.count("NON CONFORME") == 1 and "F1 —" not in n.texte, g[:700])
     chk("NC2 la bande grise seulement sur la page Données (le plan coté et les données clés) ; les autres pages prennent toute la largeur",
         bandes_grises(n) == [2] and "Fondation de grue — Données" in n.pages[1], bandes_grises(n))
+    seuls = [(n_, t_) for n_ in range(22, 40) for t_ in titres_seuls(_Flux(n_), garde=False)]
+    chk("NC2 un titre de chapitre ne reste jamais seul en bas d'une colonne : une planche d'essai, le chapitre posé à chaque hauteur de "
+        "la colonne (18 remplissages) — il part avec son premier titre et le début de son tableau", not seuls, seuls[:3])
     chk("NC2 aucun titre seul en bas d'une colonne ; aucune colonne vide au milieu de la note (un chapitre court partage la page avec le "
         "suivant) ; plus de pages Coupes ni Bordereau ; plus « une estimation… », « Torsion : oui »",
         not titres_seuls(n) and not colonnes_vides(n) and all(x not in n.texte for x in ("Coupes", "Bordereau", "estimation", "Torsion : oui", "COUPE"))
@@ -307,7 +328,8 @@ MUTATIONS = [
     ("note_saf.py", '''            items.append(("t", "Valeurs SCIA non saisies"))''', '''            pass''', "« Valeurs SCIA non saisies » tu"),
     ("note_saf.py", '''            octets = PDF.reunir([octets] + [a[1] for a in annexes], signets=signets, titre=nom_note(etat, infos), auteur="")''',
      '''            pass''', "les notes SCIA jointes oubliées"),
-    ("note_saf.py", '''            if partie.get("etat"):''', '''            if partie.get("etat") or True:''', "une pastille sur l'annexe aussi"),
+    ("note_saf.py", '''    p2 = {"titre": PARTIE_2, "etat": "", "couleur": style.acc,''', '''    p2 = {"titre": PARTIE_2, "etat": mot, "couleur": style.acc,''',
+     "une pastille sur l'annexe aussi (deux pastilles sur la garde)"),
     ("note_saf.py", '''                besoin = min(max(besoin, 80.0), self.hauteur_colonne())''', '''                besoin = 0.0''',
      "un titre de chapitre laissé seul en bas d'une colonne"),
     ("note_saf.py", '''            besoin = max(58.0, S.title_gap + S.s_tit + self.hauteur_premier(fr, v))''', '''            besoin = 0.0''',
