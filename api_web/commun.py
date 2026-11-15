@@ -29,6 +29,11 @@ from .icones import ICONES
 
 NBSP = "\u00a0"              # espace insécable : entre un nombre et son unité
 FINE = "\u202f"              # espace fine insécable : entre les milliers
+
+
+class Info(str):
+    """Ce que ``modifier`` rend pour INFORMER d'une action réussie (« Base des prix importée », « Fichier lu ») : le routeur
+    le pose dans « info », que l'écran dit sans l'alarme d'un refus ; un texte ordinaire reste un REFUS (« message »)."""
 NIVEAUX = {ME.NOK: "r", ME.ATTENTION: "f", ME.OK: "p"}
 PLAFOND_TAUX = 999           # au-delà, un taux s'écrit « > 999 % » (la valeur exacte au survol) : comme acier.formats.pct
 

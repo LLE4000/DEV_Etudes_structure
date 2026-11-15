@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|exporter|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|barres|saf|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|exporter|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|barres|saf|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|prix_grues|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -5080,6 +5080,163 @@ const principal = async () => {
     }
   }
 
+  // Le module « Prix des grues » (docs/site/PRIX_GRUES.md) : la base des prix n'est pas dans la note — c'est le CARNET du
+  // module, gardé dans ce navigateur. Le parcours importe la BASE DE TEST (prix fictifs, loueurs A/B/C) par le champ du
+  // fichier, joue le test T1 du cahier comme un utilisateur (catalogue, grue, dates, HSC, deux prix forcés tapés DANS le
+  // tableau et leur justification) et MESURE ce que l'œil voit : le total « 181 193 € HTVA » lu dans la colonne du résultat
+  // (visible, dans l'écran), le tableau du détail à sa place, la ligne forcée en orange. Puis la page « Fondations » : valider
+  // l'ancien retour de la case de T1 change le total du calcul ; la page « Base des prix » : le tableau du catalogue. Aux
+  // trois formats : rien ne déborde de la page, le total se lit (au téléphone, dans l'onglet Résultat), chaque poste du
+  // détail est une carte lisible au téléphone ; « Note PDF » rend le rapport de la grue (un PDF qui dit le total).
+  //   filtre « prix_grues » ; « module:prix_grues » le rejoue après le contrôle commun.
+  if (!FILTRE || FILTRE === 'prix_grues' || FILTRE === 'module:prix_grues') {
+    const fsP = require('fs');
+    await p.goto(`${BASE}/`);
+    const MODS_P = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const PAGE_P = MODS_P.prix_grues.page;
+    const BASE_TEST = path.join(__dirname, '..', '..', 'tests', 'donnees', 'prix_grues_base_test.json');
+    const VIS = { visibilityProperty: true, opacityProperty: true };
+    const T1 = JSON.parse(fsP.readFileSync(BASE_TEST, 'utf8')).tests_acceptation[0];
+    const FINE = ' ', NBSP = ' ';
+    const eur = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, FINE)}${NBSP}€`;
+    const calmeP = async (pg) => {
+      await pg.waitForTimeout(150);
+      await pg.waitForFunction(() => document.body.dataset.ecran === 'pret' && !document.querySelector('.bench.occupe, body.occupe'), null, { timeout: 30000 }).catch(() => {});
+      await pg.waitForTimeout(250);
+    };
+    const ouvrirRub = async (pg, cle) => {
+      const ouverte = await pg.evaluate((k) => { const s = document.querySelector(`#donnees .sec[data-sec="${k}"]`); return !s || s.classList.contains('open'); }, cle);
+      if (!ouverte) { await pg.click(`#donnees .sec[data-sec="${cle}"] .sechd`); await pg.waitForTimeout(150); }
+    };
+    const onglet = async (pg, t, tel) => { if (tel) { await pg.click(`.mtabs [data-onglet="${t}"]`); await pg.waitForTimeout(250); } };
+    const taper = async (pg, sel, v) => { const el = pg.locator(sel).first(); await el.scrollIntoViewIfNeeded(); await el.click(); await el.fill(v); await el.press('Tab'); await calmeP(pg); };
+    // le total que l'œil lit : le texte de .pg-total, s'il est VISIBLE et dans l'écran
+    const totalVu = (pg) => pg.evaluate((VIS) => {
+      const t = document.querySelector('#resultat .pg-total');
+      if (!t || !t.checkVisibility(VIS)) return null;
+      t.scrollIntoView({ block: 'nearest' });
+      const r = t.getBoundingClientRect();
+      return { texte: t.textContent.replace(/\s+HTVA.*$/, '').trim(), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.width > 40 && r.height > 18 };
+    }, VIS);
+    const deborde = (pg) => pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    for (const [fmt, vp, tel] of [['pc', { width: 1440, height: 900 }, false], ['tablette', { width: 1024, height: 768 }, false], ['telephone', { width: 390, height: 844 }, true]]) {
+      const c = await b.newContext({ viewport: vp, acceptDownloads: true, ...(tel ? { hasTouch: true, isMobile: true } : {}) });
+      const g = await c.newPage();
+      const erreurs = [];
+      g.on('pageerror', (e) => erreurs.push(e.message));
+      try {
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${PAGE_P}?${new URLSearchParams({ nom: 'Projet essai', chantier: 'Chantier essai' })}`) });
+        await calmeP(g);
+        const vide = await g.evaluate((VIS) => { const l = document.querySelector('#stage .pg-vide label[for="pg-import-base"]');
+          return !!document.querySelector('#pg-import-base[data-chemin="base/importer"]') && !!l; }, VIS);
+        await g.setInputFiles('#pg-import-base', BASE_TEST);
+        await calmeP(g);
+        await g.waitForFunction(() => !!document.querySelector('#donnees select[data-chemin="g/cas"]'), null, { timeout: 30000 }).catch(() => {});
+        await ouvrirRub(g, 'grue');
+        await g.selectOption('#donnees select[data-chemin="g/cas"]', T1.cas); await calmeP(g);
+        const gid = await g.evaluate((m) => { const o = [...document.querySelectorAll('#donnees select[data-chemin="g/grue"] option')].find((x) => x.textContent.startsWith(m + ' ·')); return o && o.value; }, T1.modele);
+        await g.selectOption('#donnees select[data-chemin="g/grue"]', gid); await calmeP(g);
+        await taper(g, '#donnees input[data-chemin="g/periode/debut"]', T1.debut);
+        await taper(g, '#donnees input[data-chemin="g/periode/fin"]', T1.fin);
+        await taper(g, '#donnees input[data-chemin="g/hsc_m"]', String(T1.hsc_m));
+        await onglet(g, 'dessin', tel);
+        for (const [k, v] of Object.entries(T1.prix_forces)) {
+          await taper(g, `#stage input[data-chemin="g/forces/${k}/prix"]`, String(v));
+          await taper(g, `#stage input[data-chemin="g/forces/${k}/justification"]`, 'devis du loueur');
+        }
+        const ligne = await g.evaluate((VIS) => { const l = document.querySelector('#stage #pg-l-MONT'); if (!l || !l.checkVisibility(VIS)) return null;
+          l.scrollIntoView({ block: 'center' }); const r = l.getBoundingClientRect(); const i = l.querySelector('input.pg-in.force');
+          return { force: l.classList.contains('force') && !!i, dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.height >= 24, carte: getComputedStyle(l).display === 'grid' }; }, VIS);
+        await g.screenshot({ path: path.join(OUT, `site_prix_grues_detail_${fmt}.png`) });
+        await onglet(g, 'resultat', tel);
+        const t1 = await totalVu(g);
+        const attendu = eur(T1.attendu.total_arrondi);
+        verif(`prix_grues · ${fmt} : sans base, une seule action (« Importer la base de départ ») ; la base de test importée, T1 joué comme un utilisateur — le total lu à l'écran est ${attendu} ; `
+          + 'la ligne « Transport + montage » forcée (orange) est dans l\'écran' + (tel ? ', en CARTE (grille) au téléphone' : ''),
+          vide && !!t1 && t1.texte === attendu && t1.dedans && !!ligne && ligne.force && ligne.dedans && (!tel || ligne.carte) && !erreurs.length,
+          JSON.stringify({ vide, t1, ligne, erreurs: erreurs.slice(0, 2) }));
+        await g.screenshot({ path: path.join(OUT, `site_prix_grues_resultat_${fmt}.png`) });
+        verif(`prix_grues · ${fmt} : la page ne déborde pas en largeur (le tableau défile dans son cadre)`, !(await deborde(g)));
+        // la page Fondations : valider l'ancien retour de la case de T1, le calcul le prend
+        await onglet(g, 'donnees', tel);
+        await g.click('#donnees button[data-chemin="page"][data-valeur="fondations"]'); await calmeP(g);
+        await g.click('#donnees button[data-chemin="vf/demolition"][data-valeur="avec"]').catch(() => {}); await calmeP(g);
+        await onglet(g, 'dessin', tel);
+        await g.click(`#stage button[data-chemin="vf/case"][data-valeur="${T1.modele}|Dalle sur sol"]`); await calmeP(g);
+        await onglet(g, 'resultat', tel);
+        await g.click('#resultat button[data-chemin="b/fond/retour/H02"][data-valeur="valide"]'); await calmeP(g);
+        await g.screenshot({ path: path.join(OUT, `site_prix_grues_fondations_${fmt}.png`) });
+        await onglet(g, 'donnees', tel);
+        await g.click('#donnees button[data-chemin="page"][data-valeur="calcul"]'); await calmeP(g);
+        await onglet(g, 'resultat', tel);
+        const t2 = await totalVu(g);
+        verif(`prix_grues · ${fmt} : l'ancien retour validé sur la page Fondations change le total du calcul (${attendu} → un autre total, lu à l'écran)`,
+          !!t2 && t2.dedans && t2.texte !== attendu && /€$/.test(t2.texte), JSON.stringify({ t2 }));
+        // la page Base des prix : le tableau du catalogue, ses cases
+        await onglet(g, 'donnees', tel);
+        await g.click('#donnees button[data-chemin="page"][data-valeur="base"]'); await calmeP(g);
+        await onglet(g, 'dessin', tel);
+        const tab = await g.evaluate((VIS) => { const t = document.querySelector('#stage table.pg-base'); if (!t || !t.checkVisibility(VIS)) return null;
+          const c = t.querySelectorAll('input.pg-in[data-chemin^="b/grue/"]'); const r = t.closest('.pg-tab-w').getBoundingClientRect();
+          return { cases: c.length, dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 }; }, VIS);
+        await g.screenshot({ path: path.join(OUT, `site_prix_grues_base_${fmt}.png`) });
+        verif(`prix_grues · ${fmt} : la Base des prix montre le catalogue (des dizaines de cases de prix), son cadre dans l'écran, la page sans débord`,
+          !!tab && tab.cases > 50 && tab.dedans && !(await deborde(g)), JSON.stringify(tab));
+        // l'ÉCHANGE avec le loueur (§ 7) : le bloc du dossier dans l'écran ; « Préparer le fichier » rend le classeur (PC) ; le
+        // fichier REMPLI (tests/donnees, la demande du Loueur A modifiée comme par un loueur) ouvre la page de contrôle — le
+        // tableau des changements VISIBLE, en cartes au téléphone ; « Appliquer » ramène à la base, le dossier dit le fichier reçu
+        await onglet(g, 'resultat', tel);
+        const blocE = await g.evaluate((VIS) => { const e = document.querySelector('#resultat .pg-echange'); if (!e || !e.checkVisibility(VIS)) return null;
+          e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect();
+          return { dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5, prep: !!e.querySelector('[data-telecharger="fichier_loueur"]'),
+            mail: (e.querySelector('a[href^="mailto:"]') || {}).href || '' }; }, VIS);
+        let xlsx = null;
+        if (fmt === 'pc') {
+          const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 300000 }), g.click('#resultat [data-telecharger="fichier_loueur"]')]);
+          const f = path.join(OUT, 'site_prix_grues_demande.xlsx');
+          await dl.saveAs(f);
+          xlsx = { nom: dl.suggestedFilename(), zip: fsP.readFileSync(f).subarray(0, 2).toString('latin1') === 'PK' };
+        }
+        verif(`prix_grues · ${fmt} : le dossier du loueur porte l'échange (préparer, écrire le mail, importer) dans l'écran`
+          + (fmt === 'pc' ? ' ; « Préparer le fichier » rend DEMANDE_PRIX_2027_LOUEUR_A.xlsx' : ''),
+          !!blocE && blocE.dedans && blocE.prep && /subject=Mise%20%C3%A0%20jour/.test(blocE.mail)
+          && (fmt !== 'pc' || (!!xlsx && xlsx.zip && /^DEMANDE_PRIX_20\d\d_LOUEUR_A\.xlsx$/.test(xlsx.nom))), JSON.stringify({ blocE, xlsx }));
+        await g.setInputFiles('#pg-import-loueur', path.join(__dirname, '..', '..', 'tests', 'donnees', 'prix_grues_loueur_a_rempli.xlsx'));
+        await calmeP(g);
+        await onglet(g, 'dessin', tel);
+        const ctl = await g.evaluate((VIS) => { const t = document.querySelector('#stage table.pg-ctl'); if (!t || !t.checkVisibility(VIS)) return null;
+          const l = [...t.querySelectorAll('tbody tr:not(.pg-grp)')].filter((x) => x.checkVisibility(VIS));
+          const c = l[0] && l[0].getBoundingClientRect();
+          return { lignes: l.length, cases: t.querySelectorAll('input[type=checkbox][data-chemin^="imp/choix/"]').length,
+            dedans: !!c && c.left >= -0.5 && c.right <= innerWidth + 0.5 && c.height >= 24, carte: !!l[0] && getComputedStyle(l[0]).display === 'grid' }; }, VIS);
+        await g.screenshot({ path: path.join(OUT, `site_prix_grues_controle_${fmt}.png`) });
+        verif(`prix_grues · ${fmt} : le fichier reçu ouvre le CONTRÔLE avant import — les changements visibles, chacun avec sa case « appliquer »`
+          + (tel ? ', en cartes au téléphone' : ''), !!ctl && ctl.lignes >= 15 && ctl.cases === 13 && ctl.dedans && (!tel || ctl.carte)
+          && !(await deborde(g)), JSON.stringify(ctl));
+        await onglet(g, 'resultat', tel);
+        await g.click('#resultat button[data-chemin="imp/appliquer"]'); await calmeP(g);
+        const apres = await g.evaluate((VIS) => { const e = document.querySelector('#resultat .pg-echange'); return !!e && e.checkVisibility(VIS)
+          && /Dernier fichier reçu/.test(e.textContent) && /changement/.test(e.textContent) && !!e.querySelector('[data-chemin="b/import/annuler"]'); }, VIS);
+        verif(`prix_grues · ${fmt} : « Appliquer » ramène à la Base des prix ; le dossier dit le fichier reçu et propose « Annuler le dernier import »`,
+          apres && !erreurs.length, JSON.stringify({ apres, erreurs: erreurs.slice(0, 2) }));
+        if (fmt === 'pc') {
+          await onglet(g, 'donnees', tel);
+          await g.click('#donnees button[data-chemin="page"][data-valeur="calcul"]'); await calmeP(g);
+          const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 300000 }), g.click('#resultat [data-telecharger="note_pdf"]')]);
+          const f = path.join(OUT, 'site_prix_grues_rapport.pdf');
+          await dl.saveAs(f);
+          const txt = require('child_process').spawnSync('pdftotext', [f, '-'], { encoding: 'utf8' }).stdout || '';
+          verif('prix_grues · pc : « Imprimer le rapport » rend le rapport PDF de la grue — « Ce qui est calculé · Grue tour », le détail, le total lu dans le PDF',
+            /\.pdf$/.test(dl.suggestedFilename()) && /Ce qui est calculé/.test(txt) && /Total HTVA/.test(txt), JSON.stringify({ nom: dl.suggestedFilename(), n: txt.length }));
+        }
+      } catch (e) {
+        verif(`prix_grues · ${fmt} : le parcours se joue jusqu'au bout`, false, String(e).slice(0, 400));
+      } finally {
+        await c.close();
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- l'établi compact des DALLES, et l'ancien module Prédalles
   // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni titre
   // « Données », ni « DALLES (1) », ni arborescence — la LIGNE de la dalle ouverte dans l'EN-TÊTE du panneau, à côté
@@ -7507,7 +7664,7 @@ const principal = async () => {
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'barres', 'saf', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'barres', 'saf', 'prix_grues', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

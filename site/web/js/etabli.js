@@ -456,6 +456,7 @@ export function ouvrirEtabli(hote, ctx) {
         direAlerte("info", r.avis.join(" "), true);
       }
       if (r.message) toast(r.message, true);
+      else if (r.info) toast(r.info);       // une action réussie (C.Info) : dite sans l'alarme d'un refus
     }
     // les CADRES d'une réponse : statut, résumé, résultat, volets, vues, données. Le premier calcul et chaque calcul les
     // peignent par ici ; l'APERÇU aussi (``apercu`` : ni la note, ni « premier », ni l'historique, ni l'enregistrement — un

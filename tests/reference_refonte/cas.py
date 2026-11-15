@@ -547,3 +547,21 @@ cas("saf", "un jeu ajouté puis retiré, une valeur de k ajoutée", LIM, _SAF + 
     {"niveau": "r", "sans_message": True})
 cas("saf", "fondation ajoutée (deux fondations dans la note)", LIM, _SAF + [act("ajouter")], {"elements": 2})
 cas("saf", "note abîmée (épaisseur négative)", LIM, [calc({"version": 1, "fondations": [{"dalle": {"h": -1}}], "actif": 0})], {"erreur": True})
+
+# ---- PRIX DES GRUES (15/11/2026, docs/site/PRIX_GRUES.md) : un module à CARNET — la base des prix n'est pas dans la note,
+# l'écran la joint à chaque requête ; ici la base de TEST du dépôt (tests/carnets_essai.py : prix fictifs, loueurs A/B/C),
+# le jour des écussons figé au 14/11/2026 (en tête de test_reference_refonte.py). Le cas T1 est le test d'acceptation du
+# cahier (§ 13.1), joué comme un utilisateur (les choix Oui/Non des postes : tests/test_api_web_prix_grues.py).
+_PG_T1 = [neuf(), mod("g/cas", "Grue tour - Loueur A"), mod("g/grue", "G004"), mod("g/periode/mode", "dates"),
+          mod("g/periode/debut", "2025-09-01"), mod("g/periode/fin", "2026-05-01"), mod("g/hsc_m", "25"), mod("g/conduite", "cabine"),
+          mod("g/quantites/TW_CH", "5"), mod("g/forces/MONT/prix", "18000"), mod("g/forces/MONT/justification", "devis du loueur"),
+          mod("g/forces/DEMONT/prix", "18000"), mod("g/forces/DEMONT/justification", "devis du loueur")]
+cas("prix_grues", "note neuve (la base de test jointe)", REF, [neuf()], {"sans_message": True})
+cas("prix_grues", "T1 du cahier : grue tour 125 EC-B (> 39 m HSC), 8 mois, montage et démontage forcés", REF, _PG_T1, {"sans_message": True})
+cas("prix_grues", "Base des prix : le dossier du Loueur A et l'échange de son fichier", REF,
+    [neuf(), mod("page", "base"), mod("vb/loueur", "Loueur A"), mod("vb/prep/retour", "15/12/2026")], {"sans_message": True})
+cas("prix_grues", "Fondations : la grille des grues tour avec démolition", REF, [neuf(), mod("page", "fondations"), mod("vf/demolition", "avec")])
+cas("prix_grues", "repère vide refusé", LIM, [neuf(), mod("nom", "  ")], {"message": True})
+cas("prix_grues", "prix forcé illisible refusé", LIM, _PG_T1[:3] + [mod("g/forces/MONT/prix", "beaucoup")], {"message": True})
+cas("prix_grues", "contrôle d'import sans fichier refusé", LIM, [neuf(), mod("page", "import")], {"message": True})
+cas("prix_grues", "grue ajoutée (deux grues dans le projet)", LIM, _PG_T1 + [act("ajouter")], {"elements": 2})

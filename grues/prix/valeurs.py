@@ -23,8 +23,8 @@ TEXTE = "texte"
 MOT_NON_DISPONIBLE = "non disponible"
 MOT_SUR_DEMANDE = "sur demande"
 
-_COMPRIS = ("compris", "inclus", "inbegrepen", "inclusief")
-_NON_DISPO = ("non disponible", "nd", "n.d.", "-", "—", "nb", "niet beschikbaar")
+_COMPRIS = ("compris", "inclus", "inclu", "compris dans la location", "inbegrepen", "inclusief")
+_NON_DISPO = ("non disponible", "pas disponible", "nd", "n.d.", "-", "—", "nb", "niet beschikbaar")
 _SUR_DEMANDE = ("sur demande", "sur devis", "op aanvraag", "op aanvraag.", "sur demande.")
 
 
@@ -64,7 +64,7 @@ _NB = re.compile(r"^[+-]?\d[\d\s  .,']*$")
 
 def lire_nombre(texte: str) -> Optional[float]:
     """« 9 000 € », « 1.234,56 », « 6T », « 27,5 » → un nombre ; ``None`` si ce n'est pas un nombre lisible."""
-    t = str(texte).strip().replace("€", "").replace("EUR", "").strip()
+    t = re.sub(r"(?i)\b(?:htva|hors tva|eur)\b\.?", "", str(texte)).replace("€", "").strip()
     t = re.sub(r"\s*(?:t|T|m|h|kg|m³|m²|j|/j|/jour|/h)\s*$", "", t).strip()
     if not t or not _NB.match(t):
         return None

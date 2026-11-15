@@ -426,8 +426,8 @@ def _liste(titre: str, items: List[str], cls: str) -> str:
 
 def colonne(r: Dict, s: Dict, exporter: str = "") -> str:
     if not r["pret"]:
-        return (f'<div class="pbody"><div class="pg-res"><div class="pg-total nul">— € <small>HTVA</small></div>'
-                f'<p class="pg-info">{C.esc(r["ecusson_raison"].capitalize())}.</p></div></div>')
+        return (f'<div class="pbody"><div class="pg-res"><div class="verdict pg-verdict"><div class="pg-total nul">— € <small>HTVA</small></div>'
+                f'<p class="pg-info">{C.esc(r["ecusson_raison"].capitalize())}.</p></div></div></div>')
     tot = r["total_arrondi"]
     inc = ""
     if r["manquants"]:
@@ -445,8 +445,8 @@ def colonne(r: Dict, s: Dict, exporter: str = "") -> str:
               if a.get("autre") else "") + '</li>' for a in r["attention"]]
     hyp = "".join(_ligne_kv(k, C.esc(v)) for k, v in r["hypotheses"])
     return (f'<div class="pbody"><div class="pg-res">'
-            f'<div class="pg-total{" inc" if r["manquants"] else ""}">{C.esc(PC.euros(tot))} <small>HTVA</small></div>{inc}'
-            f'<div class="pg-ec-l">{PC.ecusson(r["ecusson"], r["ecusson_raison"])}<span>{C.esc(r["ecusson_raison"])}</span></div>'
+            f'<div class="verdict pg-verdict"><div class="pg-total{" inc" if r["manquants"] else ""}">{C.esc(PC.euros(tot))} <small>HTVA</small></div>{inc}'
+            f'<div class="pg-ec-l">{PC.ecusson(r["ecusson"], r["ecusson_raison"])}<span>{C.esc(r["ecusson_raison"])}</span></div></div>'
             f'{rep}{_liste("Prix manquants", manq, "manq")}{_liste("Points d’attention", att, "att")}'
             f'<details class="pg-hyp" data-plan-volet="pg-hyp"><summary>Hypothèses</summary>{hyp}</details>'
             f'<div class="pg-sorties">{exporter}</div></div></div>')

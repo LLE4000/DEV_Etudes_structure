@@ -258,6 +258,9 @@ def traiter(requete: str) -> str:
         out = mod.resultat(etat)
         if carnet:
             out["carnet"] = mod.lire_carnet(etat.pop("carnet", []))
+        if isinstance(message, C.Info):                          # une action réussie : l'écran l'annonce, sans alarme
+            out["info"] = str(message)
+            message = None
         out.update({"ok": True, "etat": etat, "message": message})
         return _json(out)
     except Exception as e:  # noqa: BLE001 — l'écran montre l'erreur ; la trace part dans la console

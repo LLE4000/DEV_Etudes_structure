@@ -121,7 +121,7 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf", "prix_grues")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -418,6 +418,25 @@ for ch, v in ((["dalle", "forme"], "contour"), (["dalle", "sommet", "+"], {"x": 
     assert P.modifier(etat, ch, v) is None, ch
 etat["actif"] = 0
 """,
+    # le Prix des grues : son rapport a besoin de la BASE (le carnet du module) — une mini-base FICTIVE, écrite ici (jamais
+    # un fichier de prix : il entrerait dans le paquet du site), jointe à la requête comme l'écran la joint
+    "prix_grues": """
+import json as _j
+from api_web import prix_grues as P
+BASE = {"version": "relevé", "loueurs": [{"id": "A", "nom": "Loueur", "role": "", "contact": {}, "catalogues": ["Tour"], "questions": []}],
+        "cas": [{"nom": "Tour", "code_calcul": "T", "loueur": "Loueur", "type": "Grue tour"}],
+        "champs_grues": {"T": [{"cle": "location_jour_chassis_standard", "libelle": "Location", "unite": "€/J", "categorie": "prix",
+                                "fourni_par": "loueur du catalogue", "essentiel": True}]},
+        "grues": [{"id": "G1", "cas": "Tour", "modele": "Grue", "location_jour_chassis_standard": 1.0, "annee_tarif": 2026}],
+        "postes": [{"code": "GRUTIER", "poste": "Grutier", "unite": "€/h", "prix_par_cas": {"Tour": 1.0}}],
+        "postes_par_logique": {"T": ["GRUTIER"]}, "parametres": [], "fondations_tableau": []}
+carnet = [BASE]      # (un module à carnet : la recette le déclare, le relevé le joint à la requête, comme l'écran)
+etat = P.nouvel_etat()
+etat["grues"][0].update(cas="Tour", grue="G1", periode={"mode": "mois", "mois": 2})
+P.gerer_elements(etat, "ajouter")
+etat["grues"][1].update(grue="G1", forces={"GRUTIER": {"prix": 2, "justification": ""}})
+etat["actif"] = 0
+""",
     "profil": """
 from api_web import profil as P
 etat = P.nouvel_etat()
@@ -451,7 +470,7 @@ def espion(f, *a, **k):
 builtins.open = espion
 from api_web import routeur as R
 {etat}
-r = json.loads(R.traiter(json.dumps({{"module": CLE, "action": "telecharger", "etat": etat, "quoi": "note_pdf",
+r = json.loads(R.traiter(json.dumps({{"module": CLE, "action": "telecharger", "etat": etat, "quoi": "note_pdf", "carnet": globals().get("carnet"),
                                       "infos": {{"nom": "relevé", "chantier": "Essai", "indice": "B"}}}})))
 if not r.get("ok"):
     sys.stderr.write(CLE + " : la note est refusée — " + str(r.get("erreur"))); sys.exit(3)

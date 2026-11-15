@@ -71,6 +71,14 @@ Ce qui est déjà un travail décidé vit dans `SUITE_DU_CHANTIER.md` ; les déf
 | G4 | **L'accroche « plaque à la distance mini »** n'existe que pour une dalle rectangulaire. | La même accroche le long de chaque bord d'un contour (la distance de la plaque la plus proche). | Moins utile que pour un rectangle. | **à trancher** |
 | G5 | **Les grues enregistrées vivent dans ce navigateur** (le carnet du module) : elles ne passent pas d'un appareil à l'autre ni d'un collègue à l'autre. | Un carnet du bureau, en ligne, comme le gabarit partagé. | Dépend des comptes. | **à trancher** |
 
+## Prix des grues (`prix_grues`)
+
+| # | Constat | Ce que ça changerait | Avis donné | État |
+|---|---|---|---|---|
+| PG1 | **Deux écrivains de classeurs Excel** : `saf/classeur.py` (les feuilles de valeurs et les tableaux du SAF) et `grues/prix/xlsx.py` (la mise en forme, les validations, la protection, et la LECTURE d'un classeur reçu). Ils partagent l'enveloppe du fichier (colonnes, dates, zip). | Un seul module commun ; le SAF garde ses octets à l'identique (ses tests comparent à l'octet). | Utile avant un troisième classeur (la demande au chantier). | **à faire** |
+| PG2 | **Le fichier reçu d'un loueur n'est pas gardé** (son nom et son empreinte le sont) : le cahier veut la preuve liée à l'import. | Le garder dans le stockage partagé, cité comme source. | Dépend du stockage partagé (Cloudflare). | **à trancher** |
+| PG3 | **La « version courte » du fichier loueur** (seulement les prix manquants et les questions, cahier § 12). | Une case « version courte » sous « Préparer le fichier ». | Attend la décision sur la façon de recevoir les prix (§ 12). | **à trancher** |
+
 ## Tout le site
 
 | # | Constat | Ce que ça changerait | Avis donné | État |

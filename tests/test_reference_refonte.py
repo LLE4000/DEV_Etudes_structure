@@ -105,10 +105,16 @@ import datetime as _dt  # noqa: E402
 from api_web import age as AGE  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import registre as REG  # noqa: E402
+from api_web import prix_grues as PGR  # noqa: E402
 from api_web import routeur as R  # noqa: E402
+
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import carnets_essai as CE  # noqa: E402
 
 DOSSIER = os.path.join(RACINE, "tests", "reference_refonte")
 OK, KO = [], []
+# (le jour des écussons des prix des grues, figé : un prix « À jour » aujourd'hui ne l'est plus l'an prochain)
+PGR.AUJOURDHUI = _dt.date(2026, 11, 14)
 
 # le jour de l'écran, figé : le plan du bouton « Récupérer la météo » (et ses messages) en dépend
 AGE.aujourdhui = lambda: _dt.date(2026, 11, 7)
@@ -299,7 +305,8 @@ CAS = _charger_cas()
 
 # ====================================================================== la photo d'un cas
 def _req(cle: str, q: dict) -> dict:
-    return json.loads(R.traiter(json.dumps(dict(q, module=cle))))
+    # (un module à CARNET — la base des prix des grues — reçoit son carnet d'essai, comme l'écran le joint)
+    return json.loads(CE.traiter(json.dumps(dict(q, module=cle))))
 
 
 def _sans_trace(erreur) -> str:

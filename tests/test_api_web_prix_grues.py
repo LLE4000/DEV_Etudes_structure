@@ -21,6 +21,7 @@ Ce que la suite prouve :
 
     /usr/bin/python3.12 tests/test_api_web_prix_grues.py [--rapide] [--racine dossier]
 """
+import base64
 import datetime as dt
 import json
 import os
@@ -136,12 +137,14 @@ def sans_base():
         'data-chemin="base/importer"' in e.r["donnees"] and "Importer la base de départ" in e.tout and e.carnet == [])
     chk("sans base : aucun montant à l'écran", "€</b>" not in e.tout and not re.search(r"\d\s?€", re.sub(r"<[^>]+>", "", e.r["resultat"])))
     e.importer("pas du json")
-    chk("un fichier qui n'est pas du JSON : refusé par un message, le carnet reste vide", not e.r["ok"] and "JSON" in e.r["erreur"] and e.carnet == [],
-        e.r.get("erreur"))
+    # (un REFUS revient en « message » — rouge à l'écran —, la note telle qu'avant ; une action réussie en « info »)
+    chk("un fichier qui n'est pas du JSON : refusé par un message, le carnet reste vide", e.r["ok"] and "JSON" in (e.r["message"] or "")
+        and not e.r.get("info") and e.carnet == [], e.r.get("message") or e.r.get("erreur"))
     e.importer(json.dumps({"grues": []}))
-    chk("un JSON qui n'est pas une base : refusé (« il manque … »)", not e.r["ok"] and "manque" in e.r["erreur"], e.r.get("erreur"))
+    chk("un JSON qui n'est pas une base : refusé (« il manque … »)", e.r["ok"] and "manque" in (e.r["message"] or ""), e.r.get("message"))
     e.importer()
-    chk("la base importée : un message, le carnet la porte, la NOTE ne la porte pas", e.r["ok"] and len(e.carnet) == 1
+    chk("la base importée : une INFORMATION (pas un refus), le carnet la porte, la NOTE ne la porte pas", e.r["ok"] and not e.r["message"]
+        and "Base des prix importée" in (e.r.get("info") or "") and len(e.carnet) == 1
         and len(e.carnet[0]["grues"]) == len(BASE["grues"]) and "carnet" not in e.etat and "grues" not in json.dumps(e.etat)[:0] + "x",
         e.r.get("message"))
     chk("l'état de la note est petit (la base n'y est pas)", len(json.dumps(e.etat)) < 3000, len(json.dumps(e.etat)))
@@ -305,10 +308,10 @@ def ecussons_et_refus():
                                 ("page", "ailleurs", "page inconnue"), ("g/grue", "G999", "pas dans le catalogue")):
         e.m(chemin, valeur)
         chk(f"refus « {chemin} = {valeur} » : un message ({mot}), la note intacte",
-            not e.r["ok"] and mot in e.r["erreur"] and json.dumps(e.etat) == avant, e.r.get("erreur"))
+            e.r["ok"] and mot in (e.r["message"] or "") and json.dumps(e.etat) == avant, e.r.get("message") or e.r.get("erreur"))
     e.m("page", "base")
     e.m("b/grue/G004/location_jour_chassis_standard", "environ 150")
-    chk("un texte qui n'est pas un prix dans une case de la base : refusé par un message", not e.r["ok"] and "n'est pas un prix" in e.r["erreur"])
+    chk("un texte qui n'est pas un prix dans une case de la base : refusé par un message", e.r["ok"] and "n'est pas un prix" in (e.r["message"] or ""))
     e.m("b/grue/G004/location_jour_chassis_standard", "sur demande")
     chk("« sur demande » est accepté (une correction de notre part : « Corrigé », la case dit « sur demande »)",
         e.r["ok"] and "pg-ec-corrige" in e.r["resultat"] and 'value="sur demande"' in e.r["vues"][0]["svg"])
@@ -318,6 +321,119 @@ def ecussons_et_refus():
         and n["grues"][0]["periode"]["mois"] == 3)
 
 
+def texte_pdf(octets: bytes) -> str:
+    p = subprocess.run(["pdftotext", "-layout", "-", "-"], input=octets, capture_output=True)
+    return p.stdout.decode("utf-8", "replace")
+
+
+def rapport():
+    print("== 10. le rapport PDF (§ 11.1, § 11.2, § 13.4) · « À faire » · « ? »")
+    e = Ecran()
+    r = e.envoyer("telecharger", quoi="note_pdf")
+    chk("sans base : le rapport est refusé par un message", not r["ok"] and "importer la base" in r["erreur"], r.get("erreur"))
+    e.importer()
+    r = e.envoyer("telecharger", quoi="note_pdf")
+    chk("sans grue choisie : refusé par un message", not r["ok"] and "choisir" in r["erreur"], r.get("erreur"))
+    t1 = next(t for t in BASE["tests_acceptation"] if t["id"].startswith("T1"))
+    jouer_test(e, t1)
+    e.m("g/forces/DEMONT/justification", "")
+    detail = e.r["vues"][0]["svg"].split('<details class="pg-non"')[0]      # (l'écran AVANT le téléchargement)
+    r = e.envoyer("telecharger", quoi="note_pdf", infos={"nom": "Projet essai", "chantier": "Chantier essai"})
+    pdf = base64.b64decode(r["fichier"]["base64"]) if r.get("ok") else b""
+    txt = re.sub(r"[ \u00a0\u202f]+", " ", texte_pdf(pdf))
+    retenus = [ln for ln in re.findall(r'id="pg-l-([A-Z0-9_]+)"', detail)]
+    libelles = re.findall(r'<span class="nm">([^<]*)</span>', detail)
+    chk(f"T1 : un PDF ({len(pdf)} octets), « Ce qui est calculé · Grue tour (T) » et son texte, les hypothèses",
+        pdf[:5] == b"%PDF-" and "Ce qui est calculé · Grue tour (T)" in txt and "Mois = mois complets + fraction du mois entamé" in txt
+        and "HYPOTHÈSES" in txt and "Jours facturés" in txt and "Prix du kWh" in txt, r.get("erreur") or txt[:300])
+    manquent = [l for l in libelles if re.sub(r"\s+", " ", l.replace("&#x27;", "'")) not in txt]
+    chk(f"§ 13.4 : chaque ligne retenue ({len(libelles)}) est dans le rapport, avec sa source (année, « ancien tableau », « forcé »)",
+        len(libelles) == len(retenus) and not manquent and "ancien tableau" in txt and "forcé" in txt and "2025" in txt, manquent)
+    chk("le total (181 193 €), matériel et main-d'œuvre ; les prix forcés et leur justification (l'absente dite)",
+        "181 193 €" in txt and "Matériel" in txt and "Main-d'œuvre" in txt and "PRIX FORCÉS (2)" in txt and "test d'acceptation" in txt
+        and "SANS JUSTIFICATION" in txt)
+    chk("la légende des écussons en bas de page (les mots : À jour, À vérifier, Pas à jour, Manquant, Corrigé)",
+        all(m in txt for m in ("À jour", "À vérifier", "Pas à jour", "Manquant", "Corrigé")))
+    e.envoyer("ajouter")
+    t4 = next(t for t in BASE["tests_acceptation"] if t["id"].startswith("T4"))
+    jouer_test(e, t4)
+    r = e.envoyer("telecharger", quoi="rapport_projet", infos={"nom": "Projet essai", "chantier": "Chantier essai"})
+    txt = re.sub(r"[ \u00a0\u202f]+", " ", texte_pdf(base64.b64decode(r["fichier"]["base64"]))) if r.get("ok") else ""
+    somme = t4["attendu"]["total_arrondi"] + 181193
+    chk(f"le rapport du projet : la synthèse (GT1, GT2), le total du projet ({somme} €), puis le rapport de chaque grue",
+        "Total du projet HTVA" in txt and f"{somme:,} €".replace(",", " ") in txt and txt.count("Ce qui est calculé") == 2
+        and "Ce qui est calculé · Grue mobile, grutier compris (MA)" in txt, r.get("erreur") or txt[:400])
+    e.envoyer("calculer")
+    chk("« À faire (n) » en tête du résultat (retours à valider, questions, fichiers à préparer) et la présentation « ? »",
+        "À faire (" in e.r["resultat"] and 'data-calcul="pg-aide"' in e.r["resultat"] and 'id="ck-pg-aide"' in e.r["volets"]
+        and "Ce qu'il fait." in e.r["volets"].replace("&#x27;", "'"))
+
+
+def echange():
+    print("== 11. l'échange avec un loueur (§ 7.1, § 7.2) : préparer, envoyer, importer, contrôler, appliquer, annuler")
+    from grues.prix import lecture_loueur as LL
+    e = Ecran()
+    e.importer()
+    e.m("page", "base")
+    e.m("vb/loueur", "Loueur A")
+    res = e.r["resultat"]
+    mail = re.search(r'href="(mailto:[^"]*)"', res)
+    chk("le dossier du loueur : « Préparer le fichier 2027 », « Écrire le mail » (objet et texte du cahier), « Importer le fichier reçu » "
+        "(un classeur lu en binaire)", "Préparer le fichier 2027" in res and 'data-telecharger="fichier_loueur"' in res and mail is not None
+        and "Mise%20%C3%A0%20jour%20de%20vos%20prix%202027" in mail.group(1) and 'data-chemin="imp/fichier"' in res and 'data-binaire="1"' in res,
+        mail.group(1)[:120] if mail else res[:200])
+    e.m("vb/prep/retour", "31/02/2027")
+    chk("une date de retour illisible est refusée par un message", "date" in (e.r["message"] or ""), e.r.get("message"))
+    e.m("vb/prep/retour", "15/12/2026")
+    e.m("vb/prep/par", "J. T.")
+    r = e.envoyer("telecharger", quoi="fichier_loueur")
+    o = base64.b64decode(r["fichier"]["base64"]) if r.get("ok") else b""
+    lu = LL.lire(e.carnet[0], o, "x.xlsx") if o else {"infos": {}, "resume": {}}
+    chk("« Préparer le fichier » rend DEMANDE_PRIX_2027_LOUEUR_A.xlsx, avec « Demandé par » et la date de retour ; relu : 0 changement, "
+        "186 prix confirmés", r.get("ok") and r["fichier"]["nom"] == "DEMANDE_PRIX_2027_LOUEUR_A.xlsx" and lu["infos"].get("demande_par") == "J. T."
+        and lu["infos"].get("retour_avant") == "2026-12-15" and lu["resume"].get("changements") == 0 and lu["resume"].get("prix_confirmes") == 186,
+        r.get("erreur") or lu["resume"])
+    e.m("b/demande/envoyee", "1")
+    chk("« Le fichier est parti » : une information (pas un refus), le dossier passe en « Demande envoyée »",
+        "demande 2027 envoyée" in (e.r.get("info") or "") and not e.r["message"] and "pg-ec-demande" in e.r["resultat"], e.r.get("info"))
+    e.m("imp/fichier", {"nom": "faux.xlsx", "base64": base64.b64encode(b"pas un classeur").decode()})
+    chk("un fichier qui n'est pas un classeur : refusé par un message, on reste sur la page", "classeur" in (e.r["message"] or "")
+        and e.etat["page"] == "base" and not e.etat.get("imp"), e.r.get("message"))
+    rempli = base64.b64encode(open(os.path.join(ICI, "donnees", "prix_grues_loueur_a_rempli.xlsx"), "rb").read()).decode()
+    e.m("imp/fichier", {"nom": "prix_grues_loueur_a_rempli.xlsx", "base64": rempli})
+    centre = e.r["vues"][0]["svg"]
+    choix = re.findall(r'data-chemin="imp/choix/([0-9a-f]{12})"( checked)?', centre)
+    chk("le fichier reçu ouvre la page de CONTRÔLE : 9 changements cochés, la case vidée décochée, la valeur non lue à saisir, la nouvelle "
+        "grue et la grue retirée cochées, l'autre prestation décochée — rien n'est appliqué",
+        e.etat["page"] == "import" and "9 changement(s)" in (e.r.get("info") or "") and len(choix) == 13
+        and sum(1 for _, c in choix if c) == 11 and 'data-chemin="imp/saisie/' in centre and "« ± 30 »" in centre
+        and e.carnet[0]["grues"][0]["location_jour_chassis_standard"] == 132.0, (len(choix), sum(1 for _, c in choix if c), e.r.get("info")))
+    chk("les baisses et les écarts au-delà de 15 % sont surlignés ; à droite les compteurs, les avertissements, « Appliquer »",
+        centre.count('<tr class="fort">') == 3 and 'data-chemin="imp/appliquer"' in e.r["resultat"] and "181" in e.r["resultat"]
+        and "Cases vidées par le loueur" in e.r["resultat"], centre.count('<tr class="fort">'))
+    saisie = re.search(r'data-chemin="imp/saisie/([0-9a-f]{12})"', centre).group(1)
+    avant = json.dumps(e.etat)
+    e.m(f"imp/saisie/{saisie}", "environ 30")
+    chk("une valeur non lue mal saisie est refusée par un message, la note intacte", "n'est pas un prix" in (e.r["message"] or "")
+        and json.dumps(e.etat) == avant, e.r.get("message"))
+    e.m(f"imp/saisie/{saisie}", "30")
+    e.m("imp/filtre", "changements")
+    chk("le filtre « Changements » ne montre que les changements", e.r["vues"][0]["svg"].count('data-chemin="imp/choix/') == 9)
+    e.m("imp/appliquer", "1")
+    g2 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G002")
+    g1 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G001")
+    chk("« Appliquer » : 10 prix appliqués (la valeur saisie comprise), l'année et la source du fichier, retour à la Base des prix",
+        "10 prix appliqués" in (e.r.get("info") or "") and e.etat["page"] == "base" and g2["cabine_jour"] == 30.0 and g1["location_jour_chassis_standard"] == 115
+        and g1["annee_par_champ"]["location_jour_chassis_standard"] == 2027 and "Annuler le dernier import" in e.r["resultat"]
+        and "Dernier fichier reçu" in e.r["resultat"], e.r.get("info"))
+    e.m("b/import/annuler", "1")
+    g1 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G001")
+    chk("« Annuler le dernier import » remet la base et le dossier (« Demande envoyée »)", g1["location_jour_chassis_standard"] == 132.0
+        and "pg-ec-demande" in e.r["resultat"] and "Annuler le dernier import" not in e.r["resultat"], e.r.get("info"))
+    e.m("page", "import")
+    chk("la page de contrôle sans fichier : refusée par un message", "page inconnue" in (e.r["message"] or ""), e.r.get("message"))
+
+
 def rapides():
     sans_base()
     acceptation()
@@ -325,6 +441,8 @@ def rapides():
     base_des_prix()
     fondations()
     ecussons_et_refus()
+    rapport()
+    echange()
 
 
 MUTATIONS = [
@@ -336,7 +454,17 @@ MUTATIONS = [
      '''            s.update(cas=valeur or None)''', "le catalogue changé sans oublier la grue de l'autre catalogue"),
     ("api_web/prix_grues_base.py", '''        return ED.corriger(base, ref, valeur, "", ini, auj)''', '''        return None''', "une case de la base qui ne corrige rien"),
     ("api_web/prix_grues_fondations.py", '''        return ED.statut_retour(base, ch[3], valeur, motif, ini, auj)''', '''        return None''', "Valider un retour qui ne fait rien"),
+    ("api_web/prix_grues_rapport.py", '''        for ln in ret:
+            _ligne(pg, ln)''', '''        for ln in ret[:-1]:
+            _ligne(pg, ln)''', "le rapport qui oublie une ligne"),
     ("api_web/prix_grues_commun.py", '''f'<g class="p">{PICTOS.get(cle, "")}</g></svg>')''', '''f'</svg>')''', "un écusson sans pictogramme"),
+    ("api_web/prix_grues_echange.py", '''                if j in imp["choix"]:
+                    choix[IL.cle_item(sorte, it)] = imp["choix"][j]''', '''                if False:
+                    choix[IL.cle_item(sorte, it)] = imp["choix"][j]''', "« Appliquer » qui oublie les cases décochées à l'écran"),
+    ("api_web/prix_grues_echange.py", '''    return IL.PAR_DEFAUT[sorte] if v is None else v''', '''    return True''',
+     "l'écran qui coche tout (cases vidées comprises)"),
+    ("api_web/prix_grues.py", '''        etat.clear()
+        etat.update(avant)''', '''        pass''', "un refus qui laisse la note à moitié changée"),
 ]
 TEMOIN = ("api_web/prix_grues.py", "PAGES = (", "PAGES = (")
 

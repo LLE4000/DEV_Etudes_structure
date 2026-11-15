@@ -48,7 +48,7 @@
 .pg-bt .mq { color: #c0392b; }
 
 /* ------------------------------------------------------------------ le détail du prix (centre) */
-.pg-detail { padding: 10px 12px 18px; min-width: 0; }
+.pg-detail { padding: 10px 12px 18px; min-width: 0; container: pgdetail / inline-size; }
 .pg-periode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12.5px; color: var(--ink-2); }
 .pg-bar { flex: 0 0 160px; height: 8px; border-radius: 4px; background: var(--bg-sunken); overflow: hidden; }
 .pg-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
@@ -101,6 +101,7 @@
 
 /* ------------------------------------------------------------------ la colonne du résultat */
 .pg-res { display: grid; gap: 10px; }
+.verdict.pg-verdict { display: block; padding: 0 0 8px; }
 .pg-total { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .pg-total small { font-size: 13px; font-weight: 600; color: var(--ink-3); }
 .pg-total.sm { font-size: 22px; }
@@ -134,6 +135,22 @@
 .pg-bloc-h small { display: block; width: 100%; font-weight: 500; color: var(--ink-3); font-size: 11.5px; }
 .pg-fl-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pg-fl .pg-fl-b { padding: 10px 14px 14px; }
+
+/* « À faire » et la présentation « ? » */
+.pg-faire { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 6px 9px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); font-size: 12.5px; }
+.pg-faire.vide-0 { color: var(--ink-4); align-items: center; }
+.pg-faire details { flex: 1 1 auto; min-width: 0; }
+.pg-faire summary { cursor: pointer; font-weight: 700; color: #c46a00; }
+.pg-faire ul { margin: 6px 0 2px; padding-left: 16px; display: grid; gap: 4px; }
+.pg-aide-b { flex: none; min-width: 32px; font-weight: 800; }
+.pg-leg { display: flex; flex-wrap: wrap; gap: 10px; }
+.pg-cycle { font-size: 12.5px; margin: 3px 0; color: var(--ink-2); }
+.pg-cycle b { margin-right: 6px; color: var(--ink); }
+.pg-cqcs { display: grid; gap: 8px; }
+.pg-cqc { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); font-size: 12.5px; }
+.pg-cqc ul { margin: 4px 0 0; padding-left: 16px; }
+#ck-pg-aide p { font-size: 13px; line-height: 1.45; margin: 0 0 8px; }
 
 /* ------------------------------------------------------------------ la base des prix */
 .pg-base .pg-gn { min-width: 250px; position: sticky; left: 0; background: var(--panel); z-index: 1; }
@@ -189,11 +206,13 @@ tr.ret { opacity: .55; }
 .pg-carte .pg-in.t { margin-top: 6px; }
 .pg-lien { color: var(--accent); font-weight: 600; text-align: left; }
 
-/* le téléphone : chaque poste du détail devient une petite carte — le nom et le total en haut, le choix, la quantité et le prix
-   dessous, ce qui est facturé et la source en petit ; les tableaux de la base défilent dans leur cadre */
-@media (max-width: 700px) {
-  .pg-detail .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist) thead { display: none; }
-  .pg-detail .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist), .pg-detail .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist) tbody { display: block; }
+/* une colonne du centre ÉTROITE (le téléphone, mais aussi la tablette et un PC de 1280 px : le tableau du détail et celui du
+   contrôle d'un import demandent ~620 px) : chaque poste devient une petite carte — le nom et le total en haut, le choix, la
+   quantité et le prix dessous, ce qui est facturé et la source en petit ; les tableaux de la base défilent dans leur cadre.
+   La règle suit la largeur de la colonne (requête de conteneur), pas celle de l'écran. */
+@container pgdetail (max-width: 620px) {
+  .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist) thead { display: none; }
+  .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist), .pg-tab:not(.pg-base):not(.pg-grille):not(.pg-hist) tbody { display: block; }
   .pg-gh { display: flex; justify-content: space-between; background: var(--bg-sunken); border-bottom: 1px solid var(--line); }
   .pg-gh > th { display: block; border: 0; background: transparent; }
   .pg-gh > th:empty { display: none; }
@@ -205,9 +224,52 @@ tr.ret { opacity: .55; }
   .pg-l .so { grid-area: so; justify-self: end; }
   .pg-just, .pg-just > td { display: block; }
   .pg-just td > label { width: 100%; }
+  .pg-ctl tr:not(.pg-grp) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 8px 9px;
+    border-bottom: 1px solid var(--line); }
+  .pg-ctl tr:not(.pg-grp) > td { display: block; padding: 0; border: 0; }
+  .pg-ctl tr:not(.pg-grp) > td.ob { grid-column: 1 / -1; }
+  .pg-ctl tr:not(.pg-grp) > td.txt { grid-column: 1 / -1; }
+  .pg-ctl .pg-grp, .pg-ctl .pg-grp > td { display: block; }
+  .pg-ctl .n { text-align: left; }
+  .pg-ctl .field.text { min-width: 0; }
+}
+/* le téléphone : des champs plus hauts, le total plus petit */
+@media (max-width: 700px) {
   .pg-sel { height: 34px; max-width: 128px; }
   .pg-detail { padding: 8px 6px 14px; }
   .pg-in { height: 32px; }
   .pg-total { font-size: 26px; }
   .pg-bar { flex-basis: 100%; }
 }
+
+/* l'ÉCHANGE avec un loueur (cahier § 7) : le bloc du dossier (préparer, écrire, importer, annuler), les remarques reçues ;
+   la page de CONTRÔLE d'un fichier reçu : un tableau objet · champ · avant · après · écart · appliquer, une ligne surlignée
+   pour un écart au-delà du seuil ou une baisse, les cases vidées en retrait, les valeurs non lues à saisir */
+.pg-echange .pg-fl-a .btn { flex: 1 1 auto; justify-content: center; }
+.pg-echange .row { margin-top: 4px; }
+.pg-msg { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.pg-msg p { margin: 2px 0 0; font-size: 12.5px; }
+.pg-msg small { color: var(--ink-3); font-size: 11px; }
+.pg-av { display: block; margin: 3px 0 0; font-size: 11.5px; font-weight: 500; color: #9a3412; }
+.pg-att { margin: 10px 0 0; padding: 8px 10px 8px 26px; border-radius: 10px; background: color-mix(in srgb, #c46a00 9%, var(--panel));
+  border: 1px solid color-mix(in srgb, #c46a00 30%, var(--line)); font-size: 12.5px; line-height: 1.4; }
+.pg-att li + li { margin-top: 4px; }
+.pg-imp-a .btn { flex: 1 1 0; justify-content: center; }
+.pg-ctl td { padding-top: 6px; padding-bottom: 6px; }
+.pg-ctl .ob { font-weight: 600; }
+.pg-ctl .ob small { display: block; font-weight: 400; color: var(--ink-3); font-size: 11px; }
+.pg-ctl .ap { font-weight: 700; }
+.pg-ctl td.n { white-space: nowrap; }
+.pg-fic { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.pg-ctl .txt { color: var(--ink-2); }
+.pg-ctl .pg-grp td { background: var(--bg-sunken); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.pg-ctl .pg-grp small { font-weight: 600; color: var(--ink-4); margin-left: 4px; }
+.pg-ctl tr.fort > td { background: color-mix(in srgb, #c46a00 10%, var(--panel)); }
+.pg-ctl tr.vide-l .ap, .pg-ctl tr.nonlu .ap { color: #9a3412; }
+.pg-ctl tr.neuf .ap { color: var(--accent); }
+.pg-ctl tr.refus > td { color: var(--nok); }
+.pg-ctl .field.text { min-width: 110px; }
+.pg-ap { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; }
+.pg-ap input { width: 17px; height: 17px; accent-color: var(--accent); }
+.pg-total.sm { font-size: 20px; }
+.pg-total.sm small { display: block; font-size: 12px; font-weight: 500; color: var(--ink-3); }

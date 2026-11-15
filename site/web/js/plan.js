@@ -306,6 +306,28 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     if (!el || !horsDonnees(el)) return;
     envoyer("modifier", { chemin: chemin(el.dataset.chemin), valeur: el.type === "checkbox" ? el.checked : el.value });
   }, { signal });
+  // un FICHIER choisi hors du cadre des données (« Importer le fichier reçu » d'un loueur, Prix des grues) : il part au
+  // moteur lu en texte ({nom, texte}) ou, s'il porte data-binaire (un classeur Excel), en base64 ({nom, base64}) ; 2 Mo au
+  // plus. Le champ est vidé ensuite : choisir deux fois le même fichier le relit.
+  bench.addEventListener("change", async (ev) => {
+    const f = ev.target.closest && ev.target.closest("input[type=file][data-agir][data-chemin]");
+    if (!f || !horsDonnees(f)) return;
+    const fichier = f.files && f.files[0];
+    if (!fichier) return;
+    if (fichier.size > 2 * 1024 * 1024) { if (toast) toast("Fichier trop gros (2 Mo au plus)", true); f.value = ""; return; }
+    let valeur;
+    if (f.dataset.binaire) {
+      const o = new Uint8Array(await fichier.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < o.length; i += 0x8000) bin += String.fromCharCode.apply(null, o.subarray(i, i + 0x8000));
+      valeur = { nom: fichier.name, base64: btoa(bin) };
+    } else {
+      valeur = { nom: fichier.name, texte: await fichier.text() };
+    }
+    f.value = "";
+    if (signal && signal.aborted) return;
+    envoyer("modifier", { chemin: chemin(f.dataset.chemin), valeur });
+  }, { signal });
 
   // ------------------------------------------------------------------ data-agir : un CHAMP du résultat, du dessin ou d'une fenêtre
   // (le « Prix des grues » : une quantité, un prix forcé, une justification, une case de la base des prix) : il part en quittant

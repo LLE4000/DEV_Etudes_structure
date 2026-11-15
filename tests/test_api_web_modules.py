@@ -35,7 +35,13 @@ from api_web import parcours as P  # noqa: E402
 from api_web import registre as REG  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import carnets_essai as CE  # noqa: E402
+
 OK, KO = [], []
+# un module à CARNET (la base des prix des grues, hors de la note) reçoit le sien à chaque requête, comme l'écran le
+# joint : son carnet d'ESSAI (tests/carnets_essai.py)
+traiter = CE.traiter
 
 
 def chk(nom, cond, info=""):
@@ -44,7 +50,7 @@ def chk(nom, cond, info=""):
 
 
 def req(**k):
-    return json.loads(R.traiter(json.dumps(k)))
+    return json.loads(traiter(json.dumps(k)))
 
 
 CLES_REPONSE = ("resultat", "volets", "vues", "phrase", "statut_html", "resume", "donnees", "elements", "etat")
@@ -107,7 +113,7 @@ def un_module(cle):
             mauvais.append((chemin, valeur, out.get("message") or out.get("erreur")))
     chk(f"{cle} : réécrire chaque champ avec sa valeur affichée ne change rien", not mauvais, mauvais[:3])
     # le parcours
-    journal = P.parcourir(cle, R.traiter, maximum=300)
+    journal = P.parcourir(cle, traiter, maximum=300)
     echecs = [(d, e) for d, ok, e in journal if not ok]
     chk(f"{cle} : le parcours de l'écran ({len(journal)} requêtes) ne rencontre aucune erreur", not echecs, echecs[:3])
     # fenêtres et sélecteurs

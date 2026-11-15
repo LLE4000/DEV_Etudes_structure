@@ -13,6 +13,7 @@ prix n'est dans le code. Le jour de la mise en ligne d'un stockage partagé, le 
 
 Rien n'est calculé ici : le moteur est ``grues/prix`` (le calcul, les fondations, les écussons, les dossiers, les
 modifications de la base). Ce fichier tient l'état de la note, écrit les saisies et assemble l'écran."""
+import base64
 import copy
 import datetime as dt
 import json
@@ -34,7 +35,7 @@ PAGE = "prix-grues"
 CARNET = True                    # la base des prix voyage avec la requête (voir l'en-tête du fichier)
 TITRE = "Prix des grues"
 GENRE = E.Genre("Grues", "la grue", "cette grue", "une grue")
-PAGES = ("calcul", "fondations", "base")
+PAGES = ("calcul", "fondations", "base", "import")     # « import » : le contrôle d'un fichier reçu d'un loueur
 GRUES_MAX = 30
 LIBRES_MAX = 30
 REPERE_MAX = 20
@@ -51,7 +52,7 @@ def aujourdhui() -> dt.date:
 
 # ------------------------------------------------------------------ l'état
 def _vue_base() -> Dict:
-    return {"loueur": None, "tableau": None, "filtre": "", "recherche": "", "case": None, "tout": False}
+    return {"loueur": None, "tableau": None, "filtre": "", "recherche": "", "case": None, "tout": False, "prep": None}
 
 
 def _vue_fond() -> Dict:
@@ -60,7 +61,7 @@ def _vue_fond() -> Dict:
 
 def nouvel_etat() -> Dict:
     return {"version": 1, "page": "calcul", "grues": [K.nouvelle_grue("GT1")], "actif": 0, "vb": _vue_base(), "vf": _vue_fond(),
-            "initiales": ""}
+            "initiales": "", "imp": None}
 
 
 def _lire_grue(x: Dict, i: int) -> Dict:
@@ -90,8 +91,14 @@ def normaliser(etat: Dict) -> Dict:
         actif = 0
     vb = {**_vue_base(), **{k: v for k, v in (e.get("vb") or {}).items() if k in _vue_base()}}
     vf = {**_vue_fond(), **{k: v for k, v in (e.get("vf") or {}).items() if k in _vue_fond()}}
-    return {"version": 1, "page": e.get("page") if e.get("page") in PAGES else "calcul", "grues": gs,
-            "actif": min(max(0, actif), len(gs) - 1), "vb": vb, "vf": vf, "initiales": str(e.get("initiales") or "")[:6]}
+    from . import prix_grues_echange as PX
+    vb["prep"] = PX.lire_prep(vb.get("prep"))
+    imp = PX.lire_imp(e.get("imp"))
+    page = e.get("page") if e.get("page") in PAGES else "calcul"
+    if page == "import" and not imp:
+        page = "base"
+    return {"version": 1, "page": page, "grues": gs, "actif": min(max(0, actif), len(gs) - 1), "vb": vb, "vf": vf,
+            "initiales": str(e.get("initiales") or "")[:6], "imp": imp}
 
 
 def lire_carnet(carnet) -> List[Dict]:
@@ -360,11 +367,26 @@ def _importer(etat: Dict, valeur) -> str:
 
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
+    """Une saisie : un REFUS revient en message (la note reste celle d'avant), une action réussie en ``C.Info``."""
+    avant = copy.deepcopy({k: v for k, v in etat.items() if k != "carnet"})
+    try:
+        m = _modifier(etat, chemin, valeur)
+    except ValueError as e:
+        carnet = etat.get("carnet")
+        etat.clear()
+        etat.update(avant)
+        if carnet is not None:
+            etat["carnet"] = carnet
+        return str(e) or "saisie refusée"
+    return C.Info(m) if m else None
+
+
+def _modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     ch = [str(c) for c in chemin]
     base = base_de(etat)
     try:
         if ch == ["page"]:
-            if valeur not in PAGES:
+            if valeur not in PAGES or (valeur == "import" and not etat.get("imp")):
                 raise ValueError("page inconnue")
             etat["page"] = valeur
             return None
@@ -381,6 +403,11 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             return _importer(etat, valeur)
         if ch and ch[0] == PG.CH:
             return _ecrire_grue(base, _g(etat), ch[1:], valeur)
+        if ch and (ch[0] == "imp" or ch[:2] == ["vb", "prep"] or ch[:2] in (["b", "demande"], ["b", "import"], ["b", "message"])):
+            if base is None:
+                raise ValueError("aucune base des prix")
+            from . import prix_grues_echange as PX
+            return PX.modifier(etat, base, ch, valeur, aujourdhui())
         if ch and ch[0] == "aller" and len(ch) == 2 and ch[1] in PAGES:
             return _aller(etat, ch[1], valeur)
         if ch and ch[0] in ("vb", "vf", "b"):
@@ -413,6 +440,12 @@ def _aller(etat: Dict, page: str, valeur) -> Optional[str]:
                 etat["vb"].update(loueur=(B.catalogue(base, cas) or {}).get("loueur"), tableau=cas)
             elif sorte == "poste":
                 etat["vb"].update(loueur=(B.catalogue(base, cle) or {}).get("loueur"), tableau="postes")
+    elif page == "base" and v.startswith("loueur:"):
+        nom = v[len("loueur:"):]
+        base = base_de(etat)
+        if base and B.loueur(base, nom):
+            cats = B.catalogues_du_loueur(base, nom)
+            etat["vb"].update(loueur=nom, tableau=cats[0]["nom"] if cats else "postes", case=None)
     elif page == "fondations" and v.count("|") == 2:
         modele, t, dem = v.split("|")
         etat["vf"].update(case=[modele, t], demolition=dem == "avec", toutes=True)
@@ -432,8 +465,38 @@ def _badges(base: Dict, auj: dt.date) -> Dict:
 
 
 def _sorties() -> str:
-    return E.exporter([E.ligne_export('data-telecharger="base_json"', "hard-drive", "Base des prix (JSON)",
-                                      "la sauvegarde complète de la base de cet appareil")])
+    """Les sorties de la page Calcul : le rapport de la grue (« Note PDF » du site), celui du projet, l'export de la base."""
+    return (f'<button type="button" class="btn sm" data-telecharger="note_pdf">{C.icon("printer")}Imprimer le rapport</button>'
+            f'<button type="button" class="btn sm" data-telecharger="rapport_projet" data-avec-note="1">{C.icon("file-text")}Rapport du projet</button>'
+            + E.exporter([E.ligne_export('data-telecharger="base_json"', "hard-drive", "Base des prix (JSON)",
+                                         "la sauvegarde complète de la base de cet appareil")]))
+
+
+def _a_faire(base: Dict, auj: dt.date) -> str:
+    """« À faire (n) » (cahier § 1.4) : une liste courte, chaque ligne avec son bouton d'action ; et la présentation « ? »."""
+    items = D.a_faire(base, auj)
+    aide = f'<button type="button" class="btn sm ghost pg-aide-b" data-calcul="pg-aide" title="Présentation de l\'outil">?</button>'
+    if not items:
+        return f'<div class="pg-faire vide-0"><span>Rien à faire</span>{aide}</div>'
+    li = "".join(f'<li>{C.esc(x["texte"])} <button type="button" class="pg-lien" data-agir="1" data-chemin="aller/{x["page"]}" '
+                 f'data-valeur="{C.esc(("loueur:" + x["cible"]) if x.get("cible") else "")}">→ Ouvrir</button></li>' for x in items)
+    return (f'<div class="pg-faire"><details data-plan-volet="pg-faire"><summary>À faire ({len(items)})</summary><ul>{li}</ul></details>{aide}</div>')
+
+
+def _presentation(base: Optional[Dict]) -> str:
+    """La fenêtre « ? » : la présentation de l'outil (cahier § 11.3), les quatre encadrés « Ce qui est calculé », la légende
+    des écussons et les deux cycles."""
+    from . import prix_grues_textes as TX
+    from grues.prix import ecussons as EC_
+    pres = "".join(f'<p><b>{C.esc(t)}</b> {C.esc(x)}</p>' for t, x in TX.PRESENTATION)
+    blocs = "".join(f'<div class="pg-cqc"><b>{C.esc(TX.NOMS[lg])}</b><ul>{"".join(f"<li>{C.esc(l)}</li>" for l in TX.ce_qui_est_calcule(lg))}</ul></div>'
+                    for lg in ("T", "R", "MS", "MA"))
+    leg = "".join(PC.ecusson(k) for k in (EC_.A_JOUR, EC_.A_VERIFIER, EC_.PAS_A_JOUR, EC_.MANQUANT, EC_.CORRIGE, EC_.DEMANDE))
+    cyc = "".join(f'<div class="pg-cycle"><b>{C.esc(n)}</b>{" → ".join(C.esc(e) for e in etapes)}</div>' for n, etapes in TX.CYCLES)
+    return (f'<div class="flyout calcul pg-fl" id="ck-pg-aide"><div class="fl-h"><div><b>Prix des grues</b><span>Présentation de l\'outil</span></div>'
+            f'<button class="pcoll" data-fermer="1" title="Fermer">{C.icon("x")}</button></div>'
+            f'<div class="ck-body pg-fl-b">{pres}<div class="pg-sous">Écussons</div><div class="pg-leg">{leg}</div>'
+            f'<div class="pg-sous">Les deux cycles</div>{cyc}<div class="pg-sous">Ce qui est calculé</div><div class="pg-cqcs">{blocs}</div></div></div>')
 
 
 def _noms(etat: Dict, base: Optional[Dict]) -> List:
@@ -444,22 +507,33 @@ def _noms(etat: Dict, base: Optional[Dict]) -> List:
     return out
 
 
+def arbre(etat: Dict, base: Optional[Dict], corps: str) -> str:
+    """La colonne de gauche, compacte : la ligne de la grue ouverte (repère, modèle) et la page ouverte."""
+    return E.arbre(GENRE, _noms(etat, base), etat["actif"], corps, "grue", compact=True)
+
+
 def resultat(etat: Dict) -> Dict:
     base = base_de(etat)
     auj = aujourdhui()
     s = _g(etat)
+    if etat["page"] == "import" and not etat.get("imp"):
+        etat["page"] = "base"
     page = etat["page"]
     volets = ""
-    resume = {"taux": None, "niveau": "i", "statut": "Base des prix à importer", "gouvernant": ""}
+    resume = {"taux": None, "niveau": "i", "statut": "Base à importer", "gouvernant": ""}
     if base is None:
         corps = PC.onglets(page) + C.section(1, "Base des prix", "à importer",
                                              C.ligne("Fichier", PC.import_base()) + C.aide("Le fichier JSON de la base, une seule fois."), True, "base")
         vues = [{"cle": "vide", "titre": "Prix des grues", "court": "Base", "echelle": False, "svg": PC.ecran_vide()}]
-        res = ('<div class="pbody"><div class="pg-res"><div class="pg-total nul">— € <small>HTVA</small></div>'
-               '<p class="pg-info">Importer la base des prix pour commencer.</p></div></div>')
+        res = ('<div class="pbody"><div class="pg-res"><div class="verdict pg-verdict"><div class="pg-total nul">— € <small>HTVA</small></div>'
+               '<p class="pg-info">Importer la base des prix pour commencer.</p></div></div></div>')
     elif page == "base":
         from . import prix_grues_base as PB
         corps, vues, res, volets = PB.page(etat, base, auj)
+        corps = PC.onglets(page, _badges(base, auj)) + corps
+    elif page == "import":
+        from . import prix_grues_echange as PX
+        corps, vues, res, volets = PX.page(etat, base, auj)
         corps = PC.onglets(page, _badges(base, auj)) + corps
     elif page == "fondations":
         from . import prix_grues_fondations as PF
@@ -484,7 +558,10 @@ def resultat(etat: Dict) -> Dict:
                       "gouvernant": f"{len(tot)} grue{'s' if len(tot) > 1 else ''}"}
         else:
             resume = {"taux": None, "niveau": "i", "statut": "Grue à choisir", "gouvernant": ""}
-    donnees = E.arbre(GENRE, _noms(etat, base), etat["actif"], corps, "grue", compact=True)
+    if base is not None:
+        res = res.replace('<div class="pg-res">', '<div class="pg-res">' + _a_faire(base, auj), 1)
+    volets = (volets or "") + _presentation(base)
+    donnees = arbre(etat, base, corps)
     return {"resultat": res, "volets": volets, "vues": vues, "phrase": "", "statut_html": "", "resume": resume,
             "donnees": donnees, "elements": ""}
 
@@ -493,6 +570,20 @@ def resultat(etat: Dict) -> Dict:
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None, carnet=None) -> Optional[Dict]:
     c = lire_carnet(carnet)
     base = c[0] if c else None
+    if quoi in ("note_pdf", "rapport_projet"):
+        if base is None:
+            raise ValueError("aucune base des prix sur cet appareil : importer la base d'abord")
+        from . import prix_grues_rapport as RP
+        octets = RP.pdf(base, etat, infos, quoi == "rapport_projet", aujourdhui())
+        g = etat["grues"][etat["actif"]]
+        nom = (infos or {}).get("nom") or "Projet"
+        quoi_txt = "Rapport du projet" if quoi == "rapport_projet" else f"Prix grue {g.get('repere') or ''}"
+        return {"nom": C.nom_fichier(f"{quoi_txt} - {nom}", "pdf"), "type": "application/pdf", "base64": base64.b64encode(octets).decode("ascii")}
+    if quoi == "fichier_loueur":
+        if base is None:
+            raise ValueError("aucune base des prix sur cet appareil")
+        from . import prix_grues_echange as PX
+        return PX.telecharger_fichier(etat, base, aujourdhui())
     if quoi == "base_json":
         if base is None:
             raise ValueError("aucune base des prix sur cet appareil")

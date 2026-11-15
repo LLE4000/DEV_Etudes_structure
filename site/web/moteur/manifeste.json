@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "04fde54b85ea0212400788bbd9c2462061f680aa076d890f470c0f66cc26b281",
+ "sha256": "5134fb10adb6bbe7a2172fbeaf1b445d9cb1634a62cea761ce9b2a8bc8ca6937",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -233,7 +233,10 @@
   "api_web/prix_grues_base.py",
   "api_web/prix_grues_calcul.py",
   "api_web/prix_grues_commun.py",
+  "api_web/prix_grues_echange.py",
   "api_web/prix_grues_fondations.py",
+  "api_web/prix_grues_rapport.py",
+  "api_web/prix_grues_textes.py",
   "api_web/profil.py",
   "api_web/profil_mots.py",
   "api_web/profil_resultat.py",
@@ -331,9 +334,13 @@
   "grues/prix/dossiers.py",
   "grues/prix/ecussons.py",
   "grues/prix/edition.py",
+  "grues/prix/fichier_loueur.py",
   "grues/prix/fondations.py",
+  "grues/prix/import_loueur.py",
+  "grues/prix/lecture_loueur.py",
   "grues/prix/periode.py",
   "grues/prix/valeurs.py",
+  "grues/prix/xlsx.py",
   "plancher/__init__.py",
   "plancher/charges/__init__.py",
   "plancher/charges/bibliotheque.py",
@@ -402,6 +409,7 @@
    "garde_corps",
    "plancher",
    "poutre",
+   "prix_grues",
    "profil",
    "saf",
    "soudures"
@@ -430,12 +438,12 @@
   "garde_corps": "9d6a2b474d4321ad",
   "plancher": "eb59f2a541093dba",
   "poutre": "617eb168036b4bd8",
-  "prix_grues": "19e952baaa3cc547",
+  "prix_grues": "17e63eaa8301c3fa",
   "profil": "7b65dec790e578b0",
   "saf": "e88653e1536e1675",
   "sol": "d388420baee3c87c",
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "fc625693baa0bbd5"
+ "version": "5b2f1f3c229e0b7e"
 }

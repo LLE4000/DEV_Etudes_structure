@@ -411,6 +411,8 @@ def droite(etat: Dict, base: Dict, auj: dt.date, dossiers: Dict[str, Dict]) -> s
                 + _kv("Prix à jour", f"{d['pct_a_jour']} %") + _kv("Prix connus", str(d["connus"]))
                 + _kv("Prix manquants", f"{d['manquants']}" + (f" (dont {d['essentiels_manquants']} essentiels)" if d["essentiels_manquants"] else ""))
                 + _kv("Questions ouvertes", str(d["questions_ouvertes"])) + '</div>')
+        from . import prix_grues_echange as PX
+        out += PX.bloc_dossier(etat, base, vb["loueur"], auj)
     case = vb.get("case")
     if case:
         try:
@@ -439,6 +441,9 @@ def droite(etat: Dict, base: Dict, auj: dt.date, dossiers: Dict[str, Dict]) -> s
             if p.get("corrige"):
                 c = p.get("correction") or {}
                 corps += _kv("Valeur du loueur", C.esc(texte_valeur(p.get("valeur_loueur")) or "vide") + f" ({C.esc(p.get('annee_loueur') or 'année ?')})")
+                if c.get("a_revoir"):
+                    corps += ('<p class="pg-av">Corrigé par nous : à revoir — le loueur a envoyé un nouveau prix (valeur du loueur '
+                              'ci-dessus). Garder la correction, ou « Revenir au prix du loueur ».</p>')
                 corps += C.ligne("Motif", f'<div class="field text"><input class="pg-in t" data-agir="1" data-chemin="b/motif/{C.esc(ident)}" '
                                           f'value="{C.esc(c.get("motif") or "")}" placeholder="pourquoi cette correction ?"></div>')
                 act += (f'<button type="button" class="btn sm" data-agir="1" data-chemin="b/revenir/{C.esc(ident)}" data-valeur="1">'
