@@ -970,14 +970,17 @@ sys.stdout.write(routeur.traiter(json.dumps({"module": k, "action": "telecharger
 
 
 def _graines() -> dict:
-    """Un module à CARNET (``CARNET = True`` : la base des prix des grues, hors de la note) : sa note neuve n'a rien à
-    imprimer. P3 prend, des deux côtés, la note du relevé (construire.NOTES_RELEVE) et le carnet que sa recette déclare."""
+    """Un module dont la note ne s'imprime qu'avec son CARNET (la base des prix des grues, hors de la note : sa recette de
+    construire.NOTES_RELEVE le DÉCLARE) : sa note neuve n'a rien à imprimer. P3 prend alors, des deux côtés, la note du
+    relevé et ce carnet ; les autres modules — le Générateur SAF aussi, dont le carnet ne sert pas à la note — gardent la
+    note neuve."""
     out = {}
     for k in SW.NOTE_PDF:
         if k in REG.carnets():
             ns = {}
             exec(SW.NOTES_RELEVE[k], ns)  # noqa: S102 — le code de construire.NOTES_RELEVE
-            out[k] = {"etat": ns["etat"], "carnet": ns.get("carnet")}
+            if ns.get("carnet") is not None:
+                out[k] = {"etat": ns["etat"], "carnet": ns["carnet"]}
     return out
 
 
