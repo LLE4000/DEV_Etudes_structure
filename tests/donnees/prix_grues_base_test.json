@@ -1,0 +1,4497 @@
+{
+ "_lisez_moi": [
+  "Base de TEST du module Prix des grues : prix fictifs, loueurs renommés, textes neutres. Ce ne sont pas des prix réels."
+ ],
+ "version": "test-2026-11-14 v3.1",
+ "loueurs": [
+  {
+   "id": "A",
+   "nom": "Loueur A",
+   "role": "Dépôt officiel : grues tour, grues à montage rapide, grues mobiles, grutiers",
+   "contact": {},
+   "catalogues": [
+    "Grue tour - Loueur A",
+    "Grue à montage rapide - Loueur A",
+    "Grue mobile - Loueur A"
+   ],
+   "questions": [
+    {
+     "id": "Q-A-01",
+     "question": "Question de test 1",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-02",
+     "question": "Question de test 2",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-03",
+     "question": "Question de test 3",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-04",
+     "question": "Question de test 4",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-05",
+     "question": "Question de test 5",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-06",
+     "question": "Question de test 6",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-07",
+     "question": "Question de test 7",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-08",
+     "question": "Question de test 8",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-09",
+     "question": "Question de test 9",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-10",
+     "question": "Question de test 10",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-A-11",
+     "question": "Question de test 11",
+     "info_actuelle": null,
+     "reponse": null
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "nom": "Loueur B",
+   "role": "Loueur de grues mobiles, grutier compris",
+   "contact": {},
+   "catalogues": [
+    "Grue mobile - Loueur B"
+   ],
+   "questions": [
+    {
+     "id": "Q-B-01",
+     "question": "Question de test 1",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-B-02",
+     "question": "Question de test 2",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-B-03",
+     "question": "Question de test 3",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-B-04",
+     "question": "Question de test 4",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-B-05",
+     "question": "Question de test 5",
+     "info_actuelle": null,
+     "reponse": null
+    }
+   ]
+  },
+  {
+   "id": "C",
+   "nom": "Loueur C",
+   "role": "Loueur de grues tour",
+   "contact": {},
+   "catalogues": [
+    "Grue tour - Loueur C"
+   ],
+   "questions": [
+    {
+     "id": "Q-C-01",
+     "question": "Question de test 1",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-C-02",
+     "question": "Question de test 2",
+     "info_actuelle": null,
+     "reponse": null
+    },
+    {
+     "id": "Q-C-03",
+     "question": "Question de test 3",
+     "info_actuelle": null,
+     "reponse": null
+    }
+   ]
+  }
+ ],
+ "cas": [
+  {
+   "nom": "Grue tour - Loueur A",
+   "code_calcul": "T",
+   "loueur": "Loueur A",
+   "type": "Grue tour",
+   "logique": "Logique T"
+  },
+  {
+   "nom": "Grue à montage rapide - Loueur A",
+   "code_calcul": "R",
+   "loueur": "Loueur A",
+   "type": "Grue à montage rapide",
+   "logique": "Logique R"
+  },
+  {
+   "nom": "Grue mobile - Loueur A",
+   "code_calcul": "MS",
+   "loueur": "Loueur A",
+   "type": "Grue mobile",
+   "logique": "Logique MS"
+  },
+  {
+   "nom": "Grue mobile - Loueur B",
+   "code_calcul": "MA",
+   "loueur": "Loueur B",
+   "type": "Grue mobile",
+   "logique": "Logique MA"
+  },
+  {
+   "nom": "Grue tour - Loueur C",
+   "code_calcul": "T",
+   "loueur": "Loueur C",
+   "type": "Grue tour",
+   "logique": "Logique T"
+  }
+ ],
+ "champs_grues": {
+  "T": [
+   {
+    "cle": "modele",
+    "libelle": "Modèle",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "fleche_max_m",
+    "libelle": "Flèche max.",
+    "unite": "m",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "hsc_max_m",
+    "libelle": "HSC max.",
+    "unite": "m",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "charge_max_t",
+    "libelle": "Charge max.",
+    "unite": "t",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "hsc_variante_min_m",
+    "libelle": "Variante : HSC au-delà de",
+    "unite": "m",
+    "categorie": "identité",
+    "fourni_par": "interne",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "hsc_variante_max_m",
+    "libelle": "Variante : HSC jusqu'à",
+    "unite": "m",
+    "categorie": "identité",
+    "fourni_par": "interne",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "location_jour_chassis_standard",
+    "libelle": "Châssis standard (fixe lesté)",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Location"
+   },
+   {
+    "cle": "location_jour_pied_ancrage",
+    "libelle": "Pied d'ancrage",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Location"
+   },
+   {
+    "cle": "location_jour_chassis_roulant",
+    "libelle": "Châssis roulant",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Location"
+   },
+   {
+    "cle": "chassis_roulant_jour",
+    "libelle": "Châssis roulant (le châssis)",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Location"
+   },
+   {
+    "cle": "transport_montage_ff",
+    "libelle": "Transport + montage",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "demontage_transport_ff",
+    "libelle": "Démontage + transport",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "telescopage_intervention_ff",
+    "libelle": "Intervention pour télescopage",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "telecommande_loueur_prix",
+    "libelle": "Télécommande",
+    "unite": "selon unité",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "telecommande_loueur_unite",
+    "libelle": "Unité télécommande",
+    "unite": "",
+    "categorie": "unité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "telecommande_externe_prix",
+    "libelle": "Télécommande louée à l'extérieur",
+    "unite": "€/S",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "cabine_jour",
+    "libelle": "Cabine",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "anti_intrusion_jour",
+    "libelle": "Anti-intrusion",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Option"
+   },
+   {
+    "cle": "chassis_modele",
+    "libelle": "Modèle du châssis",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Châssis"
+   },
+   {
+    "cle": "chassis_dimensions",
+    "libelle": "Dimensions du châssis",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Châssis"
+   },
+   {
+    "cle": "puissance_kva",
+    "libelle": "Puissance",
+    "unite": "kVA",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Électricité"
+   },
+   {
+    "cle": "consommation_kwh_mois",
+    "libelle": "Consommation moyenne",
+    "unite": "kWh/mois",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Électricité"
+   },
+   {
+    "cle": "nb_grues_chez_loueur",
+    "libelle": "Nombre au parc",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "nb_disponibles",
+    "libelle": "Disponibles (année du fichier)",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "retiree",
+    "libelle": "Plus proposée",
+    "unite": "Oui",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "remarques_loueur",
+    "libelle": "Remarques",
+    "unite": "",
+    "categorie": "texte",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": ""
+   },
+   {
+    "cle": "electricite_jour",
+    "libelle": "Électricité, forfait interne",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "interne",
+    "essentiel": false,
+    "groupe": "Électricité"
+   }
+  ],
+  "R": [
+   {
+    "cle": "modele",
+    "libelle": "Modèle",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "location_jour_chassis_standard",
+    "libelle": "Location",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Location"
+   },
+   {
+    "cle": "transport_montage_ff",
+    "libelle": "Transport + montage",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "demontage_transport_ff",
+    "libelle": "Démontage + transport",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "transport_poids_test_ff",
+    "libelle": "Transport des poids de test",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "telecommande_loueur_prix",
+    "libelle": "Télécommande",
+    "unite": "selon unité",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "telecommande_loueur_unite",
+    "libelle": "Unité télécommande",
+    "unite": "",
+    "categorie": "unité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "cabine_jour",
+    "libelle": "Cabine",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Conduite"
+   },
+   {
+    "cle": "anti_intrusion_jour",
+    "libelle": "Anti-intrusion",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Option"
+   },
+   {
+    "cle": "chassis_dimensions",
+    "libelle": "Dimensions du châssis",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Châssis"
+   },
+   {
+    "cle": "puissance_kva",
+    "libelle": "Puissance",
+    "unite": "kVA",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Électricité"
+   },
+   {
+    "cle": "consommation_kwh_mois",
+    "libelle": "Consommation moyenne",
+    "unite": "kWh/mois",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Électricité"
+   },
+   {
+    "cle": "nb_grues_chez_loueur",
+    "libelle": "Nombre au parc",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "nb_disponibles",
+    "libelle": "Disponibles (année du fichier)",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "retiree",
+    "libelle": "Plus proposée",
+    "unite": "Oui",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "remarques_loueur",
+    "libelle": "Remarques",
+    "unite": "",
+    "categorie": "texte",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": ""
+   },
+   {
+    "cle": "electricite_jour",
+    "libelle": "Électricité, forfait interne",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "interne",
+    "essentiel": false,
+    "groupe": "Électricité"
+   }
+  ],
+  "MS": [
+   {
+    "cle": "modele",
+    "libelle": "Modèle",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "type_capacite",
+    "libelle": "Type",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "fleche_max_m",
+    "libelle": "Flèche max.",
+    "unite": "m",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "charge_10m_t",
+    "libelle": "Charge à 10 m",
+    "unite": "t",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "location_jour_chassis_standard",
+    "libelle": "Location sans opérateur",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Location"
+   },
+   {
+    "cle": "location_jour_avec_operateur",
+    "libelle": "Location avec opérateur",
+    "unite": "€/J",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Location"
+   },
+   {
+    "cle": "transport_montage_ff",
+    "libelle": "Transport + montage",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "demontage_transport_ff",
+    "libelle": "Démontage + transport",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Montage"
+   },
+   {
+    "cle": "nb_grues_chez_loueur",
+    "libelle": "Nombre au parc",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "nb_disponibles",
+    "libelle": "Disponibles (année du fichier)",
+    "unite": "",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "retiree",
+    "libelle": "Plus proposée",
+    "unite": "Oui",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Parc"
+   },
+   {
+    "cle": "remarques_loueur",
+    "libelle": "Remarques",
+    "unite": "",
+    "categorie": "texte",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": ""
+   }
+  ],
+  "MA": [
+   {
+    "cle": "modele",
+    "libelle": "Modèle",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "type_capacite",
+    "libelle": "Capacité",
+    "unite": "",
+    "categorie": "identité",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "ballast",
+    "libelle": "Ballast",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "minimum_heures",
+    "libelle": "Minimum facturé pour 1 jour",
+    "unite": "h",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Grue"
+   },
+   {
+    "cle": "location_heure_grutier_compris",
+    "libelle": "Location, grutier compris",
+    "unite": "€/h",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Prix"
+   },
+   {
+    "cle": "deplacement_grue_heure",
+    "libelle": "Déplacement de la grue",
+    "unite": "€/h",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": true,
+    "groupe": "Prix"
+   },
+   {
+    "cle": "transport_ballast_ff",
+    "libelle": "Transport du ballast",
+    "unite": "FF",
+    "categorie": "prix",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Prix"
+   },
+   {
+    "cle": "plateau_repartition",
+    "libelle": "Plaques de répartition",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Plaques"
+   },
+   {
+    "cle": "plateau_dimensions",
+    "libelle": "Dimensions des plaques",
+    "unite": "",
+    "categorie": "technique",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": "Plaques"
+   },
+   {
+    "cle": "retiree",
+    "libelle": "Plus proposée",
+    "unite": "Oui",
+    "categorie": "parc",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": ""
+   },
+   {
+    "cle": "remarques_loueur",
+    "libelle": "Remarques",
+    "unite": "",
+    "categorie": "texte",
+    "fourni_par": "loueur du catalogue",
+    "essentiel": false,
+    "groupe": ""
+   }
+  ]
+ },
+ "grues": [
+  {
+   "id": "G001",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 85 EC-B 5 FR.tronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 132.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 31,
+   "consommation_kwh_mois": 1000,
+   "electricite_jour": 19.2,
+   "chassis_modele": "63 LC",
+   "chassis_dimensions": "3,8 x 3,8 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 30.0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": null,
+   "fleche_max_m": 40,
+   "hsc_max_m": 38,
+   "charge_max_t": 5,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G002",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 110 EC-B 6 FR.tronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 162.0,
+   "location_jour_pied_ancrage": 156.0,
+   "location_jour_chassis_roulant": 156.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 40,
+   "consommation_kwh_mois": 1200,
+   "electricite_jour": 25.2,
+   "chassis_modele": "132 HC",
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 30.0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": null,
+   "fleche_max_m": 55,
+   "hsc_max_m": 50.6,
+   "charge_max_t": 6.0,
+   "chassis_roulant_jour": 60.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test"
+   }
+  },
+  {
+   "id": "G003",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 125 EC-B 6 Litronic (max. 39m HSC)",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": 39,
+   "location_jour_chassis_standard": 178.8,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 42,
+   "consommation_kwh_mois": 1300,
+   "electricite_jour": 26.4,
+   "chassis_modele": "16EC160CB",
+   "chassis_dimensions": "3,8 x 3,8 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 2,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": 156.0,
+   "fleche_max_m": 55,
+   "hsc_max_m": 50.6,
+   "charge_max_t": 6.0,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "telecommande_externe_prix": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "telecommande_externe_prix": "source de test"
+   }
+  },
+  {
+   "id": "G004",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 125 EC-B 6 Litronic (> 39m HSC)",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": 39,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 178.8,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 42,
+   "consommation_kwh_mois": 1300,
+   "electricite_jour": 26.4,
+   "chassis_modele": "132 HC",
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 2,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": 156.0,
+   "fleche_max_m": 55,
+   "hsc_max_m": 50.6,
+   "charge_max_t": 6.0,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "telecommande_externe_prix": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "telecommande_externe_prix": "source de test"
+   }
+  },
+  {
+   "id": "G005",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 130 EC-B 8 FR.tronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 186.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 47,
+   "consommation_kwh_mois": 1400,
+   "electricite_jour": 30.0,
+   "chassis_modele": "132 HC",
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": null,
+   "fleche_max_m": 55,
+   "hsc_max_m": 50,
+   "charge_max_t": 8.0,
+   "chassis_roulant_jour": 60.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test"
+   }
+  },
+  {
+   "id": "G006",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 132 EC-H 8 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 198.0,
+   "location_jour_pied_ancrage": 186.0,
+   "location_jour_chassis_roulant": 186.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 58,
+   "consommation_kwh_mois": 1400,
+   "electricite_jour": 32.4,
+   "chassis_modele": "132 HC",
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 5,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": 156.0,
+   "fleche_max_m": 55,
+   "hsc_max_m": 50,
+   "charge_max_t": 8.0,
+   "chassis_roulant_jour": 60.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "telecommande_externe_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "telecommande_externe_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G007",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 150 EC-B 8 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 222.0,
+   "location_jour_pied_ancrage": 210.0,
+   "location_jour_chassis_roulant": 210.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 48,
+   "consommation_kwh_mois": 1500,
+   "electricite_jour": 30.0,
+   "chassis_modele": "132 HC ou 150 HC (renforcé)",
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 8,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": 156.0,
+   "fleche_max_m": 60,
+   "hsc_max_m": 42.2,
+   "charge_max_t": 8.0,
+   "chassis_roulant_jour": 60.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "telecommande_externe_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "telecommande_externe_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G008",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 200 EC-H 10 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 312.0,
+   "location_jour_pied_ancrage": 294.0,
+   "location_jour_chassis_roulant": 294.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 67,
+   "consommation_kwh_mois": 1600,
+   "electricite_jour": 38.4,
+   "chassis_modele": "200 HC",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 8,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": 156.0,
+   "fleche_max_m": 60,
+   "hsc_max_m": 52.6,
+   "charge_max_t": 10.0,
+   "chassis_roulant_jour": 84.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "telecommande_externe_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "telecommande_externe_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G009",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 200 EC-B 10 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 312.0,
+   "location_jour_pied_ancrage": 324.0,
+   "location_jour_chassis_roulant": 324.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 61,
+   "consommation_kwh_mois": 1600,
+   "electricite_jour": 36.0,
+   "chassis_modele": "200 HC",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 2,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": 65,
+   "hsc_max_m": 52.8,
+   "charge_max_t": 10.0,
+   "chassis_roulant_jour": 84.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G010",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 280 EC-H 12 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 456.0,
+   "location_jour_pied_ancrage": 432.0,
+   "location_jour_chassis_roulant": 432.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 95,
+   "consommation_kwh_mois": 1800,
+   "electricite_jour": 50.4,
+   "chassis_modele": "290 HC",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 7,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": 70,
+   "hsc_max_m": 51.9,
+   "charge_max_t": 12.0,
+   "chassis_roulant_jour": 84.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G011",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 285 EC-B 12 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 456.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 86,
+   "consommation_kwh_mois": 1800,
+   "electricite_jour": 45.6,
+   "chassis_modele": "290 HC",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 2,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": 70,
+   "hsc_max_m": 51.9,
+   "charge_max_t": 12.0,
+   "chassis_roulant_jour": 84.0,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G012",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 420 EC-H 16 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 648.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 95,
+   "consommation_kwh_mois": 2000,
+   "electricite_jour": 52.8,
+   "chassis_modele": "390 HC/500 HC (renforcé)",
+   "chassis_dimensions": "8,0 x 8,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 4.404,
+   "nb_grues_chez_loueur": 3,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": 75,
+   "hsc_max_m": 73.9,
+   "charge_max_t": 16.0,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "fleche_max_m": 2025,
+    "hsc_max_m": 2025,
+    "charge_max_t": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025,
+    "anti_intrusion_jour": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "fleche_max_m": "source de test",
+    "hsc_max_m": "source de test",
+    "charge_max_t": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test",
+    "anti_intrusion_jour": "source de test"
+   }
+  },
+  {
+   "id": "G013",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 550 EC-H 20 Litronic",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": null,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 104,
+   "consommation_kwh_mois": null,
+   "electricite_jour": 60.0,
+   "chassis_modele": null,
+   "chassis_dimensions": null,
+   "telecommande_loueur_prix": "non disponible",
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": null,
+   "hsc_max_m": null,
+   "charge_max_t": null,
+   "chassis_roulant_jour": null
+  },
+  {
+   "id": "G014",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Wolff 7534.16 clear (max. 42m HSC)",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": null,
+   "hsc_variante_max_m": 42,
+   "location_jour_chassis_standard": 456.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 66,
+   "consommation_kwh_mois": 2500,
+   "electricite_jour": 37.2,
+   "chassis_modele": "KrV 10-60",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 10,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": null,
+   "hsc_max_m": null,
+   "charge_max_t": null,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025,
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test",
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test"
+   }
+  },
+  {
+   "id": "G015",
+   "cas": "Grue tour - Loueur A",
+   "modele": "Wolff 7534.16 clear (> 42m HSC)",
+   "type_capacite": "Tour",
+   "hsc_variante_min_m": 42,
+   "hsc_variante_max_m": null,
+   "location_jour_chassis_standard": 516.0,
+   "location_jour_pied_ancrage": null,
+   "location_jour_chassis_roulant": null,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "telescopage_intervention_ff": null,
+   "puissance_kva": 66,
+   "consommation_kwh_mois": 2500,
+   "electricite_jour": 37.2,
+   "chassis_modele": "KrV 10-60",
+   "chassis_dimensions": "6,0 x 6,0 m",
+   "telecommande_loueur_prix": 32.4,
+   "telecommande_loueur_unite": "€/J",
+   "cabine_jour": 0,
+   "anti_intrusion_jour": 2.388,
+   "nb_grues_chez_loueur": 10,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2025,
+   "nb_disponibles": null,
+   "retiree": null,
+   "telecommande_externe_prix": "non disponible",
+   "fleche_max_m": null,
+   "hsc_max_m": null,
+   "charge_max_t": null,
+   "chassis_roulant_jour": "non disponible",
+   "annee_par_champ": {
+    "chassis_roulant_jour": 2025,
+    "telecommande_loueur_prix": 2025
+   },
+   "source_par_champ": {
+    "chassis_roulant_jour": "source de test",
+    "telecommande_loueur_prix": "source de test"
+   }
+  },
+  {
+   "id": "G016",
+   "cas": "Grue à montage rapide - Loueur A",
+   "modele": "Liebherr 53K",
+   "type_capacite": "Montage rapide",
+   "location_jour_chassis_standard": 105.6,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "transport_poids_test_ff": 660.0,
+   "puissance_kva": 16,
+   "electricite_jour": 10.8,
+   "chassis_dimensions": "4,2 x 4,2 m",
+   "telecommande_loueur_prix": null,
+   "telecommande_loueur_unite": "€/S",
+   "cabine_jour": 30.0,
+   "anti_intrusion_jour": 2.28,
+   "nb_grues_chez_loueur": 2,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "consommation_kwh_mois": null,
+   "retiree": null,
+   "annee_par_champ": {
+    "location_jour_chassis_standard": 2025
+   },
+   "source_par_champ": {
+    "location_jour_chassis_standard": "source de test"
+   }
+  },
+  {
+   "id": "G017",
+   "cas": "Grue à montage rapide - Loueur A",
+   "modele": "Liebherr 81K",
+   "type_capacite": "Montage rapide",
+   "location_jour_chassis_standard": 224.4,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "transport_poids_test_ff": 660.0,
+   "puissance_kva": 22,
+   "electricite_jour": 14.4,
+   "chassis_dimensions": "4,6 x 4,6 m",
+   "telecommande_loueur_prix": 66.0,
+   "telecommande_loueur_unite": "€/S",
+   "cabine_jour": null,
+   "anti_intrusion_jour": 2.28,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "consommation_kwh_mois": null,
+   "retiree": null
+  },
+  {
+   "id": "G018",
+   "cas": "Grue à montage rapide - Loueur A",
+   "modele": "Liebherr 125K",
+   "type_capacite": "Montage rapide",
+   "location_jour_chassis_standard": 288.0,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "transport_poids_test_ff": 660.0,
+   "puissance_kva": 26,
+   "electricite_jour": 16.8,
+   "chassis_dimensions": "5,0 x 5,0 m",
+   "telecommande_loueur_prix": 66.0,
+   "telecommande_loueur_unite": "€/S",
+   "cabine_jour": null,
+   "anti_intrusion_jour": 2.28,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "consommation_kwh_mois": null,
+   "retiree": null
+  },
+  {
+   "id": "G019",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Tadano TR 300 EX (30T)",
+   "type_capacite": "Mobile",
+   "fleche_max_m": 31,
+   "location_jour_chassis_standard": 223.2,
+   "transport_montage_ff": 2400.0,
+   "demontage_transport_ff": 2400.0,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 5.8,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G020",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Tadano TR 600 EX (60T)",
+   "type_capacite": "Mobile",
+   "fleche_max_m": 43,
+   "location_jour_chassis_standard": 282.6,
+   "transport_montage_ff": 3600.0,
+   "demontage_transport_ff": 3600.0,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 13.2,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G021",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Tadano TR 700 EX (70T)",
+   "type_capacite": "Mobile",
+   "fleche_max_m": 44,
+   "location_jour_chassis_standard": 390.0,
+   "transport_montage_ff": 4800.0,
+   "demontage_transport_ff": 4800.0,
+   "nb_grues_chez_loueur": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 16.3,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G022",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "LTM 1100 (100T)",
+   "type_capacite": "Mobile",
+   "fleche_max_m": 62,
+   "location_jour_chassis_standard": 782.4,
+   "transport_montage_ff": 4200.0,
+   "demontage_transport_ff": 4200.0,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": null
+  },
+  {
+   "id": "G023",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Hitachi SCX 400T (40T)",
+   "type_capacite": "Télescopique sur chenilles",
+   "fleche_max_m": 32,
+   "location_jour_chassis_standard": 288.36,
+   "transport_montage_ff": 2100.0,
+   "demontage_transport_ff": 2100.0,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 7.7,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G024",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Sennebogen 673R (70T)",
+   "type_capacite": "Télescopique sur chenilles",
+   "fleche_max_m": 36,
+   "location_jour_chassis_standard": 521.52,
+   "transport_montage_ff": 2400.0,
+   "demontage_transport_ff": 2400.0,
+   "nb_grues_chez_loueur": 1,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 12.9,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G025",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "Hitachi CX 700 (70T)",
+   "type_capacite": "À câbles sur chenilles",
+   "fleche_max_m": 39,
+   "location_jour_chassis_standard": 411.12,
+   "transport_montage_ff": 3600.0,
+   "demontage_transport_ff": 3600.0,
+   "nb_grues_chez_loueur": 3,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 18.6,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G026",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1040",
+   "type_capacite": "Mobile 40T",
+   "location_heure_grutier_compris": 105.6,
+   "deplacement_grue_heure": 105.6,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": "-",
+   "plateau_dimensions": "-",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 5
+  },
+  {
+   "id": "G027",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1050",
+   "type_capacite": "Mobile 50T",
+   "location_heure_grutier_compris": 117.6,
+   "deplacement_grue_heure": 117.6,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": "-",
+   "plateau_dimensions": "-",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 5
+  },
+  {
+   "id": "G028",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1060",
+   "type_capacite": "Mobile 60T",
+   "location_heure_grutier_compris": 132.0,
+   "deplacement_grue_heure": 132.0,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": "-",
+   "plateau_dimensions": "-",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 5
+  },
+  {
+   "id": "G029",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1070",
+   "type_capacite": "Mobile 70T",
+   "location_heure_grutier_compris": 146.4,
+   "deplacement_grue_heure": 146.4,
+   "transport_ballast_ff": 0,
+   "ballast": "10,7T",
+   "plateau_repartition": "-",
+   "plateau_dimensions": "-",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 5,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G030",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1080",
+   "type_capacite": "Mobile 80T",
+   "location_heure_grutier_compris": 160.8,
+   "deplacement_grue_heure": 160.8,
+   "transport_ballast_ff": 618.0,
+   "ballast": "14,5T",
+   "plateau_repartition": "7 x HEB180",
+   "plateau_dimensions": "2,2 m x 1,28 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 5
+  },
+  {
+   "id": "G031",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1100",
+   "type_capacite": "Mobile 100T",
+   "location_heure_grutier_compris": 198.0,
+   "deplacement_grue_heure": 198.0,
+   "transport_ballast_ff": 0,
+   "ballast": "13,6T",
+   "plateau_repartition": "7 x HEB180",
+   "plateau_dimensions": "2,2 m x 1,28 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G032",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1120",
+   "type_capacite": "Mobile 120T",
+   "location_heure_grutier_compris": 222.0,
+   "deplacement_grue_heure": 222.0,
+   "transport_ballast_ff": 618.0,
+   "ballast": "23T",
+   "plateau_repartition": "8 x HEB200",
+   "plateau_dimensions": "1,62 m x 2,42 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G033",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1140",
+   "type_capacite": "Mobile 140T",
+   "location_heure_grutier_compris": 247.2,
+   "deplacement_grue_heure": 247.2,
+   "transport_ballast_ff": 618.0,
+   "ballast": "29,3T",
+   "plateau_repartition": "8 x HEB200",
+   "plateau_dimensions": "1,62 m x 2,42 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G034",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1160",
+   "type_capacite": "Mobile 160T",
+   "location_heure_grutier_compris": 259.2,
+   "deplacement_grue_heure": 259.2,
+   "transport_ballast_ff": 988.8,
+   "ballast": "46,8T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,02 m x 2,72 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G035",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1200",
+   "type_capacite": "Mobile 200T",
+   "location_heure_grutier_compris": 290.4,
+   "deplacement_grue_heure": 290.4,
+   "transport_ballast_ff": 988.8,
+   "ballast": "52T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,02 m x 2,72 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G036",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1250 (ballast 47,5T)",
+   "type_capacite": "Mobile 250T",
+   "location_heure_grutier_compris": 333.6,
+   "deplacement_grue_heure": 333.6,
+   "transport_ballast_ff": 988.8,
+   "ballast": "47,5T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,02 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G037",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1250 (ballast 72,5T)",
+   "type_capacite": "Mobile 250T",
+   "location_heure_grutier_compris": 333.6,
+   "deplacement_grue_heure": 333.6,
+   "transport_ballast_ff": 1606.8,
+   "ballast": "72,5T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,02 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G038",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1250 (ballast 97,5T)",
+   "type_capacite": "Mobile 250T",
+   "location_heure_grutier_compris": 333.6,
+   "deplacement_grue_heure": 333.6,
+   "transport_ballast_ff": 2224.8,
+   "ballast": "97,5T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8
+  },
+  {
+   "id": "G039",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1300 (ballast 46T)",
+   "type_capacite": "Mobile 300T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": 960.0,
+   "ballast": "46T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G040",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1300 (ballast 96T)",
+   "type_capacite": "Mobile 300T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": 2160.0,
+   "ballast": "96T",
+   "plateau_repartition": "10 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G041",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1400 (ballast 40T)",
+   "type_capacite": "Mobile 400T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "40T",
+   "plateau_repartition": "12 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G042",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1400 (ballast 100T)",
+   "type_capacite": "Mobile 400T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "100T",
+   "plateau_repartition": "12 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G043",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1400 (ballast 140T)",
+   "type_capacite": "Mobile 400T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "140T",
+   "plateau_repartition": "12 x HEA200",
+   "plateau_dimensions": "2,42 m x 3,52 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G044",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1450 (ballast 44T)",
+   "type_capacite": "Mobile 450T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "44T",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G045",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1450 (ballast 104T)",
+   "type_capacite": "Mobile 450T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "104T",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G046",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1500 (ballast 30T)",
+   "type_capacite": "Mobile 500T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "30T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G047",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1500 (ballast 90T)",
+   "type_capacite": "Mobile 500T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "90T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G048",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1500 (ballast 165T)",
+   "type_capacite": "Mobile 500T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "165T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G049",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1700 (ballast 30T)",
+   "type_capacite": "Mobile 700T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "30T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G050",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1700 (ballast 80T)",
+   "type_capacite": "Mobile 700T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "80T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G051",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1700 (ballast 160T)",
+   "type_capacite": "Mobile 700T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "160T",
+   "plateau_repartition": "10 x HEA240",
+   "plateau_dimensions": "2,42 m x 3,82 m",
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G052",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1800 (ballast 74T)",
+   "type_capacite": "Mobile 800T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "74T",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G053",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1800 (ballast 204T)",
+   "type_capacite": "Mobile 800T",
+   "location_heure_grutier_compris": "sur demande",
+   "deplacement_grue_heure": "sur demande",
+   "transport_ballast_ff": null,
+   "ballast": "204T",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": 2024,
+   "retiree": null,
+   "minimum_heures": 8,
+   "annee_par_champ": {
+    "transport_ballast_ff": null
+   },
+   "source_par_champ": {
+    "transport_ballast_ff": "source de test"
+   }
+  },
+  {
+   "id": "G054",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "Spiering AT4",
+   "type_capacite": "Mobile",
+   "location_heure_grutier_compris": 230.4,
+   "deplacement_grue_heure": 230.4,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "retiree": null,
+   "minimum_heures": null
+  },
+  {
+   "id": "G055",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "Spiering AT5",
+   "type_capacite": "Mobile",
+   "location_heure_grutier_compris": 258.0,
+   "deplacement_grue_heure": 258.0,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "retiree": null,
+   "minimum_heures": null
+  },
+  {
+   "id": "G056",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "Spiering AT6",
+   "type_capacite": "Mobile",
+   "location_heure_grutier_compris": 297.6,
+   "deplacement_grue_heure": 297.6,
+   "transport_ballast_ff": 0,
+   "ballast": "-",
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "remarques_loueur": null,
+   "source_tarif": "source de test",
+   "annee_tarif": null,
+   "retiree": null,
+   "minimum_heures": null
+  },
+  {
+   "id": "G057",
+   "cas": "Grue mobile - Loueur A",
+   "modele": "LTM 1040 (40T)",
+   "type_capacite": "Mobile",
+   "fleche_max_m": null,
+   "location_jour_chassis_standard": null,
+   "location_jour_avec_operateur": null,
+   "charge_10m_t": 7.9,
+   "transport_montage_ff": null,
+   "demontage_transport_ff": null,
+   "nb_grues_chez_loueur": null,
+   "source_tarif": "source de test",
+   "remarques_loueur": null,
+   "annee_tarif": null,
+   "nb_disponibles": null,
+   "retiree": null,
+   "annee_par_champ": {
+    "charge_10m_t": 2025
+   },
+   "source_par_champ": {
+    "charge_10m_t": "source de test"
+   }
+  },
+  {
+   "id": "G058",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "MTK 48 m",
+   "type_capacite": "Grue mobile à tour",
+   "ballast": "-",
+   "minimum_heures": 8,
+   "location_heure_grutier_compris": 235.2,
+   "deplacement_grue_heure": 235.2,
+   "transport_ballast_ff": 0,
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "source_tarif": "source de test",
+   "remarques_loueur": null,
+   "annee_tarif": 2024,
+   "retiree": null
+  },
+  {
+   "id": "G059",
+   "cas": "Grue mobile - Loueur B",
+   "modele": "MTK 60 m",
+   "type_capacite": "Grue mobile à tour",
+   "ballast": "-",
+   "minimum_heures": 8,
+   "location_heure_grutier_compris": 296.4,
+   "deplacement_grue_heure": 296.4,
+   "transport_ballast_ff": 0,
+   "plateau_repartition": null,
+   "plateau_dimensions": null,
+   "source_tarif": "source de test",
+   "remarques_loueur": null,
+   "annee_tarif": 2024,
+   "retiree": null
+  }
+ ],
+ "postes": [
+  {
+   "code": "ANTICOL_LOC",
+   "poste": "Anti-collision (zoning) – location",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 30.768
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "ANTICOL_MONT",
+   "poste": "Anti-collision – montage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1200.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "ANTICOL_DEM",
+   "poste": "Anti-collision – démontage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 600.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "CAM_LOC",
+   "poste": "Caméra sur chariot – location",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 23.46
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "CAM_MONT",
+   "poste": "Caméra – montage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 864.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "CAM_DEM",
+   "poste": "Caméra – démontage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 600.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "TELEC_MONT",
+   "poste": "Télécommande – montage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 780.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "TELEC_DEM",
+   "poste": "Télécommande – démontage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 540.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "TW_CH",
+   "poste": "Talkie-walkie (chantier) – 5 recommandés",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 0.792,
+    "Grue à montage rapide - Loueur A": 0.756
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "TW_PED_CH",
+   "poste": "Pédale talkie-walkie (chantier)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 0.144,
+    "Grue à montage rapide - Loueur A": 0.144
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "TW_GR",
+   "poste": "Talkie-walkie entre grues",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 0.792,
+    "Grue à montage rapide - Loueur A": 0.756
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "TW_PED_GR",
+   "poste": "Pédale talkie-walkie entre grues",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 0.144,
+    "Grue à montage rapide - Loueur A": 0.144
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "VINCOTTE",
+   "poste": "Mise en service Vinçotte",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1128.0,
+    "Grue à montage rapide - Loueur A": 1128.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "PUB",
+   "poste": "Panneau publicitaire",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 8.388,
+    "Grue à montage rapide - Loueur A": 8.004
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "GB80",
+   "poste": "Greenbox 80 kVA (pour 1 grue)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 139.092
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "GB140",
+   "poste": "Greenbox 140 kVA (pour 2 grues)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 175.692
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "RAIL",
+   "poste": "Rails (châssis roulant) – par mètre de voie",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1.02
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "quantite": "longueur de voie (m)"
+  },
+  {
+   "code": "BUTEE",
+   "poste": "Butée (châssis roulant) – par butée",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   }
+  },
+  {
+   "code": "FONDATION",
+   "poste": "Fondations de la grue",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": "voir fondations",
+    "Grue à montage rapide - Loueur A": null,
+    "Grue mobile - Loueur A": null,
+    "Grue mobile - Loueur B": null
+   },
+   "source": "source de test",
+   "fourni_par": "interne",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null,
+    "Grue à montage rapide - Loueur A": null,
+    "Grue mobile - Loueur A": null,
+    "Grue mobile - Loueur B": null
+   }
+  },
+  {
+   "code": "MONT_WE",
+   "poste": "Supplément montage le week-end",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 6540.0,
+    "Grue à montage rapide - Loueur A": 6540.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "DEM_WE",
+   "poste": "Supplément démontage le week-end",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 6540.0,
+    "Grue à montage rapide - Loueur A": 6540.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null,
+    "Grue à montage rapide - Loueur A": null
+   }
+  },
+  {
+   "code": "MONT_16",
+   "poste": "Montage portée > 16 m",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 3000.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   }
+  },
+  {
+   "code": "CADRE",
+   "poste": "Cadre d'ancrage + bracons",
+   "unite": "€/S",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 162.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   }
+  },
+  {
+   "code": "RENF",
+   "poste": "Renforcement de structure pour bracons",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 42000.0
+   },
+   "source": "source de test",
+   "fourni_par": "interne",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   }
+  },
+  {
+   "code": "CARBURANT",
+   "poste": "Consommation de carburant",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur A": null
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur A": null
+   },
+   "unite_a_confirmer": true
+  },
+  {
+   "code": "GRUTIER",
+   "poste": "Grutier",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 64.8,
+    "Grue à montage rapide - Loueur A": 64.8,
+    "Grue mobile - Loueur A": 64.8
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null,
+    "Grue à montage rapide - Loueur A": null,
+    "Grue mobile - Loueur A": null
+   }
+  },
+  {
+   "code": "HS",
+   "poste": "Heures supplémentaires grutier",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 84.24,
+    "Grue à montage rapide - Loueur A": 84.24,
+    "Grue mobile - Loueur A": 84.24
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null,
+    "Grue à montage rapide - Loueur A": null,
+    "Grue mobile - Loueur A": null
+   }
+  },
+  {
+   "code": "TELESC_GRUT",
+   "poste": "Grutier pendant le télescopage",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 64.8
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   }
+  },
+  {
+   "code": "TELESC_HS",
+   "poste": "Heures sup. pendant le télescopage",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 84.24
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   }
+  },
+  {
+   "code": "DEPL_GRUTIER",
+   "poste": "Déplacement du personnel (par trajet)",
+   "unite": "€/trajet",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 60.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "SUP_HS",
+   "poste": "Supplément heures sup. grutier",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 36.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "SUP_NUIT",
+   "poste": "Supplément nuit en semaine (20 h – 6 h)",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 36.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "SUP_SAM",
+   "poste": "Supplément samedi de jour",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 36.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "SUP_DIM",
+   "poste": "Supplément dimanche et nuit le week-end",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 72.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "SUP_FERIE",
+   "poste": "Supplément jour férié",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 72.0
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "BALLAST_SAM",
+   "poste": "Coefficient transport ballast le samedi ou la nuit en semaine",
+   "unite": "coef",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 0.25
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "BALLAST_DIM",
+   "poste": "Coefficient transport ballast le dimanche ou la nuit le week-end",
+   "unite": "coef",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 0.5
+   },
+   "source": "source de test",
+   "fourni_par": "loueur du catalogue",
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   }
+  },
+  {
+   "code": "CHASSIS_HS_C",
+   "poste": "Châssis hors standard (fixe lesté) – Loueur C",
+   "unite": "€/S",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "fourni_par": "Loueur C",
+   "source": "source de test"
+  },
+  {
+   "code": "CHAINE_10",
+   "poste": "Chaîne de levage 10 mm, 6,6 t (4 brins, 6 m)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1.86
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "CHAINE_13",
+   "poste": "Chaîne de levage 13 mm, 11,6 t (4 brins, 6 ou 8 m)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 3.168
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "PUB_LOGO",
+   "poste": "Logo lumineux 3D LED, par pièce",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 10.116
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ECLAIRAGE",
+   "poste": "Éclairage de chantier sur le mât",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1.632
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ECLAIRAGE_MONT",
+   "poste": "Éclairage sur le mât – montage par l'électricien (en régie)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 432.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BALISAGE_MONT",
+   "poste": "Balises lumineuses – montage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1860.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BALISAGE_LOC",
+   "poste": "Balises lumineuses – location",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 24.156
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BALISAGE_BATT",
+   "poste": "Balises lumineuses – batterie de secours",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 13.176
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BALISAGE_DEM",
+   "poste": "Balises lumineuses – démontage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1260.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "AI_MONT",
+   "poste": "Anti-intrusion – montage (en régie)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 288.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ECHELLE_25",
+   "poste": "Échelle d'accès au lest central, jusqu'à 2,5 m",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 2.604
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ECHELLE_4",
+   "poste": "Échelle d'accès au lest central, de 2,5 à 4 m",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 2.772
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BLOC_FOND_2",
+   "poste": "Bloc de fondation 2 × 2 × 0,35 m, par bloc",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 2.196
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "BLOC_FOND_25",
+   "poste": "Bloc de fondation 2,5 × 2,5 × 0,35 m, par bloc",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 2.196
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "RAIL_POSE",
+   "poste": "Rails – pose (2 techniciens, 30 m par jour), par jour",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1440.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Oui si châssis roulant"
+  },
+  {
+   "code": "RAIL_TRANSPORT",
+   "poste": "Rails – transport aller (36 m max. par transport)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 720.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Oui si châssis roulant"
+  },
+  {
+   "code": "RAIL_EVAC",
+   "poste": "Rails – transport retour (36 m max. par transport)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 720.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Oui si châssis roulant"
+  },
+  {
+   "code": "RAIL_DEPOSE",
+   "poste": "Rails – démontage, par jour",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": 1440.0
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": 2025
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Oui si châssis roulant"
+  },
+  {
+   "code": "RIJWERK",
+   "poste": "Train de roulement du châssis roulant – location",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ANTICOL_RIJWERK",
+   "poste": "Capteur anti-collision du roulement",
+   "unite": "€/M",
+   "prix_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "annee_par_cas": {
+    "Grue tour - Loueur A": null
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "RIGGER",
+   "poste": "Rigger (élingueur), minimum 8 h",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 72.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "SUPERVISEUR",
+   "poste": "Chef de levage / superviseur, minimum 8 h",
+   "unite": "€/h",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 80.4
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "SCHEMA_LEVAGE",
+   "poste": "Schéma de levage simple",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 240.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "PLAN_LEVAGE",
+   "poste": "Plan de levage",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 720.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "ANALYSE_RISQUES",
+   "poste": "Analyse de risques",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 180.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "PLAN_SSE",
+   "poste": "Plan sécurité-santé-environnement (VGM)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 180.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "TW_B",
+   "poste": "Talkies-walkies",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 72.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "TW_B_EX",
+   "poste": "Talkies-walkies ATEX (Ex)",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 126.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "NACELLE",
+   "poste": "Nacelle 2 personnes",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 126.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "NACELLE_TR",
+   "poste": "Nacelle 2 personnes – transport",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 618.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "PLAQUES_GRUE",
+   "poste": "Plaques de calage 5 m² (dragline), par plaque",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 12.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "PLAQUES_GRUE_TR",
+   "poste": "Plaques de calage – transport (10 plaques max.)",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 772.8
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "GITTERBOX",
+   "poste": "Caisse grillagée avec bois de calage",
+   "unite": "€/J",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 180.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "GITTERBOX_TR",
+   "poste": "Caisse grillagée – transport",
+   "unite": "FF",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 618.0
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Non"
+  },
+  {
+   "code": "CONTRIB_ENV",
+   "poste": "Contribution environnementale, sur le total Loueur B",
+   "unite": "%",
+   "prix_par_cas": {
+    "Grue mobile - Loueur B": 0.97
+   },
+   "annee_par_cas": {
+    "Grue mobile - Loueur B": 2024
+   },
+   "fourni_par": "loueur du catalogue",
+   "source": "source de test",
+   "auto_par_defaut": "Oui"
+  }
+ ],
+ "postes_par_logique": {
+  "T": [
+   "ANTICOL_LOC",
+   "ANTICOL_MONT",
+   "ANTICOL_DEM",
+   "CAM_LOC",
+   "CAM_MONT",
+   "CAM_DEM",
+   "TELEC_MONT",
+   "TELEC_DEM",
+   "TW_CH",
+   "TW_PED_CH",
+   "TW_GR",
+   "TW_PED_GR",
+   "VINCOTTE",
+   "PUB",
+   "GB80",
+   "GB140",
+   "RAIL",
+   "BUTEE",
+   "FONDATION",
+   "MONT_WE",
+   "DEM_WE",
+   "MONT_16",
+   "CADRE",
+   "RENF",
+   "GRUTIER",
+   "HS",
+   "TELESC_GRUT",
+   "TELESC_HS",
+   "CHASSIS_HS_C",
+   "CHAINE_10",
+   "CHAINE_13",
+   "PUB_LOGO",
+   "ECLAIRAGE",
+   "ECLAIRAGE_MONT",
+   "BALISAGE_MONT",
+   "BALISAGE_LOC",
+   "BALISAGE_BATT",
+   "BALISAGE_DEM",
+   "AI_MONT",
+   "ECHELLE_25",
+   "ECHELLE_4",
+   "BLOC_FOND_2",
+   "BLOC_FOND_25",
+   "RAIL_POSE",
+   "RAIL_TRANSPORT",
+   "RAIL_EVAC",
+   "RAIL_DEPOSE",
+   "RIJWERK",
+   "ANTICOL_RIJWERK"
+  ],
+  "R": [
+   "TW_CH",
+   "TW_PED_CH",
+   "TW_GR",
+   "TW_PED_GR",
+   "VINCOTTE",
+   "PUB",
+   "FONDATION",
+   "MONT_WE",
+   "DEM_WE",
+   "GRUTIER",
+   "HS"
+  ],
+  "MS": [
+   "FONDATION",
+   "CARBURANT",
+   "GRUTIER",
+   "HS"
+  ],
+  "MA": [
+   "FONDATION",
+   "DEPL_GRUTIER",
+   "SUP_HS",
+   "SUP_NUIT",
+   "SUP_SAM",
+   "SUP_DIM",
+   "SUP_FERIE",
+   "BALLAST_SAM",
+   "BALLAST_DIM",
+   "RIGGER",
+   "SUPERVISEUR",
+   "SCHEMA_LEVAGE",
+   "PLAN_LEVAGE",
+   "ANALYSE_RISQUES",
+   "PLAN_SSE",
+   "TW_B",
+   "TW_B_EX",
+   "NACELLE",
+   "NACELLE_TR",
+   "PLAQUES_GRUE",
+   "PLAQUES_GRUE_TR",
+   "GITTERBOX",
+   "GITTERBOX_TR",
+   "CONTRIB_ENV"
+  ]
+ },
+ "conditions_loueurs": {},
+ "correspondances": {},
+ "fondations_tableau": [
+  {
+   "modele": "Liebherr 85 EC-B 5 FR.tronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 9600.0,
+    "sans_demolition": 7200.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 9600.0,
+    "sans_demolition": 7200.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 12600.0,
+    "sans_demolition": 9600.0
+   }
+  },
+  {
+   "modele": "Liebherr 110 EC-B 6 FR.tronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 12000.0,
+    "sans_demolition": 9600.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 12000.0,
+    "sans_demolition": 9600.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 15600.0,
+    "sans_demolition": 12600.0
+   }
+  },
+  {
+   "modele": "Liebherr 125 EC-B 6 Litronic (max. 39m HSC)",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 13200.0,
+    "sans_demolition": 11400.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 13200.0,
+    "sans_demolition": 11400.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 17400.0,
+    "sans_demolition": 15000.0
+   }
+  },
+  {
+   "modele": "Liebherr 125 EC-B 6 Litronic (> 39m HSC)",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 13200.0,
+    "sans_demolition": 11400.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 13200.0,
+    "sans_demolition": 11400.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 17400.0,
+    "sans_demolition": 15000.0
+   }
+  },
+  {
+   "modele": "Liebherr 130 EC-B 8 FR.tronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 14400.0,
+    "sans_demolition": 12000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 14400.0,
+    "sans_demolition": 12000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 18600.0,
+    "sans_demolition": 15600.0
+   }
+  },
+  {
+   "modele": "Liebherr 132 EC-H 8 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 14400.0,
+    "sans_demolition": 12000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 14400.0,
+    "sans_demolition": 12000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 18600.0,
+    "sans_demolition": 15600.0
+   }
+  },
+  {
+   "modele": "Liebherr 150 EC-B 8 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 15600.0,
+    "sans_demolition": 13200.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 15600.0,
+    "sans_demolition": 13200.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 20400.0,
+    "sans_demolition": 17400.0
+   }
+  },
+  {
+   "modele": "Liebherr 200 EC-H 10 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 18000.0,
+    "sans_demolition": 14400.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 18000.0,
+    "sans_demolition": 14400.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 23400.0,
+    "sans_demolition": 18600.0
+   }
+  },
+  {
+   "modele": "Liebherr 200 EC-B 10 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 18000.0,
+    "sans_demolition": 14400.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 18000.0,
+    "sans_demolition": 14400.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 23400.0,
+    "sans_demolition": 18600.0
+   }
+  },
+  {
+   "modele": "Liebherr 280 EC-H 12 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 29400.0,
+    "sans_demolition": 23400.0
+   }
+  },
+  {
+   "modele": "Liebherr 285 EC-B 12 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 29400.0,
+    "sans_demolition": 23400.0
+   }
+  },
+  {
+   "modele": "Liebherr 420 EC-H 16 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   }
+  },
+  {
+   "modele": "Liebherr 550 EC-H 20 Litronic",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": null,
+    "sans_demolition": null
+   }
+  },
+  {
+   "modele": "Wolff 7534.16 clear (max. 42m HSC)",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 29400.0,
+    "sans_demolition": 23400.0
+   }
+  },
+  {
+   "modele": "Wolff 7534.16 clear (> 42m HSC)",
+   "annee": null,
+   "fourni_par": "interne",
+   "remarque": null,
+   "dalle_sur_sol": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "poutres_sur_sol_calcule": {
+    "avec_demolition": 22800.0,
+    "sans_demolition": 18000.0
+   },
+   "sur_pieux_calcule": {
+    "avec_demolition": 29400.0,
+    "sans_demolition": 23400.0
+   }
+  }
+ ],
+ "parametres": [
+  {
+   "code": "jours_ouvrables_mois_location",
+   "libelle": "Jours ouvrables par mois – location",
+   "valeur": 20,
+   "unite": "j/mois",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "jours_ouvrables_mois_grutier",
+   "libelle": "Jours ouvrables par mois – grutier",
+   "valeur": 20,
+   "unite": "j/mois",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "semaines_par_mois",
+   "libelle": "Semaines par mois",
+   "valeur": 4,
+   "unite": "sem/mois",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "heures_facturees_jour_ma",
+   "libelle": "Heures facturées par jour – grue mobile Loueur B",
+   "valeur": 8,
+   "unite": "h/j",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "prix_kwh",
+   "libelle": "Prix de l'électricité",
+   "valeur": 0.48,
+   "unite": "€/kWh",
+   "annee": 2025,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "coef_fondation_poutres",
+   "libelle": "Fondation sur poutres : coefficient sur le prix « dalle sur sol »",
+   "valeur": 1,
+   "unite": "×",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "coef_fondation_pieux",
+   "libelle": "Fondation sur pieux : coefficient sur le prix « dalle sur sol »",
+   "valeur": 1.3,
+   "unite": "×",
+   "annee": null,
+   "source": "paramètre de test"
+  },
+  {
+   "code": "arrondi_fondation_pieux",
+   "libelle": "Fondation sur pieux : arrondi",
+   "valeur": 600.0,
+   "unite": "€",
+   "annee": null,
+   "source": "paramètre de test"
+  }
+ ],
+ "rex_fondations_historique": [
+  {
+   "grue": "Liebherr 110 EC-B 6 FR.tronic",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": null,
+   "annee": null,
+   "statut": "sans prix",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 125 EC-B 6 Litronic (> 39m HSC)",
+   "chantier": "Chantier 02",
+   "fondation_realisee": "Chantier 02",
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 17346.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 125 EC-B 6 Litronic (> 39m HSC)",
+   "chantier": "Chantier 03",
+   "fondation_realisee": "Chantier 03",
+   "type": "Dalle sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 11643.6,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 125 EC-B 6 Litronic (max. 39m HSC)",
+   "chantier": "Chantier 04",
+   "fondation_realisee": "Chantier 04",
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 17346.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 125 EC-B 6 Litronic (max. 39m HSC)",
+   "chantier": "Chantier 05",
+   "fondation_realisee": "Chantier 05",
+   "type": "Dalle sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 11643.6,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 130 EC-B 8 FR.tronic",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 186.0,
+   "annee": null,
+   "statut": "aberrant (ressemble à un prix de location journalier)",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 132 EC-H 8 Litronic",
+   "chantier": "Chantier 07",
+   "fondation_realisee": "Chantier 07",
+   "type": "Poutres sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 19749.6,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 132 EC-H 8 Litronic",
+   "chantier": "Chantier 08",
+   "fondation_realisee": "Chantier 08",
+   "type": "Poutres sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 13500.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 150 EC-B 8 Litronic",
+   "chantier": "Chantier 09",
+   "fondation_realisee": "Chantier 09",
+   "type": "Sur pieux",
+   "demolition_comprise": true,
+   "prix_reel": 18476.4,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 150 EC-B 8 Litronic",
+   "chantier": "Chantier 10",
+   "fondation_realisee": "Chantier 10",
+   "type": "Sur pieux",
+   "demolition_comprise": false,
+   "prix_reel": 14469.6,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 150 EC-B 8 Litronic",
+   "chantier": "Chantier 11",
+   "fondation_realisee": "Chantier 11",
+   "type": "Sur pieux",
+   "demolition_comprise": true,
+   "prix_reel": 16890.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 150 EC-B 8 Litronic",
+   "chantier": "Chantier 12",
+   "fondation_realisee": "Chantier 12",
+   "type": "Sur pieux",
+   "demolition_comprise": false,
+   "prix_reel": 13560.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-B 10 Litronic",
+   "chantier": "Chantier 13",
+   "fondation_realisee": "Chantier 13",
+   "type": "Sur pieux",
+   "demolition_comprise": true,
+   "prix_reel": 30602.4,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-B 10 Litronic",
+   "chantier": "Chantier 14",
+   "fondation_realisee": "Chantier 14",
+   "type": "Sur pieux",
+   "demolition_comprise": false,
+   "prix_reel": 24340.8,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 15",
+   "fondation_realisee": "Chantier 15",
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 42834.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 16",
+   "fondation_realisee": "Chantier 16",
+   "type": "Dalle sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 24457.2,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 17",
+   "fondation_realisee": "Chantier 17",
+   "type": "Poutres sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 19634.4,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 18",
+   "fondation_realisee": "Chantier 18",
+   "type": "Poutres sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 13234.8,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 19",
+   "fondation_realisee": "Chantier 19",
+   "type": "Poutres sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 21117.6,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 200 EC-H 10 Litronic",
+   "chantier": "Chantier 20",
+   "fondation_realisee": "Chantier 20",
+   "type": "Poutres sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 14102.4,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 280 EC-H 12 Litronic",
+   "chantier": "Chantier 21",
+   "fondation_realisee": "Chantier 21",
+   "type": "Poutres sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 28290.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 280 EC-H 12 Litronic",
+   "chantier": "Chantier 22",
+   "fondation_realisee": "Chantier 22",
+   "type": "Poutres sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 18436.8,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 280 EC-H 12 Litronic",
+   "chantier": "Chantier 23",
+   "fondation_realisee": "Chantier 23",
+   "type": "Poutres sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 23164.8,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 280 EC-H 12 Litronic",
+   "chantier": "Chantier 24",
+   "fondation_realisee": "Chantier 24",
+   "type": "Poutres sur sol",
+   "demolition_comprise": false,
+   "prix_reel": 15026.4,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 285 EC-B 12 Litronic",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": 444.0,
+   "annee": null,
+   "statut": "aberrant (ressemble à un prix de location journalier)",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 420 EC-H 16 Litronic",
+   "chantier": "Chantier 26",
+   "fondation_realisee": "Chantier 26",
+   "type": "Sur pieux",
+   "demolition_comprise": true,
+   "prix_reel": 38959.2,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 420 EC-H 16 Litronic",
+   "chantier": "Chantier 27",
+   "fondation_realisee": "Chantier 27",
+   "type": "Sur pieux",
+   "demolition_comprise": false,
+   "prix_reel": 29416.8,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 550 EC-H 20 Litronic",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": null,
+   "annee": null,
+   "statut": "sans prix",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 85 EC-B 5 FR.tronic",
+   "chantier": "Chantier 29",
+   "fondation_realisee": "Chantier 29",
+   "type": "Sur pieux",
+   "demolition_comprise": true,
+   "prix_reel": 22783.2,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Liebherr 85 EC-B 5 FR.tronic",
+   "chantier": "Chantier 30",
+   "fondation_realisee": "Chantier 30",
+   "type": "Sur pieux",
+   "demolition_comprise": false,
+   "prix_reel": 18282.0,
+   "annee": null,
+   "statut": "à valider",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Wolff 7534.16 clear (> 42m HSC)",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": null,
+   "annee": null,
+   "statut": "sans prix",
+   "origine": "historique de test"
+  },
+  {
+   "grue": "Wolff 7534.16 clear (max. 42m HSC)",
+   "chantier": null,
+   "fondation_realisee": null,
+   "type": "Dalle sur sol",
+   "demolition_comprise": true,
+   "prix_reel": null,
+   "annee": null,
+   "statut": "sans prix",
+   "origine": "historique de test"
+  }
+ ],
+ "tests_acceptation": [
+  {
+   "id": "T1_GRUE_TOUR",
+   "origine": "test",
+   "reglages": {
+    "jours_par_mois_location": 20,
+    "jours_grutier": "20 par mois",
+    "heures_grutier_par_jour": 8
+   },
+   "cas": "Grue tour - Loueur A",
+   "modele": "Liebherr 125 EC-B 6 Litronic (> 39m HSC)",
+   "debut": "2025-09-01",
+   "fin": "2026-05-01",
+   "chassis": "Standard - Fixe lesté",
+   "conduite": "cabine",
+   "fondation": {
+    "type": "Dalle sur sol",
+    "demolition": true,
+    "source": "ancien tableau"
+   },
+   "fleche_m": 40,
+   "hsc_m": 25,
+   "postes_retenus": [
+    "LOC",
+    "ELEC",
+    "FOND",
+    "MONT",
+    "DEMONT",
+    "ANTICOL_LOC",
+    "ANTICOL_MONT",
+    "ANTICOL_DEM",
+    "CAM_LOC",
+    "CAM_MONT",
+    "CAM_DEM",
+    "TW_CH",
+    "TW_PED_CH",
+    "VINCOTTE",
+    "PUB",
+    "AI",
+    "CAB",
+    "GRUTIER"
+   ],
+   "quantites": {
+    "TW_CH": 5
+   },
+   "prix_forces": {
+    "MONT": 18000.0,
+    "DEMONT": 18000.0
+   },
+   "attendu": {
+    "total_arrondi": 181193,
+    "materiel": 98249.28,
+    "main_oeuvre": 82944.0,
+    "prix_manquants": 0,
+    "lignes": {
+     "LOC": 28608.0,
+     "ELEC": 4992.0,
+     "FOND": 13200.0,
+     "MONT": 18000.0,
+     "DEMONT": 18000.0,
+     "ANTICOL_LOC": 4922.88,
+     "ANTICOL_MONT": 1200.0,
+     "ANTICOL_DEM": 600.0,
+     "CAM_LOC": 3753.6,
+     "CAM_MONT": 864.0,
+     "CAM_DEM": 600.0,
+     "TW_CH": 633.6,
+     "TW_PED_CH": 23.04,
+     "VINCOTTE": 1128.0,
+     "PUB": 1342.08,
+     "AI": 382.08,
+     "CAB": 0.0,
+     "GRUTIER": 82944.0
+    },
+    "alertes": [
+     "HSC 25 m <= 39 m : la variante max. 39 m suffit",
+     "2 prix forcés"
+    ]
+   }
+  },
+  {
+   "id": "T2_MONTAGE_RAPIDE",
+   "origine": "test",
+   "reglages": {
+    "jours_par_mois_location": 20,
+    "jours_grutier": "20 par mois",
+    "heures_grutier_par_jour": 8
+   },
+   "cas": "Grue à montage rapide - Loueur A",
+   "modele": "Liebherr 53K",
+   "duree_mois": 3,
+   "postes_retenus": [
+    "LOC",
+    "ELEC",
+    "FOND",
+    "MONT",
+    "DEMONT",
+    "POIDS",
+    "TEL",
+    "VINCOTTE",
+    "PUB",
+    "AI",
+    "CAB",
+    "GRUTIER"
+   ],
+   "prix_forces": {
+    "FOND": 6000.0,
+    "MONT": 6000.0,
+    "DEMONT": 6000.0
+   },
+   "attendu": {
+    "total_arrondi": 60293,
+    "materiel": 29189.04,
+    "main_oeuvre": 31104.0,
+    "prix_manquants": 1,
+    "manquant": [
+     "TEL (télécommande de la 53K)"
+    ],
+    "lignes": {
+     "LOC": 6336.0,
+     "ELEC": 648.0,
+     "POIDS": 660.0,
+     "VINCOTTE": 1128.0,
+     "PUB": 480.24,
+     "AI": 136.8,
+     "CAB": 1800.0,
+     "GRUTIER": 31104.0
+    }
+   }
+  },
+  {
+   "id": "T3_MOBILE_A",
+   "origine": "test",
+   "reglages": {
+    "jours_par_mois_location": 20,
+    "jours_grutier": "20 par mois",
+    "heures_grutier_par_jour": 8
+   },
+   "cas": "Grue mobile - Loueur A",
+   "modele": "LTM 1100 (100T)",
+   "duree_mois": 6,
+   "postes_retenus": [
+    "LOC",
+    "CARB",
+    "MONT",
+    "DEMONT",
+    "GRUTIER"
+   ],
+   "prix_forces": {},
+   "attendu": {
+    "total_arrondi": 164496,
+    "materiel": 102288.0,
+    "main_oeuvre": 62208.0,
+    "prix_manquants": 1,
+    "manquant": [
+     "CARB (carburant à définir)"
+    ],
+    "lignes": {
+     "LOC": 93888.0,
+     "MONT": 4200.0,
+     "DEMONT": 4200.0,
+     "GRUTIER": 62208.0
+    }
+   }
+  },
+  {
+   "id": "T4_MOBILE_B",
+   "origine": "test",
+   "reglages": {
+    "heures_facturees_minimum_par_jour": 8,
+    "heures_grutier_par_jour": 8
+   },
+   "cas": "Grue mobile - Loueur B",
+   "modele": "LTM - 1120",
+   "duree_jours": 5,
+   "postes_retenus": [
+    "LOC",
+    "FOND",
+    "DEPL",
+    "BAL",
+    "DEPL_GRUTIER",
+    "CONTRIB_ENV"
+   ],
+   "quantites": {
+    "DEPL": 2
+   },
+   "prix_forces": {
+    "FOND": 6000.0
+   },
+   "attendu": {
+    "total_arrondi": 16341,
+    "materiel": 16041.348,
+    "main_oeuvre": 300.0,
+    "prix_manquants": 0,
+    "lignes": {
+     "LOC": 8880.0,
+     "FOND": 6000.0,
+     "DEPL": 444.0,
+     "BAL": 618.0,
+     "DEPL_GRUTIER": 300.0,
+     "CONTRIB_ENV": 99.348
+    }
+   }
+  }
+ ]
+}
