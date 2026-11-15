@@ -60,6 +60,9 @@ MOD = {
     # le générateur SAF (fondation de grue) : la dalle vue en plan, ses quatre appuis, le centre du châssis
     "saf": glyph('<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><rect x="6.6" y="6.6" width="2.6" height="2.6"/><rect x="14.8" y="6.6" width="2.6" height="2.6"/>'
                  '<rect x="6.6" y="14.8" width="2.6" height="2.6"/><rect x="14.8" y="14.8" width="2.6" height="2.6"/><path d="M12 10.3v3.4M10.3 12h3.4"/>'),
+    # le prix des grues : une grue à tour (mât, flèche, contre-flèche, crochet) et le signe de l'euro
+    "prix_grues": glyph('<path d="M6.5 21V4.5M3 4.5h16.5M6.5 4.5 9 2.5l2.5 2M15.5 4.5v4"/><path d="M14.4 8.5h2.2v1.6h-2.2z"/>'
+                        '<path d="M4 21h5"/><path d="M19.6 14.4a3 3 0 1 0 0 4.2M14.8 15.6h3.2M14.8 17.3h3.2"/>'),
     "sol": glyph('<rect x="6.5" y="4" width="11" height="4" rx=".8"/><path d="M8.5 8l-1.2 1.4 2.4 1.4-2.4 1.4 2.4 1.4-1.2 1.4M15.5 8l-1.2 1.4 2.4 1.4-2.4 1.4 2.4 1.4-1.2 1.4"/>'
                   '<path d="M3 17h18M5 20l2.5-3M10 20l2.5-3M15 20l2.5-3"/>'),
 }
@@ -76,7 +79,7 @@ FAMILLES = [
     ("acier", "Acier", [("profil", "Choix de profilé"), ("catalogue", "Catalogue des profilés"), ("corniere", "Cornières"),
                         ("flambement", "Flambement"), ("assemblages", "Assemblages métalliques"), ("soudures", "Soudures")]),
     ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol"),
-                          ("saf", "Générateur SAF")]),
+                          ("saf", "Générateur SAF"), ("prix_grues", "Prix des grues")]),
 ]
 # les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace,
 # le « Catalogue des profilés » que la Bibliothèque Acier porte désormais (BIB5, rubrique « Profilés ») — et « predalle »,

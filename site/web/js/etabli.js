@@ -572,7 +572,10 @@ export function ouvrirEtabli(hote, ctx) {
       // (l'aperçu les montre ainsi, sans rien en garder)
       const secs = [...zone.querySelectorAll(".sec[data-sec]")];
       let ouverte = secs.map((s) => s.dataset.sec).find((k) => ouvertes.has(k));
-      if (premier && ouverte === undefined) ouverte = (secs.find((s) => s.classList.contains("open")) || (COMPACT ? secs[0] : null) || {}).dataset?.sec;
+      // … et quand la mémoire nomme une rubrique qui n'existe plus (le « Prix des grues » : la rubrique « Base des prix »
+      // disparaît une fois la base importée), la rubrique que le moteur ouvre ; tout refermé à la main le reste
+      const perimee = ouvertes.size > 0 && ouverte === undefined;
+      if ((premier || perimee) && ouverte === undefined) ouverte = (secs.find((s) => s.classList.contains("open")) || (COMPACT ? secs[0] : null) || {}).dataset?.sec;
       secs.forEach((s) => s.classList.toggle("open", s.dataset.sec === ouverte));
       if (!apercu && secs.length) { ouvertes.clear(); if (ouverte) ouvertes.add(ouverte); }
       if (!apercu) premier = false;
@@ -627,6 +630,10 @@ export function ouvrirEtabli(hote, ctx) {
         return;
       }
       if (!vues.some((v) => v.cle === vueCourante)) vueCourante = vues[0].cle;
+      // (une vue peut porter des CHAMPS — le détail du prix des grues : une quantité, un prix forcé) : le champ en cours de
+      // frappe survit au rafraîchissement, comme dans les données ; la feuille garde sa position de lecture
+      const saisieS = saisieEnCours(stage);
+      const defS = [...stage.querySelectorAll(".view .sheet")].map((x) => [x.closest(".view").dataset.vue, x.scrollTop]);
       onglets.innerHTML = vues.map((v) => `<button type="button" data-vue="${esc(v.cle)}" class="${v.cle === vueCourante ? "on" : ""}">${esc(v.court)}</button>`).join("");
       image(marquerDebord);
       const date = new Date().toLocaleDateString("fr-BE");
@@ -638,6 +645,8 @@ export function ouvrirEtabli(hote, ctx) {
         + `${i === 0 && phrase ? `<div class="sphrase">${phrase}</div>` : ""}`
         + `<div class="draw${estDessin(v) ? " dessin" : " bloc"}">${v.svg}</div>${cart}</div></div>`).join("");
       garderGrec(stage);
+      defS.forEach(([k, t]) => { const f = stage.querySelector(`.view[data-vue="${CSS.escape(k)}"] .sheet`); if (f && t) f.scrollTop = t; });
+      reprendreSaisie(stage, saisieS);
       toile.vue(vueCourante);
     }
 
@@ -916,6 +925,11 @@ export function ouvrirEtabli(hote, ctx) {
       ouvrir(`pk-${role}`, ancre);
     }
 
+    // (une ligne du dessin qui ouvre SA fenêtre : le prix d'un poste du « Prix des grues », sa source et son année)
+    $("#stage").addEventListener("click", (ev) => {
+      const c = ev.target.closest("[data-calcul]");
+      if (c) { ev.stopPropagation(); ouvrir(`ck-${c.dataset.calcul}`, c); }
+    }, { signal });
     $("#resultat").addEventListener("click", (ev) => {
       const pk = ev.target.closest(".prof[data-pk]");
       if (pk) { ev.stopPropagation(); ouvrirSelecteur(pk.dataset.pk, pk.closest(".el") || pk); return; }
@@ -1029,7 +1043,8 @@ export function ouvrirEtabli(hote, ctx) {
         if (annexes) infos.annexes = annexes;
         let r;
         try {
-          r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos }), { note: quoi === "note_pdf" || avecNote });
+          r = await client.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos, ...(CARNET ? { carnet: CN.lire(MODULE) } : {}) }),
+            { note: quoi === "note_pdf" || avecNote });
         } catch (e) { if (e && e.name === "EcranFerme") return; throw e; }
         if (fini()) return;   // l'écran s'est fermé : le fichier ne part pas (le corps est celui de l'écran suivant)
         const f = r && r.ok ? r.fichier : null;

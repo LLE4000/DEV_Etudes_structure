@@ -24,7 +24,8 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
                                                         → {"nom": str, "type": str, "texte": str}
     réponse : {"ok": true, "fichier": {"nom", "type", "texte"}} — ou {"nom", "type", "base64"} pour un fichier binaire
               (commun.TYPES_BINAIRES : la note PDF) ; un module qui attend « infos » (telecharger(etat, quoi, infos))
-              reçoit celles de la requête (le nom, le chantier, l'indice de la note)
+              reçoit celles de la requête (le nom, le chantier, l'indice de la note), un module qui attend « carnet »
+              (telecharger(etat, quoi, carnet=…)) reçoit son carnet
               {"ok": false, "erreur": "<message en français>"} : module sans ``telecharger``, ``quoi`` inconnu (le
               module rend None, ou lève ValueError avec son message), nom absurde, type hors liste, texte de plus de
               5 Mo (les règles : ``commun.refus_fichier``). Jamais une exception.
@@ -132,8 +133,12 @@ def telecharger(mod, q: dict) -> dict:
         return _refus(f"La note ne se relit pas, le fichier n'est pas préparé : {e}")
     # « infos » (le nom, le chantier, l'indice de la note : la page de garde d'une note PDF) : passées au module qui
     # les attend (un paramètre « infos »), jamais aux autres
-    kw = {"infos": q.get("infos") if isinstance(q.get("infos"), dict) else {}} \
-        if "infos" in inspect.signature(fonction).parameters else {}
+    params = inspect.signature(fonction).parameters
+    kw = {"infos": q.get("infos") if isinstance(q.get("infos"), dict) else {}} if "infos" in params else {}
+    # (le CARNET du module — la base des prix du « Prix des grues » : ses exports et ses rapports en ont besoin) : passé au
+    # module qui l'attend (un paramètre « carnet »), jamais aux autres
+    if "carnet" in params:
+        kw["carnet"] = q.get("carnet") if isinstance(q.get("carnet"), list) else []
     try:
         f = fonction(etat, quoi, **kw)
     except ValueError as e:  # le refus du module, déjà dit en français

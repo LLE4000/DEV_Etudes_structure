@@ -17,8 +17,8 @@
 //   <svg data-plan>   = {ech, origine: {x, y}} : l'origine du repère, en unités du dessin (y du modèle vers le haut).
 //
 // … et, sur toute la page de l'établi (hors du cadre des données, que js/etabli.js écoute déjà) :
-//   data-agir         : un bouton (data-chemin + data-valeur), un menu ou une case (data-chemin) du résultat ou du dessin
-//                       qui MODIFIE la note ;
+//   data-agir         : un bouton (data-chemin + data-valeur), un menu, une case ou un CHAMP (data-chemin) du résultat, du
+//                       dessin ou d'une fenêtre qui MODIFIE la note ;
 //   data-plan-volet   : un <details> du résultat qui reste ouvert d'un calcul à l'autre, une fois déplié ;
 //   data-suite        = {role, etapes, fin, sortie} : une SUITE de lectures (« selecteur », rôle « role:etape ») dont
 //                       chaque réponse se pose dans « sortie », sous une barre de progression ; au bout, « fin » (un
@@ -305,6 +305,38 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     const el = ev.target.closest && ev.target.closest("select[data-agir][data-chemin], input[type=checkbox][data-agir][data-chemin]");
     if (!el || !horsDonnees(el)) return;
     envoyer("modifier", { chemin: chemin(el.dataset.chemin), valeur: el.type === "checkbox" ? el.checked : el.value });
+  }, { signal });
+
+  // ------------------------------------------------------------------ data-agir : un CHAMP du résultat, du dessin ou d'une fenêtre
+  // (le « Prix des grues » : une quantité, un prix forcé, une justification, une case de la base des prix) : il part en quittant
+  // le champ, seulement si sa valeur a changé — Tab passe au champ suivant, Entrée aussi (au dernier, il quitte le champ),
+  // Échap rend la valeur d'avant. Le cadre est refait à chaque réponse : le champ où l'on est arrivé garde le curseur et ce
+  // qu'on y tape (js/etabli.js, saisieEnCours). Une COLONNE collée depuis Excel (plusieurs lignes) dans un champ qui porte
+  // data-coller part en une fois, au chemin data-coller.
+  const champAgir = (el) => !!el && !!el.matches && horsDonnees(el)
+    && el.matches("input[data-agir][data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-agir][data-chemin]");
+  bench.addEventListener("focusout", (ev) => {
+    const el = ev.target;
+    if (!champAgir(el) || el.value === el.defaultValue) return;
+    envoyer("modifier", { chemin: chemin(el.dataset.chemin), valeur: el.value });
+  }, { signal });
+  bench.addEventListener("keydown", (ev) => {
+    const el = ev.target;
+    if (!champAgir(el) || el.tagName === "TEXTAREA") return;
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      const tous = [...bench.querySelectorAll("input[data-agir][data-chemin]:not([type=checkbox]):not([type=file])")]
+        .filter((x) => horsDonnees(x) && x.offsetParent !== null && !x.disabled);
+      const suivant = tous[tous.indexOf(el) + 1];
+      if (suivant) { suivant.focus(); if (suivant.select) suivant.select(); } else el.blur();
+    } else if (ev.key === "Escape") { el.value = el.defaultValue; el.blur(); }
+  }, { signal });
+  bench.addEventListener("paste", (ev) => {
+    const el = ev.target.closest && ev.target.closest("input[data-agir][data-coller]");
+    const texte = ev.clipboardData && ev.clipboardData.getData("text");
+    if (!el || !horsDonnees(el) || !texte || !/[\t\n]/.test(texte.trim())) return;
+    ev.preventDefault();
+    envoyer("modifier", { chemin: chemin(el.dataset.coller), valeur: texte });
   }, { signal });
 
   // ------------------------------------------------------------------ data-plan-volet : une liste qu'on a dépliée le reste

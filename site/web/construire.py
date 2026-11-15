@@ -71,13 +71,13 @@ ACCUEIL = "./"
 # décision D1 — vaut pour TOUS les modules depuis le 10/11/2026 : chaque carte de l'accueil ouvre le calcul directement,
 # la note est provisoire jusqu'à la première modification, « Enregistrer comme note… » est sur toute page d'établi :
 # ``page_module``.)
-ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf")
+ETABLI_COMPACT = ("poutre", "dalle", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf", "prix_grues")
 # … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur
 # le 09/11/2026) : ni titre « Données », ni en-tête « POUTRES (n) », ni arborescence — l'en-tête du panneau porte la
 # LIGNE de l'élément ouvert (son nom qu'un clic modifie, la liste des éléments, copier, supprimer : le moteur la rend
 # avec ``etabli_compact.arbre(…, compact=True)``, js/etabli.js la pose dans l'emplacement ``.et-elt``) à côté
 # d'« Annuler » et « Rétablir » (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
-ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf")
+ARBRE_COMPACT = ("dalle", "poutre", "corniere", "bois", "age", "taux", "fondation_grue", "garde_corps", "flambement", "profil", "sol", "soudures", "plancher", "assemblages", "saf", "prix_grues")
 # … et parmi eux, ceux dont « Annuler », « Rétablir » et « Replier les données » sont en haut à gauche du DESSIN, près du
 # titre de la section, au PC et à la tablette (la dalle, demande du propriétaire du 13/11/2026 — docs/site/DALLES_FUSION.md
 # § 8.2 ; la poutre au lot 4, la discipline commune E15) : la ligne de l'élément garde la place pour son nom, à droite le

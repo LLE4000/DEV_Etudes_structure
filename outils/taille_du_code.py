@@ -59,6 +59,7 @@ GROUPES = (
     ("bois", "Poutres bois"),
     ("sol", "Rigidité du sol"),
     ("saf", "Générateur SAF"),
+    ("prix_grues", "Prix des grues"),
     ("bibliotheques", "Bibliothèques (béton, acier, autres)"),
     ("commun", "Code commun (écran, note PDF, construction)"),
 )
@@ -97,6 +98,8 @@ REGLES = (
     # glisser, tourner, cote à taper), que lui seul câble aujourd'hui. Les châssis de grue (grues/) sont une bibliothèque
     ("saf", _R(r"^(saf/|api_web/(saf|saf_saisie|saf_resultat|saf_armatures|saf_bandes|dessin_saf|dessin_armatures|dessin_efforts_saf|note_saf)\.py$|"
                r"site/web/css/modules/saf\.css$|site/web/js/plan\.js$)")),
+    # le Prix des grues : son moteur (grues/prix/, avant la bibliothèque des châssis), l'écran, sa feuille
+    ("prix_grues", _R(r"^(grues/prix/|api_web/prix_grues\w*\.py$|site/web/css/modules/prix_grues\.css$)")),
     ("bibliotheques", _R(r"^(beton/(bibliotheque|hourdis)/|grues/|api_web/(biblio_\w+|dessin_biblio_\w+)\.py$|"
                          r"site/web/css/bibliotheque[\w-]*\.css$|site/web/js/(biblio|biblio_note|bibliotheque)\.js$)")),
     ("commun", _R(r"^(api_web/(__init__|commun|etabli_compact|routeur|registre|parcours|fiches|icones|note_cas|pdf_reunion|gabarit)\.py$|"
