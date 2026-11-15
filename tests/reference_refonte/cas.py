@@ -521,11 +521,12 @@ cas("fondation_grue", "note abîmée (châssis négatif)", LIM, [calc({"version"
 
 # ---- le GÉNÉRATEUR SAF, fondation de grue (14/11/2026, docs/saf/GENERATEUR_SAF.md) : la dalle type du cahier des charges
 # (8,00 × 8,00 × 0,50 m, C30/37, châssis saisi 6 × 6 m, appuis 0,50 × 0,50 m, les trois jeux de réactions) — la contrainte
-# de contact face à la limite, par raideur de sol (k = 2 ; 5 ; 10 cochés « SCIA », 20 et 30 affichés). Les fichiers de
-# l'export (un .zip binaire) ne sont pas photographiés ici : tests/test_api_web_saf.py les compare à l'octet au moteur.
+# de contact face à la limite, par raideur de sol (k = 2 ; 5 ; 10 cochés « SCIA », 20 et 30 affichés). Les fichiers
+# (le SAF .xlsx, la note PDF : binaires — lot 5) ne sont pas photographiés ici : tests/test_api_web_saf.py compare le SAF
+# à l'octet au moteur, tests/test_saf_grue_note.py lit la note page par page.
 _SAF_JEUX = [(350, 440, 440, 350), (150, 150, 550, 550), (135, 100, 800, 135)]
 _SAF = [neuf()] + [p for j, P in enumerate(_SAF_JEUX) for p in ([mod("reactions/+", "1")] if j else []) + [mod(f"reactions/{j}/P/{i}", str(v)) for i, v in enumerate(P)]]
-cas("saf", "note neuve (poids propre seul, export éteint)", REF, [neuf()], {"niveau": "n"}, selecteurs=True, fichiers=True)
+cas("saf", "note neuve (poids propre seul, export éteint)", REF, [neuf()], {"niveau": "n"}, selecteurs=True)
 cas("saf", "dalle type, trois jeux de réactions (cahier des charges § 11)", REF, _SAF, {"taux": [224, 226], "niveau": "r", "sans_message": True})
 cas("saf", "dalle type sous une limite de 1,15 kg/cm² (près de 100 %)", REF, _SAF + [mod("limite", "1,15")], {"taux": [97, 99], "niveau": "f"})
 # (relecture du lot 4 : le résumé de la note est le plus défavorable du sol ET du ferraillage — ici le sol à 98 %, un
