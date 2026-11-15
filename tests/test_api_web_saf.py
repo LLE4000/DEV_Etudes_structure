@@ -661,10 +661,12 @@ def complets():
     ra = mod(rg["etat"], ["proposition", "appliquer"], best)
     chk("« Proposer » complet (dix épaisseurs) se garde dans la note : le tableau h | dalle | σ max | béton, la ligne au plus petit volume mise en "
         "évidence ; un clic l'APPLIQUE — l'épaisseur et les dimensions de la dalle sont celles de la ligne, et la contrainte tient (≤ 49,0 kPa) pour "
-        "tous les k cochés ; le tableau reste (d'autres lignes s'essaient), la ligne appliquée y est marquée",
+        "tous les k cochés ; le tableau reste (d'autres lignes s'essaient), la ligne appliquée y est marquée ; « Proposer » ne regarde que le SOL : "
+        "à h = 0,30 m le ferraillage ne tient pas en hauteur, et le résumé de la note (sol ET ferraillage, relecture du lot 4) le dit",
         rg["message"] is None and len(lignes) == 10 and rg["resultat"].count('class="best') == 1
         and (f0(ra)["dalle"]["h"], f0(ra)["dalle"]["Lx"], f0(ra)["dalle"]["Ly"]) == (lignes[best]["h"], lignes[best]["Lx"], lignes[best]["Ly"])
-        and ra["resume"]["niveau"] in ("p", "f") and f0(ra)["proposition"] is not None and 'class="best cur"' in ra["resultat"],
+        and SR.synthese(PR.lire(f0(ra)), M.calculer(PR.lire(f0(ra))))["niveau"] in ("p", "f") and f0(ra)["proposition"] is not None
+        and 'class="best cur"' in ra["resultat"] and ra["resume"]["niveau"] == "r" and "ferraillage" in ra["resume"]["gouvernant"],
         (lignes[best], ra["resume"]))
     rx = mod(ra["etat"], ["reactions", 0, "P", 0], "360")
     chk("une proposition calculée pour d'AUTRES données n'en est plus une : changer une réaction la retire de la note",

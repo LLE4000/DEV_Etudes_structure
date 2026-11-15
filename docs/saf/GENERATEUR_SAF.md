@@ -227,3 +227,8 @@ Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont p
    (« Arrêter » l'interrompt) ; l'export en un clic → moins d'une seconde.
 7. Les grues enregistrées vivent dans **ce navigateur** (comme le gabarit du bureau) : elles ne passent pas d'un
    appareil à l'autre.
+
+8. **« Proposer » ne regarde que le SOL** (lot 1) : la dalle qu'il propose peut ne pas tenir en ferraillage — dalle type,
+   la meilleure ligne (h = 0,30 m, 11,00 × 11,00 m) tient pour le sol (48,7 ≤ 49,0 kPa) mais la hauteur du ferraillage
+   est à 126 %. Depuis la relecture du lot 4, le résumé de la note le dit (« Non conforme · ferraillage 126 % »). Faire
+   entrer le ferraillage dans « Proposer » est une décision du bureau (à trancher).
