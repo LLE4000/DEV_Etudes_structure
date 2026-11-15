@@ -362,6 +362,22 @@ def revue_15_11(type_, n, npf, n7, ef, mo):
     nv = Note(mod(vieux, ["dalle", "h"], "0,45"))
     chk("revue N7 · valeurs SCIA tapées puis h changé : la note dit qu'elles sont d'un autre modèle, non utilisées",
         SCM.PERIME in nv.texte, nv.texte[nv.texte.find("Module / SCIA"):][:300])
+    # V(s) avec son signe (15/11/2026) : V max au-dessus de l'axe, V min en dessous ; « V à d » sur la courbe où il est lu
+    from api_web import dessin_efforts_saf as DE
+    el7 = PR.lire(mod(mod(type_, ["dalle", "Lx"], "10,7"), ["dalle", "Ly"], "10,7")["fondations"][0])
+    ef7 = M.efforts(el7, M.calculer(el7))
+    svg = DE.tranchant(ef7["bandes"][0], 380.0, 130.0)
+    lignes_ = re.findall(r'<polyline points="([^"]+)"', svg)
+    axe = re.findall(r'<line x1="40.0" y1="([0-9.]+)" x2="[0-9.]+" y2="\1" stroke="#15181f"', svg)
+    ys = [[float(p_.split(",")[1]) for p_ in li.split()] for li in lignes_]
+    y0 = float(axe[0]) if axe else None
+    # (V max monte bien au-dessus de l'axe — loin des pieds, l'enveloppe peut le frôler —, V min descend bien en dessous)
+    dessus = y0 is not None and len(ys) == 2 and min(ys[0]) < y0 - 30 and max(ys[0]) < y0 + 10
+    dessous = y0 is not None and len(ys) == 2 and max(ys[1]) > y0 + 30 and min(ys[1]) > y0 - 10
+    chk("V(s) avec son signe, dalle 10,70, BX1 : V max tracé au-dessus de l'axe, V min en dessous (la courbe passe du positif au "
+        "négatif sous chaque pied) ; « V à d 84,1 (168,2/m) » écrit sur la courbe ; la note le dit aussi",
+        dessus and dessous and "V à d 84,1 (168,2/m)" in svg and "V à d 84,1 (168,2/m)" in n7.texte,
+        (y0, [(min(y), max(y)) for y in ys], "V à d 84,1" in svg))
 
 
 def complets():
@@ -443,6 +459,8 @@ MUTATIONS = [
     ("note_saf.py", '''("eta", "à vérifier" if x["alerte"] else "concorde", not x["alerte"])''', '''("eta", "concorde", True)''', "un écart sur σ max dit « concorde »"),
     ("note_saf.py", '''        if sc.get("perime"):''', '''        if False:''', "des valeurs SCIA périmées dites « non saisies »"),
     ("note_saf.py", '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', '''        a_, b_ = math.dist(s0[0], s0[1]), math.dist(s0[1], s0[2])''', None),
+    ("dessin_efforts_saf.py", '''    vp, vn = np.asarray(b["Vmax"], float), np.asarray(b["Vmin"], float)''',
+     '''    vp, vn = np.asarray(b["Vabs"], float), np.zeros(len(b["s"]))''', "V(s) tracé en valeur absolue"),
 ]
 MUTATIONS = [m_ for m_ in MUTATIONS if m_[3] is not None]
 TEMOIN = ("note_saf.py", 'TITRE = "Fondation de grue"', 'TITRE = "Fondation de grue"')

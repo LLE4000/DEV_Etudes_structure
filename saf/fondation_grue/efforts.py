@@ -193,7 +193,10 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float) -> Optional[D
     ``verification.calculer``, avec ses cas et les déplacements de chaque cas). ``d_v`` : la distance à laquelle V se lit
     du bord des zones chargées (h − 6 cm, la valeur de l'annexe A).
 
-    Rend {"bandes": [par bande : "nom", "debut", "fin", "s" (m), "Mmax", "Mmin" (kNm, intégrés sur la largeur), "Vabs" (kN),
+    Rend {"bandes": [par bande : "nom", "debut", "fin", "s" (m), "Mmax", "Mmin" (kNm, intégrés sur la largeur), "Vmax", "Vmin"
+           (kN : l'enveloppe de V AVEC SON SIGNE — V = ∫ (vx·ux + vy·uy) sur la largeur, le terme en mxy compris ; M > 0 fibre
+           inférieure tendue, V a le signe de dM/ds : positif avant un pied, négatif après), "Vabs" (kN : max(Vmax, −Vmin),
+           l'enveloppe de |V|),
            "ok_v", "dans_plot", "charge", "largeur", "p0", "u", "L" ; "M_plus", "M_moins" (hors des plots coulés : au nu du
            plot), "M_plus_plot", "M_moins_plot" (dans les plots coulés, pour information, ou None), "V_d" (le plus grand |V|
            à d_v ou plus des zones chargées ; None quand AUCUNE abscisse n'y est — V à d ne se lit pas, ce qui n'est pas
@@ -214,6 +217,7 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float) -> Optional[D
             plus, moins = np.full((nny, nnx), -np.inf), np.full((nny, nnx), np.inf)
             res = {"bandes": [{"nom": g["bande"]["nom"], "debut": g["bande"]["debut"], "fin": g["bande"]["fin"], "s": g["s"],
                                "Mmax": np.full(len(g["s"]), -np.inf), "Mmin": np.full(len(g["s"]), np.inf),
+                               "Vmax": np.full(len(g["s"]), -np.inf), "Vmin": np.full(len(g["s"]), np.inf),
                                "Vabs": np.zeros(len(g["s"])), "ok_v": g["ok_v"], "dans_plot": g["dans_plot"], "charge": g["charge"],
                                "largeur": g["bande"]["largeur"], "p0": g["p0"], "u": g["u"], "L": g["L"],
                                "dim": {"M_plus": (-np.inf, None, None), "M_moins": (np.inf, None, None), "V_d": (-np.inf, None, None)}}
@@ -237,6 +241,10 @@ def enveloppe(modele: Dict, resultats: Sequence[Dict], d_v: float) -> Optional[D
                 Vi = integrer_bande(d, V[:, 0] * u[0] + V[:, 1] * u[1], p0, u, -b / 2, b / 2, g["s"])
                 rb["Mmax"] = np.maximum(rb["Mmax"], Mi)
                 rb["Mmin"] = np.minimum(rb["Mmin"], Mi)
+                # (V avec son signe — le V calculé, sans valeur absolue ; pas la dérivée de M(s), qui perdrait le terme en
+                #  mxy : V à d tomberait de 84 à 54 kN sur la dalle 10,70)
+                rb["Vmax"] = np.maximum(rb["Vmax"], Vi)
+                rb["Vmin"] = np.minimum(rb["Vmin"], Vi)
                 rb["Vabs"] = np.maximum(rb["Vabs"], np.abs(Vi))
                 hp = ~g["dans_plot"]
                 if hp.any():

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Les DIAGRAMMES ENVELOPPES des bandes d'intégration de la note du « Générateur SAF — Fondation de grue » (lot 5, cahier des
 charges du 15/11/2026, § 10.5, page Efforts) : M(s) avec M+ et M−, et en trait interrompu ce que reprend le treillis en bas
-et en haut (m_Rd × largeur de la bande) ; V(s) avec les abscisses où V se lit (à d des zones chargées). Les valeurs les plus
-fortes sont écrites sur le diagramme.
+et en haut (m_Rd × largeur de la bande) ; V(s) avec son signe (V max au-dessus de l'axe, V min en dessous) et les abscisses
+où V se lit (à d des zones chargées). Les valeurs les plus fortes sont écrites sur le diagramme.
 
 Le dessin est fait EN POINTS : la note le pose à sa largeur exacte (une colonne), son texte fait donc 7,5 pt imprimé (§ 10.3 :
 7 pt au moins). Ce fichier ne calcule rien : il dessine l'enveloppe des efforts (``saf.fondation_grue.efforts.enveloppe``)."""
@@ -161,15 +161,18 @@ def moments(b: Dict, mrd_inf: Optional[float], mrd_sup: Optional[float], ech_inf
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" height="{h:.0f}">{"".join(out)}</svg>'
 
 
-def tranchant(b: Dict, w: float = 380.0, h: float = 110.0, d_v: Optional[float] = None) -> str:
-    """V(s) de la bande ``b`` (|V|, kN sur la largeur), les abscisses où V se lit (à d des zones chargées : bords des
-    tronçons « ok_v » de l'enveloppe), V à d le plus fort écrit."""
+def tranchant(b: Dict, w: float = 380.0, h: float = 130.0, d_v: Optional[float] = None) -> str:
+    """V(s) de la bande ``b`` (kN sur la largeur) AVEC SON SIGNE, comme M(s) : l'enveloppe V max au-dessus de l'axe, V min en
+    dessous (V a le signe de dM/ds : positif avant un pied, négatif après) ; les abscisses où V se lit (à d des zones
+    chargées : bords des tronçons « ok_v ») ; « V à d » écrit sur la courbe où il est lu (le plus grand de |V max| et
+    |V min| à ces abscisses)."""
     s = np.asarray(b["s"], float)
-    v = np.asarray(b["Vabs"], float)
+    vp, vn = np.asarray(b["Vmax"], float), np.asarray(b["Vmin"], float)
     ok = np.asarray(b["ok_v"], bool)
-    ymax = max(float(v.max()), 1.0) * 1.2
-    c = _Cadre(w, h, b["L"], 0.0, ymax)
-    out = [_zones(c, b), _axes(c, "kN"), _courbe(c, s, v, TRANCHANT)]
+    ymax = max(float(vp.max()), 0.0, 1.0) * 1.2
+    ymin = min(float(vn.min()), 0.0, -1.0) * 1.2
+    c = _Cadre(w, h, b["L"], ymin, ymax)
+    out = [_zones(c, b), _axes(c, "kN"), _courbe(c, s, vp, TRANCHANT), _courbe(c, s, vn, TRANCHANT)]
     for i0, i1 in _troncons(ok):
         for i in (i0, i1):
             if 0 < i < len(s) - 1:
@@ -177,8 +180,11 @@ def tranchant(b: Dict, w: float = 380.0, h: float = 110.0, d_v: Optional[float] 
                 out.append(f'<line x1="{x:.1f}" y1="{c.y0:.1f}" x2="{x:.1f}" y2="{c.y1:.1f}" stroke="{LECTURE}" stroke-width="0.8" stroke-dasharray="2 2"/>')
                 out.append(_t(x, c.y0 + 7.5, "d", TXT, LECTURE, "middle"))
     if b.get("V_d") is not None and ok.any():
-        iv = int(np.argmax(np.where(ok, v, -np.inf)))
-        out.append(_etiquette(c, s[iv], v[iv], f"V à d {C.fr(v[iv], 1)} ({C.fr(v[iv] / b['largeur'], 1)}/m)", LECTURE, True))
+        va = np.maximum(vp, -vn)
+        iv = int(np.argmax(np.where(ok, va, -np.inf)))
+        haut = vp[iv] >= -vn[iv]                          # (la courbe où la valeur est lue : V max, ou V min)
+        out.append(_etiquette(c, s[iv], vp[iv] if haut else vn[iv], f"V à d {C.fr(va[iv], 1)} ({C.fr(va[iv] / b['largeur'], 1)}/m)",
+                              LECTURE, haut))
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" height="{h:.0f}">{"".join(out)}</svg>'
 
 

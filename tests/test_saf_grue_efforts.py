@@ -206,6 +206,22 @@ def rapides():
     chk("les champs aux nœuds sur une flexion cylindrique w = 10⁻³ x² : mx = −D·w,xx = −2·10⁻³ D, my = ν·mx, mxy = 0, vx = 0 ; "
         "w = 10⁻³ x³ : vx = −D·w,xxx = −6·10⁻³ D (convention : m > 0 fibre inférieure tendue)",
         _cylindrique(Mn, Vn, Vn3, Dp), (Mn[d.nx // 2], Vn[d.nx // 2], Vn3[d.nx // 2], Dp))
+    print("== 4. V avec son signe : V max et V min (15/11/2026)")
+    _, e7 = efforts(projet(dalle={"Lx": 10.7, "Ly": 10.7}))
+    b7 = e7["bandes"][0]
+    s7 = b7["s"]
+
+    def pic(lo, hi, cle, plus):
+        k = (s7 >= lo) & (s7 <= hi)
+        v = b7[cle]
+        i = int(np.argmax(np.where(k, v, -np.inf))) if plus else int(np.argmin(np.where(k, v, np.inf)))
+        return (r1(v[i]), round(float(s7[i]), 2))
+    pics = [pic(0, 5.35, "Vmax", True), pic(0, 5.35, "Vmin", False), pic(5.35, 10.7, "Vmax", True), pic(5.35, 10.7, "Vmin", False)]
+    identite = all(np.allclose(np.maximum(x["Vmax"], -x["Vmin"]), x["Vabs"], rtol=0, atol=1e-9) for x in e7["bandes"] + e0["bandes"])
+    chk("V avec son signe, dalle 10,70 × 10,70 × 0,50 sans plot, bandes 0,50, BX1 : pied P1 — V max = +130,1 kN à s = 2,00 m, V min = "
+        "−128,5 kN à s = 2,65 m ; pied P2 — V max = +128,5 kN à 8,05 m, V min = −130,1 kN à 8,70 m (V positif avant un pied, négatif "
+        "après : le signe de dM/ds) ; V à d = 84,1 kN comme avant ; partout max(V max, −V min) = |V|",
+        pics == [(130.1, 2.0), (-128.5, 2.65), (128.5, 8.05), (-130.1, 8.7)] and r1(b7["V_d"]) == 84.1 and identite, (pics, r1(b7["V_d"]), identite))
 
 
 def _cylindrique(Mn, Vn, Vn3, Dp):
@@ -296,6 +312,12 @@ MUTATIONS = [
     ("efforts.py", "    if (v > ref + tol) if plus else (v < ref - tol):", "    if (v >= ref - tol) if plus else (v <= ref + tol):",
      "le cas dimensionnant : le DERNIER à égalité"),
     ("efforts.py", "EGALITE_CAS = 1e-6 ", "EGALITE_CAS = 0.0 ", "le cas dimensionnant départagé par le bruit du calcul (« 3.h » au lieu de « 3.c »)"),
+    # (15/11/2026 : V avec son signe)
+    ("efforts.py", '''                rb["Vmax"] = np.maximum(rb["Vmax"], Vi)''', '''                rb["Vmax"] = np.maximum(rb["Vmax"], np.abs(Vi))''', "V max en valeur absolue"),
+    ("efforts.py", '''                rb["Vmin"] = np.minimum(rb["Vmin"], Vi)''', '''                rb["Vmin"] = np.minimum(rb["Vmin"], -np.abs(Vi))''', "V min = −|V|"),
+    ("efforts.py", '''                rb["Vmax"] = np.maximum(rb["Vmax"], Vi)
+                rb["Vmin"] = np.minimum(rb["Vmin"], Vi)''', '''                rb["Vmax"] = np.maximum(rb["Vmax"], -Vi)
+                rb["Vmin"] = np.minimum(rb["Vmin"], -Vi)''', "V de signe opposé à dM/ds"),
 ]
 TEMOIN = ("efforts.py", "PAS_S = 0.25 ", "PAS_S = 0.25 ", "témoin : rien ne change")
 

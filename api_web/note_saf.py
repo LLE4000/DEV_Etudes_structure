@@ -787,7 +787,7 @@ def page_efforts(el: Dict, calc: Dict, ef: Dict, fer: Dict, F: Dict, style: Plan
         s_, ax = ("x" if b["nom"].startswith("BX") else "y"), AR.axe_bande(b)
         svg_m = _figure_en_pt(DE.moments(b, mrd_b.get(f"inf_{ax}"), mrd_b.get(f"sup_{ax}"), ech.get(f"inf_{s_}", 1.0), ech.get(f"sup_{ax}", 1.0), largeur, 150.0),
                               f"Efforts : M(s) {b['nom']}", largeur)
-        svg_v = _figure_en_pt(DE.tranchant(b, largeur, 105.0), f"Efforts : V(s) {b['nom']}", largeur)
+        svg_v = _figure_en_pt(DE.tranchant(b, largeur, 130.0), f"Efforts : V(s) {b['nom']}", largeur)
         verifs.append({"titre": f"{b['nom']} — M(s) et V(s)", "items": (intro if i == 0 else [])
                        + [("fig", svg_m, f"M(s) [kN·m] · BANDE {b['nom']} DE {_n(b['largeur'])} m"),
                           ("fig", svg_v, f"V(s) [kN] · BANDE {b['nom']}")], "verdicts": []})
