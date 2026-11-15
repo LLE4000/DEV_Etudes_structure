@@ -95,7 +95,7 @@ REGLES = (
     ("sol", _R(r"^(sol/|api_web/(sol|dessin_sol)\.py$|site/web/css/modules/sol\.css$)")),
     # le Générateur SAF : le moteur et l'écriture des fichiers (saf/), l'écran, la note, et les gestes du plan (plan.js :
     # glisser, tourner, cote à taper), que lui seul câble aujourd'hui. Les châssis de grue (grues/) sont une bibliothèque
-    ("saf", _R(r"^(saf/|api_web/(saf|saf_saisie|saf_resultat|saf_armatures|dessin_saf|dessin_armatures|dessin_efforts_saf|note_saf)\.py$|"
+    ("saf", _R(r"^(saf/|api_web/(saf|saf_saisie|saf_resultat|saf_armatures|saf_bandes|dessin_saf|dessin_armatures|dessin_efforts_saf|note_saf)\.py$|"
                r"site/web/css/modules/saf\.css$|site/web/js/plan\.js$)")),
     ("bibliotheques", _R(r"^(beton/(bibliotheque|hourdis)/|grues/|api_web/(biblio_\w+|dessin_biblio_\w+)\.py$|"
                          r"site/web/css/bibliotheque[\w-]*\.css$|site/web/js/(biblio|biblio_note|bibliotheque)\.js$)")),
