@@ -433,6 +433,12 @@ def lot6_sections():
         "renforcées) ; et le moment de chaque bande reste partout sous ce que reprennent le treillis et ses renforts (le renfort atteint "
         "tout à un ancrage de son extrémité)",
         not ecarts and vus >= 20 and all(p_ <= 1e-9 for p_ in pires.values()), (ecarts[:4], pires))
+    # deux renforts pareils ne diffèrent qu'au dernier chiffre (pas le même dans Pyodide et CPython) : le premier gouverne
+    ra = {"besoin": 1447.6, "As_tr": 754.0, "n": 4, "d": 12, "largeur": 0.5, "rep": "R5"}
+    rb = dict(ra, besoin=1447.6 * (1 + 1.5e-10), rep="R6")         # (l'écart réel de la dalle type : 1,4e-10)
+    chk("L6-2b deux renforts pareils (R5, R6), dont les besoins ne diffèrent qu'au dernier chiffre : le PREMIER gouverne la section — "
+        "le choix ne bascule pas d'un interpréteur à l'autre (Pyodide et CPython n'ont pas le même dernier chiffre)",
+        rb["besoin"] != ra["besoin"] and SB._gouverne([ra, rb])["rep"] == "R5", (rb["besoin"] - ra["besoin"]))
     # SCIA : la section prend les moments × le rapport SCIA de sa face
     sc = SC.rapports(dict(e7, scia=dict(e7["scia"], mx=round(SC.module(ef7)["mx"] * 1.2, 4))), ef7)
     fs = AR.calculer(e7, m7, ef7, sc)
@@ -714,8 +720,8 @@ MUTATIONS = [
      '''            "saisi": any(sc[c] is not None for c in a_taper),''', "σ seul saisi dit « non saisi »"),
     ("armatures.py", '''    fort = max(CLES, key=lambda c_: (round(res["As"][c_], 6), a[c_.split("_")[0]][c_[-1]]["d"]))''',
      '''    fort = max(CLES, key=lambda c_: (a[c_.split("_")[0]][c_[-1]]["d"], -a[c_.split("_")[0]][c_[-1]]["e"]))''', "le U du plus gros Ø (pas du plus fort)"),
-    ("armatures.py", '''            "plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres"''',
-     '''            "plot_coule": coule, "plot": None, "diametres"''', "la ligne du plot coulé oubliée"),
+    ("armatures.py", '''"plot_coule": coule, "plot": PLOT_A_PREVOIR if coule else None, "diametres"''',
+     '''"plot_coule": coule, "plot": None, "diametres"''', "la ligne du plot coulé oubliée"),
     ("armatures.py", '''                "non_verifies": nv + ["les armatures (" + hd + ")"],''', '''                "non_verifies": ["les armatures (" + hd + ")"],''',
      "hors du moteur Dalles, « Non vérifiés » oublie le poinçonnement"),
     ("armatures.py", '''                r = dans_dalle(r, cle, contour)''', '''                pass''', "un renfort local qui entre dans l'encoche d'un L"),
@@ -728,6 +734,8 @@ MUTATIONS = [
     ("sections.py", '''    for f in faces.values():
         s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', '''    for f in [faces["sup"]]:
         s[CLE_MOMENT[f["cle"]]] = max(0.0, float(f["M"]))''', "la section sans M⁺"),
+    ("sections.py", '''    return next(r for r, x in zip(renforts, t) if x >= haut * (1.0 - EGAUX))''', '''    return next(r for r, x in zip(renforts, t) if x >= haut)''',
+     "le renfort qui gouverne choisi au dernier chiffre"),
     ("sections.py", '''        if r is None or not r["n"]:''', '''        if True:''', "la section sans le renfort de la bande"),
     ("sections.py", '''        return "opposee"''', '''        return "minimum"''', "la face opposée prise pour le minimum déjà dit"),
     ("sections.py", '''            if k == "minimum":''', '''            if True:''', "aucune alerte de la section"),

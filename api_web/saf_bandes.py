@@ -13,6 +13,8 @@ Ce fichier ne calcule rien : il CHOISIT parmi les vérifications du moteur Dalle
 l'effort tranchant — la direction perpendiculaire est celle des autres bandes et des cartes) et les met en mots."""
 from typing import Callable, Dict, List
 
+from saf.fondation_grue import sections as SBM
+
 from . import commun as C
 from . import dessin_efforts_saf as DE
 from . import saf_armatures as SA
@@ -47,7 +49,10 @@ def groupes(fer: Dict, ef: Dict) -> List[Dict]:
         if not ss:
             continue
         if " = " in g["nom"] and not any(s.get("hors") for s in ss):
-            paires = [(g["nom"], max(ss, key=lambda s: s["taux_max"]))]
+            # (la plus chargée, la première à 1e-6 près : deux bandes pareilles ne diffèrent que d'un bruit de calcul — qui
+            #  n'est pas le même dans Pyodide et dans CPython, ``sections.EGAUX``)
+            haut = max(s["taux_max"] for s in ss)
+            paires = [(g["nom"], next(s for s in ss if s["taux_max"] >= haut * (1.0 - SBM.EGAUX)))]
         else:
             paires = [(s["bande"], s) for s in ss]
         out.append({"sens": sens, "ident": SA.ident_bandes(sens), "nom": g["nom"], "sections": paires})

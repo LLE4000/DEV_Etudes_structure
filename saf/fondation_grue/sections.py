@@ -39,6 +39,7 @@ from . import armatures as AR
 CLE_MOMENT = {"inf_x": "Mx_inf", "sup_x": "Mx_sup", "inf_y": "My_inf", "sup_y": "My_sup"}
 FACES = ("inf", "sup")
 FACE_TXT = {"inf": "inférieure", "sup": "supérieure"}
+EGAUX = 1e-6        # deux taux à 1e-6 près (relatif) sont égaux : le premier est retenu
 
 
 def pose_pm(r: Dict) -> float:
@@ -47,8 +48,13 @@ def pose_pm(r: Dict) -> float:
 
 
 def _gouverne(renforts: List[Dict]) -> Dict:
-    """Le renfort qui gouverne une face : le plus fort A_s,néc ÷ A_s posée (le premier à égalité)."""
-    return max(renforts, key=lambda r: r["besoin"] / pose_pm(r))
+    """Le renfort qui gouverne une face : le plus fort A_s,néc ÷ A_s posée — le PREMIER de ceux qui en sont à 1e-6 près.
+    Deux renforts pareils (R5 et R6, sous deux pieds symétriques) ne diffèrent que d'un bruit de calcul (1e-10 relatif : la
+    plaque n'est pas symétrique au dernier chiffre), qui n'est pas le même dans Pyodide et dans CPython — le choix basculait
+    d'un interpréteur à l'autre (trouvé par tests/test_moteur_partage.py, P1 ; un arrondi tombait à cheval)."""
+    t = [r["besoin"] / pose_pm(r) for r in renforts]
+    haut = max(t)
+    return next(r for r, x in zip(renforts, t) if x >= haut * (1.0 - EGAUX))
 
 
 def _moment_bande(fer: Dict, bd: Dict, face: str) -> float:

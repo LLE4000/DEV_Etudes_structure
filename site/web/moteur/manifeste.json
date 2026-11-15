@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "9638c5b7f35c8486afa3a9ed9c3e4642841583a5409be8d5f762b238c1acee03",
+ "sha256": "6407b7548f927818b86881cf4c553a0034e0d28ed590738701d1e6d4bbe6d731",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -422,5 +422,5 @@
   "soudures": "2395161da55dd9d9",
   "taux": "0325815790c3ee2c"
  },
- "version": "708294d8e29ec481"
+ "version": "3c390795d94cfcd0"
 }

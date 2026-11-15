@@ -504,7 +504,7 @@ MUTATIONS = [
     # (lot 6 : le calcul des bandes)
     ("saf_armatures.py", '''        ck = ident_bandes(sens) if fer.get("sections") else "a0"''', '''        ck = "a0"''', "les lignes des bandes qui n'ouvrent pas leur calcul"),
     ("saf.py", '''        volets += SA.fenetre(el, fer, ef) + SB.fenetre(el, fer, ef)''', '''        volets += SA.fenetre(el, fer, ef)''', "la fenêtre du calcul des bandes oubliée"),
-    ("saf_bandes.py", '''            paires = [(g["nom"], max(ss, key=lambda s: s["taux_max"]))]''', '''            paires = [(s["bande"], s) for s in ss]''',
+    ("saf_bandes.py", '''            paires = [(g["nom"], next(s for s in ss if s["taux_max"] >= haut * (1.0 - SBM.EGAUX)))]''', '''            paires = [(s["bande"], s) for s in ss]''',
      "deux bandes pareilles écrites deux fois"),
     ("saf_bandes.py", '''                    li = dict(li, sous=f"V{N}à{N}d{N}={N}{C.fr(s['V'], 1)}{N}kN · sans étriers")''', '''                    pass''',
      "V à d écrit à la précision du calcul"),
