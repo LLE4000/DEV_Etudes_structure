@@ -428,16 +428,23 @@ def echange():
     e.m(f"imp/saisie/{saisie}", "30")
     e.m("imp/filtre", "changements")
     chk("le filtre « Changements » ne montre que les changements", e.r["vues"][0]["svg"].count('data-chemin="imp/choix/') == 9)
+    # la première ligne (G001, 132 → 115 €/J) DÉCOCHÉE à l'écran : elle ne s'applique pas
+    premiere = re.search(r'data-chemin="imp/choix/([0-9a-f]{12})"', e.r["vues"][0]["svg"]).group(1)
+    e.m(f"imp/choix/{premiere}", False)
+    chk("une case décochée l'est dans la note (et le reste à l'écran)", e.etat["imp"]["choix"].get(premiere) is False
+        and f'data-chemin="imp/choix/{premiere}" checked' not in e.r["vues"][0]["svg"])
     e.m("imp/appliquer", "1")
     g2 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G002")
     g1 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G001")
-    chk("« Appliquer » : 10 prix appliqués (la valeur saisie comprise), l'année et la source du fichier, retour à la Base des prix",
-        "10 prix appliqués" in (e.r.get("info") or "") and e.etat["page"] == "base" and g2["cabine_jour"] == 30.0 and g1["location_jour_chassis_standard"] == 115
-        and g1["annee_par_champ"]["location_jour_chassis_standard"] == 2027 and "Annuler le dernier import" in e.r["resultat"]
+    g4 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G004")
+    chk("« Appliquer » : 9 prix appliqués (8 changements cochés et la valeur saisie), la ligne décochée NON appliquée (G001 garde "
+        "132 €/J), l'année et la source du fichier, retour à la Base des prix",
+        "9 prix appliqués" in (e.r.get("info") or "") and e.etat["page"] == "base" and g2["cabine_jour"] == 30.0 and g1["location_jour_chassis_standard"] == 132.0
+        and g4["transport_montage_ff"] == 9500 and g4["annee_par_champ"]["transport_montage_ff"] == 2027 and "Annuler le dernier import" in e.r["resultat"]
         and "Dernier fichier reçu" in e.r["resultat"], e.r.get("info"))
     e.m("b/import/annuler", "1")
-    g1 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G001")
-    chk("« Annuler le dernier import » remet la base et le dossier (« Demande envoyée »)", g1["location_jour_chassis_standard"] == 132.0
+    g4 = next(g for g in e.carnet[0]["grues"] if g["id"] == "G004")
+    chk("« Annuler le dernier import » remet la base et le dossier (« Demande envoyée »)", g4.get("transport_montage_ff") is None
         and "pg-ec-demande" in e.r["resultat"] and "Annuler le dernier import" not in e.r["resultat"], e.r.get("info"))
     e.m("page", "import")
     chk("la page de contrôle sans fichier : refusée par un message", "page inconnue" in (e.r["message"] or ""), e.r.get("message"))
