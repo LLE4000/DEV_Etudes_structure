@@ -361,6 +361,10 @@ def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
         calc = M.calculer(el)
         s = SR.synthese(el, calc)
         out += [planche_donnees(el, calc, s, style), planche_verification(el, calc, s, style)]
+        fer = M.ferraillage(el, calc) if s.get("r_vue") is not None else None
+        if fer is not None and "erreur" not in fer:
+            from . import note_saf_ferraillage as NF
+            out += NF.planches(el, calc, s, style, fer, M.efforts(el, calc), _planche, SR.non_verifies(el, calc, fer["non_verifies"]))
         annexe = planche_annexe(el, s, style)
         if annexe:
             out.append(annexe)

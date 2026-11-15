@@ -31,14 +31,17 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from saf.fondation_grue import chassis as CH
 from saf.fondation_grue import ecriture as EC
 from saf.fondation_grue import efforts as EF
+from saf.fondation_grue import ferraillage as FE
 from saf.fondation_grue import geometrie as G
 from saf.fondation_grue import projet as PR
 from saf.fondation_grue import proposition as PP
 from saf.fondation_grue import verification as V
 
 from . import commun as C
+from . import dessin_ferraillage as DF
 from . import dessin_saf as DS
 from . import etabli_compact as E
+from . import saf_ferraillage as SF
 from . import saf_resultat as SR
 from . import saf_saisie as SS
 
@@ -313,7 +316,13 @@ def _ecrire(etat: Dict, el: Dict, ch: List[str], valeur) -> Optional[str]:
                 raise ValueError("carte : contrainte, tassement, moments ou sans carte")
             el["vue"]["carte"] = valeur
         elif ch[1] == "onglet":
+            if valeur not in PR.ONGLETS:
+                raise ValueError("onglet : plan, ferraillage ou coupes")
             el["vue"][ch[1]] = valeur
+        elif ch[1] == "fond":
+            if (valeur or "") not in PR.FONDS:
+                raise ValueError("fond : sans fond, ou le taux d'un treillis")
+            el["vue"]["fond"] = valeur or ""
         elif ch[1] == "cas":
             el["vue"]["cas"] = str(valeur) if valeur not in (None, "") else None
         else:
@@ -504,6 +513,31 @@ def efforts(el: Dict, calc: Dict, ks: Optional[List[Dict]] = None, cas: Optional
     return ef
 
 
+_FERRAILLAGES: "OrderedDict[str, Dict]" = OrderedDict()
+
+
+def ferraillage(el: Dict, calc: Dict) -> Optional[Dict]:
+    """Le ferraillage de la fondation (``saf.fondation_grue.ferraillage.calculer``), sur l'enveloppe des efforts de tous
+    les cas et des k cochés « SCIA » ; gardé (changer la vue ne le refait pas). None sans calcul ou sans réactions ;
+    {"erreur": …} si le moteur poutre refuse."""
+    if calc["par_k"] is None or not calc["modele"]["cas"]:
+        return None
+    o = el["options"]
+    cle = json.dumps([_signature_calcul(el), PR.k_scia(el), el["bandes"]["largeur"], el["armatures"],
+                      [o[k] for k in ("torsion", "recouvrement", "l_max", "gamma_s", "jeu", "arrondi")]], sort_keys=True)
+    if cle in _FERRAILLAGES:
+        _FERRAILLAGES.move_to_end(cle)
+        return _FERRAILLAGES[cle]
+    try:
+        fer = FE.calculer(el, calc["modele"], efforts(el, calc))
+    except (ValueError, RuntimeError) as e:
+        fer = {"erreur": SS.phrase(str(e))}
+    _FERRAILLAGES[cle] = fer
+    while len(_FERRAILLAGES) > CALCULS_MAX:
+        _FERRAILLAGES.popitem(last=False)
+    return fer
+
+
 # ------------------------------------------------------------------ « Proposer »
 _PROPOSITIONS: "OrderedDict[str, Dict[float, Dict]]" = OrderedDict()
 
@@ -649,12 +683,28 @@ def resultat(etat: Dict) -> Dict:
     calc = calculer(el)
     synth = [SR.synthese(f, calc if i == etat["actif"] else calculer(f)) for i, f in enumerate(etat["fondations"])]
     s = synth[etat["actif"]]
-    html_res, volets = SR.colonne(el, calc, s)
+    fer = ferraillage(el, calc) if s.get("r_vue") is not None else None
+    ef = None
+    if fer is None:
+        html_res, volets = SR.colonne(el, calc, s)
+    elif "erreur" in fer:
+        html_res, volets = SR.colonne(el, calc, s, SF.carte_erreur(fer["erreur"]))
+    else:
+        ef = efforts(el, calc)
+        html_res, volets = SR.colonne(el, calc, s, SF.cartes(el, fer, ef), fer["non_verifies"])
+        volets += SF.fenetres(el, fer, ef)
     donnees = arbre(etat, calc, s, carnet)
-    ef = efforts(el, calc, *SR.selection(el, calc)) if SR.carte_moments(el) and s.get("r_vue") is not None else None
-    champ = SR.champ(el, calc, s, ef)
-    vues = [{"cle": "plan", "titre": "Plan", "court": "Plan", "entete": SR.entete(el, calc, s), "echelle": False,
-             "svg": DS.plan(el, calc["modele"], champ, legende=el["vue"]["carte"] != "aucune")}]
+    ef_vue = efforts(el, calc, *SR.selection(el, calc)) if SR.carte_moments(el) and s.get("r_vue") is not None else None
+    champ = SR.champ(el, calc, s, ef_vue)
+    onglet = el["vue"]["onglet"]
+    if onglet != "plan" and fer is not None and "erreur" not in fer:
+        svg = (DF.plan(el, calc["modele"], fer, ef, el["vue"].get("fond") or None) if onglet == "ferraillage"
+               else DF.coupes(el, calc["modele"], fer, ef))
+    elif onglet != "plan":
+        svg = DS.plan(el, calc["modele"], None, legende=False)
+    else:
+        svg = DS.plan(el, calc["modele"], champ, legende=el["vue"]["carte"] != "aucune")
+    vues = [{"cle": "plan", "titre": "Plan", "court": "Plan", "entete": SR.entete(el, calc, s), "echelle": False, "svg": svg}]
     nivs = [x["niveau"] for x in synth]
     statut = C.statut(next((n for n in ("x", "r", "n", "f") if n in nivs), "p")) if len(synth) > 1 else ""
     return {"resultat": html_res, "volets": volets, "vues": vues, "phrase": "", "statut_html": statut, "resume": resume_note(etat, synth),

@@ -38,7 +38,7 @@ CLASSES = {"p": "ok", "f": "warn", "r": "nok", "n": "inc", "x": "nok"}
 ETATS = {"ok": "Conforme", "warn": "Conforme", "nok": "Non conforme", "inc": "non vérifié"}
 ENVELOPPE = "Enveloppe"
 # les onglets du centre (§ 2.3) : le plan (la carte), le plan ferraillé et les coupes (lot 4d)
-ONGLETS = (("plan", "Plan"),)
+ONGLETS = (("plan", "Plan"), ("ferraillage", "Ferraillage"), ("coupes", "Coupes"))
 # ce que la méthode ne vérifie pas (§ 9) : la ligne grise sous les cartes
 NON_VERIFIES = ("la fissuration", "les efforts horizontaux et les moments aux pieds de la grue")
 METHODE = "Méthode du bureau · moteur poutre"
@@ -190,6 +190,10 @@ def entete(el: Dict, calc: Dict, s: Dict, onglets=ONGLETS) -> str:
             k_txt = [("", ENVELOPPE)] + [(repr(x["k"]), f"k = {_k(x['k'])}") for x in el["sol"]["k"]]
             out += _menu("vue/k", repr(vue["k"]) if vue["k"] is not None else "", k_txt,
                          "La raideur de sol affichée : l'enveloppe des k cochés « SCIA », ou un k", "sf-m-k")
+    if vue["onglet"] == "ferraillage":
+        from . import dessin_ferraillage as DF
+        out += _menu("vue/fond", vue.get("fond") or "", DF.FONDS, "Le fond du plan ferraillé : le taux de travail du treillis seul, ligne noire à 100 %",
+                     "sf-m-fond")
     return f'<div class="et-ent sf-ent sf-barre">{out}</div>'
 
 

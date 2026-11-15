@@ -154,7 +154,8 @@ def _echelle(champ: Dict) -> Tuple[Sequence, float]:
     """(la rampe, ce qui vaut 1 sur la rampe) : le dégradé « turbo », de 0 au maximum affiché — le plus grand du maximum
     du champ et de la limite, quand il y en a une (§ 2.3)."""
     if champ.get("par_element"):
-        maxi = max(float(np.max(champ["valeurs"])) if len(champ["valeurs"]) else 0.0, 1e-9)
+        v_ = np.asarray(champ["valeurs"], float)
+        maxi = max(float(np.nanmax(v_)) if np.isfinite(v_).any() else 0.0, 1e-9)
     else:
         maxi = max(float(np.nanmax(np.where(champ["dalle"].on0, champ["valeurs"], np.nan))), 1e-9)
     if champ.get("limite"):
@@ -251,8 +252,10 @@ def _carte_elements(v: _Vue, champ: Dict, ident: str) -> str:
     rampe, unite = _echelle(champ)
     f = max(1, min(8, IMAGE_PIXELS // max(d.nx, d.ny, 1)))
     rgba = np.zeros((d.ny, d.nx, 4))
-    rgba[d.J, d.I, :3] = _couleurs(np.asarray(champ["valeurs"], float) / unite, rampe)
-    rgba[d.J, d.I, 3] = 255
+    val = np.asarray(champ["valeurs"], float)
+    fini = np.isfinite(val)                                    # (un élément sans valeur reste sans couleur)
+    rgba[d.J, d.I, :3] = _couleurs(np.where(fini, val, 0.0) / unite, rampe)
+    rgba[d.J, d.I, 3] = np.where(fini, 255, 0)
     img = np.rint(rgba).astype(np.uint8).repeat(f, axis=0).repeat(f, axis=1)[::-1]
     return _image(v, d, np.ascontiguousarray(img), f, ident)
 
@@ -290,7 +293,7 @@ def _carte_vecteur(v: _Vue, champ: Dict) -> str:
     d = champ["dalle"]
     rampe, unite = _echelle(champ)
     if champ.get("par_element"):
-        val, dec = np.asarray(champ["valeurs"], float) / unite, np.zeros(len(d.I), bool)
+        val, dec = np.nan_to_num(np.asarray(champ["valeurs"], float), nan=0.0) / unite, np.zeros(len(d.I), bool)
     else:
         val = champ["valeurs"][d.noeuds].mean(axis=1) / unite
         dec = champ["decolle"][d.noeuds].mean(axis=1) > 0.5

@@ -185,12 +185,12 @@ def rapides():
     ent = r["vues"][0]["entete"]
     menus = re.findall(r'<select data-agir="1" data-chemin="(vue/[a-z]+)"[^>]*>(.*?)</select>', ent, re.S)
     premiers = {c: re.findall(r'<option value="([^"]*)"( selected)?>([^<]+)</option>', o)[0] for c, o in menus}
-    chk("U8 / U3 la barre du centre, sur UNE ligne : l'onglet « Plan », puis trois listes — la carte (Contrainte, Tassement, Moments, Sans carte), le "
+    chk("U8 / U3 la barre du centre, sur UNE ligne : les onglets « Plan », « Ferraillage », « Coupes », puis trois listes — la carte (Contrainte, Tassement, Moments, Sans carte), le "
         "cas et le k, « Enveloppe » en tête et choisie ; la carte, une image PNG découpée au contour, est l'ENVELOPPE des 16 cas et des 3 k "
         "cochés SCIA : son maximum est celui du moteur, pointé en kg/cm²",
         png[:8] == b"\x89PNG\r\n\x1a\n" and f"σ max {fr(gov['sigma_max'] / V.KG_CM2, 2)} kg/cm²" in svg and 'clip-path="url(#saf_dalle)"' in svg
         and ent.startswith('<div class="et-ent sf-ent sf-barre">') and "<br" not in ent and 'class="l1"' not in ent
-        and re.findall(r'data-chemin="vue/onglet" data-valeur="([a-z]+)"', ent) == ["plan"]
+        and re.findall(r'data-chemin="vue/onglet" data-valeur="([a-z]+)"', ent) == ["plan", "ferraillage", "coupes"]
         and [c for c, _ in menus] == ["vue/carte", "vue/cas", "vue/k"] and premiers["vue/cas"] == ("", " selected", "Enveloppe")
         and premiers["vue/k"] == ("", " selected", "Enveloppe")
         and re.findall(r'<option value="([a-z]+)"', dict(menus)["vue/carte"]) == ["sigma", "w", "m", "aucune"], (len(png), premiers))
@@ -249,6 +249,34 @@ def rapides():
         and (lambda rb: rb["message"] == "Carte : contrainte, tassement, moments ou sans carte" and rb["etat"] == type_)(
             q(action="modifier", etat=type_, chemin=["vue", "carte"], valeur="m_inf_z")),
         (re.findall(r"m inf\. x max [^<]*", rc_["vues"][0]["svg"])[:1], re.findall(r"m inf\. x max [^<]*", rt_["vues"][0]["svg"])[:1]))
+    # R7 / U2 / U4 (lot 4c) : les cartes du ferraillage, les composants du module poutre — et la ligne « Non vérifiés »
+    fer_ = M.ferraillage(PR.lire(el), calc)
+    res_f, vol_f = txt(r["resultat"]), txt(r["volets"])
+    b1i, b1s = fer_["faces"]["inf"]["bandes"]["BX1"], fer_["faces"]["sup"]["bandes"]["BX1"]
+    t1 = fer_["tranchant"]["BX1"]
+    chk("R7 / U2 les cartes du ferraillage : Sol, Contrôles, puis Dalle, BX1, BX2, BY1, BY2 (E.bloc, état en mots) ; BX1 montre M⁺ = 71,6 kNm "
+        "(143,2 kNm/m), M⁻ = -63,3 kNm (-126,7 kNm/m), V à d au d du moteur ; Inférieure et Supérieure : l'acier demandé par le moteur ≤ l'acier "
+        "en place (taux en %), Effort tranchant, Hauteur ; la fenêtre de BX1 : le moteur poutre pour une poutre b = 50 cm × h = 50 cm",
+        re.findall(r'<span class="n">([^<]+)</span>', r["resultat"]) == ["Sol", "Contrôles", "Dalle", "BX1", "BX2", "BY1", "BY2"]
+        and "BX1 Conforme M⁺ = 71,6 kNm (143,2 kNm/m) · M⁻ = -63,3 kNm (-126,7 kNm/m) · V à d" in res_f
+        and txt(f"V à d = {fr(t1['V'])} kN ({fr(t1['V'] / 0.5)} kN/m)") in res_f
+        and txt(f"Inférieure {C.pct(b1i['taux'])} % A_s,néc = {fr(b1i['retenu']['necessaire_pm'], 0)} ≤ {fr(b1i['As_place_pm'], 0)} mm²/m") in res_f
+        and txt(f"Supérieure {C.pct(b1s['taux'])} % A_s,néc = {fr(b1s['retenu']['necessaire_pm'], 0)} ≤ {fr(b1s['As_place_pm'], 0)} mm²/m") in res_f
+        and "Effort tranchant" in res_f and re.search(r"Hauteur \d+ % h_min = ", res_f) is not None
+        and "Inférieure — moteur poutre, b = 50 cm, h = 50 cm" in vol_f
+        and r["volets"].count('class="flyout calcul"') == 8, (re.findall(r'<span class="n">([^<]+)</span>', r["resultat"]), res_f[res_f.find("BX1"):][:300]))
+    chk("U4 la ligne « Non vérifiés » : le poinçonnement (le logiciel n'en a pas selon la méthode du bureau), la fissuration, les efforts "
+        "horizontaux et les moments aux pieds de la grue ; la carte Dalle dit « Poinçonnement non vérifié »",
+        "Non vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue." in res_f
+        and "Poinçonnement non vérifié la méthode du bureau n'en a pas dans le logiciel" in res_f, res_f[res_f.find("Non vérifiés"):][:200])
+    rc8 = mod(type_, ["grue", "plots", "type"], "coule")
+    res8 = txt(rc8["resultat"])
+    chk("R8 à l'écran : plots coulés en place → la carte Plots (la cage, les moments dans le plot pour information, « Brins verticaux sous le pied : "
+        "à dimensionner ») et la ligne « Non vérifiés » les nomme",
+        re.findall(r'<span class="n">([^<]+)</span>', rc8["resultat"])[-1] == "Plots" and "Brins verticaux sous le pied non vérifié à dimensionner" in res8
+        and res8.count("Brins verticaux sous le pied") == 1
+        and "C verticaux Ø" in res8 and "Moments dans le plot" in res8
+        and "Non vérifiés : le poinçonnement, les brins verticaux sous le pied, la fissuration" in res8, res8[res8.find("Plots"):][:300])
     # U6 : l'unité des contraintes de sol, partout ensemble
     rk, rm = mod(type_, ["options", "unite"], "kpa"), mod(type_, ["options", "unite"], "mpa")
     tk, tm = txt(rk["resultat"]), txt(rm["resultat"])
@@ -504,10 +532,12 @@ def complets():
     t = pdf_texte(octets)
     n_pages = int(re.search(r"Pages:\s+(\d+)", subprocess.run(["pdfinfo", "-"], input=octets, capture_output=True).stdout.decode()).group(1))
     pire = next(x for x in calc["par_k"] if x["k"] == s["k"])
-    chk("la note PDF, à la mise en page des notes du site : la garde (le chantier, le nom de la note, l'indice, la date ; un sommaire de trois "
-        "planches) puis « Plan et données », « Vérification rapide », « Annexe — raideur du sol » : quatre pages",
-        note["ok"] and n_pages == 4 and all(x in t for x in ("Note de calcul", "Chantier A", "Grue G1", "14/11/2026", "F1 — Plan et données",
-                                                              "F1 — Vérification rapide", "F1 — Annexe — raideur du sol")), (n_pages, t[:300]))
+    chk("la note PDF, à la mise en page des notes du site : la garde (le chantier, le nom de la note, l'indice, la date ; le sommaire) puis "
+        "« Plan et données », « Vérification rapide », les quatre planches du ferraillage (lot 4d : Efforts, Ferraillage, Coupes, Bordereau) et "
+        "« Annexe — raideur du sol » : huit pages",
+        note["ok"] and n_pages == 8 and all(x in t for x in ("Note de calcul", "Chantier A", "Grue G1", "14/11/2026", "F1 — Plan et données",
+                                                              "F1 — Vérification rapide", "F1 — Efforts", "F1 — Ferraillage", "F1 — Coupes",
+                                                              "F1 — Bordereau", "F1 — Annexe — raideur du sol")), (n_pages, t[:300]))
     chk("la note dit LES DONNÉES : le projet et la grue, le châssis par son nom ET son id dans la bibliothèque, les appuis réels 0,58 × 0,40 m à 45° "
         "et leur aire, les plots coulés en place 2,00 × 2,00 × 0,35 m, les trois jeux, le béton et E, k, la limite — un champ vide ne s'imprime pas, "
         "aucun libellé n'est coupé (« … »)",
@@ -649,6 +679,14 @@ MUTATIONS += [
     ("dessin_saf.py", '''    if champ.get("par_element"):
         return _carte_elements(v, champ, ident)''', '''    if champ.get("par_element"):
         return ""''', "la carte des moments non peinte"),
+]
+MUTATIONS += [
+    ("saf_ferraillage.py", '''({C.fr(rb["M_plus"] / b, 1)}{N}kNm/m)</span> · \'''', '''({C.fr(rb["M_plus"], 1)}{N}kNm/m)</span> · \'''',
+     "la valeur par mètre sans la division par la largeur"),
+    ("saf.py", '''        html_res, volets = SR.colonne(el, calc, s, SF.cartes(el, fer, ef), fer["non_verifies"])''',
+     '''        html_res, volets = SR.colonne(el, calc, s, SF.cartes(el, fer, ef))''', "« Non vérifiés » sans le poinçonnement"),
+    ("saf_ferraillage.py", '''        if titre == "Brins verticaux sous le pied":
+            continue''', '''        pass''', "les brins sous le pied dits deux fois"),
 ]
 MUTATIONS = [m for m in MUTATIONS if m[2] is not None]
 TEMOIN = ("saf.py", 'MODULE = "saf"', 'MODULE = "saf"')

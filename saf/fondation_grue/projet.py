@@ -41,6 +41,7 @@ FORMES = ("rectangle", "contour")
 ONGLETS = ("plan", "ferraillage", "coupes")
 CARTES_MOMENTS = ("m_inf_x", "m_inf_y", "m_sup_x", "m_sup_y")      # la carte « Moments » : la face, puis la direction
 CARTES = ("sigma", "w") + CARTES_MOMENTS + ("aucune",)
+FONDS = ("", "inf_x", "inf_y", "sup_x", "sup_y")    # le fond de l'onglet Ferraillage : le taux de travail du treillis seul (§ 2.3)
 # lot 4 (cahier des charges du 15/11/2026) : la maille et les bandes par défaut, l'unité des contraintes de sol, les armatures
 MAILLE_DEFAUT = 0.20             # § 3.1 (0,25 m avant le lot 4 ; une note enregistrée garde la sienne)
 LARGEUR_BANDE_DEFAUT = 0.5       # § 4.3 (1,00 m avant le lot 4)
@@ -80,7 +81,7 @@ def nouveau(nom: str = "F1") -> Dict:
                     "aretes": False, "nonlinear": False, "h_min": 0.30, "h_max": 1.20, "h_pas": 0.10,
                     "unite": "kgcm2", "torsion": True, "recouvrement": RECOUVREMENT_DEFAUT, "l_max": L_BARRE_MAX,
                     "gamma_s": GAMMA_S_DEFAUT, "jeu": JEU_DEFAUT, "arrondi": ARRONDI_DEFAUT},
-        "vue": {"onglet": "plan", "carte": "sigma", "cas": None, "k": None},
+        "vue": {"onglet": "plan", "carte": "sigma", "cas": None, "k": None, "fond": ""},
         "proposition": None,
     }
 
@@ -175,6 +176,9 @@ def lire(el: Dict) -> Dict:
     b["reactions"] = []
     for j in jeux:
         P = list((j or {}).get("P") or [None] * 4)[:4] + [None] * 4
+        if any(isinstance(v, (int, float)) and not isinstance(v, bool) and v < 0 for v in P[:4]):
+            # (lot 4, § 5.10 : une réaction négative est un ARRACHEMENT, que le module ne traite pas)
+            raise ValueError("une réaction négative est un arrachement : non traité")
         b["reactions"].append({"nom": _texte((j or {}).get("nom"), 40),
                                "P": [None if v is None or v == "" else _nombre(v, "une réaction", 0.0, 1e5) for v in P[:4]]})
     lb = (el.get("bandes") or {}).get("largeur", LARGEUR_BANDE_DEFAUT)
@@ -219,7 +223,8 @@ def lire(el: Dict) -> Dict:
     b["vue"] = {"onglet": v.get("onglet") if v.get("onglet") in ONGLETS else "plan",
                 "carte": v.get("carte") if v.get("carte") in CARTES else "sigma",
                 "cas": v.get("cas") if isinstance(v.get("cas"), str) else None,
-                "k": float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None}
+                "k": float(v["k"]) if isinstance(v.get("k"), (int, float)) and not isinstance(v.get("k"), bool) else None,
+                "fond": v.get("fond") if v.get("fond") in FONDS else ""}
     b["proposition"] = copy.deepcopy(el.get("proposition")) if isinstance(el.get("proposition"), dict) else None
     return b
 

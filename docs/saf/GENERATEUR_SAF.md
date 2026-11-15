@@ -2,7 +2,8 @@
 
 *Module du site « Générateur SAF » (page `generateur-saf`, clé `saf`), livré le 14/11/2026 : lots 1 (calcul et export)
 et 2 (écran et note) du cahier des charges du bureau. Le lot 3 (automatisation SCIA : XML, ESA_XML, assemblage de la
-note) attend les essais S2 à S7 dans SCIA, faits par le bureau.*
+note) attend les essais S2 à S7 dans SCIA, faits par le bureau. Le lot 4 (15/11/2026 : efforts, ferraillage, plan
+ferraillé, coupes, bordereau, et les corrections d'interface) est décrit au § 8.*
 
 ## 1. Ce que fait le module
 
@@ -29,12 +30,16 @@ cahier des charges) : pas de calage sur SCIA.
 | `saf/fondation_grue/projet.py` | le projet : valeurs par défaut, relecture stricte, modèle (contour, plaques, plots, bandes, cas, contrôles) |
 | `saf/fondation_grue/proposition.py` | « Proposer » : par épaisseur, la plus petite dalle sous la limite |
 | `saf/fondation_grue/ecriture.py` | les feuilles du SAF d'un projet, la règle des Id ; `ndc_type.json` : le fichier SAF du bureau (textes neutralisés) |
+| `saf/fondation_grue/efforts.py` | lot 4 : les efforts ELS lus dans les solutions (champs aux nœuds, bandes intégrées sur la largeur exacte, enveloppes, moments de calcul avec torsion, zones de renfort) |
+| `saf/fondation_grue/ferraillage.py` | lot 4 : le ferraillage, avec le moteur du module « Poutres béton armé » (treillis, renforts de bandes et locaux, effort tranchant, U, cages, bordereau) |
 | `grues/chassis/` | la bibliothèque des châssis de grue : la base (`donnees/chassis_grues.json`, 21 châssis), son moteur de dessin d'origine (`src/chassis_dessin.js`) et son test (`tests/verifier_bibliotheque.js`), tels que livrés ; `acces.py` traduit en Python ses fonctions d'accès, sans changer un résultat |
 | `api_web/saf.py` | le module : l'état, la saisie (`modifier`), le sélecteur des châssis, le résultat, l'export, le carnet |
-| `api_web/saf_saisie.py` | la colonne de gauche (huit rubriques) |
-| `api_web/saf_resultat.py` | la colonne de droite (verdict, tableau par k, contrôles, positions, Proposer, export) et les fenêtres de détail |
-| `api_web/dessin_saf.py` | le plan à l'échelle, ses gestes, ses cotes, la carte des contraintes ou des tassements |
-| `api_web/note_saf.py` | la note de calcul PDF |
+| `api_web/saf_saisie.py` | la colonne de gauche (quatre blocs, lot 4) |
+| `api_web/saf_resultat.py` | la colonne de droite (cartes SOL et CONTRÔLES, tableau par k, positions, Proposer, export), la barre du centre et les fenêtres de détail |
+| `api_web/saf_ferraillage.py` | lot 4 : les cartes DALLE, BX1 à BY2, PLOTS, le bordereau dépliable et leurs fenêtres de calcul |
+| `api_web/dessin_saf.py` | le plan à l'échelle, ses gestes, ses cotes, la carte (contrainte, tassement, moments) |
+| `api_web/dessin_ferraillage.py` | lot 4 : le plan ferraillé (avec le fond « taux du treillis ») et les coupes A-A et B-B |
+| `api_web/note_saf.py`, `api_web/note_saf_ferraillage.py` | la note de calcul PDF ; ses planches du ferraillage (lot 4) |
 | `site/web/js/plan.js` | les gestes du plan (glisser, tourner, cote à taper, sommets), au doigt comme à la souris |
 | `site/web/js/carnet.js` | le carnet d'un module (les grues enregistrées), dans le navigateur |
 | `site/web/css/modules/saf.css` | la feuille du module |
@@ -44,14 +49,15 @@ référence indépendant, avec scipy, est `tests/fondation_grue_ref.py` (l'annex
 
 ## 3. Le calcul
 
-- **Plaque** : élément rectangle ACM (w, ∂w/∂x, ∂w/∂y), grille régulière (maille 0,25 m par défaut) ; un élément est
+- **Plaque** : élément rectangle ACM (w, ∂w/∂x, ∂w/∂y), grille régulière (maille 0,20 m par défaut depuis le lot 4) ; un élément est
   gardé si son centre est dans le contour ; un plot coulé en place épaissit les éléments dont le centre est dedans.
 - **Sol** : un ressort k × surface tributaire à chaque nœud, plus C2 (Pasternak, k/10 par défaut, décision 2) ; en
   **compression seule** — les nœuds qui se soulèvent sont libérés, et on recalcule jusqu'à stabilité.
 - **Résolution** : matrice bande résolue par blocs (LDLᵀ tridiagonale par blocs) et formule de Woodbury pour les nœuds
   libérés ; une dalle déjà factorisée est gardée en cache (déplacer la grue ne refactorise rien).
 - **Charges** (ELS caractéristiques, comme les combinaisons du SAF) : poids propre γ·h, poids des plots, chaque réaction
-  répartie sur sa surface d'appui — ou sur tout le plot s'il est préfabriqué ; chaque charge est normalisée (sa somme
+  répartie sur sa surface d'appui — sous un plot préfabriqué, sur le carré de diffusion à 45° (côté du carré de même
+  aire que la surface d'appui + 2 × hauteur du plot, borné par le plot ; lot 4) ; chaque charge est normalisée (sa somme
   vaut exactement la réaction).
 - **Positions** : la grue tourne ; châssis carré : 4 rotations et 4 miroirs, rectangulaire : 2 et 2, doublons retirés.
   Les cas « 1.a, 2.a, 3.a, 1.b… » sont rangés comme dans le fichier du bureau.
@@ -73,7 +79,8 @@ page à 0 h : le moteur n'a pas d'horloge), les listes en texte séparé par « 
 L'Id d'un objet du fichier du bureau (même feuille, même nom) est repris ; un objet nouveau reçoit un UUID v5 (espace de
 noms `cd663d86-b1df-5f4f-b40e-3c708345d746`, nom « feuille/objet ») : le même objet a toujours le même Id, et le modèle
 SCIA type reconnaît ses objets à la mise à jour. Une charge surfacique vaut R ÷ aire du polygone ÉCRIT (sommets arrondis
-au mm), pour que la somme fasse exactement R. Un fichier par k coché, nommé « <Projet>_k12.xlsx ». Options : anneau D2
+au mm), pour que la somme fasse exactement R. Depuis le lot 4 : UN seul fichier, « <Projet>.xlsx », écrit avec le
+premier k coché « SCIA » (le bureau fait varier k dans SCIA ; la note rappelle les k à passer). Options : anneau D2
 de 1, 2 ou 3 cm, arêtes internes sur les axes des bandes, combinaisons Nonlinear, platine ronde en carré de même aire
 ou en 48 côtés.
 
@@ -125,12 +132,44 @@ Mêmes fonctions aux trois formats (PC, tablette, téléphone) ; au doigt, chaqu
 | `tests/fondation_grue_ref.py` | le calcul de référence de l'annexe A, joué tel quel : sa sortie est celle du cahier des charges (seules les durées changent) |
 | `tests/test_saf_grue_moteur.py` | T1 à T13, le moteur face au calcul de référence cas par cas, la pureté (aucun scipy chargé), des mutations |
 | `tests/test_saf_grue_export.py` | S1 (non-régression du fichier du bureau), S1b (plots), les règles d'écriture, les options, B1 à B5 côté moteur, la bibliothèque (Python face au moteur d'origine joué par node, sur les 21 châssis, et son propre test), des mutations |
-| `tests/test_api_web_saf.py` | l'écran : la saisie et ses refus, la colonne de droite égale au moteur, le plan et ses gestes, B1 à B5 à l'écran, Proposer, le lien sol, le carnet, l'export à l'octet du moteur, la note PDF, des mutations |
+| `tests/test_api_web_saf.py` | l'écran : la saisie et ses refus, la colonne de droite égale au moteur, le plan et ses gestes, B1 à B5 à l'écran, Proposer, le lien sol, le carnet, l'export à l'octet du moteur, la note PDF, U1 à U9 et R7, R8 à l'écran (lot 4), des mutations |
+| `tests/test_saf_grue_efforts.py` | lot 4 : T14, T15, T17, les règles des efforts, la parité avec le calcul de référence (6 cas), des mutations |
+| `tests/test_saf_grue_ferraillage.py` | lot 4 : R1 à R8 (R1 rejoue le moteur poutre sur tous les éléments), l'effort tranchant, l'arrachement, la pureté, des mutations |
+| `tests/test_saf_grue_plans.py` | lot 4 : D1 à D3 (plan ferraillé, coupes, note PDF), les onglets, le bordereau à l'écran, des mutations |
 | harnais, filtre « saf » | dans le vrai navigateur, aux trois formats : la page égale au moteur du dépôt après chaque pas, les gestes mesurés (souris et doigt), la carte peinte, Proposer, l'export .zip, Reprendre, les grues enregistrées, le contour, 44 px au doigt |
 
 Les essais S2 à S7 se font dans SCIA, par le bureau ; leurs fichiers SAF sont produits par le module lui-même.
 
-## 8. Points signalés au bureau (14/11/2026)
+## 8. Lot 4 (15/11/2026) : efforts, ferraillage, plans
+
+- **L'écran** (comme le module « Poutres béton armé ») : à gauche quatre blocs (Dalle et sol, Grue et charges, Armatures,
+  Options) ; au centre une ligne — les onglets Plan, Ferraillage, Coupes ; la carte (Contrainte, Tassement, Moments, Sans
+  carte), le cas et le k, « Enveloppe » en tête ; à droite des cartes sobres (SOL, CONTRÔLES, DALLE, BX1 à BY2, PLOTS), la
+  ligne « Non vérifiés », le pied « Méthode du bureau · moteur poutre ». Dégradé « turbo » de 0 au maximum, la limite en
+  trait noir sur la légende et en ligne noire sur le plan ; l'unité des contraintes de sol (kg/cm² par défaut) partout.
+- **Les efforts** (`efforts.py`) se LISENT dans les solutions de la contrainte de contact (aucun calcul de plus) : moments
+  aux coins moyennés aux nœuds, V au centre moyenné ; M(s) et V(s) intégrés sur la largeur EXACTE de chaque bande (bords
+  interpolés, pas maille / 4), en enveloppe des cas et des k cochés ; V à d du bord des zones chargées (surface d'appui,
+  carré de diffusion, plot coulé), d étant celui du moteur poutre ; moments de calcul m ± |mxy| au centre des éléments ;
+  zones de renfort prolongées jusqu'au bord quand la lisière restante est plus étroite qu'une bande.
+- **Le ferraillage** (`ferraillage.py`) appelle `beton.poutre.moteur.verifier` sans le modifier (une bande = une poutre
+  b × h, h + plot au droit d'un plot coulé en face inférieure ; le treillis et les renforts locaux par mètre). Treillis
+  Ø10/Ø12 e = 10/15 cm par face, le plus léger au total (treillis + renforts locaux + renforts de bandes) ou imposé ;
+  renforts Ø12/16/20, le plus léger qui couvre ; renforts locaux là où le treillis ne suffit pas (rectangles allongés d'un
+  recouvrement) ; C verticaux d'effort tranchant quand le moteur en demande ; U de fermeture ; cage des plots coulés ;
+  bordereau (T, R, L, U, C, V), béton et ratio. Le poinçonnement : non vérifié (le logiciel n'en a pas selon la méthode
+  du bureau) ; les brins verticaux sous le pied : « à dimensionner » ; l'arrachement : refusé à la saisie.
+- **Choix faits seul, à revoir avec le bureau** : la face opposée la plus défavorable (Ø20) pour le terme « 0,25·A_s,req
+  opposé » ; un renfort dans le plan des barres de sa direction, entre les barres du treillis (un tous les m
+  intervalles, ou deux par intervalle si l'espacement libre du moteur poutre le permet) ; le lit d'une direction pris au
+  centre de sa plus grosse barre (≤ 4 mm côté sécurité) ; les C d'effort tranchant à retours de 10 Ø ; recouvrement 50 Ø
+  (le logiciel n'a pas de règle).
+- **Plans** (`dessin_ferraillage.py`) : le plan ferraillé (treillis, renforts de bandes hachurés, renforts locaux, U,
+  cages, repères des coupes ; fond « taux de travail du treillis seul » avec sa ligne noire à 100 %) et les coupes A-A
+  (BX1) et B-B (BY1), à l'échelle, avec les repères du bordereau. La note PDF y ajoute quatre planches : Efforts
+  (diagrammes M(s), V(s)), Ferraillage, Coupes, Bordereau.
+
+## 9. Points signalés au bureau (14/11/2026)
 
 1. **Le module « Bibliothèque des châssis de grue » n'existe pas encore comme écran du site** : la base, son moteur de
    dessin et son test ont été livrés ; le Générateur SAF lit la base par `grues/chassis/acces.py`, dont la parité avec
