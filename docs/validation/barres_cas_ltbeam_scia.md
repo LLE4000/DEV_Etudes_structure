@@ -159,3 +159,49 @@ avant de conclure.
 
 **Critère** : celui du début de ce document (≤ 1 % conforme ; 1 à 3 % à expliquer ; plus de 3 % à corriger ou à
 justifier), comparé grandeur par grandeur, dans l'ordre des lignes : un écart sur M_cr ou f_y explique les suivants.
+
+## 5. LTBeam — L17 : la travée d'une poutre continue, moment négatif sur l'appui (ajouté le 16/11/2026)
+
+*Le cas qui départage le site et SCIA (§ 6, S3 avec les deux travées chargées). SCIA calcule deux M_cr pour la même
+travée et la même charge : la charge posée sur la semelle haute y est « déstabilisante » là où le moment est positif
+(221,89 kN·m) et « stabilisante » là où il est négatif (642,87 kN·m, z_g = −180 mm). Le site calcule UN M_cr par
+tronçon, avec la hauteur réelle de la charge, et le compare au plus grand moment du tronçon.*
+
+Section : IPE 360 — I_z = 1 043 cm⁴ ; I_t = 37,90 cm⁴ ; I_w = 314,6·10³ cm⁶ (catalogue du site ; noter celles de
+LTBeam). Portée 6,00 m, fourches aux deux bouts, aucun maintien. Chargement : charge répartie q = 23,1 kN/m sur toute
+la portée ET moment d'extrémité −103,95 kN·m au bout droit (0 au bout gauche) ; le diagramme va de 0 à +58,47 kN·m
+(x = 2,25 m) puis à −103,95 kN·m. M_cr = μ_cr × 103,95 kN·m.
+
+| Cas | Niveau d'application de q (z_g) | M_cr attendu, G = 81 000 | G = 80 769 | μ_cr |
+|---|---|---|---|---|
+| L17a | dessus de la semelle haute (+180 mm) | 223,60 kN·m | 223,30 kN·m | 2,151 |
+| L17b | centre de cisaillement (0) | 385,71 kN·m | 385,37 kN·m | 3,711 |
+| L17c | dessous de la semelle basse (−180 mm) | 651,24 kN·m | 650,95 kN·m | 6,265 |
+
+Lecture : si LTBeam donne L17a ≈ 223 kN·m, une charge posée sur la semelle haute reste déstabilisante sur toute la
+travée, et le site a raison (taux 0,717 ; 0,656 avec le facteur f). S'il donne ≈ 650 kN·m pour la charge posée en
+haut, c'est SCIA, et le moteur du site sera corrigé (lot 2-3). Aucun changement du moteur avant ce contrôle.
+
+## 6. Résultats de SCIA Engineer reçus le 16/11/2026 (mesure datée)
+
+SCIA Engineer 26, annexe nationale belge, M_cr par les coefficients C1, C2, C3 (ECCS 119 / Galea), k_c tiré de C1.
+Le cas S1 au centre de cisaillement n'a pas été calculé. Les sorties de SCIA ne sont pas au dépôt : seules les valeurs.
+
+| Cas | Grandeur | Site | SCIA | Écart | Explication |
+|---|---|---|---|---|---|
+| S1 | M_c,Rd ; V_pl,z,Rd | 147,67 ; 348,47 | 147,65 ; 348,28 | 0,0 % ; −0,05 % | conforme |
+| S1 | M_cr (semelle haute) | 86,36 (valeurs propres) | 84,93 (C1 1,35 ; C2 0,63) | −1,7 % | formule approchée de SCIA : le M_cr exact avec ses propriétés vaut 86,46 |
+| S1 | taux de déversement | 1,099 (f = 1) | 1,08 (k_c 0,86 ; f 0,97) | −1,7 % | M_cr ci-dessus et facteur f ; avec le M_cr et le k_c de SCIA, le moteur du site donne 1,077 |
+| S2 | f_y (t_f 19 mm) | 225 | 225 | 0 | le lot A confirmé |
+| S2 | N_b,y,Rd ; N_b,z,Rd | 3 105,1 ; 2 457,0 | 3 105,47 ; 2 457,24 | 0,01 % | conforme |
+| S2 | (6.61) ; (6.62) | 0,631 ; 0,667 | 0,60 ; 0,65 | −5 % ; −2,6 % | le site borne C_my,0 ≥ 1 − N_Ed/N_cr,y (0,933 au lieu de 0,782 ; paramètre « borne_Cmi0 », à confirmer) ; sans la borne, le site donne 0,600 ; 0,648 |
+| S3, Q1 | M_cr ; M_b,Rd | 134,51 ; 98,84 | 134,84 ; 99,03 | +0,25 % ; +0,2 % | conforme |
+| S3, Q1 | taux de déversement | 0,727 (M_Ed 71,81, maximum exact à 2,494 m) | 0,72 (M_Ed 71,18, nœud à 2,727 m) | −1 % | SCIA lit le moment aux nœuds de son maillage ; avec 71,81 : 0,725 |
+| S3, Q1 + Q2 | flexion sur l'appui ; cisaillement | 0,287 ; 0,120 | 0,29 ; 0,12 | 0 | conforme |
+| S3, Q1 + Q2 | déversement de la travée | 0,717 (M_cr 223,6, M_Ed 103,95) | 0,37 en travée (M_cr 221,89, M_Ed 58,42) ; 0,35 sur l'appui (M_cr 642,87 « stabilisant », M_Ed 103,95) | — | voir L17 (§ 5) ; avec le M_cr de travée de SCIA, son facteur f et 103,95 : 0,656 |
+| tous | η de l'âme (72·ε/η) | 1,00 (laminé) | 1,20 | — | le site lit la note de 5.1(2) de la NBN EN 1993-1-5 ANB:2011 citée par le brief (texte à pointer au lot 4) ; sans effet sur ces cas |
+
+Suites, sans changement du moteur au lot A : (1) facteur f — l'ANB:2018 6.3.2.3(2) rend ses expressions
+normatives ; le site prend f = 1 hors du tableau 6.6 (côté sûr) — lot 2-3 ; (2) borne de C_my,0 — à trancher sur le
+texte du tableau A.2 (lot 2-3) ; (3) L17 dans LTBeam ; (4) η = 1,00 des laminés sur le texte de l'ANB de
+l'EN 1993-1-5.
