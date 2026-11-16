@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "fe11d70e8347cac9d9210e3a661fd554d7c54010b136ceca5e9b40df24d8c643",
+ "sha256": "3bfae141e0da86a741aaaa5861e5752f0023bbc6280acca70e6c41ed1aec12b3",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -399,8 +399,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "244908f12c01c6bbdf65e32414f23aacc397e60eed86bff67d3f7929880a9f90",
-  "octets": 2233159,
+  "sha256": "cab933d9f916bcf8446520d6662494e02d4b8a043b75b0421b03b733a592f16e",
+  "octets": 2233566,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -428,7 +428,7 @@
  "apercus": {
   "age": "1066a146e57f7757",
   "armatures": "0d888c7223e651e4",
-  "assemblages": "bdfe1688cc95da97",
+  "assemblages": "ef40b842398633f8",
   "bois": "8f2ad99577d68381",
   "catalogue": "efd91aa18076e90f",
   "corniere": "aef4fd3cf1920ac5",
@@ -441,11 +441,11 @@
   "plancher": "9d0ec86ed498d435",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
-  "profil": "9d668b2a68502fc2",
+  "profil": "a93cc9f23965a6d7",
   "saf": "e88653e1536e1675",
   "sol": "d388420baee3c87c",
   "soudures": "865be318298eea9a",
   "taux": "0325815790c3ee2c"
  },
- "version": "d242e4cf704dc615"
+ "version": "74ab241f2d954fad"
 }
