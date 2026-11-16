@@ -287,8 +287,11 @@ cas("profil", "charge posée au droit de l'appui du milieu d'une poutre continue
     [neuf(), act("choisir", role="profil", nom="HEA 200"), mod("modele", "continue"), mod("travees/0", "5"), mod("travees/1", "5"),
      mod("appuis/ss", "80"), mod("appuis/c", "20"), mod("cas/0/charges/+", "P"), mod("cas/0/charges/1/a", "5"), mod("cas/0/charges/1/v", "20"),
      mod("cas/0/charges/1/ss", "100")])
-cas("profil", "âme élancée (IPE 750x147 en S355, 8 m, 60 kN/m) : voilement par cisaillement vérifié, raidisseurs aux appuis", REF,
-    [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")])
+# (lot A : η = 1,00 pour un laminé — ANB:2011, 5.1(2) — l'IPE 750x147 ne voile plus (h_w/t_w = 54,5 < 72ε/η = 58,6) ; le cas
+#  passe à l'IPE 750x134 (59,9), qui garde le voilement par cisaillement)
+cas("profil", "âme élancée (IPE 750x134 en S355, 8 m, 60 kN/m) : voilement par cisaillement vérifié, raidisseurs aux appuis", REF,
+    [neuf(), act("choisir", role="profil", nom="IPE 750x134"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")],
+    {"texte": "Voilement de l'âme par cisaillement"})
 cas("profil", "appuis par l'âme : rien n'appuie sur l'âme, le bloc s'efface", REF, [neuf(), mod("appuis/mode", "ame")])
 cas("profil", "longueur d'appui négative refusée", LIM, [neuf(), mod("appuis/ss", "-3")], {"message": True})
 cas("profil", "longueur d'appui d'une charge ponctuelle au centre de cisaillement : gardée, sans effet", LIM,
@@ -300,6 +303,12 @@ cas("profil", "efforts imposés sans effort : données incomplètes", LIM, [neuf
 cas("profil", "sans maintien : la méthode historique refuse la barre", LIM, [neuf(), mod("maintiens/0/-", "1")], {"niveau": "r"})
 cas("profil", "charge nulle (valeur minimale admise)", LIM, [neuf(), mod("cas/1/charges/0/v", "0")], {"sans_message": True})
 cas("profil", "barre ajoutée", LIM, [neuf(), act("ajouter"), mod("travees/0", "4")], {"elements": 2})
+# (lot A) le domaine des méthodes : une nuance que la NBN B 51-001 ne couvre pas (AE235 à AE355) — la méthode historique
+# est « hors domaine », la note « à vérifier » ; une console comprimée et fléchie — (6.61)/(6.62) non couvertes
+cas("profil", "S460 : la méthode historique hors de son domaine (calcul pour information)", LIM, [neuf(), mod("nuance", "S460")],
+    {"niveau": "v", "texte": "Hors domaine"})
+cas("profil", "console comprimée et fléchie : l'interaction (6.61)/(6.62) non couverte", LIM,
+    [neuf(), mod("modele", "console"), mod("travees/0", "2"), mod("cas/0/N", "50")], {"niveau": "v", "texte": "(6.61), (6.62) non couvert"})
 
 # ====================================================================== soudures
 cas("soudures", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
