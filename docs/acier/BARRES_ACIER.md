@@ -1,4 +1,4 @@
-# Barres en acier — méthode historique (NBN B 51-001) et Eurocode 3
+# Barres en acier — Méthode ELS (NBN B 51-001) et Eurocode 3
 
 *Ouvert le 14/11/2026. Ce document est la SPÉCIFICATION VÉRIFIÉE du chantier « barres acier » : il remplace le brief
 reçu ce jour-là (rédigé en conversation à partir des classeurs du bureau), qu'il reprend, corrige et complète. Il est
@@ -8,9 +8,14 @@ tenu à jour lot par lot.*
 conservatif. L'inventaire, les écarts et le plan sont dans `BARRES_ACIER_V11.md` ; ce document sera mis à jour lot par
 lot à mesure des corrections.*
 
+*16/11/2026, lot A (deuxième passe) : la méthode du bureau se NOMME « Méthode ELS (NBN B 51-001) » — à l'écran, dans
+la note, dans ce document — et « ELS » seul là où la place manque ; sa clé interne reste « historique » (état, notes
+enregistrées, `historique.py`, `test_barre_historique.py`). Les phrases que le lot A a rendues fausses (matériau, couple
+(λ̄_LT,0 ; β), η, A_v,y, poids propre, âme) sont corrigées en place.*
+
 **Demande du propriétaire (14/11/2026).** Vérifier un profilé métallique — poutre, poteau, poutre-poteau — avec ses
 instabilités (flambement, déversement, voilement local, raidisseurs), par DEUX méthodes calculées ensemble : la méthode
-historique du bureau (ancienne norme belge NBN B 51-001, contraintes admissibles, charges de service) et l'Eurocode 3
+ELS du bureau (ancienne norme belge NBN B 51-001, contraintes admissibles, charges de service) et l'Eurocode 3
 (NBN EN 1993-1-1 et 1993-1-5, annexes belges). À l'impression : l'une, l'autre ou les deux. Dans le module existant
 « Choix de profilé ». « Quand mon supérieur lit, il retrouve sa méthode. » Écran simple, messages courts, raidisseurs et
 appuis ajoutables.
@@ -54,20 +59,20 @@ Le brief est fiable ; trois corrections et quelques précisions ci-dessous.
 |---|---|---|---|---|
 | E1 | brief § 7.7, facteur k_c (tableau 6.6) | charge concentrée à mi-portée : **0,86**, pas 0,90 (0,90 est la charge répartie sur poutre bi-encastrée). Contrôle : k_c ≈ 1/√C₁ → 1/√1,348 = 0,861 ; 1/√1,127 = 0,942 | f, donc χ_LT,mod : ≈ 2 % | corrigé |
 | E2 | brief § 7.8, tableau A.2 | les deux cas sont INVERSÉS. La formule générale du même tableau le prouve : charge répartie π²·(5/384)·8 − 1 = +0,028 → C_m,0 = 1 **+ 0,03**·N_Ed/N_cr ; charge centrale π²/12 − 1 = −0,178 → 1 **− 0,18**·N_Ed/N_cr | k_yy, k_zz : quelques % | corrigé |
-| E3 | brief § 7.1, f_u du S355 | tableau 3.1 de l'édition 2005 (EN 10025-2) : 355 / **510** (t ≤ 40 mm), 335 / 470 ; 490 est la valeur du S355 N/NL (et de l'édition 2022) | aucun en v1 (f_u n'entre dans aucune vérification retenue) | 510, `À CONFIRMER` sur le texte |
+| E3 | brief § 7.1, f_u du S355 | tableau 3.1 de l'édition 2005 (EN 10025-2) : 355 / **510** (t ≤ 40 mm), 335 / 470 ; 490 est la valeur du S355 N/NL (et de l'édition 2022) | aucun en v1 (f_u n'entre dans aucune vérification retenue) | lot A : le tableau 3.1 n'est plus lu — f_u et f_y selon l'épaisseur, option a de l'ANB:2018 3.2.1(1), tableau 3.3 ANB : S355, f_u = 470 de 3 à 100 mm (§ 5.1) |
 | E4 | brief § 11.2, HEB 200 en compression | N_b,z,Rd = 570,1 kN suppose λ = L/i avec i = 5,07 cm (l'arrondi du classeur). Avec N_cr = π²·E·I_z/L² (la définition de l'EC3, I_z = 2003 cm⁴) : λ̄ = 1,5139, χ = 0,3101, **569,1 kN** | 0,2 % | les deux valeurs sont dans le test ; le moteur suit la définition de l'EC3 |
 | E5 | brief § 4.1 | « tableau 13.2 » : c'est le tableau 13.1 (doc p. 16) | — | corrigé |
 | E6 | brief § 6.4, « tubes : φ_ed = 1 » | la doc (p. 17-18) donne une formule pour les profils FERMÉS : λ_ed = √(π·√(E/G)·ℓ·W_x/√(I_y·J_T)) (« 5,1 », exact 5,066), « généralement proche de l'unité ». Exact pour un tube rond ou carré (pas de déversement) ; pour un tube RECTANGULAIRE fléchi autour de l'axe fort, la formule de la doc s'applique | ≤ 2 % | tube rond ou carré : 1 ; rectangulaire : la formule de la doc, avec la courbe du tube |
 | E7 | doc p. 18 et 19 | deux coquilles dans les formules INTERMÉDIAIRES du moment critique des profils ouverts : (h_a/2ℓ)² pour (h_a/2ℓ²)² (p. 18) ; π⁴ pour π² au premier terme (p. 19) | aucun : la méthode n'emploie que les formules (3) et (4) de la p. 19 | noté |
 | E8 | doc p. 20, dispense « C/φ_ed = 1 si P/(A·φ) ≤ 0,15·σ_adm » | annotée « FAUX » dans la marge ; l'exemple de la p. 23 l'applique pourtant (à 0,17·σ_adm). Sans elle, cet exemple (HEA 200, 8 m, sans maintien) donne φ_ed = 0,307 et σ = 422 N/mm² au lieu de 130 | majeur pour une poutre non maintenue | la dispense n'est PAS reprise (brief) ; voir § 4.5 et la question Q4 |
-| E9 | classeurs, poids propre | 78,6 kN/m³ × A (g = 10) ; la doc p. 8 prend 7,85 t/m³ × 9,81 = 77,0 | 2 % sur un terme mineur | le site prend la masse du catalogue × 9,81 ; le test des classeurs reprend leur saisie |
+| E9 | classeurs, poids propre | 78,6 kN/m³ × A (g = 10) ; la doc p. 8 prend 7,85 t/m³ × 9,81 = 77,0 | 2 % sur un terme mineur | lot A : 78,6 kN/m³ × A (brief H13), la valeur nommée par le moteur (`statique.POIDS_VOLUMIQUE`) ; le test des classeurs reprend leur saisie |
 
 Données des classeurs à signaler (non corrigées dans les tests, § 6) : A = 2520 mm² pour le CHS 168,3 × 6 (catalogue :
 3059) ; « section ailes » du HEA 120 = une seule aile (960 au lieu de 1920 mm²) ; W = 3506 cm³ pour le tube Ø610 × 12,5
 (I/(D/2) = 3435 : le classeur divise par le rayon MOYEN) ; valeurs d'axe faible dans les cases « fort » de FLAMBECBD ;
 f_y = 450 N/mm² pour le tube Ø610 (hors des nuances AE235 à AE355 de la doc).
 
-## 4. La méthode historique (NBN B 51-001, contraintes admissibles)
+## 4. La méthode ELS (NBN B 51-001, contraintes admissibles)
 
 Charges de SERVICE, non pondérées (le « cumul I » de la doc : poids propre + exploitation + neige…) ; la sécurité est
 portée par s = 1,5 : σ_adm = f_y / s. Unités internes : N, mm.
@@ -90,7 +95,7 @@ Pour chaque axe (y fort, z faible ; la doc écrit x pour le fort, y pour le faib
 | H10 | Flexion composée déviée | σ = P/(A·φ_min) + C_y·M_y/(φ_ed·W_y·PE_y) + C_z·M_z/(W_z·PE_z) ≤ f_y / s | doc p. 26 |
 | H11 | Cisaillement | τ_z = V_z / A_âme ; τ_y = V_y / A_ailes ; τ = τ_y + τ_z | classeurs |
 | H12 | Contrainte équivalente | σ_eq = √(σ² + 3·τ²) ≤ f_y / s | classeurs |
-| H13 | Poids propre | q = masse × g ; M = q·L²/8 ; V = q·L/2 (poutre sur deux appuis) | classeurs |
+| H13 | Poids propre | q = 78,6 kN/m³ × A ; M = q·L²/8 ; V = q·L/2 (poutre sur deux appuis) | classeurs (E9) |
 
 Courbes (doc p. 3) : a : α = 0,514, β = 0,795 ; b : α = 0,554, β = 0,738 ; c : α = 0,532, β = 0,377.
 
@@ -125,7 +130,10 @@ l'autre plan n'a plus à être vérifié à part.
    λ > 200 (doc p. 7) ; ARRÊT si PE ≤ 0, avec l'inertie minimale I_min = s·P·(u·L)² / (π²·E).
 6. « Coef secu » (P_adm / P) s'appelle « réserve P_adm / P ».
 7. Poids propre ajouté à P pour un poteau (option).
-8. Nuance hors AE235 à AE355 : alerte « extrapolation ».
+8. Hors du domaine de la doc — nuance hors AE235 à AE355 (lue sur la valeur NOMINALE : une S235 épaisse y reste), profil
+   creux formé à froid de paroi de plus de 6 mm : statut « hors domaine » (lot A, brief § 9) — le calcul est montré, jamais
+   « vérifié », jamais caché derrière le taux de la barre. f_y : celle de l'Eurocode 3 selon l'épaisseur (brief § 13.2
+   point 5, § 5.1) ; au-delà de 80 mm, la barre est refusée (« non couvert »), comme par l'Eurocode 3.
 9. La tolérance de 5 % de la doc (p. 13 et 23) n'est PAS appliquée (option éteinte ; question Q4).
 10. Le coefficient C et le déversement de la doc (§ 4.4, 4.5), que les classeurs ne calculent pas.
 11. La traction et la flexion simple : la doc ne traite que la compression. Le module écrit alors la résistance simple
@@ -153,10 +161,10 @@ elle est très sévère pour un H trapu non maintenu — l'exemple de la doc ell
 φ_ed = 0,31, quand l'Eurocode 3 donne χ_LT ≈ 0,70. Elle est activée par défaut, comme le veut le brief ; une semelle
 comprimée maintenue en continu (dalle, bac) donne φ_ed = 1 et retrouve le classeur. Question Q4.
 
-### 4.6 Hors de la méthode historique
+### 4.6 Hors de la méthode ELS
 
 La doc ne traite ni le voilement local, ni l'âme sous charge concentrée, ni les raidisseurs. Dans une note « méthode
-historique seule », ces contrôles paraissent dans un bloc séparé « Contrôles complémentaires EN 1993-1-5 » (§ 5.9).
+ELS seule », ces contrôles paraissent dans un bloc séparé « Contrôles complémentaires EN 1993-1-5 » (§ 5.9).
 
 ## 5. L'Eurocode 3 (EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; EN 1993-1-5:2006)
 
@@ -164,9 +172,13 @@ Le brief (§ 7 et 8) est repris tel quel, SAUF les corrections E1 à E3. Ne sont
 et les paramètres nationaux ; chaque module du moteur (`acier/barre/ec3_*.py`) porte ses formules et leurs clauses.
 
 ### 5.1 Matériau — § 3.2
-E = 210 000 N/mm² ; G = 81 000 N/mm² ; ν = 0,3 ; ε = √(235/f_y). Tableau 3.1, épaisseur max(t_f ; t_w) :
-S235 235/360 puis 215/360 ; S275 275/430 puis 255/410 ; S355 355/510 puis 335/470 (E3) ; S460 : 460/540 puis 430/540
-(EN 10025-3) — le moteur du flambement existant (`acier/flambement/normes.py`) porte déjà f_y ; f_u n'est pas employé.
+E = 210 000 N/mm² ; G = 81 000 N/mm² ; ν = 0,3 ; ε = √(235/f_y). Lot A : f_y et f_u selon l'épaisseur ET le produit,
+la table unique du site (`acier/materiaux.py` ; NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a) — tableau 3.3 ANB pour
+les laminés (S235 235 / 225 / 215 au-delà de 16 et 40 mm ; S275 275 / 265 / 255 / 245 au-delà de 16, 40 et 63 mm ;
+S355 355 / 345 / 335 / 325 ; f_u de 3 à 100 mm : 360, 410, 470), tableau 3.4 ANB (S460N : 460 / 440 / 430 / 410 ;
+f_u 540), tableaux 3.8 et 3.10 ANB pour les creux finis à chaud et formés à froid. La f_y de CALCUL est celle de la paroi
+la plus épaisse, max(t_f ; t_w) ; l'ε, celui de CHAQUE paroi, avec la f_y de SON épaisseur (classe, largeurs efficaces,
+λ̄_p, 72·ε/η, λ̄_w, λ̄_F, 15·ε·t_w). Au-delà de 80 mm : hors du domaine du module (refus, `normes.T_MAX_TABLEAU`).
 
 ### 5.2 Classification — § 5.5, tableau 5.2 (vérifié)
 Âme en flexion 72ε / 83ε / 124ε ; en compression 33ε / 38ε / 42ε ; en flexion composée : classe 1 396ε/(13α − 1) si
@@ -197,8 +209,9 @@ ASSEMBLAGE des parties efficaces sur des sections sans congé, à 10⁻⁹.
 
 ### 5.4 Résistances de section — § 6.2 (vérifié)
 N_pl,Rd, N_c,Rd, M_c,Rd par classe ; V_pl,Rd = A_v·(f_y/√3)/γ_M0 — A_v,z = A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w
-(le catalogue porte la première expression, sans le plancher) ; A_v,y = A − h_w·t_w (c'est la valeur du catalogue ;
-par analogie avec le cas (e), `À CONFIRMER`) ; tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
+(le catalogue porte la première expression, sans le plancher) ; A_v,y = 2·b·t_f pour un I ou H LAMINÉ (lot A, DÉCISION
+BUREAU n° 3 ; le catalogue et la Bibliothèque Acier portent encore A − h_w·t_w), A − h_w·t_w pour un I soudé (cas (e)) ;
+tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
 Tube rond en N + M : critère linéaire (6.2), prudent.
 
@@ -206,7 +219,8 @@ Tube rond en N + M : critère linéaire (6.2), prudent.
 - tube rond : la RÉSULTANTE des deux moments et celle des deux efforts tranchants (il n'a pas d'axe) ; n + M/M_pl,Rd ≤ 1 ;
 - effort tranchant élevé (V_Ed > 0,5·V_pl,Rd) : (6.30) pour un I de classe 1 ou 2 fléchi autour de l'axe fort ; partout
   ailleurs, et dès qu'un effort normal s'ajoute (§ 6.2.10), (1 − ρ) sur TOUTE la section — du côté sûr, et c'est dit ;
-- le plancher η·h_w·t_w de l'aire de cisaillement gouverne pour 58 profilés du catalogue (IPE 750, HL, HE 900 et 1000) ;
+- le plancher η·h_w·t_w de l'aire de cisaillement : avec η = 1,00 des laminés (lot A), il ne gouverne pour aucun I du
+  catalogue (avec 1,20, il gouvernait 61 profilés : IPE 750, HL, HE 900 et 1000 — mesuré le 16/11/2026) ;
 - h_w/t_w > 72·ε/η : le voilement par cisaillement est VÉRIFIÉ depuis le lot 4 (`ec3_ame.cisaillement`, « A-Vb » et
   « A-VbM », § 5.9) — il était rendu « non couvert » avant (11 profilés en S235, 46 en S355, 93 en S460 — tous des tubes
   minces en S235) ;
@@ -227,7 +241,7 @@ N_Ed/N_cr ≤ 0,04. Flambement par torsion des I/H (§ 6.3.1.4) : N_cr,T = (G·I
 Flambement en service (une seule source) ; s'y ajoutent le I soudé (b et c, puis c et d au-delà de 40 mm de semelle) et
 le caisson soudé (b). La torsion n'est rendue que si N_cr,T < N_cr,z — sinon elle ne peut pas gouverner. À défaut
 d'indication, la torsion et le déversement prennent la longueur de l'axe faible. Le HEB 200 du classeur (7,20 m,
-432,72 kN) : N_b,z,Rd = 569,2 kN, taux 76 % (la méthode historique : 112 %).
+432,72 kN) : N_b,z,Rd = 569,2 kN, taux 76 % (la méthode ELS : 112 %).
 
 ### 5.6 Déversement — § 6.3.2 (vérifié ; E1)
 M_b,Rd = χ_LT·W_y·f_y/γ_M1 ; laminés (§ 6.3.2.3) : Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − λ̄_LT,0) + β·λ̄_LT²], χ_LT ≤ 1 et
@@ -259,8 +273,11 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
 - mode « efforts imposés » : quatre diagrammes (constant, linéaire ψ, charge répartie, charge concentrée), la charge
   au centre de cisaillement, sur la semelle haute ou sous la basse ; un diagramme non décrit est pris CONSTANT ;
 - un tube rectangulaire relève du cas général (§ 6.3.2.2, courbe d) ; tubes ronds et carrés : pas de déversement ;
-- le couple (λ̄_LT,0 ; β) : (0,4 ; 0,75) pour un tronçon nu, (0,2 ; 1,0) dès qu'un maintien d'une seule semelle entre
-  dans M_cr — **à confirmer**, et le résultat le dit (`grandeurs["a_confirmer"]`).
+- le couple (λ̄_LT,0 ; β) : (0,2 ; 1,0), UN couple (lot A) — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr calculé sur la
+  section brute avec les combinaisons, la distribution réelle des moments et les maintiens, ce que fait le solveur du
+  module, maintiens présents ou non ; (0,4 ; 0,75) suppose les maintiens TOTALEMENT ignorés dans M_cr, une option que le
+  module n'a pas. Le seuil de 6.3.2.2(4) des tubes lit le même λ̄_LT,0 (0,2). Les clés « sans maintiens » de la table
+  sont retirées, et une surcharge qui les nomme est refusée avec son motif.
 
 ### 5.7 Flexion composée avec instabilité — § 6.3.3, annexe A (vérifié ; E2)
 (6.61) et (6.62) ; méthode 1. Tableau A.2 : moment linéaire C_mi,0 = 0,79 + 0,21ψ + 0,36·(ψ − 0,33)·N_Ed/N_cr,i ;
@@ -271,13 +288,15 @@ charge répartie **1 + 0,03**·N_Ed/N_cr,i ; charge concentrée **1 − 0,18**·
 l'annexe A (μ, w ≤ 1,5, n_pl, a_LT, C_my, C_mz, C_mLT, b_LT à e_LT, C_yy à C_zz et leurs planchers, k_yy à k_zz ;
 facteurs élastiques en classes 3 et 4) ; C₁ = 1/k_c² ; une barre sans déversement possible a λ̄_0 = 0 ; une flexion
 déviée SANS effort normal passe par les mêmes expressions ; une barre tendue est prise sans effort normal (du côté
-sûr). La borne inférieure de C_mi,0 (supposée 1 − N_Ed/N_cr,i) est active par défaut et **change un résultat** : sur
+sûr). Une CONSOLE sous effort normal et flexion : (6.61)/(6.62) rendues « non couvert » (lot A, brief § 7.8, DÉCISION
+BUREAU n° 9 : aucun C_m ne vaut pour une console) ; N seul et M seul restent vérifiés. La borne inférieure de C_mi,0
+(supposée 1 − N_Ed/N_cr,i) est active par défaut et **change un résultat** : sur
 l'exemple 5 de l'ECCS, C_mz,0 passe de 0,771 à 0,842 — à confirmer (Q1).
 
 **Le benchmark 21 de l'aide de SCIA Engineer** (ECCS N°119, exemple 5 : IPE 500 S235, 3,75 m, N_Ed = 500 kN, flexion
 déviée). Sa page n'est pas joignable d'ici ; la recherche en a rendu les données et une partie des résultats. Sont
 reproduits : classe 1, N_c,Rd 2 715 kN, M_c,y,Rd 516, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN (0,3 %), V_pl,y,Rd 912 kN
-(1 %) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %). Les
+(1 %, avec A − h_w·t_w ; le module prend 2·b·t_f depuis le lot A, DÉCISION BUREAU n° 3 : 868,3 kN) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %). Les
 facteurs qui dépendent du diagramme de M_y (b_LT à e_LT, C_yy…) attendent la page elle-même (Q8) ; en attendant,
 l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹.
 
@@ -286,16 +305,15 @@ l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻
 | Paramètre | Valeur | Source | Statut |
 |---|---|---|---|
 | γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | valeurs EN, reprises par l'ANB | à pointer sur l'ANB |
-| λ̄_LT,0 ; β (§ 6.3.2.3), M_cr calculé en IGNORANT les maintiens latéraux | 0,4 ; 0,75 | ANB:2018 d'après l'aide de STAAD.Pro (seule source trouvée ; la page n'a pas pu être relue d'ici) | **À CONFIRMER** |
-| λ̄_LT,0 ; β, M_cr calculé AVEC les maintiens (section brute) | 0,2 ; 1,0 | idem | **À CONFIRMER** |
+| λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (un seul couple, lot A) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
 | Facteur f (§ 6.3.2.3(2)) | formule EN | brief | à pointer |
 | Méthode de § 6.3.3 | méthode 1 (annexe A) | ANB d'après l'aide de STAAD.Pro | **À CONFIRMER** |
 | Borne inférieure de C_mi,0 (tableau A.2) | 1 − N_Ed/N_cr,i (supposée, comme l'annexe française) | l'aide de STAAD.Pro dit qu'il y en a une, sans la donner | **À CONFIRMER** |
-| η (EN 1993-1-5 § 5.1) | 1,20 jusqu'au S460 | valeur EN | à pointer |
+| η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (I soudés, caissons), jusqu'au S460 (lot A) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire | à pointer |
 | Combinaison ELU | (6.10) : 1,35·G + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i | NBN EN 1990 ANB | à pointer |
 | ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB (brief) | à pointer |
 | ψ de la neige, du vent, de la température | 0,5/0,2/0 ; 0,6/0,2/0 ; 0,6/0,5/0 (valeurs EN) | — | **À CONFIRMER** |
-| Combinaison de la méthode historique | G + ΣQ, tout à 100 % | pratique du bureau | **À CONFIRMER** (Q4) |
+| Combinaison de la méthode ELS | G + ΣQ, tout à 100 % | pratique du bureau | **À CONFIRMER** (Q4) |
 
 « À pointer » : la valeur est celle de l'EN, connue ; il reste à la lire sur le texte belge. « À CONFIRMER » : la valeur
 change un résultat et sa source n'est pas le texte — elle est imprimée comme telle dans la note.
@@ -304,11 +322,12 @@ change un résultat et sa source n'est pas le texte — elle est imprimée comme
 des cas variables (chacun présent ou absent — c'est la recherche de la disposition défavorable, travée par travée) et
 chaque nature dominante parmi les présents, γ_G·ΣG + γ_Q·Q_dominante + Σ γ_Q·ψ₀·Q_autres, avec γ_G = 1,35 puis 1,00
 (G favorable). Les cas d'une MÊME nature sont une seule action disposée librement : ils reçoivent tous γ_Q quand leur
-nature domine. Au plus quatre cas variables. Méthode historique : G + ΣQ à 100 % pour chaque arrangement.
+nature domine. Au plus quatre cas variables. Méthode ELS : G + ΣQ à 100 % pour chaque arrangement.
 
 ### 5.9 EN 1993-1-5 : âme et raidisseurs (vérifié ; en service depuis le lot 4)
 
-**Le texte** (EN 1993-1-5:2006 ; η = 1,20 jusqu'au S460). Voilement par cisaillement (§ 5 : à vérifier si
+**Le texte** (EN 1993-1-5:2006 ; η = 1,20 jusqu'au S460 dans l'EN — la NBN EN 1993-1-5 ANB:2011, 5.1(2), le réserve aux
+sections soudées : 1,00 pour les laminés et les tubes, lot A). Voilement par cisaillement (§ 5 : à vérifier si
 h_w/t_w > 72·ε/η ; V_bw,Rd = χ_w·f_yw·h_w·t/(√3·γ_M1) ; λ̄_w = h_w/(86,4·t·ε) avec des raidisseurs aux seuls appuis ;
 χ_w du tableau 5.1 ; V_bf,Rd ; k_τ = 5,34 + 4·(h_w/a)² si a/h_w ≥ 1, sinon 4 + 5,34·(h_w/a)²). Âme sous une force
 concentrée (§ 6 : types (a), (b), (c) ; k_F ; F_cr = 0,9·k_F·E·t_w³/h_w ; m₁ = f_yf·b_f/(f_yw·t_w) ; m₂ = 0,02·(h_w/t_f)²
@@ -319,14 +338,16 @@ côté ; flambement sur 0,75·h_w, courbe c ; I_T/I_p ≥ 5,3·f_y/E ; raidisseu
 
 **Ce que le moteur fait** (`acier/barre/ec3_ame.py`, `raidisseurs.py`, `ame.py` ; lot 4). Un TROISIÈME bloc de
 résultats, « âme », à côté des deux méthodes, et TOUJOURS calculé — sous les combinaisons ELU (6.10) de la barre
-chargée, quelle que soit la méthode cochée : la méthode historique ne traite rien de tout cela (§ 4.6).
+chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien de tout cela (§ 4.6).
 
 - **Voilement par cisaillement** (« A-Vb »), dans chaque section à vérifier de chaque combinaison, dès que l'âme est
   élancée : V_Ed ≤ V_bw,Rd. Du côté sûr : pas de raidisseur intermédiaire, montant d'extrémité NON rigide
   (χ_w = 0,83/λ̄_w), la contribution des semelles V_bf,Rd négligée. Un tube carré ou rectangulaire a deux âmes. Puis
   l'interaction (7.1) (« A-VbM ») quand V_Ed > 0,5·V_bw,Rd et M_Ed > M_f,Rd — vérifiée dans toutes les sections, même à
   moins de h_w/2 d'un appui (du côté sûr) ; sous un effort normal, ou pour un tube, elle est rendue « non couvert ».
-  150 couples profilé – nuance du catalogue ont une âme élancée (les IPE et HL hauts en S355 et S460, des tubes minces).
+  Avec η = 1,00 des laminés (lot A), 55 couples profilé – nuance du catalogue ont une âme élancée en S235, S355 et S460
+  (60 avec le S275) : l'IPE 750x134 en S355, des IPE, IPE A, HEA, HEAA et HL hauts en S460, des tubes minces — 150 avec
+  η = 1,20.
 - **Les LIEUX** où une force appuie sur l'âme : chaque APPUI simple où la barre est POSÉE (la réaction pousse la semelle
   basse) ; chaque CHARGE PONCTUELLE qui pousse la semelle où elle est posée (vers le bas sur la semelle haute, vers le
   haut sous la semelle basse). Un appui « par l'âme » (platine, cornières, gousset), une charge appliquée au centre de
@@ -340,6 +361,12 @@ chargée, quelle que soit la méthode cochée : la méthode historique ne traite
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
   et pour chaque charge ponctuelle. NON SAISIE, elle vaut 0 : le cas le plus défavorable, et c'est écrit (hypothèses,
   message de la vérification). Elle n'est jamais supposée (brief § 8.2).
+- **La résistance de l'âme** (lot A) : F_Rd = f_y·χ_F·l_y·t_w/γ_M1 avec la f_y de CALCUL de la section ; λ̄_F avec la f_y
+  de l'âme selon t_w. Les DEUX branches de m₂ (m₂ = 0,02·(h_w/t_f)², cohérente si λ̄_F > 0,5 ; m₂ = 0, si λ̄_F ≤ 0,5) sont
+  calculées : quand les deux sont cohérentes, la plus PETITE F_Rd est retenue, et dite (brief § 8.2). Type (c) : le
+  CONTACT d'extrémité est « inconnu » (DÉCISION BUREAU n° 2) — s_s = 0 dans (6.10) seulement, k_F et le plafond de l_e
+  gardent s_s ; la variante avec contact est donnée pour information (IPE 300, s_s = 100 mm, c = 0 : 199,8 kN, 248,9 kN
+  avec contact).
 - **L'âme seule**, par lieu et par combinaison : η₂ = F_Ed/F_Rd (« A-Lnn-F » ; « A-Lnn-B » pour la force transmise),
   puis, dès qu'un moment ou un effort normal s'y trouve, (η₂ + 0,8·η₁)/1,4 ≤ 1 (« A-Lnn-FM ») avec η₁ ÉLASTIQUE —
   |N|/(f_y·A) + |M|/(f_y·W_el), A_eff et W_eff en classe 4 (Q10).
@@ -354,7 +381,9 @@ chargée, quelle que soit la méthode cochée : la méthode historique ne traite
   — c'est lui qui dimensionne sur un laminé — et le FLAMBEMENT hors du plan de l'âme (« A-Lnn-Rb » : la section en
   croix, 15·ε·t_w d'âme de chaque côté dans la limite de l'âme disponible — le bout de la barre, la moitié de la
   distance au raidisseur voisin —, longueur 0,75·h_w, courbe c). Le raidisseur d'appui d'une âme élancée doit aussi
-  avoir la rigidité d'un appui (I_st ≥ 0,75·h_w·t_w³). Il porte TOUTE la force ; il est de la nuance de la barre.
+  avoir la rigidité d'un appui (I_st ≥ 0,75·h_w·t_w³). Il porte TOUTE la force ; il est de la nuance de la barre, chaque
+  plat à la f_y de SON épaisseur (lot A : 20 mm en S235 → 225) ; la section en croix est calculée à min(f_y des plats ;
+  f_y de l'âme), 15·ε·t_w avec l'ε de l'âme ; l'écrasement au contact, et 14·ε, gardent la f_y du plat.
 - **Voilement induit par la semelle** (§ 8), avec k = 0,4 (du côté sûr) : aucun I du catalogue ne le dépasse, même en
   S460 ; une ligne d'hypothèse le dit, la vérification « A-S » ne paraît que s'il est dépassé.
 - **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
@@ -365,10 +394,11 @@ chargée, quelle que soit la méthode cochée : la méthode historique ne traite
   l_y se recouvrent —, que le § 6.3(2) demande de vérifier aussi ensemble : la vérification « A-GR » est alors rendue
   « non couvert » ; une réaction de soulèvement (ancrage : un avertissement).
 
-**La preuve** — `tests/test_barre_ame.py`, 160 contrôles : le cas R4 du brief (IPE 300 : 283,2 / 387,8 / 425,1 kN en
-type (a), 261,9 / 335,9 kN en type (c), avec leurs valeurs intermédiaires) ; un témoin écrit depuis le texte de la norme,
-égal au moteur sur les 275 I et H du catalogue, deux nuances, douze charges ; l'IPE 750x147 S355 à la main
-(V_bw,Rd = 2 083,7 kN) et l'interaction (7.1) ; les raidisseurs à la main (IPE 300, HEB 300) et la forme du plat sur
+**La preuve** — `tests/test_barre_ame.py`, 181 contrôles (lot A, deuxième passe) : le cas R4 du brief (IPE 300 : 283,2 /
+387,8 / 425,1 kN en type (a) ; en type (c), 199,8 kN sans contact — 248,9 et 335,9 kN avec contact, pour information —,
+avec leurs valeurs intermédiaires) ; un témoin écrit depuis le texte de la norme, égal au moteur sur les 275 I et H du
+catalogue, deux nuances, douze charges ; l'IPE 750x134 S355 à la main (V_bw,Rd = 1 722,0 kN ; l'IPE 750x147 n'est plus
+élancé avec η = 1,00) et l'interaction (7.1) ; un caisson soudé saisi (η = 1,20 : 72·ε/η = 60·ε, plateau χ_w = 1,20) ; les raidisseurs à la main (IPE 300, HEB 300) et la forme du plat sur
 tout le catalogue (4 125 plats : chaque I, trois nuances, cinq épaisseurs) ; la décision lieu par lieu (R2 : la charge de 36 kN, η₂ = 0,093, « pas de
 raidisseur ») ; 623 formules recalculées par leur gabarit et relues sur leurs nombres imprimés ; 82 mutations.
 
@@ -408,10 +438,12 @@ raidisseur ») ; 623 formules recalculées par leur gabarit et relues sur leurs 
   charge répartie au centre de cisaillement 102,31, semelle haute 78,83, semelle basse 132,69 ; charge centrale 123,12,
   89,19, 168,95 (z_g = ±150 mm).
 - R2 : G = 2,42 kN/m, P_G = 10 kN, P_Q = 15 kN → q_Ed 3,267 kN/m, P_Ed 36,00 kN, M_Ed 68,70 kN·m, V_Ed 27,80 kN.
-- R3 (W_pl,y 628,4 cm³, S235, f = 1) : au centre M_cr 118,18 kN·m, λ̄_LT 1,1179 → (0,4 ; 0,75) χ_LT 0,6278, taux 0,741 ;
-  (0,2 ; 1,0) χ_LT 0,5246, taux 0,887 ; semelle haute M_cr 86,98, λ̄_LT 1,3030 → 0,5220, 0,891 ; 0,4254, 1,094.
-- R4 (h_w 278,6 ; m₁ 21,13) : (a) s_s 50 → F_Rd 283,2 kN ; 100 → 387,8 ; 150 → 425,1 ; (c) s_s 100, c = 0 → 261,9 ;
-  c = 50 → 335,9 ; A_v 2568 mm², V_pl,Rd 348,4 kN.
+- R3 (W_pl,y 628,4 cm³, S235, f = 1) : au centre M_cr 118,18 kN·m, λ̄_LT 1,1179 → (0,2 ; 1,0) χ_LT 0,5246, taux 0,887 ;
+  semelle haute M_cr 86,98, λ̄_LT 1,3030 → 0,4254, 1,094 (le couple (0,4 ; 0,75), retiré au lot A, donnait 0,6278, 0,741
+  et 0,5220, 0,891).
+- R4 (h_w 278,6 ; m₁ 21,13) : (a) s_s 50 → F_Rd 283,2 kN ; 100 → 387,8 ; 150 → 425,1 ; (c) s_s 100, c = 0 → 199,8
+  (contact non établi, lot A ; 248,9 avec contact — 261,9 avant le lot A, qui gardait la plus grande des deux branches de
+  m₂) ; c = 50 → 199,8 (335,9 avec contact) ; A_v 2568 mm², V_pl,Rd 348,4 kN.
 
 ## 7. L'inventaire du dépôt (14/11/2026)
 
@@ -456,7 +488,7 @@ Chaque vérification rend `{id, methode, titre, reference, formule, termes, vale
 hypotheses, messages}` ; le moteur calcule et nomme, l'écran et la note composent et formatent.
 
 **La barre chargée** (`statique.py`, `entree.py`, `moteur.py`, lot 5). Deux modes : « efforts » (les classeurs : les
-efforts de service vont à la méthode historique, ceux de calcul à l'Eurocode) et « chargee » — appuis (deux appuis,
+efforts de service vont à la méthode ELS, ceux de calcul à l'Eurocode) et « chargee » — appuis (deux appuis,
 console, encastrée–appuyée, bi-encastrée, continue de 2 à 5 travées), cas de charge (répartie, triangulaire,
 ponctuelle, couple ; un effort normal par cas), poids propre, maintiens (complet, semelle haute, semelle basse). La
 statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, puis superposée.
@@ -469,16 +501,18 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   efforts qui s'y trouvent ENSEMBLE ; la BARRE par tronçon de déversement, sous le diagramme réel (M_cr numérique,
   charges à leur niveau). k_c n'est lu dans le tableau 6.6 que si le tronçon EST un de ses cas ; C_my,0 par la formule
   générale (flèche et moment de la portée) sur deux appuis, sinon moment constant.
-- Méthode historique : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
+- Méthode ELS : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
   semelle ne compte que si elle est comprimée sur tout le tronçon.
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
   encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
-- Une méthode qui REFUSE la barre (semelle de plus de 80 mm, hors du tableau 3.1) est rendue « non couverte » avec son
-  motif ; l'autre reste calculée.
+- Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)
+  est rendue « non couverte » avec son motif ; l'autre reste calculée. Depuis le lot A, la méthode ELS refuse elle aussi
+  au-delà de 80 mm (13 HD et HL du catalogue).
 - Hors de la barre chargée (v1) : la flexion d'axe faible et les charges horizontales (le mode « efforts » les
   prend) ; la flèche de service est donnée à titre d'information, sans verdict.
 - R2 du brief, de bout en bout depuis les charges : M_Ed 68,70 kN·m, V_Ed 27,80 kN, déversement 89,5 % (Eurocode 3) —
-  et **184 % par la méthode historique** : le déversement de la doc, sur 6 m sans maintien, est très sévère (Q4).
+  et **184 % par la méthode ELS** : le déversement de la doc, sur 6 m sans maintien, est très sévère (Q4). Lot A :
+  le déversement passe à 109,9 % (Eurocode 3), avec le couple (0,2 ; 1,0) de l'ANB:2018 (89,5 % avec l'ancien couple).
 
 **Intégration** : dans « Choix de profilé » (demande du propriétaire). Le module garde ce qu'il sait faire — comparer
 des profilés et retenir le plus léger qui tient — et gagne la barre : ses appuis, ses charges, ses maintiens, ses
@@ -499,9 +533,10 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | `api_web/note_profil.py` | la note PDF |
 
 - **Une barre garde ses deux modes** : passer de « barre chargée » à « efforts imposés » ne perd aucune saisie. La barre
-  neuve est une IPE 300 de 6 m, tenue à mi-portée : elle tient par les deux méthodes (historique 74 %, Eurocode 52 %) —
-  sans ce maintien, la méthode historique la refuse (178,5 % ; l'écran, qui arrondit vers le défavorable, écrit 179 % — Q4).
-- **Un verdict par méthode**, jamais un seul chiffre : la méthode historique et l'Eurocode 3 ne comparent pas la même
+  neuve est une IPE 300 de 6 m, tenue à mi-portée : elle tient par les deux méthodes (ELS 74 %, Eurocode 58 % — 52 %
+  avant le lot A) — sans ce maintien, la méthode ELS la refuse (178,5 % ; l'écran, qui arrondit vers le défavorable,
+  écrit 179 % — Q4), et l'Eurocode 3 aussi depuis le lot A (113,7 %).
+- **Un verdict par méthode**, jamais un seul chiffre : la méthode ELS et l'Eurocode 3 ne comparent pas la même
   chose (des contraintes de service à σ_adm ; des efforts pondérés à des résistances). Le bloc « Comparaison » met leurs
   taux côte à côte, sujet par sujet.
 - **Chaque vérification ouvre SA fenêtre de calcul** : ses formules, écrites par `ecriture.py`, la combinaison et
@@ -520,14 +555,14 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   sa longueur de flambement, son profilé.
 - **La note PDF** a la planche des notes Poutre et Dalle (`ndc_pdf/styles.py` : le panneau de gauche et son dessin, deux
   colonnes de calcul, des vérifications numérotées, une bande de verdict ; une planche qui déborde se poursuit sur une
-  page suivante). Par barre : la barre et ses charges ; la méthode historique D'ABORD — ses hypothèses, puis chaque
+  page suivante). Par barre : la barre et ses charges ; la méthode ELS D'ABORD — ses hypothèses, puis chaque
   vérification comme les classeurs l'écrivent — ; l'Eurocode 3 ; la comparaison ; les paramètres à confirmer ; ce que la
-  note ne vérifie pas. **Elle imprime les méthodes cochées à l'écran** (rubrique « Méthodes » : historique, Eurocode 3,
+  note ne vérifie pas. **Elle imprime les méthodes cochées à l'écran** (rubrique « Méthodes » : ELS, Eurocode 3,
   les deux) : ce que l'écran montre est ce qui s'imprime (Q9). Le dessin du panneau est celui de l'écran, peint tel
   quel ; chaque formule est la ligne de la fenêtre de calcul. Deux allégements, pour la lecture : la ligne du taux n'est
   pas répétée (le verdict dit les deux membres et le taux) ; (6.62) ne réécrit pas les facteurs que (6.61) vient
   d'écrire. Sous le nom de la barre, la garde et l'en-tête écrivent le taux AVANT la méthode, comme le verdict de
-  l'écran (« S235 · 6,00 m · 74 % historique · 52 % Eurocode 3 » : « Eurocode 3 9 % » se lisait « 39 % ») ; l'en-tête
+  l'écran (« S235 · 6,00 m · 74 % ELS · 58 % Eurocode 3 » : « Eurocode 3 9 % » se lisait « 39 % ») ; l'en-tête
   d'une planche garde ce résumé entier s'il tient, sinon ses seuls taux, sinon rien — et un nom qui passerait sous la
   pastille d'état cède par « … » (un nom de 60 caractères, sur la garde).
 - **Ce que le kit des notes a reçu** (`ndc_pdf`, sans effet sur les notes qui ne s'en servent pas — les notes de la
@@ -546,7 +581,8 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   le dessin (`NOM_CAS_MAX`).
 - **Trouvé par le harnais des barres** (filtre « barres », ci-dessous), et corrigé : le titre d'un bloc de méthode
   ROGNÉ dès que son état est long (« MÉTHODE HIS… » devant « Conforme, attention · 97 % » ou « Non conforme ·
-  179 % ») — le bloc porte le titre court, celui du bouton de la rubrique Méthodes (« Historique »), et la feuille du
+  179 % ») — le bloc porte le titre court, celui du bouton de la rubrique Méthodes (« Historique », « ELS » depuis le
+  16/11/2026), et la feuille du
   module fait passer l'état dessous plutôt que de rogner un titre ; sur une poutre continue, la cote du minimum de V
   (au milieu de la barre) écrite SUR la légende des maintiens — vu à l'œil sur une capture, mesuré depuis par le
   harnais (aucun texte du dessin n'en recouvre un autre) et par `tests/test_api_web_profil.py` ; une portée hors des
@@ -596,7 +632,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 - **Les dessins** : un raidisseur est un plat debout sur la barre, à son abscisse, avec sa légende ; la vue des taux a un
   groupe « Âme et raidisseurs », une barre par lieu (« Appui A · 2 plats 70 × 15 »).
 - **La note** : après les méthodes, le bloc « Âme et raidisseurs — NBN EN 1993-1-5 » — « Contrôles complémentaires
-  EN 1993-1-5 » dans une note « méthode historique seule » (brief § 6.5) — : ses hypothèses, le tableau des décisions
+  EN 1993-1-5 » dans une note « méthode ELS seule » (brief § 6.5) — : ses hypothèses, le tableau des décisions
   (lieu, force, décision, taux), le bilan de ses combinaisons, son verdict, puis chaque vérification avec ses formules
   (deux appuis identiques ne répètent pas leurs facteurs). Le résumé sous le nom de la barre dit les raidisseurs
   (« … · 52 % Eurocode 3 · 1 raidisseur »). Ce que la note ne vérifie pas : les assemblages, les appuis et les soudures
@@ -614,26 +650,26 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Lot | Contenu | Preuve | État |
 |---|---|---|---|
 | 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
-| 1 | méthode historique, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
+| 1 | méthode ELS, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
 | 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs (`ec3_ame.py`, `raidisseurs.py`, `ame.py`, `enveloppe.py`) ; à l'écran et dans la note | `tests/test_barre_ame.py` : 160 contrôles (§ 5.9) ; `tests/test_api_web_profil.py` : 77 ; `tests/test_note_profil.py` : 107 (quinze notes) ; le harnais « barres » : 81 | **fait** (14/11/2026) |
 | 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 6 | écran (trois formats) et note (historique, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
+| 6 | écran (trois formats) et note (ELS, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
 | 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
 
 ## 10. À confirmer par le bureau
 
 | # | Question | En attendant |
 |---|---|---|
-| Q1 | ANB de l'EN 1993-1-1 : les deux couples (λ̄_LT,0 ; β) et leur condition exacte ; la méthode 1 imposée ; la borne de C_mi,0 | § 5.8, imprimé « à confirmer » |
+| Q1 | ANB de l'EN 1993-1-1 : la méthode 1 imposée ; la borne de C_mi,0 (le couple (λ̄_LT,0 ; β) est lu : (0,2 ; 1,0), 6.3.2.3(1), lot A) | § 5.8, imprimé « à confirmer » |
 | Q2 | ANB de l'EN 1990 : ψ de la neige, du vent, de la température | valeurs EN |
-| Q3 | f_u du S355 (510 ou 490) ; A_v,y des I laminés | 510 ; A − h_w·t_w |
-| Q4 | Méthode historique : combinaison de service à 100 % ; tolérance de 5 % (non) ; C = 1 par défaut ; **déversement de la doc activé par défaut** (sévère pour un H non maintenu, § 4.5) | oui, oui, oui |
+| Q3 | f_u du S355 ; A_v,y des I laminés | tranchés au lot A : f_u selon l'épaisseur, tableau 3.3 ANB (470) ; A_v,y = 2·b·t_f (DÉCISION BUREAU n° 3) |
+| Q4 | Méthode ELS : combinaison de service à 100 % ; tolérance de 5 % (non) ; C = 1 par défaut ; **déversement de la doc activé par défaut** (sévère pour un H non maintenu, § 4.5) | oui, oui, oui |
 | Q5 | Tube Ø610 : fini à chaud (courbe a) ou formé à froid et soudé (c) ; horizontal ou vertical (poids propre) | a ; non compté |
 | Q6 | Seuil du statut « à la limite » dans la note | celui des notes existantes (95 %) |
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
-| Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode historique y vient la première | ainsi |
+| Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | ainsi |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |
 | Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
 | Q11 | La longueur d'appui s_s non saisie vaut 0 (le cas le plus défavorable) ; le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | 0, et c'est écrit |
