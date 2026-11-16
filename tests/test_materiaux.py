@@ -166,6 +166,11 @@ def forme():
         msg = str(e)
     C.append(("refus d'un laminé : « S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u) »",
               msg == "S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u)", msg))
+    C.append(("bornes : la ligne avec ses bornes chiffrées, mêmes textes et valeurs que paliers",
+              MA.bornes("S235")[:2] == [(16.0, True, "t ≤ 16 mm", 235.0), (40.0, True, "16 < t ≤ 40 mm", 225.0)]
+              and all([(b[2], b[3]) for b in MA.bornes(n, p, g)] == MA.paliers(n, p, g)
+                      for n in MA.NUANCES for p in MA.PRODUITS for g in ("fy", "fu"))
+              and MA.bornes("S355", "lamine", "fu")[0][:2] == (3.0, False), MA.bornes("S235")[:2]))
     C.append(("chaque produit a son libellé imprimable", set(MA.LIBELLES_PRODUIT) == set(MA.PRODUITS),
               MA.LIBELLES_PRODUIT))
     C.append(("paliers : la ligne entière, pour l'écran", MA.paliers("S235")[:2] == [("t ≤ 16 mm", 235.0), ("16 < t ≤ 40 mm", 225.0)],

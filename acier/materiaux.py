@@ -25,6 +25,8 @@ tableau 3.8 ANB), et sont recopiées telles quelles.
     source(nuance, t, produit, grandeur)   la référence à imprimer (« tableau 3.3 ANB (EN 10025-2:2004), 16 < t ≤ 40 mm »)
     nominale(nuance)         f_y de la plus petite épaisseur (le nombre du nom : S355 → 355), pour les libellés et
                              les contrôles de domaine — jamais pour une résistance
+    paliers(nuance, produit, grandeur)   [(« 16 < t ≤ 40 mm », valeur)] : la ligne entière
+    bornes(nuance, produit, grandeur)    [(borne sup., incluse, texte, valeur)] : la même, avec ses bornes chiffrées
 
 Produits : « lamine » (profilés laminés, plats, tôles — EN 10025), « creux_chaud » (profils creux finis à chaud,
 EN 10210-1), « creux_froid » (profils creux formés à froid, EN 10219-1).
@@ -182,3 +184,10 @@ def paliers(nuance: str, produit: str = "lamine", grandeur: str = "fy") -> List[
     """[(« 16 < t ≤ 40 mm », valeur)] : la ligne entière, pour un tableau à l'écran."""
     bandes = _bandes_de(nuance, produit, 0 if grandeur == "fy" else 1)
     return [(_texte_bande(bandes, i), v) for i, (_, _, v) in enumerate(bandes)]
+
+
+def bornes(nuance: str, produit: str = "lamine", grandeur: str = "fy") -> List[Tuple[float, bool, str, float]]:
+    """[(borne supérieure en mm, borne incluse, « 16 < t ≤ 40 mm », valeur)] : la ligne entière avec ses bornes
+    chiffrées, pour un écran qui range ses colonnes par palier — sans lire la structure interne TABLEAUX."""
+    bandes = _bandes_de(nuance, produit, 0 if grandeur == "fy" else 1)
+    return [(sup, inc, _texte_bande(bandes, i), v) for i, (sup, inc, v) in enumerate(bandes)]
