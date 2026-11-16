@@ -54,8 +54,9 @@ lui-même I_t (par exemple Σ b·t³/3 = 6,008·10⁶ mm⁴), noter la valeur.
 
 ## 3. LTBeam — profilé reconstitué soudé MONOSYMÉTRIQUE « PRS-B », portée 10,00 m (le cas qui manque)
 
-C'est le cas le plus important : le solveur du site n'a pas encore le terme de Wagner (lot 3), et aucune référence
-extérieure ne qualifie aujourd'hui un M_cr de section monosymétrique.
+C'est le cas le plus important : aucune référence extérieure ne qualifie aujourd'hui un M_cr de section
+monosymétrique. Depuis le lot B (bloc B2), le solveur du site a le terme de Wagner et retrouve les valeurs ci-dessous à
+0,01 kN·m près (`tests/test_barre_prs.py`) ; LTBeam doit encore les confirmer.
 
 Section : semelle haute 300 × 30 mm, âme 540 × 15 mm, semelle basse 200 × 30 mm (hauteur 600 mm). Valeurs du brief
 (§ 11.8) : centre de gravité à 337,013 mm de la face inférieure ; centre de cisaillement à 454,714 mm de la face

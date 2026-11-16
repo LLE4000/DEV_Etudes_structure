@@ -217,10 +217,20 @@ soudés : la plus petite des deux (troisième passe du lot A ; avant, l'A_v,z de
 32,64) — A − h_w·t_w pour un U soudé ; une cornière est refusée ;
 tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
-Tube rond en N + M : critère linéaire (6.2), prudent.
+Tube rond en N + M : M_N,Rd = M_pl,Rd·(1 − n^1,7) (§ 6.2.9.1(6), ligne de l'AC:2009 ; lot B — le critère linéaire (6.2)
+d'avant était plus sévère : CHS 168,3x6,3, N = 200 kN, M = 14,1 kN·m : 62,9 % → 40,6 %). IPN : A_v,y = min(2·b·t_f ;
+A − h_w·t_w), comme les U (brief v12 § 19.2 ; IPN 200 : 20,13 cm² au lieu de 20,34). PRS : § 5.10.
 
 **Ce que le moteur a tranché** (`acier/barre/ec3_section.py`, lot 2) :
-- tube rond : la RÉSULTANTE des deux moments et celle des deux efforts tranchants (il n'a pas d'axe) ; n + M/M_pl,Rd ≤ 1 ;
+- tube rond : la RÉSULTANTE des deux moments et celle des deux efforts tranchants (il n'a pas d'axe) ; M_Ed ≤ M_N,Rd ;
+- contrôle élastique (6.1) — § 6.2.1(5), POUR INFORMATION (lot B, test 28 du § 11.5) : aux fibres extrêmes et aux
+  jonctions âme-semelles d'un I, σ_x = N/A + M_y·z/I_y + M_z·y/I_z et τ = V_z·S/(I_y·t_w) au même point, σ_z = 0 ; il
+  n'entre dans aucun verdict (grandeur « controle_elastique ») ; au-delà de 1, ses formules et un message court. V_y n'y
+  est pas compté. La charge sur la semelle tendue (EN 1993-1-5, 7.2(2)), où il décide, est au bloc de l'âme ;
+- semelle en console fléchie (N + M_z) : le module garde la compression UNIFORME (du côté sûr) ; les limites du
+  tableau 5.2 (9ε/α, 10ε/α au bord libre comprimé ; 9ε/(α·√α), 10ε/(α·√α) au bord libre tendu ; 21ε·√k_σ) sont dans
+  `ec3_classe.limites_console_flechie`, pour comparaison (test 29) ;
+- un I ou un H saisi avec I_y < I_z : refusé, « axes inversés ? » (test 15 ; `section.saisie`) ;
 - effort tranchant élevé (V_Ed > 0,5·V_pl,Rd) : (6.30) pour un I de classe 1 ou 2 fléchi autour de l'axe fort ; partout
   ailleurs, et dès qu'un effort normal s'ajoute (§ 6.2.10), (1 − ρ) sur TOUTE la section — du côté sûr, et c'est dit ;
 - le plancher η·h_w·t_w de l'aire de cisaillement : avec η = 1,00 des laminés (lot A), il ne gouverne pour aucun I du
@@ -406,6 +416,46 @@ catalogue, deux nuances, douze charges ; l'IPE 750x134 S355 à la main (V_bw,Rd 
 élancé avec η = 1,00) et l'interaction (7.1) ; un caisson soudé saisi (η = 1,20 : 72·ε/η = 60·ε, plateau χ_w = 1,20) ; les raidisseurs à la main (IPE 300, HEB 300) et la forme du plat sur
 tout le catalogue (4 125 plats : chaque I, trois nuances, cinq épaisseurs) ; la décision lieu par lieu (R2 : la charge de 36 kN, η₂ = 0,093, « pas de
 raidisseur ») ; 623 formules recalculées par leur gabarit et relues sur leurs nombres imprimés ; 82 mutations.
+
+### 5.10 Profilés reconstitués soudés (PRS) en I — brief v12 § 18 (lot B, bloc B2)
+
+**Le moteur** : `acier/barre/prs.py` — `section_prs(b1, t1, hw, tw, b2, t2, a, nuance, bords, nom)` rend une section au
+format de `section.py` (forme « I » ; 1 = semelle haute), avec ce que les autres blocs lisent : `prs` (les plats),
+`monosymetrique`, `z_g`, `z_s`, `int_z_y2z2`, `Wel_y_haut`, `Wel_y_bas`, `Wel_y` (le plus petit), `Wpl_y`, `Iw`, `It`,
+`If_haut`, `If_bas`, `Avz` = 1,20·h_w·t_w, `Avy` = A − h_w·t_w, `eta`, `fabrication` (« soude_oxycoupe »,
+« soude_larges_plats », None si les bords ne sont pas saisis) ; `zj_psi(section, semelle_comprimee)` par tronçon. Les
+clés communes d'un I : `b` = la plus petite largeur (h/b du déversement), `tf` = la plus grande épaisseur (tableau 6.2,
+f_y de calcul) — choix prudents déclarés.
+
+**Les propriétés** (18.4), sur les trois rectangles, cordons non comptés : I_t = Σ (b·t³/3)·(1 − 0,63·t/b) sur les TROIS
+plats ; I_w = h_s²·I₁·I₂/(I₁ + I₂) ; centre de cisaillement à h_s·I₂/(I₁ + I₂) sous le plan moyen de la semelle haute ;
+W_pl,y autour de l'axe neutre plastique ; z_j = z_s − 0,5·∫z·(y² + z²)dA/I_y, positif vers la semelle comprimée
+(annexe E ANB, 2(7)) ; (E.3), (E.4), (E.5) pour information.
+
+**La saisie** (18.2) : refus bloquants — dimension non positive, t_w ≥ b, c ≤ 0 ; gorge non saisie : s = 0 et un
+message ; bords non saisis : méthode ELS bloquée (moteur), l'Eurocode 3 se calcule. Le moteur prend un PRS par ses plats
+(`"prs"`) ou par son nom (`"profil"`) dans une bibliothèque (`"bibliotheque"`) au FORMAT des profilés personnalisés du
+Catalogue (`{"famille": "PRS", "dims": {"h", "b", "tw", "tf"} (+ "b2", "tf2", "a")}`, la nuance) : seules les
+dimensions et la nuance sont stockées, tout se recalcule. L'écran (« Choix de profilé ») : lot C.
+
+**Les règles EC3** (18.5) : c depuis le pied des cordons (s = a·√2) ; âme d'un monosymétrique fléchi en paroi fléchie et
+comprimée (α plastique, ψ élastique, bord de c à f_y) même sans N ; semelle tendue sans limite ; ε et f_y plat par plat,
+f_y de calcul = la plus petite ; classe 4 (b̄ = b_w), avec e_N et ΔM_y = N_Ed·|e_N| (du côté sûr) ; η = 1,20 partout ;
+N + M : (6.36) à semelles égales, sommation linéaire (6.2) sinon ; M + V : (6.30) à semelles égales, (6.29) sinon (âme à
+(1 − ρ)·f_y, axe neutre plastique recalculé) ; flambement : I soudé (t_f ≤ 40 : b/c ; > 40 : c/d) ; torsion (F.3) pour un
+bisymétrique, flexion-torsion « non couvert » pour un monosymétrique comprimé ; déversement : M_cr du solveur AVEC le
+terme de Wagner ∫M_y·z_j·φ′² (`mcr.py`), charges et maintiens repérés depuis le centre de cisaillement ; § 6.3.2.2 par
+défaut (courbes c/d, b = la plus petite largeur) ; § 6.3.2.3 seulement pour un bisymétrique déclaré « section soudée
+équivalente » (paramètre `prs_soudee_equivalente`, DÉCISION BUREAU n° 10, défaut non coché ; l'autre méthode affichée
+pour information) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableaux E.1 ANB — C₃ seulement pour ψ = 1, les
+autres « valeur à fournir » — et E.2 ANB) ; 6.3.3 : bisymétrique comme un laminé, monosymétrique « non couvert ».
+
+**La preuve** — `tests/test_barre_prs.py` : PRS-A et PRS-B du brief (§ 11.8) à sa tolérance (M_cr à 0,01 kN·m :
+1 241,73 / 715,69 kN·m sous moment constant, 942,71 sans Wagner ; M_b,Rd 797,39 et 617,55 kN·m) ; les « autres tests
+PRS » 1 à 5 ; la section efficace recalculée autrement (un I saisi ; un assemblage de parties efficaces) ; le moteur
+(plats, bibliothèque, barre chargée, laminés inchangés) ; 57 mutations, dont le terme de Wagner retiré ou de signe
+inversé. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
+`docs/validation/barres_cas_ltbeam_scia.md`).
 
 ## 6. Les valeurs de référence
 
