@@ -311,6 +311,23 @@ def controles(M=None):
     c("une section SOUDÉE garde η = 1,20 (NBN EN 1993-1-5 ANB:2011, 5.1(2)) : seuil 72·ε/η = 60 — test 22 du § 11.5",
       es["eta"] == 1.2 and proche(es["limite"], 60.0) and am.eta_de(soude, Pm) == 1.2 and am.eta_de(s750, Pm) == 1.0
       and am.eta_de(SE.du_catalogue("RHS 350x150x5"), Pm) == 1.0, es)
+    # (lot A, deuxième passe) le CAISSON soudé, saisi (le catalogue n'en a pas) : η = 1,20 comme un I soudé (NBN EN 1993-1-5
+    # ANB:2011, 5.1(2) : sections soudées) — parois de 8 mm, h_w = h − 3·t (EN 1993-1-5 § 4.4(2))
+    def caisson(h, t, fab="caisson"):
+        A, Ii = 4.0 * (h - t) * t, (h ** 4 - (h - 2.0 * t) ** 4) / 12.0
+        return SE.saisie("tube_carre", fab, h=h, b=h, t=t, A=A, Iy=Ii, Iz=Ii, iy=math.sqrt(Ii / A), iz=math.sqrt(Ii / A))
+    k600, k424 = caisson(600.0, 8.0), caisson(424.0, 8.0)
+    ek = [am.elancement(caisson(600.0, 8.0, f), fy, Pm) for f in ("caisson", "caisson_recuit") for fy in (235.0, 355.0)]
+    rk = am.resistance_cisaillement(am.elancement(k424, 235.0, Pm), 235.0, Pm)
+    J = RE.Journal("ame", "x")
+    am.cisaillement(J, k600, 235.0, Pm, 500e3)
+    c("un CAISSON soudé (saisi, recuit ou non) garde η = 1,20 : 72·ε/η = 60·ε — 60 en S235, 60 × 0,814 = 48,8 en S355 (paroi de 8 mm : 355) ; "
+      "600 × 8 : h_w/t = 576/8 = 72 > 60, âme élancée et « A-Vb » écrit (avec η = 1,00 : 72 ≤ 72, rien) ; 424 × 8 (h_w/t = 50) : λ̄_w = "
+      "50/86,4 = 0,579 < 0,83/η = 0,692 → plateau χ_w = η = 1,20 (1,00 avec η = 1,00)",
+      all(e_["eta"] == 1.2 and e_["elancee"] and e_["rapport"] == 72.0 for e_ in ek) and proche(ek[0]["limite"], 60.0)
+      and proche(ek[1]["limite"], 60.0 * math.sqrt(235.0 / 355.0)) and round(ek[1]["limite"], 1) == 48.8 and proche(ek[2]["limite"], 60.0)
+      and am.eta_de(k600, Pm) == 1.2 and rk["plafonne"] and rk["chi_w"] == 1.2 and round(rk["lambda_w"], 3) == 0.579
+      and verif(J.rendre(), "A-Vb") is not None, (ek, rk))
     vides = []
     for sec, fy, V in ((s300, 355.0, 300e3), (s750, 235.0, 500e3), (s750, 355.0, 0.0)):
         J = RE.Journal("ame", "x")
@@ -704,6 +721,7 @@ MUTATIONS = [
     ("ec3_ame", "lot A — λ̄_F avec la f_y de calcul (et non celle de l'âme)", '        lF = math.sqrt(L["ly"] * tw * fyw / Fcr)', '        lF = math.sqrt(L["ly"] * tw * fy / Fcr)'),
     ("ec3_ame", "lot A — η des sections soudées pour un laminé", '    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]', '    return P["eta_soude"]'),
     ("ec3_ame", "lot A — η = 1 pour une section soudée", '    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]', '    return P["eta"]'),
+    ("ec3_ame", "lot A — les caissons soudés comptés parmi les laminés (η = 1,00)", 'SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")', "SOUDES_ETA = SOUDES"),
     ("ec3_ame", "lot A — 72·ε/η avec l'ε de la f_y de calcul", "    fyw = fy if fy_ame is None else float(fy_ame)\n    eta, eps = eta_de(s, P), NO.epsilon(fyw)",
      "    fyw = fy\n    eta, eps = eta_de(s, P), NO.epsilon(fyw)"),
     ("ec3_ame", "l_e sans le facteur 2", "        le_libre = kF * E * tw ** 2 / (2.0 * fy * hw)", "        le_libre = kF * E * tw ** 2 / (fy * hw)"),
