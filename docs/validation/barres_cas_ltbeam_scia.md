@@ -205,3 +205,17 @@ Suites, sans changement du moteur au lot A : (1) facteur f — l'ANB:2018 6.3.2.
 normatives ; le site prend f = 1 hors du tableau 6.6 (côté sûr) — lot 2-3 ; (2) borne de C_my,0 — à trancher sur le
 texte du tableau A.2 (lot 2-3) ; (3) L17 dans LTBeam ; (4) η = 1,00 des laminés sur le texte de l'ANB de
 l'EN 1993-1-5.
+
+## 7. Résultat de LTBeamN reçu le 16/11/2026 (mesure datée) : L17a
+
+LTBeamN, IPE 360 de sa bibliothèque, E = 210 000 N/mm², G = 80 769 N/mm², 200 éléments, charge répartie posée sur la
+semelle haute (+180 mm), moment d'extrémité −103,95 kN·m : **μ_cr = 2,127 ; M_cr = 221,1 kN·m** (au droit de l'appui,
+x = 6 m). Solveur du site, même chargement, G = 80 769 : 223,30 kN·m avec les propriétés de son catalogue (I_t 37,90 ;
+I_w 314,6·10³) ; 221,49 kN·m avec celles des fabricants (I_t 37,32 ; I_w 313,6·10³), soit +0,2 % : **conforme**. Un
+premier essai avait donné 348 kN·m, la charge placée à 3 cm du centre de cisaillement au lieu de 18 cm.
+
+Conclusion : une charge posée sur la semelle haute reste déstabilisante sur toute la travée, y compris là où le moment
+est négatif. Le site a raison sur ce cas (taux 0,717 ; 0,656 avec le facteur f) ; le traitement « stabilisant » de
+SCIA sur l'appui (M_cr 642,87, taux 0,35) n'est pas du côté sûr. Aucun changement du moteur. Conseil pour les calculs
+du bureau dans SCIA : sur une poutre continue chargée par le dessus, régler la position de la charge pour qu'elle reste
+déstabilisante sur l'appui.
