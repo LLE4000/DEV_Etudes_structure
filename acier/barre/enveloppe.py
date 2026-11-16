@@ -15,6 +15,10 @@ ORDRE = {"ec3": ("E-SECTION", "E-N", "E-My", "E-Mz", "E-Vz", "E-Vy", "E-MV", "E-
          "historique": ("H-N-z", "H-N-y", "H-SIGMA", "H-DEV", "H-EQ"),
          "ame": ("A-AME", "A-Vb", "A-Vb-y", "A-VbM", "A-S", "A-GR")}
 IDS_BARRE = ("E-Nb", "E-Mb", "E-66")             # les vérifications de la barre (les autres sont celles de la section)
+# les lignes dont l'occurrence retenue AJOUTE ses hypothèses à celles de la gouvernante (sans doublon) : la flexion et le
+# déversement de la méthode ELS (L_d, classe, origine du 3,9, variante) restent dits quand la ligne qui gouverne est prise
+# là où rien ne fléchit (H-EQ à l'appui)
+HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}
 
 
 def rang(v: Dict) -> Tuple[int, float]:
@@ -91,7 +95,8 @@ class Enveloppe:
 
     def rendre(self) -> Dict:
         """Le résultat de la méthode sur toute la barre : la forme de acier/barre/resultat.py, où chaque vérification
-        dit sa combinaison et son lieu ; ``calcul`` porte les formules de chaque occurrence retenue (clés « id/clé »)."""
+        dit sa combinaison et son lieu ; ``calcul`` porte les formules de chaque occurrence retenue (clés « id/clé ») ;
+        ``hypotheses``, celles de la gouvernante, puis celles des lignes de ``HYPOTHESES_AUSSI``."""
         verifs, calcul = [], []
         for id_ in list(ORDRE[self.methode]) + sorted(set(self.pire) - set(ORDRE[self.methode])):
             if id_ not in self.pire:
@@ -105,10 +110,20 @@ class Enveloppe:
             verifs.append(v)
         s = RE.synthese(verifs)
         gouv = self.pire[s["gouvernant"]] if s["gouvernant"] else None
-        # une correction des classeurs : le texte de l'occurrence RETENUE de sa vérification (la gouvernante d'abord) — il
-        # change d'un tronçon à l'autre (φ_d prolongé, classe de la semelle comprimée) ; à défaut, la première rencontrée
+        hyp = list(gouv["r"]["hypotheses"]) if gouv else []
+        for id_ in HYPOTHESES_AUSSI.get(self.methode, ()):
+            i = 0                                   # (chaque ligne ajoutée à sa place : après celle qui la précède)
+            for h in self.pire[id_]["r"]["hypotheses"] if id_ in self.pire else ():
+                if h in hyp:
+                    i = hyp.index(h) + 1
+                else:
+                    hyp.insert(i, h)
+                    i += 1
+        # une correction des classeurs : le texte de l'occurrence RETENUE de sa vérification (chaque correction n'en vise
+        # qu'une) — il change d'un tronçon à l'autre (φ_d prolongé, classe de la semelle comprimée) ; à défaut, la première
+        # rencontrée
         corrections: Dict[str, Dict] = {}
-        for v in sorted(verifs, key=lambda v: v["id"] != s["gouvernant"]):
+        for v in verifs:
             for c in self.pire[v["id"]]["r"].get("corrections") or []:
                 if v["id"] in c["verifications"]:
                     corrections.setdefault(c["id"], c)
@@ -121,5 +136,5 @@ class Enveloppe:
         return {"methode": self.methode, "norme": self.norme, "statut": s["statut"], "taux_max": s["taux_max"], "gouvernant": s["gouvernant"],
                 "combinaison": gouv["ou"]["combinaison"] if gouv else None, "verifications": verifs, "calcul": calcul,
                 "grandeurs": self._grandeurs(gouv), "alertes": list(self.alertes.values()),
-                "hypotheses": list(gouv["r"]["hypotheses"]) if gouv else [], "a_confirmer": list(self.a_confirmer.values()),
+                "hypotheses": hyp, "a_confirmer": list(self.a_confirmer.values()),
                 "combinaisons": combis, "corrections": list(corrections.values())}

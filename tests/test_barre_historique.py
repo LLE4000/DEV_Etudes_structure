@@ -573,12 +573,17 @@ def controles_lot_b(H, MO_, c):
     faux = [(k, DE.classe(dict(pa, fabrication=k[0]), 600, 300, k[1])["classe"]) for k, att in soudes.items()
             if DE.classe(dict(pa, fabrication=k[0]), 600, 300, k[1])["classe"] != att]
     c("tableau 12, I soudé (PRS, t_f de la semelle comprimée) : oxycoupé → c jusqu'à 40 mm, d au-delà ; larges plats → d (note 3)", not faux, faux)
-    try:
-        DE.classe(dict(pa, fabrication="recuit"), 600, 300, 30)
-        ok = False
-    except H.Refus as e:
-        ok = "à fournir" in str(e)
-    c("tableau 12 : un profil que la règle des classeurs ne couvre pas (I recuit) — la classe est « à fournir », rien n'est deviné", ok)
+    textes = {}
+    for fab in ("recuit", "lamine_semelles_additionnelles"):
+        try:
+            DE.classe(dict(lamine(300, 300, 20, 10), fabrication=fab), 300, 300, 20)
+        except H.Refus as e:
+            textes[fab] = str(e)
+    c("tableau 12 : un profil que la règle des classeurs ne couvre pas (I recuit, à semelles additionnelles) — la classe est « à fournir », "
+      "rien n'est deviné ; le message (une ligne) nomme le profil, jamais une clé interne",
+      textes.get("recuit", "").startswith("Classe de déversement à fournir") and "pour un I recuit" in textes["recuit"]
+      and "pour un I à semelles additionnelles" in textes.get("lamine_semelles_additionnelles", "")
+      and all("_" not in t and "(I," not in t and len(t) < 120 for t in textes.values()), textes)
 
     # ---- 11.1 : les lectures cohérentes (méthode de la doc en entier, C = 1)
     vraies = SE.saisie("I", "lamine", nom="HEA 160", h=152, b=160, tf=9, tw=6, A=3877.0, Iy=1673e4, Iz=615.6e4, iy=65.7, iz=39.8, Wel_y=220.1e3,
@@ -772,10 +777,12 @@ def controles_lot_b(H, MO_, c):
       correction_dite(s355, "fy_nuance", "H-DEV") and not any(x["id"] == "fy_nuance" for r in (s275, s460) for x in r["corrections"])
       and not any("DEVERSEMENT_CAD" in m for r in (s275, s460) for v in r["verifications"] for m in v["messages"]),
       ([x["id"] for x in s275["corrections"]], [x["id"] for x in s355["corrections"]]))
+    s460i = H.verifier(dict(dev_, section=ipe, fy=460.0, nuance="S460", deversement={"classe": "c"}))
     c("6.4 — S460 (f_y > 430 N/mm²) : la classe est lue dans la colonne « f_y ≤ 430 » du tableau 12 (l'autre n'est pas dans le brief) et "
-      "l'hypothèse le dit, « À VÉRIFIER » ; pas en S355 ; la méthode reste hors domaine",
+      "l'hypothèse le dit, « À VÉRIFIER » ; pas en S355, ni quand la classe est imposée (rien n'est lu) ; la méthode reste hors domaine",
       any(DE.MESSAGE_COLONNE in h and "À VÉRIFIER" in h for h in s460["hypotheses"]) and not any(DE.MESSAGE_COLONNE in h for h in s355["hypotheses"])
-      and s460["statut"] in (H.HORS_DOMAINE, H.NOK), s460["hypotheses"])
+      and not any(DE.MESSAGE_COLONNE in h for h in s460i["hypotheses"]) and s460i["grandeurs"]["deversement"]["classe"] == "c"
+      and s460["statut"] in (H.HORS_DOMAINE, H.NOK), (s460["hypotheses"], s460i["hypotheses"]))
     k80 = [("axe_faible" in DE.classe(lamine(300, 300, t), 300, 300, t)["corrections"]) for t in (79.0, 80.0, 81.0, 95.0)]
     k80 += [("axe_faible" in DE.classe(dict(section_prs(**PRS_A), fabrication="soude_oxycoupe"), 600, 300, 90.0)["corrections"])]
     c("6.7 correction 6 — « la ligne axe faible seule » : dite pour un I jusqu'à t_f = 80 mm, PAS pour un laminé plus épais (les deux lignes y "
@@ -787,9 +794,11 @@ def controles_lot_b(H, MO_, c):
       correction_dite(r03, "phid_plafond", "H-DEV") and not any("≤ 0,2 : φ_d = 1" in m for m in m03), m03)
     plat = section_prs(600, 30, 140, 15, 600, 30)
     rp = H.verifier({"section": plat, "fy": 235.0, "My": 50e6, "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}}})
-    c("un PRS dont l'axe de l'âme est l'axe FAIBLE (semelles 600 × 30, âme 140 × 15 : I_y/I_z = 0,25) : verdict bloqué avec SON message "
-      "(« l'axe de l'âme n'est pas l'axe fort de ce PRS ») ; une saisie aux cases échangées (FLAMBECBD) garde le sien",
-      plat["Iy"] < plat["Iz"] and rp["statut"] == H.NON_COUVERT and any("l'axe de l'âme n'est pas l'axe fort" in m for m in rp["grandeurs"]["bloque"])
+    c("un PRS plus raide autour de z que de y (semelles 600 × 30, âme 140 × 15 : I_y/I_z = 0,25) : verdict bloqué avec SON message, qui dit "
+      "pourquoi (« les charges (plan de l'âme) fléchissent ce PRS autour de son axe faible ») ; une saisie aux cases échangées (FLAMBECBD) "
+      "garde le sien",
+      plat["Iy"] < plat["Iz"] and rp["statut"] == H.NON_COUVERT
+      and any("fléchissent ce PRS autour de son axe faible" in m and len(m) < 110 for m in rp["grandeurs"]["bloque"])
       and not any("cases de l'axe fort" in m for m in rp["grandeurs"]["bloque"]) and any("cases de l'axe fort" in m for m in mx["grandeurs"]["bloque"]),
       rp["grandeurs"]["bloque"])
     try:
@@ -814,6 +823,26 @@ def controles_lot_b(H, MO_, c):
       "le texte de l'occurrence qui GOUVERNE (ici la semelle haute, versée en second)",
       out["gouvernant"] == "H-DEV" and ct.get("classe_type") == c8.get("classe_type") != {x["id"]: x["texte"] for x in rb["corrections"]}.get("classe_type"),
       (ct.get("classe_type"), c8.get("classe_type")))
+    # la ligne qui gouverne prise là où rien ne fléchit (H-EQ à l'appui) : les hypothèses du déversement restent dites
+    pa_ = section_prs(**PRS_A)
+    ax_ = {"y": {"L": 8000.0}, "z": {"L": 8000.0}}
+    appui = H.verifier({"section": pa_, "fy": 235.0, "Vz": 600e3, "axes": ax_})
+    env = MO_.Enveloppe(H.METHODE, H.NORME)
+    env.verser(appui, {"combinaison": "c1", "x": 0.0})
+    env.verser(H.verifier({"section": pa_, "fy": 235.0, "My": 100e6, "axes": ax_, "deversement": {"Lc": 4000.0}}), {"combinaison": "c1", "x": 4.0})
+    hp_ = env.rendre()
+    env = MO_.Enveloppe(H.METHODE, H.NORME)
+    env.verser(appui, {"combinaison": "c1", "x": 0.0})
+    env.verser(H.verifier({"section": pa_, "fy": 235.0, "My": 100e6, "axes": ax_, "deversement": {"Lc": 4000.0, "variante": "fascicule"}}),
+               {"combinaison": "c1", "x": 4.0})
+    hf_ = env.rendre()
+    c("barre chargée — H-EQ gouverne à l'appui (M = 0) : les hypothèses gardent celles de la ligne du déversement (L_d et classe, origine du 3,9, "
+      "« classes différentes » d'un PRS : une fois chacune) et, variante du fascicule, celles de la ligne des contraintes",
+      hp_["gouvernant"] == hf_["gouvernant"] == "H-EQ" and DE.MESSAGE_3_9 not in appui["hypotheses"]
+      and hp_["hypotheses"].count(DE.MESSAGE_3_9) == 1 and hp_["hypotheses"].count(DE.MESSAGE_CLASSES) == 1
+      and sum(h.startswith("Déversement (classeurs") for h in hp_["hypotheses"]) == 1
+      and any("variante du fascicule" in h for h in hf_["hypotheses"]) and len(hf_["hypotheses"]) == len(set(hf_["hypotheses"])),
+      (hp_["gouvernant"], hp_["hypotheses"], hf_["hypotheses"]))
 
     # ---- la ligne qui répéterait l'autre : flexion simple d'axe fort, C = 1, classeurs
     base = {"section": heb, "fy": 235.0, "My": 40e6, "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}}}
@@ -936,11 +965,20 @@ def controles_lot_b(H, MO_, c):
     r = MO_.verifier(dict(MO_.EN.nouvelle_barre(), maintiens=[{"x": 3.0, "genre": "complet"}]))
     h_ = r["methodes"]["historique"]
     c("la barre chargée prend le déversement des classeurs (L_d du tronçon : 3 m), C_d et la variante de la barre ; la ligne du déversement "
-      "gouverne une poutre (IPE 300, 6 m, tenue à mi-portée), et nomme ses corrections",
+      "gouverne une poutre (IPE 300, 6 m, tenue à mi-portée), nomme ses corrections, et l'origine du 3,9 est dite une fois",
       verif_de(h_, "H-DEV") is not None and h_["gouvernant"] == "H-DEV" and h_["grandeurs"]["deversement"]["cas"] == "classeurs"
       and proche(h_["grandeurs"]["deversement"]["Lc"], 3000.0) and any(x["id"] == "axe_faible" for x in h_["corrections"])
-      and r["barre"]["historique"]["Cd"] == 1.0 and r["barre"]["historique"]["variante"] == "classeurs", (h_["gouvernant"], h_["corrections"]))
+      and r["barre"]["historique"]["Cd"] == 1.0 and r["barre"]["historique"]["variante"] == "classeurs"
+      and h_["hypotheses"].count(DE.MESSAGE_3_9) == 1 and len(h_["hypotheses"]) == len(set(h_["hypotheses"])), (h_["gouvernant"], h_["hypotheses"]))
     nb_ = MO_.EN.nouvelle_barre()
+    court = MO_.verifier(dict(nb_, travees=[1.0], cas=[{"nom": "G", "nature": "permanent", "N": 0.0,
+                                                        "charges": [{"type": "q", "v": 400.0, "a": 0.0, "b": 1.0}]}]))["methodes"]["historique"]
+    c("barre chargée — IPE 300 de 1 m sous 400 kN/m : H-EQ gouverne à l'appui (x = 0, M = 0), H-DEV est montrée ; ses hypothèses restent dites "
+      "(« Déversement (classeurs… », origine du 3,9 : une fois), à leur place (avant les courbes, comme pour une section seule)",
+      court["gouvernant"] == "H-EQ" and verif_de(court, "H-EQ")["x"] == 0.0 and verif_de(court, "H-DEV") is not None
+      and court["hypotheses"].count(DE.MESSAGE_3_9) == 1 and sum(h.startswith("Déversement (classeurs") for h in court["hypotheses"]) == 1
+      and [h[:12] for h in court["hypotheses"]] == ["Charges de s", "Déversement ", DE.MESSAGE_3_9[:12], "Courbes de f"],
+      (court["gouvernant"], court["hypotheses"]))
     rcl = MO_.verifier(dict(nb_, maintiens=[{"x": 3.0, "genre": "complet"}], historique={"classe_d": "d"}))
     rf1 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3", historique={"facteur_doc": True}))
     rf0 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3"))
@@ -949,12 +987,23 @@ def controles_lot_b(H, MO_, c):
         refuse = False
     except H.Refus as e:
         refuse = "classe de déversement" in str(e)
+    try:
+        vide = MO_.EN.normaliser(dict(nb_, historique={"classe_d": ""}))["historique"]["classe_d"] is None
+    except H.Refus:
+        vide = False
     dcl, df1, df0 = (x["methodes"]["historique"]["grandeurs"]["deversement"] for x in (rcl, rf1, rf0))
     c("modèle d'entrée — les deux choix de 6.4 sont des champs de la barre, avec leur défaut (« facteur_doc » False, « classe_d » None : le "
-      "tableau 12) : une classe imposée (d) et le facteur 5,1 de la doc (RHS) passent à la méthode ; une classe inconnue est refusée",
+      "tableau 12) : une classe imposée (d) et le facteur 5,1 de la doc (RHS) passent à la méthode ; une classe inconnue est refusée ; "
+      "« classe_d » vide (\"\", une liste sans choix) vaut None",
       nb_["historique"]["facteur_doc"] is False and nb_["historique"]["classe_d"] is None and dcl["classe"] == "d" and dcl["classe_norme"] == "b"
       and any(x["code"] == "classe_d" for x in rcl["methodes"]["historique"]["alertes"]) and df1["cas"] == df0["cas"] == "ferme"
-      and df1["facteur"] == 5.1 and abs(df0["facteur"] - math.pi * math.sqrt(2.6)) < 1e-12 and refuse, (dcl.get("classe"), df1.get("facteur"), refuse))
+      and df1["facteur"] == 5.1 and abs(df0["facteur"] - math.pi * math.sqrt(2.6)) < 1e-12 and refuse and vide,
+      (dcl.get("classe"), df1.get("facteur"), refuse, vide))
+    pi_ = DE.classeurs(dict(section_prs(**PRS_A)), 4000.0, H.lambda_E(235.0), classe_imposee="b")
+    c("6.4 — une classe IMPOSÉE : aucune correction de classe (ni « ligne axe faible » sur l'IPE 300 en d, ni « classe du type » qui citerait la "
+      "classe imposée sur un PRS) ; l'alerte compare avec le tableau 12",
+      rcl["methodes"]["historique"]["corrections"] == [] and pi_["corrections"] == [] and pi_["classe_norme"] == "c",
+      (rcl["methodes"]["historique"]["corrections"], pi_["corrections"]))
     rv = MO_.verifier(dict(MO_.EN.nouvelle_barre(), maintiens=[{"x": 3.0, "genre": "complet"}],
                            historique={"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0, "variante": "fascicule"}))
     c("… la variante du fascicule choisie à la barre : calculée, dite, et la ligne des contraintes la porte (pas de ligne des classeurs)",
@@ -1071,9 +1120,13 @@ def mutations():
         ("relecture — S460 : la colonne « f_y ≤ 430 » du tableau 12 prise sans le dire", '        col = f" — {DE.MESSAGE_COLONNE} (À VÉRIFIER)" if',
          '        col = "" if'),
         ("relecture — λ̄ ≤ 0,2 : deux lignes pour φ_d = 1", 'elif "phid_plafond" not in dev["corrections"]:', "else:"),
-        ("relecture — PRS à I_y ≤ I_z : le message des cases échangées",
-         'bloque.append("I_y ≤ I_z : l\'axe de l\'âme n\'est pas l\'axe fort de ce PRS — verdict bloqué." if',
+        ("relecture — PRS à I_y ≤ I_z : le message des cases échangées", "bloque.append(MESSAGE_PRS_AXE_FAIBLE if",
          'bloque.append("I_y ≤ I_z : des valeurs de l\'axe faible dans les cases de l\'axe fort ? Verdict bloqué." if'),
+        ("fin du bloc — PRS à I_y ≤ I_z : la phrase ambiguë revient (elle ne dit pas pourquoi)",
+         'MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : les charges (plan de l\'âme) fléchissent ce PRS autour de son axe faible — verdict bloqué."',
+         'MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : l\'axe de l\'âme n\'est pas l\'axe fort de ce PRS — verdict bloqué."'),
+        ("fin du bloc — S460 : « classe lue pour f_y ≤ 430 » dite aussi d'une classe imposée", 'if fy > DE.FY_COLONNE_12 and dv["classe"] is None else ""',
+         'if fy > DE.FY_COLONNE_12 else ""'),
         ("relecture — classe de déversement à fournir : toute la méthode refusée", "except DE.AFournir as e:", "except ZeroDivisionError as e:"),
         ("relecture — classe à fournir : la flexion jugée quand même (φ_ed = 1)", '            dev = {"cas": "a_fournir", "phi": None}',
          '            dev = {"cas": "maintenu", "phi": 1.0}'),
@@ -1130,6 +1183,10 @@ def mutations():
          "        cl = classe(s, g[\"h\"], g[\"b\"], g[\"tf\"])\n    except AFournir:", "        cl = None\n    except AFournir:"),
         ("relecture — correction 6 dite aussi pour un laminé de plus de 80 mm", 'if forme == "I" and not (fab == "lamine" and tf > TF_80):', 'if forme == "I":'),
         ("relecture — correction 4 dite à toute f_y (la constante de la feuille S355 perdue)", "FY_FEUILLE_S355 = 355.0", "FY_FEUILLE_S355 = 275.0"),
+        ("fin du bloc — une classe imposée : les corrections de classe du tableau 12 dites quand même",
+         'corr = list(cl["corrections"]) if (cl and classe_imposee is None) else []', 'corr = list(cl["corrections"]) if cl else []'),
+        ("fin du bloc — « à fournir » : les clés internes du profil dans le message", "pour {PROFILS_A_FOURNIR.get(fab, 'ce profil')} — ",
+         "({forme}, {fab}) — "),
     ]
     for nom, ancien, nouveau in cas_de:
         if source_de.count(ancien) != 1:
@@ -1179,6 +1236,15 @@ def mutations():
     cas_en = [
         ("relecture — l'enveloppe garde le texte de la PREMIÈRE occurrence d'une correction", "                    corrections.setdefault(c[\"id\"], c)\n",
          "                    pass\n"),
+        ("fin du bloc — les hypothèses de la seule gouvernante (H-EQ à l'appui : le déversement et le 3,9 perdus)",
+         'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}', "HYPOTHESES_AUSSI = {}"),
+        ("fin du bloc — les hypothèses de la ligne du déversement oubliées", 'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}',
+         'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA",)}'),
+        ("fin du bloc — les hypothèses de la ligne des contraintes oubliées (variante du fascicule)", 'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}',
+         'HYPOTHESES_AUSSI = {"historique": ("H-DEV",)}'),
+        ("fin du bloc — hypothèses répétées (gouvernante et ligne du déversement)", "                if h in hyp:\n", "                if False:\n"),
+        ("fin du bloc — hypothèses ajoutées en fin de liste (après les courbes de flambement)", "                    hyp.insert(i, h)\n",
+         "                    hyp.append(h)\n"),
     ]
     for nom, ancien, nouveau in cas_en:
         if source_en.count(ancien) != 1 or source_mo.count(import_en) != 1:
@@ -1194,6 +1260,31 @@ def mutations():
             mo_m.__package__ = "acier.barre"
             mo_m.__dict__.update(IDS_BARRE=en_m.IDS_BARRE, ORDRE=en_m.ORDRE, Enveloppe=en_m.Enveloppe)
             exec(compile(source_mo.replace(import_en, ""), CHEMIN_BARRE, "exec"), mo_m.__dict__)
+            rouges = [n for n, ok, _ in controles(HI, mo_m) if not ok]
+        except Exception as e:  # noqa: BLE001
+            rouges = [f"exception {type(e).__name__}: {e}"]
+        res.append((nom, rouges))
+    # le MODÈLE D'ENTRÉE de la barre (acier/barre/entree.py) : ses mutations, rejouées sur le moteur des barres
+    chemin_ent = os.path.join(RACINE, "acier", "barre", "entree.py")
+    source_ent = open(chemin_ent, encoding="utf-8").read()
+    import_ent = "from . import entree as EN\n"
+    cas_ent = [
+        ("fin du bloc — « classe_d » vide (\"\", une liste sans choix) refusée", 'if h["classe_d"] == "":', "if False:"),
+    ]
+    for nom, ancien, nouveau in cas_ent:
+        if source_ent.count(ancien) != 1 or source_mo.count(import_ent) != 1:
+            res.append((nom, None))
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location("acier.barre.entree_mute", chemin_ent)
+            ent_m = importlib.util.module_from_spec(spec)
+            ent_m.__package__ = "acier.barre"
+            exec(compile(source_ent.replace(ancien, nouveau), chemin_ent, "exec"), ent_m.__dict__)
+            spec = importlib.util.spec_from_file_location("acier.barre.moteur_mute", CHEMIN_BARRE)
+            mo_m = importlib.util.module_from_spec(spec)
+            mo_m.__package__ = "acier.barre"
+            mo_m.__dict__["EN"] = ent_m
+            exec(compile(source_mo.replace(import_ent, ""), CHEMIN_BARRE, "exec"), mo_m.__dict__)
             rouges = [n for n, ok, _ in controles(HI, mo_m) if not ok]
         except Exception as e:  # noqa: BLE001
             rouges = [f"exception {type(e).__name__}: {e}"]

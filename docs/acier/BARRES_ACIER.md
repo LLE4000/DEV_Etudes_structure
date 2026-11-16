@@ -161,19 +161,23 @@ n° 5, tranchée le 16/11/2026) :
 l = L_d, distance entre maintiens latéraux de la semelle COMPRIMÉE (donnée distincte de L_cr,y et L_cr,z ; barre
 chargée : celle du tronçon) ; b et t_f de la semelle comprimée (un moment positif comprime la semelle haute) ; C_d saisi,
 1 par défaut (1 à 3 : borne de saisie du module, À VÉRIFIER). Le 3,9 : √(3π·√2,6) = 3,899 (doc p. 18, torsion de
-Saint-Venant seule, deux semelles égales), gardé comme les classeurs ; la note le dit une fois, dans les hypothèses. n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
+Saint-Venant seule, deux semelles égales), gardé comme les classeurs ; la note le dit une fois, dans les hypothèses (barre
+chargée : celles de la ligne qui gouverne, plus celles des lignes des contraintes et du déversement, sans doublon — elles
+restent dites quand H-EQ gouverne à l'appui). n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
 faible », un seul choix) : I laminé h/b > 1,2 → b (t_f ≤ 40), c (≤ 80), d au-delà (pas de ligne : note 3, prudent) ;
 h/b ≤ 1,2 → c (≤ 80), d au-delà ; PRS oxycoupé → c (t_f ≤ 40), d au-delà ; larges plats → d ; U → c (fonction seule) ;
-un autre profil (I recuit, à semelles additionnelles) : classe « à fournir » — la flexion est non couverte, le flambement
-se calcule. Colonne lue : f_y ≤ 430 N/mm² ; au-delà (S460), la même, et l'hypothèse le dit (À VÉRIFIER : l'autre colonne
-n'est pas dans le brief). Une classe imposée (`historique.classe_d`) est comparée à celle du tableau 12 (alerte). φ_ed = φ_d entre dans le terme de moment fort de H9 et H10 : avec P = 0 et
+un autre profil (I recuit, à semelles additionnelles) : classe « à fournir » (le message nomme le profil) — la flexion est
+non couverte, le flambement se calcule. Colonne lue : f_y ≤ 430 N/mm² ; au-delà (S460), la même, et l'hypothèse le dit (À VÉRIFIER : l'autre colonne
+n'est pas dans le brief). Une classe imposée (`historique.classe_d` ; vide ou None : celle du tableau 12) est comparée à celle du tableau 12
+(alerte). φ_ed = φ_d entre dans le terme de moment fort de H9 et H10 : avec P = 0 et
 C = 1, H10 redonne la vérification des classeurs — la ligne des contraintes n'est alors pas répétée.
 
 Messages (sans changer les valeurs) : C_d > 1 avec la charge sur la semelle haute (« gardez C_d = 1 ») ; PRS : « formule
 prudente : elle néglige le gauchissement » sur la ligne, « classes du flambement et du déversement différentes » dans les
 hypothèses ; PRS monosymétrique : hors domaine (H-DEV, H-SIGMA et H-EQ, classeurs ou variante du fascicule), calcul avec
-la semelle comprimée, W = W_el,y,min (déversement et H10). Un PRS dont l'axe de l'âme est l'axe faible (I_y ≤ I_z) :
-verdict bloqué, avec son propre message.
+la semelle comprimée, W = W_el,y,min (déversement et H10). Un PRS à I_y ≤ I_z (semelles larges, âme basse) : les
+charges, dans le plan de l'âme, le fléchissent autour de son axe faible, que la méthode ne traite pas — verdict bloqué,
+avec ce message.
 
 **Les corrections des classeurs** (brief § 6.7) sont NOMMÉES par le moteur (`historique_deversement.CORRECTIONS`) et
 imprimées « Correction du classeur : … » dans la vérification concernée, seulement quand elles jouent sur le cas :
@@ -186,7 +190,7 @@ faible » seule — pas pour un laminé de plus de 80 mm, où les deux lignes do
 « axe fort » du tableau 12 est à fournir). Une classe imposée : aucune correction de classe. « Une seule courbe par axe » est un garde-fou de la saisie : il ne joue sur aucun cas calculé. Les choix du
 bureau (f_y nominale, s, C, C_d, courbes et classes) ne sont jamais présentés comme des corrections. La page « Écarts
 avec les classeurs du bureau » (lot C) lira la liste `corrections` du résultat (barre chargée : le texte de l'occurrence
-qui gouverne, car il change d'un tronçon à l'autre).
+retenue de sa vérification, car il change d'un tronçon à l'autre).
 
 **Profils fermés** (RHS, caissons ; doc p. 17-18) : λ_ed = √(π·√(E/G)·L_d·W_y / √(I_z·I_t)), G = E/2,6 = 80 769 N/mm²,
 facteur π·√2,6 = 5,0657 (variante « facteur de la doc 5,1 », `historique.facteur_doc` : λ_ed + 0,338 %), courbe du fascicule (caisson soudé b,

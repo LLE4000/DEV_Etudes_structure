@@ -59,6 +59,8 @@ E_SUR_G = 2.6                               # E/G = 2·(1 + ν), ν = 0,3 (doc p
 FACTEUR_DOC = 5.1                           # la doc arrondit π·√2,6 = 5,0657 à 5,1 (variante, brief § 6.4)
 SOUDES = ("soude_oxycoupe", "soude_larges_plats")
 CAISSONS = ("caisson", "caisson_recuit")
+# les I que la règle des classeurs ne couvre pas, nommés pour le message « à fournir » (jamais la clé interne)
+PROFILS_A_FOURNIR = {"recuit": "un I recuit", "lamine_semelles_additionnelles": "un I à semelles additionnelles"}
 
 # les VRAIES erreurs des classeurs que le module corrige (brief § 6.2, 6.4, 6.7) : identifiant → phrase d'une ligne
 # (« {…} » : la valeur du cas). « une_courbe » est un garde-fou : il ne joue sur aucun cas calculé (la saisie l'impose).
@@ -160,8 +162,8 @@ def classe(s: Dict, h: float, b: float, tf: float) -> Dict:
         else:
             cl, regle = "d", "I soudé, semelles en larges plats"
     else:
-        raise AFournir(f"Classe de déversement à fournir (NBN B 51-002, tableau 12) : la règle des classeurs ne couvre pas ce profil "
-                       f"({forme}, {fab}) — flexion non jugée.")
+        raise AFournir(f"Classe de déversement à fournir (NBN B 51-002, tableau 12) pour {PROFILS_A_FOURNIR.get(fab, 'ce profil')} — "
+                       "flexion non jugée.")
     if forme != "I" or fab != "lamine":
         if cl != lam:
             corr.append("classe_type")              # DEVERSEMENT_CAD : toujours la classe d'un I laminé (correction 5)

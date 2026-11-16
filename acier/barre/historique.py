@@ -82,6 +82,7 @@ COURBES_FABRICATION = {
     "caisson_recuit": ("a", "a"),
 }
 NOMS_AXE = {"y": "fort", "z": "faible"}
+MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : les charges (plan de l'âme) fléchissent ce PRS autour de son axe faible — verdict bloqué."
 
 
 # ------------------------------------------------------------------ la norme
@@ -327,8 +328,10 @@ def verifier(barre: Dict) -> Dict:
             bloque.append("Fabrication du tube à saisir (finie à chaud ou formée à froid) : verdict bloqué ; calcul pour information en "
                           "formé à froid.")
     if s["forme"] == "I" and (s["Iy"] <= s["Iz"] or s["iy"] <= s["iz"]):
-        # un PRS (propriétés calculées sur ses plats) : l'axe de l'âme est son axe faible ; une saisie : des cases échangées
-        bloque.append("I_y ≤ I_z : l'axe de l'âme n'est pas l'axe fort de ce PRS — verdict bloqué." if isinstance(s0.get("prs"), dict)
+        # un PRS (propriétés calculées sur ses plats : semelles larges, âme basse) : les charges, dans le plan de l'âme, le
+        # fléchissent autour de son axe FAIBLE, que la méthode ne traite pas (courbes, déversement) ; une saisie : des cases
+        # échangées
+        bloque.append(MESSAGE_PRS_AXE_FAIBLE if isinstance(s0.get("prs"), dict)
                       else "I_y ≤ I_z : des valeurs de l'axe faible dans les cases de l'axe fort ? Verdict bloqué.")
 
     sigma_adm = fy / sec

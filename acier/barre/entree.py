@@ -24,7 +24,7 @@
      "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False,
                     "Cd": 1.0, "variante": "classeurs" | "fascicule",   C_d et la variante du déversement (brief § 6.4)
                     "facteur_doc": False, "classe_d": None}             profil fermé : le facteur 5,1 de la doc ; une classe
-                                                                       de déversement imposée (a à d ; None : le tableau 12)
+                                                                       de déversement imposée (a à d ; None ou "" : le tableau 12)
      "parametres": {}}                        d'autres coefficients que ceux de la table (acier/barre/parametres.py)
 """
 import copy
@@ -114,6 +114,8 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus(f"le coefficient de moment C_d du déversement doit être entre {HD.CD_MIN:g} et {HD.CD_MAX:g}")
     if h["variante"] not in HD.VARIANTES:
         raise Refus(f"variante du déversement : {', '.join(HD.VARIANTES)}")
+    if h["classe_d"] == "":                 # une liste sans choix (l'écran) : celle du tableau 12
+        h["classe_d"] = None
     if h["classe_d"] is not None and h["classe_d"] not in HD.CLASSES:
         raise Refus(f"classe de déversement : {', '.join(HD.CLASSES)} ou vide (celle du tableau 12)")
     b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": bool(h["tolerance"]),
