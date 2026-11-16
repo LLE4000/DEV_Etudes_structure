@@ -70,11 +70,14 @@ chk("ELS : τ_adm = k·g/10 = 100 × 9,81/10 = 98,1 N/mm² ; F_adm = 491 N/mm ; 
     "τ_adm = k·g/10 = 100 × 9,81/10 = 98,1 N/mm²" in L and "F_adm = τ_adm·a = 98,1 × 5 = 491 N/mm" in L
     and "η = |f|/F_adm = 764,4/490,5 = 155,8 %" in L and any(l.startswith("k équivalent Eurocode") and l.endswith("= 141 kg/(mm·cm)") for l in L), str(L[-4:]))
 L = FO.lignes(verif("C2", {"jonction": "pleine", "tB": 30, "tA": 30}, {"N": 400}))
-chk("pleine pénétration : A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm² (les trois lignes de gorge = t·l), lim = f_y/γ_M0 = 235/1 = 235 N/mm², η = 100/235 = 42,6 %",
-    "A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm²" in L and "lim = f_y/γ_M0 = 235/1 = 235 N/mm²" in L
-    and "η = σ_c/lim = 100/235 = 42,6 %" in L, str(L))
+# (plats S235 de 30 mm : f_y = 225, tableau 3.3 ANB, 16 < t ≤ 40 mm — NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a)
+chk("pleine pénétration : A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm² (les trois lignes de gorge = t·l), lim = f_y/γ_M0 = 225/1 = 225 N/mm², η = 100/225 = 44,4 %",
+    "A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm²" in L and "lim = f_y/γ_M0 = 225/1 = 225 N/mm²" in L
+    and "η = σ_c/lim = 100/225 = 44,4 %" in L, str(L))
 L = FO.lignes(verif("C2", {"jonction": "pleine", "tB": 30, "tA": 30}, {"N": 400}, {"mode": "els"}))
-chk("pleine pénétration en ELS : lim = f_y/γ_F = 235/1,5 = 156,7 N/mm²", "lim = f_y/γ_F = 235/1,5 = 156,7 N/mm²" in L, str(L[-2:]))
+chk("pleine pénétration en ELS : lim = f_y/γ_F = 225/1,5 = 150 N/mm²", "lim = f_y/γ_F = 225/1,5 = 150 N/mm²" in L, str(L[-2:]))
+L = FO.lignes(verif("C2", {"jonction": "pleine", "tB": 12, "tA": 12}, {"N": 400}))
+chk("pleine pénétration, plats de 12 mm : lim = f_y/γ_M0 = 235/1 = 235 N/mm² (t ≤ 16 mm)", "lim = f_y/γ_M0 = 235/1 = 235 N/mm²" in L, str(L[-2:]))
 chk("refus : aucune substitution", FO.toutes(verif("C3", {"a": 2.0})) == {"groupe": [], "point": [], "critere": []})
 
 print("\n=== 3. Les critères en typographie mathématique et la méthode du point ===")

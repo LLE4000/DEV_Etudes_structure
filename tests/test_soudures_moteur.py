@@ -36,6 +36,9 @@ def pres(a, b, tol=1e-9):
 
 
 FU, BW, GM2 = 360.0, 0.8, 1.25            # S235 (bibliothèque) ; γM2 ANB
+# f_y d'une pièce S235 de 30 mm : tableau 3.3 ANB (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a), 16 < t ≤ 40 mm → 225 N/mm²
+# (le tableau 3.1 de l'EN donnait 235 jusqu'à 40 mm : la valeur NON conservative que le lot A retire)
+FY30 = 225.0
 S2, S3 = math.sqrt(2), math.sqrt(3)
 
 print("=== 1. Le cordon : décomposition sur la gorge (fig. 4.5) ===")
@@ -342,8 +345,8 @@ chk("sortie : chaque cordon porte u_A (hors de la pièce rapportée) pour le des
 
 print("\n=== 8. Types de jonction : pénétration partielle, pleine pénétration = la pièce (EN 1993-1-8 §4.7) ===")
 r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 400, "Va": 0, "Vp": 0, "M": 0})
-chk("C2 pleine pénétration (plats de 30), N = 400 kN : σ = N/(l·t) = 66,7 N/mm² sur la section, η = σ/fy = 0,284 ; UNE soudure de gorge t = 30 et l = 200, message §4.7.1",
-    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 400e3 / 6000) and pres(r["taux_max"], 400e3 / 6000 / 235)
+chk("C2 pleine pénétration (plats de 30), N = 400 kN : σ = N/(l·t) = 66,7 N/mm² sur la section, η = σ/fy = 0,296 (f_y = 225, S235 de 30 mm) ; UNE soudure de gorge t = 30 et l = 200, message §4.7.1",
+    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 400e3 / 6000) and pres(r["taux_max"], 400e3 / 6000 / FY30)
     and len(r["chaines"]) == 1 and pres(r["chaines"][0]["a"], 30.0) and pres(r["chaines"][0]["l_eff"], 200.0) and r["chaines"][0]["segments"] == 1
     and any("§4.7.1" in m and "pièce" in m for m in r["messages"]), str(r["chaines"]))
 r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 0, "Va": 0, "Vp": 0, "M": 10})
@@ -351,10 +354,10 @@ chk("C2 pleine en flexion M = 10 kN·m : les trois lignes de gorge (Simpson) ren
     pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 10e6 / (200 * 30 ** 2), 1e-9) and "bord" in r["gouvernant"]["cordon"], str(r["gouvernant"]["sigma_perp"]))
 r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 0, "Va": 50, "Vp": 0, "M": 0})
 chk("C2 pleine en cisaillement V∥ = 50 kN : τ∥ = V/(l·t) = 8,33 N/mm², σ⊥ = 0 → critère de la pièce √(3)·τ ≤ fy/γM0",
-    pres(abs(r["gouvernant"]["tau_par"]), 50e3 / 6000) and pres(r["gouvernant"]["sigma_perp"], 0.0, 1e-9) and pres(r["taux_max"], S3 * 50e3 / 6000 / 235, 1e-9))
+    pres(abs(r["gouvernant"]["tau_par"]), 50e3 / 6000) and pres(r["gouvernant"]["sigma_perp"], 0.0, 1e-9) and pres(r["taux_max"], S3 * 50e3 / 6000 / FY30, 1e-9))
 r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 400, "Va": 0, "Vp": 0, "M": 0}, {"mode": "els"})
-chk("C2 pleine en méthode ELS (efforts de service) : la pièce est comparée à fy/γ_F = 156,7 → η = 0,426, message",
-    pres(r["taux_max"], 400e3 / 6000 / (235 / 1.5), 1e-9) and any("fy/γ_F" in m for m in r["messages"]))
+chk("C2 pleine en méthode ELS (efforts de service) : la pièce est comparée à fy/γ_F = 225/1,5 = 150 → η = 0,444, message",
+    pres(r["taux_max"], 400e3 / 6000 / (FY30 / 1.5), 1e-9) and any("fy/γ_F" in m for m in r["messages"]))
 r = verif("C2", {"l": 200, "tB": 10, "jonction": "partielle", "p": 4, "renfort": 0, "retours": True}, {"N": 40, "Va": 0, "Vp": 0, "M": 0})
 chk("C2 pénétration partielle p = 4 des deux faces, sans renfort : gorge p parallèle à la face, σ⊥ = N/(2·p·l) = 25,0 N/mm², τ = 0, deux soudures « bout à bout »",
     len(r["chaines"]) == 2 and all(c["bout_a_bout"] and pres(c["a"], 4.0) for c in r["chaines"]) and pres(abs(r["gouvernant"]["sigma_perp"]), 40e3 / (2 * 4 * 200))
@@ -406,7 +409,8 @@ gp = K.gorge_pleine_resistance(30.0, 235.0, FU, BW, GM2)
 chk("gorge de pleine résistance S235 : deux cordons d'angle équivalents au plat tendu → a ≥ 0,46·t (directionnelle), 0,57·t (simplifiée) ; t = 30 → 13,8 et 17,0 mm",
     pres(gp["ratio_dir"], S2 * BW * GM2 * 235 / (2 * FU)) and pres(gp["ratio_simp"], 235 / (2 * FU / (S3 * BW * GM2)))
     and pres(gp["directionnelle"], 13.85, 1e-3) and pres(gp["simplifiee"], 16.96, 1e-3))
-chk("a_pleine rendu par la vérification dès que la pièce rapportée a une épaisseur (C2 t_B = 30)", pres(verif("C2", {"tB": 30})["a_pleine"]["directionnelle"], gp["directionnelle"]))
+chk("a_pleine rendu par la vérification dès que la pièce rapportée a une épaisseur (C2 t_B = 30 : f_y = 225, la plus faible des deux pièces)",
+    pres(verif("C2", {"tB": 30})["a_pleine"]["directionnelle"], K.gorge_pleine_resistance(30.0, FY30, FU, BW, GM2)["directionnelle"]))
 mb = K.metal_base(100.0, 0.0, 50.0, 235.0)
 chk("métal de base : √(σ² + 3τ²) = 132,3 ≤ fy/γM0 = 235, critère nommé « pièce » ; en service, fy/γ_F",
     pres(mb["sigma_c"], math.hypot(100, 50 * S3)) and pres(mb["lim_c"], 235.0) and "pièce" in mb["critere"]
@@ -414,6 +418,90 @@ chk("métal de base : √(σ² + 3τ²) = 132,3 ≤ fy/γM0 = 235, critère nomm
 r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine", "troncons": {"n": 3, "l": 40}}, {"N": 400, "Va": 0, "Vp": 0, "M": 0})
 chk("C2 pleine : les tronçons ne s'appliquent pas (la soudure vaut la pièce sur toute la longueur), pas de message de soudure discontinue",
     r["pleine"] and pres(r["chaines"][0]["l_eff"], 200.0) and not any("discontinue" in m for m in r["messages"]))
+
+print("\n=== 9. Lot A : f_y et f_u de chaque pièce à SON épaisseur (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a) ===")
+import contextlib  # noqa: E402
+
+from acier import materiaux as MA  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_fy_epaisseur() -> bool:
+    """La pleine pénétration d'un S235 de 30 mm se vérifie à f_y = 225 (tableau 3.3 ANB, 16 < t ≤ 40), de 12 mm à 235,
+    un S460 N/NL de 70 mm à 410 (tableau 3.4 ANB, 63 < t ≤ 80) — et la note dit la bande retenue."""
+    r30, r12 = verif("C7", {"t": 30.0}), verif("C7", {"t": 12.0})
+    r70 = verif("C7", {"t": 70.0, "nuance_A": "S460 N/NL", "nuance_B": "S460 N/NL"}, {"N": 2000.0})
+    return (pres(r30["acier"]["fy_min"], 225.0) and pres(r30["taux_max"], 200e3 / (150 * 30) / 225.0) and pres(r12["acier"]["fy_min"], 235.0)
+            and pres(r70["acier"]["fy_min"], 410.0) and pres(r70["taux_max"], 2000e3 / (150 * 70) / 410.0)
+            and any("16 < t ≤ 40 mm, tableau 3.3 ANB" in m for m in r30["messages"]))
+
+
+def ctl_fu_ancien_tableau() -> bool:
+    """Un cordon S355 : f_u = 470 (tableau 3.3 ANB, 3 ≤ t ≤ 100 mm ; l'EN donnait 510) → f_vw,d = 470/(√3·0,9·1,25) = 241,2 N/mm² ;
+    S275 : 410 → 222,8 ; S235 : 360 → 207,8 (inchangé)."""
+    r355 = verif("C3", {"nuance_A": "S355", "nuance_B": "S355"})
+    r275 = verif("C3", {"nuance_A": "S275", "nuance_B": "S275"})
+    r235 = verif("C3")
+    return (pres(r355["acier"]["fu"], 470.0) and pres(r355["resistances"]["f_vw_d"], 470 / (S3 * 0.9 * 1.25)) and abs(r355["resistances"]["f_vw_d"] - 241.2) < 0.05
+            and pres(r275["acier"]["fu"], 410.0) and abs(r275["resistances"]["f_vw_d"] - 222.8) < 0.05
+            and pres(r235["acier"]["fu"], 360.0) and abs(r235["resistances"]["f_vw_d"] - 207.8) < 0.05)
+
+
+def ctl_pieces() -> bool:
+    """Chaque pièce à SON épaisseur : C5 profilé IPE 600 (t_f 19, t_w 12 → la paroi la plus épaisse, 19 mm) sur platine
+    de 15 mm → f_y min 225 (le profilé) ; C2 t_A = 12 et t_B = 30 → 225 (B) ; C3 sur l'aile d'un HEB 200 (t_f 15) → 235 ;
+    C3 sur un plat dont l'appelant donne l'épaisseur t_A = 20 (le garde-corps : sa platine) → 225 (A)."""
+    a5 = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C5"], profil="IPE 600"), "C5")
+    a2 = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C2"], tB=30.0), "C2")
+    a3 = ET.acier_cordon(CF.PARAMS_DEFAUT["C3"], "C3")
+    a3p = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C3"], poteau="plat", tA=20.0), "C3")
+    return (pres(a5["fy_min"], 225.0) and a5["piece_fy"] == "B" and pres(a5["B"]["t"], 19.0) and pres(a5["A"]["t"], 15.0)
+            and pres(a2["fy_min"], 225.0) and a2["piece_fy"] == "B" and pres(a3["fy_min"], 235.0) and pres(a3["A"]["t"], 15.0)
+            and pres(a3p["fy_min"], 225.0) and a3p["piece_fy"] == "A")
+
+
+chk("pleine pénétration : f_y selon l'épaisseur (S235 de 30 → 225, de 12 → 235 ; S460 N/NL de 70 → 410), la bande dans le message",
+    ctl_fy_epaisseur())
+chk("cordon : f_u du tableau 3.3 ANB (S355 470 → f_vw,d 241,2 au lieu de 261,7 ; S275 410 → 222,8 ; S235 360 → 207,8)", ctl_fu_ancien_tableau())
+chk("chaque pièce à son épaisseur : profilé = sa paroi la plus épaisse, platine, aile du poteau, plat de l'appelant", ctl_pieces())
+ac6 = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C6"], profil="CHS 114.3x5"), "C6")
+chk("tube fini à chaud (CHS 114.3x5) : tableau 3.8 ANB (EN 10210-1), sa paroi t = 5 mm",
+    ac6["B"]["produit"] == "creux_chaud" and "3.8 ANB" in ac6["B"]["domaine_fy"] and pres(ac6["B"]["t"], 5.0))
+from acier.profiles import catalogue as CAT  # noqa: E402
+nom_f = next(n for n, rec in CAT.par_nom().items() if rec["famille"] == "SHS-F")
+chk(f"tube formé à froid ({nom_f}) : tableau 3.10 ANB (EN 10219-1)",
+    ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C6"], profil=nom_f), "C6")["B"]["produit"] == "creux_froid"
+    and "3.10 ANB" in ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C6"], profil=nom_f), "C6")["B"]["domaine_fy"])
+r8 = verif("C8", {"nuance_A": "S355", "nuance_B": "S355"})
+chk("cordons libres (C8, épaisseurs non saisies) : f_u de 3 ≤ t ≤ 100 mm (la plus petite jusqu'à 100 mm : 470 en S355), f_y sans objet",
+    r8["statut"] != ET.REFUS and pres(r8["acier"]["fu"], 470.0) and r8["acier"]["fy_min"] is None and r8["resistances"]["lim_piece"] is None
+    and "épaisseur non saisie" in ET.texte_fu(r8["acier"]))
+chk("pièce de moins de 3 mm : f_u de la colonne « < 3 » (S355 510 > 470) — la pièce la plus faible reste la plus épaisse",
+    pres(ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C1"], tA=2.0, tB=10.0, nuance_A="S355", nuance_B="S355"), "C1")["fu"], 470.0)
+    and pres(ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C1"], tA=2.0, tB=10.0, nuance_A="S355", nuance_B="S355"), "C1")["A"]["fu"], 510.0))
+r = verif("C1", {"tA": 300.0})
+chk("au-delà du tableau (plat S235 de 300 mm, tableau 3.3 ANB jusqu'à 250) : refus nommé, aucune valeur inventée",
+    r["statut"] == ET.REFUS and r["acier"] is None and any("3.3 ANB" in m and "250" in m for m in r["messages"]), str(r["messages"]))
+chk("sans configuration (un appelant qui ne passe que les paramètres) : la plus grande épaisseur saisie pour les deux pièces (du côté sûr)",
+    pres(ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C2"], tB=30.0))["fy_min"], 225.0)
+    and ET.acier_cordon({"nuance_A": "S235", "nuance_B": "S355"})["fy_min"] is None)
+# les mutations : chacune doit faire rougir le contrôle qui la surveille
+with mutant(ET.MA, "fy", lambda n, t, produit="lamine": MA.nominale(n)):
+    chk("mutation « f_y nominale quelle que soit l'épaisseur » : le contrôle de la pleine pénétration rougit", not ctl_fy_epaisseur())
+with mutant(ET.MA, "fu", lambda n, t, produit="lamine": {"S235": 360.0, "S275": 430.0}.get(MA.ALIAS.get(n, n), 510.0 if "S355" in n else 540.0)):
+    chk("mutation « f_u du tableau 3.1 de l'EN (510 en S355) » : le contrôle du cordon rougit", not ctl_fu_ancien_tableau())
+with mutant(CF, "_paroi_profil", lambda nom: (float(CF._profil(nom).get("tw") or CF._profil(nom).get("t")), "lamine")):
+    chk("mutation « profilé pris à son âme t_w » : le contrôle des pièces rougit", not ctl_pieces())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -398,9 +398,9 @@ def lecture_site(r: dict) -> dict:
 
 
 def fr_msg(m: str) -> str:
-    """L'oracle du test pour l'écriture française des messages du moteur : « 98.1 » → « 98,1 » (les renvois §x.y.z
-    et « Tab. 4.1 » intacts) — écrit ici indépendamment de api_web/soudures.texte_fr."""
-    return re.sub(r"(?<![§\d.,])(?<!Tab\. )(\d+)\.(\d+)(?![\d.])", r"\1,\2", m)
+    """L'oracle du test pour l'écriture française des messages du moteur : « 98.1 » → « 98,1 » (les renvois §x.y.z,
+    « Tab. 4.1 » et « tableau 3.3 ANB » intacts) — écrit ici indépendamment de api_web/soudures.texte_fr."""
+    return re.sub(r"(?<![§\d.,])(?<!Tab\. )(?<!tableau )(\d+)\.(\d+)(?![\d.])", r"\1,\2", m)
 
 
 def fx_nombres(h: str):
@@ -1016,6 +1016,52 @@ chk("nom de cas et nom de cordon piégés : échappés dans tous les fragments H
     re.findall(r".{40}<img.{20}", tout)[:2])
 chk("le résumé de la note est du TEXTE (la page l'échappe) : le nom y est tel quel", piege in r["resume"]["gouvernant"])
 
+titre("D · Lot A : l'acier de référence dit la valeur RETENUE et son domaine d'épaisseur (NBN EN 1993-1-1 ANB, option a)")
+
+
+def ecran_acier(config, params, efforts=None):
+    """La note d'un cas : (colonne de gauche, résultat, fenêtres de calcul)."""
+    e_ = S.nouvel_etat()
+    ET.changer_config(ET.cas_actif(e_), config)
+    ET.cas_actif(e_)["params"].update(params)
+    ET.cas_actif(e_)["efforts"].update(efforts or {})
+    r_ = S.resultat(e_)
+    return r_["donnees"], r_["resultat"], r_["volets"]
+
+
+def ctl_aciers_affiches() -> list:
+    """Les écarts (liste vide : juste) : rubrique Aciers, texte de la pleine pénétration, hypothèses des fenêtres."""
+    ko = []
+    don, _, vol = ecran_acier("C3", {"nuance_A": "S355", "nuance_B": "S355"})
+    if "f<sub>u</sub> = 470 N/mm² (pièce B, S355 de 10 mm : 3 ≤ t ≤ 100 mm, tableau 3.3 ANB)" not in don:
+        ko.append("rubrique Aciers : f_u 470 et sa bande")
+    if "f<sub>u</sub> = 470 N/mm² (pièce B, S355 de 10 mm : 3 ≤ t ≤ 100 mm, tableau 3.3 ANB)" not in vol:
+        ko.append("hypothèses des fenêtres : f_u 470 et sa bande")
+    don, _, vol = ecran_acier("C2", {"tB": 30.0, "tA": 30.0, "jonction": "pleine"}, {"N": 400.0, "M": 0.0})
+    if "f<sub>y</sub> = 225 N/mm² (pleine pénétration ; pièce B, S235 de 30 mm : 16 &lt; t ≤ 40 mm, tableau 3.3 ANB)" not in don:
+        ko.append("rubrique Aciers : f_y 225 et sa bande")
+    if "f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1), f<sub>y</sub> = 225 N/mm² (pièce B, S235 de 30 mm : 16 &lt; t ≤ 40 mm, tableau 3.3 ANB)" not in don:
+        ko.append("texte de la pleine pénétration : f_y 225 et sa bande")
+    if "f<sub>y</sub> = 225 N/mm² (pièce B, S235 de 30 mm" not in vol:
+        ko.append("hypothèses des fenêtres : f_y 225")
+    don, _, _ = ecran_acier("C8", {"nuance_A": "S355", "nuance_B": "S355"})
+    if "f<sub>y</sub> : sans objet" not in don or "épaisseur non saisie : 3 ≤ t ≤ 100 mm" not in don:
+        ko.append("cordons libres : f_y sans objet, f_u de 3 à 100 mm")
+    return ko
+
+
+chk("rubrique Aciers, pleine pénétration et hypothèses : la valeur retenue (S355 : f_u 470 ; S235 de 30 mm : f_y 225) et sa bande d'épaisseur",
+    not ctl_aciers_affiches(), ctl_aciers_affiches())
+don, res_h, _ = ecran_acier("C1", {"tA": 300.0})
+chk("une épaisseur au-delà du tableau (S235 de 300 mm) : l'écran ne s'arrête pas, le verdict dit le refus du moteur (tableau 3.3 ANB)",
+    "Calcul impossible" in res_h and "tableau 3.3 ANB" in res_h and "Acier de référence impossible" in don)
+e = S.nouvel_etat()
+ET.cas_actif(e)["params"]["tA"] = 300.0
+ET.changer_config(ET.cas_actif(e), "C1")
+ET.cas_actif(e)["params"]["tA"] = 300.0
+chk("… et le bouton « Prendre la valeur Eurocode » refuse avec la raison au lieu de planter",
+    "Acier de référence impossible" in (S.modifier(e, ["methode", "k_eurocode"], 1) or ""))
+
 # ====================================================================== E. mutations
 titre("E · Mutations : chaque garantie rougit quand on casse ce qu'elle surveille")
 
@@ -1040,6 +1086,11 @@ def parite_globale(n=3, cfgs=None) -> int:
 
 
 chk("sans mutation, la parité tient (contrôle du contrôle)", parite_globale(2) == 0)
+with mutant(S, "acier_du_cas", lambda cas: (ET.acier_cordon(cas["params"]), "")):
+    chk("mutation : l'écran calcule l'acier sans la configuration (la plus grande épaisseur pour les deux pièces) → le contrôle de l'acier affiché rougit",
+        bool(ctl_aciers_affiches()))
+with mutant(ET, "texte_fy", lambda ac: "t ≤ 16 mm"):
+    chk("mutation : la bande de f_y toujours « t ≤ 16 mm » → le contrôle de l'acier affiché rougit", bool(ctl_aciers_affiches()))
 vrai_ligne = S.element_depuis_ligne
 with mutant(S, "element_depuis_ligne", lambda row: dict(vrai_ligne(row), cote=-1)):
     chk("mutation : la relecture des cordons libres met côté −1 → la parité C8 rougit", parite_globale(3, ["C8"]) > 0)

@@ -434,7 +434,9 @@ def _methode(cas: Dict, k: str, valeur) -> None:
     elif k in ("gamma_M2", "k", "gamma_F"):
         m[k] = _nombre(valeur, MINIMUMS[("methode", k)])
     elif k == "k_eurocode":                      # le bouton « Prendre la valeur Eurocode »
-        ac = ET.acier_cordon(cas["params"])
+        ac, pourquoi = acier_du_cas(cas)
+        if ac is None:
+            raise _Refus(f"Acier de référence impossible : {pourquoi}")
         kq = K.k_equivalent_eurocode(ac["fu"], ac["bw"], m["gamma_M2"], m["gamma_F"], m["g"])
         m["k"] = round(kq["k_kg_mm_cm"], 1)
     elif k == "k_bureau":                        # le bouton « Revenir à 100 »
@@ -724,10 +726,35 @@ def _pct(t: Optional[float]) -> str:
 
 
 # ------------------------------------------------------------------ les lectures de l'écran Streamlit
+def acier_du_cas(cas: Dict) -> Tuple[Optional[Dict], str]:
+    """L'acier de référence du cas, chaque pièce à SON épaisseur (``etat.acier_cordon`` avec la configuration : f_y et
+    f_u selon l'épaisseur, option a de l'ANB) — ou (None, la raison) quand le moteur refuse (épaisseur au-delà des
+    tableaux de l'ANB, profilé inconnu) : l'écran le dit au lieu de s'arrêter."""
+    try:
+        return ET.acier_cordon(cas["params"], cas["config"]), ""
+    except ValueError as e:
+        return None, str(e)
+
+
+def texte_aciers(ac: Optional[Dict], pourquoi: str = "") -> str:
+    """L'aide de la rubrique Aciers : l'acier de référence du cordon, la valeur RETENUE de f_u et de f_y et d'où elle vient
+    (la pièce, sa nuance, son épaisseur, la bande et le tableau de l'ANB : ``etat.texte_fu`` / ``texte_fy``)."""
+    if ac is None:
+        return f"Acier de référence impossible : {C.esc(pourquoi)}."
+    fy = (f"f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² (pleine pénétration ; {C.esc(ET.texte_fy(ac))})" if ac["fy_min"] is not None
+          else "f<sub>y</sub> : sans objet (épaisseurs non saisies : aucune pleine pénétration)")
+    return (f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> (la pièce la plus faible) : f<sub>u</sub> = {C.nb(ac['fu'])} N/mm² "
+            f"({C.esc(ET.texte_fu(ac))}), β<sub>w</sub> = {C.nb(ac['bw'])} ; {fy}. NBN EN 1993-1-1 ANB, 3.2.1(1) : f<sub>y</sub> et f<sub>u</sub> "
+            f"selon l'épaisseur de chaque pièce.")
+
+
 def phrase_methode(cas: Dict) -> str:
     """La ligne sous le switch de méthode (``_switch`` de l'écran Streamlit) : ce que la position choisie change."""
     m = cas["methode"]
-    ac = ET.acier_cordon(cas["params"])
+    ac, _ = acier_du_cas(cas)
+    if m["mode"] == K.ELS and ac is None:
+        return (f"<b>Efforts de service</b>, sans coefficient : résultante par mm de cordon ≤ k·a avec <b>k = {C.nb(m['k'], 3)} kg/(mm·cm)</b> "
+                f"= {C.fr(K.tau_adm_bureau(m['k'], m['g']), 1)} N/mm² sur la gorge.")
     if m["mode"] == K.ELS:
         kq = K.k_equivalent_eurocode(ac["fu"], ac["bw"], m["gamma_M2"], m["gamma_F"], m["g"])
         return (f"<b>Efforts de service</b>, sans coefficient : résultante par mm de cordon ≤ k·a avec <b>k = {C.nb(m['k'], 3)} kg/(mm·cm)</b> "
@@ -743,9 +770,12 @@ def texte_pleine(cas: Dict, t: Optional[float]) -> str:
     la gorge de deux cordons d'angle qui donnerait la même résistance en traction (``criteres.gorge_pleine_resistance``)."""
     if not t:
         return "La soudure vaut la pièce : sa section est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1)."
-    ac = ET.acier_cordon(cas["params"])
+    ac, _ = acier_du_cas(cas)
+    if ac is None or ac["fy_min"] is None:
+        return f"La soudure vaut la pièce (t = {C.nb(t)} mm) : sa section t × l est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1)."
     gp = K.gorge_pleine_resistance(float(t), ac["fy_min"], ac["fu"], ac["bw"], float(cas["methode"].get("gamma_M2", K.GAMMA_M2)))
-    return (f"La soudure vaut la pièce (t = {C.nb(t)} mm) : sa section t × l est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1). "
+    return (f"La soudure vaut la pièce (t = {C.nb(t)} mm) : sa section t × l est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1), "
+            f"f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² ({C.esc(ET.texte_fy(ac))}). "
             f"Pour la même résistance en traction avec deux cordons d'angle, il faudrait a ≥ {C.fr(gp['ratio_dir'], 2)}·t = "
             f"<b>{C.fr(gp['directionnelle'], 1)} mm</b> (directionnelle) ou {C.fr(gp['ratio_simp'], 2)}·t = <b>{C.fr(gp['simplifiee'], 1)} mm</b> "
             f"(simplifiée) de chaque côté.")
@@ -1158,32 +1188,38 @@ def formulaire(etat: Dict, res: Dict) -> str:
     r_ef = " · ".join(f"{C.symb_math(lib.split(' (')[0])} {C.nb(cas['efforts'].get(cle)).replace('-', '−')}" for cle, lib, _, _ in CF.EFFORTS[cfg]
                       if cas["efforts"].get(cle)) or "aucun effort"
     # les aciers
-    ac = ET.acier_cordon(p)
+    ac, pourquoi = acier_du_cas(cas)
     nz = list(ET.nuances())
     s_ac = (C.ligne2(("Pièce A", C.choix(["params", "nuance_A"], p.get("nuance_A", "S235"), [(n, n) for n in nz]),
                       "Nuance de la pièce A (support). f_u et β_w de référence : la pièce la plus faible (Tab. 4.1)"),
                      ("Pièce B", C.choix(["params", "nuance_B"], p.get("nuance_B", "S235"), [(n, n) for n in nz]), "Nuance de la pièce B (rapportée)"))
-            + C.aide(f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> (la pièce la plus faible) : f<sub>u</sub> = {C.nb(ac['fu'])} N/mm², "
-                     f"β<sub>w</sub> = {C.nb(ac['bw'])} ; f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² (pleine pénétration)."))
-    # les hypothèses : les réglages des deux méthodes
-    d = K.directionnelle(0, 0, 0, ac["fu"], ac["bw"], m["gamma_M2"])
-    s = K.simplifiee(0, 1.0, ac["fu"], ac["bw"], m["gamma_M2"])
-    kq = K.k_equivalent_eurocode(ac["fu"], ac["bw"], m["gamma_M2"], m["gamma_F"], m["g"])
+            + C.aide(texte_aciers(ac, pourquoi)))
+    # les hypothèses : les réglages des deux méthodes (sans acier de référence — le moteur refuse —, rien n'est chiffré)
+    if ac is not None:
+        d = K.directionnelle(0, 0, 0, ac["fu"], ac["bw"], m["gamma_M2"])
+        s = K.simplifiee(0, 1.0, ac["fu"], ac["bw"], m["gamma_M2"])
+        kq = K.k_equivalent_eurocode(ac["fu"], ac["bw"], m["gamma_M2"], m["gamma_F"], m["g"])
+        fr_ac = C.fr
+    else:
+        d, s, kq, ac = {"lim_c": 0, "lim_perp": 0}, {"f_vw_d": 0}, {"tau_N_mm2": 0, "k_kg_mm_cm": 0}, {"nuance_ref": "—"}
+
+        def fr_ac(x, nd=1):
+            return "—"
     s_me = ('<div class="grp">Eurocode · EN 1993-1-8 §4.5.3</div>'
             + L("Critère", C.segments(["methode", "ec"], m["ec"], [(K.DIRECTIONNELLE, "Directionnelle"), (K.SIMPLIFIEE, "Simplifiée")]), full=True,
                 aide="Directionnelle : √(σ⊥² + 3(τ⊥² + τ∥²)) ≤ fu/(βw·γM2) et σ⊥ ≤ 0,9·fu/γM2 ; simplifiée : |f| ≤ f_vw,d·a, toujours du côté sûr")
             + L("cordons", C.num(["methode", "gamma_M2"], m["gamma_M2"], "", mini=1), "γ<sub>M2</sub>", "Coefficient partiel des cordons ; 1,25 : NBN EN 1993-1-8 ANB")
-            + C.aide(f"Acier de référence {C.esc(ac['nuance_ref'])} : f<sub>u</sub>/(β<sub>w</sub>·γ<sub>M2</sub>) = {C.fr(d['lim_c'], 1)} N/mm², "
-                     f"0,9·f<sub>u</sub>/γ<sub>M2</sub> = {C.fr(d['lim_perp'], 1)} N/mm², f<sub>vw,d</sub> = {C.fr(s['f_vw_d'], 1)} N/mm².")
+            + C.aide(f"Acier de référence {C.esc(ac['nuance_ref'])} : f<sub>u</sub>/(β<sub>w</sub>·γ<sub>M2</sub>) = {fr_ac(d['lim_c'], 1)} N/mm², "
+                     f"0,9·f<sub>u</sub>/γ<sub>M2</sub> = {fr_ac(d['lim_perp'], 1)} N/mm², f<sub>vw,d</sub> = {fr_ac(s['f_vw_d'], 1)} N/mm².")
             + '<div class="grp">Méthode ELS du bureau</div>'
             + L("kg/(mm·cm)", C.num(["methode", "k"], m["k"], "", mini=1), "k", "Règle du bureau : k kg par mm de gorge et par cm de cordon")
             + L("Gravité", C.choix(["methode", "g"], float(m["g"]), list(G_OPTIONS.items())), full=True, aide="N par kg")
             + L("ELU / ELS", C.num(["methode", "gamma_F"], m["gamma_F"], "", mini=1), "γ<sub>F</sub>", "Rapport ELU / ELS, pour l'équivalent Eurocode de la règle du bureau.")
             + C.aide(f"k = {C.nb(m['k'], 3)} kg/(mm·cm) = <b>{C.fr(K.tau_adm_bureau(m['k'], m['g']), 1)} N/mm²</b> sur la gorge · l'Eurocode au même "
-                     f"niveau de service donne f<sub>vw,d</sub>/γ<sub>F</sub> = <b>{C.fr(kq['tau_N_mm2'], 1)} N/mm² = {C.fr(kq['k_kg_mm_cm'], 0)} kg/(mm·cm)</b> "
+                     f"niveau de service donne f<sub>vw,d</sub>/γ<sub>F</sub> = <b>{fr_ac(kq['tau_N_mm2'], 1)} N/mm² = {fr_ac(kq['k_kg_mm_cm'], 0)} kg/(mm·cm)</b> "
                      f"pour le {C.esc(ac['nuance_ref'])}.")
             + '<div class="sdr-ajouts">'
-            f'<button type="button" class="addrow" data-chemin="methode/k_eurocode" data-valeur="1">{C.icon("check")}Prendre la valeur Eurocode ({C.fr(kq["k_kg_mm_cm"], 0)})</button>'
+            f'<button type="button" class="addrow" data-chemin="methode/k_eurocode" data-valeur="1">{C.icon("check")}Prendre la valeur Eurocode ({fr_ac(kq["k_kg_mm_cm"], 0)})</button>'
             f'<button type="button" class="addrow" data-chemin="methode/k_bureau" data-valeur="1">{C.icon("history")}Revenir à {C.nb(K.K_BUREAU)}</button></div>')
     # la note PDF et le fichier de l'écran Streamlit
     s_fi = (_grp("Identification de la note PDF", NC.AIDE_IDENTIFICATION)
@@ -1245,7 +1281,8 @@ def _longueur(ch: Dict) -> str:
     return f"l<sub>eff</sub> = {C.fr(ch['l_eff'], 0)} mm"
 
 
-_DECIMALE = re.compile(r"(?<![§\d.,])(?<!Tab\. )(?<!fig\. )(\d+)\.(\d+)(?![\d.])")
+# (les renvois aux articles §x.y, aux tableaux « Tab. 4.1 » et « tableau 3.3 ANB » de l'acier, aux figures ne bougent pas)
+_DECIMALE = re.compile(r"(?<![§\d.,])(?<!Tab\. )(?<!tableau )(?<!fig\. )(\d+)\.(\d+)(?![\d.])")
 
 
 def texte_fr(msg: str) -> str:
@@ -1299,8 +1336,9 @@ def _verdict_comparaison(res: Dict, g: Dict) -> str:
 def _hypotheses(res: Dict) -> List[str]:
     m = res["methode"]
     ac = res["acier"]
-    out = [f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> · f<sub>u</sub> = {C.nb(ac['fu'])} N/mm² · β<sub>w</sub> = {C.nb(ac['bw'])} · "
-           f"f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm²"]
+    out = [f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> · f<sub>u</sub> = {C.nb(ac['fu'])} N/mm² ({C.esc(ET.texte_fu(ac))}) · "
+           f"β<sub>w</sub> = {C.nb(ac['bw'])}"
+           + (f" · f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² ({C.esc(ET.texte_fy(ac))})" if ac["fy_min"] is not None else "")]
     if m.mode == K.ELS:
         out.append(f"Méthode <b>ELS du bureau</b> · k = {C.nb(m.k, 3)} kg/(mm·cm) · g = {C.nb(m.g)} N/kg · γ<sub>F</sub> = {C.nb(m.gamma_F)}")
         out.append("Efforts <b>de service</b>")
@@ -1508,7 +1546,7 @@ def elements(etat: Dict, resultats: List[Dict]) -> str:
 def _ligne_methode(res: Dict) -> Tuple[str, str]:
     """Le pied du résultat : la méthode et son acier (la ligne grise de la carte RÉSULTAT de l'écran Streamlit)."""
     m = res["methode"]
-    ac = res["acier"]
+    ac = res["acier"] or {"nuance_ref": "—"}
     if m.mode == K.ELS:
         return (f"ELS du bureau · k = {C.nb(m.k, 3)}", f"τ<sub>adm</sub>{C.NBSP}={C.NBSP}{C.fr(K.tau_adm_bureau(m.k, m.g), 1)}{C.NBSP}N/mm²")
     return (f"Eurocode {CRITERES[m.ec].split(' (')[0]} · {C.esc(ac['nuance_ref'])}", f"γ<sub>M2</sub>{C.NBSP}={C.NBSP}{C.nb(m.gamma_M2)}")

@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+from acier import materiaux as MA
 from acier.bibliotheques import DB
 from acier.resistances import fu_bw_cordon
 
@@ -87,14 +88,72 @@ def nuances() -> Dict[str, Dict]:
     return {a["n"]: a for a in DB["aciers"]}
 
 
-def acier_cordon(params: Dict) -> Dict:
-    """fu et βw de référence du cordon : la pièce la plus faible (EN 1993-1-8 §4.5.3, Tab. 4.1)."""
+# Une pièce d'épaisseur inconnue (cordons libres) : f_u de la bande 3 < t ≤ 40 mm, commune à tous les tableaux de
+# l'ANB repris (3.3, 3.4, 3.8 à 3.11) — la plus petite f_u jusqu'à 100 mm (tableau 3.3 ANB : « < 3 » 360/430/510, « ≥ 3
+# ≤ 100 » 360/410/470) ; pas de f_y : sans épaisseur, aucune pleine pénétration ne se vérifie.
+T_FU_INCONNUE = 40.0
+
+
+def _piece(nz: Dict[str, Dict], nom: str, ep) -> Dict:
+    """Une pièce : sa nuance (S235 si inconnue, comme avant), β_w (EN 1993-1-8, tableau 4.1), et f_y, f_u de SON
+    épaisseur (``CF.epaisseurs`` ; acier/materiaux.py, NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableaux 3.3 ANB à 3.11 ANB)
+    avec le texte de leur domaine d'épaisseur. MA.HorsTable (ValueError) au-delà du tableau : aucune valeur inventée."""
+    a = nz.get(nom, nz["S235"])
+    if ep is None:
+        return {"n": a["n"], "bw": a["bw"], "t": None, "produit": "lamine", "fy": None, "fu": MA.fu(a["n"], T_FU_INCONNUE),
+                "domaine_fy": None, "domaine_fu": "épaisseur non saisie : " + _bande(MA.source(a["n"], T_FU_INCONNUE, "lamine", "fu"))}
+    t, produit = ep
+    return {"n": a["n"], "bw": a["bw"], "t": float(t), "produit": produit, "fy": MA.fy(a["n"], t, produit), "fu": MA.fu(a["n"], t, produit),
+            "domaine_fy": MA.source(a["n"], t, produit, "fy"), "domaine_fu": MA.source(a["n"], t, produit, "fu")}
+
+
+def _bande(source: str) -> str:
+    """La bande d'épaisseur d'une référence de MA.source (« tableau 3.3 ANB (EN 10025-2:2004, S355JR), 16 < t ≤ 40 mm »
+    → « 16 < t ≤ 40 mm »)."""
+    return source.rsplit("), ", 1)[-1]
+
+
+def acier_cordon(params: Dict, config: Optional[str] = None) -> Dict:
+    """fu et βw de référence du cordon : la pièce la plus faible (EN 1993-1-8 §4.5.3, Tab. 4.1) ; fy_min : la plus
+    faible des deux pour la pleine pénétration (§4.7.1). Chaque pièce à SON épaisseur (``CF.epaisseurs`` : A le support,
+    B la pièce rapportée ; option a de l'ANB, f_y et f_u selon l'épaisseur). ``config`` : la configuration du cas — sans
+    elle, la plus grande épaisseur saisie pour les deux pièces (du côté sûr). fy_min None : épaisseur inconnue (C8)."""
     nz = nuances()
-    A = nz.get(params.get("nuance_A", "S235"), nz["S235"])
-    B = nz.get(params.get("nuance_B", "S235"), nz["S235"])
+    ep = CF.epaisseurs(config, params)
+    A = _piece(nz, params.get("nuance_A", "S235"), ep["A"])
+    B = _piece(nz, params.get("nuance_B", "S235"), ep["B"])
     fu, bw = fu_bw_cordon(B["fu"], B["bw"], A["fu"], A["bw"])
-    ref = B["n"] if B["fu"] <= A["fu"] else A["n"]
-    return {"fu": float(fu), "bw": float(bw), "nuance_ref": ref, "fy_min": float(min(A["fy"], B["fy"])), "A": A, "B": B}
+    ref = B if B["fu"] <= A["fu"] else A
+    if A["fy"] is None or B["fy"] is None:
+        py = None
+    else:
+        py = B if B["fy"] <= A["fy"] else A
+    return {"fu": float(fu), "bw": float(bw), "nuance_ref": ref["n"], "fy_min": None if py is None else float(py["fy"]), "A": A, "B": B,
+            "piece_fu": "B" if ref is B else "A", "domaine_fu": ref["domaine_fu"], "t_fu": ref["t"],
+            "piece_fy": None if py is None else ("B" if py is B else "A"), "domaine_fy": None if py is None else py["domaine_fy"],
+            "t_fy": None if py is None else py["t"], "nuance_fy": None if py is None else py["n"]}
+
+
+def _texte_piece(ac: Dict, cle: str, grandeur: str) -> str:
+    p = ac[cle]
+    tab = MA.ligne(p["n"], p["produit"])["tableau"]
+    dom = p["domaine_" + grandeur]
+    if p["t"] is None:
+        return f"pièce {cle}, {p['n']}, {dom}, tableau {tab}"
+    return f"pièce {cle}, {p['n']} de {p['t']:g} mm : {_bande(dom)}, tableau {tab}"
+
+
+def texte_fu(ac: Dict) -> str:
+    """« pièce B, S355 de 10 mm : 3 ≤ t ≤ 100 mm, tableau 3.3 ANB » : d'où vient la f_u retenue (la pièce, sa nuance,
+    son épaisseur, la bande et le tableau de l'ANB)."""
+    return _texte_piece(ac, ac["piece_fu"], "fu")
+
+
+def texte_fy(ac: Dict) -> Optional[str]:
+    """« pièce A, S235 de 20 mm : 16 < t ≤ 40 mm, tableau 3.3 ANB » : d'où vient la f_y retenue ; None sans épaisseur."""
+    if ac.get("piece_fy") is None:
+        return None
+    return _texte_piece(ac, ac["piece_fy"], "fy")
 
 
 # ------------------------------------------------------------------ vérification
@@ -146,10 +205,11 @@ def verifier(cas: Dict) -> Dict:
     composantes de gorge en chaque point, taux selon la méthode choisie et
     selon les autres (comparaison), point et cordon gouvernants, messages."""
     meth = K.Methode(**{k: cas["methode"][k] for k in ("mode", "ec", "gamma_M2", "k", "g", "gamma_F")})
-    acier = acier_cordon(cas["params"])
-    out = {"config": cas["config"], "methode": meth, "acier": acier, "messages": [], "points": [], "cordons": [], "chaines": [],
+    out = {"config": cas["config"], "methode": meth, "acier": None, "messages": [], "points": [], "cordons": [], "chaines": [],
            "cordons_exclus": [], "statut": REFUS, "taux_max": None, "gouvernant": None, "comparaison": {}, "pleine": False, "n_pleine": 0}
     try:
+        # f_y et f_u de chaque pièce à son épaisseur ; au-delà des tableaux de l'ANB (MA.HorsTable), refus nommé
+        acier = out["acier"] = acier_cordon(cas["params"], cas["config"])
         built = CF.construire(cas["config"], cas["params"], cas["efforts"])
     except (ValueError, KeyError) as e:
         out["messages"].append(f"Refus : {e}")
@@ -234,15 +294,16 @@ def verifier(cas: Dict) -> Dict:
     s = K.simplifiee(0, 1.0, acier["fu"], acier["bw"], meth.gamma_M2)
     out["resistances"] = {"lim_c": d["lim_c"], "lim_perp": d["lim_perp"], "f_vw_d": s["f_vw_d"],
                           "tau_adm_bureau": K.tau_adm_bureau(meth.k, meth.g), "tau_equiv": kq["tau_N_mm2"], "k_equiv": kq["k_kg_mm_cm"],
-                          "fy": acier["fy_min"], "lim_piece": acier["fy_min"] / K.GAMMA_M0, "lim_piece_els": acier["fy_min"] / meth.gamma_F}
+                          "fy": acier["fy_min"], "lim_piece": None if acier["fy_min"] is None else acier["fy_min"] / K.GAMMA_M0,
+                          "lim_piece_els": None if acier["fy_min"] is None else acier["fy_min"] / meth.gamma_F}
     t_rap = (built.get("pieces") or {}).get("t_rapporte")
-    if t_rap:
+    if t_rap and acier["fy_min"] is not None:
         out["a_pleine"] = K.gorge_pleine_resistance(float(t_rap), acier["fy_min"], acier["fu"], acier["bw"], meth.gamma_M2)
     if pleins:
         noms = ", ".join(dict.fromkeys(c.chaine or c.nom for c in pleins))
         out["messages"].append(f"Pleine pénétration ({noms}) : la soudure vaut la pièce la plus faible (EN 1993-1-8 §4.7.1) — sa section "
                                f"t × l est vérifiée élastiquement, √(σ² + 3τ²) ≤ fy/γM0 = {acier['fy_min']:g}/{K.GAMMA_M0:g} N/mm² "
-                               f"(fy = {acier['fy_min']:g} N/mm², la nuance la plus faible)"
+                               f"(fy = {acier['fy_min']:g} N/mm², la plus faible des deux pièces : {texte_fy(acier)})"
                                + (f" ; en méthode ELS, efforts de service : ≤ fy/γ_F = {acier['fy_min'] / meth.gamma_F:.1f} N/mm²" if meth.mode == K.ELS else ""))
     if meth.mode == K.ELS and not out["pleine"]:
         out["messages"].append(f"Méthode ELS du bureau : efforts de service, résultante ≤ k·a avec k = {meth.k:g} kg/(mm·cm) "

@@ -152,6 +152,8 @@ class Calcul:
             s = (f"{lib} : {len(els)} élément(s) ({n_s} segment(s), {len(els) - n_s} arc(s)), "
                  f"référence R ({_g(p.get('xR', 0))} ; {_g(p.get('yR', 0))} ; {_g(p.get('zR', 0))})")
         ret = " · retours d'angle exécutés" if p.get("retours") and cfg not in ("C6", "C7", "C8") else ""
+        if self.acier is None:        # le moteur a refusé l'acier (épaisseur au-delà des tableaux de l'ANB) : le refus est dans les messages
+            return s + ret + f" · acier A {p.get('nuance_A', 'S235')} / B {p.get('nuance_B', 'S235')} → référence —"
         return (s + ret + f" · acier A {p.get('nuance_A', 'S235')} / B {p.get('nuance_B', 'S235')} → référence {self.acier['nuance_ref']} "
                 f"(fu {_g(self.acier['fu'])}, βw {_g(self.acier['bw'])})")
 
@@ -535,7 +537,8 @@ class Methode:
         cases = [("CAS", cas["nom"], ident or "—", 0.18),
                  ("CONFIGURATION", f"{cas['config']} · {CF.CONFIGS[cas['config']]['libelle']}", d.fit(C.ligne_configuration().split(" : ", 1)[-1], S.f_b, 6.2, w * 0.26 - 12), 0.28),
                  ("MÉTHODE", meth, f"γM2 {_g(m.gamma_M2)} · g {_g(m.g)} · γ_F {_g(m.gamma_F)}", 0.20),
-                 ("ACIER", f"référence {C.acier['nuance_ref']}", f"fu {_g(C.acier['fu'])} N/mm² · βw {_g(C.acier['bw'])}", 0.12),
+                 ("ACIER", f"référence {C.acier['nuance_ref']}", f"fu {_g(C.acier['fu'])} N/mm² · βw {_g(C.acier['bw'])}", 0.12) if C.acier
+                 else ("ACIER", "référence —", "—", 0.12),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.11),
                  ("ÉCHELLE DU DESSIN", ech, "A4 paysage", 0.11)]
         x = x0
