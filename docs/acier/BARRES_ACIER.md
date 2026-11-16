@@ -364,18 +364,19 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   pour un appui de rive) ; (a) ailleurs ; (b), en plus, pour la force qui passe d'une semelle à l'autre quand un lieu
   est chargé des deux côtés (la plus petite des deux forces, la plus courte des deux longueurs d'appui).
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
-  et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 (une
-  valeur saisie). Voir « décision impossible ».
-- **DÉCISION IMPOSSIBLE** (reprise du lot B ; brief § 8.3, point 5) — jamais « pas de raidisseur » par défaut. Le lieu est
-  rendu « non couvert », sans taux, avec la phrase « Décision impossible : s_s et c à fournir. » (une ligne par manque
-  en pied du bloc), quand il manque : s_s ; c d'un appui de rive (et d'une force du type (c) voisine de cet appui) ; le
-  MAINTIEN latéral de la semelle chargée (§ 6.1(1)) — tenue à un appui (une fourche), ou par un maintien « complet » ou
-  de cette semelle à la même abscisse ; quand la semelle chargée n'est pas comprimée partout, l'autre aussi ; et, pour
-  un raidisseur sous une charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Ses vérifications, faites à s_s = 0
-  et c = 0, sont données pour information. Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû quelles que
-  soient les données. La barre neuve (s_s et c non saisis) : « décision impossible » aux deux appuis — à s_s = 100 mm
-  et c = 0, pas de raidisseur (22 %). R2 (sans maintien à mi-portée) : « maintien de la semelle haute à préciser » ;
-  avec un maintien de la semelle haute à 3 m, pas de raidisseur — les taux de R4 sont inchangés.
+  et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 saisi —
+  elle est prise à sa borne, et dite (ci-dessous).
+- **s_s ou c NON SAISI** (brief § 8.3, point 5) : F_Rd croît avec eux, 0 est leur borne basse. Tout passe à la borne :
+  « sans raidisseur (s_s = 0, c = 0 : borne prudente) » ; sinon « décision impossible : s_s à saisir », taux à la borne.
+  (Type (c) : la branche m₂ = 0 si elle peut redevenir cohérente ; c manque et seul le critère 6.2.1(5) échoue : raidisseur.)
+- **DÉCISION IMPOSSIBLE** — le lieu est « non couvert », jamais « pas de raidisseur », une ligne par manque en pied du
+  bloc, son taux donné pour information : s_s ou c quand la borne ne passe pas ; le MAINTIEN latéral de la semelle
+  chargée (§ 6.1(1)), qui n'a pas de borne — tenue à un appui (une fourche), ou par un maintien « complet » ou de cette
+  semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour un raidisseur sous une
+  charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû
+  quelles que soient les données. Barre neuve : « s_s et c à saisir » (157 % à la borne, critère 6.2.1(5)) ; à
+  s_s = 100 mm, sans raidisseur (22 %, c = 0 : borne). R2 : appuis sans raidisseur (borne, 61 %) ; sous la charge, sans
+  maintien à mi-portée, « maintien de la semelle haute à préciser » (37 %) ; avec un maintien à 3 m, sans raidisseur.
 - **La résistance de l'âme** (lot A) : F_Rd = f_y·χ_F·l_y·t_w/γ_M1 avec la f_y de CALCUL de la section ; λ̄_F avec la f_y
   de l'âme selon t_w. Les DEUX branches de m₂ (m₂ = 0,02·(h_w/t_f)², cohérente si λ̄_F > 0,5 ; m₂ = 0, si λ̄_F ≤ 0,5) sont
   calculées : quand les deux sont cohérentes, la plus PETITE F_Rd est retenue, et dite (brief § 8.2). Type (c) : le
