@@ -236,12 +236,13 @@ class Calcul:
                   else "$f_y$, $f_u$ : —")
         L.append(("Acier", f"{ac['nuance']} · {fy_txt} · $E$ = {_fmt(float(m.get('E') or ME.E_ACIER), 0)} N/mm²"))
         fl = self.fleche_adm()
+        commune = ET.texte_limite_commune(ac)      # la limite commune est la plus faible ; chaque élément à la sienne
         if m["mode"] == ME.ELS:
-            L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = $f_y$/{_g(lim['coef'])} = {_fmt(lim['sigma'])} N/mm² · "
+            L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = $f_y$/{_g(lim['coef'])} = {_fmt(lim['sigma'])} N/mm²{commune} · "
                                       f"$τ$ ≤ $τ_{{adm}}$ = $σ_{{adm}}$/$\\sqrt{{3}}$ = {_fmt(lim['tau'])} N/mm² · $σ_{{eq}}$ = $\\sqrt{{σ^2 + 3τ^2}}$ ≤ $σ_{{adm}}$ · "
                                       f"flèche ≤ {fl} · soudure $k$ = {_g(m.get('k', 100))} kg/(mm·cm) · ancrages : résistances de calcul / $γ_F$ = {_g(m.get('gamma_F', 1.5))}"))
         else:
-            L.append(("Vérification", f"à l'ELU selon l'Eurocode, charges × $γ_Q$ = {_g(m.get('gamma_Q', 1.5))} : $σ$ ≤ $f_y/γ_{{M0}}$ = {_fmt(lim['sigma'])} N/mm² (élastique, $W_{{el}}$) · "
+            L.append(("Vérification", f"à l'ELU selon l'Eurocode, charges × $γ_Q$ = {_g(m.get('gamma_Q', 1.5))} : $σ$ ≤ $f_y/γ_{{M0}}$ = {_fmt(lim['sigma'])} N/mm²{commune} (élastique, $W_{{el}}$) · "
                                       f"$τ$ ≤ $f_y/(\\sqrt{{3}}·γ_{{M0}})$ = {_fmt(lim['tau'])} N/mm² · $σ_{{eq}}$ = $\\sqrt{{σ^2 + 3τ^2}}$ ≤ $f_y/γ_{{M0}}$ · flèche ≤ {fl} sous charges de service · "
                                       f"soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, $γ_{{M2}}$ = {_g(m.get('gamma_M2', 1.25))}"))
         L.append(("Fixation", self.hyp_fixation()))

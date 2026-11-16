@@ -168,6 +168,16 @@ chk("lisse intermédiaire : σ = M/W_el,z, τ = V/A_v,y, f sur I_z (axe faible, 
 chk("la limite de la platine porte le nom de la méthode : σ_adm à l'ELS, σ_lim en Eurocode",
     "η_p = σ_p/σ_adm = " in "\n".join(FO.rendre(s) for s in tB["platine"]["subs"]) and "η_p = σ_p/σ_lim = " in "\n".join(FO.rendre(s) for s in FO.toutes(ET.verifier(cas(methode={"mode": "eurocode"})))["platine"]["subs"]))
 
+# ---- lot A, deuxième passe (S4) : l'épaisseur requise de la platine, à la limite de SA f_y
+c15 = cas(charges={"categorie": "perso", "qh": 4.2}, fixation={**FX.fixation_defaut(), "platine": {**FX.fixation_defaut()["platine"], "tp": 15.0}})
+r15 = ET.verifier(c15)
+s15 = next(s for s in FO.toutes(r15)["platine"]["subs"] if s.nom == "t_req")
+s10 = next(s for s in FO.toutes(ET.verifier(cas()))["platine"]["subs"] if s.nom == "t_req")
+chk("S4 · platine de 15 mm, t_req = 17,4 mm : la formule écrit σ_adm(t_req) = 150 (f_y 225 à 17 mm) et redonne le moteur ; "
+    "la platine par défaut garde σ_adm (156,7)",
+    FO.verifier(s15)[0] and s15.vals["lim"] == ("σ_adm(t_req)", 150.0) and abs(s15.res - 17.40) < 0.005
+    and s10.vals["lim"][0] == "σ_adm" and FO.verifier(s10)[0], (FO.rendre(s15), FO.rendre(s10)))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

@@ -4,7 +4,12 @@ et la page 2 de la note les lisent ici. Les hypothèses chiffrées (charges, lim
 sont imprimées par la note elle-même, en tête : ici, seulement les règles."""
 from typing import Dict, List
 
+from acier import materiaux as MA
+
 from .membres import COEF_CONTINUE, FLECHE_X_DEFAUT, GAMMA_ADM, GAMMA_Q
+
+# l'exemple chiffré du texte : un S235 jusqu'à 16 mm (tableau 3.3 ANB) — chaque pièce, elle, prend la f_y de SON épaisseur
+FY_EXEMPLE = MA.fy("S235", 16.0)
 
 
 def _fr(x: float) -> str:
@@ -37,8 +42,9 @@ SECTIONS: List[Dict] = [
      ]},
     {"titre": "Vérification à l'ELS",
      "paragraphes": [
-         f"Charges de service sans coefficient ; contraintes admissibles dérivées de la nuance : σ_adm = f_y/{GAMMA_ADM:g} "
-         f"({_fr(235 / GAMMA_ADM)} N/mm² pour le S235), τ_adm = σ_adm/√3 ({_fr(235 / GAMMA_ADM / 3 ** 0.5)} N/mm²). σ = M/W_el + N/A ≤ σ_adm, "
+         f"Charges de service sans coefficient ; contraintes admissibles dérivées de la nuance et de l'épaisseur de chaque pièce "
+         f"(tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes) : σ_adm = f_y/{GAMMA_ADM:g} ({_fr(FY_EXEMPLE / GAMMA_ADM)} N/mm² pour le "
+         f"S235 jusqu'à 16 mm), τ_adm = σ_adm/√3 ({_fr(FY_EXEMPLE / GAMMA_ADM / 3 ** 0.5)} N/mm²). σ = M/W_el + N/A ≤ σ_adm, "
          f"τ = V/A_v ≤ τ_adm, contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm, flèche ≤ L/{FLECHE_X_DEFAUT:g} (ou une valeur en mm). "
          "A_v du catalogue (EN 1993-1-1 §6.2.6), aire entière pour un plat ou un rond. Soudure : vérification à l'ELS (k = 100 kg/(mm·cm)) ; "
          "chevilles et boulons : résistance de calcul / γ_F = 1,5.".replace("f_y/1.5", "f_y/1,5"),

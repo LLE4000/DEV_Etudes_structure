@@ -141,6 +141,12 @@ def acier(meth: Dict, sec: Optional[Dict] = None, t: Optional[float] = None, pro
             "domaine_fy": MA.source(n, t, produit, "fy"), "domaine_fu": MA.source(n, t, produit, "fu")}
 
 
+def fy_platine(meth: Dict):
+    """t ↦ f_y de la platine (la nuance du garde-corps, produit laminé) à l'épaisseur t : l'épaisseur REQUISE de la platine
+    se lit à SA f_y (``fixation.tp_requis``), pas à celle de la platine actuelle ; n'entre pas dans la valeur retenue."""
+    return lambda t: acier(meth, t=t, piece="platine")["fy"]
+
+
 def acier_retenu(pieces: List[Dict]) -> Dict:
     """La valeur RETENUE pour tout le garde-corps — la ligne « Acier » de l'écran et de la note, les limites communes
     (σ_adm, τ_adm) : là où une pièce n'est pas nommée, la plus épaisse des pièces vérifiées, donc la plus petite f_y (et
@@ -158,6 +164,14 @@ def origine_retenue(ac: Dict) -> str:
     if ac.get("fy") is None or ac.get("domaine_fy") is None or ac["fy"] >= MA.nominale(ac["nuance"]):
         return ""
     return f" ({texte_acier(ac)})"
+
+
+def texte_limite_commune(ac: Optional[Dict]) -> str:
+    """« (valeur la plus faible ; chaque élément à la sienne) » quand les pièces vérifiées n'ont pas toutes la même f_y :
+    la limite commune σ_adm (ou f_y/γ_M0) que l'écran et la note impriment est celle de la valeur RETENUE
+    (``acier_retenu``), et chaque élément est vérifié à la SIENNE (sa fenêtre de calcul la dit) ; rien sinon."""
+    fys = {p["fy"] for p in (ac or {}).get("pieces") or []}
+    return " (valeur la plus faible ; chaque élément à la sienne)" if len(fys) > 1 else ""
 
 
 def texte_acier(ac: Dict, grandeur: str = "fy") -> str:
@@ -537,7 +551,8 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy_de) -> Dict:
         if res["soudure"] is None or (s["taux"] or 0) > (res["soudure"]["taux"] or 0):
             res["soudure"] = s
         if typ == "platine":
-            pl = FX.platine_boulonnee(M, -N_trac, V, hp, fx["platine"], fx["ancrage"], float(soud.get("a") or 0.0), meth, fy, soud.get("jonction", "angle"))
+            pl = FX.platine_boulonnee(M, -N_trac, V, hp, fx["platine"], fx["ancrage"], float(soud.get("a") or 0.0), meth, fy, soud.get("jonction", "angle"),
+                                      fy_platine(meth))
             pl["cas_charge"] = lab
             if res["platine"] is None or (pl.get("taux_max") or 0) > (res["platine"].get("taux_max") or 0):
                 res["platine"] = pl
@@ -566,7 +581,8 @@ def _fixation_laterale(cas: Dict, out: Dict, res: Dict, sec: Dict, soud: Dict, t
                             + (" (efforts de calcul)" if g != 1.0 else " (efforts de service)"))
         if res["soudure"] is None or (s["taux"] or 0) > (res["soudure"]["taux"] or 0):
             res["soudure"] = s
-        pl = FX.platine_laterale(M, p1, V, Mz, FX.largeur_contact(sec), fx["platine"], fx["ancrage"], float(soud.get("a") or 0.0), meth, fy, soud.get("jonction", "angle"))
+        pl = FX.platine_laterale(M, p1, V, Mz, FX.largeur_contact(sec), fx["platine"], fx["ancrage"], float(soud.get("a") or 0.0), meth, fy, soud.get("jonction", "angle"),
+                                 fy_platine(meth))
         pl["cas_charge"] = lab
         pl["y_P"] = y_P
         if res["platine"] is None or (pl.get("taux_max") or 0) > (res["platine"].get("taux_max") or 0):

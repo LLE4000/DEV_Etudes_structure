@@ -66,6 +66,14 @@ def _sym_lim(res: Dict) -> str:
     return "σ_lim" if (res.get("methode") or {}).get("mode") == ME.EUROCODE else "σ_adm"
 
 
+def _t_req(res: Dict, p: Dict) -> Sub:
+    """L'épaisseur requise de la platine, à la limite de SA f_y (``fixation.tp_requis``) : σ_adm(t_req) quand elle passe
+    un palier de f_y sous celle de la platine actuelle, la limite de la platine sinon."""
+    lim_r = p.get("lim_req", p["lim_sigma"])
+    sym = _sym_lim(res) if abs(lim_r - p["lim_sigma"]) < 1e-9 else f"{_sym_lim(res)}(t_req)"
+    return Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": (sym, lim_r)}, p["tp_req"], "mm", 1)
+
+
 def _limites(v: Dict, meth: Dict, fy: float) -> Dict:
     """Les limites et les taux d'une vérification de section : ``s_lim``/``t_lim`` (Eurocode : f_y/γ_M0,
     f_y/(√3·γ_M0)), ``eta_s``, ``eta_t``, ``f_adm``, ``eta_f``, ``eta`` — chaque taux reprend le nombre
@@ -327,7 +335,7 @@ def platine(res: Dict) -> Dict:
         flexion.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
         flexion.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
         flexion.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
-        flexion.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": (_sym_lim(res), p["lim_sigma"])}, p["tp_req"], "mm", 1))
+        flexion.append(_t_req(res, p))
         flexion.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": (_sym_lim(res), p["lim_sigma"])}, p["taux_platine"], "", -1))
     return _bloc(p.get("cas_charge", ""), None, [(ANCRAGES_EFFORTS, efforts), (ANCRAGES_RESISTANCES, resist), (PLATINE_FLEXION, flexion)])
 
@@ -365,7 +373,7 @@ def _flexion_platine(res: Dict, p: Dict, bras: Sub, largeur_sym: str, largeur: f
     out.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
     out.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
     out.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
-    out.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": (_sym_lim(res), p["lim_sigma"])}, p["tp_req"], "mm", 1))
+    out.append(_t_req(res, p))
     out.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": (_sym_lim(res), p["lim_sigma"])}, p["taux_platine"], "", -1))
     return out
 

@@ -20,11 +20,14 @@ import math
 from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from acier.flambement import section as SEC
 from acier.profiles import catalogue as CAT
 from acier.profiles import familles as F
 
-CREUX_CHAUD = ("CHS", "SHS", "RHS")
-CREUX_FROID = ("CHS-F", "SHS-F", "RHS-F")
+# fini à chaud (EN 10210) ou formé à froid (EN 10219) : la correspondance famille → produit du site, FABRICATION de
+# acier/flambement/section.py (barres, flambement, soudures), lue ici sans copie
+CREUX_CHAUD = tuple(f for f, fab in SEC.FABRICATION.items() if fab == "creux_chaud")
+CREUX_FROID = tuple(f for f, fab in SEC.FABRICATION.items() if fab == "creux_froid")
 FAMILLES_CREUX = CREUX_CHAUD + CREUX_FROID
 # Les séries de stock des plats (EN 10058) et des ronds (EN 10060) usuelles en garde-corps :
 # largeur h (dans le sens de la flexion) × épaisseur b.

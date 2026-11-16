@@ -8,7 +8,9 @@ saisies de l'écran du site, api_web/garde_corps.modifier). C'est celle de la re
 
 LA RÉFÉRENCE FIGÉE (``tests/ref_note_garde_corps_grille.json``) : pour chaque état, la note du générateur tel qu'il
 était le 09/11/2026 (commit e4c173c), son nombre de pages, l'empreinte SHA-256 du texte de chaque page (pdftotext
--layout) et les débordements qu'il relevait. Elle s'écrit UNE fois, avec le générateur d'avant :
+-layout) et les débordements qu'il relevait. Un texte changé VOLONTAIREMENT depuis est un ÉCART NOMMÉ (``ECARTS_NOMMES``,
+avec sa raison) : (a) refait la note avec l'ancien morceau remis et retrouve l'empreinte d'avant. Elle s'écrit UNE fois,
+avec le générateur d'avant :
 
     python3 tests/test_note_garde_corps_grille.py --geler
 
@@ -31,6 +33,8 @@ Ce que la suite prouve :
     python3 tests/test_note_garde_corps_grille.py
 """
 import collections
+import contextlib
+import copy
 import hashlib
 import itertools
 import json
@@ -45,6 +49,7 @@ from datetime import datetime
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
+from acier.garde_corps import methode as MT  # noqa: E402
 from acier.garde_corps import note as NT  # noqa: E402
 from api_web import garde_corps as G  # noqa: E402
 from ndc_pdf import data as ndc_data  # noqa: E402
@@ -61,6 +66,35 @@ METHODES = ("els", "eurocode")
 INFOS = {"nom_projet": "Grille", "partie": "Garde-corps", "indice": "A", "date": "09/11/2026"}
 
 OK, KO = [], []
+
+# ÉCARTS NOMMÉS : les textes changés VOLONTAIREMENT depuis la référence du 09/11/2026, chacun avec sa raison — (titre de la
+# section de methode.py, morceau d'aujourd'hui, morceau d'avant, raison). La référence ne se réécrit pas (elle vient du
+# générateur d'avant la page de suite, le seul qui relevait les débordements) : pour (a), la note d'un état qui tenait et
+# dont l'empreinte a bougé est refaite avec l'ANCIEN morceau remis le temps de la comparaison — l'empreinte d'avant doit
+# revenir au bit près, donc rien d'autre n'a changé. Le texte d'aujourd'hui a son propre contrôle.
+ECARTS_NOMMES = [
+    ("Vérification à l'ELS",
+     "dérivées de la nuance et de l'épaisseur de chaque pièce (tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes) : "
+     "σ_adm = f_y/1,5 (156,7 N/mm² pour le S235 jusqu'à 16 mm)",
+     "dérivées de la nuance : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235)",
+     "lot A, 2e passe (S6) : σ_adm dépend de la nuance ET de l'épaisseur de chaque pièce — tests/test_garde_corps_note.py"),
+]
+
+
+@contextlib.contextmanager
+def anciens_textes(ecarts=None):
+    """Les sections de méthode avec l'ANCIEN morceau de chaque écart nommé (le temps d'une comparaison à la référence)."""
+    vrai = MT.SECTIONS
+    sections = copy.deepcopy(vrai)
+    for titre, neuf, ancien, _ in (ECARTS_NOMMES if ecarts is None else ecarts):
+        sec = next(x for x in sections if x["titre"].startswith(titre))
+        assert any(neuf in p for p in sec["paragraphes"]), f"écart nommé introuvable : {titre}"
+        sec["paragraphes"] = [p.replace(neuf, ancien) for p in sec["paragraphes"]]
+    MT.SECTIONS = sections
+    try:
+        yield
+    finally:
+        MT.SECTIONS = vrai
 
 
 def chk(nom, cond, info=""):
@@ -207,17 +241,23 @@ def main():
     tenaient = {k for k, v in ref["etats"].items() if not v["debordements"]}
     print(f"--   référence : {len(tenaient)} états tenaient dans leurs deux pages, {240 - len(tenaient)} débordaient")
     t0 = time.time()
-    ecarts_a, ecarts_b, suites, n_b = [], [], collections.Counter(), 0
+    ecarts_a, ecarts_b, suites, n_b, nommes = [], [], collections.Counter(), 0, 0
     for cle, e in grille():
         octets = NT.generer_note(e, e["cas"][0], INFOS)
-        warn, reports = list(NT.derniers_avertissements), NT.derniers_reports
+        warn, reports, variante = list(NT.derniers_avertissements), NT.derniers_reports, NT.derniere_variante
         emp = empreinte(octets)
         r = ref["etats"].get(cle)
         if r is None:
             ecarts_a.append((cle, "absent de la référence"))
             continue
         if cle in tenaient and (emp["pages"] != r["pages"] or emp["sha"] != r["sha"]):
-            ecarts_a.append((cle, emp["pages"], r["pages"], [i + 1 for i, (a, b) in enumerate(zip(emp["sha"], r["sha"])) if a != b]))
+            with anciens_textes():                      # les écarts NOMMÉS remis : l'empreinte d'avant doit revenir
+                emp = empreinte(NT.generer_note(e, e["cas"][0], INFOS))
+            NT.derniere_variante = variante
+            if emp["pages"] != r["pages"] or emp["sha"] != r["sha"]:
+                ecarts_a.append((cle, emp["pages"], r["pages"], [i + 1 for i, (a, b) in enumerate(zip(emp["sha"], r["sha"])) if a != b]))
+            else:
+                nommes += 1
         # (b) aucune colonne ne déborde ; une page de suite pour (et seulement pour) ce qui débordait
         if warn:
             ecarts_b.append((cle, "déborde encore", warn))
@@ -231,8 +271,10 @@ def main():
             calc = NT.Calcul(e, e["cas"][0])
             k = dict((nom, kk) for kk, nom in NT.VARIANTES)[NT.derniere_variante]
             ecarts_b += [(cle,) + x for x in complet(calc, doc_meta, k, reports, octets)]
-    print(f"--   {240} notes faites en {time.time() - t0:.0f} s")
-    chk(f"(a) les {len(tenaient)} états qui tenaient donnent EXACTEMENT la note d'avant (pages, texte de chaque page)",
+    print(f"--   {240} notes faites en {time.time() - t0:.0f} s ; {nommes} états qui tenaient ne diffèrent de la référence que par les "
+          f"écarts nommés ({' ; '.join(x[3] for x in ECARTS_NOMMES)})")
+    chk(f"(a) les {len(tenaient)} états qui tenaient donnent EXACTEMENT la note d'avant (pages, texte de chaque page), aux seuls écarts "
+        "NOMMÉS près (l'ancien texte remis, l'empreinte d'avant revient)",
         not ecarts_a and len(tenaient) == 154, ecarts_a[:4])
     for s, n in sorted(suites.items(), key=lambda x: -x[1]):
         print(f"--   page de suite ({n} états) : {' ; '.join(s)}")
@@ -240,6 +282,21 @@ def main():
         "page 3 de suite, qui pose EXACTEMENT le contenu de l'ancienne mise en page (rien de perdu, rien de doublé), titres "
         "et résultats de formules dans le texte du PDF",
         not ecarts_b and n_b == 240 - len(tenaient), ecarts_b[:4])
+
+    # MUTATIONS : (a) reste strict malgré les écarts nommés — un écart NON nommé (une autre phrase de méthode changée) fait
+    # rougir la comparaison d'un état ELS qui tenait, même avec les écarts nommés remis
+    cle_els = "barreaudage · droite · séparées · platine · els"
+    e_els = dict(grille())[cle_els]
+    r_els = ref["etats"][cle_els]
+    with anciens_textes():
+        sha_nomme = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
+    autre = ("Modèle", "Montant principal : console encastrée en pied", "Montant principal : console ENCASTRÉE en pied", "mutation")
+    with anciens_textes(ECARTS_NOMMES + [autre]):
+        sha_mutant = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
+    sha_sans = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
+    chk("mutation « une autre phrase de méthode changée, non nommée » : (a) rougit, même avec les écarts nommés remis ; sans eux "
+        "aussi (le texte d'aujourd'hui n'est pas celui de la référence)",
+        sha_nomme == r_els["sha"] and sha_mutant != r_els["sha"] and sha_sans != r_els["sha"], (cle_els,))
 
     # MUTATIONS : (b) doit rougir
     e = dict(grille())["barreaudage · U · cumul · platine · eurocode"]

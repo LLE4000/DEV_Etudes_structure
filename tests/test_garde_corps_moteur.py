@@ -522,6 +522,62 @@ with mutant(ET, "acier_retenu", lambda pieces: dict(vrai_acier(ME.methode_defaut
 with mutant(SET.MA, "fu", lambda n, t, produit="lamine": 510.0 if "S355" in n else 360.0):
     chk("mutation « f_u du tableau 3.1 de l'EN (510 en S355) » : le contrôle de la soudure rougit", not ctl_soudure_S355())
 
+print("\n=== 11. Lot A, deuxième passe : épaisseur requise de la platine (S4), limite commune (S6), produit des tubes (S7) ===")
+from acier.flambement import section as SEC  # noqa: E402
+from acier.garde_corps import methode as MTH  # noqa: E402
+
+
+def platine_tp(qh: float, tp: float):
+    c = cas()
+    c["charges"].update(categorie="perso", qh=qh)
+    c["fixation"] = {**FX.fixation_defaut(), "platine": {**FX.fixation_defaut()["platine"], "tp": tp}}
+    return ET.verifier(c)["fixation"]["platine"]
+
+
+def ctl_tp_requis() -> bool:
+    """S4 : l'épaisseur requise se lit à la f_y de SON épaisseur. Platine S235 de 15 mm (f_y 235) sous q_h = 4,2 kN/m :
+    à 235, t_req = 17,02 mm — mais à 17 mm f_y = 225 (tableau 3.3 ANB, 16 < t ≤ 40) : t_req = 17,02·√(235/225) = 17,40 mm
+    (σ_adm 150). Le taux de la platine (sa propre f_y) ne change pas ; une platine de 20 mm (déjà à 225) et une de 10 mm
+    sous la charge par défaut (t_req 5,87 mm) non plus."""
+    p15, p20, p10 = platine_tp(4.2, 15.0), platine_tp(4.2, 20.0), platine_tp(0.5, 10.0)
+    t235 = math.sqrt(6 * p15["Mp"] / (p15["b_eff"] * 235.0 / 1.5))
+    return (16.0 < t235 < 17.1 and pres(p15["tp_req"], math.sqrt(6 * p15["Mp"] / (p15["b_eff"] * 225.0 / 1.5))) and pres(p15["lim_req"], 150.0)
+            and abs(p15["tp_req"] - 17.40) < 0.005 and pres(p15["taux_platine"], p15["sigma_p"] / (235.0 / 1.5))
+            and pres(p20["tp_req"], p15["tp_req"]) and pres(p20["lim_req"], 150.0)
+            and pres(p10["tp_req"], math.sqrt(6 * p10["Mp"] / (p10["b_eff"] * 235.0 / 1.5))) and pres(p10["lim_req"], 235.0 / 1.5))
+
+
+def ctl_limite_commune() -> bool:
+    """S6 : σ_adm dépend de la nuance ET de l'épaisseur de chaque pièce — le texte de méthode le dit, et la limite
+    commune (la valeur retenue, la plus faible) se dit telle quand les pièces n'ont pas la même f_y (Plat 80x20 : 225 ;
+    main courante : 235) ; rien quand toutes ont la même (le cas par défaut)."""
+    p = next(s for s in MTH.SECTIONS if s["titre"].startswith("Vérification à l'ELS"))["paragraphes"][0]
+    r = ET.verifier(cas(montant={"section": {"nom": "Plat 80x20"}}))
+    return ("dérivées de la nuance et de l'épaisseur de chaque pièce (tableau 3.3 ANB" in p and "156,7 N/mm² pour le S235 jusqu'à 16 mm" in p
+            and ET.texte_limite_commune(r["acier"]) == " (valeur la plus faible ; chaque élément à la sienne)"
+            and ET.texte_limite_commune(ET.verifier(cas())["acier"]) == "")
+
+
+def ctl_produit_tubes() -> bool:
+    """S7 (R2) : la correspondance famille → produit des tubes du garde-corps est FABRICATION de acier/flambement/section.py."""
+    return (set(BI.CREUX_CHAUD) == {f for f, v in SEC.FABRICATION.items() if v == "creux_chaud"}
+            and set(BI.CREUX_FROID) == {f for f, v in SEC.FABRICATION.items() if v == "creux_froid"}
+            and all(BI.epaisseur(BI.section({"nom": n}))[1] == SEC.produit(CAT.par_nom()[n])
+                    for n, s in BI.standards().items() if s["famille"] in SEC.FABRICATION and BI.est_creux(s)))
+
+
+chk("S4 · épaisseur requise de la platine à la f_y de SON épaisseur (15 mm sous q_h 4,2 : 17,02 → 17,40 mm, σ_adm 150) ; taux inchangé",
+    ctl_tp_requis())
+chk("S6 · σ_adm dérivée de la nuance ET de l'épaisseur de chaque pièce ; la limite commune se dit « la plus faible » quand les pièces diffèrent",
+    ctl_limite_commune())
+chk("S7 · le produit des tubes du garde-corps (fini à chaud, formé à froid) est celui de section.FABRICATION", ctl_produit_tubes())
+with mutant(FX, "tp_requis", lambda Mp, b, lim, lim_de=None: (math.sqrt(6 * Mp / (b * lim["sigma"])), lim)):
+    chk("mutation « épaisseur requise à la f_y de la platine actuelle » (le défaut d'avant) : le contrôle rougit", not ctl_tp_requis())
+with mutant(ET, "texte_limite_commune", lambda ac: ""):
+    chk("mutation « limite commune sans le dire » : le contrôle rougit", not ctl_limite_commune())
+with mutant(BI, "CREUX_FROID", ("CHS-F", "SHS-F")):
+    chk("mutation « une copie de la correspondance qui oublie le RHS-F » : le contrôle rougit", not ctl_produit_tubes())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

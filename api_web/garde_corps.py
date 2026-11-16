@@ -404,7 +404,8 @@ def _hypotheses(res: Dict) -> List[str]:
     fl = f"L/{C.nb(m.get('fleche_val'))}" if m.get("fleche_mode", "L/x") == "L/x" else f"{C.nb(m.get('fleche_val'))} mm"
     if m.get("mode") == ME.ELS:
         lim = ME.limites(m, fy)
-        meth = f"Méthode <b>ELS</b> · σ<sub>adm</sub> = f<sub>y</sub> / {C.nb(lim['coef'])} = {C.fr(lim['sigma'])} N/mm²"
+        meth = (f"Méthode <b>ELS</b> · σ<sub>adm</sub> = f<sub>y</sub> / {C.nb(lim['coef'])} = {C.fr(lim['sigma'])} N/mm²"
+                + C.esc(ET.texte_limite_commune(res["acier"])))
     else:
         meth = f"Méthode <b>Eurocode</b> · γ<sub>Q</sub> = {C.nb(m.get('gamma_Q'))} · γ<sub>M0</sub> = {C.nb(m.get('gamma_M0'))}"
     # la valeur RETENUE pour l'ensemble et d'où elle vient ; chaque fenêtre de calcul dit la f_y de SON élément

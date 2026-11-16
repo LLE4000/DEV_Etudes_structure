@@ -200,6 +200,35 @@ chk("une note de plusieurs garde-corps : la liste de la ligne les nomme tous (no
     rn3["donnees"].count('class="et-elt-i') == 4 and 'data-elements="4"' in rn3["donnees"] and "Barreaudage vertical · 3,60" in rn3["donnees"]
     and rn3["statut_html"] != "" and r["statut_html"] == "")
 
+# ---- lot A, deuxième passe (S6) : à l'écran, la limite commune σ_adm se dit « la plus faible » quand les pièces diffèrent
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_hypotheses_gc() -> bool:
+    """Un montant Plat 80x20 (f_y 225) et une main courante à 235 : la ligne de méthode des hypothèses dit σ_adm = 150 N/mm²
+    « (valeur la plus faible ; chaque élément à la sienne) », comme la note ; le garde-corps par défaut ne le dit pas."""
+    c = ET.nouveau_cas(None, TY.TYPE_DEFAUT)
+    c["montant"] = {**c["montant"], "section": {"nom": "Plat 80x20"}}
+    h = " ".join(G._hypotheses(ET.verifier(c)))
+    h0 = " ".join(G._hypotheses(ET.verifier(ET.nouveau_cas(None, TY.TYPE_DEFAUT))))
+    return "= 150,0 N/mm² (valeur la plus faible ; chaque élément à la sienne)" in h and "valeur la plus faible" not in h0
+
+
+chk("S6 · écran : σ_adm « (valeur la plus faible ; chaque élément à la sienne) » quand les pièces n'ont pas la même f_y", ctl_hypotheses_gc())
+with mutant(ET, "texte_limite_commune", lambda ac: ""):
+    chk("mutation « limite commune sans le dire » : le contrôle de l'écran rougit", not ctl_hypotheses_gc())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

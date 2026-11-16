@@ -324,6 +324,39 @@ pL2 = norm(texte(PDF["L lisses continue"], 1))
 chk("page 2 : coefficients des poutres continues en virgules (0,125 / 0,100 / 0,107), les lisses intermédiaires « h vertical … axe faible », la main courante murale et le sans montant dans le Modèle",
     "0,125 / 0,100 / 0,107" in pL2 and "0.125" not in pL2 and "posée h vertical comme la main courante" in pL2 and "Main courante murale" in pL2 and "Sans montant" in pL2)
 
+# ================================================================
+print("\n=== Lot A, deuxième passe (S6) : la limite commune est la plus faible, chaque élément à la sienne ===")
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_verification_note() -> bool:
+    """La ligne « Vérification » d'une note dont le montant est un Plat 80x20 (f_y 225) et la main courante 235 : σ_adm =
+    150 « (valeur la plus faible ; chaque élément à la sienne) », en ELS comme en Eurocode ; la page 2 dit σ_adm dérivée de
+    la nuance ET de l'épaisseur ; la note par défaut (toutes les pièces à 235) n'a pas la parenthèse."""
+    c = cas(montant={"section": {"nom": "Plat 80x20"}})
+    t1, t2 = norm(texte(NT.generer_note(ET_, c, INFOS))), norm(texte(NT.generer_note(ET_, c, INFOS), 1))
+    te = norm(texte(NT.generer_note(ET_, cas(montant={"section": {"nom": "Plat 80x20"}}, methode={"mode": "eurocode"}), INFOS)))
+    t0 = norm(texte(NT.generer_note(ET_, cas(), INFOS)))
+    return ("150,0 N/mm² (valeur la plus faible ; chaque élément à la sienne)" in t1 and "(valeur la plus faible ; chaque élément à la sienne)" in te
+            and "dérivées de la nuance et de l'épaisseur de chaque pièce" in t2 and "valeur la plus faible" not in t0)
+
+
+chk("S6 · note : « σ_adm = f_y/1,5 = 150,0 N/mm² (valeur la plus faible ; chaque élément à la sienne) » quand les pièces diffèrent ; "
+    "page 2 : « dérivées de la nuance et de l'épaisseur de chaque pièce »", ctl_verification_note())
+with mutant(ET, "texte_limite_commune", lambda ac: ""):
+    chk("mutation « limite commune sans le dire » : le contrôle de la note rougit", not ctl_verification_note())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

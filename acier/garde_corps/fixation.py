@@ -35,8 +35,9 @@ module Pied de poteau le fait pour le cas général). Unités : mm, N, N·mm en 
 """
 import copy
 import math
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
+from acier import materiaux as MA
 from acier.bibliotheques import DB
 from acier.resistances import Ft_Rd, Fv_Rd
 from acier.soudures import configurations as CF
@@ -206,19 +207,45 @@ def _resistances(anc: Dict, meth: Dict, gF: float, Ft: float, Fv: float) -> Dict
     return out
 
 
-def _flexion_platine(out: Dict, Z: float, m: float, n: int, largeur: float, e_bord: float, tp: float, lim: Dict) -> None:
+def tp_requis(Mp: float, b_eff: float, lim: Dict, lim_de: Optional[Callable[[float], Dict]] = None) -> Tuple[float, Dict]:
+    """(t_req, limites employées) : l'épaisseur requise √(6·M_p/(b_eff·σ_lim)) À LA f_y DE CETTE ÉPAISSEUR (NBN EN
+    1993-1-1 ANB:2018 3.2.1(1), option a : f_y baisse au-delà de 16, 40… mm). Elle part de la f_y de la platine actuelle
+    (``lim``) ; quand t_req tombe dans un palier de f_y plus basse (``lim_de(t)`` : les limites à l'épaisseur t), elle
+    est reprise avec ce palier, jusqu'à ce que la f_y ne baisse plus (une ou deux passes en pratique ; chaque passe
+    descend d'un palier au moins, la boucle finit). Jamais plus favorable que la platine actuelle : du côté sûr. Au-delà
+    du tableau de l'ANB (MA.HorsTable), la dernière valeur reste (la platine est alors très loin du compte)."""
+    t = math.sqrt(6 * Mp / (b_eff * lim["sigma"]))
+    lim_req = lim
+    if lim_de is None:
+        return t, lim_req
+    for _ in range(12):
+        try:
+            l2 = lim_de(t)
+        except MA.HorsTable:
+            break
+        if l2["sigma"] >= lim_req["sigma"]:
+            break
+        lim_req = l2
+        t = math.sqrt(6 * Mp / (b_eff * lim_req["sigma"]))
+    return t, lim_req
+
+
+def _flexion_platine(out: Dict, Z: float, m: float, n: int, largeur: float, e_bord: float, tp: float, lim: Dict,
+                     lim_de: Optional[Callable[[float], Dict]] = None) -> None:
     """La platine en console du nu du montant à la rangée tendue : b_eff = min(largeur ; n·min(2πm ;
-    4m + 1,25e)), M_p = Z·m, σ_p = 6·M_p/(b_eff·t_p²), épaisseur requise, taux."""
+    4m + 1,25e)), M_p = Z·m, σ_p = 6·M_p/(b_eff·t_p²), épaisseur requise (``tp_requis`` : à la f_y de SON épaisseur ;
+    ``lim_req`` la limite qu'elle emploie), taux."""
     if m <= 0:
         out["messages"].append("Boulons au nu du montant : pas de flexion de la platine (bras m ≤ 0)")
-        out.update({"m": 0.0, "b_eff": largeur, "Mp": 0.0, "sigma_p": 0.0, "tp_req": 0.0, "taux_platine": 0.0, "e_bord": e_bord})
+        out.update({"m": 0.0, "b_eff": largeur, "Mp": 0.0, "sigma_p": 0.0, "tp_req": 0.0, "lim_req": lim["sigma"], "taux_platine": 0.0, "e_bord": e_bord})
         return
     leff = n * min(2 * math.pi * m, 4 * m + 1.25 * e_bord)
     b_eff = min(largeur, leff)
     Mp = Z * m
     sigma_p = 6 * Mp / (b_eff * tp ** 2) if b_eff > 0 and tp > 0 else float("inf")
-    tp_req = math.sqrt(6 * Mp / (b_eff * lim["sigma"])) if b_eff > 0 else float("inf")
-    out.update({"m": m, "b_eff": b_eff, "leff": leff, "Mp": Mp, "sigma_p": sigma_p, "tp_req": tp_req, "e_bord": e_bord, "taux_platine": sigma_p / lim["sigma"]})
+    tp_req, lim_req = tp_requis(Mp, b_eff, lim, lim_de) if b_eff > 0 else (float("inf"), lim)
+    out.update({"m": m, "b_eff": b_eff, "leff": leff, "Mp": Mp, "sigma_p": sigma_p, "tp_req": tp_req, "lim_req": lim_req["sigma"], "e_bord": e_bord,
+                "taux_platine": sigma_p / lim["sigma"]})
 
 
 def _conclure(out: Dict, lim: Dict) -> Dict:
@@ -237,10 +264,11 @@ def _refus(out: Dict, msg: str) -> Dict:
 
 
 def platine_boulonnee(M: float, N: float, V: float, hp: float, pl: Dict, anc: Dict, a_cordon: float, meth: Dict, fy: float,
-                      jonction: str = "angle") -> Dict:
+                      jonction: str = "angle", fy_de: Optional[Callable[[float], float]] = None) -> Dict:
     """M (N·mm) à la platine dans le sens de b_p, N (N, > 0 compression), V (N) ; h_p (mm)
     la dimension du montant dans le sens de l'effort ; ``pl`` {bp, lp, tp}, ``anc`` {type,
-    n_par_rangee, ex, ey, boulon, classe, NRd, VRd}. Rend efforts, résistances, taux."""
+    n_par_rangee, ex, ey, boulon, classe, NRd, VRd} ; ``fy_de(t)`` : la f_y de la platine à l'épaisseur t (l'épaisseur
+    requise se lit à SA f_y). Rend efforts, résistances, taux."""
     lim = limites(meth, fy)
     g = lim["gamma"]
     gF = float(meth.get("gamma_F") or 1.5) if meth.get("mode") != EUROCODE else 1.0
@@ -261,19 +289,20 @@ def platine_boulonnee(M: float, N: float, V: float, hp: float, pl: Dict, anc: Di
     out.update(_resistances(anc, meth, gF, Ft, Fv))
     # la platine : bande en console du nu du montant à la rangée tendue
     deduc = 0.8 * a_cordon * S2 if jonction == "angle" else 0.0
-    _flexion_platine(out, Z, ex / 2 - hp / 2 - deduc, n, lp, (lp - (n - 1) * ey) / 2, tp, lim)
+    _flexion_platine(out, Z, ex / 2 - hp / 2 - deduc, n, lp, (lp - (n - 1) * ey) / 2, tp, lim,
+                     (lambda t: limites(meth, fy_de(t))) if fy_de else None)
     return _conclure(out, lim)
 
 
 def platine_laterale(M: float, P: float, V: float, Mz: float, b_post: float, pl: Dict, anc: Dict, a_cordon: float, meth: Dict, fy: float,
-                     jonction: str = "angle") -> Dict:
+                     jonction: str = "angle", fy_de: Optional[Callable[[float], float]] = None) -> Dict:
     """Platine LATÉRALE : M (N·mm) au centre de la platine (axe horizontal le long du garde-corps),
     P (N, > 0) l'arrachement normal à la platine, V (N) le cisaillement dans son plan (vertical,
     et horizontal à l'angle), M_z (N·mm) la torsion autour de la normale (montant d'angle) ;
     b_post (mm) la largeur du montant le long de la platine ; ``pl`` {bp (hauteur), lp (largeur),
     tp}, ``anc`` {type, n_par_rangee (les colonnes, par paires de part et d'autre du montant), ex
-    (entraxe vertical des deux rangées), ey (entraxe horizontal), …}. Couple d'ancrages (la
-    rangée haute tendue, la basse en appui) : z = e_x, Z = M/z + P/2."""
+    (entraxe vertical des deux rangées), ey (entraxe horizontal), …} ; ``fy_de(t)`` : la f_y de la platine à
+    l'épaisseur t. Couple d'ancrages (la rangée haute tendue, la basse en appui) : z = e_x, Z = M/z + P/2."""
     lim = limites(meth, fy)
     g = lim["gamma"]
     gF = float(meth.get("gamma_F") or 1.5) if meth.get("mode") != EUROCODE else 1.0
@@ -303,7 +332,8 @@ def platine_laterale(M: float, P: float, V: float, Mz: float, b_post: float, pl:
     out.update({"z": z, "Z": Z, "Ft": Ft, "Fv": Fv, "Fv_tors": Fv_tors, "M": Md, "N": -Pd, "P": Pd, "V": Vd, "Mz": Mzd})
     out.update(_resistances(anc, meth, gF, Ft, Fv))
     deduc = 0.8 * a_cordon * S2 if jonction == "angle" else 0.0
-    _flexion_platine(out, Z, ey / 2 - b_post / 2 - deduc, n, bp, (bp - ex) / 2, tp, lim)
+    _flexion_platine(out, Z, ey / 2 - b_post / 2 - deduc, n, bp, (bp - ex) / 2, tp, lim,
+                     (lambda t: limites(meth, fy_de(t))) if fy_de else None)
     return _conclure(out, lim)
 
 
