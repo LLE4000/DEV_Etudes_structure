@@ -11,6 +11,11 @@
    "date": "2026-11-16",
    "raison": "Lot A : f_y et f_u de chaque pièce selon son épaisseur (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a) ; la valeur retenue et sa bande s'affichent ; cas S235 ≤ 16 mm : nombres inchangés",
    "ecarts": ["C3 sur poteau HEA, pénétration partielle : avis changés"]
+  },
+  {
+   "date": "2026-11-16",
+   "raison": "Lot A, deuxième passe : vue Méthode calculée depuis la table (148,5 ; 160,8 N/mm², marges 29 et 39 %), nombres en virgule décimale (γ_F, γM2, k·g/10, g, épaisseurs « 8,5 mm »)",
+   "ecarts": ["cas ajouté, configuration C5 : valeurs qui ne se voient plus [\"8\"]"]
   }
  ],
  "cas": [
@@ -247,7 +252,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}},
@@ -545,7 +550,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C1", "params": {"b": 100.0, "tB": 10.0, "tA": 10.0, "L_rec": 120.0, "lateraux": true, "frontaux": 1, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 80.0, "V": 0.0}, "methode": {"mode": "els", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -786,7 +791,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 97.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -944,7 +949,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "partielle", "p": 6.0, "renfort": 0.0, "poteau": "HEA 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -1185,7 +1190,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -1284,7 +1289,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 10.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -1522,7 +1527,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 0.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -1782,7 +1787,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 1, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 0, "identification": {"projet": "", "partie": "", "indice": "0"}}
@@ -1839,11 +1844,12 @@
      ["Semelle sup. ext. a =", "5 mm", "·"],
      ["l eff =", "100 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle sup. ext. · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "243,9 N/mm²", "360,0 N/mm²", "67,8 %"],
@@ -1878,11 +1884,12 @@
      ["Semelle inf. ext. a =", "5 mm", "·"],
      ["l eff =", "100 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle inf. ext. · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "243,9 N/mm²", "360,0 N/mm²", "67,8 %"],
@@ -1917,11 +1924,12 @@
      ["Semelle sup. int. droite a =", "5 mm", "·"],
      ["l eff =", "35 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle sup. int. droite · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "196,3 N/mm²", "360,0 N/mm²", "54,5 %"],
@@ -1956,11 +1964,12 @@
      ["Semelle sup. int. gauche a =", "5 mm", "·"],
      ["l eff =", "35 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle sup. int. gauche · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "196,3 N/mm²", "360,0 N/mm²", "54,5 %"],
@@ -1995,11 +2004,12 @@
      ["Semelle inf. int. droite a =", "5 mm", "·"],
      ["l eff =", "35 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle inf. int. droite · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "196,3 N/mm²", "360,0 N/mm²", "54,5 %"],
@@ -2034,11 +2044,12 @@
      ["Semelle inf. int. gauche a =", "5 mm", "·"],
      ["l eff =", "35 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison semelle inf. int. gauche · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "196,3 N/mm²", "360,0 N/mm²", "54,5 %"],
@@ -2073,11 +2084,12 @@
      ["Âme droite a =", "4 mm", "·"],
      ["l eff =", "159 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison âme droite · bas σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "184,9 N/mm²", "360,0 N/mm²", "51,4 %"],
@@ -2112,11 +2124,12 @@
      ["Âme gauche a =", "4 mm", "·"],
      ["l eff =", "159 mm", "·"],
      ["retours (l entière) · les formules de la méthode choisie, au point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux Contrainte de comparaison âme gauche · bas σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "184,9 N/mm²", "360,0 N/mm²", "51,4 %"],
@@ -2149,11 +2162,12 @@
      ["ELS bureau k =", "100", "132 %", "·"],
      ["ELS k Eurocode =", "141", "94 %"],
      ["Les quatre lectures de la soudure mêmes efforts · chaque méthode à son point le plus chargé Acier de référence S235 · f u =", "360 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm :", "3", "≤"],
+     ["(pièce B, S235 de", "8,5 mm", ":", "3", "≤"],
      ["t ≤", "100 mm,"],
      ["tableau 3.3 ANB) · β w =", "0,8", "·"],
      ["f y =", "235 N/mm²"],
-     ["(pièce B, S235 de 8.5 mm : t ≤", "16 mm,"],
+     ["(pièce B, S235 de", "8,5 mm", ":"],
+     ["t ≤", "16 mm,"],
      ["tableau 3.3 ANB) Méthode Eurocode directionnelle · γ M2 =", "1,25", "·"],
      ["γ M0 =", "1"],
      ["Efforts de calcul (ELU) Vérification Formule Valeur Limite Taux EC3 directionnelle ◀ semelle sup. ext. · gauche σ c = √(σ ⊥ ² + 3(τ ⊥ ² + τ ∥ ²)) ≤ f u /(β w ·γ M2 )", "243,9 N/mm²", "360,0 N/mm²", "67,8 %"],
@@ -2270,7 +2284,7 @@
       "titre": "Méthode et sources",
       "court": "Méthode",
       "legende": "EN 1993-1-8 §4 · méthode ELS du bureau",
-      "nombres": "(141 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1.25 1.5 10 10 100 100 12 138,6 139 150a. 155,8 15°). 16 174,5 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 28 2a 2a 3 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 43 6a) 6a) 9,81 9.81 98.1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
+      "nombres": "(141 (98,1 (V1) (§4.11) (§4.3.2.2). (§4.5.1) (§4.5.2). (§4.5.3.2) (§4.5.3.3) (§4.7.1) (§4.7.2), 0,2·L_j/(150a) 0,8 0,85 0,9 0,9·fu/γM2, 1 1,0 1,2 1,25 1,25 1,5 10 10 100 100 100 12 138,6 139 148,5 150a. 15°). 16 160,8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8 1993-1-8:2005 22553 29 2a 2a 3 3 3.3 360, 39 3·(τ⊥² 3τ²) 4.1 4.1 4.5 4.5 410, 470 6a) 6a) 9,81 9,81 9,81 98,1 S235 S235, S235, S275, S275, S355 S355, S355, S420 S460 S460) a·√2, f/(a·√2), fu/(βw·γM2) fu/(√3·βw·γM2), fy/γM0). k·g/10 max(30 max(30 min(200 §4.11 §4.3 §4.3.2.2 §4.5.1 §4.5.2 §4.5.3 §4.5.3.2 §4.5.3.3 §4.7 βLw,1 γM2 γM2"
      }
     ],
     "etat": {"version": 1, "cas": [{"nom": "S1", "config": "C3", "params": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": true, "a": 5.0, "retours": false, "troncons": {"n": 0, "l": 60.0}, "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": "HEB 200", "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"V": 60.0, "N": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}, {"nom": "S2", "config": "C5", "params": {"profil": "IPE 200", "a_f": 5.0, "a_w": 4.0, "semelles": "deux faces", "ame": true, "retours": true, "jonction_semelles": "angle", "p_f": 6.0, "renfort_f": 0.0, "jonction_ame": "angle", "p_w": 4.0, "renfort_w": 0.0, "troncons_semelles": {"n": 0, "l": 60.0}, "troncons_ame": {"n": 0, "l": 60.0}, "tp": 15.0, "nuance_A": "S235", "nuance_B": "S235"}, "efforts": {"N": 0.0, "Vz": 60.0, "Vy": 0.0, "My": 30.0, "Mz": 0.0, "T": 0.0}, "methode": {"mode": "eurocode", "ec": "directionnelle", "gamma_M2": 1.25, "k": 100.0, "g": 9.81, "gamma_F": 1.5}}], "actif": 1, "identification": {"projet": "", "partie": "", "indice": "0"}},
