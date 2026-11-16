@@ -287,9 +287,12 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
   classique (4,013), et « un maintien de la semelle comprimée à mi-portée vaut un maintien complet » (250,95 kN·m) ;
 - bouts d'un tronçon : fourche, encastrement, libre (la console) ; maintien d'une semelle : liaison exacte ;
 - mode « efforts imposés » : quatre diagrammes (constant, linéaire ψ, charge répartie, charge concentrée), la charge
-  au centre de cisaillement, sur la semelle haute ou sous la basse, toujours DESCENDANTE (un PRS monosymétrique de
-  M_y,Ed < 0 aussi : le signe ne change que z_j et la semelle comprimée ; un soulèvement se calcule en barre chargée —
-  À VÉRIFIER) ; un diagramme non décrit est pris CONSTANT ;
+  au centre de cisaillement, sur la semelle haute ou sous la basse, DESCENDANTE quand M_y,Ed > 0 ; quand M_y,Ed < 0,
+  le sens réel n'est pas connu (une charge de gravité, ou un soulèvement, le seul qui donne ce diagramme entre deux
+  fourches) : le module calcule M_cr dans les DEUX sens et garde le plus petit, pour toute section, et l'hypothèse le dit
+  en une ligne — À VÉRIFIER (PRS-B, 10 m, charge répartie sous la semelle basse : 628,60 kN·m et non 1 343,80, Ritz
+  indépendant ; un laminé : sous la semelle basse comme sur la haute). Le signe change aussi z_j et la semelle comprimée
+  d'un PRS monosymétrique ; un diagramme non décrit est pris CONSTANT ;
 - un tube rectangulaire relève du cas général (§ 6.3.2.2, courbe d) ; tubes ronds et carrés : pas de déversement ;
 - le couple (λ̄_LT,0 ; β) : (0,2 ; 1,0), UN couple (lot A) — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr calculé sur la
   section brute avec les combinaisons, la distribution réelle des moments et les maintiens, ce que fait le solveur du
@@ -452,21 +455,33 @@ terme de Wagner ∫M_y·z_j·φ′² (`mcr.py`), charges et maintiens repérés 
 défaut (courbes c/d, b = la plus petite largeur) ; § 6.3.2.3 seulement pour un bisymétrique déclaré « section soudée
 équivalente » (paramètre `prs_soudee_equivalente`, DÉCISION BUREAU n° 10, défaut non coché ; l'autre méthode affichée
 pour information) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
-selon le signe de ψ_f — 1 de ψ = 1 à 0, puis 0,850 ; 1,3 − 1,2·ψ_f ; 0,55 − ψ_f ; −ψ_f pour ψ_f > 0 ; tableau E.2 ANB ;
+selon le signe de ψ_f — 1 de ψ = 1 à 0 ; pour ψ_f > 0 : 0,850 ; 1,3 − 1,2·ψ_f ; 0,55 − ψ_f (1 sinon) ; −ψ_f à ψ = −1
+dans les deux colonnes ; tableau E.2 ANB ;
 z_g positif quand la charge va vers le centre de cisaillement, annexe E ANB 2(8) ; −0,9 ≤ ψ_f ≤ 0,9, sinon bloqué).
 Sous moments d'extrémité, (E.1) reste sous le solveur (PRS-B, ψ = 0 : 2 093,2 contre 2 274,32 kN·m, Ritz 2 274,31) ;
 6.3.3 : bisymétrique comme un laminé, monosymétrique « non couvert ».
 
 **La bibliothèque, deux lecteurs** : le Catalogue (`api_web/catalogue._def_perso`) relit un PRS bisymétrique du module
 Barres sous le même nom ; il REFUSE un PRS monosymétrique (il ne calcule que des semelles égales) et une dimension
-inconnue — jamais une relecture bisymétrique d'un monosymétrique.
+inconnue — jamais une relecture bisymétrique d'un monosymétrique. Un fichier qui porte un PRS monosymétrique n'est pas
+perdu : cet enregistrement seul est écarté (gardé tel quel, `persos_ecartes`), une ligne le dit, les autres sont lus.
+
+**Une source pour les propriétés d'un PRS** (R2) : le Catalogue prend I_t (18.4), I_w, A_v,z = 1,20·h_w·t_w et
+A_v,y = A − h_w·t_w de `prs.proprietes_catalogue` (PRS 600x300x15x30 : I_t = 565,67 cm⁴ au lieu de Σ b·t³/3 = 600,8, non
+conservatif) ; ses réserves sur I_t et A_v,z ne s'affichent plus. C'est la seule divergence avec l'écran Streamlit,
+NOMMÉE (`api_web/catalogue.PRS_BARRES`) : la parité (`tests/test_catalogue_moteur.py`) se prouve divergence retirée, A, I
+et W restent les deux calculs liés par un test.
 
 **La preuve** — `tests/test_barre_prs.py` : PRS-A et PRS-B du brief (§ 11.8) à sa tolérance (M_cr à 0,01 kN·m :
 1 241,73 / 715,69 kN·m sous moment constant, 942,71 sans Wagner ; M_b,Rd 797,39 et 617,55 kN·m) ; les « autres tests
 PRS » 1 à 5 ; la section efficace recalculée autrement (un I saisi ; un assemblage de parties efficaces) ; le moteur
-(plats, bibliothèque, barre chargée, laminés inchangés) ; le sens des charges (efforts imposés, M < 0 : 806,49 kN·m ;
-soulèvement en barre chargée : 1 033,76 ; console : 4 000,51 — trois valeurs recoupées par un solveur de Ritz
-indépendant) ; 76 mutations, dont le terme de Wagner retiré ou de signe inversé. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
+(plats, bibliothèque, barre chargée, laminés inchangés) ; le sens des charges (efforts imposés, M < 0, les deux sens aux
+trois niveaux, charge répartie et ponctuelle : 806,49 / 912,30 / 628,60 et 965,87 / 1 131,52 / 705,91 kN·m ; soulèvement
+en barre chargée : 1 033,76, ponctuel 1 328,40 ; console : 4 000,51 — recoupés par un solveur de Ritz indépendant) ;
+PRS-C (§ 11.9, 28 m, § 6.3.2.2 courbe d, 7 / 8 / 9 maintiens de la semelle haute : taux 1,007 / 0,967 / 0,937 ; M_cr à 8
+maintiens 28 294,6 kN·m, Ritz 28 279,2, +0,05 %), par les fonctions du moteur (poids de l'acier au centre de gravité) et
+de bout en bout par la barre chargée (un seul niveau de charge : l'acier aussi sur la semelle haute, M_cr −0,1 %) ;
+92 mutations, dont le terme de Wagner retiré ou de signe inversé et les charges ramenées au centre de cisaillement. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
 `docs/validation/barres_cas_ltbeam_scia.md`).
 
 ## 6. Les valeurs de référence

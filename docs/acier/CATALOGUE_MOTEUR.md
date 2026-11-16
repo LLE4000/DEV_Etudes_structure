@@ -14,8 +14,11 @@
 >    « I_y ≤ 5 000 » ne garde que la seconde borne). Le site refuse ce cas. (D1.)
 >
 > Les deux premiers sont dans le moteur de sections partagé (`acier/profiles/familles.py`, choix de l'écran pour les
-> profilés « non standard ») : ils ne sont pas corrigés ici (parité), ils sont écrits au résultat du site pour tout
-> PRS, et mesurés par `tests/test_catalogue_moteur.py`.
+> profilés « non standard ») : le moteur extrait les garde (parité). **Le SITE les corrige depuis le lot B** (16/11/2026) :
+> un PRS prend I_t (Σ (b·t³/3)·(1 − 0,63·t/b) sur les trois plats, côté sûr), I_w, A_v,z = 1,20·h_w·t_w et
+> A_v,y = A − h_w·t_w du module Barres (`acier/barre/prs.proprietes_catalogue`, une seule source) — la seule
+> divergence du site avec l'écran, NOMMÉE (`api_web/catalogue.PRS_BARRES`) ; la parité se prouve divergence retirée
+> (les réserves reviennent alors), la divergence par `tests/test_barre_prs.py`.
 
 *Livré le 07/11/2026. Moteur `acier/profiles/consultation.py` : bibliothèque standard + le paquet `acier/profiles`
 (numpy pour le seul calcul d'un profilé personnalisé), Python 3.12 et 3.13 (donc Pyodide 0.29.5). Extrait de l'écran
@@ -247,8 +250,7 @@ s'écrivait « −42,2² » (lu −(42,2²)) et les petites cornières recevaien
 - le clic dans le tableau (une ligne → la fiche, un en-tête → le tri) ;
 - « Garder par défaut » (préférences communes à toutes les notes) ;
 - au téléphone, l'établi commun n'affiche que l'onglet Données (pas d'onglet pour passer au tableau ni au résultat) ;
-- I_t exact (Saint-Venant) et A_v,z de profilé soudé pour un PRS : le moteur de sections partagé ne les calcule pas
-  ainsi (réserves écrites, à trancher par le bureau).
+- I_t exact (Saint-Venant) d'un PRS : le site affiche la formule de 18.4 (côté sûr, −1,9 % sur un PRS 600x300x15x30).
 
 Tous relèvent d'une brique commune du site (§ 9) ; le calcul, lui, est entier.
 
