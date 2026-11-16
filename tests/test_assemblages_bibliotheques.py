@@ -16,6 +16,9 @@
   4. VRAISEMBLANCE : classes 4.6/5.6/8.8/10.9 (Tableau 3.1), αv (Tableau
      3.4), d0 = d + 1 / + 2 / + 3 (EN 1090-2), aciers des tableaux 3.3 ANB et
      3.4 ANB (f_u entre 3 et 100 mm : S235 360, S275 410, S355 470).
+  6. ÉPAISSEURS DU PRÉDIMENSIONNEMENT : toutes dans une seule bande de f_y
+     (t ≤ 16 mm) — la lecture de l'acier à T_PREDIM n'est sûre qu'à ce prix
+     (acier/assemblages/materiau.py) ; mutation : une épaisseur de 20 mm.
 
 Lancement : python3 tests/test_assemblages_bibliotheques.py
 """
@@ -108,6 +111,25 @@ _meth = [importlib.import_module(f"acier.assemblages.{m}.methode") for m in (
 chk("les six rubriques Méthode et l'aide de la nuance (doubles cornières) portent ce texte, plus « fu = 510 »",
     all(_t in m.METHODE and "fu = 510" not in m.METHODE and "{NUANCES}" not in m.METHODE for m in _meth)
     and EDC.CHAMPS["nu_P"].get("h") == _t, str([m.__name__ for m in _meth if _t not in m.METHODE]))
+
+print("\n=== 6. Épaisseurs du prédimensionnement (3e passe, D4) : une seule bande du tableau 3.3 ANB ===")
+from acier import materiaux as MA  # noqa: E402
+
+
+def une_seule_fy(epais):
+    """Les épaisseurs proposées par le prédimensionnement tiennent dans UNE bande de f_y pour chaque nuance de la
+    bibliothèque : l'acier lu à la plus épaisse (``MT.T_PREDIM``) est alors celui de chaque candidate. Sinon, le plafond
+    de ductilité tp ≤ 0,36·d·√(f_ub/f_y) et la gorge de pleine résistance du plat, lus à une f_y plus basse, seraient
+    MOINS sévères (règle de la reprise A2) : ces deux exigences devraient lire la f_y à l'épaisseur candidate."""
+    nuances = [a["n"] for a in DB["aciers"] if a["n"] != PERSO]
+    return [(n, t) for n in nuances for t in epais if MA.fy(n, t) != MA.fy(n, max(epais))]
+
+
+chk(f"DB['epais'] = {DB['epais']} : une seule f_y par nuance (t ≤ 16 mm), et T_PREDIM = {MT.T_PREDIM:g} mm est la plus "
+    "épaisse — le prédimensionnement lit la f_y de chaque candidate", not une_seule_fy(DB["epais"])
+    and MT.T_PREDIM == max(DB["epais"]), une_seule_fy(DB["epais"]))
+chk("mutation « une épaisseur de 20 mm ajoutée à la liste » : le contrôle rougit (S235/S275/S355 : deux bandes)",
+    bool(une_seule_fy(DB["epais"] + [20])))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

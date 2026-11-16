@@ -34,8 +34,13 @@ from acier.formats import F
 
 # Les épaisseurs que le prédimensionnement propose pour un plat, une platine ou une cornière (DB["epais"], 8 à 15 mm) :
 # toutes dans la première bande du tableau 3.3 ANB (t ≤ 16 mm), donc une seule f_y. Le prédimensionnement lit
-# l'acier à la PLUS ÉPAISSE d'entre elles (la plus petite f_y si la liste changeait) ; la vérification relit ensuite
-# l'acier à l'épaisseur retenue.
+# l'acier à la PLUS ÉPAISSE d'entre elles ; la vérification relit ensuite l'acier à l'épaisseur retenue.
+# Cette lecture n'est sûre QUE parce que la liste tient dans une seule bande : le prédimensionnement prend aussi cette
+# f_y dans deux exigences où une f_y plus BASSE est FAVORABLE (règle de la reprise A2, ``t_ame``) — le plafond de
+# ductilité tp ≤ 0,36·d·√(f_ub/f_y) des platines d'about et la gorge de pleine résistance du plat d'âme
+# (tp·f_y·β_w·γ_M2/(2·f_u)). Une épaisseur de plus de 16 mm dans la liste les rendrait moins sévères : elles
+# devraient alors lire la f_y à l'épaisseur CANDIDATE (``test_assemblages_bibliotheques`` rougit si la liste sort de
+# la bande).
 T_PREDIM = float(max(DB["epais"]))
 # Une épaisseur nulle ou absente (saisie incomplète, que le moteur signale par ses alertes) : la pièce n'a pas de
 # résistance et son acier n'y change rien ; on lit la première bande où f_u est constante (≥ 3 mm), sans lever.
