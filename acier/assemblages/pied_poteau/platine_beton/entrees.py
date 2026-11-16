@@ -13,6 +13,7 @@ Conventions (axes de la platine, origine à l'axe du poteau) :
 Unités de saisie : mm, kN, kNm, MPa. Voir docs/assemblages/PIED_POTEAU.md.
 """
 from acier.bibliotheques import DB, PERSO, noms
+from acier.assemblages import materiau as MT
 
 FORME_I = "Profilé en I ou H"
 FORME_RHS = "Profil creux rectangulaire ou carré (RHS / SHS)"
@@ -202,14 +203,30 @@ def fck_de(nom):
         return 0.0
 
 
-def fy_epaisseur(fy, t):
-    """Limite d'élasticité selon l'épaisseur (EN 10025-2) : −10 MPa entre 16
-    et 40 mm, −20 MPa entre 40 et 63 mm (S355 : 355 / 345 / 335)."""
-    if t is None or t <= 16:
-        return fy
-    if t <= 40:
-        return fy - 10
-    return fy - 20
+def acier_epaisseur(nu, t, perso, materiau=None, piece=""):
+    """L'acier d'une pièce du pied de poteau (poteau ou platine) d'épaisseur
+    ``t`` (mm) en nuance ``nu`` : {"fy", "fu", "bw", "t", "nominale", "source"}.
+
+    f_y ET f_u de la table unique du site, selon l'épaisseur (NBN EN 1993-1-1
+    ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB, par
+    ``acier/assemblages/materiau.py``) ; au-delà de la dernière ligne du
+    tableau, ``MA.HorsTable`` (refus nommé : le calcul n'est pas lancé). La
+    règle « −10 / −20 MPa » écrite ici auparavant était fausse en S460
+    (450 au lieu de 440 de 16 à 40 mm) et au-delà de 63 mm (S355 de 70 mm :
+    335 au lieu de 325), et gardait f_u = 510 en S355 (470 de 3 à 100 mm).
+    ``materiau`` : la fonction (nom, t) → acier d'un calcul à la main
+    (benchmark) ; None : la table du site.
+
+    « Personnalisé » (``perso`` = {"fy", "fu", "bw"} saisis) : inchangé — la
+    f_y saisie avec la réduction historique du module (−10 MPa de 16 à
+    40 mm, −20 au-delà, côté sûr), f_u et β_w tels quels."""
+    if nu == PERSO:
+        fy = perso.get("fy") or 0
+        if t is not None and t > 16:
+            fy = fy - 10 if t <= 40 else fy - 20
+        return {"fy": fy, "fu": perso.get("fu") or 0, "bw": perso.get("bw") or 0.9, "t": t, "nominale": fy,
+                "source": "saisie (Personnalisé)"}
+    return MT.lire(nu, t or 0.0, None, materiau, piece)
 
 
 def _c(k, l, t="n", o=None, un=None, h=None, si=None):

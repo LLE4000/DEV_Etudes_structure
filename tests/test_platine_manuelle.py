@@ -405,6 +405,20 @@ chk("export, plastique : la ligne Boulon dit « FT,Rd = 148,7 kN (mode 2) → 26
     and f"Mpl = {_F(s9p['Mpl'], 2)} kNm → {_pct(s9p['eta'], 0)}" in sc9p and "(plastique, information)" not in b9p + sc9p,
     b9p + " | " + sc9p)
 
+# ================================================================
+print("\n=== 10. Lot A : f_y ET f_u de la platine selon son épaisseur (tableaux 3.3 et 3.4 ANB) ===")
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+from acier.bibliotheques import PERSO  # noqa: E402
+LA.jouer(chk, MM.compute, mutations=[LA.MUTATIONS[0], LA.MUTATION_REGLE_PIED], attendus=[
+    ("note neuve (calcul à la main, platine 25 mm S355)", {}, {"p": (25, LA.FY_S355_40, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB : 440, l'ancienne règle disait 450)", dict(nu_pl="S460 N/NL"), {"p": (25, LA.FY_S460_40, LA.FU_S460)}),
+    ("platine 70 mm S355 (325, l'ancienne règle disait 335)", dict(tp_u=70), {"p": (70, LA.FY_S355_80, LA.FU_S355)}),
+], ligne_fu=("Vy = 200 kN, pression diamétrale", dict(N_Ed=0, Mx_Ed=0, My_Ed=0, Vx_Ed=0, Vy_Ed=200), "pb"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85), "p", 290, 420,
+          "platine de 25 mm : la réduction historique du module, −10 MPa de 16 à 40 mm, sur la valeur saisie"),
+   hors_table=(dict(tp_u=300), "platine"))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

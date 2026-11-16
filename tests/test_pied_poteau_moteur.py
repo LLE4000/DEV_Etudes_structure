@@ -304,6 +304,37 @@ t0 = time.time()
 compute()
 chk("un calcul complet en moins de 1,5 s", time.time() - t0 < 1.5, f"{time.time() - t0:.2f} s")
 
+# ================================================================
+print("\n=== 7. Lot A : f_y ET f_u selon l'épaisseur (tableaux 3.3 et 3.4 ANB) ; fy_epaisseur délègue à la table ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a). La règle « −10 / −20 » écrite dans entrees.py était fausse en S460
+# (450 au lieu de 440 de 16 à 40 mm) et au-delà de 63 mm (S355 de 70 mm : 335 au lieu de 325), et gardait f_u = 510.
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+from acier import materiaux as MA  # noqa: E402
+from acier.bibliotheques import PERSO  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import acier_epaisseur  # noqa: E402
+_P0 = dict(fy=300, fu=420, bw=0.85)
+chk("acier_epaisseur : S355 70 mm → 325, 150 mm (borne du balayage) → 295 ; S460 N/NL 20 mm → 440, 70 mm → 410 "
+    "(la table, plus « −10 / −20 »)",
+    [acier_epaisseur("S355", 70, _P0)["fy"], acier_epaisseur("S355", 150, _P0)["fy"], acier_epaisseur("S460 N/NL", 20, _P0)["fy"],
+     acier_epaisseur("S460 N/NL", 70, _P0)["fy"]] == [325, 295, 440, 410])
+try:
+    acier_epaisseur("S355", 300, _P0, piece="platine")
+    _refus = None
+except MA.HorsTable as e:
+    _refus = str(e)
+chk("acier_epaisseur : au-delà du tableau (300 mm) → refus nommé", bool(_refus) and "platine" in _refus, str(_refus))
+LA.jouer(chk, compute, mutations=[LA.MUTATIONS[0], LA.MUTATIONS[1], LA.MUTATION_REGLE_PIED], attendus=[
+    ("note neuve (HEA 300, platine 25 mm S355)", {}, {"c": (14, LA.FY_S355, LA.FU_S355), "p": (25, LA.FY_S355_40, LA.FU_S355)}),
+    ("poteau HEB 300 (tf = 19 mm)", dict(prof_c="HEB 300"), {"c": (19, LA.FY_S355_40, LA.FU_S355)}),
+    ("S460 N/NL, platine 25 mm (tableau 3.4 ANB : 440, l'ancienne règle disait 450)", dict(nu_c="S460 N/NL", nu_pl="S460 N/NL"),
+     {"p": (25, LA.FY_S460_40, LA.FU_S460)}),
+    ("platine 70 mm S355 (325, l'ancienne règle disait 335)", dict(tp_u=70), {"p": (70, LA.FY_S355_80, LA.FU_S355)}),
+], ligne_fu=("note neuve", {}, "w"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85), "p", 290, 420,
+          "platine de 25 mm : la réduction historique du module, −10 MPa de 16 à 40 mm, sur la valeur saisie"),
+   hors_table=(dict(tp_u=300), "platine"))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

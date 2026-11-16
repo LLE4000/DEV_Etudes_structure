@@ -35,7 +35,8 @@ from acier.resultats import Verification, Alerte, Pince
 from . import composants as CP
 from . import equilibre as EQ
 from . import geometrie as GE
-from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, TYPE_ETA, OUI, PERIM_TOUT, fck_de, fy_epaisseur
+from acier.assemblages import materiau as MT
+from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, TYPE_ETA, OUI, PERIM_TOUT, fck_de, acier_epaisseur
 
 GROUPES_VERIF = ("Pied", "Béton", "Ancrages", "Platine", "Tiges", "Poteau", "Soudure")
 DETAIL_SEUL = frozenset({"wa"})          # minimum de détail : jamais dimensionnant s'il passe
@@ -122,8 +123,11 @@ def _epaisseurs_requises(infaisable, tp_u, criteres, tps=None):
     return out
 
 
-def compute(u0=None):
+def compute(u0=None, materiau=None):
     """Calcul complet pour les saisies ``u0`` (clés absentes → défauts).
+    ``materiau`` : la fonction (nom, t) → acier qui remplace la table du site
+    (``acier/assemblages/materiau.py``) — le matériau d'un calcul à la main
+    (benchmark) ; None : f_y et f_u selon l'épaisseur (tableau 3.3 ANB).
     Retourne ``R`` : scalaires, ``u``, ``checks`` / ``ck``, ``alerts``,
     ``dist``, ``tiges`` (efforts par tige), ``contact`` (polygones),
     ``dom`` (frontière du domaine), ``gov``, ``eta_max``, ``verified``."""
@@ -168,7 +172,7 @@ def compute(u0=None):
         else:
             p = find(DB["profils"], u.prof_c)
             dims = dict(h=p["h"], b=p["b"], tw=p["tw"], tf=p["tf"], r=p["r"])
-        t_paroi = dims["tf"]
+        t_paroi = MT.t_profil(dims["tf"], dims["tw"])     # profilé vu comme un tout : la paroi la plus épaisse
     else:
         dims = dict(h=u.h_u or 0, b=u.b_u or 0, t=u.t_u or 0)
         t_paroi = dims["t"]
@@ -179,13 +183,11 @@ def compute(u0=None):
         al("profil", "Dimensions du profilé incomplètes.", True, ["prof_c", "h_u", "b_u", "t_u"], elems=["col"])
 
     # ------------------------------------------------------------- aciers
-    def acier(nu):
-        if nu == PERSO:
-            return dict(fy=u.fy_u or 0, fu=u.fu_u or 0, bw=u.bw_u or 0.9)
-        return find(DB["aciers"], nu)
-    ac, ap = acier(u.nu_c), acier(u.nu_pl)
-    R.fy_c, R.fu_c = fy_epaisseur(ac["fy"], t_paroi), ac["fu"]
-    R.fy_p, R.fu_p, R.bw_p = fy_epaisseur(ap["fy"], u.tp_u), ap["fu"], ap["bw"]
+    # f_y ET f_u de chaque pièce selon son épaisseur (tableau 3.3 ANB) : poteau (max(tf, tw) ; RHS : t), platine (tp)
+    perso = dict(fy=u.fy_u or 0, fu=u.fu_u or 0, bw=u.bw_u or 0.9)
+    ac = MT.enregistrer(R, "c", acier_epaisseur(u.nu_c, t_paroi, perso, materiau, "poteau"), u.nu_c, "nu_c", "poteau")
+    ap = MT.enregistrer(R, "p", acier_epaisseur(u.nu_pl, u.tp_u, perso, materiau, "platine"), u.nu_pl, "nu_pl",
+                        "platine")
     R.fu_w, R.bw_w = min(R.fu_c, R.fu_p), max(ac["bw"], ap["bw"])
 
     # -------------------------------------------------------------- béton
@@ -499,11 +501,10 @@ def compute(u0=None):
     # flexion composée (niveau 1), qui dépendent aussi de tp par c(tp) et
     # Mpl(tp). Chaque critère donne son épaisseur requise par balayage, la
     # répartition élastique (efforts T des tiges) étant celle de tp.
-    fy_nom = ap["fy"] if u.nu_pl != PERSO else (u.fy_u or 0)
     T_fixe = [t["T"] * 1e3 for t in R.tiges]
 
     def infaisable(tp):
-        fy = fy_epaisseur(fy_nom, tp)
+        fy = acier_epaisseur(u.nu_pl, tp, perso, materiau, "platine")["fy"]      # f_y de la platine à l'épaisseur tp
         c = CP.c_bande(tp, fy, R.fjd, gM0)
         ok_N = (N_ <= R.fjd * GE.aire_rects(GE.aire_efficace(parois, c, plaque)) + 1e-6) if (N_ > 0 and geo_ok) else True
         ok_c = m_Ed <= tp ** 2 * fy / (6.0 * gM0) + 1e-6

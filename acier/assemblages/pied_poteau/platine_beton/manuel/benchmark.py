@@ -7,6 +7,7 @@ devant l'aile, compression centrée, pression diamétrale. Seuil : écart
 d'une platine libre n'a pas de fiche de référence dans les guides."""
 import math
 
+from acier.assemblages import materiau as MT
 from .moteur import compute
 from ..entrees import CRIT_EC3
 
@@ -34,14 +35,23 @@ _tT2 = math.sqrt(25e3 * _m2 / (min(_cp2, _nc2) * 355))
 _fjd = 2 / 3 * (0.85 * 30 / 1.5) * math.sqrt(900 * 900 / (500 * 500))
 _c3 = (-1763 + math.sqrt(1763 ** 2 + 16 * (2000e3 / _fjd - 10627))) / 8
 _tc3 = _c3 / math.sqrt(345 / (3 * _fjd))
-# Platine S355 : fu = 510 MPa (EN 1993-1-1:2005 Tableau 3.1, la table des aciers du module — pas 490, valeur
-# d'autres références). Le harnais d'écran l'a attrapé : à 490, Fb,Rd sortait 4 % trop bas et le benchmark
-# disait « À CONTRÔLER ».
+# Platine S355 : fu = 510 MPa (EN 1993-1-1:2005 Tableau 3.1, la table des aciers du module au moment du calcul — pas
+# 490, valeur d'autres références). Le harnais d'écran l'a attrapé : à 490, Fb,Rd sortait 4 % trop bas et le benchmark
+# disait « À CONTRÔLER ». Depuis le lot A (16/11/2026), une NOTE prend fu = 470 (tableau 3.3 ANB) ; le calcul à la
+# main garde SON matériau (validation de formules), que le moteur reçoit par ``materiau`` (_ACIER_DU_CALCUL).
 _FU4 = 510
 _ab4 = min(50 / (3 * 26), 800 / _FU4, 1.0)
 _k14 = min(2.8 * 50 / 26 - 1.7, 1.4 * 400 / 26 - 1.7, 2.5)
 _Fb4 = _k14 * _ab4 * _FU4 * 24 * 25 / 1.25 / 1e3
 _tb4 = 50e3 * 1.25 / (_k14 * _ab4 * _FU4 * 24)
+
+
+
+def _ACIER_DU_CALCUL(nom, t):
+    """Le matériau des calculs à la main : f_y selon l'épaisseur, comme ils l'écrivent (355 jusqu'à 16 mm, 345 à
+    25 mm — la table du site, tableau 3.3 ANB) ; f_u = 510 (VAL-M4, _FU4)."""
+    return dict(MT.table_du_site(nom, t), fu=float(_FU4))
+
 
 CAS = [
     dict(id="VAL-M1", titre="Suspente N = −100 kN, quatre boulons d'angle (±200 ; ±200), HEA 300, platine 500×500×25 S355",
@@ -91,7 +101,7 @@ def run_bench_manuel():
     """Rejoue les cas ; ``cas`` (lignes avec écart et statut), ``ok``, ``statut``."""
     out, nko = [], 0
     for c in CAS:
-        R = compute(c["inp"])
+        R = compute(c["inp"], _ACIER_DU_CALCUL)
         rows = []
         for lab, main, fn, unit in c["rows"]:
             v = fn(R)

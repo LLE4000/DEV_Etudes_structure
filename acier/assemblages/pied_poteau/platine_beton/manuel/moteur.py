@@ -42,8 +42,9 @@ from acier.resultats import Verification, Alerte, Pince
 from .. import composants as CP
 from .. import equilibre as EQ
 from .. import geometrie as GE
+from acier.assemblages import materiau as MT
 from ..entrees import (defaults, NUM, LISTES, CRIT_ELAS, APPUI_PLEIN, TYPE_I, TYPE_RHS, TYPE_CHS, fck_de,
-                       fy_epaisseur)
+                       acier_epaisseur)
 from ..moteur import _epaisseurs_requises, TP_MIN, TP_MAX
 from . import elements as EL
 from . import console as CO
@@ -66,10 +67,9 @@ def _grille_grossiere():
         [70.0 + 10.0 * i for i in range(int((TP_MAX - 70.0) / 10.0) + 1)]
 
 
-def _acier(u, nu):
-    if nu == PERSO:
-        return dict(fy=u.fy_u or 0, fu=u.fu_u or 0, bw=u.bw_u or 0.9)
-    return find(DB["aciers"], nu)
+def _perso(u):
+    """Les f_y, f_u et β_w saisis (acier « Personnalisé »)."""
+    return dict(fy=u.fy_u or 0, fu=u.fu_u or 0, bw=u.bw_u or 0.9)
 
 
 def _sigma_vm(M, V, b, t):
@@ -82,8 +82,11 @@ def _sigma_vm(M, V, b, t):
     return math.sqrt(s * s + 3.0 * tau * tau)
 
 
-def compute(u0=None):
+def compute(u0=None, materiau=None):
     """Calcul manuel complet pour les saisies ``u0`` (clés absentes → défauts).
+    ``materiau`` : la fonction (nom, t) → acier qui remplace la table du site
+    (``acier/assemblages/materiau.py``) — le matériau d'un calcul à la main
+    (benchmark) ; None : f_y et f_u selon l'épaisseur (tableau 3.3 ANB).
     Retourne ``R`` (AttrDict) : efforts, boulons, sections, console, trous,
     épaisseur requise, vérifications, alertes."""
     u = AttrDict(defaults())
@@ -123,9 +126,9 @@ def compute(u0=None):
         return v
 
     # -------------------------------------------------------------- aciers
-    ap = _acier(u, u.nu_pl)
-    fy_nom = ap["fy"]
-    R.fy_p, R.fu_p = fy_epaisseur(fy_nom, u.tp_u), ap["fu"]
+    # f_y ET f_u de la platine selon son épaisseur (tableau 3.3 ANB) ; le balayage relit f_y à chaque épaisseur
+    perso = _perso(u)
+    MT.enregistrer(R, "p", acier_epaisseur(u.nu_pl, u.tp_u, perso, materiau, "platine"), u.nu_pl, "nu_pl", "platine")
     bo = find(DB["boulons"], u.ancr)
     cl = find(DB["classes"], u.classe)
     R.d_a, R.As, R.d0 = bo["d"], bo["As"], bo["d0"]
@@ -388,7 +391,8 @@ def compute(u0=None):
         """Tout ce qui dépend de l'épaisseur : bande c, aire d'appui,
         raideurs, répartition, tronçons en T, sections, console, et la
         faisabilité des quatre critères."""
-        S = dict(tp=tp, fy=fy_epaisseur(fy_nom, tp), ok=False, inf=(True, True, True, True))
+        S = dict(tp=tp, fy=acier_epaisseur(u.nu_pl, tp, perso, materiau, "platine")["fy"], ok=False,
+                 inf=(True, True, True, True))
         fy = S["fy"]
         lim = fy / gM0
         c = CP.c_bande(tp, fy, R.fjd, gM0)
