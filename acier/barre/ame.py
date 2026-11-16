@@ -148,24 +148,28 @@ def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
         for i, a in enumerate(appuis):
             if a["type"] == "appui":
                 out.append({"x": a["x"], "appui": i, "nom": f"Appui {a['nom']}", "genre": "appui", "charges": [],
-                            "ss": {"haut": None, "bas": ap["ss"]}})
+                            "ss": {"haut": None, "bas": ap["ss"]}, "contact": {"haut": None, "bas": ap.get("contact", "inconnu")}})
     if b["niveau"] in ("haut", "bas"):
         groupes: Dict[float, Dict] = {}
         for ci, c in enumerate(cas):
             for ch in c.get("charges") or []:
                 if ch["type"] == "P" and ch["v"]:
-                    g = groupes.setdefault(round(ch["a"], 6), {"x": ch["a"], "parts": [], "ss": []})
+                    g = groupes.setdefault(round(ch["a"], 6), {"x": ch["a"], "parts": [], "ss": [], "contact": []})
                     g["parts"].append((ci, ch["v"]))
                     g["ss"].append(ch.get("ss", 0.0))
+                    g["contact"].append(ch.get("contact", "inconnu"))
         for g in sorted(groupes.values(), key=lambda g: g["x"]):
             hote = next((L for L in out if L["appui"] is not None and abs(L["x"] - g["x"]) < MEME_ABSCISSE), None)
             if hote is None:
                 hote = {"x": g["x"], "appui": None, "nom": f"Charge à {RE.fr(g['x'], 2)} m", "genre": "charge", "charges": [],
-                        "ss": {"haut": None, "bas": None}}
+                        "ss": {"haut": None, "bas": None}, "contact": {"haut": None, "bas": None}}
                 out.append(hote)
             hote["charges"] = g["parts"]
             if hote["ss"][b["niveau"]] is None:
                 hote["ss"][b["niveau"]] = min(g["ss"])
+                # le contact de plusieurs charges : établi s'il l'est pour toutes ; « non » dès qu'une le refuse
+                hote["contact"][b["niveau"]] = ("oui" if all(k == "oui" for k in g["contact"]) else
+                                                "non" if "non" in g["contact"] else "inconnu")
     out.sort(key=lambda L: L["x"])
     e_g, e_d = depassement(0), depassement(-1)
     for k, L in enumerate(out):
@@ -201,7 +205,8 @@ def resistances(L: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = Non
         hw = a["hw"]
         c = max(d - ss / 2.0, 0.0)
         type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"
-        out[cote] = dict(AM.resistance(a, fy, P, ss, type_, c, fy_ame=fyw), ame=a)
+        contact = (L.get("contact") or {}).get(cote) or "inconnu"
+        out[cote] = dict(AM.resistance(a, fy, P, ss, type_, c, contact=contact, fy_ame=fyw), ame=a)
     if len(out) == 2:
         essais = [dict(AM.resistance(AM.ame_de(s, k), fy, P, min(L["ss"]["haut"], L["ss"]["bas"]), "b", fy_ame=fyw), ame=AM.ame_de(s, k))
                   for k in ("haut", "bas")]
@@ -297,7 +302,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                                                                 "message": f"{L['nom']} : réaction de soulèvement ({C.nom}) — ancrage hors du module."})
             if f["haut"] > 0 or f["bas"] > 0:
                 e = C.lire(L["x"])
-                occ.append({"C": C, "haut": f["haut"], "bas": f["bas"], "N": C.N, "M": max(abs(e["M_g"]), abs(e["M_d"]))})
+                Ms = e["M_g"] if abs(e["M_g"]) >= abs(e["M_d"]) else e["M_d"]
+                occ.append({"C": C, "haut": f["haut"], "bas": f["bas"], "N": C.N, "M": max(abs(e["M_g"]), abs(e["M_d"])), "M_s": Ms,
+                            "V": max(abs(e["V_g"]), abs(e["V_d"]))})
         occurrences[L["base"]] = occ
     charges = [L for L in endroits if occurrences[L["base"]]]
     if a is None:
@@ -307,15 +314,17 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                                                  "vérifiée ici — EN 1993-1-8."}
         charges = []
     else:
-        hyp.append("Force concentrée : sans raidisseur transversal voisin (a → ∞) ; η₁ élastique (§ 7.2).")
+        hyp.append("Force concentrée : sans raidisseur transversal voisin (a → ∞) ; η₁ élastique (§ 7.2) ; semelle chargée tendue : "
+                   "critère 6.2.1(5) de l'EN 1993-1-1 à la jonction (§ 7.2(2)) ; semelle comprimée supposée tenue latéralement (§ 6.1(1)).")
         if any(L["genre"] == "appui" for L in endroits):
             hyp.append("Le déversement suppose des appuis en fourche : un raidisseur d'appui peut être nécessaire pour l'assurer.")
 
     # ---- la classe de la section : elle ne change A et W (η₁) qu'en classe 4
-    classe4 = False
+    classe4, classe = False, None
     if charges:
         g0 = ES.verifier({"section": s, "nuance": b["nuance"], "NEd": 1.0, "parametres": b["parametres"], "voilement": False})["grandeurs"]
-        classe4 = g0.get("classe") == 4
+        classe = g0.get("classe")
+        classe4 = classe == 4
 
     def section_elastique(N: float, M: float) -> Tuple[float, float, str, str]:
         """(A, W, leurs noms) du η₁ élastique sous (N kN, M kN·m) : A et W_el ; A_eff et W_eff en classe 4."""
@@ -327,11 +336,30 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 return (ef["A_eff"] if N > 0 else s["A"], ef["Weff_y"] or s["Wel_y"], "A_eff" if N > 0 else "A", "W_eff,y")
         return s["A"], s["Wel_y"], "A", "W_el,y"
 
+    # ---- la semelle chargée est-elle comprimée ou tendue (brief § 8.2) ? σ_x au plan moyen ; le critère 6.2.1(5) à la jonction
+    def elastique(o: Dict, k: str, F: float, r: Dict) -> Optional[Dict]:
+        """Le contrôle de la semelle chargée ``k`` sous la force F (kN) de l'occurrence ``o`` : {"etat", "sx", "sz", "tau",
+        "crit", …} — "crit" None quand la semelle est comprimée partout (l'interaction (7.2) seule)."""
+        A, I = s["A"], s["Iy"]
+        if classe4:                                       # classe 4 : A_eff, et I_eff tiré de W_eff (À VÉRIFIER : approché)
+            A_, W_, _, _ = section_elastique(o["N"], o["M"])
+            A, I = A_, s["Iy"] * W_ / s["Wel_y"]
+        nv = AM.niveaux_semelle(s, k)
+        etat = AM.etat_semelle([AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_moyen"])])
+        out = {"etat": etat, "cote": k, "F": F, "A": A, "I": I, "nv": nv, "crit": None}
+        if etat == AM.COMPRIMEE:
+            return out
+        sx = AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_jonction"])
+        sz = AM.sigma_z(F * 1e3, r["ss"], nv["tf"], s["tw"])
+        tau = o["V"] * 1e3 * nv["S"] / (I * s["tw"])
+        out.update(sx=sx, sz=sz["sigma_z"], se=sz["se"], tau=tau, crit=AM.critere_elastique(sx, sz["sigma_z"], tau, fy, gM0))
+        return out
+
     # ---- première passe : l'âme seule tient-elle, sous chaque combinaison ?
     etudes: Dict[str, Dict] = {}
     for L in charges:
         res = resistances(L, s, fy, P, fyw)
-        pire = {"eta2": 0.0, "inter": None, "F": 0.0, "cote": None, "C": None}
+        pire = {"eta2": 0.0, "inter": None, "F": 0.0, "cote": None, "C": None, "crit": None, "V": 0.0}
         for o in occurrences[L["base"]]:
             essais = [(k, o[k]) for k in ("haut", "bas") if o[k] > 0 and k in res]
             if len(essais) == 2:
@@ -340,23 +368,41 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             o["eta2"] = o["F"] * 1e3 / res[o["cote"]]["FRd"]
             o["b"] = dict(essais).get("b")
             o["Fmax"] = max(o["haut"], o["bas"])
-            o["eta1"] = o["inter"] = None
-            if o["M"] > EPS or abs(o["N"]) > EPS:
+            # § 7.2(2) : semelle tendue → pas d'interaction, le critère 6.2.1(5) ; « les deux » → les deux contrôles
+            ctrl = [elastique(o, k, o[k], res[k]) for k in ("haut", "bas") if o[k] > 0 and k in res]
+            o["el"] = max((x for x in ctrl if x["crit"] is not None), key=lambda x: x["crit"], default=None)
+            o["etats"] = {x["cote"]: x["etat"] for x in ctrl}
+            comprimee = any(x["etat"] != AM.TENDUE for x in ctrl)
+            o["eta1"] = o["inter"] = o["eta1_pl"] = o["inter_pl"] = None
+            if comprimee and (o["M"] > EPS or abs(o["N"]) > EPS):
                 A, W, nomA, nomW = section_elastique(o["N"], o["M"])
                 o.update({"A": A, "W": W, "nomA": nomA, "nomW": nomW})
                 o["eta1"] = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, W, fy, gM0)
                 o["inter"] = AM.interaction(o["eta2"], o["eta1"])
+                # DÉCISION BUREAU n° 1 (brief § 13.2) : la variante η₁ plastique, classes 1 et 2 (commentaire JRC, p. 98), pour information
+                Wp = s.get("Wpl_y") if classe in (1, 2) and s.get("Wpl_y") else W
+                o["eta1_pl"] = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, Wp, fy, gM0)
+                o["inter_pl"] = AM.interaction(o["eta2"], o["eta1_pl"])
+                FRd_k = res[o["cote"]]["FRd"]
+                o["seuil"] = (AM.seuil_local(FRd_k, o["eta1"]) / 1e3, AM.seuil_local(FRd_k, o["eta1_pl"]) / 1e3)
             if o["eta2"] > pire["eta2"]:
                 pire.update({"eta2": o["eta2"], "cote": o["cote"], "C": o["C"], "FRd": res[o["cote"]]["FRd"], "Fo": o["F"]})
             if o["inter"] is not None and (pire["inter"] is None or o["inter"] > pire["inter"]):
-                pire.update({"inter": o["inter"], "C_inter": o["C"], "somme": o["eta2"] + AM.INTERACTION_72[0] * o["eta1"]})
+                pire.update({"inter": o["inter"], "C_inter": o["C"], "somme": o["eta2"] + AM.INTERACTION_72[0] * o["eta1"],
+                             "inter_pl": o["inter_pl"], "seuil": o["seuil"], "M_inter": o["M"]})
+            if o["el"] is not None and (pire["crit"] is None or o["el"]["crit"] > pire["crit"]):
+                pire.update({"crit": o["el"]["crit"], "C_crit": o["C"], "el": o["el"]})
             pire["F"] = max(pire["F"], o["Fmax"])
+            pire["V"] = max(pire["V"], o["V"])
         raison = None
         if pire["eta2"] > 1.0:
             raison = (f"Sans raidisseur : F_Ed = {RE.fr(pire['Fo'], 1)} kN > F_Rd = {RE.fr(pire['FRd'] / 1e3, 1)} kN "
                       f"({pire['C'].nom}).")
         elif pire["inter"] is not None and pire["inter"] > 1.0:
             raison = (f"Sans raidisseur : η₂ + 0,8·η₁ = {RE.fr(pire['somme'], 2)} > 1,4 ({pire['C_inter'].nom}).")
+        elif pire["crit"] is not None and pire["crit"] > 1.0:
+            raison = (f"Sans raidisseur : critère 6.2.1(5) à la jonction = {RE.fr(pire['crit'], 2)} > 1, "
+                      f"{AM.ETATS_SEMELLE[pire['el']['etat']]} ({pire['C_crit'].nom}).")
         elif el is not None and el["elancee"] and L["genre"] == "appui":
             raison = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
         etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None}
@@ -385,7 +431,16 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             d = min(d, (raidis[i + 1]["x"] - L["x"]) * 1e3 / 2.0)
         etude = etudes[L["base"]]
         rigide = el is not None and el["elancee"] and L["genre"] == "appui"
-        etude["raidisseur"] = RA.dimensionner(s, fy, P, etude["pire"]["F"] * 1e3, (g, d), appui_rigide=rigide, nuance=b["nuance"], fy_ame=fyw)
+        # sous une charge, dans une âme élancée, le raidisseur sert aussi au cisaillement : N = F_Ed + N_st (§ 9.3.3(3) ; brief § 8.4)
+        Nst, cis = 0.0, None
+        if el is not None and el["elancee"] and L["genre"] == "charge":
+            lw = AM.resistance_cisaillement(el, fy, P)["lambda_w"]
+            cis = {"V": etude["pire"]["V"] * 1e3, "fyw": fy, "lambda_w": lw}
+            Nst = RA.effort_cisaillement(cis["V"], el["hw"], el["tw"], fy, lw, P["gamma_M1"])
+        etude["raidisseur"] = RA.dimensionner(s, fy, P, etude["pire"]["F"] * 1e3, (g, d), appui_rigide=rigide, nuance=b["nuance"], fy_ame=fyw,
+                                              Nst=Nst)
+        if etude["raidisseur"] is not None:
+            etude["raidisseur"]["cisaillement"] = cis
 
     # ---- seconde passe : ce qui est vérifié, combinaison par combinaison
     for L in charges:
@@ -418,8 +473,29 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                     cles = [J.f("eta2", "η₂", [RE.terme("F_Ed", o["F"], "kN"), RE.terme("F_Rd", r["FRd"] / 1e3, "kN")], o["eta2"], "", "a_eta2"),
                             AM.ecrire_eta1(J, o["N"] * 1e3, o["M"] * 1e6, o["A"], o["W"], fy, gM0, o["nomA"], o["nomW"])]
                     cles.append(J.f("i72", "η", [RE.terme("η₂", o["eta2"]), RE.terme("η₁", o["eta1"])], o["inter"], "", "a_72"))
+                    mots72 = [f"η₁ plastique (classes 1 et 2, variante) : {RE.fr(o['eta1_pl'], 3)}, taux {RE.fr(100.0 * o['inter_pl'], 1)} %."
+                              if o["eta1_pl"] != o["eta1"] else "η₁ élastique (classe 3 ou 4 : pas de variante plastique).",
+                              f"Seuil de résistance locale à M_Ed = {RE.fr(o['M'], 2)} kN·m imposé : {RE.fr(o['seuil'][0], 1)} kN "
+                              f"(η₁ plastique : {RE.fr(o['seuil'][1], 1)} kN) — ce n'est pas la capacité de la barre."]
                     J.verif(f"{L['base']}-FM", f"{L['nom']} : force concentrée et flexion", f"{AM.REF} § 7.2", "(η₂ + 0,8·η₁)/1,4 ≤ 1",
-                            o["inter"], 1.0, "", cles, taux=o["inter"])
+                            o["inter"], 1.0, "", cles, taux=o["inter"], messages=mots72)
+                if o["el"] is not None:
+                    x = o["el"]
+                    nv = x["nv"]
+                    cles = [J.f("se", "s_e", [RE.terme("s_s", res[x["cote"]]["ss"], "mm"), RE.terme("t_f", nv["tf"], "mm")], x["se"], "mm", "a_se"),
+                            J.f("sigma_z", "σ_z,Ed", [RE.terme("F_Ed", x["F"], "kN"), RE.terme("s_e", x["se"], "mm"), RE.terme("t_w", s["tw"], "mm")],
+                                x["sz"], "N/mm²", "a_sigma_z"),
+                            J.f("sigma_x", "σ_x", [RE.terme("N_Ed", o["N"], "kN"), RE.terme("A", x["A"], "mm²"), RE.terme("M_Ed", o["M_s"], "kN·m"),
+                                                   RE.terme("z", nv["z_jonction"], "mm"), RE.terme("I_y", x["I"] / 1e4, "cm⁴")], x["sx"], "N/mm²", "a_sigma_x"),
+                            J.f("tau_j", "τ_Ed", [RE.terme("V_Ed", o["V"], "kN"), RE.terme("S_f", nv["S"] / 1e3, "cm³"), RE.terme("I_y", x["I"] / 1e4, "cm⁴"),
+                                                  RE.terme("t_w", s["tw"], "mm")], x["tau"], "N/mm²", "a_tau_j"),
+                            J.f("c615", "critère", [RE.terme("σ_x", x["sx"], "N/mm²"), RE.terme("σ_z", x["sz"], "N/mm²"), RE.terme("τ", x["tau"], "N/mm²"),
+                                                    RE.terme("f_y", fy, "N/mm²"), RE.terme("γ_M0", gM0)], x["crit"], "", "a_615")]
+                    J.verif(f"{L['base']}-EL", f"{L['nom']} : semelle chargée tendue, critère élastique", "EN 1993-1-1 § 6.2.1(5) ; "
+                            f"{AM.REF} § 7.2(2)", "(σ_x/f)² + (σ_z/f)² − (σ_x/f)·(σ_z/f) + 3·(τ/f)² ≤ 1", x["crit"], 1.0, "", cles, taux=x["crit"],
+                            messages=[f"{AM.ETATS_SEMELLE[x['etat']].capitalize()} (σ_x au plan moyen) : à la jonction âme-semelle, σ_z,Ed de "
+                                      "l'EN 1993-1-5 § 3.2.3 (compression positive)."
+                                      + (" Les deux contrôles, le plus défavorable retenu." if x["etat"] == AM.LES_DEUX else "")])
             env.verser(J.rendre(), {"combinaison": o["C"].nom, "x": L["x"]})
 
     r = env.rendre()
@@ -431,8 +507,18 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         vs = [v for i, v in par_id.items() if i.startswith(L["base"] + "-")]
         gouv = max(vs, key=lambda v: (v["statut"] == RE.NOK, v["taux"] or 0.0))
         r0 = etude["res"][pire["cote"]]
+        x_el = pire.get("el")
+        sans = {"F_Rd": r0["FRd"] / 1e3, "eta2": pire["eta2"], "interaction": pire["inter"], "interaction_plastique": pire.get("inter_pl"),
+                "critere": pire["crit"], "seuil": None if pire.get("seuil") is None else
+                {"M_Ed": pire["M_inter"], "elastique": pire["seuil"][0], "plastique": pire["seuil"][1]},
+                # la compression locale de l'âme sous F_Ed, à la jonction (§ 3.2.3 ; brief § 15.4) : la semelle de la plus grande force
+                "sigma_z": AM.sigma_z(pire["F"] * 1e3, r0["ss"], r0["ame"]["tf"], s["tw"])["sigma_z"],
+                "semelle": sorted({e_ for o in occurrences[L["base"]] for e_ in o["etats"].values()}),
+                "contact": r0.get("contact_etat") if r0["type"] == "c" else None}
+        avec = None if p is None else RA.vue(p, pire["F"] * 1e3, p.get("Nst") or 0.0)
         rendus.append({"base": L["base"], "nom": L["nom"], "genre": L["genre"], "x": L["x"], "type": r0["type"], "ss": r0["ss"],
-                       "F_Ed": pire["F"], "sans": {"F_Rd": r0["FRd"] / 1e3, "eta2": pire["eta2"], "interaction": pire["inter"]},
+                       "F_Ed": pire["F"], "sans": sans, "avec": avec,
+                       "rappel": RA.RAPPEL_TAU if p is not None else None,
                        "decision": "raidisseur" if p is not None else "aucun", "raison": etude["raison"],
                        "raidisseur": None if p is None else {"bs": p["bs"], "ts": p["ts"], "chanfrein": p["chanfrein"],
                                                              "designation": RA.designation(p)},

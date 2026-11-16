@@ -46,6 +46,22 @@ PALIER = 0.2                                       # λ̄ ≤ 0,2 : pas de rédu
 ELANCEMENT_PLAT = 14.0                             # b_s/t_s ≤ 14·ε
 TORSION = 5.3                                      # I_T/I_p ≥ 5,3·f_y/E (9.3)
 RIGIDITE = 0.75                                    # I_st ≥ 0,75·h_w·t³ quand a/h_w ≥ √2 (9.6)
+RIGIDITE_COURT = 1.5                               # I_st ≥ 1,5·h_w³·t³/a² quand a/h_w < √2 (9.5)
+RAPPEL_TAU = "Un raidisseur transversal ne réduit pas τ dû à l'effort tranchant."
+
+
+def inertie_minimale(hw: float, t: float, a: Optional[float] = None) -> float:
+    """I_st,min d'un raidisseur INTERMÉDIAIRE qui tient lieu d'appui rigide de l'âme (§ 9.3.3(3), (9.5) et (9.6)) :
+    1,5·h_w³·t³/a² si a/h_w < √2 ; 0,75·h_w·t³ sinon (a None : panneau long) — les deux se raccordent à a/h_w = √2."""
+    if a is not None and a / hw < math.sqrt(2.0):
+        return RIGIDITE_COURT * hw ** 3 * t ** 3 / a ** 2
+    return RIGIDITE * hw * t ** 3
+
+
+def effort_cisaillement(V: float, hw: float, t: float, fyw: float, lambda_w: float, gM1: float) -> float:
+    """N_st, la résultante des cisaillements qu'un raidisseur transversal intermédiaire reprend en plus de la force
+    extérieure (§ 9.3.3(3), NOTE ; brief § 8.4) : V_Ed − h_w·t·f_yw/(√3·λ̄_w²·γ_M1), pris nul s'il est négatif (N)."""
+    return max(0.0, V - hw * t * fyw / (math.sqrt(3.0) * lambda_w ** 2 * gM1))
 
 
 def gabarit(s: Dict) -> Optional[Dict]:
@@ -121,23 +137,35 @@ def plat(s: Dict, fy: float, P: Dict, ts: float, dispo: Sequence[Optional[float]
 
 
 def dimensionner(s: Dict, fy: float, P: Dict, F: float, dispo: Sequence[Optional[float]] = (None, None),
-                 appui_rigide: bool = False, nuance: Optional[str] = None, fy_ame: Optional[float] = None) -> Optional[Dict]:
+                 appui_rigide: bool = False, nuance: Optional[str] = None, fy_ame: Optional[float] = None,
+                 Nst: float = 0.0) -> Optional[Dict]:
     """La paire de plats qui porte ``F`` (N) : la première épaisseur de EPAISSEURS dont l'écrasement, le flambement —
-    et, pour un ``appui_rigide`` d'âme élancée, la rigidité — passent ; à défaut la plus épaisse, avec "ok" faux. Rend
-    le plat (``plat``) complété de {"F", "ok", "taux" (le plus fort de F/N_c,Rd et F/N_b,Rd), "rigide" (I_st ≥ I_min,
-    None si ce n'est pas demandé)} ; None si le profilé ne reçoit pas de raidisseur."""
+    et, pour un ``appui_rigide`` d'âme élancée, la rigidité — passent ; à défaut la plus épaisse, avec "ok" faux.
+    ``Nst`` (N) : la résultante des cisaillements quand le raidisseur sert aussi au cisaillement — le flambement porte
+    N = F + N_st (§ 9.1(3), § 9.3.3 ; brief § 8.4), l'écrasement au contact F seule. Rend le plat (``plat``) complété de
+    {"F", "Nst", "N", "ok", "taux" (le plus fort de F/N_c,Rd et N/N_b,Rd), "rigide" (I_st ≥ I_min, None si ce n'est pas
+    demandé)} ; None si le profilé ne reçoit pas de raidisseur."""
     dernier = None
     for ts in EPAISSEURS:
         p = plat(s, fy, P, ts, dispo, nuance, fy_ame)
         if p is None:
             continue
         rigide = (p["Ist"] >= p["I_min"]) if appui_rigide else None
-        p.update({"F": F, "taux": max(F / p["NcRd"], F / p["NbRd"]), "rigide": rigide})
+        p.update({"F": F, "Nst": Nst, "N": F + Nst, "taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"]), "rigide": rigide})
         p["ok"] = p["taux"] <= 1.0 and rigide is not False
         dernier = p
         if p["ok"]:
             return p
     return dernier
+
+
+def vue(p: Dict, F: float, Nst: float = 0.0) -> Dict:
+    """La vue « avec raidisseur » (brief § 15.4 ; test 18 du § 11.5) — la section efficace du raidisseur sous l'effort
+    normal N = F + N_st, son flambement, et le contact sous F : {"A_st" (mm²), "sigma" (N/mm²), "N_b_Rd" (kN),
+    "taux_flambement", "A_c" (mm²), "sigma_contact", "f_y_contact" (N/mm²), "taux_contact"}."""
+    N = F + Nst
+    return {"A_st": p["Ast"], "sigma": N / p["Ast"], "N_b_Rd": p["NbRd"] / 1e3, "taux_flambement": N / p["NbRd"], "A_c": p["Ac"],
+            "sigma_contact": F / p["Ac"], "f_y_contact": p.get("fy_plat"), "taux_contact": F / p["NcRd"]}
 
 
 def designation(p: Dict) -> str:
@@ -163,6 +191,14 @@ def ecrire(J: Journal, base: str, nom: str, s: Dict, fy: float, P: Dict, p: Dict
                  messages=mots)
     cles2: List[str] = []
     mots2: List[str] = []
+    Nst = p.get("Nst") or 0.0
+    N = F + Nst
+    if Nst > 0:                                        # le raidisseur sert aussi au cisaillement (§ 9.3.3(3)) : N = F_Ed + N_st
+        c_ = p["cisaillement"]
+        cles2.append(J.f("N_st", "N_st", [_t("V_Ed", c_["V"] / 1e3, "kN"), _t("h_w", p["hw"], "mm"), _t("t_w", tw, "mm"), _t("f_y,w", c_["fyw"], "N/mm²"),
+                                          _t("λ̄_w", c_["lambda_w"]), _t("γ_M1", gM1)], Nst / 1e3, "kN", "r_N_st"))
+        cles2.append(J.f("N_Ed_st", "N_Ed", [_t("F_Ed", F / 1e3, "kN"), _t("N_st", Nst / 1e3, "kN")], N / 1e3, "kN", "r_N_Ed"))
+        mots2.append("Le raidisseur sert aussi au cisaillement : N_Ed = F_Ed + N_st (§ 9.3.3(3)).")
     if p["limite"]:
         cles2.append(J.f("l_w", "l_w", [_t("t_s", p["ts"], "mm"), _t("l_g", p["cotes"][0], "mm"), _t("l_d", p["cotes"][1], "mm")], p["lw"], "mm",
                          "r_l_w_borne"))
@@ -199,6 +235,7 @@ def ecrire(J: Journal, base: str, nom: str, s: Dict, fy: float, P: Dict, p: Dict
             statut = NOK
             mots2.append(J.alerte("raidisseur_souple", "attention", f"{nom} : le raidisseur n'a pas la rigidité d'un appui de l'âme "
                                                                     "(I_st < I_st,min)."))
-    v2 = J.verif(f"{base}-Rb", f"{nom} : raidisseur, flambement", f"{REF} § 9.4", "F_Ed ≤ N_b,Rd", F / 1e3, p["NbRd"] / 1e3, "kN", cles2,
-                 statut=statut, taux=None if statut is None else F / p["NbRd"], messages=mots2)
+    mots2.append(RAPPEL_TAU)
+    v2 = J.verif(f"{base}-Rb", f"{nom} : raidisseur, flambement", f"{REF} § 9.4", "N_Ed ≤ N_b,Rd" if Nst > 0 else "F_Ed ≤ N_b,Rd", N / 1e3,
+                 p["NbRd"] / 1e3, "kN", cles2, statut=statut, taux=None if statut is None else N / p["NbRd"], messages=mots2)
     return v1, v2

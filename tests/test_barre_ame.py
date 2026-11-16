@@ -160,8 +160,11 @@ def prs_section(b1, t1, hw, tw, b2, t2, a=None, fabrication=None):
     Iz = t1 * b1 ** 3 / 12.0 + hw * tw ** 3 / 12.0 + t2 * b2 ** 3 / 12.0
     s = SE.saisie("I", "soude_oxycoupe", h=h, b=max(b1, b2), tw=tw, tf=max(t1, t2), r=0.0, A=A, Iy=Iy, Iz=Iz, iy=math.sqrt(Iy / A),
                   iz=math.sqrt(Iz / A), Wel_y=Iy / max(zg, h - zg), Avz=1.2 * hw * tw, Avy=A - hw * tw)
+    # W_pl,y : l'axe neutre plastique partage l'aire en deux (brief § 18.4), ici dans l'âme
+    zp = t2 + (A / 2.0 - b2 * t2) / tw
+    Wpl = b1 * t1 * (h - t1 / 2.0 - zp) + tw * (t2 + hw - zp) ** 2 / 2.0 + tw * (zp - t2) ** 2 / 2.0 + b2 * t2 * (zp - t2 / 2.0)
     s.update(fabrication=fabrication, prs={"b1": b1, "t1": t1, "hw": hw, "tw": tw, "b2": b2, "t2": t2, "a": a}, eta=1.2,
-             monosymetrique=(b1, t1) != (b2, t2), z_g=zg)
+             monosymetrique=(b1, t1) != (b2, t2), z_g=zg, Wpl_y=Wpl)
     return s
 
 
@@ -229,7 +232,7 @@ def controles(M=None):
       and round(rk["ly"], 1) == 149.2 and round(rk["FRd"] / 1e3, 2) == 248.91 and not r["deux_branches"]
       and proche(r["FRd"] / 1e3, frd_profil("IPE 300", 235.0, 100, "c", 0.0)) and proche(rk["FRd"] / 1e3, frd_profil("IPE 300", 235.0, 100, "c", 0.0, contact=True))
       and any("deux branches" in m and "261,9" in m for m in am.mots_resistance(rk))
-      and any("contact d'extrémité non établi" in m and "248,9" in m for m in am.mots_resistance(r)), (r, rk))
+      and any("hypothèse de contact non établie" in m and "248,9" in m for m in am.mots_resistance(r)), (r, rk))
     r = R(100, "c", 50.0)
     rk = R(100, "c", 50.0, contact=True)
     c("R4 (c) s_s = 100, c = 50 : k_F = 5,230, F_cr = 1 270,0 kN, l_e = 150 ; sans contact, (6.10) avec s_s = 0 gouverne : 199,8 kN (comme c = 0) ; "
@@ -511,15 +514,21 @@ def controles(M=None):
     g300 = 78.6 * brut("IPE 300")["A"] * 1e-4               # le poids propre : 78,6 kN/m³ × A (brief H13 ; lot A)
     a = ame()
     Fed = (1.35 * (5.0 + g300) + 1.5 * 5.0) * 3.0
-    c("la barre neuve (IPE 300, 6 m, G + Q, posée, s_s non saisie) : deux lieux — Appui A, Appui B —, type (c), F_Ed = 44,4 kN ≤ F_Rd = 58,0 kN : "
-      "77 %, pas de raidisseur",
-      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "aucun" and L["raidisseur"] is None
-                                                                      and L["ss"] == 0.0 for L in a["lieux"])
+    p3 = brut("IPE 300")
+    S300, I300 = 150.0 * 10.7 * (300.0 - 10.7) / 2.0, p3["Iy"] * 1e4
+    crit0 = (Fed * 1e3 / (2.0 * 10.7 * 7.1) / 235.0) ** 2 + 3.0 * (Fed * 1e3 * S300 / (I300 * 7.1) / 235.0) ** 2
+    c("la barre neuve (IPE 300, 6 m, G + Q, posée, s_s non saisie → 0) : deux lieux — Appui A, Appui B —, type (c), F_Ed = 44,4 kN ≤ F_Rd = "
+      "58,0 kN (77 %) ; mais à un appui d'extrémité σ_x = 0 : les DEUX contrôles (brief § 8.2, § 7.2(2)) — le critère 6.2.1(5) à la jonction, "
+      "σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², τ = V·S_f/(I_y·t_w) : 1,57 > 1 → raidisseur (le harnais suit : « pas de raidisseur » avant le lot B)",
+      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "raidisseur" and L["ss"] == 0.0
+                                                                      and L["sans"]["semelle"] == ["les_deux"] for L in a["lieux"])
       and proche(a["lieux"][0]["F_Ed"], Fed) and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 0, "c", 0))
-      and proche(a["taux_max"], Fed / frd_profil("IPE 300", 235.0, 0, "c", 0)) and round(a["taux_max"], 2) == 0.77 and a["statut"] == RE.OK
-      and [v["id"] for v in a["verifications"]] == ["A-L00-F", "A-L01-F"] and a["combinaison"] == "1,35·Poids propre + 1,35·G + 1,5·Q", a["lieux"])
+      and round(a["lieux"][0]["sans"]["eta2"], 2) == 0.77 and proche(a["lieux"][0]["sans"]["critere"], crit0, 1e-6) and round(crit0, 2) == 1.57
+      and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and "critère 6.2.1(5)" in a["lieux"][0]["raison"] and a["statut"] == RE.OK
+      and [v["id"] for v in a["verifications"]] == ["A-L00-R", "A-L00-Rb", "A-L01-R", "A-L01-Rb"]
+      and a["combinaison"] == "1,35·Poids propre + 1,35·G + 1,5·Q", (a["lieux"][0], crit0))
     c("… la longueur d'appui non saisie est DITE (hypothèses, et message de la vérification)",
-      any("non saisie" in h for h in a["hypotheses"]) and any("non saisie" in m for m in verif(a, "A-L00-F")["messages"]), a["hypotheses"])
+      any("non saisie" in h for h in a["hypotheses"]) and any("non saisie" in m for m in verif(a, "A-L00-R")["messages"]), a["hypotheses"])
     a = ame(appuis={"mode": "poses", "ss": 100.0, "c": 0.0})
     b_ = ame(appuis={"mode": "poses", "ss": 100.0, "c": 50.0})
     c("s_s = 100 mm aux appuis (contact d'extrémité inconnu) : F_Rd = 199,8 kN (R4, type c, verdict sans contact) — avec contact 248,9 kN, dit "
@@ -544,8 +553,9 @@ def controles(M=None):
       v is not None and proche(v["valeur"], (36.0 / L["sans"]["F_Rd"] + 0.8 * eta1) / 1.4, 1e-4) and v["limite"] == 1.0 and round(v["taux"], 3) == 0.366
       and v["critere"] == "(η₂ + 0,8·η₁)/1,4 ≤ 1"
       and L["gouvernant"] == v["id"] and proche(L["taux"], v["taux"]) and proche(L["sans"]["interaction"], v["taux"]) and round(eta1, 3) == 0.525, v)
-    c("… aux appuis, sans moment : pas d'interaction à vérifier (une seule vérification par appui)",
-      [x["id"] for x in a["verifications"]] == ["A-L00-F", "A-L01-F", "A-L01-FM", "A-L02-F"], [x["id"] for x in a["verifications"]])
+    c("… aux appuis, sans moment : pas d'interaction (7.2) ; σ_x = 0 : le critère 6.2.1(5) à la jonction (« A-Lnn-EL », lot B) — il passe",
+      [x["id"] for x in a["verifications"]] == ["A-L00-EL", "A-L00-F", "A-L01-F", "A-L01-FM", "A-L02-EL", "A-L02-F"]
+      and all(verif(a, i)["statut"] == RE.OK for i in ("A-L00-EL", "A-L02-EL")), [x["id"] for x in a["verifications"]])
     a = ame(**CONTINUE)
     L = lieu(a, "Appui B")
     pH = brut("HEA 200")
@@ -574,11 +584,14 @@ def controles(M=None):
       and L["verifications"] == ["A-L01-R", "A-L01-Rb"] and verif(a, "A-L01-F") is None and verif(a, "A-L01-FM") is None
       and a["statut"] == RE.OK and any("soudures" in h for h in a["hypotheses"]) and any("Sans raidisseur" in m for m in vR["messages"]), (L, vR))
     moins = copy.deepcopy(CONTINUE)
-    moins["cas"][0]["charges"].append(P_(20.0, 5.0))
+    moins["cas"][0]["charges"].append(P_(20.0, 5.0, 200.0))
+    moins["appuis"] = {"mode": "poses", "ss": 200.0, "c": 0.0}
     a = ame(**moins)
     vB = verif(a, "A-L01-B")
-    c("… une charge plus petite (27 kN de calcul) : pas de raidisseur — la force qui passe d'une semelle à l'autre est vérifiée en type (b), "
-      "k_F = 3,5",
+    FRb = frd_profil("HEA 200", 235.0, 200.0, "b")
+    c("… une charge plus petite (27 kN de calcul ; s_s = 200 mm, bornée à h_w) : pas de raidisseur — la force qui passe d'une semelle à l'autre "
+      "est vérifiée en type (b), k_F = 3,5 (le harnais suit : s_s = 0 avant le lot B ; avec s_s = 0, la semelle haute TENDUE au droit de "
+      "l'appui demande un raidisseur — test 31, plus bas)",
       vB is not None and proche(vB["valeur"], 27.0) and proche(vB["limite"], FRb) and lieu(a, "Appui B")["decision"] == "aucun"
       and any("Type (b)" in m for m in vB["messages"]) and verif(a, "A-L01-F") is not None, vB)
     lourd = dict(profil="HEB 300", travees=[4.0], appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
@@ -671,6 +684,118 @@ def controles(M=None):
       L is not None and L["decision"] == "aucun" and L["statut"] == RE.NOK and a["statut"] == RE.NOK and vF["statut"] == RE.NOK
       and round(vF["taux"], 2) == 1.15 and any("trop étroit" in x["message"] for x in a["alertes"]), L)
 
+    # ---- 4 bis. (lot B) brief § 8.2 à § 8.4 et § 15.4 : seuil local, η₁ plastique, contact saisi, semelle tendue, σ_z, vue avant/après
+    a = ame(**R2)
+    L = lieu(a, "Charge à 3,00 m")
+    vFM = verif(a, L["base"] + "-FM")
+    c("R4 / test 17 : SEUIL de résistance locale à M_Ed = 68,70 kN·m imposé — 380,08 kN avec η₁ élastique (l'interaction gouverne), 387,76 kN "
+      "avec η₁ plastique (η₂ ≤ 1 gouverne) ; le message le dit, avec « ce n'est pas la capacité de la barre »",
+      abs(L["sans"]["seuil"]["elastique"] - 380.08) <= 0.01 and abs(L["sans"]["seuil"]["plastique"] - 387.76) <= 0.01
+      and round(L["sans"]["seuil"]["M_Ed"], 2) == 68.70 and any("380,1 kN" in m and "ce n'est pas la capacité de la barre" in m for m in vFM["messages"]),
+      L["sans"]["seuil"])
+    r6, r0 = am.resistance(a300, 235.0, Pm, 100.0, "a", panneau=6000.0), am.resistance(a300, 235.0, Pm, 100.0, "a")
+    e1, e1p = 68.70e6 / (s300["Wel_y"] * 235.0), 68.70e6 / (s300["Wpl_y"] * 235.0)
+    c("… à M_Ed = 68,70 kN·m exactement : 380,08 et 387,76 kN ; avec a = 6,00 m (k_F = 6 + 2·(h_w/a)²) : 380,22 et 387,90 kN",
+      [round(am.seuil_local(x["FRd"], e) / 1e3, 2) for x in (r0, r6) for e in (e1, e1p)] == [380.08, 387.76, 380.22, 387.90]
+      and proche(r6["kF"], 6.0 + 2.0 * (278.6 / 6000.0) ** 2) and r6["ly"] <= 6000.0, (r6["kF"], r6["FRd"]))
+    c("η₁ PLASTIQUE en variante (DÉCISION BUREAU n° 1, classes 1 et 2 : commentaire JRC p. 98) — R2 : η₁ = 68,70/(W_pl,y·f_y) = 0,465, taux "
+      "33,2 % pour information ; le verdict reste l'élastique (36,6 %)",
+      proche(L["sans"]["interaction_plastique"], (L["sans"]["eta2"] + 0.8 * 68.7015e6 / (s300["Wpl_y"] * 235.0)) / 1.4, 1e-9)
+      and round(L["sans"]["interaction_plastique"], 3) == 0.332 and proche(vFM["taux"], L["sans"]["interaction"])
+      and any("η₁ plastique" in m and "33,2 %" in m for m in vFM["messages"]), L["sans"])
+    ct = {k: ame(appuis={"mode": "poses", "ss": 100.0, "c": 0.0, "contact": k}) for k in ("oui", "non", "inconnu")}
+    mct = {k: " ".join(verif(ct[k], "A-L00-F")["messages"]) for k in ct}
+    c("test 13 : contact d'extrémité SAISI (R4, type c, c = 0) — « oui » : 248,91 kN ; « non » : 199,82 kN, sans variante ; « inconnu » : "
+      "les deux, verdict sur 199,82 kN, « hypothèse de contact non établie »",
+      round(ct["oui"]["lieux"][0]["sans"]["F_Rd"], 2) == 248.91 and round(ct["non"]["lieux"][0]["sans"]["F_Rd"], 2) == 199.82
+      and round(ct["inconnu"]["lieux"][0]["sans"]["F_Rd"], 2) == 199.82 and "hypothèse de contact non établie" in mct["inconnu"]
+      and "248,9" in mct["inconnu"] and "pour information" not in mct["non"] and "contact d'extrémité établi" in mct["oui"]
+      and [ct[k]["lieux"][0]["sans"]["contact"] for k in ("oui", "non", "inconnu")] == ["oui", "non", "inconnu"]
+      and _refuse(lambda: en.normaliser(barre(appuis={"mode": "poses", "ss": 0.0, "c": 0.0, "contact": "peut-être"})))
+      and "contact" not in en.normaliser(barre())["appuis"], mct)
+    a = ame(cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0, 300.0)]}], appuis={"mode": "ame", "ss": 0.0, "c": 0.0})
+    c("test 32 : s_s saisie 300 mm sous l'IPE 300 → s_s retenue = h_w = 278,6 mm (§ 6.3(1)), avec un message",
+      a["lieux"][0]["ss"] == 278.6 and any("s_s bornée à h_w = 278,6 mm" in m for v_ in a["verifications"] for m in v_["messages"]), a["lieux"][0])
+    sz = am.sigma_z(100e3, 100.0, 10.7, 7.1)
+    c("test 33 : σ_z,Ed (EN 1993-1-5 § 3.2.3) — IPE 300, F_Ed = 100 kN, s_s = 100 mm, sans raidisseur : s_e = s_s + 2·t_f = 121,4 mm ; à la "
+      "jonction (z = 0) σ_z,Ed = F_Ed/(s_e·t_w) = 116,0 N/mm² ; plus bas dans l'âme, b_eff s'élargit",
+      round(sz["se"], 1) == 121.4 and round(sz["sigma_z"], 1) == 116.0 and proche(sz["beff"], 121.4)
+      and am.sigma_z(100e3, 100.0, 10.7, 7.1, z=100.0)["sigma_z"] < sz["sigma_z"] and proche(am.sigma_z(100e3, 100.0, 10.7, 7.1, ast1=7.1)["n"], 0.636 * math.sqrt(1.878)), sz)
+    t31 = copy.deepcopy(CONTINUE)
+    t31["cas"][0]["charges"].append(P_(20.0, 5.0, 200.0))
+    t31["appuis"] = {"mode": "ame", "ss": 0.0, "c": 0.0}
+    a = ame(**t31)
+    L = lieu(a, "Charge à 5,00 m")
+    q_, zj, Sf = 1.35 * 6.0 + 1.5 * 8.0, 95.0 - 10.0, 200.0 * 10.0 * 90.0
+    MB, VB, IH = q_ * 25.0 / 8.0, 5.0 * q_ * 5.0 / 8.0, pH["Iy"] * 1e4
+    sx_, sz_, tau_ = -MB * 1e6 * zj / IH, 27e3 / ((170.0 + 20.0) * 6.5), VB * 1e3 * Sf / (IH * 6.5)
+    crit31 = (sx_ / 235.0) ** 2 + (sz_ / 235.0) ** 2 - (sx_ / 235.0) * (sz_ / 235.0) + 3.0 * (tau_ / 235.0) ** 2
+    vEL = verif(a, L["base"] + "-EL") if L else None
+    c("test 31 : poutre continue HEA 200, charge de 27 kN sur la semelle HAUTE au droit de l'appui B (moment négatif) — semelle chargée TENDUE : "
+      "pas d'interaction (7.2) ; η₂ ≤ 1 et le critère 6.2.1(5) à la jonction, σ_x = −144,6, σ_z,Ed = 21,9 (§ 3.2.3), τ = 47,1 N/mm² → 56,5 %",
+      L is not None and L["sans"]["semelle"] == ["tendue"] and verif(a, L["base"] + "-FM") is None and vEL is not None
+      and proche(vEL["valeur"], crit31, 1e-9) and round(crit31, 3) == 0.565 and vEL["combinaison"] == TOUT and L["decision"] == "aucun"
+      and L["sans"]["interaction"] is None and proche(L["sans"]["critere"], crit31, 1e-9) and verif(a, L["base"] + "-F") is not None, (L, crit31))
+    t31b = copy.deepcopy(t31)
+    t31b["cas"][0]["charges"][-1] = P_(20.0, 5.0)
+    a = ame(**t31b)
+    L = lieu(a, "Charge à 5,00 m")
+    c("… la même charge sans longueur d'appui (s_s = 0 : σ_z,Ed = 207,7 N/mm²) : le critère dépasse 1 → raidisseur, et la raison le dit",
+      L is not None and L["decision"] == "raidisseur" and "critère 6.2.1(5)" in L["raison"] and "tendue" in L["raison"] and L["sans"]["critere"] > 1.0, L)
+    sig = [am.sigma_x(-500e3, 20e6, s300["A"], s300["Iy"], 150.0 - 5.35, Mz, s300["Iz"], y) for Mz in (0.0, 10e6) for y in (-75.0, 75.0)]
+    c("test 36 : semelle haute d'une poutre sur deux appuis avec une TRACTION (N/A = 92,9 N/mm² > la compression de M_y, 34,6) → semelle "
+      "tendue ; un M_z qui fait changer σ_x de signe sur la largeur → « les deux » (les deux contrôles, le plus défavorable retenu)",
+      am.etat_semelle(sig[:2]) == am.TENDUE and am.etat_semelle(sig[2:]) == am.LES_DEUX and am.etat_semelle([30.0, 1.0]) == am.COMPRIMEE
+      and am.etat_semelle([0.0]) == am.LES_DEUX and round(-sig[0], 1) == 58.3, sig)
+    a = ame(travees=[2.0], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0},
+            cas=[{"nom": "G", "nature": "permanent", "N": -400.0, "charges": [P_(20.0, 1.0, 50.0)]}])
+    L = a["lieux"][0]
+    c("… dans la barre : IPE 300, 2 m, N = −400 kN (traction), 20 kN au milieu sur la semelle haute — semelle tendue : « -EL », pas de « -FM »",
+      L["sans"]["semelle"] == ["tendue"] and L["base"] + "-EL" in L["verifications"] and L["base"] + "-FM" not in L["verifications"], L)
+    c("test 2 : I_st,min d'un raidisseur intermédiaire — 1,5·h_w³·t³/a² si a/h_w < √2, 0,75·h_w·t³ sinon : les deux se raccordent à a/h_w = √2",
+      proche(ra.inertie_minimale(1000.0, 8.0, 1000.0 * math.sqrt(2.0)), 0.75 * 1000.0 * 8.0 ** 3)
+      and proche(1.5 * 1000.0 ** 3 * 8.0 ** 3 / (1000.0 * math.sqrt(2.0)) ** 2, 0.75 * 1000.0 * 8.0 ** 3)
+      and proche(ra.inertie_minimale(1000.0, 8.0, 1200.0), 1.5 * 1000.0 ** 3 * 8.0 ** 3 / 1200.0 ** 2)
+      and proche(ra.inertie_minimale(1000.0, 8.0, 2000.0), 0.75 * 1000.0 * 8.0 ** 3) and proche(ra.inertie_minimale(1000.0, 8.0), 0.75 * 1000.0 * 8.0 ** 3))
+    mince = SE.saisie("I", "soude_oxycoupe", h=1040.0, b=300.0, tw=6.0, tf=20.0, r=0.0, A=18000.0, Iy=3.3e9, Iz=9.0e7, iy=428.0, iz=70.7)
+    em = am.elancement(mince, 355.0, Pm)
+    lw_ = am.resistance_cisaillement(em, 355.0, Pm)["lambda_w"]
+    Nst = ra.effort_cisaillement(400e3, 1000.0, 6.0, 355.0, lw_, 1.0)
+    pN = ra.dimensionner(mince, 355.0, Pm, 150e3, Nst=Nst)
+    J = RE.Journal("ame", "x")
+    ra.ecrire(J, "A-L00", "Charge", mince, 355.0, Pm, dict(pN, cisaillement={"V": 400e3, "fyw": 355.0, "lambda_w": lw_}))
+    vRb = verif(J.rendre(), "A-L00-Rb")
+    vu = ra.vue(pN, 150e3, Nst)
+    c("test 34 : raidisseur qui sert aussi au cisaillement (âme de 1 000 × 6 en S355, λ̄_w = 2,371) — N_st = V_Ed − h_w·t·f_yw/(√3·λ̄_w²·γ_M1) "
+      "= 400 − 218,8 = 181,2 kN ; le flambement porte N = F_Ed + N_st (150 + 181,2), l'écrasement F_Ed seule",
+      round(lw_, 3) == 2.371 and round(Nst / 1e3, 1) == 181.2 and ra.effort_cisaillement(100e3, 1000.0, 6.0, 355.0, lw_, 1.0) == 0.0
+      and proche(pN["N"], 150e3 + Nst) and proche(pN["taux"], max(150e3 / pN["NcRd"], (150e3 + Nst) / pN["NbRd"]))
+      and proche(vRb["valeur"], (150e3 + Nst) / 1e3) and vRb["critere"] == "N_Ed ≤ N_b,Rd" and proche(vu["sigma"], (150e3 + Nst) / pN["Ast"])
+      and proche(vu["sigma_contact"], 150e3 / pN["Ac"]) and {f["gabarit"] for f in J.calcul} >= {"r_N_st", "r_N_Ed"}
+      and all(proche(FO.evaluer(f), f["resultat"]) and W.relecture_juste(f) for f in J.calcul), (Nst, pN["taux"]))
+    J = RE.Journal("ame", "x")
+    sP = prs_section(300.0, 30.0, 1400.0, 10.0, 300.0, 30.0)
+    am.cisaillement(J, sP, 355.0, Pm, 1500e3, 5000e6)
+    f_prs = [f for f in J.calcul if f["gabarit"] == "a_M_f_prs"]
+    c("… et l'interaction (7.1) d'un PRS élancé (300 × 30, 1 400 × 10, S355) : M_f,Rd = A_f·h_f·f_y/γ_M0 (gabarit des PRS), recalculé et relu",
+      len(f_prs) == 1 and proche(FO.evaluer(f_prs[0]), f_prs[0]["resultat"]) and W.relecture_juste(f_prs[0])
+      and proche(f_prs[0]["resultat"], 9000.0 * 1430.0 * 355.0 / 1e6) and verif(J.rendre(), "A-VbM") is not None, [f["gabarit"] for f in J.calcul])
+    b18 = dict(travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0},
+               cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [P_(300.0, 1.0, 100.0)]}])
+    a = ame(**b18)
+    L = lieu(a, "Charge à 1,00 m")
+    av = L["avec"] if L else {}
+    c("test 18 / § 15.4 : vue AVANT/APRÈS raidisseur — IPE 300 S235, type (a), F = 450 kN, s_s = 100 : sans raidisseur F_Rd = 387,8 kN, "
+      "η₂ = 1,160 ; avec 2 plats 70 × 20 : f_y = 225 (plats de 20 mm), A_st = 4 454,3 mm², σ = 101,0 N/mm², N_b,Rd = 1 002,2 kN, taux 0,449 ; "
+      "contact 2 200 mm², 204,5 ≤ 225 N/mm² (taux 0,909) ; rappel : un raidisseur ne réduit pas τ",
+      L is not None and round(L["sans"]["F_Rd"], 1) == 387.8 and abs(L["sans"]["eta2"] - 1.160) <= 1e-3 and L["raidisseur"]["designation"] == "2 plats 70 × 20 mm"
+      and round(av["A_st"], 1) == 4454.3 and round(av["sigma"], 1) == 101.0 and round(av["N_b_Rd"], 1) == 1002.2 and round(av["taux_flambement"], 3) == 0.449
+      and av["A_c"] == 2200.0 and round(av["sigma_contact"], 1) == 204.5 and av["f_y_contact"] == 225.0 and round(av["taux_contact"], 3) == 0.909
+      and L["rappel"] == ra.RAPPEL_TAU and round(L["sans"]["sigma_z"], 1) == round(450e3 / (121.4 * 7.1), 1)
+      and any(ra.RAPPEL_TAU in m for m in verif(a, L["base"] + "-Rb")["messages"]), L)
+    c("… sans raidisseur, pas de vue « avec » ni de rappel (R2, la charge de 36 kN)",
+      lieu(ame(**R2), "Charge à 3,00 m")["avec"] is None and lieu(ame(**R2), "Charge à 3,00 m")["rappel"] is None)
+
     # ---- 5. la barre
     r = mo.verifier(barre(mode="efforts", profil="IPE 750x134", nuance="S355", methodes=["ec3"],
                           efforts={"service": {}, "elu": {"Vz": 1800.0}}, flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
@@ -678,7 +803,8 @@ def controles(M=None):
     c("efforts imposés, V_z,Ed = 1 800 kN sur l'IPE 750x134 S355 : l'Eurocode 3 passe (V_pl,z,Rd = 1 965,4 kN) mais l'âme voile "
       "(V_bw,Rd = 1 722,0 kN) — la barre est NON CONFORME",
       r["methodes"]["ec3"]["statut"] == RE.OK and r["ame"]["statut"] == RE.NOK and r["statut"] == RE.NOK
-      and proche(verif(r["ame"], "A-Vb")["taux"], 1800.0 / Vbw) and verif(r["methodes"]["ec3"], "A-Vb") is None,
+      and proche(verif(r["ame"], "A-Vb")["taux"], 1800.0 / Vbw) and verif(r["methodes"]["ec3"], "A-Vb") is None
+      and any("ne réduit pas τ" in m for m in verif(r["ame"], "A-Vb")["messages"]),
       (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     c("… efforts imposés : aucun lieu (les appuis et les charges ne sont pas décrits), et l'hypothèse le dit",
       r["ame"]["lieux"] == [] and any("Efforts imposés" in h for h in r["ame"]["hypotheses"]) and r["ame"]["combinaisons"] == [])
@@ -724,7 +850,8 @@ def controles(M=None):
     c("… et, refaite à la main avec les nombres IMPRIMÉS, chaque formule redonne le résultat imprimé", not illisibles, illisibles[:3])
     c("… chaque vérification ne cite que des formules rendues", not orphelines, orphelines[:3])
     gab = {f["gabarit"] for x in vus for f in x["calcul"]}
-    manquent = sorted(set(FO.GABARITS_EC3_AME) - gab - {"a_eta3", "a_M_f", "a_eta1_bar", "a_71", "a_V_bw_n", "a_semelle", "a_eta1", "a_eta1_N"})
+    manquent = sorted(set(FO.GABARITS_EC3_AME) - gab - {"a_eta3", "a_M_f", "a_eta1_bar", "a_71", "a_V_bw_n", "a_semelle", "a_eta1", "a_eta1_N",
+                                                        "a_M_f_prs", "r_N_st", "r_N_Ed"})
     c("… les gabarits de l'âme et des raidisseurs servent tous dans ces barres (hors l'interaction 7.1, les tubes, la semelle et η₁ sous effort "
       "normal, contrôlés à part)", not manquent, manquent)
     try:
@@ -757,7 +884,7 @@ def charger(mutation=None):
 MUTATIONS = [
     ("ec3_ame", "k_F du type (a) : 6 → 3,5", 'KF = {"a": 6.0, "b": 3.5}', 'KF = {"a": 3.5, "b": 3.5}'),
     ("ec3_ame", "k_F du type (b) : 3,5 → 6", 'KF = {"a": 6.0, "b": 3.5}', 'KF = {"a": 6.0, "b": 6.0}'),
-    ("ec3_ame", "k_F du type (c) sans plafond", "    kF = KF[type_] if type_ != \"c\" else min(brut, KF_C_MAX)", "    kF = KF[type_] if type_ != \"c\" else brut"),
+    ("ec3_ame", "k_F du type (c) sans plafond", "    kF = KF[type_] + voisin if type_ != \"c\" else min(brut, KF_C_MAX)", "    kF = KF[type_] + voisin if type_ != \"c\" else brut"),
     ("ec3_ame", "k_F du type (c) : 2 + 6·s_s/h_w, le débord oublié", "    brut = 2.0 + 6.0 * (ss + c) / hw", "    brut = 2.0 + 6.0 * ss / hw"),
     ("ec3_ame", "F_cr : 0,9 oublié", "    Fcr = 0.9 * kF * E * tw ** 3 / hw", "    Fcr = kF * E * tw ** 3 / hw"),
     ("ec3_ame", "F_cr en t_w²", "    Fcr = 0.9 * kF * E * tw ** 3 / hw", "    Fcr = 0.9 * kF * E * tw ** 2 / hw"),
@@ -815,8 +942,32 @@ MUTATIONS = [
     ("raidisseurs", "lot A — f_y de calcul du raidisseur : celle du plat seul", '"fy_calcul": min(fyp, fyw)', '"fy_calcul": fyp'),
     ("raidisseurs", "lot A — 15·ε·t_w avec l'ε du plat", '    plein = AME_PARTICIPANTE * m["eps_ame"] * tw', '    plein = AME_PARTICIPANTE * m["eps_plat"] * tw'),
     ("raidisseurs", "lot A — écrasement à la f_y de calcul (et non à celle du plat)", "NcRd=Ac * fyp / P[\"gamma_M0\"]", "NcRd=Ac * fyd / P[\"gamma_M0\"]"),
-    ("ame", "lot A — le raidisseur dimensionné sans la nuance (une f_y pour tout)", 'appui_rigide=rigide, nuance=b["nuance"], fy_ame=fyw)', "appui_rigide=rigide)"),
+    ("ame", "lot A — le raidisseur dimensionné sans la nuance (une f_y pour tout)", 'appui_rigide=rigide, nuance=b["nuance"], fy_ame=fyw,', "appui_rigide=rigide,"),
     ("ame", "lot A — l'âme prise à la f_y de calcul", '    return d["fy"], d["fy_parois"]["ame"], d["fy_source"]', '    return d["fy"], d["fy"], d["fy_source"]'),
+    ("ec3_ame", "lot B — semelle tendue jamais reconnue", "    if all(x < -EPS_SIGMA for x in v):\n        return TENDUE", "    if False:\n        return TENDUE"),
+    ("ame", "lot B — interaction (7.2) appliquée à une semelle tendue", '            comprimee = any(x["etat"] != AM.TENDUE for x in ctrl)', "            comprimee = True"),
+    ("ame", "lot B — critère 6.2.1(5) de la semelle tendue oublié", '            o["el"] = max((x for x in ctrl if x["crit"] is not None), key=lambda x: x["crit"], default=None)',
+     '            o["el"] = None'),
+    ("ame", "lot B — raidisseur jamais décidé sur le critère 6.2.1(5)", '        elif pire["crit"] is not None and pire["crit"] > 1.0:', "        elif False:"),
+    ("ec3_ame", "lot B — σ_z,Ed : s_e sans 2·t_f", "    se = ss + 2.0 * tf", "    se = ss + tf"),
+    ("ec3_ame", "lot B — critère 6.2.1(5) : terme croisé de signe inversé", "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2",
+     "    return (sx / f) ** 2 + (sz / f) ** 2 + (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2"),
+    ("ec3_ame", "lot B — critère 6.2.1(5) sans τ", "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2",
+     "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f)"),
+    ("ec3_ame", "lot B — seuil local : F_Rd seule (l'interaction oubliée)", "    return max(0.0, min(FRd, (lim - k * e1) * FRd))", "    return FRd"),
+    ("ame", "lot B — variante η₁ plastique : W_el", '                Wp = s.get("Wpl_y") if classe in (1, 2) and s.get("Wpl_y") else W', "                Wp = W"),
+    ("ec3_ame", "lot B — k_F sans le raidisseur voisin (a ignoré)", "    voisin = 0.0 if panneau is None else 2.0 * (hw / float(panneau)) ** 2", "    voisin = 0.0"),
+    ("ec3_ame", "lot B — contact « oui » ignoré", '    contact = etat == "oui"', "    contact = False"),
+    ("ec3_ame", "lot B — contact « non » : la variante avec contact donnée quand même", '    if type_ == "c" and etat == "inconnu" and ss > 0:',
+     '    if type_ == "c" and etat != "oui" and ss > 0:'),
+    ("ame", "lot B — contact saisi perdu au lieu", '        contact = (L.get("contact") or {}).get(cote) or "inconnu"', '        contact = "inconnu"'),
+    ("entree", "lot B — contact des appuis perdu à la relecture", '        b["appuis"]["contact"] = ap["contact"]', "        pass"),
+    ("raidisseurs", "lot B — N_st toujours nul", "    return max(0.0, V - hw * t * fyw / (math.sqrt(3.0) * lambda_w ** 2 * gM1))", "    return 0.0"),
+    ("raidisseurs", "lot B — flambement du raidisseur sans N_st", '"taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"])', '"taux": max(F / p["NcRd"], F / p["NbRd"])'),
+    ("raidisseurs", "lot B — I_st,min : seuil a/h_w = 1 au lieu de √2", "    if a is not None and a / hw < math.sqrt(2.0):", "    if a is not None and a / hw < 1.0:"),
+    ("raidisseurs", "lot B — vue avec raidisseur : σ sous F seule", '"sigma": N / p["Ast"]', '"sigma": F / p["Ast"]'),
+    ("raidisseurs", "lot B — rappel « ne réduit pas τ » oublié", "    mots2.append(RAPPEL_TAU)\n", ""),
+    ("ec3_ame", "lot B — cisaillement qui gouverne : rien n'est dit", "    if V > r[\"Vbw\"]:", "    if False:"),
     ("raidisseurs", "épaisseurs : 6 mm proposée", "EPAISSEURS = (8.0, 10.0, 12.0, 15.0, 20.0)", "EPAISSEURS = (6.0, 8.0, 10.0, 12.0, 15.0, 20.0)"),
     ("raidisseurs", "chanfrein oublié dans l'aire de contact", '    Ac = 2.0 * (bs - g["chanfrein"]) * ts', "    Ac = 2.0 * bs * ts"),
     ("raidisseurs", "un seul plat au contact", '    Ac = 2.0 * (bs - g["chanfrein"]) * ts', '    Ac = (bs - g["chanfrein"]) * ts'),
@@ -833,7 +984,7 @@ MUTATIONS = [
     ("raidisseurs", "chanfrein arrondi vers le bas", "    chanfrein = PAS * math.ceil(conge / PAS - 1e-9)", "    chanfrein = PAS * math.floor(conge / PAS)"),
     ("raidisseurs", "un IPN sans chanfrein (son congé n'est pas sous « r »)", '    conge = s.get("r") or s["tw"] ', '    conge = s.get("r") or 0.0 '),
     ("raidisseurs", "la première épaisseur rendue sans la vérifier", "        if p[\"ok\"]:\n            return p", "        if True:\n            return p"),
-    ("raidisseurs", "le flambement oublié dans le choix de l'épaisseur", 'p.update({"F": F, "taux": max(F / p["NcRd"], F / p["NbRd"]), "rigide": rigide})', 'p.update({"F": F, "taux": F / p["NbRd"], "rigide": rigide})'),
+    ("raidisseurs", "le flambement oublié dans le choix de l'épaisseur", '"taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"])', '"taux": (F + Nst) / p["NbRd"]'),
     ("raidisseurs", "rigidité d'appui jamais demandée", '        rigide = (p["Ist"] >= p["I_min"]) if appui_rigide else None', "        rigide = None"),
     ("ame", "appuis par l'âme vérifiés comme posés", '    poses = ap["mode"] == "poses"', "    poses = True"),
     ("ame", "encastrement pris pour un appui posé", '            if a["type"] == "appui":\n                out.append({"x": a["x"], "appui": i,', '            if True:\n                out.append({"x": a["x"], "appui": i,'),
@@ -848,7 +999,7 @@ MUTATIONS = [
     ("ame", "type (c) partout", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "c"'),
     ("ame", "force transmise (type b) jamais vérifiée", "    if len(out) == 2:\n        essais", "    if len(out) == 99:\n        essais"),
     ("ame", "force transmise : la plus GRANDE des deux", '                essais.append(("b", min(o["haut"], o["bas"])))', '                essais.append(("b", max(o["haut"], o["bas"])))'),
-    ("ame", "moment de l'interaction lu d'un seul côté", '"M": max(abs(e["M_g"]), abs(e["M_d"]))})', '"M": 0.0})'),
+    ("ame", "moment de l'interaction lu d'un seul côté", '"M": max(abs(e["M_g"]), abs(e["M_d"])), "M_s": Ms,', '"M": 0.0, "M_s": Ms,'),
     ("ame", "raidisseur décidé sur η₂ seul (l'interaction oubliée)", '        elif pire["inter"] is not None and pire["inter"] > 1.0:', '        elif False:'),
     ("ame", "raidisseur jamais décidé sur η₂", '        if pire["eta2"] > 1.0:', '        if pire["eta2"] > 1e9:'),
     ("ame", "âme élancée : pas de raidisseur d'appui", '        elif el is not None and el["elancee"] and L["genre"] == "appui":\n            raison', '        elif False:\n            raison'),

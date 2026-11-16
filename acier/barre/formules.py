@@ -155,6 +155,7 @@ GABARITS_EC3_AME: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "a_V_bw_n": (("n", "chi", "fy", "hw", "tw", "gM1"), "n*chi*fy*hw*tw/(sqrt(3)*gM1)/1e3", 1),
     "a_eta3": (("V", "Vbw"), "V/Vbw", 3),
     "a_M_f": (("b", "tf", "h", "fy", "gM0"), "b*tf*(h - tf)*fy/gM0/1e6", 1),
+    "a_M_f_prs": (("Af", "hf", "fy", "gM0"), "Af*hf*fy/gM0/1e6", 1),
     "a_eta1_bar": (("M", "Mpl"), "M/Mpl", 3),
     "a_71": (("h1", "Mf", "Mpl", "h3"), "h1 + (1 - Mf/Mpl)*(2*h3 - 1)**2", -1),
     # charge concentrée (§ 6) et son interaction avec la flexion (§ 7.2)
@@ -187,6 +188,14 @@ GABARITS_EC3_AME: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "r_torsion": (("bs", "ts"), "(bs*ts**3/3)/(bs**3*ts/3 + bs*ts**3/12)", 4),
     "r_torsion_lim": (("fy", "E"), "5.3*fy/E", 4),
     "r_I_min": (("hw", "tw"), "0.75*hw*tw**3/1e4", 1),
+    "r_N_st": (("V", "hw", "tw", "fy", "lw", "gM1"), "V - hw*tw*fy/(sqrt(3)*lw**2*gM1)/1e3", 1),
+    "r_N_Ed": (("F", "Nst"), "F + Nst", 1),
+    # (lot B) la charge sur la semelle tendue (§ 7.2(2)) : σ_z,Ed (§ 3.2.3), σ_x, τ et le critère 6.2.1(5) de l'EN 1993-1-1
+    "a_se": (("ss", "tf"), "ss + 2*tf", 1),
+    "a_sigma_z": (("F", "se", "tw"), "F*1e3/(se*tw)", 1),
+    "a_sigma_x": (("N", "A", "M", "z", "I"), "N*1e3/A + M*1e6*z/(I*1e4)", 1),
+    "a_tau_j": (("V", "S", "I", "tw"), "V*1e3*S*1e3/(I*1e4*tw)", 1),
+    "a_615": (("sx", "sz", "tau", "fy", "gM0"), "(sx/(fy/gM0))**2 + (sz/(fy/gM0))**2 - (sx/(fy/gM0))*(sz/(fy/gM0)) + 3*(tau/(fy/gM0))**2", -1),
 }
 GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE, **GABARITS_EC3_AME}
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_HISTORIQUE, **GABARITS_EC3}

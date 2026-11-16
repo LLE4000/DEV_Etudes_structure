@@ -12,7 +12,9 @@
      "niveau": "haut" | "centre" | "bas"      où les charges sont appliquées (déversement ; âme sous charge concentrée)
      "maintiens": [{"x": 3.0, "genre": "complet" | "haut" | "bas"}]
      "appuis": {"mode": "poses" | "ame", "ss": 0.0, "c": 0.0}      la barre POSÉE sur ses appuis (longueur d'appui rigide
-                                              s_s et débord c en rive, mm), ou tenue par l'âme (platine, cornières)
+                                              s_s et débord c en rive, mm), ou tenue par l'âme (platine, cornières) ; « contact »
+                                              (« oui » | « non » | « inconnu », à défaut) : le contact d'extrémité du type (c),
+                                              EN 1993-1-5 § 6 — une charge ponctuelle peut porter le sien
      # --- EFFORTS IMPOSÉS : le mode des classeurs du bureau
      "efforts": {"service": {"N", "My", "Mz", "Vz", "Vy"}, "elu": {…}}      N > 0 en compression
      "diagramme": {"y": {"forme": "constant" | "lineaire" | "reparti" | "ponctuel", "psi": 1.0}, "z": {…}}
@@ -44,6 +46,7 @@ C_MODES = ("unite", "norme")        # C = 1 (les classeurs du bureau) ; ou C sel
 EFFORTS = ("N", "My", "Mz", "Vz", "Vy")
 CAS_MAX, MAINTIENS_MAX = 6, 12
 MODES_APPUI = ("poses", "ame")            # la barre posée sur ses appuis ; ou tenue par l'âme (aucune force sur une semelle)
+CONTACTS = ("oui", "non", "inconnu")      # contact d'extrémité du type (c), EN 1993-1-5 § 6 (brief § 4.1, § 8.2) : « inconnu » à défaut
 SS_MAX = 2000.0                           # mm : la plus grande longueur d'appui rigide, le plus grand débord
 L_MIN, L_MAX = 0.05, 60.0                 # m
 FORMES_DIAGRAMME = (DV.CONSTANT, DV.LINEAIRE, DV.REPARTI, DV.PONCTUEL)
@@ -171,11 +174,19 @@ def normaliser(barre: Dict) -> Dict:
         for ch, saisie in zip(charges, c.get("charges") or []):          # (une charge rendue par charge saisie, dans l'ordre)
             if ch["type"] == "P":
                 ch["ss"] = _longueur_appui(saisie.get("ss", 0.0), f"cas « {nom} », longueur d'appui s_s")
+                if "contact" in saisie:                                     # (lot B) gardé seulement s'il est saisi
+                    if saisie["contact"] not in CONTACTS:
+                        raise Refus(f"cas « {nom} », contact d'extrémité : {', '.join(CONTACTS)}")
+                    ch["contact"] = saisie["contact"]
         b["cas"].append({"nom": nom, "nature": c["nature"], "N": _nombre(c.get("N", 0.0), f"effort normal du cas « {nom} »"), "charges": charges})
     ap = dict(b["appuis"], **(src.get("appuis") or {})) if isinstance(src.get("appuis") or {}, dict) else None
     if ap is None or ap["mode"] not in MODES_APPUI:
         raise Refus(f"appuis : {', '.join(MODES_APPUI)}")
     b["appuis"] = {"mode": ap["mode"], "ss": _longueur_appui(ap["ss"], "longueur d'appui s_s"), "c": _longueur_appui(ap["c"], "débord c")}
+    if "contact" in ap:                                                     # (lot B) gardé seulement s'il est saisi : « inconnu » à défaut
+        if ap["contact"] not in CONTACTS:
+            raise Refus(f"appuis, contact d'extrémité : {', '.join(CONTACTS)}")
+        b["appuis"]["contact"] = ap["contact"]
     mts = src.get("maintiens", [])
     if not isinstance(mts, (list, tuple)) or len(mts) > MAINTIENS_MAX:
         raise Refus(f"au plus {MAINTIENS_MAX} maintiens")
