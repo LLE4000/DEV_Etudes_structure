@@ -225,7 +225,7 @@ hp < 1,36·p3 de la platine d'about le garde deux fois sur sa ligne 2, faute de 
   γM1 1,10 (ANB) · γM2 1,25. »
 - Platine d'about (94 / 108 / 90) : « Articulé : rotule à la face de l'âme porteuse (MSB P5 §2.2) ; groupe
   centré, VEd/n par boulon. » · « Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; grugeage : section
-  réduite, bras tp + c (MSB P5 §4.2.4). » · « Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ;
+  réduite, bras tp + c (MSB P5 §4.2.4). » · « Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ;
   γM0 1,00 (ANB) · γM2 1,25. »
   *Révision du 16/11/2026 (lot A) : relevé du 01/11, qui n'est plus d'actualité sur ce point — la note imprime
   maintenant « pleine résistance 0,60·tw = 5,1 mm » (fy et fu du tableau 3.3 ANB, f_u = 470).*
