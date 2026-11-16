@@ -100,7 +100,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         # console — « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9, défaut v1 ; test 30 du § 11.5)
         J.verif("E-661", "Flexion composée et flambement (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
                 messages=[J.alerte("console_NM", "attention", "Console sous effort normal et flexion : la flexion composée avec instabilité "
-                                                              "(§ 6.3.3, annexe A) n'est pas couverte — aucun C_m ne vaut pour une console ; "
+                                                              "(§ 6.3.3, annexe D ANB) n'est pas couverte — aucun C_m ne vaut pour une console ; "
                                                               "N seul et M seul sont vérifiés.")])
         return
     P = d["parametres"]

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Barres en acier — EUROCODE 3, la BARRE (acier/barre/mcr.py, ec3_flambement.py, ec3_deversement.py,
 ec3_interaction.py, ec3.py) : flambement (§ 6.3.1), déversement (§ 6.3.2, M_cr numérique), flexion composée avec
-instabilité (§ 6.3.3, annexe A). La spécification : docs/acier/BARRES_ACIER.md § 5.5 à 5.8 et § 6.4.
+instabilité (§ 6.3.3, annexe D ANB). La spécification : docs/acier/BARRES_ACIER.md § 5.5 à 5.8 et § 6.4.
 
 Les références :
   1. FLAMBEMENT — les 20 valeurs de χ du brief ; le HEB 200 du classeur du bureau recalculé à la main ; les charges de
