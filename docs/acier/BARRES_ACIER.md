@@ -227,9 +227,11 @@ A − h_w·t_w), comme les U (brief v12 § 19.2 ; IPN 200 : 20,13 cm² au lieu d
   jonctions âme-semelles d'un I, σ_x = N/A + M_y·z/I_y + M_z·y/I_z et τ = V_z·S/(I_y·t_w) au même point, σ_z = 0 ; il
   n'entre dans aucun verdict (grandeur « controle_elastique ») ; au-delà de 1, ses formules et un message court. V_y n'y
   est pas compté. La charge sur la semelle tendue (EN 1993-1-5, 7.2(2)), où il décide, est au bloc de l'âme ;
-- semelle en console fléchie (N + M_z) : le module garde la compression UNIFORME (du côté sûr) ; les limites du
-  tableau 5.2 (9ε/α, 10ε/α au bord libre comprimé ; 9ε/(α·√α), 10ε/(α·√α) au bord libre tendu ; 21ε·√k_σ) sont dans
-  `ec3_classe.limites_console_flechie`, pour comparaison (test 29) ;
+- semelle en console fléchie (M_z présent) : les limites du tableau 5.2 (9ε/α, 10ε/α au bord libre comprimé ;
+  9ε/(α·√α), 10ε/(α·√α) au bord libre tendu ; 21ε·√k_σ) sont dans `ec3_classe.limites_console_flechie` ; `classer` les
+  prend à leur borne prudente, sans calculer α ni ψ de la console : 9ε et 10ε (classes 1 et 2), et 21ε·√0,43 = 13,77ε
+  en classe 3 — le plus petit k_σ du tableau 4.2 de l'EN 1993-1-5, sous les 14ε de la compression uniforme, que
+  21ε·√k_σ passe quand ψ approche 1 (lot B ; À VÉRIFIER ; test 29 sur `classer`) ;
 - un I ou un H saisi avec I_y < I_z : refusé, « axes inversés ? » (test 15 ; `section.saisie`) ;
 - effort tranchant élevé (V_Ed > 0,5·V_pl,Rd) : (6.30) pour un I de classe 1 ou 2 fléchi autour de l'axe fort ; partout
   ailleurs, et dès qu'un effort normal s'ajoute (§ 6.2.10), (1 − ρ) sur TOUTE la section — du côté sûr, et c'est dit ;
@@ -285,7 +287,9 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
   classique (4,013), et « un maintien de la semelle comprimée à mi-portée vaut un maintien complet » (250,95 kN·m) ;
 - bouts d'un tronçon : fourche, encastrement, libre (la console) ; maintien d'une semelle : liaison exacte ;
 - mode « efforts imposés » : quatre diagrammes (constant, linéaire ψ, charge répartie, charge concentrée), la charge
-  au centre de cisaillement, sur la semelle haute ou sous la basse ; un diagramme non décrit est pris CONSTANT ;
+  au centre de cisaillement, sur la semelle haute ou sous la basse, toujours DESCENDANTE (un PRS monosymétrique de
+  M_y,Ed < 0 aussi : le signe ne change que z_j et la semelle comprimée ; un soulèvement se calcule en barre chargée —
+  À VÉRIFIER) ; un diagramme non décrit est pris CONSTANT ;
 - un tube rectangulaire relève du cas général (§ 6.3.2.2, courbe d) ; tubes ronds et carrés : pas de déversement ;
 - le couple (λ̄_LT,0 ; β) : (0,2 ; 1,0), UN couple (lot A) — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr calculé sur la
   section brute avec les combinaisons, la distribution réelle des moments et les maintiens, ce que fait le solveur du
@@ -447,14 +451,22 @@ bisymétrique, flexion-torsion « non couvert » pour un monosymétrique comprim
 terme de Wagner ∫M_y·z_j·φ′² (`mcr.py`), charges et maintiens repérés depuis le centre de cisaillement ; § 6.3.2.2 par
 défaut (courbes c/d, b = la plus petite largeur) ; § 6.3.2.3 seulement pour un bisymétrique déclaré « section soudée
 équivalente » (paramètre `prs_soudee_equivalente`, DÉCISION BUREAU n° 10, défaut non coché ; l'autre méthode affichée
-pour information) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableaux E.1 ANB — C₃ seulement pour ψ = 1, les
-autres « valeur à fournir » — et E.2 ANB) ; 6.3.3 : bisymétrique comme un laminé, monosymétrique « non couvert ».
+pour information) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
+selon le signe de ψ_f — 1 de ψ = 1 à 0, puis 0,850 ; 1,3 − 1,2·ψ_f ; 0,55 − ψ_f ; −ψ_f pour ψ_f > 0 ; tableau E.2 ANB ;
+z_g positif quand la charge va vers le centre de cisaillement, annexe E ANB 2(8) ; −0,9 ≤ ψ_f ≤ 0,9, sinon bloqué).
+Sous moments d'extrémité, (E.1) reste sous le solveur (PRS-B, ψ = 0 : 2 093,2 contre 2 274,32 kN·m, Ritz 2 274,31) ;
+6.3.3 : bisymétrique comme un laminé, monosymétrique « non couvert ».
+
+**La bibliothèque, deux lecteurs** : le Catalogue (`api_web/catalogue._def_perso`) relit un PRS bisymétrique du module
+Barres sous le même nom ; il REFUSE un PRS monosymétrique (il ne calcule que des semelles égales) et une dimension
+inconnue — jamais une relecture bisymétrique d'un monosymétrique.
 
 **La preuve** — `tests/test_barre_prs.py` : PRS-A et PRS-B du brief (§ 11.8) à sa tolérance (M_cr à 0,01 kN·m :
 1 241,73 / 715,69 kN·m sous moment constant, 942,71 sans Wagner ; M_b,Rd 797,39 et 617,55 kN·m) ; les « autres tests
 PRS » 1 à 5 ; la section efficace recalculée autrement (un I saisi ; un assemblage de parties efficaces) ; le moteur
-(plats, bibliothèque, barre chargée, laminés inchangés) ; 57 mutations, dont le terme de Wagner retiré ou de signe
-inversé. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
+(plats, bibliothèque, barre chargée, laminés inchangés) ; le sens des charges (efforts imposés, M < 0 : 806,49 kN·m ;
+soulèvement en barre chargée : 1 033,76 ; console : 4 000,51 — trois valeurs recoupées par un solveur de Ritz
+indépendant) ; 76 mutations, dont le terme de Wagner retiré ou de signe inversé. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
 `docs/validation/barres_cas_ltbeam_scia.md`).
 
 ## 6. Les valeurs de référence
