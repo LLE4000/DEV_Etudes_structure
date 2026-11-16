@@ -914,6 +914,8 @@ def mutations():
         ("creux formé à froid de plus de 6 mm laissé dans le domaine", '        hors.append("froid")', "        pass"),
         ("un « nok » hors domaine rendu « hors domaine »", 'if raisons and v["statut"] == OK:', 'if raisons:'),
         # ---- lot B (brief v12) : la méthode ELS
+        ("6.7 — « une seule courbe par axe » retirée (une courbe inconnue passe)", "        if courbe is not None and courbe not in COURBES:\n",
+         "        if False:\n"),
         ("lot B — la variante du fascicule redevient le défaut", '"variante": dev.get("variante", "classeurs")', '"variante": dev.get("variante", "fascicule")'),
         ("lot B — φ_ed des classeurs oublié dans le terme de moment fort (H10)", '    phi_ed = dev["phi"]\n', '    phi_ed = 1.0 if dev["cas"] == "classeurs" else dev["phi"]\n'),
         ("lot B — la ligne du déversement compare M/W à f_y/s (sans φ_d)", "              phi_ed * limite, \"N/mm²\"", "              limite, \"N/mm²\""),
