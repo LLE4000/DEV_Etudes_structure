@@ -83,9 +83,11 @@ def infos_projet(infos: Optional[Dict]) -> Dict:
 
 
 def _motif(cfg, b: Dict) -> Optional[str]:
-    """Pourquoi un assemblage ne part pas dans la note (None : il part) — les mots de l'écran du site."""
+    """Pourquoi un assemblage ne part pas dans la note (None : il part) — les mots de l'écran du site : une pièce
+    au-delà du tableau de l'ANB par la phrase que l'écran écrit sous « Calcul impossible » (``A.phrase_hors_table``,
+    sans nom de classe Python), une autre erreur telle quelle."""
     if b["erreur"]:
-        return f"calcul impossible ({b['erreur']})"
+        return f"calcul impossible ({A.phrase_hors_table(b['erreur']) or b['erreur']})"
     if b["vides"]:
         return "à compléter (dimensions à saisir : " + ", ".join(A._nom_champ(cfg, k) for k in b["vides"]) + ")"
     if b["refus"]:

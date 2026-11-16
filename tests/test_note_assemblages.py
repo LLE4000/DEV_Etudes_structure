@@ -14,20 +14,22 @@ vérifiée en Python ordinaire. Chaque contrôle rougit si l'on retire ce qu'il 
      (acier/rapport_projet.generer_rapport, pymupdf) ont le même texte page à page, les mêmes signets, le même titre,
      le même auteur — la copie nommée du déroulé est liée.
   5. Les REFUS : un assemblage à compléter, à corriger ou dont le calcul est impossible ne part pas dans une note ; le
-     message nomme l'assemblage. Un autre fichier que la note est refusé.
+     message nomme l'assemblage ; une pièce au-delà du tableau de l'ANB se dit par la phrase de l'écran, sans nom de
+     classe Python. Un autre fichier que la note est refusé.
   6. La page de garde : les informations de la note du site (nom, chantier, indice, date) → celles du projet.
   7. Les conditions du NAVIGATEUR : un sous-processus où fontTools, les accélérateurs C, streamlit, numpy,
      matplotlib, pymupdf/fitz, pandas, scipy sont refusés, avec le Pillow factice et les seules polices du paquet de
      la note, fait la note de ``etat_releve`` (tous les générateurs) ; il dit ce qu'elle charge (fichiers du dépôt,
      polices) ; rapport_projet n'importe plus pymupdf en tête.
-  8. MUTATIONS : sans le masque des chaînes, sans la renumérotation, sans le taux de l'écran au récapitulatif, sans
-     les refus — les contrôles qui les gardent rougissent.
+  8. MUTATIONS : sans le masque des chaînes, sans la renumérotation, sans le taux de l'écran au récapitulatif, avec
+     l'erreur brute du refus hors tableau, sans les refus — les contrôles qui les gardent rougissent.
 
     /usr/bin/python3.12 tests/test_note_assemblages.py        (pdftotext, pymupdf et streamlit requis)
 """
 import ast
 import base64
 import copy
+import html
 import json
 import os
 import re
@@ -365,6 +367,29 @@ chk("un assemblage à compléter, à corriger ou dont le calcul est impossible :
 r = json.loads(RT.traiter(json.dumps({"module": "assemblages", "action": "telecharger", "etat": None, "quoi": "autre"})))
 chk("un autre fichier que la note est refusé avec un message", not r["ok"] and "inconnu" in r["erreur"], r)
 
+
+# 3e passe (D2, reste de A9) : une pièce au-delà du tableau de l'ANB — la note la refuse avec la MÊME phrase que l'écran
+# écrit sous « Calcul impossible », sans nom de classe Python (« HorsTable : »)
+hors_table = asm("plat_ame", "V4", (["v", "tp_u"], "300"))
+
+
+def controle_hors_table():
+    """(phrase de la note, phrase de l'écran, message) — la note refusée, sa phrase entre « calcul impossible ( » et
+    « ). », celle du verdict de l'écran (routeur, action « calculer »)."""
+    r, pdf = note(asm("doubles_cornieres", "OK"), hors_table)
+    msg = "" if r.get("ok") or pdf is not None else r.get("erreur", "")
+    m = re.search(r"V4 \(Plat d'âme\) : calcul impossible \((.*)\)\. Corriger", msg)
+    v = re.search(r'<div class="gov"><b>Calcul impossible</b>(.*?)</div>', ecran(hors_table).get("resultat", ""))
+    return (m.group(1) if m else None), (html.unescape(v.group(1)) if v else None), msg
+
+
+ph_note, ph_ecran, msg_ht = controle_hors_table()
+chk("plat d'âme tp = 300 mm : la note est refusée par la phrase de l'écran — « V4 (Plat d'âme) : calcul impossible "
+    "(plat : S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm)) », sans « HorsTable »",
+    ph_note == ph_ecran == "plat : S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm)"
+    and "HorsTable" not in msg_ht,
+    (ph_note, ph_ecran, msg_ht))
+
 # ===================================================================== 6. la garde
 print("— 6. la page de garde")
 r, pdf = note(asm("plat_ame", "A1"), infos={"nom": "Note <b>/RDC", "chantier": "Halle A", "indice": "C", "date": "01/12/2026"})
@@ -508,6 +533,14 @@ try:
 finally:
     NA.A = A
 garde_m = NA._motif
+# le _motif d'avant la 3e passe : l'erreur brute
+NA._motif = lambda cfg, b: (f"calcul impossible ({b['erreur']})" if b["erreur"] else garde_m(cfg, b))
+try:
+    ph_n, ph_e, msg_m = controle_hors_table()
+    chk("mutation : la note écrit l'erreur brute (« calcul impossible (HorsTable : plat : … ») — le contrôle du refus "
+        "hors tableau rougit", not (ph_n == ph_e and "HorsTable" not in msg_m), (ph_n, ph_e))
+finally:
+    NA._motif = garde_m
 NA._motif = lambda cfg, b: None
 try:
     chk("mutation : sans les refus, une note part avec un assemblage à compléter ou à corriger (le contrôle rougit)",

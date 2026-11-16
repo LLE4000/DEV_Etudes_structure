@@ -1298,15 +1298,20 @@ def _solutions(cfg: Config, R) -> List:
     return sols
 
 
+def phrase_hors_table(err: str) -> Optional[str]:
+    """La phrase d'une pièce au-delà du tableau de l'ANB (``err`` : l'erreur de ``calculer``, « HorsTable : … »), telle
+    que le moteur l'a composée (la pièce, la nuance, l'épaisseur, la borne : ``acier/assemblages/materiau
+    .refus_hors_table``), sans nom de classe Python ; None pour une autre erreur. L'écran (``motif_impossible``) et la
+    note PDF (``note_assemblages._motif``) la lisent ici."""
+    classe, sep, phrase = err.partition(" : ")
+    return phrase if sep and classe == "HorsTable" else None
+
+
 def motif_impossible(err: str) -> str:
     """Ce que le verdict écrit sous « Calcul impossible » (``err`` : l'erreur de ``calculer``, « Classe : message »).
-    Une pièce au-delà du tableau de l'ANB (``HorsTable``) se dit par la phrase que le moteur a composée (la pièce, la
-    nuance, l'épaisseur, la borne : ``acier/assemblages/materiau.refus_hors_table``), sans nom de classe Python ; un
-    autre calcul impossible garde « Données incomplètes » et son motif (comme l'écran Streamlit)."""
-    classe, sep, phrase = err.partition(" : ")
-    if sep and classe == "HorsTable":
-        return phrase
-    return "Données incomplètes : " + err
+    Une pièce au-delà du tableau de l'ANB (``HorsTable``) se dit par sa phrase (``phrase_hors_table``) ; un autre
+    calcul impossible garde « Données incomplètes » et son motif (comme l'écran Streamlit)."""
+    return phrase_hors_table(err) or "Données incomplètes : " + err
 
 
 def _bilan(cfg: Config, el: Dict) -> Dict:
