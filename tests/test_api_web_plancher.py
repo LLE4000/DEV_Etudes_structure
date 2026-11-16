@@ -846,6 +846,43 @@ with mutant(DPL, "_nombre", lambda x, ecrire: ecrire(x)):
 with mutant(ET, "mm_fr", str):
     chk("mutation « avis hors table avec le point (300.5 mm) » : le contrôle rougit", ctl_f_illisible_ecran() != [])
 
+
+def ctl_fiche_illisible_suite() -> list:
+    """Contre-vérification du bloc : la même fiche (f = « abc ») sous l'appui, le SÉLECTEUR du répartiteur s'ouvre (il
+    levait ValueError) ; une masse illisible ne le fait plus tomber ; une épaisseur t illisible, à la CONSTRUCTION, se dit
+    en français (« Donnée manquante : could not convert string to float: 'abc' » avant)."""
+    ecarts = []
+    e = etat_f_illisible(True)
+    try:
+        opts = W._options_selecteur(e, cas(e), "rep-E1.P1")
+        if not any("« abc » (illisible)" in o[3] for o in opts):
+            ecarts.append("sélecteur : f illisible non écrit")
+    except Exception as x:  # noqa: BLE001 — c'est le défaut que ce contrôle tient
+        ecarts.append(("sélecteur (f)", type(x).__name__, str(x)[:120]))
+    e = etat_f_illisible(True)
+    e["fiches"]["repartiteurs"][-1].update(f=235.0, masse="abc")
+    try:
+        W._options_selecteur(e, cas(e), "rep-E1.P1")
+    except Exception as x:  # noqa: BLE001
+        ecarts.append(("sélecteur (masse)", type(x).__name__, str(x)[:120]))
+    e = etat_f_illisible(True)
+    e["fiches"]["repartiteurs"][-1].update(f=235.0, t="abc")
+    m = W._calculer(e, cas(e)).get("erreur")
+    if m != "Donnée manquante : la fiche « Tôle abc » a une épaisseur t illisible (« abc ») : à corriger dans la fiche.":
+        ecarts.append(("construction", m))
+    return ecarts
+
+
+ec = ctl_fiche_illisible_suite()
+chk("lot B · fiche illisible sous l'appui : le sélecteur du répartiteur s'ouvre (f, masse) ; t illisible : « Donnée "
+    "manquante : la fiche « Tôle abc » a une épaisseur t illisible (« abc ») » en français", not ec, ec)
+with mutant(W, "_masse", lambda d: float(d.get("masse") or 0.0)):
+    chk("mutation « masse lue sans garde » (le sélecteur tombait) : le contrôle rougit", ctl_fiche_illisible_suite() != [])
+with mutant(DPL, "_nombre", lambda x, ecrire: ecrire(x)):
+    chk("mutation « sélecteur sans garde sur f » : le contrôle rougit", ctl_fiche_illisible_suite() != [])
+with mutant(W, "motif_calcul", lambda etat, c_, e: str(e)):
+    chk("mutation « construction : message Python brut » : le contrôle rougit", ctl_fiche_illisible_suite() != [])
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

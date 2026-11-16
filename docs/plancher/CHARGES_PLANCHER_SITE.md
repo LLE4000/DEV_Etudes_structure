@@ -138,7 +138,10 @@ par le site comme indiqué :
    Lot B (brief v12 § 19.2) : une fiche employée dont une donnée n'est pas un nombre (f = « abc », un fichier modifié à
    la main — l'ouverture le refuse déjà) ne fait plus planter l'écran (la vue Méthode) ; « Calcul impossible » le dit en
    français (« la fiche « Tôle abc » a une résistance f illisible (« abc ») : à corriger dans la fiche. ») au lieu de
-   l'erreur Python, et la note est refusée avec la même phrase. Aucune migration : la fiche reste telle quelle.
+   l'erreur Python, et la note est refusée avec la même phrase. Aucune migration : la fiche reste telle quelle. Le
+   sélecteur du répartiteur s'ouvre (la donnée illisible y est écrite telle quelle) ; une épaisseur, une dimension ou
+   une masse illisible, qui arrête la CONSTRUCTION, se dit de même (« Donnée manquante : la fiche « Tôle abc » a une
+   épaisseur t illisible (« abc ») »).
 3. **Seconde proposition de filière** : l'identifiant d'une filière déjà appliquée (« F1p0 ») est repris (`ref_libre`
    ne connaît que « F1 ») ; deux filières portent le même identifiant et la première devient fantôme. Le site applique
    la même proposition (mêmes profilés, mêmes positions) avec un identifiant libre.
