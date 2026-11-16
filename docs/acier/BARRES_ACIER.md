@@ -350,8 +350,9 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   l'interaction (7.1) (« A-VbM ») quand V_Ed > 0,5·V_bw,Rd et M_Ed > M_f,Rd — vérifiée dans toutes les sections, même à
   moins de h_w/2 d'un appui (du côté sûr) ; sous un effort normal, ou pour un tube, elle est rendue « non couvert ».
   Avec η = 1,00 des laminés (lot A), 55 couples profilé – nuance du catalogue ont une âme élancée en S235, S355 et S460
-  (60 avec le S275) : l'IPE 750x134 en S355, des IPE, IPE A, HEA, HEAA et HL hauts en S460, des tubes minces — 150 avec
-  η = 1,20.
+  (60 avec le S275) : l'IPE 750x134 en S355, des IPE, IPE A, HEA, HEAA et HL hauts en S460, des tubes minces — 147 avec
+  η = 1,20 (170 avec le S275 ; 150 avant le lot A, avec l'ancienne f_y et un seul ε) — compté le 16/11/2026 sur la table
+  actuelle (`ec3_section.lire` puis `ec3_ame.elancement`, ε de l'âme, sur tout le catalogue).
 - **Les LIEUX** où une force appuie sur l'âme : chaque APPUI simple où la barre est POSÉE (la réaction pousse la semelle
   basse) ; chaque CHARGE PONCTUELLE qui pousse la semelle où elle est posée (vers le bas sur la semelle haute, vers le
   haut sous la semelle basse). Un appui « par l'âme » (platine, cornières, gousset), une charge appliquée au centre de
