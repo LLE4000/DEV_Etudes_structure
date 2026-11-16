@@ -218,15 +218,29 @@ def acier_epaisseur(nu, t, perso, materiau=None, piece=""):
     (benchmark) ; None : la table du site.
 
     « Personnalisé » (``perso`` = {"fy", "fu", "bw"} saisis) : inchangé — la
-    f_y saisie avec la réduction historique du module (−10 MPa de 16 à
-    40 mm, −20 au-delà, côté sûr), f_u et β_w tels quels."""
+    f_y saisie avec la réduction historique du module (``reduction_perso`` :
+    −10 MPa de 16 à 40 mm, −20 au-delà, côté sûr), f_u et β_w tels quels.
+
+    Une nuance de la table nomme aussi ``fy_saisie`` : la f_y qu'il faudrait
+    SAISIR en « Personnalisé » pour retrouver la f_y retenue (la règle
+    ci-dessus la réduit) — l'écran la reprend quand la pièce passe en
+    « Personnalisé », sans appliquer deux fois la réduction d'épaisseur."""
     if nu == PERSO:
-        fy = perso.get("fy") or 0
-        if t is not None and t > 16:
-            fy = fy - 10 if t <= 40 else fy - 20
+        fy = (perso.get("fy") or 0) - reduction_perso(t)
         return {"fy": fy, "fu": perso.get("fu") or 0, "bw": perso.get("bw") or 0.9, "t": t, "nominale": fy,
                 "source": "saisie (Personnalisé)"}
-    return MT.lire(nu, t or 0.0, None, materiau, piece)
+    m = MT.lire(nu, t or 0.0, None, materiau, piece)
+    m["fy_saisie"] = m["fy"] + reduction_perso(t)
+    return m
+
+
+def reduction_perso(t):
+    """La réduction historique du module sur une f_y saisie en « Personnalisé »
+    (MPa) selon l'épaisseur ``t`` (mm) : 0 jusqu'à 16 mm, 10 de 16 à 40 mm,
+    20 au-delà (côté sûr, inchangée)."""
+    if t is not None and t > 16:
+        return 10 if t <= 40 else 20
+    return 0
 
 
 def _c(k, l, t="n", o=None, un=None, h=None, si=None):

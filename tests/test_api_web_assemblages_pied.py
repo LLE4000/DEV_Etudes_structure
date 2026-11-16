@@ -994,6 +994,56 @@ mute("bascule sans reprise de la disposition", PI.CV, "vers_manuel", lambda u: d
      lambda: len((lambda e: (A.modifier(e, ["v", "n_ax"], "3"), A.modifier(e, ["v", "mode"], E.MODE_MANUEL), A._actif(e)["values"]["tiges"])[2])(neuf(True))) == 6)
 
 
+# Lot A (reprise) : passer une pièce du pied en « Personnalisé » ne réduit PAS deux fois sa f_y. La reprise remplit
+# f_y avec la valeur de SAISIE équivalente que le moteur nomme (entrees.acier_epaisseur : « fy_saisie »), puis la
+# règle du « Personnalisé » (−10 MPa de 16 à 40 mm, −20 au-delà) rend la f_y retenue avant le passage. Mesuré au
+# commit de base f3a5f6d : platine 25 mm S355, 345 → 335 (taux 79,25 → 80,375 %).
+REPRISES = [("platine 25 mm S355 (calcul à la main)", False, "nu_pl", "p", {}, 345.0, 355.0),
+            ("platine 25 mm S355 (vérification complète)", True, "nu_pl", "p", {}, 345.0, 355.0),
+            ("platine 70 mm S355 (63 < t ≤ 80 : 325)", False, "nu_pl", "p", {"tp_u": "70"}, 325.0, 345.0),
+            ("poteau HEB 300 S355, tf = 19 mm (vérification complète)", True, "nu_c", "c", {"prof_c": "HEB 300"}, 345.0, 355.0)]
+
+
+def reprises_pied():
+    """[(libellé, f_y avant, f_y après le passage en « Personnalisé », f_y reprise dans le champ, attendus)]."""
+    out = []
+    for lib, complet, k, X, extra, fy, saisie in REPRISES:
+        e = neuf(complet)
+        for kk, vv in extra.items():
+            assert A.modifier(e, ["v", kk], vv) is None
+        avant = r_de(e)["fy_" + X]
+        assert A.modifier(e, ["v", k], PERSO) is None
+        out.append((lib, avant, r_de(e)["fy_" + X], A._actif(e)["values"]["fy_u"], fy, saisie))
+    return out
+
+
+def ctrl_reprise():
+    return all(av == ap == fy and rep == sa for _, av, ap, rep, fy, sa in reprises_pied())
+
+
+for lib, av, ap, rep, fy, sa in reprises_pied():
+    chk(f"f_y de la pièce inchangée après passage en Personnalisé — {lib} : {fy:g} avant et après (champ repris : {sa:g})",
+        av == ap == fy and rep == sa, (av, ap, rep))
+mute("reprise de la f_y retenue (réduite deux fois par la règle du « Personnalisé »)", A, "valeur_reprise",
+     lambda m, champ: m.get(champ), ctrl_reprise)
+
+
+def _sans_saisie(f):
+    return lambda *a, **k: {c: v for c, v in f(*a, **k).items() if c != "fy_saisie"}
+
+
+_MM = [importlib.import_module(f"{PAQ}.moteur"), importlib.import_module(f"{PAQ}.manuel.moteur")]
+_ae = [m.acier_epaisseur for m in _MM]
+for m in _MM:
+    m.acier_epaisseur = _sans_saisie(m.acier_epaisseur)
+try:
+    rouge = not ctrl_reprise()
+finally:
+    for m, f in zip(_MM, _ae):
+        m.acier_epaisseur = f
+chk("mutation « le moteur ne nomme pas la f_y de saisie équivalente » : le contrôle de la reprise rougit", rouge)
+
+
 class Abime:
     """Le module d'aiguillage, dont le calcul ajoute 10⁻⁷ à N_Ed."""
 

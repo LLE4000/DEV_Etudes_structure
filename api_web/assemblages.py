@@ -468,8 +468,17 @@ def _reprendre_acier(cfg: Config, u: Dict, k: str, ancien) -> None:
     except Exception:  # noqa: BLE001 — un calcul impossible (pièce hors du tableau…) laisse les champs à remplir
         return
     for cle, champ in PERSO_ACIER:
-        if cle in u and not (u.get(cle) or 0) > 0 and m.get(champ):
-            u[cle] = float(m[champ])
+        x = valeur_reprise(m, champ)
+        if cle in u and not (u.get(cle) or 0) > 0 and x:
+            u[cle] = float(x)
+
+
+def valeur_reprise(m: Dict, champ: str):
+    """La valeur qu'un champ « Personnalisé » reprend d'une pièce (``m`` : son matériau nommé par le moteur) : la
+    valeur de SAISIE équivalente quand le moteur la nomme (``fy_saisie`` du pied de poteau, dont le « Personnalisé »
+    réduit la f_y saisie selon l'épaisseur — reprendre la f_y retenue la réduirait deux fois), sinon la valeur
+    retenue (les six attaches prennent la saisie telle quelle)."""
+    return m.get(champ + "_saisie", m.get(champ))
 
 
 def _lire_saisie(cfg: Config, u: Dict, k: str, valeur):
