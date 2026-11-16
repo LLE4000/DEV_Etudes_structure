@@ -132,8 +132,9 @@ def aciers() -> Dict[str, Dict]:
 
 def paroi_profil(p: Dict) -> float:
     """L'épaisseur qui fixe f_y d'un profilé en I ou H vu comme un tout : sa paroi la plus épaisse max(t_f, t_w) — la
-    plus petite f_y (la règle des barres et du flambement)."""
-    return max(float(p.get("tf") or 0.0), float(p.get("tw") or 0.0))
+    plus petite f_y. LA règle du site, ``acier/flambement/section.epaisseur`` (barres, flambement, soudures), sans copie."""
+    from acier.flambement import section as SEC
+    return SEC.epaisseur(p)
 
 
 def fy_piece(nuance: str, t: float) -> float:

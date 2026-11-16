@@ -218,6 +218,42 @@ chk("S1.1 / S1.2 / S1.3 → une ligne, la pire (0,9, attention), nommée « sous
 grp2 = NT._grouper([v("membrure sous F1 · HEB 140→H2", None, "non_verifie"), v("membrure sous F1 · HEB 140→H3", None, "non_verifie")])
 chk("filière → éléments : une ligne « sous F1 · HEB 140 »", len(grp2) == 1 and grp2[0][1] == 2 and grp2[0][0]["objet"] == "membrure sous F1 · HEB 140")
 
+print("\n=== 7. Lot A, deuxième passe (S2) : une fiche d'acier enregistrée avant la lecture de f_y selon l'épaisseur ===")
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_avis_note() -> bool:
+    """La note du cas complet dont la filière est une fiche HEB 300 enregistrée avant le lot (f = 235, la table donne 225
+    pour t_f = 19 mm) : l'avis est en tête (« À vérifier — … ») ET dans les hypothèses ; la note sans fiche n'en a pas."""
+    e, c = cas_base()
+    c["plancher"]["hourdis"].update({"M_Rd": 60.0, "V_Rd": 80.0, "source": "valeurs d'essai du harnais"})
+    ET.ajouter_charge(e, c, "ponctuel")
+    e["fiches"]["repartiteurs"].append({"nom": "HEB 300 ancienne", "type": "filiere", "materiau": "S235", "f": 235.0, "E": 210000.0,
+                                         "masse": 0.0, "source": "", "section": {"profil": "HEB 300"}})
+    ET.ajouter_filiere(e, c, [c["charges"][0]["ref"]], nom="HEB 300 ancienne", longueur=3.6)
+    _, pages = textes(NT.generer_note(e, c, INFOS))
+    t = sans_espaces(" ".join(pages))
+    _, pages0 = textes(NT.generer_note(*cas_base(), INFOS))
+    return (sans_espaces("À vérifier — « HEB 300 ancienne » : f = 235 N/mm² enregistré ; pour 19 mm, la table donne 225") in t
+            and t.count(sans_espaces("« HEB 300 ancienne » : f = 235 N/mm² enregistré")) >= 2
+            and "enregistré;pour" not in sans_espaces(" ".join(pages0)))
+
+
+chk("S2 · note : l'avis d'une fiche enregistrée avant le lot (HEB 300 à f = 235) en tête et dans les hypothèses", ctl_avis_note())
+with mutant(ET, "avis_materiau", lambda etat, c: []):
+    chk("mutation « aucun avis dans la note » : le contrôle de la note rougit", not ctl_avis_note())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("  ÉCHEC :", nom, info)

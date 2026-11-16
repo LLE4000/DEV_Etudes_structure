@@ -885,7 +885,9 @@ def _calculer(etat: Dict, cas: Dict, verifier: bool = True) -> Dict:
         plancher, charges, reps, params, index = ET.construire(etat, cas)
     except Exception as e:  # noqa: BLE001 — une note qui ne se construit pas se DIT, l'écran reste utilisable
         return {"erreur": f"Donnée manquante : {e}"}
-    out = {"plancher": plancher, "charges": charges, "reps": reps, "params": params, "index": index}
+    # les fiches d'acier enregistrées avec le nombre du nom quand la table donne moins (etat.avis_materiau) : un AVIS
+    out = {"plancher": plancher, "charges": charges, "reps": reps, "params": params, "index": index,
+           "avis": ET.avis_materiau(etat, cas)}
     if verifier:
         try:
             out["res"] = V.verifier(plancher, charges, reps, params)
@@ -1992,6 +1994,8 @@ OU_COMPLETER = [  # (morceau du message du moteur, où le site le règle) — le
     ("Empreinte plus grande que le plateau", "Section 3 : un plateau plus grand que la semelle de l'appui (défaut de l'écran Streamlit, qui "
                                              "s'arrêtait sur ce cas)."),
     ("même référence", "Section 3 : deux charges portent la même référence (fichier modifié à la main) : en retirer une."),
+    ("enregistré ; pour", "Section 5 « Bibliothèque et fiches » : une nouvelle fiche de cet élément, f vide (la f<sub>y</sub> de son "
+                          "épaisseur est lue dans la table), ou garder f s'il a été saisi à dessein."),
 ]
 
 
@@ -2001,13 +2005,15 @@ def _ou_completer(msg: str) -> str:
 
 
 def _alertes(calc: Dict) -> str:
-    """Ce qui doit se lire AVANT les lignes du résultat, sous le verdict : le défaut non conservatif P-3 et les hypothèses
-    que le moteur déclare « attention » (P-8 : étais en place, report sur l'étage inférieur non modélisé)."""
+    """Ce qui doit se lire AVANT les lignes du résultat, sous le verdict : les fiches d'acier dont le f enregistré dépasse la
+    table (``etat.avis_materiau``), le défaut non conservatif P-3 et les hypothèses que le moteur déclare « attention »
+    (P-8 : étais en place, report sur l'étage inférieur non modélisé)."""
     res = calc.get("res")
     if not res or res["statut"] == "refus":
         return ""
-    return _alerte_p3(calc) + "".join(C.message(C.symb_math(_txt(v["methode"])), grave=True) for v in res["verifications"]
-                                      if v["famille"] == "hypothese" and v["statut"] == "attention")
+    avis = "".join(C.message(C.symb_math(_txt(a)) + _ou_completer(a), grave=True) for a in calc.get("avis", []))
+    return avis + _alerte_p3(calc) + "".join(C.message(C.symb_math(_txt(v["methode"])), grave=True) for v in res["verifications"]
+                                             if v["famille"] == "hypothese" and v["statut"] == "attention")
 
 
 def _messages(cas: Dict, calc: Dict) -> str:

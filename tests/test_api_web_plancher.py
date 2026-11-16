@@ -666,6 +666,55 @@ W.gerer_elements(e, "dupliquer", 0)
 chk("compact : copier C1 (par son rang) — la copie s'insère juste après lui, et s'ouvre",
     [c_["nom"] for c_ in e["cas"]] == ["C1 levage en rive", "C1 levage en rive (copie)", "C2"] and e["actif"] == 1, [c_["nom"] for c_ in e["cas"]])
 
+
+
+# ---- lot A, deuxième passe (S2) : une fiche d'acier enregistrée avant la lecture de f_y selon l'épaisseur
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def etat_fiche_ancienne():
+    """L'exemple hourdis dont l'appui E1.P1 est sur une tôle S235 de 25 mm et la filière F1 un HEB 300, deux fiches
+    enregistrées avant le lot (f = 235, le nombre du nom)."""
+    e = W.exemple("hourdis")
+    c = cas(e)
+    e["fiches"]["repartiteurs"] += [
+        {"nom": "Tôle ancienne S235 · 600 × 600 × 25", "type": "plateau", "materiau": "S235", "f": 235.0, "E": 210000.0, "masse": 0.0,
+         "source": "", "t": 25.0, "A": 600.0, "Bp": 600.0},
+        {"nom": "HEB 300 ancienne", "type": "filiere", "materiau": "S235", "f": 235.0, "E": 210000.0, "masse": 0.0, "source": "",
+         "section": {"profil": "HEB 300"}}]
+    c["repartiteurs"]["E1.P1"]["nom"] = "Tôle ancienne S235 · 600 × 600 × 25"
+    c["filieres"][0]["nom"] = "HEB 300 ancienne"
+    return e
+
+
+def ctl_avis_ecran() -> bool:
+    """L'écran dit, en message grave sous le verdict, chaque fiche dont le f enregistré dépasse la table, et où la
+    reprendre ; le taux, lui, reste celui du f enregistré (le calcul ne change pas)."""
+    e = etat_fiche_ancienne()
+    h = W.resultat(e)["resultat"]
+    calc = W._calculer(e, cas(e))
+    return (h.count("N/mm² enregistré ; pour") == 2 and "f = 235 N/mm² enregistré ; pour 25 mm, la table donne 225 (tableau 3.3 ANB, 16 &lt; t ≤ 40 mm)" in h
+            and "pour 19 mm, la table donne 225" in h and h.count("Section 5 « Bibliothèque et fiches »") >= 2
+            and calc["index"]["plateaux"]["E1.P1"].f == 235.0 and calc["index"]["filieres"]["F1"].fy == 235.0
+            and "enregistré ; pour" not in W.resultat(W.exemple("hourdis"))["resultat"])
+
+
+chk("S2 · fiche d'acier enregistrée avant le lot (f = 235 pour 25 mm, HEB 300) : un message grave sous le verdict pour chacune, avec "
+    "« Où compléter » ; le calcul garde la valeur enregistrée ; rien sur l'exemple livré", ctl_avis_ecran())
+with mutant(ET, "avis_materiau", lambda etat, c: []):
+    chk("mutation « aucun avis à l'écran » : le contrôle de l'avis rougit", not ctl_avis_ecran())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

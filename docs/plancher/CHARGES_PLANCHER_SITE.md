@@ -35,7 +35,7 @@ Ce que l'écran Streamlit faisait LUI-MÊME (dans sa vue) a été **extrait mot 
 | balayage et sa phrase | `_balayage` | `balayage`, `legende_balayage` |
 | champ « Parts annexe C » | `_parts_annexe_c` | `lire_parts_annexe_c`, `texte_parts_annexe_c`, `morceaux_ignores` |
 | « Nouvelle fiche d'engin » | `_dialogue_bibliotheque` | `fiche_engin` (+ défauts `APPUIS_FICHE_DEFAUT`, `FICHE_ENGIN_DEFAUT`) |
-| « Nouvel élément de répartition » | `_nouvel_element` | `fiche_repartiteur` (+ `FY_MATERIAU`, `RECTANGLE`) |
+| « Nouvel élément de répartition » | `_nouvel_element` | `fiche_repartiteur` (+ `fy_materiau` : f_y de la nuance à l'épaisseur de l'élément, table unique `acier/materiaux.py` — l'écran d'origine écrivait `FY_MATERIAU` {S235 : 235, S355 : 355}, écart nommé ; `RECTANGLE`) |
 
 `api_web/plancher.py` **met en forme** : il ne calcule rien. Les fenêtres de calcul écrivent les formules avec les valeurs
 que le moteur a nommées (`elements[…]` : `M_G`, `M_Q`, `M_max`, `x_M`, `V_A`, `V_B`, `w_g`, `w_q`, `charges` ;

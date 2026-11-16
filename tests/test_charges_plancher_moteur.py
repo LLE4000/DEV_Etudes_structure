@@ -479,6 +479,53 @@ with mutant(BIB, "_lire", lambda nom: [dict(d, f=235.0) if "acier S235" in d["no
 with mutant(BIB, "paroi_profil", lambda p: float(p["tw"])):
     chk("mutation « profilé pris à son âme t_w » : le contrôle des filières rougit", not ctl_filieres())
 
+
+# ---- lot A, deuxième passe (S2, non conservatif, SANS migration) : les fiches enregistrées avant le lot
+def etat_fiches_anciennes():
+    """Un état dont les fiches « Nouvel élément de répartition » ont été enregistrées AVANT la lecture de f_y selon
+    l'épaisseur (l'ancienne table {S235 : 235, S355 : 355}) : une tôle S235 de 25 mm et une filière HEB 300 S235 à f = 235,
+    à côté d'une fiche neuve de 25 mm (f = 225), d'une tôle de 12 mm (235, juste) et d'un madrier (f saisi, hors acier)."""
+    e = ET.nouvel_etat()
+    c = ET.cas_actif(e)
+    base = {"type": "plateau", "materiau": "S235", "E": 210000.0, "masse": 0.0, "source": "", "A": 600.0, "Bp": 600.0}
+    e["fiches"]["repartiteurs"] += [dict(base, nom="Tôle ancienne 25", f=235.0, t=25.0), dict(base, nom="Tôle neuve 25", f=225.0, t=25.0),
+                                    dict(base, nom="Tôle ancienne 12", f=235.0, t=12.0),
+                                    dict(base, nom="Madrier", materiau="Bois C24", f=14.8, t=75.0),
+                                    {"nom": "HEB 300 ancienne", "type": "filiere", "materiau": "S235", "f": 235.0, "E": 210000.0, "masse": 0.0,
+                                     "source": "", "section": {"profil": "HEB 300"}}]
+    c["repartiteurs"] = {f"X{i}": {"type": "plateau", "nom": n, "dx": 0.0, "dy": 0.0}
+                         for i, n in enumerate(("Tôle ancienne 25", "Tôle neuve 25", "Tôle ancienne 12", "Madrier", "Tôle ancienne 25"))}
+    c["filieres"] = [{"id": "F1", "nom": "HEB 300 ancienne", "longueur": 3.6, "orientation": "y", "x": 3.0, "y": 0.6}]
+    return e, c
+
+
+def ctl_avis_fiches() -> bool:
+    """La valeur enregistrée est GARDÉE (elle a pu être saisie : le calcul ne change pas), et un avis par fiche le dit —
+    « f = 235 N/mm² enregistré ; pour 25 mm, la table donne 225 (tableau 3.3 ANB, 16 < t ≤ 40 mm) : à vérifier » — pour la
+    tôle de 25 mm et la filière HEB 300 (t_f 19 mm) seulement, une fois chacune."""
+    e, c = etat_fiches_anciennes()
+    av = ET.avis_materiau(e, c)
+    _, _, _, _, idx = ET.construire(e, c)
+    return (len(av) == 2 and av[0].startswith("« Tôle ancienne 25 » : f = 235 N/mm² enregistré ; pour 25 mm, la table donne 225 (tableau 3.3 ANB, 16 < t ≤ 40 mm)")
+            and av[0].endswith("à vérifier.") and av[1].startswith("« HEB 300 ancienne » : f = 235 N/mm² enregistré ; pour 19 mm, la table donne 225")
+            and pres(idx["plateaux"]["X0"].f, 235.0) and pres(idx["filieres"]["F1"].fy, 235.0) and pres(idx["plateaux"]["X1"].f, 225.0))
+
+
+chk("S2 · fiche enregistrée avant le lot (f = 235 pour une tôle S235 de 25 mm, une filière HEB 300) : la valeur est gardée, un avis "
+    "le dit (« la table donne 225 … à vérifier ») ; rien pour une fiche neuve, une tôle de 12 mm, un madrier", ctl_avis_fiches(),
+    ET.avis_materiau(*etat_fiches_anciennes()))
+with mutant(ET, "avis_f_enregistre", lambda d, ep: None):
+    chk("mutation « aucun avis » (le défaut d'avant) : le contrôle des fiches anciennes rougit", not ctl_avis_fiches())
+with mutant(BIB, "fy_piece", lambda n, t: MA.fy(n, 10.0)):
+    chk("mutation « avis lu à 10 mm, épaisseur de la fiche ignorée » : le contrôle des fiches anciennes rougit", not ctl_avis_fiches())
+
+# ---- lot A, deuxième passe (S7, R2) : la paroi la plus épaisse d'une filière est LA règle du site (acier/flambement/section.py)
+from acier.flambement import section as SEC  # noqa: E402
+chk("S7 · paroi la plus épaisse d'une filière : section.epaisseur, la règle des barres, du flambement et des soudures (tout le catalogue IPE, HEA, HEB)",
+    all(BIB.paroi_profil(p) == SEC.epaisseur(p) == max(p["tf"], p["tw"]) for p in BIB.profils().values()))
+with mutant(SEC, "epaisseur", lambda p: float(p["tw"])):
+    chk("mutation « section.epaisseur prise à l'âme » : le plancher la suit (le contrôle des filières rougit) — une seule règle", not ctl_filieres())
+
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("  ÉCHEC :", nom, info)

@@ -88,6 +88,7 @@ class Calcul:
         self.etat, self.cas = etat, cas
         self.plancher, self.charges, self.reps, self.params, self.index = ET.construire(etat, cas)
         self.res = V.verifier(self.plancher, self.charges, self.reps, self.params)
+        self.avis = ET.avis_materiau(etat, cas)      # fiches d'acier au f enregistré au-dessus de la table : à vérifier
         self.ctx = ET.contexte_dessin(etat, cas, self.res, self.plancher, self.index)
         self.ctx["impression"] = True             # sans poignées ni invites de clic, sans halo de sélection
         self.svg_plan = DS.plan(self.ctx)[0]
@@ -308,6 +309,10 @@ class Note:
             objets = [v["objet"] + (f" (×{n})" if n > 1 else "") for v, n in _grouper(nv)]
             d.t(M + 9, y, d.fit(f"{len(nv)} ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — "
                                  + " ; ".join(objets), S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
+        for a in C.avis:            # une fiche d'acier au f enregistré au-dessus de la table (etat.avis_materiau)
+            y -= 10
+            d.box(M + 1, y - 0.5, 4.2, 4.2, fill=S.att)
+            d.t(M + 9, y, d.fit("À vérifier — " + a, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
         y -= 12
         d.t(M, y, d.fit(C.ligne_plancher(), S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
         y -= S_DATA * 1.4
@@ -320,7 +325,7 @@ class Note:
     def colonne_plan(self, d, fr):
         S, C = self.S, self.C
         lignes = []
-        textes = list(C.res.get("hypotheses", []))
+        textes = list(C.avis) + list(C.res.get("hypotheses", []))
         for v in C.res.get("verifications", []):          # notes du moteur (P-4, P-8, P-16, chape…), une fois chacune
             if v["famille"] == "hypothese" and v["methode"] not in textes:
                 textes.append(v["methode"])

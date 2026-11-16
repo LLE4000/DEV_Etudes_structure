@@ -19,6 +19,8 @@ import copy
 import json
 from typing import Dict, List, Optional, Tuple
 
+from acier import materiaux as MA
+
 from . import bibliotheque as BIB
 from . import modele as M
 from . import repartiteurs as RP
@@ -189,6 +191,51 @@ def epaisseur_filiere(d: Dict) -> float:
     if sec.get("profil"):
         return BIB.paroi_profil(BIB.profils()[sec["profil"]])
     return min(float(sec["b"]), float(sec["h"]))
+
+
+def avis_f_enregistre(d: Dict, ep: float) -> Optional[str]:
+    """L'avis d'une fiche d'acier dont le f ENREGISTRÉ vaut exactement le nombre du nom (MA.nominale : 235, 355) alors
+    que la table unique donne moins pour son épaisseur décisive ``ep`` (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a ;
+    tableau 3.3 ANB) : une fiche « Nouvel élément de répartition » enregistrée avant la lecture selon l'épaisseur
+    (l'ancienne table {S235 : 235, S355 : 355}) garde ce f, et le calcul l'emploie tel quel — il a pu être saisi. La
+    valeur n'est PAS changée (pas de migration des fichiers) ; l'écran et la note le DISENT. None sinon."""
+    mat, f = d.get("materiau"), d.get("f")
+    if not f or mat not in BIB.aciers():
+        return None
+    try:
+        if float(f) != MA.nominale(mat):
+            return None
+        fy = BIB.fy_piece(mat, ep)
+    except MA.HorsTable as e:
+        return f"« {d['nom']} » : f = {float(f):g} N/mm² enregistré ; {e} : à vérifier."
+    if fy >= float(f):
+        return None
+    src = MA.source(mat, ep, "lamine", "fy")             # « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm »
+    e_fr = f"{ep:g}".replace(".", ",")
+    return (f"« {d['nom']} » : f = {float(f):g} N/mm² enregistré ; pour {e_fr} mm, la table donne {fy:g} "
+            f"({src.split(' (')[0]}, {src.rsplit('), ', 1)[-1]}) : à vérifier.")
+
+
+def avis_materiau(etat: Dict, cas: Dict) -> List[str]:
+    """Les avis ``avis_f_enregistre`` des répartiteurs EMPLOYÉS par le cas (plateaux sous ses appuis, filières posées),
+    une fois par fiche, dans l'ordre du cas : l'écran (``_alertes``) et la note (colonne des hypothèses) les écrivent."""
+    dispo = repartiteurs_disponibles(etat)
+    vus, out = set(), []
+    noms = [rp["nom"] for rp in cas.get("repartiteurs", {}).values() if rp.get("type") == "plateau"] \
+        + [f["nom"] for f in cas.get("filieres", [])]
+    for nom in noms:
+        d = dispo.get(nom)
+        if d is None or nom in vus:
+            continue
+        vus.add(nom)
+        try:
+            ep = float(d["t"]) if d.get("type") == "plateau" else epaisseur_filiere(d)
+        except (KeyError, TypeError, ValueError):
+            continue
+        a = avis_f_enregistre(d, ep)
+        if a:
+            out.append(a)
+    return out
 
 
 def _f_filiere(d: Dict) -> float:
