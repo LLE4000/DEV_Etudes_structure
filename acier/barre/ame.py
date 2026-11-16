@@ -62,7 +62,7 @@ def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
 
 
 def refusee(message: str) -> Dict:
-    """Le bloc d'une barre dont l'âme ne peut pas être vérifiée (une épaisseur hors du tableau 3.1…) : « non couvert »."""
+    """Le bloc d'une barre dont l'âme ne peut pas être vérifiée (une épaisseur au-delà de 80 mm (domaine du module)…) : « non couvert »."""
     J = RE.Journal(METHODE, NORME)
     J.verif("A-AME", "Vérification impossible", NORME, "", None, None, "", [], statut=RE.NON_COUVERT,
             messages=[J.alerte("refus", "attention", message)])

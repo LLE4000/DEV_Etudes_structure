@@ -55,7 +55,7 @@ SAUT = 1e-9                      # l'écart relatif entre les lectures de gauche
 
 
 def _refusee(methode: str, norme: str, message: str) -> Dict:
-    """Le résultat d'une méthode qui REFUSE la barre (une épaisseur hors du tableau 3.1, une section sans courbe…) :
+    """Le résultat d'une méthode qui REFUSE la barre (une épaisseur au-delà de 80 mm (domaine du module), une section sans courbe…) :
     « non couvert », avec le motif — l'autre méthode reste rendue."""
     J = RE.Journal(methode, norme)
     J.verif("E-SECTION" if methode == "ec3" else "H-SIGMA", "Vérification impossible", norme, "", None, None, "", [], statut=RE.NON_COUVERT,
