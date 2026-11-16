@@ -160,29 +160,36 @@ n° 5, tranchée le 16/11/2026) :
 
 l = L_d, distance entre maintiens latéraux de la semelle COMPRIMÉE (donnée distincte de L_cr,y et L_cr,z ; barre
 chargée : celle du tronçon) ; b et t_f de la semelle comprimée (un moment positif comprime la semelle haute) ; C_d saisi,
-1 par défaut (1 à 3). Le 3,9 : √(3π·√2,6) = 3,899 (doc p. 18, torsion de Saint-Venant seule, deux semelles égales),
-gardé comme les classeurs. n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
+1 par défaut (1 à 3 : borne de saisie du module, À VÉRIFIER). Le 3,9 : √(3π·√2,6) = 3,899 (doc p. 18, torsion de
+Saint-Venant seule, deux semelles égales), gardé comme les classeurs ; la note le dit une fois, dans les hypothèses. n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
 faible », un seul choix) : I laminé h/b > 1,2 → b (t_f ≤ 40), c (≤ 80), d au-delà (pas de ligne : note 3, prudent) ;
 h/b ≤ 1,2 → c (≤ 80), d au-delà ; PRS oxycoupé → c (t_f ≤ 40), d au-delà ; larges plats → d ; U → c (fonction seule) ;
-un autre profil : classe « à fournir ». φ_ed = φ_d entre dans le terme de moment fort de H9 et H10 : avec P = 0 et
+un autre profil (I recuit, à semelles additionnelles) : classe « à fournir » — la flexion est non couverte, le flambement
+se calcule. Colonne lue : f_y ≤ 430 N/mm² ; au-delà (S460), la même, et l'hypothèse le dit (À VÉRIFIER : l'autre colonne
+n'est pas dans le brief). Une classe imposée (`historique.classe_d`) est comparée à celle du tableau 12 (alerte). φ_ed = φ_d entre dans le terme de moment fort de H9 et H10 : avec P = 0 et
 C = 1, H10 redonne la vérification des classeurs — la ligne des contraintes n'est alors pas répétée.
 
 Messages (sans changer les valeurs) : C_d > 1 avec la charge sur la semelle haute (« gardez C_d = 1 ») ; PRS : « formule
-prudente : elle néglige le gauchissement » ; PRS monosymétrique : hors domaine, calcul avec la semelle comprimée,
-W = W_el,y,min.
+prudente : elle néglige le gauchissement » sur la ligne, « classes du flambement et du déversement différentes » dans les
+hypothèses ; PRS monosymétrique : hors domaine (H-DEV, H-SIGMA et H-EQ, classeurs ou variante du fascicule), calcul avec
+la semelle comprimée, W = W_el,y,min (déversement et H10). Un PRS dont l'axe de l'âme est l'axe faible (I_y ≤ I_z) :
+verdict bloqué, avec son propre message.
 
 **Les corrections des classeurs** (brief § 6.7) sont NOMMÉES par le moteur (`historique_deversement.CORRECTIONS`) et
 imprimées « Correction du classeur : … » dans la vérification concernée, seulement quand elles jouent sur le cas :
 P_cr avec (u·L)² et φ_min (ligne des contraintes), |V_y| + |V_z| (contrainte équivalente), et pour le déversement :
-(1) φ_d = 1 sous λ̄ = 0,2 ; (2) une classe pour 40 < t_f ≤ 80 mm et pour t_f = 80 mm ; (3) les seuils de 40 et 80 mm
-du tableau 12 (la feuille « Calcul automatique » prenait 100 mm, joue pour 80 < t_f ≤ 100 mm) ; (4) σ_adm,d avec la f_y
-de la nuance (DEVERSEMENT_CAD, feuille S355 : 157) ; (5) la classe du type de profilé ; (6) la ligne « axe faible »
-seule. « Une seule courbe par axe » est un garde-fou de la saisie : il ne joue sur aucun cas calculé. Les choix du
+(1) φ_d = 1 sous λ̄ = 0,2 (la seule ligne qui le dit) ; (2) une classe pour 40 < t_f ≤ 80 mm et pour t_f = 80 mm ;
+(3) les seuils de 40 et 80 mm du tableau 12 (la feuille « Calcul automatique » prenait 100 mm, joue pour
+80 < t_f ≤ 100 mm) ; (4) σ_adm,d avec la f_y de la nuance (DEVERSEMENT_CAD, feuille S355 : 157) — dite à f_y = 355
+seulement, la seule erreur connue (À VÉRIFIER pour une S275) ; (5) la classe du type de profilé ; (6) la ligne « axe
+faible » seule — pas pour un laminé de plus de 80 mm, où les deux lignes donnent sans doute d (À VÉRIFIER : la ligne
+« axe fort » du tableau 12 est à fournir). Une classe imposée : aucune correction de classe. « Une seule courbe par axe » est un garde-fou de la saisie : il ne joue sur aucun cas calculé. Les choix du
 bureau (f_y nominale, s, C, C_d, courbes et classes) ne sont jamais présentés comme des corrections. La page « Écarts
-avec les classeurs du bureau » (lot C) lira la liste `corrections` du résultat.
+avec les classeurs du bureau » (lot C) lira la liste `corrections` du résultat (barre chargée : le texte de l'occurrence
+qui gouverne, car il change d'un tronçon à l'autre).
 
 **Profils fermés** (RHS, caissons ; doc p. 17-18) : λ_ed = √(π·√(E/G)·L_d·W_y / √(I_z·I_t)), G = E/2,6 = 80 769 N/mm²,
-facteur π·√2,6 = 5,0657 (variante « facteur de la doc 5,1 » : λ_ed + 0,338 %), courbe du fascicule (caisson soudé b,
+facteur π·√2,6 = 5,0657 (variante « facteur de la doc 5,1 », `historique.facteur_doc` : λ_ed + 0,338 %), courbe du fascicule (caisson soudé b,
 recuit a ; autres : leur ligne du tableau p. 4). **Tube rond ou carré** : φ_ed = 1, règle complémentaire (EC3
 § 6.3.2.1(2) : I_y = I_z), dite comme telle ; le flambement sous P reste vérifié.
 
@@ -191,7 +198,8 @@ pas (`historique.variante` = « fascicule ») — la semelle comprimée et un si
 I_d = t_f·b³/12, A_d = b·t_f + h_w·t_w/6, λ_ed = L_d/r_d, courbe de l'axe faible du fascicule. Elle sert aux exemples de
 la doc (p. 23, p. 25) et aux anciennes lectures de FLAMBECBD et FLAMBEBAD. La note dit quelle variante décide.
 
-**À savoir** (E8) : les deux formules négligent le gauchissement ; elles sont prudentes pour une poutre haute (PRS-C,
+**À savoir** (E8) : la formule des classeurs néglige le gauchissement (torsion de Saint-Venant seule) ; celle du
+fascicule, la torsion de Saint-Venant (la semelle comprimée vue comme une barre). Elles sont prudentes pour une poutre haute (PRS-C,
 poutre de 28 m : 18 maintiens selon les classeurs, 8 selon l'Eurocode 3). Une semelle comprimée maintenue en continu
 (dalle, bac) donne φ_ed = 1.
 
@@ -463,11 +471,16 @@ raidisseur ») ; 623 formules recalculées par leur gabarit et relues sur leurs 
 
 - p. 6, caisson 100 × 100 × 1 cm, AE235, 20 m : λ̄ 0,522 (0,54), φ_b 0,891 (0,88), P_adm 5582 kN (5500).
 - p. 8, cornière L 60 × 60 × 8, 2 m : λ 170,9 (171), λ̄ 1,820 (1,82), φ_c 0,236 (0,23), P_adm 33,4 kN (32,6).
-- p. 14, HEA 220, 5 m, P = 500 kN, M = 25 kN·m : P_cr 4485 kN (4496), φ_b 0,863 (0,86), σ = 90,1 + 58,3 = 148,4 (149).
+- p. 14, HEA 220, 5 m, P = 500 kN, M = 25 kN·m : P_cr 4485 kN (4496), φ_b 0,863 (0,86), σ = 90,1 + 58,3 = 148,4 (149) ;
+  148,3 avec le HEA 220 du catalogue (la valeur du brief v12).
 - p. 23, poutre HEA 200, 8 m, P = 38 kN, M = 48 kN·m, avec la dispense : φ_c 0,2614 (0,264), σ = 27,0 + 129,6 = 156,6
-  (26 + 130 = 156 ; le brief v12 écrit 129,7 et 156,7) ; sans la dispense (variante du fascicule) : φ_ed 0,307 → 422 N/mm².
+  (26 + 130 = 156) ; 27,0 + 129,7 = 156,7 avec le HEA 200 du catalogue (le brief v12) ; sans la dispense (variante du
+  fascicule) : φ_ed 0,307 → 422 N/mm².
+- L'écart de 0,1 N/mm² vient des DONNÉES, pas de la formule : la doc imprime A et W arrondis (HEA 200 : 53,8 cm² et
+  389 cm³ ; le catalogue : 53,83 et 388,67), le brief a recalculé avec le catalogue. Les deux lectures sont figées.
 - p. 24-25, colonne HEA 300, 6 m, u = 1,5, P = 168 kN, M = 110 kN·m, C = 0,85, variante du fascicule : φ_c 0,4009 (0,4),
-  r_d 8,30 cm, φ_ed 0,676 (0,7), P_cr 4673 kN, PE 0,9461 (0,95), σ = 37,3 + 116,0 = 153,3 (37,3 + 111,5 = 148,8).
+  r_d 8,30 cm, φ_ed 0,676 (0,7), P_cr 4673 kN, PE 0,9461 (0,95), σ = 37,3 + 116,0 = 153,3 (37,3 + 111,5 = 148,8) ;
+  37,3 + 116,1 = 153,3 avec le HEA 300 du catalogue (le brief v12).
 
 ### 6.3 bis Le déversement des classeurs, les lectures cohérentes et les PRS (lot B, brief v12 11.1, 11.1 bis, 11.8, 11.9)
 
