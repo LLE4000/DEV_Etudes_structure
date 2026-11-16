@@ -966,6 +966,39 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_NOM:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du nom sont verts", all(ok_ for _n, ok_, _i in nom_els()))
 
+# ------------------------------------------------------------------ 13. le refus au-delà de 80 mm, à la française (troisième passe)
+from acier.flambement import normes as NO  # noqa: E402
+
+
+def refus_80():
+    """Le refus d'un profilé de paroi > 80 mm tel que l'écran l'écrit : [(nom, vrai ?, info)] (rejoué sous mutation)."""
+    P._RESULTATS.clear()
+    r_ = req(action="calculer", etat=note(barre(profil="HL 920x970")))
+    t_ = " ".join(texte(r_[k]) for k in ("resultat", "volets"))
+    return [("HL 920x970 (semelle de 89,9 mm) : l'écran écrit « épaisseur 89,9 mm > 80 mm : hors du domaine du module », virgule décimale, "
+             "jamais « 89.9 »", "épaisseur 89,9 mm > 80 mm : hors du domaine du module" in t_ and "89.9" not in t_,
+             re.findall(r"épaisseur [^:]*:", t_)[:2])]
+
+
+for nom_, ok_, info_ in refus_80():
+    chk(nom_, ok_, info_)
+vrai_ = NO.limite_elastique
+
+
+def _fy_point(nuance, t, froid=False, produit=None):
+    if t > NO.T_MAX_TABLEAU:                             # l'ancien refus : le nombre écrit par Python (« 89.9 »)
+        raise NO.HorsDomaine(f"épaisseur {t:g} mm > {NO.T_MAX_TABLEAU:g} mm : hors du domaine du module")
+    return vrai_(nuance, t, froid, produit)
+
+
+try:
+    NO.limite_elastique = _fy_point
+    rouges_ = [n_ for n_, ok_, _i in refus_80() if not ok_]
+finally:
+    NO.limite_elastique = vrai_
+    P._RESULTATS.clear()
+chk(f"mutation « troisième passe — refus de 80 mm écrit avec un point décimal » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

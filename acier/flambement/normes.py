@@ -12,6 +12,7 @@ import math
 from typing import Dict, Optional, Tuple
 
 from acier import materiaux as MA
+from acier.formats import f0
 
 E_ACIER = 210000.0                       # N/mm², EN 1993-1-1 §3.2.6
 GAMMA_M0 = 1.0                           # ANB belge
@@ -36,7 +37,9 @@ def limite_elastique(nuance: str, t: float, froid: bool = False, produit: Option
     if nuance not in NUANCES:
         raise HorsDomaine(f"nuance inconnue : {nuance}")
     if t > T_MAX_TABLEAU:
-        raise HorsDomaine(f"épaisseur {t:g} mm > {T_MAX_TABLEAU:g} mm : hors du domaine du module")
+        # le nombre écrit à la française par le formateur des moteurs (acier/formats.f0 : virgule, une décimale seulement si
+        # elle compte) — l'écran et la note l'impriment tel quel (« épaisseur 89,9 mm », HL 920x970)
+        raise HorsDomaine(f"épaisseur {f0(t)} mm > {f0(T_MAX_TABLEAU)} mm : hors du domaine du module")
     try:
         return MA.fy(nuance, t, produit or ("creux_froid" if froid else "lamine"))
     except MA.HorsTable as e:

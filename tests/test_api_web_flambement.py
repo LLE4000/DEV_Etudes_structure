@@ -162,6 +162,12 @@ chk("HD 400×1086 (t_f > 80 mm) : « Calcul impossible » avec le motif, sans ex
     and "80 mm" in r["resultat"] and r["resume"]["niveau"] == "x" and r["volets"] == "")
 chk("… la section se dessine quand même, et le sélecteur reste ouvert pour en changer", r["vues"] and r["vues"][0]["cle"] == "section"
     and 'data-pk="profil"' in r["resultat"])
+e = modif(modif(e0, ["famille"], "HL")["etat"], ["profil"], "HL 920x970")["etat"]
+r = req(action="calculer", etat=e)
+chk("HL 920x970 (semelle de 89,9 mm) : le motif à la française, « épaisseur 89,9 mm > 80 mm : hors du domaine du module » (troisième "
+    "passe du lot A : « 89.9 » avant ; sa mutation est dans tests/test_flambement_moteur.py)",
+    "épaisseur 89,9 mm > 80 mm : hors du domaine du module" in texte(r["resultat"]) and "89.9" not in texte(r["resultat"]),
+    re.findall(r"épaisseur [^:]*:", texte(r["resultat"]))[:1])
 e = modif(e0, ["famille"], "UPN")["etat"]
 r = req(action="calculer", etat=e)
 chk("U : la flexion-torsion non vérifiée est DITE", "flexion-torsion" in r["resultat"])

@@ -38,6 +38,7 @@ import inspect
 import math
 import os
 import random
+import re
 import subprocess
 import sys
 import textwrap
@@ -125,6 +126,15 @@ def controles():
     c("le produit suit la famille : CHS, SHS, RHS finis à chaud ; CHS-F, SHS-F, RHS-F formés à froid ; laminés sinon (I, H, U, cornières)",
       [SE.produit(CAT.par_nom()[n]) for n in ("SHS 400x400x20", "RHS 200x100x5 (froid)", "HEA 200", "L 100x100x10", "UPN 200")]
       == ["creux_chaud", "creux_froid", "lamine", "lamine", "lamine"])
+    # le refus au-delà de 80 mm : le nombre écrit à la française (troisième passe du lot A : « 89.9 mm » s'imprimait avec un
+    # point, à l'écran et dans la note) — les 13 HD et HL de paroi > 80 mm du catalogue
+    epais80 = [p for p in CAT.profils() if p["famille"] in SE.FABRICATION and SE.epaisseur(p) > NO.T_MAX_TABLEAU]
+    motifs = {p["nom"]: MO.verifier(barre(profil=p["nom"]))["motif"] for p in epais80}
+    c("refus au-delà de 80 mm, à la française : « épaisseur 89,9 mm > 80 mm : hors du domaine du module » (HL 920x970), "
+      "« 115,1 mm » (HL 920x1269), « 97 mm » (HD 400x818) — aucun point décimal sur les 13 HD et HL concernés",
+      len(motifs) == 13 and motifs.get("HL 920x970") == "épaisseur 89,9 mm > 80 mm : hors du domaine du module"
+      and motifs.get("HL 920x1269", "").startswith("épaisseur 115,1 mm > 80 mm") and motifs.get("HD 400x818.0", "").startswith("épaisseur 97 mm >")
+      and not any(re.search(r"\d\.\d", m_ or "") for m_ in motifs.values()), {k: motifs[k] for k in list(motifs)[:2]})
     r = MO.verifier(barre(profil="SHS 400x400x20", nuance="S355"))
     c("SHS 400×400×20 S355 (fini à chaud, t = 20 mm) : f_y = 345, lue au tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm",
       r["section"]["fy"] == 345 and r["section"]["source_fy"] == "tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm", r["section"].get("source_fy"))
@@ -428,6 +438,11 @@ def mutations():
     def fy_sans_40(nuance, t, froid=False, produit=None):
         return sauf["limite_elastique"](nuance, min(t, 40.0), froid, produit)
 
+    def fy_point(nuance, t, froid=False, produit=None):
+        if t > NO.T_MAX_TABLEAU:                         # l'ancien refus : le nombre écrit par Python (« 89.9 »)
+            raise NO.HorsDomaine(f"épaisseur {t:g} mm > {NO.T_MAX_TABLEAU:g} mm : hors du domaine du module")
+        return sauf["limite_elastique"](nuance, t, froid, produit)
+
     def fy_sans_16(nuance, t, froid=False, produit=None):
         return sauf["limite_elastique"](nuance, 16.0 if 16.0 < t <= 40.0 else t, froid, produit)
 
@@ -481,6 +496,7 @@ def mutations():
         ("f_y nominale, sans épaisseur", lambda: setattr(NO, "limite_elastique", fy_sans_epaisseur)),
         ("f_y sans la réduction au-delà de 40 mm", lambda: setattr(NO, "limite_elastique", fy_sans_40)),
         ("palier à 16 mm oublié (16 < t ≤ 40 lu comme t ≤ 16)", lambda: setattr(NO, "limite_elastique", fy_sans_16)),
+        ("troisième passe — refus de 80 mm écrit avec un point décimal (« 89.9 mm »)", lambda: setattr(NO, "limite_elastique", fy_point)),
         ("ε de la semelle donné à l'âme (une seule f_y, celle de la paroi la plus épaisse)", lambda: setattr(MO, "_t_fy", lambda p, pa: SE.epaisseur(p))),
         ("classe de chaque paroi avec l'ε de la SECTION (λ̄_p par paroi gardé)",
          lambda: setattr(MO, "_section", section_mutee('NO.classe_paroi(pa["type"], pa["c_t"], d["epsilon"])', 'NO.classe_paroi(pa["type"], pa["c_t"], eps)'))),
