@@ -715,6 +715,84 @@ chk("S2 · fiche d'acier enregistrée avant le lot (f = 235 pour 25 mm, HEB 300)
 with mutant(ET, "avis_materiau", lambda etat, c: []):
     chk("mutation « aucun avis à l'écran » : le contrôle de l'avis rougit", not ctl_avis_ecran())
 
+# ---- lot A, troisième passe (E1, E2) : l'avis S2 ne fait jamais planter l'écran ; sa variante « hors table » dit où compléter
+import inspect  # noqa: E402
+import textwrap  # noqa: E402
+
+
+def fonction_mutee(fn, avant: str, apres: str):
+    """``fn`` réécrite d'UN remplacement dans SA source (mutation de SOURCE) ; « avant » doit y figurer une fois, sinon la
+    mutation est périmée et la suite s'arrête."""
+    src = textwrap.dedent(inspect.getsource(fn))
+    if src.count(avant) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {fn.__name__})")
+    ns = dict(sys.modules[fn.__module__].__dict__)
+    exec(compile(src.replace(avant, apres), fn.__code__.co_filename, "exec"), ns)
+    return ns[fn.__name__]
+
+
+def etat_f_illisible(sous_charge: bool):
+    """L'exemple hourdis et une fiche de plateau dont f n'est pas un nombre (« abc » : un fichier modifié à la main — le site
+    la refuse déjà à la relecture, W.normaliser) : sous l'appui E1.P1 (le calcul ne peut pas aboutir), ou nommée par un
+    répartiteur qu'aucune charge n'emploie (le calcul aboutit)."""
+    e = W.exemple("hourdis")
+    c = cas(e)
+    e["fiches"]["repartiteurs"].append({"nom": "Tôle abc", "type": "plateau", "materiau": "S235", "f": "abc", "E": 210000.0,
+                                        "masse": 0.0, "source": "", "t": 25.0, "A": 600.0, "Bp": 600.0})
+    if sous_charge:
+        c["repartiteurs"]["E1.P1"]["nom"] = "Tôle abc"
+    else:
+        c["repartiteurs"]["ZZ.P9"] = {"type": "plateau", "nom": "Tôle abc", "dx": 0.0, "dy": 0.0}
+    return e
+
+
+def ctl_f_illisible() -> bool:
+    """E1 : sous l'appui, « Calcul impossible » (le message d'avant l'avis S2), sans exception ; hors de toute charge, le
+    calcul aboutit ; aucun avis dans les deux cas (un f illisible n'est pas un « f enregistré »)."""
+    try:
+        e, e2 = etat_f_illisible(True), etat_f_illisible(False)
+        calc, calc2 = W._calculer(e, cas(e)), W._calculer(e2, cas(e2))
+        msg = W._messages(cas(e), calc)
+    except Exception:  # noqa: BLE001 — c'est le défaut que ce contrôle tient
+        return False
+    return (calc.get("erreur", "").startswith("Calcul impossible") and "res" not in calc and calc["avis"] == []
+            and "Calcul impossible" in msg and calc2.get("res", {}).get("statut") not in (None, "refus") and calc2["avis"] == [])
+
+
+SANS_GARDE_E1 = ("except (TypeError, ValueError):", "except ():")     # le float(f) nu de la deuxième passe
+
+
+def etat_hors_table():
+    """L'exemple hourdis dont l'appui E1.P1 est sur une tôle S235 de 300 mm enregistrée à f = 235 : la table s'arrête à
+    250 mm (tableau 3.3 ANB) — l'avis S2 dans sa variante « hors table »."""
+    e = W.exemple("hourdis")
+    e["fiches"]["repartiteurs"].append({"nom": "Tôle 300", "type": "plateau", "materiau": "S235", "f": 235.0, "E": 210000.0,
+                                        "masse": 0.0, "source": "", "t": 300.0, "A": 600.0, "Bp": 600.0})
+    cas(e)["repartiteurs"]["E1.P1"]["nom"] = "Tôle 300"
+    return e
+
+
+def ctl_hors_table_ecran() -> bool:
+    """E2 : la variante « hors table » sort comme l'autre — message grave sous le verdict ET son « Où compléter » (un seul, le
+    sien : un f vide y serait refusé) ; la variante « pour 25 mm » garde le sien."""
+    h = W.resultat(etat_hors_table())["resultat"]
+    msg = next((m for m in re.findall(r'<div class="msg grave">.*?</div>', h) if "N/mm² enregistré ; " in m), "")
+    h2 = W.resultat(etat_fiche_ancienne())["resultat"]
+    msg2 = next((m for m in re.findall(r'<div class="msg grave">.*?</div>', h2) if "enregistré ; pour 25 mm" in m), "")
+    return ("le tableau 3.3 ANB s'arrête à 250 mm" in msg and msg.count("Où compléter") == 1
+            and "la table s'arrête avant cette épaisseur" in msg and "f vide" not in msg
+            and msg2.count("Où compléter") == 1 and "f vide" in msg2 and "la table s'arrête avant" not in msg2)
+
+
+chk("E1 · une fiche au f illisible (« abc ») : sous l'appui, « Calcul impossible » comme avant l'avis S2, sans exception ; "
+    "hors de toute charge, le calcul aboutit ; aucun avis", ctl_f_illisible())
+with mutant(ET, "avis_f_enregistre", fonction_mutee(ET.avis_f_enregistre, *SANS_GARDE_E1)):
+    chk("mutation de source « float(f) sans garde » (la régression de la deuxième passe) : le contrôle E1 rougit", not ctl_f_illisible())
+chk("E2 · l'avis S2 « hors table » (tôle S235 de 300 mm à f = 235) : message grave ET son « Où compléter » ; l'autre variante "
+    "garde le sien", ctl_hors_table_ecran())
+with mutant(W, "OU_COMPLETER", [x for x in W.OU_COMPLETER if x[0] != "(f_y) : à vérifier"]):
+    chk("mutation « variante hors table sans Où compléter » (le défaut d'avant) : le contrôle E2 rougit", not ctl_hors_table_ecran())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

@@ -203,16 +203,22 @@ def avis_f_enregistre(d: Dict, ep: float) -> Optional[str]:
     if not f or mat not in BIB.aciers():
         return None
     try:
-        if float(f) != MA.nominale(mat):
+        f = float(f)
+    except (TypeError, ValueError):
+        # un f illisible (fichier modifié à la main) n'est pas un avis : le calcul le refuse lui-même, dans son chemin
+        # gardé (« Calcul impossible »), comme avant l'avis — l'avis ne doit jamais faire planter l'écran ni la note
+        return None
+    try:
+        if f != MA.nominale(mat):
             return None
         fy = BIB.fy_piece(mat, ep)
     except MA.HorsTable as e:
-        return f"« {d['nom']} » : f = {float(f):g} N/mm² enregistré ; {e} : à vérifier."
-    if fy >= float(f):
+        return f"« {d['nom']} » : f = {f:g} N/mm² enregistré ; {e} : à vérifier."
+    if fy >= f:
         return None
     src = MA.source(mat, ep, "lamine", "fy")             # « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm »
     e_fr = f"{ep:g}".replace(".", ",")
-    return (f"« {d['nom']} » : f = {float(f):g} N/mm² enregistré ; pour {e_fr} mm, la table donne {fy:g} "
+    return (f"« {d['nom']} » : f = {f:g} N/mm² enregistré ; pour {e_fr} mm, la table donne {fy:g} "
             f"({src.split(' (')[0]}, {src.rsplit('), ', 1)[-1]}) : à vérifier.")
 
 

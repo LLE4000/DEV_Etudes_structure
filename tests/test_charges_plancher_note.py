@@ -254,6 +254,45 @@ chk("S2 · note : l'avis d'une fiche enregistrée avant le lot (HEB 300 à f = 2
 with mutant(ET, "avis_materiau", lambda etat, c: []):
     chk("mutation « aucun avis dans la note » : le contrôle de la note rougit", not ctl_avis_note())
 
+print("\n=== 8. Lot A, troisième passe (E1) : l'avis S2 ne fait jamais planter la note ===")
+import inspect  # noqa: E402
+import textwrap  # noqa: E402
+
+from api_web import plancher as WP  # noqa: E402
+
+
+def fonction_mutee(fn, avant: str, apres: str):
+    """``fn`` réécrite d'UN remplacement dans SA source (mutation de SOURCE) ; « avant » doit y figurer une fois, sinon la
+    mutation est périmée et la suite s'arrête."""
+    src = textwrap.dedent(inspect.getsource(fn))
+    if src.count(avant) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {fn.__name__})")
+    ns = dict(sys.modules[fn.__module__].__dict__)
+    exec(compile(src.replace(avant, apres), fn.__code__.co_filename, "exec"), ns)
+    return ns[fn.__name__]
+
+
+def ctl_note_f_illisible() -> bool:
+    """E1 : une fiche de plateau au f illisible (« abc », fichier modifié à la main) nommée par un répartiteur qu'aucune charge
+    n'emploie : le calcul aboutit, donc la note se fait (deux pages), sans avis — comme avant l'avis S2."""
+    e = WP.exemple("hourdis")
+    c = ET.cas_actif(e)
+    e["fiches"]["repartiteurs"].append({"nom": "Tôle abc", "type": "plateau", "materiau": "S235", "f": "abc", "E": 210000.0,
+                                        "masse": 0.0, "source": "", "t": 25.0, "A": 600.0, "Bp": 600.0})
+    c["repartiteurs"]["ZZ.P9"] = {"type": "plateau", "nom": "Tôle abc", "dx": 0.0, "dy": 0.0}
+    try:
+        calc = NT.Calcul(e, c)
+        doc, _ = textes(NT.generer_note(e, c, INFOS))
+    except Exception:  # noqa: BLE001 — c'est le défaut que ce contrôle tient
+        return False
+    return calc.avis == [] and doc.page_count == 2
+
+
+chk("E1 · note : une fiche au f illisible hors de toute charge — la note se fait, sans avis ni exception", ctl_note_f_illisible())
+with mutant(ET, "avis_f_enregistre", fonction_mutee(ET.avis_f_enregistre, "except (TypeError, ValueError):", "except ():")):
+    chk("mutation de source « float(f) sans garde » (la régression de la deuxième passe) : le contrôle de la note rougit",
+        not ctl_note_f_illisible())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("  ÉCHEC :", nom, info)

@@ -1996,6 +1996,11 @@ OU_COMPLETER = [  # (morceau du message du moteur, où le site le règle) — le
     ("même référence", "Section 3 : deux charges portent la même référence (fichier modifié à la main) : en retirer une."),
     ("enregistré ; pour", "Section 5 « Bibliothèque et fiches » : une nouvelle fiche de cet élément, f vide (la f<sub>y</sub> de son "
                           "épaisseur est lue dans la table), ou garder f s'il a été saisi à dessein."),
+    # la variante « hors table » du même avis (etat.avis_f_enregistre : « … enregistré ; S235 laminé de 300 mm : le tableau
+    # 3.3 ANB s'arrête à 250 mm (f_y) : à vérifier. ») — là, un f vide serait refusé : la table ne donne rien
+    ("(f_y) : à vérifier", "Section 5 « Bibliothèque et fiches » : la table s'arrête avant cette épaisseur (elle ne donne pas "
+                           "f<sub>y</sub>) : garder f s'il a été saisi à dessein, sinon une nouvelle fiche de cet élément avec le f "
+                           "du fournisseur."),
 ]
 
 
