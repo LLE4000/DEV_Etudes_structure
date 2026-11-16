@@ -14,7 +14,7 @@ Tableau 3.3 dans des replis (rien ne se perd, tout est dans ``md(at)``).
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
@@ -371,7 +371,7 @@ def onglet_predim(R, u, ecrire):
     for r in rows:
         c = st.columns([1, 0.6, 0.8, 1.6, 1, 1, 1, 1, 1, 1.3], vertical_alignment="center")
         fort = "**" if r is p.pick else ""
-        vals = (r.b["n"], js_str(r.n), js_str(r.Lc), nom_cornière_proposee(r), pct(r.e.bS), pct(r.e.pdS),
+        vals = (r.b["n"], js_str(r.n), nb(r.Lc), nom_cornière_proposee(r), pct(r.e.bS), pct(r.e.pdS),
                 pct(r.e.bP), pct(r.e.pdP), pct(r.eta))
         for cc, v in zip(c[:9], vals):
             cc.markdown(f"{fort}{v}{fort}")

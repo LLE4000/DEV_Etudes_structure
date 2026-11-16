@@ -21,7 +21,7 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
@@ -48,11 +48,11 @@ INSEC = "\u00a0"
 
 def lignes_entete(R):
     u = R.u
-    l1 = ("Platine " + js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl)
+    l1 = ("Platine " + nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl)
           + "    |    " + " + ".join(EL.nom(e) + " en (" + F(e["x"], 0) + " ; " + F(e["y"], 0) + ")" + (" tourné" if e["rot"] else "")
                                      for e in R.elems)
           + ("    |    " + js_str(len(R.raid)) + " raidisseur(s)" if R.raid else "")
-          + "    |    Massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton))
+          + "    |    Massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " " + str(u.beton))
     l2 = ("Boulons " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " : "
           + ", ".join("(" + F(t["x"], 0) + " ; " + F(t["y"], 0) + ")" for t in R.tiges)
           + " · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0)
@@ -306,8 +306,8 @@ class PlanPrincipeMan(PlanPrincipe):
             else "sans raidisseur"
         cases = [("ASSEMBLAGE", "Platine sur béton – calcul manuel", ident or "—", 0.17),
                  ("ÉLÉMENTS SOUDÉS", elems, raid, 0.20),
-                 ("PLATINE · MASSIF", js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl),
-                  "massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton)
+                 ("PLATINE · MASSIF", nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl),
+                  "massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " " + str(u.beton)
                   + " · mortier " + F(u.t_g, 0) + " · a " + F(u.a_w, 1).replace(",0", ""), 0.19),
                  ("BOULONS", fix, vis, 0.225),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),

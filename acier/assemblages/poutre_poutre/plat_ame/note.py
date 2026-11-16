@@ -20,7 +20,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from ndc_pdf.kit import Doc, Frame, chip, mix
 from ndc_pdf.styles import Encre
 from ndc_pdf import data as ndc_data
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
@@ -56,7 +56,7 @@ def lignes_entete(R):
     grugee = bool(N(u.d_nt) or N(u.d_nb))
     l1 = ("Principale " + _prof(R, "P") + " " + u.nu_P
           + "    |    Secondaire " + _prof(R, "S") + " " + u.nu_S + (" · grugée" if grugee else "")
-          + "    |    Plat " + js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl)
+          + "    |    Plat " + nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl)
     l2 = ("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + " · trous Ø" + F(R.d_0, 0)
           + (" surdim." if u.trou != "Normal" else "")
           + "    |    Groupe " + js_str(R.n_1) + " × " + js_str(R.n_2) + " (1 plan)"
@@ -512,7 +512,7 @@ class PlanPrincipeFP(PlanPrincipe):
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
         cases = [("ASSEMBLAGE", "Poutre–poutre – plat d'âme soudé", ident or "—", 0.185),
                  ("POUTRES", "P : " + _prof(R, "P") + " " + u.nu_P, "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
-                 ("PLAT", js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl,
+                 ("PLAT", nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl,
                   "zp " + F(N(u.z_C), 0) + " mm", 0.165),
                  ("FIXATIONS", fix, vis, 0.27),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),

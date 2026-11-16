@@ -13,7 +13,7 @@ servent aussi le calcul manuel (manuel/ecran.py)."""
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc, C_TRAIT,
@@ -309,7 +309,7 @@ def _parametres_retenus(R):
     g = [["Périmètre", "EN 1993-1-8 seule — béton d'ancrage (EN 1992-4) en information" if R.perim_ec3
           else "Complet — EN 1993-1-8 + EN 1992-4"],
          ["Poteau", R.nom_c + " " + str(u.nu_c) + " – fy = " + F(R.fy_c, 0) + " MPa"],
-         ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
+         ["Platine", nb(N(u.bp_u)) + " × " + nb(N(u.lp_u)) + " × " + nb(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur)"],
          ["Tiges", js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – d0 = " + F(R.d0, 0) + " mm, As = "
           + F(R.As, 0) + " mm² – " + ancrage_txt(u) + (" mm" if champ_visible(u, "d_h") else "")],

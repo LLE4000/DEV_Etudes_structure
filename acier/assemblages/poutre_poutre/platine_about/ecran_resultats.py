@@ -11,7 +11,7 @@ dans des replis (rien ne se perd, tout est dans ``md(at)``)."""
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
@@ -51,7 +51,7 @@ def bandeau(R):
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
     if R.pred:
         bloc_alerte("Mode prédimensionnement : " + R.boulon + ", " + js_str(R.n_1) + " rangées × 2, platine "
-                    + js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + ". " + R.pd.msg, False)
+                    + nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + ". " + R.pd.msg, False)
 
 
 # ------------------------------------------------------------------ alertes
@@ -210,7 +210,7 @@ def _tableau_33(R):
 
 def _parametres_retenus(R):
     g = [["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm – " + js_str(R.n_1) + " rangées × 2 files"],
-         ["Platine", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(R.u.nu_pl)],
+         ["Platine", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(R.u.nu_pl)],
          ["Modèle", R.mod],
          ["Groupe de boulons : branche retenue", R.branche_g + " = " + F(R.FRd_g, 1) + " kN"],
          ["Effort par boulon Fv,Ed = VEd/n", F(R.Fv_Ed, 2) + " kN"],
@@ -265,8 +265,8 @@ def onglet_predim(R, u, ecrire):
                     with st.container(border=True):
                         retenue = r is p.pick
                         st.markdown(f"**{r.b['n']} – {r.n} rangées × 2**  \nplatine {r.hp} × "
-                                    + js_str(r.prop.bp if r.prop else 0) + " × "
-                                    + js_str(r.prop.tp if r.prop else 0) + " mm")
+                                    + nb(r.prop.bp if r.prop else 0) + " × "
+                                    + nb(r.prop.tp if r.prop else 0) + " mm")
                         st.caption(f"e1 {r.e1} / p1 {r.p1} / p3 {r.p3} mm  \ntaux estimé " + pct(r.eta)
                                    + (" – retenue par défaut" if retenue else
                                       ("" if r.ok else " – au-dessus du taux cible de " + pct(N(u.get("eta_c"))))))
@@ -283,7 +283,7 @@ def onglet_predim(R, u, ecrire):
         ["Hauteur de la platine hp = max(2·e1 + (n1 − 1)·p1 ; 0,6·h)",
          f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
         ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-        ["Platine proposée", js_str(p.hp) + " × " + js_str(p.bp) + " × " + js_str(p.tp) + " mm – gorge a = " + js_str(p.a) + " mm"],
+        ["Platine proposée", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
         ["Taux estimé (boulons, âme portée, âme porteuse)", pct(p.eta, 1)], ["État", p.msg]]))
     st.markdown("#### Épaisseur nécessaire par vérification")
     st.markdown(tableau_md(["Vérification", "Épaisseur"], [[q[0], F(q[1], 2) + " mm"] for q in p.reqs], droite=(1,)))
@@ -294,7 +294,7 @@ def onglet_predim(R, u, ecrire):
     for r in rows:
         c = st.columns([1, 0.6, 0.8, 1, 1, 1, 1, 1.3], vertical_alignment="center")
         fort = "**" if r is p.pick else ""
-        vals = (r.b["n"], js_str(r.n), js_str(r.hp), pct(r.e.bv), pct(r.e.vwS), pct(r.e.pdP), pct(r.eta))
+        vals = (r.b["n"], js_str(r.n), nb(r.hp), pct(r.e.bv), pct(r.e.vwS), pct(r.e.pdP), pct(r.eta))
         for cc, v in zip(c[:7], vals):
             cc.markdown(f"{fort}{v}{fort}")
         with c[7]:

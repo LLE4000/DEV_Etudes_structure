@@ -33,7 +33,7 @@ from acier.assemblages.pied_poteau.platine_beton.manuel import (benchmark as BMA
                                                                methode as MEM, schemas as SMA, synthese as YMA,
                                                                texte as TMA)
 from acier.bibliotheques import DB, PERSO, find
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 
 from . import assemblages as A
@@ -314,7 +314,7 @@ def parametres_complet(R) -> list:
     g = [["Périmètre", "EN 1993-1-8 seule — béton d'ancrage (EN 1992-4) en information" if R.perim_ec3
           else "Complet — EN 1993-1-8 + EN 1992-4"],
          ["Poteau", R.nom_c + " " + str(u.nu_c) + " – fy = " + F(R.fy_c, 0) + " MPa"],
-         ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
+         ["Platine", nb(N(u.bp_u)) + " × " + nb(N(u.lp_u)) + " × " + nb(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur)"],
          ["Tiges", js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – d0 = " + F(R.d0, 0) + " mm, As = "
           + F(R.As, 0) + " mm² – " + E.ancrage_txt(u) + (" mm" if E.champ_visible(u, "d_h") else "")],
@@ -341,7 +341,7 @@ def parametres_manuel(R) -> list:
     """manuel/ecran._parametres_retenus (calcul manuel)."""
     u = R.u
     return [["Mode", "Calcul manuel — critère " + R.plaque["critere"] + " ; appui : " + ("toute la platine" if R.plein else "bande c")],
-            ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
+            ["Platine", nb(N(u.bp_u)) + " × " + nb(N(u.lp_u)) + " × " + nb(N(u.tp_u)) + " mm " + str(u.nu_pl)
              + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur), fu = " + F(R.fu_p, 0)],
             ["Éléments soudés", " + ".join(f"{EL.nom(e)} en ({F(e['x'], 0)} ; {F(e['y'], 0)})" + (" tourné 90°" if e["rot"] else "") for e in R.elems) or "—"],
             ["Raidisseurs", ", ".join(f"({F(r['x'], 0)} ; {F(r['y'], 0)}) {r['dir']} L {F(r['L'], 0)} t {F(r['t'], 0)}" for r in R.raid) or "—"],

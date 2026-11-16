@@ -22,7 +22,7 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
@@ -47,11 +47,11 @@ def lignes_entete(R):
     est cotée sur le plan de principe."""
     u = R.u
     l1 = ("Poteau " + R.nom_c + " " + str(u.nu_c)
-          + "    |    Platine " + js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl)
-          + "    |    Massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " "
+          + "    |    Platine " + nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl)
+          + "    |    Massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " "
           + str(u.beton) + (" fissuré" if u.fiss == OUI else " non fissuré"))
     l2 = ("Tiges " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " (" + js_str(int(u.n_ax)) + " files × "
-          + js_str(int(u.n_ay)) + " rangées, " + js_str(N(u.w_x)) + " × " + js_str(N(u.w_y)) + ") · "
+          + js_str(int(u.n_ay)) + " rangées, " + nb(N(u.w_x)) + " × " + nb(N(u.w_y)) + ") · "
           + ancrage_txt(u, True) + " · hef " + F(u.hef, 0)
           + "    |    Mortier " + F(u.t_g, 0) + " mm, " + F(u.f_g, 0) + " MPa"
           + "    |    Cordons a " + F(u.a_w, 1).replace(",0", ""))
@@ -256,16 +256,16 @@ class PlanPrincipePB(PlanPrincipe):
         x0, y0, w, h = M, M, W - 2 * M, CART_H
         d.box(x0, y0, w, h, stroke=S.ink, lw=0.9)
         fix = ("Tiges " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – trous Ø" + F(R.d0, 0)
-               + " – " + js_str(int(u.n_ax)) + " × " + js_str(int(u.n_ay)) + " (" + js_str(N(u.w_x)) + " × "
-               + js_str(N(u.w_y)) + ") · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
+               + " – " + js_str(int(u.n_ax)) + " × " + js_str(int(u.n_ay)) + " (" + nb(N(u.w_x)) + " × "
+               + nb(N(u.w_y)) + ") · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
         vis = "par tige : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
         # Le rédacteur saisi (id_red) est porté au cartouche — un champ saisi et jamais lu était un
         # défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie"), u.get("id_red")) if x)
         cases = [("ASSEMBLAGE", "Pied de poteau – platine sur béton", ident or "—", 0.185),
                  ("POTEAU · MASSIF", R.nom_c + " " + str(u.nu_c),
-                  "massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton), 0.165),
-                 ("PLATINE", js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl),
+                  "massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " " + str(u.beton), 0.165),
+                 ("PLATINE", nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl),
                   "mortier " + F(u.t_g, 0) + " mm · cordons a " + F(u.a_w, 1).replace(",0", ""), 0.165),
                  ("TIGES D'ANCRAGE", fix, vis, 0.27),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),

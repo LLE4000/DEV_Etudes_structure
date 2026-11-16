@@ -10,7 +10,7 @@ dans des replis (rien ne se perd, tout est dans ``md(at)``)."""
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
@@ -51,7 +51,7 @@ def bandeau(R):
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
     if R.pred:
         bloc_alerte("Mode prédimensionnement : " + R.boulon + ", " + js_str(R.n_1) + " rangées, plat "
-                    + js_str(R.h_p) + " × " + js_str(R.t_p) + ". " + R.pd.msg, False)
+                    + nb(R.h_p) + " × " + nb(R.t_p) + ". " + R.pd.msg, False)
 
 
 # ------------------------------------------------------------------ alertes
@@ -215,7 +215,7 @@ def _tableau_33(R):
 
 def _parametres_retenus(R):
     g = [["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm"],
-         ["Plat", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(R.u.nu_pl)],
+         ["Plat", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(R.u.nu_pl)],
          ["Excentricité z : face de l'âme porteuse → centre du groupe", F(R.zeff, 1) + " mm"],
          ["Moment d'excentricité MS = VEd·z + |MEd|", F(R.M_S, 2) + " kNm"],
          ["Modèle", R.mod],
@@ -271,7 +271,7 @@ def onglet_predim(R, u, ecrire):
                     with st.container(border=True):
                         retenue = r is p.pick
                         st.markdown(f"**{r.b['n']} – {r.n} rangées** ({r.var})  \nplat {r.hp} × "
-                                    + js_str(r.prop.tp if r.prop else 0) + " mm")
+                                    + nb(r.prop.tp if r.prop else 0) + " mm")
                         st.caption(f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} mm  \ntaux estimé " + pct(r.eta)
                                    + (" – retenue par défaut" if retenue else
                                       ("" if r.ok else " – au-dessus du taux cible de " + pct(N(u.get("eta_c"))))))
@@ -286,7 +286,7 @@ def onglet_predim(R, u, ecrire):
         ["e1 / p1 / e2 = e2,b", f"{p.e1} / {p.p1} / {p.e2} mm"],
         ["Hauteur du plat hp = 2·e1 + (n1 − 1)·p1", f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
         ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-        ["Plat proposé", js_str(p.hp) + " × " + js_str(p.bp) + " × " + js_str(p.tp) + " mm – gorge a = " + js_str(p.a) + " mm"],
+        ["Plat proposé", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
         ["Taux estimé (boulons et pression diamétrale de l'âme)", pct(p.eta, 1)], ["État", p.msg]]))
     st.markdown("#### Épaisseur nécessaire par vérification")
     st.markdown(tableau_md(["Vérification", "Épaisseur"], [[q[0], F(q[1], 2) + " mm"] for q in p.reqs], droite=(1,)))
@@ -297,7 +297,7 @@ def onglet_predim(R, u, ecrire):
     for r in rows:
         c = st.columns([1, 0.6, 0.9, 0.8, 1, 1, 1, 1.3], vertical_alignment="center")
         fort = "**" if r is p.pick else ""
-        vals = (r.b["n"], js_str(r.n), r.var, js_str(r.hp), pct(r.e.bS), pct(r.e.pdS), pct(r.eta))
+        vals = (r.b["n"], js_str(r.n), r.var, nb(r.hp), pct(r.e.bS), pct(r.e.pdS), pct(r.eta))
         for cc, v in zip(c[:7], vals):
             cc.markdown(f"{fort}{v}{fort}")
         with c[7]:

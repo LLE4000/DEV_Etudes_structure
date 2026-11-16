@@ -45,7 +45,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find, idx
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
-from acier.formats import F, f0
+from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
@@ -677,5 +677,5 @@ def apply_solution(u0, r):
 
 def solution_label(r):
     """« M20, 4 rangées, plat 290 × 10 »."""
-    return (r.b["n"] + ", " + js_str(r.n) + " rangées, plat " + js_str(r.hp) + " × "
-            + js_str(r.prop.tp))
+    return (r.b["n"] + ", " + js_str(r.n) + " rangées, plat " + nb(r.hp) + " × "
+            + nb(r.prop.tp))

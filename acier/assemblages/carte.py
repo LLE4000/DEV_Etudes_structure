@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 import streamlit as st
 
 from acier.js import N, js_str
+from acier.formats import nb
 from .ui_commun import titre_bloc, sous_titre_bloc
 
 LARG_TITRE = 76          # la case des titres de bloc (px)
@@ -613,7 +614,8 @@ def traiter_clic(D, retour, cle_cmp, u, derivee=None):
     for k, v in (changes or {}).items():
         if k in D.CHAMPS:
             st.session_state[K(D, k)] = valeur_widget(D, k, v)
-            ecrits.append(libelle_long(D, k, u) + " = " + js_str(valeur_widget(D, k, v)))
+            w = valeur_widget(D, k, v)
+            ecrits.append(libelle_long(D, k, u) + " = " + (nb(w) if isinstance(w, float) else js_str(w)))
         elif derivee is not None:
             txt = derivee(k, v)
             if txt:

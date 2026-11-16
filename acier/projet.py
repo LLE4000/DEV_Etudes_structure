@@ -16,6 +16,8 @@ HTML d'origine (type détecté par l'appelant).
 import re
 from copy import deepcopy
 
+from acier.formats import nb
+
 VERSION = "projet-assemblages-1.0"
 PREFIXE_REPERE = "A"
 CLES_INFOS = ("nom_projet", "partie", "date", "indice")
@@ -68,8 +70,9 @@ def description(values):
     elif u.get("prof_c") or u.get("bp_u"):
         # pied de poteau : profilé (ou éléments soudés du calcul manuel), platine, massif
         def _n(k):
+            # la dimension comme son champ l'écrit, à la virgule (« 260,5 », jamais « 260.5 » : lot B)
             try:
-                return f"{float(u.get(k) or 0):g}"
+                return nb(float(u.get(k) or 0))
             except (TypeError, ValueError):
                 return "?"
         manuel = str(u.get("mode") or "").startswith("Calcul manuel")
@@ -95,7 +98,7 @@ def description(values):
         except (TypeError, ValueError):
             v = 0.0
         if v:
-            morceaux.append(f"{lab} = {v:g} {'kNm' if lab.startswith('M') else 'kN'}")
+            morceaux.append(f"{lab} = {nb(v)} {'kNm' if lab.startswith('M') else 'kN'}")
     return " · ".join(morceaux)
 
 

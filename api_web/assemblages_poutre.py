@@ -20,7 +20,7 @@ from acier.assemblages.poutre_poutre.platine_about import (benchmark as BPB, ent
                                                           methode as MEPB, moteur as MPB, notation as NPB, schemas as SPB,
                                                           synthese as YPB, texte as TPB)
 from acier.bibliotheques import DB, ORI_P, ORI_S, PERSO, find
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 
 from . import assemblages as A
@@ -190,7 +190,7 @@ def detail_predim_pa(p):
             ["e1 / p1 / e2 = e2,b", f"{p.e1} / {p.p1} / {p.e2} mm"],
             ["Hauteur du plat hp = 2·e1 + (n1 − 1)·p1", f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
             ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Plat proposé", js_str(p.hp) + " × " + js_str(p.bp) + " × " + js_str(p.tp) + " mm – gorge a = " + js_str(p.a) + " mm"],
+            ["Plat proposé", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
             ["Taux estimé (boulons et pression diamétrale de l'âme)", pct(p.eta, 1)], ["État", p.msg]]
 
 
@@ -209,7 +209,7 @@ def detail_predim_pb(p):
             ["Entraxe des files p3 (≥ 90 mm, rondelle hors cordon)", f"{p.p3} mm"],
             ["Hauteur de la platine hp = max(2·e1 + (n1 − 1)·p1 ; 0,6·h)", f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
             ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Platine proposée", js_str(p.hp) + " × " + js_str(p.bp) + " × " + js_str(p.tp) + " mm – gorge a = " + js_str(p.a) + " mm"],
+            ["Platine proposée", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
             ["Taux estimé (boulons, âme portée, âme porteuse)", pct(p.eta, 1)], ["État", p.msg]]
 
 
@@ -252,7 +252,7 @@ def _sections_pa(u, R, el):
 def _parametres_pa(R):
     """Les paramètres retenus de l'écran Streamlit (plat_ame/ecran_resultats._parametres_retenus) — copie nommée."""
     return [["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm"],
-            ["Plat", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(R.u.nu_pl)],
+            ["Plat", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(R.u.nu_pl)],
             ["Excentricité z : face de l'âme porteuse → centre du groupe", F(R.zeff, 1) + " mm"],
             ["Moment d'excentricité MS = VEd·z + |MEd|", F(R.M_S, 2) + " kNm"],
             ["Modèle", R.mod],
@@ -269,12 +269,12 @@ def _piece_pa(R, u, grp):
     if grp == "Boulons":
         return boulons_texte(R, u, f"{js_str(R.n_1)} × {js_str(R.n_2)}"), ("" if R.pred else "boulon")
     if grp == "Plat d'âme":
-        return C.esc(f"{js_str(R.h_p)} × {js_str(R.b_p)} × {js_str(R.t_p)} mm"), ""
+        return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre secondaire":
         return piece_profil(u, "S")
     if grp == "Poutre principale":
         return piece_profil(u, "P")
-    return C.esc(f"gorge a = {js_str(R.a_w)} mm"), ""
+    return C.esc(f"gorge a = {nb(R.a_w)} mm"), ""
 
 
 A.enregistrer(A.Config(
@@ -284,9 +284,9 @@ A.enregistrer(A.Config(
     non_reverifies=NON_REVERIFIES_PA, dimensions=dimensions(EPA),
     tableaux_boulons=lambda R: [("groupe", R.tab)],
     predim={"apply": MPA.apply_solution, "label": MPA.solution_label,
-            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {js_str(r.hp)}×{js_str(r.prop.tp)}",
+            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {nb(r.hp)}×{nb(r.prop.tp)}",
             "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": [("variante", lambda r: r.var), ("h<sub>p</sub> (mm)", lambda r: js_str(r.hp)),
+            "colonnes": [("variante", lambda r: r.var), ("h<sub>p</sub> (mm)", lambda r: nb(r.hp)),
                          ("η boulons", lambda r: pct(r.e.bS)), ("η p. diam. âme", lambda r: pct(r.e.pdS))],
             "detail": detail_predim_pa, "regle": REGLE_PA,
             "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} mm"}))
@@ -358,7 +358,7 @@ def _piece_dc(R, u, grp):
         g = [f"S {js_str(R.n1_S)}×{js_str(R.n2_S)}" if R.bolt_S else "", f"P {js_str(R.n1_P)}×{js_str(R.n2_P)}" if R.bolt_P else ""]
         return C.esc(f"{R.boulon} {u.get('classe')} · " + " · ".join(x for x in g if x)), ("" if R.pred else "boulon")
     if grp == "Cornières":
-        return C.esc(f"2 {R.corn_txt} · hc {js_str(R.L_C)}"), ("" if R.pred else "corniere")
+        return C.esc(f"2 {R.corn_txt} · hc {nb(R.L_C)}"), ("" if R.pred else "corniere")
     if grp == "Poutre secondaire":
         return piece_profil(u, "S")
     if grp == "Poutre principale":
@@ -418,7 +418,7 @@ A.enregistrer(A.Config(
     predim={"apply": MDC.apply_solution, "label": MDC.solution_label,
             "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · {MDC.nom_cornière_proposee(r)}",
             "col": lambda r: r.Lc, "unite_col": "h<sub>c</sub> mm",
-            "colonnes": [("h<sub>c</sub> (mm)", lambda r: js_str(r.Lc)), ("Cornière", MDC.nom_cornière_proposee),
+            "colonnes": [("h<sub>c</sub> (mm)", lambda r: nb(r.Lc)), ("Cornière", MDC.nom_cornière_proposee),
                          ("η boulons S", lambda r: pct(r.e.bS)), ("η p. diam. âme S", lambda r: pct(r.e.pdS)),
                          ("η boulons P", lambda r: pct(r.e.bP)), ("η p. diam. âme P", lambda r: pct(r.e.pdP))],
             "detail": detail_predim_dc, "regle": REGLE_DC,
@@ -449,7 +449,7 @@ def _sections_pb(u, R, el):
 def _parametres_pb(R):
     """Les paramètres retenus de l'écran Streamlit (platine_about/ecran_resultats._parametres_retenus)."""
     g = [["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm – " + js_str(R.n_1) + " rangées × 2 files"],
-         ["Platine", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(R.u.nu_pl)],
+         ["Platine", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(R.u.nu_pl)],
          ["Modèle", R.mod],
          ["Groupe de boulons : branche retenue", R.branche_g + " = " + F(R.FRd_g, 1) + " kN"],
          ["Effort par boulon Fv,Ed = VEd/n", F(R.Fv_Ed, 2) + " kN"],
@@ -469,12 +469,12 @@ def _piece_pb(R, u, grp):
     if grp == "Boulons":
         return boulons_texte(R, u, f"2 × {js_str(R.n_1)}"), ("" if R.pred else "boulon")
     if grp == "Platine":
-        return C.esc(f"{js_str(R.h_p)} × {js_str(R.b_p)} × {js_str(R.t_p)} mm"), ""
+        return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre secondaire":
         return piece_profil(u, "S")
     if grp == "Poutre principale":
         return piece_profil(u, "P")
-    return C.esc(f"gorge a = {js_str(R.a_w)} mm"), ""
+    return C.esc(f"gorge a = {nb(R.a_w)} mm"), ""
 
 
 A.enregistrer(A.Config(
@@ -483,9 +483,9 @@ A.enregistrer(A.Config(
     affichage=AFFICHAGE, segments=SEGMENTS, formules=lambda R, c: A.lignes_texte(R, c, FPB.textes),
     parametres=_parametres_pb, piece=_piece_pb, non_reverifies=NON_REVERIFIES_PB, dimensions=dimensions(EPB),
     predim={"apply": MPB.apply_solution, "label": MPB.solution_label,
-            "nom": lambda r: f"2×{js_str(r.n)} {r.b['n']} · {js_str(r.hp)}×{js_str(r.prop.bp)}×{js_str(r.prop.tp)}",
+            "nom": lambda r: f"2×{js_str(r.n)} {r.b['n']} · {nb(r.hp)}×{nb(r.prop.bp)}×{nb(r.prop.tp)}",
             "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": [("h<sub>p</sub> (mm)", lambda r: js_str(r.hp)), ("η boulons", lambda r: pct(r.e.bv)),
+            "colonnes": [("h<sub>p</sub> (mm)", lambda r: nb(r.hp)), ("η boulons", lambda r: pct(r.e.bv)),
                          ("η âme portée", lambda r: pct(r.e.vwS)), ("η p. diam. P", lambda r: pct(r.e.pdP))],
             "detail": detail_predim_pb, "regle": REGLE_PB,
             "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / p3 {r.p3} mm"}))

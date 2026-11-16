@@ -25,7 +25,7 @@ from acier.bibliotheques import DB, PERSO, find, idx
 from acier.assemblages import materiau as MT
 from acier.assemblages import ductilite as DU
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
-from acier.formats import F, f0
+from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince, EffortBoulon
 from acier import resistances as RS
 from .entrees import defaults, NUM, MODE_PREDIM
@@ -606,5 +606,5 @@ def apply_solution(u0, r):
 
 def solution_label(r):
     """« M20, 3 rangées, plat 190 × 10 »."""
-    return (r.b["n"] + ", " + js_str(r.n) + " rangées, plat " + js_str(r.hp) + " × "
-            + js_str(r.prop.tp))
+    return (r.b["n"] + ", " + js_str(r.n) + " rangées, plat " + nb(r.hp) + " × "
+            + nb(r.prop.tp))

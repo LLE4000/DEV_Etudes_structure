@@ -23,7 +23,7 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc
 from ndc_pdf import data as ndc_data
-from acier.formats import F
+from acier.formats import F, nb
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
@@ -46,7 +46,7 @@ def lignes_entete(R):
     l1 = ("Poteau " + _prof(R, "P") + " " + u.nu_P + " · appui : " + str(R.appui).lower()
           + "    |    Poutre portée " + _prof(R, "S") + " " + u.nu_S + (" · grugée" if grugee else "")
           + (" · semelles recoupées" if R.ame and N(u.rec_S) > 0 else "")
-          + "    |    Platine " + js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl)
+          + "    |    Platine " + nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl)
     l2 = ("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + " · trous Ø" + F(R.d_0, 0)
           + (" surdim." if u.trou != "Normal" else "")
           + "    |    Groupe " + js_str(R.n_1) + " × 2 (p3 " + F(R.p_3, 0) + ", 1 plan)"
@@ -179,7 +179,7 @@ class PlanPrincipePP(PlanPrincipe):
                   "appui : " + str(R.appui).lower() + (" · " + ident if ident else ""), 0.225),
                  ("POTEAU · POUTRE", "P : " + _prof(R, "P") + " " + u.nu_P,
                   "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
-                 ("PLATINE", js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl,
+                 ("PLATINE", nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl,
                   "zp " + F(N(u.z_C), 0) + " mm"
                   + (" · recoupe " + F(N(u.rec_S), 0) + " mm" if R.ame and N(u.rec_S) > 0 else ""), 0.155),
                  ("FIXATIONS", fix, vis, 0.245),

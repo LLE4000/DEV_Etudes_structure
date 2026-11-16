@@ -29,7 +29,7 @@ import math
 from acier.bibliotheques import DB, PERSO, find, idx
 from acier.assemblages import materiau as MT
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
-from acier.formats import F, f0
+from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from .entrees import defaults, NUM, MODE_PREDIM, NAT_TYING
@@ -673,5 +673,5 @@ def apply_solution(u0, r):
 
 def solution_label(r):
     """« M20, 3 rangées, platine 190 × 150 × 10 »."""
-    return (r.b["n"] + ", " + js_str(r.n) + " rangées, platine " + js_str(r.hp) + " × "
-            + js_str(r.prop.bp) + " × " + js_str(r.prop.tp))
+    return (r.b["n"] + ", " + js_str(r.n) + " rangées, platine " + nb(r.hp) + " × "
+            + nb(r.prop.bp) + " × " + nb(r.prop.tp))

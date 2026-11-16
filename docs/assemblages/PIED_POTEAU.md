@@ -141,7 +141,12 @@ l'outil (VAL-A), sans exemple publié rejoué. D'où deux décisions :
   n'y entrent pas. La raison se dit UNE fois, dans le verdict ; l'avis
   `ancr_info` dit quoi faire (passer au périmètre complet) ; la phrase
   d'information se tait. Le taux s'écrit par le formateur de l'écran
-  (`formats.a_pct` : « au-delà de 999 % », jamais « 1550,4 % »).
+  (`formats.a_pct` : « au-delà de 999 % », jamais « 1550,4 % »). Les
+  dimensions et efforts saisis (en-tête, pièces, fenêtres, texte, note ; les
+  six autres attaches aussi) s'écrivent comme leur champ, à la virgule
+  (`formats.nb`, copie nommée de `commun.nb`, liée par un test : « platine
+  500×500×260,5 », jamais « 260.5 ») ; restent à point les renvois de clause
+  et les classes.
 - **Épaisseur requise** (`R.plaque`, vérification `tpq`, en tête du tableau
   Platine et du bloc « Épaisseur de la platine — le calcul à la main ») :
   `tp ≥ max(tc ; tN ; tM ; tT)` —

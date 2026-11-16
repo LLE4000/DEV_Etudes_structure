@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 from acier.js import js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from . import synthese, formules
 from .notation import ref_courte
 
@@ -30,10 +30,10 @@ def construire_texte(R, complet=False):
          + (" — " + R.gov.label if R.gov else ""), ""]
     L += ["Données : principale " + str(u.prof_P) + " " + str(u.nu_P) + " ; secondaire "
           + str(u.prof_S) + " " + str(u.nu_S)
-          + " ; platine " + js_str(R.h_p) + "x" + js_str(R.b_p) + "x" + js_str(R.t_p) + " " + str(u.nu_pl)
+          + " ; platine " + nb(R.h_p) + "x" + nb(R.b_p) + "x" + nb(R.t_p) + " " + str(u.nu_pl)
           + " ; boulons " + R.boulon + " " + str(u.classe) + " (" + js_str(R.n_1) + " × 2, p3 = "
-          + js_str(R.p_3) + " mm)"
-          + " ; a = " + js_str(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
+          + nb(R.p_3) + " mm)"
+          + " ; a = " + nb(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
           # la nature (ELU / tying) seulement en traction : NEd < 0 imprimait « (Tying (accidentel)) »
           # (lot « vocabulaire », consolidation du 01/11/2026 — même règle que la carte, entrees.traction)
           + ((" ; NEd = " + F(u.N_Ed, 1) + " kN" + (" (" + str(u.nat_N) + ")" if u.N_Ed > 0 else "")) if u.N_Ed else ""),

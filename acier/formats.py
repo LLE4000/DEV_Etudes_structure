@@ -6,13 +6,17 @@
                  typographique « − » ;
 - ``pct(e, n)`` : pourcentage, « > 999 % » au-delà de 9,99, « — » si absent ; ``a_pct`` : « à 107,7 % » ;
 - ``f_ecart(x, ref)`` : ``f0``, ou la décimale qui départage ``x`` de ``ref`` (« 80,04 mm > 80 mm ») ;
-- ``mm_fr(texte)`` : les épaisseurs d'un message de la table (« 260.5 mm ») écrites à la virgule.
+- ``mm_fr(texte)`` : les épaisseurs d'un message de la table (« 260.5 mm ») écrites à la virgule ;
+- ``nb(x, dec)`` : une valeur saisie écrite telle quelle, à la virgule (« 260,5 ») — le formateur de l'écran
+  (copie nommée de ``api_web.commun.nb``), pour les dimensions des en-têtes, textes et notes.
 
 Ces trois fonctions écrivent les chaînes ``vals`` des vérifications, les
 explications chiffrées des alertes, l'export texte et les cotes des dessins :
 elles font partie de la parité.
 """
+import decimal
 import math
+import numbers
 import re
 
 from .js import to_fixed, js_round
@@ -36,6 +40,40 @@ def f0(x):
         return "—"
     n = 1 if abs(x - js_round(x)) > 0.05 else 0
     return F(x, n).replace("-", "−", 1)
+
+
+def fixe(x, nd):
+    """``x`` écrit avec ``nd`` décimales (point décimal), arrondi DEMI VERS L'EXTÉRIEUR sur la valeur binaire exacte :
+    la règle des moteurs (``acier.js.to_fixed``), appelée — pas recopiée. La précision décimale est élargie pour qu'un
+    très grand nombre (1e30) s'écrive au lieu de lever. Le signe d'un zéro est ôté : jamais « -0 ». Un nombre de numpy
+    passe d'abord en nombre Python (``to_fixed`` tronquait un numpy.float32 à l'entier). Copie NOMMÉE de
+    ``api_web.commun._fixe`` (l'écran) ; tests/test_api_web_assemblages.py § 14 les lie."""
+    x = int(x) if isinstance(x, numbers.Integral) else float(x)
+    with decimal.localcontext() as ctx:
+        ctx.prec = 420                            # 309 chiffres pour le plus grand flottant, plus les décimales
+        s = to_fixed(x, int(nd))
+    if s.startswith("-") and not s.strip("-0."):
+        s = s[1:]
+    return s
+
+
+def nb(x, dec=3):
+    """Une valeur saisie (coefficient, dimension) écrite telle quelle, sans arrondi au-delà de ``dec`` décimales :
+    1,25 reste 1,25 (un format de taux en ferait « 1,2 »), 210000 reste 210000 (seuls les zéros APRÈS la virgule
+    s'ôtent), 0,5 à zéro décimale donne 1 (demi vers l'extérieur). Pas de séparateur de milliers (``num`` les pose
+    dans un champ). Le chiffre écrit est relu et comparé à la valeur ; jamais « -0 » ; « — » si non fini. Le
+    formateur de l'écran (copie NOMMÉE de ``api_web.commun.nb``, liée par tests/test_api_web_assemblages.py § 14), ici
+    pour que les en-têtes, textes et notes des moteurs écrivent une dimension comme son champ (« platine 500×500×260,5 »,
+    jamais « 260.5 » ; lot B)."""
+    if x is None:
+        return ""
+    if not _fini(float(x)):
+        return "—"
+    s = fixe(float(x), dec)
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    assert abs(float(s) - float(x)) <= 0.5 * 10 ** -dec * (1 + 1e-9) + 1e-12 * max(1.0, abs(float(x))), (x, s)
+    return s.replace(".", ",")
 
 
 def pct(e, n=0):
