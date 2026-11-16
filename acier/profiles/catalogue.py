@@ -44,7 +44,8 @@ AIDE_COLONNES = {
     "d_ame": "Hauteur droite de l'âme entre congés : h − 2·tf − 2·r.",
     "perimetre": "Surface extérieure par mètre (peinture), périmètre du contour extérieur.",
     "Avz": "Aire de cisaillement, effort parallèle à l'âme — EN 1993-1-1 §6.2.6(3), sans le plancher η·hw·tw.",
-    "Avy": "Aire de cisaillement, effort parallèle aux semelles — EN 1993-1-1 §6.2.6(3).",
+    "Avy": ("Aire de cisaillement, effort parallèle aux semelles — valeur géométrique du catalogue ; pour un I ou H laminé, le "
+            "module Barres (Eurocode 3) en prend une autre, que la fiche du profilé donne."),
     "Wel_y": "Module élastique minimal (fibre la plus éloignée).",
     "Wel_z": "Module élastique minimal (fibre la plus éloignée : bout d'aile pour un U).",
     "It": "Constante de torsion : Saint-Venant sur le contour exact (laminés), EN 10210-2 annexe B (creux).",

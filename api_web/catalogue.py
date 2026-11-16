@@ -735,8 +735,41 @@ def _v(p: Dict, c: str) -> str:
     return f"({t})" if x < 0 else t
 
 
-def _fx(cle: str, parts: List[str], p: Dict, res: Optional[str] = None) -> Dict:
-    return {"cle": cle, "parts": parts, "res": res if res is not None else _p(p, cle) + _u(cle), "niveau": ""}
+def _fx(cle: str, parts: List[str], p: Dict, res: Optional[str] = None, note: str = "") -> Dict:
+    """Une ligne « symbole = formule = valeurs = résultat » ; ``note`` : une précision écrite après la ligne (vide : rien)."""
+    return {"cle": cle, "parts": parts, "res": res if res is not None else _p(p, cle) + _u(cle), "niveau": "", "note": note}
+
+
+def avy_barres(p: Dict) -> Optional[float]:
+    """A_v,y (cm²) que prend le module Barres (Eurocode 3) pour ce profilé, LUE dans son moteur — la section qu'il lit au
+    catalogue (``acier/barre/section.du_catalogue``) passée à ``acier/barre/ec3_section.aires_cisaillement``, avec son η
+    (``ec3_ame.eta_de``, paramètres par défaut) : une seule source, rien n'est réécrit ici. None quand le module ne le
+    prend pas comme un I ou un H laminé (profilé personnalisé, famille hors du module)."""
+    from acier.barre import ec3_ame as BA
+    from acier.barre import ec3_section as BE
+    from acier.barre import parametres as BP
+    from acier.barre import section as BS
+    q = CAT.par_nom().get(p.get("nom"))
+    if q is None or q.get("dims") != p.get("dims"):
+        return None
+    try:
+        s = BS.du_catalogue(q["nom"])
+    except ValueError:
+        return None
+    if s["forme"] != "I" or s["fabrication"] != "lamine":
+        return None
+    return BE.aires_cisaillement(s, BA.eta_de(s, BP.jeu()))["y"] / 1e2
+
+
+# A_v,y d'un I ou H : ce que la ligne montre, et ce que prend le module Barres (ses deux valeurs sont lues, aucune n'est
+# recalculée ici) — R2 : la Bibliothèque ne garde pas une seconde vérité sous le même symbole sans le dire
+AVY_GEOMETRIQUE = "valeur géométrique du catalogue"
+AVY_BARRES = "le module Barres (Eurocode 3) prend pour ce I ou H laminé A_v,y = {v} cm² (décision du bureau)"
+
+
+def _note_avy(p: Dict) -> str:
+    v = avy_barres(p)
+    return AVY_GEOMETRIQUE + ("" if v is None else " ; " + AVY_BARRES.format(v=CAT.formater(v, "Avy")))
 
 
 def formules(p: Dict) -> List[tuple]:
@@ -776,7 +809,8 @@ def formules(p: Dict) -> List[tuple]:
     if forme in ("I", "I_conique"):
         g.append(_fx("Avz", ["A_v,z", "A − 2·b·t_f + (t_w + 2·r)·t_f",
                              f"{_v(p, 'A')} − 2 × {_cm(b)} × {_cm(tf)} + ({_cm(tw)} + 2 × {_cm(r)}) × {_cm(tf)}"], p))
-        g.append(_fx("Avy", ["A_v,y", "A − (h − 2·t_f)·t_w", f"{_v(p, 'A')} − ({_cm(h)} − 2 × {_cm(tf)}) × {_cm(tw)}"], p))
+        g.append(_fx("Avy", ["A_v,y", "A − (h − 2·t_f)·t_w", f"{_v(p, 'A')} − ({_cm(h)} − 2 × {_cm(tf)}) × {_cm(tw)}"], p,
+                     note=_note_avy(p)))
     elif forme in ("U", "U_conique"):
         g.append(_fx("Avz", ["A_v,z", "A − 2·b·t_f + (t_w + r)·t_f",
                              f"{_v(p, 'A')} − 2 × {_cm(b)} × {_cm(tf)} + ({_cm(tw)} + {_cm(r)}) × {_cm(tf)}"], p))
@@ -842,7 +876,9 @@ def fenetre_fiche(p: Dict) -> str:
     f = F.FAMILLES[p["famille"]]
     hyps = [f"<b>{C.esc(p['nom'])}</b> · {C.esc(f['libelle'])}", C.esc(f["norme"]), "ρ = 7 850 kg/m³ (EN 1991-1-1 tab. A.4)",
             "contour exact · congés à 36 segments", "y-y : axe fort · z-z : axe faible (EN 1993-1-1 §1.7)"]
-    detail = "".join(f'<div class="ck-g"><div class="ck-t">{C.esc(t)}</div>{C.lignes_fx(lignes)}</div>' for t, lignes in formules(p))
+    detail = "".join(f'<div class="ck-g"><div class="ck-t">{C.esc(t)}</div>{C.lignes_fx(lignes)}'
+                     + "".join(f'<div class="cat-txt">{C.symb_math(li["parts"][0])} : {C.symb_math(li["note"])}</div>' for li in lignes if li.get("note"))
+                     + "</div>" for t, lignes in formules(p))
     pied = '<div class="ck-autres">Les valeurs viennent du catalogue (acier/donnees/profiles.json) ou, pour un profilé personnalisé, du même moteur de sections.</div>'
     return _fenetre_sans_tableau(C.fenetre_calcul("fiche", f"{C.esc(p['nom'])} · d'où viennent les propriétés",
                                                   "les formules du moteur de sections, avec les valeurs du profilé", hyps, [], detail, pied),

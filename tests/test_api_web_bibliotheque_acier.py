@@ -202,6 +202,52 @@ chk(f"IPE 300 : la fiche porte la section à l'échelle (le dessin du catalogue)
     'id="bib_sec"' in pq and pq.count('<td class="s">') == len(props) and pq.count('<tr class="g">') == len(CO.fiche(CAT.par_nom()["IPE 300"])))
 chk("IPE 300 : la fiche donne les formules du catalogue (W_el,y = I_y/max(z_sup ; z_inf), substituée)",
     "I<sub>y</sub>/max(z<sub>sup</sub> ; z<sub>inf</sub>)" in pq and "Saint-Venant" in pq)
+# (lot A, reprise F8 — R2) A_v,y d'un I ou H : la fiche dit ce qu'elle montre (la valeur géométrique du catalogue,
+# A − (h − 2·t_f)·t_w) ET la valeur que prend le module Barres, LUE dans son moteur (acier/barre/ec3_section, décision du
+# bureau n° 3) ; recalculée ici à la main (2·b·t_f du fichier) pour le contrôle. Un U, un tube : la valeur géométrique
+# seule. La même ligne dans la fenêtre de calcul du Catalogue des profilés (CW.fenetre_fiche).
+def ligne_avy(o) -> str:
+    m = re.search(r'<tr><td class="s">A<sub>v,y</sub></td>(.*?)</tr>', o["pourquoi"], re.S)
+    return texte(m.group(1)) if m else ""
+
+
+def ecarts_avy() -> list:
+    out = []
+    for nom in ("HEB 200", "IPE 300", "HEM 1000", "IPN 200"):
+        q = FICHIER[nom]
+        main = 2.0 * q["b"] * q["tf"] / 100.0                      # cm² : 2·b·t_f (b, t_f en mm)
+        v = f"{main:.2f}".replace(".", ",")
+        li = ligne_avy(B.consulter("profils", {"familles": q["famille"], "profil": nom}))
+        fen = texte(CW.fenetre_fiche(CAT.par_nom()[nom]))
+        attendu = f"le module Barres (Eurocode 3) prend pour ce I ou H laminé Av,y = {v} cm²"
+        if "valeur géométrique du catalogue" not in li or attendu not in li or attendu not in fen:
+            out.append((nom, v, li[-160:]))
+    for nom, fam in (("UPN 200", "UPN"), ("SHS 100x100x5", "SHS")):
+        li = ligne_avy(B.consulter("profils", {"familles": fam, "profil": nom}))
+        if "module Barres" in li:
+            out.append((nom, li[-120:]))
+    return out
+
+
+ec_avy = ecarts_avy()
+chk("A_v,y d'un I ou H laminé (HEB 200, IPE 300, HEM 1000, IPN 200) : la fiche et la fenêtre de calcul disent « valeur géométrique du "
+    "catalogue » et la valeur que prend le module Barres (2·b·t_f, recalculé ici : HEB 200 60,00 cm² contre 62,78) ; U et tube : rien de plus",
+    not ec_avy, ec_avy)
+# le paramètre « profil » ouvre la fiche ; la valeur des Barres vient de leur moteur : il change, la fiche suit
+from acier.barre import ec3_section as BE  # noqa: E402
+vrai_av = BE.aires_cisaillement
+try:
+    BE.aires_cisaillement = lambda s_, eta: dict(vrai_av(s_, eta), y=1234.0)
+    chk("mutation « le moteur des Barres prend A_v,y = 12,34 cm² » : la fiche le suit (elle le lit, n'en garde aucune copie)",
+        "Av,y = 12,34 cm²" in ligne_avy(B.consulter("profils", {"familles": "HEB", "profil": "HEB 200"})))
+finally:
+    BE.aires_cisaillement = vrai_av
+vrai_note = CW._note_avy
+try:
+    CW._note_avy = lambda p_: ""
+    chk("mutation « la ligne A_v,y sans sa précision » (la ligne d'avant : une seconde vérité muette) : le contrôle A_v,y rougit", len(ecarts_avy()) == 4)
+finally:
+    CW._note_avy = vrai_note
 # le plus léger qui satisfait les filtres : lu dans le FICHIER
 cand = [q for q in FICHIER.values() if q["famille"] in ("IPE", "HEA", "HEB") and q.get("Iy") is not None and q["Iy"] >= 8000]
 leger = min(cand, key=lambda q: q["masse"])["nom"]

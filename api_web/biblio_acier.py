@@ -361,6 +361,8 @@ def _fiche_profil(p: Dict, r: Dict) -> str:
             f = fx.get(c)
             if f and len(f["parts"]) > 1:
                 regle = " = ".join(C.symb_math(x) for x in f["parts"][1:])
+                if f.get("note"):
+                    regle += " · " + C.symb_math(f["note"])
             else:
                 regle = C.esc(aide)
             borne = f' <span class="bib-fil">filtre : {CW._resume_filtres([fil[c]])}</span>' if c in fil else ""
