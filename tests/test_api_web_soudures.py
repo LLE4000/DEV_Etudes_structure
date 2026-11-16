@@ -1414,7 +1414,7 @@ def ctl_oracle_methode() -> bool:
             and f"{(1 - K.tau_adm_bureau(K.K_BUREAU) / tau['S355']) * 100:.0f}" == "39")
 
 
-def methode_mutee(avant: str, apres: str):
+def source_methode_mutee(avant: str, apres: str):
     """acier/soudures/methode.py rechargé depuis SA SOURCE après UN remplacement (mutation de SOURCE : le calcul des
     nombres de la vue Méthode) ; « avant » doit y figurer une fois, sinon la mutation est périmée et la suite s'arrête."""
     with open(MT_.__file__, encoding="utf-8") as f:
@@ -1452,7 +1452,7 @@ chk("S3 · l'épaisseur supposée du plat support dite dans l'aide des aciers et
 chk("S9 · la gorge de pleine résistance de l'âme d'un HEB 300 à SA f_y (235, t_w 11 mm) : 5,1 mm, et l'écran la dit", ctl_gorge_ecran())
 # (E4, troisième passe) une mutation de SOURCE : le calcul des nombres de la vue Méthode (methode.equivalent) reprend la f_u
 # du tableau 3.1 de l'EN ; l'oracle, lui, n'est pas muté — c'est le CONTRÔLE qui rougit (l'oracle reste vert)
-with mutant(S, "MT", methode_mutee("MA.fu(nuance, T_FU)", '{"S235": 360.0, "S275": 430.0, "S355": 510.0}[nuance]')):
+with mutant(S, "MT", source_methode_mutee("MA.fu(nuance, T_FU)", '{"S235": 360.0, "S275": 430.0, "S355": 510.0}[nuance]')):
     rouge_vue, oracle_vert = not ctl_vue_methode(), ctl_oracle_methode()
 chk("mutation de source « methode.equivalent à la f_u du tableau 3.1 de l'EN » (la vue redonne 155,8 et 174,5) : le contrôle de "
     "la vue Méthode rougit, l'oracle reste vert", rouge_vue and oracle_vert and ctl_vue_methode())
