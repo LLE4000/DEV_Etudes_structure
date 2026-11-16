@@ -466,11 +466,18 @@ def _th_haut(sym: str, unite: str, titre: str) -> str:
 
 def _paliers(nom: str, grandeur: str) -> List[Tuple[float, bool, str, float]]:
     """La ligne de l'ANB de ``nom`` (produit laminé) palier par palier : [(borne supérieure en mm, incluse, texte,
-    valeur)] — les bornes dans les tableaux de la table du site (MA.TABLEAUX, par MA.ligne), les textes et les valeurs
-    par MA.paliers. MA.HorsTable si la nuance n'y est pas."""
-    lg = MA.ligne(nom, PRODUIT)
-    bandes = MA.TABLEAUX[lg["tableau"].removesuffix(" ANB")][1][lg["designation"]][0 if grandeur == "fy" else 1]
-    return [(sup, inc, txt, v) for (sup, inc, _), (txt, v) in zip(bandes, MA.paliers(nom, PRODUIT, grandeur))]
+    valeur)] — MA.bornes, la fonction publique de la table du site (jamais sa structure interne). MA.HorsTable si la
+    nuance n'y est pas."""
+    return MA.bornes(nom, PRODUIT, grandeur)
+
+
+def _palier_de(paliers: Sequence[Tuple[float, bool, str, float]], t: float) -> int:
+    """Le rang du palier qui contient l'épaisseur ``t`` (mm), lu sur les bornes chiffrées (``_paliers``) : une borne
+    incluse (« ≤ 16 ») contient t = 16, une borne exclue (« < 3 ») non. ValueError au-delà du dernier."""
+    for i, (sup, incluse, _txt, _v) in enumerate(paliers):
+        if t < sup or (incluse and t <= sup):
+            return i
+    raise ValueError(f"épaisseur {t:g} mm au-delà du dernier palier")
 
 
 def _court(bas: float, sup: float, incluse: bool, premier: bool) -> str:
@@ -503,10 +510,16 @@ def _lire_nuance(nom: str, t: float, fy_cles: Sequence[str], fu_t: Sequence[floa
     """Ce que la rubrique montre d'une nuance, lu dans la table du site pour l'épaisseur retenue ``t`` (mm) : None si
     la nuance n'y est pas (aucune valeur inventée)."""
     try:
+        pal_fu = _paliers(nom, "fu")
+        sup0 = pal_fu[0][0]
         return {"ligne": MA.ligne(nom, PRODUIT), "fy": MA.fy(nom, t, PRODUIT), "fu": MA.fu(nom, t, PRODUIT),
                 "fy_cols": [MA.fy(nom, float(k), PRODUIT) for k in fy_cles], "fu_cols": [MA.fu(nom, x, PRODUIT) for x in fu_t],
                 "src_fy": MA.source(nom, t, PRODUIT, "fy"), "src_fu": MA.source(nom, t, PRODUIT, "fu"),
-                "fu_mince": MA.paliers(nom, PRODUIT, "fu")[0], "bw": float(BQ.find(BQ.DB["aciers"], nom)["bw"])}
+                # le palier de f_u de l'épaisseur retenue (son texte : MA.bornes) ; le premier palier (« t < 3 mm »), sa
+                # valeur et SA référence imprimée par MA.source, lue au milieu du palier
+                "fu_palier": _palier_de(pal_fu, t), "fu_txt": pal_fu[_palier_de(pal_fu, t)][2],
+                "fu_mince": (pal_fu[0][2], pal_fu[0][3]), "src_fu_mince": MA.source(nom, sup0 / 2.0, PRODUIT, "fu"),
+                "bw": float(BQ.find(BQ.DB["aciers"], nom)["bw"])}
     except MA.HorsTable:
         return None
 
@@ -541,9 +554,10 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
     lus = {n: _lire_nuance(n, t, tuple(paliers), [x for _, _, x in fu_cols]) for n in noms}
     a = lus[nuance]
     fy = a["fy"] if a else None
-    # le palier de f_u qui contient l'épaisseur retenue (celui de f_vw,d) : la colonne que la référence imprimée nomme
+    # le palier de f_u qui contient l'épaisseur retenue (celui de f_vw,d) : la colonne allumée, lue sur les bornes des
+    # paliers de la nuance qui donne les colonnes (jamais sur le texte de la référence imprimée)
     ref = lus.get(NUANCE_DEFAUT)
-    j_fu = next((j for j, (txt, _, _) in enumerate(fu_cols) if ref and ref["src_fu"].endswith(f", {txt} mm")), None)
+    j_fu = ref["fu_palier"] if ref and ref["fu_palier"] < len(fu_cols) else None
     # (les libellés d'épaisseur portent « < » : échappés là où ils entrent dans le HTML — relecture BIB5)
     barre = BB._barre(BB._champ("nuance", "Nuance", BB._select("nuance", nuance, [(n, n) for n in noms]))
                       + _bloc("Épaisseur (mm)", BB._segments("epaisseur", ep, [(k, C.esc(txt)) for k, txt, _ in fy_cols]),
@@ -580,7 +594,7 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
         lg = a["ligne"]
         avert.append(f"« {C.esc(nuance)} » : nom des notes enregistrées, gardé tel quel ; la table du site le lit sur la ligne "
                      f"{C.esc(lg['designation'])} du tableau {C.esc(lg['tableau'])} ({C.esc(lg['norme'])}) : f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa "
-                     f"pour {C.esc(a['src_fu'].rsplit(', ', 1)[1])}.")
+                     f"pour {C.esc(a['fu_txt'])}.")
     sources = [f"{REGLE_ANB} — f_y et f_u selon l'épaisseur nominale, acier/materiaux.py (la table du site), produits laminés : "
                f"{_lignes_anb(noms)}. Au-delà de {C.fr(NO.T_MAX_TABLEAU, 0)} mm, les tableaux de l'ANB continuent, mais les modules du site "
                f"s'arrêtent à {C.fr(NO.T_MAX_TABLEAU, 0)} mm.",
@@ -593,9 +607,9 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
             {"symbole": "f_u", "nom": "résistance à la traction (épaisseur retenue)", "valeur": a["fu"], "unite": "MPa", "regle": a["src_fu"] + " — acier/materiaux.py"},
         ]
         mince_txt, mince_v = a["fu_mince"]
-        if not a["src_fu"].endswith(f", {mince_txt}"):
+        if a["fu_palier"] != 0:          # l'épaisseur retenue n'est pas dans le premier palier de f_u : il est dit à part
             termes.append({"symbole": "f_u", "nom": f"résistance à la traction ({mince_txt})", "valeur": mince_v, "unite": "MPa",
-                           "regle": f"tableau {lg['tableau']} ({lg['norme']}, {lg['designation']}), {mince_txt} — acier/materiaux.py"})
+                           "regle": a["src_fu_mince"] + " — acier/materiaux.py"})
         termes += [
             {"symbole": "β_w", "nom": "facteur de corrélation des soudures d'angle", "valeur": a["bw"], "unite": "", "regle": "EN 1993-1-8 tableau 4.1 — bibliotheques.json"},
             {"symbole": "E", "nom": "module d'élasticité", "valeur": NO.E_ACIER, "unite": "MPa", "regle": "EN 1993-1-1 §3.2.6 — acier/flambement/normes.py"},

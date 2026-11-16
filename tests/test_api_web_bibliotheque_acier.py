@@ -24,8 +24,10 @@ tests/test_api_web_bibliotheque.py (la béton armé).
    que les scripts cherchent, la feuille ; js/biblio.js porte les gestes de l'acier (lignes, en-têtes, pastilles,
    menu « Colonnes » gardé ouvert).
 7. Mutations : la page ne garde aucune copie (catalogue, table du site, resistances) ; le défaut A1 remis (f_y nominal,
-   f_u de l'ancienne bibliothèque) fait rougir la table écrite et le lien R2 ; l'échappement retient le piège ; un
-   paramètre fait de boutons dans un <label> est vu.
+   f_u de l'ancienne bibliothèque) fait rougir la table écrite et le lien R2 ; les trois copies de la table retirées en
+   reprise (référence de f_u sous 3 mm écrite à la main, bornes lues dans MA.TABLEAUX, palier décidé sur un texte)
+   remises une à une font rougir le lien R2 ; l'échappement retient le piège ; un paramètre fait de boutons dans un
+   <label> est vu.
 
     python3 tests/test_api_web_bibliotheque_acier.py
 """
@@ -414,6 +416,43 @@ nus = [(r, k, f[max(0, m.start() - 20):m.start() + 20]) for r, p_ in (("nuances"
        for k, f in ((k, B.consulter(r, p_)[k]) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in NU.finditer(f)]
 chk("aucun « < » nu dans les fragments des trois rubriques (« 16 < t ≤ 40 mm » est échappé : barre, bande, tableau)", not nus, nus[:4])
 chk("nuances : la justification de S355 (t ≤ 16 mm) donne f_vw,d = 241,2 MPa et ε = 0,814", "241,2" in n0["pourquoi"] and "0,814" in n0["pourquoi"])
+
+
+# (lot A, reprise F6 — R2) la rubrique ne recompose rien de la table du site : la référence de f_u sous 3 mm EST
+# MA.source, les bornes des paliers viennent de MA.bornes (jamais de la structure interne MA.TABLEAUX), et le palier
+# de f_u retenu (la ligne « f_u sous 3 mm » de la fiche, la colonne allumée) se décide sur les BORNES, jamais en
+# comparant le texte d'une référence. Preuve : sous une table qui imprime ses références autrement et ne montre pas sa
+# structure interne, la rubrique suit — mêmes lignes, mêmes colonnes allumées, références imprimées par la table.
+def rubrique_suit_la_table() -> list:
+    """Les écarts de la rubrique sous une table du site qui imprime ses références entre crochets et sans TABLEAUX."""
+    vrai = B.MA
+    faux = types.ModuleType("materiaux_autre_format")
+    faux.__dict__.update({k: v for k, v in vrai.__dict__.items() if k != "TABLEAUX"})
+    faux.source = lambda *a, **k: "[" + vrai.source(*a, **k) + "]"
+    B.MA = faux
+    out = []
+    try:
+        for nom, n_fu in (("S355", 2), ("S235", 2), ("S355 N/NL", 1), ("S460 N/NL", 1)):
+            o = B.consulter("nuances", {"nuance": nom, "epaisseur": "40"})
+            fus = [li for li in o["fiche"]["lignes"] if li["symbole"] == "f_u"]
+            if len(fus) != n_fu:
+                out.append(f"{nom} : {len(fus)} ligne(s) f_u dans la fiche au lieu de {n_fu}")
+            elif n_fu == 2 and fus[1]["regle"] != faux.source(nom, 1.5, "lamine", "fu") + " — acier/materiaux.py":
+                out.append(f"{nom} : référence de f_u sous 3 mm « {fus[1]['regle']} » — pas celle de MA.source")
+        on = [html.unescape(x) for x in re.findall(r'<th class="k on" title="([^"]*)"', B.consulter("nuances", {"epaisseur": "40"})["tableau"])]
+        if on != ["16 < t ≤ 40 mm", "3 ≤ t ≤ 100 mm"]:
+            out.append(f"colonnes allumées : {on}")
+    except Exception as err:  # noqa: BLE001 — une rubrique qui lit la structure interne casse ici
+        out.append(f"{type(err).__name__} : {err}")
+    finally:
+        B.MA = vrai
+    return out
+
+
+ec_table = rubrique_suit_la_table()
+chk("nuances, R2 : sous une table qui imprime autrement et ne montre pas sa structure interne, la rubrique suit — f_u sous 3 mm cité par "
+    "MA.source, bornes des paliers par MA.bornes, ligne « f_u sous 3 mm » et colonne allumée décidées sur les bornes (pas sur un texte)",
+    not ec_table, ec_table)
 b0 = B.consulter("boulons", {})
 m16 = next(x for x in BIBLIO["boulons"] if x["n"] == "M16")
 c88 = next(x for x in BIBLIO["classes"] if x["n"] == "8.8")
@@ -520,6 +559,44 @@ try:
         and "261,7" in o["tableau"])
 finally:
     B.MA = vrai
+# (lot A, reprise F6) les trois copies retirées, remises une à une : le lien R2 ci-dessus rougit à chaque fois
+vrai_lire, vrai_paliers = B._lire_nuance, B._paliers
+
+
+def lire_ref_a_la_main(nom, t, fy_cles, fu_t):
+    """La référence de f_u sous 3 mm composée à la main, au format de MA.source recopié (le code d'avant)."""
+    x = vrai_lire(nom, t, fy_cles, fu_t)
+    if x is not None:
+        lg = x["ligne"]
+        x["src_fu_mince"] = f"tableau {lg['tableau']} ({lg['norme']}, {lg['designation']}), {x['fu_mince'][0]}"
+    return x
+
+
+def paliers_par_tableaux(nom, grandeur):
+    """Les bornes lues dans la structure interne MA.TABLEAUX (le code d'avant)."""
+    lg = B.MA.ligne(nom, B.PRODUIT)
+    bandes = B.MA.TABLEAUX[lg["tableau"].removesuffix(" ANB")][1][lg["designation"]][0 if grandeur == "fy" else 1]
+    return [(sup, inc, txt, v) for (sup, inc, _), (txt, v) in zip(bandes, B.MA.paliers(nom, B.PRODUIT, grandeur))]
+
+
+def lire_palier_par_le_texte(nom, t, fy_cles, fu_t):
+    """Le palier de f_u retenu décidé en comparant le texte de la référence imprimée (endswith, le code d'avant)."""
+    x = vrai_lire(nom, t, fy_cles, fu_t)
+    if x is not None:
+        x["fu_palier"] = 0 if x["src_fu"].endswith(", " + x["fu_mince"][0]) else 1
+    return x
+
+
+for nom_mut, attr, mutant in (("la référence de f_u sous 3 mm composée à la main (format de MA.source recopié)", "_lire_nuance", lire_ref_a_la_main),
+                              ("les bornes des paliers lues dans MA.TABLEAUX (la structure interne de la table)", "_paliers", paliers_par_tableaux),
+                              ("le palier de f_u retenu décidé sur le texte de la référence (endswith)", "_lire_nuance", lire_palier_par_le_texte)):
+    setattr(B, attr, mutant)
+    try:
+        ec = rubrique_suit_la_table()
+        chk(f"mutation « {nom_mut} » : le lien R2 avec la table rougit, et le rendu ordinaire reste celui d'avant (la copie était invisible)",
+            ec and B.consulter("nuances", {"epaisseur": "40"}) == n40, ec[:2])
+    finally:
+        B._lire_nuance, B._paliers = vrai_lire, vrai_paliers
 garde = RS.Fv_Rd
 try:
     RS.Fv_Rd = lambda a_v, f_ub, A, g: 2 * garde(a_v, f_ub, A, g)
