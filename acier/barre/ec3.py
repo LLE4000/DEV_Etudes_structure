@@ -15,6 +15,9 @@ La barre (N, mm), en plus de ce que lit ec3_section.lire :
                     "niveau" (« centre », « haut », « bas » : où la charge est appliquée) ou "zg" (mm),
                     "Mcr" (N·mm : un moment critique donné), "kc", "troncon" (un tronçon décrit en entier : la barre
                     chargée — voir ec3_deversement.troncon_impose pour sa forme)}
+    "console": True                             une console (encastrée – libre) : la flexion composée avec instabilité
+                                                (6.61), (6.62) n'est pas couverte — aucun C_m ne vaut pour elle (brief
+                                                § 7.8, DÉCISION BUREAU n° 9) ; N seul et M seul restent vérifiés
 
 Les paramètres nationaux « à confirmer » qui ont servi sont rendus dans ``grandeurs["a_confirmer"]`` : la note les
 imprime.
@@ -99,6 +102,7 @@ def lire(barre: Dict) -> Dict:
             raise Refus(f"deversement.troncon : deux bouts parmi {', '.join(MC.APPUIS)}")
         Lc = tr["L"]
     d["deversement"] = {"actif": bool(dv.get("actif", True)), "Lc": Lc, "niveau": niveau, "zg": zg, "Mcr": Mcr, "kc": kc, "troncon": tr}
+    d["console"] = bool(barre.get("console", False))
     return d
 
 

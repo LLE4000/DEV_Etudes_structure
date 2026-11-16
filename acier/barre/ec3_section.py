@@ -2,10 +2,13 @@
 """EUROCODE 3, la résistance de la SECTION (NBN EN 1993-1-1 § 6.2, annexe belge) : efforts de CALCUL (ELU, pondérés).
 docs/acier/BARRES_ACIER.md § 5.1 à 5.4. Sections à deux axes de symétrie : I et H, tubes carrés, rectangulaires, ronds.
 
-    f_y (tableau 3.1, épaisseur max(t_f ; t_w))        ε = √(235 / f_y)        classe (acier/barre/ec3_classe.py)
+    f_y de calcul : la table unique acier/materiaux.py (option a de l'ANB:2018, 3.2.1(1) ; tableaux 3.3 ANB à 3.11 ANB,
+        produit selon la fabrication), épaisseur max(t_f ; t_w ; t) — la plus petite f_y des parois (brief § 7.1)
+    ε = √(235 / f_y) PAROI PAR PAROI, avec la f_y de chaque paroi selon SON épaisseur (classe, section efficace)
+                                                                                    classe (acier/barre/ec3_classe.py)
     N_c,Rd = A·f_y/γ_M0 (A_eff en classe 4)             N_t,Rd = A·f_y/γ_M0 (sans trous)                (§ 6.2.3, 6.2.4)
     M_c,Rd = W·f_y/γ_M0 : W_pl (classes 1, 2), W_el (3), W_eff (4)                                      (§ 6.2.5)
-    V_pl,Rd = A_v·f_y/(√3·γ_M0)   A_v,z d'un I ≥ η·h_w·t_w                                              (§ 6.2.6)
+    V_pl,Rd = A_v·f_y/(√3·γ_M0)   A_v,z d'un I ≥ η·h_w·t_w (η : ec3_ame.eta_de) ; A_v,y d'un I laminé 2·b·t_f   (§ 6.2.6)
     V_Ed > 0,5·V_pl,Rd : ρ = (2·V_Ed/V_pl,Rd − 1)²                                                      (§ 6.2.8)
         I de classe 1 ou 2, axe fort : M_y,V,Rd = (W_pl,y − ρ·A_w²/(4·t_w))·f_y/γ_M0, A_w = h_w·t_w     (6.30)
         sinon, et dès qu'un effort normal s'ajoute (§ 6.2.10) : (1 − ρ) sur TOUTE la section — du côté sûr
@@ -29,6 +32,7 @@ acier/barre/formules.py). L'instabilité de la barre (flambement, déversement) 
 import math
 from typing import Dict, List, Optional
 
+from acier import materiaux as MA
 from acier.flambement import normes as NO
 
 from . import ec3_ame as AM
@@ -49,14 +53,55 @@ EFFORTS = ("NEd", "MyEd", "MzEd", "VzEd", "VyEd")
 NOMS_W = {1: "W_pl", 2: "W_pl", 3: "W_el", 4: "W_eff"}
 
 
+# la fabrication du profilé → le produit de la table des aciers (acier/materiaux.py) : les profils creux finis à chaud
+# (EN 10210-1) et formés à froid (EN 10219-1) ont leurs tableaux ; tout le reste — laminés, plats et tôles d'un PRS ou
+# d'un caisson — est un produit laminé (EN 10025)
+PRODUITS = {"creux_chaud": "creux_chaud", "creux_froid": "creux_froid"}
+
+
 def epaisseur(s: Dict) -> float:
-    """L'épaisseur nominale qui fixe f_y (tableau 3.1) : la plus forte paroi, mm."""
+    """L'épaisseur nominale qui fixe la f_y de CALCUL de la section : la plus forte paroi, mm (la plus petite f_y)."""
     return max(float(s.get(k) or 0.0) for k in ("tf", "tw", "t"))
 
 
+def produit(s: Dict) -> str:
+    """Le produit de la table des aciers selon la fabrication : « lamine », « creux_chaud » ou « creux_froid »."""
+    return PRODUITS.get(s.get("fabrication"), "lamine")
+
+
+def limite_elastique(nuance: str, s: Dict, t: Optional[float] = None) -> float:
+    """f_y de la nuance pour l'épaisseur ``t`` (par défaut la f_y de CALCUL : la plus forte paroi), le produit de la
+    section — la seule lecture de la table des barres (Eurocode 3, méthode historique, âme, raidisseurs) ; Refus hors
+    du domaine (nuance inconnue, épaisseur de plus de 80 mm, au-delà du tableau)."""
+    try:
+        return NO.limite_elastique(nuance, epaisseur(s) if t is None else t, produit=produit(s))
+    except NO.HorsDomaine as e:
+        raise Refus(str(e)) from None
+
+
+def source_fy(nuance: str, s: Dict, t: Optional[float] = None) -> str:
+    """D'où vient la f_y de calcul : « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm »."""
+    return MA.source(nuance, epaisseur(s) if t is None else t, produit(s), "fy")
+
+
+def tableau_fy(nuance: str, s: Dict) -> str:
+    """Le tableau de l'ANB que la f_y lit, en court (« tableau 3.3 ANB ») : pour une ligne où la source entière ne tient pas."""
+    return f"tableau {MA.ligne(nuance, produit(s))['tableau']}"
+
+
+def limites_parois(nuance: str, s: Dict) -> Dict[str, float]:
+    """La f_y de CHAQUE paroi selon SON épaisseur (brief § 7.1 ; EN 1993-1-1 tableau 5.2 : ε de la paroi) : I et H —
+    {"semelle": f_y(t_f), "ame": f_y(t_w)} ; tube — une seule épaisseur, {"b", "h", "tube": f_y(t)}."""
+    if s.get("forme") == "I" and s.get("tf") and s.get("tw"):
+        return {"semelle": limite_elastique(nuance, s, s["tf"]), "ame": limite_elastique(nuance, s, s["tw"])}
+    fy = limite_elastique(nuance, s)
+    return {"b": fy, "h": fy, "tube": fy, "semelle": fy, "ame": fy}
+
+
 def lire(barre: Dict) -> Dict:
-    """Les données, complétées et contrôlées (une COPIE) : {"section", "nuance", "fy", "t", "fy_tableau", "parametres",
-    "NEd", "MyEd", "MzEd", "VzEd", "VyEd", "voilement"}. ``fy`` donné passe devant le tableau 3.1. ``voilement`` faux :
+    """Les données, complétées et contrôlées (une COPIE) : {"section", "nuance", "fy", "fy_parois", "fy_source", "t",
+    "fy_tableau", "parametres", "NEd", "MyEd", "MzEd", "VzEd", "VyEd", "voilement"}. ``fy`` donné passe devant la table
+    (toutes les parois le prennent) ; sinon f_y de calcul et f_y de chaque paroi selon l'épaisseur. ``voilement`` faux :
     sans le voilement par cisaillement d'une âme élancée — le moteur des barres le range dans SON bloc de l'âme
     (acier/barre/ame.py), avec les autres vérifications de l'EN 1993-1-5."""
     if not isinstance(barre, dict) or not isinstance(barre.get("section"), dict):
@@ -64,6 +109,8 @@ def lire(barre: Dict) -> Dict:
     s = barre["section"]
     try:
         P = PA.jeu(barre.get("parametres"))
+    except PA.CleRetiree as e:
+        raise Refus(f"paramètre retiré : {e.args[0]!r} ({e.motif})") from None
     except KeyError as e:
         raise Refus(f"paramètre inconnu : {e.args[0]!r}") from None
     d = {"section": s, "parametres": P, "nuance": barre.get("nuance"), "t": epaisseur(s), "voilement": bool(barre.get("voilement", True))}
@@ -76,17 +123,19 @@ def lire(barre: Dict) -> Dict:
     if fy is None:
         if d["nuance"] not in NO.NUANCES:
             raise Refus(f"nuance inconnue : {d['nuance']!r} (S235, S275, S355 ou S460, ou bien f_y)")
-        try:
-            fy = NO.limite_elastique(d["nuance"], d["t"], froid=s.get("fabrication") == "creux_froid")
-        except NO.HorsDomaine as e:
-            raise Refus(str(e)) from None
+        fy = limite_elastique(d["nuance"], s)
+        d["fy_parois"] = limites_parois(d["nuance"], s)
+        d["fy_source"] = source_fy(d["nuance"], s)
+        d["fy_ref"] = tableau_fy(d["nuance"], s)
         d["fy_tableau"] = True
     else:
         if isinstance(fy, bool) or not isinstance(fy, (int, float)) or not math.isfinite(float(fy)) or fy <= 0:
             raise Refus("la limite élastique f_y doit être un nombre positif")
         d["fy_tableau"] = False
+        d["fy_parois"] = {k: float(fy) for k in ("semelle", "ame", "b", "h", "tube")}
+        d["fy_source"] = d["fy_ref"] = None
     d["fy"] = float(fy)
-    for k in ("gamma_M0", "gamma_M1", "eta"):
+    for k in ("gamma_M0", "gamma_M1", "eta", "eta_soude"):
         if not isinstance(P[k], (int, float)) or isinstance(P[k], bool) or not P[k] > 0:
             raise Refus(f"paramètre « {k} » : un nombre positif est attendu")
     return d
@@ -95,8 +144,9 @@ def lire(barre: Dict) -> Dict:
 def aires_cisaillement(s: Dict, eta: float) -> Dict:
     """A_v (mm²) pour V_z (parallèle à l'âme) et V_y (parallèle aux semelles), § 6.2.6(3) : {"z", "y", "plancher"
     (η·h_w·t_w d'un I, mm²), "plancher_gouverne"}. I et H : A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w (le catalogue porte
-    la première expression) et A − h_w·t_w ; tubes carrés et rectangulaires : A·h/(b + h) et A·b/(b + h) ; tube rond :
-    2A/π."""
+    la première expression) ; parallèle aux semelles, I ou H LAMINÉ : 2·b·t_f (DÉCISION BUREAU n° 3, brief § 7.5 ;
+    EN 1993-1-1:2022 § 8.2.6(3)b)), I SOUDÉ : A − h_w·t_w (6.2.6(3) e)) ; tubes carrés et rectangulaires : A·h/(b + h)
+    et A·b/(b + h) ; tube rond : 2A/π."""
     A, forme = s["A"], s["forme"]
     if forme == "I":
         hw = SE.hauteur_ame(s)
@@ -106,9 +156,8 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
         if base is None:
             base = A - 2.0 * s["b"] * s["tf"] + (s["tw"] + 2.0 * (s.get("r") or 0.0)) * s["tf"]
         plancher = eta * hw * s["tw"]
-        avy = s.get("Avy")
-        return {"z": max(base, plancher), "y": avy if avy is not None else A - hw * s["tw"], "plancher": plancher,
-                "plancher_gouverne": plancher > base, "hw": hw}
+        avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]
+        return {"z": max(base, plancher), "y": avy, "plancher": plancher, "plancher_gouverne": plancher > base, "hw": hw}
     if forme in ("tube_carre", "tube_rect"):
         if not s.get("h") or not s.get("b"):
             raise Refus("h, b manquent : l'aire de cisaillement d'un tube en dépend")
@@ -120,15 +169,34 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
     return {"z": av, "y": av, "plancher": None, "plancher_gouverne": False}
 
 
+# l'indice de l'ε d'une paroi quand il diffère de celui de la f_y de calcul (I et H : semelles, âme)
+INDICE_EPS = {"semelle": "f", "ame": "w"}
+
+
+def _eps_paroi(J: Journal, p: Dict, eps_calcul: float) -> str:
+    """Le symbole de l'ε d'une paroi : « ε » quand il est celui de la f_y de calcul ; sinon « ε_f » (semelles) ou « ε_w »
+    (âme), écrit une fois dans le journal avec la f_y de la paroi (brief § 7.1)."""
+    if p["epsilon"] == eps_calcul or p["role"] not in INDICE_EPS:
+        return "ε"
+    i = INDICE_EPS[p["role"]]
+    if not any(f["cle"] == f"eps_{i}" for f in J.calcul):
+        J.f(f"eps_{i}", f"ε_{i}", [_t(f"f_y,{i}", p["fy"], "N/mm²")], p["epsilon"], "", "e_eps")
+    return f"ε_{i}"
+
+
 def _classification(J: Journal, d: Dict, N: float, My: float, Mz: float) -> Dict:
-    """La classe, nommée : les blocs α, ψ et la limite qui décide, paroi par paroi."""
+    """La classe, nommée : les blocs α, ψ et la limite qui décide, paroi par paroi — chaque paroi avec SON ε."""
     s, fy = d["section"], d["fy"]
-    cl = CL.classer(s, fy, N, My, Mz)
-    eps, cles = cl["epsilon"], []
+    cl = CL.classer(s, fy, N, My, Mz, d.get("fy_parois"))
+    cles = []
     for p in cl["parois"]:
         r = p["role"]
         if p["etat"] == CL.TENDUE:
             continue
+        eps = p["epsilon"]
+        se = _eps_paroi(J, p, cl["epsilon"])
+        if se != "ε":
+            cles.append(f"eps_{INDICE_EPS[r]}")
         if p["etat"] == CL.FLEXION_COMPOSEE:
             if 0.0 < p["alpha"] < 1.0:
                 cles.append(J.f(f"alpha_{r}", "α", [_t("N_Ed", N / 1e3, "kN"), _t("c", p["c"], "mm"),
@@ -141,9 +209,9 @@ def _classification(J: Journal, d: Dict, N: float, My: float, Mz: float) -> Dict
         gabarit, k = p["regles"][i]
         if not gabarit:                                      # âme tendue sur toute sa hauteur (α = 0) : aucune limite
             continue
-        termes = {"e_lim": [_t("k", k), _t("ε", eps)], "e_lim_tube": [_t("k", k), _t("ε", eps)],
-                  "e_lim12_haut": [_t("k", k), _t("ε", eps), _t("α", p["alpha"])], "e_lim12_bas": [_t("k", k), _t("ε", eps), _t("α", p["alpha"])],
-                  "e_lim3_haut": [_t("ε", eps), _t("ψ", p["psi"])], "e_lim3_bas": [_t("ε", eps), _t("ψ", p["psi"])]}[gabarit]
+        termes = {"e_lim": [_t("k", k), _t(se, eps)], "e_lim_tube": [_t("k", k), _t(se, eps)],
+                  "e_lim12_haut": [_t("k", k), _t(se, eps), _t("α", p["alpha"])], "e_lim12_bas": [_t("k", k), _t(se, eps), _t("α", p["alpha"])],
+                  "e_lim3_haut": [_t(se, eps), _t("ψ", p["psi"])], "e_lim3_bas": [_t(se, eps), _t("ψ", p["psi"])]}[gabarit]
         p["limite"] = {"classe": i + 1, "valeur": p["limites"][i], "formule": f"lim_{r}"}
         cles.append(J.f(f"lim_{r}", f"(c/t){'₁₂₃'[i]}", termes, p["limites"][i], "", gabarit))      # la limite de la classe i + 1
     cl["formules"] = cles
@@ -151,8 +219,10 @@ def _classification(J: Journal, d: Dict, N: float, My: float, Mz: float) -> Dict
 
 
 def _blocs_paroi(J: Journal, cle: str, p: Dict, eps: float) -> List[str]:
-    """λ̄_p et ρ d'une paroi réduite."""
-    out = [J.f(f"lambda_p_{cle}", "λ̄_p", [_t("c/t", p["c_t"]), _t("ε", eps), _t("k_σ", p["k_sigma"])], p["lambda_p"], "", "e_lambda_p")]
+    """λ̄_p et ρ d'une paroi réduite — avec l'ε de LA paroi (``p["epsilon"]``, à défaut ``eps``)."""
+    e = p.get("epsilon", eps)
+    se = "ε" if e == eps or p.get("role") not in INDICE_EPS else f"ε_{INDICE_EPS[p['role']]}"
+    out = [J.f(f"lambda_p_{cle}", "λ̄_p", [_t("c/t", p["c_t"]), _t(se, e), _t("k_σ", p["k_sigma"])], p["lambda_p"], "", "e_lambda_p")]
     if p["type"] == "interne":
         out.append(J.f(f"rho_{cle}", "ρ", [_t("λ̄_p", p["lambda_p"]), _t("ψ", p["psi"])], p["rho"], "", "e_rho_interne"))
     else:
@@ -163,11 +233,13 @@ def _blocs_paroi(J: Journal, cle: str, p: Dict, eps: float) -> List[str]:
 INDICE_PAROI = {"semelle": "f", "ame": "w", "b": "b", "h": "h", "tube": "t"}      # l'indice des parois d'un rôle, dans A_eff
 
 
-def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: float) -> Dict:
-    """La section efficace d'une classe 4 : A_eff si la barre est comprimée, W_eff autour de chaque axe fléchi."""
+def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: float, eps_parois: Optional[Dict] = None) -> Dict:
+    """La section efficace d'une classe 4 : A_eff si la barre est comprimée, W_eff autour de chaque axe fléchi — chaque
+    paroi avec son ε (``eps_parois`` {rôle: ε} ; à défaut ``eps``, celui de la f_y de calcul)."""
     ef: Dict = {"A_eff": s["A"], "Weff_y": s.get("Wel_y"), "Weff_z": s.get("Wel_z"), "formules": {"A": [], "y": [], "z": []}}
+    ep = eps_parois or eps
     if comprime:
-        a = CL.aire_efficace(s, eps)
+        a = CL.aire_efficace(s, ep)
         ef["A_eff"], ef["aire"] = a["A_eff"], a
         if a["reduite"]:
             cles = []
@@ -183,7 +255,7 @@ def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: fl
     for axe, M in (("y", My), ("z", Mz)):
         if M <= 0:
             continue
-        w = CL.module_efficace(s, eps, axe)
+        w = CL.module_efficace(s, ep, axe)
         ef[f"Weff_{axe}"], ef[f"module_{axe}"] = w["W_eff"], w
         if w["reduit"]:
             cles = []
@@ -201,17 +273,25 @@ def ajouter(J: Journal, d: Dict) -> None:
     cisaillement d'une âme élancée (A-Vb, A-VbM : ec3_ame.py), puis E-MV (flexion et effort tranchant) ou E-NM (flexion
     composée, déviée)."""
     s, fy, P = d["section"], d["fy"], d["parametres"]
-    gM0, eta = P["gamma_M0"], P["eta"]
+    gM0, eta = P["gamma_M0"], AM.eta_de(s, P)
     N = d["NEd"]
     My, Mz, Vz, Vy = abs(d["MyEd"]), abs(d["MzEd"]), abs(d["VzEd"]), abs(d["VyEd"])
     forme, A = s["forme"], s["A"]
     G = J.G
     eps = NO.epsilon(fy)
-    G.update({"fy": fy, "epsilon": eps, "gamma_M0": gM0, "t": d["t"], "A": A, "NEd": N, "MyEd": My, "MzEd": Mz, "VzEd": Vz, "VyEd": Vy})
+    fyp = d.get("fy_parois") or {}
+    G.update({"fy": fy, "epsilon": eps, "gamma_M0": gM0, "t": d["t"], "A": A, "NEd": N, "MyEd": My, "MzEd": Mz, "VzEd": Vz, "VyEd": Vy,
+              "fy_parois": fyp, "fy_source": d.get("fy_source"), "fy_ref": d.get("fy_ref")})
     J.f("eps", "ε", [_t("f_y", fy, "N/mm²")], eps, "", "e_eps")
     J.hyp.append(f"Efforts de calcul (ELU) ; γ_M0 = {_fr(gM0, 2)}.")
     nuance = f"Acier {d['nuance']}" if d["nuance"] else "Acier"
-    J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm²" + (f" (épaisseur {_fr(d['t'], 1)} mm)." if d["fy_tableau"] else " (donnée)."))
+    if d["fy_tableau"]:
+        detail = f" (épaisseur {_fr(d['t'], 1)} mm ; {d['fy_source']})"
+        if forme == "I" and len({fyp.get("semelle"), fyp.get("ame")}) == 2:
+            detail += (f" ; ε paroi par paroi : semelles f_y = {_fr(fyp['semelle'])}, âme f_y = {_fr(fyp['ame'])} N/mm²")
+        J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm²{detail}.")
+    else:
+        J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm² (donnée).")
     G["couvert"] = False                                             # (vrai plus bas : les vérifications de la barre en dépendent)
     if forme not in FORMES:
         J.verif("E-SECTION", "Résistance de la section", NORME, "", None, None, "", [], statut=NON_COUVERT,
@@ -246,7 +326,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     ef = None
     if classe == 4:
         try:
-            ef = _efficace(J, s, eps, comprime, My, Mz)
+            ef = _efficace(J, s, eps, comprime, My, Mz, {p["role"]: p["epsilon"] for p in cl["parois"]})
         except NonCouvert as e:
             J.verif("E-SECTION", "Résistance de la section", "EN 1993-1-6", "", None, None, "", [], statut=NON_COUVERT,
                     messages=[J.alerte("classe4", "attention", str(e))])
@@ -315,9 +395,12 @@ def ajouter(J: Journal, d: Dict) -> None:
                     cles_rho.append(J.f(f"rho_{a}", "ρ" if rond else f"ρ_{a}", [_t("V_Ed" if rond else f"V_{a},Ed", V / 1e3, "kN"),
                                                                                  _t(nomV, Vpl / 1e3, "kN")], rho[a], "", "e_rho_V"))
             if d["voilement"]:                               # une âme élancée : EN 1993-1-5 § 5 et § 7.1 (« A-Vb », « A-VbM »)
-                AM.cisaillement(J, s, fy, P, V, My if a == "z" else Mz, N, direction=a)
+                AM.cisaillement(J, s, fy, P, V, My if a == "z" else Mz, N, direction=a, fy_ame=fyp.get("ame"))
         if forme == "I" and Vy > 0:
-            J.alerte("a_confirmer_Avy", "info", "A_v,y = A − h_w·t_w : par analogie avec les sections soudées (à confirmer).")
+            if s.get("fabrication") in AM.SOUDES:
+                J.alerte("Avy", "info", "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 6.2.6(3) e)).")
+            else:
+                J.alerte("Avy", "info", "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).")
     G["rho_z"], G["rho_y"] = rho["z"], rho["y"]
     r = max(rho["z"], rho["y"])
     G["rho"] = r

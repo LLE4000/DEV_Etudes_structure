@@ -10,16 +10,18 @@ docs/acier/BARRES_ACIER.md § 5.6.
         f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1        χ_LT,mod = χ_LT/f ≤ 1 et ≤ 1/λ̄_LT²
         k_c (tableau 6.6) : moment constant 1 ; linéaire 1/(1,33 − 0,33·ψ) ; charge répartie sur deux appuis 0,94 ;
         charge concentrée à mi-portée 0,86 ; tout autre diagramme : k_c = 1 (f = 1, du côté sûr)
-    tube rectangulaire (cas général, § 6.3.2.2) : courbe d, λ̄_LT,0 = 0,2 et β = 1 dans Φ_LT, f = 1
+    tube rectangulaire (cas général, § 6.3.2.2) : courbe d, λ̄_LT,0 = 0,2 et β = 1 dans Φ_LT, f = 1 ; le seuil de
+        6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 — celui de l'ANB, 0,2
     M_b,Rd = χ_LT,mod·W_y·f_y / γ_M1
     négligé (χ_LT = 1) si λ̄_LT ≤ λ̄_LT,0 ou M_Ed/M_cr ≤ λ̄_LT,0²                                        (§ 6.3.2.2(4))
 
 Tube rond ou carré : pas de déversement. Semelle comprimée tenue en continu (« Lc » nul, ou « actif » faux) : pas de
 déversement, et c'est dit.
 
-PARAMÈTRES NATIONAUX (acier/barre/parametres.py), À CONFIRMER sur le texte de l'annexe belge : (λ̄_LT,0 ; β) vaut
-(0,4 ; 0,75) quand M_cr ignore les maintiens intermédiaires — un tronçon nu entre deux sections tenues —, et (0,2 ; 1,0)
-quand M_cr en tient compte (un maintien d'une seule semelle à l'intérieur du tronçon). Le couple employé est nommé.
+PARAMÈTRES NATIONAUX (acier/barre/parametres.py) : (λ̄_LT,0 ; β) = (0,2 ; 1,0), NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) —
+M_cr est calculé par le solveur du module avec les combinaisons, la distribution réelle des moments et les maintiens,
+qu'il y en ait ou non dans le tronçon. La variante (0,4 ; 0,75) suppose les maintiens TOTALEMENT ignorés dans M_cr :
+le module n'a pas cette option, il ne l'applique donc jamais (brief § 7.7). Le couple employé est nommé.
 
 Pour l'annexe A (flexion composée), ce fichier rend aussi M_cr,0 — le moment critique du même tronçon sous moment
 CONSTANT — λ̄_0 = √(W_y·f_y/M_cr,0) et C₁ = 1/k_c².
@@ -30,6 +32,7 @@ from typing import Callable, Dict, Optional, Tuple
 from acier.flambement import normes as NO
 
 from . import mcr as MC
+from . import parametres as PA
 from .resultat import Journal, Refus, fr as _fr, terme as _t
 
 REF = "EN 1993-1-1 § 6.3.2"
@@ -134,22 +137,19 @@ def ajouter(J: Journal, d: Dict) -> None:
     lb0 = math.sqrt(Wy * fy / Mcr0)
     cles.append(J.f("lambda_LT", "λ̄_LT", [_t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr", Mcr / 1e6, "kN·m")], lbLT, "",
                     "e_lambda_LT"))
-    # ---- la courbe et le couple (λ̄_LT,0 ; β)
-    avec = bool(tr["maintiens"])
+    # ---- la courbe et le couple (λ̄_LT,0 ; β) de l'ANB:2018, 6.3.2.3(1) — un seul : M_cr tient compte des maintiens
+    D["a_confirmer"] = [k for k in ("lambda_LT0_avec_maintiens", "beta_avec_maintiens") if PA.PARAMETRES[k]["statut"] == PA.A_CONFIRMER]
     if s["forme"] == "I":
         famille = "soude" if s["fabrication"] in SOUDES else "lamine"
         if not s.get("h") or not s.get("b"):
             raise Refus("h et b manquent : la courbe de déversement en dépend")
         courbe = COURBES_LT[famille][s["h"] / s["b"] > ELANCE]
-        lbLT0 = P["lambda_LT0_avec_maintiens" if avec else "lambda_LT0_sans_maintiens"]
-        beta = P["beta_avec_maintiens" if avec else "beta_sans_maintiens"]
+        lbLT0, beta = P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"]
         seuil = lbLT0
-        D["a_confirmer"] = ["lambda_LT0_avec_maintiens", "beta_avec_maintiens"] if avec else ["lambda_LT0_sans_maintiens", "beta_sans_maintiens"]
         methode = "§ 6.3.2.3"
     else:
         courbe, lbLT0, beta = COURBE_GENERALE, LAMBDA0_GENERAL, BETA_GENERAL
-        seuil = P["lambda_LT0_sans_maintiens"]
-        D["a_confirmer"] = ["lambda_LT0_sans_maintiens"]
+        seuil = P["lambda_LT0_avec_maintiens"]                   # 6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 (ANB : 0,2)
         kc, tabule = 1.0, False
         methode = "§ 6.3.2.2"
     alpha = NO.ALPHA[courbe]
@@ -199,4 +199,4 @@ def ajouter(J: Journal, d: Dict) -> None:
     niveau = "au centre de cisaillement" if not dev["zg"] else ("sur la semelle haute" if dev["zg"] > 0 else "sous la semelle basse")
     charge = f", charge {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
     J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m entre sections tenues{charge} ; courbe {courbe}, "
-                 f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (annexe belge, à confirmer)." if s["forme"] == "I" else "."))
+                 f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (ANB:2018, 6.3.2.3(1))." if s["forme"] == "I" else "."))

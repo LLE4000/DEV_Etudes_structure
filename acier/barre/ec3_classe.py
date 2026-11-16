@@ -3,6 +3,10 @@
 EFFICACE quand elle est de classe 4. Sections à deux axes de symétrie : I et H, tubes carrés et rectangulaires, tubes
 ronds. docs/acier/BARRES_ACIER.md § 5.2 et 5.3.
 
+ε PAROI PAR PAROI (brief § 7.1 ; tableau 5.2 : ε = √(235/f_y) de la paroi) : chaque paroi prend l'ε de SA f_y, selon
+son épaisseur (semelles : t_f ; âme : t_w) — limites c/t et élancements λ̄_p ; α et ψ, qui décrivent la répartition
+des contraintes, prennent la f_y de CALCUL (la section est calculée comme si toutes ses parois l'avaient).
+
 LA CLASSE dépend de l'effort : elle se refait pour chaque combinaison. Chaque paroi reçoit son ÉTAT :
 
   « compression »  comprimée uniformément — interne 33ε / 38ε / 42ε ; en console 9ε / 10ε / 14ε ; tube rond
@@ -109,16 +113,26 @@ def _classe(c_t: float, limites: List[Optional[float]]) -> int:
     return 4
 
 
-def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0) -> Dict:
-    """La classe de la section sous ``N`` (N, compression > 0), ``My`` et ``Mz`` (seule leur présence compte) :
-    {"classe", "epsilon", "parois": [{…, "etat", "alpha", "psi", "limites" [3], "regles" [3], "classe"}]}."""
-    eps = NO.epsilon(fy)
+def _eps(eps, role: str) -> float:
+    """L'ε d'une paroi : ``eps`` est un nombre (le même pour toutes) ou {rôle: ε}."""
+    return eps[role] if isinstance(eps, dict) else eps
+
+
+def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0, fy_parois: Optional[Dict] = None) -> Dict:
+    """La classe de la section sous ``N`` (N, compression > 0), ``My`` et ``Mz`` (seule leur présence compte) ;
+    ``fy_parois`` : {rôle: f_y} de chaque paroi selon son épaisseur (à défaut : ``fy`` partout) :
+    {"classe", "epsilon" (celui de ``fy``), "parois": [{…, "fy", "epsilon", "etat", "alpha", "psi", "limites" [3],
+    "regles" [3], "classe"}]}."""
+    eps0 = NO.epsilon(fy)
     A = s["A"]
     fy_, fz = My != 0.0, Mz != 0.0
     out = []
     for p in parois(s):
         p = dict(p)
         role = p["role"]
+        fyp = float((fy_parois or {}).get(role, fy))
+        eps = NO.epsilon(fyp)
+        p.update({"fy": fyp, "epsilon": eps})
         alpha = psi = None
         if role in ("semelle", "tube"):
             etat = COMPRESSION if (N > 0 or fy_ or fz) else TENDUE
@@ -146,7 +160,7 @@ def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0
         p.update({"etat": etat, "alpha": alpha, "psi": psi, "limites": limites, "regles": [list(r) for r in regles],
                   "classe": _classe(p["c_t"], limites)})
         out.append(p)
-    return {"classe": max(p["classe"] for p in out), "epsilon": eps, "parois": out}
+    return {"classe": max(p["classe"] for p in out), "epsilon": eps0, "parois": out}
 
 
 # ------------------------------------------------------------------ EN 1993-1-5 § 4.4
@@ -187,9 +201,9 @@ def rho_console(lp: float) -> float:
     return min((lp - 0.188) / lp ** 2, 1.0)
 
 
-def aire_efficace(s: Dict, eps: float) -> Dict:
-    """A_eff sous compression uniforme (ψ = 1) : {"A_eff", "reduite", "parois": [{…, "k_sigma", "lambda_p", "rho",
-    "retrait" (mm²)}]}."""
+def aire_efficace(s: Dict, eps) -> Dict:
+    """A_eff sous compression uniforme (ψ = 1) ; ``eps`` : un nombre, ou {rôle: ε} (l'ε de chaque paroi) :
+    {"A_eff", "reduite", "parois": [{…, "epsilon", "k_sigma", "lambda_p", "rho", "retrait" (mm²)}]}."""
     out = []
     for p in parois(s):
         if p["type"] == "tube":
@@ -197,26 +211,29 @@ def aire_efficace(s: Dict, eps: float) -> Dict:
         p = dict(p)
         interne = p["type"] == "interne"
         ks = 4.0 if interne else K_SIGMA_CONSOLE
-        lp = lambda_p(p["c_t"], eps, ks)
+        e = _eps(eps, p["role"])
+        lp = lambda_p(p["c_t"], e, ks)
         rho = rho_interne(lp, 1.0) if interne else rho_console(lp)
-        p.update({"psi": 1.0, "k_sigma": ks, "lambda_p": lp, "rho": rho, "retrait": p["n"] * (1.0 - rho) * p["c"] * p["t"]})
+        p.update({"epsilon": e, "psi": 1.0, "k_sigma": ks, "lambda_p": lp, "rho": rho, "retrait": p["n"] * (1.0 - rho) * p["c"] * p["t"]})
         out.append(p)
     A_eff = s["A"] - sum(p["retrait"] for p in out)
     return {"A_eff": A_eff, "reduite": A_eff < s["A"], "parois": out}
 
 
-def module_efficace(s: Dict, eps: float, axe: str) -> Dict:
-    """W_eff autour de ``axe`` (« y » fort, « z » faible) sous flexion seule : {"W_eff" (mm³), "I_eff" (mm⁴), "e"
+def module_efficace(s: Dict, eps, axe: str) -> Dict:
+    """W_eff autour de ``axe`` (« y » fort, « z » faible) sous flexion seule — ``eps`` : un nombre, ou {rôle: ε} :
+    {"W_eff" (mm³), "I_eff" (mm⁴), "e"
     (déplacement de l'axe neutre vers la fibre tendue, mm), "v" (fibre comprimée extrême de la section brute, mm),
     "reduit", "membrure": {…, "psi", "k_sigma", "lambda_p", "rho"}, "ame": {…} | None}."""
     forme, A = s["forme"], s["A"]
     w = {p["role"]: p for p in parois(s)}
     if forme == "I":
         cf, tf = w["semelle"]["c"], s["tf"]
+        e_m, e_a = _eps(eps, "semelle"), _eps(eps, "ame")
         if axe == "y":
             inertie, v, Wel = s["Iy"], s["h"] / 2.0, s["Wel_y"]
             psi_m, ks = 1.0, K_SIGMA_CONSOLE
-            lp = lambda_p(cf / tf, eps, ks)
+            lp = lambda_p(cf / tf, e_m, ks)
             rho = rho_console(lp)
             long = (1.0 - rho) * cf                      # le bout des deux consoles de la semelle comprimée
             trou = (2.0 * long * tf, v - tf / 2.0, 2.0 * long * tf ** 3 / 12.0)
@@ -225,30 +242,31 @@ def module_efficace(s: Dict, eps: float, axe: str) -> Dict:
             inertie, v, Wel = s["Iz"], s["b"] / 2.0, s["Wel_z"]
             psi_m = (v - cf) / v                         # contrainte à la naissance de la console / au bord libre (section brute)
             ks = k_sigma_console(psi_m)
-            lp = lambda_p(cf / tf, eps, ks)
+            lp = lambda_p(cf / tf, e_m, ks)
             rho = rho_console(lp)
             long = (1.0 - rho) * cf                      # le bout des deux consoles comprimées (une par semelle)
             trou = (2.0 * long * tf, v - long / 2.0, 2.0 * tf * long ** 3 / 12.0)
             ame = None
-        membrure = {"nom": "semelle", "type": "console", "c": cf, "t": tf, "c_t": cf / tf}
+        membrure = {"nom": "semelle", "role": "semelle", "type": "console", "c": cf, "t": tf, "c_t": cf / tf}
     elif forme in ("tube_carre", "tube_rect"):
         t = s["t"]
         if axe == "y":
             inertie, v, Wel, m, a = s["Iy"], s["h"] / 2.0, s["Wel_y"], w["b"], w["h"]
         else:
             inertie, v, Wel, m, a = s["Iz"], s["b"] / 2.0, s["Wel_z"], w["h"], w["b"]
+        e_m, e_a = _eps(eps, m["role"]), _eps(eps, a["role"])
         psi_m, ks = 1.0, 4.0
-        lp = lambda_p(m["c_t"], eps, ks)
+        lp = lambda_p(m["c_t"], e_m, ks)
         rho = rho_interne(lp, 1.0)
         long = (1.0 - rho) * m["c"]                      # le milieu de la paroi comprimée
         trou = (long * t, v - t / 2.0, long * t ** 3 / 12.0)
         ame = (a["c"], t, 2)
-        membrure = {"nom": m["nom"], "type": "interne", "c": m["c"], "t": t, "c_t": m["c_t"]}
+        membrure = {"nom": m["nom"], "role": m["role"], "type": "interne", "c": m["c"], "t": t, "c_t": m["c_t"]}
     else:
         raise NonCouvert("Section efficace : I, H et tubes carrés ou rectangulaires seulement.")
     if not Wel or not inertie:
         raise Refus("I et W_el manquent : le module efficace en dépend")
-    membrure.update({"psi": psi_m, "k_sigma": ks, "lambda_p": lp, "rho": rho})
+    membrure.update({"epsilon": e_m, "psi": psi_m, "k_sigma": ks, "lambda_p": lp, "rho": rho})
     trous = [trou] if trou[0] > 0 else []
     ame_out = None
     if ame is not None:
@@ -257,7 +275,7 @@ def module_efficace(s: Dict, eps: float, axe: str) -> Dict:
         haut, bas = c / 2.0 - zG1, c / 2.0 + zG1         # de l'axe neutre aux deux bords de la partie droite de l'âme
         psi_w = -bas / haut
         ks_w = k_sigma_interne(psi_w)
-        lp_w = lambda_p(c / t, eps, ks_w)
+        lp_w = lambda_p(c / t, e_a, ks_w)
         rho_w = rho_interne(lp_w, psi_w)
         if psi_w < 0:
             bc = haut
@@ -271,8 +289,9 @@ def module_efficace(s: Dict, eps: float, axe: str) -> Dict:
         if long_w > 0:
             z_b = c / 2.0 - be1
             trous.append((n * long_w * t, z_b - long_w / 2.0, n * t * long_w ** 3 / 12.0))
-        ame_out = {"nom": "âme" if forme == "I" else ("paroi h" if axe == "y" else "paroi b"), "type": "interne", "c": c, "t": t,
-                   "c_t": c / t, "psi": psi_w, "k_sigma": ks_w, "lambda_p": lp_w, "rho": rho_w, "b_c": bc, "b_eff": beff}
+        ame_out = {"nom": "âme" if forme == "I" else ("paroi h" if axe == "y" else "paroi b"),
+                   "role": "ame" if forme == "I" else ("h" if axe == "y" else "b"), "type": "interne", "c": c, "t": t,
+                   "c_t": c / t, "epsilon": e_a, "psi": psi_w, "k_sigma": ks_w, "lambda_p": lp_w, "rho": rho_w, "b_c": bc, "b_eff": beff}
     if not trous:
         return {"W_eff": Wel, "I_eff": inertie, "e": 0.0, "v": v, "reduit": False, "membrure": membrure, "ame": ame_out}
     A_net = A - sum(a_ for a_, _, _ in trous)

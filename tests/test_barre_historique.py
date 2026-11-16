@@ -201,8 +201,29 @@ def controles(H=HI):
       and [v["id"] for v in r["verifications"]] == ["H-N-z", "H-N-y"] and proche(r["grandeurs"]["sigma"] / r["grandeurs"]["sigma_adm"], vz["taux"]),
       (r["statut"], r["gouvernant"], vz["taux"], [v["id"] for v in r["verifications"]]))
     r = H.verifier(barre_classeur(RECENTS["Tube Ø610 × 12,5"]))
-    c("classeur du tube Ø610 : f_y = 450 N/mm² est hors des nuances AE235 à AE355 de la doc — DIT (extrapolation) ; conforme à 83 %",
-      any(x["code"] == "nuance" for x in r["alertes"]) and r["statut"] == H.OK and round(r["taux_max"], 3) == 0.831, (r["alertes"], r["taux_max"]))
+    c("classeur du tube Ø610 : f_y = 450 N/mm² est hors des nuances AE235 à AE355 de la doc — HORS DOMAINE (brief § 6.2 point 8, test 7 du "
+      "§ 11.5) : le calcul est rendu (83 %), aucune vérification n'est « ok », l'alerte le dit",
+      any(x["code"] == "nuance" for x in r["alertes"]) and r["statut"] == H.HORS_DOMAINE and round(r["taux_max"], 3) == 0.831
+      and all(v["statut"] == H.HORS_DOMAINE for v in r["verifications"]) and r["grandeurs"]["hors_domaine"] == ["nuance"],
+      (r["alertes"], r["statut"], r["taux_max"]))
+    # ---- le domaine se lit sur la NUANCE (brief § 13.2 point 5) : une S235 épaisse (f_y 225) reste dans le domaine
+    heb = section_classeur(RECENTS["HEB 200"])
+    dans = H.verifier(dict(barre_classeur(RECENTS["HEB 200"], P=200e3), fy=225.0, nuance="S235"))
+    hors = H.verifier(dict(barre_classeur(RECENTS["HEB 200"], P=200e3), fy=440.0, nuance="S460"))
+    c("domaine lu sur la nuance : S235 à f_y = 225 (paroi de plus de 16 mm) → dans le domaine, « ok » ; S460 à f_y = 440 → hors domaine",
+      dans["statut"] == H.OK and not any(x["code"] == "nuance" for x in dans["alertes"]) and hors["statut"] == H.HORS_DOMAINE
+      and H.domaine(heb, 225.0, "S235") == [] and H.domaine(heb, 440.0, "S460") == ["nuance"] and H.domaine(heb, 225.0) == ["nuance"],
+      (dans["statut"], hors["statut"]))
+    froid = SE.saisie("tube_carre", "creux_froid", nom="SHS 150x150x8 formé à froid", h=150.0, b=150.0, t=8.0, A=4320.0, Iy=1.39e7, Iz=1.39e7,
+                      iy=56.7, iz=56.7, Wel_y=1.85e5, Wel_z=1.85e5)
+    f1 = H.verifier({"section": froid, "fy": 235.0, "nuance": "S235", "P": 100e3, "axes": {"y": {"L": 3000.0}, "z": {"L": 3000.0}}})
+    f2 = H.verifier({"section": froid, "fy": 235.0, "nuance": "S235", "P": 900e3, "axes": {"y": {"L": 3000.0}, "z": {"L": 3000.0}}})
+    mince = H.verifier({"section": dict(froid, t=6.0), "fy": 235.0, "nuance": "S235", "P": 100e3, "axes": {"y": {"L": 3000.0}, "z": {"L": 3000.0}}})
+    c("creux formé à froid de 8 mm (> 6 mm, test 16 du § 11.5) : HORS DOMAINE, jamais « ok » — mais un taux de plus de 100 % reste « nok » ; "
+      "à 6 mm, dans le domaine",
+      f1["statut"] == H.HORS_DOMAINE and all(v["statut"] == H.HORS_DOMAINE for v in f1["verifications"]) and f1["taux_max"] < 1.0
+      and f2["statut"] == H.NOK and mince["statut"] == H.OK and any(x["code"] == "courbe" and x["niveau"] == "attention" for x in f1["alertes"]),
+      (f1["statut"], f2["statut"], mince["statut"]))
 
     # ---- 2 bis. les anciens classeurs
     for nom, cl in ANCIENS.items():
@@ -450,7 +471,12 @@ def mutations():
         ("déversement éteint par défaut", '"actif": bool(dev.get("actif", True))', '"actif": bool(dev.get("actif", False))'),
         ("alerte λ̄ > 1,8 retirée", "if lb > LAMBDA_BAR_TABLEAU:\n                alerte(f\"tableau_{a}\"", "if False:\n                alerte(f\"tableau_{a}\""),
         ("arrêt PE ≤ 0 retiré", 'instable = comprime and ((My > 0 and G["y"]["PE"] <= 0) or (Mz > 0 and G["z"]["PE"] <= 0))', "instable = False"),
-        ("une forme non couverte rendue « ok »", "statut = NON_COUVERT            #", "statut = OK            #"),
+        # (la synthèse est celle de acier/barre/resultat.py depuis le lot A : « une forme non couverte rendue ok » se mute là,
+        #  tests/test_barre_ec3_section.py)
+        ("hors domaine oublié (le verdict reste « ok »)", 'if hors and v["statut"] == OK:', 'if False and v["statut"] == OK:'),
+        ("domaine lu sur f_y et non sur la nuance", "ref = MA.nominale(nuance) if nuance else fy", "ref = fy"),
+        ("creux formé à froid de plus de 6 mm laissé dans le domaine", '        hors.append("froid")', "        pass"),
+        ("un « nok » hors domaine rendu « hors domaine »", 'if hors and v["statut"] == OK:', 'if hors:'),
     ]
     res = []
     for nom, ancien, nouveau in cas:
@@ -464,6 +490,35 @@ def mutations():
             exec(compile(source.replace(ancien, nouveau), CHEMIN_MOTEUR, "exec"), mod.__dict__)
             rouges = [n for n, ok, _ in controles(mod) if not ok]
         except Exception as e:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
+            rouges = [f"exception {type(e).__name__}: {e}"]
+        res.append((nom, rouges))
+    # la SYNTHÈSE des statuts est celle de acier/barre/resultat.py (lot A) : ses mutations, rejouées sur la méthode historique
+    chemin_re = os.path.join(RACINE, "acier", "barre", "resultat.py")
+    source_re = open(chemin_re, encoding="utf-8").read()
+    cas_re = [
+        ("une forme non couverte rendue « ok » (synthèse)", '    elif any(v["statut"] == NON_COUVERT for v in verifs):\n        statut = NON_COUVERT',
+         '    elif False:\n        statut = NON_COUVERT'),
+        ("lot A — hors domaine rendu « ok » par la synthèse", '    elif any(v["statut"] == HORS_DOMAINE for v in verifs):\n        statut = HORS_DOMAINE',
+         '    elif False:\n        statut = HORS_DOMAINE'),
+        ("lot A — un taux hors domaine ignoré par la synthèse", 'juges = [v for v in verifs if v["statut"] in (OK, NOK, HORS_DOMAINE)]',
+         'juges = [v for v in verifs if v["statut"] in (OK, NOK)]'),
+    ]
+    for nom, ancien, nouveau in cas_re:
+        if source_re.count(ancien) != 1:
+            res.append((nom, None))
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location("acier.barre.resultat_mute", chemin_re)
+            re_m = importlib.util.module_from_spec(spec)
+            re_m.__package__ = "acier.barre"
+            exec(compile(source_re.replace(ancien, nouveau), chemin_re, "exec"), re_m.__dict__)
+            spec = importlib.util.spec_from_file_location("acier.barre.historique_mute", CHEMIN_MOTEUR)
+            mod = importlib.util.module_from_spec(spec)
+            mod.__package__ = "acier.barre"
+            mod.__dict__["RE"] = re_m
+            exec(compile(source.replace("from . import resultat as RE\n", ""), CHEMIN_MOTEUR, "exec"), mod.__dict__)
+            rouges = [n for n, ok, _ in controles(mod) if not ok]
+        except Exception as e:  # noqa: BLE001
             rouges = [f"exception {type(e).__name__}: {e}"]
         res.append((nom, rouges))
     return res

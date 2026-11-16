@@ -40,7 +40,7 @@ import math
 from typing import Dict, List, Optional
 
 from . import ec3_deversement as DV
-from .resultat import NOK, Journal, Refus, terme as _t
+from .resultat import NOK, NON_COUVERT, Journal, Refus, terme as _t
 
 REF = "EN 1993-1-1 § 6.3.3, annexe A"
 W_MAX = 1.5                      # w_y, w_z ≤ 1,5
@@ -89,6 +89,14 @@ def ajouter(J: Journal, d: Dict) -> None:
     N = max(d["NEd"], 0.0)                       # une traction n'est pas comptée : la barre est prise sans effort normal (du côté sûr)
     My, Mz = G["My_calcul"], G["Mz_calcul"]
     if not ((N > 0 and (My > 0 or Mz > 0)) or (My > 0 and Mz > 0)):
+        return
+    if d.get("console") and N > 0:
+        # les diagrammes du tableau A.2 (et D.1 ANB) sont ceux d'une barre entre deux appuis : aucun ne donne C_m pour une
+        # console — « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9, défaut v1 ; test 30 du § 11.5)
+        J.verif("E-661", "Flexion composée et flambement (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
+                messages=[J.alerte("console_NM", "attention", "Console sous effort normal et flexion : la flexion composée avec instabilité "
+                                                              "(§ 6.3.3, annexe A) n'est pas couverte — aucun C_m ne vaut pour une console ; "
+                                                              "N seul et M seul sont vérifiés.")])
         return
     P = d["parametres"]
     E, gM0, gM1 = P["E"], P["gamma_M0"], P["gamma_M1"]

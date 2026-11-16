@@ -6,7 +6,8 @@ Unités de la barre : m, kN, kN/m, kN·m (celles de l'écran et du formulaire). 
 N et mm : ``efforts`` convertit. Conventions du formulaire, reprises telles quelles : une charge vers le bas est
 positive ; M > 0 tend la fibre inférieure (la fibre HAUTE est comprimée) ; flèche positive vers le bas.
 
-    poids propre   g = masse linéique × 9,81 / 1000 (kN/m), un cas permanent de plus
+    poids propre   g = 78,6 kN/m³ × A (kN/m), un cas permanent de plus — le poids volumique des classeurs du bureau
+                   (brief H13 ; décision du propriétaire du 16/11/2026 : « 78,6 partout »)
     une combinaison  M(x) = Σ γ_i·M_i(x),  V(x) = Σ γ_i·V_i(x),  N = Σ γ_i·N_i,  f(x) = Σ γ_i·f_i(x)
     sections à vérifier : les appuis, chaque rupture de chargement, et les extremums du moment — là où l'effort
     tranchant de la combinaison s'annule. Entre deux ruptures, V est un polynôme de degré 2 au plus (charges
@@ -26,17 +27,17 @@ from rdm import poutres as PO
 from . import mcr as MC
 from .resultat import Refus
 
-G_PESANTEUR = 9.81               # m/s²
+POIDS_VOLUMIQUE = 78.6           # kN/m³ : l'acier des classeurs du bureau (brief H13, décision du 16/11/2026)
 POIDS_PROPRE = "Poids propre"
 GENRES_MAINTIEN = ("complet", "haut", "bas")
 NEGLIGEABLE = 1e-9               # un effort tranchant plus petit que cette part du plus grand est pris nul
 
 
 def poids_propre(s: Dict) -> float:
-    """Le poids propre du profilé en kN/m."""
-    if not s.get("masse"):
-        raise Refus("la masse linéique du profilé manque : le poids propre en dépend")
-    return s["masse"] * G_PESANTEUR / 1000.0
+    """Le poids propre du profilé en kN/m : 78,6 kN/m³ × A (A en mm² → × 10⁻⁶ m²)."""
+    if not s.get("A"):
+        raise Refus("l'aire du profilé manque : le poids propre en dépend")
+    return POIDS_VOLUMIQUE * s["A"] * 1e-6
 
 
 def cas_complets(barre: Dict, s: Dict) -> List[Dict]:

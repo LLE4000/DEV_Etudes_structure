@@ -3,7 +3,7 @@
 source et son STATUT (docs/acier/BARRES_ACIER.md § 5.8). Une seule table : changer d'annexe ou d'édition se fait ici.
 
 Statuts :
-- ``pointe``      : lue sur le texte (aucune pour l'instant : les textes ne sont pas au dépôt) ;
+- ``pointe``      : lue sur le texte (le texte n'est pas au dépôt : la source dit la clause) ;
 - ``a_pointer``   : la valeur de l'EN, connue, reprise par l'annexe belge — reste à lire sur le texte belge ;
 - ``a_confirmer`` : la valeur change un résultat et sa source n'est pas le texte : la note l'imprime comme telle.
 """
@@ -20,22 +20,28 @@ PARAMETRES: Dict[str, Dict] = {
     # ---- matériau (EN 1993-1-1 § 3.2.6)
     "E": {"valeur": 210000.0, "nom": "E", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
     "G": {"valeur": 81000.0, "nom": "G", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
-    # ---- déversement des profilés laminés (EN 1993-1-1 § 6.3.2.3) : deux couples selon la façon de calculer M_cr
-    "lambda_LT0_sans_maintiens": {"valeur": 0.4, "nom": "λ̄_LT,0", "statut": A_CONFIRMER,
-                                  "source": "ANB:2018, M_cr calculé en ignorant les maintiens latéraux — d'après l'aide d'un logiciel, pas le texte"},
-    "beta_sans_maintiens": {"valeur": 0.75, "nom": "β", "statut": A_CONFIRMER,
-                            "source": "ANB:2018, M_cr calculé en ignorant les maintiens latéraux — d'après l'aide d'un logiciel, pas le texte"},
-    "lambda_LT0_avec_maintiens": {"valeur": 0.2, "nom": "λ̄_LT,0", "statut": A_CONFIRMER,
-                                  "source": "ANB:2018, M_cr calculé avec les maintiens (section brute) — d'après l'aide d'un logiciel, pas le texte"},
-    "beta_avec_maintiens": {"valeur": 1.0, "nom": "β", "statut": A_CONFIRMER,
-                            "source": "ANB:2018, M_cr calculé avec les maintiens (section brute) — d'après l'aide d'un logiciel, pas le texte"},
+    # ---- déversement des profilés laminés (EN 1993-1-1 § 6.3.2.3) : UN couple. NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) :
+    # (0,2 ; 1,0) dès que M_cr est calculé sur la section brute avec les combinaisons, la distribution réelle des moments
+    # et les maintiens — c'est le solveur du module (acier/barre/mcr.py), maintiens présents ou non. La variante
+    # (0,4 ; 0,75) suppose les maintiens TOTALEMENT ignorés dans M_cr : une option que le module n'a pas (brief § 7.7).
+    # Les clés gardent leur nom (« M_cr calculé avec les maintiens ») : une surcharge écrite avec elles reste lisible.
+    "lambda_LT0_avec_maintiens": {"valeur": 0.2, "nom": "λ̄_LT,0", "statut": POINTE,
+                                  "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
+    "beta_avec_maintiens": {"valeur": 1.0, "nom": "β", "statut": POINTE,
+                            "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_A", "nom": "méthode du § 6.3.3", "statut": A_CONFIRMER,
                             "source": "ANB:2018 : méthode 1 (annexe A) — d'après l'aide d'un logiciel, pas le texte"},
     "borne_Cmi0": {"valeur": "1 - NEd/Ncr", "nom": "borne inférieure de C_mi,0", "statut": A_CONFIRMER,
                    "source": "ANB:2018 : une borne existe (tableau A.2) ; sa valeur est supposée, comme dans l'annexe française"},
     # ---- âme (EN 1993-1-5 § 5.1)
-    "eta": {"valeur": 1.20, "nom": "η", "source": "EN 1993-1-5 § 5.1(2), valeur recommandée (aciers jusqu'au S460)", "statut": A_POINTER},
+    # η : la note complémentaire de 5.1(2) de la NBN EN 1993-1-5 ANB:2011 (renvoi à 6.2.6(3) de l'EN 1993-1-1) réserve
+    # η > 1,00 aux sections SOUDÉES chargées dans le plan de l'âme (brief § 7.5 et § 8) : 1,00 pour les I et H laminés
+    # et les tubes ; 1,20 pour les I soudés et les caissons, jusqu'au S460 compris. Texte reçu au lot 4 : à pointer.
+    "eta": {"valeur": 1.00, "nom": "η", "statut": A_POINTER,
+            "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire : I et H laminés, tubes"},
+    "eta_soude": {"valeur": 1.20, "nom": "η (section soudée)", "statut": A_POINTER,
+                  "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2) : sections soudées (I, caissons) jusqu'au S460"},
     # ---- combinaisons (NBN EN 1990 ANB, expression 6.10)
     "gamma_G_sup": {"valeur": 1.35, "nom": "γ_G,sup", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
     "gamma_G_inf": {"valeur": 1.00, "nom": "γ_G,inf", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
@@ -62,11 +68,33 @@ def valeur(cle: str):
     return PARAMETRES[cle]["valeur"]
 
 
+# les clés RETIRÉES de la table, et pourquoi : une surcharge qui les nomme est refusée avec ce motif (jamais ignorée)
+RETIREES: Dict[str, str] = {
+    "lambda_LT0_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) suppose les maintiens "
+                                 "ignorés dans M_cr, ce que le module ne fait pas ; seul le couple « lambda_LT0_avec_maintiens », "
+                                 "« beta_avec_maintiens » s'applique",
+    "beta_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) suppose les maintiens "
+                           "ignorés dans M_cr, ce que le module ne fait pas ; seul le couple « lambda_LT0_avec_maintiens », "
+                           "« beta_avec_maintiens » s'applique",
+}
+
+
+class CleRetiree(KeyError):
+    """Une surcharge qui nomme une clé retirée de la table : ``args[0]`` est la clé, ``motif`` dit pourquoi."""
+
+    def __init__(self, cle: str):
+        super().__init__(cle)
+        self.motif = RETIREES[cle]
+
+
 def jeu(surcharges: Optional[Dict] = None) -> Dict:
     """{clé: valeur} de toute la table, ``surcharges`` appliquées : un cas d'essai publié avec d'autres coefficients,
-    une autre annexe. KeyError pour une clé qui n'est pas dans la table (une faute de frappe ne passe pas en silence)."""
+    une autre annexe. KeyError pour une clé qui n'est pas dans la table (une faute de frappe ne passe pas en silence) ;
+    CleRetiree (un KeyError) pour une clé retirée, avec son motif."""
     j = {k: p["valeur"] for k, p in PARAMETRES.items()}
     for k, v in (surcharges or {}).items():
+        if k in RETIREES:
+            raise CleRetiree(k)
         if k not in PARAMETRES:
             raise KeyError(k)
         j[k] = v

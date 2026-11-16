@@ -20,9 +20,17 @@ I_d = t_f·b³/12, A_d = b·t_f + h_w·t_w/6, λ_ed = L_c/√(I_d/A_d), courbe d
 formule des profils fermés (doc p. 18). Tube rond ou carré : pas de déversement.
 
 CE QUE LE MODULE CORRIGE par rapport aux classeurs (chaque point a son contrôle) : P_cr avec (u·L)² ; u et L par axe ;
-φ_min dans la flexion composée ; une seule courbe par axe ; des verdicts ; des garde-fous (λ̄ > 1,8, λ > 200, PE ≤ 0,
-nuance hors AE235–AE355). CE QU'IL NE REPREND PAS de la doc : la dispense « C/φ_ed = 1 si P/(A·φ) ≤ 0,15·σ_adm »
-(annotée « FAUX » p. 20) ; la tolérance de 5 % des exemples (option éteinte).
+φ_min dans la flexion composée ; une seule courbe par axe ; des verdicts ; des garde-fous (λ̄ > 1,8, λ > 200, PE ≤ 0).
+CE QU'IL NE REPREND PAS de la doc : la dispense « C/φ_ed = 1 si P/(A·φ) ≤ 0,15·σ_adm » (annotée « FAUX » p. 20) ; la
+tolérance de 5 % des exemples (option éteinte).
+
+LE DOMAINE DE LA DOC (brief § 6.2 point 8, § 9) : une nuance hors AE235 à AE355 — lue sur la NUANCE (sa valeur
+nominale), jamais sur la f_y réduite par l'épaisseur ; à défaut de nuance, sur f_y — et un profil creux formé à froid de
+paroi de plus de 6 mm sont HORS DOMAINE : le calcul est fait et rendu, chaque vérification qui passerait est rendue
+« hors_domaine » (jamais « vérifié »), une qui ne passe pas reste « nok ».
+
+f_y : celle que la barre donne. Le moteur des barres lui passe la f_y de l'Eurocode 3, selon l'épaisseur (brief § 13.2
+point 5, DÉCISION BUREAU acceptée : la table unique, acier/materiaux.py).
 
 Le moteur CALCULE et NOMME : ``verifier`` rend les grandeurs (N, mm), les vérifications (valeur, limite, taux), les
 blocs de formules (``calcul`` : termes et résultat dans les unités des classeurs — kN, cm, cm⁴, cm³, mm², N/mm² ;
@@ -31,6 +39,9 @@ gabarits dans acier/barre/formules.py) et les alertes. L'écran et la note compo
 import math
 from typing import Dict, List, Optional
 
+from acier import materiaux as MA
+
+from . import resultat as RE
 from . import section as SE
 from .resultat import Refus, formule as _f, fr as _fr, terme as _t  # noqa: F401 — Refus : celui de tout le module
 
@@ -50,7 +61,7 @@ PAROI_FROID = 6.0               # mm : « profil creux fini à froid, paroi ≤ 
 C_CHARGES = 0.85                # charges appliquées sur la barre (doc p. 21)
 MODES_C = ("unite", "moments", "charges")
 TOLERANCE = 0.05                # la « classe de précision de 5 % » des exemples (doc p. 13, 23) — option, éteinte
-OK, NOK, NON_COUVERT = "ok", "nok", "non_couvert"
+OK, NOK, NON_COUVERT, HORS_DOMAINE = RE.OK, RE.NOK, RE.NON_COUVERT, RE.HORS_DOMAINE      # une seule source : resultat.py
 # le choix de la courbe (doc p. 4) : fabrication → (axe fort, axe faible) ; les I et H laminés dépendent de h/b
 COURBES_FABRICATION = {
     "soude_oxycoupe": ("a", "b"), "soude_larges_plats": ("b", "c"), "lamine_semelles_additionnelles": ("b", "a"),
@@ -111,7 +122,7 @@ def courbes(s: Dict) -> Dict:
              "creux_chaud": "tube fini à chaud", "creux_froid": "profil creux fini à froid", "caisson": "caisson soudé non recuit",
              "caisson_recuit": "caisson soudé recuit"}[fab]
     if fab == "creux_froid" and (s.get("t") or 0.0) > PAROI_FROID:
-        message = "Creux fini à froid de plus de 6 mm : la norme ne donne pas de courbe ; la courbe c est gardée."
+        message = "Creux fini à froid de plus de 6 mm : la norme ne donne pas de courbe ; la courbe c est gardée — hors domaine."
     if fab == "creux_chaud" and forme == "tube_rect":
         message = "Tube rectangulaire fini à chaud : la norme nomme le tube rond ou carré ; la même courbe a est prise."
     return {"y": cy, "z": cz, "regle": regle, "message": message}
@@ -176,7 +187,8 @@ def _lire(d: Dict) -> Dict:
     """Les données, complétées et contrôlées (une COPIE)."""
     if not isinstance(d, dict) or not isinstance(d.get("section"), dict):
         raise Refus("la barre doit porter une section")
-    out = {"section": d["section"], "tolerance": bool(d.get("tolerance", False))}
+    out = {"section": d["section"], "tolerance": bool(d.get("tolerance", False)), "nuance": d.get("nuance"), "fy_source": d.get("fy_source"),
+           "fy_ref": d.get("fy_ref")}
     for k, defaut in (("fy", None), ("s", S_DEFAUT), ("P", 0.0), ("My", 0.0), ("Mz", 0.0), ("Vy", 0.0), ("Vz", 0.0)):
         v = d.get(k, defaut)
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(float(v)):
@@ -214,16 +226,33 @@ def _lire(d: Dict) -> Dict:
     return out
 
 
+def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
+    """Ce qui met la barre HORS du domaine de la doc (brief § 6.2 point 8) — [] dans le domaine : « nuance » (hors
+    AE235 à AE355, lue sur la valeur NOMINALE de la nuance, à défaut sur ``fy``), « froid » (profil creux formé à froid
+    de paroi de plus de 6 mm)."""
+    hors = []
+    try:
+        ref = MA.nominale(nuance) if nuance else fy
+    except MA.HorsTable:
+        ref = fy
+    if not (FY_DOC[0] <= ref <= FY_DOC[1]):
+        hors.append("nuance")
+    if s.get("fabrication") == "creux_froid" and (s.get("t") or 0.0) > PAROI_FROID:
+        hors.append("froid")
+    return hors
+
+
 def verifier(barre: Dict) -> Dict:
     """La barre vérifiée par la méthode historique.
 
-    ``barre`` (N, mm) : {"section" (acier.barre.section), "fy", "s" (1,5), "P" (compression > 0, traction < 0), "My",
+    ``barre`` (N, mm) : {"section" (acier.barre.section), "fy", "nuance" (pour le domaine ; facultative), "fy_source",
+    "fy_ref" (d'où vient f_y, en entier et en court, imprimées ; facultatives), "s" (1,5), "P" (compression > 0, traction < 0), "My",
     "Mz", "Vz", "Vy" (efforts de SERVICE ; les moments et les efforts tranchants comptent en valeur absolue),
     "axes": {"y": {"L", "u" (1), "courbe" (None : celle de la norme)}, "z": {…}},
     "C": {"y": {"mode": "unite"|"moments"|"charges", "psi"}, "z": {…}},
     "deversement": {"actif" (True), "Lc" (None : la longueur L de l'axe faible)}, "tolerance" (False)}.
 
-    Rend {"methode", "statut" (ok | nok | non_couvert), "taux_max", "gouvernant", "verifications", "grandeurs",
+    Rend {"methode", "statut" (ok | nok | non_couvert | hors_domaine), "taux_max", "gouvernant", "verifications", "grandeurs",
     "calcul", "alertes", "hypotheses"} ; une vérification : {"id", "methode", "titre", "reference", "critere",
     "valeur", "limite", "unite", "taux", "statut", "formules", "messages"}. En compression simple, la ligne des
     contraintes n'est pas rendue : elle répéterait le flambement de l'axe le plus défavorable (σ/σ_adm = P/P_adm) ;
@@ -249,15 +278,19 @@ def verifier(barre: Dict) -> Dict:
         if d["axes"]["y"]["courbe"] is None or d["axes"]["z"]["courbe"] is None:
             raise
         cb = {"y": None, "z": None, "regle": "courbes données", "message": None}
+    hors = domaine(s, fy, d["nuance"])
     if cb["message"]:
-        alerte("courbe", "info", cb["message"])
+        alerte("courbe", "attention" if "froid" in hors else "info", cb["message"])
     comprime = P > 0
-    G: Dict = {"fy": fy, "s": sec, "sigma_adm": sigma_adm, "limite": limite, "lambda_E": lE, "P": P, "My": My, "Mz": Mz, "Vz": Vz,
+    G: Dict = {"fy": fy, "fy_source": d["fy_source"], "fy_ref": d["fy_ref"], "nuance": d["nuance"], "s": sec, "sigma_adm": sigma_adm, "limite": limite, "lambda_E": lE, "P": P, "My": My, "Mz": Mz, "Vz": Vz,
                "Vy": Vy, "A": A, "regle_courbes": cb["regle"]}
     calcul: List[Dict] = [_f("sigma_adm", "σ_adm", [_t("f_y", fy, "N/mm²"), _t("s", sec)], sigma_adm, "N/mm²"),
                           _f("lambda_E", "λ_E", [_t("E", E, "N/mm²"), _t("f_y", fy, "N/mm²")], lE)]
-    if not (FY_DOC[0] <= fy <= FY_DOC[1]):
-        alerte("nuance", "attention", f"f_y = {_fr(fy)} N/mm² : hors des nuances AE235 à AE355 de la norme (extrapolation).")
+    G["hors_domaine"] = hors
+    if "nuance" in hors:
+        quoi = f"Nuance {d['nuance']}" if d["nuance"] else f"f_y = {_fr(fy)} N/mm²"
+        alerte("nuance", "attention", f"{quoi} : hors des nuances AE235 à AE355 de la norme (extrapolation) — hors domaine, calcul pour "
+                                      "information.")
     if d["tolerance"]:
         alerte("tolerance", "attention", "Tolérance de 5 % appliquée à la contrainte admissible (exemples de la documentation).")
 
@@ -442,25 +475,18 @@ def verifier(barre: Dict) -> Dict:
             calcul.append(_f(f"taux_{v['id']}", "η", [_t("valeur", v["valeur"], v["unite"]), _t("limite", v["limite"], v["unite"])],
                              v["taux"], "", "taux"))
             v["formules"].append(f"taux_{v['id']}")
+        if hors and v["statut"] == OK:              # hors du domaine de la doc : jamais « vérifié » (brief § 9) ; un « nok » le reste
+            v["statut"] = HORS_DOMAINE
+            v["messages"].append("Hors du domaine de la méthode historique (" + " ; ".join(
+                {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm"}[h] for h in hors)
+                + ") : calcul pour information, jamais « vérifié ».")
 
     # ---- la synthèse
     hyp.insert(0, f"Charges de service, non pondérées ; contrainte admissible σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"
-                  f" = {_fr(sigma_adm, 1)} N/mm².")
+                  f" = {_fr(sigma_adm, 1)} N/mm²" + (f" (f_y : {d['fy_source']})." if d["fy_source"] else "."))
     hyp.append(f"Courbes de flambement : {G['y']['courbe']} (axe fort), {G['z']['courbe']} (axe faible) — {cb['regle']}.")
     if flechi and (Cy != 1.0 or Cz != 1.0):
         hyp.append(f"Coefficient C : {_fr(Cy, 2)} (axe fort), {_fr(Cz, 2)} (axe faible).")
-    juges = [v for v in verifs if v["statut"] in (OK, NOK)]
-    if any(v["statut"] == NOK for v in juges):
-        statut = NOK
-    elif any(v["statut"] == NON_COUVERT for v in verifs):
-        statut = NON_COUVERT            # rien ne dépasse, mais une vérification manque : jamais « ok »
-    else:
-        statut = OK
-    avec_taux = [v for v in juges if v["taux"] is not None]
-    gouv = max(avec_taux, key=lambda v: v["taux"]) if avec_taux else None
-    sans_taux = [v for v in juges if v["taux"] is None]
-    if sans_taux:
-        gouv = sans_taux[0]
-    return {"methode": METHODE, "norme": NORME, "statut": statut, "taux_max": gouv["taux"] if gouv else None,
-            "gouvernant": gouv["id"] if gouv else None, "verifications": verifs, "grandeurs": G, "calcul": calcul, "alertes": alertes,
-            "hypotheses": hyp}
+    sy = RE.synthese(verifs)                # nok > non couvert > hors domaine > ok (acier/barre/resultat.py, la seule synthèse)
+    return {"methode": METHODE, "norme": NORME, "statut": sy["statut"], "taux_max": sy["taux_max"], "gouvernant": sy["gouvernant"],
+            "verifications": verifs, "grandeurs": G, "calcul": calcul, "alertes": alertes, "hypotheses": hyp}

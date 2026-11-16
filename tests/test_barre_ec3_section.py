@@ -215,10 +215,30 @@ def controles(C_=CL, S_=ES):
 
     # ---- 2. les classes
     def classes(nom, nuance, N=0.0, My=0.0, Mz=0.0):
+        """La classe comme le moteur la fait : f_y de calcul (la plus forte paroi) pour α et ψ, ε de chaque paroi selon
+        SON épaisseur (brief § 7.1 ; tableau 5.2) — lot A, 16/11/2026."""
         s = SE.du_catalogue(nom)
-        fy = NO.limite_elastique(nuance, ES.epaisseur(s), froid=s["fabrication"] == "creux_froid")
-        cl = C_.classer(s, fy, N, My, Mz)
+        d = S_.lire({"section": s, "nuance": nuance})
+        cl = C_.classer(s, d["fy"], N, My, Mz, d["fy_parois"])
         return cl["classe"], {p["role"]: p["classe"] for p in cl["parois"]}, cl
+
+    # ---- 2 bis. la f_y selon l'épaisseur et l'ε paroi par paroi (lot A : table unique, option a de l'ANB:2018 ; brief § 7.1)
+    d300 = S_.lire({"section": SE.du_catalogue("HEB 300"), "nuance": "S235"})
+    cl300 = C_.classer(SE.du_catalogue("HEB 300"), d300["fy"], 0.0, 1.0, 0.0, d300["fy_parois"])
+    eps_f, eps_w = (next(q["epsilon"] for q in cl300["parois"] if q["role"] == r_) for r_ in ("semelle", "ame"))
+    c("HEB 300 S235 (t_f = 19, t_w = 11 mm) — test 25 du brief : f_y de calcul 225 N/mm² (tableau 3.3 ANB, 16 < t ≤ 40) ; ε des semelles "
+      "= √(235/225) = 1,022, ε de l'âme = √(235/235) = 1,000 — chaque limite c/t avec l'ε de SA paroi",
+      d300["fy"] == 225.0 and d300["fy_parois"] == {"semelle": 225.0, "ame": 235.0} and round(eps_f, 3) == 1.022 and eps_w == 1.0
+      and proche(next(q for q in cl300["parois"] if q["role"] == "semelle")["limites"][0], 9.0 * math.sqrt(235.0 / 225.0))
+      and proche(next(q for q in cl300["parois"] if q["role"] == "ame")["limites"][0], 72.0)
+      and "tableau 3.3 ANB" in d300["fy_source"] and "16 < t ≤ 40 mm" in d300["fy_source"], (d300["fy_parois"], eps_f, eps_w))
+    srcs = {nom: S_.lire({"section": SE.du_catalogue(nom), "nuance": "S355"})["fy_source"] for nom in ("CHS 168.3x6.3", "SHS 200x200x6.3", "IPE 300")}
+    froid = next(q["nom"] for q in CAT.profils() if q["famille"] == "SHS-F")
+    srcs[froid] = S_.lire({"section": SE.du_catalogue(froid), "nuance": "S355"})["fy_source"]
+    c("le PRODUIT selon la fabrication : un tube fini à chaud lit le tableau 3.8 ANB (EN 10210-1), un tube formé à froid le tableau 3.10 ANB "
+      "(EN 10219-1), un profilé laminé le tableau 3.3 ANB (EN 10025-2)",
+      "tableau 3.8 ANB" in srcs["CHS 168.3x6.3"] and "tableau 3.8 ANB" in srcs["SHS 200x200x6.3"] and "tableau 3.10 ANB" in srcs[froid]
+      and "tableau 3.3 ANB" in srcs["IPE 300"], srcs)
 
     c("IPE 300 S235 : classe 1 en flexion ; classe 2 en compression (âme c/t = 35,0 entre 33ε et 38ε)",
       classes("IPE 300", "S235", My=1.0)[0] == 1 and classes("IPE 300", "S235", N=1.0)[:2] == (2, {"semelle": 1, "ame": 2}),
@@ -232,10 +252,11 @@ def controles(C_=CL, S_=ES):
     # IPE 600 S355, âme fléchie et comprimée, à la main : c = 514, t_w = 12, A = 155,99 cm²
     p = brut("IPE 600")
     cw, A6 = p["cw_tw"] * p["tw"], p["A"] * 100.0
+    fyd6 = 345.0                                   # IPE 600 S355 : t_f = 19 mm → 345 (tableau 3.3 ANB) ; l'âme (12 mm) garde 355, son ε = e355
     attendus = []
     for N in (500e3, 1000e3, 2000e3, 4000e3):
-        al = min(0.5 + N / (2 * cw * p["tw"] * 355.0), 1.0)
-        ps = 2 * N / (A6 * 355.0) - 1
+        al = min(0.5 + N / (2 * cw * p["tw"] * fyd6), 1.0)
+        ps = 2 * N / (A6 * fyd6) - 1
         l1, l2 = (396 * e355 / (13 * al - 1), 456 * e355 / (13 * al - 1)) if al > 0.5 else (36 * e355 / al, 41.5 * e355 / al)
         l3 = 42 * e355 / (0.67 + 0.33 * ps) if ps > -1 else 62 * e355 * (1 - ps) * math.sqrt(-ps)
         attendus.append(1 if p["cw_tw"] <= l1 else 2 if p["cw_tw"] <= l2 else 3 if p["cw_tw"] <= l3 else 4)
@@ -244,9 +265,10 @@ def controles(C_=CL, S_=ES):
       obtenus == attendus == [1, 2, 3, 4], (obtenus, attendus))
     cl = classes("IPE 600", "S355", N=2000e3, My=1.0)[2]
     ame = next(q for q in cl["parois"] if q["role"] == "ame")
-    c("IPE 600 S355, N = 2 000 kN : l'âme est dite « flexion composée », α = 0,957, ψ = −0,278, limite de classe 3 = 59,1",
-      ame["etat"] == C_.FLEXION_COMPOSEE and round(ame["alpha"], 3) == 0.957 and round(ame["psi"], 3) == -0.278 and round(ame["limites"][2], 1) == 59.1,
-      ame)
+    c("IPE 600 S355, N = 2 000 kN : l'âme est dite « flexion composée », α = 0,970 et ψ = −0,257 (f_y de calcul 345), limite de classe 3 "
+      "= 42·ε_w/(0,67 + 0,33·ψ) = 58,4 (ε de l'âme : 355)",
+      ame["etat"] == C_.FLEXION_COMPOSEE and round(ame["alpha"], 3) == 0.970 and round(ame["psi"], 3) == -0.257 and round(ame["limites"][2], 1) == 58.4
+      and proche(ame["limites"][2], 42 * e355 / (0.67 + 0.33 * ame["psi"])) and ame["epsilon"] == e355, ame)
     c("traction seule : classe 1, aucune paroi comprimée ; traction + flexion : l'âme profite de la traction (α < 0,5)",
       classes("IPE 600", "S355", N=-1000e3)[0] == 1 and classes("IPE 600", "S355", N=-1000e3)[2]["parois"][1]["etat"] == C_.TENDUE
       and classes("IPE 600", "S355", N=-1000e3, My=1.0)[2]["parois"][1]["alpha"] < 0.5)
@@ -263,7 +285,7 @@ def controles(C_=CL, S_=ES):
       proche(next(q for q in classes("SHS 200x200x6.3", "S355", N=400e3, My=1.0)[2]["parois"] if q["role"] == "h")["alpha"],
              0.5 + 400e3 / (4 * (200 - 3 * 6.3) * 6.3 * 355.0)))
     # tout le catalogue : la compression pure donne la classe et l'aire efficace du module Flambement
-    ecarts, n = [], 0
+    ecarts, n, n_par = [], 0, 0
     for pr in CAT.profils():
         if pr["famille"] not in SE.FAMILLES or SE.FAMILLES[pr["famille"]][0] not in ES.FORMES:
             continue
@@ -274,12 +296,24 @@ def controles(C_=CL, S_=ES):
             except NO.HorsDomaine:
                 continue                       # épaisseur hors du tableau 3.1, ou tube rond de classe 4 : contrôlés plus bas
             n += 1
-            cl = C_.classer(s, ref["fy"], 1.0)
-            aeff = C_.aire_efficace(s, cl["epsilon"])["A_eff"] if cl["classe"] == 4 else s["A"]
-            if cl["classe"] != ref["classe"] or not proche(aeff, ref["A_eff"]):
+            try:
+                fyp = S_.lire({"section": s, "nuance": nu})["fy_parois"]
+            except RE.Refus:
+                continue
+            cl = C_.classer(s, ref["fy"], 1.0, 0.0, 0.0, fyp)
+            aeff = C_.aire_efficace(s, {q["role"]: q["epsilon"] for q in cl["parois"]})["A_eff"] if cl["classe"] == 4 else s["A"]
+            uniforme = len({fyp.get(q["role"]) for q in cl["parois"]}) == 1
+            if uniforme and (cl["classe"] != ref["classe"] or not proche(aeff, ref["A_eff"])):
                 ecarts.append((pr["nom"], nu, cl["classe"], ref["classe"], aeff, ref["A_eff"]))
-    c(f"tout le catalogue en compression pure ({n} couples profilé-nuance) : même classe et même A_eff que le module Flambement en service",
-      n > 3500 and not ecarts, (n, ecarts[:3]))
+            elif not uniforme:
+                n_par += 1
+                if cl["classe"] < ref["classe"] or aeff > ref["A_eff"] * (1 + 1e-12):
+                    ecarts.append((pr["nom"], nu, "paroi par paroi", cl["classe"], ref["classe"], aeff, ref["A_eff"]))
+    # (lot A : le module Flambement prend un seul ε, celui de la f_y de calcul, pour toutes les parois — l'écart A1b, hors des
+    #  barres ; quand les parois n'ont pas la même f_y, la barre est au moins aussi sévère : classe ≥, A_eff ≤)
+    c(f"tout le catalogue en compression pure ({n} couples profilé-nuance) : même classe et même A_eff que le module Flambement en service "
+      f"quand toutes les parois ont la même f_y ; quand l'âme est plus mince que les semelles ({n_par} couples), l'ε de chaque paroi rend la "
+      "barre au moins aussi sévère (classe ≥, A_eff ≤)", n > 3500 and n_par > 50 and not ecarts, (n, n_par, ecarts[:3]))
 
     # ---- 3. la section efficace, recalculée par assemblage
     faux = []
@@ -348,21 +382,33 @@ def controles(C_=CL, S_=ES):
     # ---- 4. les résistances, à la main (valeurs brutes du catalogue : cm², cm³ ; mm)
     p = brut("IPE 300")
     Npl, Mply, Mplz = p["A"] * 100 * 235.0, p["Wpl_y"] * 1e3 * 235.0, p["Wpl_z"] * 1e3 * 235.0
-    Vplz, Vply = p["Avz"] * 100 * 235.0 / R3, p["Avy"] * 100 * 235.0 / R3
+    Vplz, Vply = p["Avz"] * 100 * 235.0 / R3, 2.0 * p["b"] * p["tf"] * 235.0 / R3
     r = v("IPE 300", "S235", NEd=100e3, MyEd=10e6, MzEd=1e6, VzEd=10e3, VyEd=10e3)
-    c("IPE 300 S235 : N_c,Rd = A·f_y = 1 264,6 kN ; M_pl,y,Rd = 147,7 kN·m ; M_pl,z,Rd = 29,4 kN·m ; V_pl,z,Rd = 348,5 kN ; V_pl,y,Rd = 461,8 kN",
+    c("IPE 300 S235 : N_c,Rd = A·f_y = 1 264,6 kN ; M_pl,y,Rd = 147,7 kN·m ; M_pl,z,Rd = 29,4 kN·m ; V_pl,z,Rd = 348,5 kN ; V_pl,y,Rd = "
+      "2·b·t_f·f_y/√3 = 435,5 kN (DÉCISION BUREAU n° 3, brief § 7.5 ; l'analogie A − h_w·t_w donnait 461,8 kN)",
       proche(limite(r, "E-N"), Npl / 1e3) and proche(limite(r, "E-My"), Mply / 1e6) and proche(limite(r, "E-Mz"), Mplz / 1e6)
       and proche(limite(r, "E-Vz"), Vplz / 1e3) and proche(limite(r, "E-Vy"), Vply / 1e3)
-      and [round(limite(r, k), 1) for k in ("E-N", "E-My", "E-Mz", "E-Vz", "E-Vy")] == [1264.6, 147.7, 29.4, 348.5, 461.8],
+      and [round(limite(r, k), 1) for k in ("E-N", "E-My", "E-Mz", "E-Vz", "E-Vy")] == [1264.6, 147.7, 29.4, 348.5, 435.5]
+      and any(x["code"] == "Avy" and "2·b·t_f" in x["message"] for x in r["alertes"]),
       [limite(r, k) for k in ("E-N", "E-My", "E-Mz", "E-Vz", "E-Vy")])
+    r = v("HEB 200", "S235", VyEd=100e3)
+    sw = i_sans_conge(400.0, 200.0, 12.0, 8.0)
+    rw = S_.verifier({"section": sw, "fy": 235.0, "VyEd": 100e3})
+    c("A_v,y (test 14 du § 11.5) : HEB 200 laminé → 2·b·t_f = 6 000 mm² (V_pl,y,Rd = 814,1 kN) ; un I SOUDÉ garde A − h_w·t_w (6.2.6(3) e))",
+      proche(r["grandeurs"]["A_v"]["y"], 6000.0) and round(limite(r, "E-Vy"), 1) == 814.1
+      and proche(rw["grandeurs"]["A_v"]["y"], sw["A"] - (400.0 - 24.0) * 8.0), (r["grandeurs"]["A_v"], rw["grandeurs"]["A_v"]))
     r = v("IPE 500", "S235", NEd=500e3, MyEd=200e6, MzEd=25e6, VzEd=100e3, VyEd=50e3)
     cl5 = {q["role"]: q["classe"] for q in r["grandeurs"]["classification"]["parois"]}
-    ref21 = {"E-N": 2715.0, "E-My": 516.0, "E-Mz": 78.9, "E-Vz": 814.0, "E-Vy": 912.0}
+    ref21 = {"E-N": 2715.0, "E-My": 516.0, "E-Mz": 78.9, "E-Vz": 814.0}
     ecarts21 = {k: limite(r, k) / x - 1 for k, x in ref21.items()}
+    p5 = brut("IPE 500")
+    vy_scia = (p5["A"] * 100 - (p5["h"] - 2 * p5["tf"]) * p5["tw"]) * 235.0 / R3 / 1e3
     c("exemple 5 de l'ECCS N°119 (benchmark 21 de l'aide de SCIA Engineer — IPE 500 S235, N_Ed = 500 kN, flexion déviée) : semelles et âme "
-      "de classe 1 ; N_c,Rd 2 715 kN, M_c,y,Rd 516 kN·m, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN à moins de 0,3 % ; V_pl,y,Rd 912 kN à moins de 1 %",
-      cl5 == {"semelle": 1, "ame": 1} and all(abs(ecarts21[k]) < 0.003 for k in ("E-N", "E-My", "E-Mz", "E-Vz")) and abs(ecarts21["E-Vy"]) < 0.01,
-      (cl5, {k: round(x, 4) for k, x in ecarts21.items()}))
+      "de classe 1 ; N_c,Rd 2 715 kN, M_c,y,Rd 516 kN·m, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN à moins de 0,3 % ; V_pl,y,Rd : SCIA donne 912 kN "
+      "avec A − h_w·t_w (919,8 kN à 0,9 %) — le module prend 2·b·t_f (DÉCISION BUREAU n° 3) : 868,3 kN",
+      cl5 == {"semelle": 1, "ame": 1} and all(abs(ecarts21[k]) < 0.003 for k in ("E-N", "E-My", "E-Mz", "E-Vz")) and abs(vy_scia / 912.0 - 1) < 0.01
+      and proche(limite(r, "E-Vy"), 2 * p5["b"] * p5["tf"] * 235.0 / R3 / 1e3) and round(limite(r, "E-Vy"), 1) == 868.3,
+      (cl5, {k: round(x, 4) for k, x in ecarts21.items()}, limite(r, "E-Vy")))
     r = v("HEB 200", "S235", NEd=432.72e3)
     c("HEB 200 S235 (la barre du classeur du bureau, 432,72 kN) : N_c,Rd = 78,08 cm²·235 = 1 835,0 kN, taux 23,6 % ; une seule vérification",
       [x["id"] for x in r["verifications"]] == ["E-N"] and proche(limite(r, "E-N"), brut("HEB 200")["A"] * 100 * 0.235) and round(taux(r, "E-N"), 3) == 0.236, r["verifications"])
@@ -372,27 +418,46 @@ def controles(C_=CL, S_=ES):
     c("HEA 300 : classe 3 en S355 → M_c,y,Rd = W_el,y·f_y = 447,2 kN·m ; classe 1 en S235 → W_pl,y·f_y = 325,1 kN·m",
       proche(limite(r, "E-My"), ph["Wel_y"] * 0.355) and proche(limite(r1, "E-My"), ph["Wpl_y"] * 0.235) and r["grandeurs"]["classe"] == 3, (limite(r, "E-My"), limite(r1, "E-My")))
     r = v("IPE 600", "S355", NEd=3000e3)
-    c("IPE 600 S355 en compression : classe 4 → N_c,Rd = A_eff·f_y = 5 150 kN (et non A·f_y = 5 538) ; l'alerte « classe 4 » est émise",
-      proche(limite(r, "E-N"), a["A_eff"] * 0.355) and round(limite(r, "E-N")) == 5150 and any(x["code"] == "classe4" for x in r["alertes"]), limite(r, "E-N"))
+    c("IPE 600 S355 en compression : classe 4 → N_c,Rd = A_eff·f_y = 145,1 cm² × 345 = 5 005 kN (A_eff avec l'ε de l'âme, 12 mm → 355 ; f_y de "
+      "calcul 345 : t_f = 19 mm) ; l'alerte « classe 4 » est émise",
+      proche(limite(r, "E-N"), a["A_eff"] * 0.345) and round(limite(r, "E-N")) == 5005 and any(x["code"] == "classe4" for x in r["alertes"]), limite(r, "E-N"))
     r = v("IPE 600", "S355", NEd=-3000e3)
-    c("IPE 600 S355 en traction : N_t,Rd = A·f_y = 5 537,6 kN (section brute), classe 1",
-      proche(limite(r, "E-N"), A6 * 0.355) and verif(r, "E-N")["titre"] == "Traction" and r["grandeurs"]["classe"] == 1, limite(r, "E-N"))
+    c("IPE 600 S355 en traction : N_t,Rd = A·f_y = 15 599 × 345 = 5 381,7 kN (section brute, f_y de la semelle de 19 mm), classe 1",
+      proche(limite(r, "E-N"), A6 * 0.345) and verif(r, "E-N")["titre"] == "Traction" and r["grandeurs"]["classe"] == 1, limite(r, "E-N"))
     pt = brut("IPE 750x147")
     hw = pt["h"] - 2 * pt["tf"]
     r = v("IPE 750x147", "S235", VzEd=500e3)
-    c("IPE 750x147 : l'aire de cisaillement du catalogue (105,4 cm²) est SOUS le plancher η·h_w·t_w = 1,2·719·13,2 = 113,9 cm² → V_pl,z,Rd = 1 545 kN",
-      proche(limite(r, "E-Vz"), 1.2 * hw * pt["tw"] * 235.0 / R3 / 1e3) and 1.2 * hw * pt["tw"] > pt["Avz"] * 100
-      and "Av_z" in verif(r, "E-Vz")["formules"] and round(limite(r, "E-Vz")) == 1545, limite(r, "E-Vz"))
-    r = v("IPE 750x147", "S235", VzEd=500e3, parametres={"eta": 1.0})
-    c("η = 1,0 (valeur prudente) : le plancher ne gouverne plus, l'aire du catalogue revient",
-      proche(limite(r, "E-Vz"), pt["Avz"] * 100 * 235.0 / R3 / 1e3) and "Av_z" not in verif(r, "E-Vz")["formules"], limite(r, "E-Vz"))
+    c("IPE 750x147 (laminé, η = 1,00 — NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire ; test 22 du § 11.5) : le plancher h_w·t_w = "
+      "94,9 cm² est SOUS l'aire du catalogue (105,4 cm²) → V_pl,z,Rd = 105,4 cm² × 225/√3 = 1 369,4 kN (t_f = 17 mm → f_y = 225)",
+      proche(limite(r, "E-Vz"), pt["Avz"] * 100 * 225.0 / R3 / 1e3) and hw * pt["tw"] < pt["Avz"] * 100
+      and "Av_z" not in verif(r, "E-Vz")["formules"] and round(limite(r, "E-Vz"), 1) == 1369.4, limite(r, "E-Vz"))
+    r = v("IPE 750x147", "S235", VzEd=500e3, parametres={"eta": 1.2})
+    c("le η d'un laminé est le paramètre « eta » : 1,2 donné (l'ancienne valeur), le plancher 1,2·h_w·t_w = 113,9 cm² gouverne (1 479,5 kN)",
+      proche(limite(r, "E-Vz"), 1.2 * hw * pt["tw"] * 225.0 / R3 / 1e3) and "Av_z" in verif(r, "E-Vz")["formules"], limite(r, "E-Vz"))
+    soude = i_sans_conge(1000.0, 300.0, 20.0, 6.0)
+    rw = S_.verifier({"section": soude, "fy": 235.0, "VzEd": 300e3})
+    rw1 = S_.verifier({"section": soude, "fy": 235.0, "VzEd": 300e3, "parametres": {"eta_soude": 1.0}})
+    c("un I SOUDÉ garde η = 1,20 (sections soudées, jusqu'au S460) : A_v,z = 1,2·960·6 = 6 912 mm² > A − 2·b·t_f + t_w·t_f = 5 880 → "
+      "V_pl,z,Rd = 937,8 kN ; seuil de voilement 72·ε/η = 60 (h_w/t_w = 160 : A-Vb) ; « eta_soude » = 1,0 : l'aire de base revient",
+      proche(limite(rw, "E-Vz"), 1.2 * 960 * 6 * 235.0 / R3 / 1e3) and "Av_z" in verif(rw, "E-Vz")["formules"] and verif(rw, "A-Vb") is not None
+      and proche(next(f for f in rw["calcul"] if f["cle"] == "lim_cis")["resultat"], 60.0)
+      and proche(limite(rw1, "E-Vz"), (soude["A"] - 2 * 300 * 20 + 6 * 20) * 235.0 / R3 / 1e3), (limite(rw, "E-Vz"), limite(rw1, "E-Vz")))
     r = v("IPE 750x147", "S355", VzEd=500e3)
-    c("IPE 750x147 S355 sous effort tranchant : h_w/t_w = 54,5 > 72·ε/η = 48,8 → le voilement par cisaillement est VÉRIFIÉ (A-Vb, EN 1993-1-5 "
-      "§ 5 : V_bw,Rd = 2 083,7 kN, sous V_pl,z,Rd = 2 334 kN) — depuis le lot 4, plus « non couvert » ; une âme trapue (IPE 300) n'a pas cette ligne",
-      r["statut"] == RE.OK and verif(r, "A-Vb")["statut"] == RE.OK and round(limite(r, "A-Vb"), 1) == 2083.7 and limite(r, "A-Vb") < limite(r, "E-Vz")
+    c("IPE 750x147 S355 : h_w/t_w = 54,5 ≤ 72·ε_w/η = 72·0,814/1,00 = 58,6 (ε de l'âme, 13,2 mm → 355) — l'âme n'est plus élancée "
+      "(avec η = 1,20 elle l'était : 48,8) ; pas de ligne A-Vb",
+      r["statut"] == RE.OK and verif(r, "A-Vb") is None and verif(r, "E-Vz")["statut"] == RE.OK, [x["id"] for x in r["verifications"]])
+    pk = brut("IPE 750x134")
+    hwk = pk["h"] - 2 * pk["tf"]
+    lwk = hwk / (86.4 * pk["tw"] * e355)
+    r = v("IPE 750x134", "S355", VzEd=500e3)
+    c("IPE 750x134 S355 : h_w/t_w = 59,9 > 58,6 → le voilement par cisaillement est VÉRIFIÉ (A-Vb, EN 1993-1-5 § 5 : λ̄_w = h_w/(86,4·t·ε) "
+      "= 0,867, χ_w = 0,83/λ̄_w, V_bw,Rd = 1 722,0 kN sous V_pl,z,Rd = 1 965,4 kN) ; une âme trapue (IPE 300) n'a pas cette ligne",
+      r["statut"] == RE.OK and verif(r, "A-Vb")["statut"] == RE.OK and proche(limite(r, "A-Vb"), 0.83 / lwk * 355.0 * hwk * pk["tw"] / R3 / 1e3)
+      and round(limite(r, "A-Vb"), 1) == 1722.0 and limite(r, "A-Vb") < limite(r, "E-Vz")
       and verif(r, "E-Vb") is None and verif(r, "E-Vz")["statut"] == RE.OK and verif(v("IPE 300", "S355", VzEd=100e3), "A-Vb") is None
-      and v("IPE 300", "S355", VzEd=100e3)["statut"] == RE.OK, r["statut"])
-    r = v("IPE 750x147", "S355", MyEd=1500e6, VzEd=1200e3)
+      and v("IPE 300", "S355", VzEd=100e3)["statut"] == RE.OK, (r["statut"], limite(r, "A-Vb")))
+    pt = pk
+    r = v("IPE 750x134", "S355", MyEd=1500e6, VzEd=1200e3)
     Mf_, Mpl_ = pt["b"] * pt["tf"] * (pt["h"] - pt["tf"]) * 355.0 / 1e6, pt["Wpl_y"] * 1e3 * 355.0 / 1e6
     c("… sous V_z,Ed = 1 200 kN > 0,5·V_bw,Rd et M_y,Ed = 1 500 kN·m > M_f,Rd : l'interaction (7.1) de l'EN 1993-1-5 est vérifiée avec le moment "
       "d'AXE FORT (A-VbM = η̄₁ + (1 − M_f,Rd/M_pl,Rd)·(2·η̄₃ − 1)²)",
@@ -502,10 +567,10 @@ def controles(C_=CL, S_=ES):
       proche(verif(r, "E-NM")["valeur"], sig) and proche(limite(r, "E-NM"), 355.0) and round(sig, 1) == 234.8 and round(taux(r, "E-NM"), 3) == 0.662
       and [round(x, 1) for x in (500e3 / (ph["A"] * 100), 150e6 / (ph["Wel_y"] * 1e3), 30e6 / (ph["Wel_z"] * 1e3))] == [44.4, 119.1, 71.3], verif(r, "E-NM"))
     r = v("IPE 600", "S355", NEd=4000e3, MyEd=200e6)
-    c("IPE 600 S355, N = 4 000 kN et M_y = 200 kN·m : âme de classe 4 → N/(A_eff·f_y) + M_y/(W_el,y·f_y) = 4 000/5 150 + 200/1 090 = 96,0 % "
-      "(6.44 ; l'âme et les semelles tiennent en flexion seule : W_eff,y = W_el,y)",
-      r["grandeurs"]["classe"] == 4 and proche(taux(r, "E-NM"), 4000e3 / (a["A_eff"] * 355.0) + 200e6 / (brut("IPE 600")["Wel_y"] * 1e3 * 355.0))
-      and round(taux(r, "E-NM"), 3) == 0.960, (r["grandeurs"]["classe"], taux(r, "E-NM")))
+    c("IPE 600 S355, N = 4 000 kN et M_y = 200 kN·m : âme de classe 4 → N/(A_eff·f_y) + M_y/(W_el,y·f_y) = 4 000/5 005 + 200/1 059 = 98,8 % "
+      "(6.44, f_y = 345 ; l'âme et les semelles tiennent en flexion seule : W_eff,y = W_el,y)",
+      r["grandeurs"]["classe"] == 4 and proche(taux(r, "E-NM"), 4000e3 / (a["A_eff"] * 345.0) + 200e6 / (brut("IPE 600")["Wel_y"] * 1e3 * 345.0))
+      and round(taux(r, "E-NM"), 3) == 0.988, (r["grandeurs"]["classe"], taux(r, "E-NM")))
     s = SE.du_catalogue("HEAA 300")
     e460 = math.sqrt(235.0 / 460.0)
     wy = C_.module_efficace(s, e460, "y")
@@ -520,13 +585,16 @@ def controles(C_=CL, S_=ES):
     # matériau, paramètres, domaine
     r = v("HEM 300", "S355", NEd=1000e3) if "HEM 300" in CAT.par_nom() else None
     tf_hem = brut("HEM 300")["tf"]
-    c(f"HEM 300 S355 (t_f = {tf_hem:g} mm ≤ 40) : f_y = 355 ; HD 400x1086 (t_f > 80 mm) : hors du tableau 3.1, refusé avec un message ; "
-      "f_y donné passe devant le tableau",
-      r["grandeurs"]["fy"] == 355.0 and _refuse(S_, {"section": SE.du_catalogue("HD 400x1086.0"), "nuance": "S355", "NEd": 1.0})
+    c(f"HEM 300 S355 (t_f = {tf_hem:g} mm, 16 < t ≤ 40) : f_y = 345 (tableau 3.3 ANB) ; HD 400x1086 (t_f > 80 mm) : hors du domaine du module, "
+      "refusé avec un message ; f_y donné passe devant la table",
+      r["grandeurs"]["fy"] == 345.0 and _refuse(S_, {"section": SE.du_catalogue("HD 400x1086.0"), "nuance": "S355", "NEd": 1.0})
       and S_.verifier({"section": SE.du_catalogue("HD 400x1086.0"), "fy": 300.0, "NEd": 1e6})["grandeurs"]["fy"] == 300.0)
     epais = next((q["nom"] for q in CAT.profils() if q["famille"] in ("HD", "HEM", "HL") and 40 < (q.get("tf") or 0) <= 80), None)
     r = v(epais, "S355", NEd=1e6)
-    c(f"{epais} S355 (40 < t_f ≤ 80 mm) : f_y = 335 N/mm² (tableau 3.1)", r["grandeurs"]["fy"] == 335.0, r["grandeurs"]["fy"])
+    tf_ep = brut(epais)["tf"]
+    attendu_ep = 335.0 if tf_ep <= 63 else 325.0
+    c(f"{epais} S355 (t_f = {tf_ep:g} mm) : f_y = {attendu_ep:g} N/mm² (tableau 3.3 ANB : 335 de 40 à 63 mm, 325 de 63 à 80)",
+      r["grandeurs"]["fy"] == attendu_ep, r["grandeurs"]["fy"])
     r = v("IPE 300", "S235", NEd=400e3, MyEd=100e6, parametres={"gamma_M0": 1.1})
     c("γ_M0 = 1,10 (autre annexe) : toutes les résistances divisées par 1,1", proche(limite(r, "E-N"), Npl / 1.1 / 1e3) and proche(limite(r, "E-My"), Mply / 1.1 / 1e6))
     refus = [k for k, b_ in (("section absente", {"nuance": "S235"}), ("nuance inconnue", {"section": SE.du_catalogue("IPE 300"), "nuance": "S999"}),
@@ -534,9 +602,12 @@ def controles(C_=CL, S_=ES):
                              ("effort infini", {"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "MyEd": float("inf")}),
                              ("f_y négatif", {"section": SE.du_catalogue("IPE 300"), "fy": -1.0}),
                              ("paramètre inconnu", {"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "parametres": {"gama_M0": 1.0}}),
+                             ("paramètre retiré (couple « sans maintiens »)", {"section": SE.du_catalogue("IPE 300"), "nuance": "S235",
+                                                                             "parametres": {"lambda_LT0_sans_maintiens": 0.4}}),
                              ("γ_M0 nul", {"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "parametres": {"gamma_M0": 0.0}}))
              if not _refuse(S_, b_)]
-    c("domaine : section absente, nuance inconnue, effort texte ou infini, f_y négatif, paramètre inconnu, γ_M0 nul — refusés avec un message", not refus, refus)
+    c("domaine : section absente, nuance inconnue, effort texte ou infini, f_y négatif, paramètre inconnu ou retiré, γ_M0 nul — refusés avec un "
+      "message", not refus, refus)
     r = S_.verifier({"section": SE.du_catalogue("UPN 200"), "nuance": "S235", "NEd": 100e3})
     r1 = S_.verifier({"section": SE.du_catalogue("L 100x100x10"), "nuance": "S235", "NEd": 100e3})
     c("U et cornière : hors du module, statut « non couvert » (jamais « ok »)", r["statut"] == RE.NON_COUVERT and r1["statut"] == RE.NON_COUVERT)
@@ -583,6 +654,7 @@ def cas_formules():
         {"section": cat("CHS 168.3x6.3"), "nuance": "S235", "MyEd": 20e6, "VzEd": 200e3},
         {"section": i_sans_conge(600.0, 300.0, 10.0, 6.0), "fy": 355.0, "NEd": 500e3, "MyEd": 300e6, "MzEd": 20e6},
         {"section": i_sans_conge(1000.0, 300.0, 20.0, 6.0), "fy": 355.0, "NEd": -500e3, "MyEd": 500e6},     # âme de classe 4 sous traction : ψ < −1
+        {"section": i_sans_conge(1000.0, 300.0, 20.0, 6.0), "fy": 235.0, "VzEd": 300e3},                     # I soudé : le plancher η·h_w·t_w
         {"section": cat("HEA 300"), "nuance": "S355", "NEd": 500e3, "MyEd": 150e6, "MzEd": 30e6},
     ]
 
@@ -634,8 +706,8 @@ def mutations():
         ("section", "(6.30) appliquée à une classe 3", 'if a == "y" and s["forme"] == "I" and classe <= 2 and rho["y"] == 0.0:', 'if a == "y" and s["forme"] == "I" and rho["y"] == 0.0:'),
         # (le seuil 72·ε/η et la résistance V_bw,Rd sont dans acier/barre/ec3_ame.py : leurs mutations, dans tests/test_barre_ame.py)
         ("section", "voilement par cisaillement passé sous silence", '            if d["voilement"]: ', "            if False: "),
-        ("section", "voilement par cisaillement : le moment de l'autre axe", "AM.cisaillement(J, s, fy, P, V, My if a == \"z\" else Mz, N, direction=a)",
-         "AM.cisaillement(J, s, fy, P, V, Mz if a == \"z\" else My, N, direction=a)"),
+        ("section", "voilement par cisaillement : le moment de l'autre axe", "AM.cisaillement(J, s, fy, P, V, My if a == \"z\" else Mz, N, direction=a,",
+         "AM.cisaillement(J, s, fy, P, V, Mz if a == \"z\" else My, N, direction=a,"),
         ("section", "(6.36) : 1 − a au lieu de 1 − 0,5·a (I)", "            f_ = (1.0 - n) / (1.0 - 0.5 * a)\n", "            f_ = (1.0 - n) / (1.0 - a)\n"),
         ("section", "(6.36) : plafond de a porté à 1", "A_MAX = 0.5 ", "A_MAX = 1.0 "),
         ("section", "(6.38) : sans le carré", "MNz = MzRd * (1.0 - ((n - a) / (1.0 - a)) ** 2)", "MNz = MzRd * (1.0 - ((n - a) / (1.0 - a)))"),
@@ -652,6 +724,14 @@ def mutations():
         ("section", "f_y : épaisseur de l'âme seule", 'return max(float(s.get(k) or 0.0) for k in ("tf", "tw", "t"))', 'return max(float(s.get(k) or 0.0) for k in ("tw", "t"))'),
         ("section", "une forme non couverte rendue sans vérification", '        J.verif("E-SECTION", "Résistance de la section", NORME, "", None, None, "", [], statut=NON_COUVERT,\n                messages=[J.alerte("forme"',
          '        J.verif("E-SECTION", "Résistance de la section", NORME, "", 0.0, 1.0, "", [],\n                messages=[J.alerte("forme"'),
+        ("section", "lot A — le produit oublié : tout est « laminé »", '    return PRODUITS.get(s.get("fabrication"), "lamine")', '    return "lamine"'),
+        ("section", "lot A — f_y d'une paroi : celle de calcul (un seul ε)", '        return {"semelle": limite_elastique(nuance, s, s["tf"]), "ame": limite_elastique(nuance, s, s["tw"])}',
+         '        return {"semelle": limite_elastique(nuance, s), "ame": limite_elastique(nuance, s)}'),
+        ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w", '    avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]',
+         '    avy = A - hw * s["tw"]'),
+        ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
+        ("section", "lot A — section efficace avec l'ε de la f_y de calcul", '    ep = eps_parois or eps\n', '    ep = eps\n'),
+        ("classe", "lot A — ε de chaque paroi oublié", '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = fy\n'),
         ("section", "le signe du moment compte", 'My, Mz, Vz, Vy = abs(d["MyEd"]), abs(d["MzEd"]), abs(d["VzEd"]), abs(d["VyEd"])', 'My, Mz, Vz, Vy = d["MyEd"], d["MzEd"], d["VzEd"], d["VyEd"]'),
     ]
     sources = {k: open(ch, encoding="utf-8").read() for k, ch in CHEMINS.items()}
@@ -800,7 +880,7 @@ def main():
             "print(r['statut'], round(r['taux_max'], 3), sorted(m for m in sys.modules if m.split('.')[0] in ('streamlit', 'pandas', 'matplotlib', 'scipy', 'reportlab')))\n")
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=RACINE)
     chk("le moteur se charge et calcule sans streamlit, pandas, matplotlib, scipy, reportlab (refusés ; numpy ne sert qu'au catalogue)",
-        p.returncode == 0 and p.stdout.strip() == "ok 0.96 []", (p.stdout.strip(), p.stderr[-300:]))
+        p.returncode == 0 and p.stdout.strip() == "ok 0.988 []", (p.stdout.strip(), p.stderr[-300:]))
 
     print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
     for nom, info in KO:

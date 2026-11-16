@@ -127,8 +127,10 @@ def controles(M=None):
     s = SE.du_catalogue(b["profil"])
     cas = st.cas_complets(b, s)
     g = st.poids_propre(s)
-    c("poids propre : la masse linéique du catalogue × 9,81 — IPE 300 : 42,2 kg/m → 0,414 kN/m, un cas permanent en tête",
-      proche(g, CAT.par_nom()["IPE 300"]["masse"] * 9.81 / 1000.0) and round(g, 3) == 0.414 and cas[0]["nom"] == st.POIDS_PROPRE
+    c("poids propre : 78,6 kN/m³ × A (brief H13 ; décision du 16/11/2026, « 78,6 partout ») — IPE 300 : 53,81 cm² → 0,423 kN/m (la masse du "
+      "catalogue × 9,81 donnait 0,414), un cas permanent en tête ; le moteur le NOMME dans son résultat (l'écran le lit, il ne le recalcule pas)",
+      proche(g, 78.6 * CAT.par_nom()["IPE 300"]["A"] * 1e-4) and round(g, 3) == 0.423 and cas[0]["nom"] == st.POIDS_PROPRE
+      and proche(mo.verifier(barre())["poids_propre"], g)
       and cas[0]["nature"] == "permanent" and cas[0]["charges"] == [q(g, 0.0, 6.0)] and len(cas) == 3
       and len(st.cas_complets(dict(b, poids_propre=False), s)) == 2, g)
     sols = st.resoudre(b, cas, 1.0e4)
@@ -238,9 +240,10 @@ def controles(M=None):
                                                       "ponctuelles": [(3000.0, 36000.0, 150.0)]}}})
     Dm, Dd = e3["grandeurs"]["deversement"], direct["grandeurs"]["deversement"]
     c("R2 : le déversement de la barre chargée (tronçon de 6 m, charges sur la semelle haute, diagramme réel) = l'appel direct de l'Eurocode 3 "
-      "sur le même tronçon, à 10⁻⁸ ; M_cr = 86,4 kN·m — à moins de 1 % de la référence R3 (86,98, propriétés des catalogues) ; taux 89,5 %",
+      "sur le même tronçon, à 10⁻⁸ ; M_cr = 86,4 kN·m — à moins de 1 % de la référence R3 (86,98, propriétés des catalogues) ; taux 109,9 % avec le "
+      "couple (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1) (R3 du brief : 1,093 ; l'ancien couple (0,4 ; 0,75) donnait 89,5 %)",
       proche(Dm["M_cr"], Dd["M_cr"], 1e-8) and proche(verif(e3, "E-Mb")["taux"], verif(direct, "E-Mb")["taux"], 1e-8)
-      and abs(Dm["M_cr"] / 86.98e6 - 1) < 0.01 and round(verif(e3, "E-Mb")["taux"], 3) == 0.895 and verif(e3, "E-Mb")["troncon"] == [0.0, 6.0]
+      and abs(Dm["M_cr"] / 86.98e6 - 1) < 0.01 and round(verif(e3, "E-Mb")["taux"], 3) == 1.099 and verif(e3, "E-Mb")["troncon"] == [0.0, 6.0]
       and Dm["kc"] == 1.0, (Dm["M_cr"], verif(e3, "E-Mb")["taux"]))
     rc_, rb_ = (mo.verifier(barre(niveau=n_, **R2))["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"] for n_ in ("centre", "bas"))
     c("le niveau d'application des charges : semelle haute < centre de cisaillement < semelle basse", Dm["M_cr"] < rc_ < rb_, (Dm["M_cr"], rc_, rb_))
@@ -260,7 +263,7 @@ def controles(M=None):
       and proche(r["comparaison"][2]["historique"], h3["taux_max"]) and proche(r["comparaison"][2]["ec3"], e3["taux_max"])
       and r["comparaison"][3] == {"sujet": "Âme et raidisseurs (EN 1993-1-5)", "historique": None, "ec3": None, "commun": r["ame"]["taux_max"]}
       and all("commun" not in x for x in r["comparaison"][:3])
-      and r["comparaison"][1]["historique"] is None and r["statut"] == RE.NOK and e3["statut"] == RE.OK, r["comparaison"])
+      and r["comparaison"][1]["historique"] is None and r["statut"] == RE.NOK and e3["statut"] == RE.NOK, r["comparaison"])
     fl = stq["fleche"]
     EI = 210000.0 * s3["Iy"] / 1e9
     c("la flèche de service (information) : 5·q·L⁴/(384·E·I) + P·L³/(48·E·I) = 8,7 mm à mi-portée, L/687",
@@ -330,9 +333,9 @@ def controles(M=None):
     c("un maintien d'une seule semelle à mi-portée, moment positif partout : la semelle HAUTE (comprimée) ramène la longueur de déversement "
       "historique à 3 m et relève beaucoup M_cr ; la semelle BASSE (tendue) laisse 6 m et aide peu",
       Lc == {"haut": 3000.0, "bas": 6000.0} and Mcr["haut"] > 1.8 * nu and nu < Mcr["bas"] < 1.3 * nu, (Lc, Mcr, nu))
-    r = mo.verifier(barre(profil="IPE 750x147", nuance="S355", travees=[8.0], methodes=["ec3"], maintiens=[{"x": 2.0}, {"x": 4.0}, {"x": 6.0}],
+    r = mo.verifier(barre(profil="IPE 750x134", nuance="S355", travees=[8.0], methodes=["ec3"], maintiens=[{"x": 2.0}, {"x": 4.0}, {"x": 6.0}],
                           cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 8.0)]}]))
-    c("le voilement par cisaillement d'une âme élancée (IPE 750x147 S355) n'est plus « non couvert » : depuis le lot 4 il est VÉRIFIÉ, dans le "
+    c("le voilement par cisaillement d'une âme élancée (IPE 750x134 S355 ; η = 1,00 d'un laminé) n'est plus « non couvert » : depuis le lot 4 il est VÉRIFIÉ, dans le "
       "bloc de l'âme (A-Vb) — la méthode Eurocode 3 ne le porte pas, et la barre est conforme",
       verif(r["methodes"]["ec3"], "E-Vb") is None and verif(r["methodes"]["ec3"], "A-Vb") is None and r["methodes"]["ec3"]["statut"] == RE.OK
       and verif(r["ame"], "A-Vb")["statut"] == RE.OK and r["ame"]["statut"] == RE.OK and r["statut"] == RE.OK,
@@ -342,17 +345,47 @@ def controles(M=None):
       "sont rendues « non couvert », jamais « ok »",
       verif(r["methodes"]["ec3"], "E-SECTION")["statut"] == RE.NON_COUVERT and r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT
       and r["methodes"]["ec3"]["taux_max"] < 1.0 and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["statut"]))
-    r = mo.verifier(barre(profil="IPE 750x147", nuance="S355", travees=[4.0], methodes=["ec3"], maintiens=[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
-                          cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(1100.0, 1.0), P_(1100.0, 3.0)]}]))
+    r = mo.verifier(barre(profil="IPE 750x134", nuance="S355", travees=[4.0], methodes=["ec3"], maintiens=[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
+                          cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(900.0, 1.0), P_(900.0, 3.0)]}]))
     c("… de même dans le bloc de l'âme : l'interaction flexion – cisaillement d'une âme élancée sous un effort normal (A-VbM) n'est pas "
-      "couverte — l'Eurocode 3 passe (89 %), l'âme et la barre sont « non couvert »",
+      "couverte — l'Eurocode 3 passe (78 %), l'âme et la barre sont « non couvert »",
       r["methodes"]["ec3"]["statut"] == RE.OK and verif(r["ame"], "A-VbM")["statut"] == RE.NON_COUVERT and verif(r["ame"], "A-Vb")["statut"] == RE.OK
       and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
-    c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, hors du tableau 3.1 de l'Eurocode) est rendue « non couvert » avec son "
-      "motif ; l'autre méthode reste calculée",
-      r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT and "Tableau 3.1" in r["methodes"]["ec3"]["alertes"][0]["message"]
-      and r["methodes"]["historique"]["taux_max"] is not None and r["statut"] in (RE.NON_COUVERT, RE.NOK), r["methodes"]["ec3"]["statut"])
+    c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, au-delà des 80 mm du module) est rendue « non couvert » avec son motif — "
+      "depuis le lot A, la méthode historique aussi (elle lit la même f_y, selon l'épaisseur)",
+      r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT and "80 mm" in r["methodes"]["ec3"]["alertes"][0]["message"]
+      and r["methodes"]["historique"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, r["methodes"]["ec3"]["statut"])
+    # ---- (lot A) la console sous N + M : « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9 ; test 30 du § 11.5)
+    cons = barre(profil="IPE 300", modele="console", travees=[2.0], maintiens=[],
+                 cas=[{"nom": "G", "nature": "permanent", "N": 100.0, "charges": [P_(10.0, 2.0)]}])
+    r = mo.verifier(cons)
+    e = r["methodes"]["ec3"]
+    r0 = mo.verifier(dict(cons, cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [P_(10.0, 2.0)]}]))
+    c("console IPE 300 de 2 m sous N + M (100 kN, 10 kN en bout) : la flexion composée avec instabilité est « non couvert » — aucun C_m ne vaut "
+      "pour une console ; N seul (E-Nb-y, E-Nb-z) et M seul (E-Mb) restent vérifiés, la méthode et la barre sont « non couvert » et le disent ; "
+      "sans effort normal, rien n'est non couvert",
+      verif(e, "E-661")["statut"] == RE.NON_COUVERT and verif(e, "E-661")["taux"] is None and verif(e, "E-662") is None
+      and verif(e, "E-Nb-y")["statut"] == RE.OK and verif(e, "E-Mb")["statut"] == RE.OK and e["statut"] == RE.NON_COUVERT
+      and r["statut"] == RE.NON_COUVERT and any(x["code"] == "console_NM" for x in e["alertes"]) and "annexe_A" not in e["grandeurs"]
+      and r0["methodes"]["ec3"]["statut"] == RE.OK and verif(r0["methodes"]["ec3"], "E-661") is None, (e["statut"], r["statut"]))
+    # ---- (lot A) la méthode historique : f_y selon l'épaisseur (DÉCISION BUREAU, brief § 13.2 point 5) ; le domaine sur la NUANCE
+    hp = dict(barre(), profil="HEB 300", mode="efforts", methodes=["historique", "ec3"], Lc=5.0,
+              flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}},
+              efforts={"service": {"N": 1000.0, "My": 50.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}, "elu": {"N": 1400.0, "My": 70.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}})
+    r = mo.verifier(hp)
+    h = r["methodes"]["historique"]
+    c("HEB 300 S235 (t_f = 19 mm) : la méthode historique prend f_y = 225 — celle de l'Eurocode 3, tableau 3.3 ANB — et la nuance reste dans le "
+      "domaine de la doc (AE235 : le domaine se lit sur la nuance, pas sur la f_y réduite) ; la source est imprimée",
+      h["grandeurs"]["fy"] == 225.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
+      and not any(x["code"] == "nuance" for x in h["alertes"]) and "tableau 3.3 ANB" in h["hypotheses"][0], (h["grandeurs"]["fy"], h["statut"]))
+    r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}]))
+    h = r["methodes"]["historique"]
+    c("S460 (hors AE235 à AE355) : la méthode historique est « hors domaine » — le calcul est rendu (taux), aucune vérification n'est « ok », "
+      "chaque combinaison le dit, et la barre n'est jamais « ok » (le plus défavorable : nok, non couvert, hors domaine, ok)",
+      h["statut"] == RE.HORS_DOMAINE and h["taux_max"] is not None and all(v["statut"] != RE.OK for v in h["verifications"])
+      and all(cb["statut"] == RE.HORS_DOMAINE for cb in h["combinaisons"]) and r["statut"] == RE.HORS_DOMAINE
+      and r["methodes"]["ec3"]["statut"] == RE.OK, (h["statut"], r["statut"]))
     r = mo.verifier(barre(cas=[{"nom": "G", "nature": "permanent", "N": 150.0, "charges": [q(1.0, 0.0, 6.0)]},
                                {"nom": "Q", "nature": "exploitation_A", "N": 120.0, "charges": []}]))
     x661 = verif(r["methodes"]["ec3"], "E-661")
@@ -443,7 +476,8 @@ MUTATIONS = [
     ("combinaisons", "G favorable (1,00) oublié", 'for gG in (P["gamma_G_sup"], P["gamma_G_inf"]):', 'for gG in (P["gamma_G_sup"],):'),
     ("combinaisons", "un seul arrangement : tous les cas variables présents", "    for k in range(len(var) + 1):", "    for k in (len(var),):"),
     ("combinaisons", "méthode historique pondérée (1,35)", "            f[i] = 1.0\n", "            f[i] = 1.35\n"),
-    ("statique", "pesanteur à 10 m/s²", "G_PESANTEUR = 9.81 ", "G_PESANTEUR = 10.0 "),
+    ("statique", "lot A — poids volumique de la masse × 9,81 (77,0 kN/m³)", "POIDS_VOLUMIQUE = 78.6 ", "POIDS_VOLUMIQUE = 77.0 "),
+    ("statique", "lot A — poids propre en kg/m pris pour des kN/m (sans 10⁻⁶)", '    return POIDS_VOLUMIQUE * s["A"] * 1e-6', '    return POIDS_VOLUMIQUE * s["A"] * 1e-5'),
     ("statique", "poids propre oublié", '    if barre.get("poids_propre", True):', "    if False:"),
     ("statique", "effort normal non pondéré", "self.N = sum(f * n for f, n in zip(facteurs, N_cas))", "self.N = sum(n for f, n in zip(facteurs, N_cas))"),
     ("statique", "efforts des cas additionnés sans leurs facteurs", "                o[k] += f * e[k]\n", "                o[k] += e[k]\n"),
@@ -476,8 +510,13 @@ MUTATIONS = [
     ("moteur", "Eurocode 3 sur les combinaisons de service", "        for co in CO.elu(cas, P):\n            C = ST.Combinaison", "        for co in CO.service(cas):\n            C = ST.Combinaison"),
     ("moteur", "une méthode qui refuse fait tomber toute la barre", "            except RE.Refus as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique",
      "            except ZeroDivisionError as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
-    ("moteur", "une méthode « non couverte » rend la barre « ok »", "statut = RE.NOK if RE.NOK in statuts else RE.NON_COUVERT if RE.NON_COUVERT in statuts else RE.OK",
-     "statut = RE.NOK if RE.NOK in statuts else RE.OK"),
+    ("moteur", "une méthode « non couverte » rend la barre « ok »", "    statut = RE.pire_statut(statuts)\n", "    statut = RE.NOK if RE.NOK in statuts else RE.OK\n"),
+    ("moteur", "lot A — la console vérifiée sous N + M comme une barre entre deux appuis", '"console": b["modele"] == "console",', '"console": False,'),
+    ("moteur", "lot A — méthode historique : la f_y nominale (épaisseur oubliée)", '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
+     '    return {"fy": ES.limite_elastique(nuance, s, 1.0), "nuance": nuance,'),
+    ("moteur", "lot A — méthode historique : la nuance non transmise (domaine lu sur la f_y réduite)", '"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
+     '"fy": ES.limite_elastique(nuance, s), "nuance": None,'),
+    ("enveloppe", "lot A — une combinaison hors domaine rendue « ok »", '                b["hors_domaine"] = b["hors_domaine"] or v["statut"] == RE.HORS_DOMAINE', "                pass"),
     ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = b["efforts"]["service"], b["historique"]', 'e, h = b["efforts"]["elu"], b["historique"]'),
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
     ("moteur", "déversement : le plus grand moment du tronçon remplacé par zéro", '"NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,', '"NEd": C.N * 1e3, "MyEd": 0.0, "axes": axes,'),
@@ -541,7 +580,8 @@ def main():
     chk("verifier ne modifie pas la barre reçue", b1 == b0)
     r = MO.verifier(barre(**R2))
     chk("la sortie : la barre relue, le profilé, sa masse, la statique (abscisses, enveloppes, réactions par cas, flèche, tronçons), les méthodes, "
-        "l'âme, le statut, la comparaison", set(r) == {"barre", "profil", "masse", "statique", "longueurs", "methodes", "ame", "statut", "comparaison"}
+        "l'âme, le statut, la comparaison, et le poids propre qu'elle compte (kN/m)",
+        set(r) == {"barre", "profil", "masse", "poids_propre", "statique", "longueurs", "methodes", "ame", "statut", "comparaison"}
         and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and set(r["statique"]["enveloppes"]["ec3"]) == {"x", "M_max", "M_min", "V_max", "V_min"}
         and [a["R"] for a in r["statique"]["cas"][0]["reactions"]] == [2.42 * 3 + 5.0] * 2, sorted(r["statique"]))
     plantes, n = [], 0

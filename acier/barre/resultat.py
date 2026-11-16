@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Ce que rend une MÉTHODE de vérification d'une barre (historique, Eurocode 3) — une seule forme pour les deux :
 
-    {"methode", "norme", "statut" (ok | nok | non_couvert), "taux_max", "gouvernant",
+    {"methode", "norme", "statut" (ok | nok | non_couvert | hors_domaine), "taux_max", "gouvernant",
      "verifications": [{"id", "methode", "titre", "reference", "critere", "valeur", "limite", "unite", "taux",
                         "statut", "formules" (clés de ``calcul``), "messages"}],
      "grandeurs", "calcul": [{"cle", "gabarit", "symbole", "termes": [{"symbole", "valeur", "unite"}], "resultat",
@@ -17,6 +17,9 @@ from typing import Dict, List, Optional
 from .. import js as JS
 
 OK, NOK, NON_COUVERT = "ok", "nok", "non_couvert"
+# « hors domaine » (brief § 9) : le calcul est fait et montré, mais la méthode ne couvre pas le cas (méthode historique :
+# nuance hors AE235–AE355, creux formé à froid de plus de 6 mm) — jamais « vérifié », jamais caché derrière le taux global
+HORS_DOMAINE = "hors_domaine"
 
 
 class Refus(ValueError):
@@ -107,15 +110,24 @@ class Journal:
                 "alertes": self.alertes, "hypotheses": self.hyp}
 
 
+def pire_statut(statuts) -> str:
+    """Le plus défavorable de plusieurs statuts : nok, puis non couvert, puis hors domaine, puis ok."""
+    statuts = list(statuts)
+    return next((x for x in (NOK, NON_COUVERT, HORS_DOMAINE) if x in statuts), OK)
+
+
 def synthese(verifs: List[Dict]) -> Dict:
     """{"statut", "taux_max", "gouvernant"} : « nok » dès qu'une vérification ne passe pas ; « non_couvert » si rien ne
-    dépasse mais qu'une vérification manque — jamais « ok » ; le gouvernant est le plus fort taux, ou la première
-    vérification refusée sans taux (une instabilité)."""
-    juges = [v for v in verifs if v["statut"] in (OK, NOK)]
+    dépasse mais qu'une vérification manque ; « hors_domaine » si une vérification est hors du domaine de la méthode —
+    jamais « ok » dans ces deux cas ; le gouvernant est le plus fort taux (une vérification hors domaine compte : son
+    taux est calculé), ou la première vérification refusée sans taux (une instabilité)."""
+    juges = [v for v in verifs if v["statut"] in (OK, NOK, HORS_DOMAINE)]
     if any(v["statut"] == NOK for v in juges):
         statut = NOK
     elif any(v["statut"] == NON_COUVERT for v in verifs):
         statut = NON_COUVERT
+    elif any(v["statut"] == HORS_DOMAINE for v in verifs):
+        statut = HORS_DOMAINE
     else:
         statut = OK
     avec_taux = [v for v in juges if v["taux"] is not None]

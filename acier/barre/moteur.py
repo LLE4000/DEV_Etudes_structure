@@ -27,7 +27,6 @@ les prend) ; la flèche n'est donnée qu'à titre d'information.
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from acier.flambement import normes as NO
 
 from . import ame as AME
 from . import combinaisons as CO
@@ -66,9 +65,12 @@ def _refusee(methode: str, norme: str, message: str) -> Dict:
     return r
 
 
-def _fy_historique(nuance: str) -> float:
-    """La limite élastique de la méthode historique : la valeur nominale de la nuance (les classeurs : 235, 355)."""
-    return NO.NUANCES[nuance][0]
+def _fy_historique(nuance: str, s: Dict) -> Dict:
+    """La limite élastique de la méthode historique : celle de l'Eurocode 3, selon l'épaisseur (brief § 13.2 point 5,
+    DÉCISION BUREAU acceptée : « f_y des plats de plus de 16 mm : la valeur EC3 selon l'épaisseur ») — la même lecture
+    de la table (ec3_section.limite_elastique) ; Refus au-delà de son domaine, comme l'Eurocode 3. Le DOMAINE de la doc
+    (AE235 à AE355) se lit sur la nuance : elle est passée avec f_y. {"fy", "nuance", "fy_source", "fy_ref"}."""
+    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance, "fy_source": ES.source_fy(nuance, s), "fy_ref": ES.tableau_fy(nuance, s)}
 
 
 def _C_historique(mode: str, forme: str, psi: float) -> Dict:
@@ -109,7 +111,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
 
     def historique() -> Dict:
         e, h = b["efforts"]["service"], b["historique"]
-        return HI.verifier({"section": s, "fy": _fy_historique(b["nuance"]), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
+        return HI.verifier({"section": s, **_fy_historique(b["nuance"], s), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
                          "Vz": e["Vz"] * 1e3, "Vy": e["Vy"] * 1e3, "axes": axes, "tolerance": h["tolerance"],
                          "C": {a: _C_historique(h["C"], b["diagramme"][a]["forme"], b["diagramme"][a]["psi"]) for a in ("y", "z")},
                          "deversement": {"actif": h["deversement"], "Lc": None if Lc is None else Lc * 1e3}})
@@ -241,7 +243,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                     fl = max(abs(C.lire(x)["f"] or 0.0) for x in grille)
                     flexion = {"diagramme": DV.GENERAL, "delta": fl * 1e3, "L": Lt * 1e3}
                 r = EC.verifier({"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,
-                                 "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False,
+                                 "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False, "console": b["modele"] == "console",
                                  "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr), "zg": zg}})
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
@@ -253,7 +255,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     def historique() -> Dict:
         env = Enveloppe(HI.METHODE, HI.NORME)
         h = b["historique"]
-        fy = _fy_historique(b["nuance"])
+        fy = _fy_historique(b["nuance"], s)
         combs = []
         fleche = {"valeur": 0.0, "x": None, "combinaison": None}
         for co in CO.service(cas):
@@ -266,7 +268,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 for M, V in ST.cotes(C.lire(x), EPS):
                     if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
                         continue
-                    r = HI.verifier({"section": s, "fy": fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
+                    r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
                                      "deversement": {"actif": h["deversement"], "Lc": tr_x[1] * 1e3}})
                     env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr_x[0]["x1"], tr_x[0]["x2"]]})
@@ -310,15 +312,17 @@ def _comparaison(methodes: Dict, ame: Dict) -> List[Dict]:
 
 
 def verifier(barre: Dict) -> Dict:
-    """La barre vérifiée : {"barre" (relue), "profil", "masse" (kg/m), "statique" (None en efforts imposés),
+    """La barre vérifiée : {"barre" (relue), "profil", "masse" (kg/m), "poids_propre" (kN/m : celui que la barre chargée
+    compte — acier/barre/statique.poids_propre ; l'écran le lit, il ne le recalcule pas), "statique" (None en efforts imposés),
     "longueurs" (de flambement, celles qui sont prises), "methodes": {"historique": …, "ec3": …} (la forme de
     acier/barre/resultat.py ; en barre chargée, chaque vérification dit sa combinaison et son lieu), "ame" (la même
     forme : l'âme selon l'EN 1993-1-5, toujours calculée, avec la décision de chaque raidisseur — acier/barre/ame.py),
-    "statut" (le plus défavorable des méthodes cochées et de l'âme), "comparaison"}."""
+    "statut" (le plus défavorable des méthodes cochées et de l'âme : nok, non couvert, hors domaine, ok), "comparaison"}."""
     b = EN.normaliser(barre)
     s = SE.du_catalogue(b["profil"])
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
     statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
-    statut = RE.NOK if RE.NOK in statuts else RE.NON_COUVERT if RE.NON_COUVERT in statuts else RE.OK
-    out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "statut": statut, "comparaison": _comparaison(out["methodes"], out["ame"])})
+    statut = RE.pire_statut(statuts)
+    out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "poids_propre": ST.poids_propre(s), "statut": statut,
+                "comparaison": _comparaison(out["methodes"], out["ame"])})
     return out

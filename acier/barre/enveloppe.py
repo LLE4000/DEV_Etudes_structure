@@ -52,11 +52,13 @@ class Enveloppe:
             if courant is None or gravite > courant["rang"]:
                 self.pire[v["id"]] = {"rang": gravite, "v": v, "blocs": [blocs[k] for k in v["formules"]], "ou": ou, "r": r}
         if gardees:
-            b = self.bilan.setdefault(ou["combinaison"], {"nom": ou["combinaison"], "rang": (0, 0.0), "gouvernant": None, "non_couvert": False})
+            b = self.bilan.setdefault(ou["combinaison"], {"nom": ou["combinaison"], "rang": (0, 0.0), "gouvernant": None, "non_couvert": False,
+                                                          "hors_domaine": False})
             for v in gardees:
                 if rang(v) > b["rang"]:
                     b["rang"], b["gouvernant"] = rang(v), v["id"]
                 b["non_couvert"] = b["non_couvert"] or v["statut"] == RE.NON_COUVERT
+                b["hors_domaine"] = b["hors_domaine"] or v["statut"] == RE.HORS_DOMAINE
         for a in r["alertes"]:
             self.alertes.setdefault(a["code"], a)
         for p in r["grandeurs"].get("a_confirmer") or []:
@@ -101,7 +103,8 @@ class Enveloppe:
         s = RE.synthese(verifs)
         gouv = self.pire[s["gouvernant"]] if s["gouvernant"] else None
         combis = [{"nom": b["nom"], "gouvernant": b["gouvernant"], "taux": b["rang"][1] if b["rang"][0] == 1 else None,
-                   "statut": RE.NOK if (b["rang"][0] == 2 or b["rang"][1] > 1.0) else RE.NON_COUVERT if b["non_couvert"] else RE.OK}
+                   "statut": RE.NOK if (b["rang"][0] == 2 or b["rang"][1] > 1.0) else RE.NON_COUVERT if b["non_couvert"]
+                   else RE.HORS_DOMAINE if b["hors_domaine"] else RE.OK}
                   for b in self.bilan.values()]
         return {"methode": self.methode, "norme": self.norme, "statut": s["statut"], "taux_max": s["taux_max"], "gouvernant": s["gouvernant"],
                 "combinaison": gouv["ou"]["combinaison"] if gouv else None, "verifications": verifs, "calcul": calcul,
