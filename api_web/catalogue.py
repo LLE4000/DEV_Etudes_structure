@@ -740,34 +740,71 @@ def _fx(cle: str, parts: List[str], p: Dict, res: Optional[str] = None, note: st
     return {"cle": cle, "parts": parts, "res": res if res is not None else _p(p, cle) + _u(cle), "niveau": "", "note": note}
 
 
-def avy_barres(p: Dict) -> Optional[float]:
-    """A_v,y (cm²) que prend le module Barres (Eurocode 3) pour ce profilé, LUE dans son moteur — la section qu'il lit au
-    catalogue (``acier/barre/section.du_catalogue``) passée à ``acier/barre/ec3_section.aires_cisaillement``, avec son η
-    (``ec3_ame.eta_de``, paramètres par défaut) : une seule source, rien n'est réécrit ici. None quand le module ne le
-    prend pas comme un I ou un H laminé (profilé personnalisé, famille hors du module)."""
-    from acier.barre import ec3_ame as BA
-    from acier.barre import ec3_section as BE
-    from acier.barre import parametres as BP
+def _section_barres(p: Dict) -> Optional[Dict]:
+    """La section que le module Barres lit au catalogue pour ce profilé (``acier/barre/section.du_catalogue``) ; None
+    pour un profilé qui n'est pas celui du catalogue (personnalisé) ou d'une famille hors du module."""
     from acier.barre import section as BS
     q = CAT.par_nom().get(p.get("nom"))
     if q is None or q.get("dims") != p.get("dims"):
         return None
     try:
-        s = BS.du_catalogue(q["nom"])
+        return BS.du_catalogue(q["nom"])
     except ValueError:
         return None
-    if s["forme"] != "I" or s["fabrication"] != "lamine":
+
+
+def refus_barres(p: Dict) -> Optional[str]:
+    """Le motif pour lequel le module Barres ne calcule PAS ce profilé du catalogue, LU dans son moteur : la f_y de
+    calcul que ses deux méthodes lisent (``acier/barre/ec3_section.limite_elastique``) refusée dans chaque nuance — une
+    paroi de plus de 80 mm, hors de son domaine (les 13 HD et HL les plus lourds). None s'il le calcule, ou si ce n'est
+    pas un profilé du catalogue."""
+    from acier.barre import ec3_section as BE
+    from acier.barre.resultat import Refus
+    from acier.flambement import normes as NO
+    s = _section_barres(p)
+    if s is None:
+        return None
+    motifs = []
+    for nuance in NO.NUANCES:
+        try:
+            BE.limite_elastique(nuance, s)
+            return None
+        except Refus as e:
+            motifs.append(str(e))
+    return motifs[0]
+
+
+def avy_barres(p: Dict) -> Optional[float]:
+    """A_v,y (cm²) que prend le module Barres (Eurocode 3) pour ce profilé, LUE dans son moteur — la section qu'il lit au
+    catalogue (``acier/barre/section.du_catalogue``) passée à ``acier/barre/ec3_section.aires_cisaillement``, avec son η
+    (``ec3_ame.eta_de``, paramètres par défaut) : une seule source, rien n'est réécrit ici. None quand le module ne le
+    prend pas comme un I ou un H laminé (profilé personnalisé, famille hors du module) ou ne le calcule pas
+    (``refus_barres`` : paroi de plus de 80 mm)."""
+    from acier.barre import ec3_ame as BA
+    from acier.barre import ec3_section as BE
+    from acier.barre import parametres as BP
+    s = _section_barres(p)
+    if s is None or s["forme"] != "I" or s["fabrication"] != "lamine" or refus_barres(p) is not None:
         return None
     return BE.aires_cisaillement(s, BA.eta_de(s, BP.jeu()))["y"] / 1e2
 
 
 # A_v,y d'un I ou H : ce que la ligne montre, et ce que prend le module Barres (ses deux valeurs sont lues, aucune n'est
-# recalculée ici) — R2 : la Bibliothèque ne garde pas une seconde vérité sous le même symbole sans le dire
+# recalculée ici) — R2 : la Bibliothèque ne garde pas une seconde vérité sous le même symbole sans le dire. Un profilé
+# personnalisé ne vient pas du catalogue : sa valeur est celle de SA géométrie ; un profilé que le module Barres refuse
+# (paroi de plus de 80 mm) : le dire, avec le motif de son moteur, plutôt qu'une valeur qu'il ne prend jamais
 AVY_GEOMETRIQUE = "valeur géométrique du catalogue"
+AVY_GEOMETRIQUE_PERSO = "valeur géométrique de ce profilé personnalisé"
 AVY_BARRES = "le module Barres (Eurocode 3) prend pour ce I ou H laminé A_v,y = {v} cm² (décision du bureau)"
+AVY_HORS_BARRES = "le module Barres ne calcule pas ce profilé ({motif})"
 
 
 def _note_avy(p: Dict) -> str:
+    if CAT.par_nom().get(p.get("nom"), {}).get("dims") != p.get("dims"):         # pas l'enregistrement du catalogue
+        return AVY_GEOMETRIQUE_PERSO
+    motif = refus_barres(p)
+    if motif is not None:
+        return AVY_GEOMETRIQUE + " ; " + AVY_HORS_BARRES.format(motif=motif)
     v = avy_barres(p)
     return AVY_GEOMETRIQUE + ("" if v is None else " ; " + AVY_BARRES.format(v=CAT.formater(v, "Avy")))
 

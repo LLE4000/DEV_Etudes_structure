@@ -229,10 +229,37 @@ def ecarts_avy() -> list:
     return out
 
 
+# (troisième passe) un HD ou HL que le module Barres REFUSE (paroi de plus de 80 mm) : la précision le dit, avec le motif
+# de son moteur, au lieu d'une valeur qu'il ne prend jamais ; un profilé personnalisé (PRS) ne vient pas du catalogue
+REFUS_HL = "le module Barres ne calcule pas ce profilé (épaisseur 89,9 mm > 80 mm : hors du domaine du module)"
+
+
+def ecarts_avy_hors() -> list:
+    out = []
+    li = ligne_avy(B.consulter("profils", {"familles": "HL", "profil": "HL 920x970"}))
+    fen = texte(CW.fenetre_fiche(CAT.par_nom()["HL 920x970"]))
+    for o, t_ in (("fiche", li), ("fenêtre", fen)):
+        if "valeur géométrique du catalogue" not in t_ or REFUS_HL not in t_ or "prend pour ce I ou H laminé" in t_:
+            out.append(("HL 920x970", o, t_[-200:]))
+    gros = [q["nom"] for q in CAT.profils() if q["famille"] in ("HD", "HL") and CW.refus_barres(q)]
+    if len(gros) != 13 or any(CW.avy_barres(CAT.par_nom()[n]) is not None for n in gros):
+        out.append(("refusés", len(gros), gros[:3]))
+    dims = {k: CO.DIMS_DEFAUT[k] for k in ("h", "b", "tw", "tf")}
+    dims.update(h=600.0, b=300.0)
+    prs = texte(CW.fenetre_fiche(CO.calculer_perso("PRS", dims)))
+    if "valeur géométrique de ce profilé personnalisé" not in prs or "du catalogue ;" in prs or "géométrique du catalogue" in prs:
+        out.append(("PRS 600 × 300", re.findall(r"v,y : [^F]{0,80}", prs)[:1]))
+    return out
+
+
 ec_avy = ecarts_avy()
 chk("A_v,y d'un I ou H laminé (HEB 200, IPE 300, HEM 1000, IPN 200) : la fiche et la fenêtre de calcul disent « valeur géométrique du "
     "catalogue » et la valeur que prend le module Barres (2·b·t_f, recalculé ici : HEB 200 60,00 cm² contre 62,78) ; U et tube : rien de plus",
     not ec_avy, ec_avy)
+ec_hors = ecarts_avy_hors()
+chk("A_v,y d'un HD ou HL que le module Barres refuse (les 13 de paroi > 80 mm ; HL 920x970) : la fiche et la fenêtre disent « le module "
+    "Barres ne calcule pas ce profilé (épaisseur 89,9 mm > 80 mm : hors du domaine du module) », sans valeur ; un PRS : « valeur "
+    "géométrique de ce profilé personnalisé », jamais « du catalogue »", not ec_hors, ec_hors)
 # le paramètre « profil » ouvre la fiche ; la valeur des Barres vient de leur moteur : il change, la fiche suit
 from acier.barre import ec3_section as BE  # noqa: E402
 vrai_av = BE.aires_cisaillement
@@ -242,6 +269,19 @@ try:
         "Av,y = 12,34 cm²" in ligne_avy(B.consulter("profils", {"familles": "HEB", "profil": "HEB 200"})))
 finally:
     BE.aires_cisaillement = vrai_av
+vrai_refus = CW.refus_barres
+try:
+    CW.refus_barres = lambda p_: None
+    chk("mutation « troisième passe — un profilé que le module Barres refuse annonce quand même sa valeur » : le contrôle rougit",
+        bool(ecarts_avy_hors()))
+finally:
+    CW.refus_barres = vrai_refus
+vrai_perso = CW.AVY_GEOMETRIQUE_PERSO
+try:
+    CW.AVY_GEOMETRIQUE_PERSO = CW.AVY_GEOMETRIQUE
+    chk("mutation « troisième passe — un PRS dit “valeur géométrique du catalogue” » : le contrôle rougit", bool(ecarts_avy_hors()))
+finally:
+    CW.AVY_GEOMETRIQUE_PERSO = vrai_perso
 vrai_note = CW._note_avy
 try:
     CW._note_avy = lambda p_: ""
