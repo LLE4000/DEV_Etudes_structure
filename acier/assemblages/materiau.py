@@ -51,6 +51,15 @@ def t_profil(tf, tw):
     return max(tf, tw)
 
 
+def t_ame(tf, tw):
+    """L'épaisseur qui décide d'une exigence de SUR-RÉSISTANCE portée par l'ÂME d'un profilé (gorge de pleine
+    résistance a/t_w = β_w·γ_M2·f_y/(√2·f_u), MSB P5 §2.2) : l'âme à SA propre épaisseur, t_w. Une f_y plus BASSE y
+    rendrait l'exigence MOINS sévère : la règle « plus petite f_y » (``t_profil``, max(t_f, t_w)) vaut pour les
+    RÉSISTANCES, pas pour une exigence de sur-résistance ou de ductilité. ``tf`` est reçu pour que l'appel nomme le
+    profilé entier (et qu'une mutation puisse rejouer l'ancienne règle)."""
+    return tw
+
+
 def lire(nom, t, perso=None, materiau=None, piece=""):
     """Le matériau d'une pièce : {"fy", "fu", "bw", "t", "nominale", "source"}.
 

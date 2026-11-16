@@ -34,7 +34,7 @@ un plan de cisaillement ; chaque boulon reprend VEd/n.
 | Platine | cisaillement brut 2·(hp·tp/1,27)·fy/√3 ; net ; rupture de bloc k = 1 si hp ≥ 1,36·p3, 0,5 sinon ; tronçon en T (traction) ; poinçonnement | MSB P5 §2.2 ; §3.10.2 ; §6.2.4 (Tab. 6.2, méthode 2) |
 | Âme portée | cisaillement sur la platine Av = hp·tw ; grugeage (cisaillement réduit, flexion + V avec le bras tp + c, stabilité c et dc) ; traction tw·hp | EN 1993-1-1 §6.2.6 ; MSB P5 §2.2.1 ; §4.2.4 / §4.2.5 |
 | Âme porteuse | pression diamétrale (boulons intérieurs) ; cisaillement local brut / net sous VEd/2 | Tab. 3.4 ; SCI P358 (le guide MSB P5 §2.2 ne vérifie pas l'élément porteur) |
-| Soudure | double cordon sur hp, méthode simplifiée ; gorge minimale ; pleine résistance a ≥ 0,46 / 0,48 / 0,55·tw (S235 / S275 / S355) en alerte | §4.5.3.3 ; §4.5.2 ; MSB P5 §2.2 |
+| Soudure | double cordon sur hp, méthode simplifiée ; gorge minimale ; pleine résistance a ≥ βw·γM2·fy·tw/(√2·fu), fy de l'âme à son épaisseur tw, en alerte (le guide en tire 0,46 / 0,48 / 0,55·tw en S235 / S275 / S355 avec les fu de l'EN 1993-1-1 ; le site prend les fu du tableau 3.3 ANB) | §4.5.3.3 ; §4.5.2 ; MSB P5 §2.2 |
 
 Alertes de détail : hp ≥ 0,6·h (maintien en torsion, MSB P5 §2.1) ;
 ductilité tp ≤ 0,36·d·√(fub/fy) (EN 1993-1-8 §6.4.2(2), règle d'ECCS

@@ -121,6 +121,9 @@ def compute(u0=None, materiau=None):
     perso = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
     for X, cle, piece in (("P", "nu_P", "poutre principale"), ("S", "nu_S", "poutre secondaire")):
         MT.poser(R, X, u[cle], MT.t_profil(R["tf_" + X], R["tw_" + X]), perso, materiau, cle, piece)
+    # la f_y de l'ÂME portée à SA propre épaisseur : l'exigence de PLEINE RÉSISTANCE (a/tw, MSB P5 §2.2) serait moins
+    # sévère avec la plus petite f_y du profilé (max(tf, tw)) — elle prend celle de la paroi soudée
+    R.fy_wS = MT.lire(u.nu_S, MT.t_ame(R.tf_S, R.tw_S), perso, materiau, "poutre secondaire")["fy"]
     MT.poser(R, "L", u.nu_pl, MT.T_PREDIM, perso, materiau, "nu_pl", "platine")
     cl = find(DB["classes"], u.classe)
     R.f_ub = cl["fub"]
@@ -199,7 +202,7 @@ def compute(u0=None, materiau=None):
     # gorge de PLEINE RÉSISTANCE vis-à-vis de l'âme portée (MSB P5 §2.2) —
     # recommandation : elle couvre aussi le tying sans vérification propre
     R.fuw, R.bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_S, R.bw_S)
-    R.k_plein = coef_pleine_resistance(R.fy_S, R.fuw, R.bww, gM2, gM0)
+    R.k_plein = coef_pleine_resistance(R.fy_wS, R.fuw, R.bww, gM2, gM0)
     R.a_plein = R.k_plein * R.tw_S
     botLim = R.h_S - (u.d_nb if u.d_nb > 0 else tfrS); sumC = u.z_C + R.h_p
     prP = ["prof_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u"] if u.prof_P == PERSO else ["prof_P"]
@@ -266,7 +269,7 @@ def compute(u0=None, materiau=None):
         dict(id="a_rec", c=R.a_w < R.a_plein - 1e-9, b=0,
              m="Gorge sous la PLEINE RÉSISTANCE recommandée par le guide — admissible si la vérification du cordon passe, mais le tying n'est alors plus couvert d'office.",
              f=["a_w"] + prS, d=["aw"], e=["weld"],
-             w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu) — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
+             w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu), fy de l'âme à son épaisseur tw : " + f0(R.fy_wS) + " MPa — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="NEd", c=NEd > 0, b=0,
              m="NEd de traction : boulons, platine (tronçon en T), âme portée et cordons sont vérifiés ; la flexion TRANSVERSALE de l'âme porteuse sous la traction des boulons ne l'est PAS (à justifier séparément).",
              f=["N_Ed", "nat_N"], d=[], e=[], w=""),
@@ -587,7 +590,7 @@ def predim(u, R):
     imin = min(i1, i2); imax = max(i1, i2)
     gM0 = u.g_M0; gM2 = u.g_M2; gM2n = u.g_M2n
     fuw, bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_S, R.bw_S)
-    a_s = mx(3, math.ceil(coef_pleine_resistance(R.fy_S, fuw, bww, gM2, gM0) * R.tw_S - 1e-9))
+    a_s = mx(3, math.ceil(coef_pleine_resistance(R.fy_wS, fuw, bww, gM2, gM0) * R.tw_S - 1e-9))
     for i, b in enumerate(DB["boulons"]):
         d = b["d"]; d0 = b["d0"]; A = b["As"] if u.filet == "Oui" else b["A"]
         e1 = ceil5(u.k_e1 * d0); p1 = ceil5(u.k_p1 * d0); e2 = ceil5(u.k_e2 * d0)

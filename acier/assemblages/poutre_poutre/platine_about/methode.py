@@ -50,8 +50,11 @@ Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design* §2
   de SCI P358.
 - **Soudure** : deux cordons sur toute la hauteur `hp`, méthode simplifiée
   §4.5.3.3 ; gorge minimale §4.5.2 ; **pleine résistance** recommandée par
-  le guide : `a ≥ βw·γM2·fy·tw/(√2·fu)` soit **0,46 / 0,48 / 0,55·tw** en
-  S235 / S275 / S355 (MSB P5 §2.2) — signalée en alerte.
+  le guide : `a ≥ βw·γM2·fy·tw/(√2·fu)`, avec la fy de l'ÂME à son épaisseur
+  tw (une exigence de sur-résistance : la plus petite fy du profilé la
+  rendrait moins sévère) — le guide en tire **0,46 / 0,48 / 0,55·tw** en
+  S235 / S275 / S355 avec les fu de l'EN 1993-1-1 (MSB P5 §2.2) ; le site
+  prend les fu du tableau 3.3 ANB — signalée en alerte.
 
 #### Traction NEd : deux natures
 

@@ -473,6 +473,11 @@ LA.jouer(chk, moteur.compute, attendus=[
    perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "platine de 20 mm, f_y et f_u saisis tels quels"),
    hors_table=(dict(tp_u=300), "platine"))
 
+# reprise A2 (NON CONSERVATIF au commit de base) : la gorge de PLEINE RÉSISTANCE prend la f_y de l'ÂME à t = t_w,
+# pas la plus petite f_y du profilé — une f_y plus basse rendrait cette exigence de sur-résistance moins sévère
+from acier.assemblages.poutre_poteau.platine_about_poteau.entrees import MODE_PREDIM  # noqa: E402
+LA.jouer_gorge(chk, moteur.compute, {"mode_calc": MODE_PREDIM})
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

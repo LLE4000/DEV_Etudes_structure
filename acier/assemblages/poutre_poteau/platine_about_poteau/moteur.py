@@ -129,6 +129,9 @@ def compute(u0=None, materiau=None):
     perso = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
     for X, cle, piece in (("P", "nu_P", "poteau"), ("S", "nu_S", "poutre portée")):
         MT.poser(R, X, u[cle], MT.t_profil(R["tf_" + X], R["tw_" + X]), perso, materiau, cle, piece)
+    # la f_y de l'ÂME portée à SA propre épaisseur : l'exigence de PLEINE RÉSISTANCE (a/tw, MSB P5 §2.2) serait moins
+    # sévère avec la plus petite f_y du profilé (max(tf, tw)) — elle prend celle de la paroi soudée
+    R.fy_wS = MT.lire(u.nu_S, MT.t_ame(R.tf_S, R.tw_S), perso, materiau, "poutre portée")["fy"]
     MT.poser(R, "L", u.nu_pl, MT.T_PREDIM, perso, materiau, "nu_pl", "platine")
     cl = find(DB["classes"], u.classe)
     R.f_ub = cl["fub"]
@@ -241,7 +244,7 @@ def compute(u0=None, materiau=None):
     # gorge de PLEINE RÉSISTANCE vis-à-vis de l'âme portée (MSB P5 §2.2) —
     # recommandation : elle couvre aussi le tying sans vérification propre
     R.fuw, R.bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_S, R.bw_S)
-    R.k_plein = MEC.coef_pleine_resistance(R.fy_S, R.fuw, R.bww, gM2, gM0)
+    R.k_plein = MEC.coef_pleine_resistance(R.fy_wS, R.fuw, R.bww, gM2, gM0)
     R.a_plein = R.k_plein * R.tw_S
     botLim = R.h_S - (u.d_nb if u.d_nb > 0 else tfrS); sumC = u.z_C + R.h_p
     AL = [
@@ -318,7 +321,7 @@ def compute(u0=None, materiau=None):
         dict(id="a_rec", c=R.a_w < R.a_plein - 1e-9, b=0,
              m="Gorge sous la PLEINE RÉSISTANCE recommandée par le guide — admissible si la vérification du cordon passe, mais le tying n'est alors plus couvert d'office.",
              f=["a_w"] + prS, d=["aw"], e=["weld"],
-             w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu) — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
+             w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu), fy de l'âme à son épaisseur tw : " + f0(R.fy_wS) + " MPa — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="ame_hp", c=R.ame, b=0,
              m=TXT.m_ame_hp("la traction des boulons", "raidisseurs entre ailes",
                             "Le tronçon en T de l'aile et l'âme en traction transversale sont "
@@ -670,7 +673,7 @@ def predim(u, R):
     imin = min(i1, i2); imax = max(i1, i2)
     gM0 = u.g_M0; gM2 = u.g_M2; gM2n = u.g_M2n
     fuw, bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_S, R.bw_S)
-    a_s = mx(3, math.ceil(MEC.coef_pleine_resistance(R.fy_S, fuw, bww, gM2, gM0) * R.tw_S - 1e-9))
+    a_s = mx(3, math.ceil(MEC.coef_pleine_resistance(R.fy_wS, fuw, bww, gM2, gM0) * R.tw_S - 1e-9))
     # géométrie du poteau : le prédimensionnement tourne AVANT compute(), les
     # scalaires de R ne sont pas encore posés — les deux largeurs se
     # recalculent ici (même expression, étude §5.3)

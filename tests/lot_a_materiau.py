@@ -138,6 +138,60 @@ MUTATIONS = [("f_y et f_u nominaux, sans épaisseur (ancienne table)", _mut_tabl
              ("domaine du grugeage lu sur la f_y réduite", _mut_domaine)]
 
 
+# ---------------------------------------------------------------- reprise A2 : la gorge de PLEINE RÉSISTANCE
+# a/t_w = β_w·γ_M2·f_y/(√2·f_u) (MSB P5 §2.2) est une exigence de SUR-RÉSISTANCE : une f_y plus BASSE la rendrait
+# MOINS sévère. Elle prend la f_y de l'ÂME à SA propre épaisseur t_w (MT.t_ame), pas la plus petite f_y du profilé
+# (max(t_f, t_w), qui vaut pour les résistances). Poutre portée HEB 400 S355 : t_w = 13,5 ≤ 16 → 355 ; t_f = 24 → 345.
+# Mesuré au commit de base f3a5f6d : a/t_w = 0,5839, a_plein = 7,88 mm, gorge proposée 8 mm (non conservatif).
+K_PLEIN_S355 = 0.9 * 1.25 * FY_S355 / (2 ** 0.5 * FU_S355)        # β_w = 0,9 ; γ_M2 = 1,25 : 0,6009
+TW_HEB400 = 13.5
+
+
+def controles_gorge(compute, predim):
+    """Les contrôles de la gorge de pleine résistance (platines d'about) ; ``predim`` : les saisies du mode
+    prédimensionnement. Rend [(nom, condition, info)]."""
+    R = compute(dict(prof_S="HEB 400"))
+    Rp = compute(dict(predim, prof_S="HEB 400"))
+    Rn = compute({})
+    a = K_PLEIN_S355 * TW_HEB400
+    return [
+        ("HEB 400 portée S355 : la gorge de pleine résistance prend la f_y de l'ÂME (t_w = 13,5 mm : 355), les "
+         "résistances celle du profilé (max(t_f, t_w) = 24 mm : 345)",
+         proche(R.fy_wS, FY_S355) and proche(R.fy_S, FY_S355_40), f"{R.fy_wS} / {R.fy_S}"),
+        (f"HEB 400 portée : a/t_w = 0,9·1,25·355/(√2·470) = {K_PLEIN_S355:.4f} ; a_plein = {a:.2f} mm (et non 7,88)",
+         proche(R.k_plein, K_PLEIN_S355) and proche(R.a_plein, a), f"{R.k_plein} / {R.a_plein}"),
+        ("HEB 400 portée : gorge proposée par le prédimensionnement = 9 mm (et non 8)",
+         Rp.pd.a == 9 and Rp.a_w == 9, f"{Rp.pd.a} / {Rp.a_w}"),
+        (f"note neuve (âme et ailes ≤ 16 mm) : inchangée, a/t_w = {K_PLEIN_S355:.4f}",
+         proche(Rn.k_plein, K_PLEIN_S355) and proche(Rn.fy_wS, Rn.fy_S), f"{Rn.k_plein}"),
+    ]
+
+
+def _mut_gorge(on):
+    """La gorge de pleine résistance lue sur la f_y du profilé à max(t_f, t_w) (la règle des résistances)."""
+    if on:
+        _mut_gorge.avant = MT.t_ame
+        MT.t_ame = lambda tf, tw: max(tf, tw)
+    else:
+        MT.t_ame = _mut_gorge.avant
+
+
+MUTATION_GORGE = ("f_y du profilé à max(t_f, t_w) dans la gorge de pleine résistance", _mut_gorge)
+
+
+def jouer_gorge(chk, compute, predim):
+    """Joue les contrôles de la gorge de pleine résistance, puis la mutation (ils doivent rougir)."""
+    for nom, cond, info in controles_gorge(compute, predim):
+        chk(nom, cond, info)
+    nom, mut = MUTATION_GORGE
+    mut(True)
+    try:
+        rouges = [n for n, c, _ in controles_gorge(compute, predim) if not c]
+    finally:
+        mut(False)
+    chk(f"mutation « {nom} » : les contrôles de la gorge rougissent ({len(rouges)})", len(rouges) == 3, str(rouges))
+
+
 def lien_table():
     """Les valeurs écrites ci-dessus sont celles de la table unique (acier/materiaux.py) : la copie est tenue."""
     return ([FY_S355, FY_S355_40, FY_S355_80, FY_S275_40, FY_S460_40, FU_S355, FU_S275, FU_S460]
