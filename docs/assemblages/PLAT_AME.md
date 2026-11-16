@@ -39,7 +39,9 @@ moment d'excentricité MS = VEd·z (répartition élastique, inertie polaire).
 
 Alertes de détail : ductilité (SCI P358 §5.3 (3), lot B : tp ≤ k·d du plat OU tw ≤ k·d de la poutre
 portée ; k = 0,50 en S235 et S275, 0,42 en S355, non couvert au-delà — `acier/assemblages/ductilite.py`,
-recommandation non bloquante, suivie aussi par le prédimensionnement) ; hp ≥ 0,6·h (maintien) ; plat
+recommandation non bloquante, suivie aussi par le prédimensionnement : un diamètre qui n'admet aucun plat de la liste
+— M16 en S355, 0,42·16 = 6,7 < 8 mm — passe après les autres, et s'il reste seul le message le dit : « Plus petite
+épaisseur proposée 8 mm > 0,42·d = 6,7 mm ») ; hp ≥ 0,6·h (maintien) ; plat
 long non maintenu ; gorge sous la pleine résistance. Limites écrites (écran
 Vérifications + Méthode) : flexion HORS PLAN de l'âme porteuse sous VEd·z
 et NEd (attache d'un seul côté), tying, torsion, vis-à-vis.

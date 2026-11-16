@@ -8,7 +8,7 @@ k selon la NUANCE de la pièce : 0,50 en S275, 0,42 en S355. Règle du site (bri
 propriétaire du 16/11/2026) : 0,50 aussi en S235 ; au-delà du S355, la règle n'est pas couverte, et l'avis le dit.
 
 C'est une RECOMMANDATION, jamais un verdict : l'avis n'est pas bloquant et ne change pas le statut de l'attache.
-Il ajoute, quand le plat est en S355 (k = 0,42), la phrase du propriétaire sur l'étude du SCI (New Steel
+Il ajoute, quand le plat est d'une nuance S355 (pas un acier « Personnalisé »), la phrase du propriétaire sur l'étude du SCI (New Steel
 Construction, mai 2018) : un plat de 10 mm en S355 avec des M20 reste admis si la géométrie standard du P358 est
 respectée.
 
@@ -16,7 +16,7 @@ La NUANCE se lit sur sa valeur nominale (``materiau.nominale`` : S355 → 355, j
 l'épaisseur) ; un acier « Personnalisé » n'a pas de nuance : sa f_y saisie en tient lieu, et une f_y entre deux
 nuances prend le k de la nuance supérieure (côté sûr — À VÉRIFIER, la règle ne parle que des nuances).
 """
-from acier.formats import F, f0
+from acier.formats import F, f0, f_ecart
 from acier.assemblages import materiau as MT
 from acier.bibliotheques import PERSO
 
@@ -69,6 +69,29 @@ def tp_max(tw, d, fyn_plat, fyn_poutre):
     return (r["k_p"] if r["k_p"] is not None else K_MIN) * d
 
 
+def admet_un_plat(tw, d, fyn_plat, fyn_poutre, t_min):
+    """Le boulon de diamètre ``d`` admet-il au moins un plat de la liste du prédimensionnement (``t_min`` : sa plus petite
+    épaisseur) sous la règle ? Non pour un M16 en S355 dont l'âme portée dépasse 0,42·16 = 6,7 mm : 6,7 < 8 mm."""
+    return tp_max(tw, d, fyn_plat, fyn_poutre) >= t_min - 1e-9
+
+
+# le prédimensionnement range APRÈS les autres (score augmenté de ce rang, sous celui d'une ligne au-delà de la cible)
+# un boulon qui n'admet aucun plat de la liste : la proposition suit la règle tant qu'un autre diamètre la tient
+RANG_NON_DUCTILE = 5000
+
+
+def msg_predim(treq, tp, tmax, d):
+    """Le message du prédimensionnement quand la proposition ne tient pas la règle, None sinon : la plus petite épaisseur
+    de la liste au-delà de k·d (« 8 mm > 0,42·d = 6,7 mm »), ou l'épaisseur nécessaire au-delà de k·d."""
+    if tp > tmax + 1e-9:
+        return (f"Plus petite épaisseur proposée {f0(tp)} mm > {F(tmax / d, 2)}·d = {f_ecart(tmax, tp)} mm (ductilité, "
+                f"{REF}) : augmenter le diamètre.")
+    if treq > tmax + 1e-9:
+        return ("Épaisseur nécessaire > " + F(tmax / d, 2) + "·d (ductilité, " + REF + ") : augmenter le nombre de "
+                "rangées, le diamètre ou la nuance du plat.")
+    return None
+
+
 def _nuance(R, X):
     """Le nom de la nuance d'une pièce (« S355 ») ; « Personnalisé » : « f_y 300 »."""
     m = (R.get("materiau") or {}).get(X) or {}
@@ -79,11 +102,24 @@ def _nuance(R, X):
 
 def _terme(sym, t, k, d, qui, k_dit=None):
     """« tp = 10 mm > 0,42·d = 8,4 mm (plat S355) » — « tw = 8,5 mm > 8,4 mm (poutre S355) » quand le même k vient
-    d'être écrit (``k_dit``) —, ou « poutre S460 N/NL : non couverte au-delà du S355 »."""
+    d'être écrit (``k_dit``) —, ou « poutre S460 N/NL : non couverte au-delà du S355 ». L'épaisseur s'écrit avec la
+    décimale qui la départage de k·d (``f_ecart`` : « 8,43 mm > 8,4 mm », jamais « 8,4 mm > 8,4 mm »)."""
     if k is None:
         return f"{qui} : non couverte au-delà du S355"
     borne = f"{f0(k * d)} mm" if k == k_dit else f"{F(k, 2)}·d = {f0(k * d)} mm"
-    return f"{sym} = {f0(t)} mm > {borne} ({qui})"
+    return f"{sym} = {f_ecart(t, k * d)} mm > {borne} ({qui})"
+
+
+def _k_ecrits():
+    """« 0,50 en S235 et S275, 0,42 en S355 » : les k lus dans ``K_NUANCE`` (l'aide et l'avis « non couverte »)."""
+    return f"{F(K_NUANCE[0][1], 2)} en S235 et S275, {F(K_NUANCE[1][1], 2)} en S355"
+
+
+def _plat_s355(R):
+    """Le plat est-il d'une nuance S355 (la phrase de l'étude du SCI ne parle que d'elle) ? Un acier « Personnalisé »
+    n'a pas de nuance, même si sa f_y le range avec le S355 pour k."""
+    m = (R.get("materiau") or {}).get("L") or {}
+    return m.get("nom") != PERSO and MT.nominale(R, "L") == K_NUANCE[-1][0]
 
 
 def alertes(R, d):
@@ -100,10 +136,9 @@ def alertes(R, d):
                      m="Ductilité de l'attache : règle " + REF + " non couverte au-delà du S355 — à justifier "
                        "(recommandation).",
                      f=champs, d=["tp"], e=["plate"],
-                     w=qui_p + ", " + qui_w + " : k connu jusqu'au S355 seulement (0,50 en S235 et S275, 0,42 en "
-                       "S355).")]
+                     w=qui_p + ", " + qui_w + " : k connu jusqu'au S355 seulement (" + _k_ecrits() + ").")]
     w = _terme("tp", R.t_p, r["k_p"], d, qui_p) + " ; " + _terme("tw", R.tw_S, r["k_w"], d, qui_w, r["k_p"])
-    if r["k_p"] == K_NUANCE[-1][1]:
+    if _plat_s355(R):
         w += " ; " + ETUDE_SCI_2018
     return [dict(id="tp_duct", c=True, b=0,
                  m="Ductilité de l'attache non assurée : le plat et l'âme de la poutre portée dépassent k·d ("
@@ -113,5 +148,4 @@ def alertes(R, d):
 
 def texte_aide():
     """L'aide du champ tp (écran et carte) : la règle en une ligne, k lus dans ``K_NUANCE``."""
-    return (f"Ductilité ({REF}) : tp ≤ k·d du boulon, ou tw de la poutre portée ≤ k·d ; k = "
-            f"{F(K_NUANCE[0][1], 2)} en S235 et S275, {F(K_NUANCE[1][1], 2)} en S355, non couvert au-delà.")
+    return f"Ductilité ({REF}) : tp ≤ k·d du boulon, ou tw de la poutre portée ≤ k·d ; k = {_k_ecrits()}, non couvert au-delà."

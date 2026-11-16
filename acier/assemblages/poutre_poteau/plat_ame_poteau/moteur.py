@@ -579,6 +579,7 @@ def predim(u, R, Mabs):
     V = u.V_Ed
     i1 = idx(DB["boulons"], u.pd_dmin); i2 = idx(DB["boulons"], u.pd_dmax)
     imin = min(i1, i2); imax = max(i1, i2)
+    fyn_pl, fyn_S = MT.nominale(R, "L"), MT.nominale(R, "S")   # nuances (règle de ductilité)
     Nx = 0.0 if u.nat_N == NAT_TYING else abs(u.N_Ed)
     for i, b in enumerate(DB["boulons"]):
         for n in range(2, 9):
@@ -607,14 +608,15 @@ def predim(u, R, Mabs):
             eta = mx(e.bS, e.pdS); ok = bool(geom and eta <= u.eta_c)
             rows.append(AttrDict(b=b, i=i, n=n, var=var, e1=e1, p1=p1, e2=e2, hp=hp, z=z,
                                  geom=geom, Fz=Fz, Fx=Fx, Mz=Mz, e=e, eta=eta, ok=ok,
-                                 score=(n * 100 + i + 1) if ok else 9999,
+                                 # un boulon qui n'admet aucun plat de la liste sous la ductilité passe après les autres
+                                 score=(n * 100 + i + 1 + (0 if DU.admet_un_plat(R.tw_S, d, fyn_pl, fyn_S, DB["epais"][0])
+                                                           else DU.RANG_NON_DUCTILE)) if ok else 9999,
                                  etag=eta if geom else 99, prop=None))
     found = any(r.ok for r in rows); key = "score" if found else "etag"; pick = rows[0]
     for r in rows:
         if r[key] < pick[key]:
             pick = r
     gM0 = u.g_M0; gM2n = u.g_M2n
-    fyn_pl, fyn_S = MT.nominale(R, "L"), MT.nominale(R, "S")   # nuances (règle de ductilité)
 
     def plate_for(pk):
         d0 = pk.b["d0"]; d = pk.b["d"]; n = pk.n; hp = pk.hp
@@ -647,9 +649,8 @@ def predim(u, R, Mabs):
     if not found:
         msg = ("AUCUNE combinaison ne respecte le taux cible dans les limites fixées : la moins "
                "sollicitée est affichée. Élargir la plage de diamètres, la hauteur disponible ou la classe.")
-    elif pp.treq > pp.tmax + 1e-9:
-        msg = ("Épaisseur nécessaire > " + F(pp.tmax / pick.b["d"], 2) + "·d (ductilité, " + DU.REF + ") : "
-               "augmenter le nombre de rangées, le diamètre ou la nuance du plat.")
+    elif DU.msg_predim(pp.treq, pp.tp, pp.tmax, pick.b["d"]):
+        msg = DU.msg_predim(pp.treq, pp.tp, pp.tmax, pick.b["d"])
     elif pp.treq > pp.tp + 1e-9:
         msg = ("Épaisseur nécessaire > " + f0(pp.tp) + " mm (plus grande épaisseur proposée) : augmenter le "
                "nombre de rangées ou le diamètre.")

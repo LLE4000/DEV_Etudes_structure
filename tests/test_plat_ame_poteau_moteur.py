@@ -403,7 +403,8 @@ print("\n=== 11. Lot B : ductilité de l'attache, SCI P358 §5.3 (3) (brief v12 
 # tp ≤ k·d (nuance du plat) OU tw ≤ k·d (nuance de la poutre portée) ; k = 0,50 en S235 et S275, 0,42 en S355 ; au-delà :
 # non couvert. Recommandation, jamais un verdict ; le prédimensionnement suit la même règle. IPE 300 : t_w = 7,1 mm.
 import lot_b_ductilite as LB  # noqa: E402
-LB.jouer(chk, moteur.compute, "IPE 300")
+from acier.assemblages.poutre_poteau.plat_ame_poteau import note as NOTE_LB  # noqa: E402  (la note PDF : l'avis long y reste entier)
+LB.jouer(chk, moteur.compute, "IPE 300", NOTE_LB.generer_note)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

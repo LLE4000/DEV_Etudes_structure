@@ -1277,7 +1277,7 @@ redimensionné** (5 × 2 **M24** 8.8, `p1 = p2 = 60`, plat **320 × 12**,
 | `Fv,Rd` (M24, filet) | 135,552 kN → **`η = 0,561`** ✔ |
 | `λLT / pb / Wel / Mb,Rd` | 51,121 / **287,879 MPa** / 204 800 mm³ / **53,598 kNm** |
 | **`η` déversement** | **0,840** ✔ |
-| ductilité `tp ≤ 0,5·d = 12` | ✔ |
+| ductilité (SCI P358 §5.3 (3), S355) : `tp = 12 > 0,42·d = 10,1` ; `tw = 8,6 ≤ 10,1` de la poutre portée | ✔ (par l'âme ; `tp ≤ 0,5·d = 12` avant le lot B) |
 
 #### BM4 — cas (b) ÂME, variante **b2** : ailes de la poutre recoupées
 

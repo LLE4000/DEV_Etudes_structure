@@ -93,6 +93,23 @@ def lignes_hypotheses(R):
     return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
+def _deux_lignes(d, txt, police, taille, largeur):
+    """Un avis du bandeau en une ligne, ou en deux s'il ne tient pas (coupé à un « ; », sinon à une espace) : la
+    seconde est rendue entière par l'appelant tant qu'elle tient (``fit`` au-delà) — un avis n'est plus tronqué par
+    « … » dès qu'il s'allonge (la phrase de l'étude du SCI, lot B)."""
+    if d.w(txt, police, taille) <= largeur:
+        return txt, ""
+    for sep, garde in ((" ; ", " ;"), (" ", "")):
+        i = len(txt)
+        while True:
+            i = txt.rfind(sep, 0, i)
+            if i <= 0:
+                break
+            if d.w(txt[:i] + garde, police, taille) <= largeur:
+                return txt[:i] + garde, txt[i + len(sep):]
+    return d.fit(txt, police, taille, largeur), ""
+
+
 def _est_info(R, syn, c):
     """Une vérification que la synthèse du module déclare « information »
     (hors verdict) ne concourt pas aux formules imprimées."""
@@ -269,7 +286,11 @@ class Note:
             col = S.ko if a.block else S.att
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=col)
             txt = titre + (" : " + det if det else "")
-            d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
+            l1, l2 = _deux_lignes(d, txt, S.f_b, 6.8, W - 2 * M - 12)
+            d.t(M + 9, y, l1, S.f_b, 6.8, S.ink)
+            if l2:                      # un avis trop long passe à la ligne, il n'est plus coupé (« …mai 20… »)
+                y -= 8.5
+                d.t(M + 9, y, d.fit(l2, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
         if len(al) > 3:
             y -= 9
             d.t(M + 9, y, "+ " + str(len(al) - 3) + " autre(s) point(s) signalé(s).", S.f_b, 6.4, S.mut)

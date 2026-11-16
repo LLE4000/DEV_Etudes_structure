@@ -86,7 +86,49 @@ def controles(compute, ame_mince):
     out.append(("… HEA 400 S355 (tw = 11 mm) : plafond 0,42·d effectivement appliqué, épaisseur proposée sous lui",
                 any(p == "HEA 400" and nu == "S355" and t != float("inf") and abs(t - 0.42 * int(b[1:])) < 1e-9
                     and tp <= t + 1e-9 for p, nu, b, _, t, tp in plafonds), str(plafonds)))
+    # contre-vérification du bloc : l'épaisseur écrite avec la décimale qui la départage de k·d (jamais « 8,4 mm >
+    # 8,4 mm ») ; la phrase de l'étude SCI pour un plat de NUANCE S355 seulement (pas un « Personnalisé » de f_y 300)
+    R = compute(dict(tp_u=8.43))
+    a = _avis(R, "tp_duct")
+    out.append(("plat de 8,43 mm : « tp = 8,43 mm > 0,42·d = 8,4 mm » (et non « 8,4 mm > 8,4 mm »)",
+                a is not None and "tp = 8,43 mm > 0,42·d = 8,4 mm (plat S355)" in a.why, a and a.why))
+    R = compute(dict(nu_pl=PERSO, fy_u=300, fu_u=430, bw_u=0.85))
+    a = _avis(R, "tp_duct")
+    out.append(("plat « Personnalisé » f_y 300 : avis sans la phrase de l'étude SCI (pas une nuance S355)",
+                a is not None and PHRASE_SCI not in a.why and "(plat f_y 300)" in a.why, a and a.why))
+    # l'avis « non couverte » écrit les k LUS dans K_NUANCE (source unique) : un k changé y apparaît
+    vrai_k = DU.K_NUANCE
+    DU.K_NUANCE = ((275.0, 0.50), (355.0, 0.40))
+    try:
+        a = _avis(compute(dict(nu_pl="S460 N/NL", nu_S="S460 N/NL", tp_u=12)), "duct_nc")
+    finally:
+        DU.K_NUANCE = vrai_k
+    out.append(("l'avis « non couverte » lit ses k dans K_NUANCE (un k de 0,40 y paraît), jamais une copie écrite",
+                a is not None and "0,50 en S235 et S275, 0,40 en S355" in a.why, a and a.why))
+    # le prédimensionnement à PETITE charge (V_Ed = 30 kN, plage M16 à M24, S355) : 0,42·16 = 6,7 mm < 8 mm, la plus
+    # petite épaisseur de la liste — le M16 n'admet aucun plat : la proposition prend le diamètre suivant, ductile
+    Rp = compute(dict(mode_calc=PREDIM, V_Ed=30))
+    pk = Rp.pd.pick
+    out.append(("prédimensionnement, V_Ed = 30 kN, S355 : le M16 (6,7 mm < 8 mm) cède au diamètre suivant, plat sous "
+                "k·d, « Proposition complète »",
+                pk.b["d"] > 16 and Rp.pd.tp <= pk.prop.tmax + 1e-9 and Rp.pd.msg == "Proposition complète",
+                f"{pk.b['n']} tp {Rp.pd.tp} tmax {pk.prop.tmax} | {Rp.pd.msg}"))
+    Rp = compute(dict(mode_calc=PREDIM, V_Ed=30, pd_dmin="M16", pd_dmax="M16"))
+    out.append(("… plage réduite au M16 : « Plus petite épaisseur proposée 8 mm > 0,42·d = 6,7 mm (ductilité, …) », "
+                "jamais « Proposition complète »",
+                Rp.pd.msg.startswith("Plus petite épaisseur proposée 8 mm > 0,42·d = 6,7 mm (ductilité, " + DU.REF + ")"),
+                Rp.pd.msg))
     return out
+
+
+def controles_note(compute, generer_note):
+    """[(nom, condition, info)] de la note PDF : l'avis long (plat S355 de 12,5 mm, poutre portée S460 N/NL) garde la
+    phrase de l'étude SCI ENTIÈRE (deux lignes), sans « … »."""
+    import pymupdf
+    R = compute(dict(nu_S="S460 N/NL", tp_u=12.5))
+    t = " ".join(pymupdf.open(stream=generer_note(R, {}), filetype="pdf")[0].get_text().split())
+    return [("note PDF : l'avis long (poutre S460 N/NL, plat de 12,5 mm) garde la phrase de l'étude SCI entière, sans « … »",
+             PHRASE_SCI in t, t[t.find("Ductilit"):][:400])]
 
 
 # ---------------------------------------------------------------- les mutations : chacune remet un défaut
@@ -122,8 +164,23 @@ def _bloquant(on):
         DU.alertes = _bloquant.avant
 
 
+def _f0_seul(on):
+    """L'épaisseur écrite par f0 seul (« 8,4 mm > 8,4 mm »)."""
+    if on:
+        _f0_seul.avant = DU.f_ecart
+        DU.f_ecart = lambda x, ref: DU.f0(x)
+    else:
+        DU.f_ecart = _f0_seul.avant
+
+
 MUTATIONS = [
     ("k = 0,50 pour toutes les nuances (la règle d'avant le lot B)", _remplacer("K_NUANCE", ((1e9, 0.50),))),
+    ("épaisseur écrite par f0 seul (« 8,4 mm > 8,4 mm »)", _f0_seul),
+    ("phrase SCI posée dès que k = 0,42 (un « Personnalisé » de f_y 300 compris)",
+     _remplacer("_plat_s355", lambda R: R.duct["k_p"] == 0.42)),
+    ("k de l'avis « non couverte » recopiés en dur", _remplacer("_k_ecrits", lambda: "0,50 en S235 et S275, 0,42 en S355")),
+    ("prédimensionnement : le M16 non ductile gardé au premier rang", _remplacer("RANG_NON_DUCTILE", 0)),
+    ("prédimensionnement : « Proposition complète » malgré un plat au-delà de k·d", _remplacer("msg_predim", lambda *a: None)),
     ("le plat seul décide (l'âme portée ignorée)", _plat_seul),
     ("au-delà du S355 pris comme le S355 (règle supposée couverte)", _remplacer("K_NUANCE", ((275.0, 0.50), (1e9, 0.42)))),
     ("phrase de l'étude SCI retirée", _remplacer("ETUDE_SCI_2018", "")),
@@ -132,10 +189,23 @@ MUTATIONS = [
 ]
 
 
-def jouer(chk, compute, ame_mince):
-    """Joue les contrôles, puis chaque mutation (ses contrôles doivent rougir) ; ``chk`` : la fonction de la suite."""
+def jouer(chk, compute, ame_mince, generer_note=None):
+    """Joue les contrôles, puis chaque mutation (ses contrôles doivent rougir) ; ``chk`` : la fonction de la suite ;
+    ``generer_note`` : la note PDF du moteur (son contrôle et sa mutation, joués une fois)."""
     for nom, cond, info in controles(compute, ame_mince):
         chk(nom, cond, info)
+    if generer_note is not None:
+        for nom, cond, info in controles_note(compute, generer_note):
+            chk(nom, cond, info)
+        from acier.assemblages.poutre_poutre.plat_ame import note as NP
+        vrai = NP._deux_lignes
+        NP._deux_lignes = lambda d, txt, police, taille, largeur: (d.fit(txt, police, taille, largeur), "")
+        try:
+            rouges = [n for n, c, _ in controles_note(compute, generer_note) if not c]
+        finally:
+            NP._deux_lignes = vrai
+        chk(f"mutation « avis coupé par “…” dans la note » : le contrôle de la note rougit ({len(rouges)})", bool(rouges),
+            str(rouges))
     for nom, mut in MUTATIONS:
         mut(True)
         try:
