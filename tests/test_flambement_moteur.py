@@ -17,14 +17,15 @@ retire ce qu'il protège (§6, mutations).
      λ̄ = L_cr / (i·λ₁) ; IPE 400 S355 de classe 4 (âme réduite, EN 1993-1-5 §4.4) ; cornière (axes principaux u, v) ;
      tube rectangulaire formé à froid (paroi b − 3t, EN 1993-1-5 §4.4(2)) ; longueurs de flambement (cas types,
      maintiens, k et L_cr saisis) ; γ_M1 ; f_y des profilés épais ; ε de CHAQUE paroi avec la f_y de son épaisseur
-     (HEB 300 S235, IPE 600 S460 de classe 4 : brief § 7.1, EN 1993-1-1 Tableau 5.2).
+     (HEB 300 S235, IPE 600 S460 de classe 4 : brief § 7.1, EN 1993-1-1 Tableau 5.2), pour la classe comme pour λ̄_p
+     (IPE 600 et IPE 550 S235 : âme de classe 4 avec son ε, de classe 3 avec celui de la section).
   4. Parité : ec3_buckling_chi de l'écran Streamlit (faux « st ») sur plus de 600 cas (profilés du catalogue, longueurs,
      nuances, courbes) — χ, λ̄, N_cr et N_b,Rd ÉGAUX (==) à ceux du moteur.
   5. Domaine : saisies refusées avec un message (traction, longueurs nulles ou absurdes, k et N démesurés, γ < 1,
      maintiens) — le calcul aboutit aux bornes du domaine, sans débordement ; hors du domaine du module
      (t > 80 mm), tube rond de classe 4 ; couverture (chaque courbe, chaque classe atteintes par le catalogue).
-  6. Mutations : chaque altération plausible du moteur (α, φ, χ ≤ 1, seuil h/b, f_y et ses paliers, ε par paroi,
-     produit, classe 4, k, maintiens, γ_M1…)
+  6. Mutations : chaque altération plausible du moteur (α, φ, χ ≤ 1, seuil h/b, f_y et ses paliers, ε par paroi — pour
+     λ̄_p et, seule, pour la classe —, produit, classe 4, k, maintiens, γ_M1…)
      fait rougir au moins un contrôle des §1–4.
   7. Pureté : le moteur se charge et calcule dans un sous-processus où sys.meta_path REFUSE streamlit, pandas,
      matplotlib, scipy, reportlab, PIL, fitz.
@@ -33,11 +34,13 @@ retire ce qu'il protège (§6, mutations).
 """
 import copy
 import importlib.util
+import inspect
 import math
 import os
 import random
 import subprocess
 import sys
+import textwrap
 import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -253,6 +256,30 @@ def controles():
     c("IPE 600 S460 classe 4 : ρ de l'âme avec ε_w = √(235/460) (t_w = 12 mm), A_eff recalculée à la main ; N_c,Rd = A_eff × 440",
       r["section"]["classe"] == 4 and proche(r["section"]["A_eff"], Aeff) and r["section"]["fy"] == 440
       and proche(r["section"]["NcRd"], Aeff * 440 / 1000), (r["section"]["A_eff"], Aeff, r["section"]["fy"]))
+    # la CLASSIFICATION avec l'ε de chaque paroi (brief § 7.1 ; EN 1993-1-1 Tableau 5.2) : IPE 600 et IPE 550 S235, âme de
+    # 12 et 11,1 mm (f_y = 235, ε_w = 1, tableau 3.3 ANB, t ≤ 16 mm), semelles de 19 et 17,2 mm (225) ; c/t de l'âme 42,83
+    # et 42,13 > 42·ε_w = 42 → classe 4. Avec l'ε de la SECTION (√(235/225) = 1,022 : 42,92) l'âme serait de classe 3 et
+    # A_eff = A (IPE 600 : N_b,z,Rd 2 333,3 kN, +1,4 %, du côté non sûr). Recalcul à la main : λ̄_p de l'âme avec ε_w,
+    # ρ = (λ̄_p − 0,22)/λ̄_p² (EN 1993-1-5 §4.4), N_cr,z, λ̄, φ, χ (courbe b : h/b > 1,2, t_f ≤ 40), f_y de calcul 225.
+    for nom, aeff_txt, nb_txt in (("IPE 600", 15224.0, 2301.0), ("IPE 550", 13174.2, 1909.9)):
+        r = MO.verifier(barre(profil=nom, nuance="S235", N=500.0, L=4.0))
+        q = CAT.par_nom()[nom]
+        ct_w = q["cw_tw"]
+        lp = ct_w / (28.4 * 1.0 * 2.0)
+        rho = (lp - 0.22) / lp ** 2
+        Aeff = q["A"] * 100 - (1 - rho) * ct_w * q["tw"] * q["tw"]
+        Ncr = math.pi ** 2 * 210000.0 * q["Iz"] * 1e4 / 4000.0 ** 2
+        lb = math.sqrt(Aeff * 225.0 / Ncr)
+        ph = 0.5 * (1 + 0.34 * (lb - 0.2) + lb ** 2)
+        Nb = min(1.0, 1 / (ph + math.sqrt(ph ** 2 - lb ** 2))) * Aeff * 225.0 / 1000.0
+        ame = r["section"]["parois"][1]
+        fr1 = lambda x: f"{x:,.1f}".replace(",", " ").replace(".", ",")      # noqa: E731 — « 15 224,0 »
+        c(f"{nom} S235, N 500 kN, L 4 m : classe 4 (âme t_w = {q['tw']:g} mm, f_y 235, ε_w = 1 ; c/t = {ct_w:.2f} > 42·ε_w), ".replace(".", ",")
+          + f"A_eff = {fr1(aeff_txt)} mm², N_b,z,Rd = {fr1(nb_txt)} kN recalculés à la main",
+          42.0 < ct_w <= 42.0 * math.sqrt(235.0 / 225.0) and r["section"]["classe"] == 4 and (ame["nom"], ame["classe"], ame["epsilon"]) == ("âme", 4, 1.0)
+          and proche(r["section"]["A_eff"], Aeff) and round(r["section"]["A_eff"], 1) == aeff_txt
+          and proche(r["axes"]["z"]["NbRd"], Nb) and round(r["axes"]["z"]["NbRd"], 1) == nb_txt and r["axes"]["z"]["courbe"] == "b",
+          (r["section"]["classe"], ame.get("classe"), r["section"]["A_eff"], Aeff, r["axes"]["z"]["NbRd"], Nb))
     # γ_M1 et f_y épais
     r1 = MO.verifier(barre(profil="HEB 300", N=100.0, L=5.0))
     r2 = MO.verifier(barre(profil="HEB 300", N=100.0, L=5.0, gamma_M1=1.1, gamma_M0=1.05))
@@ -336,8 +363,18 @@ def mutations():
     sauf = {"phi_chi": NO.phi_chi, "ALPHA": dict(NO.ALPHA), "courbes": NO.courbes, "limite_elastique": NO.limite_elastique,
             "rho": NO.rho, "K_APPUIS": dict(EN.K_APPUIS), "longueur_flambement": EN.longueur_flambement, "euler": NO.euler,
             "classe_paroi": NO.classe_paroi, "LIMITES_CLASSE": dict(NO.LIMITES_CLASSE), "parois": SE.parois, "elancement_paroi": NO.elancement_paroi,
-            "classe_corniere": NO.classe_corniere, "t_fy": MO._t_fy, "produit": SE.produit}
+            "classe_corniere": NO.classe_corniere, "t_fy": MO._t_fy, "produit": SE.produit, "section": MO._section}
     _axe = MO._axe
+    src_section = textwrap.dedent(inspect.getsource(MO._section))
+
+    def section_mutee(avant, apres):
+        """``MO._section`` réécrite d'UN remplacement dans sa source (« avant » doit y figurer une fois : sinon la mutation
+        est périmée et le test s'arrête) — pour une altération qu'aucune fonction de normes.py ne porte seule."""
+        if src_section.count(avant) != 1:
+            raise AssertionError(f"mutation périmée : « {avant} » ({src_section.count(avant)} fois dans _section)")
+        ns = dict(MO.__dict__)
+        exec(compile(src_section.replace(avant, apres), MO.__file__, "exec"), ns)
+        return ns["_section"]
 
     def restaure():
         NO.phi_chi = sauf["phi_chi"]
@@ -359,6 +396,7 @@ def mutations():
         SE.produit = sauf["produit"]
         MO._axe = _axe
         MO._t_fy = sauf["t_fy"]
+        MO._section = sauf["section"]
 
     def phi_02(lb, alpha):
         phi = 0.5 * (1.0 + alpha * (lb - 0.25) + lb ** 2)
@@ -444,6 +482,8 @@ def mutations():
         ("f_y sans la réduction au-delà de 40 mm", lambda: setattr(NO, "limite_elastique", fy_sans_40)),
         ("palier à 16 mm oublié (16 < t ≤ 40 lu comme t ≤ 16)", lambda: setattr(NO, "limite_elastique", fy_sans_16)),
         ("ε de la semelle donné à l'âme (une seule f_y, celle de la paroi la plus épaisse)", lambda: setattr(MO, "_t_fy", lambda p, pa: SE.epaisseur(p))),
+        ("classe de chaque paroi avec l'ε de la SECTION (λ̄_p par paroi gardé)",
+         lambda: setattr(MO, "_section", section_mutee('NO.classe_paroi(pa["type"], pa["c_t"], d["epsilon"])', 'NO.classe_paroi(pa["type"], pa["c_t"], eps)'))),
         ("produit oublié (les creux lus comme des laminés)", lambda: setattr(SE, "produit", lambda p: "lamine")),
         ("classe 4 sans réduction (ρ = 1)", lambda: setattr(NO, "rho", rho_un)),
         ("N_cr approché (π² arrondi, +2 %)", lambda: setattr(NO, "euler", euler_sans_pi)),
