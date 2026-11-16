@@ -83,9 +83,21 @@ def _C_historique(mode: str, forme: str, psi: float) -> Dict:
     return {"mode": "moments", "psi": 1.0 if forme == DV.CONSTANT else psi}
 
 
+CONSOLE_LZ = "Console à bout libre : L_cr,z = 2·L, maintiens intermédiaires non comptés — À VÉRIFIER."
+
+
+def _bout_libre(b: Dict, trs: Optional[List[Dict]]) -> bool:
+    """Une console dont le bout n'est tenu par aucun maintien complet : son dernier tronçon finit LIBRE (statique.troncons)."""
+    return b["modele"] == "console" and bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE
+
+
 def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     """Les longueurs de flambement (mm) : celles données, sinon la plus grande travée (axe fort) et le plus long tronçon
-    entre sections tenues (axe faible)."""
+    entre sections tenues (axe faible). Une CONSOLE flambe sur deux fois sa longueur autour de l'axe fort, et autour de
+    l'axe faible tant que son bout est libre : il se déplace latéralement comme dans le plan (brief § 13.3 : u = 2).
+    Un maintien complet au bout en fait une section tenue : la plus grande distance entre sections tenues (côté sûr).
+    Des maintiens intermédiaires seuls ne raccourcissent rien : la partie libre ne se prend pas isolément sans
+    justification — 2·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ, dite par les deux méthodes)."""
     out = {}
     for a in ("y", "z"):
         L = b["flambement"][a]["L"]
@@ -93,8 +105,17 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
             L = max(b["travees"]) if a == "y" else max(t["x2"] - t["x1"] for t in trs)
             if a == "y" and b["modele"] == "console":
                 L = 2.0 * L                                  # une console flambe sur deux fois sa longueur
+            if a == "z" and _bout_libre(b, trs):
+                L = 2.0 * sum(b["travees"])                  # bout libre : 2·L, même avec des maintiens intermédiaires
         out[a] = {"L": L * 1e3, "u": b["flambement"][a]["u"]}
     return out
+
+
+def _avis_longueurs(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
+    """L'alerte À VÉRIFIER d'une console à bout libre dont L_cr,z automatique ignore des maintiens complets intermédiaires."""
+    if b["flambement"]["z"]["L"] is None and _bout_libre(b, trs) and len(trs) > 1:
+        return [{"code": "console_Lz", "niveau": "attention", "message": CONSOLE_LZ}]
+    return []
 
 
 def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
@@ -291,6 +312,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         if nom in b["methodes"]:
             try:
                 methodes[nom] = calcul()
+                methodes[nom]["alertes"] += _avis_longueurs(b, trs)       # (les deux méthodes lisent L_cr,z)
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
     return {"statique": statique, "methodes": methodes, "ame": AME.chargee(b, s, cas, sols, N_cas, pts),

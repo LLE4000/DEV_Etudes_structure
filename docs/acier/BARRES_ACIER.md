@@ -565,7 +565,14 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
 - Méthode ELS : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
   semelle ne compte que si elle est comprimée sur tout le tronçon.
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
-  encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
+  encastrée à sa racine.
+- Longueurs de flambement d'un champ vide (`moteur._longueurs`) : axe fort, la plus grande travée ; axe faible, le plus
+  long tronçon entre sections tenues ; la torsion prend celle de l'axe faible. Une CONSOLE : 2·L autour des DEUX axes
+  tant que son bout est libre — il se déplace latéralement comme dans le plan (brief § 13.3, u = 2). Lot B : l'axe
+  faible prenait L, défaut non conservatif corrigé (console de 2 m : 2 → 4 m). Un maintien complet au bout en fait une
+  section tenue : la plus grande distance entre sections tenues. Des maintiens complets intermédiaires seuls laissent
+  2·L (la partie libre ne se prend pas isolément sans justification) : hypothèse prudente, avis « À VÉRIFIER » d'une
+  ligne dans les deux méthodes. Une longueur saisie est prise telle quelle.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)
   est rendue « non couverte » avec son motif ; l'autre reste calculée. Depuis le lot A, la méthode ELS refuse elle aussi
   au-delà de 80 mm (13 HD et HL du catalogue).
