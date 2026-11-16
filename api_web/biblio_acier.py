@@ -576,12 +576,16 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
                       + _bloc("Épaisseur (mm)", BB._segments("epaisseur", ep, [(k, C.esc(txt)) for k, txt, _ in fy_cols]),
                               f"f_y selon l'épaisseur nominale de la paroi — {REGLE_ANB}"))
     # l'en-tête sur deux rangées (celui des Sections de la Bibliothèque Béton armé) : les paliers écrits court, leur texte
-    # entier en infobulle ; la désignation de la ligne de l'ANB sous le nom de chaque nuance
+    # entier en infobulle ; la désignation de la ligne de l'ANB sous le nom de chaque nuance. Après β_w, la colonne ε
+    # (comme avant le lot A), qui suit le palier retenu : ε = √(235 / f_y) de ce palier. f_vw,d reste dans la bande, la
+    # fiche et la justification (il n'était pas au tableau avant le lot A).
+    court_ep = next(c for k, _, c in fy_cols if k == ep)
     th1 = ('<tr class="r1"><th class="nm" rowspan="2">Nuance<span class="u">désignation</span></th>'
            f'<th colspan="{len(fy_cols)}" title="{C.esc("R_eH minimale selon l’épaisseur nominale t — " + REGLE_ANB)}">f<sub>y</sub> · MPa · t (mm)</th>'
            f'<th colspan="{len(fu_cols)}" title="{C.esc("R_m minimale selon l’épaisseur nominale t — " + REGLE_ANB)}">f<sub>u</sub> · MPa · t (mm)</th>'
            + _th_haut("β_w", "", "facteur de corrélation des soudures d'angle (EN 1993-1-8 tableau 4.1) — bibliotheques.json")
-           + _th_haut("f_vw,d", "MPa", "f_u / (√3 · β_w · γ_M2), f_u de l'épaisseur retenue — EN 1993-1-8 §4.5.3.3") + "</tr>")
+           + _th_haut("ε", court_ep, f"√(235 / f_y), f_y du palier retenu ({paliers[ep]} mm) — EN 1993-1-1 tableau 5.2, acier/flambement/normes.py")
+           + "</tr>")
     th2 = ('<tr class="r2">' + "".join(f'<th class="k{" on" if k == ep else ""}" title="{C.esc(txt)} mm"><b>{C.esc(c)}</b></th>' for k, txt, c in fy_cols)
            + "".join(f'<th class="k{" on" if j == j_fu else ""}" title="{C.esc(txt)} mm"><b>{C.esc(c)}</b></th>' for j, (txt, c, _) in enumerate(fu_cols)) + "</tr>")
     corps = ""
@@ -596,7 +600,7 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
         cases = "".join(BB._td(C.fr(v, 0), {"nuance": n, "epaisseur": k}, "cur" if (n == nuance and k == ep) else ("col" if k == ep else ""))
                         for (k, _, _), v in zip(fy_cols, x["fy_cols"]))
         cases += "".join(BB._td(C.fr(v, 0), {"nuance": n}, "col" if j == j_fu else "") for j, v in enumerate(x["fu_cols"]))
-        cases += BB._td(C.fr(x["bw"], 2), {"nuance": n}) + BB._td(C.fr(RS.fvw_d(x["fu"], x["bw"], CR.GAMMA_M2), 1), {"nuance": n})
+        cases += BB._td(C.fr(x["bw"], 2), {"nuance": n}) + BB._td(C.fr(NO.epsilon(x["fy"]), 2), {"nuance": n})
         titre = f'tableau {lg["tableau"]} ({lg["norme"]}), {lg["designation"]}'
         corps += f'<tr{on}><th class="nm" title="{C.esc(titre)}">{C.esc(n)}<br><small>{C.esc(lg["designation"])}</small></th>{cases}</tr>'
     tableau = BB._tableau(th1 + th2, corps, "bib-nuances")

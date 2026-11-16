@@ -16,7 +16,8 @@ tests/test_api_web_bibliotheque.py (la béton armé).
    min > max, la recherche (texte LIBRE) échappée partout et bornée, les lignes, le profilé ouvert hors des lignes.
 5. Nuances (lot A, 16/11/2026) : LA table du site, acier/materiaux.py (NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ;
    tableaux 3.3 à 3.12 ANB) — le tableau est la table ATTENDUE écrite ici à part (désignation, f_y par palier jusqu'à
-   80 mm, f_u sous 3 mm et de 3 à 100 mm, β_w, f_vw,d) ET rend exactement MA.fy / MA.fu (R2) ; la règle, la ligne de
+   80 mm, f_u sous 3 mm et de 3 à 100 mm, β_w, ε du palier retenu) ET rend exactement MA.fy / MA.fu (R2) ; f_vw,d dans la
+   fiche et la justification, pas au tableau (comme avant le lot A) ; la règle, la ligne de
    l'ANB de chaque nuance et la borne des modules dites ; plus aucune trace des anciennes tables ; chaque palier, la
    fiche, « S355 (fu 490) », les adresses d'avant. Boulons : les valeurs de bibliotheques.json (relu à part), F_t,Rd,
    F_v,Rd recalculés ici. Chaque case règle des paramètres qui allument une case qui les porte.
@@ -291,15 +292,15 @@ print("\n=== 5 · Nuances : LA table du site (acier/materiaux.py) ; boulons : la
 # site : NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB.
 REGLE = "NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB"
 # LA TABLE ATTENDUE, écrite ici à part (valeurs de contrôle des règles du lot A ; tableaux 3.3 ANB, EN 10025-2, et
-# 3.4 ANB, EN 10025-3 ; f_vw,d = f_u / (√3 · β_w · 1,25) avec le f_u de 3 à 100 mm, au dixième) :
-# nuance → (désignation, f_y ≤ 16, 16–40, 40–63, 63–80, f_u < 3, f_u 3–100, β_w, f_vw,d)
+# 3.4 ANB, EN 10025-3 ; ε = √(235 / f_y) du palier ouvert par défaut, t ≤ 16 mm, au centième) :
+# nuance → (désignation, f_y ≤ 16, 16–40, 40–63, 63–80, f_u < 3, f_u 3–100, β_w, ε)
 ATTENDU = {
-    "S235": ("S235JR", "235", "225", "215", "215", "360", "360", "0,80", "207,8"),
-    "S275": ("S275JR", "275", "265", "255", "245", "430", "410", "0,85", "222,8"),
-    "S355": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "241,2"),
-    "S355 (fu 490)": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "241,2"),
-    "S355 N/NL": ("S355N", "355", "345", "335", "325", "470", "470", "0,90", "241,2"),
-    "S460 N/NL": ("S460N", "460", "440", "430", "410", "540", "540", "1,00", "249,4"),
+    "S235": ("S235JR", "235", "225", "215", "215", "360", "360", "0,80", "1,00"),
+    "S275": ("S275JR", "275", "265", "255", "245", "430", "410", "0,85", "0,92"),
+    "S355": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "0,81"),
+    "S355 (fu 490)": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "0,81"),
+    "S355 N/NL": ("S355N", "355", "345", "335", "325", "470", "470", "0,90", "0,81"),
+    "S460 N/NL": ("S460N", "460", "440", "430", "410", "540", "540", "1,00", "0,71"),
 }
 NOM_NUANCE = re.compile(r'<th class="nm"[^>]*>(.*?)<br><small>(.*?)</small></th>', re.S)
 
@@ -322,15 +323,17 @@ def table_ecrite(out) -> bool:
 
 def table_du_site(out) -> bool:
     """R2 : la rubrique rend EXACTEMENT ce que la table du site donne — MA.fy à la borne de chaque palier, MA.fu sous
-    3 mm et de 3 à 100 mm, MA.ligne(…)["designation"] ; β_w de bibliotheques.json ; f_vw,d recalculé ici."""
+    3 mm et de 3 à 100 mm, MA.ligne(…)["designation"] ; β_w de bibliotheques.json ; ε recalculé ici avec MA.fy du palier
+    retenu (« epaisseur »)."""
     li = lignes_nuances(out["tableau"])
     if [x[0] for x in li] != [a["n"] for a in BIBLIO["aciers"]]:
         return False
+    t_ret = float(out["params"]["epaisseur"])
     for (n, d, c), a in zip(li, BIBLIO["aciers"]):
         fu = MA.fu(n, 3.0)
         attendu = ([MA.ligne(n)["designation"]] + [nombre_fr(MA.fy(n, t), 0) for t in (16.0, 40.0, 63.0, 80.0)]
                    + [nombre_fr(MA.fu(n, 2.0), 0), nombre_fr(fu, 0), f"{a['bw']:.2f}".replace(".", ","),
-                      nombre_fr(fu / (math.sqrt(3) * a["bw"] * 1.25), 1)])
+                      nombre_fr(math.sqrt(235.0 / MA.fy(n, t_ret)), 2)])
         if [d] + c != attendu or MA.fu(n, 100.0) != fu:
             return False
     return True
@@ -340,7 +343,7 @@ n0 = B.consulter("nuances", {})
 chk("nuances : par défaut S355, t ≤ 16 mm → f_y = 355 MPa, sans message", valeur(n0) == ("355", "MPa") and n0["params"] == {"nuance": "S355", "epaisseur": "16"}
     and n0["message"] is None, (valeur(n0), n0["params"]))
 chk("nuances : le tableau est LA TABLE ATTENDUE (écrite ici à part) — désignation, f_y par palier (≤ 16, 16–40, 40–63, 63–80 mm), f_u sous 3 mm et "
-    "de 3 à 100 mm, β_w, f_vw,d — pour les six nuances", table_ecrite(n0), lignes_nuances(n0["tableau"])[:3])
+    "de 3 à 100 mm, β_w, ε du palier retenu — pour les six nuances", table_ecrite(n0), lignes_nuances(n0["tableau"])[:3])
 chk("nuances, R2 : la rubrique rend EXACTEMENT MA.fy / MA.fu (acier/materiaux.py, la table du site) et MA.ligne — la seule source de f_y et f_u ; "
     "β_w de bibliotheques.json (qui ne porte plus ni f_y ni f_u)", table_du_site(n0) and all(set(a) == {"n", "bw"} for a in BIBLIO["aciers"]))
 # les colonnes : les paliers de l'ANB jusqu'à la borne des modules, les mêmes pour les six nuances, nommés en entier
@@ -452,6 +455,33 @@ nus = [(r, k, f[max(0, m.start() - 20):m.start() + 20]) for r, p_ in (("nuances"
        for k, f in ((k, B.consulter(r, p_)[k]) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in NU.finditer(f)]
 chk("aucun « < » nu dans les fragments des trois rubriques (« 16 < t ≤ 40 mm » est échappé : barre, bande, tableau)", not nus, nus[:4])
 chk("nuances : la justification de S355 (t ≤ 16 mm) donne f_vw,d = 241,2 MPa et ε = 0,814", "241,2" in n0["pourquoi"] and "0,814" in n0["pourquoi"])
+
+
+# (lot A, reprise F7 — le moindre changement d'écran) le tableau a les colonnes d'avant le lot A, aux paliers près :
+# β_w puis ε, qui SUIT le palier retenu (ε = √(235 / f_y) de ce palier, son en-tête le nomme) ; f_vw,d n'est pas au
+# tableau — il reste dans la fiche et la justification, comme avant
+EPS_80 = {"S235": "1,05", "S275": "0,98", "S355": "0,85", "S355 (fu 490)": "0,85", "S355 N/NL": "0,85", "S460 N/NL": "0,76"}
+
+
+def colonne_eps(out, attendu: dict, court: str) -> list:
+    """Les écarts de la dernière colonne (ε) et de son en-tête ; f_vw,d absent du tableau, présent dans la fiche."""
+    ec = []
+    li = lignes_nuances(out["tableau"])
+    if {n: c[-1] for n, _d, c in li} != attendu:
+        ec.append(("ε", {n: c[-1] for n, _d, c in li}))
+    tete = re.findall(r'<th rowspan="2"[^>]*>(.*?)</th>', out["tableau"], re.S)
+    if len(tete) != 2 or "β" not in texte(tete[0]) or sans_espaces(texte(tete[1])) != sans_espaces("ε" + court):
+        ec.append(("en-têtes", [texte(x) for x in tete]))
+    if "vw,d" in texte(out["tableau"]) or not any(li_["symbole"] == "f_vw,d" for li_ in out["fiche"]["lignes"]):
+        ec.append("f_vw,d au tableau, ou absent de la fiche")
+    return ec
+
+
+n80 = B.consulter("nuances", {"epaisseur": "80"})
+ec_eps = colonne_eps(n80, EPS_80, "63–80") + colonne_eps(n0, {n: v[-1] for n, v in ATTENDU.items()}, "≤ 16")
+chk("nuances : la colonne ε (après β_w) suit le palier retenu — 63 < t ≤ 80 mm : S235 1,05 · S275 0,98 · S355 0,85 · S460 N/NL 0,76 ; "
+    "t ≤ 16 : 1,00 · 0,92 · 0,81 · 0,71 — son en-tête nomme le palier ; f_vw,d n'est pas au tableau, il reste dans la fiche",
+    not ec_eps and table_du_site(n80), ec_eps)
 
 
 # (lot A, reprise F6 — R2) la rubrique ne recompose rien de la table du site : la référence de f_u sous 3 mm EST
@@ -591,10 +621,28 @@ try:
     B.MA = faux
     o = B.consulter("nuances", {"epaisseur": "40"})
     chk("mutation « le défaut A1 remis : f_y nominal quel que soit le palier, f_u de l'ancienne bibliothèque (S355 510) » : la table écrite ici ET "
-        "le lien R2 avec la table du site rougissent ; f_vw,d redevient 261,7", valeur(o)[0] == "355" and not table_ecrite(o) and not table_du_site(o)
-        and "261,7" in o["tableau"])
+        "le lien R2 avec la table du site rougissent ; f_vw,d redevient 261,7 (justification)", valeur(o)[0] == "355" and not table_ecrite(o)
+        and not table_du_site(o) and "261,7" in o["pourquoi"])
 finally:
     B.MA = vrai
+# (lot A, reprise F7) la colonne ε figée au premier palier (le tableau d'avant le lot A la donnait « t ≤ 40 ») : le
+# contrôle de la colonne rougit à 63 < t ≤ 80
+vrai_lire7 = B._lire_nuance
+
+
+def lire_eps_premier_palier(nom, t, fy_cles, fu_t):
+    x = vrai_lire7(nom, t, fy_cles, fu_t)
+    if x is not None:
+        x["fy"] = x["fy_cols"][0]
+    return x
+
+
+try:
+    B._lire_nuance = lire_eps_premier_palier
+    ec = colonne_eps(B.consulter("nuances", {"epaisseur": "80"}), EPS_80, "63–80")
+    chk("mutation « la colonne ε au premier palier, quel que soit le palier retenu » : le contrôle de la colonne ε rougit", bool(ec), ec[:1])
+finally:
+    B._lire_nuance = vrai_lire7
 # (lot A, reprise F4) la phrase fausse remise : le contrôle des sources rougit
 vraie_phrase = B.PHRASE_BORNE
 try:
