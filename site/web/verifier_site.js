@@ -3989,16 +3989,18 @@ const principal = async () => {
   // et par charge ponctuelle, avec sa décision — sans raidisseur, ou la paire de plats). Le contrôle commun
   // (« module:profil », « formats:profil ») ouvre la barre neuve ; ici, les GESTES de l'ingénieur, l'un après l'autre, sur
   // la même note :
-  //  - la barre neuve (IPE 300, 6 m, tenue à mi-portée) : deux verdicts — historique 74 %, Eurocode 3 52 % — ; la barre
+  //  - la barre neuve (IPE 300, 6 m, tenue à mi-portée) : deux verdicts — méthode ELS 74 %, Eurocode 3 58 % — ; la barre
   //    DESSINÉE, visible à sa taille, chacun de ses textes dans le dessin ; chaque verdict ouvre SA fenêtre de calcul (les
   //    nombres du verdict s'y retrouvent), « Tout le calcul » celle de la méthode ; les trois vues ;
   //  - le bloc de l'âme de la barre neuve : « Sans raidisseur · 77 % », une ligne par appui, qui ouvre la fenêtre du LIEU ;
   //  - puis vingt-huit gestes : une charge saisie, une ponctuelle ajoutée, déplacée, retirée ; le maintien retiré (la
-  //    méthode historique REFUSE la barre, l'Eurocode la garde) puis remis ; L'ÂME — la longueur d'appui des appuis
-  //    (100 mm : la réaction passe de 77 à 17 %), une charge de 150 kN posée près de l'appui (l'âme seule ne suffit pas :
-  //    « Âme · Raidisseur : 2 plats 70 × 8 mm », le plat dessiné sur la barre), sa longueur d'appui saisie (l'âme suffit,
-  //    le raidisseur s'efface), les appuis « par l'âme » (leurs lignes disparaissent) ; la poutre continue de trois travées (quatre appuis
-  //    dessinés) ; les méthodes (« Historique » ne laisse qu'un verdict et qu'un bloc) ; un profilé choisi dans le
+  //    méthode ELS REFUSE la barre, l'Eurocode 3 aussi — lot A : couple (0,2 ; 1,0) de l'ANB:2018) puis remis ; L'ÂME — la
+  //    longueur d'appui des appuis (100 mm : la réaction passe de 77 à 22 % — lot A : contact d'extrémité non établi, s_s = 0
+  //    dans (6.10)), une charge de 150 kN posée près de l'appui (l'âme seule ne suffit pas : « Âme · Raidisseurs : 2 plats
+  //    70 × 10 mm (appui A) ; 2 plats 70 × 8 mm (charge à 0,50 m) », les plats dessinés sur la barre), sa longueur d'appui
+  //    saisie (à la charge, l'âme suffit : son raidisseur s'efface, celui de l'appui A reste), les appuis « par l'âme » (leurs
+  //    lignes disparaissent) ; la poutre continue de trois travées (quatre appuis
+  //    dessinés) ; les méthodes (« ELS » ne laisse qu'un verdict et qu'un bloc) ; un profilé choisi dans le
   //    sélecteur (✓ le retenu, ★ le plus léger qui tient, triés par masse) ; deux saisies refusées — par la page (une
   //    portée hors des bornes du champ : le refus dit la borne, le champ rougit) et par le moteur (une charge qui sort
   //    de la barre : son mot, la valeur rendue) ; les efforts imposés (la rubrique Efforts remplace Charges, la vue de
@@ -4039,7 +4041,7 @@ const principal = async () => {
       ['la poutre devient continue (deux travées)', 'ba', 'modele', 'continue', 'menu', ''],
       ['une troisième travée', 'ba', 'travees/+', '1', 'clic', 'continue'],
       ['retour à deux appuis', 'ba', 'modele', 'appuis', 'menu', ''],
-      ['la méthode historique seule', 'me', 'methodes', 'historique', 'clic', 'historique'],
+      ['la méthode ELS seule', 'me', 'methodes', 'historique', 'clic', 'historique'],
       ['l\'Eurocode 3 seul', 'me', 'methodes', 'ec3', 'clic', 'ec3'],
       ['les deux méthodes', 'me', 'methodes', 'deux', 'clic', ''],
       ['le profilé IPE 330 choisi dans le sélecteur', '', 'profil', 'IPE 330', 'choisir', 'selecteur'],
@@ -4151,13 +4153,13 @@ const principal = async () => {
         // ---- la barre neuve
         const p0 = await parite(0);
         const v0 = await verdictsB(g);
-        verif('barres : la barre neuve (IPE 300, 6 m, tenue à mi-portée) — un verdict par méthode, la méthode historique à 74 % (flexion), l\'Eurocode 3 à 52 % (déversement), verts ; la page dit ce que dit le témoin',
-          p0.ok && v0.length === 2 && /^Méthode historique · flexion/.test(v0[0].methode) && v0[0].taux === 74 && /^Eurocode 3 · déversement/.test(v0[1].methode) && v0[1].taux === 52
+        verif('barres : la barre neuve (IPE 300, 6 m, tenue à mi-portée) — un verdict par méthode, la méthode ELS (NBN B 51-001) à 74 % (flexion), l\'Eurocode 3 à 58 % (déversement), verts ; la page dit ce que dit le témoin',
+          p0.ok && v0.length === 2 && /^Méthode ELS \(NBN B 51-001\) · flexion/.test(v0[0].methode) && v0[0].taux === 74 && /^Eurocode 3 · déversement/.test(v0[1].methode) && v0[1].taux === 58
           && v0.every((v) => v.niveau === 'p'), p0.detail || JSON.stringify(v0));
         const d0 = await dessinB(g);
         verif('barres : la barre est DESSINÉE — visible, à sa taille (400 × 300 au moins), dans l\'écran, chacun de ses textes dans le dessin et aucun sur un autre : les deux charges, la portée, les extrema de M et de V',
           !!d0 && d0.l >= 400 && d0.h >= 300 && d0.dedans && !d0.hors.length && !d0.dessus.length && d0.textes.filter((t) => t === '5 kN/m').length === 2
-          && ['L = 6,00 m', '66,6', '44,4', '−44,4', 'A', 'B', 'M (ELU)', 'V (ELU)'].every((t) => d0.textes.includes(t)), JSON.stringify(d0).slice(0, 500));
+          && ['L = 6,00 m', '66,7', '44,5', '−44,5', 'A', 'B', 'M (ELU)', 'V (ELU)'].every((t) => d0.textes.includes(t)), JSON.stringify(d0).slice(0, 500));
         await g.screenshot({ path: path.join(OUT, 'site_barres_neuve_pc.png') });
         // chaque verdict ouvre SA fenêtre de calcul : les nombres du verdict s'y retrouvent
         const fenetres = [];
@@ -4243,8 +4245,8 @@ const principal = async () => {
           if (quoi === 'charge') plus = v.length === 2 && v[0].taux > avant[0].taux && v[1].taux > avant[1].taux && d.includes('12kN/m');
           else if (quoi === 'ponctuelle') plus = d.includes('|10kN|') && await g.isVisible('#donnees input[data-chemin="cas/1/charges/1/v"]');
           else if (quoi === 'sans_ponctuelle') plus = !d.includes('|10kN|') && !(await g.$('#donnees input[data-chemin="cas/1/charges/1/v"]'));
-          else if (quoi === 'neuve') plus = v.length === 2 && v[0].taux === 74 && v[1].taux === 52;
-          else if (quoi === 'sans_maintien') plus = v.length === 2 && v[0].niveau === 'r' && v[0].taux > 100 && v[1].niveau === 'p' && v[1].taux < 100;
+          else if (quoi === 'neuve') plus = v.length === 2 && v[0].taux === 74 && v[1].taux === 58;
+          else if (quoi === 'sans_maintien') plus = v.length === 2 && v[0].niveau === 'r' && v[0].taux > 100 && v[1].niveau === 'r' && v[1].taux > 100;
           else if (quoi === 'continue') plus = ['|A|', '|B|', '|C|', '|D|'].every((t) => d.includes(t)) && (await g.$$eval('#donnees input[data-chemin^="travees/"]', (e) => e.length)) === 3;
           else if (['appui_100', 'raidisseur', 'sans_raidisseur', 'par_ame'].includes(quoi)) {
             // l'âme : l'état de son bloc, ses lignes, la ligne « Âme » sous les verdicts, les plats dessinés sur la barre
@@ -4254,21 +4256,24 @@ const principal = async () => {
                 lignes: bl ? [...bl.querySelectorAll('.el.vc')].filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.replace(/\s+/g, ' ').trim()) : [],
                 bande: bande && bande.checkVisibility(VIS) ? { texte: bande.textContent.replace(/\s+/g, ' ').trim(), or: bande.classList.contains('warn') } : null,
                 plats: [...document.querySelectorAll('#stage .view[data-vue="barre"] .draw svg rect[fill="#B45309"]')].filter((x) => x.checkVisibility(VIS)).map((x) => { const r = x.getBoundingClientRect(); return Math.round(r.width) + '×' + Math.round(r.height); }) }; }, VIS);
-            if (quoi === 'appui_100') plus = /^Sans raidisseur · 17\s?%$/.test(a.etat || '') && a.lignes.length === 2 && a.lignes.every((t) => /261,9/.test(t)) && !a.bande && !a.plats.length
+            if (quoi === 'appui_100') plus = /^Sans raidisseur · 22\s?%$/.test(a.etat || '') && a.lignes.length === 2 && a.lignes.every((t) => /199,8/.test(t)) && !a.bande && !a.plats.length
               && (await g.inputValue('#donnees input[data-chemin="appuis/ss"]')) === '100';
             else if (quoi === 'raidisseur') {
-              plus = /^1 raidisseur · 98\s?%$/.test(a.etat || '') && !!a.bande && a.bande.or && /Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 0,50 m\)/.test(a.bande.texte)
-                && a.lignes.length === 3 && /^Charge à 0,50 m.*2 plats 70 × 8 mm/.test(a.lignes[1]) && a.plats.length === 2 && a.plats.every((t) => parseInt(t.split('×')[1], 10) >= 8)
+              plus = /^2 raidisseurs · 98\s?%$/.test(a.etat || '') && !!a.bande && a.bande.or
+                && /Âme · Raidisseurs : 2 plats 70 × 10 mm \(appui A\) ; 2 plats 70 × 8 mm \(charge à 0,50 m\)/.test(a.bande.texte)
+                && a.lignes.length === 3 && /^Appui A.*2 plats 70 × 10 mm/.test(a.lignes[0]) && /^Charge à 0,50 m.*2 plats 70 × 8 mm/.test(a.lignes[1])
+                && a.plats.length === 3 && a.plats.every((t) => parseInt(t.split('×')[1], 10) >= 8)
                 && d.includes('raidisseurtransversal') && await g.isVisible('#donnees input[data-chemin="cas/0/charges/1/ss"]');
               await g.screenshot({ path: path.join(OUT, 'site_barres_raidisseur_pc.png') });
-            } else if (quoi === 'sans_raidisseur') plus = /^Sans raidisseur · 88\s?%$/.test(a.etat || '') && !a.bande && !a.plats.length && a.lignes.length === 3 && /^Charge à 0,50 m.*sans raidisseur/.test(a.lignes[1])
-              && !d.includes('raidisseurtransversal');
+            } else if (quoi === 'sans_raidisseur') plus = /^1 raidisseur · 89\s?%$/.test(a.etat || '') && !!a.bande && /Âme · Raidisseur : 2 plats 70 × 10 mm \(appui A\)/.test(a.bande.texte)
+              && !/charge/.test(a.bande.texte) && a.plats.length === 2 && a.lignes.length === 3 && /^Appui A.*2 plats 70 × 10 mm/.test(a.lignes[0])
+              && /^Charge à 0,50 m.*sans raidisseur/.test(a.lignes[1]) && d.includes('raidisseurtransversal');
             else plus = a.lignes.length === 1 && /^Charge à 0,50 m/.test(a.lignes[0]) && !(await g.$('#donnees input[data-chemin="appuis/ss"]'));
             detail = JSON.stringify(a).slice(0, 400);
           } else if (quoi === 'historique' || quoi === 'ec3') {
             const blocsM = await g.$$eval('#resultat .et-bloc .et-bloc-t .n', (e, VIS) => e.filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.trim()), VIS);
-            const mot = quoi === 'historique' ? /^Méthode historique/ : /^Eurocode 3/;
-            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'Historique,Âme et raidisseurs' : 'Eurocode 3,Âme et raidisseurs');
+            const mot = quoi === 'historique' ? /^Méthode ELS \(NBN B 51-001\)/ : /^Eurocode 3/;
+            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'ELS,Âme et raidisseurs' : 'Eurocode 3,Âme et raidisseurs');
             detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM });
           } else if (quoi === 'selecteur') {
             // (le témoin, lui, n'a PAS ouvert le sélecteur avant de choisir : la page, qui l'a ouvert — toute la famille vérifiée
@@ -4303,12 +4308,12 @@ const principal = async () => {
             plus = rubs.join() === 'ba,ch,mt,ap,me' && !!(await g.$('#vues [data-vue="barre"]')) && (await g.inputValue('#donnees input[data-chemin="cas/0/charges/0/v"]')) === '5';
           }
           verif(`barres : ${nom} — la page dit ce que dit le témoin (résultats, dessin de la barre, vues)${quoi ? `, et ${({ charge: 'les deux taux montent, le dessin écrit « 12 kN/m »',
-            ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (74 % et 52 %)',
-            sans_maintien: 'la méthode historique REFUSE la barre (rouge, plus de 100 %), l\'Eurocode la garde', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
-            appui_100: 'la réaction d\'appui passe de 77 à 17 % (F_Rd = 261,9 kN), toujours sans raidisseur',
-            raidisseur: 'l\'âme seule ne suffit pas — « Âme · Raidisseur : 2 plats 70 × 8 mm (charge à 0,50 m) » sous les verdicts, « 1 raidisseur · 98 % » au bloc, les plats nommés sur la ligne du lieu, le plat DESSINÉ sur la barre avec sa légende, et le champ de la longueur d\'appui de la charge',
-            sans_raidisseur: 'l\'âme suffit (88 %) : la ligne « Âme », le plat du dessin et sa légende disparaissent', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
-            historique: 'un seul verdict ; deux blocs, celui de la méthode historique et celui de l\'âme', ec3: 'un seul verdict ; deux blocs, celui de l\'Eurocode 3 et celui de l\'âme',
+            ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (74 % et 58 %)',
+            sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 114 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
+            appui_100: 'la réaction d\'appui passe de 77 à 22 % (F_Rd = 199,8 kN : contact d\'extrémité non établi, s_s = 0 dans (6.10)), toujours sans raidisseur',
+            raidisseur: 'l\'âme seule ne suffit pas — « Âme · Raidisseurs : 2 plats 70 × 10 mm (appui A) ; 2 plats 70 × 8 mm (charge à 0,50 m) » sous les verdicts, « 2 raidisseurs · 98 % » au bloc, les plats nommés sur les lignes des lieux, les plats DESSINÉS sur la barre avec leur légende, et le champ de la longueur d\'appui de la charge',
+            sans_raidisseur: 'à la charge, l\'âme suffit (87 %, sans raidisseur) : la ligne « Âme » ne nomme plus que l\'appui A (2 plats 70 × 10 mm), son plat reste dessiné, « 1 raidisseur · 89 % » au bloc', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
+            historique: 'un seul verdict ; deux blocs, celui de la méthode ELS (titre court « ELS ») et celui de l\'âme', ec3: 'un seul verdict ; deux blocs, celui de l\'Eurocode 3 et celui de l\'âme',
             selecteur: 'le sélecteur montre la famille triée par masse, ✓ sur l\'IPE 300, une seule ★, une pastille par ligne ; l\'IPE 330 retenu, le taux baisse — et la page, sélecteur ouvert, rend ce que rend le témoin, qui ne l\'a pas ouvert',
             refus: 'le refus dit la borne (« Valeur refusée : « 80 » — entre 0,05 et 60 »), le champ rougit et garde la saisie à corriger',
             refus_moteur: 'le mot du moteur se lit (« Saisie refusée : … cas « G » … »), la charge est rendue à 6 m — et la portée refusée juste avant aussi', efforts: 'la rubrique Efforts remplace Charges, la vue de la barre s\'efface, aucun taux sans effort',
@@ -6849,9 +6854,10 @@ const principal = async () => {
       ['h min', /hmin\s*=\s*(?:[\d,]+\s*\+\s*[\d,]+\s*=\s*)?(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s', /As\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['η', /η\s*(\d+)\s*%/, (v) => `${v} %`],
-      // (les barres en acier, 14/11/2026 : un verdict par MÉTHODE — sa pastille, puis « Méthode historique · … » ou
-      // « Eurocode 3 · … » ; la note écrit le même taux sous le nom de la barre : « 74 % historique · 52 % Eurocode 3 »)
-      ['taux historique', /(\d+)\s*%\s*Méthode historique ·/, (v) => `${v} % historique`],
+      // (les barres en acier, 14/11/2026 : un verdict par MÉTHODE — sa pastille, puis « Méthode ELS (NBN B 51-001) · … » ou
+      // « Eurocode 3 · … » ; la note écrit le même taux sous le nom de la barre : « 74 % ELS · 58 % Eurocode 3 » — le nom
+      // de la méthode du bureau depuis le 16/11/2026, sa clé interne reste « historique »)
+      ['taux ELS', /(\d+)\s*%\s*Méthode ELS \(NBN B 51-001\) ·/, (v) => `${v} % ELS`],
       ['taux Eurocode 3', /(\d+)\s*%\s*Eurocode 3 ·/, (v) => `${v} % Eurocode 3`],
       // (le Générateur SAF, 14/11/2026 : la contrainte de contact — « σ 1,12 kg/cm² » dans la pastille, « 110,2 kPa » dans la
       // comparaison ; la note écrit « σ max = 110,2 kPa (1,12 kg/cm²) »)
