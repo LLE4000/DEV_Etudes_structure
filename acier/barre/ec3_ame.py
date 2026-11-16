@@ -29,8 +29,9 @@ Ce fichier CALCULE et NOMME, journal en main. Il ne décide pas OÙ vérifier (c
 ni avec quelle combinaison, ni s'il faut un raidisseur : c'est acier/barre/moteur.py ; le raidisseur lui-même est
 acier/barre/raidisseurs.py (§ 9).
 
-DOMAINE. Charges concentrées : les I et H laminés — une âme, h_w = h − 2·t_f. Cisaillement : l'âme d'un I, les deux
-âmes d'un tube carré ou rectangulaire. La résistance d'un PROFIL CREUX sous une charge concentrée relève de
+DOMAINE. Charges concentrées : les I et H laminés (h_w = h − 2·t_f) et les PRS en I (h_w entre semelles, b_f et t_f
+de la semelle chargée ; contrat de acier/barre/prs.py). Cisaillement : l'âme d'un I, les deux âmes d'un tube carré ou
+rectangulaire. La résistance d'un PROFIL CREUX sous une charge concentrée relève de
 l'EN 1993-1-8 : elle n'est pas vérifiée ici, et le moteur le dit.
 
 CE QUI EST PRIS DU CÔTÉ SÛR, et dit dans les hypothèses :
@@ -38,7 +39,7 @@ CE QUI EST PRIS DU CÔTÉ SÛR, et dit dans les hypothèses :
   négligée (elle tend vers zéro quand a grandit) ;
 - montant d'extrémité NON rigide : χ_w = 0,83/λ̄_w au-delà de 0,83/η (tableau 5.1) ;
 - η₁ ÉLASTIQUE dans (7.2) : N_Ed/(f_y·A/γ_M0) + M_Ed/(f_y·W_el/γ_M0), A_eff et W_eff en classe 4 (brief § 8.2) ;
-- une longueur d'appui rigide s_s non saisie vaut 0 — le cas le plus défavorable — ; elle est bornée à h_w (§ 6.3(1)) ;
+- la longueur d'appui rigide s_s est bornée à h_w (§ 6.3(1)) ; non saisie, le moteur de l'âme (ame.py) ne décide pas ;
 - les RÉSISTANCES prennent la f_y de calcul de la section (la plus petite des parois, brief § 7.1) : m₁ = b_f/t_w,
   F_Rd, V_bw,Rd, l_e ; les ÉLANCEMENTS de plaque (λ̄_w, λ̄_F) et la limite 72·ε/η, la f_y de l'âme selon son épaisseur.
 
@@ -72,6 +73,8 @@ INTERACTION_72 = (0.8, 1.4)      # η₂ + 0,8·η₁ ≤ 1,4 (7.2)
 K_SEMELLE = 0.4                  # § 8(1) : 0,4 quand le moment plastique est employé (0,55 pour le moment élastique) — du côté sûr
 SOUDES = ("soude_oxycoupe", "soude_larges_plats")                 # les I soudés (section.FABRICATIONS)
 SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")              # les sections soudées chargées dans le plan de l'âme
+# brief § 8.3, point 8 : quand le cisaillement gouverne — le voilement (A-Vb) ou, pour un laminé, V_pl,Rd (E-Vz, moteur.py)
+MOT_CISAILLEMENT = "Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd."
 
 
 def est_soude(s: Dict) -> bool:
@@ -183,7 +186,7 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
     if e["n"] > 1:
         mots.append("Les deux âmes du tube (n = 2).")
     if V > r["Vbw"]:                                         # brief § 8.3, point 8 : le raidisseur transversal n'y peut rien
-        mots.append("Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd.")
+        mots.append(MOT_CISAILLEMENT)
     J.verif("A-Vb" + suf, "Voilement de l'âme par cisaillement", f"{REF} § 5.2", "V_Ed ≤ V_b,Rd", V / 1e3, r["Vbw"] / 1e3, "kN", cles, messages=mots)
     eta3 = V / r["Vbw"]
     if eta3 <= SEUIL_ETA3 or M <= 0:
@@ -379,8 +382,10 @@ def seuil_local(FRd: float, e1: float) -> float:
 
 # ------------------------------------------------------------------ § 7.2(2) : la charge sur la semelle TENDUE
 COMPRIMEE, TENDUE, LES_DEUX = "comprimee", "tendue", "les_deux"
-ETATS_SEMELLE = {COMPRIMEE: "semelle chargée comprimée", TENDUE: "semelle chargée tendue",
-                 LES_DEUX: "semelle chargée ni comprimée ni tendue partout"}
+ETATS_SEMELLE = {COMPRIMEE: "semelle comprimée", TENDUE: "semelle tendue", LES_DEUX: "σ_x nul ou de signes mêlés"}
+# ce que dit la vérification « -EL », en une ligne
+MOTS_ETAT = {TENDUE: "Semelle chargée tendue : pas d'interaction (7.2), le critère 6.2.1(5) décide.",
+             LES_DEUX: "σ_x nul ou de signes mêlés dans la semelle chargée : les deux contrôles."}
 
 
 def niveaux_semelle(s: Dict, cote: str) -> Dict:

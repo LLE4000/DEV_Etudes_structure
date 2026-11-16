@@ -40,14 +40,15 @@ REF = "EN 1993-1-5"
 EPAISSEURS = (8.0, 10.0, 12.0, 15.0, 20.0)        # mm : les plats proposés (brief § 8.4)
 PAS = 5.0                                          # mm : l'arrondi d'une largeur de plat, d'un chanfrein
 AME_PARTICIPANTE = 15.0                            # 15·ε·t_w d'âme de chaque côté (§ 9.1(2))
-LONGUEUR = 0.75                                    # longueur de flambement : 0,75·h_w, les deux semelles tenues (§ 9.4(2))
+LONGUEUR = 0.75                                    # longueur de flambement : 0,75·h_w, les deux semelles tenues (§ 9.4(2)) —
+                                                   # ame.py ne dimensionne que là où elles le sont (appui, maintien des deux)
 COURBE = "c"                                       # § 9.4(2)
 PALIER = 0.2                                       # λ̄ ≤ 0,2 : pas de réduction (EN 1993-1-1 § 6.3.1.2(4))
 ELANCEMENT_PLAT = 14.0                             # b_s/t_s ≤ 14·ε
 TORSION = 5.3                                      # I_T/I_p ≥ 5,3·f_y/E (9.3)
 RIGIDITE = 0.75                                    # I_st ≥ 0,75·h_w·t³ quand a/h_w ≥ √2 (9.6)
 RIGIDITE_COURT = 1.5                               # I_st ≥ 1,5·h_w³·t³/a² quand a/h_w < √2 (9.5)
-RAPPEL_TAU = "Un raidisseur transversal ne réduit pas τ dû à l'effort tranchant."
+RAPPEL_TAU = "Un raidisseur transversal ne réduit pas τ dû à l'effort tranchant."     # dit une fois par bloc (ame.py, hypothèses)
 
 
 def inertie_minimale(hw: float, t: float, a: Optional[float] = None) -> float:
@@ -235,7 +236,6 @@ def ecrire(J: Journal, base: str, nom: str, s: Dict, fy: float, P: Dict, p: Dict
             statut = NOK
             mots2.append(J.alerte("raidisseur_souple", "attention", f"{nom} : le raidisseur n'a pas la rigidité d'un appui de l'âme "
                                                                     "(I_st < I_st,min)."))
-    mots2.append(RAPPEL_TAU)
     v2 = J.verif(f"{base}-Rb", f"{nom} : raidisseur, flambement", f"{REF} § 9.4", "N_Ed ≤ N_b,Rd" if Nst > 0 else "F_Ed ≤ N_b,Rd", N / 1e3,
                  p["NbRd"] / 1e3, "kN", cles2, statut=statut, taux=None if statut is None else N / p["NbRd"], messages=mots2)
     return v1, v2

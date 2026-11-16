@@ -125,16 +125,35 @@ def raidis(a: Dict) -> list:
     return [L for L in a.get("lieux") or [] if L["decision"] == "raidisseur"]
 
 
+def decision_lieu(L: Dict) -> str:
+    """Ce qu'un lieu décide, en mots (du texte) : la paire de plats, « sans raidisseur », ou la décision impossible et ce
+    qui manque (« décision impossible : s_s à fournir » — brief § 8.3, point 5)."""
+    if L["decision"] == "raidisseur":
+        return L["raidisseur"]["designation"]
+    if L["decision"] == "impossible":
+        r = L.get("raison") or "Décision impossible."
+        return r[:1].lower() + r[1:].rstrip(".")
+    return "sans raidisseur"
+
+
 def resume_ame(a: Dict) -> str:
     """Ce que le bloc de l'âme décide, en une phrase (du texte) : « Pas de raidisseur nécessaire » ; « Raidisseurs :
-    2 plats 70 × 12 mm (appui A, appui B) » ; « Âme élancée vérifiée au cisaillement » ; vide quand rien n'appuie sur
-    l'âme. La même à l'écran et dans la note."""
+    2 plats 70 × 12 mm (appui A, appui B) » ; « Décision impossible : s_s à fournir (appui A, appui B) » ; « Âme élancée
+    vérifiée au cisaillement » ; vide quand rien n'appuie sur l'âme. La même à l'écran et dans la note."""
     r = raidis(a)
+    imp: Dict[str, list] = {}
+    for L in a.get("lieux") or []:
+        if L["decision"] == "impossible":
+            imp.setdefault((L.get("raison") or "Décision impossible.").rstrip("."), []).append(L["nom"][:1].lower() + L["nom"][1:])
+    sans = " ; ".join(f"{t} ({', '.join(noms)})" for t, noms in imp.items())
     if r:
         par = {}
         for L in r:
             par.setdefault(L["raidisseur"]["designation"], []).append(L["nom"][:1].lower() + L["nom"][1:])
-        return ("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
+        return (("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
+                + (" ; " + sans[:1].lower() + sans[1:] if sans else ""))
+    if sans:
+        return sans
     if a.get("lieux"):
         return "Pas de raidisseur nécessaire"
     return "Âme élancée vérifiée au cisaillement" if a.get("verifications") else ""
@@ -164,7 +183,7 @@ def comparaison(v: Dict, court: bool = True) -> str:
     crit = v.get("critere") or ""
     if v.get("taux") is None or v.get("valeur") is None:
         return sub(crit) if crit else C.esc((v.get("messages") or [""])[0])
-    signe = "≤" if v["statut"] != RE.NOK else "&gt;"
+    signe = "≤" if v["statut"] != RE.NOK and v["taux"] <= 1.0 else "&gt;"      # un taux > 1 pour information (non couvert) : « > »
     g, _, d = crit.partition(" ≤ ")
     if not v["unite"] and abs((v["limite"] or 0.0) - 1.0) < 1e-12:
         return f"{'η' if court else sub(g)} = {C.fr(v['valeur'], 3)} {signe} 1"

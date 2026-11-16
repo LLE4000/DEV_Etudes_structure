@@ -40,6 +40,7 @@ from acier.barre import parametres as PA  # noqa: E402
 from acier.barre import raidisseurs as RA  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
 from acier.barre import section as SE  # noqa: E402
+from acier.barre import statique as ST  # noqa: E402
 from acier.flambement import normes as NO  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 
@@ -168,9 +169,11 @@ def prs_section(b1, t1, hw, tw, b2, t2, a=None, fabrication=None):
     return s
 
 
-R2 = dict(poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), P_(10.0, 3.0, 100.0)]},
-                                   {"nom": "Q", "nature": "exploitation_A", "charges": [P_(15.0, 3.0, 100.0)]}])
-CONTINUE = dict(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_propre=False,
+R2 = dict(poids_propre=False, appuis={"mode": "poses", "ss": 0.0, "c": 0.0},
+          cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), P_(10.0, 3.0, 100.0)]},
+               {"nom": "Q", "nature": "exploitation_A", "charges": [P_(15.0, 3.0, 100.0)]}])
+R2M = dict(R2, maintiens=[{"x": 3.0, "genre": "haut"}])          # R2, la semelle haute tenue au droit de la charge (§ 6.1(1))
+CONTINUE = dict(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_propre=False, appuis={"mode": "poses", "ss": 0.0, "c": 0.0},
                 cas=[{"nom": "G", "nature": "permanent", "charges": [q(6.0, 0.0, 10.0)]},
                      {"nom": "Q1", "nature": "exploitation_B", "charges": [q(8.0, 0.0, 5.0)]},
                      {"nom": "Q2", "nature": "exploitation_B", "charges": [q(8.0, 5.0, 10.0)]}])
@@ -308,9 +311,9 @@ def controles(M=None):
     sA = prs_section(300.0, 30.0, 540.0, 15.0, 300.0, 30.0, a=6.0)
     eA = am.elancement(sA, 345.0, Pm, fy_ame=355.0)
     c("PRS-A (300 × 30, 540 × 15, S355 ; bords des semelles NON saisis : « fabrication » None) : section soudée → η = 1,20 (NBN EN 1993-1-5 "
-      "ANB:2011, 5.1(2) et sa note) ; A_v,z = 1,2·540·15 = 9 720 mm² ; h_w/t_w = 36,0 ≤ 72·ε_w/η = 72·0,8136/1,2 = 48,82 (ε de l'âme de 15 mm, "
-      "355) : pas de voilement par cisaillement à vérifier",
-      am.eta_de(sA, Pm) == 1.2 and am.est_soude(sA) and sA["Avz"] == 9720.0 and eA["eta"] == 1.2 and eA["rapport"] == 36.0
+      "ANB:2011, 5.1(2) et sa note) ; h_w/t_w = 36,0 ≤ 72·ε_w/η = 72·0,8136/1,2 = 48,82 (ε de l'âme de 15 mm, 355) : pas de voilement par "
+      "cisaillement à vérifier (A_v,z = 9 720 mm² : le contrôle de acier/barre/prs.py, bloc B2)",
+      am.eta_de(sA, Pm) == 1.2 and am.est_soude(sA) and eA["eta"] == 1.2 and eA["rapport"] == 36.0
       and round(eA["limite"], 2) == 48.82 and not eA["elancee"] and proche(sA["A"], 26100.0) and round(sA["Iy"] / 1e6, 2) == 1660.23, eA)
     sC = prs_section(300.0, 30.0, 1420.0, 25.0, 500.0, 50.0)
     aH, aB = am.ame_de(sC, "haut"), am.ame_de(sC, "bas")
@@ -517,18 +520,32 @@ def controles(M=None):
     p3 = brut("IPE 300")
     S300, I300 = 150.0 * 10.7 * (300.0 - 10.7) / 2.0, p3["Iy"] * 1e4
     crit0 = (Fed * 1e3 / (2.0 * 10.7 * 7.1) / 235.0) ** 2 + 3.0 * (Fed * 1e3 * S300 / (I300 * 7.1) / 235.0) ** 2
-    c("la barre neuve (IPE 300, 6 m, G + Q, posée, s_s non saisie → 0) : deux lieux — Appui A, Appui B —, type (c), F_Ed = 44,4 kN ≤ F_Rd = "
-      "58,0 kN (77 %) ; mais à un appui d'extrémité σ_x = 0 : les DEUX contrôles (brief § 8.2, § 7.2(2)) — le critère 6.2.1(5) à la jonction, "
-      "σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², τ = V·S_f/(I_y·t_w) : 1,57 > 1 → raidisseur (le harnais suit : « pas de raidisseur » avant le lot B)",
-      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "raidisseur" and L["ss"] == 0.0
+    c("la barre neuve (IPE 300, 6 m, G + Q, posée, s_s et c NON SAISIS) : deux lieux — Appui A, Appui B —, « DÉCISION IMPOSSIBLE : s_s et c à "
+      "fournir » (brief § 8.3, point 5 ; § 8.2 : s_s jamais supposée), non couvert, jamais « pas de raidisseur » ; pour information, à s_s = c = 0 : "
+      "type (c), F_Ed = 44,4 kN ≤ F_Rd = 58,0 kN (77 %), σ_x = 0 → les deux contrôles, σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², critère 6.2.1(5) "
+      "1,57 (le harnais suit : « 2 raidisseurs » avant la reprise, s_s = 0 pris par défaut)",
+      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "impossible" and L["ss"] == 0.0
+                                                                      and L["statut"] == RE.NON_COUVERT and L["raidisseur"] is None and L["taux"] is None
+                                                                      and L["raison"] == "Décision impossible : s_s et c à fournir."
                                                                       and L["sans"]["semelle"] == ["les_deux"] for L in a["lieux"])
       and proche(a["lieux"][0]["F_Ed"], Fed) and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 0, "c", 0))
       and round(a["lieux"][0]["sans"]["eta2"], 2) == 0.77 and proche(a["lieux"][0]["sans"]["critere"], crit0, 1e-6) and round(crit0, 2) == 1.57
-      and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and "critère 6.2.1(5)" in a["lieux"][0]["raison"] and a["statut"] == RE.OK
-      and [v["id"] for v in a["verifications"]] == ["A-L00-R", "A-L00-Rb", "A-L01-R", "A-L01-Rb"]
-      and a["combinaison"] == "1,35·Poids propre + 1,35·G + 1,5·Q", (a["lieux"][0], crit0))
-    c("… la longueur d'appui non saisie est DITE (hypothèses, et message de la vérification)",
-      any("non saisie" in h for h in a["hypotheses"]) and any("non saisie" in m for m in verif(a, "A-L00-R")["messages"]), a["hypotheses"])
+      and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and a["statut"] == RE.NON_COUVERT and a["taux_max"] is None
+      and [v["id"] for v in a["verifications"]] == ["A-L00-EL", "A-L00-F", "A-L01-EL", "A-L01-F"]
+      and all(v["statut"] == RE.NON_COUVERT and v["taux"] is not None for v in a["verifications"])
+      and [x["message"] for x in a["alertes"]] == ["Appui A, appui B : décision impossible : s_s et c à fournir."], (a["lieux"][0], crit0))
+    c("… les données non saisies sont DITES (hypothèses, message de la vérification) ; s_s = 0 SAISIE est une valeur : la décision est prise — "
+      "raidisseur (critère 1,57), avec la raison",
+      any("s_s non saisie, débord en rive c non saisi" in h for h in a["hypotheses"])
+      and any("s_s et c non saisis : calcul à 0, pour information." in m for m in verif(a, "A-L00-F")["messages"])
+      and all(L["decision"] == "raidisseur" and "critère 6.2.1(5)" in L["raison"] for L in ame(appuis={"mode": "poses", "ss": 0.0, "c": 0.0})["lieux"]),
+      a["hypotheses"])
+    a = ame(appuis={"mode": "poses", "ss": 100.0, "c": None})
+    c("… s_s saisie, c non : « décision impossible : c à fournir » aux deux appuis de rive ; une poutre continue : l'appui du milieu n'a pas de "
+      "débord — décidé",
+      all(L["decision"] == "impossible" and L["raison"] == "Décision impossible : c à fournir." for L in a["lieux"])
+      and [L["decision"] for L in ame(**dict(CONTINUE, appuis={"mode": "poses", "ss": 100.0, "c": None}))["lieux"]] == ["impossible", "aucun", "impossible"],
+      [L["raison"] for L in a["lieux"]])
     a = ame(appuis={"mode": "poses", "ss": 100.0, "c": 0.0})
     b_ = ame(appuis={"mode": "poses", "ss": 100.0, "c": 50.0})
     c("s_s = 100 mm aux appuis (contact d'extrémité inconnu) : F_Rd = 199,8 kN (R4, type c, verdict sans contact) — avec contact 248,9 kN, dit "
@@ -540,14 +557,24 @@ def controles(M=None):
     a = ame(appuis={"mode": "poses", "ss": 100.0, "c": 400.0})
     c("un débord assez long (s_s + c ≥ 2·h_w/3) : la réaction de rive n'est plus « près du bout » — type (a)",
       a["lieux"][0]["type"] == "a" and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 100, "a")), a["lieux"][0])
-    a = ame(**R2)
+    a0 = ame(**R2)
+    L0 = lieu(a0, "Charge à 3,00 m")
+    a = ame(**R2M)
     L = lieu(a, "Charge à 3,00 m")
     eta1 = 68.70e6 / (brut("IPE 300")["Wel_y"] * 1e3 * 235.0)
     v = verif(a, L["base"] + "-FM") if L else None
-    c("R2/R4 : la charge de 36 kN à mi-portée (s_s = 100 mm, G et Q à la même abscisse : UNE force), type (a) — η₂ = 36/387,8 = 0,093 : "
-      "pas de raidisseur",
+    c("R2/R4 : la charge de 36 kN à mi-portée (s_s = 100 mm, G et Q à la même abscisse : UNE force), type (a) — η₂ = 36/387,8 = 0,093 ; la "
+      "semelle haute tenue au droit de la charge (maintien « haut » à 3 m) : pas de raidisseur",
       L is not None and L["genre"] == "charge" and L["type"] == "a" and proche(L["F_Ed"], 36.0) and round(L["sans"]["F_Rd"], 1) == 387.8
       and round(L["sans"]["eta2"], 3) == 0.093 and L["decision"] == "aucun" and len([x for x in a["lieux"] if x["genre"] == "charge"]) == 1, L)
+    c("… R2 tel quel (sans maintien intermédiaire) : la semelle chargée n'est pas tenue au droit de la charge (§ 6.1(1)) — « décision "
+      "impossible : maintien de la semelle haute à préciser » (brief § 8.3, point 5), les MÊMES taux pour information ; un maintien de la "
+      "semelle BASSE ne suffit pas ; un « complet », oui",
+      L0["decision"] == "impossible" and L0["raison"] == "Décision impossible : maintien de la semelle haute à préciser." and L0["statut"] == RE.NON_COUVERT
+      and L0["taux"] is None and proche(L0["sans"]["interaction"], L["sans"]["interaction"]) and proche(L0["sans"]["eta2"], L["sans"]["eta2"])
+      and a0["statut"] == RE.NON_COUVERT
+      and lieu(ame(**dict(R2, maintiens=[{"x": 3.0, "genre": "bas"}])), "Charge à 3,00 m")["decision"] == "impossible"
+      and lieu(ame(**dict(R2, maintiens=[{"x": 3.0, "genre": "complet"}])), "Charge à 3,00 m")["decision"] == "aucun", L0)
     c("… avec la flexion (7.2) : η₁ = M_Ed/(W_el,y·f_y) = 68,70/130,9 = 0,525 (élastique) ; (η₂ + 0,8·η₁)/1,4 = 36,6 % — c'est elle qui gouverne "
       "le lieu",
       v is not None and proche(v["valeur"], (36.0 / L["sans"]["F_Rd"] + 0.8 * eta1) / 1.4, 1e-4) and v["limite"] == 1.0 and round(v["taux"], 3) == 0.366
@@ -568,7 +595,7 @@ def controles(M=None):
       and proche(L["taux"], attendu, 1e-6) and L["gouvernant"] == "A-L01-FM" and verif(a, "A-L01-FM")["combinaison"] == TOUT
       and round(attendu, 3) == 0.842 and L["decision"] == "aucun" and [x["type"] for x in a["lieux"]] == ["c", "a", "c"], (L, attendu))
     plus = copy.deepcopy(CONTINUE)
-    plus["cas"][0]["charges"].append(P_(50.0, 5.0))
+    plus["cas"][0]["charges"].append(P_(50.0, 5.0, 0.0))
     a = ame(**plus)
     L = lieu(a, "Appui B")
     FRb = frd_profil("HEA 200", 235.0, 0, "b")
@@ -594,12 +621,12 @@ def controles(M=None):
       "l'appui demande un raidisseur — test 31, plus bas)",
       vB is not None and proche(vB["valeur"], 27.0) and proche(vB["limite"], FRb) and lieu(a, "Appui B")["decision"] == "aucun"
       and any("Type (b)" in m for m in vB["messages"]) and verif(a, "A-L01-F") is not None, vB)
-    lourd = dict(profil="HEB 300", travees=[4.0], appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
-                 cas=[{"nom": "G", "nature": "permanent", "charges": [P_(500.0, 2.0)]}])
+    lourd = dict(profil="HEB 300", travees=[4.0], appuis={"mode": "poses", "ss": 200.0, "c": 0.0}, maintiens=[{"x": 2.0, "genre": "complet"}],
+                 cas=[{"nom": "G", "nature": "permanent", "charges": [P_(500.0, 2.0, 0.0)]}])
     a = ame(**lourd)
     L = lieu(a, "Charge à 2,00 m")
     bs, ch, Nc, Ast, Ist, Nb = raidisseur_temoin("HEB 300", 235.0, 15.0, fy_plat=235.0, fy_ame=235.0)
-    c("HEB 300 S235, 675 kN à mi-portée (s_s non saisie) : F_Rd = 585,2 kN seulement (f_y de calcul 225 : t_f = 19 mm ; λ̄_F avec l'âme, 235) — "
+    c("HEB 300 S235, 675 kN à mi-portée (s_s = 0 saisie ; les deux semelles tenues) : F_Rd = 585,2 kN seulement (f_y de calcul 225 : t_f = 19 mm ; λ̄_F avec l'âme, 235) — "
       "raidisseur 2 plats 140 × 15 mm (plats de 15 mm : 235 ; âme : 235), écrasement 675/775,5 = 87,0 %",
       L is not None and L["decision"] == "raidisseur" and round(L["sans"]["F_Rd"], 1) == 585.2 and "F_Ed = 675,0 kN > F_Rd = 585,2 kN" in L["raison"]
       and proche(L["sans"]["F_Rd"], frd_profil("HEB 300", 225.0, 0.0, "a", fyw=235.0))
@@ -637,7 +664,8 @@ def controles(M=None):
       "abscisse, un autre lieu",
       L is not None and proche(L["F_Ed"], 43.5) and L["ss"] == 40.0 and lieu(a, "Charge à 4,00 m") is not None
       and proche(lieu(a, "Charge à 4,00 m")["F_Ed"], 7.5), L)
-    pres = {d_: ame(appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0, 50.0), P_(20.0, 3.0 + d_, 50.0)]}])
+    pres = {d_: ame(appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 3.0}, {"x": 3.0 + d_}],
+                    cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0, 50.0), P_(20.0, 3.0 + d_, 50.0)]}])
             for d_ in (0.10, 0.16, 0.18, 0.50)}
     ly50 = am.resistance(a300, 235.0, Pm, 50.0, "a")["ly"]
     c("deux charges RAPPROCHÉES sur la même semelle — leurs longueurs chargées l_y (169,8 mm) se recouvrent : à 100 et 160 mm d'entraxe — "
@@ -685,7 +713,7 @@ def controles(M=None):
       and round(vF["taux"], 2) == 1.15 and any("trop étroit" in x["message"] for x in a["alertes"]), L)
 
     # ---- 4 bis. (lot B) brief § 8.2 à § 8.4 et § 15.4 : seuil local, η₁ plastique, contact saisi, semelle tendue, σ_z, vue avant/après
-    a = ame(**R2)
+    a = ame(**R2M)
     L = lieu(a, "Charge à 3,00 m")
     vFM = verif(a, L["base"] + "-FM")
     c("R4 / test 17 : SEUIL de résistance locale à M_Ed = 68,70 kN·m imposé — 380,08 kN avec η₁ élastique (l'interaction gouverne), 387,76 kN "
@@ -702,7 +730,15 @@ def controles(M=None):
       "33,2 % pour information ; le verdict reste l'élastique (36,6 %)",
       proche(L["sans"]["interaction_plastique"], (L["sans"]["eta2"] + 0.8 * 68.7015e6 / (s300["Wpl_y"] * 235.0)) / 1.4, 1e-9)
       and round(L["sans"]["interaction_plastique"], 3) == 0.332 and proche(vFM["taux"], L["sans"]["interaction"])
-      and any("η₁ plastique" in m and "33,2 %" in m for m in vFM["messages"]), L["sans"])
+      and any("η₁ plastique (classe 1, variante)" in m and "33,2 %" in m for m in vFM["messages"]), L["sans"])
+    a4 = ame(**dict(R2M, profil="IPE 400"))
+    L4 = lieu(a4, "Charge à 3,00 m")
+    m4 = " ".join(verif(a4, L4["base"] + "-FM")["messages"])
+    c("… la classe est prise SOUS LES EFFORTS de l'occurrence : l'IPE 400 est de classe 3 en compression pure, de classe 1 sous ce moment — sa "
+      "variante plastique est calculée (17,6 % < 19,3 % élastique)",
+      ES.verifier({"section": SE.du_catalogue("IPE 400"), "nuance": "S235", "NEd": 1.0})["grandeurs"]["classe"] == 3
+      and L4["sans"]["interaction_plastique"] < L4["sans"]["interaction"] and round(L4["sans"]["interaction_plastique"], 3) == 0.176
+      and round(L4["sans"]["interaction"], 3) == 0.193 and "η₁ plastique (classe 1, variante)" in m4, (L4["sans"], m4))
     ct = {k: ame(appuis={"mode": "poses", "ss": 100.0, "c": 0.0, "contact": k}) for k in ("oui", "non", "inconnu")}
     mct = {k: " ".join(verif(ct[k], "A-L00-F")["messages"]) for k in ct}
     c("test 13 : contact d'extrémité SAISI (R4, type c, c = 0) — « oui » : 248,91 kN ; « non » : 199,82 kN, sans variante ; « inconnu » : "
@@ -737,7 +773,7 @@ def controles(M=None):
       and proche(vEL["valeur"], crit31, 1e-9) and round(crit31, 3) == 0.565 and vEL["combinaison"] == TOUT and L["decision"] == "aucun"
       and L["sans"]["interaction"] is None and proche(L["sans"]["critere"], crit31, 1e-9) and verif(a, L["base"] + "-F") is not None, (L, crit31))
     t31b = copy.deepcopy(t31)
-    t31b["cas"][0]["charges"][-1] = P_(20.0, 5.0)
+    t31b["cas"][0]["charges"][-1] = P_(20.0, 5.0, 0.0)
     a = ame(**t31b)
     L = lieu(a, "Charge à 5,00 m")
     c("… la même charge sans longueur d'appui (s_s = 0 : σ_z,Ed = 207,7 N/mm²) : le critère dépasse 1 → raidisseur, et la raison le dit",
@@ -780,7 +816,7 @@ def controles(M=None):
     c("… et l'interaction (7.1) d'un PRS élancé (300 × 30, 1 400 × 10, S355) : M_f,Rd = A_f·h_f·f_y/γ_M0 (gabarit des PRS), recalculé et relu",
       len(f_prs) == 1 and proche(FO.evaluer(f_prs[0]), f_prs[0]["resultat"]) and W.relecture_juste(f_prs[0])
       and proche(f_prs[0]["resultat"], 9000.0 * 1430.0 * 355.0 / 1e6) and verif(J.rendre(), "A-VbM") is not None, [f["gabarit"] for f in J.calcul])
-    b18 = dict(travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0},
+    b18 = dict(travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0}, maintiens=[{"x": 1.0, "genre": "complet"}],
                cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [P_(300.0, 1.0, 100.0)]}])
     a = ame(**b18)
     L = lieu(a, "Charge à 1,00 m")
@@ -792,9 +828,100 @@ def controles(M=None):
       and round(av["A_st"], 1) == 4454.3 and round(av["sigma"], 1) == 101.0 and round(av["N_b_Rd"], 1) == 1002.2 and round(av["taux_flambement"], 3) == 0.449
       and av["A_c"] == 2200.0 and round(av["sigma_contact"], 1) == 204.5 and av["f_y_contact"] == 225.0 and round(av["taux_contact"], 3) == 0.909
       and L["rappel"] == ra.RAPPEL_TAU and round(L["sans"]["sigma_z"], 1) == round(450e3 / (121.4 * 7.1), 1)
-      and any(ra.RAPPEL_TAU in m for m in verif(a, L["base"] + "-Rb")["messages"]), L)
+      and sum(ra.RAPPEL_TAU in h for h in a["hypotheses"]) == 1 and not any(ra.RAPPEL_TAU in m for v_ in a["verifications"] for m in v_["messages"]), L)
     c("… sans raidisseur, pas de vue « avec » ni de rappel (R2, la charge de 36 kN)",
-      lieu(ame(**R2), "Charge à 3,00 m")["avec"] is None and lieu(ame(**R2), "Charge à 3,00 m")["rappel"] is None)
+      lieu(ame(**R2M), "Charge à 3,00 m")["avec"] is None and lieu(ame(**R2M), "Charge à 3,00 m")["rappel"] is None
+      and not any(ra.RAPPEL_TAU in h for h in ame(**R2M)["hypotheses"]))
+
+    # ---- 4 ter. (reprise du lot B) les données manquantes, les cotes d'une semelle de PRS, le contact d'une charge, N_st par panneau
+    nH, nB = am.niveaux_semelle(sC, "haut"), am.niveaux_semelle(sC, "bas")
+    zgC = sC["z_g"]
+    c("PRS-C monosymétrique : les cotes de la semelle chargée depuis SON centre de gravité z_g (contrat de prs.py), z vers le haut — haute : plan "
+      "moyen h − z_g − t₁/2, jonction h − z_g − t₁, S_f = b₁·t₁·z ; basse : −(z_g − t₂/2), −(z_g − t₂), b₂·t₂ (et non h/2, ni la semelle haute)",
+      abs(zgC - 750.0) > 50.0 and proche(nH["z_moyen"], 1500.0 - zgC - 15.0) and proche(nH["z_jonction"], 1500.0 - zgC - 30.0)
+      and proche(nH["S"], 300.0 * 30.0 * (1500.0 - zgC - 15.0)) and (nH["bf"], nH["tf"]) == (300.0, 30.0)
+      and proche(nB["z_moyen"], -(zgC - 25.0)) and proche(nB["z_jonction"], -(zgC - 50.0)) and proche(nB["S"], 500.0 * 50.0 * (zgC - 25.0))
+      and (nB["bf"], nB["tf"]) == (500.0, 50.0), (zgC, nH, nB))
+
+    def bout(*contacts):
+        """Une charge de 10 kN par cas à 0,05 m du bout (s_s = 100 : c = 0, type c), chacune avec son contact (None : non saisi)."""
+        chs = []
+        for i_, k_ in enumerate(contacts):
+            ch_ = P_(10.0, 0.05, 100.0)
+            if k_:
+                ch_["contact"] = k_
+            chs.append({"nom": f"C{i_}", "nature": "permanent", "charges": [ch_]})
+        return ame(appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.05, "genre": "haut"}], poids_propre=False, cas=chs)["lieux"][0]
+    k1, k2, k3, k4, k5 = bout("oui"), bout("non"), bout("oui", "non"), bout("oui", "oui"), bout("oui", None)
+    c("le CONTACT saisi sur une charge ponctuelle près du bout (type c, c = 0) : « oui » → 248,91 kN, « non » → 199,82 kN ; plusieurs charges au "
+      "même endroit : établi seulement s'il l'est pour toutes, « non » dès qu'une le refuse, « inconnu » sinon",
+      [x["type"] for x in (k1, k2, k3)] == ["c"] * 3 and round(k1["sans"]["F_Rd"], 2) == 248.91 and round(k2["sans"]["F_Rd"], 2) == 199.82
+      and [x["sans"]["contact"] for x in (k1, k2, k3, k4, k5)] == ["oui", "non", "non", "oui", "inconnu"] and round(k4["sans"]["F_Rd"], 2) == 248.91
+      and round(k5["sans"]["F_Rd"], 2) == 199.82 and en.normaliser(barre(cas=[{"nom": "G", "nature": "permanent", "charges": [
+          dict(P_(1.0, 1.0, 10.0), contact="oui")]}]))["cas"][0]["charges"][0]["contact"] == "oui", [x["sans"] for x in (k1, k2, k3, k4, k5)])
+    Pm_ = 87.5
+    am_ = ame(travees=[2.0], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 1.0, "genre": "complet"}],
+              cas=[{"nom": "G", "nature": "permanent", "N": -400.0, "charges": [P_(Pm_, 1.0, 50.0)]}])
+    Lm = am_["lieux"][0]
+    sm_ = [-1.35 * 400e3 / s300["A"] + 1.35 * Pm_ * 2.0 / 4.0 * 1e6 * z_ / s300["Iy"] for z_ in (150.0 - 5.35, 150.0 - 10.7)]
+    c("l'état de la semelle chargée se lit au PLAN MOYEN (brief § 8.2) : IPE 300 tendu (N = −540 kN) et fléchi (59,1 kN·m) — σ_x = +1,9 N/mm² "
+      "au plan moyen, −1,8 à la jonction : semelle comprimée, interaction (7.2)",
+      sm_[0] > 0.0 > sm_[1] and Lm["sans"]["semelle"] == ["comprimee"] and Lm["base"] + "-FM" in Lm["verifications"] and Lm["decision"] == "aucun", (sm_, Lm["sans"]))
+    hog = {g_: lieu(ame(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0},
+                        maintiens=[{"x": 4.6, "genre": g_}], cas=[{"nom": "G", "nature": "permanent", "charges": [q(6.0, 0.0, 10.0), P_(5.0, 4.6, 100.0)]}]),
+                   "Charge à 4,60 m") for g_ in ("haut", "complet")}
+    c("une charge sur la semelle haute TENDUE (moment négatif, poutre continue) : la semelle comprimée, la basse, doit être tenue aussi (§ 6.1(1)) "
+      "— maintien « haut » seul : décision impossible ; « complet » : décidé",
+      hog["haut"]["sans"]["semelle"] == ["tendue"] and hog["haut"]["decision"] == "impossible"
+      and hog["haut"]["raison"] == "Décision impossible : maintien de la semelle basse à préciser." and hog["complet"]["decision"] == "aucun", hog)
+    pr_ = [lieu(ame(appuis=k_, maintiens=[{"x": 0.1, "genre": "haut"}], poids_propre=False,
+                    cas=[{"nom": "G", "nature": "permanent", "charges": [P_(10.0, 0.1, 50.0)]}]), "Charge à 0,10 m")
+           for k_ in ({"mode": "poses", "ss": None, "c": None}, {"mode": "poses", "ss": 100.0, "c": 0.0})]
+    c("une charge du type (c) près d'un appui de rive sans s_s ni c : son c dépend d'eux — décision impossible, et dite ; saisis : décidée",
+      pr_[0]["type"] == "c" and pr_[0]["raison"] == "Décision impossible : s_s et c de l'appui de rive à fournir." and pr_[1]["decision"] == "aucun",
+      [x["raison"] for x in pr_])
+    a = ame(**dict(b18, maintiens=[{"x": 1.0, "genre": "haut"}]))
+    L = lieu(a, "Charge à 1,00 m")
+    c("un raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) — la semelle haute seule : décision impossible, pas "
+      "de plats proposés ; les appuis (des fourches) gardent les leurs",
+      L["decision"] == "impossible" and L["raidisseur"] is None and "maintien des deux semelles" in L["raison"]
+      and all(x["decision"] == "raidisseur" for x in a["lieux"] if x["genre"] == "appui"), L["raison"])
+
+    def ame_s(s_, **k):
+        """Le bloc de l'âme d'une barre chargée faite d'une SECTION donnée (un PRS selon le contrat de prs.py), sans le catalogue."""
+        b_ = en.normaliser(barre(**k))
+        cas_ = ST.cas_complets(b_, s_)
+        sols_ = ST.resoudre(b_, cas_, Pm["E"] * s_["Iy"] / 1e9)
+        r_ = M["ame"].chargee(b_, s_, cas_, sols_, [c_.get("N", 0.0) for c_ in cas_], ST.ruptures(sols_))
+        vus.append(r_)
+        return r_
+    sN = prs_section(300.0, 20.0, 1000.0, 6.0, 250.0, 20.0)
+    aN = ame_s(sN, travees=[10.0], poids_propre=False, nuance="S355", appuis={"mode": "poses", "ss": 100.0, "c": 50.0},
+               maintiens=[{"x": 5.0, "genre": "complet"}], cas=[{"nom": "G", "nature": "permanent", "charges": [q(50.0 / 1.35, 0.0, 10.0),
+                                                                                                                    P_(300.0 / 1.35, 5.0, 100.0)]}])
+    LN = lieu(aN, "Charge à 5,00 m")
+    lwN = 1000.0 / (86.4 * 6.0 * math.sqrt(235.0 / 355.0))
+    NstN = 375e3 - 1000.0 * 6.0 * 345.0 / (R3 * lwN ** 2)
+    vN = verif(aN, LN["base"] + "-Rb") if LN else None
+    c("test 34 dans une BARRE (PRS 300 × 20 / 1 000 × 6 / 250 × 20, S355, 10 m, q_Ed = 50 kN/m, F_Ed = 300 kN à mi-portée) : raidisseur ; N_st "
+      "avec V_Ed à 0,5·h_w du bord du panneau le plus sollicité — l'appui : 400 − 50·0,5 = 375 kN (et non 150 kN au droit de la charge, qui "
+      "donnerait N_st = 0) ; N = 300 + 162,4 kN",
+      LN is not None and LN["decision"] == "raidisseur" and vN is not None and proche(vN["valeur"], (300e3 + NstN) / 1e3, 1e-6)
+      and round(NstN / 1e3, 1) == 162.4 and vN["critere"] == "N_Ed ≤ N_b,Rd" and proche(LN["avec"]["sigma"], (300e3 + NstN) / LN["avec"]["A_st"], 1e-6)
+      and all(x["decision"] == "raidisseur" and "§ 5.1(2)" in x["raison"] for x in aN["lieux"] if x["genre"] == "appui"), (vN, NstN))
+    r = mo.verifier(barre(mode="efforts", profil="IPE 300", methodes=["ec3"], efforts={"service": {}, "elu": {"Vz": 400.0}},
+                          flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
+    r1 = mo.verifier(barre(mode="efforts", profil="IPE 300", methodes=["ec3"], efforts={"service": {}, "elu": {"Vz": 100.0}},
+                           flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
+    c("brief § 8.3, point 8 : un LAMINÉ que V_pl,Rd fait échouer (IPE 300, V_z = 400 kN > 348,4 kN) — « le cisaillement gouverne : un raidisseur "
+      "ne réduit pas τ » ; rien quand il passe",
+      verif(r["methodes"]["ec3"], "E-Vz")["statut"] == RE.NOK and AM.MOT_CISAILLEMENT in verif(r["methodes"]["ec3"], "E-Vz")["messages"]
+      and AM.MOT_CISAILLEMENT not in verif(r1["methodes"]["ec3"], "E-Vz")["messages"], verif(r["methodes"]["ec3"], "E-Vz")["messages"])
+    a = ame(**R2)
+    c("« -EL » : titre « critère élastique à la jonction (6.2.1(5)) » ; à un appui d'extrémité (σ_x = 0), « les deux contrôles » ; semelle tendue "
+      "(test 31) : « le critère 6.2.1(5) décide »",
+      verif(a, "A-L00-EL")["titre"] == "Appui A : critère élastique à la jonction (6.2.1(5))"
+      and verif(a, "A-L00-EL")["messages"] == [am.MOTS_ETAT[am.LES_DEUX]] and vEL["messages"] == [am.MOTS_ETAT[am.TENDUE]], verif(a, "A-L00-EL"))
 
     # ---- 5. la barre
     r = mo.verifier(barre(mode="efforts", profil="IPE 750x134", nuance="S355", methodes=["ec3"],
@@ -819,10 +946,12 @@ def controles(M=None):
     vieux = barre()
     del vieux["appuis"]
     nb = en.normaliser(vieux)
-    c("une note d'avant le lot 4 (sans « appuis », sans « ss ») se relit : barre posée, s_s = 0, c = 0 ; chaque charge ponctuelle reçoit s_s = 0",
-      nb["appuis"] == {"mode": "poses", "ss": 0.0, "c": 0.0}
-      and en.normaliser(barre(cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 1.0), q(1.0, 0.0, 6.0)]}]))["cas"][0]["charges"]
-      == [{"type": "P", "v": 5.0, "a": 1.0, "ss": 0.0}, {"type": "q", "v": 1.0, "a": 0.0, "b": 6.0}], nb["appuis"])
+    c("une note d'avant le lot 4 (sans « appuis », sans « ss ») se relit : barre posée, s_s et c NON SAISIS (None, jamais 0 — le harnais suit : "
+      "0 avant la reprise) ; une charge ponctuelle sans « ss » : None ; une valeur saisie, même 0, est gardée",
+      nb["appuis"] == {"mode": "poses", "ss": None, "c": None}
+      and en.normaliser(barre(cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 1.0), q(1.0, 0.0, 6.0), P_(5.0, 2.0, 0.0)]}]))["cas"][0]["charges"]
+      == [{"type": "P", "v": 5.0, "a": 1.0, "ss": None}, {"type": "q", "v": 1.0, "a": 0.0, "b": 6.0}, {"type": "P", "v": 5.0, "a": 2.0, "ss": 0.0}]
+      and en.normaliser(barre(appuis={"mode": "poses", "ss": 0.0, "c": 0.0}))["appuis"] == {"mode": "poses", "ss": 0.0, "c": 0.0}, nb["appuis"])
     c("données refusées : mode d'appui inconnu ; s_s négative, au-delà de 2 000 mm ou qui n'est pas un nombre ; débord négatif",
       all(_refuse(lambda k=k: en.normaliser(barre(**k))) for k in (
           {"appuis": {"mode": "soude"}}, {"appuis": {"ss": -1.0}}, {"appuis": {"ss": 2001.0}}, {"appuis": {"c": -5.0}}, {"appuis": {"ss": "100"}},
@@ -877,6 +1006,7 @@ def charger(mutation=None):
         exec(compile(src, CHEMINS[k], "exec"), mod.__dict__)
         mods[k] = mod
     mods["ame"].AM, mods["ame"].RA = mods["ec3_ame"], mods["raidisseurs"]
+    mods["raidisseurs"].AM = mods["ec3_ame"]
     mods["moteur"].AME, mods["moteur"].EN = mods["ame"], mods["entree"]
     return mods
 
@@ -955,7 +1085,7 @@ MUTATIONS = [
     ("ec3_ame", "lot B — critère 6.2.1(5) sans τ", "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2",
      "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f)"),
     ("ec3_ame", "lot B — seuil local : F_Rd seule (l'interaction oubliée)", "    return max(0.0, min(FRd, (lim - k * e1) * FRd))", "    return FRd"),
-    ("ame", "lot B — variante η₁ plastique : W_el", '                Wp = s.get("Wpl_y") if classe in (1, 2) and s.get("Wpl_y") else W', "                Wp = W"),
+    ("ame", "lot B — variante η₁ plastique : W_el", '                Wp = s.get("Wpl_y") if cl in (1, 2) and s.get("Wpl_y") else W', "                Wp = W"),
     ("ec3_ame", "lot B — k_F sans le raidisseur voisin (a ignoré)", "    voisin = 0.0 if panneau is None else 2.0 * (hw / float(panneau)) ** 2", "    voisin = 0.0"),
     ("ec3_ame", "lot B — contact « oui » ignoré", '    contact = etat == "oui"', "    contact = False"),
     ("ec3_ame", "lot B — contact « non » : la variante avec contact donnée quand même", '    if type_ == "c" and etat == "inconnu" and ss > 0:',
@@ -966,7 +1096,8 @@ MUTATIONS = [
     ("raidisseurs", "lot B — flambement du raidisseur sans N_st", '"taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"])', '"taux": max(F / p["NcRd"], F / p["NbRd"])'),
     ("raidisseurs", "lot B — I_st,min : seuil a/h_w = 1 au lieu de √2", "    if a is not None and a / hw < math.sqrt(2.0):", "    if a is not None and a / hw < 1.0:"),
     ("raidisseurs", "lot B — vue avec raidisseur : σ sous F seule", '"sigma": N / p["Ast"]', '"sigma": F / p["Ast"]'),
-    ("raidisseurs", "lot B — rappel « ne réduit pas τ » oublié", "    mots2.append(RAPPEL_TAU)\n", ""),
+    ("ame", "lot B — rappel « ne réduit pas τ » oublié (une fois par bloc, dans les hypothèses)", "(EN 1993-1-8). \"\n                   + RA.RAPPEL_TAU)",
+     "(EN 1993-1-8).\")"),
     ("ec3_ame", "lot B — cisaillement qui gouverne : rien n'est dit", "    if V > r[\"Vbw\"]:", "    if False:"),
     ("raidisseurs", "épaisseurs : 6 mm proposée", "EPAISSEURS = (8.0, 10.0, 12.0, 15.0, 20.0)", "EPAISSEURS = (6.0, 8.0, 10.0, 12.0, 15.0, 20.0)"),
     ("raidisseurs", "chanfrein oublié dans l'aire de contact", '    Ac = 2.0 * (bs - g["chanfrein"]) * ts', "    Ac = 2.0 * bs * ts"),
@@ -987,14 +1118,14 @@ MUTATIONS = [
     ("raidisseurs", "le flambement oublié dans le choix de l'épaisseur", '"taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"])', '"taux": (F + Nst) / p["NbRd"]'),
     ("raidisseurs", "rigidité d'appui jamais demandée", '        rigide = (p["Ist"] >= p["I_min"]) if appui_rigide else None', "        rigide = None"),
     ("ame", "appuis par l'âme vérifiés comme posés", '    poses = ap["mode"] == "poses"', "    poses = True"),
-    ("ame", "encastrement pris pour un appui posé", '            if a["type"] == "appui":\n                out.append({"x": a["x"], "appui": i,', '            if True:\n                out.append({"x": a["x"], "appui": i,'),
+    ("ame", "encastrement pris pour un appui posé", '            if a["type"] == "appui":                 # un appui : une fourche', '            if True:                 # un appui : une fourche'),
     ("ame", "charges ponctuelles vérifiées quel que soit leur niveau", '    if b["niveau"] in ("haut", "bas"):', "    if True:"),
     ("ame", "une charge vers le haut sur la semelle haute vérifiée", '    return {"haut": P if (niveau == "haut" and P > EPS) else 0.0,', '    return {"haut": abs(P) if niveau == "haut" else 0.0,'),
     ("ame", "une charge suspendue vérifiée comme si elle appuyait", '"bas": (R if R > EPS else 0.0) + (-P if (niveau == "bas" and P < -EPS) else 0.0),', '"bas": (R if R > EPS else 0.0) + (abs(P) if niveau == "bas" else 0.0),'),
     ("ame", "réaction non pondérée par les combinaisons", '        R = sum(f * sol.appuis[L["appui"]]["R"] for f, sol in zip(facteurs, sols) if f)', '        R = sum(sol.appuis[L["appui"]]["R"] for f, sol in zip(facteurs, sols) if f)'),
     ("ame", "charge ponctuelle non pondérée", '    P = sum(facteurs[ci] * v for ci, v in L["charges"])', '    P = sum(v for ci, v in L["charges"])'),
     ("ame", "longueur d'appui d'un groupe : la plus longue", '                hote["ss"][b["niveau"]] = min(g["ss"])', '                hote["ss"][b["niveau"]] = max(g["ss"])'),
-    ("ame", "le débord de rive oublié", '            return ap["ss"] / 2.0 + ap["c"]', '            return ap["ss"] / 2.0'),
+    ("ame", "le débord de rive oublié", '            return (ss_ap or 0.0) / 2.0 + (c_ap or 0.0)', '            return (ss_ap or 0.0) / 2.0'),
     ("ame", "type (a) partout (le bout de la barre ignoré)", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "a"'),
     ("ame", "type (c) partout", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "c"'),
     ("ame", "force transmise (type b) jamais vérifiée", "    if len(out) == 2:\n        essais", "    if len(out) == 99:\n        essais"),
@@ -1002,20 +1133,54 @@ MUTATIONS = [
     ("ame", "moment de l'interaction lu d'un seul côté", '"M": max(abs(e["M_g"]), abs(e["M_d"])), "M_s": Ms,', '"M": 0.0, "M_s": Ms,'),
     ("ame", "raidisseur décidé sur η₂ seul (l'interaction oubliée)", '        elif pire["inter"] is not None and pire["inter"] > 1.0:', '        elif False:'),
     ("ame", "raidisseur jamais décidé sur η₂", '        if pire["eta2"] > 1.0:', '        if pire["eta2"] > 1e9:'),
-    ("ame", "âme élancée : pas de raidisseur d'appui", '        elif el is not None and el["elancee"] and L["genre"] == "appui":\n            raison', '        elif False:\n            raison'),
+    ("ame", "âme élancée : pas de raidisseur d'appui", '        certain = el is not None and el["elancee"] and L["genre"] == "appui"', "        certain = False"),
     ("ame", "raidisseur dimensionné pour la force d'une combinaison quelconque", '            pire["F"] = max(pire["F"], o["Fmax"])', '            pire["F"] = o["Fmax"]'),
     ("ame", "deux forces rapprochées rendues « ok » sans le dire", "    if proches:\n        J = RE.Journal(METHODE, NORME)", "    if False:\n        J = RE.Journal(METHODE, NORME)"),
     ("ame", "forces rapprochées : cherchées sur l_y entier (deux fois trop loin)", "        if any(ecart < (r1[k][\"ly\"] + r2[k][\"ly\"]) / 2.0 for k", "        if any(ecart < (r1[k][\"ly\"] + r2[k][\"ly\"]) for k"),
     ("ame", "un encastrement passé sous silence", '    if genres - {"appui"}:', "    if False:"),
     ("ame", "voilement par cisaillement jamais cherché", '    if el is not None and el["elancee"]:\n        for C in combs:', '    if False:\n        for C in combs:'),
-    ("ame", "un raidisseur impossible rendu conforme", '                impossible = bool(etude["raison"]) ', "                impossible = False "),
+    ("ame", "un raidisseur impossible rendu conforme", '                trop_etroit = bool(etude["raison"]) and not manque ', "                trop_etroit = False "),
     ("ame", "un tube chargé rendu sans avertissement", '        if charges and s["forme"] in ("tube_carre", "tube_rect", "tube_rond"):', "        if False:"),
     ("ame", "réaction de soulèvement non signalée", '            if f["soulevement"] > 0:', "            if False:"),
     ("ame", "le bloc d'une barre aux efforts imposés : sans le cisaillement", '    AM.cisaillement(J, s, fy, P, abs(e["Vz"]) * 1e3, abs(e["My"]) * 1e6, e["N"] * 1e3, fy_ame=fyw)\n', ""),
-    ("entree", "appuis par défaut « par l'âme » (rien n'est vérifié sans le dire)", '"appuis": {"mode": "poses", "ss": 0.0, "c": 0.0},', '"appuis": {"mode": "ame", "ss": 0.0, "c": 0.0},'),
-    ("entree", "longueur d'appui d'une charge ponctuelle perdue à la relecture", '                ch["ss"] = _longueur_appui(saisie.get("ss", 0.0), f"cas « {nom} », longueur d\'appui s_s")', '                ch["ss"] = 0.0'),
+    ("entree", "appuis par défaut « par l'âme » (rien n'est vérifié sans le dire)", '"appuis": {"mode": "poses", "ss": None, "c": None},', '"appuis": {"mode": "ame", "ss": None, "c": None},'),
+    ("entree", "longueur d'appui d'une charge ponctuelle perdue à la relecture", '                ch["ss"] = _longueur_appui(saisie.get("ss"), f"cas « {nom} », longueur d\'appui s_s")', '                ch["ss"] = 0.0'),
     ("entree", "longueur d'appui sans borne", "    if not 0.0 <= x <= SS_MAX:", "    if False:"),
     ("entree", "mode d'appui non contrôlé", '    if ap is None or ap["mode"] not in MODES_APPUI:', "    if ap is None:"),
+    # (reprise du lot B) les données manquantes, le maintien, la classe de η₁, N_st par panneau, les cotes d'un PRS, le contact d'une charge
+    ("entree", "reprise — s_s non saisie prise pour 0", "    if v is None:\n        return None", "    if v is None:\n        return 0.0"),
+    ("ame", "reprise — donnée manquante ignorée (décidé sur s_s = 0)", "        manque = None if certain or not (donnees or maintiens or bout) else impossible(donnees, maintiens, bout)",
+     "        manque = None if certain or not maintiens else impossible([], maintiens)"),
+    ("ame", "reprise — c d'un appui de rive non exigé", '(["c"] if c_ap is None and rive(a["x"]) else [])', "[]"),
+    ("ame", "reprise — c d'une force voisine d'un appui de rive non saisi : ignoré", '        bout = L["manque_bout"] if any(res[k]["type"] == "c" for k in charges_) else []',
+     "        bout = []"),
+    ("ame", "reprise — une décision impossible garde un taux", '"taux": None if manque else gouv["taux"]', '"taux": gouv["taux"]'),
+    ("ame", "reprise — maintien de la semelle chargée supposé", '        maintiens = [COTES[k] for k in ("haut", "bas") if k in requis and not L["tenue"][k]]', "        maintiens = []"),
+    ("ame", "reprise — semelle tendue : la semelle comprimée non exigée", "        requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}",
+     "        requis = set(charges_)"),
+    ("ame", "reprise — un appui ne tient pas les semelles", "        if any(abs(a[\"x\"] - x) < MEME_ABSCISSE for a in appuis):\n            return True", "        if False:\n            return True"),
+    ("ame", "reprise — un maintien de l'autre semelle compté", 'm.get("genre", "complet") in ("complet", cote)', 'm.get("genre", "complet") in ("complet", "haut", "bas")'),
+    ("ame", "reprise — raidisseur sous une charge : une seule semelle tenue suffit", '        if manque is None and raison and L["genre"] == "charge" and not all(L["tenue"].values()):',
+     "        if False:"),
+    ("ame", "reprise — η₁ plastique : la classe sous N = 1 N", '"NEd": N * 1e3, "MyEd": M * 1e6, "parametres": b["parametres"],\n',
+     '"NEd": 1.0, "MyEd": 0.0, "parametres": b["parametres"],\n'),
+    ("ame", "reprise — N_st : V au droit du raidisseur", '            cis = {"V": cisaillement_panneaux(L["x"], bords, combs, el["hw"] / 1e3) * 1e3, "fyw": fy, "lambda_w": lw}',
+     '            cis = {"V": etude["pire"]["V"] * 1e3, "fyw": fy, "lambda_w": lw}'),
+    ("ame", "reprise — N_st : V au bord même du panneau (0,5·h_w oublié)", "        d = min(0.5 * hw, (v - u) / 2.0)", "        d = 0.0"),
+    ("ame", "reprise — N_st : le bord le MOINS sollicité", "            e = C.lire(u + d if Vu >= Vv else v - d)", "            e = C.lire(u + d if Vu < Vv else v - d)"),
+    ("ec3_ame", "reprise — PRS : z_g ignoré (h/2)", '    zg = s.get("z_g") or s["h"] / 2.0', '    zg = s["h"] / 2.0'),
+    ("ec3_ame", "reprise — semelle basse prise pour la haute", "    sm = semelles_de(s)[cote]\n    zg = ", '    sm = semelles_de(s)["haut"]\n    zg = '),
+    ("entree", "reprise — contact d'une charge ponctuelle perdu", '                    ch["contact"] = saisie["contact"]', "                    pass"),
+    ("ame", "reprise — contact de plusieurs charges : « non » ignoré", '"non" if "non" in g["contact"] else "inconnu")', '"inconnu")'),
+    ("ame", "reprise — état de la semelle lu à la jonction", '        etat = AM.etat_semelle([AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_moyen"])])',
+     '        etat = AM.etat_semelle([AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_jonction"])])'),
+    ("ame", "reprise — τ de la jonction : la plus petite des deux valeurs", '"V": max(abs(e["V_g"]), abs(e["V_d"]))})', '"V": min(abs(e["V_g"]), abs(e["V_d"]))})'),
+    ("ec3_ame", "reprise — seuil local sans le plafond F_Rd", "    return max(0.0, min(FRd, (lim - k * e1) * FRd))", "    return max(0.0, (lim - k * e1) * FRd)"),
+    ("ame", "reprise — vue « sans » : σ_z avec s_s = 0", '"sigma_z": AM.sigma_z(pire["F"] * 1e3, r0["ss"], r0["ame"]["tf"], s["tw"])["sigma_z"]',
+     '"sigma_z": AM.sigma_z(pire["F"] * 1e3, 0.0, r0["ame"]["tf"], s["tw"])["sigma_z"]'),
+    ("raidisseurs", "reprise — raidisseur d'un PRS : h_w = h − 2·t_f", "    hw = AM.hw_de(s)", '    hw = s["h"] - 2.0 * s["tf"]'),
+    ("ec3_ame", "reprise — h_w d'un PRS pour le raidisseur (relié par charger)", '        return float(p["hw"])', '        return float(p["hw"]) - 1.0'),
+    ("moteur", "reprise — un laminé que V_pl,Rd fait échouer : rien n'est dit", '            if v["id"] == "E-Vz" and v["statut"] == RE.NOK:', "            if False:"),
     ("moteur", "le statut de la barre ignore l'âme", '    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]', '    statuts = [r["statut"] for r in out["methodes"].values()]'),
 ]
 

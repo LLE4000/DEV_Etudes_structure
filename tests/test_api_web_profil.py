@@ -109,11 +109,18 @@ chk("une note neuve : version 2, une barre B1 — IPE 300, S235, deux appuis de 
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
-chk("elle tient par ses DEUX méthodes (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, "
-    "6.3.2.3(1)) : la note est « Conforme », son résumé porte le taux le plus fort",
-    r0["statut"] == "ok" and round(th, 2) == 0.74 and round(te, 2) == 0.58 and neuf["resume"]["statut"] == "Conforme"
-    and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "p"
-    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)", (th, te, neuf["resume"]))
+chk("ses DEUX méthodes tiennent (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; "
+    "mais s_s et c ne sont pas saisis : l'âme ne décide pas (brief § 8.3, point 5) — la note est « À vérifier », son résumé porte le taux le "
+    "plus fort (le harnais suit : « Conforme » avant la reprise du lot B, s_s = 0 pris par défaut)",
+    r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.74 and round(te, 2) == 0.58
+    and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
+    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)"
+    and "Âme · Décision impossible : s_s et c à fournir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
+# la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
+DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
+chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %) et la note redevient « Conforme »",
+    DECIDE["resume"]["statut"] == "Conforme" and DECIDE["resume"]["niveau"] == "p" and moteur(DECIDE["etat"]["elements"][0])["statut"] == "ok"
+    and "Âme ·" not in texte(DECIDE["resultat"]), DECIDE["resume"])
 res0 = texte(neuf["resultat"])
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
     neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in res0
@@ -151,10 +158,12 @@ def lignes_du_moteur(rep, r):
 
 CAS = {"la note neuve": note(), "un poteau-poutre en efforts imposés": note(POTEAU),
        "une poutre continue à trois cas, un maintien d'une semelle": note(barre(
-           profil="HEA 200", modele="continue", travees=[5.0, 4.0], maintiens=[{"x": 2.5, "genre": "haut"}],
+           profil="HEA 200", modele="continue", travees=[5.0, 4.0], maintiens=[{"x": 2.5, "genre": "haut"}, {"x": 7.0, "genre": "haut"}],
            cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 6.0, "a": 0.0, "b": 9.0}]},
-                {"nom": "Q", "nature": "exploitation_B", "N": 0.0, "charges": [{"type": "q", "v": 8.0, "a": 0.0, "b": 5.0}, {"type": "P", "v": 12.0, "a": 7.0}]},
-                {"nom": "S", "nature": "neige", "N": 0.0, "charges": [{"type": "tri", "v": 3.0, "a": 5.0, "b": 9.0, "sens": "croissante"}]}])),
+                {"nom": "Q", "nature": "exploitation_B", "N": 0.0, "charges": [{"type": "q", "v": 8.0, "a": 0.0, "b": 5.0},
+                                                                               {"type": "P", "v": 12.0, "a": 7.0, "ss": 100.0}]},
+                {"nom": "S", "nature": "neige", "N": 0.0, "charges": [{"type": "tri", "v": 3.0, "a": 5.0, "b": 9.0, "sens": "croissante"}]}],
+           appuis={"mode": "poses", "ss": 100.0, "c": 0.0})),
        "une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)": note(barre(maintiens=[])),
        "un tube carré comprimé et fléchi": note(barre(profil="SHS 150x150x6", nuance="S355", cas=[
            {"nom": "G", "nature": "permanent", "N": 250.0, "charges": [{"type": "q", "v": 4.0, "a": 0.0, "b": 6.0}]},
@@ -238,8 +247,8 @@ POSES = [("nom", "Panne 3", lambda e: e["nom"] == "Panne 3"), ("travees/0", "7,2
          # (la borne des noms du site : 60 caractères pour un élément — le harnais en saisit 58 — ; 12 pour un cas, qui s'écrit sur le dessin)
          ("nom", "N" * 60, lambda e: e["nom"] == "N" * 60), ("cas/1/nom", "Exploitation", lambda e: e["cas"][1]["nom"] == "Exploitation"),
          # (lot 4 : ce que l'âme reçoit de ses appuis)
-         ("appuis/ss", "100", lambda e: e["appuis"] == {"mode": "poses", "ss": 100.0, "c": 0.0}),
-         ("appuis/c", "50", lambda e: e["appuis"] == {"mode": "poses", "ss": 0.0, "c": 50.0}),
+         ("appuis/ss", "100", lambda e: e["appuis"] == {"mode": "poses", "ss": 100.0, "c": None}),
+         ("appuis/c", "50", lambda e: e["appuis"] == {"mode": "poses", "ss": None, "c": 50.0}),
          ("appuis/mode", "ame", lambda e: e["appuis"]["mode"] == "ame")]
 faux = []
 for chemin, valeur, juste in POSES:
@@ -257,11 +266,12 @@ chk("« + Cas de charge » : un cas variable de plus (Q2, exploitation A, une ch
 out = enchainer(e0, ("cas/0/charges/+", "P"), ("cas/0/charges/1/v", "12"), ("cas/0/charges/1/a", "2"))
 ch = out["etat"]["elements"][0]["cas"][0]["charges"]
 chk("« + Ponctuelle » : une charge de 10 kN à mi-portée, que l'on règle (12 kN à 2 m) ; son type se change (un couple au même endroit, puis une "
-    "charge triangulaire sur toute la barre)", ch[1] == {"type": "P", "v": 12.0, "a": 2.0, "ss": 0.0}
+    "charge triangulaire sur toute la barre) ; sa longueur d'appui n'est pas saisie (None, jamais 0 — le harnais suit)",
+    ch[1] == {"type": "P", "v": 12.0, "a": 2.0, "ss": None}
     and saisir(out["etat"], "cas/0/charges/1/type", "C")["etat"]["elements"][0]["cas"][0]["charges"][1] == {"type": "C", "v": 12.0, "a": 2.0}
     and saisir(out["etat"], "cas/0/charges/1/type", "tri")["etat"]["elements"][0]["cas"][0]["charges"][1]
     == {"type": "tri", "v": 12.0, "a": 0.0, "b": 6.0, "sens": "croissante"}
-    and saisir(out["etat"], "cas/0/charges/0/-", "1")["etat"]["elements"][0]["cas"][0]["charges"] == [{"type": "P", "v": 12.0, "a": 2.0, "ss": 0.0}], ch)
+    and saisir(out["etat"], "cas/0/charges/0/-", "1")["etat"]["elements"][0]["cas"][0]["charges"] == [{"type": "P", "v": 12.0, "a": 2.0, "ss": None}], ch)
 out = saisir(e0, "maintiens/+", "1")
 mt = out["etat"]["elements"][0]["maintiens"]
 chk("« + Maintien » : au milieu du plus long intervalle libre (1,5 m, puis 4,5 m) ; ils restent triés ; « retirer » l'ôte",
@@ -394,14 +404,24 @@ chk("une note illisible est refusée avec un message qui nomme la barre", "barre
 
 print("=== 6 bis. L'âme et ses raidisseurs (EN 1993-1-5)")
 ra = r0["ame"]
-bloc = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
+bloc = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
-chk("la barre neuve : le bloc « Âme et raidisseurs » (le troisième) dit « Sans raidisseur · 77 % », la norme et les combinaisons ELU ; une ligne "
-    "par appui — ce que l'âme compare (F_Ed 44,5 ≤ F_Rd 58,0 kN), « sans raidisseur », le taux du moteur",
-    bloc is not None and tb.startswith("Âme et raidisseurs Sans raidisseur · 77 %") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
-    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,5 ≤ F Rd 58,0 kN · sans raidisseur" in tb for L in ra["lieux"]) and len(ra["lieux"]) == 2
-    and round(ra["taux_max"], 2) == 0.77, tb[:300])
-chk("… rien à poser : pas de ligne « Âme » sous les verdicts des méthodes", "pf-vame" not in neuf["resultat"])
+chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « À vérifier », la norme et les combinaisons ELU ; "
+    "une ligne par appui — « décision impossible : s_s et c à fournir », sans taux ; l'avertissement en pied (le harnais suit : « Sans "
+    "raidisseur · 77 % » avant la reprise du lot B, s_s = 0 pris par défaut — brief § 8.3, point 5)",
+    bloc is not None and tb.startswith("Âme et raidisseurs À vérifier") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
+    and all(f"{L['nom']} non couvert décision impossible : s s et c à fournir" in tb and L["taux"] is None for L in ra["lieux"]) and len(ra["lieux"]) == 2
+    and "Appui A, appui B : décision impossible : s s et c à fournir." in tb and ra["taux_max"] is None, tb[:400])
+chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
+    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s et c à fournir (appui A, appui B)" in texte(neuf["resultat"]))
+rd = moteur(DECIDE["etat"]["elements"][0])["ame"]
+bd = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', DECIDE["resultat"], re.S)
+tbd = texte(bd.group(1)) if bd else ""
+chk("… s_s = 100 mm et c = 0 saisis : « Sans raidisseur · 22 % » ; une ligne par appui — ce que l'âme compare (F_Ed 44,5 ≤ F_Rd 199,8 kN, R4 "
+    "type (c), contact non établi), « sans raidisseur », le taux du moteur ; rien à poser : pas de ligne « Âme » sous les verdicts",
+    bd is not None and tbd.startswith("Âme et raidisseurs Sans raidisseur · 22 %") and len(rd["lieux"]) == 2
+    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur" in tbd for L in rd["lieux"])
+    and round(rd["taux_max"], 2) == 0.22 and "pf-vame" not in DECIDE["resultat"], tbd[:300])
 manques = []
 for L in ra["lieux"]:
     f = PR.fenetre("ame", L["base"])
@@ -419,11 +439,16 @@ for L in ra["lieux"]:
             parts, res = W.morceaux(par[cle])
             if res not in t or parts[-1] not in t:
                 manques.append((L["nom"], cle, res))
-    if "sans raidisseur" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
+    if "décision impossible : s s et c à fournir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
         manques.append((L["nom"], "en-tête ou hypothèses"))
-chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules écrites par acier.barre.ecriture, les hypothèses du bloc, "
-    "« sans raidisseur » ; « tout le calcul » du bloc (s3) porte ses vérifications et ses combinaisons",
+chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules (calculées à s_s = c = 0, pour information) écrites par "
+    "acier.barre.ecriture, les hypothèses du bloc, « décision impossible » ; « tout le calcul » du bloc (s3) porte ses vérifications et ses "
+    "combinaisons",
     not manques and 'id="ck-s3"' in neuf["volets"] and 'data-calcul="s3"' in bloc.group(1), manques[:3])
+v_el = next(v for v in ra["verifications"] if v["id"].endswith("-EL"))
+chk("… une vérification donnée pour information au-delà de 1 (non couverte : le critère 6.2.1(5) à s_s = 0, 1,567) se dit « > », jamais "
+    "« ≤ » (profil_mots.comparaison)",
+    v_el["statut"] == "non_couvert" and round(v_el["taux"], 3) == 1.567 and texte(M.comparaison(v_el)) == "η = 1,567 > 1", texte(M.comparaison(v_el)))
 lourde = barre(profil="HEB 300", travees=[4.0], maintiens=[{"x": 2.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
                cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 500.0, "a": 2.0, "ss": 0.0}]}])
 rep = req(action="calculer", etat=note(lourde))
@@ -431,9 +456,11 @@ rl = moteur(rep["etat"]["elements"][0])["ame"]
 tr_ = texte(rep["resultat"])
 Lc = next(L for L in rl["lieux"] if L["genre"] == "charge")
 chk("HEB 300, 675 kN à mi-portée : l'âme seule ne suffit pas — sous les verdicts, « Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m) » ; "
-    "le bloc dit « 1 raidisseur · 87 % » et sa ligne nomme les plats avant ce qu'ils comparent",
+    "le bloc dit « 1 raidisseur · 91 % » (aux appuis d'extrémité, σ_x = 0 : le critère 6.2.1(5) à la jonction, 0,910, gouverne le bloc — le "
+    "harnais suit : 87 % avant le lot B, brief § 8.2) et sa ligne nomme les plats avant ce qu'ils comparent",
     rep["ok"] and Lc["decision"] == "raidisseur" and 'class="pf-vame warn" data-calcul="s3"' in rep["resultat"]
-    and "Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m)" in tr_ and "Âme et raidisseurs 1 raidisseur · 87 %" in tr_
+    and "Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m)" in tr_ and "Âme et raidisseurs 1 raidisseur · 91 %" in tr_
+    and "Appui A 91 % η = 0,910 ≤ 1 · sans raidisseur" in tr_
     and "Charge à 2,00 m 87 % 2 plats 140 × 15 mm · F Ed 675,0 ≤ N c,Rd 775,5 kN" in tr_ and 'class="pf-raid"' in rep["resultat"], tr_[:400])
 fen = re.search(rf'<div class="flyout calcul" id="ck-{re.escape(PR.fenetre("ame", Lc["base"]))}">(.*?)</div></div></div>', rep["volets"], re.S)
 tf = texte(fen.group(1)) if fen else ""
@@ -449,6 +476,7 @@ chk("… le dessin de la barre porte le raidisseur (un plat debout à 2,00 m) et
     and "Charge à 2,00 m · 2 plats 140 × 15" in html.unescape(vt) and "Âme et raidisseurs" in vt and "Appui A" in vt
     and next(x for x in neuf["vues"] if x["cle"] == "barre")["svg"].count(f'fill="{DB.RAIDISSEUR}"') == 0, vb.count(DB.RAIDISSEUR))
 ss100 = saisir(e0, "appuis/ss", "100")
+c0 = DECIDE
 def fenetre_appui(rep_):
     """Le texte de la fenêtre du premier appui."""
     L_ = moteur(rep_["etat"]["elements"][0])["ame"]["lieux"][0]
@@ -456,13 +484,14 @@ def fenetre_appui(rep_):
     return texte(f_.group(1)) if f_ else ""
 
 
-c50 = saisir(ss100["etat"], "appuis/c", "50")
-chk("la longueur d'appui saisie (100 mm) va au moteur : F_Rd = 199,8 kN (le cas R4 du brief, type (c) : le contact d'extrémité n'est pas "
-    "établi, s_s = 0 dans (6.10) — lot A) — 22 % ; avec contact, 248,9 kN pour information ; 50 mm de débord : le verdict reste 199,8 kN, "
-    "l'information passe à 335,9 kN",
-    "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" in texte(ss100["resultat"])
-    and "s s = 100 mm, débord en rive c = 0 mm" in fenetre_appui(ss100)
-    and "contact d'extrémité non établi : s s = 0 dans (6.10) (verdict) ; avec contact, F Rd = 248,9 kN, pour information" in fenetre_appui(ss100)
+c50 = saisir(c0["etat"], "appuis/c", "50")
+chk("la longueur d'appui saisie seule (100 mm) : « décision impossible : c à fournir » ; avec c = 0 : F_Rd = 199,8 kN (le cas R4 du brief, "
+    "type (c) : le contact d'extrémité n'est pas établi, s_s = 0 dans (6.10) — lot A) — 22 % ; avec contact, 248,9 kN pour information ; 50 mm "
+    "de débord : le verdict reste 199,8 kN, l'information passe à 335,9 kN",
+    "décision impossible : c à fournir" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" not in texte(ss100["resultat"])
+    and "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(c0["resultat"]) and "Sans raidisseur · 22 %" in texte(c0["resultat"])
+    and "s s = 100 mm, débord en rive c = 0 mm" in fenetre_appui(c0)
+    and "hypothèse de contact non établie : s s = 0 dans (6.10) (verdict) ; avec contact, F Rd = 248,9 kN, pour information" in fenetre_appui(c0)
     and "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(c50["resultat"]) and "débord en rive c = 50 mm" in fenetre_appui(c50)
     and "avec contact, F Rd = 335,9 kN, pour information" in fenetre_appui(c50), texte(ss100["resultat"])[-700:-400])
 par_ame = saisir(e0, "appuis/mode", "ame")
@@ -504,22 +533,25 @@ chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (107 %,
     and neuf["resume"]["taux"] == 74 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
 
 print("=== 7. Le sélecteur")
-sel = req(action="selecteur", etat=e0, role="profil")
+# (la note neuve, s_s et c saisis — sans eux, l'âme ne décide pour aucun profilé : brief § 8.3, point 5)
+eD = DECIDE["etat"]
+elD = eD["elements"][0]
+sel = req(action="selecteur", etat=eD, role="profil")
 rows = re.findall(r'<button class="pk-row([^"]*)"[^>]*data-choix="([^"]+)"[^>]*>(.*?)</button>', sel["html"], re.S)
 noms = [n for _, n, _ in rows]
 ipe = [p["nom"] for p in sorted((p for p in CAT.profils() if p["famille"] == "IPE"), key=lambda p: (p["masse"], p["nom"]))]
 chk("par défaut : la famille du profilé de la barre (les 23 IPE), triée par masse", sel["ok"] and noms == ipe and len(noms) == 23, noms[:5])
 ecarts = []
 for cls, n, h in rows:
-    r = moteur(dict(el0, profil=n))
+    r = moteur(dict(elD, profil=n))
     t = max(x["taux_max"] for x in r["methodes"].values())
     if f"{C.pc(C.pct(min(t, 9.99)))} %" not in h or ("r" in re.search(r'class="chip (\w)"', h).group(1)) != (r["statut"] == "nok"):
         ecarts.append((n, t, texte(h)))
 chk("chaque profilé porte le taux le plus fort que le MOTEUR lui donne (les deux méthodes de la barre), rouge quand une méthode le refuse", not ecarts, ecarts[:3])
-tiennent = [n for n in ipe if moteur(dict(el0, profil=n))["statut"] == "ok"]
+tiennent = [n for n in ipe if moteur(dict(elD, profil=n))["statut"] == "ok"]
 chk("le retenu est coché (IPE 300) ; l'étoile marque le plus LÉGER qui tient — ici le retenu lui-même, donc pas d'étoile ailleurs",
     [n for c, n, _ in rows if " cur" in c] == ["IPE 300"] and [n for c, n, _ in rows if " opt" in c] == [tiennent[0]] and tiennent[0] == "IPE 300", tiennent[:2])
-lourd = req(action="choisir", etat=e0, role="profil", nom="IPE 400")
+lourd = req(action="choisir", etat=eD, role="profil", nom="IPE 400")
 sel2 = req(action="selecteur", etat=lourd["etat"], role="profil")
 chk("choisir un autre profilé le retient (IPE 400) : coché dans le sélecteur, l'étoile reste sur l'IPE 300",
     lourd["etat"]["elements"][0]["profil"] == "IPE 400" and 'pk-row cur"' in re.sub(r'pk-row cur opt', 'x', sel2["html"]).replace(' aria-disabled="true"', "")
@@ -557,7 +589,9 @@ chk("ajouter une barre (B2, ouverte) ; copier la première (« B1 (copie) », in
     and [e["nom"] for e in d2["etat"]["elements"]] == ["B1", "B1 (copie)", "B2"] and d2["etat"]["actif"] == 1
     and [e["nom"] for e in req(action="supprimer", etat=d2["etat"], index=1)["etat"]["elements"]] == ["B1", "B2"]
     and req(action="activer", etat=d2["etat"], index=2)["etat"]["actif"] == 2 and len(req(action="supprimer", etat=e0, index=0)["etat"]["elements"]) == 1)
-mixte = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [P.barre_neuve("Solive"), barre(nom="Panne", maintiens=[])]})
+# (la solive : s_s et c saisis, l'âme décide — sans eux, elle serait « à vérifier » : brief § 8.3, point 5)
+mixte = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
+                                                                          barre(nom="Panne", maintiens=[])]})
 chk("le résumé de la NOTE est sa barre la plus chargée, son état le moins bon ; chaque barre a la couleur de son état dans la liste",
     mixte["resume"]["niveau"] == "r" and mixte["resume"]["taux"] == 179 and mixte["resume"]["gouvernant"].startswith("Panne · IPE 300 · flexion")
     and 'class="status r"' in mixte["statut_html"] and re.findall(r'<span class="nom et-n-(\w+)">', mixte["donnees"]) == ["ok", "nok"], mixte["resume"])

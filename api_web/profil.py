@@ -360,8 +360,8 @@ def _charge_neuve(type_: str, L: float, ancienne: Optional[Dict] = None) -> Dict
             ch["sens"] = (ancienne or {}).get("sens", "croissante")
         return ch
     a = ancienne["a"] if ancienne and "b" not in ancienne else (round(0.5 * (ancienne["a"] + ancienne["b"]), 3) if ancienne else round(L / 2.0, 3))
-    if type_ == "P":                         # (sa longueur d'appui rigide, en mm : 0 tant qu'elle n'est pas saisie)
-        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss", 0.0)}
+    if type_ == "P":                         # (sa longueur d'appui rigide, en mm : None tant qu'elle n'est pas saisie — jamais supposée)
+        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss")}
     return {"type": type_, "v": v, "a": a}
 
 

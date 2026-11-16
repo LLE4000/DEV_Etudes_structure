@@ -232,7 +232,8 @@ def _resume_appuis(el: Dict) -> str:
     ap = el["appuis"]
     if ap["mode"] != "poses":
         return M.NOM_MODE_APPUI[ap["mode"]]
-    return f"{M.NOM_MODE_APPUI['poses']} · s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" + (f" · c {M.n(ap['c'], 0)}{N}mm" if ap["c"] else "")
+    ss = f"s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" if ap["ss"] is not None else "s<sub>s</sub> à fournir"
+    return f"{M.NOM_MODE_APPUI['poses']} · {ss}" + (f" · c {M.n(ap['c'], 0)}{N}mm" if ap["c"] else "")
 
 
 # ------------------------------------------------------------------ 5 · les méthodes
