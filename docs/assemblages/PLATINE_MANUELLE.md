@@ -15,7 +15,9 @@ RHS, sans raidisseur), et l'outil le dit.
 Les logiciels d'ancrage (Spit, Hilti) donnent les efforts des tiges et
 vérifient le béton ; ils ne vérifient pas la platine, ou la cachent dans un
 calcul par éléments finis. Ici le verdict porte sur la **platine** ; les tiges
-(acier) et l'appui (fjd) sont donnés en information, pour comparer.
+(acier) et l'appui (fjd) sont donnés en information, pour comparer — mais au-delà de 100 %, ils ne laissent plus
+« Conforme » : la platine est « À VÉRIFIER », avec la raison courte (« tiges à 324,6 %, hors périmètre du calcul
+manuel » ; `manuel/moteur.a_verifier_manuel`, brief v12 § 19.1 point 4).
 
 Code : `acier/assemblages/pied_poteau/platine_beton/manuel/` — `elements.py`
 (géométrie des éléments et raidisseurs), `console.py` (bandes comprimées),

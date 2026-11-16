@@ -233,17 +233,24 @@ class Note:
         d.line(M, y, W - M, y, S.ink, 1.0)
         y -= 15
         etat_ok = R.verified
-        w = chip(d, M, y - 3.2, "VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ", S.f_v, 6.6, "#FFFFFF", S.ok if etat_ok else S.ko)
+        # « À VÉRIFIER » (ocre) : un contrôle hors périmètre au-delà de 100 % nommé par le moteur (``R.a_verifier``, pied
+        # de poteau — brief v12 § 19.1 point 4) ; jamais « VÉRIFIÉ » en vert dans ce cas
+        a_verif = bool(etat_ok and R.get("a_verifier"))
+        col = S.att if a_verif else (S.ok if etat_ok else S.ko)
+        w = chip(d, M, y - 3.2, "À VÉRIFIER" if a_verif else ("VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ"), S.f_v, 6.6,
+                 "#FFFFFF", col)
         x = M + w + 8
         t1 = "η max " + pct(R.eta_max, 1)
-        d.t(x, y, t1, "Carlito-Bold", 8.6, S.ok if etat_ok else S.ko)
+        d.t(x, y, t1, "Carlito-Bold", 8.6, col)
         x += d.w(t1, "Carlito-Bold", 8.6) + 5
         t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + self.ref(R.gov.ref) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
             t2 += " · Tableau 3.3 non conforme"
-        if R.verified and (R.reserve or R.alerts):
+        if a_verif:
+            t2 += " · à vérifier : " + R.a_verifier
+        elif R.verified and (R.reserve or R.alerts):
             t2 += " · sous réserve des points signalés"
         pieces = []
         for nom, eta, ok, _ in self.SYN.taux_par_element(R):

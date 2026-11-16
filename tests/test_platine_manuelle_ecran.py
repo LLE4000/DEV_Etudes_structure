@@ -189,7 +189,7 @@ print("\n=== 3. Bascule de mode ===")
 at.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at)
 chk("vers la vérification complète : grille 2 × 2 de 400 et HEA 300 repris, bandeau PIED DE POTEAU",
     at.session_state["ppb_mode"] == MODE_COMPLET and float(at.session_state["ppb_w_x"]) == 400.0
-    and at.session_state["ppb_prof_c"] == "HEA 300" and "PIED DE POTEAU VÉRIFIÉ" in md(at))
+    and at.session_state["ppb_prof_c"] == "HEA 300" and "PIED DE POTEAU À VÉRIFIER" in md(at))   # lot B : béton d'ancrage à 107,7 %
 chk("le choix du mode est aussi dans l'en-tête de l'écran complet (segmented_control)",
     any(x.key == "ppb_mode" for x in at.segmented_control) and not any(x.key == "ppb_crit" for x in at.segmented_control))
 # Dans l'écran complet, wy est une COTE du dessin (jamais un champ de la carte) : le message du composant,

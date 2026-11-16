@@ -92,7 +92,7 @@ TITRES_ALERTES = {
     "comp_dom": "N > 2·FC,Rd : niveau 1 hors domaine, le niveau 2 renseigne",
     "fend": "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8)",
     "rig": "Rigidité du pied (information)",
-    "ancr_info": "Béton d'ancrage (EN 1992-4) non satisfait — hors périmètre, en information",
+    "ancr_info": "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier",
     "eta_info": "Tige post-installée : valeurs de l'ETA à reporter du document (ψg,Np = 1)",
     "c_ecret": "Bande c écrêtée par la platine : niveau 1 conservatif (platine épaisse)",
     # calcul manuel
@@ -101,8 +101,8 @@ TITRES_ALERTES = {
     "aucun_b": "Impossible — aucun boulon",
     "plein": "Appui sur toute la platine : approximation entre les ailes et au-delà des abouts",
     "exc": "Efforts excentrés : N·e ajouté aux moments",
-    "tige_info": "Un boulon dépasse sa résistance en traction (information, hors verdict)",
-    "fjd_info": "Pression sous la platine supérieure à fjd (information, hors verdict)",
+    "tige_info": "Un boulon dépasse sa résistance en traction — hors calcul manuel, à vérifier",
+    "fjd_info": "Pression sous la platine supérieure à fjd — hors calcul manuel, à vérifier",
 }
 _TITRES_PREFIXES = [("elem_", "Impossible — élément soudé mal dimensionné"), ("hors_", "Impossible — élément hors de la platine"),
                     ("raidh_", "Impossible — raidisseur hors de la platine"), ("raid_", "Impossible — raidisseur sans longueur ou épaisseur"),

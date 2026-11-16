@@ -132,6 +132,13 @@ l'outil (VAL-A), sans exemple publié rejoué. D'où deux décisions :
   entrer dans le verdict (comportement du lot A). Le statut le dit :
   « VÉRIFIÉ (EC3 — béton d'ancrage en information) ». Ce que le périmètre
   EC3 ne garantit donc PAS : cône, arrachement, bord, pry-out, fendage.
+  **Lot B (brief v12 § 19.1 point 4)** : un béton d'ancrage hors périmètre
+  au-delà de 100 % ne laisse plus « Conforme » : le moteur nomme la raison
+  (`R.a_verifier`, « béton d'ancrage à 107,7 %, hors périmètre EC3 »), le
+  statut devient « PIED DE POTEAU À VÉRIFIER (…) », le bandeau de l'écran et
+  de la note passe en ORANGE « À vérifier », le récapitulatif aussi. Les
+  contrôles « pour information » d'une méthode plus prudente (`fc2`, `bet`)
+  n'y entrent pas.
 - **Épaisseur requise** (`R.plaque`, vérification `tpq`, en tête du tableau
   Platine et du bloc « Épaisseur de la platine — le calcul à la main ») :
   `tp ≥ max(tc ; tN ; tM ; tT)` —
@@ -154,7 +161,7 @@ Sur l'exemple du bureau (périmètre EC3) : console comprimée `mEd = 11,5
 kNm/m` sur `c = 59 mm` → `tc = 14,0 mm` ; tronçon en T `M = 43,2 kN × 45,9
 mm = 1,98 kNm`, `Σleff,1 = 150 mm` → `tT = 8,6 mm` ; appui `tN = 4,0` ;
 niveau 1 `tM = 11,1` ; **épaisseur requise 14,0 mm pour tp = 25 (56 %)**,
-VÉRIFIÉ — le béton d'ancrage à 108 % reste dit en information.
+VÉRIFIÉ pour l'EC3, mais **À VÉRIFIER** (lot B) : le béton d'ancrage est à 107,7 %, hors périmètre.
 
 ## 8 · Lot C — validation, tiges post-installées, ce qui reste ouvert
 

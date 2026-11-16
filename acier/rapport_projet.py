@@ -31,9 +31,10 @@ from ndc_pdf.styles import Encre
 A4P, A4L = A4, landscape(A4)
 TITRE = "Assemblages métalliques"
 BUREAU = "Bureau d'Études Valens · Note de calcul"
-LEGENDE = ("Vert : vérifié   ·   Ocre : vérifié sous réserve des alertes   ·   "
+LEGENDE = ("Vert : vérifié   ·   Ocre : vérifié sous réserve des alertes, ou à vérifier   ·   "
            "Rouge : non vérifié ou calcul impossible")
-ETATS = {"ok": "Vérifié", "att": "Sous réserve", "ko": "Non vérifié", "err": "Calcul impossible"}
+# « av » : à vérifier — un contrôle hors périmètre au-delà de 100 % (pied de poteau, brief v12 § 19.1 point 4)
+ETATS = {"ok": "Vérifié", "att": "Sous réserve", "av": "À vérifier", "ko": "Non vérifié", "err": "Calcul impossible"}
 CAP_RECAP = 20                     # assemblages par page du récapitulatif (deux lignes
                                    # chacun, pas de 32 pt ; 654 pt utiles sous l'en-tête)
 TITRE_RECAP = "Récapitulatif des assemblages"
@@ -73,6 +74,8 @@ def etat_de(R):
     if R is None:
         return "err"
     if R.verified:
+        if R.get("a_verifier"):
+            return "av"
         return "att" if (R.reserve or R.alerts) else "ok"
     return "ko"
 
@@ -120,7 +123,7 @@ def notes(projet, infos):
 
 
 def _couleur(style, etat):
-    return {"ok": style.ok, "att": style.att, "ko": style.ko}.get(etat, style.mut)
+    return {"ok": style.ok, "att": style.att, "av": style.att, "ko": style.ko}.get(etat, style.mut)
 
 
 def lignes_sommaire(elems, style):

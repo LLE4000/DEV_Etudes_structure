@@ -209,14 +209,18 @@ class Note(_np.Note):
     def conclusion(self, d, x, w):
         S, R = self.S, self.R
         statut = "PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ"
-        if R.perim_ec3:
+        if R.verified and R.get("a_verifier"):
+            # brief v12 § 19.1 point 4 : un contrôle hors périmètre au-delà de 100 % — « À VÉRIFIER », en ocre
+            txt = ("PIED DE POTEAU À VÉRIFIER : " + R.a_verifier + " ; vérifié à l'ELU selon EN 1993-1-8 §6.2.5 et "
+                   "§6.2.8 " + self.NORME + " pour le reste.")
+        elif R.perim_ec3:
             txt = (statut + " à l'ELU selon EN 1993-1-8 §6.2.5 et §6.2.8 " + self.NORME + " — le béton d'ancrage "
                    "(EN 1992-4) est donné en information et ne fait pas partie du verdict"
                    + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
         else:
             txt = (statut + " à l'ELU selon EN 1993-1-8 §6.2.8, EN 1992-1-1 §6.7 et EN 1992-4 " + self.NORME
                    + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
-        col = S.ok if R.verified else S.ko
+        col = S.att if (R.verified and R.get("a_verifier")) else (S.ok if R.verified else S.ko)
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS

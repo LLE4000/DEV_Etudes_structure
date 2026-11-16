@@ -45,14 +45,16 @@ _COTE_DE = {v: k for k, v in list(schemas.CLE_PAR_COTE.items()) + list(CLE_PAR_C
 # ------------------------------------------------------------------ bandeau
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
+    # « À VÉRIFIER » (brief v12 § 19.1 point 4) : R.statut le dit déjà, avec sa raison ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
     # la dimensionnante nommée comme dans la note (synthese.court), plus le libellé du moteur (88 caractères)
     comp = "— " + pct(R.eta_max, 1) + (" · " + synthese.court(R.gov) if R.gov else "")
     if not R.geo_ok:
         comp += " · géométrie non valide"
     if not R.dist_ok:
         comp += " · pinces non conformes"
-    bloc_statut_ligne("ok" if ok else "nok", titre, comp,
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, comp,
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
 
 

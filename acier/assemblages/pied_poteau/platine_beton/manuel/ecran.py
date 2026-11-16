@@ -346,8 +346,10 @@ def chips_bandeau(R):
 
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
-    bloc_statut_ligne("ok" if ok else "nok", titre, complement_bandeau(R), chips_bandeau(R))
+    # « À VÉRIFIER » (brief v12 § 19.1 point 4) : R.statut le dit déjà, avec sa raison ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, complement_bandeau(R), chips_bandeau(R))
 
 
 def information(R):

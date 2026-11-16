@@ -246,11 +246,15 @@ class Note(_np.Note):
         # la conclusion dit le critère RETENU (défaut élastique depuis le 31/10/2026, charte §12)
         selon = ("selon Von Mises ≤ fy/γM0 (critère élastique), EN 1993-1-8 §6.2.5 (bande comprimée)" if R.elastique
                  else "selon EN 1993-1-8 §6.2.4 (tronçons en T), §6.2.5 (bande comprimée)")
-        txt = (("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : épaisseur requise " + req
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        tete = ("PLATINE À VÉRIFIER (calcul manuel) — " + R.a_verifier + " — " if a_verif
+                else ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : ")
+        txt = (tete + "épaisseur requise " + req
                + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, " + selon
                + " et Tableau 3.4 " + self.NORME + " — tiges et béton d'ancrage en "
-               "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
-        col = S.ok if R.verified else S.ko
+               "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts)
+                                and not a_verif else "."))
+        col = S.att if a_verif else (S.ok if R.verified else S.ko)
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS
