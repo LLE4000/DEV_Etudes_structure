@@ -33,7 +33,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.flambement import normes as NO
 
-from . import section as SE
+from . import ec3_ame as AM
 from .resultat import NOK, Journal, fr as _fr, terme as _t
 
 REF = "EN 1993-1-5"
@@ -51,12 +51,18 @@ RIGIDITE = 0.75                                    # I_st ≥ 0,75·h_w·t³ qua
 def gabarit(s: Dict) -> Optional[Dict]:
     """La place d'un raidisseur dans un I ou un H : {"hw", "bs_max", "chanfrein"} (mm) ; None pour une autre forme, ou
     un profilé dont la demi-semelle ne laisse aucun contact une fois le chanfrein ôté."""
-    hw = SE.hauteur_ame(s)
+    hw = AM.hw_de(s)
     if hw is None or not s.get("b") or not s.get("tw"):
         return None
-    conge = s.get("r") or s["tw"]                              # (un IPN : son congé r₁ vaut t_w — le catalogue ne le range pas sous « r »)
+    prs = s.get("prs")
+    if prs:                                                    # un PRS : le chanfrein dégage le cordon âme-semelle (côté a·√2) ;
+        conge = prs["a"] * math.sqrt(2.0) if prs.get("a") else s["tw"]       # gorge non saisie : t_w (À VÉRIFIER)
+        b = min(prs["b1"], prs["b2"])                          # le plat ne dépasse pas la plus étroite des deux semelles
+    else:
+        conge = s.get("r") or s["tw"]                          # (un IPN : son congé r₁ vaut t_w — le catalogue ne le range pas sous « r »)
+        b = s["b"]
     chanfrein = PAS * math.ceil(conge / PAS - 1e-9)
-    bs_max = PAS * math.floor((s["b"] - s["tw"]) / 2.0 / PAS + 1e-9)
+    bs_max = PAS * math.floor((b - s["tw"]) / 2.0 / PAS + 1e-9)
     if bs_max - chanfrein < PAS:
         return None
     return {"hw": hw, "bs_max": bs_max, "chanfrein": chanfrein}

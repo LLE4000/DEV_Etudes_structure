@@ -86,7 +86,7 @@ def brut(nom):
 
 
 # ------------------------------------------------------------------ les témoins, écrits depuis le texte de la norme
-def frd_temoin(h, b, tw, tf, fy, ss, type_, c=0.0, gM1=1.0, contact=False, fyw=None):
+def frd_temoin(h, b, tw, tf, fy, ss, type_, c=0.0, gM1=1.0, contact=False, fyw=None, hw=None):
     """F_Rd (kN) d'une âme sous une force concentrée — EN 1993-1-5 § 6, sans une fonction du moteur, écrit depuis le texte
     et les règles déclarées du brief (§ 8.2, lot A du 16/11/2026) :
     - m₂ : les DEUX branches — m₂ = 0 retenue seulement si λ̄_F ≤ 0,5, m₂ = 0,02·(h_w/t_f)² seulement si λ̄_F > 0,5 ; la plus
@@ -95,7 +95,7 @@ def frd_temoin(h, b, tw, tf, fy, ss, type_, c=0.0, gM1=1.0, contact=False, fyw=N
       plafond s_s + c de l_e gardent s_s (commentaire JRC EUR 22898, p. 79) ;
     - λ̄_F avec la f_y de l'âme ``fyw`` (brief § 7.1), F_Rd et l_e avec la f_y de calcul ``fy``."""
     fyw = fy if fyw is None else fyw
-    hw = h - 2.0 * tf
+    hw = h - 2.0 * tf if hw is None else hw                # un PRS : l'âme saisie entre ses semelles
     ss = min(ss, hw)
     kF = {"a": 6.0, "b": 3.5}.get(type_) or min(2.0 + 6.0 * (ss + c) / hw, 6.0)
     Fcr = 0.9 * kF * E_ACIER * tw ** 3 / hw
@@ -146,6 +146,23 @@ def raidisseur_temoin(nom, fy, ts, cotes=None, fy_plat=None, fy_ame=None):
         phi = 0.5 * (1.0 + 0.49 * (lam - 0.2) + lam ** 2)
         chi = min(1.0 / (phi + math.sqrt(phi ** 2 - lam ** 2)), 1.0)
     return bs, ch, Nc, Ast, Ist, chi * Ast * fyd / 1e3
+
+
+def prs_section(b1, t1, hw, tw, b2, t2, a=None, fabrication=None):
+    """Une section PRS en I selon le CONTRAT de acier/barre/prs.py (règles du lot B, § 4 ; écrit par le bloc B2) : le
+    format de acier/barre/section.py (forme « I ») et « prs », « eta », « monosymetrique », « z_g » — propriétés sur les
+    trois rectangles, cordons non comptés (brief § 18.4). ``fabrication`` None : les bords des semelles ne sont pas saisis."""
+    h = t1 + hw + t2
+    A = b1 * t1 + hw * tw + b2 * t2
+    zg = (b2 * t2 * t2 / 2.0 + hw * tw * (t2 + hw / 2.0) + b1 * t1 * (t2 + hw + t1 / 2.0)) / A
+    Iy = (b2 * t2 ** 3 / 12.0 + b2 * t2 * (zg - t2 / 2.0) ** 2 + tw * hw ** 3 / 12.0 + hw * tw * (t2 + hw / 2.0 - zg) ** 2
+          + b1 * t1 ** 3 / 12.0 + b1 * t1 * (h - t1 / 2.0 - zg) ** 2)
+    Iz = t1 * b1 ** 3 / 12.0 + hw * tw ** 3 / 12.0 + t2 * b2 ** 3 / 12.0
+    s = SE.saisie("I", "soude_oxycoupe", h=h, b=max(b1, b2), tw=tw, tf=max(t1, t2), r=0.0, A=A, Iy=Iy, Iz=Iz, iy=math.sqrt(Iy / A),
+                  iz=math.sqrt(Iz / A), Wel_y=Iy / max(zg, h - zg), Avz=1.2 * hw * tw, Avy=A - hw * tw)
+    s.update(fabrication=fabrication, prs={"b1": b1, "t1": t1, "hw": hw, "tw": tw, "b2": b2, "t2": t2, "a": a}, eta=1.2,
+             monosymetrique=(b1, t1) != (b2, t2), z_g=zg)
+    return s
 
 
 R2 = dict(poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), P_(10.0, 3.0, 100.0)]},
@@ -283,6 +300,41 @@ def controles(M=None):
       proche(am.eta1(100e3, 50e6, s300["A"], s300["Wel_y"], 235.0, 1.0), 100e3 / (s300["A"] * 235.0) + 50e6 / (s300["Wel_y"] * 235.0))
       and proche(am.eta1(-100e3, -50e6, s300["A"], s300["Wel_y"], 235.0, 1.0), am.eta1(100e3, 50e6, s300["A"], s300["Wel_y"], 235.0, 1.0))
       and proche(am.interaction(0.6, 0.5), (0.6 + 0.8 * 0.5) / 1.4))
+
+    # ---- 1 bis. (lot B) les PRS en I — brief § 18.5 dernier point, § 8.2, test 22 du § 11.5 (partie PRS), PRS-A du § 11.8
+    sA = prs_section(300.0, 30.0, 540.0, 15.0, 300.0, 30.0, a=6.0)
+    eA = am.elancement(sA, 345.0, Pm, fy_ame=355.0)
+    c("PRS-A (300 × 30, 540 × 15, S355 ; bords des semelles NON saisis : « fabrication » None) : section soudée → η = 1,20 (NBN EN 1993-1-5 "
+      "ANB:2011, 5.1(2) et sa note) ; A_v,z = 1,2·540·15 = 9 720 mm² ; h_w/t_w = 36,0 ≤ 72·ε_w/η = 72·0,8136/1,2 = 48,82 (ε de l'âme de 15 mm, "
+      "355) : pas de voilement par cisaillement à vérifier",
+      am.eta_de(sA, Pm) == 1.2 and am.est_soude(sA) and sA["Avz"] == 9720.0 and eA["eta"] == 1.2 and eA["rapport"] == 36.0
+      and round(eA["limite"], 2) == 48.82 and not eA["elancee"] and proche(sA["A"], 26100.0) and round(sA["Iy"] / 1e6, 2) == 1660.23, eA)
+    sC = prs_section(300.0, 30.0, 1420.0, 25.0, 500.0, 50.0)
+    aH, aB = am.ame_de(sC, "haut"), am.ame_de(sC, "bas")
+    rH = am.resistance(aH, 215.0, Pm, 100.0, "a", fy_ame=225.0)
+    rB = am.resistance(aB, 215.0, Pm, 100.0, "a", fy_ame=225.0)
+    c("PRS monosymétrique (PRS-C : 300 × 30, 1 420 × 25, 500 × 50) : h_w = 1 420 mm, l'âme ENTRE semelles (et non h − 2·t_f = 1 400) ; sous la "
+      "semelle haute, b_f = 300 et t_f = 30 (m₁ = 12) ; sous la basse, 500 et 50 (m₁ = 20) — F_Rd = le témoin, semelle par semelle",
+      am.hw_de(sC) == 1420.0 and (aH["bf"], aH["tf"], aB["bf"], aB["tf"]) == (300.0, 30.0, 500.0, 50.0) and rH["m1"] == 12.0 and rB["m1"] == 20.0
+      and proche(rH["FRd"] / 1e3, frd_temoin(sC["h"], 300.0, 25.0, 30.0, 215.0, 100.0, "a", fyw=225.0, hw=1420.0))
+      and proche(rB["FRd"] / 1e3, frd_temoin(sC["h"], 500.0, 25.0, 50.0, 215.0, 100.0, "a", fyw=225.0, hw=1420.0)) and rB["FRd"] > rH["FRd"], (rH, rB))
+    Lb = {"dispo": (5000.0, 5000.0), "ss": {"haut": 100.0, "bas": 100.0}}
+    rb = M["ame"].resistances(Lb, sC, 215.0, Pm, 225.0)
+    c("… la force transmise d'une semelle à l'autre (type b) prend la semelle qui donne la PLUS PETITE F_Rd (choix prudent déclaré, brief § 8.2) : "
+      "la semelle haute (300 × 30)",
+      rb["b"]["type"] == "b" and rb["b"]["ame"]["bf"] == 300.0 and proche(rb["b"]["FRd"], am.resistance(aH, 215.0, Pm, 100.0, "b", fy_ame=225.0)["FRd"])
+      and rb["b"]["FRd"] < am.resistance(aB, 215.0, Pm, 100.0, "b", fy_ame=225.0)["FRd"] and rb["haut"]["ame"]["tf"] == 30.0 and rb["bas"]["ame"]["tf"] == 50.0, rb["b"])
+    mf = am.moment_semelles(sC, 215.0, 1.0)
+    smC = am.semelle(sC, 215.0, Pm, fy_semelle=235.0)
+    c("… M_f,Rd des seules semelles (§ 7.1) : la plus petite (300 × 30 = 9 000 mm²) sur h_f = 1 500 − 15 − 25 = 1 460 mm ; un laminé garde "
+      "b·t_f·(h − t_f) ; voilement induit par la semelle (§ 8) avec la PLUS GRANDE semelle (500 × 50 : NBN EN 1993-1-5 ANB:2011, 8(2)) et f_yf",
+      mf["Af"] == 9000.0 and mf["hf"] == 1460.0 and proche(mf["Mf"], 9000.0 * 1460.0 * 215.0)
+      and proche(am.moment_semelles(s300, 235.0, 1.0)["Mf"], 150.0 * 10.7 * (300.0 - 10.7) * 235.0)
+      and (smC["bf"], smC["tf"]) == (500.0, 50.0) and proche(smC["limite"], 0.4 * E_ACIER / 235.0 * math.sqrt(1420.0 * 25.0 / (500.0 * 50.0))), (mf, smC))
+    gA, gC = ra.gabarit(sA), ra.gabarit(sC)
+    c("… le raidisseur d'un PRS : chanfrein qui dégage le cordon (a·√2 = 8,5 → 10 mm ; gorge non saisie : t_w = 25) ; largeur prise sur la plus "
+      "ÉTROITE semelle ((300 − 25)/2 → 135 mm) ; hauteur h_w = 1 420",
+      (gA["chanfrein"], gA["bs_max"], gA["hw"]) == (10.0, 140.0, 540.0) and (gC["chanfrein"], gC["bs_max"], gC["hw"]) == (25.0, 135.0, 1420.0), (gA, gC))
 
     # ---- 2. le voilement par cisaillement (lot A : η = 1,00 pour un laminé — l'IPE 750x147 S355, élancé avec η = 1,20, ne l'est
     #      plus ; l'IPE 750x134 S355 l'est encore)
@@ -719,8 +771,21 @@ MUTATIONS = [
     ("ec3_ame", "lot A — type (c) : le contact supposé établi (s_s dans (6.10))", '    ss610 = ss if (type_ != "c" or contact) else 0.0', "    ss610 = ss"),
     ("ec3_ame", "lot A — type (c) : s_s ôté aussi de k_F", "    brut = 2.0 + 6.0 * (ss + c) / hw", "    brut = 2.0 + 6.0 * (ss610 + c) / hw"),
     ("ec3_ame", "lot A — λ̄_F avec la f_y de calcul (et non celle de l'âme)", '        lF = math.sqrt(L["ly"] * tw * fyw / Fcr)', '        lF = math.sqrt(L["ly"] * tw * fy / Fcr)'),
-    ("ec3_ame", "lot A — η des sections soudées pour un laminé", '    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]', '    return P["eta_soude"]'),
-    ("ec3_ame", "lot A — η = 1 pour une section soudée", '    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]', '    return P["eta"]'),
+    ("ec3_ame", "lot A — η des sections soudées pour un laminé", '    return P["eta_soude"] if est_soude(s) else P["eta"]', '    return P["eta_soude"]'),
+    ("ec3_ame", "lot A — η = 1 pour une section soudée", '    return P["eta_soude"] if est_soude(s) else P["eta"]', '    return P["eta"]'),
+    ("ec3_ame", "lot B — un PRS aux bords non saisis pris pour un laminé (η = 1,00)", '    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA',
+     '    return s.get("fabrication") in SOUDES_ETA'),
+    ("ec3_ame", "lot B — h_w d'un PRS : h − 2·t_f", '    if s.get("forme") == "I" and p and p.get("hw"):', "    if False:"),
+    ("ec3_ame", "lot B — les semelles d'un PRS ignorées (b et t_f de la section)", '    if p:\n        return {"haut": {"bf": float(p["b1"])',
+     '    if False:\n        return {"haut": {"bf": float(p["b1"])'),
+    ("ec3_ame", "lot B — M_f,Rd avec la plus GRANDE semelle", '    Af = min(x["bf"] * x["tf"] for x in sm.values())', '    Af = max(x["bf"] * x["tf"] for x in sm.values())'),
+    ("ec3_ame", "lot B — § 8 avec la plus petite semelle (ANB 8(2) oubliée)", '    fl = max(semelles_de(s).values(), key=lambda x: x["bf"] * x["tf"])',
+     '    fl = min(semelles_de(s).values(), key=lambda x: x["bf"] * x["tf"])'),
+    ("ec3_ame", "lot B — § 8 avec la f_y de calcul (et non celle des semelles)", "    fyf = fy if fy_semelle is None else float(fy_semelle)", "    fyf = fy"),
+    ("ame", "lot B — force transmise d'un PRS : la semelle qui donne la plus GRANDE F_Rd", '        out["b"] = min(essais, key=lambda r: r["FRd"])',
+     '        out["b"] = max(essais, key=lambda r: r["FRd"])'),
+    ("raidisseurs", "lot B — raidisseur d'un PRS : largeur prise sur la plus large semelle", '        b = min(prs["b1"], prs["b2"])', '        b = max(prs["b1"], prs["b2"])'),
+    ("raidisseurs", "lot B — raidisseur d'un PRS : chanfrein sans le cordon", '        conge = prs["a"] * math.sqrt(2.0) if prs.get("a") else s["tw"]', '        conge = s["tw"]'),
     ("ec3_ame", "lot A — les caissons soudés comptés parmi les laminés (η = 1,00)", 'SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")', "SOUDES_ETA = SOUDES"),
     ("ec3_ame", "lot A — 72·ε/η avec l'ε de la f_y de calcul", "    fyw = fy if fy_ame is None else float(fy_ame)\n    eta, eps = eta_de(s, P), NO.epsilon(fyw)",
      "    fyw = fy\n    eta, eps = eta_de(s, P), NO.epsilon(fyw)"),
@@ -743,7 +808,7 @@ MUTATIONS = [
     ("ec3_ame", "un tube : une seule âme", '"n": 1 if s["forme"] == "I" else 2,', '"n": 1,'),
     ("ec3_ame", "interaction (7.1) vérifiée dès 0 (seuil 0,5 perdu)", "SEUIL_ETA3 = 0.5 ", "SEUIL_ETA3 = 0.0 "),
     ("ec3_ame", "interaction (7.1) : (η̄₃ − 1)²", "    v = eta1b + (1.0 - Mf / Mpl) * (2.0 * eta3 - 1.0) ** 2", "    v = eta1b + (1.0 - Mf / Mpl) * (eta3 - 1.0) ** 2"),
-    ("ec3_ame", "interaction (7.1) : M_f,Rd avec h", '    Mf = s["b"] * s["tf"] * (s["h"] - s["tf"]) * fy / gM0', '    Mf = s["b"] * s["tf"] * s["h"] * fy / gM0'),
+    ("ec3_ame", "interaction (7.1) : M_f,Rd avec h", '    hf = s["h"] - sm["haut"]["tf"] / 2.0 - sm["bas"]["tf"] / 2.0', '    hf = s["h"]'),
     ("ec3_ame", "interaction (7.1) sous effort normal : rendue sans le dire", '    if s["forme"] != "I" or N != 0:', '    if s["forme"] != "I":'),
     ("ec3_ame", "voilement induit par la semelle : k = 4", "K_SEMELLE = 0.4 ", "K_SEMELLE = 0.004 "),
     ("raidisseurs", "lot A — le plat à la f_y de la barre (épaisseur oubliée)", '    fyp = fy if nuance is None else NO.limite_elastique(nuance, ts, produit="lamine")', "    fyp = fy"),
@@ -764,7 +829,7 @@ MUTATIONS = [
     ("raidisseurs", "aire du raidisseur : un seul plat", "    Ast = 2.0 * bs * ts + lw * tw", "    Ast = bs * ts + lw * tw"),
     ("raidisseurs", "plat : 14·ε → 20·ε", "ELANCEMENT_PLAT = 14.0 ", "ELANCEMENT_PLAT = 20.0 "),
     ("raidisseurs", "torsion du plat oubliée", "    return min(ELANCEMENT_PLAT * NO.epsilon(fy), math.sqrt(E / (TORSION * fy) - 0.25))", "    return ELANCEMENT_PLAT * NO.epsilon(fy)"),
-    ("raidisseurs", "le plat dépasse la semelle (largeur b/2)", '    bs_max = PAS * math.floor((s["b"] - s["tw"]) / 2.0 / PAS + 1e-9)', '    bs_max = PAS * math.floor(s["b"] / 2.0 / PAS + 1e-9) + PAS'),
+    ("raidisseurs", "le plat dépasse la semelle (largeur b/2)", '    bs_max = PAS * math.floor((b - s["tw"]) / 2.0 / PAS + 1e-9)', '    bs_max = PAS * math.floor(b / 2.0 / PAS + 1e-9) + PAS'),
     ("raidisseurs", "chanfrein arrondi vers le bas", "    chanfrein = PAS * math.ceil(conge / PAS - 1e-9)", "    chanfrein = PAS * math.floor(conge / PAS)"),
     ("raidisseurs", "un IPN sans chanfrein (son congé n'est pas sous « r »)", '    conge = s.get("r") or s["tw"] ', '    conge = s.get("r") or 0.0 '),
     ("raidisseurs", "la première épaisseur rendue sans la vérifier", "        if p[\"ok\"]:\n            return p", "        if True:\n            return p"),
@@ -781,7 +846,7 @@ MUTATIONS = [
     ("ame", "le débord de rive oublié", '            return ap["ss"] / 2.0 + ap["c"]', '            return ap["ss"] / 2.0'),
     ("ame", "type (a) partout (le bout de la barre ignoré)", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "a"'),
     ("ame", "type (c) partout", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "c"'),
-    ("ame", "force transmise (type b) jamais vérifiée", "    if len(out) == 2:\n        out[\"b\"]", "    if len(out) == 99:\n        out[\"b\"]"),
+    ("ame", "force transmise (type b) jamais vérifiée", "    if len(out) == 2:\n        essais", "    if len(out) == 99:\n        essais"),
     ("ame", "force transmise : la plus GRANDE des deux", '                essais.append(("b", min(o["haut"], o["bas"])))', '                essais.append(("b", max(o["haut"], o["bas"])))'),
     ("ame", "moment de l'interaction lu d'un seul côté", '"M": max(abs(e["M_g"]), abs(e["M_d"]))})', '"M": 0.0})'),
     ("ame", "raidisseur décidé sur η₂ seul (l'interaction oubliée)", '        elif pire["inter"] is not None and pire["inter"] > 1.0:', '        elif False:'),

@@ -73,18 +73,54 @@ SOUDES = ("soude_oxycoupe", "soude_larges_plats")                 # les I soudé
 SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")              # les sections soudées chargées dans le plan de l'âme
 
 
+def est_soude(s: Dict) -> bool:
+    """Une section SOUDÉE chargée dans le plan de l'âme : un PRS (contrat acier/barre/prs.py : la clé « prs », quelle que
+    soit sa « fabrication », None tant que les bords des semelles ne sont pas saisis), un I soudé, un caisson."""
+    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA
+
+
 def eta_de(s: Dict, P: Dict) -> float:
-    """η de la section (NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire ; brief § 7.5 et § 8) : « eta_soude »
-    (1,20) pour une section SOUDÉE — I soudé, caisson —, « eta » (1,00) pour un I ou H laminé et un tube."""
-    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]
+    """η de la section (NBN EN 1993-1-5 ANB:2011, 5.1(2), et sa note complémentaire qui renvoie au 6.2.6(3) de
+    l'EN 1993-1-1 ; brief § 8) : « eta_soude » (1,20) pour une section SOUDÉE — PRS, I soudé, caisson —, « eta » (1,00)
+    pour un I ou H laminé et un tube."""
+    return P["eta_soude"] if est_soude(s) else P["eta"]
 
 
-def ame_de(s: Dict) -> Optional[Dict]:
-    """L'âme d'un I ou d'un H pour les charges concentrées : {"hw", "tw", "tf", "bf"} (mm) ; None pour une autre forme."""
-    hw = SE.hauteur_ame(s)
+def hw_de(s: Dict) -> Optional[float]:
+    """h_w, la hauteur de l'âme ENTRE SEMELLES d'un I (mm) : celle saisie d'un PRS (s["prs"]["hw"] : ses deux semelles
+    peuvent différer d'épaisseur), h − 2·t_f d'un laminé ; None pour une autre forme."""
+    p = s.get("prs")
+    if s.get("forme") == "I" and p and p.get("hw"):
+        return float(p["hw"])
+    return SE.hauteur_ame(s)
+
+
+def semelles_de(s: Dict) -> Dict[str, Dict]:
+    """Les deux semelles d'un I : {"haut": {"bf", "tf"}, "bas": {…}} (mm) — celles d'un PRS (1 = semelle haute dans la
+    barre posée), les mêmes deux fois pour un laminé."""
+    p = s.get("prs")
+    if p:
+        return {"haut": {"bf": float(p["b1"]), "tf": float(p["t1"])}, "bas": {"bf": float(p["b2"]), "tf": float(p["t2"])}}
+    return {k: {"bf": s["b"], "tf": s["tf"]} for k in ("haut", "bas")}
+
+
+def ame_de(s: Dict, cote: str = "haut") -> Optional[Dict]:
+    """L'âme d'un I ou d'un H pour les charges concentrées, chargée par la semelle ``cote`` (« haut » | « bas ») :
+    {"hw", "tw", "tf", "bf"} (mm ; b_f et t_f de la semelle CHARGÉE, brief § 8.2) ; None pour une autre forme."""
+    hw = hw_de(s)
     if hw is None or not s.get("tw") or not s.get("b"):
         return None
-    return {"hw": hw, "tw": s["tw"], "tf": s["tf"], "bf": s["b"]}
+    sm = semelles_de(s)[cote]
+    return {"hw": hw, "tw": s["tw"], "tf": sm["tf"], "bf": sm["bf"]}
+
+
+def moment_semelles(s: Dict, fy: float, gM0: float) -> Dict:
+    """M_f,Rd, le moment résistant des SEULES semelles (§ 5.4(1), § 7.1) : la plus petite semelle (aire A_f) sur le
+    bras h_f entre plans moyens — b·t_f·(h − t_f) pour un laminé ; {"Af", "hf", "Mf"} (mm², mm, N·mm)."""
+    sm = semelles_de(s)
+    Af = min(x["bf"] * x["tf"] for x in sm.values())
+    hf = s["h"] - sm["haut"]["tf"] / 2.0 - sm["bas"]["tf"] / 2.0
+    return {"Af": Af, "hf": hf, "Mf": Af * hf * fy / gM0}
 
 
 # ------------------------------------------------------------------ § 5 : le cisaillement
@@ -94,6 +130,8 @@ def elancement(s: Dict, fy: float, P: Dict, direction: str = "z", fy_ame: Option
     (tube rond, semelles d'un I sous V_y, forme hors du module). ``fy_ame`` : la f_y de l'âme selon son épaisseur (son
     ε fait la limite 72·ε/η) ; à défaut ``fy``."""
     a = CL.hauteur_cisaillee(s, direction) if s.get("forme") in ("I", "tube_carre", "tube_rect") else None
+    if a is not None and s.get("forme") == "I":
+        a = {"hw": hw_de(s), "tw": a["tw"]}                    # un PRS : l'âme saisie entre ses semelles
     if a is None or not a["hw"] or not a["tw"]:
         return None
     fyw = fy if fy_ame is None else float(fy_ame)
@@ -152,15 +190,18 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
         J.verif("A-VbM" + suf, "Âme élancée : flexion et effort tranchant", f"{REF} § 7.1", "", None, None, "", [], statut=NON_COUVERT,
                 messages=[J.alerte("interaction_71", "attention", f"Interaction flexion – cisaillement {quoi} (V_Ed > 0,5·V_bw,Rd) : non vérifiée.")])
         return
-    Mf = s["b"] * s["tf"] * (s["h"] - s["tf"]) * fy / gM0
+    mf = moment_semelles(s, fy, gM0)
+    Mf = mf["Mf"]
     if M <= Mf:                                              # les semelles seules portent le moment : (7.1) est sans objet
         return
     Mpl = s["Wpl_y"] * fy / gM0
     eta1b = M / Mpl
     v = eta1b + (1.0 - Mf / Mpl) * (2.0 * eta3 - 1.0) ** 2
     cles2 = [J.f("eta3", "η̄₃", [_t("V_Ed", V / 1e3, "kN"), _t("V_bw,Rd", r["Vbw"] / 1e3, "kN")], eta3, "", "a_eta3"),
-             J.f("M_f", "M_f,Rd", [_t("b", s["b"], "mm"), _t("t_f", s["tf"], "mm"), _t("h", s["h"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
-                 Mf / 1e6, "kN·m", "a_M_f"),
+             (J.f("M_f", "M_f,Rd", [_t("b", s["b"], "mm"), _t("t_f", s["tf"], "mm"), _t("h", s["h"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
+                  Mf / 1e6, "kN·m", "a_M_f") if not s.get("prs") else
+              J.f("M_f", "M_f,Rd", [_t("A_f", mf["Af"], "mm²"), _t("h_f", mf["hf"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
+                  Mf / 1e6, "kN·m", "a_M_f_prs")),
              J.f("M_pl", "M_pl,Rd", [_t("W_pl,y", s["Wpl_y"] / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)], Mpl / 1e6, "kN·m", "e_M_Rd"),
              J.f("eta1_bar", "η̄₁", [_t("M_Ed", M / 1e6, "kN·m"), _t("M_pl,Rd", Mpl / 1e6, "kN·m")], eta1b, "", "a_eta1_bar"),
              J.f("i71", "η", [_t("η̄₁", eta1b), _t("M_f,Rd", Mf / 1e6, "kN·m"), _t("M_pl,Rd", Mpl / 1e6, "kN·m"), _t("η̄₃", eta3)], v, "", "a_71")]
@@ -313,13 +354,18 @@ def interaction(e2: float, e1: float) -> float:
 
 
 # ------------------------------------------------------------------ § 8 : la semelle
-def semelle(s: Dict, fy: float, P: Dict, k: float = K_SEMELLE) -> Optional[Dict]:
-    """Le voilement de l'âme induit par la semelle comprimée (§ 8) : {"rapport", "limite", "k", "ok"} ; None hors des I."""
+def semelle(s: Dict, fy: float, P: Dict, k: float = K_SEMELLE, fy_semelle: Optional[float] = None) -> Optional[Dict]:
+    """Le voilement de l'âme induit par la semelle comprimée (§ 8) : {"rapport", "limite", "k", "ok", "bf", "tf",
+    "fyf"} ; None hors des I. Semelles inégales (un PRS) : la PLUS GRANDE des deux aires — NBN EN 1993-1-5 ANB:2011,
+    8(2) : A_ft remplace A_fc quand elle la dépasse ; la semelle comprimée n'est pas connue ici, d'où le côté sûr.
+    ``fy_semelle`` : la f_y de la semelle (f_yf), à défaut ``fy``."""
     a = ame_de(s)
     if a is None:
         return None
-    lim = k * P["E"] / fy * math.sqrt(a["hw"] * a["tw"] / (a["bf"] * a["tf"]))
-    return {"rapport": a["hw"] / a["tw"], "limite": lim, "k": k, "ok": a["hw"] / a["tw"] <= lim}
+    fl = max(semelles_de(s).values(), key=lambda x: x["bf"] * x["tf"])
+    fyf = fy if fy_semelle is None else float(fy_semelle)
+    lim = k * P["E"] / fyf * math.sqrt(a["hw"] * a["tw"] / (fl["bf"] * fl["tf"]))
+    return {"rapport": a["hw"] / a["tw"], "limite": lim, "k": k, "ok": a["hw"] / a["tw"] <= lim, "bf": fl["bf"], "tf": fl["tf"], "fyf": fyf}
 
 
 def ecrire_semelle(J: Journal, s: Dict, fy: float, P: Dict, v: Dict) -> None:
@@ -327,7 +373,8 @@ def ecrire_semelle(J: Journal, s: Dict, fy: float, P: Dict, v: Dict) -> None:
     en une ligne d'hypothèse."""
     a = ame_de(s)
     cles = [J.f("hw_tw_s", "h_w/t_w", [_t("h_w", a["hw"], "mm"), _t("t_w", a["tw"], "mm")], v["rapport"], "", "a_elancement"),
-            J.f("lim_semelle", "k·(E/f_yf)·√(A_w/A_fc)", [_t("k", v["k"]), _t("E", P["E"], "N/mm²"), _t("f_y", fy, "N/mm²"), _t("h_w", a["hw"], "mm"),
-                                                           _t("t_w", a["tw"], "mm"), _t("b_f", a["bf"], "mm"), _t("t_f", a["tf"], "mm")],
+            J.f("lim_semelle", "k·(E/f_yf)·√(A_w/A_fc)", [_t("k", v["k"]), _t("E", P["E"], "N/mm²"), _t("f_yf", v.get("fyf", fy), "N/mm²"),
+                                                           _t("h_w", a["hw"], "mm"), _t("t_w", a["tw"], "mm"), _t("b_f", v.get("bf", a["bf"]), "mm"),
+                                                           _t("t_f", v.get("tf", a["tf"]), "mm")],
                 v["limite"], "", "a_semelle")]
     J.verif("A-S", "Voilement de l'âme induit par la semelle", f"{REF} § 8", "h_w/t_w ≤ k·(E/f_yf)·√(A_w/A_fc)", v["rapport"], v["limite"], "", cles)

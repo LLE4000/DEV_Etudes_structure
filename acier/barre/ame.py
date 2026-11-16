@@ -61,6 +61,12 @@ def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
     return d["fy"], d["fy_parois"]["ame"], d["fy_source"]
 
 
+def _fy_semelle(b: Dict, s: Dict) -> float:
+    """f_y,f — la f_y des semelles selon t_f (table unique) : celle du voilement induit par la semelle (§ 8)."""
+    d = ES.lire({"section": s, "nuance": b["nuance"], "parametres": b["parametres"]})
+    return d["fy_parois"].get("semelle", d["fy"])
+
+
 def refusee(message: str) -> Dict:
     """Le bloc d'une barre dont l'âme ne peut pas être vérifiée (une épaisseur au-delà de 80 mm (domaine du module)…) : « non couvert »."""
     J = RE.Journal(METHODE, NORME)
@@ -71,10 +77,11 @@ def refusee(message: str) -> Dict:
     return r
 
 
-def _communes(b: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None, source: Optional[str] = None
-              ) -> Tuple[List[str], Optional[Dict], Optional[Dict]]:
+def _communes(b: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None, source: Optional[str] = None,
+              fyf: Optional[float] = None) -> Tuple[List[str], Optional[Dict], Optional[Dict]]:
     """Les hypothèses que les deux modes disent, l'élancement de l'âme (None : sans objet) et le voilement induit par
-    la semelle (None hors des I). ``fyw`` : la f_y de l'âme selon t_w ; ``source`` : d'où vient la f_y de calcul."""
+    la semelle (None hors des I). ``fyw`` : la f_y de l'âme selon t_w ; ``source`` : d'où vient la f_y de calcul ;
+    ``fyf`` : celle des semelles (§ 8)."""
     fyw = fy if fyw is None else fyw
     ame_fy = f" (âme : f_y,w = {RE.fr(fyw)} N/mm², son ε pour 72·ε/η, λ̄_w et λ̄_F)" if fyw != fy else ""
     hyp = [f"Efforts de calcul (ELU) ; γ_M0 = {RE.fr(P['gamma_M0'], 2)}, γ_M1 = {RE.fr(P['gamma_M1'], 2)}.",
@@ -89,7 +96,7 @@ def _communes(b: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None,
         else:
             hyp.append(f"Âme : h_w/t_w = {RE.fr(el['rapport'], 1)} ≤ 72·ε/η = {RE.fr(el['limite'], 1)} — pas de voilement par cisaillement "
                        "à vérifier (§ 5.1(2)).")
-    sm = AM.semelle(s, fy, P)
+    sm = AM.semelle(s, fy, P, fy_semelle=fyf)
     if sm is not None and sm["ok"]:
         hyp.append(f"Voilement de l'âme induit par la semelle (§ 8) : h_w/t_w = {RE.fr(sm['rapport'], 1)} ≤ {RE.fr(sm['limite'])} — "
                    "sans objet.")
@@ -107,7 +114,7 @@ def efforts(b: Dict, s: Dict) -> Dict:
         return refusee(str(e))
     e = b["efforts"]["elu"]
     J = RE.Journal(METHODE, NORME)
-    hyp, _, sm = _communes(b, s, fy, P, fyw, src)
+    hyp, _, sm = _communes(b, s, fy, P, fyw, src, _fy_semelle(b, s))
     AM.cisaillement(J, s, fy, P, abs(e["Vz"]) * 1e3, abs(e["My"]) * 1e6, e["N"] * 1e3, fy_ame=fyw)
     AM.cisaillement(J, s, fy, P, abs(e["Vy"]) * 1e3, abs(e["Mz"]) * 1e6, e["N"] * 1e3, direction="y", fy_ame=fyw)
     if sm is not None and not sm["ok"]:
@@ -179,21 +186,26 @@ def forces(L: Dict, niveau: str, sols: Sequence, facteurs: Sequence[float]) -> D
             "soulevement": -R if R < -EPS else 0.0}
 
 
-def resistances(L: Dict, a: Dict, fy: float, P: Dict, fyw: Optional[float] = None) -> Dict[str, Dict]:
+def resistances(L: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None) -> Dict[str, Dict]:
     """La résistance de l'âme SEULE au lieu ``L``, par semelle chargée (« haut », « bas ») et, quand les deux le sont,
     pour la force transmise de l'une à l'autre (« b ») — acier/barre/ec3_ame.resistance, contact d'extrémité non établi
-    (le verdict du type (c) ; la variante avec contact y est donnée pour information) ; ``fyw`` : la f_y de l'âme."""
-    hw = a["hw"]
+    (le verdict du type (c) ; la variante avec contact y est donnée pour information) ; ``fyw`` : la f_y de l'âme.
+    Chaque résistance garde l'âme qui l'a donnée (« ame » : b_f et t_f de la semelle chargée, brief § 8.2) ; la force
+    transmise d'un PRS à semelles inégales prend la semelle qui donne la plus petite F_Rd (choix prudent déclaré)."""
     d = min(L["dispo"])
     out = {}
     for cote, ss in L["ss"].items():
         if ss is None:
             continue
+        a = AM.ame_de(s, cote)
+        hw = a["hw"]
         c = max(d - ss / 2.0, 0.0)
         type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"
-        out[cote] = AM.resistance(a, fy, P, ss, type_, c, fy_ame=fyw)
+        out[cote] = dict(AM.resistance(a, fy, P, ss, type_, c, fy_ame=fyw), ame=a)
     if len(out) == 2:
-        out["b"] = AM.resistance(a, fy, P, min(L["ss"]["haut"], L["ss"]["bas"]), "b", fy_ame=fyw)
+        essais = [dict(AM.resistance(AM.ame_de(s, k), fy, P, min(L["ss"]["haut"], L["ss"]["bas"]), "b", fy_ame=fyw), ame=AM.ame_de(s, k))
+                  for k in ("haut", "bas")]
+        out["b"] = min(essais, key=lambda r: r["FRd"])
     return out
 
 
@@ -238,7 +250,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         return refusee(str(e))
     gM0 = P["gamma_M0"]
     env = Enveloppe(METHODE, NORME)
-    hyp, el, sm = _communes(b, s, fy, P, fyw, src)
+    hyp, el, sm = _communes(b, s, fy, P, fyw, src, _fy_semelle(b, s))
     alertes: Dict[str, Dict] = {}
     combs = [ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas) for co in CO.elu(cas, P)]
 
@@ -318,7 +330,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
     # ---- première passe : l'âme seule tient-elle, sous chaque combinaison ?
     etudes: Dict[str, Dict] = {}
     for L in charges:
-        res = resistances(L, a, fy, P, fyw)
+        res = resistances(L, s, fy, P, fyw)
         pire = {"eta2": 0.0, "inter": None, "F": 0.0, "cote": None, "C": None}
         for o in occurrences[L["base"]]:
             essais = [(k, o[k]) for k in ("haut", "bas") if o[k] > 0 and k in res]
@@ -384,7 +396,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             r = res[o["cote"]]
             if p is not None:
                 cote0 = etude["pire"]["cote"]
-                avant = AM.ecrire_resistance(J, a, fy, P, res[cote0])
+                avant = AM.ecrire_resistance(J, res[cote0]["ame"], fy, P, res[cote0])
                 RA.ecrire(J, L["base"], L["nom"], s, fy, P, dict(p, F=o["Fmax"] * 1e3), avant,
                           [etude["raison"]] + _mots_force(res[cote0], _saisie(L, cote0)))
             else:
@@ -396,11 +408,11 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                     mots.append(J.alerte(f"sans_raidisseur_{L['base']}", "attention", f"{L['nom']} : raidisseur nécessaire, mais le profilé "
                                                                                           "est trop étroit pour en recevoir un."))
                 J.verif(f"{L['base']}-F", _titre(L, k), f"{AM.REF} § 6.2", "F_Ed ≤ F_Rd", o[k], res[k]["FRd"] / 1e3, "kN",
-                        AM.ecrire_resistance(J, a, fy, P, res[k]), messages=mots, statut=RE.NOK if impossible else None,
+                        AM.ecrire_resistance(J, res[k]["ame"], fy, P, res[k]), messages=mots, statut=RE.NOK if impossible else None,
                         taux=o[k] * 1e3 / res[k]["FRd"] if impossible else None)
                 if o["b"] is not None:
                     J.verif(f"{L['base']}-B", _titre(L, "b"), f"{AM.REF} § 6.2", "F_Ed ≤ F_Rd", o["b"], res["b"]["FRd"] / 1e3, "kN",
-                            AM.ecrire_resistance(J, a, fy, P, res["b"], prefixe="b_"),
+                            AM.ecrire_resistance(J, res["b"]["ame"], fy, P, res["b"], prefixe="b_"),
                             messages=_mots_force(res["b"], _saisie(L, "b")))
                 if o["eta1"] is not None:
                     cles = [J.f("eta2", "η₂", [RE.terme("F_Ed", o["F"], "kN"), RE.terme("F_Rd", r["FRd"] / 1e3, "kN")], o["eta2"], "", "a_eta2"),
