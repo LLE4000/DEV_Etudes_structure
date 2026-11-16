@@ -35,7 +35,7 @@ SANS l'écran du module : l'état de la note du site est construit par le moteur
 - MUTATIONS (chacune doit faire rougir un contrôle) : une cornière oubliée, une donnée non transmise au moteur (la
   tolérance dy), le mode mal nommé, un gabarit de formule faux, l'indice de la note perdu, l'η max du bandeau pris sur
   une autre vérification, l'état limite non imprimé, la page 2 sans sa troisième vue, les hypothèses en prose longue,
-  les rondelles non imprimées.
+  les rondelles non imprimées, la référence de f_y remise sur le tableau 3.1 de l'EN.
 
     python3 tests/test_note_corniere.py
 """
@@ -120,6 +120,10 @@ INFOS = {"nom": NOM, "chantier": CHANTIER, "indice": "C", "date": "03/04/2026"}
 INTERDITS = ("indice 0", "indice A", "INDICE 0", "INDICE A")
 TETE = "Note de calcul · 03/04/2026 · indice C"
 TITRES_P2 = ("LARGEUR EFFICACE ET ÉLÉVATION", "MOMENTS SUR LA CORNIÈRE", "CONTRAINTES DE VON MISES")
+# la référence de f_y de la note (option a de l'ANB) ; le tableau 3.1 de l'EN, sous ses deux écritures (« Tab. 3.1 »,
+# « tableau 3.1 »), ne doit plus y paraître (3.10, 3.11, 3.12 ANB ne sont pas visés)
+REF_FY = "NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB (f_y selon l'épaisseur)"
+TABLEAU_3_1 = re.compile(r"Tab(?:\.|leau)\s*3\.1(?!\d)", re.I)
 # les budgets de caractères (sans blancs), fixés d'après la mesure sur les 17 états (le plus grand observé + ≈ 15 %) :
 # le bloc Hypothèses de la page 1 (entre son titre et « CHARGE ET ANCRAGE »), la page 2 hors cartouche. Les mutations
 # « hypothèses en prose longue » (≈ 1 500 caractères) les dépassent.
@@ -359,6 +363,12 @@ def ecarts_parite(e, octets):
         for r in (MT.REFERENCES[0][:40], MT.REFERENCES[-1][-30:]):
             if plat_sym(r) not in s2:
                 out.append(f"« {nom} » p. 2 : la référence « {r} » manque")
+        # la référence de f_y est la table du site (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a : tableaux 3.3 ANB et 3.4
+        # ANB), comme la ligne « Acier » de la même note — jamais le tableau 3.1 de l'EN (option b, que l'ANB n'admet pas)
+        if TABLEAU_3_1.search(p12):
+            out.append(f"« {nom} » : la note cite le tableau 3.1 de l'EN 1993-1-1 (« {TABLEAU_3_1.search(p12).group(0)} »), l'option b")
+        if plat_sym(REF_FY) not in s2:
+            out.append(f"« {nom} » p. 2 : la référence de f_y « {REF_FY} » manque")
         for x in (f"R = {NT._kn(ef['R']).replace(',00', '')}", f"L = {f0(g['L'])}"):
             if x not in p12:
                 out.append(f"« {nom} » : le texte du dessin « {x} » manque")
@@ -734,6 +744,19 @@ finally:
 ec = ecarts_parite(ETATS["boulon traversant, deux rondelles, épaisseur 200"], mut)
 chk("mutation « les rondelles non imprimées » : la parité rougit sur les deux rondelles (ISO 7093-1 contre l'aile, ISO 7089 sous l'écrou)",
     len(ec) == 2 and all("ISO 70" in x for x in ec), ec[:3])
+
+# (lot A, F2) la ligne des références remise sur le tableau 3.1 de l'EN : la parité rougit sur les deux contrôles
+vrai_refs = MT.REFERENCES
+MT.REFERENCES = tuple(r.replace("NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB (f_y selon l'épaisseur) · EN 1993-1-1",
+                                "EN 1993-1-1 Tab. 3.1 (f_y) et") for r in vrai_refs)
+try:
+    assert MT.REFERENCES != vrai_refs, "mutation périmée : la référence de f_y n'est plus dans methode.REFERENCES"
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
+finally:
+    MT.REFERENCES = vrai_refs
+ec = ecarts_parite(e_a, mut)
+chk("mutation « la référence de f_y remise sur le tableau 3.1 de l'EN (Tab. 3.1, option b) » : la parité rougit — « Tab. 3.1 » présent, la "
+    "référence de l'ANB absente", len(ec) == 2 and any("tableau 3.1" in x for x in ec) and any("ANB:2018" in x for x in ec), ec[:3])
 
 # ---------------------------------------------------------------- 6. comme dans le navigateur
 sys.path.insert(0, os.path.join(RACINE, "site", "web"))

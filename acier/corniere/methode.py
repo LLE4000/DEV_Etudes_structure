@@ -20,7 +20,8 @@ from .entree import ELS, HISTORIQUE, LIBELLES_CONFIGURATION
 REFERENCES = (
     "Classeur de calcul du bureau, feuille P8 (cornière d'appui, cas de contrôle L 120×120×15 S355)",
     "Décisions du module refondu, 10/11/2026 (configurations A et B, modes, jeux par l'enveloppe, état limite)",
-    "EN 10056-1 (cornières) · EN 1993-1-1 Tab. 3.1 (f_y) et § 6.2.1(5) (critère élastique ELU, γ_M0 = 1,0 ANB)",
+    "EN 10056-1 (cornières) · NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB (f_y selon l'épaisseur) · "
+    "EN 1993-1-1 § 6.2.1(5) (critère élastique ELU, γ_M0 = 1,0 ANB)",
     "EN 1993-1-8 Tab. 3.3 (s ≥ 2,2·d0, e₁ ≥ 1,2·d0) · EN 1992-4 pour les chevilles (Hilti PROFIS, N et V par ancrage)",
 )
 LIGNES_RESUME = 3           # le résumé tient en trois lignes au plus : c'est la règle, et le test la garde
