@@ -27,8 +27,16 @@ Ce que la suite prouve :
   mise en page en deux pages (qui le posait tout entier, mais en partie sous le cadre, sur la conclusion, sous le
   cartouche ou hors de la page) : rien de perdu, rien de doublé ; et le texte du PDF (pdftotext) porte chaque titre de
   bloc et chaque résultat de formule ;
+- les ÉCARTS NOMMÉS sont ÉTROITS : chacun est un morceau exact (ancien → neuf) qui figure UNE fois, dans SA section
+  de ``methode.py`` et nulle part ailleurs ; remis, il doit redonner l'empreinte d'avant au bit près — toute autre
+  différence reste rouge ;
 - MUTATIONS : un générateur qui oublie de poser un bloc reporté en page 3, ou qui ne reporte rien (l'ancienne
-  conduite), fait rougir (b).
+  conduite), fait rougir (b) ; un texte de méthode changé sans être nommé (dans la même phrase, dans le morceau nommé
+  lui-même, dans une autre section) fait rougir (a), par la comparaison même de la suite.
+
+La référence ne se regèle pas avec l'outil (``--geler``) : il refuse d'écraser le fichier, et refait avec le générateur
+d'aujourd'hui (celui de la page de suite), il n'écrirait plus aucun débordement — la partition « tenaient / débordaient »
+du 09/11, sur laquelle (a) et (b) reposent, serait perdue. D'où les écarts nommés.
 
     python3 tests/test_note_garde_corps_grille.py
 """
@@ -81,15 +89,71 @@ ECARTS_NOMMES = [
 ]
 
 
+class EcartIntrouvable(Exception):
+    """Un écart nommé dont le morceau d'aujourd'hui ne figure pas UNE fois, dans SA section et nulle part ailleurs."""
+
+
+def etroit(sections, titre: str, neuf: str, ancien: str) -> str:
+    """Pourquoi l'écart nommé (titre, neuf, ancien) n'est pas ÉTROIT dans ``sections`` ; « » s'il l'est : sa section existe
+    (titre exact), le morceau d'aujourd'hui y figure une fois et nulle part ailleurs, l'ancien n'y figure plus."""
+    secs = [x for x in sections if x["titre"] == titre]
+    if len(secs) != 1:
+        return f"section « {titre} » : {len(secs)} trouvée(s)"
+    ici = sum(p.count(neuf) for p in secs[0]["paragraphes"])
+    partout = sum(p.count(neuf) for x in sections for p in x["paragraphes"])
+    if ici != 1 or partout != 1:
+        return f"« {neuf[:50]}… » : {ici} fois dans « {titre} », {partout} fois en tout"
+    if ancien == neuf or any(ancien in p for x in sections for p in x["paragraphes"]):
+        return f"l'ancien morceau de « {titre} » est encore dans le texte"
+    return ""
+
+
 @contextlib.contextmanager
 def anciens_textes(ecarts=None):
-    """Les sections de méthode avec l'ANCIEN morceau de chaque écart nommé (le temps d'une comparaison à la référence)."""
+    """Les sections de méthode avec l'ANCIEN morceau de chaque écart nommé (le temps d'une comparaison à la référence) ;
+    un écart qui n'est pas étroit lève ``EcartIntrouvable`` (rien n'est remis)."""
     vrai = MT.SECTIONS
     sections = copy.deepcopy(vrai)
     for titre, neuf, ancien, _ in (ECARTS_NOMMES if ecarts is None else ecarts):
-        sec = next(x for x in sections if x["titre"].startswith(titre))
-        assert any(neuf in p for p in sec["paragraphes"]), f"écart nommé introuvable : {titre}"
+        pourquoi = etroit(sections, titre, neuf, ancien)
+        if pourquoi:
+            raise EcartIntrouvable(pourquoi)
+        sec = next(x for x in sections if x["titre"] == titre)
         sec["paragraphes"] = [p.replace(neuf, ancien) for p in sec["paragraphes"]]
+    MT.SECTIONS = sections
+    try:
+        yield
+    finally:
+        MT.SECTIONS = vrai
+
+
+def comparer_a(e, r, emp):
+    """(a) pour un état qui TENAIT : None si sa note est celle de la référence (pages, empreinte de chaque page) ; « nommé »
+    si elle ne l'est qu'une fois les écarts NOMMÉS remis (l'empreinte d'avant revient au bit près) ; sinon l'écart."""
+    if emp["pages"] == r["pages"] and emp["sha"] == r["sha"]:
+        return None
+    variante = NT.derniere_variante
+    try:
+        with anciens_textes():
+            emp = empreinte(NT.generer_note(e, e["cas"][0], INFOS))
+    except EcartIntrouvable as x:
+        return ("écart nommé qui n'est pas étroit", str(x))
+    finally:
+        NT.derniere_variante = variante
+    if emp["pages"] != r["pages"] or emp["sha"] != r["sha"]:
+        return (emp["pages"], r["pages"], [i + 1 for i, (a, b) in enumerate(zip(emp["sha"], r["sha"])) if a != b])
+    return "nommé"
+
+
+@contextlib.contextmanager
+def texte_mute(titre: str, avant: str, apres: str):
+    """Une MUTATION du texte de ``methode.py`` (un écart NON nommé) : dans la section ``titre``, « avant » (une fois) → « après »."""
+    vrai = MT.SECTIONS
+    sections = copy.deepcopy(vrai)
+    sec = next(x for x in sections if x["titre"] == titre)
+    if sum(p.count(avant) for p in sec["paragraphes"]) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » dans « {titre} »")
+    sec["paragraphes"] = [p.replace(avant, apres) for p in sec["paragraphes"]]
     MT.SECTIONS = sections
     try:
         yield
@@ -244,20 +308,18 @@ def main():
     ecarts_a, ecarts_b, suites, n_b, nommes = [], [], collections.Counter(), 0, 0
     for cle, e in grille():
         octets = NT.generer_note(e, e["cas"][0], INFOS)
-        warn, reports, variante = list(NT.derniers_avertissements), NT.derniers_reports, NT.derniere_variante
+        warn, reports = list(NT.derniers_avertissements), NT.derniers_reports
         emp = empreinte(octets)
         r = ref["etats"].get(cle)
         if r is None:
             ecarts_a.append((cle, "absent de la référence"))
             continue
-        if cle in tenaient and (emp["pages"] != r["pages"] or emp["sha"] != r["sha"]):
-            with anciens_textes():                      # les écarts NOMMÉS remis : l'empreinte d'avant doit revenir
-                emp = empreinte(NT.generer_note(e, e["cas"][0], INFOS))
-            NT.derniere_variante = variante
-            if emp["pages"] != r["pages"] or emp["sha"] != r["sha"]:
-                ecarts_a.append((cle, emp["pages"], r["pages"], [i + 1 for i, (a, b) in enumerate(zip(emp["sha"], r["sha"])) if a != b]))
-            else:
+        if cle in tenaient:
+            verdict = comparer_a(e, r, emp)             # les écarts NOMMÉS remis : l'empreinte d'avant doit revenir
+            if verdict == "nommé":
                 nommes += 1
+            elif verdict is not None:
+                ecarts_a.append((cle,) + tuple(verdict))
         # (b) aucune colonne ne déborde ; une page de suite pour (et seulement pour) ce qui débordait
         if warn:
             ecarts_b.append((cle, "déborde encore", warn))
@@ -283,20 +345,29 @@ def main():
         "et résultats de formules dans le texte du PDF",
         not ecarts_b and n_b == 240 - len(tenaient), ecarts_b[:4])
 
-    # MUTATIONS : (a) reste strict malgré les écarts nommés — un écart NON nommé (une autre phrase de méthode changée) fait
-    # rougir la comparaison d'un état ELS qui tenait, même avec les écarts nommés remis
+    # les écarts nommés sont ÉTROITS : un morceau exact, une fois, dans SA section et nulle part ailleurs
+    pourquoi = [etroit(MT.SECTIONS, t, neuf, ancien) for t, neuf, ancien, _ in ECARTS_NOMMES]
+    chk(f"les {len(ECARTS_NOMMES)} écart(s) nommé(s) sont étroits : chaque morceau d'aujourd'hui figure UNE fois, dans SA section "
+        "et nulle part ailleurs, et l'ancien n'est plus dans le texte", not any(pourquoi), pourquoi)
+
+    # MUTATIONS : (a) reste strict malgré les écarts nommés — un texte de méthode changé SANS être nommé fait rougir la
+    # comparaison même de la suite (comparer_a) sur un état ELS qui tenait : dans la même phrase que l'écart nommé, dans le
+    # morceau nommé lui-même (il n'est plus exact), dans une autre section
     cle_els = "barreaudage · droite · séparées · platine · els"
     e_els = dict(grille())[cle_els]
     r_els = ref["etats"][cle_els]
-    with anciens_textes():
-        sha_nomme = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
-    autre = ("Modèle", "Montant principal : console encastrée en pied", "Montant principal : console ENCASTRÉE en pied", "mutation")
-    with anciens_textes(ECARTS_NOMMES + [autre]):
-        sha_mutant = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
-    sha_sans = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))["sha"]
-    chk("mutation « une autre phrase de méthode changée, non nommée » : (a) rougit, même avec les écarts nommés remis ; sans eux "
-        "aussi (le texte d'aujourd'hui n'est pas celui de la référence)",
-        sha_nomme == r_els["sha"] and sha_mutant != r_els["sha"] and sha_sans != r_els["sha"], (cle_els,))
+    emp_els = empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))
+    vert = comparer_a(e_els, r_els, emp_els)
+    mutations = [("Vérification à l'ELS", ", τ_adm = σ_adm/√3 (", ", τ_adm = σ_adm / √3 ("),
+                 ("Vérification à l'ELS", "pour le S235 jusqu'à 16 mm)", "pour le S235 jusqu'à 40 mm)"),
+                 ("Modèle", "Montant principal : console encastrée en pied", "Montant principal : console ENCASTRÉE en pied")]
+    verdicts = []
+    for titre, avant, apres in mutations:
+        with texte_mute(titre, avant, apres):
+            verdicts.append(comparer_a(e_els, r_els, empreinte(NT.generer_note(e_els, e_els["cas"][0], INFOS))))
+    chk("mutation « un écart NON nommé » (la phrase de l'écart, le morceau nommé lui-même, une autre section) : (a) rougit par sa "
+        "propre comparaison ; sans mutation, l'état ne diffère que par l'écart nommé",
+        vert == "nommé" and emp_els["sha"] != r_els["sha"] and all(v not in (None, "nommé") for v in verdicts), (vert, verdicts))
 
     # MUTATIONS : (b) doit rougir
     e = dict(grille())["barreaudage · U · cumul · platine · eurocode"]
