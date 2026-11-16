@@ -10,9 +10,10 @@ rubriques :
   écrites, le plus léger, les raisons d'un tableau vide, les formules sont celles du module « Catalogue des profilés »
   (api_web/catalogue.py, qui les tient de acier/profiles/consultation.py, extrait mot pour mot de l'écran Streamlit) ;
   les nombres viennent de acier/donnees/profiles.json ; le dessin est celui du catalogue (api_web/dessin_catalogue.py).
-- « Nuances » : les aciers de construction tels que les moteurs d'assemblage, de soudure et de garde-corps les lisent
-  (acier/donnees/bibliotheques.json : f_y, f_u, β_w) ; f_y au-delà de 40 mm, ε et E par le moteur du flambement
-  (acier/flambement/normes.py, tableau 3.1) ; f_vw,d par acier/resistances.py.
+- « Nuances » : les aciers de construction de la bibliothèque des assemblages (acier/donnees/bibliotheques.json : leur
+  nom et β_w) lus dans LA table du site, acier/materiaux.py (NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux
+  3.3 à 3.12 ANB) : la ligne de l'ANB, f_y palier par palier jusqu'à la borne des modules (normes.T_MAX_TABLEAU),
+  f_u ; E et ε par le moteur du flambement (acier/flambement/normes.py) ; f_vw,d par acier/resistances.py.
 - « Boulons » : les boulons et leurs classes tels que les assemblages les lisent (bibliotheques.json : d, d_0, A, A_s,
   d_m, d_w ; f_yb, f_ub, α_v) ; F_t,Rd et F_v,Rd par acier/resistances.py (les fonctions des moteurs d'assemblage).
 
@@ -31,6 +32,7 @@ un nom de profilé) est échappé.
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier import bibliotheques as BQ
+from acier import materiaux as MA
 from acier import resistances as RS
 from acier.flambement import normes as NO
 from acier.profiles import catalogue as CAT
@@ -434,11 +436,20 @@ def _r_profils(params: Dict, hote: str) -> Dict:
 
 
 # ================================================================================================ 2 · nuances
-EPAISSEURS = (("40", "t ≤ 40 mm"), ("80", "40 < t ≤ 80 mm"))
-SOURCE_BQ = ("acier/donnees/bibliotheques.json — la bibliothèque des moteurs d'assemblage, de soudure et de garde-corps "
-             "(extraite du corrigé de référence, acier/bibliotheques.py)")
-SOURCE_NO = "EN 1993-1-1 tableau 3.1 et §3.2.6 — acier/flambement/normes.py (f_y au-delà de 40 mm, E, ε)"
-SOURCE_SOUDURE = "EN 1993-1-8 §4.5.3.3 — f_vw,d = f_u / (√3 · β_w · γ_M2), acier/resistances.py ; γ_M2 de acier/soudures/criteres.py"
+# LA table des aciers du site (acier/materiaux.py) : NBN EN 1993-1-1 ANB:2018, 3.2.1(1) — l'option a, seule admise ;
+# tableaux 3.3 à 3.12 ANB. La rubrique montre les produits LAMINÉS (profilés, plats, tôles : EN 10025-2 et -3) des
+# nuances de la bibliothèque des assemblages (acier/donnees/bibliotheques.json, qui n'en garde que le nom et β_w), et
+# les paliers de f_y jusqu'à la borne du domaine des modules (acier/flambement/normes.T_MAX_TABLEAU) : au-delà, les
+# tableaux de l'ANB continuent, les modules refusent.
+REGLE_ANB = "NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB"
+PRODUIT = "lamine"
+NUANCE_DEFAUT = "S355"          # la nuance ouverte par défaut ; ses paliers donnent les colonnes du tableau
+SOURCE_BQ = ("β_w (EN 1993-1-8 tableau 4.1) : acier/donnees/bibliotheques.json — la bibliothèque des moteurs d'assemblage, "
+             "de soudure et de garde-corps (extraite du corrigé de référence, acier/bibliotheques.py), qui ne garde de chaque acier "
+             "que son nom et β_w")
+SOURCE_NO = "E (EN 1993-1-1 §3.2.6) et ε = √(235 / f_y) (tableau 5.2) — acier/flambement/normes.py"
+SOURCE_SOUDURE = ("EN 1993-1-8 §4.5.3.3 — f_vw,d = f_u / (√3 · β_w · γ_M2), acier/resistances.py ; γ_M2 de acier/soudures/criteres.py ; "
+                  "f_u de l'épaisseur retenue")
 
 
 def _symboles(sources: Sequence[str]) -> List[str]:
@@ -446,83 +457,162 @@ def _symboles(sources: Sequence[str]) -> List[str]:
     return [C.symb_math(s) for s in sources]
 
 
-def _base(nom: str) -> str:
-    """La nuance de base d'un acier de la bibliothèque (« S355 N/NL » → « S355 ») : la clé du tableau 3.1 du moteur du
-    flambement."""
-    return nom.split()[0]
+def _th_haut(sym: str, unite: str, titre: str) -> str:
+    """Un en-tête sur les deux rangées de l'en-tête (``BB._th``, haut de deux rangées)."""
+    h = BB._th(sym, unite, titre)
+    assert h.startswith("<th ")
+    return '<th rowspan="2"' + h[len("<th"):]
 
 
-def _fy_epais(nom: str) -> Optional[float]:
-    """f_y pour 40 < t ≤ 80 mm, par le moteur du flambement (None si la nuance n'y est pas)."""
+def _paliers(nom: str, grandeur: str) -> List[Tuple[float, bool, str, float]]:
+    """La ligne de l'ANB de ``nom`` (produit laminé) palier par palier : [(borne supérieure en mm, incluse, texte,
+    valeur)] — les bornes dans les tableaux de la table du site (MA.TABLEAUX, par MA.ligne), les textes et les valeurs
+    par MA.paliers. MA.HorsTable si la nuance n'y est pas."""
+    lg = MA.ligne(nom, PRODUIT)
+    bandes = MA.TABLEAUX[lg["tableau"].removesuffix(" ANB")][1][lg["designation"]][0 if grandeur == "fy" else 1]
+    return [(sup, inc, txt, v) for (sup, inc, _), (txt, v) in zip(bandes, MA.paliers(nom, PRODUIT, grandeur))]
+
+
+def _court(bas: float, sup: float, incluse: bool, premier: bool) -> str:
+    """Un palier écrit court pour l'en-tête du tableau (« ≤ 16 », « 16–40 », « < 3 », « 3–100 ») : son texte entier est
+    dans l'infobulle de l'en-tête, dans la barre et dans la justification."""
+    return f"{'≤' if incluse else '<'} {sup:g}" if premier else f"{bas:g}–{sup:g}"
+
+
+def _colonnes_nuances() -> Tuple[List[Tuple[str, str, str]], List[Tuple[str, str, float]]]:
+    """Les colonnes du tableau, lues sur la nuance par défaut : les paliers de f_y jusqu'à la borne des modules
+    [(clé, texte, court)] — la clé est la borne supérieure du palier (« 40 » : 16 < t ≤ 40 mm) ; les paliers de f_u qui
+    couvrent ces épaisseurs [(texte, court, une épaisseur du palier en mm)]."""
+    t_max = NO.T_MAX_TABLEAU
+    fy, fu, bas = [], [], 0.0
+    for sup, inc, txt, _v in _paliers(NUANCE_DEFAUT, "fy"):
+        if sup > t_max:
+            break
+        fy.append((f"{sup:g}", txt.removesuffix(" mm"), _court(bas, sup, inc, not fy)))
+        bas = sup
+    bas = 0.0
+    for sup, inc, txt, _v in _paliers(NUANCE_DEFAUT, "fu"):
+        fu.append((txt.removesuffix(" mm"), _court(bas, sup, inc, not fu), (bas + sup) / 2))   # (lu au MILIEU du palier)
+        bas = sup
+        if sup >= t_max:
+            break
+    return fy, fu
+
+
+def _lire_nuance(nom: str, t: float, fy_cles: Sequence[str], fu_t: Sequence[float]) -> Optional[Dict]:
+    """Ce que la rubrique montre d'une nuance, lu dans la table du site pour l'épaisseur retenue ``t`` (mm) : None si
+    la nuance n'y est pas (aucune valeur inventée)."""
     try:
-        return NO.limite_elastique(_base(nom), 80.0)
-    except NO.HorsDomaine:
+        return {"ligne": MA.ligne(nom, PRODUIT), "fy": MA.fy(nom, t, PRODUIT), "fu": MA.fu(nom, t, PRODUIT),
+                "fy_cols": [MA.fy(nom, float(k), PRODUIT) for k in fy_cles], "fu_cols": [MA.fu(nom, x, PRODUIT) for x in fu_t],
+                "src_fy": MA.source(nom, t, PRODUIT, "fy"), "src_fu": MA.source(nom, t, PRODUIT, "fu"),
+                "fu_mince": MA.paliers(nom, PRODUIT, "fu")[0], "bw": float(BQ.find(BQ.DB["aciers"], nom)["bw"])}
+    except MA.HorsTable:
         return None
+
+
+def _lignes_anb(noms: Sequence[str]) -> str:
+    """Les lignes de l'ANB des nuances de la rubrique, tableau par tableau (« tableau 3.3 ANB, EN 10025-2:2004 : S235JR,
+    S275JR, S355JR »), dans l'ordre de la bibliothèque."""
+    par: Dict[Tuple[str, str], List[str]] = {}
+    for n in noms:
+        try:
+            lg = MA.ligne(n, PRODUIT)
+        except MA.HorsTable:
+            continue
+        des = par.setdefault((lg["tableau"], lg["norme"]), [])
+        if lg["designation"] not in des:
+            des.append(lg["designation"])
+    return " ; ".join(f"tableau {tab}, {norme} : {', '.join(des)}" for (tab, norme), des in par.items())
 
 
 def _r_nuances(params: Dict, hote: str) -> Dict:
     L = Lecture(params)
     aciers = BQ.DB["aciers"]
     noms = [a["n"] for a in aciers]
-    nuance = L.choix("nuance", noms, "S355")
-    ep = L.choix("epaisseur", tuple(k for k, _ in EPAISSEURS), "40")
+    fy_cols, fu_cols = _colonnes_nuances()
+    paliers = {k: txt for k, txt, _ in fy_cols}
+    nuance = L.choix("nuance", noms, NUANCE_DEFAUT)
+    # (la clé d'un palier est sa borne supérieure : une adresse d'avant le lot A, « epaisseur=40 » ou « 80 », ouvre le
+    #  palier qui finit là — le plus défavorable de l'ancienne colonne)
+    ep = L.choix("epaisseur", tuple(paliers), fy_cols[0][0])
     p = L.out
-    a = BQ.find(aciers, nuance)
-    fy = float(a["fy"]) if ep == "40" else _fy_epais(nuance)
+    t = float(ep)
+    lus = {n: _lire_nuance(n, t, tuple(paliers), [x for _, _, x in fu_cols]) for n in noms}
+    a = lus[nuance]
+    fy = a["fy"] if a else None
+    # le palier de f_u qui contient l'épaisseur retenue (celui de f_vw,d) : la colonne que la référence imprimée nomme
+    ref = lus.get(NUANCE_DEFAUT)
+    j_fu = next((j for j, (txt, _, _) in enumerate(fu_cols) if ref and ref["src_fu"].endswith(f", {txt} mm")), None)
     # (les libellés d'épaisseur portent « < » : échappés là où ils entrent dans le HTML — relecture BIB5)
     barre = BB._barre(BB._champ("nuance", "Nuance", BB._select("nuance", nuance, [(n, n) for n in noms]))
-                      + _bloc("Épaisseur", BB._segments("epaisseur", ep, [(k, C.esc(t)) for k, t in EPAISSEURS]),
-                              "f_y selon l'épaisseur nominale de la paroi (EN 1993-1-1, tableau 3.1)"))
-    # f_u et ε ne sont connus que pour t ≤ 40 mm : leur en-tête le dit, comme celui de f_y (relecture BIB5 : à côté de la
-    # colonne « 40 < t ≤ 80 », un f_u sans domaine se lisait comme valable pour les deux épaisseurs)
-    th = ('<tr><th class="nm">Nuance</th>' + BB._th("f_y", "MPa · t ≤ 40", "t ≤ 40 mm — bibliotheques.json")
-          + BB._th("f_y", "MPa · 40 < t ≤ 80", "40 < t ≤ 80 mm — tableau 3.1, acier/flambement/normes.py")
-          + BB._th("f_u", "MPa · t ≤ 40", "t ≤ 40 mm — bibliotheques.json") + BB._th("β_w", "", "facteur de corrélation des soudures d'angle — bibliotheques.json")
-          + BB._th("ε", "t ≤ 40", "√(235 / f_y), t ≤ 40 mm — acier/flambement/normes.py") + "</tr>")
+                      + _bloc("Épaisseur (mm)", BB._segments("epaisseur", ep, [(k, C.esc(txt)) for k, txt, _ in fy_cols]),
+                              f"f_y selon l'épaisseur nominale de la paroi — {REGLE_ANB}"))
+    # l'en-tête sur deux rangées (celui des Sections de la Bibliothèque Béton armé) : les paliers écrits court, leur texte
+    # entier en infobulle ; la désignation de la ligne de l'ANB sous le nom de chaque nuance
+    th1 = ('<tr class="r1"><th class="nm" rowspan="2">Nuance<span class="u">désignation</span></th>'
+           f'<th colspan="{len(fy_cols)}" title="{C.esc("R_eH minimale selon l’épaisseur nominale t — " + REGLE_ANB)}">f<sub>y</sub> · MPa · t (mm)</th>'
+           f'<th colspan="{len(fu_cols)}" title="{C.esc("R_m minimale selon l’épaisseur nominale t — " + REGLE_ANB)}">f<sub>u</sub> · MPa · t (mm)</th>'
+           + _th_haut("β_w", "", "facteur de corrélation des soudures d'angle (EN 1993-1-8 tableau 4.1) — bibliotheques.json")
+           + _th_haut("f_vw,d", "MPa", "f_u / (√3 · β_w · γ_M2), f_u de l'épaisseur retenue — EN 1993-1-8 §4.5.3.3") + "</tr>")
+    th2 = ('<tr class="r2">' + "".join(f'<th class="k{" on" if k == ep else ""}" title="{C.esc(txt)} mm"><b>{C.esc(c)}</b></th>' for k, txt, c in fy_cols)
+           + "".join(f'<th class="k{" on" if j == j_fu else ""}" title="{C.esc(txt)} mm"><b>{C.esc(c)}</b></th>' for j, (txt, c, _) in enumerate(fu_cols)) + "</tr>")
     corps = ""
-    for x in aciers:
-        n = x["n"]
+    for n in noms:
+        x = lus[n]
         on = ' class="on"' if n == nuance else ""
-        f80 = _fy_epais(n)
-        corps += (f'<tr{on}><th class="nm">{C.esc(n)}</th>'
-                  f'{BB._td(C.fr(x["fy"], 0), {"nuance": n, "epaisseur": "40"}, "cur" if (n == nuance and ep == "40") else ("col" if ep == "40" else ""))}'
-                  + (BB._td(C.fr(f80, 0), {"nuance": n, "epaisseur": "80"}, "cur" if (n == nuance and ep == "80") else ("col" if ep == "80" else ""))
-                     if f80 is not None else BB._td("—", {"nuance": n}, "vide", "nuance absente du tableau 3.1 du moteur"))
-                  + f'{BB._td(C.fr(x["fu"], 0), {"nuance": n})}{BB._td(C.fr(x["bw"], 2), {"nuance": n})}'
-                  f'{BB._td(C.fr(NO.epsilon(float(x["fy"])), 2), {"nuance": n})}</tr>')
-    tableau = BB._tableau(th, corps, "bib-nuances")
+        if x is None:
+            vide = BB._td("—", {"nuance": n}, "vide", "nuance absente de la table du site (acier/materiaux.py)")
+            corps += f'<tr{on}><th class="nm">{C.esc(n)}</th>{vide * (len(fy_cols) + len(fu_cols) + 2)}</tr>'
+            continue
+        lg = x["ligne"]
+        cases = "".join(BB._td(C.fr(v, 0), {"nuance": n, "epaisseur": k}, "cur" if (n == nuance and k == ep) else ("col" if k == ep else ""))
+                        for (k, _, _), v in zip(fy_cols, x["fy_cols"]))
+        cases += "".join(BB._td(C.fr(v, 0), {"nuance": n}, "col" if j == j_fu else "") for j, v in enumerate(x["fu_cols"]))
+        cases += BB._td(C.fr(x["bw"], 2), {"nuance": n}) + BB._td(C.fr(RS.fvw_d(x["fu"], x["bw"], CR.GAMMA_M2), 1), {"nuance": n})
+        titre = f'tableau {lg["tableau"]} ({lg["norme"]}), {lg["designation"]}'
+        corps += f'<tr{on}><th class="nm" title="{C.esc(titre)}">{C.esc(n)}<br><small>{C.esc(lg["designation"])}</small></th>{cases}</tr>'
+    tableau = BB._tableau(th1 + th2, corps, "bib-nuances")
     avert = []
-    epais = ep == "80"
-    if epais:
-        avert.append("f<sub>u</sub> n'est connu du dépôt que pour t ≤ 40 mm (bibliotheques.json) : au-delà de 40 mm, le tableau 3.1 "
-                     "de l'EN 1993-1-1 donne pour certaines nuances une valeur plus faible — à lire dans la norme. f<sub>vw,d</sub>, "
-                     "calculé avec ce f<sub>u</sub>, vaut pour une paroi de t ≤ 40 mm : au-delà, il est plus faible d'autant.")
-    if fy is None:
-        avert.append(f"{C.esc(nuance)} : f<sub>y</sub> au-delà de 40 mm n'est pas dans le tableau 3.1 du moteur.")
-    termes = [
-        {"symbole": "f_y", "nom": "LIMITE D'ÉLASTICITÉ", "valeur": fy if fy is not None else "—", "unite": "MPa",
-         "regle": ("t ≤ 40 mm — bibliotheques.json" if ep == "40" else "40 < t ≤ 80 mm — EN 1993-1-1 tableau 3.1, acier/flambement/normes.limite_elastique")},
-        {"symbole": "f_u", "nom": "résistance ultime à la traction (t ≤ 40 mm)", "valeur": float(a["fu"]), "unite": "MPa", "regle": "bibliotheques.json"},
-        {"symbole": "β_w", "nom": "facteur de corrélation des soudures d'angle", "valeur": float(a["bw"]), "unite": "", "regle": "bibliotheques.json"},
-        {"symbole": "E", "nom": "module d'élasticité", "valeur": NO.E_ACIER, "unite": "MPa", "regle": "EN 1993-1-1 §3.2.6 — acier/flambement/normes.py"},
-    ]
-    if fy is not None:
-        termes.append({"symbole": "ε", "nom": "coefficient des classes de section", "valeur": NO.epsilon(fy), "unite": "", "regle": f"√(235 / f_y) = √(235 / {C.fr(fy, 0)}) — tableau 5.2"})
-    termes.append({"symbole": "γ_M2", "nom": "coefficient partiel des assemblages", "valeur": CR.GAMMA_M2, "unite": "", "regle": "ANB — acier/soudures/criteres.py"})
-    fvw = RS.fvw_d(float(a["fu"]), float(a["bw"]), CR.GAMMA_M2)
-    # (à 40 < t ≤ 80 mm, f_vw,d reste celui de f_u pour t ≤ 40 mm — le seul que le dépôt connaisse : sa ligne le dit, elle
-    #  ne se lit pas comme la résistance d'un cordon sur une paroi épaisse, qui est plus faible — relecture BIB5)
-    termes.append({"symbole": "f_vw,d", "nom": "résistance de calcul au cisaillement d'un cordon" + (" (f_u pour t ≤ 40 mm)" if epais else ""),
-                   "valeur": fvw, "unite": "MPa",
-                   "regle": f"f_u / (√3 · β_w · γ_M2) = {C.fr(a['fu'], 0)} / (√3 · {C.nb(a['bw'], 2)} · {C.nb(CR.GAMMA_M2, 2)}) — EN 1993-1-8 §4.5.3.3"
-                            + (" ; paroi de plus de 40 mm : plus faible, f_u à lire dans le tableau 3.1" if epais else "")})
-    sources = [SOURCE_BQ, SOURCE_NO, SOURCE_SOUDURE]
-    phrase = (f"{C.esc(nuance)} · {C.esc(dict(EPAISSEURS)[ep])} · f<sub>u</sub>{' (t ≤ 40 mm)' if epais else ''} = {C.fr(a['fu'], 0)}{NBSP}MPa"
-              f" · β<sub>w</sub> = {C.fr(a['bw'], 2)}" + (f" · ε = {C.fr(NO.epsilon(fy), 2)}" if fy is not None else ""))
+    if a is None:
+        avert.append(f"{C.esc(nuance)} : nuance absente de la table du site (acier/materiaux.py) — aucune valeur n'est inventée.")
+    elif nuance in MA.ALIAS:
+        lg = a["ligne"]
+        avert.append(f"« {C.esc(nuance)} » : nom des notes enregistrées, gardé tel quel ; la table du site le lit sur la ligne "
+                     f"{C.esc(lg['designation'])} du tableau {C.esc(lg['tableau'])} ({C.esc(lg['norme'])}) : f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa "
+                     f"pour {C.esc(a['src_fu'].rsplit(', ', 1)[1])}.")
+    sources = [f"{REGLE_ANB} — f_y et f_u selon l'épaisseur nominale, acier/materiaux.py (la table du site), produits laminés : "
+               f"{_lignes_anb(noms)}. Au-delà de {C.fr(NO.T_MAX_TABLEAU, 0)} mm, les tableaux de l'ANB continuent, mais les modules du site "
+               f"s'arrêtent à {C.fr(NO.T_MAX_TABLEAU, 0)} mm.",
+               SOURCE_BQ, SOURCE_NO, SOURCE_SOUDURE]
+    if a is not None:
+        lg = a["ligne"]
+        fvw = RS.fvw_d(a["fu"], a["bw"], CR.GAMMA_M2)
+        termes = [
+            {"symbole": "f_y", "nom": "LIMITE D'ÉLASTICITÉ", "valeur": a["fy"], "unite": "MPa", "regle": a["src_fy"] + " — acier/materiaux.py"},
+            {"symbole": "f_u", "nom": "résistance à la traction (épaisseur retenue)", "valeur": a["fu"], "unite": "MPa", "regle": a["src_fu"] + " — acier/materiaux.py"},
+        ]
+        mince_txt, mince_v = a["fu_mince"]
+        if not a["src_fu"].endswith(f", {mince_txt}"):
+            termes.append({"symbole": "f_u", "nom": f"résistance à la traction ({mince_txt})", "valeur": mince_v, "unite": "MPa",
+                           "regle": f"tableau {lg['tableau']} ({lg['norme']}, {lg['designation']}), {mince_txt} — acier/materiaux.py"})
+        termes += [
+            {"symbole": "β_w", "nom": "facteur de corrélation des soudures d'angle", "valeur": a["bw"], "unite": "", "regle": "EN 1993-1-8 tableau 4.1 — bibliotheques.json"},
+            {"symbole": "E", "nom": "module d'élasticité", "valeur": NO.E_ACIER, "unite": "MPa", "regle": "EN 1993-1-1 §3.2.6 — acier/flambement/normes.py"},
+            {"symbole": "ε", "nom": "coefficient des classes de section", "valeur": NO.epsilon(a["fy"]), "unite": "", "regle": f"√(235 / f_y) = √(235 / {C.fr(a['fy'], 0)}) — tableau 5.2"},
+            {"symbole": "γ_M2", "nom": "coefficient partiel des assemblages", "valeur": CR.GAMMA_M2, "unite": "", "regle": "ANB — acier/soudures/criteres.py"},
+            {"symbole": "f_vw,d", "nom": "résistance de calcul au cisaillement d'un cordon", "valeur": fvw, "unite": "MPa",
+             "regle": f"f_u / (√3 · β_w · γ_M2) = {C.fr(a['fu'], 0)} / (√3 · {C.nb(a['bw'], 2)} · {C.nb(CR.GAMMA_M2, 2)}) — EN 1993-1-8 §4.5.3.3"},
+        ]
+        phrase = (f"{C.esc(nuance)} · {C.esc(lg['designation'])}, tableau {C.esc(lg['tableau'])} · {C.esc(paliers[ep])} mm · "
+                  f"f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa · β<sub>w</sub> = {C.fr(a['bw'], 2)} · ε = {C.fr(NO.epsilon(a['fy']), 2)}")
+    else:
+        termes = [{"symbole": "f_y", "nom": "LIMITE D'ÉLASTICITÉ", "valeur": "—", "unite": "MPa", "regle": "nuance absente de la table du site"}]
+        phrase = f"{C.esc(nuance)} · {C.esc(paliers[ep])} mm"
     val = C.fr(fy, 0) if fy is not None else "—"
     return {"titre": "Nuances d'acier", "barre": barre, "tableau": tableau,
             "bande": _bande(val, "MPa", "f<sub>y</sub>", "limite d'élasticité", phrase, avert),
-            "pourquoi": BB._pourquoi(f"Acier {C.esc(nuance)}", "EN 1993-1-1 tableau 3.1 ; EN 1993-1-8 §4.5.3", termes, _symboles(sources), avert),
+            "pourquoi": BB._pourquoi(f"Acier {C.esc(nuance)}", f"{REGLE_ANB} ; EN 1993-1-8 §4.5.3", termes, _symboles(sources), avert),
             "sources": BB._sources(*_symboles(sources)),
             "fiche": _fiche(f"Acier {nuance}", "f_y", fy, "MPa", p, termes, [BB._texte_brut(s) for s in sources], avert, texte=val, phrase=phrase),
             "params": p, "message": L.message()}

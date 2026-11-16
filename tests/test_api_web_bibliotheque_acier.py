@@ -14,15 +14,18 @@ tests/test_api_web_bibliotheque.py (la béton armé).
    de colonne la liste qu'un clic donne — les régler donne bien cela.
 4. Les paramètres : refus doux (familles, profil, colonnes, filtres en double, bornes illisibles), « aucune » famille,
    min > max, la recherche (texte LIBRE) échappée partout et bornée, les lignes, le profilé ouvert hors des lignes.
-5. Nuances et boulons : les valeurs de acier/donnees/bibliotheques.json (relu à part), f_y au-delà de 40 mm et ε par
-   le moteur du flambement, f_vw,d, F_t,Rd, F_v,Rd recalculés ici ; les deux copies de f_y (bibliotheques.json et
-   acier/flambement/normes.py) NOMMÉES et liées (R2) ; chaque case règle des paramètres qui allument une case qui les
-   porte.
+5. Nuances (lot A, 16/11/2026) : LA table du site, acier/materiaux.py (NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ;
+   tableaux 3.3 à 3.12 ANB) — le tableau est la table ATTENDUE écrite ici à part (désignation, f_y par palier jusqu'à
+   80 mm, f_u sous 3 mm et de 3 à 100 mm, β_w, f_vw,d) ET rend exactement MA.fy / MA.fu (R2) ; la règle, la ligne de
+   l'ANB de chaque nuance et la borne des modules dites ; plus aucune trace des anciennes tables ; chaque palier, la
+   fiche, « S355 (fu 490) », les adresses d'avant. Boulons : les valeurs de bibliotheques.json (relu à part), F_t,Rd,
+   F_v,Rd recalculés ici. Chaque case règle des paramètres qui allument une case qui les porte.
 6. Le routeur et la page : « consulter » sert l'acier, la page porte le menu des trois rubriques, les identifiants
    que les scripts cherchent, la feuille ; js/biblio.js porte les gestes de l'acier (lignes, en-têtes, pastilles,
    menu « Colonnes » gardé ouvert).
-7. Mutations : la page ne garde aucune copie (catalogue, bibliotheques.json, resistances) ; l'échappement retient le
-   piège ; un paramètre fait de boutons dans un <label> est vu.
+7. Mutations : la page ne garde aucune copie (catalogue, table du site, resistances) ; le défaut A1 remis (f_y nominal,
+   f_u de l'ancienne bibliothèque) fait rougir la table écrite et le lien R2 ; l'échappement retient le piège ; un
+   paramètre fait de boutons dans un <label> est vu.
 
     python3 tests/test_api_web_bibliotheque_acier.py
 """
@@ -32,11 +35,12 @@ import math
 import os
 import re
 import sys
+import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
-from acier import bibliotheques as BQ  # noqa: E402
+from acier import materiaux as MA  # noqa: E402
 from acier import resistances as RS  # noqa: E402
 from acier.flambement import normes as NO  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
@@ -278,46 +282,138 @@ chk("les paramètres s'écrivent comme l'adresse les donne (chaînes) : même r�
 chk("« filtres = effacer » vide les trois filtres", all(not B.consulter("profils", {"f1": "Iy", "min1": "10", "filtres": "effacer"})["params"][f"f{i}"] for i in (1, 2, 3)))
 
 # ============================================================================================ 5. nuances, boulons
-print("\n=== 5 · Nuances et boulons : la bibliothèque des moteurs, relue à part")
+print("\n=== 5 · Nuances : LA table du site (acier/materiaux.py) ; boulons : la bibliothèque des moteurs, relue à part")
+# Lot A (16/11/2026) : la rubrique montrait côte à côte deux tables qui ne sont plus celles du site (le f_y « t ≤ 40 » et
+# le f_u de bibliotheques.json, la colonne « 40 < t ≤ 80 » du tableau 3.1 de l'EN — l'option b). Elle montre LA table du
+# site : NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB.
+REGLE = "NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB"
+# LA TABLE ATTENDUE, écrite ici à part (valeurs de contrôle des règles du lot A ; tableaux 3.3 ANB, EN 10025-2, et
+# 3.4 ANB, EN 10025-3 ; f_vw,d = f_u / (√3 · β_w · 1,25) avec le f_u de 3 à 100 mm, au dixième) :
+# nuance → (désignation, f_y ≤ 16, 16–40, 40–63, 63–80, f_u < 3, f_u 3–100, β_w, f_vw,d)
+ATTENDU = {
+    "S235": ("S235JR", "235", "225", "215", "215", "360", "360", "0,80", "207,8"),
+    "S275": ("S275JR", "275", "265", "255", "245", "430", "410", "0,85", "222,8"),
+    "S355": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "241,2"),
+    "S355 (fu 490)": ("S355JR", "355", "345", "335", "325", "510", "470", "0,90", "241,2"),
+    "S355 N/NL": ("S355N", "355", "345", "335", "325", "470", "470", "0,90", "241,2"),
+    "S460 N/NL": ("S460N", "460", "440", "430", "410", "540", "540", "1,00", "249,4"),
+}
+NOM_NUANCE = re.compile(r'<th class="nm"[^>]*>(.*?)<br><small>(.*?)</small></th>', re.S)
+
+
+def lignes_nuances(t: str) -> list:
+    """Les lignes du tableau des nuances : [(nom, désignation, [cellules en texte])]."""
+    out = []
+    for _attrs, li in LIGNE.findall(t.split("<tbody>", 1)[1]):
+        m = NOM_NUANCE.search(li)
+        cs = [sans_espaces(texte(c)) for c in re.findall(r"<td[^>]*>(.*?)</td>", li, re.S)]
+        out.append((html.unescape(m.group(1)) if m else None, html.unescape(m.group(2)) if m else None, cs))
+    return out
+
+
+def table_ecrite(out) -> bool:
+    """Le tableau rendu = LA TABLE ATTENDUE écrite ci-dessus, nuance par nuance, cellule par cellule."""
+    li = lignes_nuances(out["tableau"])
+    return [x[0] for x in li] == list(ATTENDU) and all((d, *c) == ATTENDU[n] for n, d, c in li)
+
+
+def table_du_site(out) -> bool:
+    """R2 : la rubrique rend EXACTEMENT ce que la table du site donne — MA.fy à la borne de chaque palier, MA.fu sous
+    3 mm et de 3 à 100 mm, MA.ligne(…)["designation"] ; β_w de bibliotheques.json ; f_vw,d recalculé ici."""
+    li = lignes_nuances(out["tableau"])
+    if [x[0] for x in li] != [a["n"] for a in BIBLIO["aciers"]]:
+        return False
+    for (n, d, c), a in zip(li, BIBLIO["aciers"]):
+        fu = MA.fu(n, 3.0)
+        attendu = ([MA.ligne(n)["designation"]] + [nombre_fr(MA.fy(n, t), 0) for t in (16.0, 40.0, 63.0, 80.0)]
+                   + [nombre_fr(MA.fu(n, 2.0), 0), nombre_fr(fu, 0), f"{a['bw']:.2f}".replace(".", ","),
+                      nombre_fr(fu / (math.sqrt(3) * a["bw"] * 1.25), 1)])
+        if [d] + c != attendu or MA.fu(n, 100.0) != fu:
+            return False
+    return True
+
+
 n0 = B.consulter("nuances", {})
-s355 = next(a for a in BIBLIO["aciers"] if a["n"] == "S355")
-chk("nuances : S355 par défaut → f_y = 355 MPa (bibliotheques.json, relu à part)", valeur(n0) == (str(s355["fy"]), "MPa"))
-chk("nuances : chaque ligne du tableau est un acier du fichier, avec f_y, f_u, β_w du fichier",
-    [x[0] for x in lignes_tableau(n0["tableau"])] == [a["n"] for a in BIBLIO["aciers"]]
-    and all(c[0] == str(a["fy"]) and c[2] == str(a["fu"]) and c[3] == f"{a['bw']:.2f}".replace(".", ",") for (_, c), a in zip(lignes_tableau(n0["tableau"]), BIBLIO["aciers"])))
-n1 = B.consulter("nuances", {"nuance": "S275", "epaisseur": "80"})
-chk("nuances : S275, 40 < t ≤ 80 mm → 255 MPa (le moteur du flambement, tableau 3.1) et l'avertissement sur f_u",
-    valeur(n1) == ("255", "MPa") and valeur(n1)[0] == str(int(NO.limite_elastique("S275", 60.0))) and "f<sub>u</sub> n'est connu" in n1["bande"])
-# (relecture BIB5) à 40 < t ≤ 80 mm, f_u n'est connu du dépôt que pour t ≤ 40 mm, et f_vw,d qu'on en tire vaut pour
-# une paroi de t ≤ 40 mm (le tableau 3.1 donne un f_u plus faible au-delà : S355 510 → 470 MPa, f_vw,d +8,5 %) : rien ne
-# doit se lire comme valable pour la paroi épaisse — l'en-tête de f_u, la phrase de la bande, la ligne f_vw,d de la
-# justification et de la fiche, l'avertissement disent leur domaine
-TOUT_40 = re.compile(r"t\s*≤\s*40")
-n80 = B.consulter("nuances", {"nuance": "S355", "epaisseur": "80"})
-th_fu = [texte(x) for x in re.findall(r"<th[^>]*>.*?</th>", n80["tableau"].split("</thead>")[0], re.S) if texte(x).startswith("fu")]
-ph80 = texte(n80["bande"].split('class="bib-phr">')[1].split("</span></div>")[0])
-l_fvw = next(li for li in n80["fiche"]["lignes"] if li["symbole"] == "f_vw,d")
-pq_fvw = next(texte(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", n80["pourquoi"], re.S) if "vw,d" in r)
-chk("nuances 40 < t ≤ 80 mm : f_u et f_vw,d disent leur domaine (t ≤ 40 mm) — en-tête de f_u, phrase de la bande, ligne f_vw,d de la "
-    "justification et de la fiche, avertissement",
-    th_fu and all(TOUT_40.search(x) for x in th_fu) and re.search(r"fu\s*\(t ≤ 40 mm\)\s*=\s*510", ph80) is not None
-    and TOUT_40.search(l_fvw["nom"]) and TOUT_40.search(pq_fvw) and any("vw,d" in a for a in n80["fiche"]["avertissements"]),
-    (th_fu, ph80, l_fvw["nom"], pq_fvw[:120], n80["fiche"]["avertissements"]))
-chk("nuances t ≤ 40 mm : la ligne f_vw,d n'est pas alourdie (le domaine est celui de la page)",
-    not TOUT_40.search(next(li for li in n0["fiche"]["lignes"] if li["symbole"] == "f_vw,d")["nom"]))
-# un « < » de texte (« 40 < t ≤ 80 mm ») entre ÉCHAPPÉ dans le HTML : un « < » nu n'ouvre pas de balise dans le
-# navigateur, mais casse toute relecture du fragment (un texte « 40 < t … > » s'y perdrait)
+chk("nuances : par défaut S355, t ≤ 16 mm → f_y = 355 MPa, sans message", valeur(n0) == ("355", "MPa") and n0["params"] == {"nuance": "S355", "epaisseur": "16"}
+    and n0["message"] is None, (valeur(n0), n0["params"]))
+chk("nuances : le tableau est LA TABLE ATTENDUE (écrite ici à part) — désignation, f_y par palier (≤ 16, 16–40, 40–63, 63–80 mm), f_u sous 3 mm et "
+    "de 3 à 100 mm, β_w, f_vw,d — pour les six nuances", table_ecrite(n0), lignes_nuances(n0["tableau"])[:3])
+chk("nuances, R2 : la rubrique rend EXACTEMENT MA.fy / MA.fu (acier/materiaux.py, la table du site) et MA.ligne — la seule source de f_y et f_u ; "
+    "β_w de bibliotheques.json (qui ne porte plus ni f_y ni f_u)", table_du_site(n0) and all(set(a) == {"n", "bw"} for a in BIBLIO["aciers"]))
+# les colonnes : les paliers de l'ANB jusqu'à la borne des modules, les mêmes pour les six nuances, nommés en entier
+PAL = [x for x, _ in MA.paliers("S355")][:4]
+th2 = re.findall(r'<th class="k[^"]*" title="([^"]*)"><b>(.*?)</b></th>', n0["tableau"])
+segs = [(k, html.unescape(t_)) for k, t_ in re.findall(r'<button type="button"(?: class="on")? data-valeur="([^"]*)">(.*?)</button>', n0["barre"].split('data-param="epaisseur"')[1])]
+chk(f"nuances : les colonnes de f_y sont les paliers de l'ANB jusqu'à {NO.T_MAX_TABLEAU:g} mm (la borne des modules), les mêmes pour les six nuances, "
+    "nommés en entier (infobulle de l'en-tête, boutons de la barre) ; la clé d'un palier est sa borne supérieure",
+    NO.T_MAX_TABLEAU == 80.0 and PAL == ["t ≤ 16 mm", "16 < t ≤ 40 mm", "40 < t ≤ 63 mm", "63 < t ≤ 80 mm"]
+    and all([x for x, _ in MA.paliers(a["n"])][:4] == PAL for a in BIBLIO["aciers"])
+    and [html.unescape(t_) for t_, _ in th2[:4]] == PAL and [html.unescape(b) for _, b in th2] == ["≤ 16", "16–40", "40–63", "63–80", "< 3", "3–100"]
+    and [html.unescape(t_) for t_, _ in th2[4:]] == ["t < 3 mm", "3 ≤ t ≤ 100 mm"]
+    and segs == [("16", "t ≤ 16"), ("40", "16 < t ≤ 40"), ("63", "40 < t ≤ 63"), ("80", "63 < t ≤ 80")], (th2, segs))
+# la règle citée, la ligne de l'ANB de chaque nuance, la borne des modules dite en une phrase ; plus aucune trace des
+# deux anciennes tables (le tableau 3.1 de l'EN, le f_y et le f_u de bibliotheques.json)
+src = texte(n0["sources"])
+lignes_anb = {(MA.ligne(a["n"])["tableau"], MA.ligne(a["n"])["norme"], MA.ligne(a["n"])["designation"]) for a in BIBLIO["aciers"]}
+chk("nuances : les sources citent la règle (« " + REGLE + " »), la ligne de l'ANB de chaque nuance (tableau, norme, désignation) et disent "
+    "qu'au-delà de 80 mm les tableaux continuent mais les modules s'arrêtent",
+    REGLE in src and REGLE in texte(n0["pourquoi"]) and lignes_anb == {("3.3 ANB", "EN 10025-2:2004", "S235JR"), ("3.3 ANB", "EN 10025-2:2004", "S275JR"),
+                                                                     ("3.3 ANB", "EN 10025-2:2004", "S355JR"), ("3.4 ANB", "EN 10025-3:2004", "S355N"),
+                                                                     ("3.4 ANB", "EN 10025-3:2004", "S460N")}
+    and all(f"tableau {t_}, {no}" in src and d in src for t_, no, d in lignes_anb)
+    and "Au-delà de 80 mm, les tableaux de l'ANB continuent, mais les modules du site s'arrêtent à 80 mm." in src, src[:400])
+VIEUX = re.compile(r"tableau 3\.1(?![\d])|(?<!< )t ≤ 40(?![\d])|40 < t ≤ 80")
+vieux = [(p_, k, m.group(0)) for p_ in ({}, {"epaisseur": "40"}, {"epaisseur": "80"}, {"nuance": "S460 N/NL", "epaisseur": "63"})
+         for k, f in ((k, texte(B.consulter("nuances", p_)[k])) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in VIEUX.finditer(f)]
+chk("nuances : plus aucune trace des anciennes tables (« tableau 3.1 », « t ≤ 40 », « 40 < t ≤ 80 ») dans aucun fragment", not vieux, vieux[:4])
+# chaque palier : la bande, la fiche et sa référence imprimée (MA.source) ; ε de la paroi de ce palier
+rates = []
+for k, t_, fy_, eps, eps3 in (("16", 16.0, "355", "0,81", "0,814"), ("40", 40.0, "345", "0,83", "0,825"), ("63", 63.0, "335", "0,84", "0,838"),
+                             ("80", 80.0, "325", "0,85", "0,850")):
+    o = B.consulter("nuances", {"nuance": "S355", "epaisseur": k})
+    lf = {li["symbole"]: li for li in reversed(o["fiche"]["lignes"])}
+    ph = texte(o["bande"].split('class="bib-phr">')[1].split("</span></div>")[0])
+    if not (valeur(o) == (fy_, "MPa") and o["message"] is None and lf["f_y"]["regle"].startswith(MA.source("S355", t_))
+            and f"{PAL[['16', '40', '63', '80'].index(k)]}" in ph and "S355JR, tableau 3.3 ANB" in ph and re.search(r"fu\s*=\s*470\s*MPa", ph)
+            and f"ε = {eps}" in ph and lf["ε"]["texte"] == eps3):
+        rates.append((k, valeur(o), ph, lf["f_y"]["regle"]))
+chk("nuances S355, chaque palier : la bande donne f_y (355, 345, 335, 325), la phrase la ligne de l'ANB, le palier, f_u = 470 et ε de ce palier ; "
+    "la fiche cite MA.source", not rates, rates)
+# la fiche : f_u de l'épaisseur retenue (3 à 100 mm) ET f_u sous 3 mm quand il diffère ; f_vw,d avec le premier
+n40 = B.consulter("nuances", {"nuance": "S355", "epaisseur": "40"})
+fus = [li for li in n40["fiche"]["lignes"] if li["symbole"] == "f_u"]
+fvw = 470 / (math.sqrt(3) * 0.9 * 1.25)
+l_fvw = next(li for li in n40["fiche"]["lignes"] if li["symbole"] == "f_vw,d")
+chk(f"nuances S355, 16 < t ≤ 40 mm : la fiche donne f_u = 470 (3 ≤ t ≤ 100 mm) et 510 (t < 3 mm), chacun avec sa référence ; f_vw,d = {nombre_fr(fvw, 1)} MPa "
+    "(470 / (√3 · 0,9 · 1,25), recalculé ici) — la justification aussi",
+    [(li["valeur"], li["regle"].split(" — ")[0]) for li in fus] == [(470.0, MA.source("S355", 40.0, grandeur="fu")), (510.0, "tableau 3.3 ANB (EN 10025-2:2004, S355JR), t < 3 mm")]
+    and abs(l_fvw["valeur"] - fvw) < 1e-9 and l_fvw["regle"].startswith("f_u / (√3 · β_w · γ_M2) = 470 / (√3 · 0,9 · 1,25)")
+    and f"{fvw:.1f}".replace(".", ",") in n40["pourquoi"], ([(li["valeur"], li["regle"]) for li in fus], l_fvw))
+nn = B.consulter("nuances", {"nuance": "S355 N/NL"})
+chk("nuances S355 N/NL : une seule ligne f_u dans la fiche (le tableau 3.4 ANB n'a qu'un palier jusqu'à 100 mm : 470)",
+    [li["valeur"] for li in nn["fiche"]["lignes"] if li["symbole"] == "f_u"] == [470.0])
+# « S355 (fu 490) » : un nom des notes enregistrées (aucun nom n'est retiré ni renommé) ; la page dit qu'il suit S355JR
+n490 = B.consulter("nuances", {"nuance": "S355 (fu 490)", "epaisseur": "40"})
+av490 = " ".join(texte(a) for a in n490["fiche"]["avertissements"])
+chk("nuances « S355 (fu 490) » : la ligne montre f_u = 470 (pas 490) et l'avertissement dit qu'elle suit la ligne S355JR du tableau 3.3 ANB",
+    lignes_nuances(n490["tableau"])[3][2][5] == "470" and "S355JR" in av490 and "tableau 3.3 ANB" in av490 and re.search(r"fu\s*=\s*470", av490)
+    and "notes enregistrées" in av490 and "S355JR" in texte(n490["bande"]), av490)
+chk("nuances S235 : aucun avertissement (un nom de la table n'en appelle pas)", not B.consulter("nuances", {"nuance": "S235"})["fiche"]["avertissements"])
+# une adresse d'avant le lot A (« epaisseur=40 » : t ≤ 40 ; « 80 » : 40 < t ≤ 80) ouvre le palier qui finit là — le plus
+# défavorable de l'ancienne colonne ; une épaisseur au-delà de la borne des modules n'est pas offerte (refus doux)
+o80 = B.consulter("nuances", {"nuance": "S275", "epaisseur": "80"})
+o100 = B.consulter("nuances", {"nuance": "S275", "epaisseur": "100"})
+chk("nuances : « epaisseur=80 » (adresse d'avant) → 63 < t ≤ 80 mm, S275 → 245 MPa (et non plus 255 du tableau 3.1) ; « 100 » est refusé "
+    "doucement (message, t ≤ 16 mm)", valeur(o80) == ("245", "MPa") and o80["message"] is None
+    and valeur(o100) == ("275", "MPa") and o100["params"]["epaisseur"] == "16" and "epaisseur" in (o100["message"] or ""), (valeur(o80), valeur(o100), o100["message"]))
+# un « < » de texte (« 16 < t ≤ 40 mm ») entre ÉCHAPPÉ dans le HTML : un « < » nu n'ouvre pas de balise dans le
+# navigateur, mais casse toute relecture du fragment (un texte « 16 < t … > » s'y perdrait)
 NU = re.compile(r"<(?![A-Za-z/!])")
 nus = [(r, k, f[max(0, m.start() - 20):m.start() + 20]) for r, p_ in (("nuances", {"epaisseur": "80"}), ("nuances", {}), ("boulons", {}), ("boulons", {"vue": "classes"}),
                                                                      ("profils", {}), ("profils", {"f1": "Iy", "min1": "5", "max1": "1"}))
        for k, f in ((k, B.consulter(r, p_)[k]) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in NU.finditer(f)]
-chk("aucun « < » nu dans les fragments des trois rubriques (« 40 < t ≤ 80 mm » est échappé : barre, bande, tableau)", not nus, nus[:4])
-fvw = s355["fu"] / (math.sqrt(3) * s355["bw"] * 1.25)
-chk(f"nuances : la justification de S355 donne f_vw,d = {fvw:.1f} MPa (f_u / (√3 · β_w · 1,25), recalculé ici) et ε = 0,81",
-    f"{fvw:.1f}".replace(".", ",") in n0["pourquoi"] and "0,814" in n0["pourquoi"])
-liens = [(a["n"], a["fy"], NO.NUANCES.get(B._base(a["n"]), (None,))[0]) for a in BQ.DB["aciers"]]
-chk("R2 — deux copies NOMMÉES de f_y (t ≤ 40 mm) : acier/donnees/bibliotheques.json (assemblages, soudures, garde-corps) et "
-    "acier/flambement/normes.NUANCES (flambement) disent la même chose pour chaque nuance", all(b_ is not None and float(a_) == b_ for _, a_, b_ in liens), liens)
+chk("aucun « < » nu dans les fragments des trois rubriques (« 16 < t ≤ 40 mm » est échappé : barre, bande, tableau)", not nus, nus[:4])
+chk("nuances : la justification de S355 (t ≤ 16 mm) donne f_vw,d = 241,2 MPa et ε = 0,814", "241,2" in n0["pourquoi"] and "0,814" in n0["pourquoi"])
 b0 = B.consulter("boulons", {})
 m16 = next(x for x in BIBLIO["boulons"] if x["n"] == "M16")
 c88 = next(x for x in BIBLIO["classes"] if x["n"] == "8.8")
@@ -395,13 +491,35 @@ try:
         lignes_tableau(B.consulter("profils", {"familles": "IPE"})["tableau"])[0][0] == "IPE 100")
 finally:
     CO.liste = garde
-garde = BQ.DB["aciers"]
+# (lot A) la table du site change : la rubrique la suit (elle n'en garde aucune copie) — et la table écrite plus haut
+# rougirait
+garde = MA.TABLEAUX["3.3"]
 try:
-    BQ.DB["aciers"] = [{**a, "fy": 350} if a["n"] == "S355" else a for a in garde]
-    chk("mutation « S355 : f_y = 350 dans bibliotheques.json » : la bande suit — et le lien R2 avec normes.NUANCES rougirait",
-        valeur(B.consulter("nuances", {}))[0] == "350" and not all(float(a["fy"]) == NO.NUANCES[B._base(a["n"])][0] for a in BQ.DB["aciers"]))
+    norme, lignes = garde
+    reh, rm = lignes["S355JR"]
+    MA.TABLEAUX["3.3"] = (norme, {**lignes, "S355JR": (((16.0, True, 350.0),) + tuple(reh[1:]), rm)})
+    o = B.consulter("nuances", {})
+    chk("mutation « la table du site : S355JR, t ≤ 16 mm = 350 » : la bande et le tableau suivent (la rubrique ne garde aucune copie) — et la "
+        "table écrite ici rougirait", valeur(o)[0] == "350" and table_du_site(o) and not table_ecrite(o))
 finally:
-    BQ.DB["aciers"] = garde
+    MA.TABLEAUX["3.3"] = garde
+# (lot A, le défaut A1 remis) la rubrique revient à des valeurs sans épaisseur — le f_y nominal pour tout palier, le f_u
+# de l'ancienne bibliothèque (tableau 3.1 de l'EN : S355 510) : la table écrite ici ET le lien R2 avec la table du site
+# rougissent, f_vw,d aussi
+vrai = B.MA
+try:
+    ANCIEN_FU = {"S235": 360.0, "S275": 430.0, "S355": 510.0, "S355 (fu 490)": 490.0, "S355 N/NL": 490.0, "S460 N/NL": 540.0}
+    faux = types.ModuleType("materiaux_sans_epaisseur")
+    faux.__dict__.update(vrai.__dict__)
+    faux.fy = lambda nom, t, produit="lamine": vrai.nominale(nom)
+    faux.fu = lambda nom, t, produit="lamine": ANCIEN_FU[nom]
+    B.MA = faux
+    o = B.consulter("nuances", {"epaisseur": "40"})
+    chk("mutation « le défaut A1 remis : f_y nominal quel que soit le palier, f_u de l'ancienne bibliothèque (S355 510) » : la table écrite ici ET "
+        "le lien R2 avec la table du site rougissent ; f_vw,d redevient 261,7", valeur(o)[0] == "355" and not table_ecrite(o) and not table_du_site(o)
+        and "261,7" in o["tableau"])
+finally:
+    B.MA = vrai
 garde = RS.Fv_Rd
 try:
     RS.Fv_Rd = lambda a_v, f_ub, A, g: 2 * garde(a_v, f_ub, A, g)
