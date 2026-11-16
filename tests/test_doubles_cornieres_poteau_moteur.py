@@ -42,6 +42,17 @@ sys.path.insert(0, RACINE)
 from acier.bibliotheques import PERSO  # noqa: E402
 from acier.assemblages import mecanique as MEC  # noqa: E402
 from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import moteur, entrees as E  # noqa: E402
+
+# Lot A (16/11/2026) : les exemples publiés et les calculs à la main ci-dessous gardent LEUR matériau (EN 1993-1-1
+# tableau 3.1, sans épaisseur : S355 355/510, S275 275/430 — la table du corrigé de référence) ; ce sont des
+# validations de FORMULES. Les notes prennent la table belge (tableau 3.3 ANB), contrôlée à la section « Lot A ».
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+
+
+def calcul_main(u=None):
+    """Le moteur sur le matériau des calculs à la main de cette suite (validation de formules)."""
+    return moteur.compute(u, LA.TABLEAU_3_1)
 from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import benchmark as BM  # noqa: E402
 
 OK, KO = [], []
@@ -60,7 +71,7 @@ def pres(a, b, tol):
 
 # ================================================================
 print("=== 1. HÉRITAGE : l'exemple publié MSB Part 5 §4.4 sur un POTEAU ===")
-R = moteur.compute(BM.WE)
+R = calcul_main(BM.WE)
 
 
 def vr(k):
@@ -93,7 +104,7 @@ chk("âme – brut 953, net 956, bloc 501 kN (p. 5-77 ; aire calculée +0,25 %)"
     f"{R.ck['vgS'].Rd} {R.ck['vnS'].Rd} {R.ck['vbS'].Rd}")
 chk("VÉRIFIÉ ; dimensionnante = rupture de bloc de l'âme portée",
     R.verified and R.gov.key == "vbS", R.gov.key)
-Rt = moteur.compute(BM.WE_T)
+Rt = calcul_main(BM.WE_T)
 chk("ANCRE du tronçon en T (p. 5-78/79) : Ft,Rd,u 160, Σleff 430 mm, Mpl 4,2 kNm",
     pres(Rt.Ft_Rd, 160, 0.01) and Rt.leff_T == 430 and pres(Rt.Mpl_T, 4.2, 0.01),
     f"{Rt.Ft_Rd} {Rt.leff_T} {Rt.Mpl_T}")
@@ -107,7 +118,7 @@ chk("cas (a) : le groupe « Poteau porteur » porte la pression diamétrale de l
 
 # ================================================================
 print("\n=== 2. CAS (a) AILE : le cas par défaut (§11.4 BM2) ===")
-R0 = moteur.compute({})
+R0 = calcul_main({})
 fy, fu, bw = 355.0, 510.0, 0.9
 d, d0, As, dm, dw = 20.0, 22.0, 245.0, 31.8, 37.0
 Fv = 0.6 * 800 * As / 1.25 / 1000
@@ -187,7 +198,7 @@ chk("γM0 par défaut = 1,00 (ANB belge) ; γMu par défaut = 1,10 (guides)",
 
 # ================================================================
 print("\n=== 3. CAS (a) TYING : les deux tronçons en T (§11.4 BM3) ===")
-R3 = moteur.compute(BM.BM3)
+R3 = calcul_main(BM.BM3)
 Ftu = 0.9 * 800 * As / 1.1 / 1000
 SFt = 2 * n1 * Ftu
 ew = dw / 4
@@ -247,33 +258,33 @@ chk("cas (a) : le groupe « Poteau porteur » porte pdP, tfP, twtP et ppP (pas v
     [c.key for c in R3.checks if c.grp == "Poteau porteur" and c.active]
     == ["pdP", "tfP", "twtP", "ppP"],
     str([c.key for c in R3.checks if c.grp == "Poteau porteur" and c.active]))
-Re = moteur.compute(dict(N_Ed=80))
+Re = calcul_main(dict(N_Ed=80))
 chk("ELU fondamental : NEd reste combiné à VEd (γM2n pour les nettes), bvT_S inactif, tsA actif",
     not Re.tying and Re.N_elu == 80 and Re.g_T == 1.25 and not Re.ck["bvT_S"].active
     and Re.ck["tsA"].active and Re.ck["tfP"].active and Re.ck["bi_P"].active)
 chk("ELU : NEd entre dans Fx du boulon le plus sollicité du groupe S", Re.Fx_S > R0.Fx_S)
 chk("une compression (NEd < 0) n'a pas de nature : nat_N invisible, pas de vérification de traction",
-    not E.traction(dict(N_Ed=-60)) and not moteur.compute(dict(N_Ed=-60)).ck["tsA"].active)
+    not E.traction(dict(N_Ed=-60)) and not calcul_main(dict(N_Ed=-60)).ck["tsA"].active)
 
 # ================================================================
 print("\n=== 4. CAS (b) ÂME : une L100 ne passe pas, une L90 passe (§11.4 BM4) ===")
-R4 = moteur.compute(BM.BM4)
+R4 = calcul_main(BM.BM4)
 chk("cas (b) : largeur droite entre congés 208 mm ; demi-largeur 104 ; aile A maximale 99,7 mm",
     R4.libre_droit == 208 and R4.demi_droit == 104 and pres(R4.bA_max, 99.7, 1e-12),
     f"{R4.libre_droit} {R4.demi_droit} {R4.bA_max}")
 chk("L90×90×9 : le bout de l'aile A dégage le congé (4,3 + 90 = 94,3 ≤ 104) — aucune alerte",
     not any(a.id == "bA_congeP" for a in R4.alerts) and pres(R4.tw_S / 2 + R4.b_A, 94.3, 1e-12))
 chk("L100×100×10 en cas (b) : 4,3 + 100 = 104,3 > 104 → alerte BLOQUANTE bA_congeP",
-    any(a.id == "bA_congeP" and a.block for a in moteur.compute(dict(appui=E.APPUI_AME)).alerts)
-    and not moteur.compute(dict(appui=E.APPUI_AME)).geo_ok)
+    any(a.id == "bA_congeP" and a.block for a in calcul_main(dict(appui=E.APPUI_AME)).alerts)
+    and not calcul_main(dict(appui=E.APPUI_AME)).geo_ok)
 chk("l'écrou dégage le congé : p3/2 + dw/2 = 72,8 ≤ 104 (marge 31,2 mm) ; p3 maximal 171 mm",
     pres(R4.p_3 / 2 + R4.d_w / 2, 72.8, 1e-12) and pres(R4.p3_max_ame, 171.0, 1e-12),
     f"{R4.p_3 / 2 + R4.d_w / 2} {R4.p3_max_ame}")
 chk("… un gauge trop grand en cas (b) : alerte BLOQUANTE p3_libreP",
     any(a.id == "p3_libreP" and a.block
-        for a in moteur.compute(dict(appui=E.APPUI_AME, corn_u="L150x150x10", gA_u=90)).alerts))
+        for a in calcul_main(dict(appui=E.APPUI_AME, corn_u="L150x150x10", gA_u=90)).alerts))
 chk("cas (b) : le gauge minimal du congé de l'AILE ne s'applique PAS (p3_congeP inactive)",
-    not any(a.id == "p3_congeP" for a in moteur.compute(dict(appui=E.APPUI_AME, corn_u="L90x90x9",
+    not any(a.id == "p3_congeP" for a in calcul_main(dict(appui=E.APPUI_AME, corn_u="L90x90x9",
                                                              gA_u=40)).alerts))
 _k1_Pb = min(1.4 * p3 / d0 - 1.7, 2.5)
 _Fb_Pb = _k1_Pb * _abv_P * fu * d * twP / 1.25 / 1000
@@ -291,21 +302,21 @@ chk("ÂME DU POTEAU : cisaillement local BRUT 821,334 kN (η = 0,122) et NET 715
     f"{R4.ck['vlP'].Rd} {R4.ck['vnP'].Rd}")
 chk("cas (b) : ni tronçon en T de l'aile ni âme en traction transversale (ils sont du cas a)",
     not R4.ck["tfP"].active and not R4.ck["twtP"].active
-    and not moteur.compute(dict(BM.BM4, N_Ed=300, nat_N=E.NAT_TYING)).ck["tfP"].active)
+    and not calcul_main(dict(BM.BM4, N_Ed=300, nat_N=E.NAT_TYING)).ck["tfP"].active)
 chk("cas (b) : poinçonnement de l'ÂME (t = twP) = 305,702 kN en tying",
-    pres(moteur.compute(dict(BM.BM4, N_Ed=300, nat_N=E.NAT_TYING)).ck["ppP"].Rd,
+    pres(calcul_main(dict(BM.BM4, N_Ed=300, nat_N=E.NAT_TYING)).ck["ppP"].Rd,
          0.6 * math.pi * dm * twP * fu / 1.1 / 1000, 1e-12))
 chk("cas (b) : l'IPE 400 (bS = 180) passe entre les ailes du HEB 300 (252 mm) — pas de recoupe",
     R4.passe_S and R4.rec_ok and R4.libre_ailes == 252
     and not any(a.id == "aile_poutre" for a in R4.alerts))
 chk("cas (b) : recoupe minimale (bP − twP)/2 + j − gh = 139,5 mm",
     pres(R4.rec_min, (bP - twP) / 2 + 5 - gh, 1e-12), str(R4.rec_min))
-Ri = moteur.compute(dict(appui=E.APPUI_AME, corn_u="L90x90x9", prof_S="HEA 300", z_C=45,
+Ri = calcul_main(dict(appui=E.APPUI_AME, corn_u="L90x90x9", prof_S="HEA 300", z_C=45,
                          LC_u=190, n1S_u=3, n1P_u=3, p1S_u=60, p1P_u=60, e1S_u=35, e1P_u=35,
                          V_Ed=125))
 chk("cas (b), HEA 300 portée (bS = 300 > 252) sans recoupe : alerte BLOQUANTE aile_poutre",
     any(a.id == "aile_poutre" and a.block for a in Ri.alerts) and not Ri.geo_ok)
-Rr = moteur.compute(dict(appui=E.APPUI_AME, corn_u="L90x90x9", prof_S="HEA 300", rec_S=145,
+Rr = calcul_main(dict(appui=E.APPUI_AME, corn_u="L90x90x9", prof_S="HEA 300", rec_S=145,
                          z_C=45, LC_u=190, n1S_u=3, n1P_u=3, p1S_u=60, p1P_u=60, e1S_u=35,
                          e1P_u=35, V_Ed=125))
 chk("… recoupe de 145 mm ≥ 139,5 : l'alerte disparaît et l'assemblage est vérifié",
@@ -489,6 +500,21 @@ chk("les cas figés couvrent les DEUX appuis × les DEUX fixations, le grugeage,
          "cat_C", "trou_surdim", "soudee_P", "soudee_S", "soudee_deux", "soudee_P_ame",
          "deux_files", "gauge_insuffisant", "perso", "predim",
          "WE_cornieres", "WE_tying"} <= set(REF))
+
+# ================================================================
+print("\n=== 10. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; cornières : son épaisseur. La note neuve :
+# poteau HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+LA.jouer(chk, moteur.compute, attendus=[
+    ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "C": (10, LA.FY_S355, LA.FU_S355)}),
+    ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
+     {"S": (19, LA.FY_S355_40, LA.FU_S355), "P": (30, LA.FY_S355_40, LA.FU_S355)}),
+    ("cornières de 15 mm (L150x150x15)", dict(corn_u="L150x150x15"), {"C": (15, LA.FY_S355, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB)", dict(nu_S="S460 N/NL", prof_S="IPE 600"), {"S": (19, LA.FY_S460_40, LA.FU_S460)}),
+], ligne_fu=("note neuve", {}, "cnB"),
+   grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
+   perso=(dict(nu_C=PERSO, fy_u=300, fu_u=420, bw_u=0.85), "C", 300, 420, "cornières, f_y et f_u saisis tels quels"),
+   hors_table=(dict(prof_P=PERSO, hP_u=800, bP_u=300, twP_u=15, tfP_u=300, rP_u=27), "poteau"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

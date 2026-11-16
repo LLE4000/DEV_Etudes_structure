@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from acier.js import N, mn
 from acier.formats import F, pct
+from acier.assemblages import materiau as MT
 
 INF = 1e8
 
@@ -412,7 +413,7 @@ def lignes(R, c):
         if R.el_N <= R.lim_N:
             cmax = Sub("c,max", "h", dict(h=("h", R.h_S)), c.Rd, "mm", 0)
         else:
-            K = 160000 if R.fy_S <= 275 else 110000
+            K = 160000 if MT.nominale(R, "S") <= 275 else 110000    # domaine : la NUANCE (limites S275 / S355)
             cmax = Sub("c,max", "K*h/(h/tw)**3", dict(K=("K", K), h=("h", R.h_S), tw=("tw", R.tw_S)), c.Rd, "mm", 0)
         L = [[el, Sub("limite", None, {}, R.lim_N, "", 1), cmax], [_eta(c, "c/cmax", dict(c=("c", u.l_n), cmax=("c,max", c.Rd)))]]
     elif k == "stD":

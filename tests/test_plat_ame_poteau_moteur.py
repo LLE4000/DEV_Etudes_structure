@@ -36,6 +36,17 @@ sys.path.insert(0, RACINE)
 from acier.bibliotheques import PERSO  # noqa: E402
 from acier.assemblages import mecanique as MEC  # noqa: E402
 from acier.assemblages.poutre_poteau.plat_ame_poteau import moteur, entrees as E  # noqa: E402
+
+# Lot A (16/11/2026) : les exemples publiés et les calculs à la main ci-dessous gardent LEUR matériau (EN 1993-1-1
+# tableau 3.1, sans épaisseur : S355 355/510, S275 275/430 — la table du corrigé de référence) ; ce sont des
+# validations de FORMULES. Les notes prennent la table belge (tableau 3.3 ANB), contrôlée à la section « Lot A ».
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+
+
+def calcul_main(u=None):
+    """Le moteur sur le matériau des calculs à la main de cette suite (validation de formules)."""
+    return moteur.compute(u, LA.TABLEAU_3_1)
 from acier.assemblages.poutre_poteau.plat_ame_poteau import benchmark as BM  # noqa: E402
 
 OK, KO = [], []
@@ -54,7 +65,7 @@ def pres(a, b, tol):
 
 # ================================================================
 print("=== 1. HÉRITAGE : l'exemple publié MSB Part 5 §3.4 sur un POTEAU ===")
-R = moteur.compute(BM.WE)
+R = calcul_main(BM.WE)
 
 
 def vr(k):
@@ -88,7 +99,7 @@ chk("cas (a) : AUCUNE vérification du poteau porteur (groupe VIDE, étude §4.4
 
 # ================================================================
 print("\n=== 2. CAS (a) AILE : le cas par défaut (§11.2 BM2) ===")
-R0 = moteur.compute({})
+R0 = calcul_main({})
 fy, fu, bw = 355.0, 510.0, 0.9
 d, d0, As, dw = 20.0, 22.0, 245.0, 37.0
 Fv = 0.6 * 800 * As / 1.25 / 1000
@@ -150,7 +161,7 @@ chk("defaults() : 71 clés, appui sur l'aile, d_top n'existe plus",
 
 # ================================================================
 print("\n=== 3. CAS (b) ÂME : BM3 (b1), BM3' (redimensionné), BM4 ===")
-R3 = moteur.compute(BM.BM3)
+R3 = calcul_main(BM.BM3)
 chk("gh minimal de la variante b1 = (bP − twP)/2 + j = 149,5 mm (HEB 300, j = 5)",
     pres(R3.gh_b1, (300 - 11) / 2 + 5, 1e-12), str(R3.gh_b1))
 chk("b1 : z = 195 mm (× 3,9) ; MS = 39,0 kNm ; F,Ed = 174,461 kN ; taux des boulons 1,854 > 1",
@@ -167,7 +178,7 @@ chk("b1 : âme du poteau ACTIVE — VRd = twP·hp·fy/(√3·γM0) = 653,820 kN,
     str(R3.ck["vlP"].Rd))
 chk("b1 : NON VÉRIFIÉ, et l'alerte b1_long le dit", not R3.verified
     and any(a.id == "b1_long" for a in R3.alerts))
-R3p = moteur.compute(BM.BM3P)
+R3p = calcul_main(BM.BM3P)
 chk("b1 redimensionné : Ip = 81 000 mm² ; z = 225 ; MS = 45 kNm ; F,Ed = 76,085 kN ; taux boulons 0,561",
     R3p.Ip == 81000 and R3p.z_p == 225 and R3p.M_S == 45
     and pres(R3p.F_b, 76.08474807008886, 1e-9) and pres(R3p.ck["bv"].eta, 0.5612956508947774, 1e-9),
@@ -187,7 +198,7 @@ chk("b1 redimensionné : l'outil TROUVE la pression diamétrale de l'âme porté
 chk("b1 redimensionné : l'outil TROUVE p2 = 60 mm sous le minimum 2,4·d0 = 62,4 mm (M24, Tab. 3.3)",
     not R3p.dist_ok and [x.ok for x in R3p.dist if x.id == "p2"] == [False]
     and pres([x.min for x in R3p.dist if x.id == "p2"][0], 2.4 * 26, 1e-12))
-R4 = moteur.compute(BM.BM4)
+R4 = calcul_main(BM.BM4)
 chk("BM4 : about au contact de l'âme — z retombe à 50 mm et tous les taux de BM2 reviennent",
     R4.z_p == 50 and pres(R4.ck["bv"].eta, R0.ck["bv"].eta, 1e-12)
     and pres(R4.ck["pdS"].eta, R0.ck["pdS"].eta, 1e-12))
@@ -208,7 +219,7 @@ chk("benchmark du module : statut VALIDÉ, pire écart 0,76 % (arrondis de la so
 
 # ================================================================
 print("\n=== 4. TYING : la force de chaînage, seule, avec γMu ===")
-Rt = moteur.compute(dict(N_Ed=250, nat_N=E.NAT_TYING))
+Rt = calcul_main(dict(N_Ed=250, nat_N=E.NAT_TYING))
 chk("tying : NEd est sorti de la combinaison ELU (N_elu = 0) et vérifié seul (N_ty = 250)",
     Rt.tying and Rt.N_elu == 0 and Rt.N_ty == 250 and Rt.g_T == 1.1)
 chk("tying : boulons en CISAILLEMENT — Fv,Rd,u = 106,909 kN/boulon, n·Fv,Rd,u = 427,636 kN",
@@ -225,13 +236,13 @@ chk("tying : rupture de bloc EN TRACTION du plat et de l'âme actives",
     Rt.ck["pbt"].active and Rt.ck["tbS"].active)
 chk("tying : côté POTEAU, rien de plus (le plat est soudé, la force est dans son plan)",
     not [c for c in Rt.checks if c.grp == "Poteau porteur" and c.active])
-Re = moteur.compute(dict(N_Ed=80))
+Re = calcul_main(dict(N_Ed=80))
 chk("ELU fondamental : NEd reste combiné à VEd (γM2 pour les sections nettes), bvT et wT inactifs",
     not Re.tying and Re.N_elu == 80 and Re.g_T == 1.25
     and not Re.ck["bvT"].active and not Re.ck["wT"].active and Re.ck["ptn"].active)
 chk("ELU : NEd entre dans Fx du boulon le plus sollicité", Re.Fx_b > R0.Fx_b)
 chk("une compression (NEd < 0) n'a pas de nature : nat_N invisible, pas de vérification de traction",
-    not E.traction(dict(N_Ed=-60)) and not moteur.compute(dict(N_Ed=-60)).ck["ptn"].active)
+    not E.traction(dict(N_Ed=-60)) and not calcul_main(dict(N_Ed=-60)).ck["ptn"].active)
 
 # ================================================================
 print("\n=== 5. Alertes : les neuves, et celles qui ont disparu ===")
@@ -369,6 +380,22 @@ chk("les cas figés couvrent les deux appuis, les trois variantes du cas (b), le
     len(REF) >= 12
     and {"defaut_aile", "ame_b0", "ame_b1", "ame_b1_redim", "ame_b2_recoupe", "grugeage_double",
          "N_elu", "N_tying", "cat_B", "cat_C", "trou_surdim", "WE_finplate"} <= set(REF))
+
+# ================================================================
+print("\n=== 10. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; plat : son épaisseur. La note neuve :
+# poteau HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+LA.jouer(chk, moteur.compute, attendus=[
+    ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "L": (10, LA.FY_S355, LA.FU_S355)}),
+    ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
+     {"S": (19, LA.FY_S355_40, LA.FU_S355), "P": (30, LA.FY_S355_40, LA.FU_S355)}),
+    ("plat de 20 mm", dict(tp_u=20), {"L": (20, LA.FY_S355_40, LA.FU_S355)}),
+    ("plat de 70 mm S355", dict(tp_u=70), {"L": (70, LA.FY_S355_80, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB)", dict(nu_S="S460 N/NL", prof_S="IPE 600"), {"S": (19, LA.FY_S460_40, LA.FU_S460)}),
+], ligne_fu=("note neuve", {}, "pcn"),
+   grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "plat de 20 mm, f_y et f_u saisis tels quels"),
+   hors_table=(dict(tp_u=300), "plat"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

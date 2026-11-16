@@ -49,6 +49,7 @@ from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
+from acier.assemblages import materiau as MT
 from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, APPUI_AME, NAT_TYING
 
@@ -85,8 +86,12 @@ def pb_bs5950(lam, py):
 # =========================================================================
 #  compute
 # =========================================================================
-def compute(u0=None):
+def compute(u0=None, materiau=None):
     """Calcul complet pour les saisies ``u0`` (clés absentes → défauts).
+    ``materiau`` : la fonction (nom, t) → acier qui remplace la table du site
+    (``acier/assemblages/materiau.py``) — le matériau d'un exemple publié ou
+    d'un calcul à la main (benchmark) ; None : f_y et f_u selon l'épaisseur de
+    chaque pièce (NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableau 3.3 ANB).
     Retourne ``R`` : scalaires du modèle, ``u``, ``checks`` / ``ck``,
     ``alerts``, ``dist`` (Tableau 3.3), ``tab`` (efforts par boulon),
     ``pd`` (prédimensionnement), ``gov``, ``eta_max``, ``verified``,
@@ -115,12 +120,13 @@ def compute(u0=None):
             p = find(DB["profils"], u["prof_" + X])
         for d in ("h", "b", "tw", "tf", "r"):
             R[d + "_" + X] = p[d]
-    for X, cle in (("P", "nu_P"), ("S", "nu_S"), ("L", "nu_pl")):
-        if u[cle] == PERSO:
-            a = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
-        else:
-            a = find(DB["aciers"], u[cle])
-        R["fy_" + X] = a["fy"]; R["fu_" + X] = a["fu"]; R["bw_" + X] = a["bw"]
+    # ---- aciers : f_y et f_u de CHAQUE pièce selon son épaisseur (tableau 3.3 ANB) — profilés (poteau, poutre
+    # portée) : max(tf, tw) ; plat : le prédimensionnement le lit à ses épaisseurs (MT.T_PREDIM), la vérification
+    # à l'épaisseur retenue
+    perso = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
+    for X, cle, piece in (("P", "nu_P", "poteau"), ("S", "nu_S", "poutre portée")):
+        MT.poser(R, X, u[cle], MT.t_profil(R["tf_" + X], R["tw_" + X]), perso, materiau, cle, piece)
+    MT.poser(R, "L", u.nu_pl, MT.T_PREDIM, perso, materiau, "nu_pl", "plat")
     cl = find(DB["classes"], u.classe)
     R.f_ub = cl["fub"]
     R.a_v = cl["av"] if u.filet == "Oui" else 0.6
@@ -136,6 +142,7 @@ def compute(u0=None):
     R.n_1 = ret(u.n1_u, pd.n); R.n_2 = ret(u.n2_u, 1); R.p_1 = ret(u.p1_u, pd.p1)
     R.e_1 = ret(u.e1_u, pd.e1); R.e2b = ret(u.e2b_u, pd.e2)
     R.h_p = ret(u.hp_u, pd.hp); R.t_p = ret(u.tp_u, pd.tp)
+    MT.poser(R, "L", u.nu_pl, R.t_p, perso, materiau, "nu_pl", "plat")
     R.b_p = ret(u.bp_u, pd.bp); R.a_w = ret(u.a_w, pd.a)
     R.n_1 = max(1, js_round(R.n_1)); R.n_2 = 2 if N(R.n_2) >= 2 else 1
     bo = find(DB["boulons"], R.boulon)
@@ -378,7 +385,7 @@ def compute(u0=None):
     # ---- poutre portée (section grugée : mêmes règles que le module
     # ---- doubles cornières, MSB Part 5 §4.2.4 / §4.2.5)
     sg = MEC.section_grugee(dict(h=R.h_S, b=R.b_S, tw=R.tw_S, tf=R.tf_S, r=R.r_S),
-                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui")
+                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui", fy_nuance=MT.nominale(R, "S"))
     R.cas_g = sg["cas_g"]; R.Asec_S = sg["Asec"]; R.h_T = sg["h_T"]; R.A_Tee = sg["A_Tee"]
     R.Av_S = sg["Av"]; R.VRd_gS = sg["VRd_g"]; R.hw_T = sg["hw_T"]; R.zb_T = sg["zb_T"]
     R.I_N = sg["I_N"]; R.W_N = sg["W_N"]; R.rho_N = sg["rho_N"]; R.Mv_N = sg["Mv_N"]

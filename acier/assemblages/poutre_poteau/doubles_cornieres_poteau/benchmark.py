@@ -30,6 +30,7 @@ from acier.bibliotheques import PERSO
 from acier.js import dv, mx
 from .entrees import APPUI_AILE, APPUI_AME, NAT_TYING
 from .moteur import compute
+from acier.assemblages import materiau as MT    # le matériau des exemples (validation de formules)
 
 S3 = math.sqrt(3)
 
@@ -91,7 +92,8 @@ def _troncon(leff, t, m, n, ew, f, gamma, SFt):
 
 
 # --- géométrie et matériaux de référence (étude §11.1)
-_fy, _fu, _bw = 355.0, 510.0, 0.9                 # S355
+_fy, _fu = MT.EXEMPLES("S355", 10)["fy"], MT.EXEMPLES("S355", 10)["fu"]   # S355 du calcul à la main (355 ; 510)
+_bw = 0.9
 _d, _d0, _As, _dm, _dw = 20.0, 22.0, 245.0, 31.8, 37.0        # M20
 _fub, _av = 800.0, 0.6                            # classe 8.8, filet cisaillé
 _Fv = _av * _fub * _As / 1.25 / 1000              # 94,08 kN
@@ -413,7 +415,7 @@ def run_bench():
     (« VALIDÉ » / « À CONTRÔLER »)."""
     out = []; worst = 0; n_unexp = 0
     for b in BENCH:
-        R = compute(b["inp"]); rows = []
+        R = compute(b["inp"], MT.EXEMPLES); rows = []
         for r in b["rows"]:
             v = r[3](R); ec = (v - r[2]) / r[2]; a = abs(ec)
             if a <= 0.01:
@@ -429,7 +431,7 @@ def run_bench():
         out.append(dict(id=b["id"], titre=b["titre"], data=b["data"], rows=rows))
     nv = 0; val = []
     for c in VALID:
-        R = compute(c["inp"]); rows = []
+        R = compute(c["inp"], MT.EXEMPLES); rows = []
         for r in c["rows"]:
             v = r[3](R); ec = (v - r[1]) / r[1] if r[1] != 0 else v
             if abs(ec) > 0.001:

@@ -29,6 +29,7 @@ from acier.js import (AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp,
 from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince, EffortBoulon
 from acier import resistances as RS
+from acier.assemblages import materiau as MT
 from .entrees import defaults, NUM, MODE_PREDIM, BOULONNEE
 
 S3 = math.sqrt(3)
@@ -48,8 +49,12 @@ def _first_ge(liste, v):
 # =========================================================================
 #  compute
 # =========================================================================
-def compute(u0=None):
+def compute(u0=None, materiau=None):
     """Calcul complet pour les saisies ``u0`` (clés absentes → défauts).
+
+    ``materiau`` : la fonction (nom, t) → acier qui remplace la table du site (``acier/assemblages/materiau.py``) —
+    le matériau d'un exemple publié (benchmark) ou du corrigé (parité) ; None : f_y et f_u selon l'épaisseur de
+    chaque pièce (NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableau 3.3 ANB).
 
     Retourne ``R`` (``AttrDict``) : les scalaires du modèle, ``u`` (saisies
     normalisées), ``checks`` (liste de ``Verification``), ``ck`` (par clé),
@@ -79,14 +84,12 @@ def compute(u0=None):
             p = find(DB["profils"], u["prof_" + X])
         for d in ("h", "b", "tw", "tf", "r"):
             R[d + "_" + X] = p[d]
-    for X in ("P", "S", "C"):
-        if u["nu_" + X] == PERSO:
-            a = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
-        else:
-            a = find(DB["aciers"], u["nu_" + X])
-        R["fy_" + X] = a["fy"]
-        R["fu_" + X] = a["fu"]
-        R["bw_" + X] = a["bw"]
+    # ---- aciers : f_y et f_u de CHAQUE pièce selon son épaisseur (tableau 3.3 ANB) — profilés : max(tf, tw) ;
+    # cornières : le prédimensionnement les lit à ses épaisseurs (MT.T_PREDIM), la vérification à l'épaisseur retenue
+    perso = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
+    for X, piece in (("P", "poutre principale"), ("S", "poutre secondaire")):
+        MT.poser(R, X, u["nu_" + X], MT.t_profil(R["tf_" + X], R["tw_" + X]), perso, materiau, "nu_" + X, piece)
+    MT.poser(R, "C", u.nu_C, MT.T_PREDIM, perso, materiau, "nu_C", "cornières")
     cl = find(DB["classes"], u.classe)
     R.f_ub = cl["fub"]
     R.a_v = cl["av"] if u.filet == "Oui" else 0.6
@@ -114,6 +117,7 @@ def compute(u0=None):
     R.b_B = pd.leg if R.pred else (kc["a2"] if u.orient == ORI_P else kc["a1"])
     R.t_C = pd.tC if R.pred else kc["t"]
     R.r_C = pd.rC if R.pred else kc["r"]
+    MT.poser(R, "C", u.nu_C, R.t_C, perso, materiau, "nu_C", "cornières")
     if R.pred:
         R.corn_txt = "L" + js_str(pd.leg) + "x" + js_str(pd.leg) + "x" + js_str(pd.tC) + " (proposée)"
     elif u.corn_u == PERSO:
@@ -393,15 +397,17 @@ def compute(u0=None):
     R.Mv_N = dv(R.W_N * R.fy_S, gM0) / 1e6 * R.rho_N
     Vm = mn(R.VRd_gS, R.VRd_bS)
     R.Mc_2 = dv(R.W_N * R.fy_S, gM0) / 1e6 * (1 if V <= 0.5 * Vm else mx(0, 1 - (2 * dv(V, Vm) - 1) ** 2))
-    R.el_N = dv(R.h_S, R.tw_S); R.lim_N = 54.3 if R.fy_S <= 275 else 48
-    R.ln_max = R.h_S if R.el_N <= R.lim_N else dv((160000 if R.fy_S <= 275 else 110000) * R.h_S, R.el_N ** 3)
+    # domaine de la règle du guide (limites S275 / S355) : lu sur la NUANCE, pas sur la f_y réduite par l'épaisseur
+    fyn_S = MT.nominale(R, "S")
+    R.el_N = dv(R.h_S, R.tw_S); R.lim_N = 54.3 if fyn_S <= 275 else 48
+    R.ln_max = R.h_S if R.el_N <= R.lim_N else dv((160000 if fyn_S <= 275 else 110000) * R.h_S, R.el_N ** 3)
     if R.cas_g == 0:
         R.val_N = "Sans objet (poutre non grugée)"
     elif u.lt_ok != "Oui":
         R.val_N = "NON VALIDE : poutre non maintenue au déversement – stabilité d'ensemble de la poutre grugée à justifier (SCI P358 Check 7)"
-    elif R.fy_S > 355:
+    elif fyn_S > 355:
         R.val_N = "NON VALIDE : nuance > S355 – règle non publiée pour cette nuance"
-    elif R.fy_S < 275:
+    elif fyn_S < 275:
         R.val_N = "S235 : limites S275 appliquées (côté sécurité) – interprétation"
     else:
         R.val_N = "Valide"

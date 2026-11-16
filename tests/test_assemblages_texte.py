@@ -25,6 +25,12 @@ def chk(nom, cond, info=""):
 
 with open("acier/reference/reference_double_corniere.json", encoding="utf-8") as fh:
     REF = json.load(fh)
+# Lot A (16/11/2026) : cette suite compare au CORRIGÉ de référence (textes, nombres, dessins) ; elle tourne donc sur
+# SON matériau (EN 1993-1-1 tableau 3.1, sans épaisseur : S355 355/510). Le harnais suit : les notes prennent la table
+# belge (tableau 3.3 ANB) — écart nommé et contrôlé par tests/test_assemblages_parite.py §4 et §5.
+from acier.assemblages import materiau as _MT  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres.parite import materiau_du_corrige as _corrige  # noqa: E402
+_MT.table_du_site = _corrige(REF)
 cas = {c["id"]: c for c in REF["cas"]}
 
 print("=== Exports texte de référence ===")

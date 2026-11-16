@@ -9,6 +9,11 @@ référence sous Node (outils/oracle_double_corniere.js) et compare grandeur
 par grandeur avec le moteur Python : écart relatif ≤ 1e-9, égalité stricte
 sur les booléens, identifiants, chaînes.
 
+Le moteur reçoit le matériau du HTML de référence (sa table des aciers, EN
+1993-1-1 tableau 3.1, sans épaisseur : ``parite.materiau_du_corrige``) — une
+parité de FORMULES ; la table belge des notes (lot A) est un écart nommé
+(tests/test_assemblages_parite.py §4).
+
 Si ``node`` n'est pas disponible, le test le dit et s'arrête sans échec
 (le corrigé des 31 cas reste couvert par test_assemblages_parite.py).
 
@@ -29,7 +34,7 @@ sys.path.insert(0, os.path.join(RACINE, "tests"))
 from acier.bibliotheques import DB, PERSO, ORI_P, ORI_S  # noqa: E402
 from acier.assemblages.poutre_poutre.doubles_cornieres import moteur  # noqa: E402
 from acier.assemblages.poutre_poutre.doubles_cornieres.parite import (  # noqa: E402
-    instantane, comparer)
+    instantane, comparer, materiau_du_corrige)
 
 OK, KO = [], []
 
@@ -40,6 +45,8 @@ def chk(nom, cond, info=""):
           + (f"   [{info}]" if info and not cond else ""))
 
 
+with open(os.path.join(RACINE, "acier", "reference", "reference_double_corniere.json"), encoding="utf-8") as fh:
+    CORRIGE = materiau_du_corrige(json.load(fh))
 N_CAS = int(sys.argv[1]) if len(sys.argv) > 1 else 400
 SCRATCH = os.environ.get("TMPDIR", "/tmp")
 NODE = shutil.which("node")
@@ -72,7 +79,7 @@ total = 0
 divergents = []
 for c in attendus:
     try:
-        R = moteur.compute(c["inputs"])
+        R = moteur.compute(c["inputs"], CORRIGE)
         n, ecarts = comparer(c["attendu"], instantane(R), tol=1e-9, chemin=c["id"])
     except Exception as e:  # noqa: BLE001
         n, ecarts = 0, [f"{c['id']} : exception {type(e).__name__}: {e}"]

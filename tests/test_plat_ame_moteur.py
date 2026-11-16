@@ -31,6 +31,17 @@ sys.path.insert(0, RACINE)
 from acier.bibliotheques import PERSO  # noqa: E402
 from acier.assemblages.poutre_poutre.plat_ame import moteur  # noqa: E402
 
+# Lot A (16/11/2026) : les exemples publiés et les calculs à la main ci-dessous gardent LEUR matériau (EN 1993-1-1
+# tableau 3.1, sans épaisseur : S355 355/510, S275 275/430 — la table du corrigé de référence) ; ce sont des
+# validations de FORMULES. Les notes prennent la table belge (tableau 3.3 ANB), contrôlée à la section « Lot A ».
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+
+
+def calcul_main(u=None):
+    """Le moteur sur le matériau des calculs à la main de cette suite (validation de formules)."""
+    return moteur.compute(u, LA.TABLEAU_3_1)
+
 OK, KO = [], []
 
 
@@ -51,7 +62,7 @@ WE = dict(prof_S=PERSO, hS_u=547, bS_u=210, twS_u=9, tfS_u=15.7, rS_u=24, nu_S="
           nu_pl="S275", d_top=60, d_nt=0, d_nb=0, l_n=0, g_h=10, z_C=50,
           hp_u=360, tp_u=10, bp_u=160, boulon_u="M20", classe="8.8",
           n1_u=5, n2_u=2, p1_u=70, p2_u=60, e1_u=40, e2b_u=40, V_Ed=350, g_M1=1.0)
-R = moteur.compute(WE)
+R = calcul_main(WE)
 
 
 def vr(k):
@@ -81,7 +92,7 @@ chk("VÉRIFIÉ à VEd = 350 kN ; dimensionnante = cisaillement brut du plat (450
     "la plus petite résistance du guide)", R.verified and R.gov.key == "pcg", R.gov.key)
 
 print("\n=== 2. Cas par défaut : ancrages partagés avec le module 1 ===")
-R0 = moteur.compute(dict())
+R0 = calcul_main(dict())
 chk("défaut : z = 50, Ip = 7200, effort de boulon 66,699… kN (mêmes nombres que doubles cornières)",
     R0.z_p == 50 and R0.Ip == 7200 and pres(R0.F_b, 66.6992108065922, 1e-9), str(R0.F_b))
 chk("taux de pression diamétrale de l'âme = 0,739914371796275 (ancre VAL-A du module 1)",
@@ -112,7 +123,7 @@ pb = pE * 275 / (phi + math.sqrt(phi * phi - pE * 275))
 chk("pb (Perry-Robertson, E = 205 000) recalculé indépendamment", pres(R.pb_LT, pb, 1e-12),
     f"{R.pb_LT} vs {pb}")
 chk("Mb,Rd = Wel·pb/γM1 (γM1 = 1,0 sur l'exemple)", pres(R.ck["plt"].Rd, 216000 * pb / 1e6, 1e-12))
-Rg = moteur.compute(dict(WE, g_M1=1.1))
+Rg = calcul_main(dict(WE, g_M1=1.1))
 chk("γM1 = 1,10 (ANB) réduit Mb,Rd de 1/1,1", pres(Rg.ck["plt"].Rd, R.ck["plt"].Rd / 1.1, 1e-12))
 
 print("\n=== 4. Alertes et domaine ===")
@@ -191,6 +202,22 @@ for nom, cas in REF.items():
         ndiff += 1
         print("   ", nom, "synthèse divergente")
 chk("RÉGRESSION CALCUL : 0 différence sur les 12 cas figés", ndiff == 0, str(ndiff))
+
+# ================================================================
+print("\n=== 8. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; plat : son épaisseur. La note neuve :
+# poutre principale HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+LA.jouer(chk, moteur.compute, attendus=[
+    ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "L": (10, LA.FY_S355, LA.FU_S355)}),
+    ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
+     {"S": (19, LA.FY_S355_40, LA.FU_S355), "P": (30, LA.FY_S355_40, LA.FU_S355)}),
+    ("plat de 20 mm", dict(tp_u=20), {"L": (20, LA.FY_S355_40, LA.FU_S355)}),
+    ("plat de 70 mm S355", dict(tp_u=70), {"L": (70, LA.FY_S355_80, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB)", dict(nu_S="S460 N/NL", prof_S="IPE 600"), {"S": (19, LA.FY_S460_40, LA.FU_S460)}),
+], ligne_fu=("note neuve", {}, "pdS"),
+   grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "plat de 20 mm, f_y et f_u saisis tels quels"),
+   hors_table=(dict(tp_u=300), "plat"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

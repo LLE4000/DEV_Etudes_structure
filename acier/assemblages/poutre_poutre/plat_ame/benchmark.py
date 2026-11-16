@@ -14,6 +14,7 @@ import math
 from acier.bibliotheques import PERSO
 from acier.js import dv, mx
 from .moteur import compute, pb_bs5950
+from acier.assemblages import materiau as MT    # le matériau des exemples (validation de formules)
 
 S3 = math.sqrt(3)
 
@@ -122,7 +123,7 @@ def run_bench():
     ``valid``, ``worst``, ``ok`` et ``statut`` (« VALIDÉ » / « À CONTRÔLER »)."""
     out = []; worst = 0; n_unexp = 0
     for b in BENCH:
-        R = compute(b["inp"]); rows = []
+        R = compute(b["inp"], MT.EXEMPLES); rows = []
         for r in b["rows"]:
             v = r[3](R); ec = (v - r[2]) / r[2]; a = abs(ec)
             if a <= 0.01:
@@ -138,7 +139,7 @@ def run_bench():
         out.append(dict(id=b["id"], titre=b["titre"], data=b["data"], rows=rows))
     nv = 0; val = []
     for c in VALID:
-        R = compute(c["inp"]); rows = []
+        R = compute(c["inp"], MT.EXEMPLES); rows = []
         for r in c["rows"]:
             v = r[3](R); ec = (v - r[1]) / r[1] if r[1] != 0 else v
             if abs(ec) > 0.001:

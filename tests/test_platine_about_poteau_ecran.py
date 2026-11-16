@@ -273,9 +273,11 @@ tty = md(at)
 chk("TYING : γMu paraît dans les avancés (défaut 1,10) et l'alerte le dit",
     "pac_g_Mu" in cles_widgets(at) and at.session_state["pac_g_Mu"] == 1.1
     and "NEd en tying : force de chaînage vérifiée seule (γMu)" in tty and "γMu = 1,10" in tty)
+# lot A (16/11/2026) : le harnais suit — en tying, Mpl = 0,25·Σleff·t²·fu/γMu avec fu = 470 (tableau 3.3 ANB) : la
+# platine (t = 10, mode 1) perd plus que l'aile du poteau (mode 2) ; le rapport passe de 3,66 à 3,89
 chk("TYING : « Paramètres retenus » donne les deux tronçons en T et leur rapport",
     "Tronçon en T de la PLATINE" in tty and "Tronçon en T de l'AILE DU POTEAU" in tty
-    and "Rapport aile du poteau / platine" in tty and "3,66" in tty)
+    and "Rapport aile du poteau / platine" in tty and "3,89" in tty)
 at.number_input(key="pac_N_Ed").set_value(0.0); run(at)
 chk("retour à NEd = 0 : « Nature de NEd » et γMu redisparaissent",
     "pac_nat_N" not in cles_widgets(at) and "pac_g_Mu" not in cles_widgets(at))

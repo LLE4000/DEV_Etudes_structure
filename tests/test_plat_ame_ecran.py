@@ -93,8 +93,9 @@ print("\n=== 2. Écran ===")
 cles = [k for k in at.session_state.to_dict() if k.startswith("fpl_") and k[4:] in interface.CLES]
 chk("les 67 clés d'entrée existent en session", len(cles) == 67, str(len(cles)))
 t = md(at)
+# lot A (16/11/2026) : le harnais suit — f_u = 470 (tableau 3.3 ANB) : 74,0 % → 80,3 % (× 510/470)
 chk("cas par défaut : ASSEMBLAGE VÉRIFIÉ, dimensionnante pression diamétrale de l'âme",
-    "ASSEMBLAGE VÉRIFIÉ" in t and "NON VÉRIFIÉ" not in t and "74,0 %" in t)
+    "ASSEMBLAGE VÉRIFIÉ" in t and "NON VÉRIFIÉ" not in t and "80,3 %" in t)
 chk("taux par élément : Boulons, Plat, Portée, Porteuse, Soudure",
     all(x in t for x in ("Boulons", "Plat", "Portée", "Porteuse", "Soudure")))
 chk("deux composants empilés dans la colonne figée (CSS sticky sur fpl_col_dessin)",

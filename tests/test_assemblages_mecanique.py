@@ -538,6 +538,20 @@ chk(f"les 56 cas figés sont liés ({len(REF_FPL)} + {len(REF_PAB)} + {len(REF_D
 chk(f"au moins 2 900 grandeurs comparées sur les 56 cas ({TOTAL})", TOTAL >= 2900,
     str(TOTAL))
 
+# ================================================================ lot A
+print("\n=== Lot A : le domaine de la poutre grugée se lit sur la NUANCE (MSB Part 5 §4.2.5, limites S275 / S355) ===")
+_p600 = dict(h=600, b=220, tw=12, tf=19, r=24)                      # IPE 600 : f_y = 265 en S275 (16 < t ≤ 40 mm)
+_a = MC.section_grugee(_p600, 265.0, 40, 0, 1.0, 250.0, True, fy_nuance=275.0)
+_b = MC.section_grugee(_p600, 265.0, 40, 0, 1.0, 250.0, True)        # l'appel d'avant le lot A : le domaine sur f_y
+chk("S275 de 19 mm (f_y = 265) avec sa nuance : domaine « valide », limites S275 (h/tw ≤ 54,3)",
+    _a["domaine"] == "valide" and _a["val_N"] == "Valide" and _a["lim_N"] == 54.3, str((_a["domaine"], _a["lim_N"])))
+chk("… sans la nuance (l'ancien appel), le domaine lu sur f_y = 265 dirait « S235 : limites S275 appliquées » — le "
+    "libellé faux que le lot A corrige", _b["domaine"] == "s235")
+chk("… et la RÉSISTANCE garde f_y = 265 : VRd,g et Mv,N,Rd identiques dans les deux appels",
+    _a["VRd_g"] == _b["VRd_g"] and _a["Mv_N"] == _b["Mv_N"])
+_c = MC.section_grugee(_p600, 440.0, 40, 0, 1.0, 250.0, True, fy_nuance=460.0)
+chk("S460 N/NL de 19 mm (f_y = 440) : « NON VALIDE : nuance > S355 » (la nuance, pas la f_y)", _c["domaine"] == "nuance_haute")
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

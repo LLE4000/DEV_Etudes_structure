@@ -27,6 +27,7 @@ Unités : mm, mm², mm³, MPa, kN, kNm, N/mm (cordons).
 import math
 
 from acier.bibliotheques import DB, PERSO, find, idx
+from acier.assemblages import materiau as MT
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
 from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince
@@ -86,8 +87,12 @@ def groupe_boulons(Fv, Fb_bout, Fb_int, n_bout, n_int):
 # =========================================================================
 #  compute
 # =========================================================================
-def compute(u0=None):
+def compute(u0=None, materiau=None):
     """Calcul complet pour les saisies ``u0`` (clés absentes → défauts).
+    ``materiau`` : la fonction (nom, t) → acier qui remplace la table du site
+    (``acier/assemblages/materiau.py``) — le matériau d'un exemple publié ou
+    d'un calcul à la main (benchmark) ; None : f_y et f_u selon l'épaisseur de
+    chaque pièce (NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableau 3.3 ANB).
     Retourne ``R`` : scalaires du modèle, ``u``, ``checks`` / ``ck``,
     ``alerts``, ``dist`` (Tableau 3.3), ``pd`` (prédimensionnement),
     ``gov``, ``eta_max``, ``verified``, ``statut``, ``reserve``."""
@@ -111,12 +116,12 @@ def compute(u0=None):
             p = find(DB["profils"], u["prof_" + X])
         for d in ("h", "b", "tw", "tf", "r"):
             R[d + "_" + X] = p[d]
-    for X, cle in (("P", "nu_P"), ("S", "nu_S"), ("L", "nu_pl")):
-        if u[cle] == PERSO:
-            a = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
-        else:
-            a = find(DB["aciers"], u[cle])
-        R["fy_" + X] = a["fy"]; R["fu_" + X] = a["fu"]; R["bw_" + X] = a["bw"]
+    # ---- aciers : f_y et f_u de CHAQUE pièce selon son épaisseur (tableau 3.3 ANB) — profilés : max(tf, tw) ;
+    # platine : le prédimensionnement le lit à ses épaisseurs (MT.T_PREDIM), la vérification à l'épaisseur retenue
+    perso = dict(fy=N(u.fy_u), fu=N(u.fu_u), bw=N(u.bw_u))
+    for X, cle, piece in (("P", "nu_P", "poutre principale"), ("S", "nu_S", "poutre secondaire")):
+        MT.poser(R, X, u[cle], MT.t_profil(R["tf_" + X], R["tw_" + X]), perso, materiau, cle, piece)
+    MT.poser(R, "L", u.nu_pl, MT.T_PREDIM, perso, materiau, "nu_pl", "platine")
     cl = find(DB["classes"], u.classe)
     R.f_ub = cl["fub"]
     R.a_v = cl["av"] if u.filet == "Oui" else 0.6
@@ -132,6 +137,7 @@ def compute(u0=None):
     R.n_1 = ret(u.n1_u, pd.n); R.p_1 = ret(u.p1_u, pd.p1); R.e_1 = ret(u.e1_u, pd.e1)
     R.p_3 = ret(u.p3_u, pd.p3)
     R.h_p = ret(u.hp_u, pd.hp); R.t_p = ret(u.tp_u, pd.tp)
+    MT.poser(R, "L", u.nu_pl, R.t_p, perso, materiau, "nu_pl", "platine")
     R.b_p = ret(u.bp_u, pd.bp); R.a_w = ret(u.a_w, pd.a)
     R.n_1 = max(1, js_round(R.n_1)); R.n_2 = 2
     bo = find(DB["boulons"], R.boulon)
@@ -349,15 +355,17 @@ def compute(u0=None):
     R.rho_N = 1 if V <= 0.5 * R.VRd_gS else mx(0, 1 - (2 * dv(V, R.VRd_gS) - 1) ** 2)
     R.Mv_N = dv(R.W_N * R.fy_S, gM0) / 1e6 * R.rho_N
     R.e_N = R.t_p + u.l_n                      # face d'appui → extrémité du grugeage
-    R.el_N = dv(R.h_S, R.tw_S); R.lim_N = 54.3 if R.fy_S <= 275 else 48
-    R.ln_max = R.h_S if R.el_N <= R.lim_N else dv((160000 if R.fy_S <= 275 else 110000) * R.h_S, R.el_N ** 3)
+    # domaine de la règle du guide (limites S275 / S355) : lu sur la NUANCE, pas sur la f_y réduite par l'épaisseur
+    fyn_S = MT.nominale(R, "S")
+    R.el_N = dv(R.h_S, R.tw_S); R.lim_N = 54.3 if fyn_S <= 275 else 48
+    R.ln_max = R.h_S if R.el_N <= R.lim_N else dv((160000 if fyn_S <= 275 else 110000) * R.h_S, R.el_N ** 3)
     if R.cas_g == 0:
         R.val_N = "Sans objet (poutre non grugée)"
     elif u.lt_ok != "Oui":
         R.val_N = "NON VALIDE : poutre non maintenue au déversement – stabilité d'ensemble de la poutre grugée à justifier"
-    elif R.fy_S > 355:
+    elif fyn_S > 355:
         R.val_N = "NON VALIDE : nuance > S355 – règle non publiée pour cette nuance"
-    elif R.fy_S < 275:
+    elif fyn_S < 275:
         R.val_N = "S235 : limites S275 appliquées (côté sécurité) – interprétation"
     else:
         R.val_N = "Valide"

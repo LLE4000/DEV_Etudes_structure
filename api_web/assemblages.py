@@ -456,16 +456,20 @@ def _reprendre_profil(cfg: Config, u: Dict, k: str, ancien) -> None:
             u[cle] = float(src[champ])
 
 
-def _reprendre_acier(cfg: Config, u: Dict, ancien) -> None:
-    """Un acier passé en « Personnalisé » : f_y, f_u et β_w vides reprennent ceux de la nuance qu'on quitte (vides,
-    le moteur prendrait f_y = 0)."""
+def _reprendre_acier(cfg: Config, u: Dict, k: str, ancien) -> None:
+    """Un acier passé en « Personnalisé » : f_y, f_u et β_w vides reprennent ceux que le calcul RETENAIT pour la pièce
+    qu'on quitte (vides, le moteur prendrait f_y = 0) — f_y et f_u selon SON épaisseur (tableau 3.3 ANB), tels que le
+    moteur les nomme (``R.materiau``, clé de saisie ``k``) : l'écran ne relit pas la table."""
+    if not any(cle in u and not (u.get(cle) or 0) > 0 for cle, _ in PERSO_ACIER):
+        return
     try:
-        src = find(DB["aciers"], ancien)
-    except (ValueError, KeyError, TypeError):
+        R = moteur(cfg, dict(u, **{k: ancien}))
+        m = next(m for m in (R.get("materiau") or {}).values() if m.get("cle") == k)
+    except Exception:  # noqa: BLE001 — un calcul impossible (pièce hors du tableau…) laisse les champs à remplir
         return
     for cle, champ in PERSO_ACIER:
-        if cle in u and not (u.get(cle) or 0) > 0:
-            u[cle] = float(src[champ])
+        if cle in u and not (u.get(cle) or 0) > 0 and m.get(champ):
+            u[cle] = float(m[champ])
 
 
 def _lire_saisie(cfg: Config, u: Dict, k: str, valeur):
@@ -568,7 +572,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         if k in PERSO_PROFIL or k == "corn_u":
             _reprendre_profil(cfg, u, k, ancien)
         elif k.startswith("nu_"):
-            _reprendre_acier(cfg, u, ancien)
+            _reprendre_acier(cfg, u, k, ancien)
     return None
 
 
@@ -1138,8 +1142,12 @@ def _hypotheses(cfg: Config, R, u: Dict) -> List[str]:
                    ("c", "poteau"), ("p", "platine")):
         nom = noms.get(X, nom)
         fy, fu = R.get("fy_" + X), R.get("fu_" + X)
+        m = (R.get("materiau") or {}).get(X) or {}
+        # la valeur RETENUE pour la pièce, avec l'épaisseur qui l'a décidée (tableau 3.3 ANB) ; « Personnalisé » : saisie
+        ep = f" (t = {C.nb(m['t'])} mm)" if m.get("t") and m.get("nom") != PERSO else ""
         if fy:
-            aciers.append(f"{nom} f<sub>y</sub> = {C.nb(fy)} · f<sub>u</sub> = {C.nb(fu)}" if fu else f"{nom} f<sub>y</sub> = {C.nb(fy)}")
+            aciers.append(f"{nom} f<sub>y</sub> = {C.nb(fy)} · f<sub>u</sub> = {C.nb(fu)}{ep}" if fu
+                          else f"{nom} f<sub>y</sub> = {C.nb(fy)}{ep}")
     if aciers:
         h.append("Aciers · " + " ; ".join(aciers) + " N/mm²")
     if R.get("boulon"):

@@ -190,8 +190,14 @@ def bolt_table(n1, n2, p1, p2, V, Hh, M, Ip, horizontal_signe=False):
 #  3. Poutre GRUGÉE : section réduite, module, réduction, stabilité locale
 # =========================================================================
 def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
-                   renvoi_non_maintenue=""):
+                   renvoi_non_maintenue="", fy_nuance=None):
     """Tout le bloc de la poutre grugée, pour un profil en I ou H.
+
+    ``fy`` : la f_y de la poutre (selon son épaisseur) — elle sert aux
+    RÉSISTANCES ; ``fy_nuance`` : le nombre du nom de sa nuance (S275 → 275,
+    ``acier.materiaux.nominale``) — il choisit le DOMAINE de la règle du guide
+    (limites S275 ou S355, nuance > S355, S235) : une S275 de 20 mm
+    (f_y = 265) reste une S275. None (acier « Personnalisé ») : ``fy``.
 
     ``profil`` : indexable par ``h``, ``b``, ``tw``, ``tf``, ``r`` (mm).
     ``dnt`` / ``dnb`` : profondeurs de grugeage en haut / en bas (0 = aucun).
@@ -239,8 +245,9 @@ def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
     rho_N = 1 if V <= 0.5 * VRd_g else mx(0, 1 - (2 * dv(V, VRd_g) - 1) ** 2)
     Mv_N = dv(W_N * fy, gM0) / 1e6 * rho_N
     el_N = dv(h, tw)
-    lim_N = 54.3 if fy <= 275 else 48
-    ln_max = h if el_N <= lim_N else dv((160000 if fy <= 275 else 110000) * h, el_N ** 3)
+    fyn = fy if fy_nuance is None else fy_nuance        # le domaine se lit sur la NUANCE
+    lim_N = 54.3 if fyn <= 275 else 48
+    ln_max = h if el_N <= lim_N else dv((160000 if fyn <= 275 else 110000) * h, el_N ** 3)
     if cas_g == 0:
         domaine = "sans_objet"
         val_N = "Sans objet (poutre non grugée)"
@@ -248,10 +255,10 @@ def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
         domaine = "non_maintenue"
         val_N = ("NON VALIDE : poutre non maintenue au déversement – stabilité "
                  "d'ensemble de la poutre grugée à justifier" + renvoi_non_maintenue)
-    elif fy > 355:
+    elif fyn > 355:
         domaine = "nuance_haute"
         val_N = "NON VALIDE : nuance > S355 – règle non publiée pour cette nuance"
-    elif fy < 275:
+    elif fyn < 275:
         domaine = "s235"
         val_N = "S235 : limites S275 appliquées (côté sécurité) – interprétation"
     else:

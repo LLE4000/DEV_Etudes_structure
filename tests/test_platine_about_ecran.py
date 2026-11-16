@@ -283,11 +283,12 @@ chk("page 1 : conclusion avec γM0 ANB (pas de γM1 : aucune instabilité ici)",
 lignes = note.lignes_hypotheses(R)
 chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères (note_kit.empaqueter)",
     1 <= len(lignes) <= 3 and all(len(l) <= 110 for l in lignes), str([len(l) for l in lignes]))
+# lot A (16/11/2026) : le harnais suit — βw·γM2·fy/(√2·fu) avec fu = 470 (tableau 3.3 ANB) : 0,55 → 0,60·tw
 chk("HYPOTHÈSES : textes exacts de la charte (défaut : NEd = 0, grugeage, cat A)",
     lignes == ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §2.2) ; groupe centré, VEd/n par boulon.",
                "Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; grugeage : section réduite, bras tp + c "
                "(MSB P5 §4.2.4).",
-               "Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25."],
+               "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25."],
     str(lignes))
 l_elu = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, cat="B")))
 l_ty = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TYING, p3_u=140, bp_u=200, hp_u=180,
@@ -297,13 +298,13 @@ l_ty2 = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TY
 # le paquetage (lexicographique, « MSB P5 » une fois par ligne si possible) garde les formes longues des cordons.
 chk("HYPOTHÈSES : variantes (NEd ELU cat B ; tying k = 0,5 ; tying sans grugeage, γM2 ≠ γM2,net)",
     l_elu[1:] == ["Platine hp ≥ 1,36·p3 → k = 1,0 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; NEd ELU avec VEd (§6.2.4).",
-                  "Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25."]
+                  "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25."]
     and l_ty[1:] == ["Platine hp < 1,36·p3 → k = 0,5 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; tying : fu/γMu "
                      "(MSB P5 §2.3).",
-                     "Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10."]
+                     "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10."]
     and l_ty2[1:] == ["Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; tying : force de chaînage seule, "
                       "fu/γMu (MSB P5 §2.3).",
-                      "Cordons hp, pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · "
+                      "Cordons hp, pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · "
                       "γM3 1,25 · γMu 1,10."],
     str(l_elu + l_ty + l_ty2))
 t2 = doc[1].get_text(); s2 = t2.replace(" ", "").replace("\n", "")

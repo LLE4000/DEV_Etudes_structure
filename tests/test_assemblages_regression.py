@@ -11,6 +11,11 @@ efforts par boulon, prédimensionnement — puis les cinq exports texte.
 Le test imprime « RÉGRESSION CALCUL : 0 différence » ou liste chaque
 différence. Il rougit si on retire une grandeur ou si une valeur bouge.
 
+Lot A (16/11/2026) : le corrigé garde SON matériau (EN 1993-1-1 tableau 3.1,
+sans épaisseur), que le test lui donne (``parite.materiau_du_corrige``) ;
+les notes du site prennent la table belge (tableau 3.3 ANB) — écart nommé,
+prouvé par tests/test_assemblages_parite.py §4.
+
 Lancement : python3 tests/test_assemblages_regression.py
 """
 import json
@@ -34,12 +39,13 @@ def chk(nom, cond, info=""):
 
 with open("acier/reference/reference_double_corniere.json", encoding="utf-8") as fh:
     REF = json.load(fh)
+CORRIGE = parite.materiau_du_corrige(REF)
 
 print("=== Résultats du moteur : 31 cas de référence ===")
 n_tot = 0
 diffs = []
 for cas in REF["cas"]:
-    R = moteur.compute(cas["inputs"])
+    R = moteur.compute(cas["inputs"], CORRIGE)
     n, ecarts = parite.comparer(cas["attendu"], parite.instantane(R), chemin=cas["id"])
     n_tot += n
     diffs.extend(ecarts)
@@ -51,7 +57,7 @@ chk(f"{len(REF['cas'])} cas, {n_tot} grandeurs comparées", n_tot > 20000 and no
 print("\n=== Exports texte ===")
 for ident, versions in REF["exports_texte"].items():
     inputs = {c["id"]: c["inputs"] for c in REF["cas"]}[ident] if ident != "defaut" else {}
-    R = moteur.compute(inputs)
+    R = moteur.compute(inputs, CORRIGE)
     for nom, complet in (("essentiel", False), ("complet", True)):
         if nom in versions:
             t = texte.construire_texte(R, complet)

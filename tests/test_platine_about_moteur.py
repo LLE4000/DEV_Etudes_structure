@@ -29,6 +29,18 @@ os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
 from acier.assemblages.poutre_poutre.platine_about import moteur  # noqa: E402
+
+# Lot A (16/11/2026) : les exemples publiés et les calculs à la main ci-dessous gardent LEUR matériau (EN 1993-1-1
+# tableau 3.1, sans épaisseur : S355 355/510, S275 275/430 — la table du corrigé de référence) ; ce sont des
+# validations de FORMULES. Les notes prennent la table belge (tableau 3.3 ANB), contrôlée à la section « Lot A ».
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+from acier.bibliotheques import PERSO  # noqa: E402
+
+
+def calcul_main(u=None):
+    """Le moteur sur le matériau des calculs à la main de cette suite (validation de formules)."""
+    return moteur.compute(u, LA.TABLEAU_3_1)
 from acier.assemblages.poutre_poutre.platine_about.benchmark import WE, run_bench  # noqa: E402
 
 OK, KO = [], []
@@ -48,7 +60,7 @@ S3 = math.sqrt(3)
 
 # ================================================================
 print("=== 1. Exemple publié : MSB Part 5 §2.4 (platine d'about partielle) ===")
-R = moteur.compute(WE)
+R = calcul_main(WE)
 chk("géométrie : e2 = (200 − 140)/2 = 30, e1' = 40, 12 boulons", R.e_2 == 30 and R.e1bot == 40 and R.n_b == 12)
 chk("âme portée : hp·tw·fy/√3 = 614 kN (Av = 3870 mm²)", pres(R.ck["vwS"].Rd, 614, 0.01) and R.Av_w == 3870,
     str(R.ck["vwS"].Rd))
@@ -88,11 +100,11 @@ chk("branche ns·(Fb,Rd)min entre les deux",
     moteur.groupe_boulons(70, 60, 80, 2, 4) == (6 * 60, "ns·(Fb,Rd)min"))
 chk("branche 0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min (le 0,8 seulement ici)",
     moteur.groupe_boulons(50, 60, 80, 2, 4)[0] == 0.8 * 6 * 50)
-R0 = moteur.compute(dict())
+R0 = calcul_main(dict())
 chk("cas par défaut : Fb,ext 91,66 < Fv,Rd 94,08 < Fb,int 113,9 → ns·(Fb,Rd)min = 549,96 kN",
     R0.branche_g == "ns·(Fb,Rd)min" and pres(R0.ck["bg"].Rd, 6 * R0.Fbb_L, 1e-12)
     and R0.Fbb_L < R0.Fv_Rd < R0.Fbi_L)
-Rk = moteur.compute(dict(p3_u=140, bp_u=200, hp_u=180, n1_u=2, p1_u=80, e1_u=50))
+Rk = calcul_main(dict(p3_u=140, bp_u=200, hp_u=180, n1_u=2, p1_u=80, e1_u=50))
 chk("rupture de bloc : hp = 180 < 1,36·140 → k = 0,5 (§3.10.2(3))", Rk.k_bloc == 0.5 and not Rk.hp_136)
 Ant, Anv = Rk.Ant_p, Rk.Anv_p
 chk("… VRd,b = 2·(0,5·fu·Ant/γM2 + fy·Anv/√3)",
@@ -118,7 +130,7 @@ FT1 = (8 * 30 - 2 * 9.25) * Mpl / (2 * m * 30 - 9.25 * (m + 30)) / 1000
 chk("mode 1 par la méthode 2, résistance des DEUX ailes (pas de ×2) = 491,86 kN",
     pres(R.FT1, FT1, 1e-12) and R.FT_Rd == min(R.FT1, R.FT2, R.FT3) and pres(R.FT_Rd, FT1, 1e-12))
 chk("mode 3 = ΣFt,Rd des 12 boulons avec γMu", pres(R.FT3, 12 * 0.9 * 800 * 245 / 1.1 / 1000, 1e-12))
-Re = moteur.compute(dict(WE, nat_N="ELU fondamental"))
+Re = calcul_main(dict(WE, nat_N="ELU fondamental"))
 chk("ELU : fy/γM0 et γM2 (FT,1 = 491,86 × 275/430 × 1,1 ; FT,3 avec γM2)",
     pres(Re.FT1, FT1 * 275 / 430 * 1.1, 1e-9) and pres(Re.FT3, 12 * 0.9 * 800 * 245 / 1.25 / 1000, 1e-12))
 chk("ELU : interaction cisaillement + traction active, tying inactif",
@@ -130,7 +142,7 @@ chk("ELU : âme portée tw·hp·fy/γM0 ; cordons sous la résultante √(qz² +
 chk("tying : cordon sous NEd seul avec γMu", R.ck["wT"].active
     and pres(R.ck["wT"].Ed, 275000 / 860, 1e-12) and pres(R.ck["w"].Ed, 550000 / 860, 1e-12))
 chk("NEd en compression : sans effet (transmis par contact)",
-    not any(moteur.compute(dict(N_Ed=-80)).ck[k].active for k in ("bvt", "ptT", "pp", "tnS")))
+    not any(calcul_main(dict(N_Ed=-80)).ck[k].active for k in ("bvt", "ptT", "pp", "tnS")))
 
 # ================================================================
 print("\n=== 4. Cas par défaut : ancres partagées ===")
@@ -239,6 +251,22 @@ for nom, cas in REF.items():
         print("   ", nom, "synthèse divergente")
 chk(f"RÉGRESSION CALCUL : 0 différence sur les {len(REF)} cas figés ({nverif} vérifications)", ndiff == 0,
     str(ndiff))
+
+# ================================================================
+print("\n=== 9. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; platine : son épaisseur. La note neuve :
+# poutre principale HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+LA.jouer(chk, moteur.compute, attendus=[
+    ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "L": (10, LA.FY_S355, LA.FU_S355)}),
+    ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
+     {"S": (19, LA.FY_S355_40, LA.FU_S355), "P": (30, LA.FY_S355_40, LA.FU_S355)}),
+    ("platine de 20 mm", dict(tp_u=20), {"L": (20, LA.FY_S355_40, LA.FU_S355)}),
+    ("platine de 70 mm S355", dict(tp_u=70), {"L": (70, LA.FY_S355_80, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB)", dict(nu_S="S460 N/NL", prof_S="IPE 600"), {"S": (19, LA.FY_S460_40, LA.FU_S460)}),
+], ligne_fu=("note neuve", {}, "pcn"),
+   grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "platine de 20 mm, f_y et f_u saisis tels quels"),
+   hors_table=(dict(tp_u=300), "platine"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

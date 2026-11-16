@@ -46,6 +46,17 @@ sys.path.insert(0, RACINE)
 from acier.bibliotheques import PERSO  # noqa: E402
 from acier.assemblages import mecanique as MEC  # noqa: E402
 from acier.assemblages.poutre_poteau.platine_about_poteau import moteur, entrees as E  # noqa: E402
+
+# Lot A (16/11/2026) : les exemples publiés et les calculs à la main ci-dessous gardent LEUR matériau (EN 1993-1-1
+# tableau 3.1, sans épaisseur : S355 355/510, S275 275/430 — la table du corrigé de référence) ; ce sont des
+# validations de FORMULES. Les notes prennent la table belge (tableau 3.3 ANB), contrôlée à la section « Lot A ».
+sys.path.insert(0, os.path.join(RACINE, "tests"))
+import lot_a_materiau as LA  # noqa: E402
+
+
+def calcul_main(u=None):
+    """Le moteur sur le matériau des calculs à la main de cette suite (validation de formules)."""
+    return moteur.compute(u, LA.TABLEAU_3_1)
 from acier.assemblages.poutre_poteau.platine_about_poteau import benchmark as BM  # noqa: E402
 
 OK, KO = [], []
@@ -64,7 +75,7 @@ def pres(a, b, tol):
 
 # ================================================================
 print("=== 1. HÉRITAGE : l'exemple publié MSB Part 5 §2.4 sur un POTEAU ===")
-R = moteur.compute(BM.WE)
+R = calcul_main(BM.WE)
 chk("âme de la poutre – cisaillement sur hp = 614 kN (Av = 430 × 9 = 3 870 mm²)",
     pres(R.ck["vwS"].Rd, 614, 0.01), str(R.ck["vwS"].Rd))
 chk("un boulon en cisaillement Fv,Rd = 94 kN (arrondi de la source)", pres(R.Fv_Rd, 94, 0.01), str(R.Fv_Rd))
@@ -92,7 +103,7 @@ chk("benchmark du module : statut VALIDÉ, pire écart 0,95 % (αb arrondi par l
 
 # ================================================================
 print("\n=== 2. CAS (a) AILE : le cas par défaut (§11.3 BM2) ===")
-R0 = moteur.compute({})
+R0 = calcul_main({})
 fy, fu, bw = 355.0, 510.0, 0.9
 d, d0, As, dm, dw = 20.0, 22.0, 245.0, 31.8, 37.0
 Fv = 0.6 * 800 * As / 1.25 / 1000
@@ -154,7 +165,7 @@ chk("γM1 n'est pas demandé (aucune instabilité de plat) ; γMu par défaut = 
 print("\n=== 3. LE GAUGE : la règle qui refuse le p3 = 90 usuel ===")
 chk("gauge minimal sur l'aile d'un HEB 300 avec M20 : p3 ≥ twP + 2·rP + dw = 102 mm",
     R0.p3_congeP == 11 + 2 * 27 + 37, str(R0.p3_congeP))
-R90 = moteur.compute(dict(p3_u=90, bp_u=170))
+R90 = calcul_main(dict(p3_u=90, bp_u=170))
 a90 = [a for a in R90.alerts if a.id == "p3_congeP"]
 chk("p3 = 90 mm : alerte BLOQUANTE p3_congeP, l'assemblage n'est pas vérifié",
     bool(a90) and a90[0].block and not R90.geo_ok and not R90.verified,
@@ -163,22 +174,22 @@ chk("… et l'alerte DIT la règle, le chiffre et le minimum à prendre (105 mm)
     bool(a90) and "twP + 2·rP + dw" in a90[0].why and "102,0 mm" in a90[0].why
     and "Prendre p3 = 105 mm" in a90[0].why and "90 / 100 / 120 / 140" in a90[0].why,
     a90[0].why if a90 else "")
-chk("p3 = 105 mm (le minimum proposé) passe", moteur.compute(dict(p3_u=105, bp_u=185)).verified)
+chk("p3 = 105 mm (le minimum proposé) passe", calcul_main(dict(p3_u=105, bp_u=185)).verified)
 chk("p3 = 160 mm : le MAXIMUM du Tableau 3.3 (min(14t ; 200) = 140) rougit",
-    not moteur.compute(dict(p3_u=160, bp_u=240)).dist_ok
-    and [x.ok for x in moteur.compute(dict(p3_u=160, bp_u=240)).dist if x.id == "p3"] == [False])
+    not calcul_main(dict(p3_u=160, bp_u=240)).dist_ok
+    and [x.ok for x in calcul_main(dict(p3_u=160, bp_u=240)).dist if x.id == "p3"] == [False])
 chk("pince au bout d'aile : p3 = 260 sur un HEB 300 → e = 20 < 1,2·d0 = 26,4 mm, la ligne eP rougit",
-    [x.ok for x in moteur.compute(dict(p3_u=260, bp_u=320)).dist if x.id == "eP"] == [False])
+    [x.ok for x in calcul_main(dict(p3_u=260, bp_u=320)).dist if x.id == "eP"] == [False])
 chk("bp > bP : alerte d'information bp_aile (la platine dépasse le bout d'aile, ce n'est pas impossible)",
-    any(a.id == "bp_aile" and not a.block for a in moteur.compute(dict(bp_u=320)).alerts))
+    any(a.id == "bp_aile" and not a.block for a in calcul_main(dict(bp_u=320)).alerts))
 
 # ================================================================
 print("\n=== 4. CAS (b) ÂME : la platine entre les congés (§11.3 BM4) ===")
-Rb0 = moteur.compute(dict(appui=E.APPUI_AME))
+Rb0 = calcul_main(dict(appui=E.APPUI_AME))
 chk("la platine 290 × 220 du cas (a) NE TIENT PAS en cas (b) : alerte bloquante bp_libreP (≤ 198 mm)",
     any(a.id == "bp_libreP" and a.block for a in Rb0.alerts) and not Rb0.geo_ok
     and pres(Rb0.bp_maxP, 198, 1e-12), str([a.id for a in Rb0.alerts]))
-R4 = moteur.compute(BM.BM4)
+R4 = calcul_main(BM.BM4)
 chk("p3 = 110 et bp = 190 : la platine tient, l'écrou dégage le congé (73,5 ≤ 104, marge 30,5 mm)",
     R4.verified and pres(R4.demi_droit - (R4.p_3 / 2 + R4.d_w / 2), 30.5, 1e-12), str(R4.alerts))
 chk("géométrie du poteau : largeur droite 208 mm, demi-largeur 104, passage de la semelle 252 mm, "
@@ -205,14 +216,14 @@ chk("BM4 : l'IPE 400 (bS = 180) passe entre les ailes du HEB 300 — aucune reco
     R4.passe_S and R4.rec_ok and not any(a.id == "aile_poutre" for a in R4.alerts))
 chk("recoupe minimale (bP − twP)/2 + j − tp = 139,5 mm (l'about est à tp de la face de l'âme)",
     pres(R4.rec_min, (300 - 11) / 2 + 5 - 10, 1e-12), str(R4.rec_min))
-Ri = moteur.compute(dict(BM.BM4, prof_S="HEA 300", z_C=45, hp_u=190, n1_u=3, p1_u=60, e1_u=35, V_Ed=125))
+Ri = calcul_main(dict(BM.BM4, prof_S="HEA 300", z_C=45, hp_u=190, n1_u=3, p1_u=60, e1_u=35, V_Ed=125))
 chk("HEA 300 portée (bS = 300 > 252) sans recoupe : alerte BLOQUANTE aile_poutre",
     any(a.id == "aile_poutre" and a.block for a in Ri.alerts) and not Ri.geo_ok and not Ri.verified)
-Rr = moteur.compute(dict(BM.BM4, prof_S="HEA 300", rec_S=145, z_C=45, hp_u=190, n1_u=3, p1_u=60,
+Rr = calcul_main(dict(BM.BM4, prof_S="HEA 300", rec_S=145, z_C=45, hp_u=190, n1_u=3, p1_u=60,
                          e1_u=35, V_Ed=125))
 chk("… recoupe de 145 mm ≥ 139,5 : l'alerte disparaît et l'assemblage est vérifié",
     not any(a.id == "aile_poutre" for a in Rr.alerts) and Rr.verified)
-Rp3 = moteur.compute(dict(appui=E.APPUI_AME, p3_u=180, bp_u=190))
+Rp3 = calcul_main(dict(appui=E.APPUI_AME, p3_u=180, bp_u=190))
 chk("p3 = 180 en cas (b) : l'écrou sort de la partie droite de l'âme → alerte bloquante p3_libreP",
     any(a.id == "p3_libreP" and a.block for a in Rp3.alerts), str([a.id for a in Rp3.alerts]))
 chk("cas (b) : e_col = tp = 10 mm (la face d'appui est l'âme) ; VEd·e_col = 2,0 kNm",
@@ -222,7 +233,7 @@ chk("cas (b) : le Tableau 3.3 n'a PAS de ligne « bout d'aile » (il n'y a pas d
 
 # ================================================================
 print("\n=== 5. TYING : les DEUX tronçons en T (§7.3) ===")
-Rt = moteur.compute(BM.BM3)
+Rt = calcul_main(BM.BM3)
 chk("tying : NEd est sorti de la combinaison ELU (N_elu = 0) et vérifié seul (N_ty = 250) avec γMu",
     Rt.tying and Rt.N_elu == 0 and Rt.N_ty == 250 and Rt.g_T == 1.1)
 chk("Ft,Rd,u = 0,9·fub·As/γMu = 160,364 kN ; ΣFt = 8 × = 1 282,91 kN ; ew = dw/4 = 9,25 mm",
@@ -261,21 +272,21 @@ chk("tying : âme portée en traction sur hp = 1 156,31 kN ; cordons qx = 431,03
     pres(Rt.ck["tnS"].Rd, 2494 * 510 / 1.1 / 1000, 1e-12)
     and pres(Rt.ck["wT"].Ed, 250000 / 580, 1e-12)
     and pres(Rt.ck["wT"].Rd, 510 / (S3 * 0.9 * 1.1) * 5, 1e-12), str(Rt.ck["wT"].Rd))
-Rtb = moteur.compute(BM.BM4T)
+Rtb = calcul_main(BM.BM4T)
 chk("cas (b) en tying : le tronçon en T de l'aile et l'âme en traction transversale sont SANS OBJET "
     "(la flexion hors plan de l'âme n'est pas couverte), le poinçonnement prend t = twP = 11",
     not Rtb.ck["tfP"].active and not Rtb.ck["twtP"].active
     and pres(Rtb.Bp_P, 0.6 * math.pi * dm * 11 * 510 / 1.1 / 1000, 1e-12)
     and pres(Rtb.Bp_P, 305.702, 1e-4), str(Rtb.Bp_P))
-Re = moteur.compute(dict(N_Ed=80))
+Re = calcul_main(dict(N_Ed=80))
 chk("ELU fondamental : NEd reste combiné à VEd (γM2n pour les ultimes), bvt actif, wT inactif, "
     "les deux tronçons en T avec fy/γM0",
     not Re.tying and Re.N_elu == 80 and Re.g_T == 1.25 and Re.ck["bvt"].active
     and not Re.ck["wT"].active and Re.ck["ptT"].active and Re.ck["tfP"].active
     and pres(Re.Mpl1_T, 0.25 * 290 * 100 * 355 / 1.0, 1e-9), str(Re.Mpl1_T))
 chk("une compression (NEd < 0) n'a pas de nature : nat_N invisible, aucune vérification de traction",
-    not E.traction(dict(N_Ed=-60)) and not moteur.compute(dict(N_Ed=-60)).ck["ptT"].active
-    and not moteur.compute(dict(N_Ed=-60)).ck["tfP"].active)
+    not E.traction(dict(N_Ed=-60)) and not calcul_main(dict(N_Ed=-60)).ck["ptT"].active
+    and not calcul_main(dict(N_Ed=-60)).ck["tfP"].active)
 
 # ================================================================
 print("\n=== 6. Alertes : les neuves, et celles qui ont disparu ===")
@@ -445,6 +456,22 @@ chk("les cas figés couvrent les deux appuis, le gauge refusé, la platine qui n
          "aile_p3_90_refuse", "aile_p3_large", "grugeage_double", "N_elu", "N_tying", "N_tying_ame",
          "cat_B", "cat_C", "trou_surdim", "WE_endplate", "perso", "hp_court", "non_verifie",
          "predim"} <= set(REF), str(sorted(set(REF))))
+
+# ================================================================
+print("\n=== 11. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
+# NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; platine : son épaisseur. La note neuve :
+# poteau HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+LA.jouer(chk, moteur.compute, attendus=[
+    ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "L": (10, LA.FY_S355, LA.FU_S355)}),
+    ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
+     {"S": (19, LA.FY_S355_40, LA.FU_S355), "P": (30, LA.FY_S355_40, LA.FU_S355)}),
+    ("platine de 20 mm", dict(tp_u=20), {"L": (20, LA.FY_S355_40, LA.FU_S355)}),
+    ("platine de 70 mm S355", dict(tp_u=70), {"L": (70, LA.FY_S355_80, LA.FU_S355)}),
+    ("S460 N/NL (tableau 3.4 ANB)", dict(nu_S="S460 N/NL", prof_S="IPE 600"), {"S": (19, LA.FY_S460_40, LA.FU_S460)}),
+], ligne_fu=("note neuve", {}, "pcn"),
+   grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
+   perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "platine de 20 mm, f_y et f_u saisis tels quels"),
+   hors_table=(dict(tp_u=300), "platine"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

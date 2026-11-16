@@ -654,7 +654,22 @@ chk("profilé « Personnalisé » : ses dimensions partent de la pièce quittée
     (u["hS_u"], u["bS_u"], u["twS_u"], u["tfS_u"], u["rS_u"]) == (ipe["h"], ipe["b"], ipe["tw"], ipe["tf"], ipe["r"])
     and not A.calculer(A.CONFIGS["plat_ame"], A._actif(e))[1])
 A.modifier(e, ["v", "nu_pl"], PERSO)
-chk("acier « Personnalisé » : f_y, f_u, β_w partent de la nuance quittée", (u["fy_u"], u["fu_u"]) == (355.0, 510.0) or u["fy_u"] > 0, (u["fy_u"], u["fu_u"]))
+# lot A (16/11/2026) : le harnais suit — la reprise lisait f_y et f_u nominaux dans la bibliothèque (510, l'ancienne
+# table) ; elle reprend maintenant ce que le calcul RETENAIT pour la pièce, selon son épaisseur (tableau 3.3 ANB)
+chk("acier « Personnalisé » : f_y, f_u, β_w partent de ceux que le calcul retenait pour le plat quitté "
+    "(S355, 10 mm : 355 / 470 / 0,9 — tableau 3.3 ANB)", (u["fy_u"], u["fu_u"], u["bw_u"]) == (355.0, 470.0, 0.9),
+    (u["fy_u"], u["fu_u"], u["bw_u"]))
+e_P = etat_de("plat_ame")
+A.modifier(e_P, ["v", "nu_P"], PERSO)
+u_P = A._actif(e_P)["values"]
+chk("… et pour la porteuse HEB 300 S355 (tf = 19 mm) : f_y = 345 retenu, pas 355 nominal (le moteur le nomme : "
+    "l'écran ne relit pas la table)", (u_P["fy_u"], u_P["fu_u"]) == (345.0, 470.0), (u_P["fy_u"], u_P["fu_u"]))
+_cfg_pa = A.CONFIGS["plat_ame"]
+_el_pa = A._actif(etat_de("plat_ame"))
+_hyp = A._hypotheses(_cfg_pa, A.moteur(_cfg_pa, _el_pa["values"]), _el_pa["values"])[0]
+chk("hypothèses : chaque pièce montre la valeur RETENUE et son épaisseur (principale 345 · 470 (t = 19 mm) ; "
+    "plat 355 · 470 (t = 10 mm))", "principale f<sub>y</sub> = 345 · f<sub>u</sub> = 470 (t = 19 mm)" in _hyp
+    and "plat f<sub>y</sub> = 355 · f<sub>u</sub> = 470 (t = 10 mm)" in _hyp, _hyp)
 A.modifier(e, ["d0_impose"], True)
 chk("trou imposé coché : d_0 part du trou normal du boulon (22 mm pour M20) ; décoché : vide",
     u["d0_u"] == 22.0 and A.modifier(e, ["d0_impose"], False) is None and u["d0_u"] is None, u["d0_u"])
@@ -831,6 +846,26 @@ try:
 finally:
     A.CONFIGS["platine_about"].calculer = mot0
 chk(f"mutation « V_Ed × 1,0000001 » : l'empreinte au bit près rougit ({n} jeux)", n > 0)
+from acier import materiaux as MA_  # noqa: E402
+from acier.bibliotheques import find as find_  # noqa: E402
+ra0 = A._reprendre_acier
+
+
+def _reprise_nominale(cfg, u, k, ancien):
+    """La reprise d'avant le lot A, sans épaisseur : la valeur nominale de la nuance quittée."""
+    for cle, champ in A.PERSO_ACIER:
+        if cle in u and not (u.get(cle) or 0) > 0:
+            u[cle] = {"fy": MA_.nominale(ancien), "fu": MA_.fu(ancien, 10), "bw": find_(DB["aciers"], ancien)["bw"]}[champ]
+
+
+A._reprendre_acier = _reprise_nominale
+try:
+    e_m = etat_de("plat_ame")
+    A.modifier(e_m, ["v", "nu_P"], PERSO)
+    rouge = A._actif(e_m)["values"]["fy_u"] != 345.0
+finally:
+    A._reprendre_acier = ra0
+chk("mutation « reprise de la valeur nominale, sans épaisseur » : le contrôle de la porteuse HEB 300 rougit", rouge)
 
 # =====================================================================================================================
 print("\n=== 11. Pureté : le chemin du navigateur, sans streamlit ===")
@@ -942,11 +977,13 @@ chk(f"pied de poteau : une table de plus de {A.LIGNES_MAXI} boulons est une note
 
 # (c) la tolérance du moteur (η ≤ 1 + 10⁻⁹ est « vérifié ») : jamais « 101 % · Non conforme » à côté de « E_d ≤ R_d »
 e = etat_de("plat_ame")
-A._actif(e)["values"]["V_Ed"] = 168.9384675                       # η = 1,0000000004 : vérifié pour le moteur
+# lot A (16/11/2026) : le harnais suit — f_u = 470 (tableau 3.3 ANB) au lieu de 510 ; le taux gouvernant (pression
+# diamétrale de l'âme) est proportionnel à 1/f_u : V_Ed × 470/510 garde le même taux
+A._actif(e)["values"]["V_Ed"] = 155.6883916                       # η = 1,0000000003 : vérifié pour le moteur
 R = r_de(e)
 r = A.resultat(e)
 v = re.search(r'chip xl (\w)"><small>η</small>([^<]+)', r["resultat"])
-chk("η = 1 + 4·10⁻¹⁰, que le moteur déclare vérifié : verdict « 100 % » vert foncé, « Conforme, attention »",
+chk("η = 1 + 3·10⁻¹⁰, que le moteur déclare vérifié : verdict « 100 % » vert foncé, « Conforme, attention »",
     R.eta_max > 1 and R.verified and v.groups() == ("f", f"100{C.NBSP}%") and "Conforme, attention" in r["statut_html"]
     and "101" not in r["resultat"] and "101" not in r["volets"].split('id="ck-geometrie"')[0], (R.eta_max, v.groups()))
 ev0 = A.eta_vu
@@ -956,7 +993,7 @@ try:
 finally:
     A.eta_vu = ev0
 chk("mutation « sans la tolérance du moteur » : le verdict repasse à 101 % rouge", rouge)
-A._actif(e)["values"]["V_Ed"] = 168.938468                         # η = 1,0000000034 : non vérifié
+A._actif(e)["values"]["V_Ed"] = 155.6883921                        # η = 1,0000000035 : non vérifié
 chk("η = 1 + 3·10⁻⁹ (non vérifié pour le moteur) : 101 % rouge, « Non conforme »",
     not r_de(e).verified and "Non conforme" in A.resultat(e)["statut_html"])
 e = etat_de("plat_ame")

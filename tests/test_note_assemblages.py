@@ -276,8 +276,11 @@ chk("au moins deux états par configuration, dont un non conforme",
 # ===================================================================== 3. la géométrie qui gouverne
 print("— 3. la géométrie qui gouverne la tête")
 GEO = None
-for k, v in (("e2b_u", 22), ("e2b_u", 24), ("e1_u", 24), ("e1_u", 25)):
-    el = asm("plat_ame", "G1", (["v", k], v))
+# lot A (16/11/2026) : le harnais suit — f_u = 470 (tableau 3.3 ANB) relève le taux de pression diamétrale de 8,5 % ;
+# les pinces seules ne font plus gouverner la géométrie au V_Ed par défaut : les deux derniers essais le baissent
+for saisies in (((["v", "e2b_u"], 22),), ((["v", "e2b_u"], 24),), ((["v", "e1_u"], 24),), ((["v", "e1_u"], 25),),
+                ((["v", "e2b_u"], 24), (["v", "V_Ed"], 110)), ((["v", "e1_u"], 25), (["v", "V_Ed"], 110))):
+    el = asm("plat_ame", "G1", *saisies)
     R = A._bilan(A._cfg(el), el)["R"]
     if A._cause_geometrie(R) is not None:
         GEO = el
