@@ -628,6 +628,30 @@ DOC_AVANT = (DOC_SOUDURES.replace("η = 66,7/225 = 29,6 % (f_y = 225 N/mm² : S2
 chk("mutation « la doc d'avant » (28 % ; 0,46·t = 13,8 ; 0,57·t = 17) : le contrôle de la doc rougit",
     DOC_AVANT != DOC_SOUDURES and not ctl_doc_exemple_bureau(DOC_AVANT))
 
+
+# lot B (brief v12 § 19.2) : chaque gorge de pleine résistance du S235 que la doc cite (0,46·t, 0,57·t) et le 156,7 N/mm²
+# de l'étude disent leur domaine — « jusqu'à 16 mm » (la f_y baisse au-delà : 0,44·t et 0,54·t de 16 à 40 mm)
+with open(os.path.join(RACINE, "docs", "acier", "SOUDURES_ETUDE.md"), encoding="utf-8") as f_doc:
+    DOC_ETUDE = " ".join(f_doc.read().split())
+
+
+import re  # noqa: E402
+
+
+def ctl_doc_16mm(doc: str, etude: str) -> list:
+    """Les endroits (quatre) où la valeur du S235 ne dit pas « jusqu'à 16 mm »."""
+    manque = [m.group(0) for m in re.finditer(r"0,46·t[^.|]{0,90}", doc) if "16 mm" not in m.group(0)]
+    manque += [m.group(0) for m in re.finditer(r"156,7 N/mm²[^)]{0,40}", etude) if "16 mm" not in m.group(0)]
+    vus = len(re.findall(r"0,46·t", doc)) + len(re.findall(r"156,7 N/mm²", etude))
+    return manque if vus == 4 else manque + [f"{vus} endroits au lieu de 4"]
+
+
+chk("lot B · SOUDURES.md (trois endroits : 0,46·t / 0,57·t) et SOUDURES_ETUDE.md (156,7 N/mm²) : « jusqu'à 16 mm » à chacun",
+    not ctl_doc_16mm(DOC_SOUDURES, DOC_ETUDE), ctl_doc_16mm(DOC_SOUDURES, DOC_ETUDE))
+chk("mutation « la doc d'avant » (sans « jusqu'à 16 mm ») : le contrôle rougit",
+    bool(ctl_doc_16mm(DOC_SOUDURES.replace(" en S235 jusqu'à 16 mm), k équivalent", "), k équivalent"),
+                      DOC_ETUDE.replace("S235 jusqu'à 16 mm avec", "S235 avec"))))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

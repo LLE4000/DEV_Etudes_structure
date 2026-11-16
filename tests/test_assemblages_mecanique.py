@@ -552,6 +552,29 @@ chk("… et la RÉSISTANCE garde f_y = 265 : VRd,g et Mv,N,Rd identiques dans le
 _c = MC.section_grugee(_p600, 440.0, 40, 0, 1.0, 250.0, True, fy_nuance=460.0)
 chk("S460 N/NL de 19 mm (f_y = 440) : « NON VALIDE : nuance > S355 » (la nuance, pas la f_y)", _c["domaine"] == "nuance_haute")
 
+# ================================================================ lot B
+print("\n=== Lot B (brief v12 § 19.2) : d'où viennent 0,46 / 0,48 / 0,55 — les docstrings et ERGONOMIE.md le disent ===")
+from acier.assemblages.poutre_poutre.platine_about import moteur as PAB_  # noqa: E402
+
+
+def ctl_textes_pleine_resistance(docs, ergo) -> list:
+    """Les docstrings des deux copies de ``coef_pleine_resistance`` nomment la source des coefficients du guide (les f_u du
+    tableau 3.1 de l'EN 1993-1-1, 430 et 510) ; ERGONOMIE.md n'imprime plus « 0,55·tw = 4,7 mm » comme texte actuel."""
+    manque = [n for n, d in docs.items() if "tableau 3.1" not in d or "430 et 510" not in d]
+    if "0,55·tw = 4,7 mm" in ergo or "Fb,Rd, 0,55·tw (tables" in ergo:
+        manque.append("ERGONOMIE.md : 0,55·tw")
+    return manque
+
+
+with open(os.path.join(RACINE, "docs", "assemblages", "ERGONOMIE.md"), encoding="utf-8") as f_e:
+    ERGO = f_e.read()
+DOCS_K = {"mecanique": MC.coef_pleine_resistance.__doc__ or "", "platine_about": PAB_.coef_pleine_resistance.__doc__ or ""}
+chk("docstrings de coef_pleine_resistance (mecanique, platine_about) : « tableau 3.1 », « 430 et 510 » ; ERGONOMIE.md : 0,60·tw",
+    not ctl_textes_pleine_resistance(DOCS_K, ERGO), ctl_textes_pleine_resistance(DOCS_K, ERGO))
+chk("mutation « les textes d'avant » (docstring sans la source, 0,55·tw = 4,7 mm) : le contrôle rougit",
+    len(ctl_textes_pleine_resistance({k: v.split(", calculés")[0].split(", que le guide")[0] for k, v in DOCS_K.items()},
+                                     ERGO.replace("0,60·tw = 5,1 mm", "0,55·tw = 4,7 mm"))) == 3)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

@@ -11,7 +11,7 @@ assemblages, formules dans la note). Page « Soudures » (tuile Acier), moteur
 | `acier/soudures/cordon.py` | le cordon : segment de gorge a dans un dièdre, et la décomposition EXACTE d'une force par unité de longueur sur sa gorge (σ⊥, τ⊥, τ∥, EN 1993-1-8 fig. 4.5, σ⊥ > 0 en traction) ; cordon d'angle, bout à bout à pénétration partielle (coplanaire ou en T), **lignes de pleine pénétration** (trois lignes de gorge à poids de Simpson qui rendent exactement la section t·l de la pièce), longueur efficace, βLw |
 | `acier/soudures/trace.py` | le tracé : chemins, arcs, chaînes (polyligne → segments de calcul), **tronçons** (soudures discontinues), espacement §4.3.2.2 |
 | `acier/soudures/groupe.py` | le groupe de cordons : A_w, G, I_x, I_y, I_xy, J des gorges ; répartition élastique des six composantes d'effort |
-| `acier/soudures/criteres.py` | les critères : Eurocode directionnelle (§4.5.3.2) et simplifiée (§4.5.3.3), méthode ELS du bureau, **métal de base** (pleine pénétration : √(σ² + 3τ²) ≤ fy/γM0, fy/γ_F en service), gorge de pleine résistance (a ≥ 0,46·t), k équivalent Eurocode |
+| `acier/soudures/criteres.py` | les critères : Eurocode directionnelle (§4.5.3.2) et simplifiée (§4.5.3.3), méthode ELS du bureau, **métal de base** (pleine pénétration : √(σ² + 3τ²) ≤ fy/γM0, fy/γ_F en service), gorge de pleine résistance (a ≥ 0,46·t en S235 jusqu'à 16 mm), k équivalent Eurocode |
 | `acier/soudures/configurations.py` | huit configurations C1 … C8 : dimensions → groupe de cordons, efforts au bon point et dans le bon sens, pièces du dessin ; **type de jonction** d'une pièce en T (angle / pénétration partielle ± renfort / pleine) ; support = aile d'un poteau du catalogue ou plat |
 | `acier/soudures/etat.py` | les cas, les défauts, le JSON, la vérification complète (points, cordons, chaînes, comparaison des méthodes, messages) |
 | `acier/soudures/schemas.py` | les **schémas techniques** sur le kit de dessin des assemblages : deux ou trois vues par configuration, profilés réels, hachures, ruptures, bandes de cordon a·√2, symboles EN 22553, cotes, efforts, point gouvernant ; peints en vectoriel dans la note |
@@ -69,7 +69,8 @@ posée en T sur une face se soude de trois façons, choisies à l'écran :
   ≤ fy/γ_F (méthode ELS, efforts de service). Un groupe peut mélanger les deux : semelles
   à pleine pénétration et âme en cordons d'angle, chaque point selon son critère.
   L'écran dit aussi la gorge de cordon d'angle qui égalerait la pièce en traction
-  (a ≥ 0,46·t en directionnelle, 0,57·t en simplifiée pour le S235).
+  (a ≥ 0,46·t en directionnelle, 0,57·t en simplifiée pour le S235 jusqu'à 16 mm ; au-delà, la f_y
+  de la paroi à son épaisseur : 0,44·t et 0,54·t de 16 à 40 mm).
 
 Bout à bout coplanaire (C7) : pleine pénétration → une soudure de gorge t vérifiée au métal
 de base (σ = N/(b·t) + 6M/(t·b²), τ = V/(b·t)) ; pénétration partielle → une soudure de
@@ -197,7 +198,7 @@ du dessin). La comparaison des quatre lectures n'est plus imprimée : elle reste
   fichier converti ; **types de jonction** : pleine pénétration N/(l·t) et 6M/(l·t²)
   exacts par les trois lignes de Simpson, fy/γ_F en ELS, pénétration partielle avec et sans
   renfort, règle du T §4.7.3, semelles pleines d'un IPE 200 (I exact), âme pleine, tube
-  plein, gorge de pleine résistance 0,46·t / 0,57·t, poteau du catalogue en support.
+  plein, gorge de pleine résistance 0,46·t / 0,57·t (S235 jusqu'à 16 mm), poteau du catalogue en support.
 - `tests/test_soudures_schemas.py` (32) : les vues de chaque configuration (nombre, SVG
   valides, RIEN de coupé), ce qui doit s'y lire (profilé, cotes, symboles selon la
   jonction, point gouvernant, efforts, tronçons, exclus), le peintre PDF, la pureté.
