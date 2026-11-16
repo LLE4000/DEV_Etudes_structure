@@ -32,6 +32,8 @@ EN 10210-1), « creux_froid » (profils creux formés à froid, EN 10219-1).
 from typing import Dict, List, Tuple
 
 PRODUITS = ("lamine", "creux_chaud", "creux_froid")
+# le nom du produit à imprimer (un message de refus, une ligne de note) : jamais la clé interne
+LIBELLES_PRODUIT = {"lamine": "laminé", "creux_chaud": "creux fini à chaud", "creux_froid": "creux formé à froid"}
 NUANCES = ("S235", "S275", "S355", "S460")            # les nuances des modules, par limite élastique croissante
 
 # les autres noms que portent des notes enregistrées (bibliothèque des assemblages) : ils suivent la même table
@@ -134,8 +136,8 @@ def _lire(bandes, t: float, quoi: str, nuance: str, produit: str) -> Tuple[float
         if t < sup or (incluse and t <= sup):
             return v, i
     sup = bandes[-1][0]
-    raise HorsTable(f"{quoi} : {nuance} ({produit.replace('_', ' ')}) de {t:g} mm — le tableau "
-                    f"{ligne(nuance, produit)['tableau']} s'arrête à {sup:g} mm")
+    raise HorsTable(f"{nuance} {LIBELLES_PRODUIT[produit]} de {t:g} mm : le tableau "
+                    f"{ligne(nuance, produit)['tableau']} s'arrête à {sup:g} mm ({quoi})")
 
 
 def fy(nuance: str, t: float, produit: str = "lamine") -> float:

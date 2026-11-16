@@ -155,6 +155,19 @@ def forme():
         msg = str(e)
     C.append(("au-delà du tableau, le refus dit le tableau et sa borne (« tableau 3.10 ANB s'arrête à 40 mm »)",
               "3.10 ANB" in msg and "40 mm" in msg, msg))
+    # le refus s'imprime tel quel à l'écran : le nom du produit, jamais sa clé interne ni « f_y : » en tête
+    C.append(("le refus nomme le produit en français (« creux formé à froid »), sans clé interne ni « f_y : » en tête",
+              msg.startswith("S355 creux formé à froid de 50 mm") and "creux_froid" not in msg
+              and "(creux" not in msg and not msg.startswith("f_y"), msg))
+    try:
+        MA.fu("S235", 300)
+        msg = ""
+    except MA.HorsTable as e:
+        msg = str(e)
+    C.append(("refus d'un laminé : « S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u) »",
+              msg == "S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u)", msg))
+    C.append(("chaque produit a son libellé imprimable", set(MA.LIBELLES_PRODUIT) == set(MA.PRODUITS),
+              MA.LIBELLES_PRODUIT))
     C.append(("paliers : la ligne entière, pour l'écran", MA.paliers("S235")[:2] == [("t ≤ 16 mm", 235.0), ("16 < t ≤ 40 mm", 225.0)],
               MA.paliers("S235")[:2]))
     return C

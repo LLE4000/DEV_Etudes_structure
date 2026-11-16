@@ -292,6 +292,10 @@ cas("profil", "charge posée au droit de l'appui du milieu d'une poutre continue
 cas("profil", "âme élancée (IPE 750x134 en S355, 8 m, 60 kN/m) : voilement par cisaillement vérifié, raidisseurs aux appuis", REF,
     [neuf(), act("choisir", role="profil", nom="IPE 750x134"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")],
     {"texte": "Voilement de l'âme par cisaillement"})
+# l'ancien cas « âme élancée » est GARDÉ, sous un nom qui dit ce qu'il montre depuis le lot A : il porte les plus forts
+# écarts de l'âme (F_Rd aux appuis 403,7 → 245,3 kN, V_pl,z,Rd 2 334 → 2 100 kN, plus de voilement par cisaillement)
+cas("profil", "IPE 750x147 en S355, 8 m, 60 kN/m : âme non élancée (η = 1,00 d'un laminé), raidisseurs aux appuis", REF,
+    [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")])
 cas("profil", "appuis par l'âme : rien n'appuie sur l'âme, le bloc s'efface", REF, [neuf(), mod("appuis/mode", "ame")])
 cas("profil", "longueur d'appui négative refusée", LIM, [neuf(), mod("appuis/ss", "-3")], {"message": True})
 cas("profil", "longueur d'appui d'une charge ponctuelle au centre de cisaillement : gardée, sans effet", LIM,
@@ -468,8 +472,9 @@ for _t, _ex in (("doubles_cornieres", "BM1"), ("doubles_cornieres", "BM4"), ("pl
     cas("assemblages", f"{_t} : exemple publié {_ex}", REF, [neuf(), mod("type", _t), mod("exemple", _ex)])
 cas("assemblages", "pied de poteau : vérification complète (grille régulière)", REF, [neuf(), mod("type", "platine_beton"), mod("v/mode", COMPLET)],
     selecteurs=True)
-for _t, _v in (("doubles_cornieres", "165"), ("plat_ame", "165"), ("platine_about", "290"), ("plat_ame_poteau", "285"),
-               ("doubles_cornieres_poteau", "370"), ("platine_about_poteau", "510")):
+# (lot A : f_u selon le tableau 3.3 ANB, 470 au lieu de 510 en S355 — trois charges redescendues dans la bande [95, 100] %)
+for _t, _v in (("doubles_cornieres", "152"), ("plat_ame", "152"), ("platine_about", "290"), ("plat_ame_poteau", "285"),
+               ("doubles_cornieres_poteau", "341"), ("platine_about_poteau", "510")):
     cas("assemblages", f"{_t} : chargé près de 100 % (V_Ed = {_v} kN)", REF, [neuf(), mod("type", _t), mod("v/V_Ed", _v)], {"taux": [95, 100]})
 cas("assemblages", "platine_beton : chargé près de 100 % (N_Ed = 1 770 kN, calcul manuel)", REF, [neuf(), mod("type", "platine_beton"), mod("v/N_Ed", "1770")],
     {"taux": [95, 100]})
