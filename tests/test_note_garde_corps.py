@@ -406,6 +406,165 @@ try:
 finally:
     G._h_tete = vrai_ht
 
+# 8. lot B (contre-vérification 2) : le champ H SE VIDE QUAND ON CLIQUE DEDANS, comme tout champ numérique (règle du
+# propriétaire du 13/11, site/web/js/commun.js : viderAuFocus), sans perdre « vide = défaut » : quitté sans rien taper,
+# il reprend sa valeur (rien n'est envoyé) ; EFFACÉ (Retour arrière / Suppr dans le champ vidé, ou ce qu'on a tapé), il
+# part vide et le moteur prend 1 100 mm. Le mécanisme de la page est JOUÉ par node sur les champs que le module rend
+# (un DOM minimal : les écouteurs de la racine, closest() sur les sélecteurs de commun.js), puis ce qui part passe par
+# le module (G.modifier).
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+JS_COMMUN = os.path.join(RACINE, "site", "web", "js", "commun.js")
+ESSAI_VIDER = r"""
+const c = await import(process.argv[1]);
+const champs = JSON.parse(process.argv[2]);
+// un champ : ses attributs (data-* → dataset), value / defaultValue / placeholder, closest() sur les sélecteurs simples
+// de commun.js (balise, [attr], [attr="v"], :not([attr]), :not(:disabled), alternatives séparées par des virgules)
+function champ(a) {
+  const ds = {};
+  for (const [k, v] of Object.entries(a)) if (k.startsWith("data-")) ds[k.slice(5).replace(/-(\w)/g, (_, x) => x.toUpperCase())] = v;
+  const el = { tagName: "INPUT", dataset: ds, value: a.value || "", defaultValue: a.value || "", placeholder: a.placeholder || "",
+    disabled: "disabled" in a, readOnly: "readonly" in a };
+  const attr = (n) => (n.startsWith("data-") ? el.dataset[n.slice(5).replace(/-(\w)/g, (_, x) => x.toUpperCase())]
+    : n === "readonly" ? (el.readOnly ? "" : undefined) : n === "disabled" ? (el.disabled ? "" : undefined) : undefined);
+  const un = (s) => {
+    s = s.trim();
+    if (!/^input\b/.test(s)) return false;
+    if (/:not\(:disabled\)/.test(s) && el.disabled) return false;
+    for (const m of s.matchAll(/:not\(\[([\w-]+)\]\)/g)) if (attr(m[1]) !== undefined) return false;
+    const reste = s.replace(/:not\([^)]*\)/g, "");
+    for (const m of reste.matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)) {
+      const v = attr(m[1]);
+      if (v === undefined || (m[2] !== undefined && v !== m[2])) return false;
+    }
+    return true;
+  };
+  el.closest = (sel) => (sel.split(",").some(un) ? el : null);
+  return el;
+}
+const ecoute = [];
+const racine = { addEventListener: (type, f, o = {}) => ecoute.push({ type, f, capture: !!o.capture }) };
+c.viderAuFocus(racine, {});
+const emettre = (type, el, x = {}) => {
+  const ev = { type, target: el, ...x };
+  for (const l of ecoute.filter((l) => l.type === type && l.capture)) l.f(ev);
+  for (const l of ecoute.filter((l) => l.type === type && !l.capture)) l.f(ev);
+};
+// ce que l'établi envoie en quittant le champ (js/etabli.js : la valeur, si elle diffère de defaultValue) ; null : rien
+const quitter = (el) => { emettre("focusout", el); return el.value !== el.defaultValue ? el.value : null; };
+const taper = (el, t) => { el.value = t; emettre("input", el); };
+const vu = (el) => ({ v: el.value, ph: el.placeholder });
+const out = {};
+let h = champ(champs.H);
+emettre("focusin", h); out.clic = vu(h);
+out.sans_rien = { envoye: quitter(h), ...vu(h) };
+h = champ(champs.H); emettre("focusin", h); taper(h, "1300"); out.tape = { envoye: quitter(h) };
+h = champ(champs.H); emettre("focusin", h); emettre("keydown", h, { key: "Backspace" }); out.efface = vu(h);
+out.efface.envoye = quitter(h); out.efface.apres = vu(h);
+h = champ(champs.H); emettre("focusin", h); emettre("keydown", h, { key: "Delete" }); out.suppr = { envoye: quitter(h) };
+h = champ(champs.H); emettre("focusin", h); taper(h, "5"); taper(h, ""); out.retape = { envoye: quitter(h) };
+h = champ(champs.H); emettre("focusin", h); emettre("keydown", h, { key: "Backspace" }); taper(h, "1250"); out.reprise = { envoye: quitter(h) };
+const p = champ(champs.pente);
+emettre("focusin", p); out.pente_clic = vu(p); emettre("keydown", p, { key: "Backspace" }); out.pente = { envoye: quitter(p), ...vu(p) };
+const t = champ(champs.texte);
+emettre("focusin", t); out.texte = vu(t);
+const hv = champ(champs.H_vide);
+emettre("focusin", hv); out.h_vide = vu(hv);
+console.log(JSON.stringify(out));
+"""
+
+
+def _attributs(balise: str) -> dict:
+    a = dict(re.findall(r'([\w-]+)="([^"]*)"', balise))
+    for nu in ("disabled", "readonly"):
+        if re.search(rf"\s{nu}(?=[\s>])", balise):
+            a[nu] = ""
+    return a
+
+
+def juger_vider_au_clic(js=JS_COMMUN) -> list:
+    """Les écarts du champ H joué dans la page (node) : vidé au clic, sa valeur en gris ; quitté sans rien taper, il la
+    reprend et rien ne part ; « 1300 » tapé part ; effacé (Retour arrière, Suppr, ou ce qu'on a tapé) il part vide et
+    le module prend 1 100 mm ; la pente (un nombre) garde la règle des nombres ; un texte libre n'est pas vidé ; H déjà
+    vide n'est pas touché."""
+    e = G.nouvel_etat()
+    f = G.formulaire(e)
+
+    def balise(ch):
+        return (re.findall(rf'<input data-chemin="{re.escape(ch)}"[^>]*>', f) or [""])[0]
+    texte = _attributs(balise("geometrie/troncons/0/entraxes"))
+    texte["value"] = "1000 ; 1000"
+    ev = G.nouvel_etat()
+    G.modifier(ev, ["geometrie", "H"], "")
+    champs = {"H": _attributs(balise("geometrie/H")), "pente": _attributs(balise("geometrie/pente")), "texte": texte,
+              "H_vide": _attributs((re.findall(r'<input data-chemin="geometrie/H"[^>]*>', G.formulaire(G.normaliser(ev)))
+                                    or [""])[0])}
+    try:
+        p = subprocess.run(["node", "--input-type=module", "-e", ESSAI_VIDER, "--", "file://" + js, json.dumps(champs)],
+                           capture_output=True, text=True, timeout=60)
+        r = json.loads([x for x in p.stdout.split("\n") if x.strip()][-1])
+    except Exception as ex:  # noqa: BLE001
+        return [f"node : {ex} {locals().get('p') and p.stderr[-300:]}"]
+    ecarts = []
+    if r["clic"] != {"v": "", "ph": "1\u202f100"}:
+        ecarts.append(f"clic dans H : pas vidé, valeur en gris ({r['clic']})")
+    if r["sans_rien"] != {"envoye": None, "v": "1\u202f100", "ph": "1\u202f100 par défaut"}:
+        ecarts.append(f"H quitté sans rien taper : {r['sans_rien']}")
+    if r["tape"]["envoye"] != "1300" or r["reprise"]["envoye"] != "1250":
+        ecarts.append(f"H tapé : {r['tape']} / {r['reprise']}")
+    if r["efface"] != {"v": "", "ph": "1\u202f100 par défaut", "envoye": "", "apres": {"v": "", "ph": "1\u202f100 par défaut"}}:
+        ecarts.append(f"H effacé (Retour arrière) : {r['efface']}")
+    if r["suppr"]["envoye"] != "" or r["retape"]["envoye"] != "":
+        ecarts.append(f"H effacé (Suppr / tapé puis effacé) : {r['suppr']} / {r['retape']}")
+    if r["pente_clic"] != {"v": "", "ph": "0"} or r["pente"] != {"envoye": None, "v": "0", "ph": ""}:
+        ecarts.append(f"pente (un nombre) : {r['pente_clic']} / {r['pente']}")
+    if r["texte"]["v"] != "1000 ; 1000":
+        ecarts.append(f"un texte libre (entraxes) vidé au clic : {r['texte']}")
+    if r["h_vide"] != {"v": "", "ph": "1\u202f100 par défaut"}:
+        ecarts.append(f"H déjà vide touché au clic : {r['h_vide']}")
+    # ce qui part passe par le module : vidé → 1 100 mm par défaut ; tapé → la valeur
+    ef = G.nouvel_etat()
+    if r["efface"]["envoye"] != "" or G.modifier(ef, ["geometrie", "H"], r["efface"]["envoye"]) is not None \
+            or ef["cas"][0]["geometrie"]["H"] is not None \
+            or "Hauteur non saisie : H = 1 100 mm par défaut" not in G.resultat(G.normaliser(ef))["resultat"]:
+        ecarts.append("H effacé dans la page : le module ne prend pas 1 100 mm par défaut")
+    return ecarts
+
+
+def _commun_mute(avant: str, apres: str) -> str:
+    d = tempfile.mkdtemp(prefix="gc_commun_")
+    s = open(JS_COMMUN, encoding="utf-8").read()
+    assert s.count(avant) == 1, avant
+    open(os.path.join(d, "commun.js"), "w", encoding="utf-8").write(s.replace(avant, apres))
+    return os.path.join(d, "commun.js")
+
+
+# … et le sélecteur élargi ne prend AUCUN autre texte : data-vide n'est posé que par commun.num (un champ NUMÉRIQUE
+# « vide = automatique » ; test_api_web_modules : chacun accepte le vide et refuse un texte), aucun script de la page ne
+# le pose. Les champs dont le comportement change sont donc tous des nombres « vide = automatique » (liste au rapport).
+_API = os.path.join(RACINE, "api_web")
+_JS = os.path.join(RACINE, "site", "web", "js")
+poseurs = sorted(os.path.relpath(os.path.join(d, f), RACINE) for d in (_API, _JS) for f in os.listdir(d)
+                 if f.endswith((".py", ".js")) and f != "commun.js" and "data-vide" in open(os.path.join(d, f), encoding="utf-8").read())
+chk("data-vide n'est posé que par commun.num (champ numérique « vide = automatique ») : viderAuFocus ne vide aucun autre "
+    "texte", poseurs == ["api_web/commun.py"] and open(os.path.join(_API, "commun.py"), encoding="utf-8").read().count(
+        "data-vide") == 1, poseurs)
+if shutil.which("node"):
+    ec = juger_vider_au_clic()
+    chk("lot B · champ H vidé AU CLIC (« 1 100 » en gris) ; quitté sans rien taper : il reprend sa valeur, rien ne part ; "
+        "« 1300 » part ; EFFACÉ (Retour arrière, Suppr, tapé puis effacé) : il part vide → 1 100 mm par défaut ; la pente "
+        "garde la règle des nombres ; un texte libre n'est pas vidé ; H déjà vide n'est pas touché", not ec, ec)
+    for nom, avant, apres in [
+            ("H hors des champs vidés au clic (le sélecteur d'avant)", ", '\n  + 'input[data-sorte=\"texte\"][data-vide]:not([readonly]):not(:disabled)'", "'"),
+            ("tout texte vidé au clic (data-vide oublié)", "input[data-sorte=\"texte\"][data-vide]", "input[data-sorte=\"texte\"]"),
+            ("le vide voulu repris en sortie (data-vider ignoré)",
+             "if (el.value.trim() === \"\" && el.dataset.vider === undefined) el.value", "if (el.value.trim() === \"\") el.value"),
+            ("Retour arrière / Suppr sans effet", "(ev.key === \"Backspace\" || ev.key === \"Delete\") && ", "false && ")]:
+        chk(f"mutation « {nom} » : le contrôle rougit", juger_vider_au_clic(_commun_mute(avant, apres)) != [])
+else:
+    print("--   node absent : le champ H joué dans la page n'est pas contrôlé ici (le parcours du navigateur le fait)")
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

@@ -67,7 +67,12 @@ export function segmentAEnvoyer(b) {
 // nouvelle ; quitté sans rien taper, il reprend sa valeur et rien n'est envoyé. L'écouteur de sortie passe AVANT celui qui
 // valide (phase de capture) ; une saisie en cours reprise après un calcul n'est pas touchée. Une source : les notes
 // (js/etabli.js) et la page « Paramètres ».
-export const NUMERIQUE = 'input[data-sorte="nombre"]:not([readonly]):not(:disabled), input[data-sorte="entier"]:not([readonly]):not(:disabled)';
+// (lot B, garde-corps H) un champ numérique « VIDE = AUTOMATIQUE » (data-vide : commun.num(..., auto=…), envoyé en texte)
+// se vide AUSSI en y entrant, et reprend sa valeur si on le quitte sans rien taper. Pour le vider EXPRÈS (sa valeur
+// automatique, par défaut) : on EFFACE — Retour arrière ou Suppr dans le champ vidé, ou ce qu'on avait tapé ; son texte
+// indicatif revient (« 1 100 par défaut ») et le champ part vide.
+export const NUMERIQUE = 'input[data-sorte="nombre"]:not([readonly]):not(:disabled), input[data-sorte="entier"]:not([readonly]):not(:disabled), '
+  + 'input[data-sorte="texte"][data-vide]:not([readonly]):not(:disabled)';
 export function viderAuFocus(racine, { signal } = {}) {
   racine.addEventListener("focusin", (ev) => {
     const el = ev.target.closest(NUMERIQUE);
@@ -77,12 +82,29 @@ export function viderAuFocus(racine, { signal } = {}) {
     el.placeholder = el.defaultValue;
     el.value = "";
   }, { signal });
+  // le vide VOULU d'un champ « vide = automatique » : marqué (data-vider), son texte indicatif revient
+  const videVoulu = (el) => {
+    if (el.dataset.vide === undefined || el.dataset.indication === undefined || el.value !== "") return;
+    el.dataset.vider = "1";
+    el.placeholder = el.dataset.indication;
+  };
+  racine.addEventListener("keydown", (ev) => {
+    const el = (ev.key === "Backspace" || ev.key === "Delete") && ev.target.closest(NUMERIQUE);
+    if (el) videVoulu(el);
+  }, { signal });
+  racine.addEventListener("input", (ev) => {
+    const el = ev.target.closest(NUMERIQUE);
+    if (!el) return;
+    if (el.value === "") videVoulu(el);
+    else delete el.dataset.vider;
+  }, { signal });
   racine.addEventListener("focusout", (ev) => {
     const el = ev.target.closest(NUMERIQUE);
     if (!el || el.dataset.indication === undefined) return;
-    if (el.value.trim() === "") el.value = el.defaultValue;
+    if (el.value.trim() === "" && el.dataset.vider === undefined) el.value = el.defaultValue;
     el.placeholder = el.dataset.indication;
     delete el.dataset.indication;
+    delete el.dataset.vider;
   }, { capture: true, signal });
 }
 
