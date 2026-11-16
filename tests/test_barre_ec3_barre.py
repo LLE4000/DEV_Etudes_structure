@@ -245,28 +245,34 @@ def controles(M=None):
     r = v("HEB 200", "S235", 500.0, NEd=432.72e3)
     c("barre courte (λ̄ ≤ 0,2) : flambement dit négligeable, χ = 1", verif(r, "E-Nb-z")["messages"] and r["grandeurs"]["flambement"]["z"]["chi"] == 1.0)
     # tout le catalogue contre le module Flambement en service
-    ecarts, n = [], 0
+    ecarts, n, n_par, n_refus = [], 0, 0, 0
     for pr in CAT.profils():
         if pr["famille"] not in SE.FAMILLES or SE.FAMILLES[pr["famille"]][0] not in ("I",) + SE.TUBES:
             continue
-        for nu in ("S235", "S355"):
+        for nu in ("S235", "S275", "S355", "S460"):
             ref = FM.verifier({"nom": "x", "profil": pr["nom"], "nuance": nu, "N": 50.0, "L": 3.0, "gamma_M0": 1.0, "gamma_M1": 1.0,
                                "axes": {a: {"appuis": "AA", "k": 1.0, "Lcr": 3.0, "maintiens": 0} for a in ("y", "z")}})
             if ref["statut"] == FM.IMPOSSIBLE:
+                # (le Flambement refuse — épaisseur au-delà de 80 mm, tube rond de classe 4 — : la barre ne le vérifie pas non plus)
+                try:
+                    st = v(pr["nom"], nu, 3000.0, NEd=50e3)["statut"]
+                except RE.Refus:
+                    st = RE.NON_COUVERT
+                n_refus += 1
+                if st != RE.NON_COUVERT:
+                    ecarts.append(("refusé par le Flambement, vérifié par la barre", pr["nom"], nu, st))
                 continue
             n += 1
             r = v(pr["nom"], nu, 3000.0, NEd=50e3)
             F = r["grandeurs"]["flambement"]
-            # (lot A : la barre prend l'ε de CHAQUE paroi — le module Flambement, un seul ε : quand les parois n'ont pas la même
-            #  f_y, une âme de classe 4 y est moins réduite ; la barre est alors au moins aussi sévère)
-            uniforme = len(set(r["grandeurs"]["fy_parois"].values())) == 1
-            if uniforme and not all(proche(F[a]["N_b_Rd"] / 1e3, ref["axes"][a]["NbRd"], 1e-9) and F[a]["courbe"] == ref["axes"][a]["courbe"] for a in ("y", "z")):
-                ecarts.append((pr["nom"], nu, F["z"]["N_b_Rd"] / 1e3, ref["axes"]["z"]["NbRd"]))
-            elif not uniforme and not all(F[a]["N_b_Rd"] / 1e3 <= ref["axes"][a]["NbRd"] * (1 + 1e-9) and F[a]["courbe"] == ref["axes"][a]["courbe"]
-                                          for a in ("y", "z")):
-                ecarts.append(("paroi par paroi", pr["nom"], nu, F["z"]["N_b_Rd"] / 1e3, ref["axes"]["z"]["NbRd"]))
-    c(f"tout le catalogue, 3 m, S235 et S355 ({n} barres) : N_b,y,Rd, N_b,z,Rd et les courbes sont ceux du module Flambement EN SERVICE "
-      "(classe 4 comprise : A_eff)", n > 1700 and not ecarts, (n, ecarts[:3]))
+            # (lot A, deuxième passe : les deux modules prennent l'ε de CHAQUE paroi — l'ÉGALITÉ vaut aussi quand l'âme et les
+            #  semelles n'ont pas la même f_y)
+            n_par += len(set(r["grandeurs"]["fy_parois"].values())) > 1
+            if not all(proche(F[a]["N_b_Rd"] / 1e3, ref["axes"][a]["NbRd"], 1e-9) and F[a]["courbe"] == ref["axes"][a]["courbe"] for a in ("y", "z")):
+                ecarts.append((pr["nom"], nu, F["z"]["N_b_Rd"] / 1e3, ref["axes"]["z"]["NbRd"], F["z"]["courbe"], ref["axes"]["z"]["courbe"]))
+    c(f"tout le catalogue, 3 m, quatre nuances ({n} barres, dont {n_par} dont l'âme et les semelles n'ont pas la même f_y) : N_b,y,Rd, "
+      f"N_b,z,Rd et les courbes sont ceux du module Flambement EN SERVICE (classe 4 comprise : A_eff) ; les {n_refus} qu'il refuse, la barre "
+      "ne les vérifie pas non plus", n > 4400 and n_par > 300 and n_refus > 40 and not ecarts, (n, n_par, n_refus, ecarts[:3]))
     s = SE.saisie("I", "soude_oxycoupe", h=400.0, b=300.0, tf=20.0, tw=10.0, r=0.0, A=15600.0, Iy=4.6e8, Iz=9.0e7, iy=171.7, iz=75.96, It=1.7e6, Iw=3.2e12)
     s2 = dict(s, tf=45.0)
     c("I soudé (tableau 6.2) : courbes b et c jusqu'à 40 mm de semelle, c et d au-delà ; caisson soudé : b et b",
@@ -748,6 +754,9 @@ MUTATIONS = [
     ("ec3_flambement", "torsion rendue quand elle ne gouverne pas, cachée quand elle gouverne", 'gouverne = F["z"]["N_cr"] is None or NcrT < F["z"]["N_cr"]',
      'gouverne = F["z"]["N_cr"] is None or NcrT > F["z"]["N_cr"]'),
     ("ec3_flambement", "torsion : courbe de l'axe fort", '        courbe = F["z"]["courbe"]\n', '        courbe = F["y"]["courbe"]\n'),
+    # (lot A, deuxième passe : la parité avec le module Flambement porte maintenant sur les QUATRE nuances — elle s'arrêtait
+    #  au S355 et laissait passer la ligne « S460 » du tableau 6.2)
+    ("ec3_flambement", "S460 : la ligne du tableau 6.2 ignorée (les courbes du S235)", '    nu = nuance or ("S460" if fy >= 460.0 else "S235")', '    nu = "S235"'),
     ("ec3_flambement", "flambement vérifié aussi en traction", "        if comprime:\n            J.verif(f\"E-Nb-{a}\"", "        if True:\n            J.verif(f\"E-Nb-{a}\""),
     ("ec3_deversement", "k_c de la charge concentrée : 0,90 (l'erreur du brief)", "KC_REPARTI, KC_PONCTUEL = 0.94, 0.86", "KC_REPARTI, KC_PONCTUEL = 0.94, 0.90"),
     ("ec3_deversement", "k_c de la charge répartie : 0,90", "KC_REPARTI, KC_PONCTUEL = 0.94, 0.86", "KC_REPARTI, KC_PONCTUEL = 0.90, 0.86"),

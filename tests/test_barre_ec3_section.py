@@ -294,26 +294,24 @@ def controles(C_=CL, S_=ES):
             try:
                 ref = FM._section(pr, nu)
             except NO.HorsDomaine:
-                continue                       # épaisseur hors du tableau 3.1, ou tube rond de classe 4 : contrôlés plus bas
+                continue                       # épaisseur au-delà de 80 mm (domaine du module), ou tube rond de classe 4 : contrôlés plus bas
             n += 1
             try:
-                fyp = S_.lire({"section": s, "nuance": nu})["fy_parois"]
-            except RE.Refus:
+                d_ = S_.lire({"section": s, "nuance": nu})
+            except RE.Refus as e_:
+                ecarts.append((pr["nom"], nu, "refusé par la barre, calculé par le Flambement", str(e_)[:60]))
                 continue
+            fyp = d_["fy_parois"]
             cl = C_.classer(s, ref["fy"], 1.0, 0.0, 0.0, fyp)
             aeff = C_.aire_efficace(s, {q["role"]: q["epsilon"] for q in cl["parois"]})["A_eff"] if cl["classe"] == 4 else s["A"]
-            uniforme = len({fyp.get(q["role"]) for q in cl["parois"]}) == 1
-            if uniforme and (cl["classe"] != ref["classe"] or not proche(aeff, ref["A_eff"])):
-                ecarts.append((pr["nom"], nu, cl["classe"], ref["classe"], aeff, ref["A_eff"]))
-            elif not uniforme:
-                n_par += 1
-                if cl["classe"] < ref["classe"] or aeff > ref["A_eff"] * (1 + 1e-12):
-                    ecarts.append((pr["nom"], nu, "paroi par paroi", cl["classe"], ref["classe"], aeff, ref["A_eff"]))
-    # (lot A : le module Flambement prend un seul ε, celui de la f_y de calcul, pour toutes les parois — l'écart A1b, hors des
-    #  barres ; quand les parois n'ont pas la même f_y, la barre est au moins aussi sévère : classe ≥, A_eff ≤)
-    c(f"tout le catalogue en compression pure ({n} couples profilé-nuance) : même classe et même A_eff que le module Flambement en service "
-      f"quand toutes les parois ont la même f_y ; quand l'âme est plus mince que les semelles ({n_par} couples), l'ε de chaque paroi rend la "
-      "barre au moins aussi sévère (classe ≥, A_eff ≤)", n > 3500 and n_par > 50 and not ecarts, (n, n_par, ecarts[:3]))
+            n_par += len({fyp.get(q["role"]) for q in cl["parois"]}) > 1
+            if d_["fy"] != ref["fy"] or cl["classe"] != ref["classe"] or not proche(aeff, ref["A_eff"]):
+                ecarts.append((pr["nom"], nu, d_["fy"], ref["fy"], cl["classe"], ref["classe"], aeff, ref["A_eff"]))
+    # (lot A, deuxième passe : le module Flambement prend lui aussi l'ε de CHAQUE paroi, avec la f_y de SON épaisseur — la
+    #  parité redevient une ÉGALITÉ, parois de même f_y ou non ; un écart, dans un sens ou dans l'autre, rougit)
+    c(f"tout le catalogue en compression pure, quatre nuances ({n} couples profilé-nuance) : même f_y de calcul, même classe et même A_eff "
+      f"que le module Flambement en service — y compris quand l'âme et les semelles n'ont pas la même f_y ({n_par} couples : chacune son ε)",
+      n > 3500 and n_par > 300 and not ecarts, (n, n_par, ecarts[:3]))
 
     # ---- 3. la section efficace, recalculée par assemblage
     faux = []
@@ -727,6 +725,10 @@ def mutations():
         ("section", "lot A — le produit oublié : tout est « laminé »", '    return PRODUITS.get(s.get("fabrication"), "lamine")', '    return "lamine"'),
         ("section", "lot A — f_y d'une paroi : celle de calcul (un seul ε)", '        return {"semelle": limite_elastique(nuance, s, s["tf"]), "ame": limite_elastique(nuance, s, s["tw"])}',
          '        return {"semelle": limite_elastique(nuance, s), "ame": limite_elastique(nuance, s)}'),
+        # (deuxième passe : plus SÉVÈRE que la norme sur les seuls I dont l'âme et les semelles n'ont pas la même f_y — l'ancienne
+        #  parité avec le module Flambement, une inégalité sur ces couples, la laissait passer ; l'égalité retrouvée l'attrape)
+        ("classe", "lot A — les semelles classées avec l'ε de l'âme (trop petit pour une semelle plus épaisse que l'âme)",
+         '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = float((fy_parois or {}).get("ame" if role == "semelle" else role, fy))\n'),
         ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w", '    avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]',
          '    avy = A - hw * s["tw"]'),
         ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
@@ -816,7 +818,7 @@ def main():
                 try:
                     r = ES.verifier({"section": s, "nuance": nu, **jeu(s, 235.0)})
                 except RE.Refus:
-                    continue                    # épaisseur hors du tableau 3.1
+                    continue                    # épaisseur au-delà de 80 mm (domaine du module)
                 except Exception as e:  # noqa: BLE001
                     plantes.append((p["nom"], nu, type(e).__name__, str(e)[:80]))
                     continue
