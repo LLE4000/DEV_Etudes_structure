@@ -159,8 +159,10 @@ def _charge(ch: Dict) -> str:
 def donnees(el: Dict, r: Dict) -> Dict:
     """Le premier bloc : la barre, ses charges (ou ses efforts imposés), ses maintiens, ses longueurs de flambement."""
     items: List[tuple] = [("v", f"Profilé {r['profil']}", "", f"{M.n(r['masse'], 1)}", "kg/m")]
-    g = next((x["grandeurs"] for x in r["methodes"].values() if x["grandeurs"].get("fy")), None)
-    if g:                                    # (les deux méthodes ont la même f_y : la table unique, selon l'épaisseur)
+    # la f_y de l'Eurocode 3 (la table, selon l'épaisseur) d'abord ; la méthode ELS prend la NOMINALE, que ses hypothèses
+    # disent (« f_y nominale, comme les classeurs du bureau ») : seule, la ligne dit la sienne
+    g = next((r["methodes"][k]["grandeurs"] for k in ("ec3", "historique") if (r["methodes"].get(k) or {}).get("grandeurs", {}).get("fy")), None)
+    if g:
         src = g.get("fy_ref")                # (la source entière — bande d'épaisseur comprise — est dans les hypothèses des méthodes)
         items.append(("v", f"Acier {el['nuance']}" + (f" · {src}" if src else ""), "f_y", M.n(g["fy"], 0), "N/mm²"))
     Ls = r["longueurs"]

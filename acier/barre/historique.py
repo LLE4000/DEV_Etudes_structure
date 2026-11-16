@@ -68,7 +68,7 @@ PAROI_FROID = 6.0               # mm : « profil creux fini à froid, paroi ≤ 
 EPAISSEUR_DOC = 80.0            # mm : au-delà, une épaisseur que la doc ne prévoit pas (brief § 19.1 point 5) — hors domaine
 # la f_y de la méthode : la NOMINALE de la nuance, quelle que soit l'épaisseur (brief § 6.1, § 13.2 point 5) — ce que la
 # note en écrit, en entier et en court
-SOURCE_NOMINALE, FY_NOMINALE = "f_y nominale, comme les classeurs du bureau", "f_y nominale"
+SOURCE_NOMINALE, FY_NOMINALE = "f_y nominale, comme les classeurs du bureau", "nominale"
 C_CHARGES = 0.85                # charges appliquées sur la barre (doc p. 21)
 MODES_C = ("unite", "moments", "charges")
 TOLERANCE = 0.05                # la « classe de précision de 5 % » des exemples (doc p. 13, 23) — option, éteinte
@@ -586,7 +586,7 @@ def verifier(barre: Dict) -> Dict:
         cles = ["sigma_adm"] + [k for k in cles_axes + cles_dev + ["sigma_P", "sigma_My", "sigma_Mz", "sigma"] if k in presentes]
         verif("H-SIGMA", titre, ref, "σ ≤ σ_adm", sigma, limite, "N/mm²", cles)
     if dev["cas"] == "classeurs" and dev["sigma_M"] is not None:
-        verif("H-DEV", "Déversement", "NBN B 51-002 · § 4.3.3.5.3 (classeurs Déversement)", "σ_M = M_y/W_y ≤ σ_adm,d", dev["sigma_M"],
+        verif("H-DEV", "Déversement", "NBN B 51-002 · § 4.3.3.5.3 (classeurs Déversement)", "σ_M ≤ σ_adm,d", dev["sigma_M"],
               phi_ed * limite, "N/mm²", ["sigma_adm", "lambda_E"] + [k for k in ("lambda_ed_d", "lambda_bar_d", "Phi_d", "phi_d", "sigma_adm_d",
                                                                               "sigma_M") if k in presentes],
               messages=msg_dev)
