@@ -189,6 +189,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     axes = _longueurs(b, trs)
     zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0
     Lt = sum(b["travees"])
+    bouts = {round(sum(b["travees"][:k]), 9) for k in range(len(b["travees"]) + 1)}     # les appuis et les bouts de la barre
     grille = sorted({round(x, 9) for x in pts} | {round(x0 + L * i / POINTS_DIAGRAMME, 9) for x0, L in
                                                   zip([sum(b["travees"][:k]) for k in range(len(b["travees"]))], b["travees"])
                                                   for i in range(POINTS_DIAGRAMME + 1)})
@@ -239,7 +240,8 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 rep, pon = ST.charges_du_troncon(cas, co["facteurs"], tr, zg)
                 a = tr["x1"]
                 troncon = {"L": (tr["x2"] - a) * 1e3, "moment": (lambda x, C=C, a=a: C.M(a + x / 1e3) * 1e6), "reparties": rep,
-                           "ponctuelles": pon, "appuis": tr["appuis"], "maintiens": tr["maintiens"], "M_max": Mmax * 1e6}
+                           "ponctuelles": pon, "appuis": tr["appuis"], "maintiens": tr["maintiens"], "M_max": Mmax * 1e6,
+                           "entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}   # (la variante du couple le lit)
                 flexion = {"diagramme": DV.CONSTANT}
                 if b["modele"] == "appuis" and Mmax > EPS:      # tableau A.2, formule générale : la flèche et le moment de la portée
                     fl = max(abs(C.lire(x)["f"] or 0.0) for x in grille)

@@ -159,7 +159,7 @@ def ajouter(J: Journal, d: Dict) -> None:
             cles.append(J.f("C1", "C₁", [_t("M_cr,c", D["M_cr_centre"] / 1e6, "kN·m"), _t("M_cr,0", D["M_cr0"] / 1e6, "kN·m")], C1, "", "e_C1"))
         cles.append(J.f("lambda_0", "λ̄_0", [_t("W_y", Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr,0", D["M_cr0"] / 1e6, "kN·m")], lb0, "",
                         "e_lambda_LT"))
-        cles.append(J.f("lambda_0_lim", "λ̄_0,lim", [_t("C₁", C1), _t("N_Ed/N_cr,z", rz), _t("N_Ed/N_cr,T", rT)], lim, "", "e_lambda_0_lim"))
+        cles.append(J.f("lambda_0_lim", "λ̄_0,lim", [_t("C₁", C1), _t("N_Ed/N_cr,z", rz), _t("N_Ed/N_cr,TF", rT)], lim, "", "e_lambda_0_lim"))
     # étape 2.a : ni χ_LT ni C_mLT dans (6.61), (6.62) — le déversement seul reste vérifié par E-Mb
     chiLT = D["chi_LT"] if susceptible else 1.0
     nom_chi = D.get("symbole_chi", "χ_LT")               # « χ_LT,mod » quand le déversement l'a modifié : le nom de SA ligne
@@ -297,9 +297,8 @@ def ajouter(J: Journal, d: Dict) -> None:
         K0 = facteurs(N / (NRk / g_autre))
         variante = {"n_pl": N / (NRk / g_autre), "t61": taux_de(chiy, K0["k_yy"], K0["k_yz"]), "t62": taux_de(chiz, K0["k_zy"], K0["k_zz"])}
         A["variante_gamma_M0"] = variante
-        nom_v, nom_d = ("γ_M0 (annexe A corrigée)", "γ_M1 (annexe D ANB)") if g_npl == gM1 else ("γ_M1 (annexe D ANB)", "γ_M0 (annexe A corrigée)")
-        J.alerte("npl_gamma_M0", "attention", f"γ_M0 ≠ γ_M1 : n_pl avec {nom_v} donne (6.61) = {_fr(variante['t61'], 3)} et "
-                                              f"(6.62) = {_fr(variante['t62'], 3)} ; n_pl avec {nom_d} décide — équivalence à confirmer.")
+        nom_v = "γ_M0" if g_npl == gM1 else "γ_M1"
+        J.alerte("npl_gamma_M0", "attention", f"n_pl avec {nom_v} : (6.61) {_fr(variante['t61'], 3)} ; (6.62) {_fr(variante['t62'], 3)} — à confirmer.")
     gab_LT = "e_66_" if susceptible else "e_66a_"
     for id_, eq, chi, a, ky, kz in (("E-661", "6.61", chiy, "y", kyy, kyz), ("E-662", "6.62", chiz, "z", kzy, kzz)):
         termes, taux, parts = [], 0.0, []

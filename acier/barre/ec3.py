@@ -14,7 +14,8 @@ La barre (N, mm), en plus de ce que lit ec3_section.lire :
     "deversement": {"actif" (True), "Lc" (None : la longueur de l'axe faible ; 0 : semelle comprimée tenue en continu),
                     "niveau" (« centre », « haut », « bas » : où la charge est appliquée) ou "zg" (mm),
                     "Mcr" (N·mm : un moment critique donné), "kc", "troncon" (un tronçon décrit en entier : la barre
-                    chargée — voir ec3_deversement.troncon_impose pour sa forme),
+                    chargée — voir ec3_deversement.troncon_impose pour sa forme ; "entre_appuis" (faux à défaut) : ses
+                    deux bouts sont des appuis ou des bouts de la barre, pas des maintiens),
                     "couple" (« defaut » ; « variante » : (0,4 ; 0,75) de l'ANB:2018, 6.3.2.3(1), admise seulement en
                     bâtiment, avec des maintiens tous ignorés dans M_cr — ec3_deversement.couple_anb),
                     "maintiens_negliges" (0 : le nombre de maintiens présents dans le tronçon mais ignorés dans M_cr)}

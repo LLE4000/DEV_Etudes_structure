@@ -27,13 +27,14 @@ PARAMÈTRES NATIONAUX (acier/barre/parametres.py) : (λ̄_LT,0 ; β) = (0,2 ; 1,
 M_cr est calculé par le solveur du module avec les combinaisons, la distribution réelle des moments et les maintiens,
 qu'il y en ait ou non dans le tronçon. La VARIANTE (0,4 ; 0,75) du même alinéa n'est appliquée que sur demande
 (``deversement.couple`` = « variante »), pour une poutre de BÂTIMENT qui a des maintiens, TOUS ignorés dans M_cr
-(``deversement.maintiens_negliges`` ≥ 1, aucun maintien dans le tronçon du solveur) ; ailleurs elle est refusée, avec
-la raison, et le couple par défaut s'applique (brief § 7.7, test 9 du § 11.5). Le couple employé est nommé.
+(``deversement.maintiens_negliges`` ≥ 1 ; M_cr du solveur, sur un tronçon qui va d'un appui à l'autre sans maintien
+dedans — couple_anb) ; ailleurs elle est refusée, avec la raison, et le couple par défaut s'applique (brief § 7.7, test 9
+du § 11.5). Le couple employé est nommé ; un couple par défaut changé par surcharge est signalé (« couple_hors_anb »).
 
 Pour l'annexe D ANB (flexion composée), ce fichier rend aussi M_cr,0 — le moment critique du même tronçon sous moment
 CONSTANT — λ̄_0 = √(W_y·f_y/M_cr,0) et C₁ selon l'annexe E ANB, qui admet les méthodes avancées : le rapport
-M_cr/M_cr,0 du solveur, les charges ramenées au centre de cisaillement (brief § 7.8 ; ANB, note de l'annexe A : la
-règle C₁ = k_c⁻² de l'AC:2009 ne couvre qu'incomplètement les situations — elle n'est pas employée).
+M_cr/M_cr,0 du solveur, les charges ramenées au centre de cisaillement (brief § 7.8 ; la règle C₁ = k_c⁻² de l'AC:2009
+n'est pas employée : l'ANB, note de l'annexe A, renvoie à l'annexe E ANB, de domaine plus large).
 """
 import math
 from typing import Callable, Dict, Optional, Tuple
@@ -171,20 +172,40 @@ def _au_centre(tr: Dict) -> Dict:
             "ponctuelles": [(*c[:-1], 0.0) for c in tr.get("ponctuelles", ())]}
 
 
-def couple_anb(dev: Dict, tr: Dict, ouvrage: str) -> Tuple[bool, Optional[str]]:
-    """(variante appliquée, motif du refus) — la variante (0,4 ; 0,75) de NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1), n'est
-    permise que pour une poutre de BÂTIMENT avec des maintiens, à condition qu'ils soient TOTALEMENT ignorés dans M_cr :
-    au moins un maintien « négligé », et aucun dans le tronçon que le solveur calcule. Demandée ailleurs, elle est
-    refusée avec sa raison (le couple par défaut s'applique)."""
+MAINTIENS_COMPTES = "maintiens comptés dans M_cr"
+
+
+def couple_anb(dev: Dict, tr: Dict, ouvrage: str, portee: float = 0.0) -> Tuple[bool, Optional[str]]:
+    """(variante appliquée, motif du refus) — la variante de NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1), n'est permise que
+    pour une poutre de BÂTIMENT avec des maintiens, à condition qu'ils soient TOTALEMENT ignorés dans M_cr. Le module ne
+    l'admet que s'il le VOIT : au moins un maintien déclaré « négligé » ; M_cr calculé par le solveur (un M_cr donné peut
+    les compter) ; aucun maintien dans le tronçon ; et un tronçon qui va d'un appui à l'autre — un tronçon de la barre
+    chargée le déclare (``entre_appuis``, faux à défaut), un tronçon des efforts imposés l'est quand L_c couvre la
+    ``portee`` (la plus grande longueur des axes) : plus court, il est borné par des maintiens que M_cr compte.
+    Ailleurs : refusée, avec son motif court (le couple par défaut s'applique)."""
     if dev.get("couple", "defaut") != "variante":
         return False, None
     if ouvrage != "batiment":
-        return False, "la variante (0,4 ; 0,75) n'est admise que pour une poutre de bâtiment"
+        return False, "hors bâtiment"
     if not dev.get("maintiens_negliges"):
-        return False, "la variante (0,4 ; 0,75) suppose des maintiens ; sans maintien, le couple (0,2 ; 1,0) s'applique"
+        return False, "aucun maintien"
+    if dev.get("Mcr") is not None:
+        return False, "M_cr donné"
     if tr["maintiens"]:
-        return False, "la variante (0,4 ; 0,75) suppose TOUS les maintiens ignorés dans M_cr ; ce tronçon en compte"
+        return False, MAINTIENS_COMPTES
+    if dev.get("troncon") is not None:
+        if not tr.get("entre_appuis"):
+            return False, MAINTIENS_COMPTES
+    elif not portee > 0:
+        return False, "portée non donnée"
+    elif tr["L"] < portee * (1.0 - 1e-9):
+        return False, MAINTIENS_COMPTES
     return True, None
+
+
+def _g(x: float) -> str:
+    """Un paramètre dans une phrase, sans zéro inutile (0,4 ; 0,75)."""
+    return f"{x:g}".replace(".", ",")
 
 
 def ajouter(J: Journal, d: Dict) -> None:
@@ -244,6 +265,11 @@ def ajouter(J: Journal, d: Dict) -> None:
                     "e_lambda_LT"))
     # ---- la courbe et le couple (λ̄_LT,0 ; β) de l'ANB:2018, 6.3.2.3(1) : (0,2 ; 1,0), ou la variante si elle est permise
     D["a_confirmer"] = [k for k in ("lambda_LT0_avec_maintiens", "beta_avec_maintiens") if PA.PARAMETRES[k]["statut"] == PA.A_CONFIRMER]
+    defaut = (P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"])
+    if defaut != (PA.valeur("lambda_LT0_avec_maintiens"), PA.valeur("beta_avec_maintiens")):
+        # le couple par défaut changé par une surcharge (une autre annexe, un cas d'essai) : il s'applique partout, sans le
+        # contrôle bâtiment / maintiens de la variante — c'est dit
+        J.alerte("couple_hors_anb", "attention", f"Couple ({_g(defaut[0])} ; {_g(defaut[1])}) imposé : hors ANB:2018, 6.3.2.3(1).")
     famille, autre = None, None
     if s["forme"] == "I":
         famille = "soude" if s["fabrication"] in SOUDES else "lamine"
@@ -252,11 +278,11 @@ def ajouter(J: Journal, d: Dict) -> None:
         elance = s["h"] / s["b"] > ELANCE
         courbe = COURBES_LT[famille][elance]
         lbLT0, beta = P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"]
-        variante, refus = couple_anb(dev, tr, d["ouvrage"])
+        variante, refus = couple_anb(dev, tr, d["ouvrage"], max(d["axes"]["y"]["L"], d["axes"]["z"]["L"]))
         if variante:
             lbLT0, beta = P["lambda_LT0_variante"], P["beta_variante"]
         elif refus:
-            J.alerte("variante_refusee", "attention", f"Variante du déversement refusée : {refus}.")
+            J.alerte("variante_refusee", "attention", f"Variante ({_g(P['lambda_LT0_variante'])} ; {_g(P['beta_variante'])}) refusée : {refus}.")
         D["variante"] = variante
         seuil = lbLT0
         methode = "§ 6.3.2.3"

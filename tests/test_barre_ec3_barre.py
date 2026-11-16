@@ -405,23 +405,33 @@ def controles(M=None):
     def M23(x):
         return qEd * x * (L - x) / 2.0 + PEd * (x if x <= L / 2 else L - x) / 2.0
 
-    def r3(zg, **k):
-        tr = {"L": L, "moment": M23, "reparties": [(0.0, L, qEd, zg)], "ponctuelles": [(L / 2, PEd, zg)]}
-        return v(s, "S235", L, MyEd=68.70e6, deversement={"troncon": tr}, **k)
+    def r3(zg, variante=False, **k):
+        # (la poutre de R3 : une portée entre deux appuis, sans maintien — « entre_appuis », comme la barre chargée le déclare)
+        tr = {"L": L, "moment": M23, "reparties": [(0.0, L, qEd, zg)], "ponctuelles": [(L / 2, PEd, zg)], "entre_appuis": True}
+        dv_ = {"troncon": tr, **({"couple": "variante", "maintiens_negliges": 1} if variante else {})}
+        return v(s, "S235", L, MyEd=68.70e6, deversement=dv_, **k)
 
-    autre = {"lambda_LT0_avec_maintiens": 0.4, "beta_avec_maintiens": 0.75}          # la variante de l'ANB, donnée en surcharge
-    lignes = []
+    lignes, alertes3 = [], []
     for zg in (0.0, 150.0):
-        for par in ({}, autre):
-            r = r3(zg, parametres=par)
+        for var in (False, True):
+            r = r3(zg, var)
             D = r["grandeurs"]["deversement"]
             lignes.append((round(D["M_cr"] / 1e6, 2), round(D["lambda_LT"], 3), round(D["chi_LT"], 4), round(limite(r, "E-Mb"), 2), round(taux(r, "E-Mb"), 3)))
+            alertes3 += [a["code"] for a in r["alertes"]]
     c("R3 (IPE 300, 6 m, charge répartie + charge centrale, M_Ed = 68,70 kN·m) — couple de l'ANB:2018, 6.3.2.3(1), (0,2 ; 1,0) PAR DÉFAUT "
       "(M_cr tient compte des maintiens — il n'y en a pas) : au centre de cisaillement M_cr 118,18, λ̄_LT 1,118, χ_LT 0,5246 → M_b,Rd 77,47, "
-      "taux 0,887 ; sur la semelle haute 86,98, 1,303, 0,4254 → 62,83, 1,094 ; la variante (0,4 ; 0,75), donnée en surcharge : 0,6278 → 92,71, "
-      "0,741 et 0,5220 → 77,09, 0,891 (diagramme hors tableau 6.6 : f = 1 ; le brief imprimait 77,48 et 1,093, au dernier chiffre près)",
+      "taux 0,887 ; sur la semelle haute 86,98, 1,303, 0,4254 → 62,83, 1,094 ; la variante (0,4 ; 0,75) DEMANDÉE (couple « variante », un "
+      "maintien négligé, tronçon d'un appui à l'autre) : 0,6278 → 92,71, 0,741 et 0,5220 → 77,09, 0,891, sans alerte (diagramme hors "
+      "tableau 6.6 : f = 1 ; le brief imprimait 77,48 et 1,093, au dernier chiffre près)",
       lignes == [(118.18, 1.118, 0.5246, 77.47, 0.887), (118.18, 1.118, 0.6278, 92.71, 0.741), (86.98, 1.303, 0.4254, 62.83, 1.094),
-                 (86.98, 1.303, 0.5220, 77.09, 0.891)], lignes)
+                 (86.98, 1.303, 0.5220, 77.09, 0.891)] and not alertes3, (lignes, alertes3))
+    # le couple PAR DÉFAUT changé par une surcharge (une autre annexe) : appliqué partout, sans le contrôle de la variante — c'est dit
+    rs = r3(0.0, parametres={"lambda_LT0_avec_maintiens": 0.4, "beta_avec_maintiens": 0.75})
+    al = [a for a in rs["alertes"] if a["code"] == "couple_hors_anb"]
+    c("le couple par défaut surchargé en (0,4 ; 0,75) : appliqué (χ_LT 0,6278), avec l'alerte « Couple (0,4 ; 0,75) imposé : hors ANB:2018, "
+      "6.3.2.3(1). » ; le couple de la table, lui, n'en donne aucune",
+      round(rs["grandeurs"]["deversement"]["chi_LT"], 4) == 0.6278 and len(al) == 1
+      and al[0]["message"] == "Couple (0,4 ; 0,75) imposé : hors ANB:2018, 6.3.2.3(1).", [(a["code"], a["message"]) for a in rs["alertes"]])
     D = r3(0.0)["grandeurs"]["deversement"]
     c("R3 : courbe b (laminé, h/b = 2 ≤ 2), couple (0,2 ; 1,0) de l'ANB (lu sur le texte : plus « à confirmer »), k_c = 1 hors tableau, λ̄_0 du "
       "moment constant = √(W_pl,y·f_y/90,47) = 1,278 ; l'ancienne clé « sans maintiens » est refusée avec son motif",
@@ -603,6 +613,47 @@ def controles(M=None):
       "classe 3, tube, un seul moment, flexion déviée sans effort normal, tronçons courts ; étapes 2.a et 2.b) : μ, w, a_LT, C_my, C_mz, C_mLT, "
       "b_LT à e_LT, C_yy à C_zz, k_yy à k_zz et les deux taux — égaux à 10⁻⁹", not any(bilan.values()), {k: x[:2] for k, x in bilan.items() if x})
     c("HEB 200 de 7,20 m sous forte compression : un plancher de C_ij gouverne (le cas existe dans les barres recalculées)", bool(planchers), planchers)
+    # (j) étape 2.a par λ̄_0 avec un χ_LT < 1 : charge répartie sur la semelle HAUTE — (6.61), (6.62) sans χ_LT (annexe D ANB)
+    lo, hi = 300.0, 4000.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if math.sqrt(pi3["Wpl_y"] * 1e3 * 235.0 / mc.moment_constant(mid, a3, b3, g3)) < 0.205 else (lo, mid)
+    Lj = 0.5 * (lo + hi)
+    rj = v("IPE 300", "S235", Lj, NEd=50e3, MyEd=120e6, MzEd=2e6, flexion={"y": {"diagramme": "reparti"}}, deversement={"niveau": "haut"})
+    qj = barre_annexe("IPE 300", 235.0, Lj, 50e3, 120e6, 2e6, ("reparti", 1.0), ("constant", 1.0), (0.21, 0.34), 1,
+                      section=rj["grandeurs"]["deversement"]["M_cr"], alpha_LT=0.34, kc=0.94)
+    Mcr0j = mc.moment_constant(Lj, a3, b3, g3)
+    qj["C1"] = mc.moment_critique(Lj, a3, b3, g3, lambda x: x * (Lj - x) / 2.0, reparties=[(0.0, Lj, 1.0, 0.0)])["M_cr"] / Mcr0j   # charge au centre
+    bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"] = compare("j", rj, qj, 1)
+    Aj, Dj = rj["grandeurs"]["annexe_A"], rj["grandeurs"]["deversement"]
+    c("étape 2.a par λ̄_0 (IPE 300 court, charge répartie sur la semelle haute : λ̄_0 = 0,205 ≤ 0,213) alors que le déversement réduit "
+      "(χ_LT = 0,996 < 1) : (6.61) et (6.62) s'écrivent SANS χ_LT (annexe D ANB) — recalculés ici à 10⁻⁹",
+      Aj["etape"] == "2.a" and Dj["cas"] == dv.CALCULE and Dj["chi_LT"] < 0.999 and not bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"],
+      (Aj["etape"], Dj.get("chi_LT"), bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"]))
+    # (k) étape 1, le facteur (1 − N_Ed/N_cr,TF) : un HEB 200 court sous forte compression dont λ̄_0 tombe ENTRE la limite avec ce facteur et
+    #     la limite sans lui — étape 2.b (sans le facteur, la limite grandirait et la barre passerait à tort en 2.a)
+    ph2 = brut("HEB 200")
+    Iz2, It2, Iw2 = ph2["Iz"] * 1e4, ph2["It"] * 1e4, ph2["Iw"] * 1e6
+    i02_ = (ph2["iy"] * 10) ** 2 + (ph2["iz"] * 10) ** 2
+    Nk = 1500e3
+
+    def limites(Lx_):
+        rz_ = Nk / (PI2 * E_ * Iz2 / Lx_ ** 2)
+        rT_ = Nk / ((G_ * It2 + PI2 * E_ * Iw2 / Lx_ ** 2) / i02_)
+        lb0_ = math.sqrt(ph2["Wpl_y"] * 1e3 * 235.0 / mc.moment_constant(Lx_, E_ * Iz2, E_ * Iw2, G_ * It2))
+        return lb0_, 0.2 * ((1 - rz_) * (1 - rT_)) ** 0.25, 0.2 * (1 - rz_) ** 0.25
+    lo, hi = 300.0, 4000.0
+    for _ in range(80):                                       # λ̄_0 au milieu des deux limites (moment constant : C₁ = 1)
+        mid = 0.5 * (lo + hi)
+        l0_, la_, lb_ = limites(mid)
+        lo, hi = (mid, hi) if l0_ < 0.5 * (la_ + lb_) else (lo, mid)
+    Lk = 0.5 * (lo + hi)
+    l0_, la_, lb_ = limites(Lk)
+    Ak = v("HEB 200", "S235", Lk, NEd=Nk, MyEd=10e6)["grandeurs"]["annexe_A"]
+    c("étape 1, le facteur (1 − N_Ed/N_cr,TF) : HEB 200 de 1,03 m sous 1 500 kN, moment constant — λ̄_0 = 0,1971 entre la limite avec N_cr,TF "
+      "(0,1961) et sans lui (0,1981) : étape 2.b",
+      la_ < l0_ < lb_ and Ak["etape"] == "2.b" and proche(Ak["lambda_0_lim"], la_, 1e-6) and round(Ak["lambda_0"], 4) == 0.1971,
+      (Ak["etape"], Ak["lambda_0"], Ak["lambda_0_lim"], la_, lb_))
     c("étape 1 de l'annexe D ANB : la limite λ̄_0 ≤ 0,2·√C₁·[(1 − N/N_cr,z)·(1 − N/N_cr,TF)]^¼, C₁ = M_cr/M_cr,0 du solveur (annexe E ANB, "
       "charge concentrée au centre de cisaillement : 1,36 et non 1/k_c² = 1,352) : λ̄_0 = 0,225 est en deçà (étape 2.a, C_mLT = 1), "
       "λ̄_0 = 0,25 au-delà (étape 2.b, C_mLT > 1)", cotes[0.225] == (False, 1.0, "2.a") and cotes[0.25][0] and cotes[0.25][1] > 1.0
@@ -619,7 +670,9 @@ def controles(M=None):
       "M_cr,0 899 kN·m ; λ̄_0 0,757 ; a_LT 0,998 — à moins de 0,2 %", not ecarts, ecarts)
     # (À VÉRIFIER : la page n'est pas lisible d'ici ; M_y = 200 kN·m sous une charge CONCENTRÉE à mi-portée est DÉDUIT de C_my,0 = 0,999
     #  = 1 − 0,18·N_Ed/N_cr,y — la charge répartie donnerait 1,000. b_LT, C_yy et C_my,0 tombent juste ; c_LT, d_LT, e_LT, tous ∝ 1/χ_LT, sont
-    #  2 % au-dessus : la référence prend χ_LT ≈ 0,826, le module 0,811 (k_c = 0,86 et f) — écart « à expliquer » (règle 7 du brief).)
+    #  2 % au-dessus : ils IMPLIQUENT un χ_LT ≈ 0,826 dans la référence, le module prend 0,811 (§ 6.3.2.3, courbe c, k_c = 0,86 et f). Ce 0,826
+    #  n'est retrouvé par aucune lecture essayée (§ 6.3.2.2 courbe b : 0,812 ; avec f : 0,836 ou 0,870) — écart « à expliquer » (règle 7 du
+    #  brief), contrôlé à ± 3 % sans borne basse : un module qui rejoindrait la référence reste vert.)
     r = v("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, flexion={"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "lineaire", "psi": 0.0}})
     A_ = r["grandeurs"]["annexe_A"]
     ref = {"C_my,0": (A_["C_my0"], 0.999, 0.001), "b_LT": (A_["b_LT"], 0.043, 0.012), "C_yy": (A_["C_yy"], 0.981, 0.001),
@@ -767,23 +820,32 @@ def controles(M=None):
       "cisaillement)/M_cr,0 = 102,31/90,47 = 1,131 (R1), et non 78,83/90,47 = 0,871 ; il entre dans la limite de λ̄_0",
       round(Dc1["C1"], 3) == 1.131 and round(Dc1["M_cr"] / 1e6, 2) == 78.83 and proche(rc1["grandeurs"]["annexe_A"]["C1"], Dc1["C1"]), Dc1["C1"])
     # test 9 du § 11.5 — le couple de l'ANB:2018, 6.3.2.3(1)
-    def couple(**k):
-        r_ = v(s, "S235", L, MyEd=60e6, **k)
+    def couple(Lb=L, **k):
+        r_ = v(s, "S235", Lb, MyEd=60e6, **k)
         D_ = r_["grandeurs"]["deversement"]
-        return (D_["lambda_LT0"], D_["beta"]), bool(D_["variante"]), [a["code"] for a in r_["alertes"]], D_
-    rv = couple(deversement={"couple": "variante", "maintiens_negliges": 2})
+        return ((D_["lambda_LT0"], D_["beta"]), bool(D_["variante"]), [a["code"] for a in r_["alertes"]], D_,
+                [a["message"] for a in r_["alertes"] if a["code"] == "variante_refusee"])
+    var2 = {"couple": "variante", "maintiens_negliges": 2}
+    cst = {"L": L, "moment": lambda x: 60e6}
+    rv = couple(deversement=var2)
     rdef = couple(deversement={"maintiens_negliges": 2})
-    rhors = couple(deversement={"couple": "variante", "maintiens_negliges": 2}, ouvrage="autre")
-    rsans = couple(deversement={"couple": "variante"})
-    rcompte = couple(deversement={"couple": "variante", "maintiens_negliges": 1, "troncon": {"L": L, "moment": lambda x: 60e6, "maintiens": [(L / 2, -144.65)]}})
+    rtr = couple(deversement={**var2, "troncon": {**cst, "entre_appuis": True}})          # un tronçon d'un appui à l'autre, sans maintien
+    refus = {"hors bâtiment": couple(deversement=var2, ouvrage="autre"), "aucun maintien": couple(deversement={"couple": "variante"}),
+             "M_cr donné": couple(deversement={**var2, "Mcr": 300e6}),
+             "maintiens comptés dans M_cr (un maintien dans le tronçon)": couple(deversement={**var2, "troncon": {**cst, "entre_appuis": True,
+                                                                                                                  "maintiens": [(L / 2, -144.65)]}}),
+             "maintiens comptés dans M_cr (L_c = 2 m < 6 m)": couple(deversement={**var2, "Lc": 2000.0}),
+             "maintiens comptés dans M_cr (tronçon borné par des maintiens)": couple(deversement={**var2, "troncon": cst}),
+             "portée non donnée": couple(None, deversement={**var2, "Lc": L})}
     lbv = rv[3]["lambda_LT"]
     c("test 9 du § 11.5 — couple (0,2 ; 1,0) par défaut (aucun maintien, ou des maintiens comptés dans M_cr, ou la variante non demandée) ; la "
-      "variante (0,4 ; 0,75) seulement pour une poutre de bâtiment avec maintiens TOUS ignorés dans M_cr, sur demande ; hors bâtiment, sans "
-      "maintien, ou avec un maintien compté : refusée, avec son message",
+      "variante (0,4 ; 0,75) seulement pour une poutre de bâtiment avec maintiens TOUS ignorés dans M_cr, sur demande, sur un tronçon d'un appui "
+      "à l'autre ; refusée, avec son motif court, hors bâtiment, sans maintien, avec M_cr donné, avec un maintien dans le tronçon, avec L_c plus "
+      "court que la barre, sur un tronçon borné par des maintiens, sans portée",
       rv[0] == (0.4, 0.75) and rv[1] and proche(rv[3]["chi_LT"], min(chi_de(lbv, 0.34, 0.4, 0.75), 1 / lbv ** 2)) and "variante_refusee" not in rv[2]
-      and rdef[0] == (0.2, 1.0) and not rdef[1] and not rdef[2]
-      and all(x[0] == (0.2, 1.0) and not x[1] and "variante_refusee" in x[2] for x in (rhors, rsans, rcompte)),
-      [x[:3] for x in (rv, rdef, rhors, rsans, rcompte)])
+      and rtr[0] == (0.4, 0.75) and rtr[1] and not rtr[2] and rdef[0] == (0.2, 1.0) and not rdef[1] and not rdef[2]
+      and all(x[0] == (0.2, 1.0) and not x[1] and x[4] == [f"Variante (0,4 ; 0,75) refusée : {m.split(' (')[0]}."] for m, x in refus.items()),
+      {"admise": [x[:3] for x in (rv, rtr, rdef)], "refusée": {m: x[:3] + (x[4],) for m, x in refus.items()}})
     # test 10 du § 11.5 — χ_LT,mod(§ 6.3.2.3)/χ_LT(§ 6.3.2.2), couple (0,2 ; 1,0) ; h/b ≤ 2 : courbes b et a ; h/b > 2 : c et b
     def rapport(lb, kc, cl=0.34, cg=0.21):
         return dv.chi_lamine(lb, cl, 0.2, 1.0, kc)["chi"] / dv.chi_general(lb, cg)
@@ -1058,8 +1120,17 @@ MUTATIONS = [
      '    vraies = [ch for ch in charges if ch.get("v")]', '    vraies = [ch for ch in charges if ch.get("v") and ch["type"] != "C"]'),
     ("ec3_deversement", "lot B — variante admise hors bâtiment", '    if ouvrage != "batiment":', "    if False:"),
     ("ec3_deversement", "lot B — variante admise sans maintien", '    if not dev.get("maintiens_negliges"):', "    if False:"),
-    ("ec3_deversement", "lot B — variante admise avec un maintien compté dans M_cr", '    if tr["maintiens"]:\n        return False, "la variante',
-     '    if False:\n        return False, "la variante'),
+    ("ec3_deversement", "lot B — variante admise avec un maintien compté dans M_cr", '    if tr["maintiens"]:\n        return False, MAINTIENS_COMPTES',
+     '    if False:\n        return False, MAINTIENS_COMPTES'),
+    ("ec3_deversement", "lot B — variante admise avec un M_cr donné (il peut compter les maintiens)", '    if dev.get("Mcr") is not None:', "    if False:"),
+    ("ec3_deversement", "lot B — variante admise sur un tronçon borné par des maintiens (barre chargée)", '        if not tr.get("entre_appuis"):',
+     "        if False:"),
+    ("ec3_deversement", "lot B — variante admise avec L_c plus court que la barre (efforts imposés)", '    elif tr["L"] < portee * (1.0 - 1e-9):', "    elif False:"),
+    ("ec3_deversement", "lot B — variante admise sans portée connue", "    elif not portee > 0:", "    elif False:"),
+    ("ec3_deversement", "lot B — la portée de la barre non transmise au contrôle de la variante",
+     'couple_anb(dev, tr, d["ouvrage"], max(d["axes"]["y"]["L"], d["axes"]["z"]["L"]))', 'couple_anb(dev, tr, d["ouvrage"])'),
+    ("ec3_deversement", "lot B — le couple par défaut surchargé sans le dire", '    if defaut != (PA.valeur("lambda_LT0_avec_maintiens")',
+     '    if False and defaut != (PA.valeur("lambda_LT0_avec_maintiens")'),
     ("ec3_deversement", "lot B — variante appliquée sans être demandée", '    if dev.get("couple", "defaut") != "variante":', "    if False:"),
     ("ec3_deversement", "lot B — variante demandée et permise, mais jamais appliquée", '            lbLT0, beta = P["lambda_LT0_variante"], P["beta_variante"]',
      "            pass"),
@@ -1083,6 +1154,8 @@ MUTATIONS = [
     ("ec3_interaction", "lot B — étape 2.a : χ_LT gardé dans (6.61), (6.62)", '    chiLT = D["chi_LT"] if susceptible else 1.0\n', '    chiLT = D["chi_LT"]\n'),
     ("ec3_interaction", "lot B — étape 2.a : b_LT à e_LT gardés (l'annexe A, pas l'annexe D ANB)", "        if susceptible:\n            bLT = ",
      "        if aLT > 0 and lb0 > 0:\n            bLT = "),
+    ("ec3_interaction", "lot B — étape 1 : le facteur (1 − N_Ed/N_cr,TF) oublié dans la limite de λ̄_0",
+     "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz) * (1.0 - rT)) ** 0.25", "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz)) ** 0.25"),
     ("ec3_interaction", "lot B — étape 1 : I_t ≥ I_y ignoré", 'rigide = bool(s.get("It")) and s["It"] >= s["Iy"]', "rigide = False"),
     ("ec3_interaction", "lot B — γ_M0 ≠ γ_M1 : la variante γ_M0 ni calculée ni affichée", "    if N > 0 and plastique and gM0 != gM1:", "    if False:"),
     ("ec3_interaction", "lot B — la variante γ_M0 prise pour n_pl avec γ_M1", "        K0 = facteurs(N / (NRk / g_autre))\n", "        K0 = facteurs(N / (NRk / g_npl))\n"),
@@ -1161,6 +1234,35 @@ def main():
         "répartie, 0,94 et 0,86 sur deux appuis, 0,91 encastrée-appuyée, 1/1,33 sous un seul couple d'extrémité ; l'encastrement partiel "
         "(couples d'extrémité et charge répartie) garde k_c = 1, f = 1",
         all(abs(x[0] - y) < 1e-12 and x[1] == (y < 1.0) for x, y in bout.values()), {k: x for k, x in bout.items()})
+
+    vus = []
+    reel = MO.EC.verifier
+
+    def espion_ec(barre):
+        tr_ = (barre.get("deversement") or {}).get("troncon")
+        if tr_ is not None:
+            vus.append((round(tr_["L"]), tr_.get("entre_appuis")))
+        return reel(barre)
+
+    MO.EC.verifier = espion_ec
+    try:
+        bouts = {}
+        for nom_, maint in (("deux appuis, sans maintien", []), ("deux appuis, maintien complet à 2 m", [{"x": 2.0, "genre": "complet"}]),
+                            ("deux appuis, maintien de la semelle haute à 3 m", [{"x": 3.0, "genre": "haut"}]), ("poutre continue 4 + 2 m", None)):
+            vus.clear()
+            b = EN.nouvelle_barre("T")
+            b.update({"modele": "appuis" if maint is not None else "continue", "travees": [6.0] if maint is not None else [4.0, 2.0],
+                      "poids_propre": False, "methodes": ["ec3"], "maintiens": maint or [],
+                      "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 12.0, "a": 0.0, "b": 6.0}]}]})
+            MO.verifier(b)
+            bouts[nom_] = sorted(set(vus))
+    finally:
+        MO.EC.verifier = reel
+    chk("barre chargée : chaque tronçon de déversement dit s'il va d'un appui à l'autre (« entre_appuis », que la variante du couple lit) — "
+        "oui sans maintien et entre les deux travées d'une poutre continue, oui avec un maintien d'une seule semelle dedans (que M_cr compte), "
+        "non pour les deux tronçons bornés par un maintien complet",
+        bouts == {"deux appuis, sans maintien": [(6000, True)], "deux appuis, maintien complet à 2 m": [(2000, False), (4000, False)],
+                  "deux appuis, maintien de la semelle haute à 3 m": [(6000, True)], "poutre continue 4 + 2 m": [(2000, True), (4000, True)]}, bouts)
 
     print("== 5. les formules")
     faux, n, utilises = [], 0, set()

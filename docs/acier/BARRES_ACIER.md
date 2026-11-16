@@ -295,8 +295,14 @@ du § 11.5 dans `tests/test_barre_ec3_barre.py`) :
   reste garde k_c = 1 (f = 1) : un encastrement partiel (couples d'extrémité et charge répartie), des charges mêlées
   (cas S1 de SCIA : 1,099), une console, une travée de poutre continue chargée ;
 - **la variante (0,4 ; 0,75)** de l'ANB:2018, 6.3.2.3(1), sur demande seulement (`deversement.couple` = « variante ») :
-  poutre de bâtiment (`ouvrage`), au moins un maintien présent et TOUS ignorés dans M_cr (`maintiens_negliges`, aucun
-  maintien dans le tronçon du solveur). Ailleurs elle est refusée, avec sa raison, et (0,2 ; 1,0) s'applique ;
+  poutre de bâtiment (`ouvrage`), au moins un maintien présent et TOUS ignorés dans M_cr (`maintiens_negliges`). Le
+  module ne l'admet que s'il voit que M_cr ne compte aucun maintien : M_cr du solveur (pas un M_cr donné), aucun
+  maintien dans le tronçon, et un tronçon qui va d'un appui à l'autre — la barre chargée le dit pour chaque tronçon
+  (`entre_appuis`, faux s'il est borné par un maintien complet), en efforts imposés L_c doit couvrir la barre (la plus
+  grande longueur des axes). Ailleurs elle est refusée, avec un motif court (« hors bâtiment », « aucun maintien »,
+  « M_cr donné », « maintiens comptés dans M_cr », « portée non donnée »), et (0,2 ; 1,0) s'applique. Un couple par
+  défaut changé par surcharge de la table (autre annexe, cas d'essai) s'applique partout, sans ce contrôle : l'alerte
+  « couple_hors_anb » le dit ;
 - **DÉCISION BUREAU n° 4** : le § 6.3.2.3 décide pour les I et H laminés (`methode_deversement_lamines`, table des
   paramètres) ; le § 6.3.2.2 (tableau 6.4 : courbe a si h/b ≤ 2, b au-delà) est calculé à côté et rendu « pour
   information » (`grandeurs.deversement.information` : χ_LT, M_b,Rd, taux, source). R3 : 0,5838 / 86,22 / 0,797 et
@@ -342,9 +348,13 @@ reproduits : classe 1, N_c,Rd 2 715 kN, M_c,y,Rd 516, M_c,z,Rd 78,9 kN·m, V_pl,
 (1 %, avec A − h_w·t_w ; le module prend 2·b·t_f depuis le lot A, DÉCISION BUREAU n° 3 : 868,3 kN) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %).
 Lot B : les six facteurs du brief qui dépendent du diagramme de M_y, avec M_y = 200 kN·m sous une charge concentrée à
 mi-portée — diagramme DÉDUIT de C_my,0 = 0,999 = 1 − 0,18·N_Ed/N_cr,y, à vérifier sur la page (Q8) : C_my,0, b_LT et
-C_yy au chiffre près ; c_LT, d_LT, e_LT 1,8 à 2,0 % au-dessus (tous ∝ 1/χ_LT : la référence prend χ_LT ≈ 0,826, le
-module 0,811). Les taux de la référence manquent. L'annexe D ANB est recalculée d'une traite dans le test, pour neuf
-barres, à 10⁻⁹.
+C_yy au chiffre près ; c_LT, d_LT, e_LT 1,8 à 2,0 % au-dessus (tous ∝ 1/χ_LT : ils impliquent χ_LT ≈ 0,826 dans la
+référence, le module prend 0,811). Ce 0,826 reste à expliquer (règle 7) : ni le § 6.3.2.2 (courbe b : 0,812) ni le
+facteur f (0,836 avec k_c = 0,94 ; 0,870 avec 0,86) ne le donnent ; un extrait de la page dit que la référence prend le
+cas général du déversement en méthode 1 (À VÉRIFIER, Q8). Le test les tient à ± 3 %, sans borne basse. χ_z 0,644,
+λ̄_y 0,195, λ̄_z 0,927 et les courbes a / b de la référence sont aussi reproduits. Les taux de la référence manquent.
+L'annexe D ANB est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹ (plus un tronçon court en étape 2.a
+avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et sans le facteur (1 − N_Ed/N_cr,TF)).
 
 ### 5.8 Les paramètres nationaux (une seule table dans le moteur : `acier/barre/parametres.py`)
 
