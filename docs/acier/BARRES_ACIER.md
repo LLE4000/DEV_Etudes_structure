@@ -4,6 +4,10 @@
 reçu ce jour-là (rédigé en conversation à partir des classeurs du bureau), qu'il reprend, corrige et complète. Il est
 tenu à jour lot par lot.*
 
+*16/11/2026 : le brief version 11 change plusieurs points de ce document, dont quatre où le module en service n'est pas
+conservatif. L'inventaire, les écarts et le plan sont dans `BARRES_ACIER_V11.md` ; ce document sera mis à jour lot par
+lot à mesure des corrections.*
+
 **Demande du propriétaire (14/11/2026).** Vérifier un profilé métallique — poutre, poteau, poutre-poteau — avec ses
 instabilités (flambement, déversement, voilement local, raidisseurs), par DEUX méthodes calculées ensemble : la méthode
 historique du bureau (ancienne norme belge NBN B 51-001, contraintes admissibles, charges de service) et l'Eurocode 3
