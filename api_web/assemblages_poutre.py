@@ -218,7 +218,7 @@ LEGENDE_MANUEL_DC = ("Colonne « manuel » : calcul indépendant hors moteur (in
                      "Colonne « Excel » : classeur recalculé avec les mêmes données.", "Excel")
 
 REGLE_PA = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. L'épaisseur du "
-            "plat est plafonnée à 0,5·d (ductilité) ; la gorge proposée est la pleine résistance. Seule la vérification "
+            "plat est plafonnée par la ductilité (SCI P358 §5.3 (3)) ; la gorge proposée est la pleine résistance. Seule la vérification "
             "détaillée fait foi.")
 REGLE_DC = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. MEd est ajouté "
             "à VEd·z ; les tractions dues à HEd et MEd ne sont prises en compte que dans la vérification détaillée.")

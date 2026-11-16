@@ -50,6 +50,7 @@ from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
 from acier.assemblages import materiau as MT
+from acier.assemblages import ductilite as DU
 from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, APPUI_AME, NAT_TYING
 
@@ -181,7 +182,7 @@ def compute(u0=None, materiau=None):
              "Rotule à la face d'appui — groupe de boulons avec moment "
              "VEd·z (répartition élastique, inertie polaire)")
     R.rec_hp = R.h_p >= 0.6 * R.h_S             # maintien en torsion (guides)
-    R.rec_tp = R.t_p <= 0.5 * d + 1e-9          # ductilité (P358 / MSB P5)
+    DU.poser(R, d)                              # ductilité : plat OU âme portée ≤ k·d (SCI P358 §5.3 (3))
     R.long_p = R.z_p > dv(R.t_p, 0.15)          # plat LONG (P358 / MSB P5)
 
     # ---- géométrie propre au POTEAU (étude §3.2.2, §4.3, §5.3)
@@ -276,10 +277,7 @@ def compute(u0=None, materiau=None):
              f=["n1_u", "n2_u"], d=[], e=["bolts"], w="n1 × n2 = 1 boulon : ajouter au moins une rangée ou une file."),
         dict(id="d0_manq", c=u.trou == "Surdimensionné" and N(u.d0_u) == 0, b=1,
              m="Trou surdimensionné : saisir le diamètre d0.", f=["trou", "d0_u"], d=[], e=[], w=""),
-        dict(id="tp_duct", c=not R.rec_tp, b=0,
-             m="Épaisseur du plat tp > 0,5·d : la ductilité de l'attache (rotation par ovalisation des trous) n'est plus assurée — recommandation SCI P358 / MSB Part 5 non respectée.",
-             f=["tp_u", "boulon_u"], d=["tp"], e=["plate"],
-             w="tp = " + f0(R.t_p) + " mm > 0,5·d = " + F(0.5 * d, 1) + " mm."),
+        *DU.alertes(R, d),                     # ductilité : recommandation, jamais bloquante (à la place de l'ancienne tp_duct)
         dict(id="hp_rec", c=not R.rec_hp, b=0,
              m="hp < 0,6·h de la poutre portée : recommandation des guides (maintien en torsion de la poutre à l'appui) non respectée.",
              f=["hp_u"] + prS, d=["hp"], e=["plate"],
@@ -569,7 +567,7 @@ def predim(u, R, Mabs):
     """Prédimensionnement : pour chaque boulon (plage choisie) et chaque
     nombre de rangées (2 → 8), pinces et entraxes de détail (multiples de 5),
     taux estimés (boulons, pressions diamétrales plat et âme), puis plat
-    nécessaire (tp par les résistances, plafonné à 0,5·d — ductilité) et
+    nécessaire (tp par les résistances, plafonné par la ductilité, SCI P358 §5.3 (3)) et
     gorge de pleine résistance.
 
     Le POTEAU n'y intervient que par le ``fu`` du cordon (pleine résistance,
@@ -616,6 +614,7 @@ def predim(u, R, Mabs):
         if r[key] < pick[key]:
             pick = r
     gM0 = u.g_M0; gM2n = u.g_M2n
+    fyn_pl, fyn_S = MT.nominale(R, "L"), MT.nominale(R, "S")   # nuances (règle de ductilité)
 
     def plate_for(pk):
         d0 = pk.b["d0"]; d = pk.b["d"]; n = pk.n; hp = pk.hp
@@ -630,12 +629,14 @@ def predim(u, R, Mabs):
                                        + dv(R.fy_L * (hp - pk.e1 - (n - 0.5) * d0) / S3, gM0))],
                 ["Flexion (si hp < 2,73·z)", 0 if hp >= 2.73 * pk.z else dv(pk.Mz * 1e6 * 6 * gM0, hp * hp * R.fy_L)]]
         treq = dv(mx(*[r[1] for r in reqs]), u.eta_c)
-        # ductilité : tp ≤ 0,5·d — à défaut, l'épaisseur candidate suivante
-        cand = [t for t in DB["epais"] if t <= 0.5 * d + 1e-9] or [DB["epais"][0]]
+        # ductilité (SCI P358 §5.3 (3), la règle de la vérification) : sans borne si l'âme portée suffit
+        # (tw ≤ k·d), sinon tp ≤ k·d du plat — à défaut, l'épaisseur candidate suivante
+        tmax = DU.tp_max(R.tw_S, d, fyn_pl, fyn_S)
+        cand = [t for t in DB["epais"] if t <= tmax + 1e-9] or [DB["epais"][0]]
         tp = cand[_first_ge(cand, treq)]
         bp = ceil5(u.g_h + pk.e2 * 2)
         a = mx(3, math.ceil(dv(tp * R.fy_L * R.bw_L * u.g_M2, 2 * mn(R.fu_L, R.fu_P) * gM0)))
-        return AttrDict(reqs=reqs, treq=treq, tp=tp, bp=bp, a=a)
+        return AttrDict(reqs=reqs, treq=treq, tp=tp, bp=bp, a=a, tmax=tmax)
 
     for r in rows:
         if r.geom:
@@ -646,9 +647,12 @@ def predim(u, R, Mabs):
     if not found:
         msg = ("AUCUNE combinaison ne respecte le taux cible dans les limites fixées : la moins "
                "sollicitée est affichée. Élargir la plage de diamètres, la hauteur disponible ou la classe.")
-    elif pp.treq > 0.5 * pick.b["d"]:
-        msg = ("Épaisseur nécessaire > 0,5·d (ductilité) : augmenter le nombre de rangées, le "
-               "diamètre ou la nuance du plat.")
+    elif pp.treq > pp.tmax + 1e-9:
+        msg = ("Épaisseur nécessaire > " + F(pp.tmax / pick.b["d"], 2) + "·d (ductilité, " + DU.REF + ") : "
+               "augmenter le nombre de rangées, le diamètre ou la nuance du plat.")
+    elif pp.treq > pp.tp + 1e-9:
+        msg = ("Épaisseur nécessaire > " + f0(pp.tp) + " mm (plus grande épaisseur proposée) : augmenter le "
+               "nombre de rangées ou le diamètre.")
     else:
         msg = "Proposition complète"
     return AttrDict(rows=rows, hav=hav, found=found, pick=pick, boulon=pick.b["n"], n=pick.n,

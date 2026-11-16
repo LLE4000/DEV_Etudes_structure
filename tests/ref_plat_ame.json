@@ -6,7 +6,9 @@
   "verified": true,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     66.69921080659218,
@@ -252,7 +254,9 @@
   "verified": true,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     47.04447859232659,
@@ -505,7 +509,9 @@
   "verified": true,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     66.69921080659218,
@@ -617,7 +623,8 @@
   "geo_ok": true,
   "dist_ok": true,
   "alerts": [
-   "NEd"
+   "NEd",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -741,7 +748,8 @@
   "geo_ok": true,
   "dist_ok": true,
   "alerts": [
-   "MEd"
+   "MEd",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -855,7 +863,9 @@
   "verified": false,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     66.69921080659218,
@@ -972,7 +982,9 @@
   "verified": false,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     66.69921080659218,
@@ -1225,7 +1237,8 @@
   "dist_ok": true,
   "alerts": [
    "dnt_min",
-   "pl_web"
+   "pl_web",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -1337,7 +1350,9 @@
   "verified": false,
   "geo_ok": true,
   "dist_ok": true,
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     240.11715890373182,

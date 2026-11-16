@@ -267,7 +267,7 @@ chk("un plat sur TOUTE la hauteur du poteau est permis (la contrainte « partie 
     "porteuse » n'existe plus)", moteur.compute(dict(hp_u=300, z_C=45, n1_u=4)).geo_ok)
 chk("hp = 140 : pince basse < 1,2·d0 → alerte bloquante e1bot",
     any(a.id == "e1bot" and a.block for a in moteur.compute(dict(hp_u=140)).alerts))
-chk("tp = 15 > 0,5·d : alerte de ductilité (non bloquante)",
+chk("tp = 15 > 0,42·d et tw = 8,6 > 8,4 (S355) : alerte de ductilité (non bloquante)",
     any(a.id == "tp_duct" and not a.block for a in moteur.compute(dict(tp_u=15)).alerts))
 chk("hp < 0,6·h : recommandation signalée", any(a.id == "hp_rec" for a in moteur.compute(dict(hp_u=170)).alerts))
 chk("plat long et poutre non maintenue : alerte long_nr",
@@ -304,7 +304,8 @@ chk("le plateau de la courbe : pb = py pour λ ≤ λL0", moteur.pb_bs5950(20, 3
 print("\n=== 7. Prédimensionnement ===")
 Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT"))
 chk("proposition complète au cas par défaut", Rp.pd.found and Rp.pd.msg == "Proposition complète", Rp.pd.msg)
-chk("épaisseur proposée ≤ 0,5·d (ductilité)", Rp.pd.tp <= 0.5 * Rp.d_b + 1e-9, str(Rp.pd.tp))
+chk("épaisseur proposée ≤ plafond de ductilité (0,42·d en S355, SCI P358 §5.3 (3))",
+    Rp.pd.tp <= Rp.pd.pick.prop.tmax + 1e-9, str(Rp.pd.tp))
 u2 = moteur.apply_solution(dict(), Rp.pd.pick)
 chk("apply_solution : mode VÉRIFICATION, boulon, rangées, hp, tp, bp, a recopiés",
     u2["mode_calc"] == "VÉRIFICATION" and u2["boulon_u"] == Rp.pd.boulon
@@ -396,6 +397,13 @@ LA.jouer(chk, moteur.compute, attendus=[
    grugeage=(dict(prof_S="IPE 600", prof_P="HEB 600", nu_S="S275", d_nt=40, l_n=120, V_Ed=250), "S"),
    perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85, tp_u=20), "L", 300, 420, "plat de 20 mm, f_y et f_u saisis tels quels"),
    hors_table=(dict(tp_u=300), "plat"))
+
+# ================================================================
+print("\n=== 11. Lot B : ductilité de l'attache, SCI P358 §5.3 (3) (brief v12 § 19.1 point 3) ===")
+# tp ≤ k·d (nuance du plat) OU tw ≤ k·d (nuance de la poutre portée) ; k = 0,50 en S235 et S275, 0,42 en S355 ; au-delà :
+# non couvert. Recommandation, jamais un verdict ; le prédimensionnement suit la même règle. IPE 300 : t_w = 7,1 mm.
+import lot_b_ductilite as LB  # noqa: E402
+LB.jouer(chk, moteur.compute, "IPE 300")
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

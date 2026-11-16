@@ -340,7 +340,7 @@ def onglet_predim(R, u, ecrire):
                       width="stretch", on_click=_appliquer, args=(p.rows.index(r), ecrire),
                       help=None if r.ok else "taux cible dépassé")
     st.caption("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit "
-               "diamètre. L'épaisseur du plat est plafonnée à 0,5·d (ductilité) ; la gorge proposée est la "
+               "diamètre. L'épaisseur du plat est plafonnée par la ductilité (SCI P358 §5.3 (3)) ; la gorge proposée est la "
                "pleine résistance. Le poteau n'intervient pas dans la proposition : la hauteur disponible "
                "et les taux sont commandés par la poutre portée et le plat. Seule la vérification "
                "détaillée fait foi.")

@@ -162,8 +162,9 @@ Sont donc repris **sans aucune modification de formule** :
    `Mb,Rd = Wel·pb(λLT)/γM1`, `λLT = 2,8·√(z·hp/(1,5·tp²))`, courbe BS 5950-1 ;
    tronçon en T de la platine et des ailes A des cornières (§6.2.4, Tab. 6.2,
    méthode 2) ; poinçonnement.
-4. **Règles de ductilité et de détail** : `tp ≤ 0,5·d` (plat, SCI P358 /
-   MSB P5), `tp ≤ 0,36·d·√(fub/fy)` (platine, §6.4.2(2) / ECCS n°126),
+4. **Règles de ductilité et de détail** : `tp ≤ k·d` du plat OU `tw ≤ k·d` de
+   la poutre portée (plat d'âme, SCI P358 §5.3 (3) ; k = 0,50 en S235/S275, 0,42 en
+   S355, non couvert au-delà — lot B, `acier/assemblages/ductilite.py`), `tp ≤ 0,36·d·√(fub/fy)` (platine, §6.4.2(2) / ECCS n°126),
    `tp ≥ 8 mm` recommandé (MSB P5 §2.1), `hp ≥ 0,6·h` de la portée (maintien
    en torsion), gorge de **pleine résistance** recommandée
    (`a ≥ tp·fy·βw·γM2/(2·fu·γM0)` pour un plat soudé sur le support ;

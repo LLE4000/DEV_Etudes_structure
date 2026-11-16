@@ -37,7 +37,9 @@ moment d'excentricité MS = VEd·z (répartition élastique, inertie polaire).
 | Âme porteuse | cisaillement local (un seul côté chargé), Av = tw·hp | SCI P358 — même modèle que le module 1 |
 | Soudure | double cordon pleine hauteur sous qz = V/2hp et qx = 3·MS/hp² ; gorge min. ; pleine résistance recommandée (alerte) | EN 1993-1-8 §4.5.3.3 ; §4.5.2 |
 
-Alertes de détail : ductilité tp ≤ 0,5·d ; hp ≥ 0,6·h (maintien) ; plat
+Alertes de détail : ductilité (SCI P358 §5.3 (3), lot B : tp ≤ k·d du plat OU tw ≤ k·d de la poutre
+portée ; k = 0,50 en S235 et S275, 0,42 en S355, non couvert au-delà — `acier/assemblages/ductilite.py`,
+recommandation non bloquante, suivie aussi par le prédimensionnement) ; hp ≥ 0,6·h (maintien) ; plat
 long non maintenu ; gorge sous la pleine résistance. Limites écrites (écran
 Vérifications + Méthode) : flexion HORS PLAN de l'âme porteuse sous VEd·z
 et NEd (attache d'un seul côté), tying, torsion, vis-à-vis.

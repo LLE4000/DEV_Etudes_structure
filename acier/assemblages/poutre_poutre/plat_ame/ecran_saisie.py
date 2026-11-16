@@ -21,6 +21,7 @@ Clés de session ``fpl_<clé>`` : source unique, écrite AVANT l'instanciation
 des widgets (le dessin est rendu avant la carte)."""
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
+from acier.assemblages import ductilite as DU
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, UNITE, champ_visible, perso_P, perso_S,
                       _cat_non_A, _acier_perso, VISSERIE_DEFAUT, defaults, MODE_VERIF, MODE_PREDIM)
 from .schemas import CLE_PAR_COTE
@@ -91,7 +92,7 @@ AIDES = {
                     "colonne de droite.",
     # aides portées par les fenêtres d'objet et le panneau Cotes (géométrie)
     "hp_u": "Recommandation des guides : hp ≥ 0,6·h de la secondaire (maintien en torsion).",
-    "tp_u": "Ductilité (rotule par ovalisation) : tp ≤ 0,5·d du boulon (SCI P358 / MSB P5).",
+    "tp_u": DU.texte_aide(),
     "a_w": "Deux cordons, un par face du plat ; pleine résistance a ≥ tp·fy·βw·γM2/(2·fu·γM0) (§4.5.3.3).",
     "g_h": "Jeu entre l'âme porteuse et l'about de la secondaire ; aussi par glissement horizontal de la poutre.",
     "d_top": "0 = dessus des semelles au même niveau ; aussi par glissement vertical de la poutre secondaire.",

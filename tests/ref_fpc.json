@@ -1,7 +1,8 @@
 {
  "N_elu": {
   "alerts": [
-   "NEd"
+   "NEd",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -125,7 +126,8 @@
  },
  "N_tying": {
   "alerts": [
-   "N_tying"
+   "N_tying",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -261,7 +263,8 @@
  "N_tying_ame": {
   "alerts": [
    "N_tying",
-   "ame_hp"
+   "ame_hp",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -537,7 +540,8 @@
  },
  "ame_b0": {
   "alerts": [
-   "ame_hp"
+   "ame_hp",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -647,7 +651,8 @@
  "ame_b1": {
   "alerts": [
    "ame_hp",
-   "b1_long"
+   "b1_long",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -899,7 +904,8 @@
  },
  "ame_b2_recoupe": {
   "alerts": [
-   "ame_hp"
+   "ame_hp",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -1017,7 +1023,8 @@
  "ame_recoupe_insuffisante": {
   "alerts": [
    "aile_poutre",
-   "ame_hp"
+   "ame_hp",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -1133,7 +1140,9 @@
   "verified": false
  },
  "cat_B": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     32.92694449033174,
@@ -1242,7 +1251,9 @@
   "verified": true
  },
  "cat_C": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     32.92694449033174,
@@ -1351,7 +1362,9 @@
   "verified": true
  },
  "defaut_aile": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     65.85388898066348,
@@ -1451,7 +1464,9 @@
   "verified": true
  },
  "deux_files": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     44.928825622775804,
@@ -1560,7 +1575,9 @@
   "verified": true
  },
  "grugeage_double": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     61.06632300203331,
@@ -1686,7 +1703,8 @@
   "alerts": [
    "e1bot",
    "e2p",
-   "hp_rec"
+   "hp_rec",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -1792,7 +1810,8 @@
  },
  "plat_long_aile": {
   "alerts": [
-   "MEd"
+   "MEd",
+   "tp_duct"
   ],
   "checks": {
    "bv": [
@@ -2005,7 +2024,9 @@
   "verified": true
  },
  "trou_surdim": {
-  "alerts": [],
+  "alerts": [
+   "tp_duct"
+  ],
   "checks": {
    "bv": [
     65.85388898066348,
