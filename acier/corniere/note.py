@@ -311,7 +311,7 @@ class Calcul:
         L.append(("Cornière", f"{piece} · aile horizontale {_mm(sec['larg'])} (aile {sec['aile_horizontale']} du nom), verticale {_mm(sec['haut'])} · "
                               f"$e$ = {_mm(g['e'])} · $r$ = {_mm(g['r'])} mm"))
         L.append(("Configuration", f"{cfg} — {E.LIBELLES_CONFIGURATION[cfg]} · {E.LIBELLES_MODE[mode]}"))
-        L.append(("Acier", f"{mat['nuance']} · $f_y$ = {_mm(mat['fy'])} N/mm²"))
+        L.append(("Acier", f"{mat['nuance']} · $f_y$ = {_mm(mat['fy'])} N/mm² ({mat['source_fy']})"))   # f_y de l'épaisseur e
         if mat["etat_limite"] == E.ELS:
             L.append(("État limite", f"ELS · $σ_{{adm}}$ = $f_y$/{f0(mat['coef'])} = {_fmt(mat['sigma_adm'])} N/mm² · $τ_{{adm}}$ = $σ_{{adm}}$/√3 = "
                                      f"{_fmt(mat['tau_adm'])} N/mm² · $σ_{{eq}}$ = √(σ² + 3τ²) ≤ $σ_{{adm}}$ (efforts ELS)"))

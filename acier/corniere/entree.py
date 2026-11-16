@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Cornière d'appui — l'ENTRÉE du moteur refondu (10/11/2026) : les grandeurs du § 2 de
 ``docs/acier/CORNIERE_DECISIONS.md`` (toutes en mm, kN, N/mm²), leurs défauts, leur domaine, le catalogue des
-cornières (``acier/profiles``, source unique des profilés, familles L et LI), les nuances du site (source unique :
-``acier/flambement/normes.py``, Tableau 3.1), la normalisation STRICTE et la relecture tolérante d'une note du module
-d'avant (version 1, modèle lame).
+cornières (``acier/profiles``, source unique des profilés, familles L et LI), les nuances du site (``acier/flambement/
+normes.py``) et leur f_y selon l'épaisseur (la table unique ``acier/materiaux.py``, option a de l'ANB), la normalisation
+STRICTE et la relecture tolérante d'une note du module d'avant (version 1, modèle lame).
 
 Bibliothèque standard ; le catalogue (``acier.profiles.catalogue``) charge numpy, présent dans le navigateur.
 
@@ -13,7 +13,8 @@ domaine (décisions § 2) : la charge doit tomber sur la partie droite de l'aile
 pour ses trois positions (Y − dy − d0/2 ≥ e + r et Y + dy + d0/2 ≤ haut — les mêmes deux conditions en A et en B,
 puisque Y se compte depuis la face extérieure de l'aile horizontale dans les deux configurations) ; t < A, t < B et
 e + r < A, e + r < B (une cornière, avec une partie droite) ; r ≥ 0 ; L > 0 ; n ≥ 1 ; n·d0 < L ; R ≥ 0 ; coef ≥ 1 ;
-dx ≥ 0 ; dy ≥ 0 ; 0 ≤ jeu_ancrage < Y ; 0 ≤ yc < bras le plus court ; 0 ≤ uV ≤ e ; f_y parmi les nuances du site.
+dx ≥ 0 ; dy ≥ 0 ; 0 ≤ jeu_ancrage < Y ; 0 ≤ yc < bras le plus court ; 0 ≤ uV ≤ e ; f_y parmi les nuances du site (sa
+valeur nominale), et une épaisseur que la table de l'ANB couvre.
 Révision § 9 (10/11 soir) : l'état limite (ELS : f_y/coef ; ELU : f_y/γ_M0, γ_M0 = 1,0, R saisie à l'ELU), les ancrages
 (entraxe s avec les minima de l'EN 1993-1-8 Tableau 3.3 — s ≥ 2,2·d0, distance au bout e₁ ≥ 1,2·d0 —, type, profondeur,
 rondelles ISO 7089 / 7093-1) et le support (voile, ou poutre dont les deux limites portent les trous et le contact).
@@ -23,6 +24,7 @@ import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
+import acier.materiaux as MA
 from acier.flambement import normes as NO
 from acier.profiles import catalogue as CAT
 
@@ -63,19 +65,30 @@ def rondelle(d: float) -> Dict[str, Tuple[float, float]]:
     k = min(RONDELLES, key=lambda x: (abs(x - d), -x))
     return {"normale": list(RONDELLES[k][0]), "large": list(RONDELLES[k][1]), "nominal": k}   # listes : JSON strict
 
-# ------------------------------------------------------------------ les nuances : la source unique des f_y du site
-# acier/flambement/normes.NUANCES (EN 1993-1-1 Tableau 3.1) : (nuance) → (f_y pour t ≤ 40 mm, f_y pour 40 < t ≤ 80)
-NUANCES: Dict[str, float] = {nom: float(v[0]) for nom, v in NO.NUANCES.items()}
+# ------------------------------------------------------------------ les nuances et leur f_y selon l'épaisseur
+# La cornière se SAISIT par la valeur NOMINALE de sa nuance (le champ « fy » de la note : 235, 275, 355, 460 — le
+# nombre du nom, acier/flambement/normes.NUANCES) et se CALCULE avec la f_y de SON épaisseur, lue dans la table unique
+# du site (acier/materiaux.py ; NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a). Le champ enregistré ne change pas.
+NUANCES: Dict[str, float] = {nom: float(v) for nom, v in NO.NUANCES.items()}
 FY_ADMIS: Tuple[float, ...] = tuple(sorted(NUANCES.values()))
-T_FY_REDUIT = 40.0                               # mm : au-delà, le Tableau 3.1 réduit f_y (information, pas de refus)
+PRODUIT = "lamine"                               # cornière laminée (EN 10056-1), acier de l'EN 10025 : tableaux 3.3 ANB, 3.4 ANB
 
 
 def nuance_de(fy: float) -> Optional[str]:
-    """Le nom de la nuance du site dont la limite élastique (t ≤ 40 mm) vaut ``fy`` ; None si aucune."""
+    """Le nom de la nuance du site dont la valeur NOMINALE (le nombre du nom) vaut ``fy`` ; None si aucune."""
     for nom, v in NUANCES.items():
         if v == fy:
             return nom
     return None
+
+
+def limite_elastique(c: Dict) -> Dict:
+    """La f_y DE CALCUL de la cornière ``c`` : sa nuance, retrouvée par la valeur nominale saisie (``fy``), lue dans la
+    table unique à l'épaisseur e = t de la cornière — {"nuance", "nominale", "fy", "source", "e"}. ``MA.HorsTable`` si
+    l'épaisseur dépasse le tableau (la normalisation le refuse avec un message)."""
+    nu = nuance_de(c["fy"])
+    e = section(c)["e"]
+    return {"nuance": nu, "nominale": c["fy"], "fy": MA.fy(nu, e, PRODUIT), "source": MA.source(nu, e, PRODUIT, "fy"), "e": e}
 
 
 # ------------------------------------------------------------------ les champs : (défaut, unité, libellé)
@@ -345,6 +358,10 @@ def normaliser(c: Dict) -> Dict:
     # --- matériau
     _exiger(out["fy"] in FY_ADMIS, f"f_y = {_g(out['fy'])} N/mm² : pas une nuance du site "
                                    f"({', '.join(_g(x) for x in FY_ADMIS)})")
+    try:
+        limite_elastique(out)
+    except MA.HorsTable as err:
+        raise ValueError(f"épaisseur e = {_g(e)} mm : {err}") from None
     _exiger(out["coef"] >= 1.0, f"coefficient sur f_y = {_g(out['coef'])} : au moins 1")
     # --- charge
     _exiger(out["R"] >= 0, f"réaction R = {_g(out['R'])} kN : elle ne peut pas être négative")

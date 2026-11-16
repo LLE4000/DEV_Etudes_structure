@@ -669,8 +669,12 @@ def _rubrique_corniere(c: Dict, sec: Dict, res: Dict) -> str:
            f'l\'ancrage est au-dessous, le bout libre s\'appuie sur le mur) — les formules du classeur ne s\'y appliquent pas : B se calcule '
            f'toujours en équilibre. Y se compte depuis la face extérieure de l\'aile horizontale dans les deux cas : la même cote pour le même '
            f'trou quand on retourne la cornière.">{C.icon("info")}</span></label>{_configuration(c)}</div>')
+    m = res["materiau"]
+    # la nuance se choisit par sa valeur nominale (le champ « fy » de la note) ; le calcul prend la f_y de l'épaisseur e,
+    # que le moteur nomme (materiau.fy, source_fy)
     nuance = ("Nuance", C.choix(["fy"], int(c["fy"]) if float(c["fy"]).is_integer() else c["fy"], NUANCES),
-              "La nuance de l'acier (f_y pour t ≤ 40 mm, EN 1993-1-1 Tableau 3.1) : la limite vaut f_y/coef à l'ELS, f_y/γ_M0 à l'ELU.")
+              f"Nuance {m['nuance']} — f_y selon l'épaisseur, {m['source_fy']} : f_y = {C.nb(m['fy'])} N/mm² pour e = "
+              f"{C.nb(res['geometrie']['e'])} mm. La limite vaut f_y/coef à l'ELS, f_y/γ_M0 à l'ELU.")
     if _etat_limite(res) == EN.ELS:
         # le coefficient de l'ELS ; en ELU il est sans effet (f_y/γ_M0, γ_M0 = 1,0) et l'écran le masque (§ 9.5)
         mat = C.ligne2(nuance, ("coef", C.num(["coef"], c["coef"], ""),

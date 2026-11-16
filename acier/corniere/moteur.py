@@ -35,7 +35,8 @@ ENTRÉE — un dict JSON ; une clé absente ou ``null`` prend le défaut (a, R_E
      "etat_limite": "ELS",                          ELS : σ_lim = f_y/coef, τ_lim = σ_lim/√3, R est la réaction ELS ;
                                                     "ELU" : R est la réaction ELU, σ_lim = f_y/γ_M0, τ_lim = f_y/(√3·γ_M0), γ_M0 = 1,0
                                                     (coef et R_ELU sans effet) — décisions § 9.5
-     "fy": 355, "coef": 1.5,                        nuance du site (235, 275, 355, 460) ; coef : le coefficient de l'ELS
+     "fy": 355, "coef": 1.5,                        nuance du site par sa valeur nominale (235, 275, 355, 460) ; le calcul prend
+                                                    la f_y de l'ÉPAISSEUR (acier/materiaux.py) ; coef : le coefficient de l'ELS
      "R": 35, "L": 300, "X": 75, "dx": 10,          réaction (kN, dans l'état limite choisi) sur la longueur reprise L ; charge à X ± dx
      "a": null, "R_ELU": null,                      largeur d'appui réelle (vide = L) ; ELS : réaction ELU pour les ancrages (vide = 1,5·R)
      "Y": 85, "dy": 5, "n": 3, "d": 16,             ancrage à Y ± dy de la face extérieure de l'aile horizontale ; n ancrages Ø d
@@ -56,7 +57,9 @@ SORTIE de calculer / verifier
      "section": {"source": "catalogue"|"saisie", "nom", "designation", "famille", "A", "B", "t", "r1", "r2", "masse" (kg/m),
                  "aire" (cm²), "masse_source": "catalogue"|"calculée", "norme", "aile_horizontale", "larg", "haut", "e", "r"},
      "configuration": "A"|"B", "mode": "historique"|"equilibre" (le mode EFFECTIF), "mode_demande",
-     "materiau": {"fy", "nuance", "coef", "etat_limite", "gamma_M0", "sigma_adm", "tau_adm" (les LIMITES de l'état limite :
+     "materiau": {"fy" (la f_y EMPLOYÉE, selon l'épaisseur e), "fy_nominale" (la saisie), "source_fy" (la ligne de la table :
+                  « tableau 3.3 ANB (EN 10025-2:2004, S355JR), 16 < t ≤ 40 mm »), "nuance", "coef", "etat_limite", "gamma_M0",
+                  "sigma_adm", "tau_adm" (les LIMITES de l'état limite :
                   ELS f_y/coef et σ_adm/√3 ; ELU f_y/γ_M0 et f_y/(√3·γ_M0)), "symbole_sigma" ("σ_adm" | "f_y/γ_M0"), "symbole_tau"},
      "geometrie": {"e", "r", "larg", "haut", "L", "X", "dx", "Y", "dy", "n", "d", "d0", "a" (None = L), "L_eff" (la plus
                    petite des combinaisons), "facteur_L_eff" (L/L_eff), "combinaison_L_eff", "yc", "uV" (effectif),
@@ -146,7 +149,7 @@ SORTIE de calculer / verifier
 
   avertissements (code · niveau) : chevilles_non_verifiees · info ; pic_conge · info ; effet_levier · info ;
      pression_support · attention (B) ; equilibre_plus_severe · rouge (historique : la garde) ; mode_impose_B · info ;
-     R_ELU_auto · info ; note_v1 · attention ; fy_epaisseur · info (e > 40 mm).
+     R_ELU_auto · info ; note_v1 · attention ; fy_epaisseur · info (la f_y de l'épaisseur sous la valeur nominale).
 
 SORTIE de candidats — les cornières du catalogue, triées par masse : [{"nom", "designation", "famille", "A", "B", "t", "r1",
 "masse", "aire", "taux" (taux_max, None hors domaine), "ok", "domaine" (bool), "raison" (le refus, ou None), "retenue",
@@ -212,9 +215,12 @@ def _contexte(c: Dict, mode: Optional[str] = None, yc: Optional[float] = None, u
     mode_eff = EQUILIBRE if cfg == "B" else (mode or c["mode"])
     uV_eff = (c["uV"] if c["uV"] is not None else e / 2.0) if uV is None else uV
     yc_eff = c["yc"] if yc is None else yc
-    # les limites de l'état limite (§ 9.5) : ELS f_y/coef et σ_lim/√3 ; ELU f_y/γ_M0 et f_y/(√3·γ_M0), γ_M0 = 1,0
+    # les limites de l'état limite (§ 9.5) : ELS f_y/coef et σ_lim/√3 ; ELU f_y/γ_M0 et f_y/(√3·γ_M0), γ_M0 = 1,0 — f_y
+    # selon l'ÉPAISSEUR de la cornière (table unique, option a de l'ANB), jamais la valeur nominale saisie
     etat = c["etat_limite"]
-    sigma_adm = c["fy"] / c["coef"] if etat == ELS else c["fy"] / GAMMA_M0
+    mat = E.limite_elastique(c)
+    fy = mat["fy"]
+    sigma_adm = fy / c["coef"] if etat == ELS else fy / GAMMA_M0
     g = {"e": e, "r": r, "larg": larg, "haut": haut, "L": c["L"], "R": c["R"], "Y": c["Y"], "yc": yc_eff, "uV": uV_eff,
          "jeu_ancrage": c["jeu_ancrage"]}
     combos = _combinaisons(c)
@@ -227,7 +233,7 @@ def _contexte(c: Dict, mode: Optional[str] = None, yc: Optional[float] = None, u
         return c["L"]
 
     return {"c": c, "sec": sec, "e": e, "r": r, "larg": larg, "haut": haut, "cfg": cfg, "mode": mode_eff, "uV": uV_eff,
-            "yc": yc_eff, "etat": etat, "sigma_adm": sigma_adm, "tau_adm": sigma_adm / math.sqrt(3.0), "g": g, "combos": combos,
+            "yc": yc_eff, "etat": etat, "fy": fy, "mat": mat, "sigma_adm": sigma_adm, "tau_adm": sigma_adm / math.sqrt(3.0), "g": g, "combos": combos,
             "stats": stats, "largeur": largeur}
 
 
@@ -671,12 +677,12 @@ def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
     c, hist = ctx["c"], ctx["mode"] == HISTORIQUE
     if ctx["etat"] == ELS:
         blocs = [_bloc("materiau", "Matériau · contraintes admissibles (ELS)", None,
-                       [_f("sigma_adm", "σ_adm", [("f_y", c["fy"], "N/mm²"), ("coef", c["coef"], "")], ctx["sigma_adm"], "N/mm²", "H31" if hist else None),
+                       [_f("sigma_adm", "σ_adm", [("f_y", ctx["fy"], "N/mm²"), ("coef", c["coef"], "")], ctx["sigma_adm"], "N/mm²", "H31" if hist else None),
                         _f("tau_adm", "τ_adm", [("σ_adm", ctx["sigma_adm"], "N/mm²")], ctx["tau_adm"], "N/mm²", "H34" if hist else None)])]
     else:
         blocs = [_bloc("materiau", "Matériau · limites ELU (EN 1993-1-1 § 6.2.1(5), γ_M0 = 1,0)", None,
-                       [_f("sigma_lim_ELU", "f_y/γ_M0", [("f_y", c["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["sigma_adm"], "N/mm²"),
-                        _f("tau_lim_ELU", "f_y/(√3·γ_M0)", [("f_y", c["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["tau_adm"], "N/mm²")])]
+                       [_f("sigma_lim_ELU", "f_y/γ_M0", [("f_y", ctx["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["sigma_adm"], "N/mm²"),
+                        _f("tau_lim_ELU", "f_y/(√3·γ_M0)", [("f_y", ctx["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["tau_adm"], "N/mm²")])]
     if c["a"] is not None:
         st = _statique_de(ctx, geo["combinaison_L_eff"])
         blocs.append(_bloc("largeur_efficace", "Largeur efficace de l'aile horizontale (diffusion à 45° jusqu'à la section 1)", geo["combinaison_L_eff"],
@@ -809,9 +815,11 @@ def _avertissements(ctx: Dict, anc: Dict, garde: Optional[Dict]) -> List[Dict]:
     if anc["R_ELU_auto"] and ctx["etat"] == ELS:
         av.append({"code": "R_ELU_auto", "niveau": INFO,
                    "message": f"R_ELU = 1,5·R = {E._f(anc['R_ELU'], 2)} kN (auto) : à remplacer par la combinaison réelle 1,35·G + 1,5·Q."})
-    if ctx["e"] > E.T_FY_REDUIT:
+    mat = ctx["mat"]
+    if mat["fy"] < mat["nominale"]:
         av.append({"code": "fy_epaisseur", "niveau": INFO,
-                   "message": f"Épaisseur {E._g(ctx['e'])} mm > 40 mm : le Tableau 3.1 réduit f_y au-delà de 40 mm ; la valeur saisie est gardée."})
+                   "message": f"Épaisseur e = {E._g(ctx['e'])} mm : f_y = {E._g(mat['fy'])} N/mm² pour la nuance {mat['nuance']} "
+                              f"({mat['source']}), sous sa valeur nominale {E._g(mat['nominale'])} N/mm² — c'est elle qui est employée."})
     return av
 
 
@@ -913,7 +921,8 @@ def calculer(c: Dict, diagrammes: bool = True, annexes: bool = True) -> Dict:
         t_hist = max(v["taux"] for v in verifs if v["aile"] == VERTICALE and v["cle"].startswith("S"))
         garde = {"taux_historique": t_hist, "taux_equilibre_P1": t_eq, "depasse": t_eq > t_hist * (1.0 + 1e-9), "yc": ctx["e"] / 2.0, "uV": ctx["e"] / 2.0}
     res = {"reference": REFERENCE, "corniere": c, "section": ctx["sec"], "configuration": ctx["cfg"], "mode": ctx["mode"], "mode_demande": c["mode"],
-           "materiau": {"fy": c["fy"], "nuance": E.nuance_de(c["fy"]), "coef": c["coef"], "etat_limite": ctx["etat"], "gamma_M0": GAMMA_M0,
+           "materiau": {"fy": ctx["fy"], "fy_nominale": c["fy"], "source_fy": ctx["mat"]["source"], "nuance": ctx["mat"]["nuance"],
+                        "coef": c["coef"], "etat_limite": ctx["etat"], "gamma_M0": GAMMA_M0,
                         "sigma_adm": ctx["sigma_adm"], "tau_adm": ctx["tau_adm"],
                         "symbole_sigma": "σ_adm" if ctx["etat"] == ELS else "f_y/γ_M0", "symbole_tau": "τ_adm" if ctx["etat"] == ELS else "f_y/(√3·γ_M0)"},
            "geometrie": geo, "combinaisons": ctx["combos"], "efforts": _efforts(ctx, anc), "verifications": verifs,

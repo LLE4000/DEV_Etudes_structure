@@ -33,16 +33,17 @@ contrôle rougit si l'on retire ce qu'il protège (§ 14, mutations).
      combinaison ; les cellules en historique.
  10. DOMAINE : les refus (charge dans l'angle, au-delà de l'aile, ancrage dans le congé, hors de l'aile, t ≥ aile,
      nuance, coef, dy < 0…) avec message ; les bornes admises ; -0 ; idempotence ; JSON strict ; entrée intacte ;
-     les défauts du § 2 ; les nuances du site (source unique acier/flambement/normes).
+     les défauts du § 2 ; les nuances du site (acier/flambement/normes) et leur f_y selon l'ÉPAISSEUR de la cornière
+     (table unique acier/materiaux.py, option a de l'ANB : L 120×120×15 S355 → 355, 20 mm → 345, 44 mm → 335).
  11. RELECTURE V1 : les vraies notes du gel d'avant la refonte (tests/reference_refonte/corniere.json au 10/11,
      copiées ici) s'ouvrent : nom et section gardés, charge et ancrage posés dans les ailes, v1 vrai, avertissement.
  12. SÉLECTEUR : les 233 cornières triées par masse, chacune calculée avec les charges (taux = celui du calcul),
      hors domaine avec la raison, optimal = la plus légère qui tient et dans le domaine, retenue, familles.
- 13. PURETÉ : sources (bibliothèque standard, acier.profiles, acier.flambement.normes) ; sous-processus où sys.meta_path
+ 13. PURETÉ : sources (bibliothèque standard, acier.profiles, acier.flambement.normes, acier.materiaux) ; sous-processus où sys.meta_path
      REFUSE streamlit, pandas, reportlab, matplotlib, scipy, PIL, fitz — sous Python 3.12 et 3.13, résultats identiques.
  14. MUTATIONS : le moteur rechargé depuis ses sources, modifié d'UNE formule clé (ρ₃ sans dy, pivot, N en B, section
      nette sans trous, L_eff, dx oublié, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, garde, gouvernant, verdict,
-     refus, défaut, sélecteur, v1, diagrammes, positions, nuance), est rejeté ; un témoin ne l'est pas.
+     refus, défaut, sélecteur, v1, diagrammes, positions, nuance, f_y de l'épaisseur), est rejeté ; un témoin ne l'est pas.
 
     /usr/bin/python3.12 tests/test_corniere_moteur.py
 """
@@ -175,10 +176,21 @@ def p8(saisies):
     return cellules
 
 
+# f_y selon l'épaisseur, écrite ICI (sans relire la table du site) : NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a —
+# tableau 3.3 ANB (EN 10025-2:2004, S235JR, S275JR, S355JR) et 3.4 ANB (S460N) ; valeur nominale → (t ≤ 16, ≤ 40, ≤ 63 mm)
+FY_ANB = {235.0: (235.0, 225.0, 215.0), 275.0: (275.0, 265.0, 255.0), 355.0: (355.0, 345.0, 335.0), 460.0: (460.0, 440.0, 430.0)}
+
+
+def fy_anb(nominale, e):
+    """La f_y de calcul d'une cornière de nuance ``nominale`` (235 … 460) et d'épaisseur ``e`` (mm, jusqu'à 63)."""
+    return FY_ANB[nominale][next(i for i, sup in enumerate((16.0, 40.0, 63.0)) if e <= sup)]
+
+
 def saisies_p8(c, sec, Xj, Yj):
-    """Les saisies du classeur pour une cornière du moteur (B3 = NON STANDARD, dimensions dans K4..K7)."""
+    """Les saisies du classeur pour une cornière du moteur (B3 = NON STANDARD, dimensions dans K4..K7). Le classeur reçoit
+    sa limite élastique en C3 : la f_y de l'ÉPAISSEUR de la cornière (option a de l'ANB), plus la valeur nominale."""
     jeu = c["jeu_ancrage"]
-    return {"B3": "NON STANDARD", "K4": sec["larg"], "K5": sec["haut"], "K6": sec["e"], "K7": sec["r"], "C3": c["fy"], "C8": c["L"] / 10,
+    return {"B3": "NON STANDARD", "K4": sec["larg"], "K5": sec["haut"], "K6": sec["e"], "K7": sec["r"], "C3": fy_anb(c["fy"], sec["e"]), "C8": c["L"] / 10,
             "C10": c["coef"], "C12": c["R"], "C13": c["X"], "C14": Xj, "C16": c["Y"], "C17": Yj,
             "C71": c["R_ELU"] if c["R_ELU"] is not None else 1.5 * c["R"], "C73": c["n"], "C74": c["d"], "C76": jeu / 10}
 
@@ -781,13 +793,13 @@ RD = M.verifier(D)
 chk("la cornière neuve tient (taux < 100 %), R_ELU auto = 52,5 kN dit en information, L_eff = L",
     RD["statut"] == "ok" and RD["taux_max"] < 1.0 and RD["ancrages"]["R_ELU"] == 52.5 and RD["ancrages"]["R_ELU_auto"]
     and any(a["code"] == "R_ELU_auto" for a in RD["avertissements"]) and RD["geometrie"]["L_eff"] == 300.0, (RD["taux_max"], RD["ancrages"]["R_ELU"]))
-chk("les nuances du site viennent d'une source unique (acier/flambement/normes, Tableau 3.1) : 235, 275, 355, 460 ; S355 ↔ 355",
+chk("les nuances du site viennent d'une source unique (acier/flambement/normes, valeurs nominales) : 235, 275, 355, 460 ; S355 ↔ 355",
     E.FY_ADMIS == (235.0, 275.0, 355.0, 460.0) and E.nuance_de(355.0) == "S355" and E.nuance_de(300.0) is None
     and "from acier.flambement import normes" in lire("acier", "corniere", "entree.py") and not re.search(r"\b235\.0\b.*\b275\.0\b", lire("acier", "corniere", "entree.py")))
 REFUS = (("charge dans l'angle (X − dx = 28 ≤ e + r)", {"X": 48.0, "dx": 20.0}, "dans l'angle"), ("charge au-delà de l'aile (X + dx = 125)", {"X": 105.0, "dx": 20.0}, "au-delà"),
          ("ancrage dans le congé (Y − dy − 9 < 28)", {"Y": 45.0, "dy": 10.0}, "congé"), ("ancrage hors de l'aile (Y + dy + 9 > 120)", {"Y": 105.0, "dy": 10.0}, "sort"),
          ("t ≥ aile (saisie libre)", {"standard": False, "A": 12.0, "t": 12.0}, "cornière"), ("e + r atteint l'aile", {"standard": False, "A": 30.0, "B": 30.0, "t": 15.0, "r": 15.0}, "partie droite"),
-         ("congé négatif", {"standard": False, "r": -1.0}, "congé"), ("nuance inconnue (300)", {"fy": 300.0}, "nuance"), ("coef < 1", {"coef": 0.9}, "au moins 1"),
+         ("congé négatif", {"standard": False, "r": -1.0}, "congé"), ("nuance inconnue (300)", {"fy": 300.0}, "pas une nuance du site"), ("coef < 1", {"coef": 0.9}, "au moins 1"),
          ("R négative", {"R": -1.0}, "négative"), ("L nulle", {"L": 0.0}, "positive"), ("dx négatif", {"dx": -1.0}, "dx"), ("dy négatif", {"dy": -1.0}, "dy"),
          ("n = 0", {"n": 0}, "au moins 1"), ("n non entier", {"n": 2.5}, "entier"), ("d nul", {"d": 0.0}, "positif"), ("trous qui mangent L (n = 20, Ø16)", {"n": 20}, "section nette"),
          ("a nulle", {"a": 0.0}, "positive"), ("R_ELU négative", {"R_ELU": -5.0}, "négative"), ("jeu d'ancrage ≥ Y", {"jeu_ancrage": 85.0}, "jeu"),
@@ -829,8 +841,27 @@ for nom, champ in (("X − dx juste au-delà de l'angle (X = 48,1)", {"X": 48.1}
 RZ = M.verifier(dict(CAS, R=0.0))
 chk("R = 0 : tout est nul, statut ok, rapport ELU indéfini (None), N_ELU = 0", RZ["taux_max"] == 0.0 and RZ["statut"] == "ok" and RZ["ancrages"]["rapport_ELU"] is None
     and RZ["ancrages"]["N_ELU"] == 0.0 and RZ["ancrages"]["H"] == 0.0)
-chk("t = 44 mm : avertissement fy_epaisseur (Tableau 3.1), sans refus",
-    any(a["code"] == "fy_epaisseur" for a in M.verifier(dict(M.nouvelle_corniere(), standard=False, A=200.0, B=200.0, t=44.0, r=10.0, X=100.0, Y=150.0))["avertissements"]))
+R44 = M.verifier(dict(M.nouvelle_corniere(), standard=False, A=200.0, B=200.0, t=44.0, r=10.0, X=100.0, Y=150.0))
+chk("t = 44 mm, S355 : f_y = 335 (tableau 3.3 ANB, 40 < t ≤ 63 mm), σ_adm = 335/1,5 ; avertissement fy_epaisseur qui le dit, sans refus",
+    R44["materiau"]["fy"] == 335.0 and pres(R44["materiau"]["sigma_adm"], 335.0 / 1.5, 1e-12)
+    and any(a["code"] == "fy_epaisseur" and "335 N/mm²" in a["message"] and "40 < t ≤ 63 mm" in a["message"] for a in R44["avertissements"]),
+    (R44["materiau"], [a["message"] for a in R44["avertissements"] if a["code"] == "fy_epaisseur"]))
+# la f_y de l'ÉPAISSEUR (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a ; tableaux 3.3 ANB et 3.4 ANB) : le champ saisi reste
+# la valeur nominale de la nuance (pas de migration de la note), le calcul prend celle de e
+R15, R20 = M.verifier(D), M.verifier(dict(D, profil="L 150x150x20"))
+R20_235 = M.verifier(dict(D, profil="L 150x150x20", fy=235.0))
+chk("L 120×120×15 S355 (la cornière neuve, e = 15 ≤ 16 mm) : f_y = 355, σ_adm = 236,7, aucun avertissement fy_epaisseur",
+    R15["materiau"]["fy"] == 355.0 and dec(R15["materiau"]["sigma_adm"], 236.667, 3) and not any(a["code"] == "fy_epaisseur" for a in R15["avertissements"])
+    and R15["materiau"]["source_fy"] == "tableau 3.3 ANB (EN 10025-2:2004, S355JR), t ≤ 16 mm", R15["materiau"])
+chk("L 150×150×20 S355 (e = 20 mm) : f_y = 345 (16 < t ≤ 40 mm), σ_adm = 230,0, le champ saisi reste 355 ; en S235 : 225",
+    R20["materiau"]["fy"] == 345.0 and pres(R20["materiau"]["sigma_adm"], 230.0, 1e-12) and R20["corniere"]["fy"] == 355.0
+    and R20["materiau"]["fy_nominale"] == 355.0 and R20["materiau"]["nuance"] == "S355" and R20_235["materiau"]["fy"] == 225.0
+    and formule(R20, "materiau", "σ_adm")["termes"][0]["valeur"] == 345.0, (R20["materiau"], R20_235["materiau"]["fy"]))
+try:
+    M.normaliser(dict(D, standard=False, A=400.0, B=400.0, t=260.0, r=0.0, X=330.0, Y=330.0))
+    chk("e = 260 mm (saisie libre) : hors du tableau 3.3 ANB (250 mm), refusé avec le motif", False)
+except ValueError as err:
+    chk("e = 260 mm (saisie libre) : hors du tableau 3.3 ANB (250 mm), refusé avec le motif", "250 mm" in str(err) and "tableau 3.3 ANB" in str(err), err)
 chk("« -0 » est relu 0", math.copysign(1, M.normaliser(dict(CAS, yc=-0.0))["yc"]) == 1.0)
 chk("normaliser() est idempotente, {} donne la cornière neuve, None vaut absent, a/R_ELU/uV vides restent vides",
     all(M.normaliser(M.normaliser(r["corniere"])) == r["corniere"] for r in TOUS) and M.normaliser({}) == D and M.normaliser({"R": None, "a": None}) == D)
@@ -1163,8 +1194,10 @@ for f in sorted(os.listdir(os.path.join(RACINE, "acier", "corniere"))):
         arbre = ast.parse(lire("acier", "corniere", f))
         for n in ast.walk(arbre):
             noms = [a.name for a in n.names] if isinstance(n, ast.Import) else [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 and n.module else []
-            non_std += [f"{f}: {x}" for x in noms if x.split(".")[0] not in sys.stdlib_module_names and not x.startswith(("acier.profiles", "acier.flambement"))]
-chk("acier/corniere n'importe que la bibliothèque standard, le catalogue acier.profiles et les nuances acier.flambement.normes (lecture des sources)", not non_std, non_std)
+            non_std += [f"{f}: {x}" for x in noms if x.split(".")[0] not in sys.stdlib_module_names
+                        and not x.startswith(("acier.profiles", "acier.flambement")) and x != "acier.materiaux"]
+chk("acier/corniere n'importe que la bibliothèque standard, le catalogue acier.profiles, les nuances acier.flambement.normes et la table des "
+    "aciers acier.materiaux (lecture des sources)", not non_std, non_std)
 SOUS_PROCESSUS = r'''
 import json, sys
 avant = set(sys.modules)
@@ -1285,6 +1318,9 @@ def rejets(mod):
         if b["ancrages"]["arrachement"] is not None or any(i["cle"] == "arrachement" for i in b["informations"]):
             out.append("arrachement rendu en B")
         u = mod.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76, coef=2.0))
+        r20 = mod.verifier(dict(CAS, profil="L 150x150x20"))
+        if not (r20["materiau"]["fy"] == 345.0 and pres(r20["materiau"]["sigma_adm"], 230.0, 1e-12)):
+            out.append("f_y de l'épaisseur (L 150×150×20 S355 : 345)")
         if not (dec(100 * u["taux_max"], 88.8621, 4) and u["materiau"]["sigma_adm"] == 355.0 and u["ancrages"]["N_ELS"] is None
                 and dec(u["ancrages"]["N_ELU"], 21.38, 2)):
             out.append("ELU")
@@ -1345,7 +1381,9 @@ MUTATIONS = (
     ("relecture v1 sans l'indicateur", [("entree", "out[\"v1\"] = True", "out[\"v1\"] = False")]),
     ("diagrammes : l'enveloppe ne regarde que la combinaison nominale", [("moteur", "        for st in ctx[\"stats\"]:\n            m, nn, vv = S.efforts(st, aile, s)", "        for st in ctx[\"stats\"][:1]:\n            m, nn, vv = S.efforts(st, aile, s)")]),
     ("positions des ancrages depuis le bord", [("entree", "return [e1 + i * s for i in range(c[\"n\"])]", "return [i * s for i in range(c[\"n\"])]")]),
-    ("ELU : la limite garde le coefficient de l'ELS", [("moteur", 'sigma_adm = c["fy"] / c["coef"] if etat == ELS else c["fy"] / GAMMA_M0', 'sigma_adm = c["fy"] / c["coef"]')]),
+    ("ELU : la limite garde le coefficient de l'ELS", [("moteur", 'sigma_adm = fy / c["coef"] if etat == ELS else fy / GAMMA_M0', 'sigma_adm = fy / c["coef"]')]),
+    ("f_y nominale quelle que soit l'épaisseur (la table de l'ANB oubliée)", [("entree", '"fy": MA.fy(nu, e, PRODUIT)', '"fy": c["fy"]')]),
+    ("f_y de l'épaisseur calculée mais pas employée (la valeur saisie dans σ_adm)", [("moteur", "    fy = mat[\"fy\"]\n", "    fy = c[\"fy\"]\n")]),
     ("maillage : τ oublié", [("moteur", "                tau = abs(V) * 1e3 / A\n                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))",
                               "                tau = 0.0\n                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))")]),
     ("maillage : une seule combinaison (la nominale)", [("moteur", "            for st in ctx[\"stats\"]:\n                M, N, V = S.efforts(st, aile, s)\n                W, A = S.module_aire",
@@ -1382,7 +1420,8 @@ for nom, muts in MUTATIONS:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
     f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B, "
-    f"limite ELU, maillage τ, maillage enveloppe, coin à un seul champ, fibre du coin, déformée (signe, rotation du bloc, pivot), courbes de l'ancrage, entraxe minimal, contact hors poutre) : TOUTES rejetées "
+    f"limite ELU, maillage τ, maillage enveloppe, coin à un seul champ, fibre du coin, déformée (signe, rotation du bloc, pivot), courbes de l'ancrage, entraxe minimal, contact hors poutre, "
+    f"f_y de l'épaisseur) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
 chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)
