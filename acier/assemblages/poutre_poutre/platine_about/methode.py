@@ -2,6 +2,7 @@
 """Onglet Méthode : le modèle mécanique de la platine d'about, ses sources
 et ses limites — en toutes lettres."""
 from .notation import NOTATIONS
+from .entrees import PLEINE_RESISTANCE
 from acier.assemblages import materiau as MT
 
 METHODE = """
@@ -54,7 +55,7 @@ Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design* §2
   tw (une exigence de sur-résistance : la plus petite fy du profilé la
   rendrait moins sévère) — le guide en tire **0,46 / 0,48 / 0,55·tw** en
   S235 / S275 / S355 avec les fu de l'EN 1993-1-1 (MSB P5 §2.2) ; le site
-  prend les fu du tableau 3.3 ANB — signalée en alerte.
+  obtient **{PLEINE}** — signalée en alerte.
 
 #### Traction NEd : deux natures
 
@@ -117,7 +118,8 @@ Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI) — §2
 platine d'about de hauteur partielle et §2.4 Worked Example (benchmark du
 module) ; *SCI P358, Joints in Steel Construction: Simple Joints to
 Eurocode 3* ; *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005.
-""".replace("{NUANCES}", MT.texte_nuances())     # la règle belge des nuances, une source (materiau.py)
+""".replace("{NUANCES}", MT.texte_nuances()).replace("{PLEINE}", PLEINE_RESISTANCE)
+# la règle belge des nuances (materiau.py) et la gorge de pleine résistance (entrees.py) : une source chacune
 
 
 def _notations(texte):

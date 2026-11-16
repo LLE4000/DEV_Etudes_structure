@@ -27,6 +27,7 @@ l'EN 1993-1-8, aucune divergence belge relevée : valeurs recommandées
 guides (MSB P5 §2.3, SCI P358) : l'EN 1993-1-8 ne la fixe pas et l'ANB belge
 n'a pas été consultée — point P-9 de l'étude.
 """
+from acier.assemblages import materiau as MT
 from acier.bibliotheques import DB, PERSO, noms
 
 MODE_VERIF = "VÉRIFICATION"
@@ -79,6 +80,11 @@ def defaults():
 
 
 CLES = tuple(defaults().keys())          # 66 clés
+
+# La gorge de PLEINE RÉSISTANCE que l'aide du champ « Gorge a » recommande (MSB P5 §2.2), CALCULÉE par la règle de
+# l'avis a_rec sur la table du site, avec les γ d'une note neuve — aucun coefficient recopié (l'écran du site,
+# la carte Streamlit et la rubrique Méthode la lisent ici)
+PLEINE_RESISTANCE = MT.texte_pleine_resistance(defaults()["g_M2"], defaults()["g_M0"])
 
 # Clés passées par N() en tête de compute()
 NUM = ["d_nt", "d_nb", "l_n", "r_n", "rec_S", "j_lat", "hp_u", "tp_u", "bp_u",
@@ -203,7 +209,7 @@ GROUPES = [
     dict(t="Soudure de la platine sur l'âme de la portée",
          f=[_c("a_w", "Gorge a (cordon d'angle DOUBLE, toute la hauteur hp)", un="mm",
                h="Deux cordons verticaux, un de chaque côté de l'âme de la poutre portée. Pleine "
-                 "résistance recommandée (MSB P5 §2.2) : a ≥ 0,46 / 0,48 / 0,55·tw en S235 / S275 / S355."),
+                 "résistance recommandée (MSB P5 §2.2) : a ≥ " + PLEINE_RESISTANCE + "."),
             _c("j_lat", "Jeu latéral entre la semelle de la poutre et l'aile du poteau", un="mm", si=sur_ame,
                h="Cas (b) : jeu de montage en largeur, entre la semelle de la poutre portée et l'aile du "
                  "poteau ; il commande le passage hP − 2·tfP − 2·j.")]),

@@ -167,8 +167,11 @@ Sont donc repris **sans aucune modification de formule** :
    `tp ≥ 8 mm` recommandé (MSB P5 §2.1), `hp ≥ 0,6·h` de la portée (maintien
    en torsion), gorge de **pleine résistance** recommandée
    (`a ≥ tp·fy·βw·γM2/(2·fu·γM0)` pour un plat soudé sur le support ;
-   `a ≥ βw·γM2·fy·tw/(√2·fu·γM0)` = 0,46 / 0,48 / 0,55·tw en S235 / S275 / S355
-   pour une platine soudée sur l'âme portée), trou de boulon hors du congé de
+   `a ≥ βw·γM2·fy·tw/(√2·fu·γM0)` pour une platine soudée sur l'âme portée, fy
+   de l'âme à son épaisseur tw : 0,46 / 0,50 / 0,60·tw en S235 / S275 / S355
+   pour tw ≤ 16 mm avec les fy et fu du tableau 3.3 ANB — le guide en tire
+   0,46 / 0,48 / 0,55 avec les fu de l'EN 1993-1-1 ; l'aide du champ les
+   calcule, `materiau.texte_pleine_resistance`), trou de boulon hors du congé de
    la cornière (`gA − d0/2 ≥ tc + rc`), la rondelle dégage le cordon
    (`p3 ≥ tw + 2·a·√2 + dw`).
 5. **Âme de la poutre portée** : pression diamétrale ; cisaillement brut sur

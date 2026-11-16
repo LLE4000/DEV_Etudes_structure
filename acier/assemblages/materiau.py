@@ -28,7 +28,9 @@ ValueError), qui nomme la pièce, la nuance et la borne — l'écran l'affiche e
 """
 from acier import bibliotheques as BI
 from acier import materiaux as MA
+from acier.assemblages import mecanique as MEC
 from acier.bibliotheques import DB, PERSO, find
+from acier.formats import F
 
 # Les épaisseurs que le prédimensionnement propose pour un plat, une platine ou une cornière (DB["epais"], 8 à 15 mm) :
 # toutes dans la première bande du tableau 3.3 ANB (t ≤ 16 mm), donc une seule f_y. Le prédimensionnement lit
@@ -184,3 +186,35 @@ def texte_nuances():
             f"épaisseur ; profilé : sa paroi la plus épaisse, max(tf, tw). S355 : fy = {fy16:g} MPa jusqu'à 16 mm, "
             f"{fy40:g} MPa de 16 à 40 mm ; fu = {fu:g} MPa de 3 à 100 mm. La ligne « S355 (fu 490) » suit le S355 "
             f"belge (fu = {fu:g} MPa). « Personnalisé » : fy, fu et βw saisis.")
+
+
+# Les nuances dont l'aide du champ « Gorge a » des platines d'about dit le coefficient de pleine résistance : celles
+# du guide (MSB P5 §2.2)
+NUANCES_PLEINE_RESISTANCE = ("S235", "S275", "S355")
+
+
+def coefs_pleine_resistance(gM2, gM0=1.0, nuances=NUANCES_PLEINE_RESISTANCE):
+    """(t_w max, [(nuance, a/t_w)]) : le coefficient de la gorge de PLEINE RÉSISTANCE d'une âme soudée par un double
+    cordon, a/t_w = β_w·γ_M2·f_y/(√2·f_u·γ_M0) (MSB P5 §2.2), CALCULÉ par la fonction de l'avis a_rec
+    (``mecanique.coef_pleine_resistance`` ; la copie de ``platine_about`` lui est tenue égale par
+    ``test_assemblages_mecanique``) sur la table du site, la poutre portée et la platine de la même nuance. f_y et f_u
+    de la PREMIÈRE bande du tableau 3.3 ANB (``MA.bornes``) : le coefficient ne vaut que pour une âme t_w ≤ t_w max
+    (16 mm) ; au-delà, f_y baisse et l'avis du moteur, qui lit l'âme à SON épaisseur (``t_ame``), le dit. Aucun
+    coefficient recopié : le guide en tire 0,46 / 0,48 / 0,55 avec les f_u de l'EN 1993-1-1 (tableau 3.1)."""
+    t_max = min(MA.bornes(n)[0][0] for n in nuances)
+    out = []
+    for n in nuances:
+        a = table_du_site(n, t_max)
+        out.append((n, MEC.coef_pleine_resistance(a["fy"], a["fu"], a["bw"], gM2, gM0)))
+    return t_max, out
+
+
+def texte_pleine_resistance(gM2, gM0=1.0):
+    """« 0,46 / 0,50 / 0,60·tw en S235 / S275 / S355 (tw ≤ 16 mm, tableau 3.3 ANB) » : la gorge de pleine résistance
+    que l'aide du champ « Gorge a » des platines d'about recommande (écran du site, carte, rubrique Méthode), avec les
+    coefficients de ``coefs_pleine_resistance`` écrits comme l'avis a_rec (deux décimales) et la condition d'épaisseur.
+    ``gM2``, ``gM0`` : ceux d'une note neuve (``entrees.defaults``)."""
+    t_max, ks = coefs_pleine_resistance(gM2, gM0)
+    tableaux = sorted({MA.ligne(n)["tableau"] for n, _ in ks})
+    return (f"{' / '.join(F(k, 2) for _, k in ks)}·tw en {' / '.join(n for n, _ in ks)} "
+            f"(tw ≤ {t_max:g} mm, tableau {', '.join(tableaux)})")

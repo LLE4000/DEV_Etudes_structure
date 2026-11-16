@@ -273,6 +273,15 @@ LA.jouer(chk, moteur.compute, attendus=[
 from acier.assemblages.poutre_poutre.platine_about.entrees import MODE_PREDIM  # noqa: E402
 LA.jouer_gorge(chk, moteur.compute, {"mode_calc": MODE_PREDIM})
 
+# 3e passe (D1) : l'AIDE du champ « Gorge a » (écran du site, « ? » de la carte, rubrique Méthode) imprime les
+# coefficients que l'avis a_rec calcule — elle disait 0,46 / 0,48 / 0,55·tw (f_u de l'EN), plus faible que la règle
+# du site en S275 et S355 (côté non sûr)
+from acier.assemblages.poutre_poutre.platine_about import entrees as E_  # noqa: E402
+from acier.assemblages.poutre_poutre.platine_about import ecran_saisie as ES_, methode as ME_  # noqa: E402
+LA.jouer_aide_gorge(chk, moteur.compute, (E_, ES_, ME_), lambda: {
+    "écran du site (aide du champ)": E_.CHAMPS["a_w"]["h"], "carte (« ? »)": ES_.AIDES["a_w"],
+    "rubrique Méthode": ME_.METHODE})
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

@@ -22,7 +22,8 @@ des widgets (le dessin est rendu avant la carte)."""
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, UNITE, champ_visible, perso_P, perso_S,
-                      _cat_non_A, _acier_perso, VISSERIE_DEFAUT, defaults, MODE_VERIF, MODE_PREDIM, NAT_ELU, NAT_TYING)
+                      _cat_non_A, _acier_perso, VISSERIE_DEFAUT, defaults, MODE_VERIF, MODE_PREDIM, NAT_ELU, NAT_TYING,
+                      PLEINE_RESISTANCE)
 from .schemas import CLE_PAR_COTE
 
 PREFIXE = "pab_"
@@ -94,8 +95,8 @@ AIDES = {
     "hp_u": "Recommandation des guides : hp ≥ 0,6·h de la secondaire (maintien en torsion à l'appui).",
     "tp_u": "Platine mince : tp ≤ 0,36·d·√(fub/fy) (§6.4.2, ECCS n°126) ; 10 ou 12 mm usuels, moins de 8 mm "
             "déconseillé (MSB P5 §2.1).",
-    "a_w": "Deux cordons, un de chaque côté de l'âme ; pleine résistance 0,46 / 0,48 / 0,55·tw en S235 / S275 "
-           "/ S355 (MSB P5 §2.2).",
+    "a_w": ("Deux cordons, un de chaque côté de l'âme ; pleine résistance (MSB P5 §2.2) : a ≥ " + PLEINE_RESISTANCE
+            + "."),
     "p3_u": "Symétrique par rapport à l'âme de la secondaire ; la rondelle doit dégager le cordon.",
     "d_top": "0 = dessus des semelles au même niveau ; aussi par glissement vertical de la poutre secondaire.",
     "d_nt": "0 = semelle supérieure non grugée.",
