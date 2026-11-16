@@ -5376,7 +5376,9 @@
   {
    "nom": "IPE 750x147 en S355, 8 m, 60 kN/m : âme non élancée (η = 1,00 d'un laminé), raidisseurs aux appuis",
    "sorte": "référence",
-   "attendu": {},
+   "attendu": {
+    "texte": "(appui A, appui B)"
+   },
    "pas": [{"action": "nouveau"}, {"action": "choisir", "role": "profil", "nom": "IPE 750x147"}, {"action": "modifier", "chemin": ["nuance"], "valeur": "S355"}, {"action": "modifier", "chemin": ["travees", "0"], "valeur": "8"}, {"action": "modifier", "chemin": ["cas", "0", "charges", "0", "v"], "valeur": "60"}],
    "photo": {
     "messages": [null, null, null, null, null],

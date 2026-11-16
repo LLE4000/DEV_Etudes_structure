@@ -295,7 +295,8 @@ cas("profil", "âme élancée (IPE 750x134 en S355, 8 m, 60 kN/m) : voilement pa
 # l'ancien cas « âme élancée » est GARDÉ, sous un nom qui dit ce qu'il montre depuis le lot A : il porte les plus forts
 # écarts de l'âme (F_Rd aux appuis 403,7 → 245,3 kN, V_pl,z,Rd 2 334 → 2 100 kN, plus de voilement par cisaillement)
 cas("profil", "IPE 750x147 en S355, 8 m, 60 kN/m : âme non élancée (η = 1,00 d'un laminé), raidisseurs aux appuis", REF,
-    [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")])
+    [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")],
+    {"texte": "(appui A, appui B)"})
 cas("profil", "appuis par l'âme : rien n'appuie sur l'âme, le bloc s'efface", REF, [neuf(), mod("appuis/mode", "ame")])
 cas("profil", "longueur d'appui négative refusée", LIM, [neuf(), mod("appuis/ss", "-3")], {"message": True})
 cas("profil", "longueur d'appui d'une charge ponctuelle au centre de cisaillement : gardée, sans effet", LIM,
