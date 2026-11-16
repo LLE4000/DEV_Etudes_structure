@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Le CONTRÔLE ANALYTIQUE du moment critique de déversement : l'annexe E ANB de la NBN EN 1993-1-1 ANB:2018, pour une
 section à deux axes de symétrie (z_j = 0). Le solveur aux éléments finis (acier/barre/mcr.py) reste la RÉFÉRENCE :
-l'annexe E admet elle-même les méthodes avancées (1(1) et 2(1)) ; ses formules sont « parfois approximatives, mais
-toujours sécuritaires ». docs/acier/BARRES_ACIER.md § 5.6 ; brief § 7.7, cas R1 du § 11.3, tests 20 et 21 du § 11.5.
+l'annexe E admet elle-même les méthodes avancées (1(1) et 2(1)) ; ses formules sont approchées et données du côté sûr
+(annexe E ANB, 2(1)) — le cas R1 montre une exception de +0,94 %. docs/acier/BARRES_ACIER.md § 5.6 ; brief § 7.7, cas R1
+du § 11.3, tests 20 et 21 du § 11.5.
 
     (E.8)  M_cr = C₁·π²·E·I_z/(k_z·L)²·{√[(k_z/k_ω)²·I_w/I_z + (k_z·L)²·G·I_t/(π²·E·I_z) + (C₂·z_g)²] − C₂·z_g}
            z_g = z_a − z_s : le point d'application de la charge au-dessus du centre de cisaillement (> 0 : déstabilisant)
@@ -10,7 +11,7 @@ toujours sécuritaires ». docs/acier/BARRES_ACIER.md § 5.6 ; brief § 7.7, cas
 Coefficients, k_z = k_ω = 1 seulement (les conditions d'extrémité courantes, 2(3)) :
     tableau E.1 ANB, moments d'extrémité (C₂·z_g = 0), C₁ selon ψ = 1 ; 0,75 ; 0,5 ; 0,25 ; 0 ; −0,25 ; −0,5 ; −0,75 ; −1 :
         1,00 ; 1,14 ; 1,31 ; 1,52 ; 1,77 ; 2,06 ; 2,35 ; 2,60 ; 2,60 — entre deux lignes, l'équation (E.2) de 2(6) :
-        C₁ = 1,77 − 1,04·ψ + 0,27·ψ² ≤ 2,60 (« approximativement, pour tous les cas du tableau E.1 ANB »)
+        C₁ = 1,77 − 1,04·ψ + 0,27·ψ² ≤ 2,60 (expression approchée, annexe E ANB 2(6), valable pour les cas du tableau E.1 ANB)
     tableau E.2 ANB, charges transversales : répartie C₁ = 1,12, C₂ = 0,45 ; concentrée à mi-portée 1,35 et 0,59 ;
         deux charges aux quarts 1,04 et 0,42
     note b) des tableaux : en moments d'extrémité seulement, C₁ divisé par 1,05 si K_ωt = π/(k_ω·L)·√(E·I_w/(G·I_t)) ≤ 1,
