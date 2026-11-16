@@ -4,13 +4,16 @@
 - ``F(x, n)``  : ``toFixed(n)`` avec la virgule décimale ; « — » si non fini ;
 - ``f0(x)``    : 0 ou 1 décimale (1 si la partie décimale dépasse 0,05), signe
                  typographique « − » ;
-- ``pct(e, n)`` : pourcentage, « > 999 % » au-delà de 9,99, « — » si absent.
+- ``pct(e, n)`` : pourcentage, « > 999 % » au-delà de 9,99, « — » si absent ;
+- ``f_ecart(x, ref)`` : ``f0``, ou la décimale qui départage ``x`` de ``ref`` (« 80,04 mm > 80 mm ») ;
+- ``mm_fr(texte)`` : les épaisseurs d'un message de la table (« 260.5 mm ») écrites à la virgule.
 
 Ces trois fonctions écrivent les chaînes ``vals`` des vérifications, les
 explications chiffrées des alertes, l'export texte et les cotes des dessins :
 elles font partie de la parité.
 """
 import math
+import re
 
 from .js import to_fixed, js_round
 
@@ -42,3 +45,28 @@ def pct(e, n=0):
     if e > 9.99:
         return "> 999 %"
     return F(e * 100, n or 0) + " %"
+
+
+def f_ecart(x, ref):
+    """``x`` écrit par ``f0``, sauf quand ``f0`` l'écrirait comme ``ref`` : alors avec la décimale qui les DÉPARTAGE
+    (``F``, jusqu'à 6 décimales) — « épaisseur 80,04 mm > 80 mm », jamais « 80 mm > 80 mm » (lot B, brief v12 § 19.2).
+    Même formateur que le reste du moteur : ``F`` et ``f0``, aucun autre."""
+    t = f0(x)
+    if x is None or not _fini(x) or ref is None or not _fini(ref) or t != f0(ref):
+        return t
+    for n in range(1, 7):
+        if F(x, n) != F(ref, n):
+            return F(x, n).replace("-", "−", 1)
+    return F(x, 6).replace("-", "−", 1)
+
+
+# un nombre décimal écrit avec le point, suivi de « mm » (« 260.5 mm ») ; « tableau 3.3 ANB » n'est pas une épaisseur
+_MM_POINT = re.compile(r"(?<![\d.])(\d+)\.(\d+)(?= mm(?![\w²³]))")
+
+
+def mm_fr(texte):
+    """Un message de la table unique (``acier.materiaux.HorsTable``, écrit avec le point de Python : « S355 laminé de
+    260.5 mm ») dans l'écriture du site : « 260,5 mm ». Seules les épaisseurs (un nombre suivi de « mm ») changent ; le
+    reste du message est gardé tel quel. ``acier/materiaux.py`` (la table) ne se modifie pas : l'appelant qui montre le
+    message le passe ici (lot B, brief v12 § 19.2)."""
+    return _MM_POINT.sub(r"\1,\2", str(texte))

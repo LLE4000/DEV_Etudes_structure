@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 from acier import materiaux as MA
 from acier.bibliotheques import DB
 
-from acier.formats import f0
+from acier.formats import f0, mm_fr
 
 from . import bibliotheque as BI
 from . import charges as CH
@@ -349,7 +349,7 @@ def verifier(cas: Dict) -> Dict:
         _verifier(cas, out, pieces)
     except MA.HorsTable as e:
         out.update({"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": []})
-        out["messages"].append(f"Refus : {e}")
+        out["messages"].append(f"Refus : {mm_fr(e)}")              # « 260,5 mm » (lot B, brief v12 § 19.2)
     if not pieces:                   # rien de vérifié (refus avant les sections) : la platine, s'il y en a une lisible
         try:
             pieces.append(acier(meth, t=float((cas["fixation"].get("platine") or {}).get("tp") or 10.0), piece="platine"))

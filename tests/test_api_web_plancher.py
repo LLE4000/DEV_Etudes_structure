@@ -793,6 +793,59 @@ chk("E2 · l'avis S2 « hors table » (tôle S235 de 300 mm à f = 235) : messag
 with mutant(W, "OU_COMPLETER", [x for x in W.OU_COMPLETER if x[0] != "(f_y) : à vérifier"]):
     chk("mutation « variante hors table sans Où compléter » (le défaut d'avant) : le contrôle E2 rougit", not ctl_hors_table_ecran())
 
+# lot B (brief v12 § 19.2) : la fiche à f illisible SOUS un appui — l'écran ne plante plus (la vue « Méthode » levait
+# ValueError sur f = « abc ») et « Calcul impossible » dit la cause en français (il écrivait l'erreur Python, en anglais :
+# « unsupported operand type(s) for /: 'str' and 'float' ») ; la note est refusée avec la même phrase. Aucune migration :
+# la fiche reste telle quelle dans l'état.
+PHRASE_ILLISIBLE = "Calcul impossible : la fiche « Tôle abc » a une résistance f illisible (« abc ») : à corriger dans la fiche."
+
+
+def ctl_f_illisible_ecran() -> list:
+    ecarts = []
+    e = etat_f_illisible(True)
+    calc = W._calculer(e, cas(e))
+    if calc.get("erreur") != PHRASE_ILLISIBLE:
+        ecarts.append(("message", calc.get("erreur")))
+    try:
+        h = W.resultat(e)["resultat"]
+        if PHRASE_ILLISIBLE not in _html_texte(h):
+            ecarts.append("écran : la phrase n'est pas sous le verdict")
+    except Exception as x:  # noqa: BLE001 — c'est le défaut que ce contrôle tient
+        ecarts.append(("écran", type(x).__name__, str(x)[:120]))
+    try:
+        W.telecharger(e, "note_pdf", {})
+        ecarts.append("note : préparée malgré le calcul impossible")
+    except ValueError as x:
+        if PHRASE_ILLISIBLE not in str(x) or "unsupported" in str(x):
+            ecarts.append(("note", str(x)[:160]))
+    except Exception as x:  # noqa: BLE001
+        ecarts.append(("note", type(x).__name__, str(x)[:120]))
+    if e["fiches"]["repartiteurs"][-1]["f"] != "abc":
+        ecarts.append("la fiche a été réécrite (migration)")
+    # l'avis « hors table » d'une tôle de 300,5 mm : les nombres à la virgule
+    e2 = etat_hors_table()
+    e2["fiches"]["repartiteurs"][-1]["t"] = 300.5
+    av = ET.avis_materiau(e2, cas(e2))
+    if not any("S235 laminé de 300,5 mm : le tableau 3.3 ANB s'arrête à 250 mm" in x for x in av):
+        ecarts.append(("avis hors table", av))
+    return ecarts
+
+
+def _html_texte(h: str) -> str:
+    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", h)))
+
+
+ec = ctl_f_illisible_ecran()
+chk("lot B · fiche à f illisible sous un appui : l'écran s'affiche, « Calcul impossible » en français (« la fiche « Tôle abc » a "
+    "une résistance f illisible (« abc ») ») à l'écran et au refus de la note, fiche intacte ; avis hors table à la virgule",
+    not ec, ec)
+with mutant(W, "motif_calcul", lambda etat, c_, e: str(e)):
+    chk("mutation « message Python brut » (l'avis d'avant) : le contrôle rougit", ctl_f_illisible_ecran() != [])
+with mutant(DPL, "_nombre", lambda x, ecrire: ecrire(x)):
+    chk("mutation « vue Méthode sans garde » (l'écran plantait) : le contrôle rougit", ctl_f_illisible_ecran() != [])
+with mutant(ET, "mm_fr", str):
+    chk("mutation « avis hors table avec le point (300.5 mm) » : le contrôle rougit", ctl_f_illisible_ecran() != [])
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

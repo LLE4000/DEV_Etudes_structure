@@ -649,6 +649,19 @@ with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("        out[\"messa
 with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("(H = {f0(H)} mm)", "(H = {H:g} mm)")])):
     chk("mutation de source « H = -1100.5 mm » (point décimal) : le contrôle rougit", not ctl_hauteur_nulle_vide())
 
+
+def ctl_refus_virgule() -> bool:
+    """Lot B (brief v12 § 19.2) : une platine de 260,5 mm au-delà du tableau 3.3 ANB — le refus de la table à la virgule."""
+    c = cas()
+    c["fixation"]["platine"]["tp"] = 260.5
+    return "Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y)" in ET.verifier(c)["messages"]
+
+
+chk("platine de 260,5 mm : « Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y) » (et non 260.5)",
+    ctl_refus_virgule())
+with mutant(ET, "mm_fr", str):
+    chk("mutation « refus de la table relayé tel quel (260.5 mm) » : le contrôle rougit", not ctl_refus_virgule())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

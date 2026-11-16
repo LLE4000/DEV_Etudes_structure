@@ -222,6 +222,33 @@ LA.jouer(chk, moteur.compute, attendus=[
    hors_table=(dict(tp_u=300), "plat"))
 
 # ================================================================
+print("\n=== 8 bis. Lot B : un refus de la table s'écrit à la virgule (brief v12 § 19.2) ===")
+from acier import materiaux as MA_  # noqa: E402
+from acier.assemblages import materiau as MT_  # noqa: E402
+
+
+def refus(u):
+    try:
+        moteur.compute(u)
+    except MA_.HorsTable as e:
+        return str(e)
+    return None
+
+
+def ctl_refus_virgule():
+    return refus(dict(tp_u=260.5)) == "plat : S355 laminé de 260,5 mm, au-delà du tableau 3.3 ANB (250 mm)"
+
+
+chk("plat de 260,5 mm : « plat : S355 laminé de 260,5 mm, au-delà du tableau 3.3 ANB (250 mm) » (et non 260.5)",
+    ctl_refus_virgule(), refus(dict(tp_u=260.5)))
+_avant = MT_.mm_fr
+MT_.mm_fr = str
+try:
+    chk("mutation « refus écrit avec le point (260.5 mm) » : le contrôle rougit", not ctl_refus_virgule())
+finally:
+    MT_.mm_fr = _avant
+
+# ================================================================
 print("\n=== 9. Lot B : ductilité de l'attache, SCI P358 §5.3 (3) (brief v12 § 19.1 point 3) ===")
 # tp ≤ k·d (nuance du plat) OU tw ≤ k·d (nuance de la poutre portée) ; k = 0,50 en S235 et S275, 0,42 en S355 ; au-delà :
 # non couvert. Recommandation, jamais un verdict ; le prédimensionnement suit la même règle. IPE 300 : t_w = 7,1 mm.

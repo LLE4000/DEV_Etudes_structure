@@ -892,8 +892,21 @@ def _calculer(etat: Dict, cas: Dict, verifier: bool = True) -> Dict:
         try:
             out["res"] = V.verifier(plancher, charges, reps, params)
         except Exception as e:  # noqa: BLE001 — l'écran d'origine s'arrêtait sur l'exception
-            out["erreur"] = f"Calcul impossible : {e}"
+            out["erreur"] = f"Calcul impossible : {motif_calcul(etat, cas, e)}"
     return out
+
+
+def motif_calcul(etat: Dict, cas: Dict, e: Exception) -> str:
+    """Ce que « Calcul impossible » dit, en FRANÇAIS (lot B, brief v12 § 19.2) : une fiche employée dont une donnée n'est
+    pas un nombre (« la fiche « Tôle abc » a une résistance f illisible (« abc ») : à corriger dans la fiche ») ; une
+    autre erreur de type (un message de Python, en anglais) : une phrase générale ; sinon le message du moteur, déjà en
+    français."""
+    illisibles = ET.fiches_illisibles(etat, cas)
+    if illisibles:
+        return " ; ".join(illisibles) + " : à corriger dans la fiche."
+    if isinstance(e, TypeError):
+        return "une donnée de la note n'est pas un nombre (fichier modifié à la main ?)."
+    return str(e)
 
 
 def _taux(res: Optional[Dict]) -> Optional[float]:

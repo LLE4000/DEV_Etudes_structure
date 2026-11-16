@@ -57,6 +57,15 @@ from acier.profiles import catalogue as CAT  # noqa: E402
 OK, KO = [], []
 
 
+def _message(f):
+    """Le message du HorsDomaine que la fonction lève (None si elle ne lève pas)."""
+    try:
+        f()
+    except NO.HorsDomaine as e:
+        return str(e)
+    return None
+
+
 def _refuse(f):
     """La fonction lève HorsDomaine (une donnée que la table ou le module ne couvre pas)."""
     try:
@@ -135,6 +144,13 @@ def controles():
       len(motifs) == 13 and motifs.get("HL 920x970") == "épaisseur 89,9 mm > 80 mm : hors du domaine du module"
       and motifs.get("HL 920x1269", "").startswith("épaisseur 115,1 mm > 80 mm") and motifs.get("HD 400x818.0", "").startswith("épaisseur 97 mm >")
       and not any(re.search(r"\d\.\d", m_ or "") for m_ in motifs.values()), {k: motifs[k] for k in list(motifs)[:2]})
+    # lot B (brief v12 § 19.2) : entre 80 et 80,05 mm, f0 écrivait « 80 mm > 80 mm » — la décimale qui départage
+    # (formats.f_ecart) ; un refus de la TABLE relayé à la virgule (« 40,5 mm », formats.mm_fr), jamais « 40.5 mm »
+    m80, m405 = _message(lambda: NO.limite_elastique("S355", 80.04)), _message(lambda: NO.limite_elastique("S355", 40.5, froid=True))
+    c("lot B · « épaisseur 80,04 mm > 80 mm » (et non « 80 mm > 80 mm ») ; creux formé à froid de 40,5 mm : « … de 40,5 mm : le "
+      "tableau 3.10 ANB s'arrête à 40 mm » (et non « 40.5 mm »)",
+      m80 == "épaisseur 80,04 mm > 80 mm : hors du domaine du module"
+      and m405 == "S355 creux formé à froid de 40,5 mm : le tableau 3.10 ANB s'arrête à 40 mm (f_y)", (m80, m405))
     r = MO.verifier(barre(profil="SHS 400x400x20", nuance="S355"))
     c("SHS 400×400×20 S355 (fini à chaud, t = 20 mm) : f_y = 345, lue au tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm",
       r["section"]["fy"] == 345 and r["section"]["source_fy"] == "tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm", r["section"].get("source_fy"))
@@ -373,7 +389,8 @@ def mutations():
     sauf = {"phi_chi": NO.phi_chi, "ALPHA": dict(NO.ALPHA), "courbes": NO.courbes, "limite_elastique": NO.limite_elastique,
             "rho": NO.rho, "K_APPUIS": dict(EN.K_APPUIS), "longueur_flambement": EN.longueur_flambement, "euler": NO.euler,
             "classe_paroi": NO.classe_paroi, "LIMITES_CLASSE": dict(NO.LIMITES_CLASSE), "parois": SE.parois, "elancement_paroi": NO.elancement_paroi,
-            "classe_corniere": NO.classe_corniere, "t_fy": MO._t_fy, "produit": SE.produit, "section": MO._section}
+            "classe_corniere": NO.classe_corniere, "t_fy": MO._t_fy, "produit": SE.produit, "section": MO._section,
+            "f_ecart": NO.f_ecart, "mm_fr": NO.mm_fr}
     _axe = MO._axe
     src_section = textwrap.dedent(inspect.getsource(MO._section))
 
@@ -387,6 +404,7 @@ def mutations():
         return ns["_section"]
 
     def restaure():
+        NO.f_ecart, NO.mm_fr = sauf["f_ecart"], sauf["mm_fr"]
         NO.phi_chi = sauf["phi_chi"]
         NO.ALPHA.clear()
         NO.ALPHA.update(sauf["ALPHA"])
@@ -510,6 +528,8 @@ def mutations():
         ("γ_M1 ignoré", lambda: setattr(MO, "_axe", axe_sans_gamma)),
         ("limite de classe 3 interne à 45·ε", lambda: setattr(NO, "classe_paroi", classe_42)),
         ("cornière : critère (b + h)/2t oublié", lambda: setattr(NO, "classe_corniere", corniere_15)),
+        ("lot B · l'épaisseur au-delà de 80 mm écrite par f0 seul (« 80 mm > 80 mm »)", lambda: setattr(NO, "f_ecart", lambda x, ref: NO.f0(x))),
+        ("lot B · le refus de la table relayé tel quel (« 40.5 mm »)", lambda: setattr(NO, "mm_fr", str)),
     ]
     res = []
     for nom, appliquer in cas:

@@ -30,7 +30,7 @@ from acier import bibliotheques as BI
 from acier import materiaux as MA
 from acier.assemblages import mecanique as MEC
 from acier.bibliotheques import DB, PERSO, find
-from acier.formats import F
+from acier.formats import F, mm_fr
 
 # Les épaisseurs que le prédimensionnement propose pour un plat, une platine ou une cornière (DB["epais"], 8 à 15 mm) :
 # toutes dans la première bande du tableau 3.3 ANB (t ≤ 16 mm), donc une seule f_y. Le prédimensionnement lit
@@ -93,14 +93,15 @@ def refus_hors_table(nom, t, piece, e):
     S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm) ». Lue sur la table (``MA.ligne``,
     ``MA.epaisseur_max``), aucune borne recopiée ; un autre refus (nuance inconnue…) garde la phrase de la table."""
     tete = f"{piece} : " if piece else ""
+    # les épaisseurs à la virgule (« 260,5 mm », lot B, brief v12 § 19.2 : formats.mm_fr)
     try:
         sup = MA.epaisseur_max(nom)
         if t > sup:
-            return (f"{tete}{nom} {MA.LIBELLES_PRODUIT['lamine']} de {t:g} mm, au-delà du tableau "
-                    f"{MA.ligne(nom)['tableau']} ({sup:g} mm)")
+            return mm_fr(f"{tete}{nom} {MA.LIBELLES_PRODUIT['lamine']} de {t:g} mm, au-delà du tableau "
+                         f"{MA.ligne(nom)['tableau']} ({sup:g} mm)")
     except MA.HorsTable:
         pass
-    return f"{tete}{e}"
+    return mm_fr(f"{tete}{e}")
 
 
 def poser(R, X, nom, t, perso=None, materiau=None, cle=None, piece=""):

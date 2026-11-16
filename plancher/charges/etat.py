@@ -20,6 +20,7 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 from acier import materiaux as MA
+from acier.formats import mm_fr
 
 from . import bibliotheque as BIB
 from . import modele as M
@@ -193,6 +194,11 @@ def epaisseur_filiere(d: Dict) -> float:
     return min(float(sec["b"]), float(sec["h"]))
 
 
+def _g(x: float) -> str:
+    """Un nombre écrit tel quel, virgule française (235 ; 225,5)."""
+    return f"{x:g}".replace(".", ",")
+
+
 def avis_f_enregistre(d: Dict, ep: float) -> Optional[str]:
     """L'avis d'une fiche d'acier dont le f ENREGISTRÉ vaut exactement le nombre du nom (MA.nominale : 235, 355) alors
     que la table unique donne moins pour son épaisseur décisive ``ep`` (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a ;
@@ -213,13 +219,44 @@ def avis_f_enregistre(d: Dict, ep: float) -> Optional[str]:
             return None
         fy = BIB.fy_piece(mat, ep)
     except MA.HorsTable as e:
-        return f"« {d['nom']} » : f = {f:g} N/mm² enregistré ; {e} : à vérifier."
+        # les nombres à la virgule (« 260,5 mm », lot B, brief v12 § 19.2 : formats.mm_fr pour le message de la table)
+        return f"« {d['nom']} » : f = {_g(f)} N/mm² enregistré ; {mm_fr(e)} : à vérifier."
     if fy >= f:
         return None
     src = MA.source(mat, ep, "lamine", "fy")             # « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm »
     e_fr = f"{ep:g}".replace(".", ",")
-    return (f"« {d['nom']} » : f = {f:g} N/mm² enregistré ; pour {e_fr} mm, la table donne {fy:g} "
+    return (f"« {d['nom']} » : f = {_g(f)} N/mm² enregistré ; pour {e_fr} mm, la table donne {_g(fy)} "
             f"({src.split(' (')[0]}, {src.rsplit('), ', 1)[-1]}) : à vérifier.")
+
+
+# les données numériques d'une fiche de répartiteur (plateau, filière) que le calcul lit comme des nombres
+CHAMPS_NUMERIQUES = (("f", "résistance f"), ("E", "module E"), ("t", "épaisseur t"), ("A", "dimension A"),
+                     ("Bp", "dimension Bp"), ("masse", "masse"))
+
+
+def fiches_illisibles(etat: Dict, cas: Dict) -> List[str]:
+    """Les phrases des fiches EMPLOYÉES par le cas (plateaux sous ses appuis, filières posées) dont une donnée numérique
+    n'est pas un nombre (un fichier modifié à la main : f = « abc ») : « la fiche « Tôle abc » a une résistance f
+    illisible (« abc ») ». Le calcul ne peut pas aboutir ; l'écran et la note le disent en français au lieu de l'erreur
+    Python (lot B, brief v12 § 19.2). Rien n'est réécrit dans le fichier (aucune migration de format)."""
+    dispo = repartiteurs_disponibles(etat)
+    noms = [rp["nom"] for rp in cas.get("repartiteurs", {}).values() if rp.get("type") == "plateau"] \
+        + [f["nom"] for f in cas.get("filieres", [])]
+    vus, out = set(), []
+    for nom in noms:
+        d = dispo.get(nom)
+        if d is None or nom in vus:
+            continue
+        vus.add(nom)
+        for cle, quoi in CHAMPS_NUMERIQUES:
+            v = d.get(cle)
+            if v is None or v == "":
+                continue
+            try:
+                float(v)
+            except (TypeError, ValueError):
+                out.append(f"la fiche « {nom} » a une {quoi} illisible (« {v} »)")
+    return out
 
 
 def avis_materiau(etat: Dict, cas: Dict) -> List[str]:
