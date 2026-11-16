@@ -198,13 +198,19 @@ def jouer_gorge(chk, compute, predim):
 # (0,60·tw en S355, tableau 3.3 ANB) : côté non sûr. Elle imprime maintenant les coefficients CALCULÉS
 # (``MT.texte_pleine_resistance``) ; le contrôle les compare au k_plein que le moteur donne, nuance par nuance.
 AIDE_EN_DUR = "0,46 / 0,48 / 0,55·tw en S235 / S275 / S355"       # le texte du commit de base 0439cc5 (mutation)
+# la phrase de la Méthode demandée par le propriétaire (brief v12 § 19.1 point 7), copie NOMMÉE (les f_u : tableau 3.1
+# de l'EN 1993-1-1 et tableau 3.3 ANB ; les coefficients : ceux de l'avis a_rec, contrôlés plus haut)
+GUIDE_LOT_B = ("Le guide calcule ses coefficients avec les fu du tableau 3.1 de l'EN (430 et 510 N/mm²) ; l'ANB impose "
+               "l'option a (410 et 470), d'où 0,50 et 0,60 en S275 et S355.")
+CITATION_GUIDE = "le guide en tire 0,46 / 0,48 / 0,55·tw en S235 / S275 / S355 avec les fu de l'EN 1993-1-1"   # mutation
 
 
 def controles_aide_gorge(compute, textes):
     """``textes`` : {où: texte imprimé} (aide du champ, « ? » de la carte, rubrique Méthode). Rend [(nom, condition,
     info)] : chaque texte porte les coefficients a/t_w que l'avis a_rec du MOTEUR calcule (k_plein, deux décimales comme
     l'avis) pour une note toute en S235, S275 puis S355, et la condition d'épaisseur ; l'aide ne garde aucun des
-    coefficients du guide (0,48, 0,55), la Méthode les cite comme ceux du guide."""
+    coefficients du guide (0,48, 0,55), la Méthode non plus depuis le lot B : elle dit d'où ils viennent
+    (``GUIDE_LOT_B``)."""
     from acier.formats import F
     ks, tws = [], []
     for n in ("S235", "S275", "S355"):
@@ -217,7 +223,10 @@ def controles_aide_gorge(compute, textes):
     for ou, t in textes.items():
         t = " ".join(t.split())                     # la Méthode est un texte replié sur plusieurs lignes
         if ou.startswith("rubrique Méthode"):
-            ok = f"le site obtient **{attendu}" in t and "le guide en tire **0,46 / 0,48 / 0,55·tw**" in t
+            # lot B (brief v12 § 19.1 point 7) : la Méthode ne cite plus 0,46 / 0,48 / 0,55 ; une phrase dit d'où ils
+            # viennent (f_u du tableau 3.1 de l'EN) et pourquoi le site écrit 0,50 et 0,60 (option a de l'ANB)
+            ok = (f"le site obtient **{attendu}" in t and "0,48" not in t and "0,55" not in t
+                  and GUIDE_LOT_B in t)
         else:
             ok = attendu in t and "0,48" not in t and "0,55" not in t
         out.append((f"aide « Gorge a » — {ou} : « a ≥ {attendu}, … » = les coefficients de l'avis a_rec du moteur",
@@ -246,6 +255,19 @@ def jouer_aide_gorge(chk, compute, modules, lire):
             importlib.reload(m)
     chk(f"mutation « coefficients de l'aide remis en dur ({AIDE_EN_DUR}) » : les contrôles de l'aide rougissent "
         f"({len(rouges)} sur {len(textes)})", len(rouges) == len(textes), str(rouges))
+    # lot B : la citation du guide remise dans la Méthode à la place de la phrase (brief v12 § 19.1 point 7)
+    avant_g = MT.texte_guide_pleine_resistance
+    MT.texte_guide_pleine_resistance = lambda gM2, gM0=1.0: CITATION_GUIDE
+    try:
+        for m in modules:
+            importlib.reload(m)
+        rouges = [n for n, c, _ in controles_aide_gorge(compute, lire()) if not c]
+    finally:
+        MT.texte_guide_pleine_resistance = avant_g
+        for m in modules:
+            importlib.reload(m)
+    chk(f"mutation « citation du guide (0,46 / 0,48 / 0,55) remise dans la Méthode » : le contrôle de la Méthode rougit "
+        f"({len(rouges)})", any("rubrique Méthode" in n for n in rouges), str(rouges))
     chk("… et, la mutation retirée, l'aide redit la règle", all(c for _, c, _ in controles_aide_gorge(compute, lire())))
 
 

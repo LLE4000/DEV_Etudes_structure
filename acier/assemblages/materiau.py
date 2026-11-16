@@ -213,7 +213,9 @@ def coefs_pleine_resistance(gM2, gM0=1.0, nuances=NUANCES_PLEINE_RESISTANCE):
     ``test_assemblages_mecanique``) sur la table du site, la poutre portée et la platine de la même nuance. f_y et f_u
     de la PREMIÈRE bande du tableau 3.3 ANB (``MA.bornes``) : le coefficient ne vaut que pour une âme t_w ≤ t_w max
     (16 mm) ; au-delà, f_y baisse et l'avis du moteur, qui lit l'âme à SON épaisseur (``t_ame``), le dit. Aucun
-    coefficient recopié : le guide en tire 0,46 / 0,48 / 0,55 avec les f_u de l'EN 1993-1-1 (tableau 3.1)."""
+    coefficient recopié : les 0,46 / 0,48 / 0,55 du guide viennent des f_u du tableau 3.1 de l'EN 1993-1-1 (S275 : 430,
+    S355 : 510 N/mm²) ; l'ANB impose l'option a (tableau 3.3 ANB : 410 et 470), d'où 0,50 et 0,60
+    (``texte_guide_pleine_resistance``)."""
     t_max = min(MA.bornes(n)[0][0] for n in nuances)
     out = []
     for n in nuances:
@@ -231,3 +233,17 @@ def texte_pleine_resistance(gM2, gM0=1.0):
     tableaux = sorted({MA.ligne(n)["tableau"] for n, _ in ks})
     return (f"{' / '.join(F(k, 2) for _, k in ks)}·tw en {' / '.join(n for n, _ in ks)} "
             f"(tw ≤ {t_max:g} mm, tableau {', '.join(tableaux)})")
+
+
+def texte_guide_pleine_resistance(gM2, gM0=1.0):
+    """La phrase de la rubrique Méthode des platines d'about sur les coefficients du GUIDE (brief v12 § 19.1 point 7) :
+    « Le guide calcule ses coefficients avec les fu du tableau 3.1 de l'EN (430 et 510 N/mm²) ; l'ANB impose l'option
+    a (410 et 470), d'où 0,50 et 0,60 en S275 et S355 ». Rien n'est recopié : les f_u de l'EN sont celles du matériau
+    des exemples publiés (``EXEMPLES``, EN 1993-1-1 tableau 3.1), celles de l'ANB et les coefficients du site viennent
+    de la table du site (``coefs_pleine_resistance``) ; le S235 n'y figure pas (même f_u des deux côtés : 360)."""
+    t_max, ks = coefs_pleine_resistance(gM2, gM0, ("S275", "S355"))
+    fu_en = [EXEMPLES(n, t_max)["fu"] for n, _ in ks]
+    fu_anb = [table_du_site(n, t_max)["fu"] for n, _ in ks]
+    return (f"Le guide calcule ses coefficients avec les fu du tableau 3.1 de l'EN ({' et '.join(f'{x:g}' for x in fu_en)} "
+            f"N/mm²) ; l'ANB impose l'option a ({' et '.join(f'{x:g}' for x in fu_anb)}), d'où "
+            f"{' et '.join(F(k, 2) for _, k in ks)} en {' et '.join(n for n, _ in ks)}")
