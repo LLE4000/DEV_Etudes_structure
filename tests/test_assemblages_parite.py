@@ -20,7 +20,7 @@ moteur du HTML via l'oracle Node). Chaque garantie rougit si on la retire :
      donne (``parite.materiau_du_corrige``) — une validation de FORMULES.
      Sans lui, le moteur prend la table belge (NBN EN 1993-1-1 ANB:2018
      3.2.1(1), tableau 3.3 ANB) : le cas par défaut s'en écarte par f_y de la
-     porteuse (HEB 300, t = 19 mm : 345) et f_u (470), et par rien d'autre
+     porteuse (HEA 400, t = 19 mm : 345) et f_u (470), et par rien d'autre
      que ce qui en découle.
 
 Lancement : python3 tests/test_assemblages_parite.py (depuis la racine).
@@ -123,7 +123,7 @@ Rb = moteur.compute({})
 nb, ecb = comparer(REF["cas"][0]["attendu"], instantane(Rb), tol=1e-9, chemin="defaut")
 mat = sorted(e.split(" : ")[0].rsplit(".", 1)[1] for e in ecb if ".scalaires.f" in e and e.split(" : ")[0].rsplit(".", 1)[1][:3] in ("fy_", "fu_"))
 chk("sans le matériau du corrigé, le cas par défaut s'en écarte (table belge)", bool(ecb), str(len(ecb)))
-chk("… par f_y de la porteuse (HEB 300, t = 19 mm : 345) et f_u des trois pièces (470) — tableau 3.3 ANB",
+chk("… par f_y de la porteuse (HEA 400, t = 19 mm : 345) et f_u des trois pièces (470) — tableau 3.3 ANB",
     mat == ["fu_C", "fu_P", "fu_S", "fy_P"] and Rb.fy_P == 345 and Rb.fy_S == 355 and Rb.fy_C == 355
     and Rb.fu_P == Rb.fu_S == Rb.fu_C == 470, str(mat))
 chk("… et le taux gouvernant suit f_u : 0,7399 × 510/470 = 0,8029 (pression diamétrale de l'âme portée)",

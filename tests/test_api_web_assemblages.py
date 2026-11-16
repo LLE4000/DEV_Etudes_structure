@@ -662,7 +662,7 @@ chk("acier « Personnalisé » : f_y, f_u, β_w partent de ceux que le calcul re
 e_P = etat_de("plat_ame")
 A.modifier(e_P, ["v", "nu_P"], PERSO)
 u_P = A._actif(e_P)["values"]
-chk("… et pour la porteuse HEB 300 S355 (tf = 19 mm) : f_y = 345 retenu, pas 355 nominal (le moteur le nomme : "
+chk("… et pour la porteuse HEA 400 S355 (tf = 19 mm) : f_y = 345 retenu, pas 355 nominal (le moteur le nomme : "
     "l'écran ne relit pas la table)", (u_P["fy_u"], u_P["fu_u"]) == (345.0, 470.0), (u_P["fy_u"], u_P["fu_u"]))
 _cfg_pa = A.CONFIGS["plat_ame"]
 _el_pa = A._actif(etat_de("plat_ame"))
@@ -865,7 +865,7 @@ try:
     rouge = A._actif(e_m)["values"]["fy_u"] != 345.0
 finally:
     A._reprendre_acier = ra0
-chk("mutation « reprise de la valeur nominale, sans épaisseur » : le contrôle de la porteuse HEB 300 rougit", rouge)
+chk("mutation « reprise de la valeur nominale, sans épaisseur » : le contrôle de la porteuse HEA 400 rougit", rouge)
 
 # =====================================================================================================================
 print("\n=== 11. Pureté : le chemin du navigateur, sans streamlit ===")

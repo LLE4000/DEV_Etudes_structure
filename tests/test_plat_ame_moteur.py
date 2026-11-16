@@ -206,7 +206,7 @@ chk("RÉGRESSION CALCUL : 0 différence sur les 12 cas figés", ndiff == 0, str(
 # ================================================================
 print("\n=== 8. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")
 # NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a) ; profilé : max(tf, tw) ; plat : son épaisseur. La note neuve :
-# poutre principale HEB 300 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
+# poutre principale HEA 400 (tf = 19 mm) → f_y = 345 ; f_u = 470 partout (3 à 100 mm).
 LA.jouer(chk, moteur.compute, attendus=[
     ("note neuve", {}, {"P": (19, LA.FY_S355_40, LA.FU_S355), "L": (10, LA.FY_S355, LA.FU_S355)}),
     ("IPE 600 portée par un HEB 600 (tf = 19 et 30 mm)", dict(prof_S="IPE 600", prof_P="HEB 600", V_Ed=250),
