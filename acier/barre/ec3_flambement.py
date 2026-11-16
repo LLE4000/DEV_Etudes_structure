@@ -20,8 +20,9 @@ from typing import Dict, Optional
 
 from acier.flambement import normes as NO
 
+from . import prs as PR
 from . import section as SE
-from .resultat import Journal, Refus, fr as _fr, terme as _t
+from .resultat import NON_COUVERT, Journal, Refus, fr as _fr, terme as _t
 
 REF = "EN 1993-1-1 § 6.3.1"
 LAMBDA_NEGLIGE, RAPPORT_NEGLIGE = 0.2, 0.04      # § 6.3.1.2(4)
@@ -39,12 +40,14 @@ def courbes(s: Dict, nuance: Optional[str], fy: float) -> Dict:
             if not s.get("h") or not s.get("b") or not s.get("tf"):
                 raise Refus("h, b, t_f manquent : la courbe d'un I laminé en dépend")
             cy, cz, regle = NO.courbes("lamine_I", nu, s["h"], s["b"], s["tf"])
-        elif forme == "I" and fab in ("soude_oxycoupe", "soude_larges_plats"):
+        elif forme == "I" and (fab in ("soude_oxycoupe", "soude_larges_plats") or SE.soude(s)):
             if not s.get("tf"):
                 raise Refus("t_f manque : la courbe d'un I soudé en dépend")
             mince = s["tf"] <= SEMELLE_EPAISSE
             cy, cz = ("b", "c") if mince else ("c", "d")
             regle = "I soudé, t_f ≤ 40 mm" if mince else "I soudé, t_f > 40 mm"
+            if PR.monosymetrique(s):                 # PRS : t_f = la plus grande épaisseur de semelle (choix prudent déclaré)
+                regle += f" (t_f = {s['tf']:g} mm, la plus épaisse des semelles)"
         elif forme in SE.TUBES and fab in ("creux_chaud", "creux_froid"):
             cy, cz, regle = NO.courbes(fab, nu)
         elif forme in ("tube_carre", "tube_rect") and fab in ("caisson", "caisson_recuit"):
@@ -111,7 +114,14 @@ def ajouter(J: Journal, d: Dict) -> None:
                     messages=["Flambement négligeable (λ̄ ≤ 0,2 ou N_Ed/N_cr ≤ 0,04)."] if g["neglige"] else ())
     # ---- flambement par torsion d'un I ou d'un H (centre de cisaillement confondu avec le centre de gravité)
     LT = d["torsion"]["Lcr"]
-    if s["forme"] == "I" and LT > 0 and s.get("It") and s.get("Iw") is not None:
+    if PR.monosymetrique(s):
+        # PRS monosymétrique (brief § 7.6 et 18.8) : N_cr,TF hors du périmètre v1 — le flambement par flexion-torsion n'est
+        # pas couvert ; (F.4) de l'annexe F ANB suppose d'ailleurs l'effort au centre de torsion. E-Nb-z ne le couvre pas.
+        if comprime:
+            J.verif("E-Nb-T", "Flambement par flexion-torsion", f"{REF}.4", "", None, None, "", [], statut=NON_COUVERT,
+                    messages=[J.alerte("prs_TF", "attention", "PRS monosymétrique comprimé : flambement par flexion-torsion non couvert "
+                                                               "(N_cr,TF hors périmètre v1).")])
+    elif s["forme"] == "I" and LT > 0 and s.get("It") and s.get("Iw") is not None:
         i0 = math.sqrt(s["iy"] ** 2 + s["iz"] ** 2)
         NcrT = (Gc * s["It"] + math.pi ** 2 * E * s["Iw"] / LT ** 2) / i0 ** 2
         courbe = F["z"]["courbe"]

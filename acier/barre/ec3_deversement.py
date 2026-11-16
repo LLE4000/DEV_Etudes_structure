@@ -33,6 +33,8 @@ from acier.flambement import normes as NO
 
 from . import mcr as MC
 from . import parametres as PA
+from . import prs as PR
+from . import section as SE
 from .resultat import Journal, Refus, fr as _fr, terme as _t
 
 REF = "EN 1993-1-1 § 6.3.2"
@@ -44,6 +46,7 @@ COURBES_LT = {"lamine": ("b", "c"), "soude": ("c", "d")}        # (h/b ≤ 2, h/
 COURBE_GENERALE, LAMBDA0_GENERAL, BETA_GENERAL = "d", 0.2, 1.0  # § 6.3.2.2, « autres sections »
 SOUDES = ("soude_oxycoupe", "soude_larges_plats")
 EMPECHE, SANS_OBJET, NEGLIGE, CALCULE = "empeche", "sans_objet", "neglige", "calcule"
+METHODE_GENERALE, METHODE_LAMINES = "§ 6.3.2.2", "§ 6.3.2.3"
 
 
 def coefficient_kc(diagramme: str, psi: float = 1.0) -> Tuple[float, bool]:
@@ -82,12 +85,14 @@ def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) ->
 
 
 def _critique(s: Dict, P: Dict, tr: Dict, moment: Optional[Callable[[float], float]] = None) -> Dict:
-    """M_cr du tronçon ``tr`` ; avec ``moment``, sous ce diagramme et SANS charge transversale (le moment constant)."""
+    """M_cr du tronçon ``tr`` ; avec ``moment``, sous ce diagramme et SANS charge transversale (le moment constant).
+    Un PRS monosymétrique : avec le terme de Wagner (z_j de la semelle haute comprimée, acier/barre/prs.zj_haut)."""
     EIz, EIw, GIt = P["E"] * s["Iz"], P["E"] * (s.get("Iw") or 0.0), P["G"] * s["It"]
+    zj = PR.zj_haut(s)
     if moment is not None:
-        return MC.moment_critique(tr["L"], EIz, EIw, GIt, moment, appuis=tr["appuis"], maintiens=tr["maintiens"], M_max=1.0)
+        return MC.moment_critique(tr["L"], EIz, EIw, GIt, moment, appuis=tr["appuis"], maintiens=tr["maintiens"], M_max=1.0, zj=zj)
     return MC.moment_critique(tr["L"], EIz, EIw, GIt, tr["moment"], reparties=tr.get("reparties", ()), ponctuelles=tr.get("ponctuelles", ()),
-                              appuis=tr["appuis"], maintiens=tr["maintiens"], M_max=tr.get("M_max"))
+                              appuis=tr["appuis"], maintiens=tr["maintiens"], M_max=tr.get("M_max"), zj=zj)
 
 
 def ajouter(J: Journal, d: Dict) -> None:
@@ -110,7 +115,10 @@ def ajouter(J: Journal, d: Dict) -> None:
     if not s.get("It") or (s["forme"] == "I" and s.get("Iw") is None):
         raise Refus("I_t et I_w manquent : le déversement en dépend")
     fl = d["flexion"]["y"]
-    tr = dev["troncon"] or troncon_impose(dev["Lc"], My, fl["diagramme"], fl["psi"], dev["zg"])
+    # un PRS monosymétrique : le SIGNE du moment dit la semelle comprimée (M_y > 0 : la semelle haute) ; une section
+    # bisymétrique se calcule comme avant, moment pris positif
+    signe = -1.0 if (PR.monosymetrique(s) and d.get("semelle_comprimee") == PR.BAS) else 1.0
+    tr = dev["troncon"] or troncon_impose(dev["Lc"], signe * My, fl["diagramme"], fl["psi"], dev["zg"])
     kc, tabule = (dev["kc"], True) if dev["kc"] is not None else coefficient_kc(fl["diagramme"] if dev["troncon"] is None else GENERAL, fl["psi"])
     nomW = {1: "W_pl,y", 2: "W_pl,y", 3: "W_el,y", 4: "W_eff,y"}[G["classe"]]
     cles = []
@@ -130,23 +138,30 @@ def ajouter(J: Journal, d: Dict) -> None:
         cles.append(J.f("M_cr", "M_cr", [_t("λ_cr", r["lambda"]), _t("|M_y|max", r["M_max"] / 1e6, "kN·m")], Mcr / 1e6, "kN·m", "e_M_cr"))
     simple = tr["appuis"] == (MC.FOURCHE, MC.FOURCHE) and not tr["maintiens"]
     if simple:
-        Mcr0 = MC.moment_constant(tr["L"], P["E"] * s["Iz"], P["E"] * (s.get("Iw") or 0.0), P["G"] * s["It"])
+        Mcr0 = MC.moment_constant(tr["L"], P["E"] * s["Iz"], P["E"] * (s.get("Iw") or 0.0), P["G"] * s["It"], signe * PR.zj_haut(s))
     else:
-        Mcr0 = _critique(s, P, tr, moment=lambda x: 1.0)["M_cr"] or Mcr
+        Mcr0 = _critique(s, P, tr, moment=lambda x: signe)["M_cr"] or Mcr
     lbLT = math.sqrt(Wy * fy / Mcr)
     lb0 = math.sqrt(Wy * fy / Mcr0)
     cles.append(J.f("lambda_LT", "λ̄_LT", [_t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr", Mcr / 1e6, "kN·m")], lbLT, "",
                     "e_lambda_LT"))
     # ---- la courbe et le couple (λ̄_LT,0 ; β) de l'ANB:2018, 6.3.2.3(1) — un seul : M_cr tient compte des maintiens
     D["a_confirmer"] = [k for k in ("lambda_LT0_avec_maintiens", "beta_avec_maintiens") if PA.PARAMETRES[k]["statut"] == PA.A_CONFIRMER]
+    prs = PR.est_prs(s)
     if s["forme"] == "I":
-        famille = "soude" if s["fabrication"] in SOUDES else "lamine"
+        famille = "soude" if (s["fabrication"] in SOUDES or SE.soude(s)) else "lamine"
         if not s.get("h") or not s.get("b"):
             raise Refus("h et b manquent : la courbe de déversement en dépend")
         courbe = COURBES_LT[famille][s["h"] / s["b"] > ELANCE]
         lbLT0, beta = P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"]
         seuil = lbLT0
         methode = "§ 6.3.2.3"
+        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):
+            # PRS (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par défaut — tableau 6.4, « sections en I
+            # soudées », les mêmes courbes c et d ; § 6.3.2.3 seulement pour un PRS bisymétrique déclaré « section soudée
+            # équivalente » ; un PRS monosymétrique : § 6.3.2.2 seul
+            lbLT0, beta = LAMBDA0_GENERAL, BETA_GENERAL
+            methode = METHODE_GENERALE
     else:
         courbe, lbLT0, beta = COURBE_GENERALE, LAMBDA0_GENERAL, BETA_GENERAL
         seuil = P["lambda_LT0_avec_maintiens"]                   # 6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 (ANB : 0,2)
@@ -174,7 +189,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         else:                                    # χ_LT ≤ 1/λ̄_LT² : le plafond gouverne (grands élancements, β < 1)
             cles.append(J.f("chi_LT", "χ_LT", [_t("λ̄_LT", lbLT)], chi0, "", "e_chi_LT_plafond"))
         f = 1.0
-        if s["forme"] == "I":
+        if s["forme"] == "I" and methode != METHODE_GENERALE:
             if fl["diagramme"] == LINEAIRE and dev["troncon"] is None and dev["kc"] is None:
                 cles.append(J.f("kc", "k_c", [_t("ψ", fl["psi"])], kc, "", "e_kc_lineaire"))
             f = min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lbLT - 0.8) ** 2), 1.0)
@@ -195,8 +210,81 @@ def ajouter(J: Journal, d: Dict) -> None:
     cles.append(J.f("M_b_Rd", "M_b,Rd", [_t(nom_chi, chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
                     "kN·m", "e_M_b_Rd"))
     D["formules"] = cles
+    if prs:
+        m_, c_ = _prs(J, d, D, tr, signe, seuil, My, Mcr, kc)
+        messages += m_
+        cles += c_
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)
     niveau = "au centre de cisaillement" if not dev["zg"] else ("sur la semelle haute" if dev["zg"] > 0 else "sous la semelle basse")
     charge = f", charge {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
     J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m entre sections tenues{charge} ; courbe {courbe}, "
-                 f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (ANB:2018, 6.3.2.3(1))." if s["forme"] == "I" else "."))
+                 f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (ANB:2018, 6.3.2.3(1))." if s["forme"] == "I" and methode != METHODE_GENERALE else "."))
+
+
+# ------------------------------------------------------------------ les PRS (brief § 18.5)
+def chi_LT(lb: float, a_lt: float, lb0: float, b_: float, seuil: float, M: float, Mcr: float, kc: Optional[float] = None) -> Tuple[float, float]:
+    """(χ_LT — χ_LT,mod si ``kc`` est donné —, f) : § 6.3.2.3 avec (λ̄_LT,0 ; β) = (``lb0`` ; ``b_``) et f, ou § 6.3.2.2
+    (0,2 ; 1, ``kc`` None). L'autre méthode d'un PRS bisymétrique, rendue POUR INFORMATION (DÉCISION BUREAU n° 10 : la
+    variante qui ne décide pas est affichée avec sa source) — les expressions de la vérification E-Mb (un test lie les
+    deux écritures : la variante d'un calcul est le résultat de l'autre)."""
+    if not (lb > seuil and M / Mcr > seuil * seuil):
+        return 1.0, 1.0
+    phi = 0.5 * (1.0 + a_lt * (lb - lb0) + b_ * lb * lb)
+    borne = min(1.0, 1.0 / (lb * lb))
+    x0 = min(1.0 / (phi + math.sqrt(phi * phi - b_ * lb * lb)), borne)
+    f = 1.0 if kc is None else min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lb - 0.8) ** 2), 1.0)
+    return min(x0 / f, borne), f
+
+
+def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My: float, Mcr: float, kc: float) -> Tuple[list, list]:
+    """Ce que le déversement d'un PRS ajoute (brief § 18.5 et 18.7) : le b retenu pour h/b, l'autre méthode (PRS
+    bisymétrique) ou son refus (monosymétrique), le contrôle analytique (E.1) de l'annexe E ANB. Rend (les messages de
+    E-Mb, les clés des blocs à lui ajouter)."""
+    s, P = d["section"], d["parametres"]
+    msgs, cles = [], []
+    D["b_h_b"] = s["b"]
+    D["soudee_equivalente"] = bool(P["prs_soudee_equivalente"]) and not s["monosymetrique"]
+    if s["monosymetrique"]:
+        J.hyp.append(f"PRS monosymétrique : h/b = {_fr(s['h'])}/{_fr(s['b'])} = {_fr(s['h'] / s['b'], 2)} avec b = la plus petite largeur de "
+                     f"semelle (choix prudent) ; § 6.3.2.2 seul.")
+        msgs.append(f"{METHODE_LAMINES} refusé : section monosymétrique.")
+    else:
+        autre = METHODE_GENERALE if D["methode"] == METHODE_LAMINES else METHODE_LAMINES
+        if autre == METHODE_LAMINES:
+            chi, f = chi_LT(D["lambda_LT"], D["alpha_LT"], P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"], seuil, My, Mcr, kc)
+        else:
+            chi, f = chi_LT(D["lambda_LT"], D["alpha_LT"], LAMBDA0_GENERAL, BETA_GENERAL, seuil, My, Mcr)
+        Mb = chi * D["W_y"] * d["fy"] / P["gamma_M1"]
+        D["variante"] = {"methode": autre, "chi_LT": chi, "f": f, "M_b_Rd": Mb}
+        msgs.append(f"{autre} pour information : M_b,Rd = {_fr(Mb / 1e6, 1)} kN·m.")
+        J.hyp.append("PRS bisymétrique déclaré « section soudée équivalente » : § 6.3.2.3 (décision du bureau)." if D["soudee_equivalente"] else
+                     "PRS : § 6.3.2.2 (défaut) ; § 6.3.2.3 seulement si la section est déclarée « soudée équivalente ».")
+    # ---- le contrôle analytique : (E.1) de l'annexe E ANB (le solveur reste la référence)
+    dev, fl = d["deversement"], d["flexion"]["y"]
+    diag = dev.get("diagramme") or (fl["diagramme"] if dev["troncon"] is None else None)
+    simple = tr["appuis"] == (MC.FOURCHE, MC.FOURCHE) and not tr["maintiens"]
+    if diag and simple:
+        semelle = PR.HAUT if signe > 0 else PR.BAS
+        zp = PR.zj_psi(s, semelle)
+        EIz, EIw, GIt = P["E"] * s["Iz"], P["E"] * s["Iw"], P["G"] * s["It"]
+        charge = diag in MC.E2
+        co = MC.coefficients_annexe_e(diag, fl["psi"], zp["psi_f"], None if charge else MC.kwt(tr["L"], EIw, GIt))
+        E: Dict = {"diagramme": diag, "psi_f": zp["psi_f"], "z_j": zp["z_j"], "z_j_approche": zp["z_j_approche"], **co}
+        if co["bloque"]:
+            msgs.append(f"Contrôle (E.1) bloqué : {co['bloque']}.")
+        else:
+            zg = (dev["zg"] if signe > 0 else -dev["zg"]) if charge else 0.0
+            Mcr_E = MC.annexe_e(tr["L"], EIz, EIw, GIt, co["C1"], co["C2"], co["C3"], zg, zp["z_j"])
+            E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / Mcr - 1.0})
+            E["formule"] = J.f("M_cr_E1", "M_cr,E.1", [_t("C₁", co["C1"]), _t("E", P["E"], "N/mm²"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("k_z", 1.0),
+                                                       _t("L", tr["L"] / 1e3, "m"), _t("k_ω", 1.0), _t("I_ω", s["Iw"] / 1e6, "cm⁶"),
+                                                       _t("G", P["G"], "N/mm²"), _t("I_t", s["It"] / 1e4, "cm⁴"), _t("C₂", co["C2"]), _t("z_g", zg, "mm"),
+                                                       _t("C₃", co["C3"]), _t("z_j", zp["z_j"], "mm")], Mcr_E / 1e6, "kN·m", "p_M_cr_E1")
+            cles.append(E["formule"])
+            msgs.append(f"Contrôle (E.1) : M_cr = {_fr(Mcr_E / 1e6, 1)} kN·m ({'+' if E['ecart'] >= 0 else '−'}{_fr(abs(E['ecart']) * 100, 2)} %).")
+        D["annexe_E"] = E
+    if s["monosymetrique"]:
+        J.hyp.append(f"PRS monosymétrique, semelle {'haute' if signe > 0 else 'basse'} comprimée : ψ_f = "
+                     f"{_fr(PR.zj_psi(s, PR.HAUT if signe > 0 else PR.BAS)['psi_f'], 4)}, z_s = {_fr(s['z_s'], 1)} mm, "
+                     f"z_j = {_fr(PR.zj_psi(s, PR.HAUT if signe > 0 else PR.BAS)['z_j'], 2)} mm (terme de Wagner dans M_cr).")
+    return msgs, cles

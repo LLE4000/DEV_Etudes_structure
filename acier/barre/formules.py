@@ -87,6 +87,11 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_sigma_Rd_V": (("rho", "fy", "gM0"), "(1 - rho)*fy/gM0", 1),
     "e_lineaire2": (("E1", "R1", "E2", "R2"), "E1/R1 + E2/R2", -1),
     "e_lineaire3": (("E1", "R1", "E2", "R2", "E3", "R3"), "E1/R1 + E2/R2 + E3/R3", -1),
+    "e_M_N_rond": (("Mpl", "n"), "Mpl*(1 - n**1.7)", 1),
+    # contrôle élastique (6.1), pour information (§ 6.2.1(5)) : σ_z = 0
+    "e_sigma_el": (("N", "A", "My", "z", "Iy", "Mz", "y", "Iz"), "N*1e3/A + My*z/Iy*1e2 + Mz*y/Iz*1e2", 1),
+    "e_tau_el": (("V", "S", "Iy", "tw"), "V*S/(Iy*tw)*1e2", 1),
+    "e_critere_el": (("sx", "tau", "fy", "gM0"), "(sx/(fy/gM0))**2 + 3*(tau/(fy/gM0))**2", 3),
 }
 GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     # flambement (EN 1993-1-1 § 6.3.1) : I en cm⁴, I_w en cm⁶, L en m, forces en kN
@@ -188,7 +193,20 @@ GABARITS_EC3_AME: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "r_torsion_lim": (("fy", "E"), "5.3*fy/E", 4),
     "r_I_min": (("hw", "tw"), "0.75*hw*tw**3/1e4", 1),
 }
-GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE, **GABARITS_EC3_AME}
+# ---- les profilés reconstitués soudés (acier/barre/prs.py ; brief § 18) : ce qui n'existe que pour eux
+GABARITS_EC3_PRS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
+    # l'âme d'un PRS monosymétrique fléchi (tableau 5.2) : α de l'axe neutre plastique, ψ élastique
+    "p_alpha": (("N", "fy", "Afc", "Aft", "c", "t"), "0.5 + (N*1e3/fy - Afc + Aft)/(2*c*t)", 3),
+    "p_psi": (("N", "A", "fy", "vt", "vc"), "(N*1e3/A - (fy - N*1e3/A)*vt/vc)/fy", 3),
+    # section efficace (EN 1993-1-5 § 4.4) : trois parois ; le moment du décalage e_N (§ 6.2.2.5(4))
+    "p_A_eff3": (("A", "n1", "rho1", "c1", "t1", "n2", "rho2", "c2", "t2", "n3", "rho3", "c3", "t3"),
+                 "A - n1*(1 - rho1)*c1*t1 - n2*(1 - rho2)*c2*t2 - n3*(1 - rho3)*c3*t3", 0),
+    "p_delta_M": (("N", "eN"), "N*eN/1e3", 2),
+    # moment critique, contrôle analytique (E.1) de l'annexe E ANB : I_z en cm⁴, I_w en cm⁶, I_t en cm⁴, L en m
+    "p_M_cr_E1": (("C1", "E", "Iz", "kz", "L", "kw", "Iw", "G", "It", "C2", "zg", "C3", "zj"),
+                  "C1*pi**2*E*Iz/(kz*L)**2/1e8*(sqrt((kz/kw)**2*Iw/Iz*1e2 + (kz*L)**2*G*It/(pi**2*E*Iz)*1e6 + (C2*zg - C3*zj)**2) - (C2*zg - C3*zj))", 1),
+}
+GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE, **GABARITS_EC3_AME, **GABARITS_EC3_PRS}
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_HISTORIQUE, **GABARITS_EC3}
 _FONCTIONS = {"sqrt": math.sqrt, "pi": math.pi, "min": min, "max": max, "abs": abs}
 

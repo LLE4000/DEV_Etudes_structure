@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Le MOMENT CRITIQUE de déversement élastique M_cr d'un tronçon de poutre à section en I (ou en caisson) à deux axes
-de symétrie — calcul NUMÉRIQUE, bibliothèque standard seule (docs/acier/BARRES_ACIER.md § 5.6).
+"""Le MOMENT CRITIQUE de déversement élastique M_cr d'un tronçon de poutre à section en I (ou en caisson) — deux axes
+de symétrie, ou un seul (PRS monosymétrique, terme de Wagner) — calcul NUMÉRIQUE, bibliothèque standard seule
+(docs/acier/BARRES_ACIER.md § 5.6 et 5.10).
 
 Deux champs le long du tronçon : v, le déplacement latéral du centre de cisaillement ; φ, la rotation de torsion.
 Repère : x le long de la poutre, z vers le HAUT, φ dans le sens direct autour de x — le déplacement latéral d'un point
 de cote z vaut u(z) = v − z·φ. Moment M_y > 0 quand la fibre HAUTE est comprimée (poutre sur deux appuis sous charge
 descendante). L'énergie potentielle au second ordre :
 
-    Π = ½·∫(E·I_z·v″² + E·I_w·φ″² + G·I_t·φ′²)dx − ∫M_y·v″·φ dx − ½·∫q·z_g·φ² dx − ½·Σ P_i·z_g,i·φ(x_i)²
+    Π = ½·∫(E·I_z·v″² + E·I_w·φ″² + G·I_t·φ′²)dx − ∫M_y·v″·φ dx + ∫M_y·z_j·φ′² dx − ½·∫q·z_g·φ² dx − ½·Σ P_i·z_g,i·φ(x_i)²
 
 q, P : charges descendantes ; z_g : la cote de leur point d'application au-dessus du centre de cisaillement (une
 charge posée sur la semelle haute déstabilise, z_g > 0 ; suspendue à la semelle basse, elle stabilise).
+∫M_y·z_j·φ′² (WAGNER, brief § 7.7) : nul pour une section bisymétrique ; pour un PRS monosymétrique, z_j est compté
+vers la semelle HAUTE (acier/barre/prs.zj_haut) et M_y > 0 quand elle est comprimée — le même z_j sert pour les deux
+signes du moment. Sous moment constant, la solution exacte est (E.1) avec C₁ = C₃ = 1 :
+M_cr = (π²·E·I_z/L²)·[z_j + √(z_j² + I_w/I_z + L²·G·I_t/(π²·E·I_z))].
 
 Éléments finis d'Hermite (cubiques) pour v et pour φ : quatre inconnues par nœud (v, v′, φ, φ′) ; intégration de Gauss
 à quatre points, exacte pour un moment du second degré. Bouts du tronçon : « fourche » (v = φ = 0 ; gauchissement et
@@ -35,6 +40,8 @@ classique ; un maintien de la semelle comprimée à mi-portée vaut un maintien 
 import math
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from .resultat import fr
+
 FOURCHE, ENCASTRE, LIBRE = "fourche", "encastre", "libre"
 APPUIS = (FOURCHE, ENCASTRE, LIBRE)
 ELEMENTS = 32                    # éléments au moins sur le tronçon (16 donnent déjà cinq chiffres)
@@ -49,9 +56,13 @@ _G4 = ((0.5 - 0.5 * 0.8611363115940526, 0.5 * 0.3478548451374538), (0.5 - 0.5 * 
        (0.5 + 0.5 * 0.3399810435848563, 0.5 * 0.6521451548625461), (0.5 + 0.5 * 0.8611363115940526, 0.5 * 0.3478548451374538))
 
 
-def moment_constant(L: float, EIz: float, EIw: float, GIt: float) -> float:
+def moment_constant(L: float, EIz: float, EIw: float, GIt: float, zj: float = 0.0) -> float:
     """M_cr d'un tronçon entre fourches sous moment CONSTANT — la formule fermée :
-    (π/L)·√(E·I_z·G·I_t)·√(1 + π²·E·I_w/(L²·G·I_t))."""
+    (π/L)·√(E·I_z·G·I_t)·√(1 + π²·E·I_w/(L²·G·I_t)) ; avec ``zj`` (mm, positif vers la semelle COMPRIMÉE) :
+    P_z·[z_j + √(z_j² + E·I_w/(E·I_z) + G·I_t/P_z)], P_z = π²·E·I_z/L² (la même valeur quand z_j = 0)."""
+    if zj:
+        Pz = math.pi ** 2 * EIz / L ** 2
+        return Pz * (zj + math.sqrt(zj * zj + EIw / EIz + GIt / Pz))
     return math.pi / L * math.sqrt(EIz * GIt) * math.sqrt(1.0 + math.pi ** 2 * EIw / (L ** 2 * GIt))
 
 
@@ -170,7 +181,8 @@ def _premier(lire: Callable[[float], Tuple[int, float, int]], depart: float) -> 
 
 
 def _bandes(xs: Sequence[float], gauss: Sequence[Tuple[float, float]], EIz: float, EIw: float, GIt: float, ponctuelles: Sequence[Tuple],
-            appuis: Tuple[str, str], maintiens: Sequence[Tuple[float, float]], noeud: Callable[[float], int]) -> Tuple[List, List, int]:
+            appuis: Tuple[str, str], maintiens: Sequence[Tuple[float, float]], noeud: Callable[[float], int],
+            zj: float = 0.0) -> Tuple[List, List, int]:
     """K et K_g assemblées, liaisons posées, en bande : (Kb, Gb, demi-largeur) — bande[i][k] = A[i][i − k]."""
     nn = len(xs)
     nd = 4 * nn
@@ -193,6 +205,8 @@ def _bandes(xs: Sequence[float], gauss: Sequence[Tuple[float, float]], EIz: floa
                     Kg[ip[b]][iv[a]] += c
                     if qz:
                         Kg[ip[a]][ip[b]] -= wt * qz * N[a] * N[b]   # − ½·∫ q·z_g·φ²
+                    if zj:
+                        Kg[ip[a]][ip[b]] += 2.0 * wt * M * zj * dN[a] * dN[b]   # + ∫ M_y·z_j·φ′² (Wagner)
     for x, P, zg in ponctuelles:
         Kg[4 * noeud(x) + 2][4 * noeud(x) + 2] -= P * zg            # − ½·P·z_g·φ(x)²
     fixes = set()
@@ -230,9 +244,9 @@ def _bandes(xs: Sequence[float], gauss: Sequence[Tuple[float, float]], EIz: floa
 def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callable[[float], float],
                     reparties: Sequence[Tuple[float, float, float, float]] = (), ponctuelles: Sequence[Tuple[float, float, float]] = (),
                     appuis: Tuple[str, str] = (FOURCHE, FOURCHE), maintiens: Sequence[Tuple[float, float]] = (),
-                    M_max: Optional[float] = None, elements: int = ELEMENTS) -> Dict:
+                    M_max: Optional[float] = None, elements: int = ELEMENTS, zj: float = 0.0) -> Dict:
     """Le moment critique du tronçon : {"M_cr" (N·mm ; None : pas de déversement), "lambda" (le multiplicateur critique),
-    "M_max" (N·mm), "noeuds"}.
+    "M_max" (N·mm), "noeuds"}. ``zj`` (mm) : le z_j de la section quand la semelle HAUTE est comprimée (0 : bisymétrique).
 
     ``L`` (mm) ; ``EIz`` (N·mm²), ``EIw`` (N·mm⁴), ``GIt`` (N·mm²) ; ``moment(x)`` : M_y en N·mm, x de 0 à L ;
     ``reparties`` : [(x1, x2, q, z_g)] ou [(x1, x2, q1, q2, z_g)] — q en N/mm, vers le bas, linéaire de x1 à x2 ;
@@ -266,12 +280,12 @@ def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callab
     out = {"M_cr": None, "lambda": None, "M_max": M_max, "noeuds": nn}
     if not M_max > 0:
         return out
-    cle = (L, EIz, EIw, GIt, tuple(appuis), tuple((round(x, 6), z) for x, z in maintiens), tuple(round(x, 6) for x in xs),
+    cle = (L, EIz, EIw, GIt, round(zj, 9), tuple(appuis), tuple((round(x, 6), z) for x, z in maintiens), tuple(round(x, 6) for x in xs),
            tuple(round(M / M_max, CHIFFRES) for M, _ in gauss), tuple(round(qz * L / M_max, CHIFFRES) for _, qz in gauss),
            tuple((noeud(x), round(P * zg / M_max, CHIFFRES)) for x, P, zg in ponctuelles))
     garde = _GARDES.get(cle)                                        # λ_cr·max|M_y| d'un chargement proportionnel déjà résolu
     if garde is None:
-        Kb, Gb, b = _bandes(xs, gauss, EIz, EIw, GIt, ponctuelles, appuis, maintiens, noeud)
+        Kb, Gb, b = _bandes(xs, gauss, EIz, EIw, GIt, ponctuelles, appuis, maintiens, noeud, zj)
         lam = _premier(lambda t: _decomposition([[k_ + t * g_ for k_, g_ in zip(kr, gr)] for kr, gr in zip(Kb, Gb)], b),
                        moment_constant(L, EIz, EIw, GIt) / M_max)
         garde = -1.0 if lam is None else lam * M_max                # (−1 : le tronçon ne déverse pas)
@@ -282,3 +296,68 @@ def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callab
         lam = garde / M_max
         out.update({"M_cr": lam * M_max, "lambda": lam})
     return out
+
+
+# ------------------------------------------------------------------ le contrôle analytique : annexe E ANB, (E.1)
+# NBN EN 1993-1-1 ANB:2018, annexe E, k_z = 1 (brief § 7.7 et 18.5) — tableau E.1 ANB (moments d'extrémité, C₂·z_g = 0) :
+# C₁ pour ψ = 1, 3/4, 1/2, 1/4, 0, −1/4, −1/2, −3/4, −1 ; C₃ = 1 pour ψ = 1 (brief § 11.8, PRS-B). Les autres C₃ du tableau
+# E.1 ANB (ψ < 1, section monosymétrique) ne sont pas dans le brief : « valeur à fournir » (règle 1), jamais devinés.
+# Tableau E.2 ANB (charges transversales, deux appuis) : (C₁, C₂, C₃).
+E1_PSI = (1.0, 0.75, 0.5, 0.25, 0.0, -0.25, -0.5, -0.75, -1.0)
+E1_C1 = (1.00, 1.14, 1.31, 1.52, 1.77, 2.06, 2.35, 2.60, 2.60)
+E1_C3 = {1.0: 1.0}
+E2 = {"reparti": (1.12, 0.45, 0.525), "ponctuel": (1.35, 0.59, 0.411), "quarts": (1.04, 0.42, 0.562)}
+PSI_F_MAX = 0.9                  # domaine des tableaux : −0,9 ≤ ψ_f ≤ 0,9 (annexe E ANB)
+NOTE_B = 1.05                    # moments d'extrémité, K_ωt ≤ 1 : C₁/1,05, jamais sous 1
+VALEUR_A_FOURNIR = "valeur à fournir"
+
+
+def kwt(L: float, EIw: float, GIt: float, kw: float = 1.0) -> float:
+    """K_ωt = π/(k_ω·L)·√(E·I_ω/(G·I_t)) (annexe E ANB, note b des tableaux)."""
+    return math.pi / (kw * L) * math.sqrt(EIw / GIt)
+
+
+def coefficients_annexe_e(diagramme: str, psi: float = 1.0, psi_f: float = 0.0, Kwt: Optional[float] = None) -> Dict:
+    """(C₁, C₂, C₃) de l'annexe E ANB pour k_z = 1 : {"C1", "C2", "C3", "source", "bloque" (None, ou le motif :
+    « valeur à fournir », diagramme hors des tableaux, ψ_f hors de −0,9…0,9)}. ``diagramme`` : « lineaire » ou
+    « constant » (moments d'extrémité, tableau E.1 ANB, ψ = M₂/M₁ — une valeur du tableau seulement), « reparti »,
+    « ponctuel » (charge à mi-portée), « quarts » (deux charges aux quarts) : tableau E.2 ANB. ``psi_f`` : celui de la
+    section (0 si bisymétrique) ; C₃ n'est demandé que pour ψ_f ≠ 0."""
+    out = {"C1": None, "C2": None, "C3": None, "source": None, "bloque": None}
+    if abs(psi_f) > PSI_F_MAX:
+        out["bloque"] = f"ψ_f = {fr(psi_f, 3)} hors du domaine des tableaux (−0,9 ≤ ψ_f ≤ 0,9)"
+        return out
+    if diagramme in E2:
+        out.update(dict(zip(("C1", "C2", "C3"), E2[diagramme])), source="tableau E.2 ANB")
+        return out
+    if diagramme not in ("constant", "lineaire"):
+        out["bloque"] = "diagramme hors des tableaux E.1 ANB et E.2 ANB : le solveur seul"
+        return out
+    p = 1.0 if diagramme == "constant" else psi
+    i = next((k for k, x in enumerate(E1_PSI) if abs(x - p) < 1e-9), None)
+    if i is None:
+        out["bloque"] = f"ψ = {fr(p, 2)} n'est pas une ligne du tableau E.1 ANB : le solveur seul"
+        return out
+    c1 = E1_C1[i]
+    if Kwt is not None and Kwt <= 1.0:
+        c1 = max(c1 / NOTE_B, 1.0)
+    out.update({"C1": c1, "C2": 0.0, "source": "tableau E.1 ANB" + (" (note b : C₁/1,05)" if Kwt is not None and Kwt <= 1.0 and E1_C1[i] > 1.0 else "")})
+    if psi_f:
+        c3 = E1_C3.get(E1_PSI[i])
+        if c3 is None:
+            out["bloque"] = f"C₃ du tableau E.1 ANB pour ψ = {fr(p, 2)} : {VALEUR_A_FOURNIR}"
+        out["C3"] = c3
+    else:
+        out["C3"] = 0.0
+    return out
+
+
+def annexe_e(L: float, EIz: float, EIw: float, GIt: float, C1: float, C2: float, C3: float, zg: float, zj: float,
+             kz: float = 1.0, kw: float = 1.0) -> float:
+    """M_cr par (E.1) de l'annexe E ANB (N·mm) :
+        C₁·π²·E·I_z/(k_z·L)²·{√[(k_z/k_ω)²·I_ω/I_z + (k_z·L)²·G·I_t/(π²·E·I_z) + (C₂·z_g − C₃·z_j)²] − (C₂·z_g − C₃·z_j)}
+    z_g = z_a − z_s (le point d'application de la charge AU-DESSUS du centre de cisaillement, positif vers la semelle
+    comprimée), z_j positif vers la semelle comprimée ; bisymétrique : z_j = 0, c'est (E.8)."""
+    Pz = math.pi ** 2 * EIz / (kz * L) ** 2
+    x = C2 * zg - C3 * zj
+    return C1 * Pz * (math.sqrt((kz / kw) ** 2 * EIw / EIz + (kz * L) ** 2 * GIt / (math.pi ** 2 * EIz) + x * x) - x)

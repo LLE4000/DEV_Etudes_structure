@@ -39,6 +39,7 @@ from typing import Dict, List, Optional, Tuple
 
 from acier.flambement import normes as NO
 
+from . import prs as PR
 from . import section as SE
 from .resultat import NonCouvert, Refus
 
@@ -60,6 +61,8 @@ def parois(s: Dict) -> List[Dict]:
     I et H : c/t du catalogue (semelle (b − t_w − 2r)/2, âme h − 2·t_f − 2r) ; tubes carrés et rectangulaires : b − 3·t
     et h − 3·t ; tube rond : d/t."""
     forme = s["forme"]
+    if PR.est_prs(s):                                    # PRS : trois parois, c depuis le pied des cordons (acier/barre/prs.py)
+        return PR.parois(s)
     if forme == "I":
         if not all(s.get(k) for k in ("cf_tf", "cw_tw", "tf", "tw")):
             raise Refus("h, b, t_w, t_f manquent : la classe d'un I en dépend")
@@ -118,14 +121,21 @@ def _eps(eps, role: str) -> float:
     return eps[role] if isinstance(eps, dict) else eps
 
 
-def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0, fy_parois: Optional[Dict] = None) -> Dict:
+def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0, fy_parois: Optional[Dict] = None,
+            semelle_comprimee: str = PR.HAUT) -> Dict:
     """La classe de la section sous ``N`` (N, compression > 0), ``My`` et ``Mz`` (seule leur présence compte) ;
-    ``fy_parois`` : {rôle: f_y} de chaque paroi selon son épaisseur (à défaut : ``fy`` partout) :
+    ``fy_parois`` : {rôle: f_y} de chaque paroi selon son épaisseur (à défaut : ``fy`` partout) ; ``semelle_comprimee``
+    (un PRS) : la semelle que M_y comprime, « haut » ou « bas » :
     {"classe", "epsilon" (celui de ``fy``), "parois": [{…, "fy", "epsilon", "etat", "alpha", "psi", "limites" [3],
-    "regles" [3], "classe"}]}."""
+    "regles" [3], "classe"}]}.
+
+    PRS (brief § 7.3 et 18.5) : sous M_y seul, la semelle tendue n'a pas de limite ; l'âme d'un PRS MONOSYMÉTRIQUE
+    fléchi suit les limites de la paroi fléchie et comprimée — α de l'axe neutre plastique, ψ élastique
+    (acier/barre/prs.py) — même sans effort normal."""
     eps0 = NO.epsilon(fy)
     A = s["A"]
     fy_, fz = My != 0.0, Mz != 0.0
+    mono = PR.monosymetrique(s)
     out = []
     for p in parois(s):
         p = dict(p)
@@ -134,7 +144,21 @@ def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0
         eps = NO.epsilon(fyp)
         p.update({"fy": fyp, "epsilon": eps})
         alpha = psi = None
-        if role in ("semelle", "tube"):
+        if role in ("semelle_haut", "semelle_bas"):          # les semelles d'un PRS
+            comprimee_par_M = fy_ and role == f"semelle_{semelle_comprimee}"
+            etat = COMPRESSION if (N > 0 or fz or comprimee_par_M) else TENDUE
+        elif role == "ame" and PR.est_prs(s) and fy_ and (mono or N != 0):
+            if mono:
+                a_ = PR.alpha_ame(s, N, fy, semelle_comprimee)
+                q_ = PR.psi_ame(s, N, fy, semelle_comprimee)
+                if q_["psi"] is None:                         # M_y ne comprime pas l'âme : elle suit l'effort normal
+                    etat = TENDUE if N <= 0 else COMPRESSION
+                else:
+                    etat, alpha, psi = FLEXION_COMPOSEE, a_["alpha"], q_["psi"]
+                    p.update({"A_fc": a_["A_fc"], "A_ft": a_["A_ft"], "v_c": q_["v_c"], "v_t": q_["v_t"], "prs_mono": True})
+            else:
+                etat = FLEXION_COMPOSEE
+        elif role in ("semelle", "tube"):
             etat = COMPRESSION if (N > 0 or fy_ or fz) else TENDUE
         else:
             # la paroi sert de SEMELLE au moment qui la comprime uniformément, d'ÂME à l'autre
@@ -155,7 +179,8 @@ def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0
             limites = [lim * eps for lim in LIMITES_FLEXION]
             regles = [("e_lim", lim) for lim in LIMITES_FLEXION]
         else:
-            alpha, psi = alpha_psi(N, p["c"], p["n"] * p["t"], A, fy)
+            if alpha is None:
+                alpha, psi = alpha_psi(N, p["c"], p["n"] * p["t"], A, fy)
             limites, regles = limites_flexion_composee(alpha, psi, eps)
         p.update({"etat": etat, "alpha": alpha, "psi": psi, "limites": limites, "regles": [list(r) for r in regles],
                   "classe": _classe(p["c_t"], limites)})
@@ -203,7 +228,10 @@ def rho_console(lp: float) -> float:
 
 def aire_efficace(s: Dict, eps) -> Dict:
     """A_eff sous compression uniforme (ψ = 1) ; ``eps`` : un nombre, ou {rôle: ε} (l'ε de chaque paroi) :
-    {"A_eff", "reduite", "parois": [{…, "epsilon", "k_sigma", "lambda_p", "rho", "retrait" (mm²)}]}."""
+    {"A_eff", "reduite", "parois": [{…, "epsilon", "k_sigma", "lambda_p", "rho", "retrait" (mm²)}]} — un PRS : avec
+    « e_N », le décalage du centre de gravité efficace (acier/barre/prs.py)."""
+    if PR.est_prs(s):
+        return PR.aire_efficace(s, eps, rho_interne, rho_console, lambda_p, K_SIGMA_CONSOLE)
     out = []
     for p in parois(s):
         if p["type"] == "tube":
@@ -220,11 +248,14 @@ def aire_efficace(s: Dict, eps) -> Dict:
     return {"A_eff": A_eff, "reduite": A_eff < s["A"], "parois": out}
 
 
-def module_efficace(s: Dict, eps, axe: str) -> Dict:
-    """W_eff autour de ``axe`` (« y » fort, « z » faible) sous flexion seule — ``eps`` : un nombre, ou {rôle: ε} :
+def module_efficace(s: Dict, eps, axe: str, semelle_comprimee: str = PR.HAUT) -> Dict:
+    """W_eff autour de ``axe`` (« y » fort, « z » faible) sous flexion seule — ``eps`` : un nombre, ou {rôle: ε} ;
+    ``semelle_comprimee`` : celle que M_y comprime (un PRS ; acier/barre/prs.py) :
     {"W_eff" (mm³), "I_eff" (mm⁴), "e"
     (déplacement de l'axe neutre vers la fibre tendue, mm), "v" (fibre comprimée extrême de la section brute, mm),
     "reduit", "membrure": {…, "psi", "k_sigma", "lambda_p", "rho"}, "ame": {…} | None}."""
+    if PR.est_prs(s):
+        return PR.module_efficace(s, eps, axe, semelle_comprimee, FONCTIONS_44)
     forme, A = s["forme"], s["A"]
     w = {p["role"]: p for p in parois(s)}
     if forme == "I":
@@ -299,6 +330,23 @@ def module_efficace(s: Dict, eps, axe: str) -> Dict:
     I_eff = inertie - sum(a_ * z * z + i0 for a_, z, i0 in trous) - A_net * zG * zG
     W_eff = min(I_eff / (v - zG), Wel)
     return {"W_eff": W_eff, "I_eff": I_eff, "e": -zG, "v": v, "reduit": True, "membrure": membrure, "ame": ame_out}
+
+
+# les tableaux 4.1 et 4.2, une seule écriture, prêtés à la section efficace d'un PRS (acier/barre/prs.py)
+FONCTIONS_44 = {"rho_interne": rho_interne, "rho_console": rho_console, "lambda_p": lambda_p, "k_sigma_interne": k_sigma_interne,
+                "k_sigma_console": k_sigma_console, "k_console": K_SIGMA_CONSOLE, "be1": BE1_PSI_NEGATIF}
+
+
+def limites_console_flechie(alpha: float, extremite: str, eps: float, k_sigma: float) -> List[float]:
+    """Les limites c/t des classes 1, 2, 3 d'une semelle en CONSOLE fléchie et comprimée (flexion d'axe faible, N + M_z ;
+    tableau 5.2, brief § 7.3) — ``extremite`` : « comprimee » (le bord libre est comprimé : 9ε/α, 10ε/α) ou « tendue »
+    (le bord libre est tendu : 9ε/(α·√α), 10ε/(α·√α)) ; classe 3 dans les deux cas : 21ε·√k_σ (k_σ de l'EN 1993-1-5).
+    Le module classe ces semelles en compression UNIFORME (du côté sûr) : ces limites sont données pour comparaison."""
+    if extremite not in ("comprimee", "tendue") or not 0.0 < alpha <= 1.0:
+        raise ValueError("console fléchie : extrémité « comprimee » ou « tendue », 0 < α ≤ 1")
+    div = alpha if extremite == "comprimee" else alpha * math.sqrt(alpha)
+    return [LIMITES_COMPRESSION["console"][0] * eps / div, LIMITES_COMPRESSION["console"][1] * eps / div,
+            21.0 * eps * math.sqrt(k_sigma)]
 
 
 def hauteur_cisaillee(s: Dict, direction: str) -> Optional[Dict]:

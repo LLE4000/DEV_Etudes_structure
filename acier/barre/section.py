@@ -19,6 +19,8 @@ from typing import Dict, Optional
 
 from acier.profiles import catalogue as CAT
 
+from .resultat import fr
+
 # famille du catalogue → (forme, fabrication)
 FAMILLES: Dict[str, tuple] = {
     "IPE": ("I", "lamine"), "IPE A": ("I", "lamine"), "IPE O": ("I", "lamine"), "IPN": ("I", "lamine"),
@@ -42,6 +44,7 @@ _AXES = {False: (("Iy", "Iy", 1e4), ("Iz", "Iz", 1e4), ("iy", "iy", 10.0), ("iz"
          True: (("Iy", "Iu", 1e4), ("Iz", "Iv", 1e4), ("iy", "iu", 10.0), ("iz", "iv", 10.0), ("Wel_y", "Wel_u", 1e3),
                 ("Wel_z", "Wel_v", 1e3))}
 OBLIGATOIRES = ("A", "Iy", "Iz", "iy", "iz")
+AXES_INVERSES = "I ou H avec I_y < I_z ({Iy} < {Iz} cm⁴) : axes inversés ? Verdict bloqué jusqu'à la correction."
 
 
 def _valeur(p: Dict, cle: str, facteur: float) -> Optional[float]:
@@ -88,6 +91,10 @@ def saisie(forme: str, fabrication: str, nom: str = "section saisie", **propriet
     manquent = [k for k in OBLIGATOIRES if not s[k] or s[k] <= 0]
     if manquent:
         raise ValueError(f"propriété(s) manquante(s) ou nulle(s) : {', '.join(manquent)}")
+    # un I ou un H dont l'axe fort est le moins raide : axes inversés à l'import (brief § 10, P41, test 15 du § 11.5) — le
+    # verdict est bloqué jusqu'à la correction
+    if forme == "I" and s["Iy"] < s["Iz"]:
+        raise ValueError(AXES_INVERSES.replace("{Iy}", fr(s["Iy"] / 1e4, 1)).replace("{Iz}", fr(s["Iz"] / 1e4, 1)))
     # c/t des parois d'un I dont on donne les dimensions : semelle en console (b − t_w − 2r)/2, âme h − 2·t_f − 2r
     # (r = 0 : une section soudée, parois prises entre nus — du côté sûr)
     if forme == "I" and all(s.get(k) for k in ("h", "b", "tw", "tf")):
@@ -100,7 +107,32 @@ def saisie(forme: str, fabrication: str, nom: str = "section saisie", **propriet
 
 
 def hauteur_ame(s: Dict) -> Optional[float]:
-    """h_w = h − 2·t_f (mm), la hauteur de l'âme entre semelles d'un I — None pour une autre forme."""
+    """h_w = h − 2·t_f (mm), la hauteur de l'âme entre semelles d'un I — celle d'un PRS est saisie (acier/barre/prs.py) ;
+    None pour une autre forme."""
+    if s.get("prs"):
+        return s["prs"]["hw"]
     if s["forme"] != "I" or not s.get("h") or not s.get("tf"):
         return None
     return s["h"] - 2.0 * s["tf"]
+
+
+def soude(s: Dict) -> bool:
+    """Une section en I SOUDÉE (EN 1993-1-1 tableaux 6.2, 6.4, 6.5 ; § 6.2.6(3) d) et e)) : un PRS, que ses bords soient
+    saisis ou non, ou un I saisi « soudé »."""
+    return bool(s.get("prs")) or s.get("fabrication") in ("soude_oxycoupe", "soude_larges_plats")
+
+
+def cote(s: Dict, ou: str) -> float:
+    """La cote (mm) AU-DESSUS du centre de cisaillement où se repère une charge ou un maintien (brief § 7.7) : « haut »,
+    « bas » (les faces extérieures des semelles : z_g = ±h/2 d'un I bisymétrique) ; « semelle_haut », « semelle_bas »
+    (leurs plans moyens : ±(h − t_f)/2) ; « centre » : 0. Un PRS monosymétrique : depuis SON centre de cisaillement."""
+    if ou == "centre":
+        return 0.0
+    if s.get("prs"):
+        from . import prs as PR
+        return PR.cotes(s)[{"haut": "face_haut", "bas": "face_bas"}.get(ou, ou)]
+    h = s.get("h") or 0.0
+    if ou in ("haut", "bas"):
+        return (1.0 if ou == "haut" else -1.0) * h / 2.0
+    demi = (h - (s.get("tf") or s.get("t") or 0.0)) / 2.0
+    return demi if ou == "semelle_haut" else -demi

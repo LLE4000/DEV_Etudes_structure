@@ -37,6 +37,7 @@ from . import entree as EN
 from . import historique as HI
 from . import mcr as MC
 from . import parametres as PA
+from . import prs as PR
 from . import resultat as RE
 from . import section as SE
 from . import statique as ST
@@ -103,6 +104,21 @@ def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
     return {a: {"L": axes[a]["L"] / 1e3, "u": axes[a]["u"], "auto": b["flambement"][a]["L"] is None} for a in ("y", "z")}
 
 
+def _bords_saisis(s: Dict) -> None:
+    """Un PRS dont les bords des semelles ne sont pas saisis : la méthode ELS est BLOQUÉE (elle en tire ses courbes, brief
+    § 18.2 ; test 3 des « autres tests PRS ») — Refus, que la boucle des méthodes rend « non couvert » avec ce motif ;
+    l'Eurocode 3 se calcule."""
+    if PR.est_prs(s) and s.get("fabrication") is None:
+        raise RE.Refus(PR.MSG_BORDS)
+
+
+def section_de(b: Dict) -> Dict:
+    """La section de la barre relue : un PRS (ses plats, sa nuance — acier/barre/prs.py) ou un profilé du catalogue."""
+    if b.get("prs"):
+        return PR.section_prs(**b["prs"], nuance=b["nuance"])
+    return SE.du_catalogue(b["profil"])
+
+
 # ------------------------------------------------------------------ efforts imposés
 def _efforts_imposes(b: Dict, s: Dict) -> Dict:
     axes = _longueurs(b, None)
@@ -110,6 +126,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
     methodes = {}
 
     def historique() -> Dict:
+        _bords_saisis(s)
         e, h = b["efforts"]["service"], b["historique"]
         return HI.verifier({"section": s, **_fy_historique(b["nuance"], s), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
                          "Vz": e["Vz"] * 1e3, "Vy": e["Vy"] * 1e3, "axes": axes, "tolerance": h["tolerance"],
@@ -137,12 +154,20 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
 # ------------------------------------------------------------------ barre chargée
 def _moment_max(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
     """Le plus grand |M| de la combinaison sur le tronçon (kN·m) : balayage et sections à vérifier."""
+    return abs(_moment_extreme(comb, tr, xs))
+
+
+def _moment_extreme(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
+    """Le moment de plus grande valeur absolue du tronçon, AVEC son signe (kN·m ; M > 0 comprime la semelle haute) —
+    un PRS monosymétrique en tire sa semelle comprimée."""
     a, b = tr["x1"], tr["x2"]
     pts = [a + (b - a) * i / BALAYAGE_TRONCON for i in range(BALAYAGE_TRONCON + 1)] + [x for x in xs if a < x < b]
     m = 0.0
     for x in pts:
         e = comb.lire(x)
-        m = max(m, abs(e["M_g"]) if x > a + EPS else 0.0, abs(e["M_d"]) if x < b - EPS else 0.0)
+        for v in ((e["M_g"],) if x > a + EPS else ()) + ((e["M_d"],) if x < b - EPS else ()):
+            if abs(v) > abs(m):
+                m = v
     return m
 
 
@@ -186,6 +211,8 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     trs = ST.troncons(b, s)
     axes = _longueurs(b, trs)
     zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0
+    if PR.est_prs(s):                                          # un PRS : au-dessus de SON centre de cisaillement
+        zg = SE.cote(s, b["niveau"])
     Lt = sum(b["travees"])
     grille = sorted({round(x, 9) for x in pts} | {round(x0 + L * i / POINTS_DIAGRAMME, 9) for x0, L in
                                                   zip([sum(b["travees"][:k]) for k in range(len(b["travees"]))], b["travees"])
@@ -242,9 +269,16 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 if b["modele"] == "appuis" and Mmax > EPS:      # tableau A.2, formule générale : la flèche et le moment de la portée
                     fl = max(abs(C.lire(x)["f"] or 0.0) for x in grille)
                     flexion = {"diagramme": DV.GENERAL, "delta": fl * 1e3, "L": Lt * 1e3}
-                r = EC.verifier({"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,
-                                 "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False, "console": b["modele"] == "console",
-                                 "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr), "zg": zg}})
+                kc = _kc_tableau(b, cas, co["facteurs"], tr)
+                dev = {"troncon": troncon, "kc": kc, "zg": zg}
+                if PR.est_prs(s):                                # le diagramme d'un cas des tableaux : le contrôle (E.1) d'un PRS
+                    dev["diagramme"] = {DV.KC_REPARTI: DV.REPARTI, DV.KC_PONCTUEL: DV.PONCTUEL}.get(kc)
+                barre_ec3 = {"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,
+                             "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False, "console": b["modele"] == "console",
+                             "deversement": dev}
+                if PR.monosymetrique(s) and _moment_extreme(C, tr, xs) < 0:
+                    barre_ec3["MyEd"] = -barre_ec3["MyEd"]       # la semelle BASSE est comprimée (PRS monosymétrique)
+                r = EC.verifier(barre_ec3)
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
         r = env.rendre()
@@ -253,6 +287,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         return r
 
     def historique() -> Dict:
+        _bords_saisis(s)
         env = Enveloppe(HI.METHODE, HI.NORME)
         h = b["historique"]
         fy = _fy_historique(b["nuance"], s)
@@ -319,7 +354,7 @@ def verifier(barre: Dict) -> Dict:
     forme : l'âme selon l'EN 1993-1-5, toujours calculée, avec la décision de chaque raidisseur — acier/barre/ame.py),
     "statut" (le plus défavorable des méthodes cochées et de l'âme : nok, non couvert, hors domaine, ok), "comparaison"}."""
     b = EN.normaliser(barre)
-    s = SE.du_catalogue(b["profil"])
+    s = section_de(b)
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
     statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
     statut = RE.pire_statut(statuts)

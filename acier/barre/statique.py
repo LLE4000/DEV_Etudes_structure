@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from rdm import poutres as PO
 
 from . import mcr as MC
+from . import section as SE
 from .resultat import Refus
 
 POIDS_VOLUMIQUE = 78.6           # kN/m³ : l'acier des classeurs du bureau (brief H13, décision du 16/11/2026)
@@ -199,11 +200,13 @@ def troncons(barre: Dict, s: Dict) -> List[Dict]:
         tenus[round(L, 9)] = MC.LIBRE
     bornes = sorted(tenus)
     cote = ((s.get("h") or 0.0) - (s.get("tf") or s.get("t") or 0.0)) / 2.0        # le plan moyen d'une semelle
+    prs = bool(s.get("prs"))                     # un PRS : les plans moyens de SES semelles, au-dessus de SON centre de cisaillement
     out = []
     for a, b in zip(bornes, bornes[1:]):
         if b - a <= 1e-9:
             continue
-        dedans = [((x - a) * 1e3, cote if genre == "haut" else -cote) for x, genre in interieurs if a + 1e-9 < x < b - 1e-9]
+        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if prs else (cote if genre == "haut" else -cote))
+                  for x, genre in interieurs if a + 1e-9 < x < b - 1e-9]
         out.append({"x1": a, "x2": b, "appuis": (tenus[a], tenus[b]), "maintiens": dedans})
     return out
 
