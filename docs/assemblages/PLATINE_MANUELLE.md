@@ -191,7 +191,7 @@ Platine 500 × 500 S355, HEA 300 à l'axe, 4 × M24 8.8, cordon a = 8.
 | Suspente, boulons devant l'aile (±100 ; ±220) | m = 66,0 ; leff = 125,3 ; section b = 300 + 2·66 = 432 mm, M = 2·25·66 = 3,30 kNm → tp = 9,27 mm ; tronçon en T tp = 6,09 mm | t_S = 9,27 gouverne |
 | Compression centrée N = 300 kN | p = N/Aeff = 2,32 MPa, bande m = p·c²/2 | exact |
 | N = 2 000 kN | la bande c porte N à fjd pour c = 45,0 → tp = 18,9 mm | t_c = 18,9 |
-| Vy = 200 kN, N = 0 | 50 kN par boulon ; boulon vers le bord : e1 = 50, p1 = ∞ (le boulon arrière : e1 = 450, p1 = 400), e2 = 50, p2 = 400 → αb = 50/78 = 0,64, k1 = 2,5 ; fu = 510 MPa (S355, EN 1993-1-1 Tab. 3.1) ; Fb,Rd = 2,5 × 0,641 × 510 × 24 × 25 / 1,25 = 392,3 kN ; tb = 50 000 × 1,25 / (2,5 × 0,641 × 510 × 24) = 3,19 mm | exact |
+| Vy = 200 kN, N = 0 | 50 kN par boulon ; boulon vers le bord : e1 = 50, p1 = ∞ (le boulon arrière : e1 = 450, p1 = 400), e2 = 50, p2 = 400 → αb = 50/78 = 0,64, k1 = 2,5 ; fu = 510 MPa (S355, EN 1993-1-1 Tab. 3.1 : le matériau de ce calcul à la main ; une note prend 470, tableau 3.3 ANB) ; Fb,Rd = 2,5 × 0,641 × 510 × 24 × 25 / 1,25 = 392,3 kN ; tb = 50 000 × 1,25 / (2,5 × 0,641 × 510 × 24) = 3,19 mm | exact |
 | Rond Ø20 à l'axe | bras 264 mm, pression ≫ fjd | aucune épaisseur ne suffit |
 
 Les cas du tableau sont des calculs PLASTIQUES : leurs données écrivent le

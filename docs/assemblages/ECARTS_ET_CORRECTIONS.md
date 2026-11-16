@@ -51,7 +51,8 @@ n'a été « corrigée ». À contrôler par le bureau :
 |---|---|---|
 | SCI P358 | Check 5 (flexion de la poutre grugée), Check 6 (stabilité locale du grugeage), Check 7 (stabilité d'ensemble, non maintenue), Check 8 (pression diamétrale de l'âme porteuse), Check 10 (cisaillement local de l'âme porteuse) | `mN`, `stN`, `val_N`, `pdP`, `vlP`, `vnP` |
 | EN 1993-1-8 | Tableau 3.3, Tableau 3.4, Tableau 3.6, Tableau 4.1, §3.4.1, §3.8, §3.9.1, §3.9.2, §3.10.2(2), §3.10.2(3), §4.5.1(2), §4.5.2(2), §4.5.3.3, §5.2, §6.2.4 Tableau 6.2 | vérifications et alertes |
-| EN 1993-1-1 | Tableau 3.1, §6.2.3(2), §6.2.5, §6.2.6 | `tnB`, `tnS`, `flB`, `flA`, `vgS` |
+| EN 1993-1-1 | §6.2.3(2), §6.2.5, §6.2.6 (Tableau 3.1 : seulement le matériau des exemples du benchmark) | `tnB`, `tnS`, `flB`, `flA`, `vgS` |
+| NBN EN 1993-1-1 ANB:2018 | 3.2.1(1) (option a), tableaux 3.3 ANB et 3.4 ANB | f_y et f_u de chaque pièce (`acier/assemblages/materiau.py`) |
 | MSB Part 5 | §3.2.3, §3.2.5.1, §4.1, §4.2.1.1, §4.2.1.2, §4.2.2, §4.2.2.1, §4.2.2.2, §4.2.3.1, §4.2.3.2, §4.2.4, §4.2.5, §4.3.1.1, §4.3.1.4, §4.3.2.2, §4.3.2.3, §4.4 | modèles COMP |
 | ECCS n°126 | modèles complémentaires (cisaillement des cornières 1,27, section nette) | `cgB`, `cnB`, `vnS` |
 
@@ -61,17 +62,25 @@ vérifications sont donc au moins cohérents avec le document source.
 
 ## 3. Points fragiles audités en priorité
 
-### 3.1 `fu` du S355 (510 MPa) et coefficients partiels — inchangés
+### 3.1 `fy` et `fu` de chaque pièce (tableau 3.3 ANB) et coefficients partiels
 
-- `S355 : fu = 510` (EN 1993-1-1:2005 Tableau 3.1, t ≤ 40 mm) reste la valeur
-  par défaut ; la ligne « S355 (fu 490) » et « S355 N/NL » existent dans la
+- Depuis le lot A (16/11/2026), `fy` et `fu` de chaque pièce suivent SON
+  épaisseur : NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a), tableau 3.3 ANB
+  (EN 10025-2) ; S355 N/NL et S460 N/NL : tableau 3.4 ANB. La table unique du
+  site (`acier/materiaux.py`) les porte ; `acier/assemblages/materiau.py` dit
+  quelle épaisseur décide (plat, platine, cornière : la sienne ; profilé :
+  max(tf, tw) ; la gorge de pleine résistance : l'âme à tw). S355 :
+  `fu = 470` de 3 à 100 mm — le `fu = 510` de l'EN 1993-1-1:2005 Tableau 3.1
+  ne sert plus qu'au matériau des exemples du benchmark (`materiau.EXEMPLES`).
+  La ligne « S355 (fu 490) » suit le S355 belge ; « S355 N/NL » existe dans la
   bibliothèque.
 - γM0 = 1,00 ; γM2 = 1,25 (boulons, pression diamétrale, soudures) ;
   γM2 = 1,25 (sections nettes, blocs) ; γM3 = 1,25 ; γM3,ser = 1,10 : valeurs
   recommandées, modifiables à l'écran (groupe « Coefficients partiels »).
 - **Où caler sur l'ANB** : les défauts dans
   `acier/assemblages/poutre_poutre/doubles_cornieres/entrees.py` (`defaults()`),
-  les aciers dans `acier/donnees/bibliotheques.json` (une ligne par nuance).
+  `fy` et `fu` dans la table unique `acier/materiaux.py`, `βw` dans
+  `acier/donnees/bibliotheques.json` (une ligne par nuance).
   Le test `tests/test_assemblages_bibliotheques.py` verrouille les valeurs
   actuelles : le changer est un acte volontaire, tracé.
 

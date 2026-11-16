@@ -456,7 +456,7 @@ charte ».*
 | L'extension de `ndc_pdf` casse les notes béton | l'étalon `reference/NOTE_DE_CALCUL.pdf` est comparé **au pixel** ; la phase 5 le rejoue avant et après |
 | Le composant bidirectionnel ne marche pas sur votre déploiement | panneau « Cotes » livré en même temps, même état, même test |
 | **Références citées de mémoire** (numéros de « Check » SCI P358, sous-alinéas EN 1993-1-8 / 1-1) | **listées comme non vérifiées** dans `RAPPORT_MIGRATION.md`, jamais modifiées |
-| `fu` du S355 (510) et coefficients γM | **inchangés** ; regroupés dans un seul endroit du code, faciles à caler sur l'ANB |
+| `fu` du S355 et coefficients γM | γM **inchangés** ; `fy` et `fu` selon l'épaisseur de chaque pièce depuis le lot A (16/11/2026 : tableau 3.3 ANB, table unique `acier/materiaux.py`, S355 `fu = 470`) |
 | Vérifications `INT` / `COMP` sans exemple publié (`flA`, `m2`, `stD`, `vlP`, `vnP`, traitement de `HEd` et `MEd`) | transcrites à l'identique, **signalées comme telles** dans l'écran (badge de nature) et dans le rapport ; analysées dans `ECARTS_ET_CORRECTIONS.md` sans rien appliquer sans votre accord |
 | Soudures : longueur efficace = longueur totale | affiché comme **hypothèse**, dans l'écran et dans la note |
 | Le fichier `interface.py` devient trop gros | découpage par responsabilité dès la phase 4 (saisie / dessin / vérifications / prédim / exports), pas en fin de course |

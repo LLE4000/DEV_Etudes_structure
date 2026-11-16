@@ -120,7 +120,7 @@ mécanique**, et c'est le résultat central de cette étude :
 | **MSB Part 5** (*Steel Buildings in Europe — Multi-Storey Steel Buildings, Part 5: Joint Design*, ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI, 06/2009) | §2 platine d'about partielle (§2.1 détails, §2.2 cisaillement, §2.2.1, §2.2.4, §2.3 **tying**, §2.4 exemple), §3 fin plate (§3.2, §3.2.3, §3.2.5.1, §3.4 exemple), §4 doubles cornières (§4.2.x, §4.3.x, §4.4 exemple) | sous-clauses reprises **telles quelles des modules existants**, dont les benchmarks reproduisent numériquement les exemples §2.4, §3.4 et §4.4 |
 | **SCI P358** | modèle « élément support chargé d'un seul côté » (cisaillement local), pression diamétrale de l'élément support, plats LONGS (déversement), numéros de « Check » | **cités de mémoire** dans le dépôt depuis le 21/09/2026, listés non vérifiés dans `ECARTS_ET_CORRECTIONS.md` §2 — l'étude ne les corrige pas et n'en ajoute aucun |
 | **ECCS n°126** | facteur 1,27 du cisaillement brut, sections nettes, ductilité des platines minces | idem |
-| **EN 1993-1-1:2005** | Tab. 3.1, §6.2.3(2), §6.2.5, §6.2.6 | idem |
+| **EN 1993-1-1:2005** | §6.2.3(2), §6.2.5, §6.2.6 ; f_y et f_u : NBN EN 1993-1-1 ANB:2018 3.2.1(1), tableau 3.3 ANB (`acier/assemblages/materiau.py`) — le Tab. 3.1 ne sert plus qu'au matériau des exemples du benchmark | idem |
 | **BS 5950-1:2000 Annexe B.2.1** (courbe de la Table 17) | déversement d'un plat long, `E = 205 000 MPa` | déjà dans le module `plat_ame`, benchmark VAL-A |
 
 **Règle de citation, reprise du dépôt** : un `§` sans indication est de

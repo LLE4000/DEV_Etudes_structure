@@ -81,11 +81,11 @@ n'y en a aucun.
 
 | Élément | Destination |
 |---|---|
-| 6 aciers `S235 S275 S355 S355 (fu 490) S355 N/NL S460 N/NL` : `fy fu bw` | BIB (depuis le JSON, jamais recopié) |
+| 6 aciers `S235 S275 S355 S355 (fu 490) S355 N/NL S460 N/NL` : `fy fu bw` | BIB : `bw` depuis le JSON ; `fy fu` selon l'épaisseur, table unique `acier/materiaux.py` (tableau 3.3 ANB) par `acier/assemblages/materiau.py` — le HTML garde les siens (EN 1993-1-1 tab. 3.1), rendus à la parité par `parite.materiau_du_corrige` |
 | Acier Personnalisé : `fy_u fu_u bw_u` appliqué à P, S ou C selon `nu_*` | MOT |
 | `fy_P fu_P bw_P fy_S fu_S bw_S fy_C fu_C bw_C` | MOT |
 | Classe de boulon : `f_ub`, `a_v` (= αv si filetage dans le plan, sinon 0,6), `k_trou` (0,8 si surdimensionné) | MOT |
-| Note « S355 : fu = 510 (Tab. 3.1) ; ligne fu 490 : autres références ; à caler sur ton ANB » | ENT (aide du champ `nu_P`) → UI |
+| Note « S355 : fu = 510 (Tab. 3.1) ; ligne fu 490 : autres références ; à caler sur ton ANB » | ENT (aide du champ `nu_P`) → UI ; depuis le lot A, la règle belge (tableau 3.3 ANB, `acier/assemblages/materiau.texte_nuances`) |
 
 ## 4. Boulons (`DB.boulons`, `DB.classes` ; `compute` l. 268–289 ; `boltTable` l. 391–398)
 
