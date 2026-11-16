@@ -29,11 +29,16 @@ c étant la distance du bout de la barre au bord de la longueur chargée, avec l
 UN RAIDISSEUR EST NÉCESSAIRE dès qu'une combinaison dépasse η₂ = 1 ou (η₂ + 0,8·η₁)/1,4 = 1 ; et à chaque appui
 posé d'une âme élancée au cisaillement (§ 5.1(2)). Il est dimensionné pour la plus grande force du lieu.
 
-DÉCISION IMPOSSIBLE (brief § 8.3, point 5) quand une donnée manque : la longueur d'appui s_s (jamais supposée, § 8.2),
-le débord c d'un appui de rive, ou le MAINTIEN latéral de la semelle chargée (§ 6.1(1)) — tenue à un appui (fourche) ou
-par un maintien « complet » ou de cette semelle à la même abscisse ; et, pour un raidisseur sous une charge, celui des
-DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Le lieu est alors « non couvert », jamais « pas de raidisseur » : ses
-vérifications, faites à s_s = 0 et c = 0, sont données pour information.
+UNE DONNÉE QUI MANQUE (brief § 8.3, point 5 ; § 8.2 : s_s jamais supposée) — la longueur d'appui s_s, le débord c d'un
+appui de rive (sauf quand la force y est du type (a) à c = 0 : c n'y change rien). F_Rd croît avec s_s et avec c ; 0 est
+leur BORNE BASSE, pas une supposition (au type (c), la branche m₂ = 0, cohérente ou non : ec3_ame.resistance, borne) :
+le lieu est vérifié à la borne. Tout passe → « pas de raidisseur », borne dite, taux donnés ; sinon « décision
+impossible : s_s à saisir », le taux à la borne sur la même ligne (À VÉRIFIER : lecture du point 5) — sauf quand ce qui ne
+passe pas n'en dépend pas (le critère 6.2.1(5) ne lit pas c) : le raidisseur est sûr. Le MAINTIEN latéral de
+la semelle chargée (§ 6.1(1)) n'a pas de borne — tenue à un appui (fourche) ou par un maintien « complet » ou de cette
+semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour un raidisseur sous une charge,
+les DEUX semelles (longueur 0,75·h_w, § 9.4(2)) : sans lui, « décision impossible ». Le lieu impossible est « non
+couvert », jamais « pas de raidisseur ».
 
 Ce que ce bloc ne fait pas (v1), et dit : la charge concentrée sur un profil creux (EN 1993-1-8) ; les raidisseurs
 intermédiaires d'une âme élancée (elle est vérifiée sans eux) ; les soudures des raidisseurs (EN 1993-1-8) ; DEUX FORCES
@@ -136,7 +141,7 @@ def efforts(b: Dict, s: Dict) -> Dict:
 def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
     """Les endroits où une force appuie sur l'âme, de gauche à droite : {"base" (préfixe de ses vérifications), "nom",
     "genre" (« appui » | « charge »), "x" (m), "appui" (son rang, ou None), "charges" [(rang du cas, valeur kN)],
-    "ss" {"haut", "bas"} (mm ; None : semelle non chargée ; 0 quand elle n'est pas saisie), "manque" {"haut", "bas"}
+    "ss" {"haut", "bas"} (mm ; None : semelle non chargée ; 0, sa borne, quand elle n'est pas saisie), "manque" {"haut", "bas"}
     (les données non saisies de chaque semelle chargée : « s_s », « c »), "tenue" {"haut", "bas"} (la semelle est tenue
     latéralement au droit du lieu), "dispo" (mm d'âme jusqu'à chaque bout de la barre)}."""
     Lt = sum(b["travees"])
@@ -200,7 +205,8 @@ def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
                 out.append(hote)
             hote["charges"] = g["parts"]
             if hote["ss"][b["niveau"]] is None:
-                # plusieurs charges : la plus courte de leurs longueurs d'appui — inconnue dès qu'une n'est pas saisie
+                # plusieurs charges : la plus courte de leurs longueurs d'appui — inconnue dès qu'une n'est pas saisie : la
+                # borne 0 pour le groupe, jamais la plus courte des SAISIES (la manquante peut être plus courte)
                 connue = None not in g["ss"]
                 hote["ss"][b["niveau"]] = min(g["ss"]) if connue else 0.0
                 hote["manque"][b["niveau"]] = [] if connue else ["s_s"]
@@ -234,7 +240,9 @@ def resistances(L: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = Non
     pour la force transmise de l'une à l'autre (« b ») — acier/barre/ec3_ame.resistance, contact d'extrémité non établi
     (le verdict du type (c) ; la variante avec contact y est donnée pour information) ; ``fyw`` : la f_y de l'âme.
     Chaque résistance garde l'âme qui l'a donnée (« ame » : b_f et t_f de la semelle chargée, brief § 8.2) ; la force
-    transmise d'un PRS à semelles inégales prend la semelle qui donne la plus petite F_Rd (choix prudent déclaré)."""
+    transmise d'un PRS à semelles inégales prend la semelle qui donne la plus petite F_Rd (choix prudent déclaré).
+    Chacune dit aussi ses données non saisies qui COMPTENT (« manque » : « s_s », « c » ; « rive » : celles de l'appui de
+    rive qui font le c d'une force du type (c)) : elle est alors calculée à leur BORNE 0 (``ec3_ame.resistance``, borne)."""
     d = min(L["dispo"])
     out = {}
     for cote, ss in L["ss"].items():
@@ -244,13 +252,33 @@ def resistances(L: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = Non
         hw = a["hw"]
         c = max(d - ss / 2.0, 0.0)
         type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"
+        # c ne change rien à une force du type (a) à c = 0 : elle le reste pour tout c ≥ 0, et F_Rd n'en dépend pas
+        manque = [m for m in ((L.get("manque") or {}).get(cote) or []) if not (m == "c" and type_ == "a")]
+        rive = list(L.get("manque_bout") or []) if type_ == "c" else []
         contact = (L.get("contact") or {}).get(cote) or "inconnu"
-        out[cote] = dict(AM.resistance(a, fy, P, ss, type_, c, contact=contact, fy_ame=fyw), ame=a)
+        out[cote] = dict(AM.resistance(a, fy, P, ss, type_, c, contact=contact, fy_ame=fyw, borne=bool(manque or rive)), ame=a,
+                         manque=manque, rive=rive)
     if len(out) == 2:
-        essais = [dict(AM.resistance(AM.ame_de(s, k), fy, P, min(L["ss"]["haut"], L["ss"]["bas"]), "b", fy_ame=fyw), ame=AM.ame_de(s, k))
-                  for k in ("haut", "bas")]
+        manque = ["s_s"] if any("s_s" in out[k]["manque"] for k in ("haut", "bas")) else []     # le type (b) ne lit pas c
+        essais = [dict(AM.resistance(AM.ame_de(s, k), fy, P, min(L["ss"]["haut"], L["ss"]["bas"]), "b", fy_ame=fyw, borne=bool(manque)),
+                       ame=AM.ame_de(s, k), manque=manque, rive=[]) for k in ("haut", "bas")]
         out["b"] = min(essais, key=lambda r: r["FRd"])
     return out
+
+
+def borne(r: Dict) -> Optional[str]:
+    """Ce que la borne prend pour la force vérifiée ``r`` (``resistances``) : « s_s = 0, c = 0 » ; None quand rien ne manque."""
+    parts = [f"{m} = 0" for m in r.get("manque") or []] + ([f"{_et(r['rive'])} de l'appui de rive = 0"] if r.get("rive") else [])
+    return ", ".join(parts) or None
+
+
+def portee(r: Dict) -> float:
+    """La longueur chargée l_y de la force ``r`` pour chercher les forces rapprochées (§ 6.3(2)) : la sienne ; quand une
+    donnée manque, la plus grande possible (ec3_ame.ly_plafond, s_s = h_w s'il manque) — la borne basse de l_y y serait
+    du côté dangereux (À VÉRIFIER)."""
+    if not (r.get("manque") or r.get("rive")):
+        return r["ly"]
+    return AM.ly_plafond(r["ame"], r["ame"]["hw"] if "s_s" in r["manque"] else r["ss"])
 
 
 def _titre(L: Dict, cote: str) -> str:
@@ -267,18 +295,13 @@ def _saisie(L: Dict, cote: str) -> float:
     return min(L["ss"].values()) if cote == "b" else L["ss"][cote]
 
 
-def _manque(L: Dict, cote: str) -> List[str]:
-    """Les données non saisies de la force vérifiée : celles de sa semelle ; des deux pour la force transmise."""
-    m = L.get("manque") or {}
-    return sorted(set(m.get("haut", []) + m.get("bas", []))) if cote == "b" else list(m.get(cote, []))
-
-
-def _mots_force(r: Dict, saisie: float, manque: Sequence[str] = ()) -> List[str]:
-    """Ce qu'on dit de la force vérifiée : ses données non saisies (calcul à 0, pour information), ou sa longueur
-    d'appui bornée ; puis le type de la force et les choix du calcul (ec3_ame.mots_resistance)."""
+def _mots_force(r: Dict, saisie: float) -> List[str]:
+    """Ce qu'on dit de la force vérifiée : ses données non saisies (leur borne), ou sa longueur d'appui bornée à h_w ;
+    puis le type de la force et les choix du calcul (ec3_ame.mots_resistance)."""
     mots = []
-    if manque:
-        mots.append(f"{_et(manque)} non saisi{'s' if len(manque) > 1 else ''} : calcul à 0, pour information.")
+    b = borne(r)
+    if b:
+        mots.append(f"Non saisi{'s' if ',' in b or ' et ' in b else ''} : {b} (borne prudente).")
     elif saisie > r["ss"]:
         mots.append(f"s_s bornée à h_w = {RE.fr(r['ss'], 1)} mm.")
     return mots + AM.mots_resistance(r)
@@ -289,11 +312,24 @@ def _et(mots: Sequence[str]) -> str:
 
 
 def impossible(donnees: Sequence[str], maintiens: Sequence[str], rive: Sequence[str] = ()) -> str:
-    """La raison d'une décision impossible (brief § 8.3, point 5), en une phrase : « Décision impossible : s_s à fournir. »
+    """La raison d'une décision impossible (brief § 8.3, point 5), en une phrase : « Décision impossible : s_s à saisir. »
     ``rive`` : les données manquantes de l'appui de rive voisin (le c d'une force du type (c))."""
     quoi = ([_et(donnees)] if donnees else []) + ([f"{_et(rive)} de l'appui de rive"] if rive else [])
-    parts = ([f"{' ; '.join(quoi)} à fournir"] if quoi else []) + ([f"maintien {_et(maintiens)} à préciser"] if maintiens else [])
+    parts = ([f"{' ; '.join(quoi)} à saisir"] if quoi else []) + ([f"maintien {_et(maintiens)} à préciser"] if maintiens else [])
     return "Décision impossible : " + " ; ".join(parts) + "."
+
+
+def critere_pire(F: float, essais: Sequence[float], tf: float, tw: float, sx: float, tau: float, fy: float, gM0: float) -> Dict:
+    """Le critère 6.2.1(5) à la jonction sous la force F (N), au PIRE des longueurs d'appui ``essais`` (mm) : la saisie ; ou,
+    s_s non saisie, ses deux bouts 0 et h_w — le critère est quadratique en σ_z, son plus grand sur l'intervalle est à un
+    bout. {"ss", "sz", "se", "crit"}."""
+    pire = None
+    for u in essais:
+        sz = AM.sigma_z(F, u, tf, tw)
+        crit = AM.critere_elastique(sx, sz["sigma_z"], tau, fy, gM0)
+        if pire is None or crit > pire["crit"] + EPS:
+            pire = {"ss": u, "sz": sz["sigma_z"], "se": sz["se"], "crit": crit}
+    return pire
 
 
 def cisaillement_panneaux(x0: float, bords: Sequence[float], combs: Sequence, hw: float) -> float:
@@ -322,8 +358,10 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
 
         {"base", "nom", "genre", "x", "type", "ss" (mm), "F_Ed" (kN, la plus grande force du lieu), "sans": {"F_Rd" (kN),
          "eta2", "interaction" (None sans flexion)} (l'âme seule, au plus défavorable), "decision" (« aucun » |
-         « raidisseur »), "raison", "raidisseur" (None | {"bs", "ts", "chanfrein", "designation"}), "verifications"
-         (leurs identifiants), "gouvernant", "taux", "statut"}."""
+         « raidisseur » | « impossible »), "raison", "borne" (« s_s = 0, c = 0 : borne prudente » quand une donnée non
+         saisie est prise à sa borne, None sinon), "raidisseur" (None | {"bs", "ts", "chanfrein", "designation"}),
+         "verifications" (leurs identifiants), "gouvernant", "taux" (aussi d'un lieu impossible, pour information),
+         "statut"}."""
     try:
         P = PA.jeu(b["parametres"])
         fy, fyw, src = _fy(b, s)
@@ -427,11 +465,12 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             return out
         # σ_x nul (un appui d'extrémité) : les deux contrôles, le plus défavorable retenu (choix déclaré du brief § 8.2, À VÉRIFIER)
         sx = AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_jonction"])
-        # σ_z,Ed garde s_s même quand le contact d'extrémité n'est pas établi : le brief (§ 8.2) ne met s_s = 0 que dans (6.10),
-        # « les autres paramètres inchangés » (À VÉRIFIER)
-        sz = AM.sigma_z(F * 1e3, r["ss"], nv["tf"], s["tw"])
         tau = o["V"] * 1e3 * nv["S"] / (I * s["tw"])      # τ à la jonction : V·S_f/(I_y·t_w), S_f de la semelle chargée (À VÉRIFIER)
-        out.update(sx=sx, sz=sz["sigma_z"], se=sz["se"], tau=tau, crit=AM.critere_elastique(sx, sz["sigma_z"], tau, fy, gM0))
+        # σ_z,Ed garde s_s même quand le contact d'extrémité n'est pas établi : le brief (§ 8.2) ne met s_s = 0 que dans (6.10),
+        # « les autres paramètres inchangés » (À VÉRIFIER). s_s non saisie : le critère, quadratique en σ_z, est le plus grand à
+        # un BOUT de l'intervalle — s_s = 0 (σ_z le plus fort) ou s_s = h_w (quand σ_x > 2·σ_z) : le plus grand des deux
+        essais = [r["ss"]] + ([r["ame"]["hw"]] if "s_s" in (r.get("manque") or []) else [])
+        out.update(critere_pire(F * 1e3, essais, nv["tf"], s["tw"], sx, tau, fy, gM0), sx=sx, tau=tau)
         return out
 
     # ---- première passe : l'âme seule tient-elle, sous chaque combinaison ?
@@ -488,27 +527,38 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         elif pire["crit"] is not None and pire["crit"] > 1.0:
             raison = (f"Sans raidisseur : critère 6.2.1(5) à la jonction = {RE.fr(pire['crit'], 2)} > 1, "
                       f"{AM.ETATS_SEMELLE[pire['el']['etat']]} ({pire['C_crit'].nom}).")
+        echec = raison is not None                 # l'âme seule ne passe pas (à la borne quand une donnée manque)
         certain = el is not None and el["elancee"] and L["genre"] == "appui"
         if certain:                                # § 5.1(2) : le raidisseur d'appui est dû, quelles que soient les données
             raison = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
-        # brief § 8.3, point 5 : une donnée qui manque → décision impossible (jamais « pas de raidisseur » par défaut) —
-        # s_s, c ; le maintien de la semelle chargée et, quand elle n'est pas comprimée partout, de l'autre (§ 6.1(1))
-        bout = L["manque_bout"] if any(res[k]["type"] == "c" for k in charges_) else []
-        donnees = sorted({m for k in charges_ for m in L["manque"][k]}, key=["s_s", "c"].index)
+        # brief § 8.3, point 5 : jamais « pas de raidisseur » par défaut. s_s et c non saisis : la BORNE 0 (F_Rd croît avec eux) —
+        # tout passe, pas de raidisseur ; sinon, décision impossible, la donnée à saisir. Le maintien de la semelle chargée et,
+        # quand elle n'est pas comprimée partout, de l'autre (§ 6.1(1)) n'a pas de borne : décision impossible
+        bout = sorted({m for k in charges_ for m in res[k]["rive"]}, key=["s_s", "c"].index)
+        donnees = sorted({m for k in charges_ for m in res[k]["manque"]}, key=["s_s", "c"].index)
+        # … sauf quand ce qui ne passe pas n'en dépend pas : le critère 6.2.1(5) ne lit ni c ni l'appui de rive — s_s saisie, le
+        # raidisseur est sûr, quel que soit c
+        sur = pire["crit"] is not None and pire["crit"] > 1.0 and "s_s" not in donnees
+        a_saisir = bool(donnees or bout) and echec and not certain and not sur
         requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}
         maintiens = [COTES[k] for k in ("haut", "bas") if k in requis and not L["tenue"][k]]
-        manque = None if certain or not (donnees or maintiens or bout) else impossible(donnees, maintiens, bout)
+        manque = None if certain or not (a_saisir or maintiens) else impossible(donnees if a_saisir else [], maintiens, bout if a_saisir else [])
         if manque is None and raison and L["genre"] == "charge" and not all(L["tenue"].values()):
             # le raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) ; sinon, longueur non chiffrée
             manque = impossible([], ["des deux semelles (longueur du raidisseur, § 9.4(2))"])
-        etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque}
+        b_ = []
+        for k in ([] if certain or a_saisir else sorted(charges_)):
+            b_ += [x for x in (borne(res[k]) or "").split(", ") if x and x not in b_]
+        b_ = ", ".join(b_)
+        etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque,
+                             "borne": f"{b_} : borne prudente" if b_ else None}
 
     # ---- deux forces rapprochées sur la même semelle (§ 6.3(2)) : à vérifier aussi ensemble — ce bloc ne le fait pas, et le dit
     proches = []
     for L1, L2 in zip(charges, charges[1:]):
         r1, r2 = etudes[L1["base"]]["res"], etudes[L2["base"]]["res"]
         ecart = (L2["x"] - L1["x"]) * 1e3
-        if any(ecart < (r1[k]["ly"] + r2[k]["ly"]) / 2.0 for k in ("haut", "bas") if k in r1 and k in r2):
+        if any(ecart < (portee(r1[k]) + portee(r2[k])) / 2.0 for k in ("haut", "bas") if k in r1 and k in r2):
             proches.append(f"{L1['nom'][:1].lower() + L1['nom'][1:]} et {L2['nom'][:1].lower() + L2['nom'][1:]}")
     if proches:
         J = RE.Journal(METHODE, NORME)
@@ -541,7 +591,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             etude["raidisseur"]["cisaillement"] = cis
 
     # ---- seconde passe : ce qui est vérifié, combinaison par combinaison ; une décision impossible : « non couvert », les
-    #      taux à s_s = 0 et c = 0 pour information
+    #      taux à la borne (ou aux données, quand c'est le maintien qui manque) pour information
     for L in charges:
         etude = etudes[L["base"]]
         res, p, manque = etude["res"], etude["raidisseur"], etude["manque"]
@@ -557,11 +607,11 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 cote0 = etude["pire"]["cote"]
                 avant = AM.ecrire_resistance(J, res[cote0]["ame"], fy, P, res[cote0])
                 RA.ecrire(J, L["base"], L["nom"], s, fy, P, dict(p, F=o["Fmax"] * 1e3), avant,
-                          [etude["raison"]] + _mots_force(res[cote0], _saisie(L, cote0), _manque(L, cote0)))
+                          [etude["raison"]] + _mots_force(res[cote0], _saisie(L, cote0)))
             else:
                 cotes = [k for k in ("haut", "bas") if o[k] > 0 and k in res]
                 k = max(cotes, key=lambda k: o[k] * 1e3 / res[k]["FRd"])
-                mots = ([manque] if manque else []) + _mots_force(res[k], _saisie(L, k), _manque(L, k))
+                mots = ([manque] if manque else []) + _mots_force(res[k], _saisie(L, k))
                 trop_etroit = bool(etude["raison"]) and not manque       # il faut un raidisseur, et le profilé n'en reçoit pas
                 if trop_etroit:
                     mots.append(J.alerte(f"sans_raidisseur_{L['base']}", "attention", f"{L['nom']} : raidisseur nécessaire, mais le profilé "
@@ -572,7 +622,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 if o["b"] is not None:
                     J.verif(f"{L['base']}-B", _titre(L, "b"), f"{AM.REF} § 6.2", "F_Ed ≤ F_Rd", o["b"], res["b"]["FRd"] / 1e3, "kN",
                             AM.ecrire_resistance(J, res["b"]["ame"], fy, P, res["b"], prefixe="b_"),
-                            messages=_mots_force(res["b"], _saisie(L, "b"), _manque(L, "b")), statut=nc, taux=info(o["b"], res["b"]["FRd"]))
+                            messages=_mots_force(res["b"], _saisie(L, "b")), statut=nc, taux=info(o["b"], res["b"]["FRd"]))
                 if o["eta1"] is not None:
                     cles = [J.f("eta2", "η₂", [RE.terme("F_Ed", o["F"], "kN"), RE.terme("F_Rd", r["FRd"] / 1e3, "kN")], o["eta2"], "", "a_eta2"),
                             AM.ecrire_eta1(J, o["N"] * 1e3, o["M"] * 1e6, o["A"], o["W"], fy, gM0, o["nomA"], o["nomW"])]
@@ -586,7 +636,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 if o["el"] is not None:
                     x = o["el"]
                     nv = x["nv"]
-                    cles = [J.f("se", "s_e", [RE.terme("s_s", res[x["cote"]]["ss"], "mm"), RE.terme("t_f", nv["tf"], "mm")], x["se"], "mm", "a_se"),
+                    cles = [J.f("se", "s_e", [RE.terme("s_s", x["ss"], "mm"), RE.terme("t_f", nv["tf"], "mm")], x["se"], "mm", "a_se"),
                             J.f("sigma_z", "σ_z,Ed", [RE.terme("F_Ed", x["F"], "kN"), RE.terme("s_e", x["se"], "mm"), RE.terme("t_w", s["tw"], "mm")],
                                 x["sz"], "N/mm²", "a_sigma_z"),
                             J.f("sigma_x", "σ_x", [RE.terme("N_Ed", o["N"], "kN"), RE.terme("A", x["A"], "mm²"), RE.terme("M_Ed", o["M_s"], "kN·m"),
@@ -628,7 +678,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                        "decision": decision, "raison": manque or etude["raison"], "manque": manque,
                        "raidisseur": None if p is None else {"bs": p["bs"], "ts": p["ts"], "chanfrein": p["chanfrein"],
                                                              "designation": RA.designation(p)},
-                       "verifications": [v["id"] for v in vs], "gouvernant": gouv["id"], "taux": None if manque else gouv["taux"], "statut": statut})
+                       "verifications": [v["id"] for v in vs], "gouvernant": gouv["id"], "borne": etude["borne"],
+                       # une décision impossible garde son taux, sur la même ligne : à la borne, ou pour information (non couvert)
+                       "taux": gouv["taux"], "statut": statut})
     if any(L["decision"] == "raidisseur" for L in rendus):
         hyp.append("Raidisseurs : de la nuance de la barre, f_y de chaque plat selon son épaisseur (table unique, option a de l'ANB) ; f_y de "
                    "calcul de la section du raidisseur = min(plats ; âme) ; leurs soudures sont hors du module (EN 1993-1-8). "

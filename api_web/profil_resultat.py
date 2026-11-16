@@ -221,10 +221,10 @@ def _ligne_lieu(a: Dict, L: Dict, gov: bool) -> str:
     niv = M.niveau(v)
     if L["decision"] == "raidisseur":
         cmp_ = f'<b class="pf-raid">{C.esc(L["raidisseur"]["designation"])}</b> <span class="pf-ou">· {M.comparaison(v)}</span>'
-    elif L["decision"] == "impossible":                 # rien n'est décidé : pas de taux, la donnée qui manque (brief § 8.3, point 5)
-        cmp_, niv = f'<b>{M.sub(M.decision_lieu(L))}</b>', M.NIVEAU_STATUT[RE.NON_COUVERT]
+    elif L["decision"] == "impossible":                 # rien n'est décidé : la donnée qui manque (brief § 8.3, point 5), et le taux
+        cmp_, niv = f'<b>{M.sub(M.decision_lieu(L))}</b>', M.NIVEAU_STATUT[RE.NON_COUVERT]      # à la borne, en gris
     else:
-        cmp_ = f'{M.comparaison(v)} <span class="pf-ou">· sans raidisseur</span>'
+        cmp_ = f'{M.comparaison(v)} <span class="pf-ou">· {M.sub(M.decision_lieu(L))}</span>'
     return C.ligne_verif(L["nom"], cmp_, C.pct(L["taux"]) if L["taux"] is not None else None, niv, calcul=fenetre(M.AME, L["base"]),
                          gov=gov, etat_txt=M.MOT_STATUT[L["statut"]].lower())
 

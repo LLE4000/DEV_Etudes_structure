@@ -110,12 +110,12 @@ chk("une note neuve : version 2, une barre B1 — IPE 300, S235, deux appuis de 
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
 chk("ses DEUX méthodes tiennent (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; "
-    "mais s_s et c ne sont pas saisis : l'âme ne décide pas (brief § 8.3, point 5) — la note est « À vérifier », son résumé porte le taux le "
-    "plus fort (le harnais suit : « Conforme » avant la reprise du lot B, s_s = 0 pris par défaut)",
+    "mais s_s et c ne sont pas saisis, et à leur borne 0 l'âme ne passe pas (critère 6.2.1(5), 157 %) : décision impossible (brief § 8.3, "
+    "point 5) — la note est « À vérifier », son résumé porte le taux le plus fort (le harnais suit : « à fournir » à la 2e reprise)",
     r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.74 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)"
-    and "Âme · Décision impossible : s_s et c à fournir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
+    and "Âme · Décision impossible : s_s et c à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
 # la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
 DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
 chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %) et la note redevient « Conforme »",
@@ -407,13 +407,13 @@ ra = r0["ame"]
 bloc = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
 chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « À vérifier », la norme et les combinaisons ELU ; "
-    "une ligne par appui — « décision impossible : s_s et c à fournir », sans taux ; l'avertissement en pied (le harnais suit : « Sans "
-    "raidisseur · 77 % » avant la reprise du lot B, s_s = 0 pris par défaut — brief § 8.3, point 5)",
+    "une ligne par appui — « décision impossible : s_s et c à saisir », avec le taux à la borne (157 %, en gris) ; l'avertissement en pied (le "
+    "harnais suit : sans taux, « à fournir », à la 2e reprise du lot B — brief § 8.3, point 5)",
     bloc is not None and tb.startswith("Âme et raidisseurs À vérifier") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
-    and all(f"{L['nom']} non couvert décision impossible : s s et c à fournir" in tb and L["taux"] is None for L in ra["lieux"]) and len(ra["lieux"]) == 2
-    and "Appui A, appui B : décision impossible : s s et c à fournir." in tb and ra["taux_max"] is None, tb[:400])
+    and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s et c à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
+    and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s et c à saisir." in tb and ra["taux_max"] is None, tb[:400])
 chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
-    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s et c à fournir (appui A, appui B)" in texte(neuf["resultat"]))
+    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s et c à saisir (appui A, appui B)" in texte(neuf["resultat"]))
 rd = moteur(DECIDE["etat"]["elements"][0])["ame"]
 bd = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', DECIDE["resultat"], re.S)
 tbd = texte(bd.group(1)) if bd else ""
@@ -439,9 +439,9 @@ for L in ra["lieux"]:
             parts, res = W.morceaux(par[cle])
             if res not in t or parts[-1] not in t:
                 manques.append((L["nom"], cle, res))
-    if "décision impossible : s s et c à fournir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
+    if "décision impossible : s s et c à saisir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
         manques.append((L["nom"], "en-tête ou hypothèses"))
-chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules (calculées à s_s = c = 0, pour information) écrites par "
+chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules (à la borne s_s = c = 0) écrites par "
     "acier.barre.ecriture, les hypothèses du bloc, « décision impossible » ; « tout le calcul » du bloc (s3) porte ses vérifications et ses "
     "combinaisons",
     not manques and 'id="ck-s3"' in neuf["volets"] and 'data-calcul="s3"' in bloc.group(1), manques[:3])
@@ -485,10 +485,12 @@ def fenetre_appui(rep_):
 
 
 c50 = saisir(c0["etat"], "appuis/c", "50")
-chk("la longueur d'appui saisie seule (100 mm) : « décision impossible : c à fournir » ; avec c = 0 : F_Rd = 199,8 kN (le cas R4 du brief, "
-    "type (c) : le contact d'extrémité n'est pas établi, s_s = 0 dans (6.10) — lot A) — 22 % ; avec contact, 248,9 kN pour information ; 50 mm "
-    "de débord : le verdict reste 199,8 kN, l'information passe à 335,9 kN",
-    "décision impossible : c à fournir" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" not in texte(ss100["resultat"])
+chk("la longueur d'appui saisie seule (100 mm) : à la borne c = 0, « sans raidisseur (c = 0 : borne prudente) », 22 % (le harnais suit : "
+    "« décision impossible : c à fournir » à la 2e reprise) ; avec c = 0 saisi : F_Rd = 199,8 kN (le cas R4 du brief, type (c) : le contact "
+    "d'extrémité n'est pas établi, s_s = 0 dans (6.10) — lot A) — 22 %, sans borne ; avec contact, 248,9 kN pour information ; 50 mm de débord : "
+    "le verdict reste 199,8 kN, l'information passe à 335,9 kN",
+    "F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" in texte(ss100["resultat"])
+    and "borne prudente" not in texte(c0["resultat"])
     and "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(c0["resultat"]) and "Sans raidisseur · 22 %" in texte(c0["resultat"])
     and "s s = 100 mm, débord en rive c = 0 mm" in fenetre_appui(c0)
     and "hypothèse de contact non établie : s s = 0 dans (6.10) (verdict) ; avec contact, F Rd = 248,9 kN, pour information" in fenetre_appui(c0)
@@ -1032,6 +1034,72 @@ finally:
     NO.limite_elastique = vrai_
     P._RESULTATS.clear()
 chk(f"mutation « troisième passe — refus de 80 mm écrit avec un point décimal » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+
+print("=== 14. (2e reprise du lot B) s_s et c non saisis à l'écran : la borne dite, le taux sur la ligne, le résumé des Appuis — et leurs mutations")
+from api_web import profil_saisie as PS  # noqa: E402
+
+
+def borne_ecran():
+    """Les contrôles de la borne sur l'écran, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    n_ = req(action="nouveau")
+    s_ = saisir(n_["etat"], "appuis/ss", "100")
+    z_ = saisir(s_["etat"], "appuis/c", "0")
+
+    def resume_ap(rep_):
+        t_ = texte(rep_["donnees"])
+        i_ = t_.find("Appuis posée")
+        return t_[i_:i_ + 40] if i_ >= 0 else ""
+    tn, ts, tz = texte(n_["resultat"]), texte(s_["resultat"]), texte(z_["resultat"])
+    return [
+        ("le résumé de la rubrique Appuis dit ce qui manque — « s_s à saisir · c à saisir » ; s_s saisie : « s_s 100 mm · c à saisir » ; "
+         "c = 0 SAISI se lit (« c 0 mm »), il n'est pas « à saisir »",
+         resume_ap(n_).startswith("Appuis posée · s s à saisir · c à saisir") and resume_ap(s_).startswith("Appuis posée · s s 100 mm · c à saisir")
+         and resume_ap(z_).startswith("Appuis posée · s s 100 mm · c 0 mm"), (resume_ap(n_), resume_ap(s_), resume_ap(z_))),
+        ("la ligne d'un lieu impossible porte le taux à la borne (« Appui A 157 % décision impossible : s s et c à saisir ») ; à la borne qui "
+         "passe, la ligne dit la borne (« sans raidisseur (c = 0 : borne prudente) ») ; c = 0 saisi : « sans raidisseur », sans borne",
+         "Appui A 157 % décision impossible : s s et c à saisir" in tn and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in ts
+         and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur Appui B" in tz, (tn[-300:], ts[-300:])),
+    ]
+
+
+for nom_, ok_, info_ in borne_ecran():
+    chk(nom_, ok_, info_)
+
+
+def _resume_ancien(vrai):
+    def f(el):
+        ap = el["appuis"]
+        if ap["mode"] != "poses":
+            return vrai(el)
+        ss = f"s<sub>s</sub> {M.n(ap['ss'], 0)} mm" if ap["ss"] is not None else "s<sub>s</sub> à saisir"
+        return f"{M.NOM_MODE_APPUI['poses']} · {ss}" + (f" · c {M.n(ap['c'], 0)} mm" if ap["c"] else "")
+    return f
+
+
+MUTATIONS_BORNE = (
+    ("le résumé des Appuis tait c (manquant, ou 0 saisi)", PS, "_resume_appuis", _resume_ancien),
+    ("la ligne d'un lieu ne dit pas la borne", M, "decision_lieu",
+     lambda vrai: (lambda L: "sans raidisseur" if L["decision"] == "aucun" else vrai(L))),
+    ("la ligne d'un lieu impossible perd son taux", MO, "verifier",
+     lambda vrai: (lambda el: {**vrai(el), "ame": {**vrai(el)["ame"], "lieux": [dict(L, taux=None if L["decision"] == "impossible" else L["taux"])
+                                                                           for L in vrai(el)["ame"]["lieux"]]}})),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_BORNE:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    setattr(objet_, attr_, fabrique_(vrai_))
+    try:
+        rouges_ = [n_ for n_, ok_, _i in borne_ecran() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles de la borne à l'écran sont verts", all(ok_ for _n, ok_, _i in borne_ecran()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -337,8 +337,10 @@ def parite(etat, pages):
             veut("une hypothèse de l'âme", h, nu(h.split(" (")[0])[:60] in nu(T))
         for L in a["lieux"]:
             veut("un lieu de l'âme", L["nom"])
-            decision = L["raidisseur"]["designation"] if L["decision"] == "raidisseur" else "sans raidisseur"
-            veut(f"la décision de {L['nom']}", decision)
+            # (2e reprise du lot B) la décision telle que l'écran la dit (profil_mots.decision_lieu, la source unique) : la paire de
+            # plats, « sans raidisseur » — avec la borne d'une donnée non saisie —, ou « décision impossible : … » avec son taux
+            decision = M.decision_lieu(L)
+            veut(f"la décision de {L['nom']}", decision, nu(decision) in nu(T))
             nombre(f"la force de {L['nom']}", f"{M.r1(L['F_Ed'])} kN")
             if L["taux"] is not None:
                 nombre(f"le taux de {L['nom']}", taux(L["taux"]))

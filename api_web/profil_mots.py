@@ -133,7 +133,7 @@ def decision_lieu(L: Dict) -> str:
     if L["decision"] == "impossible":
         r = L.get("raison") or "Décision impossible."
         return r[:1].lower() + r[1:].rstrip(".")
-    return "sans raidisseur"
+    return f"sans raidisseur ({L['borne']})" if L.get("borne") else "sans raidisseur"
 
 
 def resume_ame(a: Dict) -> str:

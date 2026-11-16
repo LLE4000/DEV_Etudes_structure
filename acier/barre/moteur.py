@@ -322,9 +322,12 @@ def verifier(barre: Dict) -> Dict:
     s = SE.du_catalogue(b["profil"])
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
     ec = out["methodes"].get("ec3")
-    if ec and s.get("forme") == "I" and not AME.AM.est_soude(s):       # brief § 8.3, point 8 : un laminé que le cisaillement fait
-        for v in ec["verifications"]:                                   # échouer (V_pl,Rd) — un raidisseur n'y peut rien
-            if v["id"] == "E-Vz" and v["statut"] == RE.NOK:
+    if ec and s.get("forme") == "I" and not AME.AM.est_soude(s):       # brief § 8.3, point 8 : un laminé dont le CISAILLEMENT
+        # gouverne l'âme — V_pl,Rd ne passe pas, ou son taux passe celui de chaque force concentrée vérifiée (À VÉRIFIER : sans
+        # force concentrée, rien à comparer : rien n'est dit tant qu'il passe) — un raidisseur n'y peut rien
+        locaux = [x["taux"] for x in out["ame"]["verifications"] if x["id"].startswith("A-L") and x["taux"] is not None]
+        for v in ec["verifications"]:
+            if v["id"] == "E-Vz" and (v["statut"] == RE.NOK or (locaux and v["taux"] is not None and v["taux"] >= max(locaux))):
                 v["messages"].append(AME.AM.MOT_CISAILLEMENT)
     statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
     statut = RE.pire_statut(statuts)

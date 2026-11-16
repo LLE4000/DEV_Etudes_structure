@@ -39,7 +39,8 @@ CE QUI EST PRIS DU CÔTÉ SÛR, et dit dans les hypothèses :
   négligée (elle tend vers zéro quand a grandit) ;
 - montant d'extrémité NON rigide : χ_w = 0,83/λ̄_w au-delà de 0,83/η (tableau 5.1) ;
 - η₁ ÉLASTIQUE dans (7.2) : N_Ed/(f_y·A/γ_M0) + M_Ed/(f_y·W_el/γ_M0), A_eff et W_eff en classe 4 (brief § 8.2) ;
-- la longueur d'appui rigide s_s est bornée à h_w (§ 6.3(1)) ; non saisie, le moteur de l'âme (ame.py) ne décide pas ;
+- la longueur d'appui rigide s_s est bornée à h_w (§ 6.3(1)) ; non saisie (et c de même), le moteur de l'âme (ame.py)
+  calcule à la BORNE s_s = 0 (c = 0) — ``resistance(…, borne=True)`` ;
 - les RÉSISTANCES prennent la f_y de calcul de la section (la plus petite des parois, brief § 7.1) : m₁ = b_f/t_w,
   F_Rd, V_bw,Rd, l_e ; les ÉLANCEMENTS de plaque (λ̄_w, λ̄_F) et la limite 72·ε/η, la f_y de l'âme selon son épaisseur.
 
@@ -217,20 +218,21 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
 
 # ------------------------------------------------------------------ § 6 : la charge concentrée
 def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.0, contact=False,
-               fy_ame: Optional[float] = None, panneau: Optional[float] = None) -> Dict:
+               fy_ame: Optional[float] = None, panneau: Optional[float] = None, borne: bool = False) -> Dict:
     """F_Rd de l'âme ``a`` (``ame_de``) sous une force appliquée sur la longueur d'appui rigide ``ss`` (mm), selon le
     ``type_`` de la figure 6.1 ; ``c`` : la distance de l'extrémité au bord de la longueur chargée, type (c) ;
     ``contact`` (type (c), DÉCISION BUREAU n° 2, brief § 8.2) : « oui » (ou True) — s_s entre dans (6.10) ; « non » —
     s_s = 0 dans (6.10) seulement ; « inconnu » (ou False, le défaut) — le verdict de « non », et F_Rd avec contact
     donnée pour information ; ``fy_ame`` : la f_y de l'âme selon t_w, celle de λ̄_F (à défaut ``fy``) ; ``panneau`` :
     a, la distance entre raidisseurs transversaux (mm ; None : aucun raidisseur voisin, a → ∞) — k_F = 6 + 2·(h_w/a)²
-    ou 3,5 + 2·(h_w/a)², et l_y ≤ a (§ 6.5(2)).
+    ou 3,5 + 2·(h_w/a)², et l_y ≤ a (§ 6.5(2)) ; ``borne`` : ``ss`` ou ``c`` est la BORNE BASSE d'une donnée non saisie
+    (0) — au type (c), la branche m₂ = 0, cohérente ou non (voir plus bas).
 
     Rend {"type", "ss" (bornée à h_w), "ss_610" (le s_s de (6.10)), "c", "contact", "kF", "kF_plafonne", "Fcr", "m1",
     "m2" (la branche retenue), "deux_branches", "FRd_autre", "m2_autre" (l'autre branche cohérente, None sinon), "le",
     "le_plafonne", "ly1", "ly2", "ly3", "ly", "lambda_F", "chi_F", "FRd", "FRd_contact" (type (c) sans contact, s_s > 0 :
-    F_Rd avec contact, pour information ; None sinon), "fy_ame"} — N et mm ; ``le``, ``ly2``, ``ly3`` : None hors du
-    type (c)."""
+    F_Rd avec contact, pour information ; None sinon), "borne_m2" (la borne a écarté la règle des branches), "fy_ame"} —
+    N et mm ; ``le``, ``ly2``, ``ly3`` : None hors du type (c)."""
     if type_ not in TYPES:
         raise ValueError(f"type de charge concentrée inconnu : {type_!r}")
     etat = {True: "oui", False: "inconnu"}.get(contact, contact) if isinstance(contact, bool) else contact
@@ -273,13 +275,31 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     avec, sans = branche(0.02 * (hw / tf) ** 2), branche(0.0)
     coherentes = [x for x, ok in ((sans, sans["lambda_F"] <= SEUIL_M2), (avec, avec["lambda_F"] > SEUIL_M2)) if ok]
     B = min(coherentes, key=lambda x: x["FRd"])
-    autre = next((x for x in coherentes if x is not B), None)
+    # À LA BORNE d'une donnée non saisie (s_s ou c pris à 0 ; brief § 8.3, point 5) : F_Rd du type (c) ne croît pas toujours
+    # avec s_s + c — F_cr croît, et la branche m₂ = 0 peut redevenir cohérente (la règle des branches fait baisser F_Rd).
+    # Chaque branche croît avec l_y et F_cr ; la branche m₂ = 0 est la plus petite. Elle ne peut redevenir cohérente que si
+    # elle l'est avec F_cr au plus haut (k_F = 6) et l_y au plus bas (le sien, à la borne) : alors elle borne F_Rd par en
+    # dessous, cohérente ou non ; sinon seule la branche m₂ > 0 l'est, partout, et elle croît. Types (a) et (b) : F_cr ne
+    # dépend pas de s_s, la règle des branches croît avec lui (À VÉRIFIER ; balayage de tests/test_barre_ame.py)
+    borne_m2 = (borne and type_ == "c" and B is not sans
+                and math.sqrt(sans["ly"] * tw * fyw / (0.9 * KF_C_MAX * E * tw ** 3 / hw)) <= SEUIL_M2)
+    if borne_m2:
+        B = sans
+    autre = None if borne_m2 else next((x for x in coherentes if x is not B), None)
     out = dict(B, type=type_, ss=ss, ss_610=ss610, c=c, contact=bool(contact), contact_etat=etat, panneau=panneau, kF=kF, kF_plafonne=type_ == "c" and brut > KF_C_MAX, Fcr=Fcr,
                m1=m1, le=le, le_plafonne=le_plafonne, deux_branches=autre is not None, FRd_autre=None if autre is None else autre["FRd"],
-               m2_autre=None if autre is None else autre["m2"], FRd_contact=None, fy_ame=fyw)
+               m2_autre=None if autre is None else autre["m2"], FRd_contact=None, borne_m2=borne_m2, fy_ame=fyw)
     if type_ == "c" and etat == "inconnu" and ss > 0:
-        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=True, fy_ame=fy_ame, panneau=panneau)["FRd"]
+        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=True, fy_ame=fy_ame, panneau=panneau, borne=borne)["FRd"]
     return out
+
+
+def ly_plafond(a: Dict, ss: float) -> float:
+    """La plus grande longueur chargée l_y que peut avoir une force de longueur d'appui ``ss`` (mm, bornée à h_w), quels
+    que soient c, le type et la branche de m₂ : s_s + 2·t_f·(1 + √(m₁ + 0,02·(h_w/t_f)²)) — celle des forces rapprochées
+    (§ 6.3(2)) quand une donnée manque (À VÉRIFIER : borne haute)."""
+    hw, tf = a["hw"], a["tf"]
+    return min(max(float(ss), 0.0), hw) + 2.0 * tf * (1.0 + math.sqrt(a["bf"] / a["tw"] + 0.02 * (hw / tf) ** 2))
 
 
 def ecrire_resistance(J: Journal, a: Dict, fy: float, P: Dict, r: Dict, prefixe: str = "") -> List[str]:
@@ -339,7 +359,9 @@ def mots_resistance(r: Dict) -> List[str]:
             mots.append("sans contact d'extrémité : s_s = 0 dans (6.10)")
         elif r.get("contact_etat") == "oui":
             mots.append("contact d'extrémité établi : s_s dans (6.10)")
-    if r["m2"] <= 0:
+    if r.get("borne_m2"):
+        mots.append("borne : m₂ = 0, la plus petite des deux branches")
+    elif r["m2"] <= 0:
         mots.append("λ̄_F ≤ 0,5 : m₂ = 0")
     if r.get("deux_branches"):
         mots.append(f"deux branches de m₂ cohérentes : la plus petite F_Rd est retenue (l'autre : {_fr(r['FRd_autre'] / 1e3, 1)} kN)")
