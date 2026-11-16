@@ -48,6 +48,7 @@ sys.path.insert(0, RACINE)
 sys.path.insert(0, os.path.join(RACINE, "tests"))
 
 import note_cas_outils as O  # noqa: E402
+from acier.barre import ec3_section as ES  # noqa: E402
 from acier.barre import ecriture as W  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
@@ -122,8 +123,12 @@ NOTES = {
     "une charge au droit d'un appui": note(("nom", "CA1"), ("profil", "HEA 200"), ("modele", "continue"), ("travees/0", "5"), ("travees/1", "5"),
                                           ("appuis/ss", "80"), ("appuis/c", "20"), ("cas/0/charges/+", "P"), ("cas/0/charges/1/a", "5"),
                                           ("cas/0/charges/1/v", "20"), ("cas/0/charges/1/ss", "100")),
-    # … une âme élancée (IPE 750x147 en S355) : le voilement par cisaillement vérifié, des raidisseurs aux appuis
-    "une âme élancée": note(("nom", "AE1"), ("profil", "IPE 750x147"), ("nuance", "S355"), ("travees/0", "8"), ("cas/0/charges/0/v", "60")),
+    # … une âme élancée (IPE 750x134 en S355) : le voilement par cisaillement vérifié, des raidisseurs aux appuis (lot A : avec
+    # η = 1,00 pour un laminé — ANB:2011, 5.1(2) — l'IPE 750x147 ne le demande plus : h_w/t_w = 719/13,2 = 54,5 < 72ε/η = 58,6 ; l'IPE 750x134 : 719/12 = 59,9)
+    "une âme élancée": note(("nom", "AE1"), ("profil", "IPE 750x134"), ("nuance", "S355"), ("travees/0", "8"), ("cas/0/charges/0/v", "60")),
+    # (lot A) une nuance hors du domaine de la méthode historique (S460 : la NBN B 51-001 couvre AE235 à AE355) — le calcul est
+    # imprimé, jamais « conforme » (brief § 9)
+    "une nuance hors du domaine de la méthode historique (S460)": note(("nom", "HD1"), ("nuance", "S460")),
 }
 
 
@@ -241,6 +246,7 @@ def parite(etat, pages):
         if len(el["nom"]) <= 40 and court:
             veut("les taux dans l'en-tête de chaque page", court, all(O.norm(court) in t[:320] for _n, t in mes))
         veut("l'acier", f"Acier {el['nuance']}")
+        veut("… et la source de sa f_y : le tableau de l'ANB (la table unique, lot A)", f"Acier {el['nuance']} · tableau 3.")
         nombre("la masse", f"{M.n(r['masse'], 1)} kg/m")
         for a in ("y", "z"):
             veut("la longueur de flambement", f"{M.n(r['longueurs'][a]['u'], 3)} × {M.m(r['longueurs'][a]['L'])} m")
@@ -251,6 +257,8 @@ def parite(etat, pages):
                     veut("une charge", NP._charge(ch))
             for L in el["travees"]:
                 nombre("une portée", f"{M.m(L)} m")
+            if el["poids_propre"]:                              # (lot A) le poids propre du MOTEUR : 78,6 kN/m³ × A
+                veut("le poids propre, celui du moteur", f"Poids propre du profilé (78,6 kN/m³ × A = {M.n(r['poids_propre'], 3)} kN/m)")
             env = DB.enveloppes(r)
             if env:                                             # les textes que SEUL le dessin écrit, et les extrêmes de ses enveloppes
                 quoi = "ELU" if env[0] == "ec3" else "service"
@@ -279,6 +287,8 @@ def parite(etat, pages):
                 continue
             x = r["methodes"][k]
             veut("la tête de la méthode", f"{M.METHODES[k]} — {x['norme']}")
+            if x["statut"] == RE.HORS_DOMAINE:                 # (lot A) le mot de la méthode, jamais un mot de taux
+                veut("une méthode hors de son domaine est dite « Hors domaine »", "Hors domaine — ")
             if x.get("taux_max") is not None:
                 nombre("le taux de tête de la méthode", taux(x["taux_max"]))
             if len(x.get("combinaisons") or []) >= 2:
@@ -475,21 +485,23 @@ def main():
     T = " ".join(pages[1:])
     el, r = barres(NOTES["la barre neuve"])[0]
     h, e = r["methodes"]["historique"], r["methodes"]["ec3"]
-    chk("la barre neuve : la méthode historique vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, les paramètres à confirmer, ce qui "
-        "n'est pas vérifié — et les taux de tête sont ceux de l'écran (73,8 % ; 51,9 %)",
+    chk("la barre neuve : la méthode historique vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, ce qui n'est pas vérifié — et les "
+        "taux de tête sont ceux de l'écran (73,9 % ; 57,7 %) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
+        "l'ANB:2018, 6.3.2.3(1), lu) ; la nuance dit son tableau de l'ANB (la table unique)",
         0 < T.index("Méthode historique — NBN B 51-001") < T.index("Eurocode 3 — NBN EN 1993-1-1") < T.index("Comparaison des deux méthodes")
-        < T.index("Paramètres à confirmer") < T.index("Ce que la note ne vérifie pas")
-        and taux(h["taux_max"]) == "73,8 %" and taux(e["taux_max"]) == "51,9 %" and "73,8 %" in T and "51,9 %" in T, T[:300])
+        < T.index("Ce que la note ne vérifie pas") and "Paramètres à confirmer" not in T and "Acier S235 · tableau 3.3 ANB" in T
+        and taux(h["taux_max"]) == "73,9 %" and taux(e["taux_max"]) == "57,7 %" and "73,9 %" in T and "57,7 %" in T, T[:300])
     chk("… la méthode historique s'écrit comme le classeur du bureau : σ_adm = f_y/s = 235 / 1,5 = 156,7 N/mm², les charges critiques, le "
         "déversement de la documentation (I_d, A_d, r_d, λ_ed, φ_ed), puis σ = σ_P + σ_My + σ_Mz",
-        all(x in T for x in ("235 / 1,5", "156,7 N/mm", "4811 kN", "1390 kN", "301 cm", "19,3 cm", "3,94 cm", "76,1", "0,727", "115,6 N/mm")), T[1500:2200])
-    chk("… la flèche de service est donnée (10,0 mm, L/599) et dite non vérifiée ; le poids propre est compté",
-        "10,0 mm" in T and "L/599" in T and "elle n'est pas vérifiée" in T and "Poids propre du profilé : compté" in T)
+        all(x in T for x in ("235 / 1,5", "156,7 N/mm", "4811 kN", "1390 kN", "301 cm", "19,3 cm", "3,94 cm", "76,1", "0,727", "115,7 N/mm")), T[1500:2200])
+    chk("… la flèche de service est donnée (10,0 mm, L/599) et dite non vérifiée ; le poids propre est compté, et sa valeur dite (78,6 kN/m³ × A, "
+        "la valeur du moteur)",
+        "10,0 mm" in T and "L/599" in T and "elle n'est pas vérifiée" in T and "Poids propre du profilé (78,6 kN/m³ × A = 0,423 kN/m) : compté" in T)
     sec = NP.planche(el, r, NP.Planche())
     chk("… sa planche : un bloc de données, une tête par méthode, la tête de l'âme, une vérification par bloc numéroté de 1 à n, chacune finie "
         "par son verdict",
         [v["num"] for v in sec["verifs"]] == list(range(1, len(sec["verifs"]) + 1))
-        and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 3
+        and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 2
         and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"]
                 if " · " in v["titre"] or " — NBN" in v["titre"] or " : âme" in v["titre"])
         and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : âme sous la réaction",
@@ -749,7 +761,9 @@ MUTATIONS = (
     ("l'identification de la note du site est perdue", NP, "infos_doc", _sans_identification, ["la barre neuve"]),
     ("la comparaison imprime d'autres taux que ceux du moteur (historique + 10 %)", NP, "comparaison_methodes", _comparaison_fausse, ["la barre neuve"]),
     ("la comparaison des deux méthodes n'est plus imprimée", NP.R, "comparable", lambda vrai: (lambda r: False), ["la barre neuve"]),
-    ("les paramètres à confirmer ne sont plus imprimés", NP, "a_confirmer", lambda vrai: (lambda r, largeur: None), ["la barre neuve"]),
+    # (lot A : la barre neuve n'a plus de paramètre à confirmer — le poteau comprimé et fléchi garde ceux de l'interaction)
+    ("les paramètres à confirmer ne sont plus imprimés", NP, "a_confirmer", lambda vrai: (lambda r, largeur: None),
+     ["un poteau comprimé et fléchi (efforts imposés, annexe A)"]),
     ("ce que la note ne vérifie pas n'est plus dit", NP, "limites", lambda vrai: (lambda r: {"titre": "Remarques", "items": [], "verdicts": []}), ["la barre neuve"]),
     ("le périmètre non vérifié n'est plus nommé (les raidisseurs…)", NP, "LIMITES", lambda vrai: (), ["la barre neuve"]),
     ("la flèche n'est plus donnée", NP, "limites", lambda vrai: (lambda r: (lambda o: dict(o, items=o["items"][-1:]))(vrai(r))), ["la barre neuve"]),
@@ -779,6 +793,12 @@ MUTATIONS = (
      lambda vrai: (lambda el, r, court=False: vrai(el, r, court).replace(" · 1 raidisseur", "")), ["une poutre de reprise et son raidisseur"]),
     ("les vérifications de l'âme ne sont plus imprimées (sa tête seule)", NP, "planche",
      lambda vrai: (lambda el, r, style: vrai(el, dict(r, ame=dict(r["ame"], verifications=[])), style)), ["une âme élancée"]),
+    # (lot A) la source de f_y, le mot « Hors domaine », le poids volumique du moteur
+    ("la nuance ne dit plus le tableau de l'ANB d'où vient sa f_y", ES, "tableau_fy", lambda vrai: (lambda nuance, s: None), ["la barre neuve"]),
+    ("une méthode hors de son domaine est dite d'un mot de taux (« À vérifier »)", NP.R, "mot_methode",
+     lambda vrai: (lambda x: NP.R.mot_niveau(NP.R.niveau_methode(x))), ["une nuance hors du domaine de la méthode historique (S460)"]),
+    ("le poids propre est dit avec un poids volumique recopié (77 kN/m³) et non celui du moteur", NP, "ST",
+     lambda vrai: type("ST", (), {"POIDS_VOLUMIQUE": 77.0}), ["la barre neuve"]),
     ("les deux membres d'un critère échangés", NP, "comparaison", lambda vrai: (lambda v: vrai(dict(v, valeur=v.get("limite"), limite=v.get("valeur")))),
      ["une poutre continue qui ne tient pas"]),
 )

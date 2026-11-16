@@ -54,9 +54,10 @@ C_MODES = (("unite", "C = 1", "Les classeurs du bureau."), ("norme", "Selon la n
 EFFORTS = (("N", "N", "kN", "Effort normal ; positif en compression."), ("My", "M_y", "kN·m", "Moment autour de l'axe fort."),
            ("Vz", "V_z", "kN", "Effort tranchant parallèle à l'âme."), ("Mz", "M_z", "kN·m", "Moment autour de l'axe faible."),
            ("Vy", "V_y", "kN", "Effort tranchant parallèle aux semelles."))
-# le niveau (couleur) d'un statut sans taux
-NIVEAU_STATUT = {RE.OK: "p", RE.NOK: "r", RE.NON_COUVERT: "c"}
-MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.NON_COUVERT: "Non couvert"}
+# le niveau (couleur) d'un statut sans taux ; « hors domaine » (brief § 9) : le niveau « v » existant (à vérifier), avec
+# son mot — un taux calculé hors du domaine de la méthode n'est jamais peint « conforme »
+NIVEAU_STATUT = {RE.OK: "p", RE.NOK: "r", RE.NON_COUVERT: "c", RE.HORS_DOMAINE: "v"}
+MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.NON_COUVERT: "Non couvert", RE.HORS_DOMAINE: "Hors domaine"}
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
@@ -127,7 +128,9 @@ def resume_ame(a: Dict) -> str:
 
 
 def niveau(v: Dict) -> str:
-    """La couleur d'une vérification : celle de son taux ; sans taux, celle de son statut."""
+    """La couleur d'une vérification : celle de son taux ; sans taux, celle de son statut ; hors domaine : « v »."""
+    if v.get("statut") == RE.HORS_DOMAINE:
+        return NIVEAU_STATUT[RE.HORS_DOMAINE]
     if v.get("taux") is not None:
         return "r" if v["statut"] == RE.NOK else C.niveau(v["taux"])
     return NIVEAU_STATUT.get(v["statut"], "c")

@@ -16,7 +16,9 @@ from acier.profiles import familles as FA
 
 ENCRE, ACIER, HACH, COTE, AXE, EFFORT = "#15181F", "#DCE2E9", "#8794A3", "#5B6573", "#7A8290", "#9C3341"
 GRIS, GRILLE, MUET, ACCENT, ETOILE = "#A7B0BD", "#E7EAEF", "#6B7280", "#2B4BCF", "#E0A100"
-NIVEAU = {"p": ("#86EFAC", "#166534"), "f": ("#15803D", "#0F5A2C"), "r": ("#DC2626", "#991B1B")}
+# (« v » : à vérifier — une méthode hors de son domaine (lot A) : l'ocre de la pastille « v » de l'écran, jamais la couleur
+# « conforme » ; copie NOMMÉE de --vrf et --vrf-encre de site/web/css/site.css, liée par tests/test_api_web_profil.py)
+NIVEAU = {"p": ("#86EFAC", "#166534"), "f": ("#15803D", "#0F5A2C"), "r": ("#DC2626", "#991B1B"), "v": ("#B86E00", "#8A5A00")}
 POLICE = "system-ui,-apple-system,'Segoe UI',Arial,sans-serif"
 
 

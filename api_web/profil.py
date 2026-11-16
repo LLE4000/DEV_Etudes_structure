@@ -260,11 +260,11 @@ def _taux(r: Dict) -> Optional[float]:
 
 
 def _niveau(r: Dict) -> str:
-    """Le niveau d'une barre pour la note : non conforme (r) ; une vérification non couverte : à vérifier (v) ; aucun
-    effort : données incomplètes (n) ; sinon la couleur de son taux."""
+    """Le niveau d'une barre pour la note : non conforme (r) ; une vérification non couverte, ou une méthode hors de son
+    domaine : à vérifier (v) ; aucun effort : données incomplètes (n) ; sinon la couleur de son taux."""
     if r["statut"] == RE.NOK:
         return "r"
-    if r["statut"] == RE.NON_COUVERT:
+    if r["statut"] in (RE.NON_COUVERT, RE.HORS_DOMAINE):
         return "v"
     t = _taux(r)
     return "n" if t is None or t <= 0 else C.niveau(t)
@@ -747,8 +747,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         row = {"nom": nom, "col": C.fr(CAT.par_nom()[nom]["masse"], 1), "taux": None, "niveau": "c", "cur": nom == el["profil"],
                "opt": tient and not vu_leger, "prop": _proprietes(nom, t)}
         vu_leger = vu_leger or tient
-        if statut == RE.NON_COUVERT:
-            row["etat"] = "non couvert" if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"
+        if statut in (RE.NON_COUVERT, RE.HORS_DOMAINE):
+            row["etat"] = ("non couvert" if statut == RE.NON_COUVERT else "hors domaine") if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"
         elif t is not None:
             row.update({"taux": C.pct(min(t, 9.99)), "niveau": "r" if statut == RE.NOK else C.niveau(t)})
         else:

@@ -14,6 +14,8 @@ fichiers : profil_saisie, profil_resultat, profil_mots, dessin_barre), vérifié
   8. PLUSIEURS BARRES — ajouter, copier, supprimer ; le résumé de la note ; le calcul gardé.
   9. LES VUES ET LA SÛRETÉ — du SVG bien formé ; un nom saisi est échappé partout ; aucune ressource externe.
  10. UN SEUL ARRONDI — le tableau, la formule et le catalogue écrivent le même chiffre d'un même nombre.
+ 11. LOT A — une méthode hors de son domaine (« Hors domaine », l'ocre « v »), le poids propre que le moteur nomme, la
+     source de f_y ; chaque contrôle a sa mutation.
 
     /usr/bin/python3.12 tests/test_api_web_profil.py
 """
@@ -107,15 +109,18 @@ chk("une note neuve : version 2, une barre B1 — IPE 300, S235, deux appuis de 
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
-chk("elle tient par ses DEUX méthodes (historique 74 %, Eurocode 3 52 %) : la note est « Conforme », son résumé porte le taux le plus fort",
-    r0["statut"] == "ok" and round(th, 2) == 0.74 and round(te, 2) == 0.52 and neuf["resume"]["statut"] == "Conforme"
+chk("elle tient par ses DEUX méthodes (historique 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, "
+    "6.3.2.3(1)) : la note est « Conforme », son résumé porte le taux le plus fort",
+    r0["statut"] == "ok" and round(th, 2) == 0.74 and round(te, 2) == 0.58 and neuf["resume"]["statut"] == "Conforme"
     and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "p"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (historique)", (th, te, neuf["resume"]))
 res0 = texte(neuf["resultat"])
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
-    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode historique · flexion σ 115,6 ≤ σ adm 156,7 N/mm²" in res0
-    and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,6 ≤ M b,Rd 128,3 kN·m" in res0
+    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode historique · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in res0
+    and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,6 kN·m" in res0
     and "1,35·Poids propre + 1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0, res0[:500])
+chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
+    round(r0["poids_propre"], 4) == 0.4230 and "(0,42 kN/m)" in texte(neuf["donnees"]), texte(neuf["donnees"])[:300])
 chk("la tête dit la barre : « B1 », « IPE 300 · S235 · 6,00 m » ; le pied, la masse et la flèche de service (une information)",
     '<div class="et-rp"><b>B1</b><span>IPE 300 · S235 · 6,00 m</span></div>' in neuf["resultat"] and "Masse du profilé 42,2 kg/m" in res0
     and "Flèche de service 10,0 mm · L/599" in res0, res0[-300:])
@@ -202,15 +207,20 @@ chk("la COMPARAISON (le quatrième bloc, après les deux méthodes et l'âme) : 
     and f'Âme et raidisseurs (EN 1993-1-5) {pastille(r["ame"]["taux_max"])}' in texte(cmp_.group(1)) and cmp_.group(1).count("pf-cmp-c") == 1
     and 'data-calcul="cmp"' in rep["resultat"] and 'id="ck-cmp"' in rep["volets"] and "vaut pour les deux méthodes" in texte(rep["volets"]),
     texte(cmp_.group(1)) if cmp_ else None)
-ac = r["methodes"]["ec3"]["a_confirmer"]
-chk(f"les paramètres « à confirmer » de l'annexe nationale ({len(ac)}) : un lien dans la rubrique Méthodes, une fenêtre (ac) avec leur valeur et leur source",
-    len(ac) >= 2 and f"{len(ac)} paramètres à confirmer" in texte(rep["donnees"]) and 'data-calcul="ac"' in rep["donnees"]
-    and 'id="ck-ac"' in rep["volets"] and all(p["source"] in vol for p in ac))
+chk("(lot A) la poutre continue n'a plus de paramètre « à confirmer » : le couple (λ̄_LT,0 ; β) est celui de l'ANB:2018, 6.3.2.3(1) — ni lien "
+    "ni fenêtre (ac)", not r["methodes"]["ec3"]["a_confirmer"] and "à confirmer" not in texte(rep["donnees"]) and 'id="ck-ac"' not in rep["volets"])
+rpp = REPONSES["un poteau-poutre en efforts imposés"]
+ac = moteur(rpp["etat"]["elements"][0])["methodes"]["ec3"]["a_confirmer"]
+chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre : {len(ac)}, ceux de l'interaction) : un lien dans la rubrique "
+    "Méthodes, une fenêtre (ac) avec leur valeur et leur source",
+    len(ac) >= 2 and f"{len(ac)} paramètres à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
+    and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
-chk("une barre que la méthode historique refuse (179 %) et que l'Eurocode accepte (92 %) : la note est NON CONFORME, les deux verdicts se lisent",
+chk("une barre que la méthode historique refuse (179 %) et que l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de "
+    "l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les deux verdicts se lisent, deux blocs rouges",
     nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 179
-    and "η 179 % Méthode historique" in texte(nu["resultat"]) and "η 92 % Eurocode 3" in texte(nu["resultat"])
-    and 'class="et-bloc nok"' in nu["resultat"] and 'class="et-bloc ok"' in nu["resultat"], nu["resume"])
+    and "η 179 % Méthode historique" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
+    and nu["resultat"].count('class="et-bloc nok"') == 2, nu["resume"])
 
 print("=== 3. Les saisies")
 POSES = [("nom", "Panne 3", lambda e: e["nom"] == "Panne 3"), ("travees/0", "7,25", lambda e: e["travees"] == [7.25]),
@@ -387,9 +397,9 @@ ra = r0["ame"]
 bloc = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
 chk("la barre neuve : le bloc « Âme et raidisseurs » (le troisième) dit « Sans raidisseur · 77 % », la norme et les combinaisons ELU ; une ligne "
-    "par appui — ce que l'âme compare (F_Ed 44,4 ≤ F_Rd 58,0 kN), « sans raidisseur », le taux du moteur",
+    "par appui — ce que l'âme compare (F_Ed 44,5 ≤ F_Rd 58,0 kN), « sans raidisseur », le taux du moteur",
     bloc is not None and tb.startswith("Âme et raidisseurs Sans raidisseur · 77 %") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
-    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,4 ≤ F Rd 58,0 kN · sans raidisseur" in tb for L in ra["lieux"]) and len(ra["lieux"]) == 2
+    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,5 ≤ F Rd 58,0 kN · sans raidisseur" in tb for L in ra["lieux"]) and len(ra["lieux"]) == 2
     and round(ra["taux_max"], 2) == 0.77, tb[:300])
 chk("… rien à poser : pas de ligne « Âme » sous les verdicts des méthodes", "pf-vame" not in neuf["resultat"])
 manques = []
@@ -427,10 +437,11 @@ chk("HEB 300, 675 kN à mi-portée : l'âme seule ne suffit pas — sous les ver
     and "Charge à 2,00 m 87 % 2 plats 140 × 15 mm · F Ed 675,0 ≤ N c,Rd 775,5 kN" in tr_ and 'class="pf-raid"' in rep["resultat"], tr_[:400])
 fen = re.search(rf'<div class="flyout calcul" id="ck-{re.escape(PR.fenetre("ame", Lc["base"]))}">(.*?)</div></div></div>', rep["volets"], re.S)
 tf = texte(fen.group(1)) if fen else ""
-chk("… la fenêtre du lieu : la raison (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 611,2 kN »), la résistance de l'âme seule, puis l'écrasement "
+chk("… la fenêtre du lieu : la raison (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 585,2 kN » — lot A : f_y = 225 N/mm², t_f = 19 mm), la "
+    "résistance de l'âme seule, puis l'écrasement "
     "et le flambement du raidisseur",
-    "Sans raidisseur : F Ed = 675,0 kN > F Rd = 611,2 kN" in tf and "raidisseur, écrasement au contact" in tf and "raidisseur, flambement" in tf
-    and "611,2 kN" in tf and "775,5 kN" in tf and "2 plats 140 × 15 mm" in tf, tf[:300])
+    "Sans raidisseur : F Ed = 675,0 kN > F Rd = 585,2 kN" in tf and "raidisseur, écrasement au contact" in tf and "raidisseur, flambement" in tf
+    and "585,2 kN" in tf and "775,5 kN" in tf and "2 plats 140 × 15 mm" in tf, tf[:300])
 vb = next(x for x in rep["vues"] if x["cle"] == "barre")["svg"]
 vt = next(x for x in rep["vues"] if x["cle"] == "taux")["svg"]
 chk("… le dessin de la barre porte le raidisseur (un plat debout à 2,00 m) et sa légende ; la vue des taux, une barre par lieu avec ses plats",
@@ -438,9 +449,22 @@ chk("… le dessin de la barre porte le raidisseur (un plat debout à 2,00 m) et
     and "Charge à 2,00 m · 2 plats 140 × 15" in html.unescape(vt) and "Âme et raidisseurs" in vt and "Appui A" in vt
     and next(x for x in neuf["vues"] if x["cle"] == "barre")["svg"].count(f'fill="{DB.RAIDISSEUR}"') == 0, vb.count(DB.RAIDISSEUR))
 ss100 = saisir(e0, "appuis/ss", "100")
-chk("la longueur d'appui saisie (100 mm) va au moteur : F_Rd = 261,9 kN (le cas R4 du brief) — 17 % ; 50 mm de débord : 335,9 kN",
-    "F Ed 44,4 ≤ F Rd 261,9 kN" in texte(ss100["resultat"]) and "Sans raidisseur · 17 %" in texte(ss100["resultat"])
-    and "F Ed 44,4 ≤ F Rd 335,9 kN" in texte(saisir(ss100["etat"], "appuis/c", "50")["resultat"]), texte(ss100["resultat"])[-700:-400])
+def fenetre_appui(rep_):
+    """Le texte de la fenêtre du premier appui."""
+    L_ = moteur(rep_["etat"]["elements"][0])["ame"]["lieux"][0]
+    f_ = re.search(rf'<div class="flyout calcul" id="ck-{re.escape(PR.fenetre("ame", L_["base"]))}">(.*?)</div></div></div>', rep_["volets"], re.S)
+    return texte(f_.group(1)) if f_ else ""
+
+
+c50 = saisir(ss100["etat"], "appuis/c", "50")
+chk("la longueur d'appui saisie (100 mm) va au moteur : F_Rd = 199,8 kN (le cas R4 du brief, type (c) : le contact d'extrémité n'est pas "
+    "établi, s_s = 0 dans (6.10) — lot A) — 22 % ; avec contact, 248,9 kN pour information ; 50 mm de débord : le verdict reste 199,8 kN, "
+    "l'information passe à 335,9 kN",
+    "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" in texte(ss100["resultat"])
+    and "s s = 100 mm, débord en rive c = 0 mm" in fenetre_appui(ss100)
+    and "contact d'extrémité non établi : s s = 0 dans (6.10) (verdict) ; avec contact, F Rd = 248,9 kN, pour information" in fenetre_appui(ss100)
+    and "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(c50["resultat"]) and "débord en rive c = 50 mm" in fenetre_appui(c50)
+    and "avec contact, F Rd = 335,9 kN, pour information" in fenetre_appui(c50), texte(ss100["resultat"])[-700:-400])
 par_ame = saisir(e0, "appuis/mode", "ame")
 chk("appuis « par l'âme » : plus rien n'appuie sur l'âme — le bloc disparaît, la comparaison redevient le troisième bloc, sans ligne de l'âme ; "
     "la rubrique n'offre plus ni longueur d'appui ni débord",
@@ -461,19 +485,21 @@ chk("une charge ponctuelle dit sa longueur d'appui (« sur … mm ») quand elle
     and 'data-chemin="cas/0/charges/1/ss"' not in saisir(p120["etat"], "niveau", "centre")["donnees"]
     and "Charge à 3,00 m" not in texte(saisir(p120["etat"], "niveau", "centre")["resultat"])
     and saisir(p120["etat"], "niveau", "centre")["etat"]["elements"][0]["cas"][0]["charges"][1]["ss"] == 120.0)
-voile = req(action="calculer", etat=note(barre(mode="efforts", profil="IPE 750x147", nuance="S355", methodes=["ec3"],
+# (lot A : η = 1,00 pour un laminé — ANB:2011, 5.1(2) — l'IPE 750x147 ne voile plus (h_w/t_w = 54,5 < 72ε/η = 58,6) ; l'IPE 750x134
+# (59,9) voile : V_bw,Rd = 1722,0 kN < V_pl,z,Rd = 1965,4 kN)
+voile = req(action="calculer", etat=note(barre(mode="efforts", profil="IPE 750x134", nuance="S355", methodes=["ec3"],
                                                  flambement={"y": {"L": 0.0, "u": 1.0}, "z": {"L": 0.0, "u": 1.0}}, Lc=0.0,
                                                  efforts={"service": {"N": 0.0, "My": 0.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0},
-                                                          "elu": {"N": 0.0, "My": 0.0, "Mz": 0.0, "Vz": 2200.0, "Vy": 0.0}})))
+                                                          "elu": {"N": 0.0, "My": 0.0, "Mz": 0.0, "Vz": 1850.0, "Vy": 0.0}})))
 tv = texte(voile["resultat"])
-chk("une âme qui VOILE alors que l'Eurocode 3 passe (IPE 750x147 S355, V_z = 2 200 kN) : « Âme · non conforme — voilement de l'âme par "
-    "cisaillement », le bloc en rouge (106 %), la note NON CONFORME",
+chk("une âme qui VOILE alors que l'Eurocode 3 passe (IPE 750x134 S355, V_z = 1 850 kN) : « Âme · non conforme — voilement de l'âme par "
+    "cisaillement », le bloc en rouge (107 %), la note NON CONFORME",
     voile["ok"] and 'class="pf-vame nok"' in voile["resultat"] and "Âme · non conforme — voilement de l'âme par cisaillement" in tv
-    and "Âme et raidisseurs Non conforme · 106 %" in tv and voile["resume"]["niveau"] == "r" and "Eurocode 3 Conforme · 94 %" in tv, tv[:400])
-chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (106 %, et non les 94 % de l'Eurocode) : le résumé de la note, la ligne "
+    and "Âme et raidisseurs Non conforme · 107 %" in tv and voile["resume"]["niveau"] == "r" and "Eurocode 3 Conforme · 94 %" in tv, tv[:400])
+chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (107 %, et non les 94 % de l'Eurocode) : le résumé de la note, la ligne "
     "« Profilé » ; une âme qui PASSE ne compte pas — un raidisseur à 98 % ne change pas le taux d'une barre à 74 %",
-    voile["resume"]["taux"] == 106 and voile["resume"]["gouvernant"] == "B1 · IPE 750x147 · voilement de l'âme par cisaillement (âme)"
-    and "Profilé IPE 750x147 106 %" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"
+    voile["resume"]["taux"] == 107 and voile["resume"]["gouvernant"] == "B1 · IPE 750x134 · voilement de l'âme par cisaillement (âme)"
+    and "Profilé IPE 750x134 107 %" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"
     and PR.taux_barre(moteur(rep["etat"]["elements"][0])) == max(x["taux_max"] for x in moteur(rep["etat"]["elements"][0])["methodes"].values())
     and neuf["resume"]["taux"] == 74 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
 
@@ -594,7 +620,7 @@ chk(f"chacune des {len(P.FAMILLES)} familles du module a sa section dessinée et
     "rectangulaire avec h, b, t ; un tube rond avec d et t (il n'a ni h ni b)", not sans_dessin and len(P.FAMILLES) == 17, sans_dessin[:3])
 svg = REPONSES["la note neuve"]["vues"][0]["svg"]
 env = r0["statique"]["enveloppes"]["ec3"]
-chk("le dessin de la barre porte les charges de chaque cas (5 kN/m), la portée, et les extrêmes des enveloppes du moteur (M 66,6 kN·m ; V ± 44,4 kN)",
+chk("le dessin de la barre porte les charges de chaque cas (5 kN/m), la portée, et les extrêmes des enveloppes du moteur (M 66,7 kN·m ; V ± 44,5 kN)",
     svg.count("5 kN/m") == 2 and "L = 6,00 m" in svg and f">{C.fr(max(env['M_max']), 1)}<" in svg and f">{C.fr(max(env['V_max']), 1)}<" in svg
     and f">−{C.fr(-min(env['V_min']), 1)}<" in svg, re.findall(r">([^<>]*\d,\d[^<>]*)<", svg)[:12])
 
@@ -658,10 +684,10 @@ chk(f"le diagramme de l'effort tranchant (et celui du moment) RETOMBE À ZÉRO a
 bande = texte(REPONSES["la note neuve"]["vues"][0]["entete"])
 chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses maintiens, et les plus grands efforts de calcul",
     "BARRE ET EFFORTS · IPE 300 · S235" in bande and "Deux appuis · 6,00 m · 2 cas de charge, 2 charges" in bande and "Maintiens : complet à 3,00 m" in bande
-    and "66,6 kN·m" in bande and "44,4 kN" in bande, bande)
+    and "66,7 kN·m" in bande and "44,5 kN" in bande, bande)
 tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"][2]["svg"]
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
-    "Méthode historique" in tx and "Eurocode 3" in tx and ">179 %<" in tx and ">92 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
+    "Méthode historique" in tx and "Eurocode 3" in tx and ">179 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'
 sale = req(action="calculer", etat=note(barre(nom=mechant[:40], cas=[{"nom": "<b>G</b>", "nature": "permanent", "N": 0.0,
                                                                          "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])))
@@ -701,7 +727,7 @@ chk("IPE 450, une charge de 367,5 kN à 0,40 m : son raidisseur (2 plats 90 × 1
     "la fenêtre l'écrit « 458,3 kN » dans le tableau ET au bout de la formule (elle écrivait « 458,3 » au tableau et « 458,2 » dans la formule : "
     "deux arrondis)",
     rr["ok"] and vr["limite"] == 458.25 and Lr["raidisseur"]["designation"] == "2 plats 90 × 15 mm" and "N c,Rd = 458,3 kN" in tf
-    and "N c,Rd = A c ·f y /γ M0 = 1950 × 235 / 1,0 / 10³ = 458,3 kN" in tf and "458,2 kN" not in tf, tf[900:1100])
+    and "N c,Rd = A c ·f y,p /γ M0 = 1950 × 235 / 1,0 / 10³ = 458,3 kN" in tf and "458,2 kN" not in tf, tf[900:1100])
 resultats = [f["resultat"] for el in (rr["etat"]["elements"][0], req(action="calculer", etat=note(lourde))["etat"]["elements"][0], e0["elements"][0], POTEAU)
              for bloc_ in list(moteur(el)["methodes"].values()) + [moteur(el)["ame"]] for f in bloc_["calcul"]
              if isinstance(f["resultat"], (int, float)) and not isinstance(f["resultat"], bool)]
@@ -741,6 +767,73 @@ ECRAN = ("profil.py", "profil_mots.py", "profil_resultat.py", "profil_saisie.py"
 restes = [(f, m_.group(0)) for f in ECRAN for m_ in FORMAT_PYTHON.finditer(open(os.path.join(RACINE, "api_web", f), encoding="utf-8").read())]
 chk("aucun fichier de l'écran et de la note des barres n'arrondit un nombre par un format de Python (« {x:.1f} », « %.1f », « .format( ») — les "
     "coordonnées d'un dessin (dessin_barre.py) ne sont pas des nombres écrits", not restes and FORMAT_PYTHON.search('f"{float(x):.{dec}f}"'), restes[:4])
+
+print("=== 11. Lot A : une méthode hors de son domaine, le poids propre du moteur, la source de f_y — et leurs mutations")
+from api_web import dessin_profil as DP  # noqa: E402
+
+
+def lot_a():
+    """Les contrôles du lot A sur l'écran, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    hd = req(action="calculer", etat=note(barre(nuance="S460")))
+    t = texte(hd["resultat"]) if hd.get("ok") else ""
+    tx = next(x for x in hd["vues"] if x["cle"] == "taux")["svg"] if hd.get("ok") else ""
+    nv = req(action="nouveau")
+    return [
+        ("une barre en S460 se calcule (la méthode historique est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
+         "« Hors domaine · 53 % », jamais « Conforme » ; son bloc est à vérifier (inc) ; la note « À vérifier » (v), au taux du moteur",
+         hd.get("ok") and "Historique Hors domaine · 53 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
+         and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 53
+         and "hors domaine, calcul pour information" in t, (hd.get("resume"), hd.get("erreur"), t[:200])),
+        ("… sa grande pastille est ocre (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
+         'class="chip xl v"' in hd.get("resultat", "") and 'fill="#B86E00"' in tx and 'fill="#86EFAC"' in tx, tx[:120]),
+        ("le poids propre de la saisie est celui que le MOTEUR nomme (« (0,42 kN/m) », 78,6 kN/m³ × A)",
+         "Poids propre du profilé (0,42 kN/m)" in texte(nv["donnees"]), texte(nv["donnees"])[:300]),
+        ("la fenêtre d'une vérification dit d'où vient f_y : la table unique, son tableau de l'ANB et sa bande d'épaisseur",
+         "Acier S235 : f y = 235 N/mm² (tableau 3.3 ANB (EN 10025-2:2004, S235JR), t ≤ 16 mm)" in texte(nv["volets"]),
+         re.findall(r"Acier S235 : f y[^.]{0,120}", texte(nv["volets"]))[:2]),
+    ]
+
+
+for nom_, ok_, info_ in lot_a():
+    chk(nom_, ok_, info_)
+css = open(os.path.join(RACINE, "site", "web", "css", "site.css"), encoding="utf-8").read()
+vrf = re.search(r":root \{ --vrf: (#[0-9A-F]{6}); --vrf-fond: #[0-9A-F]{6}; --vrf-encre: (#[0-9A-F]{6}); \}", css)
+chk("l'ocre « v » des dessins est celui de la pastille de l'écran (copie NOMMÉE de --vrf et --vrf-encre, site/web/css/site.css)",
+    vrf is not None and DP.NIVEAU["v"] == (vrf.group(1), vrf.group(2)), (DP.NIVEAU.get("v"), vrf.groups() if vrf else None))
+
+
+def _sans_poids_propre(vrai):
+    def f(el):
+        r = dict(vrai(el))
+        r.pop("poids_propre", None)
+        return r
+    return f
+
+
+MUTATIONS_LOT_A = (
+    ("une vérification hors domaine reprend la couleur de son taux (la vue des taux la peint en vert)", M, "niveau",
+     lambda vrai: (lambda v: ("r" if v["statut"] == "nok" else C.niveau(v["taux"])) if v.get("taux") is not None else vrai(v))),
+    ("une méthode hors domaine est dite d'un mot de taux (« À vérifier »)", PR, "mot_methode", lambda vrai: (lambda x: PR.mot_niveau(PR.niveau_methode(x)))),
+    ("l'écran ne lit plus le poids propre que le moteur nomme", MO, "verifier", _sans_poids_propre),
+    ("la fenêtre ne dit plus la source de f_y (l'hypothèse « Acier » du moteur réduite à f_y)", MO.ES, "source_fy",
+     lambda vrai: (lambda *a, **k: "")),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_LOT_A:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    setattr(objet_, attr_, fabrique_(vrai_))
+    try:
+        rouges_ = [n_ for n_, ok_, _i in lot_a() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles du lot A sont verts", all(ok_ for _n, ok_, _i in lot_a()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

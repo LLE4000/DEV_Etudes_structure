@@ -293,7 +293,7 @@ def taux(ident: str, methodes: Sequence[Tuple[str, Dict]]) -> str:
             corps.append(_t(x0 - 8, y + 4, v["titre"], 10.5, "end", DP.ENCRE if gov else DP.COTE, gov))
             corps.append(f'<rect x="{x0:.1f}" y="{y - 5:.1f}" width="{larg:.1f}" height="11" rx="3" fill="{DP.GRILLE}"/>')
             if v["taux"] is not None:
-                niv = "r" if v["statut"] == RE.NOK else C.niveau(v["taux"])
+                niv = M.niveau(v)                                    # (hors domaine : « v », jamais la couleur « conforme »)
                 fond, encre = DP.NIVEAU[niv]
                 corps.append(f'<rect x="{x0:.1f}" y="{y - 5:.1f}" width="{max(2.0, X(v["taux"]) - x0):.1f}" height="11" rx="3" fill="{fond}"/>')
                 p = C.pct(v["taux"])

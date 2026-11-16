@@ -73,10 +73,10 @@ def taux_barre(r: Dict) -> Optional[float]:
 
 def niveau_methode(x: Dict) -> str:
     """La couleur d'une méthode : rouge si elle refuse, celle de son taux sinon ; « v » (à vérifier) si une vérification
-    n'est pas couverte ; « n » si elle n'a rien eu à vérifier."""
+    n'est pas couverte, ou si la méthode est hors de son domaine ; « n » si elle n'a rien eu à vérifier."""
     if x["statut"] == RE.NOK:
         return "r"
-    if x["statut"] == RE.NON_COUVERT:
+    if x["statut"] in (RE.NON_COUVERT, RE.HORS_DOMAINE):
         return "v"
     return C.niveau(x["taux_max"]) if x.get("taux_max") is not None else "n"
 
@@ -87,10 +87,23 @@ def mot_niveau(niv: str) -> str:
     return {"r": "Non conforme", "v": "À vérifier", "n": "Sans effort"}.get(niv, C.STATUTS[niv][1] if niv in C.STATUTS else "Conforme")
 
 
+def mot_methode(x: Dict) -> str:
+    """Ce qu'on dit d'une méthode : le mot de son niveau ; « Hors domaine » quand elle est hors de son domaine (brief
+    § 9 : le calcul est montré, jamais « conforme »)."""
+    return M.MOT_STATUT[RE.HORS_DOMAINE] if x["statut"] == RE.HORS_DOMAINE else mot_niveau(niveau_methode(x))
+
+
+def niveau_taux(r: Dict, k: str, t: float) -> str:
+    """La couleur d'un taux de la méthode ``k`` hors d'une vérification (la comparaison) : « v » si la méthode est hors
+    de son domaine, celle du taux sinon."""
+    return "v" if (r["methodes"].get(k) or {}).get("statut") == RE.HORS_DOMAINE else C.niveau(t)
+
+
 def etat_methode(x: Dict) -> str:
-    """« Conforme · 92 % », « Non conforme · 179 % », « À vérifier » (du texte, pour l'en-tête d'un bloc)."""
+    """« Conforme · 92 % », « Non conforme · 179 % », « À vérifier », « Hors domaine · 53 % » (du texte, pour l'en-tête
+    d'un bloc)."""
     niv = niveau_methode(x)
-    mot = mot_niveau(niv)
+    mot = mot_methode(x)
     if x.get("taux_max") is None:
         return mot
     p = C.pct(x["taux_max"])
@@ -157,7 +170,8 @@ def verdicts(r: Dict) -> str:
             out += (f'<div class="verdict"><div class="gov"><b>{M.METHODES[k]}</b>aucun effort à vérifier</div></div>')
             continue
         if x.get("taux_max") is not None:
-            pastille = C.chip(C.pct(x["taux_max"]), "r" if x["statut"] == RE.NOK else C.niveau(x["taux_max"]), xl=True)
+            pastille = C.chip(C.pct(x["taux_max"]), "r" if x["statut"] == RE.NOK else "v" if x["statut"] == RE.HORS_DOMAINE
+                              else C.niveau(x["taux_max"]), xl=True)
         else:                                    # rien n'a de taux : un refus, ou une vérification non couverte
             pastille = f'<span class="chip xl {"r" if x["statut"] == RE.NOK else "c"} pf-mot">{M.MOT_STATUT[x["statut"]]}</span>'
         ou = M.lieu(g)
@@ -175,7 +189,7 @@ def _ligne_profil(r: Dict) -> str:
     que rend un moteur neuf ; trouvé par tests/test_moteur_partage.py, P1, le 14/11/2026)."""
     quoi = f"{M.n(r['masse'], 1)}{N}kg/m" if r.get("masse") else ""
     t = taux_barre(r)
-    niv = "r" if r["statut"] == RE.NOK else (C.niveau(t) if t is not None else "c")
+    niv = "r" if r["statut"] == RE.NOK else "v" if r["statut"] == RE.HORS_DOMAINE else (C.niveau(t) if t is not None else "c")
     return C.ligne_verif("Profilé", quoi, C.pct(t) if t is not None else None, niv, pk=ROLE, piece=C.esc(r["profil"]), etat_txt="—")
 
 
@@ -235,7 +249,7 @@ def _comparaison(r: Dict) -> str:
         cases = ""
         for k in ("historique", "ec3"):
             t = li[k]
-            cases += (C.chip(C.pct(t), C.niveau(t)) if t is not None else '<span class="chip c">—</span>')
+            cases += (C.chip(C.pct(t), niveau_taux(r, k, t)) if t is not None else '<span class="chip c">—</span>')
         fort = ' pf-cmp-t' if li["sujet"] == "Le plus défavorable" else ""
         rows += f'<div class="pf-cmp{fort}"><span>{C.esc(li["sujet"])}</span>{cases}</div>'
     return rows
@@ -368,8 +382,10 @@ def _fenetre_comparaison(el: Dict, r: Dict, nom: str) -> str:
             continue
         h, e = li["historique"], li["ec3"]
         pire = max((t for t in (h, e) if t is not None), default=None)
+        k_pire = "historique" if pire is not None and pire == h else "ec3"
         lignes.append({"nom": C.esc(li["sujet"]), "sous": "", "formule": "", "valeur": M.taux_txt(h), "limite": M.taux_txt(e),
-                       "taux": C.pct(pire), "niveau": C.niveau(pire), "gov": li["sujet"] == "Le plus défavorable"})
+                       "taux": C.pct(pire), "niveau": niveau_taux(r, k_pire, pire) if pire is not None else C.niveau(pire),
+                       "gov": li["sujet"] == "Le plus défavorable"})
     detail = f'<div class="ck-g"><div class="ck-t">Ce que les deux méthodes comparent</div><div class="pf-msg">{C.esc(NOTE_COMPARAISON)}</div></div>'
     return C.fenetre_calcul("cmp", f"{nom} · comparaison des deux méthodes", dims(el), [], lignes, detail,
                             colonnes=("Sujet", "", "Historique", "Eurocode 3", "Le plus fort"))

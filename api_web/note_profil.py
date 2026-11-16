@@ -43,6 +43,7 @@ from typing import Dict, List, Optional, Tuple
 
 from acier.barre import ecriture as W
 from acier.barre import resultat as RE
+from acier.barre import statique as ST
 from ndc_pdf import data as ndc_data
 from ndc_pdf import riche as RI
 from ndc_pdf.fonts import register_all, string_width
@@ -69,7 +70,7 @@ COMBINAISONS_MAX = 8            # au-delà, le tableau des combinaisons ne montr
 # (profil_resultat.mot_niveau)
 COULEURS = {"p": "ok", "f": "att", "r": "ko", "v": "att", "n": "att", "c": "att"}
 COURT = {"historique": "historique", "ec3": "Eurocode 3"}        # une méthode au fil d'une phrase
-LEGENDE = "Vert : conforme   ·   Ocre : attention (95 à 100 %), ou une vérification non couverte   ·   Rouge : non conforme"
+LEGENDE = "Vert : conforme   ·   Ocre : attention (95 à 100 %), une vérification non couverte ou hors domaine   ·   Rouge : non conforme"
 # le nom d'une dimension et d'une propriété du catalogue, à gauche de son symbole
 LIBELLES = {"h": "Hauteur", "b": "Largeur", "t_w": "Âme", "t_f": "Semelle", "r": "Congé", "r_1": "Congé", "r_2": "Arrondi", "t": "Épaisseur",
             "d": "Diamètre", "masse": "Masse", "A": "Aire", "I_y": "Inertie, axe fort", "I_z": "Inertie, axe faible", "W_el,y": "Module élastique",
@@ -158,9 +159,10 @@ def _charge(ch: Dict) -> str:
 def donnees(el: Dict, r: Dict) -> Dict:
     """Le premier bloc : la barre, ses charges (ou ses efforts imposés), ses maintiens, ses longueurs de flambement."""
     items: List[tuple] = [("v", f"Profilé {r['profil']}", "", f"{M.n(r['masse'], 1)}", "kg/m")]
-    fy = next((x["grandeurs"].get("fy") for x in r["methodes"].values() if x["grandeurs"].get("fy")), None)
-    if fy:
-        items.append(("v", f"Acier {el['nuance']}", "f_y", M.n(fy, 0), "N/mm²"))
+    g = next((x["grandeurs"] for x in r["methodes"].values() if x["grandeurs"].get("fy")), None)
+    if g:                                    # (les deux méthodes ont la même f_y : la table unique, selon l'épaisseur)
+        src = g.get("fy_ref")                # (la source entière — bande d'épaisseur comprise — est dans les hypothèses des méthodes)
+        items.append(("v", f"Acier {el['nuance']}" + (f" · {src}" if src else ""), "f_y", M.n(g["fy"], 0), "N/mm²"))
     Ls = r["longueurs"]
     if el["mode"] == "chargee":
         items.append(("v", "Modèle", "", M.NOM_MODELE[el["modele"]], ""))
@@ -168,7 +170,8 @@ def donnees(el: Dict, r: Dict) -> Dict:
             items.append(("v", "Portée" if len(el["travees"]) == 1 else f"Travée {i + 1}", "L" if len(el["travees"]) == 1 else f"L_{i + 1}", M.m(L), "m"))
         items.append(("s", "Charges (valeurs caractéristiques)"))
         if el["poids_propre"]:
-            items.append(("pr", "Poids propre du profilé : compté, cas permanent."))
+            pp = f" ({M.n(ST.POIDS_VOLUMIQUE, 1)} kN/m³ × A = {M.n(r['poids_propre'], 3)} kN/m)" if r.get("poids_propre") else ""
+            items.append(("pr", f"Poids propre du profilé{pp} : compté, cas permanent."))
         for c in el["cas"]:
             quoi = [_charge(ch) for ch in c["charges"]] + ([f"effort normal {M.n(c['N'], 1)} kN"] if c.get("N") else [])
             items.append(("pr", f"{c['nom']} — {_minuscule(M.NATURE_COURTE[c['nature']])} : " + (" ; ".join(quoi) if quoi else "aucune charge") + "."))
@@ -227,7 +230,7 @@ def methode(el: Dict, k: str, x: Dict, largeur: float) -> Dict:
         verdict = {"texte": "Aucun effort à vérifier.", "etat": "att"}
     else:
         ou = lieu(g)
-        verdict = {"texte": f"{R.mot_niveau(niv)} — {_minuscule(g['titre'])} : {comparaison(g)}" + (f" ({ou})" if ou else ""), "etat": COULEURS[niv],
+        verdict = {"texte": f"{R.mot_methode(x)} — {_minuscule(g['titre'])} : {comparaison(g)}" + (f" ({ou})" if ou else ""), "etat": COULEURS[niv],
                    "riche": True, "cale": taux_ecrit(x["taux_max"]) if x.get("taux_max") is not None else ""}
     items.append(("k", 0))
     return {"titre": f"{M.METHODES[k]} — {x['norme']}", "items": items, "verdicts": [verdict]}

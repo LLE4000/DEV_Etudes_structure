@@ -58,7 +58,7 @@ def _rubrique_barre(el: Dict, r: Dict) -> str:
                 s += f'<div class="et-pied">{E.plus(["travees", "+"], "1", "Travée")}</div>'
         else:
             s += C.ligne("portée" if el["modele"] != "console" else "longueur", C.num(["travees", 0], el["travees"][0], "m", dec=3, mini=EN.L_MIN, maxi=EN.L_MAX), "L")
-        pp = f" ({C.fr(r['masse'] * 9.81 / 1000.0, 2)}{N}kN/m)" if r.get("masse") else ""
+        pp = f" ({C.fr(r['poids_propre'], 2)}{N}kN/m)" if r.get("poids_propre") else ""          # la valeur que le moteur compte
         s += C.case(["poids_propre"], el["poids_propre"], f"Poids propre du profilé{pp}")
     s += _titre("Profilé")
     s += C.ligne("Acier", C.segments(["nuance"], el["nuance"], [(k, k) for k in NO.NUANCES]), full=True)
