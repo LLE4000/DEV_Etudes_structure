@@ -144,6 +144,9 @@ cas("garde_corps", "Eurocode, fixation latérale", REF, [neuf(), mod("methode/mo
 cas("garde_corps", "hauteur négative : non calculable", LIM, [neuf(), mod("geometrie/H", "-1100")], {"niveau": "x"})
 cas("garde_corps", "tronçon de longueur nulle : calcul impossible", LIM, [neuf(), mod("geometrie/troncons/0/L", "0")], {"niveau": "x"})
 cas("garde_corps", "hauteur illisible refusée", LIM, [neuf(), mod("geometrie/H", "abc")], {"message": True})
+# lot B (brief v12 § 19.1 point 8) : 0 mm refusé comme une hauteur négative ; un champ vidé prend 1 100 mm et le dit
+cas("garde_corps", "hauteur nulle : non calculable", LIM, [neuf(), mod("geometrie/H", "0")], {"niveau": "x"})
+cas("garde_corps", "hauteur vidée : 1 100 mm par défaut, dit", LIM, [neuf(), mod("geometrie/H", "")])
 cas("garde_corps", "charge horizontale nulle (catégorie libre)", LIM, [neuf(), mod("charges/categorie", "perso"), mod("charges/qh", "0")])
 cas("garde_corps", "surchargé (q_h = 3 kN/m)", LIM, [neuf(), mod("charges/categorie", "perso"), mod("charges/qh", "3")], {"niveau": "r"})
 cas("garde_corps", "garde-corps ajouté", LIM, [neuf(), act("ajouter"), mod("geometrie/H", "1000")], {"elements": 2})

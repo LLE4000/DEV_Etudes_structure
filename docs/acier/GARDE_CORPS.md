@@ -80,6 +80,11 @@ voisins) et N = q_v × s_trib ; un montant d'angle reçoit une demi-travée de c
 dans deux directions perpendiculaires, et une section rectangulaire y est vérifiée dans les
 deux orientations. Une extrémité ancrée dans un mur n'a pas de montant : le mur reprend la
 demi-travée, et la note dit l'effort à justifier avec la cheville.
+La hauteur H : une valeur nulle ou négative est refusée (« Refus : hauteur nulle (H = 0 mm) »,
+« … négative (H = −1100,5 mm) ») ; un champ vidé prend 1 100 mm, et l'écran (« Hauteur non saisie :
+H = 1 100 mm par défaut ») comme la note (« (champ vide : valeur par défaut) ») le disent — lot B,
+brief v12 § 19.1 point 8. L'exemple chiffré de la page 2 d'une note ELS suit la nuance
+(σ_adm = f_y/1,5 à 16 mm : 156,7 en S235, 236,7 en S355, 306,7 N/mm² en S460 N/NL).
 
 **Main courante murale.** La main courante est l'élément principal (poutre sur les consoles,
 portée l'entraxe le plus grand) ; les consoles, aux mêmes entraxes, sont des consoles de

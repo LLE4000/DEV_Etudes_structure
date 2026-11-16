@@ -86,6 +86,8 @@ def _aller(d, chemin: Sequence):
 
 # les champs ENTIERS ; les autres nombres sont des réels
 ENTIERS = {("remplissage", "n_lisses"), ("fixation", "ancrage", "n_par_rangee"), ("fixation", "soudure", "troncons", "n")}
+# les champs qu'on peut VIDER : le moteur prend leur valeur par défaut et le dit (la hauteur : 1 100 mm)
+VIDE_ADMIS = {("geometrie", "H")}
 
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
@@ -111,9 +113,12 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return None
     d, k = _aller(cas, chemin)
     ancien = d.get(k) if isinstance(d, dict) else d[k]
+    if tuple(chemin) in VIDE_ADMIS and (valeur is None or not str(valeur).strip()):
+        d[k] = None                     # champ vidé : le moteur prend la valeur par défaut et le dit (brief v12 § 19.1 point 8)
+        return None
     if isinstance(valeur, bool) or isinstance(ancien, bool):
         d[k] = bool(valeur)
-    elif isinstance(ancien, (int, float)) or tuple(chemin) in ENTIERS:
+    elif isinstance(ancien, (int, float)) or tuple(chemin) in ENTIERS or tuple(chemin) in VIDE_ADMIS:
         x = C.lire_nombre(valeur)
         if x is None:
             return f"Nombre illisible : « {valeur} »"

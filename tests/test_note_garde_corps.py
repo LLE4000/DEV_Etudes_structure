@@ -326,6 +326,45 @@ if manque is None:
 else:
     chk("paquet de la note (note.zip) : il porte les fichiers que la note du garde-corps déclare", not manque, manque)
 
+# 7. lot B (brief v12 § 19.1 point 8) : le champ H se vide — 1 100 mm, dit à l'écran ET dans la note ; 0 mm est refusé
+def ctl_h_vide_nulle() -> list:
+    """Les écarts : champ H vidé sur l'écran du site (accepté, le moteur prend 1 100 mm), message à l'écran, ligne
+    « Hauteur » de la note avec « (champ vide : valeur par défaut) » ; H = 0 : refus nommé, « Calcul impossible »."""
+    ecarts = []
+    ev = G.nouvel_etat()
+    if G.modifier(ev, ["geometrie", "H"], "") is not None or ev["cas"][0]["geometrie"]["H"] is not None:
+        return ["le champ H vidé est refusé ou n'est pas vide dans l'état"]
+    html_ = G.resultat(G.normaliser(ev))["resultat"]
+    if "Hauteur non saisie : H = 1\u202f100 mm par défaut" not in html_:
+        ecarts.append("message de l'écran absent")
+    t = O.norm(" ".join(O.pages(O.note_et_tailles(G, G.normaliser(ev), INFOS)[1])))
+    if "1100 mm (champ vide : valeur par défaut)" not in t:
+        ecarts.append("note : « (champ vide : valeur par défaut) » absent")
+    e0 = G.nouvel_etat()
+    if G.modifier(e0, ["geometrie", "H"], "0") is not None:
+        return ecarts + ["H = 0 refusé à la saisie (le moteur doit le dire)"]
+    r0 = G.resultat(G.normaliser(e0))["resultat"]
+    if "Calcul impossible" not in r0 or "hauteur nulle (H = 0 mm)" not in r0:
+        ecarts.append("H = 0 : pas de refus nommé")
+    return ecarts
+
+
+ec = ctl_h_vide_nulle()
+chk("lot B · champ H vide : 1 100 mm, « Hauteur non saisie : H = 1 100 mm par défaut » à l'écran, « (champ vide : valeur par "
+    "défaut) » dans la note ; H = 0 mm : « Calcul impossible », refus nommé", not ec, ec)
+vrai_va = G.VIDE_ADMIS
+G.VIDE_ADMIS = set()
+try:
+    chk("mutation « champ H vide refusé » (l'écran d'avant : « Nombre illisible ») : le contrôle rougit", ctl_h_vide_nulle() != [])
+finally:
+    G.VIDE_ADMIS = vrai_va
+vrai_hd = NT.Calcul.h_defaut
+NT.Calcul.h_defaut = lambda self: ""
+try:
+    chk("mutation « la note ne dit pas la valeur par défaut » : le contrôle rougit", ctl_h_vide_nulle() != [])
+finally:
+    NT.Calcul.h_defaut = vrai_hd
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])
