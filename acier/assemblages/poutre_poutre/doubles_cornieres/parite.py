@@ -8,7 +8,6 @@ l'objet comparé par les tests de parité — et un format d'échange commode
 (JSON) pour rejouer un calcul hors interface.
 """
 import math
-from contextlib import contextmanager
 
 from acier.assemblages import materiau as MT
 
@@ -117,15 +116,3 @@ def materiau_du_corrige(ref):
     compare des FORMULES. L'écart de matériau avec la table belge du site (NBN EN 1993-1-1 ANB:2018 3.2.1(1),
     tableau 3.3 ANB) est nommé et testé (tests/test_assemblages_bibliotheques.py)."""
     return MT.fixe({a["n"]: (a["fy"], a["fu"]) for a in ref["bibliotheques"]["aciers"]})
-
-
-@contextmanager
-def table_du_corrige(ref):
-    """Le temps d'un bloc, la table du site remplacée par celle du corrigé : pour comparer au corrigé un calcul qui
-    passe par une interface (où ``materiau`` ne se passe pas). Tests seulement."""
-    avant = MT.table_du_site
-    MT.table_du_site = materiau_du_corrige(ref)
-    try:
-        yield
-    finally:
-        MT.table_du_site = avant
