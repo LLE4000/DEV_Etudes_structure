@@ -1020,7 +1020,15 @@ MUTATIONS = [
 ]
 
 
+# (lot B) les exemples du commentaire JRC, EUR 22898 EN (brief § 11.4) : BLOQUÉS — le site eurocodes.jrc.ec.europa.eu (et ses
+# copies) n'était pas joignable depuis la session du lot B. Aucune donnée n'est inventée : à fournir (données d'entrée et
+# résultats publiés de chaque exemple), puis à écrire ici comme contrôles, à la tolérance du brief (règle 7 : 1 %).
+JRC_BLOQUES = ("cisaillement (§ 5)", "charges transversales (§ 6)", "raidisseurs (§ 9)")
+
+
 def main():
+    for quoi in JRC_BLOQUES:
+        print(f"  BLOQUÉ  JRC EUR 22898, exemples de {quoi} : données à fournir")
     print("== 1 à 6. références")
     for nom, ok, info in controles():
         chk(nom, ok, info)
