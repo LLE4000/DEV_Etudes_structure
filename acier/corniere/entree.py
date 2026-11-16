@@ -360,8 +360,12 @@ def normaliser(c: Dict) -> Dict:
                                    f"({', '.join(_g(x) for x in FY_ADMIS)})")
     try:
         limite_elastique(out)
-    except MA.HorsTable as err:
-        raise ValueError(f"épaisseur e = {_g(e)} mm : {err}") from None
+    except MA.HorsTable:
+        # la phrase de la cornière, composée ici d'après la table (son tableau, sa dernière épaisseur), et non le message
+        # de la table relayé derrière un premier « : » (« épaisseur e = 260 mm : S355 laminé de 260 mm : le tableau… »)
+        nu = nuance_de(out["fy"])
+        raise ValueError(f"épaisseur e = {_g(e)} mm : au-delà du tableau {MA.ligne(nu, PRODUIT)['tableau']} "
+                         f"({_g(MA.epaisseur_max(nu, PRODUIT))} mm)") from None
     _exiger(out["coef"] >= 1.0, f"coefficient sur f_y = {_g(out['coef'])} : au moins 1")
     # --- charge
     _exiger(out["R"] >= 0, f"réaction R = {_g(out['R'])} kN : elle ne peut pas être négative")

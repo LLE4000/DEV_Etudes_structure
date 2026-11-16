@@ -809,7 +809,13 @@ REFUS = (("charge dans l'angle (X − dx = 28 ≤ e + r)", {"X": 48.0, "dx": 20.
          ("profil inconnu", {"profil": "L 99x99x9"}, "catalogue"), ("profil qui n'est pas une cornière", {"profil": "IPE 200"}, "catalogue"),
          ("clé inconnue", {"epaisseur": 6}, "inconnue"), ("R en texte", {"R": "35"}, "nombre"), ("t booléen", {"standard": False, "t": True}, "nombre"),
          ("X infini", {"X": float("inf")}, "infini"), ("Y indéterminé", {"Y": float("nan")}, "indéterminé"), ("nom numérique", {"nom": 3}, "texte"),
-         ("nom trop long", {"nom": "x" * 61}, "60"), ("standard « oui »", {"standard": "oui"}, "vrai ou faux"), ("v1 en texte", {"v1": "oui"}, "vrai ou faux"))
+         ("nom trop long", {"nom": "x" * 61}, "60"), ("standard « oui »", {"standard": "oui"}, "vrai ou faux"), ("v1 en texte", {"v1": "oui"}, "vrai ou faux"),
+         # au-delà de la table (option a de l'ANB) : la phrase de la cornière, son tableau et sa dernière épaisseur, sans le
+         # message de la table relayé derrière un premier « : »
+         ("e = 260 mm en S355 (saisie libre)", {"standard": False, "A": 400.0, "B": 400.0, "t": 260.0, "r": 0.0, "X": 330.0, "Y": 330.0},
+          "épaisseur e = 260 mm : au-delà du tableau 3.3 ANB (250 mm)"),
+         ("e = 210 mm en S460 (saisie libre)", {"standard": False, "A": 400.0, "B": 400.0, "t": 210.0, "r": 0.0, "X": 330.0, "Y": 330.0, "fy": 460.0},
+          "épaisseur e = 210 mm : au-delà du tableau 3.4 ANB (200 mm)"))
 
 
 def refus_manques(mod):
@@ -861,7 +867,9 @@ try:
     M.normaliser(dict(D, standard=False, A=400.0, B=400.0, t=260.0, r=0.0, X=330.0, Y=330.0))
     chk("e = 260 mm (saisie libre) : hors du tableau 3.3 ANB (250 mm), refusé avec le motif", False)
 except ValueError as err:
-    chk("e = 260 mm (saisie libre) : hors du tableau 3.3 ANB (250 mm), refusé avec le motif", "250 mm" in str(err) and "tableau 3.3 ANB" in str(err), err)
+    chk("e = 260 mm (saisie libre) : hors du tableau 3.3 ANB (250 mm), refusé par une phrase propre — « épaisseur e = 260 mm : au-delà du tableau "
+        "3.3 ANB (250 mm) », un seul « : », ni la clé du produit ni « f_y : » en double",
+        str(err) == "épaisseur e = 260 mm : au-delà du tableau 3.3 ANB (250 mm)" and str(err).count(":") == 1, err)
 chk("« -0 » est relu 0", math.copysign(1, M.normaliser(dict(CAS, yc=-0.0))["yc"]) == 1.0)
 chk("normaliser() est idempotente, {} donne la cornière neuve, None vaut absent, a/R_ELU/uV vides restent vides",
     all(M.normaliser(M.normaliser(r["corniere"])) == r["corniere"] for r in TOUS) and M.normaliser({}) == D and M.normaliser({"R": None, "a": None}) == D)
@@ -1401,6 +1409,8 @@ MUTATIONS = (
     ("entraxe : le minimum 2,2·d0 oublié", [("entree", "_exiger(s_ancr >= ENTRAXE_MIN * trou,", "_exiger(True or s_ancr >= ENTRAXE_MIN * trou,")]),
     ("poutre : le contact du bout libre hors de la poutre admis (B)", [("entree", "_exiger(haut - out[\"yc\"] <= bs,", "_exiger(True or haut - out[\"yc\"] <= bs,")]),
     ("nuance quelconque admise", [("entree", "_exiger(out[\"fy\"] in FY_ADMIS,", "_exiger(True or out[\"fy\"] in FY_ADMIS,")]),
+    ("au-delà de la table : le message de la table relayé derrière « épaisseur e = … : » (deux « : » en chaîne)",
+     [("entree", "    except MA.HorsTable:\n", "    except MA.HorsTable as err:\n        raise ValueError(f\"épaisseur e = {_g(e)} mm : {err}\") from None\n")]),
     ("B : le contact ignore c", [("statique", "bras = ya - c\n", "bras = ya\n")]),
     ("un nombre au point décimal dans un texte du moteur (σ_adm des hypothèses)",
      [("moteur", "σ_adm = f_y/{E._g(c['coef'])} = {E._f(ctx['sigma_adm'])} N/mm²", "σ_adm = f_y/{E._g(c['coef'])} = {ctx['sigma_adm']:.1f} N/mm²")]),
