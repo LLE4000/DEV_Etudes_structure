@@ -5,11 +5,12 @@ source et son STATUT (docs/acier/BARRES_ACIER.md § 5.8). Une seule table : chan
 Statuts :
 - ``pointe``      : lue sur le texte (le texte n'est pas au dépôt : la source dit la clause) ;
 - ``a_pointer``   : la valeur de l'EN, connue, reprise par l'annexe belge — reste à lire sur le texte belge ;
-- ``a_confirmer`` : la valeur change un résultat et sa source n'est pas le texte : la note l'imprime comme telle.
+- ``a_confirmer`` : la valeur change un résultat et sa source n'est pas le texte : la note l'imprime comme telle ;
+- ``decision``    : une DÉCISION BUREAU (brief, règle 8) — le défaut est ici, l'autre variante est calculée et affichée.
 """
 from typing import Dict, List, Optional
 
-A_POINTER, A_CONFIRMER, POINTE = "a_pointer", "a_confirmer", "pointe"
+A_POINTER, A_CONFIRMER, POINTE, DECISION = "a_pointer", "a_confirmer", "pointe", "decision"
 EDITION = "NBN EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; NBN EN 1993-1-5:2006 ; NBN EN 1990 ANB"
 
 PARAMETRES: Dict[str, Dict] = {
@@ -20,20 +21,32 @@ PARAMETRES: Dict[str, Dict] = {
     # ---- matériau (EN 1993-1-1 § 3.2.6)
     "E": {"valeur": 210000.0, "nom": "E", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
     "G": {"valeur": 81000.0, "nom": "G", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
-    # ---- déversement des profilés laminés (EN 1993-1-1 § 6.3.2.3) : UN couple. NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) :
+    # ---- déversement des profilés laminés (EN 1993-1-1 § 6.3.2.3) : le couple par défaut. NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) :
     # (0,2 ; 1,0) dès que M_cr est calculé sur la section brute avec les combinaisons, la distribution réelle des moments
     # et les maintiens — c'est le solveur du module (acier/barre/mcr.py), maintiens présents ou non. La variante
-    # (0,4 ; 0,75) suppose les maintiens TOTALEMENT ignorés dans M_cr : une option que le module n'a pas (brief § 7.7).
+    # (0,4 ; 0,75) suppose les maintiens TOTALEMENT ignorés dans M_cr : clés « …_variante » ci-dessous (brief § 7.7).
     # Les clés gardent leur nom (« M_cr calculé avec les maintiens ») : une surcharge écrite avec elles reste lisible.
     "lambda_LT0_avec_maintiens": {"valeur": 0.2, "nom": "λ̄_LT,0", "statut": POINTE,
                                   "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
     "beta_avec_maintiens": {"valeur": 1.0, "nom": "β", "statut": POINTE,
                             "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
+    # la VARIANTE du même 6.3.2.3(1) : poutre de BÂTIMENT avec maintiens, TOUS ignorés dans M_cr — appliquée seulement
+    # sur demande et dans ce cas (ec3_deversement.couple_anb ; brief § 7.7, test 9 du § 11.5)
+    "lambda_LT0_variante": {"valeur": 0.4, "nom": "λ̄_LT,0 (variante)", "statut": POINTE,
+                            "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : poutre de bâtiment, maintiens totalement ignorés dans M_cr"},
+    "beta_variante": {"valeur": 0.75, "nom": "β (variante)", "statut": POINTE,
+                      "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : poutre de bâtiment, maintiens totalement ignorés dans M_cr"},
+    # la méthode des I et H laminés : DÉCISION BUREAU n° 4 (l'ANB:2018 fixe les deux sans en imposer une) — § 6.3.2.3
+    # par défaut ; le § 6.3.2.2 est calculé à côté et affiché pour information (brief § 7.7)
+    "methode_deversement_lamines": {"valeur": "6.3.2.3", "nom": "méthode de déversement des I et H laminés", "statut": DECISION,
+                                    "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.2(2) et 6.3.2.3 : DÉCISION BUREAU n° 4, § 6.3.2.3 par défaut"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
-    "methode_interaction": {"valeur": "annexe_A", "nom": "méthode du § 6.3.3", "statut": A_CONFIRMER,
-                            "source": "ANB:2018 : méthode 1 (annexe A) — d'après l'aide d'un logiciel, pas le texte"},
-    "borne_Cmi0": {"valeur": "1 - NEd/Ncr", "nom": "borne inférieure de C_mi,0", "statut": A_CONFIRMER,
-                   "source": "ANB:2018 : une borne existe (tableau A.2) ; sa valeur est supposée, comme dans l'annexe française"},
+    "methode_interaction": {"valeur": "annexe_D_ANB", "nom": "méthode du § 6.3.3", "statut": POINTE,
+                            "source": "NBN EN 1993-1-1 ANB:2018, 6.3.3(5) : méthode 1 normative, écrite par l'annexe D ANB (prise comme un tout)"},
+    # n_pl : l'annexe D ANB écrit γ_M1, l'annexe A corrigée (AC:2009, modification 35 a) γ_M0 — même résultat tant que
+    # γ_M0 = γ_M1 ; sinon point ouvert (brief § 7.8) : la note le dit, avec la variante (ec3_interaction)
+    "npl_gamma": {"valeur": "gamma_M1", "nom": "γ_M de n_pl quand γ_M0 ≠ γ_M1", "statut": A_CONFIRMER,
+                  "source": "annexe D ANB : γ_M1 (appliqué) ; annexe A corrigée par l'AC:2009 : γ_M0 (affiché) — équivalence non établie"},
     # ---- âme (EN 1993-1-5 § 5.1)
     # η : la note complémentaire de 5.1(2) de la NBN EN 1993-1-5 ANB:2011 (renvoi à 6.2.6(3) de l'EN 1993-1-1) réserve
     # η > 1,00 aux sections SOUDÉES chargées dans le plan de l'âme (brief § 7.5 et § 8) : 1,00 pour les I et H laminés
@@ -70,12 +83,14 @@ def valeur(cle: str):
 
 # les clés RETIRÉES de la table, et pourquoi : une surcharge qui les nomme est refusée avec ce motif (jamais ignorée)
 RETIREES: Dict[str, str] = {
-    "lambda_LT0_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) suppose les maintiens "
-                                 "ignorés dans M_cr, ce que le module ne fait pas ; seul le couple « lambda_LT0_avec_maintiens », "
-                                 "« beta_avec_maintiens » s'applique",
-    "beta_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) suppose les maintiens "
-                           "ignorés dans M_cr, ce que le module ne fait pas ; seul le couple « lambda_LT0_avec_maintiens », "
-                           "« beta_avec_maintiens » s'applique",
+    "lambda_LT0_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) se lit dans "
+                                 "« lambda_LT0_variante », « beta_variante » ; il ne s'applique que sur demande (deversement.couple), pour une "
+                                 "poutre de bâtiment dont tous les maintiens sont ignorés dans M_cr",
+    "beta_sans_maintiens": "retiré le 16/11/2026 — NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : le couple (0,4 ; 0,75) se lit dans "
+                           "« lambda_LT0_variante », « beta_variante » ; il ne s'applique que sur demande (deversement.couple), pour une "
+                           "poutre de bâtiment dont tous les maintiens sont ignorés dans M_cr",
+    "borne_Cmi0": "retiré le 16/11/2026 (lot B) — NBN EN 1993-1-1 ANB:2018, annexe D, tableau D.1 ANB : C_mi,0 n'a pas de borne "
+                  "inférieure (ψ = −1 et N_Ed/N_cr = 0,1 donnent 0,532)",
 }
 
 

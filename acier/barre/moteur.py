@@ -147,17 +147,13 @@ def _moment_max(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
 
 
 def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dict) -> Optional[float]:
-    """k_c du tableau 6.6 quand le tronçon EST un de ses cas : poutre sur deux appuis, tronçon = la portée, sans maintien
-    intérieur, et soit des charges uniformes sur toute la portée (0,94), soit une seule charge à mi-portée (0,86)."""
+    """k_c du tableau 6.6 quand le tronçon EST un de ses schémas (ec3_deversement.kc_portee) : une portée seule (deux appuis
+    simples, deux encastrements, un encastrement et un appui), tronçon = la portée, sans maintien intérieur, sous des
+    charges uniformes sur toute la portée ou des charges à mi-portée seulement. Sinon None (k_c = 1)."""
     L = sum(b["travees"])
-    if b["modele"] != "appuis" or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:
+    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:
         return None
-    charges = [ch for f, c in zip(facteurs, cas) if f for ch in c.get("charges") or []]
-    if charges and all(ch["type"] == "q" and ch["a"] <= EPS and ch["b"] >= L - EPS for ch in charges):
-        return DV.KC_REPARTI
-    if len(charges) == 1 and charges[0]["type"] == "P" and abs(charges[0]["a"] - L / 2.0) < 1e-6 * L:
-        return DV.KC_PONCTUEL
-    return None
+    return DV.kc_portee(b["modele"], [ch for f, c in zip(facteurs, cas) if f for ch in c.get("charges") or []], L)
 
 
 def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:

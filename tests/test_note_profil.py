@@ -4,8 +4,8 @@ ajouté au kit des notes (ndc_pdf : la barre de λ̄, les substitutions repliée
 riche, le peintre des dessins en mode riche) —, vérifiée en Python ordinaire, à travers le routeur comme le navigateur.
 
   1. TOUTE la note en un PDF valide : la garde du site (projet, partie, date, indice, une ligne par barre, sa page), puis
-     la planche de chaque barre, dans l'ordre — sur quinze notes : la barre neuve, la méthode historique seule, l'Eurocode
-     seul, un poteau comprimé et fléchi en efforts imposés (l'annexe A), un tube rectangulaire, un tube rond, une poutre
+     la planche de chaque barre, dans l'ordre — sur seize notes : la barre neuve, la méthode historique seule, l'Eurocode
+     seul, un poteau comprimé et fléchi en efforts imposés (l'annexe D ANB), le même avec γ_M0 ≠ γ_M1, un tube rectangulaire, un tube rond, une poutre
      continue qui ne tient pas, une barre sans effort, trois barres dans une note, une note de la version 1 relue, un nom
      de 40 caractères sur une poutre de cinq travées au plus long nom de profilé (le résumé de l'en-tête se raccourcit),
      un nom de 60 caractères, la borne du site (il cède dans l'en-tête et sur la garde, par « … ») ; et, pour l'âme
@@ -105,6 +105,8 @@ NOTES = {
     "la méthode historique seule": note(("methodes", "historique"), ("nom", "H1")),
     "l'Eurocode seul": note(("methodes", "ec3"), ("nom", "E1"), ("cas/1/charges/+", "P")),
     "un poteau comprimé et fléchi (efforts imposés, annexe A)": note(("nom", "PT1"), ("profil", "HEB 200"), *EFFORTS),
+    # (lot B : le seul paramètre « à confirmer » qui reste à l'interaction — γ_M0 ≠ γ_M1, brief § 7.8)
+    "un poteau dont γ_M0 ≠ γ_M1 (n_pl à confirmer)": note(("nom", "PT2"), ("profil", "HEB 200"), *EFFORTS, ("parametres/gamma_M0", "1.05")),
     "un tube rectangulaire": note(("nom", "T1"), ("profil", "RHS 300x100x8"), *EFFORTS),
     "un tube rond": note(("nom", "R1"), ("profil", "CHS 219.1x6.3"), *EFFORTS),
     "une poutre continue qui ne tient pas": note(("nom", "C1"), ("modele", "continue"), ("travees/+", 1)),
@@ -492,7 +494,7 @@ def controles(noms=None):
 
 
 def main():
-    print("== 1, 2, 3, 4. quinze notes : un PDF valide, les chiffres du moteur, la mise en page, l'identification")
+    print("== 1, 2, 3, 4. seize notes : un PDF valide, les chiffres du moteur, la mise en page, l'identification")
     for nom, ok, info in controles():
         chk(nom, ok, info)
 
@@ -777,9 +779,9 @@ MUTATIONS = (
     ("l'identification de la note du site est perdue", NP, "infos_doc", _sans_identification, ["la barre neuve"]),
     ("la comparaison imprime d'autres taux que ceux du moteur (historique + 10 %)", NP, "comparaison_methodes", _comparaison_fausse, ["la barre neuve"]),
     ("la comparaison des deux méthodes n'est plus imprimée", NP.R, "comparable", lambda vrai: (lambda r: False), ["la barre neuve"]),
-    # (lot A : la barre neuve n'a plus de paramètre à confirmer — le poteau comprimé et fléchi garde ceux de l'interaction)
+    # (lot A : la barre neuve n'a plus de paramètre à confirmer ; lot B : le poteau comprimé et fléchi non plus — seul γ_M0 ≠ γ_M1 en garde un)
     ("les paramètres à confirmer ne sont plus imprimés", NP, "a_confirmer", lambda vrai: (lambda r, largeur: None),
-     ["un poteau comprimé et fléchi (efforts imposés, annexe A)"]),
+     ["un poteau dont γ_M0 ≠ γ_M1 (n_pl à confirmer)"]),
     ("ce que la note ne vérifie pas n'est plus dit", NP, "limites", lambda vrai: (lambda r: {"titre": "Remarques", "items": [], "verdicts": []}), ["la barre neuve"]),
     ("le périmètre non vérifié n'est plus nommé (les raidisseurs…)", NP, "LIMITES", lambda vrai: (), ["la barre neuve"]),
     ("la flèche n'est plus donnée", NP, "limites", lambda vrai: (lambda r: (lambda o: dict(o, items=o["items"][-1:]))(vrai(r))), ["la barre neuve"]),

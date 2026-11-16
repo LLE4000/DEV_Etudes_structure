@@ -499,7 +499,7 @@ MUTATIONS = [
     ("statique", "charge triangulaire prise uniforme", "                    q1, q2 = q(u), q(v)\n", "                    q1 = q2 = ch[\"v\"]\n"),
     ("statique", "appui intermédiaire d'une poutre continue non tenu", "            tenus[round(x, 9)] = MC.FOURCHE\n", "            pass\n"),
     ("statique", "un seul côté de la section vérifié", "    return [d] if (abs(g[0] - d[0]) < eps and abs(g[1] - d[1]) < eps) else [g, d]", "    return [d]"),
-    ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] != "appuis" or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:\n        return None', "    if False:\n        return None"),
+    ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:\n        return None', "    if False:\n        return None"),
     ("moteur", "niveau d'application des charges ignoré", 'zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0', "zg = 0.0"),
     ("moteur", "console : flambement sur une fois sa longueur", "                L = 2.0 * L   ", "                L = 1.0 * L   "),
     ("moteur", "axe faible : flambement sur toute la barre malgré les maintiens", 'max(t["x2"] - t["x1"] for t in trs)', 'sum(b["travees"])'),
