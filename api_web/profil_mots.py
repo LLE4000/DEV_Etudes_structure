@@ -10,6 +10,7 @@ from typing import Dict, Optional
 
 from acier.barre import combinaisons as CO
 from acier.barre import ec3_deversement as DV
+from acier.barre import historique as HI
 from acier.barre import resultat as RE
 
 from . import commun as C
@@ -18,11 +19,15 @@ NB = C.NBSP
 FINE = " "                  # l'espace fine des milliers (celle de commun.fr)
 MOINS = "−"
 
-METHODES = {"historique": "Méthode historique", "ec3": "Eurocode 3"}
-METHODES_COURT = {"historique": "Historique", "ec3": "Eurocode 3"}
+# la méthode du bureau (clé interne « historique », inchangée : état, notes enregistrées, identifiants) se NOMME
+# « Méthode ELS (NBN B 51-001) » — titres, en-têtes de rubrique, aides, phrases — et « ELS » seul là où la place manque
+# (en-têtes de colonnes, segment du choix des méthodes, titre court d'un bloc, taux du résumé)
+ELS = "ELS"
+METHODES = {"historique": f"Méthode {ELS} ({HI.NORME})", "ec3": "Eurocode 3"}
+METHODES_COURT = {"historique": ELS, "ec3": "Eurocode 3"}
 AME = "ame"                                        # le bloc de l'âme (EN 1993-1-5) : ni l'une ni l'autre méthode, toujours rendu
 TITRE_AME = "Âme et raidisseurs"
-TITRE_AME_SEUL = "Contrôles complémentaires EN 1993-1-5"      # son titre dans une note « méthode historique seule »
+TITRE_AME_SEUL = "Contrôles complémentaires EN 1993-1-5"      # son titre dans une note « méthode ELS seule »
 PREFIXE = {"historique": "h", "ec3": "e", AME: "a"}          # le préfixe des fenêtres de calcul d'une méthode, de l'âme
 MODES_APPUI = (("poses", "Posée", "La barre repose sur ses appuis : la réaction appuie sur l'âme."),
                ("ame", "Par l'âme", "Platine d'about, cornières, gousset : aucune force concentrée sur l'âme aux appuis."))
@@ -31,7 +36,7 @@ AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre da
            "poteau qui charge). 0 : le cas le plus défavorable.")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
-         ("efforts", "Efforts imposés", "Les efforts sont donnés : ceux de service pour la méthode historique, ceux de calcul pour l'Eurocode."))
+         ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la méthode {ELS}, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),
            ("continue", "Continue"))
 NOM_MODELE = dict(MODELES)
@@ -49,7 +54,7 @@ NIVEAUX = (("haut", "Semelle haute", "La charge est posée sur la semelle haute 
            ("centre", "Centre", "La charge agit au centre de cisaillement."),
            ("bas", "Semelle basse", "La charge est suspendue à la semelle basse : elle stabilise."))
 DIAGRAMMES = ((DV.CONSTANT, "Constant"), (DV.LINEAIRE, "Linéaire (ψ)"), (DV.REPARTI, "Charge répartie"), (DV.PONCTUEL, "Charge à mi-portée"))
-CHOIX_METHODES = (("deux", "Les deux"), ("historique", "Historique"), ("ec3", "Eurocode 3"))
+CHOIX_METHODES = (("deux", "Les deux"), ("historique", METHODES_COURT["historique"]), ("ec3", METHODES_COURT["ec3"]))
 C_MODES = (("unite", "C = 1", "Les classeurs du bureau."), ("norme", "Selon la norme", "0,85 sous des charges ; selon ψ sous des moments d'extrémité."))
 EFFORTS = (("N", "N", "kN", "Effort normal ; positif en compression."), ("My", "M_y", "kN·m", "Moment autour de l'axe fort."),
            ("Vz", "V_z", "kN", "Effort tranchant parallèle à l'âme."), ("Mz", "M_z", "kN·m", "Moment autour de l'axe faible."),
@@ -61,6 +66,12 @@ MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.NON_COUVERT: "Non co
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
+
+
+def minuscule(s: str) -> str:
+    """Un nom au fil d'une phrase : sa première lettre en minuscule (« Eurocode 3 » → « eurocode 3 », « Méthode ELS (NBN B
+    51-001) » → « méthode ELS (NBN B 51-001) ») — un sigle reste en capitales (« ELS »)."""
+    return s if s[1:2].isupper() else s[:1].lower() + s[1:]
 
 
 # ------------------------------------------------------------------ nombres

@@ -109,14 +109,14 @@ chk("une note neuve : version 2, une barre B1 — IPE 300, S235, deux appuis de 
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
-chk("elle tient par ses DEUX méthodes (historique 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, "
+chk("elle tient par ses DEUX méthodes (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, "
     "6.3.2.3(1)) : la note est « Conforme », son résumé porte le taux le plus fort",
     r0["statut"] == "ok" and round(th, 2) == 0.74 and round(te, 2) == 0.58 and neuf["resume"]["statut"] == "Conforme"
     and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "p"
-    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (historique)", (th, te, neuf["resume"]))
+    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)", (th, te, neuf["resume"]))
 res0 = texte(neuf["resultat"])
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
-    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode historique · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in res0
+    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in res0
     and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,6 kN·m" in res0
     and "1,35·Poids propre + 1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
@@ -216,10 +216,10 @@ chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre
     len(ac) >= 2 and f"{len(ac)} paramètres à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
     and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
-chk("une barre que la méthode historique refuse (179 %) et que l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de "
+chk("une barre que la méthode ELS refuse (179 %) et que l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de "
     "l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les deux verdicts se lisent, deux blocs rouges",
     nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 179
-    and "η 179 % Méthode historique" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
+    and "η 179 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
     and nu["resultat"].count('class="et-bloc nok"') == 2, nu["resume"])
 
 print("=== 3. Les saisies")
@@ -349,7 +349,7 @@ chk("une seule méthode en efforts imposés : une seule colonne d'efforts (ELU p
     and 'data-chemin="efforts/service/My"' in saisir(ef["etat"], "methodes", "historique")["donnees"])
 
 print("=== 5. Les méthodes")
-for choix, cle, autre in (("historique", "historique", "Eurocode 3"), ("ec3", "ec3", "Méthode historique")):
+for choix, cle, autre in (("historique", "historique", "Eurocode 3"), ("ec3", "ec3", "Méthode ELS")):
     out = saisir(e0, "methodes", choix)
     r = moteur(out["etat"]["elements"][0])
     chk(f"« {choix} » seul : un verdict, le bloc de la méthode et celui de l'âme (EN 1993-1-5 : il vaut pour toute méthode), ni comparaison ni "
@@ -687,7 +687,7 @@ chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses m
     and "66,7 kN·m" in bande and "44,5 kN" in bande, bande)
 tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"][2]["svg"]
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
-    "Méthode historique" in tx and "Eurocode 3" in tx and ">179 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
+    "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">179 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'
 sale = req(action="calculer", etat=note(barre(nom=mechant[:40], cas=[{"nom": "<b>G</b>", "nature": "permanent", "N": 0.0,
                                                                          "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])))
@@ -780,9 +780,9 @@ def lot_a():
     tx = next(x for x in hd["vues"] if x["cle"] == "taux")["svg"] if hd.get("ok") else ""
     nv = req(action="nouveau")
     return [
-        ("une barre en S460 se calcule (la méthode historique est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
+        ("une barre en S460 se calcule (la méthode ELS est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
          "« Hors domaine · 53 % », jamais « Conforme » ; son bloc est à vérifier (inc) ; la note « À vérifier » (v), au taux du moteur",
-         hd.get("ok") and "Historique Hors domaine · 53 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
+         hd.get("ok") and "ELS Hors domaine · 53 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
          and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 53
          and "hors domaine, calcul pour information" in t, (hd.get("resume"), hd.get("erreur"), t[:200])),
         ("… sa grande pastille est ocre (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
@@ -834,6 +834,118 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_LOT_A:
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du lot A sont verts", all(ok_ for _n, ok_, _i in lot_a()))
+
+print("=== 12. Le nom de la méthode du bureau : « Méthode ELS (NBN B 51-001) », « ELS » là où la place manque — et ses mutations")
+import importlib.util  # noqa: E402
+
+from acier.barre import historique as HI  # noqa: E402
+from api_web import profil_saisie as PS  # noqa: E402
+
+
+def visible(h):
+    """Ce que l'œil lit d'un fragment ET ce que le survol montre : le texte et les attributs, sans les data-* (les clés
+    internes, « data-valeur="historique" », ne changent pas : aucune migration de format)."""
+    return html.unescape(re.sub(r'\sdata-[\w-]+="[^"]*"', "", h))
+
+
+def nom_els():
+    """Les contrôles du nom, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    nv = req(action="nouveau")
+    hi_ = saisir(nv["etat"], "methodes", "historique")
+    ef_ = enchainer(nv["etat"], ("mode", "efforts"), ("efforts/elu/My", "60"), ("efforts/service/My", "42"))
+    hd_ = saisir(nv["etat"], "nuance", "S460")
+    tx_ = next(x for x in nv["vues"] if x["cle"] == "taux")["svg"]
+    tout = [visible(r_[k]) for r_ in (nv, hi_, ef_, hd_) for k in ("resultat", "donnees", "volets")] + [visible(v["svg"]) for r_ in (nv, hi_, ef_, hd_)
+                                                                                                         for v in r_["vues"]]
+    restes = [m_.group(0) for t_ in tout for m_ in re.finditer(r".{0,40}[Hh]istorique.{0,30}", t_)]
+    return [
+        ("le verdict de la méthode du bureau la nomme en entier : « Méthode ELS (NBN B 51-001) · flexion »",
+         f"η {pastille(th)} Méthode ELS (NBN B 51-001) · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in texte(nv["resultat"]), texte(nv["resultat"])[:160]),
+        ("… son bloc porte le titre court « ELS » (la place manque devant « Conforme · 74 % ») ; la comparaison, l'en-tête de colonne « ELS »",
+         re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
+         and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span></div>' in nv["resultat"],
+         re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"])),
+        ("la rubrique « Méthodes » : le segment « ELS » (sa clé reste « historique »), le titre « Méthode ELS (NBN B 51-001) », le résumé "
+         "« ELS + eurocode 3 · s 1,5 »",
+         re.search(r'data-chemin="methodes" data-sorte="choix" data-valeur="historique"[^>]*>ELS</button>', nv["donnees"]) is not None
+         and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "ELS + eurocode 3 · s 1,5" in texte(nv["donnees"])
+         and 'data-chemin="historique/s"' in nv["donnees"] and nv["etat"]["elements"][0]["methodes"] == ["historique", "ec3"],
+         re.findall(r'data-valeur="historique"[^>]*>[^<]*<', nv["donnees"])),
+        ("le résumé de la note (l'accueil, la liste des notes) : « flexion (ELS) »", nv["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)", nv["resume"]),
+        ("« tout le calcul » de la méthode : « B1 · méthode ELS (NBN B 51-001) », sans répéter la norme dessous ; la comparaison : colonne « ELS », "
+         "« La méthode ELS (NBN B 51-001) compare des contraintes de service »",
+         "<b>B1 · méthode ELS (NBN B 51-001)</b><span>IPE 300 · S235 · 6,00\u00a0m · tout le calcul</span>" in nv["volets"]
+         and '<th class="n">ELS</th><th class="n">Eurocode 3</th>' in nv["volets"]
+         and "La méthode ELS (NBN B 51-001) compare des contraintes de service" in texte(nv["volets"]),
+         re.findall(r"<b>B1 · m[^<]*</b><span>[^<]*</span>", nv["volets"])),
+        ("la vue des taux : « Méthode ELS (NBN B 51-001) » en titre, la norme pas écrite une seconde fois à droite",
+         ">Méthode ELS (NBN B 51-001)<" in tx_ and tx_.count("NBN B 51-001") == 1 and ">NBN EN 1993-1-1<" in tx_, re.findall(r">([^<]*NBN[^<]*)<", tx_)),
+        ("le sélecteur : « vérifiés par : ELS et eurocode 3 »", "vérifiés par : ELS et eurocode 3" in P.selecteur(nv["etat"], "profil"), ""),
+        ("les efforts imposés : l'aide du mode et celle de la colonne « Service » disent « la méthode ELS »",
+         "ceux de service pour la méthode ELS, ceux de calcul" in visible(ef_["donnees"])
+         and "Efforts non pondérés : ceux de la méthode ELS." in visible(ef_["donnees"]), ""),
+        ("une nuance hors du domaine : le message du MOTEUR dit « Hors du domaine de la méthode ELS (nuance hors AE235 à AE355) »",
+         "Hors du domaine de la méthode ELS (nuance hors AE235 à AE355)" in texte(hd_["volets"]), re.findall(r"Hors du domaine[^.]{0,80}", texte(hd_["volets"]))[:1]),
+        ("nulle part — résultats, saisie, fenêtres, vues, survols ; barre neuve, méthode seule, efforts imposés, S460 — l'écran n'écrit plus "
+         "« historique »", not restes, restes[:4]),
+    ]
+
+
+def _source_mutee(module, ancien, nouveau):
+    """Une copie d'un fichier de l'écran, son TEXTE muté (une seule occurrence de ``ancien``)."""
+    src = open(module.__file__, encoding="utf-8").read()
+    if src.count(ancien) != 1:
+        raise ValueError(f"texte à muter absent ou répété dans {module.__name__}")
+    spec = importlib.util.spec_from_file_location(module.__name__ + "_mute", module.__file__)
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = module.__package__
+    exec(compile(src.replace(ancien, nouveau), module.__file__, "exec"), mod.__dict__)
+    return mod
+
+
+def _message_historique(vrai):
+    def f(d):
+        r = vrai(d)
+        for v in r["verifications"]:
+            v["messages"] = [m_.replace("méthode ELS", "méthode historique") for m_ in v["messages"]]
+        return r
+    return f
+
+
+for nom_, ok_, info_ in nom_els():
+    chk(nom_, ok_, info_)
+MUTATIONS_NOM = (
+    ("l'ancien nom revient dans les titres (« Méthode historique »)", M, "METHODES", lambda vrai: dict(vrai, historique="Méthode historique")),
+    ("l'ancien nom court revient (« Historique »)", M, "METHODES_COURT", lambda vrai: dict(vrai, historique="Historique")),
+    ("le segment du choix des méthodes redit « Historique »", M, "CHOIX_METHODES",
+     lambda vrai: tuple((k, "Historique" if k == "historique" else t) for k, t in vrai)),
+    ("« ELS » écrit en minuscules au fil d'une phrase (« els + eurocode 3 », « (els) »)", M, "minuscule", lambda vrai: (lambda s: s.lower())),
+    ("la note de la comparaison redit « La méthode historique »", PR, "NOTE_COMPARAISON", lambda vrai: vrai.replace("méthode ELS (NBN B 51-001)", "méthode historique")),
+    ("l'aide de la colonne « Service » redit « la méthode historique »", PS, "AIDE_JEU", lambda vrai: dict(vrai, service="Efforts non pondérés : ceux de la méthode historique.")),
+    ("l'aide du mode « Efforts imposés » redit « la méthode historique »", M, "MODES",
+     lambda vrai: tuple((k, t, a.replace("méthode ELS", "méthode historique")) for k, t, a in vrai)),
+    ("le message « hors domaine » du moteur redit « la méthode historique »", MO.HI, "verifier", _message_historique),
+    ("la vue des taux écrit la norme une seconde fois à droite", P, "DB",
+     lambda vrai: _source_mutee(vrai, '        if x["norme"] not in titre:  ', '        if True:  ')),
+    ("« tout le calcul » répète la norme sous le titre", P, "R",
+     lambda vrai: _source_mutee(vrai, '        norme = "" if x["norme"] in M.METHODES[k] else', '        norme = f"{C.esc(x[\'norme\'])} · " if True else')),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_NOM:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    try:
+        setattr(objet_, attr_, fabrique_(vrai_))
+        rouges_ = [n_ for n_, ok_, _i in nom_els() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles du nom sont verts", all(ok_ for _n, ok_, _i in nom_els()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

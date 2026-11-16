@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Le module « Choix de profilé » du site : la vérification d'une BARRE en acier — poutre, poteau, poteau-poutre — par
-la méthode historique du bureau (NBN B 51-001, charges de service), par l'Eurocode 3 (NBN EN 1993-1-1, ELU), ou par les
+la méthode ELS du bureau (NBN B 51-001, charges de service), par l'Eurocode 3 (NBN EN 1993-1-1, ELU), ou par les
 deux, côte à côte (docs/acier/BARRES_ACIER.md). Le moteur : ``acier/barre``.
 
 Une note garde une ou plusieurs BARRES. Chacune se décrit de deux façons :
@@ -685,7 +685,7 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
     t, i, x = max(avec, key=lambda a: a[0])
     k, m = R.pire(x)
     g = R.gouvernante(m)
-    ou = "âme" if k == M.AME else M.METHODES_COURT[k].lower()
+    ou = "âme" if k == M.AME else M.minuscule(M.METHODES_COURT[k])
     quoi = f" · {g['titre'][:1].lower() + g['titre'][1:]} ({ou})" if g else ""
     return {"taux": C.pct(t), "niveau": niv, "statut": C.STATUTS[niv][1],
             "gouvernant": f"{etat['elements'][i].get('nom') or 'Barre'} · {x['profil']}{quoi}"}
@@ -757,6 +757,6 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     i_o = next((k for k, x in enumerate(rows) if x["opt"]), 0)
     i_c = next((k for k, x in enumerate(rows) if x["cur"]), i_o)
     filtres = "".join(f'<button type="button" class="fchip{" on" if f in fams else ""}" data-famille="{C.esc(f)}">{C.esc(f)}</button>' for f in FAMILLES)
-    methodes = " et ".join(M.METHODES_COURT[k].lower() for k in el["methodes"])
+    methodes = " et ".join(M.minuscule(M.METHODES_COURT[k]) for k in el["methodes"])
     sous = f"triés par masse · vérifiés par : {methodes} · un clic retient le profilé"
     return C.selecteur(ROLE, f"{C.esc(el.get('nom') or 'Barre')} · profilé", sous, filtres, rows, max(0, min(i_o, i_c) - 4), "kg/m")

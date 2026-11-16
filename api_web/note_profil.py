@@ -15,10 +15,10 @@ troisième colonne) et elle dit LES CHIFFRES DE L'ÉCRAN : elle ne calcule rien.
 - les mots sont ceux de l'écran (``profil_mots``, ``profil_resultat``).
 
 CE QUI S'IMPRIME, par barre : les MÉTHODES que la barre a de cochées à l'écran (rubrique « Méthodes » : la méthode
-historique, l'Eurocode 3, ou les deux) — la note imprime ce que l'écran montre. La méthode historique vient la
+ELS (NBN B 51-001), l'Eurocode 3, ou les deux) — la note imprime ce que l'écran montre. La méthode ELS vient la
 première : ses contraintes admissibles, son flambement et son déversement, tels que les classeurs du bureau les
 écrivent. Puis L'ÂME ET SES RAIDISSEURS (EN 1993-1-5), quelle que soit la méthode cochée — sous le titre « Contrôles
-complémentaires EN 1993-1-5 » dans une note « méthode historique seule » : la décision de chaque appui et de chaque charge
+complémentaires EN 1993-1-5 » dans une note « méthode ELS seule » : la décision de chaque appui et de chaque charge
 ponctuelle (sans raidisseur, ou la paire de plats), puis ses vérifications. Avec les deux méthodes, un tableau les
 compare sujet par sujet. Les paramètres de l'annexe belge dont la source reste à confirmer sont nommés, avec la valeur
 prise ; ce que la note ne vérifie pas est dit.
@@ -69,7 +69,7 @@ COMBINAISONS_MAX = 8            # au-delà, le tableau des combinaisons ne montr
 # la couleur du kit pour un niveau de l'écran (commun.niveau, profil._niveau) ; ses mots sont ceux de l'écran
 # (profil_resultat.mot_niveau)
 COULEURS = {"p": "ok", "f": "att", "r": "ko", "v": "att", "n": "att", "c": "att"}
-COURT = {"historique": "historique", "ec3": "Eurocode 3"}        # une méthode au fil d'une phrase
+COURT = {"historique": M.METHODES_COURT["historique"], "ec3": "Eurocode 3"}        # une méthode au fil d'une phrase (« 74 % ELS »)
 LEGENDE = "Vert : conforme   ·   Ocre : attention (95 à 100 %), une vérification non couverte ou hors domaine   ·   Rouge : non conforme"
 # le nom d'une dimension et d'une propriété du catalogue, à gauche de son symbole
 LIBELLES = {"h": "Hauteur", "b": "Largeur", "t_w": "Âme", "t_f": "Semelle", "r": "Congé", "r_1": "Congé", "r_2": "Arrondi", "t": "Épaisseur",
@@ -181,7 +181,7 @@ def donnees(el: Dict, r: Dict) -> Dict:
     else:
         items.append(("s", "Efforts imposés"))
         jeux = [(k, {"historique": "service", "ec3": "elu"}[k]) for k in r["methodes"]]
-        items.append(("pr", "Valeurs : " + " · ".join({"service": "de service (méthode historique)", "elu": "de calcul (Eurocode 3)"}[j]
+        items.append(("pr", "Valeurs : " + " · ".join({"service": f"de service (méthode {M.ELS})", "elu": "de calcul (Eurocode 3)"}[j]
                                                       for _k, j in jeux) + "."))
         for cle, s_, unite, _aide in M.EFFORTS:
             vals = [el["efforts"][j][cle] for _k, j in jeux]
@@ -233,12 +233,14 @@ def methode(el: Dict, k: str, x: Dict, largeur: float) -> Dict:
         verdict = {"texte": f"{R.mot_methode(x)} — {_minuscule(g['titre'])} : {comparaison(g)}" + (f" ({ou})" if ou else ""), "etat": COULEURS[niv],
                    "riche": True, "cale": taux_ecrit(x["taux_max"]) if x.get("taux_max") is not None else ""}
     items.append(("k", 0))
-    return {"titre": f"{M.METHODES[k]} — {x['norme']}", "items": items, "verdicts": [verdict]}
+    # (« Méthode ELS (NBN B 51-001) » porte déjà sa norme ; « Eurocode 3 — NBN EN 1993-1-1 »)
+    titre = M.METHODES[k] if x["norme"] in M.METHODES[k] else f"{M.METHODES[k]} — {x['norme']}"
+    return {"titre": titre, "items": items, "verdicts": [verdict]}
 
 
 def titre_ame(r: Dict) -> str:
-    """Le titre du bloc de l'âme : « Contrôles complémentaires EN 1993-1-5 » dans une note « méthode historique seule »
-    (la méthode historique ne les traite pas) ; « Âme et raidisseurs — NBN EN 1993-1-5 » sinon."""
+    """Le titre du bloc de l'âme : « Contrôles complémentaires EN 1993-1-5 » dans une note « méthode ELS seule »
+    (la méthode ELS ne les traite pas) ; « Âme et raidisseurs — NBN EN 1993-1-5 » sinon."""
     return M.TITRE_AME_SEUL if list(r["methodes"]) == ["historique"] else f"{M.TITRE_AME} — {r['ame']['norme']}"
 
 
@@ -321,7 +323,7 @@ def comparaison_methodes(r: Dict, largeur: float) -> Dict:
 
     lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"], "historique"), case(li["ec3"], "ec3")]
               for li in r["comparaison"] if li.get("commun") is None]
-    cols = [("SUJET", largeur - 2 * 52, "left"), ("HISTORIQUE", 52, "right"), ("EUROCODE 3", 52, "right")]
+    cols = [("SUJET", largeur - 2 * 52, "left"), (M.METHODES_COURT["historique"].upper(), 52, "right"), (M.METHODES_COURT["ec3"].upper(), 52, "right")]
     items = [("tab", cols, lignes)]
     # l'âme vaut pour les deux méthodes : un seul taux, dit sous le tableau (l'écran le pose à cheval sur les deux colonnes)
     items += [("pr", f"{li['sujet']}, pour les deux méthodes : {taux_ecrit(li['commun'])}.") for li in r["comparaison"] if li.get("commun") is not None]
@@ -411,9 +413,9 @@ class Planche(Encre):
 
 
 def resume(el: Dict, r: Dict, court: bool = False) -> str:
-    """« S235 · 6,00 m · 74 % historique · 52 % Eurocode 3 » : sous le nom de la barre, dans la garde et dans l'en-tête ;
-    ``court`` : les seuls taux (« 74 % historique · 52 % Eurocode 3 »). Le taux AVANT le nom de la méthode, comme le
-    verdict de l'écran (« 74 % Méthode historique ») : « Eurocode 3 9 % » se lisait « 39 % ». Une barre qui demande des
+    """« S235 · 6,00 m · 74 % ELS · 58 % Eurocode 3 » : sous le nom de la barre, dans la garde et dans l'en-tête ;
+    ``court`` : les seuls taux (« 74 % ELS · 58 % Eurocode 3 »). Le taux AVANT le nom de la méthode, comme le
+    verdict de l'écran (« 74 % Méthode ELS (NBN B 51-001) ») : « Eurocode 3 9 % » se lisait « 39 % ». Une barre qui demande des
     raidisseurs le dit au bout (« · 2 raidisseurs »)."""
     morceaux = [] if court else [el["nuance"]]
     if el["mode"] == "chargee" and not court:

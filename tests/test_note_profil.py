@@ -170,11 +170,17 @@ def porte_titre(texte, el, r):
     return bool(m) and len(nom) > NOM_LISIBLE and nom.startswith((nom[:NOM_LISIBLE] + m.group(1)).rstrip())
 
 
+# les noms des méthodes, écrits ICI (la note n'est pas son propre témoin) : la méthode du bureau se nomme « Méthode ELS
+# (NBN B 51-001) » en tête de son bloc — sa norme y est déjà — et « ELS » là où la place manque ; sa clé reste « historique »
+TETES = {"historique": "Méthode ELS (NBN B 51-001)", "ec3": "Eurocode 3 — NBN EN 1993-1-1"}
+COURTS = {"historique": "ELS", "ec3": "Eurocode 3"}
+
+
 def resume_attendu(el, r, court=False):
-    """Le résumé d'une barre, sous son nom : « S235 · 6,00 m · 74 % historique · 52 % Eurocode 3 » — ``court`` : ses seuls
+    """Le résumé d'une barre, sous son nom : « S235 · 6,00 m · 74 % ELS · 58 % Eurocode 3 » — ``court`` : ses seuls
     taux. Réécrit ici, sur le résultat du moteur : la note n'est pas son propre témoin."""
     mots = [] if court else [el["nuance"]] + ([" + ".join(M.m(x) for x in el["travees"]) + " m"] if el["mode"] == "chargee" else [])
-    for k, nom in (("historique", "historique"), ("ec3", "Eurocode 3")):
+    for k, nom in COURTS.items():
         t = (r["methodes"].get(k) or {}).get("taux_max")
         if t is not None:
             mots.append((f"> {C.PLAFOND_TAUX} %" if C.pct(t) > C.PLAFOND_TAUX else f"{C.pc(C.pct(t))} %") + f" {nom}")
@@ -280,13 +286,18 @@ def parite(etat, pages):
                     k = {"service": "historique", "elu": "ec3"}[j]
                     if k in r["methodes"] and el["efforts"][j][cle]:
                         nombre("un effort imposé", M.r1(el["efforts"][j][cle]))
+        # (la note ne dit plus « historique », nulle part : ni un titre, ni une phrase, ni un message du moteur)
+        veut("le nom de la méthode du bureau : « ELS », jamais « historique »", "historique", "istorique" not in T.lower())
         for k in ("historique", "ec3"):
-            tete = f"{M.METHODES[k]} — "
+            tete = TETES[k]
             if k not in r["methodes"]:
                 veut("une méthode non cochée n'est pas imprimée", tete, tete not in T)
                 continue
             x = r["methodes"][k]
-            veut("la tête de la méthode", f"{M.METHODES[k]} — {x['norme']}")
+            veut("la tête de la méthode", tete)
+            if el["mode"] == "efforts" and k == "historique":
+                veut("les efforts imposés de service : « (méthode ELS) »", "de service (méthode ELS)")
+            veut("… sans répéter sa norme", f"{tete} — {x['norme']}", O.norm(f"{tete} — {x['norme']}") not in T)
             if x["statut"] == RE.HORS_DOMAINE:                 # (lot A) le mot de la méthode, jamais un mot de taux
                 veut("une méthode hors de son domaine est dite « Hors domaine »", "Hors domaine — ")
                 if comparables(r):                             # … et ses taux de la comparaison, sans la couleur « conforme »
@@ -299,7 +310,7 @@ def parite(etat, pages):
             if len(x.get("combinaisons") or []) >= 2:
                 veut("la combinaison qui gouverne", x["combinaison"])
             for v in x["verifications"]:
-                veut("le titre d'une vérification", f"{M.METHODES_COURT[k]} · {v['titre'][:1].lower() + v['titre'][1:]}")
+                veut("le titre d'une vérification", f"{COURTS[k]} · {v['titre'][:1].lower() + v['titre'][1:]}")
                 if v["taux"] is not None:
                     nombre(f"le taux de {v['id']}", taux(v["taux"]))
                 if v["valeur"] is not None and not PR.interaction(v):
@@ -490,10 +501,10 @@ def main():
     T = " ".join(pages[1:])
     el, r = barres(NOTES["la barre neuve"])[0]
     h, e = r["methodes"]["historique"], r["methodes"]["ec3"]
-    chk("la barre neuve : la méthode historique vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, ce qui n'est pas vérifié — et les "
+    chk("la barre neuve : la méthode ELS (NBN B 51-001) vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, ce qui n'est pas vérifié — et les "
         "taux de tête sont ceux de l'écran (73,9 % ; 57,7 %) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
         "l'ANB:2018, 6.3.2.3(1), lu) ; la nuance dit son tableau de l'ANB (la table unique)",
-        0 < T.index("Méthode historique — NBN B 51-001") < T.index("Eurocode 3 — NBN EN 1993-1-1") < T.index("Comparaison des deux méthodes")
+        0 < T.index("Méthode ELS (NBN B 51-001)") < T.index("Eurocode 3 — NBN EN 1993-1-1") < T.index("Comparaison des deux méthodes")
         < T.index("Ce que la note ne vérifie pas") and "Paramètres à confirmer" not in T and "Acier S235 · tableau 3.3 ANB" in T
         and taux(h["taux_max"]) == "73,9 %" and taux(e["taux_max"]) == "57,7 %" and "73,9 %" in T and "57,7 %" in T, T[:300])
     chk("… la méthode historique s'écrit comme le classeur du bureau : σ_adm = f_y/s = 235 / 1,5 = 156,7 N/mm², les charges critiques, le "
@@ -508,7 +519,7 @@ def main():
         [v["num"] for v in sec["verifs"]] == list(range(1, len(sec["verifs"]) + 1))
         and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 2
         and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"]
-                if " · " in v["titre"] or " — NBN" in v["titre"] or " : âme" in v["titre"])
+                if " · " in v["titre"] or " — NBN" in v["titre"] or v["titre"] in TETES.values() or " : âme" in v["titre"])
         and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : âme sous la réaction",
                                                           "Appui B : âme sous la réaction"], [(v["num"], v["titre"]) for v in sec["verifs"]])
     _o, pages, _f = faire(NOTES["une poutre continue qui ne tient pas"])
@@ -780,7 +791,7 @@ MUTATIONS = (
     ("un nom de 60 caractères cède jusqu'à ne plus se lire (il n'en reste que dix lettres)", NP, "_ceder",
      lambda vrai: (lambda texte, large, place: texte if large(texte) <= place else texte[:10] + "…"), ["un nom de 60 caractères"]),
     ("le résumé écrit le nom de la méthode avant son taux (« Eurocode 3 9 % » se lit « 39 % »)", NP, "resume",
-     lambda vrai: (lambda el, r, court=False: re.sub(r"(> \d+ %|[\d,]+ %) (historique|Eurocode 3)", r"\2 \1", vrai(el, r, court))),
+     lambda vrai: (lambda el, r, court=False: re.sub(r"(> \d+ %|[\d,]+ %) (ELS|Eurocode 3)", r"\2 \1", vrai(el, r, court))),
      ["la barre neuve"]),
     ("le taux écrit sans décimale", NP, "taux_ecrit", lambda vrai: (lambda t: "—" if t is None else f"{t * 100:.0f} %"), ["la barre neuve"]),
     # ---- l'âme et ses raidisseurs (lot 4)
@@ -806,6 +817,19 @@ MUTATIONS = (
      lambda vrai: (lambda r, k, t: C.niveau(t)), ["une nuance hors du domaine de la méthode historique (S460)"]),
     ("le poids propre est dit avec un poids volumique recopié (77 kN/m³) et non celui du moteur", NP, "ST",
      lambda vrai: type("ST", (), {"POIDS_VOLUMIQUE": 77.0}), ["la barre neuve"]),
+    # (deuxième passe, B4) le nom de la méthode du bureau : « Méthode ELS (NBN B 51-001) », « ELS » là où la place manque
+    ("l'ancien nom revient en tête de la méthode (« Méthode historique »)", M, "METHODES", lambda vrai: dict(vrai, historique="Méthode historique"),
+     ["la barre neuve"]),
+    ("l'ancien nom court revient dans le titre des vérifications et la comparaison (« Historique »)", M, "METHODES_COURT",
+     lambda vrai: dict(vrai, historique="Historique"), ["la barre neuve"]),
+    ("le résumé de la barre redit « 74 % historique »", NP, "COURT", lambda vrai: dict(vrai, historique="historique"), ["la barre neuve"]),
+    ("la note de la comparaison redit « La méthode historique »", NP.R, "NOTE_COMPARAISON",
+     lambda vrai: vrai.replace("méthode ELS (NBN B 51-001)", "méthode historique"), ["la barre neuve"]),
+    ("la tête de la méthode ELS répète sa norme (« Méthode ELS (NBN B 51-001) — NBN B 51-001 »)", NP, "methode",
+     lambda vrai: (lambda el, k, x, largeur: (lambda o: dict(o, titre=f"{M.METHODES[k]} — {x['norme']}"))(vrai(el, k, x, largeur))), ["la barre neuve"]),
+    ("les efforts imposés redisent « de service (méthode historique) »", NP, "donnees",
+     lambda vrai: (lambda el, r: (lambda o: dict(o, items=[(i[0], i[1].replace("(méthode ELS)", "(méthode historique)")) + tuple(i[2:])
+                                                          if i[0] == "pr" else i for i in o["items"]]))(vrai(el, r))), POTEAU),
     ("les deux membres d'un critère échangés", NP, "comparaison", lambda vrai: (lambda v: vrai(dict(v, valeur=v.get("limite"), limite=v.get("valeur")))),
      ["une poutre continue qui ne tient pas"]),
 )

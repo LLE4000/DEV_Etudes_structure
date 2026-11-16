@@ -26,8 +26,9 @@ from . import profil_mots as M
 
 ROLE = "profil"
 N = C.NBSP
-NOTE_COMPARAISON = ("La méthode historique compare des contraintes de service à σ_adm = f_y / s ; l'Eurocode 3 compare des efforts "
-                    "pondérés à des résistances. Les deux taux se lisent côte à côte, ils ne se déduisent pas l'un de l'autre.")
+NOTE_COMPARAISON = (f"La {M.minuscule(M.METHODES['historique'])} compare des contraintes de service à σ_adm = f_y / s ; l'Eurocode 3 "
+                    "compare des efforts pondérés à des résistances. Les deux taux se lisent côte à côte, ils ne se déduisent pas l'un de "
+                    "l'autre.")
 NOTE_A_CONFIRMER = ("Ces valeurs changent un résultat et leur source n'est pas le texte de l'annexe nationale belge : elles sont à lire "
                     "sur le texte avant de s'y fier.")
 
@@ -240,7 +241,7 @@ def _bloc_ame(el: Dict, r: Dict) -> str:
 def _comparaison(r: Dict) -> str:
     """Le tableau de la comparaison : un sujet par ligne, le taux de chaque méthode en pastille ; l'âme, qui vaut pour
     les deux, porte UN taux à cheval sur les deux colonnes."""
-    rows = '<div class="pf-cmp pf-cmp-h"><span></span><span>Historique</span><span>Eurocode 3</span></div>'
+    rows = f'<div class="pf-cmp pf-cmp-h"><span></span><span>{M.METHODES_COURT["historique"]}</span><span>{M.METHODES_COURT["ec3"]}</span></div>'
     for li in r["comparaison"]:
         if li.get("commun") is not None:
             rows += (f'<div class="pf-cmp pf-cmp-c"><span>{C.esc(li["sujet"])}</span>'
@@ -267,7 +268,8 @@ def blocs(el: Dict, r: Dict) -> str:
         pied = "".join(C.message(M.sub(a["message"]), a.get("niveau") != "info") for a in x["alertes"])
         niv = niveau_methode(x)
         # (le titre COURT, celui du bouton de la rubrique « Méthodes » : « Méthode historique » se lisait « MÉTHODE HIS… »
-        #  devant « Conforme, attention · 97 % » ou « Non conforme · 179 % » — trouvé par le harnais des barres, 14/11/2026)
+        #  devant « Conforme, attention · 97 % » ou « Non conforme · 179 % » — trouvé par le harnais des barres, 14/11/2026 ;
+        #  depuis le 16/11/2026, « ELS » : le nom entier, « Méthode ELS (NBN B 51-001) », est celui du verdict et des fenêtres)
         out += E.bloc(i, M.METHODES_COURT[k], M.CLASSE_BLOC.get(niv, "inc"), etat_methode(x), _efforts_bloc(el, k, x), rows,
                       f'<div class="pf-msgs">{pied}</div>' if pied else "", theme=True)
     out += _bloc_ame(el, r)
@@ -388,7 +390,7 @@ def _fenetre_comparaison(el: Dict, r: Dict, nom: str) -> str:
                        "gov": li["sujet"] == "Le plus défavorable"})
     detail = f'<div class="ck-g"><div class="ck-t">Ce que les deux méthodes comparent</div><div class="pf-msg">{C.esc(NOTE_COMPARAISON)}</div></div>'
     return C.fenetre_calcul("cmp", f"{nom} · comparaison des deux méthodes", dims(el), [], lignes, detail,
-                            colonnes=("Sujet", "", "Historique", "Eurocode 3", "Le plus fort"))
+                            colonnes=("Sujet", "", M.METHODES_COURT["historique"], M.METHODES_COURT["ec3"], "Le plus fort"))
 
 
 def _fenetre_a_confirmer(r: Dict, nom: str) -> str:
@@ -428,7 +430,8 @@ def volets(el: Dict, r: Dict, nom: str) -> str:
             out += C.fenetre_calcul(fenetre(k, v["id"]), f"{nom} · {C.esc(v['titre'][:1].lower() + v['titre'][1:])}",
                                     f"{M.METHODES[k]} · {sous}" + (f" · {C.esc(ou)}" if ou else ""), hyps, [_ligne_tableau(v, True)], grp)
         lignes = [_ligne_tableau(v, v["id"] == g) for v in x["verifications"]]
-        out += C.fenetre_calcul(f"s{i}", f"{nom} · {M.METHODES[k].lower()}", f"{C.esc(x['norme'])} · {sous} · tout le calcul", hyps, lignes,
+        norme = "" if x["norme"] in M.METHODES[k] else f"{C.esc(x['norme'])} · "     # (« Méthode ELS (NBN B 51-001) » la porte déjà)
+        out += C.fenetre_calcul(f"s{i}", f"{nom} · {M.minuscule(M.METHODES[k])}", f"{norme}{sous} · tout le calcul", hyps, lignes,
                                 tout + _combinaisons(x))
     out += _fenetres_ame(el, r, nom)
     if comparable(r):

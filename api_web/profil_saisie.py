@@ -10,7 +10,7 @@ gauche de l'établi compact (api_web/profil.py les pose sous la ligne de la barr
     3 Maintiens et flambement     les sections tenues, les longueurs de flambement (vides : automatiques)
     4 Appuis (barre chargée qui a un appui simple)   posée ou tenue par l'âme ; longueur d'appui, débord en rive —
                                   ce que l'âme reçoit de ses appuis (EN 1993-1-5)
-    5 Méthodes (secondaire)       historique, Eurocode 3 ou les deux ; s, C, déversement ; γ_M0, γ_M1
+    5 Méthodes (secondaire)       méthode ELS (NBN B 51-001), Eurocode 3 ou les deux ; s, C, déversement ; γ_M0, γ_M1
 
 Ce fichier MET EN FORME : aucun calcul. Les chemins (``data-chemin``) sont ceux que ``profil.modifier`` lit.
 """
@@ -27,7 +27,7 @@ from . import profil_mots as M
 
 ROLE = "profil"
 N = C.NBSP
-AIDE_JEU = {"service": "Efforts non pondérés : ceux de la méthode historique.", "elu": "Efforts de calcul (pondérés) : ceux de l'Eurocode 3."}
+AIDE_JEU = {"service": f"Efforts non pondérés : ceux de la méthode {M.ELS}.", "elu": "Efforts de calcul (pondérés) : ceux de l'Eurocode 3."}
 
 
 def _retirer(chemin: List, titre: str) -> str:
@@ -132,7 +132,7 @@ def _resume_charges(el: Dict) -> str:
 
 # ------------------------------------------------------------------ 2 · les efforts imposés
 def _rubrique_efforts(el: Dict) -> str:
-    """Les efforts de service (méthode historique) et de calcul (Eurocode 3), côte à côte ; une seule colonne quand une
+    """Les efforts de service (méthode ELS) et de calcul (Eurocode 3), côte à côte ; une seule colonne quand une
     seule méthode est choisie."""
     jeux = [(j, t) for j, t, k in (("service", "Service", "historique"), ("elu", "ELU", "ec3")) if k in el["methodes"]]
     tete = '<span></span>' + "".join(f'<span class="h" title="{C.esc(AIDE_JEU[j])}">{t}</span>' for j, t in jeux)
@@ -244,7 +244,7 @@ def _rubrique_methodes(el: Dict, r: Dict) -> str:
     s = C.segments(["methodes"], choix_methodes(el), M.CHOIX_METHODES)
     h = el["historique"]
     if "historique" in el["methodes"]:
-        s += _titre("Méthode historique · NBN B 51-001")
+        s += _titre(M.METHODES["historique"])
         s += C.ligne("coefficient de sécurité", C.num(["historique", "s"], h["s"], "", dec=3, mini=1, maxi=3), "s",
                      "σ_adm = f_y / s. 1,5 pour les charges de service ; 1,33 avec le vent.")
         s += C.ligne("Coefficient C", C.segments(["historique", "C"], h["C"], M.C_MODES), full=True)
@@ -265,7 +265,7 @@ def _rubrique_methodes(el: Dict, r: Dict) -> str:
 
 
 def _resume_methodes(el: Dict) -> str:
-    noms = " + ".join(M.METHODES_COURT[k].lower() for k in el["methodes"])
+    noms = " + ".join(M.minuscule(M.METHODES_COURT[k]) for k in el["methodes"])
     return noms + (f" · s {M.n(el['historique']['s'], 2)}" if "historique" in el["methodes"] else "")
 
 

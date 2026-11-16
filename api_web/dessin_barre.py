@@ -285,7 +285,8 @@ def taux(ident: str, methodes: Sequence[Tuple[str, Dict]]) -> str:
     for titre, x in methodes:
         y += 20
         corps.append(_t(8, y, titre, 12.0, "start", gras=True))
-        corps.append(_t(W - 8, y, x["norme"], 9.5, "end", DP.MUET))
+        if x["norme"] not in titre:                                  # (« Méthode ELS (NBN B 51-001) » la porte déjà)
+            corps.append(_t(W - 8, y, x["norme"], 9.5, "end", DP.MUET))
         y += 6
         for v in x["verifications"]:
             y += 20

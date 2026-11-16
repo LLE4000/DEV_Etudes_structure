@@ -477,7 +477,7 @@ def verifier(barre: Dict) -> Dict:
             v["formules"].append(f"taux_{v['id']}")
         if hors and v["statut"] == OK:              # hors du domaine de la doc : jamais « vérifié » (brief § 9) ; un « nok » le reste
             v["statut"] = HORS_DOMAINE
-            v["messages"].append("Hors du domaine de la méthode historique (" + " ; ".join(
+            v["messages"].append("Hors du domaine de la méthode ELS (" + " ; ".join(
                 {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm"}[h] for h in hors)
                 + ") : calcul pour information, jamais « vérifié ».")
 
