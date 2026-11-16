@@ -1388,5 +1388,59 @@ S.modifier(e_x, ["efforts", "V"], "600")
 CMPX = re.findall(r'<span class="cmp">(.*?)</span>', S.resultat(e_x)["resultat"])[:2]
 chk("un cordon dépassé s'écrit « > », jamais « ≤ »", all("&gt;" in x and "≤" not in x for x in CMPX) and len(CMPX) == 2, CMPX)
 
+# ---- lot A, deuxième passe : la vue Méthode = le calcul (S1), l'hypothèse d'épaisseur (S3), la gorge de pleine résistance (S9)
+import importlib  # noqa: E402
+
+from acier import materiaux as MA  # noqa: E402
+from acier.bibliotheques import DB as DB_, find as find_  # noqa: E402
+from acier.soudures import methode as MT_  # noqa: E402
+
+
+def ctl_vue_methode() -> bool:
+    """S1 : la vue « Méthode » de l'écran écrit l'équivalent Eurocode de la règle du bureau tel que l'écran le CALCULE
+    ailleurs (``criteres.k_equivalent_eurocode`` avec la f_u de la table, 3 ≤ t ≤ 100 mm) : 138,6 / 148,5 / 160,8 N/mm²,
+    et la marge 1 − 98,1/τ en S235 et S355 — plus les nombres du tableau 3.1 de l'EN (155,8 ; 174,5 ; 43 %)."""
+    v = html.unescape(S._vue_methode())
+    tau = {n: K.k_equivalent_eurocode(MA.fu(n, 10.0), find_(DB_["aciers"], n)["bw"])["tau_N_mm2"] for n in ("S235", "S275", "S355")}
+    fr = lambda x: f"{x:.1f}".replace(".", ",")  # noqa: E731
+    m = {n: f"{(1 - K.tau_adm_bureau(K.K_BUREAU) / tau[n]) * 100:.0f} %" for n in ("S235", "S355")}
+    return (f"{fr(tau['S235'])} N/mm² pour le S235" in v and f"{fr(tau['S275'])} pour le S275, {fr(tau['S355'])} pour le S355" in v
+            and f"plus sûre de {m['S235']} ; sur du S355, de {m['S355']}" in v and "174,5" not in v and "155,8" not in v
+            and fr(tau["S355"]) == "160,8" and m["S355"] == "39 %")
+
+
+def ctl_hypothese_ecran() -> bool:
+    """S3 : l'aide des aciers et les hypothèses de la fenêtre de calcul disent l'épaisseur supposée d'un support « plat »."""
+    c = cas_fixe("C3", poteau="plat")["cas"][0]
+    ac, _ = S.acier_du_cas(c)
+    hyp = "pièce A (plat support) : épaisseur non saisie, prise égale à t = 10 mm"
+    c0 = cas_fixe("C3")["cas"][0]
+    return (hyp in html.unescape(S.texte_aciers(ac)) and any(hyp in html.unescape(h) for h in S._hypotheses(ET.verifier(c)))
+            and "plat support" not in S.texte_aciers(S.acier_du_cas(c0)[0]))
+
+
+def ctl_gorge_ecran() -> bool:
+    """S9 : la gorge de pleine résistance de l'âme d'un HEB 300 S235 (t_w 11 mm → f_y 235) sur platine, quand la pièce
+    est vérifiée à 225 (le profilé lu à 19 mm) : a ≥ 0,46·t = 5,1 mm (directionnelle), et l'écran dit la f_y retenue."""
+    c = cas_fixe("C5", profil="HEB 300", jonction_semelles="pleine", jonction_ame="pleine")["cas"][0]
+    t = html.unescape(re.sub("<[^>]+>", "", S.texte_pleine(c, 11.0)))
+    return ("fy = 225 N/mm² (pièce B, S235 de 19 mm" in t and "(fy = 235 N/mm² de la paroi rapportée, S235 de 11 mm : t ≤ 16 mm, tableau 3.3 ANB)" in t
+            and "a ≥ 0,46·t = 5,1 mm (directionnelle)" in t)
+
+
+chk("S1 · vue Méthode = le calcul : 138,6 / 148,5 / 160,8 N/mm² et les marges 29 % et 39 % (f_u de la table)", ctl_vue_methode())
+chk("S3 · l'épaisseur supposée du plat support dite dans l'aide des aciers et dans les hypothèses du calcul", ctl_hypothese_ecran())
+chk("S9 · la gorge de pleine résistance de l'âme d'un HEB 300 à SA f_y (235, t_w 11 mm) : 5,1 mm, et l'écran la dit", ctl_gorge_ecran())
+with mutant(MA, "fu", lambda n, t, produit="lamine": {"S235": 360.0, "S275": 430.0, "S355": 510.0}[n]):
+    importlib.reload(MT_)
+    rouge_vue = not ctl_vue_methode()
+importlib.reload(MT_)
+chk("mutation « f_u du tableau 3.1 de l'EN » (le texte calculé redonne 155,8 et 174,5) : le contrôle de la vue Méthode rougit",
+    rouge_vue and ctl_vue_methode())
+with mutant(ET, "texte_hypothese", lambda ac: None):
+    chk("mutation « hypothèse d'épaisseur tue » : le contrôle de l'écran rougit", not ctl_hypothese_ecran())
+with mutant(ET, "fy_paroi_rapportee", lambda ac, t: ac["fy_min"]):
+    chk("mutation « gorge à la f_y la plus faible » (le défaut d'avant) : le contrôle de l'écran rougit", not ctl_gorge_ecran())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 sys.exit(1 if KO else 0)

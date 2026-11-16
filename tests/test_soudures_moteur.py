@@ -122,7 +122,7 @@ chk("force en travers pure : directionnelle / simplifiée = √2/√3",
 chk("bureau : 100 kg/(mm·cm) = 98,1 N/mm² (g = 9,81), 100 N/mm² (g = 10)",
     pres(K.tau_adm_bureau(100.0), 98.1) and pres(K.tau_adm_bureau(100.0, 10.0), 100.0))
 kq = K.k_equivalent_eurocode(FU, BW, GM2)
-chk("équivalent Eurocode S235 : f_vw,d/1,5 = 138,6 N/mm² = 141 kg/(mm·cm) ; S355 : 174,5",
+chk("équivalent Eurocode S235 : f_vw,d/1,5 = 138,6 N/mm² = 141 kg/(mm·cm) ; la formule avec f_u = 510, β_w = 0,9 : 174,5 (le S355 du site, f_u 470 : 160,8)",
     pres(kq["tau_N_mm2"], FU / (S3 * BW * GM2) / 1.5) and pres(kq["k_kg_mm_cm"], kq["tau_N_mm2"] * 10 / 9.81)
     and pres(K.k_equivalent_eurocode(510.0, 0.9, GM2)["tau_N_mm2"], 510 / (S3 * 0.9 * GM2) / 1.5))
 e = K.els_bureau(461.0, 5.0, 100.0)
@@ -409,7 +409,7 @@ gp = K.gorge_pleine_resistance(30.0, 235.0, FU, BW, GM2)
 chk("gorge de pleine résistance S235 : deux cordons d'angle équivalents au plat tendu → a ≥ 0,46·t (directionnelle), 0,57·t (simplifiée) ; t = 30 → 13,8 et 17,0 mm",
     pres(gp["ratio_dir"], S2 * BW * GM2 * 235 / (2 * FU)) and pres(gp["ratio_simp"], 235 / (2 * FU / (S3 * BW * GM2)))
     and pres(gp["directionnelle"], 13.85, 1e-3) and pres(gp["simplifiee"], 16.96, 1e-3))
-chk("a_pleine rendu par la vérification dès que la pièce rapportée a une épaisseur (C2 t_B = 30 : f_y = 225, la plus faible des deux pièces)",
+chk("a_pleine rendu par la vérification dès que la pièce rapportée a une épaisseur (C2 t_B = 30 : f_y = 225, celle de la pièce rapportée de 30 mm)",
     pres(verif("C2", {"tB": 30})["a_pleine"]["directionnelle"], K.gorge_pleine_resistance(30.0, FY30, FU, BW, GM2)["directionnelle"]))
 mb = K.metal_base(100.0, 0.0, 50.0, 235.0)
 chk("métal de base : √(σ² + 3τ²) = 132,3 ≤ fy/γM0 = 235, critère nommé « pièce » ; en service, fy/γ_F",
@@ -502,6 +502,90 @@ with mutant(ET.MA, "fu", lambda n, t, produit="lamine": {"S235": 360.0, "S275": 
     chk("mutation « f_u du tableau 3.1 de l'EN (510 en S355) » : le contrôle du cordon rougit", not ctl_fu_ancien_tableau())
 with mutant(CF, "_paroi_profil", lambda nom: (float(CF._profil(nom).get("tw") or CF._profil(nom).get("t")), "lamine")):
     chk("mutation « profilé pris à son âme t_w » : le contrôle des pièces rougit", not ctl_pieces())
+
+print("\n=== Lot A, deuxième passe : gorge de pleine résistance (S9), épaisseur nulle (S5), règle de la paroi (S7), hypothèse (S3) ===")
+
+
+def ctl_gorge_pleine() -> bool:
+    """S9 (non conservatif) : la gorge de « pleine résistance » est une exigence de SUR-résistance — f_y de LA paroi
+    rapportée à SA propre épaisseur, jamais la plus faible des deux pièces : plat de 10 mm (S235, 235) sur l'aile d'un
+    HEB 300 (19 mm → 225) : a = √2·0,8·1,25·235·10/(2·360) = 4,62 mm (4,42 avec 225) ; plat S355 de 10 mm sur un plat
+    S235 : f_y 355 → 6,97 mm (4,62 avec 235) ; âme d'un HEB 300 (t_w 11 → 235) quand le profilé, lu à max(t_f, t_w)
+    = 19 mm, vaut 225 ; la vérification de la pleine pénétration, elle, garde la plus faible (225)."""
+    r3 = verif("C3", {"poteau": "HEB 300", "jonction": "pleine", "t": 10.0})
+    rm = verif("C3", {"poteau": "plat", "jonction": "pleine", "t": 10.0, "nuance_A": "S235", "nuance_B": "S355"})
+    a5 = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C5"], profil="HEB 300"), "C5")
+    g5 = ET.gorge_pleine(a5, 11.0)
+    attendu = lambda fy, t: S2 * 0.8 * 1.25 * fy * t / (2 * 360.0)  # noqa: E731
+    return (pres(r3["acier"]["fy_min"], 225.0) and pres(r3["a_pleine"]["directionnelle"], attendu(235.0, 10.0)) and pres(r3["a_pleine"]["fy"], 235.0)
+            and pres(rm["a_pleine"]["directionnelle"], attendu(355.0, 10.0)) and abs(rm["a_pleine"]["directionnelle"] - 6.97) < 0.005
+            and pres(a5["fy_min"], 225.0) and pres(g5["fy"], 235.0) and pres(g5["directionnelle"], attendu(235.0, 11.0))
+            and "t ≤ 16 mm" in g5["domaine_fy"])
+
+
+def ctl_epaisseur_nulle() -> bool:
+    """S5 : une épaisseur nulle n'est plus prise pour « inconnue » — C5 avec t_p = 0 (appel direct du moteur) : refus
+    nommé « épaisseur invalide », plus de plantage ; seuls les cordons libres (C8) sans t_A ni t_B restent sans épaisseur."""
+    try:
+        r = verif("C5", {"tp": 0.0, "jonction_semelles": "pleine"})
+    except Exception:  # noqa: BLE001 — le défaut d'avant : TypeError dans le message de pleine pénétration
+        return False
+    r8 = verif("C8")
+    return (r["statut"] == ET.REFUS and any("épaisseur invalide : 0 mm" in m for m in r["messages"])
+            and r8["statut"] != ET.REFUS and r8["acier"]["A"]["t"] is None and r8["acier"]["fy_min"] is None
+            and CF.epaisseurs("C8", {"tA": 0.0, "tB": 12.0})["A"] is None)
+
+
+def ctl_regle_paroi() -> bool:
+    """S7 (R2) : la règle « paroi la plus épaisse » et la correspondance famille → produit sont celles de
+    acier/flambement/section.py, pour TOUT le catalogue : aucune copie qui diverge."""
+    from acier.flambement import section as SEC
+    for rec in CAT.profils():
+        if CF._paroi_profil(rec["nom"]) != (SEC.epaisseur(rec), SEC.produit(rec)):
+            return False
+    return True
+
+
+def ctl_hypothese_plat() -> bool:
+    """S3 : C3 et C4 sur un support « plat » sans épaisseur saisie : la pièce A prend celle du plat soudé t, et le
+    moteur le DIT (``texte_hypothese``) ; rien quand l'appelant donne t_A (le garde-corps) ou que le support est un profilé."""
+    a = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C3"], poteau="plat", t=12.5), "C3")
+    a4 = ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C4"], poteau="plat"), "C4")
+    return (ET.texte_hypothese(a) == "pièce A (plat support) : épaisseur non saisie, prise égale à t = 12,5 mm" and pres(a["A"]["t"], 12.5)
+            and ET.texte_hypothese(a4) is not None
+            and ET.texte_hypothese(ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C3"], poteau="plat", tA=20.0), "C3")) is None
+            and ET.texte_hypothese(ET.acier_cordon(CF.PARAMS_DEFAUT["C3"], "C3")) is None)
+
+
+chk("S9 · gorge de pleine résistance : f_y de la paroi rapportée à SON épaisseur (plat 10 mm sur HEB 300 : 235 → a 4,62 ; "
+    "S355 sur S235 : 355 → 6,97 ; âme de 11 mm d'un HEB 300 : 235), jamais la plus faible des deux pièces", ctl_gorge_pleine())
+chk("S5 · épaisseur nulle : refus nommé « épaisseur invalide » (C5, t_p = 0), plus de plantage ; C8 sans épaisseur reste sans f_y",
+    ctl_epaisseur_nulle())
+chk("S7 · paroi la plus épaisse et produit : ceux de acier/flambement/section.py pour tout le catalogue", ctl_regle_paroi())
+chk("S3 · support « plat » sans épaisseur : l'hypothèse t_A = t est dite (« pièce A (plat support) : … t = 12,5 mm »)", ctl_hypothese_plat())
+with mutant(ET, "fy_paroi_rapportee", lambda ac, t: ac["fy_min"]):
+    chk("mutation « gorge de pleine résistance à la f_y la plus faible des deux pièces » (le défaut d'avant) : le contrôle rougit",
+        not ctl_gorge_pleine())
+vrai_ep = CF.epaisseurs
+
+
+def epaisseurs_ancien(config, p):
+    """Le défaut d'avant : une épaisseur nulle de platine prise pour « inconnue »."""
+    if config in ("C5", "C6") and not p.get("tp", 15.0):
+        return {"A": None, "B": CF._paroi_profil(p["profil"])}
+    return vrai_ep(config, p)
+
+
+with mutant(CF, "epaisseurs", epaisseurs_ancien):
+    chk("mutation « t_p = 0 pris pour une épaisseur inconnue » : le contrôle de l'épaisseur nulle rougit", not ctl_epaisseur_nulle())
+from acier.flambement import section as SEC_  # noqa: E402
+with mutant(SEC_, "epaisseur", lambda p: float(p.get("tw") or p.get("t") or 0.0)):
+    chk("mutation « section.epaisseur prise à l'âme » : les soudures la suivent (le contrôle des pièces rougit) — une seule règle",
+        not ctl_pieces())
+with mutant(CF, "_paroi_profil", lambda nom: (max(float(CF._profil(nom).get("tf") or 0), float(CF._profil(nom).get("tw") or 0)), "lamine")):
+    chk("mutation « copie locale de la règle, sans le produit des tubes » : le contrôle de la règle rougit", not ctl_regle_paroi())
+with mutant(CF, "epaisseurs", lambda config, p: {k: v for k, v in vrai_ep(config, p).items() if k != "hypothese"}):
+    chk("mutation « hypothèse tue » (le défaut d'avant) : le contrôle de l'hypothèse rougit", not ctl_hypothese_plat())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -36,6 +36,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from acier import materiaux as MA
+
 from .cordon import Cordon, beta_Lw, cordon_angle, cordon_bout_a_bout, cordon_bout_a_bout_T, lignes_pleine_penetration
 from .groupe import Efforts
 from . import trace as TR
@@ -480,27 +482,38 @@ CONSTRUCTEURS = {"C1": c1, "C2": c2, "C3": c3, "C4": c4, "C5": c5, "C6": c6, "C7
 
 # ------------------------------------------------------------------ l'épaisseur qui fixe f_y et f_u de chaque pièce
 def _paroi_profil(nom: str) -> Tuple[float, str]:
-    """(épaisseur, produit) d'un profilé du catalogue : un I ou un H pris comme un tout, sa paroi la plus épaisse
-    max(t_f, t_w) — la plus petite f_y ; un tube, sa paroi t et son produit (fini à chaud ou formé à froid)."""
-    from acier.flambement.section import FABRICATION
+    """(épaisseur, produit) d'un profilé du catalogue : LA règle du site, ``acier/flambement/section.py`` (``epaisseur`` :
+    un I ou un H pris comme un tout, sa paroi la plus épaisse max(t_f, t_w) — la plus petite f_y ; un tube, sa paroi t ;
+    ``produit`` : fini à chaud ou formé à froid selon ``FABRICATION``), sans copie."""
+    from acier.flambement import section as SEC
     rec = _profil(nom)
-    t = max(float(rec.get("tf") or 0.0), float(rec.get("tw") or 0.0), float(rec.get("t") or 0.0))
-    fab = FABRICATION.get(rec["famille"])
-    return t, (fab if fab in ("creux_chaud", "creux_froid") else "lamine")
+    return SEC.epaisseur(rec), (SEC.produit(rec) if rec["famille"] in SEC.FABRICATION else "lamine")
 
 
-def epaisseurs(config: Optional[str], p: Dict) -> Dict[str, Optional[Tuple[float, str]]]:
+def _mm(t: float) -> str:
+    return f"{t:g}".replace(".", ",")
+
+
+def epaisseurs(config: Optional[str], p: Dict) -> Dict:
     """L'épaisseur nominale (mm) et le produit (« lamine », « creux_chaud », « creux_froid ») de chaque pièce — A le
     support, B la pièce rapportée : c'est elle qui fixe f_y et f_u (NBN EN 1993-1-1 ANB:2018, 3.2.1(1), option a ;
     tableaux 3.3 ANB à 3.11 ANB, ``acier/materiaux.py``). Une pièce simple prend SON épaisseur ; un profilé, sa paroi
-    la plus épaisse (``_paroi_profil``). None : la configuration ne connaît pas l'épaisseur (cordons libres C8 sans
-    ``tA`` ni ``tB``).
+    la plus épaisse (``_paroi_profil``). None : la configuration ne connaît pas l'épaisseur — les cordons libres C8 sans
+    ``tA`` ni ``tB``, et eux seuls ; ailleurs, une épaisseur nulle, négative ou illisible est REFUSÉE (MA.HorsTable
+    « épaisseur invalide », un refus nommé), jamais prise pour « inconnue ».
 
     Un support « plat » (C3, C4) n'a pas d'épaisseur saisie : celle que l'appelant connaît (``tA`` — le garde-corps y
-    met sa platine), sinon celle du plat soudé t (la convention de ``t_min`` ci-dessus). Sans configuration (un
-    appelant qui ne passe que les paramètres), chaque pièce prend la plus grande épaisseur saisie : du côté sûr."""
+    met sa platine), sinon celle du plat soudé t (la convention de ``t_min`` ci-dessus) — HYPOTHÈSE dite dans
+    ``hypothese`` (l'aide des aciers et la note l'écrivent). Sans configuration (un appelant qui ne passe que les
+    paramètres), chaque pièce prend la plus grande épaisseur saisie : du côté sûr."""
     def lam(t):
-        return (float(t), "lamine") if t else None
+        try:
+            x = float(t)
+        except (TypeError, ValueError):
+            raise MA.HorsTable(f"épaisseur invalide : {t!r}") from None
+        if not x > 0.0:
+            raise MA.HorsTable(f"épaisseur invalide : {x:g} mm")
+        return (x, "lamine")
     if config is None:
         ts = [float(p[k]) for k in ("tA", "tB", "t", "tp") if isinstance(p.get(k), (int, float)) and p[k] > 0]
         for k in ("profil", "poteau"):
@@ -514,8 +527,12 @@ def epaisseurs(config: Optional[str], p: Dict) -> Dict[str, Optional[Tuple[float
         return {"A": lam(p["tA"]), "B": lam(p["tB"])}
     if config in ("C3", "C4"):
         pot = _poteau(p)
-        A = (_paroi_profil(pot["nom"]) if pot else lam(p.get("tA") or p["t"]))
-        return {"A": A, "B": lam(p["t"])}
+        if pot:
+            return {"A": _paroi_profil(pot["nom"]), "B": lam(p["t"])}
+        if p.get("tA"):
+            return {"A": lam(p["tA"]), "B": lam(p["t"])}
+        B = lam(p["t"])
+        return {"A": B, "B": B, "hypothese": f"pièce A (plat support) : épaisseur non saisie, prise égale à t = {_mm(B[0])} mm"}
     if config == "C5":
         return {"A": lam(p.get("tp", 15.0)), "B": _paroi_profil(p["profil"])}
     if config == "C6":
@@ -523,7 +540,8 @@ def epaisseurs(config: Optional[str], p: Dict) -> Dict[str, Optional[Tuple[float
     if config == "C7":
         return {"A": lam(p["t"]), "B": lam(p["t"])}
     if config == "C8":
-        return {"A": lam(p.get("tA")), "B": lam(p.get("tB"))}
+        # cordons libres : la SEULE configuration où une épaisseur absente (ou 0) reste « inconnue »
+        return {"A": lam(p["tA"]) if p.get("tA") else None, "B": lam(p["tB"]) if p.get("tB") else None}
     raise ValueError(f"configuration inconnue : {config}")
 
 

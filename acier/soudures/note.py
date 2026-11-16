@@ -261,6 +261,11 @@ class Note:
         S, C = self.S, self.C
         lignes = []
         textes = [m for m in C.res.get("messages", []) if not m.startswith("Refus")]
+        if C.acier:     # d'où vient la f_u de référence (la pièce, son épaisseur, la bande, le tableau) — comme à l'écran
+            ac = C.acier
+            hyp = ET.texte_hypothese(ac)
+            textes.insert(0, f"Acier de référence {ac['nuance_ref']} (la pièce la plus faible) : fu = {_g(ac['fu'])} N/mm² ({ET.texte_fu(ac)}), "
+                             f"βw = {_g(ac['bw'])}" + (f" ; {hyp}" if hyp else "") + ".")
         textes.append("Longueur efficace l_eff = l − 2a sans retours d'angle (§4.5.1) ; un cordon ne compte que si l_eff ≥ max(30 mm ; 6a) et a ≥ 3 mm (§4.5.2).")
         if C.res.get("beta_Lw", 1.0) >= 1.0 and C.cas["config"] == "C1":
             textes.append("Assemblage par recouvrement : βLw = 1 (L_j ≤ 150·a).")

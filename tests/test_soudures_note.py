@@ -202,6 +202,87 @@ from plancher.charges import peintre as PE  # noqa: E402
 chk("le peintre du plancher est un alias du peintre partagé (Mat, transformation) avec ses motifs en aplats",
     PE.Mat is SV.Mat and PE.transformation is SV.transformation and "url(#chp_hc)" in PE.MOTIFS)
 
+# ================================================================
+print("\n=== 7. Lot A, deuxième passe : méthode ELS calculée (S1), provenance de f_u (S8), hypothèse d'épaisseur (S3) ===")
+import contextlib  # noqa: E402
+import importlib  # noqa: E402
+import subprocess  # noqa: E402
+
+from acier import materiaux as MA  # noqa: E402
+from acier.bibliotheques import DB, find  # noqa: E402
+from acier.soudures import criteres as K  # noqa: E402
+
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def pdftotext(pdf: bytes) -> str:
+    p = subprocess.run(["pdftotext", "-layout", "-", "-"], input=pdf, capture_output=True, check=True)
+    return norm(p.stdout.decode("utf-8"))
+
+
+def attendus_els():
+    """Le calcul, refait ici : f_vw,d/γ_F avec f_u de la table (3 ≤ t ≤ 100 mm, tableau 3.3 ANB) et β_w (tableau 4.1),
+    la marge du bureau 1 − 98,1/τ (g = 9,81). S235 138,6 ; S275 148,5 ; S355 160,8 ; marges 29 % et 39 %."""
+    tau = {n: K.k_equivalent_eurocode(MA.fu(n, 10.0), find(DB["aciers"], n)["bw"])["tau_N_mm2"] for n in ("S235", "S275", "S355")}
+    fr = lambda x: f"{x:.1f}".replace(".", ",")  # noqa: E731
+    marge = {n: f"{(1 - K.tau_adm_bureau(K.K_BUREAU) / tau[n]) * 100:.0f} %" for n in tau}
+    return [f"{fr(tau['S235'])} N/mm² pour le S235", f"{fr(tau['S275'])} pour le S275", f"{fr(tau['S355'])} pour le S355",
+            f"plus sûre de {marge['S235']} ; sur du S355, de {marge['S355']}"]
+
+
+def ctl_methode_els() -> bool:
+    """S1 : la page 2 d'une note ELS imprime les équivalents Eurocode CALCULÉS depuis la table (148,5 et 160,8, marge
+    39 % en S355), jamais les anciens nombres du tableau 3.1 de l'EN (155,8 ; 174,5 ; 43 %)."""
+    t2 = pdftotext(NT.generer_note(ET_, cas_de("C3", None, {"V": 40}, {"mode": "els"})))
+    att = attendus_els()
+    return all(a in t2 for a in att) and "174,5" not in t2 and "155,8" not in t2 and att[2] == "160,8 pour le S355" and att[1] == "148,5 pour le S275"
+
+
+def ctl_doc_etude() -> bool:
+    """La copie de docs/acier/SOUDURES_ETUDE.md (un document ne lit pas le code : copie NOMMÉE, liée ici) dit les mêmes nombres."""
+    with open(os.path.join(RACINE, "docs", "acier", "SOUDURES_ETUDE.md"), encoding="utf-8") as f:
+        doc = norm(f.read())
+    att = attendus_els()
+    return (att[1] in doc and att[2] in doc and "174,5" not in doc and "155,8" not in doc
+            and "plus sûre de 29 %** sur du S235" in doc and "39 % de marge" in doc)
+
+
+def ctl_provenance_fu() -> bool:
+    """S8 : la note dit d'où vient la f_u de référence (la pièce, son épaisseur, la bande, le tableau), comme l'écran ;
+    S3 : sur un support « plat » sans épaisseur, l'hypothèse t_A = t est écrite (pdftotext)."""
+    t = pdftotext(NT.generer_note(ET_, cas_de("C3")))
+    tp = pdftotext(NT.generer_note(ET_, cas_de("C3", {"poteau": "plat"})))
+    return ("Acier de référence S235 (la pièce la plus faible) : fu = 360 N/mm² (pièce B, S235 de 10 mm : 3 ≤ t ≤ 100 mm, tableau 3.3 ANB)"
+            in t and "plat support" not in t
+            and "pièce A (plat support) : épaisseur non saisie, prise égale à t = 10 mm" in tp)
+
+
+chk("S1 · note ELS, page 2 : équivalents Eurocode calculés depuis la table (138,6 ; 148,5 ; 160,8 ; marges 29 % et 39 %)", ctl_methode_els())
+chk("S1 · la copie de la doc d'étude (SOUDURES_ETUDE.md) dit les mêmes nombres (copie nommée, liée par ce contrôle)", ctl_doc_etude())
+chk("S8, S3 · note : provenance de f_u (pièce, épaisseur, bande, tableau 3.3 ANB) et hypothèse d'épaisseur du plat support", ctl_provenance_fu())
+F_U_EN = {"S235": 360.0, "S275": 430.0, "S355": 510.0}         # le tableau 3.1 de l'EN (le défaut d'avant)
+with mutant(MA, "fu", lambda n, t, produit="lamine": F_U_EN[n]):
+    importlib.reload(ME)
+    rouge = not ctl_methode_els()
+importlib.reload(ME)
+chk("mutation « f_u du tableau 3.1 de l'EN » (le texte calculé redonne 155,8 et 174,5) : le contrôle de la méthode ELS rougit",
+    rouge and ctl_methode_els())
+with mutant(NT.ET, "texte_fu", lambda ac: "—"):
+    chk("mutation « provenance de f_u absente » : le contrôle de la note rougit", not ctl_provenance_fu())
+with mutant(NT.ET, "texte_hypothese", lambda ac: None):
+    chk("mutation « hypothèse d'épaisseur tue » : le contrôle de la note rougit", not ctl_provenance_fu())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

@@ -25,7 +25,7 @@ méthode directionnelle par défaut (simplifiée en option) avec γM2 = 1,25 et 
 longueur comparée à k·a avec **k = 100 kg par mm de gorge et par cm de cordon** (défaut du
 bureau), et, à côté, la valeur que l'Eurocode donnerait au même niveau de charge :
 f_vw,d/1,5 = **138,6 N/mm² pour le S235** (141 kg/(mm·cm) avec 1 kg = 9,81 N, 139 avec
-1 kg = 10 N), 174,5 pour le S355. Le bureau voit d'un coup d'œil la marge que prend sa règle.
+1 kg = 10 N), 160,8 pour le S355 (f_u = 470, tableau 3.3 ANB). Le bureau voit d'un coup d'œil la marge que prend sa règle.
 
 **Des schémas qui montrent le sens des efforts.** Chaque cas est dessiné par le même code
 qui calcule (source unique) : les pièces en gris, les cordons en orange, les efforts en
@@ -104,9 +104,10 @@ cisaillement) ; proposée en option, parce que les bureaux la connaissent.
 k en kg/(mm·cm), converti en N/mm² par k·g/10 (g = 9,81 N/kg par défaut ; 10 en option) :
 100 kg/(mm·cm) ↔ 98,1 N/mm². À côté, la **valeur équivalente de l'Eurocode** au niveau de
 service : f_vw,d/γ_F avec γ_F = 1,5 (rapport usuel ELU/ELS d'une charge de chantier) —
-138,6 N/mm² pour le S235, 155,8 pour le S275, 174,5 pour le S355 — et un bouton « prendre la
-valeur Eurocode ». La règle du bureau est donc **plus sûre de 28 %** sur du S235 ; sur du
-S355 elle laisse 43 % de marge, ce que la page dit en clair.
+138,6 N/mm² pour le S235, 148,5 pour le S275, 160,8 pour le S355 (f_u de 3 à 100 mm, tableau 3.3
+ANB : 360, 410, 470 N/mm² ; le site les CALCULE, acier/soudures/methode.py) — et un bouton « prendre la
+valeur Eurocode ». La règle du bureau (98,1 N/mm² à 9,81 N/kg) est donc **plus sûre de 29 %** sur du
+S235 ; sur du S355 elle laisse 39 % de marge, ce que la page dit en clair.
 
 **Bout à bout** (§4.7) : pleine pénétration → la résistance est celle de la pièce la plus
 faible, aucun calcul de cordon (la page le dit et vérifie la pièce : σ = N/(b·t) ≤ fy/γM0) ;

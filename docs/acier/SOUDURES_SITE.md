@@ -89,6 +89,20 @@ Lancement : `python3.12 tests/test_api_web_soudures.py` (environ 20 s). Le contr
   triée, ✓ retenue, ★ la plus petite qui tient ; en C5/C6 la ligne du **profilé** et son sélecteur (triés par masse,
   ★ le plus léger qui tient, mêmes cordons) ; les **quatre lectures** de la même soudure (EC3 directionnelle,
   simplifiée, ELS bureau k, ELS k Eurocode) et leur fenêtre ; les messages du moteur ; le pied (méthode, γ_M2 ou τ_adm).
+- **Aciers, la valeur retenue et d'où elle vient** (lot A, option a de l'ANB belge, NBN EN 1993-1-1 ANB:2018 3.2.1(1)) :
+  f_y et f_u se lisent dans la table unique du site (`acier/materiaux.py`) à l'épaisseur de CHAQUE pièce, donnée par
+  `acier/soudures/configurations.epaisseurs(config, params)` — A le support, B la pièce rapportée : un plat ou une
+  platine à son épaisseur ; un profilé à sa paroi la plus épaisse max(t_f, t_w) et un tube à sa paroi, avec son
+  produit (fini à chaud, formé à froid), par LA règle du site (`acier/flambement/section.epaisseur` et `FABRICATION`) ;
+  un support « plat » de C3 et C4, dont l'épaisseur ne se saisit pas, prend celle du plat soudé t — hypothèse DITE
+  (« pièce A (plat support) : épaisseur non saisie, prise égale à t = 10 mm ») dans l'aide des aciers, les hypothèses
+  de la fenêtre de calcul et la note ; seuls les cordons libres C8 sans t_A ni t_B restent sans épaisseur (f_u de 3 à
+  100 mm, pas de f_y) ; une épaisseur nulle ou négative est refusée (« épaisseur invalide »), une épaisseur au-delà du
+  tableau aussi. La valeur RETENUE — f_u et β_w de la pièce la plus faible (EN 1993-1-8 §4.5.3.2(6)), f_y la plus
+  faible des deux pour la pleine pénétration (§4.7.1) — s'affiche avec sa provenance (`etat.texte_fu`, `texte_fy` :
+  la pièce, sa nuance, son épaisseur, la bande et le tableau de l'ANB), à l'écran et dans la note. La gorge de pleine
+  résistance équivalente, elle, prend la f_y de LA paroi rapportée à SON épaisseur (`etat.gorge_pleine`), jamais la
+  plus faible des deux pièces (exigence de sur-résistance : plus basse, elle serait trop petite).
 - **Repères des efforts** : le cadre Efforts nomme les efforts dans le repère de la pièce (C5 : V_z le long de l'âme,
   M_y d'axe fort), la vue du plan de joint, les efforts réduits et les formules dans celui du joint (V_y, M_x). Le site
   écrit la correspondance sous les efforts réduits (« V_z devient V_y, M_y devient M_x… ; C3 : V devient −V_y »), LUE

@@ -743,9 +743,10 @@ def texte_aciers(ac: Optional[Dict], pourquoi: str = "") -> str:
         return f"Acier de référence impossible : {C.esc(pourquoi)}."
     fy = (f"f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² (pleine pénétration ; {C.esc(ET.texte_fy(ac))})" if ac["fy_min"] is not None
           else "f<sub>y</sub> : sans objet (épaisseurs non saisies : aucune pleine pénétration)")
+    hyp = ET.texte_hypothese(ac)            # une épaisseur non saisie que le calcul suppose (support « plat » de C3, C4)
     return (f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> (la pièce la plus faible) : f<sub>u</sub> = {C.nb(ac['fu'])} N/mm² "
             f"({C.esc(ET.texte_fu(ac))}), β<sub>w</sub> = {C.nb(ac['bw'])} ; {fy}. NBN EN 1993-1-1 ANB, 3.2.1(1) : f<sub>y</sub> et f<sub>u</sub> "
-            f"selon l'épaisseur de chaque pièce.")
+            f"selon l'épaisseur de chaque pièce." + (f" Hypothèse — {C.esc(hyp)}." if hyp else ""))
 
 
 def phrase_methode(cas: Dict) -> str:
@@ -773,10 +774,13 @@ def texte_pleine(cas: Dict, t: Optional[float]) -> str:
     ac, _ = acier_du_cas(cas)
     if ac is None or ac["fy_min"] is None:
         return f"La soudure vaut la pièce (t = {C.nb(t)} mm) : sa section t × l est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1)."
-    gp = K.gorge_pleine_resistance(float(t), ac["fy_min"], ac["fu"], ac["bw"], float(cas["methode"].get("gamma_M2", K.GAMMA_M2)))
+    # la gorge de pleine résistance : la f_y de LA paroi rapportée à SON épaisseur (etat.gorge_pleine), pas la plus faible
+    gp = ET.gorge_pleine(ac, float(t), float(cas["methode"].get("gamma_M2", K.GAMMA_M2)))
+    fy_gorge = (f" (f<sub>y</sub> = {C.nb(gp['fy'])} N/mm² de la paroi rapportée, {C.esc(gp['nuance'])} de {C.nb(t)} mm : "
+                f"{C.esc(ET._bande(gp['domaine_fy']))}, {C.esc(gp['domaine_fy'].split(' (')[0])})" if gp["fy"] != ac["fy_min"] else "")
     return (f"La soudure vaut la pièce (t = {C.nb(t)} mm) : sa section t × l est vérifiée au métal de base, f<sub>y</sub>/γ<sub>M0</sub> (§4.7.1), "
             f"f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² ({C.esc(ET.texte_fy(ac))}). "
-            f"Pour la même résistance en traction avec deux cordons d'angle, il faudrait a ≥ {C.fr(gp['ratio_dir'], 2)}·t = "
+            f"Pour la même résistance en traction avec deux cordons d'angle{fy_gorge}, il faudrait a ≥ {C.fr(gp['ratio_dir'], 2)}·t = "
             f"<b>{C.fr(gp['directionnelle'], 1)} mm</b> (directionnelle) ou {C.fr(gp['ratio_simp'], 2)}·t = <b>{C.fr(gp['simplifiee'], 1)} mm</b> "
             f"(simplifiée) de chaque côté.")
 
@@ -1339,6 +1343,8 @@ def _hypotheses(res: Dict) -> List[str]:
     out = [f"Acier de référence <b>{C.esc(ac['nuance_ref'])}</b> · f<sub>u</sub> = {C.nb(ac['fu'])} N/mm² ({C.esc(ET.texte_fu(ac))}) · "
            f"β<sub>w</sub> = {C.nb(ac['bw'])}"
            + (f" · f<sub>y</sub> = {C.nb(ac['fy_min'])} N/mm² ({C.esc(ET.texte_fy(ac))})" if ac["fy_min"] is not None else "")]
+    if ET.texte_hypothese(ac):
+        out.append(f"Hypothèse — {C.esc(ET.texte_hypothese(ac))}")
     if m.mode == K.ELS:
         out.append(f"Méthode <b>ELS du bureau</b> · k = {C.nb(m.k, 3)} kg/(mm·cm) · g = {C.nb(m.g)} N/kg · γ<sub>F</sub> = {C.nb(m.gamma_F)}")
         out.append("Efforts <b>de service</b>")

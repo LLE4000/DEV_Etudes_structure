@@ -131,7 +131,28 @@ def acier_cordon(params: Dict, config: Optional[str] = None) -> Dict:
     return {"fu": float(fu), "bw": float(bw), "nuance_ref": ref["n"], "fy_min": None if py is None else float(py["fy"]), "A": A, "B": B,
             "piece_fu": "B" if ref is B else "A", "domaine_fu": ref["domaine_fu"], "t_fu": ref["t"],
             "piece_fy": None if py is None else ("B" if py is B else "A"), "domaine_fy": None if py is None else py["domaine_fy"],
-            "t_fy": None if py is None else py["t"], "nuance_fy": None if py is None else py["n"]}
+            "t_fy": None if py is None else py["t"], "nuance_fy": None if py is None else py["n"],
+            "hypothese": ep.get("hypothese")}       # une épaisseur non saisie et supposée (support « plat » de C3, C4)
+
+
+def fy_paroi_rapportee(ac: Dict, t: float) -> float:
+    """f_y d'une paroi de la pièce RAPPORTÉE B (un plat, une semelle t_f, une âme t_w, une paroi de tube) à SA propre
+    épaisseur t, avec la nuance et le produit de B (acier/materiaux.py, NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a)."""
+    B = ac["B"]
+    return MA.fy(B["n"], float(t), B["produit"])
+
+
+def gorge_pleine(ac: Dict, t: float, gamma_M2: float = K.GAMMA_M2) -> Dict:
+    """La gorge de « pleine résistance » d'une paroi de la pièce rapportée d'épaisseur t : deux cordons d'angle aussi
+    résistants que CETTE paroi tirée (``criteres.gorge_pleine_resistance``). C'est une exigence de SUR-résistance : sa f_y
+    est celle de la paroi concernée, à SA propre épaisseur (``fy_paroi_rapportee``) — ni la f_y la plus faible des deux
+    pièces (celle de la vérification d'une pleine pénétration, §4.7.1), ni celle d'un profilé lu à max(t_f, t_w) quand la
+    paroi est son âme : prise plus basse, la gorge exigée serait trop petite (côté non sûr). f_u et β_w : l'acier de
+    référence du cordon, la pièce la plus faible (EN 1993-1-8 §4.5.3.2(6)). Rend aussi ``fy`` et son ``domaine_fy``."""
+    B = ac["B"]
+    fy = fy_paroi_rapportee(ac, t)
+    gp = K.gorge_pleine_resistance(float(t), fy, ac["fu"], ac["bw"], gamma_M2)
+    return dict(gp, fy=fy, domaine_fy=MA.source(B["n"], float(t), B["produit"], "fy"), nuance=B["n"])
 
 
 def _texte_piece(ac: Dict, cle: str, grandeur: str) -> str:
@@ -140,7 +161,8 @@ def _texte_piece(ac: Dict, cle: str, grandeur: str) -> str:
     dom = p["domaine_" + grandeur]
     if p["t"] is None:
         return f"pièce {cle}, {p['n']}, {dom}, tableau {tab}"
-    return f"pièce {cle}, {p['n']} de {p['t']:g} mm : {_bande(dom)}, tableau {tab}"
+    t = f"{p['t']:g}".replace(".", ",")              # virgule décimale (« IPE 300 : 10,7 mm »)
+    return f"pièce {cle}, {p['n']} de {t} mm : {_bande(dom)}, tableau {tab}"
 
 
 def texte_fu(ac: Dict) -> str:
@@ -154,6 +176,13 @@ def texte_fy(ac: Dict) -> Optional[str]:
     if ac.get("piece_fy") is None:
         return None
     return _texte_piece(ac, ac["piece_fy"], "fy")
+
+
+def texte_hypothese(ac: Optional[Dict]) -> Optional[str]:
+    """« pièce A (plat support) : épaisseur non saisie, prise égale à t = 10 mm » : l'épaisseur que le calcul SUPPOSE
+    (``configurations.epaisseurs``) ; l'aide des aciers, les hypothèses de la fenêtre de calcul et la note l'écrivent.
+    None quand toutes les épaisseurs sont saisies ou lues au catalogue."""
+    return (ac or {}).get("hypothese")
 
 
 # ------------------------------------------------------------------ vérification
@@ -298,7 +327,7 @@ def verifier(cas: Dict) -> Dict:
                           "lim_piece_els": None if acier["fy_min"] is None else acier["fy_min"] / meth.gamma_F}
     t_rap = (built.get("pieces") or {}).get("t_rapporte")
     if t_rap and acier["fy_min"] is not None:
-        out["a_pleine"] = K.gorge_pleine_resistance(float(t_rap), acier["fy_min"], acier["fu"], acier["bw"], meth.gamma_M2)
+        out["a_pleine"] = gorge_pleine(acier, float(t_rap), meth.gamma_M2)       # f_y de la paroi rapportée, à SON épaisseur
     if pleins:
         noms = ", ".join(dict.fromkeys(c.chaine or c.nom for c in pleins))
         out["messages"].append(f"Pleine pénétration ({noms}) : la soudure vaut la pièce la plus faible (EN 1993-1-8 §4.7.1) — sa section "
