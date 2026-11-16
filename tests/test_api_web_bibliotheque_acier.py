@@ -42,6 +42,7 @@ import types
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
+from acier import bibliotheques as BQ  # noqa: E402
 from acier import materiaux as MA  # noqa: E402
 from acier import resistances as RS  # noqa: E402
 from acier.flambement import normes as NO  # noqa: E402
@@ -357,13 +358,25 @@ chk(f"nuances : les colonnes de f_y sont les paliers de l'ANB jusqu'à {NO.T_MAX
 # deux anciennes tables (le tableau 3.1 de l'EN, le f_y et le f_u de bibliotheques.json)
 src = texte(n0["sources"])
 lignes_anb = {(MA.ligne(a["n"])["tableau"], MA.ligne(a["n"])["norme"], MA.ligne(a["n"])["designation"]) for a in BIBLIO["aciers"]}
+PHRASE_80 = "Au-delà de 80 mm, les tableaux de l'ANB continuent ; la rubrique s'arrête à 80 mm, la borne des modules Flambement et Barres."
 chk("nuances : les sources citent la règle (« " + REGLE + " »), la ligne de l'ANB de chaque nuance (tableau, norme, désignation) et disent "
-    "qu'au-delà de 80 mm les tableaux continuent mais les modules s'arrêtent",
+    "qu'au-delà de 80 mm les tableaux continuent et que la rubrique s'arrête à la borne des modules Flambement et Barres",
     REGLE in src and REGLE in texte(n0["pourquoi"]) and lignes_anb == {("3.3 ANB", "EN 10025-2:2004", "S235JR"), ("3.3 ANB", "EN 10025-2:2004", "S275JR"),
                                                                      ("3.3 ANB", "EN 10025-2:2004", "S355JR"), ("3.4 ANB", "EN 10025-3:2004", "S355N"),
                                                                      ("3.4 ANB", "EN 10025-3:2004", "S460N")}
     and all(f"tableau {t_}, {no}" in src and d in src for t_, no, d in lignes_anb)
-    and "Au-delà de 80 mm, les tableaux de l'ANB continuent, mais les modules du site s'arrêtent à 80 mm." in src, src[:400])
+    and PHRASE_80 in src and "les modules du site s'arrêtent" not in src, src[:400])
+# (lot A, reprise F4) la phrase dit vrai : Flambement et Barres s'arrêtent à 80 mm (normes.T_MAX_TABLEAU, leur borne de
+# domaine) ; les Assemblages, les Soudures et les Garde-corps lisent la table jusqu'au bout (bibliotheques.acier : une
+# tôle S355 de 100 mm y vaut 315 MPa, tableau 3.3 ANB) — « les modules du site s'arrêtent à 80 mm » était faux
+try:
+    NO.limite_elastique("S355", 80.5)
+    flamb_80 = False
+except NO.HorsDomaine:
+    flamb_80 = True
+chk("nuances : la borne dite est vraie — le Flambement (et les Barres, même fonction) refusent 80,5 mm, les Assemblages, les Soudures et les "
+    "Garde-corps lisent la table au-delà (bibliotheques.acier S355, 100 mm → 315 MPa)",
+    flamb_80 and NO.limite_elastique("S355", 80.0) == 325 and BQ.acier("S355", 100.0)["fy"] == 315.0)
 VIEUX = re.compile(r"tableau 3\.1(?![\d])|(?<!< )t ≤ 40(?![\d])|40 < t ≤ 80")
 vieux = [(p_, k, m.group(0)) for p_ in ({}, {"epaisseur": "40"}, {"epaisseur": "80"}, {"nuance": "S460 N/NL", "epaisseur": "63"})
          for k, f in ((k, texte(B.consulter("nuances", p_)[k])) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in VIEUX.finditer(f)]
@@ -401,6 +414,29 @@ chk("nuances « S355 (fu 490) » : la ligne montre f_u = 470 (pas 490) et l'aver
     lignes_nuances(n490["tableau"])[3][2][5] == "470" and "S355JR" in av490 and "tableau 3.3 ANB" in av490 and re.search(r"fu\s*=\s*470", av490)
     and "notes enregistrées" in av490 and "S355JR" in texte(n490["bande"]), av490)
 chk("nuances S235 : aucun avertissement (un nom de la table n'en appelle pas)", not B.consulter("nuances", {"nuance": "S235"})["fiche"]["avertissements"])
+
+
+# (lot A, reprise F5) « S355 N/NL » et « S460 N/NL » sont des désignations réelles de l'EN 10025-3 (sous-nuances N et
+# NL, mêmes R_eH et R_m) : une simple mention « lu sur la ligne S355N / S460N du tableau 3.4 ANB », sans triangle ; seul
+# « S355 (fu 490) », qui porte dans son nom une valeur qui n'est pas la sienne, garde l'avertissement
+def alias_sans_triangle() -> list:
+    out = []
+    for nom, des in (("S355 N/NL", "S355N"), ("S460 N/NL", "S460N")):
+        o = B.consulter("nuances", {"nuance": nom, "epaisseur": "40"})
+        ph = texte(o["bande"].split('class="bib-phr">')[1].split("</span></div>")[0])
+        if o["fiche"]["avertissements"] or 'class="bib-av"' in o["bande"]:
+            out.append(f"{nom} : avertissement (triangle) — {[texte(a) for a in o['fiche']['avertissements']]}")
+        if f"lu sur la ligne {des} du tableau 3.4 ANB" not in ph or f"lu sur la ligne {des} du tableau 3.4 ANB" not in texte(o["fiche"]["phrase"]):
+            out.append(f"{nom} : la mention « lu sur la ligne {des} du tableau 3.4 ANB » manque à la bande ou à la fiche — « {ph} »")
+    o = B.consulter("nuances", {"nuance": "S355 (fu 490)"})
+    if len(o["fiche"]["avertissements"]) != 1 or 'class="bib-av"' not in o["bande"]:
+        out.append("« S355 (fu 490) » : l'avertissement manque")
+    return out
+
+
+ec_alias = alias_sans_triangle()
+chk("nuances « S355 N/NL », « S460 N/NL » : pas d'avertissement, la mention « lu sur la ligne S355N / S460N du tableau 3.4 ANB » dans la bande et "
+    "la fiche ; « S355 (fu 490) » seul garde son avertissement", not ec_alias, ec_alias)
 # une adresse d'avant le lot A (« epaisseur=40 » : t ≤ 40 ; « 80 » : 40 < t ≤ 80) ouvre le palier qui finit là — le plus
 # défavorable de l'ancienne colonne ; une épaisseur au-delà de la borne des modules n'est pas offerte (refus doux)
 o80 = B.consulter("nuances", {"nuance": "S275", "epaisseur": "80"})
@@ -559,6 +595,23 @@ try:
         and "261,7" in o["tableau"])
 finally:
     B.MA = vrai
+# (lot A, reprise F4) la phrase fausse remise : le contrôle des sources rougit
+vraie_phrase = B.PHRASE_BORNE
+try:
+    B.PHRASE_BORNE = "Au-delà de {t} mm, les tableaux de l'ANB continuent, mais les modules du site s'arrêtent à {t} mm."
+    src_m = texte(B.consulter("nuances", {})["sources"])
+    chk("mutation « les modules du site s'arrêtent à 80 mm » (la phrase d'avant, fausse pour les Assemblages, les Soudures et les Garde-corps) : "
+        "le contrôle des sources rougit", PHRASE_80 not in src_m and "les modules du site s'arrêtent" in src_m)
+finally:
+    B.PHRASE_BORNE = vraie_phrase
+# (lot A, reprise F5) l'avertissement rallumé pour tout autre nom (le code d'avant : « nuance in MA.ALIAS ») : rouge
+vrai_contredit = B._nom_contredit
+try:
+    B._nom_contredit = lambda nom, lg: nom in MA.ALIAS
+    ec = alias_sans_triangle()
+    chk("mutation « l'avertissement des noms des notes allumé pour S355 N/NL et S460 N/NL » : le contrôle des alias rougit", len(ec) >= 2, ec[:2])
+finally:
+    B._nom_contredit = vrai_contredit
 # (lot A, reprise F6) les trois copies retirées, remises une à une : le lien R2 ci-dessus rougit à chaque fois
 vrai_lire, vrai_paliers = B._lire_nuance, B._paliers
 

@@ -439,9 +439,14 @@ def _r_profils(params: Dict, hote: str) -> Dict:
 # LA table des aciers du site (acier/materiaux.py) : NBN EN 1993-1-1 ANB:2018, 3.2.1(1) — l'option a, seule admise ;
 # tableaux 3.3 à 3.12 ANB. La rubrique montre les produits LAMINÉS (profilés, plats, tôles : EN 10025-2 et -3) des
 # nuances de la bibliothèque des assemblages (acier/donnees/bibliotheques.json, qui n'en garde que le nom et β_w), et
-# les paliers de f_y jusqu'à la borne du domaine des modules (acier/flambement/normes.T_MAX_TABLEAU) : au-delà, les
-# tableaux de l'ANB continuent, les modules refusent.
+# les paliers de f_y jusqu'à acier/flambement/normes.T_MAX_TABLEAU, la borne du domaine des modules Flambement et
+# Barres : au-delà, les tableaux de l'ANB continuent (les Assemblages, les Soudures et les Garde-corps les lisent
+# jusqu'au bout, acier/bibliotheques.acier), la rubrique s'arrête.
 REGLE_ANB = "NBN EN 1993-1-1 ANB:2018, 3.2.1(1) : option a ; tableaux 3.3 à 3.12 ANB"
+# la phrase des sources sur la borne de la rubrique ({t} : normes.T_MAX_TABLEAU) — elle ne parle que des modules qui
+# s'arrêtent là ; les autres lisent les tableaux de l'ANB jusqu'au bout
+PHRASE_BORNE = ("Au-delà de {t} mm, les tableaux de l'ANB continuent ; la rubrique s'arrête à {t} mm, la borne des modules "
+                "Flambement et Barres.")
 PRODUIT = "lamine"
 NUANCE_DEFAUT = "S355"          # la nuance ouverte par défaut ; ses paliers donnent les colonnes du tableau
 SOURCE_BQ = ("β_w (EN 1993-1-8 tableau 4.1) : acier/donnees/bibliotheques.json — la bibliothèque des moteurs d'assemblage, "
@@ -524,6 +529,14 @@ def _lire_nuance(nom: str, t: float, fy_cles: Sequence[str], fu_t: Sequence[floa
         return None
 
 
+def _nom_contredit(nom: str, lg: Dict[str, str]) -> bool:
+    """Le nom d'une nuance contredit-il sa ligne de l'ANB ? « S355 N/NL » et « S460 N/NL » désignent les sous-nuances N
+    et NL de l'EN 10025-3 (mêmes R_eH et R_m) : leur nom commence par la désignation de leur ligne (S355N, S460N) — non.
+    « S355 (fu 490) », lu sur la ligne S355JR (f_u = 470), porte dans son nom une valeur qui n'est pas la sienne — oui :
+    seul ce nom-là appelle l'avertissement (nom des notes enregistrées, gardé tel quel)."""
+    return nom in MA.ALIAS and not nom.replace(" ", "").startswith(lg["designation"])
+
+
 def _lignes_anb(noms: Sequence[str]) -> str:
     """Les lignes de l'ANB des nuances de la rubrique, tableau par tableau (« tableau 3.3 ANB, EN 10025-2:2004 : S235JR,
     S275JR, S355JR »), dans l'ordre de la bibliothèque."""
@@ -590,14 +603,13 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
     avert = []
     if a is None:
         avert.append(f"{C.esc(nuance)} : nuance absente de la table du site (acier/materiaux.py) — aucune valeur n'est inventée.")
-    elif nuance in MA.ALIAS:
+    elif _nom_contredit(nuance, a["ligne"]):
         lg = a["ligne"]
         avert.append(f"« {C.esc(nuance)} » : nom des notes enregistrées, gardé tel quel ; la table du site le lit sur la ligne "
                      f"{C.esc(lg['designation'])} du tableau {C.esc(lg['tableau'])} ({C.esc(lg['norme'])}) : f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa "
                      f"pour {C.esc(a['fu_txt'])}.")
     sources = [f"{REGLE_ANB} — f_y et f_u selon l'épaisseur nominale, acier/materiaux.py (la table du site), produits laminés : "
-               f"{_lignes_anb(noms)}. Au-delà de {C.fr(NO.T_MAX_TABLEAU, 0)} mm, les tableaux de l'ANB continuent, mais les modules du site "
-               f"s'arrêtent à {C.fr(NO.T_MAX_TABLEAU, 0)} mm.",
+               f"{_lignes_anb(noms)}. " + PHRASE_BORNE.format(t=C.fr(NO.T_MAX_TABLEAU, 0)),
                SOURCE_BQ, SOURCE_NO, SOURCE_SOUDURE]
     if a is not None:
         lg = a["ligne"]
@@ -618,7 +630,10 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
             {"symbole": "f_vw,d", "nom": "résistance de calcul au cisaillement d'un cordon", "valeur": fvw, "unite": "MPa",
              "regle": f"f_u / (√3 · β_w · γ_M2) = {C.fr(a['fu'], 0)} / (√3 · {C.nb(a['bw'], 2)} · {C.nb(CR.GAMMA_M2, 2)}) — EN 1993-1-8 §4.5.3.3"},
         ]
-        phrase = (f"{C.esc(nuance)} · {C.esc(lg['designation'])}, tableau {C.esc(lg['tableau'])} · {C.esc(paliers[ep])} mm · "
+        # un autre nom de la même ligne (« S355 N/NL » : S355N) le dit simplement, sans avertissement
+        ligne_txt = (f"lu sur la ligne {C.esc(lg['designation'])} du tableau {C.esc(lg['tableau'])}" if nuance in MA.ALIAS and not _nom_contredit(nuance, lg)
+                     else f"{C.esc(lg['designation'])}, tableau {C.esc(lg['tableau'])}")
+        phrase = (f"{C.esc(nuance)} · {ligne_txt} · {C.esc(paliers[ep])} mm · "
                   f"f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa · β<sub>w</sub> = {C.fr(a['bw'], 2)} · ε = {C.fr(NO.epsilon(a['fy']), 2)}")
     else:
         termes = [{"symbole": "f_y", "nom": "LIMITE D'ÉLASTICITÉ", "valeur": "—", "unite": "MPa", "regle": "nuance absente de la table du site"}]
