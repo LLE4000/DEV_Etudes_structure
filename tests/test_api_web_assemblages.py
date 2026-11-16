@@ -1212,6 +1212,54 @@ finally:
     MT_.avec_exemple = _ae0
 chk("mutation « cas de benchmark sans son matériau » : le contrôle rougit", not rouge)
 
+# (3e passe, D3) un « Personnalisé », ce sont les valeurs SAISIES : sa phrase le dit, et la source de la table
+# (« EN 1993-1-1 tab. 3.1, sans épaisseur ») n'est attribuée qu'aux pièces qui la tiennent
+PERSO_BM = ("matériau de l'exemple : « Personnalisé » (cornières), valeurs saisies f_y 430 / f_u 430 ; S275, f_y 275 / "
+            "f_u 430 (EN 1993-1-1 tab. 3.1, sans épaisseur) — une note prend le tableau 3.3 ANB")
+
+
+def perso_benchmark():
+    """{(configuration, cas): phrase} des cas Benchmark dont une pièce est en « Personnalisé », et ceux dont un groupe
+    « Personnalisé » ne dit pas « valeurs saisies » ou reçoit la source de la table (avant le « ; » suivant)."""
+    cas = {(c, i): p for c, i, p, _ in cas_benchmark() if p and "« Personnalisé »" in p}
+    faux = [k for k, p in cas.items() for g in p.split(" — ")[0].split(" ; ")
+            if "« Personnalisé »" in g and ("valeurs saisies" not in g or "tab." in g or "tableau" in g)]
+    return cas, faux
+
+
+_pb, _pf = perso_benchmark()
+chk("onglet Benchmark : un « Personnalisé » dit « valeurs saisies » et n'est pas attribué au tab. 3.1 — BM3 des "
+    "doubles cornières et BM1' des doubles cornières sur poteau : « « Personnalisé » (cornières), valeurs saisies f_y "
+    "430 / f_u 430 ; S275, f_y 275 / f_u 430 (EN 1993-1-1 tab. 3.1, sans épaisseur) — une note prend le tableau "
+    "3.3 ANB »",
+    set(_pb) == {("doubles_cornieres", "BM3"), ("doubles_cornieres_poteau", "BM1'")}
+    and all(p == PERSO_BM for p in _pb.values()) and not _pf, (_pb, _pf))
+_te0 = MT_.texte_exemple
+
+
+def _texte_exemple_avant(R, source=MT_.SOURCE_EXEMPLES):
+    """La phrase du commit de base 0439cc5 : une seule source, en fin de phrase, pour toutes les pièces."""
+    groupes = {}
+    for m in (R.get("materiau") or {}).values():
+        nom = "« Personnalisé »" if m.get("nom") == PERSO else m.get("nom")
+        pieces = groupes.setdefault((nom, m.get("fy"), m.get("fu")), [])
+        if m.get("piece") and m["piece"] not in pieces:
+            pieces.append(m["piece"])
+    noms = [n for n, _, _ in groupes]
+    parts = [f"{nom}{(' (' + ', '.join(p) + ')') if p and (noms.count(nom) > 1 or nom == '« Personnalisé »') else ''}, "
+             f"f_y {fy:g} / f_u {fu:g}" for (nom, fy, fu), p in groupes.items()]
+    return f"matériau de l'exemple : {' ; '.join(parts)} ({source[0]}) — {source[1]}"
+
+
+MT_.texte_exemple = _texte_exemple_avant
+try:
+    _pb_m, _pf_m = perso_benchmark()
+    rouge = set(_pb_m) == set(_pb) and all(p == PERSO_BM for p in _pb_m.values()) and not _pf_m
+finally:
+    MT_.texte_exemple = _te0
+chk("mutation « un « Personnalisé » rangé sous la source du tab. 3.1 (phrase d'avant) » : le contrôle rougit",
+    not rouge)
+
 # (A9) une pièce au-delà du tableau de l'ANB : « Calcul impossible » et une phrase, sans nom de classe Python
 e9 = etat_de("plat_ame")
 assert A.modifier(e9, ["v", "tp_u"], "300") is None

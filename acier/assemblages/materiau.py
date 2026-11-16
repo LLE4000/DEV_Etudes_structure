@@ -150,7 +150,9 @@ def texte_exemple(R, source=SOURCE_EXEMPLES):
     par pièce ; aucun nombre recopié), d'où viennent ces valeurs et ce qu'en fait une note (``source``). Un benchmark
     valide des FORMULES sur le matériau de son exemple : le lecteur doit savoir qu'une note, avec les mêmes données,
     prend la table du site. Une nuance qui revient avec deux matériaux (deux épaisseurs) nomme ses pièces, un
-    « Personnalisé » aussi."""
+    « Personnalisé » aussi ; un « Personnalisé » dit « valeurs saisies » et vient EN TÊTE, pour que la source entre
+    parenthèses ne soit attribuée qu'aux pièces qui la tiennent (« « Personnalisé » (cornières), valeurs saisies f_y
+    430 / f_u 430 ; S275, f_y 275 / f_u 430 (EN 1993-1-1 tab. 3.1, sans épaisseur) — une note prend… »)."""
     groupes = {}
     for m in (R.get("materiau") or {}).values():
         nom = "« Personnalisé »" if m.get("nom") == PERSO else m.get("nom")
@@ -158,12 +160,18 @@ def texte_exemple(R, source=SOURCE_EXEMPLES):
         if m.get("piece") and m["piece"] not in pieces:
             pieces.append(m["piece"])
     noms = [n for n, _, _ in groupes]
-    parts = []
+    parts, saisis = [], []
     for (nom, fy, fu), pieces in groupes.items():
         qui = f" ({', '.join(pieces)})" if pieces and (noms.count(nom) > 1 or nom == "« Personnalisé »") else ""
-        parts.append(f"{nom}{qui}, f_y {fy:g} / f_u {fu:g}")
+        if nom == "« Personnalisé »":
+            # un « Personnalisé », ce sont les valeurs SAISIES : la source de la table (``source``) ne le vise pas
+            saisis.append(f"{nom}{qui}, valeurs saisies f_y {fy:g} / f_u {fu:g}")
+        else:
+            parts.append(f"{nom}{qui}, f_y {fy:g} / f_u {fu:g}")
     origine, note = source
-    return f"matériau de l'exemple : {' ; '.join(parts)} ({origine}) — {note}"
+    if not parts:
+        return f"matériau de l'exemple : {' ; '.join(saisis)}"
+    return f"matériau de l'exemple : {''.join(s + ' ; ' for s in saisis)}{' ; '.join(parts)} ({origine}) — {note}"
 
 
 def avec_exemple(texte, R, source=SOURCE_EXEMPLES):
