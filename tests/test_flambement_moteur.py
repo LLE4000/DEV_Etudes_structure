@@ -7,20 +7,24 @@ ec3_buckling_chi (modules/choix_profile.py, option « Vérifier flambement ») :
 bit près. Le reste est contrôlé contre des valeurs publiées et des calculs à la main. Chaque contrôle rougit si l'on
 retire ce qu'il protège (§6, mutations).
 
-  1. La norme : Tableau 3.1 (f_y selon l'épaisseur), ε, λ₁ = 93,9·ε (éq. 6.50), Tableau 6.1 (α), Tableau 6.2 (chaque
-     ligne : laminés en I selon h/b et t_f, S460, creux finis à chaud et formés à froid, U, cornières).
+  1. La norme : f_y selon l'épaisseur, option a de l'ANB belge (NBN EN 1993-1-1 ANB:2018 3.2.1(1) : tableaux 3.3 ANB,
+     3.4 ANB, 3.8 ANB à 3.11 ANB — paliers 16, 40, 63, 80 mm, selon le produit), ε, λ₁ = 93,9·ε (éq. 6.50), Tableau 6.1
+     (α), Tableau 6.2 (chaque ligne : laminés en I selon h/b et t_f, S460, creux finis à chaud et formés à froid, U,
+     cornières).
   2. Valeurs PUBLIÉES : le tableau des coefficients de réduction χ(λ̄) des courbes a, b, c, d (ENV 1993-1-1:1992,
      tableau 5.5.2, repris par les manuels) et a0, à 10⁻⁴.
   3. À la main : HEA 200 S235 bi-articulé de 4 m (N_cr, λ̄, φ, χ, N_b,Rd recalculés ici, sans le moteur), le même par
      λ̄ = L_cr / (i·λ₁) ; IPE 400 S355 de classe 4 (âme réduite, EN 1993-1-5 §4.4) ; cornière (axes principaux u, v) ;
      tube rectangulaire formé à froid (paroi b − 3t, EN 1993-1-5 §4.4(2)) ; longueurs de flambement (cas types,
-     maintiens, k et L_cr saisis) ; γ_M1 ; f_y de 40 à 80 mm.
+     maintiens, k et L_cr saisis) ; γ_M1 ; f_y des profilés épais ; ε de CHAQUE paroi avec la f_y de son épaisseur
+     (HEB 300 S235, IPE 600 S460 de classe 4 : brief § 7.1, EN 1993-1-1 Tableau 5.2).
   4. Parité : ec3_buckling_chi de l'écran Streamlit (faux « st ») sur plus de 600 cas (profilés du catalogue, longueurs,
      nuances, courbes) — χ, λ̄, N_cr et N_b,Rd ÉGAUX (==) à ceux du moteur.
   5. Domaine : saisies refusées avec un message (traction, longueurs nulles ou absurdes, k et N démesurés, γ < 1,
-     maintiens) — le calcul aboutit aux bornes du domaine, sans débordement ; hors du Tableau 3.1
+     maintiens) — le calcul aboutit aux bornes du domaine, sans débordement ; hors du domaine du module
      (t > 80 mm), tube rond de classe 4 ; couverture (chaque courbe, chaque classe atteintes par le catalogue).
-  6. Mutations : chaque altération plausible du moteur (α, φ, χ ≤ 1, seuil h/b, f_y, classe 4, k, maintiens, γ_M1…)
+  6. Mutations : chaque altération plausible du moteur (α, φ, χ ≤ 1, seuil h/b, f_y et ses paliers, ε par paroi,
+     produit, classe 4, k, maintiens, γ_M1…)
      fait rougir au moins un contrôle des §1–4.
   7. Pureté : le moteur se charge et calcule dans un sous-processus où sys.meta_path REFUSE streamlit, pandas,
      matplotlib, scipy, reportlab, PIL, fitz.
@@ -47,6 +51,15 @@ from acier.flambement import section as SE  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 
 OK, KO = [], []
+
+
+def _refuse(f):
+    """La fonction lève HorsDomaine (une donnée que la table ou le module ne couvre pas)."""
+    try:
+        f()
+    except NO.HorsDomaine:
+        return True
+    return False
 
 
 def chk(nom, cond, info=""):
@@ -92,9 +105,26 @@ def controles():
     def c(nom, cond, info=""):
         out.append((nom, bool(cond), info))
 
-    # 1. la norme
-    c("Tableau 3.1 : S235, S275, S355, S460 jusqu'à 40 mm", [NO.limite_elastique(n, 40.0) for n in ("S235", "S275", "S355", "S460")] == [235, 275, 355, 460])
-    c("Tableau 3.1 : de 40 à 80 mm (215, 255, 335, 430)", [NO.limite_elastique(n, 40.5) for n in ("S235", "S275", "S355", "S460")] == [215, 255, 335, 430])
+    # 1. la norme : f_y selon l'épaisseur, option a de l'ANB (NBN EN 1993-1-1 ANB:2018 3.2.1(1)) ; les valeurs sont écrites
+    # ICI, lues dans les tableaux 3.3 ANB (EN 10025-2:2004, S235JR, S275JR, S355JR) et 3.4 ANB (EN 10025-3:2004, S460N)
+    # — brief § 7.1 —, sans relire la table du site
+    nus = ("S235", "S275", "S355", "S460")
+    for t_lus, attendu, bande in (((3.0, 16.0), [235, 275, 355, 460], "t ≤ 16 mm"), ((16.5, 40.0), [225, 265, 345, 440], "16 < t ≤ 40 mm"),
+                                  ((40.5, 63.0), [215, 255, 335, 430], "40 < t ≤ 63 mm"), ((63.5, 80.0), [215, 245, 325, 410], "63 < t ≤ 80 mm")):
+        lus = [[NO.limite_elastique(n, t) for n in nus] for t in t_lus]
+        c(f"tableaux 3.3 ANB et 3.4 ANB, {bande} : {', '.join(map(str, attendu))} (lu à {' et '.join(f'{t:g}'.replace('.', ',') for t in t_lus)} mm)",
+          all(x == attendu for x in lus), lus)
+    c("creux : tableaux 3.8 ANB (S355J0H, fini à chaud) et 3.10 ANB (formé à froid) à 20 mm = 345 ; S460NH fini à chaud (3.9 ANB) "
+      "s'arrête à 65 mm, formé à froid (3.10 ANB, 3.11 ANB) à 40 mm : refusés au-delà",
+      NO.limite_elastique("S355", 20.0, produit="creux_chaud") == 345 and NO.limite_elastique("S355", 20.0, produit="creux_froid") == 345
+      and NO.limite_elastique("S460", 65.0, produit="creux_chaud") == 430 and _refuse(lambda: NO.limite_elastique("S460", 66.0, produit="creux_chaud"))
+      and _refuse(lambda: NO.limite_elastique("S355", 40.5, froid=True)) and _refuse(lambda: NO.limite_elastique("S355", 80.5)))
+    c("le produit suit la famille : CHS, SHS, RHS finis à chaud ; CHS-F, SHS-F, RHS-F formés à froid ; laminés sinon (I, H, U, cornières)",
+      [SE.produit(CAT.par_nom()[n]) for n in ("SHS 400x400x20", "RHS 200x100x5 (froid)", "HEA 200", "L 100x100x10", "UPN 200")]
+      == ["creux_chaud", "creux_froid", "lamine", "lamine", "lamine"])
+    r = MO.verifier(barre(profil="SHS 400x400x20", nuance="S355"))
+    c("SHS 400×400×20 S355 (fini à chaud, t = 20 mm) : f_y = 345, lue au tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm",
+      r["section"]["fy"] == 345 and r["section"]["source_fy"] == "tableau 3.8 ANB (EN 10210-1:2006, S355J0H), 16 < t ≤ 40 mm", r["section"].get("source_fy"))
     c("ε = √(235/f_y) : 1 en S235, 0,8136 en S355", proche(NO.epsilon(235), 1.0) and abs(NO.epsilon(355) - 0.81362) < 1e-5)
     c("λ₁ = π·√(E/f_y) = 93,9·ε (éq. 6.50)", abs(NO.lambda_1(235) - 93.9129) < 1e-3 and abs(NO.lambda_1(355) / NO.epsilon(355) - 93.9129) < 1e-3)
     c("Tableau 6.1 : α = 0,13 ; 0,21 ; 0,34 ; 0,49 ; 0,76", [NO.ALPHA[k] for k in ("a0", "a", "b", "c", "d")] == [0.13, 0.21, 0.34, 0.49, 0.76])
@@ -197,6 +227,32 @@ def controles():
     c("L_cr entre maintiens : L / (n + 1)", proche(EN.longueur_flambement(dict(EN.AXE_DEFAUT, appuis="AA", maintiens=2), L), 2.0))
     c("L_cr saisie, coefficient saisi", proche(EN.longueur_flambement(dict(EN.AXE_DEFAUT, appuis="L", Lcr=3.3), L), 3.3)
       and proche(EN.longueur_flambement(dict(EN.AXE_DEFAUT, appuis="k", k=0.85), L), 5.1))
+    # ε paroi par paroi (brief § 7.1 ; EN 1993-1-1 Tableau 5.2 : ε = √(235/f_y) DE LA PAROI) : HEB 300 S235, semelle de
+    # 19 mm (225, tableau 3.3 ANB, 16 < t ≤ 40), âme de 11 mm (235, t ≤ 16) ; la section se calcule avec la plus petite
+    r = MO.verifier(barre(profil="HEB 300", nuance="S235", N=500.0, L=4.0))
+    q = CAT.par_nom()["HEB 300"]
+    sem, ame = r["section"]["parois"]
+    A = q["A"] * 100.0
+    Ncr = math.pi ** 2 * 210000.0 * q["Iz"] * 1e4 / 4000.0 ** 2
+    lb = math.sqrt(A * 225.0 / Ncr)
+    ph = 0.5 * (1 + 0.49 * (lb - 0.2) + lb ** 2)
+    Nb = min(1.0, 1 / (ph + math.sqrt(ph ** 2 - lb ** 2))) * A * 225.0 / 1000.0
+    c("HEB 300 S235 : f_y de calcul 225 (t_f = 19 mm) ; semelle f_y = 225, ε = √(235/225) ; âme f_y = 235, ε = 1 ; "
+      "N_c,Rd = A × 225, N_b,z,Rd recalculé à la main avec 225",
+      r["section"]["fy"] == 225 and (sem["nom"], sem["fy"], ame["nom"], ame["fy"]) == ("semelle", 225, "âme", 235)
+      and proche(sem["epsilon"], math.sqrt(235 / 225)) and ame["epsilon"] == 1.0 and proche(r["section"]["NcRd"], A * 225 / 1000)
+      and proche(r["axes"]["z"]["NbRd"], Nb) and r["section"]["fy_par_paroi"], (r["section"]["fy"], sem.get("fy"), ame.get("fy"), sem.get("epsilon"), ame.get("epsilon")))
+    # IPE 600 S460 : âme de 12 mm (f_y = 460, ε = 0,7148) de classe 4, semelles de 19 mm (440) ; A_eff avec l'ε DE L'ÂME,
+    # N_c,Rd avec la f_y de calcul 440 (tableau 3.4 ANB, S460N, 16 < t ≤ 40 mm)
+    r = MO.verifier(barre(profil="IPE 600", nuance="S460", N=900.0, L=7.0))
+    q = CAT.par_nom()["IPE 600"]
+    eps_w = math.sqrt(235 / 460)
+    lp = q["cw_tw"] / (28.4 * eps_w * 2.0)
+    rho = (lp - 0.22) / lp ** 2
+    Aeff = q["A"] * 100 - (1 - rho) * q["cw_tw"] * q["tw"] * q["tw"]
+    c("IPE 600 S460 classe 4 : ρ de l'âme avec ε_w = √(235/460) (t_w = 12 mm), A_eff recalculée à la main ; N_c,Rd = A_eff × 440",
+      r["section"]["classe"] == 4 and proche(r["section"]["A_eff"], Aeff) and r["section"]["fy"] == 440
+      and proche(r["section"]["NcRd"], Aeff * 440 / 1000), (r["section"]["A_eff"], Aeff, r["section"]["fy"]))
     # γ_M1 et f_y épais
     r1 = MO.verifier(barre(profil="HEB 300", N=100.0, L=5.0))
     r2 = MO.verifier(barre(profil="HEB 300", N=100.0, L=5.0, gamma_M1=1.1, gamma_M0=1.05))
@@ -204,8 +260,9 @@ def controles():
       and proche(r2["section"]["NcRd"], r1["section"]["NcRd"] / 1.05))
     r = MO.verifier(barre(profil="HEM 1000", nuance="S355", N=100.0, L=5.0))
     r2 = MO.verifier(barre(profil="HL 920x588", nuance="S355"))
-    c("HEM 1000 (t_f = 40 mm) : f_y = 355 ; HL 920x588 (t_f = 55,9 mm) : f_y = 335 (Tableau 3.1, 40 < t ≤ 80), courbes b / c",
-      r["section"]["fy"] == 355 and r2["section"]["fy"] == 335 and (r2["axes"]["y"]["courbe"], r2["axes"]["z"]["courbe"]) == ("b", "c"))
+    c("HEM 1000 (t_f = 40 mm) : f_y = 345 (16 < t ≤ 40) ; HL 920x588 (t_f = 55,9 mm) : f_y = 335 (40 < t ≤ 63, tableau 3.3 ANB), "
+      "courbes b / c", r["section"]["fy"] == 345 and r2["section"]["fy"] == 335 and (r2["axes"]["y"]["courbe"], r2["axes"]["z"]["courbe"]) == ("b", "c"),
+      (r["section"]["fy"], r2["section"]["fy"]))
     return out
 
 
@@ -279,7 +336,7 @@ def mutations():
     sauf = {"phi_chi": NO.phi_chi, "ALPHA": dict(NO.ALPHA), "courbes": NO.courbes, "limite_elastique": NO.limite_elastique,
             "rho": NO.rho, "K_APPUIS": dict(EN.K_APPUIS), "longueur_flambement": EN.longueur_flambement, "euler": NO.euler,
             "classe_paroi": NO.classe_paroi, "LIMITES_CLASSE": dict(NO.LIMITES_CLASSE), "parois": SE.parois, "elancement_paroi": NO.elancement_paroi,
-            "classe_corniere": NO.classe_corniere}
+            "classe_corniere": NO.classe_corniere, "t_fy": MO._t_fy, "produit": SE.produit}
     _axe = MO._axe
 
     def restaure():
@@ -299,7 +356,9 @@ def mutations():
         EN.K_APPUIS.update(sauf["K_APPUIS"])
         EN.longueur_flambement = sauf["longueur_flambement"]
         SE.parois = sauf["parois"]
+        SE.produit = sauf["produit"]
         MO._axe = _axe
+        MO._t_fy = sauf["t_fy"]
 
     def phi_02(lb, alpha):
         phi = 0.5 * (1.0 + alpha * (lb - 0.25) + lb ** 2)
@@ -325,8 +384,14 @@ def mutations():
         y, z, t = sauf["courbes"](fab, nuance, h, b, tf)
         return z, y, t
 
-    def fy_sans_epaisseur(nuance, t, froid=False):
-        return NO.NUANCES[nuance][0]
+    def fy_sans_epaisseur(nuance, t, froid=False, produit=None):
+        return NO.NUANCES[nuance]                       # la valeur nominale (le nombre du nom), quelle que soit t
+
+    def fy_sans_40(nuance, t, froid=False, produit=None):
+        return sauf["limite_elastique"](nuance, min(t, 40.0), froid, produit)
+
+    def fy_sans_16(nuance, t, froid=False, produit=None):
+        return sauf["limite_elastique"](nuance, 16.0 if 16.0 < t <= 40.0 else t, froid, produit)
 
     def rho_un(t, lp):
         return 1.0
@@ -375,7 +440,11 @@ def mutations():
         ("seuil h/b à 1,0 au lieu de 1,2", lambda: setattr(NO, "courbes", courbes_12)),
         ("S460 traité comme S355 dans le Tableau 6.2", lambda: setattr(NO, "courbes", courbes_s460)),
         ("courbes des axes y et z permutées", lambda: setattr(NO, "courbes", courbes_inverse)),
-        ("f_y sans la réduction au-delà de 40 mm", lambda: setattr(NO, "limite_elastique", fy_sans_epaisseur)),
+        ("f_y nominale, sans épaisseur", lambda: setattr(NO, "limite_elastique", fy_sans_epaisseur)),
+        ("f_y sans la réduction au-delà de 40 mm", lambda: setattr(NO, "limite_elastique", fy_sans_40)),
+        ("palier à 16 mm oublié (16 < t ≤ 40 lu comme t ≤ 16)", lambda: setattr(NO, "limite_elastique", fy_sans_16)),
+        ("ε de la semelle donné à l'âme (une seule f_y, celle de la paroi la plus épaisse)", lambda: setattr(MO, "_t_fy", lambda p, pa: SE.epaisseur(p))),
+        ("produit oublié (les creux lus comme des laminés)", lambda: setattr(SE, "produit", lambda p: "lamine")),
         ("classe 4 sans réduction (ρ = 1)", lambda: setattr(NO, "rho", rho_un)),
         ("N_cr approché (π² arrondi, +2 %)", lambda: setattr(NO, "euler", euler_sans_pi)),
         ("k encastrée–articulée = 0,8", lambda: EN.K_APPUIS.__setitem__("EA", 0.8)),
@@ -454,7 +523,7 @@ def main():
         except ValueError as e:
             chk(f"barre abîmée refusée avec un message : {b} → « {e} »", bool(str(e)))
     r = MO.verifier(barre(profil="HD 400x1086.0"))
-    chk("HD 400×1086 (t_f > 80 mm) : hors du Tableau 3.1, calcul refusé avec le motif", r["statut"] == MO.IMPOSSIBLE and "80 mm" in r["motif"]
+    chk("HD 400×1086 (t_f > 80 mm) : hors du domaine du module (80 mm), calcul refusé avec le motif", r["statut"] == MO.IMPOSSIBLE and "80 mm" in r["motif"]
         and r["taux_max"] is None)
     tubes4 = [p["nom"] for p in CAT.profils() if p["famille"] == "CHS" and MO.verifier(barre(profil=p["nom"], nuance="S460"))["statut"] == MO.IMPOSSIBLE]
     chk(f"tubes ronds de classe 4 (d/t > 90·ε²) refusés : EN 1993-1-6 hors du champ ({len(tubes4)} en S460)", len(tubes4) > 0
@@ -471,10 +540,10 @@ def main():
                 vus_fy.add(r["section"]["fy"])
     chk("couverture : les courbes a0, a, b, c sont atteintes par le catalogue", vus_c == {"a0", "a", "b", "c"}, vus_c)
     epais = [p["nom"] for p in CAT.profils() if p["famille"] in SE.FABRICATION and (p.get("tf") or 0) > 100]
-    chk(f"courbe d (laminés de t_f > 100 mm) : les {len(epais)} profilés du catalogue concernés sont hors du Tableau 3.1, refusés",
+    chk(f"courbe d (laminés de t_f > 100 mm) : les {len(epais)} profilés du catalogue concernés sont hors du domaine du module (80 mm), refusés",
         epais and all(MO.verifier(barre(profil=n))["statut"] == MO.IMPOSSIBLE for n in epais))
     chk("couverture : les classes 1, 2, 3 et 4 sont atteintes", vus_cl >= {1, 2, 3, 4}, vus_cl)
-    chk("couverture : f_y réduit (40 < t ≤ 80 mm) atteint", {215.0, 430.0} <= vus_fy, vus_fy)
+    chk("couverture : chaque palier de f_y atteint (S235 : 235, 225, 215 ; S460 : 460, 440, 430, 410)", {235.0, 225.0, 215.0, 460.0, 440.0, 430.0, 410.0} <= vus_fy, vus_fy)
     c = MO.candidats(EN.nouvelle_barre(), ["IPE", "HEA", "HEB"])
     chk("candidats : triés par masse croissante", [x["masse"] for x in c] == sorted(x["masse"] for x in c))
     best = MO.plus_leger(c)

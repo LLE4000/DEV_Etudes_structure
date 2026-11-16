@@ -72,7 +72,7 @@ chk("le résumé : 63 %, vert pâle, la barre et la vérification gouvernante",
 # ------------------------------------------------------------------ 2. la fenêtre de calcul : chaque formule substituée
 vol = texte(r0["volets"])
 for frag in ("Acier S235", "fy = 235 N/mm²", "E = 210 000 N/mm²", "γM0 = 1,0 · γM1 = 1,0 (ANB)",
-             "Tableau 3.1 · S235 · t = 10 mm ≤ 40 mm", "√(235 / 235)", "c / t (semelle)", "78,8 / 10", "classe 1",
+             "S235 · t = 10 mm · tableau 3.3 ANB (EN 10025-2:2004, S235JR), t ≤ 16 mm", "√(235 / 235)", "c / t (semelle)", "78,8 / 10", "classe 1",
              "π² × 210 000 × 3 692,4·10⁴ / 4 000²", "4 783,0 kN", "π² × 210 000 × 1 335,5·10⁴ / 4 000²", "1 730,0 kN",
              "√(5 383 × 235 / (1 730,0·10³))", "0,855", "4 000 / (49,8 × 93,9)", "laminé en I, h/b ≤ 1,2, tf ≤ 100 mm",
              "½·[1 + 0,49·(0,855 − 0,2) + 0,855²]", "1,026", "1 / (1,026 + √(1,026² − 0,855²))", "0,628",
@@ -81,6 +81,22 @@ for frag in ("Acier S235", "fy = 235 N/mm²", "E = 210 000 N/mm²", "γM0 = 1,0 
 chk("fenêtre : λ̄ surligné et les indices des lettres grecques (χ_z, φ_z, λ̄_z) en <sub>", 'class="fl-barre"' in r0["volets"]
     and "χ<sub>z</sub>" in r0["volets"] and "φ<sub>z</sub>" in r0["volets"] and "λ_" not in r0["volets"] and "χ_" not in r0["volets"])
 chk("fenêtre : le tableau des trois vérifications, la gouvernante marquée", r0["volets"].count("<tr class=") == 3 and r0["volets"].count('<tr class="gov">') == 1)
+
+# les parois d'un I n'ont pas la même f_y (HEB 300 S235 : semelle 19 mm, 225 ; âme 11 mm, 235) : la fenêtre écrit chacune,
+# la f_y de calcul (la plus petite), l'ε de chaque paroi et la classe de chaque paroi avec SON ε (brief § 7.1)
+rh = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], profil="HEB 300")]))
+vh = texte(rh["volets"])
+# (le texte des lignes « symbole = formule = valeurs = résultat » : chaque « = » sépare deux cases, sans blanc)
+for frag in ("fyf=semelle · S235 · t = 19 mm · tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm=225 N/mm²",
+             "fyw=âme · S235 · t = 11 mm · tableau 3.3 ANB (EN 10025-2:2004, S235JR), t ≤ 16 mm=235 N/mm²",
+             "fy=min(fyf ; fyw), fy de calcul de la section=min(225 ; 235)=225 N/mm²", "εf=√(235 / fyf)=√(235 / 225)=1,022",
+             "εw=√(235 / fyw)=√(235 / 235)=1,000", "≤ 9·εf = 9,20 · classe 1", "≤ 33·εw = 33,00 · classe 1", "14 909 × 225 / 1,0"):
+    chk(f"HEB 300 S235, fenêtre de calcul paroi par paroi : « {frag} »", frag in vh, vh[vh.find("Matériau"):][:700])
+ri = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], profil="IPE 600", nuance="S460")]))
+vi = texte(ri["volets"])
+chk("IPE 600 S460 classe 4 : λ̄_p de l'âme avec ε_w (t_w = 12 mm, f_y = 460), N_c,Rd avec la f_y de calcul 440",
+    "(c/t) / (28,4·εw·√kσ)=42,83 / (28,4 × 0,715 × √4)" in vi and "> 42·εw = 30,02 · classe 4" in vi and "× 440 / 1,0" in vi,
+    vi[vi.find("Matériau"):][:900])
 
 # ------------------------------------------------------------------ 3. le cadre Données
 d = r0["donnees"]
@@ -91,7 +107,9 @@ for chemin in ("nom", "famille", "profil", "nuance", "N", "L", "axes/y/appuis", 
 chk("le menu des profilés ne liste que la famille du profilé (HE A), avec la masse", d.count('<option value="HEA ') == 24 and "HEA 200 · 42,3 kg/m" in d
     and '<option value="IPE 200"' not in d)
 chk("le menu des appuis donne k (Euler) dans chaque libellé", "Encastrée – encastrée · k = 0,5" in d and "Encastrée – libre · k = 2" in d)
-chk("f_y et la classe rappelés sous la nuance", "Tableau 3.1, t = 10 mm ≤ 40 mm" in texte(d) and "classe 1 en compression" in texte(d))
+chk("f_y, sa source dans la table (option a de l'ANB) et la classe rappelés sous la nuance",
+    "fy = 235 N/mm² (t = 10 mm : tableau 3.3 ANB (EN 10025-2:2004, S235JR), t ≤ 16 mm)" in texte(d) and "classe 1 en compression" in texte(d)
+    and "Tableau 3.1" not in texte(d), texte(d)[:600])
 
 # ------------------------------------------------------------------ 4. saisies, effets de bord, refus
 r = modif(e0, ["N"], "1 250,5")
@@ -253,8 +271,8 @@ chk("un « actif » illisible ramène à la première barre", r.get("ok") and r[
 
 # ------------------------------------------------------------------ 10. les chiffres AFFICHÉS = un calcul à la main indépendant
 # Le module n'a pas d'écran Streamlit de référence (« Page en construction »). Les chiffres que le SITE affiche sont donc
-# comparés à un calcul refait ici de bout en bout, SANS le moteur (catalogue brut, Tableaux 3.1, 5.2, 6.1, 6.2, EN 1993-1-5
-# §4.4), et χ, λ̄ à ceux d'ec3_buckling_chi, la seule fonction de flambement de l'application Streamlit
+# comparés à un calcul refait ici de bout en bout, SANS le moteur (catalogue brut, f_y de l'option a de l'ANB — tableaux 3.3
+# ANB, 3.4 ANB, 3.8 ANB, 3.10 ANB —, Tableaux 5.2, 6.1, 6.2, EN 1993-1-5 §4.4), et χ, λ̄ à ceux d'ec3_buckling_chi, la seule fonction de flambement de l'application Streamlit
 # (modules/choix_profile.py, chargée avec un faux « streamlit »), avec la même aire, la même courbe et le même f_y.
 import importlib.util  # noqa: E402
 import types  # noqa: E402
@@ -262,7 +280,13 @@ import types  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 
 P_CAT = CAT.par_nom()
-FY_MAIN = {"S235": (235, 215), "S275": (275, 255), "S355": (355, 335), "S460": (460, 430)}
+# f_y par palier t ≤ 16 / 40 / 63 / 80 mm : tableau 3.3 ANB (EN 10025-2:2004, S235JR, S275JR, S355JR), 3.4 ANB (S460N) ;
+# les creux des cas (3.8 ANB, 3.10 ANB, 3.11 ANB) ont les mêmes valeurs jusqu'à 16 mm
+FY_MAIN = {"S235": (235, 225, 215, 215), "S275": (275, 265, 255, 245), "S355": (355, 345, 335, 325), "S460": (460, 440, 430, 410)}
+
+
+def fy_main(nu, t):
+    return FY_MAIN[nu][next(i for i, sup in enumerate((16, 40, 63, 80)) if t <= sup)]
 ALPHA_MAIN = {"a0": .13, "a": .21, "b": .34, "c": .49, "d": .76}
 LAMINES_I = {"IPE", "IPE A", "IPE O", "IPN", "HEA", "HEB", "HEM", "HEAA", "HL", "HD", "HP"}
 
@@ -272,12 +296,12 @@ def a_la_main(nom, nu, N, L, ky, kz):
     p = P_CAT[nom]
     f = p["famille"]
     t = max(p.get("tf") or 0, p.get("tw") or 0, p.get("t") or 0)
-    fy = FY_MAIN[nu][0] if t <= 40 else FY_MAIN[nu][1]
+    fy = fy_main(nu, t)                                          # f_y de calcul : la paroi la plus épaisse
     eps = math.sqrt(235 / fy)
     A = p["A"] * 100
 
-    def classe_de(ct, lims):
-        return next((i for i, lim in enumerate(lims, 1) if ct <= lim * eps), 4)
+    def classe_de(ct, lims, e=None):
+        return next((i for i, lim in enumerate(lims, 1) if ct <= lim * (eps if e is None else e)), 4)
 
     def rho(lp, interne):
         if lp <= (0.673 if interne else 0.748):
@@ -288,12 +312,13 @@ def a_la_main(nom, nu, N, L, ky, kz):
         r_ = p.get("r") or p.get("r1")                              # congé de raccordement (r1 pour les U)
         cf = (p["b"] - tw) / 2 - r_ if f in LAMINES_I else p["b"] - tw - r_
         cw = p["h"] - 2 * tf - 2 * r_
-        classe = max(classe_de(cf / tf, (9, 10, 14)), classe_de(cw / tw, (33, 38, 42)))
+        eps_f, eps_w = math.sqrt(235 / fy_main(nu, tf)), math.sqrt(235 / fy_main(nu, tw))   # ε de CHAQUE paroi (brief § 7.1)
+        classe = max(classe_de(cf / tf, (9, 10, 14), eps_f), classe_de(cw / tw, (33, 38, 42), eps_w))
         Aeff = A
         if classe == 4:
             n_sem = 4 if f in LAMINES_I else 2
-            Aeff = (A - n_sem * (1 - rho(cf / tf / (28.4 * eps * math.sqrt(.43)), False)) * cf * tf
-                    - (1 - rho(cw / tw / (28.4 * eps * 2), True)) * cw * tw)
+            Aeff = (A - n_sem * (1 - rho(cf / tf / (28.4 * eps_f * math.sqrt(.43)), False)) * cf * tf
+                    - (1 - rho(cw / tw / (28.4 * eps_w * 2), True)) * cw * tw)
     elif f in ("SHS", "RHS", "SHS-F", "RHS-F"):
         tt = p["t"]
         cs = (p["b"] - 3 * tt, p["h"] - 3 * tt)                   # EN 1993-1-5 §4.4(2) : b − 3t
@@ -360,7 +385,8 @@ CAS_MAIN = [  # profilé, nuance, N_Ed (kN), L (m), k_y, k_z — courants, extr�
     ("CHS 168.3x4", "S355", 300, 5.0, 1.0, 1.0), ("CHS 168.3x4", "S460", 300, 5.0, 1.0, 1.0),
     ("SHS 160x160x5 (froid)", "S235", 500, 4.0, 0.7, 1.0), ("RHS 200x100x5", "S355", 400, 3.5, 1.0, 1.0),
     ("RHS 200x100x5 (froid)", "S460", 300, 3.5, 1.0, 0.5), ("SHS 350x350x10 (froid)", "S460", 3000, 6.0, 1.0, 1.0),
-    ("HEA 200", "S235", 1, 0.3, 1.0, 1.0), ("IPE 80", "S235", 20, 12.0, 2.0, 2.0), ("HEB 300", "S355", 3294.3, 5.0, 1.0, 1.0),
+    ("HEA 200", "S235", 1, 0.3, 1.0, 1.0), ("IPE 80", "S235", 20, 12.0, 2.0, 2.0), ("HEB 300", "S355", 3240.7, 5.0, 1.0, 1.0),
+    ("HEB 300", "S235", 1500, 4.0, 1.0, 1.0), ("HEM 300", "S355", 3000, 6.0, 1.0, 1.0), ("SHS 400x400x20", "S355", 5000, 8.0, 1.0, 1.0),
 ]
 couverts = {"classe": set(), "courbe": set(), "famille": set()}
 for cas in CAS_MAIN:
@@ -390,7 +416,8 @@ for cas in CAS_MAIN:
     couverts["famille"].add(SE.FABRICATION[P_CAT[nom]["famille"]])
 chk(f"les {len(CAS_MAIN)} cas couvrent les classes 1 à 4, les courbes a0, a, b, c et les cinq fabrications",
     couverts["classe"] == {1, 2, 3, 4} and couverts["courbe"] >= {"a0", "a", "b", "c"} and len(couverts["famille"]) == 5, couverts)
-r = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], profil="HEB 300", nuance="S355", N=3294.3, L=5.0)]))
+# HEB 300 S355 de 5 m : N_b,z,Rd = 3 240,77 kN avec f_y = 345 (t_f = 19 mm, tableau 3.3 ANB, 16 < t ≤ 40 mm)
+r = req(action="calculer", etat=dict(e0, barres=[dict(e0["barres"][0], profil="HEB 300", nuance="S355", N=3240.7, L=5.0)]))
 chk("pile à la limite (η = 99,99… %) : vert foncé, « Conforme, attention », jamais arrondi à un taux rouge", r["resume"]["niveau"] == "f"
     and r["resume"]["taux"] == 100 and '<section class="et-bloc warn"' in r["resultat"] and "attention" in r["resultat"], r["resume"])
 

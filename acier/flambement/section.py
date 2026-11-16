@@ -45,8 +45,17 @@ def noms(familles: Optional[List[str]] = None) -> List[str]:
 
 
 def epaisseur(p: Dict) -> float:
-    """L'épaisseur nominale qui fixe f_y (Tableau 3.1) : la plus forte paroi (t_f, t_w ou t), mm."""
+    """L'épaisseur nominale qui fixe la f_y DE CALCUL de la section (table unique acier/materiaux.py, option a de
+    l'ANB) : la plus forte paroi (t_f, t_w ou t), donc la plus petite f_y (brief § 7.1), mm."""
     return max(float(p.get(k) or 0.0) for k in ("tf", "tw", "t"))
+
+
+def produit(p: Dict) -> str:
+    """Le produit de la table des aciers (acier/materiaux.py) : « creux_chaud » (EN 10210-1, tableaux 3.8 ANB et 3.9
+    ANB), « creux_froid » (EN 10219-1, tableaux 3.10 ANB et 3.11 ANB), « lamine » sinon (profilés, cornières : EN 10025,
+    tableaux 3.3 ANB et 3.4 ANB)."""
+    fab = FABRICATION[p["famille"]]
+    return fab if fab in ("creux_chaud", "creux_froid") else "lamine"
 
 
 def parois(p: Dict) -> List[Dict]:

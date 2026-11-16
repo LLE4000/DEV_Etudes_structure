@@ -300,8 +300,8 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     sec = (r or {}).get("section")
     if sec:
         t = sec["t"]
-        fy_txt = (f"f<sub>y</sub> = {C.fr(sec['fy'], 0)} N/mm² (Tableau 3.1, t = {C.nb(t, 1)} mm "
-                  f"{'≤ 40' if t <= 40 else '≤ 80'} mm) · classe {sec['classe'] if fab != 'L' or sec['classe'] == 4 else '1 à 3'} en compression")
+        fy_txt = (f"f<sub>y</sub> = {C.fr(sec['fy'], 0)} N/mm² (t = {C.nb(t, 1)} mm : {C.esc(sec['source_fy'])}) · "
+                  f"classe {sec['classe'] if fab != 'L' or sec['classe'] == 4 else '1 à 3'} en compression")
     else:
         fy_txt = f"Calcul impossible : {C.esc((r or {}).get('motif', ''))}"
     s1 = (L_("Famille", C.choix(["famille"], p["famille"], fams), full=True)
@@ -320,7 +320,9 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
         secs_axes += C.section(3 + i, f"Flambement autour de {noms_axes[i]}", resume, _axe_form(a, ax, r, noms_axes[i], fab, b["L"]), False, f"ax{a}")
     s5 = (C.ligne2(("γ<sub>M0</sub>", C.num(["gamma_M0"], b["gamma_M0"], ""), "Résistance de la section, §6.2.4 ; ANB belge : 1,0."),
                    ("γ<sub>M1</sub>", C.num(["gamma_M1"], b["gamma_M1"], ""), "Flambement, §6.3.1 ; ANB belge : 1,0."))
-          + C.aide("E = 210 000 N/mm² · f<sub>y</sub> du Tableau 3.1 selon l'épaisseur · courbes du Tableau 6.2 selon le profilé, l'axe et "
+          + C.aide("E = 210 000 N/mm² · f<sub>y</sub> selon l'épaisseur, option a de l'ANB belge (3.2.1(1))"
+                   + (f" : {C.esc(sec['source_fy'])}" if sec else "")
+                   + " · ε de chaque paroi avec la f<sub>y</sub> de son épaisseur · courbes du Tableau 6.2 selon le profilé, l'axe et "
                    "l'épaisseur · classe 4 : aire efficace de l'EN 1993-1-5 §4.4."))
     return (C.section(1, "Barre", f"{C.esc(b['profil'])} · {b['nuance']}", s1, True, "br")
             + C.section(2, "Effort et longueur", f"N<sub>Ed</sub> {C.nb(b['N'])} kN · L {_m(b['L'])} m", s2, False, "ef")
@@ -386,14 +388,29 @@ def _symb_A(sec: Dict) -> str:
     return "A_eff" if sec["classe"] == 4 else "A"
 
 
+# l'indice d'une paroi d'un I ou d'un U quand ses parois n'ont pas la même f_y (notation de l'EN 1993-1-5 : f_yf, f_yw)
+_IND_PAROI = {"semelle": "f", "âme": "w"}
+
+
 def _classe_lignes(r: Dict) -> List[Dict]:
     sec = r["section"]
     eps = sec["epsilon"]
     out = []
     t = sec["t"]
-    borne = "≤ 40 mm" if t <= 40 else "≤ 80 mm (40 < t)"
-    out.append(_li(["f_y", f"Tableau 3.1 · {r['nuance']} · t = {C.nb(t, 1)} mm {borne}"], f"{C.fr(sec['fy'], 0)} N/mm²"))
-    out.append(_li(["ε", "√(235 / f_y)", f"√(235 / {C.fr(sec['fy'], 0)})"], _n3(eps)))
+    par_paroi = sec["fy_par_paroi"]
+    if par_paroi:
+        # les parois n'ont pas la même f_y (palier de la table) : chacune la sienne (f_yf, f_yw de l'EN 1993-1-5), puis la
+        # f_y de calcul de la section, la plus petite ; l'ε de chaque paroi avec SA f_y
+        ind = [_IND_PAROI.get(pa["nom"], pa["nom"]) for pa in sec["parois"]]
+        for pa, i in zip(sec["parois"], ind):
+            out.append(_li([f"f_y{i}", f"{pa['nom']} · {r['nuance']} · t = {C.nb(pa['t'], 1)} mm · {pa['source_fy']}"], f"{C.fr(pa['fy'], 0)} N/mm²"))
+        out.append(_li(["f_y", f"min({' ; '.join('f_y' + i for i in ind)}), f_y de calcul de la section",
+                        f"min({' ; '.join(C.fr(pa['fy'], 0) for pa in sec['parois'])})"], f"{C.fr(sec['fy'], 0)} N/mm²"))
+        for pa, i in zip(sec["parois"], ind):
+            out.append(_li([f"ε_{i}", f"√(235 / f_y{i})", f"√(235 / {C.fr(pa['fy'], 0)})"], _n3(pa["epsilon"])))
+    else:
+        out.append(_li(["f_y", f"{r['nuance']} · t = {C.nb(t, 1)} mm · {sec['source_fy']}"], f"{C.fr(sec['fy'], 0)} N/mm²"))
+        out.append(_li(["ε", "√(235 / f_y)", f"√(235 / {C.fr(sec['fy'], 0)})"], _n3(eps)))
     if sec["fabrication"] == "L":
         p = SE.profil(r["profil"])
         cl = sec["classe"]
@@ -405,11 +422,12 @@ def _classe_lignes(r: Dict) -> List[Dict]:
         for pa in sec["parois"]:
             typ = pa["type"]
             lims = NO.LIMITES_CLASSE[typ]
-            k = eps ** 2 if typ == "tube" else eps
+            e_p = pa["epsilon"]                    # l'ε de la paroi, avec la f_y de son épaisseur
+            k = e_p ** 2 if typ == "tube" else e_p
             cl = pa["classe"]
             lim = lims[min(cl, 3) - 1]
             sym = "d / t" if typ == "tube" else f"c / t ({pa['nom']})"
-            e_txt = "ε²" if typ == "tube" else "ε"
+            e_txt = "ε²" if typ == "tube" else (f"ε_{_IND_PAROI.get(pa['nom'], pa['nom'])}" if par_paroi else "ε")
             sgn = ">" if cl == 4 else "≤"
             if pa.get("cote"):                     # tube rectangulaire : c = b − 3t (EN 1993-1-5 §4.4(2))
                 d, v = pa["cote"]
@@ -423,8 +441,9 @@ def _classe_lignes(r: Dict) -> List[Dict]:
         for pa in (sec["parois"][:1] if corniere else sec["parois"]):
             ind = "ailes" if corniere else (pa["cote"][0] if pa.get("cote") else pa["nom"])
             ks = NO.K_SIGMA[pa["type"]]
-            out.append(_li([f"λ̄_p,{ind}", "(h/t) / (28,4·ε·√k_σ)" if corniere else "(c/t) / (28,4·ε·√k_σ)",
-                            f"{C.fr(pa['c_t'], 2)} / (28,4 × {_n3(eps)} × √{C.nb(ks, 2)})"], _n3(pa["lambda_p"])))
+            e_s = f"ε_{_IND_PAROI.get(pa['nom'], pa['nom'])}" if par_paroi else "ε"
+            out.append(_li([f"λ̄_p,{ind}", "(h/t) / (28,4·ε·√k_σ)" if corniere else f"(c/t) / (28,4·{e_s}·√k_σ)",
+                            f"{C.fr(pa['c_t'], 2)} / (28,4 × {_n3(pa['epsilon'])} × √{C.nb(ks, 2)})"], _n3(pa["lambda_p"])))
             if pa["lambda_p"] <= NO.LAMBDA_P_LIM[pa["type"]]:
                 out.append(_li([f"ρ_{ind}", f"λ̄_p ≤ {C.nb(NO.LAMBDA_P_LIM[pa['type']], 3)}"], "1,000"))
             else:

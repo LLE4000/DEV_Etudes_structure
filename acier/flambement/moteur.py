@@ -11,6 +11,8 @@ NOMME (la règle du Tableau 6.2 retenue, la classe, les parois réduites) ; l'é
 """
 from typing import Dict, List, Optional, Sequence
 
+from acier import materiaux as MA
+
 from . import entree as EN
 from . import normes as NO
 from . import section as SE
@@ -20,19 +22,37 @@ NOUVEAU = "Nouveau calcul EN 1993-1-1 §6.3.1, à valider par le bureau"
 LIMITE_NEGLIGEABLE = 0.2       # §6.3.1.2(4) : λ̄ ≤ 0,2 — les effets du flambement peuvent être négligés
 
 
+def _t_fy(p: Dict, pa: Dict) -> float:
+    """L'épaisseur qui fixe la f_y d'une PAROI, donc son ε : la sienne (EN 1993-1-1 Tableau 5.2, ε = √(235/f_y) de la
+    paroi ; brief § 7.1 : « ε se calcule plat par plat »). Jamais celle de la paroi la plus épaisse : sous le palier de
+    16 mm, l'âme mince d'un HEB 300 (t_w = 11 mm) recevrait l'ε de sa semelle (t_f = 19 mm), trop favorable."""
+    return pa["t"]
+
+
 def _section(p: Dict, nuance: str) -> Dict:
-    """Matériau, classe et aire efficace de la section en compression pure."""
+    """Matériau, classe et aire efficace de la section en compression pure.
+
+    f_y DE CALCUL : celle de la paroi la plus épaisse, la plus petite (convention du brief § 7.1 ; NBN EN 1993-1-1
+    ANB:2018 3.2.1(1), option a : la table unique acier/materiaux.py, selon le produit — laminé, creux fini à chaud,
+    creux formé à froid) ; elle sert à N_c,Rd, λ̄ et N_b,Rd. La classification et la largeur efficace prennent l'ε de
+    CHAQUE paroi, avec la f_y de SON épaisseur (``_t_fy``). Cornière et tube : une seule épaisseur, les deux se
+    confondent."""
     fab = SE.FABRICATION[p["famille"]]
+    produit = SE.produit(p)
     t = SE.epaisseur(p)
-    fy = NO.limite_elastique(nuance, t, froid=fab == "creux_froid")
+    fy = NO.limite_elastique(nuance, t, produit=produit)
     eps = NO.epsilon(fy)
     parois = []
     for pa in SE.parois(p):
         d = dict(pa)
+        t_p = _t_fy(p, pa)
+        d["fy"] = NO.limite_elastique(nuance, t_p, produit=produit)
+        d["epsilon"] = NO.epsilon(d["fy"])
+        d["source_fy"] = MA.source(nuance, t_p, produit, "fy")
         if pa["type"] == "console" and fab == "L":
             d["classe"] = 0          # posée plus bas, pour la cornière entière
         else:
-            d["classe"] = NO.classe_paroi(pa["type"], pa["c_t"], eps)
+            d["classe"] = NO.classe_paroi(pa["type"], pa["c_t"], d["epsilon"])
         parois.append(d)
     if fab == "L":
         h_t = p["h"] / p["t"]
@@ -49,12 +69,13 @@ def _section(p: Dict, nuance: str) -> Dict:
         if p["famille"].startswith("CHS"):
             raise NO.HorsDomaine(f"tube rond de classe 4 (d/t = {p['cf_tf']:.1f} > 90·ε²) : EN 1993-1-6, hors du champ du module".replace(".", ",", 1))
         for d in parois:
-            d["lambda_p"] = NO.elancement_paroi(d["type"], d["c_t"], eps)
+            d["lambda_p"] = NO.elancement_paroi(d["type"], d["c_t"], d["epsilon"])
             d["rho"] = NO.rho(d["type"], d["lambda_p"])
             d["retrait"] = d["n"] * (1.0 - d["rho"]) * d["c"] * d["t"]      # mm²
         A_eff = A - sum(d["retrait"] for d in parois)
-    return {"fabrication": fab, "t": t, "fy": fy, "epsilon": eps, "parois": parois, "classe": classe, "A": A, "A_eff": A_eff,
-            "h_t": h_t, "bh_2t": bh_2t}
+    return {"fabrication": fab, "produit": produit, "t": t, "fy": fy, "source_fy": MA.source(nuance, t, produit, "fy"),
+            "epsilon": eps, "fy_par_paroi": len({d["fy"] for d in parois}) > 1, "parois": parois, "classe": classe, "A": A,
+            "A_eff": A_eff, "h_t": h_t, "bh_2t": bh_2t}
 
 
 def _axe(cle: str, ax_sec: Dict, ax_in: Dict, L: float, A_calc: float, fy: float, alpha: float, courbe: str, regle: str,
