@@ -1079,6 +1079,8 @@ from acier.formats import F  # noqa: E402
 RAISON_DEFAUT = "béton d'ancrage à 107,7 %, hors périmètre EC3"
 MANUEL_TIGES = dict(ancr="M12", classe="4.6", Mx_Ed=80, tp_u=30)       # traction des tiges 324,6 %
 MANUEL_FJD = dict(beton="C25/30", N_Ed=2000, tp_u=30)                    # pression sous la platine 102,6 % de fjd
+# tiges hors de l'échelle de l'écran : l'ancien formateur F(η·100) écrivait « tiges à 1059,4 % » (contre-vérification 2)
+MANUEL_TIGES_999 = dict(ancr="M12", classe="4.6", Mx_Ed=200, tp_u=60)
 
 
 def _manuel(**v):
@@ -1141,6 +1143,11 @@ def controles_a_verifier():
     r5 = r_de(e5)
     out.append(("massif 520 × 520, hef = 100 : « béton d'ancrage au-delà de 999 %, hors périmètre EC3 » (pct, l'échelle "
                 "de l'écran)", r5.a_verifier == "béton d'ancrage au-delà de 999 %, hors périmètre EC3", r5.get("a_verifier")))
+    # … et en calcul manuel (manuel/moteur.a_verifier_manuel) : le même formateur
+    b9, _, _ = _vue(_manuel(**MANUEL_TIGES_999))
+    out.append(("calcul manuel, M12 4.6 sous Mx = 200 kNm, tp = 60 : « tiges au-delà de 999 %, appui fjd à 131,0 %, hors "
+                "calcul manuel » (pct, l'échelle de l'écran)", b9["niveau"] == "v" and b9["R"].a_verifier
+                == "tiges au-delà de 999 %, appui fjd à 131,0 %, hors calcul manuel", b9["R"].get("a_verifier")))
     # deux assemblages : le statut de la NOTE est le moins bon — « À vérifier » passe avant « Conforme »
     e4 = {"version": 1, "assemblages": [A.nouvel_assemblage("platine_beton"), copy.deepcopy(e["assemblages"][0])],
           "actif": 0}
@@ -1200,6 +1207,8 @@ for nom, mut in [("le moteur complet ne nomme plus la raison (bandeau vert « Co
                       C.message(C.esc(cfg.note_information(R))) if R.get("a_verifier") else ""))),
                  ("pourcentage écrit par F(η·100) (« 1550,4 % »), pas par le formateur de l'écran",
                   _patch(PM_C, "a_pct", lambda e, n=0: "à " + F(e * 100, n) + " %")),
+                 ("calcul manuel : pourcentage écrit par F(η·100) (« tiges à 1059,4 % »), pas par le formateur de l'écran",
+                  _patch(PM_M, "a_pct", lambda e, n=0: "à " + F(e * 100, n) + " %")),
                  ("calcul manuel : statut « (calcul manuel : … hors périmètre du calcul manuel) »",
                   _patch(PM_M, "a_verifier_manuel", lambda R, f=PM_M.a_verifier_manuel: f(R).replace(
                       "hors calcul manuel", "hors périmètre du calcul manuel")))]:
@@ -1211,6 +1220,48 @@ for nom, mut in [("le moteur complet ne nomme plus la raison (bandeau vert « Co
     finally:
         mut(False)
     chk(f"mutation « {nom} » : les contrôles « À vérifier » rougissent ({len(rouges)})", bool(rouges), str(rouges))
+
+# L'hypothèse prudente du calcul manuel (appui fjd = pression maximale ET N ≤ fjd·Aeff, manuel/moteur.HORS_VERDICT) : quand
+# elle CHANGE le résultat (un seul des deux au-delà de 100 %), la note PDF la dit en UNE ligne « À VÉRIFIER » (règle 7 du
+# lot B ; contre-vérification 2 : elle n'était que dans le code et la doc).
+LIGNE_HYP_1770 = ("À VÉRIFIER — hypothèse prudente : l'appui fjd compte la pression maximale (107,4 %) et N ≤ fjd·Aeff "
+                  "(67,1 %).")
+MANUEL_APPUI_DEUX = dict(beton="C20/25", tp_u=60, N_Ed=4000)            # pression maximale 145,9 %, N ≤ fjd·Aeff 117,6 %
+
+
+def _note_manuelle(**v):
+    doc = pymupdf.open(stream=NA.document(_manuel(**v), {"nom_projet": "Essai"}), filetype="pdf")
+    return " ".join(" ".join(p.get_text() for p in doc).split())
+
+
+def controles_hypothese_appui():
+    out = []
+    t = _note_manuelle(N_Ed=1770)
+    out.append(("calcul manuel, N = 1 770 kN (« Conforme » sans l'hypothèse) : la note dit l'hypothèse prudente en une ligne "
+                "« À VÉRIFIER » (pression maximale 107,4 %, N ≤ fjd·Aeff 67,1 %)", t.count(LIGNE_HYP_1770) == 1
+                and t.count("hypothèse prudente") == 1, re.findall(r".{0,40}hypothèse prudente.{0,120}", t)))
+    t2 = _note_manuelle(**MANUEL_APPUI_DEUX)
+    out.append(("calcul manuel, C20/25, N = 4 000 kN (les deux contrôles d'appui au-delà de 100 % : « À vérifier » de toute "
+                "façon) : pas de ligne d'hypothèse", "PLATINE À VÉRIFIER" in t2 and "hypothèse prudente" not in t2,
+                re.findall(r".{0,40}hypothèse prudente.{0,120}", t2)))
+    t3 = _note_manuelle()
+    out.append(("calcul manuel, note neuve (appui sous 100 %) : pas de ligne d'hypothèse", "hypothèse prudente" not in t3, ""))
+    return out
+
+
+for nom, cond, info in controles_hypothese_appui():
+    chk(nom, cond, info)
+for nom, mut in [("la note tait l'hypothèse prudente", _patch(PM_M, "hypothese_appui", lambda R: "")),
+                 ("l'hypothèse dite dès qu'un contrôle d'appui dépasse, même quand elle ne change rien",
+                  _patch(PM_M, "hypothese_appui", lambda R, f=PM_M.hypothese_appui: f(R) or (
+                      "À VÉRIFIER — hypothèse prudente : l'appui fjd compte les deux contrôles." if R.verified and any(
+                          not c.ok for c in R.checks if c.key in ("bet", "ncp") and c.active) else "")))]:
+    mut(True)
+    try:
+        rouges = [n for n, c, _ in controles_hypothese_appui() if not c]
+    finally:
+        mut(False)
+    chk(f"mutation « {nom} » : le contrôle de l'hypothèse rougit ({len(rouges)})", bool(rouges), str(rouges))
 
 # =====================================================================================================================
 if os.environ.get("CONTRAT_SEPT"):

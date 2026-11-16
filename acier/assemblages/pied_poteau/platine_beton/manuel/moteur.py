@@ -37,7 +37,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find
 from acier.js import AttrDict, N
-from acier.formats import F, a_pct
+from acier.formats import F, a_pct, pct
 from acier.resultats import Verification, Alerte, Pince
 from .. import composants as CP
 from .. import equilibre as EQ
@@ -70,6 +70,20 @@ def a_verifier_manuel(R):
         if ko:
             parts.append(mot + " " + a_pct(max(c.eta for c in ko), 1))
     return (", ".join(parts) + ", hors calcul manuel") if parts else ""
+
+
+def hypothese_appui(R):
+    """La ligne « À VÉRIFIER » de l'hypothèse prudente sur l'appui fjd (HORS_VERDICT : bet ET ncp), quand elle CHANGE le
+    résultat — platine vérifiée et un seul des deux contrôles d'appui au-delà de 100 % (l'autre lecture laisserait
+    « Conforme ») ; « » sinon. La note la dit en une ligne (règle 7 du lot B)."""
+    cs = [c for c in R.checks if c.key in ("bet", "ncp") and c.active]
+    if not R.verified or sum(1 for c in cs if not c.ok) != 1:
+        return ""
+    nom = {"bet": "la pression maximale", "ncp": "N ≤ fjd·Aeff"}
+    return ("À VÉRIFIER — hypothèse prudente : l'appui fjd compte " + " et ".join(
+        nom[c.key] + " (" + pct(c.eta, 1) + ")" for c in sorted(cs, key=lambda c: c.key)) + ".")
+
+
 CRITERES_TP = ("T", "S", "c", "b")
 REF_T62 = "EN 1993-1-8 §6.2.4, Tableau 6.2 ; longueurs efficaces dérivées du Tableau 6.6, par boulon"
 REF_SEC = "Section au nu de la paroi, diffusion à 45° (calcul classique) ; EN 1993-1-8 §6.2.4 (Mpl)"

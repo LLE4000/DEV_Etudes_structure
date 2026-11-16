@@ -175,6 +175,10 @@ class Note:
     def alerte(self, a, R):
         return ligne_alerte(a, R)
 
+    def lignes_a_verifier(self, R):
+        """Les lignes « À VÉRIFIER » d'une hypothèse prudente qui change le résultat (aucune par défaut)."""
+        return []
+
     def __init__(self, R, doc_meta, variante):
         self.R = R; self.doc = doc_meta; self.mode_lignes = variante
         self.S = Encre(); self.warnings = []; self.formules_imprimees = []
@@ -279,6 +283,12 @@ class Note:
         for t, f, col in pieces:
             d.t(xr, y, t, f, 8, col)
             xr += d.w(t, f, 8)
+        # une hypothèse prudente qui CHANGE le résultat (règle 7 du lot B : pied de poteau, calcul manuel), une ligne
+        # ocre, avant les alertes (jamais rangée dans « + n autre(s) point(s) »)
+        for txt in self.lignes_a_verifier(R):
+            y -= 10
+            d.box(M + 1, y - 0.5, 4.2, 4.2, fill=S.att)
+            d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
         al = list(R.alerts)
         for a in al[:3]:
             y -= 10

@@ -26,6 +26,7 @@ from acier.js import N, js_str
 from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from . import elements as EL
+from . import moteur as MO
 from ..entrees import VISSERIE_DEFAUT, ancrage_txt
 from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS_MANUEL as NOTATIONS_COURTES
 from ....poutre_poutre.plat_ame import note as _np
@@ -115,6 +116,11 @@ class Note(_np.Note):
 
     def alerte(self, a, R):
         return ligne_alerte(a, R)
+
+    def lignes_a_verifier(self, R):
+        # l'hypothèse prudente sur l'appui fjd (moteur.HORS_VERDICT), quand elle change le résultat
+        h = MO.hypothese_appui(R)
+        return [h] if h else []
 
     def table_simple(self, d, fr, cle, largeurs):
         R = self.R
