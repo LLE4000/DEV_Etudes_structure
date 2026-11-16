@@ -21,7 +21,8 @@ deux appuis ou continue, la portée des barreaux déduite, les tableaux cliquabl
 vues en dessin technique.
 
 **Version 3.1 — relecture du bureau (05/11/2026).** Les contraintes admissibles sont DÉRIVÉES
-de la nuance : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235), τ_adm = σ_adm/√3 (90,5), et la
+de la nuance et de l'épaisseur de chaque pièce (lot A : tableau 3.3 ANB, 3.4 ANB pour le S355 N/NL
+et le S460 N/NL) : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235 jusqu'à 16 mm), τ_adm = σ_adm/√3 (90,5), et la
 contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm est vérifiée (les constantes 160 et 90 étaient
 fausses — P-12 de l'étude). Relecture complète des douze notes avec un RECALCUL INDÉPENDANT
 (452 grandeurs, aucun écart) : six défauts corrigés — les lisses intermédiaires étaient prises
@@ -142,7 +143,7 @@ garde-corps, q_v verticale, les longueurs tributaires suivent la pente.
 | | Vérification à l'ELS — défaut | Eurocode (ELU) |
 |---|---|---|
 | Charges | de service, sans coefficient | × γ_Q = 1,5 (flèche : service) |
-| σ | M/W_el + N/A ≤ σ_adm = f_y/γ_adm, γ_adm = 1,5 (156,7 N/mm² pour le S235) | ≤ f_y/γ_M0 (élastique, W_el) |
+| σ | M/W_el + N/A ≤ σ_adm = f_y/γ_adm, γ_adm = 1,5, f_y de la nuance et de l'épaisseur de chaque pièce (156,7 N/mm² pour le S235 jusqu'à 16 mm) | ≤ f_y/γ_M0 (élastique, W_el) |
 | τ | V/A_v ≤ τ_adm = σ_adm/√3 (90,5 N/mm²) | ≤ f_y/(√3·γ_M0) |
 | σ_eq | √(σ² + 3τ²) ≤ σ_adm | ≤ f_y/γ_M0 (EN 1993-1-1 §6.2.1(5)) |
 | Flèche | ≤ L/100 (ou mm) | ≤ L/100 (ou mm) |
@@ -361,7 +362,8 @@ l'échelle de l'élévation.
   résultat à la suite et les η seuls à droite (mesuré sur les mots du PDF), les dessins peints,
   la page 2 et ses sections de méthode, les variantes — latérale, sans montant (titre « de mur
   à mur », réactions des murs), rampant industriel ; les conclusions construites sur les éléments
-  réellement vérifiés, les limites 156,7 / 90,5, les références en section ;
+  réellement vérifiés, les limites 156,7 / 90,5 (S235, pièces de 16 mm au plus ; « valeur la plus faible » quand
+  les pièces n'ont pas toutes la même f_y), les références en section, le tableau de l'ANB de la nuance ;
 - `tools/captures_garde_corps.js` : neuf états × quatre largeurs (défaut, lisses, murale,
   biblio, nok, latérale, loggia, rampant, plan), mesures de ce que l'œil voit — exactement deux
   dessins visibles, le sélecteur de vue et ses options, aucun onglet, une ligne et un bouton

@@ -890,7 +890,8 @@ class Methode:
 
     def methode(self, d, fr):
         """Les textes de MÉTHODE de la méthode choisie (``methode.py``), puis les références."""
-        secs = MT.sections(self.C.meth["mode"], self.C.cas["fixation"].get("type", "platine"), bool(self.C.res["geometrie"].get("sans_montant")))
+        secs = MT.sections(self.C.meth["mode"], self.C.cas["fixation"].get("type", "platine"), bool(self.C.res["geometrie"].get("sans_montant")),
+                           self.C.res["acier"]["nuance"])     # la nuance retenue (etat.verifier) : la référence de ses f_y
         for sec in secs + [{"titre": "Références", "paragraphes": [" · ".join(MT.REFERENCES)]}]:
             self.section(d, fr, sec)
 

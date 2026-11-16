@@ -578,6 +578,45 @@ with mutant(ET, "texte_limite_commune", lambda ac: ""):
 with mutant(BI, "CREUX_FROID", ("CHS-F", "SHS-F")):
     chk("mutation « une copie de la correspondance qui oublie le RHS-F » : le contrôle rougit", not ctl_produit_tubes())
 
+print("\n=== 12. Lot A, troisième passe (E6) : une hauteur négative est refusée, par un message nommé ===")
+import inspect  # noqa: E402
+import textwrap  # noqa: E402
+
+
+def fonction_mutee(fn, remplacements):
+    """``fn`` réécrite dans SA source (mutation de SOURCE) : chaque « avant » de ``remplacements`` doit y figurer une fois,
+    sinon la mutation est périmée et la suite s'arrête."""
+    src = textwrap.dedent(inspect.getsource(fn))
+    for avant, apres in remplacements:
+        if src.count(avant) != 1:
+            raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {fn.__name__})")
+        src = src.replace(avant, apres)
+    ns = dict(sys.modules[fn.__module__].__dict__)
+    exec(compile(src, fn.__code__.co_filename, "exec"), ns)
+    return ns[fn.__name__]
+
+
+def ctl_hauteur_negative() -> bool:
+    """E6 : H = −1100 mm (et −1 mm) : refus nommé « Refus : hauteur négative (H = -1100 mm) », aucun élément vérifié, aucun
+    taux — le moteur rendait un calcul (M = P·H < 0, flèche admissible H/100 < 0, « > 999 % », « Non conforme ») ; H =
+    1100 mm (et la hauteur vide, prise par défaut) : le calcul de toujours."""
+    def avec_h(h):
+        c = cas()
+        c["geometrie"] = {**c["geometrie"], "H": h}
+        return ET.verifier(c)
+    r, r1, r0, rv = avec_h(-1100.0), avec_h(-1.0), avec_h(1100.0), avec_h(None)
+    return (r["statut"] == ET.REFUS and "Refus : hauteur négative (H = -1100 mm)" in r["messages"] and r["taux_max"] is None
+            and not r["elements"] and r["montant"] is None and r1["statut"] == ET.REFUS
+            and "Refus : hauteur négative (H = -1 mm)" in r1["messages"]
+            and r0["statut"] != ET.REFUS and r0["taux_max"] is not None and rv["statut"] != ET.REFUS
+            and pres(rv["taux_max"], r0["taux_max"]) and not any("hauteur négative" in m for m in r0["messages"]))
+
+
+chk("E6 · hauteur négative (H = −1100 mm, −1 mm) : refus nommé, aucun calcul rendu ; H = 1100 mm inchangé", ctl_hauteur_negative())
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("    if H < 0:\n", "    if False:\n"),
+                                                            ('    if ana["messages"] or H < 0:\n', '    if ana["messages"]:\n')])):
+    chk("mutation de source « hauteur négative calculée » (le défaut d'avant) : le contrôle rougit", not ctl_hauteur_negative())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

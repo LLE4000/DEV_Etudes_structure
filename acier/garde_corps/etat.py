@@ -386,7 +386,11 @@ def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
                  "acier": None, "methode": meth,
                  "limites": None, "montants": [], "montant": None, "lisse": None, "remplissage": None, "consoles": [], "console": None,
                  "fixation": None, "masse": 0.0})
-    if ana["messages"]:
+    if H < 0:
+        # (lot A, 3e passe, E6) une hauteur négative n'est pas une géométrie : le moteur rendait M = P·H < 0 et une flèche
+        # admissible H/100 < 0 (« > 999 % ») — un résultat hors du domaine ; refus nommé, comme une géométrie sans travée
+        out["messages"].append(f"Refus : hauteur négative (H = {H:g} mm)")
+    if ana["messages"] or H < 0:
         return out
     if H > CH.H_MAX_APPLICATION:
         out["messages"].append(f"La charge linéaire s'applique au plus à {CH.H_MAX_APPLICATION / 1000:.2f} m (EN 1991-1-1 §6.4) : "

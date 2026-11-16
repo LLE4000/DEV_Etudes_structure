@@ -12,6 +12,15 @@ from .membres import COEF_CONTINUE, FLECHE_X_DEFAUT, GAMMA_ADM, GAMMA_Q
 FY_EXEMPLE = MA.fy("S235", 16.0)
 
 
+def reference_fy(nuance: str = "S235") -> str:
+    """Les tableaux de l'ANB où se lit la f_y de ``nuance`` — laminés, puis tubes finis à chaud et formés à froid :
+    « tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes » pour le S235, le S275 et le S355 (EN 10025-2, EN 10210-1,
+    EN 10219-1), « tableau 3.4 ANB ; 3.9 et 3.11 ANB pour les tubes » pour le S355 N/NL et le S460 N/NL (EN 10025-3).
+    Lue dans la table unique (``MA.ligne``), jamais recopiée : la référence suit la nuance du garde-corps."""
+    lam, chaud, froid = (MA.ligne(nuance, p)["tableau"] for p in ("lamine", "creux_chaud", "creux_froid"))
+    return f"tableau {lam} ; {chaud.replace(' ANB', '')} et {froid} pour les tubes"
+
+
 def _fr(x: float) -> str:
     """Un nombre à une décimale, virgule française (156,7)."""
     return f"{x:.1f}".replace(".", ",")
@@ -43,7 +52,7 @@ SECTIONS: List[Dict] = [
     {"titre": "Vérification à l'ELS",
      "paragraphes": [
          f"Charges de service sans coefficient ; contraintes admissibles dérivées de la nuance et de l'épaisseur de chaque pièce "
-         f"(tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes) : σ_adm = f_y/{GAMMA_ADM:g} ({_fr(FY_EXEMPLE / GAMMA_ADM)} N/mm² pour le "
+         f"({reference_fy()}) : σ_adm = f_y/{GAMMA_ADM:g} ({_fr(FY_EXEMPLE / GAMMA_ADM)} N/mm² pour le "
          f"S235 jusqu'à 16 mm), τ_adm = σ_adm/√3 ({_fr(FY_EXEMPLE / GAMMA_ADM / 3 ** 0.5)} N/mm²). σ = M/W_el + N/A ≤ σ_adm, "
          f"τ = V/A_v ≤ τ_adm, contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm, flèche ≤ L/{FLECHE_X_DEFAUT:g} (ou une valeur en mm). "
          "A_v du catalogue (EN 1993-1-1 §6.2.6), aire entière pour un plat ou un rond. Soudure : vérification à l'ELS (k = 100 kg/(mm·cm)) ; "
@@ -79,10 +88,11 @@ SECTIONS: List[Dict] = [
 ]
 
 
-def sections(mode: str, fixation: str = "platine", sans_montant: bool = False) -> List[Dict]:
+def sections(mode: str, fixation: str = "platine", sans_montant: bool = False, nuance: str = "S235") -> List[Dict]:
     """Les sections de méthode d'un cas : la vérification choisie (ELS ou Eurocode), et l'ancrage qui
     correspond à la fixation — « Ancrage » (platine sur la dalle, montant soudé sur un plat, consoles au
-    mur), « Ancrage latéral » (platine en nez de dalle), aucun sans montant ou pour un montant scellé."""
+    mur), « Ancrage latéral » (platine en nez de dalle), aucun sans montant ou pour un montant scellé.
+    La référence des f_y de la vérification à l'ELS est celle de ``nuance`` (``reference_fy``)."""
     els = mode == "els"
     out = []
     for s in SECTIONS:
@@ -93,6 +103,8 @@ def sections(mode: str, fixation: str = "platine", sans_montant: bool = False) -
             continue
         if t == "Ancrage latéral" and (sans_montant or fixation != "laterale"):
             continue
+        if t.startswith("Vérification à l'ELS"):
+            s = dict(s, paragraphes=[p.replace(reference_fy(), reference_fy(nuance)) for p in s["paragraphes"]])
         out.append(s)
     return out
 

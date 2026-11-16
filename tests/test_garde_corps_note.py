@@ -357,6 +357,71 @@ chk("S6 · note : « σ_adm = f_y/1,5 = 150,0 N/mm² (valeur la plus faible ; ch
 with mutant(ET, "texte_limite_commune", lambda ac: ""):
     chk("mutation « limite commune sans le dire » : le contrôle de la note rougit", not ctl_verification_note())
 
+print("\n=== Lot A, troisième passe (E3) : la référence des f_y de la méthode ELS suit la nuance ===")
+import inspect  # noqa: E402
+import textwrap  # noqa: E402
+
+
+def fonction_mutee(fn, avant: str, apres: str):
+    """``fn`` réécrite d'UN remplacement dans SA source (mutation de SOURCE) ; « avant » doit y figurer une fois, sinon la
+    mutation est périmée et la suite s'arrête."""
+    src = textwrap.dedent(inspect.getsource(fn))
+    if src.count(avant) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {fn.__name__})")
+    ns = dict(sys.modules[fn.__module__].__dict__)
+    exec(compile(src.replace(avant, apres), fn.__code__.co_filename, "exec"), ns)
+    return ns[fn.__name__]
+
+
+# NBN EN 1993-1-1 ANB:2018 : EN 10025-2 → tableau 3.3 ANB, EN 10025-3 (S355N, S460N) → 3.4 ANB ; tubes finis à chaud EN 10210-1
+# → 3.8 ANB (JRH, J0H) et 3.9 ANB (NH) ; formés à froid EN 10219-1 → 3.10 ANB et 3.11 ANB — écrit ici à la main (l'oracle)
+REF_ATTENDUE = {"S235": "tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes", "S355": "tableau 3.3 ANB ; 3.8 et 3.10 ANB pour les tubes",
+                "S355 N/NL": "tableau 3.4 ANB ; 3.9 et 3.11 ANB pour les tubes", "S460 N/NL": "tableau 3.4 ANB ; 3.9 et 3.11 ANB pour les tubes"}
+
+
+def ctl_reference_nuance() -> bool:
+    """E3 : la page 2 d'une note ELS cite les tableaux de l'ANB de SA nuance — le tableau 3.4 ANB (et 3.9, 3.11 pour les
+    tubes) pour le S355 N/NL et le S460 N/NL, le 3.3 ANB (3.8, 3.10) pour le S235 et le S355 ; jamais l'autre."""
+    for n, ref in REF_ATTENDUE.items():
+        p2 = plat(texte(NT.generer_note(ET_, cas(methode={"nuance": n}), INFOS), 1))
+        autre = next(r for r in REF_ATTENDUE.values() if r != ref)
+        if plat(f"chaque pièce ({ref}) : σ_adm = f_y/1,5") not in p2 or plat(autre) in p2:
+            return False
+    return True
+
+
+chk("E3 · page 2 de la note ELS : « tableau 3.4 ANB ; 3.9 et 3.11 ANB pour les tubes » en S355 N/NL et S460 N/NL, "
+    "« tableau 3.3 ANB ; 3.8 et 3.10 ANB » en S235 et S355", ctl_reference_nuance())
+with mutant(MT, "sections", fonction_mutee(MT.sections, "reference_fy(nuance)", "reference_fy()")):
+    chk("mutation de source « la référence ignore la nuance » (le défaut d'avant : tableau 3.3 ANB partout) : le contrôle rougit",
+        not ctl_reference_nuance())
+
+# (E7) les docs du garde-corps (COPIES NOMMÉES : un document ne lit pas le moteur) disent la règle de S6 et les valeurs de la
+# table — σ_adm = f_y/1,5, f_y de la nuance ET de l'épaisseur de chaque pièce, 156,7 (S235) et 236,7 (S355) jusqu'à 16 mm
+from acier import materiaux as MA  # noqa: E402
+
+
+def lire_doc(nom: str) -> str:
+    with open(os.path.join(RACINE, "docs", "acier", nom), encoding="utf-8") as f:
+        return " ".join(f.read().split())
+
+
+def ctl_docs_garde_corps(gc: str, etude: str) -> bool:
+    """GARDE_CORPS.md (version 3.1 et tableau des deux méthodes) et GARDE_CORPS_ETUDE.md (P-12) : « jusqu'à 16 mm » et
+    « l'épaisseur de chaque pièce » ; plus aucune valeur « pour le S235 » sans épaisseur ; les nombres sont ceux de la table."""
+    s235, s355 = f"{MA.fy('S235', 16.0) / 1.5:.1f}".replace(".", ","), f"{MA.fy('S355', 16.0) / 1.5:.1f}".replace(".", ",")
+    return (gc.count(f"({s235} N/mm² pour le S235 jusqu'à 16 mm)") == 2 and gc.count("de l'épaisseur de chaque pièce") >= 2
+            and f"({s235} N/mm² pour le S235)" not in gc and "3.4 ANB pour le S355 N/NL" in gc
+            and f"({s235} N/mm² pour le S235, {s355} pour le S355, jusqu'à 16 mm" in etude and "f_y de l'épaisseur de chaque" in etude
+            and f"{s355} pour le S355)" not in etude)
+
+
+GC_DOC, GC_ETUDE = lire_doc("GARDE_CORPS.md"), lire_doc("GARDE_CORPS_ETUDE.md")
+chk("E7 · GARDE_CORPS.md et GARDE_CORPS_ETUDE.md : σ_adm = f_y/1,5 de la nuance ET de l'épaisseur de chaque pièce (156,7 / 236,7 "
+    "jusqu'à 16 mm, la table)", ctl_docs_garde_corps(GC_DOC, GC_ETUDE))
+chk("mutation « les docs d'avant » (« 156,7 N/mm² pour le S235 », « 236,7 pour le S355) ») : le contrôle des docs rougit",
+    not ctl_docs_garde_corps(GC_DOC.replace(" jusqu'à 16 mm)", ")"), GC_ETUDE.replace("236,7 pour le S355, jusqu'à 16 mm", "236,7 pour le S355)")))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

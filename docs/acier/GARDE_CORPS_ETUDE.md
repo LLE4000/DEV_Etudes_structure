@@ -345,7 +345,8 @@ largeurs, mesure du non-chevauchement), GC9c docs, batterie, fusion dans `main`.
   l'origine suit.
 - **P-12 · Contraintes admissibles (version 3.1, tranché par le bureau le 05/11/2026).** Les
   constantes 160 et 90 N/mm² des versions 1 à 3 étaient FAUSSES : la règle est σ_adm = f_y/1,5
-  (156,7 N/mm² pour le S235, 236,7 pour le S355), τ_adm = σ_adm/√3 (90,5), et la contrainte
+  (156,7 N/mm² pour le S235, 236,7 pour le S355, jusqu'à 16 mm — depuis le lot A, f_y de l'épaisseur de chaque
+  pièce : tableau 3.3 ANB, 3.4 ANB pour le S355 N/NL et le S460 N/NL), τ_adm = σ_adm/√3 (90,5), et la contrainte
   équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm. Le moteur les dérive de la nuance (`membres.limites`,
   γ_adm = 1,5 modifiable) ; les notes, l'écran, la méthode et les tests ont suivi ; la platine en
   flexion et la flèche ne changent pas, les taux en contrainte montent de 2 % relatifs
