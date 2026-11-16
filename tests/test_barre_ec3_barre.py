@@ -671,8 +671,9 @@ def controles(M=None):
     # (À VÉRIFIER : la page n'est pas lisible d'ici ; M_y = 200 kN·m sous une charge CONCENTRÉE à mi-portée est DÉDUIT de C_my,0 = 0,999
     #  = 1 − 0,18·N_Ed/N_cr,y — la charge répartie donnerait 1,000. b_LT, C_yy et C_my,0 tombent juste ; c_LT, d_LT, e_LT, tous ∝ 1/χ_LT, sont
     #  2 % au-dessus : ils IMPLIQUENT un χ_LT ≈ 0,826 dans la référence, le module prend 0,811 (§ 6.3.2.3, courbe c, k_c = 0,86 et f). Ce 0,826
-    #  n'est retrouvé par aucune lecture essayée (§ 6.3.2.2 courbe b : 0,812 ; avec f : 0,836 ou 0,870) — écart « à expliquer » (règle 7 du
-    #  brief), contrôlé à ± 3 % sans borne basse : un module qui rejoindrait la référence reste vert.)
+    #  n'est retrouvé par aucune lecture essayée (§ 6.3.2.2 courbe b 0,812 ; § 6.3.2.3 courbe b avec f 0,836 ou 0,870 ; (0,4 ; 0,75) courbe c
+    #  0,857 ou 0,919 — tests/test_barre_benchmarks.py les recalcule) — écart « à expliquer » (règle 7 du brief), contrôlé à ± 3 % sans borne
+    #  basse : un module qui rejoindrait la référence reste vert.)
     r = v("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, flexion={"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "lineaire", "psi": 0.0}})
     A_ = r["grandeurs"]["annexe_A"]
     ref = {"C_my,0": (A_["C_my0"], 0.999, 0.001), "b_LT": (A_["b_LT"], 0.043, 0.012), "C_yy": (A_["C_yy"], 0.981, 0.001),

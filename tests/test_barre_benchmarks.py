@@ -25,6 +25,7 @@ os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
 from acier.barre import ec3 as EC  # noqa: E402
+from acier.barre import ec3_deversement as DV  # noqa: E402
 from acier.barre import entree as EN  # noqa: E402
 from acier.barre import mcr as MC  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
@@ -86,10 +87,22 @@ def main():
         all(abs(e[k]) <= 0.005 for k in independants), {k: e[k] for k in independants})
     chk("benchmark 21 — C_my,0 0,999 ; b_LT 0,043 ; C_yy 0,981 conformes (≤ 1,2 %, l'arrondi de b_LT à deux chiffres) ; c_LT, d_LT, e_LT à "
         "moins de 3 % (aujourd'hui +2 % : à expliquer — tous ∝ 1/χ_LT, ils impliquent χ_LT ≈ 0,826 dans la référence, le module prend 0,811 "
-        "(§ 6.3.2.3, courbe c, k_c = 0,86) ; 0,826 n'est retrouvé ni par le § 6.3.2.2 (0,812) ni avec f (0,836 ; 0,870)). Diagramme de M_y "
+        "(§ 6.3.2.3, courbe c, k_c = 0,86, f) ; 0,826 n'est retrouvé par aucune lecture essayée — contrôle suivant). Diagramme de M_y "
         "DÉDUIT de C_my,0 (charge concentrée à mi-portée) : À VÉRIFIER sur la page (Q8)",
         abs(e["C_my0"]) <= 0.001 and abs(e["b_LT"]) <= 0.012 and abs(e["C_yy"]) <= 0.001
         and all(abs(e[k]) <= 0.03 for k in ("c_LT", "d_LT", "e_LT")), {k: e[k] for k in ("C_my0", "b_LT", "C_yy", "c_LT", "d_LT", "e_LT")})
+    # les lectures essayées pour le χ_LT ≈ 0,826 de la référence, au même λ̄_LT (celles que BARRES_ACIER.md § 5.7 cite)
+    lb = D["lambda_LT"]
+    lectures = {"§ 6.3.2.2 courbe b": (DV.chi_general(lb, 0.34), 0.812),
+                "§ 6.3.2.3 courbe b, f (k_c 0,94)": (DV.chi_lamine(lb, 0.34, 0.2, 1.0, 0.94)["chi"], 0.836),
+                "§ 6.3.2.3 courbe b, f (k_c 0,86)": (DV.chi_lamine(lb, 0.34, 0.2, 1.0, 0.86)["chi"], 0.870),
+                "(0,4 ; 0,75) courbe c (k_c 1)": (DV.chi_lamine(lb, 0.49, 0.4, 0.75, 1.0)["chi"], 0.857),
+                "(0,4 ; 0,75) courbe c, f (k_c 0,86)": (DV.chi_lamine(lb, 0.49, 0.4, 0.75, 0.86)["chi"], 0.919),
+                "le module : § 6.3.2.3 courbe c, f (k_c 0,86)": (D["chi_LT"], 0.811)}
+    chk("benchmark 21 — les lectures essayées du χ_LT de la référence (≈ 0,826) : § 6.3.2.2 courbe b 0,812 ; § 6.3.2.3 courbe b avec f "
+        "0,836 (k_c 0,94) et 0,870 (0,86) ; (0,4 ; 0,75) courbe c 0,857 (k_c 1) et 0,919 (0,86) ; le module 0,811 — aucune à 0,5 % de 0,826",
+        all(round(x, 3) == y for x, y in lectures.values()) and all(abs(ecart(x, 0.826)) > 0.005 for x, _ in lectures.values()),
+        {k: round(x, 4) for k, (x, _) in lectures.items()})
     # les résultats de la référence relevés par la recherche (le texte de la page n'est pas lisible d'ici, 16/11/2026) : ils fixent la
     # section, la nuance, la longueur et la charge au centre de cisaillement (z_g = 0)
     F = r["grandeurs"]["flambement"]

@@ -251,7 +251,7 @@ d'indication, la torsion et le déversement prennent la longueur de l'axe faible
 ### 5.6 Déversement — § 6.3.2 (vérifié ; E1)
 M_b,Rd = χ_LT·W_y·f_y/γ_M1 ; laminés (§ 6.3.2.3) : Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − λ̄_LT,0) + β·λ̄_LT²], χ_LT ≤ 1 et
 ≤ 1/λ̄_LT² ; tableau 6.5 (h/b ≤ 2 : b ; > 2 : c). Facteur f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1 ;
-χ_LT,mod = min(χ_LT/f ; 1 ; 1/λ̄_LT²) (AC:2009). Les expressions de f et le tableau 6.6 sont normatifs (ANB:2018,
+χ_LT,mod = min(χ_LT/f ; 1 ; 1/λ̄_LT²) (AC:2009). f et tableau 6.6 : obligatoires en Belgique (ANB:2018,
 6.3.2.3(2)). k_c (tableau 6.6) : moment constant 1,0 ; linéaire 1/(1,33 − 0,33ψ) ; deux appuis simples, charge répartie
 **0,94**, charge concentrée à mi-portée **0,86** ; deux encastrements 0,90 et 0,77 ; un encastrement et un appui simple
 0,91 et 0,82 ; diagramme hors tableau : k_c = 1. Négligé si λ̄_LT ≤ λ̄_LT,0 ou M_Ed/M_cr ≤ λ̄_LT,0².
@@ -349,8 +349,9 @@ reproduits : classe 1, N_c,Rd 2 715 kN, M_c,y,Rd 516, M_c,z,Rd 78,9 kN·m, V_pl,
 Lot B : les six facteurs du brief qui dépendent du diagramme de M_y, avec M_y = 200 kN·m sous une charge concentrée à
 mi-portée — diagramme DÉDUIT de C_my,0 = 0,999 = 1 − 0,18·N_Ed/N_cr,y, à vérifier sur la page (Q8) : C_my,0, b_LT et
 C_yy au chiffre près ; c_LT, d_LT, e_LT 1,8 à 2,0 % au-dessus (tous ∝ 1/χ_LT : ils impliquent χ_LT ≈ 0,826 dans la
-référence, le module prend 0,811). Ce 0,826 reste à expliquer (règle 7) : ni le § 6.3.2.2 (courbe b : 0,812) ni le
-facteur f (0,836 avec k_c = 0,94 ; 0,870 avec 0,86) ne le donnent ; un extrait de la page dit que la référence prend le
+référence, le module prend 0,811 : § 6.3.2.3, courbe c, f avec k_c = 0,86). Ce 0,826 reste à expliquer (règle 7) :
+aucune lecture essayée ne le donne — § 6.3.2.2 courbe b 0,812 ; § 6.3.2.3 courbe b avec f 0,836 (k_c = 0,94) et
+0,870 (0,86) ; couple (0,4 ; 0,75) courbe c 0,857 (k_c = 1) et 0,919 (0,86) ; un extrait de la page dit que la référence prend le
 cas général du déversement en méthode 1 (À VÉRIFIER, Q8). Le test les tient à ± 3 %, sans borne basse. χ_z 0,644,
 λ̄_y 0,195, λ̄_z 0,927 et les courbes a / b de la référence sont aussi reproduits. Les taux de la référence manquent.
 L'annexe D ANB est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹ (plus un tronçon court en étape 2.a
