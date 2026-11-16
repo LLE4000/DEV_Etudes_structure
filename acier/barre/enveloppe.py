@@ -105,6 +105,15 @@ class Enveloppe:
             verifs.append(v)
         s = RE.synthese(verifs)
         gouv = self.pire[s["gouvernant"]] if s["gouvernant"] else None
+        # une correction des classeurs : le texte de l'occurrence RETENUE de sa vérification (la gouvernante d'abord) — il
+        # change d'un tronçon à l'autre (φ_d prolongé, classe de la semelle comprimée) ; à défaut, la première rencontrée
+        corrections: Dict[str, Dict] = {}
+        for v in sorted(verifs, key=lambda v: v["id"] != s["gouvernant"]):
+            for c in self.pire[v["id"]]["r"].get("corrections") or []:
+                if v["id"] in c["verifications"]:
+                    corrections.setdefault(c["id"], c)
+        for c in self.corrections.values():
+            corrections.setdefault(c["id"], c)
         combis = [{"nom": b["nom"], "gouvernant": b["gouvernant"], "taux": b["rang"][1] if b["rang"][0] == 1 else None,
                    "statut": RE.NOK if (b["rang"][0] == 2 or b["rang"][1] > 1.0) else RE.NON_COUVERT if b["non_couvert"]
                    else RE.HORS_DOMAINE if b["hors_domaine"] else RE.OK}
@@ -113,4 +122,4 @@ class Enveloppe:
                 "combinaison": gouv["ou"]["combinaison"] if gouv else None, "verifications": verifs, "calcul": calcul,
                 "grandeurs": self._grandeurs(gouv), "alertes": list(self.alertes.values()),
                 "hypotheses": list(gouv["r"]["hypotheses"]) if gouv else [], "a_confirmer": list(self.a_confirmer.values()),
-                "combinaisons": combis, "corrections": list(self.corrections.values())}
+                "combinaisons": combis, "corrections": list(corrections.values())}

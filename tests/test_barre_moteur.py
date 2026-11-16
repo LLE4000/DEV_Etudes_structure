@@ -536,7 +536,7 @@ MUTATIONS = [
     ("entree", "les charges au centre de cisaillement par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": True, "niveau": "centre", "maintiens": [],'),
     ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,'),
     ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False, "Cd": 1.0,'),
-    ("entree", "lot B — la variante du fascicule par défaut à la barre", '"variante": "classeurs"},\n            "parametres": {}}', '"variante": "fascicule"},\n            "parametres": {}}'),
+    ("entree", "lot B — la variante du fascicule par défaut à la barre", '"variante": "classeurs", "facteur_doc"', '"variante": "fascicule", "facteur_doc"'),
 ]
 
 

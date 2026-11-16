@@ -77,9 +77,11 @@ def _fy_historique(nuance: str, s: Dict) -> Dict:
 
 def _deversement_historique(b: Dict, Ld: Optional[float]) -> Dict:
     """Le déversement de la méthode ELS : actif ou non, L_d (mm ; None : la longueur de l'axe faible), C_d, la variante
-    (classeurs par défaut), le niveau des charges (le message de C_d > 1 sous une charge sur la semelle haute)."""
+    (classeurs par défaut), le facteur 5,1 de la doc (profil fermé), une classe imposée (None : le tableau 12), le niveau
+    des charges (le message de C_d > 1 sous une charge sur la semelle haute)."""
     h = b["historique"]
-    return {"actif": h["deversement"], "Lc": Ld, "Cd": h["Cd"], "variante": h["variante"], "niveau": b["niveau"]}
+    return {"actif": h["deversement"], "Lc": Ld, "Cd": h["Cd"], "variante": h["variante"], "facteur_doc": h["facteur_doc"],
+            "classe": h["classe_d"], "niveau": b["niveau"]}
 
 
 def _C_historique(mode: str, forme: str, psi: float) -> Dict:

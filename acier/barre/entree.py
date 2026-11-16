@@ -22,7 +22,9 @@
      "Lc": None                               distance entre sections tenues (efforts imposés ; None : L de l'axe faible)
      "methodes": ["historique", "ec3"],
      "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False,
-                    "Cd": 1.0, "variante": "classeurs" | "fascicule"}      C_d et la variante du déversement (brief § 6.4)
+                    "Cd": 1.0, "variante": "classeurs" | "fascicule",   C_d et la variante du déversement (brief § 6.4)
+                    "facteur_doc": False, "classe_d": None}             profil fermé : le facteur 5,1 de la doc ; une classe
+                                                                       de déversement imposée (a à d ; None : le tableau 12)
      "parametres": {}}                        d'autres coefficients que ceux de la table (acier/barre/parametres.py)
 """
 import copy
@@ -61,7 +63,7 @@ def nouvelle_barre(nom: str = "B1") -> Dict:
             "diagramme": {"y": {"forme": DV.CONSTANT, "psi": 1.0}, "z": {"forme": DV.CONSTANT, "psi": 1.0}},
             "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}, "Lc": None,
             "methodes": list(METHODES), "historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,
-                                                       "variante": "classeurs"},
+                                                       "variante": "classeurs", "facteur_doc": False, "classe_d": None},
             "parametres": {}}
 
 
@@ -112,8 +114,10 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus(f"le coefficient de moment C_d du déversement doit être entre {HD.CD_MIN:g} et {HD.CD_MAX:g}")
     if h["variante"] not in HD.VARIANTES:
         raise Refus(f"variante du déversement : {', '.join(HD.VARIANTES)}")
+    if h["classe_d"] is not None and h["classe_d"] not in HD.CLASSES:
+        raise Refus(f"classe de déversement : {', '.join(HD.CLASSES)} ou vide (celle du tableau 12)")
     b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": bool(h["tolerance"]),
-                       "Cd": float(h["Cd"]), "variante": h["variante"]}
+                       "Cd": float(h["Cd"]), "variante": h["variante"], "facteur_doc": bool(h["facteur_doc"]), "classe_d": h["classe_d"]}
     if not isinstance(src.get("parametres", {}), dict):
         raise Refus("« parametres » doit être un dictionnaire")
     b["parametres"] = dict(src.get("parametres") or {})

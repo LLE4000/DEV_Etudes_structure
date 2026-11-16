@@ -45,7 +45,16 @@ TF_40, TF_80 = 40.0, 80.0                   # mm : les seuils d'épaisseur du ta
 TF_EUROCODE = 100.0                         # mm : le seuil que la feuille « Calcul automatique » prenait (correction 3)
 HB_TABLEAU_12 = 1.2                         # h/b : la limite du tableau 12
 FY_CLASSEURS = 235.0                        # N/mm² : la f_y que la feuille S355 de DEVERSEMENT_CAD prenait (correction 4)
-CD_MIN, CD_MAX = 1.0, 3.0                   # C_d saisi : 1 (moment uniforme, le cas le plus défavorable) à 3
+# la correction 4 n'est connue que pour la feuille S355 (brief § 6.4) : elle n'est dite que pour f_y = 355 N/mm². À VÉRIFIER :
+# une feuille S275 des classeurs anciens, s'il y en a une, prenait-elle aussi 157 N/mm² ?
+FY_FEUILLE_S355 = 355.0
+# À VÉRIFIER : le brief ne borne pas C_d ; 1 (moment uniforme, le cas le plus défavorable) à 3 (l'ordre des C₁ des
+# diagrammes courants) est une borne de saisie du module, pas une valeur des classeurs
+CD_MIN, CD_MAX = 1.0, 3.0
+# la colonne lue au tableau 12 : f_y ≤ 430 N/mm² (brief § 6.4). À VÉRIFIER : la colonne f_y > 430 n'est pas dans le brief ;
+# au-delà, la classe de la colonne ≤ 430 est gardée (hors domaine de toute façon : nuance hors AE235 à AE355) et l'hypothèse
+# le dit
+FY_COLONNE_12 = 430.0
 E_SUR_G = 2.6                               # E/G = 2·(1 + ν), ν = 0,3 (doc p. 18)
 FACTEUR_DOC = 5.1                           # la doc arrondit π·√2,6 = 5,0657 à 5,1 (variante, brief § 6.4)
 SOUDES = ("soude_oxycoupe", "soude_larges_plats")
@@ -70,6 +79,8 @@ MESSAGE_CD = ("La formule des classeurs ne tient pas compte de la hauteur de la 
               "gardez C_d = 1.")
 MESSAGE_PRS = "Formule prudente : elle néglige le gauchissement, qui compte beaucoup pour une poutre haute. Voir l'Eurocode 3."
 MESSAGE_3_9 = "3,9 = √(3π·√2,6) arrondi (doc p. 18 : torsion de Saint-Venant seule, deux semelles égales)."
+MESSAGE_CLASSES = "Classes du flambement (fascicule) et du déversement (tableau 12) différentes, comme dans les classeurs."
+MESSAGE_COLONNE = "classe lue pour f_y ≤ 430 N/mm²"
 MESSAGE_FERME = "Facteur π·√2,6 = 5,0657 (G = E/2,6) ; la doc l'arrondit à 5,1."
 
 
@@ -79,6 +90,11 @@ def texte_correction(cle: str, **valeurs) -> str:
     for k, v in valeurs.items():
         t = t.replace("{" + k + "}", str(v))
     return t
+
+
+class AFournir(Refus):
+    """Une classe du tableau 12 que la règle des classeurs ne donne pas : « valeur à fournir » (brief § 1, règle 1) — le
+    déversement est BLOQUÉ, le reste de la méthode se calcule."""
 
 
 # ------------------------------------------------------------------ la géométrie de la semelle comprimée
@@ -124,7 +140,7 @@ def _classe_lamine(h: float, b: float, tf: float) -> str:
 def classe(s: Dict, h: float, b: float, tf: float) -> Dict:
     """La classe de déversement proposée d'office (tableau 12, ligne « axe faible », f_y ≤ 430 N/mm²), avec t_f de la
     semelle comprimée : {"classe", "regle", "classe_lamine" (celle d'un I laminé de mêmes h, b, t_f), "corrections"}.
-    Refus quand la règle des classeurs ne couvre pas le profil (valeur à fournir : une classe saisie)."""
+    ``AFournir`` (un Refus) quand la règle des classeurs ne couvre pas le profil (valeur à fournir : une classe saisie)."""
     forme, fab = s.get("forme"), s.get("fabrication")
     lam = _classe_lamine(h, b, tf)
     corr: List[str] = []
@@ -144,13 +160,14 @@ def classe(s: Dict, h: float, b: float, tf: float) -> Dict:
         else:
             cl, regle = "d", "I soudé, semelles en larges plats"
     else:
-        raise Refus(f"classe de déversement à fournir (NBN B 51-002, tableau 12) : la règle des classeurs ne couvre pas ce profil "
-                    f"({forme}, {fab})")
+        raise AFournir(f"Classe de déversement à fournir (NBN B 51-002, tableau 12) : la règle des classeurs ne couvre pas ce profil "
+                       f"({forme}, {fab}) — flexion non jugée.")
     if forme != "I" or fab != "lamine":
         if cl != lam:
             corr.append("classe_type")              # DEVERSEMENT_CAD : toujours la classe d'un I laminé (correction 5)
-    if forme == "I":
-        # À VÉRIFIER : la ligne « axe fort » du tableau 12 n'est pas dans le brief ; la correction 6 est dite pour tout I
+    if forme == "I" and not (fab == "lamine" and tf > TF_80):
+        # À VÉRIFIER : la ligne « axe fort » du tableau 12 n'est pas dans le brief ; la correction 6 est dite pour tout I, sauf
+        # un laminé de plus de 80 mm, où la ligne « axe fort » donne sans doute d aussi (la correction n'y jouerait pas)
         corr.append("axe_faible")
     return {"classe": cl, "regle": regle, "classe_lamine": lam, "corrections": corr}
 
@@ -167,18 +184,23 @@ def classeurs(s: Dict, Ld: float, lambda_E: float, Cd: float = 1.0, semelle: str
         raise Refus("h, b et t_f manquent : le déversement des classeurs en dépend")
     lam = K_CLASSEURS * math.sqrt(Ld * g["h"] / (g["b"] * g["tf"] * Cd))
     lb = lam / lambda_E
-    cl = classe(s, g["h"], g["b"], g["tf"]) if classe_imposee is None else None
     if classe_imposee is not None and classe_imposee not in CLASSES:
         raise Refus(f"classe de déversement : a, b, c ou d — reçu {classe_imposee!r}")
+    try:                    # la classe du tableau 12, même quand une autre est imposée (l'alerte la compare)
+        cl = classe(s, g["h"], g["b"], g["tf"])
+    except AFournir:
+        if classe_imposee is None:
+            raise
+        cl = None
     k = classe_imposee or cl["classe"]
     n = N_TABLEAU_11[k]
     Phi = 1.0 + n * (lb - PALIER) + lb * lb
     prolonge = phi_d_prolonge(lb, k)
-    corr = list(cl["corrections"]) if cl else []
+    corr = list(cl["corrections"]) if (cl and classe_imposee is None) else []      # une classe imposée : aucune correction de classe
     if lb < PALIER and prolonge > 1.0:
         corr.insert(0, "phid_plafond")
     return {"cas": "classeurs", "lambda": lam, "lambda_bar": lb, "classe": k, "classe_norme": cl["classe"] if cl else None,
-            "classe_lamine": cl["classe_lamine"] if cl else None, "regle": cl["regle"] if cl else "classe imposée", "n": n, "Phi": Phi,
+            "classe_lamine": cl["classe_lamine"] if cl else None, "regle": "classe imposée" if classe_imposee else cl["regle"], "n": n, "Phi": Phi,
             "phi": phi_d(lb, k), "phi_prolonge": prolonge, "h": g["h"], "b": g["b"], "tf": g["tf"], "Lc": Ld, "Cd": Cd, "semelle": semelle,
             "corrections": corr}
 

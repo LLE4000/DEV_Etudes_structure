@@ -190,9 +190,9 @@ for k, x in r["methodes"].items():
             if res not in t or parts[2] not in t:
                 absentes.append((v["id"], cle, res))
 # (lot B : en flexion simple, la méthode ELS n'écrit plus que la ligne du déversement des classeurs — ses P_cr, qui ne servaient pas, ne
-# sont plus répétés : 19 formules)
+# sont plus répétés : 19 formules ; le seuil est ce compte, pour qu'une formule perdue se voie)
 chk(f"les fenêtres de calcul portent CHAQUE formule du moteur ({n}), écrite par acier.barre.ecriture : ses valeurs et son résultat",
-    n > 15 and not absentes, absentes[:3])
+    n >= 19 and not absentes, absentes[:3])
 vol = texte(rep["volets"])
 chk("la fenêtre d'une vérification dit la méthode, la barre, la combinaison et le lieu ; ses hypothèses sont celles du moteur",
     "Eurocode 3 · HEA 200 · S235 · 5,00 + 4,00 m ·" in vol and all(texte(PR.M.sub(h)) in vol for x in r["methodes"].values() for h in x["hypotheses"]),
