@@ -38,6 +38,7 @@ from acier.barre import ec3 as _ec3  # noqa: E402,F401 — chargés une fois : l
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import moteur as _moteur  # noqa: E402,F401
 from acier.profiles import consultation as CO  # noqa: E402
+import api_web.catalogue as _catalogue  # noqa: E402,F401 — l'autre lecteur des profilés personnalisés (une mutation le remplace)
 
 OK, KO = [], []
 DOSSIER = os.path.join(RACINE, "acier", "barre")
@@ -507,6 +508,106 @@ def controles():
                                    reparties=[(0.0, L10, 30.0 * 1.35, ipe6["h"] / 2.0)])["M_cr"]
     c("un laminé (IPE 600) dans la même barre : z_j = 0, z_g = h/2 — M_cr inchangé (le solveur seul, sans Wagner), aucune grandeur PRS",
       proche(Dl["M_cr"], ref, 1e-9) and "annexe_E" not in Dl and "b_h_b" not in Dl, (Dl.get("M_cr"), ref))
+
+    # ---- 9. reprise du bloc (contre-vérification) : le sens des charges, la colonne C₃, les règles sans contrôle
+    rn = barre_dev(B, niveau="haut", MyEd=-500e6)
+    Dn, vn = rn["grandeurs"]["deversement"], verif(rn, "E-Mb")
+    c("efforts imposés, PRS-B, M_y,Ed = −500 kN·m, charge sur la semelle haute : la charge DESCEND, comme pour un laminé — M_cr = 806,49 kN·m (Ritz "
+      "indépendant : 806,49 ; le soulèvement en donnerait 1 033,76) ; (E.1) avec z_g = +145,286 (2(8) : la charge va vers le centre de cisaillement), "
+      "+0,02 % ; l'hypothèse dit « charge descendante »",
+      a_pres(Dn["M_cr"] / 1e6, 806.49, 0.01) and proche(Dn["annexe_E"]["z_g"], PR.cotes(B)["face_haut"]) and abs(Dn["annexe_E"]["ecart"]) < 0.001
+      and any("charge descendante sur la semelle haute" in h for h in rn["hypotheses"]) and vn is not None,
+      (Dn.get("M_cr"), Dn.get("annexe_E"), rn["hypotheses"]))
+    rs = m("moteur").verifier({**ch, "prs": pl, "cas": [{"nom": "W", "nature": "permanent", "charges": [{"type": "q", "v": -30.0, "a": 0.0, "b": 10.0}]}]})
+    Ds = rs["methodes"]["ec3"]["grandeurs"]["deversement"]
+    c("barre chargée, PRS-B, SOULÈVEMENT de 30 kN/m appliqué sur la semelle haute (la semelle basse comprimée) : M_cr = 1 033,76 kN·m (Ritz : 1 033,75) ; "
+      "(E.1) avec z_g = −145,286 (la charge s'éloigne du centre de cisaillement), à 0,1 % près",
+      a_pres(Ds["M_cr"] / 1e6, 1033.76, 0.01) and proche(Ds["annexe_E"]["z_g"], -PR.cotes(B)["face_haut"]) and abs(Ds["annexe_E"]["ecart"]) < 0.001
+      and Ds["annexe_E"]["z_j"] < 0, (Ds.get("M_cr"), Ds.get("annexe_E")))
+    co_ = {**ch, "modele": "console", "travees": [4.0], "cas": [{"nom": "G", "nature": "permanent", "charges": [{"type": "q", "v": 30.0, "a": 0.0, "b": 4.0}]}]}
+    rk = m("moteur").verifier({**co_, "prs": pl})
+    Ek = rk["methodes"]["ec3"]
+    Dk, park = Ek["grandeurs"]["deversement"], {p_["role"]: p_["etat"] for p_ in Ek["grandeurs"]["classification"]["parois"]}
+    c("barre chargée, console PRS-B de 4 m sous 30 kN/m (moment négatif, la semelle BASSE comprimée) : M_cr = 4 000,51 kN·m (Ritz : 4 000,51) ; la "
+      "section se classe avec la semelle basse comprimée, l'haute tendue ; hypothèse « semelle basse comprimée », z_j = −144,78 ; pas de (E.1) (console)",
+      a_pres(Dk["M_cr"] / 1e6, 4000.51, 0.01) and park == {"semelle_haut": CL.TENDUE, "ame": CL.FLEXION_COMPOSEE, "semelle_bas": CL.COMPRESSION}
+      and any("semelle basse comprimée" in h and "-144,78" in h.replace("−", "-") for h in Ek["hypotheses"]) and "annexe_E" not in Dk,
+      (Dk.get("M_cr"), park, Ek["hypotheses"]))
+    # la colonne C₃ du tableau E.1 ANB (k_z = 1)
+    pf = zp["psi_f"]
+    c3 = {(p_, sg): MC.coefficients_annexe_e("lineaire", p_, sg * pf)["C3"] for p_ in (1.0, 0.0, -0.25, -0.5, -0.75, -1.0) for sg in (1, -1)}
+    c("(E.1), tableau E.1 ANB, colonne C₃ (k_z = 1), PRS-B (ψ_f = ±0,5429) : 1 de ψ = 1 à 0 ; ψ = −1/4 : 0,850 (ψ_f > 0) ; −1/2 : 1,3 − 1,2·ψ_f = 0,6486 ; "
+      "−3/4 : 0,55 − ψ_f ; −1 : −ψ_f (les deux colonnes) ; 1 pour ψ_f ≤ 0 (sauf ψ = −1)",
+      all(c3[(p_, sg)] == 1.0 for p_ in (1.0, 0.0) for sg in (1, -1)) and c3[(-0.25, 1)] == 0.85 and proche(c3[(-0.5, 1)], 1.3 - 1.2 * pf)
+      and round(c3[(-0.5, 1)], 4) == 0.6486 and proche(c3[(-0.75, 1)], 0.55 - pf) and proche(c3[(-1.0, 1)], -pf) and proche(c3[(-1.0, -1)], pf)
+      and all(c3[(p_, -1)] == 1.0 for p_ in (-0.25, -0.5, -0.75)), c3)
+    r0 = barre_dev(B, niveau="centre", diagramme="lineaire", flexion={"y": {"diagramme": "lineaire", "psi": 0.0}})
+    D0 = r0["grandeurs"]["deversement"]
+    e10 = MC.annexe_e(L10, E_ * B["Iz"], E_ * B["Iw"], G_ * B["It"], 1.77 / 1.05, 0.0, 1.0, 0.0, zp["z_j"]) / 1e6
+    c("(E.1) n'est plus bloqué sous moments d'extrémité : PRS-B, ψ = 0, grande semelle comprimée — C₁ = 1,77/1,05 (note b, K_ωt = 0,52), C₃ = 1 : "
+      "2 093,2 kN·m, sous le solveur (2 274,32 ; Ritz 2 274,31), du côté sûr",
+      D0["annexe_E"]["bloque"] is None and proche(D0["annexe_E"]["M_cr"] / 1e6, e10, 1e-9) and round(e10, 1) == 2093.2
+      and a_pres(D0["M_cr"] / 1e6, 2274.32, 0.01) and D0["annexe_E"]["M_cr"] < D0["M_cr"], (D0.get("annexe_E"), D0.get("M_cr"), e10))
+    nb = [MC.coefficients_annexe_e(dg, p_, 0.0, 0.5)["C1"] for dg, p_ in (("constant", 1.0), ("lineaire", 0.75), ("lineaire", 0.0))]
+    c("annexe E ANB, note b (moments d'extrémité, K_ωt ≤ 1) : C₁/1,05 sans descendre sous 1 — ψ = 1 : 1,00 (et non 0,952) ; ψ = 0,75 : 1,086 ; ψ = 0 : 1,686",
+      nb[0] == 1.0 and round(nb[1], 3) == 1.086 and round(nb[2], 3) == 1.686, nb)
+    F_ = PR.section_prs(300, 30, 540, 15, 100, 10, a=6.0, nuance="S355", bords="oxycoupes")
+    rf = m("ec3").verifier({"section": F_, "nuance": "S355", "MyEd": 300e6, "axes": {"y": {"L": L10}, "z": {"L": L10}}, "flexion": {"y": {"diagramme": "reparti"}},
+                            "deversement": {"niveau": "haut"}})
+    Df = rf["grandeurs"]["deversement"]
+    c("annexe E ANB, note c : un PRS de ψ_f = 0,976 > 0,9 (semelles 300 × 30 et 100 × 10) — contrôle (E.1) bloqué, avec le motif ; le solveur décide",
+      round(PR.zj_psi(F_, "haut")["psi_f"], 3) == 0.976 and "hors du domaine" in (Df["annexe_E"]["bloque"] or "") and "M_cr" not in Df["annexe_E"]
+      and any("(E.1) bloqué" in x for x in verif(rf, "E-Mb")["messages"]) and Df["M_cr"] > 0, (Df.get("annexe_E"), verif(rf, "E-Mb")["messages"]))
+    rA0 = m("ec3").verifier({"section": A, "nuance": "S355", "MyEd": 500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}}, "flexion": {"y": {"diagramme": "constant"}},
+                             "deversement": {"niveau": "centre"}})
+    c("PRS-A, moment constant : (E.1) est exacte — l'écart s'écrit « +0,00 % », jamais « −0,00 % »",
+      any("(+0,00 %)" in x for x in verif(rA0, "E-Mb")["messages"]) and not any("−0,00" in x for x in verif(rA0, "E-Mb")["messages"]),
+      verif(rA0, "E-Mb")["messages"])
+    trb = m("statique").troncons({**ch, "maintiens": [{"x": 5.0, "genre": "bas"}]}, B)
+    c("un maintien de la semelle BASSE de PRS-B se place au plan moyen de cette semelle : −439,714 mm sous le centre de cisaillement",
+      round(trb[0]["maintiens"][0][1], 3) == -439.714 and proche(trb[0]["maintiens"][0][1], PR.cotes(B)["semelle_bas"]), trb[0]["maintiens"])
+    KB = PR.section_prs(250, 15, 1200, 5, 250, 15, a=None, nuance="S355", bords="oxycoupes")
+    rK = ES.verifier({"section": KB, "nuance": "S355", "NEd": 500e3})
+    c("PRS bisymétrique de classe 4 (250 × 15 / 1 200 × 5) en compression seule : e_N = 0 exactement (pas un bruit d'arrondi), aucune vérification "
+      "E-NM (6.44) ajoutée",
+      rK["grandeurs"]["classe"] == 4 and rK["grandeurs"]["efficace"]["e_N"] == 0.0 and verif(rK, "E-NM") is None and verif(rK, "E-N") is not None,
+      (rK["grandeurs"]["efficace"].get("e_N"), [x["id"] for x in rK["verifications"]]))
+    T40 = PR.section_prs(300, 40, 540, 15, 300, 40, a=6.0, nuance="S355", bords="oxycoupes")
+    c("tableau 6.2, I soudé : t_f = 40 mm reste « t_f ≤ 40 » — courbes b (y) et c (z)",
+      (m("ec3_flambement").courbes(T40, "S355", 335.0)["y"], m("ec3_flambement").courbes(T40, "S355", 335.0)["z"]) == ("b", "c"))
+    D30 = PR.section_prs(300, 30.5, 540, 15, 200, 25, a=6.0, nuance="S355", bords="oxycoupes")
+    r30 = m("ec3").verifier({"section": D30, "nuance": "S355", "NEd": 100e3, "MyEd": 100e6, "axes": {"y": {"L": 5000.0}, "z": {"L": 5000.0}},
+                             "deversement": {"niveau": "haut"}})
+    c("une épaisseur non entière s'écrit avec une virgule : « t_f = 30,5 mm », « semelle haute 300 × 30,5 » (jamais 30.5, ni 31)",
+      any("t_f = 30,5 mm" in h for h in r30["hypotheses"]) and any("semelle haute 300 × 30,5," in h for h in r30["hypotheses"])
+      and not any("30.5" in h for h in r30["hypotheses"]), [h for h in r30["hypotheses"] if "30" in h])
+    Pj = m("parametres").jeu()
+    c("η, une seule valeur : le « Avz » et le « eta » du contrat (jeu par défaut) sont ceux que l'Eurocode 3 de la barre recalcule (ec3_ame.eta_de)",
+      all(s_["eta"] == AM.eta_de(s_, Pj) and proche(s_["Avz"], ES.aires_cisaillement(s_, AM.eta_de(s_, Pj))["z"]) for s_ in (A, B, S0)),
+      [(s_["eta"], AM.eta_de(s_, Pj)) for s_ in (A, B, S0)])
+    so = [PR.section_prs(300, 30, 540, 15, 200, 30, a=6.0, nuance="S355", bords=b_) for b_ in ("soude_oxycoupe", "soude_larges_plats")]
+    c("contrat § 4 : les bords se donnent aussi par la fabrication (« soude_oxycoupe », « soude_larges_plats ») — la même section",
+      [x["fabrication"] for x in so] == ["soude_oxycoupe", "soude_larges_plats"] and [x["bords"] for x in so] == ["oxycoupes", "larges_plats"]
+      and proche(so[0]["Wpl_y"], B["Wpl_y"]), [(x["fabrication"], x["bords"]) for x in so])
+    rv = ES.verifier({"section": Bb, "nuance": "S355", "VyEd": 100e3})
+    mv = [a["message"] for a in rv["alertes"] if a["code"] == "Avy"]
+    c("PRS-B sans bords saisis, V_y = 100 kN : A_v,y = A − h_w·t_w = 15 000 mm² et le message dit cette règle (section soudée), pas « 2·b·t_f : laminé »",
+      proche(rv["grandeurs"]["A_v"]["y"], 15000.0) and mv == [ES.MSG_AVY[ES.AVY_SOUDE]] and "A − h_w·t_w" in mv[0], mv)
+    # le Catalogue relit le même enregistrement (R2 : un enregistrement, deux lecteurs d'accord, ou un refus)
+    KAT = sys.modules["api_web.catalogue"]
+    eA, eB = PR.vers_bibliotheque(A), PR.vers_bibliotheque(B)
+    lu_cat = KAT._def_perso(json.loads(json.dumps(eA)))
+    refus_cat = []
+    for e_ in (eB, {"famille": "PRS", "dims": {**eA["dims"], "zz": 1.0}}):
+        try:
+            KAT._def_perso(json.loads(json.dumps(e_)))
+            refus_cat.append("")
+        except ValueError as x_:
+            refus_cat.append(str(x_))
+    c("bibliothèque : le Catalogue relit un PRS bisymétrique du module Barres sous le MÊME nom et aux mêmes dimensions (la gorge admise) ; il REFUSE un "
+      "PRS monosymétrique (il le relirait bisymétrique) et une dimension inconnue",
+      CO.nom_perso("PRS", lu_cat["dims"]) == A["nom"] and lu_cat["dims"] == {"h": 600.0, "b": 300.0, "tw": 15.0, "tf": 30.0}
+      and refus_cat[0] == KAT.MSG_PRS_MONO and "inconnue" in refus_cat[1], (lu_cat, refus_cat))
     return C
 
 
@@ -524,6 +625,11 @@ def cas_formules():
                  "deversement": {"niveau": "haut"}}),
         ("ec3", {"section": B, "nuance": "S355", "MyEd": 500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}}, "flexion": {"y": {"diagramme": "constant"}},
                  "deversement": {"niveau": "centre"}}),
+        # (E.1) sous moments d'extrémité, C₃ du tableau E.1 ANB ≠ 1 (ψ = −1/2, ψ_f > 0) ; moment négatif, charge descendante
+        ("ec3", {"section": B, "nuance": "S355", "MyEd": 500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}},
+                 "flexion": {"y": {"diagramme": "lineaire", "psi": -0.5}}, "deversement": {"niveau": "centre"}}),
+        ("ec3", {"section": B, "nuance": "S355", "MyEd": -500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}}, "flexion": {"y": {"diagramme": "reparti"}},
+                 "deversement": {"niveau": "haut"}}),
     ]
 
 
@@ -569,22 +675,27 @@ def _installer(nom, mod):
 
 def muter(fichier, ancien, nouveau):
     """Les contrôles qui rougissent quand le texte ``ancien`` de ``fichier`` devient ``nouveau`` ; None si le texte n'y
-    est pas une seule fois. Le module d'origine est remis, et ceux qui l'emploient rechargés, quoi qu'il arrive."""
-    chemin = os.path.join(DOSSIER, fichier + ".py")
+    est pas une seule fois. Le module d'origine est remis, et ceux qui l'emploient rechargés, quoi qu'il arrive.
+    ``fichier`` : un module du paquet (« prs »), ou un chemin depuis la racine (« api_web/catalogue ») — celui-là n'a
+    pas de dépendant dans le paquet : il est seulement remplacé."""
+    externe = "/" in fichier
+    chemin = os.path.join(RACINE, fichier + ".py") if externe else os.path.join(DOSSIER, fichier + ".py")
+    nom_mod = fichier.replace("/", ".") if externe else f"acier.barre.{fichier}"
     src = open(chemin, encoding="utf-8").read()
     if src.count(ancien) != 1:
         return None
-    orig = sys.modules[f"acier.barre.{fichier}"]
-    mod = types.ModuleType(f"acier.barre.{fichier}")
-    mod.__file__, mod.__package__ = chemin, "acier.barre"
+    orig = sys.modules[nom_mod]
+    mod = types.ModuleType(nom_mod)
+    mod.__file__, mod.__package__ = chemin, nom_mod.rpartition(".")[0]
+    installer = (lambda m_: sys.modules.__setitem__(nom_mod, m_)) if externe else (lambda m_: _installer(fichier, m_))
     try:
         exec(compile(src.replace(ancien, nouveau), chemin, "exec"), mod.__dict__)
-        _installer(fichier, mod)
+        installer(mod)
         rouges = [n for n, ok, _ in controles() if not ok]
     except Exception as e:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
         rouges = [f"exception {type(e).__name__}: {e}"]
     finally:
-        _installer(fichier, orig)
+        installer(orig)
     return rouges
 
 
@@ -608,8 +719,8 @@ MUTATIONS = [
     ("prs", "bords non saisis pris « oxycoupés » (rien ne bloque la méthode ELS)", '"fabrication": BORDS.get(bords),', '"fabrication": BORDS.get(bords, "soude_oxycoupe"),'),
     ("prs", "gorge non saisie : pas de message", "        messages.append(MSG_GORGE)\n", "        pass\n"),
     ("prs", "contrôle bloquant t_w < b oublié", "    if not (tw < b1 and tw < b2):", "    if False:"),
-    ("prs", "section efficace : e_N de signe retourné", "    eN = (s[\"A\"] * s[\"z_g\"] - sum(a * z for a, z in trous)) / A_eff - s[\"z_g\"] if trous else 0.0",
-     "    eN = s[\"z_g\"] - (s[\"A\"] * s[\"z_g\"] - sum(a * z for a, z in trous)) / A_eff if trous else 0.0"),
+    ("prs", "section efficace : e_N de signe retourné", "    eN = (s[\"A\"] * s[\"z_g\"] - sum(a * z for a, z in trous)) / A_eff - s[\"z_g\"] if trous and",
+     "    eN = s[\"z_g\"] - (s[\"A\"] * s[\"z_g\"] - sum(a * z for a, z in trous)) / A_eff if trous and"),
     ("prs", "section efficace : le trou de l'âme pris depuis l'autre bord", "            debut = zc_bord + sens * be1 ", "            debut = zt_bord - sens * be1 "),
     ("prs", "W_eff : la fibre la plus PROCHE de l'axe neutre efficace", "    if haut_d >= bas_d:", "    if haut_d < bas_d:"),
     ("prs", "(6.29) : l'âme entière gardée", 'rects = _rectangles(p["b1"], p["t1"], p["hw"], (1.0 - rho) * p["tw"], p["b2"], p["t2"])',
@@ -659,6 +770,30 @@ MUTATIONS = [
     ("statique", "maintien d'une semelle de PRS au plan moyen d'un I bisymétrique", '        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if prs else',
      '        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if False else'),
     ("entree", "bibliothèque : la nuance de l'enregistrement ignorée", '        b["nuance"] = s["nuance"]\n', "        pass\n"),
+    # ---- reprise du bloc (contre-vérification)
+    ("ec3_deversement", "efforts imposés, M < 0 : la charge retournée (ascendante)", "    sens, M = (-1.0 if M < 0 else 1.0), abs(M)  ", "    sens = 1.0  "),
+    ("ec3_deversement", "efforts imposés, M < 0 : le moment pris positif (semelle haute comprimée)", "            return -brut(x)\n", "            return brut(x)\n"),
+    ("ec3_deversement", "(E.1) : z_g sans le sens de la charge", '            zg = dev["zg"] * sens_charges(tr) if charge else 0.0', '            zg = dev["zg"] if charge else 0.0'),
+    ("ec3_deversement", "(E.1) : z_g retourné quand la semelle basse est comprimée (l'ancienne règle)",
+     '            zg = dev["zg"] * sens_charges(tr) if charge else 0.0', '            zg = (dev["zg"] if signe > 0 else -dev["zg"]) if charge else 0.0'),
+    ("ec3_deversement", "hypothèse : le sens de la charge non dit", '    sens = " descendante" if PR.monosymetrique(s) else ""', '    sens = ""'),
+    ("ec3_deversement", "écart de (E.1) : signe pris avant l'arrondi (« −0,00 % »)", '            ecart = round(E["ecart"] * 100, 2) + 0.0', '            ecart = E["ecart"] * 100'),
+    ("moteur", "barre chargée : le signe du moment d'un PRS monosymétrique perdu", "                if PR.monosymetrique(s) and _moment_extreme(C, tr, xs) < 0:",
+     "                if False:"),
+    ("mcr", "tableau E.1 ANB : C₃ de ψ = −1/2 (ψ_f > 0) pris à 1", "(_UN, (1.3, -1.2))", "(_UN, _UN)"),
+    ("mcr", "tableau E.1 ANB : les deux colonnes de C₃ échangées", "        a, b = E1_C3[i][psi_f > 0]", "        a, b = E1_C3[i][psi_f < 0]"),
+    ("mcr", "note b : C₁/1,05 sans le plancher 1", "        c1 = max(c1 / NOTE_B, 1.0)", "        c1 = c1 / NOTE_B"),
+    ("mcr", "domaine −0,9 ≤ ψ_f ≤ 0,9 retiré", "    if abs(psi_f) > PSI_F_MAX:", "    if False:"),
+    ("prs", "cote du plan moyen de la semelle basse = face basse", '"semelle_bas": p["t2"] / 2.0 - zc,', '"semelle_bas": -zc,'),
+    ("prs", "e_N d'un PRS bisymétrique : le bruit d'arrondi gardé", 'if trous and s.get("monosymetrique") else 0.0', "if trous else 0.0"),
+    ("prs", "une dimension écrite sans ses décimales", "    return fr(x, 0 if abs(x - round(x)) < 1e-9 else 1)", "    return fr(x)"),
+    ("prs", "contrat : la fabrication « soude_oxycoupe » refusée comme bords", "    bords = {v: k for k, v in BORDS.items()}.get(bords, bords)", "    pass"),
+    ("prs", "η du contrat : celui des laminés", '    eta = PA.valeur("eta_soude")', '    eta = PA.valeur("eta")'),
+    ("ec3_flambement", "tableau 6.2 : t_f = 40 pris épais", "            mince = s[\"tf\"] <= SEMELLE_EPAISSE", "            mince = s[\"tf\"] < SEMELLE_EPAISSE"),
+    ("ec3_section", "A_v,y d'un PRS sans bords : le message d'un laminé", '            J.alerte("Avy", "info", MSG_AVY[av["regle_y"]])',
+     '            J.alerte("Avy", "info", MSG_AVY[AVY_SOUDE if s.get("fabrication") in AM.SOUDES else AVY_LAMINE])'),
+    ("api_web/catalogue", "Catalogue : un PRS monosymétrique relu bisymétrique", "        raise ValueError(MSG_PRS_MONO)", "        pass"),
+    ("api_web/catalogue", "Catalogue : une dimension inconnue admise", "    if inconnues:\n", "    if False:\n"),
 ]
 
 

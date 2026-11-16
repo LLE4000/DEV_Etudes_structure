@@ -300,16 +300,18 @@ def moment_critique(L: float, EIz: float, EIw: float, GIt: float, moment: Callab
 
 # ------------------------------------------------------------------ le contrôle analytique : annexe E ANB, (E.1)
 # NBN EN 1993-1-1 ANB:2018, annexe E, k_z = 1 (brief § 7.7 et 18.5) — tableau E.1 ANB (moments d'extrémité, C₂·z_g = 0) :
-# C₁ pour ψ = 1, 3/4, 1/2, 1/4, 0, −1/4, −1/2, −3/4, −1 ; C₃ = 1 pour ψ = 1 (brief § 11.8, PRS-B). Les autres C₃ du tableau
-# E.1 ANB (ψ < 1, section monosymétrique) ne sont pas dans le brief : « valeur à fournir » (règle 1), jamais devinés.
-# Tableau E.2 ANB (charges transversales, deux appuis) : (C₁, C₂, C₃).
+# C₁ pour ψ = 1, 3/4, 1/2, 1/4, 0, −1/4, −1/2, −3/4, −1 ; C₃, colonne k_z = 1, en deux colonnes selon le signe de ψ_f
+# (ψ_f ≤ 0 ; ψ_f > 0), chaque valeur écrite a + b·ψ_f : E1_C3[i] = ((a, b) pour ψ_f ≤ 0, (a, b) pour ψ_f > 0). Le module
+# n'a que k_z = 1 (la colonne k_z = 0,5 n'est pas codée). La colonne C₃ n'est pas dans le brief : relue sur le texte de
+# l'ANB (hors du dépôt) — À VÉRIFIER sur l'image du tableau. Tableau E.2 ANB (charges transversales, deux appuis) : (C₁, C₂, C₃).
 E1_PSI = (1.0, 0.75, 0.5, 0.25, 0.0, -0.25, -0.5, -0.75, -1.0)
 E1_C1 = (1.00, 1.14, 1.31, 1.52, 1.77, 2.06, 2.35, 2.60, 2.60)
-E1_C3 = {1.0: 1.0}
+_UN = (1.0, 0.0)
+E1_C3 = ((_UN, _UN), (_UN, _UN), (_UN, _UN), (_UN, _UN), (_UN, _UN), (_UN, (0.850, 0.0)), (_UN, (1.3, -1.2)), (_UN, (0.55, -1.0)),
+         ((0.0, -1.0), (0.0, -1.0)))
 E2 = {"reparti": (1.12, 0.45, 0.525), "ponctuel": (1.35, 0.59, 0.411), "quarts": (1.04, 0.42, 0.562)}
 PSI_F_MAX = 0.9                  # domaine des tableaux : −0,9 ≤ ψ_f ≤ 0,9 (annexe E ANB)
 NOTE_B = 1.05                    # moments d'extrémité, K_ωt ≤ 1 : C₁/1,05, jamais sous 1
-VALEUR_A_FOURNIR = "valeur à fournir"
 
 
 def kwt(L: float, EIw: float, GIt: float, kw: float = 1.0) -> float:
@@ -319,7 +321,7 @@ def kwt(L: float, EIw: float, GIt: float, kw: float = 1.0) -> float:
 
 def coefficients_annexe_e(diagramme: str, psi: float = 1.0, psi_f: float = 0.0, Kwt: Optional[float] = None) -> Dict:
     """(C₁, C₂, C₃) de l'annexe E ANB pour k_z = 1 : {"C1", "C2", "C3", "source", "bloque" (None, ou le motif :
-    « valeur à fournir », diagramme hors des tableaux, ψ_f hors de −0,9…0,9)}. ``diagramme`` : « lineaire » ou
+    diagramme hors des tableaux, ψ ou ψ_f hors des tableaux)}. ``diagramme`` : « lineaire » ou
     « constant » (moments d'extrémité, tableau E.1 ANB, ψ = M₂/M₁ — une valeur du tableau seulement), « reparti »,
     « ponctuel » (charge à mi-portée), « quarts » (deux charges aux quarts) : tableau E.2 ANB. ``psi_f`` : celui de la
     section (0 si bisymétrique) ; C₃ n'est demandé que pour ψ_f ≠ 0."""
@@ -343,10 +345,8 @@ def coefficients_annexe_e(diagramme: str, psi: float = 1.0, psi_f: float = 0.0, 
         c1 = max(c1 / NOTE_B, 1.0)
     out.update({"C1": c1, "C2": 0.0, "source": "tableau E.1 ANB" + (" (note b : C₁/1,05)" if Kwt is not None and Kwt <= 1.0 and E1_C1[i] > 1.0 else "")})
     if psi_f:
-        c3 = E1_C3.get(E1_PSI[i])
-        if c3 is None:
-            out["bloque"] = f"C₃ du tableau E.1 ANB pour ψ = {fr(p, 2)} : {VALEUR_A_FOURNIR}"
-        out["C3"] = c3
+        a, b = E1_C3[i][psi_f > 0]
+        out["C3"] = a + b * psi_f
     else:
         out["C3"] = 0.0
     return out
@@ -356,8 +356,9 @@ def annexe_e(L: float, EIz: float, EIw: float, GIt: float, C1: float, C2: float,
              kz: float = 1.0, kw: float = 1.0) -> float:
     """M_cr par (E.1) de l'annexe E ANB (N·mm) :
         C₁·π²·E·I_z/(k_z·L)²·{√[(k_z/k_ω)²·I_ω/I_z + (k_z·L)²·G·I_t/(π²·E·I_z) + (C₂·z_g − C₃·z_j)²] − (C₂·z_g − C₃·z_j)}
-    z_g = z_a − z_s (le point d'application de la charge AU-DESSUS du centre de cisaillement, positif vers la semelle
-    comprimée), z_j positif vers la semelle comprimée ; bisymétrique : z_j = 0, c'est (E.8)."""
+    z_g = z_a − z_s, positif quand la charge va VERS le centre de cisaillement depuis son point d'application (annexe E
+    ANB, 2(8) : une charge de gravité au-dessus de lui) ; z_j positif vers la semelle comprimée (2(7)) ; bisymétrique :
+    z_j = 0, c'est (E.8)."""
     Pz = math.pi ** 2 * EIz / (kz * L) ** 2
     x = C2 * zg - C3 * zj
     return C1 * Pz * (math.sqrt((kz / kw) ** 2 * EIw / EIz + (kz * L) ** 2 * GIt / (math.pi ** 2 * EIz) + x * x) - x)

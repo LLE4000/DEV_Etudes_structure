@@ -64,7 +64,10 @@ def coefficient_kc(diagramme: str, psi: float = 1.0) -> Tuple[float, bool]:
 
 def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) -> Dict:
     """Le tronçon de déversement du mode « efforts imposés » : entre deux fourches, le moment maximal ``M`` (N·mm) et
-    la forme de son diagramme ; les charges qui le produisent sont appliquées à la cote ``zg``."""
+    la forme de son diagramme ; les charges, appliquées à la cote ``zg``, DESCENDENT toujours (|M|), comme pour un
+    laminé : ``M`` < 0 (un PRS monosymétrique dont la semelle basse est comprimée) ne change que le signe du moment,
+    donc z_j et la semelle comprimée. À VÉRIFIER : un soulèvement n'est pas proposé ici (barre chargée)."""
+    sens, M = (-1.0 if M < 0 else 1.0), abs(M)              # les charges sur |M| ; le signe, au moment seul (plus bas)
     if diagramme == LINEAIRE:
         def moment(x: float) -> float:
             return M * (1.0 - (1.0 - psi) * x / L)
@@ -81,6 +84,11 @@ def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) ->
         def moment(x: float) -> float:
             return M
         charges = {}
+    if sens < 0:                                             # M_y,Ed < 0 : le diagramme retourné, les charges gardées
+        brut = moment
+
+        def moment(x: float) -> float:
+            return -brut(x)
     return {"L": L, "moment": moment, "M_max": abs(M), "appuis": (MC.FOURCHE, MC.FOURCHE), "maintiens": [], **charges}
 
 
@@ -216,7 +224,9 @@ def ajouter(J: Journal, d: Dict) -> None:
         cles += c_
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)
     niveau = "au centre de cisaillement" if not dev["zg"] else ("sur la semelle haute" if dev["zg"] > 0 else "sous la semelle basse")
-    charge = f", charge {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
+    # (un PRS monosymétrique : le sens compte — la charge descend, quel que soit le signe de M_y,Ed ; troncon_impose)
+    sens = " descendante" if PR.monosymetrique(s) else ""
+    charge = f", charge{sens} {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
     J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m entre sections tenues{charge} ; courbe {courbe}, "
                  f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (ANB:2018, 6.3.2.3(1))." if s["forme"] == "I" and methode != METHODE_GENERALE else "."))
 
@@ -236,6 +246,13 @@ def chi_LT(lb: float, a_lt: float, lb0: float, b_: float, seuil: float, M: float
     return min(x0 / f, borne), f
 
 
+def sens_charges(tr: Dict) -> float:
+    """+1 quand la résultante des charges du tronçon DESCEND, −1 quand elle monte (un soulèvement)."""
+    total = sum((r[2] + r[3]) / 2.0 * (r[1] - r[0]) if len(r) == 5 else r[2] * (r[1] - r[0]) for r in tr.get("reparties") or ())
+    total += sum(p[1] for p in tr.get("ponctuelles") or ())
+    return -1.0 if total < 0 else 1.0
+
+
 def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My: float, Mcr: float, kc: float) -> Tuple[list, list]:
     """Ce que le déversement d'un PRS ajoute (brief § 18.5 et 18.7) : le b retenu pour h/b, l'autre méthode (PRS
     bisymétrique) ou son refus (monosymétrique), le contrôle analytique (E.1) de l'annexe E ANB. Rend (les messages de
@@ -245,7 +262,7 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My:
     D["b_h_b"] = s["b"]
     D["soudee_equivalente"] = bool(P["prs_soudee_equivalente"]) and not s["monosymetrique"]
     if s["monosymetrique"]:
-        J.hyp.append(f"PRS monosymétrique : h/b = {_fr(s['h'])}/{_fr(s['b'])} = {_fr(s['h'] / s['b'], 2)} avec b = la plus petite largeur de "
+        J.hyp.append(f"PRS monosymétrique : h/b = {PR.mm(s['h'])}/{PR.mm(s['b'])} = {_fr(s['h'] / s['b'], 2)} avec b = la plus petite largeur de "
                      f"semelle (choix prudent) ; § 6.3.2.2 seul.")
         msgs.append(f"{METHODE_LAMINES} refusé : section monosymétrique.")
     else:
@@ -273,7 +290,9 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My:
         if co["bloque"]:
             msgs.append(f"Contrôle (E.1) bloqué : {co['bloque']}.")
         else:
-            zg = (dev["zg"] if signe > 0 else -dev["zg"]) if charge else 0.0
+            # z_g de l'annexe E ANB, 2(8) : positif quand la charge va VERS le centre de cisaillement depuis son point
+            # d'application — la cote de la charge, retournée si elle monte (un soulèvement, en barre chargée)
+            zg = dev["zg"] * sens_charges(tr) if charge else 0.0
             Mcr_E = MC.annexe_e(tr["L"], EIz, EIw, GIt, co["C1"], co["C2"], co["C3"], zg, zp["z_j"])
             E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / Mcr - 1.0})
             E["formule"] = J.f("M_cr_E1", "M_cr,E.1", [_t("C₁", co["C1"]), _t("E", P["E"], "N/mm²"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("k_z", 1.0),
@@ -281,7 +300,8 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My:
                                                        _t("G", P["G"], "N/mm²"), _t("I_t", s["It"] / 1e4, "cm⁴"), _t("C₂", co["C2"]), _t("z_g", zg, "mm"),
                                                        _t("C₃", co["C3"]), _t("z_j", zp["z_j"], "mm")], Mcr_E / 1e6, "kN·m", "p_M_cr_E1")
             cles.append(E["formule"])
-            msgs.append(f"Contrôle (E.1) : M_cr = {_fr(Mcr_E / 1e6, 1)} kN·m ({'+' if E['ecart'] >= 0 else '−'}{_fr(abs(E['ecart']) * 100, 2)} %).")
+            ecart = round(E["ecart"] * 100, 2) + 0.0                # (arrondi d'abord : un écart nul s'écrit « +0,00 % »)
+            msgs.append(f"Contrôle (E.1) : M_cr = {_fr(Mcr_E / 1e6, 1)} kN·m ({'+' if ecart >= 0 else '−'}{_fr(abs(ecart), 2)} %).")
         D["annexe_E"] = E
     if s["monosymetrique"]:
         J.hyp.append(f"PRS monosymétrique, semelle {'haute' if signe > 0 else 'basse'} comprimée : ψ_f = "

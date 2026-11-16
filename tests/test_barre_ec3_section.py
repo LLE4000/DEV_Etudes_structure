@@ -619,6 +619,40 @@ def controles(C_=CL, S_=ES):
     c("§ 11.5 test 29 — semelle en console fléchie et comprimée, α = 0,5 : classe 1 si c/t ≤ 18ε (extrémité comprimée, 9ε/α) ou ≤ 25,46ε (extrémité "
       "tendue, 9ε/(α·√α)) ; classe 3 : 21ε·√k_σ",
       round(l_c[0], 2) == 18.0 and round(l_t[0], 2) == 25.46 and round(l_c[1], 2) == 20.0 and proche(l_c[2], 21 * math.sqrt(0.43)), (l_c, l_t))
+    # … et ce que CLASSER prend : la borne prudente de ces limites (α et ψ de la console non calculés)
+    e_ = math.sqrt(235.0 / 355.0)
+    fyp_ = {"semelle": 355.0, "ame": 355.0}
+    sz = next(p for p in C_.classer(SE.du_catalogue("HEA 300"), 355.0, 500e3, 150e6, 30e6, fyp_)["parois"] if p["role"] == "semelle")
+    sy = next(p for p in C_.classer(SE.du_catalogue("HEA 300"), 355.0, 500e3, 150e6, 0.0, fyp_)["parois"] if p["role"] == "semelle")
+    dessous = all(sz["limites"][i] <= C_.limites_console_flechie(a_, x_, e_, k_)[i] + 1e-12 for i in range(3) for a_ in (0.1, 0.5, 1.0)
+                  for x_ in ("comprimee", "tendue") for k_ in (0.43, 0.6, 1.7))
+    I11 = SE.saisie("I", "lamine", "I c/t = 11,3", h=420.0, b=234.0, tw=8.0, tf=10.0, A=8000.0, Iy=2.4e8, Iz=2.1e7, iy=173.0, iz=51.0,
+                    Wel_y=1.14e6, Wel_z=1.8e5, Wpl_y=1.3e6, Wpl_z=2.8e5, cf_tf=11.3, cw_tw=50.0)
+    k3 = [C_.classer(I11, 355.0, 0.0, 100e6, mz_, fyp_)["parois"][0]["classe"] for mz_ in (0.0, 10e6)]
+    c("§ 11.5 test 29 — ce que classer PREND pour une semelle en console sous M_z (HEA 300 S355, N + M_y + M_z) : 9ε et 10ε (sous 9ε/α et 9ε/(α·√α) "
+      "pour tout α) ; classe 3 : 21ε·√0,43 = 13,77ε (sous 21ε·√k_σ pour tout k_σ du tableau 4.2, et sous les 14ε de la compression uniforme) ; sans "
+      "M_z : 14ε — une semelle de c/t = 11,3 (entre 13,77ε et 14ε) passe de la classe 3 à la classe 4 quand M_z s'ajoute",
+      proche(sz["limites"][0], 9 * e_) and proche(sz["limites"][1], 10 * e_) and proche(sz["limites"][2], 21 * e_ * math.sqrt(0.43))
+      and sz["regles"][2][0] == C_.GABARIT_LIM3_CONSOLE and dessous and proche(sy["limites"][2], 14 * e_) and k3 == [3, 4],
+      (sz["limites"], sy["limites"], k3))
+    # A_v,y : le message dit la règle PRISE (aires_cisaillement, « regle_y »)
+    def msg_avy(r_):
+        return [a["message"] for a in r_["alertes"] if a["code"] == "Avy"]
+    Iso = SE.saisie("I", "soude_oxycoupe", "I soudé", h=420.0, b=234.0, tw=8.0, tf=10.0, A=8000.0, Iy=2.4e8, Iz=2.1e7, iy=173.0, iz=51.0)
+    ma = [msg_avy(v("HEB 200", "S235", VyEd=100e3)), msg_avy(v("IPN 200", "S235", VyEd=100e3)),
+          msg_avy(S_.verifier({"section": Iso, "nuance": "S235", "VyEd": 100e3}))]
+    c("A_v,y : le message dit la règle prise — HEB 200 : 2·b·t_f (décision du bureau) ; IPN 200 : min(2·b·t_f ; A − h_w·t_w) ; un I soudé : A − h_w·t_w",
+      ma == [[S_.MSG_AVY[S_.AVY_LAMINE]], [S_.MSG_AVY[S_.AVY_MIN]], [S_.MSG_AVY[S_.AVY_SOUDE]]] and "min(2·b·t_f" in ma[1][0], ma)
+    # un I saisi par ses c/t et ses propriétés, sans h ni b : le contrôle élastique n'a pas de points — il n'est pas fait
+    Inu = SE.saisie("I", "lamine", "I sans dimensions", A=5381.0, Iy=83.56e6, Iz=6.04e6, iy=124.6, iz=33.5, Wpl_y=628.4e3, Wel_y=557.1e3,
+                    cf_tf=5.3, cw_tw=35.0, tf=10.7, tw=7.1)
+    try:
+        rnu = S_.verifier({"section": Inu, "nuance": "S235", "MyEd": 100e6})
+        nu_ok = rnu["statut"] == RE.OK and verif(rnu, "E-My") is not None and "controle_elastique" not in rnu["grandeurs"]
+    except Exception as e:  # noqa: BLE001
+        nu_ok, rnu = False, repr(e)
+    c("un I saisi sans h ni b (ses c/t et ses propriétés seulement) : vérifié (E-My), sans contrôle élastique (pour information, il n'a pas de points)",
+      nu_ok, rnu if not nu_ok else "")
     # ---- § 19.2 : A_v,y des IPN = la plus petite de 2·b·t_f et de l'aire géométrique A − (h − 2·t_f)·t_w
     faux_ipn, vus_ipn = [], {}
     for q in CAT.profils():
@@ -813,8 +847,9 @@ def mutations():
         #  parité avec le module Flambement, une inégalité sur ces couples, la laissait passer ; l'égalité retrouvée l'attrape)
         ("classe", "lot A — les semelles classées avec l'ε de l'âme (trop petit pour une semelle plus épaisse que l'âme)",
          '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = float((fy_parois or {}).get("ame" if role == "semelle" else role, fy))\n'),
-        ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w", '    avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]',
-         '    avy = A - hw * s["tw"]'),
+        ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w",
+         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE)',
+         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if True else (2.0 * s["b"] * s["tf"], AVY_LAMINE)'),
         ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
         ("section", "lot A — section efficace avec l'ε de la f_y de calcul", '    ep = eps_parois or eps\n', '    ep = eps\n'),
         ("classe", "lot A — ε de chaque paroi oublié", '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = fy\n'),
@@ -827,6 +862,12 @@ def mutations():
         ("section", "troisième passe — une cornière prend l'aire d'un tube rond (2A/π)", '    if forme != "tube_rond":\n        raise Refus(',
          '    if False:\n        raise Refus('),
         ("section", "le signe du moment compte", 'My, Mz, Vz, Vy = abs(d["MyEd"]), abs(d["MzEd"]), abs(d["VzEd"]), abs(d["VyEd"])', 'My, Mz, Vz, Vy = d["MyEd"], d["MzEd"], d["VzEd"], d["VyEd"]'),
+        # (lot B, reprise du bloc B2)
+        ("classe", "lot B — semelle en console sous M_z : classe 3 à 14ε (la compression uniforme)", '            if p["type"] == "console" and fz:', "            if False:"),
+        ("section", "lot B — A_v,y : le message de la fabrication, pas de la règle prise", '            J.alerte("Avy", "info", MSG_AVY[av["regle_y"]])',
+         '            J.alerte("Avy", "info", MSG_AVY[AVY_SOUDE if s.get("fabrication") in AM.SOUDES else AVY_LAMINE])'),
+        ("section", "lot B — IPN : le message de 2·b·t_f", "            avy, regle = min(avy, A - hw * s[\"tw\"]), AVY_MIN", "            avy = min(avy, A - hw * s[\"tw\"])"),
+        ("section", "lot B — contrôle élastique d'un I sans dimensions", ' and (PR.est_prs(s) or all(s.get(k) for k in ("h", "b", "tf", "tw"))):', ":"),
     ]
     sources = {k: open(ch, encoding="utf-8").read() for k, ch in CHEMINS.items()}
     res = []

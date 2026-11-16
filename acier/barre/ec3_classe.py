@@ -21,6 +21,10 @@ LA CLASSE dépend de l'effort : elle se refait pour chaque combinaison. Chaque p
 
 DU CÔTÉ SÛR : une semelle — ou la paroi d'un tube qui sert de semelle — est classée en compression UNIFORME dès qu'un
 moment existe, même sous un gradient (flexion d'axe faible, flexion déviée) ; l'âme d'un I sous M_z et N l'est aussi.
+Une semelle EN CONSOLE sous M_z (gradient sur sa largeur, brief § 7.3) : classes 1 et 2 à 9ε et 10ε (≤ 9ε/α et
+9ε/(α·√α) du tableau 5.2, quel que soit α) ; classe 3 à 21ε·√k_σ avec le PLUS PETIT k_σ du tableau 4.2 (0,43, ψ = 1),
+soit 13,77ε : sous 14ε, que le tableau 5.2 donne à la compression uniforme — 21ε·√k_σ peut descendre sous 14ε quand ψ
+approche 1. À VÉRIFIER : ψ et α de la console ne sont pas calculés (limites prises à leur borne prudente).
 
 LA SECTION EFFICACE, selon l'EN 1993-1-5 § 4.3(3) et (4) : A_eff sous la compression SEULE, W_eff sous la flexion
 SEULE. Deux axes de symétrie : A_eff n'a pas d'excentricité (e_N = 0). Pour W_eff : la membrure comprimée d'abord, puis
@@ -53,6 +57,8 @@ COMPRESSION, FLEXION, FLEXION_COMPOSEE, TENDUE = "compression", "flexion", "flex
 # ------------------------------------------------------------------ EN 1993-1-5, tableaux 4.1 et 4.2
 K_SIGMA_CONSOLE = 0.43                           # console comprimée uniformément (ψ = 1)
 LAMBDA_P_CONSOLE = 0.748
+LIM3_CONSOLE_FLECHIE = 21.0                      # tableau 5.2, semelle en console sous gradient : classe 3 à 21ε·√k_σ
+GABARIT_LIM3_CONSOLE = "e_lim3_console"
 BE1_PSI_NEGATIF = 0.4                            # ψ < 0 : b_e1 = 0,4·b_eff (côté comprimé), b_e2 = 0,6·b_eff (côté axe neutre)
 
 
@@ -175,6 +181,8 @@ def classer(s: Dict, fy: float, N: float = 0.0, My: float = 0.0, Mz: float = 0.0
             k = eps ** 2 if p["type"] == "tube" else eps
             limites = [lim * k for lim in LIMITES_COMPRESSION[p["type"]]]
             regles = [("e_lim_tube" if p["type"] == "tube" else "e_lim", lim) for lim in LIMITES_COMPRESSION[p["type"]]]
+            if p["type"] == "console" and fz:            # une semelle en console sous M_z : classe 3 à 21ε·√k_σ,min (docstring)
+                limites[2], regles[2] = limite3_console_flechie(eps), (GABARIT_LIM3_CONSOLE, None)
         elif etat == FLEXION:
             limites = [lim * eps for lim in LIMITES_FLEXION]
             regles = [("e_lim", lim) for lim in LIMITES_FLEXION]
@@ -337,16 +345,22 @@ FONCTIONS_44 = {"rho_interne": rho_interne, "rho_console": rho_console, "lambda_
                 "k_sigma_console": k_sigma_console, "k_console": K_SIGMA_CONSOLE, "be1": BE1_PSI_NEGATIF}
 
 
+def limite3_console_flechie(eps: float) -> float:
+    """La limite c/t de classe 3 d'une semelle en console sous M_z, prise par ``classer`` : 21ε·√k_σ au plus petit k_σ
+    du tableau 4.2 de l'EN 1993-1-5 (0,43) — la borne prudente de ``limites_console_flechie``."""
+    return LIM3_CONSOLE_FLECHIE * eps * math.sqrt(K_SIGMA_CONSOLE)
+
+
 def limites_console_flechie(alpha: float, extremite: str, eps: float, k_sigma: float) -> List[float]:
     """Les limites c/t des classes 1, 2, 3 d'une semelle en CONSOLE fléchie et comprimée (flexion d'axe faible, N + M_z ;
     tableau 5.2, brief § 7.3) — ``extremite`` : « comprimee » (le bord libre est comprimé : 9ε/α, 10ε/α) ou « tendue »
     (le bord libre est tendu : 9ε/(α·√α), 10ε/(α·√α)) ; classe 3 dans les deux cas : 21ε·√k_σ (k_σ de l'EN 1993-1-5).
-    Le module classe ces semelles en compression UNIFORME (du côté sûr) : ces limites sont données pour comparaison."""
+    ``classer`` les prend à leur borne prudente (9ε, 10ε, ``limite3_console_flechie``) : α et ψ ne sont pas calculés."""
     if extremite not in ("comprimee", "tendue") or not 0.0 < alpha <= 1.0:
         raise ValueError("console fléchie : extrémité « comprimee » ou « tendue », 0 < α ≤ 1")
     div = alpha if extremite == "comprimee" else alpha * math.sqrt(alpha)
     return [LIMITES_COMPRESSION["console"][0] * eps / div, LIMITES_COMPRESSION["console"][1] * eps / div,
-            21.0 * eps * math.sqrt(k_sigma)]
+            LIM3_CONSOLE_FLECHIE * eps * math.sqrt(k_sigma)]
 
 
 def hauteur_cisaillee(s: Dict, direction: str) -> Optional[Dict]:

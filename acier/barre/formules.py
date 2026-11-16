@@ -59,6 +59,7 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_lim12_bas": (("k", "eps", "alpha"), "k*eps/alpha", 1),
     "e_lim3_haut": (("eps", "psi"), "42*eps/(0.67 + 0.33*psi)", 1),
     "e_lim3_bas": (("eps", "psi"), "62*eps*(1 - psi)*sqrt(-psi)", 1),
+    "e_lim3_console": (("eps", "ks"), "21*eps*sqrt(ks)", 1),
     # section efficace (EN 1993-1-5 § 4.4)
     "e_lambda_p": (("ct", "eps", "ks"), "ct/(28.4*eps*sqrt(ks))", 3),
     "e_rho_interne": (("lp", "psi"), "(lp - 0.055*(3 + psi))/lp**2", 3),

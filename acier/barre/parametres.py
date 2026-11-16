@@ -34,7 +34,7 @@ PARAMETRES: Dict[str, Dict] = {
     # quand l'ingénieur déclare la section « soudée équivalente » à un laminé (la case de la barre : le texte ne définit pas
     # l'équivalence). Un PRS monosymétrique : § 6.3.2.2 seul, quoi que dise ce paramètre.
     "prs_soudee_equivalente": {"valeur": False, "nom": "PRS « section soudée équivalente »", "statut": DECISION_BUREAU,
-                               "source": "EN 1993-1-1 § 6.3.2.3(1) : « profils laminés ou sections soudées équivalentes » ; DÉCISION BUREAU n° 10"},
+                               "source": "EN 1993-1-1 § 6.3.2.3(1) : laminés et sections soudées dites équivalentes (équivalence non définie) ; DÉCISION BUREAU n° 10"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_A", "nom": "méthode du § 6.3.3", "statut": A_CONFIRMER,
                             "source": "ANB:2018 : méthode 1 (annexe A) — d'après l'aide d'un logiciel, pas le texte"},

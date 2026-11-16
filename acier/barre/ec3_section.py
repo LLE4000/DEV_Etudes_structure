@@ -170,7 +170,7 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
         # A − h_w·t_w (6.2.6(3) e)) — la règle de la norme pour les sections soudées
         hw = SE.hauteur_ame(s)
         plancher = eta * hw * s["tw"]
-        return {"z": plancher, "y": A - hw * s["tw"], "plancher": plancher, "plancher_gouverne": True, "hw": hw}
+        return {"z": plancher, "y": A - hw * s["tw"], "plancher": plancher, "plancher_gouverne": True, "hw": hw, "regle_y": AVY_SOUDE}
     if forme == "I":
         hw = SE.hauteur_ame(s)
         if hw is None or not s.get("tw") or not s.get("b"):
@@ -179,12 +179,13 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
         if base is None:
             base = A - 2.0 * s["b"] * s["tf"] + (s["tw"] + 2.0 * (s.get("r") or 0.0)) * s["tf"]
         plancher = eta * hw * s["tw"]
-        avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]
-        if s.get("famille") in FAMILLES_AVY_MIN and s.get("fabrication") not in AM.SOUDES:
+        soude = s.get("fabrication") in AM.SOUDES
+        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE)
+        if s.get("famille") in FAMILLES_AVY_MIN and not soude:
             # IPN (semelles inclinées) : la plus petite de 2·b·t_f et de l'aire géométrique A − h_w·t_w, comme pour les U
             # (brief § 19.2 ; 19.1 point 9) — 2·b·t_f la dépasse sur des IPN du catalogue
-            avy = min(avy, A - hw * s["tw"])
-        return {"z": max(base, plancher), "y": avy, "plancher": plancher, "plancher_gouverne": plancher > base, "hw": hw}
+            avy, regle = min(avy, A - hw * s["tw"]), AVY_MIN
+        return {"z": max(base, plancher), "y": avy, "plancher": plancher, "plancher_gouverne": plancher > base, "hw": hw, "regle_y": regle}
     if forme in ("tube_carre", "tube_rect"):
         if not s.get("h") or not s.get("b"):
             raise Refus("h, b manquent : l'aire de cisaillement d'un tube en dépend")
@@ -211,6 +212,11 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
 INDICE_EPS = {"semelle": "f", "ame": "w", "semelle_haut": "f1", "semelle_bas": "f2"}
 # les familles laminées dont A_v,y est la plus petite de 2·b·t_f et de A − h_w·t_w (brief § 19.2)
 FAMILLES_AVY_MIN = ("IPN",)
+# A_v,y d'un I : la règle prise (``aires_cisaillement``, clé « regle_y ») et le message qui la dit
+AVY_SOUDE, AVY_LAMINE, AVY_MIN = "soude", "lamine", "minimum"
+MSG_AVY = {AVY_SOUDE: "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 6.2.6(3) e)).",
+           AVY_LAMINE: "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).",
+           AVY_MIN: "A_v,y = min(2·b·t_f ; A − h_w·t_w) : IPN, côté sûr (comme pour les U)."}
 
 
 def _eps_paroi(J: Journal, p: Dict, eps_calcul: float) -> str:
@@ -228,8 +234,9 @@ def _hypotheses_prs(J: Journal, s: Dict) -> None:
     """Ce que la note dit d'un PRS (brief § 18.7) : ses plats, la gorge, η ; ses messages de saisie (gorge non saisie)."""
     p = s["prs"]
     gorge = f"a = {_fr(p['a'], 1)} mm, s = a·√2 = {_fr(s['s'], 2)} mm" if p["a"] is not None else "gorge non saisie, s = 0"
-    J.hyp.append(f"PRS {'monosymétrique' if s['monosymetrique'] else 'bisymétrique'} : semelle haute {_fr(p['b1'])} × {_fr(p['t1'])}, "
-                 f"âme {_fr(p['hw'])} × {_fr(p['tw'])}, semelle basse {_fr(p['b2'])} × {_fr(p['t2'])} mm ; {gorge} ; "
+    d_ = PR.mm
+    J.hyp.append(f"PRS {'monosymétrique' if s['monosymetrique'] else 'bisymétrique'} : semelle haute {d_(p['b1'])} × {d_(p['t1'])}, "
+                 f"âme {d_(p['hw'])} × {d_(p['tw'])}, semelle basse {d_(p['b2'])} × {d_(p['t2'])} mm ; {gorge} ; "
                  f"cordons non comptés ; η = {_fr(s['eta'], 2)}.")
     for m in s.get("messages") or ():
         if m == PR.MSG_GORGE:
@@ -272,7 +279,8 @@ def _classification(J: Journal, d: Dict, N: float, My: float, Mz: float) -> Dict
             continue
         termes = {"e_lim": [_t("k", k), _t(se, eps)], "e_lim_tube": [_t("k", k), _t(se, eps)],
                   "e_lim12_haut": [_t("k", k), _t(se, eps), _t("α", p["alpha"])], "e_lim12_bas": [_t("k", k), _t(se, eps), _t("α", p["alpha"])],
-                  "e_lim3_haut": [_t(se, eps), _t("ψ", p["psi"])], "e_lim3_bas": [_t(se, eps), _t("ψ", p["psi"])]}[gabarit]
+                  "e_lim3_haut": [_t(se, eps), _t("ψ", p["psi"])], "e_lim3_bas": [_t(se, eps), _t("ψ", p["psi"])],
+                  CL.GABARIT_LIM3_CONSOLE: [_t(se, eps), _t("k_σ", CL.K_SIGMA_CONSOLE)]}[gabarit]
         p["limite"] = {"classe": i + 1, "valeur": p["limites"][i], "formule": f"lim_{r}"}
         cles.append(J.f(f"lim_{r}", f"(c/t){'₁₂₃'[i]}", termes, p["limites"][i], "", gabarit))      # la limite de la classe i + 1
     cl["formules"] = cles
@@ -468,17 +476,15 @@ def ajouter(J: Journal, d: Dict) -> None:
                                                                                  _t(nomV, Vpl / 1e3, "kN")], rho[a], "", "e_rho_V"))
             if d["voilement"]:                               # une âme élancée : EN 1993-1-5 § 5 et § 7.1 (« A-Vb », « A-VbM »)
                 AM.cisaillement(J, s, fy, P, V, My if a == "z" else Mz, N, direction=a, fy_ame=fyp.get("ame"))
-        if forme == "I" and Vy > 0:
-            if s.get("fabrication") in AM.SOUDES:
-                J.alerte("Avy", "info", "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 6.2.6(3) e)).")
-            else:
-                J.alerte("Avy", "info", "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).")
+        if forme == "I" and Vy > 0:                          # la règle que aires_cisaillement a PRISE
+            J.alerte("Avy", "info", MSG_AVY[av["regle_y"]])
     G["rho_z"], G["rho_y"] = rho["z"], rho["y"]
     r = max(rho["z"], rho["y"])
     G["rho"] = r
 
     # ---- le contrôle élastique (6.1), pour information (§ 6.2.1(5) ; brief § 7.5, test 28 du § 11.5)
-    if forme == "I" and (My > 0 or Mz > 0 or Vz > 0):
+    # (un I saisi sans h, b ou t_f — ses c/t et ses propriétés seulement — n'a pas de points : pas de contrôle)
+    if forme == "I" and (My > 0 or Mz > 0 or Vz > 0) and (PR.est_prs(s) or all(s.get(k) for k in ("h", "b", "tf", "tw"))):
         controle_elastique(J, d)
 
     # ---- les interactions

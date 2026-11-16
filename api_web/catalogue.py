@@ -119,12 +119,26 @@ def _liste(r: Dict, cle: str) -> List:
     return x
 
 
+# ce qu'un PRS du module Barres ajoute à l'enregistrement (acier/barre/prs.vers_bibliotheque) : la semelle basse d'un PRS
+# monosymétrique (« b2 », « tf2 ») et la gorge (« a »). Le Catalogue ne calcule qu'un PRS à semelles égales : un PRS
+# monosymétrique est REFUSÉ (il serait relu bisymétrique, sous un autre nom) ; la gorge, qu'il n'emploie pas, est admise.
+DIMS_PRS_BARRES = ("b2", "tf2", "a")
+MSG_PRS_MONO = "PRS à semelles différentes : le Catalogue ne le calcule pas (module Barres)"
+
+
 def _def_perso(d) -> Dict:
-    """Un profilé personnalisé lu dans un fichier : sa forme et ses dimensions, contrôlées comme à la saisie."""
+    """Un profilé personnalisé lu dans un fichier : sa forme et ses dimensions, contrôlées comme à la saisie. Une
+    dimension inconnue est refusée (un autre lecteur du même enregistrement la lit peut-être)."""
     if not isinstance(d, dict) or d.get("famille") not in CO.formes_perso() or not isinstance(d.get("dims"), dict):
         raise ValueError(f"profilé personnalisé illisible : {d!r}"[:160])
     fam = d["famille"]
+    admises = set(F.FAMILLES[fam]["dims"]) | (set(DIMS_PRS_BARRES) if fam == "PRS" else set())
+    inconnues = sorted(str(k) for k in set(d["dims"]) - admises)
+    if inconnues:
+        raise ValueError(f"profilé personnalisé {fam} : dimension inconnue ({', '.join(inconnues)})"[:160])
     dims = {k: _nombre(d["dims"].get(k), f"dimension {k}") for k in F.FAMILLES[fam]["dims"]}
+    if fam == "PRS" and any(k in d["dims"] and _nombre(d["dims"][k], f"dimension {k}") != dims[base] for k, base in (("b2", "b"), ("tf2", "tf"))):
+        raise ValueError(MSG_PRS_MONO)
     CO.refus_du_site(fam, dims)
     CO.controle_ecran(fam, dims)
     return {"famille": fam, "dims": dims}

@@ -15,7 +15,8 @@ LE CONTRAT (les blocs de la méthode ELS, de la stabilité et de l'EN 1993-1-5 l
         "int_z_y2z2"       ∫z·(y² + z²)dA, z vers le haut depuis le centre de gravité (mm⁵)
         "Wel_y_haut", "Wel_y_bas", "Wel_y" (le plus petit), "Wpl_y" (axe neutre plastique qui partage l'aire)
         "Iw", "It" (18.4), "If_haut" = t1·b1³/12, "If_bas" = t2·b2³/12
-        "Avz" = η·hw·tw (η = 1,20, PRS), "Avy" = A − hw·tw, "eta" = 1,20
+        "Avz" = η·hw·tw (η = 1,20, PRS), "Avy" = A − hw·tw, "eta" = 1,20 — au η du jeu de paramètres PAR DÉFAUT ;
+                           l'Eurocode 3 de la barre recalcule A_v,z avec SON jeu (ec3_ame.eta_de) : un test lie les deux
     zj_psi(section, semelle_comprimee) -> {"z_j", "psi_f", …}       par TRONÇON : ils changent avec la semelle comprimée
 
 LES PROPRIÉTÉS (brief § 18.4), sur les trois rectangles, CORDONS NON COMPTÉS (côté sûr) :
@@ -52,7 +53,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from acier.flambement import normes as NO
 
 from . import parametres as PA
-from .resultat import Refus
+from .resultat import Refus, fr
 
 FAMILLE = "PRS"
 DIMS = ("b1", "t1", "hw", "tw", "b2", "t2")
@@ -66,6 +67,11 @@ MSG_GORGE = "Gorge a non saisie : s = 0 (largeurs c plus grandes, côté sûr)."
 MSG_BORDS = "Bords des semelles non saisis (oxycoupés ou larges plats) : verdict de la méthode ELS bloqué."
 # l'ε d'un plat dans les blocs de formules : « ε_f1 » (semelle haute), « ε_f2 » (semelle basse), « ε_w » (âme)
 ROLES = {"semelle_haut": ("semelle haute", "f1"), "semelle_bas": ("semelle basse", "f2"), "ame": ("âme", "w")}
+
+
+def mm(x: float) -> str:
+    """Une dimension de plat dans une phrase : « 30 », « 30,5 » (virgule, sans zéro inutile)."""
+    return fr(x, 0 if abs(x - round(x)) < 1e-9 else 1)
 
 
 def _dimension(v, nom: str) -> float:
@@ -127,6 +133,7 @@ def section_prs(b1, t1, hw, tw, b2, t2, a=None, nuance: str = "S355", bords: Opt
         s = a * RACINE2
     if nuance not in NO.NUANCES:
         raise Refus(f"PRS : nuance inconnue {nuance!r} (S235, S275, S355 ou S460)")
+    bords = {v: k for k, v in BORDS.items()}.get(bords, bords)    # (la fabrication du contrat, « soude_oxycoupe », admise aussi)
     if bords is not None and bords not in BORDS:
         raise Refus(f"PRS : bords des semelles « oxycoupes » ou « larges_plats » — reçu {bords!r}")
     if not (tw < b1 and tw < b2):
@@ -149,7 +156,7 @@ def section_prs(b1, t1, hw, tw, b2, t2, a=None, nuance: str = "S355", bords: Opt
     z_sc = h - t1 / 2.0 - hs * I2 / (I1 + I2)                   # le centre de cisaillement, depuis la face inférieure
     integrale = sum(b ** 3 * ((z2 - zg) ** 2 - (z1 - zg) ** 2) / 24.0 + b * ((z2 - zg) ** 4 - (z1 - zg) ** 4) / 4.0
                     for b, z1, z2 in rects)
-    eta = PA.valeur("eta_soude")
+    eta = PA.valeur("eta_soude")                                 # (le défaut : voir « Avz » dans le contrat)
     mono = (b1, t1) != (b2, t2)
     sec = {"nom": nom if (nom and FAMILLE in nom) else (f"{FAMILLE} {nom}" if nom else nom_de(b1, t1, hw, tw, b2, t2)),
            "famille": FAMILLE, "forme": "I", "fabrication": BORDS.get(bords), "axes": ("y-y", "z-z"), "nuance": nuance,
@@ -310,7 +317,8 @@ def aire_efficace(s: Dict, eps, rho_interne, rho_console, lambda_p, k_console: f
             trous.append((retrait, z))
         out.append(p)
     A_eff = s["A"] - sum(a for a, _ in trous)
-    eN = (s["A"] * s["z_g"] - sum(a * z for a, z in trous)) / A_eff - s["z_g"] if trous else 0.0
+    # (semelles égales : les trous sont symétriques, e_N = 0 exactement — pas le bruit d'arrondi d'un calcul à 10⁻¹³ mm)
+    eN = (s["A"] * s["z_g"] - sum(a * z for a, z in trous)) / A_eff - s["z_g"] if trous and s.get("monosymetrique") else 0.0
     return {"A_eff": A_eff, "reduite": A_eff < s["A"], "e_N": eN, "parois": out}
 
 

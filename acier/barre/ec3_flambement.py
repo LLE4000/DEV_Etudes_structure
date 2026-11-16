@@ -47,7 +47,7 @@ def courbes(s: Dict, nuance: Optional[str], fy: float) -> Dict:
             cy, cz = ("b", "c") if mince else ("c", "d")
             regle = "I soudé, t_f ≤ 40 mm" if mince else "I soudé, t_f > 40 mm"
             if PR.monosymetrique(s):                 # PRS : t_f = la plus grande épaisseur de semelle (choix prudent déclaré)
-                regle += f" (t_f = {s['tf']:g} mm, la plus épaisse des semelles)"
+                regle += f" (t_f = {PR.mm(s['tf'])} mm, la plus épaisse des semelles)"
         elif forme in SE.TUBES and fab in ("creux_chaud", "creux_froid"):
             cy, cz, regle = NO.courbes(fab, nu)
         elif forme in ("tube_carre", "tube_rect") and fab in ("caisson", "caisson_recuit"):
