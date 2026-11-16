@@ -520,8 +520,9 @@ def main():
         and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 2
         and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"]
                 if " · " in v["titre"] or " — NBN" in v["titre"] or v["titre"] in TETES.values() or " : âme" in v["titre"])
-        and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : âme sous la réaction",
-                                                          "Appui B : âme sous la réaction"], [(v["num"], v["titre"]) for v in sec["verifs"]])
+        # (lot B, le harnais suit : s_s non saisie → 0 ; à l'appui d'extrémité σ_x = 0, le critère 6.2.1(5) demande un raidisseur)
+        and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : raidisseur, écrasement au contact",
+                                                          "Appui A : raidisseur, flambement"], [(v["num"], v["titre"]) for v in sec["verifs"]])
     _o, pages, _f = faire(NOTES["une poutre continue qui ne tient pas"])
     T = " ".join(pages[1:])
     el, r = barres(NOTES["une poutre continue qui ne tient pas"])[0]

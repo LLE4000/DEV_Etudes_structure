@@ -36,12 +36,13 @@ PARAMETRES: Dict[str, Dict] = {
                    "source": "ANB:2018 : une borne existe (tableau A.2) ; sa valeur est supposée, comme dans l'annexe française"},
     # ---- âme (EN 1993-1-5 § 5.1)
     # η : la note complémentaire de 5.1(2) de la NBN EN 1993-1-5 ANB:2011 (renvoi à 6.2.6(3) de l'EN 1993-1-1) réserve
-    # η > 1,00 aux sections SOUDÉES chargées dans le plan de l'âme (brief § 7.5 et § 8) : 1,00 pour les I et H laminés
-    # et les tubes ; 1,20 pour les I soudés et les caissons, jusqu'au S460 compris. Texte reçu au lot 4 : à pointer.
-    "eta": {"valeur": 1.00, "nom": "η", "statut": A_POINTER,
+    # η > 1,00 aux sections SOUDÉES chargées dans le plan de l'âme (brief § 8) : 1,00 pour les I et H laminés et les
+    # tubes ; 1,20 pour les PRS, les I soudés et les caissons, jusqu'au S460 compris. Pointé sur le texte (lot B, 16/11/2026 :
+    # confirmé par le propriétaire, relu sur l'ANB:2011) ; au-delà du S460, l'ANB rend 1,00 normatif (non proposé en v1).
+    "eta": {"valeur": 1.00, "nom": "η", "statut": POINTE,
             "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire : I et H laminés, tubes"},
-    "eta_soude": {"valeur": 1.20, "nom": "η (section soudée)", "statut": A_POINTER,
-                  "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2) : sections soudées (I, caissons) jusqu'au S460"},
+    "eta_soude": {"valeur": 1.20, "nom": "η (section soudée)", "statut": POINTE,
+                  "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2) : sections soudées (PRS, I, caissons) jusqu'au S460"},
     # ---- combinaisons (NBN EN 1990 ANB, expression 6.10)
     "gamma_G_sup": {"valeur": 1.35, "nom": "γ_G,sup", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
     "gamma_G_inf": {"valeur": 1.00, "nom": "γ_G,inf", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},

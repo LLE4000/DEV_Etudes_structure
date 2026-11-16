@@ -313,7 +313,7 @@ l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻
 | Facteur f (§ 6.3.2.3(2)) | formule EN | brief | à pointer |
 | Méthode de § 6.3.3 | méthode 1 (annexe A) | ANB d'après l'aide de STAAD.Pro | **À CONFIRMER** |
 | Borne inférieure de C_mi,0 (tableau A.2) | 1 − N_Ed/N_cr,i (supposée, comme l'annexe française) | l'aide de STAAD.Pro dit qu'il y en a une, sans la donner | **À CONFIRMER** |
-| η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (I soudés, caissons), jusqu'au S460 (lot A) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire | à pointer |
+| η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (PRS, I soudés, caissons), jusqu'au S460 (lot A ; PRS : lot B) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire (renvoi au 6.2.6(3) de l'EN 1993-1-1) | pointé (lot B) |
 | Combinaison ELU | (6.10) : 1,35·G + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i | NBN EN 1990 ANB | à pointer |
 | ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB (brief) | à pointer |
 | ψ de la neige, du vent, de la température | 0,5/0,2/0 ; 0,6/0,2/0 ; 0,6/0,5/0 (valeurs EN) | — | **À CONFIRMER** |
@@ -377,7 +377,7 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   |N|/(f_y·A) + |M|/(f_y·W_el), A_eff et W_eff en classe 4 (Q10).
 - **LA DÉCISION**, lieu par lieu : « sans raidisseur », avec les taux ; ou « raidisseur » dès qu'une combinaison dépasse
   η₂ = 1 ou l'interaction — et à chaque appui posé d'une âme élancée au cisaillement (§ 5.1(2)). La raison est écrite
-  (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 611,2 kN »).
+  (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 585,2 kN » ; ou le critère 6.2.1(5) d'une semelle tendue).
 - **Le raidisseur** : une paire de plats symétriques, sur toute la hauteur de l'âme. Épaisseur : la première de 8, 10,
   12, 15, 20 mm qui porte la plus grande force du lieu. Largeur : la demi-semelle (b − t_w)/2 au plus, au pas de 5 mm,
   réduite tant que le plat est trop élancé pour son épaisseur (b_s/t_s ≤ 14·ε ; I_T/I_p ≥ 5,3·f_y/E — c'est la torsion qui
@@ -389,17 +389,45 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   avoir la rigidité d'un appui (I_st ≥ 0,75·h_w·t_w³). Il porte TOUTE la force ; il est de la nuance de la barre, chaque
   plat à la f_y de SON épaisseur (lot A : 20 mm en S235 → 225) ; la section en croix est calculée à min(f_y des plats ;
   f_y de l'âme), 15·ε·t_w avec l'ε de l'âme ; l'écrasement au contact, et 14·ε, gardent la f_y du plat.
-- **Voilement induit par la semelle** (§ 8), avec k = 0,4 (du côté sûr) : aucun I du catalogue ne le dépasse, même en
-  S460 ; une ligne d'hypothèse le dit, la vérification « A-S » ne paraît que s'il est dépassé.
+- **Voilement induit par la semelle** (§ 8), avec k = 0,4 (du côté sûr) et f_y des semelles : aucun I du catalogue ne le
+  dépasse, même en S460 ; une ligne d'hypothèse le dit, la vérification « A-S » ne paraît que s'il est dépassé. Semelles
+  inégales (PRS) : la plus grande des deux aires (NBN EN 1993-1-5 ANB:2011, 8(2)).
+- **Les PRS en I** (lot B ; section selon le contrat de `acier/barre/prs.py`) : section soudée, donc η = 1,20 partout, même
+  quand les bords des semelles ne sont pas saisis ; h_w = l'âme saisie entre semelles ; b_f et t_f de la semelle CHARGÉE
+  (m₁, m₂, l_y) ; force transmise (type b) : la semelle qui donne la plus petite F_Rd (choix prudent déclaré) ; M_f,Rd
+  (§ 7.1) : la plus petite semelle sur le bras entre plans moyens ; raidisseur : chanfrein qui dégage le cordon (a·√2),
+  largeur sur la plus étroite semelle. PRS-A : h_w/t_w = 36,0 ≤ 72·ε_w/η = 48,82.
+- **Semelle chargée comprimée ou tendue** (lot B ; § 7.2(2)) : σ_x = N/A + M·z/I au plan moyen de la semelle chargée
+  (compression positive). Comprimée : l'interaction (7.2). Tendue : pas d'interaction — le critère 6.2.1(5) de
+  l'EN 1993-1-1 à la jonction âme-semelle (« A-Lnn-EL »), avec σ_x, σ_z,Ed = F_Ed/(s_e·t_w), s_e = s_s + 2·t_f
+  (§ 3.2.3, z = 0) et τ = V·S_f/(I_y·t_w). σ_x nulle ou de signes mêlés (un appui d'extrémité) : les deux, le plus
+  défavorable retenu. Le critère décide aussi le raidisseur. Conséquence : à un appui d'extrémité avec s_s non saisie
+  (0), σ_z,Ed = F/(2·t_f·t_w) — la barre neuve (IPE 300, 44,4 kN) demande un raidisseur (critère 1,57) ; avec
+  s_s = 100 mm, non (6 %).
+- **Seuil de résistance locale** (lot B) : à M_Ed imposé, min(F_Rd ; (1,4 − 0,8·η₁)·F_Rd) — R4 : 380,08 kN (η₁
+  élastique), 387,76 kN (η₁ plastique) ; une phrase dit que ce n'est pas la capacité de la barre. η₁ plastique
+  (classes 1 et 2, DÉCISION BUREAU n° 1) est affiché en variante ; le verdict reste élastique.
+- **Contact d'extrémité saisi** (lot B ; DÉCISION BUREAU n° 2) : « appuis.contact » et « contact » d'une charge
+  ponctuelle, « oui » | « non » | « inconnu » (défaut, gardé absent de la barre tant qu'il n'est pas saisi) ; « inconnu » :
+  verdict de « non » et message « hypothèse de contact non établie » avec la valeur « oui » pour information.
+- **Raidisseur et cisaillement** (lot B) : sous une charge, dans une âme élancée, le flambement du raidisseur porte
+  N = F_Ed + N_st, N_st = V_Ed − h_w·t·f_y/(√3·λ̄_w²·γ_M1) ≥ 0 (§ 9.3.3(3)) ; I_st,min (9.5)/(9.6) avec le seuil √2.
+- **La vue avant/après** (§ 15.4, calcul ; l'affichage est au lot C) : chaque lieu rend « sans » (σ_z,Ed, F_Rd, η₂,
+  interaction et sa variante plastique, critère 6.2.1(5), seuil, état de la semelle, contact) et « avec » (A_st,
+  σ = N/A_st, N_b,Rd, taux ; A_c, σ de contact, f_y du plat, taux), et le rappel « un raidisseur transversal ne réduit
+  pas τ » ; le voilement par cisaillement qui gouverne le dit aussi (plaque de doublage ou profil plus lourd).
 - **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
   pas décrits, et le bloc le dit.
 - **Ce qui n'est PAS fait** (v1), et dit — jamais rendu « ok » : la paroi d'un profil creux sous une force concentrée
-  (EN 1993-1-8 : un avertissement) ; les raidisseurs intermédiaires d'une âme élancée et le montant d'extrémité rigide ;
+  (EN 1993-1-8 : un avertissement) ; les raidisseurs intermédiaires d'une âme élancée et le montant d'extrémité rigide
+  (k_τ, χ_w = 1,37/(0,7 + λ̄_w), V_bf,Rd : sans objet tant que a → ∞) ; les exemples du commentaire JRC (EUR 22898),
+  bloqués — le site n'était pas joignable depuis la session du lot B ;
   les soudures des raidisseurs (EN 1993-1-8) ; DEUX FORCES RAPPROCHÉES sur la même semelle — leurs longueurs chargées
   l_y se recouvrent —, que le § 6.3(2) demande de vérifier aussi ensemble : la vérification « A-GR » est alors rendue
   « non couvert » ; une réaction de soulèvement (ancrage : un avertissement).
 
-**La preuve** — `tests/test_barre_ame.py`, 181 contrôles (lot A, deuxième passe) : le cas R4 du brief (IPE 300 : 283,2 /
+**La preuve** — `tests/test_barre_ame.py`, 230 contrôles (lot B : PRS-A et PRS-C, tests 2, 13, 17, 18, 31 à 34 et 36 du
+brief, seuil de R4 ; 31 mutations neuves) ; avant, 181 (lot A, deuxième passe) : le cas R4 du brief (IPE 300 : 283,2 /
 387,8 / 425,1 kN en type (a) ; en type (c), 199,8 kN sans contact — 248,9 et 335,9 kN avec contact, pour information —,
 avec leurs valeurs intermédiaires) ; un témoin écrit depuis le texte de la norme, égal au moteur sur les 275 I et H du
 catalogue, deux nuances, douze charges ; l'IPE 750x134 S355 à la main (V_bw,Rd = 1 722,0 kN ; l'IPE 750x147 n'est plus
