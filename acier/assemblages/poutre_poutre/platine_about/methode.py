@@ -2,6 +2,7 @@
 """Onglet Méthode : le modèle mécanique de la platine d'about, ses sources
 et ses limites — en toutes lettres."""
 from .notation import NOTATIONS
+from acier.assemblages import materiau as MT
 
 METHODE = """
 #### Ce que l'outil vérifie
@@ -93,8 +94,7 @@ confirmer pour un projet belge.
 
 #### Données de bibliothèque
 
-Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
-valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+Nuances : {NUANCES} Profilés : catalogue HEA / HEB /
 HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies.
 
 #### Limites du modèle (à justifier séparément le cas échéant)
@@ -114,7 +114,7 @@ Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI) — §2
 platine d'about de hauteur partielle et §2.4 Worked Example (benchmark du
 module) ; *SCI P358, Joints in Steel Construction: Simple Joints to
 Eurocode 3* ; *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005.
-"""
+""".replace("{NUANCES}", MT.texte_nuances())     # la règle belge des nuances, une source (materiau.py)
 
 
 def _notations(texte):

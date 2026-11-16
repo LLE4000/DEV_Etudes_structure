@@ -112,3 +112,13 @@ def fixe(valeurs):
 # S355 des calculs à la main (f_y = 355, f_u = 510), sans épaisseur.
 EXEMPLES = fixe({"S275": (275.0, 430.0), "S355": (355.0, 510.0)})
 
+
+def texte_nuances():
+    """Le texte d'aide des nuances (aide à l'écran et rubrique Méthode des attaches) : la règle belge, et les valeurs
+    du S355 LUES dans la table (aucun nombre recopié)."""
+    fy16, fy40, fu = MA.fy("S355", 16), MA.fy("S355", 40), MA.fu("S355", 10)
+    return (f"fy et fu selon l'épaisseur de chaque pièce : NBN EN 1993-1-1 ANB:2018 3.2.1(1) (option a), "
+            f"tableau 3.3 ANB (EN 10025-2) ; S355 N/NL et S460 N/NL : tableau 3.4 ANB. Plat, platine, cornière : son "
+            f"épaisseur ; profilé : sa paroi la plus épaisse, max(tf, tw). S355 : fy = {fy16:g} MPa jusqu'à 16 mm, "
+            f"{fy40:g} MPa de 16 à 40 mm ; fu = {fu:g} MPa de 3 à 100 mm. La ligne « S355 (fu 490) » suit le S355 "
+            f"belge (fu = {fu:g} MPa). « Personnalisé » : fy, fu et βw saisis.")

@@ -21,6 +21,7 @@ Les conditions d'affichage sont des fonctions du dictionnaire des saisies
 ``u`` : elles ne dépendent d'aucune interface.
 """
 from acier.bibliotheques import DB, PERSO, ORI_P, ORI_S, noms
+from acier.assemblages import materiau as MT
 
 MODE_VERIF = "VÉRIFICATION"
 MODE_PREDIM = "PRÉDIMENSIONNEMENT"
@@ -177,7 +178,7 @@ GROUPES = [
     dict(t="Poutre principale (porteuse)",
          f=[_c("prof_P", "Profilé", "s", PROFILS)] + _dims("P", perso_P) +
            [_c("nu_P", "Nuance d'acier", "s", ACIERS,
-               h="S355 : fu = 510 MPa (EN 1993-1-1:2005 Tab. 3.1). Ligne « fu 490 » : valeur retenue par d'autres références (annexe nationale française, EN 1993-1-1:2022). À caler sur ton ANB.")]),
+               h=MT.texte_nuances())]),
     dict(t="Poutre secondaire (portée) et grugeage",
          f=[_c("prof_S", "Profilé", "s", PROFILS)] + _dims("S", perso_S) +
            [_c("nu_S", "Nuance d'acier", "s", ACIERS),

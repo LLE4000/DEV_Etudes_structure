@@ -94,6 +94,21 @@ chk("cornières : t < a2 ≤ a1 et rayon > 0",
 chk("ailes standard croissantes, épaisseurs croissantes",
     [a[0] for a in DB["ailes"]] == sorted(a[0] for a in DB["ailes"]) and DB["epais"] == sorted(DB["epais"]))
 
+print("\n=== 5. Textes d'aide des nuances (lot A) : la règle belge, lue dans la table ===")
+import importlib  # noqa: E402
+from acier.assemblages import materiau as MT  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres import entrees as EDC  # noqa: E402
+_t = MT.texte_nuances()
+chk("le texte dit la règle : f_y et f_u selon l'épaisseur, tableau 3.3 ANB, S355 : fu = 470 de 3 à 100 mm, la ligne "
+    "« fu 490 » suit le S355 belge", "tableau 3.3 ANB" in _t and "fu = 470 MPa de 3 à 100 mm" in _t
+    and "« S355 (fu 490) » suit le S355 belge (fu = 470 MPa)" in _t and "510" not in _t, _t)
+_meth = [importlib.import_module(f"acier.assemblages.{m}.methode") for m in (
+    "poutre_poutre.doubles_cornieres", "poutre_poutre.plat_ame", "poutre_poutre.platine_about",
+    "poutre_poteau.plat_ame_poteau", "poutre_poteau.doubles_cornieres_poteau", "poutre_poteau.platine_about_poteau")]
+chk("les six rubriques Méthode et l'aide de la nuance (doubles cornières) portent ce texte, plus « fu = 510 »",
+    all(_t in m.METHODE and "fu = 510" not in m.METHODE and "{NUANCES}" not in m.METHODE for m in _meth)
+    and EDC.CHAMPS["nu_P"].get("h") == _t, str([m.__name__ for m in _meth if _t not in m.METHODE]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

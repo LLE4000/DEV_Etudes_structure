@@ -9,6 +9,7 @@ le repli « Périmètre de la vérification » (``ecran_resultats.NON_REVERIFIES
 les lit ici). Elles sont celles de l'étude, `POUTRE_POTEAU.md` §8.4."""
 from .. import textes
 from .notation import NOTATIONS
+from acier.assemblages import materiau as MT
 
 # Les neuf limites du §8.4 ont UNE SOURCE, ``..textes`` (consolidation du
 # 02/11/2026) : les six premières et les deux dernières sont celles de la
@@ -155,8 +156,7 @@ consultée — à confirmer.
 
 #### Données de bibliothèque
 
-Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
-valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+Nuances : {NUANCES} Profilés : catalogue HEA / HEB /
 HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies. Cornières :
 dimensions usuelles EN 10056-1, à contrôler avec le catalogue du fournisseur ;
 « Orientation » ne s'affiche que pour une cornière à ailes inégales (ou
@@ -168,7 +168,7 @@ du périmètre (autre composant, EN 1993-1-8 §7).
 
 #### Limites du modèle (à justifier séparément le cas échéant)
 
-""" + _liste(limites(True)) + """
+""".replace("{NUANCES}", MT.texte_nuances()) + _liste(limites(True)) + """
 
 #### Points TRANCHÉS SANS SOURCE FRANCHE — à relire par le bureau
 

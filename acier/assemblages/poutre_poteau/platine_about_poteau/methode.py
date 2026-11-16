@@ -12,6 +12,7 @@ le groupe de boulons est CENTRÉ, il n'y a donc pas de composante
 ``qx = 3·MS/hp²`` du moment d'excentricité, seulement la force de chaînage."""
 from .. import textes
 from .notation import NOTATIONS
+from acier.assemblages import materiau as MT
 
 # Les neuf limites du §8.4 ont UNE SOURCE, ``..textes`` (consolidation du
 # 02/11/2026) : les six premières et les deux dernières sont celles de la
@@ -180,15 +181,14 @@ l'EN 1993-1-8 ne la fixe pas et l'ANB n'a pas été consultée — à confirmer
 
 #### Données de bibliothèque
 
-Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
-valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+Nuances : {NUANCES} Profilés : catalogue HEA / HEB /
 HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies. Le poteau
 est un profil en I ou H, âme verticale : un poteau CREUX (RHS / SHS / CHS)
 sort du périmètre (autre composant, EN 1993-1-8 §7).
 
 #### Limites du modèle (à justifier séparément le cas échéant)
 
-""" + _liste(limites(True)) + """
+""".replace("{NUANCES}", MT.texte_nuances()) + _liste(limites(True)) + """
 
 #### Points TRANCHÉS SANS SOURCE FRANCHE — à relire par le bureau
 
