@@ -75,4 +75,87 @@ définit la section monosymétrique par ses dimensions ; il calculera ses propre
 
 ## 4. SCIA Engineer — trois cas avec l'annexe nationale belge
 
-*(complété après le lot A : les valeurs attendues sont celles du site corrigé)*
+*Valeurs attendues : celles du site après le lot A (couple (λ̄_LT,0 ; β) = (0,2 ; 1,0), f_y selon l'épaisseur, η = 1,00
+pour un laminé). Merci de renvoyer, pour chaque ligne, la valeur de SCIA et, s'il y a un écart, le réglage employé.*
+
+**Réglages SCIA à vérifier avant de lancer** (sinon l'écart vient du réglage, pas du calcul) :
+- Annexe nationale : Belgique (NBN EN 1993-1-1 ANB:2018). γ_M0 = γ_M1 = 1,00.
+- **Limite élastique selon l'épaisseur** (option « Thickness range » / épaisseur du matériau, EN 10025-2) : c'est
+  le point que le lot A a corrigé. Le HEB 300 en S235 doit être calculé à **f_y = 225 N/mm²** (t_f = 19 mm,
+  tableau 3.3 ANB, 16 < t ≤ 40 mm). Si SCIA prend 235, le dire : on compare alors à la ligne « à 235 » donnée plus bas.
+- Déversement : méthode générale des profilés laminés (§ 6.3.2.3), courbes du tableau 6.5 (laminé : b si h/b ≤ 2,
+  c au-delà), **λ̄_LT,0 = 0,2 et β = 1,0** (ANB:2018, 6.3.2.3(1)), f = 1 (k_c = 1). Appuis à fourche, k = k_w = 1.
+  Pour M_cr, le site résout le problème aux valeurs propres sur le diagramme réel : dans SCIA, prendre le calcul de
+  M_cr par valeurs propres (« LTBII ») si vous l'avez ; sinon noter la méthode et les coefficients C1, C2, C3 employés.
+- Interaction N + M : méthode 1 (annexe A), comme le site.
+- Combinaison : expression (6.10), 1,35·G + 1,5·Q (une seule combinaison par cas, sauf le cas S3).
+- Propriétés de section du site (catalogue du site, à comparer à celles de SCIA) :
+
+| Profil | A (mm²) | I_y (cm⁴) | I_z (cm⁴) | I_t (cm⁴) | I_w (10³ cm⁶) | W_pl,y (cm³) |
+|---|---|---|---|---|---|---|
+| IPE 300 | 5 381 | 8 357 | 603,8 | 19,77 | 126,3 | 628,4 |
+| HEB 300 | 14 909 | 25 167 | 8 563 | 187,7 | 1 690 | 1 869 |
+| IPE 360 | 7 273 | 16 267 | 1 043 | 37,90 | 314,6 | 1 019 |
+
+(Les I_t du site sont un peu plus bas que ceux des catalogues des fabricants — IPE 300 : 19,77 contre 20,12 cm⁴ :
+c'est pourquoi M_cr de S1 est 0,7 % sous la référence R3 du brief, 86,98 kN·m.)
+
+### S1 — poutre IPE 300 en S235, 6,00 m sur deux appuis (cas R2 / R3 du brief)
+
+Charges : G = 2,42 kN/m sur toute la portée + 10 kN à mi-portée ; Q = 15 kN à mi-portée (catégorie A) ; poids
+propre NON ajouté (il est compris dans les 2,42 kN/m). Aucun maintien latéral entre les appuis. Deux calculs : charges
+sur la semelle HAUTE (z_g = +150 mm), puis au centre de cisaillement.
+
+| Grandeur | Attendu (site) |
+|---|---|
+| q_Ed ; P_Ed | 3,267 kN/m ; 36,00 kN |
+| M_y,Ed (mi-portée) ; V_z,Ed (appui) | 68,70 kN·m ; 27,80 kN |
+| Classe ; M_c,Rd (W_pl·f_y) ; taux | 1 ; 147,67 kN·m ; 0,465 |
+| V_pl,z,Rd ; taux | 348,47 kN ; 0,080 |
+| Déversement, charges sur la semelle haute : M_cr ; λ̄_LT ; χ_LT ; M_b,Rd ; **taux** | 86,36 kN·m ; 1,308 ; 0,4232 ; 62,49 kN·m ; **1,099 (non conforme)** |
+| Déversement, charges au centre de cisaillement : M_cr ; λ̄_LT ; χ_LT ; M_b,Rd ; **taux** | 117,52 kN·m ; 1,121 ; 0,5228 ; 77,20 kN·m ; **0,890** |
+
+Courbe de déversement b (h/b = 2,0), α_LT = 0,34. Avec l'ancien couple (0,4 ; 0,75), le site donnait 0,896 en semelle
+haute : c'est l'écart le plus fort du lot A, et la raison de ce cas.
+
+### S2 — poteau HEB 300 en S235, 5,00 m, articulé aux deux bouts, N + M
+
+Efforts de calcul imposés (pas de combinaison) : N_Ed = 1 400 kN (compression) ; M_y,Ed = 70 kN·m en tête, 0 au pied
+(diagramme linéaire, ψ = 0) ; V_z,Ed = 14 kN. Longueurs de flambement 5,00 m autour des deux axes ; déversement sur
+5,00 m, appuis à fourche, aucun maintien.
+
+| Grandeur | Attendu (site, f_y = 225) | Pour mémoire, à f_y = 235 |
+|---|---|---|
+| f_y (t_f = 19 mm) | 225 N/mm² (tableau 3.3 ANB) | — |
+| Classe ; N_pl,Rd ; M_pl,y,Rd | 1 ; 3 354,4 kN ; 420,47 kN·m | 1 ; 3 503,5 kN ; 439,16 kN·m |
+| Flambement y-y (courbe b) : N_cr ; λ̄ ; χ ; N_b,y,Rd | 20 864 kN ; 0,401 ; 0,9257 ; 3 105,1 kN | à recalculer par SCIA |
+| Flambement z-z (courbe c) : N_cr ; λ̄ ; χ ; N_b,z,Rd | 7 099 kN ; 0,687 ; 0,7325 ; 2 457,0 kN | à recalculer par SCIA |
+| Déversement : M_cr ; λ̄_LT ; M_Ed/M_cr | 2 649 kN·m ; 0,398 ; 0,026 ≤ λ̄_LT,0² = 0,04 : **négligé**, χ_LT = 1 | — |
+| Annexe A : C_my,0 ; μ_y ; μ_z ; k_yy ; k_zy | 0,933 ; 0,995 ; 0,938 ; 1,081 ; 0,582 | — |
+| **(6.61)** = N/(χ_y·N_Rk) + k_yy·M/(χ_LT·M_y,Rk) | **0,631** | — |
+| **(6.62)** = N/(χ_z·N_Rk) + k_zy·M/(χ_LT·M_y,Rk) | **0,667** | — |
+
+Vérification à la main : (6.61) = 1 400/3 105,1 + 1,0814 × 70/420,47 = 0,451 + 0,180 = 0,631 ; (6.62) = 1 400/2 457,0 +
+0,5821 × 70/420,47 = 0,570 + 0,097 = 0,667. Ce cas contrôle d'abord la limite élastique selon l'épaisseur : à 235,
+tous les taux baissent d'environ 4 %.
+
+### S3 — poutre continue IPE 360 en S355, deux travées de 6,00 m
+
+Charges, sur la semelle HAUTE : G = 6 kN/m sur les deux travées ; Q1 = 10 kN/m sur la travée 1, Q2 = 10 kN/m sur la
+travée 2 (catégorie B, une même action disposée librement : chaque travée chargée seule, puis les deux). Poids propre
+NON ajouté. Appuis à fourche sur les trois appuis, aucun maintien entre eux : un tronçon de déversement par travée.
+
+| Grandeur | Combinaison | Attendu (site) |
+|---|---|---|
+| f_y (t_f = 12,7 mm) | — | 355 N/mm² |
+| M_y,Ed sur l'appui central ; M_c,Rd ; taux | 1,35·G + 1,5·Q1 + 1,5·Q2 | −103,95 kN·m ; 361,82 kN·m ; 0,287 |
+| V_z,Ed sur l'appui central ; V_pl,z,Rd ; taux | 1,35·G + 1,5·Q1 + 1,5·Q2 | 86,62 kN ; 720,24 kN ; 0,120 |
+| Déversement de la travée 1 : M_Ed (en travée) ; M_cr ; λ̄_LT ; χ_LT ; M_b,Rd ; **taux** | 1,35·G + 1,5·Q1 | 71,81 kN·m ; 134,51 kN·m ; 1,640 ; 0,2732 ; 98,84 kN·m ; **0,727** |
+
+Courbe de déversement c (h/b = 2,12 > 2), α_LT = 0,49. Le diagramme de la travée 1 va de 0 (appui de rive) à +71,81
+(en travée) puis −70,20 kN·m (appui central) : c'est le cas où la méthode de M_cr pèse le plus (valeurs propres ou
+coefficients C1 à C3). Si SCIA donne un autre M_cr, renvoyer M_cr : je recalcule λ̄_LT et le taux avec sa valeur
+avant de conclure.
+
+**Critère** : celui du début de ce document (≤ 1 % conforme ; 1 à 3 % à expliquer ; plus de 3 % à corriger ou à
+justifier), comparé grandeur par grandeur, dans l'ordre des lignes : un écart sur M_cr ou f_y explique les suivants.
