@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 from acier import materiaux as MA
 from acier.bibliotheques import DB
 
-from acier.formats import f0, mm_fr
+from acier.formats import f_ecart, mm_fr
 
 from . import bibliotheque as BI
 from . import charges as CH
@@ -138,7 +138,7 @@ def acier(meth: Dict, sec: Optional[Dict] = None, t: Optional[float] = None, pro
         return {"nuance": n, "fy": MA.nominale(n), "fu": MA.fu(n, 16.0), "t": None, "produit": "lamine", "piece": None,
                 "domaine_fy": None, "domaine_fu": None}
     if t <= 0:
-        raise MA.HorsTable(f"épaisseur invalide : {t!r}")
+        raise MA.HorsTable(f"épaisseur invalide : {f_ecart(t, 0)} mm")      # « −2,5 mm », jamais « -2.5 » (lot B, § 19.2)
     return {"nuance": n, "fy": MA.fy(n, t, produit), "fu": MA.fu(n, t, produit), "t": float(t), "produit": produit, "piece": piece,
             "domaine_fy": MA.source(n, t, produit, "fy"), "domaine_fu": MA.source(n, t, produit, "fu")}
 
@@ -401,8 +401,8 @@ def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
     if H <= 0:
         # (lot A, 3e passe, E6) une hauteur négative n'est pas une géométrie : le moteur rendait M = P·H < 0 et une flèche
         # admissible H/100 < 0 (« > 999 % ») — un résultat hors du domaine ; refus nommé, comme une géométrie sans travée.
-        # Lot B (brief v12 § 19.1 point 8 et § 19.2) : 0 mm est refusé de même ; le nombre s'écrit à la française (f0)
-        out["messages"].append(f"Refus : hauteur {'nulle' if H == 0 else 'négative'} (H = {f0(H)} mm)")
+        # Lot B (brief v12 § 19.1 point 8 et § 19.2) : 0 mm est refusé de même ; le nombre s'écrit à la française (f_ecart : « −0,04 », jamais « −0 »)
+        out["messages"].append(f"Refus : hauteur {'nulle' if H == 0 else 'négative'} (H = {f_ecart(H, 0)} mm)")
     elif H_vide:
         out["messages"].append(MSG_H_DEFAUT)
     if ana["messages"] or H <= 0:

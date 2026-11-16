@@ -88,6 +88,8 @@ def _aller(d, chemin: Sequence):
 ENTIERS = {("remplissage", "n_lisses"), ("fixation", "ancrage", "n_par_rangee"), ("fixation", "soudure", "troncons", "n")}
 # les champs qu'on peut VIDER : le moteur prend leur valeur par défaut et le dit (la hauteur : 1 100 mm)
 VIDE_ADMIS = {("geometrie", "H")}
+# le texte indicatif du champ H vidé (C.num(..., auto=…) : le champ part en texte et accepte d'être vidé dans la page)
+H_VIDE = f"{GE.H_DEFAUT:,.0f} par défaut".replace(",", C.FINE)
 
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
@@ -113,12 +115,18 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return None
     d, k = _aller(cas, chemin)
     ancien = d.get(k) if isinstance(d, dict) else d[k]
-    if tuple(chemin) in VIDE_ADMIS and (valeur is None or not str(valeur).strip()):
-        d[k] = None                     # champ vidé : le moteur prend la valeur par défaut et le dit (brief v12 § 19.1 point 8)
+    if tuple(chemin) in VIDE_ADMIS:
+        # champ « vide = défaut » (C.num(..., auto=…), lu par C.lire_auto) : vidé, None — le moteur prend la valeur par
+        # défaut et le dit (brief v12 § 19.1 point 8) ; un nombre, ce nombre ; tout autre texte, refusé comme les autres
+        # champs du module, l'état intact (le texte indicatif du champ dit déjà « 1 100 par défaut »)
+        try:
+            d[k] = C.lire_auto(valeur)
+        except ValueError:
+            return f"Nombre illisible : « {valeur} »"
         return None
     if isinstance(valeur, bool) or isinstance(ancien, bool):
         d[k] = bool(valeur)
-    elif isinstance(ancien, (int, float)) or tuple(chemin) in ENTIERS or tuple(chemin) in VIDE_ADMIS:
+    elif isinstance(ancien, (int, float)) or tuple(chemin) in ENTIERS:
         x = C.lire_nombre(valeur)
         if x is None:
             return f"Nombre illisible : « {valeur} »"
@@ -189,6 +197,12 @@ def _noms_sections(groupes: Sequence[str]) -> List[str]:
     return [s["nom"] for s in BI.standards().values() if BI.groupe_de(s) in groupes]
 
 
+def _h_tete(h) -> str:
+    """H dans l'en-tête de la rubrique : la valeur saisie (« 1300 »), ou, champ vidé, la valeur par défaut que le moteur
+    prend, dite comme telle (« 1100 (défaut) ») — jamais « H » sans valeur."""
+    return C.nb(h) if h is not None else f"{C.nb(GE.H_DEFAUT)} (défaut)"
+
+
 def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     """Les six rubriques du garde-corps ouvert : 1 Garde-corps, 2 Tronçons, 3 Remplissage, 4 Charges, 5 Fixation,
     6 Hypothèses (secondaire). Chaque champ est lié à un chemin de l'état ; les aides sont au survol de ⓘ. Deux champs
@@ -203,7 +217,7 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     s1 = (L("Type", C.choix(["type"], cas.get("type"), [(k, v["libelle"]) for k, v in TY.TYPES.items()]), aide=TY.TYPES[TY.type_de(cas)]["description"],
             full=True)
           + L("Forme", C.segments(["geometrie", "forme"], g.get("forme"), [(k, v[:1].upper() + v[1:]) for k, v in GE.FORMES.items()]), full=True)
-          + L("hauteur", C.num(["geometrie", "H"], g.get("H"), "mm"), "H",
+          + L("hauteur", C.num(["geometrie", "H"], g.get("H"), "mm", auto=H_VIDE), "H",
               "Hauteur de l'axe de la main courante au-dessus de la platine ; la charge s'applique au plus à 1,20 m (EN 1991-1-1 §6.4).")
           + L("pente", C.num(["geometrie", "pente"], g.get("pente"), "°", mini=0, maxi=60), "α", "Garde-corps d'escalier ; 0 : horizontal."))
     # 2 · les tronçons
@@ -319,7 +333,7 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
                    full=True))
     trs = GE.longueurs_troncons(g)
     resume2 = f"{C.fr(sum(trs) / 1000, 2)} m · {geo.get('phrase', '')}" if trs else ""
-    return (C.section(1, "Garde-corps", f"{TY.libelle(cas)} · H {C.nb(g.get('H'))}", s1, True, "gc")
+    return (C.section(1, "Garde-corps", f"{TY.libelle(cas)} · H {_h_tete(g.get('H'))}", s1, True, "gc")
             + C.section(2, "Tronçons", resume2, s2, False, "tr")
             + C.section(3, "Remplissage", resume3, s3, False, "rp")
             + C.section(4, "Charges", f"{CH.libelle_categorie(ch.get('categorie'))} · q<sub>h</sub> {C.nb(ch.get('qh'))} kN/m", s4, False, "ch")

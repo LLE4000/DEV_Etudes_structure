@@ -646,7 +646,7 @@ with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("    if H <= 0:\n", 
     chk("mutation de source « hauteur nulle calculée » (le défaut d'avant) : le contrôle rougit", not ctl_hauteur_nulle_vide())
 with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("        out[\"messages\"].append(MSG_H_DEFAUT)\n", "        pass\n")])):
     chk("mutation de source « champ vide pris en silence » : le contrôle rougit", not ctl_hauteur_nulle_vide())
-with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("(H = {f0(H)} mm)", "(H = {H:g} mm)")])):
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("(H = {f_ecart(H, 0)} mm)", "(H = {H:g} mm)")])):
     chk("mutation de source « H = -1100.5 mm » (point décimal) : le contrôle rougit", not ctl_hauteur_nulle_vide())
 
 
@@ -661,6 +661,31 @@ chk("platine de 260,5 mm : « Refus : S235 laminé de 260,5 mm : le tableau 3.3 
     ctl_refus_virgule())
 with mutant(ET, "mm_fr", str):
     chk("mutation « refus de la table relayé tel quel (260.5 mm) » : le contrôle rougit", not ctl_refus_virgule())
+
+
+def ctl_nombres_limites() -> bool:
+    """Lot B (contre-vérification du bloc) : H = −0,04 mm s'écrit « H = −0,04 mm » (et non « −0 mm », la même famille
+    que « 80 mm > 80 mm ») ; H = 0, « H = 0 mm » (et non « 0,000000 ») ; une platine de −2,5 mm, « épaisseur invalide :
+    −2,5 mm » (et non le repr « -2.5 »)."""
+    def avec(h=1100.0, tp=None):
+        c = cas()
+        c["geometrie"] = {**c["geometrie"], "H": h}
+        if tp is not None:
+            c["fixation"]["platine"]["tp"] = tp
+        return ET.verifier(c)["messages"]
+    return ("Refus : hauteur négative (H = −0,04 mm)" in avec(-0.04) and "Refus : hauteur nulle (H = 0 mm)" in avec(0.0)
+            and "Refus : épaisseur invalide : −2,5 mm" in avec(tp=-2.5))
+
+
+chk("H = −0,04 mm écrit « −0,04 » (pas « −0 ») ; H = 0 : « 0 mm » ; platine de −2,5 mm : « épaisseur invalide : −2,5 mm » "
+    "(pas « -2.5 »)", ctl_nombres_limites())
+import acier.formats as FMT  # noqa: E402
+with mutant(ET, "f_ecart", lambda x, ref: FMT.f0(x)):
+    chk("mutation « f0 seul » (« H = −0 mm ») : le contrôle rougit", not ctl_nombres_limites())
+with mutant(FMT, "_valeur", lambda t: t):
+    chk("mutation « f_ecart compare les textes » (« −0 » ≠ « 0 ») : le contrôle rougit", not ctl_nombres_limites())
+with mutant(ET, "acier", fonction_mutee(ET.acier, [('{f_ecart(t, 0)} mm")', '{t!r}")')])):
+    chk("mutation « épaisseur invalide : -2.5 » (repr) : le contrôle rougit", not ctl_nombres_limites())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

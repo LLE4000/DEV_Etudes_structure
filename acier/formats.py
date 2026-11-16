@@ -4,7 +4,7 @@
 - ``F(x, n)``  : ``toFixed(n)`` avec la virgule décimale ; « — » si non fini ;
 - ``f0(x)``    : 0 ou 1 décimale (1 si la partie décimale dépasse 0,05), signe
                  typographique « − » ;
-- ``pct(e, n)`` : pourcentage, « > 999 % » au-delà de 9,99, « — » si absent ;
+- ``pct(e, n)`` : pourcentage, « > 999 % » au-delà de 9,99, « — » si absent ; ``a_pct`` : « à 107,7 % » ;
 - ``f_ecart(x, ref)`` : ``f0``, ou la décimale qui départage ``x`` de ``ref`` (« 80,04 mm > 80 mm ») ;
 - ``mm_fr(texte)`` : les épaisseurs d'un message de la table (« 260.5 mm ») écrites à la virgule.
 
@@ -47,15 +47,28 @@ def pct(e, n=0):
     return F(e * 100, n or 0) + " %"
 
 
+def _valeur(texte):
+    """Le nombre qu'un texte de ``F`` / ``f0`` donne à lire (« −0 » se lit 0)."""
+    return float(texte.replace("−", "-").replace(",", "."))
+
+
+def a_pct(e, n=0):
+    """« à 107,7 % » — le taux de ``pct`` précédé de « à » ; au-delà de l'échelle de ``pct`` (« > 999 % ») : « au-delà de
+    999 % » (jamais « à > 999 % »). La raison courte d'un « À vérifier » (pied de poteau, lot B)."""
+    t = pct(e, n)
+    return "au-delà de " + t[2:] if t.startswith("> ") else "à " + t
+
+
 def f_ecart(x, ref):
-    """``x`` écrit par ``f0``, sauf quand ``f0`` l'écrirait comme ``ref`` : alors avec la décimale qui les DÉPARTAGE
-    (``F``, jusqu'à 6 décimales) — « épaisseur 80,04 mm > 80 mm », jamais « 80 mm > 80 mm » (lot B, brief v12 § 19.2).
-    Même formateur que le reste du moteur : ``F`` et ``f0``, aucun autre."""
+    """``x`` écrit par ``f0``, sauf quand ``f0`` l'écrirait avec la VALEUR de ``ref`` : alors avec la décimale qui les
+    DÉPARTAGE (``F``, jusqu'à 6 décimales) — « épaisseur 80,04 mm > 80 mm », jamais « 80 mm > 80 mm » ; « H = −0,04 mm »,
+    jamais « −0 mm » (le zéro signé se lit 0 : lot B, brief v12 § 19.2). Même formateur que le reste du moteur : ``F``
+    et ``f0``, aucun autre. ``x`` égal à ``ref`` : ``f0`` (« 0 », jamais « 0,000000 »)."""
     t = f0(x)
-    if x is None or not _fini(x) or ref is None or not _fini(ref) or t != f0(ref):
+    if x is None or not _fini(x) or ref is None or not _fini(ref) or x == ref or _valeur(t) != _valeur(f0(ref)):
         return t
     for n in range(1, 7):
-        if F(x, n) != F(ref, n):
+        if _valeur(F(x, n)) != _valeur(F(ref, n)):
             return F(x, n).replace("-", "−", 1)
     return F(x, 6).replace("-", "−", 1)
 

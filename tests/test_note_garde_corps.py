@@ -365,6 +365,47 @@ try:
 finally:
     NT.Calcul.h_defaut = vrai_hd
 
+
+def ctl_h_vidable_page() -> list:
+    """Le champ H se vide DANS LA PAGE, pas seulement par l'API : un champ « nombre » est refusé vide par la page
+    (site/web/js/commun.js, valeurSaisie : « un nombre est attendu ») et reprend sa valeur en sortie (viderAuFocus) —
+    il doit partir en texte, « vide = défaut » (C.num(..., auto=…) : data-vide, texte indicatif « 1 100 par défaut »).
+    Champ vidé : il s'affiche vide, le texte indicatif en clair, et l'en-tête de la rubrique dit « H 1100 (défaut) »."""
+    ecarts = []
+    motif = re.compile(r'<input data-chemin="geometrie/H"[^>]*>')
+    e = G.nouvel_etat()
+    champ = (motif.findall(G.formulaire(e)) or [""])[0]
+    if 'data-sorte="texte"' not in champ or 'data-vide="auto"' not in champ or 'placeholder="1 100 par défaut"' not in champ:
+        ecarts.append(f"champ H non vidable dans la page : {champ}")
+    G.modifier(e, ["geometrie", "H"], "")
+    f = G.formulaire(G.normaliser(e))
+    champ = (motif.findall(f) or [""])[0]
+    if 'value=""' not in champ:
+        ecarts.append(f"champ H vidé non affiché vide : {champ}")
+    if "H 1100 (défaut)" not in f:
+        ecarts.append("en-tête de la rubrique sans la hauteur par défaut")
+    e2 = G.nouvel_etat()
+    if G.modifier(e2, ["geometrie", "H"], "douze") != "Nombre illisible : « douze »" or e2 != G.nouvel_etat():
+        ecarts.append("un texte illisible n'est pas refusé")
+    return ecarts
+
+
+ec = ctl_h_vidable_page()
+chk("lot B · champ H vidable DANS LA PAGE (texte « vide = défaut », data-vide, « 1 100 par défaut ») ; vidé : affiché vide, "
+    "en-tête « H 1100 (défaut) » ; « douze » refusé", not ec, ec)
+vrai_hv = G.H_VIDE
+G.H_VIDE = ""
+try:
+    chk("mutation « champ H en nombre » (la page refusait le champ vide) : le contrôle rougit", ctl_h_vidable_page() != [])
+finally:
+    G.H_VIDE = vrai_hv
+vrai_ht = G._h_tete
+G._h_tete = C.nb
+try:
+    chk("mutation « en-tête “Garde-corps · H” sans valeur » : le contrôle rougit", ctl_h_vidable_page() != [])
+finally:
+    G._h_tete = vrai_ht
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])
