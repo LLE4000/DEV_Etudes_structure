@@ -146,14 +146,20 @@ def _moment_max(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
     return m
 
 
-def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dict) -> Optional[float]:
-    """k_c du tableau 6.6 quand le tronçon EST un de ses schémas (ec3_deversement.kc_portee) : une portée seule (deux appuis
-    simples, deux encastrements, un encastrement et un appui), tronçon = la portée, sans maintien intérieur, sous des
-    charges uniformes sur toute la portée ou des charges à mi-portée seulement. Sinon None (k_c = 1)."""
+def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dict, C: Optional[ST.Combinaison] = None) -> Optional[float]:
+    """k_c du tableau 6.6 quand le tronçon EST un de ses schémas : un tronçon entre deux fourches, sans maintien intérieur
+    ni charge dedans — moment linéaire (ec3_deversement.kc_lineaire, ψ lu sur la combinaison ``C``) ; ou une portée seule
+    (deux appuis simples, deux encastrements, un encastrement et un appui), tronçon = la portée, sous des charges uniformes
+    sur toute la portée ou des charges à mi-portée seulement (ec3_deversement.kc_portee). Sinon None (k_c = 1)."""
     L = sum(b["travees"])
+    charges = [ch for f, c in zip(facteurs, cas) if f for ch in c.get("charges") or []]
+    if C is not None and not tr["maintiens"] and tuple(tr["appuis"]) == (MC.FOURCHE, MC.FOURCHE):
+        k = DV.kc_lineaire(charges, tr["x1"], tr["x2"], C.lire(tr["x1"])["M_d"], C.lire(tr["x2"])["M_g"])
+        if k is not None:
+            return k
     if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:
         return None
-    return DV.kc_portee(b["modele"], [ch for f, c in zip(facteurs, cas) if f for ch in c.get("charges") or []], L)
+    return DV.kc_portee(b["modele"], charges, L)
 
 
 def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
@@ -240,7 +246,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                     flexion = {"diagramme": DV.GENERAL, "delta": fl * 1e3, "L": Lt * 1e3}
                 r = EC.verifier({"section": s, "nuance": b["nuance"], "NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,
                                  "flexion": {"y": flexion}, "parametres": b["parametres"], "voilement": False, "console": b["modele"] == "console",
-                                 "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr), "zg": zg}})
+                                 "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr, C), "zg": zg}})
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
         r = env.rendre()

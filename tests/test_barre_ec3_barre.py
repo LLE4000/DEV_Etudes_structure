@@ -720,6 +720,17 @@ def controles(M=None):
       "répartie 0,94 ; répartie + centrale : hors tableau (k_c = 1) ; bi-encastrée sous charge répartie 0,90 ; encastrement partiel : hors "
       "tableau (k_c = 1) ; bi-encastrée sous charge centrale 0,77 ; encastrée-appuyée 0,91 et 0,82 ; charge partielle, excentrée, console, "
       "continue : hors tableau", all(x == y for x, y in kp.values()), {k: x for k, x in kp.items() if x[0] != x[1]})
+    kl = {"sans charge, 0 → 40 kN·m (ψ = 0)": (dv.kc_lineaire([], 0.0, 2.0, 0.0, 40.0), 1 / 1.33),
+          "sans charge, 30 → −15 (ψ = −0,5)": (dv.kc_lineaire([], 0.0, 6.0, 30.0, -15.0), 1 / (1.33 + 0.33 * 0.5)),
+          "charges aux bouts seulement (au droit des maintiens)": (dv.kc_lineaire([P6(20.0, 2.0), P6(20.0, 4.0)], 2.0, 4.0, 40.0, 40.0), 1.0),
+          "une charge ponctuelle dedans": (dv.kc_lineaire([P6(20.0, 3.0)], 2.0, 4.0, 40.0, 40.0), None),
+          "une charge répartie qui déborde dedans": (dv.kc_lineaire([q6(5.0, 0.0, 2.5)], 2.0, 4.0, 40.0, 40.0), None),
+          "un couple dedans": (dv.kc_lineaire([C6(5.0, 3.0)], 2.0, 4.0, 40.0, 30.0), None),
+          "pas de moment": (dv.kc_lineaire([], 0.0, 2.0, 0.0, 0.0), None)}
+    c("tableau 6.6, moment linéaire reconnu sur un tronçon de la barre chargée SANS charge dedans (kc_lineaire) : k_c = 1/(1,33 − 0,33·ψ), ψ = le "
+      "plus petit moment d'extrémité sur le plus grand, signé ; une charge ou un couple dedans, ou pas de moment : hors tableau (k_c = 1)",
+      all((x is None and y is None) or (x is not None and y is not None and proche(x, y)) for x, y in kl.values()),
+      {k: x for k, x in kl.items()})
     # SCIA S1 : charge répartie + charge centrale, catalogue du site, semelle haute — hors tableau 6.6 : k_c = 1, f = 1 (19.2 du brief)
     sc = SE.du_catalogue("IPE 300")
 
@@ -1037,6 +1048,12 @@ MUTATIONS = [
     ("ec3_deversement", "lot B — k_c : la bi-encastrée prise comme deux appuis (0,94)", '("bi_enc", REPARTI): 0.90', '("bi_enc", REPARTI): 0.94'),
     ("ec3_deversement", "lot B — k_c : l'encastrée-appuyée sous charge centrale prise comme deux appuis", '("enc_app", PONCTUEL): 0.82', '("enc_app", PONCTUEL): 0.86'),
     ("ec3_deversement", "lot B — k_c : une charge répartie PARTIELLE prise comme répartie", 'ch.get("a", 0.0) <= tol and ch.get("b", L) >= L - tol', "True"),
+    ("ec3_deversement", "lot B — k_c linéaire : une charge ponctuelle dans le tronçon ignorée", 'if ch["type"] in ("P", "C") and x1 + tol < ch["a"] < x2 - tol:',
+     'if ch["type"] in ("C",) and x1 + tol < ch["a"] < x2 - tol:'),
+    ("ec3_deversement", "lot B — k_c linéaire : une charge répartie qui déborde dans le tronçon ignorée",
+     'if ch["type"] in ("q", "tri") and ch.get("a", 0.0) < x2 - tol and ch.get("b", x2) > x1 + tol:', 'if False:'),
+    ("ec3_deversement", "lot B — k_c linéaire : ψ = le plus grand sur le plus petit", "    return coefficient_kc(LINEAIRE, petit / grand)[0]\n",
+     "    return coefficient_kc(LINEAIRE, max(-1.0, min(1.0, grand / petit if petit else 1.0)))[0]\n"),
     ("ec3_deversement", "lot B — k_c : les couples d'extrémité ignorés (l'encastrement partiel pris pour deux appuis)",
      '    vraies = [ch for ch in charges if ch.get("v")]', '    vraies = [ch for ch in charges if ch.get("v") and ch["type"] != "C"]'),
     ("ec3_deversement", "lot B — variante admise hors bâtiment", '    if ouvrage != "batiment":', "    if False:"),
@@ -1138,10 +1155,12 @@ def main():
             "deux appuis, charge centrale": (kc_charge("appuis", [{"type": "P", "v": 40.0, "a": 3.0}]), 0.86),
             "encastrée-appuyée, charge répartie": (kc_charge("enc_app", [q_]), 0.91),
             "encastrement partiel (répartie + couples d'extrémité)": (kc_charge("appuis", [q_, {"type": "C", "v": -27.0, "a": 0.0},
-                                                                                          {"type": "C", "v": 27.0, "a": 6.0}]), 1.0)}
+                                                                                          {"type": "C", "v": 27.0, "a": 6.0}]), 1.0),
+            "deux appuis, un seul couple d'extrémité (moment linéaire, ψ = 0)": (kc_charge("appuis", [{"type": "C", "v": 30.0, "a": 0.0}]), 1 / 1.33)}
     chk("test 1 du § 11.5 de bout en bout (barre chargée de 6 m, IPE 300 S235, sans poids propre) : k_c = 0,90 pour la bi-encastrée sous charge "
-        "répartie, 0,94 et 0,86 sur deux appuis, 0,91 encastrée-appuyée ; l'encastrement partiel (couples d'extrémité) garde k_c = 1, f = 1",
-        all(x[0] == y and x[1] == (y < 1.0) for x, y in bout.values()), {k: x for k, x in bout.items()})
+        "répartie, 0,94 et 0,86 sur deux appuis, 0,91 encastrée-appuyée, 1/1,33 sous un seul couple d'extrémité ; l'encastrement partiel "
+        "(couples d'extrémité et charge répartie) garde k_c = 1, f = 1",
+        all(abs(x[0] - y) < 1e-12 and x[1] == (y < 1.0) for x, y in bout.values()), {k: x for k, x in bout.items()})
 
     print("== 5. les formules")
     faux, n, utilises = [], 0, set()

@@ -98,6 +98,24 @@ def kc_portee(modele: str, charges, L: float) -> Optional[float]:
     return KC_PORTEES.get((modele, forme_portee(charges, L)))
 
 
+def kc_lineaire(charges, x1: float, x2: float, M1: float, M2: float) -> Optional[float]:
+    """k_c = 1/(1,33 − 0,33·ψ) (tableau 6.6, moment linéaire) d'un tronçon [x1 ; x2] (m) entre deux sections tenues qui ne
+    porte AUCUNE charge à l'intérieur (charges de l'écran, en m) : son moment va en ligne droite de M1 à M2 ; ψ est le
+    rapport du plus petit au plus grand (signé, −1 ≤ ψ ≤ 1). Une charge dedans, ou pas de moment : None (k_c = 1)."""
+    tol = 1e-6 * max(x2 - x1, 1e-9)
+    for ch in charges:
+        if not ch.get("v"):
+            continue
+        if ch["type"] in ("P", "C") and x1 + tol < ch["a"] < x2 - tol:
+            return None
+        if ch["type"] in ("q", "tri") and ch.get("a", 0.0) < x2 - tol and ch.get("b", x2) > x1 + tol:
+            return None
+    grand, petit = (M1, M2) if abs(M1) >= abs(M2) else (M2, M1)
+    if abs(grand) <= 1e-9:
+        return None
+    return coefficient_kc(LINEAIRE, petit / grand)[0]
+
+
 def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) -> Dict:
     """Le tronçon de déversement du mode « efforts imposés » : entre deux fourches, le moment maximal ``M`` (N·mm) et
     la forme de son diagramme ; les charges qui le produisent sont appliquées à la cote ``zg``."""

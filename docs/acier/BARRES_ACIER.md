@@ -290,8 +290,10 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
 du § 11.5 dans `tests/test_barre_ec3_barre.py`) :
 - **k_c reconnu sur tout le tableau 6.6** (`kc_portee`) : une portée seule, tronçon = la portée, sans maintien intérieur,
   sous des charges uniformes sur toute la portée ou des charges à mi-portée seulement — deux appuis 0,94 / 0,86 ;
-  bi-encastrée 0,90 / 0,77 ; encastrée-appuyée 0,91 / 0,82. Tout le reste garde k_c = 1 (f = 1) : un encastrement
-  partiel (couples d'extrémité), des charges mêlées (cas S1 de SCIA : 1,099), une console, une travée de poutre continue ;
+  bi-encastrée 0,90 / 0,77 ; encastrée-appuyée 0,91 / 0,82 ; et le moment linéaire sur un tronçon de la barre chargée
+  entre deux fourches, sans maintien ni charge dedans (`kc_lineaire`, ψ lu sur le diagramme de la combinaison). Tout le
+  reste garde k_c = 1 (f = 1) : un encastrement partiel (couples d'extrémité et charge répartie), des charges mêlées
+  (cas S1 de SCIA : 1,099), une console, une travée de poutre continue chargée ;
 - **la variante (0,4 ; 0,75)** de l'ANB:2018, 6.3.2.3(1), sur demande seulement (`deversement.couple` = « variante ») :
   poutre de bâtiment (`ouvrage`), au moins un maintien présent et TOUS ignorés dans M_cr (`maintiens_negliges`, aucun
   maintien dans le tronçon du solveur). Ailleurs elle est refusée, avec sa raison, et (0,2 ; 1,0) s'applique ;
