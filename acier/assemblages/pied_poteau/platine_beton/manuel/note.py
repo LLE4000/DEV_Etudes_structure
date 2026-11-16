@@ -247,7 +247,7 @@ class Note(_np.Note):
         selon = ("selon Von Mises ≤ fy/γM0 (critère élastique), EN 1993-1-8 §6.2.5 (bande comprimée)" if R.elastique
                  else "selon EN 1993-1-8 §6.2.4 (tronçons en T), §6.2.5 (bande comprimée)")
         a_verif = bool(R.verified and R.get("a_verifier"))
-        tete = ("PLATINE À VÉRIFIER (calcul manuel) — " + R.a_verifier + " — " if a_verif
+        tete = ("PLATINE À VÉRIFIER — " + R.a_verifier + " — " if a_verif
                 else ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : ")
         txt = (tete + "épaisseur requise " + req
                + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, " + selon

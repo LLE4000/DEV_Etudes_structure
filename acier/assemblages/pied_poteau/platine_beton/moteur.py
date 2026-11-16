@@ -30,7 +30,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find
 from acier.js import AttrDict, N, dv
-from acier.formats import F
+from acier.formats import F, a_pct
 from acier.resultats import Verification, Alerte, Pince
 from . import composants as CP
 from . import equilibre as EQ
@@ -673,9 +673,10 @@ def compute(u0=None, materiau=None):
         hors = [c for c in R.checks if c.key in ANCRAGE_BETON and c.active and not c.ok]
         if hors:
             pire_a = max(hors, key=lambda c: c.eta)
-            R.a_verifier = "béton d'ancrage à " + F(pire_a.eta * 100, 1) + " %, hors périmètre EC3"
-            al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre EC3 : " + pire_a.label + " à "
-               + F(pire_a.eta * 100, 1) + " % — à vérifier.", False, ["perim"],
+            # le pourcentage par ``pct``, le formateur de l'écran (« au-delà de 999 % », jamais « 1550,4 % »)
+            R.a_verifier = "béton d'ancrage " + a_pct(pire_a.eta, 1) + ", hors périmètre EC3"
+            al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre EC3 : " + pire_a.label + " "
+               + a_pct(pire_a.eta, 1) + " — à vérifier.", False, ["perim"],
                f"{len(hors)} vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les "
                "compter dans le verdict", elems=["pedestal", "anchors"])
     c_min = min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"])

@@ -611,12 +611,16 @@ res = A.resultat(e)["resultat"]
 anc = [x for x in RX_EL.findall(res) if x[2] == "Ancrages"]
 pire = cfg.S.pire_information(Rp)
 # (petits chantiers, 10/11/2026 : la ligne ne porte plus de taux — un « 108 % » gris sous « Conforme » se lisait comme un
-# dépassement ignoré ; elle dit « hors périmètre » et « hors verdict », la phrase d'information garde le chiffre)
+# dépassement ignoré ; elle dit « hors périmètre » et « hors verdict ») ; lot B (brief v12 § 19.1 point 4) : au-delà de
+# 100 %, le chiffre est dans le verdict « à vérifier : béton d'ancrage à 107,7 % » et la phrase d'information ne le redit
+# plus (le harnais suit : une seule fois à l'écran)
 chk("pied de poteau (périmètre EN 1993-1-8) : le béton d'ancrage EN 1992-4 est une ligne d'INFORMATION grise, « hors "
-    "périmètre », « hors verdict » à la place du taux, et la phrase d'information de l'écran Streamlit est dite",
+    "périmètre », « hors verdict » à la place du taux ; au-delà de 100 %, le verdict dit « à vérifier » et son chiffre, "
+    "une seule fois",
     Rp.verified and pire is not None and pire.eta > 1 and anc and anc[0][3] == "c" and anc[0][4] == A.SANS_TAUX_INFORMATION
     and "hors périmètre" in res.split("Ancrages")[1][:200]
-    and "en information, hors verdict" in res and "Conforme" not in res.split('class="verdict"')[0], anc)
+    and "à vérifier : béton d&#x27;ancrage à 107,7 %" in res.replace("\u202f", " ").replace("\xa0", " ")
+    and "en information, hors verdict" not in res and "Conforme" not in res.split('class="verdict"')[0], anc)
 chk("doubles cornières : la répartition élastique par boulon (groupe S) est dans la fenêtre Boulons",
     "Répartition élastique par boulon · groupe S" in vol and all(C.fr(b.f, 2) in vol for b in R.tabS))
 

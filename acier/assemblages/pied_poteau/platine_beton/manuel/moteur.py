@@ -37,7 +37,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find
 from acier.js import AttrDict, N
-from acier.formats import F
+from acier.formats import F, a_pct
 from acier.resultats import Verification, Alerte, Pince
 from .. import composants as CP
 from .. import equilibre as EQ
@@ -52,19 +52,24 @@ from .conversion import disposition_reguliere
 
 GROUPES_VERIF = ("Platine", "Trous", "Tiges", "Appui")
 INFO_SEUL = frozenset({"ta", "tv", "tvn", "bet", "ncp"})      # information : hors verdict
-# ce qui, hors du verdict, au-delà de 100 %, met la platine « À VÉRIFIER » (brief v12 § 19.1 point 4) : (mot, clés)
+# ce qui, hors du verdict, au-delà de 100 %, met la platine « À VÉRIFIER » (brief v12 § 19.1 point 4) : (mot, clés).
+# À VÉRIFIER (propriétaire) : « fjd du mode manuel » — l'hypothèse prudente prend les DEUX contrôles d'appui, la
+# pression maximale élastique (bet, celle de l'avis « fjd_info ») et la compression plastique N ≤ fjd·Aeff (ncp) ; le
+# mode complet range bet parmi les méthodes plus prudentes (hors verdict), mais le calcul manuel n'a aucun contrôle
+# d'appui dans son verdict : bet n'y double rien.
 HORS_VERDICT = (("tiges", ("ta", "tv", "tvn")), ("appui fjd", ("bet", "ncp")))
 
 
 def a_verifier_manuel(R):
-    """La raison courte d'une platine « À VÉRIFIER » en calcul manuel (« tiges à 112,3 %, hors périmètre du calcul
-    manuel ») : le plus fort taux de chaque groupe hors verdict (tiges, appui fjd) qui dépasse 100 % ; « » sinon."""
+    """La raison courte d'une platine « À VÉRIFIER » en calcul manuel (« tiges à 112,3 %, hors calcul manuel ») : le
+    plus fort taux de chaque groupe hors verdict (tiges, appui fjd) qui dépasse 100 % ; « » sinon. Le pourcentage par
+    ``pct``, le formateur de l'écran (« au-delà de 999 % »)."""
     parts = []
     for mot, cles in HORS_VERDICT:
         ko = [c for c in R.checks if c.key in cles and c.active and not c.ok]
         if ko:
-            parts.append(mot + " à " + F(max(c.eta for c in ko) * 100, 1) + " %")
-    return (", ".join(parts) + ", hors périmètre du calcul manuel") if parts else ""
+            parts.append(mot + " " + a_pct(max(c.eta for c in ko), 1))
+    return (", ".join(parts) + ", hors calcul manuel") if parts else ""
 CRITERES_TP = ("T", "S", "c", "b")
 REF_T62 = "EN 1993-1-8 §6.2.4, Tableau 6.2 ; longueurs efficaces dérivées du Tableau 6.6, par boulon"
 REF_SEC = "Section au nu de la paroi, diffusion à 45° (calcul classique) ; EN 1993-1-8 §6.2.4 (Mpl)"
@@ -675,7 +680,7 @@ def compute(u0=None, materiau=None):
     # 100 % ne laissent plus « Conforme » : « À VÉRIFIER », avec la raison courte (``R.a_verifier``)
     R.a_verifier = a_verifier_manuel(R)
     if R.verified and R.a_verifier:
-        R.statut = "PLATINE À VÉRIFIER (calcul manuel : " + R.a_verifier + ")"
+        R.statut = "PLATINE À VÉRIFIER (" + R.a_verifier + ")"
     else:
         R.statut = ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel)"
     R.reserve = any(a.id in ("coin", "plein", "tige_info", "fjd_info") for a in R.alerts)

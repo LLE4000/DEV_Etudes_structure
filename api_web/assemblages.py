@@ -1359,18 +1359,18 @@ def elements(etat: Dict, bilans: List[Dict]) -> str:
 
 def _messages(cfg: Config, R) -> str:
     out = ""
-    note = getattr(cfg, "note_information", None)
+    # « À vérifier » : le verdict dit la raison, l'avis du moteur (ancr_info, tige_info, fjd_info) dit quoi faire — la
+    # phrase d'information la redirait (une seule fois à l'écran : brief v12, « pas de blabla »)
+    note = None if (R.verified and R.get("a_verifier")) else getattr(cfg, "note_information", None)
     if note and note(R):
         out += C.message(C.esc(note(R)))
     for a in R.alerts:
         titre, det = cfg.N.ligne_alerte(a, R)
         out += C.message(f"<b>{C.esc(titre)}</b>" + (f" — {C.esc(det)}" if det else ""), grave=a.block)
     # « Vérifié sous réserve » ne s'écrit que d'un assemblage VÉRIFIÉ : sous « Non conforme » (une tige hors des
-    # pinces), la phrase contredisait le verdict ; « À vérifier » (un contrôle hors périmètre au-delà de 100 %) dit sa
-    # raison à la place
-    if R.verified and R.get("a_verifier"):
-        out += C.message(f"À vérifier : {C.esc(R.a_verifier)}.")
-    elif R.get("reserve") and R.verified:
+    # pinces), la phrase contredisait le verdict ; « À vérifier » (un contrôle hors périmètre au-delà de 100 %) : sa
+    # raison est dans le verdict, elle ne se répète pas ici
+    if R.get("reserve") and R.verified and not R.get("a_verifier"):
         out += C.message("Vérifié sous réserve : voir les remarques ci-dessus et la fenêtre de la pièce concernée.")
     return out
 

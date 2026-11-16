@@ -138,7 +138,10 @@ l'outil (VAL-A), sans exemple publié rejoué. D'où deux décisions :
   statut devient « PIED DE POTEAU À VÉRIFIER (…) », le bandeau de l'écran et
   de la note passe en ORANGE « À vérifier », le récapitulatif aussi. Les
   contrôles « pour information » d'une méthode plus prudente (`fc2`, `bet`)
-  n'y entrent pas.
+  n'y entrent pas. La raison se dit UNE fois, dans le verdict ; l'avis
+  `ancr_info` dit quoi faire (passer au périmètre complet) ; la phrase
+  d'information se tait. Le taux s'écrit par le formateur de l'écran
+  (`formats.a_pct` : « au-delà de 999 % », jamais « 1550,4 % »).
 - **Épaisseur requise** (`R.plaque`, vérification `tpq`, en tête du tableau
   Platine et du bloc « Épaisseur de la platine — le calcul à la main ») :
   `tp ≥ max(tc ; tN ; tM ; tT)` —
