@@ -12,7 +12,7 @@ from . import resultat as RE
 # l'ordre des vérifications d'une méthode (les autres suivent, par identifiant)
 ORDRE = {"ec3": ("E-SECTION", "E-N", "E-My", "E-Mz", "E-Vz", "E-Vy", "E-MV", "E-NM", "E-Nb-y", "E-Nb-z", "E-Nb-T", "E-Mb",
                  "E-661", "E-662"),
-         "historique": ("H-N-z", "H-N-y", "H-SIGMA", "H-EQ"),
+         "historique": ("H-N-z", "H-N-y", "H-SIGMA", "H-DEV", "H-EQ"),
          "ame": ("A-AME", "A-Vb", "A-Vb-y", "A-VbM", "A-S", "A-GR")}
 IDS_BARRE = ("E-Nb", "E-Mb", "E-66")             # les vérifications de la barre (les autres sont celles de la section)
 
@@ -35,6 +35,7 @@ class Enveloppe:
         self.bilan: Dict[str, Dict] = {}
         self.alertes: Dict[str, Dict] = {}
         self.a_confirmer: Dict[str, Dict] = {}
+        self.corrections: Dict[str, Dict] = {}         # les corrections des classeurs qui ont joué (méthode ELS)
 
     def verser(self, r: Dict, ou: Dict, prefixes: Optional[Sequence[str]] = None, sauf: Optional[Sequence[str]] = None) -> None:
         """Verse le résultat ``r`` d'une méthode, trouvé ``ou`` ({"combinaison", "x" | "troncon"}) ; ``prefixes`` : ne
@@ -63,6 +64,8 @@ class Enveloppe:
             self.alertes.setdefault(a["code"], a)
         for p in r["grandeurs"].get("a_confirmer") or []:
             self.a_confirmer.setdefault(p["cle"], p)
+        for c in r.get("corrections") or []:
+            self.corrections.setdefault(c["id"], c)
 
     def _grandeurs(self, gouv: Optional[Dict]) -> Dict:
         """Les grandeurs rendues avec la méthode. Historique : celles de l'occurrence gouvernante. Eurocode 3 : celles de
@@ -110,4 +113,4 @@ class Enveloppe:
                 "combinaison": gouv["ou"]["combinaison"] if gouv else None, "verifications": verifs, "calcul": calcul,
                 "grandeurs": self._grandeurs(gouv), "alertes": list(self.alertes.values()),
                 "hypotheses": list(gouv["r"]["hypotheses"]) if gouv else [], "a_confirmer": list(self.a_confirmer.values()),
-                "combinaisons": combis}
+                "combinaisons": combis, "corrections": list(self.corrections.values())}

@@ -38,6 +38,13 @@ GABARITS_HISTORIQUE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "r_d": (("Id", "Ad"), "sqrt(Id/Ad)", 2),
     "lambda_ed": (("Lc", "rd"), "Lc/rd", 1),
     "lambda_ed_ferme": (("Lc", "W", "Iz", "It"), "sqrt(pi*sqrt(2.6)*Lc*W/sqrt(Iz*It))", 1),
+    "lambda_ed_ferme_doc": (("Lc", "W", "Iz", "It"), "sqrt(5.1*Lc*W/sqrt(Iz*It))", 1),
+    # le déversement des classeurs (NBN B 51-002, § 4.3.3.5.3) : longueurs en cm, comme les classeurs
+    "lambda_ed_d": (("L", "h", "b", "tf", "Cd"), "3.9*sqrt(L*h/(b*tf*Cd))", 2),
+    "Phi_d": (("n", "lb"), "1 + n*(lb - 0.2) + lb**2", 4),
+    "phi_d": (("Phi", "lb"), "(Phi - sqrt(Phi**2 - 4*lb**2))/(2*lb**2)", 4),
+    "sigma_adm_d": (("fy", "s", "phi"), "fy/s*phi", 2),
+    "sigma_M": (("M", "W"), "M*1e3/W", 2),
     "sigma_P": (("P", "A", "phi"), "P*1e3/(A*phi)", 1),
     "sigma_My": (("C", "M", "phied", "W", "PE"), "C*M*1e3/(phied*W*PE)", 1),
     "sigma_Mz": (("C", "M", "W", "PE"), "C*M*1e3/(W*PE)", 1),

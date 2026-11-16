@@ -251,10 +251,12 @@ def controles(M=None):
     Ms, Vs = 2.42 * 36 / 8 + 25.0 * 6 / 4, 2.42 * 3 + 12.5
     hd = HI.verifier({"section": s3, "fy": 235.0, "P": 0.0, "My": Ms * 1e6, "Vz": 12.5e3, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}},
                       "deversement": {"Lc": 6000.0}})
-    c("R2, méthode historique : charges de SERVICE (G + Q : M = 48,39 kN·m), dans la section de mi-portée avec l'effort tranchant qui s'y "
-      "trouve (12,5 kN, et non les 19,76 kN de l'appui) = l'appel direct ; le déversement de la doc sur 6 m rend la barre non conforme",
-      h3["combinaison"] == "G + Q" and proche(Ms, 48.39) and proche(verif(h3, "H-SIGMA")["valeur"], verif(hd, "H-SIGMA")["valeur"], 1e-8)
-      and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-SIGMA")["x"] == 3.0 and h3["statut"] == RE.NOK
+    c("R2, méthode ELS : charges de SERVICE (G + Q : M = 48,39 kN·m), dans la section de mi-portée avec l'effort tranchant qui s'y "
+      "trouve (12,5 kN, et non les 19,76 kN de l'appui) = l'appel direct ; le déversement des classeurs sur 6 m (lot B, brief v12 § 6.4 : la ligne "
+      "« déversement », M/W ≤ σ_adm,d) rend la barre non conforme",
+      h3["combinaison"] == "G + Q" and proche(Ms, 48.39) and proche(verif(h3, "H-DEV")["valeur"], verif(hd, "H-DEV")["valeur"], 1e-8)
+      and proche(verif(h3, "H-DEV")["limite"], verif(hd, "H-DEV")["limite"], 1e-8) and verif(h3, "H-SIGMA") is None
+      and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-DEV")["x"] == 3.0 and h3["statut"] == RE.NOK
       and proche(Vs, 19.76), (verif(h3, "H-EQ"), Ms, Vs))
     c("R2 : les deux méthodes côte à côte — la comparaison a une ligne « flexion et contraintes », la ligne du plus défavorable, puis celle de "
       "l'âme (EN 1993-1-5 : UN taux, « commun », il vaut pour les deux méthodes) ; le statut de la barre est le plus sévère",
@@ -353,9 +355,11 @@ def controles(M=None):
       and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
     c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, au-delà des 80 mm du module) est rendue « non couvert » avec son motif — "
-      "depuis le lot A, la méthode historique aussi (elle lit la même f_y, selon l'épaisseur)",
+      "l'Eurocode 3 ; la méthode ELS, elle, se calcule avec la f_y nominale et rend « hors domaine » (lot B, brief v12 § 19.1 point 5) ; la barre "
+      "reste « non couvert »",
       r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT and "80 mm" in r["methodes"]["ec3"]["alertes"][0]["message"]
-      and r["methodes"]["historique"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, r["methodes"]["ec3"]["statut"])
+      and r["methodes"]["historique"]["statut"] == RE.HORS_DOMAINE and r["methodes"]["historique"]["taux_max"] is not None
+      and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["methodes"]["historique"]["statut"]))
     # ---- (lot A) la console sous N + M : « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9 ; test 30 du § 11.5)
     cons = barre(profil="IPE 300", modele="console", travees=[2.0], maintiens=[],
                  cas=[{"nom": "G", "nature": "permanent", "N": 100.0, "charges": [P_(10.0, 2.0)]}])
@@ -369,16 +373,17 @@ def controles(M=None):
       and verif(e, "E-Nb-y")["statut"] == RE.OK and verif(e, "E-Mb")["statut"] == RE.OK and e["statut"] == RE.NON_COUVERT
       and r["statut"] == RE.NON_COUVERT and any(x["code"] == "console_NM" for x in e["alertes"]) and "annexe_A" not in e["grandeurs"]
       and r0["methodes"]["ec3"]["statut"] == RE.OK and verif(r0["methodes"]["ec3"], "E-661") is None, (e["statut"], r["statut"]))
-    # ---- (lot A) la méthode historique : f_y selon l'épaisseur (DÉCISION BUREAU, brief § 13.2 point 5) ; le domaine sur la NUANCE
+    # ---- (lot B) la méthode ELS : f_y NOMINALE quelle que soit l'épaisseur (brief v12 § 13.2 point 5, test 37) ; le domaine sur la NUANCE
     hp = dict(barre(), profil="HEB 300", mode="efforts", methodes=["historique", "ec3"], Lc=5.0,
               flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}},
               efforts={"service": {"N": 1000.0, "My": 50.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}, "elu": {"N": 1400.0, "My": 70.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}})
     r = mo.verifier(hp)
     h = r["methodes"]["historique"]
-    c("HEB 300 S235 (t_f = 19 mm) : la méthode historique prend f_y = 225 — celle de l'Eurocode 3, tableau 3.3 ANB — et la nuance reste dans le "
-      "domaine de la doc (AE235 : le domaine se lit sur la nuance, pas sur la f_y réduite) ; la source est imprimée",
-      h["grandeurs"]["fy"] == 225.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
-      and not any(x["code"] == "nuance" for x in h["alertes"]) and "tableau 3.3 ANB" in h["hypotheses"][0], (h["grandeurs"]["fy"], h["statut"]))
+    c("HEB 300 S235 (t_f = 19 mm) : la méthode ELS prend f_y = 235, la NOMINALE (l'Eurocode 3 garde 225, tableau 3.3 ANB) — lot B, brief v12 "
+      "§ 6.1 et test 37 ; la nuance reste dans le domaine de la doc ; la source est imprimée « f_y nominale, comme les classeurs du bureau »",
+      h["grandeurs"]["fy"] == 235.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
+      and not any(x["code"] == "nuance" for x in h["alertes"]) and "f_y nominale, comme les classeurs du bureau" in h["hypotheses"][0],
+      (h["grandeurs"]["fy"], h["statut"]))
     r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}]))
     h = r["methodes"]["historique"]
     c("S460 (hors AE235 à AE355) : la méthode historique est « hors domaine » — le calcul est rendu (taux), aucune vérification n'est « ok », "
@@ -400,8 +405,10 @@ def controles(M=None):
     r = mo.verifier({"profil": "IPE 300", "nuance": "S235", "cas": [{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 6.0)]}]})
     rh = mo.verifier(barre(poids_propre=True, niveau="haut", cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 6.0)]}]))
     hh = r["methodes"]["historique"]["grandeurs"]
-    c("une barre donnée sans précision : poids propre compté, charges sur la semelle haute, s = 1,5, déversement historique actif, les deux méthodes",
-      r["statique"]["cas"][0]["nom"] == st.POIDS_PROPRE and r["barre"]["niveau"] == "haut"
+    c("une barre donnée sans précision : poids propre compté, charges sur la semelle haute, s = 1,5, déversement de la méthode ELS actif — la méthode "
+      "des classeurs, C_d = 1 (lot B, brief v12 § 6.4) —, les deux méthodes",
+      r["statique"]["cas"][0]["nom"] == st.POIDS_PROPRE and r["barre"]["niveau"] == "haut" and hh["deversement"]["cas"] == "classeurs"
+      and r["barre"]["historique"]["Cd"] == 1.0 and r["barre"]["historique"]["variante"] == "classeurs"
       and proche(r["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"], rh["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"])
       and proche(hh["sigma_adm"], 235.0 / 1.5) and hh["deversement"]["phi"] < 1.0 and list(r["methodes"]) == ["historique", "ec3"], hh["sigma_adm"])
 
@@ -512,10 +519,8 @@ MUTATIONS = [
      "            except ZeroDivisionError as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
     ("moteur", "une méthode « non couverte » rend la barre « ok »", "    statut = RE.pire_statut(statuts)\n", "    statut = RE.NOK if RE.NOK in statuts else RE.OK\n"),
     ("moteur", "lot A — la console vérifiée sous N + M comme une barre entre deux appuis", '"console": b["modele"] == "console",', '"console": False,'),
-    ("moteur", "lot A — méthode historique : la f_y nominale (épaisseur oubliée)", '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
-     '    return {"fy": ES.limite_elastique(nuance, s, 1.0), "nuance": nuance,'),
-    ("moteur", "lot A — méthode historique : la nuance non transmise (domaine lu sur la f_y réduite)", '"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
-     '"fy": ES.limite_elastique(nuance, s), "nuance": None,'),
+    ("moteur", "lot B — méthode ELS : la f_y de l'Eurocode 3 selon l'épaisseur (le défaut A9 du lot A revient)", '    return {"fy": MA.nominale(nuance), "nuance": nuance,',
+     '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
     ("enveloppe", "lot A — une combinaison hors domaine rendue « ok »", '                b["hors_domaine"] = b["hors_domaine"] or v["statut"] == RE.HORS_DOMAINE', "                pass"),
     ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = b["efforts"]["service"], b["historique"]', 'e, h = b["efforts"]["elu"], b["historique"]'),
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
@@ -529,8 +534,9 @@ MUTATIONS = [
     ("moteur", "la flèche rendue en mètres", '        fleche["valeur"] *= 1e3  ', '        fleche["valeur"] *= 1.0  '),
     ("entree", "le poids propre éteint par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": False, "niveau": "haut", "maintiens": [],'),
     ("entree", "les charges au centre de cisaillement par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": True, "niveau": "centre", "maintiens": [],'),
-    ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}'),
-    ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False},\n            "parametres": {}}'),
+    ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,'),
+    ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False, "Cd": 1.0,'),
+    ("entree", "lot B — la variante du fascicule par défaut à la barre", '"variante": "classeurs"},\n            "parametres": {}}', '"variante": "fascicule"},\n            "parametres": {}}'),
 ]
 
 

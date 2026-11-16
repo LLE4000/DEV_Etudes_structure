@@ -28,6 +28,8 @@ import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
 
+from acier import materiaux as MA
+
 from . import ame as AME
 from . import combinaisons as CO
 from . import ec3 as EC
@@ -45,7 +47,7 @@ from .enveloppe import IDS_BARRE, ORDRE, Enveloppe          # noqa: F401 — ORD
 # la comparaison des deux méthodes : (sujet, vérifications historiques, vérifications de l'Eurocode)
 # (la méthode historique n'a pas de vérification de l'effort tranchant seul : il entre dans la contrainte équivalente)
 SUJETS = (("Flambement, axe faible", ("H-N-z",), ("E-Nb-z", "E-Nb-T")), ("Flambement, axe fort", ("H-N-y",), ("E-Nb-y",)),
-          ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
+          ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-DEV", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
           ("Effort tranchant seul", (), ("E-Vz", "E-Vy")))
 SUJET_AME = "Âme et raidisseurs (EN 1993-1-5)"
 POINTS_DIAGRAMME = 40            # points par travée des enveloppes rendues pour le dessin
@@ -66,11 +68,18 @@ def _refusee(methode: str, norme: str, message: str) -> Dict:
 
 
 def _fy_historique(nuance: str, s: Dict) -> Dict:
-    """La limite élastique de la méthode historique : celle de l'Eurocode 3, selon l'épaisseur (brief § 13.2 point 5,
-    DÉCISION BUREAU acceptée : « f_y des plats de plus de 16 mm : la valeur EC3 selon l'épaisseur ») — la même lecture
-    de la table (ec3_section.limite_elastique) ; Refus au-delà de son domaine, comme l'Eurocode 3. Le DOMAINE de la doc
-    (AE235 à AE355) se lit sur la nuance : elle est passée avec f_y. {"fy", "nuance", "fy_source", "fy_ref"}."""
-    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance, "fy_source": ES.source_fy(nuance, s), "fy_ref": ES.tableau_fy(nuance, s)}
+    """La limite élastique de la méthode ELS : la NOMINALE de la nuance (235, 275, 355 N/mm²), quelle que soit
+    l'épaisseur, comme les classeurs du bureau (brief v12 § 6.1, § 13.2 point 5, § 18.3) — l'Eurocode 3 garde la table
+    selon l'épaisseur. Au-delà de 80 mm, la méthode se calcule (« hors domaine », brief § 19.1 point 5). Le DOMAINE de
+    la doc (AE235 à AE355) se lit sur la nuance : elle est passée avec f_y. {"fy", "nuance", "fy_source", "fy_ref"}."""
+    return {"fy": MA.nominale(nuance), "nuance": nuance, "fy_source": HI.SOURCE_NOMINALE, "fy_ref": HI.FY_NOMINALE}
+
+
+def _deversement_historique(b: Dict, Ld: Optional[float]) -> Dict:
+    """Le déversement de la méthode ELS : actif ou non, L_d (mm ; None : la longueur de l'axe faible), C_d, la variante
+    (classeurs par défaut), le niveau des charges (le message de C_d > 1 sous une charge sur la semelle haute)."""
+    h = b["historique"]
+    return {"actif": h["deversement"], "Lc": Ld, "Cd": h["Cd"], "variante": h["variante"], "niveau": b["niveau"]}
 
 
 def _C_historique(mode: str, forme: str, psi: float) -> Dict:
@@ -114,7 +123,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
         return HI.verifier({"section": s, **_fy_historique(b["nuance"], s), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
                          "Vz": e["Vz"] * 1e3, "Vy": e["Vy"] * 1e3, "axes": axes, "tolerance": h["tolerance"],
                          "C": {a: _C_historique(h["C"], b["diagramme"][a]["forme"], b["diagramme"][a]["psi"]) for a in ("y", "z")},
-                         "deversement": {"actif": h["deversement"], "Lc": None if Lc is None else Lc * 1e3}})
+                         "deversement": _deversement_historique(b, None if Lc is None else Lc * 1e3)})
 
     def ec3() -> Dict:
         e = b["efforts"]["elu"]
@@ -270,7 +279,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                         continue
                     r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
-                                     "deversement": {"actif": h["deversement"], "Lc": tr_x[1] * 1e3}})
+                                     "deversement": _deversement_historique(b, tr_x[1] * 1e3)})
                     env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr_x[0]["x1"], tr_x[0]["x2"]]})
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]
