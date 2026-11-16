@@ -1,9 +1,10 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "e7b5a6eb205b0eef4220c9f694a41a5031c5a7c9a2b9743a2fbaaafd04633003",
+ "sha256": "fe11d70e8347cac9d9210e3a661fd554d7c54010b136ceca5e9b40df24d8c643",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
+  "acier/assemblages/materiau.py",
   "acier/assemblages/mecanique.py",
   "acier/assemblages/pied_poteau/__init__.py",
   "acier/assemblages/pied_poteau/platine_beton/__init__.py",
@@ -142,6 +143,7 @@
   "acier/garde_corps/schemas.py",
   "acier/garde_corps/types.py",
   "acier/js.py",
+  "acier/materiaux.py",
   "acier/profiles/__init__.py",
   "acier/profiles/catalogue.py",
   "acier/profiles/consultation.py",
@@ -397,8 +399,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "a9cbd493e610f483588d01511fe6ceb2368c3a6b9de6a7680e6866c9205962c2",
-  "octets": 2232381,
+  "sha256": "244908f12c01c6bbdf65e32414f23aacc397e60eed86bff67d3f7929880a9f90",
+  "octets": 2233159,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -426,24 +428,24 @@
  "apercus": {
   "age": "1066a146e57f7757",
   "armatures": "0d888c7223e651e4",
-  "assemblages": "d4844c8ce59f4b12",
+  "assemblages": "bdfe1688cc95da97",
   "bois": "8f2ad99577d68381",
-  "catalogue": "3ffa4b30b8ac00ba",
-  "corniere": "8a7ec359d7b0851c",
+  "catalogue": "efd91aa18076e90f",
+  "corniere": "aef4fd3cf1920ac5",
   "dalle": "d904ab659d6f78ee",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
-  "flambement": "b4e677fb81276534",
+  "flambement": "edc9ed98d6f14c96",
   "fondation_grue": "7400039d62e0db89",
   "garde_corps": "9d6a2b474d4321ad",
-  "plancher": "eb59f2a541093dba",
+  "plancher": "9d0ec86ed498d435",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
-  "profil": "7b65dec790e578b0",
+  "profil": "9d668b2a68502fc2",
   "saf": "e88653e1536e1675",
   "sol": "d388420baee3c87c",
-  "soudures": "2395161da55dd9d9",
+  "soudures": "865be318298eea9a",
   "taux": "0325815790c3ee2c"
  },
- "version": "9a82959ce646e01c"
+ "version": "d242e4cf704dc615"
 }
