@@ -182,11 +182,21 @@ def _section_filiere(d: Dict) -> Tuple[float, float, float]:
     return E * 1e3 * I * 1e-12, b * h * h / 6.0 / 1e3, b / 1e3
 
 
+def epaisseur_filiere(d: Dict) -> float:
+    """L'épaisseur qui fixe f_y d'une filière en acier : un profilé du catalogue, sa paroi la plus épaisse max(t_f, t_w) ;
+    un rectangle b × h sur champ, sa plus petite dimension."""
+    sec = d.get("section", {})
+    if sec.get("profil"):
+        return BIB.paroi_profil(BIB.profils()[sec["profil"]])
+    return min(float(sec["b"]), float(sec["h"]))
+
+
 def _f_filiere(d: Dict) -> float:
     if d.get("f"):
         return float(d["f"])
     if d.get("materiau") in BIB.aciers():
-        return float(BIB.aciers()[d["materiau"]]["fy"])
+        # f_y de la nuance à l'épaisseur de la filière (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a ; acier/materiaux.py)
+        return float(BIB.fy_piece(d["materiau"], epaisseur_filiere(d)))
     raise ValueError(f"Filière « {d['nom']} » : résistance f absente (fy/γM0 ou f_m,d), à renseigner dans la fiche.")
 
 

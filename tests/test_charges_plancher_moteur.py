@@ -420,6 +420,65 @@ for dp, _, fs in os.walk("plancher"):
                     imp.append(f_)
 chk("pureté : aucun streamlit dans plancher/", not imp, str(imp))
 
+# 11. lot A : f_y des tôles et des filières en acier selon l'épaisseur (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a)
+import contextlib  # noqa: E402
+import re  # noqa: E402
+
+from acier import materiaux as MA  # noqa: E402
+from plancher.charges import operations as OP  # noqa: E402
+from plancher.charges import repartiteurs as RP  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_toles() -> list:
+    """Les tôles d'acier livrées (plancher/donnees/plateaux.json : f écrit en dur, COPIE NOMMÉE de la table) : f =
+    f_y(nuance du nom, t)/γ_M0 avec γ_M0 = 1,00 — S235 de 20 et 30 mm : 225 (tableau 3.3 ANB, 16 < t ≤ 40 mm)."""
+    ko = []
+    for d in BIB._lire("plateaux.json"):
+        m = re.search(r"\bacier (S\d{3})\b", d["nom"])
+        if m and not pres(d["f"], MA.fy(m.group(1), d["t"]) / 1.0):
+            ko.append((d["nom"], d["f"], MA.fy(m.group(1), d["t"])))
+    return ko
+
+
+def ctl_filieres() -> bool:
+    """Une filière HEB 300 en S235 (t_f 19, t_w 11 → la paroi la plus épaisse, 19 mm) : f_y = 225, M_Rd = W_el·f_y/γ_M0
+    = 1677,8 × 225 / 10³ = 377,5 kN·m (394,3 avec 235) ; HEB 200 (t_f 15) : 235 ; la filière du catalogue et la fiche
+    d'une tôle S235 de 20 mm : 225."""
+    f300, f200 = BIB.filiere_profil("HEB 300", 3.6, 0.0, 0.0), BIB.filiere_profil("HEB 200", 3.6, 0.0, 0.0)
+    dispo = ET.repartiteurs_disponibles(ET.nouvel_etat())
+    return (pres(f300.fy, 225.0) and pres(RP.verifier_filiere({"M_max": 0.0}, f300.W_el, f300.fy, 1.0, 1.5)["M_Rd"], 1677.78 * 225.0 / 1e3, 1e-6)
+            and pres(f200.fy, 235.0) and pres(ET._f_filiere(dispo["HEB 300"]), 225.0) and pres(ET._f_filiere(dispo["HEB 200"]), 235.0)
+            and pres(OP.fiche_repartiteur("plateau", "T", "S235", 0.0, 210000.0, 0.0, "", 600.0, 600.0, 20.0, OP.RECTANGLE)["f"], 225.0)
+            and pres(OP.fiche_repartiteur("plateau", "T", "S235", 0.0, 210000.0, 0.0, "", 600.0, 600.0, 12.0, OP.RECTANGLE)["f"], 235.0))
+
+
+chk("tôles d'acier livrées : f = f_y de la nuance à leur épaisseur (S235 de 20 et 30 mm → 225, tableau 3.3 ANB) — copie liée à la table",
+    not ctl_toles(), ctl_toles())
+pl20 = BIB.plateaux()["Tôle acier S235 · 600 × 600 × 20"]
+chk("tôle S235 de 20 mm : c = t·√(f/(3·p)) avec f = 225 → 173,2 mm sous p = 1 MPa (177,0 avec 235, −2,2 %)",
+    pres(RP.bande_c(pl20.t, pl20.f, 1.0), 20.0 * math.sqrt(225.0 / 3.0)) and abs(RP.bande_c(pl20.t, pl20.f, 1.0) - 173.2) < 0.05)
+chk("filières en acier : f_y à la paroi la plus épaisse du profilé (HEB 300 S235 → 225, M_Rd 377,5 kN·m ; HEB 200 → 235)", ctl_filieres())
+chk("rectangle d'acier sur champ : f_y à sa plus petite dimension (S235 30 × 200 → 225)",
+    pres(ET._f_filiere({"nom": "R", "materiau": "S235", "section": {"b": 30.0, "h": 200.0}}), 225.0))
+with mutant(MA, "fy", lambda n, t, produit="lamine": MA.nominale(n)):
+    chk("mutation « f_y nominale quelle que soit l'épaisseur » : le contrôle des tôles et des filières rougit", bool(ctl_toles()) and not ctl_filieres())
+vrai_lire = BIB._lire
+with mutant(BIB, "_lire", lambda nom: [dict(d, f=235.0) if "acier S235" in d["nom"] else d for d in vrai_lire(nom)] if nom == "plateaux.json" else vrai_lire(nom)):
+    chk("mutation « plateaux.json garde f = 235 pour les tôles de 20 et 30 mm » : le contrôle des tôles rougit", bool(ctl_toles()))
+with mutant(BIB, "paroi_profil", lambda p: float(p["tw"])):
+    chk("mutation « profilé pris à son âme t_w » : le contrôle des filières rougit", not ctl_filieres())
+
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("  ÉCHEC :", nom, info)

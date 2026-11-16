@@ -513,7 +513,8 @@ chk("« Parts annexe C » : ce que l'écran ignore en silence est nommé (morcea
 chk("« Parts annexe C » : le texte du champ est celui de l'écran (« 0:0.5, 1:0.25 »)",
     OP.texte_parts_annexe_c({0: 0.5, 1: 0.25}) == ", ".join(f"{k}:{v}" for k, v in {0: 0.5, 1: 0.25}.items()))
 
-fiches_ko = []
+fiches_ko, fiches_site = [], []
+FY_ECRAN = {"S235": 235.0, "S355": 355.0}      # la table de l'écran d'origine (modules/charges_plancher.py), sans épaisseur
 for typ, nom, mat, fval, E, masse, src, A, B, t, prof in [
         ("plateau", "Plateau azobé 800", "Azobé", 18.0, 12000.0, 30.0, "fiche 2026", 800.0, 800.0, 80.0, OP.RECTANGLE),
         ("plateau", "Tôle S355", "S355", 0.0, 210000.0, 0.0, "", 600.0, 600.0, 25.0, OP.RECTANGLE),
@@ -531,9 +532,19 @@ for typ, nom, mat, fval, E, masse, src, A, B, t, prof in [
     except Relance:
         pass
     attendu = OP.fiche_repartiteur(typ, nom, mat, fval, E, masse, src, A, B, t, prof)
-    if js(etat["fiches"]["repartiteurs"]) != js([attendu]):
-        fiches_ko.append((nom, etat["fiches"]["repartiteurs"], attendu))
-chk("« Nouvel élément de répartition » : la fiche ajoutée par l'écran = operations.fiche_repartiteur (6 fiches, au bit près)", not fiches_ko, fiches_ko[:2])
+    # ÉCART NOMMÉ (lot A, NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a) : un acier sans f saisi prend à l'écran d'origine
+    # f_y = 235 / 355 sans épaisseur (FY_ECRAN) ; le site, f_y de la nuance à l'épaisseur de l'élément (OP.fy_materiau :
+    # plateau t, profilé max(t_f, t_w), rectangle la plus petite dimension). Tout le reste de la fiche : au bit près.
+    attendu_ecran = dict(attendu, f=FY_ECRAN[mat]) if (not fval and mat in OP.ACIERS_MATERIAU) else attendu
+    if js(etat["fiches"]["repartiteurs"]) != js([attendu_ecran]):
+        fiches_ko.append((nom, etat["fiches"]["repartiteurs"], attendu_ecran))
+    fiches_site.append((nom.strip(), attendu["f"]))
+chk("« Nouvel élément de répartition » : la fiche ajoutée par l'écran = operations.fiche_repartiteur (6 fiches, au bit près, sauf l'écart nommé de f_y)",
+    not fiches_ko, fiches_ko[:2])
+chk("… l'écart nommé : f_y de la nuance à l'épaisseur — tôle S355 de 25 mm → 345 (tableau 3.3 ANB, 16 < t ≤ 40), HEB 200 S355 (t_f 15) → 355, "
+    "rectangle S235 100 × 300 → 215 (sa plus petite dimension, 80 < t ≤ 100 mm), f saisi gardé",
+    dict(fiches_site) == {"Plateau azobé 800": 18.0, "Tôle S355": 345.0, "OSB sans f": None, "Madrier C24 75×225": 14.8, "HEB 200 S355": 355.0, "Espace": 215.0},
+    fiches_site)
 
 import pandas as pd  # noqa: E402  (l'écran d'origine en a besoin pour son tableau d'appuis)
 eng_ko = []
@@ -563,7 +574,7 @@ src_ecran = open("modules/charges_plancher.py", encoding="utf-8").read()
 chk("les listes de l'écran sont celles d'operations.py (types, états, familles, matériaux, rectangle)",
     OP.TYPES == CP.TYPES and OP.ETATS_H == CP.ETATS_H and OP.FAMILLES == CP.FAMILLES
     and f'["S235", "S355", "Bois C24", "Azobé", "OSB", "Autre"]' in src_ecran and OP.MATERIAUX == ["S235", "S355", "Bois C24", "Azobé", "OSB", "Autre"]
-    and OP.RECTANGLE in src_ecran and '{"S235": 235.0, "S355": 355.0}' in src_ecran)
+    and OP.RECTANGLE in src_ecran and json.dumps(FY_ECRAN) in src_ecran and tuple(FY_ECRAN) == OP.ACIERS_MATERIAU)
 
 
 # ------------------------------------------------------------------ 4. ce que le site fait de plus : refuser, dire
@@ -670,7 +681,9 @@ def parite(op) -> bool:
         except Exception:  # noqa: BLE001
             return False
     for args in [("plateau", "P", "S355", 0.0, 210000.0, 0.0, "", 600.0, 600.0, 25.0, OP.RECTANGLE),
-                 ("filiere", "F", "Bois C24", 14.8, 11000.0, 8.0, "", 75.0, 225.0, 20.0, OP.RECTANGLE)]:
+                 ("filiere", "F", "Bois C24", 14.8, 11000.0, 8.0, "", 75.0, 225.0, 20.0, OP.RECTANGLE),
+                 ("filiere", "R", "S235", 0.0, 210000.0, 0.0, "", 30.0, 200.0, 20.0, OP.RECTANGLE),
+                 ("filiere", "H", "S235", 0.0, 210000.0, 0.0, "", 600.0, 600.0, 20.0, "HEB 300")]:
         if js(op.fiche_repartiteur(*args)) != js(OP.fiche_repartiteur(*args)):
             return False
     return True
@@ -681,7 +694,9 @@ MUTATIONS = [
     ("seuil du défaut des éléments (> 100 % → > 90 %)", 'if e["taux"] > 1.0}', 'if e["taux"] > 0.9}'),
     ("identifiant des filières proposées (p0 → p1)", 'fid = ET.ref_libre(cas, "F") + f"p{len(fils)}"', 'fid = ET.ref_libre(cas, "F") + f"p{len(fils) + 1}"'),
     ("ordre des candidats (masse décroissante)", "BIB.candidats_filieres(3.6)]", "reversed(BIB.candidats_filieres(3.6))]"),
-    ("table des nuances (S355 → 335 MPa)", '"S355": 355.0}', '"S355": 335.0}'),
+    ("f_y d'un plateau sans son épaisseur (t ≤ 16 mm)", "        ep = float(t)\n", "        ep = 1.0\n"),
+    ("f_y d'un rectangle à sa plus grande dimension", "        ep = min(float(A), float(B))\n", "        ep = max(float(A), float(B))\n"),
+    ("f_y d'un profilé à son âme", "        ep = BIB.paroi_profil(BIB.profils()[profil])\n", "        ep = BIB.profils()[profil][\"tw\"]\n"),
     ("barres : l'attention n'est plus chiffrée", 'v["statut"] in ("ok", "attention", "nok")]', 'v["statut"] in ("ok", "nok")]'),
     ("total : les étançons oubliés", 'else c.get("P", 0.0) for c', 'else 0.0 for c'),
     ("résumé : la chape en cm", "h['chape']['epaisseur'] * 1e3:.0f} mm", "h['chape']['epaisseur'] * 1e2:.0f} mm"),

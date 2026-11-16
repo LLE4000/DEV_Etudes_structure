@@ -1208,7 +1208,7 @@ def _sec_bibliotheque(etat: Dict) -> str:
            + L("Nom", C.texte(["note", "fiche_rep", "nom"], fr_["nom"], "ex. Plateau azobé 800 × 800 × 80"), full=True)
            + L("Matériau", C.choix(["note", "fiche_rep", "materiau"], fr_["materiau"], [(m, m) for m in OP.MATERIAUX]), full=True)
            + L("résistance", _num(["note", "fiche_rep", "f"], fr_["f"], "MPa", mini=0), "f",
-               "f_y/γ_M0 (acier) ou f_m,d (bois, OSB) ; 0 : f_y de la nuance (S235, S355), sinon à renseigner — sans elle, l'élément ne se calcule pas.")
+               "f_y/γ_M0 (acier) ou f_m,d (bois, OSB) ; 0 : f_y de la nuance (S235, S355) à l'épaisseur de l'élément (tableau 3.3 ANB), sinon à renseigner — sans elle, l'élément ne se calcule pas.")
            + L("module", _num(["note", "fiche_rep", "E"], fr_["E"], "MPa"), "E", "Filière : raideur EI ; plateau : sans effet.")
            + L("masse", _num(["note", "fiche_rep", "masse"], fr_["masse"], "kg" if plateau else "kg/m", mini=0), "")
            + (L("dimension A", _num(["note", "fiche_rep", "A"], fr_["A"], "mm"), "A") + L("dimension B", _num(["note", "fiche_rep", "B"], fr_["B"], "mm"), "B")

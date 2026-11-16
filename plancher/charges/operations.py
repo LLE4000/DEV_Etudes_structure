@@ -35,7 +35,9 @@ FAMILLES = [("flexion", "Flexion"), ("tranchant", "Tranchant"), ("local", "Local
             ("filiere", "Filières"), ("joint", "Joints")]
 RECTANGLE = "— rectangle b × h —"
 MATERIAUX = ["S235", "S355", "Bois C24", "Azobé", "OSB", "Autre"]
-FY_MATERIAU = {"S235": 235.0, "S355": 355.0}          # la table de l'écran d'origine, telle quelle
+# les aciers du menu : leur f_y se lit selon l'épaisseur (``fy_materiau``) — l'écran d'origine écrivait {"S235": 235.0,
+# "S355": 355.0} sans épaisseur (le tableau 3.1 de l'EN) ; ÉCART NOMMÉ avec lui, tenu par tests/test_charges_plancher_parite.py
+ACIERS_MATERIAU = ("S235", "S355")
 TYPES_APPUIS = {"pieds": "stabilisateurs", "roues": "roues", "chenilles": "chenilles + stabilisateurs"}
 # les appuis par défaut du formulaire « Nouvelle fiche d'engin » (le tableau de départ de l'écran d'origine)
 APPUIS_FICHE_DEFAUT = [
@@ -164,13 +166,29 @@ def fiche_engin(nom: str, typ: str, longueur: float, largeur: float, fleche: flo
                         "P": float(r["P"]), "phi": float(r["phi"])} for r in appuis]}
 
 
+def fy_materiau(materiau: str, typ: str, A: float, B: float, t: float, profil: str) -> Optional[float]:
+    """f_y d'un acier du menu (S235, S355) à l'épaisseur qui la fixe (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a ;
+    tableau 3.3 ANB, acier/materiaux.py) : plateau, son épaisseur t ; filière d'un profilé du catalogue, sa paroi la plus
+    épaisse max(t_f, t_w) ; rectangle b × h, sa plus petite dimension. None pour un autre matériau (à renseigner)."""
+    if materiau not in ACIERS_MATERIAU:
+        return None
+    if typ == "plateau":
+        ep = float(t)
+    elif profil != RECTANGLE:
+        ep = BIB.paroi_profil(BIB.profils()[profil])
+    else:
+        ep = min(float(A), float(B))
+    return BIB.fy_piece(materiau, ep)
+
+
 def fiche_repartiteur(typ: str, nom: str, materiau: str, f: float, E: float, masse: float, source: str, A: float, B: float,
                       t: float, profil: str) -> Dict:
-    """La fiche du formulaire « Nouvel élément de répartition » : f = f saisi, sinon fy de la table S235/S355, sinon
-    None (à renseigner) ; plateau : t, A, Bp ; filière : un profilé du catalogue ou un rectangle b × h sur champ."""
+    """La fiche du formulaire « Nouvel élément de répartition » : f = f saisi, sinon fy de la nuance S235/S355 à
+    l'épaisseur de l'élément (``fy_materiau``), sinon None (à renseigner) ; plateau : t, A, Bp ; filière : un profilé
+    du catalogue ou un rectangle b × h sur champ."""
     if not nom.strip():
         raise ValueError("Un nom est nécessaire.")
-    fy = FY_MATERIAU.get(materiau)
+    fy = None if f else fy_materiau(materiau, typ, A, B, t, profil)
     fiche = {"nom": nom.strip(), "type": typ, "materiau": materiau, "f": (f or fy or None), "E": float(E), "masse": float(masse),
              "source": source}
     if typ == "plateau":

@@ -18,6 +18,7 @@ import json
 import os
 from typing import Dict, List, Optional, Tuple
 
+from acier import materiaux as MA
 from beton.hourdis import catalogue as KH
 from .modele import AppuiGabarit, Gabarit, Plateau, Filiere, Hourdis, Chape, RD, EN_TRAVERS
 
@@ -125,7 +126,20 @@ def plateaux(extra: Optional[List[Dict]] = None) -> Dict[str, Plateau]:
 
 # ---------------------------------------------------------------- filières (profilés de l'application)
 def aciers() -> Dict[str, Dict]:
+    """Les nuances de la bibliothèque des aciers (leurs NOMS : f_y et f_u se lisent selon l'épaisseur, ``fy_piece``)."""
     return {a["n"]: a for a in _lire_racine(os.path.join("acier", "donnees", "bibliotheques.json"))["aciers"]}
+
+
+def paroi_profil(p: Dict) -> float:
+    """L'épaisseur qui fixe f_y d'un profilé en I ou H vu comme un tout : sa paroi la plus épaisse max(t_f, t_w) — la
+    plus petite f_y (la règle des barres et du flambement)."""
+    return max(float(p.get("tf") or 0.0), float(p.get("tw") or 0.0))
+
+
+def fy_piece(nuance: str, t: float) -> float:
+    """f_y (N/mm²) d'une pièce laminée d'épaisseur nominale t (mm) : la table unique du site (acier/materiaux.py,
+    NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a — tableau 3.3 ANB pour S235 et S355). MA.HorsTable au-delà."""
+    return MA.fy(nuance, t, "lamine")
 
 
 SOURCE_PROFILS = "acier/donnees/profiles.json"
@@ -146,9 +160,10 @@ def profils(familles=("IPE", "HEA", "HEB")) -> Dict[str, Dict]:
 def filiere_profil(nom: str, longueur: float, x: float, y: float, orientation: str = EN_TRAVERS,
                    nuance: str = "S235", refs=None, E: float = 210000.0, gamma_M0: float = 1.0) -> Filiere:
     """Une filière faite d'un profilé du catalogue : EI (kN·m²) = E·Iy, W_el
-    (cm³), fy de la nuance, largeur de semelle b (m)."""
+    (cm³), fy de la nuance à l'épaisseur de sa paroi la plus épaisse max(t_f, t_w)
+    (``fy_piece``), largeur de semelle b (m)."""
     p = profils()[nom]
-    fy = aciers()[nuance]["fy"]
+    fy = fy_piece(nuance, paroi_profil(p))
     EI = E * 1e3 * p["Iy"] * 1e-8                     # MPa → kN/m² ; cm⁴ → m⁴
     return Filiere(f"{nom} · {longueur:.2f} m", EI, p["Wel"], fy, longueur, x, y, orientation,
                    p["b"] / 1000.0, list(refs or []), gamma_M0, p.get("masse", 0.0), SOURCE_PROFILS)
