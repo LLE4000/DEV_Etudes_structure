@@ -265,6 +265,21 @@ profilé tombe, et celle des modules qui lisent la même table de f_y (Flambemen
 Chaque lot se clôt par : tests ciblés au vert, mutations, harnais du navigateur sur les trois formats si l'écran
 change, puis la batterie complète en fin de lot ; un court rapport ; votre feu vert avant le suivant.
 
+**Regroupement décidé par le propriétaire (16/11/2026)**, qui remplace le découpage ci-dessus :
+
+| Étape | Lots | Contenu |
+|---|---|---|
+| 1 | A | les résultats faux (en cours) |
+| 2 | 1 | méthode historique |
+| 3 | 2 et 3 | Eurocode 3 : matériau, sections, PRS, flambement, déversement, interaction |
+| 4 | 4 | âme sous charges et raidisseurs |
+| 5 | 5 et 6 | barre chargée (combinaisons), écran et note de calcul |
+| 6 | 7 | revue finale, puis mise en ligne |
+| plus tard | 8, 9 | torsion ; calcul de section et cartes |
+
+À la fin de chaque étape : les tests des modules touchés au vert, un court rapport, et le feu vert du propriétaire
+avant la suivante. La batterie complète du site ne tourne qu'à la fin du lot A et avant la mise en ligne.
+
 ## 7. Questions (une seule liste)
 
 | # | Question | Ma proposition |
