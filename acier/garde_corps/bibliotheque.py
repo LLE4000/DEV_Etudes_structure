@@ -18,7 +18,7 @@ section non standard.
 """
 import math
 from functools import lru_cache
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.profiles import catalogue as CAT
 from acier.profiles import familles as F
@@ -203,6 +203,20 @@ def nb_standards() -> int:
 def masse_lineaire(sec: Dict, longueur_mm: float) -> float:
     """Masse (kg) d'une longueur de section."""
     return sec["masse"] * longueur_mm / 1000.0
+
+
+def epaisseur(sec: Dict) -> Tuple[float, str]:
+    """(épaisseur nominale en mm, produit) qui fixent f_y et f_u d'une section (NBN EN 1993-1-1 ANB:2018 3.2.1(1),
+    option a ; acier/materiaux.py) : la paroi t d'un tube — fini à chaud (EN 10210, tableau 3.8 ANB) ou formé à froid
+    (EN 10219, tableau 3.10 ANB) selon sa famille du catalogue, « lamine » pour un tube non standard (produit inconnu) ;
+    la plus petite dimension d'un plat ; le diamètre d'un rond (EN 10025-2, tableau 3.3 ANB)."""
+    forme = sec["forme"]
+    if forme in ("creux_rond", "creux_rect"):
+        f = sec["famille"]
+        return float(sec["t"]), ("creux_chaud" if f in CREUX_CHAUD else "creux_froid" if f in CREUX_FROID else "lamine")
+    if forme == "plein_rond":
+        return float(sec["d"]), "lamine"
+    return float(min(sec["h"], sec["b"])), "lamine"
 
 
 def encombrement(sec: Dict) -> float:

@@ -153,7 +153,7 @@ def verifier_section(sec: Dict, M1: float, M2: float, N: float, V1: float, V2: f
     pire = max(taux, key=taux.get)
     return {"M1": M1, "M2": M2, "N": N, "V1": V1, "V2": V2, "gamma": g,
             "sigma_M1": s_M1, "sigma_M2": s_M2, "sigma_N": s_N, "sigma": sigma, "tau": tau, "sigma_eq": sigma_eq, "fleche": f, "fleche_lim": f_lim,
-            "lim_sigma": lim["sigma"], "lim_tau": lim["tau"], "coef_lim": lim["coef"], "taux": taux, "taux_max": taux[pire], "critere": pire,
+            "fy": fy, "lim_sigma": lim["sigma"], "lim_tau": lim["tau"], "coef_lim": lim["coef"], "taux": taux, "taux_max": taux[pire], "critere": pire,
             "statut": statut(taux[pire]), "Wy": Wy, "Wz": Wz, "A": A, "Av": Avz if t1 >= t2 else Avy, "L": L}
 
 

@@ -231,7 +231,10 @@ class Calcul:
         else:
             L.append(("Remplissage", "sans remplissage"))
         ac, m, lim = self.acier, self.meth, res["limites"]
-        L.append(("Acier", f"{ac['nuance']} · $f_y$ = {_g(ac['fy'])} N/mm² · $f_u$ = {_g(ac['fu'])} N/mm² · $E$ = {_fmt(float(m.get('E') or ME.E_ACIER), 0)} N/mm²"))
+        # la valeur RETENUE (chaque élément est vérifié à l'acier de SON épaisseur, NBN EN 1993-1-1 ANB 3.2.1(1)) : la plus épaisse des pièces
+        fy_txt = (f"$f_y$ = {_g(ac['fy'])} N/mm²{ET.origine_retenue(ac)} · $f_u$ = {_g(ac['fu'])} N/mm²" if ac.get("fy") is not None
+                  else "$f_y$, $f_u$ : —")
+        L.append(("Acier", f"{ac['nuance']} · {fy_txt} · $E$ = {_fmt(float(m.get('E') or ME.E_ACIER), 0)} N/mm²"))
         fl = self.fleche_adm()
         if m["mode"] == ME.ELS:
             L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = $f_y$/{_g(lim['coef'])} = {_fmt(lim['sigma'])} N/mm² · "
@@ -845,7 +848,7 @@ class Methode:
         cases = [("CAS", cas["nom"], ident or "—", 0.18),
                  ("GARDE-CORPS", C.type_libelle(), C.res["geometrie"]["phrase"], 0.28),
                  ("MÉTHODE", meth, "flèche ≤ " + C.fleche_adm(), 0.20),
-                 ("ACIER", C.acier["nuance"], f"$f_y$ {_g(C.acier['fy'])} N/mm² · $f_u$ {_g(C.acier['fu'])}", 0.12),
+                 ("ACIER", C.acier["nuance"], f"$f_y$ {_g(C.acier['fy'])} N/mm² · $f_u$ {_g(C.acier['fu'])}" if C.acier.get("fy") is not None else "—", 0.12),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.11),
                  ("ÉCHELLE DE L'ÉLÉVATION", ech, "A4 paysage", 0.11)]
         x = x0

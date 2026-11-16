@@ -437,6 +437,91 @@ chk("les efforts à l'ancrage nomment la nature de N : « N = 0,23 kN (compressi
 chk("le libellé de l'élément ancrage est court : « Ancrages · 2 × 2 chevilles M12 » (les résistances restent dans les hypothèses)",
     any(e["libelle"] == "Ancrages · 2 × 2 chevilles M12" for e in ET.verifier(cas())["elements"]) and "(N_Rd 9 kN, V_Rd 12 kN)" in FX.texte_ancrage(FX.fixation_defaut()["ancrage"]))
 
+print("\n=== 10. Lot A : chaque pièce à l'acier de SON épaisseur (NBN EN 1993-1-1 ANB:2018 3.2.1(1), option a) ===")
+import contextlib  # noqa: E402
+
+from acier import materiaux as MA  # noqa: E402
+from acier.soudures import etat as SET  # noqa: E402
+
+
+@contextlib.contextmanager
+def mutant(obj, nom, valeur):
+    """Une mutation : ``obj.nom`` remplacé le temps d'un contrôle, puis remis."""
+    ancien = getattr(obj, nom)
+    setattr(obj, nom, valeur)
+    try:
+        yield
+    finally:
+        setattr(obj, nom, ancien)
+
+
+def ctl_pieces() -> bool:
+    """Un montant Plat 80x20 (S235) : f_y = 225 (tableau 3.3 ANB, 16 < t ≤ 40 mm) pour LUI, 235 pour la main courante
+    RHS 50x30x3 (3 mm) ; une platine de 20 mm : 225 pour sa flexion ; la valeur retenue de l'ensemble = la plus petite
+    (σ_adm = 225/1,5 = 150) ; et chaque taux suit sa f_y."""
+    r = ET.verifier(cas(montant={"section": {"nom": "Plat 80x20"}}))
+    rp = ET.verifier(cas(fixation={**FX.fixation_defaut(), "platine": {**FX.fixation_defaut()["platine"], "tp": 20.0}}))
+    r0 = ET.verifier(cas())
+    vm, vl = r["montant"]["verif"], r["lisse"]["verif"]
+    pl, pl0 = rp["fixation"]["platine"], r0["fixation"]["platine"]
+    return (pres(vm["fy"], 225.0) and pres(vm["lim_sigma"], 150.0) and pres(vl["fy"], 235.0) and pres(r["acier"]["fy"], 225.0)
+            and pres(r["limites"]["sigma"], 150.0) and "16 < t ≤ 40 mm" in ET.origine_retenue(r["acier"])
+            and pres(pl["fy"], 225.0) and pres(pl["lim_sigma"], 150.0) and pres(pl["taux_platine"], pl["sigma_p"] / 150.0)
+            and pres(pl0["fy"], 235.0) and pres(pl0["taux_platine"], pl0["sigma_p"] / (235.0 / 1.5))
+            and pres(r0["acier"]["fy"], 235.0) and ET.origine_retenue(r0["acier"]) == "")
+
+
+def ctl_soudure_S355() -> bool:
+    """La soudure du montant (Eurocode) en S355 : f_u = 470 (tableau 3.3 ANB, 3 ≤ t ≤ 100 mm ; l'EN donnait 510), la
+    platine de 10 mm étant la pièce la plus faible ; la note retient f_u = 470."""
+    r = ET.verifier(cas(methode={"mode": "eurocode", "nuance": "S355"}))
+    s = r["fixation"]["soudure"]["res"]
+    return pres(s["acier"]["fu"], 470.0) and pres(s["resistances"]["f_vw_d"], 470.0 / (math.sqrt(3) * 0.9 * 1.25)) and pres(r["acier"]["fu"], 470.0)
+
+
+chk("chaque élément à SA f_y : montant Plat 80x20 → 225, main courante RHS 50x30x3 → 235, platine de 20 mm → 225 ; valeur retenue de l'ensemble 225 (σ_adm 150) et sa provenance dite",
+    ctl_pieces())
+chk("soudure du montant en S355 (Eurocode) : f_u = 470 et f_vw,d = 241,2 N/mm² (au lieu de 510 et 261,7)", ctl_soudure_S355())
+cs = FX.cas_soudure(BI.section({"nom": "Plat 50x10"}), 0.0, 1.0, 0.0, 1000.0, FX.fixation_defaut()["soudure"], 20.0, ME.methode_defaut(), "S235")
+chk("plat soudé (C3 sur un plat) : la platine de 20 mm est la pièce A de la soudure (t_A = t_p), f_y min 225 pour une pleine pénétration",
+    cs["config"] == "C3" and pres(cs["params"]["tA"], 20.0) and pres(SET.acier_cordon(cs["params"], "C3")["fy_min"], 225.0))
+cl = FX.cas_soudure_laterale(BI.section({"nom": "CHS 48.3x3.2"}), 1.0, 0.0, 0.0, 600.0, FX.fixation_defaut()["soudure"], 150.0, 12.0, ME.methode_defaut(), "S355")
+chk("platine latérale (C8) : les épaisseurs connues passent au moteur des soudures (t_A = 12 de la platine, t_B = 3,2 du tube)",
+    pres(cl["params"]["tA"], 12.0) and pres(cl["params"]["tB"], 3.2) and SET.acier_cordon(cl["params"], "C8")["A"]["t"] == 12.0)
+chk("épaisseur d'une section : paroi d'un tube (et son produit), plus petite dimension d'un plat, diamètre d'un rond",
+    BI.epaisseur(BI.section({"nom": "CHS 48.3x3.2"})) == (3.2, "creux_chaud") and BI.epaisseur(BI.section({"nom": "Plat 30x8"})) == (8.0, "lamine")
+    and BI.epaisseur(BI.section({"nom": "Rond Ø20"})) == (20.0, "lamine")
+    and BI.epaisseur(BI.section({"nom": next(n for n, s in BI.standards().items() if s["famille"] == "RHS-F")}))[1] == "creux_froid")
+rr = ET.verifier(cas(fixation={**FX.fixation_defaut(), "platine": {**FX.fixation_defaut()["platine"], "tp": 300.0}}))
+chk("une platine de 300 mm (au-delà du tableau 3.3 ANB) : refus nommé, aucune valeur inventée",
+    rr["statut"] == ET.REFUS and any("3.3 ANB" in m for m in rr["messages"]) and rr["acier"]["fy"] is not None)
+# la vérification n'emploie jamais l'acier SANS pièce (le nombre du nom, réservé aux libellés de l'écran Streamlit)
+vrai_acier = ET.acier
+
+
+def acier_strict(meth, sec=None, t=None, produit="lamine", piece=""):
+    if sec is None and t is None:
+        raise AssertionError("acier sans pièce dans la vérification")
+    return vrai_acier(meth, sec, t, produit, piece)
+
+
+with mutant(ET, "acier", acier_strict):
+    try:
+        for c_ in (cas(), cas("murale"), cas(methode={"mode": "eurocode"}), cas(fixation={**FX.fixation_defaut(), "type": "laterale"})):
+            ET.verifier(c_)
+            ET.candidats(c_, "montant", masse_max=5.0)
+        jamais_sans_piece = True
+    except AssertionError:
+        jamais_sans_piece = False
+chk("la vérification et les candidats n'emploient jamais l'acier sans pièce (le nombre du nom n'entre dans aucune résistance)", jamais_sans_piece)
+# les mutations : chacune doit faire rougir le contrôle qui la surveille
+with mutant(ET.MA, "fy", lambda n, t, produit="lamine": MA.nominale(n)):
+    chk("mutation « f_y nominale quelle que soit l'épaisseur » : le contrôle des pièces rougit", not ctl_pieces())
+with mutant(ET, "acier_retenu", lambda pieces: dict(vrai_acier(ME.methode_defaut(), t=3.0), pieces=[])):
+    chk("mutation « valeur retenue = la pièce la plus mince » : le contrôle des pièces rougit", not ctl_pieces())
+with mutant(SET.MA, "fu", lambda n, t, produit="lamine": 510.0 if "S355" in n else 360.0):
+    chk("mutation « f_u du tableau 3.1 de l'EN (510 en S355) » : le contrôle de la soudure rougit", not ctl_soudure_S355())
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

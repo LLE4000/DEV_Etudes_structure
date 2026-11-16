@@ -407,7 +407,9 @@ def _hypotheses(res: Dict) -> List[str]:
         meth = f"Méthode <b>ELS</b> · σ<sub>adm</sub> = f<sub>y</sub> / {C.nb(lim['coef'])} = {C.fr(lim['sigma'])} N/mm²"
     else:
         meth = f"Méthode <b>Eurocode</b> · γ<sub>Q</sub> = {C.nb(m.get('gamma_Q'))} · γ<sub>M0</sub> = {C.nb(m.get('gamma_M0'))}"
-    return [f"Acier <b>{C.esc(res['acier']['nuance'])}</b> · f<sub>y</sub> = {C.nb(fy)} N/mm²", meth, f"Flèche ≤ <b>{fl}</b>"]
+    # la valeur RETENUE pour l'ensemble et d'où elle vient ; chaque fenêtre de calcul dit la f_y de SON élément
+    return [f"Acier <b>{C.esc(res['acier']['nuance'])}</b> · f<sub>y</sub> = {C.nb(fy)} N/mm²{C.esc(ET.origine_retenue(res['acier']))}", meth,
+            f"Flèche ≤ <b>{fl}</b>"]
 
 
 def _optimaux(cas: Dict) -> Dict[str, Dict]:

@@ -161,7 +161,7 @@ def montant(res: Dict) -> Dict:
         if v["P2"] > 0:
             fleches.append(Sub("f₂", "P*1000*H**3/(3*E*I)", {"P": ("P₂", v["P2"] / 1e3), "H": ("H", v["H"]), "E": ("E", E), "I": ("I_z", sec["Iz"] * 1e4)}, v["f2"], "mm", 2))
             fleches.append(Sub("f_rés", "sqrt(f1**2 + f2**2)", {"f1": ("f₁", v["f1"]), "f2": ("f₂", v["f2"])}, v["fleche"], "mm", 2))
-    lim = _limites(v, meth, res["acier"]["fy"])
+    lim = _limites(v, meth, v["fy"])            # l'élément à l'acier de SON épaisseur
     return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 
@@ -209,7 +209,7 @@ def lisse(res: Dict) -> Dict:
                            {"kf": ("k_f", kf), "qh": ("q_h", v["qh"]), "L": ("L", L), "E": ("E", E), "I": ("I_z", sec["Iz"] * 1e4), "Q": ("Q", v["Q"] / 1e3)}, v["fh"], "mm", 2))
         fleches.append(Sub("f_v", "kf*qv*L**4/(E*I)" if cont else "5*qv*L**4/(384*E*I)", {"kf": ("k_f", kf), "qv": ("q_v", v["qv"]), "L": ("L", L), "E": ("E", E), "I": ("I_y", sec["Iy"] * 1e4)}, v["fv"], "mm", 2))
         fleches.append(Sub("f", "sqrt(fh**2 + fv**2)", {"fh": ("f_h", v["fh"]), "fv": ("f_v", v["fv"])}, v["fleche"], "mm", 2))
-    lim = _limites(v, meth, res["acier"]["fy"])
+    lim = _limites(v, meth, v["fy"])            # l'élément à l'acier de SON épaisseur
     return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 
@@ -239,7 +239,7 @@ def barre(res: Dict) -> Dict:
     V, Av_sym, Av = (v["V2"], "A_v,y", sec["Avy"] * 1e2) if faible else (v["V1"], "A_v", sec["Avz"] * 1e2)
     sollic.append(Sub("V", "", {}, V / 1e3, "kN", 3))
     tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V", V / 1e3), "Av": (Av_sym, Av)}, v["tau"], "N/mm²", 2)
-    lim = _limites(v, meth, res["acier"]["fy"])
+    lim = _limites(v, meth, v["fy"])            # l'élément à l'acier de SON épaisseur
     return _bloc(v["cas_charge"], v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 
@@ -276,7 +276,7 @@ def console(res: Dict) -> Dict:
             termes.append(f"{pref}M2*1e6/Wz")
             vals.update({"M2": ("M₂", v["M2"] / 1e6), "Wz": ("W_el,z", v["Wz"])})
     sigma = Sub("σ", " + ".join(termes), vals, v["sigma"], "N/mm²", 1)
-    lim = _limites(v, meth, res["acier"]["fy"])
+    lim = _limites(v, meth, v["fy"])            # l'élément à l'acier de SON épaisseur
     return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 

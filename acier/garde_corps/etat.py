@@ -25,6 +25,7 @@ import json
 import math
 from typing import Dict, List, Optional
 
+from acier import materiaux as MA
 from acier.bibliotheques import DB
 
 from . import bibliotheque as BI
@@ -119,10 +120,54 @@ def nuances() -> Dict[str, Dict]:
     return {a["n"]: a for a in DB["aciers"]}
 
 
-def acier(meth: Dict) -> Dict:
+def acier(meth: Dict, sec: Optional[Dict] = None, t: Optional[float] = None, produit: str = "lamine", piece: str = "") -> Dict:
+    """La nuance du garde-corps pour UNE pièce : f_y et f_u de SON épaisseur (NBN EN 1993-1-1 ANB:2018 3.2.1(1),
+    option a ; tableaux 3.3 ANB à 3.11 ANB, acier/materiaux.py) — la section ``sec`` (``BI.epaisseur`` : la paroi d'un
+    tube, l'épaisseur d'un plat, le diamètre d'un rond) ou une plaque d'épaisseur ``t`` (la platine). MA.HorsTable
+    (ValueError) au-delà du tableau : aucune valeur inventée."""
     nz = nuances()
     a = nz.get(meth.get("nuance", "S235"), nz["S235"])
-    return {"nuance": a["n"], "fy": float(a["fy"]), "fu": float(a["fu"])}
+    n = a["n"]
+    if sec is not None:
+        t, produit = BI.epaisseur(sec)
+    if t is None:
+        # sans pièce (l'écran Streamlit hors ligne, pour un LIBELLÉ) : le nombre du nom (MA.nominale) — la vérification
+        # ne l'emploie jamais (tests/test_garde_corps_moteur.py le tient)
+        return {"nuance": n, "fy": MA.nominale(n), "fu": MA.fu(n, 16.0), "t": None, "produit": "lamine", "piece": None,
+                "domaine_fy": None, "domaine_fu": None}
+    if t <= 0:
+        raise MA.HorsTable(f"épaisseur invalide : {t!r}")
+    return {"nuance": n, "fy": MA.fy(n, t, produit), "fu": MA.fu(n, t, produit), "t": float(t), "produit": produit, "piece": piece,
+            "domaine_fy": MA.source(n, t, produit, "fy"), "domaine_fu": MA.source(n, t, produit, "fu")}
+
+
+def acier_retenu(pieces: List[Dict]) -> Dict:
+    """La valeur RETENUE pour tout le garde-corps — la ligne « Acier » de l'écran et de la note, les limites communes
+    (σ_adm, τ_adm) : là où une pièce n'est pas nommée, la plus épaisse des pièces vérifiées, donc la plus petite f_y (et
+    de même la plus petite f_u), du côté sûr. Chaque élément, lui, est vérifié à SA valeur (``acier(meth, sec)``)."""
+    py = min(pieces, key=lambda a: (a["fy"], -a["t"]))
+    pu = min(pieces, key=lambda a: (a["fu"], -a["t"]))
+    return {"nuance": py["nuance"], "fy": py["fy"], "fu": pu["fu"], "t": py["t"], "produit": py["produit"], "piece": py["piece"],
+            "domaine_fy": py["domaine_fy"], "piece_fu": pu["piece"], "t_fu": pu["t"], "domaine_fu": pu["domaine_fu"],
+            "pieces": [{k: a[k] for k in ("piece", "t", "fy", "fu")} for a in pieces]}
+
+
+def origine_retenue(ac: Dict) -> str:
+    """« (montant Plat 80x20 de 20 mm : 16 < t ≤ 40 mm, tableau 3.3 ANB) » quand l'épaisseur d'une pièce abaisse la f_y
+    retenue sous le nombre du nom (MA.nominale) — l'écran et la note disent alors d'où elle vient ; rien sinon."""
+    if ac.get("fy") is None or ac.get("domaine_fy") is None or ac["fy"] >= MA.nominale(ac["nuance"]):
+        return ""
+    return f" ({texte_acier(ac)})"
+
+
+def texte_acier(ac: Dict, grandeur: str = "fy") -> str:
+    """« montant RHS 50x30x3 de 3 mm : t ≤ 16 mm, tableau 3.8 ANB » : d'où vient la valeur retenue (la pièce, son
+    épaisseur, la bande et le tableau de l'ANB)."""
+    dom = ac["domaine_" + grandeur]
+    piece, t = (ac["piece"], ac["t"]) if grandeur == "fy" else (ac.get("piece_fu", ac["piece"]), ac.get("t_fu", ac["t"]))
+    bande = dom.rsplit("), ", 1)[-1]
+    tab = dom.split(" (", 1)[0]
+    return f"{piece} de {t:g} mm : {bande}, {tab}"
 
 
 # ------------------------------------------------------------------ éléments
@@ -277,11 +322,41 @@ def _n_travees_max(ana: Dict) -> int:
 
 
 def verifier(cas: Dict) -> Dict:
+    """La vérification complète d'un cas (``_verifier``), chaque pièce à l'acier de SON épaisseur ; puis la valeur
+    RETENUE pour l'ensemble (``acier_retenu`` : la ligne « Acier », les limites communes). Une épaisseur au-delà des
+    tableaux de l'ANB (MA.HorsTable) : refus nommé."""
     cas = normaliser_cas(cas)
+    meth = cas["methode"]
+    out: Dict = {"messages": []}
+    pieces: List[Dict] = []
+    try:
+        _verifier(cas, out, pieces)
+    except MA.HorsTable as e:
+        out.update({"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": []})
+        out["messages"].append(f"Refus : {e}")
+    if not pieces:                   # rien de vérifié (refus avant les sections) : la platine, s'il y en a une lisible
+        try:
+            pieces.append(acier(meth, t=float((cas["fixation"].get("platine") or {}).get("tp") or 10.0), piece="platine"))
+        except MA.HorsTable:
+            pass
+    if pieces:
+        out["acier"] = acier_retenu(pieces)
+        out["limites"] = ME.limites(meth, out["acier"]["fy"])
+    else:
+        n = nuances().get(meth.get("nuance", "S235"), nuances()["S235"])["n"]
+        out["acier"] = {"nuance": n, "fy": None, "fu": None, "pieces": []}
+        out["limites"] = None
+    return out
+
+
+def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
     geom, ch, meth = cas["geometrie"], cas["charges"], cas["methode"]
-    ac = acier(meth)
-    fy = ac["fy"]
-    lim = ME.limites(meth, fy)
+
+    def fy_de(sec: Optional[Dict] = None, t: Optional[float] = None, piece: str = "") -> float:
+        """f_y d'une pièce vérifiée, à SON épaisseur ; elle entre dans la valeur retenue de l'ensemble."""
+        a = acier(meth, sec, t, piece=piece)
+        pieces.append(a)
+        return a["fy"]
     ana = GE.analyser(geom)
     H = float(geom.get("H") or GE.H_DEFAUT)
     systeme = geom.get("systeme", "montants")
@@ -290,13 +365,13 @@ def verifier(cas: Dict) -> Dict:
     laterale = systeme == "montants" and cas["fixation"].get("type") == FX.LATERALE
     d_h = float((cas["fixation"].get("platine") or {}).get("d_h") or 0.0) if laterale else 0.0
     H_post = H + d_h
-    out: Dict = {"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": [], "messages": list(ana["messages"]),
+    out.update({"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": [], "messages": list(ana["messages"]),
                  "type": typ_gc, "type_libelle": TY.TYPES[typ_gc]["libelle"],
                  "charges": ch, "charges_tableau": CH.tableau(ch), "cumul": bool(ch.get("cumul")),
                  "geometrie": {**ana, "H": H, "H_post": H_post, "d_h": d_h, "laterale": laterale, "systeme": systeme, "phrase": GE.phrase(geom, ana)},
-                 "acier": ac, "methode": meth,
-                 "limites": lim, "montants": [], "montant": None, "lisse": None, "remplissage": None, "consoles": [], "console": None,
-                 "fixation": None, "masse": 0.0}
+                 "acier": None, "methode": meth,
+                 "limites": None, "montants": [], "montant": None, "lisse": None, "remplissage": None, "consoles": [], "console": None,
+                 "fixation": None, "masse": 0.0})
     if ana["messages"]:
         return out
     if H > CH.H_MAX_APPLICATION:
@@ -322,13 +397,15 @@ def verifier(cas: Dict) -> Dict:
         if sec is None:
             return out
         out["section_montant"] = sec
+        fy = fy_de(sec, piece=f"montant {sec['nom']}")
         for m in ana["montants"]:
             out["montants"].append(verifier_montant(sec, ch, m, H_post, meth, fy))
         gouv = max(out["montants"], key=lambda v: v["taux_max"])
         out["montant"] = {"section": sec, "verif": gouv, "nom": gouv["nom"], "n": len(out["montants"])}
         elements.append(("montant", f"Montant principal {gouv['nom']} · {sec['nom']}", gouv["taux_max"], gouv["critere"], gouv))
         masse += len(out["montants"]) * BI.masse_lineaire(sec, H_post + (float(cas["fixation"]["platine"].get("bp") or 0.0) if laterale else 0.0))
-    vl = verifier_lisse(sec_lisse, qh_lisse, ch["qv"], ch["Q"] * 1e3, s_max, n_tr, appuis, meth, fy, comb, bool(ch.get("cumul")))
+    vl = verifier_lisse(sec_lisse, qh_lisse, ch["qv"], ch["Q"] * 1e3, s_max, n_tr, appuis, meth, fy_de(sec_lisse, piece=f"main courante {sec_lisse['nom']}"),
+                        comb, bool(ch.get("cumul")))
     out["lisse"] = {"section": sec_lisse, "verif": vl, "L": s_max, "appuis": appuis, "n_travees": n_tr,
                     "role": "principal" if systeme == "mur" or ana["sans_montant"] else "secondaire"}
     elements.append(("lisse", f"Main courante · {sec_lisse['nom']} · portée {s_max / 1000:.2f} m, {ME.APPUIS[appuis]}".replace(".", ","), vl["taux_max"], vl["critere"], vl))
@@ -339,6 +416,7 @@ def verifier(cas: Dict) -> Dict:
         if sec_c is None:
             return out
         e = float(cas["fixation"]["console"].get("e") or 100.0)
+        fy = fy_de(sec_c, piece=f"console {sec_c['nom']}")
         for m in ana["montants"]:
             out["consoles"].append(verifier_console(sec_c, ch, m, e, meth, fy))
         gc = max(out["consoles"], key=lambda v: v["taux_max"])
@@ -362,7 +440,7 @@ def verifier(cas: Dict) -> Dict:
         if sec_b is not None:
             eb = float(rp.get("entraxe") or 110.0)
             Lb = portee_barreaux(H, rp, sec_lisse, out["remplissage"].get("section_basse"))
-            vb = verifier_barre(sec_b, ch["qr"] * eb / 1e3, ch["Qr"] * 1e3, Lb, meth, fy)
+            vb = verifier_barre(sec_b, ch["qr"] * eb / 1e3, ch["Qr"] * 1e3, Lb, meth, fy_de(sec_b, piece=f"barreaux {sec_b['nom']}"))
             out["remplissage"].update({"section": sec_b, "verif": vb, "entraxe": eb, "L": Lb})
             elements.append(("barreau", f"Barreaux · {sec_b['nom']} · e = {eb:g} mm, portée {Lb:.0f} mm", vb["taux_max"], vb["critere"], vb))
             masse += (ana["L_total"] / eb) * BI.masse_lineaire(sec_b, Lb)
@@ -370,7 +448,7 @@ def verifier(cas: Dict) -> Dict:
         sec_l = _section(rp.get("section_lisses") or {"nom": SECTIONS_DEFAUT["lisse_inter"]}, "des lisses intermédiaires", out["messages"])
         if sec_l is not None:
             el, nl = float(rp.get("entraxe_lisses") or 300.0), int(rp.get("n_lisses") or 1)
-            vb = verifier_barre(sec_l, ch["qr"] * el / 1e3, ch["Qr"] * 1e3, s_max, meth, fy, axe="faible")
+            vb = verifier_barre(sec_l, ch["qr"] * el / 1e3, ch["Qr"] * 1e3, s_max, meth, fy_de(sec_l, piece=f"lisses {sec_l['nom']}"), axe="faible")
             out["remplissage"].update({"section": sec_l, "verif": vb, "entraxe": el, "L": s_max, "n": nl})
             elements.append(("lisse_inter", f"Lisses intermédiaires ({nl}) · {sec_l['nom']} · e = {el:g} mm, portée {s_max / 1000:.2f} m".replace(".", ","),
                              vb["taux_max"], vb["critere"], vb))
@@ -379,7 +457,7 @@ def verifier(cas: Dict) -> Dict:
         out["messages"].append(f"Remplissage en panneau (verre, tôle, câbles) : sa résistance sous Q_r = {ch['Qr']:g} kN et q_r = {ch['qr']:g} kN/m² "
                                "est à justifier par le fournisseur".replace(".", ","))
     # la fixation
-    out["fixation"] = _fixation(cas, out, meth, fy, ac)
+    out["fixation"] = _fixation(cas, out, meth, fy_de)
     fx = out["fixation"]
     if fx.get("soudure"):
         s = fx["soudure"]
@@ -421,9 +499,10 @@ def _cas_fixation(out: Dict, cumul: bool):
     return [("1", Rh2 * e, Rh, Rh2, 0.0, Rh2, e), ("2", Rv * e, 0.0, Rv, Rv, 0.0, e)]
 
 
-def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
+def _fixation(cas: Dict, out: Dict, meth: Dict, fy_de) -> Dict:
     """La soudure et la platine de l'élément fixé le plus chargé (montant gouvernant, ou console
-    gouvernante dans le système mur), sous chaque cas de charge ; le pire gouverne."""
+    gouvernante dans le système mur), sous chaque cas de charge ; le pire gouverne. La platine est
+    vérifiée à l'acier de SON épaisseur t_p (``fy_de``) ; la soudure, chaque pièce à la sienne."""
     fx = cas["fixation"]
     typ = fx.get("type", "platine")
     res: Dict = {"type": typ, "libelle": FX.TYPES[typ], "soudure": None, "platine": None, "taux_max": None, "statut": None}
@@ -439,7 +518,10 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
     hp = float(sec["h"] or sec["d"])
     soud = fx["soudure"]
     tp = float(fx["platine"].get("tp") or 10.0)
-    g = out["limites"]["gamma"]
+    fy = fy_de(t=tp, piece="platine")
+    g = ME.limites(meth, fy)["gamma"]
+    nuance = nuances().get(meth.get("nuance", "S235"), nuances()["S235"])["n"]
+    ac = {"nuance": nuance}
     if typ == FX.LATERALE:
         if systeme != "montants":
             out["messages"].append("Platine latérale : pour des montants verticaux seulement — la console au mur garde sa platine")
@@ -551,7 +633,7 @@ def appliquer_section(cas: Dict, sec: Dict, role: str = "montant") -> None:
 
 def _verifier_role(sec: Dict, role: str, cas: Dict, res: Dict) -> Dict:
     meth, ch = cas["methode"], cas["charges"]
-    fy = acier(meth)["fy"]
+    fy = acier(meth, sec)["fy"]                  # le candidat à l'acier de SON épaisseur
     ana = res["geometrie"]
     H, s_max = ana["H"], ana["s_max"]
     qh = (ch["P"] * 1e3 / s_max if ch["mode"] == "P" else ch["qh"]) if s_max > 0 else 0.0

@@ -102,7 +102,9 @@ def cas_soudure(sec: Dict, N_kN: float, P1_kN: float, P2_kN: float, L_mm: float,
     elif sec["forme"] == "plein_rect":
         cas = SET.nouveau_cas("C3")
         cas["params"].update(base)
-        cas["params"].update({"h": float(sec["h"]), "t": float(sec["b"]), "e": float(L_mm), "deux_cordons": True, "retours": True, "poteau": "plat"})
+        # le support est la platine : son épaisseur t_A fixe SON f_y et SON f_u (soudures.configurations.epaisseurs)
+        cas["params"].update({"h": float(sec["h"]), "t": float(sec["b"]), "e": float(L_mm), "deux_cordons": True, "retours": True, "poteau": "plat",
+                              "tA": float(tp)})
         # C3 : V vertical à l'excentricité e (sens de h du plat), N > 0 tire la console hors de l'appui ;
         # l'effort P₂ (sens de l'épaisseur) ne s'y modélise pas : il est porté par le couple des cordons (négligé)
         cas["efforts"] = {"V": abs(P1_kN), "N": N_kN}
@@ -122,7 +124,8 @@ def cas_soudure(sec: Dict, N_kN: float, P1_kN: float, P2_kN: float, L_mm: float,
                 els.append({"type": "segment", "nom": ("bas", "droite", "haut", "gauche")[i], "x1": x1, "y1": y1, "x2": x2, "y2": y2, "a": a, "cote": 1,
                             "retours": True, "troncons": tr})
         cas["params"]["elements"] = els
-        cas["params"].update({"xR": 0.0, "yR": 0.0, "zR": 0.0})
+        # cordons libres : l'épaisseur de chaque pièce, que le garde-corps connaît (la platine A, le montant B)
+        cas["params"].update({"xR": 0.0, "yR": 0.0, "zR": 0.0, "tA": float(tp), "tB": BI.epaisseur(sec)[0]})
         cas["efforts"] = {"N": N_kN, "Vx": P2_kN, "Vy": P1_kN, "Mx": -M1, "My": M2, "Mz": 0.0}
     if meth.get("mode") == EUROCODE:
         cas["methode"].update({"mode": "eurocode", "ec": meth.get("ec", "directionnelle"), "gamma_M2": float(meth.get("gamma_M2", 1.25))})
@@ -147,7 +150,8 @@ def cas_soudure_laterale(sec: Dict, P_kN: float, P2_kN: float, Nv_kN: float, y_P
     els = [{"type": "segment", "nom": "cordon gauche", "x1": -b / 2, "y1": lw / 2, "x2": -b / 2, "y2": -lw / 2, "a": a, "cote": 1, "retours": False, "troncons": tr},
            {"type": "segment", "nom": "cordon droit", "x1": b / 2, "y1": -lw / 2, "x2": b / 2, "y2": lw / 2, "a": a, "cote": 1, "retours": False, "troncons": tr}]
     cas = SET.nouveau_cas("C8")
-    cas["params"].update({"elements": els, "xR": 0.0, "yR": float(y_P), "zR": 0.0, "tp": float(tp), "nuance_A": nuance, "nuance_B": nuance})
+    cas["params"].update({"elements": els, "xR": 0.0, "yR": float(y_P), "zR": 0.0, "tp": float(tp), "nuance_A": nuance, "nuance_B": nuance,
+                          "tA": float(tp), "tB": BI.epaisseur(sec)[0]})     # l'épaisseur de chaque pièce : la platine A, le montant B
     cas["efforts"] = {"N": P_kN, "Vx": P2_kN, "Vy": -Nv_kN, "Mx": 0.0, "My": 0.0, "Mz": 0.0}
     if meth.get("mode") == EUROCODE:
         cas["methode"].update({"mode": "eurocode", "ec": meth.get("ec", "directionnelle"), "gamma_M2": float(meth.get("gamma_M2", 1.25))})
@@ -243,7 +247,8 @@ def platine_boulonnee(M: float, N: float, V: float, hp: float, pl: Dict, anc: Di
     n = int(anc.get("n_par_rangee") or 2)
     ex, ey = float(anc.get("ex") or 0.0), float(anc.get("ey") or 0.0)
     bp, lp, tp = float(pl.get("bp") or 0.0), float(pl.get("lp") or 0.0), float(pl.get("tp") or 0.0)
-    out: Dict = {"mode": "platine", "n_total": 2 * n, "n_tendus": n, "ex": ex, "ey": ey, "bp": bp, "lp": lp, "tp": tp, "hp": hp, "messages": [], "gamma": g, "gamma_F": gF}
+    out: Dict = {"mode": "platine", "n_total": 2 * n, "n_tendus": n, "ex": ex, "ey": ey, "bp": bp, "lp": lp, "tp": tp, "hp": hp, "messages": [], "gamma": g, "gamma_F": gF,
+                 "fy": fy}
     if ex <= hp:
         return _refus(out, f"l'entraxe e_x = {ex:g} mm des rangées doit dépasser la dimension h_p = {hp:g} mm du montant")
     if n > 1 and (n - 1) * ey >= lp:
@@ -277,7 +282,7 @@ def platine_laterale(M: float, P: float, V: float, Mz: float, b_post: float, pl:
     bp, lp, tp = float(pl.get("bp") or 0.0), float(pl.get("lp") or 0.0), float(pl.get("tp") or 0.0)
     d_h = float(pl.get("d_h") or 0.0)
     out: Dict = {"mode": LATERALE, "n_total": 2 * n, "n_tendus": n, "ex": ex, "ey": ey, "bp": bp, "lp": lp, "tp": tp, "hp": b_post, "b_post": b_post, "d_h": d_h,
-                 "messages": [], "gamma": g, "gamma_F": gF}
+                 "messages": [], "gamma": g, "gamma_F": gF, "fy": fy}
     d0 = 14.0 if anc.get("type") != "boulon" else _boulon(anc.get("boulon", "M12"), anc.get("classe", "8.8"))["d0"]
     if n % 2:
         return _refus(out, f"platine latérale : les chevilles vont par paires de part et d'autre du montant ({n} par rangée saisi)")
