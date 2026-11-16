@@ -211,6 +211,10 @@ ASSEMBLAGE des parties efficaces sur des sections sans congé, à 10⁻⁹.
 N_pl,Rd, N_c,Rd, M_c,Rd par classe ; V_pl,Rd = A_v·(f_y/√3)/γ_M0 — A_v,z = A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w
 (le catalogue porte la première expression, sans le plancher) ; A_v,y = 2·b·t_f pour un I ou H LAMINÉ (lot A, DÉCISION
 BUREAU n° 3 ; le catalogue et la Bibliothèque Acier portent encore A − h_w·t_w), A − h_w·t_w pour un I soudé (cas (e)) ;
+U (fonction `aires_cisaillement` seulement : le module ne vérifie pas un U, E-SECTION « non couvert ») : A_v,z du catalogue
+(cas (b)), A_v,y = min(2·b·t_f, A − h_w·t_w) pour un U laminé — aucun cas de 6.2.6(3) ne le vise, (e) nomme les U
+soudés : la plus petite des deux (troisième passe du lot A ; avant, l'A_v,z de l'âme : UPN 380 52,43 cm² au lieu de
+32,64) — A − h_w·t_w pour un U soudé ; une cornière est refusée ;
 tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
 Tube rond en N + M : critère linéaire (6.2), prudent.

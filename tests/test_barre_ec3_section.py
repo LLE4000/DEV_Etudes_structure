@@ -395,6 +395,27 @@ def controles(C_=CL, S_=ES):
     c("A_v,y (test 14 du § 11.5) : HEB 200 laminé → 2·b·t_f = 6 000 mm² (V_pl,y,Rd = 814,1 kN) ; un I SOUDÉ garde A − h_w·t_w (6.2.6(3) e))",
       proche(r["grandeurs"]["A_v"]["y"], 6000.0) and round(limite(r, "E-Vy"), 1) == 814.1
       and proche(rw["grandeurs"]["A_v"]["y"], sw["A"] - (400.0 - 24.0) * 8.0), (r["grandeurs"]["A_v"], rw["grandeurs"]["A_v"]))
+    # troisième passe : un U — V_y portée par les SEMELLES, jamais l'A_v,z de l'âme (UPN 380 : 52,43 cm², +57 % sur A − h_w·t_w)
+    faux_u, vus = [], {}
+    for q in CAT.profils():
+        if q["famille"] not in ("UPN", "UPE"):
+            continue
+        av = S_.aires_cisaillement(SE.du_catalogue(q["nom"]), 1.0)
+        d_ = q["dims"]
+        semelles, geo = 2.0 * d_["b"] * d_["tf"], q["A"] * 100 - (d_["h"] - 2.0 * d_["tf"]) * d_["tw"]
+        vus[q["nom"]] = round(av["y"] / 100, 2)
+        if not (proche(av["y"], min(semelles, geo)) and proche(av["z"], q["Avz"] * 100)):
+            faux_u.append((q["nom"], av["y"], semelles, geo))
+    su = SE.saisie("U", "soude_oxycoupe", h=200.0, b=80.0, tw=6.0, tf=11.0, A=2900.0, Iy=1.9e7, Iz=1.9e6, iy=81.0, iz=25.0)
+    try:
+        S_.aires_cisaillement(SE.du_catalogue("L 100x100x10"), 1.0)
+        refus_l = False
+    except S_.Refus:
+        refus_l = True
+    c("A_v,y d'un U laminé (les 32 UPN et UPE du catalogue) : min(2·b·t_f, A − h_w·t_w) — UPN 200 17,18 (A − h_w·t_w) · UPN 380 32,64 · UPE 200 17,60 cm² (2·b·t_f) ; "
+      "A_v,z inchangée (celle du catalogue) ; U soudé : A − h_w·t_w (6.2.6(3) e)) ; cornière : refusée (2A/π d'un tube rond, avant)",
+      len(vus) == 32 and not faux_u and [vus[k] for k in ("UPN 200", "UPN 380", "UPE 200")] == [17.18, 32.64, 17.6]
+      and proche(S_.aires_cisaillement(su, 1.0)["y"], 2900.0 - 178.0 * 6.0) and refus_l, (faux_u[:3], {k: vus.get(k) for k in ("UPN 200", "UPN 380", "UPE 200")}, refus_l))
     r = v("IPE 500", "S235", NEd=500e3, MyEd=200e6, MzEd=25e6, VzEd=100e3, VyEd=50e3)
     cl5 = {q["role"]: q["classe"] for q in r["grandeurs"]["classification"]["parois"]}
     ref21 = {"E-N": 2715.0, "E-My": 516.0, "E-Mz": 78.9, "E-Vz": 814.0}
@@ -734,6 +755,14 @@ def mutations():
         ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
         ("section", "lot A — section efficace avec l'ε de la f_y de calcul", '    ep = eps_parois or eps\n', '    ep = eps\n'),
         ("classe", "lot A — ε de chaque paroi oublié", '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = fy\n'),
+        # (troisième passe : un U — la dernière branche lui donnait l'A_v,z de l'âme pour V_y aussi)
+        ("section", "troisième passe — A_v,y d'un U : l'A_v,z de l'âme", 'avy = geo if s.get("fabrication") in AM.SOUDES else min(2.0 * s["b"] * s["tf"], geo)',
+         "avy = avz"),
+        ("section", "troisième passe — A_v,y d'un U laminé : 2·b·t_f seul (plus grand que A − h_w·t_w sur 13 UPN)",
+         'avy = geo if s.get("fabrication") in AM.SOUDES else min(2.0 * s["b"] * s["tf"], geo)',
+         'avy = geo if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]'),
+        ("section", "troisième passe — une cornière prend l'aire d'un tube rond (2A/π)", '    if forme != "tube_rond":\n        raise Refus(',
+         '    if False:\n        raise Refus('),
         ("section", "le signe du moment compte", 'My, Mz, Vz, Vy = abs(d["MyEd"]), abs(d["MzEd"]), abs(d["VzEd"]), abs(d["VyEd"])', 'My, Mz, Vz, Vy = d["MyEd"], d["MzEd"], d["VzEd"], d["VyEd"]'),
     ]
     sources = {k: open(ch, encoding="utf-8").read() for k, ch in CHEMINS.items()}

@@ -145,8 +145,12 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
     """A_v (mm²) pour V_z (parallèle à l'âme) et V_y (parallèle aux semelles), § 6.2.6(3) : {"z", "y", "plancher"
     (η·h_w·t_w d'un I, mm²), "plancher_gouverne"}. I et H : A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w (le catalogue porte
     la première expression) ; parallèle aux semelles, I ou H LAMINÉ : 2·b·t_f (DÉCISION BUREAU n° 3, brief § 7.5 ;
-    EN 1993-1-1:2022 § 8.2.6(3)b)), I SOUDÉ : A − h_w·t_w (6.2.6(3) e)) ; tubes carrés et rectangulaires : A·h/(b + h)
-    et A·b/(b + h) ; tube rond : 2A/π."""
+    EN 1993-1-1:2022 § 8.2.6(3)b)), I SOUDÉ : A − h_w·t_w (6.2.6(3) e)) ; U : parallèle à l'âme A − 2·b·t_f + (t_w + r)·t_f
+    (6.2.6(3) b), le catalogue la porte), parallèle aux semelles les SEMELLES — U LAMINÉ : la plus petite de 2·b·t_f (la
+    règle de la DÉCISION BUREAU n° 3 des I et H laminés) et de A − h_w·t_w (6.2.6(3) e), qui nomme les U soudés ; aucun
+    cas de 6.2.6(3) ne vise un U laminé chargé parallèlement aux semelles), U SOUDÉ : A − h_w·t_w ; tubes carrés et
+    rectangulaires : A·h/(b + h) et A·b/(b + h) ; tube rond : 2A/π. Une autre forme (cornière, « autre ») : Refus — le
+    module ne la vérifie pas (``FORMES``)."""
     A, forme = s["A"], s["forme"]
     if forme == "I":
         hw = SE.hauteur_ame(s)
@@ -164,6 +168,17 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
         avz, avy = s.get("Avz"), s.get("Avy")
         return {"z": avz if avz is not None else A * s["h"] / (s["b"] + s["h"]),
                 "y": avy if avy is not None else A * s["b"] / (s["b"] + s["h"]), "plancher": None, "plancher_gouverne": False}
+    if forme == "U":
+        if not all(s.get(k) for k in ("h", "b", "tw", "tf")):
+            raise Refus("h, b, t_w, t_f manquent : l'aire de cisaillement d'un U en dépend")
+        avz = s.get("Avz")
+        if avz is None:                                      # 6.2.6(3) b) ; sans congé saisi, r = 0 (du côté sûr)
+            avz = A - 2.0 * s["b"] * s["tf"] + (s["tw"] + (s.get("r") or 0.0)) * s["tf"]
+        geo = A - (s["h"] - 2.0 * s["tf"]) * s["tw"]         # 6.2.6(3) e) : A − Σ(h_w·t_w)
+        avy = geo if s.get("fabrication") in AM.SOUDES else min(2.0 * s["b"] * s["tf"], geo)
+        return {"z": avz, "y": avy, "plancher": None, "plancher_gouverne": False}
+    if forme != "tube_rond":
+        raise Refus(f"forme « {forme} » : l'aire de cisaillement n'est pas définie hors des I, H, U et tubes")
     av = s.get("Avz")
     av = av if av is not None else 2.0 * A / math.pi
     return {"z": av, "y": av, "plancher": None, "plancher_gouverne": False}
