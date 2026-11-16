@@ -361,7 +361,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     J.hyp.append(f"Efforts de calcul (ELU) ; γ_M0 = {_fr(gM0, 2)}.")
     nuance = f"Acier {d['nuance']}" if d["nuance"] else "Acier"
     if d["fy_tableau"]:
-        detail = f" (épaisseur {_fr(d['t'], 1)} mm ; {d['fy_source']})"
+        detail = f" (épaisseur {PR.mm(d['t']) if PR.est_prs(s) else _fr(d['t'], 1)} mm ; {d['fy_source']})"     # (un PRS : ses décimales)
         if PR.est_prs(s):                                            # brief § 18.3 : la f_y de chaque plat, la plus petite décide
             detail += (f" ; plat par plat : semelle haute {_fr(fyp['semelle_haut'])}, âme {_fr(fyp['ame'])}, "
                        f"semelle basse {_fr(fyp['semelle_bas'])} N/mm²")

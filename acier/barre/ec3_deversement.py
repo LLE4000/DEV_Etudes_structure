@@ -62,11 +62,11 @@ def coefficient_kc(diagramme: str, psi: float = 1.0) -> Tuple[float, bool]:
     return 1.0, False
 
 
-def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) -> Dict:
+def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float, sens_charge: float = 1.0) -> Dict:
     """Le tronçon de déversement du mode « efforts imposés » : entre deux fourches, le moment maximal ``M`` (N·mm) et
-    la forme de son diagramme ; les charges, appliquées à la cote ``zg``, DESCENDENT toujours (|M|), comme pour un
-    laminé : ``M`` < 0 (un PRS monosymétrique dont la semelle basse est comprimée) ne change que le signe du moment,
-    donc z_j et la semelle comprimée. À VÉRIFIER : un soulèvement n'est pas proposé ici (barre chargée)."""
+    la forme de son diagramme ; les charges, appliquées à la cote ``zg``, se calculent sur |M| et DESCENDENT
+    (``sens_charge`` = +1) ou MONTENT (−1). ``M`` < 0 (un PRS monosymétrique dont la semelle basse est comprimée) ne
+    change que le signe du moment, donc z_j et la semelle comprimée. Quand M_y,Ed < 0, ajouter() calcule les deux sens."""
     sens, M = (-1.0 if M < 0 else 1.0), abs(M)              # les charges sur |M| ; le signe, au moment seul (plus bas)
     if diagramme == LINEAIRE:
         def moment(x: float) -> float:
@@ -89,6 +89,8 @@ def troncon_impose(L: float, M: float, diagramme: str, psi: float, zg: float) ->
 
         def moment(x: float) -> float:
             return -brut(x)
+    if sens_charge < 0:                                      # la charge MONTE : chaque intensité retournée, sa cote gardée
+        charges = {k: [(*c[:-2], -c[-2], c[-1]) for c in v] for k, v in charges.items()}
     return {"L": L, "moment": moment, "M_max": abs(M), "appuis": (MC.FOURCHE, MC.FOURCHE), "maintiens": [], **charges}
 
 
@@ -127,6 +129,10 @@ def ajouter(J: Journal, d: Dict) -> None:
     # bisymétrique se calcule comme avant, moment pris positif
     signe = -1.0 if (PR.monosymetrique(s) and d.get("semelle_comprimee") == PR.BAS) else 1.0
     tr = dev["troncon"] or troncon_impose(dev["Lc"], signe * My, fl["diagramme"], fl["psi"], dev["zg"])
+    # efforts imposés, M_y,Ed < 0 : le sens réel de la charge n'est pas connu — une charge de gravité, ou un soulèvement
+    # (le seul qui donne ce diagramme entre deux fourches). À VÉRIFIER : le plus petit M_cr des deux sens, toute section
+    inconnu = (dev["troncon"] is None and dev["Mcr"] is None and d.get("MyEd", 0.0) < 0 and bool(dev["zg"])
+               and bool(tr.get("reparties") or tr.get("ponctuelles")))
     kc, tabule = (dev["kc"], True) if dev["kc"] is not None else coefficient_kc(fl["diagramme"] if dev["troncon"] is None else GENERAL, fl["psi"])
     nomW = {1: "W_pl,y", 2: "W_pl,y", 3: "W_el,y", 4: "W_eff,y"}[G["classe"]]
     cles = []
@@ -137,6 +143,13 @@ def ajouter(J: Journal, d: Dict) -> None:
         J.hyp.append(f"Moment critique donné : M_cr = {_fr(Mcr / 1e6, 1)} kN·m.")
     else:
         r = _critique(s, P, tr)
+        if inconnu:
+            tr_m = troncon_impose(dev["Lc"], signe * My, fl["diagramme"], fl["psi"], dev["zg"], sens_charge=-1.0)
+            r_m = _critique(s, P, tr_m)
+            D["sens_charge"] = {"descendante": r["M_cr"], "montante": r_m["M_cr"]}
+            if r_m["M_cr"] is not None and (r["M_cr"] is None or r_m["M_cr"] < r["M_cr"]):
+                tr, r = tr_m, r_m                                # la charge qui MONTE est la plus défavorable
+            D["sens_charge"]["retenu"] = "montante" if sens_charges(tr) < 0 else "descendante"
         Mcr = r["M_cr"]
         if Mcr is None:
             D["cas"] = EMPECHE
@@ -224,11 +237,15 @@ def ajouter(J: Journal, d: Dict) -> None:
         cles += c_
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)
     niveau = "au centre de cisaillement" if not dev["zg"] else ("sur la semelle haute" if dev["zg"] > 0 else "sous la semelle basse")
-    # (un PRS monosymétrique : le sens compte — la charge descend, quel que soit le signe de M_y,Ed ; troncon_impose)
-    sens = " descendante" if PR.monosymetrique(s) else ""
+    # (le sens se dit quand il compte : un PRS monosymétrique, ou M_y,Ed < 0 — celui que le plus petit M_cr a retenu)
+    sens = " montante" if sens_charges(tr) < 0 else (" descendante" if PR.monosymetrique(s) or inconnu else "")
     charge = f", charge{sens} {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
     J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m entre sections tenues{charge} ; courbe {courbe}, "
                  f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (" (ANB:2018, 6.3.2.3(1))." if s["forme"] == "I" and methode != METHODE_GENERALE else "."))
+    if "sens_charge" in D:
+        sc = D["sens_charge"]
+        J.hyp.append(f"M_y,Ed < 0, sens de la charge inconnu : le plus petit M_cr des deux sens (montante {_mcr_txt(sc['montante'])}, "
+                     f"descendante {_mcr_txt(sc['descendante'])}). À VÉRIFIER.")
 
 
 # ------------------------------------------------------------------ les PRS (brief § 18.5)
@@ -244,6 +261,10 @@ def chi_LT(lb: float, a_lt: float, lb0: float, b_: float, seuil: float, M: float
     x0 = min(1.0 / (phi + math.sqrt(phi * phi - b_ * lb * lb)), borne)
     f = 1.0 if kc is None else min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lb - 0.8) ** 2), 1.0)
     return min(x0 / f, borne), f
+
+
+def _mcr_txt(Mcr: Optional[float]) -> str:
+    return f"{_fr(Mcr / 1e6, 1)} kN·m" if Mcr else "sans déversement"
 
 
 def sens_charges(tr: Dict) -> float:

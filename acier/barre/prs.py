@@ -63,6 +63,8 @@ RACINE2 = math.sqrt(2.0)         # s = a·√2 : cordon d'angle à côtés égau
 E4, E5 = 0.8, 1.0                # (E.4) z_j ≈ 0,8·ψ_f·h_s/2 si ψ_f ≥ 0 ; (E.5) z_j ≈ ψ_f·h_s/2 si ψ_f < 0 (pour information)
 MASSE_VOLUMIQUE = 7850.0         # kg/m³ (la masse affichée ; le poids propre de la barre est celui de statique.py)
 HAUT, BAS = "haut", "bas"
+DECIMALES_MM = 3                 # une dimension de plat s'écrit avec ses décimales, au millième au plus
+METHODE_IT_CATALOGUE = "Σ (b·t³/3)·(1 − 0,63·t/b) sur les trois plats, côté sûr"      # la légende « I_t : … » du Catalogue
 MSG_GORGE = "Gorge a non saisie : s = 0 (largeurs c plus grandes, côté sûr)."
 MSG_BORDS = "Bords des semelles non saisis (oxycoupés ou larges plats) : verdict de la méthode ELS bloqué."
 # l'ε d'un plat dans les blocs de formules : « ε_f1 » (semelle haute), « ε_f2 » (semelle basse), « ε_w » (âme)
@@ -70,8 +72,10 @@ ROLES = {"semelle_haut": ("semelle haute", "f1"), "semelle_bas": ("semelle basse
 
 
 def mm(x: float) -> str:
-    """Une dimension de plat dans une phrase : « 30 », « 30,5 » (virgule, sans zéro inutile)."""
-    return fr(x, 0 if abs(x - round(x)) < 1e-9 else 1)
+    """Une dimension de plat dans une phrase : « 30 », « 30,5 », « 30,25 » — les décimales de la saisie (jusqu'à
+    DECIMALES_MM), virgule, sans zéro inutile : le nom du PRS et ses phrases donnent le même plat."""
+    n = next((k for k in range(DECIMALES_MM + 1) if abs(x - round(x, k)) < 1e-9), DECIMALES_MM)
+    return fr(x, n)
 
 
 def _dimension(v, nom: str) -> float:
@@ -453,6 +457,22 @@ def de_bibliotheque(entree: Dict, nuance: Optional[str] = None) -> Dict:
         raise Refus("PRS : h doit dépasser l'épaisseur des deux semelles")
     return section_prs(b1, t1, hw, tw, b2, t2, a=d.get("a"), nuance=entree.get("nuance") or nuance or "S355",
                        bords=entree.get("bords"), nom=entree.get("nom"))
+
+
+def proprietes_catalogue(dims: Dict) -> Dict:
+    """Ce que le Catalogue (api_web/catalogue.py) prend ICI pour son PRS à semelles égales {"h", "b", "tw", "tf"} —
+    une seule source (R2) — en unités du catalogue : I_t (18.4, cm⁴), I_w (cm⁶), A_v,z = η·h_w·t_w et
+    A_v,y = A − h_w·t_w (cm²), et la méthode de I_t. Une âme au moins aussi épaisse que les semelles sont larges
+    (section_prs la refuse ; le Catalogue écrit que ce n'est plus un I) : I_t seul, par la même formule."""
+    h, b, tw, tf = (float(dims[k]) for k in ("h", "b", "tw", "tf"))
+    hw = h - 2.0 * tf
+    out = {"It": (2.0 * torsion_rectangle(b, tf) + torsion_rectangle(hw, tw)) / 1e4, "methode_It": METHODE_IT_CATALOGUE}
+    try:
+        s = section_prs(b, tf, hw, tw, b, tf, bords="oxycoupes")
+    except Refus:
+        return out
+    out.update({"It": s["It"] / 1e4, "Iw": s["Iw"] / 1e6, "Avz": s["Avz"] / 1e2, "Avy": s["Avy"] / 1e2})
+    return out
 
 
 def chercher(bibliotheque: Sequence[Dict], nom: str, nuance: Optional[str] = None) -> Optional[Dict]:

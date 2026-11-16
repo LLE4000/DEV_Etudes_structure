@@ -17,6 +17,9 @@ Les références :
   7. MUTATIONS — chaque altération plausible du texte du moteur (prs.py, mcr.py, les règles PRS) fait rougir un
      contrôle des § 1 à 5. Le module muté est remis dans le paquet, ceux qui l'emploient rechargés, puis tout est rendu.
   8. PURETÉ — prs.py se charge et calcule sans numpy, scipy, pandas, streamlit.
+  9, 10. Les reprises (contre-vérifications) : le sens de la charge en efforts imposés (M_y,Ed < 0 : le plus petit M_cr des
+     deux sens, recoupé par un Ritz indépendant), le Catalogue (un PRS monosymétrique écarté seul ; I_t, I_w et A_v
+     d'un PRS pris ici), le PRS-C du § 11.9 (Eurocode 3 du propriétaire, 7 / 8 / 9 maintiens).
 
     /usr/bin/python3.12 tests/test_barre_prs.py
 """
@@ -608,6 +611,159 @@ def controles():
       "PRS monosymétrique (il le relirait bisymétrique) et une dimension inconnue",
       CO.nom_perso("PRS", lu_cat["dims"]) == A["nom"] and lu_cat["dims"] == {"h": 600.0, "b": 300.0, "tw": 15.0, "tf": 30.0}
       and refus_cat[0] == KAT.MSG_PRS_MONO and "inconnue" in refus_cat[1], (lu_cat, refus_cat))
+    C += controles_fin(A, B, pl, ch)
+    return C
+
+
+# ------------------------------------------------------------------ 10. fin du bloc (deuxième contre-vérification)
+# M_cr d'un solveur de Ritz INDÉPENDANT (séries de sinus pour v et φ, terme de Wagner, hauteur des charges, maintiens par
+# l'espace nul des liaisons ; numpy/scipy, hors du dépôt), PRS-B sur 10 m, M_y,Ed < 0 (semelle basse comprimée), kN·m :
+# {(diagramme, niveau): (charge descendante, charge montante)}
+RITZ_PRS_B_NEGATIF = {("reparti", "haut"): (806.49, 1033.75), ("reparti", "centre"): (912.30, 912.30), ("reparti", "bas"): (1343.80, 628.60),
+                      ("ponctuel", "haut"): (965.87, 1328.40), ("ponctuel", "centre"): (1131.52, 1131.52), ("ponctuel", "bas"): (1841.20, 705.91)}
+# PRS-C (brief § 11.9, demande du propriétaire du 16/11/2026), 28 m, n maintiens de la semelle haute à L/(n + 1), le poids de
+# l'acier au centre de gravité : M_cr du même Ritz (220 termes, convergé à 0,1 kN·m) ; taux attendus du propriétaire
+RITZ_PRS_C = {7: 23079.3, 8: 28279.2, 9: 34035.4}
+TAUX_PRS_C = {7: 1.007, 8: 0.967, 9: 0.937}
+MCR_PRS_C_8 = 28279.0                    # « M_cr ≈ 28 279 kN·m » (la note du propriétaire)
+M_ED_PRS_C = 4199.4
+
+
+def prs_c_troncon(C_, n, L=28000.0):
+    """Le tronçon de PRS-C décrit en entier (fonctions du moteur : la barre chargée n'a qu'un niveau de charge) :
+    1,35·5,456 kN/m au centre de gravité ; 1,5·(20,80 + 2,40) kN/m et 1,5·0,75·3,0 kN/m de 12,5 à 15,5 m sur la face
+    haute ; n maintiens latéraux au plan moyen de la semelle haute."""
+    q1, q2, q3, a, b = 1.35 * 5.456, 1.5 * (20.80 + 2.40), 1.5 * 0.75 * 3.0, 12500.0, 15500.0
+    RA3 = q3 * (b - a) * (L - (a + b) / 2.0) / L
+
+    def moment(x):
+        mo = (q1 + q2) * x * (L - x) / 2.0 + RA3 * x
+        return mo - (0.0 if x <= a else q3 * (x - a) ** 2 / 2.0 if x <= b else q3 * (b - a) * (x - (a + b) / 2.0))
+    zt = m("section").cote(C_, "haut")
+    return {"L": L, "moment": moment, "reparties": [(0.0, L, q1, -C_["z_s"]), (0.0, L, q2, zt), (a, b, q3, zt)],
+            "maintiens": [(L * i / (n + 1), m("section").cote(C_, "semelle_haut")) for i in range(1, n + 1)]}, moment(L / 2.0)
+
+
+def controles_fin(A, B, pl, ch):
+    """Le sens de la charge en efforts imposés (M_y,Ed < 0), les charges ponctuelles de sens_charges, les décimales d'une
+    dimension, le Catalogue (un PRS monosymétrique écarté seul ; I_t, I_w, A_v d'ici), le PRS-C de bout en bout."""
+    C = []
+
+    def c(nom, cond, info=""):
+        C.append((nom, bool(cond), info))
+
+    PR, MC = m("prs"), m("mcr")
+    # ---- efforts imposés, M_y,Ed < 0 : le sens de la charge inconnu — le plus petit M_cr des deux sens (À VÉRIFIER)
+    vus, bon = {}, True
+    for (dg, niv), (desc, mont) in RITZ_PRS_B_NEGATIF.items():
+        r = barre_dev(B, niveau=niv, MyEd=-500e6, diagramme=dg)
+        D = r["grandeurs"]["deversement"]
+        sc, hyp = D.get("sens_charge"), [h for h in r["hypotheses"] if "sens de la charge inconnu" in h]
+        retenu = "montante" if mont < desc - 0.01 else "descendante"
+        ok = a_pres(D["M_cr"] / 1e6, min(desc, mont), 0.015)
+        if niv == "centre":                          # (au centre de cisaillement, les deux sens se valent : rien à dire)
+            ok = ok and sc is None and not hyp
+        else:
+            sc = sc or {}
+            ok = (ok and a_pres((sc.get("descendante") or 0) / 1e6, desc, 0.015) and a_pres((sc.get("montante") or 0) / 1e6, mont, 0.015)
+                  and sc.get("retenu") == retenu
+                  and len(hyp) == 1 and "À VÉRIFIER" in hyp[0] and any(f"charge {retenu} " in h for h in r["hypotheses"])
+                  and proche(D["annexe_E"]["z_g"], (1.0 if retenu == "descendante" else -1.0) * m("section").cote(B, niv)))
+        vus[(dg, niv)] = (round(D["M_cr"] / 1e6, 2), (sc or {}).get("retenu"))
+        bon = bon and ok
+    c("efforts imposés, PRS-B, M_y,Ed = −500 kN·m : le sens de la charge est inconnu — le module prend le PLUS PETIT M_cr des deux sens, "
+      "à chaque niveau (À VÉRIFIER, une ligne) ; Ritz indépendant : répartie 806,49 (haut, descendante) / 912,30 / 628,60 (bas, montante) ; "
+      "ponctuelle 965,87 / 1 131,52 / 705,91 ; (E.1) avec le z_g du sens retenu", bon, vus)
+    r = barre_dev(B, niveau="bas", MyEd=-500e6)
+    v = verif(r, "E-Mb")
+    c("PRS-B, M_y,Ed = −500 kN·m, charge sous la semelle basse : M_b,Rd = 415,0 kN·m, taux 1,205 (ne passe pas) — et non 708,8 kN·m, taux "
+      "0,705, d'une charge toujours descendante", a_pres(v["limite"], 415.02, 0.01) and round(v["taux"], 3) == 1.205 and v["statut"] == "nok",
+      (v["limite"], v["taux"]))
+    ipe = m("section").du_catalogue("IPE 300")
+
+    def lam(M, niv):
+        x = m("ec3").verifier({"section": ipe, "nuance": "S235", "MyEd": M, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}},
+                               "flexion": {"y": {"diagramme": "reparti"}}, "deversement": {"niveau": niv}})
+        return x["grandeurs"]["deversement"]["M_cr"] / 1e6, x["hypotheses"]
+    (hp, hh), (bp, bh), (hn, _), (bn, bnh), (cn, cnh) = lam(60e6, "haut"), lam(60e6, "bas"), lam(-60e6, "haut"), lam(-60e6, "bas"), lam(-60e6, "centre")
+    c("un laminé (IPE 300, 6 m, charge répartie) : M_y,Ed > 0 inchangé (haut 78,28 ; bas 132,14 kN·m) ; M_y,Ed < 0 sous la semelle basse : "
+      "le soulèvement gouverne, comme sur la semelle haute (78,28) ; au centre, rien à dire",
+      a_pres(hp, 78.28, 0.01) and a_pres(bp, 132.14, 0.01) and proche(hn, hp) and proche(bn, hp) and not any("inconnu" in h for h in hh + bh + cnh)
+      and any("inconnu" in h for h in bnh), (hp, bp, hn, bn, cn))
+    # ---- sens_charges compte les charges PONCTUELLES : un soulèvement ponctuel retourne le z_g de (E.1)
+    rp = m("moteur").verifier({**ch, "prs": pl, "cas": [{"nom": "W", "nature": "permanent", "charges": [{"type": "P", "v": -50.0, "a": 5.0}]}]})
+    Dp = rp["methodes"]["ec3"]["grandeurs"]["deversement"]
+    c("barre chargée, PRS-B, soulèvement PONCTUEL de 50 kN à mi-portée sur la semelle haute : M_cr = 1 328,40 kN·m (Ritz 1 328,40) ; (E.1) avec "
+      "z_g = −145,286 (la charge s'éloigne du centre de cisaillement)",
+      a_pres(Dp["M_cr"] / 1e6, 1328.40, 0.01) and Dp["annexe_E"]["diagramme"] == "ponctuel"
+      and proche(Dp["annexe_E"]["z_g"], -PR.cotes(B)["face_haut"]), (Dp.get("M_cr"), Dp.get("annexe_E")))
+    # ---- une dimension s'écrit avec ses décimales (le nom et les phrases donnent le même plat)
+    D25 = PR.section_prs(300, 30.25, 540, 12.25, 200, 30, a=6.0, nuance="S355", bords="oxycoupes")
+    h25 = m("ec3_section").verifier({"section": D25, "nuance": "S355", "MyEd": 100e6})["hypotheses"]
+    c("une dimension au centième s'écrit au centième : « semelle haute 300 × 30,25, âme 540 × 12,25 » (le nom porte 30.25), jamais « 30,3 »",
+      any("semelle haute 300 × 30,25, âme 540 × 12,25," in h for h in h25) and not any("30,3" in h or "12,3" in h for h in h25)
+      and "30.25" in D25["nom"], [h for h in h25 if "semelle haute" in h])
+    # ---- le Catalogue : un fichier qui porte un PRS monosymétrique — cet enregistrement seul est écarté, les autres lus
+    KAT = sys.modules["api_web.catalogue"]
+    tube = {"famille": "TUBE", "dims": {"d": 168.3, "t": 5.0}}
+    note = {"recherches": [{"persos": [PR.vers_bibliotheque(A), PR.vers_bibliotheque(B), tube], "fiche": A["nom"]}]}
+    texte_r = ""
+    try:
+        lu = KAT.normaliser(json.loads(json.dumps(note)))
+        r0, relu = lu["recherches"][0], KAT.normaliser(json.loads(json.dumps(lu)))["recherches"][0]
+        res = KAT.resultat(lu)
+        texte_r = res["resultat"]
+        ok = ([d["famille"] for d in r0["persos"]] == ["PRS", "TUBE"] and r0.get("persos_ecartes") == [PR.vers_bibliotheque(B)]
+              and relu.get("persos_ecartes") == r0["persos_ecartes"] and [d["famille"] for d in relu["persos"]] == ["PRS", "TUBE"]
+              and KAT.MSG_PRS_ECARTE.format(nom=B["nom"]) in res["donnees"])
+        info = (r0["persos"], r0.get("persos_ecartes"))
+    except ValueError as x_:
+        ok, info = False, f"fichier entier refusé : {x_}"
+    c("Catalogue : un fichier de profilés personnalisés qui porte un PRS monosymétrique — CET enregistrement seul est écarté (gardé tel quel, "
+      "une ligne le dit), le PRS bisymétrique et le tube sont lus ; relu, rien ne change", ok, info)
+    # ---- le Catalogue prend I_t (18.4), I_w, A_v,z et A_v,y d'un PRS ICI (une seule source, R2) ; le reste : le même calcul
+    pc = next(q for q in KAT.persos_calcules(r0) if q["famille"] == "PRS") if ok else KAT.persos_calcules(
+        {"persos": [{"famille": "PRS", "dims": {"h": 600.0, "b": 300.0, "tw": 15.0, "tf": 30.0}}]})[0]
+    S0_ = PR.section_prs(300, 30, 540, 15, 300, 30, a=None, nuance="S355", bords="oxycoupes")
+    lies = {"A": 1e2, "Iy": 1e4, "Iz": 1e4, "Wel_y": 1e3, "Wpl_y": 1e3, "Wpl_z": 1e3}
+    pk = PR.proprietes_catalogue({"h": 600.0, "b": 300.0, "tw": 15.0, "tf": 30.0})      # (ce que le Catalogue reçoit d'ici)
+    fx = {li["cle"]: li["parts"][1] for _t, ls in KAT.formules(pc) for li in ls if len(li["parts"]) > 1}   # (la fenêtre de calcul)
+    c("Catalogue, PRS 600x300x15x30 : I_t = 565,67 cm⁴ (18.4 : (b·t³/3)·(1 − 0,63·t/b), trois plats) et non Σ b·t³/3 = 600,8 cm⁴ ; I_w, "
+      "A_v,z = 1,2·h_w·t_w = 97,2 cm², A_v,y = A − h_w·t_w = 180 cm² du module Barres ; A, I_y, I_z, W les mêmes (deux calculs liés) ; "
+      "les réserves de l'écran sur I_t et A_v,z ne s'affichent plus",
+      proche(pc["It"], S0_["It"] / 1e4) and round(pc["It"], 2) == 565.67 and proche(pc["Iw"], S0_["Iw"] / 1e6) and proche(pc["Avz"], 97.2)
+      and proche(pc["Avy"], 180.0) and pc["methode_It"] == PR.METHODE_IT_CATALOGUE and all(proche(pc[k], S0_[k] / f, 1e-9) for k, f in lies.items())
+      and KAT._prs_barres(pc) and set(pk) == {"It", "Iw", "Avz", "Avy", "methode_It"} and all(proche(pc[k], pk[k]) for k in ("It", "Iw", "Avz", "Avy"))
+      and [fx.get(k) for k in ("Avz", "Avy", "Iw")] == ["η·h_w·t_w", "A − h_w·t_w", "(h − t_f)²·t_f·b³/24"]
+      and "0,63" in texte_r and "surestime" not in texte_r and "formule des laminés" not in texte_r,
+      ({k: (pc.get(k), S0_.get(k)) for k in ("It", "Iw", "Avz", "Avy", "A", "Iy")}, [x for x in ("surestime", "formule des laminés") if x in texte_r]))
+    # ---- PRS-C (brief § 11.9) : l'Eurocode 3 du propriétaire, § 6.3.2.2, courbe d, 7, 8 et 9 maintiens de la semelle haute
+    C_ = PR.section_prs(300, 30, 1420, 25, 500, 50, a=None, nuance="S235", bords="oxycoupes")
+    fonc, bout = {}, {}
+    for n in (7, 8, 9):
+        tr, MEd = prs_c_troncon(C_, n)
+        r = m("ec3").verifier({"section": C_, "nuance": "S235", "MyEd": MEd, "axes": {"y": {"L": 28000.0}, "z": {"L": 28000.0}},
+                               "deversement": {"troncon": tr}})
+        D, v = r["grandeurs"]["deversement"], verif(r, "E-Mb")
+        fonc[n] = (MEd / 1e6, D["M_cr"] / 1e6, v["taux"], r["grandeurs"]["classe"], r["grandeurs"]["fy"], D["W_y"], D["courbe"], D["methode"])
+        rb_ = m("moteur").verifier({"nuance": "S235", "mode": "chargee", "modele": "appuis", "travees": [28.0], "poids_propre": False, "niveau": "haut",
+                                    "methodes": ["ec3"], "prs": {"b1": 300, "t1": 30, "hw": 1420, "tw": 25, "b2": 500, "t2": 50, "bords": "oxycoupes"},
+                                    "maintiens": [{"x": 28.0 * i / (n + 1), "genre": "haut"} for i in range(1, n + 1)],
+                                    "cas": [{"nom": "G", "nature": "permanent", "charges": [{"type": "q", "v": 5.456, "a": 0.0, "b": 28.0}]},
+                                            {"nom": "Q", "nature": "exploitation_A", "charges": [{"type": "q", "v": 23.2, "a": 0.0, "b": 28.0},
+                                                                                              {"type": "q", "v": 2.25, "a": 12.5, "b": 15.5}]}]})
+        vb = verif(rb_["methodes"]["ec3"], "E-Mb")
+        bout[n] = (vb["valeur"], rb_["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"] / 1e6, vb["taux"])
+    c("PRS-C (§ 11.9), Eurocode 3 par les fonctions du moteur (le poids de l'acier au centre de gravité, béton et travail sur la semelle haute) : "
+      "M_Ed = 4 199,4 kN·m ; classe 3, W_el,y de la fibre haute (24,368·10⁶ mm³), f_y = 215 (plat de 50 mm), § 6.3.2.2, courbe d ; M_cr à 0,2 % "
+      "du Ritz indépendant (7, 8, 9 maintiens : 23 079,3 ; 28 279,2 ; 34 035,4 — le propriétaire : 28 279 à 8) ; taux 1,007 / 0,967 / 0,937",
+      all(a_pres(f[0], M_ED_PRS_C, 0.1) and f[3] == 3 and f[4] == 215.0 and proche(f[5], C_["Wel_y_haut"]) and round(f[5] / 1e6, 3) == 24.368
+          and f[6] == "d" and f[7] == "§ 6.3.2.2" and abs(f[1] / RITZ_PRS_C[n] - 1.0) <= 0.002 and a_pres(f[2], TAUX_PRS_C[n], 0.001)
+          for n, f in fonc.items()) and abs(fonc[8][1] / MCR_PRS_C_8 - 1.0) <= 0.002, fonc)
+    c("PRS-C de bout en bout par le moteur de la barre (barre chargée, 1,35·G + 1,5·Q, maintiens « haut ») : M_Ed = 4 199,4 kN·m ; taux "
+      "1,007 / 0,967 / 0,937 — le modèle n'a qu'un niveau de charge : l'acier aussi sur la semelle haute (côté sûr, M_cr −0,1 %)",
+      all(a_pres(b_[0], M_ED_PRS_C, 0.1) and a_pres(b_[2], TAUX_PRS_C[n], 0.001) and fonc[n][1] * 0.997 <= b_[1] <= fonc[n][1] for n, b_ in bout.items()),
+      bout)
     return C
 
 
@@ -776,7 +932,8 @@ MUTATIONS = [
     ("ec3_deversement", "(E.1) : z_g sans le sens de la charge", '            zg = dev["zg"] * sens_charges(tr) if charge else 0.0', '            zg = dev["zg"] if charge else 0.0'),
     ("ec3_deversement", "(E.1) : z_g retourné quand la semelle basse est comprimée (l'ancienne règle)",
      '            zg = dev["zg"] * sens_charges(tr) if charge else 0.0', '            zg = (dev["zg"] if signe > 0 else -dev["zg"]) if charge else 0.0'),
-    ("ec3_deversement", "hypothèse : le sens de la charge non dit", '    sens = " descendante" if PR.monosymetrique(s) else ""', '    sens = ""'),
+    ("ec3_deversement", "hypothèse : le sens de la charge non dit", '    sens = " montante" if sens_charges(tr) < 0 else (" descendante" if PR.monosymetrique(s) or inconnu else "")',
+     '    sens = ""'),
     ("ec3_deversement", "écart de (E.1) : signe pris avant l'arrondi (« −0,00 % »)", '            ecart = round(E["ecart"] * 100, 2) + 0.0', '            ecart = E["ecart"] * 100'),
     ("moteur", "barre chargée : le signe du moment d'un PRS monosymétrique perdu", "                if PR.monosymetrique(s) and _moment_extreme(C, tr, xs) < 0:",
      "                if False:"),
@@ -786,7 +943,8 @@ MUTATIONS = [
     ("mcr", "domaine −0,9 ≤ ψ_f ≤ 0,9 retiré", "    if abs(psi_f) > PSI_F_MAX:", "    if False:"),
     ("prs", "cote du plan moyen de la semelle basse = face basse", '"semelle_bas": p["t2"] / 2.0 - zc,', '"semelle_bas": -zc,'),
     ("prs", "e_N d'un PRS bisymétrique : le bruit d'arrondi gardé", 'if trous and s.get("monosymetrique") else 0.0', "if trous else 0.0"),
-    ("prs", "une dimension écrite sans ses décimales", "    return fr(x, 0 if abs(x - round(x)) < 1e-9 else 1)", "    return fr(x)"),
+    ("prs", "une dimension écrite sans ses décimales", "    return fr(x, n)\n", "    return fr(x)\n"),
+    ("prs", "une dimension au centième arrondie au dixième (30,25 → 30,3)", "DECIMALES_MM = 3 ", "DECIMALES_MM = 1 "),
     ("prs", "contrat : la fabrication « soude_oxycoupe » refusée comme bords", "    bords = {v: k for k, v in BORDS.items()}.get(bords, bords)", "    pass"),
     ("prs", "η du contrat : celui des laminés", '    eta = PA.valeur("eta_soude")', '    eta = PA.valeur("eta")'),
     ("ec3_flambement", "tableau 6.2 : t_f = 40 pris épais", "            mince = s[\"tf\"] <= SEMELLE_EPAISSE", "            mince = s[\"tf\"] < SEMELLE_EPAISSE"),
@@ -794,6 +952,27 @@ MUTATIONS = [
      '            J.alerte("Avy", "info", MSG_AVY[AVY_SOUDE if s.get("fabrication") in AM.SOUDES else AVY_LAMINE])'),
     ("api_web/catalogue", "Catalogue : un PRS monosymétrique relu bisymétrique", "        raise ValueError(MSG_PRS_MONO)", "        pass"),
     ("api_web/catalogue", "Catalogue : une dimension inconnue admise", "    if inconnues:\n", "    if False:\n"),
+    # ---- fin du bloc (deuxième contre-vérification)
+    ("ec3_deversement", "efforts imposés, M < 0 : la charge toujours DESCENDANTE (les deux sens non comparés)", "        if inconnu:\n", "        if False:\n"),
+    ("ec3_deversement", "efforts imposés, M < 0 : la charge toujours MONTANTE",
+     '            if r_m["M_cr"] is not None and (r["M_cr"] is None or r_m["M_cr"] < r["M_cr"]):', '            if r_m["M_cr"] is not None:'),
+    ("ec3_deversement", "efforts imposés, M < 0 : la ligne À VÉRIFIER oubliée", '    if "sens_charge" in D:\n', "    if False:\n"),
+    ("ec3_deversement", "sens_charges : les charges ponctuelles ignorées", '    total += sum(p[1] for p in tr.get("ponctuelles") or ())', "    total += 0.0"),
+    ("mcr", "charges RÉPARTIES au centre de cisaillement (hauteur ignorée)", "                    if qz:\n", "                    if False:\n"),
+    ("mcr", "charges PONCTUELLES au centre de cisaillement (hauteur ignorée)", "        Kg[4 * noeud(x) + 2][4 * noeud(x) + 2] -= P * zg", "        pass"),
+    ("prs", "Catalogue : A_v,z et A_v,y d'un laminé gardés pour un PRS",
+     '    out.update({"It": s["It"] / 1e4, "Iw": s["Iw"] / 1e6, "Avz": s["Avz"] / 1e2, "Avy": s["Avy"] / 1e2})', '    out.update({"It": s["It"] / 1e4, "Iw": s["Iw"] / 1e6})'),
+    ("api_web/catalogue", "Catalogue : le PRS de l'écran (I_t = Σ b·t³/3, non conservatif)", "    if fam == PR.FAMILLE and prs_barres:", "    if False:"),
+    ("api_web/catalogue", "Catalogue : les réserves de l'écran gardées pour un PRS du module Barres", "        if p is not None and reserve(p) and not _prs_barres(p):",
+     "        if p is not None and reserve(p):"),
+    ("api_web/catalogue", "Catalogue : un PRS monosymétrique fait perdre TOUT le fichier", "                if str(e) != MSG_PRS_MONO:\n                    raise\n", "                raise\n"),
+    ("api_web/catalogue", "Catalogue : le PRS écarté perdu à la relecture", '        for d in (r.get("persos") or []) + (r.get("persos_ecartes") or []):',
+     '        for d in (r.get("persos") or []):'),
+    ("api_web/catalogue", "Catalogue : le PRS écarté sans un mot", '    for d in r.get("persos_ecartes") or []:', "    for d in []:"),
+    ("api_web/catalogue", "Catalogue : la formule de A_v,z d'un laminé écrite pour le PRS du module Barres",
+     "    if prs_b:                                    # EN 1993-1-1", "    if False:                                    # EN 1993-1-1"),
+    ("api_web/catalogue", "Catalogue : la formule de I_w d'un laminé écrite pour le PRS du module Barres",
+     "    if prs_b:                                    # semelles seules", "    if False:                                    # semelles seules"),
 ]
 
 
