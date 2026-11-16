@@ -53,6 +53,11 @@ def _ACIER_DU_CALCUL(nom, t):
     return dict(MT.table_du_site(nom, t), fu=float(_FU4))
 
 
+# … et ce que chaque cas en dit à l'écran (MT.texte_exemple) : d'où viennent f_y et f_u
+SOURCE_DU_CALCUL = (f"f_y selon l'épaisseur, tableau 3.3 ANB ; f_u = {_FU4}, EN 1993-1-1 tab. 3.1",
+                    "une note prend f_u au tableau 3.3 ANB")
+
+
 CAS = [
     dict(id="VAL-M1", titre="Suspente N = −100 kN, quatre boulons d'angle (±200 ; ±200), HEA 300, platine 500×500×25 S355",
          data="T = N/4 ; angle : bras diagonal − cordon, leff = m, effet de levier (Lb ≤ Lb*), mode 2 ; "
@@ -109,5 +114,5 @@ def run_bench_manuel():
             ok = abs(ec) <= 0.005
             nko += 0 if ok else 1
             rows.append(dict(lab=lab, main=main, val=v, unit=unit, ec=ec, ok=ok))
-        out.append(dict(id=c["id"], titre=c["titre"], data=c["data"], rows=rows))
+        out.append(dict(id=c["id"], titre=c["titre"], data=MT.avec_exemple(c["data"], R, SOURCE_DU_CALCUL), rows=rows))
     return dict(cas=out, ok=nko == 0, statut="VALIDÉ (calculs manuels)" if nko == 0 else "À CONTRÔLER")

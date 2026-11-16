@@ -75,9 +75,25 @@ def lire(nom, t, perso=None, materiau=None, piece=""):
     try:
         a = (materiau or table_du_site)(nom, t_lu)
     except MA.HorsTable as e:
-        raise MA.HorsTable(f"{piece} : {e}" if piece else str(e)) from None
+        raise MA.HorsTable(refus_hors_table(nom, t_lu, piece, e)) from None
     return {"fy": a["fy"], "fu": a["fu"], "bw": a["bw"], "t": t, "nominale": MA.nominale(nom),
             "source": (MA.source(nom, t_lu) if materiau is None else "matériau de l'exemple")}
+
+
+def refus_hors_table(nom, t, piece, e):
+    """La phrase d'un calcul refusé par la table (``e`` : son ``MA.HorsTable``), telle que l'écran l'écrit sous
+    « Calcul impossible » : la pièce, la nuance, le produit, l'épaisseur et la borne du tableau de l'ANB — « plat :
+    S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm) ». Lue sur la table (``MA.ligne``,
+    ``MA.epaisseur_max``), aucune borne recopiée ; un autre refus (nuance inconnue…) garde la phrase de la table."""
+    tete = f"{piece} : " if piece else ""
+    try:
+        sup = MA.epaisseur_max(nom)
+        if t > sup:
+            return (f"{tete}{nom} {MA.LIBELLES_PRODUIT['lamine']} de {t:g} mm, au-delà du tableau "
+                    f"{MA.ligne(nom)['tableau']} ({sup:g} mm)")
+    except MA.HorsTable:
+        pass
+    return f"{tete}{e}"
 
 
 def poser(R, X, nom, t, perso=None, materiau=None, cle=None, piece=""):
@@ -120,6 +136,43 @@ def fixe(valeurs):
 # notes) : celui de leur source, l'EN 1993-1-1 tableau 3.1 (t ≤ 40 mm) — S275 du guide (f_y = 275, f_u = 430),
 # S355 des calculs à la main (f_y = 355, f_u = 510), sans épaisseur.
 EXEMPLES = fixe({"S275": (275.0, 430.0), "S355": (355.0, 510.0)})
+# … et ce que l'onglet Benchmark en dit, cas par cas (``texte_exemple``) : (source de ces valeurs, ce qu'en fait une note)
+SOURCE_EXEMPLES = ("EN 1993-1-1 tab. 3.1, sans épaisseur", "une note prend le tableau 3.3 ANB")
+# un cas rejoué sur la table du site (pied de poteau, vérification complète) : le matériau d'une note
+SOURCE_TABLE = ("tableau 3.3 ANB, selon l'épaisseur de chaque pièce", "le matériau d'une note")
+
+
+def texte_exemple(R, source=SOURCE_EXEMPLES):
+    """« matériau de l'exemple : S355, f_y 355 / f_u 510 (EN 1993-1-1 tab. 3.1, sans épaisseur) — une note prend le
+    tableau 3.3 ANB » : le matériau qu'un cas de l'onglet Benchmark a REÇU, lu sur son calcul (``R.materiau``, pièce
+    par pièce ; aucun nombre recopié), d'où viennent ces valeurs et ce qu'en fait une note (``source``). Un benchmark
+    valide des FORMULES sur le matériau de son exemple : le lecteur doit savoir qu'une note, avec les mêmes données,
+    prend la table du site. Une nuance qui revient avec deux matériaux (deux épaisseurs) nomme ses pièces, un
+    « Personnalisé » aussi."""
+    groupes = {}
+    for m in (R.get("materiau") or {}).values():
+        nom = "« Personnalisé »" if m.get("nom") == PERSO else m.get("nom")
+        pieces = groupes.setdefault((nom, m.get("fy"), m.get("fu")), [])
+        if m.get("piece") and m["piece"] not in pieces:
+            pieces.append(m["piece"])
+    noms = [n for n, _, _ in groupes]
+    parts = []
+    for (nom, fy, fu), pieces in groupes.items():
+        qui = f" ({', '.join(pieces)})" if pieces and (noms.count(nom) > 1 or nom == "« Personnalisé »") else ""
+        parts.append(f"{nom}{qui}, f_y {fy:g} / f_u {fu:g}")
+    origine, note = source
+    return f"matériau de l'exemple : {' ; '.join(parts)} ({origine}) — {note}"
+
+
+def avec_exemple(texte, R, source=SOURCE_EXEMPLES):
+    """``texte`` (titre ou ligne de données d'un cas de l'onglet Benchmark) suivi de ``texte_exemple``."""
+    t = (texte or "").rstrip()
+    phrase = texte_exemple(R, source)
+    if not t:
+        return phrase[0].upper() + phrase[1:]
+    if t.endswith("."):
+        return f"{t} {phrase[0].upper()}{phrase[1:]}"
+    return f"{t} — {phrase}"
 
 
 def texte_nuances():

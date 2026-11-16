@@ -1140,6 +1140,96 @@ chk("compact : en mode prédimensionnement, le groupe « Prédimensionnement » 
     "verrouillés, la ligne « Proposition »)", re.search(r'<div class="grp">Prédimensionnement <span class="aide" title="Les champs verrouillés '
     r'sont pilotés par la proposition', dp) is not None and "pilotés par la proposition" not in re.sub(r'title="[^"]*"', "", dp), dp[:200])
 
+# =====================================================================================================================
+print("\n=== 13. Lot A, reprise : aide du « Personnalisé », matériau des benchmarks, refus hors tableau ===")
+from acier.assemblages import materiau as MT_  # noqa: E402
+
+
+def aides_perso():
+    """[(configuration, nombre de champs f_y / f_u / β_w « Personnalisé » dont l'aide dit qu'ils sont communs)]."""
+    out = []
+    for cle in A.ordre():
+        e_ = {"version": 1, "assemblages": [A.nouvel_assemblage(cle)], "actif": 0}
+        k_ = next(k for k in ("nu_pl", "nu_C", "nu_S") if k in A.CONFIGS[cle].E.CHAMPS)
+        assert A.modifier(e_, ["v", k_], PERSO) is None
+        dd = A.resultat(e_)["donnees"]
+        n_ = 0
+        for k in ("fy_u", "fu_u", "bw_u"):
+            i = dd.find(f'data-chemin="v/{k}"')
+            ligne_ = dd[dd.rfind('<div class="row', 0, i):i] if i > 0 else ""      # la ligne de saisie du champ
+            m = re.search(r'<span class="aide" title="([^"]*)">', ligne_)
+            n_ += bool(m) and "commun à toutes les pièces en « Personnalisé » ; repris de la première" in html.unescape(m.group(1))
+        out.append((cle, n_))
+    return out
+
+
+# (A5) f_y, f_u et β_w « Personnalisé » sont COMMUNS à toutes les pièces, et la reprise ne vaut que pour la première
+# (défaut antérieur, mécanisme inchangé) : l'aide de chaque champ le dit, dans les sept configurations
+chk("aide des champs f_y / f_u / β_w « Personnalisé » : « commun à toutes les pièces en Personnalisé ; repris de la "
+    "première » — sept configurations, trois champs chacune", all(n_ == 3 for _, n_ in aides_perso()), aides_perso())
+_ap0 = A.AIDE_PERSO_ACIER
+A.AIDE_PERSO_ACIER = ""
+try:
+    rouge = all(n_ == 3 for _, n_ in aides_perso())
+finally:
+    A.AIDE_PERSO_ACIER = _ap0
+chk("mutation « aide du Personnalisé sans la mention des champs communs » : le contrôle rougit", not rouge)
+
+
+def cas_benchmark():
+    """[(configuration, cas, phrase du matériau lue dans le titre ou la ligne de données, affichée à l'écran ?)] de
+    chaque cas BM / VAL des onglets Benchmark (le pied de poteau : vérification complète et calcul à la main)."""
+    out = []
+    vues = [(cle, A.CONFIGS[cle].bench.run_bench(), A.vue_validation(A.CONFIGS[cle])) for cle in A.ordre()
+            if cle != "platine_beton"]
+    vues += [("platine_beton", PIED.BCO.run_bench(), PIED._validation_complet.__wrapped__()),
+             ("platine_beton (à la main)", {"cas": PIED.BMA.run_bench_manuel()["cas"]}, PIED._validation_manuel.__wrapped__())]
+    for cle, B, vue in vues:
+        for c in B.get("bench", []) + B.get("valid", []) + B.get("cas", []):
+            t = c["titre"] + " " + c.get("data", "")
+            m = re.search(r"[Mm]atériau de l'exemple : .*?f_y \d+ / f_u \d+.*?\([^)]*\) — "
+                          r"(?:une note prend [^—]*?ANB|le matériau d'une note)", t)
+            out.append((cle, c["id"], m.group(0) if m else None, bool(m) and C.esc(m.group(0)) in vue))
+    return out
+
+
+# (A6) chaque cas de l'onglet Benchmark dit le MATÉRIAU de son exemple (un benchmark valide des formules ; une note,
+# avec les mêmes données, prend le tableau 3.3 ANB)
+_cb = cas_benchmark()
+chk(f"onglet Benchmark : chacun des {len(_cb)} cas BM / VAL dit le matériau de son exemple (f_y / f_u et leur source), "
+    "à l'écran", len(_cb) >= 40 and all(p and vu for _, _, p, vu in _cb), [x for x in _cb if not (x[2] and x[3])][:3])
+_dc = {(c, i): p for c, i, p, _ in _cb}
+chk("… VAL-A des doubles cornières : « matériau de l'exemple : S355, f_y 355 / f_u 510 (EN 1993-1-1 tab. 3.1, sans "
+    "épaisseur) — une note prend le tableau 3.3 ANB » ; BM1 : S275, 275 / 430",
+    _dc.get(("doubles_cornieres", "VAL-A")) == "matériau de l'exemple : S355, f_y 355 / f_u 510 (EN 1993-1-1 tab. 3.1, "
+    "sans épaisseur) — une note prend le tableau 3.3 ANB" and "S275, f_y 275 / f_u 430" in (_dc.get(("doubles_cornieres", "BM1")) or ""),
+    (_dc.get(("doubles_cornieres", "VAL-A")), _dc.get(("doubles_cornieres", "BM1"))))
+_ae0 = MT_.avec_exemple
+MT_.avec_exemple = lambda texte, R, source=None: texte
+try:
+    rouge = all(p and vu for _, _, p, vu in cas_benchmark())
+finally:
+    MT_.avec_exemple = _ae0
+chk("mutation « cas de benchmark sans son matériau » : le contrôle rougit", not rouge)
+
+# (A9) une pièce au-delà du tableau de l'ANB : « Calcul impossible » et une phrase, sans nom de classe Python
+e9 = etat_de("plat_ame")
+assert A.modifier(e9, ["v", "tp_u"], "300") is None
+v9 = re.search(r'<div class="gov"><b>Calcul impossible</b>(.*?)</div>', A.resultat(e9)["resultat"])
+v9 = html.unescape(v9.group(1)) if v9 else ""
+chk("plat d'âme tp = 300 mm : « Calcul impossible — plat : S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm) », "
+    "sans « HorsTable » ni « Données incomplètes »", v9 == "plat : S355 laminé de 300 mm, au-delà du tableau 3.3 ANB (250 mm)", v9)
+chk("… un autre calcul impossible garde « Données incomplètes » et son motif",
+    A.motif_impossible("ValueError : x") == "Données incomplètes : ValueError : x")
+_mi0 = A.motif_impossible
+A.motif_impossible = lambda err: "Données incomplètes : " + err          # l'affichage d'avant : le message brut
+try:
+    m9 = re.search(r'<div class="gov"><b>Calcul impossible</b>(.*?)</div>', A.resultat(e9)["resultat"])
+    rouge = html.unescape(m9.group(1) if m9 else "") != v9
+finally:
+    A.motif_impossible = _mi0
+chk("mutation « refus affiché brut (« Données incomplètes : HorsTable : … ») » : le contrôle rougit", rouge)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

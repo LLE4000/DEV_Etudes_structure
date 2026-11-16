@@ -14,6 +14,7 @@ import json
 import math
 import os
 
+from acier.assemblages import materiau as MT    # ce que chaque cas dit de son matériau (texte_exemple)
 from acier.js import mx
 from .moteur import compute
 
@@ -206,7 +207,7 @@ def run_bench():
                 n_unexp += 1
             worst = mx(worst, a)
             rows.append(dict(page=r[0], lab=r[1], ref=r[2], val=v, unit=r[4], ec=ec, st=st, exp=r[5]))
-        out.append(dict(id=b["id"], titre=b["titre"], data=b["data"], rows=rows))
+        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R, MT.SOURCE_TABLE), rows=rows))
     nv, val = 0, []
     for c in VALID:
         R = compute(c["inp"])
@@ -218,7 +219,7 @@ def run_bench():
             nv += 0 if ok else 1
             worst = mx(worst, abs(ec))
             rows.append(dict(lab=lab, main=main, ref=ref, val=v, unit=unit, ec=ec, ok=ok))
-        val.append(dict(id=c["id"], titre=c["titre"], rows=rows))
+        val.append(dict(id=c["id"], titre=MT.avec_exemple(c["titre"], R, MT.SOURCE_TABLE), rows=rows))
     ok = n_unexp == 0 and nv == 0
     statut = ("VALIDÉ" if BENCH else "VALIDÉ (calculs manuels et validation croisée, aucun exemple publié)") \
         if ok else "À CONTRÔLER"

@@ -72,6 +72,11 @@ POSITIVES = re.compile(r"^(g_M\w*|g_c|g_Mc|fy_u|fu_u|bw_u|eta_c|k_e1|k_p1|k_e2|k
 # les dimensions saisies d'un profil, d'une cornière, d'un acier personnalisés, reprises de la pièce qu'on quitte
 PERSO_PROFIL = {"prof_P": "P", "prof_S": "S"}
 PERSO_ACIER = (("fy_u", "fy"), ("fu_u", "fu"), ("bw_u", "bw"))
+# … et leur aide : ces trois champs sont COMMUNS à toutes les pièces d'un assemblage en « Personnalisé » (une seule
+# saisie pour la porteuse, la portée, le plat…), et la reprise ne les remplit qu'une fois (``_reprendre_acier`` :
+# seulement s'ils sont vides) — une deuxième pièce passée en « Personnalisé » prend les valeurs de la première
+AIDE_PERSO_ACIER = ("commun à toutes les pièces en « Personnalisé » ; repris de la première pièce passée en "
+                    "« Personnalisé » (la valeur qui redonne ce que son calcul retenait), puis gardé pour les suivantes")
 
 
 # ===================================================================== la description d'une configuration
@@ -899,6 +904,8 @@ def _aide(f: Dict, cfg: Optional[Config] = None, u: Optional[Dict] = None) -> st
     t = f.get("l") or ""
     aides = (cfg.aides(u or {}) if callable(cfg.aides) else cfg.aides) if cfg is not None and cfg.aides else {}
     h = aides.get(f["k"]) or f.get("h")
+    if f["k"] in dict(PERSO_ACIER):
+        h = (h + " ; " if h else "") + AIDE_PERSO_ACIER
     if h:
         t += " — " + h
     return t
@@ -1291,6 +1298,17 @@ def _solutions(cfg: Config, R) -> List:
     return sols
 
 
+def motif_impossible(err: str) -> str:
+    """Ce que le verdict écrit sous « Calcul impossible » (``err`` : l'erreur de ``calculer``, « Classe : message »).
+    Une pièce au-delà du tableau de l'ANB (``HorsTable``) se dit par la phrase que le moteur a composée (la pièce, la
+    nuance, l'épaisseur, la borne : ``acier/assemblages/materiau.refus_hors_table``), sans nom de classe Python ; un
+    autre calcul impossible garde « Données incomplètes » et son motif (comme l'écran Streamlit)."""
+    classe, sep, phrase = err.partition(" : ")
+    if sep and classe == "HorsTable":
+        return phrase
+    return "Données incomplètes : " + err
+
+
 def _bilan(cfg: Config, el: Dict) -> Dict:
     """Le calcul d'un assemblage et son résumé (liste, note)."""
     refus = saisies_refusees(cfg, el["values"])
@@ -1410,7 +1428,7 @@ def resultat(etat: Dict) -> Dict:
     pied = (f'<div class="pfoot"><div class="mass"><span>{C.esc(cfg.titre_famille)} · {C.esc(cfg.nom_menu or cfg.court)}</span>'
             f'<b>EN 1993-1-8</b></div><div class="legend">{C.legende()}</div></div>')
     if R is None:
-        verdict = (f'<div class="verdict"><div class="gov"><b>Calcul impossible</b>Données incomplètes : {C.esc(b["erreur"])}</div></div>')
+        verdict = (f'<div class="verdict"><div class="gov"><b>Calcul impossible</b>{C.esc(motif_impossible(b["erreur"]))}</div></div>')
         return {"resultat": f'<div class="pbody">{tete}{verdict}</div>{pied}', "volets": "", "vues": [], "phrase": "",
                 "statut_html": _statut_note(bilans, "x"), "resume": resume_note(etat, bilans), "donnees": arbre(etat, None),
                 "elements": elements(etat, bilans)}

@@ -364,7 +364,7 @@ def run_bench():
                 n_unexp += 1
             worst = mx(worst, a)
             rows.append(dict(page=r[0], lab=r[1], ref=r[2], val=v, unit=r[4], ec=ec, st=st, exp=r[5]))
-        out.append(dict(id=b["id"], titre=b["titre"], data=b["data"], rows=rows))
+        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R), rows=rows))
     nv = 0; val = []
     for c in VALID:
         R = compute(c["inp"], MT.EXEMPLES); rows = []
@@ -374,6 +374,6 @@ def run_bench():
                 nv += 1
             rows.append(dict(lab=r[0], hand=r[1], xls=r[2], val=v, unit=r[4], ec=ec,
                              st="OK" if abs(ec) <= 0.001 else "À vérifier"))
-        val.append(dict(id=c["id"], titre=c["titre"], rows=rows))
+        val.append(dict(id=c["id"], titre=MT.avec_exemple(c["titre"], R), rows=rows))
     ok = n_unexp == 0 and nv == 0
     return dict(bench=out, valid=val, worst=worst, ok=ok, statut="VALIDÉ" if ok else "À CONTRÔLER")
