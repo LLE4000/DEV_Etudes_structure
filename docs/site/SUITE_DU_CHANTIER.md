@@ -1008,8 +1008,8 @@ D3, D5, D7), prédalle (couches basses croisées). Règle : Streamlit d'abord, p
   (PRS), la comparaison et l'export texte ne sont que dans l'ancienne page du catalogue, masquée (les porter ou les
   laisser : § 4) ; au téléphone, le menu « Colonnes » (feuille fixe) couvre son propre bouton et le toucher qui le
   referme déclenche aussi la commande touchée (ergonomie, aucun chiffre) ; le texte des règles écrit en toutes lettres
-  le 0,9 de F_t,Rd et le 235 de ε (les valeurs viennent du moteur, ces deux copies ne sont liées par aucun test) ; deux
-  autres copies de f_y non liées (`choix_profil` FY_EPAIS ; plancher : `operations.fy_materiau`, qui lit la table unique) ; `biblio_beton._champ` met des
+  le 0,9 de F_t,Rd et le 235 de ε (les valeurs viennent du moteur, ces deux copies ne sont liées par aucun test) ; une
+  autre copie de f_y non liée (`choix_profil` FY_EPAIS) — celle du plancher (FY_MATERIAU) est retirée, `operations.fy_materiau` lit la table unique ; `biblio_beton._champ` met des
   segments dans un `<label>` (un clic sur le libellé active le premier bouton ; corrigé côté acier seulement).
 - Chantiers et dossiers (nouvel écran, MIGRATION du format de la mémoire des notes : rien sans l'accord) (gros).
 - **Hourdis — les réflexions de l'ingénieur du 11/11/2026 (« pas à faire tout de suite »)**, avec l'avis donné le même

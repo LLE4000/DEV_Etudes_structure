@@ -526,6 +526,25 @@ chk("S7 · paroi la plus épaisse d'une filière : section.epaisseur, la règle 
 with mutant(SEC, "epaisseur", lambda p: float(p["tw"])):
     chk("mutation « section.epaisseur prise à l'âme » : le plancher la suit (le contrôle des filières rougit) — une seule règle", not ctl_filieres())
 
+# ---- lot A, troisième passe (E7) : docs/site/SUITE_DU_CHANTIER.md ne compte plus le plancher parmi les copies de f_y non liées
+with open(os.path.join(RACINE, "docs", "site", "SUITE_DU_CHANTIER.md"), encoding="utf-8") as f_doc:
+    DOC_SUITE = " ".join(f_doc.read().split())
+
+
+def ctl_doc_suite(doc: str) -> bool:
+    """La phrase de la suite du chantier dit ce que le code fait : le plancher n'a plus de copie de f_y (pas de FY_MATERIAU ;
+    ``operations.fy_materiau`` rend la f_y de la table à l'épaisseur — S235 de 25 mm : 225) ; seule FY_EPAIS reste."""
+    return (not hasattr(OP, "FY_MATERIAU") and pres(OP.fy_materiau("S235", "plateau", 600.0, 600.0, 25.0, OP.RECTANGLE), MA.fy("S235", 25.0))
+            and "une autre copie de f_y non liée (`choix_profil` FY_EPAIS) — celle du plancher (FY_MATERIAU) est retirée" in doc
+            and "deux autres copies de f_y non liées" not in doc)
+
+
+chk("E7 · SUITE_DU_CHANTIER.md : une seule copie de f_y non liée (FY_EPAIS) ; le plancher lit la table (operations.fy_materiau)",
+    ctl_doc_suite(DOC_SUITE))
+chk("mutation « la phrase d'avant » (« deux autres copies de f_y non liées … plancher ») : le contrôle de la doc rougit",
+    not ctl_doc_suite(DOC_SUITE.replace("une autre copie de f_y non liée (`choix_profil` FY_EPAIS) — celle du plancher (FY_MATERIAU) est retirée,",
+                                        "deux autres copies de f_y non liées (`choix_profil` FY_EPAIS ; plancher :")))
+
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("  ÉCHEC :", nom, info)
