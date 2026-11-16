@@ -9,7 +9,9 @@ plus de 3 % : à corriger ou à justifier. Une formule n'est jamais ajustée pou
      22 », section Steel code checks – EC3 – Benchmarks). Les pages ne sont pas joignables d'ici (domaines hors de la
      liste du réseau, 16/11/2026) : le benchmark 21 est comparé aux valeurs que le brief en donne ; les autres sont
      BLOQUÉS — données à fournir (aucune donnée n'est inventée). Un cas bloqué est imprimé « BLOQUÉ », il ne fait pas
-     échouer la suite ; il est dans la liste « À VÉRIFIER » du rapport du lot B.
+     échouer la suite ; il est dans la liste « À VÉRIFIER » du rapport du lot B. La recherche (16/11/2026) ne rend, du benchmark 21,
+     que ses résistances et ses élancements (contrôlés ci-dessous) et une remarque : la référence prend le cas général du déversement
+     en méthode 1 et la formule corrigée de C_zz (AC:2009) — lue dans un extrait, pas sur la page : À VÉRIFIER.
   2. SCIA Engineer 26, annexe belge (S1, S2, S3, reçus le 16/11/2026) et LTBeamN (L17a) : les valeurs relevées.
 
     /usr/bin/python3.12 tests/test_barre_benchmarks.py
@@ -82,11 +84,22 @@ def main():
     independants = ("mu_y", "w_y", "mu_z", "w_z", "C_mz0", "M_cr0", "lambda_0", "a_LT")
     chk("benchmark 21 (ECCS N°119, exemple 5) — les huit valeurs qui ne dépendent pas du diagramme de M_y : écart ≤ 0,5 % (conforme)",
         all(abs(e[k]) <= 0.005 for k in independants), {k: e[k] for k in independants})
-    chk("benchmark 21 — C_my,0 0,999 ; b_LT 0,043 ; C_yy 0,981 conformes (≤ 1,2 %, l'arrondi de b_LT à deux chiffres) ; c_LT, d_LT, e_LT de 1 à 3 % "
-        "(à expliquer : tous ∝ 1/χ_LT ; la référence prend χ_LT ≈ 0,826, le module 0,811 — courbe c et facteur f, k_c = 0,86). Diagramme de M_y "
-        "DÉDUIT de C_my,0 (charge concentrée à mi-portée) : À VÉRIFIER sur la page",
+    chk("benchmark 21 — C_my,0 0,999 ; b_LT 0,043 ; C_yy 0,981 conformes (≤ 1,2 %, l'arrondi de b_LT à deux chiffres) ; c_LT, d_LT, e_LT à "
+        "moins de 3 % (aujourd'hui +2 % : à expliquer — tous ∝ 1/χ_LT, ils impliquent χ_LT ≈ 0,826 dans la référence, le module prend 0,811 "
+        "(§ 6.3.2.3, courbe c, k_c = 0,86) ; 0,826 n'est retrouvé ni par le § 6.3.2.2 (0,812) ni avec f (0,836 ; 0,870)). Diagramme de M_y "
+        "DÉDUIT de C_my,0 (charge concentrée à mi-portée) : À VÉRIFIER sur la page (Q8)",
         abs(e["C_my0"]) <= 0.001 and abs(e["b_LT"]) <= 0.012 and abs(e["C_yy"]) <= 0.001
-        and all(0.01 <= e[k] <= 0.03 for k in ("c_LT", "d_LT", "e_LT")), {k: e[k] for k in ("C_my0", "b_LT", "C_yy", "c_LT", "d_LT", "e_LT")})
+        and all(abs(e[k]) <= 0.03 for k in ("c_LT", "d_LT", "e_LT")), {k: e[k] for k in ("C_my0", "b_LT", "C_yy", "c_LT", "d_LT", "e_LT")})
+    # les résultats de la référence relevés par la recherche (le texte de la page n'est pas lisible d'ici, 16/11/2026) : ils fixent la
+    # section, la nuance, la longueur et la charge au centre de cisaillement (z_g = 0)
+    F = r["grandeurs"]["flambement"]
+    lus = {"N_c,Rd (kN)": (verif(r, "E-N")["limite"], 2715.0, 0.0005), "M_c,y,Rd (kN·m)": (verif(r, "E-My")["limite"], 516.0, 0.001),
+           "M_c,z,Rd (kN·m)": (verif(r, "E-Mz")["limite"], 78.9, 0.001), "λ̄_y": (F["y"]["lambda_bar"], 0.195, 0.003),
+           "λ̄_z": (F["z"]["lambda_bar"], 0.927, 0.001), "χ_z": (F["z"]["chi"], 0.644, 0.001)}
+    chk("benchmark 21 — les résistances et les élancements de la référence : N_c,Rd 2 715 kN ; M_c,y,Rd 516 et M_c,z,Rd 78,9 kN·m ; λ̄_y 0,195 ; "
+        "λ̄_z 0,927 ; χ_z 0,644 ; courbes a et b — conformes (≤ 0,3 %, l'arrondi de la référence)",
+        all(abs(ecart(x, y)) <= t for x, y, t in lus.values()) and (F["y"]["courbe"], F["z"]["courbe"]) == ("a", "b"),
+        {k: (round(x, 4), y) for k, (x, y, t) in lus.items()})
     bloque("benchmark 21 — taux de (6.61) et (6.62) de la référence (le module : "
            f"{n(verif(r, 'E-661')['taux'], 3)} et {n(verif(r, 'E-662')['taux'], 3)})", "les taux de la référence et ses χ_LT, M_cr ; le diagramme de M_y")
 
