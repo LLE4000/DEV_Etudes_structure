@@ -1389,8 +1389,6 @@ CMPX = re.findall(r'<span class="cmp">(.*?)</span>', S.resultat(e_x)["resultat"]
 chk("un cordon dépassé s'écrit « > », jamais « ≤ »", all("&gt;" in x and "≤" not in x for x in CMPX) and len(CMPX) == 2, CMPX)
 
 # ---- lot A, deuxième passe : la vue Méthode = le calcul (S1), l'hypothèse d'épaisseur (S3), la gorge de pleine résistance (S9)
-import importlib  # noqa: E402
-
 from acier import materiaux as MA  # noqa: E402
 from acier.bibliotheques import DB as DB_, find as find_  # noqa: E402
 from acier.soudures import methode as MT_  # noqa: E402
@@ -1405,8 +1403,28 @@ def ctl_vue_methode() -> bool:
     fr = lambda x: f"{x:.1f}".replace(".", ",")  # noqa: E731
     m = {n: f"{(1 - K.tau_adm_bureau(K.K_BUREAU) / tau[n]) * 100:.0f} %" for n in ("S235", "S355")}
     return (f"{fr(tau['S235'])} N/mm² pour le S235" in v and f"{fr(tau['S275'])} pour le S275, {fr(tau['S355'])} pour le S355" in v
-            and f"plus sûre de {m['S235']} ; sur du S355, de {m['S355']}" in v and "174,5" not in v and "155,8" not in v
-            and fr(tau["S355"]) == "160,8" and m["S355"] == "39 %")
+            and f"plus sûre de {m['S235']} ; sur du S355, de {m['S355']}" in v and "174,5" not in v and "155,8" not in v)
+
+
+def ctl_oracle_methode() -> bool:
+    """L'oracle de ``ctl_vue_methode`` lui-même, en ABSOLU (un contrôle séparé) : 470/(√3·0,9·1,25)/1,5 = 160,8 N/mm² en S355
+    (f_u du tableau 3.3 ANB), marge 1 − 98,1/160,8 = 39 % ; 360/(√3·0,8·1,25)/1,5 = 138,6 en S235."""
+    tau = {n: K.k_equivalent_eurocode(MA.fu(n, 10.0), find_(DB_["aciers"], n)["bw"])["tau_N_mm2"] for n in ("S235", "S355")}
+    return (f"{tau['S355']:.1f}" == "160.8" and f"{tau['S235']:.1f}" == "138.6"
+            and f"{(1 - K.tau_adm_bureau(K.K_BUREAU) / tau['S355']) * 100:.0f}" == "39")
+
+
+def methode_mutee(avant: str, apres: str):
+    """acier/soudures/methode.py rechargé depuis SA SOURCE après UN remplacement (mutation de SOURCE : le calcul des
+    nombres de la vue Méthode) ; « avant » doit y figurer une fois, sinon la mutation est périmée et la suite s'arrête."""
+    with open(MT_.__file__, encoding="utf-8") as f:
+        src = f.read()
+    if src.count(avant) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans methode.py)")
+    m = types.ModuleType("acier.soudures.methode")
+    m.__package__, m.__file__ = "acier.soudures", MT_.__file__
+    exec(compile(src.replace(avant, apres), MT_.__file__, "exec"), m.__dict__)
+    return m
 
 
 def ctl_hypothese_ecran() -> bool:
@@ -1429,14 +1447,15 @@ def ctl_gorge_ecran() -> bool:
 
 
 chk("S1 · vue Méthode = le calcul : 138,6 / 148,5 / 160,8 N/mm² et les marges 29 % et 39 % (f_u de la table)", ctl_vue_methode())
+chk("S1 · l'oracle en absolu : 160,8 N/mm² et 39 % en S355, 138,6 en S235 (f_u du tableau 3.3 ANB)", ctl_oracle_methode())
 chk("S3 · l'épaisseur supposée du plat support dite dans l'aide des aciers et dans les hypothèses du calcul", ctl_hypothese_ecran())
 chk("S9 · la gorge de pleine résistance de l'âme d'un HEB 300 à SA f_y (235, t_w 11 mm) : 5,1 mm, et l'écran la dit", ctl_gorge_ecran())
-with mutant(MA, "fu", lambda n, t, produit="lamine": {"S235": 360.0, "S275": 430.0, "S355": 510.0}[n]):
-    importlib.reload(MT_)
-    rouge_vue = not ctl_vue_methode()
-importlib.reload(MT_)
-chk("mutation « f_u du tableau 3.1 de l'EN » (le texte calculé redonne 155,8 et 174,5) : le contrôle de la vue Méthode rougit",
-    rouge_vue and ctl_vue_methode())
+# (E4, troisième passe) une mutation de SOURCE : le calcul des nombres de la vue Méthode (methode.equivalent) reprend la f_u
+# du tableau 3.1 de l'EN ; l'oracle, lui, n'est pas muté — c'est le CONTRÔLE qui rougit (l'oracle reste vert)
+with mutant(S, "MT", methode_mutee("MA.fu(nuance, T_FU)", '{"S235": 360.0, "S275": 430.0, "S355": 510.0}[nuance]')):
+    rouge_vue, oracle_vert = not ctl_vue_methode(), ctl_oracle_methode()
+chk("mutation de source « methode.equivalent à la f_u du tableau 3.1 de l'EN » (la vue redonne 155,8 et 174,5) : le contrôle de "
+    "la vue Méthode rougit, l'oracle reste vert", rouge_vue and oracle_vert and ctl_vue_methode())
 with mutant(ET, "texte_hypothese", lambda ac: None):
     chk("mutation « hypothèse d'épaisseur tue » : le contrôle de l'écran rougit", not ctl_hypothese_ecran())
 with mutant(ET, "fy_paroi_rapportee", lambda ac, t: ac["fy_min"]):

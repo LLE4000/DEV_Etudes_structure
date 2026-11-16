@@ -205,7 +205,7 @@ chk("le peintre du plancher est un alias du peintre partagé (Mat, transformatio
 # ================================================================
 print("\n=== 7. Lot A, deuxième passe : méthode ELS calculée (S1), provenance de f_u (S8), hypothèse d'épaisseur (S3) ===")
 import contextlib  # noqa: E402
-import importlib  # noqa: E402
+import types  # noqa: E402
 import subprocess  # noqa: E402
 
 from acier import materiaux as MA  # noqa: E402
@@ -245,8 +245,7 @@ def ctl_methode_els() -> bool:
     """S1 : la page 2 d'une note ELS imprime les équivalents Eurocode CALCULÉS depuis la table (148,5 et 160,8, marge
     39 % en S355), jamais les anciens nombres du tableau 3.1 de l'EN (155,8 ; 174,5 ; 43 %)."""
     t2 = pdftotext(NT.generer_note(ET_, cas_de("C3", None, {"V": 40}, {"mode": "els"})))
-    att = attendus_els()
-    return all(a in t2 for a in att) and "174,5" not in t2 and "155,8" not in t2 and att[2] == "160,8 pour le S355" and att[1] == "148,5 pour le S275"
+    return all(a in t2 for a in attendus_els()) and "174,5" not in t2 and "155,8" not in t2
 
 
 def ctl_doc_etude() -> bool:
@@ -271,13 +270,34 @@ def ctl_provenance_fu() -> bool:
 chk("S1 · note ELS, page 2 : équivalents Eurocode calculés depuis la table (138,6 ; 148,5 ; 160,8 ; marges 29 % et 39 %)", ctl_methode_els())
 chk("S1 · la copie de la doc d'étude (SOUDURES_ETUDE.md) dit les mêmes nombres (copie nommée, liée par ce contrôle)", ctl_doc_etude())
 chk("S8, S3 · note : provenance de f_u (pièce, épaisseur, bande, tableau 3.3 ANB) et hypothèse d'épaisseur du plat support", ctl_provenance_fu())
-F_U_EN = {"S235": 360.0, "S275": 430.0, "S355": 510.0}         # le tableau 3.1 de l'EN (le défaut d'avant)
-with mutant(MA, "fu", lambda n, t, produit="lamine": F_U_EN[n]):
-    importlib.reload(ME)
-    rouge = not ctl_methode_els()
-importlib.reload(ME)
-chk("mutation « f_u du tableau 3.1 de l'EN » (le texte calculé redonne 155,8 et 174,5) : le contrôle de la méthode ELS rougit",
-    rouge and ctl_methode_els())
+
+
+def oracle_els() -> bool:
+    """L'oracle d'``attendus_els`` en ABSOLU (un contrôle séparé) : 148,5 en S275 et 160,8 en S355 (f_u du tableau 3.3 ANB)."""
+    att = attendus_els()
+    return att[1] == "148,5 pour le S275" and att[2] == "160,8 pour le S355"
+
+
+def methode_mutee(avant: str, apres: str):
+    """acier/soudures/methode.py rechargé depuis SA SOURCE après UN remplacement (mutation de SOURCE : le calcul des
+    nombres de la page 2) ; « avant » doit y figurer une fois, sinon la mutation est périmée et la suite s'arrête."""
+    with open(ME.__file__, encoding="utf-8") as f:
+        src = f.read()
+    if src.count(avant) != 1:
+        raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans methode.py)")
+    m = types.ModuleType("acier.soudures.methode")
+    m.__package__, m.__file__ = "acier.soudures", ME.__file__
+    exec(compile(src.replace(avant, apres), ME.__file__, "exec"), m.__dict__)
+    return m
+
+
+chk("S1 · l'oracle en absolu : 148,5 en S275, 160,8 en S355 (f_u du tableau 3.3 ANB)", oracle_els())
+# (E4, troisième passe) une mutation de SOURCE : methode.equivalent reprend la f_u du tableau 3.1 de l'EN (le défaut d'avant) ;
+# l'oracle n'est pas muté — c'est le CONTRÔLE de la note qui rougit (l'oracle reste vert)
+with mutant(NT, "ME", methode_mutee("MA.fu(nuance, T_FU)", '{"S235": 360.0, "S275": 430.0, "S355": 510.0}[nuance]')):
+    rouge, oracle_vert = not ctl_methode_els(), oracle_els()
+chk("mutation de source « methode.equivalent à la f_u du tableau 3.1 de l'EN » (la note redonne 155,8 et 174,5) : le contrôle de "
+    "la méthode ELS rougit, l'oracle reste vert", rouge and oracle_vert and ctl_methode_els())
 with mutant(NT.ET, "texte_fu", lambda ac: "—"):
     chk("mutation « provenance de f_u absente » : le contrôle de la note rougit", not ctl_provenance_fu())
 with mutant(NT.ET, "texte_hypothese", lambda ac: None):

@@ -587,6 +587,37 @@ with mutant(CF, "_paroi_profil", lambda nom: (max(float(CF._profil(nom).get("tf"
 with mutant(CF, "epaisseurs", lambda config, p: {k: v for k, v in vrai_ep(config, p).items() if k != "hypothese"}):
     chk("mutation « hypothèse tue » (le défaut d'avant) : le contrôle de l'hypothèse rougit", not ctl_hypothese_plat())
 
+# ---- lot A, troisième passe (E7) : l'exemple du bureau de docs/acier/SOUDURES.md (une COPIE NOMMÉE : un document ne lit
+# pas le moteur) dit les nombres du moteur — C2, deux plats S235 de 30 mm à pleine pénétration, N = 400 kN sur 200 mm
+with open(os.path.join(RACINE, "docs", "acier", "SOUDURES.md"), encoding="utf-8") as f_doc:
+    DOC_SOUDURES = " ".join(f_doc.read().split())
+
+
+def ctl_doc_exemple_bureau(doc: str) -> bool:
+    """η = 66,7/225 = 29,6 % (f_y = 225 à 30 mm, tableau 3.3 ANB) ; a ≥ 0,44·t = 13,3 mm (directionnelle), 0,54·t = 16,2 mm
+    (simplifiée) — calculés ici par le moteur, puis cherchés dans la doc ; les nombres d'avant le lot (28 %, 0,46·t = 13,8,
+    0,57·t = 17) n'y sont plus."""
+    c = ET.nouvel_etat()["cas"][0]
+    ET.changer_config(c, "C2")
+    c["params"].update(tA=30.0, tB=30.0, l=200.0, jonction="pleine")
+    c["efforts"].update(N=400.0, Va=0.0, Vp=0.0, M=0.0)
+    r = ET.verifier(c)
+    ap = r["a_pleine"]
+    fr = lambda x, n=1: f"{x:.{n}f}".replace(".", ",")  # noqa: E731
+    return (r["statut"] == "ok" and ap["fy"] == 225.0
+            and f"η = 66,7/225 = {fr(r['taux_max'] * 100)} %" in doc
+            and f"a ≥ {fr(ap['ratio_dir'], 2)}·t = {fr(ap['directionnelle'])} mm de chaque côté (directionnelle)" in doc
+            and f"{fr(ap['ratio_simp'], 2)}·t = {fr(ap['simplifiee'])} mm (simplifiée)" in doc
+            and "η = 28 %" not in doc and "0,46·t = 13,8" not in doc and "0,57·t = 17 mm" not in doc)
+
+
+chk("E7 · docs/acier/SOUDURES.md, l'exemple du bureau : η = 29,6 %, a ≥ 0,44·t = 13,3 mm / 0,54·t = 16,2 mm — les nombres du moteur",
+    ctl_doc_exemple_bureau(DOC_SOUDURES))
+DOC_AVANT = (DOC_SOUDURES.replace("η = 66,7/225 = 29,6 % (f_y = 225 N/mm² : S235 de 30 mm, 16 < t ≤ 40 mm, tableau 3.3 ANB)", "η = 28 %")
+             .replace("0,44·t = 13,3 mm", "0,46·t = 13,8 mm").replace("0,54·t = 16,2 mm", "0,57·t = 17 mm"))
+chk("mutation « la doc d'avant » (28 % ; 0,46·t = 13,8 ; 0,57·t = 17) : le contrôle de la doc rougit",
+    DOC_AVANT != DOC_SOUDURES and not ctl_doc_exemple_bureau(DOC_AVANT))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

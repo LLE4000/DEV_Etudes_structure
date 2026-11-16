@@ -241,11 +241,12 @@ tient dans un plan.
 pénétration.** C'est la jonction en T (C2) avec t_B = 30, t_A = 30, jonction « pleine » :
 le groupe reçoit la section 30 × l de l'aile rapportée, chaque point est vérifié au métal
 de base √(σ² + 3τ²) ≤ fy/γM0 — sous N = 400 kN sur 200 mm, σ = N/(l·t) = 66,7 N/mm²,
-η = 28 % ; sous un moment, σ = 6M/(l·t²) exactement. L'écran dit aussi ce que coûterait la
-même résistance en cordons d'angle : a ≥ 0,46·t = 13,8 mm de chaque côté (directionnelle),
-0,57·t = 17 mm (simplifiée) — ce qui est précisément pourquoi on soude à pleine pénétration
-à 30 mm. Le cas se saisit, il ne s'introduit pas ; la console (C3) et la platine (C5) ont
-le même choix de jonction.
+η = 66,7/225 = 29,6 % (f_y = 225 N/mm² : S235 de 30 mm, 16 < t ≤ 40 mm, tableau 3.3 ANB) ;
+sous un moment, σ = 6M/(l·t²) exactement. L'écran dit aussi ce que coûterait la
+même résistance en cordons d'angle : a ≥ 0,44·t = 13,3 mm de chaque côté (directionnelle),
+0,54·t = 16,2 mm (simplifiée), à la f_y de la paroi rapportée (225 à 30 mm) — ce qui est
+précisément pourquoi on soude à pleine pénétration à 30 mm. Le cas se saisit, il ne
+s'introduit pas ; la console (C3) et la platine (C5) ont le même choix de jonction.
 
 | Pas couvert (V1) | Ce qu'on fait en attendant |
 |---|---|
