@@ -364,8 +364,18 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   pour un appui de rive) ; (a) ailleurs ; (b), en plus, pour la force qui passe d'une semelle à l'autre quand un lieu
   est chargé des deux côtés (la plus petite des deux forces, la plus courte des deux longueurs d'appui).
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
-  et pour chaque charge ponctuelle. NON SAISIE, elle vaut 0 : le cas le plus défavorable, et c'est écrit (hypothèses,
-  message de la vérification). Elle n'est jamais supposée (brief § 8.2).
+  et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 (une
+  valeur saisie). Voir « décision impossible ».
+- **DÉCISION IMPOSSIBLE** (reprise du lot B ; brief § 8.3, point 5) — jamais « pas de raidisseur » par défaut. Le lieu est
+  rendu « non couvert », sans taux, avec la phrase « Décision impossible : s_s et c à fournir. » (une ligne par manque
+  en pied du bloc), quand il manque : s_s ; c d'un appui de rive (et d'une force du type (c) voisine de cet appui) ; le
+  MAINTIEN latéral de la semelle chargée (§ 6.1(1)) — tenue à un appui (une fourche), ou par un maintien « complet » ou
+  de cette semelle à la même abscisse ; quand la semelle chargée n'est pas comprimée partout, l'autre aussi ; et, pour
+  un raidisseur sous une charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Ses vérifications, faites à s_s = 0
+  et c = 0, sont données pour information. Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû quelles que
+  soient les données. La barre neuve (s_s et c non saisis) : « décision impossible » aux deux appuis — à s_s = 100 mm
+  et c = 0, pas de raidisseur (22 %). R2 (sans maintien à mi-portée) : « maintien de la semelle haute à préciser » ;
+  avec un maintien de la semelle haute à 3 m, pas de raidisseur — les taux de R4 sont inchangés.
 - **La résistance de l'âme** (lot A) : F_Rd = f_y·χ_F·l_y·t_w/γ_M1 avec la f_y de CALCUL de la section ; λ̄_F avec la f_y
   de l'âme selon t_w. Les DEUX branches de m₂ (m₂ = 0,02·(h_w/t_f)², cohérente si λ̄_F > 0,5 ; m₂ = 0, si λ̄_F ≤ 0,5) sont
   calculées : quand les deux sont cohérentes, la plus PETITE F_Rd est retenue, et dite (brief § 8.2). Type (c) : le
@@ -374,7 +384,8 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   avec contact).
 - **L'âme seule**, par lieu et par combinaison : η₂ = F_Ed/F_Rd (« A-Lnn-F » ; « A-Lnn-B » pour la force transmise),
   puis, dès qu'un moment ou un effort normal s'y trouve, (η₂ + 0,8·η₁)/1,4 ≤ 1 (« A-Lnn-FM ») avec η₁ ÉLASTIQUE —
-  |N|/(f_y·A) + |M|/(f_y·W_el), A_eff et W_eff en classe 4 (Q10).
+  |N|/(f_y·A) + |M|/(f_y·W_el), A_eff et W_eff en classe 4 (Q10) — la classe prise sous le N et le M de l'occurrence
+  (l'IPE 400 est de classe 3 en compression pure, de classe 1 sous un moment).
 - **LA DÉCISION**, lieu par lieu : « sans raidisseur », avec les taux ; ou « raidisseur » dès qu'une combinaison dépasse
   η₂ = 1 ou l'interaction — et à chaque appui posé d'une âme élancée au cisaillement (§ 5.1(2)). La raison est écrite
   (« Sans raidisseur : F_Ed = 675,0 kN > F_Rd = 585,2 kN » ; ou le critère 6.2.1(5) d'une semelle tendue).
@@ -401,9 +412,10 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   (compression positive). Comprimée : l'interaction (7.2). Tendue : pas d'interaction — le critère 6.2.1(5) de
   l'EN 1993-1-1 à la jonction âme-semelle (« A-Lnn-EL »), avec σ_x, σ_z,Ed = F_Ed/(s_e·t_w), s_e = s_s + 2·t_f
   (§ 3.2.3, z = 0) et τ = V·S_f/(I_y·t_w). σ_x nulle ou de signes mêlés (un appui d'extrémité) : les deux, le plus
-  défavorable retenu. Le critère décide aussi le raidisseur. Conséquence : à un appui d'extrémité avec s_s non saisie
-  (0), σ_z,Ed = F/(2·t_f·t_w) — la barre neuve (IPE 300, 44,4 kN) demande un raidisseur (critère 1,57) ; avec
-  s_s = 100 mm, non (6 %).
+  défavorable retenu. Le critère décide aussi le raidisseur : à un appui d'extrémité avec s_s = 0 SAISIE,
+  σ_z,Ed = F/(2·t_f·t_w) — l'IPE 300 de la barre neuve (44,4 kN) demande un raidisseur (critère 1,57) ; avec
+  s_s = 100 mm, non (6 %). σ_z,Ed garde s_s même sans contact d'extrémité établi (le brief ne met s_s = 0 que dans
+  (6.10), « les autres paramètres inchangés » — À VÉRIFIER).
 - **Seuil de résistance locale** (lot B) : à M_Ed imposé, min(F_Rd ; (1,4 − 0,8·η₁)·F_Rd) — R4 : 380,08 kN (η₁
   élastique), 387,76 kN (η₁ plastique) ; une phrase dit que ce n'est pas la capacité de la barre. η₁ plastique
   (classes 1 et 2, DÉCISION BUREAU n° 1) est affiché en variante ; le verdict reste élastique.
@@ -411,17 +423,23 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   ponctuelle, « oui » | « non » | « inconnu » (défaut, gardé absent de la barre tant qu'il n'est pas saisi) ; « inconnu » :
   verdict de « non » et message « hypothèse de contact non établie » avec la valeur « oui » pour information.
 - **Raidisseur et cisaillement** (lot B) : sous une charge, dans une âme élancée, le flambement du raidisseur porte
-  N = F_Ed + N_st, N_st = V_Ed − h_w·t·f_y/(√3·λ̄_w²·γ_M1) ≥ 0 (§ 9.3.3(3)) ; I_st,min (9.5)/(9.6) avec le seuil √2.
+  N = F_Ed + N_st, N_st = V_Ed − h_w·t·f_y/(√3·λ̄_w²·γ_M1) ≥ 0 (§ 9.3.3(3)), V_Ed à 0,5·h_w du bord le plus sollicité de
+  chacun des deux panneaux qu'il borde (les bords : les raidisseurs et les bouts de la barre ; le plus grand, sur
+  toutes les combinaisons) ; I_st,min (9.5)/(9.6) avec le seuil √2. PRS 300 × 20 / 1 000 × 6 / 250 × 20 en S355, 10 m,
+  q_Ed = 50 kN/m, F_Ed = 300 kN à mi-portée : V_Ed = 375 kN à 0,5 m de l'appui, N_st = 162,4 kN (au droit de la charge,
+  150 kN, il serait nul).
 - **La vue avant/après** (§ 15.4, calcul ; l'affichage est au lot C) : chaque lieu rend « sans » (σ_z,Ed, F_Rd, η₂,
   interaction et sa variante plastique, critère 6.2.1(5), seuil, état de la semelle, contact) et « avec » (A_st,
   σ = N/A_st, N_b,Rd, taux ; A_c, σ de contact, f_y du plat, taux), et le rappel « un raidisseur transversal ne réduit
-  pas τ » ; le voilement par cisaillement qui gouverne le dit aussi (plaque de doublage ou profil plus lourd).
+  pas τ » (une fois par bloc, dans les hypothèses) ; le cisaillement qui gouverne le dit aussi (plaque de doublage ou
+  profil plus lourd) : le voilement (« A-Vb ») et, pour un laminé, V_pl,Rd qui ne passe pas (« E-Vz », brief § 8.3,
+  point 8).
 - **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
   pas décrits, et le bloc le dit.
 - **Ce qui n'est PAS fait** (v1), et dit — jamais rendu « ok » : la paroi d'un profil creux sous une force concentrée
   (EN 1993-1-8 : un avertissement) ; les raidisseurs intermédiaires d'une âme élancée et le montant d'extrémité rigide
-  (k_τ, χ_w = 1,37/(0,7 + λ̄_w), V_bf,Rd : sans objet tant que a → ∞) ; les exemples du commentaire JRC (EUR 22898),
-  bloqués — le site n'était pas joignable depuis la session du lot B ;
+  (k_τ, χ_w = 1,37/(0,7 + λ̄_w), V_bf,Rd : sans objet tant que a → ∞) ; les exemples du commentaire JRC (EUR 22898) :
+  données à fournir ;
   les soudures des raidisseurs (EN 1993-1-8) ; DEUX FORCES RAPPROCHÉES sur la même semelle — leurs longueurs chargées
   l_y se recouvrent —, que le § 6.3(2) demande de vérifier aussi ensemble : la vérification « A-GR » est alors rendue
   « non couvert » ; une réaction de soulèvement (ancrage : un avertissement).
@@ -705,7 +723,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | ainsi |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |
 | Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
-| Q11 | La longueur d'appui s_s non saisie vaut 0 (le cas le plus défavorable) ; le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | 0, et c'est écrit |
+| Q11 | La longueur d'appui s_s non saisie : le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | reprise du lot B : « décision impossible : s_s à fournir » (brief § 8.3, point 5) — 0 n'est plus pris par défaut |
 | Q12 | Les appuis sont « posés » par défaut (la réaction appuie sur l'âme) ; le bureau attache-t-il plutôt ses poutres par l'âme (platine, cornières) ? | posés |
 | Q13 | Les raidisseurs proposés : plats de 8, 10, 12, 15, 20 mm, largeur au pas de 5 mm jusqu'à la demi-semelle, chanfrein égal au congé arrondi à 5 mm — les habitudes de l'atelier ? | ainsi |
 | Q14 | Les jeux de données JRC (« Commentary and worked examples to EN 1993-1-5 ») cités par le brief pour le lot 4 ne sont pas joignables d'ici : en pièce jointe, ils s'ajouteraient au cas R4 | R4, le témoin écrit depuis la norme, les calculs à la main |
