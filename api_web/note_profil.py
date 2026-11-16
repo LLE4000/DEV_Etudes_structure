@@ -310,12 +310,17 @@ def verification(k: str, x: Dict, v: Dict, precedente: Optional[Tuple[int, List]
 
 
 def comparaison_methodes(r: Dict, largeur: float) -> Dict:
-    """Les deux méthodes côte à côte, sujet par sujet : le taux le plus fort de chacune."""
-    def case(t):
-        return ("num", "—") if t is None else ("eta", taux_ecrit(t), t <= 1.0, False)
+    """Les deux méthodes côte à côte, sujet par sujet : le taux le plus fort de chacune. Le taux d'une méthode hors de son
+    domaine s'écrit sans la couleur « conforme » (l'écran le pose en « v », ``profil_resultat.niveau_taux``)."""
+    def case(t, k):
+        if t is None:
+            return ("num", "—")
+        if R.niveau_taux(r, k, t) == "v":
+            return ("num", taux_ecrit(t))
+        return ("eta", taux_ecrit(t), t <= 1.0, False)
 
-    lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"]), case(li["ec3"])] for li in r["comparaison"]
-              if li.get("commun") is None]
+    lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"], "historique"), case(li["ec3"], "ec3")]
+              for li in r["comparaison"] if li.get("commun") is None]
     cols = [("SUJET", largeur - 2 * 52, "left"), ("HISTORIQUE", 52, "right"), ("EUROCODE 3", 52, "right")]
     items = [("tab", cols, lignes)]
     # l'âme vaut pour les deux méthodes : un seul taux, dit sous le tableau (l'écran le pose à cheval sur les deux colonnes)

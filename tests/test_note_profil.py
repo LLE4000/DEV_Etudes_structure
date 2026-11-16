@@ -289,6 +289,11 @@ def parite(etat, pages):
             veut("la tête de la méthode", f"{M.METHODES[k]} — {x['norme']}")
             if x["statut"] == RE.HORS_DOMAINE:                 # (lot A) le mot de la méthode, jamais un mot de taux
                 veut("une méthode hors de son domaine est dite « Hors domaine »", "Hors domaine — ")
+                if comparables(r):                             # … et ses taux de la comparaison, sans la couleur « conforme »
+                    tab = next(i for i in NP.comparaison_methodes(r, 160.0)["items"] if i[0] == "tab")[2]
+                    col = 1 if k == "historique" else 2
+                    veut("une méthode hors de son domaine : ses taux de la comparaison sans la couleur « conforme » (comme l'écran, « v »)",
+                         k, all(li[col][0] == "num" for li in tab))
             if x.get("taux_max") is not None:
                 nombre("le taux de tête de la méthode", taux(x["taux_max"]))
             if len(x.get("combinaisons") or []) >= 2:
@@ -797,6 +802,8 @@ MUTATIONS = (
     ("la nuance ne dit plus le tableau de l'ANB d'où vient sa f_y", ES, "tableau_fy", lambda vrai: (lambda nuance, s: None), ["la barre neuve"]),
     ("une méthode hors de son domaine est dite d'un mot de taux (« À vérifier »)", NP.R, "mot_methode",
      lambda vrai: (lambda x: NP.R.mot_niveau(NP.R.niveau_methode(x))), ["une nuance hors du domaine de la méthode historique (S460)"]),
+    ("la comparaison peint le taux d'une méthode hors domaine de la couleur « conforme »", NP.R, "niveau_taux",
+     lambda vrai: (lambda r, k, t: C.niveau(t)), ["une nuance hors du domaine de la méthode historique (S460)"]),
     ("le poids propre est dit avec un poids volumique recopié (77 kN/m³) et non celui du moteur", NP, "ST",
      lambda vrai: type("ST", (), {"POIDS_VOLUMIQUE": 77.0}), ["la barre neuve"]),
     ("les deux membres d'un critère échangés", NP, "comparaison", lambda vrai: (lambda v: vrai(dict(v, valeur=v.get("limite"), limite=v.get("valeur")))),
