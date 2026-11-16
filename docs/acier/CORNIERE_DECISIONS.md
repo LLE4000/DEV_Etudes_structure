@@ -275,7 +275,9 @@ sont les siens.
 - ELU : l'ingénieur saisit **R à l'ELU directement** ; σ_éq ≤ f_y/γ_M0, τ ≤ f_y/(√3·γ_M0) avec **γ_M0 = 1,0** (NBN EN
   1993-1-1 ANB) — le critère élastique de l'EN 1993-1-1 § 6.2.1(5) ; le coefficient 1,50 de l'ELS ne s'applique pas
   (les champs `coef` et `R_ELU` sont sans effet, l'écran les masque) ; les ancrages rendent N_ELU = H/n et V_ELU = R/n,
-  pas d'ELS (rien n'est inventé). La nuance choisie donne f_y (source unique `normes.NUANCES`, Tableau 3.1).
+  pas d'ELS (rien n'est inventé). La nuance choisie donne f_y : la valeur nominale est saisie (`normes.NUANCES`), le
+  calcul prend la f_y de l'épaisseur e (table unique `acier/materiaux.py`, option a de l'ANB:2018 3.2.1(1), tableaux
+  3.3 ANB et 3.4 ANB).
 - Dans la sortie du moteur, les clés `sigma_adm`/`tau_adm` restent le nom des LIMITES (écran, note, dessins les lisent),
   `materiau` dit `etat_limite`, `gamma_M0`, `symbole_sigma` (« σ_adm » ou « f_y/γ_M0 ») et `symbole_tau`.
   Formules nommées en plus : `sigma_lim_ELU` f_y/γ_M0, `tau_lim_ELU` f_y/(√3·γ_M0), `N_ELU_direct` H/n, `V_ELU_direct` R/n.

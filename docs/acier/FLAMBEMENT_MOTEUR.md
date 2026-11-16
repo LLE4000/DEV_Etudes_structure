@@ -39,9 +39,9 @@ En classe 4, A_eff remplace A partout (éq. 6.11 et 6.48, λ̄ par éq. 6.51).
 |---|---|
 | A, I_y, I_z, i_y, i_z, I_u, I_v, i_u, i_v, masse | catalogue `acier/donnees/profiles.json` (propriétés recalculées sur le contour exact, voir `docs/acier/PROFILES.md`) |
 | c/t des parois | catalogue (`cf_tf` : semelle, grande aile ; `cw_tw` : âme, petite aile), définitions du Tableau 5.2 ; **tubes rectangulaires : c = b − 3t et h − 3t** (EN 1993-1-5 §4.4(2)), finis à chaud comme formés à froid — voir l'encadré en tête |
-| f_y | **Tableau 3.1** de l'EN 1993-1-1 selon l'épaisseur nominale la plus forte (t_f, t_w ou t) : t ≤ 40 mm → 235 / 275 / 355 / 460 ; 40 < t ≤ 80 mm → 215 / 255 / 335 / 430 N/mm². Creux formés à froid (EN 10219) : t ≤ 40 mm seulement. Au-delà : **refusé** (hors du tableau). |
+| f_y | La table unique du site `acier/materiaux.py` : NBN EN 1993-1-1 ANB:2018 3.2.1(1), **option a** (tableaux 3.3 à 3.12 ANB, la norme de produit), selon le produit (laminé : tableaux 3.3 ANB et 3.4 ANB ; creux fini à chaud : 3.8 ANB et 3.9 ANB ; formé à froid : 3.10 ANB et 3.11 ANB) et l'épaisseur nominale. **f_y de calcul** : celle de la paroi la plus épaisse (t_f, t_w ou t), la plus petite. Laminés, t ≤ 16 / 16–40 / 40–63 / 63–80 mm : S235 235 / 225 / 215 / 215 ; S275 275 / 265 / 255 / 245 ; S355 355 / 345 / 335 / 325 ; S460 (S460N) 460 / 440 / 430 / 410 N/mm². Le module s'arrête à 80 mm (`normes.T_MAX_TABLEAU`) ; un creux formé à froid à 40 mm, un creux S460 fini à chaud à 65 mm (les tableaux s'y arrêtent). Au-delà : **refusé**. |
 | E | 210 000 N/mm² (§3.2.6) |
-| ε | √(235 / f_y) |
+| ε | √(235 / f_y) ; pour la classe et λ̄_p, l'ε de **chaque paroi** avec la f_y de SON épaisseur (Tableau 5.2) |
 | Classe en compression pure | Tableau 5.2 : parois internes 33 / 38 / 42·ε, en console 9 / 10 / 14·ε, tubes ronds 50 / 70 / 90·ε², cornières h/t ≤ 15·ε **et** (b + h)/2t ≤ 11,5·ε (classe 3, sinon 4) |
 | A_eff (classe 4) | EN 1993-1-5 §4.4, compression uniforme ψ = 1 : λ̄_p = (b̄/t)/(28,4·ε·√k_σ), k_σ = 4 (interne), 0,43 (console) ; ρ = (λ̄_p − 0,22)/λ̄_p² au-delà de 0,673 (interne), (λ̄_p − 0,188)/λ̄_p² au-delà de 0,748 (console) ; A_eff = A − Σ n·(1 − ρ)·c·t. **Cornières** : b̄ = h (la grande aile) pour les deux ailes, comme le prescrit §4.4(2) pour les cornières à ailes égales et inégales. |
 | L_cr | par axe : cas types (k = 1 ; 0,7 ; 0,5 ; 1 ; 2 — valeurs **théoriques** d'Euler), coefficient k saisi, longueur saisie ; entre deux articulations, n maintiens équidistants donnent L_cr = L / (n + 1) |
@@ -66,7 +66,7 @@ En classe 4, A_eff remplace A partout (éq. 6.11 et 6.48, λ̄ par éq. 6.51).
 | Cornières (L, LI) | autour de u-u et v-v | b | b | b / b |
 
 h/b = 1,2 exactement relève de « h/b ≤ 1,2 ». La courbe d n'est jamais atteinte avec le catalogue : les laminés de
-t_f > 100 mm sont hors du Tableau 3.1 (t > 80 mm), donc refusés avant.
+t_f > 100 mm sont hors du domaine du module (t > 80 mm), donc refusés avant.
 
 **Cornières** : elles flambent autour de leurs axes **principaux**. L'axe « y » du module est l'axe fort u-u, l'axe
 « z » l'axe faible v-v (I_u, I_v, i_u, i_v du catalogue, angle α du catalogue sur le dessin).
@@ -75,7 +75,7 @@ t_f > 100 mm sont hors du Tableau 3.1 (t > 80 mm), donc refusés avant.
 
 `/usr/bin/python3.12 tests/test_flambement_moteur.py` — **114 contrôles, 0 échec** (07/11/2026, après relecture) :
 
-1. **La norme** : Tableau 3.1, ε, λ₁ = 93,9·ε, Tableau 6.1, chaque ligne du Tableau 6.2, les limites du Tableau 5.2
+1. **La norme** : f_y selon l'épaisseur (tableaux 3.3, 3.4 et 3.8 à 3.11 ANB, valeurs écrites dans le test), ε, λ₁ = 93,9·ε, Tableau 6.1, chaque ligne du Tableau 6.2, les limites du Tableau 5.2
    (bornes incluses), les deux formules de ρ.
 2. **Valeurs publiées** : les coefficients de réduction χ(λ̄) du **tableau 5.5.2 de l'ENV 1993-1-1:1992**
    (« Coefficients de réduction χ », courbes a, b, c, d), repris tels quels par les manuels (ex. b : 0,9641 ; 0,9261 ;
@@ -87,7 +87,9 @@ t_f > 100 mm sont hors du Tableau 3.1 (t > 80 mm), donc refusés avant.
    42·ε = 34,2, ρ = 0,884, A_eff recalculée) ; cornière L 100×100×10 (axes u, v) ; L 100×65×7 S355 de classe 4
    (b̄ = h) ; SHS 350×350×10 formé à froid S460 (paroi b − 3t = 320 mm, classe 4, A_eff recalculée ; le catalogue
    l'aurait dit de classe 3) ; RHS fini à chaud (b − 3t = la largeur du catalogue) ; longueurs de flambement ; γ_M0
-   et γ_M1 ; f_y entre 40 et 80 mm (HL 920×588).
+   et γ_M1 ; f_y des profilés épais (HEM 1000 : 16–40 mm ; HL 920×588 : 40–63 mm) ; ε de chaque paroi avec la f_y de
+   son épaisseur (HEB 300 S235, IPE 600 S460 ; IPE 600 et IPE 550 S235 : âme de classe 4 avec son ε, de classe 3 avec
+   celui de la section).
 4. **Parité** avec la seule expression de flambement que l'application Streamlit porte déjà :
    `ec3_buckling_chi` de `modules/choix_profile.py` (option « Vérifier flambement »), chargée telle quelle avec un faux
    `streamlit`. Sur **632 axes** tirés au hasard dans le catalogue (nuances, longueurs, appuis, maintiens), χ, λ̄,
@@ -95,7 +97,7 @@ t_f > 100 mm sont hors du Tableau 3.1 (t > 80 mm), donc refusés avant.
    φ et χ mot pour mot, `normes.phi_chi`), et à 10⁻¹² en classe 4 (l'écran ne connaît pas A_eff : on la lui passe).
    Le menu des courbes de l'écran (« a0 (0.13) » … « d (0.76) ») est le Tableau 6.1 du moteur.
 5. **Domaine** : saisies refusées avec un message (y compris les valeurs démesurées), le calcul aboutit aux bornes
-   du domaine sans débordement, hors du Tableau 3.1, tubes ronds de classe 4, couverture (courbes
+   du domaine sans débordement, hors du domaine du module (t > 80 mm), tubes ronds de classe 4, couverture (courbes
    a0, a, b, c ; classes 1 à 4 ; f_y réduit), tri et « plus léger qui tient » des candidats, avertissements.
 6. **Mutations** : 18 altérations plausibles (α, φ, χ ≤ 1, seuil h/b, S460, axes permutés, f_y épais, ρ, N_cr, k, L/n,
    b̄ des cornières, largeur plate des tubes formés à froid, γ_M1, limite de classe, critère des cornières) font chacune
@@ -129,10 +131,10 @@ courbe et le même f_y. Saisies absurdes refusées proprement ; dessins lisibles
 
 ## 5. Points à trancher par le bureau
 
-- **P-1 · f_y** : le module prend le **Tableau 3.1** (deux paliers : 40 et 80 mm). Si l'ANB belge impose la **norme
-  de produit** (EN 10025-2 : paliers 16, 40, 63, 80 mm), f_y serait plus faible entre 16 et 40 mm (S355 : 345 au lieu
-  de 355 N/mm²) — le Tableau 3.1 serait alors **non conservatif** de 3 % sur ces épaisseurs. Le texte de l'ANB n'a pas
-  été consulté.
+- **P-1 · f_y** — **tranché par l'ANB** (lot A, 16/11/2026) : la NBN EN 1993-1-1 ANB:2018, 3.2.1(1), rend l'option a
+  normative — f_y de la norme de produit (EN 10025-2 : paliers 16, 40, 63, 80 mm), lue dans la table unique
+  `acier/materiaux.py` (tableaux 3.3 à 3.12 ANB). Le tableau 3.1 de l'EN (option b), que le module prenait, n'est pas
+  admis en Belgique : il était bien non conservatif de 3 % entre 16 et 40 mm (S355 : 345 au lieu de 355 N/mm²).
 - **P-2 · coefficients d'appui** : les cas types emploient les valeurs **théoriques** d'Euler (encastrée–encastrée
   k = 0,5 ; encastrée–articulée 0,7). Un encastrement parfait n'existe pas : la pratique retient souvent 0,65 à 0,7 et
   0,8 à 0,85. Le libellé affiche k, l'aide le rappelle, le coefficient de pratique se saisit (« Coefficient k saisi ») ;
@@ -152,12 +154,13 @@ moteur reproduit au bit près pour la prouver), quatre défauts, **non corrigés
 1. **une seule courbe pour les deux axes**, choisie à la main (b par défaut), au lieu du Tableau 6.2 par axe : un
    HEA en flambement autour de z-z (courbe c) est calculé en courbe b — **non conservatif** ;
 2. **pas de classe 4** : A au lieu de A_eff (un IPE 400 en S355 est surestimé de 4 %) — **non conservatif** ;
-3. **f_y = la nuance**, sans réduction au-delà de 40 mm d'épaisseur — **non conservatif** pour les profilés épais ;
+3. **f_y = la nuance**, sans réduction selon l'épaisseur (dès 16 mm, tableau 3.3 ANB) — **non conservatif** pour les
+   profilés épais ;
 4. **γ_M1 admis dès 0,8** (min_value = 0.8) sous la valeur de l'ANB (1,0) ; et un axe de L_cr nulle est
    **silencieusement ignoré** (`ec3_buckling_chi` rend None) au lieu d'être refusé.
 
 Le module du site refuse ces cas avec un message (γ < 1, L ≤ 0, L_cr ≤ 0) et applique le Tableau 6.2, la classe 4
-et le Tableau 3.1.
+et la f_y selon l'épaisseur de la table unique (option a de l'ANB, tableaux 3.3 à 3.12 ANB).
 
 ## 7. L'écran du site
 

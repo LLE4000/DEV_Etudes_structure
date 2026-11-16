@@ -184,7 +184,9 @@ Toujours (niveau info) : « Chevilles non vérifiées : efforts N et V par ancra
 ELU séparés » ; « Pic de contrainte au congé non vérifié (≈ 1,3 × la contrainte de poutre : statique seulement, à
 considérer en fatigue) » ; « Effet de levier non couvert si les chevilles sont très raides (> ≈ 250 kN/mm) ». Selon le
 cas : `equilibre_plus_severe` (rouge, la garde), `pression_support` (attention, B), `mode_impose_B`, `R_ELU_auto`,
-`note_v1` (attention), `fy_epaisseur` (e > 40 mm : le Tableau 3.1 réduit f_y, la valeur saisie est gardée). Les lignes
+`note_v1` (attention), `fy_epaisseur` (dès que la f_y de l'épaisseur e — la table unique `acier/materiaux.py`, option a de
+l'ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB — est sous la valeur nominale saisie, donc dès e > 16 mm : elle est
+employée, la valeur saisie est gardée dans la note). Les lignes
 d'information (pression diamétrale, arrachement, compression du mur, pression sur le support, taux de l'autre mode,
 L_eff) n'entrent pas dans le verdict. Les `hypotheses` disent la méthode aux contraintes admissibles (« efforts ELS non
 majorés, coefficient sur f_y : ce n'est pas une justification EC3 aux états limites »), la configuration et le mode,
@@ -198,7 +200,8 @@ le pivot et u_V, les jeux et le nombre de combinaisons, L_eff, R_ELU.
 - le **pic de contrainte** au congé (contrainte de pointe ≈ 1,3 × la poutre, fatigue) ; le **support souple** (pivot
   qui remonte) et l'**effet de levier** (chevilles très raides) : avertis, pas calculés ;
 - les cornières **PRS** (deux plats soudés) ; le maillage de contrôle ;
-- f_y au-delà de 40 mm d'épaisseur (averti, non réduit) ; la nuance S420 (absente des sources du site).
+- la nuance S420 (absente de la table du site). (f_y selon l'épaisseur n'est plus une limite : elle est lue dans la
+  table unique et employée ; au-delà du tableau — 250 mm, 200 mm en S460 — la saisie est refusée.)
 
 ## 7 · La preuve (`tests/test_corniere_moteur.py`, 106 contrôles, ~15 s)
 
@@ -233,9 +236,10 @@ toutes rejetées, 1 à 9 reproches chacune ; témoin (un commentaire) non rejet�
   verdict (§ 3.3).
 - **Arrachement** (`C90`) : Y nominal en historique (P8 mot pour mot), l'ancrage le plus près du bord (Y + dy) en
   équilibre.
-- **Nuances** : les décisions citent 235, 275, 355, 420, 460 ; les sources du site (`acier/flambement/normes.py`,
-  Tableau 3.1 ; `acier/donnees/bibliotheques.json`) n'ont pas S420 ; le moteur lit la première (f_y pour t ≤ 40 mm) et
-  admet 235, 275, 355, 460 — ajouter S420 se fait là, pas ici.
+- **Nuances** : les décisions citent 235, 275, 355, 420, 460 ; la table du site (`acier/materiaux.py`, option a de
+  l'ANB:2018 3.2.1(1), tableaux 3.3 ANB et 3.4 ANB) n'a pas S420 ; la note garde la valeur nominale saisie (235, 275,
+  355, 460 : `acier/flambement/normes.NUANCES`, le nombre du nom) et le calcul prend la f_y de l'épaisseur e lue dans
+  la table — ajouter S420 se fait là, pas ici.
 - **Relecture v1** : « charges et ancrage aux défauts » poserait la charge hors des petites cornières (X = 75 sur une
   L 45) et ferait refuser la note ; les défauts sont donc posés **dans les ailes** de la cornière relue, au rapport du
   cas de contrôle (X, dx sur larg/120 ; Y, dy sur haut/120 ; d ramené au trou qui tient), l'avis disant qu'ils sont à
