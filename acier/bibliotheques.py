@@ -7,13 +7,21 @@ corrigé de référence (``acier/reference/reference_double_corniere.json``,
 clé ``bibliotheques``). Un test vérifie l'égalité des deux ; rien n'est
 recopié à la main.
 
+SAUF les f_y et f_u des aciers : ils dépendent de l'épaisseur (option a de l'ANB
+belge, 3.2.1(1)) et se lisent dans la table unique du site, ``acier/materiaux.py``,
+par ``acier(nom, t, produit)``. La bibliothèque ne garde de chaque acier que son
+nom et son β_w (EN 1993-1-8, tableau 4.1) ; le corrigé de référence, lui, garde
+ses valeurs du tableau 3.1 de l'EN (l'écart est nommé et testé).
+
 Les enregistrements gardent les noms de champs du moteur de référence :
-profilé ``n h b tw tf r`` ; acier ``n fy fu bw`` ; boulon ``n d d0 As A dm dw`` ;
+profilé ``n h b tw tf r`` ; acier ``n bw`` (+ ``fy fu`` par ``acier``) ; boulon ``n d d0 As A dm dw`` ;
 classe ``n fyb fub av`` ; cornière ``n a1 a2 t r`` ; ailes ``[aile, rayon]`` ;
 épaisseurs ``[…]``. Unités : mm, mm², MPa.
 """
 import json
 import os
+
+from acier import materiaux as MA
 
 PERSO = "Personnalisé"
 ORI_P = "Grande aile sur poutre principale"
@@ -41,6 +49,14 @@ def find(liste, n):
         if x["n"] == n:
             return x
     raise ValueError(f"Enregistrement inconnu : {n!r}")
+
+
+def acier(nom, t, produit="lamine"):
+    """L'acier ``nom`` pour une pièce d'épaisseur nominale ``t`` (mm) : {"n", "fy", "fu", "bw"} — f_y et f_u de la
+    table unique (acier/materiaux.py, tableaux 3.3 ANB à 3.12 ANB, selon l'épaisseur et le produit : « lamine »,
+    « creux_chaud », « creux_froid »), β_w de la bibliothèque. ValueError (MA.HorsTable) hors des tableaux."""
+    a = find(DB["aciers"], nom)
+    return {"n": nom, "fy": MA.fy(nom, t, produit), "fu": MA.fu(nom, t, produit), "bw": a["bw"]}
 
 
 def idx(liste, n):

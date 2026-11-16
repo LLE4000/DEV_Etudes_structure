@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Ce que la norme fixe pour le flambement par flexion, en une seule source.
 
-EN 1993-1-1:2005 (+AC:2009) : Tableau 3.1 (f_y), Tableau 5.2 (classes en compression pure), §6.2.4 (N_c,Rd),
+EN 1993-1-1:2005 (+AC:2009) : f_y de la table unique acier/materiaux.py (option a de l'ANB), Tableau 5.2 (classes en compression pure), §6.2.4 (N_c,Rd),
 §6.3.1.2 (χ, φ, λ̄), Tableau 6.1 (α), Tableau 6.2 (choix de la courbe). EN 1993-1-5:2006 §4.4 (largeur efficace d'une
 paroi comprimée, ψ = 1). ANB belge : γ_M0 = 1,0 ; γ_M1 = 1,0.
 
@@ -11,34 +11,36 @@ opération par opération : les deux donnent le même flottant (tests/test_flamb
 import math
 from typing import Dict, Optional, Tuple
 
+from acier import materiaux as MA
+
 E_ACIER = 210000.0                       # N/mm², EN 1993-1-1 §3.2.6
 GAMMA_M0 = 1.0                           # ANB belge
 GAMMA_M1 = 1.0                           # ANB belge
 GAMMA_MIN, GAMMA_MAX = 1.0, 1.5          # bornes admises à la saisie (un γ sous 1,0 n'est pas admis)
 
-# ------------------------------------------------------------------ Tableau 3.1 : f_y selon l'épaisseur nominale
-# (nuance) → (f_y pour t ≤ 40 mm, f_y pour 40 < t ≤ 80 mm), N/mm² ; laminés EN 10025-2/-3/-4 et creux EN 10210-1.
-# Les creux formés à froid (EN 10219-1) n'ont que la colonne t ≤ 40 mm.
-NUANCES: Dict[str, Tuple[float, float]] = {"S235": (235.0, 215.0), "S275": (275.0, 255.0), "S355": (355.0, 335.0),
-                                           "S460": (460.0, 430.0)}
-T_MAX_TABLEAU = 80.0                     # mm : au-delà, le Tableau 3.1 ne donne rien
+# ------------------------------------------------------------------ f_y selon l'épaisseur nominale
+# La table est acier/materiaux.py (option a de l'ANB belge, 3.2.1(1) : tableaux 3.3 ANB à 3.12 ANB) — la seule du site.
+# NUANCES : les nuances des modules et leur valeur NOMINALE (le nombre du nom), pour les libellés et les listes.
+NUANCES: Dict[str, float] = {n: MA.nominale(n) for n in MA.NUANCES}
+T_MAX_TABLEAU = 80.0                     # mm : borne du DOMAINE des modules Flambement et Barres (l'ANB va plus loin)
 
 
 class HorsDomaine(ValueError):
     """Une donnée que la norme (ou ce module) ne couvre pas : le calcul est refusé, avec ce message."""
 
 
-def limite_elastique(nuance: str, t: float, froid: bool = False) -> float:
-    """f_y du Tableau 3.1 pour l'épaisseur nominale ``t`` (mm) ; HorsDomaine au-delà du tableau."""
+def limite_elastique(nuance: str, t: float, froid: bool = False, produit: Optional[str] = None) -> float:
+    """f_y pour l'épaisseur nominale ``t`` (mm), lue dans la table unique (acier/materiaux.py, tableaux 3.3 ANB à
+    3.12 ANB) ; ``produit`` : « lamine », « creux_chaud », « creux_froid » (``froid`` : l'ancien nom de ce dernier).
+    HorsDomaine au-delà de 80 mm (borne des modules) ou du tableau (40 mm pour un creux formé à froid)."""
     if nuance not in NUANCES:
         raise HorsDomaine(f"nuance inconnue : {nuance}")
-    if t <= 40.0:
-        return NUANCES[nuance][0]
-    if froid:
-        raise HorsDomaine(f"creux formé à froid de {t:g} mm : le Tableau 3.1 (EN 10219) s'arrête à 40 mm")
-    if t <= T_MAX_TABLEAU:
-        return NUANCES[nuance][1]
-    raise HorsDomaine(f"épaisseur {t:g} mm > 80 mm : hors du Tableau 3.1")
+    if t > T_MAX_TABLEAU:
+        raise HorsDomaine(f"épaisseur {t:g} mm > {T_MAX_TABLEAU:g} mm : hors du domaine du module")
+    try:
+        return MA.fy(nuance, t, produit or ("creux_froid" if froid else "lamine"))
+    except MA.HorsTable as e:
+        raise HorsDomaine(str(e)) from None
 
 
 def epsilon(fy: float) -> float:

@@ -2,7 +2,11 @@
 """Bibliothèques de la famille Acier — source unique et vraisemblance.
 
   1. SOURCE UNIQUE : acier/donnees/bibliotheques.json est identique à la
-     clé « bibliotheques » du corrigé de référence (aucune recopie).
+     clé « bibliotheques » du corrigé de référence (aucune recopie), À UN ÉCART
+     NOMMÉ PRÈS : ses aciers n'ont plus de f_y ni de f_u. Ils dépendent de
+     l'épaisseur (option a de l'ANB belge, 3.2.1(1)) et se lisent dans la table
+     unique du site (acier/materiaux.py) ; le corrigé garde ceux du tableau 3.1
+     de l'EN, que la Belgique n'admet pas.
   2. COMPTES : 90 profilés, 6 aciers, 8 boulons, 4 classes, 18 cornières,
      8 ailes, 5 épaisseurs.
   3. CROISEMENT avec le catalogue du dépôt (acier/donnees/profiles.json) : mêmes
@@ -10,8 +14,8 @@
      A = 2·b·tf + (h − 2tf)·tw + (4 − π)·r² à moins de 1 % de l'aire
      catalogue.
   4. VRAISEMBLANCE : classes 4.6/5.6/8.8/10.9 (Tableau 3.1), αv (Tableau
-     3.4), d0 = d + 1 / + 2 / + 3 (EN 1090-2), aciers du Tableau 3.1 de
-     l'EN 1993-1-1 (t ≤ 40 mm).
+     3.4), d0 = d + 1 / + 2 / + 3 (EN 1090-2), aciers des tableaux 3.3 ANB et
+     3.4 ANB (f_u entre 3 et 100 mm : S235 360, S275 410, S355 470).
 
 Lancement : python3 tests/test_assemblages_bibliotheques.py
 """
@@ -24,7 +28,7 @@ RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
-from acier.bibliotheques import DB, find, aire_profil, PERSO  # noqa: E402
+from acier.bibliotheques import DB, find, aire_profil, PERSO, acier  # noqa: E402
 
 OK, KO = [], []
 
@@ -39,7 +43,12 @@ with open("acier/reference/reference_double_corniere.json", encoding="utf-8") as
     REF = json.load(fh)
 
 print("=== 1. Source unique ===")
-chk("bibliotheques.json ≡ corrigé de référence", DB == REF["bibliotheques"])
+REF_SANS_FY_FU = dict(REF["bibliotheques"], aciers=[{k: v for k, v in a.items() if k not in ("fy", "fu")}
+                                                    for a in REF["bibliotheques"]["aciers"]])
+chk("bibliotheques.json ≡ corrigé de référence, f_y et f_u des aciers retirés (seul écart)", DB == REF_SANS_FY_FU)
+chk("l'écart est bien celui-là : le corrigé porte f_y et f_u, la bibliothèque n'en porte plus",
+    all("fy" in a and "fu" in a for a in REF["bibliotheques"]["aciers"])
+    and all("fy" not in a and "fu" not in a for a in DB["aciers"]))
 
 print("\n=== 2. Comptes ===")
 for k, n in (("profils", 90), ("aciers", 6), ("boulons", 8), ("classes", 4),
@@ -74,9 +83,12 @@ chk("As des boulons ISO 898 (M12 84,3 … M36 817)",
     [b["As"] for b in DB["boulons"]] == [84.3, 157, 245, 303, 353, 459, 561, 817])
 chk("aires nominales A = π·d²/4 à 0,1 mm² près",
     all(abs(b["A"] - math.pi * b["d"] ** 2 / 4) < 0.1 for b in DB["boulons"]))
-chk("aciers : S235 360, S275 430, S355 510 (Tab. 3.1) ; ligne « fu 490 » présente",
-    find(DB["aciers"], "S235")["fu"] == 360 and find(DB["aciers"], "S275")["fu"] == 430
-    and find(DB["aciers"], "S355")["fu"] == 510 and find(DB["aciers"], "S355 (fu 490)")["fu"] == 490)
+chk("aciers à 10 mm (tableau 3.3 ANB) : f_u S235 360, S275 410, S355 470 ; la ligne « fu 490 » suit le S355 belge (470)",
+    [acier(n, 10)["fu"] for n in ("S235", "S275", "S355", "S355 (fu 490)")] == [360, 410, 470, 470])
+chk("aciers à 20 mm : f_y S235 225, S275 265, S355 345, S460 N/NL 440 (palier à 16 mm)",
+    [acier(n, 20)["fy"] for n in ("S235", "S275", "S355", "S460 N/NL")] == [225, 265, 345, 440])
+chk("β_w de la bibliothèque (EN 1993-1-8, tableau 4.1) : 0,8 / 0,85 / 0,9 / 1,0",
+    [acier(n, 10)["bw"] for n in ("S235", "S275", "S355", "S460 N/NL")] == [0.8, 0.85, 0.9, 1])
 chk("cornières : t < a2 ≤ a1 et rayon > 0",
     all(0 < c["t"] < c["a2"] <= c["a1"] and c["r"] > 0 for c in DB["cornieres"]))
 chk("ailes standard croissantes, épaisseurs croissantes",
