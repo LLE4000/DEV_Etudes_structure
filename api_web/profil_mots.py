@@ -25,6 +25,14 @@ MOINS = "−"
 ELS = "ELS"
 METHODES = {"historique": f"Méthode {ELS} ({HI.NORME})", "ec3": "Eurocode 3"}
 METHODES_COURT = {"historique": ELS, "ec3": "Eurocode 3"}
+
+
+def minuscule(s: str) -> str:
+    """Un nom au fil d'une phrase : sa première lettre en minuscule (« Eurocode 3 » → « eurocode 3 », « Méthode ELS (NBN B
+    51-001) » → « méthode ELS (NBN B 51-001) ») — un sigle reste en capitales (« ELS »)."""
+    return s if s[1:2].isupper() else s[:1].lower() + s[1:]
+
+
 AME = "ame"                                        # le bloc de l'âme (EN 1993-1-5) : ni l'une ni l'autre méthode, toujours rendu
 TITRE_AME = "Âme et raidisseurs"
 TITRE_AME_SEUL = "Contrôles complémentaires EN 1993-1-5"      # son titre dans une note « méthode ELS seule »
@@ -36,7 +44,7 @@ AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre da
            "poteau qui charge). 0 : le cas le plus défavorable.")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
-         ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la méthode {ELS}, ceux de calcul pour l'Eurocode."))
+         ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la {minuscule(METHODES['historique'])}, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),
            ("continue", "Continue"))
 NOM_MODELE = dict(MODELES)
@@ -66,12 +74,6 @@ MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.NON_COUVERT: "Non co
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
-
-
-def minuscule(s: str) -> str:
-    """Un nom au fil d'une phrase : sa première lettre en minuscule (« Eurocode 3 » → « eurocode 3 », « Méthode ELS (NBN B
-    51-001) » → « méthode ELS (NBN B 51-001) ») — un sigle reste en capitales (« ELS »)."""
-    return s if s[1:2].isupper() else s[:1].lower() + s[1:]
 
 
 # ------------------------------------------------------------------ nombres

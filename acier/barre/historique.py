@@ -477,9 +477,11 @@ def verifier(barre: Dict) -> Dict:
             v["formules"].append(f"taux_{v['id']}")
         if hors and v["statut"] == OK:              # hors du domaine de la doc : jamais « vérifié » (brief § 9) ; un « nok » le reste
             v["statut"] = HORS_DOMAINE
-            v["messages"].append("Hors du domaine de la méthode ELS (" + " ; ".join(
+            # le nom entier de la méthode (celui de l'écran : api_web/profil_mots.METHODES, lié par test_api_web_profil), sans
+            # double parenthèse : la raison suit un tiret
+            v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — " + " ; ".join(
                 {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm"}[h] for h in hors)
-                + ") : calcul pour information, jamais « vérifié ».")
+                + " : calcul pour information, jamais « vérifié ».")
 
     # ---- la synthèse
     hyp.insert(0, f"Charges de service, non pondérées ; contrainte admissible σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"

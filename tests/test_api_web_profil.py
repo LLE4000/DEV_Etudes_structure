@@ -882,11 +882,16 @@ def nom_els():
         ("la vue des taux : « Méthode ELS (NBN B 51-001) » en titre, la norme pas écrite une seconde fois à droite",
          ">Méthode ELS (NBN B 51-001)<" in tx_ and tx_.count("NBN B 51-001") == 1 and ">NBN EN 1993-1-1<" in tx_, re.findall(r">([^<]*NBN[^<]*)<", tx_)),
         ("le sélecteur : « vérifiés par : ELS et eurocode 3 »", "vérifiés par : ELS et eurocode 3" in P.selecteur(nv["etat"], "profil"), ""),
-        ("les efforts imposés : l'aide du mode et celle de la colonne « Service » disent « la méthode ELS »",
-         "ceux de service pour la méthode ELS, ceux de calcul" in visible(ef_["donnees"])
-         and "Efforts non pondérés : ceux de la méthode ELS." in visible(ef_["donnees"]), ""),
-        ("une nuance hors du domaine : le message du MOTEUR dit « Hors du domaine de la méthode ELS (nuance hors AE235 à AE355) »",
-         "Hors du domaine de la méthode ELS (nuance hors AE235 à AE355)" in texte(hd_["volets"]), re.findall(r"Hors du domaine[^.]{0,80}", texte(hd_["volets"]))[:1]),
+        ("les efforts imposés : l'aide du mode et celle de la colonne « Service » nomment la méthode EN ENTIER, « la méthode ELS (NBN B 51-001) » "
+         "(des survols : la place ne manque pas — troisième passe du lot A)",
+         "ceux de service pour la méthode ELS (NBN B 51-001), ceux de calcul" in visible(ef_["donnees"])
+         and "Efforts non pondérés : ceux de la méthode ELS (NBN B 51-001)." in visible(ef_["donnees"]),
+         re.findall(r"(?:ceux de service pour|Efforts non pondérés : ceux de) la [^,.]*", visible(ef_["donnees"]))),
+        ("une nuance hors du domaine : le message du MOTEUR nomme la méthode en entier, « Hors du domaine de la méthode ELS (NBN B 51-001) — "
+         "nuance hors AE235 à AE355 : calcul pour information » — le nom de l'écran (profil_mots.METHODES), une seule forme",
+         "Hors du domaine de la méthode ELS (NBN B 51-001) — nuance hors AE235 à AE355 : calcul pour information" in texte(hd_["volets"])
+         and f"Hors du domaine de la {M.minuscule(M.METHODES['historique'])} — " in texte(hd_["volets"]),
+         re.findall(r"Hors du domaine[^.]{0,80}", texte(hd_["volets"]))[:1]),
         ("nulle part — résultats, saisie, fenêtres, vues, survols ; barre neuve, méthode seule, efforts imposés, S460 — l'écran n'écrit plus "
          "« historique »", not restes, restes[:4]),
     ]
@@ -913,6 +918,15 @@ def _message_historique(vrai):
     return f
 
 
+def _message_sans_norme(vrai):
+    def f(d):
+        r = vrai(d)
+        for v in r["verifications"]:
+            v["messages"] = [m_.replace("méthode ELS (NBN B 51-001)", "méthode ELS") for m_ in v["messages"]]
+        return r
+    return f
+
+
 for nom_, ok_, info_ in nom_els():
     chk(nom_, ok_, info_)
 MUTATIONS_NOM = (
@@ -926,6 +940,11 @@ MUTATIONS_NOM = (
     ("l'aide du mode « Efforts imposés » redit « la méthode historique »", M, "MODES",
      lambda vrai: tuple((k, t, a.replace("méthode ELS", "méthode historique")) for k, t, a in vrai)),
     ("le message « hors domaine » du moteur redit « la méthode historique »", MO.HI, "verifier", _message_historique),
+    ("troisième passe — l'aide du mode « Efforts imposés » dit « méthode ELS » sans la norme", M, "MODES",
+     lambda vrai: tuple((k, t, a.replace("méthode ELS (NBN B 51-001)", "méthode ELS")) for k, t, a in vrai)),
+    ("troisième passe — l'aide de la colonne « Service » dit « méthode ELS » sans la norme", PS, "AIDE_JEU",
+     lambda vrai: dict(vrai, service="Efforts non pondérés : ceux de la méthode ELS.")),
+    ("troisième passe — le message « hors domaine » du moteur dit « méthode ELS » sans la norme", MO.HI, "verifier", _message_sans_norme),
     ("la vue des taux écrit la norme une seconde fois à droite", P, "DB",
      lambda vrai: _source_mutee(vrai, '        if x["norme"] not in titre:  ', '        if True:  ')),
     ("« tout le calcul » répète la norme sous le titre", P, "R",

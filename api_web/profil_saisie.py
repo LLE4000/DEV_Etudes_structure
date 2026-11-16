@@ -27,7 +27,7 @@ from . import profil_mots as M
 
 ROLE = "profil"
 N = C.NBSP
-AIDE_JEU = {"service": f"Efforts non pondérés : ceux de la méthode {M.ELS}.", "elu": "Efforts de calcul (pondérés) : ceux de l'Eurocode 3."}
+AIDE_JEU = {"service": f"Efforts non pondérés : ceux de la {M.minuscule(M.METHODES['historique'])}.", "elu": "Efforts de calcul (pondérés) : ceux de l'Eurocode 3."}
 
 
 def _retirer(chemin: List, titre: str) -> str:

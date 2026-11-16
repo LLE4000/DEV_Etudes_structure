@@ -203,10 +203,11 @@ def controles(H=HI):
     r = H.verifier(barre_classeur(RECENTS["Tube Ø610 × 12,5"]))
     c("classeur du tube Ø610 : f_y = 450 N/mm² est hors des nuances AE235 à AE355 de la doc — HORS DOMAINE (brief § 6.2 point 8, test 7 du "
       "§ 11.5) : le calcul est rendu (83 %), aucune vérification n'est « ok », l'alerte le dit — chacune porte le message, qui nomme la "
-      "méthode « ELS » (son nom à l'écran et dans la note, deuxième passe du lot A)",
+      "méthode par son nom entier « méthode ELS (NBN B 51-001) » (celui de l'écran et de la note ; troisième passe du lot A : la norme, "
+      "et la raison après un tiret, sans double parenthèse)",
       any(x["code"] == "nuance" for x in r["alertes"]) and r["statut"] == H.HORS_DOMAINE and round(r["taux_max"], 3) == 0.831
       and all(v["statut"] == H.HORS_DOMAINE for v in r["verifications"]) and r["grandeurs"]["hors_domaine"] == ["nuance"]
-      and all("Hors du domaine de la méthode ELS (nuance hors AE235 à AE355) : calcul pour information" in " ".join(v["messages"])
+      and all("Hors du domaine de la méthode ELS (NBN B 51-001) — nuance hors AE235 à AE355 : calcul pour information" in " ".join(v["messages"])
               for v in r["verifications"]),
       (r["alertes"], r["statut"], r["taux_max"]))
     # ---- le domaine se lit sur la NUANCE (brief § 13.2 point 5) : une S235 épaisse (f_y 225) reste dans le domaine
@@ -451,8 +452,10 @@ def mutations():
         ("φ de l'axe faible au lieu de φ_min (le défaut du classeur)", 'phi_min = min(G["y"]["phi"], G["z"]["phi"]) if comprime else 1.0',
          'phi_min = G["z"]["phi"] if comprime else 1.0'),
         ("limite h/b à 1,0 au lieu de 1,2", "RAPPORT_HB = 1.2", "RAPPORT_HB = 1.0"),
-        ("deuxième passe — le message « hors domaine » redit « la méthode historique »", 'v["messages"].append("Hors du domaine de la méthode ELS ("',
-         'v["messages"].append("Hors du domaine de la méthode historique ("'),
+        ("deuxième passe — le message « hors domaine » redit « la méthode historique »", 'v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — "',
+         'v["messages"].append(f"Hors du domaine de la méthode historique ({NORME}) — "'),
+        ("troisième passe — le message « hors domaine » dit « méthode ELS » sans la norme", 'v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — "',
+         'v["messages"].append("Hors du domaine de la méthode ELS — "'),
         ("I laminé h/b ≤ 1,2 : courbes de h/b > 1,2", 'return {"y": "b", "z": "c", "regle": "I ou H laminé, h/b ≤ 1,2", "message": None}',
          'return {"y": "a", "z": "b", "regle": "I ou H laminé, h/b ≤ 1,2", "message": None}'),
         ("caisson non recuit en courbe a", '"caisson": ("b", "b")', '"caisson": ("a", "a")'),
