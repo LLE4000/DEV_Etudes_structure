@@ -21,13 +21,14 @@ fichiers : profil_saisie, profil_resultat, profil_mots, dessin_barre), vérifié
 
     /usr/bin/python3.12 tests/test_api_web_profil.py
 """
+import atexit
 import copy
 import html
-import importlib.util
 import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -1220,6 +1221,7 @@ def ancien_site():
         try:
             tar = subprocess.run(["git", "-C", RACINE, "archive", ANCIEN_SITE, "api_web", "acier", "rdm", "beton"], capture_output=True, check=True).stdout
             d = tempfile.mkdtemp(prefix="profil_766659c_")
+            atexit.register(shutil.rmtree, d, True)           # (effacé à la fin du test)
             with tarfile.open(fileobj=io.BytesIO(tar)) as t:
                 t.extractall(d, filter="data")
             _ANCIEN.update(dossier=d, raison=None)
