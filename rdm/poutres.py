@@ -37,6 +37,14 @@ TOL = 1e-9          # tolérance relative des contrôles internes (équilibre, c
 TOL_APPUI = 1e-9    # un appui reconnu à TOL_APPUI·max(1, L) près (au-dessus de l'arrondi à 10⁻⁹ de acier/barre/statique.py)
 
 
+def ramener(x: float, L: float) -> float:
+    """Une abscisse saisie (charge, maintien) à TOL_APPUI·max(1, L) au-delà du BOUT de la poutre, ramenée sur lui : la longueur
+    est une SOMME de portées (2,8 + 3,4 = 6,199999999999999), et une abscisse tapée « 6,2 » la dépassait d'un rien —
+    refusée « hors de la poutre » (intégration du lot B ; la même tolérance que la lecture d'un appui). Au-delà : inchangée."""
+    tol = TOL_APPUI * max(1.0, L)
+    return L if L < x <= L + tol else x
+
+
 class ErreurDonnees(ValueError):
     """Une donnée hors du domaine (portée nulle, charge hors de la poutre, modèle inconnu) : le message dit laquelle."""
 
@@ -219,13 +227,13 @@ def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict]) -
             raise ErreurDonnees(f"{ou} : type attendu parmi {TYPES_CHARGE}")
         t = c["type"]
         v = _nombre(c.get("v"), f"{ou}, valeur")
-        a = _nombre(c.get("a", 0.0), f"{ou}, abscisse a")
+        a = ramener(_nombre(c.get("a", 0.0), f"{ou}, abscisse a"), Lt)
         if t in ("P", "C"):
             if not 0.0 <= a <= Lt:
                 raise ErreurDonnees(f"{ou} : l'abscisse a doit être sur la poutre (0 à {Lt:g} m)")
             out.append({"type": t, "v": v, "a": a})
             continue
-        b = _nombre(c.get("b", Lt), f"{ou}, abscisse b")
+        b = ramener(_nombre(c.get("b", Lt), f"{ou}, abscisse b"), Lt)
         if not (0.0 <= a < b <= Lt):
             raise ErreurDonnees(f"{ou} : il faut 0 ≤ a < b ≤ {Lt:g} m")
         if t == "q":

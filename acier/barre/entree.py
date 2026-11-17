@@ -257,7 +257,7 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus(f"au plus {MAINTIENS_MAX} maintiens")
     b["maintiens"] = []
     for m in mts:
-        x = _nombre((m or {}).get("x"), "abscisse d'un maintien")
+        x = PO.ramener(_nombre((m or {}).get("x"), "abscisse d'un maintien"), Lt)      # « 6,2 » sur 2,8 + 3,4 m : le bout
         genre = (m or {}).get("genre", "complet")
         if genre not in ST.GENRES_MAINTIEN:
             raise Refus(f"maintien : genre parmi {', '.join(ST.GENRES_MAINTIEN)}")

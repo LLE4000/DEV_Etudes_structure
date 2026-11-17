@@ -186,7 +186,7 @@ def troncons(barre: Dict, s: Dict) -> List[Dict]:
             tenus[round(x, 9)] = MC.FOURCHE
     interieurs = []
     for m in barre.get("maintiens") or []:
-        x, genre = float(m["x"]), m.get("genre", "complet")
+        x, genre = PO.ramener(float(m["x"]), L), m.get("genre", "complet")
         if genre not in GENRES_MAINTIEN:
             raise Refus(f"maintien : genre parmi {', '.join(GENRES_MAINTIEN)} — reçu {genre!r}")
         if not 0.0 <= x <= L:

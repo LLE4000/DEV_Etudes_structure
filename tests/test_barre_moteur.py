@@ -511,6 +511,21 @@ def controles(M=None):
              if not _refuse(lambda d=d: mo.verifier(barre(**d)))]
     c("domaine : mode, nuance, profilé, méthode, coefficient s, portée, modèle, cas, charges, maintiens, niveau, longueurs, efforts — refusés avec un message",
       not refus, refus)
+    # ---- (intégration du lot B, point 28 e) une abscisse tapée au BOUT d'une barre dont la longueur est une somme de portées inexacte en
+    # binaire (2,8 + 3,4 = 6,199999999999999) : la fin d'une charge et un maintien à « 6,2 » étaient refusés « hors de la barre » — ils sont
+    # ramenés au bout, à la tolérance d'un appui (rdm/poutres.TOL_APPUI) ; au-delà, toujours refusés
+    def bout_(x_, xm_):
+        return mo.verifier(barre(modele="continue", travees=[2.8, 3.4], maintiens=[{"x": xm_, "genre": "complet"}],
+                                 cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, x_), P_(3.0, x_)]}]))
+    try:
+        rb_ = bout_(6.2, 6.2)
+        lu_ = (rb_["barre"]["maintiens"][0]["x"], rb_["barre"]["cas"][0]["charges"][0]["b"], rb_["barre"]["cas"][0]["charges"][1]["a"], rb_["statut"])
+    except RE.Refus as e_:
+        lu_ = ("refus", str(e_))
+    Lt_ = 2.8 + 3.4
+    c("2,8 + 3,4 m (6,199999999999999 en binaire) : une charge répartie jusqu'à « 6,2 », une ponctuelle et un maintien complet à « 6,2 » sont "
+      "acceptés et ramenés au bout de la barre ; 6,2 + 10⁻⁶ reste refusé (hors de la barre)",
+      lu_ == (Lt_, Lt_, Lt_, RE.OK) and _refuse(lambda: bout_(6.2 + 1e-6, 6.0)) and _refuse(lambda: bout_(6.0, 6.2 + 1e-6)), lu_)
     # ---- (intégration du lot B) la comparaison des deux méthodes : chaque identifiant de moteur.SUJETS est une vérification
     # que le moteur REND — un identifiant renommé dans un bloc viderait sa ligne sans erreur (pire() rendrait None). Lu sur
     # les vérifications que rendent trois barres passées au moteur (point 18 : une recherche du texte entre guillemets
@@ -603,6 +618,10 @@ MUTATIONS = [
     ("statique", "mémoire d'un cas retirée (chaque combinaison recalcule)", "            e = self.lus[x] = self.sol.evaluer(x)\n", "            e = self.sol.evaluer(x)\n"),
     ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(xl, droite)\n",
      "            m = self.moments[x] = t.M(xl, False)\n"),
+    ("poutres", "intégration, point 28 e — une abscisse au bout refusée (2,8 + 3,4 ≠ 6,2)", "    return L if L < x <= L + tol else x\n",
+     "    return x\n"),
+    ("entree", "intégration, point 28 e — un maintien au bout refusé (2,8 + 3,4 ≠ 6,2)",
+     '        x = PO.ramener(_nombre((m or {}).get("x"), "abscisse d\'un maintien"), Lt)', '        x = _nombre((m or {}).get("x"), "abscisse d\'un maintien")'),
     ("poutres", "lot B — un appui comparé sans tolérance (5,55 ≠ 5,550000000000001 : un côté de l'appui perdu)",
      "if x < fin - tol or (abs(x - fin) <= tol and", "if x < fin or (x == fin and"),
     ("statique", "lot B — le moment lu seul cherche sa travée lui-même, sans la tolérance d'appui (une seconde vérité)",
