@@ -617,7 +617,8 @@ bisymétrique, flexion-torsion « non couvert » pour un monosymétrique comprim
 terme de Wagner ∫M_y·z_j·φ′² (`mcr.py`), charges et maintiens repérés depuis le centre de cisaillement ; § 6.3.2.2 par
 défaut (courbes c/d, b = la plus petite largeur) ; § 6.3.2.3 seulement pour un bisymétrique déclaré « section soudée
 équivalente » (paramètre `prs_soudee_equivalente`, DÉCISION BUREAU n° 10, défaut non coché ; l'autre méthode affichée
-pour information) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
+pour information, écrite une seule fois pour les laminés et les PRS : `grandeurs.deversement.information`, avec f ; un
+PRS monosymétrique n'en a pas) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
 selon le signe de ψ_f — 1 de ψ = 1 à 0 ; pour ψ_f > 0 : 0,850 ; 1,3 − 1,2·ψ_f ; 0,55 − ψ_f (1 sinon) ; −ψ_f à ψ = −1
 dans les deux colonnes ; tableau E.2 ANB ;
 z_g positif quand la charge va vers le centre de cisaillement, annexe E ANB 2(8) ; −0,9 ≤ ψ_f ≤ 0,9, sinon bloqué).

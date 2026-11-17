@@ -242,9 +242,9 @@ def controles():
       "M_b,Rd = 797,39 kN·m ; § 6.3.2.3 affiché pour information : f = 0,9877, χ_LT,mod = 0,3760, M_b,Rd = 807,36 kN·m ; contrôle (E.1) 1 185,2 kN·m",
       v is not None and round(D["W_y"] * 345.0 / 1e6, 2) == 2147.11 and round(D["lambda_LT"], 4) == 1.3424 and D["courbe"] == "c"
       and D["methode"] == "§ 6.3.2.2" and round(D["chi_LT"], 4) == 0.3714 and a_pres(v["limite"], 797.39, 0.01)
-      and D["variante"]["methode"] == "§ 6.3.2.3" and round(D["variante"]["f"], 4) == 0.9877 and round(D["variante"]["chi_LT"], 4) == 0.3760
-      and a_pres(D["variante"]["M_b_Rd"] / 1e6, 807.36, 0.01) and any("807,4" in x for x in v["messages"])
-      and a_pres(D["annexe_E"]["M_cr"] / 1e6, 1185.17, 0.01), (D.get("lambda_LT"), D.get("chi_LT"), v and v["limite"], D.get("variante"), v and v["messages"]))
+      and D["information"]["methode"] == "§ 6.3.2.3" and round(D["information"]["f"], 4) == 0.9877 and round(D["information"]["chi_LT"], 4) == 0.3760
+      and a_pres(D["information"]["M_b_Rd"] / 1e6, 807.36, 0.01) and any("807,4" in x for x in v["messages"])
+      and a_pres(D["annexe_E"]["M_cr"] / 1e6, 1185.17, 0.01), (D.get("lambda_LT"), D.get("chi_LT"), v and v["limite"], D.get("information"), v and v["messages"]))
     # ---- PRS-B : propriétés
     zp = PR.zj_psi(B, "haut")
     c("PRS-B, propriétés (§ 11.8) : A = 23 100 ; centre de gravité à 337,013 mm ; I_y = 1 384,684·10⁶ ; I_z = 87,652·10⁶ ; W_el,y = 5 265,2·10³ (haute) "
@@ -296,12 +296,12 @@ def controles():
       and round(cot["face_haut"], 3) == 145.286 and round(cot["face_bas"], 3) == -454.714, (vals, e1, cot))
     r = barre_dev(B)
     D, v = r["grandeurs"]["deversement"], verif(r, "E-Mb")
-    chi_c = m("ec3_deversement").chi_LT(D["lambda_LT"], 0.49, 0.2, 1.0, 0.2, 1.0, 2.0)[0]
+    chi_c = m("ec3_deversement").chi_general(D["lambda_LT"], 0.49)
     c("PRS-B, déversement, charge sur la semelle haute : M_y,Rk = 1 800,38 ; λ̄_LT = 1,2874 ; § 6.3.2.2, b = 200 mm, h/b = 3,0 → courbe d : χ_LT = 0,3430, "
       "M_b,Rd = 617,55 kN·m (b = 300 et courbe c : 709,7, ce que le module ne prend pas) ; § 6.3.2.3 refusé ; (E.1) 1 077,7",
       v is not None and round(D["W_y"] * 345 / 1e6, 2) == 1800.38 and round(D["lambda_LT"], 4) == 1.2874 and D["b_h_b"] == 200.0 and D["courbe"] == "d"
       and round(D["chi_LT"], 4) == 0.3430 and a_pres(v["limite"], 617.55, 0.01) and round(chi_c * D["W_y"] * 345 / 1e6, 1) == 709.7
-      and D["methode"] == "§ 6.3.2.2" and "variante" not in D and any("refusé" in x for x in v["messages"])
+      and D["methode"] == "§ 6.3.2.2" and "information" not in D and D["variante"] is False and any("refusé" in x for x in v["messages"])
       and a_pres(D["annexe_E"]["M_cr"] / 1e6, 1077.68, 0.01), (D.get("lambda_LT"), D.get("courbe"), v and v["limite"], v and v["messages"]))
     r = barre_dev(B, niveau="centre", MyEd=-500e6)
     D = r["grandeurs"]["deversement"]
@@ -356,9 +356,18 @@ def controles():
     c("autre test 2 — « section soudée équivalente » (DÉCISION BUREAU, défaut non coché) : cochée, § 6.3.2.3 décide (PRS-A : 807,36 kN·m) et la note "
       "l'imprime, § 6.3.2.2 pour information (797,39) ; non cochée, l'inverse ; un PRS monosymétrique : § 6.3.2.2 seul, même coché",
       m("parametres").valeur("prs_soudee_equivalente") is False and Dd["methode"] == "§ 6.3.2.3" and a_pres(vd["limite"], 807.36, 0.01)
-      and Dd["variante"]["methode"] == "§ 6.3.2.2" and a_pres(Dd["variante"]["M_b_Rd"] / 1e6, 797.39, 0.01)
+      and Dd["information"]["methode"] == "§ 6.3.2.2" and a_pres(Dd["information"]["M_b_Rd"] / 1e6, 797.39, 0.01)
       and any("soudée équivalente" in h for h in rd["hypotheses"]) and rm["grandeurs"]["deversement"]["methode"] == "§ 6.3.2.2"
-      and a_pres(verif(rm, "E-Mb")["limite"], 617.55, 0.01), (Dd.get("methode"), vd and vd["limite"], Dd.get("variante")))
+      and a_pres(verif(rm, "E-Mb")["limite"], 617.55, 0.01), (Dd.get("methode"), vd and vd["limite"], Dd.get("information")))
+    # (intégration du lot B : B2 et B3 écrivaient tous deux « l'autre méthode », sous deux clés, et B2 l'écrivait dans
+    # D["variante"], la clé de B3 pour la variante (0,4 ; 0,75) du couple — l'hypothèse d'un PRS « soudée équivalente »
+    # disait alors « variante de l'ANB:2018 ». Une écriture, D["information"] ; D["variante"] reste un booléen)
+    hyp_d = [h for h in rd["hypotheses"] if h.startswith("Déversement : tronçon")]
+    c("intégration du lot B — PRS : l'autre méthode a UNE écriture (D[\"information\"], DÉCISION BUREAU n° 10 dans sa source) ; la variante "
+      "(0,4 ; 0,75) du couple reste un booléen, non appliquée : l'hypothèse d'un PRS « soudée équivalente » dit « (ANB:2018, 6.3.2.3(1)) »",
+      Dd["variante"] is False and "n° 10" in Dd["information"]["source"]
+      and len(hyp_d) == 1 and "§ 6.3.2.3, courbe c" in hyp_d[0] and hyp_d[0].endswith("(ANB:2018, 6.3.2.3(1)).") and "variante" not in hyp_d[0],
+      (Dd.get("variante"), Dd.get("information"), hyp_d))
     Sb = PR.section_prs(300, 30, 540, 15, 300, 30, a=6.0, nuance="S355", bords=None)
     rb = m("moteur").verifier({"prs": {"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 300, "t2": 30, "a": 6}, "nuance": "S355", "mode": "efforts",
                                "efforts": {"service": {"My": 300.0}, "elu": {"My": 400.0}}, "flambement": {"y": {"L": 10.0}, "z": {"L": 10.0}}})
@@ -903,7 +912,15 @@ MUTATIONS = [
     ("ec3_deversement", "PRS : § 6.3.2.3 par défaut", '        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):', "        if False:"),
     ("ec3_deversement", "PRS monosymétrique : § 6.3.2.3 admis quand il est déclaré", '        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):',
      '        if prs and not P["prs_soudee_equivalente"]:'),
-    ("ec3_deversement", "§ 6.3.2.2 avec le facteur f", '        if s["forme"] == "I" and methode != METHODE_GENERALE:', '        if s["forme"] == "I":'),
+    ("ec3_deversement", "§ 6.3.2.2 avec le facteur f (k_c du tableau 6.6 gardé)", '            kc, tabule, D["variante"] = 1.0, False, False\n',
+     '            tabule, D["variante"] = False, False\n'),
+    # (intégration du lot B) les deux écritures de l'autre méthode, et la clé de la variante du couple prise par un PRS
+    ("ec3_deversement", "intégration — l'autre méthode d'un PRS réécrite dans D[\"variante\"]", '        info = D["information"]\n',
+     '        info = D["variante"] = D["information"]\n'),
+    ("ec3_deversement", "intégration — l'autre méthode d'un PRS monosymétrique gardée", "        if PR.monosymetrique(s):                 # un PRS monosymétrique",
+     "        if False:                 # un PRS monosymétrique"),
+    ("ec3_deversement", "intégration — la source de l'autre méthode d'un PRS : DÉCISION BUREAU n° 4", "DÉCISION BUREAU n° {10 if prs else 4}",
+     "DÉCISION BUREAU n° 4"),
     ("ec3_deversement", "PRS sans bords saisis : courbes d'un laminé", '        famille = "soude" if (s["fabrication"] in SOUDES or SE.soude(s)) else "lamine"',
      '        famille = "soude" if s["fabrication"] in SOUDES else "lamine"'),
     ("ec3_deversement", "moment négatif d'un PRS monosymétrique pris positif", "    signe = -1.0 if (PR.monosymetrique(s) and d.get(\"semelle_comprimee\") == PR.BAS) else 1.0", "    signe = 1.0"),

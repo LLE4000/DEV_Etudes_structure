@@ -15,6 +15,10 @@ docs/acier/BARRES_ACIER.md § 5.6.
     § 6.3.2.2 (cas général), pour information à côté du § 6.3.2.3 (DÉCISION BUREAU n° 4, brief § 7.7) :
         Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − 0,2) + λ̄_LT²]      χ_LT = 1/(Φ_LT + √(Φ_LT² − λ̄_LT²)) ≤ 1
         tableau 6.4 : laminé h/b ≤ 2 : a ; > 2 : b — soudé h/b ≤ 2 : c ; > 2 : d
+    PRS en I (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par défaut (k_c = 1, f = 1), le § 6.3.2.3 pour
+        information ; § 6.3.2.3 seulement pour un PRS bisymétrique déclaré « section soudée équivalente »
+        (prs_soudee_equivalente), le § 6.3.2.2 alors pour information ; un PRS monosymétrique : § 6.3.2.2 seul.
+        L'autre méthode a UNE écriture : grandeurs["deversement"]["information"] (laminés et PRS)
     tube rectangulaire (cas général, § 6.3.2.2) : courbe d, λ̄_LT,0 = 0,2 et β = 1 dans Φ_LT, f = 1 ; le seuil de
         6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 — celui de l'ANB, 0,2
     M_b,Rd = χ_LT,mod·W_y·f_y / γ_M1
@@ -330,6 +334,8 @@ def ajouter(J: Journal, d: Dict) -> None:
             autre = (methode, courbe, lbLT0, beta, kc)
             courbe, lbLT0, beta, seuil, methode = COURBES_GENERALES[famille][elance], LAMBDA0_GENERAL, BETA_GENERAL, LAMBDA0_GENERAL, METHODE_GENERALE
             kc, tabule, D["variante"] = 1.0, False, False
+        if PR.monosymetrique(s):                 # un PRS monosymétrique : § 6.3.2.2 seul, sans autre méthode (brief § 18.5)
+            autre = None
     else:
         courbe, lbLT0, beta = COURBE_GENERALE, LAMBDA0_GENERAL, BETA_GENERAL
         seuil = P["lambda_LT0_avec_maintiens"]                   # 6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 (ANB : 0,2)
@@ -373,15 +379,22 @@ def ajouter(J: Journal, d: Dict) -> None:
     if autre:                                    # la méthode qui ne décide pas : ses chiffres et sa source, sans verdict
         m_, c_, l0_, b_, k_ = autre
         a_ = NO.ALPHA[c_]
-        x_ = 1.0 if (lbLT <= l0_ or My / Mcr <= l0_ ** 2) else (chi_general(lbLT, a_) if m_ == "§ 6.3.2.2" else chi_lamine(lbLT, a_, l0_, b_, k_)["chi"])
-        D["information"] = {"methode": m_, "courbe": c_, "alpha_LT": a_, "lambda_LT0": l0_, "beta": b_, "kc": k_, "chi_LT": x_,
+        if lbLT <= l0_ or My / Mcr <= l0_ ** 2:
+            x_, f_ = 1.0, 1.0
+        elif m_ == METHODE_GENERALE:
+            x_, f_ = chi_general(lbLT, a_), 1.0
+        else:
+            y_ = chi_lamine(lbLT, a_, l0_, b_, k_)
+            x_, f_ = y_["chi"], y_["f"]
+        # (la seule écriture de l'autre méthode : un PRS bisymétrique la lit aussi — _prs ; DÉCISION BUREAU n° 10 pour lui)
+        D["information"] = {"methode": m_, "courbe": c_, "alpha_LT": a_, "lambda_LT0": l0_, "beta": b_, "kc": k_, "chi_LT": x_, "f": f_,
                             "M_b_Rd": x_ * Wy * fy / gM1, "taux": My / (x_ * Wy * fy / gM1),
-                            "source": f"{REF} ({m_}) — pour information (DÉCISION BUREAU n° 4 : {methode} décide)"}
+                            "source": f"{REF} ({m_}) — pour information (DÉCISION BUREAU n° {10 if prs else 4} : {methode} décide)"}
     cles.append(J.f("M_b_Rd", "M_b,Rd", [_t(nom_chi, chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
                     "kN·m", "e_M_b_Rd"))
     D["formules"] = cles
     if prs:
-        m_, c_ = _prs(J, d, D, tr, signe, seuil, My, Mcr, kc)
+        m_, c_ = _prs(J, d, D, tr, signe)
         messages += m_
         cles += c_
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)
@@ -401,20 +414,6 @@ def ajouter(J: Journal, d: Dict) -> None:
 
 
 # ------------------------------------------------------------------ les PRS (brief § 18.5)
-def chi_LT(lb: float, a_lt: float, lb0: float, b_: float, seuil: float, M: float, Mcr: float, kc: Optional[float] = None) -> Tuple[float, float]:
-    """(χ_LT — χ_LT,mod si ``kc`` est donné —, f) : § 6.3.2.3 avec (λ̄_LT,0 ; β) = (``lb0`` ; ``b_``) et f, ou § 6.3.2.2
-    (0,2 ; 1, ``kc`` None). L'autre méthode d'un PRS bisymétrique, rendue POUR INFORMATION (DÉCISION BUREAU n° 10 : la
-    variante qui ne décide pas est affichée avec sa source) — les expressions de la vérification E-Mb (un test lie les
-    deux écritures : la variante d'un calcul est le résultat de l'autre)."""
-    if not (lb > seuil and M / Mcr > seuil * seuil):
-        return 1.0, 1.0
-    phi = 0.5 * (1.0 + a_lt * (lb - lb0) + b_ * lb * lb)
-    borne = min(1.0, 1.0 / (lb * lb))
-    x0 = min(1.0 / (phi + math.sqrt(phi * phi - b_ * lb * lb)), borne)
-    f = 1.0 if kc is None else min(1.0 - 0.5 * (1.0 - kc) * (1.0 - 2.0 * (lb - 0.8) ** 2), 1.0)
-    return min(x0 / f, borne), f
-
-
 def _mcr_txt(Mcr: Optional[float]) -> str:
     return f"{_fr(Mcr / 1e6, 1)} kN·m" if Mcr else "sans déversement"
 
@@ -426,10 +425,11 @@ def sens_charges(tr: Dict) -> float:
     return -1.0 if total < 0 else 1.0
 
 
-def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My: float, Mcr: float, kc: float) -> Tuple[list, list]:
+def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float) -> Tuple[list, list]:
     """Ce que le déversement d'un PRS ajoute (brief § 18.5 et 18.7) : le b retenu pour h/b, l'autre méthode (PRS
-    bisymétrique) ou son refus (monosymétrique), le contrôle analytique (E.1) de l'annexe E ANB. Rend (les messages de
-    E-Mb, les clés des blocs à lui ajouter)."""
+    bisymétrique : celle que ajouter() a écrite dans ``D["information"]``, une seule source) ou son refus
+    (monosymétrique), le contrôle analytique (E.1) de l'annexe E ANB. Rend (les messages de E-Mb, les clés des blocs à
+    lui ajouter). ``D["variante"]`` reste celui de ajouter() : la variante (0,4 ; 0,75) du couple, appliquée ou non."""
     s, P = d["section"], d["parametres"]
     msgs, cles = [], []
     D["b_h_b"] = s["b"]
@@ -439,14 +439,8 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My:
                      f"semelle (choix prudent) ; § 6.3.2.2 seul.")
         msgs.append(f"{METHODE_LAMINES} refusé : section monosymétrique.")
     else:
-        autre = METHODE_GENERALE if D["methode"] == METHODE_LAMINES else METHODE_LAMINES
-        if autre == METHODE_LAMINES:
-            chi, f = chi_LT(D["lambda_LT"], D["alpha_LT"], P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"], seuil, My, Mcr, kc)
-        else:
-            chi, f = chi_LT(D["lambda_LT"], D["alpha_LT"], LAMBDA0_GENERAL, BETA_GENERAL, seuil, My, Mcr)
-        Mb = chi * D["W_y"] * d["fy"] / P["gamma_M1"]
-        D["variante"] = {"methode": autre, "chi_LT": chi, "f": f, "M_b_Rd": Mb}
-        msgs.append(f"{autre} pour information : M_b,Rd = {_fr(Mb / 1e6, 1)} kN·m.")
+        info = D["information"]
+        msgs.append(f"{info['methode']} pour information : M_b,Rd = {_fr(info['M_b_Rd'] / 1e6, 1)} kN·m.")
         J.hyp.append("PRS bisymétrique déclaré « section soudée équivalente » : § 6.3.2.3 (décision du bureau)." if D["soudee_equivalente"] else
                      "PRS : § 6.3.2.2 (défaut) ; § 6.3.2.3 seulement si la section est déclarée « soudée équivalente ».")
     # ---- le contrôle analytique : (E.1) de l'annexe E ANB (le solveur reste la référence)
@@ -467,7 +461,7 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float, seuil: float, My:
             # d'application — la cote de la charge, retournée si elle monte (un soulèvement, en barre chargée)
             zg = dev["zg"] * sens_charges(tr) if charge else 0.0
             Mcr_E = MC.annexe_e(tr["L"], EIz, EIw, GIt, co["C1"], co["C2"], co["C3"], zg, zp["z_j"])
-            E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / Mcr - 1.0})
+            E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / D["M_cr"] - 1.0})
             E["formule"] = J.f("M_cr_E1", "M_cr,E.1", [_t("C₁", co["C1"]), _t("E", P["E"], "N/mm²"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("k_z", 1.0),
                                                        _t("L", tr["L"] / 1e3, "m"), _t("k_ω", 1.0), _t("I_ω", s["Iw"] / 1e6, "cm⁶"),
                                                        _t("G", P["G"], "N/mm²"), _t("I_t", s["It"] / 1e4, "cm⁴"), _t("C₂", co["C2"]), _t("z_g", zg, "mm"),
