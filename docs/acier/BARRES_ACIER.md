@@ -1040,8 +1040,10 @@ note (C5) : ils liront ce que le moteur rend.
 - **PRS chargés depuis leurs charges** : la semelle comprimée d'un tronçon est celle que σ_x = N/A + M·z/I_y comprime le
   plus, au plan moyen, à la section du plus grand |M| ; aucune comprimée (une traction l'emporte) : le signe de M, dit
   (À VÉRIFIER). PRS-C : M_ELS 2 853,66 kN·m, σ 117,11 ; EC3 M_Ed 4 200,2 ; 1,007 / 0,967 / 0,937 (7, 8, 9 maintiens).
-- **N par tronçon** (`N_troncons`) : chaque section à son N ; le flambement et (6.61), (6.62) au plus grand N de la barre
-  (prudent, À VÉRIFIER) ; η₁ de l'âme au N du lieu.
+- **N par tronçon** (`N_troncons`) : chaque section à son N, dans les deux méthodes ; le flambement et (6.61), (6.62) au
+  plus grand N de la barre (prudent, À VÉRIFIER) — la méthode ELS, qui les lit dans le même calcul, vérifie la section
+  aux deux (un tirant HEB 200 de −300 / −100 kN : 1,517 et non 1,353, contre-vérification du lot C) ; η₁ de l'âme au N du
+  lieu.
 - **Mode d'introduction déclaré** d'une ponctuelle (a, b, c) : appliqué tel quel ; « auto », la règle du module.
 - **Débords** (porte-à-faux, rdm/poutres) : la barre va de 0 à g + Σ portées + d ; le bout d'un débord est libre. La
   longueur de flambement d'un axe où le bout du débord est libre est celle d'Euler de la barre ENTIÈRE sur ses points

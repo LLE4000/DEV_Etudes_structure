@@ -754,7 +754,8 @@ MUTATIONS = [
     ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = service, b["historique"]', 'e, h = elu, b["historique"]'),
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
     ("moteur", "déversement : le plus grand moment du tronçon remplacé par zéro", '"NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,', '"NEd": C.N * 1e3, "MyEd": 0.0, "axes": axes,'),
-    ("moteur", "méthode historique : l'effort tranchant de la section oublié", '"P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes_h,', '"P": C.N * 1e3, "My": M * 1e6, "Vz": 0.0, "axes": axes_h,'),
+    # (contre-vérification du lot C, le harnais suit : la section est vérifiée à SON N — l'ancre lit « N » au lieu de « C.N »)
+    ("moteur", "méthode historique : l'effort tranchant de la section oublié", '"P": N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes_h,', '"P": N * 1e3, "My": M * 1e6, "Vz": 0.0, "axes": axes_h,'),
     ("moteur", "enveloppe : le zéro du dehors compté aux deux bouts de la barre", 'cotes = ("d",) if x <= EPS else (("g",) if x >= Lt - EPS else ("g", "d"))',
      'cotes = ("g", "d")'),
     ("moteur", "enveloppe : un saut de diagramme écrasé en un seul point", '                cotes = ("d",)                                       # diagrammes continus ici : un seul point',
@@ -1156,6 +1157,19 @@ def controles_c1(M=None):
     c("(C1) … la combinaison lit N(x) : 405 kN sous 3 m, 135 kN au-dessus, et les deux côtés à 3 m", proche(Cp.N_en(1.0), 405.0) and proche(Cp.N_en(5.0), 135.0)
       and proche(Cp.N_en(3.0, False), 405.0) and proche(Cp.N_en(3.0, True), 135.0) and proche(Cp.N, 405.0) and len(st.cotes_n(Cp, 3.0)) == 2,
       (Cp.N_en(1.0), Cp.N_en(5.0), Cp.N))
+    # (contre-vérification du lot C) la méthode ELS vérifie chaque section à SON N : un tirant dont la traction varie
+    def tirant(**k_):
+        r_ = mo.verifier(barre(profil="HEB 200", poids_propre=False, maintiens=[{"x": 3.0}],
+                               cas=[dict({"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 6.0)]}, **k_)]))
+        return vf(r_["methodes"]["historique"], "H-SIGMA")["taux"], vf(r_["methodes"]["ec3"], "E-NM")["taux"]
+    tv = {k_: tirant(**v_) for k_, v_ in (("300-100", {"N_troncons": [{"x2": 3.0, "N": -300.0}, {"x2": 6.0, "N": -100.0}]}),
+                                          ("100-300", {"N_troncons": [{"x2": 3.0, "N": -100.0}, {"x2": 6.0, "N": -300.0}]}),
+                                          ("300", {"N": -300.0}), ("100", {"N": -100.0}))}
+    c("(C1) N par tronçon, méthode ELS : un TIRANT (HEB 200, 6 m, q = 20 kN/m, maintien à 3 m ; −300 kN jusqu'à 3 m, −100 kN au-delà, et "
+      "l'inverse) — la section à 3 m, où M est maximal, est vérifiée à −300 kN : H-SIGMA 1,517 dans les deux sens, comme sous −300 kN constant "
+      "(et non 1,353, celui de −100 kN : le plus grand N algébrique) ; l'Eurocode 3 lisait déjà N(x) (E-NM 0,913)",
+      abs(tv["300-100"][0] - 1.517) <= 0.001 and proche(tv["300-100"][0], tv["300"][0]) and proche(tv["100-300"][0], tv["300"][0])
+      and abs(tv["100"][0] - 1.353) <= 0.001 and abs(tv["300-100"][1] - 0.913) <= 0.001 and proche(tv["300-100"][1], tv["100-300"][1]), tv)
     # ---- 11. mode d'introduction d'une ponctuelle
     rb_ = mo.verifier(barre(appuis={"mode": "ame", "ss": None, "c": None}, maintiens=[{"x": 3.0}], poids_propre=False,
                             cas=[{"nom": "G", "nature": "permanent", "charges": [dict(P_(50.0, 3.0), ss=100.0, introduction="b")]}]))
@@ -1394,6 +1408,8 @@ MUTATIONS_C1 = [
      "    return MC.FOURCHE"),
     ("statique", "C1 — N par tronçon ignoré (N constant du cas)", '    if nt:\n        return [(t["x2"], t["N"]) for t in nt]', "    if False:\n        return []"),
     ("statique", "C1 — N d'une section : le plus grand de la barre", "        return sum(f * _N_en(n, x, droite) for f, n in self.N_cas)", "        return self.N"),
+    ("moteur", "C1 — méthode ELS : la section vérifiée au seul plus grand N de la barre (une traction plus forte oubliée, NON CONSERVATIF)",
+     "    for n in (C.N, C.N_en(x, False), C.N_en(x, True)):", "    for n in (C.N,):"),
     ("statique", "C1 — les débords non passés au formulaire", 'c.get("charges") or [], EI, debords=debords)', 'c.get("charges") or [], EI)'),
     ("statique", "C1 — le bout d'un débord pris tenu (fourche)", "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.LIBRE",
      "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.FOURCHE"),

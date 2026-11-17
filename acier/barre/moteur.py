@@ -378,6 +378,18 @@ def _cotes_historique(e: Dict, x: float, Lcs: Sequence[Tuple[Dict, float]]) -> L
     return [(t, mv) for mv in ST.cotes(e, EPS)]
 
 
+def _N_historique(C: ST.Combinaison, x: float) -> List[float]:
+    """Les efforts normaux (kN, > 0 en compression) qui vérifient la section ``x`` dans la méthode ELS : le plus grand
+    de la barre (celui du flambement et de la flexion composée, prudent, À VÉRIFIER) ET celui de la section, de chaque
+    côté d'un changement (N(x), comme l'Eurocode 3 : une traction plus forte n'est pas vérifiée avec moins de traction —
+    contre-vérification du lot C) ; un seul quand N est constant le long de la barre."""
+    vus: List[float] = []
+    for n in (C.N, C.N_en(x, False), C.N_en(x, True)):
+        if all(abs(n - v) > EPS * max(1.0, abs(v)) for v in vus):
+            vus.append(n)
+    return vus
+
+
 def _segments(b: Dict) -> List[Tuple[float, float]]:
     """Les morceaux de la barre (m) : le débord gauche, chaque travée, le débord droit."""
     g, d = (b.get("debords") or (0.0, 0.0))[:2]
@@ -575,17 +587,19 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             # les BOUTS de chaque tronçon sont des sections vérifiées : un maintien qui n'est ni un appui ni un point de
             # charge borne deux tronçons, et le plus grand moment d'un tronçon peut tomber à son bout
             for x in sorted(set(xs) | {tr[k] for tr in trs for k in ("x1", "x2")}):
+                Ns = _N_historique(C, x)                 # (N par tronçon : la section à SON N, et au plus grand de la barre)
                 for (tr, Lc), (M, V) in _cotes_historique(C.lire(x), x, Lcs):
-                    if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
-                        continue
-                    semelle, _ = semelle_comprimee(s, C.N, M)
-                    dv = dict(_deversement_historique(b, Lc * 1e3, trs.index(tr) in libres, niveau_els), semelle=semelle)
-                    r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes_h,
-                                     "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
-                                     "deversement": dv})
-                    env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
-                    if trs.index(tr) in libres and any(v["id"] == "H-DEV" and v["statut"] == RE.HORS_DOMAINE for v in r["verifications"]):
-                        hors_libre.append(tr)
+                    for N in Ns:
+                        if abs(M) < EPS and abs(V) < EPS and abs(N) < EPS:
+                            continue
+                        semelle, _ = semelle_comprimee(s, N, M)
+                        dv = dict(_deversement_historique(b, Lc * 1e3, trs.index(tr) in libres, niveau_els), semelle=semelle)
+                        r = HI.verifier({"section": s, **fy, "s": h["s"], "P": N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes_h,
+                                         "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
+                                         "deversement": dv})
+                        env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
+                        if trs.index(tr) in libres and any(v["id"] == "H-DEV" and v["statut"] == RE.HORS_DOMAINE for v in r["verifications"]):
+                            hors_libre.append(tr)
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]
                 if f is not None and abs(f) > abs(fleche["valeur"]):
