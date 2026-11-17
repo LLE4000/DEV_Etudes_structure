@@ -330,11 +330,13 @@ def hypotheses(options: Optional[Dict], cas: Sequence[Dict], P: Optional[Dict] =
     except Refus as e:
         return out + [f"Combinaisons refusées : {e}."]
     items, vus = [], set()
+    manque = set(_manquants(cas, var, o))           # (la condition même du blocage : un ψ₀ non saisi qui ne sert pas n'est pas « à fournir »)
     for i in var:
         n = cas[i]["nature"]
         if NATURES[n][1] == SAISI:
             v = cas[i].get("psi0")
-            items.append(f"« {cas[i]['nom']} » ({_libelle(n)}) " + ("à fournir" if v is None else f"{_fr(v)} saisi"))
+            etat = f"{_fr(v)} saisi" if v is not None else "à fournir" if cas[i]["nom"] in manque else "non saisi, sans emploi ici"
+            items.append(f"« {cas[i]['nom']} » ({_libelle(n)}) {etat}")
         elif n not in vus:
             vus.add(n)
             items.append(f"{_libelle(n)} {_fr(P[NATURES[n][1]][0])}")
@@ -351,7 +353,7 @@ def hypotheses(options: Optional[Dict], cas: Sequence[Dict], P: Optional[Dict] =
             out.append(f"Règle de courte durée appliquée (A1.1 ANB, note 3) : ψ₀ = {_fr(P['psi0_courte_duree'])}, "
                        "neige ou vent derrière l'autre ou une action déclarée.")
         else:
-            out.append("Règle de courte durée (tableau A1.1 ANB, note 3) : sans effet ici, aucune action de courte durée en tête.")
+            out.append("Règle de courte durée (tableau A1.1 ANB, note 3) sans effet ici : ni neige ni vent derrière une action de courte durée.")
         declares = [cas[i]["nom"] for i in var if cas[i].get("courte_duree") is True and cas[i]["nature"] not in COURTES]
         if declares and o["regle_courte_duree"]:
             out += _lignes("Déclarées de courte durée", [f"« {n} »" for n in declares])

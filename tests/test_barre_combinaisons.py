@@ -295,6 +295,16 @@ def controles():
     c("hypothèses : géotechnique ξ = 1,00 ; un ψ₀ qui manque est dit « à fournir » et le calcul « bloqué »",
       "(6.10b) : ξ = 1,00 (application géotechnique) ; ξ·γ_G,sup = 1,35 ; γ_G,inf = 1,00." in hg
       and any("« E » (exécution) à fournir" in h for h in hg) and hg[-1].startswith("Combinaisons bloquées : ψ₀ à fournir"), hg)
+    h_sans = CO.hypotheses(None, [G, QA, S])
+    c("hypothèses : la règle « sans effet » dit la vraie raison — la neige est bien en tête (1,35·G + 1,05·Q + 1,5·S), mais ni neige "
+      "ni vent ne suit une action de courte durée",
+      "Règle de courte durée (tableau A1.1 ANB, note 3) sans effet ici : ni neige ni vent derrière une action de courte durée." in h_sans
+      and not any("courte durée en tête" in h for h in h_sans) and avec(CO.elu([G, QA, S], P), [G, QA, S], G=1.35, Q=1.05, S=1.5) != [], h_sans)
+    h_seule = CO.hypotheses(None, [G, E0])
+    c("hypothèses : un ψ₀ d'exécution non saisi qui NE SERT PAS (l'exécution seule, en (6.10)) n'est pas « à fournir » — « non saisi, "
+      "sans emploi ici », et le calcul aboutit",
+      "ψ₀ (tableau A1.1 ANB) : « E » (exécution) non saisi, sans emploi ici." in h_seule and not any("à fournir" in h or "bloquées" in h for h in h_seule)
+      and len(CO.elu([G, E0], P)) == 3, h_seule)
     doc = CO.__doc__
     c("la méthode ELS : G + ΣQ à 100 %, « décision du bureau du 16/11/2026 (13.2 point 5) » — plus « à confirmer : Q4 »",
       "décision du bureau du 16/11/2026" in doc and "13.2 point 5" in doc and "Q4" not in doc and len(CO.HYPOTHESE_SERVICE) <= 120, "")
@@ -416,6 +426,11 @@ MUTATIONS = [
     ("combinaisons", "les permanents au même γ écrits un par un", '        termes = [(f[perm[0]], "G")]', '        termes = [(f[i], cas[i]["nom"]) for i in perm]'),
     ("combinaisons", "les suffixes (6.10a) / (6.10b) perdus", 'SUFFIXES = {"6.10": "", "6.10a": " (6.10a)", "6.10b": " (6.10b)"}', 'SUFFIXES = {"6.10": "", "6.10a": "", "6.10b": ""}'),
     ("combinaisons", "l'hypothèse γ_G par source oubliée", "    if len(srcs) > 1:\n        out += _lignes(", "    if False:\n        out += _lignes("),
+    ("combinaisons", "la règle « sans effet » redit l'ancienne raison, fausse (« aucune action de courte durée en tête »)",
+     "(tableau A1.1 ANB, note 3) sans effet ici : ni neige ni vent derrière une action de courte durée.",
+     "(tableau A1.1 ANB, note 3) : sans effet ici, aucune action de courte durée en tête."),
+    ("combinaisons", "un ψ₀ non saisi toujours dit « à fournir », même quand il ne sert pas",
+     '"à fournir" if cas[i]["nom"] in manque else "non saisi, sans emploi ici"', '"à fournir"'),
 ]
 
 
