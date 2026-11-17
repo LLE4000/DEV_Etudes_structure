@@ -1203,7 +1203,11 @@ MUTATIONS = [
     ("ec3_interaction", "μ_y = 1", "    muy = (1.0 - ry) / (1.0 - chiy * ry)\n", "    muy = 1.0\n"),
     ("ec3_interaction", "μ_z avec χ_y", "    muz = (1.0 - rz) / (1.0 - chiz * rz)\n", "    muz = (1.0 - rz) / (1.0 - chiy * rz)\n"),
     ("ec3_interaction", "plafond de w porté à 2", "W_MAX = 1.5 ", "W_MAX = 2.0 "),
-    ("ec3_interaction", "lot A — console sous N + M calculée avec le C_m d'une barre entre deux appuis", '    if d.get("console") and N > 0:\n', "    if False:\n"),
+    # (lot C, C0g — le harnais suit : la DÉCISION BUREAU n° 9 est lue dans la table ; la même altération sur la ligne neuve)
+    ("ec3_interaction", "lot A — console sous N + M calculée avec le C_m d'une barre entre deux appuis",
+     '    if d.get("console") and N > 0 and d["parametres"]["console_NM"] == "non_couvert":\n', "    if False:\n"),
+    ("ec3_interaction", "lot C — la décision n° 9 de la table ignorée (la console calculée comme une barre entre deux appuis)",
+     'd["parametres"]["console_NM"] == "non_couvert"', 'd["parametres"]["console_NM"] == "calcule"'),
     ("ec3", "lot A — l'indication « console » perdue à la lecture", '    d["console"] = bool(barre.get("console", False))\n', '    d["console"] = False\n'),
     ("ec3_interaction", "a_LT = 1 − I_t/I_z", 'aLT = max(1.0 - s["It"] / s["Iy"], 0.0) if s.get("It") else 0.0', 'aLT = max(1.0 - s["It"] / s["Iz"], 0.0) if s.get("It") else 0.0'),
     ("ec3_interaction", "limite de λ̄_0 : C₁ au lieu de √C₁", "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz) * (1.0 - rT)) ** 0.25", "lim = 0.2 * C1 * ((1.0 - rz) * (1.0 - rT)) ** 0.25"),

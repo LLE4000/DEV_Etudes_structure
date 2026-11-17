@@ -17,6 +17,7 @@ Ce fichier MET EN FORME ce que le moteur a calculé et nommé : il ne calcule ri
 """
 from typing import Dict, List, Optional, Tuple
 
+from acier.barre import comparaison as CP
 from acier.barre import ecriture as W
 from acier.barre import resultat as RE
 
@@ -44,15 +45,32 @@ def methodes(r: Dict) -> List[Tuple[int, str, Dict]]:
 
 
 def comparable(r: Dict) -> bool:
-    """Les deux méthodes sont-elles rendues, avec au moins un taux à mettre en regard ?"""
-    return any(li["historique"] is not None or li["ec3"] is not None for li in r["comparaison"])
+    """Les deux méthodes sont-elles rendues, avec au moins un taux à mettre en regard (acier/barre/comparaison.py) ?"""
+    return any((li[k] or {}).get("taux") is not None for li in r["comparaison"] for k in ("historique", "ec3"))
 
 
 def gouvernante(x: Dict) -> Optional[Dict]:
-    """La vérification qui gouverne une méthode ; sans gouvernant (rien n'est jugé), la première non couverte."""
+    """La vérification qui gouverne une méthode ; sans gouvernant (rien n'est jugé), la première bloquée, sinon la
+    première non couverte."""
     if x.get("gouvernant"):
         return next(v for v in x["verifications"] if v["id"] == x["gouvernant"])
-    return next((v for v in x["verifications"] if v["statut"] == RE.NON_COUVERT), None)
+    return next((v for st in (RE.BLOQUE, RE.NON_COUVERT) for v in x["verifications"] if v["statut"] == st), None)
+
+
+def non_juges(x: Dict, g: Optional[Dict]) -> str:
+    """Ce que le verdict d'une méthode ne dit pas et qui n'est pas jugé, en UNE ligne (du texte) : « + 1 non couvert :
+    flexion composée », « + 2 bloqués : flambement, axe faible ; flexion composée » — le sujet de chaque vérification
+    bloquée ou non couverte (acier/barre/comparaison.py), sauf celle que le verdict montre ; vide sinon (brief § 9 : un
+    contrôle non couvert ou bloqué ne disparaît jamais derrière le taux global)."""
+    morceaux = []
+    for st in (RE.BLOQUE, RE.NON_COUVERT):
+        vs = [v for v in x["verifications"] if v["statut"] == st and (g is None or v["id"] != g["id"])]
+        if not vs:
+            continue
+        sujets = list(dict.fromkeys(M.minuscule(CP.sujet_de(v["id"]) or v["titre"]) for v in vs))
+        mot = M.MOT_STATUT[st].lower() if len(vs) == 1 else M.MOTS_STATUT_PLURIEL[st]
+        morceaux.append(f"+ {len(vs)} {mot} : {' ; '.join(sujets)}")
+    return " · ".join(morceaux)
 
 
 def pire(r: Dict) -> Tuple[Optional[str], Optional[Dict]]:
@@ -73,13 +91,12 @@ def taux_barre(r: Dict) -> Optional[float]:
 
 
 def niveau_methode(x: Dict) -> str:
-    """La couleur d'une méthode : rouge si elle refuse, celle de son taux sinon ; « v » (à vérifier) si une vérification
-    n'est pas couverte, ou si la méthode est hors de son domaine ; « n » si elle n'a rien eu à vérifier."""
-    if x["statut"] == RE.NOK:
-        return "r"
-    if x["statut"] in (RE.NON_COUVERT, RE.HORS_DOMAINE):
-        return "v"
-    return C.niveau(x["taux_max"]) if x.get("taux_max") is not None else "n"
+    """La couleur d'une méthode : celle de son taux sous son statut (``profil_mots.couleur_taux``) — rouge si elle refuse ;
+    « v » (à vérifier) si une donnée manque (bloqué), si une vérification n'est pas couverte, ou si la méthode est hors de
+    son domaine ; « n » si elle n'a rien eu à vérifier."""
+    if x["statut"] == RE.OK and x.get("taux_max") is None:
+        return "n"
+    return M.couleur_taux(x["statut"], x.get("taux_max"))
 
 
 def mot_niveau(niv: str) -> str:
@@ -90,14 +107,17 @@ def mot_niveau(niv: str) -> str:
 
 def mot_methode(x: Dict) -> str:
     """Ce qu'on dit d'une méthode : le mot de son niveau ; « Hors domaine » quand elle est hors de son domaine (brief
-    § 9 : le calcul est montré, jamais « conforme »)."""
-    return M.MOT_STATUT[RE.HORS_DOMAINE] if x["statut"] == RE.HORS_DOMAINE else mot_niveau(niveau_methode(x))
+    § 9 : le calcul est montré, jamais « conforme ») ; « Bloqué » quand une donnée manque."""
+    if x["statut"] in (RE.HORS_DOMAINE, RE.BLOQUE):
+        return M.MOT_STATUT[x["statut"]]
+    return mot_niveau(niveau_methode(x))
 
 
-def niveau_taux(r: Dict, k: str, t: float) -> str:
-    """La couleur d'un taux de la méthode ``k`` hors d'une vérification (la comparaison) : « v » si la méthode est hors
-    de son domaine, celle du taux sinon."""
-    return "v" if (r["methodes"].get(k) or {}).get("statut") == RE.HORS_DOMAINE else C.niveau(t)
+def niveau_taux(case: Optional[Dict]) -> str:
+    """La couleur du taux d'une CASE de la comparaison (acier/barre/comparaison.py : son taux, son statut) — celle d'un
+    taux sous un statut (``profil_mots.couleur_taux``) : jamais verte quand le sujet a une vérification bloquée, non
+    couverte ou hors domaine. L'écran et la note la lisent."""
+    return M.couleur_taux(case["statut"], case["taux"]) if case else "c"
 
 
 def etat_methode(x: Dict) -> str:
@@ -129,11 +149,11 @@ def bloc_ame(r: Dict) -> Optional[int]:
 
 def etat_ame(a: Dict) -> str:
     """L'état du bloc de l'âme, pour son en-tête (du texte) : « Sans raidisseur · 77 % », « 2 raidisseurs · 97 % »,
-    « Non conforme · 110 % », « À vérifier »."""
+    « Non conforme · 110 % », « À vérifier », « Bloqué » (une donnée manque : le mot des méthodes, ``mot_methode``)."""
     niv = niveau_methode(a)
     k = len(M.raidis(a))
     if niv in ("r", "v") or not a["verifications"]:
-        mot = mot_niveau(niv) if a["verifications"] else "Non vérifiée"
+        mot = mot_methode(a) if a["verifications"] else "Non vérifiée"
     elif k:
         mot = f"{k} raidisseur{'s' if k > 1 else ''}"
     else:
@@ -152,7 +172,7 @@ def verdict_ame(r: Dict) -> str:
         return ""
     if a["statut"] == RE.OK:
         cls, texte = "warn", M.resume_ame(a)
-    elif a["statut"] == RE.NON_COUVERT and any(L["decision"] == "impossible" for L in a["lieux"]):
+    elif a["statut"] in (RE.BLOQUE, RE.NON_COUVERT) and any(L["decision"] == "impossible" for L in a["lieux"]):
         cls, texte = "inc", M.resume_ame(a)                 # une donnée manque : la dire (brief § 8.3, point 5)
     else:
         g = gouvernante(a)
@@ -173,14 +193,17 @@ def verdicts(r: Dict) -> str:
             out += (f'<div class="verdict"><div class="gov"><b>{M.METHODES[k]}</b>aucun effort à vérifier</div></div>')
             continue
         if x.get("taux_max") is not None:
-            pastille = C.chip(C.pct(x["taux_max"]), "r" if x["statut"] == RE.NOK else "v" if x["statut"] == RE.HORS_DOMAINE
-                              else C.niveau(x["taux_max"]), xl=True)
-        else:                                    # rien n'a de taux : un refus, ou une vérification non couverte
-            pastille = f'<span class="chip xl {"r" if x["statut"] == RE.NOK else "c"} pf-mot">{M.MOT_STATUT[x["statut"]]}</span>'
+            pastille = C.chip(C.pct(x["taux_max"]), M.couleur_taux(x["statut"], x["taux_max"]), xl=True)
+        else:                                    # rien n'a de taux jugé : un refus, une donnée qui manque, une vérification non couverte
+            pastille = f'<span class="chip xl {M.NIVEAU_STATUT.get(x["statut"], "c")} pf-mot">{M.MOT_STATUT[x["statut"]]}</span>'
         ou = M.lieu(g)
         suite = f'<br><span class="pf-ou">{C.esc(g["combinaison"])}{" · " + C.esc(ou) if ou else ""}</span>' if g.get("combinaison") else ""
+        # une vérification BLOQUÉE dit sa raison, en une ligne (son premier message) — pas le calcul pour information
+        quoi = C.esc(g["messages"][0]) if g["statut"] == RE.BLOQUE and g["messages"] else M.comparaison(g)
+        reste = non_juges(x, g)
+        reste = f'<br><span class="pf-ou pf-nc">{C.esc(reste)}</span>' if reste else ""
         out += (f'<div class="verdict" data-calcul="{fenetre(k, g["id"])}" title="Voir le calcul">{pastille}<div class="gov">'
-                f'<b>{M.METHODES[k]} · {C.esc(g["titre"][:1].lower() + g["titre"][1:])}</b>{M.comparaison(g)}{suite}</div></div>')
+                f'<b>{M.METHODES[k]} · {C.esc(g["titre"][:1].lower() + g["titre"][1:])}</b>{quoi}{suite}{reste}</div></div>')
     return f'<div class="pf-verdicts n{len(ms)}">{out}</div>{verdict_ame(r)}'
 
 
@@ -192,7 +215,7 @@ def _ligne_profil(r: Dict) -> str:
     que rend un moteur neuf ; trouvé par tests/test_moteur_partage.py, P1, le 14/11/2026)."""
     quoi = f"{M.n(r['masse'], 1)}{N}kg/m" if r.get("masse") else ""
     t = taux_barre(r)
-    niv = "r" if r["statut"] == RE.NOK else "v" if r["statut"] == RE.HORS_DOMAINE else (C.niveau(t) if t is not None else "c")
+    niv = M.couleur_taux(r["statut"], t)          # (sans taux : « c », ou « r » pour une barre qui ne passe pas)
     return C.ligne_verif("Profilé", quoi, C.pct(t) if t is not None else None, niv, pk=ROLE, piece=C.esc(r["profil"]), etat_txt="—")
 
 
@@ -243,21 +266,31 @@ def _bloc_ame(el: Dict, r: Dict) -> str:
                   _efforts_bloc(el, M.AME, a), rows, f'<div class="pf-msgs">{pied}</div>' if pied else "", theme=True)
 
 
+def sujet_commun(li: Dict) -> str:
+    """Le nom de la case COMMUNE d'une ligne de la comparaison (l'âme, EN 1993-1-5, vaut pour les deux méthodes) : le
+    sujet seul quand la ligne n'a qu'elle (« Âme sous charges »), sinon « Cisaillement, âme (EN 1993-1-5) »."""
+    seule = li["historique"] is None and li["ec3"] is None
+    return li["sujet"] if seule else f"{li['sujet']}, âme (EN 1993-1-5)"
+
+
+def _pastille_case(case: Optional[Dict]) -> str:
+    """La pastille d'une case de la comparaison : son taux dans sa couleur (``niveau_taux``) ; sans taux, son état."""
+    if case is None:
+        return '<span class="chip c">—</span>'
+    if case["taux"] is None:
+        return f'<span class="chip {niveau_taux(case)}">{C.esc(M.MOT_STATUT[case["statut"]].lower())}</span>'
+    return C.chip(C.pct(case["taux"]), niveau_taux(case))
+
+
 def _comparaison(r: Dict) -> str:
-    """Le tableau de la comparaison : un sujet par ligne, le taux de chaque méthode en pastille ; l'âme, qui vaut pour
-    les deux, porte UN taux à cheval sur les deux colonnes."""
+    """Le tableau de la comparaison (acier/barre/comparaison.py) : un sujet par ligne, la case de chaque méthode en
+    pastille ; l'âme, qui vaut pour les deux, porte UNE pastille à cheval sur les deux colonnes."""
     rows = f'<div class="pf-cmp pf-cmp-h"><span></span><span>{M.METHODES_COURT["historique"]}</span><span>{M.METHODES_COURT["ec3"]}</span></div>'
     for li in r["comparaison"]:
-        if li.get("commun") is not None:
-            rows += (f'<div class="pf-cmp pf-cmp-c"><span>{C.esc(li["sujet"])}</span>'
-                     f'{C.chip(C.pct(li["commun"]), "r" if r["ame"]["statut"] == RE.NOK else C.niveau(li["commun"]))}</div>')
-            continue
-        cases = ""
-        for k in ("historique", "ec3"):
-            t = li[k]
-            cases += (C.chip(C.pct(t), niveau_taux(r, k, t)) if t is not None else '<span class="chip c">—</span>')
-        fort = ' pf-cmp-t' if li["sujet"] == "Le plus défavorable" else ""
-        rows += f'<div class="pf-cmp{fort}"><span>{C.esc(li["sujet"])}</span>{cases}</div>'
+        if li["historique"] is not None or li["ec3"] is not None:
+            rows += f'<div class="pf-cmp"><span>{C.esc(li["sujet"])}</span>{_pastille_case(li["historique"])}{_pastille_case(li["ec3"])}</div>'
+        if li["commun"] is not None:
+            rows += f'<div class="pf-cmp pf-cmp-c"><span>{C.esc(sujet_commun(li))}</span>{_pastille_case(li["commun"])}</div>'
     return rows
 
 
@@ -279,12 +312,10 @@ def blocs(el: Dict, r: Dict) -> str:
                       f'<div class="pf-msgs">{pied}</div>' if pied else "", theme=True)
     out += _bloc_ame(el, r)
     if comparable(r):
-        ecart = next((li for li in r["comparaison"] if li["sujet"] == "Le plus défavorable"), None)
-        etat = ""
-        if ecart and ecart["historique"] is not None and ecart["ec3"] is not None:
-            etat = f"{C.pc(C.pct(ecart['historique']))}{N}% · {C.pc(C.pct(ecart['ec3']))}{N}%"
-        out += E.bloc(len(ms) + (2 if bloc_ame(r) else 1), "Comparaison", "inc", etat, "le taux le plus fort de chaque méthode, sujet par sujet",
-                      _comparaison(r), theme=True, calcul="cmp")
+        # (lot C, C0f : la ligne « Le plus défavorable » est partie — les verdicts la disent ; l'en-tête compte les sujets)
+        n_s = len(r["comparaison"])
+        out += E.bloc(len(ms) + (2 if bloc_ame(r) else 1), "Comparaison", "inc", f"{n_s} sujet{'s' if n_s > 1 else ''}",
+                      "le taux le plus fort de chaque méthode, sujet par sujet", _comparaison(r), theme=True, calcul="cmp")
     return out
 
 
@@ -382,17 +413,22 @@ def _combinaisons(x: Dict) -> str:
 def _fenetre_comparaison(el: Dict, r: Dict, nom: str) -> str:
     lignes = []
     for li in r["comparaison"]:
-        if li.get("commun") is not None:             # l'âme : un seul taux, il vaut pour les deux méthodes
-            t = li["commun"]
-            lignes.append({"nom": C.esc(li["sujet"]), "sous": "vaut pour les deux méthodes", "formule": "", "valeur": "—", "limite": "—",
-                           "taux": C.pct(t), "niveau": "r" if r["ame"]["statut"] == RE.NOK else C.niveau(t), "gov": False})
-            continue
-        h, e = li["historique"], li["ec3"]
-        pire = max((t for t in (h, e) if t is not None), default=None)
-        k_pire = "historique" if pire is not None and pire == h else "ec3"
-        lignes.append({"nom": C.esc(li["sujet"]), "sous": "", "formule": "", "valeur": M.taux_txt(h), "limite": M.taux_txt(e),
-                       "taux": C.pct(pire), "niveau": niveau_taux(r, k_pire, pire) if pire is not None else C.niveau(pire),
-                       "gov": li["sujet"] == "Le plus défavorable"})
+        if li["historique"] is not None or li["ec3"] is not None:
+            cases = [c for c in (li["historique"], li["ec3"]) if c is not None and c["taux"] is not None]
+            pire = max(cases, key=lambda c: c["taux"], default=None)
+            ligne = {"nom": C.esc(li["sujet"]), "sous": "", "formule": "",
+                     "valeur": M.taux_txt((li["historique"] or {}).get("taux")), "limite": M.taux_txt((li["ec3"] or {}).get("taux")),
+                     "taux": C.pct(pire["taux"]) if pire else None, "niveau": niveau_taux(pire), "gov": False}
+            if pire is None:
+                ligne["etat_txt"] = "—"
+            lignes.append(ligne)
+        if li["commun"] is not None:                 # l'âme : un seul taux, il vaut pour les deux méthodes
+            c = li["commun"]
+            ligne = {"nom": C.esc(sujet_commun(li)), "sous": "vaut pour les deux méthodes", "formule": "", "valeur": "—", "limite": "—",
+                     "taux": C.pct(c["taux"]) if c["taux"] is not None else None, "niveau": niveau_taux(c), "gov": False}
+            if c["taux"] is None:
+                ligne["etat_txt"] = M.MOT_STATUT[c["statut"]].lower()
+            lignes.append(ligne)
     detail = f'<div class="ck-g"><div class="ck-t">Ce que les deux méthodes comparent</div><div class="pf-msg">{C.esc(NOTE_COMPARAISON)}</div></div>'
     return C.fenetre_calcul("cmp", f"{nom} · comparaison des deux méthodes", dims(el), [], lignes, detail,
                             colonnes=("Sujet", "", M.METHODES_COURT["historique"], M.METHODES_COURT["ec3"], "Le plus fort"))

@@ -605,10 +605,11 @@ def controles_lot_b(H, MO_, c):
       and go["deversement"]["classe"] == "c" and a_pres(go["deversement"]["lambda"], 53.01, 0.01) and a_pres(go["deversement"]["lambda_bar"], 0.5644, 0.0001)
       and a_pres(go["deversement"]["phi"], 0.8066, 0.0001) and a_pres(go["sigma_My"], 17.60, 0.01) and a_pres(go["sigma"], 107.52, 0.01)
       and a_pres(gf["deversement"]["phi"], 0.8850, 0.0001) and a_pres(gf["sigma"], 105.96, 0.01), (fa["sigma"], go["sigma"], gf["sigma"]))
+    # (lot C, C0c — le harnais suit : un statut « bloqué » à lui, distinct de « non couvert » ; le taux reste, pour information, jamais jugé)
     c("test 5 du § 11.5 — le MÉLANGE « valeurs d'axe faible dans les cases fortes + déversement » (139,31 N/mm²) ne correspond à aucun cas : "
-      "le verdict est BLOQUÉ (non couvert, sans taux), le calcul reste montré, le message le dit",
-      a_pres(mx["grandeurs"]["sigma"], 139.31, 0.01) and mx["statut"] == H.NON_COUVERT and mx["taux_max"] is None
-      and all(v["statut"] == H.NON_COUVERT and v["taux"] is None and any("Verdict bloqué" in m for m in v["messages"]) for v in mx["verifications"])
+      "le verdict est BLOQUÉ (« bloque », aucun taux jugé : taux_max None), le calcul reste montré pour information, le message le dit, en tête",
+      a_pres(mx["grandeurs"]["sigma"], 139.31, 0.01) and mx["statut"] == H.BLOQUE and mx["taux_max"] is None
+      and all(v["statut"] == H.BLOQUE and v["taux"] is not None and "Verdict bloqué" in v["messages"][0] for v in mx["verifications"])
       and any(x["code"] == "bloque" for x in mx["alertes"]), (mx["statut"], mx["grandeurs"]["sigma"]))
     ipe = SE.saisie("I", "lamine", nom="IPE 270 (FLAMBEBAD)", h=270, b=135, tf=10.2, tw=6.6, A=4594.0, Iy=5790e4, Iz=4594 * 3.02 ** 2 * 100, iy=112.3,
                     iz=30.2, Wel_y=428e3, Wel_z=62.2e3)
@@ -758,11 +759,12 @@ def controles_lot_b(H, MO_, c):
     c("PRS, contrôle hérité H11 : « section âme » = h_w·t_w (1420 × 25 = 35 500 mm² ; l'A_v,z = 1,20·h_w·t_w de l'Eurocode 3 n'est pas prise, côté "
       "sûr) ; « section ailes » = b₁·t₁ + b₂·t₂ (9000 + 25 000)", ac == {"ame": 35500.0, "ailes": 34000.0}, ac)
     nb = H.verifier({"section": section_prs(**PRS_A, bords=None), "fy": 355.0, "My": 1000e6, "axes": {"y": {"L": 10000.0}, "z": {"L": 10000.0}}})
-    c("18.2 / 18.6 — bords des semelles non saisis : verdict de la méthode ELS BLOQUÉ (non couvert), calcul montré en larges plats (classe d, "
-      "courbes b et c : le cas le plus défavorable), le message le dit",
-      nb["statut"] == H.NON_COUVERT and nb["taux_max"] is None and nb["grandeurs"]["deversement"]["classe"] == "d"
+    c("18.2 / 18.6 — bords des semelles non saisis : verdict de la méthode ELS BLOQUÉ (« bloque », lot C), calcul montré en larges plats (classe d, "
+      "courbes b et c : le cas le plus défavorable, dit dans les hypothèses), le message le dit",
+      nb["statut"] == H.BLOQUE and nb["taux_max"] is None and nb["grandeurs"]["deversement"]["classe"] == "d"
       and (nb["grandeurs"]["y"]["courbe"], nb["grandeurs"]["z"]["courbe"]) == ("b", "c") and any("Bords des semelles" in x["message"] for x in nb["alertes"])
-      and all(v["statut"] == H.NON_COUVERT for v in nb["verifications"]), (nb["statut"], nb["grandeurs"]["deversement"].get("classe")))
+      and any("calcul pour information en larges plats" in h_ for h_ in nb["hypotheses"])
+      and all(v["statut"] == H.BLOQUE for v in nb["verifications"]), (nb["statut"], nb["grandeurs"]["deversement"].get("classe")))
 
     # ---- les corrections du flambement (6.7) : dites quand elles jouent, jamais sinon
     heb = section_classeur(RECENTS["HEB 200"])
@@ -825,7 +827,7 @@ def controles_lot_b(H, MO_, c):
     c("un PRS plus raide autour de z que de y (semelles 600 × 30, âme 140 × 15 : I_y/I_z = 0,25) : verdict bloqué avec SON message, qui dit "
       "pourquoi (« les charges (plan de l'âme) fléchissent ce PRS autour de son axe faible ») ; une saisie aux cases échangées (FLAMBECBD) "
       "garde le sien",
-      plat["Iy"] < plat["Iz"] and rp["statut"] == H.NON_COUVERT
+      plat["Iy"] < plat["Iz"] and rp["statut"] == H.BLOQUE
       and any("fléchissent ce PRS autour de son axe faible" in m and len(m) < 110 for m in rp["grandeurs"]["bloque"])
       and not any("cases de l'axe fort" in m for m in rp["grandeurs"]["bloque"]) and any("cases de l'axe fort" in m for m in mx["grandeurs"]["bloque"]),
       rp["grandeurs"]["bloque"])
@@ -834,13 +836,13 @@ def controles_lot_b(H, MO_, c):
                          "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}}})
         vs_ = {v["id"]: v for v in rr["verifications"]}
         ok = (rr["grandeurs"]["deversement"]["cas"] == "a_fournir" and vs_["H-N-z"]["statut"] == H.OK and vs_["H-N-y"]["statut"] == H.OK
-              and vs_["H-SIGMA"]["statut"] == H.NON_COUVERT and any("à fournir" in m for m in vs_["H-SIGMA"]["messages"])
-              and "H-DEV" not in vs_ and "H-EQ" not in vs_ and rr["statut"] == H.NON_COUVERT and any(x["code"] == "a_fournir" for x in rr["alertes"]))
+              and vs_["H-SIGMA"]["statut"] == H.BLOQUE and any("à fournir" in m for m in vs_["H-SIGMA"]["messages"])
+              and "H-DEV" not in vs_ and "H-EQ" not in vs_ and rr["statut"] == H.BLOQUE and any(x["code"] == "a_fournir" for x in rr["alertes"]))
         info = (rr["statut"], list(vs_))
     except H.Refus as e:
         ok, info = False, str(e)
     c("règle 1 du brief — une classe de déversement « à fournir » (I recuit : la règle des classeurs ne le couvre pas) BLOQUE la flexion seule "
-      "(non couverte, « à fournir ») ; le flambement se calcule et passe ; la méthode n'est plus refusée en entier", ok, info)
+      "(« bloque », lot C ; « à fournir ») ; le flambement se calcule et passe ; la méthode n'est plus refusée en entier", ok, info)
     env = MO_.Enveloppe(H.METHODE, H.NORME)
     env.verser(rb, {"combinaison": "c1", "x": 25.0})
     env.verser(r8, {"combinaison": "c1", "x": 14.0})
@@ -905,7 +907,7 @@ def controles_lot_b(H, MO_, c):
     froid = SE.du_catalogue(next(p["nom"] for p in CAT.profils() if p["famille"] == "RHS-F" and p["t"] > 6))
     rf = H.verifier(dict(b_, section=froid, My=5e6))
     c("test 16 du § 11.5 — RHS de fabrication inconnue → verdict BLOQUÉ (calcul en formé à froid, le cas défavorable) ; RHS formé à froid de plus "
-      "de 6 mm → « hors domaine », jamais « vérifié »", ri["statut"] == H.NON_COUVERT and ri["grandeurs"]["z"]["courbe"] == "c"
+      "de 6 mm → « hors domaine », jamais « vérifié »", ri["statut"] == H.BLOQUE and ri["grandeurs"]["z"]["courbe"] == "c"
       and any("Fabrication du tube" in x["message"] for x in ri["alertes"]) and rf["statut"] == H.HORS_DOMAINE
       and all(v["statut"] == H.HORS_DOMAINE for v in rf["verifications"]), (ri["statut"], rf["statut"]))
     cais = SE.saisie("autre", "caisson", nom="caisson 300 × 200 × 10", A=9600.0, Iy=1.21e8, Iz=6.44e7, iy=112.3, iz=81.9, Wel_y=8.07e5,
@@ -1457,8 +1459,12 @@ def mutations():
          '    elif False:\n        statut = NON_COUVERT'),
         ("lot A — hors domaine rendu « ok » par la synthèse", '    elif any(v["statut"] == HORS_DOMAINE for v in verifs):\n        statut = HORS_DOMAINE',
          '    elif False:\n        statut = HORS_DOMAINE'),
-        ("lot A — un taux hors domaine ignoré par la synthèse", 'juges = [v for v in verifs if v["statut"] in (OK, NOK, HORS_DOMAINE)]',
-         'juges = [v for v in verifs if v["statut"] in (OK, NOK)]'),
+        ("lot A — un taux hors domaine ignoré par la synthèse", 'JUGES = (OK, NOK, HORS_DOMAINE)', 'JUGES = (OK, NOK)'),
+        # (lot C, C0c) « bloqué » ignoré par la synthèse : une méthode bloquée sortirait « ok »
+        ("lot C — BLOQUE absent de synthese", '    elif any(v["statut"] == BLOQUE for v in verifs):\n        statut = BLOQUE',
+         '    elif False:\n        statut = BLOQUE'),
+        ("lot C — un taux bloqué jugé par la synthèse (il compterait dans le taux le plus fort)", 'JUGES = (OK, NOK, HORS_DOMAINE)',
+         'JUGES = (OK, NOK, HORS_DOMAINE, BLOQUE)'),
     ]
     for nom, ancien, nouveau in cas_re:
         if source_re.count(ancien) != 1:

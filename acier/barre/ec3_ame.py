@@ -221,23 +221,25 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     """F_Rd de l'âme ``a`` (``ame_de``) sous une force appliquée sur la longueur d'appui rigide ``ss`` (mm), selon le
     ``type_`` de la figure 6.1 ; ``c`` : la distance de l'extrémité au bord de la longueur chargée, type (c) ;
     ``contact`` (type (c), DÉCISION BUREAU n° 2, brief § 8.2) : « oui » (ou True) — s_s entre dans (6.10) ; « non » —
-    s_s = 0 dans (6.10) seulement ; « inconnu » (ou False, le défaut) — le verdict de « non », et F_Rd avec contact
-    donnée pour information ; ``fy_ame`` : la f_y de l'âme selon t_w, celle de λ̄_F (à défaut ``fy``) ; ``panneau`` :
+    s_s = 0 dans (6.10) seulement ; « inconnu » (ou False, le défaut) — le verdict de « non » (ou de « oui » : la
+    table, ``P["contact_inconnu"]``), et F_Rd de l'autre lecture donnée pour information ; ``fy_ame`` : la f_y de l'âme selon t_w, celle de λ̄_F (à défaut ``fy``) ; ``panneau`` :
     a, la distance entre raidisseurs transversaux (mm ; None : aucun raidisseur voisin, a → ∞) — k_F = 6 + 2·(h_w/a)²
     ou 3,5 + 2·(h_w/a)², et l_y ≤ a (§ 6.5(2)) ; ``borne`` : ``ss`` ou ``c`` est la BORNE BASSE d'une donnée non saisie
     (0) — au type (c), la branche m₂ = 0, cohérente ou non (voir plus bas).
 
     Rend {"type", "ss" (bornée à h_w), "ss_610" (le s_s de (6.10)), "c", "contact", "kF", "kF_plafonne", "Fcr", "m1",
     "m2" (la branche retenue), "deux_branches", "FRd_autre", "m2_autre" (l'autre branche cohérente, None sinon), "le",
-    "le_plafonne", "ly1", "ly2", "ly3", "ly", "lambda_F", "chi_F", "FRd", "FRd_contact" (type (c) sans contact, s_s > 0 :
-    F_Rd avec contact, pour information ; None sinon), "borne_m2" (la borne a écarté la règle des branches), "fy_ame"} —
+    "le_plafonne", "ly1", "ly2", "ly3", "ly", "lambda_F", "chi_F", "FRd", "FRd_contact" (type (c), contact inconnu, s_s > 0 :
+    F_Rd de l'autre lecture, pour information — « contact_suppose » dit celle qui décide ; None sinon), "borne_m2" (la borne a écarté la règle des branches), "fy_ame"} —
     N et mm ; ``le``, ``ly2``, ``ly3`` : None hors du type (c)."""
     if type_ not in TYPES:
         raise ValueError(f"type de charge concentrée inconnu : {type_!r}")
     etat = {True: "oui", False: "inconnu"}.get(contact, contact) if isinstance(contact, bool) else contact
     if etat not in CONTACTS:
         raise ValueError(f"contact d'extrémité : {', '.join(CONTACTS)} — reçu {contact!r}")
-    contact = etat == "oui"
+    # un contact INCONNU est pris pour « non » (verdict sur s_s = 0 dans (6.10)) ou pour « oui » : la DÉCISION BUREAU n° 2, LUE
+    # DANS LA TABLE (parametres « contact_inconnu ») ; l'autre lecture est donnée pour information (``FRd_contact``)
+    contact = etat == "oui" or (etat == "inconnu" and P["contact_inconnu"] == "oui")
     hw, tw, tf, bf = a["hw"], a["tw"], a["tf"], a["bf"]
     E = P["E"]
     fyw = fy if fy_ame is None else float(fy_ame)
@@ -288,8 +290,10 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     out = dict(B, type=type_, ss=ss, ss_610=ss610, c=c, contact=bool(contact), contact_etat=etat, panneau=panneau, kF=kF, kF_plafonne=type_ == "c" and brut > KF_C_MAX, Fcr=Fcr,
                m1=m1, le=le, le_plafonne=le_plafonne, deux_branches=autre is not None, FRd_autre=None if autre is None else autre["FRd"],
                m2_autre=None if autre is None else autre["m2"], FRd_contact=None, borne_m2=borne_m2, fy_ame=fyw)
-    if type_ == "c" and etat == "inconnu" and ss > 0:
-        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=True, fy_ame=fy_ame, panneau=panneau, borne=borne)["FRd"]
+    if type_ == "c" and etat == "inconnu" and ss > 0:            # l'autre lecture du contact inconnu, pour information
+        autre = "non" if contact else "oui"
+        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=autre, fy_ame=fy_ame, panneau=panneau, borne=borne)["FRd"]
+        out["contact_suppose"] = "oui" if contact else "non"
     return out
 
 
@@ -351,7 +355,10 @@ def mots_resistance(r: Dict) -> List[str]:
         if r["le_plafonne"]:
             mots.append("l_e plafonné à s_s + c")
         mots.append("l_y : la plus petite des trois expressions")
-        if r.get("FRd_contact") is not None:
+        if r.get("FRd_contact") is not None and r.get("contact_suppose") == "oui":
+            mots.append("contact inconnu, supposé établi (décision du bureau) : s_s dans (6.10) (verdict) ; sans contact, "
+                        f"F_Rd = {_fr(r['FRd_contact'] / 1e3, 1)} kN, pour information")
+        elif r.get("FRd_contact") is not None:
             mots.append("hypothèse de contact non établie : s_s = 0 dans (6.10) (verdict) ; avec contact, "
                         f"F_Rd = {_fr(r['FRd_contact'] / 1e3, 1)} kN, pour information")
         elif r.get("contact_etat") == "non" and r["ss"] > 0:

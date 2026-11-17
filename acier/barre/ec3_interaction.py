@@ -103,9 +103,10 @@ def ajouter(J: Journal, d: Dict) -> None:
                 messages=[J.alerte("prs_NM", "attention", "PRS monosymétrique : flexion composée avec instabilité (§ 6.3.3) non couverte — "
                                                           "elle vise les sections bisymétriques ; la section reste vérifiée.")])
         return
-    if d.get("console") and N > 0:
+    if d.get("console") and N > 0 and d["parametres"]["console_NM"] == "non_couvert":
         # les diagrammes du tableau A.2 (et D.1 ANB) sont ceux d'une barre entre deux appuis : aucun ne donne C_m pour une
-        # console — « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9, défaut v1 ; test 30 du § 11.5)
+        # console — « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9, défaut v1 ; test 30 du § 11.5), LU DANS LA TABLE
+        # (parametres « console_NM ») : la table n'admet encore que lui — aucune méthode fixée par le bureau (À VÉRIFIER)
         J.verif("E-661", "Flexion composée et flambement (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
                 messages=[J.alerte("console_NM", "attention", "Console sous effort normal et flexion : la flexion composée avec instabilité "
                                                               "(§ 6.3.3, annexe D ANB) n'est pas couverte — aucun C_m ne vaut pour une console ; "

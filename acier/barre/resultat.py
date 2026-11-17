@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Ce que rend une MÉTHODE de vérification d'une barre (historique, Eurocode 3) — une seule forme pour les deux :
 
-    {"methode", "norme", "statut" (ok | nok | non_couvert | hors_domaine), "taux_max", "gouvernant",
+    {"methode", "norme", "statut" (ok | nok | bloque | non_couvert | hors_domaine), "taux_max", "gouvernant",
      "verifications": [{"id", "methode", "titre", "reference", "critere", "valeur", "limite", "unite", "taux",
                         "statut", "formules" (clés de ``calcul``), "messages"}],
      "grandeurs", "calcul": [{"cle", "gabarit", "symbole", "termes": [{"symbole", "valeur", "unite"}], "resultat",
@@ -20,6 +20,16 @@ OK, NOK, NON_COUVERT = "ok", "nok", "non_couvert"
 # « hors domaine » (brief § 9) : le calcul est fait et montré, mais la méthode ne couvre pas le cas (méthode historique :
 # nuance hors AE235–AE355, creux formé à froid de plus de 6 mm) — jamais « vérifié », jamais caché derrière le taux global
 HORS_DOMAINE = "hors_domaine"
+# « bloqué » (brief § 1 règle 1, § 9) : une donnée indispensable manque ou se contredit (les bords des semelles d'un PRS,
+# la fabrication d'un tube, une classe de déversement à fournir, s_s d'un appui dont l'âme ne passe pas à la borne 0) —
+# le verdict attend la donnée ; le calcul fait du côté défavorable reste montré pour information, jamais jugé
+BLOQUE = "bloque"
+# les statuts, du plus défavorable au moins défavorable : « ok » vient après eux tous (une seule source : pire_statut,
+# synthese, l'enveloppe et l'écran la lisent)
+GRAVITE = (NOK, BLOQUE, NON_COUVERT, HORS_DOMAINE)
+STATUTS = GRAVITE + (OK,)
+# les statuts JUGÉS : leur taux compte dans le taux le plus fort (hors domaine : calculé, montré, jamais « vérifié »)
+JUGES = (OK, NOK, HORS_DOMAINE)
 
 
 class Refus(ValueError):
@@ -111,19 +121,29 @@ class Journal:
 
 
 def pire_statut(statuts) -> str:
-    """Le plus défavorable de plusieurs statuts : nok, puis non couvert, puis hors domaine, puis ok."""
+    """Le plus défavorable de plusieurs statuts : nok, puis bloqué, puis non couvert, puis hors domaine, puis ok. Un
+    statut inconnu est une erreur (ValueError) — jamais ignoré : une méthode qu'il juge sortirait « ok »."""
     statuts = list(statuts)
-    return next((x for x in (NOK, NON_COUVERT, HORS_DOMAINE) if x in statuts), OK)
+    inconnus = sorted(set(statuts) - set(STATUTS))
+    if inconnus:
+        raise ValueError(f"statut inconnu : {', '.join(map(repr, inconnus))}")
+    return next((x for x in GRAVITE if x in statuts), OK)
 
 
 def synthese(verifs: List[Dict]) -> Dict:
-    """{"statut", "taux_max", "gouvernant"} : « nok » dès qu'une vérification ne passe pas ; « non_couvert » si rien ne
-    dépasse mais qu'une vérification manque ; « hors_domaine » si une vérification est hors du domaine de la méthode —
-    jamais « ok » dans ces deux cas ; le gouvernant est le plus fort taux (une vérification hors domaine compte : son
-    taux est calculé), ou la première vérification refusée sans taux (une instabilité)."""
-    juges = [v for v in verifs if v["statut"] in (OK, NOK, HORS_DOMAINE)]
+    """{"statut", "taux_max", "gouvernant"} : « nok » dès qu'une vérification ne passe pas ; « bloque » si rien ne
+    dépasse mais qu'une donnée manque ; « non_couvert » si une vérification n'est pas couverte ; « hors_domaine » si une
+    vérification est hors du domaine de la méthode — jamais « ok » dans ces trois cas ; un statut inconnu lève
+    (ValueError). Le gouvernant est le plus fort taux JUGÉ (une vérification hors domaine compte : son taux est calculé ;
+    un taux bloqué ou non couvert est pour information), ou la première vérification refusée sans taux (une instabilité)."""
+    juges = [v for v in verifs if v["statut"] in JUGES]
+    inconnus = sorted({v["statut"] for v in verifs} - set(STATUTS))
+    if inconnus:
+        raise ValueError(f"statut inconnu : {', '.join(map(repr, inconnus))}")
     if any(v["statut"] == NOK for v in juges):
         statut = NOK
+    elif any(v["statut"] == BLOQUE for v in verifs):
+        statut = BLOQUE
     elif any(v["statut"] == NON_COUVERT for v in verifs):
         statut = NON_COUVERT
     elif any(v["statut"] == HORS_DOMAINE for v in verifs):

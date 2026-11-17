@@ -20,6 +20,7 @@ saisies et sert le sélecteur de profilés. Il ne calcule rien : toute saisie es
 domaine, elle est REFUSÉE avec le message du moteur et la barre reste intacte.
 """
 import copy
+import functools
 import json
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -52,6 +53,12 @@ VERSION = 2
 # suffit qu'il l'OUVRE : il la réécrit aussitôt sans la clé (son etabli.js enregistre au premier calcul) — ses 0 saisis redeviennent
 # alors « non saisis » pour le site neuf (le côté sûr, à ressaisir).
 ZERO_SAISI = "zero_saisi"
+# (lot C, C0d) ce que la NOTE imprime — une clé de la note, pour toutes ses barres : les deux méthodes (le défaut, brief § 9),
+# la méthode ELS seule, ou l'Eurocode 3 seul. Le moteur calcule TOUJOURS les deux ; l'écran les montre toujours. Une note sans
+# elle (d'avant le lot C) : une seule méthode cochée dans toutes ses barres → celle-là, sinon les deux ; une note de la version 1
+# (l'Eurocode seul) → « ec3 ». La clé « methodes » d'une barre reste lue (pour cette déduction), elle ne décide plus du calcul.
+IMPRESSION = "impression"
+IMPRESSIONS = ("deux", "historique", "ec3")
 
 ROLE = "profil"                 # le seul sélecteur du module : le profilé de la barre ouverte
 GENRE = E.Genre("Barres", "la barre", "cette barre", "une barre")
@@ -62,26 +69,65 @@ GAMMA_MIN, GAMMA_MAX = 0.9, 1.5
 # les familles du catalogue que le module vérifie par ses deux méthodes : I et H laminés, tubes
 FAMILLES = tuple(f for f, (forme, _) in SE.FAMILLES.items() if forme in ("I",) + SE.TUBES)
 # ce qui appartient à chaque mode (l'autre est gardé tel quel dans la note : changer de mode ne perd rien)
-COMMUNS = ("profil", "nuance", "mode", "poids_propre", "niveau", "Lc", "methodes", "historique", "parametres", "flambement")
-CHARGEE = ("modele", "travees", "cas", "maintiens", "appuis")
-IMPOSES = ("efforts", "diagramme")
+# (lot C, C0e : le contrat des entrées — « prs » y est, sans quoi _completer la jetait et _signature ne la voyait pas : deux PRS
+# de plats différents partageaient un résultat gardé ; chaque clé a son défaut, acier/barre/entree.nouvelle_barre)
+COMMUNS = ("profil", "nuance", "mode", "poids_propre", "niveau", "Lc", "methodes", "historique", "parametres", "flambement", "prs",
+           "norme_produit", "ouvrage")
+CHARGEE = ("modele", "travees", "cas", "maintiens", "appuis", "combinaisons", "position", "angle", "points", "debords")
+IMPOSES = ("efforts", "diagramme", "poids_propre_efforts")
 CLES = ("nom",) + COMMUNS + CHARGEE + IMPOSES
+# (lot C, reprise de C0) les longueurs de flambement que le passage en efforts imposés a COPIÉES de l'automatique, {axe: L (m)} :
+# au retour en barre chargée, celles que l'ingénieur n'a pas retouchées redeviennent automatiques. Sans cela, une poutre de
+# 6 m passée en efforts imposés puis rendue console de 3 m gardait L_z = 3 m comme une saisie (2,1·L = 6,3 m), sans un mot.
+# Un état de l'ÉCRAN, hors du calcul (hors de CLES et de la signature) ; une barre qui ne l'a pas : rien n'a été copié.
+COPIEES = "longueurs_copiees"
 MEMOIRE, MEMOIRE_CANDIDATS = 48, 6000
 _RESULTATS: Dict[str, Dict] = {}                    # la barre (sans son nom) → son résultat
 _CANDIDATS: Dict[Tuple[str, str], Tuple] = {}       # (la barre sans nom ni profilé, un profilé) → (taux, statut)
 
 
+@functools.lru_cache(maxsize=1)
+def _barre_type() -> Dict:
+    """La barre neuve, RELUE par le moteur : chaque clé du contrat des entrées porte son défaut (lot C, C0e) — une note
+    neuve est déjà ce que la relecture rend (une saisie refusée rend la note telle qu'elle était, à l'octet)."""
+    b = EN.nouvelle_barre(NOM_DEFAUT)
+    b["maintiens"] = [{"x": 3.0, "genre": "complet"}]
+    return EN.normaliser(b)
+
+
 def barre_neuve(nom: str = NOM_DEFAUT) -> Dict:
     """La barre d'une note neuve : celle du moteur (IPE 300 sur deux appuis, 6 m, G et Q de 5 kN/m, poids propre), tenue
     à mi-portée — sans maintien, la méthode historique la refuse d'emblée."""
-    b = EN.nouvelle_barre(nom)
-    b["maintiens"] = [{"x": 3.0, "genre": "complet"}]
+    b = copy.deepcopy(_barre_type())
+    b["nom"] = nom
     return b
 
 
-def etat_de(elements: List[Dict], actif: int = 0) -> Dict:
-    """Une note au format du site (la version et sa clé ``ZERO_SAISI``) : la source unique de ce format."""
-    return {"version": VERSION, ZERO_SAISI: True, "elements": elements, "actif": actif}
+def etat_de(elements: List[Dict], actif: int = 0, impression: str = IMPRESSIONS[0]) -> Dict:
+    """Une note au format du site (la version, sa clé ``ZERO_SAISI``, ce qu'elle imprime) : la source unique de ce format."""
+    return {"version": VERSION, ZERO_SAISI: True, "elements": elements, "actif": actif, IMPRESSION: impression}
+
+
+def methodes_imprimees(impression: str) -> Tuple[str, ...]:
+    """Les méthodes qu'une note imprime (``IMPRESSION``), dans l'ordre du moteur."""
+    return tuple(EN.METHODES) if impression == "deux" else (impression,)
+
+
+def _impression_deduite(etat: Dict) -> str:
+    """Ce qu'imprime une note qui n'a pas la clé ``IMPRESSION`` (d'avant le lot C) : une note de la version 1 → « ec3 » ;
+    une seule et même méthode cochée dans toutes ses barres → celle-là ; sinon les deux. Rien n'est réécrit dans les barres."""
+    if etat.get("version", 1) == 1:
+        return "ec3"
+    choix = set()
+    for e in etat.get("elements") or []:
+        m = e.get("methodes") if isinstance(e, dict) else None
+        m = tuple(x for x in EN.METHODES if isinstance(m, (list, tuple)) and x in m) if m is not None else tuple(EN.METHODES)
+        choix.add(m)
+    if len(choix) == 1:
+        (m,) = choix
+        if len(m) == 1:
+            return m[0]
+    return "deux"
 
 
 # ------------------------------------------------------------------ le parcours propre : ce qu'un clic ne suffit pas à atteindre
@@ -196,6 +242,11 @@ def _completer(el: Dict) -> Dict:
             b[k] = neuf
         for sous, defaut in neuf.items():
             b[k][sous] = dict(defaut, **(b[k].get(sous) if isinstance(b[k].get(sous), dict) else {}))
+    cop = el.get(COPIEES)
+    cop = {a: float(v) for a, v in cop.items() if a in ("y", "z") and isinstance(v, (int, float)) and not isinstance(v, bool)} \
+        if isinstance(cop, dict) else {}
+    if cop:
+        b[COPIEES] = cop
     return b
 
 
@@ -208,12 +259,14 @@ def _relire(el: Dict) -> Dict:
         b[k] = n[k]
     if n["mode"] == "chargee":
         CO.service(b["cas"])                 # (au plus quatre cas variables : le moteur le dit ici plutôt qu'au calcul)
+        b.pop(COPIEES, None)                 # (le souvenir des longueurs copiées ne vaut qu'en efforts imposés)
     return b
 
 
 def normaliser(etat: Dict) -> Dict:
     """L'état reçu de l'écran ou d'un fichier, relu : une note de la version 1 est convertie ; une de la version 2 sans
-    ``ZERO_SAISI`` (le site d'avant le lot B) relue, ses s_s et c à 0 « non saisis » ; une barre illisible lève une erreur claire."""
+    ``ZERO_SAISI`` (le site d'avant le lot B) relue, ses s_s et c à 0 « non saisis » ; une barre illisible lève une erreur claire.
+    Ce que la note imprime (``IMPRESSION``) est gardé, ou déduit d'une note qui ne l'a pas (``_impression_deduite``)."""
     if not isinstance(etat, dict) or "elements" not in etat:
         return nouvel_etat()
     els = etat["elements"]
@@ -225,7 +278,10 @@ def normaliser(etat: Dict) -> Dict:
         raise ValueError(f"note d'un format inconnu (version {str(version)[:12]}) : elle n'est pas relue")
     neuve = version == VERSION and etat.get(ZERO_SAISI) is True
     lire = (lambda e: e) if neuve else _de_v2 if version == VERSION else _migrer
-    out = etat_de([])
+    impression = etat.get(IMPRESSION, _impression_deduite(etat))
+    if impression not in IMPRESSIONS:
+        raise ValueError(f"impression de la note : {', '.join(IMPRESSIONS)} — reçu {str(impression)[:20]!r}")
+    out = etat_de([], impression=impression)
     for i, e in enumerate(els):
         try:
             out["elements"].append(_relire(lire(e)))
@@ -302,11 +358,12 @@ def _taux(r: Dict) -> Optional[float]:
 
 
 def _niveau(r: Dict) -> str:
-    """Le niveau d'une barre pour la note : non conforme (r) ; une vérification non couverte, ou une méthode hors de son
-    domaine : à vérifier (v) ; aucun effort : données incomplètes (n) ; sinon la couleur de son taux."""
+    """Le niveau d'une barre pour la note : non conforme (r) ; une donnée à saisir (bloqué), une vérification non couverte,
+    ou une méthode hors de son domaine : à vérifier (v) ; aucun effort : données incomplètes (n) ; sinon la couleur de son
+    taux."""
     if r["statut"] == RE.NOK:
         return "r"
-    if r["statut"] in (RE.NON_COUVERT, RE.HORS_DOMAINE):
+    if r["statut"] in M.STATUTS_A_VERIFIER:
         return "v"
     t = _taux(r)
     return "n" if t is None or t <= 0 else C.niveau(t)
@@ -454,18 +511,21 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         if valeur not in EN.MODES:
             raise ValueError(f"mode inconnu : « {valeur} »")
         if valeur == "efforts":                 # les longueurs que la barre chargée prenait d'elle-même deviennent des données
+            copiees = {}
             for a in ("y", "z"):
                 if el["flambement"][a]["L"] is None:
-                    el["flambement"][a]["L"] = round(r["longueurs"][a]["L"], 3) if r.get("longueurs") else L
+                    el["flambement"][a]["L"] = copiees[a] = round(r["longueurs"][a]["L"], 3) if r.get("longueurs") else L
+            if copiees:                         # (COPIEES : on s'en souvient, pour les rendre automatiques au retour)
+                el[COPIEES] = copiees
+        else:                                   # retour en barre chargée : une longueur copiée, pas retouchée, redevient automatique
+            for a, Lc in (el.pop(COPIEES, None) or {}).items():
+                if el["flambement"][a]["L"] == Lc:
+                    el["flambement"][a]["L"] = None
         el["mode"] = valeur
     elif cle in ("nuance", "niveau"):
         el[cle] = str(valeur)
     elif cle == "poids_propre":
         el[cle] = _oui(valeur)
-    elif cle == "methodes":
-        if valeur not in ("deux", "historique", "ec3"):
-            raise ValueError(f"méthode inconnue : « {valeur} »")
-        el["methodes"] = list(EN.METHODES) if valeur == "deux" else [valeur]
     elif cle == "modele":
         if valeur not in PO.MODELES:
             raise ValueError(f"modèle inconnu : « {valeur} »")
@@ -570,6 +630,10 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
     elif cle in ("appuis/ss", "appuis/c"):
         el["appuis"][cles[1]] = _lire_vide(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
     elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("L", "u"):
+        if cles[2] == "L" and isinstance(el.get(COPIEES), dict):     # une longueur retouchée est une saisie : elle reste au retour
+            el[COPIEES].pop(cles[1], None)
+            if not el[COPIEES]:
+                del el[COPIEES]
         if cles[2] == "L" and el["mode"] == "chargee":
             el["flambement"][cles[1]]["L"] = C.lire_auto(valeur)
         else:
@@ -580,7 +644,7 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         el["efforts"][cles[1]][cles[2]] = _lire(valeur, cles[2])
     elif k == "diagramme" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("forme", "psi"):
         el["diagramme"][cles[1]][cles[2]] = str(valeur) if cles[2] == "forme" else _lire(valeur, "ψ")
-    elif k == "historique" and len(cles) == 2 and cles[1] in ("s", "C", "deversement", "tolerance"):
+    elif k == "historique" and len(cles) == 2 and cles[1] in ("s", "C", "deversement"):      # (la tolérance de 5 % : retirée, § 13.2 point 5)
         el["historique"][cles[1]] = _lire(valeur, "s") if cles[1] == "s" else (str(valeur) if cles[1] == "C" else _oui(valeur))
     elif k == "parametres" and len(cles) == 2 and cles[1] in ("gamma_M0", "gamma_M1"):
         g = C.lire_auto(valeur)
@@ -604,6 +668,13 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     cles = [str(c) for c in chemin]
     if not cles:
         return "Champ inconnu : «  »"
+    if cles in (["impression"], ["methodes"]):
+        # (lot C, C0d) ce que la NOTE imprime, pour toutes ses barres (le segment de la rubrique « Méthodes » ; « methodes »,
+        # son ancien chemin, y mène aussi) : les deux méthodes restent calculées et montrées
+        if valeur not in IMPRESSIONS:
+            return f"Saisie refusée : méthode inconnue : « {valeur} » ({', '.join(IMPRESSIONS)})"
+        etat[IMPRESSION] = valeur
+        return None
     try:
         mot = _appliquer(essai, cles, valeur, calculer(el))
         etat["elements"][etat["actif"]] = _relire(essai)
@@ -630,7 +701,8 @@ def arbre(etat: Dict, r: Dict, resultats: List[Dict]) -> str:
     supprimer — le nom de chacune à la couleur de son état), puis ses quatre rubriques."""
     noms = [(e.get("nom") or f"B{i + 1}", "· " + R.dims(e), False) for i, e in enumerate(etat["elements"])]
     niveaux = [_niveau(x) if "methodes" in x else "n" for x in resultats]
-    return E.arbre(GENRE, noms, etat["actif"], S.formulaire(_el(etat), r), "choixprofil", compact=True, niveaux=niveaux)
+    return E.arbre(GENRE, noms, etat["actif"], S.formulaire(_el(etat), r, etat.get(IMPRESSION, IMPRESSIONS[0])), "choixprofil", compact=True,
+                   niveaux=niveaux)
 
 
 # ------------------------------------------------------------------ les vues
@@ -659,10 +731,20 @@ def _entete(el: Dict, r: Dict, titre: str, legende: str) -> str:
     return E.entete(titre.upper(), f"{C.esc(el['profil'])} · {C.esc(el['nuance'])}", [l2, l3], _bande(r), legende)
 
 
+def refus_prs(nom: str) -> str:
+    """(lot C, reprise de C0 ; en attendant C6 — la saisie, la fiche et le croquis d'un PRS) Une barre PRS, venue d'un fichier
+    ou de la bibliothèque, se relit et se calcule (« prs » est gardée, C0e) ; l'écran et la note ne savent pas encore la
+    montrer : ils la REFUSENT en une ligne — jamais un KeyError, jamais un profilé du catalogue à sa place."""
+    return f"« {nom} » : un PRS ne se montre pas encore, ni à l'écran ni dans la note."
+
+
 def fiche_profil(nom: str) -> Dict:
     """Ce qu'on écrit d'un profilé du catalogue : {"famille", "dims" (mm), "dimensions" et "proprietes" : [(symbole,
-    valeur écrite, unité)], "sous" (sa famille et sa norme)} — la vue « Section » de l'écran et le panneau de la note PDF."""
-    rec = CAT.par_nom()[nom]
+    valeur écrite, unité)], "sous" (sa famille et sa norme)} — la vue « Section » de l'écran et le panneau de la note PDF.
+    Un nom hors du catalogue (un PRS : la normalisation n'en laisse passer aucun autre) : ValueError, ``refus_prs``."""
+    rec = CAT.par_nom().get(nom)
+    if rec is None:
+        raise ValueError(refus_prs(nom))
     fam = rec["famille"]
     dims = {k: rec[k] for k in FA.FAMILLES[fam]["dims"]}
     sym = {"tw": "t_w", "tf": "t_f", "r1": "r_1", "r2": "r_2"}
@@ -762,7 +844,7 @@ def resultat(etat: Dict) -> Dict:
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
     """« note_pdf » : la note de calcul PDF de TOUTE la note — la garde, puis la planche de chaque barre, avec les
-    méthodes que la barre a de cochées (api_web/note_profil.py, chargé à la demande : il lui faut le paquet de la note) ;
+    méthodes que la note imprime (``IMPRESSION`` ; api_web/note_profil.py, chargé à la demande : il lui faut le paquet de la note) ;
     ``infos`` : le nom, le chantier, l'indice et la date de la note."""
     if quoi != "note_pdf":
         return None
@@ -786,6 +868,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     if role != ROLE:
         raise KeyError(f"sélecteur inconnu : {role!r}")
     el = _el(etat)
+    if el.get("prs") is not None:          # (sinon chaque ligne du sélecteur serait calculée… avec les plats du PRS)
+        raise ValueError(refus_prs(el["profil"]))
     demandees = familles if isinstance(familles, (list, tuple)) else []      # une requête abîmée : la famille du profilé
     fams = [f for f in FAMILLES if f in demandees] or [CAT.par_nom()[el["profil"]]["famille"]]
     sig = _signature(el, ("nom", "profil"))
@@ -796,8 +880,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         row = {"nom": nom, "col": C.fr(CAT.par_nom()[nom]["masse"], 1), "taux": None, "niveau": "c", "cur": nom == el["profil"],
                "opt": tient and not vu_leger, "prop": _proprietes(nom, t)}
         vu_leger = vu_leger or tient
-        if statut in (RE.NON_COUVERT, RE.HORS_DOMAINE):
-            row["etat"] = ("non couvert" if statut == RE.NON_COUVERT else "hors domaine") if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"
+        if statut in M.STATUTS_A_VERIFIER:      # (bloqué, non couvert, hors domaine : sans couleur ni ★ ; le taux suivi de « ? »)
+            row["etat"] = M.MOT_STATUT[statut].lower() if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"
         elif t is not None:
             row.update({"taux": C.pct(min(t, 9.99)), "niveau": "r" if statut == RE.NOK else C.niveau(t)})
         else:
@@ -806,6 +890,6 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     i_o = next((k for k, x in enumerate(rows) if x["opt"]), 0)
     i_c = next((k for k, x in enumerate(rows) if x["cur"]), i_o)
     filtres = "".join(f'<button type="button" class="fchip{" on" if f in fams else ""}" data-famille="{C.esc(f)}">{C.esc(f)}</button>' for f in FAMILLES)
-    methodes = " et ".join(M.minuscule(M.METHODES_COURT[k]) for k in el["methodes"])
+    methodes = " et ".join(M.minuscule(M.METHODES_COURT[k]) for k in EN.METHODES)          # (toujours les deux : lot C, C0d)
     sous = f"triés par masse · vérifiés par : {methodes} · un clic retient le profilé"
     return C.selecteur(ROLE, f"{C.esc(el.get('nom') or 'Barre')} · profilé", sous, filtres, rows, max(0, min(i_o, i_c) - 4), "kg/m")

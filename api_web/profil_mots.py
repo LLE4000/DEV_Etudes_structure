@@ -72,10 +72,14 @@ EFFORTS = (("N", "N", "kN", "Effort normal ; positif en compression."), ("My", "
            ("Vz", "V_z", "kN", "Effort tranchant parallèle à l'âme."), ("Mz", "M_z", "kN·m", "Moment autour de l'axe faible."),
            ("Vy", "V_y", "kN", "Effort tranchant parallèle aux semelles."))
 # le niveau (couleur) d'un statut sans taux ; « hors domaine » (brief § 9) : le niveau « v » existant (à vérifier), avec
-# son mot — un taux calculé hors du domaine de la méthode n'est jamais peint « conforme »
-NIVEAU_STATUT = {RE.OK: "p", RE.NOK: "r", RE.NON_COUVERT: "c", RE.HORS_DOMAINE: "v"}
-MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.NON_COUVERT: "Non couvert", RE.HORS_DOMAINE: "Hors domaine"}
+# son mot — un taux calculé hors du domaine de la méthode n'est jamais peint « conforme » ; « bloqué » (lot C) : une
+# donnée à saisir, « v » aussi (il y a quelque chose à faire)
+NIVEAU_STATUT = {RE.OK: "p", RE.NOK: "r", RE.BLOQUE: "v", RE.NON_COUVERT: "c", RE.HORS_DOMAINE: "v"}
+MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.BLOQUE: "Bloqué", RE.NON_COUVERT: "Non couvert", RE.HORS_DOMAINE: "Hors domaine"}
+MOTS_STATUT_PLURIEL = {RE.BLOQUE: "bloqués", RE.NON_COUVERT: "non couverts"}
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
+# les statuts sous lesquels un TAUX n'est jamais peint « conforme » : il est montré pour information (lot C, C0b)
+STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)
 
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
 
@@ -173,12 +177,24 @@ def resume_ame(a: Dict) -> str:
     return "Âme élancée vérifiée au cisaillement" if a.get("verifications") else ""
 
 
+def couleur_taux(statut: Optional[str], taux: Optional[float]) -> str:
+    """LA couleur d'un TAUX sous un STATUT (lot C, C0b : une seule fonction, que lisent la pastille du verdict, la ligne
+    « Profilé », la comparaison de l'écran et celle de la note, et chaque ligne de vérification) : « r » pour un statut
+    « nok » ; « v » (à vérifier) pour « bloqué », « non couvert » et « hors domaine » — le taux est pour information,
+    jamais vert ; sinon la couleur du taux (« c » sans taux). Mesuré avant (766659c, toujours à l'intégration du lot B) :
+    une console de 3 m sous N = 50 kN, Eurocode 3 « non couvert » (E-661), portait une pastille VERTE « 57 % »."""
+    if statut == RE.NOK:
+        return "r"
+    if statut in STATUTS_A_VERIFIER:
+        return "v"
+    return C.niveau(taux)
+
+
 def niveau(v: Dict) -> str:
-    """La couleur d'une vérification : celle de son taux ; sans taux, celle de son statut ; hors domaine : « v »."""
-    if v.get("statut") == RE.HORS_DOMAINE:
-        return NIVEAU_STATUT[RE.HORS_DOMAINE]
+    """La couleur d'une vérification : celle de son taux sous son statut (``couleur_taux``) ; sans taux, celle de son
+    statut."""
     if v.get("taux") is not None:
-        return "r" if v["statut"] == RE.NOK else C.niveau(v["taux"])
+        return couleur_taux(v.get("statut"), v["taux"])
     return NIVEAU_STATUT.get(v["statut"], "c")
 
 

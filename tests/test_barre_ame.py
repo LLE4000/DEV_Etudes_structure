@@ -566,17 +566,18 @@ def controles(M=None):
       "(la borne est sous F_Rd réel, prouvé par le balayage ; brief § 8.3, point 5) : type (c), F_Ed = 44,4 kN ≤ F_Rd = 58,0 kN (77 %), σ_x = 0 "
       "→ les deux contrôles, σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², critère 6.2.1(5) 1,57 > 1 : la borne ne passe pas — « DÉCISION "
       "IMPOSSIBLE : s_s à saisir » (seul le critère, qui ne lit pas c, ne passe pas : c n'est pas demandé — le harnais suit : « s_s et c » à la "
-      "2e reprise), non couvert, le taux à la borne (157 %) sur la ligne ; la borne dite UNE fois dans les hypothèses, marquée À VÉRIFIER",
+      "2e reprise), « bloque » (lot C, C0c : une donnée à saisir — le harnais suit, « non couvert » avant), le taux à la borne (157 %) sur la "
+      "ligne ; la borne dite UNE fois dans les hypothèses, marquée À VÉRIFIER",
       [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "impossible" and L["ss"] == 0.0
-                                                                      and L["statut"] == RE.NON_COUVERT and L["raidisseur"] is None
+                                                                      and L["statut"] == RE.BLOQUE and L["raidisseur"] is None
                                                                       and round(L["taux"], 3) == 1.567 and L["borne"] is None
                                                                       and L["raison"] == "Décision impossible : s_s à saisir."
                                                                       and L["sans"]["semelle"] == ["les_deux"] for L in a["lieux"])
       and proche(a["lieux"][0]["F_Ed"], Fed) and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 0, "c", 0))
       and round(a["lieux"][0]["sans"]["eta2"], 2) == 0.77 and proche(a["lieux"][0]["sans"]["critere"], crit0, 1e-6) and round(crit0, 2) == 1.57
-      and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and a["statut"] == RE.NON_COUVERT and a["taux_max"] is None
+      and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and a["statut"] == RE.BLOQUE and a["taux_max"] is None
       and [v["id"] for v in a["verifications"]] == ["A-L00-EL", "A-L00-F", "A-L01-EL", "A-L01-F"]
-      and all(v["statut"] == RE.NON_COUVERT and v["taux"] is not None for v in a["verifications"])
+      and all(v["statut"] == RE.BLOQUE and v["taux"] is not None for v in a["verifications"])
       and [x["message"] for x in a["alertes"]] == ["Appui A, appui B : décision impossible : s_s à saisir."]
       and a["hypotheses"].count(AME.BORNE_HYPOTHESE) == 1 and "À VÉRIFIER" in AME.BORNE_HYPOTHESE, (a["lieux"][0], crit0))
     a00 = ame(appuis={"mode": "poses", "ss": 0.0, "c": 0.0})
@@ -598,10 +599,10 @@ def controles(M=None):
     a, a4 = ame(**lourd_c), ame(**dict(lourd_c, appuis={"mode": "poses", "ss": 180.0, "c": 400.0}))
     L, L4 = a["lieux"][0], a4["lieux"][0]
     c("… une réaction de 210,6 kN, s_s = 180 mm, c non saisi : à la borne c = 0, type (c), F_Rd = 199,8 kN < 210,6 kN (le critère 6.2.1(5), lui, "
-      "passe) — « décision impossible : c à saisir », le taux à la borne (105 %) sur la ligne, non couvert ; c = 400 mm saisi : type (a) — sans "
+      "passe) — « décision impossible : c à saisir », le taux à la borne (105 %) sur la ligne, « bloque » (lot C) ; c = 400 mm saisi : type (a) — sans "
       "raidisseur",
       L["decision"] == "impossible" and L["raison"] == "Décision impossible : c à saisir." and L["type"] == "c" and round(L["sans"]["F_Rd"], 1) == 199.8
-      and L["sans"]["critere"] < 1.0 and proche(L["taux"], 1.35 * 52.0 * 3.0 / 199.8240, 1e-4) and L["statut"] == RE.NON_COUVERT and L4["type"] == "a"
+      and L["sans"]["critere"] < 1.0 and proche(L["taux"], 1.35 * 52.0 * 3.0 / 199.8240, 1e-4) and L["statut"] == RE.BLOQUE and L4["type"] == "a"
       and L4["decision"] == "aucun", (L["raison"], L["taux"], L["sans"]["critere"], L4["decision"]))
     L0 = ame(**dict(lourd_c, appuis={"mode": "poses", "ss": None, "c": None}))["lieux"][0]
     c("… s_s et c non saisis, F_Rd à la borne qui ne passe pas (η₂ lit s_s et c) : « décision impossible : s_s et c à saisir » — les deux sont "
@@ -1197,8 +1198,10 @@ def controles(M=None):
       r["ame"]["lieux"] == [] and any("Efforts imposés" in h for h in r["ame"]["hypotheses"]) and r["ame"]["combinaisons"] == [])
     r = mo.verifier(barre(methodes=["historique"]))
     vus.append(r["ame"])
-    c("méthode historique SEULE : le bloc de l'âme est calculé quand même (ELU), et compte dans le statut de la barre",
-      list(r["methodes"]) == ["historique"] and len(r["ame"]["lieux"]) == 2 and r["ame"]["norme"] == "NBN EN 1993-1-5"
+    # (lot C, C0d — le harnais suit : les DEUX méthodes sont toujours calculées, « methodes » ne décide plus du calcul)
+    c("méthode historique « seule » (une ancienne barre) : les deux méthodes et le bloc de l'âme sont calculés (ELU), et comptent dans le statut "
+      "de la barre",
+      list(r["methodes"]) == ["historique", "ec3"] and len(r["ame"]["lieux"]) == 2 and r["ame"]["norme"] == "NBN EN 1993-1-5"
       and r["ame"]["methode"] == "ame")
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
     c("une épaisseur hors du domaine du module (HD 400x818, t_f = 97 mm > 80 mm) : le bloc de l'âme est « non couvert », avec son motif",
@@ -1208,10 +1211,11 @@ def controles(M=None):
     nb = en.normaliser(vieux)
     c("une note d'avant le lot 4 (sans « appuis », sans « ss ») se relit : barre posée, s_s et c NON SAISIS (None, jamais 0 — le harnais suit : "
       "0 avant la reprise) ; une charge ponctuelle sans « ss » : None ; une valeur saisie, même 0, est gardée",
-      nb["appuis"] == {"mode": "poses", "ss": None, "c": None}
+      nb["appuis"] == {"mode": "poses", "ss": None, "c": None, "detail": None}           # (lot C, C0e : les appuis un par un, vides)
       and en.normaliser(barre(cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 1.0), q(1.0, 0.0, 6.0), P_(5.0, 2.0, 0.0)]}]))["cas"][0]["charges"]
-      == [{"type": "P", "v": 5.0, "a": 1.0, "ss": None}, {"type": "q", "v": 1.0, "a": 0.0, "b": 6.0}, {"type": "P", "v": 5.0, "a": 2.0, "ss": 0.0}]
-      and en.normaliser(barre(appuis={"mode": "poses", "ss": 0.0, "c": 0.0}))["appuis"] == {"mode": "poses", "ss": 0.0, "c": 0.0}, nb["appuis"])
+      == [{"type": "P", "v": 5.0, "a": 1.0, "ss": None, "niveau": None, "introduction": "auto"}, {"type": "q", "v": 1.0, "a": 0.0, "b": 6.0, "niveau": None},
+          {"type": "P", "v": 5.0, "a": 2.0, "ss": 0.0, "niveau": None, "introduction": "auto"}]      # (lot C, C0e : niveau et introduction, leurs défauts)
+      and en.normaliser(barre(appuis={"mode": "poses", "ss": 0.0, "c": 0.0}))["appuis"] == {"mode": "poses", "ss": 0.0, "c": 0.0, "detail": None}, nb["appuis"])
     c("données refusées : mode d'appui inconnu ; s_s négative, au-delà de 2 000 mm ou qui n'est pas un nombre ; débord négatif",
       all(_refuse(lambda k=k: en.normaliser(barre(**k))) for k in (
           {"appuis": {"mode": "soude"}}, {"appuis": {"ss": -1.0}}, {"appuis": {"ss": 2001.0}}, {"appuis": {"c": -5.0}}, {"appuis": {"ss": "100"}},
@@ -1353,7 +1357,7 @@ MUTATIONS = [
     ("ec3_ame", "lot B — critère 6.2.1(5) sans τ", "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2",
      "    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f)"),
     ("ec3_ame", "lot B — seuil local : F_Rd seule (l'interaction oubliée)", "    return max(0.0, min(FRd, (lim - k * e1) * FRd))", "    return FRd"),
-    ("ame", "lot B — variante η₁ plastique : W_el", '                Wp = s.get("Wpl_y") if cl in (1, 2) and s.get("Wpl_y") else W', "                Wp = W"),
+    ("ame", "lot B — variante η₁ plastique : W_el", '                Wp = s["Wpl_y"] if a_pl else W', "                Wp = W"),
     ("ec3_ame", "lot B — k_F sans le raidisseur voisin (a ignoré)", "    voisin = 0.0 if panneau is None else 2.0 * (hw / float(panneau)) ** 2", "    voisin = 0.0"),
     ("ec3_ame", "lot B — contact « oui » ignoré", '    contact = etat == "oui"', "    contact = False"),
     ("ec3_ame", "lot B — contact « non » : la variante avec contact donnée quand même", '    if type_ == "c" and etat == "inconnu" and ss > 0:',
@@ -1411,7 +1415,8 @@ MUTATIONS = [
     ("ame", "un tube chargé rendu sans avertissement", '        if charges and s["forme"] in ("tube_carre", "tube_rect", "tube_rond"):', "        if False:"),
     ("ame", "réaction de soulèvement non signalée", '            if f["soulevement"] > 0:', "            if False:"),
     ("ame", "le bloc d'une barre aux efforts imposés : sans le cisaillement", '    AM.cisaillement(J, s, fy, P, abs(e["Vz"]) * 1e3, abs(e["My"]) * 1e6, e["N"] * 1e3, fy_ame=fyw)\n', ""),
-    ("entree", "appuis par défaut « par l'âme » (rien n'est vérifié sans le dire)", '"appuis": {"mode": "poses", "ss": None, "c": None},', '"appuis": {"mode": "ame", "ss": None, "c": None},'),
+    ("entree", "appuis par défaut « par l'âme » (rien n'est vérifié sans le dire)", '"appuis": {"mode": "poses", "ss": None, "c": None, "detail": None},',
+     '"appuis": {"mode": "ame", "ss": None, "c": None, "detail": None},'),
     ("entree", "longueur d'appui d'une charge ponctuelle perdue à la relecture", '                ch["ss"] = _longueur_appui(saisie.get("ss"), f"cas « {nom} », longueur d\'appui s_s")', '                ch["ss"] = 0.0'),
     ("entree", "longueur d'appui sans borne", "    if not 0.0 <= x <= SS_MAX:", "    if False:"),
     ("entree", "mode d'appui non contrôlé", '    if ap is None or ap["mode"] not in MODES_APPUI:', "    if ap is None:"),
@@ -1472,7 +1477,7 @@ MUTATIONS = [
     ("ame", "2e reprise — critère au pire : le plus PETIT des bouts", '        if pire is None or crit > pire["crit"] + EPS:', '        if pire is None or crit < pire["crit"] - EPS:'),
     ("ame", "2e reprise — forces rapprochées : l_y à la borne (la plus courte)", '    if not (r.get("manque") or r.get("rive")):\n        return r["ly"]', "    if True:\n        return r[\"ly\"]"),
     ("ec3_ame", "2e reprise — l_y la plus grande : sans m₂", "2.0 * tf * (1.0 + math.sqrt(a[\"bf\"] / a[\"tw\"] + 0.02 * (hw / tf) ** 2))", "2.0 * tf * (1.0 + math.sqrt(a[\"bf\"] / a[\"tw\"]))"),
-    ("ame", "2e reprise — la borne non dite", '"borne": f"{b_} : borne prudente" if b_ else None}', '"borne": None}'),
+    ("ame", "2e reprise — la borne non dite", '"borne": f"{b_} : borne prudente" if b_ else None, "bloque"', '"borne": None, "bloque"'),
     ("ame", "2e reprise — N_st sur un seul panneau", "    for u, v in ((gauche, x0), (x0, droite)):", "    for u, v in ((gauche, x0),):"),
     ("ame", "2e reprise — N_st : un panneau plus court que h_w non borné", "        d = min(0.5 * hw, (v - u) / 2.0)", "        d = 0.5 * hw"),
     ("ame", "2e reprise — maintien : « les deux » n'exige pas l'autre semelle", "etats_[k] - {AM.COMPRIMEE}}", "etats_[k] & {AM.TENDUE}}"),

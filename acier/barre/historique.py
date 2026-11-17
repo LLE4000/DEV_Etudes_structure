@@ -74,7 +74,11 @@ SOURCE_NOMINALE, FY_NOMINALE = "f_y nominale, comme les classeurs du bureau", "n
 C_CHARGES = 0.85                # charges appliquées sur la barre (doc p. 21)
 MODES_C = ("unite", "moments", "charges")
 TOLERANCE = 0.05                # la « classe de précision de 5 % » des exemples (doc p. 13, 23) — option, éteinte
-OK, NOK, NON_COUVERT, HORS_DOMAINE = RE.OK, RE.NOK, RE.NON_COUVERT, RE.HORS_DOMAINE      # une seule source : resultat.py
+OK, NOK, NON_COUVERT, HORS_DOMAINE, BLOQUE = RE.OK, RE.NOK, RE.NON_COUVERT, RE.HORS_DOMAINE, RE.BLOQUE      # une seule source : resultat.py
+# les raisons d'un verdict bloqué, en une ligne (le verdict de l'écran la dit ; le calcul pris pour information est dans les
+# hypothèses)
+MESSAGE_BORDS = "Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué."
+MESSAGE_FABRICATION = "Fabrication du tube à saisir (finie à chaud ou formée à froid) : verdict bloqué."
 # le choix de la courbe (doc p. 4) : fabrication → (axe fort, axe faible) ; les I et H laminés dépendent de h/b
 COURBES_FABRICATION = {
     "soude_oxycoupe": ("a", "b"), "soude_larges_plats": ("b", "c"), "lamine_semelles_additionnelles": ("b", "a"),
@@ -319,16 +323,19 @@ def verifier(barre: Dict) -> Dict:
     def alerte(code, niveau, message):
         alertes.append({"code": code, "niveau": niveau, "message": message})
 
-    # ---- une donnée qui manque ou se contredit : le verdict est BLOQUÉ, le calcul est fait du côté défavorable
+    # ---- une donnée qui manque ou se contredit : le verdict est BLOQUÉ (resultat.BLOQUE), le calcul est fait du côté
+    #      défavorable et montré pour information — la raison en une ligne (le verdict la dit), le cas pris dans les
+    #      hypothèses (dit une fois)
     s = s0
     if s0["forme"] in ("I",) + SE.TUBES and s0.get("fabrication") is None:
         if s0["forme"] == "I":
             s = dict(s0, fabrication="soude_larges_plats")
-            bloque.append("Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué ; calcul pour information en larges plats.")
+            bloque.append(MESSAGE_BORDS)
+            hyp.append("Bords des semelles non saisis : calcul pour information en larges plats (le cas défavorable).")
         else:
             s = dict(s0, fabrication="creux_froid")
-            bloque.append("Fabrication du tube à saisir (finie à chaud ou formée à froid) : verdict bloqué ; calcul pour information en "
-                          "formé à froid.")
+            bloque.append(MESSAGE_FABRICATION)
+            hyp.append("Fabrication du tube non saisie : calcul pour information en formé à froid (le cas défavorable).")
     if s["forme"] == "I" and (s["Iy"] <= s["Iz"] or s["iy"] <= s["iz"]):
         # un PRS (propriétés calculées sur ses plats : semelles larges, âme basse) : les charges, dans le plan de l'âme, le
         # fléchissent autour de son axe FAIBLE, que la méthode ne traite pas (courbes, déversement) ; une saisie : des cases
@@ -592,7 +599,9 @@ def verifier(barre: Dict) -> Dict:
     # la ligne des contraintes répéterait celle du déversement des classeurs : flexion simple d'axe fort, C = 1
     repete = dev["cas"] == "classeurs" and P == 0 and Mz == 0 and Cy == 1.0
     if non_couvert:                     # (avant l'arrêt du second ordre : ce que la méthode ne couvre pas n'est pas jugé)
-        verif("H-SIGMA", "Flexion et effort tranchant", NORME, "σ ≤ σ_adm", None, limite, "N/mm²", [], taux=None, statut=NON_COUVERT,
+        # (une classe de déversement à fournir : une DONNÉE manque — bloqué ; une forme que la méthode ne couvre pas : non couvert)
+        verif("H-SIGMA", "Flexion et effort tranchant", NORME, "σ ≤ σ_adm", None, limite, "N/mm²", [], taux=None,
+              statut=NON_COUVERT if forme_nc else BLOQUE,
               messages=[x["message"] for x in alertes if x["code"] in ("forme", "a_fournir")])
     elif instable:
         verif("H-SIGMA", "Flexion composée", f"{NORME} · doc p. 11", "PE > 0", None, limite, "N/mm²",
@@ -633,8 +642,9 @@ def verifier(barre: Dict) -> Dict:
     ids_dev = {"H-DEV", "H-SIGMA", "H-EQ"} if (dev["cas"] in ("classeurs", "I", "ferme") and My > 0) else set()
     for v in verifs:
         if bloque and v["statut"] in (OK, NOK, HORS_DOMAINE):
-            v["statut"], v["taux"] = NON_COUVERT, None
-            v["messages"] += bloque
+            # (lot C, C0c) BLOQUÉ — le taux reste, pour information (resultat.synthese ne le juge pas) ; la raison en tête
+            v["statut"] = BLOQUE
+            v["messages"] = bloque + v["messages"]
         if v["taux"] is not None:
             calcul.append(_f(f"taux_{v['id']}", "η", [_t("valeur", v["valeur"], v["unite"]), _t("limite", v["limite"], v["unite"])],
                              v["taux"], "", "taux"))

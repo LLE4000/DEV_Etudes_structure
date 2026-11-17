@@ -154,7 +154,7 @@ def lire(barre: Dict) -> Dict:
     return d
 
 
-def aires_cisaillement(s: Dict, eta: float) -> Dict:
+def aires_cisaillement(s: Dict, eta: float, avy: Optional[str] = None) -> Dict:
     """A_v (mm²) pour V_z (parallèle à l'âme) et V_y (parallèle aux semelles), § 6.2.6(3) : {"z", "y", "plancher"
     (η·h_w·t_w d'un I, mm²), "plancher_gouverne"}. I et H : A − 2·b·t_f + (t_w + 2r)·t_f ≥ η·h_w·t_w (le catalogue porte
     la première expression) ; parallèle aux semelles, I ou H LAMINÉ : 2·b·t_f (DÉCISION BUREAU n° 3, brief § 7.5 ;
@@ -163,7 +163,9 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
     règle de la DÉCISION BUREAU n° 3 des I et H laminés) et de A − h_w·t_w (6.2.6(3) e), qui nomme les U soudés ; aucun
     cas de 6.2.6(3) ne vise un U laminé chargé parallèlement aux semelles), U SOUDÉ : A − h_w·t_w ; tubes carrés et
     rectangulaires : A·h/(b + h) et A·b/(b + h) ; tube rond : 2A/π. Une autre forme (cornière, « autre ») : Refus — le
-    module ne la vérifie pas (``FORMES``)."""
+    module ne la vérifie pas (``FORMES``). ``avy`` : la DÉCISION BUREAU n° 3 pour un I ou H laminé (parametres
+    « avy_lamine » : « 2btf », le défaut de la table quand il n'est pas donné, ou « A_moins_hwtw ») — lot C, C0g : lue ici,
+    la variante pour information calculée par C1b."""
     A, forme = s["A"], s["forme"]
     if PR.est_prs(s):
         # PRS (brief § 7.5 et 18.5) : parallèle à l'âme η·h_w·t_w (6.2.6(3) d)), η = 1,20 ; parallèle aux semelles
@@ -180,7 +182,9 @@ def aires_cisaillement(s: Dict, eta: float) -> Dict:
             base = A - 2.0 * s["b"] * s["tf"] + (s["tw"] + 2.0 * (s.get("r") or 0.0)) * s["tf"]
         plancher = eta * hw * s["tw"]
         soude = s.get("fabrication") in AM.SOUDES
-        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE)
+        decision = PA.valeur("avy_lamine") if avy is None else avy
+        avy, regle = ((A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE) if decision == "2btf"
+                      else (A - hw * s["tw"], AVY_LAMINE_VARIANTE))
         if s.get("famille") in FAMILLES_AVY_MIN and not soude:
             # IPN (semelles inclinées) : la plus petite de 2·b·t_f et de l'aire géométrique A − h_w·t_w, comme pour les U
             # (brief § 19.2 ; 19.1 point 9) — 2·b·t_f la dépasse sur des IPN du catalogue
@@ -213,8 +217,9 @@ INDICE_EPS = {"semelle": "f", "ame": "w", "semelle_haut": "f1", "semelle_bas": "
 # les familles laminées dont A_v,y est la plus petite de 2·b·t_f et de A − h_w·t_w (brief § 19.2)
 FAMILLES_AVY_MIN = ("IPN",)
 # A_v,y d'un I : la règle prise (``aires_cisaillement``, clé « regle_y ») et le message qui la dit
-AVY_SOUDE, AVY_LAMINE, AVY_MIN = "soude", "lamine", "minimum"
+AVY_SOUDE, AVY_LAMINE, AVY_MIN, AVY_LAMINE_VARIANTE = "soude", "lamine", "minimum", "lamine_variante"
 MSG_AVY = {AVY_SOUDE: "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 6.2.6(3) e)).",
+           AVY_LAMINE_VARIANTE: "A_v,y = A − h_w·t_w : I ou H laminé, variante choisie dans la table (décision du bureau n° 3).",
            AVY_LAMINE: "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).",
            AVY_MIN: "A_v,y = min(2·b·t_f ; A − h_w·t_w) : IPN, côté sûr (comme pour les U)."}
 
@@ -454,7 +459,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     rho = {"z": 0.0, "y": 0.0}
     cles_rho: List[str] = []
     if Vz > 0 or Vy > 0:
-        av = aires_cisaillement(s, eta)
+        av = aires_cisaillement(s, eta, P["avy_lamine"])
         G["A_v"] = av
         for a, V in (("z", Vz), ("y", Vy)):
             if V <= 0:

@@ -351,6 +351,8 @@ def sans_maintien(cotes: Sequence[str], taux: float, ligne: bool = False) -> str
     return f"{t[:1].upper() + t[1:]}{taux_} ; {remede} (À VÉRIFIER)."
 
 
+# η₁ de l'interaction (7.2), dit dans l'hypothèse du bloc : la DÉCISION BUREAU n° 1 lue dans la table (acier/barre/parametres.py)
+ETA1_HYP = {"elastique": "η₁ élastique", "plastique": "η₁ plastique en classes 1 et 2 (décision du bureau)"}
 DECISION_IMPOSSIBLE = "Décision impossible : "         # le début de la raison d'une décision impossible (api_web/profil_mots le lit)
 
 
@@ -416,7 +418,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
     env = Enveloppe(METHODE, NORME)
     hyp, el, sm = _communes(b, s, fy, P, fyw, src, _fy_semelle(b, s))
     alertes: Dict[str, Dict] = {}
-    combs = [ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas) for co in CO.elu(cas, P)]
+    # (lot C, C0e) les combinaisons de la BARRE : l'âme suit son expression ((6.10), ou (6.10a)/(6.10b) avec C2)
+    combs = [ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas) for co in CO.elu(cas, P, b.get("combinaisons"))]
 
     # ---- le voilement par cisaillement, dans chaque section à vérifier
     if el is not None and el["elancee"]:
@@ -474,7 +477,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                                                  "vérifiée ici — EN 1993-1-8."}
         charges = []
     else:
-        hyp.append("Force concentrée : sans raidisseur transversal voisin (a → ∞) ; η₁ élastique (§ 7.2) ; semelle chargée tendue : "
+        hyp.append(f"Force concentrée : sans raidisseur transversal voisin (a → ∞) ; {ETA1_HYP[P['eta1_ame']]} (§ 7.2) ; semelle chargée tendue : "
                    "critère 6.2.1(5) de l'EN 1993-1-1 à la jonction (§ 7.2(2)) ; semelle chargée tenue à un appui ou par un maintien "
                    "au droit de la force (§ 6.1(1)).")
         if any(L["genre"] == "appui" for L in endroits):
@@ -542,19 +545,23 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 charges_.add(x["cote"])
                 etats_[x["cote"]].add(x["etat"])
             comprimee = any(x["etat"] != AM.TENDUE for x in ctrl)
-            o["eta1"] = o["inter"] = o["eta1_pl"] = o["inter_pl"] = None
+            o["eta1"] = o["inter"] = o["eta1_autre"] = o["inter_autre"] = o["inter_pl"] = None
             if comprimee and (o["M"] > EPS or abs(o["N"]) > EPS):
                 cl, A, W, nomA, nomW = classement(o["N"], o["M_s"])
-                o.update({"A": A, "W": W, "nomA": nomA, "nomW": nomW, "classe": cl})
-                o["eta1"] = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, W, fy, gM0)
-                o["inter"] = AM.interaction(o["eta2"], o["eta1"])
-                # DÉCISION BUREAU n° 1 (brief § 13.2) : la variante η₁ plastique, classes 1 et 2 sous les efforts de l'occurrence
-                # (commentaire JRC, p. 98), pour information
-                Wp = s.get("Wpl_y") if cl in (1, 2) and s.get("Wpl_y") else W
-                o["eta1_pl"] = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, Wp, fy, gM0)
-                o["inter_pl"] = AM.interaction(o["eta2"], o["eta1_pl"])
+                # DÉCISION BUREAU n° 1 (brief § 13.2), LUE DANS LA TABLE (parametres « eta1_ame ») : η₁ élastique par défaut ; la
+                # variante plastique, classes 1 et 2 sous les efforts de l'occurrence (commentaire JRC, p. 98) — celle qui ne décide
+                # pas est rendue pour information
+                a_pl = cl in (1, 2) and bool(s.get("Wpl_y"))         # (classes 3 et 4 : pas de variante plastique)
+                Wp = s["Wpl_y"] if a_pl else W
+                el1 = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, W, fy, gM0)
+                pl1 = AM.eta1(o["N"] * 1e3, o["M"] * 1e6, A, Wp, fy, gM0)
+                plast = P["eta1_ame"] == "plastique"
+                o.update({"A": A, "W": Wp if plast else W, "nomA": nomA, "nomW": "W_pl,y" if plast and a_pl else nomW, "classe": cl})
+                o["eta1"], o["eta1_autre"] = (pl1, el1) if plast else (el1, pl1)
+                o["inter"], o["inter_autre"] = AM.interaction(o["eta2"], o["eta1"]), AM.interaction(o["eta2"], o["eta1_autre"])
+                o["inter_pl"] = AM.interaction(o["eta2"], pl1)
                 FRd_k = res[o["cote"]]["FRd"]
-                o["seuil"] = (AM.seuil_local(FRd_k, o["eta1"]) / 1e3, AM.seuil_local(FRd_k, o["eta1_pl"]) / 1e3)
+                o["seuil"] = (AM.seuil_local(FRd_k, el1) / 1e3, AM.seuil_local(FRd_k, pl1) / 1e3)
             if o["eta2"] > pire["eta2"]:
                 pire.update({"eta2": o["eta2"], "cote": o["cote"], "C": o["C"], "FRd": res[o["cote"]]["FRd"], "Fo": o["F"]})
             if o["inter"] is not None and (pire["inter"] is None or o["inter"] > pire["inter"]):
@@ -603,8 +610,10 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         for k in ([] if certain or a_saisir else sorted(charges_)):
             b_ += [x for x in (borne(res[k]) or "").split(", ") if x and x not in b_]
         b_ = ", ".join(b_)
+        # (lot C, C0c) une DONNÉE à saisir (s_s, c : la borne 0 ne passe pas) : la décision est BLOQUÉE ; seul le maintien manque
+        # (rien à saisir, une disposition à prévoir) : non couverte
         etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque, "ligne": ligne,
-                             "borne": f"{b_} : borne prudente" if b_ else None}
+                             "borne": f"{b_} : borne prudente" if b_ else None, "bloque": a_saisir and not certain}
     if any(r_.get("manque") or r_.get("rive") for e_ in etudes.values() for r_ in e_["res"].values()):
         hyp.append(BORNE_HYPOTHESE)                      # une fois par bloc : la lecture du § 8.3, point 5, change la décision
 
@@ -645,12 +654,12 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         if etude["raidisseur"] is not None:
             etude["raidisseur"]["cisaillement"] = cis
 
-    # ---- seconde passe : ce qui est vérifié, combinaison par combinaison ; une décision impossible : « non couvert », les
-    #      taux à la borne (ou aux données, quand c'est le maintien qui manque) pour information
+    # ---- seconde passe : ce qui est vérifié, combinaison par combinaison ; une décision impossible : « bloqué » (une donnée à
+    #      saisir) ou « non couvert » (le maintien manque), les taux à la borne (ou aux données) pour information
     for L in charges:
         etude = etudes[L["base"]]
         res, p, manque = etude["res"], etude["raidisseur"], etude["manque"]
-        nc = RE.NON_COUVERT if manque else None
+        nc = (RE.BLOQUE if etude["bloque"] else RE.NON_COUVERT) if manque else None
 
         def info(F: float, FRd: float) -> Optional[float]:
             return F * 1e3 / FRd if manque else None
@@ -682,8 +691,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                     cles = [J.f("eta2", "η₂", [RE.terme("F_Ed", o["F"], "kN"), RE.terme("F_Rd", r["FRd"] / 1e3, "kN")], o["eta2"], "", "a_eta2"),
                             AM.ecrire_eta1(J, o["N"] * 1e3, o["M"] * 1e6, o["A"], o["W"], fy, gM0, o["nomA"], o["nomW"])]
                     cles.append(J.f("i72", "η", [RE.terme("η₂", o["eta2"]), RE.terme("η₁", o["eta1"])], o["inter"], "", "a_72"))
-                    mots72 = [f"η₁ plastique (classe {o['classe']}, variante) : {RE.fr(o['eta1_pl'], 3)}, taux {RE.fr(100.0 * o['inter_pl'], 1)} %."
-                              if o["eta1_pl"] != o["eta1"] else f"η₁ élastique seul (classe {o['classe']} : pas de variante plastique).",
+                    autre = "élastique" if P["eta1_ame"] == "plastique" else "plastique"
+                    mots72 = [f"η₁ {autre} (classe {o['classe']}, variante) : {RE.fr(o['eta1_autre'], 3)}, taux {RE.fr(100.0 * o['inter_autre'], 1)} %."
+                              if o["eta1_autre"] != o["eta1"] else f"η₁ élastique seul (classe {o['classe']} : pas de variante plastique).",
                               f"Seuil de résistance locale à M_Ed = {RE.fr(o['M'], 2)} kN·m imposé : {RE.fr(o['seuil'][0], 1)} kN "
                               f"(η₁ plastique : {RE.fr(o['seuil'][1], 1)} kN) — ce n'est pas la capacité de la barre."]
                     J.verif(f"{L['base']}-FM", f"{L['nom']} : force concentrée et flexion", f"{AM.REF} § 7.2", "(η₂ + 0,8·η₁)/1,4 ≤ 1",
@@ -726,7 +736,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         decision = "impossible" if manque else "raidisseur" if p is not None else "aucun"
         if manque:
             impossibles.setdefault(manque, []).append(L["nom"])
-        statut = RE.NOK if any(v["statut"] == RE.NOK for v in vs) else RE.NON_COUVERT if manque else RE.OK
+        statut = RE.NOK if any(v["statut"] == RE.NOK for v in vs) else (RE.BLOQUE if etude["bloque"] else RE.NON_COUVERT) if manque else RE.OK
         rendus.append({"base": L["base"], "nom": L["nom"], "genre": L["genre"], "x": L["x"], "type": r0["type"], "ss": r0["ss"],
                        "F_Ed": pire["F"], "sans": sans, "avec": avec,
                        "rappel": RA.RAPPEL_TAU if p is not None else None,

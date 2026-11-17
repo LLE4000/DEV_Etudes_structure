@@ -4097,7 +4097,7 @@ const principal = async () => {
   //  - (lot B) le bloc ELS : la méthode ELS vérifie le DÉVERSEMENT des classeurs par défaut — sa ligne « Déversement »
   //    (88 %, celle qui gouverne) ouvre son calcul, et la correction du classeur y est dite ;
   //  - le bloc de l'âme de la barre neuve (lot B : s_s et c ne sont plus supposés ; non saisis, ils sont pris à leur borne
-  //    0) : « À vérifier », une ligne par appui « décision impossible : s_s à saisir » (157 % à la borne), la ligne
+  //    0) : « Bloqué » (lot C, C0c : « À vérifier » avant), une ligne par appui « décision impossible : s_s à saisir » (157 % à la borne), la ligne
   //    « Âme » sous les verdicts le dit ; chaque ligne ouvre la fenêtre du LIEU ;
   //  - puis trente gestes : une charge saisie, une ponctuelle ajoutée, déplacée, retirée ; la charge permanente baissée à
   //    2 kN/m (l'âme tient À LA BORNE : « sans raidisseur (s_s = 0, c = 0 : borne prudente) ») puis rendue ; le maintien
@@ -4152,9 +4152,10 @@ const principal = async () => {
       ['la poutre devient continue (deux travées)', 'ba', 'modele', 'continue', 'menu', ''],
       ['une troisième travée', 'ba', 'travees/+', '1', 'clic', 'continue'],
       ['retour à deux appuis', 'ba', 'modele', 'appuis', 'menu', ''],
-      ['la méthode ELS seule', 'me', 'methodes', 'historique', 'clic', 'historique'],
-      ['l\'Eurocode 3 seul', 'me', 'methodes', 'ec3', 'clic', 'ec3'],
-      ['les deux méthodes', 'me', 'methodes', 'deux', 'clic', ''],
+      // (lot C, C0d — le harnais suit : le segment choisit ce que la NOTE imprime, etat « impression » ; l'écran garde les deux)
+      ['la note n\'imprime que la méthode ELS', 'me', 'impression', 'historique', 'clic', 'historique'],
+      ['la note n\'imprime que l\'Eurocode 3', 'me', 'impression', 'ec3', 'clic', 'ec3'],
+      ['la note imprime les deux méthodes', 'me', 'impression', 'deux', 'clic', ''],
       ['le profilé IPE 330 choisi dans le sélecteur', '', 'profil', 'IPE 330', 'choisir', 'selecteur'],
       ['une portée de 80 m, refusée par la page', 'ba', 'travees/0', '80', 'champ', 'refus'],
       ['une charge qui sort de la barre (de 0 à 9 m), refusée par le moteur', 'ch', 'cas/0/charges/0/b', '9', 'champ', 'refus_moteur'],
@@ -4162,6 +4163,11 @@ const principal = async () => {
       ['un moment de calcul de 60 kN·m', 'ef', 'efforts/elu/My', '60', 'champ', ''],
       ['un moment de service de 42 kN·m', 'ef', 'efforts/service/My', '42', 'champ', 'efforts_calcules'],
       ['retour à la barre chargée', 'ba', 'mode', 'chargee', 'clic', 'retour'],
+      // (lot C, C0b) une console de 3 m comprimée (N = 50 kN) : l'Eurocode 3 ne couvre pas N + M en console — sa puce n'est pas verte
+      ['la barre devient une console', 'ba', 'modele', 'console', 'menu', ''],
+      ['sa portée : 3 m', 'ba', 'travees/0', '3', 'champ', ''],
+      ['le maintien retiré', 'mt', 'maintiens/0/-', '1', 'clic', ''],
+      ['N = 50 kN de compression dans G', 'ch', 'cas/0/N', '50', 'champ', 'console'],
     ];
     const TEMOIN = [
       'import html, json, re, sys',
@@ -4330,7 +4336,8 @@ const principal = async () => {
         await g.waitForTimeout(150);
         // le bloc de l'âme : une ligne par appui ; chacune ouvre la fenêtre de SON lieu. (lot B, B4 : s_s et c ne sont plus
         // supposés — non saisis, ils sont pris à leur borne 0 ; aux appuis de la barre neuve, le critère 6.2.1(5) y vaut 157 % :
-        // la décision est IMPOSSIBLE, le bloc dit « À vérifier », la ligne « Âme » sous les verdicts dit ce qu'il faut saisir —
+        // la décision est IMPOSSIBLE, le bloc dit « Bloqué » (lot C, C0c — le harnais suit : « À vérifier » avant), la ligne « Âme »
+        // sous les verdicts dit ce qu'il faut saisir —
         // lue comme l'œil la voit : entière, dans l'écran)
         const ame0 = await g.evaluate((VIS) => { const bl = [...document.querySelectorAll('#resultat .et-bloc[data-theme]')].find((x) => /Âme et raidisseurs/.test((x.querySelector('.et-bloc-t .n') || {}).textContent || ''));
           if (!bl || !bl.checkVisibility(VIS)) return null;
@@ -4338,8 +4345,8 @@ const principal = async () => {
           return { etat: bl.querySelector('.et-bloc-t .e').textContent.replace(/\s+/g, ' ').trim(), lignes: [...bl.querySelectorAll('.el.vc')].filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.replace(/\s+/g, ' ').trim()),
             bande: rb ? { texte: bande.textContent.replace(/\s+/g, ' ').trim(), inc: bande.classList.contains('inc'), dedans: rb.left >= -0.5 && rb.right <= innerWidth + 0.5,
               coupe: bande.scrollWidth > bande.clientWidth + 1, h: Math.round(rb.height) } : null }; }, VIS);
-        verif('barres : le bloc « Âme et raidisseurs » de la barre neuve — « À vérifier », une ligne par appui (« décision impossible : s s à saisir », 157 % à la borne s s = 0, c = 0) ; sous les verdicts, la ligne « Âme » le dit, entière, dans l\'écran',
-          !!ame0 && /^À vérifier$/.test(ame0.etat) && ame0.lignes.length === 2 && /^Appui A/.test(ame0.lignes[0]) && /^Appui B/.test(ame0.lignes[1])
+        verif('barres : le bloc « Âme et raidisseurs » de la barre neuve — « Bloqué », une ligne par appui (« décision impossible : s s à saisir », 157 % à la borne s s = 0, c = 0) ; sous les verdicts, la ligne « Âme » le dit, entière, dans l\'écran',
+          !!ame0 && /^Bloqué$/.test(ame0.etat) && ame0.lignes.length === 2 && /^Appui A/.test(ame0.lignes[0]) && /^Appui B/.test(ame0.lignes[1])
           && ame0.lignes.every((t) => AME_NEUVE.test(t) && /157\s?%/.test(t)) && !!ame0.bande && ame0.bande.inc && ame0.bande.dedans && !ame0.bande.coupe
           && new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE} \\(appui A, appui B\\)$`).test(ame0.bande.texte), JSON.stringify(ame0));
         // (lot B) ce que l'œil LIT de la ligne « Âme » : s_s en indice, comme dans les lignes du bloc et le message (« s s ») —
@@ -4421,7 +4428,7 @@ const principal = async () => {
               // (lot B, B4) la charge à 0,50 m n'a ni s_s saisie, ni maintien de la semelle haute à son droit : sa décision est
               // IMPOSSIBLE ; l'appui A, lui, demande ses plats — la ligne « Âme » dit les deux, en gris (inc), plus en or ; le
               // lieu en tête, sans « décision impossible : » derrière lui (intégration, point 29 c)
-              plus = /^À vérifier · 89\s?%$/.test(a.etat || '') && !!a.bande && a.bande.inc
+              plus = /^Bloqué · 89\s?%$/.test(a.etat || '') && !!a.bande && a.bande.inc
                 && new RegExp(`^Âme · Raidisseur : 2 plats 70 × 10 mm \\(appui A\\) ; charge à 0,50 m : ${AME_NEUVE_MANQUE} ; ${AME_SANS_MAINTIEN}$`).test(a.bande.texte)
                 && a.lignes.length === 3 && /^Appui A\s?89\s?%\s?2 plats 70 × 10 mm/.test(a.lignes[0])
                 && new RegExp(`^Charge à 0,50 m\\s?122\\s?%\\s?décision impossible : ${AME_NEUVE_MANQUE} ; ${AME_SANS_MAINTIEN}$`).test(a.lignes[1])
@@ -4436,10 +4443,24 @@ const principal = async () => {
             else plus = a.lignes.length === 1 && /^Charge à 0,50 m/.test(a.lignes[0]) && !(await g.$('#donnees input[data-chemin="appuis/ss"]'));
             detail = JSON.stringify(a).slice(0, 400);
           } else if (quoi === 'historique' || quoi === 'ec3') {
+            // (lot C, C0d — le harnais suit : le moteur calcule toujours les deux méthodes, l'écran montre toujours deux verdicts ;
+            // le segment, lui, est posé sur ce que la note imprimera)
             const blocsM = await g.$$eval('#resultat .et-bloc .et-bloc-t .n', (e, VIS) => e.filter((x) => x.checkVisibility(VIS)).map((x) => x.textContent.trim()), VIS);
-            const mot = quoi === 'historique' ? /^Méthode ELS \(NBN B 51-001\)/ : /^Eurocode 3/;
-            plus = v.length === 1 && mot.test(v[0].methode) && blocsM.join() === (quoi === 'historique' ? 'ELS,Âme et raidisseurs' : 'Eurocode 3,Âme et raidisseurs');
-            detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM });
+            const seg = await g.$eval('#donnees [data-chemin="impression"].on, #donnees [data-chemin="impression"][aria-pressed="true"]', (x) => x.dataset.valeur).catch(() => null);
+            plus = v.length === 2 && /^Méthode ELS \(NBN B 51-001\)/.test(v[0].methode) && /^Eurocode 3/.test(v[1].methode)
+              && blocsM.join() === 'ELS,Eurocode 3,Âme et raidisseurs,Comparaison' && seg === quoi;
+            detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM, seg });
+          } else if (quoi === 'console') {
+            // (lot C, C0b) la console de 3 m : sa longueur de flambement automatique (2,1·L = 6,3 m) ; l'Eurocode 3 non couvert —
+            // sa puce n'est ni verte ni orange, et la raison se lit sous le verdict, en une ligne. (Reprise de C0 — le harnais a
+            // trouvé : ces gestes viennent APRÈS « les efforts imposés » et « retour à la barre chargée », qui copiaient L_y = 6 et
+            // L_z = 3 en données : la console gardait L_z = 3 m saisi, « auto · 3 ». Corrigé dans api_web/profil.py (COPIEES) ; le
+            // contrôle lit maintenant ce que l'œil voit du champ — VIDE, et « auto · 6,3 » — pas seulement son texte d'attente.)
+            await ouvrirRubB(g, 'mt');
+            const lz = await g.$eval('#donnees input[data-chemin="flambement/z/L"]', (e) => ({ v: e.value, ph: e.placeholder })).catch(() => null);
+            const ec3 = v.find((x) => /^Eurocode 3/.test(x.methode));
+            plus = !!lz && lz.v === '' && lz.ph === 'auto · 6,3' && !!ec3 && !['p', 'f'].includes(ec3.niveau) && /\+ 1 non couvert : flexion composée/.test(ec3.texte);
+            detail = JSON.stringify({ lz, ec3 });
           } else if (quoi === 'selecteur') {
             // (le témoin, lui, n'a PAS ouvert le sélecteur avant de choisir : la page, qui l'a ouvert — toute la famille vérifiée
             //  —, rend quand même ce qu'il rend. Le résultat d'une note ne dépend pas de ce qui a été ouvert avant.)
@@ -4477,9 +4498,11 @@ const principal = async () => {
             borne: 'aux appuis, l\'âme tient À LA BORNE — « Sans raidisseur · 83 % », chaque appui « sans raidisseur (s s = 0, c = 0 : borne prudente) », pas de ligne « Âme » sous les verdicts',
             sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 114 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
             appui_100: 'les appuis passent à « Sans raidisseur · 22 % » (F_Rd = 199,8 kN ; c non saisi, pris à 0 : « sans raidisseur (c = 0 : borne prudente) »), plus de ligne « Âme »',
-            raidisseur: 'l\'appui A demande 2 plats 70 × 10 mm (sa ligne les nomme, ils sont DESSINÉS sur la barre avec leur légende) ; à la charge (0,50 m : ni s s saisie, ni maintien de la semelle haute à son droit) la décision est IMPOSSIBLE (122 % à la borne) — la ligne « Âme » dit les deux, en gris, le lieu en tête (« charge à 0,50 m : s s à saisir ; semelle haute sans maintien (…) ») ; « À vérifier · 89 % » au bloc ; le champ de la longueur d\'appui de la charge',
+            raidisseur: 'l\'appui A demande 2 plats 70 × 10 mm (sa ligne les nomme, ils sont DESSINÉS sur la barre avec leur légende) ; à la charge (0,50 m : ni s s saisie, ni maintien de la semelle haute à son droit) la décision est IMPOSSIBLE (122 % à la borne) — la ligne « Âme » dit les deux, en gris, le lieu en tête (« charge à 0,50 m : s s à saisir ; semelle haute sans maintien (…) ») ; « Bloqué · 89 % » au bloc ; le champ de la longueur d\'appui de la charge',
+            console: 'L z vide, « auto · 6,3 » (la console : 2,1·L — même après les efforts imposés et le retour) ; la puce de l\'Eurocode 3 n\'est PAS verte (N + M en console : non couvert), « + 1 non couvert : flexion composée » sous son verdict',
             sans_raidisseur: 's s de la charge saisie : il ne manque plus que le maintien de la semelle haute (« semelle haute sans maintien (EN 1993-1-5, 6.1(1)) ; ajouter un maintien (À VÉRIFIER) », 87 % si elle est tenue) ; l\'appui A garde ses plats, dessinés ; « À vérifier · 89 % » au bloc', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
-            historique: 'un seul verdict ; deux blocs, celui de la méthode ELS (titre court « ELS ») et celui de l\'âme', ec3: 'un seul verdict ; deux blocs, celui de l\'Eurocode 3 et celui de l\'âme',
+            historique: 'la note n\'imprimera que l\'ELS (le segment le dit) ; l\'écran garde ses DEUX verdicts et ses quatre blocs (ELS, Eurocode 3, âme, comparaison)',
+            ec3: 'la note n\'imprimera que l\'Eurocode 3 (le segment le dit) ; l\'écran garde ses DEUX verdicts et ses quatre blocs',
             selecteur: 'le sélecteur montre la famille triée par masse, ✓ sur l\'IPE 300, une seule ★, une pastille par ligne ; l\'IPE 330 retenu, le taux baisse — et la page, sélecteur ouvert, rend ce que rend le témoin, qui ne l\'a pas ouvert',
             refus: 'le refus dit la borne (« Valeur refusée : « 80 » — entre 0,05 et 60 »), le champ rougit et garde la saisie à corriger',
             refus_moteur: 'le mot du moteur se lit (« Saisie refusée : … cas « G » … »), la charge est rendue à 6 m — et la portée refusée juste avant aussi', efforts: 'la rubrique Efforts remplace Charges, la vue de la barre s\'efface, aucun taux sans effort',

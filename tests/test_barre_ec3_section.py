@@ -847,9 +847,11 @@ def mutations():
         #  parité avec le module Flambement, une inégalité sur ces couples, la laissait passer ; l'égalité retrouvée l'attrape)
         ("classe", "lot A — les semelles classées avec l'ε de l'âme (trop petit pour une semelle plus épaisse que l'âme)",
          '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = float((fy_parois or {}).get("ame" if role == "semelle" else role, fy))\n'),
+        # (lot C, C0g — le harnais suit : la DÉCISION BUREAU n° 3 est lue dans la table ; la même altération sur la ligne neuve)
         ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w",
-         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE)',
-         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if True else (2.0 * s["b"] * s["tf"], AVY_LAMINE)'),
+         '(2.0 * s["b"] * s["tf"], AVY_LAMINE) if decision == "2btf"', '(A - hw * s["tw"], AVY_LAMINE) if decision == "2btf"'),
+        ("section", "lot C — A_v,y d'un I laminé : la décision n° 3 n'est plus lue dans la table (la variante toujours)",
+         '        decision = PA.valeur("avy_lamine") if avy is None else avy', '        decision = "A_moins_hwtw"'),
         ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
         ("section", "lot A — section efficace avec l'ε de la f_y de calcul", '    ep = eps_parois or eps\n', '    ep = eps\n'),
         ("classe", "lot A — ε de chaque paroi oublié", '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = fy\n'),
