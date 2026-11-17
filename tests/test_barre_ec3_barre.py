@@ -42,7 +42,6 @@ from acier.barre import ec3_flambement as FL  # noqa: E402
 from acier.barre import ec3_interaction as IN  # noqa: E402
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import mcr as MC  # noqa: E402
-from acier.barre import mcr_annexe_e as AE  # noqa: E402
 from acier.barre import entree as EN  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
@@ -52,7 +51,7 @@ from acier.profiles import catalogue as CAT  # noqa: E402
 
 OK, KO = [], []
 BENCH21 = {}                     # les valeurs du benchmark 21 (obtenue, attendue), relues par le rapport
-FICHIERS = ("mcr", "ec3_flambement", "ec3_deversement", "ec3_interaction", "ec3", "mcr_annexe_e")
+FICHIERS = ("mcr", "ec3_flambement", "ec3_deversement", "ec3_interaction", "ec3")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
 E_, G_ = 210000.0, 81000.0
 ALPHA = {"a0": 0.13, "a": 0.21, "b": 0.34, "c": 0.49, "d": 0.76}
@@ -192,7 +191,7 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
 def controles(M=None):
     """[(nom, ok, info)] — ``M`` : les modules à contrôler {"mcr", "ec3_flambement", "ec3_deversement",
     "ec3_interaction", "ec3"} (les mutations y passent leurs copies altérées)."""
-    M = M or {"mcr": MC, "ec3_flambement": FL, "ec3_deversement": DV, "ec3_interaction": IN, "ec3": EC, "mcr_annexe_e": AE}
+    M = M or {"mcr": MC, "ec3_flambement": FL, "ec3_deversement": DV, "ec3_interaction": IN, "ec3": EC}
     mc, ec, dv = M["mcr"], M["ec3"], M["ec3_deversement"]
     C = []
 
@@ -747,7 +746,7 @@ def controles(M=None):
       "refusés avec un message", not refus, refus)
 
     # ---- 4 bis. le lot B (brief v12)
-    me = M["mcr_annexe_e"]
+    me = M["mcr"]                # l'annexe E ANB : une seule source, celle du moteur (mcr.py — intégration du lot B)
     # test 1 du § 11.5 — k_c du tableau 6.6 (normatif, ANB:2018, 6.3.2.3(2)) : seulement la portée d'un de ses schémas
     def q6(v_, a=0.0, b=6.0):
         return {"type": "q", "v": v_, "a": a, "b": b}
@@ -880,11 +879,17 @@ def controles(M=None):
       proche(coef["ponctuel"], PI2 / 12, 1e-6) and proche(coef["reparti"], 5 * PI2 / 48, 1e-6) and round(coef["ponctuel"], 4) == 0.8225
       and round(coef["reparti"], 4) == 1.0281, coef)
     # R1 et tests 20, 21 du § 11.5 — l'annexe E ANB, contrôle analytique (le solveur reste la référence)
+    def controle_e(diag, a_, b_, g_, zg=0.0):
+        """(E.8) = (E.1) à z_j = 0, avec les coefficients des tableaux E.1 ANB et E.2 ANB (note b : moments seuls)."""
+        charge = diag in me.E2
+        co = me.coefficients_annexe_e(diag, 1.0, 0.0, None if charge else me.kwt(L, b_, g_))
+        return me.annexe_e(L, a_, b_, g_, co["C1"], co["C2"], co["C3"], zg if charge else 0.0, 0.0)
+
     def ae(G):
         a_, b_, g_ = E_ * Iz, E_ * Iw, G * It
-        out = [me.controle(me.MOMENTS, L, a_, b_, g_, psi=1.0)["M_cr"]]
-        for cas_ in (me.REPARTI, me.PONCTUEL):
-            out += [me.controle(cas_, L, a_, b_, g_, zg=zg)["M_cr"] for zg in (0.0, 150.0, -150.0)]
+        out = [controle_e("constant", a_, b_, g_)]
+        for cas_ in ("reparti", "ponctuel"):
+            out += [controle_e(cas_, a_, b_, g_, zg=zg) for zg in (0.0, 150.0, -150.0)]
         return [round(x / 1e6, 2) for x in out]
 
     ae81, ae80 = ae(G_), ae(E_ / 2.6)
@@ -894,12 +899,12 @@ def controles(M=None):
       "sécuritaire, elle est le contrôle) ; avec G = E/2,6 sans arrondi : 90,38 / 101,23 / 78,30 / 130,86 / 122,02 / 87,36 / 170,42",
       ae81 == [90.47, 101.33, 78.40, 130.96, 122.14, 87.47, 170.54] and ae80 == [90.38, 101.23, 78.30, 130.86, 122.02, 87.36, 170.42]
       and all(abs(x - y) <= 0.011 for x, y in zip(ecarts_r1, (-0.96, -0.54, -1.30, -0.80, -1.93, 0.94))), (ae81, ae80, ecarts_r1))
-    kwt = me.k_wt(L, E_ * Iw, G_ * It)
-    nb = [me.coefficients(me.MOMENTS, p_, kwt)["C1"] for p_ in (0.0, 0.75, 1.0)]
+    kwt = me.kwt(L, E_ * Iw, G_ * It)
+    nb = [me.coefficients_annexe_e("lineaire", p_, 0.0, kwt)["C1"] for p_ in (0.0, 0.75, 1.0)]
     c("test 21 du § 11.5 — note b de l'annexe E : IPE 300, 6 m, K_ωt = 0,667 ≤ 1 → ψ = 0 : C₁ = 1,77/1,05 = 1,686 ; ψ = 0,75 : 1,086 ; ψ = 1 : 1,00 "
       "(et non 0,952) ; K_ωt > 1 : C₁ inchangé ; la note ne touche pas les charges transversales (1,12)",
-      round(kwt, 3) == 0.667 and [round(x, 3) for x in nb] == [1.686, 1.086, 1.0] and me.coefficients(me.MOMENTS, 0.0, 1.2)["C1"] == 1.77
-      and me.coefficients(me.REPARTI, None, 0.5)["C1"] == 1.12 and _leve(lambda: me.coefficients("sinus")), (kwt, nb))
+      round(kwt, 3) == 0.667 and [round(x, 3) for x in nb] == [1.686, 1.086, 1.0] and me.coefficients_annexe_e("lineaire", 0.0, 0.0, 1.2)["C1"] == 1.77
+      and me.coefficients_annexe_e("reparti", 1.0, 0.0, 0.5)["C1"] == 1.12 and me.coefficients_annexe_e("sinus")["bloque"] is not None, (kwt, nb))
     # test 26 du § 11.5 — l'annexe D ANB et l'annexe A
     r0 = v("IPE 300", "S235", 4000.0, NEd=1.0, MyEd=60e6, MzEd=8e6, flexion={"y": {"diagramme": "ponctuel"}})
     A0 = r0["grandeurs"]["annexe_A"]
@@ -1039,7 +1044,7 @@ def charger(mutation=None):
         mod.__package__ = "acier.barre"
         exec(compile(src, CHEMINS[k], "exec"), mod.__dict__)
         mods[k] = mod
-    mods["ec3_deversement"].MC = mods["mcr"]                     # (mcr_annexe_e n'importe rien du module)
+    mods["ec3_deversement"].MC = mods["mcr"]
     mods["ec3_interaction"].DV = mods["ec3_deversement"]
     e = mods["ec3"]
     e.FL, e.DV, e.IN, e.MC = mods["ec3_flambement"], mods["ec3_deversement"], mods["ec3_interaction"], mods["mcr"]
@@ -1164,13 +1169,14 @@ MUTATIONS = [
      '    G["a_confirmer_interaction"] = ["npl_gamma"] if (N > 0 and plastique and gM0 != gM1) else []\n', '    G["a_confirmer_interaction"] = []\n'),
     ("ec3_interaction", "lot B — n_pl avec γ_M0 par défaut (l'annexe A au lieu de l'annexe D ANB)", '(gM1, gM0) if P["npl_gamma"] != "gamma_M0" else (gM0, gM1)',
      '(gM0, gM1) if P["npl_gamma"] != "gamma_M0" else (gM1, gM0)'),
-    ("mcr_annexe_e", "annexe E — C₂·z_g de signe retourné", "    a = C2 * zg\n", "    a = -C2 * zg\n"),
-    ("mcr_annexe_e", "annexe E — π² oublié devant G·I_t", "(kz * L) ** 2 * GIt / (math.pi ** 2 * EIz)", "(kz * L) ** 2 * GIt / EIz"),
-    ("mcr_annexe_e", "annexe E — C₂ de la charge centrale 0,63 (le NCCI SN003, pas l'ANB)", "PONCTUEL: (1.35, 0.59)", "PONCTUEL: (1.35, 0.63)"),
-    ("mcr_annexe_e", "annexe E — C₁ de la charge répartie 1,127 (SN003)", "TABLEAU_E2 = {REPARTI: (1.12, 0.45)", "TABLEAU_E2 = {REPARTI: (1.127, 0.45)"),
-    ("mcr_annexe_e", "annexe E, note b — C₁/1,05 descend sous 1", "max(C1 / DIVISEUR_NOTE_B, 1.0)", "C1 / DIVISEUR_NOTE_B"),
-    ("mcr_annexe_e", "annexe E, note b — appliquée quel que soit K_ωt", "        if Kwt is not None and Kwt <= 1.0:", "        if Kwt is not None:"),
-    ("mcr_annexe_e", "annexe E, note b — K_ωt sans π", "    return math.pi / (kw * L) * math.sqrt(EIw / GIt)", "    return 1.0 / (kw * L) * math.sqrt(EIw / GIt)"),
+    # (l'annexe E ANB : une seule source, mcr.py — intégration du lot B ; les mêmes altérations, sur le texte du moteur)
+    ("mcr", "annexe E — C₂·z_g de signe retourné", "    x = C2 * zg - C3 * zj\n", "    x = -C2 * zg - C3 * zj\n"),
+    ("mcr", "annexe E — π² oublié devant G·I_t", "(kz * L) ** 2 * GIt / (math.pi ** 2 * EIz)", "(kz * L) ** 2 * GIt / EIz"),
+    ("mcr", "annexe E — C₂ de la charge centrale 0,63 (le NCCI SN003, pas l'ANB)", '"ponctuel": (1.35, 0.59, 0.411)', '"ponctuel": (1.35, 0.63, 0.411)'),
+    ("mcr", "annexe E — C₁ de la charge répartie 1,127 (SN003)", 'E2 = {"reparti": (1.12, 0.45, 0.525),', 'E2 = {"reparti": (1.127, 0.45, 0.525),'),
+    ("mcr", "annexe E, note b — C₁/1,05 descend sous 1", "        c1 = max(c1 / NOTE_B, 1.0)", "        c1 = c1 / NOTE_B"),
+    ("mcr", "annexe E, note b — appliquée quel que soit K_ωt", "    if Kwt is not None and Kwt <= 1.0:\n", "    if Kwt is not None:\n"),
+    ("mcr", "annexe E, note b — K_ωt sans π", "    return math.pi / (kw * L) * math.sqrt(EIw / GIt)", "    return 1.0 / (kw * L) * math.sqrt(EIw / GIt)"),
     ("ec3_interaction", "formule générale : sans π²", 'c = 1.0 + (math.pi ** 2 * E * inertie * abs(fl["delta"]) / (fl["L"] ** 2 * M) - 1.0) * r',
      'c = 1.0 + (E * inertie * abs(fl["delta"]) / (fl["L"] ** 2 * M) - 1.0) * r'),
     ("ec3_interaction", "μ_y = 1", "    muy = (1.0 - ry) / (1.0 - chiy * ry)\n", "    muy = 1.0\n"),
@@ -1338,6 +1344,14 @@ def main():
     b1 = copy.deepcopy(b0)
     EC.verifier(b1)
     chk("verifier ne modifie pas la barre reçue", b1 == b0)
+    # (intégration du lot B, R2) l'annexe E ANB a UNE table, celle du moteur (mcr.py) : aucun autre fichier de
+    # acier/barre ne recopie ses coefficients — la seconde table du bloc B3 (mcr_annexe_e.py) est retirée
+    dossier = os.path.join(RACINE, "acier", "barre")
+    copies = sorted(f for f in os.listdir(dossier) if f.endswith(".py") and f != "mcr.py"
+                    and ("1.35, 0.59" in open(os.path.join(dossier, f), encoding="utf-8").read()
+                         or "1.12, 0.45" in open(os.path.join(dossier, f), encoding="utf-8").read()))
+    chk("annexe E ANB : une seule table, mcr.py — aucun autre fichier du moteur ne recopie (C₁ ; C₂) = (1,12 ; 0,45) ou (1,35 ; 0,59)",
+        not copies and MC.E2["reparti"][:2] == (1.12, 0.45) and MC.E2["ponctuel"][:2] == (1.35, 0.59), copies)
 
     print("== 7. mutations")
     for fichier, nom, ancien, nouveau in MUTATIONS:

@@ -354,7 +354,7 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
   module n'a pas. Le seuil de 6.3.2.2(4) des tubes lit le même λ̄_LT,0 (0,2). Les clés « sans maintiens » de la table
   sont retirées, et une surcharge qui les nomme est refusée avec son motif.
 
-**Ce que le lot B a ajouté** (brief v12, § 7.7 et 19.2 ; `ec3_deversement.py`, `mcr_annexe_e.py`, tests 1, 9, 10, 20 et 21
+**Ce que le lot B a ajouté** (brief v12, § 7.7 et 19.2 ; `ec3_deversement.py`, `mcr.py`, tests 1, 9, 10, 20 et 21
 du § 11.5 dans `tests/test_barre_ec3_barre.py`) :
 - **k_c reconnu sur tout le tableau 6.6** (`kc_portee`) : une portée seule, tronçon = la portée, sans maintien intérieur,
   sous des charges uniformes sur toute la portée ou des charges à mi-portée seulement — deux appuis 0,94 / 0,86 ;
@@ -375,9 +375,11 @@ du § 11.5 dans `tests/test_barre_ec3_barre.py`) :
   paramètres) ; le § 6.3.2.2 (tableau 6.4 : courbe a si h/b ≤ 2, b au-delà) est calculé à côté et rendu « pour
   information » (`grandeurs.deversement.information` : χ_LT, M_b,Rd, taux, source). R3 : 0,5838 / 86,22 / 0,797 et
   0,4687 / 69,21 / 0,993. L'affichage à l'écran et dans la note est au lot C ;
-- **le contrôle analytique de l'annexe E ANB** (`mcr_annexe_e.py`) : (E.8), tableaux E.1 ANB et E.2 ANB pour k_z = k_ω = 1,
-  (E.2) entre deux lignes du tableau E.1, note b (C₁/1,05 si K_ωt ≤ 1, jamais sous 1). Il redonne les sept valeurs R1 de
-  la colonne ANB au centième, avec G = 81 000 et avec G = E/2,6. Le solveur reste la référence ;
+- **le contrôle analytique de l'annexe E ANB** : une seule table, celle du moteur (`mcr.py` : `coefficients_annexe_e`,
+  `annexe_e`, `kwt` ; § 5.10 pour z_j et C₃) — (E.1), qui redonne (E.8) quand z_j = 0, tableaux E.1 ANB et E.2 ANB pour
+  k_z = k_ω = 1, note b (C₁/1,05 si K_ωt ≤ 1, jamais sous 1). Un ψ qui n'est pas une ligne du tableau E.1 ANB : contrôle
+  bloqué, le solveur seul (l'équation (E.2) n'est pas employée). Il redonne les sept valeurs R1 de la colonne ANB au
+  centième, avec G = 81 000 et avec G = E/2,6. Le solveur reste la référence ;
 - **C₁ de l'annexe D ANB** (étape 1) : M_cr/M_cr,0 du solveur, les charges ramenées au centre de cisaillement (annexe E
   ANB, méthode avancée) — et non k_c⁻² (AC:2009), que l'ANB écarte. Charge centrale : 1,36 au lieu de 1,352.
 
