@@ -431,7 +431,8 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 
 | Paramètre | Valeur | Source | Statut |
 |---|---|---|---|
-| γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | valeurs EN, reprises par l'ANB | à pointer sur l'ANB |
+| γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments) | pointé (lot C) |
+| E ; G | 210 000 ; 81 000 N/mm² | EN 1993-1-1 § 3.2.6(1) (G arrondi par le même paragraphe) | pointé (lot C) |
 | λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (le couple par défaut ; la variante, ligne suivante, sur demande) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
 | Variante (λ̄_LT,0 ; β) | 0,4 ; 0,75 — sur demande, poutre de bâtiment, maintiens tous ignorés dans M_cr (lot B) | ANB:2018, 6.3.2.3(1) | pointé |
 | Facteur f et tableau 6.6 (§ 6.3.2.3(2)) | formule EN, tableau complet (lot B) | ANB:2018, 6.3.2.3(2) : normatifs | pointé |
@@ -445,10 +446,14 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 | Borne inférieure de C_mi,0 | aucune (clé retirée, lot B) | tableau D.1 ANB | pointé |
 | γ de n_pl quand γ_M0 ≠ γ_M1 | γ_M1 (annexe D ANB) ; la variante γ_M0 affichée | annexe D ANB / AC:2009 | **À CONFIRMER** (seulement si γ_M0 ≠ γ_M1) |
 | η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (PRS, I soudés, caissons), jusqu'au S460 (lot A ; PRS : lot B) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire (renvoi au 6.2.6(3) de l'EN 1993-1-1) | pointé (lot B) |
-| Combinaison ELU | (6.10) : 1,35·G + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i | NBN EN 1990 ANB | à pointer |
-| ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB (brief) | à pointer |
-| ψ de la neige, du vent, de la température | 0,5/0,2/0 ; 0,6/0,2/0 ; 0,6/0,5/0 (valeurs EN) | — | **À CONFIRMER** |
-| Combinaison de la méthode ELS | G + ΣQ, tout à 100 % | pratique du bureau | **À CONFIRMER** (Q4) |
+| γ_G,sup ; γ_G,inf ; γ_Q | 1,35 ; 1,00 ; 1,5 (0 si favorable) | NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 | pointé (lot C) |
+| Combinaison ELU | (6.10) par défaut ; option (6.10a) et (6.10b), la plus défavorable retenue | NBN EN 1990 ANB:2021, tableau A1.2(B) | pointé (lot C) |
+| ξ de (6.10b) | 0,85 (ξ·γ_G,sup = 1,1475) ; 1,00 pour une application géotechnique | NBN EN 1990 ANB:2021, tableau A1.2(B) | pointé (lot C) |
+| ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E (fluides et matières stockés compris) : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB:2021, tableau A1.1 | pointé (lot C) |
+| ψ de la neige, du vent, de la température | 0,5/**0**/0 (ψ₁ = 0, altitude ≤ 1 000 m) ; 0,6/0,2/0 ; 0,6/0,5/0 | NBN EN 1990 ANB:2021, tableau A1.1 | pointé (lot C ; ψ₁ de la neige valait 0,2, la valeur de l'EN) |
+| ψ₀ de courte durée | 0,3 — la neige et le vent seulement (mise en œuvre restreinte, ci-dessous) | NBN EN 1990 ANB:2021, tableau A1.1, note 3 | pointé (lot C) |
+| ψ₀ de l'exécution, des machines | saisi, sans défaut (exécution : 1,0 / – / 0,2 au tableau, au cas par cas) | tableau A1.1 ANB, notes 1 et 2 | une donnée de la barre (lot C) |
+| Combinaison de la méthode ELS | G + ΣQ, tout à 100 % | décision du bureau du 16/11/2026 (brief § 13.2 point 5) | tranché (Q4) |
 
 Les DÉCISIONS BUREAU (n° 1, 2, 3, 4, 9, 10) ont UN statut dans la table (`DECISION`) et une entrée {valeur par défaut,
 variante, valeurs admises, point du § 13.2, source} ; chaque moteur lit la sienne par `parametres.jeu()` — changer le
@@ -456,14 +461,58 @@ défaut dans la table change le verdict, l'autre variante est rendue à côté (
 lot C). `parametres.decisions()` les rend dans l'ordre de leur numéro (ce que la note imprimera, C5). Le seuil de 95 %
 (n° 7) n'y est pas : c'est celui du site (`api_web/commun.py`).
 
-« À pointer » : la valeur est celle de l'EN, connue ; il reste à la lire sur le texte belge. « À CONFIRMER » : la valeur
-change un résultat et sa source n'est pas le texte — elle est imprimée comme telle dans la note.
+« À pointer » (plus aucune entrée depuis le lot C : les trois annexes belges sont lues, brief § 13.1) : la valeur de l'EN,
+connue, restait à lire sur le texte belge. « À CONFIRMER » : la valeur change un résultat et sa source n'est pas le
+texte — elle est imprimée comme telle dans la note ; il n'en reste qu'un, n_pl (`tests/test_barre_combinaisons.py`).
 
-**Les combinaisons, telles que le moteur les écrit** (`acier/barre/combinaisons.py`, lot 5) : pour chaque ARRANGEMENT
-des cas variables (chacun présent ou absent — c'est la recherche de la disposition défavorable, travée par travée) et
-chaque nature dominante parmi les présents, γ_G·ΣG + γ_Q·Q_dominante + Σ γ_Q·ψ₀·Q_autres, avec γ_G = 1,35 puis 1,00
-(G favorable). Les cas d'une MÊME nature sont une seule action disposée librement : ils reçoivent tous γ_Q quand leur
-nature domine. Au plus quatre cas variables. Méthode ELS : G + ΣQ à 100 % pour chaque arrangement.
+**Les combinaisons, telles que le moteur les écrit** (`acier/barre/combinaisons.py` ; lot 5, puis lot C, C2) : pour
+chaque ARRANGEMENT des cas variables (chacun présent ou absent — la disposition défavorable, travée par travée), chaque
+JEU de γ_G et chaque nature en tête parmi les présentes :
+
+- **(6.10)**, le défaut : Σ γ_G·G + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i ;
+- **(6.10a) et (6.10b)**, l'option « 6.10ab » : (6.10a) 1,35·G_sup + Σ 1,5·ψ₀·Q_i (toutes les variables à ψ₀ ; Q₁,
+  l'accompagnement principal, à son ψ₀,₁) ; (6.10b) ξ·1,35·G_sup + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i ; G_inf = 1,00 dans les deux ;
+  ξ = 1,00 en géotechnique. Les deux sont versées : l'enveloppe garde la plus défavorable. Sans action variable,
+  (6.10b) vaut ξ fois (6.10a) sur les G défavorables : elle n'est pas versée.
+- Les cas d'une MÊME nature sont une seule action disposée librement : en tête, ils reçoivent tous γ_Q.
+- **γ_G par source** (`À VÉRIFIER`) : chaque cas permanent est une source, γ_G,sup ou γ_G,inf indépendamment (le
+  côté sûr ; le texte de l'EN 1990 n'est pas lu) — un G défavorable sur une travée (ou un débord), un G favorable sur
+  l'autre. Deux cas de même répartition (charges proportionnelles, aux mêmes abscisses et niveaux : le poids propre et
+  un G réparti sur toute la barre) font une source : mêlés, leurs γ donneraient les mêmes efforts multipliés par un
+  facteur compris entre les deux extrêmes. Continue de deux travées de 5 m, G₁ = G₂ = 10 kN/m : « 1,35·G1 + G2 »
+  donne 25,826 kN·m en travée 1, contre 23,730 pour 1,35·(G₁ + G₂).
+- **Règle belge de courte durée** (note 3 du tableau A1.1 ANB), mise en œuvre RESTREINTE du brief § 5 : seules la
+  neige et le vent reçoivent ψ₀ = 0,3 — derrière l'autre, d'office ; derrière une action déclarée « de courte durée »
+  (tous les cas présents de sa nature) ; « derrière » : en tête dans (6.10) et (6.10b), accompagnement principal dans
+  (6.10a). Une charge d'exploitation ou une température d'accompagnement garde le ψ₀ du tableau. Option « règle
+  désactivée » : le tableau partout. Quand deux actions de courte durée suivent une action de longue durée, la
+  combinaison porte « limite » et la note le dit.
+- **Exécution, machines** : ψ₀ saisi par cas, sans défaut ; demandé seulement quand il sert (le cas accompagne une
+  autre nature, ou l'expression est (6.10a)) — sinon le calcul est bloqué, « ψ₀ à fournir ». Un ψ₀ saisi sur une autre
+  nature ne sert pas.
+- **Limites** : au plus quatre NATURES variables (le nombre de cas : `entree.CAS_MAX` = 6). Au plus 512 combinaisons
+  ELU quand il y a plusieurs sources permanentes (une seule est toujours admise) : au-delà, la barre est refusée
+  (« au plus k cas permanents de répartitions différentes »), jamais une combinaison abandonnée en silence.
+- **Noms** : « 1,35·G + 1,5·Q » — plusieurs cas permanents au même γ s'écrivent « G » (chacun sinon : « 1,35·G1 +
+  G2 ») ; « (6.10a) » ou « (6.10b) » en suffixe ; le facteur s'écrit à deux décimales (1,1475 → « 1,15 »).
+  `combinaisons.hypotheses(options, cas)` rend les lignes de la note, une chacune.
+
+Mesures (17/11/2026, CPython, `moteur.verifier`) — nombre de combinaisons ELU, quatre natures (Q, neige, vent,
+température), un cas chacune :
+
+| Sources permanentes | (6.10) | (6.10a)/(6.10b) |
+|---|---|---|
+| 1 | 65 | 109 |
+| 2 | 131 | 219 |
+| 3 | 263 | 439 |
+| 4 | refusée (527) | refusée (879) |
+
+Six cas variables de quatre natures, une source : 321 et 537. Continue HEA 200 de 5 × 5 m, quatre natures : deux
+sources, 3,6 s en (6.10) et 7,5 s en (6.10a)/(6.10b) ; trois sources, 7,4 s et 12,7 s (avant le lot C : 65
+combinaisons, 2,0 s). Sélecteur d'une barre de 6 m, poids propre + G réparti et ponctuel (deux sources) : 1,1 → 2,5 s ;
+la barre neuve (une source) : inchangée (0,6 s).
+
+Méthode ELS : G + ΣQ à 100 % pour chaque arrangement (décision du bureau du 16/11/2026, brief § 13.2 point 5).
 
 ### 5.9 EN 1993-1-5 : âme et raidisseurs (vérifié ; en service depuis le lot 4)
 
