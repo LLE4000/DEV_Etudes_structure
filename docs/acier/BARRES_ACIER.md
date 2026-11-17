@@ -705,7 +705,26 @@ défavorable ; une seule règle, `historique.verifier` — intégration du lot B
 retiré), l'Eurocode 3 se calcule. Le moteur prend un PRS par ses plats
 (`"prs"`) ou par son nom (`"profil"`) dans une bibliothèque (`"bibliotheque"`) au FORMAT des profilés personnalisés du
 Catalogue (`{"famille": "PRS", "dims": {"h", "b", "tw", "tf"} (+ "b2", "tf2", "a")}`, la nuance) : seules les
-dimensions et la nuance sont stockées, tout se recalcule. L'écran (« Choix de profilé ») : lot C.
+dimensions et la nuance sont stockées, tout se recalcule.
+
+**L'écran (lot C, bloc C6 ; `api_web/profil_prs.py`)** — rubrique « Barre », sous l'acier : « Catalogue · PRS ». Un PRS
+part des plats du profilé en I de la barre (IPE 300 : 150 × 10,7 / 278,6 × 7,1), gorge et bords NON saisis ; il se saisit
+en trois lignes « b × t » (semelle haute ; âme et gorge a ; semelle basse : chemins `prs/b1` … `prs/a`), puis les bords
+(`prs/bords` ; vides : la méthode ELS « Bloqué », puce jamais verte) ; une ligne d'aide dit h = t₁ + h_w + t₂ et la norme
+produit (la table des aciers : EN 10025-2) ; un refus est celui de `section_prs`, en une ligne (« Saisie refusée : PRS :
+… »). La case « section soudée équivalente » (`prs/soudee` → `parametres.prs_soudee_equivalente`) n'est offerte qu'à un
+PRS bisymétrique, et retirée quand il devient monosymétrique. Retour au catalogue : le profilé en I le plus proche (h,
+puis b). **La bibliothèque** est le CARNET du module (`profil.CARNET`, il voyage avec chaque requête ; l'écran le garde
+dans ce navigateur, `js/carnet.js`), au format de `prs.vers_bibliotheque` (aucune propriété), relu par
+`prs.de_bibliotheque` ; « Enregistrer dans la bibliothèque » / « Retirer » sous le bouton du profilé, qui ouvre la
+bibliothèque (le sélecteur d'un PRS : chaque PRS vérifié avec la barre, sans ★). La barre garde une COPIE de ses plats
+(`prs`) : la note se suffit. À VÉRIFIER : la page Catalogue garde ses profilés personnalisés dans SA note et ne lit pas
+ce carnet en v1. **La vue « Section »** est le croquis coté (`dessin_profil.section_prs`) : plats, cordons, axes PAR LE
+CENTRE DE GRAVITÉ, G (cercle barré) et C (losange), une lettre et un symbole chacun ; « mm » et la méthode dessous ; le
+tableau des propriétés avec leur origine (`profil_prs.proprietes` : A, z_g, I_y, I_z, W_el,y, W_pl,y, I_t, I_w ; z_s, z_j
+et ψ_f d'un monosymétrique, semelle haute comprimée ; f_y de chaque plat et de calcul) — le même tableau que la fiche de
+la note (`profil.fiche_profil(nom, barre)`, clé « tableau » : la note du PRS est au bloc C5). La masse au bouton : ρ·A
+(`prs.MASSE_VOLUMIQUE`). Preuve : `tests/test_api_web_profil_prs.py` (74 contrôles, 22 mutations).
 
 **Les règles EC3** (18.5) : c depuis le pied des cordons (s = a·√2) ; âme d'un monosymétrique fléchi en paroi fléchie et
 comprimée (α plastique, ψ élastique, bord de c à f_y) même sans N ; semelle tendue sans limite ; ε et f_y plat par plat,

@@ -24,6 +24,7 @@ from rdm import poutres as PO
 from . import commun as C
 from . import etabli_compact as E
 from . import profil_mots as M
+from . import profil_prs as PP
 
 ROLE = "profil"
 N = C.NBSP
@@ -45,7 +46,7 @@ def _longueur(el: Dict) -> float:
 
 
 # ------------------------------------------------------------------ 1 · la barre
-def _rubrique_barre(el: Dict, r: Dict) -> str:
+def _rubrique_barre(el: Dict, r: Dict, carnet: Optional[List[Dict]] = None) -> str:
     s = C.segments(["mode"], el["mode"], M.MODES)
     if el["mode"] == "chargee":
         s += C.ligne("Modèle", C.choix(["modele"], el["modele"], M.MODELES), full=True)
@@ -62,10 +63,8 @@ def _rubrique_barre(el: Dict, r: Dict) -> str:
         s += C.case(["poids_propre"], el["poids_propre"], f"Poids propre du profilé{pp}")
     s += _titre("Profilé")
     s += C.ligne("Acier", C.segments(["nuance"], el["nuance"], [(k, k) for k in NO.NUANCES]), full=True)
-    masse = f"{M.n(r['masse'], 1)}{N}kg/m" if r.get("masse") else ""
-    s += (f'<button type="button" class="pf-prof" data-pk="{ROLE}" title="Choisir le profilé dans la liste (★ : le plus léger qui tient)">'
-          f'<b>{C.esc(el["profil"])}</b><span>{masse}</span>{C.icon("chevron-down")}</button>')
-    return s
+    # (lot C, C6) « Catalogue · PRS », les plats d'un PRS et sa bibliothèque, le bouton du profilé : api_web/profil_prs.py
+    return s + PP.rubrique(el, r, carnet)
 
 
 def _resume_barre(el: Dict) -> str:
@@ -268,14 +267,14 @@ def _resume_methodes(el: Dict) -> str:
 
 
 # ------------------------------------------------------------------ la colonne
-def formulaire(el: Dict, r: Optional[Dict], impression: str = "deux") -> str:
+def formulaire(el: Dict, r: Optional[Dict], impression: str = "deux", carnet: Optional[List[Dict]] = None) -> str:
     """Les rubriques de la barre ouverte ; ``r`` : son résultat (les longueurs automatiques, la masse, ce qui reste à
-    confirmer) ; ``impression`` : ce que la note imprime (``profil.IMPRESSION``). Le nom se modifie sur la ligne de la
-    barre, en tête de la colonne."""
+    confirmer) ; ``impression`` : ce que la note imprime (``profil.IMPRESSION``) ; ``carnet`` : la bibliothèque des PRS (lot C,
+    C6). Le nom se modifie sur la ligne de la barre, en tête de la colonne."""
     r = r or {}
     charge = el["mode"] == "chargee"
     appuis = a_des_appuis(el)
-    return (C.section(1, "Barre", _resume_barre(el), _rubrique_barre(el, r), True, "ba")
+    return (C.section(1, "Barre", _resume_barre(el), _rubrique_barre(el, r, carnet), True, "ba")
             + (C.section(2, "Charges", _resume_charges(el), _rubrique_charges(el), False, "ch") if charge else
                C.section(2, "Efforts", _resume_efforts(el), _rubrique_efforts(el), False, "ef"))
             + C.section(3, "Maintiens et flambement" if charge else "Flambement et déversement", _resume_maintiens(el, r),

@@ -20,6 +20,16 @@
 .pf-prof svg.i { width: 14px; height: 14px; flex: none; color: var(--ink-3); }
 .pf-prof:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* (lot C, C6) un PRS : ses plats en trois lignes « b × t » (l'âme porte aussi la gorge a), la bibliothèque sous le bouton */
+.pf-plat { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 76px) auto minmax(0, 64px); gap: 6px; align-items: center; }
+.pf-plat.ame { grid-template-columns: minmax(0, 1fr) minmax(0, 76px) auto minmax(0, 64px) auto minmax(0, 58px); }
+.pf-plat > label { font-size: 12.5px; color: var(--ink-2); min-width: 0; line-height: 1.25; cursor: help; }
+.pf-plat .pf-sym { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.pf-plat > .field { min-width: 0; }
+.pf-x { font-size: 12px; color: var(--ink-3); text-align: center; }
+.pf-biblio { align-self: flex-start; margin: 2px 0 0; gap: 6px; }
+.pf-biblio svg.i { width: 14px; height: 14px; }
+
 /* une travée d'une poutre continue : le libellé, la portée, « retirer » */
 .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 28px; }
 .row.pf-trav:not(:has(.pf-ret)) { grid-template-columns: minmax(0, 1fr) 132px; }
@@ -107,6 +117,7 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
 @media (max-width: 1199px) {
   .pf-ret { width: 44px; height: 44px; }
   .pf-prof { min-height: 44px; }
+  .pf-biblio { min-height: 44px; }
   .pf-lien { min-height: 44px; }
   .pf-vame { min-height: 44px; align-items: center; }
   .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 44px; }

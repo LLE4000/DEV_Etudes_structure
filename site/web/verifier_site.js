@@ -4120,6 +4120,12 @@ const principal = async () => {
   // ponctuelle ; trois travées, trois cas de charge ; des efforts imposés) : rien ne déborde, aucun nom coupé, chaque
   // valeur saisie se lit en entier dans son champ, les cibles à 44 px au doigt, les champs en 16 px au téléphone, le
   // dessin à 300 px de large au moins au téléphone ; la ligne « Âme », dès qu'elle paraît, se lit en entier (lot B).
+  // (lot C, C6) LE PRS, au PC, dans une note neuve : la barre devient un PRS-B (brief 11.8), saisi champ par champ ; bords non
+  // saisis, la méthode ELS « Bloqué » (puce jamais verte) ; la vue « Section » est le croquis coté (G et C, sa taille LUE) ;
+  // bords saisis, l'ELS a son taux ; « Enregistrer dans la bibliothèque » (le carnet du module, dans ce navigateur), la page
+  // RECHARGÉE, le PRS est dans la bibliothèque (le sélecteur d'un PRS, sans ★). Aux trois formats, la barre « prs » (PRS-B
+  // saisi, bords vides) : rien de coupé, 16 px et 44 px au doigt, l'ELS « Bloqué » non vert, la vue Section à sa taille.
+  // Le témoin joint la bibliothèque à ses requêtes, comme l'écran (« carnet »).
   // Les captures : site_barres_*.png.
   //   filtre « barres » ; « module:profil » le rejoue aussi (après le contrôle commun).
   if (!FILTRE || FILTRE === 'barres' || FILTRE === 'module:profil') {
@@ -4169,6 +4175,20 @@ const principal = async () => {
       ['le maintien retiré', 'mt', 'maintiens/0/-', '1', 'clic', ''],
       ['N = 50 kN de compression dans G', 'ch', 'cas/0/N', '50', 'champ', 'console'],
     ];
+    // (lot C, C6) le PRS-B du brief (11.8), saisi dans une note neuve : sept champs, puis les bords, puis la bibliothèque
+    const PRS_NOM = 'PRS 600x300x15x30x200x30';
+    const GESTES_PRS = [
+      ['la barre devient un PRS (les plats de l\'IPE 300)', 'ba', 'prs', 'prs', 'clic', 'prs'],
+      ['semelle haute : b₁ = 300 mm', 'ba', 'prs/b1', '300', 'champ', ''],
+      ['t₁ = 30 mm', 'ba', 'prs/t1', '30', 'champ', ''],
+      ['âme : h_w = 540 mm', 'ba', 'prs/hw', '540', 'champ', ''],
+      ['t_w = 15 mm', 'ba', 'prs/tw', '15', 'champ', ''],
+      ['semelle basse : b₂ = 200 mm', 'ba', 'prs/b2', '200', 'champ', ''],
+      ['t₂ = 30 mm', 'ba', 'prs/t2', '30', 'champ', ''],
+      ['gorge a = 6 mm (PRS-B saisi, bords des semelles non saisis)', 'ba', 'prs/a', '6', 'champ', 'prs_bloque'],
+      ['bords des semelles : oxycoupés', 'ba', 'prs/bords', 'oxycoupes', 'clic', 'prs_bords'],
+      ['le PRS enregistré dans la bibliothèque', 'ba', 'carnet/garder', '1', 'clic', 'prs_garde'],
+    ];
     const TEMOIN = [
       'import html, json, re, sys',
       'sys.path.insert(0, sys.argv[1])',
@@ -4181,14 +4201,17 @@ const principal = async () => {
       '    barre = next((v["svg"] for v in r["vues"] if v["cle"] == "barre"), "")',
       '    return {"resultat": nu(r["resultat"]), "dessin": nu("|".join(re.findall(r"<text[^>]*>(.*?)</text>", barre, re.S))),',
       '            "vues": [v["cle"] for v in r["vues"]], "message": r.get("message") or ""}',
-      'r = req(action="nouveau")',
+      // (lot C, C6) le carnet du module (la bibliothèque des PRS) voyage avec chaque requête, comme l'écran le joint
+      'carnet = []',
+      'r = req(action="nouveau", carnet=carnet)',
       'out = [lu(r)]',
       'for nom, rub, chemin, valeur, geste, quoi in json.loads(sys.argv[2]):',
       '    if geste == "choisir":',
-      '        r = req(action="choisir", etat=r["etat"], role=chemin, nom=valeur)',
+      '        r = req(action="choisir", etat=r["etat"], role=chemin, nom=valeur, carnet=carnet)',
       '    else:',
-      '        r = req(action="modifier", etat=r["etat"], chemin=chemin.split("/"), valeur=valeur)',
+      '        r = req(action="modifier", etat=r["etat"], chemin=chemin.split("/"), valeur=valeur, carnet=carnet)',
       '    assert r.get("ok"), (nom, r)',
+      '    carnet = r.get("carnet", carnet)',
       '    out.append(lu(r))',
       'print(json.dumps(out))',
     ].join('\n');
@@ -4198,6 +4221,11 @@ const principal = async () => {
     try { temoin = JSON.parse(ft.stdout.trim().split('\n').pop()); } catch (e) { /* le contrôle rougit */ }
     verif(`barres : le témoin — le moteur du dépôt, hors du navigateur — rejoue la barre neuve et les ${GESTES.length} gestes`,
       !!temoin && temoin.length === GESTES.length + 1 && temoin.every((t) => t.resultat.length > 40), String(ft.stderr || '').slice(-300));
+    const ftP = cpB.spawnSync(PYB, ['-c', TEMOIN, racineB, JSON.stringify(GESTES_PRS)], { encoding: 'utf8', cwd: racineB, maxBuffer: 1 << 26 });
+    let temoinP = null;
+    try { temoinP = JSON.parse(ftP.stdout.trim().split('\n').pop()); } catch (e) { /* le contrôle rougit */ }
+    verif(`barres · PRS : le témoin rejoue une note neuve et les ${GESTES_PRS.length} gestes du PRS (la bibliothèque jointe à chaque requête)`,
+      !!temoinP && temoinP.length === GESTES_PRS.length + 1 && temoinP.every((t) => t.resultat.length > 40), String(ftP.stderr || '').slice(-300));
     const VIS = { visibilityProperty: true, opacityProperty: true };
     // (lot B, B4 447b842 — brief v12 § 8.3 point 5) ce que l'âme DIT quand s_s ou c manquent : la vérification est faite
     // à la borne 0 ; si elle passe, « sans raidisseur (… : borne prudente) », sinon « décision impossible : … à saisir »,
@@ -4264,8 +4292,8 @@ const principal = async () => {
       g.on('pageerror', (e) => g.erreurs.push(e.message));
       g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
       // la page montre ce que le témoin dit (on attend jusqu'à 20 s que le résultat y soit ; puis on LIT, et on compare)
-      const parite = async (i) => {
-        const att = temoin && temoin[i];
+      const parite = async (i, tem = temoin) => {
+        const att = tem && tem[i];
         if (!att) return { ok: false, detail: 'pas de témoin' };
         await g.waitForFunction((res) => { const r = document.querySelector('#resultat'); if (!r) return false; const c = r.cloneNode(true); c.querySelectorAll('.et-verif').forEach((x) => x.remove());
           return String(c.textContent || '').replace(/[\s\u200b]+/g, '') === res; }, att.resultat, { timeout: 20000 }).catch(() => {});
@@ -4510,6 +4538,77 @@ const principal = async () => {
             par.ok && plus, [par.detail, detail].filter(Boolean).join(' · ').slice(0, 600));
           if (v.length === 2 && v.every((x) => x.taux !== null)) avant = v;
         }
+        // ---- (lot C, C6) le PRS, dans une note neuve : chaque pas, la page dit ce que dit le témoin (qui joint la bibliothèque)
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${PAGE_B}?${new URLSearchParams({ nom: 'Barre PRS', chantier: 'Essai barres' })}`) });
+        await calmeB(g);
+        const p0P = await parite(0, temoinP);
+        verif('barres · PRS : une note neuve — la page dit ce que dit le témoin', p0P.ok, p0P.detail);
+        for (let i = 0; i < GESTES_PRS.length; i++) {
+          const G = GESTES_PRS[i], [nom, , , , , quoi] = G;
+          let plus = true, detail = '';
+          try { await gesteB(g, G); } catch (e) { plus = false; detail = String(e.message).split('\n')[0]; }
+          const dit = await toastB(g);
+          const par = await parite(i + 1, temoinP);
+          const v = await verdictsB(g);
+          if (quoi === 'prs') {
+            // la rubrique « Barre » : « PRS » choisi, sept champs en trois lignes « b × t » (la gorge sur la ligne de l'âme)
+            await ouvrirRubB(g, 'ba');
+            const r = await g.evaluate((VIS) => ({ seg: (document.querySelector('#donnees [data-chemin="prs"].on') || {}).dataset?.valeur || null,
+              lignes: [...document.querySelectorAll('#donnees .pf-plat')].filter((x) => x.checkVisibility(VIS)).map((x) => [...x.querySelectorAll('input')].map((e) => e.dataset.chemin).join(' ')) }), VIS);
+            plus = r.seg === 'prs' && r.lignes.join(' | ') === 'prs/b1 prs/t1 | prs/hw prs/tw prs/a | prs/b2 prs/t2';
+            detail = JSON.stringify(r);
+          } else if (quoi === 'prs_bloque') {
+            // bords non saisis : la méthode ELS « Bloqué » (sa puce jamais verte, la raison en une ligne) ; l'Eurocode 3 a son taux ;
+            // la rubrique relit chaque valeur tapée, dit h et la norme produit, et n'offre pas la case « soudée équivalente »
+            // (PRS monosymétrique) ; le bouton du profilé : son nom et sa masse ρ·A
+            await ouvrirRubB(g, 'ba');
+            const r = await g.evaluate(() => ({ vals: ['b1', 't1', 'hw', 'tw', 'b2', 't2', 'a'].map((k) => (document.querySelector(`#donnees input[data-chemin="prs/${k}"]`) || {}).value),
+              aide: [...document.querySelectorAll('#donnees .sec[data-sec="ba"] .hint')].map((x) => x.textContent.replace(/\s+/g, ' ')).join(' '),
+              case_: !!document.querySelector('#donnees [data-chemin="prs/soudee"]'), bouton: (document.querySelector('#donnees .pf-prof') || {}).textContent || '' }));
+            plus = v.length === 2 && /^Méthode ELS/.test(v[0].methode) && /Bloqué/.test(v[0].texte) && !['p', 'f'].includes(v[0].niveau) && /Bords des semelles à saisir/.test(v[0].texte)
+              && /^Eurocode 3/.test(v[1].methode) && v[1].taux > 0 && r.vals.join() === '300,30,540,15,200,30,6' && /h = t₁ \+ h_?w \+ t₂ = 600\s?mm/.test(r.aide) && /EN 10025-2/.test(r.aide)
+              && !r.case_ && r.bouton.includes(PRS_NOM) && /181,3\s?kg\/m/.test(r.bouton);
+            detail = JSON.stringify({ v: v.map((x) => [x.methode, x.niveau, x.texte.slice(0, 60)]), r });
+            // la vue « Section » : le croquis coté du PRS, comme l'œil le voit — sa taille LUE, G et C écrits, rien hors du dessin
+            // ni l'un sur l'autre
+            await g.click('#vues [data-vue="section"]');
+            await g.waitForTimeout(250);
+            const ds = await dessinB(g);
+            verif('barres · PRS : la vue « Section » est le croquis coté du PRS — visible à sa taille (lue : 400 × 300 au moins), « G » et « C » écrits, la cote h = 600, aucun texte hors du dessin ni sur un autre',
+              !!ds && ds.dedans && ds.l >= 400 && ds.h >= 300 && !ds.hors.length && !ds.dessus.length && ['G', 'C', 'h = 600'].every((t) => ds.textes.includes(t)),
+              JSON.stringify({ ...ds, textes: ds ? ds.textes.slice(0, 12) : null }).slice(0, 500));
+            await g.screenshot({ path: path.join(OUT, 'site_barres_prs_section_pc.png') });
+            await g.click('#vues [data-vue="barre"]');
+            await g.waitForTimeout(150);
+          } else if (quoi === 'prs_bords') {
+            plus = v.length === 2 && /^Méthode ELS/.test(v[0].methode) && v[0].taux > 0 && ['p', 'f'].includes(v[0].niveau) && v[1].taux > 0;
+            detail = JSON.stringify(v.map((x) => [x.methode, x.taux, x.niveau]));
+          } else if (quoi === 'prs_garde') {
+            const r = await g.evaluate(() => { let c = null; try { c = JSON.parse(localStorage.getItem('stab.carnets.v1')); } catch (e) { /* vide */ }
+              return { garde: ((c && c.modules && c.modules.profil) || []).map((x) => x.nom), retirer: !!document.querySelector('#donnees [data-chemin="carnet/retirer"]') }; });
+            plus = dit.vu && !dit.erreur && /enregistré dans la bibliothèque/.test(dit.texte) && r.garde.join() === PRS_NOM && r.retirer;
+            detail = JSON.stringify({ dit, r });
+          }
+          verif(`barres · PRS : ${nom} — la page dit ce que dit le témoin${quoi ? `, et ${({ prs: '« PRS » choisi, sept champs en trois lignes « b × t » (b₁ t₁ | h_w t_w a | b₂ t₂)',
+            prs_bloque: 'la méthode ELS « Bloqué » (puce non verte, « Bords des semelles à saisir »), l\'Eurocode 3 a son taux ; chaque valeur relue dans son champ, h = 600 mm et EN 10025-2 dits, pas de case « soudée équivalente » (monosymétrique) ; le bouton : le nom et 181,3 kg/m',
+            prs_bords: 'la méthode ELS a son taux, sa puce de couleur', prs_garde: 'le message le dit, la bibliothèque de ce navigateur garde le PRS, le bouton dit « Retirer de la bibliothèque »' })[quoi]}` : ''}`,
+            par.ok && plus, [par.detail, detail].filter(Boolean).join(' · ').slice(0, 600));
+        }
+        // la page RECHARGÉE : la note rouvre le PRS ; son sélecteur est la bibliothèque — le PRS y est, retenu (✓), sans ★
+        await g.reload();
+        await pretEcran(g);
+        await calmeB(g);
+        const nomP = await g.$eval('#resultat .prof[data-pk="profil"] > span:not(.leger)', (x) => x.textContent.trim()).catch(() => null);
+        await g.click('#resultat .prof[data-pk="profil"]');
+        await g.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 }).catch(() => {});
+        const selP = await g.evaluate(() => { const rows = [...document.querySelectorAll('.flyout.on.picker .pk-row')];
+          return { noms: rows.map((r) => r.dataset.choix), cur: rows.filter((r) => r.classList.contains('cur')).map((r) => r.dataset.choix), opt: rows.filter((r) => r.classList.contains('opt')).length,
+            pastilles: rows.filter((r) => r.querySelector('.chip')).length, pied: ((document.querySelector('.flyout.on.picker .fl-foot') || {}).textContent || '').replace(/\s+/g, ' ') }; });
+        verif('barres · PRS : la page RECHARGÉE rouvre le PRS ; son sélecteur est la BIBLIOTHÈQUE de ce navigateur — le PRS enregistré y est, retenu (✓), avec sa pastille, sans ★',
+          nomP === PRS_NOM && selP.noms.join() === PRS_NOM && selP.cur.join() === PRS_NOM && selP.opt === 0 && selP.pastilles === 1 && !/plus léger/.test(selP.pied), JSON.stringify({ nomP, selP }));
+        await g.screenshot({ path: path.join(OUT, 'site_barres_prs_bibliotheque_pc.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
         verif('barres : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
       } catch (e) { verif('barres : le parcours va au bout', false, String(e.message).split('\n')[0]); }
       await c.close();
@@ -4525,6 +4624,8 @@ const principal = async () => {
       ['continue', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ba', 'travees/+', '1', 'clic'], ['', 'ch', 'cas/1/charges/+', 'P', 'clic'], ['', 'ch', 'cas/+', '1', 'clic']]],
       ['efforts', [['', 'ba', 'mode', 'efforts', 'clic'], ['', 'ef', 'efforts/elu/N', '100', 'champ'], ['', 'ef', 'efforts/elu/My', '40', 'champ'], ['', 'ef', 'efforts/elu/Vz', '30', 'champ'],
         ['', 'ef', 'efforts/service/N', '70', 'champ'], ['', 'ef', 'efforts/service/My', '28', 'champ'], ['', 'ef', 'efforts/service/Vz', '21', 'champ']]],
+      // (lot C, C6) le PRS-B saisi dans la rubrique « Barre » (les gestes du parcours, sans les bords : la méthode ELS « Bloqué »)
+      ['prs', GESTES_PRS.slice(0, 8).map(([, rub, chemin, valeur, geste]) => ['', rub, chemin, valeur, geste])],
     ];
     for (const [fmt, w, h, tel] of [['pc', 1440, 900, false], ['tab1024', 1024, 768, false], ['iphone13', 390, 844, true]]) {
       const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
@@ -4587,10 +4688,25 @@ const principal = async () => {
           const dv = await dessinB(pg);
           verif(`barres ${cfg} · ${fmt} : le dessin est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '400 × 250 au moins'}), dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre`,
             !!dv && dv.dedans && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 400 && dv.h >= 250), JSON.stringify({ ...dv, textes: dv ? dv.textes.length : 0 }).slice(0, 400));
+          if (cfg === 'prs') {
+            // (lot C, C6) la vue « Section » d'un PRS : le croquis coté, sa taille LUE, G et C écrits, rien hors du dessin ni l'un sur l'autre
+            await pg.click('#vues [data-vue="section"]');
+            await pg.waitForTimeout(250);
+            const ds = await dessinB(pg);
+            verif(`barres prs · ${fmt} : la vue « Section » est le croquis coté du PRS — visible à sa taille (lue : ${tel ? '300 px de large au moins' : '400 × 300 au moins'}), « G » et « C » écrits, aucun texte hors du dessin ni sur un autre`,
+              !!ds && ds.dedans && !ds.hors.length && !ds.dessus.length && (tel ? ds.l >= 300 : ds.l >= 400 && ds.h >= 300) && ds.textes.includes('G') && ds.textes.includes('C'),
+              JSON.stringify({ ...ds, textes: ds ? ds.textes.length : 0 }).slice(0, 400));
+            await pg.screenshot({ path: path.join(OUT, `site_barres_prs_section_${fmt}.png`) });
+            await pg.click('#vues [data-vue="barre"]');
+            await pg.waitForTimeout(150);
+          }
           const vs = await verdictsB(pg).catch(() => []);
           if (tel) { await pg.click('.mtabs [data-onglet="resultat"]'); await pg.waitForTimeout(250); }
           const vr = await verdictsB(pg);
-          verif(`barres ${cfg} · ${fmt} : un verdict par méthode, chacun avec son taux`, vr.length === 2 && vr.every((x) => x.taux > 0), JSON.stringify(vr.map((x) => [x.methode, x.taux])) + (tel ? ` (onglet dessin : ${vs.length})` : ''));
+          // (lot C, C6) le PRS aux bords non saisis : la méthode ELS « Bloqué », sa puce jamais verte ; l'Eurocode 3 a son taux
+          verif(`barres ${cfg} · ${fmt} : un verdict par méthode, ${cfg === 'prs' ? 'la méthode ELS « Bloqué » (puce non verte : bords non saisis), l\'Eurocode 3 avec son taux' : 'chacun avec son taux'}`,
+            cfg === 'prs' ? vr.length === 2 && /Bloqué/.test(vr[0].texte) && !['p', 'f'].includes(vr[0].niveau) && vr[1].taux > 0 : vr.length === 2 && vr.every((x) => x.taux > 0),
+            JSON.stringify(vr.map((x) => [x.methode, x.taux, x.niveau])) + (tel ? ` (onglet dessin : ${vs.length})` : ''));
           // ce que l'âme demande se LIT : la ligne « Âme » entière sous les verdicts, dans l'écran, à 44 px au doigt — et, pour
           // « raidisseur », la ligne du lieu avec ses plats. (lot B, B4) les appuis d'une barre neuve n'ont ni s_s ni c : leur
           // décision est impossible ; « ponctuelle » et « continue » ont donc AUSSI leur ligne « Âme », longue (deux raisons
@@ -4600,6 +4716,7 @@ const principal = async () => {
             raidisseur: /^Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 3,00 m\)$/,
             continue: new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE} \\(appui A, appui D\\) ; charge à 9,00 m : ${AME_SANS_MAINTIEN} — 21\\s?% si elle est tenue ; ajouter un maintien \\(À VÉRIFIER\\)$`),
             efforts: null,
+            prs: null,                      // (lot C, C6 : l'âme de 15 mm du PRS-B tient à la borne — pas de ligne « Âme »)
           }[cfg];
           const a = await pg.evaluate((VIS) => { const bande = document.querySelector('#resultat .pf-vame'); const raid = document.querySelector('#resultat .pf-raid');
             const r = bande && bande.checkVisibility(VIS) ? bande.getBoundingClientRect() : null;
