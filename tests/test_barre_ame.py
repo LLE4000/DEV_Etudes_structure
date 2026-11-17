@@ -1092,6 +1092,34 @@ def controles(M=None):
       and pointe["haut"]["raison"].endswith(" % si elle est tenue ; ajouter un maintien (À VÉRIFIER).")
       and pointe["complet"]["decision"] != "impossible" and loin["decision"] == "impossible" and loin["raison"].startswith("Semelle haute sans maintien"),
       (pointe["haut"]["raison"], pointe["complet"]["decision"], loin["raison"]))
+    # (2e finition du lot B) les autres formes du message du maintien : le pluriel ; une donnée ET le maintien ; au-delà de 100 % ; sans le taux
+    rk50, rk0 = (ame(modele="console", travees=[2.0], maintiens=[], cas=[{"nom": "G", "nature": "permanent", "charges": [P_(30.0, 2.0, ss_)]}])
+                 for ss_ in (50.0, None))
+    k50, k0 = lieu(rk50, "Charge à 2,00 m"), lieu(rk0, "Charge à 2,00 m")
+    deux = "emelles haute et basse sans maintien (EN 1993-1-5, 6.1(1))"
+    c("le message du maintien au PLURIEL (console de 2 m, 30 kN au bout libre, sans maintien, s_s = 50 mm : M = 0, σ_x nul — les deux semelles à "
+      "tenir) : « Semelles haute et basse sans maintien (EN 1993-1-5, 6.1(1)) — 24 % si elles sont tenues ; ajouter un maintien (À VÉRIFIER). », "
+      "redit par l'avertissement ; la ligne du lieu et la fenêtre -F, SANS le taux (leur pastille le donne)",
+      k50 is not None and k50["decision"] == "impossible" and round(k50["taux"], 3) == 0.245
+      and k50["raison"] == f"S{deux} — 24 % si elles sont tenues ; ajouter un maintien (À VÉRIFIER)."
+      and k50["ligne"] == f"S{deux} ; ajouter un maintien (À VÉRIFIER)." and verif(rk50, k50["base"] + "-F")["messages"][0] == k50["ligne"]
+      and [x["message"] for x in rk50["alertes"] if x["code"].startswith("decision_impossible")]
+      == [f"Charge à 2,00 m : s{deux} — 24 % si elles sont tenues ; ajouter un maintien (À VÉRIFIER)."], (k50 and (k50["raison"], k50["ligne"])))
+    c("… la même console, s_s NON saisie (la borne ne passe pas : critère 6.2.1(5) à 130 %) : la donnée ET le maintien, dans la même phrase — "
+      "« Décision impossible : s_s à saisir ; semelles haute et basse sans maintien (EN 1993-1-5, 6.1(1)). » (saisir s_s seule ne suffirait pas)",
+      k0 is not None and k0["decision"] == "impossible" and k0["raison"] == f"Décision impossible : s_s à saisir ; s{deux}." and k0["ligne"] is None
+      and verif(rk0, k0["base"] + "-F")["messages"][0] == k0["raison"], k0 and k0["raison"])
+    q0, qh, qc = (lieu(ame(maintiens=m_, appuis={"mode": "poses", "ss": 100.0, "c": 50.0},
+                           cas=[{"nom": "G", "nature": "permanent", "charges": [P_(120.0, 3.0, 100.0)]}]), "Charge à 3,00 m")
+                  for m_ in ([], [{"x": 3.0, "genre": "haut"}], [{"x": 3.0, "genre": "complet"}]))
+    c("… au-delà de 100 % (IPE 300, 6 m, 120 kN à mi-portée, tout saisi, sans maintien : 137 % si elle est tenue) : le remède dit le raidisseur ET "
+      "le maintien COMPLET que sa longueur demande (§ 9.4(2)) — « … ; ajouter un maintien complet et un raidisseur (À VÉRIFIER). » ; la preuve : un "
+      "maintien « haut » seul ne suffit pas (la longueur du raidisseur), « complet » pose le raidisseur",
+      q0["decision"] == "impossible"
+      and q0["raison"] == "Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 137 % si elle est tenue ; ajouter un maintien complet et un raidisseur (À VÉRIFIER)."
+      and q0["ligne"] == "Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) ; ajouter un maintien complet et un raidisseur (À VÉRIFIER)."
+      and qh["decision"] == "impossible" and qh["raison"] == AME.MOT_RAIDISSEUR_TENU and qc["decision"] == "raidisseur",
+      (q0["raison"], qh["raison"], qc["decision"]))
     cis = mo.verifier(barre(travees=[1.5], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.75, "genre": "complet"}],
                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(200.0, 0.0, 1.5), P_(5.0, 0.75, 100.0)]}]))
     vz, vz0 = verif(cis["methodes"]["ec3"], "E-Vz"), verif(mo.verifier(barre())["methodes"]["ec3"], "E-Vz")
@@ -1475,11 +1503,27 @@ MUTATIONS = [
     ("ame", "finition — la fenêtre imprime s_s = h_w sans le dire", '[AM.MOTS_ETAT[x["etat"]]] + ([MOT_PIRE_HW] if x["pire_hw"] else [])', '[AM.MOTS_ETAT[x["etat"]]]'),
     ("ame", "finition — maintien seul : le taux pris sur η₂ seul (l'interaction oubliée)", '        tenu = max(pire["eta2"], pire["inter"] or 0.0, pire["crit"] or 0.0)',
      '        tenu = pire["eta2"]'),
-    ("ame", "finition — maintien seul : le remède oublié", '% {tenue} ; ajouter un maintien (À VÉRIFIER)."', '% {tenue} (À VÉRIFIER)."'),
+    ("ame", "finition — maintien seul : le remède oublié", '{taux_} ; {remede} (À VÉRIFIER)."', '{taux_} (À VÉRIFIER)."'),
     ("ame", "finition — maintien seul : l'ancienne phrase « maintien … à préciser », sans taux", 'impossible(donnees, maintiens, bout) if a_saisir else sans_maintien(maintiens, tenu))',
      'impossible(donnees if a_saisir else [], maintiens, bout if a_saisir else []))'),
     ("ame", "finition — la borne dite en citant le brief (document interne)", 'BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER)."',
      'BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER, brief § 8.3, point 5)."'),
+    # (2e finition du lot B) les formes du message du maintien, toutes figées
+    ("ame", "2e finition — maintien : « si elles sont tenues » jamais dit (le pluriel)", '    tenue = "si elles sont tenues" if len(cotes) == 2 else "si elle est tenue"',
+     '    tenue = "si elle est tenue"'),
+    ("ame", "2e finition — maintien : « semelles haute et basse » réduit à la première", '    quoi = "semelles haute et basse" if len(cotes) == 2 else',
+     '    quoi = "semelle haute" if len(cotes) == 2 else'),
+    ("ame", "2e finition — une donnée ET le maintien manquent : le maintien tu",
+     "    parts = ([f\"{' ; '.join(quoi)} à saisir\"] if quoi else []) + ([_sans_maintien(maintiens)] if maintiens else [])",
+     "    parts = ([f\"{' ; '.join(quoi)} à saisir\"] if quoi else [])"),
+    ("ame", "2e finition — au-delà de 100 % : le raidisseur et le maintien complet non dits",
+     'remede = "ajouter un maintien complet et un raidisseur" if taux > 1.0 else "ajouter un maintien"', 'remede = "ajouter un maintien"'),
+    ("ame", "2e finition — la ligne du lieu redit le taux de sa pastille", '    taux_ = "" if ligne else f" — ', '    taux_ = f" — '),
+    ("ame", "2e finition — la ligne sans taux jamais donnée", "        ligne = sans_maintien(maintiens, tenu, ligne=True) if manque and not a_saisir else None",
+     "        ligne = None"),
+    ("ame", "2e finition — la ligne donnée aussi quand une donnée manque", "ligne=True) if manque and not a_saisir else None",
+     "ligne=True) if maintiens and not certain else None"),
+    ("ame", "2e finition — la fenêtre -F redit le taux d'une autre vérification", '[etude["ligne"] or manque]', "[manque]"),
     ("moteur", "le statut de la barre ignore l'âme", '    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]', '    statuts = [r["statut"] for r in out["methodes"].values()]'),
 ]
 

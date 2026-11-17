@@ -327,13 +327,18 @@ def _sans_maintien(cotes: Sequence[str]) -> str:
     return f"{quoi} sans maintien ({REF_MAINTIEN})"
 
 
-def sans_maintien(cotes: Sequence[str], taux: float) -> str:
+def sans_maintien(cotes: Sequence[str], taux: float, ligne: bool = False) -> str:
     """La raison d'un lieu dont SEUL le maintien manque (``cotes`` : les semelles à tenir, « haut », « bas ») — le fait, le
     taux obtenu comme si elles étaient tenues (les mêmes vérifications : le maintien n'y entre pas) et le remède, en une
-    ligne : « Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). »"""
+    ligne : « Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). »
+    Au-delà de 100 %, la force demande, tenue, un raidisseur — dont la longueur suppose les DEUX semelles tenues (§ 9.4(2)) :
+    le remède est alors « ajouter un maintien complet et un raidisseur » (un profilé trop étroit pour en recevoir un le dit une
+    fois tenu). ``ligne`` : sans le taux, que sa pastille donne déjà (la ligne du lieu, sa fenêtre -F, le tableau de la note)."""
     t = _sans_maintien(cotes)
     tenue = "si elles sont tenues" if len(cotes) == 2 else "si elle est tenue"
-    return f"{t[:1].upper() + t[1:]} — {RE.fr(100.0 * taux)} % {tenue} ; ajouter un maintien (À VÉRIFIER)."
+    remede = "ajouter un maintien complet et un raidisseur" if taux > 1.0 else "ajouter un maintien"
+    taux_ = "" if ligne else f" — {RE.fr(100.0 * taux)} % {tenue}"
+    return f"{t[:1].upper() + t[1:]}{taux_} ; {remede} (À VÉRIFIER)."
 
 
 def impossible(donnees: Sequence[str], maintiens: Sequence[str], rive: Sequence[str] = ()) -> str:
@@ -384,7 +389,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
 
         {"base", "nom", "genre", "x", "type", "ss" (mm), "F_Ed" (kN, la plus grande force du lieu), "sans": {"F_Rd" (kN),
          "eta2", "interaction" (None sans flexion)} (l'âme seule, au plus défavorable), "decision" (« aucun » |
-         « raidisseur » | « impossible »), "raison", "borne" (« s_s = 0, c = 0 : borne prudente » quand une donnée non
+         « raidisseur » | « impossible »), "raison", "ligne" (seul le maintien manque : la raison sans son taux, que la pastille
+         de la ligne donne ; None sinon), "borne" (« s_s = 0, c = 0 : borne prudente » quand une donnée non
          saisie est prise à sa borne, None sinon), "raidisseur" (None | {"bs", "ts", "chanfrein", "designation"}),
          "verifications" (leurs identifiants), "gouvernant", "taux" (aussi d'un lieu impossible, pour information),
          "statut"}."""
@@ -575,6 +581,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         tenu = max(pire["eta2"], pire["inter"] or 0.0, pire["crit"] or 0.0)
         manque = (None if certain or not (a_saisir or maintiens) else
                   impossible(donnees, maintiens, bout) if a_saisir else sans_maintien(maintiens, tenu))
+        # la ligne du lieu, sa fenêtre -F et le tableau de la note : la même raison, sans le taux que leur pastille donne déjà
+        ligne = sans_maintien(maintiens, tenu, ligne=True) if manque and not a_saisir else None
         if manque is None and raison and L["genre"] == "charge" and not all(L["tenue"].values()):
             # le raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) ; sinon, longueur non chiffrée
             manque = MOT_RAIDISSEUR_TENU
@@ -582,7 +590,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         for k in ([] if certain or a_saisir else sorted(charges_)):
             b_ += [x for x in (borne(res[k]) or "").split(", ") if x and x not in b_]
         b_ = ", ".join(b_)
-        etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque,
+        etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque, "ligne": ligne,
                              "borne": f"{b_} : borne prudente" if b_ else None}
     if any(r_.get("manque") or r_.get("rive") for e_ in etudes.values() for r_ in e_["res"].values()):
         hyp.append(BORNE_HYPOTHESE)                      # une fois par bloc : la lecture du § 8.3, point 5, change la décision
@@ -645,7 +653,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             else:
                 cotes = [k for k in ("haut", "bas") if o[k] > 0 and k in res]
                 k = max(cotes, key=lambda k: o[k] * 1e3 / res[k]["FRd"])
-                mots = ([manque] if manque else []) + _mots_force(res[k], _saisie(L, k))
+                mots = ([etude["ligne"] or manque] if manque else []) + _mots_force(res[k], _saisie(L, k))
                 trop_etroit = bool(etude["raison"]) and not manque       # il faut un raidisseur, et le profilé n'en reçoit pas
                 if trop_etroit:
                     mots.append(J.alerte(f"sans_raidisseur_{L['base']}", "attention", f"{L['nom']} : raidisseur nécessaire, mais le profilé "
@@ -709,7 +717,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         rendus.append({"base": L["base"], "nom": L["nom"], "genre": L["genre"], "x": L["x"], "type": r0["type"], "ss": r0["ss"],
                        "F_Ed": pire["F"], "sans": sans, "avec": avec,
                        "rappel": RA.RAPPEL_TAU if p is not None else None,
-                       "decision": decision, "raison": manque or etude["raison"], "manque": manque,
+                       "decision": decision, "raison": manque or etude["raison"], "manque": manque, "ligne": etude["ligne"],
                        "raidisseur": None if p is None else {"bs": p["bs"], "ts": p["ts"], "chanfrein": p["chanfrein"],
                                                              "designation": RA.designation(p)},
                        "verifications": [v["id"] for v in vs], "gouvernant": gouv["id"], "borne": etude["borne"],
