@@ -1104,6 +1104,20 @@ def controles_c1(M=None):
       proche(re_["methodes"]["historique"]["grandeurs"]["P"], (300.0 + g200) * 1e3) and proche(vf(re_["methodes"]["ec3"], "E-N")["valeur"], 420.0 + 1.35 * g200)
       and all(m_["hypotheses"].count(mo.MOT_POIDS_PROPRE_IMPOSES) == 1 for m_ in re_["methodes"].values()),
       (re_["methodes"]["historique"]["grandeurs"]["P"], vf(re_["methodes"]["ec3"], "E-N")["valeur"]))
+    # (contre-vérification du lot C) l'interrupteur « en flexion » d'une poutre, par le moteur : M += q·L²/8 et V += q·L/2 au service,
+    # × 1,35 à l'ELU ; P inchangé
+    bf = barre(profil="HEB 200", mode="efforts", poids_propre_efforts={"N": False, "M": True}, flambement={"y": {"L": 4.0}, "z": {"L": 4.0}},
+               efforts={"service": {"N": 300.0, "My": 20.0, "Vz": 30.0}, "elu": {"N": 420.0, "My": 28.0, "Vz": 42.0}})
+    rf_ = mo.verifier(bf)
+    gf = rf_["methodes"]["historique"]["grandeurs"]
+    gq = st.poids_propre(SE.du_catalogue("HEB 200"))
+    c("(C1) efforts imposés, interrupteur « en flexion » d'une poutre (HEB 200, L = 4 m) : M_y += q·L²/8 et V_z += q·L/2 au service, × 1,35 à "
+      "l'ELU ; P inchangé ; la ligne du poids propre ajouté dite une fois par méthode",
+      proche(gf["My"], (20.0 + gq * 16.0 / 8.0) * 1e6) and proche(gf["Vz"], (30.0 + gq * 4.0 / 2.0) * 1e3) and proche(gf["P"], 300e3)
+      and proche(vf(rf_["methodes"]["ec3"], "E-My")["valeur"], 28.0 + 1.35 * gq * 2.0) and proche(vf(rf_["methodes"]["ec3"], "E-Vz")["valeur"], 42.0 + 1.35 * gq * 2.0)
+      and proche(vf(rf_["methodes"]["ec3"], "E-N")["valeur"], 420.0)
+      and all(m_["hypotheses"].count(mo.MOT_POIDS_PROPRE_IMPOSES) == 1 for m_ in rf_["methodes"].values()),
+      (gf["My"], gf["Vz"], vf(rf_["methodes"]["ec3"], "E-My")["valeur"], vf(rf_["methodes"]["ec3"], "E-Vz")["valeur"]))
     rv = mo.verifier(barre(position="verticale", cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [q(5.0, 0.0, 6.0)]}]))
     g6 = st.poids_propre(s3) * 6.0
     c("(C1) barre chargée VERTICALE : le poids propre q·L entre dans N (compression, sur toute la barre — prudent, À VÉRIFIER), rien en flexion",
@@ -1411,6 +1425,9 @@ MUTATIONS_C1 = [
     ("moteur", "C1 — poids propre imposé : rien dans N pour un poteau", 'return {"N": fN * q * L, "M": fM * q * L * L / 8.0', 'return {"N": 0.0, "M": fM * q * L * L / 8.0'),
     ("moteur", "C1 — interrupteur « dans P » sans effet", '            e["N"] += f * dans_P["N"]', "            pass"),
     ("moteur", "C1 — poids propre imposé : sans γ_G,sup à l'ELU", "    for e, f in ((sv, 1.0), (el, gamma)):", "    for e, f in ((sv, 1.0), (el, 1.0)):"),
+    # (contre-vérification du lot C) l'interrupteur « en flexion » : aucun contrôle ne le figeait
+    ("moteur", "C1 — interrupteur « en flexion » sans effet", '        if sw.get("M"):', "        if False:"),
+    ("moteur", "C1 — interrupteur « en flexion » : V oublié", '            e["Vz"] = math.copysign(abs(e["Vz"]) + f * flexion["V"], e["Vz"] or 1.0)', "            pass"),
     ("statique", "C1 — barre verticale : le poids propre en flexion", '    if position == "verticale":\n        return 1.0, 0.0', '    if position == "verticale":\n        return 0.0, 1.0'),
     ("moteur", "C1 — la courbe imposée non passée à la méthode ELS", 'return {a: dict(axes[a], courbe=b["flambement"][a].get("courbe")) for a in ("y", "z")}',
      'return {a: dict(axes[a]) for a in ("y", "z")}'),
