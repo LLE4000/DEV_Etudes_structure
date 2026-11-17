@@ -1389,6 +1389,44 @@ for nom, mod, sous in [("phrase de l'en-tête (acier/projet.description, « :g �
         mod.nb = avant
     chk(f"mutation « {nom} au point » : le contrôle rougit", rouge)
 
+# … et les libellés du PRÉDIMENSIONNEMENT (« M20, 3 rangées, plat 190 × 10 », liste des propositions de l'écran) : le même
+# formateur. Aucune proposition n'a aujourd'hui de décimale (pinces au multiple de 5, épaisseurs et ailes du catalogue) :
+# contrôle direct, sur une proposition à décimales.
+from acier.js import AttrDict as _AD  # noqa: E402
+from acier.assemblages.poutre_poutre.plat_ame import moteur as _MPA1  # noqa: E402
+from acier.assemblages.poutre_poutre.platine_about import moteur as _MPB1  # noqa: E402
+from acier.assemblages.poutre_poteau.plat_ame_poteau import moteur as _MPA2  # noqa: E402
+from acier.assemblages.poutre_poteau.platine_about_poteau import moteur as _MPB2  # noqa: E402
+from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import moteur as _MDC2  # noqa: E402
+_MOTEURS_PREDIM = [("plat d'âme", _MPA1), ("platine d'about", _MPB1), ("doubles cornières", _MDC),
+                   ("plat d'âme sur poteau", _MPA2), ("platine d'about sur poteau", _MPB2),
+                   ("doubles cornières sur poteau", _MDC2)]
+_PROPOSITION = _AD(b={"n": "M20"}, n=3, hp=190.5, prop=_AD(tp=10.5, bp=150.5, leg=100.5, tC=10.5))
+
+
+def ctl_libelles_predim():
+    ec = []
+    for nom, mod in _MOTEURS_PREDIM:
+        txt = mod.solution_label(_PROPOSITION)
+        if hasattr(mod, "nom_cornière_proposee"):
+            txt += " | " + mod.nom_cornière_proposee(_PROPOSITION)
+        if _POINT.search(txt) or "10,5" not in txt:
+            ec.append(f"{nom} : « {txt} »")
+    return ec
+
+
+ec = ctl_libelles_predim()
+chk("lot B : les libellés du prédimensionnement des six attaches s'écrivent à la virgule (« M20, 3 rangées, plat 190,5 × "
+    "10,5 », « L100,5x100,5x10,5 »)", not ec, ec)
+for nom, mod in _MOTEURS_PREDIM:
+    avant = mod.nb
+    mod.nb = _au_point
+    try:
+        rouge = ctl_libelles_predim() != []
+    finally:
+        mod.nb = avant
+    chk(f"mutation « libellé du prédimensionnement ({nom}) au point » : le contrôle rougit", rouge)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])
