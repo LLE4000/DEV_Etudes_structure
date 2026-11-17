@@ -41,7 +41,7 @@ from itertools import combinations, product
 from typing import Dict, List, Optional, Sequence
 
 from . import parametres as PA
-from .resultat import Refus, fixe, fr
+from .resultat import BLOQUE, NON_COUVERT, Refus, fixe, fr
 
 PERMANENT = "permanent"
 SAISI = "saisi"                 # la « clé ψ » d'une nature dont ψ₀ est saisi cas par cas : aucun défaut
@@ -75,6 +75,12 @@ class AFournir(Refus):
     def __init__(self, noms: Sequence[str]):
         self.cas = list(noms)
         super().__init__(f"ψ₀ à fournir (au cas par cas, tableau A1.1 ANB) : {', '.join(f'« {n} »' for n in self.cas)}")
+
+
+def statut_refus(e: Exception) -> str:
+    """Le statut d'une méthode que ses combinaisons arrêtent (moteur.py et ame.py le lisent) : « bloqué » pour un ψ₀ à
+    fournir (AFournir : le verdict attend la valeur, la barre n'est pas refusée), « non couvert » pour un autre refus."""
+    return BLOQUE if isinstance(e, AFournir) else NON_COUVERT
 
 
 def _fr(x: float) -> str:

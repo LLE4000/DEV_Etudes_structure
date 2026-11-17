@@ -517,8 +517,10 @@ JEU de γ_G et chaque nature en tête parmi les présentes :
   combinaison porte « limite » et la note le dit.
 - **Exécution, machines** : ψ₀ saisi par cas, sans défaut ; demandé seulement quand il sert (le cas accompagne une
   autre nature, ou l'expression est (6.10a)). S'il manque alors, `combinaisons.elu` lève `AFournir` (« ψ₀ à fournir »),
-  que le moteur et l'âme doivent rendre en statut « bloqué » — ce rattrapage est dans `moteur.py` et `ame.py`, hors du
-  bloc C2 (`À VÉRIFIER` à l'intégration). Non saisi et sans emploi (l'exécution seule, en (6.10)) : les hypothèses
+  que le moteur et l'âme rendent en statut « bloqué » (`combinaisons.statut_refus`, lu par `moteur.py` et `ame.py` ;
+  intégration du lot C) : l'Eurocode 3 et l'âme « bloqué », la raison en une ligne, la comparaison « bloqué », la
+  méthode ELS (qui ne lit pas ψ₀) calculée et jugée — jamais une exception (elle arrêtait l'écran et la construction
+  du site ; le contrôle : `tests/test_barre_combinaisons.py`, « de bout en bout »). Non saisi et sans emploi (l'exécution seule, en (6.10)) : les hypothèses
   disent « non saisi, sans emploi ici ». Un ψ₀ saisi sur une autre nature ne sert pas. À la saisie, l'écran contrôle
   par `combinaisons.controler`, où un ψ₀ manquant n'est pas un refus (le calcul est bloqué, la saisie reste libre).
 - **Limites** : au plus quatre NATURES variables (le nombre de cas : `entree.CAS_MAX` = 6). Au plus 512 combinaisons

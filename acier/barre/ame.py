@@ -106,11 +106,12 @@ def _fy_semelle(b: Dict, s: Dict) -> float:
     return d["fy_parois"].get("semelle", d["fy"])
 
 
-def refusee(message: str) -> Dict:
-    """Le bloc d'une barre dont l'âme ne peut pas être vérifiée (une épaisseur au-delà de 80 mm (domaine du module)…) : « non couvert »."""
+def refusee(message: str, statut: str = RE.NON_COUVERT) -> Dict:
+    """Le bloc d'une barre dont l'âme ne peut pas être vérifiée (une épaisseur au-delà de 80 mm (domaine du module)…) : « non couvert » ;
+    ``statut`` « bloqué » : une valeur à fournir (le ψ₀ d'une exécution ou de machines, combinaisons.statut_refus)."""
     J = RE.Journal(METHODE, NORME)
-    J.verif("A-AME", "Vérification impossible", NORME, "", None, None, "", [], statut=RE.NON_COUVERT,
-            messages=[J.alerte("refus", "attention", message)])
+    J.verif("A-AME", "Vérification impossible", NORME, "", None, None, "", [], statut=statut,
+            messages=[J.alerte("a_fournir" if statut == RE.BLOQUE else "refus", "attention", message)])
     r = J.rendre()
     r.update({"combinaison": None, "combinaisons": [], "a_confirmer": [], "lieux": []})
     return r
@@ -467,7 +468,10 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
     hyp, el, sm = _communes(b, s, fy, P, fyw, src, _fy_semelle(b, s))
     alertes: Dict[str, Dict] = {}
     # (lot C, C0e) les combinaisons de la BARRE : l'âme suit son expression ((6.10), ou (6.10a)/(6.10b) avec C2)
-    combs = [ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas) for co in CO.elu(cas, P, b.get("combinaisons"))]
+    try:
+        combs = [ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas) for co in CO.elu(cas, P, b.get("combinaisons"))]
+    except RE.Refus as e:                       # (intégration du lot C) un ψ₀ à fournir : l'âme est BLOQUÉE, jamais une exception
+        return refusee(str(e), CO.statut_refus(e))
 
     # ---- le voilement par cisaillement, dans chaque section à vérifier
     if el is not None and el["elancee"]:

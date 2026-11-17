@@ -176,6 +176,22 @@ def controles():
         v_e = {"combinaison": repr(e), "valeur": None}
     c("de bout en bout (moteur.verifier) : le ψ₀ SAISI de l'exécution (0,5) est lu — « 1,35·G + 0,75·E + 1,5·Q », M_Ed = 24 × 6²/8 = 108 kN·m",
       v_e is not None and v_e["combinaison"] == "1,35·G + 0,75·E + 1,5·Q" and proche(v_e["valeur"], 108.0, 1e-6), v_e and (v_e["combinaison"], v_e["valeur"]))
+    # (intégration du lot C, vague 1) le ψ₀ qui manque et sert, de bout en bout : la barre est BLOQUÉE, la raison en une
+    # ligne — jamais une exception (elle arrêtait l'écran et la construction du site) ; la méthode ELS, qui ne lit pas ψ₀
+    # (G + ΣQ à 100 %), reste calculée et jugée (IPE 400 de 6 m, G = 2, E = 1, Q = 3 kN/m)
+    cas_b = [{"nom": "G", "nature": "permanent", "charges": [q(2.0, 0.0, 6.0)]}, {"nom": "E", "nature": "execution", "charges": [q(1.0, 0.0, 6.0)]},
+             {"nom": "Q", "nature": "exploitation_A", "charges": [q(3.0, 0.0, 6.0)]}]
+    try:
+        r_b = MO.verifier(barre(profil="IPE 400", travees=[6.0], poids_propre=False, cas=cas_b))
+        lu_b = (r_b["statut"], r_b["methodes"]["ec3"]["statut"], r_b["ame"]["statut"], r_b["methodes"]["historique"]["statut"],
+                [m_ for x in (r_b["methodes"]["ec3"], r_b["ame"]) for v_ in x["verifications"] for m_ in v_["messages"]],
+                {li["ec3"]["statut"] for li in r_b["comparaison"] if li["ec3"]})
+    except Exception as e:  # noqa: BLE001
+        lu_b = ("exception", repr(e))
+    c("de bout en bout : une exécution SANS ψ₀ qui accompagne Q — la barre « bloquée », l'Eurocode 3 et l'âme « bloqué » avec la "
+      "raison en une ligne (ψ₀ à fournir), la comparaison « bloqué » ; la méthode ELS jugée (ok) — jamais une exception",
+      lu_b[:4] == ("bloque", "bloque", "bloque", "ok") and lu_b[4] == ["ψ₀ à fournir (au cas par cas, tableau A1.1 ANB) : « E »"] * 2
+      and lu_b[5] == {"bloque"}, lu_b)
     c("le contrôle de SAISIE que l'écran peut appeler (controler) : un ψ₀ qui manque n'y est pas un refus — le calcul sera bloqué, la "
       "saisie reste libre (sinon plus rien ne se corrige) ; trop de natures, si",
       CO.controler([G, E0, QA]) == len(CO.elu([G, E1, QA], P)) and leve(lambda: CO.elu([G, E0, QA], P), CO.AFournir)
@@ -451,6 +467,14 @@ MUTATIONS = [
     ("combinaisons", "le ψ₀ saisi ignoré (pris à 1)", 'return float(c["psi0"]) if cle == SAISI else P[cle][0]', 'return 1.0 if cle == SAISI else P[cle][0]'),
     ("combinaisons", "controler laisse passer le ψ₀ à fournir (l'écran refuserait toute saisie)", "provisoires = [dict(c, psi0=1.0) if", "provisoires = [c if"),
     ("combinaisons", "un ψ₀ saisi qui manque n'est jamais demandé", "    if manque:\n        raise AFournir(manque)", "    if False:\n        raise AFournir(manque)"),
+    ("combinaisons", "le ψ₀ à fournir rendu « non couvert » (la barre refusée au lieu de bloquée)",
+     "return BLOQUE if isinstance(e, AFournir) else NON_COUVERT", "return NON_COUVERT"),
+    ("moteur", "l'Eurocode 3 arrêté par un ψ₀ à fournir sort « non couvert »",
+     "methodes[nom] = _refusee(nom, norme, str(e), CO.statut_refus(e))", "methodes[nom] = _refusee(nom, norme, str(e))"),
+    ("ame", "l'âme laisse le ψ₀ à fournir lever (l'écran et la construction du site s'arrêtaient)",
+     "    except RE.Refus as e:                       # (intégration du lot C) un ψ₀ à fournir", "    except ZeroDivisionError as e:  # un ψ₀ à fournir"),
+    ("comparaison", "la comparaison dit « non couvert » pour une méthode bloquée",
+     'RE.BLOQUE if g["statut"] == RE.BLOQUE else RE.NON_COUVERT', "RE.NON_COUVERT"),
     ("combinaisons", "la limite compte les CAS", 'n = len({cas[i]["nature"] for i in var})', "n = len(var)"),
     # (6.10a) et (6.10b)
     ("combinaisons", "(6.10b) sans ξ", 'g_sup = P["gamma_G_sup"] * (xi if expr == "6.10b" else 1.0)', 'g_sup = P["gamma_G_sup"]'),

@@ -14,7 +14,7 @@ Choix déclarés :
 - l'âme (EN 1993-1-5) vaut pour les deux méthodes : elle est « commun » — son voilement par cisaillement sous
   « Cisaillement », ses forces concentrées sous « Âme sous charges », ses raidisseurs sous « Raidisseurs » ;
 - une méthode qui REFUSE la barre (E-SECTION de l'Eurocode 3, le refus du moteur) n'a pas de ligne à elle : elle est
-  « non couvert » sur chaque ligne.
+  « non couvert » sur chaque ligne — « bloqué » quand le moteur l'arrête sur une valeur à fournir (un ψ₀).
 
 Une ligne : {"sujet", "historique", "ec3", "commun", "ecart"} ; une case (ou None quand la méthode n'a rien sur ce
 sujet) : {"taux" (le plus fort taux JUGÉ — ok, nok, hors domaine —, None sinon), "statut" (le plus défavorable des
@@ -70,9 +70,9 @@ def case(r: Optional[Dict], motifs: Sequence[str]) -> Optional[Dict]:
     """La case d'une méthode pour un sujet : son plus fort taux jugé, le pire statut, la vérification qui gouverne."""
     if not r or not motifs:
         return None
-    if _refuse(r):
-        return {"taux": None, "statut": RE.NON_COUVERT, "gouvernant": next(v["id"] for v in r["verifications"]
-                                                                          if v["id"] in REFUS or v["statut"] == RE.NON_COUVERT)}
+    if _refuse(r):                              # (bloquée par un ψ₀ à fournir : « bloqué » partout, pas « non couvert »)
+        g = next(v for v in r["verifications"] if v["id"] in REFUS or v["statut"] in (RE.NON_COUVERT, RE.BLOQUE))
+        return {"taux": None, "statut": RE.BLOQUE if g["statut"] == RE.BLOQUE else RE.NON_COUVERT, "gouvernant": g["id"]}
     vs = [v for v in r["verifications"] if _range(v["id"], motifs)]
     if not vs:
         return None

@@ -53,12 +53,13 @@ EPS = 1e-9
 SAUT = 1e-9                      # l'écart relatif entre les lectures de gauche et de droite qui fait un saut de diagramme
 
 
-def _refusee(methode: str, norme: str, message: str) -> Dict:
+def _refusee(methode: str, norme: str, message: str, statut: str = RE.NON_COUVERT) -> Dict:
     """Le résultat d'une méthode qui REFUSE la barre (une épaisseur au-delà de 80 mm (domaine du module), une section sans courbe…) :
-    « non couvert », avec le motif — l'autre méthode reste rendue."""
+    « non couvert », avec le motif — l'autre méthode reste rendue. ``statut`` « bloqué » : une valeur à fournir (le ψ₀
+    d'une exécution ou de machines, combinaisons.statut_refus) — le verdict l'attend, la raison en une ligne."""
     J = RE.Journal(methode, norme)
-    J.verif("E-SECTION" if methode == "ec3" else "H-SIGMA", "Vérification impossible", norme, "", None, None, "", [], statut=RE.NON_COUVERT,
-            messages=[J.alerte("refus", "attention", message)])
+    J.verif("E-SECTION" if methode == "ec3" else "H-SIGMA", "Vérification impossible", norme, "", None, None, "", [], statut=statut,
+            messages=[J.alerte("a_fournir" if statut == RE.BLOQUE else "refus", "attention", message)])
     r = J.rendre()
     r.update({"combinaison": None, "combinaisons": [], "a_confirmer": [], "refus": message})     # (la comparaison le lit : comparaison.py)
     return r
@@ -630,8 +631,8 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             if avis_d and (nom == "historique" or comprimee[nom]):
                 methodes[nom]["alertes"] += avis_d
                 avis_d = []
-        except RE.Refus as e:
-            methodes[nom] = _refusee(nom, norme, str(e))
+        except RE.Refus as e:                    # (un ψ₀ à fournir : « bloqué », jamais « non couvert » ni une exception)
+            methodes[nom] = _refusee(nom, norme, str(e), CO.statut_refus(e))
     # les sections critiques pour le dessin : les points demandés et les racines du moment (combinaisons ELU)
     statique["sections"] = sorted([{"x": x, "genre": "point"} for x in b.get("points") or []]
                                   + [{"x": x, "genre": "racine"} for x in sorted(racines)], key=lambda p_: p_["x"])
