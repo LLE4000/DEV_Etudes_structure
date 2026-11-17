@@ -766,6 +766,21 @@ def controles(M=None):
     c("… et des raidisseurs sont posés à ses deux appuis (§ 5.1(2)), bien que l'âme seule y porte la réaction ; ils ont la rigidité d'un appui",
       all(L["decision"] == "raidisseur" and "§ 5.1(2)" in L["raison"] and L["sans"]["eta2"] < 1.0 for L in a["lieux"]) and len(a["lieux"]) == 2
       and any(f["gabarit"] == "r_I_min" for f in a["calcul"]) and a["statut"] == RE.OK, a["lieux"])
+    # (lot C, C1 point 15 — défaut NON CONSERVATIF : un appui « par l'âme » d'une âme élancée ne demandait aucun raidisseur d'appui,
+    #  alors que le voilement par cisaillement A-Vb est calculé avec eux ; mesuré sur la base : lieux [], âme « ok »)
+    a = ame(profil="IPE 750x134", nuance="S355", travees=[8.0], maintiens=[{"x": 4.0}], appuis={"mode": "ame", "ss": None, "c": None},
+            cas=[{"nom": "G", "nature": "permanent", "charges": [q(30.0, 0.0, 8.0)]}, {"nom": "Q", "nature": "exploitation_A", "charges": [q(40.0, 0.0, 8.0)]}])
+    Rk = (1.35 * (30.0 + g750) + 1.5 * 40.0) * 4.0
+    c("(lot C, C1 point 15) appuis PAR L'ÂME, âme élancée (IPE 750x134 S355) : le raidisseur d'appui du § 5.1(2) est dû à chaque appui — une "
+      "paire de plats dimensionnée sous la réaction entière (À VÉRIFIER), ses vérifications R et Rb, jamais « sans raidisseur » ; l'hypothèse dite "
+      "une fois",
+      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["decision"] == "raidisseur" and L["raison"] == AME.RAISON_APPUI_ELANCEE
+                                                                        and L["par_ame"] and proche(L["F_Ed"], Rk) for L in a["lieux"])
+      and {"A-L00-R", "A-L00-Rb", "A-L01-R", "A-L01-Rb"} <= {v["id"] for v in a["verifications"]}
+      and a["hypotheses"].count(AME.HYP_APPUI_AME) == 1 and any(f["gabarit"] == "r_I_min" for f in a["calcul"]), a["lieux"])
+    a = ame(profil="IPE 300", appuis={"mode": "ame", "ss": None, "c": None}, maintiens=[{"x": 3.0}])
+    c("… une âme qui n'est pas élancée (IPE 300) tenue par l'âme : aucun lieu, aucun raidisseur (rien ne change)",
+      a["lieux"] == [] and AME.HYP_APPUI_AME not in a["hypotheses"], a["lieux"])
     a = ame(profil="IPE 750x134", nuance="S355", travees=[8.0], appuis={"mode": "poses", "ss": 200.0, "c": 200.0},
             cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 8.0)]}])
     c("… avec s_s = c = 200 mm : la résistance de l'âme seule (type c, l_e non plafonné) accompagne le raidisseur dans sa fenêtre de calcul",
@@ -1406,6 +1421,10 @@ MUTATIONS = [
     ("ame", "raidisseur décidé sur η₂ seul (l'interaction oubliée)", '        elif pire["inter"] is not None and pire["inter"] > 1.0:', '        elif False:'),
     ("ame", "raidisseur jamais décidé sur η₂", '        if pire["eta2"] > 1.0:', '        if pire["eta2"] > 1e9:'),
     ("ame", "âme élancée : pas de raidisseur d'appui", '        certain = el is not None and el["elancee"] and L["genre"] == "appui"', "        certain = False"),
+    ("ame", "lot C, point 15 — appui par l'âme d'une âme élancée : aucun raidisseur d'appui (NON CONSERVATIF)",
+     'endroits = lieux(b, cas, sols, ame_elancee=el is not None and el["elancee"] and a is not None)', "endroits = lieux(b, cas, sols)"),
+    ("ame", "lot C, point 15 — appui par l'âme : le raidisseur sous la plus petite réaction", "        F, C_F = max(Rs, key=lambda t: t[0])",
+     "        F, C_F = min(Rs, key=lambda t: t[0])"),
     ("ame", "raidisseur dimensionné pour la force d'une combinaison quelconque", '            pire["F"] = max(pire["F"], o["Fmax"])', '            pire["F"] = o["Fmax"]'),
     ("ame", "deux forces rapprochées rendues « ok » sans le dire", "    if proches:\n        J = RE.Journal(METHODE, NORME)", "    if False:\n        J = RE.Journal(METHODE, NORME)"),
     ("ame", "forces rapprochées : cherchées sur l_y entier (deux fois trop loin)", "        if any(ecart < (portee(r1[k]) + portee(r2[k])) / 2.0 for k", "        if any(ecart < (portee(r1[k]) + portee(r2[k])) for k"),

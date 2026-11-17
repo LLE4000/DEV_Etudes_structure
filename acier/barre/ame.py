@@ -77,6 +77,12 @@ REF_MAINTIEN = f"{AM.REF}, 6.1(1)"
 # raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER). »
 REF_RAIDISSEUR_TENU = f"{AM.REF}, 9.4(2)"
 MOT_RAIDISSEUR_TENU = "raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER)."
+# une âme ÉLANCÉE au cisaillement : des raidisseurs transversaux sont dus à chaque appui (EN 1993-1-5 § 5.1(2)) — que la barre y
+# soit posée ou tenue par l'âme (lot C, C1 point 15 : un appui « par l'âme » n'en demandait aucun, défaut NON CONSERVATIF —
+# le voilement par cisaillement A-Vb est calculé AVEC ces raidisseurs d'appui) ; une seule phrase pour les deux modes
+RAISON_APPUI_ELANCEE = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
+# l'appui par l'âme : le raidisseur d'appui porte la réaction entière (hypothèse prudente : l'assemblage la donne à l'âme)
+HYP_APPUI_AME = "Appui par l'âme, âme élancée : raidisseur d'appui requis (§ 5.1(2)), sous la réaction entière (À VÉRIFIER)."
 
 
 def raidisseur_tenu(libres: Sequence[str]) -> str:
@@ -158,12 +164,14 @@ def efforts(b: Dict, s: Dict) -> Dict:
 
 
 # ------------------------------------------------------------------ barre chargée : les lieux
-def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
+def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence, ame_elancee: bool = False) -> List[Dict]:
     """Les endroits où une force appuie sur l'âme, de gauche à droite : {"base" (préfixe de ses vérifications), "nom",
     "genre" (« appui » | « charge »), "x" (m), "appui" (son rang, ou None), "charges" [(rang du cas, valeur kN)],
     "ss" {"haut", "bas"} (mm ; None : semelle non chargée ; 0, sa borne, quand elle n'est pas saisie), "manque" {"haut", "bas"}
     (les données non saisies de chaque semelle chargée : « s_s », « c »), "tenue" {"haut", "bas"} (la semelle est tenue
-    latéralement au droit du lieu), "dispo" (mm d'âme jusqu'à chaque bout de la barre)}."""
+    latéralement au droit du lieu), "dispo" (mm d'âme jusqu'à chaque bout de la barre)}. ``ame_elancee`` : une âme élancée au
+    cisaillement — chaque appui tenu PAR L'ÂME est aussi un lieu (« par_ame » : aucune force sur une semelle, mais le raidisseur
+    d'appui du § 5.1(2) y est dû)."""
     Lt = sum(b["travees"])
     ap = b["appuis"]
     appuis = list(sols[0].appuis) if sols else []
@@ -207,6 +215,12 @@ def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
                 out.append({"x": a["x"], "appui": i, "nom": f"Appui {a['nom']}", "genre": "appui", "charges": [],
                             "ss": {"haut": None, "bas": ss_ap or 0.0}, "contact": {"haut": None, "bas": ap.get("contact", "inconnu")},
                             "manque": {"haut": [], "bas": manque}, "tenue": {"haut": True, "bas": True}})
+    elif ame_elancee:
+        for i, a in enumerate(appuis):
+            if a["type"] == "appui":                 # tenu par l'âme : aucune semelle chargée, le raidisseur d'appui dû (§ 5.1(2))
+                out.append({"x": a["x"], "appui": i, "nom": f"Appui {a['nom']}", "genre": "appui", "charges": [], "par_ame": True,
+                            "ss": {"haut": None, "bas": None}, "contact": {"haut": None, "bas": None},
+                            "manque": {"haut": [], "bas": []}, "tenue": {"haut": True, "bas": True}})
     if b["niveau"] in ("haut", "bas"):
         groupes: Dict[float, Dict] = {}
         for ci, c in enumerate(cas):
@@ -217,7 +231,7 @@ def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
                     g["ss"].append(ch.get("ss"))
                     g["contact"].append(ch.get("contact", "inconnu"))
         for g in sorted(groupes.values(), key=lambda g: g["x"]):
-            hote = next((L for L in out if L["appui"] is not None and abs(L["x"] - g["x"]) < MEME_ABSCISSE), None)
+            hote = next((L for L in out if L["appui"] is not None and not L.get("par_ame") and abs(L["x"] - g["x"]) < MEME_ABSCISSE), None)
             if hote is None:
                 hote = {"x": g["x"], "appui": None, "nom": f"Charge à {RE.fr(g['x'], 2)} m", "genre": "charge", "charges": [],
                         "ss": {"haut": None, "bas": None}, "contact": {"haut": None, "bas": None}, "manque": {"haut": [], "bas": []},
@@ -437,8 +451,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         env.verser(J.rendre(), {"combinaison": combs[0].nom})
 
     # ---- les forces concentrées : où, combien, sous quelle combinaison
-    endroits = lieux(b, cas, sols)
     a = AM.ame_de(s)
+    endroits = lieux(b, cas, sols, ame_elancee=el is not None and el["elancee"] and a is not None)
+    par_ame = [L for L in endroits if L.get("par_ame")]          # les appuis tenus par l'âme d'une âme élancée (§ 5.1(2))
     ap = b["appuis"]
     genres = {x["type"] for x in (sols[0].appuis if sols else [])}
     if genres - {"appui"}:
@@ -449,6 +464,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         hyp.append(f"Barre posée sur ses appuis : longueur d'appui {ss_t}, débord en rive {c_t}.")
     elif "appui" in genres:
         hyp.append("Appuis par l'âme (platine, cornières, gousset) : aucune force concentrée sur l'âme aux appuis.")
+        if par_ame:
+            hyp.append(HYP_APPUI_AME)
     if any(ch["type"] == "P" for c in cas for ch in c.get("charges") or []):
         hyp.append({"haut": "Charges ponctuelles posées sur la semelle haute.",
                     "bas": "Charges ponctuelles suspendues à la semelle basse : seule une charge vers le haut appuie sur l'âme.",
@@ -457,7 +474,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
     occurrences: Dict[str, List[Dict]] = {}
     for L in endroits:
         occ = []
-        for C in combs:
+        for C in ([] if L.get("par_ame") else combs):          # (un appui par l'âme : aucune force sur une semelle)
             f = forces(L, b["niveau"], sols, C.facteurs)
             if f["soulevement"] > 0:
                 alertes.setdefault(f"soulevement_{L['base']}", {"code": f"soulevement_{L['base']}", "niveau": "info",
@@ -583,7 +600,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         echec = raison is not None                 # l'âme seule ne passe pas (à la borne quand une donnée manque)
         certain = el is not None and el["elancee"] and L["genre"] == "appui"
         if certain:                                # § 5.1(2) : le raidisseur d'appui est dû, quelles que soient les données
-            raison = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
+            raison = RAISON_APPUI_ELANCEE
         # brief § 8.3, point 5 : jamais « pas de raidisseur » par défaut. s_s et c non saisis : la BORNE 0 (sous F_Rd réel, prouvé
         # par balayage) — tout passe, pas de raidisseur ; sinon, décision impossible, la donnée à saisir. Le maintien de la semelle
         # chargée et, quand elle n'est pas comprimée partout, de l'autre (§ 6.1(1)) n'a pas de borne : décision impossible
@@ -715,6 +732,23 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                             messages=[AM.MOTS_ETAT[x["etat"]]] + ([MOT_PIRE_HW] if x["pire_hw"] else []), statut=nc)
             env.verser(J.rendre(), {"combinaison": o["C"].nom, "x": L["x"]})
 
+    # ---- un appui tenu par l'âme d'une âme élancée (§ 5.1(2)) : le raidisseur d'appui est dû — jamais « sans raidisseur » ; il
+    #      est dimensionné sous la plus grande réaction (hypothèse prudente, À VÉRIFIER : HYP_APPUI_AME)
+    appuis_ame: Dict[str, Dict] = {}
+    for L in par_ame:
+        Rs = [(abs(sum(f * sol.appuis[L["appui"]]["R"] for f, sol in zip(C.facteurs, sols) if f)), C) for C in combs]
+        F, C_F = max(Rs, key=lambda t: t[0])
+        p = RA.dimensionner(s, fy, P, F * 1e3, L["dispo"], appui_rigide=True, nuance=b["nuance"], fy_ame=fyw) if RA.gabarit(s) else None
+        J = RE.Journal(METHODE, NORME)
+        if p is not None:
+            RA.ecrire(J, L["base"], L["nom"], s, fy, P, p, pourquoi=[RAISON_APPUI_ELANCEE])
+        else:                                    # le raidisseur est dû, et le profilé n'en reçoit pas : non conforme, dit
+            J.verif(f"{L['base']}-R", f"{L['nom']} : raidisseur d'appui", f"{AM.REF} § 5.1(2)", "raidisseur d'appui", None, None, "", [],
+                    statut=RE.NOK, messages=[RAISON_APPUI_ELANCEE, J.alerte(f"sans_raidisseur_{L['base']}", "attention", f"{L['nom']} : "
+                                                                           "raidisseur nécessaire, mais le profilé est trop étroit pour en recevoir un.")])
+        env.verser(J.rendre(), {"combinaison": C_F.nom, "x": L["x"]})
+        appuis_ame[L["base"]] = {"F": F, "p": p}
+
     r = env.rendre()
     par_id = {v["id"]: v for v in r["verifications"]}
     rendus = []
@@ -746,6 +780,18 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                        "verifications": [v["id"] for v in vs], "gouvernant": gouv["id"], "borne": etude["borne"],
                        # une décision impossible garde son taux, sur la même ligne : à la borne, ou pour information (non couvert)
                        "taux": gouv["taux"], "statut": statut})
+    for L in par_ame:                                    # les appuis par l'âme d'une âme élancée : le raidisseur d'appui (§ 5.1(2))
+        F, p = appuis_ame[L["base"]]["F"], appuis_ame[L["base"]]["p"]
+        vs = [v for i, v in par_id.items() if i.startswith(L["base"] + "-")]
+        gouv = max(vs, key=lambda v: (v["statut"] == RE.NOK, v["taux"] or 0.0))
+        rendus.append({"base": L["base"], "nom": L["nom"], "genre": "appui", "x": L["x"], "type": None, "ss": None, "F_Ed": F,
+                       "sans": None, "avec": None if p is None else RA.vue(p, F * 1e3), "rappel": RA.RAPPEL_TAU if p is not None else None,
+                       "decision": "raidisseur" if p is not None else "impossible", "raison": RAISON_APPUI_ELANCEE, "manque": None,
+                       "ligne": None, "raidisseur": None if p is None else {"bs": p["bs"], "ts": p["ts"], "chanfrein": p["chanfrein"],
+                                                                           "designation": RA.designation(p)},
+                       "verifications": [v["id"] for v in vs], "gouvernant": gouv["id"], "borne": None, "taux": gouv["taux"],
+                       "statut": RE.NOK if any(v["statut"] == RE.NOK for v in vs) else RE.OK, "par_ame": True})
+    rendus.sort(key=lambda L: L["x"])
     if any(L["decision"] == "raidisseur" for L in rendus):
         hyp.append("Raidisseurs : de la nuance de la barre, f_y de chaque plat selon son épaisseur (table unique, option a de l'ANB) ; f_y de "
                    "calcul de la section du raidisseur = min(plats ; âme) ; leurs soudures sont hors du module (EN 1993-1-8). "
