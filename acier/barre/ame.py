@@ -76,14 +76,14 @@ REF_MAINTIEN = f"{AM.REF}, 6.1(1)"
 # le remède, sur le modèle de sans_maintien (intégration du lot B) : « Semelle basse sans maintien (EN 1993-1-5, 9.4(2)) :
 # raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER). »
 REF_RAIDISSEUR_TENU = f"{AM.REF}, 9.4(2)"
-MOT_RAIDISSEUR_TENU = "{quoi} sans maintien (" + REF_RAIDISSEUR_TENU + ") : raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER)."
+MOT_RAIDISSEUR_TENU = "raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER)."
 
 
 def raidisseur_tenu(libres: Sequence[str]) -> str:
     """La raison d'un lieu qui demande un raidisseur sous une charge dont une semelle (``libres`` : « haut », « bas ») n'est
-    pas tenue : MOT_RAIDISSEUR_TENU, la ou les semelles nommées."""
+    pas tenue : la ou les semelles nommées, la clause, puis MOT_RAIDISSEUR_TENU (la décision et le remède)."""
     quoi = "Semelles haute et basse" if len(libres) == 2 else f"Semelle {'haute' if libres[0] == 'haut' else 'basse'}"
-    return MOT_RAIDISSEUR_TENU.format(quoi=quoi)
+    return f"{quoi} sans maintien ({REF_RAIDISSEUR_TENU}) : {MOT_RAIDISSEUR_TENU}"
 
 
 def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
