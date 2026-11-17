@@ -1303,8 +1303,10 @@ CAS_VIRGULE = [
     ("plat_ame_poteau", None, {"tp_u": "10,5"}, ["290 × 100 × 10,5", "290×100×10,5"]),
     ("platine_about_poteau", None, {"tp_u": "10,5"}, ["290 × 220 × 10,5", "290×220×10,5"]),
     ("doubles_cornieres_poteau", None, {"LC_u": "290,5"}, ["hc 290,5", "hc = 290,5 mm"]),
+    ("doubles_cornieres_poteau", None, {"corn_u": PERSO, "k1_u": "100,5", "kt_u": "10,5"}, ["L100,5x100x10,5", "tc = 10,5 mm"]),
     ("doubles_cornieres", None, {"LC_u": "190,5", "M_Ed": "1,5"}, ["hc 190,5", "M = 1,5 kNm"]),
-    ("doubles_cornieres", None, {"corn_u": PERSO, "k1_u": "100,5", "kt_u": "10,5"}, ["L100,5x100x10,5"]),
+    # (intégration du lot B, point 24 : « tc = 11 » pour 10,5 mm — l'arrondi à l'entier d'une épaisseur saisie ; « tc = 10,5 mm »)
+    ("doubles_cornieres", None, {"corn_u": PERSO, "k1_u": "100,5", "kt_u": "10,5"}, ["L100,5x100x10,5", "tc = 10,5 mm"]),
 ]
 
 
@@ -1374,13 +1376,16 @@ chk("mutation « la copie du moteur écrit au point » : le contrôle de la copi
 from acier.assemblages.pied_poteau.platine_beton.manuel import note as _NM  # noqa: E402
 from acier.assemblages.poutre_poutre.plat_ame import texte as _TPA  # noqa: E402
 from acier.assemblages.poutre_poutre.doubles_cornieres import moteur as _MDC  # noqa: E402
+from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import moteur as _MDC2  # noqa: E402
 from acier import js as JS_  # noqa: E402
 _au_point = lambda x, dec=3: JS_.js_str(x)  # noqa: E731
 for nom, mod, sous in [("phrase de l'en-tête (acier/projet.description, « :g »)", PJ_, None),
                        ("en-tête de la note du pied, calcul manuel (« Platine 500×500×25.5 »)", _NM, "platine_beton"),
                        ("pièces et fenêtres des attaches poutre–poutre (api_web/assemblages_poutre)", PP, "plat_ame"),
                        ("texte du plat d'âme (« plat 190x100x10.5 »)", _TPA, "plat_ame"),
-                       ("cornière personnalisée (« L100.5x100x10.5 »)", _MDC, "doubles_cornieres")]:
+                       ("cornière personnalisée (« L100.5x100x10.5 »)", _MDC, "doubles_cornieres"),
+                       # (intégration du lot B, point 24) la cornière personnalisée et son épaisseur (« tc = 10,5 mm ») sur poteau
+                       ("cornière personnalisée sur poteau (« L100.5x100x10.5 », « tc = 10.5 »)", _MDC2, "doubles_cornieres_poteau")]:
     avant = mod.nb
     mod.nb = _au_point
     try:
@@ -1426,6 +1431,33 @@ for nom, mod in _MOTEURS_PREDIM:
     finally:
         mod.nb = avant
     chk(f"mutation « libellé du prédimensionnement ({nom}) au point » : le contrôle rougit", rouge)
+
+# (intégration du lot B, point 24) le DÉTAIL du prédimensionnement des doubles cornières (la fenêtre de l'écran) : « Cornière
+# proposée » s'écrivait par un format de Python (« L100.5x100.5x10.5 », « gA = 55.5 mm ») — le même formateur
+_PO_ = sys.modules["api_web.assemblages_poteau"]
+_DETAIL = _AD(boulon="M20", n=3, e1=40, p1=70, e2=40, LC=220, hav=300.0, treq=8.0, leg=100.5, tC=10.5, legreq=90.0, gA=55.5, p3=90.0,
+              eta=0.5, msg="ok")
+
+
+def ctl_detail_dc():
+    ec = []
+    for nom, mod in (("poutre–poutre", PP), ("poutre–poteau", _PO_)):
+        ligne = dict(mod.detail_predim_dc(_DETAIL))["Cornière proposée"]
+        if _POINT.search(ligne) or "L100,5x100,5x10,5" not in ligne:
+            ec.append(f"{nom} : « {ligne} »")
+    return ec
+
+
+ec = ctl_detail_dc()
+chk("lot B : « Cornière proposée » du détail des doubles cornières à la virgule (« L100,5x100,5x10,5 », « gA = 55,5 mm »)", not ec, ec)
+for nom, mod in (("poutre–poutre", PP), ("poutre–poteau", _PO_)):
+    avant = mod.nb
+    mod.nb = _au_point
+    try:
+        rouge = ctl_detail_dc() != []
+    finally:
+        mod.nb = avant
+    chk(f"mutation « Cornière proposée ({nom}) au point » : le contrôle rougit", rouge)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -199,7 +199,7 @@ def detail_predim_dc(p):
             ["e1 / p1 / e2 = e2,b", f"{p.e1} / {p.p1} / {p.e2} mm"],
             ["Hauteur des cornières hc = 2·e1 + (n1 − 1)·p1", f"{p.LC} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
             ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Cornière proposée", f"L{p.leg}x{p.leg}x{p.tC} – trusquinage gA = {p.gA} mm"],
+            ["Cornière proposée", f"L{nb(p.leg)}x{nb(p.leg)}x{nb(p.tC)} – trusquinage gA = {nb(p.gA)} mm"],
             ["Taux estimé (boulons et pressions diamétrales des âmes)", pct(p.eta, 1)], ["État", p.msg]]
 
 

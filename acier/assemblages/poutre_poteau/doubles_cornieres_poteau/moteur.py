@@ -617,7 +617,7 @@ def compute(u0=None, materiau=None):
     WC = dv(R.t_C * R.L_C * R.L_C / 6 * R.fy_C, gM0) / 1e6
     ck("cgB", "Cornières", "Ailes B – cisaillement section brute", V, VgC, "kN", shr, "COMP", True,
        "VRd,g = 2·hc·tc·fy/(1,27·√3·γM0)",
-       "hc = " + F(R.L_C, 0) + " mm ; tc = " + F(R.t_C, 0) + " mm ; fy = " + F(R.fy_C, 0) + " MPa", 1)
+       "hc = " + F(R.L_C, 0) + " mm ; tc = " + nb(R.t_C) + " mm ; fy = " + F(R.fy_C, 0) + " MPa", 1)
     ck("cnB", "Cornières", "Ailes B – cisaillement section nette", V,
        dv(2 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C, S3 * gM2n) / 1000, "kN", shr, "COMP", R.bolt_S,
        "VRd,n = 2·Av,net·fu/(√3·γM2) ; Av,net = tc·(hc − n1·d0)",

@@ -471,7 +471,7 @@ def compute(u0=None, materiau=None):
     VgC = dv(2 * R.L_C * R.t_C * R.fy_C, 1.27 * S3 * gM0) / 1000
     WC = dv(R.t_C * R.L_C * R.L_C / 6 * R.fy_C, gM0) / 1e6
     ck("cgB", "Cornières", "Ailes B – cisaillement section brute", V, VgC, "kN", shr, "COMP", True, "VRd,g = 2·Lc·tc·fy/(1,27·√3·γM0)",
-       "Lc = " + F(R.L_C, 0) + " mm ; tc = " + F(R.t_C, 0) + " mm ; fy = " + F(R.fy_C, 0) + " MPa", 1)
+       "Lc = " + F(R.L_C, 0) + " mm ; tc = " + nb(R.t_C) + " mm ; fy = " + F(R.fy_C, 0) + " MPa", 1)
     ck("cnB", "Cornières", "Ailes B – cisaillement section nette", V, dv(2 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C, S3 * gM2n) / 1000, "kN", shr, "COMP", R.bolt_S,
        "VRd,n = 2·Av,net·fu/(√3·γM2) ; Av,net = tc·(Lc − n1·d0)", "Av,net = " + F(R.t_C * (R.L_C - R.n1_S * d0), 0) + " mm² par cornière", 1)
     ck("cbB", "Cornières", "Ailes B – rupture de bloc", V, 2 * (dv(0.5 * R.fu_C * R.Ant_B, gM2n) + dv(R.fy_C * R.Anv_B / S3, gM0)) / 1000, "kN",
