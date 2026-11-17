@@ -993,14 +993,60 @@ def controles_lot_b(H, MO_, c):
     cont = MO_.verifier(dict(nb_, modele="continue", travees=[1.7, 2.2, 2.0], methodes=["historique"], cas=[
         {"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 102.0, "a": 0.0, "b": 5.9}, {"type": "P", "v": 326.0, "a": 2.28}]}]
     ))["methodes"]["historique"]
-    dvs = [h for h in cont["hypotheses"] if h.startswith("Déversement (classeurs")]
-    c("barre chargée — poutre continue (1,7 + 2,2 + 2,0 m, IPE 300, sans maintien) : H-EQ gouverne à l'appui intermédiaire (tronçon 0–1,70 m), "
-      "H-DEV dans le tronçon 1,70–3,90 m ; les deux lignes « Déversement » (L_d = 1,70 et 2,20 m) disent chacune leur tronçon et leur "
-      "vérification, celle de la gouvernante d'abord",
-      cont["gouvernant"] == "H-EQ" and verif_de(cont, "H-DEV")["troncon"] == [1.7, 3.9] and len(dvs) == 2
-      and "Déversement (classeurs, NBN B 51-002), tronçon de 0,00 à 1,70 m (contrainte équivalente) : L_d = 1,70 m," in dvs[0]
-      and "Déversement (classeurs, NBN B 51-002), tronçon de 1,70 à 3,90 m (déversement) : L_d = 2,20 m," in dvs[1]
-      and cont["hypotheses"].count(DE.MESSAGE_3_9) == 1 and len(cont["hypotheses"]) == len(set(cont["hypotheses"])), cont["hypotheses"])
+    dvs = [h for h in cont["hypotheses"] if h.startswith("Déversement")]
+    eq_ = verif_de(cont, "H-EQ")
+    c("barre chargée — poutre continue (1,7 + 2,2 + 2,0 m, IPE 300, sans maintien) : H-EQ gouverne à DROITE de l'appui B (V = 361,8 kN), "
+      "avec le L_d de la travée 2 (2,20 m) : 223 % (214 % avec celui de la travée 1 : le défaut corrigé) ; H-DEV dans le même tronçon "
+      "(160 %) : une seule ligne « Déversement »",
+      cont["gouvernant"] == "H-EQ" and eq_["x"] == 1.7 and eq_["troncon"] == [1.7, 3.9] and round(eq_["taux"], 4) == 2.2315
+      and verif_de(cont, "H-DEV")["troncon"] == [1.7, 3.9] and round(verif_de(cont, "H-DEV")["taux"], 3) == 1.598
+      and len(dvs) == 1 and dvs[0].startswith("Déversement (classeurs, NBN B 51-002) : L_d = 2,20 m, ")
+      and cont["hypotheses"].count(DE.MESSAGE_3_9) == 1 and len(cont["hypotheses"]) == len(set(cont["hypotheses"])),
+      ([(v["id"], v["taux"], v["x"], v["troncon"]) for v in cont["verifications"]], cont["hypotheses"]))
+
+    # ---- le SENS de dessin ne change rien : à une frontière de tronçons, chaque côté avec SON tronçon ; les bouts des
+    #      tronçons (un maintien seul) sont des sections vérifiées
+    def appui_P(trav, xP):
+        return MO_.verifier(dict(nb_, modele="continue", travees=trav, methodes=["historique"], cas=[{"nom": "G", "nature": "permanent", "N": 0.0,
+            "charges": [{"type": "q", "v": 30.0, "a": 0.0, "b": 6.0}, {"type": "P", "v": 300.0, "a": xP}]}]))["methodes"]["historique"]
+    deux, deux_m = appui_P([2.0, 4.0], 1.75), appui_P([4.0, 2.0], 4.25)
+    dvs = [h for h in deux["hypotheses"] if h.startswith("Déversement")]
+    c("barre chargée — poutre continue 2 + 4 m (IPE 300, 30 kN/m, 300 kN à 1,75 m) : à l'appui, le côté gauche (L_d = 2 m) donne H-EQ "
+      "175 %, le côté droit (L_d = 4 m) H-DEV 147 % ; deux lignes « Déversement » de moins de 110 caractères, chacune avec son tronçon et "
+      "sa vérification, sans redire L_d ni la norme, celle de la gouvernante d'abord ; la poutre retournée donne les mêmes taux",
+      deux["gouvernant"] == "H-EQ" and verif_de(deux, "H-EQ")["troncon"] == [0.0, 2.0] and verif_de(deux, "H-DEV")["troncon"] == [2.0, 6.0]
+      and verif_de(deux, "H-EQ")["x"] == verif_de(deux, "H-DEV")["x"] == 2.0
+      and round(deux["taux_max"], 4) == 1.7514 and round(verif_de(deux, "H-DEV")["taux"], 4) == 1.4724
+      and dvs == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm).",
+                  "Déversement sur 2–6 m (déversement) : C_d = 1, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm)."]
+      and all(len(h) < 110 for h in dvs) and deux["hypotheses"].count(DE.MESSAGE_3_9) == 1
+      and proche(deux_m["taux_max"], deux["taux_max"]) and proche(verif_de(deux_m, "H-DEV")["taux"], verif_de(deux, "H-DEV")["taux"]),
+      (deux["gouvernant"], deux["taux_max"], deux_m["taux_max"], dvs))
+
+    def els(**k):
+        return MO_.verifier(dict(nb_, poids_propre=False, methodes=["historique"], **k))["methodes"]["historique"]
+    q20 = [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 20.0, "a": 0.0, "b": 8.0}]}]
+    r26, r62 = els(modele="continue", travees=[2.0, 6.0], cas=q20), els(modele="continue", travees=[6.0, 2.0], cas=q20)
+    pm = [els(travees=[6.0], maintiens=[{"x": a, "genre": "complet"}],
+              cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 40.0, "a": a}]}]) for a in (2.0, 4.0)]
+    c("la poutre RETOURNÉE donne le même taux ELS : IPE 300 continue 2 + 6 m et 6 + 2 m sous 20 kN/m → 210 % (H-EQ à l'appui, côté de la "
+      "travée de 6 m ; 173 % avant pour 2 + 6 m) ; 6 m, 40 kN et un maintien au même point, à 2 m ou à 4 m → 119 %, « nok » "
+      "(85 % « ok » avant à 2 m)",
+      proche(r26["taux_max"], r62["taux_max"]) and round(r26["taux_max"], 4) == 2.1011 and verif_de(r26, "H-EQ")["troncon"] == [2.0, 8.0]
+      and verif_de(r62, "H-EQ")["troncon"] == [0.0, 6.0] and proche(pm[0]["taux_max"], pm[1]["taux_max"]) and round(pm[0]["taux_max"], 4) == 1.1886
+      and pm[0]["statut"] == pm[1]["statut"] == H.NOK,
+      (r26["taux_max"], r62["taux_max"], pm[0]["taux_max"], pm[1]["taux_max"]))
+    m45 = els(profil="IPE 400", travees=[10.0], maintiens=[{"x": 4.5, "genre": "complet"}, {"x": 5.5, "genre": "complet"}],
+              cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 15.0, "a": 0.0, "b": 10.0}]}])
+    s4 = SE.du_catalogue("IPE 400")
+    lb4 = 3.9 * math.sqrt(4500.0 * s4["h"] / (s4["b"] * s4["tf"])) / (math.pi * math.sqrt(210000.0 / 235.0))
+    F4 = 1.0 + 0.339 * (lb4 - 0.2) + lb4 * lb4
+    main4 = (15.0 * 4.5 * 5.5 / 2.0 * 1e6 / s4["Wel_y"]) / (235.0 / 1.5 * (F4 - math.sqrt(F4 * F4 - 4.0 * lb4 * lb4)) / (2.0 * lb4 * lb4))
+    dv4 = verif_de(m45, "H-DEV")
+    c("un maintien qui n'est ni un appui ni une charge borne un tronçon VÉRIFIÉ : IPE 400 de 10 m, 15 kN/m, maintiens à 4,5 et 5,5 m → "
+      "H-DEV 198 % à x = 4,5 m avec L_d = 4,5 m (à la main : M = 185,6 kN·m, classe b) ; 119 % avant, pris dans le tronçon central de 1 m",
+      dv4["x"] == 4.5 and dv4["troncon"] == [0.0, 4.5] and proche(dv4["taux"], main4, 1e-6) and round(dv4["taux"], 3) == 1.979,
+      (dv4["taux"], main4, dv4["x"], dv4["troncon"]))
     rcl = MO_.verifier(dict(nb_, maintiens=[{"x": 3.0, "genre": "complet"}], historique={"classe_d": "d"}))
     rf1 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3", historique={"facteur_doc": True}))
     rf0 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3"))
@@ -1239,8 +1285,14 @@ def mutations():
     cas_mo = [
         ("lot B — A9 revient : la f_y de l'Eurocode 3 selon l'épaisseur", 'return {"fy": MA.nominale(nuance), "nuance": nuance,',
          'return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
-        ("lot B — la barre chargée oublie C_d et la variante", '"deversement": _deversement_historique(b, tr_x[1] * 1e3)})',
-         '"deversement": {"actif": b["historique"]["deversement"], "Lc": tr_x[1] * 1e3}})'),
+        ("lot B — la barre chargée oublie C_d et la variante", '"deversement": _deversement_historique(b, Lc * 1e3)})',
+         '"deversement": {"actif": b["historique"]["deversement"], "Lc": Lc * 1e3}})'),
+        ("sens de dessin — à une frontière, le tronçon de GAUCHE pour les deux côtés (le défaut d'avant)",
+         "    if gauche is not None and droite is not None and gauche is not droite:\n", "    if False:\n"),
+        ("sens de dessin — à une frontière, les côtés échangés (le gauche avec le tronçon de droite)",
+         'return [(gauche, (e["M_g"], e["V_g"])), (droite, (e["M_d"], e["V_d"]))]', 'return [(droite, (e["M_g"], e["V_g"])), (gauche, (e["M_d"], e["V_d"]))]'),
+        ("sens de dessin — les bouts des tronçons hors des sections vérifiées (un maintien seul jamais vérifié)",
+         'for x in sorted(set(xs) | {tr[k] for tr in trs for k in ("x1", "x2")}):', "for x in xs:"),
         ("relecture — la barre oublie le facteur 5,1 de la doc", '"facteur_doc": h["facteur_doc"],\n', '"facteur_doc": False,\n'),
         ("relecture — la barre oublie la classe de déversement imposée", '"classe": h["classe_d"], ', '"classe": None, '),
     ]
@@ -1274,7 +1326,11 @@ def mutations():
         ("fin du bloc — hypothèses ajoutées en fin de liste (après les courbes de flambement)", "j = pareils[-1] + 1 if pareils else i\n",
          "j = pareils[-1] + 1 if pareils else len(lignes)\n"),
         ("reprise — deux lignes « Déversement » (deux tronçons) sans leur tronçon ni leur vérification",
-         '                h = f"{s}, {self._origine(ids)} : {h[len(s) + 3:]}"\n', "                pass\n"),
+         '                h = self._etiquetee(s, h[len(s) + 3:], ids)\n', "                pass\n"),
+        ("sens de dessin — la ligne étiquetée redit L_d (la longueur de son tronçon)", "                if corps.startswith(redite):\n",
+         "                if False:\n"),
+        ("sens de dessin — la ligne étiquetée redit la norme (« (classeurs, NBN B 51-002) »)",
+         "return f\"{s.split(' (')[0]} {self._origine(ids)} : {corps}\"", "return f\"{s} {self._origine(ids)} : {corps}\""),
         ("reprise — la ligne « Déversement » d'un autre tronçon placée avant celle de la gouvernante", "j = pareils[-1] + 1 if pareils else i\n",
          "j = i\n"),
     ]

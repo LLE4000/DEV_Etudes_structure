@@ -163,8 +163,10 @@ chargée : celle du tronçon) ; b et t_f de la semelle comprimée (un moment pos
 1 par défaut (1 à 3 : borne de saisie du module, À VÉRIFIER). Le 3,9 : √(3π·√2,6) = 3,899 (doc p. 18, torsion de
 Saint-Venant seule, deux semelles égales), gardé comme les classeurs ; la note le dit une fois, dans les hypothèses (barre
 chargée : celles de la ligne qui gouverne, plus celles des lignes des contraintes et du déversement, sans doublon — elles
-restent dites quand H-EQ gouverne à l'appui ; deux tronçons de L_d différents, par exemple H-EQ à l'appui intermédiaire
-d'une poutre continue : chaque ligne « Déversement » dit son tronçon et sa vérification, celle de la gouvernante d'abord). n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
+restent dites quand H-EQ gouverne à l'appui ; deux tronçons de L_d différents, par exemple H-EQ et H-DEV de part et
+d'autre d'un appui intermédiaire : chaque ligne « Déversement » dit son tronçon et sa vérification, celle de la gouvernante
+d'abord, en une ligne courte — « Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (…) », sans redire la
+norme ni L_d quand il vaut la longueur du tronçon). n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
 faible », un seul choix) : I laminé h/b > 1,2 → b (t_f ≤ 40), c (≤ 80), d au-delà (pas de ligne : note 3, prudent) ;
 h/b ≤ 1,2 → c (≤ 80), d au-delà ; PRS oxycoupé → c (t_f ≤ 40), d au-delà ; larges plats → d ; U → c (fonction seule) ;
 un autre profil (I recuit, à semelles additionnelles) : classe « à fournir » (le message nomme le profil) — la flexion est
@@ -566,8 +568,13 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   efforts qui s'y trouvent ENSEMBLE ; la BARRE par tronçon de déversement, sous le diagramme réel (M_cr numérique,
   charges à leur niveau). k_c n'est lu dans le tableau 6.6 que si le tronçon EST un de ses cas ; C_my,0 par la formule
   générale (flèche et moment de la portée) sur deux appuis, sinon moment constant.
-- Méthode ELS : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
-  semelle ne compte que si elle est comprimée sur tout le tronçon.
+- Méthode ELS : dans chaque section ET aux deux bouts de chaque tronçon (un maintien qui n'est ni un appui ni un point
+  de charge), avec la longueur de déversement de son tronçon ; à une frontière, le côté gauche avec le tronçon de gauche,
+  le côté droit avec celui de droite (le moment est le même, pas L_d) : la poutre retournée donne le même taux. Avant le
+  lot B, la section frontière prenait le L_d du tronçon de gauche pour ses deux côtés, et le bout d'un tronçon sans
+  charge n'était pas vérifié (non conservatif : 2 + 6 m → 173 %, 6 + 2 m → 210 % ; maintiens à 4,5 et 5,5 m d'une poutre
+  de 10 m → 119 % au lieu de 198 %). Un maintien d'une seule semelle ne compte que si elle est comprimée sur tout le
+  tronçon.
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
   encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)

@@ -15,8 +15,9 @@ combinaisons (combinaisons.py), puis cherche, vérification par vérification, l
         travée), avec les efforts qui s'y trouvent ENSEMBLE, des deux côtés d'un saut ;
         la BARRE par tronçon de déversement : flambement sous N, déversement sous le diagramme réel du tronçon
         (M_cr numérique, charges à leur niveau), flexion composée avec le plus grand moment du tronçon.
-    Méthode historique : pour chaque combinaison de service (G + ΣQ) — dans chaque section à vérifier, avec la
-        longueur de déversement L_c de son tronçon.
+    Méthode historique : pour chaque combinaison de service (G + ΣQ) — dans chaque section à vérifier et aux deux
+        bouts de chaque tronçon, avec la longueur de déversement L_c de son tronçon (à une frontière : le côté gauche
+        avec le tronçon de gauche, le côté droit avec celui de droite).
 
 L'enveloppe garde, pour chaque vérification, où elle a été trouvée (la combinaison, l'abscisse ou le tronçon) et les
 formules de CETTE occurrence : la note imprime ce qui a décidé.
@@ -187,6 +188,19 @@ def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float
     return max(v - u for u, v in zip(tenus, tenus[1:]))
 
 
+def _cotes_historique(e: Dict, x: float, Lcs: Sequence[Tuple[Dict, float]]) -> List[Tuple[Tuple[Dict, float], Tuple[float, float]]]:
+    """Les couples (M, V) de la section lue ``e`` (abscisse ``x``), chacun avec le tronçon (et son L_d) qui le vérifie dans
+    la méthode ELS. À la FRONTIÈRE de deux tronçons, le côté gauche se vérifie avec le tronçon de gauche et le côté droit
+    avec celui de droite, même quand le moment est le même des deux côtés : leurs L_d diffèrent (sinon le taux dépend du
+    sens de dessin de la poutre). Ailleurs, le tronçon de la section, pour ses deux côtés (``ST.cotes``)."""
+    gauche = next((t for t in Lcs if t[0]["x1"] + EPS < x <= t[0]["x2"] + EPS), None)
+    droite = next((t for t in Lcs if t[0]["x1"] - EPS <= x < t[0]["x2"] - EPS), None)
+    if gauche is not None and droite is not None and gauche is not droite:
+        return [(gauche, (e["M_g"], e["V_g"])), (droite, (e["M_d"], e["V_d"]))]
+    t = gauche or droite or Lcs[-1]
+    return [(t, mv) for mv in ST.cotes(e, EPS)]
+
+
 def _chargee(b: Dict, s: Dict) -> Dict:
     P = PA.jeu(b["parametres"])
     cas = ST.cas_complets(b, s)
@@ -274,15 +288,16 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             combs.append(C)
             xs = ST.sections(b, C, pts)
             Lcs = [(tr, _Lc_historique(C, tr, xs)) for tr in trs]
-            for x in xs:
-                tr_x = next(((tr, Lc) for tr, Lc in Lcs if tr["x1"] - EPS <= x <= tr["x2"] + EPS), Lcs[-1])
-                for M, V in ST.cotes(C.lire(x), EPS):
+            # les BOUTS de chaque tronçon sont des sections vérifiées : un maintien qui n'est ni un appui ni un point de
+            # charge borne deux tronçons, et le plus grand moment d'un tronçon peut tomber à son bout
+            for x in sorted(set(xs) | {tr[k] for tr in trs for k in ("x1", "x2")}):
+                for (tr, Lc), (M, V) in _cotes_historique(C.lire(x), x, Lcs):
                     if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
                         continue
                     r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
-                                     "deversement": _deversement_historique(b, tr_x[1] * 1e3)})
-                    env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr_x[0]["x1"], tr_x[0]["x2"]]})
+                                     "deversement": _deversement_historique(b, Lc * 1e3)})
+                    env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]
                 if f is not None and abs(f) > abs(fleche["valeur"]):

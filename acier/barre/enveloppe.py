@@ -27,6 +27,12 @@ def sujet(h: str) -> Optional[str]:
     return s if sep else None
 
 
+def _court(x: float) -> str:
+    """Une abscisse au centimètre, sans zéro inutile : 0 ; 1,7 ; 12,35."""
+    t = RE.fr(x, 2)
+    return t.rstrip("0").rstrip(",") if "," in t else t
+
+
 def rang(v: Dict) -> Tuple[int, float]:
     """L'ordre de gravité d'une occurrence : un refus sans taux passe devant tout taux ; un taux devant le reste."""
     if v["statut"] == RE.NOK and v["taux"] is None:
@@ -123,20 +129,34 @@ class Enveloppe:
         for h, ids in lignes:
             s = sujet(h)
             if s is not None and any(sujet(li[0]) == s and li[1] != ids for li in lignes):
-                h = f"{s}, {self._origine(ids)} : {h[len(s) + 3:]}"
+                h = self._etiquetee(s, h[len(s) + 3:], ids)
             hyp.append(h)
         return hyp
 
+    def _etiquetee(self, s: str, corps: str, ids: Sequence[str]) -> str:
+        """Une version d'un sujet qui en a plusieurs, dite avec son origine, en une ligne courte : « Déversement sur 0–2 m
+        (contrainte équivalente) : C_d = 1, classe b (…) ». Le sujet perd sa référence (la vérification la porte), et L_d
+        est tu quand il redit la longueur de l'unique tronçon (un maintien d'une seule semelle le raccourcit : il est dit
+        alors)."""
+        troncons = {tuple(self.pire[i]["ou"]["troncon"]) for i in ids if self.pire[i]["ou"].get("troncon")}
+        if len(troncons) == 1:
+            (a, b), = troncons
+            for sep in (", ", " ; "):
+                redite = f"L_d = {RE.fr(b - a, 2)} m{sep}"
+                if corps.startswith(redite):
+                    corps = corps[len(redite):]
+        return f"{s.split(' (')[0]} {self._origine(ids)} : {corps}"
+
     def _origine(self, ids: Sequence[str]) -> str:
-        """D'où vient une hypothèse : « tronçon de 1,70 à 3,90 m (déversement) » — le tronçon de chaque occurrence retenue,
-        avec le titre de sa vérification ; sans tronçon, les titres seuls."""
+        """D'où vient une hypothèse : « sur 1,7–3,9 m (déversement) » — le tronçon de chaque occurrence retenue, avec le
+        titre de sa vérification ; sans tronçon, les titres seuls, entre parenthèses."""
         par_troncon: Dict[Optional[Tuple[float, float]], List[str]] = {}
         for i in ids:
             o = self.pire[i]
             t = o["ou"].get("troncon")
             titre = o["v"]["titre"]
             par_troncon.setdefault(tuple(t) if t else None, []).append(titre[:1].lower() + titre[1:])
-        return " ; ".join(f"tronçon de {RE.fr(t[0], 2)} à {RE.fr(t[1], 2)} m ({', '.join(ts)})" if t else ", ".join(ts)
+        return " ; ".join(f"sur {_court(t[0])}–{_court(t[1])} m ({', '.join(ts)})" if t else f"({', '.join(ts)})"
                           for t, ts in par_troncon.items())
 
     def rendre(self) -> Dict:
