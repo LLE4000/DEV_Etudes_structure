@@ -1043,9 +1043,14 @@ note (C5) : ils liront ce que le moteur rend.
 - **N par tronçon** (`N_troncons`) : chaque section à son N ; le flambement et (6.61), (6.62) au plus grand N de la barre
   (prudent, À VÉRIFIER) ; η₁ de l'âme au N du lieu.
 - **Mode d'introduction déclaré** d'une ponctuelle (a, b, c) : appliqué tel quel ; « auto », la règle du module.
-- **Débords** (porte-à-faux, rdm/poutres) : la barre va de 0 à g + Σ portées + d ; le bout d'un débord est libre ; la
-  longueur de flambement et L_d d'un débord suivent la règle de la console (2,1 × sa longueur, À VÉRIFIER).
-- **Origine des longueurs rendues** (`longueurs[a]["origine"]`) : « portee », « troncon », « console », « saisie ».
+- **Débords** (porte-à-faux, rdm/poutres) : la barre va de 0 à g + Σ portées + d ; le bout d'un débord est libre. La
+  longueur de flambement d'un axe où le bout du débord est libre est celle d'Euler de la barre ENTIÈRE sur ses points
+  tenus (`statique.longueur_euler` : E·I et N constants, appuis articulés — la travée voisine tourne avec le débord), au
+  moins 2,1 × le débord ; elle sert aussi de L_d au tronçon du débord (méthode ELS, hors domaine). 4 m + 2,5 m : 7,89 m
+  (2,1 × 2,5 = 5,25 m surestimait N_cr 2,26 fois — contre-vérification du lot C) ; 6 m + 1,5 m : 7,91 m. Une alerte,
+  dite une fois (À VÉRIFIER) ; le verdict ELS reste « hors domaine » quand la travée gouverne le déversement.
+- **Origine des longueurs rendues** (`longueurs[a]["origine"]`) : « portee », « troncon », « console », « debord »,
+  « saisie ».
 - **R2 de bout en bout** (critère du lot C) : `tests/test_barre_moteur.py`, § 10 — M_Ed 68,70, V_Ed 27,80 ; propriétés du
   brief : 118,18 / 0,887 et 86,98 / 1,093 ; catalogue (I_t 19,77 cm⁴) : 117,52 / 0,890 et 86,35 / 1,0996.
 

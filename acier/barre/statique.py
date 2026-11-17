@@ -30,6 +30,7 @@ celui d'un débord, est libre. Pour M_cr (``pour_mcr``), les maintiens « négli
     N PAR TRONÇON (``N_troncons`` d'un cas : [{"x2", "N"}…], il remplace son N constant) : N(x) de la combinaison ;
     les DÉBORDS (porte-à-faux aux rives, rdm/poutres.py) : la barre va de 0 à g + Σ portées + d, le premier appui en x = g.
 """
+import functools
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -309,6 +310,113 @@ def torsion_appui(barre: Dict, i: int) -> str:
     detail = (barre.get("appuis") or {}).get("detail") or []
     d = detail[i] if i < len(detail) else None
     return MC.ENCASTRE if (d or {}).get("torsion") == "encastre" else MC.FOURCHE
+
+
+EULER_ELEMENTS = 48              # éléments de poutre sur la barre (au moins EULER_MIN par morceau entre deux points tenus)
+EULER_MIN = 6
+EULER_ITERATIONS = 400           # itérations inverses au plus ; arrêt quand N_cr ne bouge plus de 10⁻¹² en valeur relative
+
+
+def _cholesky_bande(K: List[List[float]], b: int) -> List[List[float]]:
+    """La factorisation de Cholesky d'une matrice symétrique en BANDE (``K[i][j]`` = K(i, i + j), 0 ≤ j ≤ b) : le facteur
+    L (``L[i][j]`` = L(i + j, i)), K = L·Lᵀ ; K doit être définie positive (la barre tenue, aucun mécanisme)."""
+    n = len(K)
+    L = [[0.0] * (b + 1) for _ in range(n)]
+    for i in range(n):
+        for j in range(i, min(n, i + b + 1)):
+            v = K[i][j - i]
+            for k in range(max(0, j - b), i):
+                v -= L[k][i - k] * L[k][j - k]
+            if j == i:
+                if v <= 0.0:
+                    raise Refus("flambement de la barre avec ses débords : la barre n'est pas tenue (mécanisme)")
+                L[i][0] = math.sqrt(v)
+            else:
+                L[i][j - i] = v / L[i][0]
+    return L
+
+
+def _resoudre_bande(L: List[List[float]], b: int, y: List[float]) -> List[float]:
+    """x tel que L·Lᵀ·x = y (``_cholesky_bande``)."""
+    n = len(L)
+    z = list(y)
+    for i in range(n):
+        v = z[i] - sum(L[k][i - k] * z[k] for k in range(max(0, i - b), i))
+        z[i] = v / L[i][0]
+    for i in reversed(range(n)):
+        v = z[i] - sum(L[i][k - i] * z[k] for k in range(i + 1, min(n, i + b + 1)))
+        z[i] = v / L[i][0]
+    return z
+
+
+def _produit_bande(K: List[List[float]], b: int, x: List[float]) -> List[float]:
+    """K·x pour une matrice symétrique en bande (``_cholesky_bande``)."""
+    n = len(K)
+    y = [0.0] * n
+    for i in range(n):
+        for j in range(i, min(n, i + b + 1)):
+            v = K[i][j - i]
+            if v:
+                y[i] += v * x[j]
+                if j != i:
+                    y[j] += v * x[i]
+    return y
+
+
+@functools.lru_cache(maxsize=64)
+def longueur_euler(L: float, tenus: Tuple[float, ...]) -> float:
+    """La longueur de flambement (m) d'une barre de longueur ``L`` (m), E·I et N constants, tenue en DÉPLACEMENT aux
+    abscisses ``tenus`` (des articulations : la rotation y est libre), libre ailleurs — un bout qui n'est pas tenu est
+    LIBRE (un débord, lot C). Le plus petit N_cr de (K − N·K_G)·φ = 0 : éléments de poutre d'Hermite (rigidité et
+    rigidité géométrique cohérentes, E·I = 1), itération inverse (quotient de Rayleigh) ; L_cr = π/√N_cr. La méthode
+    donne N_cr par excès (Rayleigh-Ritz) : l'écart est en h⁴, sous 10⁻⁶ ici — L_cr est arrondie au mm SUPÉRIEUR.
+    Recoupée par l'équation caractéristique d'une travée articulée et de son débord (tests/test_barre_moteur.py)."""
+    tt = [round(x, 9) for x in tenus if -1e-9 <= x <= L + 1e-9]
+    pts = sorted({0.0, round(L, 9)} | set(tt))
+    noeuds = [0.0]
+    for a, c in zip(pts, pts[1:]):
+        n = max(EULER_MIN, math.ceil(EULER_ELEMENTS * (c - a) / L))
+        noeuds += [a + (c - a) * i / n for i in range(1, n + 1)]
+    nd = 2 * len(noeuds)
+    K = [[0.0] * 4 for _ in range(nd)]
+    G = [[0.0] * 4 for _ in range(nd)]
+    for e in range(len(noeuds) - 1):
+        h = noeuds[e + 1] - noeuds[e]
+        ke = [[12.0, 6 * h, -12.0, 6 * h], [6 * h, 4 * h * h, -6 * h, 2 * h * h], [-12.0, -6 * h, 12.0, -6 * h], [6 * h, 2 * h * h, -6 * h, 4 * h * h]]
+        kg = [[36.0, 3 * h, -36.0, 3 * h], [3 * h, 4 * h * h, -3 * h, -h * h], [-36.0, -3 * h, 36.0, -3 * h], [3 * h, -h * h, -3 * h, 4 * h * h]]
+        for p in range(4):
+            for q in range(p, 4):
+                K[2 * e + p][q - p] += ke[p][q] / h ** 3
+                G[2 * e + p][q - p] += kg[p][q] / (30.0 * h)
+    bloques = {2 * i for i, x in enumerate(noeuds) if any(abs(x - t) <= 1e-9 for t in tt)}
+    if len(bloques) < 2:
+        raise Refus("flambement de la barre avec ses débords : deux points tenus au moins")
+    for c in bloques:                          # w = 0 : la ligne et la colonne effacées, 1 sur la diagonale de K
+        for j in range(4):
+            K[c][j] = G[c][j] = 0.0
+            if c - j >= 0:
+                K[c - j][j] = G[c - j][j] = 0.0
+        K[c][0] = 1.0
+    Lc = _cholesky_bande(K, 3)
+    graine = 12345
+    x = []
+    for i in range(nd):                        # un départ pseudo-aléatoire, fixe : aucun mode n'y est orthogonal
+        graine = (1103515245 * graine + 12345) % 2 ** 31
+        x.append(0.0 if i in bloques else graine / 2 ** 31 - 0.5)
+    lam = None
+    for _ in range(EULER_ITERATIONS):
+        y = _produit_bande(G, 3, x)
+        z = _resoudre_bande(Lc, 3, y)
+        zKz = sum(a * c for a, c in zip(z, y))          # zᵀ·K·z = zᵀ·y
+        zGz = sum(a * c for a, c in zip(z, _produit_bande(G, 3, z)))
+        nouveau = zKz / zGz
+        norme = math.sqrt(sum(a * a for a in z))
+        x = [a / norme for a in z]
+        if lam is not None and abs(nouveau - lam) <= 1e-12 * lam:
+            lam = nouveau
+            break
+        lam = nouveau
+    return math.ceil(math.pi / math.sqrt(lam) * 1e3 - 1e-6) / 1e3
 
 
 def troncons(barre: Dict, s: Dict, pour_mcr: bool = False) -> List[Dict]:

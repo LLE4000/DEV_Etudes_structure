@@ -715,10 +715,11 @@ MUTATIONS = [
     ("statique", "niveau d'application des charges ignoré", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)", "    return 0.0"),
     # (intégration du lot B, point 4, le harnais suit : 2·L → U_CONSOLE·L = 2,1·L)
     ("moteur", "console : flambement sur une fois sa longueur", 'L, origine = round(U_CONSOLE * L, 9), "console"        # une console', 'L, origine = round(1.0 * L, 9), "console"        # une console'),
-    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'round(U_CONSOLE * sum(b["travees"]), 9)',
-     'round(1.0 * sum(b["travees"]), 9)'),
+    # (contre-vérification du lot C, le harnais suit : _libres écrit aussi 2,1 × la console — l'ancre nomme celle de L_cr,z)
+    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'L, origine = round(U_CONSOLE * sum(b["travees"]), 9), "console"',
+     'L, origine = round(1.0 * sum(b["travees"]), 9), "console"'),
     ("moteur", "intégration, point 4 — console : 2 au lieu de 2,1 (la valeur théorique, pas la recommandée)", "U_CONSOLE = 2.1\n", "U_CONSOLE = 2.0\n"),
-    ("moteur", "intégration, point 4 — ELS : le bout libre d'une console compté comme un maintien", "    if console_libre is not None:\n",
+    ("moteur", "intégration, point 4 — ELS : le bout libre d'une console compté comme un maintien", "    if impose is not None:\n",
      "    if False:\n"),
     ("moteur", "intégration, point 4 — ELS : la console à bout libre dite dans le domaine", "trs.index(tr) in libres, niveau_els", "False, niveau_els"),
     ("moteur", "lot B — console : l'axe faible jamais doublé (le défaut d'avant)", "                if _bout_libre(b, trs):\n                    L, origine",
@@ -727,7 +728,8 @@ MUTATIONS = [
      'len(trs) == 1 and trs[-1]["appuis"][1] == MC.LIBRE'),
     ("moteur", "lot B — console : un maintien complet au bout ignoré (2·L partout)", 'return b["modele"] == "console" and bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE',
      'return b["modele"] == "console" and bool(trs) and True'),
-    ("moteur", "lot B — console : l'avis À VÉRIFIER de L_cr,z tu", 'methodes[nom]["alertes"] += avis', "pass"),
+    ("moteur", "lot B — console : l'avis À VÉRIFIER de L_cr,z tu", 'methodes[nom]["alertes"] += avis\n                avis = []',
+     'pass\n                avis = []'),
     ("moteur", "lot B — console : l'avis donné sans compression", "            if comprimee[nom]:\n", "            if True:\n"),
     ("moteur", "lot B — console : un effort de traction pris pour une compression", 'comprimee["ec3"] = any(C.N > EPS for C in combs)',
      'comprimee["ec3"] = any(abs(C.N) > EPS for C in combs)'),
@@ -914,6 +916,27 @@ def _prsc(n, **k):
     return _prs_barre(PRS_C, nuance="S235", travees=[28.0], poids_propre=True, niveau="haut",
                       maintiens=[{"x": 28.0 * i / (n + 1), "genre": "haut"} for i in range(1, n + 1)],
                       cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [q(20.80 + 2.40, 0.0, 28.0), q(2.25, 12.5, 15.5)]}], **k)
+
+
+def _lcr_debord(L, a):
+    """La longueur de flambement EXACTE (m) d'une travée L articulée à ses deux bouts et d'un débord libre a, E·I et N constants : la
+    première racine de sin k(L+a) − sin kL·sin ka/(kL) = 0 (écrite à la main : w = A·sin kx + C·x dans la travée, w = E·sin ks + F·(cos ks − 1)
+    dans le débord, pente et moment continus à l'appui, M = 0 et T = 0 au bout libre), puis π/k."""
+    f = lambda k: math.sin(k * (L + a)) - math.sin(k * L) * math.sin(k * a) / (k * L)  # noqa: E731
+    k0, f0 = 1e-6, f(1e-6)
+    for i in range(1, 20001):
+        k = 5.0 * i / 20000
+        if (f(k) > 0) != (f0 > 0):
+            u, v = k0, k
+            for _ in range(200):
+                m = 0.5 * (u + v)
+                if (f(m) > 0) == (f(u) > 0):
+                    u = m
+                else:
+                    v = m
+            return math.pi / (0.5 * (u + v))
+        k0, f0 = k, f(k)
+    return None
 
 
 def controles_c1(M=None):
@@ -1153,20 +1176,42 @@ def controles_c1(M=None):
         ("console", barre(modele="console", travees=[3.0], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(5.0, 3.0)]}])),
         ("debord", barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [q(5.0, 0.0, 4.0)]}])),
         ("troncon", barre(maintiens=[{"x": 2.0}])), ("saisie", barre(flambement={"y": {"L": 4.5}, "z": {"L": 2.0}})))}
+    # (contre-vérification du lot C, le harnais a trouvé : il figeait 2,1 × 2,5 = 5,25 m, NON CONSERVATIF — l'appui n'est pas un
+    #  encastrement ; la longueur exacte, celle de l'équation caractéristique, est 7,894 m : N_cr surestimé 2,26 fois)
     c("(C1) longueurs de flambement et leur ORIGINE : console de 3 m → 2,1 × 3 = 6,3 m sur les deux axes (« console ») ; débord de 2,5 m d'une "
-      "portée de 4 m → 2,1 × 2,5 = 5,25 m (« console », la règle de la console, À VÉRIFIER) ; un maintien complet → « troncon » ; saisie → « saisie » ; "
-      "une portée seule → « portee »",
+      "portée de 4 m → 7,895 m sur les deux axes, la barre entière (« debord », Euler : exacte 7,894 m, arrondie au mm supérieur) ; un maintien "
+      "complet → « troncon » ; saisie → « saisie » ; une portée seule → « portee »",
       [(Ls["console"][a_]["L"], Ls["console"][a_]["origine"]) for a_ in "yz"] == [(6.3, "console")] * 2
-      and [(Ls["debord"][a_]["L"], Ls["debord"][a_]["origine"]) for a_ in "yz"] == [(5.25, "console")] * 2
+      and [(Ls["debord"][a_]["L"], Ls["debord"][a_]["origine"]) for a_ in "yz"] == [(7.895, "debord")] * 2
       and (Ls["troncon"]["y"]["origine"], Ls["troncon"]["z"]["origine"], Ls["troncon"]["z"]["L"]) == ("portee", "troncon", 4.0)
       and (Ls["saisie"]["y"]["origine"], Ls["saisie"]["z"]["origine"]) == ("saisie", "saisie"), Ls)
     bdb = EN.normaliser(barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 4.0)]}]))
     trd = st.troncons(bdb, s3)
     lib = mo._libres(bdb, trd)
-    c("(C1) méthode ELS, le tronçon du débord (4 à 6,5 m, bout libre) : L_d = 2,1 × 2,5 = 5,25 m, dit hors domaine (la règle de la console de "
-      "l'intégration, À VÉRIFIER) ; la travée garde ses deux appuis",
-      [(t_["x1"], t_["x2"], t_["appuis"]) for t_ in trd] == [(0.0, 4.0, ("fourche", "fourche")), (4.0, 6.5, ("fourche", "libre"))] and lib == {1: 2.5}
-      and mo._Lc_historique(None, trd[1], [], lib[1]) == 5.25, (trd, lib))
+    c("(C1) méthode ELS, le tronçon du débord (4 à 6,5 m, bout libre) : L_d = 7,895 m, la longueur de flambement d'axe z de la barre entière "
+      "(et non 2,1 × 2,5 = 5,25 m : contre-vérification du lot C), hors domaine, À VÉRIFIER ; la travée garde ses deux appuis",
+      [(t_["x1"], t_["x2"], t_["appuis"]) for t_ in trd] == [(0.0, 4.0, ("fourche", "fourche")), (4.0, 6.5, ("fourche", "libre"))] and lib == {1: 7.895}
+      and mo._Lc_historique(None, trd[1], [], lib[1]) == 7.895, (trd, lib))
+    # ---- (contre-vérification du lot C) un débord : la barre ENTIÈRE flambe, l'appui n'est pas un encastrement
+    lcr = {k_: _lcr_debord(*k_) for k_ in ((4.0, 2.5), (6.0, 1.5))}
+    eu = {(4.0, 2.5): st.longueur_euler(6.5, (0.0, 4.0)), (6.0, 1.5): st.longueur_euler(7.5, (1.5, 7.5))}
+    c("(C1) le flambement d'Euler de la barre entière (statique.longueur_euler) = l'équation caractéristique d'une travée articulée et de son "
+      "débord libre, sin k(L+a) = sin kL·sin ka/(kL) : 4 m + 2,5 m → 7,894 m ; 6 m + 1,5 m → 7,910 m (≥ l'exacte, à 1 mm) ; une travée seule → L ; "
+      "deux travées égales de 5 m → 5 m",
+      all(0.0 <= eu[k_] - lcr[k_] <= 0.001 for k_ in lcr) and abs(lcr[(4.0, 2.5)] - 7.894) < 5e-4 and abs(lcr[(6.0, 1.5)] - 7.910) < 5e-4
+      and st.longueur_euler(6.0, (0.0, 6.0)) == 6.0 and st.longueur_euler(10.0, (0.0, 5.0, 10.0)) == 5.0, (eu, lcr))
+    rdb = mo.verifier(barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [q(5.0, 0.0, 4.0)]}]))
+    hdb = rdb["methodes"]["historique"]
+    dits = [a_ for m_ in rdb["methodes"].values() for a_ in m_["alertes"] if a_["message"] == mo.MOT_DEBORD]
+    c("(C1) débord de 2,5 m sous N = 50 kN : l'alerte du débord dite UNE fois (méthode ELS) ; le tronçon du débord hors domaine garde le verdict "
+      "ELS « hors domaine » quand la travée gouverne le déversement (H-DEV retenu sur 0–4 m)",
+      len(dits) == 1 and dits[0] in hdb["alertes"] and hdb["statut"] == RE.HORS_DOMAINE and vf(hdb, "H-DEV")["troncon"] == [0.0, 4.0]
+      and vf(hdb, "H-DEV")["statut"] == RE.OK, (len(dits), hdb["statut"], vf(hdb, "H-DEV")["troncon"], vf(hdb, "H-DEV")["statut"]))
+    rpb = mo.verifier(barre(debords=[1.5, 0.0], cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 0.0)]}]))
+    c("(C1) débord gauche de 1,5 m, P en bout : L_cr = 7,910 m (la barre entière, et non la portée 6 m), verdict ELS jamais « ok » (le tronçon "
+      "du débord, 0–1,5 m, est hors domaine)",
+      rpb["longueurs"]["y"]["L"] == 7.91 and rpb["longueurs"]["z"]["origine"] == "debord" and rpb["methodes"]["historique"]["statut"] != RE.OK,
+      (rpb["longueurs"], rpb["methodes"]["historique"]["statut"]))
     # ---- 9. PRS chargés depuis leurs charges
     def prs10(p, niv, **k):
         return mo.verifier(_prs_barre(p, nuance="S355", travees=[10.0], poids_propre=False, niveau=niv,
@@ -1352,7 +1397,16 @@ MUTATIONS_C1 = [
     ("statique", "C1 — les débords non passés au formulaire", 'c.get("charges") or [], EI, debords=debords)', 'c.get("charges") or [], EI)'),
     ("statique", "C1 — le bout d'un débord pris tenu (fourche)", "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.LIBRE",
      "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.FOURCHE"),
-    ("moteur", "C1 — débord : la règle de la console oubliée", "                if U_CONSOLE * x > L + EPS:", "                if False:"),
+    ("moteur", "C1 — débord : la longueur de la barre entière oubliée", '            if Ld is not None and Ld > L + EPS:', "            if False:"),
+    # (contre-vérification du lot C) le débord : la barre entière flambe, son hors domaine reste dit
+    ("moteur", "C1 — débord : 2,1 × le débord seul (l'appui pris pour un encastrement, NON CONSERVATIF)",
+     " + [ST.longueur_euler(round(ST.longueur(b), 9), _tenus(b, trs, a))])", ")"),
+    ("moteur", "C1 — débord : L_d de la méthode ELS = 2,1 × le débord", '    Ld = _L_debord(b, trs, "z")\n', "    Ld = round(U_CONSOLE * max(g, d), 9)\n"),
+    ("moteur", "C1 — débord : le hors domaine perdu quand la travée gouverne", '        if hors_libre and res["statut"] == RE.OK:', "        if False:"),
+    ("moteur", "C1 — débord : l'alerte jamais dite", '    if _debords_libres(b, trs, "y") or _debords_libres(b, trs, "z"):', "    if False:"),
+    ("statique", "C1 — Euler : le bout libre pris tenu", "    bloques = {2 * i for i, x in enumerate(noeuds) if any(abs(x - t) <= 1e-9 for t in tt)}",
+     "    bloques = {2 * i for i, x in enumerate(noeuds) if any(abs(x - t) <= 1e-9 for t in pts)}"),
+    ("statique", "C1 — Euler : l'itération arrêtée au premier pas", "EULER_ITERATIONS = 400 ", "EULER_ITERATIONS = 1 "),
     ("moteur", "C1 — l'origine des longueurs toujours « portee »", '"origine": axes[a]["origine"]}', '"origine": "portee"}'),
     ("moteur", "C1 — la semelle comprimée par le signe de M seul", '    if max(sh, sb) > 0.0:\n        return ("haut" if sh >= sb else "bas"), True\n    return ("haut" if M >= 0.0 else "bas"), False',
      '    return ("haut" if M >= 0.0 else "bas"), True'),

@@ -114,10 +114,11 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     maintiens intermédiaires seuls ne raccourcissent rien : la longueur exacte est plus courte (3,77 m pour une console
     de 3 m tenue à mi-longueur, au lieu de 6,30) mais la partie libre ne se prend pas isolément sans justification —
     2,1·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ : dite une fois, et seulement sous compression ; l'ingénieur peut
-    saisir la longueur). Un DÉBORD (porte-à-faux d'une barre sur appuis, lot C) : la même règle, 2,1 × sa longueur, sur
-    les deux axes tant que son bout est libre (À VÉRIFIER), quand elle donne plus que les travées."""
+    saisir la longueur). Un DÉBORD (porte-à-faux d'une barre sur appuis, lot C) sur un axe où son bout est libre (y
+    toujours ; z sauf maintien complet au bout) : la longueur d'Euler de la barre ENTIÈRE sur ses points tenus (``_L_debord``,
+    origine « debord ») quand elle donne plus que les travées — l'appui n'est pas un encastrement : la travée voisine tourne
+    avec le débord (4 m + 2,5 m : 7,89 m, et non 2,1 × 2,5 = 5,25 m ; contre-vérification du lot C)."""
     out = {}
-    g, d = (b.get("debords") or (0.0, 0.0))[:2]
     for a in ("y", "z"):
         L, origine = b["flambement"][a]["L"], "saisie"
         if L is None:
@@ -131,12 +132,50 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
                 origine = "portee" if abs(L - max(b["travees"])) < EPS else "troncon"
                 if _bout_libre(b, trs):
                     L, origine = round(U_CONSOLE * sum(b["travees"]), 9), "console"    # bout libre : 2,1·L, même avec des maintiens
-            libres = [x for k, x in ((0, g), (-1, d)) if x > EPS and (a == "y" or trs[k]["appuis"][0 if k == 0 else 1] == MC.LIBRE)]
-            for x in libres:                                 # un débord à bout libre : 2,1 × sa longueur, s'il l'emporte
-                if U_CONSOLE * x > L + EPS:
-                    L, origine = round(U_CONSOLE * x, 9), "console"
+            Ld = _L_debord(b, trs, a)                        # un débord à bout libre : la barre entière, si elle l'emporte
+            if Ld is not None and Ld > L + EPS:
+                L, origine = Ld, "debord"
         out[a] = {"L": L * 1e3, "u": b["flambement"][a]["u"], "origine": origine}
     return out
+
+
+def _debords_libres(b: Dict, trs: Optional[List[Dict]], a: str) -> List[float]:
+    """Les débords (m) dont le bout est LIBRE pour le flambement d'axe ``a`` : y toujours (aucun appui au bout) ; z sauf
+    maintien complet au bout (statique.troncons). Une console n'en a pas (sa règle : U_CONSOLE)."""
+    if b["modele"] == "console" or not trs:
+        return []
+    g, d = (b.get("debords") or (0.0, 0.0))[:2]
+    return [x for k, x in ((0, g), (-1, d)) if x > EPS and (a == "y" or trs[k]["appuis"][0 if k == 0 else 1] == MC.LIBRE)]
+
+
+def _tenus(b: Dict, trs: List[Dict], a: str) -> Tuple[float, ...]:
+    """Les abscisses tenues en déplacement pour le flambement d'axe ``a`` : y — les appuis ; z — les bouts des tronçons
+    qui ne sont pas libres (les appuis en fourche ou encastrés, les maintiens complets)."""
+    if a == "y":
+        return tuple(ST.appuis_x(b))
+    return tuple(sorted({t["x1"] for t in trs if t["appuis"][0] != MC.LIBRE} | {t["x2"] for t in trs if t["appuis"][1] != MC.LIBRE}))
+
+
+def _L_debord(b: Dict, trs: Optional[List[Dict]], a: str) -> Optional[float]:
+    """La longueur de flambement d'axe ``a`` (m) d'une barre dont un DÉBORD a son bout libre : la plus grande de la
+    longueur d'Euler de la barre entière sur ses points tenus (statique.longueur_euler : E·I et N constants, l'appui
+    articulé — la travée voisine tourne avec le débord) et de 2,1 × chaque débord (13.3, la console encastrée, valeur
+    recommandée) ; None sans débord libre. Elle sert aussi de L_d au tronçon du débord dans la méthode ELS (axe z)."""
+    libres = _debords_libres(b, trs, a)
+    if not libres:
+        return None
+    return max([round(U_CONSOLE * x, 9) for x in libres] + [ST.longueur_euler(round(ST.longueur(b), 9), _tenus(b, trs, a))])
+
+
+# un débord à bout libre : dit UNE fois (la méthode ELS, qui lit L_d ; à défaut l'Eurocode 3 comprimé)
+MOT_DEBORD = "Débord libre : L_cr et L_d de la barre entière (Euler, E·I et N constants), déversement hors domaine — À VÉRIFIER."
+
+
+def _avis_debord(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
+    """L'alerte À VÉRIFIER d'une barre à débord libre (``_L_debord``)."""
+    if _debords_libres(b, trs, "y") or _debords_libres(b, trs, "z"):
+        return [{"code": "debord_libre", "niveau": "attention", "message": MOT_DEBORD}]
+    return []
 
 
 def _avis_longueurs(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
@@ -150,8 +189,8 @@ def _avis_longueurs(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
 def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
     """Les longueurs de flambement PRISES, en mètres : {"y": {"L", "u", "auto", "origine"}, "z": …} ; « auto » quand la
     barre ne la donne pas (l'écran l'écrit dans le champ vide) ; « origine » : « portee » (la plus grande travée),
-    « troncon » (le plus long tronçon entre sections tenues), « console » (2,1 × la longueur d'une console ou d'un débord,
-    brief § 13.3), « saisie » (lot C, C1 point 14 : l'écran écrit « auto · 6,3 », la note « L_cr,z = 2,1 × 3,00 m »)."""
+    « troncon » (le plus long tronçon entre sections tenues), « console » (2,1 × la longueur d'une console, brief § 13.3),
+    « debord » (la longueur d'Euler de la barre entière avec son débord libre, ``_L_debord``), « saisie » (lot C, C1 point 14 : l'écran écrit « auto · 6,3 », la note « L_cr,z = 2,1 × 3,00 m »)."""
     return {a: {"L": axes[a]["L"] / 1e3, "u": axes[a]["u"], "auto": b["flambement"][a]["L"] is None, "origine": axes[a]["origine"]}
             for a in ("y", "z")}
 
@@ -306,15 +345,14 @@ def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dic
     return DV.kc_portee(b["modele"], charges, L)
 
 
-def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float], console_libre: Optional[float] = None) -> float:
+def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float], impose: Optional[float] = None) -> float:
     """La longueur de déversement de la méthode historique sur le tronçon (m) : la plus grande distance entre deux
     points où la semelle COMPRIMÉE est tenue. Un maintien d'une seule semelle ne compte que si elle est comprimée sur
-    tout le tronçon (moment d'un seul signe). Une console à bout LIBRE — ou un débord (``console_libre`` : sa longueur,
-    m) : le bout libre n'est pas une section tenue — U_CONSOLE × la longueur de la console, la règle de son flambement
-    (§ 13.3), maintiens intermédiaires non comptés : hypothèse prudente, À VÉRIFIER (intégration du lot B : le bout libre
-    comptait comme un maintien, L_d = la longueur de la console ; lot C : la même règle pour un débord)."""
-    if console_libre is not None:
-        return round(U_CONSOLE * console_libre, 9)
+    tout le tronçon (moment d'un seul signe). Un tronçon à bout LIBRE (``impose``, m — ``_libres``) : le bout libre n'est
+    pas une section tenue — la longueur de flambement de son bout libre, maintiens intermédiaires non comptés : hypothèse
+    prudente, À VÉRIFIER (intégration du lot B : le bout libre comptait comme un maintien, L_d = la longueur de la console)."""
+    if impose is not None:
+        return impose
     a, b = tr["x1"], tr["x2"]
     pts = [a + (b - a) * i / BALAYAGE_TRONCON for i in range(1, BALAYAGE_TRONCON)]
     Ms = [comb.M(x) for x in pts]
@@ -374,20 +412,22 @@ def _niveaux_charges(b: Dict) -> List[str]:
 
 
 def _libres(b: Dict, trs: List[Dict]) -> Dict[int, float]:
-    """Les tronçons d'un bout LIBRE — une console, un débord — et la longueur de cette console (m) : la règle de 13.3
-    (2,1 × cette longueur, maintiens intermédiaires non comptés) les vérifie. Un débord : la même règle, À VÉRIFIER."""
+    """Les tronçons d'un bout LIBRE — une console, un débord — et leur L_d imposée (m), maintiens intermédiaires non
+    comptés : une console, 2,1 × sa longueur (13.3) ; un débord, la longueur de flambement d'axe z de la barre entière
+    (``_L_debord`` : l'appui n'est pas un encastrement). À VÉRIFIER (hors du domaine de la formule des classeurs)."""
     out: Dict[int, float] = {}
     if not trs:
         return out
     if _bout_libre(b, trs):
-        return {i: sum(b["travees"]) for i in range(len(trs))}
+        return {i: round(U_CONSOLE * sum(b["travees"]), 9) for i in range(len(trs))}
     g, d = (b.get("debords") or (0.0, 0.0))[:2]
     Lb = ST.longueur(b)
+    Ld = _L_debord(b, trs, "z")
     for i, tr in enumerate(trs):
         if g > EPS and trs[0]["appuis"][0] == MC.LIBRE and tr["x2"] <= g + EPS:
-            out[i] = g
+            out[i] = Ld
         if d > EPS and trs[-1]["appuis"][1] == MC.LIBRE and tr["x1"] >= Lb - d - EPS:
-            out[i] = d
+            out[i] = Ld
     return out
 
 
@@ -524,6 +564,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         axes_h = _axes_historique(b, axes)
         combs = []
         fleche = {"valeur": 0.0, "x": None, "combinaison": None}
+        hors_libre = []                                  # un tronçon à bout libre hors domaine (H-DEV) : le verdict le garde
         # le message de C_d > 1 sous une charge sur la semelle haute (brief § 6.4) : dès qu'UNE charge y est posée
         niveau_els = "haut" if "haut" in niveaux else niveaux[0]
         for co in CO.service(cas, b["combinaisons"]):
@@ -543,6 +584,8 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
                                      "deversement": dv})
                     env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
+                    if trs.index(tr) in libres and any(v["id"] == "H-DEV" and v["statut"] == RE.HORS_DOMAINE for v in r["verifications"]):
+                        hors_libre.append(tr)
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]
                 if f is not None and abs(f) > abs(fleche["valeur"]):
@@ -553,15 +596,23 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         fleche["valeur"] *= 1e3                                  # mm
         fleche["rapport"] = portee * 1e3 / abs(fleche["valeur"]) if fleche["valeur"] else None
         statique["fleche"] = fleche
-        return env.rendre()
+        res = env.rendre()
+        if hors_libre and res["statut"] == RE.OK:
+            # (contre-vérification du lot C) le déversement d'un débord hors domaine ne se perd pas quand la travée gouverne
+            res["statut"] = RE.HORS_DOMAINE
+        return res
 
     avis = _avis_longueurs(b, trs)               # une donnée commune : dite UNE fois, sous la première méthode qui la lit
+    avis_d = _avis_debord(b, trs)                # (la méthode ELS lit L_d du débord ; l'Eurocode 3, L_cr sous compression)
     for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):     # TOUJOURS les deux (brief § 0, § 9)
         try:
             methodes[nom] = calcul()
             if comprimee[nom]:
                 methodes[nom]["alertes"] += avis
                 avis = []                        # (l'autre méthode lit la même longueur : pas de redite)
+            if avis_d and (nom == "historique" or comprimee[nom]):
+                methodes[nom]["alertes"] += avis_d
+                avis_d = []
         except RE.Refus as e:
             methodes[nom] = _refusee(nom, norme, str(e))
     # les sections critiques pour le dessin : les points demandés et les racines du moment (combinaisons ELU)
