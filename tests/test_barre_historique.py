@@ -1350,9 +1350,10 @@ def mutations():
     cas_mo = [
         ("lot B — A9 revient : la f_y de l'Eurocode 3 selon l'épaisseur", 'return {"fy": MA.nominale(nuance), "nuance": nuance,',
          'return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
-        # (intégration du lot B, point 4, le harnais suit : l'appel passe aussi la console à bout libre)
-        ("lot B — la barre chargée oublie C_d et la variante", '"deversement": _deversement_historique(b, Lc * 1e3, libre is not None)})',
-         '"deversement": {"actif": b["historique"]["deversement"], "Lc": Lc * 1e3}})'),
+        # (intégration du lot B, point 4, le harnais suit : l'appel passe aussi la console à bout libre ; lot C, C1, le harnais suit :
+        #  l'appel passe le niveau des charges et la semelle comprimée — l'ancre nomme la nouvelle ligne, la mutation retire C_d et la variante)
+        ("lot B — la barre chargée oublie C_d et la variante", '_deversement_historique(b, Lc * 1e3, trs.index(tr) in libres, niveau_els)',
+         '{"actif": b["historique"]["deversement"], "Lc": Lc * 1e3}'),
         ("sens de dessin — à une frontière, le tronçon de GAUCHE pour les deux côtés (le défaut d'avant)",
          "    if gauche is not None and droite is not None and gauche is not droite:\n", "    if False:\n"),
         ("sens de dessin — à une frontière, les côtés échangés (le gauche avec le tronçon de droite)",
