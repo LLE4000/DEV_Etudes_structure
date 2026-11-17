@@ -43,6 +43,7 @@ n'est pas employée : l'ANB, note de l'annexe A, renvoie à l'annexe E ANB, de d
 import math
 from typing import Callable, Dict, Optional, Tuple
 
+from acier import formats as FMT
 from acier.flambement import normes as NO
 
 from . import mcr as MC
@@ -222,11 +223,6 @@ def couple_anb(dev: Dict, tr: Dict, ouvrage: str, portee: float = 0.0) -> Tuple[
     return True, None
 
 
-def _g(x: float) -> str:
-    """Un paramètre dans une phrase, sans zéro inutile (0,4 ; 0,75)."""
-    return f"{x:g}".replace(".", ",")
-
-
 def ajouter(J: Journal, d: Dict) -> None:
     """Le déversement (``G["deversement"]``) et la vérification E-Mb."""
     G, s = J.G, d["section"]
@@ -297,12 +293,14 @@ def ajouter(J: Journal, d: Dict) -> None:
     cles.append(J.f("lambda_LT", "λ̄_LT", [_t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr", Mcr / 1e6, "kN·m")], lbLT, "",
                     "e_lambda_LT"))
     # ---- la courbe et le couple (λ̄_LT,0 ; β) de l'ANB:2018, 6.3.2.3(1) : (0,2 ; 1,0), ou la variante si elle est permise
+    # (un coefficient de la table s'écrit comme son champ, zéros inutiles ôtés : acier/formats.nb, le formateur des
+    # valeurs saisies — jamais le format « g » de Python, qui écrit un point décimal ; test_barre_ecriture le refuse)
     D["a_confirmer"] = [k for k in ("lambda_LT0_avec_maintiens", "beta_avec_maintiens") if PA.PARAMETRES[k]["statut"] == PA.A_CONFIRMER]
     defaut = (P["lambda_LT0_avec_maintiens"], P["beta_avec_maintiens"])
     if defaut != (PA.valeur("lambda_LT0_avec_maintiens"), PA.valeur("beta_avec_maintiens")):
         # le couple par défaut changé par une surcharge (une autre annexe, un cas d'essai) : il s'applique partout, sans le
         # contrôle bâtiment / maintiens de la variante — c'est dit
-        J.alerte("couple_hors_anb", "attention", f"Couple ({_g(defaut[0])} ; {_g(defaut[1])}) imposé : hors ANB:2018, 6.3.2.3(1).")
+        J.alerte("couple_hors_anb", "attention", f"Couple ({FMT.nb(defaut[0])} ; {FMT.nb(defaut[1])}) imposé : hors ANB:2018, 6.3.2.3(1).")
     famille, autre = None, None
     prs = PR.est_prs(s)
     if s["forme"] == "I":
@@ -316,7 +314,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         if variante:
             lbLT0, beta = P["lambda_LT0_variante"], P["beta_variante"]
         elif refus:
-            J.alerte("variante_refusee", "attention", f"Variante ({_g(P['lambda_LT0_variante'])} ; {_g(P['beta_variante'])}) refusée : {refus}.")
+            J.alerte("variante_refusee", "attention", f"Variante ({FMT.nb(P['lambda_LT0_variante'])} ; {FMT.nb(P['beta_variante'])}) refusée : {refus}.")
         D["variante"] = variante
         seuil = lbLT0
         methode = "§ 6.3.2.3"

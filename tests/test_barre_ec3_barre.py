@@ -1149,6 +1149,9 @@ MUTATIONS = [
     ("ec3_deversement", "lot B — χ_LT,mod sans le plafond 1/λ̄_LT² de (6.58) (AC:2009)", "    chi = min(chi0 / f, plafond)\n",
      "    chi = min(chi0 / f, 1.0)\n"),
     ("ec3_deversement", "M_b,Rd avec γ_M0 = 1 en dur", "    MbRd = chi * Wy * fy / gM1\n", "    MbRd = chi * Wy * fy\n"),
+    # (intégration du lot B : un coefficient dans une phrase s'écrit par acier/formats.nb — « {x:g} » écrivait un point décimal)
+    ("ec3_deversement", "intégration B — le couple imposé écrit par « {x:g} » (« 0.4 ; 0.75 »)",
+     'f"Couple ({FMT.nb(defaut[0])} ; {FMT.nb(defaut[1])}) imposé', 'f"Couple ({defaut[0]:g} ; {defaut[1]:g}) imposé'),
     ("ec3_interaction", "charge répartie : 1 − 0,18 (les deux cas échangés, l'erreur du brief)", "        c = 1.0 + 0.03 * r\n", "        c = 1.0 - 0.18 * r\n"),
     ("ec3_interaction", "charge concentrée : 1 + 0,03", "        c = 1.0 - 0.18 * r\n", "        c = 1.0 + 0.03 * r\n"),
     ("ec3_interaction", "moment linéaire : ψ + 0,33", 'c = 0.79 + 0.21 * fl["psi"] + 0.36 * (fl["psi"] - 0.33) * r', 'c = 0.79 + 0.21 * fl["psi"] + 0.36 * (fl["psi"] + 0.33) * r'),
