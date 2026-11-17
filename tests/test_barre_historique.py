@@ -739,6 +739,10 @@ def controles_lot_b(H, MO_, c):
       vl_["statut"] == H.HORS_DOMAINE and vl_["taux"] < 1.0 and "console" in cl_["grandeurs"]["hors_domaine"]
       and any("console à bout libre" in m and "À VÉRIFIER" in m for m in vl_["messages"]) and verif_de(cd_, "H-DEV")["statut"] == H.OK
       and "console" not in cd_["grandeurs"]["hors_domaine"], (vl_["statut"], vl_["taux"], vl_["messages"][-1:]))
+    c("… la console d'un laminé ne reçoit pas l'alerte d'un PRS monosymétrique (« PRS monosymétrique : déversement hors domaine … ») : "
+      "sa raison est la sienne, dite par H-DEV (intégration du lot B, trouvé au regel de la photo profil)",
+      not any(x["code"] == "prs_mono" or "PRS" in x["message"] for x in cl_["alertes"]) and "prs_mono" not in cl_["grandeurs"]["hors_domaine"],
+      [x["message"][:60] for x in cl_["alertes"]])
     rb = H.verifier({"section": pc, "fy": 235.0, "My": -Mmid, "axes": {"y": {"L": 28000.0}, "z": {"L": 3111.0}}, "deversement": {"Lc": 3111.0}})
     db = rb["grandeurs"]["deversement"]
     rbC = H.verifier({"section": pc, "fy": 235.0, "My": -Mmid, "axes": {"y": {"L": 28000.0}, "z": {"L": 3111.0}}, "deversement": {"Lc": 3111.0},
@@ -1209,6 +1213,7 @@ def mutations():
          "    if False:"),
         ("intégration, point 4 — l'indication « bout_libre » perdue à la lecture", '"bout_libre": bool(dev.get("bout_libre", False))}',
          '"bout_libre": False}'),
+        ("intégration — la console à bout libre reçoit l'alerte d'un PRS monosymétrique", '    if "prs_mono" in hors_dev:', "    if hors_dev:"),
         ("lot B — paroi de plus de 80 mm laissée dans le domaine", '        hors.append("epaisseur")', "        pass"),
         ("lot B — le verdict bloqué oublié", "        if bloque and v[\"statut\"] in (OK, NOK, HORS_DOMAINE):", "        if False:"),
         ("lot B — I_y ≤ I_z (valeurs d'axe faible dans les cases fortes) non bloqué", 'if s["forme"] == "I" and (s["Iy"] <= s["Iz"] or s["iy"] <= s["iz"]):',

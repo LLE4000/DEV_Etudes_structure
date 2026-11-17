@@ -511,7 +511,7 @@ def verifier(barre: Dict) -> Dict:
     # domaine (brief § 6.2, point 8), calcul affiché avec la longueur que le moteur propose (2,1·L, À VÉRIFIER)
     if dv["bout_libre"] and dev["cas"] in ("classeurs", "I", "ferme"):
         hors_dev.append("console")
-    if hors_dev:
+    if "prs_mono" in hors_dev:       # (la console le dit dans le message de H-DEV : HORS_DOMAINE_TEXTES["console"])
         alerte("prs_mono", "attention", "PRS monosymétrique : déversement hors domaine (formule pour deux semelles égales) ; calcul avec la "
                                         "semelle comprimée.")
     G["hors_domaine"] = hors + hors_dev
