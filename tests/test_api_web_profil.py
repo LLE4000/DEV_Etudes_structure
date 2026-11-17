@@ -1680,6 +1680,55 @@ for nom_, attr_, ancien_, nouveau_ in MUTATIONS_COPIEES:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
 chk("témoin : sans mutation, les contrôles des longueurs copiées sont verts", all(ok_ for _n, ok_, _i in longueurs_copiees()))
 
+print("=== 21. (lot C, reprise de C0) une note dont une barre est un PRS : refusée clairement, jamais un KeyError — et ses mutations")
+
+
+def note_prs():
+    """[(nom, vrai ?, info)], rejoués sous chaque mutation. Mesuré avant (f9e26aa) : « prs » gardée par COMMUNS (C0e), la barre se
+    relit et se calcule, puis l'écran plantait (fiche_profil : KeyError « PRS 600x300x15x30 »), le sélecteur aussi, et la note
+    refusait par un message obscur (« …, 'PRS 600x300x15x30' »). En attendant C6 (la fiche et le croquis d'un PRS) : refusée
+    en une ligne, qui nomme le PRS."""
+    P._RESULTATS.clear()
+    out = []
+    e_ = P.etat_de([_prs(30)])
+    nom_ = e_["elements"][0]["profil"]
+    mot_ = P.refus_prs(nom_)
+    rc_, rs_ = req(action="calculer", etat=e_), req(action="selecteur", etat=e_, role=P.ROLE)
+    rn_ = req(action="telecharger", etat=e_, quoi="note_pdf")
+    out.append(("reprise C0 — une barre PRS (relue, calculée : ELS « bloqué ») : l'écran, le sélecteur et la note la REFUSENT en une ligne qui "
+                "nomme le PRS (« … un PRS ne se montre pas encore … ») — aucun KeyError",
+                P.calculer(e_["elements"][0])["statut"] == RE.BLOQUE and len(mot_) <= 120 and nom_.startswith("PRS ")
+                and all(x_.get("ok") is False and mot_ in str(x_.get("erreur")) and "KeyError" not in str(x_.get("erreur")) for x_ in (rc_, rs_, rn_)),
+                [str(x_.get("erreur"))[:140] for x_ in (rc_, rs_, rn_)]))
+    deux_ = P.etat_de([P.barre_neuve("B1"), _prs(30)], actif=0)
+    rd_ = req(action="calculer", etat=deux_)
+    out.append(("reprise C0 — la barre ouverte est un profilé du catalogue, une autre de la note un PRS : l'écran se rend",
+                rd_.get("ok") is True and texte(rd_["resultat"]).count("Méthode ELS") >= 1, str(rd_.get("erreur"))[:200]))
+    return out
+
+
+for nom_, ok_, info_ in note_prs():
+    chk(nom_, ok_, info_)
+
+MUTATIONS_PRS = (
+    ("fiche_profil lit le catalogue sans garde (le KeyError d'avant)", "fiche_profil",
+     "    rec = CAT.par_nom().get(nom)\n    if rec is None:\n        raise ValueError(refus_prs(nom))\n", "    rec = CAT.par_nom()[nom]\n"),
+    ("le sélecteur ouvre la famille d'un PRS sans garde", "selecteur",
+     "    if el.get(\"prs\") is not None:          # (sinon", "    if False:          # (sinon"),
+)
+for nom_, attr_, ancien_, nouveau_ in MUTATIONS_PRS:
+    vrai_ = getattr(P, attr_)
+    try:
+        setattr(P, attr_, getattr(_source_mutee(P, ancien_, nouveau_), attr_))
+        rouges_ = [n_ for n_, ok_, _i in note_prs() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(P, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
+chk("témoin : sans mutation, les contrôles de la note PRS sont verts", all(ok_ for _n, ok_, _i in note_prs()))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

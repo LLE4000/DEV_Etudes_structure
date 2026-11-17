@@ -731,10 +731,20 @@ def _entete(el: Dict, r: Dict, titre: str, legende: str) -> str:
     return E.entete(titre.upper(), f"{C.esc(el['profil'])} · {C.esc(el['nuance'])}", [l2, l3], _bande(r), legende)
 
 
+def refus_prs(nom: str) -> str:
+    """(lot C, reprise de C0 ; en attendant C6 — la saisie, la fiche et le croquis d'un PRS) Une barre PRS, venue d'un fichier
+    ou de la bibliothèque, se relit et se calcule (« prs » est gardée, C0e) ; l'écran et la note ne savent pas encore la
+    montrer : ils la REFUSENT en une ligne — jamais un KeyError, jamais un profilé du catalogue à sa place."""
+    return f"« {nom} » : un PRS ne se montre pas encore, ni à l'écran ni dans la note."
+
+
 def fiche_profil(nom: str) -> Dict:
     """Ce qu'on écrit d'un profilé du catalogue : {"famille", "dims" (mm), "dimensions" et "proprietes" : [(symbole,
-    valeur écrite, unité)], "sous" (sa famille et sa norme)} — la vue « Section » de l'écran et le panneau de la note PDF."""
-    rec = CAT.par_nom()[nom]
+    valeur écrite, unité)], "sous" (sa famille et sa norme)} — la vue « Section » de l'écran et le panneau de la note PDF.
+    Un nom hors du catalogue (un PRS : la normalisation n'en laisse passer aucun autre) : ValueError, ``refus_prs``."""
+    rec = CAT.par_nom().get(nom)
+    if rec is None:
+        raise ValueError(refus_prs(nom))
     fam = rec["famille"]
     dims = {k: rec[k] for k in FA.FAMILLES[fam]["dims"]}
     sym = {"tw": "t_w", "tf": "t_f", "r1": "r_1", "r2": "r_2"}
@@ -858,6 +868,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     if role != ROLE:
         raise KeyError(f"sélecteur inconnu : {role!r}")
     el = _el(etat)
+    if el.get("prs") is not None:          # (sinon chaque ligne du sélecteur serait calculée… avec les plats du PRS)
+        raise ValueError(refus_prs(el["profil"]))
     demandees = familles if isinstance(familles, (list, tuple)) else []      # une requête abîmée : la famille du profilé
     fams = [f for f in FAMILLES if f in demandees] or [CAT.par_nom()[el["profil"]]["famille"]]
     sig = _signature(el, ("nom", "profil"))
