@@ -432,10 +432,11 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 | Paramètre | Valeur | Source | Statut |
 |---|---|---|---|
 | γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | valeurs EN, reprises par l'ANB | à pointer sur l'ANB |
-| λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (un seul couple, lot A) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
+| λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (le couple par défaut ; la variante, ligne suivante, sur demande) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
 | Variante (λ̄_LT,0 ; β) | 0,4 ; 0,75 — sur demande, poutre de bâtiment, maintiens tous ignorés dans M_cr (lot B) | ANB:2018, 6.3.2.3(1) | pointé |
 | Facteur f et tableau 6.6 (§ 6.3.2.3(2)) | formule EN, tableau complet (lot B) | ANB:2018, 6.3.2.3(2) : normatifs | pointé |
 | Méthode de déversement des I et H laminés | § 6.3.2.3 ; § 6.3.2.2 pour information | ANB:2018 (n'impose rien) | DÉCISION BUREAU n° 4 |
+| Déversement d'un I soudé, PRS ou I saisi « soudé » (`prs_soudee_equivalente`) | non : § 6.3.2.2 (k_c = 1, f = 1), § 6.3.2.3 pour information ; oui (section bisymétrique « soudée équivalente ») : § 6.3.2.3, § 6.3.2.2 pour information ; un PRS monosymétrique : § 6.3.2.2 seul | EN 1993-1-1 § 6.3.2.3(1) : « soudées équivalentes », équivalence non définie | DÉCISION BUREAU n° 10 (défaut : non) |
 | Méthode de § 6.3.3 | méthode 1, écriture de l'annexe D ANB | ANB:2018, 6.3.3(5) | pointé (lot B) |
 | Borne inférieure de C_mi,0 | aucune (clé retirée, lot B) | tableau D.1 ANB | pointé |
 | γ de n_pl quand γ_M0 ≠ γ_M1 | γ_M1 (annexe D ANB) ; la variante γ_M0 affichée | annexe D ANB / AC:2009 | **À CONFIRMER** (seulement si γ_M0 ≠ γ_M1) |
@@ -617,8 +618,12 @@ bisymétrique, flexion-torsion « non couvert » pour un monosymétrique comprim
 terme de Wagner ∫M_y·z_j·φ′² (`mcr.py`), charges et maintiens repérés depuis le centre de cisaillement ; § 6.3.2.2 par
 défaut (courbes c/d, b = la plus petite largeur) ; § 6.3.2.3 seulement pour un bisymétrique déclaré « section soudée
 équivalente » (paramètre `prs_soudee_equivalente`, DÉCISION BUREAU n° 10, défaut non coché ; l'autre méthode affichée
-pour information, écrite une seule fois pour les laminés et les PRS : `grandeurs.deversement.information`, avec f ; un
-PRS monosymétrique n'en a pas) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
+pour information, écrite une seule fois pour les laminés et les I soudés : `grandeurs.deversement.information`, avec f
+et le couple qu'elle emploie — la variante (0,4 ; 0,75), quand elle est admise, est dite : « § 6.3.2.3 (variante 0,4 ;
+0,75) pour information » ; un PRS monosymétrique n'en a pas). La même règle vaut pour un I saisi « soudé » qui n'est pas
+un PRS (intégration du lot B) : les tableaux 6.4 et 6.5 lui donnent les mêmes courbes c et d et le § 6.3.2.3 divise par
+f ≤ 1 — il restait au § 6.3.2.3, M_b,Rd trop haut de 2 à 7,5 % (défaut non conservatif, latent : aucun écran ne saisit
+encore un tel I) ; contrôle (E.1) de l'annexe E ANB (`mcr.annexe_e`, tableau E.1 ANB : C₁ et la colonne C₃ de k_z = 1,
 selon le signe de ψ_f — 1 de ψ = 1 à 0 ; pour ψ_f > 0 : 0,850 ; 1,3 − 1,2·ψ_f ; 0,55 − ψ_f (1 sinon) ; −ψ_f à ψ = −1
 dans les deux colonnes ; tableau E.2 ANB ;
 z_g positif quand la charge va vers le centre de cisaillement, annexe E ANB 2(8) ; −0,9 ≤ ψ_f ≤ 0,9, sinon bloqué).
