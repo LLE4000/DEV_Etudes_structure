@@ -366,15 +366,17 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
   et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 saisi —
   elle est prise à sa borne, et dite (ci-dessous).
-- **s_s ou c NON SAISI** (brief § 8.3, point 5) : F_Rd croît avec eux, 0 est leur borne basse. Tout passe à la borne :
-  « sans raidisseur (s_s = 0, c = 0 : borne prudente) » ; sinon « décision impossible : s_s à saisir », taux à la borne.
-  (Type (c) : la branche m₂ = 0 si elle peut redevenir cohérente ; c manque et seul le critère 6.2.1(5) échoue : raidisseur.)
+- **s_s ou c NON SAISI** (brief § 8.3, point 5 ; À VÉRIFIER) : calcul à la borne 0 — F_Rd à la borne ≤ F_Rd réel (prouvé par
+  balayage ; F_Rd n'est pas monotone au type (c), d'où la branche m₂ = 0 qu'y prend la borne). Tout passe : « sans raidisseur
+  (s_s = 0, c = 0 : borne prudente) » ; sinon « décision impossible : s_s à saisir », taux à la borne — n'est demandé que ce
+  dont dépend ce qui ne passe pas (le critère 6.2.1(5) ne lit que s_s ; s_s saisie et lui seul en cause : raidisseur).
+  Une note de la VERSION 2 (le site d'avant le lot B y écrivait 0 pour « non saisi ») est relue avec ses 0 « non saisis ».
 - **DÉCISION IMPOSSIBLE** — le lieu est « non couvert », jamais « pas de raidisseur », une ligne par manque en pied du
   bloc, son taux donné pour information : s_s ou c quand la borne ne passe pas ; le MAINTIEN latéral de la semelle
   chargée (§ 6.1(1)), qui n'a pas de borne — tenue à un appui (une fourche), ou par un maintien « complet » ou de cette
   semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour un raidisseur sous une
   charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû
-  quelles que soient les données. Barre neuve : « s_s et c à saisir » (157 % à la borne, critère 6.2.1(5)) ; à
+  quelles que soient les données. Barre neuve : « s_s à saisir » (157 % à la borne, critère 6.2.1(5)) ; à
   s_s = 100 mm, sans raidisseur (22 %, c = 0 : borne). R2 : appuis sans raidisseur (borne, 61 %) ; sous la charge, sans
   maintien à mi-portée, « maintien de la semelle haute à préciser » (37 %) ; avec un maintien à 3 m, sans raidisseur.
 - **La résistance de l'âme** (lot A) : F_Rd = f_y·χ_F·l_y·t_w/γ_M1 avec la f_y de CALCUL de la section ; λ̄_F avec la f_y
@@ -432,9 +434,9 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
 - **La vue avant/après** (§ 15.4, calcul ; l'affichage est au lot C) : chaque lieu rend « sans » (σ_z,Ed, F_Rd, η₂,
   interaction et sa variante plastique, critère 6.2.1(5), seuil, état de la semelle, contact) et « avec » (A_st,
   σ = N/A_st, N_b,Rd, taux ; A_c, σ de contact, f_y du plat, taux), et le rappel « un raidisseur transversal ne réduit
-  pas τ » (une fois par bloc, dans les hypothèses) ; le cisaillement qui gouverne le dit aussi (plaque de doublage ou
-  profil plus lourd) : le voilement (« A-Vb ») et, pour un laminé, V_pl,Rd qui ne passe pas (« E-Vz », brief § 8.3,
-  point 8).
+  pas τ » (une fois par bloc, dans les hypothèses) ; le cisaillement qui ne passe pas le dit aussi (plaque de doublage ou
+  profil plus lourd) : le voilement (« A-Vb ») et, pour un laminé, V_pl,Rd (« E-Vz », brief § 8.3, point 8) ; E-Vz qui passe
+  mais a le plus fort taux de l'Eurocode 3 et de l'âme : « le cisaillement gouverne », sans le remède (À VÉRIFIER).
 - **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
   pas décrits, et le bloc le dit.
 - **Ce qui n'est PAS fait** (v1), et dit — jamais rendu « ok » : la paroi d'un profil creux sous une force concentrée
@@ -576,7 +578,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 
 | Fichier | Rôle |
 |---|---|
-| `api_web/profil.py` | la note (version 2 : `{"elements": [barre…], "actif"}`), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 |
+| `api_web/profil.py` | la note (version 3 : `{"elements": [barre…], "actif"}`), ses saisies, le sélecteur de profilés, les vues, la relecture des notes des versions 1 et 2 (en version 2, un 0 de s_s ou de c est « non saisi ») |
 | `api_web/profil_saisie.py` | la colonne de gauche : quatre rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Méthodes |
 | `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
 | `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
@@ -724,7 +726,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | ainsi |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |
 | Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
-| Q11 | La longueur d'appui s_s non saisie : le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | reprise du lot B : « décision impossible : s_s à fournir » (brief § 8.3, point 5) — 0 n'est plus pris par défaut |
+| Q11 | La longueur d'appui s_s non saisie : le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | lot B : vide, calcul à la borne 0 (prudent) ; « décision impossible : s_s à saisir » si la borne ne passe pas (brief § 8.3, point 5) |
 | Q12 | Les appuis sont « posés » par défaut (la réaction appuie sur l'âme) ; le bureau attache-t-il plutôt ses poutres par l'âme (platine, cornières) ? | posés |
 | Q13 | Les raidisseurs proposés : plats de 8, 10, 12, 15, 20 mm, largeur au pas de 5 mm jusqu'à la demi-semelle, chanfrein égal au congé arrondi à 5 mm — les habitudes de l'atelier ? | ainsi |
 | Q14 | Les jeux de données JRC (« Commentary and worked examples to EN 1993-1-5 ») cités par le brief pour le lot 4 ne sont pas joignables d'ici : en pièce jointe, ils s'ajouteraient au cas R4 | R4, le témoin écrit depuis la norme, les calculs à la main |
