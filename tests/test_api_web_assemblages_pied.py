@@ -1223,10 +1223,15 @@ for nom, mut in [("le moteur complet ne nomme plus la raison (bandeau vert « Co
 
 # L'hypothèse prudente du calcul manuel (appui fjd = pression maximale ET N ≤ fjd·Aeff, manuel/moteur.HORS_VERDICT) : quand
 # elle CHANGE le résultat (un seul des deux au-delà de 100 %), la note PDF la dit en UNE ligne « À VÉRIFIER » (règle 7 du
-# lot B ; contre-vérification 2 : elle n'était que dans le code et la doc).
+# lot B ; contre-vérification 2 : elle n'était que dans le code et la doc). L'avis « pression > fjd » (fjd_info) y est
+# rangé avec ses chiffres : le bandeau ne dit pas trois fois l'appui (contre-vérification de la finition).
 LIGNE_HYP_1770 = ("À VÉRIFIER — hypothèse prudente : l'appui fjd compte la pression maximale (107,4 %) et N ≤ fjd·Aeff "
-                  "(67,1 %).")
+                  "(67,1 %) ; p max = 21,9 MPa > fjd = 20,4 MPa.")
+AVIS_FJD = "Pression sous la platine supérieure à fjd"
 MANUEL_APPUI_DEUX = dict(beton="C20/25", tp_u=60, N_Ed=4000)            # pression maximale 145,9 %, N ≤ fjd·Aeff 117,6 %
+
+
+from acier.assemblages.pied_poteau.platine_beton.manuel import note as _NM  # noqa: E402
 
 
 def _note_manuelle(**v):
@@ -1238,12 +1243,15 @@ def controles_hypothese_appui():
     out = []
     t = _note_manuelle(N_Ed=1770)
     out.append(("calcul manuel, N = 1 770 kN (« Conforme » sans l'hypothèse) : la note dit l'hypothèse prudente en une ligne "
-                "« À VÉRIFIER » (pression maximale 107,4 %, N ≤ fjd·Aeff 67,1 %)", t.count(LIGNE_HYP_1770) == 1
-                and t.count("hypothèse prudente") == 1, re.findall(r".{0,40}hypothèse prudente.{0,120}", t)))
+                "« À VÉRIFIER » (pression maximale 107,4 %, N ≤ fjd·Aeff 67,1 %), l'avis « pression > fjd » rangé dedans avec "
+                "ses chiffres (l'appui dit deux fois : le verdict, cette ligne)", t.count(LIGNE_HYP_1770) == 1
+                and t.count("hypothèse prudente") == 1 and AVIS_FJD not in t and t.count("p max = 21,9 MPa") == 1,
+                re.findall(r".{0,40}(?:hypothèse prudente|" + AVIS_FJD + r").{0,160}", t)))
     t2 = _note_manuelle(**MANUEL_APPUI_DEUX)
     out.append(("calcul manuel, C20/25, N = 4 000 kN (les deux contrôles d'appui au-delà de 100 % : « À vérifier » de toute "
-                "façon) : pas de ligne d'hypothèse", "PLATINE À VÉRIFIER" in t2 and "hypothèse prudente" not in t2,
-                re.findall(r".{0,40}hypothèse prudente.{0,120}", t2)))
+                "façon) : pas de ligne d'hypothèse, l'avis « pression > fjd » à sa place", "PLATINE À VÉRIFIER" in t2
+                and "hypothèse prudente" not in t2 and t2.count(AVIS_FJD) == 1,
+                re.findall(r".{0,40}(?:hypothèse prudente|" + AVIS_FJD + r").{0,120}", t2)))
     t3 = _note_manuelle()
     out.append(("calcul manuel, note neuve (appui sous 100 %) : pas de ligne d'hypothèse", "hypothèse prudente" not in t3, ""))
     return out
@@ -1255,7 +1263,11 @@ for nom, mut in [("la note tait l'hypothèse prudente", _patch(PM_M, "hypothese_
                  ("l'hypothèse dite dès qu'un contrôle d'appui dépasse, même quand elle ne change rien",
                   _patch(PM_M, "hypothese_appui", lambda R, f=PM_M.hypothese_appui: f(R) or (
                       "À VÉRIFIER — hypothèse prudente : l'appui fjd compte les deux contrôles." if R.verified and any(
-                          not c.ok for c in R.checks if c.key in ("bet", "ncp") and c.active) else "")))]:
+                          not c.ok for c in R.checks if c.key in ("bet", "ncp") and c.active) else ""))),
+                 ("l'avis « pression > fjd » redit sous la ligne de l'hypothèse (l'appui trois fois)",
+                  _patch(_NM.Note, "alertes_bandeau", lambda self, R: list(R.alerts))),
+                 ("l'avis rangé sans ses chiffres (p max, fjd perdus de la note)",
+                  _patch(_NM.Note, "lignes_a_verifier", lambda self, R: [h for h in [PM_M.hypothese_appui(R)] if h]))]:
     mut(True)
     try:
         rouges = [n for n, c, _ in controles_hypothese_appui() if not c]

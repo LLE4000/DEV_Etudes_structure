@@ -97,6 +97,15 @@ def lignes_hypotheses(R):
     return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
+def _avis_fjd_range(R):
+    """L'avis « pression sous la platine > fjd » (fjd_info, avec ses chiffres) quand la ligne de l'hypothèse prudente
+    sur l'appui le porte (moteur.hypothese_appui non vide) ; None sinon. Une source pour la ligne et pour les alertes du
+    bandeau : l'appui n'y est dit qu'une fois, en plus de la raison du verdict."""
+    if not MO.hypothese_appui(R):
+        return None
+    return next((a for a in R.alerts if a.id == "fjd_info" and a.why), None)
+
+
 class Note(_np.Note):
     TITRE_NOTE = TITRE
     SYN = synthese
@@ -118,9 +127,17 @@ class Note(_np.Note):
         return ligne_alerte(a, R)
 
     def lignes_a_verifier(self, R):
-        # l'hypothèse prudente sur l'appui fjd (moteur.HORS_VERDICT), quand elle change le résultat
+        # l'hypothèse prudente sur l'appui fjd (moteur.HORS_VERDICT), quand elle change le résultat ; l'avis « pression
+        # > fjd » (fjd_info) y est rangé avec ses chiffres : une ligne au lieu de deux (alertes_bandeau le retire)
         h = MO.hypothese_appui(R)
-        return [h] if h else []
+        if not h:
+            return []
+        a = _avis_fjd_range(R)
+        return [h[:-1] + " ; " + a.why + "." if a is not None else h]
+
+    def alertes_bandeau(self, R):
+        a = _avis_fjd_range(R)
+        return [x for x in R.alerts if x is not a]
 
     def table_simple(self, d, fr, cle, largeurs):
         R = self.R

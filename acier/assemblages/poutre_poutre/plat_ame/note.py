@@ -179,6 +179,10 @@ class Note:
         """Les lignes « À VÉRIFIER » d'une hypothèse prudente qui change le résultat (aucune par défaut)."""
         return []
 
+    def alertes_bandeau(self, R):
+        """Les alertes du bandeau (toutes par défaut ; une note peut en ranger une dans ses lignes « À VÉRIFIER »)."""
+        return list(R.alerts)
+
     def __init__(self, R, doc_meta, variante):
         self.R = R; self.doc = doc_meta; self.mode_lignes = variante
         self.S = Encre(); self.warnings = []; self.formules_imprimees = []
@@ -289,7 +293,7 @@ class Note:
             y -= 10
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=S.att)
             d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
-        al = list(R.alerts)
+        al = self.alertes_bandeau(R)
         for a in al[:3]:
             y -= 10
             titre, det = self.alerte(a, R)

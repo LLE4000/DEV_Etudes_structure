@@ -21,7 +21,8 @@ calcul par éléments finis. Ici le verdict porte sur la **platine** ; les tiges
 maximale élastique et la compression N ≤ fjd·Aeff : hypothèse prudente, **À VÉRIFIER** par le propriétaire (le calcul
 manuel n'a aucun contrôle d'appui dans son verdict). Quand elle change le résultat (un seul des deux au-delà de 100 % :
 N = 1 770 kN, pression maximale 107,4 %, N ≤ fjd·Aeff 67,1 %), la note PDF la dit en une ligne ocre du bandeau,
-« À VÉRIFIER — hypothèse prudente : … » (`manuel/moteur.hypothese_appui`).
+« À VÉRIFIER — hypothèse prudente : … » (`manuel/moteur.hypothese_appui`) ; l'avis « pression > fjd » y est rangé avec
+ses chiffres (« ; p max = 21,9 MPa > fjd = 20,4 MPa »), au lieu d'une seconde ligne (`manuel/note.py`).
 
 Code : `acier/assemblages/pied_poteau/platine_beton/manuel/` — `elements.py`
 (géométrie des éléments et raidisseurs), `console.py` (bandes comprimées),
