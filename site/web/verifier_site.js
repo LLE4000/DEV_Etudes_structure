@@ -4452,11 +4452,14 @@ const principal = async () => {
             detail = JSON.stringify({ v: v.map((x) => x.methode), blocsM, seg });
           } else if (quoi === 'console') {
             // (lot C, C0b) la console de 3 m : sa longueur de flambement automatique (2,1·L = 6,3 m) ; l'Eurocode 3 non couvert —
-            // sa puce n'est ni verte ni orange, et la raison se lit sous le verdict, en une ligne
+            // sa puce n'est ni verte ni orange, et la raison se lit sous le verdict, en une ligne. (Reprise de C0 — le harnais a
+            // trouvé : ces gestes viennent APRÈS « les efforts imposés » et « retour à la barre chargée », qui copiaient L_y = 6 et
+            // L_z = 3 en données : la console gardait L_z = 3 m saisi, « auto · 3 ». Corrigé dans api_web/profil.py (COPIEES) ; le
+            // contrôle lit maintenant ce que l'œil voit du champ — VIDE, et « auto · 6,3 » — pas seulement son texte d'attente.)
             await ouvrirRubB(g, 'mt');
-            const lz = await g.$eval('#donnees input[data-chemin="flambement/z/L"]', (e) => e.placeholder).catch(() => null);
+            const lz = await g.$eval('#donnees input[data-chemin="flambement/z/L"]', (e) => ({ v: e.value, ph: e.placeholder })).catch(() => null);
             const ec3 = v.find((x) => /^Eurocode 3/.test(x.methode));
-            plus = lz === 'auto · 6,3' && !!ec3 && !['p', 'f'].includes(ec3.niveau) && /\+ 1 non couvert : flexion composée/.test(ec3.texte);
+            plus = !!lz && lz.v === '' && lz.ph === 'auto · 6,3' && !!ec3 && !['p', 'f'].includes(ec3.niveau) && /\+ 1 non couvert : flexion composée/.test(ec3.texte);
             detail = JSON.stringify({ lz, ec3 });
           } else if (quoi === 'selecteur') {
             // (le témoin, lui, n'a PAS ouvert le sélecteur avant de choisir : la page, qui l'a ouvert — toute la famille vérifiée
@@ -4496,7 +4499,7 @@ const principal = async () => {
             sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 114 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
             appui_100: 'les appuis passent à « Sans raidisseur · 22 % » (F_Rd = 199,8 kN ; c non saisi, pris à 0 : « sans raidisseur (c = 0 : borne prudente) »), plus de ligne « Âme »',
             raidisseur: 'l\'appui A demande 2 plats 70 × 10 mm (sa ligne les nomme, ils sont DESSINÉS sur la barre avec leur légende) ; à la charge (0,50 m : ni s s saisie, ni maintien de la semelle haute à son droit) la décision est IMPOSSIBLE (122 % à la borne) — la ligne « Âme » dit les deux, en gris, le lieu en tête (« charge à 0,50 m : s s à saisir ; semelle haute sans maintien (…) ») ; « Bloqué · 89 % » au bloc ; le champ de la longueur d\'appui de la charge',
-            console: 'L z « auto · 6,3 » (la console : 2,1·L) ; la puce de l\'Eurocode 3 n\'est PAS verte (N + M en console : non couvert), « + 1 non couvert : flexion composée » sous son verdict',
+            console: 'L z vide, « auto · 6,3 » (la console : 2,1·L — même après les efforts imposés et le retour) ; la puce de l\'Eurocode 3 n\'est PAS verte (N + M en console : non couvert), « + 1 non couvert : flexion composée » sous son verdict',
             sans_raidisseur: 's s de la charge saisie : il ne manque plus que le maintien de la semelle haute (« semelle haute sans maintien (EN 1993-1-5, 6.1(1)) ; ajouter un maintien (À VÉRIFIER) », 87 % si elle est tenue) ; l\'appui A garde ses plats, dessinés ; « À vérifier · 89 % » au bloc', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
             historique: 'la note n\'imprimera que l\'ELS (le segment le dit) ; l\'écran garde ses DEUX verdicts et ses quatre blocs (ELS, Eurocode 3, âme, comparaison)',
             ec3: 'la note n\'imprimera que l\'Eurocode 3 (le segment le dit) ; l\'écran garde ses DEUX verdicts et ses quatre blocs',
