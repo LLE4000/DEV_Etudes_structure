@@ -592,7 +592,13 @@ const principal = async () => {
         await pg.click('#donnees .sec[data-sec="tr"] > .sechd');
         await pg.waitForTimeout(200);
         const e = await pg.evaluate((VIS) => { const s = document.querySelector('#donnees .sec[data-sec="gc"] > .sechd .sum'); if (!s) return null;
-          return { texte: s.textContent.replace(/\s+/g, ' ').trim(), vu: s.checkVisibility(VIS), entier: s.scrollWidth <= s.clientWidth + 1 }; }, VIS_H);
+          // (intégration du lot B — le harnais a trouvé : au PC, « Barreaudage vertical · H 1100 (… » était coupé) la hauteur
+          // passe EN TÊTE du résumé ; « entier » = la partie « H … », avant « · », se lit en entier (le type peut être coupé
+          // par les points de suspension, il se relit dans la rubrique ouverte) — mesuré sur le texte posé, place du « … » comprise
+          const t = s.firstChild, k = s.textContent.indexOf(' · '), rs = s.getBoundingClientRect();
+          let entier = s.scrollWidth <= s.clientWidth + 1;
+          if (!entier && t && t.nodeType === 3 && k > 0) { const r = document.createRange(); r.setStart(t, 0); r.setEnd(t, k); entier = r.getBoundingClientRect().right + 12 <= rs.right; }
+          return { texte: s.textContent.replace(/\s+/g, ' ').trim(), vu: s.checkVisibility(VIS), entier }; }, VIS_H);
         await pg.click('#donnees .sec[data-sec="gc"] > .sechd');
         await pg.waitForTimeout(200);
         return e;
@@ -609,9 +615,9 @@ const principal = async () => {
         await pg.waitForTimeout(400);
         const h2 = await lireH();
         const e2 = await enteteH();
-        verif(`${nom} : « 1 100 » se lit en entier ; un ${tel ? 'appui' : 'clic'} VIDE le champ (« 1 100 » en gris) ; quitté sans rien taper, « 1 100 » revient, sans refus ; l'en-tête dit « H 1100 »`,
+        verif(`${nom} : « 1 100 » se lit en entier ; un ${tel ? 'appui' : 'clic'} VIDE le champ (« 1 100 » en gris) ; quitté sans rien taper, « 1 100 » revient, sans refus ; l'en-tête commence par « H 1100 »`,
           nu(h0.v) === '1 100' && h0.vu && h0.entier && h1.actif && h1.v === '' && nu(h1.ph) === '1 100' && !h2.actif && nu(h2.v) === '1 100' && nu(h2.ph) === '1 100 par défaut' && !h2.refus
-          && !!e2 && e2.vu && /· H 1\s?100$/.test(e2.texte), JSON.stringify({ h0, h1, h2, e2 }));
+          && !!e2 && e2.vu && e2.entier && /^H 1\s?100 · /.test(e2.texte), JSON.stringify({ h0, h1, h2, e2 }));
         // 2. EFFACÉ exprès (un clic, Retour arrière, Entrée) : vide, « 1 100 par défaut » en gris ; le moteur prend 1 100 mm et le dit
         await toucher(H);
         await pg.keyboard.press('Backspace');
@@ -621,10 +627,10 @@ const principal = async () => {
         const h4 = await lireH();
         const r4 = await resultatH();
         const e4 = await enteteH();
-        verif(`${nom} : EFFACÉ (Retour arrière), H reste vide, « 1 100 par défaut » en gris ; le résultat le dit, visible (« Hauteur non saisie : H = 1 100 mm par défaut »), l'en-tête aussi, en entier (« H 1100 (défaut) ») ; le calcul prend 1 100 mm (64 %), sans refus`,
+        verif(`${nom} : EFFACÉ (Retour arrière), H reste vide, « 1 100 par défaut » en gris ; le résultat le dit, visible (« Hauteur non saisie : H = 1 100 mm par défaut »), l'en-tête aussi, en tête et entier (« H 1100 (défaut) · … ») ; le calcul prend 1 100 mm (64 %), sans refus`,
           h3.v === '' && nu(h3.ph) === '1 100 par défaut' && h4.v === '' && nu(h4.ph) === '1 100 par défaut' && !h4.refus
           && r4.msgs.includes('Hauteur non saisie : H = 1 100 mm par défaut') && /64\s?%/.test(r4.verdict)
-          && !!e4 && e4.vu && e4.entier && /· H 1\s?100 \(défaut\)$/.test(e4.texte), JSON.stringify({ h3, h4, r4, e4 }));
+          && !!e4 && e4.vu && e4.entier && /^H 1\s?100 \(défaut\) · /.test(e4.texte), JSON.stringify({ h3, h4, r4, e4 }));
         await onglet('resultat');
         await pg.screenshot({ path: path.join(OUT, `site_garde_corps_h_defaut_${fmt}.png`) });
         await onglet('donnees');
@@ -641,7 +647,7 @@ const principal = async () => {
         const e6 = await enteteH();
         verif(`${nom} : 0 mm est REFUSÉ (« Calcul impossible » — « Refus : hauteur nulle (H = 0 mm) ») ; 1 100 retapé, le calcul revient (64 %), l'en-tête redit « H 1100 », sans « (défaut) », le message s'efface`,
           /^Calcul impossible/.test(r5.verdict) && /Refus : hauteur nulle \(H = 0 mm\)/.test(r5.verdict) && nu(h6.v) === '1 100' && /64\s?%/.test(r6.verdict)
-          && !r6.msgs.some((x) => /Hauteur non saisie/.test(x)) && !!e6 && /· H 1\s?100$/.test(e6.texte), JSON.stringify({ r5, h6, r6, e6 }));
+          && !r6.msgs.some((x) => /Hauteur non saisie/.test(x)) && !!e6 && /^H 1\s?100 · /.test(e6.texte), JSON.stringify({ r5, h6, r6, e6 }));
         verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (e) { verif(`${nom} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
       await cx.close();
@@ -7945,10 +7951,10 @@ const principal = async () => {
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques, la bibliothèque et les assemblages (lot B) travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'barres', 'saf', 'prix_grues', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'exporter', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'barres', 'assemblages', 'saf', 'prix_grues', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

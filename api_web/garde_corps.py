@@ -333,7 +333,9 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
                    full=True))
     trs = GE.longueurs_troncons(g)
     resume2 = f"{C.fr(sum(trs) / 1000, 2)} m · {geo.get('phrase', '')}" if trs else ""
-    return (C.section(1, "Garde-corps", f"{TY.libelle(cas)} · H {_h_tete(g.get('H'))}", s1, True, "gc")
+    # H en tête du résumé (intégration du lot B) : la colonne du PC (340 px) coupe le résumé par des points de suspension ;
+    # « H 1100 (défaut) » doit se lire entier, le type se relit dans la rubrique ouverte
+    return (C.section(1, "Garde-corps", f"H {_h_tete(g.get('H'))} · {TY.libelle(cas)}", s1, True, "gc")
             + C.section(2, "Tronçons", resume2, s2, False, "tr")
             + C.section(3, "Remplissage", resume3, s3, False, "rp")
             + C.section(4, "Charges", f"{CH.libelle_categorie(ch.get('categorie'))} · q<sub>h</sub> {C.nb(ch.get('qh'))} kN/m", s4, False, "ch")

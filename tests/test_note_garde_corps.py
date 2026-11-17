@@ -384,6 +384,10 @@ def ctl_h_vidable_page() -> list:
         ecarts.append(f"champ H vidé non affiché vide : {champ}")
     if "H 1100 (défaut)" not in f:
         ecarts.append("en-tête de la rubrique sans la hauteur par défaut")
+    # (intégration du lot B, le harnais du navigateur a trouvé) H EN TÊTE du résumé : au PC, la colonne coupe la fin d'un
+    # résumé long (« Barreaudage vertical · H 1100 (… ») — la hauteur par défaut doit se lire, le type peut être coupé
+    if not re.search(r'<span class="sum">H 1100 \(défaut\) · ', f):
+        ecarts.append("en-tête de la rubrique : la hauteur par défaut n'est pas en tête du résumé (coupée au PC)")
     e2 = G.nouvel_etat()
     if G.modifier(e2, ["geometrie", "H"], "douze") != "Nombre illisible : « douze »" or e2 != G.nouvel_etat():
         ecarts.append("un texte illisible n'est pas refusé")
@@ -399,6 +403,12 @@ try:
     chk("mutation « champ H en nombre » (la page refusait le champ vide) : le contrôle rougit", ctl_h_vidable_page() != [])
 finally:
     G.H_VIDE = vrai_hv
+vrai_form = G.formulaire
+G.formulaire = lambda *a_, **k_: re.sub(r'<span class="sum">H ([^<]*?) · ([^<]*)</span>', r'<span class="sum">\2 · H \1</span>', vrai_form(*a_, **k_))
+try:
+    chk("mutation « le type en tête du résumé, H en queue » (coupé au PC) : le contrôle rougit", ctl_h_vidable_page() != [])
+finally:
+    G.formulaire = vrai_form
 vrai_ht = G._h_tete
 G._h_tete = C.nb
 try:

@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "b7f066ea3c833e5de5f931eb2f64829611f8968ea8d2171e7bf47f4016f62ad2",
+ "sha256": "c7d633cee792fdf91a9a5124681bcdac0d48ea2a3b7f03804d52780ae9600160",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -440,7 +440,7 @@
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "edc9ed98d6f14c96",
   "fondation_grue": "7400039d62e0db89",
-  "garde_corps": "29a85429e82c6cc2",
+  "garde_corps": "b29d1dc198f8e67a",
   "plancher": "9d0ec86ed498d435",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
@@ -450,5 +450,5 @@
   "soudures": "865be318298eea9a",
   "taux": "0325815790c3ee2c"
  },
- "version": "7fa924c71b87f56e"
+ "version": "1a4a094e04657e7c"
 }
