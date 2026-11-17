@@ -1012,6 +1012,43 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   - une barre PRS (venue d'un fichier) se relit et se calcule ; l'écran, le sélecteur et la note la refusent en une
     ligne (`profil.refus_prs`) tant que sa fiche et son croquis n'existent pas (bloc C6).
 
+### 9.2 La barre chargée de bout en bout (lot C, C1, 17/11/2026)
+
+Le moteur (`moteur.py`, `statique.py`, `ame.py`) emploie les clés posées par C0. Rien de neuf à l'écran (C3, C4) ni dans la
+note (C5) : ils liront ce que le moteur rend.
+
+- **Appui « par l'âme », âme élancée** (défaut NON CONSERVATIF corrigé) : le raidisseur d'appui du § 5.1(2) de l'EN 1993-1-5
+  est dû à chaque appui, posé ou tenu par l'âme ; dimensionné sous la réaction entière (À VÉRIFIER).
+- **Une hauteur par charge** (`niveau`, à défaut celle de la barre) ; le **poids propre au centre de gravité** (z_g = −z_s,
+  0 pour un I bisymétrique). M_cr lit chaque charge à sa cote ; l'âme, chaque ponctuelle sur sa semelle ; le message de
+  C_d > 1 (méthode ELS) tombe dès qu'une charge est sur la semelle haute. Un PRS sous charges à plusieurs hauteurs : le
+  contrôle (E.1) n'a qu'un z_g, le solveur seul.
+- **Maintiens négligés dans M_cr** : les tronçons de M_cr les ignorent (`statique.troncons(…, pour_mcr=True)`) ; le
+  flambement et L_d de la méthode ELS les gardent. Tous négligés : la variante (0,4 ; 0,75) est demandée, l'Eurocode 3
+  l'admet (bâtiment) ou la refuse (« hors bâtiment ») — test 9 du § 11.5 : R2 0,741 et 0,891.
+- **Position de la barre** : horizontale (poids propre en flexion), verticale (q·L dans N, en compression, sur toute la
+  barre — prudent, À VÉRIFIER), inclinée de α (q·cos α en flexion, q·L·sin α dans N ; sans angle : refusée). Efforts
+  imposés : les interrupteurs « dans P » (P += q·L) et « en flexion » (M += q·L²/8, V += q·L/2) ajoutent le poids propre
+  au service et, × γ_G,sup, à l'ELU — compté deux fois si les efforts saisis le contiennent (À VÉRIFIER, dit dans la note).
+- **Courbe imposée par axe** : celle de la méthode ELS (forcée, dite) ; l'Eurocode 3 garde son tableau 6.2.
+- **Sections critiques** : les points demandés et les racines du moment sont des sections vérifiées, rendues pour le
+  dessin (`statique["sections"]`).
+- **C_mi,0 de la travée extraite** (continue, encastrée, bi-encastrée) : la formule générale avec la flèche et la portée de
+  la travée du tronçon ; le M du tronçon (jamais plus grand que celui de la travée : du côté sûr).
+- **Appuis un par un** (`appuis.detail`) : la torsion (fourche ou encastrée) entre dans M_cr ; s_s, c et le contact, dans
+  les lieux de l'âme.
+- **PRS chargés depuis leurs charges** : la semelle comprimée d'un tronçon est celle que σ_x = N/A + M·z/I_y comprime le
+  plus, au plan moyen, à la section du plus grand |M| ; aucune comprimée (une traction l'emporte) : le signe de M, dit
+  (À VÉRIFIER). PRS-C : M_ELS 2 853,66 kN·m, σ 117,11 ; EC3 M_Ed 4 200,2 ; 1,007 / 0,967 / 0,937 (7, 8, 9 maintiens).
+- **N par tronçon** (`N_troncons`) : chaque section à son N ; le flambement et (6.61), (6.62) au plus grand N de la barre
+  (prudent, À VÉRIFIER) ; η₁ de l'âme au N du lieu.
+- **Mode d'introduction déclaré** d'une ponctuelle (a, b, c) : appliqué tel quel ; « auto », la règle du module.
+- **Débords** (porte-à-faux, rdm/poutres) : la barre va de 0 à g + Σ portées + d ; le bout d'un débord est libre ; la
+  longueur de flambement et L_d d'un débord suivent la règle de la console (2,1 × sa longueur, À VÉRIFIER).
+- **Origine des longueurs rendues** (`longueurs[a]["origine"]`) : « portee », « troncon », « console », « saisie ».
+- **R2 de bout en bout** (critère du lot C) : `tests/test_barre_moteur.py`, § 10 — M_Ed 68,70, V_Ed 27,80 ; propriétés du
+  brief : 118,18 / 0,887 et 86,98 / 1,093 ; catalogue (I_t 19,77 cm⁴) : 117,52 / 0,890 et 86,35 / 1,0996.
+
 ## 10. À confirmer par le bureau
 
 | # | Question | En attendant |
