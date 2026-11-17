@@ -37,6 +37,7 @@ from acier.barre import entree as EN  # noqa: E402
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
 from acier.barre import parametres as PA  # noqa: E402
+from acier.barre import prs as PRS  # noqa: E402
 from acier.barre import raidisseurs as RA  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
 from acier.barre import section as SE  # noqa: E402
@@ -155,23 +156,11 @@ def raidisseur_temoin(nom, fy, ts, cotes=None, fy_plat=None, fy_ame=None):
 
 
 def prs_section(b1, t1, hw, tw, b2, t2, a=None, fabrication=None):
-    """Une section PRS en I selon le CONTRAT de acier/barre/prs.py (règles du lot B, § 4 ; écrit par le bloc B2) : le
-    format de acier/barre/section.py (forme « I ») et « prs », « eta », « monosymetrique », « z_g » — propriétés sur les
-    trois rectangles, cordons non comptés (brief § 18.4). ``fabrication`` None : les bords des semelles ne sont pas saisis."""
-    h = t1 + hw + t2
-    A = b1 * t1 + hw * tw + b2 * t2
-    zg = (b2 * t2 * t2 / 2.0 + hw * tw * (t2 + hw / 2.0) + b1 * t1 * (t2 + hw + t1 / 2.0)) / A
-    Iy = (b2 * t2 ** 3 / 12.0 + b2 * t2 * (zg - t2 / 2.0) ** 2 + tw * hw ** 3 / 12.0 + hw * tw * (t2 + hw / 2.0 - zg) ** 2
-          + b1 * t1 ** 3 / 12.0 + b1 * t1 * (h - t1 / 2.0 - zg) ** 2)
-    Iz = t1 * b1 ** 3 / 12.0 + hw * tw ** 3 / 12.0 + t2 * b2 ** 3 / 12.0
-    s = SE.saisie("I", "soude_oxycoupe", h=h, b=max(b1, b2), tw=tw, tf=max(t1, t2), r=0.0, A=A, Iy=Iy, Iz=Iz, iy=math.sqrt(Iy / A),
-                  iz=math.sqrt(Iz / A), Wel_y=Iy / max(zg, h - zg), Avz=1.2 * hw * tw, Avy=A - hw * tw)
-    # W_pl,y : l'axe neutre plastique partage l'aire en deux (brief § 18.4), ici dans l'âme
-    zp = t2 + (A / 2.0 - b2 * t2) / tw
-    Wpl = b1 * t1 * (h - t1 / 2.0 - zp) + tw * (t2 + hw - zp) ** 2 / 2.0 + tw * (zp - t2) ** 2 / 2.0 + b2 * t2 * (zp - t2 / 2.0)
-    s.update(fabrication=fabrication, prs={"b1": b1, "t1": t1, "hw": hw, "tw": tw, "b2": b2, "t2": t2, "a": a}, eta=1.2,
-             monosymetrique=(b1, t1) != (b2, t2), z_g=zg, Wpl_y=Wpl)
-    return s
+    """Une section PRS en I : celle de acier/barre/prs.py (bloc B2), le contrat des règles du lot B, § 4. Avant
+    l'intégration, ce test écrivait ici une copie d'après le contrat ; elle manquait des clés que prs.py lit (la gorge
+    « s » : ec3_classe → prs.parois), et c'était une seconde source des propriétés (R2). ``fabrication`` None : les
+    bords des semelles ne sont pas saisis."""
+    return PRS.section_prs(b1, t1, hw, tw, b2, t2, a=a, nuance="S355", bords=fabrication)
 
 
 R2 = dict(poids_propre=False, appuis={"mode": "poses", "ss": None, "c": None},                 # (le brief ne donne pas s_s aux appuis)
@@ -1306,7 +1295,9 @@ MUTATIONS = [
     ("ec3_ame", "lot A — η = 1 pour une section soudée", '    return P["eta_soude"] if est_soude(s) else P["eta"]', '    return P["eta"]'),
     ("ec3_ame", "lot B — un PRS aux bords non saisis pris pour un laminé (η = 1,00)", '    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA',
      '    return s.get("fabrication") in SOUDES_ETA'),
-    ("ec3_ame", "lot B — h_w d'un PRS : h − 2·t_f", '    if s.get("forme") == "I" and p and p.get("hw"):', "    if False:"),
+    # (intégration du lot B : hw_de lit section.hauteur_ame, la seule source du h_w d'un PRS — l'altération porte sur son appel)
+    ("ec3_ame", "lot B — h_w d'un PRS : h − 2·t_f", "    return SE.hauteur_ame(s)\n",
+     '    return s["h"] - 2.0 * s["tf"] if s.get("forme") == "I" and s.get("tf") else SE.hauteur_ame(s)\n'),
     ("ec3_ame", "lot B — les semelles d'un PRS ignorées (b et t_f de la section)", '    if p:\n        return {"haut": {"bf": float(p["b1"])',
      '    if False:\n        return {"haut": {"bf": float(p["b1"])'),
     ("ec3_ame", "lot B — M_f,Rd avec la plus GRANDE semelle", '    Af = min(x["bf"] * x["tf"] for x in sm.values())', '    Af = max(x["bf"] * x["tf"] for x in sm.values())'),
@@ -1456,7 +1447,8 @@ MUTATIONS = [
     ("ame", "reprise — vue « sans » : σ_z avec s_s = 0", '"sigma_z": AM.sigma_z(pire["F"] * 1e3, r0["ss"], r0["ame"]["tf"], s["tw"])["sigma_z"]',
      '"sigma_z": AM.sigma_z(pire["F"] * 1e3, 0.0, r0["ame"]["tf"], s["tw"])["sigma_z"]'),
     ("raidisseurs", "reprise — raidisseur d'un PRS : h_w = h − 2·t_f", "    hw = AM.hw_de(s)", '    hw = s["h"] - 2.0 * s["tf"]'),
-    ("ec3_ame", "reprise — h_w d'un PRS pour le raidisseur (relié par charger)", '        return float(p["hw"])', '        return float(p["hw"]) - 1.0'),
+    ("ec3_ame", "reprise — h_w d'un PRS pour le raidisseur (relié par charger)", "    return SE.hauteur_ame(s)\n",
+     '    return SE.hauteur_ame(s) - (1.0 if s.get("prs") else 0.0)\n'),
     ("moteur", "reprise — un laminé que V_pl,Rd fait échouer : rien n'est dit (ou sans le remède)", '            if v["id"] == "E-Vz" and v["statut"] == RE.NOK:',
      "            if False:"),
     # (2e reprise du lot B) la borne 0 de s_s et c, sa preuve ; N_st sur deux panneaux ; le groupe ; le maintien ; § 8.3 point 8

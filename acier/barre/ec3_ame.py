@@ -94,10 +94,8 @@ def eta_de(s: Dict, P: Dict) -> float:
 
 def hw_de(s: Dict) -> Optional[float]:
     """h_w, la hauteur de l'âme ENTRE SEMELLES d'un I (mm) : celle saisie d'un PRS (s["prs"]["hw"] : ses deux semelles
-    peuvent différer d'épaisseur), h − 2·t_f d'un laminé ; None pour une autre forme."""
-    p = s.get("prs")
-    if s.get("forme") == "I" and p and p.get("hw"):
-        return float(p["hw"])
+    peuvent différer d'épaisseur), h − 2·t_f d'un laminé ; None pour une autre forme. Une seule source :
+    section.hauteur_ame, qui lit déjà le h_w d'un PRS (intégration du lot B)."""
     return SE.hauteur_ame(s)
 
 
