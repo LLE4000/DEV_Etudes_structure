@@ -145,14 +145,6 @@ def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
     return {a: {"L": axes[a]["L"] / 1e3, "u": axes[a]["u"], "auto": b["flambement"][a]["L"] is None} for a in ("y", "z")}
 
 
-def _bords_saisis(s: Dict) -> None:
-    """Un PRS dont les bords des semelles ne sont pas saisis : la méthode ELS est BLOQUÉE (elle en tire ses courbes, brief
-    § 18.2 ; test 3 des « autres tests PRS ») — Refus, que la boucle des méthodes rend « non couvert » avec ce motif ;
-    l'Eurocode 3 se calcule."""
-    if PR.est_prs(s) and s.get("fabrication") is None:
-        raise RE.Refus(PR.MSG_BORDS)
-
-
 def section_de(b: Dict) -> Dict:
     """La section de la barre relue : un PRS (ses plats, sa nuance — acier/barre/prs.py) ou un profilé du catalogue."""
     if b.get("prs"):
@@ -167,7 +159,8 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
     methodes = {}
 
     def historique() -> Dict:
-        _bords_saisis(s)
+        # (un PRS aux bords des semelles non saisis : historique.verifier bloque le verdict et calcule pour information en larges
+        # plats — la seule règle ; intégration du lot B, point 20)
         e, h = b["efforts"]["service"], b["historique"]
         return HI.verifier({"section": s, **_fy_historique(b["nuance"], s), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
                          "Vz": e["Vz"] * 1e3, "Vy": e["Vy"] * 1e3, "axes": axes, "tolerance": h["tolerance"],
@@ -352,7 +345,6 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         return r
 
     def historique() -> Dict:
-        _bords_saisis(s)
         env = Enveloppe(HI.METHODE, HI.NORME)
         h = b["historique"]
         fy = _fy_historique(b["nuance"], s)

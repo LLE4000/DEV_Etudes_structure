@@ -389,7 +389,12 @@ def controles():
     c("autre test 3 — bords des semelles non saisis : « fabrication » None, verdict de la méthode ELS BLOQUÉ (message) ; l'Eurocode 3 se calcule, en "
       "section SOUDÉE (courbe c de déversement, A_v,y = A − h_w·t_w = 15 000 mm² pour PRS-B, et non 2·b·t_f = 12 000)",
       Sb["fabrication"] is None and PR.MSG_BORDS in Sb["messages"] and h_["statut"] == m("resultat").NON_COUVERT
-      and any(a["message"] == PR.MSG_BORDS for a in h_["alertes"]) and rb["methodes"]["ec3"]["statut"] in ("ok", "nok")
+      # (intégration du lot B, point 20 : UNE règle, celle de la méthode ELS — verdict bloqué, calcul pour information en larges plats, le cas
+      # défavorable ; le refus du moteur, qui ne montrait rien, est retiré — le harnais suit)
+      and h_["taux_max"] is None and h_["grandeurs"]["deversement"].get("classe") == "d"
+      and [a["message"] for a in h_["alertes"]] == ["Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué ; calcul pour "
+                                                    "information en larges plats."]
+      and rb["methodes"]["ec3"]["statut"] in ("ok", "nok")
       and verif(rb["methodes"]["ec3"], "E-Mb") is not None and rb["methodes"]["ec3"]["grandeurs"]["deversement"]["courbe"] == "c"
       and proche(ES.aires_cisaillement(Bb, 1.2)["y"], 15000.0), (h_["statut"], h_["alertes"], rb["methodes"]["ec3"]["statut"]))
     cles_prop = {"A", "Iy", "Iz", "It", "Iw", "Wel_y", "Wpl_y", "Avz", "Avy", "iy", "iz"}
@@ -965,8 +970,11 @@ MUTATIONS = [
     # (intégration du lot B : B4 a réécrit eta_de sur est_soude — le harnais suit, la même altération sur la ligne neuve)
     ("ec3_ame", "η = 1,00 pour un PRS sans bords saisis", '    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA',
      '    return s.get("fabrication") in SOUDES_ETA'),
-    ("moteur", "bords non saisis : la méthode ELS calculée quand même", "    if PR.est_prs(s) and s.get(\"fabrication\") is None:\n        raise RE.Refus(PR.MSG_BORDS)",
-     "    if False:\n        raise RE.Refus(PR.MSG_BORDS)"),
+    # (intégration du lot B, point 20 : la règle unique est celle de historique.verifier — le harnais suit)
+    ("historique", "bords non saisis : la méthode ELS calculée quand même (verdict non bloqué)",
+     '            bloque.append("Bords des semelles à saisir', '            str("Bords des semelles à saisir'),
+    ("historique", "bords non saisis : calcul en oxycoupé (le cas favorable)", 's = dict(s0, fabrication="soude_larges_plats")',
+     's = dict(s0, fabrication="soude_oxycoupe")'),
     ("moteur", "barre chargée : les charges d'un PRS à ±h/2", "    if PR.est_prs(s):                                          # un PRS : au-dessus de SON centre de cisaillement",
      "    if False:                                          # un PRS : au-dessus de SON centre de cisaillement"),
     ("statique", "maintien d'une semelle de PRS au plan moyen d'un I bisymétrique", '        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if prs else',

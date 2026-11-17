@@ -604,7 +604,9 @@ W_pl,y autour de l'axe neutre plastique ; z_j = z_s − 0,5·∫z·(y² + z²)dA
 (annexe E ANB, 2(7)) ; (E.3), (E.4), (E.5) pour information.
 
 **La saisie** (18.2) : refus bloquants — dimension non positive, t_w ≥ b, c ≤ 0 ; gorge non saisie : s = 0 et un
-message ; bords non saisis : méthode ELS bloquée (moteur), l'Eurocode 3 se calcule. Le moteur prend un PRS par ses plats
+message ; bords non saisis : verdict de la méthode ELS bloqué, calcul pour information en larges plats (le cas
+défavorable ; une seule règle, `historique.verifier` — intégration du lot B : le refus du moteur, qui ne montrait rien, est
+retiré), l'Eurocode 3 se calcule. Le moteur prend un PRS par ses plats
 (`"prs"`) ou par son nom (`"profil"`) dans une bibliothèque (`"bibliotheque"`) au FORMAT des profilés personnalisés du
 Catalogue (`{"famille": "PRS", "dims": {"h", "b", "tw", "tf"} (+ "b2", "tf2", "a")}`, la nuance) : seules les
 dimensions et la nuance sont stockées, tout se recalcule. L'écran (« Choix de profilé ») : lot C.
