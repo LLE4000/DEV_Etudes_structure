@@ -344,11 +344,13 @@ def controles(M=None):
     r = mo.verifier(barre(profil="IPE 240", modele="console", travees=[2.0], poids_propre=False,
                           cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(8.0, 2.0)]}]))
     e = r["methodes"]["ec3"]
+    # (intégration du lot B, point 4 : u = 2,1 de la console, « encastrée – libre » du tableau d'aide, brief § 13.3 — le
+    # harnais suit : 2 → 2,1 ; 4000 → 4200 mm)
     c("console de 2 m sous une charge en bout et un effort normal : le moment est à l'encastrement (1,35·8·2 = 21,6 kN·m, x = 0) ; elle flambe "
-      "sur DEUX fois sa longueur autour des DEUX axes (bout libre : il se déplace latéralement comme dans le plan), dans les deux méthodes, "
-      "sans avis (aucun maintien) ; son tronçon de déversement est encastré puis libre",
-      proche(verif(e, "E-My")["valeur"], 21.6) and verif(e, "E-My")["x"] == 0.0 and e["grandeurs"]["flambement"]["y"]["Lcr"] == 4000.0
-      and e["grandeurs"]["flambement"]["z"]["Lcr"] == 4000.0 and r["methodes"]["historique"]["grandeurs"]["z"]["Lf"] == 4000.0
+      "sur 2,1 fois sa longueur autour des DEUX axes (bout libre : il se déplace latéralement comme dans le plan ; brief § 13.3), dans les deux "
+      "méthodes, sans avis (aucun maintien) ; son tronçon de déversement est encastré puis libre",
+      proche(verif(e, "E-My")["valeur"], 21.6) and verif(e, "E-My")["x"] == 0.0 and e["grandeurs"]["flambement"]["y"]["Lcr"] == 4200.0
+      and e["grandeurs"]["flambement"]["z"]["Lcr"] == 4200.0 and r["methodes"]["historique"]["grandeurs"]["z"]["Lf"] == 4200.0
       and not any(a["code"] == "console_Lz" for m_ in r["methodes"].values() for a in m_["alertes"])
       and e["grandeurs"]["deversement"]["troncon"]["appuis"] == ["encastre", "libre"] and verif(e, "E-Mb") is not None,
       (e["grandeurs"]["flambement"]["y"], e["grandeurs"]["flambement"]["z"]))
@@ -364,13 +366,30 @@ def controles(M=None):
     avis = {k_: {n_: [a for a in m_["alertes"] if a["code"] == "console_Lz"] for n_, m_ in x["methodes"].items()} for k_, x in cs.items()}
     A_ = {"code": "console_Lz", "niveau": "attention", "message": mo.CONSOLE_LZ}
     c("console, L_cr,z : un maintien complet AU BOUT en fait une section tenue (2 m, la plus grande distance entre sections tenues) ; un "
-      "maintien complet à 1 m SEUL ne raccourcit rien (4 m = 2·L, hypothèse prudente), dit UNE fois en une ligne À VÉRIFIER (niveau « attention », "
-      "sous la première méthode rendue), et seulement si la barre est comprimée (sans N ou en traction, L_cr,z ne change aucun résultat) ; "
-      "une longueur donnée est prise telle quelle, sans avis",
-      Lz == {"bout": (2000.0, 2000.0), "milieu": (4000.0, 4000.0), "donnee": (1500.0, 1500.0)}
+      "maintien complet à 1 m SEUL ne raccourcit rien (4,2 m = 2,1·L, hypothèse prudente), dit UNE fois en une ligne À VÉRIFIER (niveau "
+      "« attention », sous la première méthode rendue), et seulement si la barre est comprimée (sans N ou en traction, L_cr,z ne change aucun "
+      "résultat) ; une longueur donnée est prise telle quelle, sans avis",
+      Lz == {"bout": (2000.0, 2000.0), "milieu": (4200.0, 4200.0), "donnee": (1500.0, 1500.0)}
       and avis == {"bout": {"historique": [], "ec3": []}, "milieu": {"historique": [A_], "ec3": []}, "donnee": {"historique": [], "ec3": []},
                    "sans N": {"historique": [], "ec3": []}, "traction": {"historique": [], "ec3": []}, "EC3 seul": {"ec3": [A_]}}
-      and mo.CONSOLE_LZ == "Console à bout libre : L_cr,z = 2·L, maintiens intermédiaires non comptés — À VÉRIFIER.", (Lz, avis))
+      and mo.CONSOLE_LZ == "Console à bout libre : L_cr,z = 2,1·L, maintiens intermédiaires non comptés — À VÉRIFIER.", (Lz, avis))
+    # (intégration du lot B, point 4) la méthode ELS d'une console à bout libre : le bout libre n'est plus une section tenue
+    # (L_d valait la longueur de la console, le bout compté comme un maintien) — L_d = 2,1·L, la règle du flambement, maintiens
+    # intermédiaires non comptés ; la formule des classeurs suppose deux sections tenues : « hors domaine », À VÉRIFIER. Un
+    # maintien complet AU BOUT en fait une section tenue : L_d = 2 m, dans le domaine
+    def els_(r_):
+        h_ = r_["methodes"]["historique"]
+        v_ = {v["id"]: v for v in h_["verifications"]}
+        return (h_["grandeurs"]["deversement"]["Lc"], round(v_["H-DEV"]["taux"], 3), v_["H-DEV"]["statut"], h_["statut"],
+                any("console à bout libre" in m_ for m_ in v_["H-DEV"]["messages"]))
+    ce = {k_: els_(cs[k_]) for k_ in ("bout", "milieu")}
+    ce["sans maintien"] = els_(mo.verifier(barre(profil="IPE 300", modele="console", travees=[3.0], poids_propre=False,
+                                                 cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0)]}])))
+    c("console, méthode ELS : le bout libre n'est plus un maintien — L_d = 2,1·L (IPE 240 de 2 m tenu à 1 m : 4 200 mm, H-DEV 67 %, au lieu "
+      "de 1 000 mm et 38 % ; IPE 300 de 3 m, 20 kN au bout : 6 300 mm, H-DEV 185 % au lieu de 113 %), « hors domaine » quand il passe, et dit ; "
+      "un maintien complet au bout : L_d = 2 000 mm, H-DEV 45 %, « ok »",
+      ce == {"bout": (2000.0, 0.449, RE.OK, RE.OK, False), "milieu": (4200.0, 0.67, RE.HORS_DOMAINE, RE.HORS_DOMAINE, True),
+             "sans maintien": (6300.0, 1.85, RE.NOK, RE.NOK, False)}, ce)
     # la longueur de flambement de l'axe faible, les maintiens d'une semelle
     r = mo.verifier(barre(maintiens=[{"x": 2.0, "genre": "complet"}], cas=[{"nom": "G", "nature": "permanent", "N": 100.0, "charges": [q(5.0, 0.0, 6.0)]}]))
     c("un maintien complet à 2 m : l'axe faible flambe sur le plus long tronçon (4 m), l'axe fort sur la portée (6 m)",
@@ -605,8 +624,15 @@ MUTATIONS = [
     ("statique", "un seul côté de la section vérifié", "    return [d] if (abs(g[0] - d[0]) < eps and abs(g[1] - d[1]) < eps) else [g, d]", "    return [d]"),
     ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:\n        return None', "    if False:\n        return None"),
     ("moteur", "niveau d'application des charges ignoré", 'zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0', "zg = 0.0"),
-    ("moteur", "console : flambement sur une fois sa longueur", "                L = 2.0 * L   ", "                L = 1.0 * L   "),
-    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'L = 2.0 * sum(b["travees"])', 'L = 1.0 * sum(b["travees"])'),
+    # (intégration du lot B, point 4, le harnais suit : 2·L → U_CONSOLE·L = 2,1·L)
+    ("moteur", "console : flambement sur une fois sa longueur", "                L = round(U_CONSOLE * L, 9) ", "                L = round(1.0 * L, 9) "),
+    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'L = round(U_CONSOLE * sum(b["travees"]), 9)',
+     'L = round(1.0 * sum(b["travees"]), 9)'),
+    ("moteur", "intégration, point 4 — console : 2 au lieu de 2,1 (la valeur théorique, pas la recommandée)", "U_CONSOLE = 2.1\n", "U_CONSOLE = 2.0\n"),
+    ("moteur", "intégration, point 4 — ELS : le bout libre d'une console compté comme un maintien", "    if console_libre is not None:\n",
+     "    if False:\n"),
+    ("moteur", "intégration, point 4 — ELS : la console à bout libre dite dans le domaine", '"deversement": _deversement_historique(b, Lc * 1e3, libre is not None)',
+     '"deversement": _deversement_historique(b, Lc * 1e3, False)'),
     ("moteur", "lot B — console : l'axe faible jamais doublé (le défaut d'avant)", '            if a == "z" and _bout_libre(b, trs):', '            if False:'),
     ("moteur", "lot B — console : les maintiens intermédiaires raccourcissent L_cr,z", 'bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE',
      'len(trs) == 1 and trs[-1]["appuis"][1] == MC.LIBRE'),
@@ -687,10 +713,10 @@ def main():
                                                            dict(modele="console", travees=[2.0], cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 2.0)]}]),
                                                            dict(flambement={"y": {"L": 4.5, "u": 0.7}, "z": {"L": 1.5}}))]
     chk("les longueurs de flambement PRISES sont rendues (m) : la portée et la plus grande distance entre sections tenues quand la barre "
-        "ne les donne pas (6 et 6 m ; 6 et 4 m avec un maintien complet à 2 m ; 2 × 2 m pour une console, autour des DEUX axes : son bout "
-        "est libre — lot B), celles de la barre sinon",
+        "ne les donne pas (6 et 6 m ; 6 et 4 m avec un maintien complet à 2 m ; 2,1 × 2 m pour une console, autour des DEUX axes : son bout "
+        "est libre — lot B ; 2,1 : intégration du lot B, brief § 13.3), celles de la barre sinon",
         [(x["y"]["L"], x["z"]["L"], x["y"]["auto"], x["z"]["auto"]) for x in Ls]
-        == [(6.0, 6.0, True, True), (6.0, 4.0, True, True), (4.0, 4.0, True, True), (4.5, 1.5, False, False)] and Ls[3]["y"]["u"] == 0.7,
+        == [(6.0, 6.0, True, True), (6.0, 4.0, True, True), (4.2, 4.2, True, True), (4.5, 1.5, False, False)] and Ls[3]["y"]["u"] == 0.7,
         [(x["y"], x["z"]) for x in Ls])
     b0 = barre(**CONTINUE)
     b1 = copy.deepcopy(b0)

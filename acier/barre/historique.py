@@ -236,7 +236,8 @@ def _lire(d: Dict) -> Dict:
     dev = dict(d.get("deversement") or {})
     out["deversement"] = {"actif": bool(dev.get("actif", True)), "Lc": dev.get("Lc"), "variante": dev.get("variante", "classeurs"),
                           "Cd": dev.get("Cd", 1.0), "classe": dev.get("classe"), "semelle": dev.get("semelle"),
-                          "niveau": dev.get("niveau"), "facteur_doc": bool(dev.get("facteur_doc", False))}
+                          "niveau": dev.get("niveau"), "facteur_doc": bool(dev.get("facteur_doc", False)),
+                          "bout_libre": bool(dev.get("bout_libre", False))}
     if out["deversement"]["Lc"] is not None:
         Lc = float(out["deversement"]["Lc"])
         if Lc < 0 or not math.isfinite(Lc):
@@ -281,7 +282,8 @@ def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
 
 HORS_DOMAINE_TEXTES = {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm",
                        "epaisseur": "paroi de plus de 80 mm, que la doc ne prévoit pas",
-                       "prs_mono": "PRS monosymétrique (la formule du déversement suppose deux semelles égales)"}
+                       "prs_mono": "PRS monosymétrique (la formule du déversement suppose deux semelles égales)",
+                       "console": "console à bout libre (la formule du déversement suppose deux sections tenues ; L_d = 2,1·L, À VÉRIFIER)"}
 
 
 def verifier(barre: Dict) -> Dict:
@@ -505,6 +507,10 @@ def verifier(barre: Dict) -> Dict:
     elif My > 0 and s["forme"] in ("tube_rond", "tube_carre"):
         hyp.append("Tube rond ou carré : pas de déversement, φ_ed = 1 (règle complémentaire, EC3 § 6.3.2.1(2) : I_y = I_z).")
     hors_dev = ["prs_mono"] if (mono and dev["cas"] in ("classeurs", "I")) else []
+    # une console à bout libre (intégration du lot B) : la formule des classeurs lit l entre deux sections tenues — hors
+    # domaine (brief § 6.2, point 8), calcul affiché avec la longueur que le moteur propose (2,1·L, À VÉRIFIER)
+    if dv["bout_libre"] and dev["cas"] in ("classeurs", "I", "ferme"):
+        hors_dev.append("console")
     if hors_dev:
         alerte("prs_mono", "attention", "PRS monosymétrique : déversement hors domaine (formule pour deux semelles égales) ; calcul avec la "
                                         "semelle comprimée.")

@@ -77,13 +77,14 @@ def _fy_historique(nuance: str, s: Dict) -> Dict:
     return {"fy": MA.nominale(nuance), "nuance": nuance, "fy_source": HI.SOURCE_NOMINALE, "fy_ref": HI.FY_NOMINALE}
 
 
-def _deversement_historique(b: Dict, Ld: Optional[float]) -> Dict:
+def _deversement_historique(b: Dict, Ld: Optional[float], bout_libre: bool = False) -> Dict:
     """Le déversement de la méthode ELS : actif ou non, L_d (mm ; None : la longueur de l'axe faible), C_d, la variante
     (classeurs par défaut), le facteur 5,1 de la doc (profil fermé), une classe imposée (None : le tableau 12), le niveau
-    des charges (le message de C_d > 1 sous une charge sur la semelle haute)."""
+    des charges (le message de C_d > 1 sous une charge sur la semelle haute), et une console à bout libre (hors du
+    domaine de la formule des classeurs : historique.verifier le dit)."""
     h = b["historique"]
     return {"actif": h["deversement"], "Lc": Ld, "Cd": h["Cd"], "variante": h["variante"], "facteur_doc": h["facteur_doc"],
-            "classe": h["classe_d"], "niveau": b["niveau"]}
+            "classe": h["classe_d"], "niveau": b["niveau"], "bout_libre": bout_libre}
 
 
 def _C_historique(mode: str, forme: str, psi: float) -> Dict:
@@ -96,7 +97,11 @@ def _C_historique(mode: str, forme: str, psi: float) -> Dict:
     return {"mode": "moments", "psi": 1.0 if forme == DV.CONSTANT else psi}
 
 
-CONSOLE_LZ = "Console à bout libre : L_cr,z = 2·L, maintiens intermédiaires non comptés — À VÉRIFIER."
+# une CONSOLE (encastrée – libre) : u = 2,1, la valeur RECOMMANDÉE du tableau d'aide (doc p. 16, brief § 13.3 ; 2 en
+# théorie) — sur tout axe où son bout est libre, la longueur de flambement PROPOSÉE (champ L vide) est 2,1 × sa longueur ;
+# u reste le multiplicateur saisi (1 par défaut : les notes enregistrées portent u = 1)
+U_CONSOLE = 2.1
+CONSOLE_LZ = "Console à bout libre : L_cr,z = 2,1·L, maintiens intermédiaires non comptés — À VÉRIFIER."
 
 
 def _bout_libre(b: Dict, trs: Optional[List[Dict]]) -> bool:
@@ -106,20 +111,22 @@ def _bout_libre(b: Dict, trs: Optional[List[Dict]]) -> bool:
 
 def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     """Les longueurs de flambement (mm) : celles données, sinon la plus grande travée (axe fort) et le plus long tronçon
-    entre sections tenues (axe faible). Une CONSOLE flambe sur deux fois sa longueur autour de l'axe fort, et autour de
-    l'axe faible tant que son bout est libre : il se déplace latéralement comme dans le plan (brief § 13.3 : u = 2).
-    Un maintien complet au bout en fait une section tenue : la plus grande distance entre sections tenues (côté sûr).
-    Des maintiens intermédiaires seuls ne raccourcissent rien : la partie libre ne se prend pas isolément sans
-    justification — 2·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ : dite une fois, et seulement sous compression)."""
+    entre sections tenues (axe faible). Une CONSOLE flambe sur U_CONSOLE = 2,1 fois sa longueur (brief § 13.3,
+    « encastrée – libre », valeur recommandée) autour de l'axe fort, et autour de l'axe faible tant que son bout est
+    libre : il se déplace latéralement comme dans le plan. Un maintien complet au bout en fait une section tenue : la
+    plus grande distance entre sections tenues (côté sûr). Des maintiens intermédiaires seuls ne raccourcissent rien :
+    la longueur exacte est plus courte (3,77 m pour une console de 3 m tenue à mi-longueur, au lieu de 6,30) mais la
+    partie libre ne se prend pas isolément sans justification — 2,1·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ :
+    dite une fois, et seulement sous compression ; l'ingénieur peut saisir la longueur)."""
     out = {}
     for a in ("y", "z"):
         L = b["flambement"][a]["L"]
         if L is None:
             L = max(b["travees"]) if a == "y" else max(t["x2"] - t["x1"] for t in trs)
             if a == "y" and b["modele"] == "console":
-                L = 2.0 * L                                  # une console flambe sur deux fois sa longueur
+                L = round(U_CONSOLE * L, 9)                  # une console flambe sur 2,1 fois sa longueur (§ 13.3)
             if a == "z" and _bout_libre(b, trs):
-                L = 2.0 * sum(b["travees"])                  # bout libre : 2·L, même avec des maintiens intermédiaires
+                L = round(U_CONSOLE * sum(b["travees"]), 9)  # bout libre : 2,1·L, même avec des maintiens intermédiaires
         out[a] = {"L": L * 1e3, "u": b["flambement"][a]["u"]}
     return out
 
@@ -221,10 +228,15 @@ def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dic
     return DV.kc_portee(b["modele"], charges, L)
 
 
-def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
+def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float], console_libre: Optional[float] = None) -> float:
     """La longueur de déversement de la méthode historique sur le tronçon (m) : la plus grande distance entre deux
     points où la semelle COMPRIMÉE est tenue. Un maintien d'une seule semelle ne compte que si elle est comprimée sur
-    tout le tronçon (moment d'un seul signe)."""
+    tout le tronçon (moment d'un seul signe). Une console à bout LIBRE (``console_libre`` : sa longueur, m) : le bout
+    libre n'est pas une section tenue — U_CONSOLE × la longueur de la console, la règle de son flambement (§ 13.3),
+    maintiens intermédiaires non comptés : hypothèse prudente, À VÉRIFIER (intégration du lot B : le bout libre comptait
+    comme un maintien, L_d = la longueur de la console)."""
+    if console_libre is not None:
+        return round(U_CONSOLE * console_libre, 9)
     a, b = tr["x1"], tr["x2"]
     pts = [a + (b - a) * i / BALAYAGE_TRONCON for i in range(1, BALAYAGE_TRONCON)]
     Ms = [comb.M(x) for x in pts]
@@ -344,13 +356,14 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         env = Enveloppe(HI.METHODE, HI.NORME)
         h = b["historique"]
         fy = _fy_historique(b["nuance"], s)
+        libre = sum(b["travees"]) if _bout_libre(b, trs) else None      # une console à bout libre : sa longueur (m)
         combs = []
         fleche = {"valeur": 0.0, "x": None, "combinaison": None}
         for co in CO.service(cas):
             C = ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas)
             combs.append(C)
             xs = ST.sections(b, C, pts)
-            Lcs = [(tr, _Lc_historique(C, tr, xs)) for tr in trs]
+            Lcs = [(tr, _Lc_historique(C, tr, xs, libre)) for tr in trs]
             # les BOUTS de chaque tronçon sont des sections vérifiées : un maintien qui n'est ni un appui ni un point de
             # charge borne deux tronçons, et le plus grand moment d'un tronçon peut tomber à son bout
             for x in sorted(set(xs) | {tr[k] for tr in trs for k in ("x1", "x2")}):
@@ -359,7 +372,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                         continue
                     r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
-                                     "deversement": _deversement_historique(b, Lc * 1e3)})
+                                     "deversement": _deversement_historique(b, Lc * 1e3, libre is not None)})
                     env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]

@@ -781,13 +781,22 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
   encastrée à sa racine.
 - Longueurs de flambement d'un champ vide (`moteur._longueurs`) : axe fort, la plus grande travée ; axe faible, le plus
-  long tronçon entre sections tenues ; la torsion prend celle de l'axe faible. Une CONSOLE : 2·L autour des DEUX axes
-  tant que son bout est libre — il se déplace latéralement comme dans le plan (brief § 13.3, u = 2). Lot B : l'axe
-  faible prenait L, défaut non conservatif corrigé (console de 2 m : 2 → 4 m). Un maintien complet au bout en fait une
-  section tenue : la plus grande distance entre sections tenues. Des maintiens complets intermédiaires seuls laissent
-  2·L (la partie libre ne se prend pas isolément sans justification) : hypothèse prudente, avis « À VÉRIFIER » d'une
-  ligne, dit une fois (sous la première méthode rendue) et seulement si la barre est comprimée — sans N > 0, L_cr,z ne
-  change aucun résultat. Une longueur saisie est prise telle quelle.
+  long tronçon entre sections tenues ; la torsion prend celle de l'axe faible. Une CONSOLE : 2,1·L autour des DEUX axes
+  tant que son bout est libre — il se déplace latéralement comme dans le plan (brief § 13.3, « encastrée – libre », u
+  recommandé 2,1 ; `moteur.U_CONSOLE`). Lot B : l'axe faible prenait L, défaut non conservatif corrigé (console de 2 m :
+  2 → 4 m, puis 4,2 m à l'intégration : 2 → 2,1). La longueur proposée EST la longueur de flambement ; u reste le
+  multiplicateur saisi (1 par défaut). Un maintien complet au bout en fait une section tenue : la plus grande distance
+  entre sections tenues. Des maintiens complets intermédiaires seuls laissent 2,1·L (la longueur exacte est plus courte —
+  3,77 m pour une console de 3 m tenue à mi-longueur, au lieu de 6,30 — mais la partie libre ne se prend pas isolément
+  sans justification) : hypothèse prudente, avis « À VÉRIFIER » d'une ligne, dit une fois (sous la première méthode
+  rendue) et seulement si la barre est comprimée — sans N > 0, L_cr,z ne change aucun résultat. Une longueur saisie est
+  prise telle quelle.
+- Méthode ELS d'une console à bout libre (intégration du lot B) : le bout libre n'est plus compté comme une section tenue
+  (L_d valait la longueur de la console) ; L_d = 2,1·L, la règle du flambement, maintiens intermédiaires non comptés, et
+  le déversement est « hors domaine » (la formule des classeurs suppose deux sections tenues ; brief § 6.2, point 8) :
+  calcul pour information, jamais « vérifié », À VÉRIFIER. IPE 300 de 3 m, 20 kN au bout : H-DEV 113 % → 185 % ;
+  IPE 240 de 2 m tenu à 1 m, N = 50 kN : 38 % (« ok ») → 67 % (« hors domaine »). Un maintien complet au bout : L_d =
+  la longueur de la console, dans le domaine.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)
   est rendue « non couverte » avec son motif ; l'autre reste calculée. Depuis le lot A, la méthode ELS refuse elle aussi
   au-delà de 80 mm (13 HD et HL du catalogue).

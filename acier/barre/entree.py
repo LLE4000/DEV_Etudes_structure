@@ -28,7 +28,7 @@
      # --- commun
      "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}   L None : la plus grande travée (y) ;
                                                                               la plus grande distance entre maintiens (z) ;
-                                                       console : 2·L autour des deux axes tant que le bout est libre
+                                                       console : 2,1·L autour des deux axes tant que le bout est libre
      "Lc": None                               distance entre sections tenues (efforts imposés ; None : L de l'axe faible)
      "methodes": ["historique", "ec3"],
      "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False,

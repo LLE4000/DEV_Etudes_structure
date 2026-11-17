@@ -729,6 +729,16 @@ def controles_lot_b(H, MO_, c):
     c("18.6 — … classeurs, C = 0,85 et V_z = 400 kN : H-SIGMA, H-DEV et H-EQ passent et sont TOUS « hors domaine » (φ_ed de la formule "
       "des deux semelles égales entre dans H10 et dans σ_eq)",
       set(st18) == {"H-SIGMA", "H-DEV", "H-EQ"} and all(x[0] == H.HORS_DOMAINE and x[1] < 1.0 for x in st18.values()), st18)
+    # (intégration du lot B, point 4) une console à bout libre : la formule des classeurs lit l entre deux sections tenues —
+    # « hors domaine » (brief § 6.2, point 8), avec la longueur que le moteur propose ; sans l'indication, dans le domaine
+    con = {"section": SE.du_catalogue("IPE 240"), "fy": 235.0, "My": -16e6, "axes": {"y": {"L": 4200.0}, "z": {"L": 4200.0}}}
+    cl_, cd_ = H.verifier(dict(con, deversement={"Lc": 4200.0, "bout_libre": True})), H.verifier(dict(con, deversement={"Lc": 4200.0}))
+    vl_ = verif_de(cl_, "H-DEV")
+    c("console à bout libre (« bout_libre ») : H-DEV passe et reste « hors domaine », son message le dit (« console à bout libre … L_d = 2,1·L, "
+      "À VÉRIFIER ») ; la même barre sans l'indication : « ok »",
+      vl_["statut"] == H.HORS_DOMAINE and vl_["taux"] < 1.0 and "console" in cl_["grandeurs"]["hors_domaine"]
+      and any("console à bout libre" in m and "À VÉRIFIER" in m for m in vl_["messages"]) and verif_de(cd_, "H-DEV")["statut"] == H.OK
+      and "console" not in cd_["grandeurs"]["hors_domaine"], (vl_["statut"], vl_["taux"], vl_["messages"][-1:]))
     rb = H.verifier({"section": pc, "fy": 235.0, "My": -Mmid, "axes": {"y": {"L": 28000.0}, "z": {"L": 3111.0}}, "deversement": {"Lc": 3111.0}})
     db = rb["grandeurs"]["deversement"]
     rbC = H.verifier({"section": pc, "fy": 235.0, "My": -Mmid, "axes": {"y": {"L": 28000.0}, "z": {"L": 3111.0}}, "deversement": {"Lc": 3111.0},
@@ -1174,6 +1184,10 @@ def mutations():
          'repete = dev["cas"] == "classeurs" and P == 0 and Mz == 0'),
         ("lot B — la semelle comprimée toujours la haute", 'semelle = dv["semelle"] or ("haut" if d["My"] >= 0 else "bas")', 'semelle = dv["semelle"] or "haut"'),
         ("lot B — PRS monosymétrique laissé dans le domaine", 'hors_dev = ["prs_mono"] if (mono and dev["cas"] in ("classeurs", "I")) else []', "hors_dev = []"),
+        ("intégration, point 4 — console à bout libre laissée dans le domaine", '    if dv["bout_libre"] and dev["cas"] in ("classeurs", "I", "ferme"):',
+         "    if False:"),
+        ("intégration, point 4 — l'indication « bout_libre » perdue à la lecture", '"bout_libre": bool(dev.get("bout_libre", False))}',
+         '"bout_libre": False}'),
         ("lot B — paroi de plus de 80 mm laissée dans le domaine", '        hors.append("epaisseur")', "        pass"),
         ("lot B — le verdict bloqué oublié", "        if bloque and v[\"statut\"] in (OK, NOK, HORS_DOMAINE):", "        if False:"),
         ("lot B — I_y ≤ I_z (valeurs d'axe faible dans les cases fortes) non bloqué", 'if s["forme"] == "I" and (s["Iy"] <= s["Iz"] or s["iy"] <= s["iz"]):',
@@ -1305,7 +1319,8 @@ def mutations():
     cas_mo = [
         ("lot B — A9 revient : la f_y de l'Eurocode 3 selon l'épaisseur", 'return {"fy": MA.nominale(nuance), "nuance": nuance,',
          'return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
-        ("lot B — la barre chargée oublie C_d et la variante", '"deversement": _deversement_historique(b, Lc * 1e3)})',
+        # (intégration du lot B, point 4, le harnais suit : l'appel passe aussi la console à bout libre)
+        ("lot B — la barre chargée oublie C_d et la variante", '"deversement": _deversement_historique(b, Lc * 1e3, libre is not None)})',
          '"deversement": {"actif": b["historique"]["deversement"], "Lc": Lc * 1e3}})'),
         ("sens de dessin — à une frontière, le tronçon de GAUCHE pour les deux côtés (le défaut d'avant)",
          "    if gauche is not None and droite is not None and gauche is not droite:\n", "    if False:\n"),
