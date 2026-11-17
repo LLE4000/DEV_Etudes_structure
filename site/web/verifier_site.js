@@ -4338,9 +4338,11 @@ const principal = async () => {
         await g.waitForTimeout(200);
         const tout = await g.evaluate(() => { const x = document.querySelector('.flyout.on.calcul'); return x ? x.textContent.replace(/[\s]+/g, ' ') : ''; });
         // (lot B, B1 : la méthode ELS n'a plus de ligne « Flexion » — le déversement des classeurs la couvre, σ_adm,d ≤ σ_adm)
-        // (lot C, C2 — le harnais suit : le poids propre et G de la barre neuve ont la même répartition, la combinaison s'écrit « G + Q »)
+        // (lot C, C2 — le harnais suit : les cas permanents au même γ s'écrivent « G », la combinaison de service « G + Q » ;
+        // intégration de la vague 1 : le texte de la fenêtre colle ses cellules — « DéversementG + Q · x », « G + Qdéversement » —,
+        // une borne de mot \b n'y tient jamais : « G + Q » cherché tel quel, l'ancien nom « Poids propre + G + Q » refusé)
         verif('barres : « Tout le calcul » d\'une méthode ouvre ses combinaisons et toutes ses vérifications (« G + Q », déversement, contrainte équivalente)',
-          /\bG \+ Q\b/.test(tout) && /[Dd]éversement/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
+          /G \+ Q/.test(tout) && !/Poids propre \+ G/.test(tout) && /[Dd]éversement/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
         await g.keyboard.press('Escape');
         await g.waitForTimeout(150);
         // (lot B, B1 c30627d · 622972c · 3c0936d) le bloc ELS : la ligne « Déversement » (H-DEV) gouverne, puis la contrainte
@@ -4582,7 +4584,10 @@ const principal = async () => {
             await g.click('#vues [data-vue="barre"]');
             await g.waitForTimeout(150);
           } else if (quoi === 'prs_bords') {
-            plus = v.length === 2 && /^Méthode ELS/.test(v[0].methode) && v[0].taux > 0 && ['p', 'f'].includes(v[0].niveau) && v[1].taux > 0;
+            // (intégration de la vague 1 — le harnais suit : écrit sans être lancé) le PRS-B est MONOSYMÉTRIQUE : le déversement de
+            // la méthode ELS y est hors domaine (lot B, alerte « prs_mono ») — un taux calculé et montré, sa puce « à vérifier »,
+            // jamais verte
+            plus = v.length === 2 && /^Méthode ELS/.test(v[0].methode) && v[0].taux > 0 && v[0].niveau === 'v' && v[1].taux > 0;
             detail = JSON.stringify(v.map((x) => [x.methode, x.taux, x.niveau]));
           } else if (quoi === 'prs_garde') {
             const r = await g.evaluate(() => { let c = null; try { c = JSON.parse(localStorage.getItem('stab.carnets.v1')); } catch (e) { /* vide */ }
@@ -4592,7 +4597,7 @@ const principal = async () => {
           }
           verif(`barres · PRS : ${nom} — la page dit ce que dit le témoin${quoi ? `, et ${({ prs: '« PRS » choisi, sept champs en trois lignes « b × t » (b₁ t₁ | h_w t_w a | b₂ t₂)',
             prs_bloque: 'la méthode ELS « Bloqué » (puce non verte, « Bords des semelles à saisir »), l\'Eurocode 3 a son taux ; chaque valeur relue dans son champ, h = 600 mm et EN 10025-2 dits, pas de case « soudée équivalente » (monosymétrique) ; le bouton : le nom et 181,3 kg/m',
-            prs_bords: 'la méthode ELS a son taux, sa puce de couleur', prs_garde: 'le message le dit, la bibliothèque de ce navigateur garde le PRS, le bouton dit « Retirer de la bibliothèque »' })[quoi]}` : ''}`,
+            prs_bords: 'la méthode ELS a son taux, sa puce « à vérifier » (PRS monosymétrique : déversement hors domaine), jamais verte', prs_garde: 'le message le dit, la bibliothèque de ce navigateur garde le PRS, le bouton dit « Retirer de la bibliothèque »' })[quoi]}` : ''}`,
             par.ok && plus, [par.detail, detail].filter(Boolean).join(' · ').slice(0, 600));
         }
         // la page RECHARGÉE : la note rouvre le PRS ; son sélecteur est la bibliothèque — le PRS y est, retenu (✓), sans ★
