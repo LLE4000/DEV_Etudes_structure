@@ -575,11 +575,11 @@ def main():
     el, r = barres(NOTES["la barre neuve"])[0]
     h, e = r["methodes"]["historique"], r["methodes"]["ec3"]
     chk("la barre neuve : la méthode ELS (NBN B 51-001) vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, ce qui n'est pas vérifié — et les "
-        "taux de tête sont ceux de l'écran (88,4 % — lot B : le déversement des classeurs ; 57,7 %) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
+        "taux de tête sont ceux de l'écran (88,4 % — lot B : le déversement des classeurs ; 57,6 % — lot C : le poids propre au centre de gravité, 57,7 % avant) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
         "l'ANB:2018, 6.3.2.3(1), lu) ; la nuance dit son tableau de l'ANB (la table unique)",
         0 < T.index("Méthode ELS (NBN B 51-001)") < T.index("Eurocode 3 — NBN EN 1993-1-1") < T.index("Comparaison des deux méthodes")
         < T.index("Ce que la note ne vérifie pas") and "Paramètres à confirmer" not in T and "Acier S235 · tableau 3.3 ANB" in T
-        and taux(h["taux_max"]) == "88,4 %" and taux(e["taux_max"]) == "57,7 %" and "88,4 %" in T and "57,7 %" in T, T[:300])
+        and taux(h["taux_max"]) == "88,4 %" and taux(e["taux_max"]) == "57,6 %" and "88,4 %" in T and "57,6 %" in T, T[:300])
     chk("… la méthode ELS s'écrit comme les classeurs du bureau (lot B, brief v12 § 6.4) : σ_adm = f_y/s = 235 / 1,5 = 156,7 N/mm² avec la f_y "
         "NOMINALE (« f_y nominale, comme les classeurs du bureau », test 37), le déversement des classeurs (λ_e,d, λ̄_d, Φ_d, φ_d, σ_adm,d) et "
         "M/W ≤ σ_adm,d, l'origine du 3,9, la correction du classeur qui joue (« Correction du classeur : … ») ; aucune mention « plus sévère "

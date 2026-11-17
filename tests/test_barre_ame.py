@@ -766,6 +766,21 @@ def controles(M=None):
     c("… et des raidisseurs sont posés à ses deux appuis (§ 5.1(2)), bien que l'âme seule y porte la réaction ; ils ont la rigidité d'un appui",
       all(L["decision"] == "raidisseur" and "§ 5.1(2)" in L["raison"] and L["sans"]["eta2"] < 1.0 for L in a["lieux"]) and len(a["lieux"]) == 2
       and any(f["gabarit"] == "r_I_min" for f in a["calcul"]) and a["statut"] == RE.OK, a["lieux"])
+    # (lot C, C1 point 15 — défaut NON CONSERVATIF : un appui « par l'âme » d'une âme élancée ne demandait aucun raidisseur d'appui,
+    #  alors que le voilement par cisaillement A-Vb est calculé avec eux ; mesuré sur la base : lieux [], âme « ok »)
+    a = ame(profil="IPE 750x134", nuance="S355", travees=[8.0], maintiens=[{"x": 4.0}], appuis={"mode": "ame", "ss": None, "c": None},
+            cas=[{"nom": "G", "nature": "permanent", "charges": [q(30.0, 0.0, 8.0)]}, {"nom": "Q", "nature": "exploitation_A", "charges": [q(40.0, 0.0, 8.0)]}])
+    Rk = (1.35 * (30.0 + g750) + 1.5 * 40.0) * 4.0
+    c("(lot C, C1 point 15) appuis PAR L'ÂME, âme élancée (IPE 750x134 S355) : le raidisseur d'appui du § 5.1(2) est dû à chaque appui — une "
+      "paire de plats dimensionnée sous la réaction entière (À VÉRIFIER), ses vérifications R et Rb, jamais « sans raidisseur » ; l'hypothèse dite "
+      "une fois",
+      [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["decision"] == "raidisseur" and L["raison"] == AME.RAISON_APPUI_ELANCEE
+                                                                        and L["par_ame"] and proche(L["F_Ed"], Rk) for L in a["lieux"])
+      and {"A-L00-R", "A-L00-Rb", "A-L01-R", "A-L01-Rb"} <= {v["id"] for v in a["verifications"]}
+      and a["hypotheses"].count(AME.HYP_APPUI_AME) == 1 and any(f["gabarit"] == "r_I_min" for f in a["calcul"]), a["lieux"])
+    a = ame(profil="IPE 300", appuis={"mode": "ame", "ss": None, "c": None}, maintiens=[{"x": 3.0}])
+    c("… une âme qui n'est pas élancée (IPE 300) tenue par l'âme : aucun lieu, aucun raidisseur (rien ne change)",
+      a["lieux"] == [] and AME.HYP_APPUI_AME not in a["hypotheses"], a["lieux"])
     a = ame(profil="IPE 750x134", nuance="S355", travees=[8.0], appuis={"mode": "poses", "ss": 200.0, "c": 200.0},
             cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 8.0)]}])
     c("… avec s_s = c = 200 mm : la résistance de l'âme seule (type c, l_e non plafonné) accompagne le raidisseur dans sa fenêtre de calcul",
@@ -1391,13 +1406,14 @@ MUTATIONS = [
     ("raidisseurs", "rigidité d'appui jamais demandée", '        rigide = (p["Ist"] >= p["I_min"]) if appui_rigide else None', "        rigide = None"),
     ("ame", "appuis par l'âme vérifiés comme posés", '    poses = ap["mode"] == "poses"', "    poses = True"),
     ("ame", "encastrement pris pour un appui posé", '            if a["type"] == "appui":                 # un appui : une fourche', '            if True:                 # un appui : une fourche'),
-    ("ame", "charges ponctuelles vérifiées quel que soit leur niveau", '    if b["niveau"] in ("haut", "bas"):', "    if True:"),
-    ("ame", "une charge vers le haut sur la semelle haute vérifiée", '    return {"haut": P if (niveau == "haut" and P > EPS) else 0.0,', '    return {"haut": abs(P) if niveau == "haut" else 0.0,'),
-    ("ame", "une charge suspendue vérifiée comme si elle appuyait", '"bas": (R if R > EPS else 0.0) + (-P if (niveau == "bas" and P < -EPS) else 0.0),', '"bas": (R if R > EPS else 0.0) + (abs(P) if niveau == "bas" else 0.0),'),
+    # (lot C, C1 : une hauteur PAR CHARGE — les textes visés ont bougé, le harnais suit)
+    ("ame", "charges ponctuelles vérifiées quel que soit leur niveau", 'if ch["type"] == "P" and ch["v"] and niv in ("haut", "bas"):', 'if ch["type"] == "P" and ch["v"]:'),
+    ("ame", "une charge vers le haut sur la semelle haute vérifiée", '    return {"haut": P["haut"] if P["haut"] > EPS else 0.0,', '    return {"haut": abs(P["haut"]),'),
+    ("ame", "une charge suspendue vérifiée comme si elle appuyait", '"bas": (R if R > EPS else 0.0) + (-P["bas"] if P["bas"] < -EPS else 0.0),', '"bas": (R if R > EPS else 0.0) + abs(P["bas"]),'),
     ("ame", "réaction non pondérée par les combinaisons", '        R = sum(f * sol.appuis[L["appui"]]["R"] for f, sol in zip(facteurs, sols) if f)', '        R = sum(sol.appuis[L["appui"]]["R"] for f, sol in zip(facteurs, sols) if f)'),
-    ("ame", "charge ponctuelle non pondérée", '    P = sum(facteurs[ci] * v for ci, v in L["charges"])', '    P = sum(v for ci, v in L["charges"])'),
-    ("ame", "longueur d'appui d'un groupe : la plus longue", '                hote["ss"][b["niveau"]] = min(g["ss"])', '                hote["ss"][b["niveau"]] = max(g["ss"])'),
-    ("ame", "le débord de rive oublié", '            return (ss_ap or 0.0) / 2.0 + (c_ap or 0.0)', '            return (ss_ap or 0.0) / 2.0'),
+    ("ame", "charge ponctuelle non pondérée", '            P[niv] += facteurs[part[0]] * part[1]', '            P[niv] += part[1]'),
+    ("ame", "longueur d'appui d'un groupe : la plus longue", '            hote["ss"][niv] = min(g["ss"][niv]) if connue', '            hote["ss"][niv] = max(g["ss"][niv]) if connue'),
+    ("ame", "le débord de rive oublié", '        return (donnee(i, "ss") or 0.0) / 2.0 + (donnee(i, "c") or 0.0)', '        return (donnee(i, "ss") or 0.0) / 2.0'),
     ("ame", "type (a) partout (le bout de la barre ignoré)", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "a"'),
     ("ame", "type (c) partout", '        type_ = "c" if 2.0 + 6.0 * (min(ss, hw) + c) / hw < AM.KF_C_MAX else "a"', '        type_ = "c"'),
     ("ame", "force transmise (type b) jamais vérifiée", "    if len(out) == 2:\n        manque", "    if len(out) == 99:\n        manque"),
@@ -1406,6 +1422,10 @@ MUTATIONS = [
     ("ame", "raidisseur décidé sur η₂ seul (l'interaction oubliée)", '        elif pire["inter"] is not None and pire["inter"] > 1.0:', '        elif False:'),
     ("ame", "raidisseur jamais décidé sur η₂", '        if pire["eta2"] > 1.0:', '        if pire["eta2"] > 1e9:'),
     ("ame", "âme élancée : pas de raidisseur d'appui", '        certain = el is not None and el["elancee"] and L["genre"] == "appui"', "        certain = False"),
+    ("ame", "lot C, point 15 — appui par l'âme d'une âme élancée : aucun raidisseur d'appui (NON CONSERVATIF)",
+     'endroits = lieux(b, cas, sols, ame_elancee=el is not None and el["elancee"] and a is not None)', "endroits = lieux(b, cas, sols)"),
+    ("ame", "lot C, point 15 — appui par l'âme : le raidisseur sous la plus petite réaction", "        F, C_F = max(Rs, key=lambda t: t[0])",
+     "        F, C_F = min(Rs, key=lambda t: t[0])"),
     ("ame", "raidisseur dimensionné pour la force d'une combinaison quelconque", '            pire["F"] = max(pire["F"], o["Fmax"])', '            pire["F"] = o["Fmax"]'),
     ("ame", "deux forces rapprochées rendues « ok » sans le dire", "    if proches:\n        J = RE.Journal(METHODE, NORME)", "    if False:\n        J = RE.Journal(METHODE, NORME)"),
     ("ame", "forces rapprochées : cherchées sur l_y entier (deux fois trop loin)", "        if any(ecart < (portee(r1[k]) + portee(r2[k])) / 2.0 for k", "        if any(ecart < (portee(r1[k]) + portee(r2[k])) for k"),
@@ -1426,7 +1446,7 @@ MUTATIONS = [
      "        a_saisir = False"),
     ("ame", "2e reprise — la borne qui passe : décision impossible quand même", "        a_saisir = bool(donnees or bout) and echec and not certain",
      "        a_saisir = bool(donnees or bout) and not certain"),
-    ("ame", "reprise — c d'un appui de rive non exigé", '(["c"] if c_ap is None and rive(a["x"]) else [])', "[]"),
+    ("ame", "reprise — c d'un appui de rive non exigé", '(["c"] if c_i is None and rive(a["x"]) else [])', "[]"),
     ("ame", "reprise — c d'une force voisine d'un appui de rive non saisi : ignoré", '        rive = list(L.get("manque_bout") or []) if type_ == "c" else []',
      "        rive = []"),
     ("ame", "2e reprise — une décision impossible perd son taux (la ligne n'a plus le taux à la borne)", '"taux": gouv["taux"], "statut": statut})',
@@ -1450,7 +1470,7 @@ MUTATIONS = [
     ("ec3_ame", "reprise — PRS : z_g ignoré (h/2)", '    zg = s.get("z_g") or s["h"] / 2.0', '    zg = s["h"] / 2.0'),
     ("ec3_ame", "reprise — semelle basse prise pour la haute", "    sm = semelles_de(s)[cote]\n    zg = ", '    sm = semelles_de(s)["haut"]\n    zg = '),
     ("entree", "reprise — contact d'une charge ponctuelle perdu", '                    ch["contact"] = saisie["contact"]', "                    pass"),
-    ("ame", "reprise — contact de plusieurs charges : « non » ignoré", '"non" if "non" in g["contact"] else "inconnu")', '"inconnu")'),
+    ("ame", "reprise — contact de plusieurs charges : « non » ignoré", '"non" if "non" in k_ else "inconnu"', '"inconnu"'),
     ("ame", "reprise — état de la semelle lu à la jonction", '        etat = AM.etat_semelle([AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_moyen"])])',
      '        etat = AM.etat_semelle([AM.sigma_x(o["N"] * 1e3, o["M_s"] * 1e6, A, I, nv["z_jonction"])])'),
     ("ame", "reprise — τ de la jonction : la plus petite des deux valeurs", '"V": max(abs(e["V_g"]), abs(e["V_d"]))})', '"V": min(abs(e["V_g"]), abs(e["V_d"]))})'),
@@ -1471,8 +1491,8 @@ MUTATIONS = [
      '        sur = pire["crit"] is not None and pire["crit"] > 1.0 and "s_s" not in donnees', "        sur = False"),
     ("ame", "2e reprise — la résistance jamais prise à la borne", "borne=bool(manque or rive)), ame=a,", "borne=False), ame=a,"),
     ("ame", "2e reprise — c exigé quand la force est du type (a) à c = 0", 'if not (m == "c" and type_ == "a")]', "]"),
-    ("ame", "2e reprise — s_s d'un groupe : la plus courte des SAISIES", '                connue = None not in g["ss"]\n                hote["ss"][b["niveau"]] = min(g["ss"]) if connue else 0.0',
-     '                connue = any(v is not None for v in g["ss"])\n                hote["ss"][b["niveau"]] = min(v for v in g["ss"] if v is not None) if connue else 0.0'),
+    ("ame", "2e reprise — s_s d'un groupe : la plus courte des SAISIES", '            connue = None not in g["ss"][niv]\n            hote["ss"][niv] = min(g["ss"][niv]) if connue else 0.0',
+     '            connue = any(v is not None for v in g["ss"][niv])\n            hote["ss"][niv] = min(v for v in g["ss"][niv] if v is not None) if connue else 0.0'),
     ("ame", "2e reprise — le critère 6.2.1(5) au seul s_s = 0", '        essais = [r["ss"]] + ([r["ame"]["hw"]] if "s_s" in (r.get("manque") or []) else [])', '        essais = [r["ss"]]'),
     ("ame", "2e reprise — critère au pire : le plus PETIT des bouts", '        if pire is None or crit > pire["crit"] + EPS:', '        if pire is None or crit < pire["crit"] - EPS:'),
     ("ame", "2e reprise — forces rapprochées : l_y à la borne (la plus courte)", '    if not (r.get("manque") or r.get("rive")):\n        return r["ly"]', "    if True:\n        return r[\"ly\"]"),

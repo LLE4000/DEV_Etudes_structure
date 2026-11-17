@@ -36,6 +36,8 @@ from acier.barre import ec3 as EC  # noqa: E402
 from acier.barre import entree as EN  # noqa: E402
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import historique as HI  # noqa: E402
+from acier.barre import historique_deversement as HD_  # noqa: E402
+from acier.barre import mcr as MC_  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
 from acier.barre import parametres as PA  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
@@ -136,7 +138,7 @@ def controles(M=None):
       "catalogue × 9,81 donnait 0,414), un cas permanent en tête ; le moteur le NOMME dans son résultat (l'écran le lit, il ne le recalcule pas)",
       proche(g, 78.6 * CAT.par_nom()["IPE 300"]["A"] * 1e-4) and round(g, 3) == 0.423 and cas[0]["nom"] == st.POIDS_PROPRE
       and proche(mo.verifier(barre())["poids_propre"], g)
-      and cas[0]["nature"] == "permanent" and cas[0]["charges"] == [q(g, 0.0, 6.0)] and len(cas) == 3
+      and cas[0]["nature"] == "permanent" and cas[0]["charges"] == [dict(q(g, 0.0, 6.0), niveau=st.GRAVITE)] and cas[0]["N"] == 0.0 and len(cas) == 3
       and len(st.cas_complets(dict(b, poids_propre=False), s)) == 2, g)
     sols = st.resoudre(b, cas, 1.0e4)
     f = [1.35, 1.35, 1.5]
@@ -173,7 +175,8 @@ def controles(M=None):
     sol2 = st.resoudre(b2, st.cas_complets(b2, s), 1.0e4)
     comb2 = st.Combinaison("x", sol2, [1.0], [0.0])
     c("poutre continue de 2 × 5 m sous charge uniforme : l'extremum de CHAQUE travée est une section à vérifier (à 3/8 de la portée : "
-      "1,875 et 8,125 m)", st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 5.0, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
+      "1,875 et 8,125 m) — et (lot C, brief § 10) les RACINES du moment (à 3/4 de chaque portée depuis la rive : 3,75 et 6,25 m)",
+      st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 3.75, 5.0, 6.25, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
     # un appui à une somme de portées INEXACTE en binaire (3,37 + 2,18 = 5,550000000000001), lu à 5,55 : les trois moments, à la main
     L1, L2, L3, qi = 3.37, 2.18, 3.45, 30.0
     a11, a22, s1, s2 = 2 * (L1 + L2), 2 * (L2 + L3), -qi * (L1 ** 3 + L2 ** 3) / 4, -qi * (L2 ** 3 + L3 ** 3) / 4
@@ -663,8 +666,8 @@ MUTATIONS = [
     # (lot C, C0d) le moteur ne calcule que la méthode « cochée » (le défaut d'avant : la note décidait du calcul)
     ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (barre chargée)", "            methodes[nom] = calcul()\n            if comprimee[nom]:",
      "            if nom not in b[\"methodes\"]:\n                continue\n            methodes[nom] = calcul()\n            if comprimee[nom]:"),
-    ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (efforts imposés)", "            methodes[nom] = calcul()\n        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": None,",
-     "            if nom in b[\"methodes\"]:\n                methodes[nom] = calcul()\n        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": None,"),
+    ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (efforts imposés)", "            methodes[nom] = calcul()\n            if avec_pp:",
+     "            if nom not in b[\"methodes\"]:\n                continue\n            methodes[nom] = calcul()\n            if avec_pp:"),
     ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"]'),
     ("combinaisons", "ψ₁ au lieu de ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"] * P[cle][1]'),
     ("combinaisons", "deux cas de même nature : un seul dominant", 'if cas[i]["nature"] == dom:', "if i == s[0]:"),
@@ -674,7 +677,7 @@ MUTATIONS = [
     ("statique", "lot A — poids volumique de la masse × 9,81 (77,0 kN/m³)", "POIDS_VOLUMIQUE = 78.6 ", "POIDS_VOLUMIQUE = 77.0 "),
     ("statique", "lot A — poids propre en kg/m pris pour des kN/m (sans 10⁻⁶)", '    return POIDS_VOLUMIQUE * s["A"] * 1e-6', '    return POIDS_VOLUMIQUE * s["A"] * 1e-5'),
     ("statique", "poids propre oublié", '    if barre.get("poids_propre", True):', "    if False:"),
-    ("statique", "effort normal non pondéré", "self.N = sum(f * n for f, n in zip(facteurs, N_cas))", "self.N = sum(n for f, n in zip(facteurs, N_cas))"),
+    ("statique", "effort normal non pondéré", "        self.N_cas = [(f, n) for f, n in zip(facteurs, N_cas) if f]", "        self.N_cas = [(1.0, n) for f, n in zip(facteurs, N_cas) if f]"),
     ("statique", "efforts des cas additionnés sans leurs facteurs", "                o[k] += f * e[k]\n", "                o[k] += e[k]\n"),
     ("statique", "mémoire d'un cas : la lecture d'une autre section rendue", "        e = self.lus.get(x)\n", "        e = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'une combinaison : la lecture d'une autre section rendue", "        o = self.lus.get(x)\n", "        o = self.lus.get(0.0)\n"),
@@ -695,31 +698,38 @@ MUTATIONS = [
     ("statique", "moment d'une combinaison non pondéré", "        return sum(f * s.moment(x) for f, s in self.paires)", "        return sum(s.moment(x) for f, s in self.paires)"),
     ("statique", "racines de l'effort tranchant : la seconde oubliée", "        r = [q / A] + ([y0 / q] if q != 0 else [])", "        r = [q / A]"),
     ("statique", "extremum du moment non cherché", '        for t in _racines(eu["V_d"], comb.lire(0.5 * (u + v))["V_d"], ev["V_g"], seuil):', "        for t in []:"),
-    ("statique", "bout libre d'une console pris en fourche", "        tenus[round(L, 9)] = MC.LIBRE\n", "        tenus[round(L, 9)] = MC.FOURCHE\n"),
-    ("statique", "racine d'une console en fourche", "tenus = {0.0: MC.ENCASTRE if console else MC.FOURCHE}", "tenus = {0.0: MC.FOURCHE}"),
+    ("statique", "bout libre d'une console pris en fourche", "    if console and round(L, 9) not in tenus:\n        tenus[round(L, 9)] = MC.LIBRE\n",
+     "    if console and round(L, 9) not in tenus:\n        tenus[round(L, 9)] = MC.FOURCHE\n"),
+    ("statique", "racine d'une console en fourche", "tenus = {0.0: MC.ENCASTRE} if console else", "tenus = {0.0: MC.FOURCHE} if console else"),
     ("statique", "maintien d'une semelle compté comme complet", '        if genre == "complet":\n            tenus.setdefault', "        if True:\n            tenus.setdefault"),
     ("statique", "semelles haute et basse échangées", 'cote if genre == "haut" else -cote', '-cote if genre == "haut" else cote'),
-    ("statique", "charges ponctuelles du tronçon non pondérées", "pon.append(((ch[\"a\"] - a) * 1e3, f * ch[\"v\"] * 1e3, zg))", "pon.append(((ch[\"a\"] - a) * 1e3, ch[\"v\"] * 1e3, zg))"),
+    ("statique", "charges ponctuelles du tronçon non pondérées", "pon.append(((ch[\"a\"] - a) * 1e3, f * ch[\"v\"] * 1e3, cote(ch)))", "pon.append(((ch[\"a\"] - a) * 1e3, ch[\"v\"] * 1e3, cote(ch)))"),
     ("statique", "charges hors du tronçon gardées", '                if a - 1e-9 <= ch["a"] <= b + 1e-9:\n', "                if True:\n"),
     ("statique", "charge triangulaire prise uniforme", "                    q1, q2 = q(u), q(v)\n", "                    q1 = q2 = ch[\"v\"]\n"),
-    ("statique", "appui intermédiaire d'une poutre continue non tenu", "            tenus[round(x, 9)] = MC.FOURCHE\n", "            pass\n"),
-    ("statique", "un seul côté de la section vérifié", "    return [d] if (abs(g[0] - d[0]) < eps and abs(g[1] - d[1]) < eps) else [g, d]", "    return [d]"),
-    ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:\n        return None', "    if False:\n        return None"),
-    ("moteur", "niveau d'application des charges ignoré", 'zg = {"haut": 1.0, "centre": 0.0, "bas": -1.0}[b["niveau"]] * (s.get("h") or 0.0) / 2.0', "zg = 0.0"),
+    ("statique", "appui intermédiaire d'une poutre continue non tenu", "{x: torsion_appui(barre, i) for i, x in enumerate(appuis_x(barre))}",
+     "{x: torsion_appui(barre, i) for i, x in enumerate(appuis_x(barre)) if i in (0, len(barre[\"travees\"]))}"),
+    # (lot C, C1 : les sections de l'Eurocode 3 lisent (M, V, N) des deux côtés — cotes_n ; le harnais suit)
+    ("statique", "un seul côté de la section vérifié", "    return [d] if all(abs(a - b) < eps for a, b in zip(g, d)) else [g, d]", "    return [d]"),
+    ("moteur", "k_c du tableau appliqué à tout tronçon", '    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS or any(b.get("debords") or ()):\n        return None',
+     "    if False:\n        return None"),
+    ("statique", "niveau d'application des charges ignoré", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)", "    return 0.0"),
     # (intégration du lot B, point 4, le harnais suit : 2·L → U_CONSOLE·L = 2,1·L)
-    ("moteur", "console : flambement sur une fois sa longueur", "                L = round(U_CONSOLE * L, 9) ", "                L = round(1.0 * L, 9) "),
-    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'L = round(U_CONSOLE * sum(b["travees"]), 9)',
-     'L = round(1.0 * sum(b["travees"]), 9)'),
+    ("moteur", "console : flambement sur une fois sa longueur", 'L, origine = round(U_CONSOLE * L, 9), "console"        # une console', 'L, origine = round(1.0 * L, 9), "console"        # une console'),
+    # (contre-vérification du lot C, le harnais suit : _libres écrit aussi 2,1 × la console — l'ancre nomme celle de L_cr,z)
+    ("moteur", "lot B — console à bout libre : axe faible sur une fois sa longueur", 'L, origine = round(U_CONSOLE * sum(b["travees"]), 9), "console"',
+     'L, origine = round(1.0 * sum(b["travees"]), 9), "console"'),
     ("moteur", "intégration, point 4 — console : 2 au lieu de 2,1 (la valeur théorique, pas la recommandée)", "U_CONSOLE = 2.1\n", "U_CONSOLE = 2.0\n"),
-    ("moteur", "intégration, point 4 — ELS : le bout libre d'une console compté comme un maintien", "    if console_libre is not None:\n",
+    ("moteur", "intégration, point 4 — ELS : le bout libre d'une console compté comme un maintien", "    if impose is not None:\n",
      "    if False:\n"),
-    ("moteur", "intégration, point 4 — ELS : la console à bout libre dite dans le domaine", '"deversement": _deversement_historique(b, Lc * 1e3, libre is not None)',
-     '"deversement": _deversement_historique(b, Lc * 1e3, False)'),
-    ("moteur", "lot B — console : l'axe faible jamais doublé (le défaut d'avant)", '            if a == "z" and _bout_libre(b, trs):', '            if False:'),
+    ("moteur", "intégration, point 4 — ELS : la console à bout libre dite dans le domaine", "trs.index(tr) in libres, niveau_els", "False, niveau_els"),
+    ("moteur", "lot B — console : l'axe faible jamais doublé (le défaut d'avant)", "                if _bout_libre(b, trs):\n                    L, origine",
+     "                if False:\n                    L, origine"),
     ("moteur", "lot B — console : les maintiens intermédiaires raccourcissent L_cr,z", 'bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE',
      'len(trs) == 1 and trs[-1]["appuis"][1] == MC.LIBRE'),
-    ("moteur", "lot B — console : un maintien complet au bout ignoré (2·L partout)", 'trs[-1]["appuis"][1] == MC.LIBRE', "True"),
-    ("moteur", "lot B — console : l'avis À VÉRIFIER de L_cr,z tu", 'methodes[nom]["alertes"] += avis', "pass"),
+    ("moteur", "lot B — console : un maintien complet au bout ignoré (2·L partout)", 'return b["modele"] == "console" and bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE',
+     'return b["modele"] == "console" and bool(trs) and True'),
+    ("moteur", "lot B — console : l'avis À VÉRIFIER de L_cr,z tu", 'methodes[nom]["alertes"] += avis\n                avis = []',
+     'pass\n                avis = []'),
     ("moteur", "lot B — console : l'avis donné sans compression", "            if comprimee[nom]:\n", "            if True:\n"),
     ("moteur", "lot B — console : un effort de traction pris pour une compression", 'comprimee["ec3"] = any(C.N > EPS for C in combs)',
      'comprimee["ec3"] = any(abs(C.N) > EPS for C in combs)'),
@@ -728,23 +738,24 @@ MUTATIONS = [
      '"niveau": "attention", "message": CONSOLE_LZ', '"niveau": "info", "message": CONSOLE_LZ'),
     ("moteur", "lot B — console : l'avis donné sans maintien intermédiaire", "_bout_libre(b, trs) and len(trs) > 1:", "_bout_libre(b, trs):"),
     ("moteur", "lot B — console : l'avis donné pour une longueur saisie", 'if b["flambement"]["z"]["L"] is None and _bout_libre', "if _bout_libre"),
-    ("moteur", "axe faible : flambement sur toute la barre malgré les maintiens", 'max(t["x2"] - t["x1"] for t in trs)', 'sum(b["travees"])'),
+    ("moteur", "axe faible : flambement sur toute la barre malgré les maintiens", 'max(t["x2"] - t["x1"] for t in trs if MC.LIBRE not in t["appuis"])', 'sum(b["travees"])'),
     ("enveloppe", "l'enveloppe garde l'occurrence la plus FAVORABLE", '            if courant is None or gravite > courant["rang"]:', '            if courant is None or gravite < courant["rang"]:'),
     ("enveloppe", "un refus sans taux passe derrière les taux", "        return (2, 0.0)\n", "        return (0, 0.0)\n"),
     ("moteur", "méthode historique : un maintien d'une semelle tendue compté", "        if (z > 0 and haut) or (z < 0 and bas):", "        if True:"),
     ("moteur", "méthode historique sur les combinaisons pondérées", '        for co in CO.service(cas, b["combinaisons"]):', "        for co in CO.elu(cas, P):"),
     ("moteur", "Eurocode 3 sur les combinaisons de service", '        for co in CO.elu(cas, P, b["combinaisons"]):\n            C = ST.Combinaison', "        for co in CO.service(cas):\n            C = ST.Combinaison"),
-    ("moteur", "une méthode qui refuse fait tomber toute la barre", "        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique",
-     "        except ZeroDivisionError as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
+    ("moteur", "une méthode qui refuse fait tomber toute la barre", "        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    # les sections critiques",
+     "        except ZeroDivisionError as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    # les sections critiques"),
     ("moteur", "une méthode « non couverte » rend la barre « ok »", "    statut = RE.pire_statut(statuts)\n", "    statut = RE.NOK if RE.NOK in statuts else RE.OK\n"),
     ("moteur", "lot A — la console vérifiée sous N + M comme une barre entre deux appuis", '"console": b["modele"] == "console",', '"console": False,'),
     ("moteur", "lot B — méthode ELS : la f_y de l'Eurocode 3 selon l'épaisseur (le défaut A9 du lot A revient)", '    return {"fy": MA.nominale(nuance), "nuance": nuance,',
      '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
     ("enveloppe", "lot A — une combinaison hors domaine rendue « ok »", '                b["hors_domaine"] = b["hors_domaine"] or v["statut"] == RE.HORS_DOMAINE', "                pass"),
-    ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = b["efforts"]["service"], b["historique"]', 'e, h = b["efforts"]["elu"], b["historique"]'),
+    ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = service, b["historique"]', 'e, h = elu, b["historique"]'),
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
     ("moteur", "déversement : le plus grand moment du tronçon remplacé par zéro", '"NEd": C.N * 1e3, "MyEd": Mmax * 1e6, "axes": axes,', '"NEd": C.N * 1e3, "MyEd": 0.0, "axes": axes,'),
-    ("moteur", "méthode historique : l'effort tranchant de la section oublié", '"P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,', '"P": C.N * 1e3, "My": M * 1e6, "Vz": 0.0, "axes": axes,'),
+    # (contre-vérification du lot C, le harnais suit : la section est vérifiée à SON N — l'ancre lit « N » au lieu de « C.N »)
+    ("moteur", "méthode historique : l'effort tranchant de la section oublié", '"P": N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes_h,', '"P": N * 1e3, "My": M * 1e6, "Vz": 0.0, "axes": axes_h,'),
     ("moteur", "enveloppe : le zéro du dehors compté aux deux bouts de la barre", 'cotes = ("d",) if x <= EPS else (("g",) if x >= Lt - EPS else ("g", "d"))',
      'cotes = ("g", "d")'),
     ("moteur", "enveloppe : un saut de diagramme écrasé en un seul point", '                cotes = ("d",)                                       # diagrammes continus ici : un seul point',
@@ -881,6 +892,416 @@ def controles_lot_c():
     return out
 
 
+# ------------------------------------------------------------------ 10. lot C, C1 : la barre chargée de bout en bout
+PRS_A = {"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 300, "t2": 30, "a": 6, "bords": "oxycoupes"}
+PRS_B = {"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 200, "t2": 30, "a": 6, "bords": "oxycoupes"}
+PRS_C = {"b1": 300, "t1": 30, "hw": 1420, "tw": 25, "b2": 500, "t2": 50, "bords": "oxycoupes"}
+# R2 du brief § 11.3 : s_s = 100 mm sous la charge (R4 : type (a), m₁ 21,13) et aux appuis (type (c), c = 0)
+R2_C1 = dict(poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0},
+             cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), dict(P_(10.0, 3.0), ss=100.0)]},
+                  {"nom": "Q", "nature": "exploitation_A", "charges": [dict(P_(15.0, 3.0), ss=100.0)]}])
+# les propriétés du brief § 11.3 (le catalogue du dépôt : I_t 19,77 cm⁴ — l'écart est NOMMÉ plus bas)
+BRIEF_IPE300 = {"It": 20.12e4, "Iw": 125.9e9, "Iz": 603.8e4}
+
+
+def _prs_barre(prs, **k):
+    b = barre(prs=prs, **k)
+    b.pop("profil")
+    return b
+
+
+def _prsc(n, **k):
+    """PRS-C (brief § 11.9) depuis ses charges : 28 m, l'acier au centre de gravité (le poids propre du module), béton + travail
+    23,20 kN/m et la zone de travail 2,25 kN/m de 12,5 à 15,5 m sur la semelle haute ; n maintiens de la semelle haute à L/(n + 1).
+    (Nature « exploitation_A », comme le lot B : « execution » arrive par C2 — le lien est porté par la note du PRS-C, C5.)"""
+    return _prs_barre(PRS_C, nuance="S235", travees=[28.0], poids_propre=True, niveau="haut",
+                      maintiens=[{"x": 28.0 * i / (n + 1), "genre": "haut"} for i in range(1, n + 1)],
+                      cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [q(20.80 + 2.40, 0.0, 28.0), q(2.25, 12.5, 15.5)]}], **k)
+
+
+def _lcr_debord(L, a):
+    """La longueur de flambement EXACTE (m) d'une travée L articulée à ses deux bouts et d'un débord libre a, E·I et N constants : la
+    première racine de sin k(L+a) − sin kL·sin ka/(kL) = 0 (écrite à la main : w = A·sin kx + C·x dans la travée, w = E·sin ks + F·(cos ks − 1)
+    dans le débord, pente et moment continus à l'appui, M = 0 et T = 0 au bout libre), puis π/k."""
+    f = lambda k: math.sin(k * (L + a)) - math.sin(k * L) * math.sin(k * a) / (k * L)  # noqa: E731
+    k0, f0 = 1e-6, f(1e-6)
+    for i in range(1, 20001):
+        k = 5.0 * i / 20000
+        if (f(k) > 0) != (f0 > 0):
+            u, v = k0, k
+            for _ in range(200):
+                m = 0.5 * (u + v)
+                if (f(m) > 0) == (f(u) > 0):
+                    u = m
+                else:
+                    v = m
+            return math.pi / (0.5 * (u + v))
+        k0, f0 = k, f(k)
+    return None
+
+
+def controles_c1(M=None):
+    """[(nom, vrai ?, info)] — la barre chargée de bout en bout (lot C, C1), rejoués sous chaque mutation de MUTATIONS_C1."""
+    M = M or {}
+    mo, st = M.get("moteur") or _m("moteur"), M.get("statique") or _m("statique")
+    ec, hi_, am_, pa_, DV_ = _m("ec3"), _m("historique"), _m("ec3_ame"), _m("parametres"), _m("ec3_deversement")
+    out = []
+
+    def c(nom, cond, info=""):
+        out.append((nom, bool(cond), info))
+
+    def vf(r, i):
+        return next((v for v in r["verifications"] if v["id"] == i), None)
+
+    # ---- 8. R2 de bout en bout (CRITÈRE du lot C, brief § 12 et § 11.3)
+    orig = mo.section_de
+
+    def brief(b_):
+        s_ = orig(b_)
+        return dict(s_, **BRIEF_IPE300) if s_["nom"] == "IPE 300" else s_
+    res = {}
+    try:
+        mo.section_de = brief
+        for niv in ("centre", "haut"):
+            for neg in (False, True):
+                ex = {"maintiens": [{"x": 3.0, "genre": "complet", "neglige": True}]} if neg else {}
+                res[("brief", niv, neg)] = mo.verifier(barre(niveau=niv, **dict(R2_C1, **ex)))
+        res[("brief", "haut", "autre")] = mo.verifier(barre(niveau="haut", ouvrage="autre", **dict(R2_C1, maintiens=[{"x": 3.0, "neglige": True}])))
+    finally:
+        mo.section_de = orig
+    for niv in ("centre", "haut"):
+        res[("cat", niv, False)] = mo.verifier(barre(niveau=niv, **R2_C1))
+
+    def dv(k):
+        e_ = res[k]["methodes"]["ec3"]
+        return e_, e_["grandeurs"]["deversement"], vf(e_, "E-Mb")
+    e0 = res[("brief", "haut", False)]["methodes"]["ec3"]
+    c("(C1, CRITÈRE) R2 depuis ses charges — IPE 300 S235, 6 m, sans poids propre, G = 2,42 kN/m + 10 kN à 3 m, Q = 15 kN à 3 m, (6.10) : "
+      "M_Ed = 68,70 kN·m, V_Ed = 27,80 kN (à 0,01)",
+      abs(vf(e0, "E-My")["valeur"] - 68.70) <= 0.01 and abs(vf(e0, "E-Vz")["valeur"] - 27.80) <= 0.01, (vf(e0, "E-My")["valeur"], vf(e0, "E-Vz")["valeur"]))
+    att = {"centre": (118.18, 0.5246, 77.48, 0.887, 0.797), "haut": (86.98, 0.4254, 62.83, 1.093, 0.993)}
+    lu = {n: (D["M_cr"] / 1e6, D["chi_LT"], D["M_b_Rd"] / 1e6, v["taux"], D["information"]["taux"])
+          for n in att for _, D, v in [dv(("brief", n, False))]}
+    c("(C1, CRITÈRE) R2, propriétés du brief (I_t 20,12 cm⁴, I_w 125,9·10³ cm⁶, I_z 603,8 cm⁴) — centre de cisaillement : M_cr 118,18 kN·m, "
+      "χ_LT 0,5246, M_b,Rd 77,48 kN·m, taux 0,887 ; semelle haute : 86,98 ; 0,4254 ; 62,83 ; 1,093 ; § 6.3.2.2 pour information 0,797 et 0,993 "
+      "(à 0,01)",
+      all(abs(lu[n][0] - a_[0]) <= 0.01 and abs(lu[n][1] - a_[1]) <= 1e-4 and abs(lu[n][2] - a_[2]) <= 0.011 and abs(lu[n][3] - a_[3]) <= 0.001
+          and abs(lu[n][4] - a_[4]) <= 0.001 for n, a_ in att.items()), lu)
+    cat = {n: (dv(("cat", n, False))[1]["M_cr"] / 1e6, dv(("cat", n, False))[2]["taux"]) for n in att}
+    c("(C1) R2, propriétés du CATALOGUE du dépôt (I_t 19,77 cm⁴ au lieu de 20,12) : 117,52 / 0,890 et 86,35 / 1,0996 — M_cr −0,56 % et −0,72 %, "
+      "côté sûr (brief règle 7 : < 1 %) ; l'écart vient de I_t (et de I_w, I_z arrondis), il est NOMMÉ ici",
+      abs(cat["centre"][0] - 117.52) <= 0.01 and abs(cat["centre"][1] - 0.890) <= 0.001 and abs(cat["haut"][0] - 86.35) <= 0.015
+      and abs(cat["haut"][1] - 1.0996) <= 0.001 and all(-0.0075 <= cat[n][0] / lu[n][0] - 1.0 < 0.0 for n in att),
+      {n: (cat[n], round(100 * (cat[n][0] / lu[n][0] - 1), 2)) for n in att})
+    rpp = mo.verifier(barre(**dict(R2_C1, poids_propre=True, cas=[dict(R2_C1["cas"][0], charges=[q(2.00, 0.0, 6.0)] + R2_C1["cas"][0]["charges"][1:]),
+                                                                  R2_C1["cas"][1]])))
+    m_pp = vf(rpp["methodes"]["ec3"], "E-My")["valeur"]
+    c("(C1) R2 avec le poids propre du MODULE (78,6 kN/m³ × A = 0,4230 kN/m) + 2,00 kN/m : M_Ed = 68,72 kN·m (+0,03 % sur 68,70, règle 7)",
+      abs(rpp["poids_propre"] - 0.4230) <= 1e-4 and abs(m_pp - 68.72) <= 0.01 and 0.0 < m_pp / 68.70 - 1.0 < 0.0005, (rpp["poids_propre"], m_pp))
+    a2 = res[("cat", "haut", False)]["ame"]
+    sous = next(L for L in a2["lieux"] if L["genre"] == "charge")
+    app = [L for L in a2["lieux"] if L["genre"] == "appui"]
+    c("(C1) R2, l'âme (R4 du brief) : sous la charge, type (a), η₂ = 0,0928 ; η₂ + 0,8·η₁ = 0,513 ≤ 1,4 ; seuils de résistance locale 380,08 kN "
+      "(η₁ élastique) et 387,76 kN (plastique) ; aux appuis, type (c), contact « non » : F_Rd = 199,82 kN ; la décision sous la charge suit la "
+      "règle du lot B (semelle haute sans maintien : décision impossible — question ouverte, rapport du lot B § 6.1)",
+      sous["type"] == "a" and abs(sous["sans"]["eta2"] - 0.0928) <= 1e-4 and abs(1.4 * sous["sans"]["interaction"] - 0.513) <= 0.001
+      and abs(sous["sans"]["seuil"]["elastique"] - 380.08) <= 0.01 and abs(sous["sans"]["seuil"]["plastique"] - 387.76) <= 0.01
+      and sous["decision"] == "impossible" and len(app) == 2 and all(L["type"] == "c" and abs(L["sans"]["F_Rd"] - 199.82) <= 0.01 for L in app),
+      (sous["type"], sous["sans"], [(L["type"], L["sans"]["F_Rd"]) for L in app]))
+    h2 = res[("cat", "haut", False)]["methodes"]["historique"]
+    c("(C1) R2, méthode ELS : 143,8 % (le rapport de l'intégration du lot B : « 184 → 144 »), non conforme",
+      round(h2["taux_max"], 3) == 1.438 and h2["statut"] == RE.NOK, (h2["taux_max"], h2["gouvernant"]))
+    # ---- 2. test 9 du § 11.5 de bout en bout : un maintien complet NÉGLIGÉ dans M_cr
+    t9 = {n: dv(("brief", n, True))[2]["taux"] for n in att}
+    e_aut = res[("brief", "haut", "autre")]["methodes"]["ec3"]
+    c("(C1) test 9 du § 11.5 : R2 + un maintien complet à 3 m NÉGLIGÉ dans M_cr → la variante (0,4 ; 0,75) de l'ANB, 0,741 (centre) et 0,891 "
+      "(semelle haute) ; sans maintien : 0,887 et 1,093 (le défaut) ; ouvrage « autre » : variante refusée, « hors bâtiment », le défaut s'applique",
+      abs(t9["centre"] - 0.741) <= 0.001 and abs(t9["haut"] - 0.891) <= 0.001 and dv(("brief", "haut", True))[1]["variante"] is True
+      and abs(vf(e_aut, "E-Mb")["taux"] - 1.093) <= 0.001 and any("refusée : hors bâtiment" in a_["message"] for a_ in e_aut["alertes"]), (t9, vf(e_aut, "E-Mb")["taux"]))
+    r9 = res[("brief", "haut", True)]
+    c("(C1) … le maintien négligé reste compté pour le FLAMBEMENT et pour L_d de la méthode ELS : L_cr,z = 3 m, L_d = 3 m ; M_cr porte sur 6 m",
+      r9["longueurs"]["z"]["L"] == 3.0 and r9["methodes"]["historique"]["grandeurs"]["deversement"]["Lc"] == 3000.0
+      and dv(("brief", "haut", True))[1]["troncon"]["L"] == 6000.0, (r9["longueurs"], r9["methodes"]["historique"]["grandeurs"]["deversement"].get("Lc")))
+    # (contre-vérification du lot C) une CONSOLE dont le maintien est négligé : son tronçon ne va pas d'un appui à l'autre (le bout libre
+    # n'est pas un appui) — la variante est refusée, le couple par défaut s'applique, pour le même M_cr
+    rco = {k_: mo.verifier(barre(profil="IPE 300", modele="console", travees=[3.0], poids_propre=False, maintiens=m_,
+                                 cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0)]}]))["methodes"]["ec3"]
+           for k_, m_ in (("neglige", [{"x": 1.5, "genre": "complet", "neglige": True}]), ("sans", []))}
+    Dco = rco["neglige"]["grandeurs"]["deversement"]
+    c("(C1) console IPE 300 de 3 m, P = 20 kN au bout, maintien complet NÉGLIGÉ à 1,5 m : la variante (0,4 ; 0,75) refusée (« maintiens comptés "
+      "dans M_cr » : le bout libre n'est pas un appui) — le couple par défaut, taux 0,872 (et non 0,751), le même que sans maintien, M_cr 163,7 kN·m",
+      Dco["variante"] is False and abs(vf(rco["neglige"], "E-Mb")["taux"] - 0.872) <= 0.001 and abs(Dco["M_cr"] / 1e6 - 163.73) <= 0.01
+      and proche(vf(rco["neglige"], "E-Mb")["taux"], vf(rco["sans"], "E-Mb")["taux"])
+      and any(a_["message"] == f"Variante (0,4 ; 0,75) refusée : {DV_.MAINTIENS_COMPTES}." for a_ in rco["neglige"]["alertes"]),
+      (Dco.get("variante"), vf(rco["neglige"], "E-Mb")["taux"], Dco["M_cr"] / 1e6, [a_["message"] for a_ in rco["neglige"]["alertes"]]))
+    # ---- 1. une hauteur PAR CHARGE ; le poids propre au centre de gravité
+    s3 = SE.du_catalogue("IPE 300")
+    bm = barre(niveau="haut", poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [dict(q(4.0, 0.0, 6.0), niveau="centre"), P_(20.0, 3.0)]}])
+    em = mo.verifier(bm)["methodes"]["ec3"]
+    P0 = PA.jeu()
+
+    def Mmix(x):
+        return 1.35 * (4.0 * x * (6000.0 - x) / 2.0 + 20000.0 * (x if x <= 3000.0 else 6000.0 - x) / 2.0)
+    direct = MC_.moment_critique(6000.0, P0["E"] * s3["Iz"], P0["E"] * s3["Iw"], P0["G"] * s3["It"], Mmix, reparties=[(0.0, 6000.0, 1.35 * 4.0, 0.0)],
+                                 ponctuelles=[(3000.0, 1.35 * 20000.0, 150.0)])
+    c("(C1) une hauteur PAR CHARGE : charge répartie au centre de cisaillement + ponctuelle sur la semelle haute → M_cr du tronçon = l'appel "
+      "direct du solveur avec les deux z_g (0 et +150 mm), à 10⁻⁶ ; l'hypothèse dit les deux hauteurs",
+      proche(em["grandeurs"]["deversement"]["M_cr"], direct["M_cr"], 1e-6)
+      and "Charges appliquées à plusieurs hauteurs : semelle haute, centre de cisaillement." in em["hypotheses"]
+      and "Appuis en fourche (déplacement latéral et torsion empêchés)." in em["hypotheses"],
+      (em["grandeurs"]["deversement"]["M_cr"], direct["M_cr"]))
+    rn = mo.verifier(barre())
+    c("(C1) le poids propre au centre de GRAVITÉ (z_g = 0 pour un I bisymétrique ; −z_s d'un PRS) : « Poids propre au centre de gravité. » dit une "
+      "fois, sous l'Eurocode 3 ; la barre neuve garde ses charges sur la semelle haute",
+      rn["methodes"]["ec3"]["hypotheses"].count(mo.MOT_POIDS_PROPRE) == 1 and st.cote_gravite(s3) == 0.0
+      and st.cote_gravite(mo.section_de(_prs_barre(PRS_B, nuance="S355"))) == -mo.section_de(_prs_barre(PRS_B, nuance="S355"))["z_s"]
+      and any(h_.startswith("Charges appliquées sur la semelle haute") for h_ in rn["methodes"]["ec3"]["hypotheses"]), rn["methodes"]["ec3"]["hypotheses"][-3:])
+    rcd = mo.verifier(barre(niveau="centre", historique={"Cd": 1.1}, poids_propre=False,
+                            cas=[{"nom": "G", "nature": "permanent", "charges": [q(4.0, 0.0, 6.0), dict(P_(10.0, 3.0), niveau="haut")]}]))
+    cds = [a_ for a_ in rcd["methodes"]["historique"]["alertes"] if a_["message"] == HD_.MESSAGE_CD]
+    c("(C1) le message de C_d > 1 (brief § 6.4) dès qu'UNE charge est sur la semelle haute (barre « au centre », une ponctuelle sur la semelle "
+      "haute) — dit une fois", len(cds) == 1, [a_["message"][:60] for a_ in rcd["methodes"]["historique"]["alertes"]])
+    rlv = mo.verifier(barre(niveau="centre", maintiens=[{"x": 2.0}], appuis={"mode": "ame", "ss": None, "c": None}, poids_propre=False,
+                            cas=[{"nom": "G", "nature": "permanent", "charges": [dict(P_(20.0, 2.0), ss=100.0, niveau="haut"), dict(P_(20.0, 4.0), ss=100.0)]}]))
+    hy_ = rlv["ame"]["hypotheses"]
+    c("(C1) l'âme lit chaque ponctuelle à SON niveau (barre « au centre ») : celle posée sur la semelle haute (2 m) est un lieu, l'autre entre par "
+      "l'âme ; les deux hypothèses dites, une par niveau",
+      [L["nom"] for L in rlv["ame"]["lieux"]] == ["Charge à 2,00 m"] and "Charges ponctuelles posées sur la semelle haute." in hy_
+      and any(h_.startswith("Charges ponctuelles appliquées au centre de cisaillement") for h_ in hy_), ([L["nom"] for L in rlv["ame"]["lieux"]], hy_))
+    # ---- 3. position de la barre et poids propre
+    pv = mo.poids_propre_imposes("verticale", 1.8443, 10.0)
+    ph = mo.poids_propre_imposes("horizontale", 2.0, 6.0)
+    pi_ = mo.poids_propre_imposes("inclinee", 2.0, 6.0, 30.0)
+    c("(C1) poids propre × position (fonction pure) : horizontale → q·L²/8 et q·L/2, rien dans N ; verticale → q·L dans N, rien en flexion ; "
+      "inclinée de 30° → q·cos α en flexion, q·L·sin α dans N ; inclinée sans angle : refusée",
+      ph == {"N": 0.0, "M": 9.0, "V": 6.0} and proche(pv["N"], 18.443) and pv["M"] == 0.0 and proche(pi_["N"], 6.0) and proche(pi_["M"], 9.0 * math.cos(math.pi / 6))
+      and _refuse(lambda: mo.poids_propre_imposes("inclinee", 2.0, 6.0)), (ph, pv, pi_))
+    # test 6 du § 11.5 (REALEX) : le Ø610×12,5 n'est pas au catalogue, f_y = 450 n'est pas une nuance — section.saisie et la méthode ELS directe,
+    # le poids propre par la fonction pure, la courbe par axe imposée (« formé à froid de plus de 6 mm » : la courbe saisie, hors domaine)
+    sec = lambda fab, W: SE.saisie("tube_rond", fab, nom="Tube Ø610 × 12,5", t=12.5, A=23464.0, Iy=104754e4, Iz=104754e4, iy=211.3, iz=211.3,  # noqa: E731
+                                   Wel_y=W * 1e3, Wel_z=W * 1e3)
+    qx = st.POIDS_VOLUMIQUE * 23464 / 1e6
+
+    def realex(position, courbe, dans_P=False):
+        pp = mo.poids_propre_imposes(position, qx, 10.0)
+        W = 3434.6 if pp["M"] else 3506
+        r_ = hi_.verifier({"section": sec("creux_froid", W), "fy": 450.0, "P": 5e6 + (pp["N"] * 1e3 if dans_P else 0.0), "My": pp["M"] * 1e6,
+                           "axes": {a_: {"L": 10000.0, "courbe": courbe} for a_ in ("y", "z")}})
+        return r_["taux_max"], r_["statut"]
+    tx = {(p_, c_, d_): realex(p_, c_, d_) for p_, c_, d_ in (("horizontale", "c", False), ("horizontale", "a", False), ("verticale", "c", False),
+                                                            ("verticale", "a", False), ("verticale", "c", True), ("verticale", "a", True))}
+    c("(C1) test 6 du § 11.5 (REALEX, section saisie) : horizontale, courbe c → 1,018 ; courbe a → 0,865 ; verticale sans « dans P » → 0,984 et "
+      "0,831 ; avec « dans P » (+18,44 kN, +0,37 % sur P) : 0,987 et 0,834 (calculées, nommées ici) ; formé à froid de plus de 6 mm avec la "
+      "courbe saisie, et f_y 450 : hors domaine (ou non conforme)",
+      [round(tx[k][0], 3) for k in tx] == [1.018, 0.865, 0.984, 0.831, 0.987, 0.834] and all(t_[1] in (RE.HORS_DOMAINE, RE.NOK) for t_ in tx.values())
+      and proche(qx * 10.0, 18.443, 1e-4), {k: (round(t_[0], 4), t_[1]) for k, t_ in tx.items()})
+    be = barre(profil="HEB 200", mode="efforts", poids_propre_efforts={"N": True, "M": False},
+               flambement={"y": {"L": 4.0}, "z": {"L": 4.0}}, efforts={"service": {"N": 300.0}, "elu": {"N": 420.0}})
+    re_ = mo.verifier(be)
+    g200 = st.poids_propre(SE.du_catalogue("HEB 200")) * 4.0
+    c("(C1) efforts imposés, interrupteur « dans P » d'un poteau : P += q·L au service, × 1,35 à l'ELU (À VÉRIFIER : compté deux fois si les "
+      "efforts saisis le contiennent — la note le dit, une ligne)",
+      proche(re_["methodes"]["historique"]["grandeurs"]["P"], (300.0 + g200) * 1e3) and proche(vf(re_["methodes"]["ec3"], "E-N")["valeur"], 420.0 + 1.35 * g200)
+      and all(m_["hypotheses"].count(mo.MOT_POIDS_PROPRE_IMPOSES) == 1 for m_ in re_["methodes"].values()),
+      (re_["methodes"]["historique"]["grandeurs"]["P"], vf(re_["methodes"]["ec3"], "E-N")["valeur"]))
+    # (contre-vérification du lot C) l'interrupteur « en flexion » d'une poutre, par le moteur : M += q·L²/8 et V += q·L/2 au service,
+    # × 1,35 à l'ELU ; P inchangé
+    bf = barre(profil="HEB 200", mode="efforts", poids_propre_efforts={"N": False, "M": True}, flambement={"y": {"L": 4.0}, "z": {"L": 4.0}},
+               efforts={"service": {"N": 300.0, "My": 20.0, "Vz": 30.0}, "elu": {"N": 420.0, "My": 28.0, "Vz": 42.0}})
+    rf_ = mo.verifier(bf)
+    gf = rf_["methodes"]["historique"]["grandeurs"]
+    gq = st.poids_propre(SE.du_catalogue("HEB 200"))
+    c("(C1) efforts imposés, interrupteur « en flexion » d'une poutre (HEB 200, L = 4 m) : M_y += q·L²/8 et V_z += q·L/2 au service, × 1,35 à "
+      "l'ELU ; P inchangé ; la ligne du poids propre ajouté dite une fois par méthode",
+      proche(gf["My"], (20.0 + gq * 16.0 / 8.0) * 1e6) and proche(gf["Vz"], (30.0 + gq * 4.0 / 2.0) * 1e3) and proche(gf["P"], 300e3)
+      and proche(vf(rf_["methodes"]["ec3"], "E-My")["valeur"], 28.0 + 1.35 * gq * 2.0) and proche(vf(rf_["methodes"]["ec3"], "E-Vz")["valeur"], 42.0 + 1.35 * gq * 2.0)
+      and proche(vf(rf_["methodes"]["ec3"], "E-N")["valeur"], 420.0)
+      and all(m_["hypotheses"].count(mo.MOT_POIDS_PROPRE_IMPOSES) == 1 for m_ in rf_["methodes"].values()),
+      (gf["My"], gf["Vz"], vf(rf_["methodes"]["ec3"], "E-My")["valeur"], vf(rf_["methodes"]["ec3"], "E-Vz")["valeur"]))
+    rv = mo.verifier(barre(position="verticale", cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [q(5.0, 0.0, 6.0)]}]))
+    g6 = st.poids_propre(s3) * 6.0
+    c("(C1) barre chargée VERTICALE : le poids propre q·L entre dans N (compression, sur toute la barre — prudent, À VÉRIFIER), rien en flexion",
+      proche(rv["statique"]["cas"][0]["N"], g6) and rv["statique"]["cas"][0]["nom"] == st.POIDS_PROPRE
+      and proche(vf(rv["methodes"]["ec3"], "E-My")["valeur"], 1.5 * 5.0 * 36 / 8), (rv["statique"]["cas"][0], vf(rv["methodes"]["ec3"], "E-My")["valeur"]))
+    # ---- 4. la courbe par axe passée à l'ELS (efforts imposés)
+    rk = mo.verifier(barre(profil="HEB 200", mode="efforts", flambement={"y": {"L": 5.0, "courbe": "a"}, "z": {"L": 5.0, "courbe": "a"}},
+                           efforts={"service": {"N": 300.0}, "elu": {"N": 420.0}}))
+    gk = rk["methodes"]["historique"]["grandeurs"]
+    c("(C1) la courbe imposée par axe (flambement.{y,z}.courbe) est celle de la méthode ELS (forcée, dite) ; l'Eurocode 3 garde son tableau 6.2",
+      gk["z"]["courbe"] == "a" and gk["z"]["courbe_forcee"] and gk["y"]["courbe"] == "a",
+      (gk["z"]["courbe"], gk["z"].get("courbe_norme")))
+    # ---- 5. sections critiques : les points demandés et les racines du moment
+    rs = mo.verifier(barre(points=[1.25], modele="continue", travees=[5.0, 5.0], poids_propre=False,
+                           cas=[{"nom": "G", "nature": "permanent", "charges": [q(8.0, 0.0, 10.0)]}]))
+    bs_ = EN.normaliser(barre(points=[1.25], modele="continue", travees=[5.0, 5.0], poids_propre=False,
+                              cas=[{"nom": "G", "nature": "permanent", "charges": [q(8.0, 0.0, 10.0)]}]))
+    sl_ = st.resoudre(bs_, st.cas_complets(bs_, s3))
+    xs_ = st.sections(bs_, st.Combinaison("x", sl_, [1.35], [0.0]), st.ruptures(sl_))
+    c("(C1) sections critiques (brief § 10) : un point demandé (1,25 m) et les racines du moment (3,75 et 6,25 m) sont des sections vérifiées, "
+      "rendues pour le dessin", rs["statique"]["sections"] == [{"x": 1.25, "genre": "point"}, {"x": 3.75, "genre": "racine"}, {"x": 6.25, "genre": "racine"}]
+      and {1.25, 3.75, 6.25} <= set(xs_), (rs["statique"]["sections"], xs_))
+    # ---- 6. C_mi,0 de la travée extraite (continue)
+    rc = mo.verifier(barre(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_propre=False,
+                           cas=[{"nom": "G", "nature": "permanent", "N": 200.0, "charges": [q(10.0, 0.0, 10.0)]}]))
+    f6 = next(x for x in rc["methodes"]["ec3"]["calcul"] if x["cle"] == "E-661/Cm0_y")
+    tm = {t_["symbole"]: t_["valeur"] for t_ in f6["termes"]}
+    sol_ = PO.resoudre("continue", [5.0, 5.0], [q(13.5, 0.0, 10.0)], 210000.0 * SE.du_catalogue("HEA 200")["Iy"] / 1e9)
+    delta = max(abs(sol_.evaluer(5.0 * i / 400)["f"]) for i in range(401)) * 1e3
+    cm_ = 1.0 + (math.pi ** 2 * 210000.0 * tm["I_y"] * 1e4 * delta / ((5000.0) ** 2 * tm["M_y,Ed"] * 1e6) - 1.0) * tm["N_Ed"] / tm["N_cr,y"]
+    c("(C1) C_my,0 d'une continue de deux travées sous N + q (brief § 7.8, travée extraite) : la formule générale du tableau D.1 ANB avec la "
+      "flèche δ et la portée L de la TRAVÉE (5 m, et non 10) = l'appel direct",
+      f6["gabarit"] == "e_Cm0_general" and tm["L"] == 5.0 and abs(tm["δ"] / delta - 1.0) < 2e-3 and abs(f6["resultat"] - cm_) < 1e-3, (tm, delta, cm_))
+    # ---- 7. appuis un par un
+    ren = mo.verifier(barre(appuis={"mode": "poses", "ss": 100.0, "c": 0.0, "detail": [{"torsion": "encastre"}, None]}, poids_propre=False))
+    Dn = ren["methodes"]["ec3"]["grandeurs"]["deversement"]
+    dir_ = ec.verifier({"section": s3, "nuance": "S235", "MyEd": 1.35 * 5.0 * 36 / 8 * 1e6 + 1.5 * 5.0 * 36 / 8 * 1e6,
+                        "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}},
+                        "deversement": {"troncon": {"L": 6000.0, "moment": lambda x: (1.35 + 1.5) * 5.0 * x * (6000.0 - x) / 2.0,
+                                                    "reparties": [(0.0, 6000.0, (1.35 + 1.5) * 5.0, 150.0)], "appuis": ("encastre", "fourche")}}})
+    c("(C1) un appui « encastre » en torsion (appuis.detail) → le tronçon (encastré, fourche) et M_cr = l'appel direct du solveur avec ENCASTRE ; "
+      "l'hypothèse le dit", Dn["troncon"]["appuis"] == ["encastre", "fourche"] and proche(Dn["M_cr"], dir_["grandeurs"]["deversement"]["M_cr"], 1e-6)
+      and any("appui A encastré en torsion" in h_ for h_ in ren["methodes"]["ec3"]["hypotheses"]), (Dn["troncon"], Dn["M_cr"]))
+    rss = mo.verifier(barre(maintiens=[{"x": 3.0}], appuis={"mode": "poses", "ss": None, "c": 0.0, "detail": [{"ss": 50.0}, {"ss": 150.0}]}))
+    lx = {L["nom"]: L for L in rss["ame"]["lieux"]}
+    a300 = am_.ame_de(s3)
+    c("(C1) deux s_s différents (appuis.detail) → deux F_Rd, chacune celle de son appui (type (c), contact non établi)",
+      lx["Appui A"]["ss"] == 50.0 and lx["Appui B"]["ss"] == 150.0
+      and proche(lx["Appui A"]["sans"]["F_Rd"], am_.resistance(a300, 235.0, P0, 50.0, "c", 0.0)["FRd"] / 1e3, 1e-9)
+      and proche(lx["Appui B"]["sans"]["F_Rd"], am_.resistance(a300, 235.0, P0, 150.0, "c", 0.0)["FRd"] / 1e3, 1e-9)
+      and lx["Appui A"]["sans"]["F_Rd"] != lx["Appui B"]["sans"]["F_Rd"], {k: (L["ss"], L["sans"]["F_Rd"]) for k, L in lx.items()})
+    # ---- 10. N par tronçon : un poteau chargé à mi-hauteur
+    rp = mo.verifier(barre(profil="HEB 200", maintiens=[{"x": 3.0}], poids_propre=False,
+                           cas=[{"nom": "G", "nature": "permanent", "N_troncons": [{"x2": 3.0, "N": 300.0}, {"x2": 6.0, "N": 100.0}],
+                                 "charges": [q(1.0, 0.0, 6.0)]}]))
+    ep = rp["methodes"]["ec3"]
+    c("(C1) N par tronçon (un poteau chargé à mi-hauteur : 300 kN en bas, 100 kN en haut) : chaque section à SON N (la section de l'appui A "
+      "à 1,35 × 300 kN, celle du haut à 1,35 × 100 kN) ; le flambement au plus grand N (1,35 × 300 kN, prudent, À VÉRIFIER)",
+      proche(vf(ep, "E-N")["valeur"], 405.0) and proche(vf(ep, "E-Nb-z")["valeur"], 405.0) and proche(vf(ep, "E-Nb-y")["valeur"], 405.0)
+      and rp["methodes"]["historique"]["grandeurs"]["P"] == 300e3, (vf(ep, "E-N"), vf(ep, "E-Nb-z")["valeur"]))
+    Cp = st.Combinaison("x", st.resoudre(EN.normaliser(barre(poids_propre=False)), [{"nom": "G", "charges": []}]), [1.35],
+                        [[(3.0, 300.0), (6.0, 100.0)]])
+    c("(C1) … la combinaison lit N(x) : 405 kN sous 3 m, 135 kN au-dessus, et les deux côtés à 3 m", proche(Cp.N_en(1.0), 405.0) and proche(Cp.N_en(5.0), 135.0)
+      and proche(Cp.N_en(3.0, False), 405.0) and proche(Cp.N_en(3.0, True), 135.0) and proche(Cp.N, 405.0) and len(st.cotes_n(Cp, 3.0)) == 2,
+      (Cp.N_en(1.0), Cp.N_en(5.0), Cp.N))
+    # (contre-vérification du lot C) la méthode ELS vérifie chaque section à SON N : un tirant dont la traction varie
+    def tirant(**k_):
+        r_ = mo.verifier(barre(profil="HEB 200", poids_propre=False, maintiens=[{"x": 3.0}],
+                               cas=[dict({"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 6.0)]}, **k_)]))
+        return vf(r_["methodes"]["historique"], "H-SIGMA")["taux"], vf(r_["methodes"]["ec3"], "E-NM")["taux"]
+    tv = {k_: tirant(**v_) for k_, v_ in (("300-100", {"N_troncons": [{"x2": 3.0, "N": -300.0}, {"x2": 6.0, "N": -100.0}]}),
+                                          ("100-300", {"N_troncons": [{"x2": 3.0, "N": -100.0}, {"x2": 6.0, "N": -300.0}]}),
+                                          ("300", {"N": -300.0}), ("100", {"N": -100.0}))}
+    c("(C1) N par tronçon, méthode ELS : un TIRANT (HEB 200, 6 m, q = 20 kN/m, maintien à 3 m ; −300 kN jusqu'à 3 m, −100 kN au-delà, et "
+      "l'inverse) — la section à 3 m, où M est maximal, est vérifiée à −300 kN : H-SIGMA 1,517 dans les deux sens, comme sous −300 kN constant "
+      "(et non 1,353, celui de −100 kN : le plus grand N algébrique) ; l'Eurocode 3 lisait déjà N(x) (E-NM 0,913)",
+      abs(tv["300-100"][0] - 1.517) <= 0.001 and proche(tv["300-100"][0], tv["300"][0]) and proche(tv["100-300"][0], tv["300"][0])
+      and abs(tv["100"][0] - 1.353) <= 0.001 and abs(tv["300-100"][1] - 0.913) <= 0.001 and proche(tv["300-100"][1], tv["100-300"][1]), tv)
+    # ---- 11. mode d'introduction d'une ponctuelle
+    rb_ = mo.verifier(barre(appuis={"mode": "ame", "ss": None, "c": None}, maintiens=[{"x": 3.0}], poids_propre=False,
+                            cas=[{"nom": "G", "nature": "permanent", "charges": [dict(P_(50.0, 3.0), ss=100.0, introduction="b")]}]))
+    Lb = rb_["ame"]["lieux"][0]
+    rB = am_.resistance(a300, 235.0, P0, 100.0, "b")
+    c("(C1) mode d'introduction DÉCLARÉ (b) d'une ponctuelle : appliqué tel quel — k_F = 3,5 + 2·(h_w/a)² = 3,5 (a → ∞), F_Rd du type (b)",
+      Lb["type"] == "b" and abs(rB["kF"] - 3.5) < 1e-12 and proche(Lb["sans"]["F_Rd"], rB["FRd"] / 1e3, 1e-9), (Lb["type"], Lb["sans"]["F_Rd"], rB.get("kF")))
+    # ---- 13. débords (porte-à-faux aux rives) et 14. origine des longueurs
+    bd = barre(debords=[1.5, 0.0], poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 6.0), P_(10.0, 0.0)]}])
+    rd = mo.verifier(bd)
+    sold = PO.resoudre("appuis", [6.0], [q(5.0, 0.0, 6.0), P_(10.0, 0.0)], debords=(1.5, 0.0))
+    c("(C1) débords : la barre de 7,5 m (débord 1,5 m + portée 6 m) — réactions et moment de la barre = rdm/poutres (débords passés), le "
+      "moment d'appui vérifié ; le débord est un tronçon à bout libre",
+      rd["statique"]["L"] == 7.5 and [(a_["x"], a_["R"]) for a_ in rd["statique"]["cas"][0]["reactions"]] == [(a_["x"], a_["R"]) for a_ in sold.appuis]
+      and proche(vf(rd["methodes"]["ec3"], "E-My")["valeur"], 1.35 * max(abs(sold.extremes["M_max"][0]), abs(sold.extremes["M_min"][0])), 1e-6)
+      and rd["statique"]["troncons"][0]["appuis"] == ["libre", "fourche"], (rd["statique"]["cas"][0]["reactions"], rd["statique"]["troncons"]))
+    Ls = {k: mo.verifier(b_)["longueurs"] for k, b_ in (
+        ("console", barre(modele="console", travees=[3.0], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(5.0, 3.0)]}])),
+        ("debord", barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [q(5.0, 0.0, 4.0)]}])),
+        ("troncon", barre(maintiens=[{"x": 2.0}])), ("saisie", barre(flambement={"y": {"L": 4.5}, "z": {"L": 2.0}})))}
+    # (contre-vérification du lot C, le harnais a trouvé : il figeait 2,1 × 2,5 = 5,25 m, NON CONSERVATIF — l'appui n'est pas un
+    #  encastrement ; la longueur exacte, celle de l'équation caractéristique, est 7,894 m : N_cr surestimé 2,26 fois)
+    c("(C1) longueurs de flambement et leur ORIGINE : console de 3 m → 2,1 × 3 = 6,3 m sur les deux axes (« console ») ; débord de 2,5 m d'une "
+      "portée de 4 m → 7,895 m sur les deux axes, la barre entière (« debord », Euler : exacte 7,894 m, arrondie au mm supérieur) ; un maintien "
+      "complet → « troncon » ; saisie → « saisie » ; une portée seule → « portee »",
+      [(Ls["console"][a_]["L"], Ls["console"][a_]["origine"]) for a_ in "yz"] == [(6.3, "console")] * 2
+      and [(Ls["debord"][a_]["L"], Ls["debord"][a_]["origine"]) for a_ in "yz"] == [(7.895, "debord")] * 2
+      and (Ls["troncon"]["y"]["origine"], Ls["troncon"]["z"]["origine"], Ls["troncon"]["z"]["L"]) == ("portee", "troncon", 4.0)
+      and (Ls["saisie"]["y"]["origine"], Ls["saisie"]["z"]["origine"]) == ("saisie", "saisie"), Ls)
+    bdb = EN.normaliser(barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 4.0)]}]))
+    trd = st.troncons(bdb, s3)
+    lib = mo._libres(bdb, trd)
+    c("(C1) méthode ELS, le tronçon du débord (4 à 6,5 m, bout libre) : L_d = 7,895 m, la longueur de flambement d'axe z de la barre entière "
+      "(et non 2,1 × 2,5 = 5,25 m : contre-vérification du lot C), hors domaine, À VÉRIFIER ; la travée garde ses deux appuis",
+      [(t_["x1"], t_["x2"], t_["appuis"]) for t_ in trd] == [(0.0, 4.0, ("fourche", "fourche")), (4.0, 6.5, ("fourche", "libre"))] and lib == {1: 7.895}
+      and mo._Lc_historique(None, trd[1], [], lib[1]) == 7.895, (trd, lib))
+    # ---- (contre-vérification du lot C) un débord : la barre ENTIÈRE flambe, l'appui n'est pas un encastrement
+    lcr = {k_: _lcr_debord(*k_) for k_ in ((4.0, 2.5), (6.0, 1.5))}
+    eu = {(4.0, 2.5): st.longueur_euler(6.5, (0.0, 4.0)), (6.0, 1.5): st.longueur_euler(7.5, (1.5, 7.5))}
+    c("(C1) le flambement d'Euler de la barre entière (statique.longueur_euler) = l'équation caractéristique d'une travée articulée et de son "
+      "débord libre, sin k(L+a) = sin kL·sin ka/(kL) : 4 m + 2,5 m → 7,894 m ; 6 m + 1,5 m → 7,910 m (≥ l'exacte, à 1 mm) ; une travée seule → L ; "
+      "deux travées égales de 5 m → 5 m",
+      all(0.0 <= eu[k_] - lcr[k_] <= 0.001 for k_ in lcr) and abs(lcr[(4.0, 2.5)] - 7.894) < 5e-4 and abs(lcr[(6.0, 1.5)] - 7.910) < 5e-4
+      and st.longueur_euler(6.0, (0.0, 6.0)) == 6.0 and st.longueur_euler(10.0, (0.0, 5.0, 10.0)) == 5.0, (eu, lcr))
+    rdb = mo.verifier(barre(travees=[4.0], debords=[0.0, 2.5], cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [q(5.0, 0.0, 4.0)]}]))
+    hdb = rdb["methodes"]["historique"]
+    dits = [a_ for m_ in rdb["methodes"].values() for a_ in m_["alertes"] if a_["message"] == mo.MOT_DEBORD]
+    c("(C1) débord de 2,5 m sous N = 50 kN : l'alerte du débord dite UNE fois (méthode ELS) ; le tronçon du débord hors domaine garde le verdict "
+      "ELS « hors domaine » quand la travée gouverne le déversement (H-DEV retenu sur 0–4 m)",
+      len(dits) == 1 and dits[0] in hdb["alertes"] and hdb["statut"] == RE.HORS_DOMAINE and vf(hdb, "H-DEV")["troncon"] == [0.0, 4.0]
+      and vf(hdb, "H-DEV")["statut"] == RE.OK, (len(dits), hdb["statut"], vf(hdb, "H-DEV")["troncon"], vf(hdb, "H-DEV")["statut"]))
+    rpb = mo.verifier(barre(debords=[1.5, 0.0], cas=[{"nom": "G", "nature": "permanent", "charges": [P_(5.0, 0.0)]}]))
+    c("(C1) débord gauche de 1,5 m, P en bout : L_cr = 7,910 m (la barre entière, et non la portée 6 m), verdict ELS jamais « ok » (le tronçon "
+      "du débord, 0–1,5 m, est hors domaine)",
+      rpb["longueurs"]["y"]["L"] == 7.91 and rpb["longueurs"]["z"]["origine"] == "debord" and rpb["methodes"]["historique"]["statut"] != RE.OK,
+      (rpb["longueurs"], rpb["methodes"]["historique"]["statut"]))
+    # ---- 9. PRS chargés depuis leurs charges
+    def prs10(p, niv, **k):
+        return mo.verifier(_prs_barre(p, nuance="S355", travees=[10.0], poids_propre=False, niveau=niv,
+                                      cas=[dict({"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 10.0)]}, **k)]))
+    pb_h, pb_b, pa_h = prs10(PRS_B, "haut"), prs10(PRS_B, "bas"), prs10(PRS_A, "haut")
+    sB = mo.section_de(pb_h["barre"])
+    Dh, Db, Da = (x["methodes"]["ec3"]["grandeurs"]["deversement"] for x in (pb_h, pb_b, pa_h))
+    c("(C1) PRS-B 10 m depuis ses charges : q sur la semelle haute, z_g = +145,286 mm, M_cr 1 086,25 kN·m, M_b,Rd 617,55 ; sous la semelle basse, "
+      "z_g = −454,714 mm, M_cr 1 803,30 ; PRS-A sur la semelle haute : 1 191,42 et 797,39 (brief § 11.8, à 0,01)",
+      abs(SE.cote(sB, "haut") - 145.286) < 1e-3 and abs(SE.cote(sB, "bas") + 454.714) < 1e-3 and abs(Dh["M_cr"] / 1e6 - 1086.25) <= 0.01
+      and abs(Dh["M_b_Rd"] / 1e6 - 617.55) <= 0.01 and abs(Db["M_cr"] / 1e6 - 1803.30) <= 0.01 and abs(Da["M_cr"] / 1e6 - 1191.42) <= 0.01
+      and abs(Da["M_b_Rd"] / 1e6 - 797.39) <= 0.01, (Dh["M_cr"] / 1e6, Dh["M_b_Rd"] / 1e6, Db["M_cr"] / 1e6, Da["M_cr"] / 1e6, Da["M_b_Rd"] / 1e6))
+    pm = mo.verifier(_prs_barre(PRS_B, nuance="S355", travees=[10.0], poids_propre=True, niveau="haut",
+                                cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 10.0)]}]))
+    mb_h, mb_m = (vf(x["methodes"]["ec3"], "E-Mb")["messages"] for x in (pb_h, pm))
+    c("(C1) PRS : le contrôle (E.1) de l'annexe E ANB n'a qu'UN z_g — une charge sur la semelle haute : (E.1) calculé ; la même avec le poids "
+      "propre au centre de gravité (deux hauteurs) : « solveur seul », dit en une ligne",
+      any(m_.startswith("Contrôle (E.1) : M_cr = ") for m_ in mb_h) and "Contrôle (E.1) : charges à plusieurs hauteurs — solveur seul." in mb_m
+      and not any(m_.startswith("Contrôle (E.1) : M_cr = ") for m_ in mb_m), (mb_h[-2:], mb_m[-2:]))
+    pt = prs10(PRS_B, "haut", N=-6000.0)
+    c("(C1) PRS-B TENDU (N/A dépasse la compression de flexion de la semelle haute) : aucune semelle comprimée — la semelle comprimée suit le "
+      "signe de M (prudent), et c'est dit (À VÉRIFIER : le plan attendait la semelle basse, que σ_x ne comprime pas non plus)",
+      mo.semelle_comprimee(sB, -1.35 * 6000.0, 1.35 * 20.0 * 100 / 8) == ("haut", False) and mo.MOT_SEMELLE_TRACTION in pt["methodes"]["ec3"]["hypotheses"]
+      and mo.semelle_comprimee(sB, 0.0, -100.0) == ("bas", True) and mo.semelle_comprimee(sB, 3000.0, 50.0) == ("haut", True),
+      pt["methodes"]["ec3"]["hypotheses"][-3:])
+    pc = mo.verifier(_prs_barre(PRS_B, nuance="S355", modele="continue", travees=[8.0, 8.0], poids_propre=False, niveau="haut",
+                                cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 16.0)]}]))
+    hdv = pc["methodes"]["historique"]["grandeurs"]["deversement"]
+    c("(C1) continue de PRS monosymétrique : sur l'appui intermédiaire la semelle BASSE est comprimée — b₂ = 200, t₂ = 30 à l'ELS ; ψ_f et z_j de "
+      "la semelle basse à l'Eurocode 3",
+      hdv["semelle"] == "bas" and hdv["b"] == 200.0 and hdv["tf"] == 30.0
+      and any(h_.startswith("PRS monosymétrique, semelle basse comprimée : ψ_f = ") for h_ in pc["methodes"]["ec3"]["hypotheses"]),
+      (hdv.get("semelle"), [h_ for h_ in pc["methodes"]["ec3"]["hypotheses"] if "comprimée" in h_][:2]))
+    prc = {n: mo.verifier(_prsc(n)) for n in (7, 8, 9, 18)}
+    env_h = prc[8]["statique"]["enveloppes"]["historique"]
+    M_els = max(env_h["M_max"])
+    dv8, dv18 = vf(prc[8]["methodes"]["historique"], "H-DEV"), vf(prc[18]["methodes"]["historique"], "H-DEV")
+    c("(C1) PRS-C depuis ses charges, méthode ELS : M = 2 853,66 kN·m (le bureau, 78,5 kN/m³ : 2 852,98, +0,02 %, règle 7), σ = 117,11 N/mm² ; "
+      "8 maintiens σ_adm,d 89,68 (ne passe pas) ; 18 maintiens 118,3 (passe, hors domaine : semelles différentes)",
+      abs(M_els - 2853.66) <= 0.01 and abs(dv8["valeur"] - 117.11) <= 0.01 and abs(dv8["limite"] - 89.68) <= 0.01 and dv8["statut"] == RE.NOK
+      and abs(dv18["limite"] - 118.3) <= 0.05 and dv18["statut"] == RE.HORS_DOMAINE, (M_els, dv8["valeur"], dv8["limite"], dv18["limite"], dv18["statut"]))
+    tc = {n: vf(prc[n]["methodes"]["ec3"], "E-Mb") for n in (7, 8, 9)}
+    c("(C1) PRS-C depuis ses charges, Eurocode 3 : M_Ed 4 200,2 kN·m (le bureau : 4 199,4 ; +0,02 %, règle 7 — 78,6 contre 78,5 kN/m³) ; "
+      "7 maintiens 1,007 ; 8 → M_cr ≈ 28 279 kN·m (+0,06 %) et 0,967 ; 9 → 0,937",
+      all(abs(tc[n]["valeur"] / 4199.4 - 1.0) < 0.0003 for n in tc) and abs(tc[7]["taux"] - 1.007) <= 0.001 and abs(tc[8]["taux"] - 0.967) <= 0.001
+      and abs(tc[9]["taux"] - 0.937) <= 0.001 and abs(prc[8]["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"] / 1e6 / 28279.0 - 1.0) < 0.001,
+      {n: (round(v["valeur"], 2), round(v["taux"], 4)) for n, v in tc.items()})
+    return out
+
+
 def _leve(f, quoi=Exception):
     try:
         f()
@@ -927,7 +1348,7 @@ def _installer(nom, mod):
             importlib.reload(sys.modules[f"acier.barre.{k}"])
 
 
-def muter_paquet(fichier, ancien, nouveau):
+def muter_paquet(fichier, ancien, nouveau, ctl=None):
     """Les contrôles du lot C qui rougissent quand ``ancien`` devient ``nouveau`` dans ``fichier`` (un module du paquet, installé, ceux
     qui l'emploient rechargés, puis remis quoi qu'il arrive) ; None si le texte n'y est pas une seule fois."""
     import types
@@ -941,7 +1362,7 @@ def muter_paquet(fichier, ancien, nouveau):
     try:
         exec(compile(src.replace(ancien, nouveau), chemin, "exec"), mod.__dict__)
         _installer(fichier, mod)
-        return [n for n, ok, _ in controles_lot_c() if not ok]
+        return [n for n, ok, _ in (ctl or controles_lot_c)() if not ok]
     except Exception as e:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
         return [f"exception {type(e).__name__}: {e}"]
     finally:
@@ -955,8 +1376,8 @@ MUTATIONS_LOT_C = [
     ("resultat", "lot C — un statut inconnu ignoré par la synthèse (une méthode bloquée sortirait « ok »)",
      '    inconnus = sorted({v["statut"] for v in verifs} - set(STATUTS))\n    if inconnus:\n        raise', '    inconnus = []\n    if inconnus:\n        raise'),
     ("moteur", "lot C — le Refus de B2 rétabli (bords d'un PRS non saisis : la méthode ELS refusée avant tout calcul)",
-     '        e, h = b["efforts"]["service"], b["historique"]',
-     '        if PR.est_prs(s) and s.get("fabrication") is None:\n            raise RE.Refus(PR.MSG_BORDS)\n        e, h = b["efforts"]["service"], b["historique"]'),
+     '        e, h = service, b["historique"]',
+     '        if PR.est_prs(s) and s.get("fabrication") is None:\n            raise RE.Refus(PR.MSG_BORDS)\n        e, h = service, b["historique"]'),
     ("historique", "lot C — un verdict bloqué rendu « non couvert »", '            v["statut"] = BLOQUE\n', '            v["statut"] = NON_COUVERT\n'),
     ("historique", "lot C — une classe à fournir rendue « non couvert »", "statut=NON_COUVERT if forme_nc else BLOQUE,", "statut=NON_COUVERT,"),
     ("historique", "lot C — le calcul pour information effacé (taux None)", '            v["statut"] = BLOQUE\n', '            v["statut"], v["taux"] = BLOQUE, None\n'),
@@ -980,6 +1401,71 @@ MUTATIONS_LOT_C = [
     ("parametres", "lot C — n° 3 : A − h_w·t_w par défaut", '"avy_lamine": {"valeur": "2btf"', '"avy_lamine": {"valeur": "A_moins_hwtw"'),
     ("parametres", "lot C — une variante hors de la table acceptée", "        if admises is not None and (v not in admises", "        if False and (v not in admises"),
     ("parametres", "lot C — le n° 9 perd son entrée (console)", '"variante": None, "valeurs": ("non_couvert",), "point": 9,', '"variante": None, "valeurs": None, "point": 9,'),
+]
+
+
+# (lot C, C1) chaque règle de la barre chargée, et la mutation qui la retire : celles des fichiers du module chargés depuis leur texte
+# (charger), celles d'un autre fichier du paquet installées (muter_paquet) ; controles_c1 rejoué sous chacune
+MUTATIONS_C1 = [
+    ("statique", "C1 — z_g sans signe (la semelle basse prise pour la haute)", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)",
+     "    return cote_gravite(s) if niv == GRAVITE else abs(SE.cote(s, niv))"),
+    ("statique", "C1 — z_g compté depuis le centre de gravité (et non le centre de cisaillement)", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)",
+     "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv) + (s.get(\"z_s\") or 0.0)"),
+    ("statique", "C1 — le poids propre au niveau de la barre (et non au centre de gravité)", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)",
+     "    return SE.cote(s, barre[\"niveau\"]) if niv == GRAVITE else SE.cote(s, niv)"),
+    ("moteur", "C1 — un seul z_g (la cote de la barre pour toutes les charges)", 'rep, pon = ST.charges_du_troncon(cas, co["facteurs"], tr, zg_de)',
+     'rep, pon = ST.charges_du_troncon(cas, co["facteurs"], tr, zg)'),
+    ("moteur", "C1 — le message de C_d sur le seul niveau de la barre", 'niveau_els = "haut" if "haut" in niveaux else niveaux[0]', 'niveau_els = b["niveau"]'),
+    ("statique", "C1 — les maintiens négligés comptés dans M_cr", '        if pour_mcr and m.get("neglige"):', "        if False:"),
+    ("moteur", "C1 — la variante (0,4 ; 0,75) jamais demandée", 'variante = bool(b.get("maintiens")) and len(negliges) == len(b["maintiens"])', "variante = False"),
+    ("moteur", "C1 — le type d'ouvrage non transmis à l'Eurocode 3", '"deversement": dev, "ouvrage": b["ouvrage"]}', '"deversement": dev}'),
+    ("moteur", "C1 — un tronçon toujours « entre appuis » (la variante admise sur une console, NON CONSERVATIF)",
+     '"entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}', '"entre_appuis": True}'),
+    ("moteur", "C1 — le bout libre d'une console compté comme un appui", "    bouts = set(ST.appuis_x(b))\n", "    bouts = set(ST.appuis_x(b)) | {round(Lt, 9)}\n"),
+    ("moteur", "C1 — poids propre imposé : rien dans N pour un poteau", 'return {"N": fN * q * L, "M": fM * q * L * L / 8.0', 'return {"N": 0.0, "M": fM * q * L * L / 8.0'),
+    ("moteur", "C1 — interrupteur « dans P » sans effet", '            e["N"] += f * dans_P["N"]', "            pass"),
+    ("moteur", "C1 — poids propre imposé : sans γ_G,sup à l'ELU", "    for e, f in ((sv, 1.0), (el, gamma)):", "    for e, f in ((sv, 1.0), (el, 1.0)):"),
+    # (contre-vérification du lot C) l'interrupteur « en flexion » : aucun contrôle ne le figeait
+    ("moteur", "C1 — interrupteur « en flexion » sans effet", '        if sw.get("M"):', "        if False:"),
+    ("moteur", "C1 — interrupteur « en flexion » : V oublié", '            e["Vz"] = math.copysign(abs(e["Vz"]) + f * flexion["V"], e["Vz"] or 1.0)', "            pass"),
+    ("statique", "C1 — barre verticale : le poids propre en flexion", '    if position == "verticale":\n        return 1.0, 0.0', '    if position == "verticale":\n        return 0.0, 1.0'),
+    ("moteur", "C1 — la courbe imposée non passée à la méthode ELS", 'return {a: dict(axes[a], courbe=b["flambement"][a].get("courbe")) for a in ("y", "z")}',
+     'return {a: dict(axes[a]) for a in ("y", "z")}'),
+    ("statique", "C1 — les points demandés non vérifiés", '    out = set(pts) | {round(x, 9) for x in barre.get("points") or []}', "    out = set(pts)"),
+    ("statique", "C1 — les racines du moment non vérifiées", "    rac = racines_moment(comb, sorted(out))\n", "    rac = []\n"),
+    ("moteur", "C1 — C_mi,0 : la longueur de toute la barre (et non la travée)", '"L": (tv[1] - tv[0]) * 1e3}', '"L": Lt * 1e3}'),
+    ("moteur", "C1 — C_mi,0 : moment constant hors « appuis » (la règle d'avant)", "                if tv is not None and Mmax > EPS:",
+     '                if b["modele"] == "appuis" and tv is not None and Mmax > EPS:'),
+    ("statique", "C1 — la torsion des appuis ignorée (fourche partout)", '    return MC.ENCASTRE if (d or {}).get("torsion") == "encastre" else MC.FOURCHE',
+     "    return MC.FOURCHE"),
+    ("statique", "C1 — N par tronçon ignoré (N constant du cas)", '    if nt:\n        return [(t["x2"], t["N"]) for t in nt]', "    if False:\n        return []"),
+    ("statique", "C1 — N d'une section : le plus grand de la barre", "        return sum(f * _N_en(n, x, droite) for f, n in self.N_cas)", "        return self.N"),
+    ("moteur", "C1 — méthode ELS : la section vérifiée au seul plus grand N de la barre (une traction plus forte oubliée, NON CONSERVATIF)",
+     "    for n in (C.N, C.N_en(x, False), C.N_en(x, True)):", "    for n in (C.N,):"),
+    ("statique", "C1 — les débords non passés au formulaire", 'c.get("charges") or [], EI, debords=debords)', 'c.get("charges") or [], EI)'),
+    ("statique", "C1 — le bout d'un débord pris tenu (fourche)", "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.LIBRE",
+     "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.FOURCHE"),
+    ("moteur", "C1 — débord : la longueur de la barre entière oubliée", '            if Ld is not None and Ld > L + EPS:', "            if False:"),
+    # (contre-vérification du lot C) le débord : la barre entière flambe, son hors domaine reste dit
+    ("moteur", "C1 — débord : 2,1 × le débord seul (l'appui pris pour un encastrement, NON CONSERVATIF)",
+     " + [ST.longueur_euler(round(ST.longueur(b), 9), _tenus(b, trs, a))])", ")"),
+    ("moteur", "C1 — débord : L_d de la méthode ELS = 2,1 × le débord", '    Ld = _L_debord(b, trs, "z")\n', "    Ld = round(U_CONSOLE * max(g, d), 9)\n"),
+    ("moteur", "C1 — débord : le hors domaine perdu quand la travée gouverne", '        if hors_libre and res["statut"] == RE.OK:', "        if False:"),
+    ("moteur", "C1 — débord : l'alerte jamais dite", '    if _debords_libres(b, trs, "y") or _debords_libres(b, trs, "z"):', "    if False:"),
+    ("statique", "C1 — Euler : le bout libre pris tenu", "    bloques = {2 * i for i, x in enumerate(noeuds) if any(abs(x - t) <= 1e-9 for t in tt)}",
+     "    bloques = {2 * i for i, x in enumerate(noeuds) if any(abs(x - t) <= 1e-9 for t in pts)}"),
+    ("statique", "C1 — Euler : l'itération arrêtée au premier pas", "EULER_ITERATIONS = 400 ", "EULER_ITERATIONS = 1 "),
+    ("moteur", "C1 — l'origine des longueurs toujours « portee »", '"origine": axes[a]["origine"]}', '"origine": "portee"}'),
+    ("moteur", "C1 — la semelle comprimée par le signe de M seul", '    if max(sh, sb) > 0.0:\n        return ("haut" if sh >= sb else "bas"), True\n    return ("haut" if M >= 0.0 else "bas"), False',
+     '    return ("haut" if M >= 0.0 else "bas"), True'),
+    ("moteur", "C1 — PRS monosymétrique : M_y,Ed jamais retourné (la semelle basse jamais comprimée)", '                if PR.monosymetrique(s) and semelle == "bas":', "                if False:"),
+    # (autres fichiers du paquet)
+    ("parametres", "C1 — γ_Q = 1,35", '"gamma_Q": {"valeur": 1.50,', '"gamma_Q": {"valeur": 1.35,'),
+    ("ame", "C1 — s_s, c et contact appui par appui ignorés", "        if d is not None and cle in d:\n            return d[cle]", "        if False:\n            return d[cle]"),
+    ("ame", "C1 — l'âme lit toutes les ponctuelles au niveau de la barre", '            niv = ch.get("niveau") or b["niveau"]\n            if ch["type"] == "P"',
+     '            niv = b["niveau"]\n            if ch["type"] == "P"'),
+    ("ame", "C1 — le mode d'introduction déclaré ignoré", '        if L.get("genre") == "charge" and (L.get("introduction") or "auto") in INTRODUCTIONS_DECLAREES:', "        if False:"),
+    ("ec3_deversement", "C1 — (E.1) d'un PRS sous des charges à plusieurs hauteurs : un z_g quand même", "        elif charge and len(zgs) > 1:", "        elif False:"),
 ]
 
 
@@ -1032,7 +1518,7 @@ def main():
     chk("la sortie : la barre relue, le profilé, sa masse, la statique (abscisses, enveloppes, réactions par cas, flèche, tronçons), les méthodes, "
         "l'âme, le statut, la comparaison, et le poids propre qu'elle compte (kN/m)",
         set(r) == {"barre", "profil", "masse", "poids_propre", "statique", "longueurs", "methodes", "ame", "statut", "comparaison"}
-        and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche"} and set(r["statique"]["enveloppes"]["ec3"]) == {"x", "M_max", "M_min", "V_max", "V_min"}
+        and set(r["statique"]) == {"L", "x", "troncons", "cas", "enveloppes", "fleche", "sections"} and set(r["statique"]["enveloppes"]["ec3"]) == {"x", "M_max", "M_min", "V_max", "V_min"}
         and [a["R"] for a in r["statique"]["cas"][0]["reactions"]] == [2.42 * 3 + 5.0] * 2, sorted(r["statique"]))
     plantes, n = [], 0
     for i, p in enumerate(CAT.profils()):
@@ -1067,6 +1553,27 @@ def main():
         else:
             chk(f"mutation « {nom} » ({fichier}.py) : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
     chk("après les mutations du lot C, le paquet est rendu : ses contrôles repassent tous", all(ok for _, ok, _ in controles_lot_c()))
+
+    print("== 10. lot C, C1 : la barre chargée de bout en bout (et ses mutations)")
+    for nom, ok, info in controles_c1():
+        chk(nom, ok, info)
+    for fichier, nom, ancien, nouveau in MUTATIONS_C1:
+        if fichier in FICHIERS:
+            mods = charger((fichier, ancien, nouveau))
+            if mods is None:
+                rouges = None
+            else:
+                try:
+                    rouges = [n_ for n_, ok, _ in controles_c1(mods) if not ok]
+                except Exception as e:  # noqa: BLE001
+                    rouges = [f"exception {type(e).__name__}: {e}"]
+        else:
+            rouges = muter_paquet(fichier, ancien, nouveau, controles_c1)
+        if rouges is None:
+            chk(f"mutation « {nom} » : le texte à muter est dans {fichier}.py, une seule fois", False, "texte absent ou répété")
+        else:
+            chk(f"mutation « {nom} » ({fichier}.py) : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
+    chk("après les mutations de C1, le paquet est rendu : ses contrôles repassent tous", all(ok for _, ok, _ in controles_c1()))
 
     print("== 8. pureté")
     code = ("import sys\n"

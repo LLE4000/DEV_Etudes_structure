@@ -461,8 +461,13 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float) -> Tuple[list, li
         charge = diag in MC.E2
         co = MC.coefficients_annexe_e(diag, fl["psi"], zp["psi_f"], None if charge else MC.kwt(tr["L"], EIw, GIt))
         E: Dict = {"diagramme": diag, "psi_f": zp["psi_f"], "z_j": zp["z_j"], "z_j_approche": zp["z_j_approche"], **co}
+        zgs = {c_[-1] for c_ in (*tr.get("reparties", ()), *tr.get("ponctuelles", ()))}
         if co["bloque"]:
             msgs.append(f"Contrôle (E.1) bloqué : {co['bloque']}.")
+        elif charge and len(zgs) > 1:
+            # (lot C, C1) des charges à plusieurs hauteurs (le poids propre au centre de gravité, les autres sur une semelle) :
+            # (E.1) n'a qu'un z_g — le solveur seul (brief § 7.7 et 18.5), dit en une ligne
+            msgs.append("Contrôle (E.1) : charges à plusieurs hauteurs — solveur seul.")
         else:
             # z_g de l'annexe E ANB, 2(8) : positif quand la charge va VERS le centre de cisaillement depuis son point
             # d'application — la cote de la charge, retournée si elle monte (un soulèvement, en barre chargée)

@@ -134,9 +134,11 @@ chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %)
     DECIDE["resume"]["statut"] == "Conforme" and DECIDE["resume"]["niveau"] == "p" and moteur(DECIDE["etat"]["elements"][0])["statut"] == "ok"
     and "Âme ·" not in texte(DECIDE["resultat"]), DECIDE["resume"])
 res0 = texte(neuf["resultat"])
+# (lot C, C1, le harnais suit : le poids propre au centre de GRAVITÉ, et non sur la semelle haute avec les charges — M_cr monte,
+#  M_b,Rd 115,6 → 115,7 kN·m)
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
     neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in res0
-    and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,6 kN·m" in res0
+    and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,7 kN·m" in res0
     and "1,35·Poids propre + 1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
     round(r0["poids_propre"], 4) == 0.4230 and "(0,42 kN/m)" in texte(neuf["donnees"]), texte(neuf["donnees"])[:300])
@@ -248,10 +250,11 @@ chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre
     and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
 chk("une barre que la méthode ELS refuse (139 % — lot B : le déversement des classeurs ; la variante du fascicule donnait 179 %) et que "
-    "l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les "
+    "l'Eurocode refuse aussi (113 % — lot C : le poids propre au centre de gravité, 114 % avant ; lot A : avec le couple (0,2 ; 1,0) de "
+    "l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les "
     "deux verdicts se lisent, deux blocs rouges",
     nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 139
-    and "η 139 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
+    and "η 139 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 113 % Eurocode 3" in texte(nu["resultat"])
     and nu["resultat"].count('class="et-bloc nok"') == 2, nu["resume"])
 
 print("=== 3. Les saisies")
@@ -763,7 +766,7 @@ chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses m
     and "66,7 kN·m" in bande and "44,5 kN" in bande, bande)
 tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"][2]["svg"]
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
-    "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">139 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
+    "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">139 %<" in tx and ">113 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'
 sale = req(action="calculer", etat=note(barre(nom=mechant[:40], cas=[{"nom": "<b>G</b>", "nature": "permanent", "N": 0.0,
                                                                          "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])))
