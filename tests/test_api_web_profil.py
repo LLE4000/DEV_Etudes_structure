@@ -1319,8 +1319,31 @@ def vider_et_relire():
     ]
 
 
+def credit_mutation(nom_, rouges_):
+    """(intégration du lot B, point 29 a) Le verdict d'une mutation de ce § : (libellé, vert ?). Sans le site d'avant dans l'historique (un
+    clone superficiel), le contrôle de relecture est rouge DE TOUTE FAÇON : chaque mutation « rougirait » et serait créditée — un vert
+    silencieux. Elle est alors dite NON JOUÉE, en rouge, avec le remède."""
+    if ancien_site() is None:
+        return (f"mutation « {nom_} » : NON JOUÉE — {ANCIEN_SITE} absent de l'historique (git fetch --deepen=200 ou --unshallow)", False)
+    return (f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+
+
+chk(f"le site d'avant ({ANCIEN_SITE}) se lit dans l'historique — sans lui, ce § ne prouve rien : rouge clair, jamais un vert silencieux",
+    ancien_site() is not None, _ANCIEN.get("raison"))
 for nom_, ok_, info_ in vider_et_relire():
     chk(nom_, ok_, info_)
+# (point 29 a) l'absence du site d'avant, simulée : la relecture rougit et aucune mutation n'est créditée
+_garde = dict(_ANCIEN)
+_ANCIEN.clear()
+_ANCIEN.update(dossier=None, raison="absence simulée")
+try:
+    simule_ = (credit_mutation("témoin", ["un rouge"]), [ok_ for n_, ok_, _i in vider_et_relire() if "SITE D'AVANT" in n_])
+finally:
+    _ANCIEN.clear()
+    _ANCIEN.update(_garde)
+    P._RESULTATS.clear()
+chk(f"(point 29 a) {ANCIEN_SITE} absent (simulé) : le contrôle de relecture est rouge et une mutation qui « rougit » n'est PAS créditée — "
+    "elle est dite non jouée", simule_[0][1] is False and "NON JOUÉE" in simule_[0][0] and simule_[1] == [False], simule_)
 MUTATIONS_VIDE = (
     ("s_s et c lus comme un nombre obligatoire (le champ ne se vide plus)", P, "_lire_vide", lambda vrai: P._lire),
     ("le champ s_s ou c rendu sans « vide » (l'écran refuse un nombre vide)", M, "SS_VIDE", lambda vrai: ""),
@@ -1340,7 +1363,7 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_VIDE:
     finally:
         setattr(objet_, attr_, vrai_)
         P._RESULTATS.clear()
-    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+    chk(*credit_mutation(nom_, rouges_))
 chk("témoin : sans mutation, les contrôles du champ vidé et de la relecture par le site d'avant sont verts", all(ok_ for _n, ok_, _i in vider_et_relire()))
 
 print("=== 17. (2e finition du lot B) le maintien à l'écran : la ligne et la fenêtre sans le taux de leur pastille, la bande le lieu en tête — "
