@@ -396,6 +396,28 @@ with mutant(MT, "sections", fonction_mutee(MT.sections, "reference_fy(nuance)", 
     chk("mutation de source « la référence ignore la nuance » (le défaut d'avant : tableau 3.3 ANB partout) : le contrôle rougit",
         not ctl_reference_nuance())
 
+# lot B (brief v12 § 19.2) : l'EXEMPLE chiffré de la page 2 d'une note ELS suit la nuance (il restait celui du S235) —
+# σ_adm = f_y/1,5 à la première bande d'épaisseur (16 mm), valeurs écrites ici à la main (l'oracle, tableaux 3.3 et 3.4 ANB)
+EXEMPLE_ATTENDU = {"S235": ("156,7", "90,5"), "S355": ("236,7", "136,6"), "S460 N/NL": ("306,7", "177,1")}
+
+
+def ctl_exemple_nuance() -> bool:
+    """La page 2 d'une note ELS : « σ_adm = f_y/1,5 (306,7 N/mm² pour le S460 N/NL jusqu'à 16 mm), τ_adm = σ_adm/√3
+    (177,1 N/mm²) » en S460 N/NL — jamais l'exemple d'une autre nuance."""
+    for n, (sig, tau) in EXEMPLE_ATTENDU.items():
+        p2 = plat(texte(NT.generer_note(ET_, cas(methode={"nuance": n}), INFOS), 1))
+        if plat(f"({sig} N/mm² pour le {n} jusqu'à 16 mm), τ_adm = σ_adm/√3 ({tau} N/mm²)") not in p2:
+            return False
+        if any(plat(f"({s2} N/mm² pour le {n2}") in p2 for n2, (s2, _) in EXEMPLE_ATTENDU.items() if n2 != n):
+            return False
+    return True
+
+
+chk("lot B · page 2 de la note ELS : l'exemple σ_adm suit la nuance (S460 N/NL : 306,7 N/mm², τ_adm 177,1 ; S355 : 236,7 ; "
+    "S235 : 156,7)", ctl_exemple_nuance())
+with mutant(MT, "sections", fonction_mutee(MT.sections, "exemple_els(nuance)", "exemple_els()")):
+    chk("mutation de source « l'exemple reste celui du S235 » (le défaut d'avant) : le contrôle rougit", not ctl_exemple_nuance())
+
 # (E7) les docs du garde-corps (COPIES NOMMÉES : un document ne lit pas le moteur) disent la règle de S6 et les valeurs de la
 # table — σ_adm = f_y/1,5, f_y de la nuance ET de l'épaisseur de chaque pièce, 156,7 (S235) et 236,7 (S355) jusqu'à 16 mm
 from acier import materiaux as MA  # noqa: E402

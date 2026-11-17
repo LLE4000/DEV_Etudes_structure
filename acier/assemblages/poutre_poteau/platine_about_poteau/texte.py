@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 from acier.js import js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from . import synthese, formules
 from .notation import ref_courte
 
@@ -31,10 +31,10 @@ def construire_texte(R, complet=False):
     L += ["Données : poteau " + str(u.prof_P) + " " + str(u.nu_P) + " ; poutre portée "
           + str(u.prof_S) + " " + str(u.nu_S)
           + " ; appui : " + str(R.appui).lower()
-          + " ; platine " + js_str(R.h_p) + "x" + js_str(R.b_p) + "x" + js_str(R.t_p) + " " + str(u.nu_pl)
+          + " ; platine " + nb(R.h_p) + "x" + nb(R.b_p) + "x" + nb(R.t_p) + " " + str(u.nu_pl)
           + " ; boulons " + R.boulon + " " + str(u.classe) + " (" + js_str(R.n_1) + " × 2, p3 = "
           + F(R.p_3, 0) + " mm)"
-          + " ; a = " + js_str(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
+          + " ; a = " + nb(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
           + (" ; NEd = " + F(u.N_Ed, 1) + " kN (" + str(u.nat_N) + ")" if u.N_Ed > 0 else ""),
           "Groupe CENTRÉ (deux files symétriques) : aucun moment d'excentricité ; VEd/n par boulon = "
           + F(R.Fv_Ed, 2) + " kN",

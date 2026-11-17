@@ -44,7 +44,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, ORI_P, find, idx
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
-from acier.formats import F, f0
+from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
@@ -153,9 +153,9 @@ def compute(u0=None, materiau=None):
     R.r_C = pd.rC if R.pred else kc["r"]
     MT.poser(R, "C", u.nu_C, R.t_C, perso, materiau, "nu_C", "cornières")
     if R.pred:
-        R.corn_txt = "L" + js_str(pd.leg) + "x" + js_str(pd.leg) + "x" + js_str(pd.tC) + " (proposée)"
+        R.corn_txt = "L" + nb(pd.leg) + "x" + nb(pd.leg) + "x" + nb(pd.tC) + " (proposée)"
     elif u.corn_u == PERSO:
-        R.corn_txt = "L" + js_str(kc["a1"]) + "x" + js_str(kc["a2"]) + "x" + js_str(kc["t"])
+        R.corn_txt = "L" + nb(kc["a1"]) + "x" + nb(kc["a2"]) + "x" + nb(kc["t"])
     else:
         R.corn_txt = u.corn_u
     bo = find(DB["boulons"], R.boulon)
@@ -984,10 +984,10 @@ def apply_solution(u0, r):
 
 def solution_label(r):
     """« M20, 4 rangées, L100x100x10 »."""
-    return (r.b["n"] + ", " + js_str(r.n) + " rangées, L" + js_str(r.prop.leg) + "x"
-            + js_str(r.prop.leg) + "x" + js_str(r.prop.tC))
+    return (r.b["n"] + ", " + js_str(r.n) + " rangées, L" + nb(r.prop.leg) + "x"
+            + nb(r.prop.leg) + "x" + nb(r.prop.tC))
 
 
 def nom_cornière_proposee(r):
     """« L100x100x10 » pour une ligne du prédimensionnement."""
-    return "L" + js_str(r.prop.leg) + "x" + js_str(r.prop.leg) + "x" + js_str(r.prop.tC)
+    return "L" + nb(r.prop.leg) + "x" + nb(r.prop.leg) + "x" + nb(r.prop.tC)

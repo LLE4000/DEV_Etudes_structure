@@ -495,6 +495,16 @@ chk("au-delà du tableau (plat S235 de 300 mm, tableau 3.3 ANB jusqu'à 250) : r
 chk("sans configuration (un appelant qui ne passe que les paramètres) : la plus grande épaisseur saisie pour les deux pièces (du côté sûr)",
     pres(ET.acier_cordon(dict(CF.PARAMS_DEFAUT["C2"], tB=30.0))["fy_min"], 225.0)
     and ET.acier_cordon({"nuance_A": "S235", "nuance_B": "S355"})["fy_min"] is None)
+# lot B (brief v12 § 19.2) : le refus de la table s'écrit à la virgule (« 260,5 mm », formats.mm_fr), jamais « 260.5 mm »
+def ctl_refus_virgule() -> bool:
+    r = verif("C1", {"tA": 260.5})
+    return r["statut"] == ET.REFUS and "Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y)" in r["messages"]
+
+
+chk("lot B · plat S235 de 260,5 mm : « Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y) »",
+    ctl_refus_virgule(), str(verif("C1", {"tA": 260.5})["messages"]))
+with mutant(ET, "mm_fr", str):
+    chk("mutation « refus de la table relayé tel quel (260.5 mm) » : le contrôle rougit", not ctl_refus_virgule())
 # les mutations : chacune doit faire rougir le contrôle qui la surveille
 with mutant(ET.MA, "fy", lambda n, t, produit="lamine": MA.nominale(n)):
     chk("mutation « f_y nominale quelle que soit l'épaisseur » : le contrôle de la pleine pénétration rougit", not ctl_fy_epaisseur())
@@ -617,6 +627,30 @@ DOC_AVANT = (DOC_SOUDURES.replace("η = 66,7/225 = 29,6 % (f_y = 225 N/mm² : S2
              .replace("0,44·t = 13,3 mm", "0,46·t = 13,8 mm").replace("0,54·t = 16,2 mm", "0,57·t = 17 mm"))
 chk("mutation « la doc d'avant » (28 % ; 0,46·t = 13,8 ; 0,57·t = 17) : le contrôle de la doc rougit",
     DOC_AVANT != DOC_SOUDURES and not ctl_doc_exemple_bureau(DOC_AVANT))
+
+
+# lot B (brief v12 § 19.2) : chaque gorge de pleine résistance du S235 que la doc cite (0,46·t, 0,57·t) et le 156,7 N/mm²
+# de l'étude disent leur domaine — « jusqu'à 16 mm » (la f_y baisse au-delà : 0,44·t et 0,54·t de 16 à 40 mm)
+with open(os.path.join(RACINE, "docs", "acier", "SOUDURES_ETUDE.md"), encoding="utf-8") as f_doc:
+    DOC_ETUDE = " ".join(f_doc.read().split())
+
+
+import re  # noqa: E402
+
+
+def ctl_doc_16mm(doc: str, etude: str) -> list:
+    """Les endroits (quatre) où la valeur du S235 ne dit pas « jusqu'à 16 mm »."""
+    manque = [m.group(0) for m in re.finditer(r"0,46·t[^.|]{0,90}", doc) if "16 mm" not in m.group(0)]
+    manque += [m.group(0) for m in re.finditer(r"156,7 N/mm²[^)]{0,40}", etude) if "16 mm" not in m.group(0)]
+    vus = len(re.findall(r"0,46·t", doc)) + len(re.findall(r"156,7 N/mm²", etude))
+    return manque if vus == 4 else manque + [f"{vus} endroits au lieu de 4"]
+
+
+chk("lot B · SOUDURES.md (trois endroits : 0,46·t / 0,57·t) et SOUDURES_ETUDE.md (156,7 N/mm²) : « jusqu'à 16 mm » à chacun",
+    not ctl_doc_16mm(DOC_SOUDURES, DOC_ETUDE), ctl_doc_16mm(DOC_SOUDURES, DOC_ETUDE))
+chk("mutation « la doc d'avant » (sans « jusqu'à 16 mm ») : le contrôle rougit",
+    bool(ctl_doc_16mm(DOC_SOUDURES.replace(" en S235 jusqu'à 16 mm), k équivalent", "), k équivalent"),
+                      DOC_ETUDE.replace("S235 jusqu'à 16 mm avec", "S235 avec"))))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -31,7 +31,7 @@ from acier.assemblages.poutre_poteau.platine_about_poteau import (benchmark as B
                                                                   methode as MEPB, moteur as MPB, notation as NPB,
                                                                   schemas as SPB, synthese as YPB, texte as TPB)
 from acier.bibliotheques import ORI_P, ORI_S, PERSO
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str, mx
 
 from . import assemblages as A
@@ -164,7 +164,7 @@ def _parametres_pa(R):
     g = [["Cas d'appui", str(R.appui) + (" — attache dans le plan de l'âme du poteau" if R.aile
                                          else " — attache perpendiculaire à l'âme du poteau")],
          ["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm"],
-         ["Plat", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(u.nu_pl)],
+         ["Plat", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(u.nu_pl)],
          ["Excentricité z : face d'appui du poteau → centre du groupe", F(R.zeff, 1) + " mm"],
          ["Moment d'excentricité MS = VEd·z + |MEd|", F(R.M_S, 2) + " kNm"],
          ["Modèle", R.mod],
@@ -198,7 +198,7 @@ def detail_predim_pa(p):
 
 
 REGLE_PA = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit "
-            "diamètre. L'épaisseur du plat est plafonnée à 0,5·d (ductilité) ; la gorge proposée est la "
+            "diamètre. L'épaisseur du plat est plafonnée par la ductilité (SCI P358 §5.3 (3)) ; la gorge proposée est la "
             "pleine résistance. Le poteau n'intervient pas dans la proposition : la hauteur disponible "
             "et les taux sont commandés par la poutre portée et le plat. Seule la vérification "
             "détaillée fait foi.")
@@ -208,12 +208,12 @@ def _piece_pa(R, u, grp):
     if grp == "Boulons":
         return PP.boulons_texte(R, u, f"{js_str(R.n_1)} × {js_str(R.n_2)}"), ("" if R.pred else "boulon")
     if grp == "Plat d'âme":
-        return C.esc(f"{js_str(R.h_p)} × {js_str(R.b_p)} × {js_str(R.t_p)} mm"), ""
+        return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre portée":
         return PP.piece_profil(u, "S")
     if grp == "Poteau porteur":
         return piece_poteau(R, u)
-    return C.esc(f"gorge a = {js_str(R.a_w)} mm"), ""
+    return C.esc(f"gorge a = {nb(R.a_w)} mm"), ""
 
 
 A.enregistrer(A.Config(
@@ -225,9 +225,9 @@ A.enregistrer(A.Config(
     noms_aciers=NOMS_ACIERS, titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"},
     tableaux_boulons=lambda R: [("groupe", R.tab)],
     predim={"apply": MPA.apply_solution, "label": MPA.solution_label,
-            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {js_str(r.hp)}×{js_str(r.prop.tp)}",
+            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {nb(r.hp)}×{nb(r.prop.tp)}",
             "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": [("variante", lambda r: r.var), ("h<sub>p</sub> (mm)", lambda r: js_str(r.hp)),
+            "colonnes": [("variante", lambda r: r.var), ("h<sub>p</sub> (mm)", lambda r: nb(r.hp)),
                          ("η boulons", lambda r: pct(r.e.bS)), ("η p. diam. âme", lambda r: pct(r.e.pdS))],
             "detail": detail_predim_pa, "regle": REGLE_PA,
             "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} mm"}))
@@ -321,7 +321,7 @@ def detail_predim_dc(p):
             ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
             ["Cornière proposée", "2 × L" + js_str(p.leg) + "x" + js_str(p.leg) + "x" + js_str(p.tC)
              + " (aile ≥ " + F(p.legreq, 0) + " mm)"],
-            ["Trusquinage gA / gauge p3", js_str(p.gA) + " / " + F(p.p3, 0) + " mm"],
+            ["Trusquinage gA / gauge p3", nb(p.gA) + " / " + F(p.p3, 0) + " mm"],
             ["Taux estimé (boulons, pressions diamétrales de l'âme et du poteau)", pct(p.eta, 1)],
             ["État", p.msg]]
 
@@ -337,7 +337,7 @@ def _piece_dc(R, u, grp):
         g = [f"S {js_str(R.n1_S)}×{js_str(R.n2_S)}" if R.bolt_S else "", f"P {js_str(R.n1_P)}×{js_str(R.n2_P)}" if R.bolt_P else ""]
         return C.esc(f"{R.boulon} {u.get('classe')} · " + " · ".join(x for x in g if x)), ("" if R.pred else "boulon")
     if grp == "Cornières":
-        return C.esc(f"2 {R.corn_txt} · hc {js_str(R.L_C)}"), ("" if R.pred else "corniere")
+        return C.esc(f"2 {R.corn_txt} · hc {nb(R.L_C)}"), ("" if R.pred else "corniere")
     if grp == "Poutre portée":
         return PP.piece_profil(u, "S")
     if grp == "Poteau porteur":
@@ -384,11 +384,11 @@ A.enregistrer(A.Config(
     predim={"apply": MDC.apply_solution, "label": MDC.solution_label,
             "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · {MDC.nom_cornière_proposee(r)}",
             "col": lambda r: r.Lc, "unite_col": "h<sub>c</sub> mm",
-            "colonnes": [("h<sub>c</sub> (mm)", lambda r: js_str(r.Lc)), ("Cornière", MDC.nom_cornière_proposee),
+            "colonnes": [("h<sub>c</sub> (mm)", lambda r: nb(r.Lc)), ("Cornière", MDC.nom_cornière_proposee),
                          ("η boulons S", lambda r: pct(r.e.bS)), ("η p. diam. âme", lambda r: pct(r.e.pdS)),
                          ("η boulons P", lambda r: pct(r.e.bP)), ("η p. diam. poteau", lambda r: pct(r.e.pdP))],
             "detail": detail_predim_dc, "regle": REGLE_DC,
-            "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} / gA {r.prop.gA} mm · p3 {js_str(r.prop.p3)} mm"}))
+            "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} / gA {r.prop.gA} mm · p3 {nb(r.prop.p3)} mm"}))
 
 
 # ================================================================== platine d'about partielle sur poteau
@@ -420,7 +420,7 @@ def _parametres_pb(R):
     g = [["Cas d'appui", str(R.appui) + (" — les deux files sont symétriques par rapport à l'âme du poteau"
                                          if R.aile else " — la platine porte sur l'âme, entre les ailes")],
          ["Boulon retenu", R.boulon + " – d0 = " + F(R.d_0, 0) + " mm – " + js_str(R.n_1) + " rangées × 2 files"],
-         ["Platine", js_str(R.h_p) + " × " + js_str(R.b_p) + " × " + js_str(R.t_p) + " mm – " + str(u.nu_pl)],
+         ["Platine", nb(R.h_p) + " × " + nb(R.b_p) + " × " + nb(R.t_p) + " mm – " + str(u.nu_pl)],
          ["Modèle", R.mod],
          ["Groupe de boulons : branche retenue", R.branche_g + " = " + F(R.FRd_g, 1) + " kN"],
          ["Effort par boulon Fv,Ed = VEd/n", F(R.Fv_Ed, 2) + " kN"],
@@ -478,8 +478,8 @@ def detail_predim_pb(p):
             ["Hauteur de la platine hp = max(2·e1 + (n1 − 1)·p1 ; 0,6·h)",
              f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
             ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Platine proposée", js_str(p.hp) + " × " + js_str(p.bp) + " × " + js_str(p.tp)
-             + " mm – gorge a = " + js_str(p.a) + " mm"],
+            ["Platine proposée", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp)
+             + " mm – gorge a = " + nb(p.a) + " mm"],
             ["Taux estimé (boulons, âme portée, poteau)", pct(p.eta, 1)], ["État", p.msg]]
 
 
@@ -494,12 +494,12 @@ def _piece_pb(R, u, grp):
     if grp == "Boulons":
         return PP.boulons_texte(R, u, f"2 × {js_str(R.n_1)}"), ("" if R.pred else "boulon")
     if grp == "Platine d'about":
-        return C.esc(f"{js_str(R.h_p)} × {js_str(R.b_p)} × {js_str(R.t_p)} mm"), ""
+        return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre portée":
         return PP.piece_profil(u, "S")
     if grp == "Poteau porteur":
         return piece_poteau(R, u)
-    return C.esc(f"gorge a = {js_str(R.a_w)} mm"), ""
+    return C.esc(f"gorge a = {nb(R.a_w)} mm"), ""
 
 
 def _eta_poteau_pb(r, ame):
@@ -524,9 +524,9 @@ A.enregistrer(A.Config(
     regle_33="e ≥ 1,2·d<sub>0</sub> ; p<sub>1</sub> ≥ 2,2·d<sub>0</sub> ; p<sub>3</sub> (p<sub>2</sub> du tableau) ≥ 2,4·d<sub>0</sub>",
     decimales_bench=_decimales_bench_pb,
     predim={"apply": MPB.apply_solution, "label": MPB.solution_label,
-            "nom": lambda r: f"2×{js_str(r.n)} {r.b['n']} · {js_str(r.hp)}×{js_str(r.prop.bp)}×{js_str(r.prop.tp)}",
+            "nom": lambda r: f"2×{js_str(r.n)} {r.b['n']} · {nb(r.hp)}×{nb(r.prop.bp)}×{nb(r.prop.tp)}",
             "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": lambda R: [("h<sub>p</sub> (mm)", lambda r: js_str(r.hp)), ("η boulons", lambda r: pct(r.e.bg)),
+            "colonnes": lambda R: [("h<sub>p</sub> (mm)", lambda r: nb(r.hp)), ("η boulons", lambda r: pct(r.e.bg)),
                                    ("η âme portée", lambda r: pct(r.e.vwS)),
                                    ("η poteau", lambda r: _eta_poteau_pb(r, R.ame))],
             "detail": detail_predim_pb, "regle": REGLE_PB,

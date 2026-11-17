@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from acier import materiaux as MA
+from acier.formats import mm_fr
 from acier.bibliotheques import DB
 from acier.resistances import fu_bw_cordon
 
@@ -241,7 +242,7 @@ def verifier(cas: Dict) -> Dict:
         acier = out["acier"] = acier_cordon(cas["params"], cas["config"])
         built = CF.construire(cas["config"], cas["params"], cas["efforts"])
     except (ValueError, KeyError) as e:
-        out["messages"].append(f"Refus : {e}")
+        out["messages"].append(f"Refus : {mm_fr(e)}")              # « 260,5 mm » (lot B, brief v12 § 19.2)
         return out
     out["pieces"], out["efforts"], out["beta_Lw"] = built["pieces"], built["efforts"], built["beta_Lw"]
     out["messages"].extend(built.get("notes", []))

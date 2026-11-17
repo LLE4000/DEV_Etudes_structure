@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 from acier.js import js_str, N
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from . import synthese, formules
 from .notation import ref_courte
 from .entrees import OUI, ancrage_txt
@@ -26,13 +26,13 @@ def nom_fichier(u, ext):
 def ligne_donnees(R):
     u = R.u
     tige = (js_str(R.n_t) + " tiges " + str(u.ancr) + " " + str(u.classe) + " (" + js_str(int(u.n_ax)) + " files × "
-            + js_str(int(u.n_ay)) + " rangées, wx = " + js_str(N(u.w_x)) + ", wy = " + js_str(N(u.w_y)) + " mm), "
-            + ancrage_txt(u) + ", hef = " + js_str(N(u.hef)) + " mm")
-    return ("Poteau " + R.nom_c + " " + str(u.nu_c) + " ; platine " + js_str(N(u.bp_u)) + "x" + js_str(N(u.lp_u)) + "x"
-            + js_str(N(u.tp_u)) + " " + str(u.nu_pl) + " ; " + tige + " ; béton " + str(u.beton)
-            + (" fissuré" if u.fiss == OUI else " non fissuré") + ", massif " + js_str(N(u.bc_u)) + "x"
-            + js_str(N(u.lc_u)) + "x" + js_str(N(u.hc_u)) + ", mortier tg = " + js_str(N(u.t_g)) + " mm ; a = "
-            + js_str(N(u.a_w)) + " mm ; N = " + F(u.N_Ed, 1) + " kN, Mx = " + F(u.Mx_Ed, 1) + ", My = "
+            + js_str(int(u.n_ay)) + " rangées, wx = " + nb(N(u.w_x)) + ", wy = " + nb(N(u.w_y)) + " mm), "
+            + ancrage_txt(u) + ", hef = " + nb(N(u.hef)) + " mm")
+    return ("Poteau " + R.nom_c + " " + str(u.nu_c) + " ; platine " + nb(N(u.bp_u)) + "x" + nb(N(u.lp_u)) + "x"
+            + nb(N(u.tp_u)) + " " + str(u.nu_pl) + " ; " + tige + " ; béton " + str(u.beton)
+            + (" fissuré" if u.fiss == OUI else " non fissuré") + ", massif " + nb(N(u.bc_u)) + "x"
+            + nb(N(u.lc_u)) + "x" + nb(N(u.hc_u)) + ", mortier tg = " + nb(N(u.t_g)) + " mm ; a = "
+            + nb(N(u.a_w)) + " mm ; N = " + F(u.N_Ed, 1) + " kN, Mx = " + F(u.Mx_Ed, 1) + ", My = "
             + F(u.My_Ed, 1) + " kNm, Vx = " + F(u.Vx_Ed, 1) + ", Vy = " + F(u.Vy_Ed, 1) + " kN"
             + (", T = " + F(u.T_Ed, 2) + " kNm" if N(u.T_Ed) else ""))
 

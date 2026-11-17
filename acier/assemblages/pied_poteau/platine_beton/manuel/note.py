@@ -21,11 +21,12 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from . import elements as EL
+from . import moteur as MO
 from ..entrees import VISSERIE_DEFAUT, ancrage_txt
 from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS_MANUEL as NOTATIONS_COURTES
 from ....poutre_poutre.plat_ame import note as _np
@@ -47,11 +48,11 @@ INSEC = "\u00a0"
 
 def lignes_entete(R):
     u = R.u
-    l1 = ("Platine " + js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl)
+    l1 = ("Platine " + nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl)
           + "    |    " + " + ".join(EL.nom(e) + " en (" + F(e["x"], 0) + " ; " + F(e["y"], 0) + ")" + (" tourné" if e["rot"] else "")
                                      for e in R.elems)
           + ("    |    " + js_str(len(R.raid)) + " raidisseur(s)" if R.raid else "")
-          + "    |    Massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton))
+          + "    |    Massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " " + str(u.beton))
     l2 = ("Boulons " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " : "
           + ", ".join("(" + F(t["x"], 0) + " ; " + F(t["y"], 0) + ")" for t in R.tiges)
           + " · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0)
@@ -96,6 +97,15 @@ def lignes_hypotheses(R):
     return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
+def _avis_fjd_range(R):
+    """L'avis « pression sous la platine > fjd » (fjd_info, avec ses chiffres) quand la ligne de l'hypothèse prudente
+    sur l'appui le porte (moteur.hypothese_appui non vide) ; None sinon. Une source pour la ligne et pour les alertes du
+    bandeau : l'appui n'y est dit qu'une fois, en plus de la raison du verdict."""
+    if not MO.hypothese_appui(R):
+        return None
+    return next((a for a in R.alerts if a.id == "fjd_info" and a.why), None)
+
+
 class Note(_np.Note):
     TITRE_NOTE = TITRE
     SYN = synthese
@@ -115,6 +125,19 @@ class Note(_np.Note):
 
     def alerte(self, a, R):
         return ligne_alerte(a, R)
+
+    def lignes_a_verifier(self, R):
+        # l'hypothèse prudente sur l'appui fjd (moteur.HORS_VERDICT), quand elle change le résultat ; l'avis « pression
+        # > fjd » (fjd_info) y est rangé avec ses chiffres : une ligne au lieu de deux (alertes_bandeau le retire)
+        h = MO.hypothese_appui(R)
+        if not h:
+            return []
+        a = _avis_fjd_range(R)
+        return [h[:-1] + " ; " + a.why + "." if a is not None else h]
+
+    def alertes_bandeau(self, R):
+        a = _avis_fjd_range(R)
+        return [x for x in R.alerts if x is not a]
 
     def table_simple(self, d, fr, cle, largeurs):
         R = self.R
@@ -246,11 +269,15 @@ class Note(_np.Note):
         # la conclusion dit le critère RETENU (défaut élastique depuis le 31/10/2026, charte §12)
         selon = ("selon Von Mises ≤ fy/γM0 (critère élastique), EN 1993-1-8 §6.2.5 (bande comprimée)" if R.elastique
                  else "selon EN 1993-1-8 §6.2.4 (tronçons en T), §6.2.5 (bande comprimée)")
-        txt = (("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : épaisseur requise " + req
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        tete = ("PLATINE À VÉRIFIER — " + R.a_verifier + " — " if a_verif
+                else ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : ")
+        txt = (tete + "épaisseur requise " + req
                + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, " + selon
                + " et Tableau 3.4 " + self.NORME + " — tiges et béton d'ancrage en "
-               "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
-        col = S.ok if R.verified else S.ko
+               "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts)
+                                and not a_verif else "."))
+        col = S.att if a_verif else (S.ok if R.verified else S.ko)
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS
@@ -296,8 +323,8 @@ class PlanPrincipeMan(PlanPrincipe):
             else "sans raidisseur"
         cases = [("ASSEMBLAGE", "Platine sur béton – calcul manuel", ident or "—", 0.17),
                  ("ÉLÉMENTS SOUDÉS", elems, raid, 0.20),
-                 ("PLATINE · MASSIF", js_str(N(u.bp_u)) + "×" + js_str(N(u.lp_u)) + "×" + js_str(N(u.tp_u)) + " " + str(u.nu_pl),
-                  "massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton)
+                 ("PLATINE · MASSIF", nb(N(u.bp_u)) + "×" + nb(N(u.lp_u)) + "×" + nb(N(u.tp_u)) + " " + str(u.nu_pl),
+                  "massif " + nb(N(u.bc_u)) + "×" + nb(N(u.lc_u)) + "×" + nb(N(u.hc_u)) + " " + str(u.beton)
                   + " · mortier " + F(u.t_g, 0) + " · a " + F(u.a_w, 1).replace(",0", ""), 0.19),
                  ("BOULONS", fix, vis, 0.225),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),

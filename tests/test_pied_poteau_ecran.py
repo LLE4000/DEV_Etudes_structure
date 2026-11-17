@@ -129,9 +129,12 @@ chk(f"les {len(interface.CLES)} clés d'entrée existent en session", len(cles) 
 t = md(at)
 # Le bandeau nomme la dimensionnante comme la note (synthese.court : « Épaisseur requise tp ») et non plus
 # par le libellé du moteur (88 caractères) — charte §9.
-chk("cas par défaut, périmètre EC3 : VÉRIFIÉ à 55,9 % (« — 55,9 % · Épaisseur requise tp »), béton d'ancrage en "
-    "information à 107,7 % dit en clair (hors verdict)",
-    "PIED DE POTEAU VÉRIFIÉ (EC3" in t and "— 55,9 % · Épaisseur requise tp" in t
+# Lot B (brief v12 § 19.1 point 4) : le béton d'ancrage HORS périmètre à 107,7 % ne laisse plus « VÉRIFIÉ » : bandeau
+# « À VÉRIFIER », avec la raison courte (le harnais suit : il décrivait l'ancien bandeau vert)
+chk("cas par défaut, périmètre EC3 : À VÉRIFIER (béton d'ancrage à 107,7 %, hors périmètre EC3) à 55,9 % (« — 55,9 % · "
+    "Épaisseur requise tp »), béton d'ancrage à 107,7 % dit en clair",
+    "PIED DE POTEAU À VÉRIFIER (béton d'ancrage à 107,7 %, hors périmètre EC3)" in t
+    and "PIED DE POTEAU VÉRIFIÉ" not in t and "— 55,9 % · Épaisseur requise tp" in t
     and "Épaisseur requise de la platine" not in t
     and "en information, hors verdict) : Interaction N / V du béton à 107,7 %" in t
     and "Ancrages dans le béton (EN 1992-4) — information, hors verdict" in t)
@@ -280,7 +283,7 @@ chk("page 1 : bandeau, en-tête compact (poteau, platine, massif, tiges, efforts
 chk("page 1 : vue en plan (répartition), coupe A-A, domaine et conclusion EC3 / EC2 / EC2-4 (γM0 ANB, αcc)",
     "RÉPARTITION" in s1 and "COUPEA-A" in s1 and "DOMAINE(Mx,My)" in s1
     and "selonEN1993-1-8§6.2.5et§6.2.8" in s1 and "(γM0:ANBbelge;αcc=0,85)" in s1
-    and "donnéeninformationetnefaitpaspartieduverdict" in s1)
+    and "PIEDDEPOTEAUÀVÉRIFIER:bétond'ancrageà107,7%,horspérimètreEC3" in s1)       # lot B : le harnais suit
 chk("page 1 : le calcul de la platine à la main (moment pris de chaque côté, épaisseur requise) et les ancrages "
     "en information",
     "ÉPAISSEURDELAPLATINE" in s1 and "M=T·m=43,2×45,9=1,98kNm" in s1 and "mEd=∫p·sds=11,5" in s1
@@ -336,7 +339,7 @@ chk("« Générer PDF » depuis l'application : 2 pages",
 at.session_state["ppb_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : export texte avec statut, répartition, Tableau 3.3 et références EC2-4",
-    "PIED DE POTEAU VÉRIFIÉ" in code and "Périmètre : EN 1993-1-8 seule" in code and "Répartition élastique" in code
+    "PIED DE POTEAU À VÉRIFIER (béton d'ancrage à 107,7 %" in code and "Périmètre : EN 1993-1-8 seule" in code and "Répartition élastique" in code
     and "Platine : épaisseur requise 14,0 mm" in code and "moment pris côté comprimé" in code
     and "Tableau 3.3 : conforme" in code and "EC2-4 §7.2.3.2" in code)
 at.session_state["ppb_ui_onglet"] = "Répartition"; run(at)

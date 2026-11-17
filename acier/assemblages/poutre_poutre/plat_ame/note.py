@@ -20,7 +20,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from ndc_pdf.kit import Doc, Frame, chip, mix
 from ndc_pdf.styles import Encre
 from ndc_pdf import data as ndc_data
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
@@ -56,7 +56,7 @@ def lignes_entete(R):
     grugee = bool(N(u.d_nt) or N(u.d_nb))
     l1 = ("Principale " + _prof(R, "P") + " " + u.nu_P
           + "    |    Secondaire " + _prof(R, "S") + " " + u.nu_S + (" · grugée" if grugee else "")
-          + "    |    Plat " + js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl)
+          + "    |    Plat " + nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl)
     l2 = ("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + " · trous Ø" + F(R.d_0, 0)
           + (" surdim." if u.trou != "Normal" else "")
           + "    |    Groupe " + js_str(R.n_1) + " × " + js_str(R.n_2) + " (1 plan)"
@@ -91,6 +91,23 @@ def segments_hypotheses(R):
 def lignes_hypotheses(R):
     """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
     return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+
+
+def _deux_lignes(d, txt, police, taille, largeur):
+    """Un avis du bandeau en une ligne, ou en deux s'il ne tient pas (coupé à un « ; », sinon à une espace) : la
+    seconde est rendue entière par l'appelant tant qu'elle tient (``fit`` au-delà) — un avis n'est plus tronqué par
+    « … » dès qu'il s'allonge (la phrase de l'étude du SCI, lot B)."""
+    if d.w(txt, police, taille) <= largeur:
+        return txt, ""
+    for sep, garde in ((" ; ", " ;"), (" ", "")):
+        i = len(txt)
+        while True:
+            i = txt.rfind(sep, 0, i)
+            if i <= 0:
+                break
+            if d.w(txt[:i] + garde, police, taille) <= largeur:
+                return txt[:i] + garde, txt[i + len(sep):]
+    return d.fit(txt, police, taille, largeur), ""
 
 
 def _est_info(R, syn, c):
@@ -157,6 +174,14 @@ class Note:
 
     def alerte(self, a, R):
         return ligne_alerte(a, R)
+
+    def lignes_a_verifier(self, R):
+        """Les lignes « À VÉRIFIER » d'une hypothèse prudente qui change le résultat (aucune par défaut)."""
+        return []
+
+    def alertes_bandeau(self, R):
+        """Les alertes du bandeau (toutes par défaut ; une note peut en ranger une dans ses lignes « À VÉRIFIER »)."""
+        return list(R.alerts)
 
     def __init__(self, R, doc_meta, variante):
         self.R = R; self.doc = doc_meta; self.mode_lignes = variante
@@ -233,17 +258,24 @@ class Note:
         d.line(M, y, W - M, y, S.ink, 1.0)
         y -= 15
         etat_ok = R.verified
-        w = chip(d, M, y - 3.2, "VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ", S.f_v, 6.6, "#FFFFFF", S.ok if etat_ok else S.ko)
+        # « À VÉRIFIER » (ocre) : un contrôle hors périmètre au-delà de 100 % nommé par le moteur (``R.a_verifier``, pied
+        # de poteau — brief v12 § 19.1 point 4) ; jamais « VÉRIFIÉ » en vert dans ce cas
+        a_verif = bool(etat_ok and R.get("a_verifier"))
+        col = S.att if a_verif else (S.ok if etat_ok else S.ko)
+        w = chip(d, M, y - 3.2, "À VÉRIFIER" if a_verif else ("VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ"), S.f_v, 6.6,
+                 "#FFFFFF", col)
         x = M + w + 8
         t1 = "η max " + pct(R.eta_max, 1)
-        d.t(x, y, t1, "Carlito-Bold", 8.6, S.ok if etat_ok else S.ko)
+        d.t(x, y, t1, "Carlito-Bold", 8.6, col)
         x += d.w(t1, "Carlito-Bold", 8.6) + 5
         t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + self.ref(R.gov.ref) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
             t2 += " · Tableau 3.3 non conforme"
-        if R.verified and (R.reserve or R.alerts):
+        if a_verif:
+            t2 += " · à vérifier : " + R.a_verifier
+        elif R.verified and (R.reserve or R.alerts):
             t2 += " · sous réserve des points signalés"
         pieces = []
         for nom, eta, ok, _ in self.SYN.taux_par_element(R):
@@ -255,14 +287,24 @@ class Note:
         for t, f, col in pieces:
             d.t(xr, y, t, f, 8, col)
             xr += d.w(t, f, 8)
-        al = list(R.alerts)
+        # une hypothèse prudente qui CHANGE le résultat (règle 7 du lot B : pied de poteau, calcul manuel), une ligne
+        # ocre, avant les alertes (jamais rangée dans « + n autre(s) point(s) »)
+        for txt in self.lignes_a_verifier(R):
+            y -= 10
+            d.box(M + 1, y - 0.5, 4.2, 4.2, fill=S.att)
+            d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
+        al = self.alertes_bandeau(R)
         for a in al[:3]:
             y -= 10
             titre, det = self.alerte(a, R)
             col = S.ko if a.block else S.att
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=col)
             txt = titre + (" : " + det if det else "")
-            d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
+            l1, l2 = _deux_lignes(d, txt, S.f_b, 6.8, W - 2 * M - 12)
+            d.t(M + 9, y, l1, S.f_b, 6.8, S.ink)
+            if l2:                      # un avis trop long passe à la ligne, il n'est plus coupé (« …mai 20… »)
+                y -= 8.5
+                d.t(M + 9, y, d.fit(l2, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
         if len(al) > 3:
             y -= 9
             d.t(M + 9, y, "+ " + str(len(al) - 3) + " autre(s) point(s) signalé(s).", S.f_b, 6.4, S.mut)
@@ -474,7 +516,7 @@ class PlanPrincipeFP(PlanPrincipe):
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
         cases = [("ASSEMBLAGE", "Poutre–poutre – plat d'âme soudé", ident or "—", 0.185),
                  ("POUTRES", "P : " + _prof(R, "P") + " " + u.nu_P, "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
-                 ("PLAT", js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl,
+                 ("PLAT", nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl,
                   "zp " + F(N(u.z_C), 0) + " mm", 0.165),
                  ("FIXATIONS", fix, vis, 0.27),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),

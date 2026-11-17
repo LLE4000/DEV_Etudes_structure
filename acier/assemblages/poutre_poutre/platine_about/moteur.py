@@ -29,7 +29,7 @@ import math
 from acier.bibliotheques import DB, PERSO, find, idx
 from acier.assemblages import materiau as MT
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
-from acier.formats import F, f0
+from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from .entrees import defaults, NUM, MODE_PREDIM, NAT_TYING
@@ -62,7 +62,9 @@ def tp_ductile(d, fub, fy_p):
 def coef_pleine_resistance(fy, fu, bw, gM2, gM0=1.0):
     """a/tw de la PLEINE RÉSISTANCE d'un double cordon sur une âme tendue :
     βw·γM2·fy/(√2·fu·γM0) — redonne les 0,46 / 0,48 / 0,55 du guide
-    (MSB P5 §2.2) en S235 / S275 / S355."""
+    (MSB P5 §2.2) en S235 / S275 / S355, que le guide calcule avec les fu du
+    tableau 3.1 de l'EN 1993-1-1 (430 et 510 N/mm² en S275 et S355) ; avec les
+    fu de l'ANB (option a, tableau 3.3 ANB : 410 et 470), 0,50 et 0,60."""
     return dv(bw * gM2 * fy, math.sqrt(2) * fu * gM0)
 
 
@@ -671,5 +673,5 @@ def apply_solution(u0, r):
 
 def solution_label(r):
     """« M20, 3 rangées, platine 190 × 150 × 10 »."""
-    return (r.b["n"] + ", " + js_str(r.n) + " rangées, platine " + js_str(r.hp) + " × "
-            + js_str(r.prop.bp) + " × " + js_str(r.prop.tp))
+    return (r.b["n"] + ", " + js_str(r.n) + " rangées, platine " + nb(r.hp) + " × "
+            + nb(r.prop.bp) + " × " + nb(r.prop.tp))

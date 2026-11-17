@@ -26,6 +26,7 @@ l'EN 1993-1-8 ne la fixe pas et l'ANB belge n'a pas été consultée — point
 P-9 de l'étude. Texte NBN payant non consulté ici, valeurs modifiables.
 """
 from acier.bibliotheques import DB, PERSO, noms
+from acier.assemblages import ductilite as DU
 
 MODE_VERIF = "VÉRIFICATION"
 MODE_PREDIM = "PRÉDIMENSIONNEMENT"
@@ -194,7 +195,7 @@ GROUPES = [
          f=[_c("hp_u", "Hauteur du plat hp", un="mm",
                h="Recommandation des guides : hp ≥ 0,6·h de la portée (maintien en torsion)."),
             _c("tp_u", "Épaisseur du plat tp", un="mm",
-               h="Ductilité (rotule par ovalisation) : tp ≤ 0,5·d du boulon (SCI P358 / MSB P5)."),
+               h=DU.texte_aide()),
             _c("bp_u", "Largeur du plat bp (depuis la face d'appui)", un="mm"),
             _c("z_C", "Dessus de la poutre portée → dessus du plat zp", un="mm"),
             _c("nu_pl", "Nuance d'acier du plat", "s", ACIERS)]),

@@ -48,6 +48,7 @@ import json
 import math
 import os
 import sys
+import re
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(RACINE)
@@ -551,6 +552,43 @@ chk("… et la RÉSISTANCE garde f_y = 265 : VRd,g et Mv,N,Rd identiques dans le
     _a["VRd_g"] == _b["VRd_g"] and _a["Mv_N"] == _b["Mv_N"])
 _c = MC.section_grugee(_p600, 440.0, 40, 0, 1.0, 250.0, True, fy_nuance=460.0)
 chk("S460 N/NL de 19 mm (f_y = 440) : « NON VALIDE : nuance > S355 » (la nuance, pas la f_y)", _c["domaine"] == "nuance_haute")
+
+# ================================================================ lot B
+print("\n=== Lot B (brief v12 § 19.2) : d'où viennent 0,46 / 0,48 / 0,55 — les docstrings et ERGONOMIE.md le disent ===")
+from acier.assemblages.poutre_poutre.platine_about import moteur as PAB_  # noqa: E402
+
+
+def ctl_textes_pleine_resistance(docs, ergo) -> list:
+    """Les docstrings des deux copies de ``coef_pleine_resistance`` nomment la source des coefficients du guide (les f_u du
+    tableau 3.1 de l'EN 1993-1-1, 430 et 510) ; ERGONOMIE.md n'imprime plus « 0,55·tw = 4,7 mm » comme texte actuel :
+    seulement dans le relevé DATÉ du 01/11/2026, gardé tel quel (une mesure datée ne se réécrit pas) et suivi de sa
+    révision datée du 16/11 qui dit « 0,60·tw = 5,1 mm »."""
+    manque = [n for n, d in docs.items() if "tableau 3.1" not in d or "430 et 510" not in d]
+    debut = ergo.find("**Textes finaux (relancés le 01/11/2026")
+    for m in re.finditer("0,55·tw = 4,7 mm", ergo):
+        suite = ergo[m.end():m.end() + 600]
+        if debut < 0 or m.start() < debut or "*Révision du 16/11/2026" not in suite or "0,60·tw = 5,1 mm" not in suite:
+            manque.append("ERGONOMIE.md : 0,55·tw hors du relevé daté")
+    if "Fb,Rd, 0,55·tw (tables" in ergo:
+        manque.append("ERGONOMIE.md : 0,55·tw (tables")
+    if "pleine résistance 0,55·tw = 4,7 mm ;" not in ergo:
+        manque.append("ERGONOMIE.md : relevé daté du 01/11 réécrit")
+    return manque
+
+
+with open(os.path.join(RACINE, "docs", "assemblages", "ERGONOMIE.md"), encoding="utf-8") as f_e:
+    ERGO = f_e.read()
+DOCS_K = {"mecanique": MC.coef_pleine_resistance.__doc__ or "", "platine_about": PAB_.coef_pleine_resistance.__doc__ or ""}
+chk("docstrings de coef_pleine_resistance (mecanique, platine_about) : « tableau 3.1 », « 430 et 510 » ; ERGONOMIE.md : 0,60·tw",
+    not ctl_textes_pleine_resistance(DOCS_K, ERGO), ctl_textes_pleine_resistance(DOCS_K, ERGO))
+_rouges = ctl_textes_pleine_resistance({k: v.split(", calculés")[0].split(", que le guide")[0] for k, v in DOCS_K.items()},
+                                       ERGO.replace("0,60·tw = 5,1 mm", "0,55·tw = 4,7 mm"))
+chk("mutation « les textes d'avant » (docstring sans la source, 0,55·tw = 4,7 mm) : le contrôle rougit",
+    {"mecanique", "platine_about"} <= set(_rouges) and any(r.startswith("ERGONOMIE") for r in _rouges), _rouges)
+chk("mutation « relevé daté du 01/11 réécrit en 0,60·tw » (une mesure datée ne se réécrit pas) : le contrôle rougit",
+    ctl_textes_pleine_resistance(DOCS_K, ERGO.replace("pleine résistance 0,55·tw = 4,7 mm ;",
+                                                       "pleine résistance 0,60·tw = 5,1 mm ;"))
+    == ["ERGONOMIE.md : relevé daté du 01/11 réécrit"])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -884,7 +884,7 @@ def _calculer(etat: Dict, cas: Dict, verifier: bool = True) -> Dict:
     try:
         plancher, charges, reps, params, index = ET.construire(etat, cas)
     except Exception as e:  # noqa: BLE001 — une note qui ne se construit pas se DIT, l'écran reste utilisable
-        return {"erreur": f"Donnée manquante : {e}"}
+        return {"erreur": f"Donnée manquante : {motif_calcul(etat, cas, e)}"}
     # les fiches d'acier enregistrées avec le nombre du nom quand la table donne moins (etat.avis_materiau) : un AVIS
     out = {"plancher": plancher, "charges": charges, "reps": reps, "params": params, "index": index,
            "avis": ET.avis_materiau(etat, cas)}
@@ -892,8 +892,25 @@ def _calculer(etat: Dict, cas: Dict, verifier: bool = True) -> Dict:
         try:
             out["res"] = V.verifier(plancher, charges, reps, params)
         except Exception as e:  # noqa: BLE001 — l'écran d'origine s'arrêtait sur l'exception
-            out["erreur"] = f"Calcul impossible : {e}"
+            out["erreur"] = f"Calcul impossible : {motif_calcul(etat, cas, e)}"
     return out
+
+
+# les messages de PYTHON (en anglais) d'une conversion de nombre ratée : ils ne s'écrivent jamais à l'écran
+_MOTIFS_PYTHON = ("could not convert", "invalid literal", "unsupported operand")
+
+
+def motif_calcul(etat: Dict, cas: Dict, e: Exception) -> str:
+    """Ce que « Calcul impossible » (ou « Donnée manquante », à la construction) dit, en FRANÇAIS (lot B, brief v12
+    § 19.2) : une fiche employée dont une donnée n'est pas un nombre (« la fiche « Tôle abc » a une résistance f illisible
+    (« abc ») : à corriger dans la fiche ») ; une autre erreur de type ou de conversion (un message de Python, en
+    anglais) : une phrase générale ; sinon le message du moteur, déjà en français."""
+    illisibles = ET.fiches_illisibles(etat, cas)
+    if illisibles:
+        return " ; ".join(illisibles) + " : à corriger dans la fiche."
+    if isinstance(e, TypeError) or (isinstance(e, ValueError) and any(m in str(e) for m in _MOTIFS_PYTHON)):
+        return "une donnée de la note n'est pas un nombre (fichier modifié à la main ?)."
+    return str(e)
 
 
 def _taux(res: Optional[Dict]) -> Optional[float]:
@@ -2182,12 +2199,15 @@ def _options_selecteur(etat: Dict, cas: Dict, role: str) -> List[Tuple[str, str,
         noms = [(n, d) for n, d in dispo.items() if d.get("type") == "plateau"]
         courts = [_court(n, 26) for n, _ in noms]
         for (n, d), c in zip(noms, courts):
-            f = f"f = {_d(d['f'])} MPa" if d.get("f") else ("déclaré rigide" if d.get("rigide_declare") else "f à renseigner")
-            out.append((c if courts.count(c) == 1 else n, f"plateau:{n}", float(d.get("masse") or 0.0),
-                        f"{C.fr(d.get('A', 0), 0)} × {C.fr(d.get('Bp', 0), 0)} × {C.fr(d.get('t', 0), 0)} mm · {f} · {C.esc(d.get('origine', ''))}"))
+            # une donnée illisible d'une fiche (f = « abc ») s'écrit telle quelle (DP._nombre) : le sélecteur s'ouvre
+            f = (f"f = {DP._nombre(d['f'], _d)} MPa" if d.get("f")
+                 else ("déclaré rigide" if d.get("rigide_declare") else "f à renseigner"))
+            dims = " × ".join(C.esc(DP._nombre(d.get(k, 0), lambda x: C.fr(x, 0))) for k in ("A", "Bp", "t"))
+            out.append((c if courts.count(c) == 1 else n, f"plateau:{n}", _masse(d),
+                        f"{dims} mm · {C.esc(f)} · {C.esc(d.get('origine', ''))}"))
         for f in cas.get("filieres", []):
             d = dispo.get(f["nom"], {})
-            out.append((f"Filière {f['id']} · {_court(f['nom'], 16)}", f"filiere:{f['id']}", float(d.get("masse") or 0.0) * f["longueur"],
+            out.append((f"Filière {f['id']} · {_court(f['nom'], 16)}", f"filiere:{f['id']}", _masse(d) * f["longueur"],
                         f"{C.esc(f['nom'])} · L = {_d(f['longueur'], 3)} m · centrée en x = {_d(f['x'], 3)}, y = {_d(f['y'], 3)} m"))
         return sorted(out, key=lambda o: (o[2], o[0]))
     out = []
@@ -2196,8 +2216,16 @@ def _options_selecteur(etat: Dict, cas: Dict, role: str) -> List[Tuple[str, str,
             sec = d.get("section", {})
             prop = (f"I<sub>y</sub> = {C.fr(BIB.profils()[n]['Iy'], 0)} cm⁴ · W<sub>el</sub> = {C.fr(BIB.profils()[n]['Wel'], 1)} cm³"
                     if d.get("origine") == "catalogue" else f"{C.esc(sec.get('profil') or 'rectangle sur champ')} · {C.esc(d.get('materiau', ''))}")
-            out.append((n, n, float(d.get("masse") or 0.0), prop))
+            out.append((n, n, _masse(d), prop))
     return sorted(out, key=lambda o: (o[2], o[0]))
+
+
+def _masse(d: Dict) -> float:
+    """La masse d'une fiche pour trier le sélecteur ; illisible (« abc », un fichier modifié à la main) : 0."""
+    try:
+        return float(d.get("masse") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _famille_profil(nom: str, d: Dict) -> str:

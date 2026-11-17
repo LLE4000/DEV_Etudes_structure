@@ -702,8 +702,11 @@ for nom, R, u, e in RESULTATS[:40]:
             if not lf or lf[-1]["parts"][0] != "η" or C.lignes_fx(lf) not in fen:
                 defauts.append((nom, "détail", c.key))
     # « Vérifié sous réserve » : seulement sous un verdict vérifié (comme le titre « – sous réserve des alertes » de
-    # l'écran Streamlit, ecran_resultats.py:48 et manuel/ecran.py:349)
-    if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) + bool(PI.note_information(R)):
+    # l'écran Streamlit, ecran_resultats.py:48 et manuel/ecran.py:349). Lot B : sous « À vérifier » (R.a_verifier), ni
+    # « sous réserve » ni phrase d'information — la raison est dans le verdict, l'avis du moteur dit quoi faire
+    a_verif = bool(R.verified and R.get("a_verifier"))
+    if r["resultat"].count('class="msg') != (len(R.alerts) + bool(R.get("reserve") and R.verified and not a_verif)
+                                             + bool(PI.note_information(R) and not a_verif)):
         defauts.append((nom, "alertes", len(R.alerts)))
     S = PI.SMA if PI.CA.est_manuel_R(R) else PI.SCO
     el = A._actif(e)
@@ -729,7 +732,9 @@ chk(f"verdict, lignes par pièce (information en gris), quatre critères, E_d / 
 # hef 100 mm, N = −50 kN, Mx = 10 kNm) sous un verdict « vérifié » — c'est le PÉRIMÈTRE (le béton d'ancrage n'entre pas
 # dans le verdict, comme dans l'écran Streamlit), pas un défaut du calcul : la ligne le dit et ne montre aucun taux ; la
 # phrase d'information garde le chiffre et dit « non satisfait » ; au périmètre « EC3 + EC2-4 », le même calcul est
-# NON CONFORME et la ligne porte son taux, en rouge.
+# NON CONFORME et la ligne porte son taux, en rouge. Lot B (brief v12 § 19.1 point 4) : ce cas est « À VÉRIFIER » ; le
+# chiffre passe dans le verdict (« à vérifier : béton d'ancrage à 454,0 %, hors périmètre EC3 »), la phrase
+# d'information ne le redit plus (le harnais suit).
 e = neuf(True)
 for k, v in (("hef", 100.0), ("N_Ed", -50.0), ("Mx_Ed", 10.0)):
     assert A.modifier(e, ["v", k], v) is None
@@ -742,12 +747,13 @@ assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
 R2 = r_de(e2)
 anc2 = [x for x in RX_EL.findall(A.resultat(e2)["resultat"]) if x[2] == "Ancrages"]
 chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous « vérifié » : la ligne dit « hors périmètre » "
-    "et « hors verdict », sans taux ; la phrase d'information dit 454,0 % « non satisfait » ; au périmètre "
-    "« EC3 + EC2-4 », non conforme et la ligne en rouge à 454 %",
+    "et « hors verdict », sans taux ; le verdict dit « à vérifier : béton d'ancrage à 454,0 % » (la phrase d'information "
+    "ne le redit plus) ; au périmètre « EC3 + EC2-4 », non conforme et la ligne en rouge à 454 %",
     R108.verified and pire is not None and round(pire.eta, 2) == 4.54 and anc and anc[0][3] == "c"
     and anc[0][4] == A.SANS_TAUX_INFORMATION and "454" not in r108.split('data-calcul="ancrages"')[1].split('class="el')[0]
     and "hors périmètre" in r108.split('data-calcul="ancrages"')[1][:300]
-    and "à 454,0 % — non satisfait" in texte(r108)
+    and "à vérifier : béton d'ancrage à 454,0 %, hors périmètre EC3" in texte(r108)
+    and "à 454,0 % — non satisfait" not in texte(r108)
     and not R2.verified and anc2 and anc2[0][3] == "r" and anc2[0][4] == f"454{C.NBSP}%",
     (R108.statut, anc, anc2, round(pire.eta, 3) if pire else None))
 rm, rc = A.resultat(neuf()), A.resultat(neuf(True))
@@ -1057,6 +1063,217 @@ class Abime:
 
 
 chk("mutation « N_Ed × 1,0000001 » : le comparateur de parité rougit", bool(comparer_parite(CAS[:6], Abime())))
+
+# =====================================================================================================================
+print("\n=== 10. Lot B : « À vérifier » — un contrôle HORS périmètre au-delà de 100 % (brief v12 § 19.1 point 4) ===")
+# Le périmètre « EC3 » reste celui par défaut ; mais un béton d'ancrage hors périmètre au-delà de 100 % (et, en calcul
+# manuel, les tiges et l'appui fjd) ne laisse plus « Conforme » : bandeau ORANGE « À vérifier », avec la raison courte,
+# à l'écran et dans la note. La note neuve en vérification complète : interaction N / V du béton à 107,65 %.
+import pymupdf  # noqa: E402
+from acier import rapport_projet as RP  # noqa: E402
+from api_web import note_assemblages as NA  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton import moteur as PM_C  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.manuel import moteur as PM_M  # noqa: E402
+from acier.formats import F  # noqa: E402
+
+RAISON_DEFAUT = "béton d'ancrage à 107,7 %, hors périmètre EC3"
+MANUEL_TIGES = dict(ancr="M12", classe="4.6", Mx_Ed=80, tp_u=30)       # traction des tiges 324,6 %
+MANUEL_FJD = dict(beton="C25/30", N_Ed=2000, tp_u=30)                    # pression sous la platine 102,6 % de fjd
+# tiges hors de l'échelle de l'écran : l'ancien formateur F(η·100) écrivait « tiges à 1059,4 % » (contre-vérification 2)
+MANUEL_TIGES_999 = dict(ancr="M12", classe="4.6", Mx_Ed=200, tp_u=60)
+
+
+def _manuel(**v):
+    e = neuf()
+    for k, x in v.items():
+        assert A.modifier(e, ["v", k], x) is None, k
+    return e
+
+
+def _vue(e):
+    el = A._actif(e)
+    b = A._bilan(A._cfg(el), el)
+    res = A.resultat(e)
+    return b, plat(res["statut_html"]), plat(res["resultat"])
+
+
+def controles_a_verifier():
+    out = []
+    e = neuf(complet=True)
+    b, st, rs = _vue(e)
+    R = b["R"]
+    out.append((f"note neuve complète : le moteur nomme la raison « {RAISON_DEFAUT} » (l'EC3 reste vérifié)",
+                R.verified and R.a_verifier == RAISON_DEFAUT, R.get("a_verifier")))
+    out.append(("… l'écran : niveau « v », statut « À vérifier » en orange, jamais « Conforme »",
+                b["niveau"] == "v" and b["statut"] == "À vérifier" and "À vérifier" in st and "Conforme" not in st,
+                f"{b['niveau']} / {st}"))
+    # la raison UNE fois (le verdict) ; l'avis du moteur dit quoi faire ; ni message « À vérifier : … » qui la redit, ni
+    # phrase d'information (« en information, hors verdict ») — contre-vérification du bloc : quatre fois avant
+    out.append(("… le verdict dit la raison courte, une seule fois à l'écran (ni message répété, ni phrase d'information)",
+                ("· à vérifier : " + RAISON_DEFAUT) in rs and len(re.findall(r"107,7 ?%", rs)) == 1
+                and "en information, hors verdict" not in rs and "À vérifier : béton" not in rs, rs[:600]))
+    e2 = neuf(complet=True)
+    assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
+    b2, _, _ = _vue(e2)
+    out.append(("périmètre complet (EC3 + EC2-4) : le béton d'ancrage décide — Non conforme (rouge), pas « À vérifier »",
+                b2["niveau"] == "r" and not b2["R"].a_verifier, b2["niveau"]))
+    e3 = neuf(complet=True)
+    assert A.modifier(e3, ["v", "bc_u"], 1400) is None and A.modifier(e3, ["v", "lc_u"], 1400) is None
+    b3, st3, _ = _vue(e3)
+    out.append(("massif 1 400 × 1 400 : béton d'ancrage sous 100 % — Conforme (aucune raison)",
+                b3["niveau"] in ("p", "f") and not b3["R"].a_verifier and "Conforme" in st3, f"{b3['niveau']} {st3}"))
+    bm, _, _ = _vue(neuf())
+    out.append(("calcul manuel, note neuve : tiges et appui sous 100 % — Conforme", bm["niveau"] in ("p", "f")
+                and not bm["R"].a_verifier, bm["niveau"]))
+    bt, stt, rst = _vue(_manuel(**MANUEL_TIGES))
+    out.append(("calcul manuel, M12 4.6 sous Mx = 80 kNm : platine vérifiée, tiges à 324,6 % — « À vérifier »",
+                bt["R"].verified and bt["niveau"] == "v" and bt["R"].a_verifier
+                == "tiges à 324,6 %, hors calcul manuel" and "à vérifier : tiges à 324,6 %, hors calcul manuel" in rst
+                and bt["R"].statut == "PLATINE À VÉRIFIER (tiges à 324,6 %, hors calcul manuel)",
+                f"{bt['niveau']} {bt['R'].get('a_verifier')}"))
+    bf, _, _ = _vue(_manuel(**MANUEL_FJD))
+    out.append(("calcul manuel, C25/30 sous N = 2 000 kN : appui fjd à 102,6 % — « À vérifier »",
+                bf["R"].verified and bf["niveau"] == "v"
+                and bf["R"].a_verifier == "appui fjd à 102,6 %, hors calcul manuel",
+                f"{bf['niveau']} {bf['R'].get('a_verifier')}"))
+    # un taux hors de l'échelle de l'écran : le formateur de l'écran (pct), jamais « 1550,4 % » ni « 100000000000,0 % »
+    e5 = neuf(complet=True)
+    for k, x in (("bc_u", 520), ("lc_u", 520), ("hef", 100)):
+        assert A.modifier(e5, ["v", k], x) is None, k
+    r5 = r_de(e5)
+    out.append(("massif 520 × 520, hef = 100 : « béton d'ancrage au-delà de 999 %, hors périmètre EC3 » (pct, l'échelle "
+                "de l'écran)", r5.a_verifier == "béton d'ancrage au-delà de 999 %, hors périmètre EC3", r5.get("a_verifier")))
+    # … et en calcul manuel (manuel/moteur.a_verifier_manuel) : le même formateur
+    b9, _, _ = _vue(_manuel(**MANUEL_TIGES_999))
+    out.append(("calcul manuel, M12 4.6 sous Mx = 200 kNm, tp = 60 : « tiges au-delà de 999 %, appui fjd à 131,0 %, hors "
+                "calcul manuel » (pct, l'échelle de l'écran)", b9["niveau"] == "v" and b9["R"].a_verifier
+                == "tiges au-delà de 999 %, appui fjd à 131,0 %, hors calcul manuel", b9["R"].get("a_verifier")))
+    # deux assemblages : le statut de la NOTE est le moins bon — « À vérifier » passe avant « Conforme »
+    e4 = {"version": 1, "assemblages": [A.nouvel_assemblage("platine_beton"), copy.deepcopy(e["assemblages"][0])],
+          "actif": 0}
+    e4 = A.normaliser(e4)
+    out.append(("note de deux pieds (manuel conforme + complet à vérifier) : statut de la note « À vérifier »",
+                "À vérifier" in plat(A.resultat(e4)["statut_html"]), plat(A.resultat(e4)["statut_html"])))
+    # la note PDF : bandeau, conclusion et récapitulatif
+    doc = pymupdf.open(stream=NA.document(e, {"nom_projet": "Essai"}), filetype="pdf")
+    txt = "".join(p.get_text() for p in doc).replace(" ", "").replace("\n", "")
+    out.append(("note PDF : récapitulatif « À VÉRIFIER », bandeau « À VÉRIFIER » et conclusion avec la raison",
+                txt.count("ÀVÉRIFIER") >= 3 and ("PIEDDEPOTEAUÀVÉRIFIER:" + RAISON_DEFAUT.replace(" ", "")) in txt
+                and "PIEDDEPOTEAUVÉRIFIÉ" not in txt, txt[:300]))
+    return out
+
+
+for nom, cond, info in controles_a_verifier():
+    chk(nom, cond, info)
+
+
+def _sans_raison(on):
+    """Le moteur complet ne nomme plus la raison (l'ancien bandeau vert « Conforme »)."""
+    if on:
+        _sans_raison.avant = PM_C.compute
+
+        def c(u=None, *a, **k):
+            R = _sans_raison.avant(u, *a, **k)
+            R.a_verifier = ""
+            R.statut = R.statut.replace("À VÉRIFIER", "VÉRIFIÉ")
+            return R
+        PM_C.compute = c
+    else:
+        PM_C.compute = _sans_raison.avant
+
+
+def _patch(cible, attr, valeur):
+    def mut(on):
+        if on:
+            mut.avant = getattr(cible, attr)
+            setattr(cible, attr, valeur)
+        else:
+            setattr(cible, attr, mut.avant)
+    return mut
+
+
+for nom, mut in [("le moteur complet ne nomme plus la raison (bandeau vert « Conforme »)", _sans_raison),
+                 ("l'écran ignore la raison (niveau du taux seul)",
+                  _patch(A, "niveau_R", lambda R: "r" if not R.verified else C.niveau(A.eta_R(R)))),
+                 ("béton d'ancrage compté dans le verdict au périmètre EC3", _patch(PM_C, "ANCRAGE_BETON", frozenset())),
+                 ("calcul manuel : tiges et fjd hors verdict ignorés", _patch(PM_M, "HORS_VERDICT", ())),
+                 ("récapitulatif : « Sous réserve » au lieu de « À vérifier »",
+                  _patch(RP, "etat_de", lambda R: "err" if R is None else ("att" if R.verified else "ko"))),
+                 ("la raison redite par un message « À vérifier : … » (quatre fois à l'écran)",
+                  _patch(A, "_messages", lambda cfg, R, f=A._messages: f(cfg, R) + (
+                      C.message(f"À vérifier : {C.esc(R.a_verifier)}.") if R.get("a_verifier") else ""))),
+                 ("la phrase d'information gardée sous « À vérifier »",
+                  _patch(A, "_messages", lambda cfg, R, f=A._messages: f(cfg, R) + (
+                      C.message(C.esc(cfg.note_information(R))) if R.get("a_verifier") else ""))),
+                 ("pourcentage écrit par F(η·100) (« 1550,4 % »), pas par le formateur de l'écran",
+                  _patch(PM_C, "a_pct", lambda e, n=0: "à " + F(e * 100, n) + " %")),
+                 ("calcul manuel : pourcentage écrit par F(η·100) (« tiges à 1059,4 % »), pas par le formateur de l'écran",
+                  _patch(PM_M, "a_pct", lambda e, n=0: "à " + F(e * 100, n) + " %")),
+                 ("calcul manuel : statut « (calcul manuel : … hors périmètre du calcul manuel) »",
+                  _patch(PM_M, "a_verifier_manuel", lambda R, f=PM_M.a_verifier_manuel: f(R).replace(
+                      "hors calcul manuel", "hors périmètre du calcul manuel")))]:
+    mut(True)
+    try:
+        rouges = [n for n, c, _ in controles_a_verifier() if not c]
+    except Exception as ex:  # noqa: BLE001
+        rouges = [f"exception {type(ex).__name__} : {ex}"]
+    finally:
+        mut(False)
+    chk(f"mutation « {nom} » : les contrôles « À vérifier » rougissent ({len(rouges)})", bool(rouges), str(rouges))
+
+# L'hypothèse prudente du calcul manuel (appui fjd = pression maximale ET N ≤ fjd·Aeff, manuel/moteur.HORS_VERDICT) : quand
+# elle CHANGE le résultat (un seul des deux au-delà de 100 %), la note PDF la dit en UNE ligne « À VÉRIFIER » (règle 7 du
+# lot B ; contre-vérification 2 : elle n'était que dans le code et la doc). L'avis « pression > fjd » (fjd_info) y est
+# rangé avec ses chiffres : le bandeau ne dit pas trois fois l'appui (contre-vérification de la finition).
+LIGNE_HYP_1770 = ("À VÉRIFIER — hypothèse prudente : l'appui fjd compte la pression maximale (107,4 %) et N ≤ fjd·Aeff "
+                  "(67,1 %) ; p max = 21,9 MPa > fjd = 20,4 MPa.")
+AVIS_FJD = "Pression sous la platine supérieure à fjd"
+MANUEL_APPUI_DEUX = dict(beton="C20/25", tp_u=60, N_Ed=4000)            # pression maximale 145,9 %, N ≤ fjd·Aeff 117,6 %
+
+
+from acier.assemblages.pied_poteau.platine_beton.manuel import note as _NM  # noqa: E402
+
+
+def _note_manuelle(**v):
+    doc = pymupdf.open(stream=NA.document(_manuel(**v), {"nom_projet": "Essai"}), filetype="pdf")
+    return " ".join(" ".join(p.get_text() for p in doc).split())
+
+
+def controles_hypothese_appui():
+    out = []
+    t = _note_manuelle(N_Ed=1770)
+    out.append(("calcul manuel, N = 1 770 kN (« Conforme » sans l'hypothèse) : la note dit l'hypothèse prudente en une ligne "
+                "« À VÉRIFIER » (pression maximale 107,4 %, N ≤ fjd·Aeff 67,1 %), l'avis « pression > fjd » rangé dedans avec "
+                "ses chiffres (l'appui dit deux fois : le verdict, cette ligne)", t.count(LIGNE_HYP_1770) == 1
+                and t.count("hypothèse prudente") == 1 and AVIS_FJD not in t and t.count("p max = 21,9 MPa") == 1,
+                re.findall(r".{0,40}(?:hypothèse prudente|" + AVIS_FJD + r").{0,160}", t)))
+    t2 = _note_manuelle(**MANUEL_APPUI_DEUX)
+    out.append(("calcul manuel, C20/25, N = 4 000 kN (les deux contrôles d'appui au-delà de 100 % : « À vérifier » de toute "
+                "façon) : pas de ligne d'hypothèse, l'avis « pression > fjd » à sa place", "PLATINE À VÉRIFIER" in t2
+                and "hypothèse prudente" not in t2 and t2.count(AVIS_FJD) == 1,
+                re.findall(r".{0,40}(?:hypothèse prudente|" + AVIS_FJD + r").{0,120}", t2)))
+    t3 = _note_manuelle()
+    out.append(("calcul manuel, note neuve (appui sous 100 %) : pas de ligne d'hypothèse", "hypothèse prudente" not in t3, ""))
+    return out
+
+
+for nom, cond, info in controles_hypothese_appui():
+    chk(nom, cond, info)
+for nom, mut in [("la note tait l'hypothèse prudente", _patch(PM_M, "hypothese_appui", lambda R: "")),
+                 ("l'hypothèse dite dès qu'un contrôle d'appui dépasse, même quand elle ne change rien",
+                  _patch(PM_M, "hypothese_appui", lambda R, f=PM_M.hypothese_appui: f(R) or (
+                      "À VÉRIFIER — hypothèse prudente : l'appui fjd compte les deux contrôles." if R.verified and any(
+                          not c.ok for c in R.checks if c.key in ("bet", "ncp") and c.active) else ""))),
+                 ("l'avis « pression > fjd » redit sous la ligne de l'hypothèse (l'appui trois fois)",
+                  _patch(_NM.Note, "alertes_bandeau", lambda self, R: list(R.alerts))),
+                 ("l'avis rangé sans ses chiffres (p max, fjd perdus de la note)",
+                  _patch(_NM.Note, "lignes_a_verifier", lambda self, R: [h for h in [PM_M.hypothese_appui(R)] if h]))]:
+    mut(True)
+    try:
+        rouges = [n for n, c, _ in controles_hypothese_appui() if not c]
+    finally:
+        mut(False)
+    chk(f"mutation « {nom} » : le contrôle de l'hypothèse rougit ({len(rouges)})", bool(rouges), str(rouges))
 
 # =====================================================================================================================
 if os.environ.get("CONTRAT_SEPT"):

@@ -159,6 +159,15 @@ def vue_methode(gabarits: Optional[Dict[str, Dict]] = None, dispo: Optional[Dict
     return out + "</div>"
 
 
+def _nombre(x, ecrire) -> str:
+    """Une donnée numérique d'une fiche écrite par ``ecrire`` ; illisible (pas un nombre) : « abc » (illisible)."""
+    try:
+        float(x)
+    except (TypeError, ValueError):
+        return f"« {x} » (illisible)"
+    return ecrire(x)
+
+
 def _tableau_bibliotheque(gabarits: Dict[str, Dict], dispo: Dict[str, Dict], hourdis: Dict[str, Dict]) -> str:
     """Les données de bibliothèque (engins, plateaux, hourdis, profilés de filière) et leurs SOURCES — le tableau de
     l'onglet Méthode de l'écran d'origine, avec la vignette de chaque engin."""
@@ -169,9 +178,11 @@ def _tableau_bibliotheque(gabarits: Dict[str, Dict], dispo: Dict[str, Dict], hou
         lignes.append((f'<span class="chp-pic">{pictogramme(g, 60, 38)}</span>', nom, typ, app, g.get("source") or "—"))
     for nom, d in dispo.items():
         if d.get("type") == "plateau":
-            f = f"f = {C.nb(d['f'])} MPa" if d.get("f") else "f à renseigner"
-            lignes.append(("", nom, f"plateau · {d.get('origine', '')}", f"{C.fr(d.get('A', 0), 0)} × {C.fr(d.get('Bp', 0), 0)} × {C.fr(d.get('t', 0), 0)} mm · {f}",
-                           d.get("source") or "—"))
+            # lot B (brief v12 § 19.2) : une donnée illisible d'une fiche (fichier modifié à la main : f = « abc ») est écrite
+            # telle quelle, entre guillemets — la vue s'affiche (elle levait ValueError et l'écran entier tombait)
+            f = f"f = {_nombre(d['f'], C.nb)} MPa" if d.get("f") else "f à renseigner"
+            dims = " × ".join(_nombre(d.get(k, 0), lambda x: C.fr(x, 0)) for k in ("A", "Bp", "t"))
+            lignes.append(("", nom, f"plateau · {d.get('origine', '')}", f"{dims} mm · {f}", d.get("source") or "—"))
         elif d.get("origine") == "fiche":
             sec = d.get("section", {})
             txt = sec.get("profil") or f"rectangle {C.nb(sec.get('b'))} × {C.nb(sec.get('h'))} mm sur champ"

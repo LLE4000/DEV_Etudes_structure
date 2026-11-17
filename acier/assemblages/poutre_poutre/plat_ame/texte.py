@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 from acier.js import js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from . import synthese, formules
 from .notation import ref_courte
 
@@ -30,9 +30,9 @@ def construire_texte(R, complet=False):
          + (" — " + R.gov.label if R.gov else ""), ""]
     L += ["Données : principale " + str(u.prof_P) + " " + str(u.nu_P) + " ; secondaire "
           + str(u.prof_S) + " " + str(u.nu_S)
-          + " ; plat " + js_str(R.h_p) + "x" + js_str(R.b_p) + "x" + js_str(R.t_p) + " " + str(u.nu_pl)
+          + " ; plat " + nb(R.h_p) + "x" + nb(R.b_p) + "x" + nb(R.t_p) + " " + str(u.nu_pl)
           + " ; boulons " + R.boulon + " " + str(u.classe) + " (" + js_str(R.n_1) + " × " + js_str(R.n_2) + ")"
-          + " ; a = " + js_str(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
+          + " ; a = " + nb(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
           + (" ; NEd = " + F(u.N_Ed, 1) + " kN" if u.N_Ed else "")
           + (" ; MEd = " + F(u.M_Ed, 2) + " kNm" if u.M_Ed else ""),
          "z = " + F(R.zeff, 1) + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm ; Ip = "

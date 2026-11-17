@@ -37,7 +37,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find
 from acier.js import AttrDict, N
-from acier.formats import F
+from acier.formats import F, a_pct, pct
 from acier.resultats import Verification, Alerte, Pince
 from .. import composants as CP
 from .. import equilibre as EQ
@@ -52,6 +52,38 @@ from .conversion import disposition_reguliere
 
 GROUPES_VERIF = ("Platine", "Trous", "Tiges", "Appui")
 INFO_SEUL = frozenset({"ta", "tv", "tvn", "bet", "ncp"})      # information : hors verdict
+# ce qui, hors du verdict, au-delà de 100 %, met la platine « À VÉRIFIER » (brief v12 § 19.1 point 4) : (mot, clés).
+# À VÉRIFIER (propriétaire) : « fjd du mode manuel » — l'hypothèse prudente prend les DEUX contrôles d'appui, la
+# pression maximale élastique (bet, celle de l'avis « fjd_info ») et la compression plastique N ≤ fjd·Aeff (ncp) ; le
+# mode complet range bet parmi les méthodes plus prudentes (hors verdict), mais le calcul manuel n'a aucun contrôle
+# d'appui dans son verdict : bet n'y double rien.
+HORS_VERDICT = (("tiges", ("ta", "tv", "tvn")), ("appui fjd", ("bet", "ncp")))
+
+
+def a_verifier_manuel(R):
+    """La raison courte d'une platine « À VÉRIFIER » en calcul manuel (« tiges à 112,3 %, hors calcul manuel ») : le
+    plus fort taux de chaque groupe hors verdict (tiges, appui fjd) qui dépasse 100 % ; « » sinon. Le pourcentage par
+    ``pct``, le formateur de l'écran (« au-delà de 999 % »)."""
+    parts = []
+    for mot, cles in HORS_VERDICT:
+        ko = [c for c in R.checks if c.key in cles and c.active and not c.ok]
+        if ko:
+            parts.append(mot + " " + a_pct(max(c.eta for c in ko), 1))
+    return (", ".join(parts) + ", hors calcul manuel") if parts else ""
+
+
+def hypothese_appui(R):
+    """La ligne « À VÉRIFIER » de l'hypothèse prudente sur l'appui fjd (HORS_VERDICT : bet ET ncp), quand elle CHANGE le
+    résultat — platine vérifiée et un seul des deux contrôles d'appui au-delà de 100 % (l'autre lecture laisserait
+    « Conforme ») ; « » sinon. La note la dit en une ligne (règle 7 du lot B)."""
+    cs = [c for c in R.checks if c.key in ("bet", "ncp") and c.active]
+    if not R.verified or sum(1 for c in cs if not c.ok) != 1:
+        return ""
+    nom = {"bet": "la pression maximale", "ncp": "N ≤ fjd·Aeff"}
+    return ("À VÉRIFIER — hypothèse prudente : l'appui fjd compte " + " et ".join(
+        nom[c.key] + " (" + pct(c.eta, 1) + ")" for c in sorted(cs, key=lambda c: c.key)) + ".")
+
+
 CRITERES_TP = ("T", "S", "c", "b")
 REF_T62 = "EN 1993-1-8 §6.2.4, Tableau 6.2 ; longueurs efficaces dérivées du Tableau 6.6, par boulon"
 REF_SEC = "Section au nu de la paroi, diffusion à 45° (calcul classique) ; EN 1993-1-8 §6.2.4 (Mpl)"
@@ -636,12 +668,12 @@ def compute(u0=None, materiau=None):
        "EN 1993-1-8 §6.2.8.2 et §6.2.5", "EC", N_ > 0 and not plein,
        "Aeff = parois élargies de c, découpées par la platine", f"c = {F(R.c, 1)} mm ; Aeff = {F(S['A_bandes'] / 100, 0)} cm²")
     if R.soulevement and R.T_max > R.Ft_anc / 1e3 + 1e-9:
-        al("tige_info", "Un boulon dépasse sa résistance en traction (acier) — information : le verdict porte sur "
-           "la platine, les ancrages relèvent de leur logiciel.", False, ["ancr", "classe"],
+        al("tige_info", "Un boulon dépasse sa résistance en traction (acier), hors du verdict de la platine — à "
+           "vérifier : les ancrages relèvent de leur logiciel.", False, ["ancr", "classe"],
            f"T max = {F(R.T_max, 1)} kN > {F(R.Ft_anc / 1e3, 1)} kN", elems=["anchors"])
     if R.eq_ok and R.pmax > R.fjd + 1e-9:
-        al("fjd_info", "La pression sous la platine dépasse fjd — information : le béton d'appui relève de la "
-           "vérification complète.", False, ["beton", "bc_u", "lc_u"],
+        al("fjd_info", "La pression sous la platine dépasse fjd, hors du verdict de la platine — à vérifier : le "
+           "béton d'appui relève de la vérification complète.", False, ["beton", "bc_u", "lc_u"],
            f"p max = {F(R.pmax, 1)} MPa > fjd = {F(R.fjd, 1)} MPa", elems=["pedestal"])
 
     # ------------------------------------------------------------ synthèse
@@ -658,6 +690,12 @@ def compute(u0=None, materiau=None):
     R.eta_max = gov.eta if gov else 0.0
     R.all_ok = all(c.ok for c in act if c.key not in R.info_keys)
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
-    R.statut = ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel)"
+    # Lot B (brief v12 § 19.1 point 4) : les tiges et l'appui fjd, hors du verdict du calcul manuel, qui dépassent
+    # 100 % ne laissent plus « Conforme » : « À VÉRIFIER », avec la raison courte (``R.a_verifier``)
+    R.a_verifier = a_verifier_manuel(R)
+    if R.verified and R.a_verifier:
+        R.statut = "PLATINE À VÉRIFIER (" + R.a_verifier + ")"
+    else:
+        R.statut = ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel)"
     R.reserve = any(a.id in ("coin", "plein", "tige_info", "fjd_info") for a in R.alerts)
     return R

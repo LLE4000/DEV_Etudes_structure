@@ -605,17 +605,87 @@ def ctl_hauteur_negative() -> bool:
         c["geometrie"] = {**c["geometrie"], "H": h}
         return ET.verifier(c)
     r, r1, r0, rv = avec_h(-1100.0), avec_h(-1.0), avec_h(1100.0), avec_h(None)
-    return (r["statut"] == ET.REFUS and "Refus : hauteur négative (H = -1100 mm)" in r["messages"] and r["taux_max"] is None
+    # lot B (brief v12 § 19.2) : le nombre s'écrit à la française (acier.formats.f0 : signe « − ») — le harnais suit
+    return (r["statut"] == ET.REFUS and "Refus : hauteur négative (H = −1100 mm)" in r["messages"] and r["taux_max"] is None
             and not r["elements"] and r["montant"] is None and r1["statut"] == ET.REFUS
-            and "Refus : hauteur négative (H = -1 mm)" in r1["messages"]
+            and "Refus : hauteur négative (H = −1 mm)" in r1["messages"]
             and r0["statut"] != ET.REFUS and r0["taux_max"] is not None and rv["statut"] != ET.REFUS
             and pres(rv["taux_max"], r0["taux_max"]) and not any("hauteur négative" in m for m in r0["messages"]))
 
 
 chk("E6 · hauteur négative (H = −1100 mm, −1 mm) : refus nommé, aucun calcul rendu ; H = 1100 mm inchangé", ctl_hauteur_negative())
-with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("    if H < 0:\n", "    if False:\n"),
-                                                            ('    if ana["messages"] or H < 0:\n', '    if ana["messages"]:\n')])):
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("    if H <= 0:\n", "    if False:\n"),
+                                                            ('    if ana["messages"] or H <= 0:\n', '    if ana["messages"]:\n')])):
     chk("mutation de source « hauteur négative calculée » (le défaut d'avant) : le contrôle rougit", not ctl_hauteur_negative())
+
+print("\n=== 13. Lot B (brief v12 § 19.1 point 8, § 19.2) : hauteur nulle refusée, champ vide = 1 100 mm dit, nombres à la française ===")
+
+
+def ctl_hauteur_nulle_vide() -> bool:
+    """H = 0 : refus nommé « Refus : hauteur nulle (H = 0 mm) », comme une hauteur négative (il était pris pour 1 100 mm
+    sans message) ; champ VIDE (None ou « ») : 1 100 mm, et le message le dit ; H = −1100,5 : « H = −1100,5 mm » (et non
+    « -1100.5 »)."""
+    def avec_h(h):
+        c = cas()
+        c["geometrie"] = {**c["geometrie"], "H": h}
+        return ET.verifier(c)
+    r0, rv, rs, rd, r5 = avec_h(0.0), avec_h(None), avec_h(""), avec_h(1100.0), avec_h(-1100.5)
+    return (r0["statut"] == ET.REFUS and "Refus : hauteur nulle (H = 0 mm)" in r0["messages"] and r0["taux_max"] is None
+            and not r0["elements"]
+            and rv["statut"] != ET.REFUS and rv["geometrie"]["H"] == 1100.0 and rv["geometrie"]["H_defaut"]
+            and ET.MSG_H_DEFAUT in rv["messages"] and ET.MSG_H_DEFAUT == "Hauteur non saisie : H = 1\u202f100 mm par défaut"
+            and rs["geometrie"]["H_defaut"] and pres(rv["taux_max"], rd["taux_max"])
+            and not rd["geometrie"]["H_defaut"] and ET.MSG_H_DEFAUT not in rd["messages"]
+            and "Refus : hauteur négative (H = −1100,5 mm)" in r5["messages"])
+
+
+chk("H = 0 refusé (« hauteur nulle ») ; champ vide : 1 100 mm, message « Hauteur non saisie : H = 1 100 mm par défaut » ; "
+    "H = −1100,5 mm écrit à la française", ctl_hauteur_nulle_vide())
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("    if H <= 0:\n", "    if H < 0:\n"),
+                                                            ('    if ana["messages"] or H <= 0:\n', '    if ana["messages"] or H < 0:\n')])):
+    chk("mutation de source « hauteur nulle calculée » (le défaut d'avant) : le contrôle rougit", not ctl_hauteur_nulle_vide())
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("        out[\"messages\"].append(MSG_H_DEFAUT)\n", "        pass\n")])):
+    chk("mutation de source « champ vide pris en silence » : le contrôle rougit", not ctl_hauteur_nulle_vide())
+with mutant(ET, "_verifier", fonction_mutee(ET._verifier, [("(H = {f_ecart(H, 0)} mm)", "(H = {H:g} mm)")])):
+    chk("mutation de source « H = -1100.5 mm » (point décimal) : le contrôle rougit", not ctl_hauteur_nulle_vide())
+
+
+def ctl_refus_virgule() -> bool:
+    """Lot B (brief v12 § 19.2) : une platine de 260,5 mm au-delà du tableau 3.3 ANB — le refus de la table à la virgule."""
+    c = cas()
+    c["fixation"]["platine"]["tp"] = 260.5
+    return "Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y)" in ET.verifier(c)["messages"]
+
+
+chk("platine de 260,5 mm : « Refus : S235 laminé de 260,5 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_y) » (et non 260.5)",
+    ctl_refus_virgule())
+with mutant(ET, "mm_fr", str):
+    chk("mutation « refus de la table relayé tel quel (260.5 mm) » : le contrôle rougit", not ctl_refus_virgule())
+
+
+def ctl_nombres_limites() -> bool:
+    """Lot B (contre-vérification du bloc) : H = −0,04 mm s'écrit « H = −0,04 mm » (et non « −0 mm », la même famille
+    que « 80 mm > 80 mm ») ; H = 0, « H = 0 mm » (et non « 0,000000 ») ; une platine de −2,5 mm, « épaisseur invalide :
+    −2,5 mm » (et non le repr « -2.5 »)."""
+    def avec(h=1100.0, tp=None):
+        c = cas()
+        c["geometrie"] = {**c["geometrie"], "H": h}
+        if tp is not None:
+            c["fixation"]["platine"]["tp"] = tp
+        return ET.verifier(c)["messages"]
+    return ("Refus : hauteur négative (H = −0,04 mm)" in avec(-0.04) and "Refus : hauteur nulle (H = 0 mm)" in avec(0.0)
+            and "Refus : épaisseur invalide : −2,5 mm" in avec(tp=-2.5))
+
+
+chk("H = −0,04 mm écrit « −0,04 » (pas « −0 ») ; H = 0 : « 0 mm » ; platine de −2,5 mm : « épaisseur invalide : −2,5 mm » "
+    "(pas « -2.5 »)", ctl_nombres_limites())
+import acier.formats as FMT  # noqa: E402
+with mutant(ET, "f_ecart", lambda x, ref: FMT.f0(x)):
+    chk("mutation « f0 seul » (« H = −0 mm ») : le contrôle rougit", not ctl_nombres_limites())
+with mutant(FMT, "_valeur", lambda t: t):
+    chk("mutation « f_ecart compare les textes » (« −0 » ≠ « 0 ») : le contrôle rougit", not ctl_nombres_limites())
+with mutant(ET, "acier", fonction_mutee(ET.acier, [('{f_ecart(t, 0)} mm")', '{t!r}")')])):
+    chk("mutation « épaisseur invalide : -2.5 » (repr) : le contrôle rougit", not ctl_nombres_limites())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

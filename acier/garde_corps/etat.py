@@ -28,6 +28,8 @@ from typing import Dict, List, Optional
 from acier import materiaux as MA
 from acier.bibliotheques import DB
 
+from acier.formats import f_ecart, mm_fr
+
 from . import bibliotheque as BI
 from . import charges as CH
 from . import fixation as FX
@@ -136,7 +138,7 @@ def acier(meth: Dict, sec: Optional[Dict] = None, t: Optional[float] = None, pro
         return {"nuance": n, "fy": MA.nominale(n), "fu": MA.fu(n, 16.0), "t": None, "produit": "lamine", "piece": None,
                 "domaine_fy": None, "domaine_fu": None}
     if t <= 0:
-        raise MA.HorsTable(f"épaisseur invalide : {t!r}")
+        raise MA.HorsTable(f"épaisseur invalide : {f_ecart(t, 0)} mm")      # « −2,5 mm », jamais « -2.5 » (lot B, § 19.2)
     return {"nuance": n, "fy": MA.fy(n, t, produit), "fu": MA.fu(n, t, produit), "t": float(t), "produit": produit, "piece": piece,
             "domaine_fy": MA.source(n, t, produit, "fy"), "domaine_fu": MA.source(n, t, produit, "fu")}
 
@@ -347,7 +349,7 @@ def verifier(cas: Dict) -> Dict:
         _verifier(cas, out, pieces)
     except MA.HorsTable as e:
         out.update({"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": []})
-        out["messages"].append(f"Refus : {e}")
+        out["messages"].append(f"Refus : {mm_fr(e)}")              # « 260,5 mm » (lot B, brief v12 § 19.2)
     if not pieces:                   # rien de vérifié (refus avant les sections) : la platine, s'il y en a une lisible
         try:
             pieces.append(acier(meth, t=float((cas["fixation"].get("platine") or {}).get("tp") or 10.0), piece="platine"))
@@ -363,6 +365,11 @@ def verifier(cas: Dict) -> Dict:
     return out
 
 
+# le message d'un champ « hauteur » laissé vide (brief v12 § 19.1 point 8) : la hauteur par défaut, écrite (« 1 100 »,
+# espace fine insécable des milliers, comme les nombres du site)
+MSG_H_DEFAUT = (f"Hauteur non saisie : H = {GE.H_DEFAUT:,.0f} mm par défaut").replace(",", "\u202f")
+
+
 def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
     geom, ch, meth = cas["geometrie"], cas["charges"], cas["methode"]
 
@@ -372,7 +379,11 @@ def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
         pieces.append(a)
         return a["fy"]
     ana = GE.analyser(geom)
-    H = float(geom.get("H") or GE.H_DEFAUT)
+    # lot B (brief v12 § 19.1 point 8) : un champ VIDE prend la hauteur par défaut, et l'écran comme la note le disent ;
+    # une hauteur de 0 mm n'est pas « vide » : elle est refusée, comme une hauteur négative
+    H_saisi = geom.get("H")
+    H_vide = H_saisi is None or (isinstance(H_saisi, str) and not H_saisi.strip())
+    H = GE.H_DEFAUT if H_vide else float(H_saisi)
     systeme = geom.get("systeme", "montants")
     typ_gc = TY.type_de(cas)
     # platine latérale : le montant descend le long du nez de dalle jusqu'au haut de la platine, à d_h sous le dessus de dalle
@@ -382,15 +393,19 @@ def _verifier(cas: Dict, out: Dict, pieces: List[Dict]) -> Dict:
     out.update({"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": [], "messages": list(ana["messages"]),
                  "type": typ_gc, "type_libelle": TY.TYPES[typ_gc]["libelle"],
                  "charges": ch, "charges_tableau": CH.tableau(ch), "cumul": bool(ch.get("cumul")),
-                 "geometrie": {**ana, "H": H, "H_post": H_post, "d_h": d_h, "laterale": laterale, "systeme": systeme, "phrase": GE.phrase(geom, ana)},
+                 "geometrie": {**ana, "H": H, "H_defaut": H_vide, "H_post": H_post, "d_h": d_h, "laterale": laterale, "systeme": systeme,
+                               "phrase": GE.phrase(geom, ana)},
                  "acier": None, "methode": meth,
                  "limites": None, "montants": [], "montant": None, "lisse": None, "remplissage": None, "consoles": [], "console": None,
                  "fixation": None, "masse": 0.0})
-    if H < 0:
+    if H <= 0:
         # (lot A, 3e passe, E6) une hauteur négative n'est pas une géométrie : le moteur rendait M = P·H < 0 et une flèche
-        # admissible H/100 < 0 (« > 999 % ») — un résultat hors du domaine ; refus nommé, comme une géométrie sans travée
-        out["messages"].append(f"Refus : hauteur négative (H = {H:g} mm)")
-    if ana["messages"] or H < 0:
+        # admissible H/100 < 0 (« > 999 % ») — un résultat hors du domaine ; refus nommé, comme une géométrie sans travée.
+        # Lot B (brief v12 § 19.1 point 8 et § 19.2) : 0 mm est refusé de même ; le nombre s'écrit à la française (f_ecart : « −0,04 », jamais « −0 »)
+        out["messages"].append(f"Refus : hauteur {'nulle' if H == 0 else 'négative'} (H = {f_ecart(H, 0)} mm)")
+    elif H_vide:
+        out["messages"].append(MSG_H_DEFAUT)
+    if ana["messages"] or H <= 0:
         return out
     if H > CH.H_MAX_APPLICATION:
         out["messages"].append(f"La charge linéaire s'applique au plus à {CH.H_MAX_APPLICATION / 1000:.2f} m (EN 1991-1-1 §6.4) : "

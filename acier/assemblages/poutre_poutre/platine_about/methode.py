@@ -2,7 +2,7 @@
 """Onglet Méthode : le modèle mécanique de la platine d'about, ses sources
 et ses limites — en toutes lettres."""
 from .notation import NOTATIONS
-from .entrees import PLEINE_RESISTANCE
+from .entrees import PLEINE_RESISTANCE, GUIDE_PLEINE_RESISTANCE
 from acier.assemblages import materiau as MT
 
 METHODE = """
@@ -53,9 +53,8 @@ Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design* §2
   §4.5.3.3 ; gorge minimale §4.5.2 ; **pleine résistance** recommandée par
   le guide : `a ≥ βw·γM2·fy·tw/(√2·fu)`, avec la fy de l'ÂME à son épaisseur
   tw (une exigence de sur-résistance : la plus petite fy du profilé la
-  rendrait moins sévère) — le guide en tire **0,46 / 0,48 / 0,55·tw** en
-  S235 / S275 / S355 avec les fu de l'EN 1993-1-1 (MSB P5 §2.2) ; le site
-  obtient **{PLEINE}** — signalée en alerte.
+  rendrait moins sévère, MSB P5 §2.2) ; le site obtient **{PLEINE}** — signalée en alerte.
+  {GUIDE}.
 
 #### Traction NEd : deux natures
 
@@ -118,7 +117,7 @@ Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI) — §2
 platine d'about de hauteur partielle et §2.4 Worked Example (benchmark du
 module) ; *SCI P358, Joints in Steel Construction: Simple Joints to
 Eurocode 3* ; *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005.
-""".replace("{NUANCES}", MT.texte_nuances()).replace("{PLEINE}", PLEINE_RESISTANCE)
+""".replace("{NUANCES}", MT.texte_nuances()).replace("{PLEINE}", PLEINE_RESISTANCE).replace("{GUIDE}", GUIDE_PLEINE_RESISTANCE)
 # la règle belge des nuances (materiau.py) et la gorge de pleine résistance (entrees.py) : une source chacune
 
 

@@ -48,7 +48,7 @@ from . import etabli_compact as E
 MODULE = "assemblages"
 PAGE = "assemblages"
 GENRE = E.Genre("Assemblages", "l'assemblage", "cet assemblage", "un assemblage")
-CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok"}
+CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok", "v": "warn"}
 # les rubriques SECONDAIRES des sept configurations : les coefficients et le modèle ; le cartouche et l'affichage
 SECONDAIRES = frozenset({"co", "ca"})
 
@@ -825,8 +825,12 @@ def niveau_c(c) -> str:
 
 def niveau_R(R) -> str:
     """La couleur d'un assemblage : son taux maximal, rouge dès que le moteur ne le déclare pas vérifié (géométrie,
-    pinces, alerte bloquante) même sous 100 %."""
-    return "r" if not R.verified else C.niveau(eta_R(R))
+    pinces, alerte bloquante) même sous 100 % ; orange « À vérifier » quand le moteur nomme une raison
+    (``R.a_verifier`` : pied de poteau, un contrôle HORS PÉRIMÈTRE au-delà de 100 % — brief v12 § 19.1 point 4), jamais
+    « Conforme »."""
+    if not R.verified:
+        return "r"
+    return "v" if R.get("a_verifier") else C.niveau(eta_R(R))
 
 
 def markdown(md: str) -> str:
@@ -1355,15 +1359,18 @@ def elements(etat: Dict, bilans: List[Dict]) -> str:
 
 def _messages(cfg: Config, R) -> str:
     out = ""
-    note = getattr(cfg, "note_information", None)
+    # « À vérifier » : le verdict dit la raison, l'avis du moteur (ancr_info, tige_info, fjd_info) dit quoi faire — la
+    # phrase d'information la redirait (une seule fois à l'écran : brief v12, « pas de blabla »)
+    note = None if (R.verified and R.get("a_verifier")) else getattr(cfg, "note_information", None)
     if note and note(R):
         out += C.message(C.esc(note(R)))
     for a in R.alerts:
         titre, det = cfg.N.ligne_alerte(a, R)
         out += C.message(f"<b>{C.esc(titre)}</b>" + (f" — {C.esc(det)}" if det else ""), grave=a.block)
     # « Vérifié sous réserve » ne s'écrit que d'un assemblage VÉRIFIÉ : sous « Non conforme » (une tige hors des
-    # pinces), la phrase contredisait le verdict
-    if R.get("reserve") and R.verified:
+    # pinces), la phrase contredisait le verdict ; « À vérifier » (un contrôle hors périmètre au-delà de 100 %) : sa
+    # raison est dans le verdict, elle ne se répète pas ici
+    if R.get("reserve") and R.verified and not R.get("a_verifier"):
         out += C.message("Vérifié sous réserve : voir les remarques ci-dessus et la fenêtre de la pièce concernée.")
     return out
 
@@ -1390,6 +1397,8 @@ def _verdict(cfg: Config, R, niv: str) -> str:
         motif = " · géométrie non valide"
     elif not R.dist_ok:
         motif = " · pinces ou entraxes non conformes"
+    elif R.verified and R.get("a_verifier"):
+        motif = " · à vérifier : " + R.a_verifier
     elif R.verified and (R.get("reserve") or R.alerts):
         motif = " · sous réserve des alertes"
     suite = cfg.complement_verdict(R) if cfg.complement_verdict else ""
@@ -1415,7 +1424,7 @@ def _statut_note(bilans: List[Dict], niv: str) -> str:
     if len(bilans) < 2:
         return C.statut(niv)
     nivs = [b["niveau"] for b in bilans]
-    return C.statut(next((n for n in ("x", "c", "r", "f") if n in nivs), "p"))
+    return C.statut(next((n for n in ("x", "c", "r", "v", "f") if n in nivs), "p"))
 
 
 def resultat(etat: Dict) -> Dict:

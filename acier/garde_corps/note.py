@@ -205,17 +205,17 @@ class Calcul:
         L = [("Garde-corps", f"{self.type_libelle()} · {geo['phrase']}")]
         if self.systeme() == "mur":
             c = res.get("console") or {}
-            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus du sol · consoles à $e$ = {_g(c.get('e', 0))} mm du mur"))
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm{self.h_defaut()} au-dessus du sol · consoles à $e$ = {_g(c.get('e', 0))} mm du mur"))
             L.append(("Consoles", (c.get("section") or {}).get("nom", "—")))
         elif geo.get("sans_montant"):
-            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la dalle"))
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm{self.h_defaut()} au-dessus de la dalle"))
             L.append(("Montants", "aucun : la main courante porte de mur à mur"))
         elif geo.get("laterale"):
-            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la dalle · descente $d_h$ = {_g(geo['d_h'])} mm jusqu'au haut de la platine latérale : "
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm{self.h_defaut()} au-dessus de la dalle · descente $d_h$ = {_g(geo['d_h'])} mm jusqu'au haut de la platine latérale : "
                                  f"le montant est une console de {_g(geo['H_post'])} mm"))
             L.append(("Montants", (res.get("section_montant") or {}).get("nom", "—")))
         else:
-            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la platine"))
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm{self.h_defaut()} au-dessus de la platine"))
             L.append(("Montants", (res.get("section_montant") or {}).get("nom", "—")))
         li = (res.get("lisse") or {}).get("section") or {}
         L.append(("Main courante", f"{li.get('nom', '—')} · portée {_g(geo['s_max'])} mm, {ME.APPUIS[cas['lisse'].get('appuis', 'deux')]}"))
@@ -248,9 +248,14 @@ class Calcul:
         L.append(("Fixation", self.hyp_fixation()))
         sans = bool(geo.get("sans_montant"))               # sans montant, le bloc « ancrage » dit déjà les réactions des murs
         for msg in [x for x in res.get("messages", []) if not x.startswith("Refus") and not x.startswith("Sans montant") and not x.startswith("Montant scellé")
+                    and not x.startswith("Hauteur non saisie")
                     and not (sans and x.startswith("Ancrage de la main courante dans le mur"))][:2]:
             L.append(("Note", RI.auto(msg)))
         return L
+
+    def h_defaut(self) -> str:
+        """« (champ vide : valeur par défaut) » après la hauteur quand le champ H est resté vide (brief v12 § 19.1 point 8)."""
+        return " (champ vide : valeur par défaut)" if self.res["geometrie"].get("H_defaut") else ""
 
     def hyp_fixation(self) -> str:
         fx = self.cas["fixation"]

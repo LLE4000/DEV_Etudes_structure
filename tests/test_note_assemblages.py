@@ -232,8 +232,11 @@ def controle_cas(liste):
         eta_ecran = pourcent(e["taux"])
         if eta_pdf is None or not (abs(eta_pdf - eta_ecran) < 1.0 or (eta_ecran >= 999 and eta_pdf >= 999)):
             ecarts.append((nom, "η", eta_pdf, e["taux"]))
-        verdict_pdf = re.search(r"^(NON VÉRIFIÉ|VÉRIFIÉ)$", p1, re.M)
-        if not verdict_pdf or (verdict_pdf.group(1) == "NON VÉRIFIÉ") != (e["niveau"] == "r"):
+        # lot B (brief v12 § 19.1 point 4) : « À VÉRIFIER » (ocre) quand l'écran dit « À vérifier » (niveau « v ») —
+        # un contrôle hors périmètre au-delà de 100 % ; le harnais suit (il ne connaissait que VÉRIFIÉ / NON VÉRIFIÉ)
+        verdict_pdf = re.search(r"^(NON VÉRIFIÉ|À VÉRIFIER|VÉRIFIÉ)$", p1, re.M)
+        if not verdict_pdf or (verdict_pdf.group(1) == "NON VÉRIFIÉ") != (e["niveau"] == "r") \
+                or (verdict_pdf.group(1) == "À VÉRIFIER") != (e["niveau"] == "v"):
             ecarts.append((nom, "verdict", verdict_pdf and verdict_pdf.group(1), e["niveau"]))
         # 2c. les taux des pièces de la note (sa ligne « Boulons 71 % Plat 55 % … ») sont tous affichés par l'écran
         # (multiensemble des pourcentages entiers ; l'écran en montre davantage : les critères de la platine du pied de

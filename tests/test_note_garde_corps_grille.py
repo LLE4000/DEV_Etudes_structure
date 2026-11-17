@@ -86,6 +86,10 @@ ECARTS_NOMMES = [
      "σ_adm = f_y/1,5 (156,7 N/mm² pour le S235 jusqu'à 16 mm)",
      "dérivées de la nuance : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235)",
      "lot A, 2e passe (S6) : σ_adm dépend de la nuance ET de l'épaisseur de chaque pièce — tests/test_garde_corps_note.py"),
+    ("Eurocode (ELU)",
+     "Charges × γ_Q = 1,5 ;",
+     "Charges × γ_Q = 1.5 ;",
+     "lot B (brief v12 § 19.2) : γ_Q écrit avec la virgule décimale — tests/test_note_garde_corps_grille.py (mutations)"),
 ]
 
 
@@ -368,6 +372,24 @@ def main():
     chk("mutation « un écart NON nommé » (la phrase de l'écart, le morceau nommé lui-même, une autre section) : (a) rougit par sa "
         "propre comparaison ; sans mutation, l'état ne diffère que par l'écart nommé",
         vert == "nommé" and emp_els["sha"] != r_els["sha"] and all(v not in (None, "nommé") for v in verdicts), (vert, verdicts))
+    # lot B : la même preuve pour l'écart nommé de la page 2 des notes EUROCODE (« γ_Q = 1,5 ») — un état Eurocode qui
+    # tenait ne diffère de la référence que par lui ; un changement NON nommé à côté (même phrase, morceau nommé, autre
+    # section) fait rougir (a)
+    cle_ec = "barreaudage · droite · séparées · platine · eurocode"
+    e_ec = dict(grille())[cle_ec]
+    r_ec = ref["etats"][cle_ec]
+    emp_ec = empreinte(NT.generer_note(e_ec, e_ec["cas"][0], INFOS))
+    vert_ec = comparer_a(e_ec, r_ec, emp_ec)
+    verdicts_ec = []
+    for titre, avant, apres in [("Eurocode (ELU)", "σ_Ed ≤ f_y/γ_M0 (élastique, W_el)", "σ_Ed ≤ f_y/γ_M0 (élastique)"),
+                                ("Eurocode (ELU)", "Charges × γ_Q = 1,5 ;", "Charges × γ_Q = 1,50 ;"),
+                                ("Modèle", "Montant principal : console encastrée en pied", "Montant principal : console ENCASTRÉE en pied")]:
+        with texte_mute(titre, avant, apres):
+            verdicts_ec.append(comparer_a(e_ec, r_ec, empreinte(NT.generer_note(e_ec, e_ec["cas"][0], INFOS))))
+    chk("mutation « un écart NON nommé » à côté de « γ_Q = 1,5 » (même phrase, morceau nommé, autre section) : (a) rougit ; "
+        "sans mutation, l'état Eurocode ne diffère que par l'écart nommé",
+        vert_ec == "nommé" and emp_ec["sha"] != r_ec["sha"] and all(v not in (None, "nommé") for v in verdicts_ec),
+        (vert_ec, verdicts_ec))
 
     # MUTATIONS : (b) doit rougir
     e = dict(grille())["barreaudage · U · cumul · platine · eurocode"]

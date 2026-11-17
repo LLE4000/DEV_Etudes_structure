@@ -22,7 +22,7 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc
 from ndc_pdf import data as ndc_data
-from acier.formats import F
+from acier.formats import F, nb
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
@@ -45,7 +45,7 @@ def lignes_entete(R):
     l1 = ("Poteau " + _prof(R, "P") + " " + u.nu_P + " · appui : " + str(R.appui).lower()
           + "    |    Poutre portée " + _prof(R, "S") + " " + u.nu_S + (" · grugée" if grugee else "")
           + (" · semelles recoupées" if R.ame and N(u.rec_S) > 0 else "")
-          + "    |    Cornières 2 × " + R.corn_txt + " " + u.nu_C + " · hc " + js_str(R.L_C))
+          + "    |    Cornières 2 × " + R.corn_txt + " " + u.nu_C + " · hc " + nb(R.L_C))
     l2 = ("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + " · trous Ø" + F(R.d_0, 0)
           + (" surdim." if u.trou != "Normal" else "")
           + "    |    Groupe S " + js_str(R.n1_S) + " × " + js_str(R.n2_S) + " (2 plans) · "

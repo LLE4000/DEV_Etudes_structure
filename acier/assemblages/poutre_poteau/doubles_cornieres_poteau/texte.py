@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 from acier.js import js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from . import synthese, formules
 from .notation import ref_courte
 
@@ -31,7 +31,7 @@ def construire_texte(R, complet=False):
     L += ["Données : poteau " + str(u.prof_P) + " " + str(u.nu_P) + " ; poutre portée "
           + str(u.prof_S) + " " + str(u.nu_S)
           + " ; appui : " + str(R.appui).lower()
-          + " ; cornières 2 × " + R.corn_txt + " " + str(u.nu_C) + " ; hc = " + js_str(R.L_C) + " mm"
+          + " ; cornières 2 × " + R.corn_txt + " " + str(u.nu_C) + " ; hc = " + nb(R.L_C) + " mm"
           + " ; boulons " + R.boulon + " " + str(u.classe)
           + " (groupe S " + js_str(R.n1_S) + " × " + js_str(R.n2_S)
           + " ; groupe P " + js_str(R.n1_P) + " × " + js_str(R.n2_P) + " par cornière)"

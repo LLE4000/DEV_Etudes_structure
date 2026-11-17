@@ -17,7 +17,7 @@ sous boulons tendus."""
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
@@ -399,7 +399,7 @@ def onglet_predim(R, u, ecrire):
         ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
         ["Cornière proposée", "2 × L" + js_str(p.leg) + "x" + js_str(p.leg) + "x" + js_str(p.tC)
          + " (aile ≥ " + F(p.legreq, 0) + " mm)"],
-        ["Trusquinage gA / gauge p3", js_str(p.gA) + " / " + F(p.p3, 0) + " mm"],
+        ["Trusquinage gA / gauge p3", nb(p.gA) + " / " + F(p.p3, 0) + " mm"],
         ["Taux estimé (boulons, pressions diamétrales de l'âme et du poteau)", pct(p.eta, 1)],
         ["État", p.msg]]))
     st.markdown("#### Épaisseur nécessaire par vérification")
@@ -413,7 +413,7 @@ def onglet_predim(R, u, ecrire):
     for r in rows:
         c = st.columns([1, 0.6, 0.8, 1, 1, 1, 1, 1, 1.3], vertical_alignment="center")
         fort = "**" if r is p.pick else ""
-        vals = (r.b["n"], js_str(r.n), js_str(r.Lc), pct(r.e.bS), pct(r.e.pdS), pct(r.e.bP),
+        vals = (r.b["n"], js_str(r.n), nb(r.Lc), pct(r.e.bS), pct(r.e.pdS), pct(r.e.bP),
                 pct(r.e.pdP), pct(r.eta))
         for cc, v in zip(c[:8], vals):
             cc.markdown(f"{fort}{v}{fort}")

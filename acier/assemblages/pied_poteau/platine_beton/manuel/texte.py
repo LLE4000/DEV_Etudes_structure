@@ -4,7 +4,7 @@ efforts des tiges, chaque boulon tendu (bras, moment, longueur efficace,
 résistance, épaisseur demandée), chaque section au nu, la bande comprimée,
 les trous, l'épaisseur requise, puis les tableaux de vérification."""
 from acier.js import js_str, N
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from .. import formules
 from ..notation import ref_courte
 from . import synthese
@@ -13,15 +13,15 @@ from . import elements as EL
 
 def ligne_donnees(R):
     u = R.u
-    return ("Platine " + js_str(N(u.bp_u)) + "x" + js_str(N(u.lp_u)) + "x" + js_str(N(u.tp_u)) + " " + str(u.nu_pl)
+    return ("Platine " + nb(N(u.bp_u)) + "x" + nb(N(u.lp_u)) + "x" + nb(N(u.tp_u)) + " " + str(u.nu_pl)
             + " ; éléments soudés : " + " + ".join(f"{EL.nom(e)} en ({F(e['x'], 0)} ; {F(e['y'], 0)})" + (" tourné" if e["rot"] else "")
                                                    for e in R.elems)
             + (" ; raidisseurs : " + ", ".join(f"({F(r['x'], 0)} ; {F(r['y'], 0)}) {r['dir']} L {F(r['L'], 0)} t {F(r['t'], 0)}"
                                                for r in R.raid) if R.raid else "")
             + " ; " + js_str(R.n_t) + " boulons " + str(u.ancr) + " " + str(u.classe) + " en "
             + ", ".join(f"({F(t['x'], 0)} ; {F(t['y'], 0)})" for t in R.tiges)
-            + " ; béton " + str(u.beton) + ", massif " + js_str(N(u.bc_u)) + "x" + js_str(N(u.lc_u)) + "x" + js_str(N(u.hc_u))
-            + ", mortier tg = " + js_str(N(u.t_g)) + " mm ; a = " + js_str(N(u.a_w)) + " mm ; N = " + F(u.N_Ed, 1)
+            + " ; béton " + str(u.beton) + ", massif " + nb(N(u.bc_u)) + "x" + nb(N(u.lc_u)) + "x" + nb(N(u.hc_u))
+            + ", mortier tg = " + nb(N(u.t_g)) + " mm ; a = " + nb(N(u.a_w)) + " mm ; N = " + F(u.N_Ed, 1)
             + " kN, Mx = " + F(u.Mx_Ed, 1) + ", My = " + F(u.My_Ed, 1) + " kNm, Vx = " + F(u.Vx_Ed, 1) + ", Vy = "
             + F(u.Vy_Ed, 1) + " kN" + (", T = " + F(u.T_Ed, 2) + " kNm" if N(u.T_Ed) else "")
             + " en (" + F(R.xN, 0) + " ; " + F(R.yN, 0) + ")")

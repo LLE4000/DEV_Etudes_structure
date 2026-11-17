@@ -317,7 +317,9 @@ def tp_ductile(d, fub, fy_p):
 def coef_pleine_resistance(fy, fu, bw, gM2, gM0=1.0):
     """a/tw de la PLEINE RÉSISTANCE d'un double cordon sur une âme tendue :
     βw·γM2·fy/(√2·fu·γM0) — redonne les 0,46 / 0,48 / 0,55 du guide en
-    S235 / S275 / S355.
+    S235 / S275 / S355, calculés par le guide avec les fu du tableau 3.1 de
+    l'EN 1993-1-1 (430 et 510 N/mm² en S275 et S355) ; avec les fu de l'ANB
+    (option a, tableau 3.3 ANB : 410 et 470), le site obtient 0,50 et 0,60.
 
     Référence : MSB Part 5 §2.2 (dérivation d'EN 1993-1-8 §4.5.3.3).
     Origine de la copie : `platine_about`."""

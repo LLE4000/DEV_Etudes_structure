@@ -21,7 +21,7 @@ bord haut). La bascule de mode reprend la disposition (conversion.py).
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit
 from acier.assemblages.ui_commun import (bloc_statut_ligne, badge_nature, tableau_md, tableau_html, taux_html, Html,
                                          legende_natures, expander_perimetre, _esc, C_TRAIT)
@@ -346,8 +346,10 @@ def chips_bandeau(R):
 
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
-    bloc_statut_ligne("ok" if ok else "nok", titre, complement_bandeau(R), chips_bandeau(R))
+    # « À VÉRIFIER » (brief v12 § 19.1 point 4) : R.statut le dit déjà, avec sa raison ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, complement_bandeau(R), chips_bandeau(R))
 
 
 def information(R):
@@ -414,7 +416,7 @@ def _derivee(u):
     def ecrire(k, v):
         if not _appliquer_derivee(k, v, u):
             return None
-        return k.split("_")[0] + " déplacé" if k.endswith(("_u", "_v")) else k + " = " + js_str(v)
+        return k.split("_")[0] + " déplacé" if k.endswith(("_u", "_v")) else k + " = " + (nb(v) if isinstance(v, float) else js_str(v))
     return ecrire
 
 
@@ -601,7 +603,7 @@ def detail_main(R):
 def _parametres_retenus(R):
     u = R.u
     g = [["Mode", "Calcul manuel — critère " + R.plaque["critere"] + " ; appui : " + ("toute la platine" if R.plein else "bande c")],
-         ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
+         ["Platine", nb(N(u.bp_u)) + " × " + nb(N(u.lp_u)) + " × " + nb(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur), fu = " + F(R.fu_p, 0)],
          ["Éléments soudés", " + ".join(f"{EL.nom(e)} en ({F(e['x'], 0)} ; {F(e['y'], 0)})" + (" tourné 90°" if e["rot"] else "") for e in R.elems) or "—"],
          ["Raidisseurs", ", ".join(f"({F(r['x'], 0)} ; {F(r['y'], 0)}) {r['dir']} L {F(r['L'], 0)} t {F(r['t'], 0)}" for r in R.raid) or "—"],

@@ -53,6 +53,9 @@ def _fini(x) -> bool:
     return isinstance(x, numbers.Real) and not isinstance(x, bool) and math.isfinite(x)
 
 
+# (copie NOMMÉE : acier/formats.fixe et formats.nb sont les mêmes, pour les en-têtes, textes et notes des moteurs, qui
+#  n'importent pas l'écran ; tests/test_api_web_assemblages.py § 14 les lie. Une copie, et non un import : charger
+#  acier/formats.py ici l'ajouterait à l'empreinte de TOUS les modules — leurs pastilles « Vérifié » tomberaient)
 def _fixe(x: float, nd: int) -> str:
     """``x`` écrit avec ``nd`` décimales (point décimal), arrondi DEMI VERS L'EXTÉRIEUR sur la valeur binaire exacte :
     la règle des moteurs (``acier.js.to_fixed``), appelée — pas recopiée. La précision décimale est élargie pour qu'un

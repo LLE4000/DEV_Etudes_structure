@@ -30,7 +30,7 @@ import math
 
 from acier.bibliotheques import DB, PERSO, find
 from acier.js import AttrDict, N, dv
-from acier.formats import F
+from acier.formats import F, a_pct
 from acier.resultats import Verification, Alerte, Pince
 from . import composants as CP
 from . import equilibre as EQ
@@ -664,12 +664,19 @@ def compute(u0=None, materiau=None):
        1.0, "-", REF_924 + " §7.2.3.2", "EC", bool(tend) and V_res > 0,
        "βN^1,5 + βV^1,5 ≤ 1 ; βN = max(cône ; arrachement), βV = max(bord ; pry-out)",
        f"βN = {F(bN, 2)} ; βV = {F(bV, 2)}")
+    # Lot B (brief v12 § 19.1 point 4) : le périmètre « EC3 » reste celui par défaut, mais un béton d'ancrage HORS
+    # périmètre au-delà de 100 % ne laisse plus « Conforme » : l'attache est « À VÉRIFIER », avec la raison courte
+    # (``R.a_verifier``, que l'écran et la note écrivent). Les contrôles « pour information » d'une méthode plus prudente
+    # (INFO_SEUL : niveau 2, pression maximale élastique) n'y entrent pas.
+    R.a_verifier = ""
     if R.perim_ec3:
         hors = [c for c in R.checks if c.key in ANCRAGE_BETON and c.active and not c.ok]
         if hors:
             pire_a = max(hors, key=lambda c: c.eta)
-            al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre : " + pire_a.label + " à "
-               + F(pire_a.eta * 100, 0) + " % — en information, le verdict ne le compte pas.", False, ["perim"],
+            # le pourcentage par ``pct``, le formateur de l'écran (« au-delà de 999 % », jamais « 1550,4 % »)
+            R.a_verifier = "béton d'ancrage " + a_pct(pire_a.eta, 1) + ", hors périmètre EC3"
+            al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre EC3 : " + pire_a.label + " "
+               + a_pct(pire_a.eta, 1) + " — à vérifier.", False, ["perim"],
                f"{len(hors)} vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les "
                "compter dans le verdict", elems=["pedestal", "anchors"])
     c_min = min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"])
@@ -737,7 +744,10 @@ def compute(u0=None, materiau=None):
     R.eta_max = gov.eta if gov else 0.0
     R.all_ok = all(c.ok for c in act if c.key not in R.info_keys)
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
-    R.statut = ("PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ") \
-        + (" (EC3 — béton d'ancrage en information)" if R.perim_ec3 else "")
+    if R.verified and R.a_verifier:
+        R.statut = "PIED DE POTEAU À VÉRIFIER (" + R.a_verifier + ")"
+    else:
+        R.statut = ("PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ") \
+            + (" (EC3 — béton d'ancrage en information)" if R.perim_ec3 else "")
     R.reserve = any(a.id in ("coin", "lat", "ancr_info") for a in R.alerts)
     return R

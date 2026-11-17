@@ -267,7 +267,7 @@ docs/acier/SOUDURES.md       document de référence (§9 : couverture)
 | P-8 | fatigue, aciers > S460, soudures sur acier inoxydable | hors V1, dits dans « ce que l'outil ne fait pas » — les cordons discontinus, d'abord exclus, sont entrés le 04/11/2026 à la demande du bureau (tronçons sur toutes les configurations) |
 | P-9 | position des tronçons | aux deux bouts et régulièrement entre sur un cordon droit (les bouts doivent être soudés) ; régulièrement à partir du haut sur un pourtour ; l'espacement §4.3.2.2 est rappelé, pas imposé |
 | P-10 | l'écran garde-t-il la valeur du navigateur ou celle de l'état ? | celle de l'ÉTAT, toujours : `modules/liaison.py` réécrit les widgets depuis l'état à chaque changement hors widget (défaut trouvé par les captures : C3 → C6 affichait l'ancienne gorge) |
-| P-11 | pleine pénétration en méthode ELS : à quoi comparer la pièce ? | fy/γ_F (156,7 N/mm² pour le S235 avec γ_F = 1,5), le pendant de k·a pour les cordons ; à l'ELU fy/γM0 = fy (§4.7.1) |
+| P-11 | pleine pénétration en méthode ELS : à quoi comparer la pièce ? | fy/γ_F (156,7 N/mm² pour le S235 jusqu'à 16 mm avec γ_F = 1,5), le pendant de k·a pour les cordons ; à l'ELU fy/γM0 = fy (§4.7.1) |
 | P-12 | signe de σ⊥ | σ⊥ > 0 quand la pièce rapportée s'arrache (traction sur la gorge), < 0 quand elle comprime le cordon ; l'encart dit « traction » / « compression » d'après ce signe (la convention du 04/11 était inversée : un arrachement s'affichait « compression ») |
 | P-13 | pénétration partielle des deux faces avec p₁ + p₂ ≥ t | en T : traitée comme pleine si c = t − 2p ≤ min(t/5 ; 3 mm) (§4.7.3) ; bout à bout coplanaire : pénétration complète, la pièce gouverne (§4.7.1) |
 

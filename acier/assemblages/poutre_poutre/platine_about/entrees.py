@@ -73,6 +73,8 @@ CLES = tuple(defaults().keys())
 # l'avis a_rec sur la table du site, avec les γ d'une note neuve — aucun coefficient recopié (l'écran du site,
 # la carte Streamlit et la rubrique Méthode la lisent ici)
 PLEINE_RESISTANCE = MT.texte_pleine_resistance(defaults()["g_M2"], defaults()["g_M0"])
+# la phrase de la rubrique Méthode sur les coefficients du guide (fu de l'EN, option a de l'ANB)
+GUIDE_PLEINE_RESISTANCE = MT.texte_guide_pleine_resistance(defaults()["g_M2"], defaults()["g_M0"])
 
 # Clés passées par N() en tête de compute()
 NUM = ["d_top", "d_nt", "d_nb", "l_n", "r_n", "hp_u", "tp_u", "bp_u", "z_C",

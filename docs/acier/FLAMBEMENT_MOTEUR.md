@@ -100,9 +100,11 @@ du lot A ; 114 le 07/11/2026 — aucun test ne tient ce compte : la dernière li
 5. **Domaine** : saisies refusées avec un message (y compris les valeurs démesurées), le calcul aboutit aux bornes
    du domaine sans débordement, hors du domaine du module (t > 80 mm), tubes ronds de classe 4, couverture (courbes
    a0, a, b, c ; classes 1 à 4 ; f_y réduit), tri et « plus léger qui tient » des candidats, avertissements.
-6. **Mutations** : 24 altérations plausibles (16/11/2026 ; α, φ, χ ≤ 1, seuil h/b, S460, axes permutés, f_y épais et ses
+6. **Mutations** : 26 altérations plausibles (16/11/2026 ; α, φ, χ ≤ 1, seuil h/b, S460, axes permutés, f_y épais et ses
    paliers, ε et produit de chaque paroi, ρ, N_cr, k, L/n, b̄ des cornières, largeur plate des tubes formés à froid, γ_M1,
-   limite de classe, critère des cornières, écriture du refus de 80 mm) font chacune rougir au moins un contrôle.
+   limite de classe, critère des cornières, écriture du refus de 80 mm ; lot B : la décimale qui départage entre 80 et
+   80,05 mm, « épaisseur 80,04 mm > 80 mm » (`formats.f_ecart`), et le refus de la table à la virgule, « 40,5 mm »
+   (`formats.mm_fr`)) font chacune rougir au moins un contrôle.
 7. **Pureté** : le moteur se charge et calcule sous Python 3.12 et 3.13 (celui de Pyodide) dans un processus où
    streamlit, pandas, matplotlib, scipy, reportlab, PIL et fitz sont refusés.
 

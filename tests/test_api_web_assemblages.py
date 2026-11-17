@@ -611,12 +611,16 @@ res = A.resultat(e)["resultat"]
 anc = [x for x in RX_EL.findall(res) if x[2] == "Ancrages"]
 pire = cfg.S.pire_information(Rp)
 # (petits chantiers, 10/11/2026 : la ligne ne porte plus de taux — un « 108 % » gris sous « Conforme » se lisait comme un
-# dépassement ignoré ; elle dit « hors périmètre » et « hors verdict », la phrase d'information garde le chiffre)
+# dépassement ignoré ; elle dit « hors périmètre » et « hors verdict ») ; lot B (brief v12 § 19.1 point 4) : au-delà de
+# 100 %, le chiffre est dans le verdict « à vérifier : béton d'ancrage à 107,7 % » et la phrase d'information ne le redit
+# plus (le harnais suit : une seule fois à l'écran)
 chk("pied de poteau (périmètre EN 1993-1-8) : le béton d'ancrage EN 1992-4 est une ligne d'INFORMATION grise, « hors "
-    "périmètre », « hors verdict » à la place du taux, et la phrase d'information de l'écran Streamlit est dite",
+    "périmètre », « hors verdict » à la place du taux ; au-delà de 100 %, le verdict dit « à vérifier » et son chiffre, "
+    "une seule fois",
     Rp.verified and pire is not None and pire.eta > 1 and anc and anc[0][3] == "c" and anc[0][4] == A.SANS_TAUX_INFORMATION
     and "hors périmètre" in res.split("Ancrages")[1][:200]
-    and "en information, hors verdict" in res and "Conforme" not in res.split('class="verdict"')[0], anc)
+    and "à vérifier : béton d&#x27;ancrage à 107,7 %" in res.replace("\u202f", " ").replace("\xa0", " ")
+    and "en information, hors verdict" not in res and "Conforme" not in res.split('class="verdict"')[0], anc)
 chk("doubles cornières : la répartition élastique par boulon (groupe S) est dans la fenêtre Boulons",
     "Répartition élastique par boulon · groupe S" in vol and all(C.fr(b.f, 2) in vol for b in R.tabS))
 
@@ -1277,6 +1281,151 @@ try:
 finally:
     A.motif_impossible = _mi0
 chk("mutation « refus affiché brut (« Données incomplètes : HorsTable : … ») » : le contrôle rougit", rouge)
+
+# =====================================================================================================================
+print("\n=== 14. Lot B : une dimension décimale s'écrit à la virgule (écran, fenêtres, vues, texte, note PDF) ===")
+# « platine 500×500×260.5 » (en-tête du pied, signalé par la contre-vérification) : les dimensions saisies ou proposées
+# passent par le formateur de l'écran (acier.formats.nb, dont api_web.commun.nb est un nom), jamais par js_str ni « :g ».
+# Seuls restent à point les renvois de clause (« Tab. 6.4 ») et les classes (« 8.8 ») : ce sont ceux de la note entière.
+import pymupdf  # noqa: E402
+from acier import formats as FMT_  # noqa: E402
+from api_web import note_assemblages as NA_  # noqa: E402
+
+_POINT = re.compile(r"(?<![\d.,§])\d+\.\d+(?![\d.])")
+COMPLET_PIED = A.CONFIGS["platine_beton"].E.MODE_COMPLET
+# (configuration, mode, saisies à décimale, ce qui doit se lire)
+CAS_VIRGULE = [
+    ("platine_beton", None, {"tp_u": "25,5", "N_Ed": "300,5"}, ["500×500×25,5", "500 × 500 × 25,5", "N = 300,5 kN"]),
+    ("platine_beton", COMPLET_PIED, {"tp_u": "25,5", "w_x": "400,5", "bc_u": "900,5"},
+     ["500×500×25,5", "wx = 400,5", "massif 900,5×900"]),
+    ("plat_ame", None, {"tp_u": "10,5", "a_w": "5,5", "V_Ed": "125,5"}, ["190 × 100 × 10,5", "a = 5,5 mm", "V = 125,5 kN"]),
+    ("platine_about", None, {"tp_u": "10,5", "p3_u": "90,5"}, ["190 × 150 × 10,5", "p3 = 90,5 mm"]),
+    ("plat_ame_poteau", None, {"tp_u": "10,5"}, ["290 × 100 × 10,5", "290×100×10,5"]),
+    ("platine_about_poteau", None, {"tp_u": "10,5"}, ["290 × 220 × 10,5", "290×220×10,5"]),
+    ("doubles_cornieres_poteau", None, {"LC_u": "290,5"}, ["hc 290,5", "hc = 290,5 mm"]),
+    ("doubles_cornieres", None, {"LC_u": "190,5", "M_Ed": "1,5"}, ["hc 190,5", "M = 1,5 kNm"]),
+    ("doubles_cornieres", None, {"corn_u": PERSO, "k1_u": "100,5", "kt_u": "10,5"}, ["L100,5x100x10,5"]),
+]
+
+
+def _textes_html(s):
+    s = str(s)
+    titres = " ".join(html.unescape(t) for t in re.findall(r'title="([^"]*)"', s))
+    return html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"<style.*?</style>", " ", s, flags=re.S))) + " " + titres
+
+
+def _sorties(e):
+    r = A.resultat(e)
+    out = {k: _textes_html(r.get(k, "")) for k in ("resultat", "volets", "statut_html", "donnees", "elements")}
+    out["vues"] = " ".join(_textes_html(v.get("svg", "")) + " " + _textes_html(v.get("entete", "")) for v in r["vues"])
+    el = A._actif(e)
+    R = A.calculer(A._cfg(el), el)[0]
+    out["texte"] = A.pour(A._cfg(el), R).T.construire_texte(R)
+    doc = pymupdf.open(stream=NA_.document(e, {"nom_projet": "Essai"}), filetype="pdf")
+    out["pdf"] = " ".join(" ".join(p.get_text() for p in doc).split())
+    return {k: " ".join(v.replace(" ", " ").split()) for k, v in out.items()}
+
+
+def ctl_virgule(cas=CAS_VIRGULE):
+    """Les écarts : un nombre à point qui n'est pas dans la même note aux dimensions entières, ou une écriture attendue
+    absente de l'écran et de la note."""
+    ecarts = []
+    for cle, mode, saisies, attendus in cas:
+        e0 = etat_de(cle)
+        if mode:
+            assert A.modifier(e0, ["v", "mode"], mode) is None
+        base = {k: set(_POINT.findall(t)) for k, t in _sorties(e0).items()}
+        e = copy.deepcopy(e0)
+        for k, v in saisies.items():
+            assert A.modifier(e, ["v", k], v) is None, (cle, k)
+        s = _sorties(e)
+        for k, t in s.items():
+            for m in _POINT.finditer(t):
+                if m.group(0) not in base[k]:
+                    ecarts.append(f"{cle}{' complet' if mode else ''} · {k} : « {t[max(0, m.start() - 40):m.end() + 10]} »")
+        tout = " ".join(s.values())
+        ecarts += [f"{cle}{' complet' if mode else ''} : « {a} » absent" for a in attendus if a not in tout]
+    return ecarts
+
+
+ec = ctl_virgule()
+chk(f"lot B : les dimensions et efforts décimaux s'écrivent à la virgule dans l'en-tête, les pièces, les fenêtres, les "
+    f"vues, le texte et la note PDF des {len(set(c[0] for c in CAS_VIRGULE))} assemblages (« platine 500×500×25,5 », "
+    f"« hc 190,5 », « V = 125,5 kN ») ; à point, seuls les renvois de clause", not ec, ec[:4])
+# formats.nb / formats.fixe : copies NOMMÉES de commun.nb / commun._fixe (le moteur n'importe pas l'écran, et l'écran
+# n'importe pas acier/formats.py : il entrerait dans l'empreinte de tous les modules) — ce contrôle les lie
+import numpy as _np  # noqa: E402
+_VALEURS = [0, 1, -1, 0.5, -0.5, 0.4, -0.4, -0.0, -0.0001, 1.25, 2.675, 0.0625, 12.30, 120.0, 210000, 1e20, 1e30, 260.5, 8.43,
+            1234.5678, -1234.5, 1 / 3, 2 / 3, 1e-7, _np.float32(0.1), _np.int64(7), float("nan"), float("inf"), None]
+_dif = [(x, d, C.nb(x, d), FMT_.nb(x, d)) for x in _VALEURS for d in (0, 1, 2, 3, 6) if C.nb(x, d) != FMT_.nb(x, d)]
+_dif += [(x, d, C._fixe(x, d), FMT_.fixe(x, d)) for x in _VALEURS if x is not None and math.isfinite(float(x)) for d in (0, 1, 3, 6)
+         if C._fixe(x, d) != FMT_.fixe(x, d)]
+
+
+def _ecarts_copie(nb_moteur):
+    return [(x, d) for x in _VALEURS for d in (0, 1, 2, 3, 6) if C.nb(x, d) != nb_moteur(x, d)]
+
+
+_dif += _ecarts_copie(FMT_.nb)
+chk(f"… un seul formateur : acier.formats.nb et .fixe écrivent comme commun.nb et commun._fixe ({len(_VALEURS)} valeurs, "
+    "demies exactes, numpy, très grands, non finis)", not _dif, _dif[:4])
+chk("mutation « la copie du moteur écrit au point » : le contrôle de la copie rougit",
+    _ecarts_copie(lambda x, d=3: FMT_.nb(x, d).replace(",", ".")) != [])
+from acier.assemblages.pied_poteau.platine_beton.manuel import note as _NM  # noqa: E402
+from acier.assemblages.poutre_poutre.plat_ame import texte as _TPA  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres import moteur as _MDC  # noqa: E402
+from acier import js as JS_  # noqa: E402
+_au_point = lambda x, dec=3: JS_.js_str(x)  # noqa: E731
+for nom, mod, sous in [("phrase de l'en-tête (acier/projet.description, « :g »)", PJ_, None),
+                       ("en-tête de la note du pied, calcul manuel (« Platine 500×500×25.5 »)", _NM, "platine_beton"),
+                       ("pièces et fenêtres des attaches poutre–poutre (api_web/assemblages_poutre)", PP, "plat_ame"),
+                       ("texte du plat d'âme (« plat 190x100x10.5 »)", _TPA, "plat_ame"),
+                       ("cornière personnalisée (« L100.5x100x10.5 »)", _MDC, "doubles_cornieres")]:
+    avant = mod.nb
+    mod.nb = _au_point
+    try:
+        rouge = ctl_virgule([c for c in CAS_VIRGULE if sous is None or (c[0] == sous and c[1] is None)][-2:]) != []
+    finally:
+        mod.nb = avant
+    chk(f"mutation « {nom} au point » : le contrôle rougit", rouge)
+
+# … et les libellés du PRÉDIMENSIONNEMENT (« M20, 3 rangées, plat 190 × 10 », liste des propositions de l'écran) : le même
+# formateur. Aucune proposition n'a aujourd'hui de décimale (pinces au multiple de 5, épaisseurs et ailes du catalogue) :
+# contrôle direct, sur une proposition à décimales.
+from acier.js import AttrDict as _AD  # noqa: E402
+from acier.assemblages.poutre_poutre.plat_ame import moteur as _MPA1  # noqa: E402
+from acier.assemblages.poutre_poutre.platine_about import moteur as _MPB1  # noqa: E402
+from acier.assemblages.poutre_poteau.plat_ame_poteau import moteur as _MPA2  # noqa: E402
+from acier.assemblages.poutre_poteau.platine_about_poteau import moteur as _MPB2  # noqa: E402
+from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import moteur as _MDC2  # noqa: E402
+_MOTEURS_PREDIM = [("plat d'âme", _MPA1), ("platine d'about", _MPB1), ("doubles cornières", _MDC),
+                   ("plat d'âme sur poteau", _MPA2), ("platine d'about sur poteau", _MPB2),
+                   ("doubles cornières sur poteau", _MDC2)]
+_PROPOSITION = _AD(b={"n": "M20"}, n=3, hp=190.5, prop=_AD(tp=10.5, bp=150.5, leg=100.5, tC=10.5))
+
+
+def ctl_libelles_predim():
+    ec = []
+    for nom, mod in _MOTEURS_PREDIM:
+        txt = mod.solution_label(_PROPOSITION)
+        if hasattr(mod, "nom_cornière_proposee"):
+            txt += " | " + mod.nom_cornière_proposee(_PROPOSITION)
+        if _POINT.search(txt) or "10,5" not in txt:
+            ec.append(f"{nom} : « {txt} »")
+    return ec
+
+
+ec = ctl_libelles_predim()
+chk("lot B : les libellés du prédimensionnement des six attaches s'écrivent à la virgule (« M20, 3 rangées, plat 190,5 × "
+    "10,5 », « L100,5x100,5x10,5 »)", not ec, ec)
+for nom, mod in _MOTEURS_PREDIM:
+    avant = mod.nb
+    mod.nb = _au_point
+    try:
+        rouge = ctl_libelles_predim() != []
+    finally:
+        mod.nb = avant
+    chk(f"mutation « libellé du prédimensionnement ({nom}) au point » : le contrôle rougit", rouge)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

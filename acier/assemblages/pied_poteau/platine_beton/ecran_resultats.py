@@ -13,7 +13,7 @@ servent aussi le calcul manuel (manuel/ecran.py)."""
 import streamlit as st
 
 from acier.js import N, js_str
-from acier.formats import F, pct
+from acier.formats import F, pct, nb
 from acier.assemblages import carte as kit, ui_commun
 from acier.assemblages.ui_commun import (bloc_statut_ligne, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc, C_TRAIT,
@@ -45,14 +45,16 @@ _COTE_DE = {v: k for k, v in list(schemas.CLE_PAR_COTE.items()) + list(CLE_PAR_C
 # ------------------------------------------------------------------ bandeau
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
+    # « À VÉRIFIER » (brief v12 § 19.1 point 4) : R.statut le dit déjà, avec sa raison ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
     # la dimensionnante nommée comme dans la note (synthese.court), plus le libellé du moteur (88 caractères)
     comp = "— " + pct(R.eta_max, 1) + (" · " + synthese.court(R.gov) if R.gov else "")
     if not R.geo_ok:
         comp += " · géométrie non valide"
     if not R.dist_ok:
         comp += " · pinces non conformes"
-    bloc_statut_ligne("ok" if ok else "nok", titre, comp,
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, comp,
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
 
 
@@ -307,7 +309,7 @@ def _parametres_retenus(R):
     g = [["Périmètre", "EN 1993-1-8 seule — béton d'ancrage (EN 1992-4) en information" if R.perim_ec3
           else "Complet — EN 1993-1-8 + EN 1992-4"],
          ["Poteau", R.nom_c + " " + str(u.nu_c) + " – fy = " + F(R.fy_c, 0) + " MPa"],
-         ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
+         ["Platine", nb(N(u.bp_u)) + " × " + nb(N(u.lp_u)) + " × " + nb(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur)"],
          ["Tiges", js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – d0 = " + F(R.d0, 0) + " mm, As = "
           + F(R.As, 0) + " mm² – " + ancrage_txt(u) + (" mm" if champ_visible(u, "d_h") else "")],
