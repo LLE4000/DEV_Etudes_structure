@@ -389,6 +389,17 @@ def verifier(barre: Dict) -> Dict:
     b = EN.normaliser(barre)
     s = section_de(b)
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
+    ec = out["methodes"].get("ec3")
+    if ec and s.get("forme") == "I" and not AME.AM.est_soude(s):       # brief § 8.3, point 8 : un laminé dont le CISAILLEMENT
+        # gouverne — V_pl,Rd ne passe pas (le remède dit), ou E-Vz a le plus fort taux de l'Eurocode 3 et de l'âme (À VÉRIFIER :
+        # « gouverne » lu ainsi) — un raidisseur n'y peut rien ; sans force concentrée sur l'âme (aucun lieu), pas de question de
+        # raidisseur : rien n'est dit tant qu'il passe
+        autres = [x["taux"] for r_ in (ec, out["ame"]) for x in r_["verifications"] if x["id"] != "E-Vz" and x["taux"] is not None]
+        for v in ec["verifications"]:
+            if v["id"] == "E-Vz" and v["statut"] == RE.NOK:
+                v["messages"].append(AME.AM.MOT_CISAILLEMENT)
+            elif v["id"] == "E-Vz" and out["ame"]["lieux"] and v["taux"] is not None and v["taux"] >= max(autres, default=0.0):
+                v["messages"].append(AME.AM.MOT_CISAILLEMENT_GOUVERNE)
     statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
     statut = RE.pire_statut(statuts)
     out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "poids_propre": ST.poids_propre(s), "statut": statut,

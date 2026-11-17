@@ -76,8 +76,11 @@ def barre(**k):
     return b
 
 
-R2 = dict(poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), P_(10.0, 3.0)]},
-                                   {"nom": "Q", "nature": "exploitation_A", "charges": [P_(15.0, 3.0)]}])
+# (reprise du lot B, le harnais suit : s_s = 0 et c = 0 saisis — sans eux, aucun lieu de l'âme ne décide et la comparaison n'a
+#  pas sa ligne : brief § 8.3, point 5 ; la charge de mi-portée, sans maintien, reste « décision impossible »)
+R2 = dict(poids_propre=False, appuis={"mode": "poses", "ss": 0.0, "c": 0.0},
+          cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.42, 0.0, 6.0), dict(P_(10.0, 3.0), ss=0.0)]},
+               {"nom": "Q", "nature": "exploitation_A", "charges": [dict(P_(15.0, 3.0), ss=0.0)]}])
 CONTINUE = dict(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_propre=False,
                 cas=[{"nom": "G", "nature": "permanent", "charges": [q(6.0, 0.0, 10.0)]},
                      {"nom": "Q1", "nature": "exploitation_B", "charges": [q(8.0, 0.0, 5.0)]},
@@ -402,7 +405,8 @@ def controles(M=None):
       "domaine de la doc (AE235 : le domaine se lit sur la nuance, pas sur la f_y réduite) ; la source est imprimée",
       h["grandeurs"]["fy"] == 225.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
       and not any(x["code"] == "nuance" for x in h["alertes"]) and "tableau 3.3 ANB" in h["hypotheses"][0], (h["grandeurs"]["fy"], h["statut"]))
-    r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}]))
+    # (reprise du lot B, le harnais suit : s_s et c saisis — sans eux, l'âme « non couvert » passerait devant « hors domaine »)
+    r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 100.0, "c": 0.0}))
     h = r["methodes"]["historique"]
     c("S460 (hors AE235 à AE355) : la méthode historique est « hors domaine » — le calcul est rendu (taux), aucune vérification n'est « ok », "
       "chaque combinaison le dit, et la barre n'est jamais « ok » (le plus défavorable : nok, non couvert, hors domaine, ok)",

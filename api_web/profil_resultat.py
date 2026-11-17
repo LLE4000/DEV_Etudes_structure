@@ -152,6 +152,8 @@ def verdict_ame(r: Dict) -> str:
         return ""
     if a["statut"] == RE.OK:
         cls, texte = "warn", M.resume_ame(a)
+    elif a["statut"] == RE.NON_COUVERT and any(L["decision"] == "impossible" for L in a["lieux"]):
+        cls, texte = "inc", M.resume_ame(a)                 # une donnée manque : la dire (brief § 8.3, point 5)
     else:
         g = gouvernante(a)
         cls = "nok" if a["statut"] == RE.NOK else "inc"
@@ -216,11 +218,14 @@ def _ligne_lieu(a: Dict, L: Dict, gov: bool) -> str:
     """Un LIEU de l'âme (un appui, une charge ponctuelle) : sa décision — « sans raidisseur » ou la paire de plats —, ce
     que sa vérification la plus défavorable compare, son taux ; elle ouvre la fenêtre du lieu (toutes ses vérifications)."""
     v = next(x for x in a["verifications"] if x["id"] == L["gouvernant"])
+    niv = M.niveau(v)
     if L["decision"] == "raidisseur":
         cmp_ = f'<b class="pf-raid">{C.esc(L["raidisseur"]["designation"])}</b> <span class="pf-ou">· {M.comparaison(v)}</span>'
+    elif L["decision"] == "impossible":                 # rien n'est décidé : la donnée qui manque (brief § 8.3, point 5), et le taux
+        cmp_, niv = f'<b>{M.sub(M.decision_lieu(L))}</b>', M.NIVEAU_STATUT[RE.NON_COUVERT]      # à la borne, en gris
     else:
-        cmp_ = f'{M.comparaison(v)} <span class="pf-ou">· sans raidisseur</span>'
-    return C.ligne_verif(L["nom"], cmp_, C.pct(L["taux"]) if L["taux"] is not None else None, M.niveau(v), calcul=fenetre(M.AME, L["base"]),
+        cmp_ = f'{M.comparaison(v)} <span class="pf-ou">· {M.sub(M.decision_lieu(L))}</span>'
+    return C.ligne_verif(L["nom"], cmp_, C.pct(L["taux"]) if L["taux"] is not None else None, niv, calcul=fenetre(M.AME, L["base"]),
                          gov=gov, etat_txt=M.MOT_STATUT[L["statut"]].lower())
 
 
@@ -463,7 +468,7 @@ def _fenetres_ame(el: Dict, r: Dict, nom: str) -> str:
                                 f"{M.TITRE_AME} · {sous}" + (f" · {C.esc(ou)}" if ou else ""), hyps, [_ligne_tableau(v, True)], grp)
     for L in a["lieux"]:
         vs = [par_id[k] for k in L["verifications"]]
-        quoi = C.esc(L["raidisseur"]["designation"]) if L["decision"] == "raidisseur" else "sans raidisseur"
+        quoi = M.sub(M.decision_lieu(L))
         out += C.fenetre_calcul(fenetre(M.AME, L["base"]), f"{nom} · {C.esc(L['nom'][:1].lower() + L['nom'][1:])}",
                                 f"{M.TITRE_AME} · {sous} · x = {M.m(L['x'])} m · {quoi}", hyps,
                                 [_ligne_tableau(v, v["id"] == L["gouvernant"]) for v in vs], "".join(_groupe(a, v) for v in vs))

@@ -41,8 +41,11 @@ MODES_APPUI = (("poses", "Posée", "La barre repose sur ses appuis : la réactio
                ("ame", "Par l'âme", "Platine d'about, cornières, gousset : aucune force concentrée sur l'âme aux appuis."))
 NOM_MODE_APPUI = {"poses": "posée", "ame": "par l'âme"}
 AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre dans la semelle (largeur de l'appui, platine, semelle du "
-           "poteau qui charge). 0 : le cas le plus défavorable.")
+           "poteau qui charge). Vide : calcul à la borne 0 (prudent).")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
+# le champ s_s ou c vide (non saisi) : il se vide comme il se remplit (api_web/commun.num, auto), et dit le sens du vide — le calcul à
+# la borne 0, comme l'aide (« à saisir » n'est dit que par une décision impossible : la borne suffit souvent)
+SS_VIDE = "borne 0"
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
          ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la {minuscule(METHODES['historique'])}, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),
@@ -125,16 +128,38 @@ def raidis(a: Dict) -> list:
     return [L for L in a.get("lieux") or [] if L["decision"] == "raidisseur"]
 
 
+def decision_lieu(L: Dict) -> str:
+    """Ce qu'un lieu décide, en mots (du texte) : la paire de plats, « sans raidisseur », ou la décision impossible et ce
+    qui manque (« décision impossible : s_s à saisir » — brief § 8.3, point 5)."""
+    if L["decision"] == "raidisseur":
+        return L["raidisseur"]["designation"]
+    if L["decision"] == "impossible":
+        # seul le maintien manque : la raison sans son taux (« ligne »), que la pastille de la ligne donne déjà
+        r = L.get("ligne") or L.get("raison") or "Décision impossible."
+        return r[:1].lower() + r[1:].rstrip(".")
+    return f"sans raidisseur ({L['borne']})" if L.get("borne") else "sans raidisseur"
+
+
 def resume_ame(a: Dict) -> str:
     """Ce que le bloc de l'âme décide, en une phrase (du texte) : « Pas de raidisseur nécessaire » ; « Raidisseurs :
-    2 plats 70 × 12 mm (appui A, appui B) » ; « Âme élancée vérifiée au cisaillement » ; vide quand rien n'appuie sur
-    l'âme. La même à l'écran et dans la note."""
+    2 plats 70 × 12 mm (appui A, appui B) » ; « Décision impossible : s_s à saisir (appui A, appui B) » ; « Âme élancée
+    vérifiée au cisaillement » ; vide quand rien n'appuie sur l'âme. La même à l'écran et dans la note."""
     r = raidis(a)
+    imp: Dict[str, list] = {}
+    for L in a.get("lieux") or []:
+        if L["decision"] == "impossible":
+            imp.setdefault((L.get("raison") or "Décision impossible.").rstrip("."), []).append(L["nom"][:1].lower() + L["nom"][1:])
+    # une raison qui finit par une parenthèse (« … 6.1(1)) », « … (À VÉRIFIER) ») : le lieu en tête, jamais « …) (charge à 3,00 m) »
+    sans = " ; ".join(f"{', '.join(noms)} : {t[:1].lower() + t[1:]}" if t.endswith(")") else f"{t} ({', '.join(noms)})"
+                      for t, noms in imp.items())
     if r:
         par = {}
         for L in r:
             par.setdefault(L["raidisseur"]["designation"], []).append(L["nom"][:1].lower() + L["nom"][1:])
-        return ("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
+        return (("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
+                + (" ; " + sans[:1].lower() + sans[1:] if sans else ""))
+    if sans:
+        return sans[:1].upper() + sans[1:]
     if a.get("lieux"):
         return "Pas de raidisseur nécessaire"
     return "Âme élancée vérifiée au cisaillement" if a.get("verifications") else ""
@@ -164,7 +189,7 @@ def comparaison(v: Dict, court: bool = True) -> str:
     crit = v.get("critere") or ""
     if v.get("taux") is None or v.get("valeur") is None:
         return sub(crit) if crit else C.esc((v.get("messages") or [""])[0])
-    signe = "≤" if v["statut"] != RE.NOK else "&gt;"
+    signe = "≤" if v["statut"] != RE.NOK and v["taux"] <= 1.0 else "&gt;"      # un taux > 1 pour information (non couvert) : « > »
     g, _, d = crit.partition(" ≤ ")
     if not v["unite"] and abs((v["limite"] or 0.0) - 1.0) < 1e-12:
         return f"{'η' if court else sub(g)} = {C.fr(v['valeur'], 3)} {signe} 1"

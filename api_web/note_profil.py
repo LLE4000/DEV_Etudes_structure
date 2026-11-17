@@ -117,7 +117,7 @@ def comparaison(v: Dict) -> str:
     crit = v.get("critere") or ""
     if v.get("taux") is None or v.get("valeur") is None:
         return riche(crit) if crit else riche((v.get("messages") or [""])[0])
-    signe = "≤" if v["statut"] != RE.NOK else ">"
+    signe = "≤" if v["statut"] != RE.NOK and v["taux"] <= 1.0 else ">"      # un taux > 1 pour information (non couvert) : « > »
     g, _, d = crit.partition(" ≤ ")
     if R.interaction(v):
         return f"η = {C.fr(v['valeur'], 3)} {signe} 1"
@@ -252,7 +252,7 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
     if a["lieux"]:
         lignes = []
         for L in a["lieux"]:
-            plats = L["raidisseur"]["designation"] if L["decision"] == "raidisseur" else "sans raidisseur"
+            plats = M.decision_lieu(L)
             gov = a.get("gouvernant") in L["verifications"]
             lignes.append([("lab", L["nom"], gov), ("ref", f"{M.r1(L['F_Ed'])} kN"), ("lab", plats, L["decision"] == "raidisseur"),
                            ("eta", taux_ecrit(L["taux"]), L["statut"] != RE.NOK, gov)])

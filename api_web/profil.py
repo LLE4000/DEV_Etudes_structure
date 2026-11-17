@@ -13,8 +13,9 @@ L'écran est l'établi COMPACT (api_web/etabli_compact.py) : à gauche la ligne 
 dessin_profil.py) ; à droite un verdict par méthode, le profilé, un bloc par méthode, leur comparaison, et les fenêtres
 de calcul (api_web/profil_resultat.py).
 
-Ce fichier tient l'ÉTAT de la note (``{"version": 2, "elements": [barre…], "actif": i}``), relit les anciennes notes
-(version 1 : des efforts de calcul et l'Eurocode seul — elles deviennent des barres en « efforts imposés »), écrit les
+Ce fichier tient l'ÉTAT de la note (``{"version": 2, "zero_saisi": True, "elements": [barre…], "actif": i}``), relit les
+anciennes notes (version 1 : des efforts de calcul et l'Eurocode seul — elles deviennent des barres en « efforts imposés » ;
+version 2 sans « zero_saisi » : le site d'avant le lot B, ses s_s et c à 0 y sont « non saisis », ``_de_v2``), écrit les
 saisies et sert le sélecteur de profilés. Il ne calcule rien : toute saisie est relue par ``acier.barre.entree`` — hors
 domaine, elle est REFUSÉE avec le message du moteur et la barre reste intacte.
 """
@@ -44,6 +45,13 @@ from . import profil_saisie as S
 MODULE = "profil"
 PAGE = "choix-profile"
 VERSION = 2
+# (lot B) une clé de la NOTE, sans changer de version : ses 0 de s_s et de c sont des SAISIES (vide : null, non saisi). Une note
+# sans elle vient du site d'avant le lot B, qui écrivait 0 pour « non saisi » : ses 0 y sont relus « non saisis » (_de_v2, le
+# côté sûr). Le site d'avant ignore la clé : il relit une note neuve telle quelle (0 = 0) ou la REFUSE (une donnée vide, null,
+# « nombre attendu ») — jamais une autre lecture (une version 3 y était prise pour une version 1 : « efforts imposés »). Mais il
+# suffit qu'il l'OUVRE : il la réécrit aussitôt sans la clé (son etabli.js enregistre au premier calcul) — ses 0 saisis redeviennent
+# alors « non saisis » pour le site neuf (le côté sûr, à ressaisir).
+ZERO_SAISI = "zero_saisi"
 
 ROLE = "profil"                 # le seul sélecteur du module : le profilé de la barre ouverte
 GENRE = E.Genre("Barres", "la barre", "cette barre", "une barre")
@@ -71,6 +79,11 @@ def barre_neuve(nom: str = NOM_DEFAUT) -> Dict:
     return b
 
 
+def etat_de(elements: List[Dict], actif: int = 0) -> Dict:
+    """Une note au format du site (la version et sa clé ``ZERO_SAISI``) : la source unique de ce format."""
+    return {"version": VERSION, ZERO_SAISI: True, "elements": elements, "actif": actif}
+
+
 # ------------------------------------------------------------------ le parcours propre : ce qu'un clic ne suffit pas à atteindre
 _POTEAU = dict(barre_neuve("P1"), profil="HEB 200", mode="efforts", flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}}, Lc=5.0,
                efforts={"service": {"N": 300.0, "My": 20.0, "Mz": 5.0, "Vz": 30.0, "Vy": 0.0}, "elu": {"N": 420.0, "My": 28.0, "Mz": 7.0, "Vz": 42.0, "Vy": 0.0}})
@@ -82,8 +95,8 @@ _CONTINUE = dict(barre_neuve("C1"), profil="HEA 200", modele="continue", travees
 _ANCIENNE = {"version": 1, "actif": 0, "elements": [{"nom": "P1", "acier": "S355", "familles": ["HEB"], "My": 60.0, "Vz": 40.0, "avec_N": True,
                                                      "N": 600.0, "flambement": True, "Lcr_y": 6.0, "Lcr_z": 3.0, "courbe": "c", "profil": "HEB 200"}]}
 PARCOURS = [
-    {"action": "calculer", "etat": {"version": VERSION, "actif": 0, "elements": [_POTEAU]}},
-    {"action": "calculer", "etat": {"version": VERSION, "actif": 0, "elements": [_CONTINUE]}},
+    {"action": "calculer", "etat": etat_de([_POTEAU])},
+    {"action": "calculer", "etat": etat_de([_CONTINUE])},
     {"action": "calculer", "etat": _ANCIENNE},
     {"action": "selecteur", "role": ROLE, "familles": ["HEA", "CHS"]},
     {"action": "choisir", "role": ROLE, "nom": "HEA 220"},
@@ -95,20 +108,20 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["maintiens", "+"], "valeur": "1"},
     {"action": "modifier", "chemin": ["maintiens", "0", "-"], "valeur": "1"},
     {"action": "modifier", "chemin": ["travees", "0"], "valeur": "4,5"},
-    {"action": "modifier", "chemin": ["travees", "+"], "valeur": "1", "etat": {"version": VERSION, "actif": 0, "elements": [_CONTINUE]}},
-    {"action": "modifier", "chemin": ["travees", "0", "-"], "valeur": "1", "etat": {"version": VERSION, "actif": 0, "elements": [dict(_CONTINUE, travees=[5.0, 4.0, 3.0])]}},
+    {"action": "modifier", "chemin": ["travees", "+"], "valeur": "1", "etat": etat_de([_CONTINUE])},
+    {"action": "modifier", "chemin": ["travees", "0", "-"], "valeur": "1", "etat": etat_de([dict(_CONTINUE, travees=[5.0, 4.0, 3.0])])},
     {"action": "modifier", "chemin": ["flambement", "z", "L"], "valeur": ""},
     {"action": "modifier", "chemin": ["flambement", "y", "L"], "valeur": "abc"},
     {"action": "modifier", "chemin": ["travees", "0"], "valeur": "-1"},
     {"action": "modifier", "chemin": ["parametres", "gamma_M1"], "valeur": "1,1"},
-    {"action": "modifier", "chemin": ["efforts", "elu", "N"], "valeur": "900", "etat": {"version": VERSION, "actif": 0, "elements": [_POTEAU]}},
+    {"action": "modifier", "chemin": ["efforts", "elu", "N"], "valeur": "900", "etat": etat_de([_POTEAU])},
     {"action": "modifier", "chemin": ["nom"], "valeur": "Panne"},
 ]
 
 
 # ------------------------------------------------------------------ l'état de la note : des barres
 def nouvel_etat() -> Dict:
-    return {"version": VERSION, "elements": [barre_neuve()], "actif": 0}
+    return etat_de([barre_neuve()])
 
 
 def _nombre(x, defaut: float = 0.0) -> float:
@@ -145,6 +158,30 @@ def _migrer(e: Dict) -> Dict:
     return b
 
 
+def _zero(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0
+
+
+def _de_v2(e: Dict) -> Dict:
+    """Une barre d'une note du site d'avant le lot B (version 2 sans ``ZERO_SAISI``) : il y écrivait 0,0 pour s_s et c non
+    saisis (appuis et charges ponctuelles) — un 0 n'y distingue pas une saisie d'un défaut. Ramené à « non saisi » (None) :
+    l'âme le prend à sa borne, le dit, ou demande la donnée (brief § 8.2, § 8.3 point 5) — le côté prudent. Une note neuve
+    (``ZERO_SAISI``) garde ses 0 saisis."""
+    if not isinstance(e, dict):
+        return e
+    e = copy.deepcopy(e)
+    ap = e.get("appuis")
+    if isinstance(ap, dict):
+        for k in ("ss", "c"):
+            if _zero(ap.get(k)):
+                ap[k] = None
+    for c in e.get("cas") if isinstance(e.get("cas"), list) else []:
+        for ch in (c.get("charges") if isinstance(c, dict) and isinstance(c.get("charges"), list) else []):
+            if isinstance(ch, dict) and ch.get("type") == "P" and _zero(ch.get("ss")):
+                ch["ss"] = None
+    return e
+
+
 def _completer(el: Dict) -> Dict:
     """La barre avec toutes ses clés : celles qui manquent prennent la valeur d'une barre neuve."""
     if not isinstance(el, dict):
@@ -175,18 +212,23 @@ def _relire(el: Dict) -> Dict:
 
 
 def normaliser(etat: Dict) -> Dict:
-    """L'état reçu de l'écran ou d'un fichier, relu : une note de la version 1 est convertie ; une barre illisible lève
-    une erreur claire."""
+    """L'état reçu de l'écran ou d'un fichier, relu : une note de la version 1 est convertie ; une de la version 2 sans
+    ``ZERO_SAISI`` (le site d'avant le lot B) relue, ses s_s et c à 0 « non saisis » ; une barre illisible lève une erreur claire."""
     if not isinstance(etat, dict) or "elements" not in etat:
         return nouvel_etat()
     els = etat["elements"]
     if not isinstance(els, list) or not els:
         raise ValueError("les barres de la note sont illisibles (une liste de barres est attendue)")
-    ancienne = etat.get("version", 1) != VERSION
-    out = {"version": VERSION, "elements": []}
+    version = etat.get("version", 1)
+    # une note d'un autre format : refusée, jamais lue comme une autre — un ENTIER (pour Python, true vaut 1 et 2.0 vaut 2)
+    if isinstance(version, bool) or not isinstance(version, int) or version not in (1, VERSION):
+        raise ValueError(f"note d'un format inconnu (version {str(version)[:12]}) : elle n'est pas relue")
+    neuve = version == VERSION and etat.get(ZERO_SAISI) is True
+    lire = (lambda e: e) if neuve else _de_v2 if version == VERSION else _migrer
+    out = etat_de([])
     for i, e in enumerate(els):
         try:
-            out["elements"].append(_relire(_migrer(e) if ancienne else e))
+            out["elements"].append(_relire(lire(e)))
         except (ValueError, TypeError, KeyError) as ex:
             raise ValueError(f"barre {i + 1} : {ex}") from None
     a = etat.get("actif", 0)
@@ -314,6 +356,13 @@ def _lire(valeur, quoi: str) -> float:
     return x
 
 
+def _lire_vide(valeur, quoi: str) -> Optional[float]:
+    """Un champ qui peut se VIDER (s_s, c : « non saisi ») : vidé, None ; sinon un nombre, comme ``_lire``."""
+    if valeur is None or (isinstance(valeur, str) and not valeur.strip()):
+        return None
+    return _lire(valeur, quoi)
+
+
 def _rang(texte: str, liste: Sequence, quoi: str) -> int:
     i = int(texte) if texte.isdigit() else -1
     if not 0 <= i < len(liste):
@@ -360,8 +409,8 @@ def _charge_neuve(type_: str, L: float, ancienne: Optional[Dict] = None) -> Dict
             ch["sens"] = (ancienne or {}).get("sens", "croissante")
         return ch
     a = ancienne["a"] if ancienne and "b" not in ancienne else (round(0.5 * (ancienne["a"] + ancienne["b"]), 3) if ancienne else round(L / 2.0, 3))
-    if type_ == "P":                         # (sa longueur d'appui rigide, en mm : 0 tant qu'elle n'est pas saisie)
-        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss", 0.0)}
+    if type_ == "P":                         # (sa longueur d'appui rigide, en mm : None tant qu'elle n'est pas saisie — jamais supposée)
+        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss")}
     return {"type": type_, "v": v, "a": a}
 
 
@@ -489,7 +538,7 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 elif champ in ("v", "a") or (champ == "b" and "b" in chs[j]):
                     chs[j][champ] = _lire(valeur, {"v": "valeur de la charge", "a": "abscisse", "b": "abscisse"}[champ])
                 elif champ == "ss" and chs[j]["type"] == "P":
-                    chs[j]["ss"] = _lire(valeur, "longueur d'appui")
+                    chs[j]["ss"] = _lire_vide(valeur, "longueur d'appui")
                 else:
                     raise KeyError(cle)
             else:
@@ -519,7 +568,7 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
             raise ValueError(f"appuis : « {valeur} » inconnu")
         el["appuis"]["mode"] = valeur
     elif cle in ("appuis/ss", "appuis/c"):
-        el["appuis"][cles[1]] = _lire(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
+        el["appuis"][cles[1]] = _lire_vide(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
     elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("L", "u"):
         if cles[2] == "L" and el["mode"] == "chargee":
             el["flambement"][cles[1]]["L"] = C.lire_auto(valeur)

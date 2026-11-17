@@ -90,7 +90,7 @@ def _charge(i: int, j: int, ch: Dict, appuie: bool) -> str:
               f'<span>à</span>{C.num(base + ["b"], ch["b"], "m", dec=3, mini=0)}{sens}</div>')
     elif t == "P" and appuie:
         l2 = (f'<div class="pf-ch-2 ss"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}'
-              f'<span title="{C.esc(M.AIDE_SS)}">sur</span>{C.num(base + ["ss"], ch.get("ss", 0.0), "mm", dec=0, mini=0, maxi=EN.SS_MAX)}</div>')
+              f'<span title="{C.esc(M.AIDE_SS)}">sur</span>{C.num(base + ["ss"], ch.get("ss"), "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE)}</div>')
     else:
         l2 = f'<div class="pf-ch-2 un"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}<span>de l\'appui gauche</span></div>'
     return f'<div class="pf-ch" data-charge="{j}">{l1}{l2}</div>'
@@ -121,7 +121,7 @@ def _rubrique_charges(el: Dict) -> str:
     ponctuelle = any(ch["type"] == "P" for c in el["cas"] for ch in c["charges"])
     aide = "Compte pour le déversement : une charge posée sur la semelle haute l'aggrave."
     if ponctuelle and el["niveau"] != "centre":
-        aide += " Une charge ponctuelle appuie sur l'âme : « sur » est sa longueur d'appui (0 : le plus défavorable)."
+        aide += " Une charge ponctuelle appuie sur l'âme : « sur » est sa longueur d'appui (vide : calcul à la borne 0, prudent)."
     return _cas(el) + _titre("Niveau d'application") + C.segments(["niveau"], el["niveau"], M.NIVEAUX) + C.aide(aide)
 
 
@@ -219,10 +219,10 @@ def _rubrique_appuis(el: Dict) -> str:
     ap = el["appuis"]
     s = C.segments(["appuis", "mode"], ap["mode"], M.MODES_APPUI)
     if ap["mode"] == "poses":
-        s += C.ligne("longueur d'appui", C.num(["appuis", "ss"], ap["ss"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "s<sub>s</sub>", M.AIDE_SS)
-        s += C.ligne("débord en rive", C.num(["appuis", "c"], ap["c"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "c", M.AIDE_DEBORD)
-        s += C.aide("La réaction appuie sur l'âme (EN 1993-1-5) : le module dit s'il faut un raidisseur. Longueur d'appui à 0 : le cas le "
-                    "plus défavorable.")
+        s += C.ligne("longueur d'appui", C.num(["appuis", "ss"], ap["ss"], "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE), "s<sub>s</sub>", M.AIDE_SS)
+        s += C.ligne("débord en rive", C.num(["appuis", "c"], ap["c"], "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE), "c", M.AIDE_DEBORD)
+        s += C.aide("La réaction appuie sur l'âme (EN 1993-1-5) : le module dit s'il faut un raidisseur. Longueur d'appui "
+                    "ou débord vide : calcul à la borne 0 (prudent).")
     else:
         s += C.aide("Platine d'about, cornières, gousset : la réaction entre par l'âme, sans force concentrée sur une semelle.")
     return s
@@ -232,7 +232,11 @@ def _resume_appuis(el: Dict) -> str:
     ap = el["appuis"]
     if ap["mode"] != "poses":
         return M.NOM_MODE_APPUI[ap["mode"]]
-    return f"{M.NOM_MODE_APPUI['poses']} · s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" + (f" · c {M.n(ap['c'], 0)}{N}mm" if ap["c"] else "")
+    # (la rubrique n'est offerte qu'à une barre qui a un appui de rive simple : son débord c compte ; 0 saisi n'est pas vide) — un
+    # champ vide se résume comme il s'affiche : « borne 0 » (M.SS_VIDE)
+    ss = f"s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" if ap["ss"] is not None else f"s<sub>s</sub> {M.SS_VIDE}"
+    c = f"c {M.n(ap['c'], 0)}{N}mm" if ap["c"] is not None else f"c {M.SS_VIDE}"
+    return f"{M.NOM_MODE_APPUI['poses']} · {ss} · {c}"
 
 
 # ------------------------------------------------------------------ 5 · les méthodes

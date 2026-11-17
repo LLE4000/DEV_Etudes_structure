@@ -12,12 +12,16 @@
      # --- barre CHARGÉE : la statique est faite par le module
      "modele": "appuis" | "console" | "enc_app" | "bi_enc" | "continue",      "travees": [6.0],
      "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}, …],
-             une charge ponctuelle {"type": "P", "v", "a"} porte aussi "ss" : sa longueur d'appui rigide, en mm (0 à défaut)
+             une charge ponctuelle {"type": "P", "v", "a"} porte aussi "ss" : sa longueur d'appui rigide, en mm (None :
+             non saisie — jamais supposée, brief § 8.2 ; 0 est une valeur saisie)
      "poids_propre": True,
      "niveau": "haut" | "centre" | "bas"      où les charges sont appliquées (déversement ; âme sous charge concentrée)
      "maintiens": [{"x": 3.0, "genre": "complet" | "haut" | "bas"}]
-     "appuis": {"mode": "poses" | "ame", "ss": 0.0, "c": 0.0}      la barre POSÉE sur ses appuis (longueur d'appui rigide
-                                              s_s et débord c en rive, mm), ou tenue par l'âme (platine, cornières)
+     "appuis": {"mode": "poses" | "ame", "ss": None, "c": None}    la barre POSÉE sur ses appuis (longueur d'appui rigide
+                                              s_s et débord c en rive, mm ; None : non saisis — l'âme dit « décision
+                                              impossible », brief § 8.3, point 5), ou tenue par l'âme (platine, cornières) ; « contact »
+                                              (« oui » | « non » | « inconnu », à défaut) : le contact d'extrémité du type (c),
+                                              EN 1993-1-5 § 6 — une charge ponctuelle peut porter le sien
      # --- EFFORTS IMPOSÉS : le mode des classeurs du bureau
      "efforts": {"service": {"N", "My", "Mz", "Vz", "Vy"}, "elu": {…}}      N > 0 en compression
      "diagramme": {"y": {"forme": "constant" | "lineaire" | "reparti" | "ponctuel", "psi": 1.0}, "z": {…}}
@@ -32,7 +36,7 @@
 """
 import copy
 import math
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from acier.flambement import normes as NO
 from rdm import poutres as PO
@@ -51,6 +55,7 @@ C_MODES = ("unite", "norme")        # C = 1 (les classeurs du bureau) ; ou C sel
 EFFORTS = ("N", "My", "Mz", "Vz", "Vy")
 CAS_MAX, MAINTIENS_MAX = 6, 12
 MODES_APPUI = ("poses", "ame")            # la barre posée sur ses appuis ; ou tenue par l'âme (aucune force sur une semelle)
+CONTACTS = ("oui", "non", "inconnu")      # contact d'extrémité du type (c), EN 1993-1-5 § 6 (brief § 4.1, § 8.2) : « inconnu » à défaut
 SS_MAX = 2000.0                           # mm : la plus grande longueur d'appui rigide, le plus grand débord
 L_MIN, L_MAX = 0.05, 60.0                 # m
 FORMES_DIAGRAMME = (DV.CONSTANT, DV.LINEAIRE, DV.REPARTI, DV.PONCTUEL)
@@ -61,7 +66,7 @@ def nouvelle_barre(nom: str = "B1") -> Dict:
             "modele": "appuis", "travees": [6.0],
             "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]},
                     {"nom": "Q", "nature": "exploitation_A", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}],
-            "poids_propre": True, "niveau": "haut", "maintiens": [], "appuis": {"mode": "poses", "ss": 0.0, "c": 0.0},
+            "poids_propre": True, "niveau": "haut", "maintiens": [], "appuis": {"mode": "poses", "ss": None, "c": None},
             "efforts": {"service": {k: 0.0 for k in EFFORTS}, "elu": {k: 0.0 for k in EFFORTS}},
             "diagramme": {"y": {"forme": DV.CONSTANT, "psi": 1.0}, "z": {"forme": DV.CONSTANT, "psi": 1.0}},
             "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}, "Lc": None,
@@ -75,8 +80,11 @@ def _nombre(v, nom: str) -> float:
     return float(v)
 
 
-def _longueur_appui(v, nom: str) -> float:
-    """Une longueur d'appui rigide ou un débord, en mm : de 0 à SS_MAX."""
+def _longueur_appui(v, nom: str) -> Optional[float]:
+    """Une longueur d'appui rigide ou un débord, en mm : de 0 à SS_MAX ; None (non saisi) reste None — jamais supposé
+    (brief § 8.2 : s_s est une valeur saisie)."""
+    if v is None:
+        return None
     x = _nombre(v, nom)
     if not 0.0 <= x <= SS_MAX:
         raise Refus(f"{nom} : de 0 à {SS_MAX:g} mm")
@@ -216,12 +224,20 @@ def normaliser(barre: Dict) -> Dict:
         charges = [{k: ch[k] for k in ("type", "v", "a", "b", "sens") if k in ch} for ch in charges]
         for ch, saisie in zip(charges, c.get("charges") or []):          # (une charge rendue par charge saisie, dans l'ordre)
             if ch["type"] == "P":
-                ch["ss"] = _longueur_appui(saisie.get("ss", 0.0), f"cas « {nom} », longueur d'appui s_s")
+                ch["ss"] = _longueur_appui(saisie.get("ss"), f"cas « {nom} », longueur d'appui s_s")
+                if "contact" in saisie:                                     # (lot B) gardé seulement s'il est saisi
+                    if saisie["contact"] not in CONTACTS:
+                        raise Refus(f"cas « {nom} », contact d'extrémité : {', '.join(CONTACTS)}")
+                    ch["contact"] = saisie["contact"]
         b["cas"].append({"nom": nom, "nature": c["nature"], "N": _nombre(c.get("N", 0.0), f"effort normal du cas « {nom} »"), "charges": charges})
     ap = dict(b["appuis"], **(src.get("appuis") or {})) if isinstance(src.get("appuis") or {}, dict) else None
     if ap is None or ap["mode"] not in MODES_APPUI:
         raise Refus(f"appuis : {', '.join(MODES_APPUI)}")
     b["appuis"] = {"mode": ap["mode"], "ss": _longueur_appui(ap["ss"], "longueur d'appui s_s"), "c": _longueur_appui(ap["c"], "débord c")}
+    if "contact" in ap:                                                     # (lot B) gardé seulement s'il est saisi : « inconnu » à défaut
+        if ap["contact"] not in CONTACTS:
+            raise Refus(f"appuis, contact d'extrémité : {', '.join(CONTACTS)}")
+        b["appuis"]["contact"] = ap["contact"]
     mts = src.get("maintiens", [])
     if not isinstance(mts, (list, tuple)) or len(mts) > MAINTIENS_MAX:
         raise Refus(f"au plus {MAINTIENS_MAX} maintiens")

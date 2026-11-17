@@ -118,9 +118,11 @@ NOTES = {
                                                     ("modele", "continue"), ("travees/+", 1), ("travees/+", 1), ("travees/+", 1)),
     "un nom de 60 caractères": note(("nom", NOM_60), ("profil", "SHS 400x400x12.5 (froid)"), ("modele", "continue"), ("travees/+", 1)),
     # (lot 4) une charge de 675 kN de calcul sur un HEB 300 : un raidisseur sous la charge, l'âme seule aux appuis (s_s = 200 mm)
-    "une poutre de reprise et son raidisseur": note(("nom", "PR1"), ("profil", "HEB 300"), ("travees/0", "4"), ("appuis/ss", "200"),
+    # (reprise du lot B : c, les s_s des charges et la semelle tenue sous la charge sont saisis — sans eux, décision impossible)
+    "une poutre de reprise et son raidisseur": note(("nom", "PR1"), ("profil", "HEB 300"), ("travees/0", "4"), ("appuis/ss", "200"), ("appuis/c", "0"),
                                                    ("cas/0/charges/0/type", "P"), ("cas/0/charges/0/v", "300"), ("cas/1/charges/0/type", "P"),
-                                                   ("cas/1/charges/0/v", "180")),
+                                                   ("cas/1/charges/0/v", "180"), ("cas/0/charges/0/ss", "0"), ("cas/1/charges/0/ss", "0"),
+                                                   ("maintiens/0/x", "2")),
     # … une poutre continue dont l'appui du milieu porte aussi une charge : l'interaction avec la flexion, la force transmise (type b)
     "une charge au droit d'un appui": note(("nom", "CA1"), ("profil", "HEA 200"), ("modele", "continue"), ("travees/0", "5"), ("travees/1", "5"),
                                           ("appuis/ss", "80"), ("appuis/c", "20"), ("cas/0/charges/+", "P"), ("cas/0/charges/1/a", "5"),
@@ -337,8 +339,10 @@ def parite(etat, pages):
             veut("une hypothèse de l'âme", h, nu(h.split(" (")[0])[:60] in nu(T))
         for L in a["lieux"]:
             veut("un lieu de l'âme", L["nom"])
-            decision = L["raidisseur"]["designation"] if L["decision"] == "raidisseur" else "sans raidisseur"
-            veut(f"la décision de {L['nom']}", decision)
+            # (2e reprise du lot B) la décision telle que l'écran la dit (profil_mots.decision_lieu, la source unique) : la paire de
+            # plats, « sans raidisseur » — avec la borne d'une donnée non saisie —, ou « décision impossible : … » avec son taux
+            decision = M.decision_lieu(L)
+            veut(f"la décision de {L['nom']}", decision, nu(decision) in nu(T))
             nombre(f"la force de {L['nom']}", f"{M.r1(L['F_Ed'])} kN")
             if L["taux"] is not None:
                 nombre(f"le taux de {L['nom']}", taux(L["taux"]))
@@ -522,8 +526,10 @@ def main():
         and len(sec["verifs"]) == 1 + sum(1 + len(x["verifications"]) for x in list(r["methodes"].values()) + [r["ame"]]) + 2
         and all(v["items"][-1] == ("k", 0) and len(v["verdicts"]) == 1 for v in sec["verifs"]
                 if " · " in v["titre"] or " — NBN" in v["titre"] or v["titre"] in TETES.values() or " : âme" in v["titre"])
-        and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : âme sous la réaction",
-                                                          "Appui B : âme sous la réaction"], [(v["num"], v["titre"]) for v in sec["verifs"]])
+        # (reprise du lot B, le harnais suit : s_s et c non saisis → décision impossible (brief § 8.3, point 5), les vérifications à
+        #  s_s = c = 0 imprimées pour information)
+        and [v["titre"] for v in sec["verifs"]][8:11] == ["Âme et raidisseurs — NBN EN 1993-1-5", "Appui A : critère élastique à la jonction (6.2.1(5))",
+                                                          "Appui A : âme sous la réaction"], [(v["num"], v["titre"]) for v in sec["verifs"]])
     _o, pages, _f = faire(NOTES["une poutre continue qui ne tient pas"])
     T = " ".join(pages[1:])
     el, r = barres(NOTES["une poutre continue qui ne tient pas"])[0]
@@ -806,7 +812,7 @@ MUTATIONS = (
      lambda vrai: (lambda r: f"{M.TITRE_AME} — {r['ame']['norme']}"), ["la méthode historique seule"]),
     ("le taux de l'âme n'est plus dit sous la comparaison", NP, "comparaison_methodes",
      lambda vrai: (lambda r, largeur: (lambda o: dict(o, items=[i for i in o["items"] if not (i[0] == "pr" and "pour les deux méthodes" in i[1])]))(
-         vrai(r, largeur))), ["la barre neuve"]),
+         vrai(r, largeur))), ["une charge au droit d'un appui"]),
     ("le résumé ne dit plus le raidisseur que la barre demande", NP, "resume",
      lambda vrai: (lambda el, r, court=False: vrai(el, r, court).replace(" · 1 raidisseur", "")), ["une poutre de reprise et son raidisseur"]),
     ("les vérifications de l'âme ne sont plus imprimées (sa tête seule)", NP, "planche",

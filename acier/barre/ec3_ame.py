@@ -29,8 +29,9 @@ Ce fichier CALCULE et NOMME, journal en main. Il ne décide pas OÙ vérifier (c
 ni avec quelle combinaison, ni s'il faut un raidisseur : c'est acier/barre/moteur.py ; le raidisseur lui-même est
 acier/barre/raidisseurs.py (§ 9).
 
-DOMAINE. Charges concentrées : les I et H laminés — une âme, h_w = h − 2·t_f. Cisaillement : l'âme d'un I, les deux
-âmes d'un tube carré ou rectangulaire. La résistance d'un PROFIL CREUX sous une charge concentrée relève de
+DOMAINE. Charges concentrées : les I et H laminés (h_w = h − 2·t_f) et les PRS en I (h_w entre semelles, b_f et t_f
+de la semelle chargée ; contrat de acier/barre/prs.py). Cisaillement : l'âme d'un I, les deux âmes d'un tube carré ou
+rectangulaire. La résistance d'un PROFIL CREUX sous une charge concentrée relève de
 l'EN 1993-1-8 : elle n'est pas vérifiée ici, et le moteur le dit.
 
 CE QUI EST PRIS DU CÔTÉ SÛR, et dit dans les hypothèses :
@@ -38,7 +39,8 @@ CE QUI EST PRIS DU CÔTÉ SÛR, et dit dans les hypothèses :
   négligée (elle tend vers zéro quand a grandit) ;
 - montant d'extrémité NON rigide : χ_w = 0,83/λ̄_w au-delà de 0,83/η (tableau 5.1) ;
 - η₁ ÉLASTIQUE dans (7.2) : N_Ed/(f_y·A/γ_M0) + M_Ed/(f_y·W_el/γ_M0), A_eff et W_eff en classe 4 (brief § 8.2) ;
-- une longueur d'appui rigide s_s non saisie vaut 0 — le cas le plus défavorable — ; elle est bornée à h_w (§ 6.3(1)) ;
+- la longueur d'appui rigide s_s est bornée à h_w (§ 6.3(1)) ; non saisie (et c de même), le moteur de l'âme (ame.py)
+  calcule à la BORNE s_s = 0 (c = 0) — ``resistance(…, borne=True)`` ;
 - les RÉSISTANCES prennent la f_y de calcul de la section (la plus petite des parois, brief § 7.1) : m₁ = b_f/t_w,
   F_Rd, V_bw,Rd, l_e ; les ÉLANCEMENTS de plaque (λ̄_w, λ̄_F) et la limite 72·ε/η, la f_y de l'âme selon son épaisseur.
 
@@ -57,6 +59,7 @@ METHODE = "ame"
 NORME = "NBN EN 1993-1-5"
 REF = "EN 1993-1-5"
 TYPES = ("a", "b", "c")
+CONTACTS = ("oui", "non", "inconnu")       # contact d'extrémité, type (c) — DÉCISION BUREAU n° 2 (brief § 8.2) : « inconnu » par défaut
 LIBELLES_TYPE = {"a": "sur une semelle, reprise par le cisaillement de l'âme", "b": "transmise d'une semelle à l'autre",
                  "c": "près d'une extrémité non raidie"}
 VOILEMENT_AME = 72.0             # h_w/t_w ≤ 72·ε/η (§ 5.1(2))
@@ -71,23 +74,59 @@ INTERACTION_72 = (0.8, 1.4)      # η₂ + 0,8·η₁ ≤ 1,4 (7.2)
 K_SEMELLE = 0.4                  # § 8(1) : 0,4 quand le moment plastique est employé (0,55 pour le moment élastique) — du côté sûr
 SOUDES = ("soude_oxycoupe", "soude_larges_plats")                 # les I soudés (section.FABRICATIONS)
 SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")              # les sections soudées chargées dans le plan de l'âme
+# brief § 8.3, point 8 : quand le cisaillement gouverne — le voilement (A-Vb) ou, pour un laminé, V_pl,Rd (E-Vz, moteur.py)
+MOT_CISAILLEMENT = "Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd."
+MOT_CISAILLEMENT_GOUVERNE = "Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ."     # … quand il passe : sans remède
+
+
+def est_soude(s: Dict) -> bool:
+    """Une section SOUDÉE chargée dans le plan de l'âme : un PRS (contrat acier/barre/prs.py : la clé « prs », quelle que
+    soit sa « fabrication », None tant que les bords des semelles ne sont pas saisis), un I soudé, un caisson."""
+    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA
 
 
 def eta_de(s: Dict, P: Dict) -> float:
-    """η de la section (NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire ; brief § 7.5 et § 8) : « eta_soude »
-    (1,20) pour une section SOUDÉE — I soudé, caisson, PRS (bords saisis ou non, brief § 18.5) —, « eta » (1,00) pour
-    un I ou H laminé et un tube."""
-    if s.get("prs"):
-        return P["eta_soude"]
-    return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]
+    """η de la section (NBN EN 1993-1-5 ANB:2011, 5.1(2), et sa note complémentaire qui renvoie au 6.2.6(3) de
+    l'EN 1993-1-1 ; brief § 8) : « eta_soude » (1,20) pour une section SOUDÉE — PRS, I soudé, caisson —, « eta » (1,00)
+    pour un I ou H laminé et un tube."""
+    return P["eta_soude"] if est_soude(s) else P["eta"]
 
 
-def ame_de(s: Dict) -> Optional[Dict]:
-    """L'âme d'un I ou d'un H pour les charges concentrées : {"hw", "tw", "tf", "bf"} (mm) ; None pour une autre forme."""
-    hw = SE.hauteur_ame(s)
+def hw_de(s: Dict) -> Optional[float]:
+    """h_w, la hauteur de l'âme ENTRE SEMELLES d'un I (mm) : celle saisie d'un PRS (s["prs"]["hw"] : ses deux semelles
+    peuvent différer d'épaisseur), h − 2·t_f d'un laminé ; None pour une autre forme."""
+    p = s.get("prs")
+    if s.get("forme") == "I" and p and p.get("hw"):
+        return float(p["hw"])
+    return SE.hauteur_ame(s)
+
+
+def semelles_de(s: Dict) -> Dict[str, Dict]:
+    """Les deux semelles d'un I : {"haut": {"bf", "tf"}, "bas": {…}} (mm) — celles d'un PRS (1 = semelle haute dans la
+    barre posée), les mêmes deux fois pour un laminé."""
+    p = s.get("prs")
+    if p:
+        return {"haut": {"bf": float(p["b1"]), "tf": float(p["t1"])}, "bas": {"bf": float(p["b2"]), "tf": float(p["t2"])}}
+    return {k: {"bf": s["b"], "tf": s["tf"]} for k in ("haut", "bas")}
+
+
+def ame_de(s: Dict, cote: str = "haut") -> Optional[Dict]:
+    """L'âme d'un I ou d'un H pour les charges concentrées, chargée par la semelle ``cote`` (« haut » | « bas ») :
+    {"hw", "tw", "tf", "bf"} (mm ; b_f et t_f de la semelle CHARGÉE, brief § 8.2) ; None pour une autre forme."""
+    hw = hw_de(s)
     if hw is None or not s.get("tw") or not s.get("b"):
         return None
-    return {"hw": hw, "tw": s["tw"], "tf": s["tf"], "bf": s["b"]}
+    sm = semelles_de(s)[cote]
+    return {"hw": hw, "tw": s["tw"], "tf": sm["tf"], "bf": sm["bf"]}
+
+
+def moment_semelles(s: Dict, fy: float, gM0: float) -> Dict:
+    """M_f,Rd, le moment résistant des SEULES semelles (§ 5.4(1), § 7.1) : la plus petite semelle (aire A_f) sur le
+    bras h_f entre plans moyens — b·t_f·(h − t_f) pour un laminé ; {"Af", "hf", "Mf"} (mm², mm, N·mm)."""
+    sm = semelles_de(s)
+    Af = min(x["bf"] * x["tf"] for x in sm.values())
+    hf = s["h"] - sm["haut"]["tf"] / 2.0 - sm["bas"]["tf"] / 2.0
+    return {"Af": Af, "hf": hf, "Mf": Af * hf * fy / gM0}
 
 
 # ------------------------------------------------------------------ § 5 : le cisaillement
@@ -97,6 +136,8 @@ def elancement(s: Dict, fy: float, P: Dict, direction: str = "z", fy_ame: Option
     (tube rond, semelles d'un I sous V_y, forme hors du module). ``fy_ame`` : la f_y de l'âme selon son épaisseur (son
     ε fait la limite 72·ε/η) ; à défaut ``fy``."""
     a = CL.hauteur_cisaillee(s, direction) if s.get("forme") in ("I", "tube_carre", "tube_rect") else None
+    if a is not None and s.get("forme") == "I":
+        a = {"hw": hw_de(s), "tw": a["tw"]}                    # un PRS : l'âme saisie entre ses semelles
     if a is None or not a["hw"] or not a["tw"]:
         return None
     fyw = fy if fy_ame is None else float(fy_ame)
@@ -146,6 +187,8 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
     mots = ["χ_w = η : l'âme n'est pas réduite."] if r["plafonne"] else []
     if e["n"] > 1:
         mots.append("Les deux âmes du tube (n = 2).")
+    if V > r["Vbw"]:                                         # brief § 8.3, point 8 : le raidisseur transversal n'y peut rien
+        mots.append(MOT_CISAILLEMENT)
     J.verif("A-Vb" + suf, "Voilement de l'âme par cisaillement", f"{REF} § 5.2", "V_Ed ≤ V_b,Rd", V / 1e3, r["Vbw"] / 1e3, "kN", cles, messages=mots)
     eta3 = V / r["Vbw"]
     if eta3 <= SEUIL_ETA3 or M <= 0:
@@ -155,15 +198,18 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
         J.verif("A-VbM" + suf, "Âme élancée : flexion et effort tranchant", f"{REF} § 7.1", "", None, None, "", [], statut=NON_COUVERT,
                 messages=[J.alerte("interaction_71", "attention", f"Interaction flexion – cisaillement {quoi} (V_Ed > 0,5·V_bw,Rd) : non vérifiée.")])
         return
-    Mf = s["b"] * s["tf"] * (s["h"] - s["tf"]) * fy / gM0
+    mf = moment_semelles(s, fy, gM0)
+    Mf = mf["Mf"]
     if M <= Mf:                                              # les semelles seules portent le moment : (7.1) est sans objet
         return
     Mpl = s["Wpl_y"] * fy / gM0
     eta1b = M / Mpl
     v = eta1b + (1.0 - Mf / Mpl) * (2.0 * eta3 - 1.0) ** 2
     cles2 = [J.f("eta3", "η̄₃", [_t("V_Ed", V / 1e3, "kN"), _t("V_bw,Rd", r["Vbw"] / 1e3, "kN")], eta3, "", "a_eta3"),
-             J.f("M_f", "M_f,Rd", [_t("b", s["b"], "mm"), _t("t_f", s["tf"], "mm"), _t("h", s["h"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
-                 Mf / 1e6, "kN·m", "a_M_f"),
+             (J.f("M_f", "M_f,Rd", [_t("b", s["b"], "mm"), _t("t_f", s["tf"], "mm"), _t("h", s["h"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
+                  Mf / 1e6, "kN·m", "a_M_f") if not s.get("prs") else
+              J.f("M_f", "M_f,Rd", [_t("A_f", mf["Af"], "mm²"), _t("h_f", mf["hf"], "mm"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)],
+                  Mf / 1e6, "kN·m", "a_M_f_prs")),
              J.f("M_pl", "M_pl,Rd", [_t("W_pl,y", s["Wpl_y"] / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M0", gM0)], Mpl / 1e6, "kN·m", "e_M_Rd"),
              J.f("eta1_bar", "η̄₁", [_t("M_Ed", M / 1e6, "kN·m"), _t("M_pl,Rd", Mpl / 1e6, "kN·m")], eta1b, "", "a_eta1_bar"),
              J.f("i71", "η", [_t("η̄₁", eta1b), _t("M_f,Rd", Mf / 1e6, "kN·m"), _t("M_pl,Rd", Mpl / 1e6, "kN·m"), _t("η̄₃", eta3)], v, "", "a_71")]
@@ -172,20 +218,28 @@ def cisaillement(J: Journal, s: Dict, fy: float, P: Dict, V: float, M: float = 0
 
 
 # ------------------------------------------------------------------ § 6 : la charge concentrée
-def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.0, contact: bool = False,
-               fy_ame: Optional[float] = None) -> Dict:
+def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.0, contact=False,
+               fy_ame: Optional[float] = None, panneau: Optional[float] = None, borne: bool = False) -> Dict:
     """F_Rd de l'âme ``a`` (``ame_de``) sous une force appliquée sur la longueur d'appui rigide ``ss`` (mm), selon le
     ``type_`` de la figure 6.1 ; ``c`` : la distance de l'extrémité au bord de la longueur chargée, type (c) ;
-    ``contact`` : le contact d'extrémité est établi (type (c) : s_s entre alors dans (6.10)) — par défaut il ne l'est
-    pas (« inconnu », DÉCISION BUREAU n° 2) ; ``fy_ame`` : la f_y de l'âme selon t_w, celle de λ̄_F (à défaut ``fy``).
+    ``contact`` (type (c), DÉCISION BUREAU n° 2, brief § 8.2) : « oui » (ou True) — s_s entre dans (6.10) ; « non » —
+    s_s = 0 dans (6.10) seulement ; « inconnu » (ou False, le défaut) — le verdict de « non », et F_Rd avec contact
+    donnée pour information ; ``fy_ame`` : la f_y de l'âme selon t_w, celle de λ̄_F (à défaut ``fy``) ; ``panneau`` :
+    a, la distance entre raidisseurs transversaux (mm ; None : aucun raidisseur voisin, a → ∞) — k_F = 6 + 2·(h_w/a)²
+    ou 3,5 + 2·(h_w/a)², et l_y ≤ a (§ 6.5(2)) ; ``borne`` : ``ss`` ou ``c`` est la BORNE BASSE d'une donnée non saisie
+    (0) — au type (c), la branche m₂ = 0, cohérente ou non (voir plus bas).
 
     Rend {"type", "ss" (bornée à h_w), "ss_610" (le s_s de (6.10)), "c", "contact", "kF", "kF_plafonne", "Fcr", "m1",
     "m2" (la branche retenue), "deux_branches", "FRd_autre", "m2_autre" (l'autre branche cohérente, None sinon), "le",
     "le_plafonne", "ly1", "ly2", "ly3", "ly", "lambda_F", "chi_F", "FRd", "FRd_contact" (type (c) sans contact, s_s > 0 :
-    F_Rd avec contact, pour information ; None sinon), "fy_ame"} — N et mm ; ``le``, ``ly2``, ``ly3`` : None hors du
-    type (c)."""
+    F_Rd avec contact, pour information ; None sinon), "borne_m2" (la borne a écarté la règle des branches), "fy_ame"} —
+    N et mm ; ``le``, ``ly2``, ``ly3`` : None hors du type (c)."""
     if type_ not in TYPES:
         raise ValueError(f"type de charge concentrée inconnu : {type_!r}")
+    etat = {True: "oui", False: "inconnu"}.get(contact, contact) if isinstance(contact, bool) else contact
+    if etat not in CONTACTS:
+        raise ValueError(f"contact d'extrémité : {', '.join(CONTACTS)} — reçu {contact!r}")
+    contact = etat == "oui"
     hw, tw, tf, bf = a["hw"], a["tw"], a["tf"], a["bf"]
     E = P["E"]
     fyw = fy if fy_ame is None else float(fy_ame)
@@ -193,7 +247,8 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     c = max(float(c), 0.0)
     ss610 = ss if (type_ != "c" or contact) else 0.0            # contact non établi : s_s = 0 dans (6.10) seulement (JRC p. 79)
     brut = 2.0 + 6.0 * (ss + c) / hw
-    kF = KF[type_] if type_ != "c" else min(brut, KF_C_MAX)
+    voisin = 0.0 if panneau is None else 2.0 * (hw / float(panneau)) ** 2      # (6.4) : le raidisseur transversal voisin
+    kF = KF[type_] + voisin if type_ != "c" else min(brut, KF_C_MAX)
     Fcr = 0.9 * kF * E * tw ** 3 / hw
     m1 = bf / tw                                               # f_yf = f_yw
     le = le_plafonne = None
@@ -205,7 +260,7 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     def longueurs(m2: float) -> Dict:
         ly1 = ss610 + 2.0 * tf * (1.0 + math.sqrt(m1 + m2))
         if type_ != "c":
-            return {"ly1": ly1, "ly2": None, "ly3": None, "ly": ly1}
+            return {"ly1": ly1, "ly2": None, "ly3": None, "ly": ly1 if panneau is None else min(ly1, float(panneau))}
         ly2 = le + tf * math.sqrt(m1 / 2.0 + (le / tf) ** 2 + m2)
         ly3 = le + tf * math.sqrt(m1 + m2)
         return {"ly1": ly1, "ly2": ly2, "ly3": ly3, "ly": min(ly1, ly2, ly3)}
@@ -221,13 +276,31 @@ def resistance(a: Dict, fy: float, P: Dict, ss: float, type_: str, c: float = 0.
     avec, sans = branche(0.02 * (hw / tf) ** 2), branche(0.0)
     coherentes = [x for x, ok in ((sans, sans["lambda_F"] <= SEUIL_M2), (avec, avec["lambda_F"] > SEUIL_M2)) if ok]
     B = min(coherentes, key=lambda x: x["FRd"])
-    autre = next((x for x in coherentes if x is not B), None)
-    out = dict(B, type=type_, ss=ss, ss_610=ss610, c=c, contact=bool(contact), kF=kF, kF_plafonne=type_ == "c" and brut > KF_C_MAX, Fcr=Fcr,
+    # À LA BORNE d'une donnée non saisie (s_s ou c pris à 0 ; brief § 8.3, point 5) : F_Rd du type (c) ne croît pas toujours
+    # avec s_s + c — F_cr croît, et la branche m₂ = 0 peut redevenir cohérente (la règle des branches fait baisser F_Rd).
+    # Chaque branche croît avec l_y et F_cr ; la branche m₂ = 0 est la plus petite. Elle ne peut redevenir cohérente que si
+    # elle l'est avec F_cr au plus haut (k_F = 6) et l_y au plus bas (le sien, à la borne) : alors elle borne F_Rd par en
+    # dessous, cohérente ou non ; sinon seule la branche m₂ > 0 l'est, partout, et elle croît. Types (a) et (b) : F_cr ne
+    # dépend pas de s_s, la règle des branches croît avec lui (À VÉRIFIER ; balayage de tests/test_barre_ame.py)
+    borne_m2 = (borne and type_ == "c" and B is not sans
+                and math.sqrt(sans["ly"] * tw * fyw / (0.9 * KF_C_MAX * E * tw ** 3 / hw)) <= SEUIL_M2)
+    if borne_m2:
+        B = sans
+    autre = None if borne_m2 else next((x for x in coherentes if x is not B), None)
+    out = dict(B, type=type_, ss=ss, ss_610=ss610, c=c, contact=bool(contact), contact_etat=etat, panneau=panneau, kF=kF, kF_plafonne=type_ == "c" and brut > KF_C_MAX, Fcr=Fcr,
                m1=m1, le=le, le_plafonne=le_plafonne, deux_branches=autre is not None, FRd_autre=None if autre is None else autre["FRd"],
-               m2_autre=None if autre is None else autre["m2"], FRd_contact=None, fy_ame=fyw)
-    if type_ == "c" and not contact and ss > 0:
-        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=True, fy_ame=fy_ame)["FRd"]
+               m2_autre=None if autre is None else autre["m2"], FRd_contact=None, borne_m2=borne_m2, fy_ame=fyw)
+    if type_ == "c" and etat == "inconnu" and ss > 0:
+        out["FRd_contact"] = resistance(a, fy, P, ss, type_, c, contact=True, fy_ame=fy_ame, panneau=panneau, borne=borne)["FRd"]
     return out
+
+
+def ly_plafond(a: Dict, ss: float) -> float:
+    """La plus grande longueur chargée l_y que peut avoir une force de longueur d'appui ``ss`` (mm, bornée à h_w), quels
+    que soient c, le type et la branche de m₂ : s_s + 2·t_f·(1 + √(m₁ + 0,02·(h_w/t_f)²)) — celle des forces rapprochées
+    (§ 6.3(2)) quand une donnée manque (À VÉRIFIER : borne haute)."""
+    hw, tf = a["hw"], a["tf"]
+    return min(max(float(ss), 0.0), hw) + 2.0 * tf * (1.0 + math.sqrt(a["bf"] / a["tw"] + 0.02 * (hw / tf) ** 2))
 
 
 def ecrire_resistance(J: Journal, a: Dict, fy: float, P: Dict, r: Dict, prefixe: str = "") -> List[str]:
@@ -272,7 +345,8 @@ def mots_resistance(r: Dict) -> List[str]:
     du calcul de F_Rd."""
     mots = [f"Type ({r['type']}) : force {LIBELLES_TYPE[r['type']]}"]
     if r["type"] != "c":
-        mots.append(f"k_F = {_fr(r['kF'], 1)} sans raidisseur transversal voisin")
+        mots.append(f"k_F = {_fr(r['kF'], 1)} sans raidisseur transversal voisin" if r.get("panneau") is None
+                    else f"raidisseurs transversaux à a = {_fr(r['panneau'])} mm")
     else:
         if r["kF_plafonne"]:
             mots.append("k_F plafonné à 6")
@@ -280,9 +354,15 @@ def mots_resistance(r: Dict) -> List[str]:
             mots.append("l_e plafonné à s_s + c")
         mots.append("l_y : la plus petite des trois expressions")
         if r.get("FRd_contact") is not None:
-            mots.append("contact d'extrémité non établi : s_s = 0 dans (6.10) (verdict) ; avec contact, "
+            mots.append("hypothèse de contact non établie : s_s = 0 dans (6.10) (verdict) ; avec contact, "
                         f"F_Rd = {_fr(r['FRd_contact'] / 1e3, 1)} kN, pour information")
-    if r["m2"] <= 0:
+        elif r.get("contact_etat") == "non" and r["ss"] > 0:
+            mots.append("sans contact d'extrémité : s_s = 0 dans (6.10)")
+        elif r.get("contact_etat") == "oui":
+            mots.append("contact d'extrémité établi : s_s dans (6.10)")
+    if r.get("borne_m2"):
+        mots.append("borne : m₂ = 0, la plus petite des deux branches")
+    elif r["m2"] <= 0:
         mots.append("λ̄_F ≤ 0,5 : m₂ = 0")
     if r.get("deux_branches"):
         mots.append(f"deux branches de m₂ cohérentes : la plus petite F_Rd est retenue (l'autre : {_fr(r['FRd_autre'] / 1e3, 1)} kN)")
@@ -315,14 +395,86 @@ def interaction(e2: float, e1: float) -> float:
     return (e2 + k * e1) / lim
 
 
+def seuil_local(FRd: float, e1: float) -> float:
+    """La force au-delà de laquelle l'âme ne passe plus, à M_Ed et N_Ed IMPOSÉS (brief § 8.2, « seuil de résistance
+    locale ») : min(F_Rd ; (1,4 − 0,8·η₁)·F_Rd) — η₂ ≤ 1 et (7.2). Ce n'est PAS la capacité de la barre : quand la
+    charge croît, le moment croît avec elle."""
+    k, lim = INTERACTION_72
+    return max(0.0, min(FRd, (lim - k * e1) * FRd))
+
+
+# ------------------------------------------------------------------ § 7.2(2) : la charge sur la semelle TENDUE
+COMPRIMEE, TENDUE, LES_DEUX = "comprimee", "tendue", "les_deux"
+ETATS_SEMELLE = {COMPRIMEE: "semelle comprimée", TENDUE: "semelle tendue", LES_DEUX: "σ_x nul ou de signes mêlés"}
+# ce que dit la vérification « -EL », en une ligne
+MOTS_ETAT = {TENDUE: "Semelle chargée tendue : pas d'interaction (7.2), le critère 6.2.1(5) décide.",
+             LES_DEUX: "σ_x nul ou de signes mêlés dans la semelle chargée : les deux contrôles."}
+
+
+def niveaux_semelle(s: Dict, cote: str) -> Dict:
+    """Les cotes de la semelle ``cote`` depuis le centre de gravité, z vers le haut (mm) : {"z_moyen" (son plan moyen),
+    "z_jonction" (la jonction âme-semelle), "S" (le moment statique de la semelle, mm³), "bf", "tf"} — z_g d'un PRS
+    (contrat de prs.py), h/2 d'un laminé."""
+    sm = semelles_de(s)[cote]
+    zg = s.get("z_g") or s["h"] / 2.0
+    if cote == "haut":
+        zm, zj = s["h"] - zg - sm["tf"] / 2.0, s["h"] - zg - sm["tf"]
+    else:
+        zm, zj = -(zg - sm["tf"] / 2.0), -(zg - sm["tf"])
+    return {"z_moyen": zm, "z_jonction": zj, "S": sm["bf"] * sm["tf"] * abs(zm), "bf": sm["bf"], "tf": sm["tf"]}
+
+
+def sigma_x(N: float, M: float, A: float, Iy: float, z: float, Mz: float = 0.0, Iz: Optional[float] = None, y: float = 0.0) -> float:
+    """σ_x = N/A + M_y·z/I_y + M_z·y/I_z (N/mm², COMPRESSION POSITIVE : N > 0 comprime, M_y > 0 comprime la fibre haute —
+    les conventions de acier/barre/statique.py) — brief § 8.2."""
+    return N / A + M * z / Iy + (Mz * y / Iz if Mz and Iz else 0.0)
+
+
+def etat_semelle(sigmas) -> str:
+    """L'état de la semelle chargée d'après σ_x sur toute sa largeur (brief § 8.2) : comprimée partout, tendue partout,
+    ou « les deux » — signes mêlés ou contrainte nulle (un appui d'extrémité) : les deux contrôles, le plus défavorable
+    retenu (choix déclaré du brief)."""
+    v = list(sigmas)
+    if all(x > EPS_SIGMA for x in v):
+        return COMPRIMEE
+    if all(x < -EPS_SIGMA for x in v):
+        return TENDUE
+    return LES_DEUX
+
+
+EPS_SIGMA = 1e-6                # N/mm² : une contrainte plus petite est nulle
+
+
+def sigma_z(F: float, ss: float, tf: float, tw: float, z: float = 0.0, ast1: float = 0.0) -> Dict:
+    """La compression locale de l'âme sous une force concentrée (EN 1993-1-5 § 3.2.3, (3.2)) :
+    σ_z,Ed = F_Ed/(b_eff·(t_w + a_st,1)), b_eff = s_e·√(1 + (z/(s_e·n))²), n = 0,636·√(1 + 0,878·a_st,1/t_w), s_e = s_s + 2·t_f ;
+    à la jonction (z = 0), sans raidisseur : F_Ed/(s_e·t_w). {"se", "n", "beff", "sigma_z"} (mm, N/mm²)."""
+    se = ss + 2.0 * tf
+    n = 0.636 * math.sqrt(1.0 + 0.878 * ast1 / tw)
+    beff = se * math.sqrt(1.0 + (z / (se * n)) ** 2)
+    return {"se": se, "n": n, "beff": beff, "sigma_z": F / (beff * (tw + ast1))}
+
+
+def critere_elastique(sx: float, sz: float, tau: float, fy: float, gM0: float) -> float:
+    """Le critère de l'EN 1993-1-1 § 6.2.1(5) (6.1), au point considéré :
+    (σ_x/f)² + (σ_z/f)² − (σ_x/f)·(σ_z/f) + 3·(τ/f)², f = f_y/γ_M0 — σ_x et σ_z avec leur signe (compression positive)."""
+    f = fy / gM0
+    return (sx / f) ** 2 + (sz / f) ** 2 - (sx / f) * (sz / f) + 3.0 * (tau / f) ** 2
+
+
 # ------------------------------------------------------------------ § 8 : la semelle
-def semelle(s: Dict, fy: float, P: Dict, k: float = K_SEMELLE) -> Optional[Dict]:
-    """Le voilement de l'âme induit par la semelle comprimée (§ 8) : {"rapport", "limite", "k", "ok"} ; None hors des I."""
+def semelle(s: Dict, fy: float, P: Dict, k: float = K_SEMELLE, fy_semelle: Optional[float] = None) -> Optional[Dict]:
+    """Le voilement de l'âme induit par la semelle comprimée (§ 8) : {"rapport", "limite", "k", "ok", "bf", "tf",
+    "fyf"} ; None hors des I. Semelles inégales (un PRS) : la PLUS GRANDE des deux aires — NBN EN 1993-1-5 ANB:2011,
+    8(2) : A_ft remplace A_fc quand elle la dépasse ; la semelle comprimée n'est pas connue ici, d'où le côté sûr.
+    ``fy_semelle`` : la f_y de la semelle (f_yf), à défaut ``fy``."""
     a = ame_de(s)
     if a is None:
         return None
-    lim = k * P["E"] / fy * math.sqrt(a["hw"] * a["tw"] / (a["bf"] * a["tf"]))
-    return {"rapport": a["hw"] / a["tw"], "limite": lim, "k": k, "ok": a["hw"] / a["tw"] <= lim}
+    fl = max(semelles_de(s).values(), key=lambda x: x["bf"] * x["tf"])
+    fyf = fy if fy_semelle is None else float(fy_semelle)
+    lim = k * P["E"] / fyf * math.sqrt(a["hw"] * a["tw"] / (fl["bf"] * fl["tf"]))
+    return {"rapport": a["hw"] / a["tw"], "limite": lim, "k": k, "ok": a["hw"] / a["tw"] <= lim, "bf": fl["bf"], "tf": fl["tf"], "fyf": fyf}
 
 
 def ecrire_semelle(J: Journal, s: Dict, fy: float, P: Dict, v: Dict) -> None:
@@ -330,7 +482,8 @@ def ecrire_semelle(J: Journal, s: Dict, fy: float, P: Dict, v: Dict) -> None:
     en une ligne d'hypothèse."""
     a = ame_de(s)
     cles = [J.f("hw_tw_s", "h_w/t_w", [_t("h_w", a["hw"], "mm"), _t("t_w", a["tw"], "mm")], v["rapport"], "", "a_elancement"),
-            J.f("lim_semelle", "k·(E/f_yf)·√(A_w/A_fc)", [_t("k", v["k"]), _t("E", P["E"], "N/mm²"), _t("f_y", fy, "N/mm²"), _t("h_w", a["hw"], "mm"),
-                                                           _t("t_w", a["tw"], "mm"), _t("b_f", a["bf"], "mm"), _t("t_f", a["tf"], "mm")],
+            J.f("lim_semelle", "k·(E/f_yf)·√(A_w/A_fc)", [_t("k", v["k"]), _t("E", P["E"], "N/mm²"), _t("f_yf", v.get("fyf", fy), "N/mm²"),
+                                                           _t("h_w", a["hw"], "mm"), _t("t_w", a["tw"], "mm"), _t("b_f", v.get("bf", a["bf"]), "mm"),
+                                                           _t("t_f", v.get("tf", a["tf"]), "mm")],
                 v["limite"], "", "a_semelle")]
     J.verif("A-S", "Voilement de l'âme induit par la semelle", f"{REF} § 8", "h_w/t_w ≤ k·(E/f_yf)·√(A_w/A_fc)", v["rapport"], v["limite"], "", cles)
