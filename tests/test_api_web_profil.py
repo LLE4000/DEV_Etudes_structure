@@ -17,7 +17,8 @@ fichiers : profil_saisie, profil_resultat, profil_mots, dessin_barre), vérifié
  11. LOT A — une méthode hors de son domaine (« Hors domaine », l'ocre « v »), le poids propre que le moteur nomme, la
      source de f_y ; chaque contrôle a sa mutation.
  15-16. LOT B — le format de la note (version 2 et sa clé « zero_saisi » : un 0 saisi n'est pas un champ vide ; relue par
-     le site d'avant, 766659c, tirée de l'historique) ; s_s et c se vident.
+     le site d'avant, 766659c, tirée de l'historique : ce contrôle demande l'historique complet) ; s_s et c se vident.
+ 17. LOT B — le message du maintien à l'écran (la ligne sans le taux de sa pastille, la bande le lieu en tête).
 
     /usr/bin/python3.12 tests/test_api_web_profil.py
 """
@@ -947,6 +948,9 @@ def _source_mutee(module, ancien, nouveau):
     """Une copie d'un fichier de l'écran, son TEXTE muté (une seule occurrence de ``ancien``)."""
     src = open(module.__file__, encoding="utf-8").read()
     if src.count(ancien) != 1:
+        # (2e finition du lot B) un ancrage perdu ROUGIT la suite : la boucle qui l'appelle prend une exception pour un rouge — la
+        # mutation y passerait pour rouge sans avoir rien muté
+        chk(f"le texte à muter est dans {module.__name__}, une seule fois : « {ancien.strip()[:70]} »", False, src.count(ancien))
         raise ValueError(f"texte à muter absent ou répété dans {module.__name__}")
     spec = importlib.util.spec_from_file_location(module.__name__ + "_mute", module.__file__)
     mod = importlib.util.module_from_spec(spec)
@@ -1062,9 +1066,9 @@ def borne_ecran():
         return t_[i_:i_ + 40] if i_ >= 0 else ""
     tn, ts, tz = texte(n_["resultat"]), texte(s_["resultat"]), texte(z_["resultat"])
     return [
-        ("le résumé de la rubrique Appuis dit ce qui manque — « s_s à saisir · c à saisir » ; s_s saisie : « s_s 100 mm · c à saisir » ; "
-         "c = 0 SAISI se lit (« c 0 mm »), il n'est pas « à saisir »",
-         resume_ap(n_).startswith("Appuis posée · s s à saisir · c à saisir") and resume_ap(s_).startswith("Appuis posée · s s 100 mm · c à saisir")
+        ("le résumé de la rubrique Appuis dit un champ vide comme le champ l'affiche — « s_s borne 0 · c borne 0 » ; s_s saisie : « s_s 100 mm · "
+         "c borne 0 » ; c = 0 SAISI se lit (« c 0 mm »), il n'est pas vide (le harnais suit, 2e finition : « à saisir »)",
+         resume_ap(n_).startswith("Appuis posée · s s borne 0 · c borne 0") and resume_ap(s_).startswith("Appuis posée · s s 100 mm · c borne 0")
          and resume_ap(z_).startswith("Appuis posée · s s 100 mm · c 0 mm"), (resume_ap(n_), resume_ap(s_), resume_ap(z_))),
         ("la ligne d'un lieu impossible porte le taux à la borne (« Appui A 157 % décision impossible : s s à saisir ») ; à la borne qui "
          "passe, la ligne dit la borne (« sans raidisseur (c = 0 : borne prudente) ») ; c = 0 saisi : « sans raidisseur », sans borne",
@@ -1089,6 +1093,8 @@ def _resume_ancien(vrai):
 
 MUTATIONS_BORNE = (
     ("le résumé des Appuis tait c (manquant, ou 0 saisi)", PS, "_resume_appuis", _resume_ancien),
+    ("le résumé des Appuis dit « à saisir » un champ vide (le champ dit « borne 0 »)", PS, "_resume_appuis",
+     lambda vrai: _source_mutee(PS, 'else f"s<sub>s</sub> {M.SS_VIDE}"', 'else "s<sub>s</sub> à saisir"')._resume_appuis),
     ("la ligne d'un lieu ne dit pas la borne", M, "decision_lieu",
      lambda vrai: (lambda L: "sans raidisseur" if L["decision"] == "aucun" else vrai(L))),
     ("la ligne d'un lieu impossible perd son taux", MO, "verifier",
@@ -1139,6 +1145,7 @@ def note_v2():
     n3 = req(action="calculer", etat=n2["etat"]) if n2.get("ok") else {}
     ap3 = n3["etat"]["elements"][0]["appuis"] if n3.get("ok") else {}
     v9 = req(action="calculer", etat=dict(note(haute), version=3))
+    vb, vf = (req(action="calculer", etat=dict(note(haute), version=v_)) for v_ in (True, 2.0))
     return [
         ("une note du SITE D'AVANT le lot B (version 2, sans « zero_saisi » : il écrivait 0,0 pour s_s et c non saisis) : relue, ses 0 deviennent "
          "« non saisis » — appuis (c) et charge ponctuelle (s_s) ; une valeur non nulle est gardée (s_s = 200 mm) ; rendue au format neuf",
@@ -1158,6 +1165,8 @@ def note_v2():
         ("une note d'un AUTRE format (version 3) est refusée — jamais lue comme une autre (le site d'avant prenait toute version inconnue pour une "
          "version 1 : « efforts imposés »)",
          not v9.get("ok") and "format inconnu" in v9.get("erreur", ""), v9.get("erreur")),
+        ("… de même une version qui n'est pas un ENTIER — true (que Python compte pour 1 : « efforts imposés ») ou 2.0 — : le site écrit l'entier 2",
+         all(not x.get("ok") and "format inconnu" in x.get("erreur", "") for x in (vb, vf)), (vb.get("erreur"), vf.get("erreur"))),
         ("l'aide de la longueur d'appui (rubriques Appuis et Charges, et le survol de « s_s » et « sur ») dit le sens d'un champ VIDE — « calcul "
          "à la borne 0 (prudent) » — et plus jamais « 0 : le cas le plus défavorable » (faux au type (c))",
          AIDE_APPUIS in don and "Vide : calcul à la borne 0 (prudent)." in don and "(vide : calcul à la borne 0, prudent)" in ch
@@ -1187,8 +1196,12 @@ MUTATIONS_V2 = (
     ("la clé « zero_saisi » ignorée à la relecture (les 0 SAISIS d'une note neuve ramenés à « non saisi »)", P, "normaliser",
      lambda vrai: _source_mutee(P, "    neuve = version == VERSION and etat.get(ZERO_SAISI) is True", "    neuve = False").normaliser),
     ("la clé « zero_saisi » plus écrite (une note neuve relue comme une note du site d'avant)", P, "etat_de", _sans_cle),
+    ("une version true ou 2.0 prise pour 1 ou 2 (l'égalité de Python : true == 1)", P, "normaliser",
+     lambda vrai: _source_mutee(P, "    if isinstance(version, bool) or not isinstance(version, int) or version not in (1, VERSION):",
+                                "    if version not in (1, VERSION):").normaliser),
     ("une version inconnue lue comme une version 1", P, "normaliser",
-     lambda vrai: _source_mutee(P, "    if version not in (1, VERSION):", "    if False:").normaliser),
+     lambda vrai: _source_mutee(P, "    if isinstance(version, bool) or not isinstance(version, int) or version not in (1, VERSION):",
+                                "    if False:").normaliser),
     ("l'aide de s_s redit « 0 : le cas le plus défavorable »", M, "AIDE_SS", lambda vrai: vrai.replace("Vide : calcul à la borne 0 (prudent).", "0 : le cas le plus défavorable.")),
     ("l'aide des Appuis redit « longueur d'appui à 0 : le cas le plus défavorable »", P, "S",
      lambda vrai: _source_mutee(vrai, "ou débord vide : calcul à la borne 0 (prudent).", "à 0 : le cas le plus défavorable.")),
@@ -1226,7 +1239,8 @@ def ancien_site():
                 t.extractall(d, filter="data")
             _ANCIEN.update(dossier=d, raison=None)
         except (OSError, subprocess.CalledProcessError, tarfile.TarError) as e:
-            _ANCIEN.update(dossier=None, raison=f"le commit {ANCIEN_SITE} n'est pas lisible : {e}")
+            _ANCIEN.update(dossier=None, raison=f"le commit {ANCIEN_SITE} n'est pas lisible (ce contrôle demande l'historique complet : "
+                                                f"git fetch --unshallow) : {e}")
     return _ANCIEN["dossier"]
 
 
@@ -1266,12 +1280,13 @@ def vider_et_relire():
     el_a = pl_["etat"]["elements"][0] if pl_.get("ok") else {}
     return [
         ("un champ s_s ou c SAISI se VIDE — appuis (s_s, c) et charge ponctuelle (s_s) : « » rend « non saisi » (null), comme un champ « vide = "
-         "auto » ; à l'écran, ces champs acceptent d'être vidés (data-vide) et disent « à saisir » vides ; un texte qui n'est pas un nombre reste refusé",
+         "auto » ; à l'écran, ces champs acceptent d'être vidés (data-vide) et disent, vides, le sens du vide — « borne 0 », comme l'aide (le "
+         "harnais suit, 2e finition : « à saisir ») ; un texte qui n'est pas un nombre reste refusé",
          (el_p["appuis"]["ss"], el_p["appuis"]["c"], el_p["cas"][0]["charges"][1]["ss"]) == (100.0, 0.0, 80.0)
          and (el_v["appuis"]["ss"], el_v["appuis"]["c"], el_v["cas"][0]["charges"][1]["ss"]) == (None, None, None) and rep_.get("ok")
-         and sorted(champs) == sorted([("appuis/ss", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir"),
-                                       ("appuis/c", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir"),
-                                       ("cas/0/charges/1/ss", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir")])
+         and sorted(champs) == sorted([("appuis/ss", "texte", "", 'data-vide="auto" placeholder="borne 0"', "borne 0"),
+                                       ("appuis/c", "texte", "", 'data-vide="auto" placeholder="borne 0"', "borne 0"),
+                                       ("cas/0/charges/1/ss", "texte", "", 'data-vide="auto" placeholder="borne 0"', "borne 0")])
          and abc.get("ok") and "n'est pas un nombre" in (abc.get("message") or "") and abc["etat"]["elements"][0]["appuis"]["c"] == 0.0,
          (el_v["appuis"], champs, abc.get("message"))),
         (f"le SITE D'AVANT ({ANCIEN_SITE}, son normaliser exécuté) relit une note NEUVE telle quelle quand tout est saisi — 0 saisi = 0, et aucun "
@@ -1307,6 +1322,56 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_VIDE:
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du champ vidé et de la relecture par le site d'avant sont verts", all(ok_ for _n, ok_, _i in vider_et_relire()))
+
+print("=== 17. (2e finition du lot B) le maintien à l'écran : la ligne et la fenêtre sans le taux de leur pastille, la bande le lieu en tête — "
+      "et leurs mutations")
+
+
+def maintien_ecran():
+    """Les contrôles du message du maintien à l'écran (une charge de 20 kN à mi-portée, posée sur la semelle haute, sans maintien ; appuis par
+    l'âme : le seul lieu), rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    b_ = barre(maintiens=[], appuis={"mode": "ame", "ss": None, "c": None},
+               cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 20.0, "a": 3.0, "ss": 100.0}]}])
+    r_ = req(action="calculer", etat=note(b_))
+    tr_, tv_ = texte(r_.get("resultat", "")), texte(r_.get("volets", ""))
+    fait = "semelle haute sans maintien (EN 1993-1-5, 6.1(1))"
+    return [
+        ("la LIGNE du lieu dit le fait et le remède sans le taux, que sa pastille donne (« Charge à 3,00 m 24 % semelle haute sans maintien (…) ; "
+         "ajouter un maintien (À VÉRIFIER) ») ; la BANDE, le lieu en tête (« Âme · Charge à 3,00 m : semelle haute … — 24 % si elle est tenue ; … »), "
+         "jamais « …) (charge à 3,00 m) » ; l'avertissement, la phrase entière ; « si elle est tenue » deux fois (bande, avertissement), jamais "
+         "dans les fenêtres (la -F, le titre du lieu : sans le taux)",
+         f"Charge à 3,00 m 24 % {fait} ; ajouter un maintien (À VÉRIFIER)" in tr_
+         and f"Âme · Charge à 3,00 m : {fait} — 24 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)" in tr_
+         and f"Charge à 3,00 m : {fait} — 24 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)." in tr_
+         and "(À VÉRIFIER) (charge" not in tr_ and tr_.count("si elle est tenue") == 2
+         and f"x = 3,00 m · {fait} ; ajouter un maintien (À VÉRIFIER)" in tv_ and "si elle est tenue" not in tv_,
+         re.findall(r".{40}sans maintien.{80}", tr_ + " | " + tv_)[:4]),
+    ]
+
+
+for nom_, ok_, info_ in maintien_ecran():
+    chk(nom_, ok_, info_)
+MUTATIONS_MAINTIEN = (
+    ("la ligne d'un lieu redit le taux de sa pastille (la raison entière)", M, "decision_lieu", lambda vrai: (lambda L: vrai(dict(L, ligne=None)))),
+    ("la bande met le lieu en queue, après une parenthèse (« …) (charge à 3,00 m) »)", M, "resume_ame",
+     lambda vrai: _source_mutee(M, 'if t.endswith(")") else', 'if False else').resume_ame),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_MAINTIEN:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    try:
+        setattr(objet_, attr_, fabrique_(vrai_))
+        rouges_ = [n_ for n_, ok_, _i in maintien_ecran() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles du maintien à l'écran sont verts", all(ok_ for _n, ok_, _i in maintien_ecran()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

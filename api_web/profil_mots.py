@@ -43,7 +43,9 @@ NOM_MODE_APPUI = {"poses": "posée", "ame": "par l'âme"}
 AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre dans la semelle (largeur de l'appui, platine, semelle du "
            "poteau qui charge). Vide : calcul à la borne 0 (prudent).")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
-SS_VIDE = "à saisir"            # le champ s_s ou c vide (non saisi) : il se vide comme il se remplit (api_web/commun.num, auto)
+# le champ s_s ou c vide (non saisi) : il se vide comme il se remplit (api_web/commun.num, auto), et dit le sens du vide — le calcul à
+# la borne 0, comme l'aide (« à saisir » n'est dit que par une décision impossible : la borne suffit souvent)
+SS_VIDE = "borne 0"
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
          ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la {minuscule(METHODES['historique'])}, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),
@@ -132,7 +134,8 @@ def decision_lieu(L: Dict) -> str:
     if L["decision"] == "raidisseur":
         return L["raidisseur"]["designation"]
     if L["decision"] == "impossible":
-        r = L.get("raison") or "Décision impossible."
+        # seul le maintien manque : la raison sans son taux (« ligne »), que la pastille de la ligne donne déjà
+        r = L.get("ligne") or L.get("raison") or "Décision impossible."
         return r[:1].lower() + r[1:].rstrip(".")
     return f"sans raidisseur ({L['borne']})" if L.get("borne") else "sans raidisseur"
 
@@ -146,7 +149,9 @@ def resume_ame(a: Dict) -> str:
     for L in a.get("lieux") or []:
         if L["decision"] == "impossible":
             imp.setdefault((L.get("raison") or "Décision impossible.").rstrip("."), []).append(L["nom"][:1].lower() + L["nom"][1:])
-    sans = " ; ".join(f"{t} ({', '.join(noms)})" for t, noms in imp.items())
+    # une raison qui finit par une parenthèse (« … 6.1(1)) », « … (À VÉRIFIER) ») : le lieu en tête, jamais « …) (charge à 3,00 m) »
+    sans = " ; ".join(f"{', '.join(noms)} : {t[:1].lower() + t[1:]}" if t.endswith(")") else f"{t} ({', '.join(noms)})"
+                      for t, noms in imp.items())
     if r:
         par = {}
         for L in r:
@@ -154,7 +159,7 @@ def resume_ame(a: Dict) -> str:
         return (("Raidisseur : " if len(r) == 1 else "Raidisseurs : ") + " ; ".join(f"{d} ({', '.join(noms)})" for d, noms in par.items())
                 + (" ; " + sans[:1].lower() + sans[1:] if sans else ""))
     if sans:
-        return sans
+        return sans[:1].upper() + sans[1:]
     if a.get("lieux"):
         return "Pas de raidisseur nécessaire"
     return "Âme élancée vérifiée au cisaillement" if a.get("verifications") else ""

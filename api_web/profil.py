@@ -48,7 +48,9 @@ VERSION = 2
 # (lot B) une clé de la NOTE, sans changer de version : ses 0 de s_s et de c sont des SAISIES (vide : null, non saisi). Une note
 # sans elle vient du site d'avant le lot B, qui écrivait 0 pour « non saisi » : ses 0 y sont relus « non saisis » (_de_v2, le
 # côté sûr). Le site d'avant ignore la clé : il relit une note neuve telle quelle (0 = 0) ou la REFUSE (une donnée vide, null,
-# « nombre attendu ») — jamais une autre lecture (une version 3 y était prise pour une version 1 : « efforts imposés »).
+# « nombre attendu ») — jamais une autre lecture (une version 3 y était prise pour une version 1 : « efforts imposés »). Mais il
+# suffit qu'il l'OUVRE : il la réécrit aussitôt sans la clé (son etabli.js enregistre au premier calcul) — ses 0 saisis redeviennent
+# alors « non saisis » pour le site neuf (le côté sûr, à ressaisir).
 ZERO_SAISI = "zero_saisi"
 
 ROLE = "profil"                 # le seul sélecteur du module : le profilé de la barre ouverte
@@ -218,7 +220,8 @@ def normaliser(etat: Dict) -> Dict:
     if not isinstance(els, list) or not els:
         raise ValueError("les barres de la note sont illisibles (une liste de barres est attendue)")
     version = etat.get("version", 1)
-    if version not in (1, VERSION):              # une note d'un autre format : refusée, jamais lue comme une autre
+    # une note d'un autre format : refusée, jamais lue comme une autre — un ENTIER (pour Python, true vaut 1 et 2.0 vaut 2)
+    if isinstance(version, bool) or not isinstance(version, int) or version not in (1, VERSION):
         raise ValueError(f"note d'un format inconnu (version {str(version)[:12]}) : elle n'est pas relue")
     neuve = version == VERSION and etat.get(ZERO_SAISI) is True
     lire = (lambda e: e) if neuve else _de_v2 if version == VERSION else _migrer

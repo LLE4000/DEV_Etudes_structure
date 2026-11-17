@@ -232,9 +232,10 @@ def _resume_appuis(el: Dict) -> str:
     ap = el["appuis"]
     if ap["mode"] != "poses":
         return M.NOM_MODE_APPUI[ap["mode"]]
-    # (la rubrique n'est offerte qu'à une barre qui a un appui de rive simple : son débord c compte ; 0 saisi n'est pas « à saisir »)
-    ss = f"s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" if ap["ss"] is not None else "s<sub>s</sub> à saisir"
-    c = f"c {M.n(ap['c'], 0)}{N}mm" if ap["c"] is not None else "c à saisir"
+    # (la rubrique n'est offerte qu'à une barre qui a un appui de rive simple : son débord c compte ; 0 saisi n'est pas vide) — un
+    # champ vide se résume comme il s'affiche : « borne 0 » (M.SS_VIDE)
+    ss = f"s<sub>s</sub> {M.n(ap['ss'], 0)}{N}mm" if ap["ss"] is not None else f"s<sub>s</sub> {M.SS_VIDE}"
+    c = f"c {M.n(ap['c'], 0)}{N}mm" if ap["c"] is not None else f"c {M.SS_VIDE}"
     return f"{M.NOM_MODE_APPUI['poses']} · {ss} · {c}"
 
 
