@@ -34,6 +34,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from acier.flambement import normes as NO
 
 from . import ec3_ame as AM
+from . import nuances as NU
 from .resultat import NOK, Journal, fr as _fr, terme as _t
 
 REF = "EN 1993-1-5"
@@ -90,29 +91,32 @@ def elancement_admis(fy: float, E: float) -> float:
     return min(ELANCEMENT_PLAT * NO.epsilon(fy), math.sqrt(E / (TORSION * fy) - 0.25))
 
 
-def materiau(fy: float, ts: float, nuance: Optional[str] = None, fy_ame: Optional[float] = None) -> Dict:
+def materiau(fy: float, ts: float, nuance: Optional[str] = None, fy_ame: Optional[float] = None,
+             norme_produit: Optional[str] = None) -> Dict:
     """Le matériau d'une paire de plats d'épaisseur ``ts`` (brief § 7.1, § 8.4) : {"fy_plat" (f_y du plat selon SON
     épaisseur — table unique, produit laminé), "fy_ame" (f_y de l'âme selon t_w), "fy_calcul" (le plus petit des deux :
-    la section du raidisseur), "eps_plat", "eps_ame"}. Sans ``nuance`` : ``fy`` pour tout (une f_y donnée)."""
-    fyp = fy if nuance is None else NO.limite_elastique(nuance, ts, produit="lamine")
+    la section du raidisseur), "eps_plat", "eps_ame"}. Sans ``nuance`` : ``fy`` pour tout (une f_y donnée).
+    (lot C, C1b) La nuance et la norme produit lues dans la liste du module Barres (acier/barre/nuances.py, S420
+    compris ; ``norme_produit`` None = N/NL, « M » = M/ML) — plus celle du module Flambement, qui ne connaît pas S420."""
+    fyp = fy if nuance is None else NU.fy(nuance, ts, "lamine", norme_produit)
     fyw = fy if fy_ame is None else float(fy_ame)
     return {"fy_plat": fyp, "fy_ame": fyw, "fy_calcul": min(fyp, fyw), "eps_plat": NO.epsilon(fyp), "eps_ame": NO.epsilon(fyw)}
 
 
 def plat(s: Dict, fy: float, P: Dict, ts: float, dispo: Sequence[Optional[float]] = (None, None), nuance: Optional[str] = None,
-         fy_ame: Optional[float] = None) -> Optional[Dict]:
+         fy_ame: Optional[float] = None, norme_produit: Optional[str] = None) -> Optional[Dict]:
     """La paire de plats d'épaisseur ``ts`` (mm) dans le profilé ``s``. ``dispo`` : la longueur d'âme disponible de
     chaque côté de l'axe du raidisseur (mm ; None : sans limite) — le bout de la barre, la moitié de la distance au
-    raidisseur voisin. ``nuance`` : celle de la barre — chaque plat prend la f_y de son épaisseur (``materiau``) ;
-    ``fy_ame`` : la f_y de l'âme. Rend {"ts", "bs", "chanfrein", "hw", "fy_plat", "fy_ame", "fy_calcul", "eps_plat",
-    "eps_ame", "Ac", "NcRd", "cotes" (l'âme prise de chaque côté), "limite" (un côté est borné), "lw", "Ast", "Ist",
+    raidisseur voisin. ``nuance`` et ``norme_produit`` : celles de la barre — chaque plat prend la f_y de son épaisseur
+    (``materiau``) ; ``fy_ame`` : la f_y de l'âme. Rend {"ts", "bs", "chanfrein", "hw", "fy_plat", "fy_ame", "fy_calcul",
+    "eps_plat", "eps_ame", "Ac", "NcRd", "cotes" (l'âme prise de chaque côté), "limite" (un côté est borné), "lw", "Ast", "Ist",
     "Ncr", "lambda", "Phi", "chi", "NbRd", "elancement", "elancement_lim", "torsion", "torsion_lim", "I_min"} — N et mm ;
     None si le profilé ne reçoit pas de raidisseur."""
     g = gabarit(s)
     if g is None:
         return None
     E, tw, hw = P["E"], s["tw"], g["hw"]
-    m = materiau(fy, ts, nuance, fy_ame)
+    m = materiau(fy, ts, nuance, fy_ame, norme_produit)
     fyp, fyd = m["fy_plat"], m["fy_calcul"]
     bs = min(g["bs_max"], PAS * math.floor(ts * elancement_admis(fyp, E) / PAS + 1e-9))
     if bs - g["chanfrein"] < PAS:
@@ -139,7 +143,7 @@ def plat(s: Dict, fy: float, P: Dict, ts: float, dispo: Sequence[Optional[float]
 
 def dimensionner(s: Dict, fy: float, P: Dict, F: float, dispo: Sequence[Optional[float]] = (None, None),
                  appui_rigide: bool = False, nuance: Optional[str] = None, fy_ame: Optional[float] = None,
-                 Nst: float = 0.0) -> Optional[Dict]:
+                 Nst: float = 0.0, norme_produit: Optional[str] = None) -> Optional[Dict]:
     """La paire de plats qui porte ``F`` (N) : la première épaisseur de EPAISSEURS dont l'écrasement, le flambement —
     et, pour un ``appui_rigide`` d'âme élancée, la rigidité — passent ; à défaut la plus épaisse, avec "ok" faux.
     ``Nst`` (N) : la résultante des cisaillements quand le raidisseur sert aussi au cisaillement — le flambement porte
@@ -148,7 +152,7 @@ def dimensionner(s: Dict, fy: float, P: Dict, F: float, dispo: Sequence[Optional
     demandé)} ; None si le profilé ne reçoit pas de raidisseur."""
     dernier = None
     for ts in EPAISSEURS:
-        p = plat(s, fy, P, ts, dispo, nuance, fy_ame)
+        p = plat(s, fy, P, ts, dispo, nuance, fy_ame, norme_produit)
         if p is None:
             continue
         rigide = (p["Ist"] >= p["I_min"]) if appui_rigide else None

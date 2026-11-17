@@ -14,8 +14,10 @@ variante de la DÉCISION BUREAU n° 3 (A_v,y d'un I ou H laminé). Brief v12 § 
      sur un U : non couvert ; la barre chargée refusée.
   4. DÉCISION BUREAU n° 3 : A_v,y d'un I ou H laminé = 2·b·t_f (défaut de la table) ; la variante A − h_w·t_w et son
      V_pl,y,Rd rendues pour information ; le défaut changé dans la table change V_pl,y,Rd ; I soudé, IPN, PRS : aucune.
-  5. MUTATIONS : chaque altération plausible du texte (nuances.py, ec3_section.py, entree.py, historique.py, la table
-     des paramètres) ou des lignes de la table des aciers fait rougir au moins un contrôle.
+  5. S420 AILLEURS QUE DANS LA SECTION : un raidisseur d'une barre en S420 (reprise : moteur.verifier levait « nuance
+     inconnue : S420 », raidisseurs.materiau lisant la liste du module Flambement) ; sa norme produit transmise au plat.
+  6. MUTATIONS : chaque altération plausible du texte (nuances.py, ec3_section.py, entree.py, historique.py,
+     raidisseurs.py, la table des paramètres) ou des lignes de la table des aciers fait rougir au moins un contrôle.
 
     /usr/bin/python3.12 -B tests/test_barre_nuances.py
 """
@@ -70,6 +72,14 @@ def verif(r, id_):
     return next((v for v in r["verifications"] if v["id"] == id_), None)
 
 
+def essai(f, *a, **k):
+    """(le résultat, None) ; ou (None, « Type : message ») si ``f`` lève — un contrôle rougit au lieu de tout arrêter."""
+    try:
+        return f(*a, **k), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__} : {e}"
+
+
 def efforts(profil, nuance="S235", N=0.0, My=0.0, Ly=2.0, Lz=2.0, **autres):
     """Une barre en efforts imposés (kN, kN·m, m) : les mêmes efforts de service et de calcul (×1,5)."""
     e = {"N": N, "My": My}
@@ -77,7 +87,7 @@ def efforts(profil, nuance="S235", N=0.0, My=0.0, Ly=2.0, Lz=2.0, **autres):
                  "flambement": {"y": {"L": Ly}, "z": {"L": Lz}}}, **autres)
 
 
-# ------------------------------------------------------------------ 1 à 4. les contrôles (la même liste sert aux mutations)
+# ------------------------------------------------------------------ 1 à 5. les contrôles (la même liste sert aux mutations)
 def controles():
     C = []
 
@@ -219,10 +229,32 @@ def controles():
                             ("PRS", m("prs").section_prs(300, 20, 560, 10, 300, 20, a=5, nuance="S355", bords="oxycoupes")))
             if "A_v_variante" in ES.verifier({"section": s_, "nuance": "S355", "VyEd": 50e3})["grandeurs"]]
     c("un IPN (la plus petite des deux), un I soudé et un PRS (la règle de la norme) : aucune variante", not sans, sans)
+
+    # ---- 5. S420 ailleurs que dans la section : le raidisseur (le cas du test 18 du brief, en S420)
+    RA, PA = m("raidisseurs"), m("parametres")
+    b18 = m("entree").nouvelle_barre("B")
+    b18.update(profil="IPE 300", nuance="S420", travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0},
+               maintiens=[{"x": 1.0, "genre": "complet"}],
+               cas=[{"nom": "Q", "nature": "exploitation_A", "charges": [{"type": "P", "v": 300.0, "a": 1.0, "ss": 100.0}]}])
+    r18, err = essai(MO.verifier, b18)
+    L18 = next((L for L in (r18 or {}).get("ame", {}).get("lieux", []) if L["nom"] == "Charge à 1,00 m"), {})
+    vr = verif(r18["ame"], "A-L01-R") if r18 else None
+    c("IPE 300 S420, P = 300 kN à 1 m (s_s 100) : la barre se vérifie (plus de « nuance inconnue : S420 ») ; le raidisseur est "
+      "dimensionné, 2 plats 70 × 10 mm, écrasement 0,974",
+      err is None and L18.get("decision") == "raidisseur" and (L18.get("raidisseur") or {}).get("designation") == "2 plats 70 × 10 mm"
+      and vr is not None and round(vr["taux"], 3) == 0.974, err or (L18.get("decision"), L18.get("raidisseur"), vr and vr["taux"]))
+    Pm = {k: PA.valeur(k) for k in ("E", "gamma_M0", "gamma_M1")}
+    ipe = SE.du_catalogue("IPE 300")
+    m20, m20m = RA.materiau(420.0, 20.0, "S420"), RA.materiau(420.0, 20.0, "S460", None, "M")
+    c("le plat d'un raidisseur dans la liste du module : S420 de 20 mm → 400 (tableau 3.4 ANB) ; S460 M/ML de 20 mm → 440",
+      m20["fy_plat"] == 400.0 and m20["fy_calcul"] == 400.0 and m20m["fy_plat"] == 440.0, (m20, m20m))
+    c("la norme produit de la barre va jusqu'au plat (dimensionner → plat → materiau) : une norme inconnue y est refusée",
+      (refus(RA.dimensionner, ipe, 420.0, Pm, 300e3, nuance="S420", norme_produit="X") or "").startswith("norme produit")
+      and RA.dimensionner(ipe, 420.0, Pm, 300e3, nuance="S420", norme_produit="M")["fy_plat"] == 420.0)
     return C
 
 
-# ------------------------------------------------------------------ 5. les mutations
+# ------------------------------------------------------------------ 6. les mutations
 def _ordre():
     """Les modules du paquet et ceux de chacun qu'ils importent (« from . import x », « from .x import »)."""
     dep = {}
@@ -308,6 +340,12 @@ MUTATIONS = [
     ("entree", "S420 refusé par l'entrée", 'if b["nuance"] not in NU.NUANCES:', 'if b["nuance"] not in ("S235", "S275", "S355", "S460"):'),
     ("entree", "une cornière ou un U admis en barre chargée", 'elif b["mode"] == "chargee" and SE.FAMILLES.get(', "elif False and SE.FAMILLES.get("),
     ("historique", "cornière : chaque axe garde sa longueur saisie (v-v à 1 m)", '    corniere = s0["forme"] == "L" and d["P"] > 0\n', "    corniere = False\n"),
+    ("raidisseurs", "reprise — le plat lu dans la liste du module Flambement (S420 inconnu)", 'NU.fy(nuance, ts, "lamine", norme_produit)',
+     'NO.limite_elastique(nuance, ts, produit="lamine")'),
+    ("raidisseurs", "reprise — plat ne transmet pas la norme produit", "    m = materiau(fy, ts, nuance, fy_ame, norme_produit)\n",
+     "    m = materiau(fy, ts, nuance, fy_ame)\n"),
+    ("raidisseurs", "reprise — dimensionner ne transmet pas la norme produit", "        p = plat(s, fy, P, ts, dispo, nuance, fy_ame, norme_produit)\n",
+     "        p = plat(s, fy, P, ts, dispo, nuance, fy_ame)\n"),
 ]
 
 
@@ -341,10 +379,10 @@ def muter_table(appliquer):
 def main():
     import acier.corniere.entree  # noqa: F401 — les listes des autres modules, lues par les contrôles
     import api_web.flambement  # noqa: F401
-    print("== 1 à 4. nuances et norme produit, le résultat, cornières et U, décision n° 3")
+    print("== 1 à 5. nuances et norme produit, le résultat, cornières et U, décision n° 3, S420 du raidisseur")
     for nom, ok, info in controles():
         chk(nom, ok, info)
-    print("== 5. mutations")
+    print("== 6. mutations")
     for fichier, nom, ancien, nouveau in MUTATIONS:
         rouges = muter(fichier, ancien, nouveau)
         if rouges is None:
