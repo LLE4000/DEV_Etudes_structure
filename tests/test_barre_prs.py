@@ -944,7 +944,9 @@ MUTATIONS = [
     ("section", "h_w d'un PRS : h − 2·t_f", '    if s.get("prs"):\n        return s["prs"]["hw"]', '    if False:\n        return s["prs"]["hw"]'),
     ("section", "cote d'une charge sur un PRS : ±h/2 (depuis le centre de gravité)", "    if s.get(\"prs\"):\n        from . import prs as PR", "    if False:\n        from . import prs as PR"),
     ("ec3", "niveau des charges d'un PRS : ±h/2", "        zg = SE.cote(s, niveau) if s.get(\"prs\") else", "        zg = NIVEAUX[niveau] * (s.get(\"h\") or 0.0) / 2.0 if True else"),
-    ("ec3_ame", "η = 1,00 pour un PRS sans bords saisis", '    if s.get("prs"):\n        return P["eta_soude"]', '    if False:\n        return P["eta_soude"]'),
+    # (intégration du lot B : B4 a réécrit eta_de sur est_soude — le harnais suit, la même altération sur la ligne neuve)
+    ("ec3_ame", "η = 1,00 pour un PRS sans bords saisis", '    return bool(s.get("prs")) or s.get("fabrication") in SOUDES_ETA',
+     '    return s.get("fabrication") in SOUDES_ETA'),
     ("moteur", "bords non saisis : la méthode ELS calculée quand même", "    if PR.est_prs(s) and s.get(\"fabrication\") is None:\n        raise RE.Refus(PR.MSG_BORDS)",
      "    if False:\n        raise RE.Refus(PR.MSG_BORDS)"),
     ("moteur", "barre chargée : les charges d'un PRS à ±h/2", "    if PR.est_prs(s):                                          # un PRS : au-dessus de SON centre de cisaillement",
