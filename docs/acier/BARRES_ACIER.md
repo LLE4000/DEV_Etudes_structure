@@ -488,11 +488,17 @@ JEU de γ_G et chaque nature en tête parmi les présentes :
   désactivée » : le tableau partout. Quand deux actions de courte durée suivent une action de longue durée, la
   combinaison porte « limite » et la note le dit.
 - **Exécution, machines** : ψ₀ saisi par cas, sans défaut ; demandé seulement quand il sert (le cas accompagne une
-  autre nature, ou l'expression est (6.10a)) — sinon le calcul est bloqué, « ψ₀ à fournir ». Un ψ₀ saisi sur une autre
-  nature ne sert pas.
+  autre nature, ou l'expression est (6.10a)). S'il manque alors, `combinaisons.elu` lève `AFournir` (« ψ₀ à fournir »),
+  que le moteur et l'âme doivent rendre en statut « bloqué » — ce rattrapage est dans `moteur.py` et `ame.py`, hors du
+  bloc C2 (`À VÉRIFIER` à l'intégration). Non saisi et sans emploi (l'exécution seule, en (6.10)) : les hypothèses
+  disent « non saisi, sans emploi ici ». Un ψ₀ saisi sur une autre nature ne sert pas. À la saisie, l'écran contrôle
+  par `combinaisons.controler`, où un ψ₀ manquant n'est pas un refus (le calcul est bloqué, la saisie reste libre).
 - **Limites** : au plus quatre NATURES variables (le nombre de cas : `entree.CAS_MAX` = 6). Au plus 512 combinaisons
   ELU quand il y a plusieurs sources permanentes (une seule est toujours admise) : au-delà, la barre est refusée
-  (« au plus k cas permanents de répartitions différentes »), jamais une combinaison abandonnée en silence.
+  (« au plus k cas permanents de répartitions différentes »), jamais une combinaison abandonnée en silence. Ce budget
+  compte des combinaisons, pas du temps, et aucune barre que l'écran admet ne l'atteint (six cas et le poids propre :
+  573 au plus, à une source ; 439 à trois) — un budget en temps, ou γ_G,sup et γ_G,inf mêlés seulement là où cela
+  peut gouverner, est une décision du propriétaire (`À VÉRIFIER`, mesures ci-dessous).
 - **Noms** : « 1,35·G + 1,5·Q » — plusieurs cas permanents au même γ s'écrivent « G » (chacun sinon : « 1,35·G1 +
   G2 ») ; « (6.10a) » ou « (6.10b) » en suffixe ; le facteur s'écrit à deux décimales (1,1475 → « 1,15 »).
   `combinaisons.hypotheses(options, cas)` rend les lignes de la note, une chacune.
@@ -507,9 +513,12 @@ température), un cas chacune :
 | 3 | 263 | 439 |
 | 4 | refusée (527) | refusée (879) |
 
-Six cas variables de quatre natures, une source : 321 et 537. Continue HEA 200 de 5 × 5 m, quatre natures : deux
-sources, 3,6 s en (6.10) et 7,5 s en (6.10a)/(6.10b) ; trois sources, 7,4 s et 12,7 s (avant le lot C : 65
-combinaisons, 2,0 s). Sélecteur d'une barre de 6 m, poids propre + G réparti et ponctuel (deux sources) : 1,1 → 2,5 s ;
+Six cas variables de quatre natures, une source : 321 et 537 ; la barre la plus lourde que l'écran admet : 573
+((6.10a)/(6.10b), une source, six cas de quatre natures). Continue HEA 200 de 5 × 5 m, quatre natures — la plus
+défavorable de deux séries de mesures (17/11/2026) : deux sources, 3,9 s en (6.10) et 7,5 s en (6.10a)/(6.10b) ; trois
+sources, 8,1 s et 15,5 s ; la barre à 573 combinaisons, 16,9 s (avant le lot C : 65 combinaisons, 2,0 s). Le seuil du
+plan (deux fois le temps du lot B) est dépassé ; le navigateur est plus lent et le sélecteur multiplie ce temps par le
+nombre de profilés essayés. Sélecteur d'une barre de 6 m, poids propre + G réparti et ponctuel (deux sources) : 1,1 → 2,5 s ;
 la barre neuve (une source) : inchangée (0,6 s).
 
 Méthode ELS : G + ΣQ à 100 % pour chaque arrangement (décision du bureau du 16/11/2026, brief § 13.2 point 5).
