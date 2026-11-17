@@ -253,6 +253,10 @@ MSG_AVY = {AVY_SOUDE: "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 
            AVY_LAMINE_VARIANTE: "A_v,y = A − h_w·t_w : I ou H laminé, variante choisie dans la table (décision du bureau n° 3).",
            AVY_LAMINE: "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).",
            AVY_MIN: "A_v,y = min(2·b·t_f ; A − h_w·t_w) : IPN, côté sûr (comme pour les U)."}
+# (lot C, C1b, reprise) la VARIANTE de la décision n° 3 (``grandeurs["A_v_variante"]``) : la règle NON retenue, rendue pour
+# information — son propre texte, jamais celui de la règle prise (MSG_AVY dirait « choisie dans la table » à tort)
+MSG_AVY_VARIANTE = {AVY_LAMINE_VARIANTE: "Pour information (décision du bureau n° 3, non retenue) : A_v,y = A − h_w·t_w.",
+                    AVY_LAMINE: "Pour information (décision du bureau n° 3, non retenue) : A_v,y = 2·b·t_f."}
 
 
 def _eps_paroi(J: Journal, p: Dict, eps_calcul: float) -> str:
@@ -513,7 +517,7 @@ def ajouter(J: Journal, d: Dict) -> None:
                 var = av["variante_y"]
                 Vv = var["y"] * fy / (math.sqrt(3.0) * gM0)
                 G["A_v_variante"] = {"decision": "avy_lamine", "regle_y": var["regle_y"], "A_v_y": var["y"], "V_pl_y_Rd": Vv, "taux": V / Vv,
-                                     "message": MSG_AVY[var["regle_y"]], "pour_information": True}
+                                     "message": MSG_AVY_VARIANTE[var["regle_y"]], "pour_information": True}
             if V > SEUIL_V * Vpl:
                 rho[a] = min((2.0 * V / Vpl - 1.0) ** 2, 1.0)
                 if V < Vpl:

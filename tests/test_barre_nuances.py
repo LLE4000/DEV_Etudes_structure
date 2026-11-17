@@ -217,12 +217,20 @@ def controles():
       "V_pl,y,Rd = 851,8 kN, rendue pour information",
       proche(g["A_v"]["y"], 6000.0) and round(g["V_pl_y"] / 1e3, 1) == 814.1 and round(verif(r, "E-Vy")["limite"], 1) == 814.1
       and va.get("regle_y") == ES.AVY_LAMINE_VARIANTE and proche(va.get("A_v_y"), geo) and proche(va.get("V_pl_y_Rd"), geo * 235.0 / R3)
-      and round(va["V_pl_y_Rd"] / 1e3, 1) == 851.8 and va.get("pour_information") is True and va.get("message") == ES.MSG_AVY[ES.AVY_LAMINE_VARIANTE],
+      and round(va["V_pl_y_Rd"] / 1e3, 1) == 851.8 and va.get("pour_information") is True,
       (g["A_v"]["y"], g.get("V_pl_y"), va))
+    # (reprise) la variante a SON texte : non retenue, pour information — jamais celui de la règle prise (« choisie dans la table »)
+    mv = [a["message"] for a in r["alertes"] if a["code"] == "Avy"]
+    c("la variante dite « non retenue, pour information » : « Pour information (décision du bureau n° 3, non retenue) : "
+      "A_v,y = A − h_w·t_w. » — un autre texte que celui de la règle prise (2·b·t_f, le défaut)",
+      va.get("message") == "Pour information (décision du bureau n° 3, non retenue) : A_v,y = A − h_w·t_w."
+      and va["message"] not in ES.MSG_AVY.values() and mv == [ES.MSG_AVY[ES.AVY_LAMINE]] and len(va["message"]) <= 120, (va.get("message"), mv))
     r2 = ES.verifier({"section": heb, "nuance": "S235", "VyEd": 100e3, "parametres": {"avy_lamine": "A_moins_hwtw"}})
     v2 = r2["grandeurs"].get("A_v_variante") or {}
     c("la variante choisie dans la table : V_pl,y,Rd = 851,8 kN décide, 2·b·t_f (814,1 kN) devient la variante rendue",
-      round(verif(r2, "E-Vy")["limite"], 1) == 851.8 and v2.get("regle_y") == ES.AVY_LAMINE and round(v2["V_pl_y_Rd"] / 1e3, 1) == 814.1, v2)
+      round(verif(r2, "E-Vy")["limite"], 1) == 851.8 and v2.get("regle_y") == ES.AVY_LAMINE and round(v2["V_pl_y_Rd"] / 1e3, 1) == 814.1
+      and v2.get("message") == "Pour information (décision du bureau n° 3, non retenue) : A_v,y = 2·b·t_f."
+      and [a["message"] for a in r2["alertes"] if a["code"] == "Avy"] == [ES.MSG_AVY[ES.AVY_LAMINE_VARIANTE]], v2)
     soude = SE.saisie("I", "soude_oxycoupe", h=400.0, b=200.0, tw=8.0, tf=12.0, A=200.0 * 24 + 376.0 * 8, Iy=2.3e8, Iz=1.6e7, iy=171.0, iz=45.0,
                       Wel_y=1.15e6, Wel_z=1.6e5, Wpl_y=1.3e6, Wpl_z=2.4e5)
     sans = [n for n, s_ in (("IPN 200", SE.du_catalogue("IPN 200")), ("I soudé", soude),
@@ -335,6 +343,10 @@ MUTATIONS = [
      '{"y": A - hw * s["tw"], "regle_y": AVY_LAMINE_VARIANTE} if regle == AVY_LAMINE', '{"y": avy, "regle_y": AVY_LAMINE_VARIANTE} if regle == AVY_LAMINE'),
     ("ec3_section", "décision n° 3 : un IPN rend une variante", "            avy, regle = min(avy, A - hw * s[\"tw\"]), AVY_MIN\n            variante = None\n",
      "            avy, regle = min(avy, A - hw * s[\"tw\"]), AVY_MIN\n"),
+    ("ec3_section", "reprise — décision n° 3 : la variante dite par le texte de la règle prise (« choisie dans la table »)",
+     '"message": MSG_AVY_VARIANTE[var["regle_y"]]', '"message": MSG_AVY[var["regle_y"]]'),
+    ("ec3_section", "reprise — décision n° 3 : les deux textes de la variante échangés", '"message": MSG_AVY_VARIANTE[var["regle_y"]]',
+     '"message": MSG_AVY_VARIANTE[AVY_LAMINE if var["regle_y"] == AVY_LAMINE_VARIANTE else AVY_LAMINE_VARIANTE]'),
     ("ec3_section", "décision n° 3 : un I soudé rend une variante", '        variante = None if soude else ({"y"', '        variante = ({"y"'),
     ("parametres", "décision n° 3 : le défaut de la table changé (A − h_w·t_w)", '"avy_lamine": {"valeur": "2btf"', '"avy_lamine": {"valeur": "A_moins_hwtw"'),
     ("entree", "S420 refusé par l'entrée", 'if b["nuance"] not in NU.NUANCES:', 'if b["nuance"] not in ("S235", "S275", "S355", "S460"):'),

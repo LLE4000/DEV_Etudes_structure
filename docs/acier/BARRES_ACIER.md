@@ -285,8 +285,9 @@ U (fonction `aires_cisaillement` seulement : le module ne vérifie pas un U, E-S
 soudés : la plus petite des deux (troisième passe du lot A ; avant, l'A_v,z de l'âme : UPN 380 52,43 cm² au lieu de
 32,64) — A − h_w·t_w pour un U soudé ; une cornière est refusée ; la variante de la DÉCISION BUREAU n° 3 (lot C, C1b) :
 l'autre règle d'un I ou H laminé (A − h_w·t_w si le défaut 2·b·t_f décide, et l'inverse), son V_pl,y,Rd et son taux,
-rendus pour information (`grandeurs["A_v_variante"]` ; HEB 200 S235 : 814,1 kN décide, la variante 851,8 kN) — I soudé,
-IPN et PRS n'en ont pas ;
+rendus pour information (`grandeurs["A_v_variante"]` ; HEB 200 S235 : 814,1 kN décide, la variante 851,8 kN), avec SON
+texte (`MSG_AVY_VARIANTE` : « Pour information (décision du bureau n° 3, non retenue) : A_v,y = … », jamais celui de la
+règle prise) — I soudé, IPN et PRS n'en ont pas ;
 tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
 Tube rond en N + M : M_N,Rd = M_pl,Rd·(1 − n^1,7) (§ 6.2.9.1(6), ligne de l'AC:2009 ; lot B — le critère linéaire (6.2)
