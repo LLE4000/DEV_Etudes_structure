@@ -150,17 +150,20 @@ def classe(s: Dict, h: float, b: float, tf: float) -> Dict:
         cl, regle = "c", "U"
     elif forme == "I" and fab == "lamine":
         cl = lam
-        regle = (f"I laminé, h/b {'>' if h / b > HB_TABLEAU_12 else '≤'} 1,2, t_f "
-                 + ("≤ 40 mm" if tf <= TF_40 else "≤ 80 mm" if tf <= TF_80 else "> 80 mm"))
+        # la règle, COURTE (une ligne « Déversement » étiquetée reste sous 110 caractères — intégration du lot B) : les seuls
+        # critères qui décident (h/b ≤ 1,2 : c jusqu'à 80 mm, sans seuil à 40) ; « laminé » est le cas du profil, pas une raison
+        elance = h / b > HB_TABLEAU_12
+        ep = ("t_f > 80 mm" if tf > TF_80 else ("t_f ≤ 40 mm" if tf <= TF_40 else "40 < t_f ≤ 80 mm") if elance else "t_f ≤ 80 mm")
+        regle = f"h/b {'>' if elance else '≤'} 1,2, {ep}"
         if (h / b > HB_TABLEAU_12 and TF_40 < tf <= TF_80) or tf == TF_80:
             corr.append("seuils_epaisseur")        # « 4 < tf < 8 » (cm) toujours faux ; « tf < 8 » sans tf = 8 (correction 2)
         if TF_80 < tf <= TF_EUROCODE:
             corr.append("seuils_eurocode")          # 100 mm de la feuille « Calcul automatique » (correction 3)
     elif forme == "I" and fab in SOUDES:
         if fab == "soude_oxycoupe":
-            cl, regle = ("c", "I soudé, semelles oxycoupées, t_f ≤ 40 mm") if tf <= TF_40 else ("d", "I soudé, semelles oxycoupées, t_f > 40 mm")
+            cl, regle = ("c", "oxycoupé, t_f ≤ 40 mm") if tf <= TF_40 else ("d", "oxycoupé, t_f > 40 mm")
         else:
-            cl, regle = "d", "I soudé, semelles en larges plats"
+            cl, regle = "d", "larges plats"
     else:
         raise AFournir(f"Classe de déversement à fournir (NBN B 51-002, tableau 12) pour {PROFILS_A_FOURNIR.get(fab, 'ce profil')} — "
                        "flexion non jugée.")

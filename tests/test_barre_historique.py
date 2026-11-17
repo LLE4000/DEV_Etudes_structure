@@ -1030,8 +1030,8 @@ def controles_lot_b(H, MO_, c):
       deux["gouvernant"] == "H-EQ" and verif_de(deux, "H-EQ")["troncon"] == [0.0, 2.0] and verif_de(deux, "H-DEV")["troncon"] == [2.0, 6.0]
       and verif_de(deux, "H-EQ")["x"] == verif_de(deux, "H-DEV")["x"] == 2.0
       and round(deux["taux_max"], 4) == 1.7514 and round(verif_de(deux, "H-DEV")["taux"], 4) == 1.4724
-      and dvs == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm).",
-                  "Déversement sur 2–6 m (déversement) : C_d = 1, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm)."]
+      and dvs == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (h/b > 1,2, t_f ≤ 40 mm).",
+                  "Déversement sur 2–6 m (déversement) : C_d = 1, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
       and all(len(h) < 110 for h in dvs) and deux["hypotheses"].count(DE.MESSAGE_3_9) == 1
       and proche(deux_m["taux_max"], deux["taux_max"]) and proche(verif_de(deux_m, "H-DEV")["taux"], verif_de(deux, "H-DEV")["taux"]),
       (deux["gouvernant"], deux["taux_max"], deux_m["taux_max"], dvs))
@@ -1044,13 +1044,31 @@ def controles_lot_b(H, MO_, c):
                      lignes_dv(historique=dict(nb_["historique"], variante="fascicule")), lignes_dv(profil="RHS 200x100x6.3"))
     c("… la même poutre, lignes « Déversement » de moins de 110 caractères : C_d = 1,13 et N = 50 kN (deux titres : leur premier mot) ; "
       "variante du fascicule (L_d tu en fin de ligne) ; RHS 200x100x6.3 (le sujet garde « profil fermé », sans sa source)",
-      cd_ == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1,13, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm).",
-              "Déversement sur 2–6 m (flexion, déversement) : C_d = 1,13, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm)."]
+      cd_ == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1,13, classe b (h/b > 1,2, t_f ≤ 40 mm).",
+              "Déversement sur 2–6 m (flexion, déversement) : C_d = 1,13, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
       and fa_ == ["Déversement sur 0–2 m (contrainte équivalente) : variante du fascicule p. 19.",
                   "Déversement sur 2–6 m (flexion) : variante du fascicule p. 19."]
       and rh_ == ["Déversement (profil fermé) sur 0–2 m (contrainte équivalente) : facteur π·√2,6 = 5,0657 (5,1 dans la doc).",
                   "Déversement (profil fermé) sur 2–6 m (flexion) : facteur π·√2,6 = 5,0657 (5,1 dans la doc)."]
       and all(len(h) < 110 for h in cd_ + fa_ + rh_), (cd_, fa_, rh_))
+    # (intégration du lot B, point 28 a) le cas le plus long relevé : HEB 300 (h/b ≤ 1,2 : classe c), C_d = 1,13, N = 50 kN (deux titres),
+    # L_d gardé par un maintien de la semelle haute (2,5 m sur le tronçon de 5 m) — 117 caractères avec la règle longue
+    b28 = dict(nb_, profil="HEB 300", travees=[6.0], methodes=["historique"], historique=dict(nb_["historique"], Cd=1.13),
+               maintiens=[{"x": 1.0, "genre": "complet"}, {"x": 3.5, "genre": "haut"}],
+               cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [{"type": "q", "v": 60.0, "a": 0.0, "b": 6.0},
+                                                                              {"type": "P", "v": 600.0, "a": 0.4}]}])
+    l28 = [h for h in MO_.verifier(b28)["methodes"]["historique"]["hypotheses"] if h.startswith("Déversement")]
+    c("HEB 300, C_d = 1,13, N = 50 kN, maintien de la semelle haute dans le tronçon (L_d = 2,5 m gardé) : les deux lignes « Déversement » "
+      "étiquetées restent sous 110 caractères — la règle de classe dit les seuls critères qui décident (« h/b ≤ 1,2, t_f ≤ 80 mm »)",
+      l28 == ["Déversement sur 0–1 m (contrainte équivalente) : C_d = 1,13, classe c (h/b ≤ 1,2, t_f ≤ 80 mm).",
+              "Déversement sur 1–6 m (flexion, déversement) : L_d = 2,50 m, C_d = 1,13, classe c (h/b ≤ 1,2, t_f ≤ 80 mm)."]
+      and all(len(h) < 110 for h in l28), [(len(h), h) for h in l28])
+    g28 = H.verifier({"section": SE.du_catalogue("HEB 300"), "fy": 235.0, "My": 100e6, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}},
+                      "deversement": {"Lc": 2500.0, "Cd": 1.13}})
+    h28 = [h for h in g28["hypotheses"] if h.startswith("Déversement")]
+    c("… la règle de classe de la méthode : HEB 300 « h/b ≤ 1,2, t_f ≤ 80 mm » (classe c jusqu'à 80 mm, sans seuil à 40), sans « I laminé »",
+      g28["grandeurs"]["deversement"]["regle"] == "h/b ≤ 1,2, t_f ≤ 80 mm"
+      and h28 == ["Déversement (classeurs, NBN B 51-002) : L_d = 2,50 m, C_d = 1,13, classe c (h/b ≤ 1,2, t_f ≤ 80 mm)."], h28)
 
     def els(**k):
         return MO_.verifier(dict(nb_, poids_propre=False, methodes=["historique"], **k))["methodes"]["historique"]
@@ -1275,9 +1293,12 @@ def mutations():
          '"b" if tf <= TF_40 else "d"'),
         ("lot B — correction 3 retirée : le seuil de 100 mm de l'Eurocode", "TF_40, TF_80 = 40.0, 80.0 ", "TF_40, TF_80 = 40.0, 100.0 "),
         ("lot B — correction 5 retirée : un U reçoit la classe d'un I laminé", 'cl, regle = "c", "U"', 'cl, regle = lam, "U"'),
-        ("lot B — PRS oxycoupé en classe d'un I laminé", 'cl, regle = ("c", "I soudé, semelles oxycoupées, t_f ≤ 40 mm") if tf <= TF_40',
-         'cl, regle = (lam, "I soudé, semelles oxycoupées, t_f ≤ 40 mm") if tf <= TF_40'),
-        ("lot B — PRS en larges plats en classe c", 'cl, regle = "d", "I soudé, semelles en larges plats"', 'cl, regle = "c", "I soudé, semelles en larges plats"'),
+        ("lot B — PRS oxycoupé en classe d'un I laminé", 'cl, regle = ("c", "oxycoupé, t_f ≤ 40 mm") if tf <= TF_40',
+         'cl, regle = (lam, "oxycoupé, t_f ≤ 40 mm") if tf <= TF_40'),
+        ("lot B — PRS en larges plats en classe c", 'cl, regle = "d", "larges plats"', 'cl, regle = "c", "larges plats"'),
+        # (intégration du lot B, point 28 a ; les deux mutations du PRS ci-dessus suivent la règle courte — le harnais suit)
+        ("intégration, point 28 a — la règle de classe longue revenue (« I laminé, … » : la ligne étiquetée dépasse 110 caractères)",
+         "regle = f\"h/b {'>' if elance else '≤'} 1,2, {ep}\"", "regle = f\"I laminé, h/b {'>' if elance else '≤'} 1,2, {ep}\""),
         ("lot B — la correction 6 (axe faible seul) n'est plus dite", '        corr.append("axe_faible")', "        pass"),
         ("lot B — PRS : la semelle haute toujours, même comprimée en bas", 'b, tf = (p["b1"], p["t1"]) if semelle == "haut" else (p["b2"], p["t2"])',
          'b, tf = (p["b1"], p["t1"])'),
