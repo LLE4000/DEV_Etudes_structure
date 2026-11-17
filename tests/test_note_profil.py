@@ -111,8 +111,13 @@ NOTES = {
     "un tube rond": note(("nom", "R1"), ("profil", "CHS 219.1x6.3"), *EFFORTS),
     "une poutre continue qui ne tient pas": note(("nom", "C1"), ("modele", "continue"), ("travees/+", 1)),
     "une barre sans effort": note(("nom", "Z1"), ("mode", "efforts")),
+    # (lot C, C0d — le harnais suit : ce que la note imprime est le choix de la NOTE, plus d'une barre ; la troisième ne coche plus « ec3 »)
     "trois barres dans une note": note(("cas/1/charges/+", "P"),
-                                       barres=((("profil", "HEB 200"),) + EFFORTS, (("modele", "continue"), ("travees/+", 1), ("methodes", "ec3")))),
+                                       barres=((("profil", "HEB 200"),) + EFFORTS, (("modele", "continue"), ("travees/+", 1)))),
+    # (lot C, C0b) une console comprimée : l'Eurocode 3 ne couvre pas N + M en console — ses taux, montrés pour information, sans la
+    # couleur « conforme », dans la comparaison aussi
+    "une console comprimée (N + M non couvert)": note(("nom", "K1"), ("modele", "console"), ("travees/0", "3"), ("maintiens/0/-", "1"),
+                                                     ("cas/0/N", "50")),
     "une note de la version 1": ANCIENNE,
     "un nom de 40 caractères sur cinq travées": note(("nom", "Poutre principale du plancher haut R+1 a"), ("profil", "SHS 400x400x12.5 (froid)"),
                                                     ("modele", "continue"), ("travees/+", 1), ("travees/+", 1), ("travees/+", 1)),
@@ -148,11 +153,26 @@ def faire(etat, infos=INFOS):
     return octets, [O.norm(t) for t in O.pages(octets, brut=True)], r["fichier"]["nom"]
 
 
+def vue(r, impression):
+    """Ce que la note IMPRIME d'un résultat (lot C, C0d : le moteur calcule toujours les deux méthodes ; la note imprime les
+    deux, ou l'une — ``etat["impression"]``) : les méthodes imprimées, la comparaison si ce sont les deux, le statut le plus
+    défavorable des méthodes imprimées et de l'âme. Réécrit ici : la note n'est pas son propre témoin."""
+    garde = ("historique", "ec3") if impression == "deux" else (impression,)
+    if tuple(r["methodes"]) == garde:
+        return r
+    ms = {k: x for k, x in r["methodes"].items() if k in garde}
+    v = dict(r, methodes=ms, comparaison=r["comparaison"] if len(ms) == 2 else [],
+             statut=RE.pire_statut([x["statut"] for x in ms.values()] + [r["ame"]["statut"]]))
+    if r.get("statique"):                   # les diagrammes des seules méthodes imprimées (service pour l'ELS, ELU pour l'Eurocode 3)
+        v["statique"] = dict(r["statique"], enveloppes={k: e for k, e in r["statique"]["enveloppes"].items() if k in garde})
+    return v
+
+
 def barres(etat):
-    """[(barre relue, résultat du MOTEUR)] de la note — le moteur lui-même (``profil.calculer`` n'en est que la mémoire) :
-    une note qui calculerait autre chose que l'écran ne trouve pas ici son propre écho."""
+    """[(barre relue, résultat du MOTEUR tel que la note l'imprime)] de la note — le moteur lui-même (``profil.calculer`` n'en
+    est que la mémoire) : une note qui calculerait autre chose que l'écran ne trouve pas ici son propre écho."""
     e = P.normaliser(copy.deepcopy(etat))
-    return [(el, MO.verifier(el)) for el in e["elements"]]
+    return [(el, vue(MO.verifier(el), e[P.IMPRESSION])) for el in e["elements"]]
 
 
 NOM_LISIBLE = 20            # ce qu'un nom qui cède garde au moins de lisible, en caractères
@@ -340,6 +360,8 @@ def parite(etat, pages):
         veut("… sous son seul titre", "l'autre titre", ("Contrôles complémentaires" in T) == seule)
         for h in a["hypotheses"]:
             veut("une hypothèse de l'âme", h, nu(h.split(" (")[0])[:60] in nu(T))
+        if a["statut"] == RE.BLOQUE and a["verifications"]:          # (lot C, C0c) une donnée manque : « Bloqué », le mot de l'écran
+            veut("l'âme bloquée est dite « Bloqué »", "Bloqué — ")
         for L in a["lieux"]:
             veut("un lieu de l'âme", L["nom"])
             # (2e reprise du lot B) la décision telle que l'écran la dit (profil_mots.decision_lieu, la source unique) : la paire de
@@ -382,14 +404,24 @@ def parite(etat, pages):
             for li in r["comparaison"]:
                 veut("un sujet de la comparaison", li["sujet"], O.norm(li["sujet"].split(",")[0]) in bloc)
                 for k in ("historique", "ec3"):
-                    if li[k] is not None:
-                        veut(f"un taux de la comparaison ({li['sujet']}, {k})", taux(li[k]), O.present(taux(li[k]), bloc))
+                    if li[k] is not None and li[k]["taux"] is not None:     # (lot C, C0f : une case, son taux et son statut)
+                        veut(f"un taux de la comparaison ({li['sujet']}, {k})", taux(li[k]["taux"]), O.present(taux(li[k]["taux"]), bloc))
                 if li.get("commun") is not None:          # l'âme : UN taux, sous le tableau — il vaut pour les deux méthodes
-                    veut("le taux de l'âme dans la comparaison", taux(li["commun"]),
-                         O.present(f"pour les deux méthodes : {taux(li['commun'])}", bloc))
+                    c_ = li["commun"]
+                    ecrit = taux(c_["taux"]) if c_["taux"] is not None else M.MOT_STATUT[c_["statut"]].lower()
+                    veut("le taux de l'âme dans la comparaison", ecrit, O.present(f"pour les deux méthodes : {ecrit}", bloc))
             ecrits = len(re.findall(r"\d %", bloc))
             veut("la comparaison n'écrit que ses taux", ecrits, ecrits == sum(1 for li in r["comparaison"] for k in ("historique", "ec3", "commun")
-                                                                               if li.get(k) is not None))
+                                                                               if li.get(k) is not None and li[k]["taux"] is not None))
+            # (lot C, C0b) un taux sous un statut bloqué, non couvert ou hors domaine : imprimé sans la couleur « conforme »
+            tab = next(i for i in NP.comparaison_methodes(r, 160.0)["items"] if i[0] == "tab")[2]
+            lignes_ = [li for li in r["comparaison"] if li["historique"] is not None or li["ec3"] is not None]
+            for li, ligne in zip(lignes_, tab):
+                for col, k in ((1, "historique"), (2, "ec3")):
+                    c_ = li[k]
+                    if c_ is not None and c_["taux"] is not None and c_["statut"] in (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE):
+                        veut(f"un taux sous « {c_['statut']} » imprimé sans la couleur « conforme » ({li['sujet']}, {k})", "num",
+                             ligne[col][0] == "num")
         else:
             veut("pas de comparaison sans les deux méthodes", "Comparaison", "Comparaison des deux méthodes" not in T)
         ac = (r["methodes"].get("ec3") or {}).get("a_confirmer") or []
@@ -513,7 +545,7 @@ def main():
     rh = MO.verifier(hp)
     dn = NP.donnees(hp, rh)
     acier = next(it for it in dn["items"] if it[0] == "v" and it[1].startswith("Acier"))
-    seule = NP.donnees(dict(hp, methodes=["historique"]), MO.verifier(dict(hp, methodes=["historique"])))
+    seule = NP.donnees(hp, vue(MO.verifier(hp), "historique"))       # (lot C, C0d : la note qui n'imprime que l'ELS)
     acier_els = next(it for it in seule["items"] if it[0] == "v" and it[1].startswith("Acier"))
     tete = NP.methode(hp, "historique", rh["methodes"]["historique"], 300.0)
     chk("HEB 300 S235 (t_f = 19 mm), les deux méthodes : la ligne « Acier » dit la f_y de l'Eurocode 3 (225, tableau 3.3 ANB) ; la méthode ELS "
@@ -773,7 +805,8 @@ def _sans_identification(vrai):
 
 def _comparaison_fausse(vrai):
     def faux(r, largeur):
-        r2 = dict(r, comparaison=[dict(li, historique=(li["historique"] or 0.0) + 0.1) for li in r["comparaison"]])
+        r2 = dict(r, comparaison=[dict(li, historique=dict(li["historique"], taux=(li["historique"]["taux"] or 0.0) + 0.1) if li["historique"] else None)
+                                  for li in r["comparaison"]])
         return vrai(r2, largeur)
     return faux
 
@@ -843,7 +876,19 @@ MUTATIONS = (
     ("une méthode hors de son domaine est dite d'un mot de taux (« À vérifier »)", NP.R, "mot_methode",
      lambda vrai: (lambda x: NP.R.mot_niveau(NP.R.niveau_methode(x))), ["une nuance hors du domaine de la méthode historique (S460)"]),
     ("la comparaison peint le taux d'une méthode hors domaine de la couleur « conforme »", NP.R, "niveau_taux",
-     lambda vrai: (lambda r, k, t: C.niveau(t)), ["une nuance hors du domaine de la méthode historique (S460)"]),
+     lambda vrai: (lambda case: C.niveau(case["taux"]) if case and case["taux"] is not None else "c"),
+     ["une nuance hors du domaine de la méthode historique (S460)"]),
+    # (lot C, C0c) le statut « bloqué » dit d'un mot de niveau (« À vérifier ») dans la note
+    ("l'âme bloquée (décision impossible) est dite « À vérifier »", NP.R, "mot_methode",
+     lambda vrai: (lambda x: NP.R.mot_niveau(NP.R.niveau_methode(x)) if x["statut"] == RE.BLOQUE else vrai(x)), ["la barre neuve"]),
+    # (lot C, C0b) la même, sur la console comprimée : l'Eurocode 3 non couvert, ses taux en vert
+    ("la comparaison peint un taux non couvert de la couleur « conforme »", NP.R, "niveau_taux",
+     lambda vrai: (lambda case: C.niveau(case["taux"]) if case and case["taux"] is not None else "c"), ["une console comprimée (N + M non couvert)"]),
+    ("la note oublie la couleur d'un taux sous son statut (« eta » au lieu de « num »)", NP, "comparaison_methodes",
+     lambda vrai: (lambda r, largeur: (lambda o: dict(o, items=[("tab", i[1], [[li[0]] + [("eta", c[1], True, False) if c[0] == "num" and "%" in c[1] else c
+                                                                              for c in li[1:]] for li in i[2]]) if i[0] == "tab" else i
+                                                                for i in o["items"]]))(vrai(r, largeur))),
+     ["une console comprimée (N + M non couvert)"]),
     ("le poids propre est dit avec un poids volumique recopié (77 kN/m³) et non celui du moteur", NP, "ST",
      lambda vrai: type("ST", (), {"POIDS_VOLUMIQUE": 77.0}), ["la barre neuve"]),
     # (deuxième passe, B4) le nom de la méthode du bureau : « Méthode ELS (NBN B 51-001) », « ELS » là où la place manque

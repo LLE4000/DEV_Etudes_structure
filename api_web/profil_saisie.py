@@ -132,9 +132,9 @@ def _resume_charges(el: Dict) -> str:
 
 # ------------------------------------------------------------------ 2 · les efforts imposés
 def _rubrique_efforts(el: Dict) -> str:
-    """Les efforts de service (méthode ELS) et de calcul (Eurocode 3), côte à côte ; une seule colonne quand une
-    seule méthode est choisie."""
-    jeux = [(j, t) for j, t, k in (("service", "Service", "historique"), ("elu", "ELU", "ec3")) if k in el["methodes"]]
+    """Les efforts de service (méthode ELS) et de calcul (Eurocode 3), côte à côte — toujours les deux colonnes : les deux
+    méthodes sont toujours calculées (lot C, C0d)."""
+    jeux = [("service", "Service"), ("elu", "ELU")]
     tete = '<span></span>' + "".join(f'<span class="h" title="{C.esc(AIDE_JEU[j])}">{t}</span>' for j, t in jeux)
     lignes = ""
     for k, sym, u, aide in M.EFFORTS:
@@ -153,9 +153,8 @@ def _rubrique_efforts(el: Dict) -> str:
 
 
 def _resume_efforts(el: Dict) -> str:
-    jeu = "elu" if "ec3" in el["methodes"] else "service"
-    e = el["efforts"][jeu]
-    return f"{'ELU' if jeu == 'elu' else 'service'} · N {M.n(e['N'], 1)} · M<sub>y</sub> {M.n(e['My'], 1)} · V<sub>z</sub> {M.n(e['Vz'], 1)}"
+    e = el["efforts"]["elu"]
+    return f"ELU · N {M.n(e['N'], 1)} · M<sub>y</sub> {M.n(e['My'], 1)} · V<sub>z</sub> {M.n(e['Vz'], 1)}"
 
 
 # ------------------------------------------------------------------ 3 · maintiens et flambement
@@ -240,43 +239,39 @@ def _resume_appuis(el: Dict) -> str:
 
 
 # ------------------------------------------------------------------ 5 · les méthodes
-def choix_methodes(el: Dict) -> str:
-    return "deux" if len(el["methodes"]) == 2 else el["methodes"][0]
-
-
-def _rubrique_methodes(el: Dict, r: Dict) -> str:
-    s = C.segments(["methodes"], choix_methodes(el), M.CHOIX_METHODES)
+def _rubrique_methodes(el: Dict, r: Dict, impression: str) -> str:
+    """Ce que la NOTE imprime (``profil.IMPRESSION``, pour toute la note : C3 en dira le libellé), puis les paramètres
+    des deux méthodes, toujours calculées (lot C, C0d)."""
+    s = C.segments(["impression"], impression, M.CHOIX_METHODES)
     h = el["historique"]
-    if "historique" in el["methodes"]:
-        s += _titre(M.METHODES["historique"])
-        s += C.ligne("coefficient de sécurité", C.num(["historique", "s"], h["s"], "", dec=3, mini=1, maxi=3), "s",
-                     "σ_adm = f_y / s. 1,5 pour les charges de service ; 1,33 avec le vent.")
-        s += C.ligne("Coefficient C", C.segments(["historique", "C"], h["C"], M.C_MODES), full=True)
-        s += C.case(["historique", "deversement"], h["deversement"], "Déversement (semelle comprimée)")
-        s += C.case(["historique", "tolerance"], h["tolerance"], "Tolérance de 5 % sur σ<sub>adm</sub>")
-    if "ec3" in el["methodes"]:
-        s += _titre("Eurocode 3 · NBN EN 1993-1-1")
-        P = el["parametres"]
-        s += C.ligne2(("γ<sub>M0</sub>", C.num(["parametres", "gamma_M0"], P.get("gamma_M0"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M0'), 2)}"),
-                       "Résistance des sections. Vide : la valeur de l'annexe nationale."),
-                      ("γ<sub>M1</sub>", C.num(["parametres", "gamma_M1"], P.get("gamma_M1"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M1'), 2)}"),
-                       "Résistance des barres aux instabilités. Vide : la valeur de l'annexe nationale."))
-        k = len((r.get("methodes") or {}).get("ec3", {}).get("a_confirmer") or [])
-        if k:
-            s += (f'<button type="button" class="pf-lien" data-calcul="ac" title="Les paramètres de l\'annexe nationale dont la source reste à '
-                  f'confirmer">{C.icon("file-text")}{k} paramètre{"s" if k > 1 else ""} à confirmer</button>')
+    s += _titre(M.METHODES["historique"])
+    s += C.ligne("coefficient de sécurité", C.num(["historique", "s"], h["s"], "", dec=3, mini=1, maxi=3), "s",
+                 "σ_adm = f_y / s. 1,5 pour les charges de service ; 1,33 avec le vent.")
+    s += C.ligne("Coefficient C", C.segments(["historique", "C"], h["C"], M.C_MODES), full=True)
+    s += C.case(["historique", "deversement"], h["deversement"], "Déversement (semelle comprimée)")
+    s += _titre("Eurocode 3 · NBN EN 1993-1-1")
+    P = el["parametres"]
+    s += C.ligne2(("γ<sub>M0</sub>", C.num(["parametres", "gamma_M0"], P.get("gamma_M0"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M0'), 2)}"),
+                   "Résistance des sections. Vide : la valeur de l'annexe nationale."),
+                  ("γ<sub>M1</sub>", C.num(["parametres", "gamma_M1"], P.get("gamma_M1"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M1'), 2)}"),
+                   "Résistance des barres aux instabilités. Vide : la valeur de l'annexe nationale."))
+    k = len((r.get("methodes") or {}).get("ec3", {}).get("a_confirmer") or [])
+    if k:
+        s += (f'<button type="button" class="pf-lien" data-calcul="ac" title="Les paramètres de l\'annexe nationale dont la source reste à '
+              f'confirmer">{C.icon("file-text")}{k} paramètre{"s" if k > 1 else ""} à confirmer</button>')
     return s
 
 
 def _resume_methodes(el: Dict) -> str:
-    noms = " + ".join(M.minuscule(M.METHODES_COURT[k]) for k in el["methodes"])
-    return noms + (f" · s {M.n(el['historique']['s'], 2)}" if "historique" in el["methodes"] else "")
+    noms = " + ".join(M.minuscule(M.METHODES_COURT[k]) for k in EN.METHODES)
+    return noms + f" · s {M.n(el['historique']['s'], 2)}"
 
 
 # ------------------------------------------------------------------ la colonne
-def formulaire(el: Dict, r: Optional[Dict]) -> str:
+def formulaire(el: Dict, r: Optional[Dict], impression: str = "deux") -> str:
     """Les rubriques de la barre ouverte ; ``r`` : son résultat (les longueurs automatiques, la masse, ce qui reste à
-    confirmer). Le nom se modifie sur la ligne de la barre, en tête de la colonne."""
+    confirmer) ; ``impression`` : ce que la note imprime (``profil.IMPRESSION``). Le nom se modifie sur la ligne de la
+    barre, en tête de la colonne."""
     r = r or {}
     charge = el["mode"] == "chargee"
     appuis = a_des_appuis(el)
@@ -286,4 +281,4 @@ def formulaire(el: Dict, r: Optional[Dict]) -> str:
             + C.section(3, "Maintiens et flambement" if charge else "Flambement et déversement", _resume_maintiens(el, r),
                         _rubrique_maintiens(el, r), False, "mt")
             + (C.section(4, "Appuis", _resume_appuis(el), _rubrique_appuis(el), False, "ap") if appuis else "")
-            + C.section(5 if appuis else 4, "Méthodes", _resume_methodes(el), _rubrique_methodes(el, r), False, "me", secondaire=True))
+            + C.section(5 if appuis else 4, "Méthodes", _resume_methodes(el), _rubrique_methodes(el, r, impression), False, "me", secondaire=True))

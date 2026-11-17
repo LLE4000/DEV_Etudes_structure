@@ -270,7 +270,8 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
         niv = R.niveau_methode(a)
         g = R.gouvernante(a)
         quoi = M.resume_ame(a) if a["statut"] == RE.OK else (_minuscule(g["titre"]) if g else "")
-        verdicts = [{"texte": f"{R.mot_niveau(niv)} — {_minuscule(quoi)}" if quoi else R.mot_niveau(niv), "etat": COULEURS[niv], "riche": True,
+        mot = R.mot_methode(a)                     # (lot C, C0c : « Bloqué » quand une donnée manque, le mot de l'écran)
+        verdicts = [{"texte": f"{mot} — {_minuscule(quoi)}" if quoi else mot, "etat": COULEURS[niv], "riche": True,
                      "cale": taux_ecrit(a["taux_max"]) if a.get("taux_max") is not None else ""}]
         items.append(("k", 0))
     return {"titre": titre_ame(r), "items": items, "verdicts": verdicts}
@@ -313,22 +314,31 @@ def verification(k: str, x: Dict, v: Dict, precedente: Optional[Tuple[int, List]
     return {"titre": titre, "items": items, "verdicts": [verdict]}
 
 
-def comparaison_methodes(r: Dict, largeur: float) -> Dict:
-    """Les deux méthodes côte à côte, sujet par sujet : le taux le plus fort de chacune. Le taux d'une méthode hors de son
-    domaine s'écrit sans la couleur « conforme » (l'écran le pose en « v », ``profil_resultat.niveau_taux``)."""
-    def case(t, k):
-        if t is None:
-            return ("num", "—")
-        if R.niveau_taux(r, k, t) == "v":
-            return ("num", taux_ecrit(t))
-        return ("eta", taux_ecrit(t), t <= 1.0, False)
+def _case_taux(c: Optional[Dict]) -> str:
+    """Le taux d'une case de la comparaison, écrit ; son état quand elle n'en a pas (« non couvert »)."""
+    if c is None:
+        return "—"
+    return taux_ecrit(c["taux"]) if c["taux"] is not None else M.MOT_STATUT[c["statut"]].lower()
 
-    lignes = [[("lab", li["sujet"], li["sujet"] == "Le plus défavorable"), case(li["historique"], "historique"), case(li["ec3"], "ec3")]
-              for li in r["comparaison"] if li.get("commun") is None]
+
+def comparaison_methodes(r: Dict, largeur: float) -> Dict:
+    """Les deux méthodes côte à côte, sujet par sujet (acier/barre/comparaison.py) : le taux le plus fort de chacune. Un
+    taux sous un statut bloqué, non couvert ou hors domaine s'écrit sans la couleur « conforme » (l'écran le pose en « v »,
+    ``profil_resultat.niveau_taux``, la même fonction)."""
+    def case(c):
+        if c is None or c["taux"] is None:
+            return ("num", _case_taux(c))
+        if R.niveau_taux(c) == "v":
+            return ("num", taux_ecrit(c["taux"]))
+        return ("eta", taux_ecrit(c["taux"]), c["statut"] != RE.NOK and c["taux"] <= 1.0, False)
+
+    lignes = [[("lab", li["sujet"], False), case(li["historique"]), case(li["ec3"])]
+              for li in r["comparaison"] if li["historique"] is not None or li["ec3"] is not None]
     cols = [("SUJET", largeur - 2 * 52, "left"), (M.METHODES_COURT["historique"].upper(), 52, "right"), (M.METHODES_COURT["ec3"].upper(), 52, "right")]
     items = [("tab", cols, lignes)]
     # l'âme vaut pour les deux méthodes : un seul taux, dit sous le tableau (l'écran le pose à cheval sur les deux colonnes)
-    items += [("pr", f"{li['sujet']}, pour les deux méthodes : {taux_ecrit(li['commun'])}.") for li in r["comparaison"] if li.get("commun") is not None]
+    items += [("pr", f"{R.sujet_commun(li)}, pour les deux méthodes : {_case_taux(li['commun'])}.") for li in r["comparaison"]
+              if li["commun"] is not None]
     return {"titre": "Comparaison des deux méthodes", "items": items + [("pr", riche(R.NOTE_COMPARAISON))], "verdicts": []}
 
 
@@ -503,14 +513,30 @@ def planche(el: Dict, r: Dict, style: Planche) -> Dict:
             "blocs": blocs, "verifs": verifs}
 
 
+def imprime(r: Dict, impression: str) -> Dict:
+    """Le résultat d'une barre tel que la note l'IMPRIME (``profil.IMPRESSION`` : les deux méthodes, ou l'une) : les méthodes
+    imprimées, leur comparaison quand ce sont les deux, les enveloppes de leur statique, et le statut — le plus défavorable
+    des méthodes imprimées et de l'âme (``resultat.pire_statut``). Le moteur les a toujours calculées toutes les deux
+    (lot C, C0d) ; une vue, pas un second calcul. (C5 : la note par option.)"""
+    garde = P.methodes_imprimees(impression)
+    if tuple(r["methodes"]) == garde:
+        return r
+    v = dict(r, methodes={k: x for k, x in r["methodes"].items() if k in garde}, comparaison=r["comparaison"] if len(garde) == 2 else [])
+    if r.get("statique"):
+        v["statique"] = dict(r["statique"], enveloppes={k: e for k, e in r["statique"]["enveloppes"].items() if k in garde})
+    v["statut"] = RE.pire_statut([x["statut"] for x in v["methodes"].values()] + [r["ame"]["statut"]])
+    return v
+
+
 def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
-    """Les planches de la note, dans l'ordre des barres. Une barre que le moteur refuse arrête la note (ValueError), avec
-    son nom et le message du moteur."""
+    """Les planches de la note, dans l'ordre des barres, avec les méthodes que la note imprime (``imprime``). Une barre que
+    le moteur refuse arrête la note (ValueError), avec son nom et le message du moteur."""
     style = style or Planche()
+    impression = etat.get(P.IMPRESSION, P.IMPRESSIONS[0])
     out = []
     for i, el in enumerate(etat["elements"]):
         try:
-            out.append(planche(el, P.calculer(el), style))
+            out.append(planche(el, imprime(P.calculer(el), impression), style))
         except (ValueError, KeyError, TypeError) as err:
             raise ValueError(f"La note n'est pas préparée : barre « {el.get('nom') or f'n° {i + 1}'} », {err}") from err
     return out

@@ -7,8 +7,14 @@ Statuts :
 - ``a_pointer``   : la valeur de l'EN, connue, reprise par l'annexe belge — reste à lire sur le texte belge ;
 - ``a_confirmer`` : la valeur change un résultat et sa source n'est pas le texte : la note l'imprime comme telle ;
 - ``decision``    : une DÉCISION BUREAU (brief, règle 8) — le défaut est ici, l'autre variante est calculée et affichée.
+  Une entrée de décision porte aussi "variante" (l'autre valeur ; None quand aucune n'est encore calculable), "valeurs"
+  (celles qu'une surcharge peut prendre : une autre est refusée) et "point" (son numéro au § 13.2 du brief). Les moteurs
+  LISENT le défaut ici (``jeu``) : il se change dans la table, jamais dans le code. Le n° 7 (le seuil « à la limite »,
+  95 %) n'y est pas : c'est le seuil de tout le site (api_web/commun.py, membres.statut), cité par la note avec sa source.
 """
 from typing import Dict, List, Optional
+
+from .resultat import Refus
 
 A_POINTER, A_CONFIRMER, POINTE, DECISION = "a_pointer", "a_confirmer", "pointe", "decision"
 EDITION = "NBN EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; NBN EN 1993-1-5:2006 ; NBN EN 1990 ANB"
@@ -39,13 +45,35 @@ PARAMETRES: Dict[str, Dict] = {
     # la méthode des I et H laminés : DÉCISION BUREAU n° 4 (l'ANB:2018 fixe les deux sans en imposer une) — § 6.3.2.3
     # par défaut ; le § 6.3.2.2 est calculé à côté et affiché pour information (brief § 7.7)
     "methode_deversement_lamines": {"valeur": "6.3.2.3", "nom": "méthode de déversement des I et H laminés", "statut": DECISION,
+                                    "variante": "6.3.2.2", "valeurs": ("6.3.2.3", "6.3.2.2"), "point": 4,
                                     "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.2(2) et 6.3.2.3 : DÉCISION BUREAU n° 4, § 6.3.2.3 par défaut"},
     # ---- déversement d'une section en I SOUDÉE bisymétrique, PRS ou I saisi « soudé » (brief § 7.7 et 18.5 ; § 13.2,
     # point 10) : § 6.3.2.2 par défaut ; § 6.3.2.3 quand l'ingénieur déclare la section « soudée équivalente » à un laminé
     # (la case de la barre : le texte ne définit pas l'équivalence). Un PRS monosymétrique : § 6.3.2.2 seul, quoi que dise
     # ce paramètre. (Le nom de la clé est resté celui du PRS ; l'intégration du lot B l'étend à tout I soudé.)
     "prs_soudee_equivalente": {"valeur": False, "nom": "I soudé (PRS) « section soudée équivalente »", "statut": DECISION,
+                               "variante": True, "valeurs": (False, True), "point": 10,
                                "source": "EN 1993-1-1 § 6.3.2.3(1) : laminés et sections soudées dites équivalentes (équivalence non définie) ; DÉCISION BUREAU n° 10"},
+    # ---- (lot C, C0g) les autres DÉCISIONS BUREAU (brief § 13.2), lues dans la table par leur moteur — aucun défaut ne change
+    # n° 1 : η₁ de l'interaction (7.2) de l'EN 1993-1-5 (acier/barre/ame.py) — la variante plastique en classes 1 et 2 (W_pl)
+    "eta1_ame": {"valeur": "elastique", "nom": "η₁ de l'interaction (7.2), EN 1993-1-5", "statut": DECISION,
+                 "variante": "plastique", "valeurs": ("elastique", "plastique"), "point": 1,
+                 "source": "EN 1993-1-5 § 7.2 : η₁ élastique (défaut) ; plastique en classes 1 et 2 (commentaire JRC EUR 22898) — DÉCISION BUREAU n° 1"},
+    # n° 2 : le contact d'extrémité « inconnu » d'une force du type (c) (acier/barre/ec3_ame.py) — « non » : verdict sur s_s = 0
+    # dans (6.10) ; « oui » : s_s gardé dans (6.10)
+    "contact_inconnu": {"valeur": "non", "nom": "contact d'extrémité inconnu (type (c)) pris pour", "statut": DECISION,
+                        "variante": "oui", "valeurs": ("non", "oui"), "point": 2,
+                        "source": "EN 1993-1-5 § 6, (6.10) : contact inconnu, verdict sur s_s = 0 (défaut ; commentaire JRC EUR 22898, p. 79) — DÉCISION BUREAU n° 2"},
+    # n° 3 : A_v,y d'un I ou d'un H laminé (acier/barre/ec3_section.py) — 2·b·t_f ; variante A − h_w·t_w (calculée par C1b)
+    "avy_lamine": {"valeur": "2btf", "nom": "A_v,y d'un I ou H laminé", "statut": DECISION,
+                   "variante": "A_moins_hwtw", "valeurs": ("2btf", "A_moins_hwtw"), "point": 3,
+                   "source": "EN 1993-1-1:2022 § 8.2.6(3)b) : 2·b·t_f (défaut) ; variante A − h_w·t_w (6.2.6(3) e)) — DÉCISION BUREAU n° 3"},
+    # n° 9 : une console en flexion composée N + M (acier/barre/ec3_interaction.py) — « non couvert » ; AUCUNE variante calculable
+    # tant que le bureau n'a pas fixé de méthode (À VÉRIFIER)
+    "console_NM": {"valeur": "non_couvert", "nom": "console en flexion composée (N + M), § 6.3.3", "statut": DECISION,
+                   "variante": None, "valeurs": ("non_couvert",), "point": 9,
+                   "source": "EN 1993-1-1 § 6.3.3, annexe D ANB : aucun C_m pour une console — non couvert (défaut v1) ; méthode à fixer "
+                             "par le bureau (À VÉRIFIER) — DÉCISION BUREAU n° 9"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_D_ANB", "nom": "méthode du § 6.3.3", "statut": POINTE,
                             "source": "NBN EN 1993-1-1 ANB:2018, 6.3.3(5) : méthode 1 normative, écrite par l'annexe D ANB (prise comme un tout)"},
@@ -119,8 +147,19 @@ def jeu(surcharges: Optional[Dict] = None) -> Dict:
             raise CleRetiree(k)
         if k not in PARAMETRES:
             raise KeyError(k)
+        admises = PARAMETRES[k].get("valeurs")
+        if admises is not None and (v not in admises or isinstance(v, bool) != isinstance(admises[0], bool)):
+            # une DÉCISION BUREAU : seulement ses variantes (une autre valeur ne se devine jamais)
+            raise Refus(f"{PARAMETRES[k]['nom']} (décision n° {PARAMETRES[k]['point']}) : {' ou '.join(repr(x) for x in admises)} — reçu {v!r}")
         j[k] = v
     return j
+
+
+def decisions() -> List[Dict]:
+    """Les DÉCISIONS BUREAU de la table (brief § 13.2), dans l'ordre de leur numéro : [{cle, point, nom, valeur (le défaut),
+    variante, source}] — ce que la note imprime (lot C, C5)."""
+    return sorted(({"cle": k, "point": p["point"], "nom": p["nom"], "valeur": p["valeur"], "variante": p["variante"], "source": p["source"]}
+                   for k, p in PARAMETRES.items() if p["statut"] == DECISION), key=lambda d: d["point"])
 
 
 def a_confirmer(cles=None) -> List[Dict]:

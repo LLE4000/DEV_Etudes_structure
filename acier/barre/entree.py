@@ -26,16 +26,33 @@
      "efforts": {"service": {"N", "My", "Mz", "Vz", "Vy"}, "elu": {…}}      N > 0 en compression
      "diagramme": {"y": {"forme": "constant" | "lineaire" | "reparti" | "ponctuel", "psi": 1.0}, "z": {…}}
      # --- commun
-     "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}   L None : la plus grande travée (y) ;
+     "flambement": {"y": {"L": None, "u": 1.0, "courbe": None}, "z": {…}}   L None : la plus grande travée (y) ;
                                                                               la plus grande distance entre maintiens (z) ;
-                                                       console : 2,1·L autour des deux axes tant que le bout est libre
+                                                       console : 2,1·L autour des deux axes tant que le bout est libre ;
+                                                       courbe : None (celle de la norme) | « a » | « b » | « c »
      "Lc": None                               distance entre sections tenues (efforts imposés ; None : L de l'axe faible)
-     "methodes": ["historique", "ec3"],
+     "methodes": ["historique", "ec3"],       (les anciennes notes : lue, elle ne décide plus du calcul — les DEUX méthodes sont
+                                              toujours calculées, brief § 0 ; ce qu'une note imprime : api_web/profil.IMPRESSION)
      "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False,
                     "Cd": 1.0, "variante": "classeurs" | "fascicule",   C_d et la variante du déversement (brief § 6.4)
                     "facteur_doc": False, "classe_d": None}             profil fermé : le facteur 5,1 de la doc ; une classe
                                                                        de déversement imposée (a à d ; None ou "" : le tableau 12)
+                    la tolérance de 5 % est RETIRÉE (brief § 13.2, point 5 : « non ») : « tolerance » est toujours False ; une
+                    ancienne barre où elle était cochée garde « tolerance_retiree » True (la note le dit)
      "parametres": {}}                        d'autres coefficients que ceux de la table (acier/barre/parametres.py)
+
+LE CONTRAT DES ENTRÉES DU LOT C (lot C, C0e : chaque clé a son défaut et son refus ; aucune ne change encore un calcul —
+les blocs qui les emploient le diront) :
+     "norme_produit": None (EN 10025-2) | « M » (M/ML, EN 10025-4)          "ouvrage": « batiment » | « autre »
+     "combinaisons": {"expression": « 6.10 » | « 6.10ab », "geotechnique": False, "regle_courte_duree": True}
+     "position": « horizontale » | « verticale » | « inclinee », "angle": None (degrés, 0 à 90)
+     "points": [] (abscisses vérifiées en plus, m)       "debords": [0.0, 0.0] (m ; « appuis » et « continue »)
+     "poids_propre_efforts": {"N": False, "M": False}    (efforts imposés : le poids propre dans P, en flexion)
+     cas : "courte_duree" False, "psi0" None (0 à 1), "N_troncons" None | [{"x2", "N"}, …] (jusqu'au bout de la barre)
+     charge : "niveau" None (celui de la barre) | « haut » | « centre » | « bas » ; ponctuelle : "introduction" « auto » |
+              « a » | « b » | « c »
+     maintien : "neglige" False (négligé dans M_cr)
+     appuis : "detail" None | [None | {"ss", "c", "contact", "torsion" (« fourche » | « encastre »)}, …] (un par appui)
 """
 import copy
 import math
@@ -50,19 +67,33 @@ from . import historique_deversement as HD
 from . import prs as PR
 from . import section as SE
 from . import statique as ST
-from .resultat import Refus
+from .resultat import Refus, fr
+
+
+def _m(x: float) -> str:
+    """Une longueur dans un refus, à la virgule, sans zéro inutile (« 6,2 »)."""
+    t = fr(x, 3)
+    return t.rstrip("0").rstrip(",") if "," in t else t
 
 MODES = ("chargee", "efforts")
 METHODES = ("historique", "ec3")
 NIVEAUX = ("haut", "centre", "bas")
 C_MODES = ("unite", "norme")        # C = 1 (les classeurs du bureau) ; ou C selon le diagramme (doc p. 20, 21)
 EFFORTS = ("N", "My", "Mz", "Vz", "Vy")
-CAS_MAX, MAINTIENS_MAX = 6, 12
+CAS_MAX, MAINTIENS_MAX = 6, 24           # (lot C : 24 maintiens — le PRS-C du brief § 11.9 en demande 18)
 MODES_APPUI = ("poses", "ame")            # la barre posée sur ses appuis ; ou tenue par l'âme (aucune force sur une semelle)
 CONTACTS = ("oui", "non", "inconnu")      # contact d'extrémité du type (c), EN 1993-1-5 § 6 (brief § 4.1, § 8.2) : « inconnu » à défaut
 SS_MAX = 2000.0                           # mm : la plus grande longueur d'appui rigide, le plus grand débord
 L_MIN, L_MAX = 0.05, 60.0                 # m
 FORMES_DIAGRAMME = (DV.CONSTANT, DV.LINEAIRE, DV.REPARTI, DV.PONCTUEL)
+# ---- le contrat des entrées du lot C (C0e) : les valeurs admises, la première est le défaut
+NORMES_PRODUIT = (None, "M")              # None : EN 10025-2 (S420 et S460 : N/NL, EN 10025-3) ; « M » : M/ML, EN 10025-4
+EXPRESSIONS = ("6.10", "6.10ab")          # (6.10) ; ou (6.10a) et (6.10b), l'enveloppe (brief § 5)
+POSITIONS = ("horizontale", "verticale", "inclinee")       # la barre, pour son poids propre (brief § 4.1)
+INTRODUCTIONS = ("auto", "a", "b", "c")   # comment une ponctuelle entre dans l'âme (EN 1993-1-5, figure 6.1) : « auto », la règle du module
+TORSIONS = ("fourche", "encastre")        # la condition de torsion d'un appui (fourche par défaut, brief § 4.1)
+COURBES_IMPOSEES = (None, "a", "b", "c")  # la courbe de flambement d'un axe (None : celle de la norme)
+POINTS_MAX = 12
 
 
 def nouvelle_barre(nom: str = "B1") -> Dict:
@@ -70,13 +101,17 @@ def nouvelle_barre(nom: str = "B1") -> Dict:
             "modele": "appuis", "travees": [6.0],
             "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]},
                     {"nom": "Q", "nature": "exploitation_A", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}],
-            "poids_propre": True, "niveau": "haut", "maintiens": [], "appuis": {"mode": "poses", "ss": None, "c": None},
+            "poids_propre": True, "niveau": "haut", "maintiens": [], "appuis": {"mode": "poses", "ss": None, "c": None, "detail": None},
             "efforts": {"service": {k: 0.0 for k in EFFORTS}, "elu": {k: 0.0 for k in EFFORTS}},
             "diagramme": {"y": {"forme": DV.CONSTANT, "psi": 1.0}, "z": {"forme": DV.CONSTANT, "psi": 1.0}},
-            "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}, "Lc": None,
+            "flambement": {"y": {"L": None, "u": 1.0, "courbe": None}, "z": {"L": None, "u": 1.0, "courbe": None}}, "Lc": None,
             "methodes": list(METHODES), "historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,
                                                        "variante": "classeurs", "facteur_doc": False, "classe_d": None},
-            "parametres": {}}
+            "parametres": {},
+            # (lot C, C0e) le contrat des entrées : leurs défauts
+            "prs": None, "norme_produit": None, "ouvrage": DV.OUVRAGES[0],
+            "combinaisons": {"expression": EXPRESSIONS[0], "geotechnique": False, "regle_courte_duree": True},
+            "position": POSITIONS[0], "angle": None, "points": [], "debords": [0.0, 0.0], "poids_propre_efforts": {"N": False, "M": False}}
 
 
 def _nombre(v, nom: str) -> float:
@@ -94,6 +129,100 @@ def _longueur_appui(v, nom: str) -> Optional[float]:
     if not 0.0 <= x <= SS_MAX:
         raise Refus(f"{nom} : de 0 à {SS_MAX:g} mm")
     return x
+
+
+def _oui_non(v, nom: str) -> bool:
+    """Une case : True ou False — rien d'autre (un texte « non » serait vrai)."""
+    if not isinstance(v, bool):
+        raise Refus(f"{nom} : oui ou non (true / false) attendu, reçu {v!r}")
+    return v
+
+
+def _parmi(v, valeurs, nom: str):
+    if v not in valeurs:
+        raise Refus(f"{nom} : {' ; '.join('vide' if x is None else f'« {x} »' for x in valeurs)} — reçu {v!r}")
+    return v
+
+
+def _contrat_commun(src: Dict, b: Dict) -> None:
+    """(lot C, C0e) Les clés communes aux deux modes : la norme produit, le type d'ouvrage."""
+    b["norme_produit"] = _parmi(src.get("norme_produit", b["norme_produit"]), NORMES_PRODUIT, "norme produit")
+    b["ouvrage"] = _parmi(src.get("ouvrage", b["ouvrage"]), DV.OUVRAGES, "type d'ouvrage")
+
+
+def _contrat_chargee(src: Dict, b: Dict, Lt: float) -> None:
+    """(lot C, C0e) Les clés de la barre chargée : combinaisons, position et angle, points vérifiés, débords."""
+    co = src.get("combinaisons", b["combinaisons"])
+    if not isinstance(co, dict) or set(co) - set(b["combinaisons"]):
+        raise Refus(f"combinaisons : {{{', '.join(b['combinaisons'])}}} attendu")
+    co = dict(b["combinaisons"], **co)
+    b["combinaisons"] = {"expression": _parmi(co["expression"], EXPRESSIONS, "expression des combinaisons"),
+                         "geotechnique": _oui_non(co["geotechnique"], "application géotechnique"),
+                         "regle_courte_duree": _oui_non(co["regle_courte_duree"], "règle de courte durée")}
+    b["position"] = _parmi(src.get("position", b["position"]), POSITIONS, "position de la barre")
+    angle = src.get("angle", b["angle"])
+    if angle is not None and not 0.0 <= _nombre(angle, "angle de la barre") <= 90.0:
+        raise Refus("angle de la barre : de 0 à 90°")
+    b["angle"] = None if angle is None else float(angle)
+    pts = src.get("points", b["points"])
+    if not isinstance(pts, (list, tuple)) or len(pts) > POINTS_MAX:
+        raise Refus(f"points vérifiés : une liste d'au plus {POINTS_MAX} abscisses")
+    b["points"] = sorted(PO.ramener(_nombre(x, "abscisse d'un point vérifié"), Lt) for x in pts)
+    if any(not 0.0 <= x <= Lt for x in b["points"]):
+        raise Refus(f"un point vérifié est hors de la barre (0 à {_m(Lt)} m)")
+    db = src.get("debords", b["debords"])
+    if not isinstance(db, (list, tuple)) or len(db) != 2:
+        raise Refus("débords : deux longueurs, à gauche et à droite (m)")
+    b["debords"] = [_nombre(x, "débord") for x in db]
+    if any(not 0.0 <= x <= L_MAX for x in b["debords"]):
+        raise Refus(f"débords : de 0 à {_m(L_MAX)} m")
+    if any(b["debords"]) and b["modele"] not in ("appuis", "continue"):
+        raise Refus("débords : seulement pour une barre sur deux appuis ou continue")
+
+
+def _contrat_cas(c: Dict, nom: str, Lt: float) -> Dict:
+    """(lot C, C0e) Les clés d'un cas de charge : courte durée, ψ₀ saisi, N par tronçon."""
+    out = {"courte_duree": _oui_non(c.get("courte_duree", False), f"cas « {nom} », courte durée")}
+    psi0 = c.get("psi0")
+    if psi0 is not None and not 0.0 <= _nombre(psi0, f"cas « {nom} », ψ₀") <= 1.0:
+        raise Refus(f"cas « {nom} » : ψ₀ de 0 à 1")
+    out["psi0"] = None if psi0 is None else float(psi0)
+    nt = c.get("N_troncons")
+    if nt is not None:
+        if not isinstance(nt, (list, tuple)) or not nt or any(not isinstance(t, dict) or set(t) != {"x2", "N"} for t in nt):
+            raise Refus(f"cas « {nom} », N par tronçon : une liste de {{x2, N}} jusqu'au bout de la barre")
+        nt = [{"x2": PO.ramener(_nombre(t["x2"], f"cas « {nom} », fin d'un tronçon de N"), Lt),
+               "N": _nombre(t["N"], f"cas « {nom} », N d'un tronçon")} for t in nt]
+        xs = [t["x2"] for t in nt]
+        if any(not 0.0 < x <= Lt for x in xs) or any(v <= u for u, v in zip(xs, xs[1:])) or abs(xs[-1] - Lt) > 1e-9:
+            raise Refus(f"cas « {nom} », N par tronçon : des fins croissantes, la dernière au bout de la barre ({_m(Lt)} m)")
+    out["N_troncons"] = nt
+    return out
+
+
+def _contrat_appuis(detail, b: Dict) -> Optional[List]:
+    """(lot C, C0e) Les appuis un par un : None (la valeur commune), ou une liste — un par appui, None ou {"ss", "c", "contact",
+    "torsion"} (chaque clé absente : la valeur commune ; torsion : fourche à défaut)."""
+    if detail is None:
+        return None
+    if not isinstance(detail, (list, tuple)) or len(detail) > len(b["travees"]) + 1:
+        raise Refus(f"appuis un par un : une liste d'au plus {len(b['travees']) + 1} appuis")
+    out = []
+    for i, d in enumerate(detail):
+        if d is None:
+            out.append(None)
+            continue
+        if not isinstance(d, dict) or set(d) - {"ss", "c", "contact", "torsion"}:
+            raise Refus(f"appui {i + 1} : {{ss, c, contact, torsion}} attendu")
+        e = {}
+        for k in ("ss", "c"):
+            if k in d:
+                e[k] = _longueur_appui(d[k], f"appui {i + 1}, {'longueur d\'appui s_s' if k == 'ss' else 'débord c'}")
+        if "contact" in d:
+            e["contact"] = _parmi(d["contact"], CONTACTS, f"appui {i + 1}, contact d'extrémité")
+        e["torsion"] = _parmi(d.get("torsion", TORSIONS[0]), TORSIONS, f"appui {i + 1}, torsion")
+        out.append(e)
+    return out
 
 
 PLATS = ("b1", "t1", "hw", "tw", "b2", "t2", "a", "bords", "nom")
@@ -145,14 +274,15 @@ def normaliser(barre: Dict) -> Dict:
     if b["nuance"] not in NO.NUANCES:
         raise Refus(f"nuance inconnue : {b['nuance']!r}")
     prs = _prs(src, b)
+    b["prs"] = prs                                               # (None : un profilé du catalogue — l'écran la garde, lot C)
     if prs is not None:
-        b["prs"] = prs
         b["profil"] = PR.section_prs(**_plats(prs), nuance=b["nuance"])["nom"]
     elif not isinstance(b["profil"], str) or SE.CAT.par_nom().get(b["profil"]) is None:
         raise Refus(f"profilé inconnu du catalogue : {b['profil']!r}")
     if b["niveau"] not in NIVEAUX:
         raise Refus(f"niveau des charges : {', '.join(NIVEAUX)} — reçu {b['niveau']!r}")
     b["poids_propre"] = bool(b["poids_propre"])
+    _contrat_commun(src, b)
     if b["Lc"] is not None and not _nombre(b["Lc"], "L_c") >= 0:
         raise Refus("la distance L_c entre sections tenues doit être positive ou nulle")
     meth = src.get("methodes", list(METHODES))
@@ -172,8 +302,11 @@ def normaliser(barre: Dict) -> Dict:
         h["classe_d"] = None
     if h["classe_d"] is not None and h["classe_d"] not in HD.CLASSES:
         raise Refus(f"classe de déversement : {', '.join(HD.CLASSES)} ou vide (celle du tableau 12)")
-    b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": bool(h["tolerance"]),
-                       "Cd": float(h["Cd"]), "variante": h["variante"], "facteur_doc": bool(h["facteur_doc"]), "classe_d": h["classe_d"]}
+    # la tolérance de 5 % est RETIRÉE (brief § 13.2, point 5 : « non », une seule valeur) : toujours False ; une ancienne barre où
+    # elle était cochée le garde dans « tolerance_retiree » (la note le dit, lot C)
+    b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": False,
+                       "Cd": float(h["Cd"]), "variante": h["variante"], "facteur_doc": bool(h["facteur_doc"]), "classe_d": h["classe_d"],
+                       "tolerance_retiree": bool(h["tolerance"]) or bool(h.get("tolerance_retiree"))}
     if not isinstance(src.get("parametres", {}), dict):
         raise Refus("« parametres » doit être un dictionnaire")
     b["parametres"] = dict(src.get("parametres") or {})
@@ -184,7 +317,8 @@ def normaliser(barre: Dict) -> Dict:
             raise Refus(f"axe {a} : la longueur de flambement doit être positive ou nulle")
         if not _nombre(ax["u"], f"coefficient u de l'axe {a}") > 0:
             raise Refus(f"axe {a} : le coefficient u doit être positif")
-        b["flambement"][a] = {"L": None if ax["L"] is None else float(ax["L"]), "u": float(ax["u"])}
+        b["flambement"][a] = {"L": None if ax["L"] is None else float(ax["L"]), "u": float(ax["u"]),
+                              "courbe": _parmi(ax.get("courbe"), COURBES_IMPOSEES, f"courbe de flambement de l'axe {a}")}
     if b["mode"] == "efforts":
         ef = src.get("efforts") or {}
         for jeu in ("service", "elu"):
@@ -201,6 +335,11 @@ def normaliser(barre: Dict) -> Dict:
         for a in ("y", "z"):
             if b["flambement"][a]["L"] is None:
                 raise Refus(f"efforts imposés : la longueur de flambement de l'axe {a} est à donner")
+        pp = src.get("poids_propre_efforts", b["poids_propre_efforts"])
+        if not isinstance(pp, dict) or set(pp) - {"N", "M"}:
+            raise Refus("poids propre des efforts imposés : {N, M} attendu")
+        pp = dict(b["poids_propre_efforts"], **pp)
+        b["poids_propre_efforts"] = {k: _oui_non(pp[k], f"poids propre {'dans P' if k == 'N' else 'en flexion'}") for k in ("N", "M")}
         return b
     # ---- barre chargée
     if b["modele"] not in PO.MODELES:
@@ -217,6 +356,7 @@ def normaliser(barre: Dict) -> Dict:
     elif len(b["travees"]) != 1:
         raise Refus("ce modèle n'a qu'une travée")
     Lt = sum(b["travees"])
+    _contrat_chargee(src, b, Lt)
     cas = src.get("cas", b["cas"])
     if not isinstance(cas, (list, tuple)) or not cas or len(cas) > CAS_MAX:
         raise Refus(f"de 1 à {CAS_MAX} cas de charge")
@@ -237,17 +377,22 @@ def normaliser(barre: Dict) -> Dict:
             raise Refus(f"cas « {nom} » : {e}") from None
         charges = [{k: ch[k] for k in ("type", "v", "a", "b", "sens") if k in ch} for ch in charges]
         for ch, saisie in zip(charges, c.get("charges") or []):          # (une charge rendue par charge saisie, dans l'ordre)
+            # (lot C, C0e) le niveau d'application de CETTE charge (None : celui de la barre)
+            ch["niveau"] = _parmi(saisie.get("niveau"), (None,) + NIVEAUX, f"cas « {nom} », niveau d'une charge")
             if ch["type"] == "P":
+                ch["introduction"] = _parmi(saisie.get("introduction", INTRODUCTIONS[0]), INTRODUCTIONS, f"cas « {nom} », introduction d'une ponctuelle")
                 ch["ss"] = _longueur_appui(saisie.get("ss"), f"cas « {nom} », longueur d'appui s_s")
                 if "contact" in saisie:                                     # (lot B) gardé seulement s'il est saisi
                     if saisie["contact"] not in CONTACTS:
                         raise Refus(f"cas « {nom} », contact d'extrémité : {', '.join(CONTACTS)}")
                     ch["contact"] = saisie["contact"]
-        b["cas"].append({"nom": nom, "nature": c["nature"], "N": _nombre(c.get("N", 0.0), f"effort normal du cas « {nom} »"), "charges": charges})
+        b["cas"].append({"nom": nom, "nature": c["nature"], "N": _nombre(c.get("N", 0.0), f"effort normal du cas « {nom} »"), "charges": charges,
+                         **_contrat_cas(c, nom, Lt)})
     ap = dict(b["appuis"], **(src.get("appuis") or {})) if isinstance(src.get("appuis") or {}, dict) else None
     if ap is None or ap["mode"] not in MODES_APPUI:
         raise Refus(f"appuis : {', '.join(MODES_APPUI)}")
-    b["appuis"] = {"mode": ap["mode"], "ss": _longueur_appui(ap["ss"], "longueur d'appui s_s"), "c": _longueur_appui(ap["c"], "débord c")}
+    b["appuis"] = {"mode": ap["mode"], "ss": _longueur_appui(ap["ss"], "longueur d'appui s_s"), "c": _longueur_appui(ap["c"], "débord c"),
+                   "detail": _contrat_appuis(ap.get("detail"), b)}
     if "contact" in ap:                                                     # (lot B) gardé seulement s'il est saisi : « inconnu » à défaut
         if ap["contact"] not in CONTACTS:
             raise Refus(f"appuis, contact d'extrémité : {', '.join(CONTACTS)}")
@@ -263,6 +408,6 @@ def normaliser(barre: Dict) -> Dict:
             raise Refus(f"maintien : genre parmi {', '.join(ST.GENRES_MAINTIEN)}")
         if not 0.0 <= x <= Lt:
             raise Refus(f"maintien à {x:g} m : hors de la barre (0 à {Lt:g} m)")
-        b["maintiens"].append({"x": x, "genre": genre})
+        b["maintiens"].append({"x": x, "genre": genre, "neglige": _oui_non((m or {}).get("neglige", False), "maintien négligé dans M_cr")})
     b["maintiens"].sort(key=lambda m: m["x"])
     return b

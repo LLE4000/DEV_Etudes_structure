@@ -43,6 +43,7 @@ sys.path.insert(0, RACINE)
 from acier.barre import ecriture as W  # noqa: E402
 from acier.barre import entree as EN  # noqa: E402
 from acier.barre import moteur as MO  # noqa: E402
+from acier.barre import resultat as RE  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import dessin_barre as DB  # noqa: E402
@@ -116,14 +117,14 @@ chk("une note neuve : version 2 et sa clé « zero_saisi » (lot B, sans changer
     "barre B1 — IPE 300, S235, deux appuis de 6 m, G et Q de 5 kN/m, poids propre, tenue à mi-portée",
     neuf["ok"] and e0["version"] == P.VERSION == 2 and e0.get(P.ZERO_SAISI) is True and len(e0["elements"]) == 1 and e0["actif"] == 0 and el0["nom"] == "B1" and el0["profil"] == "IPE 300"
     and el0["nuance"] == "S235" and el0["mode"] == "chargee" and el0["modele"] == "appuis" and el0["travees"] == [6.0]
-    and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
+    and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet", "neglige": False}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
 chk("ses DEUX méthodes tiennent (ELS 88 % — lot B : le déversement des classeurs, brief v12 § 6.4 ; Eurocode 3 58 % — lot A : le couple "
     "(λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; mais s_s et c ne sont pas saisis, et à leur borne 0 l'âme ne passe pas (critère "
     "6.2.1(5), 157 %) : décision impossible (brief § 8.3, point 5) — la note est « À vérifier », son résumé porte le taux le plus fort ; seule "
     "s_s est demandée (le critère ne lit pas c — le harnais suit : « s_s et c » à la 2e reprise)",
-    r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.88 and round(te, 2) == 0.58
+    r0["statut"] == "bloque" and r0["ame"]["statut"] == "bloque" and round(th, 2) == 0.88 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)"
     and "Âme · Décision impossible : s s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
@@ -221,12 +222,15 @@ chk("« tout le calcul » de chaque méthode (s1, s2) porte toutes ses vérifica
     all(f'id="ck-s{i}"' in rep["volets"] for i in (1, 2)) and "Combinaisons" in vol
     and all(c["nom"] in vol for x in r["methodes"].values() for c in x["combinaisons"]))
 cmp_ = re.search(r'<section class="et-bloc inc" data-theme="4">(.*?)</section>', rep["resultat"], re.S)
-chk("la COMPARAISON (le quatrième bloc, après les deux méthodes et l'âme) : un sujet par ligne, le taux de chaque méthode — ceux que le moteur "
-    "rend ; l'âme, qui vaut pour les deux, y porte UN taux ; sa fenêtre (cmp)",
+# (lot C, C0f — le harnais suit : la comparaison de acier/barre/comparaison.py, ses sujets du § 9 ; plus de « Le plus défavorable » ; l'âme,
+# « commun », sur sa propre ligne à cheval sur les deux colonnes)
+chk("la COMPARAISON (le quatrième bloc, après les deux méthodes et l'âme) : un sujet par ligne, la case de chaque méthode — le taux que le "
+    "moteur rend ; l'âme, qui vaut pour les deux, porte UNE pastille par ligne commune ; plus de ligne « Le plus défavorable » ; sa fenêtre (cmp)",
     cmp_ is not None and all(li["sujet"] in texte(cmp_.group(1)) for li in r["comparaison"])
-    and all(pastille(li[k]) in texte(cmp_.group(1)) for li in r["comparaison"] for k in ("historique", "ec3") if li[k] is not None)
-    and r["comparaison"][-1]["sujet"] == "Âme et raidisseurs (EN 1993-1-5)" and r["comparaison"][-1]["commun"] == r["ame"]["taux_max"]
-    and f'Âme et raidisseurs (EN 1993-1-5) {pastille(r["ame"]["taux_max"])}' in texte(cmp_.group(1)) and cmp_.group(1).count("pf-cmp-c") == 1
+    and all(pastille(li[k]["taux"]) in texte(cmp_.group(1)) for li in r["comparaison"] for k in ("historique", "ec3", "commun")
+            if li[k] is not None and li[k]["taux"] is not None)
+    and cmp_.group(1).count("pf-cmp-c") == sum(1 for li in r["comparaison"] if li["commun"] is not None) >= 1
+    and "Le plus défavorable" not in texte(cmp_.group(1))
     and 'data-calcul="cmp"' in rep["resultat"] and 'id="ck-cmp"' in rep["volets"] and "vaut pour les deux méthodes" in texte(rep["volets"]),
     texte(cmp_.group(1)) if cmp_ else None)
 chk("(lot A) la poutre continue n'a plus de paramètre « à confirmer » : le couple (λ̄_LT,0 ; β) est celui de l'ANB:2018, 6.3.2.3(1) — ni lien "
@@ -258,45 +262,53 @@ POSES = [("nom", "Panne 3", lambda e: e["nom"] == "Panne 3"), ("travees/0", "7,2
          ("cas/0/charges/0/v", "7,5", lambda e: e["cas"][0]["charges"][0]["v"] == 7.5), ("cas/0/charges/0/a", "1", lambda e: e["cas"][0]["charges"][0]["a"] == 1.0),
          ("cas/0/charges/0/b", "4", lambda e: e["cas"][0]["charges"][0]["b"] == 4.0), ("maintiens/0/x", "2", lambda e: e["maintiens"][0]["x"] == 2.0),
          ("maintiens/0/genre", "haut", lambda e: e["maintiens"][0]["genre"] == "haut"), ("flambement/y/L", "4,5", lambda e: e["flambement"]["y"]["L"] == 4.5),
-         ("flambement/z/u", "0,7", lambda e: e["flambement"]["z"]["u"] == 0.7), ("methodes", "ec3", lambda e: e["methodes"] == ["ec3"]),
-         ("methodes", "historique", lambda e: e["methodes"] == ["historique"]), ("historique/s", "1,33", lambda e: e["historique"]["s"] == 1.33),
+         # (lot C, C0d : « methodes » choisit ce que la NOTE imprime — etat["impression"], contrôlé plus bas ; C0e : la tolérance de 5 % est
+         #  retirée, son chemin aussi — le harnais suit)
+         ("flambement/z/u", "0,7", lambda e: e["flambement"]["z"]["u"] == 0.7), ("historique/s", "1,33", lambda e: e["historique"]["s"] == 1.33),
          ("historique/C", "norme", lambda e: e["historique"]["C"] == "norme"), ("historique/deversement", False, lambda e: e["historique"]["deversement"] is False),
-         ("historique/tolerance", True, lambda e: e["historique"]["tolerance"] is True),
          ("parametres/gamma_M1", "1,1", lambda e: e["parametres"] == {"gamma_M1": 1.1}),
          # (la borne des noms du site : 60 caractères pour un élément — le harnais en saisit 58 — ; 12 pour un cas, qui s'écrit sur le dessin)
          ("nom", "N" * 60, lambda e: e["nom"] == "N" * 60), ("cas/1/nom", "Exploitation", lambda e: e["cas"][1]["nom"] == "Exploitation"),
          # (lot 4 : ce que l'âme reçoit de ses appuis)
-         ("appuis/ss", "100", lambda e: e["appuis"] == {"mode": "poses", "ss": 100.0, "c": None}),
-         ("appuis/c", "50", lambda e: e["appuis"] == {"mode": "poses", "ss": None, "c": 50.0}),
+         ("appuis/ss", "100", lambda e: e["appuis"] == {"mode": "poses", "ss": 100.0, "c": None, "detail": None}),
+         ("appuis/c", "50", lambda e: e["appuis"] == {"mode": "poses", "ss": None, "c": 50.0, "detail": None}),
          ("appuis/mode", "ame", lambda e: e["appuis"]["mode"] == "ame")]
 faux = []
 for chemin, valeur, juste in POSES:
     out = req(action="modifier", etat=copy.deepcopy(e0), chemin=chemin.split("/"), valeur=valeur)
     if not out["ok"] or out["message"] or not juste(out["etat"]["elements"][0]):
         faux.append((chemin, valeur, out.get("message") or out.get("erreur")))
-chk(f"chaque saisie va au bon endroit ({len(POSES)} champs : nom, portée, poids propre, acier, niveau, cas, charges, maintiens, flambement, méthodes, "
+chk(f"chaque saisie va au bon endroit ({len(POSES)} champs : nom, portée, poids propre, acier, niveau, cas, charges, maintiens, flambement, "
     "options de la méthode historique, γ_M1, appuis — et un nom de 60 caractères, la borne du site)", not faux, faux[:4])
+imp_ = {v_: req(action="modifier", etat=copy.deepcopy(e0), chemin=[ch_], valeur=v_) for ch_, v_ in (("impression", "ec3"), ("methodes", "historique"))}
+chk("(lot C, C0d) le segment de la rubrique « Méthodes » choisit ce que la NOTE imprime (etat « impression », pour toutes ses barres ; « methodes », "
+    "l'ancien chemin, y mène aussi) — la barre n'en change pas, ses deux méthodes restent calculées",
+    all(o_["ok"] and o_["message"] is None and o_["etat"]["impression"] == v_ and o_["etat"]["elements"] == e0["elements"] for v_, o_ in imp_.items())
+    and e0["impression"] == "deux", {v_: (o_.get("message"), o_["etat"].get("impression")) for v_, o_ in imp_.items()})
 # les listes
 out = saisir(e0, "cas/+", "1")
 c3 = out["etat"]["elements"][0]["cas"]
 chk("« + Cas de charge » : un cas variable de plus (Q2, exploitation A, une charge répartie sur toute la barre) ; « retirer » l'ôte",
-    [c["nom"] for c in c3] == ["G", "Q", "Q2"] and c3[2]["nature"] == "exploitation_A" and c3[2]["charges"] == [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]
+    [c["nom"] for c in c3] == ["G", "Q", "Q2"] and c3[2]["nature"] == "exploitation_A"
+    and c3[2]["charges"] == [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0, "niveau": None}]          # (lot C, C0e : le niveau d'une charge, vide)
     and [c["nom"] for c in saisir(out["etat"], "cas/1/-", "1")["etat"]["elements"][0]["cas"]] == ["G", "Q2"], c3)
 out = enchainer(e0, ("cas/0/charges/+", "P"), ("cas/0/charges/1/v", "12"), ("cas/0/charges/1/a", "2"))
 ch = out["etat"]["elements"][0]["cas"][0]["charges"]
 chk("« + Ponctuelle » : une charge de 10 kN à mi-portée, que l'on règle (12 kN à 2 m) ; son type se change (un couple au même endroit, puis une "
     "charge triangulaire sur toute la barre) ; sa longueur d'appui n'est pas saisie (None, jamais 0 — le harnais suit)",
-    ch[1] == {"type": "P", "v": 12.0, "a": 2.0, "ss": None}
-    and saisir(out["etat"], "cas/0/charges/1/type", "C")["etat"]["elements"][0]["cas"][0]["charges"][1] == {"type": "C", "v": 12.0, "a": 2.0}
+    # (lot C, C0e — le harnais suit : le niveau d'une charge (vide : celui de la barre) et l'introduction d'une ponctuelle (« auto »))
+    ch[1] == {"type": "P", "v": 12.0, "a": 2.0, "ss": None, "niveau": None, "introduction": "auto"}
+    and saisir(out["etat"], "cas/0/charges/1/type", "C")["etat"]["elements"][0]["cas"][0]["charges"][1] == {"type": "C", "v": 12.0, "a": 2.0, "niveau": None}
     and saisir(out["etat"], "cas/0/charges/1/type", "tri")["etat"]["elements"][0]["cas"][0]["charges"][1]
-    == {"type": "tri", "v": 12.0, "a": 0.0, "b": 6.0, "sens": "croissante"}
-    and saisir(out["etat"], "cas/0/charges/0/-", "1")["etat"]["elements"][0]["cas"][0]["charges"] == [{"type": "P", "v": 12.0, "a": 2.0, "ss": None}], ch)
+    == {"type": "tri", "v": 12.0, "a": 0.0, "b": 6.0, "sens": "croissante", "niveau": None}
+    and saisir(out["etat"], "cas/0/charges/0/-", "1")["etat"]["elements"][0]["cas"][0]["charges"]
+    == [{"type": "P", "v": 12.0, "a": 2.0, "ss": None, "niveau": None, "introduction": "auto"}], ch)
 out = saisir(e0, "maintiens/+", "1")
 mt = out["etat"]["elements"][0]["maintiens"]
 chk("« + Maintien » : au milieu du plus long intervalle libre (1,5 m, puis 4,5 m) ; ils restent triés ; « retirer » l'ôte",
-    mt == [{"x": 1.5, "genre": "complet"}, {"x": 3.0, "genre": "complet"}]
+    mt == [{"x": 1.5, "genre": "complet", "neglige": False}, {"x": 3.0, "genre": "complet", "neglige": False}]       # (lot C, C0e : « neglige »)
     and [m["x"] for m in saisir(out["etat"], "maintiens/+", "1")["etat"]["elements"][0]["maintiens"]] == [1.5, 3.0, 4.5]
-    and saisir(out["etat"], "maintiens/0/-", "1")["etat"]["elements"][0]["maintiens"] == [{"x": 3.0, "genre": "complet"}], mt)
+    and saisir(out["etat"], "maintiens/0/-", "1")["etat"]["elements"][0]["maintiens"] == [{"x": 3.0, "genre": "complet", "neglige": False}], mt)
 out = saisir(e0, "modele", "continue")
 ec = out["etat"]["elements"][0]
 chk("« Continue » : une seconde travée égale à la première, les charges qui couvraient la barre la suivent (0 à 12 m) ; « + Travée », « retirer »",
@@ -310,7 +322,7 @@ chk("revenir à une seule travée ramène ce qui dépasse dans la barre et le DI
                "modele", "appuis")["message"] == "Charges et maintiens ramenés dans la barre.", out2["message"])
 court = saisir(e0, "travees/0", "4")["etat"]["elements"][0]
 chk("raccourcir la portée : la charge qui couvrait toute la barre la suit (0 à 4 m), le maintien à 3 m reste",
-    court["cas"][0]["charges"][0]["b"] == 4.0 and court["maintiens"] == [{"x": 3.0, "genre": "complet"}], court["cas"][0])
+    court["cas"][0]["charges"][0]["b"] == 4.0 and court["maintiens"] == [{"x": 3.0, "genre": "complet", "neglige": False}], court["cas"][0])
 auto = saisir(saisir(e0, "flambement/z/L", "2")["etat"], "flambement/z/L", "")
 chk("une longueur de flambement VIDÉE redevient automatique : le champ est vide, son texte dit la longueur que le moteur prend (« auto · 3 »)",
     auto["etat"]["elements"][0]["flambement"]["z"]["L"] is None and 'placeholder="auto · 3"' in auto["donnees"]
@@ -320,7 +332,8 @@ REFUS = [("travees/0", "-1", "portée"), ("travees/0", "abc", "n'est pas un nomb
          ("cas/0/charges/0/b", "9", "cas « G »"), ("cas/1/nom", "G", "portent le nom"), ("cas/0/nature", "pluie", "nature inconnue"),
          ("cas/0/-", "1", None), ("nuance", "S999", "nuance inconnue"), ("maintiens/0/x", "7", "hors de la barre"), ("maintiens/0/genre", "milieu", "genre"),
          ("flambement/y/u", "0", "coefficient u"), ("flambement/y/L", "abc", "n'est pas un nombre"), ("historique/s", "5", "entre 1 et 3"),
-         ("parametres/gamma_M0", "2", "entre 0,9 et 1,5"), ("methodes", "aci", "méthode inconnue"), ("mode", "libre", "mode inconnu"),
+         ("parametres/gamma_M0", "2", "entre 0,9 et 1,5"), ("methodes", "aci", "méthode inconnue"), ("impression", "aci", "méthode inconnue"),
+         ("historique/tolerance", True, "Champ inconnu"), ("mode", "libre", "mode inconnu"),
          ("modele", "arc", "modèle inconnu"), ("inconnu", "1", "Champ inconnu"), ("cas/9/N", "1", "introuvable"), ("travees/+", "1", "poutre continue"),
          ("nom", "N" * 61, "au plus 60"), ("cas/1/nom", "Exploitation2", "au plus 12"),
          ("appuis/ss", "-3", "de 0 à 2000 mm"), ("appuis/ss", "2500", "de 0 à 2000 mm"), ("appuis/c", "abc", "n'est pas un nombre"),
@@ -344,7 +357,8 @@ for _ in range(3):
 six = saisir(e5, "cas/+", "1")
 chk("au plus quatre cas VARIABLES : le cinquième cas ajouté est permanent (G2) ; le changer en variable est refusé, le moteur le dit",
     [c["nature"] != "permanent" for c in e5["elements"][0]["cas"]] == [False, True, True, True, True]
-    and six["etat"]["elements"][0]["cas"][-1] == dict(nom="G2", nature="permanent", N=0.0, charges=[{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}])
+    and six["etat"]["elements"][0]["cas"][-1] == dict(nom="G2", nature="permanent", N=0.0, charges=[{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0, "niveau": None}],
+                                                      courte_duree=False, psi0=None, N_troncons=None)
     and "au plus 4 cas de charge variables" in saisir(six["etat"], "cas/5/nature", "vent")["message"]
     and "au plus 6 cas de charge" in saisir(six["etat"], "cas/+", "1")["message"], [c["nom"] for c in six["etat"]["elements"][0]["cas"]])
 
@@ -352,7 +366,8 @@ print("=== 4. Les deux modes")
 ef = saisir(e0, "mode", "efforts")
 eb = ef["etat"]["elements"][0]
 chk("passer en « efforts imposés » : les longueurs de flambement que la barre chargée prenait d'elle-même deviennent des données (6 m, 3 m) ; "
-    "les charges restent dans la note", eb["mode"] == "efforts" and eb["flambement"] == {"y": {"L": 6.0, "u": 1.0}, "z": {"L": 3.0, "u": 1.0}}
+    "les charges restent dans la note", eb["mode"] == "efforts"
+    and eb["flambement"] == {"y": {"L": 6.0, "u": 1.0, "courbe": None}, "z": {"L": 3.0, "u": 1.0, "courbe": None}}
     and eb["cas"] == el0["cas"] and eb["maintiens"] == el0["maintiens"] and ef["message"] is None, eb["flambement"])
 chk("sans effort saisi : « aucun effort à vérifier » pour chaque méthode, aucun bloc ; la note est « Données incomplètes »",
     texte(ef["resultat"]).count("aucun effort à vérifier") == 2 and 'class="et-bloc ' not in ef["resultat"] and ef["resume"]["niveau"] == "n"
@@ -373,24 +388,27 @@ chk("revenir en « barre chargée » : les charges et les maintiens sont ceux d'
     er["mode"] == "chargee" and er["cas"] == el0["cas"] and er["maintiens"] == el0["maintiens"] and er["efforts"]["elu"]["N"] == 420.0
     and er["diagramme"]["y"]["forme"] == "lineaire" and saisir(retour["etat"], "mode", "efforts")["etat"]["elements"][0]["efforts"]["elu"]["My"] == 28.0)
 une = saisir(saisir(ef["etat"], "methodes", "ec3")["etat"], "efforts/elu/My", "50")
-chk("une seule méthode en efforts imposés : une seule colonne d'efforts (ELU pour l'Eurocode, service pour l'historique)",
-    'data-chemin="efforts/elu/My"' in une["donnees"] and 'data-chemin="efforts/service/My"' not in une["donnees"]
-    and 'data-chemin="efforts/service/My"' in saisir(ef["etat"], "methodes", "historique")["donnees"])
+# (lot C, C0d — le harnais suit : les deux méthodes sont toujours calculées ; la note seule n'imprime qu'une méthode)
+chk("(lot C) efforts imposés, la note n'imprimant que l'Eurocode 3 : les DEUX colonnes d'efforts restent (service et ELU), les deux méthodes "
+    "se calculent",
+    'data-chemin="efforts/elu/My"' in une["donnees"] and 'data-chemin="efforts/service/My"' in une["donnees"]
+    and list(moteur(une["etat"]["elements"][0])["methodes"]) == ["historique", "ec3"])
 
 print("=== 5. Les méthodes")
-for choix, cle, autre in (("historique", "historique", "Eurocode 3"), ("ec3", "ec3", "Méthode ELS")):
+# (lot C, C0d — le harnais suit : le moteur calcule TOUJOURS les deux méthodes et l'écran les montre toujours, deux verdicts l'un sous l'autre ;
+# le choix ne décide que de ce que la NOTE imprime)
+for choix in ("historique", "ec3"):
     out = saisir(e0, "methodes", choix)
     r = moteur(out["etat"]["elements"][0])
-    chk(f"« {choix} » seul : un verdict, le bloc de la méthode et celui de l'âme (EN 1993-1-5 : il vaut pour toute méthode), ni comparaison ni "
-        f"{autre} ; le résumé est le sien", list(r["methodes"]) == [cle]
-        and out["resultat"].count('class="verdict"') == 1 and out["resultat"].count('class="et-bloc ') == 2 and autre not in texte(out["resultat"])
-        and re.findall(r'<span class="n">([^<]+)</span>', out["resultat"]) == [PR.M.METHODES_COURT[cle], "Âme et raidisseurs"]
-        and "Comparaison" not in texte(out["resultat"]) and 'id="ck-cmp"' not in out["volets"] and out["resume"]["taux"] == C.pct(r["methodes"][cle]["taux_max"])
-        and not lignes_du_moteur(out, r), texte(out["resultat"])[:200])
+    chk(f"(lot C) la note n'imprime que « {choix} » : l'écran garde ses DEUX verdicts, les deux blocs, l'âme et la comparaison — rien de plus ; "
+        f"le résumé et le calcul ne changent pas", list(r["methodes"]) == ["historique", "ec3"] and out["etat"]["impression"] == choix
+        and out["resultat"].count('class="verdict"') == 2 and re.findall(r'<span class="n">([^<]+)</span>', out["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
+        and out["resume"] == neuf["resume"] and out["resultat"] == neuf["resultat"] and not lignes_du_moteur(out, r), texte(out["resultat"])[:200])
 hi = saisir(e0, "methodes", "historique")
-chk("la méthode historique seule : ses options s'affichent (s, C, déversement, tolérance), celles de l'Eurocode (γ) s'effacent — et l'inverse",
-    'data-chemin="historique/s"' in hi["donnees"] and 'data-chemin="parametres/gamma_M0"' not in hi["donnees"]
-    and 'data-chemin="historique/s"' not in saisir(e0, "methodes", "ec3")["donnees"])
+chk("(lot C) les options des DEUX méthodes s'affichent toujours (s, C, déversement ; γ) — la case « tolérance de 5 % » est partie (brief § 13.2, "
+    "point 5 : non)",
+    'data-chemin="historique/s"' in hi["donnees"] and 'data-chemin="parametres/gamma_M0"' in hi["donnees"]
+    and 'data-chemin="historique/s"' in saisir(e0, "methodes", "ec3")["donnees"] and 'data-chemin="historique/tolerance"' not in hi["donnees"])
 g11 = saisir(e0, "parametres/gamma_M1", "1,1")
 chk("γ_M1 = 1,1 va au moteur (le déversement passe de 52 à 57 %) ; le champ vidé rend la valeur de l'annexe nationale",
     round(moteur(g11["etat"]["elements"][0])["methodes"]["ec3"]["taux_max"] / te, 3) == 1.1
@@ -405,7 +423,9 @@ ea = anc["etat"]["elements"][0] if anc["ok"] else {}
 chk("une note de la version 1 est relue en « efforts imposés », Eurocode 3 seul : ses efforts de calcul, son acier, son profilé, ses longueurs de "
     "flambement, son γ_M1 ; un effort dont la case n'était pas cochée est nul ; sans déversement coché, L_c = 0",
     anc["ok"] and anc["etat"]["version"] == P.VERSION and ea["mode"] == "efforts" and ea["methodes"] == ["ec3"] and ea["nuance"] == "S355" and ea["profil"] == "HEB 200"
-    and ea["efforts"]["elu"] == {"N": 600.0, "My": 60.0, "Mz": 0.0, "Vz": 40.0, "Vy": 0.0} and ea["flambement"] == {"y": {"L": 6.0, "u": 1.0}, "z": {"L": 3.0, "u": 1.0}}
+    and anc["etat"]["impression"] == "ec3"                       # (lot C, C0d : une note v1 imprime l'Eurocode 3 seul)
+    and ea["efforts"]["elu"] == {"N": 600.0, "My": 60.0, "Mz": 0.0, "Vz": 40.0, "Vy": 0.0}
+    and ea["flambement"] == {"y": {"L": 6.0, "u": 1.0, "courbe": None}, "z": {"L": 3.0, "u": 1.0, "courbe": None}}
     and ea["Lc"] == 0.0 and ea["parametres"] == {"gamma_M1": 1.1} and ea["nom"] == "P1", ea)
 chk("… et son résultat est celui du moteur sur cette barre (flambement, flexion composée ; pas de déversement : L_c = 0)",
     not lignes_du_moteur(anc, moteur(ea)) and "E-Mb" not in {v["id"] for v in moteur(ea)["methodes"]["ec3"]["verifications"]}
@@ -425,10 +445,11 @@ print("=== 6 bis. L'âme et ses raidisseurs (EN 1993-1-5)")
 ra = r0["ame"]
 bloc = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
-chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « À vérifier », la norme et les combinaisons ELU ; "
+chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « Bloqué » (lot C, C0c — le harnais suit : « À "
+    "vérifier » avant ; une donnée manque, la décision est bloquée), la norme et les combinaisons ELU ; "
     "une ligne par appui — « décision impossible : s_s à saisir », avec le taux à la borne (157 %, en gris) ; l'avertissement en pied (le "
     "harnais suit : sans taux, « à fournir », à la 2e reprise du lot B — brief § 8.3, point 5)",
-    bloc is not None and tb.startswith("Âme et raidisseurs À vérifier") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
+    bloc is not None and tb.startswith("Âme et raidisseurs Bloqué") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
     and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
     and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s à saisir." in tb and ra["taux_max"] is None, tb[:400])
 chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
@@ -467,7 +488,7 @@ chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses for
 v_el = next(v for v in ra["verifications"] if v["id"].endswith("-EL"))
 chk("… une vérification donnée pour information au-delà de 1 (non couverte : le critère 6.2.1(5) à s_s = 0, 1,567) se dit « > », jamais "
     "« ≤ » (profil_mots.comparaison)",
-    v_el["statut"] == "non_couvert" and round(v_el["taux"], 3) == 1.567 and texte(M.comparaison(v_el)) == "η = 1,567 > 1", texte(M.comparaison(v_el)))
+    v_el["statut"] == "bloque" and round(v_el["taux"], 3) == 1.567 and texte(M.comparaison(v_el)) == "η = 1,567 > 1", texte(M.comparaison(v_el)))
 lourde = barre(profil="HEB 300", travees=[4.0], maintiens=[{"x": 2.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
                cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 500.0, "a": 2.0, "ss": 0.0}]}])
 rep = req(action="calculer", etat=note(lourde))
@@ -924,7 +945,7 @@ def nom_els():
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"])),
         ("la rubrique « Méthodes » : le segment « ELS » (sa clé reste « historique »), le titre « Méthode ELS (NBN B 51-001) », le résumé "
          "« ELS + eurocode 3 · s 1,5 »",
-         re.search(r'data-chemin="methodes" data-sorte="choix" data-valeur="historique"[^>]*>ELS</button>', nv["donnees"]) is not None
+         re.search(r'data-chemin="impression" data-sorte="choix" data-valeur="historique"[^>]*>ELS</button>', nv["donnees"]) is not None
          and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "ELS + eurocode 3 · s 1,5" in texte(nv["donnees"])
          and 'data-chemin="historique/s"' in nv["donnees"] and nv["etat"]["elements"][0]["methodes"] == ["historique", "ec3"],
          re.findall(r'data-valeur="historique"[^>]*>[^<]*<', nv["donnees"])),
@@ -1169,7 +1190,7 @@ def note_v2():
          and req(action="calculer", etat=v2["etat"])["etat"] == v2["etat"], (a2 and a2["raison"], a3 and a3["decision"])),
         ("une note NEUVE garde « vide » et « 0 » distincts : c = 0 saisi reste 0, s_s vidée reste non saisie (null), après deux relectures ; la "
          "note garde sa version (2) et sa clé « zero_saisi » — sans changer de version (le harnais suit : version 3 à la 3e reprise)",
-         n3.get("ok") and ap3 == {"mode": "poses", "ss": None, "c": 0.0} and n3["etat"]["version"] == 2 and n3["etat"].get(P.ZERO_SAISI) is True
+         n3.get("ok") and ap3 == {"mode": "poses", "ss": None, "c": 0.0, "detail": None} and n3["etat"]["version"] == 2 and n3["etat"].get(P.ZERO_SAISI) is True
          and n3["etat"] == n2["etat"], ap3),
         ("une note d'un AUTRE format (version 3) est refusée — jamais lue comme une autre (le site d'avant prenait toute version inconnue pour une "
          "version 1 : « efforts imposés »)",
@@ -1238,11 +1259,21 @@ _ANCIEN: dict = {}
 # laisse tomber à la relecture (intégration du lot B, défaut croisé B1 × B4 : ce § les croyait gardées) — sans enjeu, aucune note d'avant ne compte
 # (décision du propriétaire, 17/11)
 OPTIONS_ELS_LOT_B = ("Cd", "variante", "facteur_doc", "classe_d")
+# (lot C, C0e) le contrat des entrées du lot C : des clés neuves (chacune son défaut), que le site d'avant ne connaît pas non plus — le harnais suit
+CLES_LOT_C = ("prs", "norme_produit", "ouvrage", "combinaisons", "position", "angle", "points", "debords", "poids_propre_efforts")
 
 
 def sans_options_els(el):
-    """L'élément ``el`` sans les options ELS du lot B (OPTIONS_ELS_LOT_B)."""
-    return {**el, "historique": {k: v for k, v in (el.get("historique") or {}).items() if k not in OPTIONS_ELS_LOT_B}}
+    """L'élément ``el`` sans les options ELS du lot B (OPTIONS_ELS_LOT_B) ni les clés du lot C (CLES_LOT_C, et celles des cas, des charges, des
+    maintiens, des appuis, du flambement, de la tolérance retirée)."""
+    cas = [{**{k: v for k, v in c.items() if k not in ("courte_duree", "psi0", "N_troncons")},
+            "charges": [{k: v for k, v in ch.items() if k not in ("niveau", "introduction")} for ch in c.get("charges") or []]}
+           for c in el.get("cas") or []]
+    return {**{k: v for k, v in el.items() if k not in CLES_LOT_C}, "cas": cas,
+            "historique": {k: v for k, v in (el.get("historique") or {}).items() if k not in OPTIONS_ELS_LOT_B + ("tolerance_retiree",)},
+            "maintiens": [{k: v for k, v in m.items() if k != "neglige"} for m in el.get("maintiens") or []],
+            "appuis": {k: v for k, v in (el.get("appuis") or {}).items() if k != "detail"},
+            "flambement": {a: {k: v for k, v in f.items() if k != "courbe"} for a, f in (el.get("flambement") or {}).items()}}
 
 
 def ancien_site():
@@ -1312,7 +1343,8 @@ def vider_et_relire():
          "tomber (intégration du lot B : le harnais suit) ; une donnée vide (null) : il la REFUSE, franchement (« nombre attendu »), jamais une "
          "autre lecture (une version 3 y devenait « efforts imposés », s_s et c à 0)",
          _ANCIEN.get("raison") is None and pl_.get("ok") and pl_["etat"]["version"] == 2 and el_a == sans_options_els({k: el_p[k] for k in el_a})
-         and set(el_a) == set(el_p) and set(el_p["historique"]) - set(el_a.get("historique") or {}) == set(OPTIONS_ELS_LOT_B)
+         and set(el_a) == set(el_p) - set(CLES_LOT_C)
+         and set(el_p["historique"]) - set(el_a.get("historique") or {}) == set(OPTIONS_ELS_LOT_B) | {"tolerance_retiree"}
          and lus.get("neuve", {}).get("ok") is False and "nombre attendu" in lus["neuve"].get("erreur", "")
          and lus.get("videe", {}).get("ok") is False and "nombre attendu" in lus["videe"].get("erreur", ""),
          _ANCIEN.get("raison") or {k: (v.get("ok"), v.get("erreur")) for k, v in lus.items()}),
@@ -1456,6 +1488,133 @@ finally:
     P._RESULTATS.clear()
 chk(f"mutation « la ligne « Âme » échappée sans indice (C.esc) » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, la ligne « Âme » est en indice", all(ok_ for _n, ok_, _i in ame_indice()))
+
+print("=== 19. (lot C, C0) un taux sous son statut, le statut « bloqué », ce que la note imprime, la clé « prs » — et leurs mutations")
+
+
+def _console(v):
+    """Une console de 3 m, N = 50 kN de compression, G et Q de ``v`` kN/m : l'Eurocode 3 ne couvre pas N + M en console (E-661)."""
+    el = P.barre_neuve()
+    el.update(modele="console", travees=[3.0], maintiens=[])
+    el["cas"][0]["N"] = 50.0
+    for c_ in el["cas"]:
+        c_["charges"][0].update(b=3.0, v=v)
+    return el
+
+
+def _prs(t1, bords=None):
+    """Une barre PRS (300 × t1 / 540 × 15 / 300 × 30, S355), bords des semelles non saisis par défaut."""
+    el = P.barre_neuve()
+    el.pop("profil")
+    el.update(nuance="S355", prs={"b1": 300, "t1": t1, "hw": 540, "tw": 15, "b2": 300, "t2": 30, "a": 6, "bords": bords},
+              maintiens=[{"x": x_, "genre": "complet"} for x_ in (1.5, 3.0, 4.5)])
+    return P.normaliser(P.etat_de([el]))["elements"][0]
+
+
+def lot_c0():
+    """Les contrôles du socle du lot C sur l'écran, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    out = []
+    h = req(action="calculer", etat=note(_console(5.0)))["resultat"]
+    puces = re.findall(r'<div class="verdict"[^>]*><span class="chip xl ([a-z]+)', h)
+    out.append(("C0b — console 3 m, N = 50 kN : la puce du verdict Eurocode 3 n'est PAS verte (57 %, montré pour information sous « non "
+                "couvert » : « v ») ; dessous, en une ligne, « + 1 non couvert : flexion composée » — une fois",
+                puces == ["r", "v"] and texte(h).count("+ 1 non couvert : flexion composée") == 1, (puces, texte(h)[:300])))
+    cmp_ = re.search(r'<div class="pf-cmp"><span>Flexion composée</span>(.*?)</div>', h)
+    out.append(("C0b — … la case Eurocode 3 de « Flexion composée » dans la comparaison (45 %, sous un non couvert) n'est pas verte non plus",
+                cmp_ is not None and re.findall(r'class="chip ([a-z]+)"', cmp_.group(1)) == ["r", "v"], cmp_ and cmp_.group(1)))
+    leg = req(action="calculer", etat=note(_console(1.0)))
+    prof = re.search(r'<b>Profilé</b>.*?<span class="pct ([a-z]+)">([^<]+)<', leg["resultat"], re.S)
+    out.append(("C0b — une console légère (rien ne refuse ; l'Eurocode 3 non couvert, l'ELS hors domaine) : la ligne « Profilé » montre son "
+                "taux (63 %) en « à vérifier », jamais en vert ; la note aussi",
+                prof is not None and prof.group(1) == "v" and prof.group(2).startswith("63") and leg["resume"]["niveau"] == "v",
+                prof and prof.groups()))
+    rp = MO.verifier(_prs(30))
+    vp = PR.verdicts(rp)
+    out.append(("C0c — un PRS aux bords non saisis : le verdict ELS dit « Bloqué » en un mot (puce « v », sans taux), sa raison en UNE ligne "
+                "(« Bords des semelles à saisir… ») ; « + 1 bloqué : cisaillement » dessous ; l'en-tête du bloc dit « Bloqué »",
+                rp["methodes"]["historique"]["statut"] == RE.BLOQUE
+                and re.findall(r'class="chip xl ([a-z -]+)"[^>]*>([^<]*)', vp)[0] == ("v pf-mot", "Bloqué")
+                and texte(vp).count("Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué.") == 1
+                and "+ 1 bloqué : cisaillement" in texte(vp) and PR.etat_methode(rp["methodes"]["historique"]) == "Bloqué", texte(vp)[:300]))
+    tb_ = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', req(action="nouveau")["resultat"], re.S)
+    out.append(("C0c — la barre neuve (s_s non saisie : décision de l'âme impossible) : le bloc de l'âme dit « Bloqué »",
+                tb_ is not None and texte(tb_.group(1)).startswith("Âme et raidisseurs Bloqué"), tb_ and texte(tb_.group(1))[:80]))
+    # C0d — ce que la note imprime
+    b_h = P.barre_neuve("B1")
+    b_h["methodes"] = ["historique"]
+    b_e = P.barre_neuve("B2")
+    b_e["methodes"] = ["ec3"]
+    v2_ = lambda *els: {"version": 2, P.ZERO_SAISI: True, "elements": list(els), "actif": 0}     # noqa: E731 — une note sans « impression »
+    ded = (P.normaliser(v2_(b_h, copy.deepcopy(b_h)))["impression"], P.normaliser(v2_(b_h, b_e))["impression"],
+           P.normaliser(v2_(P.barre_neuve()))["impression"], P.normaliser(P.etat_de([P.barre_neuve()], impression="historique"))["impression"])
+    out.append(("C0d — une note sans « impression » (d'avant le lot C) : une seule et même méthode dans toutes ses barres → celle-là ; "
+                "sinon les deux ; une note qui l'a la garde",
+                ded == ("historique", "deux", "deux", "historique"), ded))
+    try:
+        P.normaliser(P.etat_de([P.barre_neuve()], impression="aci"))
+        out.append(("C0d — une impression inconnue est refusée", False, "acceptée"))
+    except ValueError as e_:
+        out.append(("C0d — une impression inconnue est refusée", "impression de la note" in str(e_), str(e_)))
+    imp = P.normaliser(v2_(b_h))
+    out.append(("C0d — la note qui n'imprime que l'ELS : le moteur calcule quand même LES DEUX méthodes, l'écran montre deux verdicts",
+                list(MO.verifier(imp["elements"][0])["methodes"]) == ["historique", "ec3"]
+                and req(action="calculer", etat=imp)["resultat"].count('class="verdict"') == 2, imp["impression"]))
+    # C0e — la clé « prs » est gardée et signe le résultat
+    p1, p2 = _prs(30), _prs(25)
+    out.append(("C0e — deux PRS de plats différents : deux signatures (la clé « prs » est dans COMMUNS), deux résultats",
+                p1.get("prs") is not None and P._signature(p1) != P._signature(p2)
+                and P.calculer(p1)["methodes"]["ec3"]["taux_max"] != P.calculer(p2)["methodes"]["ec3"]["taux_max"],
+                (p1.get("profil"), p2.get("profil"))))
+    return out
+
+
+for nom_, ok_, info_ in lot_c0():
+    chk(nom_, ok_, info_)
+
+
+def _sans_prs(vrai):
+    """La mutation « prs hors de COMMUNS » touche les deux tuples (COMMUNS et CLES), comme avant le lot C."""
+    return tuple(k for k in vrai if k != "prs")
+
+
+MUTATIONS_C0 = (
+    ("la puce du verdict peinte au taux seul (C.niveau), sans son statut", P, "R",
+     lambda vrai: _source_mutee(vrai, 'M.couleur_taux(x["statut"], x["taux_max"]), xl=True)', 'C.niveau(x["taux_max"]), xl=True)')),
+    ("la ligne « Profilé » peinte au taux seul", P, "R",
+     lambda vrai: _source_mutee(vrai, 'niv = M.couleur_taux(r["statut"], t)', 'niv = C.niveau(t) if t is not None else "c"')),
+    ("la case de la comparaison peinte au taux seul (niveau_taux)", P, "R",
+     lambda vrai: _source_mutee(vrai, 'return M.couleur_taux(case["statut"], case["taux"]) if case else "c"',
+                                'return C.niveau(case["taux"]) if case and case["taux"] is not None else "c"')),
+    ("la ligne « + 1 non couvert » retirée du verdict", P, "R", lambda vrai: _source_mutee(vrai, "reste = non_juges(x, g)", 'reste = ""')),
+    ("couleur_taux ne connaît plus les statuts à vérifier", M, "STATUTS_A_VERIFIER", lambda vrai: ()),
+    ("le statut « bloqué » dit « À vérifier » (le mot du niveau)", PR, "mot_methode",
+     lambda vrai: (lambda x: PR.mot_niveau(PR.niveau_methode(x)) if x["statut"] == RE.BLOQUE else vrai(x))),
+    ("la raison d'un verdict bloqué remplacée par sa comparaison", PR, "verdicts",
+     lambda vrai: _source_mutee(PR, 'if g["statut"] == RE.BLOQUE and g["messages"] else', 'if False else').verdicts),
+    ("une note sans « impression » imprime toujours les deux", P, "_impression_deduite", lambda vrai: (lambda etat: "deux")),
+    ("« impression » oubliée à la relecture (toujours déduite)", P, "normaliser",
+     lambda vrai: _source_mutee(P, "impression = etat.get(IMPRESSION, _impression_deduite(etat))", "impression = _impression_deduite(etat)").normaliser),
+    ("« prs » hors de COMMUNS (et de CLES)", P, "COMMUNS", _sans_prs),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_C0:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_, cles_ = getattr(objet_, attr_), P.CLES
+    try:
+        setattr(objet_, attr_, fabrique_(vrai_))
+        if attr_ == "COMMUNS":
+            P.CLES = _sans_prs(cles_)
+        rouges_ = [n_ for n_, ok_, _i in lot_c0() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P.CLES = cles_
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles du socle du lot C sont verts", all(ok_ for _n, ok_, _i in lot_c0()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

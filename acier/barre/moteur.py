@@ -33,6 +33,7 @@ from acier import materiaux as MA
 
 from . import ame as AME
 from . import combinaisons as CO
+from . import comparaison as CP
 from . import ec3 as EC
 from . import ec3_deversement as DV
 from . import ec3_section as ES
@@ -46,12 +47,6 @@ from . import section as SE
 from . import statique as ST
 from .enveloppe import IDS_BARRE, ORDRE, Enveloppe          # noqa: F401 — ORDRE, relu par les tests
 
-# la comparaison des deux méthodes : (sujet, vérifications historiques, vérifications de l'Eurocode)
-# (la méthode historique n'a pas de vérification de l'effort tranchant seul : il entre dans la contrainte équivalente)
-SUJETS = (("Flambement, axe faible", ("H-N-z",), ("E-Nb-z", "E-Nb-T")), ("Flambement, axe fort", ("H-N-y",), ("E-Nb-y",)),
-          ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-DEV", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
-          ("Effort tranchant seul", (), ("E-Vz", "E-Vy")))
-SUJET_AME = "Âme et raidisseurs (EN 1993-1-5)"
 POINTS_DIAGRAMME = 40            # points par travée des enveloppes rendues pour le dessin
 BALAYAGE_TRONCON = 24            # points par tronçon pour le plus grand moment
 EPS = 1e-9
@@ -65,7 +60,7 @@ def _refusee(methode: str, norme: str, message: str) -> Dict:
     J.verif("E-SECTION" if methode == "ec3" else "H-SIGMA", "Vérification impossible", norme, "", None, None, "", [], statut=RE.NON_COUVERT,
             messages=[J.alerte("refus", "attention", message)])
     r = J.rendre()
-    r.update({"combinaison": None, "combinaisons": [], "a_confirmer": []})
+    r.update({"combinaison": None, "combinaisons": [], "a_confirmer": [], "refus": message})     # (la comparaison le lit : comparaison.py)
     return r
 
 
@@ -176,12 +171,11 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
         r["a_confirmer"] = r["grandeurs"].get("a_confirmer", [])
         return r
 
-    for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):
-        if nom in b["methodes"]:
-            try:
-                methodes[nom] = calcul()
-            except RE.Refus as e:
-                methodes[nom] = _refusee(nom, norme, str(e))
+    for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):     # TOUJOURS les deux (brief § 0, § 9)
+        try:
+            methodes[nom] = calcul()
+        except RE.Refus as e:
+            methodes[nom] = _refusee(nom, norme, str(e))
     return {"statique": None, "methodes": methodes, "ame": AME.efforts(b, s), "longueurs": _longueurs_rendues(b, axes)}
 
 
@@ -302,7 +296,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     def ec3() -> Dict:
         env = Enveloppe(EC.METHODE, EC.NORME)
         combs = []
-        for co in CO.elu(cas, P):
+        for co in CO.elu(cas, P, b["combinaisons"]):
             C = ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas)
             combs.append(C)
             xs = ST.sections(b, C, pts)
@@ -351,7 +345,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         libre = sum(b["travees"]) if _bout_libre(b, trs) else None      # une console à bout libre : sa longueur (m)
         combs = []
         fleche = {"valeur": 0.0, "x": None, "combinaison": None}
-        for co in CO.service(cas):
+        for co in CO.service(cas, b["combinaisons"]):
             C = ST.Combinaison(co["nom"], sols, co["facteurs"], N_cas)
             combs.append(C)
             xs = ST.sections(b, C, pts)
@@ -379,35 +373,16 @@ def _chargee(b: Dict, s: Dict) -> Dict:
         return env.rendre()
 
     avis = _avis_longueurs(b, trs)               # une donnée commune : dite UNE fois, sous la première méthode qui la lit
-    for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):
-        if nom in b["methodes"]:
-            try:
-                methodes[nom] = calcul()
-                if comprimee[nom]:
-                    methodes[nom]["alertes"] += avis
-                    avis = []                    # (l'autre méthode lit la même longueur : pas de redite)
-            except RE.Refus as e:
-                methodes[nom] = _refusee(nom, norme, str(e))
+    for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):     # TOUJOURS les deux (brief § 0, § 9)
+        try:
+            methodes[nom] = calcul()
+            if comprimee[nom]:
+                methodes[nom]["alertes"] += avis
+                avis = []                        # (l'autre méthode lit la même longueur : pas de redite)
+        except RE.Refus as e:
+            methodes[nom] = _refusee(nom, norme, str(e))
     return {"statique": statique, "methodes": methodes, "ame": AME.chargee(b, s, cas, sols, N_cas, pts),
             "longueurs": _longueurs_rendues(b, axes)}
-
-
-def _comparaison(methodes: Dict, ame: Dict) -> List[Dict]:
-    """Les deux méthodes côte à côte, sujet par sujet : le plus fort taux de chacune ; puis, sous « Le plus
-    défavorable », le taux de l'âme et de ses raidisseurs (« commun » : il ne se compare pas, il vaut pour les deux)."""
-    if len(methodes) < 2:
-        return []
-
-    def pire(r: Dict, ids: Sequence[str]) -> Optional[float]:
-        t = [v["taux"] for v in r["verifications"] if v["id"] in ids and v["taux"] is not None]
-        return max(t) if t else None
-
-    lignes = [{"sujet": sujet, "historique": pire(methodes["historique"], h), "ec3": pire(methodes["ec3"], e)} for sujet, h, e in SUJETS]
-    lignes = [li for li in lignes if li["historique"] is not None or li["ec3"] is not None]
-    lignes.append({"sujet": "Le plus défavorable", "historique": methodes["historique"]["taux_max"], "ec3": methodes["ec3"]["taux_max"]})
-    if ame.get("taux_max") is not None:              # l'âme (EN 1993-1-5) vaut pour les deux méthodes : une ligne à part, un seul taux
-        lignes.append({"sujet": SUJET_AME, "historique": None, "ec3": None, "commun": ame["taux_max"]})
-    return lignes
 
 
 def verifier(barre: Dict) -> Dict:
@@ -416,7 +391,10 @@ def verifier(barre: Dict) -> Dict:
     "longueurs" (de flambement, celles qui sont prises), "methodes": {"historique": …, "ec3": …} (la forme de
     acier/barre/resultat.py ; en barre chargée, chaque vérification dit sa combinaison et son lieu), "ame" (la même
     forme : l'âme selon l'EN 1993-1-5, toujours calculée, avec la décision de chaque raidisseur — acier/barre/ame.py),
-    "statut" (le plus défavorable des méthodes cochées et de l'âme : nok, non couvert, hors domaine, ok), "comparaison"}."""
+    "statut" (le plus défavorable des deux méthodes et de l'âme : nok, bloqué, non couvert, hors domaine, ok),
+    "comparaison" (acier/barre/comparaison.py)}. Les DEUX méthodes sont toujours calculées (brief § 0 et § 9) :
+    ``barre["methodes"]`` (les anciennes notes) ne décide plus du calcul ; ce qu'une note IMPRIME est la clé de la note
+    ``impression`` (api_web/profil.py)."""
     b = EN.normaliser(barre)
     s = section_de(b)
     out = _efforts_imposes(b, s) if b["mode"] == "efforts" else _chargee(b, s)
@@ -434,5 +412,5 @@ def verifier(barre: Dict) -> Dict:
     statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]
     statut = RE.pire_statut(statuts)
     out.update({"barre": b, "profil": s["nom"], "masse": s.get("masse"), "poids_propre": ST.poids_propre(s), "statut": statut,
-                "comparaison": _comparaison(out["methodes"], out["ame"])})
+                "comparaison": CP.comparer(out["methodes"], out["ame"])})
     return out

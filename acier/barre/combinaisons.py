@@ -15,7 +15,7 @@ MÉTHODE HISTORIQUE (charges de service) — pour chaque arrangement : G + ΣQ, 
 à confirmer : Q4).
 """
 from itertools import combinations
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from .resultat import Refus, fixe
 
@@ -60,8 +60,11 @@ def _arrangements(var: Sequence[int]):
             yield s
 
 
-def elu(cas: Sequence[Dict], P: Dict) -> List[Dict]:
-    """Les combinaisons fondamentales (6.10) : [{"nom", "facteurs": [γ de chaque cas], "dominante", "psi": {clés employées}}]."""
+def elu(cas: Sequence[Dict], P: Dict, options: Optional[Dict] = None) -> List[Dict]:
+    """Les combinaisons fondamentales (6.10) : [{"nom", "facteurs": [γ de chaque cas], "dominante", "psi": {clés employées}}].
+    ``options`` : la clé « combinaisons » de la barre (acier/barre/entree.py : expression, géotechnique, règle de courte
+    durée) — lot C, C0e : la signature seule, le moteur et l'âme la passent ; elle ne change encore rien (C2 la lit :
+    l'enveloppe (6.10a)/(6.10b) et la règle de courte durée, moins sévères que (6.10) et les ψ₀ du tableau)."""
     perm, var = _trier(cas)
     out, vus = [], set()
     for gG in (P["gamma_G_sup"], P["gamma_G_inf"]):
@@ -90,8 +93,9 @@ def elu(cas: Sequence[Dict], P: Dict) -> List[Dict]:
     return out
 
 
-def service(cas: Sequence[Dict]) -> List[Dict]:
-    """Les combinaisons de service de la méthode historique : G + ΣQ à 100 %, pour chaque arrangement des cas variables."""
+def service(cas: Sequence[Dict], options: Optional[Dict] = None) -> List[Dict]:
+    """Les combinaisons de service de la méthode historique : G + ΣQ à 100 %, pour chaque arrangement des cas variables.
+    ``options`` : comme pour ``elu`` (la signature seule, lot C)."""
     perm, var = _trier(cas)
     out = []
     for s in _arrangements(var):

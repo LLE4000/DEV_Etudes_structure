@@ -281,14 +281,18 @@ def controles(M=None):
       and proche(verif(h3, "H-DEV")["limite"], verif(hd, "H-DEV")["limite"], 1e-8) and verif(h3, "H-SIGMA") is None
       and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-DEV")["x"] == 3.0 and h3["statut"] == RE.NOK
       and proche(Vs, 19.76), (verif(h3, "H-EQ"), Ms, Vs))
-    c("R2 : les deux méthodes côte à côte — la comparaison a une ligne « flexion et contraintes », la ligne du plus défavorable, puis celle de "
-      "l'âme (EN 1993-1-5 : UN taux, « commun », il vaut pour les deux méthodes) ; le statut de la barre est le plus sévère",
-      [x["sujet"] for x in r["comparaison"]] == ["Flexion et contraintes, déversement compris", "Effort tranchant seul", "Le plus défavorable",
-                                                 "Âme et raidisseurs (EN 1993-1-5)"]
-      and proche(r["comparaison"][2]["historique"], h3["taux_max"]) and proche(r["comparaison"][2]["ec3"], e3["taux_max"])
-      and r["comparaison"][3] == {"sujet": "Âme et raidisseurs (EN 1993-1-5)", "historique": None, "ec3": None, "commun": r["ame"]["taux_max"]}
-      and all("commun" not in x for x in r["comparaison"][:3])
-      and r["comparaison"][1]["historique"] is None and r["statut"] == RE.NOK and e3["statut"] == RE.NOK, r["comparaison"])
+    # (lot C, C0f : la comparaison vit dans acier/barre/comparaison.py — ses sept sujets du brief § 9 ; « Le plus défavorable » et la
+    # ligne de l'âme, qui redisaient les verdicts et le bloc de l'âme, sont partis — le harnais suit)
+    cmp_ = {x["sujet"]: x for x in r["comparaison"]}
+    dv_ = cmp_.get("Déversement") or {}
+    c("R2 : les deux méthodes côte à côte, sujet par sujet (lot C : comparaison.py) — le déversement porte H-DEV (ELS) et E-Mb (Eurocode 3), "
+      "leurs taux, leurs statuts et leur écart en points ; l'âme (EN 1993-1-5) vaut pour les deux : « commun » ; plus de ligne « Le plus "
+      "défavorable » ; le statut de la barre est le plus sévère",
+      "Le plus défavorable" not in cmp_ and dv_.get("historique", {}).get("gouvernant") == "H-DEV" and dv_["ec3"]["gouvernant"] == "E-Mb"
+      and proche(dv_["historique"]["taux"], verif(h3, "H-DEV")["taux"]) and proche(dv_["ec3"]["taux"], verif(e3, "E-Mb")["taux"])
+      and proche(dv_["ecart"], 100.0 * (dv_["ec3"]["taux"] - dv_["historique"]["taux"])) and dv_["commun"] is None
+      and cmp_["Âme sous charges"]["commun"] is not None and cmp_["Âme sous charges"]["historique"] is None
+      and r["statut"] == RE.NOK and e3["statut"] == RE.NOK, r["comparaison"])
     fl = stq["fleche"]
     EI = 210000.0 * s3["Iy"] / 1e9
     c("la flèche de service (information) : 5·q·L⁴/(384·E·I) + P·L³/(48·E·I) = 8,7 mm à mi-portée, L/687",
@@ -371,7 +375,8 @@ def controles(M=None):
       "résultat) ; une longueur donnée est prise telle quelle, sans avis",
       Lz == {"bout": (2000.0, 2000.0), "milieu": (4200.0, 4200.0), "donnee": (1500.0, 1500.0)}
       and avis == {"bout": {"historique": [], "ec3": []}, "milieu": {"historique": [A_], "ec3": []}, "donnee": {"historique": [], "ec3": []},
-                   "sans N": {"historique": [], "ec3": []}, "traction": {"historique": [], "ec3": []}, "EC3 seul": {"ec3": [A_]}}
+                   "sans N": {"historique": [], "ec3": []}, "traction": {"historique": [], "ec3": []},
+                   "EC3 seul": {"historique": [A_], "ec3": []}}           # (lot C, C0d : les deux méthodes toujours — le harnais suit)
       and mo.CONSOLE_LZ == "Console à bout libre : L_cr,z = 2,1·L, maintiens intermédiaires non comptés — À VÉRIFIER.", (Lz, avis))
     # (intégration du lot B, point 4) la méthode ELS d'une console à bout libre : le bout libre n'est plus une section tenue
     # (L_d valait la longueur de la console, le bout compté comme un maintien) — L_d = 2,1·L, la règle du flambement, maintiens
@@ -412,12 +417,16 @@ def controles(M=None):
       "sont rendues « non couvert », jamais « ok »",
       verif(r["methodes"]["ec3"], "E-SECTION")["statut"] == RE.NON_COUVERT and r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT
       and r["methodes"]["ec3"]["taux_max"] < 1.0 and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["statut"]))
+    # (lot C, C0c et C0d — le harnais suit : les DEUX méthodes sont calculées, la méthode ELS de cette barre ne passe pas ; s_s et c
+    # saisis, pour que l'âme ne soit pas « bloquée » par une donnée à saisir et que le « non couvert » d'A-VbM se lise seul)
     r = mo.verifier(barre(profil="IPE 750x134", nuance="S355", travees=[4.0], methodes=["ec3"], maintiens=[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
-                          cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [P_(900.0, 1.0), P_(900.0, 3.0)]}]))
+                          appuis={"mode": "poses", "ss": 100.0, "c": 50.0},
+                          cas=[{"nom": "G", "nature": "permanent", "N": 50.0, "charges": [dict(P_(900.0, 1.0), ss=100.0), dict(P_(900.0, 3.0), ss=100.0)]}]))
     c("… de même dans le bloc de l'âme : l'interaction flexion – cisaillement d'une âme élancée sous un effort normal (A-VbM) n'est pas "
-      "couverte — l'Eurocode 3 passe (78 %), l'âme et la barre sont « non couvert »",
+      "couverte — l'Eurocode 3 passe, l'âme est « non couvert », la barre prend le plus sévère des deux méthodes et de l'âme",
       r["methodes"]["ec3"]["statut"] == RE.OK and verif(r["ame"], "A-VbM")["statut"] == RE.NON_COUVERT and verif(r["ame"], "A-Vb")["statut"] == RE.OK
-      and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
+      and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.pire_statut([r["methodes"]["historique"]["statut"], RE.OK, RE.NON_COUVERT]),
+      (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
     c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, au-delà des 80 mm du module) est rendue « non couvert » avec son motif — "
       "l'Eurocode 3 ; la méthode ELS, elle, se calcule avec la f_y nominale et rend « hors domaine » (lot B, brief v12 § 19.1 point 5) ; la barre "
@@ -498,8 +507,15 @@ def controles(M=None):
     r1, r2 = (mo.verifier(barre(profil="HEB 200", mode="efforts", efforts={"service": {"N": 100.0, "My": 30.0}}, flambement={"y": {"L": 5.0}, "z": {"L": 5.0}},
                                 diagramme={"y": {"forme": "reparti"}}, historique={"C": c_}, methodes=["historique"])) for c_ in ("unite", "norme"))
     c("coefficient C de la méthode historique : 1 par défaut (les classeurs) ; « norme » : 0,85 sous une charge appliquée sur la barre",
-      r1["methodes"]["historique"]["grandeurs"]["C_y"] == 1.0 and r2["methodes"]["historique"]["grandeurs"]["C_y"] == 0.85
-      and list(r1["methodes"]) == ["historique"] and r1["comparaison"] == [])
+      r1["methodes"]["historique"]["grandeurs"]["C_y"] == 1.0 and r2["methodes"]["historique"]["grandeurs"]["C_y"] == 0.85)
+    # ---- (lot C, C0d) les DEUX méthodes sont toujours calculées (brief § 0, § 9) : « methodes » d'une ancienne barre ne décide plus du
+    # calcul ; le statut de la barre est le plus sévère des deux et de l'âme ; la flèche de service est toujours rendue
+    rc1 = mo.verifier(barre(methodes=["ec3"], **R2))
+    c("(lot C) efforts imposés et barre chargée, « methodes » = une seule : les deux méthodes sont calculées quand même (et comparées) ; le "
+      "statut est le plus sévère des deux et de l'âme ; la flèche de service est rendue (elle manquait en « Eurocode 3 seul »)",
+      list(r1["methodes"]) == ["historique", "ec3"] and r1["comparaison"] != [] and list(rc1["methodes"]) == ["historique", "ec3"]
+      and rc1["statut"] == RE.pire_statut([x["statut"] for x in rc1["methodes"].values()] + [rc1["ame"]["statut"]])
+      and (rc1["statique"].get("fleche") or {}).get("valeur"), (list(r1["methodes"]), list(rc1["methodes"]), rc1["statut"]))
     refus = [k for k, d in (("mode inconnu", {"mode": "x"}), ("nuance inconnue", {"nuance": "S999"}), ("profilé inconnu", {"profil": "IPE 999"}),
                             ("méthode inconnue", {"methodes": ["aci"]}), ("aucune méthode", {"methodes": []}), ("s hors de [1 ; 3]", {"historique": {"s": 0.5}}),
                             ("portée nulle", {"travees": [0.0]}), ("continue à une travée", {"modele": "continue"}), ("cas sans nature", {"cas": [{"nom": "G"}]}),
@@ -511,6 +527,72 @@ def controles(M=None):
              if not _refuse(lambda d=d: mo.verifier(barre(**d)))]
     c("domaine : mode, nuance, profilé, méthode, coefficient s, portée, modèle, cas, charges, maintiens, niveau, longueurs, efforts — refusés avec un message",
       not refus, refus)
+    # ---- (lot C, C0e) LE CONTRAT DES ENTRÉES du lot C : chaque clé a son défaut (relu par entree.normaliser) et son refus, en une
+    # ligne ; aucune ne change encore un calcul (les blocs qui les emploient le diront)
+    en = M["entree"]
+    b0 = en.normaliser({"nom": "B"})                     # (les défauts de CE module : une barre vide, complétée par lui)
+    c0 = b0["cas"][0]
+    defauts = {"prs": b0["prs"], "norme_produit": b0["norme_produit"], "ouvrage": b0["ouvrage"], "combinaisons": b0["combinaisons"],
+               "position": b0["position"], "angle": b0["angle"], "points": b0["points"], "debords": b0["debords"],
+               "poids_propre_efforts": en.normaliser(barre(mode="efforts", flambement={"y": {"L": 3.0}, "z": {"L": 3.0}}))["poids_propre_efforts"],
+               "cas": {k: c0[k] for k in ("courte_duree", "psi0", "N_troncons")}, "charge": c0["charges"][0].get("niveau", "absent"),
+               "P": en.normaliser(barre(cas=[dict(G, charges=[P_(5.0, 3.0)])]))["cas"][0]["charges"][0].get("introduction"),
+               "maintien": en.normaliser(barre(maintiens=[{"x": 3.0}]))["maintiens"][0].get("neglige"), "detail": b0["appuis"].get("detail", "absent"),
+               "courbe": b0["flambement"]["z"].get("courbe", "absent"), "tolerance": b0["historique"]["tolerance"], "MAINTIENS_MAX": en.MAINTIENS_MAX}
+    attendus = {"prs": None, "norme_produit": None, "ouvrage": "batiment", "combinaisons": {"expression": "6.10", "geotechnique": False, "regle_courte_duree": True},
+                "position": "horizontale", "angle": None, "points": [], "debords": [0.0, 0.0], "poids_propre_efforts": {"N": False, "M": False},
+                "cas": {"courte_duree": False, "psi0": None, "N_troncons": None}, "charge": None, "P": "auto", "maintien": False, "detail": None,
+                "courbe": None, "tolerance": False, "MAINTIENS_MAX": 24}
+    c("(lot C, C0e) le contrat des entrées : chaque clé du lot C a son défaut, relu par entree.normaliser — prs None, norme produit None "
+      "(EN 10025-2), ouvrage « batiment », combinaisons (6.10) sans géotechnique et règle de courte durée, position horizontale, aucun point, "
+      "débords nuls, poids propre des efforts imposés éteint, cas (courte durée non, ψ₀ et N par tronçon vides), niveau d'une charge et "
+      "introduction d'une ponctuelle (« auto »), maintien non négligé, appuis un par un vides, courbe de la norme ; la tolérance de 5 % retirée ; "
+      "24 maintiens au plus", defauts == attendus, {k: v for k, v in defauts.items() if attendus.get(k) != v})
+    Gp = dict(G, charges=[P_(5.0, 3.0)])
+    mauvais = [("norme produit", {"norme_produit": "Q"}), ("ouvrage", {"ouvrage": "pont"}), ("expression", {"combinaisons": {"expression": "6.11"}}),
+               ("géotechnique texte", {"combinaisons": {"geotechnique": "non"}}), ("clé de combinaisons inconnue", {"combinaisons": {"xi": 0.85}}),
+               ("règle de courte durée texte", {"combinaisons": {"regle_courte_duree": 1}}), ("position", {"position": "oblique"}),
+               ("angle hors de 0 à 90°", {"angle": 120.0}), ("point hors de la barre", {"points": [7.0]}), ("trop de points", {"points": [1.0] * 13}),
+               ("débords : une seule valeur", {"debords": [0.5]}), ("débord négatif", {"debords": [-0.5, 0.0]}),
+               ("débord d'une console", {"modele": "console", "travees": [3.0], "maintiens": [], "debords": [0.0, 1.0], "cas": [dict(G, charges=[])]}),
+               ("courte durée texte", {"cas": [dict(G, courte_duree="oui")]}), ("ψ₀ hors de 0 à 1", {"cas": [dict(G, psi0=1.5)]}),
+               ("N par tronçon décroissant", {"cas": [dict(G, N_troncons=[{"x2": 4.0, "N": 10.0}, {"x2": 2.0, "N": 5.0}])]}),
+               ("N par tronçon qui n'atteint pas le bout", {"cas": [dict(G, N_troncons=[{"x2": 4.0, "N": 10.0}])]}),
+               ("niveau d'une charge", {"cas": [dict(G, charges=[dict(q(5.0, 0.0, 6.0), niveau="milieu")])]}),
+               ("introduction d'une ponctuelle", {"cas": [dict(Gp, charges=[dict(P_(5.0, 3.0), introduction="d")])]}),
+               ("maintien négligé texte", {"maintiens": [{"x": 3.0, "neglige": "non"}]}),
+               ("appuis un par un : trop d'appuis", {"appuis": {"mode": "poses", "ss": None, "c": None, "detail": [None, None, None]}}),
+               ("torsion d'un appui", {"appuis": {"mode": "poses", "ss": None, "c": None, "detail": [{"torsion": "libre"}]}}),
+               ("s_s d'un appui négative", {"appuis": {"mode": "poses", "ss": None, "c": None, "detail": [{"ss": -5.0}]}}),
+               ("courbe imposée inconnue", {"flambement": {"z": {"L": None, "u": 1.0, "courbe": "e"}}}),
+               ("poids propre des efforts texte", {"mode": "efforts", "flambement": {"y": {"L": 3.0}, "z": {"L": 3.0}}, "poids_propre_efforts": {"N": "oui"}}),
+               ("trop de maintiens", {"maintiens": [{"x": 0.2 * (i + 1)} for i in range(25)]})]
+    messages, passent = {}, []
+    for k, d in mauvais:
+        try:
+            en.normaliser(barre(**d))
+            passent.append(k)
+        except RE.Refus as e:
+            messages[k] = str(e)
+    longs = [m for m in messages.values() if "\n" in m or len(m) > 120]
+    c("(lot C, C0e) … et son refus : chaque valeur hors de son domaine est REFUSÉE, avec un message d'une ligne (120 caractères au plus)",
+      not passent and not longs, (passent, longs))
+    bon = en.normaliser(barre(combinaisons={"expression": "6.10ab"}, position="inclinee", angle=30, points=[2.0, 1.0], debords=[0.5, 0.0],
+                              norme_produit="M", ouvrage="autre", maintiens=[{"x": 3.0, "neglige": True}],
+                              cas=[dict(G, courte_duree=True, psi0=0.3, N_troncons=[{"x2": 2.0, "N": 10.0}, {"x2": 6.0, "N": 0.0}],
+                                        charges=[dict(q(5.0, 0.0, 6.0), niveau="bas"), dict(P_(5.0, 3.0), introduction="c")])],
+                              appuis={"mode": "poses", "ss": 100.0, "c": None, "detail": [{"ss": 120.0, "torsion": "encastre"}, {"c": 10.0}]}))
+    c("(lot C, C0e) … et une valeur admise est GARDÉE telle quelle par entree.normaliser (les points vérifiés triés, la torsion d'un appui "
+      "« fourche » à défaut)",
+      bon["combinaisons"]["expression"] == "6.10ab" and bon["position"] == "inclinee" and bon["angle"] == 30.0 and bon["points"] == [1.0, 2.0]
+      and bon["debords"] == [0.5, 0.0] and bon["norme_produit"] == "M" and bon["ouvrage"] == "autre" and bon["maintiens"][0]["neglige"] is True
+      and bon["cas"][0]["courte_duree"] is True and bon["cas"][0]["psi0"] == 0.3 and bon["cas"][0]["N_troncons"][-1] == {"x2": 6.0, "N": 0.0}
+      and bon["cas"][0]["charges"][0]["niveau"] == "bas" and bon["cas"][0]["charges"][1]["introduction"] == "c"
+      and bon["appuis"]["detail"] == [{"ss": 120.0, "torsion": "encastre"}, {"c": 10.0, "torsion": "fourche"}], bon["appuis"])
+    tol = en.normaliser(barre(historique={"tolerance": True}))["historique"]
+    c("(lot C, C0e) la tolérance de 5 % est RETIRÉE (brief § 13.2, point 5) : toujours False pour le calcul ; une ancienne barre où elle était "
+      "cochée le garde dans « tolerance_retiree » (la note le dira, C5)", tol["tolerance"] is False and tol["tolerance_retiree"] is True
+      and en.normaliser(barre())["historique"]["tolerance_retiree"] is False, tol)
     # ---- (intégration du lot B, point 28 e) une abscisse tapée au BOUT d'une barre dont la longueur est une somme de portées inexacte en
     # binaire (2,8 + 3,4 = 6,199999999999999) : la fin d'une charge et un maintien à « 6,2 » étaient refusés « hors de la barre » — ils sont
     # ramenés au bout, à la tolérance d'un appui (rdm/poutres.TOL_APPUI) ; au-delà, toujours refusés
@@ -526,24 +608,7 @@ def controles(M=None):
     c("2,8 + 3,4 m (6,199999999999999 en binaire) : une charge répartie jusqu'à « 6,2 », une ponctuelle et un maintien complet à « 6,2 » sont "
       "acceptés et ramenés au bout de la barre ; 6,2 + 10⁻⁶ reste refusé (hors de la barre)",
       lu_ == (Lt_, Lt_, Lt_, RE.OK) and _refuse(lambda: bout_(6.2 + 1e-6, 6.0)) and _refuse(lambda: bout_(6.0, 6.2 + 1e-6)), lu_)
-    # ---- (intégration du lot B) la comparaison des deux méthodes : chaque identifiant de moteur.SUJETS est une vérification
-    # que le moteur REND — un identifiant renommé dans un bloc viderait sa ligne sans erreur (pire() rendrait None). Lu sur
-    # les vérifications que rendent trois barres passées au moteur (point 18 : une recherche du texte entre guillemets
-    # laissait passer un ancien nom resté dans un commentaire ou une docstring)
-    rendus = set()
-    for b_ in (barre(profil="HEB 200", mode="efforts", flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}}, Lc=5.0,
-                     efforts={"service": {"N": 300.0, "My": 20.0, "Mz": 5.0, "Vz": 30.0, "Vy": 10.0},
-                              "elu": {"N": 420.0, "My": 28.0, "Mz": 7.0, "Vz": 42.0, "Vy": 14.0}}),
-               barre(profil="IPE 300", travees=[2.0], poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [P_(400.0, 0.5)]}]),
-               barre(prs={"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 200, "t2": 30, "a": 6}, nuance="S355", mode="efforts",
-                     flambement={"y": {"L": 10.0, "u": 1.0}, "z": {"L": 10.0, "u": 1.0}},
-                     efforts={"service": {"N": 100.0, "My": 300.0}, "elu": {"N": 140.0, "My": 400.0}})):
-        rendus |= {v["id"] for m_ in mo.verifier(b_)["methodes"].values() for v in m_["verifications"]}
-    ids = [i for _, h, e in mo.SUJETS for i in h + e]
-    absents = [i for i in ids if i not in rendus]
-    c("(intégration du lot B) la comparaison : chaque identifiant de moteur.SUJETS est celui d'une vérification que le moteur rend (un poteau "
-      "HEB 200 sous N, M_y, M_z, V_z, V_y ; un IPE 300 sous une forte charge près d'un appui ; un PRS monosymétrique comprimé) — aucun "
-      "identifiant renommé ou perdu, aucun sujet vide en silence", ids and not absents, (absents, sorted(rendus)))
+    # (lot C, C0f) le garde-fou des identifiants de la comparaison est dans tests/test_barre_comparaison.py (comparaison.py)
     return C
 
 
@@ -595,13 +660,11 @@ def charger(mutation=None):
 
 
 MUTATIONS = [
-    # (intégration du lot B) un identifiant de la comparaison qui n'est plus celui de sa vérification (renommé dans un bloc)
-    ("moteur", "intégration — un identifiant de SUJETS renommé (« H-DEV » → « H-DEVERSEMENT »)", '("H-SIGMA", "H-DEV", "H-EQ")', '("H-SIGMA", "H-DEVERSEMENT", "H-EQ")'),
-    ("moteur", "intégration — un identifiant de SUJETS renommé (« E-Nb-T » → « E-NbT »)", '("E-Nb-z", "E-Nb-T")', '("E-Nb-z", "E-NbT")'),
-    # (point 18) l'identifiant renommé chez son PRODUCTEUR, l'ancien nom resté dans une docstring (ec3.py le cite) : la
-    # recherche du texte le laissait passer
-    ("ec3_flambement", "intégration, point 18 — « E-Nb-T » renommé par la vérification qui l'écrit (flexion-torsion)",
-     '            J.verif("E-Nb-T", "Flambement par flexion-torsion"', '            J.verif("E-Nb-FT", "Flambement par flexion-torsion"'),
+    # (lot C, C0d) le moteur ne calcule que la méthode « cochée » (le défaut d'avant : la note décidait du calcul)
+    ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (barre chargée)", "            methodes[nom] = calcul()\n            if comprimee[nom]:",
+     "            if nom not in b[\"methodes\"]:\n                continue\n            methodes[nom] = calcul()\n            if comprimee[nom]:"),
+    ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (efforts imposés)", "            methodes[nom] = calcul()\n        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": None,",
+     "            if nom in b[\"methodes\"]:\n                methodes[nom] = calcul()\n        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": None,"),
     ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"]'),
     ("combinaisons", "ψ₁ au lieu de ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"] * P[cle][1]'),
     ("combinaisons", "deux cas de même nature : un seul dominant", 'if cas[i]["nature"] == dom:', "if i == s[0]:"),
@@ -657,10 +720,10 @@ MUTATIONS = [
      'len(trs) == 1 and trs[-1]["appuis"][1] == MC.LIBRE'),
     ("moteur", "lot B — console : un maintien complet au bout ignoré (2·L partout)", 'trs[-1]["appuis"][1] == MC.LIBRE', "True"),
     ("moteur", "lot B — console : l'avis À VÉRIFIER de L_cr,z tu", 'methodes[nom]["alertes"] += avis', "pass"),
-    ("moteur", "lot B — console : l'avis donné sans compression", "                if comprimee[nom]:\n", "                if True:\n"),
+    ("moteur", "lot B — console : l'avis donné sans compression", "            if comprimee[nom]:\n", "            if True:\n"),
     ("moteur", "lot B — console : un effort de traction pris pour une compression", 'comprimee["ec3"] = any(C.N > EPS for C in combs)',
      'comprimee["ec3"] = any(abs(C.N) > EPS for C in combs)'),
-    ("moteur", "lot B — console : l'avis redit sous chaque méthode", "                    avis = []   ", "                    pass   "),
+    ("moteur", "lot B — console : l'avis redit sous chaque méthode", "                avis = []   ", "                pass   "),
     ("moteur", "lot B — console : l'avis au niveau « info » (plus d'avertissement à l'écran)",
      '"niveau": "attention", "message": CONSOLE_LZ', '"niveau": "info", "message": CONSOLE_LZ'),
     ("moteur", "lot B — console : l'avis donné sans maintien intermédiaire", "_bout_libre(b, trs) and len(trs) > 1:", "_bout_libre(b, trs):"),
@@ -669,10 +732,10 @@ MUTATIONS = [
     ("enveloppe", "l'enveloppe garde l'occurrence la plus FAVORABLE", '            if courant is None or gravite > courant["rang"]:', '            if courant is None or gravite < courant["rang"]:'),
     ("enveloppe", "un refus sans taux passe derrière les taux", "        return (2, 0.0)\n", "        return (0, 0.0)\n"),
     ("moteur", "méthode historique : un maintien d'une semelle tendue compté", "        if (z > 0 and haut) or (z < 0 and bas):", "        if True:"),
-    ("moteur", "méthode historique sur les combinaisons pondérées", "        for co in CO.service(cas):", "        for co in CO.elu(cas, P):"),
-    ("moteur", "Eurocode 3 sur les combinaisons de service", "        for co in CO.elu(cas, P):\n            C = ST.Combinaison", "        for co in CO.service(cas):\n            C = ST.Combinaison"),
-    ("moteur", "une méthode qui refuse fait tomber toute la barre", "            except RE.Refus as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique",
-     "            except ZeroDivisionError as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
+    ("moteur", "méthode historique sur les combinaisons pondérées", '        for co in CO.service(cas, b["combinaisons"]):', "        for co in CO.elu(cas, P):"),
+    ("moteur", "Eurocode 3 sur les combinaisons de service", '        for co in CO.elu(cas, P, b["combinaisons"]):\n            C = ST.Combinaison', "        for co in CO.service(cas):\n            C = ST.Combinaison"),
+    ("moteur", "une méthode qui refuse fait tomber toute la barre", "        except RE.Refus as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique",
+     "        except ZeroDivisionError as e:\n            methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
     ("moteur", "une méthode « non couverte » rend la barre « ok »", "    statut = RE.pire_statut(statuts)\n", "    statut = RE.NOK if RE.NOK in statuts else RE.OK\n"),
     ("moteur", "lot A — la console vérifiée sous N + M comme une barre entre deux appuis", '"console": b["modele"] == "console",', '"console": False,'),
     ("moteur", "lot B — méthode ELS : la f_y de l'Eurocode 3 selon l'épaisseur (le défaut A9 du lot A revient)", '    return {"fy": MA.nominale(nuance), "nuance": nuance,',
@@ -693,6 +756,230 @@ MUTATIONS = [
     ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,'),
     ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False, "Cd": 1.0,'),
     ("entree", "lot B — la variante du fascicule par défaut à la barre", '"variante": "classeurs", "facteur_doc"', '"variante": "fascicule", "facteur_doc"'),
+    # (lot C, C0e) le contrat des entrées : un défaut changé, un refus oublié
+    ("entree", "lot C — 12 maintiens au plus (le PRS-C en demande 18)", "CAS_MAX, MAINTIENS_MAX = 6, 24", "CAS_MAX, MAINTIENS_MAX = 6, 12"),
+    ("entree", "lot C — la tolérance de 5 % gardée", '"tolerance": False,\n                       "Cd": float(h["Cd"])', '"tolerance": bool(h["tolerance"]),\n                       "Cd": float(h["Cd"])'),
+    ("entree", "lot C — l'expression des combinaisons non contrôlée", '"expression": _parmi(co["expression"], EXPRESSIONS, "expression des combinaisons")',
+     '"expression": co["expression"]'),
+    ("entree", "lot C — N par tronçon : la dernière fin pas au bout de la barre", " or abs(xs[-1] - Lt) > 1e-9:", ":"),
+    ("entree", "lot C — un débord accepté sur une console", '    if any(b["debords"]) and b["modele"] not in ("appuis", "continue"):', "    if False:"),
+    ("entree", "lot C — « (6.10a)/(6.10b) » par défaut", 'EXPRESSIONS = ("6.10", "6.10ab")', 'EXPRESSIONS = ("6.10ab", "6.10")'),
+    ("entree", "lot C — la torsion d'un appui encastrée par défaut", 'TORSIONS = ("fourche", "encastre")', 'TORSIONS = ("encastre", "fourche")'),
+]
+
+
+# ------------------------------------------------------------------ 9. lot C : le statut « bloqué », les DÉCISIONS BUREAU de la table
+def _m(nom):
+    """Un module du paquet, tel qu'il est chargé (une mutation l'a peut-être remplacé)."""
+    return sys.modules[f"acier.barre.{nom}"]
+
+
+PRS_BI = {"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 300, "t2": 30, "a": 6, "bords": "oxycoupes"}
+
+
+def _prs_efforts(prs, **k):
+    # (un moment parabolique : k_c < 1, le f du § 6.3.2.3 distingue les deux méthodes — sous un moment constant, une section soudée a les mêmes
+    # courbes et le même couple ANB dans l'une et l'autre)
+    b = barre(prs=prs, nuance="S355", mode="efforts", flambement={"y": {"L": 6.0}, "z": {"L": 6.0}}, Lc=6.0,
+              diagramme={"y": {"forme": "reparti", "psi": 1.0}, "z": {"forme": "constant", "psi": 1.0}},
+              efforts={"service": {"My": 300.0, "Vz": 80.0}, "elu": {"My": 400.0, "Vz": 110.0}}, **k)
+    b.pop("profil")
+    return b
+
+
+def _v(x, id_):
+    return next((v for v in x["verifications"] if v["id"] == id_), None)
+
+
+def controles_lot_c():
+    """[(nom, vrai ?, info)] — les statuts bloqués et les décisions du bureau, rejoués sous chaque mutation du paquet."""
+    mo, re_, hi, pa = _m("moteur"), _m("resultat"), _m("historique"), _m("parametres")
+    out = []
+    # ---- (C0c) le statut « bloqué »
+    rp = mo.verifier(_prs_efforts(dict(PRS_BI, bords=None)))
+    h = rp["methodes"]["historique"]
+    info_ = [v for v in h["verifications"] if v["taux"] is not None and f"taux_{v['id']}" in v["formules"]]
+    out.append(("(lot C, C0c) PRS aux bords des semelles non saisis : la méthode ELS est « bloque » (un statut à lui, pas « non couvert ») ; "
+                "aucun taux jugé (taux_max None) ; le calcul est montré POUR INFORMATION (ses taux et leurs formules, en larges plats) ; la raison "
+                "en une ligne, en tête de chaque vérification ; la barre est « bloque » ou pire",
+                h["statut"] == re_.BLOQUE and h["taux_max"] is None and info_ and all(v["statut"] == re_.BLOQUE for v in h["verifications"])
+                and all(v["messages"][0] == hi.MESSAGE_BORDS for v in h["verifications"]) and h["grandeurs"]["deversement"]["classe"] == "d"
+                and rp["statut"] in (re_.BLOQUE, re_.NOK), (h["statut"], h["taux_max"], rp["statut"], [v["messages"][:1] for v in h["verifications"]])))
+    rr = hi.verifier({"section": dict(SE.du_catalogue("HEB 300"), fabrication="recuit"), "fy": 235.0, "P": 200e3, "My": 50e6,
+                      "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}}})
+    out.append(("(lot C, C0c) une classe de déversement « à fournir » (I recuit) : la flexion est « bloque », la méthode aussi — le flambement "
+                "se calcule et passe",
+                _v(rr, "H-SIGMA")["statut"] == re_.BLOQUE and rr["statut"] == re_.BLOQUE and _v(rr, "H-N-z")["statut"] == re_.OK,
+                (rr["statut"], [(v["id"], v["statut"]) for v in rr["verifications"]])))
+    rn = mo.verifier(barre(maintiens=[{"x": 3.0, "genre": "complet"}]))
+    imp = [L for L in rn["ame"]["lieux"] if L["decision"] == "impossible"]
+    out.append(("(lot C, C0c) la barre neuve (s_s et c des appuis non saisis ; à la borne 0, le critère 6.2.1(5) ne passe pas) : chaque appui a "
+                "une décision impossible, « bloque », avec son taux à la borne ; l'âme est « bloque », la barre aussi (pire_statut : nok > bloqué "
+                "> non couvert > hors domaine > ok) ; le bilan de ses combinaisons est « bloque », sans taux jugé",
+                len(imp) == 2 and all(L["statut"] == re_.BLOQUE and L["taux"] is not None and L["taux"] > 1.0 for L in imp)
+                and rn["ame"]["statut"] == re_.BLOQUE and rn["ame"]["taux_max"] is None and rn["statut"] == re_.BLOQUE
+                and all(c_["statut"] == re_.BLOQUE and c_["taux"] is None for c_ in rn["ame"]["combinaisons"]),
+                (rn["ame"]["statut"], rn["statut"], [(L["statut"], L["taux"]) for L in rn["ame"]["lieux"]], rn["ame"]["combinaisons"][:2])))
+    rb = mo.verifier(barre(maintiens=[{"x": 3.0, "genre": "complet"}], cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.0, 0.0, 6.0)]},
+                                                                              {"nom": "Q", "nature": "exploitation_A", "charges": [q(5.0, 0.0, 6.0)]}]))
+    out.append(("(lot C, C0c) … la même barre moins chargée : à la borne 0, l'âme PASSE — « sans raidisseur (borne prudente) », conforme, jamais "
+                "bloquée", rb["ame"]["statut"] == re_.OK and all(L["decision"] == "aucun" and L["borne"] and L["statut"] == re_.OK for L in rb["ame"]["lieux"]),
+                [(L["decision"], L["borne"], L["statut"]) for L in rb["ame"]["lieux"]]))
+    out.append(("(lot C, C0c) pire_statut et synthese : nok > bloqué > non couvert > hors domaine > ok ; un statut inconnu LÈVE (une méthode "
+                "qu'il juge ne sortirait jamais « ok »)",
+                re_.pire_statut([re_.NON_COUVERT, re_.BLOQUE, re_.HORS_DOMAINE]) == re_.BLOQUE and re_.pire_statut([re_.BLOQUE, re_.NOK]) == re_.NOK
+                and re_.synthese([{"statut": re_.OK, "taux": 0.5, "id": "a"}, {"statut": re_.BLOQUE, "taux": 2.0, "id": "b"}])
+                == {"statut": re_.BLOQUE, "taux_max": 0.5, "gouvernant": "a"} and _leve(lambda: re_.synthese([{"statut": "bloqué", "taux": 0.1, "id": "x"}]))
+                and _leve(lambda: re_.pire_statut(["?"])), ""))
+    # ---- (C0g) les DÉCISIONS BUREAU, lues dans la table (parametres) : changer le défaut change le verdict, l'autre variante est rendue
+    dec = pa.decisions()
+    out.append(("(lot C, C0g) UN statut de décision (« decision ») ; la table porte les DÉCISIONS BUREAU n° 1, 2, 3, 4, 9 et 10 du brief § 13.2 — "
+                "chacune son défaut, sa variante (aucune pour le n° 9 tant que le bureau n'a pas fixé de méthode), ses valeurs ; le n° 7 (le seuil "
+                "de 95 %) n'y est pas : c'est celui du site",
+                [d["point"] for d in dec] == [1, 2, 3, 4, 9, 10] and {p_["statut"] for p_ in pa.PARAMETRES.values()} <= {pa.A_POINTER, pa.A_CONFIRMER, pa.POINTE, pa.DECISION}
+                and [(d["cle"], d["valeur"], d["variante"]) for d in dec] == [("eta1_ame", "elastique", "plastique"), ("contact_inconnu", "non", "oui"),
+                                                                              ("avy_lamine", "2btf", "A_moins_hwtw"), ("methode_deversement_lamines", "6.3.2.3", "6.3.2.2"),
+                                                                              ("console_NM", "non_couvert", None), ("prs_soudee_equivalente", False, True)]
+                and _leve(lambda: pa.jeu({"console_NM": "calcule"}), re_.Refus) and _leve(lambda: pa.jeu({"eta1_ame": "plastic"}), re_.Refus)
+                and _leve(lambda: pa.jeu({"prs_soudee_equivalente": 1}), re_.Refus), [(d["cle"], d["valeur"]) for d in dec]))
+
+    def fm(par):
+        r_ = mo.verifier(barre(parametres=par, **R2))
+        return _v(r_["ame"], "A-L01-FM")
+    d1, v1 = fm({}), fm({"eta1_ame": "plastique"})
+    out.append(("(lot C, C0g) n° 1, η₁ de (7.2) : élastique par défaut (R2, la charge à mi-portée : 42,9 %, la variante plastique dite, 39,5 %) ; "
+                "la table à « plastique » → le verdict suit (39,5 %), la variante élastique est dite",
+                round(d1["taux"], 3) == 0.429 and d1["messages"][0].startswith("η₁ plastique (classe 1, variante) : ") and "39,5 %" in d1["messages"][0]
+                and round(v1["taux"], 3) == 0.395 and v1["messages"][0].startswith("η₁ élastique (classe 1, variante) : ") and "42,9 %" in v1["messages"][0],
+                (d1["taux"], d1["messages"][:1], v1["taux"], v1["messages"][:1])))
+    base2 = dict(maintiens=[{"x": 3.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 100.0, "c": 0.0})
+    a2, b2 = (_v(mo.verifier(barre(parametres=par, **base2))["ame"], "A-L00-F") for par in ({}, {"contact_inconnu": "oui"}))
+    out.append(("(lot C, C0g) n° 2, contact d'extrémité inconnu (type (c)) : « non » par défaut — verdict sur s_s = 0 dans (6.10), F_Rd = 199,8 kN, "
+                "« avec contact, 248,9 kN » pour information ; la table à « oui » → F_Rd = 248,9 kN décide, « sans contact, 199,8 kN » est dit",
+                proche(a2["limite"], 199.8, 1e-3) and "avec contact, F_Rd = 248,9 kN, pour information" in a2["messages"][-1]
+                and proche(b2["limite"], 248.9, 1e-3) and "sans contact, F_Rd = 199,8 kN, pour information" in b2["messages"][-1]
+                and a2["taux"] > b2["taux"], (a2["limite"], b2["limite"])))
+    e4, f4 = (mo.verifier(barre(parametres=par, **R2))["methodes"]["ec3"] for par in ({}, {"methode_deversement_lamines": "6.3.2.2"}))
+    out.append(("(lot C, C0g) n° 4, déversement d'un laminé : § 6.3.2.3 par défaut (R2 : 109,9 %), le § 6.3.2.2 pour information ; la table à "
+                "« 6.3.2.2 » → le § 6.3.2.2 décide (99,8 %), le § 6.3.2.3 pour information",
+                "6.3.2.3" in _v(e4, "E-Mb")["reference"] and e4["grandeurs"]["deversement"]["information"]["methode"] == "§ 6.3.2.2"
+                and "6.3.2.2" in _v(f4, "E-Mb")["reference"] and f4["grandeurs"]["deversement"]["information"]["methode"] == "§ 6.3.2.3"
+                and round(_v(e4, "E-Mb")["taux"], 3) == 1.099 and round(_v(f4, "E-Mb")["taux"], 3) == 0.998,
+                (_v(e4, "E-Mb")["taux"], _v(f4, "E-Mb")["taux"])))
+    e10, f10 = (mo.verifier(_prs_efforts(PRS_BI, parametres=par))["methodes"]["ec3"] for par in ({}, {"prs_soudee_equivalente": True}))
+    out.append(("(lot C, C0g) n° 10, PRS bisymétrique : § 6.3.2.2 par défaut, le § 6.3.2.3 pour information (dit sur la ligne) ; la table à « soudée "
+                "équivalente » → le § 6.3.2.3 décide, le § 6.3.2.2 pour information ; le verdict change",
+                "6.3.2.2" in _v(e10, "E-Mb")["reference"] and any(m_.startswith("§ 6.3.2.3 pour information") for m_ in _v(e10, "E-Mb")["messages"])
+                and "6.3.2.3" in _v(f10, "E-Mb")["reference"] and any(m_.startswith("§ 6.3.2.2 pour information") for m_ in _v(f10, "E-Mb")["messages"])
+                and _v(e10, "E-Mb")["taux"] > _v(f10, "E-Mb")["taux"] + 1e-3, (_v(e10, "E-Mb")["taux"], _v(f10, "E-Mb")["taux"])))
+    e3, f3 = (mo.verifier(barre(profil="HEB 200", mode="efforts", flambement={"y": {"L": 3.0}, "z": {"L": 3.0}}, Lc=3.0, parametres=par,
+                                efforts={"service": {"Vy": 100.0}, "elu": {"Vy": 150.0}}))["methodes"]["ec3"] for par in ({}, {"avy_lamine": "A_moins_hwtw"}))
+    out.append(("(lot C, C0g) n° 3, A_v,y d'un I laminé : 2·b·t_f par défaut (HEB 200 : 6 000 mm²) ; la table à la variante → A − h_w·t_w (la variante "
+                "pour information : C1b) ; n° 9 : la table n'admet que « non couvert »",
+                e3["grandeurs"]["A_v"]["y"] == 6000.0 and f3["grandeurs"]["A_v"]["y"] > 6000.0 and _v(f3, "E-Vy")["taux"] < _v(e3, "E-Vy")["taux"],
+                (e3["grandeurs"]["A_v"]["y"], f3["grandeurs"]["A_v"]["y"])))
+    return out
+
+
+def _leve(f, quoi=Exception):
+    try:
+        f()
+    except quoi:
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
+DOSSIER = os.path.join(RACINE, "acier", "barre")
+
+
+def _dependants(cible):
+    """Les modules du paquet qui emploient ``cible`` (directement ou non), chacun après ce qu'il importe."""
+    import re as re_mod
+    dep = {}
+    for f in sorted(os.listdir(DOSSIER)):
+        if f.endswith(".py") and f != "__init__.py":
+            src = open(os.path.join(DOSSIER, f), encoding="utf-8").read()
+            dep[f[:-3]] = set(re_mod.findall(r"^\s*from \. import (\w+)", src, re_mod.M)) | set(re_mod.findall(r"^\s*from \.(\w+) import", src, re_mod.M))
+    touches, change = {cible}, True
+    while change:
+        change = False
+        for k, v in dep.items():
+            if k not in touches and v & touches:
+                touches.add(k)
+                change = True
+    touches.discard(cible)
+    ordre, faits = [], {cible}
+    while touches - set(ordre):
+        for k in sorted(touches - set(ordre)):
+            if dep[k] & touches <= set(ordre) | faits:
+                ordre.append(k)
+    return ordre
+
+
+def _installer(nom, mod):
+    import acier.barre as paquet
+    sys.modules[f"acier.barre.{nom}"] = mod
+    setattr(paquet, nom, mod)
+    for k in _dependants(nom):
+        if f"acier.barre.{k}" in sys.modules:
+            importlib.reload(sys.modules[f"acier.barre.{k}"])
+
+
+def muter_paquet(fichier, ancien, nouveau):
+    """Les contrôles du lot C qui rougissent quand ``ancien`` devient ``nouveau`` dans ``fichier`` (un module du paquet, installé, ceux
+    qui l'emploient rechargés, puis remis quoi qu'il arrive) ; None si le texte n'y est pas une seule fois."""
+    import types
+    chemin = os.path.join(DOSSIER, fichier + ".py")
+    src = open(chemin, encoding="utf-8").read()
+    if src.count(ancien) != 1:
+        return None
+    orig = sys.modules[f"acier.barre.{fichier}"]
+    mod = types.ModuleType(f"acier.barre.{fichier}")
+    mod.__file__, mod.__package__ = chemin, "acier.barre"
+    try:
+        exec(compile(src.replace(ancien, nouveau), chemin, "exec"), mod.__dict__)
+        _installer(fichier, mod)
+        return [n for n, ok, _ in controles_lot_c() if not ok]
+    except Exception as e:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
+        return [f"exception {type(e).__name__}: {e}"]
+    finally:
+        _installer(fichier, orig)
+
+
+MUTATIONS_LOT_C = [
+    ("resultat", "lot C — BLOQUE absent de synthese", '    elif any(v["statut"] == BLOQUE for v in verifs):\n        statut = BLOQUE', '    elif False:\n        statut = BLOQUE'),
+    ("resultat", "lot C — BLOQUE absent de pire_statut", "GRAVITE = (NOK, BLOQUE, NON_COUVERT, HORS_DOMAINE)\nSTATUTS = GRAVITE + (OK,)",
+     "GRAVITE = (NOK, NON_COUVERT, HORS_DOMAINE)\nSTATUTS = GRAVITE + (OK, BLOQUE)"),
+    ("resultat", "lot C — un statut inconnu ignoré par la synthèse (une méthode bloquée sortirait « ok »)",
+     '    inconnus = sorted({v["statut"] for v in verifs} - set(STATUTS))\n    if inconnus:\n        raise', '    inconnus = []\n    if inconnus:\n        raise'),
+    ("moteur", "lot C — le Refus de B2 rétabli (bords d'un PRS non saisis : la méthode ELS refusée avant tout calcul)",
+     '        e, h = b["efforts"]["service"], b["historique"]',
+     '        if PR.est_prs(s) and s.get("fabrication") is None:\n            raise RE.Refus(PR.MSG_BORDS)\n        e, h = b["efforts"]["service"], b["historique"]'),
+    ("historique", "lot C — un verdict bloqué rendu « non couvert »", '            v["statut"] = BLOQUE\n', '            v["statut"] = NON_COUVERT\n'),
+    ("historique", "lot C — une classe à fournir rendue « non couvert »", "statut=NON_COUVERT if forme_nc else BLOQUE,", "statut=NON_COUVERT,"),
+    ("historique", "lot C — le calcul pour information effacé (taux None)", '            v["statut"] = BLOQUE\n', '            v["statut"], v["taux"] = BLOQUE, None\n'),
+    ("ame", "lot C — une décision impossible rendue « non couvert »", "        nc = (RE.BLOQUE if etude[\"bloque\"] else RE.NON_COUVERT) if manque else None",
+     "        nc = RE.NON_COUVERT if manque else None"),
+    ("ame", "lot C — le lieu d'une décision impossible « non couvert »", "else (RE.BLOQUE if etude[\"bloque\"] else RE.NON_COUVERT) if manque else RE.OK",
+     "else RE.NON_COUVERT if manque else RE.OK"),
+    ("enveloppe", "lot C — le bilan d'une combinaison range un taux bloqué (« nok » par lui)", 'if v["statut"] in RE.JUGES and rang(v) > b["rang"]:',
+     'if rang(v) > b["rang"]:'),
+    ("enveloppe", "lot C — le bilan d'une combinaison ignore « bloqué »", 'else RE.BLOQUE if b["bloque"] else RE.NON_COUVERT if b["non_couvert"]',
+     'else RE.NON_COUVERT if b["non_couvert"]'),
+    # les DÉCISIONS BUREAU : le défaut changé dans la table change le verdict ; le moteur qui ne la lit plus aussi
+    ("parametres", "lot C — n° 1 : η₁ plastique par défaut dans la table", '"eta1_ame": {"valeur": "elastique"', '"eta1_ame": {"valeur": "plastique"'),
+    ("ame", "lot C — n° 1 : le moteur ne lit plus η₁ dans la table", '                plast = P["eta1_ame"] == "plastique"', "                plast = False"),
+    ("parametres", "lot C — n° 2 : contact inconnu pris pour « oui » par défaut", '"contact_inconnu": {"valeur": "non"', '"contact_inconnu": {"valeur": "oui"'),
+    ("ec3_ame", "lot C — n° 2 : le moteur ne lit plus le contact dans la table", '(etat == "inconnu" and P["contact_inconnu"] == "oui")', "False"),
+    ("parametres", "lot C — n° 4 : § 6.3.2.2 par défaut pour les laminés", '"methode_deversement_lamines": {"valeur": "6.3.2.3"', '"methode_deversement_lamines": {"valeur": "6.3.2.2"'),
+    ("ec3_deversement", "lot C — n° 4 : le moteur ne lit plus la méthode des laminés", 'if famille == "lamine" and P["methode_deversement_lamines"] == "6.3.2.2":',
+     'if famille == "lamine" and False:'),
+    ("parametres", "lot C — n° 10 : tout PRS bisymétrique « soudé équivalent » par défaut", '"prs_soudee_equivalente": {"valeur": False', '"prs_soudee_equivalente": {"valeur": True'),
+    ("parametres", "lot C — n° 3 : A − h_w·t_w par défaut", '"avy_lamine": {"valeur": "2btf"', '"avy_lamine": {"valeur": "A_moins_hwtw"'),
+    ("parametres", "lot C — une variante hors de la table acceptée", "        if admises is not None and (v not in admises", "        if False and (v not in admises"),
+    ("parametres", "lot C — le n° 9 perd son entrée (console)", '"variante": None, "valeurs": ("non_couvert",), "point": 9,', '"variante": None, "valeurs": None, "point": 9,'),
 ]
 
 
@@ -769,6 +1056,17 @@ def main():
         except Exception as e:  # noqa: BLE001 — une mutation qui fait planter un contrôle le fait rougir aussi
             rouges = [f"exception {type(e).__name__}: {e}"]
         chk(f"mutation « {nom} » : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
+
+    print("== 9. lot C : le statut « bloqué », les décisions du bureau de la table (et leurs mutations)")
+    for nom, ok, info in controles_lot_c():
+        chk(nom, ok, info)
+    for fichier, nom, ancien, nouveau in MUTATIONS_LOT_C:
+        rouges = muter_paquet(fichier, ancien, nouveau)
+        if rouges is None:
+            chk(f"mutation « {nom} » : le texte à muter est dans {fichier}.py, une seule fois", False, "texte absent ou répété")
+        else:
+            chk(f"mutation « {nom} » ({fichier}.py) : {len(rouges)} contrôle(s) rougissent", bool(rouges), "AUCUN contrôle ne rougit")
+    chk("après les mutations du lot C, le paquet est rendu : ses contrôles repassent tous", all(ok for _, ok, _ in controles_lot_c()))
 
     print("== 8. pureté")
     code = ("import sys\n"
