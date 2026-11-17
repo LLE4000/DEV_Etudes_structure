@@ -102,6 +102,8 @@ def _cote(x1, y1, x2, y2, texte, u, cote_texte=-1.0) -> str:
     for x, y in ((x1, y1), (x2, y2)):
         out += _ligne(x - t, y + t, x + t, y - t, ENCRE, 0.3 * u)
     fs = 4.4 * u
+    if not texte:                                  # (le croquis d'un PRS place lui-même le texte de ses cotes)
+        return out
     if abs(y1 - y2) < 1e-9:
         out += _txt((x1 + x2) / 2, y1 + (cote_texte * 1.6 * u if cote_texte < 0 else 5.4 * u), texte, fs)
     else:
@@ -213,3 +215,141 @@ def section(ident: str, nom: str, sous_titre: str, famille: str, dims: Dict[str,
     vb = f"{_f(gauche)} {_f(haut)} {_f(droite - gauche)} {_f(bas - haut)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
             f'aria-label="Section {escape(nom)} à l\'échelle">{"".join(g)}</svg>')
+
+
+# ------------------------------------------------------------------ le croquis coté d'un PRS (brief v12 § 15.5, § 18.7)
+LARGEUR_CAR = 0.56              # la largeur moyenne d'un caractère, en tailles de police (pour placer les textes sans recouvrement)
+
+
+def _visible(t: str) -> str:
+    """Le texte qu'on LIT d'un symbole (« t_w = 15 » → « tw = 15 ») : la place qu'il prend."""
+    return t.replace("_", "")
+
+
+def _marque_g(x: float, y: float, u: float) -> str:
+    """Le centre de gravité : un cercle blanc barré d'une croix (un symbole, pas une couleur)."""
+    r = 1.7 * u
+    return (f'<g data-repere="G" data-cx="{_f(x)}" data-cy="{_f(y)}"><circle cx="{_f(x)}" cy="{_f(y)}" r="{_f(r)}" fill="#fff" '
+            f'stroke="{ENCRE}" stroke-width="{_f(0.32 * u)}"/>'
+            + _ligne(x - r, y, x + r, y, ENCRE, 0.26 * u) + _ligne(x, y - r, x, y + r, ENCRE, 0.26 * u) + "</g>")
+
+
+def _marque_c(x: float, y: float, u: float) -> str:
+    """Le centre de cisaillement : un losange plein (un autre symbole que celui de G), posé PAR-DESSUS : sur un PRS
+    bisymétrique, C est en G — le losange se lit dans le cercle."""
+    d = 1.25 * u
+    return (f'<path data-repere="C" data-cx="{_f(x)}" data-cy="{_f(y)}" d="M{_f(x)},{_f(y - d)} L{_f(x + d)},{_f(y)} L{_f(x)},{_f(y + d)} '
+            f'L{_f(x - d)},{_f(y)} Z" fill="{ACCENT}" stroke="{ENCRE}" stroke-width="{_f(0.2 * u)}"/>')
+
+
+def section_prs(s: Dict, largeur=None, ident: str = "pf_section", tableau=None) -> str:
+    """Le CROQUIS COTÉ d'un PRS, à l'échelle (mm) : ses trois plats hachurés, les quatre cordons (côté s = a·√2), les axes
+    y-y et z-z PAR LE CENTRE DE GRAVITÉ (un PRS monosymétrique ne l'a pas à mi-hauteur), le centre de gravité G et le
+    centre de cisaillement C — chacun une lettre ET un symbole ; les cotes h, b₁, b₂ et les repères t₁, h_w × t_w, a,
+    t₂ ; « mm » et la méthode sous le croquis. ``s`` : la section du moteur (acier/barre/prs.section_prs) ; ``largeur`` :
+    la largeur du dessin (None : celle de la vue) ; ``tableau`` : [(symbole, valeur, unité, origine)] écrit dessous (la
+    vue « Section » de l'écran : api_web/profil_prs.proprietes) — sans lui, le croquis seul (la note écrit son tableau).
+    Repère du dessin : x vers la droite depuis le plan de l'âme, y = −z (z depuis la face inférieure, vers le haut)."""
+    p = s["prs"]
+    b1, t1, hw, tw, b2, t2 = (float(p[k]) for k in ("b1", "t1", "hw", "tw", "b2", "t2"))
+    h, zg, zc, sv = s["h"], s["z_g"], s["z_g"] + s["z_s"], float(s.get("s") or 0.0)
+    bm = max(b1, b2)
+    u = max(bm, h) / 100.0
+    boites: List[Tuple[float, float, float, float]] = []      # (x1, y1, x2, y2) des textes et des marques : le cadre du dessin
+    g: List[str] = []
+
+    def texte(x, y, t, fs, ancre="middle", couleur=ENCRE, gras=False, extra="", rot=False, brut=False):
+        w = len(_visible(t)) * LARGEUR_CAR * fs * (1.12 if gras else 1.0)
+        x1 = x - w / 2 if ancre == "middle" else (x - w if ancre == "end" else x)
+        boites.append((x - 0.8 * fs, y - w / 2, x + 0.2 * fs, y + w / 2) if rot else (x1, y - 0.8 * fs, x1 + w, y + 0.2 * fs))
+        g.append(_txt(x, y, t, fs, ancre=ancre, couleur=couleur, gras=gras, extra=extra, brut=brut))
+
+    # la matière : le contour du I, rempli, hachuré, cerné ; les joints des trois plats ; les cordons
+    yh, yb = -(t2 + hw), -t2                                  # le dessous de la semelle haute, le dessus de la semelle basse
+    contour = [(-b1 / 2, -h), (b1 / 2, -h), (b1 / 2, yh), (tw / 2, yh), (tw / 2, yb), (b2 / 2, yb), (b2 / 2, 0.0), (-b2 / 2, 0.0),
+               (-b2 / 2, yb), (-tw / 2, yb), (-tw / 2, yh), (-b1 / 2, yh)]
+    d = "M" + " L".join(f"{_f(x)},{_f(y)}" for x, y in contour) + " Z"
+    g.append(f'<path d="{d}" fill="{ACIER}" stroke="none"/>')
+    g.append("".join(_ligne(a, b_, c, d_, HACH, 0.17 * u) for a, b_, c, d_ in _hachures([contour], 2.3 * u)))
+    g.append(f'<path d="{d}" fill="none" stroke="{ENCRE}" stroke-width="{_f(0.55 * u)}" stroke-linejoin="round"/>')
+    g.append(_ligne(-tw / 2, yh, tw / 2, yh, ENCRE, 0.3 * u) + _ligne(-tw / 2, yb, tw / 2, yb, ENCRE, 0.3 * u))
+    if sv > 0:
+        for yj, sens in ((yh, 1.0), (yb, -1.0)):
+            for cote in (1.0, -1.0):
+                x0 = cote * tw / 2
+                g.append(f'<path d="M{_f(x0)},{_f(yj)} L{_f(x0 + cote * sv)},{_f(yj)} L{_f(x0)},{_f(yj + sens * sv)} Z" fill="{ENCRE}"/>')
+    # les axes PAR LE CENTRE DE GRAVITÉ ; G et C sur l'axe de symétrie (le plan de l'âme)
+    tiret = f' stroke-dasharray="{_f(5 * u)} {_f(1.4 * u)} {_f(0.7 * u)} {_f(1.4 * u)}"'
+    g.append(_ligne(-bm / 2 - 5 * u, -zg, bm / 2 + 5 * u, -zg, AXE, 0.22 * u, tiret + ' data-axe="y"'))
+    g.append(_ligne(0, -h - 5 * u, 0, 5 * u, AXE, 0.22 * u, tiret + ' data-axe="z"'))
+    texte(bm / 2 + 6.2 * u, -zg + 1.5 * u, "y", 4.4 * u, ancre="start", couleur=AXE, extra=' font-style="italic"')
+    texte(1.6 * u, -h - 5.6 * u, "z", 4.4 * u, ancre="start", couleur=AXE, extra=' font-style="italic"')
+    g.append(_marque_g(0.0, -zg, u))
+    g.append(_marque_c(0.0, -zc, u))
+    texte(-2.6 * u, -zg - 2.0 * u, "G", 4.4 * u, ancre="end", gras=True)
+    texte(2.6 * u, -zc - 2.0 * u, "C", 4.4 * u, ancre="start", gras=True, couleur=ACCENT)
+    # les cotes : h à gauche ; b₁ au-dessus, b₂ dessous
+    xh = -bm / 2 - 11 * u
+    g.append(_attache(-b1 / 2 - 1.2 * u, -h, xh - 1.5 * u, -h, u) + _attache(-b2 / 2 - 1.2 * u, 0.0, xh - 1.5 * u, 0.0, u))
+    g.append(_cote(xh, -h, xh, 0.0, "", u))
+    texte(xh - 1.6 * u, -h / 2, f"h = {_brut(h)}", 4.4 * u, extra=f' transform="rotate(-90 {_f(xh - 1.6 * u)} {_f(-h / 2)})"', rot=True)
+    yc1, yc2 = -h - 12 * u, 10 * u
+    g.append(_attache(-b1 / 2, -h - 1.2 * u, -b1 / 2, yc1 - 1.5 * u, u) + _attache(b1 / 2, -h - 1.2 * u, b1 / 2, yc1 - 1.5 * u, u))
+    g.append(_cote(-b1 / 2, yc1, b1 / 2, yc1, "", u))
+    texte(0.0, yc1 - 1.6 * u, f"b_1 = {_brut(b1)}", 4.4 * u)
+    g.append(_attache(-b2 / 2, 1.2 * u, -b2 / 2, yc2 + 1.5 * u, u) + _attache(b2 / 2, 1.2 * u, b2 / 2, yc2 + 1.5 * u, u))
+    g.append(_cote(-b2 / 2, yc2, b2 / 2, yc2, "", u))
+    texte(0.0, yc2 + 5.4 * u, f"b_2 = {_brut(b2)}", 4.4 * u)
+    # les repères, alignés à droite, de haut en bas : t₁, la gorge, l'âme, t₂
+    gorge = f"a = {_brut(p['a'])}" if p.get("a") is not None else "a non saisie (s = 0)"
+    # (le repère de l'âme, loin de l'axe y : son texte et la lettre « y » ne se touchent pas)
+    places = [yb - f * hw for f in (0.38, 0.22, 0.6)]
+    y_ame = next((y_ for y_ in places if abs(y_ + zg) >= 9 * u), max(places, key=lambda y_: abs(y_ + zg)))
+    reperes = [(b1 / 2 - min(0.18 * b1, 9 * u), -h + t1 / 2, f"t_1 = {_brut(t1)}"),
+               (tw / 2 + sv / 3, yh + sv / 3, gorge),
+               (tw / 2, y_ame, f"h_w × t_w = {_brut(hw)} × {_brut(tw)}"),
+               (b2 / 2 - min(0.18 * b2, 9 * u), -t2 / 2, f"t_2 = {_brut(t2)}")]
+    xr, yt = bm / 2 + 11 * u, -h - 8.0 * u
+    for xp, yp, t in reperes:
+        yt = max(yt + 7.2 * u, yp)
+        fs = 4.2 * u
+        g.append(f'<circle cx="{_f(xp)}" cy="{_f(yp)}" r="{_f(0.55 * u)}" fill="{ENCRE}"/>'
+                 f'<polyline points="{_f(xp)},{_f(yp)} {_f(xr - 0.8 * u)},{_f(yt)} {_f(xr)},{_f(yt)}" fill="none" stroke="{COTE}" stroke-width="{_f(0.18 * u)}"/>')
+        texte(xr + 0.8 * u, yt + 0.36 * fs, t, fs, ancre="start")
+    # le nom au-dessus ; sous le croquis, la légende des symboles, puis « mm » et la méthode
+    texte(0.0, yc1 - 14 * u, s["nom"], 6.4 * u, gras=True)
+    texte(0.0, yc1 - 8 * u, "PRS monosymétrique" if s["monosymetrique"] else "PRS bisymétrique", 3.9 * u, couleur=MUET)
+    yl = max(yc2 + 12 * u, yt + 6 * u)
+    x0 = -bm / 2 - 8 * u
+    g.append(_marque_g(x0 + 1.7 * u, yl - 1.3 * u, u))
+    texte(x0 + 4.6 * u, yl, "G : centre de gravité", 3.8 * u, ancre="start", couleur=MUET)
+    x1 = x0 + 4.6 * u + len("G : centre de gravité") * LARGEUR_CAR * 3.8 * u + 4 * u
+    g.append(_marque_c(x1 + 1.7 * u, yl - 1.3 * u, u))
+    texte(x1 + 4.6 * u, yl, "C : centre de cisaillement", 3.8 * u, ancre="start", couleur=MUET)
+    texte(x0, yl + 6.2 * u, "Cotes en mm · trois plats, cordons non comptés (côté sûr)", 3.8 * u, ancre="start", couleur=MUET)
+    y = yl + 6.2 * u
+    if tableau:
+        y += 9 * u
+        texte(x0, y, "PROPRIÉTÉS", 3.3 * u, ancre="start", couleur=MUET, gras=True, extra=' letter-spacing="0.6"', brut=True)
+        fs, pas = 4.1 * u, 6.4 * u
+        y += 2.0 * u
+        largeur_t = 134 * u
+        g.append(_ligne(x0, y, x0 + largeur_t, y, GRILLE, 0.25 * u))
+        y += pas
+        for sym, val, unite, origine in tableau:
+            texte(x0, y - 1.6 * u, sym, fs, ancre="start", couleur=MUET)
+            texte(x0 + 45 * u, y - 1.6 * u, val, fs, ancre="end", gras=True, brut=True)
+            if unite:
+                texte(x0 + 46.6 * u, y - 1.6 * u, unite, 3.6 * u, ancre="start", couleur=MUET, brut=True)
+            texte(x0 + 60 * u, y - 1.6 * u, origine, 3.6 * u, ancre="start", couleur=MUET)
+            g.append(_ligne(x0, y + 0.4 * u, x0 + largeur_t, y + 0.4 * u, GRILLE, 0.16 * u))
+            y += pas
+        boites.append((x0, y, x0 + largeur_t, y))
+    gauche = min([xh - 8 * u] + [b[0] for b in boites]) - 2 * u
+    droite = max([bm / 2 + 8 * u] + [b[2] for b in boites]) + 2 * u
+    haut = min(b[1] for b in boites) - 2 * u
+    bas = max(b[3] for b in boites) + 2 * u
+    vb = f"{_f(gauche)} {_f(haut)} {_f(droite - gauche)} {_f(bas - haut)}"
+    larg = "100%" if largeur is None else _f(float(largeur))
+    return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="{larg}" role="img" '
+            f'aria-label="Section {escape(s["nom"])} à l\'échelle, G et C repérés">{"".join(g)}</svg>')

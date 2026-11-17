@@ -462,7 +462,7 @@ def rapides():
         c1["message"] == "Grue « 125EC-B6 » enregistrée" and [x["nom"] for x in c1["carnet"]] == ["125EC-B6"] and "carnet" not in c1["etat"]
         and c1["carnet"][0]["reactions"][2]["P"] == [135.0, 100.0, 800.0, 135.0] and f0(c2)["reactions"] == f0(r)["reactions"]
         and f0(c2)["projet"]["grue"] == "125EC-B6" and c2["resume"]["taux"] == r["resume"]["taux"] and c3["carnet"] == []
-        and "125EC-B6" in txt(c2["donnees"]) and sorted(REG.carnets()) == ["prix_grues", "saf"]
+        and "125EC-B6" in txt(c2["donnees"]) and sorted(REG.carnets()) == ["prix_grues", "profil", "saf"]
         and q(action="calculer", etat=type_, carnet=[{"nom": "x", "grue": {"chassis": "inconnu"}}, 3, None])["carnet"] == [], c1["message"])
     # ---- l'export
     exp = q(action="telecharger", etat=type_, quoi="saf", infos=INFOS)

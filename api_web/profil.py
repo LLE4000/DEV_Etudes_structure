@@ -40,6 +40,7 @@ from . import dessin_barre as DB
 from . import dessin_profil as DP
 from . import etabli_compact as E
 from . import profil_mots as M
+from . import profil_prs as PP
 from . import profil_resultat as R
 from . import profil_saisie as S
 
@@ -82,6 +83,9 @@ CLES = ("nom",) + COMMUNS + CHARGEE + IMPOSES
 # Un état de l'ÉCRAN, hors du calcul (hors de CLES et de la signature) ; une barre qui ne l'a pas : rien n'a été copié.
 COPIEES = "longueurs_copiees"
 MEMOIRE, MEMOIRE_CANDIDATS = 48, 6000
+# (lot C, C6) la BIBLIOTHÈQUE DES PRS est le carnet du module (api_web/routeur.py : il voyage avec chaque requête, l'écran le
+# garde dans ce navigateur) — jamais dans la note : la barre garde une copie de ses plats (clé « prs »). api_web/profil_prs.py
+CARNET = True
 _RESULTATS: Dict[str, Dict] = {}                    # la barre (sans son nom) → son résultat
 _CANDIDATS: Dict[Tuple[str, str], Tuple] = {}       # (la barre sans nom ni profilé, un profilé) → (taux, statut)
 
@@ -332,6 +336,11 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         del els[i]
         if etat["actif"] > i or etat["actif"] >= len(els):
             etat["actif"] = max(0, etat["actif"] - 1)
+
+
+def lire_carnet(carnet) -> List[Dict]:
+    """(lot C, C6) La bibliothèque des PRS reçue de l'écran, relue (``profil_prs.lire_carnet``) : ce que la réponse rend."""
+    return PP.lire_carnet(carnet)
 
 
 # ------------------------------------------------------------------ le calcul, gardé
@@ -646,6 +655,8 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         el["diagramme"][cles[1]][cles[2]] = str(valeur) if cles[2] == "forme" else _lire(valeur, "ψ")
     elif k == "historique" and len(cles) == 2 and cles[1] in ("s", "C", "deversement"):      # (la tolérance de 5 % : retirée, § 13.2 point 5)
         el["historique"][cles[1]] = _lire(valeur, "s") if cles[1] == "s" else (str(valeur) if cles[1] == "C" else _oui(valeur))
+    elif k == "prs":                          # (lot C, C6) le PRS : « prs » (catalogue ∣ prs), ses plats, la gorge, les bords, la case
+        return PP.appliquer(el, cles, valeur)
     elif k == "parametres" and len(cles) == 2 and cles[1] in ("gamma_M0", "gamma_M1"):
         g = C.lire_auto(valeur)
         if g is None:
@@ -675,24 +686,43 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             return f"Saisie refusée : méthode inconnue : « {valeur} » ({', '.join(IMPRESSIONS)})"
         etat[IMPRESSION] = valeur
         return None
+    if cles[0] == "carnet":
+        # (lot C, C6) la bibliothèque des PRS : y enregistrer le PRS de la barre, l'en retirer (la barre le garde)
+        try:
+            if cles not in (["carnet", "garder"], ["carnet", "retirer"]):
+                raise KeyError("/".join(cles))
+            etat["carnet"], mot = (PP.garder if cles[1] == "garder" else PP.retirer)(el, etat.get("carnet"))
+        except KeyError:
+            return f"Champ inconnu : « {'/'.join(cles)} »"
+        except ValueError as e:
+            return f"Saisie refusée : {M.minuscule(str(e))}"
+        return C.Info(mot)
     try:
         mot = _appliquer(essai, cles, valeur, calculer(el))
         etat["elements"][etat["actif"]] = _relire(essai)
     except KeyError:
         return f"Champ inconnu : « {'/'.join(cles)} »"
     except (ValueError, TypeError, IndexError) as e:
-        texte = str(e)
-        return f"Saisie refusée : {texte[:1].lower() + texte[1:]}"
+        # (lot C, C6) un sigle garde ses capitales : « PRS : … », jamais « pRS : … » (profil_mots.minuscule)
+        return f"Saisie refusée : {M.minuscule(str(e))}"
     return mot
 
 
 def choisir_section(etat: Dict, role: str, nom: str) -> None:
-    """Le clic dans le sélecteur : le profilé devient celui de la barre."""
+    """Le clic dans le sélecteur : le profilé devient celui de la barre — (lot C, C6) un PRS de la bibliothèque (le carnet)
+    y apporte une copie de ses plats et sa nuance ; un profilé du catalogue efface le PRS."""
     if role != ROLE:
         raise KeyError(f"sélecteur inconnu : {role!r}")
-    if CAT.par_nom().get(nom, {}).get("famille") not in FAMILLES:
+    el = copy.deepcopy(_el(etat))
+    entree = next((e for e in PP.lire_carnet(etat.get("carnet")) if e["nom"] == nom), None)
+    if entree is not None:
+        PP.prendre(el, entree)
+    elif CAT.par_nom().get(nom, {}).get("famille") not in FAMILLES:
         raise ValueError(f"profilé inconnu : {nom!r}")
-    etat["elements"][etat["actif"]] = _relire(dict(_el(etat), profil=nom))
+    else:
+        el.update(profil=nom, prs=None)
+        el["parametres"].pop(PP.SOUDEE, None)
+    etat["elements"][etat["actif"]] = _relire(el)
 
 
 # ------------------------------------------------------------------ la colonne de gauche
@@ -701,8 +731,8 @@ def arbre(etat: Dict, r: Dict, resultats: List[Dict]) -> str:
     supprimer — le nom de chacune à la couleur de son état), puis ses quatre rubriques."""
     noms = [(e.get("nom") or f"B{i + 1}", "· " + R.dims(e), False) for i, e in enumerate(etat["elements"])]
     niveaux = [_niveau(x) if "methodes" in x else "n" for x in resultats]
-    return E.arbre(GENRE, noms, etat["actif"], S.formulaire(_el(etat), r, etat.get(IMPRESSION, IMPRESSIONS[0])), "choixprofil", compact=True,
-                   niveaux=niveaux)
+    return E.arbre(GENRE, noms, etat["actif"], S.formulaire(_el(etat), r, etat.get(IMPRESSION, IMPRESSIONS[0]), lire_carnet(etat.get("carnet"))),
+                   "choixprofil", compact=True, niveaux=niveaux)
 
 
 # ------------------------------------------------------------------ les vues
@@ -732,16 +762,19 @@ def _entete(el: Dict, r: Dict, titre: str, legende: str) -> str:
 
 
 def refus_prs(nom: str) -> str:
-    """(lot C, reprise de C0 ; en attendant C6 — la saisie, la fiche et le croquis d'un PRS) Une barre PRS, venue d'un fichier
-    ou de la bibliothèque, se relit et se calcule (« prs » est gardée, C0e) ; l'écran et la note ne savent pas encore la
-    montrer : ils la REFUSENT en une ligne — jamais un KeyError, jamais un profilé du catalogue à sa place."""
-    return f"« {nom} » : un PRS ne se montre pas encore, ni à l'écran ni dans la note."
+    """(lot C, reprise de C0) Une barre PRS se relit, se calcule et se montre à l'écran (C6 : sa saisie, sa fiche, son
+    croquis) ; la NOTE ne sait pas encore la montrer (bloc C5) : elle la REFUSE en une ligne — jamais un KeyError, jamais
+    un profilé du catalogue à sa place."""
+    return f"« {nom} » : la note d'un PRS n'est pas encore prête."
 
 
-def fiche_profil(nom: str) -> Dict:
+def fiche_profil(nom: str, barre: Optional[Dict] = None) -> Dict:
     """Ce qu'on écrit d'un profilé du catalogue : {"famille", "dims" (mm), "dimensions" et "proprietes" : [(symbole,
     valeur écrite, unité)], "sous" (sa famille et sa norme)} — la vue « Section » de l'écran et le panneau de la note PDF.
-    Un nom hors du catalogue (un PRS : la normalisation n'en laisse passer aucun autre) : ValueError, ``refus_prs``."""
+    (lot C, C6) ``barre`` : une barre PRS — la fiche de SON PRS (``profil_prs.fiche`` : la même forme, et « tableau », les
+    propriétés avec leur origine). Un nom hors du catalogue sans sa barre : ValueError, ``refus_prs``."""
+    if barre is not None and barre.get("prs"):
+        return PP.fiche(barre)
     rec = CAT.par_nom().get(nom)
     if rec is None:
         raise ValueError(refus_prs(nom))
@@ -758,7 +791,11 @@ def fiche_profil(nom: str) -> Dict:
 
 
 def vue_section(el: Dict, ident: str = "pf_section", fiche: bool = True) -> str:
-    """La section du profilé de la barre, à l'échelle ; ``fiche`` : ses dimensions et ses propriétés dessous."""
+    """La section du profilé de la barre, à l'échelle ; ``fiche`` : ses dimensions et ses propriétés dessous. (lot C, C6)
+    Un PRS : son croquis coté (dessin_profil.section_prs), le tableau de ses propriétés dessous (profil_prs.proprietes)."""
+    if el.get("prs"):
+        s = PP.section(el)
+        return DP.section_prs(s, None, ident, PP.proprietes(s) if fiche else None)
     f = fiche_profil(el["profil"])
     return DP.section(ident, el["profil"], f["sous"], f["famille"], f["dims"], f["dimensions"], f["proprietes"], "", fiche)
 
@@ -861,6 +898,46 @@ def _proprietes(nom: str, taux: Optional[float]) -> str:
             f"W<sub>pl,y</sub> = {M.n(p.get('Wpl_y'), 1)} cm³{eta}")
 
 
+def _candidat_prs(el: Dict, sig: str, plats: Dict, nuance: str) -> Tuple[Optional[float], str]:
+    """(taux le plus fort, statut) de la barre avec ce PRS de la bibliothèque — gardé."""
+    cle = (sig, json.dumps([plats, nuance], sort_keys=True))
+    c = _CANDIDATS.get(cle)
+    if c is None:
+        if len(_CANDIDATS) >= MEMOIRE_CANDIDATS:
+            _CANDIDATS.clear()
+        try:
+            r = MO.verifier(dict(el, prs=plats, nuance=nuance))
+            c = (_taux(r), r["statut"])
+        except ValueError:
+            c = (None, RE.NON_COUVERT)
+        _CANDIDATS[cle] = c
+    return c
+
+
+def _selecteur_prs(etat: Dict, el: Dict) -> str:
+    """(lot C, C6) La BIBLIOTHÈQUE DES PRS (le carnet du module, dans ce navigateur), triée par masse, chacun vérifié par le
+    moteur avec la barre : son taux ; le retenu (✓) marqué — pas de ★ (une bibliothèque n'a pas de « plus léger qui
+    tient » : elle ne contient que ce qu'on y a mis)."""
+    sig = _signature(el, ("nom", "profil", "prs", "nuance"))
+    rows = []
+    for e in PP.lire_carnet(etat.get("carnet")):
+        s, plats = PP.plats_entree(e, el["nuance"])
+        t, statut = _candidat_prs(el, sig, plats, s["nuance"])
+        row = {"nom": s["nom"], "col": C.fr(s["masse"], 1), "taux": None, "niveau": "c", "cur": s["nom"] == el["profil"], "opt": False,
+               "prop": PP.ligne_selecteur(s, t), "masse": s["masse"]}
+        if statut in M.STATUTS_A_VERIFIER:
+            row["etat"] = M.MOT_STATUT[statut].lower() if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"
+        elif t is not None:
+            row.update({"taux": C.pct(min(t, 9.99)), "niveau": "r" if statut == RE.NOK else C.niveau(t)})
+        else:
+            row["etat"] = "refusé" if statut == RE.NOK else "—"
+        rows.append(row)
+    rows.sort(key=lambda x: (x.pop("masse"), x["nom"]))
+    i_c = next((k for k, x in enumerate(rows) if x["cur"]), 0)
+    sous = "bibliothèque de ce navigateur · triés par masse · un clic retient le PRS · « Enregistrer » y ajoute celui de la barre"
+    return C.selecteur(ROLE, f"{C.esc(el.get('nom') or 'Barre')} · PRS", sous, "", rows, max(0, i_c - 4), "kg/m", etoile="")
+
+
 def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     """Les profilés des familles demandées (par défaut celle du profilé de la barre), TRIÉS PAR MASSE, chacun vérifié
     par le moteur avec les méthodes de la barre : son taux le plus fort ; le retenu (✓) et le plus léger qui tient (★)
@@ -868,8 +945,8 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     if role != ROLE:
         raise KeyError(f"sélecteur inconnu : {role!r}")
     el = _el(etat)
-    if el.get("prs") is not None:          # (sinon chaque ligne du sélecteur serait calculée… avec les plats du PRS)
-        raise ValueError(refus_prs(el["profil"]))
+    if el.get("prs") is not None:          # (lot C, C6) un PRS : la bibliothèque des PRS, jamais le catalogue calculé avec ses plats
+        return _selecteur_prs(etat, el)
     demandees = familles if isinstance(familles, (list, tuple)) else []      # une requête abîmée : la famille du profilé
     fams = [f for f in FAMILLES if f in demandees] or [CAT.par_nom()[el["profil"]]["famille"]]
     sig = _signature(el, ("nom", "profil"))
