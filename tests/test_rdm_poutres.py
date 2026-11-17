@@ -10,7 +10,10 @@ Ce que la suite prouve, par des calculs INDÉPENDANTS du moteur :
   3. un cas composé (quatre travées inégales, charge partielle, ponctuelle, couple, triangle) contre une INTÉGRATION
      NUMÉRIQUE de E·I·f″ = −M écrite dans ce fichier (le moteur, lui, n'intègre rien : il évalue des formules fermées) ;
   4. l'équilibre, la superposition, les symétries, les refus ;
-  5. des mutations du moteur, qui rougissent.
+  5. des mutations du moteur, qui rougissent ;
+  6. les DÉBORDS (porte-à-faux aux rives, « appuis » et « continue ») : formulaire réécrit ici contre les paramètres
+     initiaux, équilibre écrit depuis les données, symétrie, débord nul = résultats d'avant les débords (valeurs
+     figées le 17/11/2026 à 1e-12), refus, et leurs mutations.
 """
 import math
 import os
@@ -304,7 +307,165 @@ for nom, avant, apres, essai in (
         chk(f"mutation du source « {nom} » : refusée ({type(ex).__name__})", type(ex).__name__ == "ErreurControle", ex)
 chk("après les mutations, le moteur est revenu (q·L²/8 = 45)", pres(P.resoudre("appuis", [6.0], [Q(10.0, 0, 6.0)]).extremes["M_max"][0], 45.0))
 
-# ================================================================================================ 6 · sans dépendance
+# ================================================================================================ 6 · débords
+print("\n=== 6 · Débords : porte-à-faux aux rives (« appuis », « continue ») ; abscisses depuis le bout gauche de la barre")
+
+
+def Ap(sol, nom):
+    return next(a for a in sol.appuis if a["nom"] == nom)
+
+
+# 6.1 · formulaire (Roark, tableau 8.1 ; formulaire des poutres à porte-à-faux), réécrit ici, contre les paramètres initiaux
+q, g, L, EI = 10.0, 2.0, 6.0, 21000.0
+
+
+def debord_gauche_q(M=P):
+    """Débord gauche seul chargé (q sur [0 ; g]) : M_A = −q·g²/2 en x = g, R_B = −q·g²/(2·L), E·I·f du bout libre
+    = q·g³·(3·g + 4·L)/24, E·I·f au milieu de la travée = M_A·L²/16 (vers le haut)."""
+    s_ = M.resoudre("appuis", [L], [Q(q, 0, g)], EI, debords=(g, 0.0))
+    return (pres(Ap(s_, "A")["x"], g) and pres(Ap(s_, "A")["M"], -q * g * g / 2) and pres(R(s_, "A"), q * g + q * g * g / (2 * L))
+            and pres(R(s_, "B"), -q * g * g / (2 * L)) and pres(s_.evaluer(0.0)["EIf"], q * g ** 3 * (3 * g + 4 * L) / 24)
+            and pres(s_.evaluer(g + L / 2)["EIf"], -q * g * g / 2 * L * L / 16) and pres(s_.evaluer(g + L / 2)["M_d"], -q * g * g / 4))
+
+
+chk("débord gauche seul chargé (q = 10, g = 2, L = 6) : M_A = −q·g²/2 = −20 en x = g, R_B = −q·g²/(2·L), "
+    "E·I·f du bout libre = q·g³·(3·g + 4·L)/24 = 100, au milieu M_A·L²/16", debord_gauche_q())
+Pp, dr = 8.0, 1.5
+s = P.resoudre("appuis", [L], [F(Pp, L + dr)], EI, debords=(0.0, dr))
+chk("débord droit, P au bout libre : M_B = −P·d = −12, R_A = −P·d/L, R_B = P·(L + d)/L, E·I·f du bout = P·d²·(L + d)/3 = 45",
+    pres(Mapp(s, "B"), -Pp * dr) and pres(R(s, "A"), -Pp * dr / L) and pres(R(s, "B"), Pp * (L + dr) / L)
+    and pres(s.evaluer(L + dr)["EIf"], Pp * dr * dr * (L + dr) / 3) and pres(s.evaluer(L + dr)["f"], Pp * dr * dr * (L + dr) / 3 / EI)
+    and pres(s.extremes["EIf_max"][0], Pp * dr * dr * (L + dr) / 3) and pres(s.extremes["EIf_max"][1], L + dr), s.appuis)
+Pc, gc, Lc2 = 5.0, 1.2, 4.0
+s = P.resoudre("continue", [Lc2, Lc2], [F(Pc, 0.0)], EI, debords=(gc, 0.0))
+chk("continue 2 × 4 m, P au bout du débord gauche (g = 1,2) : M_A = −P·g, trois moments M_B = +P·g/4, "
+    "E·I·f du bout = P·g³/3 + 7·P·g²·L/24",
+    pres(Mapp(s, "A"), -Pc * gc) and pres(Mapp(s, "B"), Pc * gc / 4) and pres(Mapp(s, "C"), 0.0, ech=Pc)
+    and pres(s.evaluer(0.0)["EIf"], Pc * gc ** 3 / 3 + 7 * Pc * gc * gc * Lc2 / 24), s.appuis)
+Cd, qt, dt = 6.0, 9.0, 1.8
+s = P.resoudre("appuis", [L], [Cp(Cd, 0.7), T(qt, 1.0 + L, 1.0 + L + dt)], EI, debords=(1.0, dt))
+chk("moments de rive : couple C horaire sur le débord gauche → M_A = +C ; triangle 0 → q sur le débord droit → M_B = −q·d²/3",
+    pres(Mapp(s, "A"), Cd) and pres(Mapp(s, "B"), -qt * dt * dt / 3) and pres(s.evaluer(1.0 + L + dt)["M_g"], 0.0, ech=qt * dt * dt), s.appuis)
+
+# 6.2 · équilibre, écrit depuis les données (pas depuis le moteur)
+Ls6, g6, d6 = [4.0, 5.0, 3.0], 1.0, 1.5
+Lt6 = g6 + sum(Ls6) + d6
+ch6 = [Q(10.0, 0.0, Lt6), F(20.0, 0.4), F(12.0, Lt6), Cp(6.0, 13.7), T(8.0, 9.0, Lt6, "decroissante")]
+s = P.resoudre("continue", Ls6, ch6, EI, debords=(g6, d6))
+F6 = 10.0 * Lt6 + 20.0 + 12.0 + 8.0 * 5.5 / 2
+M6 = 10.0 * Lt6 ** 2 / 2 + 20.0 * 0.4 + 12.0 * Lt6 + 6.0 + 8.0 * 5.5 / 2 * (9.0 + 5.5 / 3)
+chk("équilibre (continue 4 + 5 + 3 m, débords 1 et 1,5 m, cinq charges dont trois sur les débords) : Σ R = Σ charges = 199 kN, "
+    "Σ R·x = Σ F·x + Σ C (par rapport au bout gauche)",
+    pres(sum(a["R"] for a in s.appuis), F6) and pres(F6, 199.0) and pres(sum(a["R"] * a["x"] for a in s.appuis), M6)
+    and [a["x"] for a in s.appuis] == [1.0, 5.0, 10.0, 13.0], (sum(a["R"] for a in s.appuis), F6))
+e0, eL = s.evaluer(0.0), s.evaluer(Lt6)
+chk("bouts libres : rien à gauche du bout gauche ni à droite du bout droit (V = M = 0), le tranchant saute de P au bout droit",
+    e0["V_g"] == 0.0 and e0["M_g"] == 0.0 and pres(e0["M_d"], 0.0, ech=100) and eL["V_d"] == 0.0 and eL["M_d"] == 0.0
+    and pres(eL["V_g"], 12.0) and pres(eL["M_g"], 0.0, ech=100), (e0, eL))
+chk("contrôles internes tenus, dont ceux des débords (moment de rive des résultantes, continuité, bout libre)",
+    all(c["ok"] for c in s.controles) and sum("débord" in c["nom"] for c in s.controles) == 2 * 3 + 2 + 2 * 3, [c["nom"] for c in s.controles])
+
+# 6.3 · symétrie
+q7, g7, L7 = 10.0, 1.5, 6.0
+s = P.resoudre("appuis", [L7], [Q(q7, 0.0, L7 + 2 * g7)], EI, debords=(g7, g7))
+chk("deux appuis, débords égaux, q partout : R_A = R_B = q·(L + 2·g)/2, M_A = M_B = −q·g²/2, M au milieu = q·L²/8 − q·g²/2, "
+    "E·I·f du bout = q·g·(3·g³ + 6·g²·L − L³)/24, au milieu 5·q·L⁴/384 − q·g²·L²/16",
+    pres(R(s, "A"), q7 * (L7 + 2 * g7) / 2) and pres(R(s, "B"), R(s, "A")) and pres(Mapp(s, "A"), -q7 * g7 * g7 / 2) and pres(Mapp(s, "B"), Mapp(s, "A"))
+    and pres(s.evaluer(g7 + L7 / 2)["M_d"], q7 * L7 * L7 / 8 - q7 * g7 * g7 / 2)
+    and pres(s.evaluer(0.0)["EIf"], q7 * g7 * (3 * g7 ** 3 + 6 * g7 * g7 * L7 - L7 ** 3) / 24) and pres(s.evaluer(L7 + 2 * g7)["EIf"], s.evaluer(0.0)["EIf"])
+    and pres(s.evaluer(g7 + L7 / 2)["EIf"], 5 * q7 * L7 ** 4 / 384 - q7 * g7 * g7 / 2 * L7 * L7 / 8)
+    and abs(s.evaluer(g7 + L7 / 2)["EIrot"]) < 1e-9 * q7 * L7 ** 3, (s.appuis, s.evaluer(0.0)))
+s = P.resoudre("continue", [4.0, 6.0, 4.0], [Q(5.0, 0.0, 17.0), F(10.0, 8.5)], EI, debords=(1.5, 1.5))
+chk("continue symétrique à débords égaux : R_A = R_D, R_B = R_C, M_A = M_D = −q·g²/2, M_B = M_C, flèches des bouts égales, rotation nulle au milieu",
+    pres(R(s, "A"), R(s, "D")) and pres(R(s, "B"), R(s, "C")) and pres(Mapp(s, "A"), -5.0 * 1.5 ** 2 / 2) and pres(Mapp(s, "D"), Mapp(s, "A"))
+    and pres(Mapp(s, "B"), Mapp(s, "C")) and pres(s.evaluer(0.0)["EIf"], s.evaluer(17.0)["EIf"]) and abs(s.evaluer(8.5)["EIrot"]) < 1e-9 * 1000, s.appuis)
+
+# 6.4 · débord nul = le modèle d'avant les débords
+# valeurs FIGÉES le 17/11/2026 sur f012e40 (rdm/poutres.py sans débords) : copie nommée, comparée à 1e-12
+FIGE_R = [4.744061705765324, 68.67122871701828, 74.21054183806658, 12.278093541935117, 1.5960741972147092]
+FIGE_M = [0.0, -39.773753176938705, -32.697301063020674, -2.739344290395947, 0.0]
+FIGE_EXT = {"M_max": (33.764472880020314, 6.5), "M_min": (-39.773753176938705, 4.0), "EIf_max": (56.72642253065569, 6.4507115887768816),
+            "EIf_min": (-7.988977546271162, 3.1745947970714354)}
+FIGE_73 = (19.29670521824721, 45.9331919980324)
+
+
+def fige():
+    s_ = P.resoudre("continue", [4.0, 5.0, 3.5, 6.0], ch, 1.0, debords=(0.0, 0.0))
+    e_ = s_.evaluer(7.3)
+    return (all(pres(a["R"], r_, 1e-12) for a, r_ in zip(s_.appuis, FIGE_R)) and all(pres(a["M"], m_, 1e-12, 100) for a, m_ in zip(s_.appuis, FIGE_M))
+            and all(pres(s_.extremes[k][0], v_[0], 1e-12) and pres(s_.extremes[k][1], v_[1], 1e-12) for k, v_ in FIGE_EXT.items())
+            and pres(e_["M_d"], FIGE_73[0], 1e-12) and pres(e_["EIf"], FIGE_73[1], 1e-12))
+
+
+chk("débord nul : le cas composé (4 travées, 6 charges) rend les valeurs figées avant les débords, à 1e-12 (réactions, moments, extremums, M et f à 7,3 m)", fige())
+
+
+def empreinte(sol):
+    return (repr(sol.appuis), repr(sol.extremes), repr(sol.equations), repr([(c["nom"], c["ecart"]) for c in sol.controles]),
+            repr([sol.evaluer(x) for x in (0.0, 0.37 * sol.L, 0.5 * sol.L, sol.L)]), repr(sol.courbes(8)))
+
+
+pareil = True
+for modele, Lx, chx in (("appuis", [5.0], c1 + c2), ("console", [5.0], c1 + c2), ("enc_app", [5.0], c1), ("bi_enc", [5.0], c2),
+                        ("continue", [4.0, 5.0, 3.5, 6.0], ch)):
+    ref = empreinte(P.resoudre(modele, Lx, chx, 3.0))
+    pareil = pareil and all(empreinte(P.resoudre(modele, Lx, chx, 3.0, debords=dx)) == ref for dx in ((0.0, 0.0), [0, 0], None))
+chk("débord nul, sous toutes ses écritures ((0, 0), [0, 0], None) et pour les cinq modèles : résultat identique au bit près à l'appel sans débord", pareil)
+g8, d8, L8 = 1.2, 0.8, [4.0, 5.0, 3.5]
+ch8 = [Q(10.0, 1.0, 11.0), F(25.0, 6.5), Cp(15.0, 4.0), T(6.0, 0.5, 3.0)]
+decale = [dict(c, a=c["a"] + g8, **({"b": c["b"] + g8} if "b" in c else {})) for c in ch8]
+s0, s8 = P.resoudre("continue", L8, ch8, EI), P.resoudre("continue", L8, decale, EI, debords=(g8, d8))
+th_A, th_D = s0.evaluer(0.0)["EIrot"], s0.evaluer(12.5)["EIrot"]
+chk("débords NON chargés : travées identiques au modèle sans débord décalé de g (réactions, moments, M, V, f à 1e-12) ; "
+    "débords : M = V = 0, f du bout = −θ_A·g à gauche, +θ_D·d à droite",
+    all(pres(a["R"], b_["R"], 1e-12, 100) and pres(a["M"], b_["M"], 1e-12, 100) and pres(a["x"], b_["x"] + g8, 1e-12) for a, b_ in zip(s8.appuis, s0.appuis))
+    and all(pres(s8.evaluer(x + g8)[k], s0.evaluer(x)[k], 1e-12, 1e5) for x in (0.7, 4.0, 6.5, 9.1, 12.5) for k in ("M_g", "M_d", "V_g", "V_d", "EIf"))
+    and pres(s8.evaluer(0.0)["EIf"], -th_A * g8, 1e-12) and pres(s8.evaluer(12.5 + g8 + d8)["EIf"], th_D * d8, 1e-12)
+    and s8.evaluer(0.5)["M_d"] == 0.0 and s8.evaluer(0.5)["V_d"] == 0.0, (s8.appuis, s0.appuis))
+
+# 6.5 · refus, repère, tronçons
+for nom, args in (("débord d'une console", ("console", [3.0], [], None, (1.0, 0.0))), ("débord d'une encastrée–appuyée", ("enc_app", [3.0], [], None, (0.0, 1.0))),
+                  ("débord d'une bi-encastrée", ("bi_enc", [3.0], [], None, (1.0, 1.0))), ("débord négatif", ("appuis", [3.0], [], None, (-0.5, 0.0))),
+                  ("une seule longueur", ("appuis", [3.0], [], None, (1.0,))), ("débord non fini", ("continue", [3.0, 3.0], [], None, (float("inf"), 0.0))),
+                  ("charge au-delà du bout droit", ("appuis", [3.0], [F(1.0, 4.6)], None, (1.0, 0.5)))):
+    try:
+        P.resoudre(*args)
+        chk(f"refus : {nom}", False, "accepté")
+    except P.ErreurDonnees as ex:
+        chk(f"refus : {nom} ({ex})", True)
+s = P.resoudre("appuis", [3.4], [Q(2.0, 0.0, round(0.3 + 3.4 + 0.5, 12)), F(1.0, 0.3 + 3.4 + 0.5 + 1e-12)], None, (0.3, 0.5))
+chk("repère : la barre va de 0 à g + L + d (0,3 + 3,4 + 0,5), la charge par défaut la couvre, un bout tapé est ramené au bout",
+    pres(s.L, 4.2) and [round(a["x"], 12) for a in s.appuis] == [0.3, 3.7] and [t.debord for t in s.travees] == ["gauche", None, "droite"]
+    and pres(sum(a["R"] for a in s.appuis), 2.0 * 4.2 + 1.0)
+    and pres(sum(a["R"] for a in P.resoudre("appuis", [3.4], [{"type": "q", "v": 2.0, "a": 0.0}], None, (0.3, 0.5)).appuis), 8.4), s.appuis)
+chk("une poutre à débord n'est pas un cas d'école (None) ; sans débord, le même cas l'est",
+    P.cas_ecole(P.resoudre("appuis", [6.0], [Q(1.0, 1.0, 7.0)], None, (1.0, 0.0))) is None
+    and P.cas_ecole(P.resoudre("appuis", [6.0], [Q(1.0, 0.0, 6.0)]))["cle"] == "appuis_q")
+
+# 6.6 · mutations des débords (le source muté doit être refusé : contrôle interne ou formulaire de ce fichier)
+eq_cont = lambda M: M.resoudre("continue", Ls6, ch6, EI, debords=(g6, d6))                     # noqa: E731
+for nom, avant, apres, essai in (
+        ("moment de rive oublié (trois moments : M_A = 0 au lieu du moment du débord)",
+         "Mi = [M_g] + _resoudre_tridiagonal(Ls, connus) + [M_d]", "Mi = [0.0] + _resoudre_tridiagonal(Ls, connus) + [0.0]", eq_cont),
+        ("moment de rive oublié au second membre des trois moments", "connus[0] -= Ls[0] * M_g", "connus[0] -= 0.0", eq_cont),
+        ("moment de rive oublié (deux appuis)", "t0.fermer(M_g, M_d)", "t0.fermer(0.0, 0.0)", lambda M: attendu(debord_gauche_q(M))),
+        ("débord compté dans la portée (l'appui A au bout de la barre)", "tr = _repartir(Ls, ch, g_, d_)",
+         "tr = _repartir([g_ + Ls[0]] + Ls[1:], ch, 0.0, d_)", lambda M: attendu(debord_gauche_q(M))),
+        ("flèche du débord sans la rotation de l'appui", "dg.raccorder(t0.EIrot(0.0))", "dg.raccorder(0.0)", lambda M: attendu(debord_gauche_q(M))),
+        ("charge du débord droit absente de la réaction de rive", '"R": tn.R_B if dd is None else tn.R_B + dd.R_A', '"R": tn.R_B', eq_cont)):
+    src = open(os.path.join(RACINE, "rdm", "poutres.py"), encoding="utf-8").read()
+    assert src.count(avant) == 1, nom
+    espace = {"__name__": "rdm_poutres_mute"}
+    exec(compile(src.replace(avant, apres), "poutres_mute.py", "exec"), espace)
+    M_ = type("M", (), {k: staticmethod(v) if callable(v) and not isinstance(v, type) else v for k, v in espace.items() if not k.startswith("__")})
+    try:
+        essai(M_)
+        chk(f"mutation du source « {nom} » : refusée", False, "le calcul abîmé est passé")
+    except Exception as ex:                                # ErreurControle de l'espace muté, ou le formulaire non retrouvé
+        chk(f"mutation du source « {nom} » : refusée ({type(ex).__name__})", type(ex).__name__ in ("ErreurControle", "AssertionError"), ex)
+chk("après les mutations des débords, le moteur est revenu (débord gauche : M_A = −q·g²/2)", debord_gauche_q())
+
+# ================================================================================================ 7 · sans dépendance
 import subprocess  # noqa: E402
 
 sonde = ("import sys\nclass R:\n    def find_spec(self, n, p=None, t=None):\n"
