@@ -437,6 +437,10 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 | Facteur f et tableau 6.6 (§ 6.3.2.3(2)) | formule EN, tableau complet (lot B) | ANB:2018, 6.3.2.3(2) : normatifs | pointé |
 | Méthode de déversement des I et H laminés | § 6.3.2.3 ; § 6.3.2.2 pour information | ANB:2018 (n'impose rien) | DÉCISION BUREAU n° 4 |
 | Déversement d'un I soudé, PRS ou I saisi « soudé » (`prs_soudee_equivalente`) | non : § 6.3.2.2 (k_c = 1, f = 1), § 6.3.2.3 pour information ; oui (section bisymétrique « soudée équivalente ») : § 6.3.2.3, § 6.3.2.2 pour information ; un PRS monosymétrique : § 6.3.2.2 seul | EN 1993-1-1 § 6.3.2.3(1) : « soudées équivalentes », équivalence non définie | DÉCISION BUREAU n° 10 (défaut : non) |
+| η₁ de l'interaction (7.2) de l'âme (`eta1_ame`) | élastique (W_el) ; la variante plastique (W_pl, classes 1 et 2) dite à côté | EN 1993-1-5 § 7.2 | DÉCISION BUREAU n° 1 (lot C) |
+| Contact d'extrémité « inconnu » d'une force du type (c) (`contact_inconnu`) | non : verdict sur s_s = 0 dans (6.10) ; « oui » : s_s gardé ; l'autre lecture dite pour information | EN 1993-1-5 § 6, (6.10) | DÉCISION BUREAU n° 2 (lot C) |
+| A_v,y d'un I ou H laminé (`avy_lamine`) | 2·b·t_f ; variante A − h_w·t_w | EN 1993-1-1 | DÉCISION BUREAU n° 3 (lot C ; Q3) |
+| Console en flexion composée N + M (`console_NM`) | non couvert ; aucune variante calculable tant que le bureau n'a pas fixé de méthode | § 6.3.3, annexe D ANB | DÉCISION BUREAU n° 9 (lot C) — **À VÉRIFIER** |
 | Méthode de § 6.3.3 | méthode 1, écriture de l'annexe D ANB | ANB:2018, 6.3.3(5) | pointé (lot B) |
 | Borne inférieure de C_mi,0 | aucune (clé retirée, lot B) | tableau D.1 ANB | pointé |
 | γ de n_pl quand γ_M0 ≠ γ_M1 | γ_M1 (annexe D ANB) ; la variante γ_M0 affichée | annexe D ANB / AC:2009 | **À CONFIRMER** (seulement si γ_M0 ≠ γ_M1) |
@@ -445,6 +449,12 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 | ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB (brief) | à pointer |
 | ψ de la neige, du vent, de la température | 0,5/0,2/0 ; 0,6/0,2/0 ; 0,6/0,5/0 (valeurs EN) | — | **À CONFIRMER** |
 | Combinaison de la méthode ELS | G + ΣQ, tout à 100 % | pratique du bureau | **À CONFIRMER** (Q4) |
+
+Les DÉCISIONS BUREAU (n° 1, 2, 3, 4, 9, 10) ont UN statut dans la table (`DECISION`) et une entrée {valeur par défaut,
+variante, valeurs admises, point du § 13.2, source} ; chaque moteur lit la sienne par `parametres.jeu()` — changer le
+défaut dans la table change le verdict, l'autre variante est rendue à côté (`tests/test_barre_moteur.py`, mutations du
+lot C). `parametres.decisions()` les rend dans l'ordre de leur numéro (ce que la note imprimera, C5). Le seuil de 95 %
+(n° 7) n'y est pas : c'est celui du site (`api_web/commun.py`).
 
 « À pointer » : la valeur est celle de l'EN, connue ; il reste à la lire sur le texte belge. « À CONFIRMER » : la valeur
 change un résultat et sa source n'est pas le texte — elle est imprimée comme telle dans la note.
@@ -963,6 +973,35 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | 6 | écran (trois formats) et note (ELS, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
 | 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
 
+### 9.1 Le socle du lot C (C0, 17/11/2026)
+
+- **Le statut « bloqué »** (`resultat.BLOQUE`) : une donnée manque ou se contredit — les bords des semelles d'un PRS, la
+  fabrication d'un tube, une classe de déversement à fournir (méthode ELS), une décision de l'âme impossible (s_s à
+  saisir). Le calcul reste fait du côté défavorable, son taux montré POUR INFORMATION, jamais jugé. Gravité :
+  non conforme > bloqué > non couvert > hors domaine > conforme (`resultat.pire_statut` ; un statut inconnu lève).
+  À l'écran et dans la note : « Bloqué », en un mot ; la raison en une ligne (le premier message de la vérification).
+- **La couleur d'un taux sous son statut** : UNE fonction, `profil_mots.couleur_taux(statut, taux)` — rouge si la
+  vérification ne passe pas ; « à vérifier » (v) sous bloqué, non couvert ou hors domaine ; sinon la couleur du taux.
+  La pastille du verdict, la ligne « Profilé », les cases de la comparaison (écran et note) la lisent. Sous le verdict
+  d'une méthode, une ligne dit ce que le taux ne juge pas : « + 1 non couvert : flexion composée ». Mesuré : console de
+  3 m, N = 50 kN — la puce Eurocode 3 (57 %) était verte, elle est « v ».
+- **Les deux méthodes toujours calculées** : `moteur.verifier` rend toujours la méthode ELS et l'Eurocode 3 ;
+  `b["methodes"]` reste lu (anciennes notes) mais ne décide plus du calcul. La NOTE imprime `etat["impression"]` :
+  « deux » (défaut), « historique » ou « ec3 ». Une note sans cette clé : version 1 → « ec3 » ; une seule et même méthode
+  cochée dans toutes ses barres → celle-là ; sinon « deux ». Le segment « Méthodes » de l'écran écrit cette clé.
+- **La comparaison par sujets** (`acier/barre/comparaison.py`) : sept sujets (flambement axe faible, axe fort, flexion
+  composée, déversement, cisaillement, âme sous charges, raidisseurs) ; une ligne {sujet, historique, ec3, commun,
+  ecart} ; une case {taux (le plus fort JUGÉ), statut (le pire), gouvernant}. Tout identifiant que rend le moteur est
+  rangé (`tests/test_barre_comparaison.py`, quinze barres). Une méthode qui refuse la barre (E-SECTION) est « non
+  couvert » sur chaque ligne. Les lignes « Le plus défavorable » et l'âme comme méthode sont parties.
+- **Le contrat des entrées du lot C** (`entree.normaliser`, chaque clé son défaut et son refus d'une ligne) : `prs`,
+  `norme_produit`, `ouvrage`, `combinaisons` {expression, geotechnique, regle_courte_duree}, cas `courte_duree`, `psi0`,
+  `N_troncons`, charge `niveau`, ponctuelle `introduction`, maintien `neglige`, `position`, `angle`, `appuis.detail`,
+  `points`, `flambement.{y,z}.courbe`, `poids_propre_efforts`, `debords` ; au plus 24 maintiens. Rien de neuf n'est
+  CALCULÉ (les blocs C1 à C7 le feront). La tolérance de 5 % de la méthode ELS est retirée (brief § 13.2, point 5) : forcée
+  à non, l'ancienne valeur gardée (`tolerance_retiree`) pour la note.
+- **Les DÉCISIONS BUREAU** dans la table (§ 5.8) : aucun défaut ne change, aucun taux ne bouge.
+
 ## 10. À confirmer par le bureau
 
 | # | Question | En attendant |
@@ -974,7 +1013,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q5 | Tube Ø610 : fini à chaud (courbe a) ou formé à froid et soudé (c) ; horizontal ou vertical (poids propre) | a ; non compté |
 | Q6 | Seuil du statut « à la limite » dans la note | celui des notes existantes (95 %) |
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
-| Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | ainsi |
+| Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | lot C (C0d) : l'écran montre toujours les deux ; la note imprime « les deux » (défaut), l'ELS seule ou l'Eurocode 3 seul — le choix de la NOTE (etat « impression ») ; la méthode ELS vient la première |
 | Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF), avec les remarques de SCIA sur les erreurs de la référence : elles ne sont pas joignables d'ici | benchmark 21 : quatorze valeurs du brief comparées (diagramme de M_y déduit) ; 17 à 20 et 22 bloqués (`tests/test_barre_benchmarks.py`) |
 | Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
 | Q11 | La longueur d'appui s_s non saisie : le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | lot B : vide, calcul à la borne 0 (prudent) ; « décision impossible : s_s à saisir » si la borne ne passe pas (brief § 8.3, point 5) |
