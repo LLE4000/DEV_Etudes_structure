@@ -198,6 +198,18 @@ def donnees(el: Dict, r: Dict) -> Dict:
     return {"titre": "La barre et ses charges" if el["mode"] == "chargee" else "La barre et ses efforts", "items": items, "verdicts": []}
 
 
+def case_taux(statut: Optional[str], taux: Optional[float], gras: bool = False) -> tuple:
+    """La case « TAUX » d'un tableau de la note — les lieux de l'âme, le bilan des combinaisons, la comparaison : la couleur
+    d'un taux sous son statut, celle de l'écran (``profil_resultat.niveau_taux``, qui lit ``profil_mots.couleur_taux``). Rouge
+    pour un refus ; À L'ENCRE, sans la couleur « conforme », pour un taux montré pour information (bloqué, non couvert, hors
+    domaine) ou absent ; vert sinon. (Lot C, reprise de C0 : les lieux et les combinaisons peignaient en vert le taux d'une
+    décision impossible — 156,7 % à la borne, aux appuis de la barre neuve.)"""
+    niv = R.niveau_taux({"statut": statut, "taux": taux})
+    if niv in ("v", "c"):
+        return ("num", taux_ecrit(taux), gras)
+    return ("eta", taux_ecrit(taux), niv != "r", gras)
+
+
 def _tableau_combinaisons(x: Dict, largeur: float, noms: Optional[Dict[str, str]] = None) -> Optional[tuple]:
     """Le bilan des combinaisons d'une méthode (deux au moins) : chacune, la vérification qui y gouverne, son taux ;
     les plus chargées d'abord, COMBINAISONS_MAX au plus. ``noms`` : un autre nom pour certaines vérifications."""
@@ -210,7 +222,7 @@ def _tableau_combinaisons(x: Dict, largeur: float, noms: Optional[Dict[str, str]
     for c in tri[:COMBINAISONS_MAX]:
         gov = c["nom"] == x.get("combinaison")
         quoi = titres.get(c["gouvernant"], c["gouvernant"] or "—")
-        lignes.append([("lab", c["nom"], gov), ("ref", _minuscule(quoi)), ("eta", taux_ecrit(c["taux"]), c["statut"] != RE.NOK, gov)])
+        lignes.append([("lab", c["nom"], gov), ("ref", _minuscule(quoi)), case_taux(c["statut"], c["taux"], gov)])
     cols = [("COMBINAISON", largeur - 78 - 40, "left"), ("CE QUI Y GOUVERNE", 78, "left"), ("TAUX", 40, "right")]
     note = None
     if len(combs) > COMBINAISONS_MAX:
@@ -257,7 +269,7 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
             plats = M.decision_lieu(L)
             gov = a.get("gouvernant") in L["verifications"]
             lignes.append([("lab", L["nom"], gov), ("ref", f"{M.r1(L['F_Ed'])} kN"), ("lab", plats, L["decision"] == "raidisseur"),
-                           ("eta", taux_ecrit(L["taux"]), L["statut"] != RE.NOK, gov)])
+                           case_taux(L["statut"], L["taux"], gov)])
         cols = [("LIEU", 58, "left"), ("FORCE", 44, "left"), ("DÉCISION", largeur - 58 - 44 - 40, "left"), ("TAUX", 40, "right")]
         items.append(("tab", cols, lignes))
     # (dans le bilan des combinaisons, une vérification d'un lieu se dit par son lieu : « appui A »)
@@ -328,9 +340,7 @@ def comparaison_methodes(r: Dict, largeur: float) -> Dict:
     def case(c):
         if c is None or c["taux"] is None:
             return ("num", _case_taux(c))
-        if R.niveau_taux(c) == "v":
-            return ("num", taux_ecrit(c["taux"]))
-        return ("eta", taux_ecrit(c["taux"]), c["statut"] != RE.NOK and c["taux"] <= 1.0, False)
+        return case_taux(c["statut"], c["taux"])
 
     lignes = [[("lab", li["sujet"], False), case(li["historique"]), case(li["ec3"])]
               for li in r["comparaison"] if li["historique"] is not None or li["ec3"] is not None]

@@ -433,6 +433,24 @@ def parite(etat, pages):
             nombre("la flèche", f"{C.fr(abs(fl['valeur']), 1)} mm")
         veut("ce que la note ne vérifie pas", "Ce que la note ne vérifie pas")
         veut("… dont les raidisseurs intermédiaires d'une âme élancée, les soudures et les assemblages", "raidisseurs intermédiaires")
+        # (lot C, reprise de C0) les tableaux de l'âme (ses lieux) et le bilan des combinaisons (d'une méthode, de l'âme) : un taux sous un
+        # statut bloqué, non couvert ou hors domaine est imprimé SANS la couleur « conforme » (à l'encre, « num ») ; un lieu qui passe,
+        # en vert ; un refus, en rouge — la couleur de l'écran (profil_mots.couleur_taux)
+        tabs_ = [i for i in NP.ame(el, r, 160.0)["items"] if i[0] == "tab"]
+        if r["ame"]["lieux"]:
+            for L, ligne in zip(r["ame"]["lieux"], tabs_[0][2]):
+                c_ = ligne[3]
+                attendu = ("num" if L["statut"] in M.STATUTS_A_VERIFIER else ("eta", L["statut"] != RE.NOK)) if L["taux"] is not None else None
+                if attendu is not None:
+                    veut(f"le taux du lieu « {L['nom']} » sous « {L['statut']} » à la couleur de son statut", attendu,
+                         (c_[0] == "num") if attendu == "num" else (c_[0] == "eta" and c_[2] == attendu[1]))
+        for x_ in list(r["methodes"].values()) + [r["ame"]]:
+            t_ = NP._tableau_combinaisons(x_, 160.0)
+            for ligne in (t_[2] if t_ else []):
+                c_ = next(c for c in x_["combinaisons"] if c["nom"] == ligne[0][1])
+                if c_["taux"] is not None and c_["statut"] in M.STATUTS_A_VERIFIER:
+                    veut(f"le taux de la combinaison « {c_['nom']} » sous « {c_['statut']} » imprimé sans la couleur « conforme »", "num",
+                         ligne[2][0] == "num")
     return faux
 
 
@@ -760,6 +778,21 @@ def demander_autre():
 
 
 # ------------------------------------------------------------------ 8. les mutations
+def _source_mutee(module, ancien, nouveau):
+    """Une copie d'un fichier, son TEXTE muté (une seule occurrence de ``ancien`` : sinon la suite rougit, la mutation ne
+    passerait pas pour rouge sans avoir rien muté)."""
+    import importlib.util
+    src = open(module.__file__, encoding="utf-8").read()
+    if src.count(ancien) != 1:
+        chk(f"le texte à muter est dans {module.__name__}, une seule fois : « {ancien.strip()[:70]} »", False, src.count(ancien))
+        raise ValueError(f"texte à muter absent ou répété dans {module.__name__}")
+    spec = importlib.util.spec_from_file_location(module.__name__ + "_mute", module.__file__)
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = module.__package__
+    exec(compile(src.replace(ancien, nouveau), module.__file__, "exec"), mod.__dict__)
+    return mod
+
+
 def _une_barre_de_moins(vrai):
     return lambda etat, style=None: vrai(etat, style)[:-1]
 
@@ -884,6 +917,14 @@ MUTATIONS = (
     # (lot C, C0b) la même, sur la console comprimée : l'Eurocode 3 non couvert, ses taux en vert
     ("la comparaison peint un taux non couvert de la couleur « conforme »", NP.R, "niveau_taux",
      lambda vrai: (lambda case: C.niveau(case["taux"]) if case and case["taux"] is not None else "c"), ["une console comprimée (N + M non couvert)"]),
+    # (lot C, reprise de C0) les lieux de l'âme et le bilan des combinaisons peints au taux seul — le défaut mesuré : 156,7 % « décision
+    # impossible » en vert aux appuis de la barre neuve ; l'Eurocode 3 « non couvert » de la console, ses combinaisons en vert
+    ("les lieux de l'âme peints « conformes » dès qu'ils ne refusent pas (L[\"statut\"] != RE.NOK)", NP, "ame",
+     lambda vrai: _source_mutee(NP, 'case_taux(L["statut"], L["taux"], gov)', '("eta", taux_ecrit(L["taux"]), L["statut"] != RE.NOK, gov)').ame,
+     ["la barre neuve"]),
+    ("le bilan des combinaisons peint « conforme » dès qu'il ne refuse pas (c[\"statut\"] != RE.NOK)", NP, "_tableau_combinaisons",
+     lambda vrai: _source_mutee(NP, 'case_taux(c["statut"], c["taux"], gov)', '("eta", taux_ecrit(c["taux"]), c["statut"] != RE.NOK, gov)')._tableau_combinaisons,
+     ["une console comprimée (N + M non couvert)"]),
     ("la note oublie la couleur d'un taux sous son statut (« eta » au lieu de « num »)", NP, "comparaison_methodes",
      lambda vrai: (lambda r, largeur: (lambda o: dict(o, items=[("tab", i[1], [[li[0]] + [("eta", c[1], True, False) if c[0] == "num" and "%" in c[1] else c
                                                                               for c in li[1:]] for li in i[2]]) if i[0] == "tab" else i
