@@ -41,7 +41,7 @@ MODES_APPUI = (("poses", "Posée", "La barre repose sur ses appuis : la réactio
                ("ame", "Par l'âme", "Platine d'about, cornières, gousset : aucune force concentrée sur l'âme aux appuis."))
 NOM_MODE_APPUI = {"poses": "posée", "ame": "par l'âme"}
 AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre dans la semelle (largeur de l'appui, platine, semelle du "
-           "poteau qui charge). 0 : le cas le plus défavorable.")
+           "poteau qui charge). Vide : calcul à la borne 0 (prudent).")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
          ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la {minuscule(METHODES['historique'])}, ceux de calcul pour l'Eurocode."))
@@ -127,7 +127,7 @@ def raidis(a: Dict) -> list:
 
 def decision_lieu(L: Dict) -> str:
     """Ce qu'un lieu décide, en mots (du texte) : la paire de plats, « sans raidisseur », ou la décision impossible et ce
-    qui manque (« décision impossible : s_s à fournir » — brief § 8.3, point 5)."""
+    qui manque (« décision impossible : s_s à saisir » — brief § 8.3, point 5)."""
     if L["decision"] == "raidisseur":
         return L["raidisseur"]["designation"]
     if L["decision"] == "impossible":
@@ -138,7 +138,7 @@ def decision_lieu(L: Dict) -> str:
 
 def resume_ame(a: Dict) -> str:
     """Ce que le bloc de l'âme décide, en une phrase (du texte) : « Pas de raidisseur nécessaire » ; « Raidisseurs :
-    2 plats 70 × 12 mm (appui A, appui B) » ; « Décision impossible : s_s à fournir (appui A, appui B) » ; « Âme élancée
+    2 plats 70 × 12 mm (appui A, appui B) » ; « Décision impossible : s_s à saisir (appui A, appui B) » ; « Âme élancée
     vérifiée au cisaillement » ; vide quand rien n'appuie sur l'âme. La même à l'écran et dans la note."""
     r = raidis(a)
     imp: Dict[str, list] = {}

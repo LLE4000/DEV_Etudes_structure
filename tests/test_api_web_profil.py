@@ -72,7 +72,7 @@ def enchainer(etat, *saisies):
 
 
 def note(*barres):
-    return {"version": 2, "elements": list(barres) or [P.barre_neuve()], "actif": 0}
+    return {"version": P.VERSION, "elements": list(barres) or [P.barre_neuve()], "actif": 0}
 
 
 def barre(**k):
@@ -103,19 +103,20 @@ neuf = req(action="nouveau")
 e0 = neuf["etat"]
 el0 = e0["elements"][0]
 r0 = moteur(el0)
-chk("une note neuve : version 2, une barre B1 — IPE 300, S235, deux appuis de 6 m, G et Q de 5 kN/m, poids propre, tenue à mi-portée",
-    neuf["ok"] and e0["version"] == 2 and len(e0["elements"]) == 1 and e0["actif"] == 0 and el0["nom"] == "B1" and el0["profil"] == "IPE 300"
+chk("une note neuve : version 3 (3e reprise du lot B), une barre B1 — IPE 300, S235, deux appuis de 6 m, G et Q de 5 kN/m, poids propre, tenue à mi-portée",
+    neuf["ok"] and e0["version"] == P.VERSION == 3 and len(e0["elements"]) == 1 and e0["actif"] == 0 and el0["nom"] == "B1" and el0["profil"] == "IPE 300"
     and el0["nuance"] == "S235" and el0["mode"] == "chargee" and el0["modele"] == "appuis" and el0["travees"] == [6.0]
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
 chk("ses DEUX méthodes tiennent (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; "
     "mais s_s et c ne sont pas saisis, et à leur borne 0 l'âme ne passe pas (critère 6.2.1(5), 157 %) : décision impossible (brief § 8.3, "
-    "point 5) — la note est « À vérifier », son résumé porte le taux le plus fort (le harnais suit : « à fournir » à la 2e reprise)",
+    "point 5) — la note est « À vérifier », son résumé porte le taux le plus fort ; seule s_s est demandée (le critère ne lit pas c — le harnais "
+    "suit : « s_s et c » à la 2e reprise)",
     r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.74 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)"
-    and "Âme · Décision impossible : s_s et c à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
+    and "Âme · Décision impossible : s_s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
 # la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
 DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
 chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %) et la note redevient « Conforme »",
@@ -385,7 +386,7 @@ anc = req(action="calculer", etat=V1)
 ea = anc["etat"]["elements"][0] if anc["ok"] else {}
 chk("une note de la version 1 est relue en « efforts imposés », Eurocode 3 seul : ses efforts de calcul, son acier, son profilé, ses longueurs de "
     "flambement, son γ_M1 ; un effort dont la case n'était pas cochée est nul ; sans déversement coché, L_c = 0",
-    anc["ok"] and anc["etat"]["version"] == 2 and ea["mode"] == "efforts" and ea["methodes"] == ["ec3"] and ea["nuance"] == "S355" and ea["profil"] == "HEB 200"
+    anc["ok"] and anc["etat"]["version"] == P.VERSION and ea["mode"] == "efforts" and ea["methodes"] == ["ec3"] and ea["nuance"] == "S355" and ea["profil"] == "HEB 200"
     and ea["efforts"]["elu"] == {"N": 600.0, "My": 60.0, "Mz": 0.0, "Vz": 40.0, "Vy": 0.0} and ea["flambement"] == {"y": {"L": 6.0, "u": 1.0}, "z": {"L": 3.0, "u": 1.0}}
     and ea["Lc"] == 0.0 and ea["parametres"] == {"gamma_M1": 1.1} and ea["nom"] == "P1", ea)
 chk("… et son résultat est celui du moteur sur cette barre (flambement, flexion composée ; pas de déversement : L_c = 0)",
@@ -400,20 +401,20 @@ chk("une ancienne note qui « suivait l'optimal » (aucun profilé choisi) reço
     suivi["ok"] and es["profil"] == plus_legers[0] and moteur(es)["statut"] == "ok", (es.get("profil"), plus_legers[:2]))
 chk("une note relue est stable : la relire encore ne la change pas", req(action="calculer", etat=anc["etat"])["etat"] == anc["etat"])
 chk("une note illisible est refusée avec un message qui nomme la barre", "barre 1" in req(action="calculer", etat=note(barre(profil="IPE 9999")))["erreur"]
-    and "barre 2" in req(action="calculer", etat={"version": 2, "actif": 0, "elements": [P.barre_neuve(), "n'importe quoi"]})["erreur"])
+    and "barre 2" in req(action="calculer", etat={"version": P.VERSION, "actif": 0, "elements": [P.barre_neuve(), "n'importe quoi"]})["erreur"])
 
 print("=== 6 bis. L'âme et ses raidisseurs (EN 1993-1-5)")
 ra = r0["ame"]
 bloc = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
 chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « À vérifier », la norme et les combinaisons ELU ; "
-    "une ligne par appui — « décision impossible : s_s et c à saisir », avec le taux à la borne (157 %, en gris) ; l'avertissement en pied (le "
+    "une ligne par appui — « décision impossible : s_s à saisir », avec le taux à la borne (157 %, en gris) ; l'avertissement en pied (le "
     "harnais suit : sans taux, « à fournir », à la 2e reprise du lot B — brief § 8.3, point 5)",
     bloc is not None and tb.startswith("Âme et raidisseurs À vérifier") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
-    and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s et c à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
-    and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s et c à saisir." in tb and ra["taux_max"] is None, tb[:400])
+    and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
+    and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s à saisir." in tb and ra["taux_max"] is None, tb[:400])
 chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
-    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s et c à saisir (appui A, appui B)" in texte(neuf["resultat"]))
+    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s à saisir (appui A, appui B)" in texte(neuf["resultat"]))
 rd = moteur(DECIDE["etat"]["elements"][0])["ame"]
 bd = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', DECIDE["resultat"], re.S)
 tbd = texte(bd.group(1)) if bd else ""
@@ -439,7 +440,7 @@ for L in ra["lieux"]:
             parts, res = W.morceaux(par[cle])
             if res not in t or parts[-1] not in t:
                 manques.append((L["nom"], cle, res))
-    if "décision impossible : s s et c à saisir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
+    if "décision impossible : s s à saisir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
         manques.append((L["nom"], "en-tête ou hypothèses"))
 chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules (à la borne s_s = c = 0) écrites par "
     "acier.barre.ecriture, les hypothèses du bloc, « décision impossible » ; « tout le calcul » du bloc (s3) porte ses vérifications et ses "
@@ -592,7 +593,7 @@ chk("ajouter une barre (B2, ouverte) ; copier la première (« B1 (copie) », in
     and [e["nom"] for e in req(action="supprimer", etat=d2["etat"], index=1)["etat"]["elements"]] == ["B1", "B2"]
     and req(action="activer", etat=d2["etat"], index=2)["etat"]["actif"] == 2 and len(req(action="supprimer", etat=e0, index=0)["etat"]["elements"]) == 1)
 # (la solive : s_s et c saisis, l'âme décide — sans eux, elle serait « à vérifier » : brief § 8.3, point 5)
-mixte = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
+mixte = req(action="calculer", etat={"version": P.VERSION, "actif": 0, "elements": [dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
                                                                           barre(nom="Panne", maintiens=[])]})
 chk("le résumé de la NOTE est sa barre la plus chargée, son état le moins bon ; chaque barre a la couleur de son état dans la liste",
     mixte["resume"]["niveau"] == "r" and mixte["resume"]["taux"] == 179 and mixte["resume"]["gouvernant"].startswith("Panne · IPE 300 · flexion")
@@ -609,7 +610,7 @@ def espion(b):
 MO.verifier = espion
 try:
     P._RESULTATS.clear()
-    trois = {"version": 2, "actif": 0, "elements": [P.barre_neuve("A"), P.barre_neuve("B"), barre(nom="C", maintiens=[])]}
+    trois = {"version": P.VERSION, "actif": 0, "elements": [P.barre_neuve("A"), P.barre_neuve("B"), barre(nom="C", maintiens=[])]}
     req(action="calculer", etat=trois)
     n1 = appels[0]
     req(action="modifier", etat=trois, chemin=["nom"], valeur="Autre nom")
@@ -1056,9 +1057,9 @@ def borne_ecran():
          "c = 0 SAISI se lit (« c 0 mm »), il n'est pas « à saisir »",
          resume_ap(n_).startswith("Appuis posée · s s à saisir · c à saisir") and resume_ap(s_).startswith("Appuis posée · s s 100 mm · c à saisir")
          and resume_ap(z_).startswith("Appuis posée · s s 100 mm · c 0 mm"), (resume_ap(n_), resume_ap(s_), resume_ap(z_))),
-        ("la ligne d'un lieu impossible porte le taux à la borne (« Appui A 157 % décision impossible : s s et c à saisir ») ; à la borne qui "
+        ("la ligne d'un lieu impossible porte le taux à la borne (« Appui A 157 % décision impossible : s s à saisir ») ; à la borne qui "
          "passe, la ligne dit la borne (« sans raidisseur (c = 0 : borne prudente) ») ; c = 0 saisi : « sans raidisseur », sans borne",
-         "Appui A 157 % décision impossible : s s et c à saisir" in tn and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in ts
+         "Appui A 157 % décision impossible : s s à saisir" in tn and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in ts
          and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur Appui B" in tz, (tn[-300:], ts[-300:])),
     ]
 
@@ -1100,6 +1101,74 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_BORNE:
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles de la borne à l'écran sont verts", all(ok_ for _n, ok_, _i in borne_ecran()))
+
+print("=== 15. (3e reprise du lot B) une note de la version 2 (ses 0 de s_s et c : des défauts) ; l'aide de la longueur d'appui — et leurs mutations")
+AIDE_APPUIS = "Longueur d'appui ou débord vide : calcul à la borne 0 (prudent)."
+
+
+def note_v2():
+    """Les contrôles de la relecture d'une note de la version 2 et de l'aide de s_s, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    haute = barre(profil="IPE 750x147", travees=[4.0], poids_propre=False, maintiens=[{"x": 2.0, "genre": "complet"}],
+                  appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
+                  cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 220.0, "a": 0.0, "b": 4.0},
+                                                                                {"type": "P", "v": 1.0, "a": 2.0, "ss": 0.0}]}])
+    v2 = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [haute]})
+    v3 = req(action="calculer", etat=note(haute))
+    e2 = v2["etat"]["elements"][0] if v2.get("ok") else {}
+    e3 = v3["etat"]["elements"][0] if v3.get("ok") else {}
+    a2, a3 = (lieu_a(moteur(e)) if e else None for e in (e2, e3))
+    don = html.unescape(req(action="nouveau")["donnees"])
+    ch = html.unescape(req(action="calculer", etat=note(barre(cas=[{"nom": "G", "nature": "permanent", "N": 0.0,
+                                                                     "charges": [{"type": "P", "v": 5.0, "a": 3.0}]}])))["donnees"])
+    return [
+        ("une note de la VERSION 2 (le site d'avant le lot B écrivait 0,0 pour s_s et c non saisis) : relue en version 3, ses 0 deviennent "
+         "« non saisis » — appuis (c) et charge ponctuelle (s_s) ; une valeur non nulle est gardée (s_s = 200 mm)",
+         v2.get("ok") and v2["etat"]["version"] == P.VERSION and e2["appuis"]["ss"] == 200.0 and e2["appuis"]["c"] is None and e2["mode"] == "chargee"
+         and e2["cas"][0]["charges"][1]["ss"] is None and e2["profil"] == "IPE 750x147", e2.get("appuis")),
+        ("… le côté prudent : IPE 750x147 S235, 4 m, 220 kN/m, s_s = 200 mm — relue, l'appui A dit « décision impossible : c à saisir » (borne "
+         "542,1 kN < 594,0 kN) ; la même note en version 3 (c = 0 SAISI) décide « sans raidisseur » (674,0 kN, 88 %) — alors qu'à c = 20 mm, il "
+         "faut un raidisseur (553,4 kN) : le 0 d'une note v2 n'est pas une saisie",
+         a2 is not None and a2["decision"] == "impossible" and a2["raison"] == "Décision impossible : c à saisir." and round(a2["sans"]["F_Rd"], 1) == 542.1
+         and a3 is not None and a3["decision"] == "aucun" and round(a3["sans"]["F_Rd"], 1) == 674.0 and e3["appuis"]["c"] == 0.0
+         and req(action="calculer", etat=v2["etat"])["etat"] == v2["etat"], (a2 and a2["raison"], a3 and a3["decision"])),
+        ("l'aide de la longueur d'appui (rubriques Appuis et Charges, et le survol de « s_s » et « sur ») dit le sens d'un champ VIDE — « calcul "
+         "à la borne 0 (prudent) » — et plus jamais « 0 : le cas le plus défavorable » (faux au type (c))",
+         AIDE_APPUIS in don and "Vide : calcul à la borne 0 (prudent)." in don and "(vide : calcul à la borne 0, prudent)" in ch
+         and "Vide : calcul à la borne 0 (prudent)." in ch and "défavorable" not in don + ch, re.findall(r".{60}défavorable.{20}", don + ch)[:2]),
+    ]
+
+
+def lieu_a(r):
+    return next((L for L in r["ame"]["lieux"] if L["nom"] == "Appui A"), None)
+
+
+for nom_, ok_, info_ in note_v2():
+    chk(nom_, ok_, info_)
+MUTATIONS_V2 = (
+    ("une note v2 relue telle quelle (ses 0 pris pour des saisies)", P, "_de_v2", lambda vrai: (lambda e: e)),
+    ("une note v2 prise pour une v1 (convertie en efforts imposés)", P, "_de_v2", lambda vrai: P._migrer),
+    ("les 0 SAISIS d'une note v3 aussi ramenés à « non saisi »", P, "normaliser",
+     lambda vrai: _source_mutee(P, "(lambda e: e) if version == VERSION else _de_v2 if version == 2", "_de_v2 if version in (2, VERSION)").normaliser),
+    ("l'aide de s_s redit « 0 : le cas le plus défavorable »", M, "AIDE_SS", lambda vrai: vrai.replace("Vide : calcul à la borne 0 (prudent).", "0 : le cas le plus défavorable.")),
+    ("l'aide des Appuis redit « longueur d'appui à 0 : le cas le plus défavorable »", P, "S",
+     lambda vrai: _source_mutee(vrai, "ou débord vide : calcul à la borne 0 (prudent).", "à 0 : le cas le plus défavorable.")),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_V2:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    try:
+        setattr(objet_, attr_, fabrique_(vrai_))
+        rouges_ = [n_ for n_, ok_, _i in note_v2() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles de la version 2 et de l'aide sont verts", all(ok_ for _n, ok_, _i in note_v2()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

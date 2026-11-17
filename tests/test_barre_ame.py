@@ -574,20 +574,22 @@ def controles(M=None):
     S300, I300 = 150.0 * 10.7 * (300.0 - 10.7) / 2.0, p3["Iy"] * 1e4
     crit0 = (Fed * 1e3 / (2.0 * 10.7 * 7.1) / 235.0) ** 2 + 3.0 * (Fed * 1e3 * S300 / (I300 * 7.1) / 235.0) ** 2
     c("la barre neuve (IPE 300, 6 m, G + Q, posée, s_s et c NON SAISIS) : deux lieux — Appui A, Appui B — vérifiés à la BORNE s_s = c = 0 "
-      "(F_Rd croît avec eux ; brief § 8.3, point 5) : type (c), F_Ed = 44,4 kN ≤ F_Rd = 58,0 kN (77 %), σ_x = 0 → les deux contrôles, "
-      "σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², critère 6.2.1(5) 1,57 > 1 : la borne ne passe pas — « DÉCISION IMPOSSIBLE : s_s et c à saisir », "
-      "non couvert, le taux à la borne (157 %) sur la ligne (le harnais suit : sans taux à la 2e reprise)",
+      "(la borne est sous F_Rd réel, prouvé par le balayage ; brief § 8.3, point 5) : type (c), F_Ed = 44,4 kN ≤ F_Rd = 58,0 kN (77 %), σ_x = 0 "
+      "→ les deux contrôles, σ_z,Ed = F_Ed/(2·t_f·t_w) = 292,6 N/mm², critère 6.2.1(5) 1,57 > 1 : la borne ne passe pas — « DÉCISION "
+      "IMPOSSIBLE : s_s à saisir » (seul le critère, qui ne lit pas c, ne passe pas : c n'est pas demandé — le harnais suit : « s_s et c » à la "
+      "2e reprise), non couvert, le taux à la borne (157 %) sur la ligne ; la borne dite UNE fois dans les hypothèses, marquée À VÉRIFIER",
       [L["nom"] for L in a["lieux"]] == ["Appui A", "Appui B"] and all(L["type"] == "c" and L["decision"] == "impossible" and L["ss"] == 0.0
                                                                       and L["statut"] == RE.NON_COUVERT and L["raidisseur"] is None
                                                                       and round(L["taux"], 3) == 1.567 and L["borne"] is None
-                                                                      and L["raison"] == "Décision impossible : s_s et c à saisir."
+                                                                      and L["raison"] == "Décision impossible : s_s à saisir."
                                                                       and L["sans"]["semelle"] == ["les_deux"] for L in a["lieux"])
       and proche(a["lieux"][0]["F_Ed"], Fed) and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 0, "c", 0))
       and round(a["lieux"][0]["sans"]["eta2"], 2) == 0.77 and proche(a["lieux"][0]["sans"]["critere"], crit0, 1e-6) and round(crit0, 2) == 1.57
       and round(a["lieux"][0]["sans"]["sigma_z"], 1) == 292.6 and a["statut"] == RE.NON_COUVERT and a["taux_max"] is None
       and [v["id"] for v in a["verifications"]] == ["A-L00-EL", "A-L00-F", "A-L01-EL", "A-L01-F"]
       and all(v["statut"] == RE.NON_COUVERT and v["taux"] is not None for v in a["verifications"])
-      and [x["message"] for x in a["alertes"]] == ["Appui A, appui B : décision impossible : s_s et c à saisir."], (a["lieux"][0], crit0))
+      and [x["message"] for x in a["alertes"]] == ["Appui A, appui B : décision impossible : s_s à saisir."]
+      and a["hypotheses"].count(AME.BORNE_HYPOTHESE) == 1 and "À VÉRIFIER" in AME.BORNE_HYPOTHESE, (a["lieux"][0], crit0))
     a00 = ame(appuis={"mode": "poses", "ss": 0.0, "c": 0.0})
     c("… les données non saisies sont DITES (hypothèses, message de la vérification) ; une note ANCIENNE (s_s = c = 0 SAISIS) rend les MÊMES "
       "chiffres — F_Rd, taux, critère — et décide (raidisseur, critère 1,57) : le libellé seul dit la différence",
@@ -612,6 +614,10 @@ def controles(M=None):
       L["decision"] == "impossible" and L["raison"] == "Décision impossible : c à saisir." and L["type"] == "c" and round(L["sans"]["F_Rd"], 1) == 199.8
       and L["sans"]["critere"] < 1.0 and proche(L["taux"], 1.35 * 52.0 * 3.0 / 199.8240, 1e-4) and L["statut"] == RE.NON_COUVERT and L4["type"] == "a"
       and L4["decision"] == "aucun", (L["raison"], L["taux"], L["sans"]["critere"], L4["decision"]))
+    L0 = ame(**dict(lourd_c, appuis={"mode": "poses", "ss": None, "c": None}))["lieux"][0]
+    c("… s_s et c non saisis, F_Rd à la borne qui ne passe pas (η₂ lit s_s et c) : « décision impossible : s_s et c à saisir » — les deux sont "
+      "demandés (seul le critère 6.2.1(5) ne lit pas c)",
+      L0["decision"] == "impossible" and L0["raison"] == "Décision impossible : s_s et c à saisir." and L0["sans"]["eta2"] > 1.0, (L0["raison"], L0["sans"]))
     a = ame(appuis={"mode": "poses", "ss": 100.0, "c": 0.0})
     b_ = ame(appuis={"mode": "poses", "ss": 100.0, "c": 50.0})
     c("s_s = 100 mm aux appuis (contact d'extrémité inconnu) : F_Rd = 199,8 kN (R4, type c, verdict sans contact) — avec contact 248,9 kN, dit "
@@ -619,7 +625,7 @@ def controles(M=None):
       round(a["lieux"][0]["sans"]["F_Rd"], 1) == 199.8 and round(b_["lieux"][0]["sans"]["F_Rd"], 1) == 199.8 and a["lieux"][0]["ss"] == 100.0
       and any("avec contact, F_Rd = 248,9 kN" in m for m in verif(a, "A-L00-F")["messages"])
       and any("avec contact, F_Rd = 335,9 kN" in m for m in verif(b_, "A-L00-F")["messages"])
-      and not any("non saisie" in h for h in a["hypotheses"]), (a["lieux"][0], b_["lieux"][0]))
+      and not any("non saisie" in h for h in a["hypotheses"]) and AME.BORNE_HYPOTHESE not in a["hypotheses"], (a["lieux"][0], b_["lieux"][0]))
     a = ame(appuis={"mode": "poses", "ss": 100.0, "c": 400.0})
     c("un débord assez long (s_s + c ≥ 2·h_w/3) : la réaction de rive n'est plus « près du bout » — type (a)",
       a["lieux"][0]["type"] == "a" and proche(a["lieux"][0]["sans"]["F_Rd"], frd_profil("IPE 300", 235.0, 100, "a")), a["lieux"][0])
@@ -691,6 +697,11 @@ def controles(M=None):
       "l'appui demande un raidisseur — test 31, plus bas)",
       vB is not None and proche(vB["valeur"], 27.0) and proche(vB["limite"], FRb) and lieu(a, "Appui B")["decision"] == "aucun"
       and any("Type (b)" in m for m in vB["messages"]) and verif(a, "A-L01-F") is not None, vB)
+    moins["cas"][0]["charges"][-1] = P_(20.0, 5.0)
+    vB0 = verif(ame(**moins), "A-L01-B")
+    c("… la même charge SANS s_s : la force transmise (type b) est calculée à la borne s_s = 0 — et le dit (« Non saisi : s_s = 0 »)",
+      vB0 is not None and vB0["messages"][:1] == ["Non saisi : s_s = 0 (borne prudente)."] and proche(vB0["limite"], frd_profil("HEA 200", 235.0, 0.0, "b")),
+      vB0 and vB0["messages"])
     lourd = dict(profil="HEB 300", travees=[4.0], appuis={"mode": "poses", "ss": 200.0, "c": 0.0}, maintiens=[{"x": 2.0, "genre": "complet"}],
                  cas=[{"nom": "G", "nature": "permanent", "charges": [P_(500.0, 2.0, 0.0)]}])
     a = ame(**lourd)
@@ -985,8 +996,10 @@ def controles(M=None):
     r1 = mo.verifier(barre(mode="efforts", profil="IPE 300", methodes=["ec3"], efforts={"service": {}, "elu": {"Vz": 100.0}},
                            flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
     c("brief § 8.3, point 8 : un LAMINÉ que V_pl,Rd fait échouer (IPE 300, V_z = 400 kN > 348,4 kN) — « le cisaillement gouverne : un raidisseur "
-      "ne réduit pas τ » ; rien quand il passe",
+      "ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd » ; à 100 kN, il passe et gouverne encore (seul effort) : dit, sans le remède",
       verif(r["methodes"]["ec3"], "E-Vz")["statut"] == RE.NOK and AM.MOT_CISAILLEMENT in verif(r["methodes"]["ec3"], "E-Vz")["messages"]
+      and AM.MOT_CISAILLEMENT_GOUVERNE not in verif(r["methodes"]["ec3"], "E-Vz")["messages"]
+      and verif(r1["methodes"]["ec3"], "E-Vz")["messages"].count(AM.MOT_CISAILLEMENT_GOUVERNE) == 1
       and AM.MOT_CISAILLEMENT not in verif(r1["methodes"]["ec3"], "E-Vz")["messages"], verif(r["methodes"]["ec3"], "E-Vz")["messages"])
     a = ame(**R2)
     c("« -EL » : titre « critère élastique à la jonction (6.2.1(5)) » ; à un appui d'extrémité (σ_x = 0), « les deux contrôles » ; semelle tendue "
@@ -1068,10 +1081,17 @@ def controles(M=None):
     cis = mo.verifier(barre(travees=[1.5], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.75, "genre": "complet"}],
                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(200.0, 0.0, 1.5), P_(5.0, 0.75, 100.0)]}]))
     vz, vz0 = verif(cis["methodes"]["ec3"], "E-Vz"), verif(mo.verifier(barre())["methodes"]["ec3"], "E-Vz")
-    c("brief § 8.3, point 8 : le cisaillement GOUVERNE l'âme (IPE 300, 1,5 m, 200 kN/m) — E-Vz passe (58 %) mais dépasse la force concentrée "
-      "(29 %) : « le cisaillement gouverne », dit ; la barre neuve (E-Vz 13 % sous ses appuis) : rien",
-      vz["statut"] == RE.OK and AM.MOT_CISAILLEMENT in vz["messages"] and vz["taux"] > max(v_["taux"] for v_ in cis["ame"]["verifications"] if v_["taux"])
-      and AM.MOT_CISAILLEMENT not in vz0["messages"], (vz["taux"], [v_["taux"] for v_ in cis["ame"]["verifications"]]))
+    peu = mo.verifier(barre(maintiens=[], appuis={"mode": "poses", "ss": 200.0, "c": 100.0}))
+    vzp = verif(peu["methodes"]["ec3"], "E-Vz")
+    tous = [v_["taux"] for r_ in (cis["methodes"]["ec3"], cis["ame"]) for v_ in r_["verifications"] if v_["id"] != "E-Vz" and v_["taux"] is not None]
+    c("brief § 8.3, point 8 : le cisaillement GOUVERNE (IPE 300, 1,5 m, 200 kN/m) — E-Vz passe (58 %) et a le plus fort taux de l'Eurocode 3 "
+      "et de l'âme : « le cisaillement gouverne », dit, sans le remède ; la barre neuve (E-Vz 13 %) : rien ; une barre peu chargée où E-Vz "
+      "(13 %) dépasse les forces concentrées (10 %) mais que le déversement gouverne (114 %) : rien (le harnais suit : le message y était posé)",
+      vz["statut"] == RE.OK and vz["messages"].count(AM.MOT_CISAILLEMENT_GOUVERNE) == 1 and AM.MOT_CISAILLEMENT not in vz["messages"]
+      and vz["taux"] >= max(tous) and AM.MOT_CISAILLEMENT_GOUVERNE not in vz0["messages"]
+      and round(vzp["taux"], 3) == 0.128 and max(v_["taux"] for v_ in peu["ame"]["verifications"] if v_["taux"]) < vzp["taux"]
+      and peu["methodes"]["ec3"]["taux_max"] > 1.0 and not any("cisaillement gouverne" in m for m in vzp["messages"]),
+      (vz["taux"], max(tous), vzp["messages"], peu["methodes"]["ec3"]["taux_max"]))
     sP6 = prs_section(300.0, 60.0, 200.0, 10.0, 300.0, 60.0)
     rP6 = ame_s(sP6, modele="console", travees=[2.0], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 1.0, "genre": "complet"}],
                 cas=[{"nom": "G", "nature": "permanent", "N": 560.0, "charges": [q(150.0, 0.0, 2.0), P_(1.5, 1.0)]}])
@@ -1349,7 +1369,8 @@ MUTATIONS = [
      '"sigma_z": AM.sigma_z(pire["F"] * 1e3, 0.0, r0["ame"]["tf"], s["tw"])["sigma_z"]'),
     ("raidisseurs", "reprise — raidisseur d'un PRS : h_w = h − 2·t_f", "    hw = AM.hw_de(s)", '    hw = s["h"] - 2.0 * s["tf"]'),
     ("ec3_ame", "reprise — h_w d'un PRS pour le raidisseur (relié par charger)", '        return float(p["hw"])', '        return float(p["hw"]) - 1.0'),
-    ("moteur", "reprise — un laminé que V_pl,Rd fait échouer : rien n'est dit", '(v["statut"] == RE.NOK or (locaux', "(False or (locaux"),
+    ("moteur", "reprise — un laminé que V_pl,Rd fait échouer : rien n'est dit (ou sans le remède)", '            if v["id"] == "E-Vz" and v["statut"] == RE.NOK:',
+     "            if False:"),
     # (2e reprise du lot B) la borne 0 de s_s et c, sa preuve ; N_st sur deux panneaux ; le groupe ; le maintien ; § 8.3 point 8
     ("ec3_ame", "2e reprise — borne : la règle des branches gardée au type (c)", "    if borne_m2:\n        B = sans", "    if False:\n        B = sans"),
     ("ec3_ame", "2e reprise — borne : m₂ = 0 même quand elle ne peut redevenir cohérente", "                and math.sqrt(sans[\"ly\"] * tw * fyw / (0.9 * KF_C_MAX * E * tw ** 3 / hw)) <= SEUIL_M2)",
@@ -1371,7 +1392,17 @@ MUTATIONS = [
     ("ame", "2e reprise — maintien : « les deux » n'exige pas l'autre semelle", "etats_[k] - {AM.COMPRIMEE}}", "etats_[k] & {AM.TENDUE}}"),
     ("ame", "2e reprise — maintien compté à 0,5 m près", 'any(abs(m["x"] - x) < MEME_ABSCISSE and m.get', 'any(abs(m["x"] - x) < 0.5 and m.get'),
     ("moteur", "2e reprise — § 8.3 point 8 : rien quand le cisaillement gouverne sans échouer",
-     '(v["statut"] == RE.NOK or (locaux and v["taux"] is not None and v["taux"] >= max(locaux)))', '(v["statut"] == RE.NOK)'),
+     '            elif v["id"] == "E-Vz" and v["taux"] is not None and v["taux"] >= max(autres, default=0.0):', "            elif False:"),
+    # (3e reprise du lot B) § 8.3 point 8 « gouverne » ; c demandé pour rien ; la borne dite dans les hypothèses ; le message de la force transmise
+    ("moteur", "3e reprise — § 8.3 point 8 : E-Vz comparé aux seules forces concentrées (la barre peu chargée reçoit le conseil)",
+     'for x in r_["verifications"] if x["id"] != "E-Vz" and x["taux"] is not None]', 'for x in r_["verifications"] if x["id"].startswith("A-L") and x["taux"] is not None]'),
+    ("moteur", "3e reprise — § 8.3 point 8 : le remède donné quand le cisaillement passe", "                v[\"messages\"].append(AME.AM.MOT_CISAILLEMENT_GOUVERNE)",
+     "                v[\"messages\"].append(AME.AM.MOT_CISAILLEMENT)"),
+    ("ame", "3e reprise — le critère 6.2.1(5) seul en cause : c demandé quand même", '            donnees, bout = [m for m in donnees if m == "s_s"], []', "            pass"),
+    ("ame", "3e reprise — critère seul : le filtre appliqué même quand η₂ ne passe pas",
+     '        if echec and pire["eta2"] <= 1.0 and not (pire["inter"] is not None and pire["inter"] > 1.0):', "        if echec:"),
+    ("ame", "3e reprise — la borne non dite dans les hypothèses du bloc", "        hyp.append(BORNE_HYPOTHESE) ", "        pass "),
+    ("ame", "3e reprise — la force transmise ne dit pas sa borne", 'messages=_mots_force(res["b"], _saisie(L, "b"))', 'messages=AM.mots_resistance(res["b"])'),
     ("moteur", "le statut de la barre ignore l'âme", '    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]', '    statuts = [r["statut"] for r in out["methodes"].values()]'),
 ]
 

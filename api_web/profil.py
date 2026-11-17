@@ -13,8 +13,9 @@ L'écran est l'établi COMPACT (api_web/etabli_compact.py) : à gauche la ligne 
 dessin_profil.py) ; à droite un verdict par méthode, le profilé, un bloc par méthode, leur comparaison, et les fenêtres
 de calcul (api_web/profil_resultat.py).
 
-Ce fichier tient l'ÉTAT de la note (``{"version": 2, "elements": [barre…], "actif": i}``), relit les anciennes notes
-(version 1 : des efforts de calcul et l'Eurocode seul — elles deviennent des barres en « efforts imposés »), écrit les
+Ce fichier tient l'ÉTAT de la note (``{"version": 3, "elements": [barre…], "actif": i}``), relit les anciennes notes
+(version 1 : des efforts de calcul et l'Eurocode seul — elles deviennent des barres en « efforts imposés » ; version 2 :
+ses s_s et c à 0 y sont « non saisis », ``_de_v2``), écrit les
 saisies et sert le sélecteur de profilés. Il ne calcule rien : toute saisie est relue par ``acier.barre.entree`` — hors
 domaine, elle est REFUSÉE avec le message du moteur et la barre reste intacte.
 """
@@ -43,7 +44,7 @@ from . import profil_saisie as S
 
 MODULE = "profil"
 PAGE = "choix-profile"
-VERSION = 2
+VERSION = 3                     # (3e reprise du lot B) un 0 de s_s ou de c est une SAISIE ; en version 2, un défaut (_de_v2)
 
 ROLE = "profil"                 # le seul sélecteur du module : le profilé de la barre ouverte
 GENRE = E.Genre("Barres", "la barre", "cette barre", "une barre")
@@ -145,6 +146,29 @@ def _migrer(e: Dict) -> Dict:
     return b
 
 
+def _zero(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0
+
+
+def _de_v2(e: Dict) -> Dict:
+    """Une barre d'une note de la version 2 (le site d'avant le lot B) : il y écrivait 0,0 pour s_s et c non saisis (appuis
+    et charges ponctuelles) — un 0 n'y distingue pas une saisie d'un défaut. Ramené à « non saisi » (None) : l'âme le prend à
+    sa borne, le dit, ou demande la donnée (brief § 8.2, § 8.3 point 5) — le côté prudent. La version 3 garde ses 0 saisis."""
+    if not isinstance(e, dict):
+        return e
+    e = copy.deepcopy(e)
+    ap = e.get("appuis")
+    if isinstance(ap, dict):
+        for k in ("ss", "c"):
+            if _zero(ap.get(k)):
+                ap[k] = None
+    for c in e.get("cas") if isinstance(e.get("cas"), list) else []:
+        for ch in (c.get("charges") if isinstance(c, dict) and isinstance(c.get("charges"), list) else []):
+            if isinstance(ch, dict) and ch.get("type") == "P" and _zero(ch.get("ss")):
+                ch["ss"] = None
+    return e
+
+
 def _completer(el: Dict) -> Dict:
     """La barre avec toutes ses clés : celles qui manquent prennent la valeur d'une barre neuve."""
     if not isinstance(el, dict):
@@ -175,18 +199,19 @@ def _relire(el: Dict) -> Dict:
 
 
 def normaliser(etat: Dict) -> Dict:
-    """L'état reçu de l'écran ou d'un fichier, relu : une note de la version 1 est convertie ; une barre illisible lève
-    une erreur claire."""
+    """L'état reçu de l'écran ou d'un fichier, relu : une note de la version 1 est convertie, une de la version 2 relue
+    (ses s_s et c à 0 « non saisis ») ; une barre illisible lève une erreur claire."""
     if not isinstance(etat, dict) or "elements" not in etat:
         return nouvel_etat()
     els = etat["elements"]
     if not isinstance(els, list) or not els:
         raise ValueError("les barres de la note sont illisibles (une liste de barres est attendue)")
-    ancienne = etat.get("version", 1) != VERSION
+    version = etat.get("version", 1)
+    lire = (lambda e: e) if version == VERSION else _de_v2 if version == 2 else _migrer
     out = {"version": VERSION, "elements": []}
     for i, e in enumerate(els):
         try:
-            out["elements"].append(_relire(_migrer(e) if ancienne else e))
+            out["elements"].append(_relire(lire(e)))
         except (ValueError, TypeError, KeyError) as ex:
             raise ValueError(f"barre {i + 1} : {ex}") from None
     a = etat.get("actif", 0)

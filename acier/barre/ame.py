@@ -30,15 +30,16 @@ UN RAIDISSEUR EST NÉCESSAIRE dès qu'une combinaison dépasse η₂ = 1 ou (η�
 posé d'une âme élancée au cisaillement (§ 5.1(2)). Il est dimensionné pour la plus grande force du lieu.
 
 UNE DONNÉE QUI MANQUE (brief § 8.3, point 5 ; § 8.2 : s_s jamais supposée) — la longueur d'appui s_s, le débord c d'un
-appui de rive (sauf quand la force y est du type (a) à c = 0 : c n'y change rien). F_Rd croît avec s_s et avec c ; 0 est
-leur BORNE BASSE, pas une supposition (au type (c), la branche m₂ = 0, cohérente ou non : ec3_ame.resistance, borne) :
-le lieu est vérifié à la borne. Tout passe → « pas de raidisseur », borne dite, taux donnés ; sinon « décision
-impossible : s_s à saisir », le taux à la borne sur la même ligne (À VÉRIFIER : lecture du point 5) — sauf quand ce qui ne
-passe pas n'en dépend pas (le critère 6.2.1(5) ne lit pas c) : le raidisseur est sûr. Le MAINTIEN latéral de
-la semelle chargée (§ 6.1(1)) n'a pas de borne — tenue à un appui (fourche) ou par un maintien « complet » ou de cette
-semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour un raidisseur sous une charge,
-les DEUX semelles (longueur 0,75·h_w, § 9.4(2)) : sans lui, « décision impossible ». Le lieu impossible est « non
-couvert », jamais « pas de raidisseur ».
+appui de rive (sauf quand la force y est du type (a) à c = 0 : c n'y change rien). La BORNE — la donnée à 0 et, au type
+(c), la branche m₂ = 0, cohérente ou non (ec3_ame.resistance, borne) — donne une F_Rd sous la F_Rd réelle, quels que soient
+s_s et c (prouvé par balayage, tests/test_barre_ame.py ; F_Rd elle-même n'est pas monotone au type (c)) : le lieu est
+vérifié à la borne. Tout passe → « pas de raidisseur », borne dite, taux donnés ; sinon « décision impossible : s_s à
+saisir », le taux à la borne sur la même ligne (À VÉRIFIER : lecture du point 5) — n'y sont demandées que les données
+dont dépend ce qui ne passe pas (le critère 6.2.1(5) ne lit que s_s) ; s_s saisie et le critère seul en cause : le
+raidisseur est sûr. Le MAINTIEN latéral de la semelle chargée (§ 6.1(1)) n'a pas de borne — tenue à un appui (fourche)
+ou par un maintien « complet » ou de cette semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre
+aussi ; pour un raidisseur sous une charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)) : sans lui, « décision
+impossible ». Le lieu impossible est « non couvert », jamais « pas de raidisseur ».
 
 Ce que ce bloc ne fait pas (v1), et dit : la charge concentrée sur un profil creux (EN 1993-1-8) ; les raidisseurs
 intermédiaires d'une âme élancée (elle est vérifiée sans eux) ; les soudures des raidisseurs (EN 1993-1-8) ; DEUX FORCES
@@ -64,6 +65,8 @@ MEME_ABSCISSE = 1e-6             # m : deux forces à la même abscisse
 MODES_APPUI = ("poses", "ame")
 COTES = {"haut": "de la semelle haute", "bas": "de la semelle basse"}
 AUTRE = {"haut": "bas", "bas": "haut"}
+# une donnée non saisie prise à sa borne : dite une fois dans les hypothèses du bloc (règle 1 du brief : elle change la décision)
+BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER, brief § 8.3, point 5)."
 
 
 def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
@@ -155,7 +158,7 @@ def lieux(b: Dict, cas: Sequence[Dict], sols: Sequence) -> List[Dict]:
 
     def depassement(k: int) -> float:
         """L'âme au-delà de l'axe d'un appui de rive posé : la moitié de sa longueur d'appui, et son débord — non
-        saisis, 0 : la borne basse pour la force voisine (À VÉRIFIER : un lieu d'appui sans eux est « décision impossible »)."""
+        saisis, 0 : la borne pour la force voisine (À VÉRIFIER : son lieu est vérifié à la borne, brief § 8.3, point 5)."""
         x_bout = 0.0 if k == 0 else Lt
         a = appuis[k] if appuis else None
         if a is not None and poses and a["type"] == "appui" and abs(a["x"] - x_bout) < MEME_ABSCISSE:
@@ -531,14 +534,16 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         certain = el is not None and el["elancee"] and L["genre"] == "appui"
         if certain:                                # § 5.1(2) : le raidisseur d'appui est dû, quelles que soient les données
             raison = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
-        # brief § 8.3, point 5 : jamais « pas de raidisseur » par défaut. s_s et c non saisis : la BORNE 0 (F_Rd croît avec eux) —
-        # tout passe, pas de raidisseur ; sinon, décision impossible, la donnée à saisir. Le maintien de la semelle chargée et,
-        # quand elle n'est pas comprimée partout, de l'autre (§ 6.1(1)) n'a pas de borne : décision impossible
+        # brief § 8.3, point 5 : jamais « pas de raidisseur » par défaut. s_s et c non saisis : la BORNE 0 (sous F_Rd réel, prouvé
+        # par balayage) — tout passe, pas de raidisseur ; sinon, décision impossible, la donnée à saisir. Le maintien de la semelle
+        # chargée et, quand elle n'est pas comprimée partout, de l'autre (§ 6.1(1)) n'a pas de borne : décision impossible
         bout = sorted({m for k in charges_ for m in res[k]["rive"]}, key=["s_s", "c"].index)
         donnees = sorted({m for k in charges_ for m in res[k]["manque"]}, key=["s_s", "c"].index)
         # … sauf quand ce qui ne passe pas n'en dépend pas : le critère 6.2.1(5) ne lit ni c ni l'appui de rive — s_s saisie, le
-        # raidisseur est sûr, quel que soit c
+        # raidisseur est sûr, quel que soit c ; s_s non saisie, elle seule est à saisir
         sur = pire["crit"] is not None and pire["crit"] > 1.0 and "s_s" not in donnees
+        if echec and pire["eta2"] <= 1.0 and not (pire["inter"] is not None and pire["inter"] > 1.0):
+            donnees, bout = [m for m in donnees if m == "s_s"], []          # le critère 6.2.1(5) seul ne passe pas
         a_saisir = bool(donnees or bout) and echec and not certain and not sur
         requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}
         maintiens = [COTES[k] for k in ("haut", "bas") if k in requis and not L["tenue"][k]]
@@ -552,6 +557,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         b_ = ", ".join(b_)
         etudes[L["base"]] = {"res": res, "pire": pire, "raison": raison, "raidisseur": None, "manque": manque,
                              "borne": f"{b_} : borne prudente" if b_ else None}
+    if any(r_.get("manque") or r_.get("rive") for e_ in etudes.values() for r_ in e_["res"].values()):
+        hyp.append(BORNE_HYPOTHESE)                      # une fois par bloc : la lecture du § 8.3, point 5, change la décision
 
     # ---- deux forces rapprochées sur la même semelle (§ 6.3(2)) : à vérifier aussi ensemble — ce bloc ne le fait pas, et le dit
     proches = []

@@ -76,6 +76,7 @@ SOUDES = ("soude_oxycoupe", "soude_larges_plats")                 # les I soudé
 SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")              # les sections soudées chargées dans le plan de l'âme
 # brief § 8.3, point 8 : quand le cisaillement gouverne — le voilement (A-Vb) ou, pour un laminé, V_pl,Rd (E-Vz, moteur.py)
 MOT_CISAILLEMENT = "Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd."
+MOT_CISAILLEMENT_GOUVERNE = "Le cisaillement gouverne : un raidisseur transversal ne réduit pas τ."     # … quand il passe : sans remède
 
 
 def est_soude(s: Dict) -> bool:
