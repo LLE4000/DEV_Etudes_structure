@@ -269,7 +269,8 @@ cas("profil", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
 cas("profil", "R2 du cahier des charges (IPE 300, 6 m sans maintien, G : 2,42 kN/m et 10 kN, Q : 15 kN à mi-portée)", REF,
     [neuf(), mod("poids_propre", False), mod("maintiens/0/-", "1"), mod("cas/0/charges/0/v", "2,42"), mod("cas/0/charges/+", "P"),
      mod("cas/1/charges/0/type", "P"), mod("cas/1/charges/0/v", "15")], {"niveau": "r"}, selecteurs=True)
-cas("profil", "chargée près de 100 % (portée de 6,5 m)", REF, [neuf(), mod("travees/0", "6,5")], {"taux": [95, 100]})
+# (intégration du lot B) la méthode ELS des classeurs (B1) porte 6,5 m à 113 % : la portée passe à 6,2 m (98 %)
+cas("profil", "chargée près de 100 % (portée de 6,2 m)", REF, [neuf(), mod("travees/0", "6,2")], {"taux": [95, 100]})
 cas("profil", "poteau-poutre en efforts imposés (HEB 200, 5 m : service 300 kN et 20 kN·m, ELU 420 kN et 28 kN·m)", REF,
     [neuf(), mod("mode", "efforts"), act("choisir", role="profil", nom="HEB 200"), mod("flambement/y/L", "5"), mod("flambement/z/L", "5"),
      mod("efforts/service/N", "300"), mod("efforts/service/My", "20"), mod("efforts/service/Vz", "30"), mod("efforts/elu/N", "420"),
@@ -299,7 +300,9 @@ cas("profil", "âme élancée (IPE 750x134 en S355, 8 m, 60 kN/m) : voilement pa
 # écarts de l'âme (F_Rd aux appuis 403,7 → 245,3 kN, V_pl,z,Rd 2 334 → 2 100 kN, plus de voilement par cisaillement)
 cas("profil", "IPE 750x147 en S355, 8 m, 60 kN/m : âme non élancée (η = 1,00 d'un laminé), raidisseurs aux appuis", REF,
     [neuf(), act("choisir", role="profil", nom="IPE 750x147"), mod("nuance", "S355"), mod("travees/0", "8"), mod("cas/0/charges/0/v", "60")],
-    {"texte": "(appui A, appui B)"})
+    # (intégration du lot B, point 9) « (appui A, appui B) » seul passait pour des plats comme pour une décision impossible :
+    # le cas dit ce que l'âme demande depuis le lot B — s_s ET c (type (c) : F_Rd dépend de c), non saisis, à saisir
+    {"texte": "(appui A, appui B)", "avis": "Appui A, appui B : décision impossible : s s et c à saisir"})
 cas("profil", "appuis par l'âme : rien n'appuie sur l'âme, le bloc s'efface", REF, [neuf(), mod("appuis/mode", "ame")])
 cas("profil", "longueur d'appui négative refusée", LIM, [neuf(), mod("appuis/ss", "-3")], {"message": True})
 cas("profil", "longueur d'appui d'une charge ponctuelle au centre de cisaillement : gardée, sans effet", LIM,

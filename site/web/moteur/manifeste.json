@@ -1,9 +1,10 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "3bfae141e0da86a741aaaa5861e5752f0023bbc6280acca70e6c41ed1aec12b3",
+ "sha256": "b7f066ea3c833e5de5f931eb2f64829611f8968ea8d2171e7bf47f4016f62ad2",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
+  "acier/assemblages/ductilite.py",
   "acier/assemblages/materiau.py",
   "acier/assemblages/mecanique.py",
   "acier/assemblages/pied_poteau/__init__.py",
@@ -110,9 +111,11 @@
   "acier/barre/enveloppe.py",
   "acier/barre/formules.py",
   "acier/barre/historique.py",
+  "acier/barre/historique_deversement.py",
   "acier/barre/mcr.py",
   "acier/barre/moteur.py",
   "acier/barre/parametres.py",
+  "acier/barre/prs.py",
   "acier/barre/raidisseurs.py",
   "acier/barre/resultat.py",
   "acier/barre/section.py",
@@ -399,8 +402,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "cab933d9f916bcf8446520d6662494e02d4b8a043b75b0421b03b733a592f16e",
-  "octets": 2233566,
+  "sha256": "6dc3681204bc381419bccbe3b635e229b4cac0e27995b91250167d09f3150d70",
+  "octets": 2235427,
   "reportlab": "5.1.0",
   "fichiers": 107,
   "modules": [
@@ -437,15 +440,15 @@
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "edc9ed98d6f14c96",
   "fondation_grue": "7400039d62e0db89",
-  "garde_corps": "9d6a2b474d4321ad",
+  "garde_corps": "29a85429e82c6cc2",
   "plancher": "9d0ec86ed498d435",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
-  "profil": "a93cc9f23965a6d7",
+  "profil": "7183733b1e961c7f",
   "saf": "e88653e1536e1675",
   "sol": "d388420baee3c87c",
   "soudures": "865be318298eea9a",
   "taux": "0325815790c3ee2c"
  },
- "version": "74ab241f2d954fad"
+ "version": "7fa924c71b87f56e"
 }
