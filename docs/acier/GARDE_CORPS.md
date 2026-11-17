@@ -86,7 +86,8 @@ H = 1 100 mm par défaut ») comme la note (« (champ vide : valeur par défaut)
 brief v12 § 19.1 point 8. Le champ se vide dans la page (champ « vide = défaut », texte indicatif
 « 1 100 par défaut ») et l'en-tête de la rubrique dit alors « H 1100 (défaut) ». Comme tout champ
 numérique, il se vide quand on clique dedans (sa valeur en gris) et la reprend si on le quitte sans
-rien taper ; pour revenir au défaut, on efface (Retour arrière ou Suppr) — `js/commun.js`,
+rien taper ; pour revenir au défaut, on efface (Retour arrière ou Suppr, ou ce qu'on vient de taper : la voie des
+claviers de téléphone) — `js/commun.js`,
 `viderAuFocus`. Une hauteur de
 −0,04 mm s'écrit « −0,04 mm », jamais « −0 mm » (`formats.f_ecart`). L'exemple chiffré de la page 2 d'une note ELS suit la nuance
 (σ_adm = f_y/1,5 à 16 mm : 156,7 en S235, 236,7 en S355, 306,7 N/mm² en S460 N/NL).

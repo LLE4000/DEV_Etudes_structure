@@ -560,7 +560,11 @@ if shutil.which("node"):
             ("tout texte vidé au clic (data-vide oublié)", "input[data-sorte=\"texte\"][data-vide]", "input[data-sorte=\"texte\"]"),
             ("le vide voulu repris en sortie (data-vider ignoré)",
              "if (el.value.trim() === \"\" && el.dataset.vider === undefined) el.value", "if (el.value.trim() === \"\") el.value"),
-            ("Retour arrière / Suppr sans effet", "(ev.key === \"Backspace\" || ev.key === \"Delete\") && ", "false && ")]:
+            ("Retour arrière / Suppr sans effet", "(ev.key === \"Backspace\" || ev.key === \"Delete\") && ", "false && "),
+            # la voie des claviers de téléphone (un clavier virtuel n'envoie pas toujours Retour arrière dans un champ vide) :
+            # taper puis effacer passe par l'événement input
+            ("« taper puis effacer » sans effet (la voie des claviers de téléphone)",
+             "if (el.value === \"\") videVoulu(el);", "if (false) videVoulu(el);")]:
         chk(f"mutation « {nom} » : le contrôle rougit", juger_vider_au_clic(_commun_mute(avant, apres)) != [])
 else:
     print("--   node absent : le champ H joué dans la page n'est pas contrôlé ici (le parcours du navigateur le fait)")
