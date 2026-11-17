@@ -166,6 +166,21 @@ def controles():
       facteurs(co, cas, dominante="exploitation_A", nom="1,35·G + 1,5·E + 1,5·Q + 0,9·M") is not None
       and facteurs(co, cas, dominante="execution", nom="1,35·G + 1,5·E + 1,05·Q + 0,9·M") is not None
       and facteurs(co, cas, dominante="machines", nom="1,35·G + 1,5·E + 1,05·Q + 1,5·M") is not None, sorted(x["nom"] for x in co)[:6])
+    # de bout en bout : le ψ₀ saisi passe par entree.normaliser et le moteur l'emploie (IPE 400 de 6 m, G = 10, E = 2 avec
+    # ψ₀ = 0,5, Q = 6 kN/m) : Q en tête, 1,35·10 + 1,5·0,5·2 + 1,5·6 = 24 kN/m > l'exécution en tête (22,8) — M_Ed = 108 kN·m
+    cas_e = [{"nom": "G", "nature": "permanent", "charges": [q(10.0, 0.0, 6.0)]}, {"nom": "E", "nature": "execution", "psi0": 0.5, "charges": [q(2.0, 0.0, 6.0)]},
+             {"nom": "Q", "nature": "exploitation_A", "charges": [q(6.0, 0.0, 6.0)]}]
+    try:
+        v_e = verif(MO.verifier(barre(profil="IPE 400", travees=[6.0], poids_propre=False, cas=cas_e))["methodes"]["ec3"], "E-My")
+    except Exception as e:  # noqa: BLE001
+        v_e = {"combinaison": repr(e), "valeur": None}
+    c("de bout en bout (moteur.verifier) : le ψ₀ SAISI de l'exécution (0,5) est lu — « 1,35·G + 0,75·E + 1,5·Q », M_Ed = 24 × 6²/8 = 108 kN·m",
+      v_e is not None and v_e["combinaison"] == "1,35·G + 0,75·E + 1,5·Q" and proche(v_e["valeur"], 108.0, 1e-6), v_e and (v_e["combinaison"], v_e["valeur"]))
+    c("le contrôle de SAISIE que l'écran peut appeler (controler) : un ψ₀ qui manque n'y est pas un refus — le calcul sera bloqué, la "
+      "saisie reste libre (sinon plus rien ne se corrige) ; trop de natures, si",
+      CO.controler([G, E0, QA]) == len(CO.elu([G, E1, QA], P)) and leve(lambda: CO.elu([G, E0, QA], P), CO.AFournir)
+      and _message(lambda: CO.controler([G, QA, dict(QA, nom="B", nature="exploitation_B"), S, W, T])) == "au plus 4 natures d'actions variables (la barre en a 5)",
+      _message(lambda: CO.controler([G, E0, QA])))
     Qs = dict(QA, psi0=0.2)
     c("un ψ₀ saisi sur une autre nature ne sert pas : la catégorie A garde 0,7 du tableau",
       avec(CO.elu([G, Qs, S], P), [G, Qs, S], G=1.35, Q=1.05, S=1.5) != [], "")
@@ -433,6 +448,8 @@ MUTATIONS = [
     ("combinaisons", "ψ₁ au lieu de ψ₀", 'return float(c["psi0"]) if cle == SAISI else P[cle][0]', 'return float(c["psi0"]) if cle == SAISI else P[cle][1]'),
     ("combinaisons", "deux cas de même nature : un seul en tête", 'if n == tete and expr != "6.10a":', 'if i == s[0] and expr != "6.10a":'),
     ("combinaisons", "un ψ₀ saisi demandé même quand il ne sert pas", 'and (o["expression"] == "6.10ab" or len(natures) > 1)]', "]"),
+    ("combinaisons", "le ψ₀ saisi ignoré (pris à 1)", 'return float(c["psi0"]) if cle == SAISI else P[cle][0]', 'return 1.0 if cle == SAISI else P[cle][0]'),
+    ("combinaisons", "controler laisse passer le ψ₀ à fournir (l'écran refuserait toute saisie)", "provisoires = [dict(c, psi0=1.0) if", "provisoires = [c if"),
     ("combinaisons", "un ψ₀ saisi qui manque n'est jamais demandé", "    if manque:\n        raise AFournir(manque)", "    if False:\n        raise AFournir(manque)"),
     ("combinaisons", "la limite compte les CAS", 'n = len({cas[i]["nature"] for i in var})', "n = len(var)"),
     # (6.10a) et (6.10b)
