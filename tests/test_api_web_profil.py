@@ -1234,6 +1234,15 @@ chk("témoin : sans mutation, les contrôles du format et de l'aide sont verts",
 print("=== 16. (lot B) s_s et c se VIDENT (retour à « non saisi ») ; une note neuve relue par le SITE D'AVANT (766659c) — et leurs mutations")
 ANCIEN_SITE = "766659c"          # le site en ligne avant le lot B (rapport du lot A, 16/11/2026) : la page qu'un cache ou un retour arrière rendrait
 _ANCIEN: dict = {}
+# les options de la méthode ELS ajoutées au lot B (B1 : C_d, variante, facteur 5,1, classe imposée) : le site d'avant ne les connaît pas et les
+# laisse tomber à la relecture (intégration du lot B, défaut croisé B1 × B4 : ce § les croyait gardées) — sans enjeu, aucune note d'avant ne compte
+# (décision du propriétaire, 17/11)
+OPTIONS_ELS_LOT_B = ("Cd", "variante", "facteur_doc", "classe_d")
+
+
+def sans_options_els(el):
+    """L'élément ``el`` sans les options ELS du lot B (OPTIONS_ELS_LOT_B)."""
+    return {**el, "historique": {k: v for k, v in (el.get("historique") or {}).items() if k not in OPTIONS_ELS_LOT_B}}
 
 
 def ancien_site():
@@ -1299,10 +1308,12 @@ def vider_et_relire():
          and abc.get("ok") and "n'est pas un nombre" in (abc.get("message") or "") and abc["etat"]["elements"][0]["appuis"]["c"] == 0.0,
          (el_v["appuis"], champs, abc.get("message"))),
         (f"le SITE D'AVANT ({ANCIEN_SITE}, son normaliser exécuté) relit une note NEUVE telle quelle quand tout est saisi — 0 saisi = 0, et aucun "
-         "autre champ ne change ; une donnée vide (null) : il la REFUSE, franchement (« nombre attendu »), jamais une autre lecture (une version 3 "
-         "y devenait « efforts imposés », s_s et c à 0)",
-         _ANCIEN.get("raison") is None and pl_.get("ok") and pl_["etat"]["version"] == 2 and el_a == {k: el_p[k] for k in el_a}
-         and set(el_a) == set(el_p) and lus.get("neuve", {}).get("ok") is False and "nombre attendu" in lus["neuve"].get("erreur", "")
+         "autre champ ne change, sauf les options ELS du lot B (C_d, variante, facteur 5,1, classe imposée), qu'il ne connaît pas et laisse "
+         "tomber (intégration du lot B : le harnais suit) ; une donnée vide (null) : il la REFUSE, franchement (« nombre attendu »), jamais une "
+         "autre lecture (une version 3 y devenait « efforts imposés », s_s et c à 0)",
+         _ANCIEN.get("raison") is None and pl_.get("ok") and pl_["etat"]["version"] == 2 and el_a == sans_options_els({k: el_p[k] for k in el_a})
+         and set(el_a) == set(el_p) and set(el_p["historique"]) - set(el_a.get("historique") or {}) == set(OPTIONS_ELS_LOT_B)
+         and lus.get("neuve", {}).get("ok") is False and "nombre attendu" in lus["neuve"].get("erreur", "")
          and lus.get("videe", {}).get("ok") is False and "nombre attendu" in lus["videe"].get("erreur", ""),
          _ANCIEN.get("raison") or {k: (v.get("ok"), v.get("erreur")) for k, v in lus.items()}),
     ]
