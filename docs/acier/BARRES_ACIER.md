@@ -785,6 +785,12 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   à 10⁻⁹·max(1, L) près (rdm/poutres.py, lot B) ; avant, l'abscisse lue à 5,55 perdait le côté droit de l'appui et le
   moment maximal de la travée suivante (IPE 300, 3,37 + 2,18 + 3,45 m : E-My 27,5 % au lieu de 28,6 %, E-Vz 22,7 % au
   lieu de 23,3 %, H-DEV 60,4 % au lieu de 63,7 %, selon le sens de dessin).
+- Ce que ces deux lectures justes déplacent (balayage du lot B ; à attendre, ce n'est pas un réglage) : Eurocode 3,
+  E-MV jusqu'à +22 %, E-Vz +10,5 %, E-Mb +6,7 % ; méthode ELS, H-EQ jusqu'à +13,1 %, et des baisses — jusqu'à −2,1 %,
+  puis jusqu'à −15 % quand l'effort tranchant du côté droit d'une frontière n'est plus lu avec le L_d du tronçon de
+  gauche. Une abscisse TAPÉE au bout d'une barre à portées sommées (2,8 + 3,4 m : une fin de charge ou un maintien à
+  6,2) est ramenée au bout dans la même tolérance (`rdm/poutres.ramener`, intégration du lot B) ; au-delà (6,2 + 10⁻⁶),
+  elle reste refusée.
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
   encastrée à sa racine.
 - Longueurs de flambement d'un champ vide (`moteur._longueurs`) : axe fort, la plus grande travée ; axe faible, le plus
