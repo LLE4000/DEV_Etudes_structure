@@ -43,6 +43,7 @@ NOM_MODE_APPUI = {"poses": "posée", "ame": "par l'âme"}
 AIDE_SS = ("Longueur d'appui rigide : la longueur sur laquelle la force entre dans la semelle (largeur de l'appui, platine, semelle du "
            "poteau qui charge). Vide : calcul à la borne 0 (prudent).")
 AIDE_DEBORD = "Débord : la distance du bout de la barre au bord de l'appui de rive. 0 : la barre s'arrête au bord de l'appui."
+SS_VIDE = "à saisir"            # le champ s_s ou c vide (non saisi) : il se vide comme il se remplit (api_web/commun.num, auto)
 MODES = (("chargee", "Barre chargée", "Appuis, charges, maintiens : le module fait la statique et les combinaisons."),
          ("efforts", "Efforts imposés", f"Les efforts sont donnés : ceux de service pour la {minuscule(METHODES['historique'])}, ceux de calcul pour l'Eurocode."))
 MODELES = (("appuis", "Deux appuis"), ("console", "Console"), ("enc_app", "Encastrée – appuyée"), ("bi_enc", "Bi-encastrée"),

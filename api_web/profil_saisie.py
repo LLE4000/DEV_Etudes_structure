@@ -90,7 +90,7 @@ def _charge(i: int, j: int, ch: Dict, appuie: bool) -> str:
               f'<span>à</span>{C.num(base + ["b"], ch["b"], "m", dec=3, mini=0)}{sens}</div>')
     elif t == "P" and appuie:
         l2 = (f'<div class="pf-ch-2 ss"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}'
-              f'<span title="{C.esc(M.AIDE_SS)}">sur</span>{C.num(base + ["ss"], ch.get("ss"), "mm", dec=0, mini=0, maxi=EN.SS_MAX)}</div>')
+              f'<span title="{C.esc(M.AIDE_SS)}">sur</span>{C.num(base + ["ss"], ch.get("ss"), "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE)}</div>')
     else:
         l2 = f'<div class="pf-ch-2 un"><span>à</span>{C.num(base + ["a"], ch["a"], "m", dec=3, mini=0)}<span>de l\'appui gauche</span></div>'
     return f'<div class="pf-ch" data-charge="{j}">{l1}{l2}</div>'
@@ -219,8 +219,8 @@ def _rubrique_appuis(el: Dict) -> str:
     ap = el["appuis"]
     s = C.segments(["appuis", "mode"], ap["mode"], M.MODES_APPUI)
     if ap["mode"] == "poses":
-        s += C.ligne("longueur d'appui", C.num(["appuis", "ss"], ap["ss"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "s<sub>s</sub>", M.AIDE_SS)
-        s += C.ligne("débord en rive", C.num(["appuis", "c"], ap["c"], "mm", dec=0, mini=0, maxi=EN.SS_MAX), "c", M.AIDE_DEBORD)
+        s += C.ligne("longueur d'appui", C.num(["appuis", "ss"], ap["ss"], "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE), "s<sub>s</sub>", M.AIDE_SS)
+        s += C.ligne("débord en rive", C.num(["appuis", "c"], ap["c"], "mm", dec=0, mini=0, maxi=EN.SS_MAX, auto=M.SS_VIDE), "c", M.AIDE_DEBORD)
         s += C.aide("La réaction appuie sur l'âme (EN 1993-1-5) : le module dit s'il faut un raidisseur. Longueur d'appui "
                     "ou débord vide : calcul à la borne 0 (prudent).")
     else:

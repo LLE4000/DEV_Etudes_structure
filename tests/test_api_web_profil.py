@@ -16,15 +16,22 @@ fichiers : profil_saisie, profil_resultat, profil_mots, dessin_barre), vérifié
  10. UN SEUL ARRONDI — le tableau, la formule et le catalogue écrivent le même chiffre d'un même nombre.
  11. LOT A — une méthode hors de son domaine (« Hors domaine », l'ocre « v »), le poids propre que le moteur nomme, la
      source de f_y ; chaque contrôle a sa mutation.
+ 15-16. LOT B — le format de la note (version 2 et sa clé « zero_saisi » : un 0 saisi n'est pas un champ vide ; relue par
+     le site d'avant, 766659c, tirée de l'historique) ; s_s et c se vident.
 
     /usr/bin/python3.12 tests/test_api_web_profil.py
 """
 import copy
 import html
+import importlib.util
+import io
 import json
 import os
 import re
+import subprocess
 import sys
+import tarfile
+import tempfile
 import xml.dom.minidom
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -72,7 +79,7 @@ def enchainer(etat, *saisies):
 
 
 def note(*barres):
-    return {"version": P.VERSION, "elements": list(barres) or [P.barre_neuve()], "actif": 0}
+    return P.etat_de(list(barres) or [P.barre_neuve()])
 
 
 def barre(**k):
@@ -103,8 +110,9 @@ neuf = req(action="nouveau")
 e0 = neuf["etat"]
 el0 = e0["elements"][0]
 r0 = moteur(el0)
-chk("une note neuve : version 3 (3e reprise du lot B), une barre B1 — IPE 300, S235, deux appuis de 6 m, G et Q de 5 kN/m, poids propre, tenue à mi-portée",
-    neuf["ok"] and e0["version"] == P.VERSION == 3 and len(e0["elements"]) == 1 and e0["actif"] == 0 and el0["nom"] == "B1" and el0["profil"] == "IPE 300"
+chk("une note neuve : version 2 et sa clé « zero_saisi » (lot B, sans changer de version — le harnais suit : version 3 à la 3e reprise), une "
+    "barre B1 — IPE 300, S235, deux appuis de 6 m, G et Q de 5 kN/m, poids propre, tenue à mi-portée",
+    neuf["ok"] and e0["version"] == P.VERSION == 2 and e0.get(P.ZERO_SAISI) is True and len(e0["elements"]) == 1 and e0["actif"] == 0 and el0["nom"] == "B1" and el0["profil"] == "IPE 300"
     and el0["nuance"] == "S235" and el0["mode"] == "chargee" and el0["modele"] == "appuis" and el0["travees"] == [6.0]
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
@@ -593,8 +601,8 @@ chk("ajouter une barre (B2, ouverte) ; copier la première (« B1 (copie) », in
     and [e["nom"] for e in req(action="supprimer", etat=d2["etat"], index=1)["etat"]["elements"]] == ["B1", "B2"]
     and req(action="activer", etat=d2["etat"], index=2)["etat"]["actif"] == 2 and len(req(action="supprimer", etat=e0, index=0)["etat"]["elements"]) == 1)
 # (la solive : s_s et c saisis, l'âme décide — sans eux, elle serait « à vérifier » : brief § 8.3, point 5)
-mixte = req(action="calculer", etat={"version": P.VERSION, "actif": 0, "elements": [dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
-                                                                          barre(nom="Panne", maintiens=[])]})
+mixte = req(action="calculer", etat=P.etat_de([dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
+                                                barre(nom="Panne", maintiens=[])]))
 chk("le résumé de la NOTE est sa barre la plus chargée, son état le moins bon ; chaque barre a la couleur de son état dans la liste",
     mixte["resume"]["niveau"] == "r" and mixte["resume"]["taux"] == 179 and mixte["resume"]["gouvernant"].startswith("Panne · IPE 300 · flexion")
     and 'class="status r"' in mixte["statut_html"] and re.findall(r'<span class="nom et-n-(\w+)">', mixte["donnees"]) == ["ok", "nok"], mixte["resume"])
@@ -610,7 +618,7 @@ def espion(b):
 MO.verifier = espion
 try:
     P._RESULTATS.clear()
-    trois = {"version": P.VERSION, "actif": 0, "elements": [P.barre_neuve("A"), P.barre_neuve("B"), barre(nom="C", maintiens=[])]}
+    trois = P.etat_de([P.barre_neuve("A"), P.barre_neuve("B"), barre(nom="C", maintiens=[])])
     req(action="calculer", etat=trois)
     n1 = appels[0]
     req(action="modifier", etat=trois, chemin=["nom"], valeur="Autre nom")
@@ -1102,18 +1110,20 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_BORNE:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles de la borne à l'écran sont verts", all(ok_ for _n, ok_, _i in borne_ecran()))
 
-print("=== 15. (3e reprise du lot B) une note de la version 2 (ses 0 de s_s et c : des défauts) ; l'aide de la longueur d'appui — et leurs mutations")
+print("=== 15. (lot B) le format de la note : une note du site d'avant (ses 0 de s_s et c : des défauts) ; une note neuve (vide et 0 "
+      "distincts) ; l'aide de la longueur d'appui — et leurs mutations")
 AIDE_APPUIS = "Longueur d'appui ou débord vide : calcul à la borne 0 (prudent)."
 
 
 def note_v2():
-    """Les contrôles de la relecture d'une note de la version 2 et de l'aide de s_s, rejoués sous chaque mutation : [(nom, vrai ?, info)]."""
+    """Les contrôles de la relecture d'une note du site d'avant le lot B, d'une note neuve et de l'aide de s_s, rejoués sous chaque
+    mutation : [(nom, vrai ?, info)]."""
     P._RESULTATS.clear()
     haute = barre(profil="IPE 750x147", travees=[4.0], poids_propre=False, maintiens=[{"x": 2.0, "genre": "complet"}],
                   appuis={"mode": "poses", "ss": 200.0, "c": 0.0},
                   cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 220.0, "a": 0.0, "b": 4.0},
                                                                                 {"type": "P", "v": 1.0, "a": 2.0, "ss": 0.0}]}])
-    v2 = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [haute]})
+    v2 = req(action="calculer", etat={"version": 2, "actif": 0, "elements": [haute]})          # le site d'avant : sans la clé
     v3 = req(action="calculer", etat=note(haute))
     e2 = v2["etat"]["elements"][0] if v2.get("ok") else {}
     e3 = v3["etat"]["elements"][0] if v3.get("ok") else {}
@@ -1121,17 +1131,32 @@ def note_v2():
     don = html.unescape(req(action="nouveau")["donnees"])
     ch = html.unescape(req(action="calculer", etat=note(barre(cas=[{"nom": "G", "nature": "permanent", "N": 0.0,
                                                                      "charges": [{"type": "P", "v": 5.0, "a": 3.0}]}])))["donnees"])
+    # une note neuve : c = 0 SAISI, s_s vidée — rejouée deux fois (l'état rendu est celui que l'écran renvoie)
+    n1 = req(action="modifier", etat=req(action="modifier", etat=P.nouvel_etat(), chemin=["appuis", "c"], valeur="0")["etat"], chemin=["appuis", "ss"],
+             valeur="")
+    n2 = req(action="calculer", etat=n1["etat"]) if n1.get("ok") else {}
+    n3 = req(action="calculer", etat=n2["etat"]) if n2.get("ok") else {}
+    ap3 = n3["etat"]["elements"][0]["appuis"] if n3.get("ok") else {}
+    v9 = req(action="calculer", etat=dict(note(haute), version=3))
     return [
-        ("une note de la VERSION 2 (le site d'avant le lot B écrivait 0,0 pour s_s et c non saisis) : relue en version 3, ses 0 deviennent "
-         "« non saisis » — appuis (c) et charge ponctuelle (s_s) ; une valeur non nulle est gardée (s_s = 200 mm)",
-         v2.get("ok") and v2["etat"]["version"] == P.VERSION and e2["appuis"]["ss"] == 200.0 and e2["appuis"]["c"] is None and e2["mode"] == "chargee"
-         and e2["cas"][0]["charges"][1]["ss"] is None and e2["profil"] == "IPE 750x147", e2.get("appuis")),
+        ("une note du SITE D'AVANT le lot B (version 2, sans « zero_saisi » : il écrivait 0,0 pour s_s et c non saisis) : relue, ses 0 deviennent "
+         "« non saisis » — appuis (c) et charge ponctuelle (s_s) ; une valeur non nulle est gardée (s_s = 200 mm) ; rendue au format neuf",
+         v2.get("ok") and v2["etat"]["version"] == P.VERSION == 2 and v2["etat"].get(P.ZERO_SAISI) is True and e2["appuis"]["ss"] == 200.0
+         and e2["appuis"]["c"] is None and e2["mode"] == "chargee" and e2["cas"][0]["charges"][1]["ss"] is None and e2["profil"] == "IPE 750x147",
+         e2.get("appuis")),
         ("… le côté prudent : IPE 750x147 S235, 4 m, 220 kN/m, s_s = 200 mm — relue, l'appui A dit « décision impossible : c à saisir » (borne "
-         "542,1 kN < 594,0 kN) ; la même note en version 3 (c = 0 SAISI) décide « sans raidisseur » (674,0 kN, 88 %) — alors qu'à c = 20 mm, il "
-         "faut un raidisseur (553,4 kN) : le 0 d'une note v2 n'est pas une saisie",
+         "542,1 kN < 594,0 kN) ; la même note au format neuf (c = 0 SAISI) décide « sans raidisseur » (674,0 kN, 88 %) — alors qu'à c = 20 mm, il "
+         "faut un raidisseur (553,4 kN) : le 0 d'une note du site d'avant n'est pas une saisie",
          a2 is not None and a2["decision"] == "impossible" and a2["raison"] == "Décision impossible : c à saisir." and round(a2["sans"]["F_Rd"], 1) == 542.1
          and a3 is not None and a3["decision"] == "aucun" and round(a3["sans"]["F_Rd"], 1) == 674.0 and e3["appuis"]["c"] == 0.0
          and req(action="calculer", etat=v2["etat"])["etat"] == v2["etat"], (a2 and a2["raison"], a3 and a3["decision"])),
+        ("une note NEUVE garde « vide » et « 0 » distincts : c = 0 saisi reste 0, s_s vidée reste non saisie (null), après deux relectures ; la "
+         "note garde sa version (2) et sa clé « zero_saisi » — sans changer de version (le harnais suit : version 3 à la 3e reprise)",
+         n3.get("ok") and ap3 == {"mode": "poses", "ss": None, "c": 0.0} and n3["etat"]["version"] == 2 and n3["etat"].get(P.ZERO_SAISI) is True
+         and n3["etat"] == n2["etat"], ap3),
+        ("une note d'un AUTRE format (version 3) est refusée — jamais lue comme une autre (le site d'avant prenait toute version inconnue pour une "
+         "version 1 : « efforts imposés »)",
+         not v9.get("ok") and "format inconnu" in v9.get("erreur", ""), v9.get("erreur")),
         ("l'aide de la longueur d'appui (rubriques Appuis et Charges, et le survol de « s_s » et « sur ») dit le sens d'un champ VIDE — « calcul "
          "à la borne 0 (prudent) » — et plus jamais « 0 : le cas le plus défavorable » (faux au type (c))",
          AIDE_APPUIS in don and "Vide : calcul à la borne 0 (prudent)." in don and "(vide : calcul à la borne 0, prudent)" in ch
@@ -1145,11 +1170,24 @@ def lieu_a(r):
 
 for nom_, ok_, info_ in note_v2():
     chk(nom_, ok_, info_)
+
+
+def _sans_cle(vrai):
+    def etat_de(elements, actif=0):
+        e = vrai(elements, actif)
+        e.pop(P.ZERO_SAISI, None)
+        return e
+    return etat_de
+
+
 MUTATIONS_V2 = (
-    ("une note v2 relue telle quelle (ses 0 pris pour des saisies)", P, "_de_v2", lambda vrai: (lambda e: e)),
-    ("une note v2 prise pour une v1 (convertie en efforts imposés)", P, "_de_v2", lambda vrai: P._migrer),
-    ("les 0 SAISIS d'une note v3 aussi ramenés à « non saisi »", P, "normaliser",
-     lambda vrai: _source_mutee(P, "(lambda e: e) if version == VERSION else _de_v2 if version == 2", "_de_v2 if version in (2, VERSION)").normaliser),
+    ("une note du site d'avant relue telle quelle (ses 0 pris pour des saisies)", P, "_de_v2", lambda vrai: (lambda e: e)),
+    ("une note du site d'avant prise pour une v1 (convertie en efforts imposés)", P, "_de_v2", lambda vrai: P._migrer),
+    ("la clé « zero_saisi » ignorée à la relecture (les 0 SAISIS d'une note neuve ramenés à « non saisi »)", P, "normaliser",
+     lambda vrai: _source_mutee(P, "    neuve = version == VERSION and etat.get(ZERO_SAISI) is True", "    neuve = False").normaliser),
+    ("la clé « zero_saisi » plus écrite (une note neuve relue comme une note du site d'avant)", P, "etat_de", _sans_cle),
+    ("une version inconnue lue comme une version 1", P, "normaliser",
+     lambda vrai: _source_mutee(P, "    if version not in (1, VERSION):", "    if False:").normaliser),
     ("l'aide de s_s redit « 0 : le cas le plus défavorable »", M, "AIDE_SS", lambda vrai: vrai.replace("Vide : calcul à la borne 0 (prudent).", "0 : le cas le plus défavorable.")),
     ("l'aide des Appuis redit « longueur d'appui à 0 : le cas le plus défavorable »", P, "S",
      lambda vrai: _source_mutee(vrai, "ou débord vide : calcul à la borne 0 (prudent).", "à 0 : le cas le plus défavorable.")),
@@ -1168,7 +1206,105 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_V2:
         setattr(objet_, attr_, vrai_)
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
-chk("témoin : sans mutation, les contrôles de la version 2 et de l'aide sont verts", all(ok_ for _n, ok_, _i in note_v2()))
+chk("témoin : sans mutation, les contrôles du format et de l'aide sont verts", all(ok_ for _n, ok_, _i in note_v2()))
+
+print("=== 16. (lot B) s_s et c se VIDENT (retour à « non saisi ») ; une note neuve relue par le SITE D'AVANT (766659c) — et leurs mutations")
+ANCIEN_SITE = "766659c"          # le site en ligne avant le lot B (rapport du lot A, 16/11/2026) : la page qu'un cache ou un retour arrière rendrait
+_ANCIEN: dict = {}
+
+
+def ancien_site():
+    """Le dossier où le site d'avant est tiré de l'historique (git archive : api_web, acier, rdm, beton — ce que son profil.py importe), une
+    fois ; None, et la raison, si l'historique ne le donne pas."""
+    if "dossier" not in _ANCIEN:
+        try:
+            tar = subprocess.run(["git", "-C", RACINE, "archive", ANCIEN_SITE, "api_web", "acier", "rdm", "beton"], capture_output=True, check=True).stdout
+            d = tempfile.mkdtemp(prefix="profil_766659c_")
+            with tarfile.open(fileobj=io.BytesIO(tar)) as t:
+                t.extractall(d, filter="data")
+            _ANCIEN.update(dossier=d, raison=None)
+        except (OSError, subprocess.CalledProcessError, tarfile.TarError) as e:
+            _ANCIEN.update(dossier=None, raison=f"le commit {ANCIEN_SITE} n'est pas lisible : {e}")
+    return _ANCIEN["dossier"]
+
+
+def lu_par_ancien(etats):
+    """Les notes ``etats`` (un dict nom → état) relues par le ``normaliser`` du site d'avant, dans un processus à part : nom → {"ok", "etat" |
+    "erreur"}."""
+    d = ancien_site()
+    if d is None:
+        return {}
+    code = ("import json, sys\nsys.path.insert(0, %r)\nfrom api_web import profil as P\nout = {}\n"
+            "for k, e in json.loads(sys.stdin.read()).items():\n"
+            "    try:\n        out[k] = {'ok': True, 'etat': P.normaliser(e)}\n"
+            "    except Exception as ex:\n        out[k] = {'ok': False, 'erreur': type(ex).__name__ + ' : ' + str(ex)}\n"
+            "print(json.dumps(out))\n") % d
+    p_ = subprocess.run([sys.executable, "-B", "-c", code], input=json.dumps(etats), capture_output=True, text=True, cwd=d)
+    return json.loads(p_.stdout) if p_.returncode == 0 else {"_": {"ok": False, "erreur": p_.stderr[-300:]}}
+
+
+def vider_et_relire():
+    """Les contrôles : un champ s_s ou c se vide (écran et état) ; la note neuve relue par le site d'avant. [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    e_ = req(action="modifier", etat=P.nouvel_etat(), chemin=["cas", "0", "charges", "+"], valeur="P")["etat"]
+    pleins = e_
+    for ch_, v_ in ((["appuis", "ss"], "100"), (["appuis", "c"], "0"), (["cas", "0", "charges", "1", "ss"], "80")):
+        pleins = req(action="modifier", etat=pleins, chemin=ch_, valeur=v_)["etat"]
+    vides = pleins
+    rep_ = None
+    for ch_ in (["appuis", "ss"], ["appuis", "c"], ["cas", "0", "charges", "1", "ss"]):
+        rep_ = req(action="modifier", etat=vides, chemin=ch_, valeur="")
+        vides = rep_["etat"] if rep_.get("ok") else vides
+    el_p, el_v = pleins["elements"][0], vides["elements"][0]
+    champs = re.findall(r'<input data-chemin="(appuis/ss|appuis/c|cas/0/charges/1/ss)" data-sorte="(\w+)"[^>]*?value="([^"]*)"[^>]*?(data-vide="auto" '
+                        r'placeholder="([^"]*)")?>', (rep_ or {}).get("donnees", ""))
+    abc = req(action="modifier", etat=pleins, chemin=["appuis", "c"], valeur="abc")
+    lus = lu_par_ancien({"neuve": P.nouvel_etat(), "pleine": pleins, "videe": vides})
+    pl_ = lus.get("pleine", {})
+    el_a = pl_["etat"]["elements"][0] if pl_.get("ok") else {}
+    return [
+        ("un champ s_s ou c SAISI se VIDE — appuis (s_s, c) et charge ponctuelle (s_s) : « » rend « non saisi » (null), comme un champ « vide = "
+         "auto » ; à l'écran, ces champs acceptent d'être vidés (data-vide) et disent « à saisir » vides ; un texte qui n'est pas un nombre reste refusé",
+         (el_p["appuis"]["ss"], el_p["appuis"]["c"], el_p["cas"][0]["charges"][1]["ss"]) == (100.0, 0.0, 80.0)
+         and (el_v["appuis"]["ss"], el_v["appuis"]["c"], el_v["cas"][0]["charges"][1]["ss"]) == (None, None, None) and rep_.get("ok")
+         and sorted(champs) == sorted([("appuis/ss", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir"),
+                                       ("appuis/c", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir"),
+                                       ("cas/0/charges/1/ss", "texte", "", 'data-vide="auto" placeholder="à saisir"', "à saisir")])
+         and abc.get("ok") and "n'est pas un nombre" in (abc.get("message") or "") and abc["etat"]["elements"][0]["appuis"]["c"] == 0.0,
+         (el_v["appuis"], champs, abc.get("message"))),
+        (f"le SITE D'AVANT ({ANCIEN_SITE}, son normaliser exécuté) relit une note NEUVE telle quelle quand tout est saisi — 0 saisi = 0, et aucun "
+         "autre champ ne change ; une donnée vide (null) : il la REFUSE, franchement (« nombre attendu »), jamais une autre lecture (une version 3 "
+         "y devenait « efforts imposés », s_s et c à 0)",
+         _ANCIEN.get("raison") is None and pl_.get("ok") and pl_["etat"]["version"] == 2 and el_a == {k: el_p[k] for k in el_a}
+         and set(el_a) == set(el_p) and lus.get("neuve", {}).get("ok") is False and "nombre attendu" in lus["neuve"].get("erreur", "")
+         and lus.get("videe", {}).get("ok") is False and "nombre attendu" in lus["videe"].get("erreur", ""),
+         _ANCIEN.get("raison") or {k: (v.get("ok"), v.get("erreur")) for k, v in lus.items()}),
+    ]
+
+
+for nom_, ok_, info_ in vider_et_relire():
+    chk(nom_, ok_, info_)
+MUTATIONS_VIDE = (
+    ("s_s et c lus comme un nombre obligatoire (le champ ne se vide plus)", P, "_lire_vide", lambda vrai: P._lire),
+    ("le champ s_s ou c rendu sans « vide » (l'écran refuse un nombre vide)", M, "SS_VIDE", lambda vrai: ""),
+    ("la note écrite en version 3 (le site d'avant la lirait comme une version 1)", P, "VERSION", lambda vrai: 3),
+    ("une donnée vide écrite 0 (le site d'avant la lirait comme un 0 saisi)", P, "_lire_vide", lambda vrai: (lambda v, q: 0.0 if not str(v).strip() else P._lire(v, q))),
+)
+for nom_, objet_, attr_, fabrique_ in MUTATIONS_VIDE:
+    if not hasattr(objet_, attr_):
+        chk(f"mutation « {nom_} » : l'attribut {attr_} existe", False, objet_)
+        continue
+    vrai_ = getattr(objet_, attr_)
+    try:
+        setattr(objet_, attr_, fabrique_(vrai_))
+        rouges_ = [n_ for n_, ok_, _i in vider_et_relire() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, les contrôles du champ vidé et de la relecture par le site d'avant sont verts", all(ok_ for _n, ok_, _i in vider_et_relire()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
