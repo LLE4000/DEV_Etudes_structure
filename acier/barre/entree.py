@@ -43,7 +43,8 @@
 
 LE CONTRAT DES ENTRÉES DU LOT C (lot C, C0e : chaque clé a son défaut et son refus ; aucune ne change encore un calcul —
 les blocs qui les emploient le diront) :
-     "norme_produit": None (EN 10025-2) | « M » (M/ML, EN 10025-4)          "ouvrage": « batiment » | « autre »
+     "norme_produit": None (EN 10025-2 ; S420 et S460 : N/NL, EN 10025-3) | « M » (M/ML, EN 10025-4 : S420 et S460
+                      seulement, sans effet sur S235 à S355 — acier/barre/nuances.py)  "ouvrage": « batiment » | « autre »
      "combinaisons": {"expression": « 6.10 » | « 6.10ab », "geotechnique": False, "regle_courte_duree": True}
      "position": « horizontale » | « verticale » | « inclinee », "angle": None (degrés, 0 à 90)
      "points": [] (abscisses vérifiées en plus, m)       "debords": [0.0, 0.0] (m ; « appuis » et « continue »)
@@ -58,12 +59,12 @@ import copy
 import math
 from typing import Dict, List, Optional
 
-from acier.flambement import normes as NO
 from rdm import poutres as PO
 
 from . import combinaisons as CO
 from . import ec3_deversement as DV
 from . import historique_deversement as HD
+from . import nuances as NU
 from . import prs as PR
 from . import section as SE
 from . import statique as ST
@@ -87,7 +88,11 @@ SS_MAX = 2000.0                           # mm : la plus grande longueur d'appui
 L_MIN, L_MAX = 0.05, 60.0                 # m
 FORMES_DIAGRAMME = (DV.CONSTANT, DV.LINEAIRE, DV.REPARTI, DV.PONCTUEL)
 # ---- le contrat des entrées du lot C (C0e) : les valeurs admises, la première est le défaut
-NORMES_PRODUIT = (None, "M")              # None : EN 10025-2 (S420 et S460 : N/NL, EN 10025-3) ; « M » : M/ML, EN 10025-4
+NORMES_PRODUIT = NU.NORMES_PRODUIT        # None : EN 10025-2 (S420 et S460 : N/NL, EN 10025-3) ; « M » : M/ML, EN 10025-4
+# (lot C, C1b) les cornières et les U (brief § 3) : la compression simple de la méthode ELS, en efforts imposés seulement
+FORMES_EFFORTS_SEULS = ("L", "U")
+MSG_EFFORTS_SEULS = "Cornière ou U : en efforts imposés seulement (compression simple, méthode ELS)."
+
 EXPRESSIONS = ("6.10", "6.10ab")          # (6.10) ; ou (6.10a) et (6.10b), l'enveloppe (brief § 5)
 POSITIONS = ("horizontale", "verticale", "inclinee")       # la barre, pour son poids propre (brief § 4.1)
 INTRODUCTIONS = ("auto", "a", "b", "c")   # comment une ponctuelle entre dans l'âme (EN 1993-1-5, figure 6.1) : « auto », la règle du module
@@ -271,7 +276,7 @@ def normaliser(barre: Dict) -> Dict:
             b[k] = src[k]
     if b["mode"] not in MODES:
         raise Refus(f"mode inconnu : {b['mode']!r}")
-    if b["nuance"] not in NO.NUANCES:
+    if b["nuance"] not in NU.NUANCES:                           # (lot C, C1b) la liste du SEUL module Barres : S420 compris
         raise Refus(f"nuance inconnue : {b['nuance']!r}")
     prs = _prs(src, b)
     b["prs"] = prs                                               # (None : un profilé du catalogue — l'écran la garde, lot C)
@@ -279,6 +284,8 @@ def normaliser(barre: Dict) -> Dict:
         b["profil"] = PR.section_prs(**_plats(prs), nuance=b["nuance"])["nom"]
     elif not isinstance(b["profil"], str) or SE.CAT.par_nom().get(b["profil"]) is None:
         raise Refus(f"profilé inconnu du catalogue : {b['profil']!r}")
+    elif b["mode"] == "chargee" and SE.FAMILLES.get(SE.CAT.par_nom()[b["profil"]]["famille"], (None,))[0] in FORMES_EFFORTS_SEULS:
+        raise Refus(MSG_EFFORTS_SEULS)
     if b["niveau"] not in NIVEAUX:
         raise Refus(f"niveau des charges : {', '.join(NIVEAUX)} — reçu {b['niveau']!r}")
     b["poids_propre"] = bool(b["poids_propre"])
