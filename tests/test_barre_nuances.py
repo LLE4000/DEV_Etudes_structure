@@ -15,7 +15,8 @@ variante de la DÉCISION BUREAU n° 3 (A_v,y d'un I ou H laminé). Brief v12 § 
   4. DÉCISION BUREAU n° 3 : A_v,y d'un I ou H laminé = 2·b·t_f (défaut de la table) ; la variante A − h_w·t_w et son
      V_pl,y,Rd rendues pour information ; le défaut changé dans la table change V_pl,y,Rd ; I soudé, IPN, PRS : aucune.
   5. S420 AILLEURS QUE DANS LA SECTION : un raidisseur d'une barre en S420 (reprise : moteur.verifier levait « nuance
-     inconnue : S420 », raidisseurs.materiau lisant la liste du module Flambement) ; sa norme produit transmise au plat.
+     inconnue : S420 », raidisseurs.materiau lisant la liste du module Flambement) ; sa norme produit transmise au plat ;
+     un PRS en S420 (reprise : prs.section_prs le refusait, « S235, S275, S355 ou S460 »).
   6. MUTATIONS : chaque altération plausible du texte (nuances.py, ec3_section.py, entree.py, historique.py,
      raidisseurs.py, la table des paramètres) ou des lignes de la table des aciers fait rougir au moins un contrôle.
 
@@ -259,6 +260,26 @@ def controles():
     c("la norme produit de la barre va jusqu'au plat (dimensionner → plat → materiau) : une norme inconnue y est refusée",
       (refus(RA.dimensionner, ipe, 420.0, Pm, 300e3, nuance="S420", norme_produit="X") or "").startswith("norme produit")
       and RA.dimensionner(ipe, 420.0, Pm, 300e3, nuance="S420", norme_produit="M")["fy_plat"] == 420.0)
+
+    # ---- 5 bis. un PRS en S420 (la liste du module Barres, plus celle du Flambement)
+    PR = m("prs")
+    plats = {"b1": 300, "t1": 20, "hw": 560, "tw": 10, "b2": 300, "t2": 20, "a": 5, "bords": "oxycoupes"}
+    nb = m("entree").nouvelle_barre("B")
+    nb.update(nuance="S420", prs=dict(plats))
+    nn, err = essai(m("entree").normaliser, nb)
+    sp, err2 = essai(PR.section_prs, **plats, nuance="S420")
+    gp = ES.verifier({"section": sp, "nuance": "S420", "NEd": 1000e3})["grandeurs"] if sp else {}
+    c("PRS 600 × 300 × 10 × 20 en S420 : admis par l'entrée et par le PRS ; f_y 400 (semelles de 20 mm, tableau 3.4 ANB), âme 420",
+      err is None and err2 is None and nn["profil"] == "PRS 600x300x10x20" and nn["nuance"] == "S420" and sp["nuance"] == "S420"
+      and gp.get("fy") == 400.0 and gp.get("fy_source") == "tableau 3.4 ANB (EN 10025-3:2004, S420N), 16 < t ≤ 40 mm"
+      and (gp.get("fy_parois") or {}).get("ame") == 420.0, err or err2 or {k: gp.get(k) for k in ("fy", "fy_source", "fy_parois")})
+    c("PRS : une nuance hors du module refusée en une ligne qui dit les cinq nuances",
+      refus(PR.section_prs, **plats, nuance="S690") == "PRS : nuance inconnue 'S690' (S235, S275, S355, S420 ou S460)",
+      refus(PR.section_prs, **plats, nuance="S690"))
+    rp, err = essai(MO.verifier, efforts(None, "S420", N=500.0, My=100.0, Ly=4.0, Lz=4.0, prs=dict(plats)))
+    c("PRS S420 en efforts imposés : Eurocode 3 à f_y 400, méthode ELS « hors domaine » (nuance hors AE235 à AE355)",
+      err is None and rp["methodes"]["ec3"]["grandeurs"]["fy"] == 400.0 and rp["methodes"]["historique"]["statut"] == m("resultat").HORS_DOMAINE,
+      err or (rp["methodes"]["ec3"]["grandeurs"].get("fy"), rp["methodes"]["historique"]["statut"]))
     return C
 
 
@@ -352,6 +373,9 @@ MUTATIONS = [
     ("entree", "S420 refusé par l'entrée", 'if b["nuance"] not in NU.NUANCES:', 'if b["nuance"] not in ("S235", "S275", "S355", "S460"):'),
     ("entree", "une cornière ou un U admis en barre chargée", 'elif b["mode"] == "chargee" and SE.FAMILLES.get(', "elif False and SE.FAMILLES.get("),
     ("historique", "cornière : chaque axe garde sa longueur saisie (v-v à 1 m)", '    corniere = s0["forme"] == "L" and d["P"] > 0\n', "    corniere = False\n"),
+    ("prs", "reprise — PRS : la liste du module Flambement (S420 refusé)", "    if nuance not in NU.NUANCES:",
+     '    if nuance not in ("S235", "S275", "S355", "S460"):'),
+    ("prs", "reprise — PRS : le refus ne dit que quatre nuances", "({', '.join(NU.NUANCES[:-1])} ou {NU.NUANCES[-1]})", "(S235, S275, S355 ou S460)"),
     ("raidisseurs", "reprise — le plat lu dans la liste du module Flambement (S420 inconnu)", 'NU.fy(nuance, ts, "lamine", norme_produit)',
      'NO.limite_elastique(nuance, ts, produit="lamine")'),
     ("raidisseurs", "reprise — plat ne transmet pas la norme produit", "    m = materiau(fy, ts, nuance, fy_ame, norme_produit)\n",

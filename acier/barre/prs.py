@@ -50,8 +50,7 @@ Unités : N, mm. Bibliothèque standard seule.
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from acier.flambement import normes as NO
-
+from . import nuances as NU
 from . import parametres as PA
 from .resultat import Refus, fr
 
@@ -135,8 +134,8 @@ def section_prs(b1, t1, hw, tw, b2, t2, a=None, nuance: str = "S355", bords: Opt
     else:
         a = _dimension(a, "la gorge a")
         s = a * RACINE2
-    if nuance not in NO.NUANCES:
-        raise Refus(f"PRS : nuance inconnue {nuance!r} (S235, S275, S355 ou S460)")
+    if nuance not in NU.NUANCES:              # (lot C, C1b, reprise) la liste du module Barres : S420 compris
+        raise Refus(f"PRS : nuance inconnue {nuance!r} ({', '.join(NU.NUANCES[:-1])} ou {NU.NUANCES[-1]})")
     bords = {v: k for k, v in BORDS.items()}.get(bords, bords)    # (la fabrication du contrat, « soude_oxycoupe », admise aussi)
     if bords is not None and bords not in BORDS:
         raise Refus(f"PRS : bords des semelles « oxycoupes » ou « larges_plats » — reçu {bords!r}")
