@@ -72,8 +72,18 @@ MOT_PIRE_HW = "s_s non saisie : le pire de 0 et h_w."
 # la semelle chargée sans maintien au droit de la force : la section 6 la suppose tenue latéralement (EN 1993-1-5, 6.1(1)) —
 # règle prudente gardée (À VÉRIFIER, à trancher : brief § 11.3, R2 « pas de raidisseur ») ; le fait, le taux, le remède
 REF_MAINTIEN = f"{AM.REF}, 6.1(1)"
-# le raidisseur sous une charge : sa longueur 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2))
-MOT_RAIDISSEUR_TENU = "Décision impossible : maintien des deux semelles (longueur du raidisseur, § 9.4(2)) à préciser."
+# le raidisseur sous une charge : sa longueur 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) — le fait, la décision et
+# le remède, sur le modèle de sans_maintien (intégration du lot B) : « Semelle basse sans maintien (EN 1993-1-5, 9.4(2)) :
+# raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER). »
+REF_RAIDISSEUR_TENU = f"{AM.REF}, 9.4(2)"
+MOT_RAIDISSEUR_TENU = "{quoi} sans maintien (" + REF_RAIDISSEUR_TENU + ") : raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER)."
+
+
+def raidisseur_tenu(libres: Sequence[str]) -> str:
+    """La raison d'un lieu qui demande un raidisseur sous une charge dont une semelle (``libres`` : « haut », « bas ») n'est
+    pas tenue : MOT_RAIDISSEUR_TENU, la ou les semelles nommées."""
+    quoi = "Semelles haute et basse" if len(libres) == 2 else f"Semelle {'haute' if libres[0] == 'haut' else 'basse'}"
+    return MOT_RAIDISSEUR_TENU.format(quoi=quoi)
 
 
 def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
@@ -588,7 +598,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         ligne = sans_maintien(maintiens, tenu, ligne=True) if manque and not a_saisir else None
         if manque is None and raison and L["genre"] == "charge" and not all(L["tenue"].values()):
             # le raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) ; sinon, longueur non chiffrée
-            manque = MOT_RAIDISSEUR_TENU
+            manque = raidisseur_tenu([k for k in ("haut", "bas") if not L["tenue"][k]])
         b_ = []
         for k in ([] if certain or a_saisir else sorted(charges_)):
             b_ += [x for x in (borne(res[k]) or "").split(", ") if x and x not in b_]

@@ -961,7 +961,8 @@ def controles(M=None):
     L = lieu(a, "Charge à 1,00 m")
     c("un raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) — la semelle haute seule : décision impossible, pas "
       "de plats proposés ; les appuis (des fourches) gardent les leurs",
-      L["decision"] == "impossible" and L["raidisseur"] is None and "maintien des deux semelles" in L["raison"]
+      L["decision"] == "impossible" and L["raidisseur"] is None
+      and L["raison"] == "Semelle basse sans maintien (EN 1993-1-5, 9.4(2)) : raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER)."
       and all(x["decision"] == "raidisseur" for x in a["lieux"] if x["genre"] == "appui"), L["raison"])
 
     def ame_s(s_, **k):
@@ -1107,7 +1108,9 @@ def controles(M=None):
       q0["decision"] == "impossible"
       and q0["raison"] == "Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 137 % si elle est tenue ; ajouter un maintien complet et un raidisseur (À VÉRIFIER)."
       and q0["ligne"] == "Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) ; ajouter un maintien complet et un raidisseur (À VÉRIFIER)."
-      and qh["decision"] == "impossible" and qh["raison"] == AME.MOT_RAIDISSEUR_TENU and qc["decision"] == "raidisseur",
+      and qh["decision"] == "impossible" and qc["decision"] == "raidisseur"
+      # (intégration du lot B, point 29 d : le fait, la décision et le remède, sur le modèle de sans_maintien — le harnais suit)
+      and qh["raison"] == "Semelle basse sans maintien (EN 1993-1-5, 9.4(2)) : raidisseur nécessaire ; ajouter un maintien complet (À VÉRIFIER).",
       (q0["raison"], qh["raison"], qc["decision"]))
     cis = mo.verifier(barre(travees=[1.5], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.75, "genre": "complet"}],
                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(200.0, 0.0, 1.5), P_(5.0, 0.75, 100.0)]}]))
@@ -1423,6 +1426,9 @@ MUTATIONS = [
      "        rive = []"),
     ("ame", "2e reprise — une décision impossible perd son taux (la ligne n'a plus le taux à la borne)", '"taux": gouv["taux"], "statut": statut})',
      '"taux": None if manque else gouv["taux"], "statut": statut})'),
+    # (intégration du lot B, point 29 d) le raidisseur sous une charge, une semelle libre : la semelle nommée
+    ("ame", "intégration, point 29 d — la semelle libre mal nommée (haute pour basse)", "f\"Semelle {'haute' if libres[0] == 'haut' else 'basse'}\"",
+     "f\"Semelle {'basse' if libres[0] == 'haut' else 'haute'}\""),
     ("ame", "reprise — maintien de la semelle chargée supposé", '        maintiens = [k for k in ("haut", "bas") if k in requis and not L["tenue"][k]]', "        maintiens = []"),
     ("ame", "reprise — semelle tendue : la semelle comprimée non exigée", "        requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}",
      "        requis = set(charges_)"),
