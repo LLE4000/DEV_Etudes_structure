@@ -366,8 +366,9 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
   et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 saisi —
   elle est prise à sa borne, et dite (ci-dessous).
-- **s_s ou c NON SAISI** (champ vide ; brief § 8.3, point 5, À VÉRIFIER) : calcul à la borne 0, sous F_Rd réel (balayage).
-  Tout passe : « sans raidisseur (… : borne prudente) » ; sinon « décision impossible : … à saisir », taux à la borne.
+- **s_s ou c NON SAISI** (champ vide : « borne 0 » ; brief § 8.3, point 5, À VÉRIFIER) : calcul à la borne 0, sous F_Rd
+  réel (balayage). Tout passe : « sans raidisseur (… : borne prudente) » ; sinon « décision impossible : … à saisir », taux
+  à la borne.
   (Seul est demandé ce dont dépend ce qui ne passe pas : le critère 6.2.1(5) ne lit que s_s, et le prend, s_s vide, au pire de
   0 et h_w. Une note du site d'avant le lot B — sans la clé « zero_saisi » — est relue avec ses 0 « non saisis ».)
 - **DÉCISION IMPOSSIBLE** — le lieu est « non couvert », jamais « pas de raidisseur », une ligne par manque en pied du
@@ -376,7 +377,8 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   maintien « complet » ou de cette semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour
   un raidisseur sous une charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Seul le maintien manque : le fait, le taux
   des vérifications (faites comme si elle était tenue) et le remède, en une ligne — « Semelle haute sans maintien
-  (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). » (règle prudente gardée ; le brief
+  (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). » ; au-delà de 100 %, « ajouter un maintien
+  complet et un raidisseur » ; la ligne du lieu le dit sans le taux, que sa pastille donne (règle prudente gardée ; le brief
   § 11.3 dit « pas de raidisseur » pour R2 : À TRANCHER). Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû
   quelles que soient les données. Barre neuve : « s_s à saisir » (157 % à la borne, critère 6.2.1(5)) ; à
   s_s = 100 mm, sans raidisseur (22 %, c = 0 : borne). R2 : appuis sans raidisseur (borne, 61 %) ; sous la charge, sans
@@ -581,7 +583,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 
 | Fichier | Rôle |
 |---|---|
-| `api_web/profil.py` | la note (version 2 : `{"zero_saisi": true, "elements": [barre…], "actif"}` — sans changer de version : le site d'avant le lot B relit une note neuve telle quelle, ou la refuse si une donnée y est vide), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 et du site d'avant le lot B (sans « zero_saisi », un 0 de s_s ou de c est « non saisi ») ; une autre version est refusée |
+| `api_web/profil.py` | la note (version 2 : `{"zero_saisi": true, "elements": [barre…], "actif"}` — sans changer de version : le site d'avant le lot B relit une note neuve telle quelle, ou la refuse si une donnée y est vide ; mais il suffit qu'il l'OUVRE pour la réécrire sans la clé, ses 0 saisis redevenant « non saisis »), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 et du site d'avant le lot B (sans « zero_saisi », un 0 de s_s ou de c est « non saisi ») ; une autre version — ou une version qui n'est pas un entier — est refusée |
 | `api_web/profil_saisie.py` | la colonne de gauche : quatre rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Méthodes |
 | `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
 | `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
