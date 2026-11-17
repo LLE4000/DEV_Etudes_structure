@@ -256,7 +256,10 @@ def parite(etat, pages):
         if len(el["nom"]) <= 40 and court:
             veut("les taux dans l'en-tête de chaque page", court, all(O.norm(court) in t[:320] for _n, t in mes))
         veut("l'acier", f"Acier {el['nuance']}")
-        veut("… et la source de sa f_y : le tableau de l'ANB (la table unique, lot A)", f"Acier {el['nuance']} · tableau 3.")
+        # (la f_y de l'Eurocode 3 : le tableau de l'ANB, la table unique du lot A ; une note « méthode ELS seule » dit la sienne, la
+        # NOMINALE — lot B, brief v12 § 6.1)
+        veut("… et la source de sa f_y : le tableau de l'ANB (la table unique, lot A), ou « nominale » pour la méthode ELS seule",
+             f"Acier {el['nuance']} · " + ("tableau 3." if "ec3" in r["methodes"] else "nominale"))
         nombre("la masse", f"{M.n(r['masse'], 1)} kg/m")
         for a in ("y", "z"):
             veut("la longueur de flambement", f"{M.n(r['longueurs'][a]['u'], 3)} × {M.m(r['longueurs'][a]['L'])} m")
@@ -503,19 +506,37 @@ def main():
         chk(nom, ok, info)
 
     print("== 2 bis. ce que la note imprime, cas par cas")
+    # (lot B, brief v12 § 6.1, test 37) la méthode ELS prend la f_y NOMINALE, l'Eurocode 3 la table selon l'épaisseur : la ligne
+    # « Acier » des données dit celle de l'Eurocode 3, les hypothèses de la méthode ELS la sienne
+    hp = dict(P.barre_neuve(), profil="HEB 300", mode="efforts", Lc=5.0, flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}},
+              efforts={"service": {"N": 1000.0, "My": 50.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}, "elu": {"N": 1400.0, "My": 70.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}})
+    rh = MO.verifier(hp)
+    dn = NP.donnees(hp, rh)
+    acier = next(it for it in dn["items"] if it[0] == "v" and it[1].startswith("Acier"))
+    seule = NP.donnees(dict(hp, methodes=["historique"]), MO.verifier(dict(hp, methodes=["historique"])))
+    acier_els = next(it for it in seule["items"] if it[0] == "v" and it[1].startswith("Acier"))
+    tete = NP.methode(hp, "historique", rh["methodes"]["historique"], 300.0)
+    chk("HEB 300 S235 (t_f = 19 mm), les deux méthodes : la ligne « Acier » dit la f_y de l'Eurocode 3 (225, tableau 3.3 ANB) ; la méthode ELS "
+        "écrit la sienne dans son hypothèse (235 / 1,5, « f_y nominale, comme les classeurs du bureau ») ; seule, la ligne dit « nominale, 235 »",
+        acier[1] == "Acier S235 · tableau 3.3 ANB" and acier[3] == "225" and acier_els[1] == "Acier S235 · nominale" and acier_els[3] == "235"
+        and "235 / 1,5 = 156,7 N/mm² ($f_{y}$ nominale, comme les classeurs du bureau)." in tete["items"][0][1], (acier, acier_els, tete["items"][0]))
     _o, pages, _f = faire(NOTES["la barre neuve"])
     T = " ".join(pages[1:])
     el, r = barres(NOTES["la barre neuve"])[0]
     h, e = r["methodes"]["historique"], r["methodes"]["ec3"]
     chk("la barre neuve : la méthode ELS (NBN B 51-001) vient la PREMIÈRE, puis l'Eurocode 3, puis leur comparaison, ce qui n'est pas vérifié — et les "
-        "taux de tête sont ceux de l'écran (73,9 % ; 57,7 %) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
+        "taux de tête sont ceux de l'écran (88,4 % — lot B : le déversement des classeurs ; 57,7 %) ; plus de « paramètres à confirmer » (lot A : le couple (λ̄_LT,0 ; β) est celui de "
         "l'ANB:2018, 6.3.2.3(1), lu) ; la nuance dit son tableau de l'ANB (la table unique)",
         0 < T.index("Méthode ELS (NBN B 51-001)") < T.index("Eurocode 3 — NBN EN 1993-1-1") < T.index("Comparaison des deux méthodes")
         < T.index("Ce que la note ne vérifie pas") and "Paramètres à confirmer" not in T and "Acier S235 · tableau 3.3 ANB" in T
-        and taux(h["taux_max"]) == "73,9 %" and taux(e["taux_max"]) == "57,7 %" and "73,9 %" in T and "57,7 %" in T, T[:300])
-    chk("… la méthode historique s'écrit comme le classeur du bureau : σ_adm = f_y/s = 235 / 1,5 = 156,7 N/mm², les charges critiques, le "
-        "déversement de la documentation (I_d, A_d, r_d, λ_ed, φ_ed), puis σ = σ_P + σ_My + σ_Mz",
-        all(x in T for x in ("235 / 1,5", "156,7 N/mm", "4811 kN", "1390 kN", "301 cm", "19,3 cm", "3,94 cm", "76,1", "0,727", "115,7 N/mm")), T[1500:2200])
+        and taux(h["taux_max"]) == "88,4 %" and taux(e["taux_max"]) == "57,7 %" and "88,4 %" in T and "57,7 %" in T, T[:300])
+    chk("… la méthode ELS s'écrit comme les classeurs du bureau (lot B, brief v12 § 6.4) : σ_adm = f_y/s = 235 / 1,5 = 156,7 N/mm² avec la f_y "
+        "NOMINALE (« f_y nominale, comme les classeurs du bureau », test 37), le déversement des classeurs (λ_e,d, λ̄_d, Φ_d, φ_d, σ_adm,d) et "
+        "M/W ≤ σ_adm,d, l'origine du 3,9, la correction du classeur qui joue (« Correction du classeur : … ») ; aucune mention « plus sévère "
+        "que l'EC3 » (test 12 du § 11.5)",
+        all(x in T for x in ("235 / 1,5", "156,7 N/mm", "nominale, comme les classeurs du bureau", "92,35", "0,983", "2,2326", "0,6081", "95,26 N/mm",
+                             "84,19 N/mm", "3,9 = √(3π·√2,6) arrondi", "Correction du classeur : classe de la ligne « axe faible » seule"))
+        and "plus sévère" not in T, T[1500:2200])
     chk("… la flèche de service est donnée (10,0 mm, L/599) et dite non vérifiée ; le poids propre est compté, et sa valeur dite (78,6 kN/m³ × A, "
         "la valeur du moteur)",
         "10,0 mm" in T and "L/599" in T and "elle n'est pas vérifiée" in T and "Poids propre du profilé (78,6 kN/m³ × A = 0,423 kN/m) : compté" in T)

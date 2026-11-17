@@ -31,7 +31,10 @@
                                                        console : 2·L autour des deux axes tant que le bout est libre
      "Lc": None                               distance entre sections tenues (efforts imposés ; None : L de l'axe faible)
      "methodes": ["historique", "ec3"],
-     "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False},
+     "historique": {"s": 1.5, "C": "unite" | "norme", "deversement": True, "tolerance": False,
+                    "Cd": 1.0, "variante": "classeurs" | "fascicule",   C_d et la variante du déversement (brief § 6.4)
+                    "facteur_doc": False, "classe_d": None}             profil fermé : le facteur 5,1 de la doc ; une classe
+                                                                       de déversement imposée (a à d ; None ou "" : le tableau 12)
      "parametres": {}}                        d'autres coefficients que ceux de la table (acier/barre/parametres.py)
 """
 import copy
@@ -43,6 +46,7 @@ from rdm import poutres as PO
 
 from . import combinaisons as CO
 from . import ec3_deversement as DV
+from . import historique_deversement as HD
 from . import prs as PR
 from . import section as SE
 from . import statique as ST
@@ -70,7 +74,8 @@ def nouvelle_barre(nom: str = "B1") -> Dict:
             "efforts": {"service": {k: 0.0 for k in EFFORTS}, "elu": {k: 0.0 for k in EFFORTS}},
             "diagramme": {"y": {"forme": DV.CONSTANT, "psi": 1.0}, "z": {"forme": DV.CONSTANT, "psi": 1.0}},
             "flambement": {"y": {"L": None, "u": 1.0}, "z": {"L": None, "u": 1.0}}, "Lc": None,
-            "methodes": list(METHODES), "historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False},
+            "methodes": list(METHODES), "historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,
+                                                       "variante": "classeurs", "facteur_doc": False, "classe_d": None},
             "parametres": {}}
 
 
@@ -159,7 +164,16 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus("le coefficient de sécurité s doit être entre 1 et 3")
     if h["C"] not in C_MODES:
         raise Refus(f"coefficient C : {', '.join(C_MODES)}")
-    b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": bool(h["tolerance"])}
+    if not HD.CD_MIN <= _nombre(h["Cd"], "C_d") <= HD.CD_MAX:
+        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {HD.CD_MIN:g} et {HD.CD_MAX:g}")
+    if h["variante"] not in HD.VARIANTES:
+        raise Refus(f"variante du déversement : {', '.join(HD.VARIANTES)}")
+    if h["classe_d"] == "":                 # une liste sans choix (l'écran) : celle du tableau 12
+        h["classe_d"] = None
+    if h["classe_d"] is not None and h["classe_d"] not in HD.CLASSES:
+        raise Refus(f"classe de déversement : {', '.join(HD.CLASSES)} ou vide (celle du tableau 12)")
+    b["historique"] = {"s": float(h["s"]), "C": h["C"], "deversement": bool(h["deversement"]), "tolerance": bool(h["tolerance"]),
+                       "Cd": float(h["Cd"]), "variante": h["variante"], "facteur_doc": bool(h["facteur_doc"]), "classe_d": h["classe_d"]}
     if not isinstance(src.get("parametres", {}), dict):
         raise Refus("« parametres » doit être un dictionnaire")
     b["parametres"] = dict(src.get("parametres") or {})

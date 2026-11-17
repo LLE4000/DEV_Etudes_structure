@@ -80,9 +80,8 @@ class Lecture:
             sol = self.sol
             xc = min(sol.L, max(0.0, x))
             droite = xc < sol.L
-            t = next((t for t in sol.travees if xc < t.x0 + t.L or (xc == t.x0 + t.L and (not droite or t is sol.travees[-1]))),
-                     sol.travees[-1])
-            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), droite)
+            t, xl = sol._travee(xc, droite)                 # la travée du formulaire : un appui reconnu à sa tolérance
+            m = self.moments[x] = t.M(xl, droite)
         return m
 
     def __getattr__(self, nom: str):

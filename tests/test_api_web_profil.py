@@ -119,13 +119,13 @@ chk("une note neuve : version 2 et sa clé « zero_saisi » (lot B, sans changer
     and [c["nom"] for c in el0["cas"]] == ["G", "Q"] and el0["poids_propre"] is True and el0["maintiens"] == [{"x": 3.0, "genre": "complet"}]
     and el0["methodes"] == ["historique", "ec3"], el0)
 th, te = r0["methodes"]["historique"]["taux_max"], r0["methodes"]["ec3"]["taux_max"]
-chk("ses DEUX méthodes tiennent (ELS 74 %, Eurocode 3 58 % — lot A : le couple (λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; "
-    "mais s_s et c ne sont pas saisis, et à leur borne 0 l'âme ne passe pas (critère 6.2.1(5), 157 %) : décision impossible (brief § 8.3, "
-    "point 5) — la note est « À vérifier », son résumé porte le taux le plus fort ; seule s_s est demandée (le critère ne lit pas c — le harnais "
-    "suit : « s_s et c » à la 2e reprise)",
-    r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.74 and round(te, 2) == 0.58
+chk("ses DEUX méthodes tiennent (ELS 88 % — lot B : le déversement des classeurs, brief v12 § 6.4 ; Eurocode 3 58 % — lot A : le couple "
+    "(λ̄_LT,0 ; β) = (0,2 ; 1,0) de l'ANB:2018, 6.3.2.3(1)) ; mais s_s et c ne sont pas saisis, et à leur borne 0 l'âme ne passe pas (critère "
+    "6.2.1(5), 157 %) : décision impossible (brief § 8.3, point 5) — la note est « À vérifier », son résumé porte le taux le plus fort ; seule "
+    "s_s est demandée (le critère ne lit pas c — le harnais suit : « s_s et c » à la 2e reprise)",
+    r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.88 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
-    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)"
+    and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)"
     and "Âme · Décision impossible : s_s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
 # la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
 DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
@@ -134,7 +134,7 @@ chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %)
     and "Âme ·" not in texte(DECIDE["resultat"]), DECIDE["resume"])
 res0 = texte(neuf["resultat"])
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
-    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in res0
+    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in res0
     and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,6 kN·m" in res0
     and "1,35·Poids propre + 1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
@@ -209,8 +209,10 @@ for k, x in r["methodes"].items():
             parts, res = W.morceaux(f)
             if res not in t or parts[2] not in t:
                 absentes.append((v["id"], cle, res))
+# (lot B : en flexion simple, la méthode ELS n'écrit plus que la ligne du déversement des classeurs — ses P_cr, qui ne servaient pas, ne
+# sont plus répétés : 19 formules ; le seuil est ce compte, pour qu'une formule perdue se voie)
 chk(f"les fenêtres de calcul portent CHAQUE formule du moteur ({n}), écrite par acier.barre.ecriture : ses valeurs et son résultat",
-    n > 20 and not absentes, absentes[:3])
+    n >= 19 and not absentes, absentes[:3])
 vol = texte(rep["volets"])
 chk("la fenêtre d'une vérification dit la méthode, la barre, la combinaison et le lieu ; ses hypothèses sont celles du moteur",
     "Eurocode 3 · HEA 200 · S235 · 5,00 + 4,00 m ·" in vol and all(texte(PR.M.sub(h)) in vol for x in r["methodes"].values() for h in x["hypotheses"]),
@@ -241,10 +243,11 @@ chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre
     len(ac) == 1 and "1 paramètre à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
     and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
-chk("une barre que la méthode ELS refuse (179 %) et que l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de "
-    "l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les deux verdicts se lisent, deux blocs rouges",
-    nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 179
-    and "η 179 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
+chk("une barre que la méthode ELS refuse (139 % — lot B : le déversement des classeurs ; la variante du fascicule donnait 179 %) et que "
+    "l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les "
+    "deux verdicts se lisent, deux blocs rouges",
+    nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 139
+    and "η 139 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 114 % Eurocode 3" in texte(nu["resultat"])
     and nu["resultat"].count('class="et-bloc nok"') == 2, nu["resume"])
 
 print("=== 3. Les saisies")
@@ -548,7 +551,7 @@ chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (107 %,
     voile["resume"]["taux"] == 107 and voile["resume"]["gouvernant"] == "B1 · IPE 750x134 · voilement de l'âme par cisaillement (âme)"
     and "Profilé IPE 750x134 107 %" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"
     and PR.taux_barre(moteur(rep["etat"]["elements"][0])) == max(x["taux_max"] for x in moteur(rep["etat"]["elements"][0])["methodes"].values())
-    and neuf["resume"]["taux"] == 74 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
+    and neuf["resume"]["taux"] == 88 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
 
 print("=== 7. Le sélecteur")
 # (la note neuve, s_s et c saisis — sans eux, l'âme ne décide pour aucun profilé : brief § 8.3, point 5)
@@ -611,7 +614,7 @@ chk("ajouter une barre (B2, ouverte) ; copier la première (« B1 (copie) », in
 mixte = req(action="calculer", etat=P.etat_de([dict(P.barre_neuve("Solive"), appuis={"mode": "poses", "ss": 100.0, "c": 0.0}),
                                                 barre(nom="Panne", maintiens=[])]))
 chk("le résumé de la NOTE est sa barre la plus chargée, son état le moins bon ; chaque barre a la couleur de son état dans la liste",
-    mixte["resume"]["niveau"] == "r" and mixte["resume"]["taux"] == 179 and mixte["resume"]["gouvernant"].startswith("Panne · IPE 300 · flexion")
+    mixte["resume"]["niveau"] == "r" and mixte["resume"]["taux"] == 139 and mixte["resume"]["gouvernant"].startswith("Panne · IPE 300 · déversement")
     and 'class="status r"' in mixte["statut_html"] and re.findall(r'<span class="nom et-n-(\w+)">', mixte["donnees"]) == ["ok", "nok"], mixte["resume"])
 appels = [0]
 verifier = MO.verifier
@@ -739,7 +742,7 @@ chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses m
     and "66,7 kN·m" in bande and "44,5 kN" in bande, bande)
 tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"][2]["svg"]
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
-    "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">179 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
+    "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">139 %<" in tx and ">114 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'
 sale = req(action="calculer", etat=note(barre(nom=mechant[:40], cas=[{"nom": "<b>G</b>", "nature": "permanent", "N": 0.0,
                                                                          "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])))
@@ -833,9 +836,10 @@ def lot_a():
     nv = req(action="nouveau")
     return [
         ("une barre en S460 se calcule (la méthode ELS est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
-         "« Hors domaine · 53 % », jamais « Conforme » ; son bloc est à vérifier (inc) ; la note « À vérifier » (v), au taux du moteur",
-         hd.get("ok") and "ELS Hors domaine · 53 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
-         and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 53
+         "« Hors domaine · 70 % » (lot B : f_y nominale 460 et déversement des classeurs), jamais « Conforme » ; son bloc est à vérifier (inc) ; "
+         "la note « À vérifier » (v), au taux du moteur",
+         hd.get("ok") and "ELS Hors domaine · 70 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
+         and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 70
          and "hors domaine, calcul pour information" in t, (hd.get("resume"), hd.get("erreur"), t[:200])),
         ("… sa grande pastille est ocre (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
          'class="chip xl v"' in hd.get("resultat", "") and 'fill="#B86E00"' in tx and 'fill="#86EFAC"' in tx, tx[:120]),
@@ -912,8 +916,8 @@ def nom_els():
                                                                                                          for v in r_["vues"]]
     restes = [m_.group(0) for t_ in tout for m_ in re.finditer(r".{0,40}[Hh]istorique.{0,30}", t_)]
     return [
-        ("le verdict de la méthode du bureau la nomme en entier : « Méthode ELS (NBN B 51-001) · flexion »",
-         f"η {pastille(th)} Méthode ELS (NBN B 51-001) · flexion σ 115,7 ≤ σ adm 156,7 N/mm²" in texte(nv["resultat"]), texte(nv["resultat"])[:160]),
+        ("le verdict de la méthode du bureau la nomme en entier : « Méthode ELS (NBN B 51-001) · déversement » (lot B : la ligne des classeurs)",
+         f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in texte(nv["resultat"]), texte(nv["resultat"])[:160]),
         ("… son bloc porte le titre court « ELS » (la place manque devant « Conforme · 74 % ») ; la comparaison, l'en-tête de colonne « ELS »",
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
          and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span></div>' in nv["resultat"],
@@ -924,7 +928,7 @@ def nom_els():
          and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "ELS + eurocode 3 · s 1,5" in texte(nv["donnees"])
          and 'data-chemin="historique/s"' in nv["donnees"] and nv["etat"]["elements"][0]["methodes"] == ["historique", "ec3"],
          re.findall(r'data-valeur="historique"[^>]*>[^<]*<', nv["donnees"])),
-        ("le résumé de la note (l'accueil, la liste des notes) : « flexion (ELS) »", nv["resume"]["gouvernant"] == "B1 · IPE 300 · flexion (ELS)", nv["resume"]),
+        ("le résumé de la note (l'accueil, la liste des notes) : « déversement (ELS) »", nv["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)", nv["resume"]),
         ("« tout le calcul » de la méthode : « B1 · méthode ELS (NBN B 51-001) », sans répéter la norme dessous ; la comparaison : colonne « ELS », "
          "« La méthode ELS (NBN B 51-001) compare des contraintes de service »",
          "<b>B1 · méthode ELS (NBN B 51-001)</b><span>IPE 300 · S235 · 6,00\u00a0m · tout le calcul</span>" in nv["volets"]

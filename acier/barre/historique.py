@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""La MÉTHODE HISTORIQUE du bureau : ancienne norme belge NBN B 51-001, contraintes admissibles, charges de SERVICE
-(non pondérées), sécurité s = 1,5. Écrite d'après la documentation théorique du bureau (« doc p. X ») et ses classeurs
-« Flambement », qu'elle retrouve à 10⁻⁹ près (tests/test_barre_historique.py) ; docs/acier/BARRES_ACIER.md § 4.
+"""La MÉTHODE ELS du bureau (clé interne « historique ») : ancienne norme belge NBN B 51-001, contraintes admissibles,
+charges de SERVICE (non pondérées), sécurité s = 1,5. Elle reprend les classeurs « Flambement » et « Déversement » du
+bureau avec leurs valeurs (brief v12 § 6) et ne corrige que leurs vraies erreurs, chacune NOMMÉE (§ 6.7) ;
+tests/test_barre_historique.py ; docs/acier/BARRES_ACIER.md § 4.
 
 Pour chaque axe (y fort, z faible) :
 
@@ -13,24 +14,31 @@ Pour chaque axe (y fort, z faible) :
 puis, pour la barre :
 
     σ = P/(A·φ_min) + C_y·M_y/(φ_ed·W_y·PE_y) + C_z·M_z/(W_z·PE_z) ≤ f_y / s                    (doc p. 20, 26)
-    τ = V_z/A_âme + V_y/A_ailes        σ_eq = √(σ² + 3·τ²) ≤ f_y / s                            (classeurs)
+    τ = |V_z|/A_âme + |V_y|/A_ailes        σ_eq = √(σ² + 3·τ²) ≤ f_y / s                        (classeurs)
 
-φ_ed, le déversement (doc p. 15 à 19) : la semelle comprimée et un sixième de l'âme, vus comme une barre comprimée —
-I_d = t_f·b³/12, A_d = b·t_f + h_w·t_w/6, λ_ed = L_c/√(I_d/A_d), courbe de l'axe faible. Tube rectangulaire : la
-formule des profils fermés (doc p. 18). Tube rond ou carré : pas de déversement.
+φ_ed, le déversement (acier/barre/historique_deversement.py) : PAR DÉFAUT la méthode des classeurs « Déversement »
+(NBN B 51-002) — λ_e,d = 3,9·√(l·h/(b·t_f·C_d)), φ_d, σ_adm,d = f_y/s × φ_d, la vérification M/W ≤ σ_adm,d, et φ_ed = φ_d
+dans le terme de moment fort ; la variante du fascicule (doc p. 19), éteinte : ni calculée ni montrée tant qu'on ne la
+choisit pas. Profil fermé rectangulaire ou caisson : la formule de la doc p. 18. Tube rond ou carré : φ_ed = 1.
 
-CE QUE LE MODULE CORRIGE par rapport aux classeurs (chaque point a son contrôle) : P_cr avec (u·L)² ; u et L par axe ;
-φ_min dans la flexion composée ; une seule courbe par axe ; des verdicts ; des garde-fous (λ̄ > 1,8, λ > 200, PE ≤ 0).
+f_y : la valeur NOMINALE de la nuance (235, 275, 355 N/mm²), quelle que soit l'épaisseur, comme les classeurs (brief
+§ 13.2 point 5, § 18.3) : c'est le moteur des barres qui la passe (moteur._fy_historique) ; l'Eurocode 3 garde la table.
+
+CE QUE LE MODULE CORRIGE par rapport aux classeurs (``DE.CORRECTIONS`` ; chaque correction qui joue sur le cas calculé
+s'imprime « Correction du classeur : … » dans la vérification concernée, et ``corrections`` les rend) : P_cr avec
+(u·L)² ; φ_min quand l'axe fort est le plus élancé ; une seule courbe par axe ; |V_y| + |V_z| ; les six points du
+déversement. Ce qu'il AJOUTE : u et L par axe, des verdicts, des garde-fous (λ̄ > 1,8, λ > 200, PE ≤ 0).
 CE QU'IL NE REPREND PAS de la doc : la dispense « C/φ_ed = 1 si P/(A·φ) ≤ 0,15·σ_adm » (annotée « FAUX » p. 20) ; la
 tolérance de 5 % des exemples (option éteinte).
 
-LE DOMAINE DE LA DOC (brief § 6.2 point 8, § 9) : une nuance hors AE235 à AE355 — lue sur la NUANCE (sa valeur
-nominale), jamais sur la f_y réduite par l'épaisseur ; à défaut de nuance, sur f_y — et un profil creux formé à froid de
-paroi de plus de 6 mm sont HORS DOMAINE : le calcul est fait et rendu, chaque vérification qui passerait est rendue
-« hors_domaine » (jamais « vérifié »), une qui ne passe pas reste « nok ».
-
-f_y : celle que la barre donne. Le moteur des barres lui passe la f_y de l'Eurocode 3, selon l'épaisseur (brief § 13.2
-point 5, DÉCISION BUREAU acceptée : la table unique, acier/materiaux.py).
+LE DOMAINE DE LA DOC (brief § 6.2 point 8, § 9, § 19.1 point 5) : une nuance hors AE235 à AE355 (lue sur la nuance), un
+profil creux formé à froid de paroi de plus de 6 mm, une paroi de plus de 80 mm, et — pour le déversement — un PRS
+monosymétrique sont HORS DOMAINE : le calcul est fait et rendu, une vérification qui passerait est rendue « hors_domaine »
+(jamais « vérifié »), une qui ne passe pas reste « nok ». LE VERDICT EST BLOQUÉ (« non_couvert », le calcul reste montré)
+quand une donnée manque ou se contredit : bords des semelles d'un PRS ou fabrication d'un tube non saisis (calcul en
+larges plats ou formé à froid, le cas le plus défavorable), un I dont l'axe « fort » ne l'est pas (I_y ≤ I_z). Une classe
+de déversement que le tableau 12 ne donne pas (un I recuit…) est « à fournir » : la flexion est non couverte, le
+flambement se calcule.
 
 Le moteur CALCULE et NOMME : ``verifier`` rend les grandeurs (N, mm), les vérifications (valeur, limite, taux), les
 blocs de formules (``calcul`` : termes et résultat dans les unités des classeurs — kN, cm, cm⁴, cm³, mm², N/mm² ;
@@ -41,6 +49,7 @@ from typing import Dict, List, Optional
 
 from acier import materiaux as MA
 
+from . import historique_deversement as DE
 from . import resultat as RE
 from . import section as SE
 from .resultat import Refus, formule as _f, fr as _fr, terme as _t  # noqa: F401 — Refus : celui de tout le module
@@ -48,7 +57,7 @@ from .resultat import Refus, formule as _f, fr as _fr, terme as _t  # noqa: F401
 METHODE = "historique"
 NORME = "NBN B 51-001"
 E = 210000.0                    # N/mm² (doc p. 2)
-E_SUR_G = 2.6                   # E/G = 2·(1 + ν), ν = 0,3 (doc p. 18)
+G = E / DE.E_SUR_G              # 80 769,23 N/mm² : E/G = 2,6 (doc p. 18)
 S_DEFAUT = 1.5                  # le coefficient de sécurité du « cumul I » (doc p. 6, 11)
 S_MIN, S_MAX = 1.0, 3.0
 # les trois courbes de flambement : classe → (α, β) (doc p. 3)
@@ -58,6 +67,10 @@ LAMBDA_MAX = 200.0              # élancement « formellement déconseillé » a
 FY_DOC = (235.0, 355.0)         # AE235 à AE355 : les nuances que la doc couvre (p. 3, 5)
 RAPPORT_HB = 1.2                # h/b : la limite du tableau des courbes (doc p. 4)
 PAROI_FROID = 6.0               # mm : « profil creux fini à froid, paroi ≤ 6 mm » (doc p. 4)
+EPAISSEUR_DOC = 80.0            # mm : au-delà, une épaisseur que la doc ne prévoit pas (brief § 19.1 point 5) — hors domaine
+# la f_y de la méthode : la NOMINALE de la nuance, quelle que soit l'épaisseur (brief § 6.1, § 13.2 point 5) — ce que la
+# note en écrit, en entier et en court
+SOURCE_NOMINALE, FY_NOMINALE = "f_y nominale, comme les classeurs du bureau", "nominale"
 C_CHARGES = 0.85                # charges appliquées sur la barre (doc p. 21)
 MODES_C = ("unite", "moments", "charges")
 TOLERANCE = 0.05                # la « classe de précision de 5 % » des exemples (doc p. 13, 23) — option, éteinte
@@ -69,6 +82,7 @@ COURBES_FABRICATION = {
     "caisson_recuit": ("a", "a"),
 }
 NOMS_AXE = {"y": "fort", "z": "faible"}
+MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : les charges (plan de l'âme) fléchissent ce PRS autour de son axe faible — verdict bloqué."
 
 
 # ------------------------------------------------------------------ la norme
@@ -133,8 +147,13 @@ def aires_cisaillement(s: Dict) -> Dict[str, Optional[float]]:
     ailes » pour celui de l'axe faible (V_y). Saisies (``A_ame``, ``A_ailes``) ou, pour un profilé du catalogue :
     I et H — l'aire de cisaillement du catalogue A_v,z (c'est la valeur que les classeurs recopient : 2483 mm² pour le
     HEB 200) et les deux semelles 2·b·t_f ; tube rond — A/2 chacune (classeur du tube 168,3) ; tube carré ou
-    rectangulaire — les aires de cisaillement du catalogue."""
+    rectangulaire — les aires de cisaillement du catalogue. Un PRS : l'âme h_w·t_w et ses deux semelles b₁·t₁ + b₂·t₂ (son
+    A_v,z = 1,20·h_w·t_w est celle de l'Eurocode 3 : la méthode ELS garde l'aire de l'âme seule, du côté sûr)."""
     ame, ailes = s.get("A_ame"), s.get("A_ailes")
+    p = s.get("prs") if isinstance(s.get("prs"), dict) else None
+    if (ame is None or ailes is None) and p:
+        ame = p["hw"] * p["tw"] if ame is None else ame
+        ailes = p["b1"] * p["t1"] + p["b2"] * p["t2"] if ailes is None else ailes
     if ame is None or ailes is None:
         if s["forme"] == "I":
             auto = (s.get("Avz"), 2.0 * s["b"] * s["tf"] if s.get("b") and s.get("tf") else None)
@@ -149,33 +168,31 @@ def aires_cisaillement(s: Dict) -> Dict[str, Optional[float]]:
     return {"ame": ame, "ailes": ailes}
 
 
-def deversement(s: Dict, Lc: Optional[float], fy: float, courbe_z: str) -> Dict:
-    """φ_ed du déversement (doc p. 15 à 19) pour la longueur ``Lc`` (mm) entre maintiens latéraux de la semelle
-    comprimée : {"cas", "phi", …}. ``cas`` : « maintenu » (Lc nul ou None : φ_ed = 1), « I » (semelle + âme/6),
-    « ferme » (tube rectangulaire, doc p. 18), « sans_objet » (tube rond ou carré), « non_couvert » (autre forme)."""
+def deversement(s: Dict, Lc: Optional[float], fy: float, courbe_z: str, variante: str = "classeurs", Cd: float = 1.0,
+                semelle: str = "haut", classe: Optional[str] = None, facteur_doc: bool = False) -> Dict:
+    """φ_ed du déversement pour la longueur ``Lc`` (mm, L_d) entre maintiens latéraux de la semelle comprimée :
+    {"cas", "phi", …} (acier/barre/historique_deversement.py). ``cas`` : « maintenu » (Lc nul ou None : φ_ed = 1),
+    « sans_objet » (tube rond ou carré : φ_ed = 1, règle complémentaire), « classeurs » (un I ou un H, la méthode des
+    classeurs, par défaut), « I » (la variante du fascicule p. 19, ``variante`` = « fascicule »), « ferme » (profil
+    fermé rectangulaire ou caisson, doc p. 18 ; ``facteur_doc`` : le facteur 5,1 de la doc), « non_couvert » (autre
+    forme). ``courbe_z`` : la courbe de l'axe faible du fascicule (variante, profils fermés)."""
     if not Lc:
         return {"cas": "maintenu", "phi": 1.0}
     if s["forme"] in ("tube_rond", "tube_carre"):
         return {"cas": "sans_objet", "phi": 1.0}
+    if variante not in DE.VARIANTES:
+        raise Refus(f"variante du déversement : {', '.join(DE.VARIANTES)} — reçu {variante!r}")
     lE = lambda_E(fy)
+    if s["forme"] == "I" and variante == "classeurs":
+        return DE.classeurs(s, Lc, lE, Cd, semelle, classe)
     if s["forme"] == "I":
-        hw = SE.hauteur_ame(s)
-        if hw is None or not s.get("b") or not s.get("tw"):
-            raise Refus("h, b, t_w et t_f manquent : le déversement d'un I en dépend")
-        Id = s["tf"] * s["b"] ** 3 / 12.0
-        Ad = s["b"] * s["tf"] + hw * s["tw"] / 6.0
-        rd = math.sqrt(Id / Ad)
-        lam = Lc / rd
-        lb = lam / lE
-        return {"cas": "I", "phi": phi(lb, courbe_z), "Id": Id, "Ad": Ad, "rd": rd, "hw": hw, "lambda": lam, "lambda_bar": lb,
-                "courbe": courbe_z, "Lc": Lc}
-    if s["forme"] == "tube_rect":
-        if not s.get("It") or not s.get("Wel_y"):
-            raise Refus("I_t et W_el,y manquent : le déversement d'un tube rectangulaire en dépend")
-        lam = math.sqrt(math.pi * math.sqrt(E_SUR_G) * Lc * s["Wel_y"] / math.sqrt(s["Iz"] * s["It"]))
-        lb = lam / lE
-        return {"cas": "ferme", "phi": phi(lb, courbe_z), "lambda": lam, "lambda_bar": lb, "courbe": courbe_z, "Lc": Lc}
-    return {"cas": "non_couvert", "phi": None}
+        dev = DE.fascicule(s, Lc, lE, semelle)
+    elif s["forme"] == "tube_rect" or s.get("fabrication") in DE.CAISSONS:
+        dev = DE.ferme(s, Lc, lE, DE.FACTEUR_DOC if facteur_doc else None)
+    else:
+        return {"cas": "non_couvert", "phi": None}
+    dev.update({"phi": phi(dev["lambda_bar"], courbe_z), "courbe": courbe_z})
+    return dev
 
 
 # (les blocs de formules ``_t``, ``_f`` et l'écriture des nombres ``_fr`` : acier/barre/resultat.py ; les termes sont
@@ -217,19 +234,37 @@ def _lire(d: Dict) -> Dict:
         psi = float(c.get("psi", 1.0))
         out["C"][a] = {"mode": mode, "psi": psi, "valeur": coefficient_C(mode, psi)}
     dev = dict(d.get("deversement") or {})
-    out["deversement"] = {"actif": bool(dev.get("actif", True)), "Lc": dev.get("Lc")}
+    out["deversement"] = {"actif": bool(dev.get("actif", True)), "Lc": dev.get("Lc"), "variante": dev.get("variante", "classeurs"),
+                          "Cd": dev.get("Cd", 1.0), "classe": dev.get("classe"), "semelle": dev.get("semelle"),
+                          "niveau": dev.get("niveau"), "facteur_doc": bool(dev.get("facteur_doc", False))}
     if out["deversement"]["Lc"] is not None:
         Lc = float(out["deversement"]["Lc"])
         if Lc < 0 or not math.isfinite(Lc):
-            raise Refus("la distance L_c entre maintiens latéraux doit être positive ou nulle")
+            raise Refus("la distance L_d entre maintiens latéraux doit être positive ou nulle")
         out["deversement"]["Lc"] = Lc
+    Cd = out["deversement"]["Cd"]
+    if isinstance(Cd, bool) or not isinstance(Cd, (int, float)) or not DE.CD_MIN <= float(Cd) <= DE.CD_MAX:
+        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {DE.CD_MIN:g} et {DE.CD_MAX:g} : {Cd!r}")
+    out["deversement"]["Cd"] = float(Cd)
+    if out["deversement"]["variante"] not in DE.VARIANTES:
+        raise Refus(f"variante du déversement : {', '.join(DE.VARIANTES)} — reçu {out['deversement']['variante']!r}")
+    if out["deversement"]["classe"] is not None and out["deversement"]["classe"] not in DE.CLASSES:
+        raise Refus(f"classe de déversement : a, b, c ou d — reçu {out['deversement']['classe']!r}")
+    if out["deversement"]["semelle"] not in (None, "haut", "bas"):
+        raise Refus(f"semelle comprimée : haut ou bas — reçu {out['deversement']['semelle']!r}")
     return out
 
 
+def epaisseur(s: Dict) -> float:
+    """La plus forte paroi de la section (mm) : celle d'un PRS sur ses trois plats."""
+    p = s.get("prs") if isinstance(s.get("prs"), dict) else {}
+    return max(float(v or 0.0) for v in (s.get("tf"), s.get("tw"), s.get("t"), p.get("t1"), p.get("tw"), p.get("t2")))
+
+
 def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
-    """Ce qui met la barre HORS du domaine de la doc (brief § 6.2 point 8) — [] dans le domaine : « nuance » (hors
-    AE235 à AE355, lue sur la valeur NOMINALE de la nuance, à défaut sur ``fy``), « froid » (profil creux formé à froid
-    de paroi de plus de 6 mm)."""
+    """Ce qui met la barre HORS du domaine de la doc (brief § 6.2 point 8, § 19.1 point 5) — [] dans le domaine :
+    « nuance » (hors AE235 à AE355, lue sur la valeur NOMINALE de la nuance, à défaut sur ``fy``), « froid » (profil
+    creux formé à froid de paroi de plus de 6 mm), « epaisseur » (une paroi de plus de 80 mm : 13 HD et HL)."""
     hors = []
     try:
         ref = MA.nominale(nuance) if nuance else fy
@@ -239,34 +274,65 @@ def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
         hors.append("nuance")
     if s.get("fabrication") == "creux_froid" and (s.get("t") or 0.0) > PAROI_FROID:
         hors.append("froid")
+    if epaisseur(s) > EPAISSEUR_DOC:
+        hors.append("epaisseur")
     return hors
 
 
-def verifier(barre: Dict) -> Dict:
-    """La barre vérifiée par la méthode historique.
+HORS_DOMAINE_TEXTES = {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm",
+                       "epaisseur": "paroi de plus de 80 mm, que la doc ne prévoit pas",
+                       "prs_mono": "PRS monosymétrique (la formule du déversement suppose deux semelles égales)"}
 
-    ``barre`` (N, mm) : {"section" (acier.barre.section), "fy", "nuance" (pour le domaine ; facultative), "fy_source",
-    "fy_ref" (d'où vient f_y, en entier et en court, imprimées ; facultatives), "s" (1,5), "P" (compression > 0, traction < 0), "My",
-    "Mz", "Vz", "Vy" (efforts de SERVICE ; les moments et les efforts tranchants comptent en valeur absolue),
-    "axes": {"y": {"L", "u" (1), "courbe" (None : celle de la norme)}, "z": {…}},
-    "C": {"y": {"mode": "unite"|"moments"|"charges", "psi"}, "z": {…}},
-    "deversement": {"actif" (True), "Lc" (None : la longueur L de l'axe faible)}, "tolerance" (False)}.
+
+def verifier(barre: Dict) -> Dict:
+    """La barre vérifiée par la méthode ELS.
+
+    ``barre`` (N, mm) : {"section" (acier.barre.section ; un PRS : le contrat de acier/barre/prs.py), "fy" (la NOMINALE de
+    la nuance), "nuance" (pour le domaine ; facultative), "fy_source", "fy_ref" (d'où vient f_y, en entier et en court ;
+    facultatives), "s" (1,5), "P" (compression > 0, traction < 0), "My" (> 0 : semelle haute comprimée), "Mz", "Vz",
+    "Vy" (efforts de SERVICE ; ils comptent en valeur absolue), "axes": {"y": {"L", "u" (1), "courbe" (None : celle de la
+    norme)}, "z": {…}}, "C": {"y": {"mode": "unite"|"moments"|"charges", "psi"}, "z": {…}},
+    "deversement": {"actif" (True), "Lc" (L_d ; None : la longueur L de l'axe faible), "variante" (« classeurs » |
+    « fascicule »), "Cd" (1), "classe" (None : celle du tableau 12), "semelle" (None : d'après le signe de M_y),
+    "niveau" (des charges : « haut », « centre », « bas » ; None), "facteur_doc" (False : π·√2,6 ; True : 5,1)},
+    "tolerance" (False)}.
 
     Rend {"methode", "statut" (ok | nok | non_couvert | hors_domaine), "taux_max", "gouvernant", "verifications", "grandeurs",
-    "calcul", "alertes", "hypotheses"} ; une vérification : {"id", "methode", "titre", "reference", "critere",
-    "valeur", "limite", "unite", "taux", "statut", "formules", "messages"}. En compression simple, la ligne des
-    contraintes n'est pas rendue : elle répéterait le flambement de l'axe le plus défavorable (σ/σ_adm = P/P_adm) ;
-    la contrainte reste dans ``grandeurs``."""
+    "calcul", "alertes", "hypotheses", "corrections"} ; une vérification : {"id", "methode", "titre", "reference", "critere",
+    "valeur", "limite", "unite", "taux", "statut", "formules", "messages"} ; une correction des classeurs qui joue sur le
+    cas : {"id", "texte", "verifications"}. Une ligne qui en répéterait une autre n'est pas rendue (la contrainte reste
+    dans ``grandeurs``) : en compression simple, celle des contraintes (σ/σ_adm = P/P_adm) ; en flexion simple d'axe fort
+    avec C = 1 et le déversement des classeurs, celle des contraintes aussi (σ/σ_adm = (M/W)/σ_adm,d : la ligne du
+    déversement)."""
     d = _lire(barre)
-    s = d["section"]
+    s0 = d["section"]
     fy, sec, P = d["fy"], d["s"], d["P"]
     My, Mz, Vz, Vy = abs(d["My"]), abs(d["Mz"]), abs(d["Vz"]), abs(d["Vy"])
-    A = s["A"]
+    A = s0["A"]
     alertes: List[Dict] = []
     hyp: List[str] = []
+    bloque: List[str] = []                       # ce qui bloque le verdict (le calcul reste montré)
+    a_corriger: List[tuple] = []                 # (correction, vérification, valeurs) : les corrections des classeurs qui jouent
 
     def alerte(code, niveau, message):
         alertes.append({"code": code, "niveau": niveau, "message": message})
+
+    # ---- une donnée qui manque ou se contredit : le verdict est BLOQUÉ, le calcul est fait du côté défavorable
+    s = s0
+    if s0["forme"] in ("I",) + SE.TUBES and s0.get("fabrication") is None:
+        if s0["forme"] == "I":
+            s = dict(s0, fabrication="soude_larges_plats")
+            bloque.append("Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué ; calcul pour information en larges plats.")
+        else:
+            s = dict(s0, fabrication="creux_froid")
+            bloque.append("Fabrication du tube à saisir (finie à chaud ou formée à froid) : verdict bloqué ; calcul pour information en "
+                          "formé à froid.")
+    if s["forme"] == "I" and (s["Iy"] <= s["Iz"] or s["iy"] <= s["iz"]):
+        # un PRS (propriétés calculées sur ses plats : semelles larges, âme basse) : les charges, dans le plan de l'âme, le
+        # fléchissent autour de son axe FAIBLE, que la méthode ne traite pas (courbes, déversement) ; une saisie : des cases
+        # échangées
+        bloque.append(MESSAGE_PRS_AXE_FAIBLE if isinstance(s0.get("prs"), dict)
+                      else "I_y ≤ I_z : des valeurs de l'axe faible dans les cases de l'axe fort ? Verdict bloqué.")
 
     sigma_adm = fy / sec
     limite = sigma_adm * (1.0 + TOLERANCE) if d["tolerance"] else sigma_adm
@@ -278,21 +344,25 @@ def verifier(barre: Dict) -> Dict:
         if d["axes"]["y"]["courbe"] is None or d["axes"]["z"]["courbe"] is None:
             raise
         cb = {"y": None, "z": None, "regle": "courbes données", "message": None}
-    hors = domaine(s, fy, d["nuance"])
-    if cb["message"]:
+    hors = domaine(s0, fy, d["nuance"])
+    if cb["message"] and s is s0:
         alerte("courbe", "attention" if "froid" in hors else "info", cb["message"])
     comprime = P > 0
     G: Dict = {"fy": fy, "fy_source": d["fy_source"], "fy_ref": d["fy_ref"], "nuance": d["nuance"], "s": sec, "sigma_adm": sigma_adm, "limite": limite, "lambda_E": lE, "P": P, "My": My, "Mz": Mz, "Vz": Vz,
-               "Vy": Vy, "A": A, "regle_courbes": cb["regle"]}
+               "Vy": Vy, "A": A, "regle_courbes": cb["regle"], "bloque": bloque}
     calcul: List[Dict] = [_f("sigma_adm", "σ_adm", [_t("f_y", fy, "N/mm²"), _t("s", sec)], sigma_adm, "N/mm²"),
                           _f("lambda_E", "λ_E", [_t("E", E, "N/mm²"), _t("f_y", fy, "N/mm²")], lE)]
-    G["hors_domaine"] = hors
     if "nuance" in hors:
         quoi = f"Nuance {d['nuance']}" if d["nuance"] else f"f_y = {_fr(fy)} N/mm²"
         alerte("nuance", "attention", f"{quoi} : hors des nuances AE235 à AE355 de la norme (extrapolation) — hors domaine, calcul pour "
                                       "information.")
+    if "epaisseur" in hors:
+        alerte("epaisseur", "attention", f"Paroi de {_fr(epaisseur(s0), 1)} mm : plus de 80 mm, la doc ne la prévoit pas — hors domaine, "
+                                         "calcul pour information.")
     if d["tolerance"]:
         alerte("tolerance", "attention", "Tolérance de 5 % appliquée à la contrainte admissible (exemples de la documentation).")
+    for m in bloque:
+        alerte("bloque", "attention", m)
 
     # ---- chaque axe : élancement, φ, charge admissible, charge critique, facteur du second ordre
     for a in ("y", "z"):
@@ -327,6 +397,8 @@ def verifier(barre: Dict) -> Dict:
                                                        _t("L", ax["L"] / 10.0, "cm")], Pcr / 1e3, "kN", "P_cr"))
             if comprime:
                 calcul.append(_f(f"PE_{a}", f"PE_{a}", [_t("s", sec), _t("P", P / 1e3, "kN"), _t(f"P_cr,{a}", Pcr / 1e3, "kN")], PE, "", "PE"))
+                if ax["u"] != 1.0 and (My if a == "y" else Mz) > 0:
+                    a_corriger.append(("pcr_u", "H-SIGMA", {}))          # le classeur calculait P_cr sans u (correction 1)
         if g["courbe_forcee"]:
             alerte(f"courbe_{a}", "attention", f"Axe {nom} : courbe {courbe} imposée (la norme donne {cb[a]} : {cb['regle']}).")
         if comprime:
@@ -342,28 +414,81 @@ def verifier(barre: Dict) -> Dict:
     phi_min = min(G["y"]["phi"], G["z"]["phi"]) if comprime else 1.0
     G["phi_min"] = phi_min
     G["axe_phi_min"] = ("z" if G["z"]["phi"] <= G["y"]["phi"] else "y") if comprime else None
+    if comprime and (My > 0 or Mz > 0) and G["axe_phi_min"] == "y":
+        a_corriger.append(("phi_min", "H-SIGMA", {}))              # le classeur prenait φ de l'axe faible (correction 3)
 
     # ---- le déversement (le terme de moment de l'axe fort)
-    couvert = s["forme"] in ("I",) + SE.TUBES
-    if My > 0 and d["deversement"]["actif"] and couvert:
-        Lc = d["deversement"]["Lc"] if d["deversement"]["Lc"] is not None else d["axes"]["z"]["L"]
-        dev = deversement(s, Lc, fy, G["z"]["courbe"])
+    dv = d["deversement"]
+    semelle = dv["semelle"] or ("haut" if d["My"] >= 0 else "bas")
+    couvert = s["forme"] in ("I",) + SE.TUBES or s.get("fabrication") in DE.CAISSONS
+    if My > 0 and dv["actif"] and couvert:
+        Ld = dv["Lc"] if dv["Lc"] is not None else d["axes"]["z"]["L"]
+        try:
+            dev = deversement(s, Ld, fy, G["z"]["courbe"], dv["variante"], dv["Cd"], semelle, dv["classe"], dv["facteur_doc"])
+        except DE.AFournir as e:          # une classe du tableau 12 à fournir : la flexion est BLOQUÉE, le flambement se calcule
+            dev = {"cas": "a_fournir", "phi": None}
+            alerte("a_fournir", "attention", str(e))
     else:
         dev = {"cas": "maintenu" if (My > 0 and couvert) else "sans_objet", "phi": 1.0}
     G["deversement"] = dev
     phi_ed = dev["phi"]
-    if dev["cas"] == "I":
+    prs = DE.est_prs(s)
+    mono = prs and bool(s.get("monosymetrique"))
+    msg_dev: List[str] = []                       # les messages de la ligne du déversement
+    if dev["cas"] == "classeurs":
+        lbd = dev["lambda_bar"]
+        sMd = My / s["Wel_y"] if s.get("Wel_y") else None
+        dev["sigma_adm_d"] = fy / sec * phi_ed
+        dev["sigma_M"] = sMd
         calcul += [
-            _f("I_d", "I_d", [_t("t_f", s["tf"] / 10.0, "cm"), _t("b", s["b"] / 10.0, "cm")], dev["Id"] / 1e4, "cm⁴"),
-            _f("A_d", "A_d", [_t("b", s["b"] / 10.0, "cm"), _t("t_f", s["tf"] / 10.0, "cm"), _t("h_w", dev["hw"] / 10.0, "cm"),
-                              _t("t_w", s["tw"] / 10.0, "cm")], dev["Ad"] / 1e2, "cm²"),
-            _f("r_d", "r_d", [_t("I_d", dev["Id"] / 1e4, "cm⁴"), _t("A_d", dev["Ad"] / 1e2, "cm²")], dev["rd"] / 10.0, "cm"),
-            _f("lambda_ed", "λ_ed", [_t("L_c", dev["Lc"] / 10.0, "cm"), _t("r_d", dev["rd"] / 10.0, "cm")], dev["lambda"]),
+            _f("lambda_ed_d", "λ_e,d", [_t("L_d", dev["Lc"] / 10.0, "cm"), _t("h", dev["h"] / 10.0, "cm"), _t("b", dev["b"] / 10.0, "cm"),
+                                        _t("t_f", dev["tf"] / 10.0, "cm"), _t("C_d", dev["Cd"])], dev["lambda"]),
+            _f("lambda_bar_d", "λ̄_d", [_t("λ_e,d", dev["lambda"]), _t("λ_E", lE)], lbd, "", "lambda_bar"),
         ]
+        if lbd > DE.PALIER:
+            calcul += [_f("Phi_d", "Φ_d", [_t("n", dev["n"]), _t("λ̄_d", lbd)], dev["Phi"]),
+                       _f("phi_d", "φ_d", [_t("Φ_d", dev["Phi"]), _t("λ̄_d", lbd)], phi_ed)]
+        elif "phid_plafond" not in dev["corrections"]:       # (sinon, la correction 1 le dit)
+            msg_dev.append(f"λ̄_d = {_fr(lbd, 3)} ≤ 0,2 : φ_d = 1.")
+        calcul.append(_f("sigma_adm_d", "σ_adm,d", [_t("f_y", fy, "N/mm²"), _t("s", sec), _t("φ_d", phi_ed)], dev["sigma_adm_d"], "N/mm²"))
+        if sMd is not None:
+            calcul.append(_f("sigma_M", "σ_M", [_t("M_y", My / 1e6, "kN·m"), _t("W_y", s["Wel_y"] / 1e3, "cm³")], sMd, "N/mm²"))
+        if prs:
+            msg_dev.append(DE.MESSAGE_PRS)
+        for k in dev["corrections"]:
+            a_corriger.append((k, "H-DEV", {"prolonge": _fr(dev["phi_prolonge"], 4), "classe": dev["classe"],
+                                            "classe_lamine": dev["classe_lamine"]}))
+        if fy == DE.FY_FEUILLE_S355:
+            a_corriger.append(("fy_nuance", "H-DEV", {"fy": _fr(fy)}))   # DEVERSEMENT_CAD, feuille S355 : 157 N/mm² (correction 4)
+        if dv["classe"] is not None and dev["classe_norme"] not in (None, dv["classe"]):
+            # (S460 : la classe comparée est celle de la colonne f_y ≤ 430, À VÉRIFIER comme dans l'hypothèse ci-dessous)
+            col_i = f" ; {DE.MESSAGE_COLONNE}, À VÉRIFIER" if fy > DE.FY_COLONNE_12 else ""
+            alerte("classe_d", "attention", f"Déversement : classe {dv['classe']} imposée (le tableau 12 donne {dev['classe_norme']}{col_i}).")
+        if dev["Cd"] > 1.0 and dv["niveau"] == "haut":
+            alerte("cd_haut", "attention", DE.MESSAGE_CD)
+        cote = f", semelle {'haute' if semelle == 'haut' else 'basse'} comprimée {_fr(dev['b'])} × {_fr(dev['tf'])} mm" if mono else ""
+        # au-delà de 430 N/mm², la colonne du tableau 12 n'est pas dans le brief : celle de f_y ≤ 430 est gardée (À VÉRIFIER, dit)
+        col = f" — {DE.MESSAGE_COLONNE} (À VÉRIFIER)" if fy > DE.FY_COLONNE_12 and dv["classe"] is None else ""
+        hyp.append(f"Déversement (classeurs, NBN B 51-002) : L_d = {_fr(dev['Lc'] / 1e3, 2)} m, C_d = {_fr(dev['Cd'], 2).rstrip('0').rstrip(',')}, "
+                   f"classe {dev['classe']} ({dev['regle']}){cote}{col}.")
+        hyp.append(DE.MESSAGE_3_9)                      # (une fois par méthode, pas sur la ligne)
+        if prs and dv["classe"] is None:                # (une classe imposée n'est pas celle du tableau 12)
+            hyp.append(DE.MESSAGE_CLASSES)
+    elif dev["cas"] == "I":
+        calcul += [
+            _f("I_d", "I_d", [_t("t_f", dev["tf"] / 10.0, "cm"), _t("b", dev["b"] / 10.0, "cm")], dev["Id"] / 1e4, "cm⁴"),
+            _f("A_d", "A_d", [_t("b", dev["b"] / 10.0, "cm"), _t("t_f", dev["tf"] / 10.0, "cm"), _t("h_w", dev["hw"] / 10.0, "cm"),
+                              _t("t_w", dev["tw"] / 10.0, "cm")], dev["Ad"] / 1e2, "cm²"),
+            _f("r_d", "r_d", [_t("I_d", dev["Id"] / 1e4, "cm⁴"), _t("A_d", dev["Ad"] / 1e2, "cm²")], dev["rd"] / 10.0, "cm"),
+            _f("lambda_ed", "λ_ed", [_t("L_d", dev["Lc"] / 10.0, "cm"), _t("r_d", dev["rd"] / 10.0, "cm")], dev["lambda"]),
+        ]
+        hyp.append(f"Déversement : variante du fascicule p. 19, L_d = {_fr(dev['Lc'] / 1e3, 2)} m.")     # (I_d, A_d : la fenêtre de calcul)
     elif dev["cas"] == "ferme":
-        calcul.append(_f("lambda_ed", "λ_ed", [_t("L_c", dev["Lc"] / 10.0, "cm"), _t("W_y", s["Wel_y"] / 1e3, "cm³"),
+        calcul.append(_f("lambda_ed", "λ_ed", [_t("L_d", dev["Lc"] / 10.0, "cm"), _t("W_y", s["Wel_y"] / 1e3, "cm³"),
                                                _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("I_t", s["It"] / 1e4, "cm⁴")], dev["lambda"], "",
-                         "lambda_ed_ferme"))
+                         "lambda_ed_ferme_doc" if dv["facteur_doc"] else "lambda_ed_ferme"))
+        hyp.append(f"Déversement (doc p. 18, profil fermé) : L_d = {_fr(dev['Lc'] / 1e3, 2)} m ; "
+                   + ("facteur 5,1 de la doc (variante)." if dv["facteur_doc"] else DE.MESSAGE_FERME))
     if dev["cas"] in ("I", "ferme"):
         al, be = COURBES[dev["courbe"]]
         lbd = dev["lambda_bar"]
@@ -375,9 +500,15 @@ def verifier(barre: Dict) -> Dict:
         ]
         if lbd > LAMBDA_BAR_TABLEAU:
             alerte("tableau_ed", "attention", f"Déversement : λ̄_ed = {_fr(lbd, 2)} > 1,8, au-delà du tableau de la norme.")
-        hyp.append(f"Déversement : semelle comprimée maintenue tous les {_fr(dev['Lc'] / 1e3, 2)} m.")
     elif My > 0 and couvert and dev["cas"] == "maintenu":
         hyp.append("Déversement empêché : semelle comprimée maintenue en continu (φ_ed = 1).")
+    elif My > 0 and s["forme"] in ("tube_rond", "tube_carre"):
+        hyp.append("Tube rond ou carré : pas de déversement, φ_ed = 1 (règle complémentaire, EC3 § 6.3.2.1(2) : I_y = I_z).")
+    hors_dev = ["prs_mono"] if (mono and dev["cas"] in ("classeurs", "I")) else []
+    if hors_dev:
+        alerte("prs_mono", "attention", "PRS monosymétrique : déversement hors domaine (formule pour deux semelles égales) ; calcul avec la "
+                                        "semelle comprimée.")
+    G["hors_domaine"] = hors + hors_dev
 
     # ---- les contraintes
     aires = aires_cisaillement(s)
@@ -386,10 +517,13 @@ def verifier(barre: Dict) -> Dict:
     G["C_y"], G["C_z"] = Cy, Cz
     flechi = My > 0 or Mz > 0
     cisaille = Vz > 0 or Vy > 0
+    if Vz > 0 and Vy > 0 and d["Vz"] * d["Vy"] < 0:
+        a_corriger.append(("cisaillement_abs", "H-EQ", {}))       # le classeur additionnait les valeurs signées
     # PE ≤ 0 n'arrête le calcul des contraintes que s'il divise un moment : en compression simple, la barre qui flambe
     # se lit déjà dans P > P_adm (A·φ·f_y ≤ P_cr toujours : φ ≤ 1/λ̄²)
     instable = comprime and ((My > 0 and G["y"]["PE"] <= 0) or (Mz > 0 and G["z"]["PE"] <= 0))
-    non_couvert = (flechi or cisaille) and not couvert
+    forme_nc = (flechi or cisaille) and not couvert
+    non_couvert = forme_nc or dev["cas"] == "a_fournir"   # (une classe de déversement à fournir : la flexion n'est pas jugée)
     sigma = sigma_eq = tau = None
     if not instable and not non_couvert:
         manque = [n for n, v, m in (("W_el,y", s.get("Wel_y"), My), ("W_el,z", s.get("Wel_z"), Mz), ("A_âme", aires["ame"], Vz),
@@ -426,7 +560,7 @@ def verifier(barre: Dict) -> Dict:
             calcul.append(_f("sigma_eq", "σ_eq", [_t("σ", sigma, "N/mm²"), _t("τ", tau, "N/mm²")], sigma_eq, "N/mm²"))
     if P < 0:
         alerte("traction", "info", "Traction : résistance simple σ = N/A + M/W (la norme ne traite que la compression).")
-    if non_couvert:
+    if forme_nc:
         alerte("forme", "attention", "Cornière, U ou té : seule la compression simple est vérifiée (flexion et effort tranchant non couverts).")
 
     # ---- les vérifications
@@ -446,49 +580,75 @@ def verifier(barre: Dict) -> Dict:
             verif(f"H-N-{a}", f"Flambement, axe {NOMS_AXE[a]} {g['nom']}", f"{NORME} · doc p. 2 à 6", "P ≤ P_adm", P / 1e3, g["P_adm"] / 1e3, "kN",
                   ["lambda_E", f"lambda_{a}", f"lambda_bar_{a}", f"A_prime_{a}", f"B_prime_{a}", f"phi_{a}", f"P_adm_{a}"])
     cles_axes = [k for a in ("y", "z") for k in (f"P_cr_{a}", f"PE_{a}")]
-    cles_dev = ["I_d", "A_d", "r_d", "lambda_ed", "lambda_bar_ed", "A_prime_ed", "B_prime_ed", "phi_ed"]
+    cles_dev = ["lambda_ed_d", "lambda_bar_d", "Phi_d", "phi_d", "I_d", "A_d", "r_d", "lambda_ed", "lambda_bar_ed", "A_prime_ed",
+                "B_prime_ed", "phi_ed"]
     presentes = {f["cle"] for f in calcul}
+    # la ligne des contraintes répéterait celle du déversement des classeurs : flexion simple d'axe fort, C = 1
+    repete = dev["cas"] == "classeurs" and P == 0 and Mz == 0 and Cy == 1.0
     if non_couvert:                     # (avant l'arrêt du second ordre : ce que la méthode ne couvre pas n'est pas jugé)
         verif("H-SIGMA", "Flexion et effort tranchant", NORME, "σ ≤ σ_adm", None, limite, "N/mm²", [], taux=None, statut=NON_COUVERT,
-              messages=[x["message"] for x in alertes if x["code"] == "forme"])
+              messages=[x["message"] for x in alertes if x["code"] in ("forme", "a_fournir")])
     elif instable:
         verif("H-SIGMA", "Flexion composée", f"{NORME} · doc p. 11", "PE > 0", None, limite, "N/mm²",
               [k for k in cles_axes if k in presentes], taux=None, statut=NOK,
               messages=[x["message"] for x in alertes if x["code"].startswith("second_ordre")])
-    else:
-        if flechi or P < 0:
-            devie = My > 0 and Mz > 0
-            if comprime:
-                titre = "Flexion composée déviée" if devie else "Flexion composée"
-            elif P < 0:
-                titre = "Traction et flexion" if flechi else "Traction"
-            else:
-                titre = "Flexion déviée" if devie else "Flexion"
-            ref = f"{NORME} · doc p. 26" if (comprime and devie) else f"{NORME} · doc p. 20" if comprime else NORME
-            cles = ["sigma_adm"] + [k for k in cles_axes + cles_dev + ["sigma_P", "sigma_My", "sigma_Mz", "sigma"] if k in presentes]
-            verif("H-SIGMA", titre, ref, "σ ≤ σ_adm", sigma, limite, "N/mm²", cles)
-        if cisaille:
-            verif("H-EQ", "Contrainte équivalente", f"{NORME} · classeur", "σ_eq ≤ σ_adm", sigma_eq, limite, "N/mm²",
-                  ["sigma_adm"] + [k for k in ("sigma", "tau_z", "tau_y", "sigma_eq") if k in presentes])
+    elif (flechi or P < 0) and not repete:
+        devie = My > 0 and Mz > 0
+        if comprime:
+            titre = "Flexion composée déviée" if devie else "Flexion composée"
+        elif P < 0:
+            titre = "Traction et flexion" if flechi else "Traction"
+        else:
+            titre = "Flexion déviée" if devie else "Flexion"
+        ref = f"{NORME} · doc p. 26" if (comprime and devie) else f"{NORME} · doc p. 20" if comprime else NORME
+        cles = ["sigma_adm"] + [k for k in cles_axes + cles_dev + ["sigma_P", "sigma_My", "sigma_Mz", "sigma"] if k in presentes]
+        verif("H-SIGMA", titre, ref, "σ ≤ σ_adm", sigma, limite, "N/mm²", cles)
+    if dev["cas"] == "classeurs" and dev["sigma_M"] is not None:
+        verif("H-DEV", "Déversement", "NBN B 51-002 · § 4.3.3.5.3 (classeurs Déversement)", "σ_M ≤ σ_adm,d", dev["sigma_M"],
+              phi_ed * limite, "N/mm²", ["sigma_adm", "lambda_E"] + [k for k in ("lambda_ed_d", "lambda_bar_d", "Phi_d", "phi_d", "sigma_adm_d",
+                                                                              "sigma_M") if k in presentes],
+              messages=msg_dev)
+    if cisaille and not instable and not non_couvert:
+        verif("H-EQ", "Contrainte équivalente", f"{NORME} · classeur", "σ_eq ≤ σ_adm", sigma_eq, limite, "N/mm²",
+              ["sigma_adm"] + [k for k in ("sigma", "tau_z", "tau_y", "sigma_eq") if k in presentes])
+
+    # ---- les corrections des classeurs qui jouent sur le cas : NOMMÉES, et dites dans leur vérification
+    par_id = {v["id"]: v for v in verifs}
+    corrections: Dict[str, Dict] = {}
+    for cle, vid, vals in a_corriger:
+        if vid not in par_id:
+            continue
+        c = corrections.setdefault(cle, {"id": cle, "texte": DE.texte_correction(cle, **vals), "verifications": []})
+        if vid not in c["verifications"]:
+            c["verifications"].append(vid)
+            par_id[vid]["messages"].append(f"Correction du classeur : {c['texte']}")
+
+    # ---- le domaine, le verdict bloqué, les taux
+    ids_dev = {"H-DEV", "H-SIGMA", "H-EQ"} if (dev["cas"] in ("classeurs", "I", "ferme") and My > 0) else set()
     for v in verifs:
+        if bloque and v["statut"] in (OK, NOK, HORS_DOMAINE):
+            v["statut"], v["taux"] = NON_COUVERT, None
+            v["messages"] += bloque
         if v["taux"] is not None:
             calcul.append(_f(f"taux_{v['id']}", "η", [_t("valeur", v["valeur"], v["unite"]), _t("limite", v["limite"], v["unite"])],
                              v["taux"], "", "taux"))
             v["formules"].append(f"taux_{v['id']}")
-        if hors and v["statut"] == OK:              # hors du domaine de la doc : jamais « vérifié » (brief § 9) ; un « nok » le reste
+        raisons = hors + (hors_dev if v["id"] in ids_dev else [])
+        if raisons and v["statut"] == OK:        # hors du domaine de la doc : jamais « vérifié » (brief § 9) ; un « nok » le reste
             v["statut"] = HORS_DOMAINE
             # le nom entier de la méthode (celui de l'écran : api_web/profil_mots.METHODES, lié par test_api_web_profil), sans
             # double parenthèse : la raison suit un tiret
-            v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — " + " ; ".join(
-                {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm"}[h] for h in hors)
-                + " : calcul pour information, jamais « vérifié ».")
+            v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — " + " ; ".join(HORS_DOMAINE_TEXTES[h] for h in raisons)
+                                 + " : calcul pour information, jamais « vérifié ».")
 
     # ---- la synthèse
+    nominale = d["fy_ref"] == FY_NOMINALE
     hyp.insert(0, f"Charges de service, non pondérées ; contrainte admissible σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"
-                  f" = {_fr(sigma_adm, 1)} N/mm²" + (f" (f_y : {d['fy_source']})." if d["fy_source"] else "."))
+                  f" = {_fr(sigma_adm, 1)} N/mm²" + (f" ({d['fy_source']})." if nominale else f" (f_y : {d['fy_source']})." if d["fy_source"] else "."))
     hyp.append(f"Courbes de flambement : {G['y']['courbe']} (axe fort), {G['z']['courbe']} (axe faible) — {cb['regle']}.")
     if flechi and (Cy != 1.0 or Cz != 1.0):
         hyp.append(f"Coefficient C : {_fr(Cy, 2)} (axe fort), {_fr(Cz, 2)} (axe faible).")
     sy = RE.synthese(verifs)                # nok > non couvert > hors domaine > ok (acier/barre/resultat.py, la seule synthèse)
     return {"methode": METHODE, "norme": NORME, "statut": sy["statut"], "taux_max": sy["taux_max"], "gouvernant": sy["gouvernant"],
-            "verifications": verifs, "grandeurs": G, "calcul": calcul, "alertes": alertes, "hypotheses": hyp}
+            "verifications": verifs, "grandeurs": G, "calcul": calcul, "alertes": alertes, "hypotheses": hyp,
+            "corrections": list(corrections.values())}

@@ -15,8 +15,9 @@ combinaisons (combinaisons.py), puis cherche, vérification par vérification, l
         travée), avec les efforts qui s'y trouvent ENSEMBLE, des deux côtés d'un saut ;
         la BARRE par tronçon de déversement : flambement sous N, déversement sous le diagramme réel du tronçon
         (M_cr numérique, charges à leur niveau), flexion composée avec le plus grand moment du tronçon.
-    Méthode historique : pour chaque combinaison de service (G + ΣQ) — dans chaque section à vérifier, avec la
-        longueur de déversement L_c de son tronçon.
+    Méthode historique : pour chaque combinaison de service (G + ΣQ) — dans chaque section à vérifier et aux deux
+        bouts de chaque tronçon, avec la longueur de déversement L_c de son tronçon (à une frontière : le côté gauche
+        avec le tronçon de gauche, le côté droit avec celui de droite).
 
 L'enveloppe garde, pour chaque vérification, où elle a été trouvée (la combinaison, l'abscisse ou le tronçon) et les
 formules de CETTE occurrence : la note imprime ce qui a décidé.
@@ -27,6 +28,8 @@ les prend) ; la flèche n'est donnée qu'à titre d'information.
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
+
+from acier import materiaux as MA
 
 from . import ame as AME
 from . import combinaisons as CO
@@ -46,7 +49,7 @@ from .enveloppe import IDS_BARRE, ORDRE, Enveloppe          # noqa: F401 — ORD
 # la comparaison des deux méthodes : (sujet, vérifications historiques, vérifications de l'Eurocode)
 # (la méthode historique n'a pas de vérification de l'effort tranchant seul : il entre dans la contrainte équivalente)
 SUJETS = (("Flambement, axe faible", ("H-N-z",), ("E-Nb-z", "E-Nb-T")), ("Flambement, axe fort", ("H-N-y",), ("E-Nb-y",)),
-          ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
+          ("Flexion et contraintes, déversement compris", ("H-SIGMA", "H-DEV", "H-EQ"), ("E-My", "E-Mz", "E-MV", "E-NM", "E-Mb", "E-661", "E-662")),
           ("Effort tranchant seul", (), ("E-Vz", "E-Vy")))
 SUJET_AME = "Âme et raidisseurs (EN 1993-1-5)"
 POINTS_DIAGRAMME = 40            # points par travée des enveloppes rendues pour le dessin
@@ -67,11 +70,20 @@ def _refusee(methode: str, norme: str, message: str) -> Dict:
 
 
 def _fy_historique(nuance: str, s: Dict) -> Dict:
-    """La limite élastique de la méthode historique : celle de l'Eurocode 3, selon l'épaisseur (brief § 13.2 point 5,
-    DÉCISION BUREAU acceptée : « f_y des plats de plus de 16 mm : la valeur EC3 selon l'épaisseur ») — la même lecture
-    de la table (ec3_section.limite_elastique) ; Refus au-delà de son domaine, comme l'Eurocode 3. Le DOMAINE de la doc
-    (AE235 à AE355) se lit sur la nuance : elle est passée avec f_y. {"fy", "nuance", "fy_source", "fy_ref"}."""
-    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance, "fy_source": ES.source_fy(nuance, s), "fy_ref": ES.tableau_fy(nuance, s)}
+    """La limite élastique de la méthode ELS : la NOMINALE de la nuance (235, 275, 355 N/mm²), quelle que soit
+    l'épaisseur, comme les classeurs du bureau (brief v12 § 6.1, § 13.2 point 5, § 18.3) — l'Eurocode 3 garde la table
+    selon l'épaisseur. Au-delà de 80 mm, la méthode se calcule (« hors domaine », brief § 19.1 point 5). Le DOMAINE de
+    la doc (AE235 à AE355) se lit sur la nuance : elle est passée avec f_y. {"fy", "nuance", "fy_source", "fy_ref"}."""
+    return {"fy": MA.nominale(nuance), "nuance": nuance, "fy_source": HI.SOURCE_NOMINALE, "fy_ref": HI.FY_NOMINALE}
+
+
+def _deversement_historique(b: Dict, Ld: Optional[float]) -> Dict:
+    """Le déversement de la méthode ELS : actif ou non, L_d (mm ; None : la longueur de l'axe faible), C_d, la variante
+    (classeurs par défaut), le facteur 5,1 de la doc (profil fermé), une classe imposée (None : le tableau 12), le niveau
+    des charges (le message de C_d > 1 sous une charge sur la semelle haute)."""
+    h = b["historique"]
+    return {"actif": h["deversement"], "Lc": Ld, "Cd": h["Cd"], "variante": h["variante"], "facteur_doc": h["facteur_doc"],
+            "classe": h["classe_d"], "niveau": b["niveau"]}
 
 
 def _C_historique(mode: str, forme: str, psi: float) -> Dict:
@@ -153,7 +165,7 @@ def _efforts_imposes(b: Dict, s: Dict) -> Dict:
         return HI.verifier({"section": s, **_fy_historique(b["nuance"], s), "s": h["s"], "P": e["N"] * 1e3, "My": e["My"] * 1e6, "Mz": e["Mz"] * 1e6,
                          "Vz": e["Vz"] * 1e3, "Vy": e["Vy"] * 1e3, "axes": axes, "tolerance": h["tolerance"],
                          "C": {a: _C_historique(h["C"], b["diagramme"][a]["forme"], b["diagramme"][a]["psi"]) for a in ("y", "z")},
-                         "deversement": {"actif": h["deversement"], "Lc": None if Lc is None else Lc * 1e3}})
+                         "deversement": _deversement_historique(b, None if Lc is None else Lc * 1e3)})
 
     def ec3() -> Dict:
         e = b["efforts"]["elu"]
@@ -223,6 +235,19 @@ def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float
             tenus.append(a + x_mm / 1e3)
     tenus.sort()
     return max(v - u for u, v in zip(tenus, tenus[1:]))
+
+
+def _cotes_historique(e: Dict, x: float, Lcs: Sequence[Tuple[Dict, float]]) -> List[Tuple[Tuple[Dict, float], Tuple[float, float]]]:
+    """Les couples (M, V) de la section lue ``e`` (abscisse ``x``), chacun avec le tronçon (et son L_d) qui le vérifie dans
+    la méthode ELS. À la FRONTIÈRE de deux tronçons, le côté gauche se vérifie avec le tronçon de gauche et le côté droit
+    avec celui de droite, même quand le moment est le même des deux côtés : leurs L_d diffèrent (sinon le taux dépend du
+    sens de dessin de la poutre). Ailleurs, le tronçon de la section, pour ses deux côtés (``ST.cotes``)."""
+    gauche = next((t for t in Lcs if t[0]["x1"] + EPS < x <= t[0]["x2"] + EPS), None)
+    droite = next((t for t in Lcs if t[0]["x1"] - EPS <= x < t[0]["x2"] - EPS), None)
+    if gauche is not None and droite is not None and gauche is not droite:
+        return [(gauche, (e["M_g"], e["V_g"])), (droite, (e["M_d"], e["V_d"]))]
+    t = gauche or droite or Lcs[-1]
+    return [(t, mv) for mv in ST.cotes(e, EPS)]
 
 
 def _chargee(b: Dict, s: Dict) -> Dict:
@@ -326,15 +351,16 @@ def _chargee(b: Dict, s: Dict) -> Dict:
             combs.append(C)
             xs = ST.sections(b, C, pts)
             Lcs = [(tr, _Lc_historique(C, tr, xs)) for tr in trs]
-            for x in xs:
-                tr_x = next(((tr, Lc) for tr, Lc in Lcs if tr["x1"] - EPS <= x <= tr["x2"] + EPS), Lcs[-1])
-                for M, V in ST.cotes(C.lire(x), EPS):
+            # les BOUTS de chaque tronçon sont des sections vérifiées : un maintien qui n'est ni un appui ni un point de
+            # charge borne deux tronçons, et le plus grand moment d'un tronçon peut tomber à son bout
+            for x in sorted(set(xs) | {tr[k] for tr in trs for k in ("x1", "x2")}):
+                for (tr, Lc), (M, V) in _cotes_historique(C.lire(x), x, Lcs):
                     if abs(M) < EPS and abs(V) < EPS and abs(C.N) < EPS:
                         continue
                     r = HI.verifier({"section": s, **fy, "s": h["s"], "P": C.N * 1e3, "My": M * 1e6, "Vz": V * 1e3, "axes": axes,
                                      "C": {"y": _C_historique(h["C"], DV.GENERAL, 1.0)}, "tolerance": h["tolerance"],
-                                     "deversement": {"actif": h["deversement"], "Lc": tr_x[1] * 1e3}})
-                    env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr_x[0]["x1"], tr_x[0]["x2"]]})
+                                     "deversement": _deversement_historique(b, Lc * 1e3)})
+                    env.verser(r, {"combinaison": co["nom"], "x": x, "troncon": [tr["x1"], tr["x2"]]})
             for x in grille:                                     # la flèche de service, à titre d'information
                 f = C.lire(x)["f"]
                 if f is not None and abs(f) > abs(fleche["valeur"]):

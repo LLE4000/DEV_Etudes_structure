@@ -47,6 +47,7 @@ from rdm import poutres as PO  # noqa: E402
 OK, KO = [], []
 FICHIERS = ("combinaisons", "statique", "entree", "enveloppe", "moteur")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
+POUTRES = os.path.join(RACINE, "rdm", "poutres.py")
 
 
 def chk(nom, cond, info=""):
@@ -172,6 +173,24 @@ def controles(M=None):
     comb2 = st.Combinaison("x", sol2, [1.0], [0.0])
     c("poutre continue de 2 × 5 m sous charge uniforme : l'extremum de CHAQUE travée est une section à vérifier (à 3/8 de la portée : "
       "1,875 et 8,125 m)", st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 5.0, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
+    # un appui à une somme de portées INEXACTE en binaire (3,37 + 2,18 = 5,550000000000001), lu à 5,55 : les trois moments, à la main
+    L1, L2, L3, qi = 3.37, 2.18, 3.45, 30.0
+    a11, a22, s1, s2 = 2 * (L1 + L2), 2 * (L2 + L3), -qi * (L1 ** 3 + L2 ** 3) / 4, -qi * (L2 ** 3 + L3 ** 3) / 4
+    MC = (a11 * s2 - L2 * s1) / (a11 * a22 - L2 * L2)
+    VCd = qi * L3 / 2 - MC / L3                                   # à droite de l'appui C
+    M3 = MC + VCd ** 2 / (2 * qi)                                 # le moment maximal de la travée CD
+    ri = [mo.verifier(barre(modele="continue", travees=t_, poids_propre=False,
+                            cas=[{"nom": "G", "nature": "permanent", "charges": [q(qi, 0.0, sum(t_))]}])) for t_ in ([L1, L2, L3], [L3, L2, L1])]
+    vi = [{i: verif(r_["methodes"][m], i) for m, ids in (("ec3", ("E-My", "E-Vz")), ("historique", ("H-DEV", "H-EQ"))) for i in ids} for r_ in ri]
+    bi = en.normaliser(barre(modele="continue", travees=[L1, L2, L3], poids_propre=False,
+                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(qi, 0.0, L1 + L2 + L3)]}]))
+    combi = st.Combinaison("x", st.resoudre(bi, st.cas_complets(bi, s), 1.0e4), [1.0], [0.0])
+    c("appui à 3,37 + 2,18 = 5,550000000000001 m, lu à 5,55 (IPE 300, 30 kN/m) : ses deux côtés sont dans deux travées — V_Ed = 1,35 × 60,15 kN "
+      "à droite de C et M_Ed = 1,35 × 31,32 kN·m dans la travée CD (trois moments, à la main) ; la poutre retournée donne les mêmes taux "
+      "(E-My, E-Vz, H-DEV, H-EQ) ; le moment lu seul y est celui de la lecture complète, au bit près",
+      L1 + L2 != 5.55 and proche(vi[0]["E-Vz"]["valeur"], 1.35 * abs(VCd), 1e-9)
+      and proche(vi[0]["E-My"]["valeur"], 1.35 * M3, 1e-9) and all(proche(vi[0][i]["taux"], vi[1][i]["taux"], 1e-9) for i in vi[0])
+      and combi.M(5.55) == combi.lire(5.55)["M_d"], [(i, vi[0][i]["taux"], vi[1][i]["taux"]) for i in vi[0]])
     # le moment lu seul (M) est celui de la lecture complète (lire) : à droite, à gauche au bout — couple et appuis compris
     bm2 = en.normaliser(barre(modele="continue", travees=[4.0, 6.0], poids_propre=False,
                               cas=[{"nom": "G", "nature": "permanent", "charges": [q(7.0, 0.0, 10.0), {"type": "C", "v": 12.0, "a": 2.5}, P_(9.0, 7.0)]}]))
@@ -254,10 +273,12 @@ def controles(M=None):
     Ms, Vs = 2.42 * 36 / 8 + 25.0 * 6 / 4, 2.42 * 3 + 12.5
     hd = HI.verifier({"section": s3, "fy": 235.0, "P": 0.0, "My": Ms * 1e6, "Vz": 12.5e3, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}},
                       "deversement": {"Lc": 6000.0}})
-    c("R2, méthode historique : charges de SERVICE (G + Q : M = 48,39 kN·m), dans la section de mi-portée avec l'effort tranchant qui s'y "
-      "trouve (12,5 kN, et non les 19,76 kN de l'appui) = l'appel direct ; le déversement de la doc sur 6 m rend la barre non conforme",
-      h3["combinaison"] == "G + Q" and proche(Ms, 48.39) and proche(verif(h3, "H-SIGMA")["valeur"], verif(hd, "H-SIGMA")["valeur"], 1e-8)
-      and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-SIGMA")["x"] == 3.0 and h3["statut"] == RE.NOK
+    c("R2, méthode ELS : charges de SERVICE (G + Q : M = 48,39 kN·m), dans la section de mi-portée avec l'effort tranchant qui s'y "
+      "trouve (12,5 kN, et non les 19,76 kN de l'appui) = l'appel direct ; le déversement des classeurs sur 6 m (lot B, brief v12 § 6.4 : la ligne "
+      "« déversement », M/W ≤ σ_adm,d) rend la barre non conforme",
+      h3["combinaison"] == "G + Q" and proche(Ms, 48.39) and proche(verif(h3, "H-DEV")["valeur"], verif(hd, "H-DEV")["valeur"], 1e-8)
+      and proche(verif(h3, "H-DEV")["limite"], verif(hd, "H-DEV")["limite"], 1e-8) and verif(h3, "H-SIGMA") is None
+      and proche(verif(h3, "H-EQ")["valeur"], verif(hd, "H-EQ")["valeur"], 1e-8) and verif(h3, "H-DEV")["x"] == 3.0 and h3["statut"] == RE.NOK
       and proche(Vs, 19.76), (verif(h3, "H-EQ"), Ms, Vs))
     c("R2 : les deux méthodes côte à côte — la comparaison a une ligne « flexion et contraintes », la ligne du plus défavorable, puis celle de "
       "l'âme (EN 1993-1-5 : UN taux, « commun », il vaut pour les deux méthodes) ; le statut de la barre est le plus sévère",
@@ -379,9 +400,11 @@ def controles(M=None):
       and r["ame"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["ame"]["statut"], r["statut"]))
     r = mo.verifier(barre(profil="HD 400x818.0", nuance="S355"))
     c("une méthode qui REFUSE la barre (HD 400x818 : semelle de 97 mm, au-delà des 80 mm du module) est rendue « non couvert » avec son motif — "
-      "depuis le lot A, la méthode historique aussi (elle lit la même f_y, selon l'épaisseur)",
+      "l'Eurocode 3 ; la méthode ELS, elle, se calcule avec la f_y nominale et rend « hors domaine » (lot B, brief v12 § 19.1 point 5) ; la barre "
+      "reste « non couvert »",
       r["methodes"]["ec3"]["statut"] == RE.NON_COUVERT and "80 mm" in r["methodes"]["ec3"]["alertes"][0]["message"]
-      and r["methodes"]["historique"]["statut"] == RE.NON_COUVERT and r["statut"] == RE.NON_COUVERT, r["methodes"]["ec3"]["statut"])
+      and r["methodes"]["historique"]["statut"] == RE.HORS_DOMAINE and r["methodes"]["historique"]["taux_max"] is not None
+      and r["statut"] == RE.NON_COUVERT, (r["methodes"]["ec3"]["statut"], r["methodes"]["historique"]["statut"]))
     # ---- (lot A) la console sous N + M : « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9 ; test 30 du § 11.5)
     cons = barre(profil="IPE 300", modele="console", travees=[2.0], maintiens=[],
                  cas=[{"nom": "G", "nature": "permanent", "N": 100.0, "charges": [P_(10.0, 2.0)]}])
@@ -395,16 +418,17 @@ def controles(M=None):
       and verif(e, "E-Nb-y")["statut"] == RE.OK and verif(e, "E-Mb")["statut"] == RE.OK and e["statut"] == RE.NON_COUVERT
       and r["statut"] == RE.NON_COUVERT and any(x["code"] == "console_NM" for x in e["alertes"]) and "annexe_A" not in e["grandeurs"]
       and r0["methodes"]["ec3"]["statut"] == RE.OK and verif(r0["methodes"]["ec3"], "E-661") is None, (e["statut"], r["statut"]))
-    # ---- (lot A) la méthode historique : f_y selon l'épaisseur (DÉCISION BUREAU, brief § 13.2 point 5) ; le domaine sur la NUANCE
+    # ---- (lot B) la méthode ELS : f_y NOMINALE quelle que soit l'épaisseur (brief v12 § 13.2 point 5, test 37) ; le domaine sur la NUANCE
     hp = dict(barre(), profil="HEB 300", mode="efforts", methodes=["historique", "ec3"], Lc=5.0,
               flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}},
               efforts={"service": {"N": 1000.0, "My": 50.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}, "elu": {"N": 1400.0, "My": 70.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0}})
     r = mo.verifier(hp)
     h = r["methodes"]["historique"]
-    c("HEB 300 S235 (t_f = 19 mm) : la méthode historique prend f_y = 225 — celle de l'Eurocode 3, tableau 3.3 ANB — et la nuance reste dans le "
-      "domaine de la doc (AE235 : le domaine se lit sur la nuance, pas sur la f_y réduite) ; la source est imprimée",
-      h["grandeurs"]["fy"] == 225.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
-      and not any(x["code"] == "nuance" for x in h["alertes"]) and "tableau 3.3 ANB" in h["hypotheses"][0], (h["grandeurs"]["fy"], h["statut"]))
+    c("HEB 300 S235 (t_f = 19 mm) : la méthode ELS prend f_y = 235, la NOMINALE (l'Eurocode 3 garde 225, tableau 3.3 ANB) — lot B, brief v12 "
+      "§ 6.1 et test 37 ; la nuance reste dans le domaine de la doc ; la source est imprimée « f_y nominale, comme les classeurs du bureau »",
+      h["grandeurs"]["fy"] == 235.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
+      and not any(x["code"] == "nuance" for x in h["alertes"]) and "f_y nominale, comme les classeurs du bureau" in h["hypotheses"][0],
+      (h["grandeurs"]["fy"], h["statut"]))
     # (reprise du lot B, le harnais suit : s_s et c saisis — sans eux, l'âme « non couvert » passerait devant « hors domaine »)
     r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 100.0, "c": 0.0}))
     h = r["methodes"]["historique"]
@@ -427,8 +451,10 @@ def controles(M=None):
     r = mo.verifier({"profil": "IPE 300", "nuance": "S235", "cas": [{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 6.0)]}]})
     rh = mo.verifier(barre(poids_propre=True, niveau="haut", cas=[{"nom": "G", "nature": "permanent", "charges": [q(5.0, 0.0, 6.0)]}]))
     hh = r["methodes"]["historique"]["grandeurs"]
-    c("une barre donnée sans précision : poids propre compté, charges sur la semelle haute, s = 1,5, déversement historique actif, les deux méthodes",
-      r["statique"]["cas"][0]["nom"] == st.POIDS_PROPRE and r["barre"]["niveau"] == "haut"
+    c("une barre donnée sans précision : poids propre compté, charges sur la semelle haute, s = 1,5, déversement de la méthode ELS actif — la méthode "
+      "des classeurs, C_d = 1 (lot B, brief v12 § 6.4) —, les deux méthodes",
+      r["statique"]["cas"][0]["nom"] == st.POIDS_PROPRE and r["barre"]["niveau"] == "haut" and hh["deversement"]["cas"] == "classeurs"
+      and r["barre"]["historique"]["Cd"] == 1.0 and r["barre"]["historique"]["variante"] == "classeurs"
       and proche(r["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"], rh["methodes"]["ec3"]["grandeurs"]["deversement"]["M_cr"])
       and proche(hh["sigma_adm"], 235.0 / 1.5) and hh["deversement"]["phi"] < 1.0 and list(r["methodes"]) == ["historique", "ec3"], hh["sigma_adm"])
 
@@ -491,6 +517,13 @@ def charger(mutation=None):
         exec(compile(src, CHEMINS[k], "exec"), mod.__dict__)
         mods[k] = mod
     mods["entree"].CO, mods["entree"].ST = mods["combinaisons"], mods["statique"]
+    if mutation and mutation[0] == "poutres":                     # le formulaire de poutres (rdm/poutres.py), lu par la statique et l'entrée
+        src = open(POUTRES, encoding="utf-8").read()
+        if src.count(mutation[1]) != 1:
+            return None
+        po = importlib.util.module_from_spec(importlib.util.spec_from_file_location("rdm.poutres_mute", POUTRES))
+        exec(compile(src.replace(mutation[1], mutation[2]), POUTRES, "exec"), po.__dict__)
+        mods["statique"].PO = mods["entree"].PO = po
     m = mods["moteur"]
     m.CO, m.ST, m.EN, m.Enveloppe = mods["combinaisons"], mods["statique"], mods["entree"], mods["enveloppe"].Enveloppe
     return mods
@@ -511,8 +544,14 @@ MUTATIONS = [
     ("statique", "mémoire d'un cas : la lecture d'une autre section rendue", "        e = self.lus.get(x)\n", "        e = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'une combinaison : la lecture d'une autre section rendue", "        o = self.lus.get(x)\n", "        o = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'un cas retirée (chaque combinaison recalcule)", "            e = self.lus[x] = self.sol.evaluer(x)\n", "            e = self.sol.evaluer(x)\n"),
-    ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), droite)\n",
-     "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), False)\n"),
+    ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(xl, droite)\n",
+     "            m = self.moments[x] = t.M(xl, False)\n"),
+    ("poutres", "lot B — un appui comparé sans tolérance (5,55 ≠ 5,550000000000001 : un côté de l'appui perdu)",
+     "if x < fin - tol or (abs(x - fin) <= tol and", "if x < fin or (x == fin and"),
+    ("statique", "lot B — le moment lu seul cherche sa travée lui-même, sans la tolérance d'appui (une seconde vérité)",
+     "            t, xl = sol._travee(xc, droite)",
+     "            t = next((t for t in sol.travees if xc < t.x0 + t.L or (xc == t.x0 + t.L and (not droite or t is sol.travees[-1]))),"
+     " sol.travees[-1])\n            xl = min(t.L, max(0.0, xc - t.x0))"),
     ("statique", "moment lu seul : la mémoire rend une autre section", "        m = self.moments.get(x)\n", "        m = self.moments.get(0.0)\n"),
     ("statique", "moment d'une combinaison non pondéré", "        return sum(f * s.moment(x) for f, s in self.paires)", "        return sum(s.moment(x) for f, s in self.paires)"),
     ("statique", "racines de l'effort tranchant : la seconde oubliée", "        r = [q / A] + ([y0 / q] if q != 0 else [])", "        r = [q / A]"),
@@ -553,10 +592,8 @@ MUTATIONS = [
      "            except ZeroDivisionError as e:\n                methodes[nom] = _refusee(nom, norme, str(e))\n    return {\"statique\": statique"),
     ("moteur", "une méthode « non couverte » rend la barre « ok »", "    statut = RE.pire_statut(statuts)\n", "    statut = RE.NOK if RE.NOK in statuts else RE.OK\n"),
     ("moteur", "lot A — la console vérifiée sous N + M comme une barre entre deux appuis", '"console": b["modele"] == "console",', '"console": False,'),
-    ("moteur", "lot A — méthode historique : la f_y nominale (épaisseur oubliée)", '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
-     '    return {"fy": ES.limite_elastique(nuance, s, 1.0), "nuance": nuance,'),
-    ("moteur", "lot A — méthode historique : la nuance non transmise (domaine lu sur la f_y réduite)", '"fy": ES.limite_elastique(nuance, s), "nuance": nuance,',
-     '"fy": ES.limite_elastique(nuance, s), "nuance": None,'),
+    ("moteur", "lot B — méthode ELS : la f_y de l'Eurocode 3 selon l'épaisseur (le défaut A9 du lot A revient)", '    return {"fy": MA.nominale(nuance), "nuance": nuance,',
+     '    return {"fy": ES.limite_elastique(nuance, s), "nuance": nuance,'),
     ("enveloppe", "lot A — une combinaison hors domaine rendue « ok »", '                b["hors_domaine"] = b["hors_domaine"] or v["statut"] == RE.HORS_DOMAINE', "                pass"),
     ("moteur", "efforts imposés : les efforts de calcul donnés à la méthode historique", 'e, h = b["efforts"]["service"], b["historique"]', 'e, h = b["efforts"]["elu"], b["historique"]'),
     ("moteur", "coefficient C « norme » : toujours 1", "    if forme in (DV.REPARTI, DV.PONCTUEL, DV.GENERAL):\n        return {\"mode\": \"charges\"}", "    if False:\n        return {\"mode\": \"charges\"}"),
@@ -570,8 +607,9 @@ MUTATIONS = [
     ("moteur", "la flèche rendue en mètres", '        fleche["valeur"] *= 1e3  ', '        fleche["valeur"] *= 1.0  '),
     ("entree", "le poids propre éteint par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": False, "niveau": "haut", "maintiens": [],'),
     ("entree", "les charges au centre de cisaillement par défaut", '"poids_propre": True, "niveau": "haut", "maintiens": [],', '"poids_propre": True, "niveau": "centre", "maintiens": [],'),
-    ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}'),
-    ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False},\n            "parametres": {}}', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False},\n            "parametres": {}}'),
+    ("entree", "coefficient de sécurité 1,0 par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.0, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,'),
+    ("entree", "déversement historique éteint par défaut", '"historique": {"s": 1.5, "C": "unite", "deversement": True, "tolerance": False, "Cd": 1.0,', '"historique": {"s": 1.5, "C": "unite", "deversement": False, "tolerance": False, "Cd": 1.0,'),
+    ("entree", "lot B — la variante du fascicule par défaut à la barre", '"variante": "classeurs", "facteur_doc"', '"variante": "fascicule", "facteur_doc"'),
 ]
 
 
