@@ -976,8 +976,10 @@ MUTATIONS = [
      '            bloque.append(MESSAGE_BORDS)', '            str(MESSAGE_BORDS)'),
     ("historique", "bords non saisis : calcul en oxycoupé (le cas favorable)", 's = dict(s0, fabrication="soude_larges_plats")',
      's = dict(s0, fabrication="soude_oxycoupe")'),
-    ("moteur", "barre chargée : les charges d'un PRS à ±h/2", "    if PR.est_prs(s):                                          # un PRS : au-dessus de SON centre de cisaillement",
-     "    if False:                                          # un PRS : au-dessus de SON centre de cisaillement"),
+    # (lot C, C1, le harnais suit : la cote d'une charge est celle de statique.cote_charge — une hauteur par charge —, plus une
+    #  branche du moteur ; la même altération : les charges d'un PRS à ±h/2 comme sur un I bisymétrique)
+    ("statique", "barre chargée : les charges d'un PRS à ±h/2", "    return cote_gravite(s) if niv == GRAVITE else SE.cote(s, niv)",
+     '    return cote_gravite(s) if niv == GRAVITE else {"haut": 1.0, "bas": -1.0}.get(niv, 0.0) * (s.get("h") or 0.0) / 2.0'),
     ("statique", "maintien d'une semelle de PRS au plan moyen d'un I bisymétrique", '        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if prs else',
      '        dedans = [((x - a) * 1e3, SE.cote(s, "semelle_" + genre) if False else'),
     ("entree", "bibliothèque : la nuance de l'enregistrement ignorée", '        b["nuance"] = s["nuance"]\n', "        pass\n"),
@@ -990,7 +992,8 @@ MUTATIONS = [
     ("ec3_deversement", "hypothèse : le sens de la charge non dit", '    sens = " montante" if sens_charges(tr) < 0 else (" descendante" if PR.monosymetrique(s) or inconnu else "")',
      '    sens = ""'),
     ("ec3_deversement", "écart de (E.1) : signe pris avant l'arrondi (« −0,00 % »)", '            ecart = round(E["ecart"] * 100, 2) + 0.0', '            ecart = E["ecart"] * 100'),
-    ("moteur", "barre chargée : le signe du moment d'un PRS monosymétrique perdu", "                if PR.monosymetrique(s) and _moment_extreme(C, tr, xs) < 0:",
+    # (lot C, C1, le harnais suit : la semelle comprimée se lit sur σ_x — semelle_comprimee —, le signe de M_y,Ed la suit)
+    ("moteur", "barre chargée : le signe du moment d'un PRS monosymétrique perdu", '                if PR.monosymetrique(s) and semelle == "bas":',
      "                if False:"),
     ("mcr", "tableau E.1 ANB : C₃ de ψ = −1/2 (ψ_f > 0) pris à 1", "(_UN, (1.3, -1.2))", "(_UN, _UN)"),
     ("mcr", "tableau E.1 ANB : les deux colonnes de C₃ échangées", "        a, b = E1_C3[i][psi_f > 0]", "        a, b = E1_C3[i][psi_f < 0]"),
