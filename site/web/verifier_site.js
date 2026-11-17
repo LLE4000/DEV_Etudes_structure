@@ -322,8 +322,10 @@ const principal = async () => {
     const lire = () => pg.evaluate(() => {
       const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
       // les champs NUMÉRIQUES (une valeur, qui doit se lire entière) : un champ de texte libre — une source, un nom de
-      // fiche — peut être plus long que sa case, il défile (trouvé sur le plancher, 12/11/2026 : « Source » du hourdis)
-      return [...document.querySelectorAll('#donnees .field input:not([type=checkbox]):not([data-sorte="texte"])')].filter(vis)
+      // fiche — peut être plus long que sa case, il défile (trouvé sur le plancher, 12/11/2026 : « Source » du hourdis).
+      // Un champ numérique qu'on peut VIDER (data-vide, « vide = défaut » : la hauteur H du garde-corps, « 1 100 ») porte
+      // data-sorte « texte » mais reste une valeur : il est lu (intégration du lot B, point 24)
+      return [...document.querySelectorAll('#donnees .field input:not([type=checkbox]):not([data-sorte="texte"]:not([data-vide]))')].filter(vis)
         .filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.dataset.chemin} « ${e.value} »`);
     });
     const n = await pg.$$eval('#donnees .sec', (e) => e.length);
@@ -4898,6 +4900,10 @@ const principal = async () => {
         await g.evaluate(() => { const i = document.querySelector('#donnees input[data-coller="reactions/coller/0/0"]'); const dt = new DataTransfer();
           dt.setData('text/plain', '360\t440\t440\t360\n150\t150\t550\t550\n135\t100\t800\t135'); i.focus();
           i.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); });
+        await calmeS(g);
+        // (intégration du lot B, point 24 — le harnais suit : P1, un champ « vide = auto », se vide au focus depuis B5 ; la reprise
+        // de saisie lui rend le focus après le calcul, vide, 360 en gris — l'œil le voit ; on quitte le champ avant de lire)
+        await g.evaluate(() => document.activeElement && document.activeElement.blur());
         await calmeS(g);
         pas.push(['modifier', 'reactions/coller/0/0', '360\t440\t440\t360\n150\t150\t550\t550\n135\t100\t800\t135']);
         const pColle = await parite();
