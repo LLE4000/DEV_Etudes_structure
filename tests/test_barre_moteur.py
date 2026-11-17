@@ -491,6 +491,14 @@ def controles(M=None):
              if not _refuse(lambda d=d: mo.verifier(barre(**d)))]
     c("domaine : mode, nuance, profilé, méthode, coefficient s, portée, modèle, cas, charges, maintiens, niveau, longueurs, efforts — refusés avec un message",
       not refus, refus)
+    # ---- (intégration du lot B) la comparaison des deux méthodes : chaque identifiant de moteur.SUJETS est une vérification
+    # que le moteur écrit — un identifiant renommé dans un bloc viderait sa ligne sans erreur (pire() rendrait None)
+    dossier = os.path.join(RACINE, "acier", "barre")
+    textes = [open(os.path.join(dossier, f), encoding="utf-8").read() for f in sorted(os.listdir(dossier)) if f.endswith(".py") and f != "moteur.py"]
+    ids = [i for _, h, e in mo.SUJETS for i in h + e]
+    absents = [i for i in ids if not any(f'"{i}"' in t for t in textes)]
+    c("(intégration du lot B) la comparaison : chaque identifiant de moteur.SUJETS est écrit par une vérification du moteur (historique.py, "
+      "ec3_*.py) — aucun identifiant renommé ou perdu, aucun sujet vide en silence", ids and not absents, absents)
     return C
 
 
@@ -530,6 +538,9 @@ def charger(mutation=None):
 
 
 MUTATIONS = [
+    # (intégration du lot B) un identifiant de la comparaison qui n'est plus celui de sa vérification (renommé dans un bloc)
+    ("moteur", "intégration — un identifiant de SUJETS renommé (« H-DEV » → « H-DEVERSEMENT »)", '("H-SIGMA", "H-DEV", "H-EQ")', '("H-SIGMA", "H-DEVERSEMENT", "H-EQ")'),
+    ("moteur", "intégration — un identifiant de SUJETS renommé (« E-Nb-T » → « E-NbT »)", '("E-Nb-z", "E-Nb-T")', '("E-Nb-z", "E-NbT")'),
     ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"]'),
     ("combinaisons", "ψ₁ au lieu de ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"] * P[cle][1]'),
     ("combinaisons", "deux cas de même nature : un seul dominant", 'if cas[i]["nature"] == dom:', "if i == s[0]:"),
