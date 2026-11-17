@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "c7d633cee792fdf91a9a5124681bcdac0d48ea2a3b7f03804d52780ae9600160",
+ "sha256": "30e682afe8443be988c9ef8eaf5dc7f1a43b5a7c964aa27e3107dabd3637f4cb",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -99,6 +99,7 @@
   "acier/barre/__init__.py",
   "acier/barre/ame.py",
   "acier/barre/combinaisons.py",
+  "acier/barre/comparaison.py",
   "acier/barre/ec3.py",
   "acier/barre/ec3_ame.py",
   "acier/barre/ec3_classe.py",
@@ -114,6 +115,7 @@
   "acier/barre/historique_deversement.py",
   "acier/barre/mcr.py",
   "acier/barre/moteur.py",
+  "acier/barre/nuances.py",
   "acier/barre/parametres.py",
   "acier/barre/prs.py",
   "acier/barre/raidisseurs.py",
@@ -244,6 +246,7 @@
   "api_web/prix_grues_textes.py",
   "api_web/profil.py",
   "api_web/profil_mots.py",
+  "api_web/profil_prs.py",
   "api_web/profil_resultat.py",
   "api_web/profil_saisie.py",
   "api_web/registre.py",
@@ -444,11 +447,11 @@
   "plancher": "9d0ec86ed498d435",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
-  "profil": "7183733b1e961c7f",
+  "profil": "9fdfb0637ff690e3",
   "saf": "e88653e1536e1675",
   "sol": "d388420baee3c87c",
   "soudures": "865be318298eea9a",
   "taux": "0325815790c3ee2c"
  },
- "version": "1a4a094e04657e7c"
+ "version": "e987e7270c797e0e"
 }
