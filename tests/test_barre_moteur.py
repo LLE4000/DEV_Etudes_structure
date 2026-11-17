@@ -48,6 +48,7 @@ OK, KO = [], []
 FICHIERS = ("combinaisons", "statique", "entree", "enveloppe", "moteur")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
 POUTRES = os.path.join(RACINE, "rdm", "poutres.py")
+FLAMBEMENT = os.path.join(RACINE, "acier", "barre", "ec3_flambement.py")
 
 
 def chk(nom, cond, info=""):
@@ -492,13 +493,23 @@ def controles(M=None):
     c("domaine : mode, nuance, profilé, méthode, coefficient s, portée, modèle, cas, charges, maintiens, niveau, longueurs, efforts — refusés avec un message",
       not refus, refus)
     # ---- (intégration du lot B) la comparaison des deux méthodes : chaque identifiant de moteur.SUJETS est une vérification
-    # que le moteur écrit — un identifiant renommé dans un bloc viderait sa ligne sans erreur (pire() rendrait None)
-    dossier = os.path.join(RACINE, "acier", "barre")
-    textes = [open(os.path.join(dossier, f), encoding="utf-8").read() for f in sorted(os.listdir(dossier)) if f.endswith(".py") and f != "moteur.py"]
+    # que le moteur REND — un identifiant renommé dans un bloc viderait sa ligne sans erreur (pire() rendrait None). Lu sur
+    # les vérifications que rendent trois barres passées au moteur (point 18 : une recherche du texte entre guillemets
+    # laissait passer un ancien nom resté dans un commentaire ou une docstring)
+    rendus = set()
+    for b_ in (barre(profil="HEB 200", mode="efforts", flambement={"y": {"L": 5.0, "u": 1.0}, "z": {"L": 5.0, "u": 1.0}}, Lc=5.0,
+                     efforts={"service": {"N": 300.0, "My": 20.0, "Mz": 5.0, "Vz": 30.0, "Vy": 10.0},
+                              "elu": {"N": 420.0, "My": 28.0, "Mz": 7.0, "Vz": 42.0, "Vy": 14.0}}),
+               barre(profil="IPE 300", travees=[2.0], poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [P_(400.0, 0.5)]}]),
+               barre(prs={"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 200, "t2": 30, "a": 6}, nuance="S355", mode="efforts",
+                     flambement={"y": {"L": 10.0, "u": 1.0}, "z": {"L": 10.0, "u": 1.0}},
+                     efforts={"service": {"N": 100.0, "My": 300.0}, "elu": {"N": 140.0, "My": 400.0}})):
+        rendus |= {v["id"] for m_ in mo.verifier(b_)["methodes"].values() for v in m_["verifications"]}
     ids = [i for _, h, e in mo.SUJETS for i in h + e]
-    absents = [i for i in ids if not any(f'"{i}"' in t for t in textes)]
-    c("(intégration du lot B) la comparaison : chaque identifiant de moteur.SUJETS est écrit par une vérification du moteur (historique.py, "
-      "ec3_*.py) — aucun identifiant renommé ou perdu, aucun sujet vide en silence", ids and not absents, absents)
+    absents = [i for i in ids if i not in rendus]
+    c("(intégration du lot B) la comparaison : chaque identifiant de moteur.SUJETS est celui d'une vérification que le moteur rend (un poteau "
+      "HEB 200 sous N, M_y, M_z, V_z, V_y ; un IPE 300 sous une forte charge près d'un appui ; un PRS monosymétrique comprimé) — aucun "
+      "identifiant renommé ou perdu, aucun sujet vide en silence", ids and not absents, (absents, sorted(rendus)))
     return C
 
 
@@ -534,6 +545,18 @@ def charger(mutation=None):
         mods["statique"].PO = mods["entree"].PO = po
     m = mods["moteur"]
     m.CO, m.ST, m.EN, m.Enveloppe = mods["combinaisons"], mods["statique"], mods["entree"], mods["enveloppe"].Enveloppe
+    if mutation and mutation[0] == "ec3_flambement":              # un PRODUCTEUR d'identifiant (intégration du lot B, point 18)
+        src = open(FLAMBEMENT, encoding="utf-8").read()
+        if src.count(mutation[1]) != 1:
+            return None
+        fl = importlib.util.module_from_spec(importlib.util.spec_from_file_location("acier.barre.ec3_flambement_mute", FLAMBEMENT))
+        fl.__package__ = "acier.barre"
+        exec(compile(src.replace(mutation[1], mutation[2]), FLAMBEMENT, "exec"), fl.__dict__)
+        chemin_ec3 = os.path.join(RACINE, "acier", "barre", "ec3.py")
+        e = importlib.util.module_from_spec(importlib.util.spec_from_file_location("acier.barre.ec3_mute", chemin_ec3))
+        e.__package__ = "acier.barre"
+        exec(compile(open(chemin_ec3, encoding="utf-8").read(), chemin_ec3, "exec"), e.__dict__)
+        e.FL, m.EC = fl, e
     return mods
 
 
@@ -541,6 +564,10 @@ MUTATIONS = [
     # (intégration du lot B) un identifiant de la comparaison qui n'est plus celui de sa vérification (renommé dans un bloc)
     ("moteur", "intégration — un identifiant de SUJETS renommé (« H-DEV » → « H-DEVERSEMENT »)", '("H-SIGMA", "H-DEV", "H-EQ")', '("H-SIGMA", "H-DEVERSEMENT", "H-EQ")'),
     ("moteur", "intégration — un identifiant de SUJETS renommé (« E-Nb-T » → « E-NbT »)", '("E-Nb-z", "E-Nb-T")', '("E-Nb-z", "E-NbT")'),
+    # (point 18) l'identifiant renommé chez son PRODUCTEUR, l'ancien nom resté dans une docstring (ec3.py le cite) : la
+    # recherche du texte le laissait passer
+    ("ec3_flambement", "intégration, point 18 — « E-Nb-T » renommé par la vérification qui l'écrit (flexion-torsion)",
+     '            J.verif("E-Nb-T", "Flambement par flexion-torsion"', '            J.verif("E-Nb-FT", "Flambement par flexion-torsion"'),
     ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"]'),
     ("combinaisons", "ψ₁ au lieu de ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"] * P[cle][1]'),
     ("combinaisons", "deux cas de même nature : un seul dominant", 'if cas[i]["nature"] == dom:', "if i == s[0]:"),
