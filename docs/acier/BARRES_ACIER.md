@@ -572,7 +572,8 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   faible prenait L, défaut non conservatif corrigé (console de 2 m : 2 → 4 m). Un maintien complet au bout en fait une
   section tenue : la plus grande distance entre sections tenues. Des maintiens complets intermédiaires seuls laissent
   2·L (la partie libre ne se prend pas isolément sans justification) : hypothèse prudente, avis « À VÉRIFIER » d'une
-  ligne dans les deux méthodes. Une longueur saisie est prise telle quelle.
+  ligne, dit une fois (sous la première méthode rendue) et seulement si la barre est comprimée — sans N > 0, L_cr,z ne
+  change aucun résultat. Une longueur saisie est prise telle quelle.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)
   est rendue « non couverte » avec son motif ; l'autre reste calculée. Depuis le lot A, la méthode ELS refuse elle aussi
   au-delà de 80 mm (13 HD et HL du catalogue).

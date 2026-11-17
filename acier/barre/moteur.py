@@ -97,7 +97,7 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     l'axe faible tant que son bout est libre : il se déplace latéralement comme dans le plan (brief § 13.3 : u = 2).
     Un maintien complet au bout en fait une section tenue : la plus grande distance entre sections tenues (côté sûr).
     Des maintiens intermédiaires seuls ne raccourcissent rien : la partie libre ne se prend pas isolément sans
-    justification — 2·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ, dite par les deux méthodes)."""
+    justification — 2·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ : dite une fois, et seulement sous compression)."""
     out = {}
     for a in ("y", "z"):
         L = b["flambement"][a]["L"]
@@ -112,7 +112,8 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
 
 
 def _avis_longueurs(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
-    """L'alerte À VÉRIFIER d'une console à bout libre dont L_cr,z automatique ignore des maintiens complets intermédiaires."""
+    """L'alerte À VÉRIFIER d'une console à bout libre dont L_cr,z automatique ignore des maintiens complets intermédiaires
+    (_chargee la donne à la première méthode COMPRIMÉE : sans N > 0, L_cr,z ne change aucun résultat)."""
     if b["flambement"]["z"]["L"] is None and _bout_libre(b, trs) and len(trs) > 1:
         return [{"code": "console_Lz", "niveau": "attention", "message": CONSOLE_LZ}]
     return []
@@ -220,6 +221,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                                "reactions": [{"nom": a["nom"], "x": a["x"], "R": a["R"], "M": a.get("M", 0.0)} for a in sol.appuis]}
                               for c, sol in zip(cas, sols)], "enveloppes": {}}
     methodes = {}
+    comprimee: Dict[str, bool] = {}          # une combinaison de la méthode a-t-elle N > 0 ? (alors elle lit L_cr,z)
 
     def enveloppe_diagrammes(nom: str, combs: List[ST.Combinaison]) -> None:
         """Les enveloppes de M et de V, avec LEURS abscisses : là où un diagramme saute (un appui, une charge ponctuelle,
@@ -272,6 +274,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                                  "deversement": {"troncon": troncon, "kc": _kc_tableau(b, cas, co["facteurs"], tr, C), "zg": zg}})
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
+        comprimee["ec3"] = any(C.N > EPS for C in combs)
         r = env.rendre()
         ou = {"haut": "sur la semelle haute", "centre": "au centre de cisaillement", "bas": "sous la semelle basse"}[b["niveau"]]
         r["hypotheses"].append(f"Charges appliquées {ou} ; appuis en fourche (déplacement latéral et torsion empêchés).")
@@ -302,17 +305,21 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 if f is not None and abs(f) > abs(fleche["valeur"]):
                     fleche = {"valeur": f, "x": x, "combinaison": co["nom"]}
         enveloppe_diagrammes("historique", combs)
+        comprimee["historique"] = any(C.N > EPS for C in combs)
         portee = max(b["travees"]) * (2.0 if b["modele"] == "console" else 1.0)
         fleche["valeur"] *= 1e3                                  # mm
         fleche["rapport"] = portee * 1e3 / abs(fleche["valeur"]) if fleche["valeur"] else None
         statique["fleche"] = fleche
         return env.rendre()
 
+    avis = _avis_longueurs(b, trs)               # une donnée commune : dite UNE fois, sous la première méthode qui la lit
     for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):
         if nom in b["methodes"]:
             try:
                 methodes[nom] = calcul()
-                methodes[nom]["alertes"] += _avis_longueurs(b, trs)       # (les deux méthodes lisent L_cr,z)
+                if comprimee[nom]:
+                    methodes[nom]["alertes"] += avis
+                    avis = []                    # (l'autre méthode lit la même longueur : pas de redite)
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
     return {"statique": statique, "methodes": methodes, "ame": AME.chargee(b, s, cas, sols, N_cas, pts),
