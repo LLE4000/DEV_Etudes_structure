@@ -3,9 +3,11 @@
 
 Modèles : poutre sur deux appuis, console, encastrée–appuyée, bi-encastrée, poutre continue de 2 à 5 travées (rigidité
 E·I constante). Charges : répartie uniforme (totale ou partielle), triangulaire, ponctuelle, couple ; elles se
-superposent (comportement linéaire).
+superposent (comportement linéaire). DÉBORDS : les modèles « appuis » et « continue » acceptent un porte-à-faux à
+chaque rive (débord gauche g, débord droit d, en m ; brief des barres, sections 3 et 4.1).
 
-CONVENTIONS — x depuis l'extrémité gauche ; une charge vers le bas est positive ; V(x) = somme des forces à gauche
+CONVENTIONS — x depuis l'extrémité gauche de la BARRE (le bout du débord gauche quand g > 0 : le premier appui est
+alors en x = g) ; une charge vers le bas est positive ; V(x) = somme des forces à gauche
 (réaction vers le haut positive), V = dM/dx ; M(x) positif quand il tend la fibre inférieure ; flèche f positive vers
 le bas, E·I·f″ = −M ; rotation θ = f′ ; un couple C est positif dans le sens horaire.
 
@@ -20,7 +22,11 @@ MÉTHODE — uniquement des écritures fermées, aucune intégration numérique 
      ``rotations_formulaire``) — et, séparément, de la condition f(L) = 0 de l'écriture a) : les deux calculs sont
      comparés à chaque résolution (``controles``), un écart arrête le calcul ;
   c) les liaisons hyperstatiques s'écrivent par l'égalité des rotations : M_A = −3·E·I·ω_A/L (encastrée–appuyée),
-     M_A = −2·(2·E·I·ω_A − E·I·ω_B)/L (bi-encastrée), théorème des TROIS MOMENTS de Clapeyron (poutre continue).
+     M_A = −2·(2·E·I·ω_A − E·I·ω_B)/L (bi-encastrée), théorème des TROIS MOMENTS de Clapeyron (poutre continue) ;
+  d) un DÉBORD est isostatique : ses efforts viennent de ses seules charges (bout libre : V = 0, M = 0), et le moment
+     qu'il donne à l'appui de rive est un moment CONNU — l'équation des trois moments le porte au second membre, la
+     travée « appuis » le reçoit comme moment d'extrémité. Sa rotation à l'appui est celle de la travée voisine, sa
+     flèche y est nulle : la flèche du bout libre en découle (console + rotation de l'appui × longueur).
 
 Les efforts ne dépendent pas de E·I (rigidité constante) : ``EI`` n'est demandé que pour la flèche ; sans lui le moteur
 rend E·I·f (kN·m³). Unités : m, kN, kN/m, kN·m, E·I en kN·m².
@@ -29,6 +35,8 @@ import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
 MODELES = ("appuis", "console", "enc_app", "bi_enc", "continue")
+MODELES_DEBORDS = ("appuis", "continue")         # les modèles qui acceptent un débord (porte-à-faux) à chaque rive
+BOUT_GAUCHE, BOUT_DROIT = "bout gauche", "bout droit"     # les noms des bouts libres des débords
 TYPES_CHARGE = ("q", "tri", "P", "C")
 SENS = ("croissante", "decroissante")
 TRAVEES_MAX = 5
@@ -131,6 +139,8 @@ def rotations_formulaire(m: Dict, L: float) -> Tuple[float, float, float, float]
 class Travee:
     """Une travée de portée L (abscisse locale x de 0 à L), ses morceaux de charge, ses paramètres initiaux."""
 
+    debord: Optional[str] = None                       # « gauche » ou « droite » pour un débord (classe ``Debord``)
+
     def __init__(self, L: float, x0: float, nom_A: str, nom_B: str):
         self.L, self.x0, self.nom_A, self.nom_B = L, x0, nom_A, nom_B
         self.morceaux: List[Dict] = []
@@ -197,6 +207,59 @@ class Travee:
                     pts.add(m[c])
         return sorted(pts)
 
+    @property
+    def titre(self) -> str:
+        return f"travée {self.nom_A}{self.nom_B}"
+
+
+class Debord(Travee):
+    """Un DÉBORD (porte-à-faux) de longueur L entre un appui de rive et un bout libre, en abscisse locale de 0 à L
+    comme une travée : le débord GAUCHE a son bout libre en 0 et l'appui en L ; le débord DROIT a l'appui en 0 et son
+    bout libre en L. Ses efforts sont isostatiques (``efforts``) ; sa rotation et sa flèche partent de l'appui
+    (``raccorder``). Il porte E·I·f₀, la flèche en x = 0 : celle du bout libre pour un débord gauche, nulle à droite."""
+
+    def __init__(self, L: float, x0: float, cote: str, nom_appui: str):
+        nom_A, nom_B = (BOUT_GAUCHE, nom_appui) if cote == "gauche" else (nom_appui, BOUT_DROIT)
+        super().__init__(L, x0, nom_A, nom_B)
+        self.debord = cote
+        self.f0 = 0.0
+
+    @property
+    def titre(self) -> str:
+        return f"débord {self.debord}"
+
+    def efforts(self) -> None:
+        """Bout libre sans tranchant ni moment. Gauche : R_A = 0, M_A = 0, et le moment à l'appui vaut −Q₂(L).
+        Droit (une console encastrée à l'appui) : R_A = Q₁(L), M_A = Q₂(L) − R_A·L, M_B = 0."""
+        L = self.L
+        if self.debord == "gauche":
+            self.R_A = self.M_A = 0.0
+            self.M_B = 0.0 - _Q(self.termes, 2, L, True)          # 0.0 − … : un débord vide rend 0, pas −0
+        else:
+            self.R_A = self.charge_totale()
+            self.M_A = _Q(self.termes, 2, L, True) - self.R_A * L
+            self.M_B = 0.0
+
+    def raccorder(self, EIrot_appui: float) -> None:
+        """La rotation à l'appui est celle de la travée voisine (``EIrot_appui``), la flèche y est nulle. Gauche :
+        E·I·θ(L) = E·I·ω₀ + Q₃(L) donne ω₀, et E·I·f(L) = 0 donne f₀. Droit : ω₀ est la rotation de l'appui, f₀ = 0."""
+        if self.debord == "gauche":
+            self.w0 = EIrot_appui - _Q(self.termes, 3, self.L)
+            self.f0 = -(self.w0 * self.L + _Q(self.termes, 4, self.L))
+        else:
+            self.w0 = EIrot_appui
+
+    def EIf(self, x: float) -> float:
+        return self.f0 + super().EIf(x)
+
+    def moment_resultantes(self) -> float:
+        """Le moment à l'appui écrit depuis les RÉSULTANTES des charges du débord (sans les termes de Macaulay ; un
+        contrôle le compare) : gauche Σ F·(x_c − L) + Σ C ; droit −Σ F·x_c − Σ C (C horaire positif)."""
+        F = sum(resultante(m)[0] for m in self.morceaux)
+        Fx = sum(resultante(m)[1] for m in self.morceaux)
+        C = sum(m["v"] for m in self.morceaux if m["type"] == "C")
+        return Fx - self.L * F + C if self.debord == "gauche" else -Fx - C
+
 
 # ================================================================================================ les données
 def _nombre(v, nom: str) -> float:
@@ -205,10 +268,31 @@ def _nombre(v, nom: str) -> float:
     return float(v)
 
 
-def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict]) -> Tuple[List[float], List[Dict]]:
-    """Les données contrôlées : portées > 0, charges DANS la poutre (abscisses globales), valeurs finies."""
+def debords_lus(modele: str, debords) -> Tuple[float, float]:
+    """(g, d) contrôlés : deux longueurs finies ≥ 0 (m) ; None vaut (0, 0). Un débord non nul n'existe que pour les
+    modèles de ``MODELES_DEBORDS`` : ailleurs, refus d'une ligne."""
+    if debords is None:
+        return 0.0, 0.0
+    try:
+        g, d = debords
+    except (TypeError, ValueError):
+        raise ErreurDonnees("débords : deux longueurs attendues (gauche, droite)") from None
+    g, d = _nombre(g, "débord gauche"), _nombre(d, "débord droit")
+    if g < 0 or d < 0:
+        raise ErreurDonnees("un débord ne peut pas être négatif")
+    if (g or d) and modele not in MODELES_DEBORDS:
+        raise ErreurDonnees("débords : seulement pour les modèles « appuis » et « continue »")
+    return g, d
+
+
+def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict],
+               debords=(0.0, 0.0)) -> Tuple[List[float], List[Dict]]:
+    """Les données contrôlées : portées > 0, charges DANS la barre, valeurs finies. Les abscisses des charges comptent
+    depuis le bout gauche de la BARRE, débord gauche compris (de 0 à g + Σ portées + d) ; sans débord, c'est le
+    premier appui."""
     if modele not in MODELES:
         raise ErreurDonnees(f"modèle inconnu : {modele!r}")
+    g, d = debords_lus(modele, debords)
     Ls = [_nombre(x, "portée") for x in travees]
     if not Ls or any(x <= 0 for x in Ls):
         raise ErreurDonnees("chaque portée doit être strictement positive")
@@ -217,7 +301,7 @@ def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict]) -
             raise ErreurDonnees(f"une poutre continue a de 2 à {TRAVEES_MAX} travées")
     elif len(Ls) != 1:
         raise ErreurDonnees("ce modèle n'a qu'une travée")
-    Lt = sum(Ls)
+    Lt = sum(([g] if g else []) + Ls + ([d] if d else []))      # dans l'ordre des tronçons : la longueur de la Solution
     if len(charges) > CHARGES_MAX:
         raise ErreurDonnees(f"au plus {CHARGES_MAX} charges")
     out = []
@@ -258,14 +342,20 @@ def resultante(c: Dict) -> Tuple[float, float]:
     return (q1 + q2) / 2.0 * (b - a), (b - a) * (q1 * (2 * a + b) + q2 * (a + 2 * b)) / 6.0
 
 
-def _repartir(Ls: Sequence[float], charges: Sequence[Dict]) -> List[Travee]:
-    """Les travées et, pour chacune, les MORCEAUX de charge en abscisses locales (une charge répartie qui enjambe un
-    appui est coupée à l'appui ; une charge ponctuelle sur un appui intermédiaire revient à la travée de droite)."""
+def _repartir(Ls: Sequence[float], charges: Sequence[Dict], g: float = 0.0, d: float = 0.0) -> List[Travee]:
+    """Les tronçons — le débord gauche (si g > 0), les travées, le débord droit (si d > 0) — et, pour chacun, les
+    MORCEAUX de charge en abscisses locales (une charge répartie qui enjambe un appui est coupée à l'appui ; une charge
+    ponctuelle sur un appui revient au tronçon de droite, sauf au bout de la barre)."""
     noms = "ABCDEF"
     tr, x0 = [], 0.0
+    if g:
+        tr.append(Debord(g, 0.0, "gauche", noms[0]))
+        x0 = g                                         # le premier appui, au bout du débord gauche
     for i, L in enumerate(Ls):
         tr.append(Travee(L, x0, noms[i], noms[i + 1]))
         x0 += L
+    if d:
+        tr.append(Debord(d, x0, "droite", noms[len(Ls)]))
     for i, c in enumerate(charges):
         if c["type"] in ("P", "C"):
             k = len(tr) - 1
@@ -349,8 +439,10 @@ def _dichotomie(f, u: float, v: float) -> float:
 class Solution:
     """Le résultat d'une résolution : travées fermées, réactions, extremums, contrôles ; ``evaluer(x)`` lit une section."""
 
-    def __init__(self, modele: str, travees: List[Travee], charges: List[Dict], EI: Optional[float]):
+    def __init__(self, modele: str, travees: List[Travee], charges: List[Dict], EI: Optional[float],
+                 debords: Tuple[float, float] = (0.0, 0.0)):
         self.modele, self.travees, self.charges, self.EI = modele, travees, charges, EI
+        self.debords = debords                         # (g, d) en m ; les débords sont aussi dans ``travees``
         self.L = sum(t.L for t in travees)
         self.appuis: List[Dict] = []
         self.controles: List[Dict] = []
@@ -458,17 +550,30 @@ def _controler(sol: Solution) -> None:
     ech_f = ech_F * sol.L ** 3
     c = []
     c.append(("équilibre vertical : Σ R = Σ charges", sum(a["R"] for a in sol.appuis) - F, ech_F))
-    c.append(("équilibre des moments par rapport à A", sum(a.get("M_enc_horaire", 0.0) for a in sol.appuis) + Mo
-              - sum(a["R"] * a["x"] for a in sol.appuis), ech_M))
-    for t in sol.travees:
-        if sol.modele != "console":
+    c.append(("équilibre des moments par rapport à " + ("A" if not sol.debords[0] else "x = 0 (bout gauche)"),
+              sum(a.get("M_enc_horaire", 0.0) for a in sol.appuis) + Mo - sum(a["R"] * a["x"] for a in sol.appuis), ech_M))
+    for i, t in enumerate(sol.travees):
+        if t.debord:
+            # le moment à l'appui : des résultantes (sans Macaulay) = du débord (Macaulay) = de la travée voisine
+            gauche = t.debord == "gauche"
+            voisine = sol.travees[i + 1] if gauche else sol.travees[i - 1]
+            M_deb = t.M(t.L, False) if gauche else t.M_A
+            M_trav = voisine.M_A if gauche else voisine.M_B
+            appui = t.nom_B if gauche else t.nom_A
+            c.append((f"{t.titre} : M_{appui} des résultantes = paramètres initiaux", t.moment_resultantes() - M_deb, ech_M))
+            c.append((f"{t.titre} : M_{appui} du débord = M_{appui} de la {voisine.titre}", M_deb - M_trav, ech_M))
+            c.append((f"{t.titre} : flèche nulle en {appui}", t.EIf(t.L if gauche else 0.0), ech_f))
+            if not gauche:
+                c.append((f"{t.titre} : moment nul au bout libre", t.M(t.L, True), ech_M))
+                c.append((f"{t.titre} : tranchant nul au bout libre", t.V(t.L, True), ech_F))
+        elif sol.modele != "console":
             c.append((f"flèche nulle en {t.nom_B}", t.EIf(t.L), ech_f))
             c.append((f"moment en {t.nom_B} = M_{t.nom_B}", t.M(t.L, False) - t.M_B
                       + sum(m["v"] for m in t.morceaux if m["type"] == "C" and m["a"] >= t.L), ech_M))
         fo = [rotations_formulaire(m, t.L) for m in t.morceaux]
-        c.append((f"travée {t.nom_A}{t.nom_B} : R_A du formulaire = paramètres initiaux", sum(x[0] for x in fo) - t.R_A0, ech_F))
-        c.append((f"travée {t.nom_A}{t.nom_B} : E·I·ω_A du formulaire = paramètres initiaux", sum(x[2] for x in fo) - t.wA0, ech_w))
-        c.append((f"travée {t.nom_A}{t.nom_B} : E·I·ω_B du formulaire = paramètres initiaux", sum(x[3] for x in fo) - t.wB0, ech_w))
+        c.append((f"{t.titre} : R_A du formulaire = paramètres initiaux", sum(x[0] for x in fo) - t.R_A0, ech_F))
+        c.append((f"{t.titre} : E·I·ω_A du formulaire = paramètres initiaux", sum(x[2] for x in fo) - t.wA0, ech_w))
+        c.append((f"{t.titre} : E·I·ω_B du formulaire = paramètres initiaux", sum(x[3] for x in fo) - t.wB0, ech_w))
     t0, tn = sol.travees[0], sol.travees[-1]
     if sol.modele in ("console", "enc_app", "bi_enc"):
         c.append(("rotation nulle à l'encastrement A", t0.EIrot(0.0), ech_w))
@@ -485,21 +590,42 @@ def _controler(sol: Solution) -> None:
         raise ErreurControle("contrôle interne en défaut : " + " ; ".join(f"{k['nom']} (écart {k['ecart']:.3g})" for k in faux))
 
 
-def resoudre(modele: str, travees: Sequence[float], charges: Sequence[Dict], EI: Optional[float] = None) -> Solution:
-    """La poutre résolue. ``travees`` : les portées (m) ; ``charges`` : {type q|tri|P|C, v, a, b, sens} en abscisses
-    globales ; ``EI`` (kN·m², facultatif) pour la flèche."""
-    Ls, ch = normaliser(modele, travees, charges)
+def resoudre(modele: str, travees: Sequence[float], charges: Sequence[Dict], EI: Optional[float] = None,
+             debords=(0.0, 0.0)) -> Solution:
+    """La poutre résolue. ``travees`` : les portées entre appuis (m) ; ``charges`` : {type q|tri|P|C, v, a, b, sens} ;
+    ``EI`` (kN·m², facultatif) pour la flèche ; ``debords`` : (g, d), les porte-à-faux gauche et droit (m, ≥ 0),
+    seulement pour « appuis » et « continue » (un autre modèle refuse un débord non nul).
+
+    LE REPÈRE : les abscisses (charges, ``evaluer``, ``appuis[…]["x"]``, ``travees[…].x0``) comptent depuis le bout
+    gauche de la BARRE, débord gauche compris ; la barre va de 0 à g + Σ portées + d et le premier appui est en x = g.
+    Avec g = 0, c'est l'ancien repère (le premier appui en 0) : aucune donnée enregistrée ne change de sens.
+
+    Les débords sont des tronçons de ``Solution.travees`` (``Debord``, attribut ``debord`` = « gauche » ∣ « droite »),
+    avant et après les travées ; ``appuis`` ne garde que les appuis, la réaction d'un appui de rive compte la charge
+    de son débord. Sans débord, rien ne change (mêmes tronçons, mêmes opérations)."""
+    Ls, ch = normaliser(modele, travees, charges, debords)
+    g_, d_ = debords_lus(modele, debords)
     if EI is not None:
         EI = _nombre(EI, "E·I")
         if EI <= 0:
             raise ErreurDonnees("E·I doit être strictement positif")
-    tr = _repartir(Ls, ch)
-    sol = Solution(modele, tr, ch, EI)
+    tr = _repartir(Ls, ch, g_, d_)
+    sol = Solution(modele, tr, ch, EI, (g_, d_))
     for t in tr:
         t.isostatique()
-    t0 = tr[0]
+    dg = tr[0] if tr[0].debord == "gauche" else None
+    dd = tr[-1] if tr[-1].debord == "droite" else None
+    portees = [t for t in tr if not t.debord]
+    M_g = M_d = 0.0                                    # les moments CONNUS aux appuis de rive (ceux des débords)
+    if dg:
+        dg.efforts()
+        M_g = dg.M_B
+    if dd:
+        dd.efforts()
+        M_d = dd.M_A
+    t0 = portees[0]
     if modele == "appuis":
-        t0.fermer(0.0, 0.0)
+        t0.fermer(M_g, M_d)
     elif modele == "enc_app":
         t0.fermer(-3.0 * t0.wA0 / t0.L, 0.0)
     elif modele == "bi_enc":
@@ -511,25 +637,32 @@ def resoudre(modele: str, travees: Sequence[float], charges: Sequence[Dict], EI:
         t0.M_B = 0.0
         t0.w0 = 0.0
     else:
-        seconds = [-6.0 * (g.wB0 + d.wA0) for g, d in zip(tr, tr[1:])]
-        Mi = [0.0] + _resoudre_tridiagonal(Ls, seconds) + [0.0]
-        for i, t in enumerate(tr):
+        seconds = [-6.0 * (g.wB0 + d.wA0) for g, d in zip(portees, portees[1:])]
+        connus = list(seconds)                         # les moments de rive connus passent au second membre
+        connus[0] -= Ls[0] * M_g
+        connus[-1] -= Ls[-1] * M_d
+        Mi = [M_g] + _resoudre_tridiagonal(Ls, connus) + [M_d]
+        for i, t in enumerate(portees):
             t.fermer(Mi[i], Mi[i + 1])
-        for i in range(1, len(tr)):
-            sol.equations.append({"appui": tr[i].nom_A, "L_g": Ls[i - 1], "L_d": Ls[i], "wB_g": tr[i - 1].wB0, "wA_d": tr[i].wA0,
-                                  "second": seconds[i - 1], "M_g": Mi[i - 1], "M": Mi[i], "M_d": Mi[i + 1]})
+        for i in range(1, len(portees)):
+            sol.equations.append({"appui": portees[i].nom_A, "L_g": Ls[i - 1], "L_d": Ls[i], "wB_g": portees[i - 1].wB0,
+                                  "wA_d": portees[i].wA0, "second": seconds[i - 1], "M_g": Mi[i - 1], "M": Mi[i], "M_d": Mi[i + 1]})
+    if dg:
+        dg.raccorder(t0.EIrot(0.0))
+    if dd:
+        dd.raccorder(portees[-1].EIrot(portees[-1].L))
     # les appuis : réaction (vers le haut), moment d'encastrement (le moment fléchissant dans la section d'encastrement)
     if modele == "console":
         sol.appuis = [{"nom": "A", "x": 0.0, "R": t0.R_A, "M": t0.M_A, "M_enc_horaire": t0.M_A, "type": "encastrement"}]
     else:
-        for i, t in enumerate(tr):
-            R = t.R_A + (tr[i - 1].R_B if i > 0 else 0.0)
+        for i, t in enumerate(portees):
+            R = t.R_A + (portees[i - 1].R_B if i > 0 else (dg.R_B if dg else 0.0))
             a = {"nom": t.nom_A, "x": t.x0, "R": R, "M": t.M_A, "type": "appui"}
             if i == 0 and modele in ("enc_app", "bi_enc"):
                 a.update(type="encastrement", M_enc_horaire=t.M_A)
             sol.appuis.append(a)
-        tn = tr[-1]
-        b = {"nom": tn.nom_B, "x": tn.x0 + tn.L, "R": tn.R_B, "M": tn.M_B, "type": "appui"}
+        tn = portees[-1]
+        b = {"nom": tn.nom_B, "x": tn.x0 + tn.L, "R": tn.R_B if dd is None else tn.R_B + dd.R_A, "M": tn.M_B, "type": "appui"}
         if modele == "bi_enc":
             b.update(type="encastrement", M_enc_horaire=-tn.M_B)
         sol.appuis.append(b)
@@ -542,8 +675,9 @@ def resoudre(modele: str, travees: Sequence[float], charges: Sequence[Dict], EI:
 def cas_ecole(sol: Solution) -> Optional[Dict]:
     """Si la poutre est un CAS D'ÉCOLE du formulaire (une seule charge, cas usuel), ses formules classiques ÉVALUÉES :
     {cle, valeurs: {nom: valeur}}. Chaque valeur est comparée à la résolution générale ; un écart lève ErreurControle
-    (deux calculs indépendants). Sinon None : la feuille montre alors la superposition."""
-    if len(sol.charges) != 1:
+    (deux calculs indépendants). Sinon None : la feuille montre alors la superposition. Une poutre à débord n'est pas
+    un cas d'école ici : None."""
+    if len(sol.charges) != 1 or any(t.debord for t in sol.travees):
         return None
     c = sol.charges[0]
     m, t = sol.modele, c["type"]
