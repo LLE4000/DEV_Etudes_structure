@@ -4,7 +4,8 @@ source et son STATUT (docs/acier/BARRES_ACIER.md § 5.8). Une seule table : chan
 
 Statuts :
 - ``pointe``      : lue sur le texte (le texte n'est pas au dépôt : la source dit la clause) ;
-- ``a_pointer``   : la valeur de l'EN, connue, reprise par l'annexe belge — reste à lire sur le texte belge ;
+- ``a_pointer``   : la valeur de l'EN, connue, reprise par l'annexe belge — reste à lire sur le texte belge (plus aucune
+  entrée depuis le lot C : les annexes belges sont lues, brief § 13.1) ;
 - ``a_confirmer`` : la valeur change un résultat et sa source n'est pas le texte : la note l'imprime comme telle ;
 - ``decision``    : une DÉCISION BUREAU (brief, règle 8) — le défaut est ici, l'autre variante est calculée et affichée.
   Une entrée de décision porte aussi "variante" (l'autre valeur ; None quand aucune n'est encore calculable), "valeurs"
@@ -17,16 +18,16 @@ from typing import Dict, List, Optional
 from .resultat import Refus
 
 A_POINTER, A_CONFIRMER, POINTE, DECISION = "a_pointer", "a_confirmer", "pointe", "decision"
-EDITION = "NBN EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; NBN EN 1993-1-5:2006 ; NBN EN 1990 ANB"
+EDITION = "NBN EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; NBN EN 1993-1-5:2006 ; NBN EN 1990 ANB:2021"
 
 PARAMETRES: Dict[str, Dict] = {
-    # ---- coefficients partiels (EN 1993-1-1 § 6.1)
-    "gamma_M0": {"valeur": 1.00, "nom": "γ_M0", "source": "EN 1993-1-1 § 6.1, valeur recommandée reprise par l'ANB", "statut": A_POINTER},
-    "gamma_M1": {"valeur": 1.00, "nom": "γ_M1", "source": "EN 1993-1-1 § 6.1, valeur recommandée reprise par l'ANB", "statut": A_POINTER},
-    "gamma_M2": {"valeur": 1.25, "nom": "γ_M2", "source": "EN 1993-1-1 § 6.1, valeur recommandée reprise par l'ANB", "statut": A_POINTER},
-    # ---- matériau (EN 1993-1-1 § 3.2.6)
-    "E": {"valeur": 210000.0, "nom": "E", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
-    "G": {"valeur": 81000.0, "nom": "G", "source": "EN 1993-1-1 § 3.2.6", "statut": A_POINTER},
+    # ---- coefficients partiels (EN 1993-1-1 § 6.1) : les valeurs des bâtiments, normatives en Belgique (brief § 7.2)
+    "gamma_M0": {"valeur": 1.00, "nom": "γ_M0", "source": "NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments)", "statut": POINTE},
+    "gamma_M1": {"valeur": 1.00, "nom": "γ_M1", "source": "NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments)", "statut": POINTE},
+    "gamma_M2": {"valeur": 1.25, "nom": "γ_M2", "source": "NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments)", "statut": POINTE},
+    # ---- matériau (EN 1993-1-1 § 3.2.6) : G arrondi par le même paragraphe (brief § 7.1)
+    "E": {"valeur": 210000.0, "nom": "E", "source": "EN 1993-1-1 § 3.2.6(1)", "statut": POINTE},
+    "G": {"valeur": 81000.0, "nom": "G", "source": "EN 1993-1-1 § 3.2.6(1), valeur arrondie", "statut": POINTE},
     # ---- déversement des profilés laminés (EN 1993-1-1 § 6.3.2.3) : le couple par défaut. NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) :
     # (0,2 ; 1,0) dès que M_cr est calculé sur la section brute avec les combinaisons, la distribution réelle des moments
     # et les maintiens — c'est le solveur du module (acier/barre/mcr.py), maintiens présents ou non. La variante
@@ -90,24 +91,34 @@ PARAMETRES: Dict[str, Dict] = {
             "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire : I et H laminés, tubes"},
     "eta_soude": {"valeur": 1.20, "nom": "η (section soudée)", "statut": POINTE,
                   "source": "NBN EN 1993-1-5 ANB:2011, 5.1(2) : sections soudées (PRS, I, caissons) jusqu'au S460"},
-    # ---- combinaisons (NBN EN 1990 ANB, expression 6.10)
-    "gamma_G_sup": {"valeur": 1.35, "nom": "γ_G,sup", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
-    "gamma_G_inf": {"valeur": 1.00, "nom": "γ_G,inf", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
-    "gamma_Q": {"valeur": 1.50, "nom": "γ_Q", "source": "NBN EN 1990 ANB, tableau A1.2(B)", "statut": A_POINTER},
-    # ---- coefficients (ψ₀ ; ψ₁ ; ψ₂) des actions variables (NBN EN 1990 ANB, tableau A1.1)
-    "psi_A": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie A", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_B": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie B", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_C": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie C", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_D": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie D", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_E": {"valeur": (1.0, 0.9, 0.8), "nom": "ψ, catégorie E", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_F": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie F", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_G": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie G", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_H": {"valeur": (0.0, 0.0, 0.0), "nom": "ψ, catégorie H", "source": "NBN EN 1990 ANB, tableau A1.1", "statut": A_POINTER},
-    "psi_neige": {"valeur": (0.5, 0.2, 0.0), "nom": "ψ, neige", "statut": A_CONFIRMER,
-                  "source": "valeurs de l'EN 1990 (altitude ≤ 1 000 m) — l'annexe belge est à lire"},
-    "psi_vent": {"valeur": (0.6, 0.2, 0.0), "nom": "ψ, vent", "statut": A_CONFIRMER, "source": "valeurs de l'EN 1990 — l'annexe belge est à lire"},
-    "psi_temperature": {"valeur": (0.6, 0.5, 0.0), "nom": "ψ, température", "statut": A_CONFIRMER,
-                        "source": "valeurs de l'EN 1990 — l'annexe belge est à lire"},
+    # ---- combinaisons (NBN EN 1990 ANB:2021, classe de conséquence CC2 ; brief § 5 ; acier/barre/combinaisons.py)
+    "gamma_G_sup": {"valeur": 1.35, "nom": "γ_G,sup", "source": "NBN EN 1990 ANB:2021, tableau A1.2(B), CC2", "statut": POINTE},
+    "gamma_G_inf": {"valeur": 1.00, "nom": "γ_G,inf", "source": "NBN EN 1990 ANB:2021, tableau A1.2(B), CC2", "statut": POINTE},
+    "gamma_Q": {"valeur": 1.50, "nom": "γ_Q", "source": "NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 (0 si favorable)", "statut": POINTE},
+    # ξ de (6.10b), quand l'expression est (6.10a) et (6.10b) : ξ·γ_G,sup = 1,1475 ; 1,00 pour une application géotechnique
+    "xi": {"valeur": 0.85, "nom": "ξ", "source": "NBN EN 1990 ANB:2021, tableau A1.2(B), (6.10b)", "statut": POINTE},
+    "xi_geotechnique": {"valeur": 1.00, "nom": "ξ (application géotechnique)", "statut": POINTE,
+                        "source": "NBN EN 1990 ANB:2021, tableau A1.2(B), (6.10b) : application géotechnique (brief § 5)"},
+    # ---- coefficients (ψ₀ ; ψ₁ ; ψ₂) des actions variables (NBN EN 1990 ANB:2021, tableau A1.1, bâtiments). L'exécution
+    # (1,0 ; – ; 0,2, au cas par cas, note 2) et les machines (au cas par cas, note 1) n'ont PAS d'entrée : ψ₀ y est saisi,
+    # sans défaut (combinaisons.AIDE_PSI0). Les fluides et matières stockés : catégorie E (note 1).
+    "psi_A": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie A", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_B": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie B", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_C": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie C", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_D": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie D", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_E": {"valeur": (1.0, 0.9, 0.8), "nom": "ψ, catégorie E", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_F": {"valeur": (0.7, 0.7, 0.6), "nom": "ψ, catégorie F", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_G": {"valeur": (0.7, 0.5, 0.3), "nom": "ψ, catégorie G", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_H": {"valeur": (0.0, 0.0, 0.0), "nom": "ψ, catégorie H", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    # la neige : toute la Belgique, altitude ≤ 1 000 m — ψ₁ = 0 (et non 0,2, la valeur de l'EN gardée par erreur jusqu'au lot B)
+    "psi_neige": {"valeur": (0.5, 0.0, 0.0), "nom": "ψ, neige", "statut": POINTE,
+                  "source": "NBN EN 1990 ANB:2021, tableau A1.1 (neige, altitude ≤ 1 000 m)"},
+    "psi_vent": {"valeur": (0.6, 0.2, 0.0), "nom": "ψ, vent", "source": "NBN EN 1990 ANB:2021, tableau A1.1", "statut": POINTE},
+    "psi_temperature": {"valeur": (0.6, 0.5, 0.0), "nom": "ψ, température", "statut": POINTE,
+                        "source": "NBN EN 1990 ANB:2021, tableau A1.1 (température hors incendie)"},
+    # la règle belge de courte durée : ψ₀ d'une action de courte durée qui en suit une autre (mise en œuvre restreinte du
+    # brief § 5 : la neige et le vent seulement — combinaisons.py)
+    "psi0_courte_duree": {"valeur": 0.3, "nom": "ψ₀ de courte durée", "source": "NBN EN 1990 ANB:2021, tableau A1.1, note 3", "statut": POINTE},
 }
 
 
