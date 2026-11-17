@@ -1232,6 +1232,7 @@ MANUEL_APPUI_DEUX = dict(beton="C20/25", tp_u=60, N_Ed=4000)            # pressi
 
 
 from acier.assemblages.pied_poteau.platine_beton.manuel import note as _NM  # noqa: E402
+from acier.js import AttrDict as JS_AD  # noqa: E402
 
 
 def _note_manuelle(**v):
@@ -1254,6 +1255,12 @@ def controles_hypothese_appui():
                 re.findall(r".{0,40}(?:hypothèse prudente|" + AVIS_FJD + r").{0,120}", t2)))
     t3 = _note_manuelle()
     out.append(("calcul manuel, note neuve (appui sous 100 %) : pas de ligne d'hypothèse", "hypothèse prudente" not in t3, ""))
+    # (intégration du lot B, point 24) la garde R.verified : une platine NON vérifiée (t_p = 20 mm, 1 770 kN : pression maximale
+    # 136 %, N ≤ fjd·Aeff 84 %) — l'hypothèse ne change rien (« non vérifiée » de toute façon) : pas de ligne
+    t4 = _note_manuelle(N_Ed=1770, tp_u=20)
+    out.append(("calcul manuel, platine NON vérifiée (t_p = 20 mm, un seul contrôle d'appui au-delà de 100 %) : pas de ligne d'hypothèse "
+                "— elle ne change pas le verdict", "PLATINE NON VÉRIFIÉE" in t4 and "hypothèse prudente" not in t4,
+                re.findall(r".{0,40}hypothèse prudente.{0,80}", t4)))
     return out
 
 
@@ -1264,6 +1271,8 @@ for nom, mut in [("la note tait l'hypothèse prudente", _patch(PM_M, "hypothese_
                   _patch(PM_M, "hypothese_appui", lambda R, f=PM_M.hypothese_appui: f(R) or (
                       "À VÉRIFIER — hypothèse prudente : l'appui fjd compte les deux contrôles." if R.verified and any(
                           not c.ok for c in R.checks if c.key in ("bet", "ncp") and c.active) else ""))),
+                 ("(point 24) la garde « platine vérifiée » retirée (l'hypothèse dite sous une platine non vérifiée)",
+                  _patch(PM_M, "hypothese_appui", lambda R, f=PM_M.hypothese_appui: f(JS_AD({**R, "verified": True})))),
                  ("l'avis « pression > fjd » redit sous la ligne de l'hypothèse (l'appui trois fois)",
                   _patch(_NM.Note, "alertes_bandeau", lambda self, R: list(R.alerts))),
                  ("l'avis rangé sans ses chiffres (p max, fjd perdus de la note)",
