@@ -944,7 +944,7 @@ def controles_c1(M=None):
     """[(nom, vrai ?, info)] — la barre chargée de bout en bout (lot C, C1), rejoués sous chaque mutation de MUTATIONS_C1."""
     M = M or {}
     mo, st = M.get("moteur") or _m("moteur"), M.get("statique") or _m("statique")
-    ec, hi_, am_, pa_ = _m("ec3"), _m("historique"), _m("ec3_ame"), _m("parametres")
+    ec, hi_, am_, pa_, DV_ = _m("ec3"), _m("historique"), _m("ec3_ame"), _m("parametres"), _m("ec3_deversement")
     out = []
 
     def c(nom, cond, info=""):
@@ -1022,6 +1022,18 @@ def controles_c1(M=None):
     c("(C1) … le maintien négligé reste compté pour le FLAMBEMENT et pour L_d de la méthode ELS : L_cr,z = 3 m, L_d = 3 m ; M_cr porte sur 6 m",
       r9["longueurs"]["z"]["L"] == 3.0 and r9["methodes"]["historique"]["grandeurs"]["deversement"]["Lc"] == 3000.0
       and dv(("brief", "haut", True))[1]["troncon"]["L"] == 6000.0, (r9["longueurs"], r9["methodes"]["historique"]["grandeurs"]["deversement"].get("Lc")))
+    # (contre-vérification du lot C) une CONSOLE dont le maintien est négligé : son tronçon ne va pas d'un appui à l'autre (le bout libre
+    # n'est pas un appui) — la variante est refusée, le couple par défaut s'applique, pour le même M_cr
+    rco = {k_: mo.verifier(barre(profil="IPE 300", modele="console", travees=[3.0], poids_propre=False, maintiens=m_,
+                                 cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0)]}]))["methodes"]["ec3"]
+           for k_, m_ in (("neglige", [{"x": 1.5, "genre": "complet", "neglige": True}]), ("sans", []))}
+    Dco = rco["neglige"]["grandeurs"]["deversement"]
+    c("(C1) console IPE 300 de 3 m, P = 20 kN au bout, maintien complet NÉGLIGÉ à 1,5 m : la variante (0,4 ; 0,75) refusée (« maintiens comptés "
+      "dans M_cr » : le bout libre n'est pas un appui) — le couple par défaut, taux 0,872 (et non 0,751), le même que sans maintien, M_cr 163,7 kN·m",
+      Dco["variante"] is False and abs(vf(rco["neglige"], "E-Mb")["taux"] - 0.872) <= 0.001 and abs(Dco["M_cr"] / 1e6 - 163.73) <= 0.01
+      and proche(vf(rco["neglige"], "E-Mb")["taux"], vf(rco["sans"], "E-Mb")["taux"])
+      and any(a_["message"] == f"Variante (0,4 ; 0,75) refusée : {DV_.MAINTIENS_COMPTES}." for a_ in rco["neglige"]["alertes"]),
+      (Dco.get("variante"), vf(rco["neglige"], "E-Mb")["taux"], Dco["M_cr"] / 1e6, [a_["message"] for a_ in rco["neglige"]["alertes"]]))
     # ---- 1. une hauteur PAR CHARGE ; le poids propre au centre de gravité
     s3 = SE.du_catalogue("IPE 300")
     bm = barre(niveau="haut", poids_propre=False, cas=[{"nom": "G", "nature": "permanent", "charges": [dict(q(4.0, 0.0, 6.0), niveau="centre"), P_(20.0, 3.0)]}])
@@ -1393,6 +1405,9 @@ MUTATIONS_C1 = [
     ("statique", "C1 — les maintiens négligés comptés dans M_cr", '        if pour_mcr and m.get("neglige"):', "        if False:"),
     ("moteur", "C1 — la variante (0,4 ; 0,75) jamais demandée", 'variante = bool(b.get("maintiens")) and len(negliges) == len(b["maintiens"])', "variante = False"),
     ("moteur", "C1 — le type d'ouvrage non transmis à l'Eurocode 3", '"deversement": dev, "ouvrage": b["ouvrage"]}', '"deversement": dev}'),
+    ("moteur", "C1 — un tronçon toujours « entre appuis » (la variante admise sur une console, NON CONSERVATIF)",
+     '"entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}', '"entre_appuis": True}'),
+    ("moteur", "C1 — le bout libre d'une console compté comme un appui", "    bouts = set(ST.appuis_x(b))\n", "    bouts = set(ST.appuis_x(b)) | {round(Lt, 9)}\n"),
     ("moteur", "C1 — poids propre imposé : rien dans N pour un poteau", 'return {"N": fN * q * L, "M": fM * q * L * L / 8.0', 'return {"N": 0.0, "M": fM * q * L * L / 8.0'),
     ("moteur", "C1 — interrupteur « dans P » sans effet", '            e["N"] += f * dans_P["N"]', "            pass"),
     ("moteur", "C1 — poids propre imposé : sans γ_G,sup à l'ELU", "    for e, f in ((sv, 1.0), (el, gamma)):", "    for e, f in ((sv, 1.0), (el, 1.0)):"),

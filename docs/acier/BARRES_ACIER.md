@@ -1025,7 +1025,9 @@ note (C5) : ils liront ce que le moteur rend.
   contrôle (E.1) n'a qu'un z_g, le solveur seul.
 - **Maintiens négligés dans M_cr** : les tronçons de M_cr les ignorent (`statique.troncons(…, pour_mcr=True)`) ; le
   flambement et L_d de la méthode ELS les gardent. Tous négligés : la variante (0,4 ; 0,75) est demandée, l'Eurocode 3
-  l'admet (bâtiment) ou la refuse (« hors bâtiment ») — test 9 du § 11.5 : R2 0,741 et 0,891.
+  l'admet (bâtiment) ou la refuse (« hors bâtiment ») — test 9 du § 11.5 : R2 0,741 et 0,891. Un tronçon n'est « entre
+  appuis » que si ses deux bouts sont des appuis : le bout libre d'une console ou d'un débord n'en est pas un — une console
+  au maintien négligé garde le couple par défaut (IPE 300, 3 m : 0,872 et non 0,751 ; contre-vérification du lot C).
 - **Position de la barre** : horizontale (poids propre en flexion), verticale (q·L dans N, en compression, sur toute la
   barre — prudent, À VÉRIFIER), inclinée de α (q·cos α en flexion, q·L·sin α dans N ; sans angle : refusée). Efforts
   imposés : les interrupteurs « dans P » (P += q·L) et « en flexion » (M += q·L²/8, V += q·L/2) ajoutent le poids propre

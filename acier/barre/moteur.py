@@ -462,7 +462,10 @@ def _chargee(b: Dict, s: Dict) -> Dict:
 
     Lt = ST.longueur(b)
     g_, d_ = (b.get("debords") or (0.0, 0.0))[:2]
-    bouts = set(ST.appuis_x(b)) | ({0.0} if g_ <= EPS else set()) | ({round(Lt, 9)} if d_ <= EPS else set())
+    # les APPUIS de la barre — ceux d'un tronçon « entre appuis » (la variante (0,4 ; 0,75) le lit, ec3_deversement.couple_anb) ;
+    # le bout libre d'une console ou d'un débord n'en est pas un (contre-vérification du lot C : une console entière passait
+    # « entre appuis », la variante admise)
+    bouts = set(ST.appuis_x(b))
     grille = sorted({round(x, 9) for x in pts} | {round(x0 + (x1 - x0) * i / POINTS_DIAGRAMME, 9) for x0, x1 in _segments(b)
                                                   for i in range(POINTS_DIAGRAMME + 1)})
     statique: Dict = {"L": Lt, "x": grille, "troncons": [{"x1": t["x1"], "x2": t["x2"], "appuis": list(t["appuis"]),
