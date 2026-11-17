@@ -481,8 +481,15 @@ en barre chargée : 1 033,76, ponctuel 1 328,40 ; console : 4 000,51 — recoup�
 PRS-C (§ 11.9, 28 m, § 6.3.2.2 courbe d, 7 / 8 / 9 maintiens de la semelle haute : taux 1,007 / 0,967 / 0,937 ; M_cr à 8
 maintiens 28 294,6 kN·m, Ritz 28 279,2, +0,05 %), par les fonctions du moteur (poids de l'acier au centre de gravité) et
 de bout en bout par la barre chargée (un seul niveau de charge : l'acier aussi sur la semelle haute, M_cr −0,1 %) ;
-92 mutations, dont le terme de Wagner retiré ou de signe inversé et les charges ramenées au centre de cisaillement. Reste (brief § 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
+93 mutations, dont le terme de Wagner retiré ou de signe inversé et les charges ramenées au centre de cisaillement (PRS-C :
+les mêmes charges au centre de cisaillement donnent un M_cr plus grand d'au moins 0,5 %, contrôle direct). Reste (brief
+§ 13.4) : la qualification externe d'un M_cr monosymétrique par LTBeam (cas L12 à L16,
 `docs/validation/barres_cas_ltbeam_scia.md`).
+
+**Lot C, deux manques du modèle de la barre** (vus sur PRS-C) : (1) une hauteur de charge PAR CHARGE (au moins le
+centre de gravité pour le poids propre) — la barre chargée n'a qu'un `niveau` pour toutes ses charges ; (2) une nature
+d'action « exécution » (γ_Q = 1,5, ψ à fixer) — `combinaisons.NATURES` n'en a pas, le béton frais de PRS-C passe en
+« exploitation_A » pour avoir 1,5.
 
 ## 6. Les valeurs de référence
 

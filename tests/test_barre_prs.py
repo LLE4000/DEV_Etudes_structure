@@ -624,6 +624,7 @@ RITZ_PRS_B_NEGATIF = {("reparti", "haut"): (806.49, 1033.75), ("reparti", "centr
 # PRS-C (brief § 11.9, demande du propriétaire du 16/11/2026), 28 m, n maintiens de la semelle haute à L/(n + 1), le poids de
 # l'acier au centre de gravité : M_cr du même Ritz (220 termes, convergé à 0,1 kN·m) ; taux attendus du propriétaire
 RITZ_PRS_C = {7: 23079.3, 8: 28279.2, 9: 34035.4}
+RITZ_PRS_C_CS = {7: 23337.6, 8: 28529.9, 9: 34279.1}       # (les mêmes charges ramenées au centre de cisaillement)
 TAUX_PRS_C = {7: 1.007, 8: 0.967, 9: 0.937}
 MCR_PRS_C_8 = 28279.0                    # « M_cr ≈ 28 279 kN·m » (la note du propriétaire)
 M_ED_PRS_C = 4199.4
@@ -739,13 +740,17 @@ def controles_fin(A, B, pl, ch):
       ({k: (pc.get(k), S0_.get(k)) for k in ("It", "Iw", "Avz", "Avy", "A", "Iy")}, [x for x in ("surestime", "formule des laminés") if x in texte_r]))
     # ---- PRS-C (brief § 11.9) : l'Eurocode 3 du propriétaire, § 6.3.2.2, courbe d, 7, 8 et 9 maintiens de la semelle haute
     C_ = PR.section_prs(300, 30, 1420, 25, 500, 50, a=None, nuance="S235", bords="oxycoupes")
-    fonc, bout = {}, {}
+    fonc, bout, cs = {}, {}, {}
     for n in (7, 8, 9):
         tr, MEd = prs_c_troncon(C_, n)
         r = m("ec3").verifier({"section": C_, "nuance": "S235", "MyEd": MEd, "axes": {"y": {"L": 28000.0}, "z": {"L": 28000.0}},
                                "deversement": {"troncon": tr}})
         D, v = r["grandeurs"]["deversement"], verif(r, "E-Mb")
         fonc[n] = (MEd / 1e6, D["M_cr"] / 1e6, v["taux"], r["grandeurs"]["classe"], r["grandeurs"]["fy"], D["W_y"], D["courbe"], D["methode"])
+        tr_cs = {**tr, "reparties": [(x1, x2, q, 0.0) for x1, x2, q, _z in tr["reparties"]]}
+        r_cs = m("ec3").verifier({"section": C_, "nuance": "S235", "MyEd": MEd, "axes": {"y": {"L": 28000.0}, "z": {"L": 28000.0}},
+                                  "deversement": {"troncon": tr_cs}})
+        cs[n] = r_cs["grandeurs"]["deversement"]["M_cr"] / 1e6
         rb_ = m("moteur").verifier({"nuance": "S235", "mode": "chargee", "modele": "appuis", "travees": [28.0], "poids_propre": False, "niveau": "haut",
                                     "methodes": ["ec3"], "prs": {"b1": 300, "t1": 30, "hw": 1420, "tw": 25, "b2": 500, "t2": 50, "bords": "oxycoupes"},
                                     "maintiens": [{"x": 28.0 * i / (n + 1), "genre": "haut"} for i in range(1, n + 1)],
@@ -760,6 +765,10 @@ def controles_fin(A, B, pl, ch):
       all(a_pres(f[0], M_ED_PRS_C, 0.1) and f[3] == 3 and f[4] == 215.0 and proche(f[5], C_["Wel_y_haut"]) and round(f[5] / 1e6, 3) == 24.368
           and f[6] == "d" and f[7] == "§ 6.3.2.2" and abs(f[1] / RITZ_PRS_C[n] - 1.0) <= 0.002 and a_pres(f[2], TAUX_PRS_C[n], 0.001)
           for n, f in fonc.items()) and abs(fonc[8][1] / MCR_PRS_C_8 - 1.0) <= 0.002, fonc)
+    c("PRS-C, la hauteur des charges compte : les mêmes charges au centre de cisaillement donnent un M_cr plus grand d'au moins 0,5 % "
+      "(7, 8, 9 maintiens : +1,1 / +0,9 / +0,7 % ; Ritz indépendant 23 337,6 ; 28 529,9 ; 34 279,1)",
+      all(cs[n] / fonc[n][1] - 1.0 >= 0.005 and abs(cs[n] / RITZ_PRS_C_CS[n] - 1.0) <= 0.002 for n in fonc),
+      {n: (round(fonc[n][1], 1), round(cs[n], 1)) for n in fonc})
     c("PRS-C de bout en bout par le moteur de la barre (barre chargée, 1,35·G + 1,5·Q, maintiens « haut ») : M_Ed = 4 199,4 kN·m ; taux "
       "1,007 / 0,967 / 0,937 — le modèle n'a qu'un niveau de charge : l'acier aussi sur la semelle haute (côté sûr, M_cr −0,1 %)",
       all(a_pres(b_[0], M_ED_PRS_C, 0.1) and a_pres(b_[2], TAUX_PRS_C[n], 0.001) and fonc[n][1] * 0.997 <= b_[1] <= fonc[n][1] for n, b_ in bout.items()),
@@ -959,6 +968,8 @@ MUTATIONS = [
     ("ec3_deversement", "efforts imposés, M < 0 : la ligne À VÉRIFIER oubliée", '    if "sens_charge" in D:\n', "    if False:\n"),
     ("ec3_deversement", "sens_charges : les charges ponctuelles ignorées", '    total += sum(p[1] for p in tr.get("ponctuelles") or ())', "    total += 0.0"),
     ("mcr", "charges RÉPARTIES au centre de cisaillement (hauteur ignorée)", "                    if qz:\n", "                    if False:\n"),
+    ("mcr", "charges RÉPARTIES : hauteur comptée à moitié", "                        Kg[ip[a]][ip[b]] -= wt * qz * N[a] * N[b]",
+     "                        Kg[ip[a]][ip[b]] -= 0.5 * wt * qz * N[a] * N[b]"),
     ("mcr", "charges PONCTUELLES au centre de cisaillement (hauteur ignorée)", "        Kg[4 * noeud(x) + 2][4 * noeud(x) + 2] -= P * zg", "        pass"),
     ("prs", "Catalogue : A_v,z et A_v,y d'un laminé gardés pour un PRS",
      '    out.update({"It": s["It"] / 1e4, "Iw": s["Iw"] / 1e6, "Avz": s["Avz"] / 1e2, "Avy": s["Avy"] / 1e2})', '    out.update({"It": s["It"] / 1e4, "Iw": s["Iw"] / 1e6})'),
