@@ -783,6 +783,17 @@ def controles_lot_b(H, MO_, c):
       any(DE.MESSAGE_COLONNE in h and "À VÉRIFIER" in h for h in s460["hypotheses"]) and not any(DE.MESSAGE_COLONNE in h for h in s355["hypotheses"])
       and not any(DE.MESSAGE_COLONNE in h for h in s460i["hypotheses"]) and s460i["grandeurs"]["deversement"]["classe"] == "c"
       and s460["statut"] in (H.HORS_DOMAINE, H.NOK), (s460["hypotheses"], s460i["hypotheses"]))
+    s355i = H.verifier(dict(dev_, section=ipe, fy=355.0, nuance="S355", deversement={"classe": "c"}))
+    a460, a355 = ([x["message"] for x in r_["alertes"] if x["code"] == "classe_d"] for r_ in (s460i, s355i))
+    c("6.4 — S460, classe c imposée : l'alerte qui la compare au tableau 12 (b) dit la colonne lue (f_y ≤ 430, À VÉRIFIER) ; en S355, non",
+      len(a460) == len(a355) == 1 and DE.MESSAGE_COLONNE in a460[0] and "À VÉRIFIER" in a460[0] and DE.MESSAGE_COLONNE not in a355[0]
+      and len(a460[0]) < 110, (a460, a355))
+    pai = H.verifier({"section": section_prs(**PRS_A), "fy": 235.0, "My": 100e6, "axes": {"y": {"L": 8000.0}, "z": {"L": 8000.0}},
+                      "deversement": {"Lc": 4000.0, "classe": "d"}})
+    c("18.6 — PRS-A, classe d imposée : « classes du flambement (fascicule) et du déversement (tableau 12) différentes » n'est PAS dit (la "
+      "classe employée n'est pas celle du tableau 12) ; l'alerte compare avec le tableau 12 (c)",
+      DE.MESSAGE_CLASSES not in pai["hypotheses"] and pai["grandeurs"]["deversement"]["classe"] == "d"
+      and any(x["code"] == "classe_d" and "donne c" in x["message"] for x in pai["alertes"]), (pai["hypotheses"], pai["alertes"]))
     k80 = [("axe_faible" in DE.classe(lamine(300, 300, t), 300, 300, t)["corrections"]) for t in (79.0, 80.0, 81.0, 95.0)]
     k80 += [("axe_faible" in DE.classe(dict(section_prs(**PRS_A), fabrication="soude_oxycoupe"), 600, 300, 90.0)["corrections"])]
     c("6.7 correction 6 — « la ligne axe faible seule » : dite pour un I jusqu'à t_f = 80 mm, PAS pour un laminé plus épais (les deux lignes y "
@@ -979,6 +990,17 @@ def controles_lot_b(H, MO_, c):
       and court["hypotheses"].count(DE.MESSAGE_3_9) == 1 and sum(h.startswith("Déversement (classeurs") for h in court["hypotheses"]) == 1
       and [h[:12] for h in court["hypotheses"]] == ["Charges de s", "Déversement ", DE.MESSAGE_3_9[:12], "Courbes de f"],
       (court["gouvernant"], court["hypotheses"]))
+    cont = MO_.verifier(dict(nb_, modele="continue", travees=[1.7, 2.2, 2.0], methodes=["historique"], cas=[
+        {"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 102.0, "a": 0.0, "b": 5.9}, {"type": "P", "v": 326.0, "a": 2.28}]}]
+    ))["methodes"]["historique"]
+    dvs = [h for h in cont["hypotheses"] if h.startswith("Déversement (classeurs")]
+    c("barre chargée — poutre continue (1,7 + 2,2 + 2,0 m, IPE 300, sans maintien) : H-EQ gouverne à l'appui intermédiaire (tronçon 0–1,70 m), "
+      "H-DEV dans le tronçon 1,70–3,90 m ; les deux lignes « Déversement » (L_d = 1,70 et 2,20 m) disent chacune leur tronçon et leur "
+      "vérification, celle de la gouvernante d'abord",
+      cont["gouvernant"] == "H-EQ" and verif_de(cont, "H-DEV")["troncon"] == [1.7, 3.9] and len(dvs) == 2
+      and "Déversement (classeurs, NBN B 51-002), tronçon de 0,00 à 1,70 m (contrainte équivalente) : L_d = 1,70 m," in dvs[0]
+      and "Déversement (classeurs, NBN B 51-002), tronçon de 1,70 à 3,90 m (déversement) : L_d = 2,20 m," in dvs[1]
+      and cont["hypotheses"].count(DE.MESSAGE_3_9) == 1 and len(cont["hypotheses"]) == len(set(cont["hypotheses"])), cont["hypotheses"])
     rcl = MO_.verifier(dict(nb_, maintiens=[{"x": 3.0, "genre": "complet"}], historique={"classe_d": "d"}))
     rf1 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3", historique={"facteur_doc": True}))
     rf0 = MO_.verifier(dict(nb_, profil="RHS 200x100x6.3"))
@@ -1127,6 +1149,12 @@ def mutations():
          'MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : l\'axe de l\'âme n\'est pas l\'axe fort de ce PRS — verdict bloqué."'),
         ("fin du bloc — S460 : « classe lue pour f_y ≤ 430 » dite aussi d'une classe imposée", 'if fy > DE.FY_COLONNE_12 and dv["classe"] is None else ""',
          'if fy > DE.FY_COLONNE_12 else ""'),
+        ("reprise — PRS, classe imposée : « classes du flambement et du déversement (tableau 12) différentes » dit quand même",
+         'if prs and dv["classe"] is None:', "if prs:"),
+        ("reprise — S460, classe imposée : l'alerte tait la colonne « f_y ≤ 430 » du tableau 12", 'col_i = f" ; {DE.MESSAGE_COLONNE}, À VÉRIFIER" if',
+         'col_i = "" if'),
+        ("reprise — la colonne « f_y ≤ 430 » dite dans l'alerte à toute f_y (S355)", 'À VÉRIFIER" if fy > DE.FY_COLONNE_12 else ""',
+         'À VÉRIFIER" if True else ""'),
         ("relecture — classe de déversement à fournir : toute la méthode refusée", "except DE.AFournir as e:", "except ZeroDivisionError as e:"),
         ("relecture — classe à fournir : la flexion jugée quand même (φ_ed = 1)", '            dev = {"cas": "a_fournir", "phi": None}',
          '            dev = {"cas": "maintenu", "phi": 1.0}'),
@@ -1242,9 +1270,13 @@ def mutations():
          'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA",)}'),
         ("fin du bloc — les hypothèses de la ligne des contraintes oubliées (variante du fascicule)", 'HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}',
          'HYPOTHESES_AUSSI = {"historique": ("H-DEV",)}'),
-        ("fin du bloc — hypothèses répétées (gouvernante et ligne du déversement)", "                if h in hyp:\n", "                if False:\n"),
-        ("fin du bloc — hypothèses ajoutées en fin de liste (après les courbes de flambement)", "                    hyp.insert(i, h)\n",
-         "                    hyp.append(h)\n"),
+        ("fin du bloc — hypothèses répétées (gouvernante et ligne du déversement)", "                if j is None:\n", "                if True:\n"),
+        ("fin du bloc — hypothèses ajoutées en fin de liste (après les courbes de flambement)", "j = pareils[-1] + 1 if pareils else i\n",
+         "j = pareils[-1] + 1 if pareils else len(lignes)\n"),
+        ("reprise — deux lignes « Déversement » (deux tronçons) sans leur tronçon ni leur vérification",
+         '                h = f"{s}, {self._origine(ids)} : {h[len(s) + 3:]}"\n', "                pass\n"),
+        ("reprise — la ligne « Déversement » d'un autre tronçon placée avant celle de la gouvernante", "j = pareils[-1] + 1 if pareils else i\n",
+         "j = i\n"),
     ]
     for nom, ancien, nouveau in cas_en:
         if source_en.count(ancien) != 1 or source_mo.count(import_en) != 1:

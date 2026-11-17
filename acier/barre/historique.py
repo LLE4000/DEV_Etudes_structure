@@ -461,7 +461,9 @@ def verifier(barre: Dict) -> Dict:
         if fy == DE.FY_FEUILLE_S355:
             a_corriger.append(("fy_nuance", "H-DEV", {"fy": _fr(fy)}))   # DEVERSEMENT_CAD, feuille S355 : 157 N/mm² (correction 4)
         if dv["classe"] is not None and dev["classe_norme"] not in (None, dv["classe"]):
-            alerte("classe_d", "attention", f"Déversement : classe {dv['classe']} imposée (le tableau 12 donne {dev['classe_norme']}).")
+            # (S460 : la classe comparée est celle de la colonne f_y ≤ 430, À VÉRIFIER comme dans l'hypothèse ci-dessous)
+            col_i = f" ; {DE.MESSAGE_COLONNE}, À VÉRIFIER" if fy > DE.FY_COLONNE_12 else ""
+            alerte("classe_d", "attention", f"Déversement : classe {dv['classe']} imposée (le tableau 12 donne {dev['classe_norme']}{col_i}).")
         if dev["Cd"] > 1.0 and dv["niveau"] == "haut":
             alerte("cd_haut", "attention", DE.MESSAGE_CD)
         cote = f", semelle {'haute' if semelle == 'haut' else 'basse'} comprimée {_fr(dev['b'])} × {_fr(dev['tf'])} mm" if mono else ""
@@ -470,7 +472,7 @@ def verifier(barre: Dict) -> Dict:
         hyp.append(f"Déversement (classeurs, NBN B 51-002) : L_d = {_fr(dev['Lc'] / 1e3, 2)} m, C_d = {_fr(dev['Cd'], 2).rstrip('0').rstrip(',')}, "
                    f"classe {dev['classe']} ({dev['regle']}){cote}{col}.")
         hyp.append(DE.MESSAGE_3_9)                      # (une fois par méthode, pas sur la ligne)
-        if prs:
+        if prs and dv["classe"] is None:                # (une classe imposée n'est pas celle du tableau 12)
             hyp.append(DE.MESSAGE_CLASSES)
     elif dev["cas"] == "I":
         calcul += [

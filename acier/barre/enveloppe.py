@@ -5,7 +5,7 @@ combinaison. Le moteur des barres (moteur.py) et celui de l'âme (ame.py) y vers
 
 Ce qu'elle rend a la forme de acier/barre/resultat.py, où chaque vérification dit sa combinaison et son lieu.
 """
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import resultat as RE
 
@@ -19,6 +19,12 @@ IDS_BARRE = ("E-Nb", "E-Mb", "E-66")             # les vérifications de la barr
 # déversement de la méthode ELS (L_d, classe, origine du 3,9, variante) restent dits quand la ligne qui gouverne est prise
 # là où rien ne fléchit (H-EQ à l'appui)
 HYPOTHESES_AUSSI = {"historique": ("H-SIGMA", "H-DEV")}
+
+
+def sujet(h: str) -> Optional[str]:
+    """Le SUJET d'une hypothèse : son texte avant « : » (« Déversement (classeurs, NBN B 51-002) ») ; None sans « : »."""
+    s, sep, _ = h.partition(" : ")
+    return s if sep else None
 
 
 def rang(v: Dict) -> Tuple[int, float]:
@@ -93,10 +99,50 @@ class Enveloppe:
                 G[cle] = g[cle]
         return G
 
+    def _hypotheses(self, gouvernant: Optional[str]) -> List[str]:
+        """Les hypothèses de la méthode : celles de la gouvernante, puis celles des lignes de ``HYPOTHESES_AUSSI``, sans
+        doublon, chacune à sa place (après celle qui la précède ; une autre version d'un même sujet, juste après lui). Deux
+        versions d'un même SUJET (``sujet`` : le déversement de deux tronçons, L_d différents) disent chacune leur tronçon
+        et la vérification dont elles viennent."""
+        if gouvernant is None:
+            return []
+        lignes = [[h, [gouvernant]] for h in self.pire[gouvernant]["r"]["hypotheses"]]     # [texte, vérifications]
+        for id_ in HYPOTHESES_AUSSI.get(self.methode, ()):
+            if id_ not in self.pire or id_ == gouvernant:
+                continue
+            i = 0
+            for h in self.pire[id_]["r"]["hypotheses"]:
+                j = next((k for k, li in enumerate(lignes) if li[0] == h), None)
+                if j is None:
+                    pareils = [k for k, li in enumerate(lignes) if sujet(h) is not None and sujet(li[0]) == sujet(h)]
+                    j = pareils[-1] + 1 if pareils else i
+                    lignes.insert(j, [h, []])
+                lignes[j][1].append(id_)
+                i = j + 1
+        hyp = []
+        for h, ids in lignes:
+            s = sujet(h)
+            if s is not None and any(sujet(li[0]) == s and li[1] != ids for li in lignes):
+                h = f"{s}, {self._origine(ids)} : {h[len(s) + 3:]}"
+            hyp.append(h)
+        return hyp
+
+    def _origine(self, ids: Sequence[str]) -> str:
+        """D'où vient une hypothèse : « tronçon de 1,70 à 3,90 m (déversement) » — le tronçon de chaque occurrence retenue,
+        avec le titre de sa vérification ; sans tronçon, les titres seuls."""
+        par_troncon: Dict[Optional[Tuple[float, float]], List[str]] = {}
+        for i in ids:
+            o = self.pire[i]
+            t = o["ou"].get("troncon")
+            titre = o["v"]["titre"]
+            par_troncon.setdefault(tuple(t) if t else None, []).append(titre[:1].lower() + titre[1:])
+        return " ; ".join(f"tronçon de {RE.fr(t[0], 2)} à {RE.fr(t[1], 2)} m ({', '.join(ts)})" if t else ", ".join(ts)
+                          for t, ts in par_troncon.items())
+
     def rendre(self) -> Dict:
         """Le résultat de la méthode sur toute la barre : la forme de acier/barre/resultat.py, où chaque vérification
         dit sa combinaison et son lieu ; ``calcul`` porte les formules de chaque occurrence retenue (clés « id/clé ») ;
-        ``hypotheses``, celles de la gouvernante, puis celles des lignes de ``HYPOTHESES_AUSSI``."""
+        ``hypotheses`` : celles de la gouvernante, puis celles des lignes de ``HYPOTHESES_AUSSI`` (``_hypotheses``)."""
         verifs, calcul = [], []
         for id_ in list(ORDRE[self.methode]) + sorted(set(self.pire) - set(ORDRE[self.methode])):
             if id_ not in self.pire:
@@ -110,15 +156,7 @@ class Enveloppe:
             verifs.append(v)
         s = RE.synthese(verifs)
         gouv = self.pire[s["gouvernant"]] if s["gouvernant"] else None
-        hyp = list(gouv["r"]["hypotheses"]) if gouv else []
-        for id_ in HYPOTHESES_AUSSI.get(self.methode, ()):
-            i = 0                                   # (chaque ligne ajoutée à sa place : après celle qui la précède)
-            for h in self.pire[id_]["r"]["hypotheses"] if id_ in self.pire else ():
-                if h in hyp:
-                    i = hyp.index(h) + 1
-                else:
-                    hyp.insert(i, h)
-                    i += 1
+        hyp = self._hypotheses(s["gouvernant"])
         # une correction des classeurs : le texte de l'occurrence RETENUE de sa vérification (chaque correction n'en vise
         # qu'une) — il change d'un tronçon à l'autre (φ_d prolongé, classe de la semelle comprimée) ; à défaut, la première
         # rencontrée
