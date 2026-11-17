@@ -203,6 +203,20 @@ chk("charges ponctuelles SUR les appuis : elles passent dans les réactions, auc
     and s.extremes["M_max"][0] == 0.0 and s.extremes["M_min"][0] == 0.0)
 e = P.resoudre("appuis", [6.0], [F(20.0, 2.0)]).evaluer(2.0)
 chk("sous une charge ponctuelle, V saute de P (13,33 → −6,67)", pres(e["V_g"], 40 / 3) and pres(e["V_d"], 40 / 3 - 20))
+# un appui à une somme de portées INEXACTE en binaire (3,37 + 2,18 = 5,550000000000001), lu à 5,55 (la barre arrondit ses abscisses à 10⁻⁹)
+L1, L2, L3, qi = 3.37, 2.18, 3.45, 30.0
+a11, a22, m1, m2 = 2 * (L1 + L2), 2 * (L2 + L3), -qi * (L1 ** 3 + L2 ** 3) / 4, -qi * (L2 ** 3 + L3 ** 3) / 4     # trois moments, à la main
+MB, MC = (m1 * a22 - L2 * m2) / (a11 * a22 - L2 * L2), (a11 * m2 - L2 * m1) / (a11 * a22 - L2 * L2)
+VCg, VCd = qi * L2 / 2 + (MC - MB) / L2 - qi * L2, qi * L3 / 2 - MC / L3
+
+
+def appui_inexact():
+    e_ = P.resoudre("continue", [L1, L2, L3], [Q(qi, 0, L1 + L2 + L3)]).evaluer(round(L1 + L2, 9))
+    return L1 + L2 != 5.55 and pres(e_["V_g"], VCg) and pres(e_["V_d"], VCd) and pres(e_["M_g"], MC) and pres(e_["M_d"], MC)
+
+
+chk("appui à 3,37 + 2,18 = 5,550000000000001 m, lu à 5,55 : V à gauche dans la travée BC (−33,54 kN), à droite dans la travée CD (+60,15 kN), "
+    "M = M_C des deux côtés (trois moments, à la main)", appui_inexact(), P.resoudre("continue", [L1, L2, L3], [Q(qi, 0, L1 + L2 + L3)]).evaluer(5.55))
 chk("sans E·I : les efforts sont rendus, la flèche reste E·I·f (f = None)", P.resoudre("appuis", [6.0], [Q(1.0, 0, 6.0)]).evaluer(3.0)["f"] is None)
 co = P.resoudre("continue", [4.0, 4.0], [Q(10.0, 0, 8.0)]).courbes()
 chk("diagrammes : par travée, des points de l'abscisse x0 à x0 + L, M nul aux appuis de rive, M_B aux deux côtés de l'appui",
@@ -266,6 +280,9 @@ orig_Q = P._Q
 muter("terme de flèche d'une charge ponctuelle faux (⟨x − a⟩³/6 → /5)",
       lambda: setattr(P, "_Q", lambda t, j, x, d=True: orig_Q(t, j, x, d) * (1.2 if j == 4 and any(g == "P" for g, _, _ in t) else 1.0)),
       lambda: setattr(P, "_Q", orig_Q), lambda: attendu(pres(P.resoudre("console", [3.0], [F(8.0, 2.0)]).extremes["EIf_max"][0], 8 * 4 * 7 / 6)))
+orig_tol = P.TOL_APPUI
+muter("appui comparé sans tolérance (5,55 ≠ 5,550000000000001 : ses deux côtés dans la même travée)", lambda: setattr(P, "TOL_APPUI", 0.0),
+      lambda: setattr(P, "TOL_APPUI", orig_tol), lambda: attendu(appui_inexact()))
 src = open(os.path.join(RACINE, "rdm", "poutres.py"), encoding="utf-8").read()
 for nom, avant, apres, essai in (
         ("encastrée–appuyée : M_A = −3·E·I·ω_A/L devenu −2", "t0.fermer(-3.0 * t0.wA0 / t0.L, 0.0)", "t0.fermer(-2.0 * t0.wA0 / t0.L, 0.0)",

@@ -165,8 +165,10 @@ Saint-Venant seule, deux semelles égales), gardé comme les classeurs ; la note
 chargée : celles de la ligne qui gouverne, plus celles des lignes des contraintes et du déversement, sans doublon — elles
 restent dites quand H-EQ gouverne à l'appui ; deux tronçons de L_d différents, par exemple H-EQ et H-DEV de part et
 d'autre d'un appui intermédiaire : chaque ligne « Déversement » dit son tronçon et sa vérification, celle de la gouvernante
-d'abord, en une ligne courte — « Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (…) », sans redire la
-norme ni L_d quand il vaut la longueur du tronçon). n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
+d'abord, en une ligne de moins de 110 caractères — « Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (…) » :
+le sujet perd sa source (norme, page, « classeurs ») et garde ce qui décrit le cas (« profil fermé ») ; L_d est tu, en tête
+ou en fin, quand il vaut la longueur du tronçon ; deux vérifications sur le même tronçon : le premier mot de chaque titre,
+« (flexion, déversement) »). n (tableau 11) : a 0,206 ; b 0,339 ; c 0,489 ; d 0,756. Classe (tableau 12, ligne « axe
 faible », un seul choix) : I laminé h/b > 1,2 → b (t_f ≤ 40), c (≤ 80), d au-delà (pas de ligne : note 3, prudent) ;
 h/b ≤ 1,2 → c (≤ 80), d au-delà ; PRS oxycoupé → c (t_f ≤ 40), d au-delà ; larges plats → d ; U → c (fonction seule) ;
 un autre profil (I recuit, à semelles additionnelles) : classe « à fournir » (le message nomme le profil) — la flexion est
@@ -575,6 +577,10 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   charge n'était pas vérifié (non conservatif : 2 + 6 m → 173 %, 6 + 2 m → 210 % ; maintiens à 4,5 et 5,5 m d'une poutre
   de 10 m → 119 % au lieu de 198 %). Un maintien d'une seule semelle ne compte que si elle est comprimée sur tout le
   tronçon.
+- Les deux méthodes : un appui à une somme de portées inexacte en binaire (3,37 + 2,18 = 5,550000000000001) est reconnu
+  à 10⁻⁹·max(1, L) près (rdm/poutres.py, lot B) ; avant, l'abscisse lue à 5,55 perdait le côté droit de l'appui et le
+  moment maximal de la travée suivante (IPE 300, 3,37 + 2,18 + 3,45 m : E-My 27,5 % au lieu de 28,6 %, E-Vz 22,7 % au
+  lieu de 23,3 %, H-DEV 60,4 % au lieu de 63,7 %, selon le sens de dessin).
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
   encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)

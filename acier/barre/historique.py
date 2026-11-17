@@ -482,7 +482,7 @@ def verifier(barre: Dict) -> Dict:
             _f("r_d", "r_d", [_t("I_d", dev["Id"] / 1e4, "cm⁴"), _t("A_d", dev["Ad"] / 1e2, "cm²")], dev["rd"] / 10.0, "cm"),
             _f("lambda_ed", "λ_ed", [_t("L_d", dev["Lc"] / 10.0, "cm"), _t("r_d", dev["rd"] / 10.0, "cm")], dev["lambda"]),
         ]
-        hyp.append(f"Déversement : variante du fascicule p. 19 (semelle comprimée et un sixième de l'âme), L_d = {_fr(dev['Lc'] / 1e3, 2)} m.")
+        hyp.append(f"Déversement : variante du fascicule p. 19, L_d = {_fr(dev['Lc'] / 1e3, 2)} m.")     # (I_d, A_d : la fenêtre de calcul)
     elif dev["cas"] == "ferme":
         calcul.append(_f("lambda_ed", "λ_ed", [_t("L_d", dev["Lc"] / 10.0, "cm"), _t("W_y", s["Wel_y"] / 1e3, "cm³"),
                                                _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("I_t", s["It"] / 1e4, "cm⁴")], dev["lambda"], "",

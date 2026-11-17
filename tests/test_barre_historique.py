@@ -401,14 +401,17 @@ def controles(H=HI, MO_=MO):
       petit["sigma_P"] <= 0.15 * petit["sigma_adm"] and petit["deversement"]["phi"] < 1 and proche(petit["deversement"]["phi"], gd["deversement"]["phi"])
       and proche(petit["sigma_My"], 30e6 / (petit["deversement"]["phi"] * 569.6e3 * petit["y"]["PE"])), (petit["sigma_P"], petit["sigma_My"]))
     rhs = SE.du_catalogue("RHS 200x100x6.3")
-    rr = H.verifier({"section": rhs, "fy": 235.0, "My": 20e6, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}}})["grandeurs"]
+    rr_ = H.verifier({"section": rhs, "fy": 235.0, "My": 20e6, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}}})
+    rr = rr_["grandeurs"]
     lam_f = math.sqrt(math.pi * math.sqrt(2.6) * 6000 * rhs["Wel_y"] / math.sqrt(rhs["Iz"] * rhs["It"]))
     rc = H.verifier({"section": SE.du_catalogue("SHS 150x150x6.3"), "fy": 235.0, "My": 20e6, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}}})["grandeurs"]
     rt = H.verifier({"section": SE.du_catalogue("CHS 168.3x6"), "fy": 235.0, "My": 10e6, "axes": {"y": {"L": 6000.0}, "z": {"L": 6000.0}}})["grandeurs"]
     c("déversement des tubes (doc p. 17-18) : rectangulaire — λ_ed = √(π·√(E/G)·L_c·W_y/√(I_z·I_t)), E/G = 2,6, « proche de l'unité » "
-      "(φ_ed = 0,98 ici) ; rond et carré — sans objet, φ_ed = 1", rr["deversement"]["cas"] == "ferme" and proche(rr["deversement"]["lambda"], lam_f)
-      and 0.95 < rr["deversement"]["phi"] < 1 and rc["deversement"] == {"cas": "sans_objet", "phi": 1.0} == rt["deversement"],
-      (rr["deversement"], rc["deversement"]))
+      "(φ_ed = 0,98 ici) ; rond et carré — sans objet, φ_ed = 1 ; l'hypothèse en une phrase, « facteur » en minuscule après « ; »",
+      rr["deversement"]["cas"] == "ferme" and proche(rr["deversement"]["lambda"], lam_f)
+      and 0.95 < rr["deversement"]["phi"] < 1 and rc["deversement"] == {"cas": "sans_objet", "phi": 1.0} == rt["deversement"]
+      and "Déversement (doc p. 18, profil fermé) : L_d = 6,00 m ; facteur π·√2,6 = 5,0657 (5,1 dans la doc)." in rr_["hypotheses"],
+      (rr["deversement"], rc["deversement"], rr_["hypotheses"]))
     r = H.verifier(barre_classeur(heb, P=-300e3, My=20e6))
     g = r["grandeurs"]
     c("traction (hors doc, dit) : σ = |N|/A + M/W, sans φ ni second ordre ; aucune ligne de flambement",
@@ -1023,6 +1026,22 @@ def controles_lot_b(H, MO_, c):
       and proche(deux_m["taux_max"], deux["taux_max"]) and proche(verif_de(deux_m, "H-DEV")["taux"], verif_de(deux, "H-DEV")["taux"]),
       (deux["gouvernant"], deux["taux_max"], deux_m["taux_max"], dvs))
 
+    def lignes_dv(N=0.0, **k):
+        b_ = dict(nb_, modele="continue", travees=[2.0, 4.0], methodes=["historique"], cas=[{"nom": "G", "nature": "permanent", "N": N,
+                  "charges": [{"type": "q", "v": 30.0, "a": 0.0, "b": 6.0}, {"type": "P", "v": 300.0, "a": 1.75}]}], **k)
+        return [h for h in MO_.verifier(b_)["methodes"]["historique"]["hypotheses"] if h.startswith("Déversement")]
+    cd_, fa_, rh_ = (lignes_dv(50.0, historique=dict(nb_["historique"], Cd=1.13)),
+                     lignes_dv(historique=dict(nb_["historique"], variante="fascicule")), lignes_dv(profil="RHS 200x100x6.3"))
+    c("… la même poutre, lignes « Déversement » de moins de 110 caractères : C_d = 1,13 et N = 50 kN (deux titres : leur premier mot) ; "
+      "variante du fascicule (L_d tu en fin de ligne) ; RHS 200x100x6.3 (le sujet garde « profil fermé », sans sa source)",
+      cd_ == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1,13, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm).",
+              "Déversement sur 2–6 m (flexion, déversement) : C_d = 1,13, classe b (I laminé, h/b > 1,2, t_f ≤ 40 mm)."]
+      and fa_ == ["Déversement sur 0–2 m (contrainte équivalente) : variante du fascicule p. 19.",
+                  "Déversement sur 2–6 m (flexion) : variante du fascicule p. 19."]
+      and rh_ == ["Déversement (profil fermé) sur 0–2 m (contrainte équivalente) : facteur π·√2,6 = 5,0657 (5,1 dans la doc).",
+                  "Déversement (profil fermé) sur 2–6 m (flexion) : facteur π·√2,6 = 5,0657 (5,1 dans la doc)."]
+      and all(len(h) < 110 for h in cd_ + fa_ + rh_), (cd_, fa_, rh_))
+
     def els(**k):
         return MO_.verifier(dict(nb_, poids_propre=False, methodes=["historique"], **k))["methodes"]["historique"]
     q20 = [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 20.0, "a": 0.0, "b": 8.0}]}]
@@ -1261,6 +1280,7 @@ def mutations():
          'corr = list(cl["corrections"]) if (cl and classe_imposee is None) else []', 'corr = list(cl["corrections"]) if cl else []'),
         ("fin du bloc — « à fournir » : les clés internes du profil dans le message", "pour {PROFILS_A_FOURNIR.get(fab, 'ce profil')} — ",
          "({forme}, {fab}) — "),
+        ("reprise 2 — profil fermé : « Facteur » avec une majuscule au milieu de la phrase", 'MESSAGE_FERME = "facteur π·√2,6', 'MESSAGE_FERME = "Facteur π·√2,6'),
     ]
     for nom, ancien, nouveau in cas_de:
         if source_de.count(ancien) != 1:
@@ -1327,10 +1347,16 @@ def mutations():
          "j = pareils[-1] + 1 if pareils else len(lignes)\n"),
         ("reprise — deux lignes « Déversement » (deux tronçons) sans leur tronçon ni leur vérification",
          '                h = self._etiquetee(s, h[len(s) + 3:], ids)\n', "                pass\n"),
-        ("sens de dessin — la ligne étiquetée redit L_d (la longueur de son tronçon)", "                if corps.startswith(redite):\n",
+        ("sens de dessin — la ligne étiquetée redit L_d (la longueur de son tronçon)", "                if corps.startswith(Ld + sep):\n",
          "                if False:\n"),
         ("sens de dessin — la ligne étiquetée redit la norme (« (classeurs, NBN B 51-002) »)",
-         "return f\"{s.split(' (')[0]} {self._origine(ids)} : {corps}\"", "return f\"{s} {self._origine(ids)} : {corps}\""),
+         "return f\"{_sans_source(s)} {self._origine(ids)} : {corps}\"", "return f\"{s} {self._origine(ids)} : {corps}\""),
+        ("reprise 2 — la ligne étiquetée redit L_d en fin (variante du fascicule)", '            if corps.endswith(f", {Ld}."):\n',
+         "            if False:\n"),
+        ("reprise 2 — le sujet étiqueté perd aussi ce qui décrit le cas (« profil fermé »)",
+         "    return f\"{tete} ({', '.join(gardes)})\" if gardes else tete\n", "    return tete\n"),
+        ("reprise 2 — deux titres gardés entiers (« (flexion composée, déversement) » : plus de 110 caractères)",
+         "        par_troncon = {t: ts if len(ts) == 1 else [x.split(\" \")[0] for x in ts] for t, ts in par_troncon.items()}\n", ""),
         ("reprise — la ligne « Déversement » d'un autre tronçon placée avant celle de la gouvernante", "j = pareils[-1] + 1 if pareils else i\n",
          "j = i\n"),
     ]

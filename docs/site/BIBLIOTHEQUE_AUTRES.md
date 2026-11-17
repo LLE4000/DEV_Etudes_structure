@@ -243,6 +243,11 @@ théorème des trois moments (les rotations isostatiques viennent du formulaire)
 lui-même l'équilibre, les conditions d'appui et l'accord des rotations du formulaire avec celles des paramètres
 initiaux : un écart lève une erreur au lieu d'afficher un chiffre. Aucune intégration numérique n'est présentée.
 
+Un appui intermédiaire se reconnaît à 10⁻⁹·max(1, L) près (`TOL_APPUI`, lot B, 17/11/2026) : sa position est une somme
+de portées, rarement exacte en binaire (3,37 + 2,18 = 5,550000000000001), et la barre d'acier lit ses sections arrondies
+à 10⁻⁹. Comparé exactement, l'appui lu à 5,55 mettait ses deux côtés dans la même travée : l'effort tranchant de droite
+et le moment maximal de la travée suivante étaient perdus (non conservatif ; test_rdm_poutres, test_barre_moteur).
+
 ### 8.3 Plaques
 
 - Écriture retenue : w = α·q·L⁴/D et M = β·q·L², **L = le petit côté** (convention des tableaux de Timoshenko).

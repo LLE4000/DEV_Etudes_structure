@@ -83,7 +83,7 @@ MESSAGE_PRS = "Formule prudente : elle néglige le gauchissement, qui compte bea
 MESSAGE_3_9 = "3,9 = √(3π·√2,6) arrondi (doc p. 18 : torsion de Saint-Venant seule, deux semelles égales)."
 MESSAGE_CLASSES = "Classes du flambement (fascicule) et du déversement (tableau 12) différentes, comme dans les classeurs."
 MESSAGE_COLONNE = "classe lue pour f_y ≤ 430 N/mm²"
-MESSAGE_FERME = "Facteur π·√2,6 = 5,0657 (G = E/2,6) ; la doc l'arrondit à 5,1."
+MESSAGE_FERME = "facteur π·√2,6 = 5,0657 (5,1 dans la doc)."              # (après « L_d = … m ; »)
 
 
 def texte_correction(cle: str, **valeurs) -> str:

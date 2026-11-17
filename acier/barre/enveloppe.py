@@ -27,6 +27,17 @@ def sujet(h: str) -> Optional[str]:
     return s if sep else None
 
 
+def _sans_source(s: str) -> str:
+    """Un sujet sans ses SOURCES : de sa parenthèse, il perd ce qui cite un texte (un numéro de norme ou de page,
+    « NBN B 51-002 », « doc p. 18 » ; « classeurs ») et garde ce qui décrit le cas — « Déversement (doc p. 18, profil
+    fermé) » → « Déversement (profil fermé) » ; « Déversement (classeurs, NBN B 51-002) » → « Déversement »."""
+    tete, _, par = s.partition(" (")
+    if not par.endswith(")"):
+        return s
+    gardes = [x for x in par[:-1].split(", ") if x != "classeurs" and not any(ch.isdigit() for ch in x)]
+    return f"{tete} ({', '.join(gardes)})" if gardes else tete
+
+
 def _court(x: float) -> str:
     """Une abscisse au centimètre, sans zéro inutile : 0 ; 1,7 ; 12,35."""
     t = RE.fr(x, 2)
@@ -135,27 +146,31 @@ class Enveloppe:
 
     def _etiquetee(self, s: str, corps: str, ids: Sequence[str]) -> str:
         """Une version d'un sujet qui en a plusieurs, dite avec son origine, en une ligne courte : « Déversement sur 0–2 m
-        (contrainte équivalente) : C_d = 1, classe b (…) ». Le sujet perd sa référence (la vérification la porte), et L_d
-        est tu quand il redit la longueur de l'unique tronçon (un maintien d'une seule semelle le raccourcit : il est dit
-        alors)."""
+        (contrainte équivalente) : C_d = 1, classe b (…) ». Le sujet perd ses sources (``_sans_source``) et garde ce qui
+        décrit le cas (« profil fermé ») ; L_d est tu, en tête ou en fin, quand il redit la longueur de l'unique tronçon
+        (un maintien d'une seule semelle le raccourcit : il est dit alors)."""
         troncons = {tuple(self.pire[i]["ou"]["troncon"]) for i in ids if self.pire[i]["ou"].get("troncon")}
         if len(troncons) == 1:
             (a, b), = troncons
+            Ld = f"L_d = {RE.fr(b - a, 2)} m"
             for sep in (", ", " ; "):
-                redite = f"L_d = {RE.fr(b - a, 2)} m{sep}"
-                if corps.startswith(redite):
-                    corps = corps[len(redite):]
-        return f"{s.split(' (')[0]} {self._origine(ids)} : {corps}"
+                if corps.startswith(Ld + sep):
+                    corps = corps[len(Ld + sep):]
+            if corps.endswith(f", {Ld}."):
+                corps = corps[:-len(f", {Ld}.")] + "."
+        return f"{_sans_source(s)} {self._origine(ids)} : {corps}"
 
     def _origine(self, ids: Sequence[str]) -> str:
         """D'où vient une hypothèse : « sur 1,7–3,9 m (déversement) » — le tronçon de chaque occurrence retenue, avec le
-        titre de sa vérification ; sans tronçon, les titres seuls, entre parenthèses."""
+        titre de sa vérification (plusieurs titres : leur premier mot, « (flexion, déversement) ») ; sans tronçon, les
+        titres seuls, entre parenthèses."""
         par_troncon: Dict[Optional[Tuple[float, float]], List[str]] = {}
         for i in ids:
             o = self.pire[i]
             t = o["ou"].get("troncon")
             titre = o["v"]["titre"]
             par_troncon.setdefault(tuple(t) if t else None, []).append(titre[:1].lower() + titre[1:])
+        par_troncon = {t: ts if len(ts) == 1 else [x.split(" ")[0] for x in ts] for t, ts in par_troncon.items()}
         return " ; ".join(f"sur {_court(t[0])}–{_court(t[1])} m ({', '.join(ts)})" if t else f"({', '.join(ts)})"
                           for t, ts in par_troncon.items())
 

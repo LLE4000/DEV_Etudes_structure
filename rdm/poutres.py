@@ -34,6 +34,7 @@ SENS = ("croissante", "decroissante")
 TRAVEES_MAX = 5
 CHARGES_MAX = 8
 TOL = 1e-9          # tolérance relative des contrôles internes (équilibre, compatibilité, formulaire = paramètres initiaux)
+TOL_APPUI = 1e-9    # un appui reconnu à TOL_APPUI·max(1, L) près (au-dessus de l'arrondi à 10⁻⁹ de acier/barre/statique.py)
 
 
 class ErreurDonnees(ValueError):
@@ -350,9 +351,14 @@ class Solution:
 
     # -- lecture d'une section
     def _travee(self, x: float, droite: bool = True) -> Tuple[Travee, float]:
+        """La travée qui porte la section x (du côté droit ou gauche) et l'abscisse locale. Un appui se reconnaît à
+        ``TOL_APPUI``·max(1, L) près : sa position est une SOMME de portées (3,37 + 2,18 = 5,550000000000001) et la
+        section lue peut être arrondie (acier/barre/statique.py, à 10⁻⁹). Comparés exactement, ses deux côtés tombaient
+        dans la même travée : l'effort tranchant de droite, et le moment maximal de la travée suivante, étaient perdus."""
+        tol = TOL_APPUI * max(1.0, self.L)
         for t in self.travees:
             fin = t.x0 + t.L
-            if x < fin or (x == fin and (not droite or t is self.travees[-1])):
+            if x < fin - tol or (abs(x - fin) <= tol and (not droite or t is self.travees[-1])):
                 return t, min(t.L, max(0.0, x - t.x0))
         t = self.travees[-1]
         return t, t.L

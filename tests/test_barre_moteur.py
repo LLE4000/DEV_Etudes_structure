@@ -47,6 +47,7 @@ from rdm import poutres as PO  # noqa: E402
 OK, KO = [], []
 FICHIERS = ("combinaisons", "statique", "entree", "enveloppe", "moteur")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
+POUTRES = os.path.join(RACINE, "rdm", "poutres.py")
 
 
 def chk(nom, cond, info=""):
@@ -169,6 +170,24 @@ def controles(M=None):
     comb2 = st.Combinaison("x", sol2, [1.0], [0.0])
     c("poutre continue de 2 × 5 m sous charge uniforme : l'extremum de CHAQUE travée est une section à vérifier (à 3/8 de la portée : "
       "1,875 et 8,125 m)", st.sections(b2, comb2, st.ruptures(sol2)) == [0.0, 1.875, 5.0, 8.125, 10.0], st.sections(b2, comb2, st.ruptures(sol2)))
+    # un appui à une somme de portées INEXACTE en binaire (3,37 + 2,18 = 5,550000000000001), lu à 5,55 : les trois moments, à la main
+    L1, L2, L3, qi = 3.37, 2.18, 3.45, 30.0
+    a11, a22, s1, s2 = 2 * (L1 + L2), 2 * (L2 + L3), -qi * (L1 ** 3 + L2 ** 3) / 4, -qi * (L2 ** 3 + L3 ** 3) / 4
+    MC = (a11 * s2 - L2 * s1) / (a11 * a22 - L2 * L2)
+    VCd = qi * L3 / 2 - MC / L3                                   # à droite de l'appui C
+    M3 = MC + VCd ** 2 / (2 * qi)                                 # le moment maximal de la travée CD
+    ri = [mo.verifier(barre(modele="continue", travees=t_, poids_propre=False,
+                            cas=[{"nom": "G", "nature": "permanent", "charges": [q(qi, 0.0, sum(t_))]}])) for t_ in ([L1, L2, L3], [L3, L2, L1])]
+    vi = [{i: verif(r_["methodes"][m], i) for m, ids in (("ec3", ("E-My", "E-Vz")), ("historique", ("H-DEV", "H-EQ"))) for i in ids} for r_ in ri]
+    bi = en.normaliser(barre(modele="continue", travees=[L1, L2, L3], poids_propre=False,
+                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(qi, 0.0, L1 + L2 + L3)]}]))
+    combi = st.Combinaison("x", st.resoudre(bi, st.cas_complets(bi, s), 1.0e4), [1.0], [0.0])
+    c("appui à 3,37 + 2,18 = 5,550000000000001 m, lu à 5,55 (IPE 300, 30 kN/m) : ses deux côtés sont dans deux travées — V_Ed = 1,35 × 60,15 kN "
+      "à droite de C et M_Ed = 1,35 × 31,32 kN·m dans la travée CD (trois moments, à la main) ; la poutre retournée donne les mêmes taux "
+      "(E-My, E-Vz, H-DEV, H-EQ) ; le moment lu seul y est celui de la lecture complète, au bit près",
+      L1 + L2 != 5.55 and proche(vi[0]["E-Vz"]["valeur"], 1.35 * abs(VCd), 1e-9)
+      and proche(vi[0]["E-My"]["valeur"], 1.35 * M3, 1e-9) and all(proche(vi[0][i]["taux"], vi[1][i]["taux"], 1e-9) for i in vi[0])
+      and combi.M(5.55) == combi.lire(5.55)["M_d"], [(i, vi[0][i]["taux"], vi[1][i]["taux"]) for i in vi[0]])
     # le moment lu seul (M) est celui de la lecture complète (lire) : à droite, à gauche au bout — couple et appuis compris
     bm2 = en.normaliser(barre(modele="continue", travees=[4.0, 6.0], poids_propre=False,
                               cas=[{"nom": "G", "nature": "permanent", "charges": [q(7.0, 0.0, 10.0), {"type": "C", "v": 12.0, "a": 2.5}, P_(9.0, 7.0)]}]))
@@ -471,6 +490,13 @@ def charger(mutation=None):
         exec(compile(src, CHEMINS[k], "exec"), mod.__dict__)
         mods[k] = mod
     mods["entree"].CO, mods["entree"].ST = mods["combinaisons"], mods["statique"]
+    if mutation and mutation[0] == "poutres":                     # le formulaire de poutres (rdm/poutres.py), lu par la statique et l'entrée
+        src = open(POUTRES, encoding="utf-8").read()
+        if src.count(mutation[1]) != 1:
+            return None
+        po = importlib.util.module_from_spec(importlib.util.spec_from_file_location("rdm.poutres_mute", POUTRES))
+        exec(compile(src.replace(mutation[1], mutation[2]), POUTRES, "exec"), po.__dict__)
+        mods["statique"].PO = mods["entree"].PO = po
     m = mods["moteur"]
     m.CO, m.ST, m.EN, m.Enveloppe = mods["combinaisons"], mods["statique"], mods["entree"], mods["enveloppe"].Enveloppe
     return mods
@@ -491,8 +517,14 @@ MUTATIONS = [
     ("statique", "mémoire d'un cas : la lecture d'une autre section rendue", "        e = self.lus.get(x)\n", "        e = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'une combinaison : la lecture d'une autre section rendue", "        o = self.lus.get(x)\n", "        o = self.lus.get(0.0)\n"),
     ("statique", "mémoire d'un cas retirée (chaque combinaison recalcule)", "            e = self.lus[x] = self.sol.evaluer(x)\n", "            e = self.sol.evaluer(x)\n"),
-    ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), droite)\n",
-     "            m = self.moments[x] = t.M(min(t.L, max(0.0, xc - t.x0)), False)\n"),
+    ("statique", "moment lu seul : à gauche d'un saut", "            m = self.moments[x] = t.M(xl, droite)\n",
+     "            m = self.moments[x] = t.M(xl, False)\n"),
+    ("poutres", "lot B — un appui comparé sans tolérance (5,55 ≠ 5,550000000000001 : un côté de l'appui perdu)",
+     "if x < fin - tol or (abs(x - fin) <= tol and", "if x < fin or (x == fin and"),
+    ("statique", "lot B — le moment lu seul cherche sa travée lui-même, sans la tolérance d'appui (une seconde vérité)",
+     "            t, xl = sol._travee(xc, droite)",
+     "            t = next((t for t in sol.travees if xc < t.x0 + t.L or (xc == t.x0 + t.L and (not droite or t is sol.travees[-1]))),"
+     " sol.travees[-1])\n            xl = min(t.L, max(0.0, xc - t.x0))"),
     ("statique", "moment lu seul : la mémoire rend une autre section", "        m = self.moments.get(x)\n", "        m = self.moments.get(0.0)\n"),
     ("statique", "moment d'une combinaison non pondéré", "        return sum(f * s.moment(x) for f, s in self.paires)", "        return sum(s.moment(x) for f, s in self.paires)"),
     ("statique", "racines de l'effort tranchant : la seconde oubliée", "        r = [q / A] + ([y0 / q] if q != 0 else [])", "        r = [q / A]"),
