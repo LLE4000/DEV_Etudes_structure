@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Barres en acier — EUROCODE 3, la BARRE (acier/barre/mcr.py, ec3_flambement.py, ec3_deversement.py,
 ec3_interaction.py, ec3.py) : flambement (§ 6.3.1), déversement (§ 6.3.2, M_cr numérique), flexion composée avec
-instabilité (§ 6.3.3, annexe A). La spécification : docs/acier/BARRES_ACIER.md § 5.5 à 5.8 et § 6.4.
+instabilité (§ 6.3.3, annexe D ANB). La spécification : docs/acier/BARRES_ACIER.md § 5.5 à 5.8 et § 6.4.
 
 Les références :
   1. FLAMBEMENT — les 20 valeurs de χ du brief ; le HEB 200 du classeur du bureau recalculé à la main ; les charges de
@@ -11,8 +11,12 @@ Les références :
      comprimée à mi-portée vaut un maintien complet.
   3. DÉVERSEMENT — les valeurs R3 du deuxième avis (IPE 300, charge répartie + charge centrale) avec les deux couples
      (λ̄_LT,0 ; β) ; k_c, f, les plafonds, les courbes du tableau 6.5.
-  4. ANNEXE A — recalculée ICI, d'une seule traite, sur les valeurs brutes du catalogue, pour neuf barres ; les valeurs
-     du benchmark 21 de l'aide de SCIA Engineer (ECCS N°119, exemple 5) qui ne dépendent pas du diagramme de M_y.
+  4. ANNEXE D ANB — recalculée ICI, d'une seule traite, sur les valeurs brutes du catalogue, pour neuf barres (étapes 1,
+     2.a et 2.b ; e_LT dans le facteur n_pl) ; le cas S2 de SCIA (sans borne de C_mi,0 : 0,600 et 0,648) ; les valeurs du
+     benchmark 21 de l'aide de SCIA Engineer (ECCS N°119, exemple 5) ; les écritures de l'annexe A et de l'annexe D ANB
+     comparées (test 26 du § 11.5) ; la variante γ_M0 ≠ γ_M1.
+  4 bis. LE LOT B — k_c du tableau 6.6 (test 1), la variante du couple (test 9), le rapport des deux méthodes de
+     déversement (test 10), C_mi,0 (test 19), l'annexe E ANB (R1, tests 20 et 21), le cas général pour information (R3).
   5. FORMULES — chaque bloc se recalcule par son gabarit à 10⁻⁹ ; aucun gabarit mort.
   6. CATALOGUE — un I ou H sur deux et un tube sur quatre : JSON strict, invariants.
   7. MUTATIONS — chaque altération plausible du texte du moteur fait rougir un contrôle des § 1 à 4.
@@ -38,13 +42,17 @@ from acier.barre import ec3_flambement as FL  # noqa: E402
 from acier.barre import ec3_interaction as IN  # noqa: E402
 from acier.barre import formules as FO  # noqa: E402
 from acier.barre import mcr as MC  # noqa: E402
+from acier.barre import mcr_annexe_e as AE  # noqa: E402
+from acier.barre import entree as EN  # noqa: E402
+from acier.barre import moteur as MO  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
 from acier.barre import section as SE  # noqa: E402
 from acier.flambement import moteur as FM  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 
 OK, KO = [], []
-FICHIERS = ("mcr", "ec3_flambement", "ec3_deversement", "ec3_interaction", "ec3")
+BENCH21 = {}                     # les valeurs du benchmark 21 (obtenue, attendue), relues par le rapport
+FICHIERS = ("mcr", "ec3_flambement", "ec3_deversement", "ec3_interaction", "ec3", "mcr_annexe_e")
 CHEMINS = {k: os.path.join(RACINE, "acier", "barre", k + ".py") for k in FICHIERS}
 E_, G_ = 210000.0, 81000.0
 ALPHA = {"a0": 0.13, "a": 0.21, "b": 0.34, "c": 0.49, "d": 0.76}
@@ -80,11 +88,13 @@ def ipe300_du_brief():
                      iy=124.6, iz=33.5, Wel_y=557.1e3, Wel_z=80.5e3, Wpl_y=628.4e3, Wpl_z=125.2e3, It=20.12e4, Iw=125.9e9, Avz=2568.0)
 
 
-# ------------------------------------------------------------------ 4. l'annexe A, recalculée d'une traite
+# ------------------------------------------------------------------ 4. l'annexe D ANB, recalculée d'une traite
 def annexe_A(q):
-    """Les facteurs de l'annexe A et les deux expressions (6.61), (6.62), depuis des NOMBRES (N, mm) : A (ou A_eff), Iy,
-    It, Wel_y, Wel_z, Wpl_y, Wpl_z, W_y, W_z (ceux de la classe), fy, N, My, Mz, Ncry, Ncrz, NcrT (None), chiy, chiz,
-    chiLT, lby, lbz, lb0, C1, Cmy0, Cmz0, classe, Wel_eps (le module de ε_y)."""
+    """Les facteurs de l'annexe D ANB (méthode 1, écriture belge) et les deux expressions (6.61), (6.62), depuis des
+    NOMBRES (N, mm) : A (ou A_eff), Iy, It, Wel_y, Wel_z, Wpl_y, Wpl_z, W_y, W_z (ceux de la classe), fy, N, My, Mz, Ncry,
+    Ncrz, NcrT (None), chiy, chiz, chiLT, lby, lbz, lb0, C1, Cmy0, Cmz0, classe, Wel_eps (le module de ε_y) ; ``gM`` : le
+    γ de n_pl (1 à défaut). ÉTAPE 1 : I_t ≥ I_y ou λ̄_0 ≤ la limite → étape 2.a (ni χ_LT, ni C_mLT, ni b_LT…e_LT) ;
+    sinon 2.b. e_LT est DANS le facteur n_pl de C_zz (lot B : AC:2009 et annexe D ANB, p. 28)."""
     N, My, Mz, fy = q["N"], q["My"], q["Mz"], q["fy"]
     ry, rz = N / q["Ncry"], N / q["Ncrz"]
     rT = N / q["NcrT"] if q.get("NcrT") else 0.0
@@ -93,29 +103,31 @@ def annexe_A(q):
     aLT = max(1 - q["It"] / q["Iy"], 0.0)
     lim = 0.2 * math.sqrt(q["C1"]) * ((1 - rz) * (1 - rT)) ** 0.25
     Cmy, Cmz, CmLT = q["Cmy0"], q["Cmz0"], 1.0
-    if q["lb0"] > lim and My > 0:
+    b = q["lb0"] > lim and My > 0 and q["It"] < q["Iy"]
+    chiLT = q["chiLT"] if b else 1.0
+    if b:
         if N > 0:
             rac = math.sqrt(My / N * q["A"] / q["Wel_eps"]) * aLT
             Cmy = q["Cmy0"] + (1 - q["Cmy0"]) * rac / (1 + rac)
         else:
             Cmy = 1.0 if aLT > 0 else q["Cmy0"]
         CmLT = max(Cmy ** 2 * aLT / math.sqrt((1 - rz) * (1 - rT)), 1.0)
-    out = {"mu_y": muy, "mu_z": muz, "a_LT": aLT, "C_my": Cmy, "C_mz": Cmz, "C_mLT": CmLT, "lambda_0_lim": lim}
+    out = {"mu_y": muy, "mu_z": muz, "a_LT": aLT, "C_my": Cmy, "C_mz": Cmz, "C_mLT": CmLT, "lambda_0_lim": lim, "etape": "2.b" if b else "2.a"}
     NRk = q["A"] * fy
     if q["classe"] <= 2:
         wy, wz = min(q["Wpl_y"] / q["Wel_y"], 1.5), min(q["Wpl_z"] / q["Wel_z"], 1.5)
-        npl = N / NRk
+        npl = N / (NRk / q.get("gM", 1.0))
         lm = max(q["lby"], q["lbz"])
-        ty = My / (q["chiLT"] * q["Wpl_y"] * fy)
-        tz = Mz / (q["Wpl_z"] * fy)
-        bLT = 0.5 * aLT * q["lb0"] ** 2 * ty * tz
-        cLT = 10 * aLT * q["lb0"] ** 2 / (5 + q["lbz"] ** 4) * ty / Cmy
-        dLT = 2 * aLT * q["lb0"] / (0.1 + q["lbz"] ** 4) * ty / Cmy * tz / Cmz
-        eLT = 1.7 * aLT * q["lb0"] / (0.1 + q["lbz"] ** 4) * ty / Cmy
+        ty = My / (chiLT * q["Wpl_y"] * fy / q.get("gM0", 1.0))
+        tz = Mz / (q["Wpl_z"] * fy / q.get("gM0", 1.0))
+        bLT = 0.5 * aLT * q["lb0"] ** 2 * ty * tz if b else 0.0
+        cLT = 10 * aLT * q["lb0"] ** 2 / (5 + q["lbz"] ** 4) * ty / Cmy if b else 0.0
+        dLT = 2 * aLT * q["lb0"] / (0.1 + q["lbz"] ** 4) * ty / Cmy * tz / Cmz if b else 0.0
+        eLT = 1.7 * aLT * q["lb0"] / (0.1 + q["lbz"] ** 4) * ty / Cmy if b else 0.0
         Cyy = max(1 + (wy - 1) * ((2 - 1.6 / wy * Cmy ** 2 * lm - 1.6 / wy * Cmy ** 2 * lm ** 2) * npl - bLT), q["Wel_y"] / q["Wpl_y"])
         Cyz = max(1 + (wz - 1) * ((2 - 14 * Cmz ** 2 * lm ** 2 / wz ** 5) * npl - cLT), 0.6 * math.sqrt(wz / wy) * q["Wel_z"] / q["Wpl_z"])
         Czy = max(1 + (wy - 1) * ((2 - 14 * Cmy ** 2 * lm ** 2 / wy ** 5) * npl - dLT), 0.6 * math.sqrt(wy / wz) * q["Wel_y"] / q["Wpl_y"])
-        Czz = max(1 + (wz - 1) * ((2 - 1.6 / wz * Cmz ** 2 * lm - 1.6 / wz * Cmz ** 2 * lm ** 2) * npl - eLT), q["Wel_z"] / q["Wpl_z"])
+        Czz = max(1 + (wz - 1) * (2 - 1.6 / wz * Cmz ** 2 * lm - 1.6 / wz * Cmz ** 2 * lm ** 2 - eLT) * npl, q["Wel_z"] / q["Wpl_z"])
         kyy = Cmy * CmLT * muy / (1 - ry) / Cyy
         kyz = Cmz * muy / (1 - rz) / Cyz * 0.6 * math.sqrt(wz / wy)
         kzy = Cmy * CmLT * muz / (1 - ry) / Czy * 0.6 * math.sqrt(wy / wz)
@@ -128,8 +140,8 @@ def annexe_A(q):
         kzz = Cmz * muz / (1 - rz)
     MyRk, MzRk = q["W_y"] * fy, q["W_z"] * fy
     out.update({"k_yy": kyy, "k_yz": kyz, "k_zy": kzy, "k_zz": kzz,
-                "t61": N / (q["chiy"] * NRk) + kyy * My / (q["chiLT"] * MyRk) + kyz * Mz / MzRk,
-                "t62": N / (q["chiz"] * NRk) + kzy * My / (q["chiLT"] * MyRk) + kzz * Mz / MzRk})
+                "t61": N / (q["chiy"] * NRk) + kyy * My / (chiLT * MyRk) + kyz * Mz / MzRk,
+                "t62": N / (q["chiz"] * NRk) + kzy * My / (chiLT * MyRk) + kzz * Mz / MzRk})
     return out
 
 
@@ -139,9 +151,10 @@ def cm0_de(diag, psi, r):
 
 
 def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, section=None, AN=None, Wy=None, Wz=None, alpha_LT=None,
-                 lb0_beta=(0.2, 1.0), kc=1.0, borne=True):
+                 lb0_beta=(0.2, 1.0), kc=1.0):
     """Les nombres d'une barre du catalogue pour ``annexe_A`` : tout est recalculé ici (N_cr, χ, M_cr,0, χ_LT avec le
-    M_cr NUMÉRIQUE passé par ``section`` = (M_cr, forme du f))."""
+    M_cr NUMÉRIQUE passé par ``section``, charges au centre de cisaillement — donc C₁ = M_cr/M_cr,0, l'annexe E ANB par
+    le solveur). Pas de borne de C_mi,0 (tableau D.1 ANB)."""
     p = brut(nom)
     A, Iy, Iz = p["A"] * 100, p["Iy"] * 1e4, p["Iz"] * 1e4
     It, Iw = p["It"] * 1e4, (p.get("Iw") or 0.0) * 1e6
@@ -151,7 +164,7 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
     lby, lbz = math.sqrt(AN * fy / Ncry), math.sqrt(AN * fy / Ncrz)
     q = {"A": AN, "Iy": Iy, "It": It, "Wel_y": p["Wel_y"] * 1e3, "Wel_z": p["Wel_z"] * 1e3, "Wpl_y": p["Wpl_y"] * 1e3, "Wpl_z": p["Wpl_z"] * 1e3,
          "fy": fy, "N": N, "My": My, "Mz": Mz, "Ncry": Ncry, "Ncrz": Ncrz, "NcrT": NcrT, "chiy": chi_de(lby, alphas[0]), "chiz": chi_de(lbz, alphas[1]),
-         "lby": lby, "lbz": lbz, "classe": classe, "C1": 1.0 / kc ** 2}
+         "lby": lby, "lbz": lbz, "classe": classe, "C1": 1.0}
     q["W_y"] = Wy or (q["Wpl_y"] if classe <= 2 else q["Wel_y"])
     q["W_z"] = Wz or (q["Wpl_z"] if classe <= 2 else q["Wel_z"])
     q["Wel_eps"] = q["Wel_y"]
@@ -160,6 +173,7 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
         Mcr0 = math.pi / L * math.sqrt(E_ * Iz * G_ * It) * math.sqrt(1 + PI2 * E_ * Iw / (L ** 2 * G_ * It))
         lbLT = math.sqrt(q["W_y"] * fy / Mcr)
         q["lb0"] = math.sqrt(q["W_y"] * fy / Mcr0)
+        q["C1"] = Mcr / Mcr0
         if lbLT <= lb0_beta[0] or My / Mcr <= lb0_beta[0] ** 2:
             q["chiLT"] = 1.0
         else:
@@ -171,8 +185,6 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
     ry, rz = N / Ncry, N / Ncrz
     q["Cmy0"] = cm0_de(dy[0], dy[1], ry) if My > 0 else 1.0
     q["Cmz0"] = cm0_de(dz[0], dz[1], rz) if Mz > 0 else 1.0
-    if borne:
-        q["Cmy0"], q["Cmz0"] = max(q["Cmy0"], 1 - ry) if My > 0 else 1.0, max(q["Cmz0"], 1 - rz) if Mz > 0 else 1.0
     return q
 
 
@@ -180,7 +192,7 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
 def controles(M=None):
     """[(nom, ok, info)] — ``M`` : les modules à contrôler {"mcr", "ec3_flambement", "ec3_deversement",
     "ec3_interaction", "ec3"} (les mutations y passent leurs copies altérées)."""
-    M = M or {"mcr": MC, "ec3_flambement": FL, "ec3_deversement": DV, "ec3_interaction": IN, "ec3": EC}
+    M = M or {"mcr": MC, "ec3_flambement": FL, "ec3_deversement": DV, "ec3_interaction": IN, "ec3": EC, "mcr_annexe_e": AE}
     mc, ec, dv = M["mcr"], M["ec3"], M["ec3_deversement"]
     C = []
 
@@ -393,23 +405,33 @@ def controles(M=None):
     def M23(x):
         return qEd * x * (L - x) / 2.0 + PEd * (x if x <= L / 2 else L - x) / 2.0
 
-    def r3(zg, **k):
-        tr = {"L": L, "moment": M23, "reparties": [(0.0, L, qEd, zg)], "ponctuelles": [(L / 2, PEd, zg)]}
-        return v(s, "S235", L, MyEd=68.70e6, deversement={"troncon": tr}, **k)
+    def r3(zg, variante=False, **k):
+        # (la poutre de R3 : une portée entre deux appuis, sans maintien — « entre_appuis », comme la barre chargée le déclare)
+        tr = {"L": L, "moment": M23, "reparties": [(0.0, L, qEd, zg)], "ponctuelles": [(L / 2, PEd, zg)], "entre_appuis": True}
+        dv_ = {"troncon": tr, **({"couple": "variante", "maintiens_negliges": 1} if variante else {})}
+        return v(s, "S235", L, MyEd=68.70e6, deversement=dv_, **k)
 
-    autre = {"lambda_LT0_avec_maintiens": 0.4, "beta_avec_maintiens": 0.75}          # la variante de l'ANB, donnée en surcharge
-    lignes = []
+    lignes, alertes3 = [], []
     for zg in (0.0, 150.0):
-        for par in ({}, autre):
-            r = r3(zg, parametres=par)
+        for var in (False, True):
+            r = r3(zg, var)
             D = r["grandeurs"]["deversement"]
             lignes.append((round(D["M_cr"] / 1e6, 2), round(D["lambda_LT"], 3), round(D["chi_LT"], 4), round(limite(r, "E-Mb"), 2), round(taux(r, "E-Mb"), 3)))
+            alertes3 += [a["code"] for a in r["alertes"]]
     c("R3 (IPE 300, 6 m, charge répartie + charge centrale, M_Ed = 68,70 kN·m) — couple de l'ANB:2018, 6.3.2.3(1), (0,2 ; 1,0) PAR DÉFAUT "
       "(M_cr tient compte des maintiens — il n'y en a pas) : au centre de cisaillement M_cr 118,18, λ̄_LT 1,118, χ_LT 0,5246 → M_b,Rd 77,47, "
-      "taux 0,887 ; sur la semelle haute 86,98, 1,303, 0,4254 → 62,83, 1,094 ; la variante (0,4 ; 0,75), donnée en surcharge : 0,6278 → 92,71, "
-      "0,741 et 0,5220 → 77,09, 0,891 (diagramme hors tableau 6.6 : f = 1 ; le brief imprimait 77,48 et 1,093, au dernier chiffre près)",
+      "taux 0,887 ; sur la semelle haute 86,98, 1,303, 0,4254 → 62,83, 1,094 ; la variante (0,4 ; 0,75) DEMANDÉE (couple « variante », un "
+      "maintien négligé, tronçon d'un appui à l'autre) : 0,6278 → 92,71, 0,741 et 0,5220 → 77,09, 0,891, sans alerte (diagramme hors "
+      "tableau 6.6 : f = 1 ; le brief imprimait 77,48 et 1,093, au dernier chiffre près)",
       lignes == [(118.18, 1.118, 0.5246, 77.47, 0.887), (118.18, 1.118, 0.6278, 92.71, 0.741), (86.98, 1.303, 0.4254, 62.83, 1.094),
-                 (86.98, 1.303, 0.5220, 77.09, 0.891)], lignes)
+                 (86.98, 1.303, 0.5220, 77.09, 0.891)] and not alertes3, (lignes, alertes3))
+    # le couple PAR DÉFAUT changé par une surcharge (une autre annexe) : appliqué partout, sans le contrôle de la variante — c'est dit
+    rs = r3(0.0, parametres={"lambda_LT0_avec_maintiens": 0.4, "beta_avec_maintiens": 0.75})
+    al = [a for a in rs["alertes"] if a["code"] == "couple_hors_anb"]
+    c("le couple par défaut surchargé en (0,4 ; 0,75) : appliqué (χ_LT 0,6278), avec l'alerte « Couple (0,4 ; 0,75) imposé : hors ANB:2018, "
+      "6.3.2.3(1). » ; le couple de la table, lui, n'en donne aucune",
+      round(rs["grandeurs"]["deversement"]["chi_LT"], 4) == 0.6278 and len(al) == 1
+      and al[0]["message"] == "Couple (0,4 ; 0,75) imposé : hors ANB:2018, 6.3.2.3(1).", [(a["code"], a["message"]) for a in rs["alertes"]])
     D = r3(0.0)["grandeurs"]["deversement"]
     c("R3 : courbe b (laminé, h/b = 2 ≤ 2), couple (0,2 ; 1,0) de l'ANB (lu sur le texte : plus « à confirmer »), k_c = 1 hors tableau, λ̄_0 du "
       "moment constant = √(W_pl,y·f_y/90,47) = 1,278 ; l'ancienne clé « sans maintiens » est refusée avec son motif",
@@ -573,7 +595,7 @@ def controles(M=None):
     # (h) et (i) : deux tronçons courts dont λ̄_0 tombe de part et d'autre de la limite 0,2·√C₁·[…]^¼ (charge concentrée : C₁ = 1/0,86²)
     pi3 = brut("IPE 300")
     a3, b3, g3 = E_ * pi3["Iz"] * 1e4, E_ * pi3["Iw"] * 1e6, G_ * pi3["It"] * 1e4
-    cotes = {}
+    cotes, c1s = {}, []
     for cible in (0.225, 0.25):
         lo, hi = 300.0, 4000.0
         for _ in range(60):                                   # la longueur qui donne λ̄_0 = cible
@@ -584,28 +606,101 @@ def controles(M=None):
         q = barre_annexe("IPE 300", 235.0, Lx, 100e3, 80e6, 5e6, ("ponctuel", 1.0), ("constant", 1.0), (0.21, 0.34), 1,
                          section=r["grandeurs"]["deversement"]["M_cr"], alpha_LT=0.34, kc=0.86)
         bilan[f"IPE 300 court, λ̄_0 = {cible}"] = compare("h", r, q, 1)
-        cotes[cible] = (r["grandeurs"]["annexe_A"]["lambda_0"] > r["grandeurs"]["annexe_A"]["lambda_0_lim"], r["grandeurs"]["annexe_A"]["C_mLT"])
-    c("annexe A recalculée ici d'une traite, sur les valeurs brutes du catalogue, pour neuf barres (I de classe 1 avec et sans déversement, "
-      "classe 3, tube, un seul moment, flexion déviée sans effort normal, tronçons courts) : μ, w, a_LT, C_my, C_mz, C_mLT, b_LT à e_LT, C_yy à C_zz, "
-      "k_yy à k_zz et les deux taux — égaux à 10⁻⁹", not any(bilan.values()), {k: x[:2] for k, x in bilan.items() if x})
+        cotes[cible] = (r["grandeurs"]["annexe_A"]["lambda_0"] > r["grandeurs"]["annexe_A"]["lambda_0_lim"], r["grandeurs"]["annexe_A"]["C_mLT"],
+                        r["grandeurs"]["annexe_A"]["etape"])
+        c1s.append(r["grandeurs"]["annexe_A"]["C1"])
+    c("annexe D ANB recalculée ici d'une traite, sur les valeurs brutes du catalogue, pour neuf barres (I de classe 1 avec et sans déversement, "
+      "classe 3, tube, un seul moment, flexion déviée sans effort normal, tronçons courts ; étapes 2.a et 2.b) : μ, w, a_LT, C_my, C_mz, C_mLT, "
+      "b_LT à e_LT, C_yy à C_zz, k_yy à k_zz et les deux taux — égaux à 10⁻⁹", not any(bilan.values()), {k: x[:2] for k, x in bilan.items() if x})
     c("HEB 200 de 7,20 m sous forte compression : un plancher de C_ij gouverne (le cas existe dans les barres recalculées)", bool(planchers), planchers)
-    c("la limite λ̄_0 ≤ 0,2·√C₁·[(1 − N/N_cr,z)·(1 − N/N_cr,T)]^¼, avec C₁ = 1/k_c² = 1,352 (charge concentrée) : λ̄_0 = 0,225 est en deçà "
-      "(C_mLT = 1), λ̄_0 = 0,25 au-delà (C_mLT > 1)", cotes[0.225] == (False, 1.0) and cotes[0.25][0] and cotes[0.25][1] > 1.0, cotes)
-    # le benchmark 21 de l'aide de SCIA Engineer (ECCS N°119, exemple 5) — sans la borne de C_mi,0 (l'EN seule)
-    r = v("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, flexion={"y": {"diagramme": "reparti"}, "z": {"diagramme": "lineaire", "psi": 0.0}},
-          parametres={"borne_Cmi0": "aucune"})
+    # (j) étape 2.a par λ̄_0 avec un χ_LT < 1 : charge répartie sur la semelle HAUTE — (6.61), (6.62) sans χ_LT (annexe D ANB)
+    lo, hi = 300.0, 4000.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if math.sqrt(pi3["Wpl_y"] * 1e3 * 235.0 / mc.moment_constant(mid, a3, b3, g3)) < 0.205 else (lo, mid)
+    Lj = 0.5 * (lo + hi)
+    rj = v("IPE 300", "S235", Lj, NEd=50e3, MyEd=120e6, MzEd=2e6, flexion={"y": {"diagramme": "reparti"}}, deversement={"niveau": "haut"})
+    qj = barre_annexe("IPE 300", 235.0, Lj, 50e3, 120e6, 2e6, ("reparti", 1.0), ("constant", 1.0), (0.21, 0.34), 1,
+                      section=rj["grandeurs"]["deversement"]["M_cr"], alpha_LT=0.34, kc=0.94)
+    Mcr0j = mc.moment_constant(Lj, a3, b3, g3)
+    qj["C1"] = mc.moment_critique(Lj, a3, b3, g3, lambda x: x * (Lj - x) / 2.0, reparties=[(0.0, Lj, 1.0, 0.0)])["M_cr"] / Mcr0j   # charge au centre
+    bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"] = compare("j", rj, qj, 1)
+    Aj, Dj = rj["grandeurs"]["annexe_A"], rj["grandeurs"]["deversement"]
+    c("étape 2.a par λ̄_0 (IPE 300 court, charge répartie sur la semelle haute : λ̄_0 = 0,205 ≤ 0,213) alors que le déversement réduit "
+      "(χ_LT = 0,996 < 1) : (6.61) et (6.62) s'écrivent SANS χ_LT (annexe D ANB) — recalculés ici à 10⁻⁹",
+      Aj["etape"] == "2.a" and Dj["cas"] == dv.CALCULE and Dj["chi_LT"] < 0.999 and not bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"],
+      (Aj["etape"], Dj.get("chi_LT"), bilan["IPE 300 court, charge sur la semelle haute, étape 2.a avec χ_LT < 1"]))
+    # (k) étape 1, le facteur (1 − N_Ed/N_cr,TF) : un HEB 200 court sous forte compression dont λ̄_0 tombe ENTRE la limite avec ce facteur et
+    #     la limite sans lui — étape 2.b (sans le facteur, la limite grandirait et la barre passerait à tort en 2.a)
+    ph2 = brut("HEB 200")
+    Iz2, It2, Iw2 = ph2["Iz"] * 1e4, ph2["It"] * 1e4, ph2["Iw"] * 1e6
+    i02_ = (ph2["iy"] * 10) ** 2 + (ph2["iz"] * 10) ** 2
+    Nk = 1500e3
+
+    def limites(Lx_):
+        rz_ = Nk / (PI2 * E_ * Iz2 / Lx_ ** 2)
+        rT_ = Nk / ((G_ * It2 + PI2 * E_ * Iw2 / Lx_ ** 2) / i02_)
+        lb0_ = math.sqrt(ph2["Wpl_y"] * 1e3 * 235.0 / mc.moment_constant(Lx_, E_ * Iz2, E_ * Iw2, G_ * It2))
+        return lb0_, 0.2 * ((1 - rz_) * (1 - rT_)) ** 0.25, 0.2 * (1 - rz_) ** 0.25
+    lo, hi = 300.0, 4000.0
+    for _ in range(80):                                       # λ̄_0 au milieu des deux limites (moment constant : C₁ = 1)
+        mid = 0.5 * (lo + hi)
+        l0_, la_, lb_ = limites(mid)
+        lo, hi = (mid, hi) if l0_ < 0.5 * (la_ + lb_) else (lo, mid)
+    Lk = 0.5 * (lo + hi)
+    l0_, la_, lb_ = limites(Lk)
+    Ak = v("HEB 200", "S235", Lk, NEd=Nk, MyEd=10e6)["grandeurs"]["annexe_A"]
+    c("étape 1, le facteur (1 − N_Ed/N_cr,TF) : HEB 200 de 1,03 m sous 1 500 kN, moment constant — λ̄_0 = 0,1971 entre la limite avec N_cr,TF "
+      "(0,1961) et sans lui (0,1981) : étape 2.b",
+      la_ < l0_ < lb_ and Ak["etape"] == "2.b" and proche(Ak["lambda_0_lim"], la_, 1e-6) and round(Ak["lambda_0"], 4) == 0.1971,
+      (Ak["etape"], Ak["lambda_0"], Ak["lambda_0_lim"], la_, lb_))
+    c("étape 1 de l'annexe D ANB : la limite λ̄_0 ≤ 0,2·√C₁·[(1 − N/N_cr,z)·(1 − N/N_cr,TF)]^¼, C₁ = M_cr/M_cr,0 du solveur (annexe E ANB, "
+      "charge concentrée au centre de cisaillement : 1,36 et non 1/k_c² = 1,352) : λ̄_0 = 0,225 est en deçà (étape 2.a, C_mLT = 1), "
+      "λ̄_0 = 0,25 au-delà (étape 2.b, C_mLT > 1)", cotes[0.225] == (False, 1.0, "2.a") and cotes[0.25][0] and cotes[0.25][1] > 1.0
+      and cotes[0.25][2] == "2.b" and all(1.355 < x < 1.37 for x in c1s), (cotes, c1s))
+    # le benchmark 21 de l'aide de SCIA Engineer (ECCS N°119, exemple 5) : les valeurs de référence du brief (§ 11.4)
+    r = v("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, flexion={"y": {"diagramme": "reparti"}, "z": {"diagramme": "lineaire", "psi": 0.0}})
     A_, D = r["grandeurs"]["annexe_A"], r["grandeurs"]["deversement"]
     ref = {"mu_y": (A_["mu_y"], 1.00, 0.005), "w_y": (A_["w_y"], 1.138, 0.001), "mu_z": (A_["mu_z"], 0.937, 0.001), "w_z": (A_["w_z"], 1.5, 0.0),
            "C_mz,0": (A_["C_mz0"], 0.771, 0.001), "M_cr,0": (D["M_cr0"] / 1e6, 899.0, 0.002), "lambda_0": (D["lambda_0"], 0.757, 0.001),
            "a_LT": (A_["a_LT"], 0.998, 0.001)}
     ecarts = {k: (round(x, 4), y) for k, (x, y, tol) in ref.items() if abs(x / y - 1) > tol + 1e-12}
     c("exemple 5 de l'ECCS N°119 (benchmark 21 de l'aide de SCIA Engineer : IPE 500 S235, 3,75 m, N_Ed = 500 kN, M_z triangulaire) — les valeurs "
-      "de référence qui ne dépendent pas du diagramme de M_y : μ_y 1,00 ; w_y 1,138 ; μ_z 0,937 ; w_z 1,5 ; C_mz,0 0,771 ; M_cr,0 899 kN·m ; "
-      "λ̄_0 0,757 ; a_LT 0,998 — à moins de 0,2 %", not ecarts, ecarts)
-    c("la borne inférieure de C_mi,0 (annexe belge, supposée 1 − N_Ed/N_cr,i, à confirmer) est active par défaut : C_mz,0 = 0,842 au lieu de 0,771 ; "
-      "les paramètres encore « à confirmer » sont ceux de l'interaction (le couple du déversement est lu sur l'ANB)",
-      round(r_a["grandeurs"]["annexe_A"]["C_mz0"], 3) == 0.842 and proche(r_a["grandeurs"]["annexe_A"]["C_mz0"], 1 - 500e3 / q_a["Ncrz"])
-      and {x["cle"] for x in r_a["grandeurs"]["a_confirmer"]} == {"methode_interaction", "borne_Cmi0"})
+      "de référence qui ne dépendent pas du diagramme de M_y : μ_y 1,00 ; w_y 1,138 ; μ_z 0,937 ; w_z 1,5 ; C_mz,0 0,771 (sans borne : tableau D.1 ANB) ; "
+      "M_cr,0 899 kN·m ; λ̄_0 0,757 ; a_LT 0,998 — à moins de 0,2 %", not ecarts, ecarts)
+    # (À VÉRIFIER : la page n'est pas lisible d'ici ; M_y = 200 kN·m sous une charge CONCENTRÉE à mi-portée est DÉDUIT de C_my,0 = 0,999
+    #  = 1 − 0,18·N_Ed/N_cr,y — la charge répartie donnerait 1,000. b_LT, C_yy et C_my,0 tombent juste ; c_LT, d_LT, e_LT, tous ∝ 1/χ_LT, sont
+    #  2 % au-dessus : ils IMPLIQUENT un χ_LT ≈ 0,826 dans la référence, le module prend 0,811 (§ 6.3.2.3, courbe c, k_c = 0,86 et f). Ce 0,826
+    #  n'est retrouvé par aucune lecture essayée (§ 6.3.2.2 courbe b 0,812 ; § 6.3.2.3 courbe b avec f 0,836 ou 0,870 ; (0,4 ; 0,75) courbe c
+    #  0,857 ou 0,919 — tests/test_barre_benchmarks.py les recalcule) — écart « à expliquer » (règle 7 du brief), contrôlé à ± 3 % sans borne
+    #  basse : un module qui rejoindrait la référence reste vert.)
+    r = v("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, flexion={"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "lineaire", "psi": 0.0}})
+    A_ = r["grandeurs"]["annexe_A"]
+    ref = {"C_my,0": (A_["C_my0"], 0.999, 0.001), "b_LT": (A_["b_LT"], 0.043, 0.012), "C_yy": (A_["C_yy"], 0.981, 0.001),
+           "c_LT": (A_["c_LT"], 0.468, 0.03), "d_LT": (A_["d_LT"], 0.347, 0.03), "e_LT": (A_["e_LT"], 0.719, 0.03)}
+    BENCH21.clear()
+    BENCH21.update({k: (x, y) for k, (x, y, _) in ref.items()})
+    ecarts = {k: (round(x, 4), y) for k, (x, y, tol) in ref.items() if abs(x / y - 1) > tol + 1e-12}
+    c("benchmark 21, les facteurs qui dépendent du diagramme de M_y (diagramme déduit de C_my,0 = 0,999 : charge concentrée — À VÉRIFIER sur la "
+      "page) : C_my,0 0,999, b_LT 0,043 et C_yy 0,981 au chiffre près ; c_LT 0,468, d_LT 0,347, e_LT 0,719 à moins de 3 % (χ_LT de la référence)",
+      not ecarts and A_["etape"] == "2.b", ecarts)
+    # SCIA S2 (docs/validation/barres_cas_ltbeam_scia.md) : la borne de C_mi,0 retirée, le site redonne SCIA
+    s2 = v("HEB 300", "S235", 5000.0, NEd=1400e3, MyEd=70e6, VzEd=14e3, flexion={"y": {"diagramme": "lineaire", "psi": 0.0}})
+    A2 = s2["grandeurs"]["annexe_A"]
+    c("SCIA S2 (HEB 300 S235, 5 m, N_Ed = 1 400 kN, M_y = 70 kN·m en tête, ψ = 0) : f_y = 225 ; N_b,y,Rd 3 105,1 et N_b,z,Rd 2 457,0 kN ; "
+      "C_my,0 = 0,79 − 0,36·0,33·N/N_cr,y = 0,782 (plus de borne) ; (6.61) = 0,600 et (6.62) = 0,648 (SCIA : 0,60 et 0,65 ; 0,631 et 0,667 avec la borne)",
+      s2["grandeurs"]["fy"] == 225.0 and round(limite(s2, "E-Nb-y"), 1) == 3105.1 and round(limite(s2, "E-Nb-z"), 1) == 2457.0
+      and round(A2["C_my0"], 3) == 0.782 and round(taux(s2, "E-661"), 3) == 0.600 and round(taux(s2, "E-662"), 3) == 0.648,
+      (A2["C_my0"], taux(s2, "E-661"), taux(s2, "E-662")))
+    # tableau D.1 ANB : pas de borne inférieure — ψ = −1 et N_Ed/N_cr,y = 0,1 donnent 0,5321 (brief § 7.8)
+    hb = brut("HEB 300")
+    Ncr_y = PI2 * E_ * hb["Iy"] * 1e4 / 5000.0 ** 2
+    rb = v("HEB 300", "S235", 5000.0, NEd=0.1 * Ncr_y, MyEd=20e6, flexion={"y": {"diagramme": "lineaire", "psi": -1.0}})
+    c("tableau D.1 ANB sans borne inférieure : ψ = −1 et N_Ed/N_cr,y = 0,1 → C_my,0 = 0,79 − 0,21 − 0,36·1,33·0,1 = 0,5321 (et non 0,9) ; la clé "
+      "« borne_Cmi0 » est retirée de la table (une surcharge qui la nomme est refusée) ; plus aucun paramètre « à confirmer » dans l'interaction",
+      round(rb["grandeurs"]["annexe_A"]["C_my0"], 4) == 0.5321 and r_a["grandeurs"]["a_confirmer"] == []
+      and _refuse(ec, {"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "NEd": 1e5, "MyEd": 1e7, "parametres": {"borne_Cmi0": "1 - NEd/Ncr"}}),
+      (rb["grandeurs"]["annexe_A"]["C_my0"], r_a["grandeurs"]["a_confirmer"]))
     # tableau A.2 : la formule générale redonne les deux cas chargés (écart E2 du brief)
     ph = brut("HEB 200")
     EI = E_ * ph["Iy"] * 1e4
@@ -650,6 +745,222 @@ def controles(M=None):
              if not _refuse(ec, {"section": SE.du_catalogue("IPE 300"), "nuance": "S235", "NEd": 1e4, "MyEd": 1e6, **b_})]
     c("domaine : u nul, L négatif, courbe ou diagramme inconnus, ψ hors de [−1 ; 1], L_c négatif, niveau inconnu, M_cr nul, tronçon sans moment — "
       "refusés avec un message", not refus, refus)
+
+    # ---- 4 bis. le lot B (brief v12)
+    me = M["mcr_annexe_e"]
+    # test 1 du § 11.5 — k_c du tableau 6.6 (normatif, ANB:2018, 6.3.2.3(2)) : seulement la portée d'un de ses schémas
+    def q6(v_, a=0.0, b=6.0):
+        return {"type": "q", "v": v_, "a": a, "b": b}
+
+    def P6(v_, a=3.0):
+        return {"type": "P", "v": v_, "a": a}
+
+    def C6(v_, a):
+        return {"type": "C", "v": v_, "a": a}
+
+    kp = {"deux appuis, charge centrale": (dv.kc_portee("appuis", [P6(10.0)], 6.0), 0.86),
+          "deux appuis, charge répartie (deux cas)": (dv.kc_portee("appuis", [q6(5.0), q6(3.0)], 6.0), 0.94),
+          "deux appuis, charge répartie + charge centrale": (dv.kc_portee("appuis", [q6(5.0), P6(10.0)], 6.0), None),
+          "bi-encastrée, charge répartie": (dv.kc_portee("bi_enc", [q6(5.0)], 6.0), 0.90),
+          "encastrement partiel : charge répartie + couples d'extrémité": (dv.kc_portee("appuis", [q6(5.0), C6(-7.5, 0.0), C6(7.5, 6.0)], 6.0), None),
+          "bi-encastrée, charge centrale": (dv.kc_portee("bi_enc", [P6(10.0)], 6.0), 0.77),
+          "encastrée-appuyée, charge répartie": (dv.kc_portee("enc_app", [q6(5.0)], 6.0), 0.91),
+          "encastrée-appuyée, charge centrale": (dv.kc_portee("enc_app", [P6(10.0), P6(4.0)], 6.0), 0.82),
+          "deux appuis, charge répartie partielle": (dv.kc_portee("appuis", [q6(5.0, 0.0, 4.0)], 6.0), None),
+          "deux appuis, charge hors du milieu": (dv.kc_portee("appuis", [P6(10.0, 2.0)], 6.0), None),
+          "console, charge répartie": (dv.kc_portee("console", [q6(5.0)], 6.0), None),
+          "poutre continue": (dv.kc_portee("continue", [q6(5.0)], 6.0), None)}
+    c("test 1 du § 11.5 — k_c du tableau 6.6 reconnu seulement sur la portée d'un de ses schémas : charge centrale sur deux appuis 0,86 ; charge "
+      "répartie 0,94 ; répartie + centrale : hors tableau (k_c = 1) ; bi-encastrée sous charge répartie 0,90 ; encastrement partiel : hors "
+      "tableau (k_c = 1) ; bi-encastrée sous charge centrale 0,77 ; encastrée-appuyée 0,91 et 0,82 ; charge partielle, excentrée, console, "
+      "continue : hors tableau", all(x == y for x, y in kp.values()), {k: x for k, x in kp.items() if x[0] != x[1]})
+    kl = {"sans charge, 0 → 40 kN·m (ψ = 0)": (dv.kc_lineaire([], 0.0, 2.0, 0.0, 40.0), 1 / 1.33),
+          "sans charge, 30 → −15 (ψ = −0,5)": (dv.kc_lineaire([], 0.0, 6.0, 30.0, -15.0), 1 / (1.33 + 0.33 * 0.5)),
+          "charges aux bouts seulement (au droit des maintiens)": (dv.kc_lineaire([P6(20.0, 2.0), P6(20.0, 4.0)], 2.0, 4.0, 40.0, 40.0), 1.0),
+          "une charge ponctuelle dedans": (dv.kc_lineaire([P6(20.0, 3.0)], 2.0, 4.0, 40.0, 40.0), None),
+          "une charge répartie qui déborde dedans": (dv.kc_lineaire([q6(5.0, 0.0, 2.5)], 2.0, 4.0, 40.0, 40.0), None),
+          "un couple dedans": (dv.kc_lineaire([C6(5.0, 3.0)], 2.0, 4.0, 40.0, 30.0), None),
+          "pas de moment": (dv.kc_lineaire([], 0.0, 2.0, 0.0, 0.0), None)}
+    c("tableau 6.6, moment linéaire reconnu sur un tronçon de la barre chargée SANS charge dedans (kc_lineaire) : k_c = 1/(1,33 − 0,33·ψ), ψ = le "
+      "plus petit moment d'extrémité sur le plus grand, signé ; une charge ou un couple dedans, ou pas de moment : hors tableau (k_c = 1)",
+      all((x is None and y is None) or (x is not None and y is not None and proche(x, y)) for x, y in kl.values()),
+      {k: x for k, x in kl.items()})
+    # SCIA S1 : charge répartie + charge centrale, catalogue du site, semelle haute — hors tableau 6.6 : k_c = 1, f = 1 (19.2 du brief)
+    sc = SE.du_catalogue("IPE 300")
+
+    def s1(zg):
+        tr_ = {"L": L, "moment": M23, "reparties": [(0.0, L, qEd, zg)], "ponctuelles": [(L / 2, PEd, zg)]}
+        return v(sc, "S235", L, MyEd=68.70e6, deversement={"troncon": tr_})
+
+    r = s1(150.0)
+    D = r["grandeurs"]["deversement"]
+    c("SCIA S1 (IPE 300 S235 du catalogue, 6 m, charge répartie + charge centrale sur la semelle haute) : diagramme hors du tableau 6.6, "
+      "k_c = 1 et f = 1 — M_cr 86,36 kN·m ; λ̄_LT 1,308 ; χ_LT 0,4232 ; M_b,Rd 62,49 kN·m ; taux 1,099 (SCIA : 1,08 avec son k_c tiré de C₁)",
+      D["kc"] == 1.0 and not D["kc_tabule"] and D["f"] == 1.0 and round(D["M_cr"] / 1e6, 2) == 86.36 and round(D["lambda_LT"], 3) == 1.308
+      and round(D["chi_LT"], 4) == 0.4232 and round(limite(r, "E-Mb"), 2) == 62.49 and round(taux(r, "E-Mb"), 3) == 1.099,
+      (D["M_cr"], D["chi_LT"], taux(r, "E-Mb")))
+    # R3, la colonne « § 6.3.2.2, courbe a, information » (DÉCISION BUREAU n° 4)
+    info = []
+    for zg in (0.0, 150.0):
+        I_ = r3(zg)["grandeurs"]["deversement"]["information"]
+        info.append((I_["methode"], I_["courbe"], round(I_["chi_LT"], 4), round(I_["M_b_Rd"] / 1e6, 2), round(I_["taux"], 3)))
+    c("R3, § 6.3.2.2 pour information (courbe a du tableau 6.4, DÉCISION BUREAU n° 4 : le § 6.3.2.3 décide) : centre de cisaillement "
+      "0,5838 / 86,22 kN·m / 0,797 ; semelle haute 0,4687 / 69,21 kN·m / 0,993",
+      info == [("§ 6.3.2.2", "a", 0.5838, 86.22, 0.797), ("§ 6.3.2.2", "a", 0.4687, 69.21, 0.993)], info)
+    D23, D22 = (v(s, "S235", L, MyEd=60e6, flexion={"y": {"diagramme": "reparti"}}, parametres=p_)["grandeurs"]["deversement"]
+                for p_ in ({}, {"methode_deversement_lamines": "6.3.2.2"}))
+    c("DÉCISION BUREAU n° 4 changée dans la table (« methode_deversement_lamines » = 6.3.2.2) : le § 6.3.2.2 décide (courbe a, k_c = 1, f = 1) ; "
+      "le § 6.3.2.3 passe en information, avec la valeur qui décidait par défaut",
+      D22["methode"] == "§ 6.3.2.2" and D22["courbe"] == "a" and D22["kc"] == 1.0 and proche(D22["chi_LT"], dv.chi_general(D22["lambda_LT"], 0.21))
+      and D22["information"]["methode"] == "§ 6.3.2.3" and proche(D22["information"]["chi_LT"], D23["chi_LT"])
+      and proche(D23["information"]["chi_LT"], D22["chi_LT"]), (D22.get("methode"), D22.get("chi_LT"), D23.get("chi_LT")))
+    # C₁ de l'étape 1 (annexe E ANB) : le solveur, la charge RAMENÉE au centre de cisaillement — pas le M_cr de la charge en haut
+    rc1 = v(s, "S235", L, NEd=150e3, MyEd=50e6, flexion={"y": {"diagramme": "reparti"}}, deversement={"niveau": "haut"})
+    Dc1 = rc1["grandeurs"]["deversement"]
+    c("C₁ de l'annexe D ANB, étape 1 (annexe E ANB, méthode avancée) : charge répartie sur la semelle haute — C₁ = M_cr(charge au centre de "
+      "cisaillement)/M_cr,0 = 102,31/90,47 = 1,131 (R1), et non 78,83/90,47 = 0,871 ; il entre dans la limite de λ̄_0",
+      round(Dc1["C1"], 3) == 1.131 and round(Dc1["M_cr"] / 1e6, 2) == 78.83 and proche(rc1["grandeurs"]["annexe_A"]["C1"], Dc1["C1"]), Dc1["C1"])
+    # test 9 du § 11.5 — le couple de l'ANB:2018, 6.3.2.3(1)
+    def couple(Lb=L, **k):
+        r_ = v(s, "S235", Lb, MyEd=60e6, **k)
+        D_ = r_["grandeurs"]["deversement"]
+        return ((D_["lambda_LT0"], D_["beta"]), bool(D_["variante"]), [a["code"] for a in r_["alertes"]], D_,
+                [a["message"] for a in r_["alertes"] if a["code"] == "variante_refusee"])
+    var2 = {"couple": "variante", "maintiens_negliges": 2}
+    cst = {"L": L, "moment": lambda x: 60e6}
+    rv = couple(deversement=var2)
+    rdef = couple(deversement={"maintiens_negliges": 2})
+    rtr = couple(deversement={**var2, "troncon": {**cst, "entre_appuis": True}})          # un tronçon d'un appui à l'autre, sans maintien
+    refus = {"hors bâtiment": couple(deversement=var2, ouvrage="autre"), "aucun maintien": couple(deversement={"couple": "variante"}),
+             "M_cr donné": couple(deversement={**var2, "Mcr": 300e6}),
+             "maintiens comptés dans M_cr (un maintien dans le tronçon)": couple(deversement={**var2, "troncon": {**cst, "entre_appuis": True,
+                                                                                                                  "maintiens": [(L / 2, -144.65)]}}),
+             "maintiens comptés dans M_cr (L_c = 2 m < 6 m)": couple(deversement={**var2, "Lc": 2000.0}),
+             "maintiens comptés dans M_cr (tronçon borné par des maintiens)": couple(deversement={**var2, "troncon": cst}),
+             "portée non donnée": couple(None, deversement={**var2, "Lc": L})}
+    lbv = rv[3]["lambda_LT"]
+    c("test 9 du § 11.5 — couple (0,2 ; 1,0) par défaut (aucun maintien, ou des maintiens comptés dans M_cr, ou la variante non demandée) ; la "
+      "variante (0,4 ; 0,75) seulement pour une poutre de bâtiment avec maintiens TOUS ignorés dans M_cr, sur demande, sur un tronçon d'un appui "
+      "à l'autre ; refusée, avec son motif court, hors bâtiment, sans maintien, avec M_cr donné, avec un maintien dans le tronçon, avec L_c plus "
+      "court que la barre, sur un tronçon borné par des maintiens, sans portée",
+      rv[0] == (0.4, 0.75) and rv[1] and proche(rv[3]["chi_LT"], min(chi_de(lbv, 0.34, 0.4, 0.75), 1 / lbv ** 2)) and "variante_refusee" not in rv[2]
+      and rtr[0] == (0.4, 0.75) and rtr[1] and not rtr[2] and rdef[0] == (0.2, 1.0) and not rdef[1] and not rdef[2]
+      and all(x[0] == (0.2, 1.0) and not x[1] and x[4] == [f"Variante (0,4 ; 0,75) refusée : {m.split(' (')[0]}."] for m, x in refus.items()),
+      {"admise": [x[:3] for x in (rv, rtr, rdef)], "refusée": {m: x[:3] + (x[4],) for m, x in refus.items()}})
+    # test 10 du § 11.5 — χ_LT,mod(§ 6.3.2.3)/χ_LT(§ 6.3.2.2), couple (0,2 ; 1,0) ; h/b ≤ 2 : courbes b et a ; h/b > 2 : c et b
+    def rapport(lb, kc, cl=0.34, cg=0.21):
+        return dv.chi_lamine(lb, cl, 0.2, 1.0, kc)["chi"] / dv.chi_general(lb, cg)
+
+    kpsi = 1 / (1.33 + 0.33)                                                   # ψ = −1 : k_c = 0,6024
+
+    def maximum(cl, cg):
+        lo, hi = 0.4, 1.0
+        for _ in range(80):                                                    # section dorée : le rapport n'a qu'un sommet ici
+            a1, a2 = lo + 0.382 * (hi - lo), lo + 0.618 * (hi - lo)
+            lo, hi = (a1, hi) if rapport(a1, kpsi, cl, cg) < rapport(a2, kpsi, cl, cg) else (lo, a2)
+        x = 0.5 * (lo + hi)
+        return round(rapport(x, kpsi, cl, cg), 4), round(x, 4)
+
+    tab = {1.0: (0.972, 0.941, 0.910, 0.897, 0.902, 0.919), 0.86: (1.021, 1.005, 0.979, 0.959, 0.947, 0.920),
+           kpsi: (1.050, 1.124, 1.136, 1.098, 1.043, 0.923)}
+    faux = [(k, lb, round(rapport(lb, k), 3), x) for k, xs in tab.items() for lb, x in zip((0.4, 0.6, 0.8, 1.0, 1.2, 1.5), xs) if round(rapport(lb, k), 3) != x]
+    plafond6_58 = [(c0, a_, k_, lb) for c0 in ((0.2, 1.0), (0.4, 0.75)) for a_ in (0.34, 0.49, 0.76) for k_ in (kpsi, 0.7, 0.8, 0.86, 0.94, 1.0)
+                   for lb in [c0[0] + 0.01 + 0.01 * i for i in range(int((3.0 - c0[0]) / 0.01))]
+                   if dv.chi_lamine(lb, a_, c0[0], c0[1], k_)["chi"] < min(dv.chi_lamine(lb, a_, c0[0], c0[1], k_)["chi0"] / min(1.0, 1 - 0.5 * (1 - k_) * (1 - 2 * (lb - 0.8) ** 2)), 1.0) - 1e-12]
+    c("test 10 du § 11.5 — rapport χ_LT,mod(§ 6.3.2.3)/χ_LT(§ 6.3.2.2), h/b ≤ 2 : à λ̄_LT = 0,8, k_c = 1 → 0,9105, ψ = −1 → 1,1364 ; maximum "
+      "1,1508 à λ̄_LT = 0,6525 ; h/b > 2 : 1,1494 à 0,6511 ; le tableau du § 7.7 (k_c = 1 ; 0,86 ; 0,6024) ; balayage des deux couples, "
+      "α_LT 0,34 / 0,49 / 0,76, k_c de 0,6024 à 1, λ̄_LT jusqu'à 3 : le second plafond de (6.58) ne change aucun résultat",
+      round(rapport(0.8, 1.0), 4) == 0.9105 and round(rapport(0.8, kpsi), 4) == 1.1364 and maximum(0.34, 0.21) == (1.1508, 0.6525)
+      and maximum(0.49, 0.34) == (1.1494, 0.6511) and not faux and not plafond6_58,
+      (round(rapport(0.8, 1.0), 4), round(rapport(0.8, kpsi), 4), maximum(0.34, 0.21), maximum(0.49, 0.34), faux[:3], plafond6_58[:3]))
+    # test 19 du § 11.5 — C_mi,0 (tableau D.1 ANB) : la formule générale donne π²/12 (charge centrale) et 5π²/48 (charge répartie)
+    coef = {k: (x[0] - 1) / ry + 1 for k, x in cas.items()}
+    c("test 19 du § 11.5 — tableau D.1 ANB : charge centrale 1 − 0,18·N/N_cr, charge répartie 1 + 0,03·N/N_cr ; la formule générale, avec la flèche "
+      "et le moment exacts, a pour coefficient π²/12 = 0,8225 (charge centrale) et 5π²/48 = 1,0281 (charge répartie)",
+      proche(coef["ponctuel"], PI2 / 12, 1e-6) and proche(coef["reparti"], 5 * PI2 / 48, 1e-6) and round(coef["ponctuel"], 4) == 0.8225
+      and round(coef["reparti"], 4) == 1.0281, coef)
+    # R1 et tests 20, 21 du § 11.5 — l'annexe E ANB, contrôle analytique (le solveur reste la référence)
+    def ae(G):
+        a_, b_, g_ = E_ * Iz, E_ * Iw, G * It
+        out = [me.controle(me.MOMENTS, L, a_, b_, g_, psi=1.0)["M_cr"]]
+        for cas_ in (me.REPARTI, me.PONCTUEL):
+            out += [me.controle(cas_, L, a_, b_, g_, zg=zg)["M_cr"] for zg in (0.0, 150.0, -150.0)]
+        return [round(x / 1e6, 2) for x in out]
+
+    ae81, ae80 = ae(G_), ae(E_ / 2.6)
+    ecarts_r1 = [round((x / y - 1) * 100, 2) for x, y in zip(ae81[1:], r1)]          # (sur les valeurs arrondies au centième : ±0,01 %)
+    c("R1 (§ 11.3) — annexe E ANB, G = 81 000 : 90,47 / 101,33 / 78,40 / 130,96 / 122,14 / 87,47 / 170,54 kN·m ; écarts au solveur −0,96 / −0,54 / "
+      "−1,30 / −0,80 / −1,93 / +0,94 % (test 20 ; la charge centrale sous la semelle basse dépasse le solveur : l'annexe n'est pas toujours "
+      "sécuritaire, elle est le contrôle) ; avec G = E/2,6 sans arrondi : 90,38 / 101,23 / 78,30 / 130,86 / 122,02 / 87,36 / 170,42",
+      ae81 == [90.47, 101.33, 78.40, 130.96, 122.14, 87.47, 170.54] and ae80 == [90.38, 101.23, 78.30, 130.86, 122.02, 87.36, 170.42]
+      and all(abs(x - y) <= 0.011 for x, y in zip(ecarts_r1, (-0.96, -0.54, -1.30, -0.80, -1.93, 0.94))), (ae81, ae80, ecarts_r1))
+    kwt = me.k_wt(L, E_ * Iw, G_ * It)
+    nb = [me.coefficients(me.MOMENTS, p_, kwt)["C1"] for p_ in (0.0, 0.75, 1.0)]
+    c("test 21 du § 11.5 — note b de l'annexe E : IPE 300, 6 m, K_ωt = 0,667 ≤ 1 → ψ = 0 : C₁ = 1,77/1,05 = 1,686 ; ψ = 0,75 : 1,086 ; ψ = 1 : 1,00 "
+      "(et non 0,952) ; K_ωt > 1 : C₁ inchangé ; la note ne touche pas les charges transversales (1,12)",
+      round(kwt, 3) == 0.667 and [round(x, 3) for x in nb] == [1.686, 1.086, 1.0] and me.coefficients(me.MOMENTS, 0.0, 1.2)["C1"] == 1.77
+      and me.coefficients(me.REPARTI, None, 0.5)["C1"] == 1.12 and _leve(lambda: me.coefficients("sinus")), (kwt, nb))
+    # test 26 du § 11.5 — l'annexe D ANB et l'annexe A
+    r0 = v("IPE 300", "S235", 4000.0, NEd=1.0, MyEd=60e6, MzEd=8e6, flexion={"y": {"diagramme": "ponctuel"}})
+    A0 = r0["grandeurs"]["annexe_A"]
+    c("test 26 du § 11.5 — N_Ed → 0 (1 N) : C_zz → 1 alors que e_LT ≠ 0 (e_LT est DANS le facteur n_pl : AC:2009, annexe D ANB p. 28 ; le texte "
+      "de 2005 donnait C_zz = 1 − (w_z − 1)·e_LT)", A0["etape"] == "2.b" and A0["e_LT"] > 0.1 and abs(A0["C_zz"] - 1.0) < 1e-5,
+      (A0.get("e_LT"), A0.get("C_zz")))
+    r3_ = v("HEA 300", "S355", 5000.0, NEd=500e3, MyEd=150e6, MzEd=30e6)
+    A3 = r3_["grandeurs"]["annexe_A"]
+    ry3, rz3 = A3["mu_y"], A3["mu_z"]
+    Fz3 = r3_["grandeurs"]["flambement"]
+    q_y, q_z = 500e3 / Fz3["y"]["N_cr"], 500e3 / Fz3["z"]["N_cr"]
+    # l'écriture de l'annexe D ANB en classe 3 : w = 1, C_yy = C_zz = 1, C_yz = C_zy = 0,6, avec les facteurs 0,6·√(w/w) qui restent
+    kD = {"k_yy": A3["C_my"] * A3["C_mLT"] * ry3 / (1 - q_y) / 1.0, "k_yz": 0.6 * math.sqrt(1.0) * A3["C_mz"] * ry3 / (1 - q_z) / 0.6,
+          "k_zy": 0.6 * math.sqrt(1.0) * A3["C_my"] * A3["C_mLT"] * rz3 / (1 - q_y) / 0.6, "k_zz": A3["C_mz"] * rz3 / (1 - q_z) / 1.0}
+    c("test 26 — classes 3 et 4 : l'écriture de l'annexe D ANB (w = 1, C_yy = C_zz = 1, C_yz = C_zy = 0,6) et celle de l'annexe A (facteurs "
+      "supprimés) donnent les mêmes k_ij (HEA 300 S355, classe 3)", r3_["grandeurs"]["classe"] == 3 and all(proche(A3[k], x) for k, x in kD.items()),
+      {k: (A3[k], x) for k, x in kD.items()})
+    pg = brut("IPE 300")
+    rg1, rg5 = (v("IPE 300", "S235", 4000.0, NEd=200e3, MyEd=50e6, MzEd=5e6, flexion={"y": {"diagramme": "ponctuel"}}, parametres=p_)
+                for p_ in ({}, {"gamma_M0": 1.05}))
+    var = rg5["grandeurs"]["annexe_A"].get("variante_gamma_M0")
+    qg = barre_annexe("IPE 300", 235.0, 4000.0, 200e3, 50e6, 5e6, ("ponctuel", 1.0), ("constant", 1.0), (0.21, 0.34), 1,
+                      section=rg5["grandeurs"]["deversement"]["M_cr"], alpha_LT=0.34, kc=0.86)
+    qg["gM0"] = 1.05
+    att1, att0 = annexe_A(dict(qg, gM=1.0)), annexe_A(dict(qg, gM=1.05))
+    c("test 26 — n_pl : γ_M0 = γ_M1 = 1,00, les deux écritures se confondent (aucune variante, aucun message) ; γ_M0 = 1,05 ≠ γ_M1 : l'annexe D "
+      "ANB (γ_M1) décide, la variante γ_M0 (annexe A corrigée) est calculée et affichée, avec un message « à confirmer »",
+      "variante_gamma_M0" not in rg1["grandeurs"]["annexe_A"] and not any(a["code"] == "npl_gamma_M0" for a in rg1["alertes"])
+      and var is not None and any(a["code"] == "npl_gamma_M0" for a in rg5["alertes"]) and proche(taux(rg5, "E-661"), att1["t61"], 1e-9)
+      and proche(var["t61"], att0["t61"], 1e-9) and proche(var["t62"], att0["t62"], 1e-9) and var["t61"] != taux(rg5, "E-661")
+      and [x["cle"] for x in rg5["grandeurs"]["a_confirmer"]] == ["npl_gamma"] and rg1["grandeurs"]["a_confirmer"] == [],
+      (taux(rg5, "E-661"), att1["t61"], var, att0["t61"]))
+    # étape 1 : I_t ≥ I_y — non susceptible de se déformer par torsion, quel que soit λ̄_0 (étape 2.a : ni χ_LT ni C_mLT)
+    sf = SE.saisie("tube_rect", "creux_chaud", nom="fictif", h=300.0, b=100.0, t=8.0, A=6000.0, Iy=6.0e7, Iz=0.6e6, iy=100.0, iz=10.0,
+                   Wel_y=4.0e5, Wel_z=1.2e4, Wpl_y=4.8e5, Wpl_z=1.5e4, It=6.0e7)
+    rf = v(sf, None, 4000.0, fy=355.0, NEd=20e3, MyEd=60e6)
+    Af, Df = rf["grandeurs"]["annexe_A"], rf["grandeurs"]["deversement"]
+    ff = rf["grandeurs"]["flambement"]
+    att_f = 20e3 / (ff["y"]["chi"] * 6000.0 * 355.0) + Af["k_yy"] * 60e6 / (4.8e5 * 355.0)
+    c("annexe D ANB, étape 1 : I_t ≥ I_y → « non susceptible de se déformer par torsion » même si λ̄_0 dépasse la limite (étape 2.a : (6.61) sans "
+      "χ_LT = 0,76 ni C_mLT)", Af["It_sup_Iy"] and Af["etape"] == "2.a" and Df["chi_LT"] < 0.8 and Af["lambda_0"] > Af["lambda_0_lim"]
+      and Af["C_mLT"] == 1.0 and proche(taux(rf, "E-661"), att_f, 1e-9), (Af.get("etape"), Df.get("chi_LT"), taux(rf, "E-661"), att_f))
+    # tests 3 et 7 du § 11.5 (partie EC3) : tubes ronds et carrés, χ_LT = 1 ; tube rond de classe 4 « non couvert »
+    tubes = [v(n_, "S355", 6000.0, MyEd=30e6)["grandeurs"]["deversement"] for n_ in ("CHS 168.3x6.3", "SHS 200x200x6.3")]
+    Dr, Ep = 610.0, 12.5
+    Ar = math.pi * (Dr ** 2 - (Dr - 2 * Ep) ** 2) / 4
+    Ir = math.pi * (Dr ** 4 - (Dr - 2 * Ep) ** 4) / 64
+    realex = SE.saisie("tube_rond", "creux_chaud", nom="REALEX", h=Dr, b=Dr, d=Dr, t=Ep, A=Ar, Iy=Ir, Iz=Ir, iy=math.sqrt(Ir / Ar), iz=math.sqrt(Ir / Ar),
+                       Wel_y=Ir / (Dr / 2), Wel_z=Ir / (Dr / 2), Wpl_y=(Dr ** 3 - (Dr - 2 * Ep) ** 3) / 6, Wpl_z=(Dr ** 3 - (Dr - 2 * Ep) ** 3) / 6, It=2 * Ir)
+    rr = v(realex, None, 10000.0, fy=450.0, NEd=5000e3)
+    c("tests 3 et 7 du § 11.5 (Eurocode 3) : tube rond et tube carré, pas de déversement (χ_LT = 1, aucune vérification E-Mb) ; tube REALEX "
+      "Ø610×12,5 à f_y = 450 : D/t = 48,8 > 90·ε² = 47,0, classe 4 → « non couvert » (EN 1993-1-6)",
+      all(t_["chi_LT"] == 1.0 and t_["cas"] == dv.SANS_OBJET for t_ in tubes) and rr["statut"] == RE.NON_COUVERT and rr["grandeurs"]["classe"] == 4,
+      (tubes, rr["statut"]))
+    # § 11.2 — le HEB 200 avec les DONNÉES DU CLASSEUR (i_z = 5,07 cm, A = 7 810 mm² : I_z = A·i_z²)
+    hc = SE.saisie("I", "lamine", nom="HEB 200 (classeur)", h=200.0, b=200.0, tw=9.0, tf=15.0, r=18.0, A=7810.0, Iy=5696e4, Iz=7810.0 * 50.7 ** 2,
+                   iy=85.4, iz=50.7, Wel_y=569.6e3, Wel_z=200.3e3, Wpl_y=642.5e3, Wpl_z=305.8e3, It=59.28e4, Iw=171.1e9)
+    rc_ = v(hc, "S235", 7200.0, NEd=432.72e3)
+    Fc = rc_["grandeurs"]["flambement"]["z"]
+    c("§ 11.2 — HEB 200 S235, axe z, L_cr = 7,20 m, données du classeur (i_z = 5,07 cm) : λ̄_z = 1,5122 ; χ_z = 0,3106 ; N_b,z,Rd = 570,1 kN",
+      round(Fc["lambda_bar"], 4) == 1.5122 and round(Fc["chi"], 4) == 0.3106 and round(Fc["N_b_Rd"] / 1e3, 1) == 570.1, Fc)
     return C
 
 
@@ -680,7 +991,7 @@ def cas_formules():
         {"section": cat("IPE 500"), "nuance": "S235", "NEd": 500e3, "MyEd": 200e6, "MzEd": 25e6, "axes": {"y": {"L": 3750.0}, "z": {"L": 3750.0}},
          "flexion": {"y": {"diagramme": "reparti"}, "z": {"diagramme": "lineaire", "psi": 0.0}}},
         {"section": cat("IPE 500"), "nuance": "S235", "NEd": 500e3, "MyEd": 200e6, "MzEd": 25e6, "axes": {"y": {"L": 3750.0}, "z": {"L": 3750.0}},
-         "flexion": {"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "ponctuel"}}, "parametres": {"borne_Cmi0": "aucune"}},
+         "flexion": {"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "ponctuel"}}, "parametres": {"gamma_M0": 1.05}},
         {"section": cat("HEA 300"), "nuance": "S355", "NEd": 500e3, "MyEd": 150e6, "MzEd": 30e6, "axes": {"y": {"L": 5000.0}, "z": {"L": 5000.0}}},
         {"section": cat("SHS 200x200x6.3"), "nuance": "S355", "NEd": 600e3, "MyEd": 50e6, "MzEd": 30e6, "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}},
          "flexion": {"y": {"diagramme": "lineaire", "psi": -0.5}, "z": {"diagramme": "ponctuel"}}},
@@ -702,6 +1013,15 @@ def cas_formules():
          "deversement": {"troncon": {"L": L, "moment": lambda x: 60e6, "maintiens": [(L / 2, -144.65)]}}},
         {"section": ipe300_du_brief(), "nuance": "S235", "MyEd": 60e6, "axes": {"y": {"L": L}, "z": {"L": L}},
          "deversement": {"kc": 0.1, "Mcr": 122.0e6}},                                         # χ_LT,mod au plafond 1/λ̄_LT² (β = 1)
+        # (lot B) étape 2.a de l'annexe D ANB, classes 1 et 2 : C_ij sans b_LT…e_LT, (6.61) sans χ_LT
+        {"section": cat("HEB 200"), "nuance": "S235", "NEd": 300e3, "MyEd": 30e6, "MzEd": 8e6, "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}},
+         "deversement": {"actif": False}},
+        {"section": cat("IPE 300"), "nuance": "S235", "MyEd": 40e6, "MzEd": 5e6, "axes": {"y": {"L": 4000.0}, "z": {"L": 4000.0}},
+         "deversement": {"Lc": 0.0}},
+        # (lot B) C₁ par le solveur avec la charge sur la semelle haute, la variante du couple, γ_M0 ≠ γ_M1
+        {"section": cat("IPE 300"), "nuance": "S235", "NEd": 150e3, "MyEd": 50e6, "axes": {"y": {"L": 5000.0}, "z": {"L": 5000.0}},
+         "flexion": {"y": {"diagramme": "reparti"}}, "deversement": {"niveau": "haut", "couple": "variante", "maintiens_negliges": 1},
+         "parametres": {"gamma_M0": 1.05}},
     ]
 
 
@@ -719,7 +1039,7 @@ def charger(mutation=None):
         mod.__package__ = "acier.barre"
         exec(compile(src, CHEMINS[k], "exec"), mod.__dict__)
         mods[k] = mod
-    mods["ec3_deversement"].MC = mods["mcr"]
+    mods["ec3_deversement"].MC = mods["mcr"]                     # (mcr_annexe_e n'importe rien du module)
     mods["ec3_interaction"].DV = mods["ec3_deversement"]
     e = mods["ec3"]
     e.FL, e.DV, e.IN, e.MC = mods["ec3_flambement"], mods["ec3_deversement"], mods["ec3_interaction"], mods["mcr"]
@@ -784,12 +1104,73 @@ MUTATIONS = [
     ("ec3_deversement", "charge répartie de moitié (q = 4M/L²)", 'charges = {"reparties": [(0.0, L, 8.0 * M / L ** 2, zg)]}', 'charges = {"reparties": [(0.0, L, 4.0 * M / L ** 2, zg)]}'),
     ("ec3_deversement", "diagramme linéaire pris constant", "            return M * (1.0 - (1.0 - psi) * x / L)\n", "            return M\n"),
     ("ec3_deversement", "tube carré vérifié au déversement comme un I", 'if not My > 0 or s["forme"] not in ("I", "tube_rect"):', 'if not My > 0 or s["forme"] not in ("I", "tube_rect", "tube_carre"):'),
-    ("ec3_deversement", "C₁ = 1/k_c", '"C1": 1.0 / kc ** 2', '"C1": 1.0 / kc'),
+    ("ec3_deversement", "lot B — C₁ = k_c⁻² (AC:2009) au lieu de l'annexe E ANB (le solveur)", "        C1 = (Mcr_c or Mcr0) / Mcr0\n",
+     "        C1 = 1.0 / kc ** 2\n"),
+    ("ec3_deversement", "lot B — C₁ avec la hauteur de charge (non ramenée au centre de cisaillement)",
+     'Mcr_c = Mcr if centre else _critique(s, P, _au_centre(tr))["M_cr"]', "Mcr_c = Mcr"),
+    ("ec3_deversement", "lot B — k_c : la bi-encastrée prise comme deux appuis (0,94)", '("bi_enc", REPARTI): 0.90', '("bi_enc", REPARTI): 0.94'),
+    ("ec3_deversement", "lot B — k_c : l'encastrée-appuyée sous charge centrale prise comme deux appuis", '("enc_app", PONCTUEL): 0.82', '("enc_app", PONCTUEL): 0.86'),
+    ("ec3_deversement", "lot B — k_c : une charge répartie PARTIELLE prise comme répartie", 'ch.get("a", 0.0) <= tol and ch.get("b", L) >= L - tol', "True"),
+    ("ec3_deversement", "lot B — k_c linéaire : une charge ponctuelle dans le tronçon ignorée", 'if ch["type"] in ("P", "C") and x1 + tol < ch["a"] < x2 - tol:',
+     'if ch["type"] in ("C",) and x1 + tol < ch["a"] < x2 - tol:'),
+    ("ec3_deversement", "lot B — k_c linéaire : une charge répartie qui déborde dans le tronçon ignorée",
+     'if ch["type"] in ("q", "tri") and ch.get("a", 0.0) < x2 - tol and ch.get("b", x2) > x1 + tol:', 'if False:'),
+    ("ec3_deversement", "lot B — k_c linéaire : ψ = le plus grand sur le plus petit", "    return coefficient_kc(LINEAIRE, petit / grand)[0]\n",
+     "    return coefficient_kc(LINEAIRE, max(-1.0, min(1.0, grand / petit if petit else 1.0)))[0]\n"),
+    ("ec3_deversement", "lot B — k_c : les couples d'extrémité ignorés (l'encastrement partiel pris pour deux appuis)",
+     '    vraies = [ch for ch in charges if ch.get("v")]', '    vraies = [ch for ch in charges if ch.get("v") and ch["type"] != "C"]'),
+    ("ec3_deversement", "lot B — variante admise hors bâtiment", '    if ouvrage != "batiment":', "    if False:"),
+    ("ec3_deversement", "lot B — variante admise sans maintien", '    if not dev.get("maintiens_negliges"):', "    if False:"),
+    ("ec3_deversement", "lot B — variante admise avec un maintien compté dans M_cr", '    if tr["maintiens"]:\n        return False, MAINTIENS_COMPTES',
+     '    if False:\n        return False, MAINTIENS_COMPTES'),
+    ("ec3_deversement", "lot B — variante admise avec un M_cr donné (il peut compter les maintiens)", '    if dev.get("Mcr") is not None:', "    if False:"),
+    ("ec3_deversement", "lot B — variante admise sur un tronçon borné par des maintiens (barre chargée)", '        if not tr.get("entre_appuis"):',
+     "        if False:"),
+    ("ec3_deversement", "lot B — variante admise avec L_c plus court que la barre (efforts imposés)", '    elif tr["L"] < portee * (1.0 - 1e-9):', "    elif False:"),
+    ("ec3_deversement", "lot B — variante admise sans portée connue", "    elif not portee > 0:", "    elif False:"),
+    ("ec3_deversement", "lot B — la portée de la barre non transmise au contrôle de la variante",
+     'couple_anb(dev, tr, d["ouvrage"], max(d["axes"]["y"]["L"], d["axes"]["z"]["L"]))', 'couple_anb(dev, tr, d["ouvrage"])'),
+    ("ec3_deversement", "lot B — le couple par défaut surchargé sans le dire", '    if defaut != (PA.valeur("lambda_LT0_avec_maintiens")',
+     '    if False and defaut != (PA.valeur("lambda_LT0_avec_maintiens")'),
+    ("ec3_deversement", "lot B — variante appliquée sans être demandée", '    if dev.get("couple", "defaut") != "variante":', "    if False:"),
+    ("ec3_deversement", "lot B — variante demandée et permise, mais jamais appliquée", '            lbLT0, beta = P["lambda_LT0_variante"], P["beta_variante"]',
+     "            pass"),
+    ("ec3_deversement", "lot B — § 6.3.2.2 avec les courbes du § 6.3.2.3 (tableau 6.5 au lieu de 6.4)",
+     'COURBES_GENERALES = {"lamine": ("a", "b"), "soude": ("c", "d")}', 'COURBES_GENERALES = {"lamine": ("b", "c"), "soude": ("c", "d")}'),
+    ("ec3_deversement", "lot B — § 6.3.2.2 avec λ̄_LT,0 = 0,4", "    Phi = 0.5 * (1.0 + alpha * (lbLT - 0.2) + lbLT ** 2)\n",
+     "    Phi = 0.5 * (1.0 + alpha * (lbLT - 0.4) + lbLT ** 2)\n"),
+    ("ec3_deversement", "lot B — la DÉCISION BUREAU n° 4 lue dans le code (le paramètre ignoré)",
+     'if famille == "lamine" and P["methode_deversement_lamines"] == "6.3.2.2":', "if False:"),
+    ("ec3_deversement", "lot B — χ_LT,mod sans le plafond 1/λ̄_LT² de (6.58) (AC:2009)", "    chi = min(chi0 / f, plafond)\n",
+     "    chi = min(chi0 / f, 1.0)\n"),
     ("ec3_deversement", "M_b,Rd avec γ_M0 = 1 en dur", "    MbRd = chi * Wy * fy / gM1\n", "    MbRd = chi * Wy * fy\n"),
     ("ec3_interaction", "charge répartie : 1 − 0,18 (les deux cas échangés, l'erreur du brief)", "        c = 1.0 + 0.03 * r\n", "        c = 1.0 - 0.18 * r\n"),
     ("ec3_interaction", "charge concentrée : 1 + 0,03", "        c = 1.0 - 0.18 * r\n", "        c = 1.0 + 0.03 * r\n"),
     ("ec3_interaction", "moment linéaire : ψ + 0,33", 'c = 0.79 + 0.21 * fl["psi"] + 0.36 * (fl["psi"] - 0.33) * r', 'c = 0.79 + 0.21 * fl["psi"] + 0.36 * (fl["psi"] + 0.33) * r'),
-    ("ec3_interaction", "borne inférieure de C_mi,0 retirée", "    if borne and c < 1.0 - r:", "    if False:"),
+    ("ec3_interaction", "lot B — la borne inférieure de C_mi,0 revenue (1 − N_Ed/N_cr ; le tableau D.1 ANB n'en a pas)", "    return c\n",
+     "    return max(c, 1.0 - r)\n"),
+    ("ec3_interaction", "lot B — C_zz : e_LT hors du facteur n_pl (le texte de 2005)",
+     "Czz = 1.0 + (wz - 1.0) * (2.0 - 1.6 / wz * Cmz ** 2 * lbmax - 1.6 / wz * Cmz ** 2 * lbmax ** 2 - eLT) * npl",
+     "Czz = 1.0 + (wz - 1.0) * ((2.0 - 1.6 / wz * Cmz ** 2 * lbmax - 1.6 / wz * Cmz ** 2 * lbmax ** 2) * npl - eLT)"),
+    ("ec3_interaction", "lot B — étape 2.a : χ_LT gardé dans (6.61), (6.62)", '    chiLT = D["chi_LT"] if susceptible else 1.0\n', '    chiLT = D["chi_LT"]\n'),
+    ("ec3_interaction", "lot B — étape 2.a : b_LT à e_LT gardés (l'annexe A, pas l'annexe D ANB)", "        if susceptible:\n            bLT = ",
+     "        if aLT > 0 and lb0 > 0:\n            bLT = "),
+    ("ec3_interaction", "lot B — étape 1 : le facteur (1 − N_Ed/N_cr,TF) oublié dans la limite de λ̄_0",
+     "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz) * (1.0 - rT)) ** 0.25", "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz)) ** 0.25"),
+    ("ec3_interaction", "lot B — étape 1 : I_t ≥ I_y ignoré", 'rigide = bool(s.get("It")) and s["It"] >= s["Iy"]', "rigide = False"),
+    ("ec3_interaction", "lot B — γ_M0 ≠ γ_M1 : la variante γ_M0 ni calculée ni affichée", "    if N > 0 and plastique and gM0 != gM1:", "    if False:"),
+    ("ec3_interaction", "lot B — la variante γ_M0 prise pour n_pl avec γ_M1", "        K0 = facteurs(N / (NRk / g_autre))\n", "        K0 = facteurs(N / (NRk / g_npl))\n"),
+    ("ec3_interaction", "lot B — γ_M0 ≠ γ_M1 : le point « à confirmer » n'est plus dit",
+     '    G["a_confirmer_interaction"] = ["npl_gamma"] if (N > 0 and plastique and gM0 != gM1) else []\n', '    G["a_confirmer_interaction"] = []\n'),
+    ("ec3_interaction", "lot B — n_pl avec γ_M0 par défaut (l'annexe A au lieu de l'annexe D ANB)", '(gM1, gM0) if P["npl_gamma"] != "gamma_M0" else (gM0, gM1)',
+     '(gM0, gM1) if P["npl_gamma"] != "gamma_M0" else (gM1, gM0)'),
+    ("mcr_annexe_e", "annexe E — C₂·z_g de signe retourné", "    a = C2 * zg\n", "    a = -C2 * zg\n"),
+    ("mcr_annexe_e", "annexe E — π² oublié devant G·I_t", "(kz * L) ** 2 * GIt / (math.pi ** 2 * EIz)", "(kz * L) ** 2 * GIt / EIz"),
+    ("mcr_annexe_e", "annexe E — C₂ de la charge centrale 0,63 (le NCCI SN003, pas l'ANB)", "PONCTUEL: (1.35, 0.59)", "PONCTUEL: (1.35, 0.63)"),
+    ("mcr_annexe_e", "annexe E — C₁ de la charge répartie 1,127 (SN003)", "TABLEAU_E2 = {REPARTI: (1.12, 0.45)", "TABLEAU_E2 = {REPARTI: (1.127, 0.45)"),
+    ("mcr_annexe_e", "annexe E, note b — C₁/1,05 descend sous 1", "max(C1 / DIVISEUR_NOTE_B, 1.0)", "C1 / DIVISEUR_NOTE_B"),
+    ("mcr_annexe_e", "annexe E, note b — appliquée quel que soit K_ωt", "        if Kwt is not None and Kwt <= 1.0:", "        if Kwt is not None:"),
+    ("mcr_annexe_e", "annexe E, note b — K_ωt sans π", "    return math.pi / (kw * L) * math.sqrt(EIw / GIt)", "    return 1.0 / (kw * L) * math.sqrt(EIw / GIt)"),
     ("ec3_interaction", "formule générale : sans π²", 'c = 1.0 + (math.pi ** 2 * E * inertie * abs(fl["delta"]) / (fl["L"] ** 2 * M) - 1.0) * r',
      'c = 1.0 + (E * inertie * abs(fl["delta"]) / (fl["L"] ** 2 * M) - 1.0) * r'),
     ("ec3_interaction", "μ_y = 1", "    muy = (1.0 - ry) / (1.0 - chiy * ry)\n", "    muy = 1.0\n"),
@@ -799,7 +1180,7 @@ MUTATIONS = [
     ("ec3", "lot A — l'indication « console » perdue à la lecture", '    d["console"] = bool(barre.get("console", False))\n', '    d["console"] = False\n'),
     ("ec3_interaction", "a_LT = 1 − I_t/I_z", 'aLT = max(1.0 - s["It"] / s["Iy"], 0.0) if s.get("It") else 0.0', 'aLT = max(1.0 - s["It"] / s["Iz"], 0.0) if s.get("It") else 0.0'),
     ("ec3_interaction", "limite de λ̄_0 : C₁ au lieu de √C₁", "lim = 0.2 * math.sqrt(C1) * ((1.0 - rz) * (1.0 - rT)) ** 0.25", "lim = 0.2 * C1 * ((1.0 - rz) * (1.0 - rT)) ** 0.25"),
-    ("ec3_interaction", "limite de λ̄_0 jamais franchie (C_mLT = 1 toujours)", "    susceptible = lb0 > lim and My > 0\n", "    susceptible = False\n"),
+    ("ec3_interaction", "limite de λ̄_0 jamais franchie (C_mLT = 1 toujours)", "    susceptible = lb0 > lim and My > 0 and not rigide\n", "    susceptible = False\n"),
     ("ec3_interaction", "C_my : sans le dénominateur", "Cmy = Cmy0 + (1.0 - Cmy0) * racine / (1.0 + racine)", "Cmy = Cmy0 + (1.0 - Cmy0) * racine"),
     ("ec3_interaction", "C_mLT sans le plancher 1", "        CmLT = max(brut, 1.0)\n", "        CmLT = brut\n"),
     ("ec3_interaction", "b_LT : coefficient 1 au lieu de 0,5", "bLT = 0.5 * aLT * lb0 ** 2 * ty * tz", "bLT = 1.0 * aLT * lb0 ** 2 * ty * tz"),
@@ -833,6 +1214,56 @@ def main():
     print("== 1 à 4. le flambement, le moment critique, le déversement, l'annexe A")
     for nom, ok, info in controles():
         chk(nom, ok, info)
+
+    print("== 4 bis. le tableau 6.6 reconnu par la barre chargée (acier/barre/moteur.py, de bout en bout)")
+
+    def kc_charge(modele, charges):
+        b = EN.nouvelle_barre("K")
+        b.update({"modele": modele, "travees": [6.0], "poids_propre": False, "methodes": ["ec3"],
+                  "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": charges}]})
+        D_ = MO.verifier(b)["methodes"]["ec3"]["grandeurs"]["deversement"]
+        return D_["kc"], D_["f"] < 1.0
+    q_ = {"type": "q", "v": 12.0, "a": 0.0, "b": 6.0}
+    bout = {"bi-encastrée, charge répartie": (kc_charge("bi_enc", [q_]), 0.90),
+            "deux appuis, charge répartie": (kc_charge("appuis", [q_]), 0.94),
+            "deux appuis, charge centrale": (kc_charge("appuis", [{"type": "P", "v": 40.0, "a": 3.0}]), 0.86),
+            "encastrée-appuyée, charge répartie": (kc_charge("enc_app", [q_]), 0.91),
+            "encastrement partiel (répartie + couples d'extrémité)": (kc_charge("appuis", [q_, {"type": "C", "v": -27.0, "a": 0.0},
+                                                                                          {"type": "C", "v": 27.0, "a": 6.0}]), 1.0),
+            "deux appuis, un seul couple d'extrémité (moment linéaire, ψ = 0)": (kc_charge("appuis", [{"type": "C", "v": 30.0, "a": 0.0}]), 1 / 1.33)}
+    chk("test 1 du § 11.5 de bout en bout (barre chargée de 6 m, IPE 300 S235, sans poids propre) : k_c = 0,90 pour la bi-encastrée sous charge "
+        "répartie, 0,94 et 0,86 sur deux appuis, 0,91 encastrée-appuyée, 1/1,33 sous un seul couple d'extrémité ; l'encastrement partiel "
+        "(couples d'extrémité et charge répartie) garde k_c = 1, f = 1",
+        all(abs(x[0] - y) < 1e-12 and x[1] == (y < 1.0) for x, y in bout.values()), {k: x for k, x in bout.items()})
+
+    vus = []
+    reel = MO.EC.verifier
+
+    def espion_ec(barre):
+        tr_ = (barre.get("deversement") or {}).get("troncon")
+        if tr_ is not None:
+            vus.append((round(tr_["L"]), tr_.get("entre_appuis")))
+        return reel(barre)
+
+    MO.EC.verifier = espion_ec
+    try:
+        bouts = {}
+        for nom_, maint in (("deux appuis, sans maintien", []), ("deux appuis, maintien complet à 2 m", [{"x": 2.0, "genre": "complet"}]),
+                            ("deux appuis, maintien de la semelle haute à 3 m", [{"x": 3.0, "genre": "haut"}]), ("poutre continue 4 + 2 m", None)):
+            vus.clear()
+            b = EN.nouvelle_barre("T")
+            b.update({"modele": "appuis" if maint is not None else "continue", "travees": [6.0] if maint is not None else [4.0, 2.0],
+                      "poids_propre": False, "methodes": ["ec3"], "maintiens": maint or [],
+                      "cas": [{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 12.0, "a": 0.0, "b": 6.0}]}]})
+            MO.verifier(b)
+            bouts[nom_] = sorted(set(vus))
+    finally:
+        MO.EC.verifier = reel
+    chk("barre chargée : chaque tronçon de déversement dit s'il va d'un appui à l'autre (« entre_appuis », que la variante du couple lit) — "
+        "oui sans maintien et entre les deux travées d'une poutre continue, oui avec un maintien d'une seule semelle dedans (que M_cr compte), "
+        "non pour les deux tronçons bornés par un maintien complet",
+        bouts == {"deux appuis, sans maintien": [(6000, True)], "deux appuis, maintien complet à 2 m": [(2000, False), (4000, False)],
+                  "deux appuis, maintien de la semelle haute à 3 m": [(6000, True)], "poutre continue 4 + 2 m": [(2000, True), (4000, True)]}, bouts)
 
     print("== 5. les formules")
     faux, n, utilises = [], 0, set()

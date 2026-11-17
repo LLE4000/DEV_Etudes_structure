@@ -244,10 +244,11 @@ A − h_w·t_w), comme les U (brief v12 § 19.2 ; IPN 200 : 20,13 cm² au lieu d
   exemple publié avec d'autres coefficients.
 
 **Les benchmarks ECCS N°119** (critère d'acceptation du brief pour ce lot) : leurs pages (aide de SCIA Engineer) ne
-sont pas joignables d'ici (domaine hors de la liste autorisée du réseau). Les classes et les résistances sont donc
-prouvées autrement : limites du texte aux points donnés en clair, profilés de classe connue, calculs à la main sur les
-valeurs du catalogue, recoupement avec le module Flambement en service sur tout le catalogue. À rejouer si les pages
-deviennent lisibles, ou sur des cas recalculés par le bureau dans son logiciel.
+sont pas joignables d'ici (domaine hors de la liste autorisée du réseau ; essayé encore au lot B, le 16/11/2026). Les
+classes et les résistances sont donc prouvées autrement : limites du texte aux points donnés en clair, profilés de
+classe connue, calculs à la main sur les valeurs du catalogue, recoupement avec le module Flambement en service sur tout
+le catalogue. `tests/test_barre_benchmarks.py` tient la liste : les benchmarks 17 à 20 et 22 y sont « bloqués — données
+à fournir » ; le 21 et les recoupements SCIA (S1 à S3) et LTBeam (L17a) y sont comparés (§ 5.7).
 
 ### 5.5 Flambement — § 6.3.1 (vérifié ; déjà en service dans `acier/flambement`)
 χ, Φ, λ̄ = √(A·f_y/N_cr) ; α : a₀ 0,13, a 0,21, b 0,34, c 0,49, d 0,76 ; tableau 6.2 ; négligé si λ̄ ≤ 0,2 ou
@@ -261,9 +262,11 @@ d'indication, la torsion et le déversement prennent la longueur de l'axe faible
 
 ### 5.6 Déversement — § 6.3.2 (vérifié ; E1)
 M_b,Rd = χ_LT·W_y·f_y/γ_M1 ; laminés (§ 6.3.2.3) : Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − λ̄_LT,0) + β·λ̄_LT²], χ_LT ≤ 1 et
-≤ 1/λ̄_LT² ; tableau 6.5 (h/b ≤ 2 : b ; > 2 : c). Facteur f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1 ; k_c
-(tableau 6.6) : moment constant 1,0 ; linéaire 1/(1,33 − 0,33ψ) ; charge répartie sur deux appuis **0,94** ; charge
-concentrée à mi-portée **0,86** ; diagramme hors tableau : k_c = 1. Négligé si λ̄_LT ≤ λ̄_LT,0 ou M_Ed/M_cr ≤ λ̄_LT,0².
+≤ 1/λ̄_LT² ; tableau 6.5 (h/b ≤ 2 : b ; > 2 : c). Facteur f = 1 − 0,5·(1 − k_c)·[1 − 2·(λ̄_LT − 0,8)²] ≤ 1 ;
+χ_LT,mod = min(χ_LT/f ; 1 ; 1/λ̄_LT²) (AC:2009). f et tableau 6.6 : obligatoires en Belgique (ANB:2018,
+6.3.2.3(2)). k_c (tableau 6.6) : moment constant 1,0 ; linéaire 1/(1,33 − 0,33ψ) ; deux appuis simples, charge répartie
+**0,94**, charge concentrée à mi-portée **0,86** ; deux encastrements 0,90 et 0,77 ; un encastrement et un appui simple
+0,91 et 0,82 ; diagramme hors tableau : k_c = 1. Négligé si λ̄_LT ≤ λ̄_LT,0 ou M_Ed/M_cr ≤ λ̄_LT,0².
 
 **M_cr : numérique.** Éléments finis de poutre à deux champs (déplacement latéral v, rotation de torsion φ, fonctions
 d'Hermite) :
@@ -300,7 +303,34 @@ seule semelle est une liaison à l'intérieur du tronçon (v ∓ (h − t_f)/2·
   module n'a pas. Le seuil de 6.3.2.2(4) des tubes lit le même λ̄_LT,0 (0,2). Les clés « sans maintiens » de la table
   sont retirées, et une surcharge qui les nomme est refusée avec son motif.
 
-### 5.7 Flexion composée avec instabilité — § 6.3.3, annexe A (vérifié ; E2)
+**Ce que le lot B a ajouté** (brief v12, § 7.7 et 19.2 ; `ec3_deversement.py`, `mcr_annexe_e.py`, tests 1, 9, 10, 20 et 21
+du § 11.5 dans `tests/test_barre_ec3_barre.py`) :
+- **k_c reconnu sur tout le tableau 6.6** (`kc_portee`) : une portée seule, tronçon = la portée, sans maintien intérieur,
+  sous des charges uniformes sur toute la portée ou des charges à mi-portée seulement — deux appuis 0,94 / 0,86 ;
+  bi-encastrée 0,90 / 0,77 ; encastrée-appuyée 0,91 / 0,82 ; et le moment linéaire sur un tronçon de la barre chargée
+  entre deux fourches, sans maintien ni charge dedans (`kc_lineaire`, ψ lu sur le diagramme de la combinaison). Tout le
+  reste garde k_c = 1 (f = 1) : un encastrement partiel (couples d'extrémité et charge répartie), des charges mêlées
+  (cas S1 de SCIA : 1,099), une console, une travée de poutre continue chargée ;
+- **la variante (0,4 ; 0,75)** de l'ANB:2018, 6.3.2.3(1), sur demande seulement (`deversement.couple` = « variante ») :
+  poutre de bâtiment (`ouvrage`), au moins un maintien présent et TOUS ignorés dans M_cr (`maintiens_negliges`). Le
+  module ne l'admet que s'il voit que M_cr ne compte aucun maintien : M_cr du solveur (pas un M_cr donné), aucun
+  maintien dans le tronçon, et un tronçon qui va d'un appui à l'autre — la barre chargée le dit pour chaque tronçon
+  (`entre_appuis`, faux s'il est borné par un maintien complet), en efforts imposés L_c doit couvrir la barre (la plus
+  grande longueur des axes). Ailleurs elle est refusée, avec un motif court (« hors bâtiment », « aucun maintien »,
+  « M_cr donné », « maintiens comptés dans M_cr », « portée non donnée »), et (0,2 ; 1,0) s'applique. Un couple par
+  défaut changé par surcharge de la table (autre annexe, cas d'essai) s'applique partout, sans ce contrôle : l'alerte
+  « couple_hors_anb » le dit ;
+- **DÉCISION BUREAU n° 4** : le § 6.3.2.3 décide pour les I et H laminés (`methode_deversement_lamines`, table des
+  paramètres) ; le § 6.3.2.2 (tableau 6.4 : courbe a si h/b ≤ 2, b au-delà) est calculé à côté et rendu « pour
+  information » (`grandeurs.deversement.information` : χ_LT, M_b,Rd, taux, source). R3 : 0,5838 / 86,22 / 0,797 et
+  0,4687 / 69,21 / 0,993. L'affichage à l'écran et dans la note est au lot C ;
+- **le contrôle analytique de l'annexe E ANB** (`mcr_annexe_e.py`) : (E.8), tableaux E.1 ANB et E.2 ANB pour k_z = k_ω = 1,
+  (E.2) entre deux lignes du tableau E.1, note b (C₁/1,05 si K_ωt ≤ 1, jamais sous 1). Il redonne les sept valeurs R1 de
+  la colonne ANB au centième, avec G = 81 000 et avec G = E/2,6. Le solveur reste la référence ;
+- **C₁ de l'annexe D ANB** (étape 1) : M_cr/M_cr,0 du solveur, les charges ramenées au centre de cisaillement (annexe E
+  ANB, méthode avancée) — et non k_c⁻² (AC:2009), que l'ANB écarte. Charge centrale : 1,36 au lieu de 1,352.
+
+### 5.7 Flexion composée avec instabilité — § 6.3.3, annexe D ANB (vérifié ; E2 ; lot B)
 (6.61) et (6.62) ; méthode 1. Tableau A.2 : moment linéaire C_mi,0 = 0,79 + 0,21ψ + 0,36·(ψ − 0,33)·N_Ed/N_cr,i ;
 charge répartie **1 + 0,03**·N_Ed/N_cr,i ; charge concentrée **1 − 0,18**·N_Ed/N_cr,i ; cas général
 1 + (π²·E·I_i·|δ_x|/(L²·|M_i,Ed(x)|) − 1)·N_Ed/N_cr,i.
@@ -310,16 +340,39 @@ l'annexe A (μ, w ≤ 1,5, n_pl, a_LT, C_my, C_mz, C_mLT, b_LT à e_LT, C_yy à 
 facteurs élastiques en classes 3 et 4) ; C₁ = 1/k_c² ; une barre sans déversement possible a λ̄_0 = 0 ; une flexion
 déviée SANS effort normal passe par les mêmes expressions ; une barre tendue est prise sans effort normal (du côté
 sûr). Une CONSOLE sous effort normal et flexion : (6.61)/(6.62) rendues « non couvert » (lot A, brief § 7.8, DÉCISION
-BUREAU n° 9 : aucun C_m ne vaut pour une console) ; N seul et M seul restent vérifiés. La borne inférieure de C_mi,0
-(supposée 1 − N_Ed/N_cr,i) est active par défaut et **change un résultat** : sur
-l'exemple 5 de l'ECCS, C_mz,0 passe de 0,771 à 0,842 — à confirmer (Q1).
+BUREAU n° 9 : aucun C_m ne vaut pour une console) ; N seul et M seul restent vérifiés.
+
+**Lot B : l'annexe D ANB codée en entier** (ANB:2018, 6.3.3(5) : méthode 1 normative, écrite par l'annexe D ANB, prise
+comme un tout ; pages 21 à 28 relues) :
+- **étape 1** : I_t ≥ I_y → « non susceptible de se déformer par torsion » ; sinon le critère
+  λ̄_0 ≤ 0,2·√C₁·[(1 − N_Ed/N_cr,z)·(1 − N_Ed/N_cr,TF)]^¼, avec N_cr,TF = N_cr,T pour une section à deux axes de
+  symétrie ((F.4) redonne (F.3)) et C₁ de l'annexe E ANB (§ 5.6) ;
+- **étape 2.a** : ni χ_LT ni C_mLT dans (6.61) et (6.62), C_my = C_my,0, C_ij sans b_LT, c_LT, d_LT, e_LT ;
+  **étape 2.b** : les formules complètes. La note dit l'étape et sa raison ;
+- **C_mi,0 sans borne inférieure** (tableau D.1 ANB ; réponse du propriétaire, brief § 19.1 point 2) : ψ = −1 et
+  N_Ed/N_cr = 0,1 donnent 0,5321. Le paramètre « borne_Cmi0 » est retiré de la table (une surcharge qui le nomme est
+  refusée). SCIA S2 : (6.61) 0,600 et (6.62) 0,648, comme SCIA (0,60 ; 0,65) — 0,631 et 0,667 avec l'ancienne borne ;
+- **C_zz : e_LT DANS le facteur n_pl** (annexe D ANB p. 28 ; AC:2009, modification 35 b). Le moteur gardait l'écriture
+  de 2005 (e_LT dehors), plus sévère : quand N_Ed tend vers 0, C_zz tend maintenant vers 1. Effet sur une barre
+  comprimée et fléchie autour des deux axes, à l'étape 2.b : k_zz baisse (benchmark 21 : (6.62) 0,986 → 0,873) ;
+- **n_pl avec γ_M1** (annexe D ANB) ; si le client fixe γ_M0 ≠ γ_M1, la variante γ_M0 de l'annexe A corrigée est
+  calculée et affichée (message, paramètre « npl_gamma » à confirmer) : l'équivalence n'est pas établie ;
+- **classes 3 et 4** : w = 1, C_yy = C_zz = 1, C_yz = C_zy = 0,6 — les k_ij sont ceux de l'annexe A sans ses facteurs.
 
 **Le benchmark 21 de l'aide de SCIA Engineer** (ECCS N°119, exemple 5 : IPE 500 S235, 3,75 m, N_Ed = 500 kN, flexion
 déviée). Sa page n'est pas joignable d'ici ; la recherche en a rendu les données et une partie des résultats. Sont
 reproduits : classe 1, N_c,Rd 2 715 kN, M_c,y,Rd 516, M_c,z,Rd 78,9 kN·m, V_pl,z,Rd 814 kN (0,3 %), V_pl,y,Rd 912 kN
-(1 %, avec A − h_w·t_w ; le module prend 2·b·t_f depuis le lot A, DÉCISION BUREAU n° 3 : 868,3 kN) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %). Les
-facteurs qui dépendent du diagramme de M_y (b_LT à e_LT, C_yy…) attendent la page elle-même (Q8) ; en attendant,
-l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹.
+(1 %, avec A − h_w·t_w ; le module prend 2·b·t_f depuis le lot A, DÉCISION BUREAU n° 3 : 868,3 kN) ; μ_y 1,00, w_y 1,138, μ_z 0,937, w_z 1,5, C_mz,0 0,771, M_cr,0 899 kN·m, λ̄_0 0,757, a_LT 0,998 (0,2 %).
+Lot B : les six facteurs du brief qui dépendent du diagramme de M_y, avec M_y = 200 kN·m sous une charge concentrée à
+mi-portée — diagramme DÉDUIT de C_my,0 = 0,999 = 1 − 0,18·N_Ed/N_cr,y, à vérifier sur la page (Q8) : C_my,0, b_LT et
+C_yy au chiffre près ; c_LT, d_LT, e_LT 1,8 à 2,0 % au-dessus (tous ∝ 1/χ_LT : ils impliquent χ_LT ≈ 0,826 dans la
+référence, le module prend 0,811 : § 6.3.2.3, courbe c, f avec k_c = 0,86). Ce 0,826 reste à expliquer (règle 7) :
+aucune lecture essayée ne le donne — § 6.3.2.2 courbe b 0,812 ; § 6.3.2.3 courbe b avec f 0,836 (k_c = 0,94) et
+0,870 (0,86) ; couple (0,4 ; 0,75) courbe c 0,857 (k_c = 1) et 0,919 (0,86) ; un extrait de la page dit que la référence prend le
+cas général du déversement en méthode 1 (À VÉRIFIER, Q8). Le test les tient à ± 3 %, sans borne basse. χ_z 0,644,
+λ̄_y 0,195, λ̄_z 0,927 et les courbes a / b de la référence sont aussi reproduits. Les taux de la référence manquent.
+L'annexe D ANB est recalculée d'une traite dans le test, pour neuf barres, à 10⁻⁹ (plus un tronçon court en étape 2.a
+avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et sans le facteur (1 − N_Ed/N_cr,TF)).
 
 ### 5.8 Les paramètres nationaux (une seule table dans le moteur : `acier/barre/parametres.py`)
 
@@ -327,9 +380,12 @@ l'annexe A est recalculée d'une traite dans le test, pour neuf barres, à 10⁻
 |---|---|---|---|
 | γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | valeurs EN, reprises par l'ANB | à pointer sur l'ANB |
 | λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (un seul couple, lot A) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
-| Facteur f (§ 6.3.2.3(2)) | formule EN | brief | à pointer |
-| Méthode de § 6.3.3 | méthode 1 (annexe A) | ANB d'après l'aide de STAAD.Pro | **À CONFIRMER** |
-| Borne inférieure de C_mi,0 (tableau A.2) | 1 − N_Ed/N_cr,i (supposée, comme l'annexe française) | l'aide de STAAD.Pro dit qu'il y en a une, sans la donner | **À CONFIRMER** |
+| Variante (λ̄_LT,0 ; β) | 0,4 ; 0,75 — sur demande, poutre de bâtiment, maintiens tous ignorés dans M_cr (lot B) | ANB:2018, 6.3.2.3(1) | pointé |
+| Facteur f et tableau 6.6 (§ 6.3.2.3(2)) | formule EN, tableau complet (lot B) | ANB:2018, 6.3.2.3(2) : normatifs | pointé |
+| Méthode de déversement des I et H laminés | § 6.3.2.3 ; § 6.3.2.2 pour information | ANB:2018 (n'impose rien) | DÉCISION BUREAU n° 4 |
+| Méthode de § 6.3.3 | méthode 1, écriture de l'annexe D ANB | ANB:2018, 6.3.3(5) | pointé (lot B) |
+| Borne inférieure de C_mi,0 | aucune (clé retirée, lot B) | tableau D.1 ANB | pointé |
+| γ de n_pl quand γ_M0 ≠ γ_M1 | γ_M1 (annexe D ANB) ; la variante γ_M0 affichée | annexe D ANB / AC:2009 | **À CONFIRMER** (seulement si γ_M0 ≠ γ_M1) |
 | η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (I soudés, caissons), jusqu'au S460 (lot A) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire | à pointer |
 | Combinaison ELU | (6.10) : 1,35·G + 1,5·Q₁ + Σ 1,5·ψ₀·Q_i | NBN EN 1990 ANB | à pointer |
 | ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB (brief) | à pointer |
@@ -593,7 +649,15 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
 - Méthode ELS : dans chaque section, avec la longueur de déversement de son tronçon — un maintien d'une seule
   semelle ne compte que si elle est comprimée sur tout le tronçon.
 - Hypothèses dites dans la note : les appuis tiennent le déplacement latéral et la torsion (fourches) ; une console est
-  encastrée à sa racine et flambe sur deux fois sa longueur ; l'axe faible flambe sur le plus long tronçon.
+  encastrée à sa racine.
+- Longueurs de flambement d'un champ vide (`moteur._longueurs`) : axe fort, la plus grande travée ; axe faible, le plus
+  long tronçon entre sections tenues ; la torsion prend celle de l'axe faible. Une CONSOLE : 2·L autour des DEUX axes
+  tant que son bout est libre — il se déplace latéralement comme dans le plan (brief § 13.3, u = 2). Lot B : l'axe
+  faible prenait L, défaut non conservatif corrigé (console de 2 m : 2 → 4 m). Un maintien complet au bout en fait une
+  section tenue : la plus grande distance entre sections tenues. Des maintiens complets intermédiaires seuls laissent
+  2·L (la partie libre ne se prend pas isolément sans justification) : hypothèse prudente, avis « À VÉRIFIER » d'une
+  ligne, dit une fois (sous la première méthode rendue) et seulement si la barre est comprimée — sans N > 0, L_cr,z ne
+  change aucun résultat. Une longueur saisie est prise telle quelle.
 - Une méthode qui REFUSE la barre (une paroi de plus de 80 mm : au-delà du domaine du module ; une section sans courbe)
   est rendue « non couverte » avec son motif ; l'autre reste calculée. Depuis le lot A, la méthode ELS refuse elle aussi
   au-delà de 80 mm (13 HD et HL du catalogue).
@@ -751,7 +815,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 
 | # | Question | En attendant |
 |---|---|---|
-| Q1 | ANB de l'EN 1993-1-1 : la méthode 1 imposée ; la borne de C_mi,0 (le couple (λ̄_LT,0 ; β) est lu : (0,2 ; 1,0), 6.3.2.3(1), lot A) | § 5.8, imprimé « à confirmer » |
+| Q1 | ANB de l'EN 1993-1-1 : la méthode 1 imposée ; la borne de C_mi,0 | tranchés au lot B : méthode 1 sous l'écriture de l'annexe D ANB (6.3.3(5)) ; pas de borne (tableau D.1 ANB) |
 | Q2 | ANB de l'EN 1990 : ψ de la neige, du vent, de la température | valeurs EN |
 | Q3 | f_u du S355 ; A_v,y des I laminés | tranchés au lot A : f_u selon l'épaisseur, tableau 3.3 ANB (470) ; A_v,y = 2·b·t_f (DÉCISION BUREAU n° 3) |
 | Q4 | Méthode ELS : combinaison de service à 100 % ; tolérance de 5 % (non) ; C = 1 par défaut ; **déversement de la doc activé par défaut** (sévère pour un H non maintenu, § 4.5) | oui, oui, oui |
@@ -759,7 +823,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Q6 | Seuil du statut « à la limite » dans la note | celui des notes existantes (95 %) |
 | Q7 | Les fichiers d'origine (classeurs, documentation) : les garder hors du dépôt public | hors du dépôt |
 | Q9 | La note imprime les méthodes cochées à l'écran (pas de choix au moment d'imprimer) ; la méthode ELS y vient la première | ainsi |
-| Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF) : elles ne sont pas joignables d'ici | douze valeurs du benchmark 21 reproduites ; l'annexe A recalculée d'une traite dans le test |
+| Q8 | Les pages « Benchmarks 17 à 22 » de l'aide de SCIA Engineer (ECCS N°119), en pièce jointe (captures ou PDF), avec les remarques de SCIA sur les erreurs de la référence : elles ne sont pas joignables d'ici | benchmark 21 : quatorze valeurs du brief comparées (diagramme de M_y déduit) ; 17 à 20 et 22 bloqués (`tests/test_barre_benchmarks.py`) |
 | Q10 | Âme sous force concentrée et flexion (EN 1993-1-5 § 7.2) : η₁ ÉLASTIQUE (M_Ed/(W_el·f_y)), même pour une section de classe 1 ou 2 — prudent ; le brief le laisse « à confirmer » | élastique |
 | Q11 | La longueur d'appui s_s non saisie vaut 0 (le cas le plus défavorable) ; le bureau a-t-il une valeur d'usage (la largeur d'un appui courant) à proposer par défaut ? | 0, et c'est écrit |
 | Q12 | Les appuis sont « posés » par défaut (la réaction appuie sur l'âme) ; le bureau attache-t-il plutôt ses poutres par l'âme (platine, cornières) ? | posés |

@@ -14,7 +14,12 @@ La barre (N, mm), en plus de ce que lit ec3_section.lire :
     "deversement": {"actif" (True), "Lc" (None : la longueur de l'axe faible ; 0 : semelle comprimée tenue en continu),
                     "niveau" (« centre », « haut », « bas » : où la charge est appliquée) ou "zg" (mm),
                     "Mcr" (N·mm : un moment critique donné), "kc", "troncon" (un tronçon décrit en entier : la barre
-                    chargée — voir ec3_deversement.troncon_impose pour sa forme)}
+                    chargée — voir ec3_deversement.troncon_impose pour sa forme ; "entre_appuis" (faux à défaut) : ses
+                    deux bouts sont des appuis ou des bouts de la barre, pas des maintiens),
+                    "couple" (« defaut » ; « variante » : (0,4 ; 0,75) de l'ANB:2018, 6.3.2.3(1), admise seulement en
+                    bâtiment, avec des maintiens tous ignorés dans M_cr — ec3_deversement.couple_anb),
+                    "maintiens_negliges" (0 : le nombre de maintiens présents dans le tronçon mais ignorés dans M_cr)}
+    "ouvrage": « batiment » (à défaut) ou « autre »  (brief § 4.1 : la variante du couple n'est admise qu'en bâtiment)
     "console": True                             une console (encastrée – libre) : la flexion composée avec instabilité
                                                 (6.61), (6.62) n'est pas couverte — aucun C_m ne vaut pour elle (brief
                                                 § 7.8, DÉCISION BUREAU n° 9) ; N seul et M seul restent vérifiés
@@ -109,8 +114,17 @@ def lire(barre: Dict) -> Dict:
     diag = dv.get("diagramme")                   # le diagramme d'un tronçon décrit, quand il est un cas des tableaux (annexe E ANB)
     if diag is not None and diag not in DIAGRAMMES_E:
         raise Refus(f"deversement.diagramme : {', '.join(DIAGRAMMES_E)} — reçu {diag!r}")
+    couple = dv.get("couple", "defaut")
+    if couple not in DV.COUPLES:
+        raise Refus(f"deversement.couple : {' ou '.join(DV.COUPLES)} — reçu {couple!r}")
+    negliges = dv.get("maintiens_negliges", 0)
+    if isinstance(negliges, bool) or not isinstance(negliges, int) or negliges < 0:
+        raise Refus(f"deversement.maintiens_negliges : un nombre entier positif ou nul — reçu {negliges!r}")
     d["deversement"] = {"actif": bool(dv.get("actif", True)), "Lc": Lc, "niveau": niveau, "zg": zg, "Mcr": Mcr, "kc": kc, "troncon": tr,
-                        "diagramme": diag}
+                        "diagramme": diag, "couple": couple, "maintiens_negliges": negliges}
+    d["ouvrage"] = barre.get("ouvrage", "batiment")
+    if d["ouvrage"] not in DV.OUVRAGES:
+        raise Refus(f"ouvrage : {' ou '.join(DV.OUVRAGES)} — reçu {d['ouvrage']!r}")
     d["console"] = bool(barre.get("console", False))
     return d
 

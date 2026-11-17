@@ -210,10 +210,15 @@ chk("la COMPARAISON (le quatrième bloc, après les deux méthodes et l'âme) : 
 chk("(lot A) la poutre continue n'a plus de paramètre « à confirmer » : le couple (λ̄_LT,0 ; β) est celui de l'ANB:2018, 6.3.2.3(1) — ni lien "
     "ni fenêtre (ac)", not r["methodes"]["ec3"]["a_confirmer"] and "à confirmer" not in texte(rep["donnees"]) and 'id="ck-ac"' not in rep["volets"])
 rpp = REPONSES["un poteau-poutre en efforts imposés"]
+chk("(lot B) le poteau-poutre n'a plus de paramètre « à confirmer » : l'interaction suit l'annexe D ANB (méthode 1 lue sur l'ANB:2018, "
+    "6.3.3(5) ; C_mi,0 sans borne, tableau D.1 ANB) — ni lien ni fenêtre (ac)",
+    not moteur(rpp["etat"]["elements"][0])["methodes"]["ec3"]["a_confirmer"] and 'id="ck-ac"' not in rpp["volets"])
+# (lot B : le harnais suit — le seul point « à confirmer » qui reste à l'interaction est γ_M0 ≠ γ_M1, brief § 7.8)
+rpp = req(action="calculer", etat=note(dict(POTEAU, parametres={"gamma_M0": 1.05})))
 ac = moteur(rpp["etat"]["elements"][0])["methodes"]["ec3"]["a_confirmer"]
-chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre : {len(ac)}, ceux de l'interaction) : un lien dans la rubrique "
-    "Méthodes, une fenêtre (ac) avec leur valeur et leur source",
-    len(ac) >= 2 and f"{len(ac)} paramètres à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
+chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre avec γ_M0 = 1,05 ≠ γ_M1 : {len(ac)}, le γ de n_pl) : un lien dans "
+    "la rubrique Méthodes, une fenêtre (ac) avec leur valeur et leur source",
+    len(ac) == 1 and "1 paramètre à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
     and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
 chk("une barre que la méthode ELS refuse (179 %) et que l'Eurocode refuse aussi (114 % — lot A : avec le couple (0,2 ; 1,0) de "

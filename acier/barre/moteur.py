@@ -84,9 +84,21 @@ def _C_historique(mode: str, forme: str, psi: float) -> Dict:
     return {"mode": "moments", "psi": 1.0 if forme == DV.CONSTANT else psi}
 
 
+CONSOLE_LZ = "Console à bout libre : L_cr,z = 2·L, maintiens intermédiaires non comptés — À VÉRIFIER."
+
+
+def _bout_libre(b: Dict, trs: Optional[List[Dict]]) -> bool:
+    """Une console dont le bout n'est tenu par aucun maintien complet : son dernier tronçon finit LIBRE (statique.troncons)."""
+    return b["modele"] == "console" and bool(trs) and trs[-1]["appuis"][1] == MC.LIBRE
+
+
 def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
     """Les longueurs de flambement (mm) : celles données, sinon la plus grande travée (axe fort) et le plus long tronçon
-    entre sections tenues (axe faible)."""
+    entre sections tenues (axe faible). Une CONSOLE flambe sur deux fois sa longueur autour de l'axe fort, et autour de
+    l'axe faible tant que son bout est libre : il se déplace latéralement comme dans le plan (brief § 13.3 : u = 2).
+    Un maintien complet au bout en fait une section tenue : la plus grande distance entre sections tenues (côté sûr).
+    Des maintiens intermédiaires seuls ne raccourcissent rien : la partie libre ne se prend pas isolément sans
+    justification — 2·L, hypothèse prudente, À VÉRIFIER (CONSOLE_LZ : dite une fois, et seulement sous compression)."""
     out = {}
     for a in ("y", "z"):
         L = b["flambement"][a]["L"]
@@ -94,8 +106,18 @@ def _longueurs(b: Dict, trs: Optional[List[Dict]]) -> Dict:
             L = max(b["travees"]) if a == "y" else max(t["x2"] - t["x1"] for t in trs)
             if a == "y" and b["modele"] == "console":
                 L = 2.0 * L                                  # une console flambe sur deux fois sa longueur
+            if a == "z" and _bout_libre(b, trs):
+                L = 2.0 * sum(b["travees"])                  # bout libre : 2·L, même avec des maintiens intermédiaires
         out[a] = {"L": L * 1e3, "u": b["flambement"][a]["u"]}
     return out
+
+
+def _avis_longueurs(b: Dict, trs: Optional[List[Dict]]) -> List[Dict]:
+    """L'alerte À VÉRIFIER d'une console à bout libre dont L_cr,z automatique ignore des maintiens complets intermédiaires
+    (_chargee la donne à la première méthode COMPRIMÉE : sans N > 0, L_cr,z ne change aucun résultat)."""
+    if b["flambement"]["z"]["L"] is None and _bout_libre(b, trs) and len(trs) > 1:
+        return [{"code": "console_Lz", "niveau": "attention", "message": CONSOLE_LZ}]
+    return []
 
 
 def _longueurs_rendues(b: Dict, axes: Dict) -> Dict:
@@ -171,18 +193,20 @@ def _moment_extreme(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> floa
     return m
 
 
-def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dict) -> Optional[float]:
-    """k_c du tableau 6.6 quand le tronçon EST un de ses cas : poutre sur deux appuis, tronçon = la portée, sans maintien
-    intérieur, et soit des charges uniformes sur toute la portée (0,94), soit une seule charge à mi-portée (0,86)."""
+def _kc_tableau(b: Dict, cas: Sequence[Dict], facteurs: Sequence[float], tr: Dict, C: Optional[ST.Combinaison] = None) -> Optional[float]:
+    """k_c du tableau 6.6 quand le tronçon EST un de ses schémas : un tronçon entre deux fourches, sans maintien intérieur
+    ni charge dedans — moment linéaire (ec3_deversement.kc_lineaire, ψ lu sur la combinaison ``C``) ; ou une portée seule
+    (deux appuis simples, deux encastrements, un encastrement et un appui), tronçon = la portée, sous des charges uniformes
+    sur toute la portée ou des charges à mi-portée seulement (ec3_deversement.kc_portee). Sinon None (k_c = 1)."""
     L = sum(b["travees"])
-    if b["modele"] != "appuis" or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:
-        return None
     charges = [ch for f, c in zip(facteurs, cas) if f for ch in c.get("charges") or []]
-    if charges and all(ch["type"] == "q" and ch["a"] <= EPS and ch["b"] >= L - EPS for ch in charges):
-        return DV.KC_REPARTI
-    if len(charges) == 1 and charges[0]["type"] == "P" and abs(charges[0]["a"] - L / 2.0) < 1e-6 * L:
-        return DV.KC_PONCTUEL
-    return None
+    if C is not None and not tr["maintiens"] and tuple(tr["appuis"]) == (MC.FOURCHE, MC.FOURCHE):
+        k = DV.kc_lineaire(charges, tr["x1"], tr["x2"], C.lire(tr["x1"])["M_d"], C.lire(tr["x2"])["M_g"])
+        if k is not None:
+            return k
+    if b["modele"] not in DV.MODELES_KC or tr["maintiens"] or tr["x2"] - tr["x1"] < L - EPS:
+        return None
+    return DV.kc_portee(b["modele"], charges, L)
 
 
 def _Lc_historique(comb: ST.Combinaison, tr: Dict, xs: Sequence[float]) -> float:
@@ -214,6 +238,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
     if PR.est_prs(s):                                          # un PRS : au-dessus de SON centre de cisaillement
         zg = SE.cote(s, b["niveau"])
     Lt = sum(b["travees"])
+    bouts = {round(sum(b["travees"][:k]), 9) for k in range(len(b["travees"]) + 1)}     # les appuis et les bouts de la barre
     grille = sorted({round(x, 9) for x in pts} | {round(x0 + L * i / POINTS_DIAGRAMME, 9) for x0, L in
                                                   zip([sum(b["travees"][:k]) for k in range(len(b["travees"]))], b["travees"])
                                                   for i in range(POINTS_DIAGRAMME + 1)})
@@ -223,6 +248,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                                "reactions": [{"nom": a["nom"], "x": a["x"], "R": a["R"], "M": a.get("M", 0.0)} for a in sol.appuis]}
                               for c, sol in zip(cas, sols)], "enveloppes": {}}
     methodes = {}
+    comprimee: Dict[str, bool] = {}          # une combinaison de la méthode a-t-elle N > 0 ? (alors elle lit L_cr,z)
 
     def enveloppe_diagrammes(nom: str, combs: List[ST.Combinaison]) -> None:
         """Les enveloppes de M et de V, avec LEURS abscisses : là où un diagramme saute (un appui, une charge ponctuelle,
@@ -264,12 +290,13 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 rep, pon = ST.charges_du_troncon(cas, co["facteurs"], tr, zg)
                 a = tr["x1"]
                 troncon = {"L": (tr["x2"] - a) * 1e3, "moment": (lambda x, C=C, a=a: C.M(a + x / 1e3) * 1e6), "reparties": rep,
-                           "ponctuelles": pon, "appuis": tr["appuis"], "maintiens": tr["maintiens"], "M_max": Mmax * 1e6}
+                           "ponctuelles": pon, "appuis": tr["appuis"], "maintiens": tr["maintiens"], "M_max": Mmax * 1e6,
+                           "entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}   # (la variante du couple le lit)
                 flexion = {"diagramme": DV.CONSTANT}
                 if b["modele"] == "appuis" and Mmax > EPS:      # tableau A.2, formule générale : la flèche et le moment de la portée
                     fl = max(abs(C.lire(x)["f"] or 0.0) for x in grille)
                     flexion = {"diagramme": DV.GENERAL, "delta": fl * 1e3, "L": Lt * 1e3}
-                kc = _kc_tableau(b, cas, co["facteurs"], tr)
+                kc = _kc_tableau(b, cas, co["facteurs"], tr, C)
                 dev = {"troncon": troncon, "kc": kc, "zg": zg}
                 if PR.est_prs(s):                                # le diagramme d'un cas des tableaux : le contrôle (E.1) d'un PRS
                     dev["diagramme"] = {DV.KC_REPARTI: DV.REPARTI, DV.KC_PONCTUEL: DV.PONCTUEL}.get(kc)
@@ -281,6 +308,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 r = EC.verifier(barre_ec3)
                 env.verser(r, {"combinaison": co["nom"], "troncon": [tr["x1"], tr["x2"]]}, prefixes=IDS_BARRE)
         enveloppe_diagrammes("ec3", combs)
+        comprimee["ec3"] = any(C.N > EPS for C in combs)
         r = env.rendre()
         ou = {"haut": "sur la semelle haute", "centre": "au centre de cisaillement", "bas": "sous la semelle basse"}[b["niveau"]]
         r["hypotheses"].append(f"Charges appliquées {ou} ; appuis en fourche (déplacement latéral et torsion empêchés).")
@@ -312,16 +340,21 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 if f is not None and abs(f) > abs(fleche["valeur"]):
                     fleche = {"valeur": f, "x": x, "combinaison": co["nom"]}
         enveloppe_diagrammes("historique", combs)
+        comprimee["historique"] = any(C.N > EPS for C in combs)
         portee = max(b["travees"]) * (2.0 if b["modele"] == "console" else 1.0)
         fleche["valeur"] *= 1e3                                  # mm
         fleche["rapport"] = portee * 1e3 / abs(fleche["valeur"]) if fleche["valeur"] else None
         statique["fleche"] = fleche
         return env.rendre()
 
+    avis = _avis_longueurs(b, trs)               # une donnée commune : dite UNE fois, sous la première méthode qui la lit
     for nom, calcul, norme in (("historique", historique, HI.NORME), ("ec3", ec3, EC.NORME)):
         if nom in b["methodes"]:
             try:
                 methodes[nom] = calcul()
+                if comprimee[nom]:
+                    methodes[nom]["alertes"] += avis
+                    avis = []                    # (l'autre méthode lit la même longueur : pas de redite)
             except RE.Refus as e:
                 methodes[nom] = _refusee(nom, norme, str(e))
     return {"statique": statique, "methodes": methodes, "ame": AME.chargee(b, s, cas, sols, N_cas, pts),

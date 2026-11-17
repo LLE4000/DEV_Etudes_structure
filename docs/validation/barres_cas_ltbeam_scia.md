@@ -196,6 +196,7 @@ Le cas S1 au centre de cisaillement n'a pas été calculé. Les sorties de SCIA 
 | S2 | f_y (t_f 19 mm) | 225 | 225 | 0 | le lot A confirmé |
 | S2 | N_b,y,Rd ; N_b,z,Rd | 3 105,1 ; 2 457,0 | 3 105,47 ; 2 457,24 | 0,01 % | conforme |
 | S2 | (6.61) ; (6.62) | 0,631 ; 0,667 | 0,60 ; 0,65 | −5 % ; −2,6 % | le site borne C_my,0 ≥ 1 − N_Ed/N_cr,y (0,933 au lieu de 0,782 ; paramètre « borne_Cmi0 », à confirmer) ; sans la borne, le site donne 0,600 ; 0,648 |
+| S2 | (6.61) ; (6.62) — **révision du 16/11/2026, lot B** | 0,600 ; 0,648 | 0,60 ; 0,65 | 0 % | borne retirée (tableau D.1 ANB : pas de borne inférieure ; réponse du propriétaire) : C_my,0 = 0,782 — conforme (`tests/test_barre_benchmarks.py`) |
 | S3, Q1 | M_cr ; M_b,Rd | 134,51 ; 98,84 | 134,84 ; 99,03 | +0,25 % ; +0,2 % | conforme |
 | S3, Q1 | taux de déversement | 0,727 (M_Ed 71,81, maximum exact à 2,494 m) | 0,72 (M_Ed 71,18, nœud à 2,727 m) | −1 % | SCIA lit le moment aux nœuds de son maillage ; avec 71,81 : 0,725 |
 | S3, Q1 + Q2 | flexion sur l'appui ; cisaillement | 0,287 ; 0,120 | 0,29 ; 0,12 | 0 | conforme |
@@ -206,6 +207,10 @@ Suites, sans changement du moteur au lot A : (1) facteur f — l'ANB:2018 6.3.2.
 normatives ; le site prend f = 1 hors du tableau 6.6 (côté sûr) — lot 2-3 ; (2) borne de C_my,0 — à trancher sur le
 texte du tableau A.2 (lot 2-3) ; (3) L17 dans LTBeam ; (4) η = 1,00 des laminés sur le texte de l'ANB de
 l'EN 1993-1-5.
+
+Révision du 16/11/2026, lot B : (1) fait — k_c reste 1 hors du tableau 6.6 (S1 garde 1,099) ; les schémas du tableau
+sont reconnus (deux appuis, bi-encastrée, encastrée-appuyée ; charge répartie ou centrale). (2) fait — pas de borne
+(tableau D.1 ANB) : S2 donne 0,600 et 0,648, comme SCIA. Les deux mesures ci-dessus ne sont pas réécrites.
 
 ## 7. Résultat de LTBeamN reçu le 16/11/2026 (mesure datée) : L17a
 
