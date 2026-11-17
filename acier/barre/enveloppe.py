@@ -136,19 +136,31 @@ class Enveloppe:
                     lignes.insert(j, [h, []])
                 lignes[j][1].append(id_)
                 i = j + 1
-        hyp = []
-        for h, ids in lignes:
+        # les versions d'un sujet qui en a plusieurs : (sujet, corps sans le L_d qui redit son tronçon, vérifications)
+        versions = {}
+        for k, (h, ids) in enumerate(lignes):
             s = sujet(h)
             if s is not None and any(sujet(li[0]) == s and li[1] != ids for li in lignes):
-                h = self._etiquetee(s, h[len(s) + 3:], ids)
+                versions[k] = (s, self._corps(h[len(s) + 3:], ids), ids)
+        hyp, dits = [], set()
+        for k, (h, ids) in enumerate(lignes):
+            if k in versions:
+                s, corps, ids = versions[k]
+                if len({c_ for s_, c_, _ in versions.values() if s_ == s}) == 1:
+                    # (intégration du lot B) L_d tu, toutes ses versions disent la même chose : UNE ligne, le sujet entier
+                    if s not in dits:
+                        dits.add(s)
+                        hyp.append(f"{s} : {corps}")
+                    continue
+                h = f"{_sans_source(s)} {self._origine(ids)} : {corps}"
             hyp.append(h)
         return hyp
 
-    def _etiquetee(self, s: str, corps: str, ids: Sequence[str]) -> str:
-        """Une version d'un sujet qui en a plusieurs, dite avec son origine, en une ligne courte : « Déversement sur 0–2 m
-        (contrainte équivalente) : C_d = 1, classe b (…) ». Le sujet perd ses sources (``_sans_source``) et garde ce qui
-        décrit le cas (« profil fermé ») ; L_d est tu, en tête ou en fin, quand il redit la longueur de l'unique tronçon
-        (un maintien d'une seule semelle le raccourcit : il est dit alors)."""
+    def _corps(self, corps: str, ids: Sequence[str]) -> str:
+        """Le corps d'une version d'un sujet qui en a plusieurs, dite ensuite avec son origine en une ligne courte : « Déversement
+        sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (…) » — le sujet perd ses sources (``_sans_source``) et garde ce
+        qui décrit le cas (« profil fermé »). L_d est tu, en tête ou en fin, quand il redit la longueur de l'unique tronçon (un
+        maintien d'une seule semelle le raccourcit : il est dit alors)."""
         troncons = {tuple(self.pire[i]["ou"]["troncon"]) for i in ids if self.pire[i]["ou"].get("troncon")}
         if len(troncons) == 1:
             (a, b), = troncons
@@ -158,7 +170,7 @@ class Enveloppe:
                     corps = corps[len(Ld + sep):]
             if corps.endswith(f", {Ld}."):
                 corps = corps[:-len(f", {Ld}.")] + "."
-        return f"{_sans_source(s)} {self._origine(ids)} : {corps}"
+        return corps
 
     def _origine(self, ids: Sequence[str]) -> str:
         """D'où vient une hypothèse : « sur 1,7–3,9 m (déversement) » — le tronçon de chaque occurrence retenue, avec le

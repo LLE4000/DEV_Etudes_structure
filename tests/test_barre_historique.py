@@ -1025,13 +1025,12 @@ def controles_lot_b(H, MO_, c):
     deux, deux_m = appui_P([2.0, 4.0], 1.75), appui_P([4.0, 2.0], 4.25)
     dvs = [h for h in deux["hypotheses"] if h.startswith("Déversement")]
     c("barre chargée — poutre continue 2 + 4 m (IPE 300, 30 kN/m, 300 kN à 1,75 m) : à l'appui, le côté gauche (L_d = 2 m) donne H-EQ "
-      "175 %, le côté droit (L_d = 4 m) H-DEV 147 % ; deux lignes « Déversement » de moins de 110 caractères, chacune avec son tronçon et "
-      "sa vérification, sans redire L_d ni la norme, celle de la gouvernante d'abord ; la poutre retournée donne les mêmes taux",
+      "175 %, le côté droit (L_d = 4 m) H-DEV 147 % ; les deux lignes « Déversement », L_d tu (il redit leur tronçon), disent la même chose : "
+      "UNE ligne (intégration du lot B, le harnais suit) ; la poutre retournée donne les mêmes taux",
       deux["gouvernant"] == "H-EQ" and verif_de(deux, "H-EQ")["troncon"] == [0.0, 2.0] and verif_de(deux, "H-DEV")["troncon"] == [2.0, 6.0]
       and verif_de(deux, "H-EQ")["x"] == verif_de(deux, "H-DEV")["x"] == 2.0
       and round(deux["taux_max"], 4) == 1.7514 and round(verif_de(deux, "H-DEV")["taux"], 4) == 1.4724
-      and dvs == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1, classe b (h/b > 1,2, t_f ≤ 40 mm).",
-                  "Déversement sur 2–6 m (déversement) : C_d = 1, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
+      and dvs == ["Déversement (classeurs, NBN B 51-002) : C_d = 1, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
       and all(len(h) < 110 for h in dvs) and deux["hypotheses"].count(DE.MESSAGE_3_9) == 1
       and proche(deux_m["taux_max"], deux["taux_max"]) and proche(verif_de(deux_m, "H-DEV")["taux"], verif_de(deux, "H-DEV")["taux"]),
       (deux["gouvernant"], deux["taux_max"], deux_m["taux_max"], dvs))
@@ -1042,15 +1041,19 @@ def controles_lot_b(H, MO_, c):
         return [h for h in MO_.verifier(b_)["methodes"]["historique"]["hypotheses"] if h.startswith("Déversement")]
     cd_, fa_, rh_ = (lignes_dv(50.0, historique=dict(nb_["historique"], Cd=1.13)),
                      lignes_dv(historique=dict(nb_["historique"], variante="fascicule")), lignes_dv(profil="RHS 200x100x6.3"))
-    c("… la même poutre, lignes « Déversement » de moins de 110 caractères : C_d = 1,13 et N = 50 kN (deux titres : leur premier mot) ; "
-      "variante du fascicule (L_d tu en fin de ligne) ; RHS 200x100x6.3 (le sujet garde « profil fermé », sans sa source)",
-      cd_ == ["Déversement sur 0–2 m (contrainte équivalente) : C_d = 1,13, classe b (h/b > 1,2, t_f ≤ 40 mm).",
-              "Déversement sur 2–6 m (flexion, déversement) : C_d = 1,13, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
-      and fa_ == ["Déversement sur 0–2 m (contrainte équivalente) : variante du fascicule p. 19.",
-                  "Déversement sur 2–6 m (flexion) : variante du fascicule p. 19."]
-      and rh_ == ["Déversement (profil fermé) sur 0–2 m (contrainte équivalente) : facteur π·√2,6 = 5,0657 (5,1 dans la doc).",
-                  "Déversement (profil fermé) sur 2–6 m (flexion) : facteur π·√2,6 = 5,0657 (5,1 dans la doc)."]
+    c("… la même poutre, lignes « Déversement » de moins de 110 caractères, L_d tu : C_d = 1,13 et N = 50 kN ; variante du fascicule (L_d tu "
+      "en fin de ligne) ; RHS 200x100x6.3 (le sujet garde « profil fermé ») — leurs deux versions disent la même chose : UNE ligne chacune, le "
+      "sujet entier (intégration du lot B, point 28 b ; le harnais suit)",
+      cd_ == ["Déversement (classeurs, NBN B 51-002) : C_d = 1,13, classe b (h/b > 1,2, t_f ≤ 40 mm)."]
+      and fa_ == ["Déversement : variante du fascicule p. 19."]
+      and rh_ == ["Déversement (doc p. 18, profil fermé) : facteur π·√2,6 = 5,0657 (5,1 dans la doc)."]
       and all(len(h) < 110 for h in cd_ + fa_ + rh_), (cd_, fa_, rh_))
+    # (le RHS dit maintenant UNE ligne, le sujet entier : ce que garde une version ÉTIQUETÉE se lit sur la règle elle-même)
+    ss_ = MO_.Enveloppe._corps.__globals__["_sans_source"]
+    c("une version étiquetée d'un sujet perd ses sources et garde ce qui décrit le cas : « Déversement (doc p. 18, profil fermé) » → "
+      "« Déversement (profil fermé) » ; « Déversement (classeurs, NBN B 51-002) » → « Déversement »",
+      ss_("Déversement (doc p. 18, profil fermé)") == "Déversement (profil fermé)" and ss_("Déversement (classeurs, NBN B 51-002)") == "Déversement",
+      (ss_("Déversement (doc p. 18, profil fermé)"), ss_("Déversement (classeurs, NBN B 51-002)")))
     # (intégration du lot B, point 28 a) le cas le plus long relevé : HEB 300 (h/b ≤ 1,2 : classe c), C_d = 1,13, N = 50 kN (deux titres),
     # L_d gardé par un maintien de la semelle haute (2,5 m sur le tronçon de 5 m) — 117 caractères avec la règle longue
     b28 = dict(nb_, profil="HEB 300", travees=[6.0], methodes=["historique"], historique=dict(nb_["historique"], Cd=1.13),
@@ -1382,11 +1385,13 @@ def mutations():
         ("fin du bloc — hypothèses ajoutées en fin de liste (après les courbes de flambement)", "j = pareils[-1] + 1 if pareils else i\n",
          "j = pareils[-1] + 1 if pareils else len(lignes)\n"),
         ("reprise — deux lignes « Déversement » (deux tronçons) sans leur tronçon ni leur vérification",
-         '                h = self._etiquetee(s, h[len(s) + 3:], ids)\n', "                pass\n"),
+         '                h = f"{_sans_source(s)} {self._origine(ids)} : {corps}"\n', "                pass\n"),
         ("sens de dessin — la ligne étiquetée redit L_d (la longueur de son tronçon)", "                if corps.startswith(Ld + sep):\n",
          "                if False:\n"),
         ("sens de dessin — la ligne étiquetée redit la norme (« (classeurs, NBN B 51-002) »)",
-         "return f\"{_sans_source(s)} {self._origine(ids)} : {corps}\"", "return f\"{s} {self._origine(ids)} : {corps}\""),
+         'h = f"{_sans_source(s)} {self._origine(ids)} : {corps}"', 'h = f"{s} {self._origine(ids)} : {corps}"'),
+        ("intégration, point 28 b — deux lignes identiques une fois L_d tu (le même texte, deux tronçons)",
+         "                if len({c_ for s_, c_, _ in versions.values() if s_ == s}) == 1:\n", "                if False:\n"),
         ("reprise 2 — la ligne étiquetée redit L_d en fin (variante du fascicule)", '            if corps.endswith(f", {Ld}."):\n',
          "            if False:\n"),
         ("reprise 2 — le sujet étiqueté perd aussi ce qui décrit le cas (« profil fermé »)",
