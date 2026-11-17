@@ -106,6 +106,16 @@ def controles():
     c("test 24 : neige ψ₁ = 0 (tableau A1.1 ANB : 0,5 / 0 / 0) ; vent 0,6 / 0,2 / 0 ; température 0,6 / 0,5 / 0",
       PA.valeur("psi_neige") == (0.5, 0.0, 0.0) and PA.valeur("psi_vent") == (0.6, 0.2, 0.0) and PA.valeur("psi_temperature") == (0.6, 0.5, 0.0),
       (PA.valeur("psi_neige"), PA.valeur("psi_vent")))
+    # chaque VALEUR contre le brief : § 5 (γ, ξ, ψ du tableau A1.1 ANB), § 7.1 (E, G), § 7.2 (γ_M) — un ψ faux ne se voit
+    # dans aucun autre contrôle (le statut et la source ne disent pas la valeur)
+    brief = {"gamma_G_sup": 1.35, "gamma_G_inf": 1.00, "gamma_Q": 1.50, "xi": 0.85, "xi_geotechnique": 1.00, "psi0_courte_duree": 0.3,
+             "psi_A": (0.7, 0.5, 0.3), "psi_B": (0.7, 0.5, 0.3), "psi_C": (0.7, 0.7, 0.6), "psi_D": (0.7, 0.7, 0.6), "psi_E": (1.0, 0.9, 0.8),
+             "psi_F": (0.7, 0.7, 0.6), "psi_G": (0.7, 0.5, 0.3), "psi_H": (0.0, 0.0, 0.0), "psi_neige": (0.5, 0.0, 0.0),
+             "psi_vent": (0.6, 0.2, 0.0), "psi_temperature": (0.6, 0.5, 0.0),
+             "gamma_M0": 1.00, "gamma_M1": 1.00, "gamma_M2": 1.25, "E": 210000.0, "G": 81000.0}
+    ecarts = {k: (PA.valeur(k), v) for k, v in brief.items() if PA.valeur(k) != v or P[k] != v}
+    c("la table contre le brief, valeur par valeur : γ_G,sup, γ_G,inf, γ_Q, ξ, ψ des catégories A à H, neige, vent, température "
+      "(§ 5) ; E, G (§ 7.1) ; γ_M0, γ_M1, γ_M2 (§ 7.2)", not ecarts, ecarts)
     sources = {"NBN EN 1990 ANB:2021, tableau A1.2(B), CC2": ("gamma_G_sup", "gamma_G_inf", "gamma_Q"),
                "NBN EN 1990 ANB:2021, tableau A1.1": tuple(f"psi_{k}" for k in "ABCDEFGH") + ("psi_neige", "psi_vent", "psi_temperature"),
                "NBN EN 1993-1-1 ANB:2018, 6.1(1)B": ("gamma_M0", "gamma_M1", "gamma_M2"), "EN 1993-1-1 § 3.2.6": ("E", "G")}
@@ -253,6 +263,25 @@ def controles():
       CO.sources(pp) == [[0, 1]] and [x["nom"] for x in CO.elu(pp, P)] == ["1,35·G", "1,35·G + 1,5·Q", "G + 1,5·Q"], [x["nom"] for x in CO.elu(pp, P)])
     haut = [pp[0], dict(pp[1], charges=[dict(q(5.0, 0.0, 6.0), niveau="haut")]), pp[2]]
     c("… pas à un autre niveau d'application (la hauteur de charge change M_cr) : deux sources", CO.sources(haut) == [[0], [1]], CO.sources(haut))
+    # deux G de MÊME forme et de SIGNES contraires : réunis sous un seul γ, ils donneraient 1,35·(10 − 4) = 8,1 kN/m au lieu
+    # de 1,35·10 − 1,00·4 = 9,5 (non conservatif)
+    opp = [{"nom": "G1", "nature": "permanent", "charges": [q(10.0, 0.0, 6.0)]}, {"nom": "G2", "nature": "permanent", "charges": [q(-4.0, 0.0, 6.0)]}]
+    try:
+        r_opp = verif(MO.verifier(barre(profil="IPE 400", travees=[6.0], poids_propre=False, cas=opp))["methodes"]["ec3"], "E-My")
+    except Exception as e:  # noqa: BLE001
+        r_opp = {"combinaison": repr(e), "valeur": None}
+    c("G₁ = +10 et G₂ = −4 kN/m sur la même portée : deux sources (rapport négatif) — « 1,35·G1 + G2 » existe et le moteur la "
+      "garde : M_Ed = 9,5 × 6²/8 = 42,750 kN·m (et non 8,1 × 6²/8 = 36,450)",
+      CO.sources(opp) == [[0], [1]] and facteurs(CO.elu(opp, P), opp, nom="1,35·G1 + G2") == {"G1": 1.35, "G2": 1.0}
+      and r_opp is not None and r_opp["combinaison"] == "1,35·G1 + G2" and proche(r_opp["valeur"], 9.5 * 36 / 8, 1e-6), (CO.sources(opp), r_opp and r_opp["valeur"]))
+    tri = [{"nom": "G1", "nature": "permanent", "charges": [{"type": "tri", "v": 6.0, "a": 0.0, "b": 6.0, "sens": "croissante"}]},
+           {"nom": "G2", "nature": "permanent", "charges": [{"type": "tri", "v": 6.0, "a": 0.0, "b": 6.0, "sens": "decroissante"}]}]
+    c("deux charges triangulaires de SENS contraires sur la même portée : deux sources (le sens est dans la répartition)",
+      CO.sources(tri) == [[0], [1]], CO.sources(tri))
+    nn = [{"nom": "G1", "nature": "permanent", "N": 0.0, "charges": [q(5.0, 0.0, 6.0)]}, {"nom": "G2", "nature": "permanent", "N": 50.0, "charges": [q(5.0, 0.0, 6.0)]},
+          {"nom": "G3", "nature": "permanent", "N": 100.0, "charges": [q(10.0, 0.0, 6.0)]}]
+    c("mêmes charges, l'un avec un effort normal : deux sources ; charges ET effort normal dans le même rapport (× 2) : une seule",
+      CO.sources(nn) == [[0], [1, 2]], CO.sources(nn))
     var4 = [{"nom": "Q", "nature": "exploitation_B", "charges": [q(6.0, 0.0, 25.0)]}, {"nom": "S", "nature": "neige", "charges": [q(2.0, 0.0, 25.0)]},
             {"nom": "W", "nature": "vent", "charges": [q(1.5, 0.0, 25.0)]}, {"nom": "T", "nature": "temperature", "charges": [q(0.5, 0.0, 25.0)]}]
     perms = [{"nom": "Poids propre", "nature": "permanent", "charges": [q(0.4, 0.0, 25.0)]}] + \
@@ -392,6 +421,12 @@ MUTATIONS = [
      '"nom": "γ_M de n_pl quand γ_M0 ≠ γ_M1", "statut": POINTE'),
     ("parametres", "γ_M1 « à pointer »", '"gamma_M1": {"valeur": 1.00, "nom": "γ_M1", "source": "NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments)", "statut": POINTE}',
      '"gamma_M1": {"valeur": 1.00, "nom": "γ_M1", "source": "NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments)", "statut": A_POINTER}'),
+    ("parametres", "ψ₀ de la catégorie E à 0,7 (au lieu de 1,0 ; non conservatif)", '"psi_E": {"valeur": (1.0, 0.9, 0.8)', '"psi_E": {"valeur": (0.7, 0.9, 0.8)'),
+    ("parametres", "ψ₁ de la catégorie C à 0,5 (au lieu de 0,7)", '"psi_C": {"valeur": (0.7, 0.7, 0.6)', '"psi_C": {"valeur": (0.7, 0.5, 0.6)'),
+    ("parametres", "ψ₂ de la catégorie H à 0,3 (au lieu de 0)", '"psi_H": {"valeur": (0.0, 0.0, 0.0)', '"psi_H": {"valeur": (0.0, 0.0, 0.3)'),
+    ("parametres", "γ_M2 = 1,00 (au lieu de 1,25 ; non conservatif)", '"gamma_M2": {"valeur": 1.25', '"gamma_M2": {"valeur": 1.00'),
+    ("parametres", "G sans arrondi (80 769 au lieu de 81 000)", '"G": {"valeur": 81000.0', '"G": {"valeur": 80769.0'),
+    ("parametres", "γ_G,inf = 0,9 (la valeur d'une autre annexe)", '"gamma_G_inf": {"valeur": 1.00', '"gamma_G_inf": {"valeur": 0.90'),
     ("parametres", "un défaut de décision changé (η₁ plastique)", '"eta1_ame": {"valeur": "elastique"', '"eta1_ame": {"valeur": "plastique"'),
     # les natures et ψ₀
     ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", "                        f[i] = P[\"gamma_Q\"] * p\n", "                        f[i] = P[\"gamma_Q\"]\n"),
@@ -421,6 +456,10 @@ MUTATIONS = [
     ("combinaisons", "G favorable (1,00) oublié", "jeux = list(product((True, False), repeat=len(srcs)))", "jeux = [tuple(True for _ in srcs)]"),
     ("combinaisons", "les cas de même répartition jamais réunis", "            if _proportionnelles(_repartition(cas[src[0]]), r):", "            if False:"),
     ("combinaisons", "le niveau de la charge ignoré par la répartition", 'ch.get("niveau"), ch.get("introduction")', 'None, ch.get("introduction")'),
+    ("combinaisons", "deux G de signes contraires réunis (k ≠ 0 au lieu de k > 0 ; non conservatif)", "return k > 0 and all(", "return k != 0 and all("),
+    ("combinaisons", "le sens d'une charge triangulaire hors de la répartition",
+     'None if bout is None else round(float(bout), 9), ch.get("sens"),', 'None if bout is None else round(float(bout), 9), None,'),
+    ("combinaisons", "l'effort normal hors de la répartition", '    ajouter(("N",), c.get("N") or 0.0)\n', "\n"),
     ("combinaisons", "pas de budget", "plafond = max(COMBINAISONS_MAX, n_une)", "plafond = 10 ** 9"),
     # les noms et les hypothèses
     ("combinaisons", "les permanents au même γ écrits un par un", '        termes = [(f[perm[0]], "G")]', '        termes = [(f[i], cas[i]["nom"]) for i in perm]'),
