@@ -1355,7 +1355,8 @@ MUTATIONS = [
     ("ec3_ame", "interaction (7.1) : M_f,Rd avec h", '    hf = s["h"] - sm["haut"]["tf"] / 2.0 - sm["bas"]["tf"] / 2.0', '    hf = s["h"]'),
     ("ec3_ame", "interaction (7.1) sous effort normal : rendue sans le dire", '    if s["forme"] != "I" or N != 0:', '    if s["forme"] != "I":'),
     ("ec3_ame", "voilement induit par la semelle : k = 4", "K_SEMELLE = 0.4 ", "K_SEMELLE = 0.004 "),
-    ("raidisseurs", "lot A — le plat à la f_y de la barre (épaisseur oubliée)", '    fyp = fy if nuance is None else NO.limite_elastique(nuance, ts, produit="lamine")', "    fyp = fy"),
+    # lot C, C1b : la f_y du plat est lue dans la liste du module Barres (nuances.py, S420 et la norme produit compris)
+    ("raidisseurs", "lot A — le plat à la f_y de la barre (épaisseur oubliée)", '    fyp = fy if nuance is None else NU.fy(nuance, ts, "lamine", norme_produit)', "    fyp = fy"),
     ("raidisseurs", "lot A — f_y de calcul du raidisseur : celle du plat seul", '"fy_calcul": min(fyp, fyw)', '"fy_calcul": fyp'),
     ("raidisseurs", "lot A — 15·ε·t_w avec l'ε du plat", '    plein = AME_PARTICIPANTE * m["eps_ame"] * tw', '    plein = AME_PARTICIPANTE * m["eps_plat"] * tw'),
     ("raidisseurs", "lot A — écrasement à la f_y de calcul (et non à celle du plat)", "NcRd=Ac * fyp / P[\"gamma_M0\"]", "NcRd=Ac * fyd / P[\"gamma_M0\"]"),

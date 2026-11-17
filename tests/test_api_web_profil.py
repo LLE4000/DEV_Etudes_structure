@@ -136,10 +136,11 @@ chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %)
 res0 = texte(neuf["resultat"])
 # (lot C, C1, le harnais suit : le poids propre au centre de GRAVITÉ, et non sur la semelle haute avec les charges — M_cr monte,
 #  M_b,Rd 115,6 → 115,7 kN·m)
+# (lot C, C2, le harnais suit : le poids propre et G ont la même répartition, ils font une source et s'écrivent « G »)
 chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
     neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in res0
-    and "Poids propre + G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,7 kN·m" in res0
-    and "1,35·Poids propre + 1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0, res0[:500])
+    and "G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,7 kN·m" in res0
+    and "1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0 and "Poids propre +" not in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
     round(r0["poids_propre"], 4) == 0.4230 and "(0,42 kN/m)" in texte(neuf["donnees"]), texte(neuf["donnees"])[:300])
 chk("la tête dit la barre : « B1 », « IPE 300 · S235 · 6,00 m » ; le pied, la masse et la flèche de service (une information)",
@@ -358,11 +359,17 @@ e5 = e0
 for _ in range(3):
     e5 = saisir(e5, "cas/+", "1")["etat"]
 six = saisir(e5, "cas/+", "1")
-chk("au plus quatre cas VARIABLES : le cinquième cas ajouté est permanent (G2) ; le changer en variable est refusé, le moteur le dit",
+# (lot C, C2, le harnais suit : la limite compte les NATURES d'actions variables, plus les cas — quatre natures différentes
+#  sur les cas 1 à 4, une cinquième est refusée, une nature déjà présente passe)
+quatre = enchainer(six["etat"], ("cas/2/nature", "neige"), ("cas/3/nature", "vent"), ("cas/4/nature", "temperature"))["etat"]
+refus5, admis5 = saisir(quatre, "cas/5/nature", "exploitation_B"), saisir(quatre, "cas/5/nature", "exploitation_A")
+chk("au plus quatre NATURES variables : le cinquième cas ajouté est permanent (G2) ; une cinquième nature est refusée, le moteur le dit ; "
+    "une nature déjà présente passe",
     [c["nature"] != "permanent" for c in e5["elements"][0]["cas"]] == [False, True, True, True, True]
     and six["etat"]["elements"][0]["cas"][-1] == dict(nom="G2", nature="permanent", N=0.0, charges=[{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0, "niveau": None}],
                                                       courte_duree=False, psi0=None, N_troncons=None)
-    and "au plus 4 cas de charge variables" in saisir(six["etat"], "cas/5/nature", "vent")["message"]
+    and "au plus 4 natures d'actions variables (la barre en a 5)" in (refus5["message"] or "") and refus5["etat"] == quatre
+    and not admis5["message"] and admis5["etat"]["elements"][0]["cas"][5]["nature"] == "exploitation_A"
     and "au plus 6 cas de charge" in saisir(six["etat"], "cas/+", "1")["message"], [c["nom"] for c in six["etat"]["elements"][0]["cas"]])
 
 print("=== 4. Les deux modes")
@@ -768,8 +775,10 @@ tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m san
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
     "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">139 %<" in tx and ">113 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'
+# (lot C, C2, le harnais suit : une charge répartie sur toute la barre a la répartition du poids propre — les deux font une
+#  source, « G », et le nom saisi disparaîtrait des dessins ; une ponctuelle garde la sienne)
 sale = req(action="calculer", etat=note(barre(nom=mechant[:40], cas=[{"nom": "<b>G</b>", "nature": "permanent", "N": 0.0,
-                                                                         "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])))
+                                                                         "charges": [{"type": "P", "v": 5.0, "a": 2.0}]}])))
 # (l'état et le résumé de la note sont des DONNÉES, que l'écran pose en texte ; ce qui est du HTML : les fragments et les dessins)
 tout = sale["resultat"] + sale["volets"] + sale["donnees"] + sale["statut_html"] + "".join(v["svg"] + v["entete"] for v in sale["vues"])
 chk("un nom de barre ou de cas saisi est ÉCHAPPÉ partout (résultat, fenêtres, colonne de gauche, dessins) : aucune balise n'en sort",

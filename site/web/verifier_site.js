@@ -4338,8 +4338,9 @@ const principal = async () => {
         await g.waitForTimeout(200);
         const tout = await g.evaluate(() => { const x = document.querySelector('.flyout.on.calcul'); return x ? x.textContent.replace(/[\s]+/g, ' ') : ''; });
         // (lot B, B1 : la méthode ELS n'a plus de ligne « Flexion » — le déversement des classeurs la couvre, σ_adm,d ≤ σ_adm)
-        verif('barres : « Tout le calcul » d\'une méthode ouvre ses combinaisons et toutes ses vérifications (« Poids propre + G + Q », déversement, contrainte équivalente)',
-          /Poids propre \+ G \+ Q/.test(tout) && /[Dd]éversement/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
+        // (lot C, C2 — le harnais suit : le poids propre et G de la barre neuve ont la même répartition, la combinaison s'écrit « G + Q »)
+        verif('barres : « Tout le calcul » d\'une méthode ouvre ses combinaisons et toutes ses vérifications (« G + Q », déversement, contrainte équivalente)',
+          /\bG \+ Q\b/.test(tout) && /[Dd]éversement/.test(tout) && /[Cc]ontrainte équivalente/.test(tout), tout.slice(0, 200));
         await g.keyboard.press('Escape');
         await g.waitForTimeout(150);
         // (lot B, B1 c30627d · 622972c · 3c0936d) le bloc ELS : la ligne « Déversement » (H-DEV) gouverne, puis la contrainte
@@ -4524,7 +4525,7 @@ const principal = async () => {
           verif(`barres : ${nom} — la page dit ce que dit le témoin (résultats, dessin de la barre, vues)${quoi ? `, et ${({ charge: 'les deux taux montent, le dessin écrit « 12 kN/m »',
             ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (88 % et 58 %)',
             borne: 'aux appuis, l\'âme tient À LA BORNE — « Sans raidisseur · 83 % », chaque appui « sans raidisseur (s s = 0, c = 0 : borne prudente) », pas de ligne « Âme » sous les verdicts',
-            sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 114 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
+            sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 113 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
             appui_100: 'les appuis passent à « Sans raidisseur · 22 % » (F_Rd = 199,8 kN ; c non saisi, pris à 0 : « sans raidisseur (c = 0 : borne prudente) »), plus de ligne « Âme »',
             raidisseur: 'l\'appui A demande 2 plats 70 × 10 mm (sa ligne les nomme, ils sont DESSINÉS sur la barre avec leur légende) ; à la charge (0,50 m : ni s s saisie, ni maintien de la semelle haute à son droit) la décision est IMPOSSIBLE (122 % à la borne) — la ligne « Âme » dit les deux, en gris, le lieu en tête (« charge à 0,50 m : s s à saisir ; semelle haute sans maintien (…) ») ; « Bloqué · 89 % » au bloc ; le champ de la longueur d\'appui de la charge',
             console: 'L z vide, « auto · 6,3 » (la console : 2,1·L — même après les efforts imposés et le retour) ; la puce de l\'Eurocode 3 n\'est PAS verte (N + M en console : non couvert), « + 1 non couvert : flexion composée » sous son verdict',

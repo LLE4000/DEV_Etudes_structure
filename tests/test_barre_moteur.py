@@ -124,9 +124,11 @@ def controles(M=None):
     c("méthode historique : G + ΣQ à 100 %, pour chaque arrangement — G ; G + Q ; G + S ; G + Q + S",
       [(x["nom"], x["facteurs"]) for x in co.service([G, Q, S])] == [("G", [1.0, 0.0, 0.0]), ("G + Q", [1.0, 1.0, 0.0]), ("G + S", [1.0, 0.0, 1.0]),
                                                                     ("G + Q + S", [1.0, 1.0, 1.0])])
-    c("domaine : aucun cas, nature inconnue, plus de quatre cas variables — refusés",
+    # lot C, C2 : la limite compte les NATURES d'actions variables, plus les cas (cinq cas d'une nature passent)
+    W, T = {"nom": "W", "nature": "vent"}, {"nom": "T", "nature": "temperature"}
+    c("domaine : aucun cas, nature inconnue, plus de quatre natures d'actions variables — refusés",
       all(_refuse(f) for f in (lambda: co.elu([], Pm), lambda: co.elu([{"nom": "X", "nature": "seisme"}], Pm),
-                               lambda: co.elu([G] + [dict(Q, nom=f"Q{i}") for i in range(5)], Pm))))
+                               lambda: co.elu([G, Q, dict(Q, nom="Q2", nature="exploitation_B"), S, W, T], Pm))))
 
     # ---- 2. la statique
     b = en.normaliser(barre(travees=[6.0], cas=[{"nom": "G", "nature": "permanent", "N": 30.0, "charges": [q(4.0, 0.0, 6.0), P_(10.0, 2.0)]},
@@ -668,10 +670,9 @@ MUTATIONS = [
      "            if nom not in b[\"methodes\"]:\n                continue\n            methodes[nom] = calcul()\n            if comprimee[nom]:"),
     ("moteur", "lot C — le moteur ne calcule que la méthode imprimée (efforts imposés)", "            methodes[nom] = calcul()\n            if avec_pp:",
      "            if nom not in b[\"methodes\"]:\n                continue\n            methodes[nom] = calcul()\n            if avec_pp:"),
-    ("combinaisons", "l'accompagnement reçoit γ_Q sans ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"]'),
-    ("combinaisons", "ψ₁ au lieu de ψ₀", 'f[i] = P["gamma_Q"] * P[cle][0]', 'f[i] = P["gamma_Q"] * P[cle][1]'),
-    ("combinaisons", "deux cas de même nature : un seul dominant", 'if cas[i]["nature"] == dom:', "if i == s[0]:"),
-    ("combinaisons", "G favorable (1,00) oublié", 'for gG in (P["gamma_G_sup"], P["gamma_G_inf"]):', 'for gG in (P["gamma_G_sup"],):'),
+    # lot C, C2 : « γ_Q sans ψ₀ », « ψ₁ au lieu de ψ₀ », « deux cas de même nature : un seul en tête » et « G favorable
+    # (1,00) oublié » sont rejouées par tests/test_barre_combinaisons.py, sur le texte neuf de combinaisons.py
+    ("combinaisons", "lot C — plus aucune limite des natures d'actions variables", "    if n > VARIABLES_MAX:", "    if False:"),
     ("combinaisons", "un seul arrangement : tous les cas variables présents", "    for k in range(len(var) + 1):", "    for k in (len(var),):"),
     ("combinaisons", "méthode historique pondérée (1,35)", "            f[i] = 1.0\n", "            f[i] = 1.35\n"),
     ("statique", "lot A — poids volumique de la masse × 9,81 (77,0 kN/m³)", "POIDS_VOLUMIQUE = 78.6 ", "POIDS_VOLUMIQUE = 77.0 "),
