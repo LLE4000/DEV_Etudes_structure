@@ -40,10 +40,11 @@ PARAMETRES: Dict[str, Dict] = {
     # par défaut ; le § 6.3.2.2 est calculé à côté et affiché pour information (brief § 7.7)
     "methode_deversement_lamines": {"valeur": "6.3.2.3", "nom": "méthode de déversement des I et H laminés", "statut": DECISION,
                                     "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.2(2) et 6.3.2.3 : DÉCISION BUREAU n° 4, § 6.3.2.3 par défaut"},
-    # ---- déversement d'un PRS bisymétrique (brief § 7.7 et 18.5 ; § 13.2, point 10) : § 6.3.2.2 par défaut ; § 6.3.2.3
-    # quand l'ingénieur déclare la section « soudée équivalente » à un laminé (la case de la barre : le texte ne définit pas
-    # l'équivalence). Un PRS monosymétrique : § 6.3.2.2 seul, quoi que dise ce paramètre.
-    "prs_soudee_equivalente": {"valeur": False, "nom": "PRS « section soudée équivalente »", "statut": DECISION,
+    # ---- déversement d'une section en I SOUDÉE bisymétrique, PRS ou I saisi « soudé » (brief § 7.7 et 18.5 ; § 13.2,
+    # point 10) : § 6.3.2.2 par défaut ; § 6.3.2.3 quand l'ingénieur déclare la section « soudée équivalente » à un laminé
+    # (la case de la barre : le texte ne définit pas l'équivalence). Un PRS monosymétrique : § 6.3.2.2 seul, quoi que dise
+    # ce paramètre. (Le nom de la clé est resté celui du PRS ; l'intégration du lot B l'étend à tout I soudé.)
+    "prs_soudee_equivalente": {"valeur": False, "nom": "I soudé (PRS) « section soudée équivalente »", "statut": DECISION,
                                "source": "EN 1993-1-1 § 6.3.2.3(1) : laminés et sections soudées dites équivalentes (équivalence non définie) ; DÉCISION BUREAU n° 10"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_D_ANB", "nom": "méthode du § 6.3.3", "statut": POINTE,

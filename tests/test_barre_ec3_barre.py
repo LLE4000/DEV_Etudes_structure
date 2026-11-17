@@ -524,6 +524,22 @@ def controles(M=None):
     c("tableau 6.5 : laminé h/b ≤ 2 → b (IPE 300, HEA 300) ; > 2 → c (IPE 400, HEA 800) ; soudé h/b = 3 → d",
       courbes_LT == {"IPE 300": "b", "IPE 400": "c", "HEA 300": "b", "HEA 800": "c"}
       and v(ws, None, 6000.0, fy=355.0, MyEd=100e6)["grandeurs"]["deversement"]["courbe"] == "d", courbes_LT)
+    # (intégration du lot B, défaut NON CONSERVATIF latent) un I saisi « soudé » qui n'est pas un PRS : la règle des PRS
+    # (DÉCISION BUREAU n° 10) — § 6.3.2.2 par défaut ; les tableaux 6.4 et 6.5 lui donnent les mêmes courbes, et le § 6.3.2.3
+    # divise par f ≤ 1 : il restait au § 6.3.2.3, M_b,Rd trop haut de 1,8 % (réparti) à 5,7 % (charge centrale) ici
+    ws_ = {}
+    for diag_ in (dv.REPARTI, dv.PONCTUEL):
+        for decl_ in (False, True):
+            r_ = v(ws, None, 6000.0, fy=355.0, MyEd=100e6, flexion={"y": {"diagramme": diag_}}, parametres={"prs_soudee_equivalente": decl_})
+            D_ = r_["grandeurs"]["deversement"]
+            ws_[(diag_, decl_)] = (D_["methode"], D_["kc"], round(limite(r_, "E-Mb"), 2), D_["information"]["methode"],
+                                   round(D_["information"]["M_b_Rd"] / 1e6, 2))
+    c("un I SOUDÉ qui n'est pas un PRS (h/b = 3, courbe d, 6 m) : § 6.3.2.2 par défaut, k_c = 1 — M_b,Rd 254,71 kN·m (réparti) et 286,68 "
+      "(charge centrale), le § 6.3.2.3 pour information (259,41 et 303,16, k_c 0,94 et 0,86) ; déclaré « section soudée équivalente » : "
+      "§ 6.3.2.3, le § 6.3.2.2 pour information",
+      ws_ == {(dv.REPARTI, False): ("§ 6.3.2.2", 1.0, 254.71, "§ 6.3.2.3", 259.41), (dv.REPARTI, True): ("§ 6.3.2.3", 0.94, 259.41, "§ 6.3.2.2", 254.71),
+              (dv.PONCTUEL, False): ("§ 6.3.2.2", 1.0, 286.68, "§ 6.3.2.3", 303.16), (dv.PONCTUEL, True): ("§ 6.3.2.3", 0.86, 303.16, "§ 6.3.2.2", 286.68)},
+      ws_)
     r = v("HEA 300", "S355", 8000.0, MyEd=200e6)
     D = r["grandeurs"]["deversement"]
     c("HEA 300 S355 (classe 3) : λ̄_LT et M_b,Rd avec W_el,y", proche(D["lambda_LT"], math.sqrt(brut("HEA 300")["Wel_y"] * 1e3 * 355.0 / D["M_cr"]))
@@ -1149,6 +1165,8 @@ MUTATIONS = [
     ("ec3_deversement", "lot B — χ_LT,mod sans le plafond 1/λ̄_LT² de (6.58) (AC:2009)", "    chi = min(chi0 / f, plafond)\n",
      "    chi = min(chi0 / f, 1.0)\n"),
     ("ec3_deversement", "M_b,Rd avec γ_M0 = 1 en dur", "    MbRd = chi * Wy * fy / gM1\n", "    MbRd = chi * Wy * fy\n"),
+    ("ec3_deversement", "intégration B — un I soudé qui n'est pas un PRS reste au § 6.3.2.3 (non conservatif)",
+     '        if famille == "soude" and not (P["prs_soudee_equivalente"]', '        if PR.est_prs(s) and not (P["prs_soudee_equivalente"]'),
     # (intégration du lot B : un coefficient dans une phrase s'écrit par acier/formats.nb — « {x:g} » écrivait un point décimal)
     ("ec3_deversement", "intégration B — le couple imposé écrit par « {x:g} » (« 0.4 ; 0.75 »)",
      'f"Couple ({FMT.nb(defaut[0])} ; {FMT.nb(defaut[1])}) imposé', 'f"Couple ({defaut[0]:g} ; {defaut[1]:g}) imposé'),

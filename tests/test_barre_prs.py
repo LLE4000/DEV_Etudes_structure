@@ -909,9 +909,11 @@ MUTATIONS = [
     ("mcr", "(E.1) : C₃·z_j de signe retourné", "    x = C2 * zg - C3 * zj\n", "    x = C2 * zg + C3 * zj\n"),
     ("mcr", "tableau E.2 ANB : C₃ de la charge répartie à 0,411", 'E2 = {"reparti": (1.12, 0.45, 0.525),', 'E2 = {"reparti": (1.12, 0.45, 0.411),'),
     ("ec3_deversement", "le z_j du PRS non passé au solveur", "    zj = PR.zj_haut(s)\n", "    zj = 0.0\n"),
-    ("ec3_deversement", "PRS : § 6.3.2.3 par défaut", '        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):', "        if False:"),
-    ("ec3_deversement", "PRS monosymétrique : § 6.3.2.3 admis quand il est déclaré", '        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):',
-     '        if prs and not P["prs_soudee_equivalente"]:'),
+    # (intégration du lot B, le harnais suit : la règle vise toute section en I soudée — PRS compris —, plus le seul PRS)
+    ("ec3_deversement", "PRS : § 6.3.2.3 par défaut", '        if famille == "soude" and not (P["prs_soudee_equivalente"] and not PR.monosymetrique(s)):', "        if False:"),
+    ("ec3_deversement", "PRS monosymétrique : § 6.3.2.3 admis quand il est déclaré",
+     '        if famille == "soude" and not (P["prs_soudee_equivalente"] and not PR.monosymetrique(s)):',
+     '        if famille == "soude" and not P["prs_soudee_equivalente"]:'),
     ("ec3_deversement", "§ 6.3.2.2 avec le facteur f (k_c du tableau 6.6 gardé)", '            kc, tabule, D["variante"] = 1.0, False, False\n',
      '            tabule, D["variante"] = False, False\n'),
     # (intégration du lot B) les deux écritures de l'autre méthode, et la clé de la variante du couple prise par un PRS
@@ -919,7 +921,7 @@ MUTATIONS = [
      '        info = D["variante"] = D["information"]\n'),
     ("ec3_deversement", "intégration — l'autre méthode d'un PRS monosymétrique gardée", "        if PR.monosymetrique(s):                 # un PRS monosymétrique",
      "        if False:                 # un PRS monosymétrique"),
-    ("ec3_deversement", "intégration — la source de l'autre méthode d'un PRS : DÉCISION BUREAU n° 4", "DÉCISION BUREAU n° {10 if prs else 4}",
+    ("ec3_deversement", "intégration — la source de l'autre méthode d'un PRS : DÉCISION BUREAU n° 4", "DÉCISION BUREAU n° {10 if famille == 'soude' else 4}",
      "DÉCISION BUREAU n° 4"),
     ("ec3_deversement", "PRS sans bords saisis : courbes d'un laminé", '        famille = "soude" if (s["fabrication"] in SOUDES or SE.soude(s)) else "lamine"',
      '        famille = "soude" if s["fabrication"] in SOUDES else "lamine"'),

@@ -15,10 +15,12 @@ docs/acier/BARRES_ACIER.md § 5.6.
     § 6.3.2.2 (cas général), pour information à côté du § 6.3.2.3 (DÉCISION BUREAU n° 4, brief § 7.7) :
         Φ_LT = 0,5·[1 + α_LT·(λ̄_LT − 0,2) + λ̄_LT²]      χ_LT = 1/(Φ_LT + √(Φ_LT² − λ̄_LT²)) ≤ 1
         tableau 6.4 : laminé h/b ≤ 2 : a ; > 2 : b — soudé h/b ≤ 2 : c ; > 2 : d
-    PRS en I (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par défaut (k_c = 1, f = 1), le § 6.3.2.3 pour
-        information ; § 6.3.2.3 seulement pour un PRS bisymétrique déclaré « section soudée équivalente »
-        (prs_soudee_equivalente), le § 6.3.2.2 alors pour information ; un PRS monosymétrique : § 6.3.2.2 seul.
-        L'autre méthode a UNE écriture : grandeurs["deversement"]["information"] (laminés et PRS)
+    I SOUDÉ — PRS ou I saisi « soudé » (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par défaut (k_c = 1,
+        f = 1), le § 6.3.2.3 pour information ; § 6.3.2.3 seulement pour une section bisymétrique déclarée « section
+        soudée équivalente » (prs_soudee_equivalente), le § 6.3.2.2 alors pour information ; un PRS monosymétrique :
+        § 6.3.2.2 seul. (Les tableaux 6.4 et 6.5 donnent les MÊMES courbes c et d à un I soudé, et le § 6.3.2.3 divise
+        ensuite par f ≤ 1 : pour une section soudée, le § 6.3.2.2 n'est jamais le moins sévère.)
+        L'autre méthode a UNE écriture : grandeurs["deversement"]["information"] (laminés et I soudés)
     tube rectangulaire (cas général, § 6.3.2.2) : courbe d, λ̄_LT,0 = 0,2 et β = 1 dans Φ_LT, f = 1 ; le seuil de
         6.3.2.2(4) renvoie au λ̄_LT,0 de 6.3.2.3 — celui de l'ANB, 0,2
     M_b,Rd = χ_LT,mod·W_y·f_y / γ_M1
@@ -323,10 +325,12 @@ def ajouter(J: Journal, d: Dict) -> None:
         generale = False
         if famille == "lamine" and P["methode_deversement_lamines"] == "6.3.2.2":     # le défaut changé dans la table
             generale = True
-        if prs and not (P["prs_soudee_equivalente"] and not s["monosymetrique"]):
-            # PRS (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par défaut — tableau 6.4, « sections en I
-            # soudées », les mêmes courbes c et d ; § 6.3.2.3 seulement pour un PRS bisymétrique déclaré « section soudée
-            # équivalente » ; un PRS monosymétrique : § 6.3.2.2 seul
+        if famille == "soude" and not (P["prs_soudee_equivalente"] and not PR.monosymetrique(s)):
+            # une section en I SOUDÉE, PRS ou I saisi « soudé » (brief § 7.7 et 18.5, DÉCISION BUREAU n° 10) : § 6.3.2.2 par
+            # défaut — tableau 6.4, « sections en I soudées », les mêmes courbes c et d que le tableau 6.5, sans f ≤ 1 : jamais
+            # moins sévère ; § 6.3.2.3 seulement pour une section bisymétrique déclarée « section soudée équivalente » ; un
+            # PRS monosymétrique : § 6.3.2.2 seul. (Intégration du lot B : l'I soudé qui n'est pas un PRS restait au
+            # § 6.3.2.3 — M_b,Rd trop haut de 2 à 7,5 % — défaut non conservatif, latent : aucun écran ne le saisit encore.)
             generale = True
         if generale:                             # § 6.3.2.2 : pas de f (k_c = 1), ni de variante du couple
             autre = (methode, courbe, lbLT0, beta, kc)
@@ -387,7 +391,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         # (la seule écriture de l'autre méthode : un PRS bisymétrique la lit aussi — _prs ; DÉCISION BUREAU n° 10 pour lui)
         D["information"] = {"methode": m_, "courbe": c_, "alpha_LT": a_, "lambda_LT0": l0_, "beta": b_, "kc": k_, "chi_LT": x_, "f": f_,
                             "M_b_Rd": x_ * Wy * fy / gM1, "taux": My / (x_ * Wy * fy / gM1),
-                            "source": f"{REF} ({m_}) — pour information (DÉCISION BUREAU n° {10 if prs else 4} : {methode} décide)"}
+                            "source": f"{REF} ({m_}) — pour information (DÉCISION BUREAU n° {10 if famille == 'soude' else 4} : {methode} décide)"}
     cles.append(J.f("M_b_Rd", "M_b,Rd", [_t(nom_chi, chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
                     "kN·m", "e_M_b_Rd"))
     D["formules"] = cles
