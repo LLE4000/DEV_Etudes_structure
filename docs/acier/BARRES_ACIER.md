@@ -119,6 +119,12 @@ l'autre plan n'a plus à être vérifié à part.
 | Caisson soudé recuit | a | a |
 | Té, U, cornière | c | c |
 
+**U et cornières (lot C, C1b ; brief v12 § 3).** En efforts imposés seulement (une barre chargée est refusée en une
+ligne) : la compression simple de la méthode ELS, courbe c ; toute flexion « non couverte » ; l'Eurocode 3 « non couvert »
+en une ligne (« Eurocode 3 : non couvert pour une cornière (v1). »). Une cornière flambe autour de ses axes principaux
+u-u et v-v (`section.py`) : chacun prend la plus grande longueur de flambement saisie, v-v (le plus petit rayon) gouverne
+(À VÉRIFIER). Doc p. 8 : L 60 × 60 × 8 de 2 m, λ̄ 1,820, φ_c 0,236, P_adm 33,4 kN (`tests/test_barre_nuances.py`).
+
 ### 4.3 Ce que le module corrige ou ajoute par rapport aux classeurs
 
 1. P_cr avec (u·L)² — le classeur oublie u (sans effet quand u = 1, ce qui est le cas des six classeurs).
@@ -231,6 +237,18 @@ f_u 540), tableaux 3.8 et 3.10 ANB pour les creux finis à chaud et formés à f
 la plus épaisse, max(t_f ; t_w) ; l'ε, celui de CHAQUE paroi, avec la f_y de SON épaisseur (classe, largeurs efficaces,
 λ̄_p, 72·ε/η, λ̄_w, λ̄_F, 15·ε·t_w). Au-delà de 80 mm : hors du domaine du module (refus, `normes.T_MAX_TABLEAU`).
 
+**Nuances et norme produit (lot C, C1b ; brief v12 § 4.1, § 7.1).** La liste du SEUL module Barres est
+`acier/barre/nuances.py` : S235, S275, S355, S420, S460 (les modules Flambement, cornière et le Catalogue gardent
+`materiaux.NUANCES`, sans S420). La clé `norme_produit` de la barre choisit la ligne de S420 et S460 : vide = N/NL
+(EN 10025-3, tableaux 3.4, 3.9 et 3.11 ANB), « M » = M/ML (EN 10025-4, tableau 3.5 ANB ; tubes formés à froid :
+tableau 3.12 ANB) ; elle est sans effet sur S235 à S355 (EN 10025-2). Valeurs : S420N 420 / 400 / 390 / 370 au-delà de
+16, 40 et 63 mm (f_u 520) ; S420M 420 / 400 / 390 / 380 (f_u 520 / 500 / 480) ; S460M comme S460N jusqu'à 100 mm
+(f_u 540 / 530 / 510). Le défaut N/NL est le côté sûr pour f_y (au plus M/ML à toute épaisseur), pas pour f_u, qu'aucune
+vérification n'emploie en v1 (À VÉRIFIER). Un produit sans ligne dans l'ANB (S420 formé à froid N/NL, un creux fini à
+chaud M/ML) : refus « valeur à fournir ». Le résultat Eurocode 3 rend `norme_produit` (celle qui sert), `fu`,
+`fu_source` et `fu_ref` (la note dit l'origine de f_y et de f_u, option a) ; la norme produit est dite une fois, dans la
+source de f_y. Méthode ELS : f_y nominale (420 pour S420), « hors domaine » hors AE235 à AE355, comme S460.
+
 ### 5.2 Classification — § 5.5, tableau 5.2 (vérifié)
 Âme en flexion 72ε / 83ε / 124ε ; en compression 33ε / 38ε / 42ε ; en flexion composée : classe 1 396ε/(13α − 1) si
 α > 0,5, sinon 36ε/α ; classe 2 456ε/(13α − 1), sinon 41,5ε/α ; classe 3 42ε/(0,67 + 0,33ψ) si ψ > −1, sinon
@@ -265,7 +283,10 @@ BUREAU n° 3 ; le catalogue et la Bibliothèque Acier portent encore A − h_w·
 U (fonction `aires_cisaillement` seulement : le module ne vérifie pas un U, E-SECTION « non couvert ») : A_v,z du catalogue
 (cas (b)), A_v,y = min(2·b·t_f, A − h_w·t_w) pour un U laminé — aucun cas de 6.2.6(3) ne le vise, (e) nomme les U
 soudés : la plus petite des deux (troisième passe du lot A ; avant, l'A_v,z de l'âme : UPN 380 52,43 cm² au lieu de
-32,64) — A − h_w·t_w pour un U soudé ; une cornière est refusée ;
+32,64) — A − h_w·t_w pour un U soudé ; une cornière est refusée ; la variante de la DÉCISION BUREAU n° 3 (lot C, C1b) :
+l'autre règle d'un I ou H laminé (A − h_w·t_w si le défaut 2·b·t_f décide, et l'inverse), son V_pl,y,Rd et son taux,
+rendus pour information (`grandeurs["A_v_variante"]` ; HEB 200 S235 : 814,1 kN décide, la variante 851,8 kN) — I soudé,
+IPN et PRS n'en ont pas ;
 tube rectangulaire A·h/(b + h) ; tube rond 2A/π. Flexion + effort
 tranchant (6.2.8) ; flexion + effort normal (6.2.9 : (6.33) à (6.41)) ; classe 3 (6.42) ; classe 4 (6.44) ; 6.2.10.
 Tube rond en N + M : M_N,Rd = M_pl,Rd·(1 − n^1,7) (§ 6.2.9.1(6), ligne de l'AC:2009 ; lot B — le critère linéaire (6.2)
