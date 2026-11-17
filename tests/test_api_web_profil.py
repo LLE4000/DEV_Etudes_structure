@@ -455,11 +455,14 @@ print("=== 6 bis. L'âme et ses raidisseurs (EN 1993-1-5)")
 ra = r0["ame"]
 bloc = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', neuf["resultat"], re.S)
 tb = texte(bloc.group(1)) if bloc else ""
+# (intégration du lot C, vague 1 — le harnais suit la rencontre de C1 et C2 : le poids propre au centre de GRAVITÉ (C1), G à la
+#  hauteur de la barre, font deux répartitions, donc deux sources de γ_G (C2) — 7 combinaisons au lieu de 3 ; section 22)
 chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (le troisième) dit « Bloqué » (lot C, C0c — le harnais suit : « À "
     "vérifier » avant ; une donnée manque, la décision est bloquée), la norme et les combinaisons ELU ; "
     "une ligne par appui — « décision impossible : s_s à saisir », avec le taux à la borne (157 %, en gris) ; l'avertissement en pied (le "
     "harnais suit : sans taux, « à fournir », à la 2e reprise du lot B — brief § 8.3, point 5)",
-    bloc is not None and tb.startswith("Âme et raidisseurs Bloqué") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 3 combinaisons" in tb
+    bloc is not None and tb.startswith("Âme et raidisseurs Bloqué") and "NBN EN 1993-1-5 · combinaisons ELU (6.10) · 7 combinaisons" in tb
+    and len(ra["combinaisons"]) == 7
     and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
     and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s à saisir." in tb and ra["taux_max"] is None, tb[:400])
 chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
@@ -1074,20 +1077,23 @@ def refus_80():
 
 for nom_, ok_, info_ in refus_80():
     chk(nom_, ok_, info_)
-vrai_ = NO.limite_elastique
+# (intégration du lot C, vague 1 — le harnais suit C1b : la barre lit f_y dans acier/barre/nuances.py, qui écrit le refus des
+#  80 mm lui-même — muter acier/flambement/normes.limite_elastique ne l'atteint plus, la mutation n'y faisait plus rien rougir)
+from acier.barre import nuances as NU  # noqa: E402
+vrai_ = NU._lire
 
 
-def _fy_point(nuance, t, froid=False, produit=None):
+def _lire_point(lecteur, nuance, t, produit, norme_produit):
     if t > NO.T_MAX_TABLEAU:                             # l'ancien refus : le nombre écrit par Python (« 89.9 »)
-        raise NO.HorsDomaine(f"épaisseur {t:g} mm > {NO.T_MAX_TABLEAU:g} mm : hors du domaine du module")
-    return vrai_(nuance, t, froid, produit)
+        raise NU.Refus(f"épaisseur {t:g} mm > {NO.T_MAX_TABLEAU:g} mm : hors du domaine du module")
+    return vrai_(lecteur, nuance, t, produit, norme_produit)
 
 
 try:
-    NO.limite_elastique = _fy_point
+    NU._lire = _lire_point
     rouges_ = [n_ for n_, ok_, _i in refus_80() if not ok_]
 finally:
-    NO.limite_elastique = vrai_
+    NU._lire = vrai_
     P._RESULTATS.clear()
 chk(f"mutation « troisième passe — refus de 80 mm écrit avec un point décimal » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 
@@ -1743,6 +1749,41 @@ for nom_, attr_, ancien_, nouveau_ in MUTATIONS_PRS:
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
 chk("témoin : sans mutation, les contrôles de la note PRS sont verts", all(ok_ for _n, ok_, _i in note_prs()))
+
+print("=== 22. (intégration du lot C, vague 1) le poids propre (C1) et les sources de γ_G (C2) : les combinaisons de l'âme — et sa mutation")
+from acier.barre import combinaisons as CO  # noqa: E402
+
+
+def combinaisons_neuve():
+    """La barre neuve : le poids propre au centre de GRAVITÉ (C1), G (5 kN/m sur toute la barre) à la hauteur de la barre — deux
+    répartitions, deux sources de γ_G (C2). 2 × 2 arrangements des permanents, Q présent ou non, moins « G » seul (proportionnel
+    à « 1,35·G ») : 7 combinaisons, que le bloc de l'âme compte (rejoué sous mutation)."""
+    P._RESULTATS.clear()
+    r_ = req(action="nouveau")
+    b_ = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', r_["resultat"], re.S)
+    t_ = texte(b_.group(1)) if b_ else ""
+    noms_ = [c_["nom"] for c_ in moteur(r_["etat"]["elements"][0])["ame"]["combinaisons"]]
+    return [("barre neuve : le poids propre et G, à deux hauteurs, sont deux sources de γ_G — 7 combinaisons ELU au bloc de l'âme, dont "
+             "« Poids propre + 1,35·G + 1,5·Q » et « 1,35·Poids propre + G + 1,5·Q »",
+             "combinaisons ELU (6.10) · 7 combinaisons" in t_ and len(noms_) == 7 and "Poids propre + 1,35·G + 1,5·Q" in noms_
+             and "1,35·Poids propre + G + 1,5·Q" in noms_, (re.findall(r"· \d+ combinaisons?", t_), noms_))]
+
+
+for nom_, ok_, info_ in combinaisons_neuve():
+    chk(nom_, ok_, info_)
+vrai_ = CO._repartition
+try:
+    CO._repartition = _source_mutee(CO, '                 ch.get("niveau"), ch.get("introduction")',
+                                    '                 None, ch.get("introduction")')._repartition
+    rouges_ = [n_ for n_, ok_, _i in combinaisons_neuve() if not ok_]
+except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+    rouges_ = [f"exception : {err_}"]
+finally:
+    CO._repartition = vrai_
+    P._RESULTATS.clear()
+chk(f"mutation « le niveau d'une charge hors de sa répartition (le poids propre réuni à G) » : {len(rouges_)} contrôle(s) rougissent",
+    bool(rouges_), rouges_)
+chk("témoin : sans mutation, le contrôle des combinaisons de la barre neuve est vert", all(ok_ for _n, ok_, _i in combinaisons_neuve()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
