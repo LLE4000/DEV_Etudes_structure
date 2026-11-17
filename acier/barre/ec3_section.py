@@ -2,8 +2,9 @@
 """EUROCODE 3, la résistance de la SECTION (NBN EN 1993-1-1 § 6.2, annexe belge) : efforts de CALCUL (ELU, pondérés).
 docs/acier/BARRES_ACIER.md § 5.1 à 5.4. Sections à deux axes de symétrie : I et H, tubes carrés, rectangulaires, ronds.
 
-    f_y de calcul : la table unique acier/materiaux.py (option a de l'ANB:2018, 3.2.1(1) ; tableaux 3.3 ANB à 3.11 ANB,
-        produit selon la fabrication), épaisseur max(t_f ; t_w ; t) — la plus petite f_y des parois (brief § 7.1)
+    f_y et f_u de calcul : la table unique acier/materiaux.py (option a de l'ANB:2018, 3.2.1(1) ; tableaux 3.3 ANB à
+        3.12 ANB, produit selon la fabrication ; S420 et S460 : norme produit N/NL ou M/ML, acier/barre/nuances.py),
+        épaisseur max(t_f ; t_w ; t) — la plus petite f_y des parois (brief § 7.1)
     ε = √(235 / f_y) PAROI PAR PAROI, avec la f_y de chaque paroi selon SON épaisseur (classe, section efficace)
                                                                                     classe (acier/barre/ec3_classe.py)
     N_c,Rd = A·f_y/γ_M0 (A_eff en classe 4)             N_t,Rd = A·f_y/γ_M0 (sans trous)                (§ 6.2.3, 6.2.4)
@@ -32,11 +33,11 @@ acier/barre/formules.py). L'instabilité de la barre (flambement, déversement) 
 import math
 from typing import Dict, List, Optional
 
-from acier import materiaux as MA
 from acier.flambement import normes as NO
 
 from . import ec3_ame as AM
 from . import ec3_classe as CL
+from . import nuances as NU
 from . import parametres as PA
 from . import prs as PR
 from . import section as SE
@@ -53,6 +54,9 @@ ALPHA_I = 2.0                    # (6.41), I et H
 ALPHA_TUBE_MAX = 6.0             # (6.41), tubes carrés et rectangulaires
 EFFORTS = ("NEd", "MyEd", "MzEd", "VzEd", "VyEd")
 NOMS_W = {1: "W_pl", 2: "W_pl", 3: "W_el", 4: "W_eff"}
+# une forme hors de la v1 (brief § 3 : cornières, U, tés — la compression simple de la méthode ELS seulement) : une ligne
+MSG_FORME = "Eurocode 3 : non couvert pour {quoi} (v1)."
+QUOI_FORME = {"L": "une cornière", "U": "un U", "autre": "cette section"}
 
 
 # la fabrication du profilé → le produit de la table des aciers (acier/materiaux.py) : les profils creux finis à chaud
@@ -71,31 +75,47 @@ def produit(s: Dict) -> str:
     return PRODUITS.get(s.get("fabrication"), "lamine")
 
 
-def limite_elastique(nuance: str, s: Dict, t: Optional[float] = None) -> float:
+def limite_elastique(nuance: str, s: Dict, t: Optional[float] = None, norme_produit: Optional[str] = None) -> float:
     """f_y de la nuance pour l'épaisseur ``t`` (par défaut la f_y de CALCUL : la plus forte paroi), le produit de la
-    section — la seule lecture de la table des barres (Eurocode 3, méthode historique, âme, raidisseurs) ; Refus hors
-    du domaine (nuance inconnue, épaisseur de plus de 80 mm, au-delà du tableau)."""
-    try:
-        return NO.limite_elastique(nuance, epaisseur(s) if t is None else t, produit=produit(s))
-    except NO.HorsDomaine as e:
-        raise Refus(str(e)) from None
+    section et la norme produit (S420 et S460 : None = N/NL, « M » = M/ML ; acier/barre/nuances.py) — la seule lecture
+    de la table des barres (Eurocode 3, âme, raidisseurs) ; Refus hors du domaine (nuance inconnue, épaisseur de plus
+    de 80 mm, au-delà du tableau, produit sans ligne dans l'ANB)."""
+    return _fy(nuance, s, t, norme_produit)
 
 
-def source_fy(nuance: str, s: Dict, t: Optional[float] = None) -> str:
-    """D'où vient la f_y de calcul : « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm »."""
-    return MA.source(nuance, epaisseur(s) if t is None else t, produit(s), "fy")
+def _fy(nuance: str, s: Dict, t: Optional[float], norme_produit: Optional[str]) -> float:
+    return NU.fy(nuance, epaisseur(s) if t is None else t, produit(s), norme_produit)
 
 
-def tableau_fy(nuance: str, s: Dict) -> str:
+def source_fy(nuance: str, s: Dict, t: Optional[float] = None, norme_produit: Optional[str] = None) -> str:
+    """D'où vient la f_y de calcul : « tableau 3.3 ANB (EN 10025-2:2004, S235JR), 16 < t ≤ 40 mm » — la norme produit
+    y est dite (« EN 10025-4:2004, S460M »), une fois."""
+    return NU.source(nuance, epaisseur(s) if t is None else t, produit(s), norme_produit, "fy")
+
+
+def tableau_fy(nuance: str, s: Dict, norme_produit: Optional[str] = None) -> str:
     """Le tableau de l'ANB que la f_y lit, en court (« tableau 3.3 ANB ») : pour une ligne où la source entière ne tient pas."""
-    return f"tableau {MA.ligne(nuance, produit(s))['tableau']}"
+    return NU.tableau(nuance, produit(s), norme_produit)
 
 
-def limites_parois(nuance: str, s: Dict) -> Dict[str, float]:
+def resistance_traction(nuance: str, s: Dict, norme_produit: Optional[str] = None) -> Dict:
+    """f_u de la section (option a de l'ANB:2018, 3.2.1(1)), à l'épaisseur de la f_y de calcul : {"fu" (N/mm²),
+    "fu_source" (« tableau 3.4 ANB (EN 10025-3:2004, S420N), t ≤ 100 mm »), "fu_ref" (« tableau 3.4 ANB »)}. Rendue
+    pour la note (l'origine de f_y ET de f_u) ; aucune vérification des barres ne l'emploie en v1 (pas de trous)."""
+    t = epaisseur(s)
+    return {"fu": NU.fu(nuance, t, produit(s), norme_produit), "fu_source": NU.source(nuance, t, produit(s), norme_produit, "fu"),
+            "fu_ref": NU.tableau(nuance, produit(s), norme_produit)}
+
+
+def limites_parois(nuance: str, s: Dict, norme_produit: Optional[str] = None) -> Dict[str, float]:
     """La f_y de CHAQUE paroi selon SON épaisseur (brief § 7.1 ; EN 1993-1-1 tableau 5.2 : ε de la paroi) : I et H —
     {"semelle": f_y(t_f), "ame": f_y(t_w)} ; PRS — chaque plat (brief § 18.3) : {"semelle_haut": f_y(t1),
     "semelle_bas": f_y(t2), "ame": f_y(t_w), "semelle": la plus petite des deux semelles} ; tube — une seule épaisseur,
-    {"b", "h", "tube": f_y(t)}."""
+    {"b", "h", "tube": f_y(t)}. Chaque paroi dans la ligne de la table de la barre : sa norme produit, liée une fois."""
+
+    def limite_elastique(nuance_: str, s_: Dict, t: Optional[float] = None) -> float:
+        return _fy(nuance_, s_, t, norme_produit)
+
     if PR.est_prs(s):
         p = s["prs"]
         out = {"semelle_haut": limite_elastique(nuance, s, p["t1"]), "semelle_bas": limite_elastique(nuance, s, p["t2"]),
@@ -109,11 +129,13 @@ def limites_parois(nuance: str, s: Dict) -> Dict[str, float]:
 
 
 def lire(barre: Dict) -> Dict:
-    """Les données, complétées et contrôlées (une COPIE) : {"section", "nuance", "fy", "fy_parois", "fy_source", "t",
-    "fy_tableau", "parametres", "NEd", "MyEd", "MzEd", "VzEd", "VyEd", "voilement"}. ``fy`` donné passe devant la table
-    (toutes les parois le prennent) ; sinon f_y de calcul et f_y de chaque paroi selon l'épaisseur. ``voilement`` faux :
-    sans le voilement par cisaillement d'une âme élancée — le moteur des barres le range dans SON bloc de l'âme
-    (acier/barre/ame.py), avec les autres vérifications de l'EN 1993-1-5."""
+    """Les données, complétées et contrôlées (une COPIE) : {"section", "nuance", "norme_produit", "fy", "fy_parois",
+    "fy_source", "fy_ref", "fu", "fu_source", "fu_ref", "t", "fy_tableau", "parametres", "NEd", "MyEd", "MzEd", "VzEd",
+    "VyEd", "voilement"}. ``fy`` donné passe devant la table (toutes les parois le prennent ; f_u et la norme produit sont
+    alors None) ; sinon f_y de calcul et f_y de chaque paroi selon l'épaisseur, f_u, et la norme produit qui SERT
+    (``norme_produit`` de la barre : None = N/NL, « M » = M/ML, pour S420 et S460 seulement — acier/barre/nuances.py).
+    ``voilement`` faux : sans le voilement par cisaillement d'une âme élancée — le moteur des barres le range dans SON
+    bloc de l'âme (acier/barre/ame.py), avec les autres vérifications de l'EN 1993-1-5."""
     if not isinstance(barre, dict) or not isinstance(barre.get("section"), dict):
         raise Refus("la barre doit porter une section")
     s = barre["section"]
@@ -131,19 +153,22 @@ def lire(barre: Dict) -> Dict:
         d[k] = float(v)
     fy = barre.get("fy")
     if fy is None:
-        if d["nuance"] not in NO.NUANCES:
-            raise Refus(f"nuance inconnue : {d['nuance']!r} (S235, S275, S355 ou S460, ou bien f_y)")
-        fy = limite_elastique(d["nuance"], s)
-        d["fy_parois"] = limites_parois(d["nuance"], s)
-        d["fy_source"] = source_fy(d["nuance"], s)
-        d["fy_ref"] = tableau_fy(d["nuance"], s)
+        if d["nuance"] not in NU.NUANCES:
+            raise Refus(f"nuance inconnue : {d['nuance']!r} ({', '.join(NU.NUANCES[:-1])} ou {NU.NUANCES[-1]}, ou bien f_y)")
+        n, norme = d["nuance"], NU.norme_effective(d["nuance"], barre.get("norme_produit"))
+        fy = limite_elastique(n, s, None, norme)
+        d["norme_produit"] = norme
+        d["fy_parois"] = limites_parois(n, s, norme)
+        d["fy_source"] = source_fy(n, s, None, norme)
+        d["fy_ref"] = tableau_fy(n, s, norme)
+        d.update(resistance_traction(n, s, norme))
         d["fy_tableau"] = True
     else:
         if isinstance(fy, bool) or not isinstance(fy, (int, float)) or not math.isfinite(float(fy)) or fy <= 0:
             raise Refus("la limite élastique f_y doit être un nombre positif")
         d["fy_tableau"] = False
         d["fy_parois"] = {k: float(fy) for k in ("semelle", "ame", "b", "h", "tube", "semelle_haut", "semelle_bas")}
-        d["fy_source"] = d["fy_ref"] = None
+        d["fy_source"] = d["fy_ref"] = d["norme_produit"] = d["fu"] = d["fu_source"] = d["fu_ref"] = None
     d["fy"] = float(fy)
     # la semelle que M_y comprime (un PRS monosymétrique en dépend) : M_y > 0 comprime la semelle HAUTE (la convention
     # du formulaire de poutres, acier/barre/statique.py)
@@ -185,11 +210,17 @@ def aires_cisaillement(s: Dict, eta: float, avy: Optional[str] = None) -> Dict:
         decision = PA.valeur("avy_lamine") if avy is None else avy
         avy, regle = ((A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE) if decision == "2btf"
                       else (A - hw * s["tw"], AVY_LAMINE_VARIANTE))
+        # (lot C, C1b) DÉCISION BUREAU n° 3 (brief § 13.2 point 3, § 1 règle 8) : l'AUTRE règle d'un I ou H laminé, calculée
+        # pour information ; un I soudé (la règle de la norme) et un IPN (la plus petite des deux) n'en ont pas
+        variante = None if soude else ({"y": A - hw * s["tw"], "regle_y": AVY_LAMINE_VARIANTE} if regle == AVY_LAMINE
+                                       else {"y": 2.0 * s["b"] * s["tf"], "regle_y": AVY_LAMINE})
         if s.get("famille") in FAMILLES_AVY_MIN and not soude:
             # IPN (semelles inclinées) : la plus petite de 2·b·t_f et de l'aire géométrique A − h_w·t_w, comme pour les U
             # (brief § 19.2 ; 19.1 point 9) — 2·b·t_f la dépasse sur des IPN du catalogue
             avy, regle = min(avy, A - hw * s["tw"]), AVY_MIN
-        return {"z": max(base, plancher), "y": avy, "plancher": plancher, "plancher_gouverne": plancher > base, "hw": hw, "regle_y": regle}
+            variante = None
+        return {"z": max(base, plancher), "y": avy, "plancher": plancher, "plancher_gouverne": plancher > base, "hw": hw, "regle_y": regle,
+                "variante_y": variante}
     if forme in ("tube_carre", "tube_rect"):
         if not s.get("h") or not s.get("b"):
             raise Refus("h, b manquent : l'aire de cisaillement d'un tube en dépend")
@@ -222,6 +253,10 @@ MSG_AVY = {AVY_SOUDE: "A_v,y = A − h_w·t_w : section soudée (EN 1993-1-1 § 
            AVY_LAMINE_VARIANTE: "A_v,y = A − h_w·t_w : I ou H laminé, variante choisie dans la table (décision du bureau n° 3).",
            AVY_LAMINE: "A_v,y = 2·b·t_f : I ou H laminé, décision du bureau (défaut ; EN 1993-1-1:2022 § 8.2.6(3)b)).",
            AVY_MIN: "A_v,y = min(2·b·t_f ; A − h_w·t_w) : IPN, côté sûr (comme pour les U)."}
+# (lot C, C1b, reprise) la VARIANTE de la décision n° 3 (``grandeurs["A_v_variante"]``) : la règle NON retenue, rendue pour
+# information — son propre texte, jamais celui de la règle prise (MSG_AVY dirait « choisie dans la table » à tort)
+MSG_AVY_VARIANTE = {AVY_LAMINE_VARIANTE: "Pour information (décision du bureau n° 3, non retenue) : A_v,y = A − h_w·t_w.",
+                    AVY_LAMINE: "Pour information (décision du bureau n° 3, non retenue) : A_v,y = 2·b·t_f."}
 
 
 def _eps_paroi(J: Journal, p: Dict, eps_calcul: float) -> str:
@@ -361,7 +396,9 @@ def ajouter(J: Journal, d: Dict) -> None:
     eps = NO.epsilon(fy)
     fyp = d.get("fy_parois") or {}
     G.update({"fy": fy, "epsilon": eps, "gamma_M0": gM0, "t": d["t"], "A": A, "NEd": N, "MyEd": My, "MzEd": Mz, "VzEd": Vz, "VyEd": Vy,
-              "fy_parois": fyp, "fy_source": d.get("fy_source"), "fy_ref": d.get("fy_ref")})
+              "fy_parois": fyp, "fy_source": d.get("fy_source"), "fy_ref": d.get("fy_ref"),
+              # (lot C, C1b) la norme produit qui sert, f_u et son origine : la note dit d'où viennent f_y ET f_u (option a)
+              "norme_produit": d.get("norme_produit"), "fu": d.get("fu"), "fu_source": d.get("fu_source"), "fu_ref": d.get("fu_ref")})
     J.f("eps", "ε", [_t("f_y", fy, "N/mm²")], eps, "", "e_eps")
     J.hyp.append(f"Efforts de calcul (ELU) ; γ_M0 = {_fr(gM0, 2)}.")
     nuance = f"Acier {d['nuance']}" if d["nuance"] else "Acier"
@@ -380,7 +417,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         _hypotheses_prs(J, s)
     if forme not in FORMES:
         J.verif("E-SECTION", "Résistance de la section", NORME, "", None, None, "", [], statut=NON_COUVERT,
-                messages=[J.alerte("forme", "attention", "Cornière, U ou té : hors du module (compression simple : module Flambement).")])
+                messages=[J.alerte("forme", "attention", MSG_FORME.format(quoi=QUOI_FORME.get(forme, QUOI_FORME["autre"])))])
         return
 
     # ---- un tube rond n'a pas d'axe : la résultante des deux moments, celle des deux efforts tranchants
@@ -474,6 +511,13 @@ def ajouter(J: Journal, d: Dict) -> None:
             G[f"V_pl_{a}"] = Vpl
             J.verif(f"E-V{a}", "Effort tranchant" + ("" if rond else (", parallèle à l'âme" if a == "z" else ", parallèle aux semelles")),
                     f"{REF} § 6.2.6", "V_Ed ≤ V_pl,Rd" if rond else f"V_{a},Ed ≤ V_pl,{a},Rd", V / 1e3, Vpl / 1e3, "kN", cles)
+            if a == "y" and av.get("variante_y"):
+                # (lot C, C1b) la variante de la DÉCISION BUREAU n° 3, pour information : son A_v,y, son V_pl,y,Rd, son
+                # taux, sa règle (N, mm²) — le verdict reste celui du défaut de la table ; l'écran et la note la disent
+                var = av["variante_y"]
+                Vv = var["y"] * fy / (math.sqrt(3.0) * gM0)
+                G["A_v_variante"] = {"decision": "avy_lamine", "regle_y": var["regle_y"], "A_v_y": var["y"], "V_pl_y_Rd": Vv, "taux": V / Vv,
+                                     "message": MSG_AVY_VARIANTE[var["regle_y"]], "pour_information": True}
             if V > SEUIL_V * Vpl:
                 rho[a] = min((2.0 * V / Vpl - 1.0) ** 2, 1.0)
                 if V < Vpl:
@@ -766,7 +810,8 @@ def _flexion_composee(J: Journal, d: Dict, classe: int, ef, N: float, My: float,
 def verifier(barre: Dict) -> Dict:
     """La SECTION vérifiée selon l'Eurocode 3 (§ 6.2).
 
-    ``barre`` (N, mm) : {"section" (acier.barre.section), "nuance" (S235 à S460) ou "fy", "NEd" (compression > 0,
+    ``barre`` (N, mm) : {"section" (acier.barre.section), "nuance" (S235 à S460, acier/barre/nuances.py) et
+    "norme_produit" (None : N/NL ; « M » : M/ML — S420 et S460), ou "fy", "NEd" (compression > 0,
     traction < 0), "MyEd", "MzEd", "VzEd", "VyEd" (efforts de CALCUL ; moments et efforts tranchants en valeur absolue),
     "parametres" ({clé: valeur} : d'autres coefficients que ceux de acier/barre/parametres.py)}.
 

@@ -69,8 +69,18 @@ TABLEAUX: Dict[str, Tuple[str, Dict[str, Tuple[tuple, tuple]]]] = {
     "3.4": ("EN 10025-3:2004", {
         "S355N": (_bandes(_REH_10025_2, (355, 345, 335, 325, 315, 295, 285, 275)),
                   ((100, _I, 470.0), (200, _I, 450.0), (250, _I, 450.0))),
+        "S420N": (_bandes(_REH_10025_2, (420, 400, 390, 370, 360, 340, 330, 320)),
+                  ((100, _I, 520.0), (200, _I, 500.0), (250, _I, 500.0))),
         "S460N": (_bandes(_REH_10025_2[:7], (460, 440, 430, 410, 400, 380, 370)),
                   ((100, _I, 540.0), (200, _I, 530.0))),
+    }),
+    # (lot C, C1b) aciers thermomécaniques M/ML : la ligne la plus longue s'arrête à 120 mm (la note d du tableau étend
+    # la dernière bande à 150 mm pour les produits longs : non reprise, côté sûr — un refus au-delà de 120 mm)
+    "3.5": ("EN 10025-4:2004", {
+        "S420M": (_bandes(_REH_10210, (420, 400, 390, 380, 370, 365)),
+                  ((40, _I, 520.0), (63, _I, 500.0), (80, _I, 480.0), (100, _I, 470.0), (120, _I, 460.0))),
+        "S460M": (_bandes(_REH_10210, (460, 440, 430, 410, 400, 385)),
+                  ((40, _I, 540.0), (63, _I, 530.0), (80, _I, 510.0), (100, _I, 500.0), (120, _I, 490.0))),
     }),
     "3.8": ("EN 10210-1:2006", {
         "S235JRH": (_bandes(_REH_10210, (235, 225, 215, 215, 215, 195)),
@@ -82,6 +92,7 @@ TABLEAUX: Dict[str, Tuple[str, Dict[str, Tuple[tuple, tuple]]]] = {
     }),
     "3.9": ("EN 10210-1:2006", {
         "S355NH": (_bandes((16, 40, 65), (355, 345, 335)), ((65, _I, 470.0),)),
+        "S420NH": (_bandes((16, 40, 65), (420, 400, 390)), ((65, _I, 520.0),)),
         "S460NH": (_bandes((16, 40, 65), (460, 440, 430)), ((65, _I, 540.0),)),
     }),
     "3.10": ("EN 10219-1:2006", {
@@ -93,6 +104,10 @@ TABLEAUX: Dict[str, Tuple[str, Dict[str, Tuple[tuple, tuple]]]] = {
         "S355NH": (_bandes((16, 40), (355, 345)), ((40, _I, 470.0),)),
         "S460NH": (_bandes((16, 40), (460, 440)), ((40, _I, 540.0),)),
     }),
+    "3.12": ("EN 10219-1:2006", {
+        "S420MH": (_bandes((16, 40), (420, 400)), ((40, _I, 500.0),)),
+        "S460MH": (_bandes((16, 40), (460, 440)), ((40, _I, 530.0),)),
+    }),
 }
 
 # nuance du site (après ALIAS) → produit → (tableau, désignation)
@@ -102,6 +117,13 @@ LIGNES: Dict[str, Dict[str, Tuple[str, str]]] = {
     "S355": {"lamine": ("3.3", "S355JR"), "creux_chaud": ("3.8", "S355J0H"), "creux_froid": ("3.10", "S355J0H")},
     "S355N": {"lamine": ("3.4", "S355N"), "creux_chaud": ("3.9", "S355NH"), "creux_froid": ("3.11", "S355NH")},
     "S460": {"lamine": ("3.4", "S460N"), "creux_chaud": ("3.9", "S460NH"), "creux_froid": ("3.11", "S460NH")},
+    # (lot C, C1b) les lignes du module Barres seul (acier/barre/nuances.py) : S420 — norme produit N/NL (EN 10025-3, à
+    # défaut) — et M/ML (EN 10025-4) de S420 et S460. Un produit sans ligne dans l'ANB (S420 formé à froid N/NL ; un creux
+    # fini à chaud M/ML, que l'EN 10210-1 ne prévoit pas) : refus « valeur à fournir ». ``NUANCES`` ne les nomme pas : les
+    # autres modules gardent leur liste.
+    "S420": {"lamine": ("3.4", "S420N"), "creux_chaud": ("3.9", "S420NH")},
+    "S420M": {"lamine": ("3.5", "S420M"), "creux_froid": ("3.12", "S420MH")},
+    "S460M": {"lamine": ("3.5", "S460M"), "creux_froid": ("3.12", "S460MH")},
 }
 
 
@@ -116,18 +138,24 @@ def _cle(nuance: str) -> str:
     return n
 
 
-def ligne(nuance: str, produit: str = "lamine") -> Dict[str, str]:
-    """La ligne de l'ANB employée pour ``nuance`` et ``produit`` : {"tableau", "norme", "designation"}."""
+def _tableau_de(nuance: str, produit: str) -> Tuple[str, str]:
+    """(tableau, désignation) de ``nuance`` pour ``produit`` ; HorsTable si l'ANB n'en a pas de ligne."""
     if produit not in PRODUITS:
         raise HorsTable(f"produit inconnu : {produit}")
-    tab, des = LIGNES[_cle(nuance)][produit]
+    lg = LIGNES[_cle(nuance)]
+    if produit not in lg:
+        raise HorsTable(f"{nuance} {LIBELLES_PRODUIT[produit]} : aucune ligne dans les tableaux de l'ANB (valeur à fournir)")
+    return lg[produit]
+
+
+def ligne(nuance: str, produit: str = "lamine") -> Dict[str, str]:
+    """La ligne de l'ANB employée pour ``nuance`` et ``produit`` : {"tableau", "norme", "designation"}."""
+    tab, des = _tableau_de(nuance, produit)
     return {"tableau": f"{tab} ANB", "norme": TABLEAUX[tab][0], "designation": des}
 
 
 def _bandes_de(nuance: str, produit: str, rang: int):
-    if produit not in PRODUITS:
-        raise HorsTable(f"produit inconnu : {produit}")
-    tab, des = LIGNES[_cle(nuance)][produit]
+    tab, des = _tableau_de(nuance, produit)
     return TABLEAUX[tab][1][des][rang]
 
 
@@ -170,8 +198,9 @@ def source(nuance: str, t: float, produit: str = "lamine", grandeur: str = "fy")
 
 
 def nominale(nuance: str) -> float:
-    """Le nombre du nom (S235 → 235) : f_y de la plus petite épaisseur d'un produit laminé. Pour un libellé ou un
-    contrôle de domaine (« la nuance est-elle une S235 ? »), jamais pour une résistance."""
+    """Le nombre du nom (S235 → 235) : f_y de la plus petite épaisseur d'un produit laminé. Pour un libellé, un
+    contrôle de domaine (« la nuance est-elle une S235 ? ») et la méthode ELS des barres, qui prend la f_y nominale
+    comme les classeurs du bureau (brief v12 § 13.2 point 5) — jamais pour une résistance de l'Eurocode."""
     return _bandes_de(nuance, "lamine", 0)[0][2]
 
 

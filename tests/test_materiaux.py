@@ -69,6 +69,21 @@ FY = {
     ("S275", "creux_froid"): [(16, 275), (17, 265), (40, 265), (41, None)],
     ("S355", "creux_froid"): [(16, 355), (17, 345), (40, 345), (41, None)],
     ("S460", "creux_froid"): [(16, 460), (17, 440), (40, 440), (41, None)],
+    # (lot C, C1b) les lignes du seul module Barres (acier/barre/nuances.py) : S420 N/NL, S420 et S460 M/ML, lues sur
+    # l'extrait de l'ANB le 17/11/2026 (tableaux 3.4, 3.5, 3.9 et 3.12 ANB)
+    ("S420", "lamine"): [(16, 420), (16.5, 400), (30, 400), (40, 400), (41, 390), (63, 390), (64, 370), (70, 370), (80, 370), (81, 360),
+                         (100, 360), (101, 340), (150, 340), (151, 330), (200, 330), (201, 320), (250, 320), (251, None)],
+    ("S420M", "lamine"): [(16, 420), (17, 400), (40, 400), (41, 390), (63, 390), (64, 380), (70, 380), (80, 380), (81, 370), (100, 370),
+                          (101, 365), (120, 365), (121, None)],
+    ("S460M", "lamine"): [(16, 460), (17, 440), (40, 440), (41, 430), (63, 430), (64, 410), (80, 410), (81, 400), (100, 400),
+                          (101, 385), (120, 385), (121, None)],
+    ("S420", "creux_chaud"): [(16, 420), (17, 400), (40, 400), (41, 390), (65, 390), (66, None)],
+    ("S420M", "creux_froid"): [(16, 420), (17, 400), (40, 400), (41, None)],
+    ("S460M", "creux_froid"): [(16, 460), (17, 440), (40, 440), (41, None)],
+    # un produit que l'ANB ne donne pas : S420 formé à froid N/NL (absent du tableau 3.11 ANB), un creux fini à chaud M/ML
+    ("S420", "creux_froid"): [(10, None)],
+    ("S420M", "creux_chaud"): [(10, None)],
+    ("S460M", "creux_chaud"): [(10, None)],
 }
 FU = {
     ("S235", "lamine"): [(2, 360), (2.99, 360), (3, 360), (100, 360), (101, 350), (150, 350), (151, 340), (250, 340),
@@ -85,6 +100,14 @@ FU = {
     ("S275", "creux_froid"): [(2, 430), (2.99, 430), (3, 410), (40, 410)],
     ("S355", "creux_froid"): [(2, 510), (2.99, 510), (3, 470), (40, 470), (41, None)],
     ("S460", "creux_froid"): [(2, 540), (40, 540)],
+    ("S420", "lamine"): [(2, 520), (100, 520), (101, 500), (200, 500), (250, 500), (251, None)],
+    ("S420M", "lamine"): [(2, 520), (40, 520), (41, 500), (50, 500), (63, 500), (64, 480), (80, 480), (81, 470), (100, 470), (101, 460),
+                          (120, 460), (121, None)],
+    ("S460M", "lamine"): [(2, 540), (40, 540), (41, 530), (63, 530), (64, 510), (70, 510), (80, 510), (81, 500), (100, 500), (101, 490),
+                          (120, 490), (121, None)],
+    ("S420", "creux_chaud"): [(2, 520), (65, 520), (66, None)],
+    ("S420M", "creux_froid"): [(2, 500), (40, 500), (41, None)],
+    ("S460M", "creux_froid"): [(2, 530), (40, 530), (41, None)],
 }
 
 
@@ -129,6 +152,22 @@ def controles(M=MA):
     c("source d'un tube formé à froid : tableau 3.10 ANB (EN 10219-1:2006, S355J0H)",
       M.source("S355", 8, "creux_froid").startswith("tableau 3.10 ANB (EN 10219-1:2006, S355J0H)"), M.source("S355", 8, "creux_froid"))
     c("nominale : le nombre du nom (235, 275, 355, 460)", [M.nominale(n) for n in M.NUANCES] == [235, 275, 355, 460])
+    # (lot C, C1b) les cas de la mission : S420 N/NL, plat de 30 mm → 400 ; à 70 mm, M/ML 380 et N/NL 370 ; S460 sans norme
+    # produit : la ligne N/NL du tableau 3.4 ANB, inchangée ; S460 M/ML : le tableau 3.5 ANB (EN 10025-4)
+    c("S420 N/NL : plat de 30 mm → 400 N/mm² ; 70 mm : M/ML 380, N/NL 370",
+      lu(M.fy, "S420", 30, "lamine") == 400 and lu(M.fy, "S420M", 70, "lamine") == 380 and lu(M.fy, "S420", 70, "lamine") == 370)
+    c("S460 sans norme produit : tableau 3.4 ANB (EN 10025-3:2004, S460N), comme avant ; S460 M/ML : tableau 3.5 ANB (EN 10025-4:2004, S460M)",
+      M.source("S460", 30).startswith("tableau 3.4 ANB (EN 10025-3:2004, S460N)")
+      and M.source("S460M", 30).startswith("tableau 3.5 ANB (EN 10025-4:2004, S460M)"), (M.source("S460", 30), M.source("S460M", 30)))
+    c("f_u et son tableau : S420 N/NL 520 (tableau 3.4 ANB, t ≤ 100 mm) ; S460 M/ML de 70 mm 510 (tableau 3.5 ANB, 63 < t ≤ 80 mm)",
+      M.source("S420", 30, "lamine", "fu") == "tableau 3.4 ANB (EN 10025-3:2004, S420N), t ≤ 100 mm"
+      and M.source("S460M", 70, "lamine", "fu") == "tableau 3.5 ANB (EN 10025-4:2004, S460M), 63 < t ≤ 80 mm",
+      (M.source("S420", 30, "lamine", "fu"), M.source("S460M", 70, "lamine", "fu")))
+    c("tubes : S420NH fini à chaud (tableau 3.9 ANB), S420MH formé à froid (tableau 3.12 ANB, EN 10219-1:2006)",
+      M.source("S420", 8, "creux_chaud").startswith("tableau 3.9 ANB (EN 10210-1:2006, S420NH)")
+      and M.source("S420M", 8, "creux_froid").startswith("tableau 3.12 ANB (EN 10219-1:2006, S420MH)"))
+    c("les listes des autres modules ne bougent pas : NUANCES = S235, S275, S355, S460 (S420 n'y est pas)",
+      M.NUANCES == ("S235", "S275", "S355", "S460"), M.NUANCES)
     return C
 
 
@@ -146,7 +185,7 @@ def forme():
                for n in list(MA.NUANCES) + list(MA.ALIAS) for p in MA.PRODUITS)
     C.append(("chaque nuance du site et chaque nom enregistré, pour chaque produit, se lit dans un tableau", tous))
     C.append(("une nuance inconnue, un produit inconnu, une épaisseur nulle ou négative : refus nommé",
-              refus(MA.fy, "S420", 10) and refus(MA.fy, "S235", 10, "inox") and refus(MA.fy, "S235", 0)
+              refus(MA.fy, "S690", 10) and refus(MA.fy, "S235", 10, "inox") and refus(MA.fy, "S235", 0)
               and refus(MA.fy, "S235", -5) and refus(MA.fu, "S235", float("nan"))))
     try:
         MA.fy("S355", 50, "creux_froid")
@@ -166,6 +205,17 @@ def forme():
         msg = str(e)
     C.append(("refus d'un laminé : « S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u) »",
               msg == "S235 laminé de 300 mm : le tableau 3.3 ANB s'arrête à 250 mm (f_u)", msg))
+    try:
+        MA.fy("S420", 10, "creux_froid")
+        msg = ""
+    except MA.HorsTable as e:
+        msg = str(e)
+    C.append(("un produit sans ligne dans l'ANB (S420 formé à froid N/NL) : refus en une ligne, « valeur à fournir » — aucune valeur prise ailleurs",
+              msg == "S420 creux formé à froid : aucune ligne dans les tableaux de l'ANB (valeur à fournir)", msg))
+    nm = [(n, t) for n in ("S420", "S460") for t in [x / 2.0 for x in range(1, 241)]
+          if not MA.fy(n, t, "lamine") <= MA.fy(n + "M", t, "lamine")]
+    C.append(("S420 et S460 : la f_y de N/NL est au plus celle de M/ML à toute épaisseur jusqu'à 120 mm (le défaut N/NL est le côté sûr)",
+              not nm, nm[:3]))
     C.append(("bornes : la ligne avec ses bornes chiffrées, mêmes textes et valeurs que paliers",
               MA.bornes("S235")[:2] == [(16.0, True, "t ≤ 16 mm", 235.0), (40.0, True, "16 < t ≤ 40 mm", 225.0)]
               and all([(b[2], b[3]) for b in MA.bornes(n, p, g)] == MA.paliers(n, p, g)
@@ -246,13 +296,15 @@ def mutations():
         rm[0] = (3.0, True, 510.0)
         remplace("3.3", "S355JR", 1, tuple(rm))
 
-    def chaud_comme_froid():
+    def chaud_comme_froid():          # (les lignes sans l'un des deux produits — lot C, S420 et M/ML — restent telles quelles)
         for n in MA.LIGNES:
-            MA.LIGNES[n]["creux_chaud"] = MA.LIGNES[n]["creux_froid"]
+            if "creux_froid" in MA.LIGNES[n] and "creux_chaud" in MA.LIGNES[n]:
+                MA.LIGNES[n]["creux_chaud"] = MA.LIGNES[n]["creux_froid"]
 
     def froid_comme_lamine():
         for n in MA.LIGNES:
-            MA.LIGNES[n]["creux_froid"] = MA.LIGNES[n]["lamine"]
+            if "creux_froid" in MA.LIGNES[n]:
+                MA.LIGNES[n]["creux_froid"] = MA.LIGNES[n]["lamine"]
 
     def s460_m():            # S460 lu au tableau 3.5 (thermomécanique) : la ligne n'est pas reprise → la N de 3.4 forcée à 3.11
         MA.LIGNES["S460"]["lamine"] = ("3.11", "S460NH")
@@ -268,12 +320,28 @@ def mutations():
         reh[3] = (80.0, True, 335.0)
         remplace("3.3", "S355JR", 0, tuple(reh))
 
+    def s420_n_comme_m():    # (lot C, C1b) S420 sans norme produit lu en M/ML (le défaut n'est plus le côté sûr)
+        MA.LIGNES["S420"]["lamine"] = ("3.5", "S420M")
+
+    def s460_m_comme_n():    # S460 M/ML lu au tableau 3.4 (N/NL)
+        MA.LIGNES["S460M"]["lamine"] = ("3.4", "S460N")
+
+    def s420m_63_80():       # S420 M/ML de 63 à 80 mm lu à 370 (la valeur N/NL)
+        reh = list(MA.TABLEAUX["3.5"][1]["S420M"][0])
+        reh[3] = (80.0, True, 370.0)
+        remplace("3.5", "S420M", 0, tuple(reh))
+
+    def froid_n_pris_m():    # S420 formé à froid N/NL : la ligne M/ML prise faute de ligne N/NL (une valeur venue d'ailleurs)
+        MA.LIGNES["S420"]["creux_froid"] = ("3.12", "S420MH")
+
     cas = [("option b : palier à 40 mm (tableau 3.1)", option_b), ("f_u S355 = 510 (tableau 3.1)", fu_510),
            ("f_u S275 = 430 (tableau 3.1)", fu_430), ("borne « < 3 » lue « ≤ 3 »", borne_3_incluse),
            ("creux finis à chaud lus au tableau des formés à froid", chaud_comme_froid),
            ("creux formés à froid lus comme des laminés", froid_comme_lamine), ("S460 laminé lu dans le mauvais tableau", s460_m),
            ("le nom « S355 (fu 490) » oublié", alias_perdu), ("« S355 N/NL » lu comme un S355 de l'EN 10025-2", n_comme_s355),
-           ("S355 de 63 à 80 mm à 335 (palier 63-80 oublié)", palier_63)]
+           ("S355 de 63 à 80 mm à 335 (palier 63-80 oublié)", palier_63),
+           ("lot C — S420 sans norme produit lu en M/ML", s420_n_comme_m), ("lot C — S460 M/ML lu en N/NL (tableau 3.4)", s460_m_comme_n),
+           ("lot C — S420 M/ML de 63 à 80 mm à 370", s420m_63_80), ("lot C — S420 formé à froid N/NL : la ligne M/ML prise", froid_n_pris_m)]
     res = []
     for nom, appliquer in cas:
         try:

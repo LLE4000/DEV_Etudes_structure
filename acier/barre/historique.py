@@ -284,6 +284,8 @@ def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
     return hors
 
 
+# (lot C, C1b) la longueur de flambement d'une cornière comprimée (brief § 3), dite une fois
+MESSAGE_CORNIERE = "Cornière : axes u-u et v-v, chacun avec la plus grande longueur de flambement saisie (À VÉRIFIER)."
 HORS_DOMAINE_TEXTES = {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm",
                        "epaisseur": "paroi de plus de 80 mm, que la doc ne prévoit pas",
                        "prs_mono": "PRS monosymétrique (la formule du déversement suppose deux semelles égales)",
@@ -312,6 +314,13 @@ def verifier(barre: Dict) -> Dict:
     déversement)."""
     d = _lire(barre)
     s0 = d["section"]
+    corniere = s0["forme"] == "L" and d["P"] > 0
+    if corniere:
+        # (lot C, C1b) une cornière flambe autour de ses axes PRINCIPAUX (u-u, v-v : acier/barre/section.py), que les
+        # longueurs saisies (axes y et z) ne nomment pas : chaque axe prend la PLUS GRANDE longueur de flambement saisie —
+        # v-v, le plus petit rayon, gouverne (brief § 3 ; À VÉRIFIER)
+        grand = max(d["axes"].values(), key=lambda x: x["u"] * x["L"])
+        d["axes"] = {a: dict(d["axes"][a], L=grand["L"], u=grand["u"]) for a in ("y", "z")}
     fy, sec, P = d["fy"], d["s"], d["P"]
     My, Mz, Vz, Vy = abs(d["My"]), abs(d["Mz"]), abs(d["Vz"]), abs(d["Vy"])
     A = s0["A"]
@@ -662,6 +671,8 @@ def verifier(barre: Dict) -> Dict:
     hyp.insert(0, f"Charges de service, non pondérées ; contrainte admissible σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"
                   f" = {_fr(sigma_adm, 1)} N/mm²" + (f" ({d['fy_source']})." if nominale else f" (f_y : {d['fy_source']})." if d["fy_source"] else "."))
     hyp.append(f"Courbes de flambement : {G['y']['courbe']} (axe fort), {G['z']['courbe']} (axe faible) — {cb['regle']}.")
+    if corniere:
+        hyp.append(MESSAGE_CORNIERE)
     if flechi and (Cy != 1.0 or Cz != 1.0):
         hyp.append(f"Coefficient C : {_fr(Cy, 2)} (axe fort), {_fr(Cz, 2)} (axe faible).")
     sy = RE.synthese(verifs)                # nok > non couvert > hors domaine > ok (acier/barre/resultat.py, la seule synthèse)
