@@ -245,9 +245,15 @@ tableau 3.12 ANB) ; elle est sans effet sur S235 à S355 (EN 10025-2). Valeurs :
 16, 40 et 63 mm (f_u 520) ; S420M 420 / 400 / 390 / 380 (f_u 520 / 500 / 480) ; S460M comme S460N jusqu'à 100 mm
 (f_u 540 / 530 / 510). Le défaut N/NL est le côté sûr pour f_y (au plus M/ML à toute épaisseur), pas pour f_u, qu'aucune
 vérification n'emploie en v1 (À VÉRIFIER). Un produit sans ligne dans l'ANB (S420 formé à froid N/NL, un creux fini à
-chaud M/ML) : refus « valeur à fournir ». Le résultat Eurocode 3 rend `norme_produit` (celle qui sert), `fu`,
-`fu_source` et `fu_ref` (la note dit l'origine de f_y et de f_u, option a) ; la norme produit est dite une fois, dans la
-source de f_y. Méthode ELS : f_y nominale (420 pour S420), « hors domaine » hors AE235 à AE355, comme S460.
+chaud M/ML) : refus « valeur à fournir ». Le résultat Eurocode 3 (`ec3_section.verifier`, `ec3.verifier`) rend
+`norme_produit` (celle qui sert), `fu`, `fu_source` et `fu_ref` (la note dit l'origine de f_y et de f_u, option a) ; la
+norme produit est dite une fois, dans la source de f_y. Les plats d'un raidisseur et un PRS prennent la même liste (S420
+compris) ; `raidisseurs.dimensionner` reçoit aussi la norme produit. **À FAIRE (lot C, vague 1, C1)** : `moteur.py` et
+`ame.py` ne passent pas encore la clé `norme_produit` de la barre à `ES.lire`, `ES.verifier`, `EC.verifier` et
+`RA.dimensionner` — par `moteur.verifier`, « M » est donc ignoré sans rien dire : f_y de N/NL (au plus celle de M/ML,
+côté sûr), mais f_u et la source de N/NL (HL 920x725 S420 « M » : 370 et f_u 520 au lieu de 380 et 480), et un creux
+fini à chaud « M » calculé en S420NH au lieu d'être refusé. Méthode ELS : f_y nominale (420 pour S420), « hors domaine »
+hors AE235 à AE355, comme S460.
 
 ### 5.2 Classification — § 5.5, tableau 5.2 (vérifié)
 Âme en flexion 72ε / 83ε / 124ε ; en compression 33ε / 38ε / 42ε ; en flexion composée : classe 1 396ε/(13α − 1) si
