@@ -368,6 +368,19 @@ def controles():
       Dd["variante"] is False and "n° 10" in Dd["information"]["source"]
       and len(hyp_d) == 1 and "§ 6.3.2.3, courbe c" in hyp_d[0] and hyp_d[0].endswith("(ANB:2018, 6.3.2.3(1)).") and "variante" not in hyp_d[0],
       (Dd.get("variante"), Dd.get("information"), hyp_d))
+    # (intégration du lot B, point 17) la variante (0,4 ; 0,75) du couple demandée et admise (un maintien négligé) pour un PRS
+    # au § 6.3.2.2 : le § 6.3.2.3 pour information la prend — 988,8 kN·m au lieu de 807,4 — et il le DIT désormais
+    rv = m("ec3").verifier({"section": A, "nuance": "S355", "MyEd": 500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}},
+                            "flexion": {"y": {"diagramme": "reparti"}}, "deversement": {"niveau": "haut", "couple": "variante", "maintiens_negliges": 1}})
+    Dv, vv = rv["grandeurs"]["deversement"], verif(rv, "E-Mb")
+    c("intégration du lot B — PRS-A au § 6.3.2.2, variante (0,4 ; 0,75) demandée et admise : le verdict garde 797,39 kN·m ; le § 6.3.2.3 pour "
+      "information suit le couple admis (988,76) et le dit : « § 6.3.2.3 (variante 0,4 ; 0,75) pour information : M_b,Rd = 988,8 kN·m. » ; sans "
+      "variante, l'information ne dit rien de plus (807,4)",
+      Dv["methode"] == "§ 6.3.2.2" and a_pres(vv["limite"], 797.39, 0.01) and Dv["variante"] is False and Dv["information"]["variante"] is True
+      and (Dv["information"]["lambda_LT0"], Dv["information"]["beta"]) == (0.4, 0.75) and a_pres(Dv["information"]["M_b_Rd"] / 1e6, 988.76, 0.01)
+      and "§ 6.3.2.3 (variante 0,4 ; 0,75) pour information : M_b,Rd = 988,8 kN·m." in vv["messages"]
+      and "§ 6.3.2.3 pour information : M_b,Rd = 807,4 kN·m." in verif(barre_dev(A), "E-Mb")["messages"]
+      and barre_dev(A)["grandeurs"]["deversement"]["information"]["variante"] is False, (Dv.get("information"), vv and vv["messages"]))
     Sb = PR.section_prs(300, 30, 540, 15, 300, 30, a=6.0, nuance="S355", bords=None)
     rb = m("moteur").verifier({"prs": {"b1": 300, "t1": 30, "hw": 540, "tw": 15, "b2": 300, "t2": 30, "a": 6}, "nuance": "S355", "mode": "efforts",
                                "efforts": {"service": {"My": 300.0}, "elu": {"My": 400.0}}, "flambement": {"y": {"L": 10.0}, "z": {"L": 10.0}}})
@@ -921,6 +934,9 @@ MUTATIONS = [
      '        info = D["variante"] = D["information"]\n'),
     ("ec3_deversement", "intégration — l'autre méthode d'un PRS monosymétrique gardée", "        if PR.monosymetrique(s):                 # un PRS monosymétrique",
      "        if False:                 # un PRS monosymétrique"),
+    ("ec3_deversement", "intégration, point 17 — le couple de l'information tu (la variante prise sans le dire)",
+     'if info["variante"] else ""', 'if False else ""'),
+    ("ec3_deversement", "intégration, point 17 — l'information marquée sans variante", '"variante": autre_variante,', '"variante": False,'),
     ("ec3_deversement", "intégration — la source de l'autre méthode d'un PRS : DÉCISION BUREAU n° 4", "DÉCISION BUREAU n° {10 if famille == 'soude' else 4}",
      "DÉCISION BUREAU n° 4"),
     ("ec3_deversement", "PRS sans bords saisis : courbes d'un laminé", '        famille = "soude" if (s["fabrication"] in SOUDES or SE.soude(s)) else "lamine"',

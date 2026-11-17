@@ -303,7 +303,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         # le couple par défaut changé par une surcharge (une autre annexe, un cas d'essai) : il s'applique partout, sans le
         # contrôle bâtiment / maintiens de la variante — c'est dit
         J.alerte("couple_hors_anb", "attention", f"Couple ({FMT.nb(defaut[0])} ; {FMT.nb(defaut[1])}) imposé : hors ANB:2018, 6.3.2.3(1).")
-    famille, autre = None, None
+    famille, autre, autre_variante = None, None, False
     prs = PR.est_prs(s)
     if s["forme"] == "I":
         famille = "soude" if (s["fabrication"] in SOUDES or SE.soude(s)) else "lamine"
@@ -333,6 +333,9 @@ def ajouter(J: Journal, d: Dict) -> None:
             # § 6.3.2.3 — M_b,Rd trop haut de 2 à 7,5 % — défaut non conservatif, latent : aucun écran ne le saisit encore.)
             generale = True
         if generale:                             # § 6.3.2.2 : pas de f (k_c = 1), ni de variante du couple
+            # le § 6.3.2.3 pour information garde le couple que couple_anb a admis — la variante (0,4 ; 0,75) comprise — et
+            # le DIT (D["information"]["variante"], et le message d'un PRS) : intégration du lot B, il la prenait sans le dire
+            autre_variante = bool(D["variante"])
             autre = (methode, courbe, lbLT0, beta, kc)
             courbe, lbLT0, beta, seuil, methode = COURBES_GENERALES[famille][elance], LAMBDA0_GENERAL, BETA_GENERAL, LAMBDA0_GENERAL, METHODE_GENERALE
             kc, tabule, D["variante"] = 1.0, False, False
@@ -390,6 +393,7 @@ def ajouter(J: Journal, d: Dict) -> None:
             x_, f_ = y_["chi"], y_["f"]
         # (la seule écriture de l'autre méthode : un PRS bisymétrique la lit aussi — _prs ; DÉCISION BUREAU n° 10 pour lui)
         D["information"] = {"methode": m_, "courbe": c_, "alpha_LT": a_, "lambda_LT0": l0_, "beta": b_, "kc": k_, "chi_LT": x_, "f": f_,
+                            "variante": autre_variante,
                             "M_b_Rd": x_ * Wy * fy / gM1, "taux": My / (x_ * Wy * fy / gM1),
                             "source": f"{REF} ({m_}) — pour information (DÉCISION BUREAU n° {10 if famille == 'soude' else 4} : {methode} décide)"}
     cles.append(J.f("M_b_Rd", "M_b,Rd", [_t(nom_chi, chi), _t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("γ_M1", gM1)], MbRd / 1e6,
@@ -442,7 +446,8 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float) -> Tuple[list, li
         msgs.append(f"{METHODE_LAMINES} refusé : section monosymétrique.")
     else:
         info = D["information"]
-        msgs.append(f"{info['methode']} pour information : M_b,Rd = {_fr(info['M_b_Rd'] / 1e6, 1)} kN·m.")
+        couple = f" (variante {FMT.nb(info['lambda_LT0'])} ; {FMT.nb(info['beta'])})" if info["variante"] else ""
+        msgs.append(f"{info['methode']}{couple} pour information : M_b,Rd = {_fr(info['M_b_Rd'] / 1e6, 1)} kN·m.")
         J.hyp.append("PRS bisymétrique déclaré « section soudée équivalente » : § 6.3.2.3 (décision du bureau)." if D["soudee_equivalente"] else
                      "PRS : § 6.3.2.2 (défaut) ; § 6.3.2.3 seulement si la section est déclarée « soudée équivalente ».")
     # ---- le contrôle analytique : (E.1) de l'annexe E ANB (le solveur reste la référence)
