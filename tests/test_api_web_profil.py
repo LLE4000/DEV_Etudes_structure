@@ -126,7 +126,7 @@ chk("ses DEUX méthodes tiennent (ELS 88 % — lot B : le déversement des class
     r0["statut"] == "non_couvert" and r0["ame"]["statut"] == "non_couvert" and round(th, 2) == 0.88 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)"
-    and "Âme · Décision impossible : s_s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
+    and "Âme · Décision impossible : s s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
 # la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
 DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
 chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %) et la note redevient « Conforme »",
@@ -432,7 +432,7 @@ chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (l
     and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
     and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s à saisir." in tb and ra["taux_max"] is None, tb[:400])
 chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
-    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s_s à saisir (appui A, appui B)" in texte(neuf["resultat"]))
+    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s s à saisir (appui A, appui B)" in texte(neuf["resultat"]))
 rd = moteur(DECIDE["etat"]["elements"][0])["ame"]
 bd = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', DECIDE["resultat"], re.S)
 tbd = texte(bd.group(1)) if bd else ""
@@ -1395,10 +1395,10 @@ def maintien_ecran():
          re.findall(r".{40}sans maintien.{80}", tr_ + " | " + tv_)[:4]),
         # (intégration du lot B, point 29 c) s_s manque AUSSI (250 kN à 0,50 m, s_s non saisi, la borne ne passe pas) : la raison finit par une
         # parenthèse, le lieu passe en tête — sans « décision impossible : » derrière lui (deux « : » de suite)
-        ("la BANDE d'un lieu en tête dont la décision est impossible (s_s à saisir, semelle sans maintien) : « Âme · Charge à 0,50 m : s_s à "
+        ("la BANDE d'un lieu en tête dont la décision est impossible (s_s à saisir, semelle sans maintien) : « Âme · Charge à 0,50 m : s s à "
          "saisir ; semelle haute sans maintien (…) », jamais « Charge à 0,50 m : décision impossible : … » (l'avertissement garde sa phrase "
          "entière)",
-         f"Âme · Charge à 0,50 m : s_s à saisir ; {fait}" in tr2_ and "Âme · Charge à 0,50 m : décision impossible" not in tr2_,
+         f"Âme · Charge à 0,50 m : s s à saisir ; {fait}" in tr2_ and "Âme · Charge à 0,50 m : décision impossible" not in tr2_,
          re.findall(r"Âme · .{90}", tr2_)[:1]),
     ]
 
@@ -1427,6 +1427,35 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_MAINTIEN:
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du maintien à l'écran sont verts", all(ok_ for _n, ok_, _i in maintien_ecran()))
+
+print("=== 18. (intégration du lot B) la ligne « Âme » sous les verdicts écrit s_s en INDICE, comme les lignes du bloc — et sa mutation")
+
+
+def ame_indice():
+    """La ligne « Âme » de la barre neuve (s_s non saisie aux appuis), rejouée sous la mutation : [(nom, vrai ?, info)]."""
+    P._RESULTATS.clear()
+    r_ = req(action="calculer", etat=note())
+    b_ = re.search(r'<button type="button" class="pf-vame[^"]*"[^>]*>(.*?)</button>', r_.get("resultat", ""), re.S)
+    h_ = b_.group(1) if b_ else ""
+    return [("la ligne « Âme » écrit « s<sub>s</sub> à saisir » — ce que l'œil lit, « s s », comme les lignes du bloc ; jamais « s_s » à "
+             "l'écran (le harnais du navigateur l'a trouvé)",
+             "s<sub>s</sub> à saisir" in h_ and "s_s" not in h_ and texte(h_) == "Âme · Décision impossible : s s à saisir (appui A, appui B)",
+             h_[-160:])]
+
+
+for nom_, ok_, info_ in ame_indice():
+    chk(nom_, ok_, info_)
+_vrai_ame = PR.verdict_ame
+try:
+    PR.verdict_ame = _source_mutee(PR, "{M.sub(texte)}</span></button>", "{C.esc(texte)}</span></button>").verdict_ame
+    rouges_ = [n_ for n_, ok_, _i in ame_indice() if not ok_]
+except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+    rouges_ = [f"exception : {err_}"]
+finally:
+    PR.verdict_ame = _vrai_ame
+    P._RESULTATS.clear()
+chk(f"mutation « la ligne « Âme » échappée sans indice (C.esc) » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
+chk("témoin : sans mutation, la ligne « Âme » est en indice", all(ok_ for _n, ok_, _i in ame_indice()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

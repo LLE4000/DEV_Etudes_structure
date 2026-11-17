@@ -159,7 +159,7 @@ def verdict_ame(r: Dict) -> str:
         cls = "nok" if a["statut"] == RE.NOK else "inc"
         texte = f"{M.MOT_STATUT[a['statut']].lower()} — {g['titre'][:1].lower() + g['titre'][1:]}" if g else M.MOT_STATUT[a["statut"]].lower()
     return (f'<button type="button" class="pf-vame {cls}" data-calcul="s{i}" title="Voir le calcul">{C.icon("triangle-alert")}'
-            f'<span><b>Âme</b> · {C.esc(texte)}</span></button>')
+            f'<span><b>Âme</b> · {M.sub(texte)}</span></button>')     # s_s en indice, comme les lignes du bloc (M.sub échappe)
 
 
 def verdicts(r: Dict) -> str:
