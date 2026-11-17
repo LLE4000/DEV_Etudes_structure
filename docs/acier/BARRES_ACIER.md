@@ -1001,6 +1001,16 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   CALCULÉ (les blocs C1 à C7 le feront). La tolérance de 5 % de la méthode ELS est retirée (brief § 13.2, point 5) : forcée
   à non, l'ancienne valeur gardée (`tolerance_retiree`) pour la note.
 - **Les DÉCISIONS BUREAU** dans la table (§ 5.8) : aucun défaut ne change, aucun taux ne bouge.
+- **Reprise de C0 (17/11/2026, après la contre-vérification)** :
+  - le passage en efforts imposés copie les longueurs de flambement automatiques en données, et s'en SOUVIENT
+    (`profil.COPIEES`) : au retour en barre chargée, une longueur copiée et pas retouchée redevient automatique. Mesuré
+    avant : barre neuve → efforts imposés → retour → console de 3 m : L_z = 3 m gardé au lieu de 2,1 × 3 = 6,3 m (IPE 330,
+    N = 50 kN : E-Nb-z 6,9 % au lieu de 19,8 %). Une note enregistrée avant la correction n'a pas ce souvenir : ses
+    longueurs restent des données (À VÉRIFIER) ;
+  - la note PDF peint les tableaux des lieux de l'âme et des combinaisons par `couleur_taux`, comme l'écran : un taux
+    bloqué, non couvert ou hors domaine n'est plus vert (avant : 156,7 % « décision impossible » en vert) ;
+  - une barre PRS (venue d'un fichier) se relit et se calcule ; l'écran, le sélecteur et la note la refusent en une
+    ligne (`profil.refus_prs`) tant que sa fiche et son croquis n'existent pas (bloc C6).
 
 ## 10. À confirmer par le bureau
 
