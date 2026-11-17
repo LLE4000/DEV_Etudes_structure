@@ -627,6 +627,11 @@ import html as _html  # noqa: E402
 from api_web import catalogue as M  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 
+# la DIVERGENCE NOMMÉE du site (un PRS prend I_t, I_w et A_v du module Barres, acier/barre/prs.py — prouvée par
+# tests/test_barre_prs.py) est RETIRÉE le temps du bout à bout : tout le reste doit être la copie de l'écran
+chk("la seule divergence du site avec l'écran est nommée (api_web/catalogue.PRS_BARRES) : retirée pour le bout à bout", M.PRS_BARRES is True)
+M.PRS_BARRES = False
+
 
 def _site(etat, **k):
     r = json.loads(R.traiter(json.dumps(dict(module="catalogue", etat=etat, **k))))
@@ -841,6 +846,8 @@ for nom_mut, muter in (("cellule écrite avec une décimale de moins", lambda: s
     finally:
         M._valeur, M._table_fiche, M.colonnes_affichees = _valeur, _table_fiche, _ent
     chk(f"mutation du SITE « {nom_mut} » : le bout à bout rougit ({rouges} état(s))", rouges > 0)
+
+M.PRS_BARRES = True                   # (la divergence nommée rendue au site)
 
 # la réserve sur I_t des PRS (Σ b·t³/3, non conservatif) : ses chiffres sont MESURÉS contre Saint-Venant
 from acier.profiles import geometrie as G  # noqa: E402

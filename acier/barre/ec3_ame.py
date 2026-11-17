@@ -75,7 +75,10 @@ SOUDES_ETA = SOUDES + ("caisson", "caisson_recuit")              # les sections 
 
 def eta_de(s: Dict, P: Dict) -> float:
     """η de la section (NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire ; brief § 7.5 et § 8) : « eta_soude »
-    (1,20) pour une section SOUDÉE — I soudé, caisson —, « eta » (1,00) pour un I ou H laminé et un tube."""
+    (1,20) pour une section SOUDÉE — I soudé, caisson, PRS (bords saisis ou non, brief § 18.5) —, « eta » (1,00) pour
+    un I ou H laminé et un tube."""
+    if s.get("prs"):
+        return P["eta_soude"]
     return P["eta_soude"] if s.get("fabrication") in SOUDES_ETA else P["eta"]
 
 

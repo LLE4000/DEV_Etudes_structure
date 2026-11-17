@@ -3,6 +3,11 @@
 § 9). Unités de la saisie : m, kN, kN/m, kN·m — celles du bureau.
 
     {"nom": "B1", "profil": "IPE 300", "nuance": "S235",
+     # --- un PRS (acier/barre/prs.py, brief § 18) au lieu d'un profilé du catalogue : par ses plats —
+     "prs": {"b1", "t1", "hw", "tw", "b2", "t2" (mm), "a" (gorge, mm ; None : s = 0), "bords" (« oxycoupes »,
+             « larges_plats » ou None), "nom"},
+     #   — ou par son nom dans la bibliothèque des profilés personnalisés (le format du Catalogue) :
+     "profil": "PRS 600x300x15x30", "bibliotheque": [{"famille": "PRS", "dims": {…}, "nuance": …}, …],
      "mode": "chargee" | "efforts",
      # --- barre CHARGÉE : la statique est faite par le module
      "modele": "appuis" | "console" | "enc_app" | "bi_enc" | "continue",      "travees": [6.0],
@@ -33,6 +38,7 @@ from rdm import poutres as PO
 
 from . import combinaisons as CO
 from . import ec3_deversement as DV
+from . import prs as PR
 from . import section as SE
 from . import statique as ST
 from .resultat import Refus
@@ -76,6 +82,41 @@ def _longueur_appui(v, nom: str) -> float:
     return x
 
 
+PLATS = ("b1", "t1", "hw", "tw", "b2", "t2", "a", "bords", "nom")
+
+
+def _plats(prs: Dict) -> Dict:
+    return {k: prs.get(k) for k in PLATS}
+
+
+def _prs(src: Dict, b: Dict):
+    """Le PRS de la barre — {"b1", …, "a", "bords", "nom"} — saisi par ses plats (« prs ») ou trouvé par son nom
+    (« profil ») dans la bibliothèque des profilés personnalisés (« bibliotheque ») ; None pour un profilé du catalogue.
+    Refus pour une saisie impossible (acier/barre/prs.py : contrôles bloquants du brief § 18.2). Une nuance portée par
+    l'enregistrement de la bibliothèque passe devant celle de la barre (une seule nuance par PRS)."""
+    p = src.get("prs")
+    if p is None and isinstance(b["profil"], str) and SE.CAT.par_nom().get(b["profil"]) is None and src.get("bibliotheque"):
+        if not isinstance(src["bibliotheque"], (list, tuple)):
+            raise Refus("« bibliotheque » : une liste de profilés personnalisés")
+        s = PR.chercher(src["bibliotheque"], b["profil"], b["nuance"])
+        if s is None:
+            raise Refus(f"profilé inconnu du catalogue et de la bibliothèque : {b['profil']!r}")
+        b["nuance"] = s["nuance"]
+        q = s["prs"]
+        p = {"b1": q["b1"], "t1": q["t1"], "hw": q["hw"], "tw": q["tw"], "b2": q["b2"], "t2": q["t2"], "a": q["a"], "bords": s["bords"],
+             "nom": s["nom"]}
+    if p is None:
+        return None
+    if not isinstance(p, dict):
+        raise Refus("« prs » : les plats du PRS (b1, t1, hw, tw, b2, t2, a, bords)")
+    inconnus = sorted(set(p) - set(PLATS))
+    if inconnus:
+        raise Refus(f"PRS : donnée(s) inconnue(s) : {', '.join(inconnus)}")
+    out = _plats(p)
+    PR.section_prs(**out, nuance=b["nuance"])                    # les contrôles bloquants
+    return out
+
+
 def normaliser(barre: Dict) -> Dict:
     """La barre complétée de ses défauts et contrôlée (une COPIE) ; Refus dit ce qui ne va pas."""
     if not isinstance(barre, dict):
@@ -89,7 +130,11 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus(f"mode inconnu : {b['mode']!r}")
     if b["nuance"] not in NO.NUANCES:
         raise Refus(f"nuance inconnue : {b['nuance']!r}")
-    if not isinstance(b["profil"], str) or SE.CAT.par_nom().get(b["profil"]) is None:
+    prs = _prs(src, b)
+    if prs is not None:
+        b["prs"] = prs
+        b["profil"] = PR.section_prs(**_plats(prs), nuance=b["nuance"])["nom"]
+    elif not isinstance(b["profil"], str) or SE.CAT.par_nom().get(b["profil"]) is None:
         raise Refus(f"profilé inconnu du catalogue : {b['profil']!r}")
     if b["niveau"] not in NIVEAUX:
         raise Refus(f"niveau des charges : {', '.join(NIVEAUX)} — reçu {b['niveau']!r}")

@@ -216,6 +216,8 @@ def ecarts_avy() -> list:
     for nom in ("HEB 200", "IPE 300", "HEM 1000", "IPN 200"):
         q = FICHIER[nom]
         main = 2.0 * q["b"] * q["tf"] / 100.0                      # cm² : 2·b·t_f (b, t_f en mm)
+        if q["famille"] == "IPN":                                  # lot B (brief v12 § 19.2) : un IPN prend la plus petite de 2·b·t_f
+            main = min(main, q["A"] - (q["h"] - 2.0 * q["tf"]) * q["tw"] / 100.0)   # et de A − (h − 2·t_f)·t_w
         v = f"{main:.2f}".replace(".", ",")
         li = ligne_avy(B.consulter("profils", {"familles": q["famille"], "profil": nom}))
         fen = texte(CW.fenetre_fiche(CAT.par_nom()[nom]))
@@ -254,7 +256,8 @@ def ecarts_avy_hors() -> list:
 
 ec_avy = ecarts_avy()
 chk("A_v,y d'un I ou H laminé (HEB 200, IPE 300, HEM 1000, IPN 200) : la fiche et la fenêtre de calcul disent « valeur géométrique du "
-    "catalogue » et la valeur que prend le module Barres (2·b·t_f, recalculé ici : HEB 200 60,00 cm² contre 62,78) ; U et tube : rien de plus",
+    "catalogue » et la valeur que prend le module Barres (2·b·t_f, recalculé ici : HEB 200 60,00 cm² contre 62,78 ; un IPN : la plus petite de 2·b·t_f "
+    "et de A − (h − 2·t_f)·t_w, IPN 200 20,13 cm²) ; U et tube : rien de plus",
     not ec_avy, ec_avy)
 ec_hors = ecarts_avy_hors()
 chk("A_v,y d'un HD ou HL que le module Barres refuse (les 13 de paroi > 80 mm ; HL 920x970) : la fiche et la fenêtre disent « le module "

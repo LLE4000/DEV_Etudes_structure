@@ -40,6 +40,7 @@ import math
 from typing import Dict, List, Optional
 
 from . import ec3_deversement as DV
+from . import prs as PR
 from .resultat import NOK, NON_COUVERT, Journal, Refus, terme as _t
 
 REF = "EN 1993-1-1 § 6.3.3, annexe A"
@@ -89,6 +90,13 @@ def ajouter(J: Journal, d: Dict) -> None:
     N = max(d["NEd"], 0.0)                       # une traction n'est pas comptée : la barre est prise sans effort normal (du côté sûr)
     My, Mz = G["My_calcul"], G["Mz_calcul"]
     if not ((N > 0 and (My > 0 or Mz > 0)) or (My > 0 and Mz > 0)):
+        return
+    if PR.monosymetrique(s):
+        # PRS monosymétrique (brief § 7.8 et 18.8) : 6.3.3(1) vise les barres à section BISYMÉTRIQUE — non couvert ; la
+        # résistance de la section reste vérifiée (§ 6.2)
+        J.verif("E-661", "Flexion composée avec instabilité (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
+                messages=[J.alerte("prs_NM", "attention", "PRS monosymétrique : flexion composée avec instabilité (§ 6.3.3) non couverte — "
+                                                          "elle vise les sections bisymétriques ; la section reste vérifiée.")])
         return
     if d.get("console") and N > 0:
         # les diagrammes du tableau A.2 (et D.1 ANB) sont ceux d'une barre entre deux appuis : aucun ne donne C_m pour une

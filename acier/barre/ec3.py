@@ -33,10 +33,12 @@ from . import ec3_interaction as IN
 from . import ec3_section as ES
 from . import mcr as MC
 from . import parametres as PA
+from . import section as SE
 from .resultat import Journal, Refus
 
 METHODE, NORME = ES.METHODE, ES.NORME
 NIVEAUX = {"centre": 0.0, "haut": 1.0, "bas": -1.0}
+DIAGRAMMES_E = ("constant", "reparti", "ponctuel", "quarts")
 
 
 def _nombre(v, nom: str) -> float:
@@ -87,7 +89,10 @@ def lire(barre: Dict) -> Dict:
     if niveau not in NIVEAUX:
         raise Refus(f"deversement.niveau : centre, haut ou bas — reçu {niveau!r}")
     zg = dv.get("zg")
-    zg = NIVEAUX[niveau] * (s.get("h") or 0.0) / 2.0 if zg is None else _nombre(zg, "deversement.zg")
+    if zg is None:                               # un PRS monosymétrique : depuis SON centre de cisaillement (section.cote)
+        zg = SE.cote(s, niveau) if s.get("prs") else NIVEAUX[niveau] * (s.get("h") or 0.0) / 2.0
+    else:
+        zg = _nombre(zg, "deversement.zg")
     Mcr, kc, tr = dv.get("Mcr"), dv.get("kc"), dv.get("troncon")
     if Mcr is not None and not _nombre(Mcr, "deversement.Mcr") > 0:
         raise Refus("le moment critique donné doit être positif")
@@ -101,7 +106,11 @@ def lire(barre: Dict) -> Dict:
         if len(tr["appuis"]) != 2 or any(x not in MC.APPUIS for x in tr["appuis"]):
             raise Refus(f"deversement.troncon : deux bouts parmi {', '.join(MC.APPUIS)}")
         Lc = tr["L"]
-    d["deversement"] = {"actif": bool(dv.get("actif", True)), "Lc": Lc, "niveau": niveau, "zg": zg, "Mcr": Mcr, "kc": kc, "troncon": tr}
+    diag = dv.get("diagramme")                   # le diagramme d'un tronçon décrit, quand il est un cas des tableaux (annexe E ANB)
+    if diag is not None and diag not in DIAGRAMMES_E:
+        raise Refus(f"deversement.diagramme : {', '.join(DIAGRAMMES_E)} — reçu {diag!r}")
+    d["deversement"] = {"actif": bool(dv.get("actif", True)), "Lc": Lc, "niveau": niveau, "zg": zg, "Mcr": Mcr, "kc": kc, "troncon": tr,
+                        "diagramme": diag}
     d["console"] = bool(barre.get("console", False))
     return d
 

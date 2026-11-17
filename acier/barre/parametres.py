@@ -10,6 +10,7 @@ Statuts :
 from typing import Dict, List, Optional
 
 A_POINTER, A_CONFIRMER, POINTE = "a_pointer", "a_confirmer", "pointe"
+DECISION_BUREAU = "decision_bureau"          # un choix du bureau (brief § 1, règle 8) : le défaut ici, jamais dans le code
 EDITION = "NBN EN 1993-1-1:2005 + AC:2009 + A1:2014, ANB:2018 ; NBN EN 1993-1-5:2006 ; NBN EN 1990 ANB"
 
 PARAMETRES: Dict[str, Dict] = {
@@ -29,6 +30,11 @@ PARAMETRES: Dict[str, Dict] = {
                                   "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
     "beta_avec_maintiens": {"valeur": 1.0, "nom": "β", "statut": POINTE,
                             "source": "NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens"},
+    # ---- déversement d'un PRS bisymétrique (brief § 7.7 et 18.5 ; § 13.2, point 10) : § 6.3.2.2 par défaut ; § 6.3.2.3
+    # quand l'ingénieur déclare la section « soudée équivalente » à un laminé (la case de la barre : le texte ne définit pas
+    # l'équivalence). Un PRS monosymétrique : § 6.3.2.2 seul, quoi que dise ce paramètre.
+    "prs_soudee_equivalente": {"valeur": False, "nom": "PRS « section soudée équivalente »", "statut": DECISION_BUREAU,
+                               "source": "EN 1993-1-1 § 6.3.2.3(1) : laminés et sections soudées dites équivalentes (équivalence non définie) ; DÉCISION BUREAU n° 10"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_A", "nom": "méthode du § 6.3.3", "statut": A_CONFIRMER,
                             "source": "ANB:2018 : méthode 1 (annexe A) — d'après l'aide d'un logiciel, pas le texte"},

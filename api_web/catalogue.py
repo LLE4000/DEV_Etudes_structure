@@ -16,6 +16,8 @@ import math
 import re
 from typing import Dict, List, Optional, Sequence
 
+from acier.barre import parametres as PA
+from acier.barre import prs as PR
 from acier.profiles import catalogue as CAT
 from acier.profiles import consultation as CO
 from acier.profiles import familles as F
@@ -119,12 +121,28 @@ def _liste(r: Dict, cle: str) -> List:
     return x
 
 
+# ce qu'un PRS du module Barres ajoute à l'enregistrement (acier/barre/prs.vers_bibliotheque) : la semelle basse d'un PRS
+# monosymétrique (« b2 », « tf2 ») et la gorge (« a »). Le Catalogue ne calcule qu'un PRS à semelles égales : un PRS
+# monosymétrique est REFUSÉ (il serait relu bisymétrique, sous un autre nom) ; la gorge, qu'il n'emploie pas, est admise.
+DIMS_PRS_BARRES = ("b2", "tf2", "a")
+MSG_PRS_MONO = "PRS à semelles différentes : le Catalogue ne le calcule pas (module Barres)"
+# un fichier qui en porte un : cet enregistrement seul est écarté (gardé tel quel, « persos_ecartes »), les autres lus
+MSG_PRS_ECARTE = "{nom} écarté : semelles différentes, calculé par le module Barres seulement"
+
+
 def _def_perso(d) -> Dict:
-    """Un profilé personnalisé lu dans un fichier : sa forme et ses dimensions, contrôlées comme à la saisie."""
+    """Un profilé personnalisé lu dans un fichier : sa forme et ses dimensions, contrôlées comme à la saisie. Une
+    dimension inconnue est refusée (un autre lecteur du même enregistrement la lit peut-être)."""
     if not isinstance(d, dict) or d.get("famille") not in CO.formes_perso() or not isinstance(d.get("dims"), dict):
         raise ValueError(f"profilé personnalisé illisible : {d!r}"[:160])
     fam = d["famille"]
+    admises = set(F.FAMILLES[fam]["dims"]) | (set(DIMS_PRS_BARRES) if fam == "PRS" else set())
+    inconnues = sorted(str(k) for k in set(d["dims"]) - admises)
+    if inconnues:
+        raise ValueError(f"profilé personnalisé {fam} : dimension inconnue ({', '.join(inconnues)})"[:160])
     dims = {k: _nombre(d["dims"].get(k), f"dimension {k}") for k in F.FAMILLES[fam]["dims"]}
+    if fam == "PRS" and any(k in d["dims"] and _nombre(d["dims"][k], f"dimension {k}") != dims[base] for k, base in (("b2", "b"), ("tf2", "tf"))):
+        raise ValueError(MSG_PRS_MONO)
     CO.refus_du_site(fam, dims)
     CO.controle_ecran(fam, dims)
     return {"famille": fam, "dims": dims}
@@ -164,10 +182,19 @@ def _normaliser_recherche(r, i: int) -> Dict:
         if len(set(cles)) != len(cles):
             raise ValueError("deux filtres sur la même propriété")
         out["filtres"] = filtres
-    if r.get("persos") is not None:
-        if not isinstance(r["persos"], list):
+    if r.get("persos") is not None or r.get("persos_ecartes"):
+        if not all(isinstance(r.get(k) or [], list) for k in ("persos", "persos_ecartes")):
             raise ValueError("profilés personnalisés illisibles")
-        out["persos"] = [_def_perso(d) for d in r["persos"]]
+        out["persos"], ecartes = [], []
+        for d in (r.get("persos") or []) + (r.get("persos_ecartes") or []):
+            try:
+                out["persos"].append(_def_perso(d))
+            except ValueError as e:
+                if str(e) != MSG_PRS_MONO:
+                    raise
+                ecartes.append(d)            # un PRS monosymétrique (module Barres) : écarté SEUL, gardé tel quel, dit
+        if ecartes:
+            out["persos_ecartes"] = ecartes
     pe = r.get("perso")
     if isinstance(pe, dict):
         if pe.get("forme") in CO.formes_perso():
@@ -230,10 +257,25 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 
 
 # ------------------------------------------------------------------ la liste d'une recherche
+# DIVERGENCE NOMMÉE avec l'écran Streamlit (le reste en est la copie prouvée, tests/test_catalogue_moteur.py) : un PRS
+# prend I_t (brief § 18.4 — l'écran donne Σ b·t³/3, non conservatif), I_w, A_v,z et A_v,y du module Barres,
+# acier/barre/prs.py (une seule source, R2). La parité se prouve divergence retirée (PRS_BARRES faux) ; la divergence,
+# par tests/test_barre_prs.py.
+PRS_BARRES = True
+
+
 @functools.lru_cache(maxsize=96)
-def _perso_calcule(fam: str, dims: tuple) -> Dict:
+def _perso_calcule(fam: str, dims: tuple, prs_barres: bool = True) -> Dict:
     """Un profilé personnalisé calculé une fois par session du navigateur (un tube se calcule en 0,2 s)."""
-    return CO.calculer_perso(fam, dict(dims))
+    p = CO.calculer_perso(fam, dict(dims))
+    if fam == PR.FAMILLE and prs_barres:
+        p.update(PR.proprietes_catalogue(dict(dims)))
+    return p
+
+
+def _prs_barres(p: Dict) -> bool:
+    """Le PRS calculé par le module Barres : les réserves de l'écran sur I_t et A_v,z ne le concernent plus."""
+    return p.get("methode_It") == PR.METHODE_IT_CATALOGUE
 
 
 def _cle_dims(d: Dict) -> tuple:
@@ -241,7 +283,7 @@ def _cle_dims(d: Dict) -> tuple:
 
 
 def persos_calcules(r: Dict) -> List[Dict]:
-    return [dict(_perso_calcule(d["famille"], _cle_dims(d))) for d in r["persos"]]
+    return [dict(_perso_calcule(d["famille"], _cle_dims(d), PRS_BARRES)) for d in r["persos"]]
 
 
 def _vue(r: Dict) -> Dict:
@@ -363,7 +405,7 @@ def _appliquer(r: Dict, chemin: List, valeur) -> Optional[str]:
             dims = dict(pe["dims"][fam])
             try:
                 CO.refus_du_site(fam, dims)
-                p = _perso_calcule(fam, tuple((k, float(dims[k])) for k in F.FAMILLES[fam]["dims"]))
+                p = _perso_calcule(fam, tuple((k, float(dims[k])) for k in F.FAMILLES[fam]["dims"]), PRS_BARRES)
             except ValueError as e:
                 return f"Dimensions impossibles : {e}"
             r["persos"] = [d for d in r["persos"] if CO.nom_perso(d["famille"], d["dims"]) != p["nom"]] + [{"famille": fam, "dims": dims}]
@@ -581,6 +623,9 @@ def formulaire(etat: Dict, v: Dict) -> str:
             on = nom == fiche
             s6 += (f'<div class="cat-cmp"><button type="button" class="cat-ouvrir{" on" if on else ""}" data-chemin="fiche" data-sorte="choix" '
                    f'data-valeur="{C.esc(nom)}" title="Ouvrir la fiche">{C.esc(nom)}</button>{_moins(["persos", i, "-"], "Retirer du tableau")}</div>')
+    for d in r.get("persos_ecartes") or []:
+        nom = d.get("nom") if isinstance(d.get("nom"), str) else PR.FAMILLE
+        s6 += f'<div class="cat-alerte">{C.icon("info")}<span>{C.esc(MSG_PRS_ECARTE.format(nom=nom))}.</span></div>'
     resume6 = f"{len(r['persos'])} au tableau" if r["persos"] else "PRS, caisson, tube, plat, rond"
     # 7 · export : le tableau et la fiche en TEXTE à copier (le téléchargement d'un fichier attend une brique commune)
     ex = r["export"]
@@ -843,7 +888,11 @@ def formules(p: Dict) -> List[tuple]:
     if g:
         out.append(("Parois · élancements c/t (EN 1993-1-1 tab. 5.2)", g))
     g = []
-    if forme in ("I", "I_conique"):
+    prs_b = _prs_barres(p) and tw < b             # un PRS du module Barres (t_w ≥ b : I_t seul en vient, prs.proprietes_catalogue)
+    if prs_b:                                    # EN 1993-1-1 § 6.2.6(3) d), η des PRS (acier/barre/prs.py)
+        g.append(_fx("Avz", ["A_v,z", "η·h_w·t_w", f"{_d(PA.valeur('eta_soude'))} × ({_cm(h)} − 2 × {_cm(tf)}) × {_cm(tw)}"], p))
+        g.append(_fx("Avy", ["A_v,y", "A − h_w·t_w", f"{_v(p, 'A')} − ({_cm(h)} − 2 × {_cm(tf)}) × {_cm(tw)}"], p, note=_note_avy(p)))
+    elif forme in ("I", "I_conique"):
         g.append(_fx("Avz", ["A_v,z", "A − 2·b·t_f + (t_w + 2·r)·t_f",
                              f"{_v(p, 'A')} − 2 × {_cm(b)} × {_cm(tf)} + ({_cm(tw)} + 2 × {_cm(r)}) × {_cm(tf)}"], p))
         g.append(_fx("Avy", ["A_v,y", "A − (h − 2·t_f)·t_w", f"{_v(p, 'A')} − ({_cm(h)} − 2 × {_cm(tf)}) × {_cm(tw)}"], p,
@@ -888,7 +937,9 @@ def formules(p: Dict) -> List[tuple]:
         g.append(_fx("It", ["I_t", "π·d⁴/32", f"π × {_cm(d['d'])}⁴/32"], p))
     else:
         g.append(_fx("It", ["I_t", meth or "—"], p))
-    if forme in ("I", "I_conique"):
+    if prs_b:                                    # semelles seules (brief § 18.4) : h_s²·I₁·I₂/(I₁ + I₂), I₁ = I₂ = t_f·b³/12
+        g.append(_fx("Iw", ["I_w", "(h − t_f)²·t_f·b³/24", f"({_cm(h)} − {_cm(tf)})² × {_cm(tf)} × {_cm(b)}³/24"], p))
+    elif forme in ("I", "I_conique"):
         g.append(_fx("Iw", ["I_w", "I_z·(h − t_f)²/4", f"{_v(p, 'Iz')} × ({_cm(h)} − {_cm(tf)})²/4"], p))
     elif forme in ("U", "U_conique"):
         g.append(_fx("Iw", ["I_w", "Vlasov sur la ligne moyenne"], p))
@@ -1053,7 +1104,7 @@ def resultat(etat: Dict) -> Dict:
         for av in CO.avertissements_perso(p["famille"], p["dims"]):
             messages += C.message(f"{C.esc(p['nom'])} : {C.symb_math(av)}.", grave=True)
     for reserve in (CO.reserve_torsion, CO.reserve_cisaillement):
-        if p is not None and reserve(p):
+        if p is not None and reserve(p) and not _prs_barres(p):
             messages += C.message(C.symb_math(reserve(p)) + ".")
     if autre:
         messages += C.message(f'<span class="cat-etoile">{C.icon("star")}</span>Le plus léger qui satisfait les filtres : '

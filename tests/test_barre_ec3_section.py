@@ -573,12 +573,100 @@ def controles(C_=CL, S_=ES):
     c("tube carré, n = 0,95 : α = β plafonnés à 6 (1 − 1,13·n² < 0 ne donne jamais un exposant négatif)", r["grandeurs"]["alpha"] == 6.0 and r["grandeurs"]["beta"] == 6.0, r["grandeurs"].get("alpha"))
     pc = brut("CHS 168.3x6.3")
     r = v("CHS 168.3x6.3", "S235", NEd=200e3, MyEd=10e6, MzEd=10e6, VzEd=30e3, VyEd=40e3)
-    c("CHS 168,3x6,3 S235 : la RÉSULTANTE des moments (14,14 kN·m) et celle des efforts tranchants (50 kN) ; n + M/M_pl,Rd = 62,9 % (critère linéaire) ; "
+    n_c = 200e3 / (pc["A"] * 100 * 235.0)
+    c("CHS 168,3x6,3 S235 : la RÉSULTANTE des moments (14,14 kN·m) et celle des efforts tranchants (50 kN) ; M_N,Rd = M_pl,Rd·(1 − n^1,7) "
+      "(§ 6.2.9.1(6), AC:2009 — le critère linéaire n + M/M_pl,Rd, 62,9 %, n'est plus employé : brief v12 § 7.5) → taux 40,6 % ; "
       "V_pl,Rd = (2A/π)·f_y/√3 = 276,9 kN",
-      proche(taux(r, "E-NM"), 200e3 / (pc["A"] * 100 * 235.0) + math.hypot(10e6, 10e6) / (pc["Wpl_y"] * 1e3 * 235.0))
+      proche(taux(r, "E-NM"), math.hypot(10e6, 10e6) / (pc["Wpl_y"] * 1e3 * 235.0 * (1 - n_c ** 1.7)))
       and proche(verif(r, "E-My")["valeur"], math.hypot(10.0, 10.0)) and proche(verif(r, "E-Vz")["valeur"], 50.0)
       and proche(limite(r, "E-Vz"), 2 * pc["A"] * 100 / math.pi * 235.0 / R3 / 1e3, 1e-5) and verif(r, "E-Mz") is None and verif(r, "E-Vy") is None
-      and round(taux(r, "E-NM"), 3) == 0.629, (taux(r, "E-NM"), limite(r, "E-Vz")))
+      and round(taux(r, "E-NM"), 3) == 0.406, (taux(r, "E-NM"), limite(r, "E-Vz")))
+    # ---- § 11.5, test 27 : CHS sous N + M (classes 1 et 2), M_N,Rd/M_pl,Rd = 1 − n^1,7
+    rap = []
+    for n_ in (0.5, 0.8):
+        r = v("CHS 168.3x6.3", "S235", NEd=n_ * pc["A"] * 100 * 235.0, MyEd=1e6)
+        rap.append(r["grandeurs"]["M_N_y"] / r["grandeurs"]["M_y_Rd"])
+    c("§ 11.5 test 27 — CHS sous N + M : n = 0,5 → M_N,Rd/M_pl,Rd = 1 − 0,5^1,7 = 0,692 ; n = 0,8 → 0,316",
+      [round(x, 3) for x in rap] == [0.692, 0.316] and proche(rap[0], 1 - 0.5 ** 1.7, 1e-12), rap)
+    # ---- § 11.5, test 35 : RHS sous N + M, les plafonds de (6.39) et (6.40)
+    pr2 = brut("RHS 200x100x5")
+    r = v("RHS 200x100x5", "S235", MyEd=10e6, MzEd=5e6)
+    aw_b, af_b = (pr2["A"] * 100 - 2 * 100 * 5) / (pr2["A"] * 100), (pr2["A"] * 100 - 2 * 200 * 5) / (pr2["A"] * 100)
+    c("§ 11.5 test 35 — RHS 200x100x5 S235 (classes 1 et 2) sous M_y + M_z, n = 0 et a_w = 0,5 : M_N,y,Rd = M_pl,y,Rd (plafond de (6.39)), et non 1,333·M_pl,y,Rd ; "
+      "idem M_N,z,Rd = M_pl,z,Rd (6.40), a_f < 0,5",
+      aw_b > 0.5 and af_b < 0.5 and r["grandeurs"]["classe"] <= 2 and r["grandeurs"]["M_N_y"] == r["grandeurs"]["M_y_Rd"] and r["grandeurs"]["M_N_z"] == r["grandeurs"]["M_z_Rd"]
+      and r["grandeurs"]["a_w"] == 0.5, (r["grandeurs"].get("M_N_y"), r["grandeurs"].get("M_y_Rd"), r["grandeurs"].get("M_N_z"), r["grandeurs"].get("M_z_Rd")))
+    # ---- § 11.5, test 28 : le contrôle élastique (6.1), pour information
+    pi3 = brut("IPE 300")
+    Iy3, h3, tf3, b3, tw3 = pi3["Iy"] * 1e4, pi3["dims"]["h"], pi3["dims"]["tf"], pi3["dims"]["b"], pi3["dims"]["tw"]
+    r = v("IPE 300", "S235", MyEd=140e6)
+    crit = (140e6 * h3 / 2 / Iy3 / 235.0) ** 2
+    r2 = v("IPE 300", "S235", MyEd=100e6, VzEd=300e3)
+    sig, tau = 100e6 * (h3 / 2 - tf3) / Iy3, 300e3 * b3 * tf3 * (h3 - tf3) / 2 / (Iy3 * tw3)
+    crit2 = (sig / 235.0) ** 2 + 3 * (tau / 235.0) ** 2
+    c("§ 11.5 test 28 — contrôle élastique (6.1) : IPE 300 S235, M_y = 140 kN·m (≤ M_pl,y,Rd = 147,7) : (σ/f_y)² = 1,14 > 1 à la fibre extrême — "
+      "verdict « vérifié », le contrôle affiché pour information ; M_y = 100 kN·m et V_z = 300 kN : 1,25 à la jonction âme-semelle (σ et τ au même point, "
+      "τ = V·S/(I·t_w))",
+      r["statut"] == RE.OK and r2["statut"] == RE.OK and proche(r["grandeurs"]["controle_elastique"]["critere"], crit, 1e-12) and round(crit, 2) == 1.14
+      and r["grandeurs"]["controle_elastique"]["point"] == "fibre haute" and any(a["code"] == "elastique" for a in r["alertes"])
+      and proche(r2["grandeurs"]["controle_elastique"]["critere"], crit2, 1e-12) and round(crit2, 2) == 1.25
+      and r2["grandeurs"]["controle_elastique"]["point"] == "jonction haute" and not any(x["id"].startswith("E-EL") for x in r["verifications"])
+      and not any(a["code"] == "elastique" for a in v("IPE 300", "S235", MyEd=100e6)["alertes"]),
+      (r["grandeurs"].get("controle_elastique", {}).get("critere"), crit, r2["grandeurs"].get("controle_elastique", {}).get("critere"), crit2))
+    # ---- § 11.5, test 29 : semelle en console fléchie et comprimée
+    l_c = C_.limites_console_flechie(0.5, "comprimee", 1.0, 0.43)
+    l_t = C_.limites_console_flechie(0.5, "tendue", 1.0, 0.43)
+    c("§ 11.5 test 29 — semelle en console fléchie et comprimée, α = 0,5 : classe 1 si c/t ≤ 18ε (extrémité comprimée, 9ε/α) ou ≤ 25,46ε (extrémité "
+      "tendue, 9ε/(α·√α)) ; classe 3 : 21ε·√k_σ",
+      round(l_c[0], 2) == 18.0 and round(l_t[0], 2) == 25.46 and round(l_c[1], 2) == 20.0 and proche(l_c[2], 21 * math.sqrt(0.43)), (l_c, l_t))
+    # … et ce que CLASSER prend : la borne prudente de ces limites (α et ψ de la console non calculés)
+    e_ = math.sqrt(235.0 / 355.0)
+    fyp_ = {"semelle": 355.0, "ame": 355.0}
+    sz = next(p for p in C_.classer(SE.du_catalogue("HEA 300"), 355.0, 500e3, 150e6, 30e6, fyp_)["parois"] if p["role"] == "semelle")
+    sy = next(p for p in C_.classer(SE.du_catalogue("HEA 300"), 355.0, 500e3, 150e6, 0.0, fyp_)["parois"] if p["role"] == "semelle")
+    dessous = all(sz["limites"][i] <= C_.limites_console_flechie(a_, x_, e_, k_)[i] + 1e-12 for i in range(3) for a_ in (0.1, 0.5, 1.0)
+                  for x_ in ("comprimee", "tendue") for k_ in (0.43, 0.6, 1.7))
+    I11 = SE.saisie("I", "lamine", "I c/t = 11,3", h=420.0, b=234.0, tw=8.0, tf=10.0, A=8000.0, Iy=2.4e8, Iz=2.1e7, iy=173.0, iz=51.0,
+                    Wel_y=1.14e6, Wel_z=1.8e5, Wpl_y=1.3e6, Wpl_z=2.8e5, cf_tf=11.3, cw_tw=50.0)
+    k3 = [C_.classer(I11, 355.0, 0.0, 100e6, mz_, fyp_)["parois"][0]["classe"] for mz_ in (0.0, 10e6)]
+    c("§ 11.5 test 29 — ce que classer PREND pour une semelle en console sous M_z (HEA 300 S355, N + M_y + M_z) : 9ε et 10ε (sous 9ε/α et 9ε/(α·√α) "
+      "pour tout α) ; classe 3 : 21ε·√0,43 = 13,77ε (sous 21ε·√k_σ pour tout k_σ du tableau 4.2, et sous les 14ε de la compression uniforme) ; sans "
+      "M_z : 14ε — une semelle de c/t = 11,3 (entre 13,77ε et 14ε) passe de la classe 3 à la classe 4 quand M_z s'ajoute",
+      proche(sz["limites"][0], 9 * e_) and proche(sz["limites"][1], 10 * e_) and proche(sz["limites"][2], 21 * e_ * math.sqrt(0.43))
+      and sz["regles"][2][0] == C_.GABARIT_LIM3_CONSOLE and dessous and proche(sy["limites"][2], 14 * e_) and k3 == [3, 4],
+      (sz["limites"], sy["limites"], k3))
+    # A_v,y : le message dit la règle PRISE (aires_cisaillement, « regle_y »)
+    def msg_avy(r_):
+        return [a["message"] for a in r_["alertes"] if a["code"] == "Avy"]
+    Iso = SE.saisie("I", "soude_oxycoupe", "I soudé", h=420.0, b=234.0, tw=8.0, tf=10.0, A=8000.0, Iy=2.4e8, Iz=2.1e7, iy=173.0, iz=51.0)
+    ma = [msg_avy(v("HEB 200", "S235", VyEd=100e3)), msg_avy(v("IPN 200", "S235", VyEd=100e3)),
+          msg_avy(S_.verifier({"section": Iso, "nuance": "S235", "VyEd": 100e3}))]
+    c("A_v,y : le message dit la règle prise — HEB 200 : 2·b·t_f (décision du bureau) ; IPN 200 : min(2·b·t_f ; A − h_w·t_w) ; un I soudé : A − h_w·t_w",
+      ma == [[S_.MSG_AVY[S_.AVY_LAMINE]], [S_.MSG_AVY[S_.AVY_MIN]], [S_.MSG_AVY[S_.AVY_SOUDE]]] and "min(2·b·t_f" in ma[1][0], ma)
+    # un I saisi par ses c/t et ses propriétés, sans h ni b : le contrôle élastique n'a pas de points — il n'est pas fait
+    Inu = SE.saisie("I", "lamine", "I sans dimensions", A=5381.0, Iy=83.56e6, Iz=6.04e6, iy=124.6, iz=33.5, Wpl_y=628.4e3, Wel_y=557.1e3,
+                    cf_tf=5.3, cw_tw=35.0, tf=10.7, tw=7.1)
+    try:
+        rnu = S_.verifier({"section": Inu, "nuance": "S235", "MyEd": 100e6})
+        nu_ok = rnu["statut"] == RE.OK and verif(rnu, "E-My") is not None and "controle_elastique" not in rnu["grandeurs"]
+    except Exception as e:  # noqa: BLE001
+        nu_ok, rnu = False, repr(e)
+    c("un I saisi sans h ni b (ses c/t et ses propriétés seulement) : vérifié (E-My), sans contrôle élastique (pour information, il n'a pas de points)",
+      nu_ok, rnu if not nu_ok else "")
+    # ---- § 19.2 : A_v,y des IPN = la plus petite de 2·b·t_f et de l'aire géométrique A − (h − 2·t_f)·t_w
+    faux_ipn, vus_ipn = [], {}
+    for q in CAT.profils():
+        if q["famille"] != "IPN":
+            continue
+        d_ = q["dims"]
+        attendu = min(2.0 * d_["b"] * d_["tf"], q["A"] * 100 - (d_["h"] - 2.0 * d_["tf"]) * d_["tw"])
+        av = S_.aires_cisaillement(SE.du_catalogue(q["nom"]), 1.0)["y"]
+        vus_ipn[q["nom"]] = (round(av / 100, 2), round(2.0 * d_["b"] * d_["tf"] / 100, 2))
+        if not proche(av, attendu):
+            faux_ipn.append((q["nom"], av, attendu))
+    c("§ 19.2 — A_v,y des IPN : la plus petite de 2·b·t_f et de A − (h − 2·t_f)·t_w, comme pour les U (IPN 200 : 20,13 cm² au lieu de 20,34)",
+      len(vus_ipn) > 10 and not faux_ipn and vus_ipn["IPN 200"] == (20.13, 20.34) and sum(1 for a_, b_ in vus_ipn.values() if a_ < b_) >= 1,
+      (faux_ipn[:3], vus_ipn.get("IPN 200")))
     # classe 3 et classe 4
     r = v("HEA 300", "S355", NEd=500e3, MyEd=150e6, MzEd=30e6)
     sig = 500e3 / (ph["A"] * 100) + 150e6 / (ph["Wel_y"] * 1e3) + 30e6 / (ph["Wel_z"] * 1e3)
@@ -736,7 +824,16 @@ def mutations():
         ("section", "(6.40) : a_f avec b au lieu de h", 'af = coefficient("a_f", "a_f", s["h"], t, "h", "t") if N != 0 else min((A - 2.0 * s["h"] * t) / A, A_MAX)',
          'af = coefficient("a_f", "a_f", s["b"] / 2.0, t, "h", "t") if N != 0 else min((A - 2.0 * s["b"] / 2.0 * t) / A, A_MAX)'),
         ("section", "tube rond : moments ajoutés au lieu de la résultante", "        My, Mz = math.hypot(My, Mz), 0.0\n", "        My, Mz = My + Mz, 0.0\n"),
-        ("section", "tube rond : effort normal oublié dans l'interaction", "        taux = n + My / MyRd\n", "        taux = My / MyRd\n"),
+        ("section", "tube rond : effort normal oublié dans l'interaction (brief v12 : M_N,Rd = M_pl,Rd·(1 − n^1,7))", "        MN = MyRd * (1.0 - n ** CHS_EXPOSANT)\n",
+         "        MN = MyRd\n"),
+        ("section", "tube rond : 1 − n² au lieu de 1 − n^1,7", "CHS_EXPOSANT = 1.7 ", "CHS_EXPOSANT = 2.0 "),
+        ("section", "RHS : plafond de (6.39) retiré", "(1.0 - 0.5 * aw)\n            MNy = MyRd * f_ if f_ < 1.0 else MyRd", "(1.0 - 0.5 * aw)\n            MNy = MyRd * f_"),
+        ("section", "RHS : plafond de (6.40) retiré", "(1.0 - 0.5 * af)\n            MNz = MzRd * f_ if f_ < 1.0 else MzRd", "(1.0 - 0.5 * af)\n            MNz = MzRd * f_"),
+        ("section", "contrôle élastique : 3·τ² → τ²", "critere=(sx / f) ** 2 + 3.0 * (tau / f) ** 2", "critere=(sx / f) ** 2 + 1.0 * (tau / f) ** 2"),
+        ("section", "contrôle élastique : τ avec le moment statique de toute la demi-section", "        Sh = Sb = b * tf * (h - tf) / 2.0\n", "        Sh = Sb = b * h * h / 8.0\n"),
+        ("section", "contrôle élastique au-delà de 1 passé sous silence", '    if pire["critere"] > 1.0:\n', '    if pire["critere"] > 2.0:\n'),
+        ("classe", "console fléchie, extrémité tendue : 9ε/α au lieu de 9ε/(α·√α)", '    div = alpha if extremite == "comprimee" else alpha * math.sqrt(alpha)', "    div = alpha"),
+        ("section", "§ 19.2 — IPN : A_v,y = 2·b·t_f seul", 'FAMILLES_AVY_MIN = ("IPN",)', "FAMILLES_AVY_MIN = ()"),
         ("section", "§ 6.2.10 : effort tranchant élevé oublié dans la flexion composée", "    k = 1.0 - r\n", "    k = 1.0\n"),
         ("section", "classe 3 : σ_x sans le terme de l'effort normal", '("N_Ed", abs(N) / 1e3, A), ("M_y,Ed"', '("N_Ed", 0.0, A), ("M_y,Ed"'),
         ("section", "classe 4 traitée par l'interaction plastique", "    if classe == 4:\n        # (6.44)", "    if classe == 5:\n        # (6.44)"),
@@ -750,8 +847,9 @@ def mutations():
         #  parité avec le module Flambement, une inégalité sur ces couples, la laissait passer ; l'égalité retrouvée l'attrape)
         ("classe", "lot A — les semelles classées avec l'ε de l'âme (trop petit pour une semelle plus épaisse que l'âme)",
          '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = float((fy_parois or {}).get("ame" if role == "semelle" else role, fy))\n'),
-        ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w", '    avy = A - hw * s["tw"] if s.get("fabrication") in AM.SOUDES else 2.0 * s["b"] * s["tf"]',
-         '    avy = A - hw * s["tw"]'),
+        ("section", "lot A — A_v,y d'un I laminé : A − h_w·t_w",
+         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if soude else (2.0 * s["b"] * s["tf"], AVY_LAMINE)',
+         '        avy, regle = (A - hw * s["tw"], AVY_SOUDE) if True else (2.0 * s["b"] * s["tf"], AVY_LAMINE)'),
         ("section", "lot A — η des sections soudées pour un laminé", 'gM0, eta = P["gamma_M0"], AM.eta_de(s, P)', 'gM0, eta = P["gamma_M0"], P["eta_soude"]'),
         ("section", "lot A — section efficace avec l'ε de la f_y de calcul", '    ep = eps_parois or eps\n', '    ep = eps\n'),
         ("classe", "lot A — ε de chaque paroi oublié", '        fyp = float((fy_parois or {}).get(role, fy))\n', '        fyp = fy\n'),
@@ -764,6 +862,12 @@ def mutations():
         ("section", "troisième passe — une cornière prend l'aire d'un tube rond (2A/π)", '    if forme != "tube_rond":\n        raise Refus(',
          '    if False:\n        raise Refus('),
         ("section", "le signe du moment compte", 'My, Mz, Vz, Vy = abs(d["MyEd"]), abs(d["MzEd"]), abs(d["VzEd"]), abs(d["VyEd"])', 'My, Mz, Vz, Vy = d["MyEd"], d["MzEd"], d["VzEd"], d["VyEd"]'),
+        # (lot B, reprise du bloc B2)
+        ("classe", "lot B — semelle en console sous M_z : classe 3 à 14ε (la compression uniforme)", '            if p["type"] == "console" and fz:', "            if False:"),
+        ("section", "lot B — A_v,y : le message de la fabrication, pas de la règle prise", '            J.alerte("Avy", "info", MSG_AVY[av["regle_y"]])',
+         '            J.alerte("Avy", "info", MSG_AVY[AVY_SOUDE if s.get("fabrication") in AM.SOUDES else AVY_LAMINE])'),
+        ("section", "lot B — IPN : le message de 2·b·t_f", "            avy, regle = min(avy, A - hw * s[\"tw\"]), AVY_MIN", "            avy = min(avy, A - hw * s[\"tw\"])"),
+        ("section", "lot B — contrôle élastique d'un I sans dimensions", ' and (PR.est_prs(s) or all(s.get(k) for k in ("h", "b", "tf", "tw"))):', ":"),
     ]
     sources = {k: open(ch, encoding="utf-8").read() for k, ch in CHEMINS.items()}
     res = []

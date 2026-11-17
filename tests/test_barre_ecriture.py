@@ -45,6 +45,9 @@ CHEMIN_RE = os.path.join(RACINE, "acier", "barre", "resultat.py")
 # un format de Python qui ARRONDIT pour écrire (« {x:.1f} », « {x:,.2f} », « %.1f », « .format( ») : au chiffre pair sur
 # un demi exact — l'arrondi que le module n'emploie plus
 FORMAT_PYTHON = re.compile(r"\{[^{}\n]*:,?\.(?:\d+|\{[^{}\n]*\})[feg]\}|%\.\d+[feg]|\.format\(")
+# « {x:g} » : un nombre écrit avec un POINT décimal (« t_f = 30.5 mm ») — admis seulement dans un nom (« PRS 600x300x15x30 »,
+# le format du Catalogue) et dans le motif d'un refus (lot B : à reprendre avec les formats des refus, hors du bloc PRS)
+FORMAT_G = re.compile(r"\{[^{}\n]*:g\}")
 # des demis EXACTS en binaire (k/2, k/4, k/8, k/16), les nombres du défaut constaté, et des nombres ordinaires
 DEMIS = ([k / 8.0 for k in range(-41, 42)] + [100.0 + k / 16.0 for k in range(0, 33)]
          + [458.25, -458.25, 3831.25, 13052.5, 10.125, 121.25, 258.5, 0.5, 1.5, 2.5, 0.125, 0.375])
@@ -352,6 +355,10 @@ def main():
     restes = [(f, m.group(0)) for f in fichiers for m in FORMAT_PYTHON.finditer(open(os.path.join(dossier, f), encoding="utf-8").read())]
     chk(f"aucun des {len(fichiers)} fichiers du moteur des barres n'arrondit un nombre par un format de Python (« {{x:.1f}} », « %.1f », "
         "« .format( ») : un second arrondi y écrirait un autre chiffre que l'écran", len(fichiers) >= 20 and not restes, restes[:4])
+    restes_g = [(f, li.strip()[:90]) for f in fichiers for li in open(os.path.join(dossier, f), encoding="utf-8").read().splitlines()
+                if FORMAT_G.search(li) and "Refus(" not in li and '"x".join(' not in li]
+    chk("aucune phrase du moteur des barres n'écrit un nombre par « {x:g} » (un point décimal : « t_f = 30.5 mm ») — seuls un nom et le motif d'un "
+        "refus le gardent ; et ce contrôle voit « f\"{x:g}\" »", not restes_g and FORMAT_G.search('f"t_f = {s[\'tf\']:g} mm"'), restes_g[:4])
     chk("… et ce contrôle voit un tel format : « f\"{x:.1f}\" », « f\"{x:,.{nd}f}\" », « \"%.2f\" % x » sont relevés ; « f\"{x}\" » et "
         "« round(x, 9) » ne le sont pas",
         all(FORMAT_PYTHON.search(t) for t in ('f"{x:.1f}"', 'f"{x:,.{nd}f}"', '"%.2f" % x', 'f"{v:.{decimales(v) if nd is None else nd}f}"'))

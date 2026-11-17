@@ -19,6 +19,7 @@ import time
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
+from acier.barre import prs as PR  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 from acier.profiles import consultation as CO  # noqa: E402
 from acier.profiles import familles as F  # noqa: E402
@@ -234,10 +235,10 @@ chk("« Vider la comparaison »", r0(e2)["compare"] == [])
 
 # le profilé personnalisé
 e, msg = saisir(E0, (["perso", "dims", "PRS", "h"], "600"), (["perso", "dims", "PRS", "tw"], "10"), (["perso", "+"], 1))
-p = CO.calculer_perso("PRS", {"h": 600.0, "b": 200.0, "tw": 10.0, "tf": 12.0})
+p = dict(CO.calculer_perso("PRS", {"h": 600.0, "b": 200.0, "tw": 10.0, "tf": 12.0}), **PR.proprietes_catalogue({"h": 600.0, "b": 200.0, "tw": 10.0, "tf": 12.0}))
 r = r0(e)
 vp = M._vue(r)
-chk("PRS 600x200x10x12 : calculé par le moteur de l'écran (chaque grandeur), au tableau, fiche ouverte",
+chk("PRS 600x200x10x12 : calculé par le moteur de l'écran (chaque grandeur), I_t, I_w et A_v du module Barres, au tableau, fiche ouverte",
     not msg and vp["p"] == p and r["fiche"] == "PRS 600x200x10x12" and vp["liste"][-1]["nom"] == "PRS 600x200x10x12")
 res = M.resultat(e)
 chk("la fiche d'un personnalisé : pastille « personnalisé », toutes ses propriétés", "tag perso" in res["resultat"]
@@ -317,7 +318,8 @@ def evaluer(t):
 
 
 n_fx, pires, ratees = 0, [], []
-tous = CAT.profils() + [CO.calculer_perso(f, CO.dims_defaut(f)) for f in CO.formes_perso()]
+# (les personnalisés tels que le SITE les calcule : un PRS prend I_t, I_w et A_v du module Barres)
+tous = CAT.profils() + M.persos_calcules({"persos": [{"famille": f, "dims": CO.dims_defaut(f)} for f in CO.formes_perso()]})
 for q in tous:
     for _titre, lignes in M.formules(q):
         for li in lignes:
@@ -506,13 +508,24 @@ chk("cases des colonnes : symbole ET unité (l'en-tête « Libellé (unité) » 
 e, _ = saisir(E0, (["familles", "toutes"], 1), (["fiche"], "L 100x100x10"))
 chk("titre de la vue Section : « L 100×100×10 » (en capitales, « x » deviendrait « X »)",
     vue(M.resultat(e), "section")["titre"] == "Section L 100×100×10")
-# I_t des PRS : Σ b·t³/3 surestime (non conservatif) — affiché comme l'écran, et ÉCRIT
+# I_t des PRS : l'écran donne Σ b·t³/3 (non conservatif) ; le site prend I_t (18.4), I_w et A_v du module Barres — divergence
+# NOMMÉE (M.PRS_BARRES) ; retirée, les réserves de l'écran reviennent
 e, _ = saisir(E0, (["perso", "+"], 1))
 t = texte(M.resultat(e)["resultat"])
-chk("PRS : la réserve sur I_t (Σ b·t³/3 surestime, non conservatif pour le déversement) est écrite au résultat",
-    "surestime" in t and "déversement" in t and CO.reserve_torsion(M._vue(r0(e))["p"]))
-chk("PRS : la réserve sur A_v,z (formule des laminés contre η·h_w·t_w d'un soudé) est écrite au résultat, en indices",
-    "formule des laminés" in t and "A<sub>v,z</sub> suit" in M.resultat(e)["resultat"])
+p_site = M._vue(r0(e))["p"]
+chk("PRS : I_t (18.4), I_w, A_v,z et A_v,y du module Barres ; la légende « I_t : … » le dit ; les réserves de l'écran (I_t, A_v,z) ne s'affichent plus",
+    p_site["methode_It"] == PR.METHODE_IT_CATALOGUE and "0,63" in t and "surestime" not in t and "formule des laminés" not in t
+    and p_site["It"] < CO.calculer_perso("PRS", p_site["dims"])["It"] and CO.reserve_torsion(CO.calculer_perso("PRS", p_site["dims"])))
+M.PRS_BARRES = False
+try:
+    e, _ = saisir(E0, (["perso", "+"], 1))
+    t = texte(M.resultat(e)["resultat"])
+    chk("divergence retirée (PRS_BARRES faux) : la réserve de l'écran sur I_t (Σ b·t³/3 surestime) revient au résultat",
+        "surestime" in t and "déversement" in t and CO.reserve_torsion(M._vue(r0(e))["p"]))
+    chk("divergence retirée : la réserve sur A_v,z (formule des laminés contre η·h_w·t_w d'un soudé) revient, en indices",
+        "formule des laminés" in t and "A<sub>v,z</sub> suit" in M.resultat(e)["resultat"])
+finally:
+    M.PRS_BARRES = True
 chk("PRS t_w ≥ b : l'avertissement écrit c_f/t_f et A_v,z en indices (pas de « _ » brut)",
     "c<sub>f</sub>/t<sub>f</sub>" in M.resultat(saisir(E0, (["perso", "dims", "PRS", "tw"], "300"))[0])["donnees"]
     and "_" not in texte(M.resultat(saisir(E0, (["perso", "dims", "PRS", "tw"], "300"), (["perso", "+"], 1))[0])["resultat"]))
