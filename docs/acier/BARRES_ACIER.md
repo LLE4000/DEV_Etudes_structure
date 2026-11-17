@@ -366,19 +366,21 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
 - **La longueur d'appui rigide s_s** se saisit — pour les appuis (une valeur pour la barre, avec le débord c en rive),
   et pour chaque charge ponctuelle. Elle n'est jamais supposée (brief § 8.2) : « non saisie » (None) n'est pas 0 saisi —
   elle est prise à sa borne, et dite (ci-dessous).
-- **s_s ou c NON SAISI** (brief § 8.3, point 5 ; À VÉRIFIER) : calcul à la borne 0 — F_Rd à la borne ≤ F_Rd réel (prouvé par
-  balayage ; F_Rd n'est pas monotone au type (c), d'où la branche m₂ = 0 qu'y prend la borne). Tout passe : « sans raidisseur
-  (s_s = 0, c = 0 : borne prudente) » ; sinon « décision impossible : s_s à saisir », taux à la borne — n'est demandé que ce
-  dont dépend ce qui ne passe pas (le critère 6.2.1(5) ne lit que s_s ; s_s saisie et lui seul en cause : raidisseur).
-  Une note de la VERSION 2 (le site d'avant le lot B y écrivait 0 pour « non saisi ») est relue avec ses 0 « non saisis ».
+- **s_s ou c NON SAISI** (champ vide ; brief § 8.3, point 5, À VÉRIFIER) : calcul à la borne 0, sous F_Rd réel (balayage).
+  Tout passe : « sans raidisseur (… : borne prudente) » ; sinon « décision impossible : … à saisir », taux à la borne.
+  (Seul est demandé ce dont dépend ce qui ne passe pas : le critère 6.2.1(5) ne lit que s_s, et le prend, s_s vide, au pire de
+  0 et h_w. Une note du site d'avant le lot B — sans la clé « zero_saisi » — est relue avec ses 0 « non saisis ».)
 - **DÉCISION IMPOSSIBLE** — le lieu est « non couvert », jamais « pas de raidisseur », une ligne par manque en pied du
   bloc, son taux donné pour information : s_s ou c quand la borne ne passe pas ; le MAINTIEN latéral de la semelle
-  chargée (§ 6.1(1)), qui n'a pas de borne — tenue à un appui (une fourche), ou par un maintien « complet » ou de cette
-  semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour un raidisseur sous une
-  charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû
+  chargée (§ 6.1(1) : la section 6 la suppose tenue), qui n'a pas de borne — tenue à un appui (une fourche), ou par un
+  maintien « complet » ou de cette semelle à la même abscisse ; quand elle n'est pas comprimée partout, l'autre aussi ; pour
+  un raidisseur sous une charge, les DEUX semelles (longueur 0,75·h_w, § 9.4(2)). Seul le maintien manque : le fait, le taux
+  des vérifications (faites comme si elle était tenue) et le remède, en une ligne — « Semelle haute sans maintien
+  (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). » (règle prudente gardée ; le brief
+  § 11.3 dit « pas de raidisseur » pour R2 : À TRANCHER). Le raidisseur d'appui d'une âme élancée (§ 5.1(2)) est dû
   quelles que soient les données. Barre neuve : « s_s à saisir » (157 % à la borne, critère 6.2.1(5)) ; à
   s_s = 100 mm, sans raidisseur (22 %, c = 0 : borne). R2 : appuis sans raidisseur (borne, 61 %) ; sous la charge, sans
-  maintien à mi-portée, « maintien de la semelle haute à préciser » (37 %) ; avec un maintien à 3 m, sans raidisseur.
+  maintien à mi-portée, la ligne ci-dessus (37 %) ; avec un maintien à 3 m, sans raidisseur.
 - **La résistance de l'âme** (lot A) : F_Rd = f_y·χ_F·l_y·t_w/γ_M1 avec la f_y de CALCUL de la section ; λ̄_F avec la f_y
   de l'âme selon t_w. Les DEUX branches de m₂ (m₂ = 0,02·(h_w/t_f)², cohérente si λ̄_F > 0,5 ; m₂ = 0, si λ̄_F ≤ 0,5) sont
   calculées : quand les deux sont cohérentes, la plus PETITE F_Rd est retenue, et dite (brief § 8.2). Type (c) : le
@@ -436,7 +438,8 @@ chargée, quelle que soit la méthode cochée : la méthode ELS ne traite rien d
   σ = N/A_st, N_b,Rd, taux ; A_c, σ de contact, f_y du plat, taux), et le rappel « un raidisseur transversal ne réduit
   pas τ » (une fois par bloc, dans les hypothèses) ; le cisaillement qui ne passe pas le dit aussi (plaque de doublage ou
   profil plus lourd) : le voilement (« A-Vb ») et, pour un laminé, V_pl,Rd (« E-Vz », brief § 8.3, point 8) ; E-Vz qui passe
-  mais a le plus fort taux de l'Eurocode 3 et de l'âme : « le cisaillement gouverne », sans le remède (À VÉRIFIER).
+  mais a le plus fort taux de l'Eurocode 3 et de l'âme, quand une force concentrée appuie sur l'âme (un lieu au moins) :
+  « le cisaillement gouverne », sans le remède (À VÉRIFIER) ; sans lieu, pas de question de raidisseur : rien.
 - **Efforts imposés** : seuls le voilement par cisaillement et le § 8 sont vérifiés — les appuis et les charges ne sont
   pas décrits, et le bloc le dit.
 - **Ce qui n'est PAS fait** (v1), et dit — jamais rendu « ok » : la paroi d'un profil creux sous une force concentrée
@@ -578,7 +581,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 
 | Fichier | Rôle |
 |---|---|
-| `api_web/profil.py` | la note (version 3 : `{"elements": [barre…], "actif"}`), ses saisies, le sélecteur de profilés, les vues, la relecture des notes des versions 1 et 2 (en version 2, un 0 de s_s ou de c est « non saisi ») |
+| `api_web/profil.py` | la note (version 2 : `{"zero_saisi": true, "elements": [barre…], "actif"}` — sans changer de version : le site d'avant le lot B relit une note neuve telle quelle, ou la refuse si une donnée y est vide), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 et du site d'avant le lot B (sans « zero_saisi », un 0 de s_s ou de c est « non saisi ») ; une autre version est refusée |
 | `api_web/profil_saisie.py` | la colonne de gauche : quatre rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Méthodes |
 | `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
 | `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
