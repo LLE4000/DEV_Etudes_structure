@@ -8,6 +8,7 @@ Rien n'est calculé ici ; les titres des vérifications, leurs critères et leur
 import re
 from typing import Dict, Optional
 
+from acier.barre import ame as AMEB
 from acier.barre import combinaisons as CO
 from acier.barre import ec3_deversement as DV
 from acier.barre import historique as HI
@@ -140,6 +141,12 @@ def decision_lieu(L: Dict) -> str:
     return f"sans raidisseur ({L['borne']})" if L.get("borne") else "sans raidisseur"
 
 
+def _sans_prefixe(t: str) -> str:
+    """Une raison de décision impossible placée APRÈS son lieu : sans « Décision impossible : » (ame.DECISION_IMPOSSIBLE), en minuscule."""
+    t = t[len(AMEB.DECISION_IMPOSSIBLE):] if t.startswith(AMEB.DECISION_IMPOSSIBLE) else t
+    return t[:1].lower() + t[1:]
+
+
 def resume_ame(a: Dict) -> str:
     """Ce que le bloc de l'âme décide, en une phrase (du texte) : « Pas de raidisseur nécessaire » ; « Raidisseurs :
     2 plats 70 × 12 mm (appui A, appui B) » ; « Décision impossible : s_s à saisir (appui A, appui B) » ; « Âme élancée
@@ -149,8 +156,9 @@ def resume_ame(a: Dict) -> str:
     for L in a.get("lieux") or []:
         if L["decision"] == "impossible":
             imp.setdefault((L.get("raison") or "Décision impossible.").rstrip("."), []).append(L["nom"][:1].lower() + L["nom"][1:])
-    # une raison qui finit par une parenthèse (« … 6.1(1)) », « … (À VÉRIFIER) ») : le lieu en tête, jamais « …) (charge à 3,00 m) »
-    sans = " ; ".join(f"{', '.join(noms)} : {t[:1].lower() + t[1:]}" if t.endswith(")") else f"{t} ({', '.join(noms)})"
+    # une raison qui finit par une parenthèse (« … 6.1(1)) », « … (À VÉRIFIER) ») : le lieu en tête, jamais « …) (charge à 3,00 m) » —
+    # et sans « décision impossible : » après lui (deux « : » de suite ; intégration du lot B) : « Charge à 0,50 m : s_s à saisir ; … »
+    sans = " ; ".join(f"{', '.join(noms)} : {_sans_prefixe(t)}" if t.endswith(")") else f"{t} ({', '.join(noms)})"
                       for t, noms in imp.items())
     if r:
         par = {}

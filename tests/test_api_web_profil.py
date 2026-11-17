@@ -1379,6 +1379,9 @@ def maintien_ecran():
     r_ = req(action="calculer", etat=note(b_))
     tr_, tv_ = texte(r_.get("resultat", "")), texte(r_.get("volets", ""))
     fait = "semelle haute sans maintien (EN 1993-1-5, 6.1(1))"
+    b2_ = barre(maintiens=[], appuis={"mode": "ame", "ss": None, "c": None},
+                cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 250.0, "a": 0.5, "ss": None}]}])
+    tr2_ = texte(req(action="calculer", etat=note(b2_)).get("resultat", ""))
     return [
         ("la LIGNE du lieu dit le fait et le remède sans le taux, que sa pastille donne (« Charge à 3,00 m 24 % semelle haute sans maintien (…) ; "
          "ajouter un maintien (À VÉRIFIER) ») ; la BANDE, le lieu en tête (« Âme · Charge à 3,00 m : semelle haute … — 24 % si elle est tenue ; … »), "
@@ -1390,6 +1393,13 @@ def maintien_ecran():
          and "(À VÉRIFIER) (charge" not in tr_ and tr_.count("si elle est tenue") == 2
          and f"x = 3,00 m · {fait} ; ajouter un maintien (À VÉRIFIER)" in tv_ and "si elle est tenue" not in tv_,
          re.findall(r".{40}sans maintien.{80}", tr_ + " | " + tv_)[:4]),
+        # (intégration du lot B, point 29 c) s_s manque AUSSI (250 kN à 0,50 m, s_s non saisi, la borne ne passe pas) : la raison finit par une
+        # parenthèse, le lieu passe en tête — sans « décision impossible : » derrière lui (deux « : » de suite)
+        ("la BANDE d'un lieu en tête dont la décision est impossible (s_s à saisir, semelle sans maintien) : « Âme · Charge à 0,50 m : s_s à "
+         "saisir ; semelle haute sans maintien (…) », jamais « Charge à 0,50 m : décision impossible : … » (l'avertissement garde sa phrase "
+         "entière)",
+         f"Âme · Charge à 0,50 m : s_s à saisir ; {fait}" in tr2_ and "Âme · Charge à 0,50 m : décision impossible" not in tr2_,
+         re.findall(r"Âme · .{90}", tr2_)[:1]),
     ]
 
 
@@ -1399,6 +1409,8 @@ MUTATIONS_MAINTIEN = (
     ("la ligne d'un lieu redit le taux de sa pastille (la raison entière)", M, "decision_lieu", lambda vrai: (lambda L: vrai(dict(L, ligne=None)))),
     ("la bande met le lieu en queue, après une parenthèse (« …) (charge à 3,00 m) »)", M, "resume_ame",
      lambda vrai: _source_mutee(M, 'if t.endswith(")") else', 'if False else').resume_ame),
+    ("(point 29 c) le lieu en tête suivi de « décision impossible : »", M, "resume_ame",
+     lambda vrai: _source_mutee(M, "t = t[len(AMEB.DECISION_IMPOSSIBLE):] if t.startswith(AMEB.DECISION_IMPOSSIBLE) else t", "t = t").resume_ame),
 )
 for nom_, objet_, attr_, fabrique_ in MUTATIONS_MAINTIEN:
     if not hasattr(objet_, attr_):

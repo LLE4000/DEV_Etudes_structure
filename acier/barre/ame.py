@@ -341,13 +341,16 @@ def sans_maintien(cotes: Sequence[str], taux: float, ligne: bool = False) -> str
     return f"{t[:1].upper() + t[1:]}{taux_} ; {remede} (À VÉRIFIER)."
 
 
+DECISION_IMPOSSIBLE = "Décision impossible : "         # le début de la raison d'une décision impossible (api_web/profil_mots le lit)
+
+
 def impossible(donnees: Sequence[str], maintiens: Sequence[str], rive: Sequence[str] = ()) -> str:
     """La raison d'une décision impossible faute de données (brief § 8.3, point 5), en une phrase : « Décision impossible :
     s_s à saisir. » ``maintiens`` : les semelles qui ne sont pas tenues non plus (« haut », « bas ») ; ``rive`` : les données
     manquantes de l'appui de rive voisin (le c d'une force du type (c))."""
     quoi = ([_et(donnees)] if donnees else []) + ([f"{_et(rive)} de l'appui de rive"] if rive else [])
     parts = ([f"{' ; '.join(quoi)} à saisir"] if quoi else []) + ([_sans_maintien(maintiens)] if maintiens else [])
-    return "Décision impossible : " + " ; ".join(parts) + "."
+    return DECISION_IMPOSSIBLE + " ; ".join(parts) + "."
 
 
 def critere_pire(F: float, essais: Sequence[float], tf: float, tw: float, sx: float, tau: float, fy: float, gM0: float) -> Dict:
