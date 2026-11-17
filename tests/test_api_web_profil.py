@@ -1616,6 +1616,70 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_C0:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du socle du lot C sont verts", all(ok_ for _n, ok_, _i in lot_c0()))
 
+print("=== 20. (lot C, reprise de C0) les longueurs copiées au passage en efforts imposés redeviennent automatiques au retour — et leurs mutations")
+
+
+def longueurs_copiees():
+    """[(nom, vrai ?, info)], rejoués sous chaque mutation. Mesuré avant (f012e40 et f9e26aa) : la barre neuve passée en efforts
+    imposés, rendue à la barre chargée, puis console de 3 m sans maintien, gardait L_y = 6 m et L_z = 3 m comme des SAISIES
+    (« auto · 3 » au champ) au lieu de 2,1 × 3 = 6,3 m automatiques — sans un mot. Sous N = 50 kN, E-Nb-z : IPE 300 8,5 % au lieu
+    de 25,5 % ; IPE 330 (le geste « console » du harnais) 6,9 % au lieu de 19,8 %."""
+    P._RESULTATS.clear()
+    out = []
+    e_ = enchainer(note(), ("mode", "efforts"), ("mode", "chargee"), ("modele", "console"), ("travees/0", "3"), ("maintiens/0/-", "1"))
+    el_ = e_["etat"]["elements"][0]
+    Ls_ = P.calculer(el_)["longueurs"]
+    champ_ = re.search(r'<input[^>]*data-chemin="flambement/z/L"[^>]*>', e_["donnees"])
+    out.append(("reprise C0 — efforts imposés, retour, console de 3 m : L_y et L_z AUTOMATIQUES (2,1 × 3 = 6,3 m) ; le champ L_z est vide et "
+                "dit « auto · 6,3 » (ce que lit le geste « console » du harnais)",
+                el_["flambement"]["y"]["L"] is None and el_["flambement"]["z"]["L"] is None and Ls_["z"]["auto"] and Ls_["y"]["auto"]
+                and abs(Ls_["z"]["L"] - 6.3) < 1e-9 and abs(Ls_["y"]["L"] - 6.3) < 1e-9 and P.COPIEES not in el_
+                and champ_ is not None and 'value=""' in champ_.group(0) and 'placeholder="auto · 6,3"' in champ_.group(0),
+                (el_["flambement"], Ls_, champ_ and champ_.group(0))))
+    e2_ = enchainer(note(), ("mode", "efforts"), ("flambement/z/L", "3"), ("mode", "chargee"), ("modele", "console"), ("travees/0", "3"))
+    el2_ = e2_["etat"]["elements"][0]
+    out.append(("reprise C0 — une longueur RETAPÉE en efforts imposés (L_z = 3 m, la valeur copiée) est une saisie : elle reste au retour ; "
+                "l'autre redevient automatique",
+                el2_["flambement"]["z"]["L"] == 3.0 and el2_["flambement"]["y"]["L"] is None, el2_["flambement"]))
+    ef_ = saisir(note(), "mode", "efforts")["etat"]
+    rel_ = P.normaliser(json.loads(json.dumps(ef_)))
+    out.append(("reprise C0 — le souvenir des longueurs copiées suit la note (relue d'un fichier : {y: 6, z: 3}) ; une barre neuve ne le porte pas",
+                rel_["elements"][0].get(P.COPIEES) == {"y": 6.0, "z": 3.0} and P.COPIEES not in P.nouvel_etat()["elements"][0],
+                rel_["elements"][0].get(P.COPIEES)))
+    autre_ = copy.deepcopy(ef_)
+    autre_["elements"][0]["flambement"]["z"]["L"] = 5.0          # (un fichier dont la longueur n'est plus celle qui a été copiée)
+    er_ = saisir(autre_, "mode", "chargee")["etat"]["elements"][0]
+    out.append(("reprise C0 — une longueur qui n'est plus celle copiée (5 m au lieu de 3) n'est jamais rendue automatique",
+                er_["flambement"]["z"]["L"] == 5.0 and er_["flambement"]["y"]["L"] is None, er_["flambement"]))
+    return out
+
+
+for nom_, ok_, info_ in longueurs_copiees():
+    chk(nom_, ok_, info_)
+
+MUTATIONS_COPIEES = (
+    ("le retour en barre chargée garde les longueurs copiées (le défaut mesuré)", "_appliquer",
+     '                if el["flambement"][a]["L"] == Lc:\n                    el["flambement"][a]["L"] = None',
+     '                if False:\n                    el["flambement"][a]["L"] = None'),
+    ("une longueur retapée en efforts imposés n'est plus retenue comme saisie", "_appliquer",
+     "            el[COPIEES].pop(cles[1], None)\n", "            pass\n"),
+    ("une longueur qui n'est plus la copie rendue automatique quand même", "_appliquer",
+     '                if el["flambement"][a]["L"] == Lc:', "                if True:"),
+    ("le souvenir des longueurs copiées perdu à la relecture", "_completer", "    if cop:\n        b[COPIEES] = cop", "    if False:\n        b[COPIEES] = cop"),
+)
+for nom_, attr_, ancien_, nouveau_ in MUTATIONS_COPIEES:
+    vrai_ = getattr(P, attr_)
+    try:
+        setattr(P, attr_, getattr(_source_mutee(P, ancien_, nouveau_), attr_))
+        rouges_ = [n_ for n_, ok_, _i in longueurs_copiees() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(P, attr_, vrai_)
+        P._RESULTATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
+chk("témoin : sans mutation, les contrôles des longueurs copiées sont verts", all(ok_ for _n, ok_, _i in longueurs_copiees()))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

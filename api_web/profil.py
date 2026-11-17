@@ -76,6 +76,11 @@ COMMUNS = ("profil", "nuance", "mode", "poids_propre", "niveau", "Lc", "methodes
 CHARGEE = ("modele", "travees", "cas", "maintiens", "appuis", "combinaisons", "position", "angle", "points", "debords")
 IMPOSES = ("efforts", "diagramme", "poids_propre_efforts")
 CLES = ("nom",) + COMMUNS + CHARGEE + IMPOSES
+# (lot C, reprise de C0) les longueurs de flambement que le passage en efforts imposés a COPIÉES de l'automatique, {axe: L (m)} :
+# au retour en barre chargée, celles que l'ingénieur n'a pas retouchées redeviennent automatiques. Sans cela, une poutre de
+# 6 m passée en efforts imposés puis rendue console de 3 m gardait L_z = 3 m comme une saisie (2,1·L = 6,3 m), sans un mot.
+# Un état de l'ÉCRAN, hors du calcul (hors de CLES et de la signature) ; une barre qui ne l'a pas : rien n'a été copié.
+COPIEES = "longueurs_copiees"
 MEMOIRE, MEMOIRE_CANDIDATS = 48, 6000
 _RESULTATS: Dict[str, Dict] = {}                    # la barre (sans son nom) → son résultat
 _CANDIDATS: Dict[Tuple[str, str], Tuple] = {}       # (la barre sans nom ni profilé, un profilé) → (taux, statut)
@@ -237,6 +242,11 @@ def _completer(el: Dict) -> Dict:
             b[k] = neuf
         for sous, defaut in neuf.items():
             b[k][sous] = dict(defaut, **(b[k].get(sous) if isinstance(b[k].get(sous), dict) else {}))
+    cop = el.get(COPIEES)
+    cop = {a: float(v) for a, v in cop.items() if a in ("y", "z") and isinstance(v, (int, float)) and not isinstance(v, bool)} \
+        if isinstance(cop, dict) else {}
+    if cop:
+        b[COPIEES] = cop
     return b
 
 
@@ -249,6 +259,7 @@ def _relire(el: Dict) -> Dict:
         b[k] = n[k]
     if n["mode"] == "chargee":
         CO.service(b["cas"])                 # (au plus quatre cas variables : le moteur le dit ici plutôt qu'au calcul)
+        b.pop(COPIEES, None)                 # (le souvenir des longueurs copiées ne vaut qu'en efforts imposés)
     return b
 
 
@@ -500,9 +511,16 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         if valeur not in EN.MODES:
             raise ValueError(f"mode inconnu : « {valeur} »")
         if valeur == "efforts":                 # les longueurs que la barre chargée prenait d'elle-même deviennent des données
+            copiees = {}
             for a in ("y", "z"):
                 if el["flambement"][a]["L"] is None:
-                    el["flambement"][a]["L"] = round(r["longueurs"][a]["L"], 3) if r.get("longueurs") else L
+                    el["flambement"][a]["L"] = copiees[a] = round(r["longueurs"][a]["L"], 3) if r.get("longueurs") else L
+            if copiees:                         # (COPIEES : on s'en souvient, pour les rendre automatiques au retour)
+                el[COPIEES] = copiees
+        else:                                   # retour en barre chargée : une longueur copiée, pas retouchée, redevient automatique
+            for a, Lc in (el.pop(COPIEES, None) or {}).items():
+                if el["flambement"][a]["L"] == Lc:
+                    el["flambement"][a]["L"] = None
         el["mode"] = valeur
     elif cle in ("nuance", "niveau"):
         el[cle] = str(valeur)
@@ -612,6 +630,10 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
     elif cle in ("appuis/ss", "appuis/c"):
         el["appuis"][cles[1]] = _lire_vide(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
     elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("L", "u"):
+        if cles[2] == "L" and isinstance(el.get(COPIEES), dict):     # une longueur retouchée est une saisie : elle reste au retour
+            el[COPIEES].pop(cles[1], None)
+            if not el[COPIEES]:
+                del el[COPIEES]
         if cles[2] == "L" and el["mode"] == "chargee":
             el["flambement"][cles[1]]["L"] = C.lire_auto(valeur)
         else:
