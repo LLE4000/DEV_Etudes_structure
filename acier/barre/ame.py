@@ -63,10 +63,17 @@ METHODE, NORME = AM.METHODE, AM.NORME
 EPS = 1e-9
 MEME_ABSCISSE = 1e-6             # m : deux forces à la même abscisse
 MODES_APPUI = ("poses", "ame")
-COTES = {"haut": "de la semelle haute", "bas": "de la semelle basse"}
 AUTRE = {"haut": "bas", "bas": "haut"}
-# une donnée non saisie prise à sa borne : dite une fois dans les hypothèses du bloc (règle 1 du brief : elle change la décision)
-BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER, brief § 8.3, point 5)."
+# une donnée non saisie prise à sa borne : dite une fois dans les hypothèses du bloc (règle 1 du brief : elle change la décision ;
+# la lecture du brief § 8.3, point 5, À VÉRIFIER — le brief, document interne, n'est pas cité dans le texte rendu)
+BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER)."
+# le critère 6.2.1(5), s_s non saisie, pris au bout h_w (le pire des deux) : la fenêtre imprime s_s = h_w, elle le dit
+MOT_PIRE_HW = "s_s non saisie : le pire de 0 et h_w."
+# la semelle chargée sans maintien au droit de la force : la section 6 la suppose tenue latéralement (EN 1993-1-5, 6.1(1)) —
+# règle prudente gardée (À VÉRIFIER, à trancher : brief § 11.3, R2 « pas de raidisseur ») ; le fait, le taux, le remède
+REF_MAINTIEN = f"{AM.REF}, 6.1(1)"
+# le raidisseur sous une charge : sa longueur 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2))
+MOT_RAIDISSEUR_TENU = "Décision impossible : maintien des deux semelles (longueur du raidisseur, § 9.4(2)) à préciser."
 
 
 def _fy(b: Dict, s: Dict) -> Tuple[float, float, Optional[str]]:
@@ -314,11 +321,27 @@ def _et(mots: Sequence[str]) -> str:
     return " et ".join(mots) if len(mots) <= 2 else ", ".join(mots[:-1]) + " et " + mots[-1]
 
 
+def _sans_maintien(cotes: Sequence[str]) -> str:
+    """« semelle haute sans maintien (EN 1993-1-5, 6.1(1)) » ; les deux : « semelles haute et basse … »."""
+    quoi = "semelles haute et basse" if len(cotes) == 2 else f"semelle {'haute' if cotes[0] == 'haut' else 'basse'}"
+    return f"{quoi} sans maintien ({REF_MAINTIEN})"
+
+
+def sans_maintien(cotes: Sequence[str], taux: float) -> str:
+    """La raison d'un lieu dont SEUL le maintien manque (``cotes`` : les semelles à tenir, « haut », « bas ») — le fait, le
+    taux obtenu comme si elles étaient tenues (les mêmes vérifications : le maintien n'y entre pas) et le remède, en une
+    ligne : « Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER). »"""
+    t = _sans_maintien(cotes)
+    tenue = "si elles sont tenues" if len(cotes) == 2 else "si elle est tenue"
+    return f"{t[:1].upper() + t[1:]} — {RE.fr(100.0 * taux)} % {tenue} ; ajouter un maintien (À VÉRIFIER)."
+
+
 def impossible(donnees: Sequence[str], maintiens: Sequence[str], rive: Sequence[str] = ()) -> str:
-    """La raison d'une décision impossible (brief § 8.3, point 5), en une phrase : « Décision impossible : s_s à saisir. »
-    ``rive`` : les données manquantes de l'appui de rive voisin (le c d'une force du type (c))."""
+    """La raison d'une décision impossible faute de données (brief § 8.3, point 5), en une phrase : « Décision impossible :
+    s_s à saisir. » ``maintiens`` : les semelles qui ne sont pas tenues non plus (« haut », « bas ») ; ``rive`` : les données
+    manquantes de l'appui de rive voisin (le c d'une force du type (c))."""
     quoi = ([_et(donnees)] if donnees else []) + ([f"{_et(rive)} de l'appui de rive"] if rive else [])
-    parts = ([f"{' ; '.join(quoi)} à saisir"] if quoi else []) + ([f"maintien {_et(maintiens)} à préciser"] if maintiens else [])
+    parts = ([f"{' ; '.join(quoi)} à saisir"] if quoi else []) + ([_sans_maintien(maintiens)] if maintiens else [])
     return "Décision impossible : " + " ; ".join(parts) + "."
 
 
@@ -474,6 +497,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
         # un BOUT de l'intervalle — s_s = 0 (σ_z le plus fort) ou s_s = h_w (quand σ_x > 2·σ_z) : le plus grand des deux
         essais = [r["ss"]] + ([r["ame"]["hw"]] if "s_s" in (r.get("manque") or []) else [])
         out.update(critere_pire(F * 1e3, essais, nv["tf"], s["tw"], sx, tau, fy, gM0), sx=sx, tau=tau)
+        out["pire_hw"] = len(essais) > 1 and out["ss"] == essais[1]          # le bout h_w retenu : la fenêtre le dit
         return out
 
     # ---- première passe : l'âme seule tient-elle, sous chaque combinaison ?
@@ -546,11 +570,14 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
             donnees, bout = [m for m in donnees if m == "s_s"], []          # le critère 6.2.1(5) seul ne passe pas
         a_saisir = bool(donnees or bout) and echec and not certain and not sur
         requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}
-        maintiens = [COTES[k] for k in ("haut", "bas") if k in requis and not L["tenue"][k]]
-        manque = None if certain or not (a_saisir or maintiens) else impossible(donnees if a_saisir else [], maintiens, bout if a_saisir else [])
+        maintiens = [k for k in ("haut", "bas") if k in requis and not L["tenue"][k]]
+        # seul le maintien manque : le taux des vérifications (faites comme si la semelle était tenue) est dit, avec le remède
+        tenu = max(pire["eta2"], pire["inter"] or 0.0, pire["crit"] or 0.0)
+        manque = (None if certain or not (a_saisir or maintiens) else
+                  impossible(donnees, maintiens, bout) if a_saisir else sans_maintien(maintiens, tenu))
         if manque is None and raison and L["genre"] == "charge" and not all(L["tenue"].values()):
             # le raidisseur sous une charge : 0,75·h_w suppose les DEUX semelles tenues (§ 9.4(2)) ; sinon, longueur non chiffrée
-            manque = impossible([], ["des deux semelles (longueur du raidisseur, § 9.4(2))"])
+            manque = MOT_RAIDISSEUR_TENU
         b_ = []
         for k in ([] if certain or a_saisir else sorted(charges_)):
             b_ += [x for x in (borne(res[k]) or "").split(", ") if x and x not in b_]
@@ -654,7 +681,7 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                                                     RE.terme("f_y", fy, "N/mm²"), RE.terme("γ_M0", gM0)], x["crit"], "", "a_615")]
                     J.verif(f"{L['base']}-EL", f"{L['nom']} : critère élastique à la jonction (6.2.1(5))", "EN 1993-1-1 § 6.2.1(5) ; "
                             f"{AM.REF} § 7.2(2)", "(σ_x/f)² + (σ_z/f)² − (σ_x/f)·(σ_z/f) + 3·(τ/f)² ≤ 1", x["crit"], 1.0, "", cles, taux=x["crit"],
-                            messages=[AM.MOTS_ETAT[x["etat"]]], statut=nc)
+                            messages=[AM.MOTS_ETAT[x["etat"]]] + ([MOT_PIRE_HW] if x["pire_hw"] else []), statut=nc)
             env.verser(J.rendre(), {"combinaison": o["C"].nom, "x": L["x"]})
 
     r = env.rendre()

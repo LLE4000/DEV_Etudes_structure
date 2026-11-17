@@ -640,10 +640,14 @@ def controles(M=None):
       L is not None and L["genre"] == "charge" and L["type"] == "a" and proche(L["F_Ed"], 36.0) and round(L["sans"]["F_Rd"], 1) == 387.8
       and round(L["sans"]["eta2"], 3) == 0.093 and L["decision"] == "aucun" and len([x for x in a["lieux"] if x["genre"] == "charge"]) == 1, L)
     c("… R2 tel quel (sans maintien intermédiaire) : la semelle chargée n'est pas tenue au droit de la charge (§ 6.1(1)) ; un maintien n'a "
-      "pas de borne — « décision impossible : maintien de la semelle haute à préciser » (brief § 8.3, point 5), les MÊMES taux pour information "
-      "(36,6 %, sur la ligne) ; un maintien de la semelle BASSE ne suffit pas ; un « complet », oui ; aux appuis (s_s, c non saisis), la borne "
-      "passe : sans raidisseur (61 %)",
-      L0["decision"] == "impossible" and L0["raison"] == "Décision impossible : maintien de la semelle haute à préciser." and L0["statut"] == RE.NON_COUVERT
+      "pas de borne — non couvert (règle prudente gardée, À TRANCHER), et la raison dit en une ligne le fait, le taux obtenu comme si elle "
+      "était tenue et le remède : « Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien "
+      "(À VÉRIFIER). » (le harnais suit : « maintien … à préciser ») ; les MÊMES taux (36,6 %, sur la ligne) ; l'avertissement le redit ; un "
+      "maintien de la semelle BASSE ne suffit pas ; un « complet », oui ; aux appuis (s_s, c non saisis), la borne passe : sans raidisseur (61 %)",
+      L0["decision"] == "impossible" and L0["statut"] == RE.NON_COUVERT
+      and L0["raison"] == "Semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)."
+      and [x["message"] for x in a0["alertes"] if x["code"].startswith("decision_impossible")]
+      == ["Charge à 3,00 m : semelle haute sans maintien (EN 1993-1-5, 6.1(1)) — 37 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)."]
       and proche(L0["taux"], L["taux"]) and round(L0["taux"], 3) == 0.366 and proche(L0["sans"]["interaction"], L["sans"]["interaction"])
       and proche(L0["sans"]["eta2"], L["sans"]["eta2"])
       and all(x["decision"] == "aucun" and x["borne"] == "s_s = 0, c = 0 : borne prudente" and round(x["taux"], 3) == 0.613
@@ -952,9 +956,11 @@ def controles(M=None):
                         maintiens=[{"x": 4.6, "genre": g_}], cas=[{"nom": "G", "nature": "permanent", "charges": [q(6.0, 0.0, 10.0), P_(5.0, 4.6, 100.0)]}]),
                    "Charge à 4,60 m") for g_ in ("haut", "complet")}
     c("une charge sur la semelle haute TENDUE (moment négatif, poutre continue) : la semelle comprimée, la basse, doit être tenue aussi (§ 6.1(1)) "
-      "— maintien « haut » seul : décision impossible ; « complet » : décidé",
+      "— maintien « haut » seul : décision impossible, « Semelle basse sans maintien (EN 1993-1-5, 6.1(1)) — 5 % si elle est tenue ; ajouter un "
+      "maintien (À VÉRIFIER). » (le harnais suit : « maintien de la semelle basse à préciser ») ; « complet » : décidé",
       hog["haut"]["sans"]["semelle"] == ["tendue"] and hog["haut"]["decision"] == "impossible"
-      and hog["haut"]["raison"] == "Décision impossible : maintien de la semelle basse à préciser." and hog["complet"]["decision"] == "aucun", hog)
+      and hog["haut"]["raison"] == "Semelle basse sans maintien (EN 1993-1-5, 6.1(1)) — 5 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)."
+      and proche(hog["haut"]["taux"], hog["complet"]["taux"]) and hog["complet"]["decision"] == "aucun", hog)
     pr_ = [lieu(ame(appuis=k_, maintiens=[{"x": 0.1, "genre": "haut"}], poids_propre=False,
                     cas=[{"nom": "G", "nature": "permanent", "charges": [P_(10.0, 0.1, 50.0)]}]), "Charge à 0,10 m")
            for k_ in ({"mode": "poses", "ss": None, "c": None}, {"mode": "poses", "ss": 100.0, "c": 0.0})]
@@ -995,12 +1001,18 @@ def controles(M=None):
                           flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
     r1 = mo.verifier(barre(mode="efforts", profil="IPE 300", methodes=["ec3"], efforts={"service": {}, "elu": {"Vz": 100.0}},
                            flambement={"y": {"L": 6.0, "u": 1.0}, "z": {"L": 6.0, "u": 1.0}}))
+    r2 = mo.verifier(barre(travees=[0.6], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[],
+                           cas=[{"nom": "G", "nature": "permanent", "charges": [q(2.0, 0.0, 0.6)]}]))
     c("brief § 8.3, point 8 : un LAMINÉ que V_pl,Rd fait échouer (IPE 300, V_z = 400 kN > 348,4 kN) — « le cisaillement gouverne : un raidisseur "
-      "ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd » ; à 100 kN, il passe et gouverne encore (seul effort) : dit, sans le remède",
+      "ne réduit pas τ — plaque de doublage d'âme ou profil plus lourd » ; à 100 kN, il passe : AUCUNE force concentrée n'appuie sur l'âme (efforts "
+      "imposés, aucun lieu), pas de question de raidisseur — rien (le harnais suit : « gouverne » y était dit, sans le remède) ; de même une barre "
+      "chargée par l'âme, sans charge ponctuelle (aucun lieu, E-Vz seul à 0,2 %)",
       verif(r["methodes"]["ec3"], "E-Vz")["statut"] == RE.NOK and AM.MOT_CISAILLEMENT in verif(r["methodes"]["ec3"], "E-Vz")["messages"]
-      and AM.MOT_CISAILLEMENT_GOUVERNE not in verif(r["methodes"]["ec3"], "E-Vz")["messages"]
-      and verif(r1["methodes"]["ec3"], "E-Vz")["messages"].count(AM.MOT_CISAILLEMENT_GOUVERNE) == 1
-      and AM.MOT_CISAILLEMENT not in verif(r1["methodes"]["ec3"], "E-Vz")["messages"], verif(r["methodes"]["ec3"], "E-Vz")["messages"])
+      and AM.MOT_CISAILLEMENT_GOUVERNE not in verif(r["methodes"]["ec3"], "E-Vz")["messages"] and r1["ame"]["lieux"] == []
+      and verif(r1["methodes"]["ec3"], "E-Vz")["statut"] == RE.OK
+      and not any("cisaillement gouverne" in m_ for m_ in verif(r1["methodes"]["ec3"], "E-Vz")["messages"])
+      and r2["ame"]["lieux"] == [] and not any("cisaillement gouverne" in m_ for m_ in verif(r2["methodes"]["ec3"], "E-Vz")["messages"]),
+      (verif(r["methodes"]["ec3"], "E-Vz")["messages"], verif(r1["methodes"]["ec3"], "E-Vz")["messages"], verif(r2["methodes"]["ec3"], "E-Vz")["messages"]))
     a = ame(**R2)
     c("« -EL » : titre « critère élastique à la jonction (6.2.1(5)) » ; à un appui d'extrémité (σ_x = 0), « les deux contrôles » ; semelle tendue "
       "(test 31) : « le critère 6.2.1(5) décide »",
@@ -1075,8 +1087,10 @@ def controles(M=None):
     c("la règle du maintien (§ 6.1(1)), ses deux branches : au bout libre d'une console (M = 0 : σ_x nul, « les deux »), la semelle haute "
       "seule tenue ne suffit pas — « maintien de la semelle basse à préciser » ; « complet » : décidé ; un maintien à 0,10 m de la charge ne "
       "la tient pas (la même abscisse)",
-      pointe["haut"]["sans"]["semelle"] == ["les_deux"] and pointe["haut"]["raison"] == "Décision impossible : maintien de la semelle basse à préciser."
-      and pointe["complet"]["decision"] != "impossible" and loin["decision"] == "impossible" and "semelle haute" in loin["raison"],
+      pointe["haut"]["sans"]["semelle"] == ["les_deux"] and pointe["haut"]["decision"] == "impossible"
+      and pointe["haut"]["raison"].startswith("Semelle basse sans maintien (EN 1993-1-5, 6.1(1)) — ")
+      and pointe["haut"]["raison"].endswith(" % si elle est tenue ; ajouter un maintien (À VÉRIFIER).")
+      and pointe["complet"]["decision"] != "impossible" and loin["decision"] == "impossible" and loin["raison"].startswith("Semelle haute sans maintien"),
       (pointe["haut"]["raison"], pointe["complet"]["decision"], loin["raison"]))
     cis = mo.verifier(barre(travees=[1.5], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.75, "genre": "complet"}],
                             cas=[{"nom": "G", "nature": "permanent", "charges": [q(200.0, 0.0, 1.5), P_(5.0, 0.75, 100.0)]}]))
@@ -1102,6 +1116,46 @@ def controles(M=None):
       "σ_z (PRS 300 × 60 / 200 × 10, console comprimée et fléchie, semelle haute tendue au plan moyen : s_e = h_w + 2·t_f = 320 mm)",
       LP6["sans"]["semelle"] == ["tendue"] and fse is not None and fse["resultat"] == 320.0 and pire6["ss"] == 200.0
       and M["ame"].critere_pire(2025.0, [0.0, 200.0], 60.0, 10.0, 0.0, 0.0, 345.0, 1.0)["ss"] == 0.0, (fse and fse["resultat"], pire6))
+    vP6 = verif(rP6, LP6["base"] + "-EL")
+    rP50 = ame_s(sP6, modele="console", travees=[2.0], poids_propre=False, appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 1.0, "genre": "complet"}],
+                 cas=[{"nom": "G", "nature": "permanent", "N": 560.0, "charges": [q(150.0, 0.0, 2.0), P_(1.5, 1.0, 50.0)]}])
+    L50 = rP50["lieux"][0]
+    f50 = next((f for f in rP50["calcul"] if f["cle"] == L50["base"] + "-EL/se"), None)
+    v50 = verif(rP50, L50["base"] + "-EL")
+    neuve_el = verif(ame(), "A-L00-EL")
+    c("… la fenêtre le DIT quand elle imprime s_s = h_w (s_s non saisie, le bout h_w le pire) : « s_s non saisie : le pire de 0 et h_w. » ; la "
+      "barre neuve (le bout 0, s_s = 0 imprimée) ne le dit pas ; s_s SAISIE (50 mm) : le critère à la saisie seule, jamais au bout h_w — "
+      "s_e = 50 + 2·60 = 170 mm, sans le message",
+      vP6 is not None and AME.MOT_PIRE_HW in vP6["messages"] and neuve_el is not None and AME.MOT_PIRE_HW not in neuve_el["messages"]
+      and f50 is not None and f50["resultat"] == 170.0 and v50 is not None and AME.MOT_PIRE_HW not in v50["messages"]
+      and L50["sans"]["semelle"] == ["tendue"], (vP6 and vP6["messages"], f50 and f50["resultat"], v50 and v50["messages"]))
+
+    # ---- (finition du lot B) le filtre « critère 6.2.1(5) seul en cause », ses deux clauses ; § 8.3 point 8 contre l'âme aussi
+    L9 = ame(poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": None}, maintiens=[{"x": 3.0, "genre": "complet"}],
+             cas=[{"nom": "G", "nature": "permanent", "N": 900.0, "charges": [q(40.0, 0.0, 6.0)]}])["lieux"][0]
+    c("le filtre « critère 6.2.1(5) seul en cause » regarde AUSSI l'interaction : IPE 300, 6 m, N = 900 kN, 40 kN/m, s_s = 100 mm, c non saisi — "
+      "la semelle est comprimée, η₂ = 0,81 passe mais (η₂ + 0,8·η₁)/1,4 = 1,13 non, à la borne c = 0 : « décision impossible : c à saisir », "
+      "jamais un raidisseur décidé sans c",
+      L9["nom"] == "Appui A" and L9["decision"] == "impossible" and L9["raison"] == "Décision impossible : c à saisir." and L9["raidisseur"] is None
+      and L9["sans"]["eta2"] <= 1.0 and L9["sans"]["interaction"] > 1.0 and L9["sans"]["semelle"] == ["comprimee"],
+      (L9["decision"], L9["raison"], L9["sans"]["eta2"], L9["sans"]["interaction"]))
+    Lb = lieu(ame(poids_propre=False, appuis={"mode": "poses", "ss": None, "c": None}, maintiens=[{"x": 0.1, "genre": "complet"}],
+                  cas=[{"nom": "G", "nature": "permanent", "N": -500.0, "charges": [q(1.0, 0.0, 6.0), P_(40.0, 0.1)]}]), "Charge à 0,10 m")
+    c("… et il vide les données de l'appui de rive : une charge de 40 kN à 0,10 m de l'appui A (type c), rien de saisi, la barre TENDUE "
+      "(N = −500 kN : semelle chargée tendue) — seul le critère 6.2.1(5) ne passe pas (η₂ = 0,27) : « s_s à saisir », sans redemander s_s et c "
+      "de l'appui de rive (le critère ne les lit pas)",
+      Lb is not None and Lb["type"] == "c" and Lb["decision"] == "impossible" and Lb["raison"] == "Décision impossible : s_s à saisir."
+      and Lb["sans"]["eta2"] <= 1.0 and Lb["sans"]["critere"] > 1.0 and Lb["sans"]["semelle"] == ["tendue"], Lb and (Lb["raison"], Lb["sans"]))
+    p8 = mo.verifier(barre(travees=[1.0], poids_propre=False, appuis={"mode": "poses", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 0.5, "genre": "complet"}],
+                           cas=[{"nom": "G", "nature": "permanent", "charges": [q(150.0, 0.0, 1.0)]}]))
+    vz8 = verif(p8["methodes"]["ec3"], "E-Vz")
+    ec8 = [v_["taux"] for v_ in p8["methodes"]["ec3"]["verifications"] if v_["id"] != "E-Vz" and v_["taux"] is not None]
+    c("§ 8.3 point 8 : E-Vz comparé à l'Eurocode 3 ET à l'âme — IPE 300, 1 m, 150 kN/m, posée (s_s = c = 0) : E-Vz (29 %) dépasse le reste "
+      "de l'Eurocode 3, mais les raidisseurs des appuis portent 49 % : le cisaillement ne gouverne pas, rien n'est dit (un raidisseur y est "
+      "proposé)",
+      vz8["statut"] == RE.OK and round(vz8["taux"], 2) == 0.29 and vz8["taux"] > max(ec8)
+      and all(x["decision"] == "raidisseur" and round(x["taux"], 2) == 0.49 for x in p8["ame"]["lieux"])
+      and not any("cisaillement gouverne" in m_ for m_ in vz8["messages"]), (vz8["taux"], max(ec8), vz8["messages"]))
     prox = {k_: ame(appuis={"mode": "ame", "ss": 0.0, "c": 0.0}, maintiens=[{"x": 3.0}, {"x": 3.3}],
                     cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0, k_), P_(20.0, 3.3, k_)]}]) for k_ in (None, 50.0)}
     c("deux charges à 300 mm, s_s non saisie : leurs l_y pourraient se recouvrir (la plus grande : s_s = h_w, 426 mm) — « A-GR » non couvert ; "
@@ -1164,6 +1218,12 @@ def controles(M=None):
       n_f > 300 and not faux, faux[:3])
     c("… et, refaite à la main avec les nombres IMPRIMÉS, chaque formule redonne le résultat imprimé", not illisibles, illisibles[:3])
     c("… chaque vérification ne cite que des formules rendues", not orphelines, orphelines[:3])
+    textes = [t for x in vus for t in (x.get("hypotheses") or []) + [a_["message"] for a_ in x.get("alertes") or []]
+              + [m_ for v_ in x["verifications"] for m_ in v_.get("messages") or []] + [L_.get("raison") or "" for L_ in x.get("lieux") or []]]
+    c("… aucun texte rendu (hypothèses, avertissements, messages, raisons) ne cite le brief, document interne — la référence reste en commentaire "
+      "(« s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER). »)",
+      textes and not [t for t in textes if "brief" in t] and any(t == "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER)." for t in textes),
+      [t for t in textes if "brief" in t][:2])
     gab = {f["gabarit"] for x in vus for f in x["calcul"]}
     manquent = sorted(set(FO.GABARITS_EC3_AME) - gab - {"a_eta3", "a_M_f", "a_eta1_bar", "a_71", "a_V_bw_n", "a_semelle", "a_eta1", "a_eta1_N",
                                                         "a_M_f_prs", "r_N_st", "r_N_Ed"})
@@ -1344,7 +1404,7 @@ MUTATIONS = [
      "        rive = []"),
     ("ame", "2e reprise — une décision impossible perd son taux (la ligne n'a plus le taux à la borne)", '"taux": gouv["taux"], "statut": statut})',
      '"taux": None if manque else gouv["taux"], "statut": statut})'),
-    ("ame", "reprise — maintien de la semelle chargée supposé", '        maintiens = [COTES[k] for k in ("haut", "bas") if k in requis and not L["tenue"][k]]', "        maintiens = []"),
+    ("ame", "reprise — maintien de la semelle chargée supposé", '        maintiens = [k for k in ("haut", "bas") if k in requis and not L["tenue"][k]]', "        maintiens = []"),
     ("ame", "reprise — semelle tendue : la semelle comprimée non exigée", "        requis = set(charges_) | {AUTRE[k] for k in charges_ if etats_[k] - {AM.COMPRIMEE}}",
      "        requis = set(charges_)"),
     ("ame", "reprise — un appui ne tient pas les semelles", "        if any(abs(a[\"x\"] - x) < MEME_ABSCISSE for a in appuis):\n            return True", "        if False:\n            return True"),
@@ -1392,7 +1452,7 @@ MUTATIONS = [
     ("ame", "2e reprise — maintien : « les deux » n'exige pas l'autre semelle", "etats_[k] - {AM.COMPRIMEE}}", "etats_[k] & {AM.TENDUE}}"),
     ("ame", "2e reprise — maintien compté à 0,5 m près", 'any(abs(m["x"] - x) < MEME_ABSCISSE and m.get', 'any(abs(m["x"] - x) < 0.5 and m.get'),
     ("moteur", "2e reprise — § 8.3 point 8 : rien quand le cisaillement gouverne sans échouer",
-     '            elif v["id"] == "E-Vz" and v["taux"] is not None and v["taux"] >= max(autres, default=0.0):', "            elif False:"),
+     '            elif v["id"] == "E-Vz" and out["ame"]["lieux"] and v["taux"] is not None and v["taux"] >= max(autres, default=0.0):', "            elif False:"),
     # (3e reprise du lot B) § 8.3 point 8 « gouverne » ; c demandé pour rien ; la borne dite dans les hypothèses ; le message de la force transmise
     ("moteur", "3e reprise — § 8.3 point 8 : E-Vz comparé aux seules forces concentrées (la barre peu chargée reçoit le conseil)",
      'for x in r_["verifications"] if x["id"] != "E-Vz" and x["taux"] is not None]', 'for x in r_["verifications"] if x["id"].startswith("A-L") and x["taux"] is not None]'),
@@ -1403,6 +1463,23 @@ MUTATIONS = [
      '        if echec and pire["eta2"] <= 1.0 and not (pire["inter"] is not None and pire["inter"] > 1.0):', "        if echec:"),
     ("ame", "3e reprise — la borne non dite dans les hypothèses du bloc", "        hyp.append(BORNE_HYPOTHESE) ", "        pass "),
     ("ame", "3e reprise — la force transmise ne dit pas sa borne", 'messages=_mots_force(res["b"], _saisie(L, "b"))', 'messages=AM.mots_resistance(res["b"])'),
+    # (finition du lot B) les clauses de la 3e reprise, figées ; le message du maintien ; la fenêtre au bout h_w ; « gouverne » sans lieu
+    ("ame", "finition — critère seul : le filtre ignore l'interaction (un raidisseur décidé sans c)",
+     '        if echec and pire["eta2"] <= 1.0 and not (pire["inter"] is not None and pire["inter"] > 1.0):', '        if echec and pire["eta2"] <= 1.0:'),
+    ("ame", "finition — critère seul : les données de l'appui de rive redemandées", '            donnees, bout = [m for m in donnees if m == "s_s"], []',
+     '            donnees = [m for m in donnees if m == "s_s"]'),
+    ("moteur", "finition — § 8.3 point 8 : E-Vz comparé à l'Eurocode 3 seul (l'âme oubliée)", 'for r_ in (ec, out["ame"]) for x in', 'for r_ in (ec,) for x in'),
+    ("moteur", "finition — § 8.3 point 8 : « gouverne » dit sans force concentrée (aucun lieu)", ' and out["ame"]["lieux"] and v["taux"]', ' and v["taux"]'),
+    ("ame", "finition — le critère 6.2.1(5) au bout h_w aussi quand s_s est saisie",
+     '        essais = [r["ss"]] + ([r["ame"]["hw"]] if "s_s" in (r.get("manque") or []) else [])', '        essais = [r["ss"], r["ame"]["hw"]]'),
+    ("ame", "finition — la fenêtre imprime s_s = h_w sans le dire", '[AM.MOTS_ETAT[x["etat"]]] + ([MOT_PIRE_HW] if x["pire_hw"] else [])', '[AM.MOTS_ETAT[x["etat"]]]'),
+    ("ame", "finition — maintien seul : le taux pris sur η₂ seul (l'interaction oubliée)", '        tenu = max(pire["eta2"], pire["inter"] or 0.0, pire["crit"] or 0.0)',
+     '        tenu = pire["eta2"]'),
+    ("ame", "finition — maintien seul : le remède oublié", '% {tenue} ; ajouter un maintien (À VÉRIFIER)."', '% {tenue} (À VÉRIFIER)."'),
+    ("ame", "finition — maintien seul : l'ancienne phrase « maintien … à préciser », sans taux", 'impossible(donnees, maintiens, bout) if a_saisir else sans_maintien(maintiens, tenu))',
+     'impossible(donnees if a_saisir else [], maintiens, bout if a_saisir else []))'),
+    ("ame", "finition — la borne dite en citant le brief (document interne)", 'BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER)."',
+     'BORNE_HYPOTHESE = "s_s ou c non saisi : calculé à sa borne 0 (À VÉRIFIER, brief § 8.3, point 5)."'),
     ("moteur", "le statut de la barre ignore l'âme", '    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]', '    statuts = [r["statut"] for r in out["methodes"].values()]'),
 ]
 
