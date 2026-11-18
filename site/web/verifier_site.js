@@ -1398,13 +1398,22 @@ const principal = async () => {
           const ln = await g.evaluate((s) => {
             // (un texte qui ne tient pas finit par « … » — text-overflow, hors du focus pour un champ —, jamais coupé net)
             const cede = (e) => e.scrollWidth <= e.clientWidth + 1 || getComputedStyle(e).textOverflow === 'ellipsis';
-            const n = document.querySelector(s), rp = document.querySelector('#resultat .et-rp'), b = rp.querySelector('b'), d = rp.querySelector('span');
+            const n = document.querySelector(s), rp = document.querySelector('#resultat .et-rp');
+            const champ = { valeur: n.value, champ: cede(n), champTient: n.scrollWidth <= n.clientWidth + 1 };
+            // (intégration du lot C, le harnais suit) le Prix des grues n'a pas de tête « nom + dimensions » au résultat (.et-rp) :
+            // son résultat est le total de la grue ouverte. Vu depuis que sa base est semée ; le contrôle y lit la ligne seule
+            if (!rp) return { ...champ, tete: false };
+            const b = rp.querySelector('b'), d = rp.querySelector('span');
             const rr = rp.getBoundingClientRect(), rb = b.getBoundingClientRect(), rd = d.getBoundingClientRect();
-            return { valeur: n.value, champ: cede(n), champTient: n.scrollWidth <= n.clientWidth + 1, titre: b.textContent, titreCede: cede(b) && rb.right <= rr.right + 0.5,
+            return { ...champ, tete: true, titre: b.textContent, titreCede: cede(b) && rb.right <= rr.right + 0.5,
               dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rr.right + 0.5 && rd.left >= rr.left - 0.5 && rd.width > 20 };
           }, nomLigne);
-          verif(`${cle} · tablette portrait : un nom long cède (« … ») dans la ligne de l'élément et la tête des résultats ; la liste, copier, supprimer, Annuler, Rétablir restent entiers dans l'en-tête, les dimensions entières`,
-            lgL && !lgL.fautes.length && ln.valeur === LONG_LIGNE && !ln.champTient && ln.champ && ln.titre === LONG_LIGNE && ln.titreCede && ln.entieres, JSON.stringify({ lgL, ln }));
+          // (le Prix des grues borne aussi le repère d'une grue à 20 caractères, en silence — prix_grues.REPERE_MAX : le nom pris
+          // est le début du nom long, encore trop long pour la ligne ; ce qui est contrôlé, c'est qu'il y cède)
+          const sansTete = cle === 'prix_grues';
+          verif(`${cle} · tablette portrait : un nom long cède (« … ») dans la ligne de l'élément${sansTete ? '' : ' et la tête des résultats'} ; la liste, copier, supprimer, Annuler, Rétablir restent entiers dans l'en-tête${sansTete ? '' : ', les dimensions entières'}`,
+            lgL && !lgL.fautes.length && (sansTete ? ln.valeur.length >= 15 && LONG_LIGNE.startsWith(ln.valeur) : ln.valeur === LONG_LIGNE) && !ln.champTient && ln.champ
+            && (sansTete ? !ln.tete : ln.tete && ln.titre === LONG_LIGNE && ln.titreCede && ln.entieres), JSON.stringify({ lgL, ln }));
         }
         // le champ du nom de l'élément (établi ordinaire) : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la
         // liste, ses dimensions à sa suite
