@@ -939,7 +939,7 @@ MUTATIONS = (
      lambda vrai: dict(vrai, historique="Historique"), ["la barre neuve"]),
     ("le résumé de la barre redit « 74 % historique »", NP, "COURT", lambda vrai: dict(vrai, historique="historique"), ["la barre neuve"]),
     ("la note de la comparaison redit « La méthode historique »", NP.R, "NOTE_COMPARAISON",
-     lambda vrai: vrai.replace("méthode ELS (NBN B 51-001)", "méthode historique"), ["la barre neuve"]),
+     lambda vrai: vrai.replace("ELS :", "La méthode historique :"), ["la barre neuve"]),
     ("la tête de la méthode ELS répète sa norme (« Méthode ELS (NBN B 51-001) — NBN B 51-001 »)", NP, "methode",
      lambda vrai: (lambda el, k, x, largeur: (lambda o: dict(o, titre=f"{M.METHODES[k]} — {x['norme']}"))(vrai(el, k, x, largeur))), ["la barre neuve"]),
     ("les efforts imposés redisent « de service (méthode historique) »", NP, "donnees",
