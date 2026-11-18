@@ -227,7 +227,8 @@ def _cas(el: Dict, r: Dict) -> str:
             extra += C.ligne("combinaison", C.num(base + ["psi0"], c.get("psi0"), "", dec=2, mini=0, maxi=1, auto="à saisir"),
                              "ψ<sub>0</sub>", CO.AIDE_PSI0[c["nature"]])
         if courte and c["nature"] != CO.PERMANENT and c["nature"] not in CO.COURTES:
-            extra += C.case(base + ["courte_duree"], c.get("courte_duree", False), "de courte durée (moins d'un mois)")
+            extra += (f'<span title="{C.esc(M.AIDE_COURTE_DUREE)}">'
+                      f'{C.case(base + ["courte_duree"], c.get("courte_duree", False), "de courte durée (moins d&#39;un mois)")}</span>')
         out += (f'<div class="pf-cas" data-cas="{i}"><div class="pf-cas-h">{C.texte(base + ["nom"], c["nom"], "nom")}'
                 f'{C.choix(base + ["nature"], c["nature"], M.NATURES)}{retirer}</div>{extra}{charges}'
                 f'<div class="et-pied">{ajouts}</div>{_normal(i, c, el)}</div>')
