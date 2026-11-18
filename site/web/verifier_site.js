@@ -4828,7 +4828,9 @@ const principal = async () => {
             raidisseur: /^Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 3,00 m\)$/,
             continue: new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE} \\(appui A, appui D\\) ; charge à 9,00 m : ${AME_SANS_MAINTIEN} — 21\\s?% si elle est tenue ; ajouter un maintien \\(À VÉRIFIER\\)$`),
             efforts: null,
-            niveaux: new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE}`),       // (lot C, C4 : s_s des appuis non saisie)
+            // (lot C, intégration vague 2) la continue 2 × 6 m tient À LA BORNE aux trois appuis (s s = 0, c = 0 : 88 %, comme la
+            // barre neuve à 2 kN/m) : aucune décision impossible, donc pas de ligne « Âme » — C4 l'attendait sans pouvoir le lancer
+            niveaux: null,
             prs: null,                      // (lot C, C6 : l'âme de 15 mm du PRS-B tient à la borne — pas de ligne « Âme »)
           }[cfg];
           const a = await pg.evaluate((VIS) => { const bande = document.querySelector('#resultat .pf-vame'); const raid = document.querySelector('#resultat .pf-raid');
@@ -7485,6 +7487,20 @@ const principal = async () => {
         const tEcran = norm(ecran.texte);
         const chiffres = [];
         for (const [nom, re, forme] of CHIFFRES) { const m = tEcran.match(re); if (m) chiffres.push([nom, forme(m[1])]); }
+        // (lot C, intégration vague 2) les barres : la note imprime les méthodes de son option (C5 ; la note semée est « ec3 » :
+        // son dernier geste, « methodes », règle l'option de TOUTE la note depuis C0) — une méthode non imprimée n'a pas de taux
+        // à comparer ; « η » est la pastille de la première méthode, déjà comparée par son nom. Le taux ELS de la note est le
+        // plus fort de la méthode (contrôle hérité compris) : à l'écran, la pastille du verdict, ou le « (contrôle hérité) : N % »
+        // écrit dessous quand il la dépasse (C4) — le plus grand des deux.
+        if (k === 'profil') {
+          const imp = (riches.etats[k] || {}).impression || 'deux';
+          const herite = tEcran.match(/\(contrôle hérité\) : (\d+)\s*%/);
+          for (let i = chiffres.length - 1; i >= 0; i--) {
+            const [nom, v] = chiffres[i];
+            if (nom === 'η' || (nom === 'taux ELS' && imp === 'ec3') || (nom === 'taux Eurocode 3' && imp === 'historique')) chiffres.splice(i, 1);
+            else if (nom === 'taux ELS' && herite && +herite[1] > parseInt(v, 10)) chiffres[i] = [nom, `${herite[1]} % ELS`];
+          }
+        }
         // le bouton : là où l'œil le trouve — la barre du haut (PC, tablette), la barre du bas (téléphone) ; et au
         // téléphone, l'entrée du menu ⋯ est active elle aussi
         const sel = tel ? '.mbar [data-action="pdf"]' : '.top [data-action="pdf"]';
@@ -7571,6 +7587,13 @@ const principal = async () => {
             }, [idI, k, { ...riches.etats[k], impression: imp }]);
             await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${MODS[k].page}?note=${idI}`) });
             await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 60000 }).catch(() => {});
+            // (lot C, intégration vague 2) les taux que l'écran MONTRE pour la barre active, lus comme l'œil les voit : la pastille
+            // de chaque verdict, et sous celui de l'ELS le contrôle hérité quand il la dépasse (C4) — le taux de la méthode est le
+            // plus grand des deux, celui que la note écrit (C5, R6 : le durable garde le défavorable)
+            const vuI = norm(await g.evaluate(() => { const r = document.getElementById('resultat'); return r && r.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? r.innerText : ''; }));
+            const lu = (re) => { const m = vuI.match(re); return m ? +m[1] : null; };
+            const ecrI = { els: Math.max(lu(/(\d+)\s*%\s*Méthode ELS \(NBN B 51-001\) ·/) || 0, lu(/\(contrôle hérité\) : (\d+)\s*%/) || 0) || null,
+                           ec3: lu(/(\d+)\s*%\s*Eurocode 3 ·/) };
             const dI = g.waitForEvent('download', { timeout: 180000 }).catch(() => null);
             await g.click(sel);
             const dlI = await dI;
@@ -7583,7 +7606,13 @@ const principal = async () => {
             const a = ATTENDU[imp];
             const manquent = a.avec.filter((t) => !brut.includes(t));
             const deTrop = a.sans.filter((t) => brut.includes(t));
-            const ordre = imp !== 'deux' || (brut.indexOf('Synthèse des deux méthodes') > 0 && brut.indexOf('Synthèse des deux méthodes') < brut.indexOf('Méthode ELS (NBN B 51-001)'));
+            // (lot C, intégration vague 2) le titre du bloc de la méthode ELS, pas sa suite : la planche a trois colonnes et pdftotext
+            // lit la tête de la troisième (« Méthode ELS (NBN B 51-001) (suite) ») avant la fin de la deuxième (la synthèse, bloc 2)
+            const titreEls = brut.search(/Méthode ELS \(NBN B 51-001\)(?! \(suite\))/);
+            const ordre = imp !== 'deux' || (brut.indexOf('Synthèse des deux méthodes') > 0 && brut.indexOf('Synthèse des deux méthodes') < titreEls);
+            const attenduI = { deux: `${ecrI.els} % ELS · ${ecrI.ec3} % Eurocode 3`, historique: `${ecrI.els} % ELS`, ec3: `${ecrI.ec3} % Eurocode 3` }[imp];
+            verif(`note PDF · profil · pc · option « ${imp} » : le résumé de la barre active dit les taux de l'écran — « ${attenduI} » (ELS : sa pastille, ou le contrôle hérité écrit dessous quand il la dépasse)`,
+              dlI && ecrI.els !== null && ecrI.ec3 !== null && brut.includes(attenduI), JSON.stringify({ ecrI, ecran: vuI.slice(0, 260) }));
             // le résumé sous le nom de la barre : « … % ELS · … % Eurocode 3 » (les deux), les seuls taux de la méthode imprimée sinon
             const resume = { deux: /\d+ % ELS · \d+ % Eurocode 3/, historique: /\d+ % ELS/, ec3: /\d+ % Eurocode 3/ }[imp];
             verif(`note PDF · profil · pc · option « ${imp} » : la note sort, ses blocs y sont et les autres non, « Torsion non couverte »${imp === 'deux' ? ', la synthèse en bloc 2' : ''}, le résumé des taux`,
