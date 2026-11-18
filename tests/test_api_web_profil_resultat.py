@@ -113,6 +113,10 @@ R2 = dict(poids_propre=False, maintiens=[], niveau="haut",
           cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 2.42, "a": 0.0, "b": 6.0}, P_(10.0, 3.0)]},
                {"nom": "Q", "nature": "exploitation_A", "N": 0.0, "charges": [P_(15.0, 3.0)]}])
 R2M = dict(R2, maintiens=[{"x": 3.0, "genre": "haut"}])
+# (reprise) N dans le seul cas Q : le déversement gouverne dans « G » (P = 0), la flexion composée dans « G + Q » (P = 20 kN)
+NQ = dict(poids_propre=False, maintiens=[],
+          cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 12.0, "a": 0.0, "b": 6.0}]},
+               {"nom": "Q", "nature": "exploitation_A", "N": 20.0, "charges": [{"type": "q", "v": -1.0, "a": 0.0, "b": 6.0}]}])
 # test 18 du § 11.5 : IPE 300 S235, type (a), F = 1,5 × 300 = 450 kN, s_s = 100 mm, la semelle tenue au droit de la charge
 B18 = dict(travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100.0, "c": 0.0}, maintiens=[{"x": 1.0, "genre": "complet"}],
            cas=[{"nom": "Q", "nature": "exploitation_A", "N": 0.0, "charges": [P_(300.0, 1.0)]}])
@@ -260,6 +264,15 @@ def controles():
                 ("efforts/elu/N", "60"), ("efforts/elu/My", "30"), ("efforts/elu/Mz", "4"))
     c("4. P = 0 (M_y et M_z seuls) : la flexion composée de la méthode ELS ne montre ni P_cr,y ni P_cr,z ; avec P = 40 kN, oui",
       'id="ck-h-H-SIGMA"' in rS["volets"] and "P<sub>cr" not in rS["volets"] and "P<sub>cr" in rSP["volets"], None)
+    _, eNQ, mNQ = ecran(barre(**NQ))
+    xNQ = mNQ["methodes"]["historique"]
+    vNQ = {v["id"]: v for v in xNQ["verifications"]}
+    fNQ = fenetre(eNQ["volets"], "h-H-SIGMA")
+    pcr = re.findall(r'<div class="fx"><span class="s">(P<sub>cr,[yz]</sub>)</span>', fNQ)
+    c("4. … P décidé par la VÉRIFICATION (reprise) : N dans le seul cas Q, le déversement gouverne à « G » (P = 0 dans les grandeurs de la "
+      "méthode) ; la flexion composée, trouvée à « G + Q » (P = 20 kN, PE dans sa formule), garde P_cr,y et P_cr,z dans sa fenêtre",
+      xNQ["gouvernant"] == "H-DEV" and vNQ["H-DEV"]["combinaison"] == "G" and not xNQ["grandeurs"]["P"]
+      and vNQ["H-SIGMA"]["combinaison"] == "G + Q" and len(pcr) == 2 and "PE<sub>y</sub>" in fNQ, (xNQ["gouvernant"], pcr, texte(fNQ)[:300]))
     f_dev = fenetre(r2["volets"], "h-H-DEV")
     f_tout = fenetre(r2["volets"], "s1")
     c("4. une fenêtre de vérification ne montre que SES formules et SES messages : sa bande des hypothèses est vide ; « Tout le calcul » "
@@ -404,9 +417,11 @@ MUTATIONS = [
      '    s = f\'<div class="mass"><b>{M.n(r.get("masse"), 1)} kg/m</b></div>\'\n    fl = (r.get("statique") or {}).get("fleche")'),
     (PRm, "le contrôle hérité H-EQ remis en tête du verdict ELS", '    if k != "historique" or g is None or g["id"] not in M.HERITES:', "    if True:"),
     (PRm, "le contrôle hérité plus fort tu sous le verdict", "                 and C.pct(v[\"taux\"]) > C.pct(t[\"taux\"])), None)", "                 and False), None)"),
-    (PRm, "P_cr montré sans effort normal", '    sans_P = x.get("methode") == "historique" and not (x.get("grandeurs") or {}).get("P")', "    sans_P = False"),
-    (PRm, "P_cr caché aussi sous un effort normal", '    sans_P = x.get("methode") == "historique" and not (x.get("grandeurs") or {}).get("P")',
+    (PRm, "P_cr montré sans effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)', "    sans_P = False"),
+    (PRm, "P_cr caché aussi sous un effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)',
      '    sans_P = x.get("methode") == "historique"'),
+    (PRm, "P_cr décidé par les grandeurs de la méthode (la gouvernante), pas par la vérification", "and not effort_normal(par, v)",
+     'and not (x.get("grandeurs") or {}).get("P")'),
     (PRm, "les hypothèses de la méthode redites dans chaque fenêtre de vérification",
      'f"{M.METHODES[k]} · {sous}" + (f" · {C.esc(ou)}" if ou else ""), [], [_ligne_tableau(v, True)], grp)',
      'f"{M.METHODES[k]} · {sous}" + (f" · {C.esc(ou)}" if ou else ""), hyps, [_ligne_tableau(v, True)], grp)'),

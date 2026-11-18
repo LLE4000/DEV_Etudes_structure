@@ -417,6 +417,14 @@ def _fx(bloc: Dict, symboles=None) -> str:
 GABARITS_P = ("P_cr", "PE")            # les formules de la méthode ELS qui ne parlent que de l'effort normal P
 
 
+def effort_normal(par: Dict[str, Dict], v: Dict) -> Optional[float]:
+    """L'effort normal P de CETTE vérification, tel que le moteur le nomme dans SES formules (le terme « P » de σ_P ou de
+    PE, celui de la combinaison où elle a été trouvée) ; None quand aucune ne le nomme. (lot C, C4 — reprise : les
+    grandeurs de la méthode sont celles de l'occurrence GOUVERNANTE ; une flexion composée trouvée dans une autre
+    combinaison y perdait P_cr alors que sa formule employait PE.)"""
+    return next((t["valeur"] for cle in v["formules"] for t in par[cle].get("termes") or () if t.get("symbole") == "P"), None)
+
+
 def interaction(v: Dict) -> bool:
     """La vérification compare-t-elle une somme sans unité à 1 (une interaction) ? Son taux EST alors sa dernière formule."""
     return not v["unite"] and v.get("limite") is not None and abs(v["limite"] - 1.0) < 1e-12
@@ -428,8 +436,8 @@ def formules_de(x: Dict, v: Dict, taux: bool = True) -> List[Tuple[Dict, Optiona
     faux : sans cette ligne (la note PDF, dont le verdict dit déjà les deux membres et le taux)."""
     par = {f["cle"]: f for f in x["calcul"]}
     out: List[Tuple[Dict, Optional[List[str]]]] = []
-    # (lot C, C4) sans effort normal, P_cr,y et P_cr,z (et PE) de la méthode ELS ne servent à rien : cachés
-    sans_P = x.get("methode") == "historique" and not (x.get("grandeurs") or {}).get("P")
+    # (lot C, C4) sans effort normal DANS CETTE VÉRIFICATION, P_cr,y et P_cr,z (et PE) de la méthode ELS ne servent à rien : cachés
+    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)
     for cle in v["formules"]:
         f = par[cle]
         if sans_P and f["gabarit"] in GABARITS_P:
