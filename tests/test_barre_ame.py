@@ -645,10 +645,14 @@ def controles(M=None):
       and a0["statut"] == RE.NON_COUVERT
       and lieu(ame(**dict(R2, maintiens=[{"x": 3.0, "genre": "bas"}])), "Charge à 3,00 m")["decision"] == "impossible"
       and lieu(ame(**dict(R2, maintiens=[{"x": 3.0, "genre": "complet"}])), "Charge à 3,00 m")["decision"] == "aucun", L0)
-    c("… avec la flexion (7.2) : η₁ = M_Ed/(W_el,y·f_y) = 68,70/130,9 = 0,525 (élastique) ; (η₂ + 0,8·η₁)/1,4 = 36,6 % — c'est elle qui gouverne "
-      "le lieu",
-      v is not None and proche(v["valeur"], (36.0 / L["sans"]["F_Rd"] + 0.8 * eta1) / 1.4, 1e-4) and v["limite"] == 1.0 and round(v["taux"], 3) == 0.366
-      and v["critere"] == "(η₂ + 0,8·η₁)/1,4 ≤ 1"
+    # (lot C, C4 — le harnais suit : le critère est écrit comme la norme, « η₂ + 0,8·η₁ ≤ 1,4 » ; la valeur est la somme
+    #  0,513, la limite 1,4, le taux 0,366 ne change pas ; avant : valeur 0,366, limite 1, « (η₂ + 0,8·η₁)/1,4 ≤ 1 »)
+    fm = [f for f in a["calcul"] if v is not None and f["cle"] in v["formules"]]
+    c("… avec la flexion (7.2) : η₁ = M_Ed/(W_el,y·f_y) = 68,70/130,9 = 0,525 (élastique) ; η₂ + 0,8·η₁ = 0,513 ≤ 1,4, taux 36,6 % — c'est elle "
+      "qui gouverne le lieu ; le taux est la formule (η₂ + 0,8·η₁)/1,4, écrite UNE fois",
+      v is not None and proche(v["valeur"], 36.0 / L["sans"]["F_Rd"] + 0.8 * eta1, 1e-4) and round(v["valeur"], 3) == 0.513 and v["limite"] == 1.4
+      and round(v["taux"], 3) == 0.366 and v["critere"] == "η₂ + 0,8·η₁ ≤ 1,4"
+      and [f["gabarit"] for f in fm].count("a_72") == 1 and "taux" not in [f["gabarit"] for f in fm]
       and L["gouvernant"] == v["id"] and proche(L["taux"], v["taux"]) and proche(L["sans"]["interaction"], v["taux"]) and round(eta1, 3) == 0.525, v)
     c("… aux appuis, sans moment : pas d'interaction (7.2) ; σ_x = 0 : le critère 6.2.1(5) à la jonction (« A-Lnn-EL », lot B) — il passe",
       [x["id"] for x in a["verifications"]] == ["A-L00-EL", "A-L00-F", "A-L01-F", "A-L01-FM", "A-L02-EL", "A-L02-F"]
@@ -1549,6 +1553,10 @@ MUTATIONS = [
      "ligne=True) if maintiens and not certain else None"),
     ("ame", "2e finition — la fenêtre -F redit le taux d'une autre vérification", '[etude["ligne"] or manque]', "[manque]"),
     ("moteur", "le statut de la barre ignore l'âme", '    statuts = [r["statut"] for r in out["methodes"].values()] + [out["ame"]["statut"]]', '    statuts = [r["statut"] for r in out["methodes"].values()]'),
+    # (lot C, C4) -FM écrit comme la norme : la somme et 1,4 — l'ancienne écriture (taux / 1) revient, ou le taux est écrit deux fois
+    ("ame", "lot C — -FM : la valeur redevient le taux, la limite 1", "                            o[\"eta2\"] + k72 * o[\"eta1\"], lim72, \"\", cles,",
+     "                            o[\"inter\"], 1.0, \"\", cles,"),
+    ("ame", "lot C — -FM : la formule du taux écrite une seconde fois", 'cles.append(J.f(f"taux_{L[\'base\']}-FM", "η"', 'cles.append(J.f("i72", "η"'),
 ]
 
 

@@ -751,14 +751,17 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                 if o["eta1"] is not None:
                     cles = [J.f("eta2", "η₂", [RE.terme("F_Ed", o["F"], "kN"), RE.terme("F_Rd", r["FRd"] / 1e3, "kN")], o["eta2"], "", "a_eta2"),
                             AM.ecrire_eta1(J, o["N"] * 1e3, o["M"] * 1e6, o["A"], o["W"], fy, gM0, o["nomA"], o["nomW"])]
-                    cles.append(J.f("i72", "η", [RE.terme("η₂", o["eta2"]), RE.terme("η₁", o["eta1"])], o["inter"], "", "a_72"))
+                    # (lot C, C4) le critère écrit comme la norme, « η₂ + 0,8·η₁ ≤ 1,4 » : la valeur est la somme, la limite 1,4 ; le
+                    # taux, (η₂ + 0,8·η₁)/1,4, est CETTE formule — sa clé « taux_… » : Journal.rendre n'en ajoute pas une seconde
+                    cles.append(J.f(f"taux_{L['base']}-FM", "η", [RE.terme("η₂", o["eta2"]), RE.terme("η₁", o["eta1"])], o["inter"], "", "a_72"))
                     autre = "élastique" if P["eta1_ame"] == "plastique" else "plastique"
                     mots72 = [f"η₁ {autre} (classe {o['classe']}, variante) : {RE.fr(o['eta1_autre'], 3)}, taux {RE.fr(100.0 * o['inter_autre'], 1)} %."
                               if o["eta1_autre"] != o["eta1"] else f"η₁ élastique seul (classe {o['classe']} : pas de variante plastique).",
                               f"Seuil de résistance locale à M_Ed = {RE.fr(o['M'], 2)} kN·m imposé : {RE.fr(o['seuil'][0], 1)} kN "
                               f"(η₁ plastique : {RE.fr(o['seuil'][1], 1)} kN) — ce n'est pas la capacité de la barre."]
-                    J.verif(f"{L['base']}-FM", f"{L['nom']} : force concentrée et flexion", f"{AM.REF} § 7.2", "(η₂ + 0,8·η₁)/1,4 ≤ 1",
-                            o["inter"], 1.0, "", cles, taux=o["inter"], messages=mots72, statut=nc)
+                    k72, lim72 = AM.INTERACTION_72
+                    J.verif(f"{L['base']}-FM", f"{L['nom']} : force concentrée et flexion", f"{AM.REF} § 7.2", "η₂ + 0,8·η₁ ≤ 1,4",
+                            o["eta2"] + k72 * o["eta1"], lim72, "", cles, taux=o["inter"], messages=mots72, statut=nc)
                 if o["el"] is not None:
                     x = o["el"]
                     nv = x["nv"]
