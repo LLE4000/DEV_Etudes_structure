@@ -9,8 +9,8 @@ api_web/dessin_barre.py), vérifiés en Python ordinaire, à travers le routeur 
   3. AVANT / APRÈS RAIDISSEUR (brief § 15.4) — test 18 du § 11.5 : 387,8 kN ; 1,160 ; 1 002,2 kN ; 0,449 ; 0,909 ; le rappel
      sur τ ; aucun tableau sans raidisseur proposé.
   4. UNE INFORMATION À UN ENDROIT — R2 : le taux de chaque méthode écrit une fois au niveau de la méthode (le verdict) ; ni la
-     masse ni le taux de la barre à la ligne « Profilé » ; l'ELS jamais en tête par le contrôle hérité (H-EQ) ; P_cr caché
-     sans effort normal ; une fenêtre de vérification sans les hypothèses de sa méthode ; « sans raidisseur » une fois.
+     masse ni le taux de la barre à la ligne « Profilé » ; l'ELS jamais en tête par le contrôle hérité (H-EQ), mais par la
+     plus forte des autres ; P_cr caché sans effort normal dans la vérification ; une fenêtre de vérification sans les hypothèses de sa méthode ; « sans raidisseur » une fois.
   5. -FM écrit comme la norme — « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 », taux 0,366 ; à l'écran et dans la note PDF.
   6. LA COMPARAISON — les sujets, l'écart en points, ce qui gouverne ; « Tout le calcul » de l'Eurocode 3 dit l'autre
      variante de chaque décision (§ 6.3.2.2 pour information, A_v,y, n_pl avec l'autre γ_M).
@@ -271,6 +271,23 @@ def controles():
       "disparaît pas — il est dit sous le verdict ; l'Eurocode 3 garde son gouvernant",
       t_ is not None and t_["id"] == "H-DEV" and (PR.herite_au_dela(faux, t_) or {}).get("id") == "H-EQ"
       and PR.tete("ec3", dict(faux, gouvernant="H-EQ"))["id"] == "H-EQ", t_)
+    rEQ = suite(("mode", "efforts"), ("efforts/service/N", "50"), ("efforts/service/My", "20"), ("efforts/service/Vz", "300"),
+                ("efforts/elu/N", "75"), ("efforts/elu/My", "30"), ("efforts/elu/Vz", "450"))
+    xEQ = mod("profil").calculer(rEQ["etat"]["elements"][0])["methodes"]["historique"]
+    # l'oracle : les vérifications que rend le MOTEUR (pas PR.tete) — la plus forte des non héritées au taux jugé
+    juges = [v for v in xEQ["verifications"] if v["id"] not in M.HERITES and v["statut"] in RE.JUGES and v["taux"] is not None]
+    plus = max(juges, key=lambda v: v["taux"])
+    hEQ = next(v for v in xEQ["verifications"] if v["id"] == "H-EQ")
+    vEQ = re.search(r'<div class="verdict" data-calcul="([^"]+)"[^>]*>(.*?)</div></div>', rEQ["resultat"], re.S)
+    tEQ = texte(vEQ.group(2)) if vEQ else ""
+    govEQ = re.search(r'<div class="el vc gov"[^>]*>', rEQ["resultat"])
+    c("4. … (reprise) H-EQ gouverne (N + M_y + V_z : 138 %) et QUATRE vérifications non héritées ont un taux jugé : le verdict ELS montre la "
+      "PLUS FORTE d'entre elles (flexion composée, 48 %), jamais une plus faible ; la ligne marquée du bloc est la même ; le contrôle hérité, "
+      "écrit plus haut, est dit dessous",
+      xEQ["gouvernant"] == "H-EQ" and len(juges) == 4 and plus["id"] == "H-SIGMA" and vEQ is not None and vEQ.group(1) == "h-H-SIGMA"
+      and tEQ.startswith(f"η {C_.pc(C_.pct(plus['taux']))} % Méthode ELS (NBN B 51-001) · flexion composée")
+      and f"+ contrainte équivalente (contrôle hérité) : {C_.pc(C_.pct(hEQ['taux']))} %" in tEQ
+      and govEQ is not None and 'data-calcul="h-H-SIGMA"' in govEQ.group(0), (tEQ, [(v["id"], round(v["taux"], 3)) for v in juges]))
     rS = suite(("mode", "efforts"), ("efforts/service/My", "20"), ("efforts/service/Mz", "3"), ("efforts/elu/My", "30"), ("efforts/elu/Mz", "4"))
     rSP = suite(("mode", "efforts"), ("efforts/service/N", "40"), ("efforts/service/My", "20"), ("efforts/service/Mz", "3"),
                 ("efforts/elu/N", "60"), ("efforts/elu/My", "30"), ("efforts/elu/Mz", "4"))
@@ -451,6 +468,8 @@ MUTATIONS = [
     (PRm, "la masse rendue au pied de la colonne", '    s = ""\n    fl = (r.get("statique") or {}).get("fleche")',
      '    s = f\'<div class="mass"><b>{M.n(r.get("masse"), 1)} kg/m</b></div>\'\n    fl = (r.get("statique") or {}).get("fleche")'),
     (PRm, "le contrôle hérité H-EQ remis en tête du verdict ELS", '    if k != "historique" or g is None or g["id"] not in M.HERITES:', "    if True:"),
+    (PRm, "le verdict ELS montre la plus FAIBLE des vérifications non héritées", 'return max(autres, key=lambda v: v["taux"]) if autres else g',
+     'return min(autres, key=lambda v: v["taux"]) if autres else g'),
     (PRm, "le contrôle hérité plus fort tu sous le verdict", "                 and C.pct(v[\"taux\"]) > C.pct(t[\"taux\"])), None)", "                 and False), None)"),
     (PRm, "P_cr montré sans effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)', "    sans_P = False"),
     (PRm, "P_cr caché aussi sous un effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)',
