@@ -109,6 +109,7 @@ TITRE_ECARTS = "Écarts avec les classeurs du bureau"
 TITRE_DECISIONS = "Décisions du bureau appliquées"
 TITRE_LIMITES = "Ce que la note ne vérifie pas"
 AUCUN_ECART = "Aucune correction des classeurs ne joue sur cette barre."
+LIGNE_MAX = 120                 # une ligne de texte de la note : 120 caractères au plus (la garde des textes)
 # un message plus court ne se cherche pas dans un texte déjà imprimé (« ok » serait partout)
 REDITE_MIN = 20
 # le titre d'un bloc : le plus petit corps du kit (styles._titre) et ce que le carré du numéro prend à la colonne
@@ -201,6 +202,20 @@ def _charge(ch: Dict) -> str:
     return f"couple de {v} kN·m à {M.m(ch['a'])} m"
 
 
+def _lignes(tete: str, morceaux: List[str], sep: str = " ; ", fin: str = ".") -> List[str]:
+    """« tête : a ; b ; c. » en lignes de 120 caractères au plus (la garde des textes) : la suite d'une ligne trop longue
+    passe à la ligne suivante, sous « tête (suite) : »."""
+    out, cur = [], ""
+    for m in morceaux:
+        t = f"{cur}{sep}{m}" if cur else f"{tete if not out else tete + ' (suite)'} : {m}"
+        if cur and len(t) + len(fin) > LIGNE_MAX:
+            out.append(cur + fin)
+            cur = f"{tete} (suite) : {m}"
+        else:
+            cur = t
+    return out + [cur + fin] if cur else out
+
+
 def _longueurs(el: Dict, Ls: Dict) -> str:
     """L'origine des longueurs de flambement que le moteur a prises (``r["longueurs"][a]["origine"]``), en une ligne :
     « L_y : la portée ; L_z : le plus long tronçon entre sections tenues » ; une console, « 2,1 × 3,00 m (console, doc
@@ -281,10 +296,16 @@ def donnees(el: Dict, r: Dict, autre: Optional[str] = None) -> Dict:
             items.append(brut(_poids_propre(el, r)))
         for c in el["cas"]:
             quoi = [_charge(ch) for ch in c["charges"]] + ([f"effort normal {M.n(c['N'], 1)} kN"] if c.get("N") else [])
-            items.append(brut(f"{c['nom']} — {_minuscule(M.NATURE_COURTE[c['nature']])} : " + (" ; ".join(quoi) if quoi else "aucune charge") + "."))
+            items += [brut(t) for t in _lignes(f"{c['nom']} — {_minuscule(M.NATURE_COURTE[c['nature']])}", quoi or ["aucune charge"])]
         items.append(("s", "Maintiens et flambement"))
-        mts = " ; ".join(f"{M.NOM_GENRE[mt['genre']].lower()} à {M.m(mt['x'])} m" for mt in el["maintiens"])
-        items.append(brut(f"Maintiens latéraux : {mts}." if mts else "Aucun maintien latéral entre les appuis."))
+        # les maintiens, par genre : « Maintiens latéraux, semelle haute : 3,11 · 6,22 · 9,33 m. » (une ligne de 120 au plus)
+        genres: Dict[str, List[str]] = {}
+        for mt in el["maintiens"]:
+            genres.setdefault(mt["genre"], []).append(M.m(mt["x"]))
+        for g_, xs in genres.items():
+            items += [brut(t) for t in _lignes(f"Maintiens latéraux, {M.NOM_GENRE[g_].lower()}", xs, " · ", " m.")]
+        if not genres:
+            items.append(brut("Aucun maintien latéral entre les appuis."))
     else:
         items.append(("s", "Efforts imposés"))
         jeux = [(k, {"historique": "service", "ec3": "elu"}[k]) for k in r["methodes"]]
@@ -612,9 +633,9 @@ def decisions(el: Dict, r: Dict, num: Dict[str, int]) -> Dict:
             autre = f"{info['methode']} : M_b,Rd = {M.r1(info['M_b_Rd'] / 1e6)} kN·m, {taux_ecrit(info.get('taux'))}"
             if el.get("prs"):
                 quoi = "PRS bisymétrique « soudée équivalente »" if D.get("soudee_equivalente") else "PRS bisymétrique"
-                items.append(pr(f"n° 10 · {quoi} : {D['methode']} (appliqué) ; {autre}, pour information."))
+                items.append(pr(f"n° 10 · {quoi} : {D['methode']} (appliqué) ; {autre}."))
             else:
-                items.append(pr(f"n° 4 · déversement des I et H laminés : {D['methode']} (appliqué) ; {autre}, pour information."))
+                items.append(pr(f"n° 4 · déversement des laminés : {D['methode']} (appliqué) ; {autre}."))
         if any(x.get("code") == "console_NM" for x in e.get("alertes") or ()):
             items.append(pr("n° 9 · console sous N + M : non couvert (défaut v1) ; aucune variante tant que le bureau n'a pas fixé de méthode."))
     items.append(pr(f"n° 7 · « à la limite » : taux de {C.pc(C.pct(C.ME.SEUIL_ATTENTION))} à 100 %, le seuil de toutes les notes du site."))
@@ -688,8 +709,10 @@ def empiler(haut: str, bas: str, part: float = 0.62, ecart: float = 10.0) -> str
     k = part * w1 / w2
     tx, ty = x1 + (w1 - k * w2) / 2.0, y1 + h1 + ecart
     H = h1 + ecart + k * h2
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x1:.3f} {y1:.3f} {w1:.3f} {H:.3f}">'
-            f'<g>{c1}</g><g transform="translate({tx:.3f},{ty:.3f}) scale({k:.6f}) translate({-x2:.3f},{-y2:.3f})">{c2}</g></svg>')
+    def c(x):                                           # une coordonnée du dessin (pas un nombre écrit pour le lecteur)
+        return repr(round(x, 4))
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{c(x1)} {c(y1)} {c(w1)} {c(H)}">'
+            f'<g>{c1}</g><g transform="translate({c(tx)},{c(ty)}) scale({repr(round(k, 6))}) translate({c(-x2)},{c(-y2)})">{c2}</g></svg>')
 
 
 def dessin_panneau(el: Dict, r: Dict) -> Tuple[str, str]:

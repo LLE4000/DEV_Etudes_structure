@@ -320,7 +320,83 @@ def controles_prs_panneau():
              and all(x in T for x in ("Semelle haute", "De calcul", "Wagner")), manque[:4])]
 
 
-SPECIAUX = {"écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau}
+# ------------------------------------------------------------------ la GARDE DES TEXTES (lot C, C5 ; règle du propriétaire du 16/11/2026)
+LIGNE_MAX = 120
+# exempté PAR SON NOM : le texte que le brief dicte (§ 6.4), repris tel quel
+EXEMPTES = {HD.MESSAGE_CD: "MESSAGE_CD (brief § 6.4, 127 caractères)"}
+# des textes d'AUTRES blocs de la vague 2, lus mot pour mot par leurs contrôles : à raccourcir à la fusion, puis à retirer d'ici
+# (rapport du bloc C5, « hors_bloc ») — le seuil local de la vérification -FM (C4) ; la ligne « … sans maintien (EN 1993-1-5,
+# 6.1(1)) — 37 % si elle est tenue ; … » (test_api_web_profil.py de C3, le harnais « barres » de C4)
+A_LA_FUSION = ("Seuil de résistance locale à M_Ed", "sans maintien (EN 1993-1-5, 6.1(1)) — ")
+
+
+def _exempte(t):
+    return t in EXEMPTES or any(m in t for m in A_LA_FUSION)
+
+
+def _barres_essai():
+    """Les quinze barres d'essai (tests/test_barre_comparaison.py, la même liste) et les trois du critère."""
+    import contextlib
+    with contextlib.redirect_stdout(io.StringIO()):
+        import test_barre_comparaison as TC
+    out = dict(TC.BARRES)
+    for nom in ("R2 · deux", "HEB 200 · deux", "PRS-C · deux"):
+        out[nom] = P.normaliser(copy.deepcopy(CRITERE[nom]))["elements"][0]
+    return out
+
+
+def textes_ecran(r):
+    """Les blocs de texte d'un résultat du moteur, tels que l'écran et la note les montrent : [(bloc, [messages])] — la tête
+    de chaque méthode et de l'âme (hypothèses, avertissements), chaque vérification (ses messages)."""
+    out = []
+    for k, x in list(r["methodes"].items()) + [("âme", r["ame"])]:
+        out.append((k, list(x.get("hypotheses") or []) + [a["message"] for a in x.get("alertes") or []]))
+        out += [(v["id"], list(v["messages"])) for v in x["verifications"]]
+    return out
+
+
+def textes_note(etat):
+    """Les blocs de texte de la note : [(titre du bloc, [lignes de texte])] — le texte des lignes « pr » (le troisième
+    élément, ``note_profil.pr``)."""
+    e = P.normaliser(copy.deepcopy(etat))
+    out = []
+    for el in e["elements"]:
+        sec = NP.planche(el, P.calculer(el), NP.Planche(), e[P.IMPRESSION])
+        out += [(v["titre"], [i[2] for i in v["items"] if i[0] == "pr" and len(i) > 2]) for v in sec["verifs"]]
+    return out
+
+
+def controles_garde():
+    """LA GARDE DES TEXTES, à l'écran ET dans la note (les quinze barres d'essai, les trois du critère ; les neuf notes du
+    critère et les notes de ce fichier) : chaque message tient en 120 caractères ; aucun message n'est répété dans un bloc ;
+    les limites (« Tout le calcul » de l'écran, la fin de la note) aussi. Exempté par son nom : ``MESSAGE_CD``."""
+    longs, redits = [], []
+
+    def lire(ou, blocs):
+        for b, ts in blocs:
+            vus = set()
+            for t in ts:
+                if len(t) > LIGNE_MAX and not _exempte(t):
+                    longs.append((len(t), ou, b, t[:90]))
+                if t in vus:
+                    redits.append((ou, b, t[:90]))
+                vus.add(t)
+
+    for nom, b in _barres_essai().items():
+        lire(f"écran · {nom}", textes_ecran(MO.verifier(b)))
+    for nom, etat in list(CRITERE.items()) + [(k, NOTES[k]) for k in ("la barre neuve", "une poutre de reprise et son raidisseur", "une âme élancée",
+                                                                        "une console comprimée (N + M non couvert)", "un poteau dont γ_M0 ≠ γ_M1 (n_pl à confirmer)",
+                                                                        "une nuance hors du domaine de la méthode historique (S460)")]:
+        lire(f"note · {nom}", textes_note(etat))
+    lire("limites", [("LIMITES", [t[:1].upper() + t[1:] + "." for t in M.limites(True)])])
+    longs.sort(reverse=True)
+    return [(f"garde des textes : chaque message tient en {LIGNE_MAX} caractères, à l'écran et dans la note (quinze barres d'essai, trois du "
+             f"critère, neuf notes du critère et six autres ; exempté par son nom : MESSAGE_CD)", not longs, longs[:4]),
+            ("garde des textes : aucun message répété dans un bloc (écran et note)", not redits, redits[:4])]
+
+
+SPECIAUX = {"écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
+            "garde des textes": controles_garde}
 
 
 def demander(etat, infos=INFOS):
@@ -803,7 +879,8 @@ def main():
     chk("HEB 300 S235 (t_f = 19 mm), les deux méthodes : la ligne « Acier » dit la f_y de l'Eurocode 3 (225, tableau 3.3 ANB) ; la méthode ELS "
         "écrit la sienne dans son hypothèse (235 / 1,5, « f_y nominale, comme les classeurs du bureau ») ; seule, la ligne dit « nominale, 235 »",
         acier[1] == "Acier S235 · tableau 3.3 ANB" and acier[3] == "225" and acier_els[1] == "Acier S235 · nominale" and acier_els[3] == "235"
-        and "235 / 1,5 = 156,7 N/mm² ($f_{y}$ nominale, comme les classeurs du bureau)." in tete["items"][0][1], (acier, acier_els, tete["items"][0]))
+        and any("235 / 1,5 = 156,7 N/mm² ($f_{y}$ nominale, comme les classeurs du bureau)." in it[1] for it in tete["items"][:3] if it[0] == "pr"),
+        (acier, acier_els, tete["items"][:2]))
     _o, pages, _f = faire(NOTES["la barre neuve"])
     T = " ".join(pages[1:])
     el, r = barres(NOTES["la barre neuve"])[0]
@@ -1216,6 +1293,11 @@ MUTATIONS = (
     ("le tableau avant/après du raidisseur n'est plus imprimé", NP, "avant_apres", lambda vrai: (lambda L, largeur: []),
      ["une poutre de reprise et son raidisseur"]),
     ("un message déjà dit est répété (la remarque du type (c) à chaque appui)", NP, "redit", lambda vrai: (lambda t, dits: False), ["R2 · deux"]),
+    # ---- (lot C, C5) la garde des textes : un texte de 121 caractères rougit (dans la note, à l'écran) ; une redite dans un bloc aussi
+    ("une hypothèse commune de 121 caractères dans la note", NP, "communes", lambda vrai: (lambda el, r: vrai(el, r) + ["x" * 120 + "."]), ["garde des textes"]),
+    ("une correction des classeurs de 121 caractères à l'écran (avec son préfixe)", HD, "CORRECTIONS",
+     lambda vrai: dict(vrai, axe_faible="x" * (LIGNE_MAX + 1 - len("Correction du classeur : "))), ["garde des textes"]),
+    ("une ligne répétée dans un bloc de la note", NP, "communes", lambda vrai: (lambda el, r: vrai(el, r) + vrai(el, r)[-1:]), ["garde des textes"]),
 )
 
 

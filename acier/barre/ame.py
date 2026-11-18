@@ -123,16 +123,16 @@ def _communes(b: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None,
     la semelle (None hors des I). ``fyw`` : la f_y de l'âme selon t_w ; ``source`` : d'où vient la f_y de calcul ;
     ``fyf`` : celle des semelles (§ 8)."""
     fyw = fy if fyw is None else fyw
-    ame_fy = f" (âme : f_y,w = {RE.fr(fyw)} N/mm², son ε pour 72·ε/η, λ̄_w et λ̄_F)" if fyw != fy else ""
     hyp = [f"Efforts de calcul (ELU) ; γ_M0 = {RE.fr(P['gamma_M0'], 2)}, γ_M1 = {RE.fr(P['gamma_M1'], 2)}.",
-           f"Acier {b['nuance']} : f_y = {RE.fr(fy)} N/mm²" + (f" ({source})" if source else "") + ame_fy
-           + f" ; η = {RE.fr(AM.eta_de(s, P), 2)}."]
+           f"Acier {b['nuance']} : f_y = {RE.fr(fy)} N/mm²" + (f" ({source})" if source else "") + f" ; η = {RE.fr(AM.eta_de(s, P), 2)}."]
+    if fyw != fy:                       # (lot C, C5 : une ligne par fait, 120 caractères au plus)
+        hyp.append(f"Âme : f_y,w = {RE.fr(fyw)} N/mm² (son ε pour 72·ε/η, λ̄_w et λ̄_F).")
     el = AM.elancement(s, fy, P, fy_ame=fyw)
     if el is not None:
         if el["elancee"]:
             hyp.append(f"Âme élancée (h_w/t_w = {RE.fr(el['rapport'], 1)} > 72·ε/η = {RE.fr(el['limite'], 1)}) : voilement par cisaillement "
-                       "vérifié sans raidisseur intermédiaire, montant d'extrémité non rigide, sans la contribution des semelles ; "
-                       "interaction avec la flexion vérifiée dans toutes les sections.")
+                       "vérifié, avec la flexion.")
+            hyp.append("Voilement par cisaillement : montant d'extrémité non rigide, sans la contribution des semelles (côté sûr).")
         else:
             hyp.append(f"Âme : h_w/t_w = {RE.fr(el['rapport'], 1)} ≤ 72·ε/η = {RE.fr(el['limite'], 1)} — pas de voilement par cisaillement "
                        "à vérifier (§ 5.1(2)).")
@@ -538,9 +538,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                                                  "vérifiée ici — EN 1993-1-8."}
         charges = []
     else:
-        hyp.append(f"Force concentrée : sans raidisseur transversal voisin (a → ∞) ; {ETA1_HYP[P['eta1_ame']]} (§ 7.2) ; semelle chargée tendue : "
-                   "critère 6.2.1(5) de l'EN 1993-1-1 à la jonction (§ 7.2(2)) ; semelle chargée tenue à un appui ou par un maintien "
-                   "au droit de la force (§ 6.1(1)).")
+        hyp.append(f"Force concentrée : sans raidisseur transversal voisin (a → ∞) ; {ETA1_HYP[P['eta1_ame']]} (§ 7.2).")
+        hyp.append("Semelle chargée tendue : critère 6.2.1(5) de l'EN 1993-1-1 à la jonction (§ 7.2(2)).")
+        hyp.append("Semelle chargée tenue à un appui ou par un maintien au droit de la force (§ 6.1(1)).")
         if any(L["genre"] == "appui" for L in endroits):
             hyp.append("Le déversement suppose des appuis en fourche : un raidisseur d'appui peut être nécessaire pour l'assurer.")
 
@@ -688,8 +688,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
     if proches:
         J = RE.Journal(METHODE, NORME)
         J.verif("A-GR", "Forces concentrées rapprochées", f"{AM.REF} § 6.3(2)", "", None, None, "", [], statut=RE.NON_COUVERT,
-                messages=[J.alerte("forces_rapprochees", "attention", f"Forces rapprochées ({' ; '.join(proches)}) : à vérifier aussi ENSEMBLE — "
-                                                                         "leur somme, sur leur entraxe (§ 6.3(2)). Non vérifié ici.")])
+                messages=[J.alerte("forces_rapprochees", "attention", f"Forces rapprochées ({' ; '.join(proches)}) : à vérifier ensemble "
+                                                                         "(§ 6.3(2)), non vérifié ici.")])
         env.verser(J.rendre(), {"combinaison": combs[0].nom})
 
     # ---- les raidisseurs : chacun avec l'âme disponible jusqu'au bout de la barre, ou jusqu'à mi-chemin du voisin
@@ -837,9 +837,9 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                        "statut": RE.NOK if any(v["statut"] == RE.NOK for v in vs) else RE.OK, "par_ame": True})
     rendus.sort(key=lambda L: L["x"])
     if any(L["decision"] == "raidisseur" for L in rendus):
-        hyp.append("Raidisseurs : de la nuance de la barre, f_y de chaque plat selon son épaisseur (table unique, option a de l'ANB) ; f_y de "
-                   "calcul de la section du raidisseur = min(plats ; âme) ; leurs soudures sont hors du module (EN 1993-1-8). "
-                   + RA.RAPPEL_TAU)
+        # (leurs soudures : profil_mots.LIMITES — dites une fois)
+        hyp.append("Raidisseurs : f_y de chaque plat selon son épaisseur (table unique, option a de l'ANB) ; f_y,d = min(plats ; âme).")
+        hyp.append(RA.RAPPEL_TAU)
     connues = {x["code"] for x in r["alertes"]}
     r["alertes"] += [x for k, x in alertes.items() if k not in connues]
     for i, (texte, noms) in enumerate(impossibles.items()):           # une ligne par manque : « Appui A, appui B : décision impossible … »

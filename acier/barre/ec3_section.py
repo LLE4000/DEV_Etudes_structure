@@ -276,8 +276,8 @@ def _hypotheses_prs(J: Journal, s: Dict) -> None:
     gorge = f"a = {_fr(p['a'], 1)} mm, s = a·√2 = {_fr(s['s'], 2)} mm" if p["a"] is not None else "gorge non saisie, s = 0"
     d_ = PR.mm
     J.hyp.append(f"PRS {'monosymétrique' if s['monosymetrique'] else 'bisymétrique'} : semelle haute {d_(p['b1'])} × {d_(p['t1'])}, "
-                 f"âme {d_(p['hw'])} × {d_(p['tw'])}, semelle basse {d_(p['b2'])} × {d_(p['t2'])} mm ; {gorge} ; "
-                 f"cordons non comptés ; η = {_fr(s['eta'], 2)}.")
+                 f"âme {d_(p['hw'])} × {d_(p['tw'])}, semelle basse {d_(p['b2'])} × {d_(p['t2'])} mm.")
+    J.hyp.append(f"{gorge[:1].upper() + gorge[1:]} ; cordons non comptés ; η = {_fr(s['eta'], 2)}.")
     for m in s.get("messages") or ():
         if m == PR.MSG_GORGE:
             J.alerte("prs_gorge", "attention", m)
@@ -404,12 +404,15 @@ def ajouter(J: Journal, d: Dict) -> None:
     nuance = f"Acier {d['nuance']}" if d["nuance"] else "Acier"
     if d["fy_tableau"]:
         detail = f" (épaisseur {PR.mm(d['t']) if PR.est_prs(s) else _fr(d['t'], 1)} mm ; {d['fy_source']})"     # (un PRS : ses décimales)
+        suite = ""
         if PR.est_prs(s):                                            # brief § 18.3 : la f_y de chaque plat, la plus petite décide
-            detail += (f" ; plat par plat : semelle haute {_fr(fyp['semelle_haut'])}, âme {_fr(fyp['ame'])}, "
-                       f"semelle basse {_fr(fyp['semelle_bas'])} N/mm²")
+            suite = (f"f_y plat par plat : semelle haute {_fr(fyp['semelle_haut'])}, âme {_fr(fyp['ame'])}, "
+                     f"semelle basse {_fr(fyp['semelle_bas'])} N/mm².")
         elif forme == "I" and len({fyp.get("semelle"), fyp.get("ame")}) == 2:
-            detail += (f" ; ε paroi par paroi : semelles f_y = {_fr(fyp['semelle'])}, âme f_y = {_fr(fyp['ame'])} N/mm²")
+            suite = f"ε paroi par paroi : semelles f_y = {_fr(fyp['semelle'])}, âme f_y = {_fr(fyp['ame'])} N/mm²."
         J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm²{detail}.")
+        if suite:                                                    # (lot C, C5 : une ligne par fait, 120 caractères au plus)
+            J.hyp.append(suite)
     else:
         J.hyp.append(f"{nuance} : f_y = {_fr(fy)} N/mm² (donnée).")
     G["couvert"] = False                                             # (vrai plus bas : les vérifications de la barre en dépendent)

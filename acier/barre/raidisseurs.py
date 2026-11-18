@@ -190,8 +190,8 @@ def ecrire(J: Journal, base: str, nom: str, s: Dict, fy: float, P: Dict, p: Dict
     cles = list(avant)
     cles.append(J.f("A_c", "A_c", [_t("b_s", p["bs"], "mm"), _t("chanfrein", p["chanfrein"], "mm"), _t("t_s", p["ts"], "mm")], p["Ac"], "mm²", "r_A_c"))
     cles.append(J.f("N_c_Rd", "N_c,Rd", [_t("A_c", p["Ac"], "mm²"), _t("f_y,p", fyp, "N/mm²"), _t("γ_M0", gM0)], p["NcRd"] / 1e3, "kN", "e_N_Rd"))
-    mots = list(pourquoi) + [f"Raidisseur : {designation(p)}, chanfrein {_fr(p['chanfrein'])} mm, sur toute la hauteur de l'âme ; "
-                             f"f_y,p = {_fr(fyp)} N/mm² (plats de {_fr(p['ts'])} mm), f_y,d = min(f_y,p ; f_y,w) = {_fr(fyd)} N/mm²."]
+    mots = list(pourquoi) + [f"Raidisseur : {designation(p)}, chanfrein {_fr(p['chanfrein'])} mm, sur toute la hauteur de l'âme.",
+                             f"f_y,p = {_fr(fyp)} N/mm² (plats de {_fr(p['ts'])} mm) ; f_y,d = min(f_y,p ; f_y,w) = {_fr(fyd)} N/mm²."]
     v1 = J.verif(f"{base}-R", f"{nom} : raidisseur, écrasement au contact", f"{REF} § 9.4", "F_Ed ≤ N_c,Rd", F / 1e3, p["NcRd"] / 1e3, "kN", cles,
                  messages=mots)
     cles2: List[str] = []

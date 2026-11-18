@@ -47,6 +47,7 @@ gabarits dans acier/barre/formules.py) et les alertes. L'écran et la note compo
 import math
 from typing import Dict, List, Optional
 
+from acier import formats as FMT
 from acier import materiaux as MA
 
 from . import historique_deversement as DE
@@ -218,7 +219,7 @@ def _lire(d: Dict) -> Dict:
     if out["fy"] <= 0:
         raise Refus("la limite élastique f_y doit être positive")
     if not S_MIN <= out["s"] <= S_MAX:
-        raise Refus(f"le coefficient de sécurité s doit être entre {S_MIN:g} et {S_MAX:g} : {out['s']!r}")
+        raise Refus(f"le coefficient de sécurité s doit être entre {FMT.nb(S_MIN)} et {FMT.nb(S_MAX)} : {FMT.nb(out['s'])}")
     axes = d.get("axes") or {}
     out["axes"] = {}
     for a in ("y", "z"):
@@ -249,7 +250,7 @@ def _lire(d: Dict) -> Dict:
         out["deversement"]["Lc"] = Lc
     Cd = out["deversement"]["Cd"]
     if isinstance(Cd, bool) or not isinstance(Cd, (int, float)) or not DE.CD_MIN <= float(Cd) <= DE.CD_MAX:
-        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {DE.CD_MIN:g} et {DE.CD_MAX:g} : {Cd!r}")
+        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {FMT.nb(DE.CD_MIN)} et {FMT.nb(DE.CD_MAX)} : {FMT.nb(Cd)}")
     out["deversement"]["Cd"] = float(Cd)
     if out["deversement"]["variante"] not in DE.VARIANTES:
         raise Refus(f"variante du déversement : {', '.join(DE.VARIANTES)} — reçu {out['deversement']['variante']!r}")
@@ -286,10 +287,11 @@ def domaine(s: Dict, fy: float, nuance: Optional[str] = None) -> List[str]:
 
 # (lot C, C1b) la longueur de flambement d'une cornière comprimée (brief § 3), dite une fois
 MESSAGE_CORNIERE = "Cornière : axes u-u et v-v, chacun avec la plus grande longueur de flambement saisie (À VÉRIFIER)."
+# (lot C, C5 : le message entier tient en 120 caractères — la raison, 40 au plus ; le pourquoi est dans la doc, § 9)
 HORS_DOMAINE_TEXTES = {"nuance": "nuance hors AE235 à AE355", "froid": "creux formé à froid de plus de 6 mm",
-                       "epaisseur": "paroi de plus de 80 mm, que la doc ne prévoit pas",
-                       "prs_mono": "PRS monosymétrique (la formule du déversement suppose deux semelles égales)",
-                       "console": "console à bout libre (la formule du déversement suppose deux sections tenues ; L_d = 2,1·L, À VÉRIFIER)"}
+                       "epaisseur": "paroi de plus de 80 mm (hors doc)",
+                       "prs_mono": "PRS monosymétrique (semelles inégales)",
+                       "console": "console (L_d = 2,1·L, À VÉRIFIER)"}
 
 
 def verifier(barre: Dict) -> Dict:
@@ -484,11 +486,14 @@ def verifier(barre: Dict) -> Dict:
             alerte("classe_d", "attention", f"Déversement : classe {dv['classe']} imposée (le tableau 12 donne {dev['classe_norme']}{col_i}).")
         if dev["Cd"] > 1.0 and dv["niveau"] == "haut":
             alerte("cd_haut", "attention", DE.MESSAGE_CD)
-        cote = f", semelle {'haute' if semelle == 'haut' else 'basse'} comprimée {_fr(dev['b'])} × {_fr(dev['tf'])} mm" if mono else ""
         # au-delà de 430 N/mm², la colonne du tableau 12 n'est pas dans le brief : celle de f_y ≤ 430 est gardée (À VÉRIFIER, dit)
-        col = f" — {DE.MESSAGE_COLONNE} (À VÉRIFIER)" if fy > DE.FY_COLONNE_12 and dv["classe"] is None else ""
+        # (lot C, C5 : la semelle comprimée d'un PRS et la colonne du tableau 12, chacune sa ligne — 120 caractères au plus)
         hyp.append(f"Déversement (classeurs, NBN B 51-002) : L_d = {_fr(dev['Lc'] / 1e3, 2)} m, C_d = {_fr(dev['Cd'], 2).rstrip('0').rstrip(',')}, "
-                   f"classe {dev['classe']} ({dev['regle']}){cote}{col}.")
+                   f"classe {dev['classe']} ({dev['regle']}).")
+        if mono:
+            hyp.append(f"Semelle {'haute' if semelle == 'haut' else 'basse'} comprimée : {_fr(dev['b'])} × {_fr(dev['tf'])} mm.")
+        if fy > DE.FY_COLONNE_12 and dv["classe"] is None:
+            hyp.append(f"Tableau 12 : {DE.MESSAGE_COLONNE} (À VÉRIFIER).")
         hyp.append(DE.MESSAGE_3_9)                      # (une fois par méthode, pas sur la ligne)
         if prs and dv["classe"] is None:                # (une classe imposée n'est pas celle du tableau 12)
             hyp.append(DE.MESSAGE_CLASSES)
@@ -664,12 +669,14 @@ def verifier(barre: Dict) -> Dict:
             # le nom entier de la méthode (celui de l'écran : api_web/profil_mots.METHODES, lié par test_api_web_profil), sans
             # double parenthèse : la raison suit un tiret
             v["messages"].append(f"Hors du domaine de la méthode ELS ({NORME}) — " + " ; ".join(HORS_DOMAINE_TEXTES[h] for h in raisons)
-                                 + " : calcul pour information, jamais « vérifié ».")
+                                 + " : calcul pour information.")
 
     # ---- la synthèse
     nominale = d["fy_ref"] == FY_NOMINALE
-    hyp.insert(0, f"Charges de service, non pondérées ; contrainte admissible σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"
+    # (lot C, C5 : une ligne par fait, 120 caractères au plus)
+    hyp.insert(0, f"σ_adm = f_y / s = {_fr(fy)} / {_fr(sec, 2).rstrip('0').rstrip(',')}"
                   f" = {_fr(sigma_adm, 1)} N/mm²" + (f" ({d['fy_source']})." if nominale else f" (f_y : {d['fy_source']})." if d["fy_source"] else "."))
+    hyp.insert(0, "Charges de service, non pondérées.")
     hyp.append(f"Courbes de flambement : {G['y']['courbe']} (axe fort), {G['z']['courbe']} (axe faible) — {cb['regle']}.")
     if corniere:
         hyp.append(MESSAGE_CORNIERE)

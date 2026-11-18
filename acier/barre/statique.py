@@ -434,7 +434,7 @@ def troncons(barre: Dict, s: Dict, pour_mcr: bool = False) -> List[Dict]:
         if genre not in GENRES_MAINTIEN:
             raise Refus(f"maintien : genre parmi {', '.join(GENRES_MAINTIEN)} — reçu {genre!r}")
         if not 0.0 <= x <= L:
-            raise Refus(f"maintien à {x:g} m : hors de la barre (0 à {L:g} m)")
+            raise Refus(f"maintien à {FMT.nb(x)} m : hors de la barre (0 à {FMT.nb(L)} m)")
         if genre == "complet":
             tenus.setdefault(round(x, 9), MC.FOURCHE)
         else:

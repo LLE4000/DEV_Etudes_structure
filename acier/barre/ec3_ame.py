@@ -373,7 +373,23 @@ def mots_resistance(r: Dict) -> List[str]:
         mots.append(f"deux branches de m₂ cohérentes : la plus petite F_Rd est retenue (l'autre : {_fr(r['FRd_autre'] / 1e3, 1)} kN)")
     if r["chi_F"] >= 1.0:
         mots.append("χ_F = 1")
-    return [" ; ".join(mots) + "."]
+    return phrases(mots)
+
+
+LIGNE_MAX = 120                 # (lot C, C5) un message : une ligne de 120 caractères au plus (la garde : tests/test_note_profil.py)
+
+
+def phrases(mots: List[str], largeur: int = LIGNE_MAX) -> List[str]:
+    """Des morceaux de phrase réunis par « ; » en lignes de ``largeur`` caractères au plus, chacune finie par un point."""
+    out, cur = [], ""
+    for m in mots:
+        t = f"{cur} ; {m}" if cur else m
+        if cur and len(t) + 1 > largeur:
+            out.append(cur + ".")
+            cur = m
+        else:
+            cur = t
+    return out + [cur + "."] if cur else out
 
 
 def eta1(N: float, M: float, A: float, W: float, fy: float, gM0: float) -> float:

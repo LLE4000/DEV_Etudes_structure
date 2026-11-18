@@ -100,17 +100,16 @@ def ajouter(J: Journal, d: Dict) -> None:
         # PRS monosymétrique (brief § 7.8 et 18.8) : 6.3.3(1) vise les barres à section BISYMÉTRIQUE — non couvert ; la
         # résistance de la section reste vérifiée (§ 6.2)
         J.verif("E-661", "Flexion composée avec instabilité (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
-                messages=[J.alerte("prs_NM", "attention", "PRS monosymétrique : flexion composée avec instabilité (§ 6.3.3) non couverte — "
-                                                          "elle vise les sections bisymétriques ; la section reste vérifiée.")])
+                messages=[J.alerte("prs_NM", "attention", "PRS monosymétrique : § 6.3.3 non couvert (il vise les sections bisymétriques) ; "
+                                                          "la section reste vérifiée.")])
         return
     if d.get("console") and N > 0 and d["parametres"]["console_NM"] == "non_couvert":
         # les diagrammes du tableau A.2 (et D.1 ANB) sont ceux d'une barre entre deux appuis : aucun ne donne C_m pour une
         # console — « non couvert » (brief § 7.8, DÉCISION BUREAU n° 9, défaut v1 ; test 30 du § 11.5), LU DANS LA TABLE
         # (parametres « console_NM ») : la table n'admet encore que lui — aucune méthode fixée par le bureau (À VÉRIFIER)
         J.verif("E-661", "Flexion composée et flambement (6.61), (6.62)", REF, "", None, None, "", [], statut=NON_COUVERT,
-                messages=[J.alerte("console_NM", "attention", "Console sous effort normal et flexion : la flexion composée avec instabilité "
-                                                              "(§ 6.3.3, annexe D ANB) n'est pas couverte — aucun C_m ne vaut pour une console ; "
-                                                              "N seul et M seul sont vérifiés.")])
+                messages=[J.alerte("console_NM", "attention", "Console sous N et M : § 6.3.3 non couvert, aucun C_m ne vaut pour une console ; "
+                                                              "N seul et M seul vérifiés.")])
         return
     P = d["parametres"]
     E, gM0, gM1 = P["E"], P["gamma_M0"], P["gamma_M1"]
@@ -333,5 +332,5 @@ def ajouter(J: Journal, d: Dict) -> None:
         J.verif(id_, f"{titre} ({eq})", REF, critere, taux, 1.0, "", cles + [cle], taux=taux)
     pourquoi = ("I_t ≥ I_y" if rigide else (f"λ̄_0 = {_fr(lb0, 3)} > {_fr(lim, 3)}" if susceptible else
                 (f"λ̄_0 = {_fr(lb0, 3)} ≤ {_fr(lim, 3)}" if My > 0 else "pas de M_y")))
-    J.hyp.append(f"Flexion composée avec instabilité : méthode 1, annexe D ANB (ANB:2018, 6.3.3(5)) ; étape {etape} "
-                 f"({'susceptible' if susceptible else 'non susceptible'} de se déformer par torsion : {pourquoi}).")
+    J.hyp.append(f"§ 6.3.3 : méthode 1, annexe D ANB (6.3.3(5)) ; étape {etape}, "
+                 f"{'susceptible' if susceptible else 'non susceptible'} de se déformer par torsion ({pourquoi}).")
