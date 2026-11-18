@@ -4652,7 +4652,11 @@ const principal = async () => {
       ['continue', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ba', 'travees/+', '1', 'clic'], ['', 'ch', 'cas/1/charges/+', 'P', 'clic'], ['', 'ch', 'cas/+', '1', 'clic']]],
       // (lot C, C4) une continue à charges de NIVEAUX DIFFÉRENTS (une ponctuelle suspendue à la semelle basse : le geste « niveau » d'une
       // charge est celui de C3, cas/i/charges/j/niveau) et son maintien sur la semelle basse : le dessin peint le signe de chaque
-      // niveau (▲ ● ▼, des formes, lisibles en noir et blanc) et sa légende en mots ; rien hors du dessin, rien l'un sur l'autre
+      // niveau (▲ ● ▼, des formes, lisibles en noir et blanc) et sa légende en mots ; rien hors du dessin, rien l'un sur l'autre.
+      // (reprise) Ce geste N'EXISTE PAS sur lotC-resultats seule : il est livré par C3 (lotC-saisie dd10436 : profil_saisie._charge,
+      // C.segments(["cas", i, "charges", j, "niveau"], …, NIVEAUX_CHARGE) → data-chemin="cas/0/charges/1/niveau", data-valeur="bas" ;
+      // profil._appliquer l'accepte). Vérifié sur la fusion C3 + C4 (routeur) : les quatre gestes trouvent leur élément, la charge
+      // prend niveau « bas », la légende dit les trois niveaux, 5 signes ▲ ▼. À lancer APRÈS la fusion de C3 (ordre C3 → C4 → C5).
       ['niveaux', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ch', 'cas/0/charges/+', 'P', 'clic'], ['', 'ch', 'cas/0/charges/1/niveau', 'bas', 'clic'],
         ['', 'mt', 'maintiens/0/genre', 'bas', 'menu']]],
       ['efforts', [['', 'ba', 'mode', 'efforts', 'clic'], ['', 'ef', 'efforts/elu/N', '100', 'champ'], ['', 'ef', 'efforts/elu/My', '40', 'champ'], ['', 'ef', 'efforts/elu/Vz', '30', 'champ'],
