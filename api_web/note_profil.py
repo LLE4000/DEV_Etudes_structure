@@ -122,6 +122,8 @@ def comparaison(v: Dict) -> str:
     if R.interaction(v):
         return f"η = {C.fr(v['valeur'], 3)} {signe} 1"
     u = v["unite"]
+    if not u:                   # (lot C, C4) une somme sans unité à sa limite, comme l'écran : « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 »
+        return f"{sym(g)} = {C.fr(v['valeur'], 3)} {signe} {M.n(v['limite'], 3)}"
     return f"{sym(g)} = {M.r1(v['valeur'])} {u} {signe} {sym(d)} = {M.r1(v['limite'])} {u}"
 
 

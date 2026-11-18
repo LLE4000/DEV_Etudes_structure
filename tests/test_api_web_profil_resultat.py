@@ -11,7 +11,7 @@ api_web/dessin_barre.py), vérifiés en Python ordinaire, à travers le routeur 
   4. UNE INFORMATION À UN ENDROIT — R2 : le taux de chaque méthode écrit une fois au niveau de la méthode (le verdict) ; ni la
      masse ni le taux de la barre à la ligne « Profilé » ; l'ELS jamais en tête par le contrôle hérité (H-EQ) ; P_cr caché
      sans effort normal ; une fenêtre de vérification sans les hypothèses de sa méthode ; « sans raidisseur » une fois.
-  5. -FM écrit comme la norme — « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 », taux 0,366.
+  5. -FM écrit comme la norme — « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 », taux 0,366 ; à l'écran et dans la note PDF.
   6. LA COMPARAISON — les sujets, l'écart en points, ce qui gouverne ; « Tout le calcul » de l'Eurocode 3 dit l'autre
      variante de chaque décision (§ 6.3.2.2 pour information, A_v,y, n_pl avec l'autre γ_M).
   7. LE DESSIN — niveaux mêlés (▲ ● ▼ dessinés), maintien négligé (creux), position, N par tronçon, débords, points vérifiés ;
@@ -35,6 +35,7 @@ sys.path.insert(0, RACINE)
 from acier.barre import raidisseurs as RA  # noqa: E402
 from acier.barre import resultat as RE  # noqa: E402
 from api_web import dessin_barre  # noqa: E402,F401
+from api_web import note_profil  # noqa: E402,F401
 from api_web import profil  # noqa: E402,F401
 from api_web import profil_mots  # noqa: E402,F401
 from api_web import profil_resultat  # noqa: E402,F401
@@ -298,6 +299,9 @@ def controles():
       round(vFM["valeur"], 3) == 0.513 and vFM["limite"] == 1.4 and round(vFM["taux"], 3) == 0.366 and lieu_ is not None
       and "η₂ + 0,8·η₁ = 0,513 ≤ 1,4" in texte(lieu_.group(1)) and "37 %" in texte(lieu_.group(1))
       and "η₂ + 0,8·η₁ = 0,513 1,4" in fFM, (texte(lieu_.group(1)) if lieu_ else None, fFM[:300]))
+    vd = mod("note_profil").verification(M.AME, mM["ame"], vFM)["verdicts"][0]
+    c("5. … la note PDF écrit la même ligne (reprise) : « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 », taux 36,6 % — jamais « = 0,5 ≤ 1,4 = 1,4 »",
+      vd["texte"] == "$η_{2} + 0,8·η_{1}$ = 0,513 ≤ 1,4" and vd["cale"] == "36,6 %", vd)
 
     # ---------------------------------------------------------------- 6. la comparaison, « Tout le calcul » de l'Eurocode 3
     bc = re.search(r'<section class="et-bloc inc" data-theme="4">(.*?)</section>', r2["resultat"], re.S)
@@ -395,7 +399,7 @@ def muter(nom_mod, ancien, nouveau):
     return rouges
 
 
-PRm, MOm, DBm = "api_web.profil_resultat", "api_web.profil_mots", "api_web.dessin_barre"
+PRm, MOm, DBm, NPm = "api_web.profil_resultat", "api_web.profil_mots", "api_web.dessin_barre", "api_web.note_profil"
 MUTATIONS = [
     (PRm, "une méthode bloquée : la puce montre le taux pour information", "if g is not gouvernante(x) else", "if g.get(\"taux\") is not None else"),
     (MOm, "« bloqué » peint dans la couleur de son taux (vert)", "STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)",
@@ -428,6 +432,8 @@ MUTATIONS = [
     (PRm, "« sans raidisseur » redit sur chaque ligne de l'âme", '    return etat_ame(a).startswith("Sans raidisseur")', "    return False"),
     (MOm, "-FM : la somme écrite comme un effort (« 0,5 ≤ 1,4 »)", "    if not v[\"unite\"]:                  # (lot C, C4)", "    if False:                  # (lot C, C4)"),
     (PRm, "-FM : la fenêtre écrit la somme au dixième", '    elif not v["unite"]:                       # (lot C, C4)', "    elif False:                       # (lot C, C4)"),
+    (NPm, "-FM : la note écrit la somme comme un effort (« 0,5 ≤ 1,4 = 1,4 »)", "    if not u:                   # (lot C, C4)",
+     "    if False:                   # (lot C, C4)"),
     (PRm, "la comparaison sans l'écart", '    e = li.get("ecart")\n    if e is None:', '    e = None\n    if e is None:'),
     (PRm, "la comparaison sans ce qui gouverne", "        if t and t.lower() != li[\"sujet\"].lower():", "        if False:"),
     (PRm, "« Tout le calcul » de l'Eurocode 3 sans le § 6.3.2.2 pour information", '    if info and info.get("M_b_Rd") is not None and', '    if False and'),
