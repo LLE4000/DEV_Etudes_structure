@@ -285,8 +285,9 @@ def controles():
     c("4 · le MÊME tableau à l'écran (vue « Section ») et pour la note (fiche_profil : « tableau », « proprietes ») ; chaque valeur écrite dans la vue",
       fi["tableau"] == tab0 and fi["proprietes"] == [x[:3] for x in tab0] and all(texte(v_) in texte(vue) for _, v_, _, _ in tab0) and fi["famille"] == "PRS", fi.get("sous"))
     note = req(action="telecharger", etat=b.r["etat"], quoi="note_pdf", carnet=b.carnet)
-    c("4 · la NOTE d'un PRS reste refusée en une ligne (bloc C5), jamais un KeyError", note.get("ok") is False and P.refus_prs(b.el["profil"]) in str(note.get("erreur"))
-      and "KeyError" not in str(note.get("erreur")) and len(P.refus_prs(b.el["profil"])) <= 120, str(note.get("erreur"))[:200])
+    # (lot C, C5 — le harnais suit : la note d'un PRS SORT, son croquis et ses propriétés au panneau ; tests/test_note_profil.py le détaille)
+    c("4 · la NOTE d'un PRS sort (bloc C5) : un PDF, jamais un KeyError", note.get("ok") is True and (note.get("fichier") or {}).get("type") == "application/pdf"
+      and "KeyError" not in str(note.get("erreur")), str(note.get("erreur"))[:200])
 
     # ---------------------------------------------------------------- 5. le croquis
     for nom_s, s_ in (("PRS-A", sA), ("PRS-B", sB), ("PRS-C", PRS.section_prs(300, 30, 1420, 25, 500, 50, nuance="S235")),

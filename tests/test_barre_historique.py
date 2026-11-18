@@ -738,7 +738,7 @@ def controles_lot_b(H, MO_, c):
     c("console à bout libre (« bout_libre ») : H-DEV passe et reste « hors domaine », son message le dit (« console à bout libre … L_d = 2,1·L, "
       "À VÉRIFIER ») ; la même barre sans l'indication : « ok »",
       vl_["statut"] == H.HORS_DOMAINE and vl_["taux"] < 1.0 and "console" in cl_["grandeurs"]["hors_domaine"]
-      and any("console à bout libre" in m and "À VÉRIFIER" in m for m in vl_["messages"]) and verif_de(cd_, "H-DEV")["statut"] == H.OK
+      and any("console (L_d = 2,1·L" in m and "À VÉRIFIER" in m for m in vl_["messages"]) and verif_de(cd_, "H-DEV")["statut"] == H.OK
       and "console" not in cd_["grandeurs"]["hors_domaine"], (vl_["statut"], vl_["taux"], vl_["messages"][-1:]))
     c("… la console d'un laminé ne reçoit pas l'alerte d'un PRS monosymétrique (« PRS monosymétrique : déversement hors domaine … ») : "
       "sa raison est la sienne, dite par H-DEV (intégration du lot B, trouvé au regel de la photo profil)",
@@ -975,11 +975,12 @@ def controles_lot_b(H, MO_, c):
     c("test 37 du § 11.5 — f_y NOMINALE de la méthode ELS : HEB 300 S235 (t_f = 19 mm) → 235 N/mm² en méthode ELS, 225 en EC3 ; plats de 30 mm en "
       "S355 → 355 en méthode ELS, 345 en EC3 ; la note écrit « f_y nominale, comme les classeurs du bureau » (une ligne)",
       h_["grandeurs"]["fy"] == 235.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and MO_._fy_historique("S355", pa30)["fy"] == 355.0
-      and ES.limite_elastique("S355", pa30) == 345.0 and "(f_y nominale, comme les classeurs du bureau)." in h_["hypotheses"][0]
-      and "tableau" not in h_["hypotheses"][0]
+      # (lot C, C5 — le harnais suit : « Charges de service, non pondérées. » sur sa ligne, σ_adm sur la suivante, 120 caractères au plus)
+      and ES.limite_elastique("S355", pa30) == 345.0 and "(f_y nominale, comme les classeurs du bureau)." in h_["hypotheses"][1]
+      and "tableau" not in h_["hypotheses"][1] and h_["hypotheses"][0] == "Charges de service, non pondérées."
       and H.verifier({"section": heb, "fy": 235.0, "fy_source": H.SOURCE_NOMINALE, "fy_ref": H.FY_NOMINALE, "P": 100e3,
-                      "axes": {"y": {"L": 3000.0}, "z": {"L": 3000.0}}})["hypotheses"][0].endswith("= 156,7 N/mm² (f_y nominale, comme les classeurs du bureau)."),
-      (h_["grandeurs"]["fy"], h_["hypotheses"][0]))
+                      "axes": {"y": {"L": 3000.0}, "z": {"L": 3000.0}}})["hypotheses"][1].endswith("= 156,7 N/mm² (f_y nominale, comme les classeurs du bureau)."),
+      (h_["grandeurs"]["fy"], h_["hypotheses"][:2]))
     hd = MO_.verifier(dict(MO_.EN.nouvelle_barre(), profil="HD 400x818.0", nuance="S355", maintiens=[{"x": 3.0, "genre": "complet"}]))
     hh = hd["methodes"]["historique"]
     c("19.1 point 5 — au-delà de 80 mm (HD 400x818 : t_f 97 mm), la méthode ELS se CALCULE avec la f_y nominale (355) : statut « hors domaine » "
@@ -1007,7 +1008,7 @@ def controles_lot_b(H, MO_, c):
       "(« Déversement (classeurs… », origine du 3,9 : une fois), à leur place (avant les courbes, comme pour une section seule)",
       court["gouvernant"] == "H-EQ" and verif_de(court, "H-EQ")["x"] == 0.0 and verif_de(court, "H-DEV") is not None
       and court["hypotheses"].count(DE.MESSAGE_3_9) == 1 and sum(h.startswith("Déversement (classeurs") for h in court["hypotheses"]) == 1
-      and [h[:12] for h in court["hypotheses"]] == ["Charges de s", "Déversement ", DE.MESSAGE_3_9[:12], "Courbes de f"],
+      and [h[:12] for h in court["hypotheses"]] == ["Charges de s", "σ_adm = f_y ", "Déversement ", DE.MESSAGE_3_9[:12], "Courbes de f"],
       (court["gouvernant"], court["hypotheses"]))
     cont = MO_.verifier(dict(nb_, modele="continue", travees=[1.7, 2.2, 2.0], methodes=["historique"], cas=[
         {"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 102.0, "a": 0.0, "b": 5.9}, {"type": "P", "v": 326.0, "a": 2.28}]}]
@@ -1246,16 +1247,16 @@ def mutations():
         ("relecture — PRS monosymétrique : W de la semelle comprimée dans H10", 'sMy = Cy * My / (phi_ed * s["Wel_y"] * G["y"]["PE"]) if My > 0 else 0.0',
          'sMy = Cy * My / (phi_ed * s.get("Wel_y_" + semelle, s["Wel_y"]) * G["y"]["PE"]) if My > 0 else 0.0'),
         ("relecture — correction 4 dite pour toute f_y ≠ 235 (S275, S460)", "if fy == DE.FY_FEUILLE_S355:", "if fy != DE.FY_CLASSEURS:"),
-        ("relecture — S460 : la colonne « f_y ≤ 430 » du tableau 12 prise sans le dire", '        col = f" — {DE.MESSAGE_COLONNE} (À VÉRIFIER)" if',
-         '        col = "" if'),
+        ("relecture — S460 : la colonne « f_y ≤ 430 » du tableau 12 prise sans le dire", 'if fy > DE.FY_COLONNE_12 and dv["classe"] is None:',
+         'if False:'),
         ("relecture — λ̄ ≤ 0,2 : deux lignes pour φ_d = 1", 'elif "phid_plafond" not in dev["corrections"]:', "else:"),
         ("relecture — PRS à I_y ≤ I_z : le message des cases échangées", "bloque.append(MESSAGE_PRS_AXE_FAIBLE if",
          'bloque.append("I_y ≤ I_z : des valeurs de l\'axe faible dans les cases de l\'axe fort ? Verdict bloqué." if'),
         ("fin du bloc — PRS à I_y ≤ I_z : la phrase ambiguë revient (elle ne dit pas pourquoi)",
          'MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : les charges (plan de l\'âme) fléchissent ce PRS autour de son axe faible — verdict bloqué."',
          'MESSAGE_PRS_AXE_FAIBLE = "I_y ≤ I_z : l\'axe de l\'âme n\'est pas l\'axe fort de ce PRS — verdict bloqué."'),
-        ("fin du bloc — S460 : « classe lue pour f_y ≤ 430 » dite aussi d'une classe imposée", 'if fy > DE.FY_COLONNE_12 and dv["classe"] is None else ""',
-         'if fy > DE.FY_COLONNE_12 else ""'),
+        ("fin du bloc — S460 : « classe lue pour f_y ≤ 430 » dite aussi d'une classe imposée", 'if fy > DE.FY_COLONNE_12 and dv["classe"] is None:',
+         'if fy > DE.FY_COLONNE_12:'),
         ("reprise — PRS, classe imposée : « classes du flambement et du déversement (tableau 12) différentes » dit quand même",
          'if prs and dv["classe"] is None:', "if prs:"),
         ("reprise — S460, classe imposée : l'alerte tait la colonne « f_y ≤ 430 » du tableau 12", 'col_i = f" ; {DE.MESSAGE_COLONNE}, À VÉRIFIER" if',

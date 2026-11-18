@@ -410,9 +410,14 @@ def ajouter(J: Journal, d: Dict) -> None:
     charge = f", charge{sens} {niveau}" if (tr.get("reparties") or tr.get("ponctuelles")) and dev["troncon"] is None else ""
     source = ""
     if methode == "§ 6.3.2.3":
-        source = " (variante de l'ANB:2018, 6.3.2.3(1) : bâtiment, maintiens ignorés dans M_cr)." if D.get("variante") else " (ANB:2018, 6.3.2.3(1))."
-    J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m entre sections tenues{charge} ; {methode}, courbe {courbe}, "
+        source = " (variante de l'ANB:2018, 6.3.2.3(1))." if D.get("variante") else " (ANB:2018, 6.3.2.3(1))."
+    # (lot C, C5 : une ligne par fait, 120 caractères au plus — la hauteur de la charge et la variante du couple à part)
+    J.hyp.append(f"Déversement : tronçon de {_fr(tr['L'] / 1e3, 2)} m ; {methode}, courbe {courbe}, "
                  f"λ̄_LT,0 = {_fr(lbLT0, 2)}, β = {_fr(beta, 2)}" + (source or "."))
+    if charge:
+        J.hyp.append(f"M_cr : charge{charge[len(', charge'):]}.")
+    if methode == "§ 6.3.2.3" and D.get("variante"):
+        J.hyp.append("Variante du couple : poutre de bâtiment, maintiens ignorés dans M_cr.")
     if "sens_charge" in D:
         sc = D["sens_charge"]
         J.hyp.append(f"M_y,Ed < 0, sens de la charge inconnu : le plus petit M_cr des deux sens (montante {_mcr_txt(sc['montante'])}, "
@@ -485,5 +490,5 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float) -> Tuple[list, li
     if s["monosymetrique"]:
         J.hyp.append(f"PRS monosymétrique, semelle {'haute' if signe > 0 else 'basse'} comprimée : ψ_f = "
                      f"{_fr(PR.zj_psi(s, PR.HAUT if signe > 0 else PR.BAS)['psi_f'], 4)}, z_s = {_fr(s['z_s'], 1)} mm, "
-                     f"z_j = {_fr(PR.zj_psi(s, PR.HAUT if signe > 0 else PR.BAS)['z_j'], 2)} mm (terme de Wagner dans M_cr).")
+                     f"z_j = {_fr(PR.zj_psi(s, PR.HAUT if signe > 0 else PR.BAS)['z_j'], 2)} mm (Wagner).")
     return msgs, cles

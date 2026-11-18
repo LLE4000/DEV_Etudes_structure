@@ -59,6 +59,7 @@ import copy
 import math
 from typing import Dict, List, Optional
 
+from acier import formats as FMT
 from rdm import poutres as PO
 
 from . import combinaisons as CO
@@ -132,7 +133,7 @@ def _longueur_appui(v, nom: str) -> Optional[float]:
         return None
     x = _nombre(v, nom)
     if not 0.0 <= x <= SS_MAX:
-        raise Refus(f"{nom} : de 0 à {SS_MAX:g} mm")
+        raise Refus(f"{nom} : de 0 à {FMT.nb(SS_MAX)} mm")
     return x
 
 
@@ -302,7 +303,7 @@ def normaliser(barre: Dict) -> Dict:
     if h["C"] not in C_MODES:
         raise Refus(f"coefficient C : {', '.join(C_MODES)}")
     if not HD.CD_MIN <= _nombre(h["Cd"], "C_d") <= HD.CD_MAX:
-        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {HD.CD_MIN:g} et {HD.CD_MAX:g}")
+        raise Refus(f"le coefficient de moment C_d du déversement doit être entre {FMT.nb(HD.CD_MIN)} et {FMT.nb(HD.CD_MAX)}")
     if h["variante"] not in HD.VARIANTES:
         raise Refus(f"variante du déversement : {', '.join(HD.VARIANTES)}")
     if h["classe_d"] == "":                 # une liste sans choix (l'écran) : celle du tableau 12
@@ -356,7 +357,7 @@ def normaliser(barre: Dict) -> Dict:
         raise Refus("la barre a au moins une travée")
     b["travees"] = [_nombre(x, "portée") for x in tr]
     if any(not L_MIN <= x <= L_MAX for x in b["travees"]):
-        raise Refus(f"chaque portée doit être entre {L_MIN:g} et {L_MAX:g} m")
+        raise Refus(f"chaque portée doit être entre {FMT.nb(L_MIN)} et {FMT.nb(L_MAX)} m")
     if b["modele"] == "continue":
         if not 2 <= len(b["travees"]) <= PO.TRAVEES_MAX:
             raise Refus(f"une poutre continue a de 2 à {PO.TRAVEES_MAX} travées")
@@ -414,7 +415,7 @@ def normaliser(barre: Dict) -> Dict:
         if genre not in ST.GENRES_MAINTIEN:
             raise Refus(f"maintien : genre parmi {', '.join(ST.GENRES_MAINTIEN)}")
         if not 0.0 <= x <= Lt:
-            raise Refus(f"maintien à {x:g} m : hors de la barre (0 à {Lt:g} m)")
+            raise Refus(f"maintien à {FMT.nb(x)} m : hors de la barre (0 à {FMT.nb(Lt)} m)")
         b["maintiens"].append({"x": x, "genre": genre, "neglige": _oui_non((m or {}).get("neglige", False), "maintien négligé dans M_cr")})
     b["maintiens"].sort(key=lambda m: m["x"])
     return b

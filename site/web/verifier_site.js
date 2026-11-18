@@ -7550,6 +7550,48 @@ const principal = async () => {
         verif(`note PDF · ${k} · ${fmt} : le PDF porte l'identification de la note du site — indice B (${indices.length} fois, aucun autre), chantier « Essai nuit »`,
           dl && indices.length >= 1 && indices.every((x) => x === 'B') && texte.includes('Essai nuit'), JSON.stringify({ indices: [...new Set(indices)] }));
         await g.screenshot({ path: path.join(OUT, `site_note_pdf_${k}_${fmt}.png`) });
+        // (lot C, C5) les barres : la note dans ses TROIS options (brief § 9 : « Les deux », « Méthode ELS », « Eurocode 3 »), au PC —
+        // la même note semée avec etat.impression ; le texte dans l'ordre du dessin (pdftotext sans -layout : les blocs dans leur
+        // ordre). « Les deux » : la synthèse en bloc 2 (avant le détail des méthodes), les écarts, « Torsion non couverte » ; « ELS
+        // seule » : ni Eurocode 3 ni synthèse, l'âme en « Contrôles complémentaires » ; « Eurocode 3 seul » : ni ELS ni écarts.
+        if (k === 'profil' && fmt === 'pc' && dl) {
+          const ATTENDU = {
+            deux: { avec: ['Synthèse des deux méthodes', 'Écarts avec les classeurs du bureau', 'Méthode ELS (NBN B 51-001)', 'Eurocode 3 — NBN EN 1993-1-1'], sans: ['Contrôles complémentaires EN 1993-1-5'] },
+            historique: { avec: ['Écarts avec les classeurs du bureau', 'Méthode ELS (NBN B 51-001)', 'Contrôles complémentaires EN 1993-1-5'], sans: ['Synthèse des deux méthodes', 'Eurocode 3 — NBN EN 1993-1-1'] },
+            ec3: { avec: ['Eurocode 3 — NBN EN 1993-1-1'], sans: ['Synthèse des deux méthodes', 'Écarts avec les classeurs du bureau', 'Méthode ELS (NBN B 51-001)'] },
+          };
+          for (const imp of Object.keys(ATTENDU)) {
+            const idI = `note-pdf-${k}-${imp}`;
+            await g.evaluate(([id_, k_, etat_]) => {
+              let notes = {};
+              try { notes = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}') || {}; } catch (e) { notes = {}; }
+              notes[id_] = { id: id_, module: k_, nom: 'Contrôle note PDF', chantier: 'Essai nuit', dossier: '', indice: 'B', cree: Date.now(), modifie: Date.now(),
+                             etat: etat_, resume: null, vignette: '' };
+              localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
+            }, [idI, k, { ...riches.etats[k], impression: imp }]);
+            await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${MODS[k].page}?note=${idI}`) });
+            await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 60000 }).catch(() => {});
+            const dI = g.waitForEvent('download', { timeout: 180000 }).catch(() => null);
+            await g.click(sel);
+            const dlI = await dI;
+            let brut = '';
+            if (dlI) {
+              const fI = path.join(OUT, `site_note_pdf_${k}_${imp}.pdf`);
+              await dlI.saveAs(fI);
+              brut = norm(cp.spawnSync('pdftotext', [fI, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 }).stdout);
+            }
+            const a = ATTENDU[imp];
+            const manquent = a.avec.filter((t) => !brut.includes(t));
+            const deTrop = a.sans.filter((t) => brut.includes(t));
+            const ordre = imp !== 'deux' || (brut.indexOf('Synthèse des deux méthodes') > 0 && brut.indexOf('Synthèse des deux méthodes') < brut.indexOf('Méthode ELS (NBN B 51-001)'));
+            // le résumé sous le nom de la barre : « … % ELS · … % Eurocode 3 » (les deux), les seuls taux de la méthode imprimée sinon
+            const resume = { deux: /\d+ % ELS · \d+ % Eurocode 3/, historique: /\d+ % ELS/, ec3: /\d+ % Eurocode 3/ }[imp];
+            verif(`note PDF · profil · pc · option « ${imp} » : la note sort, ses blocs y sont et les autres non, « Torsion non couverte »${imp === 'deux' ? ', la synthèse en bloc 2' : ''}, le résumé des taux`,
+              dlI && !manquent.length && !deTrop.length && ordre && brut.includes('Torsion non couverte') && resume.test(brut)
+              && (imp !== 'historique' || !/% Eurocode 3/.test(brut.slice(0, 600))),
+              JSON.stringify({ manquent, deTrop, ordre, debut: brut.slice(0, 300) }));
+          }
+        }
       }
       verif(`note PDF · ${fmt} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 400));
       await c.close();

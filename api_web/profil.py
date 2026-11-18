@@ -971,9 +971,9 @@ def _entete(el: Dict, r: Dict, titre: str, legende: str) -> str:
 
 
 def refus_prs(nom: str) -> str:
-    """(lot C, reprise de C0) Une barre PRS se relit, se calcule et se montre à l'écran (C6 : sa saisie, sa fiche, son
-    croquis) ; la NOTE ne sait pas encore la montrer (bloc C5) : elle la REFUSE en une ligne — jamais un KeyError, jamais
-    un profilé du catalogue à sa place."""
+    """(lot C, reprise de C0) Le refus d'un nom de PRS demandé SANS sa barre (``fiche_profil``) : une ligne qui le nomme —
+    jamais un KeyError, jamais un profilé du catalogue à sa place. Une barre PRS, elle, se relit, se calcule, se montre à
+    l'écran (C6 : sa saisie, sa fiche, son croquis) et sort dans la note (C5 : son croquis et ses propriétés au panneau)."""
     return f"« {nom} » : la note d'un PRS n'est pas encore prête."
 
 

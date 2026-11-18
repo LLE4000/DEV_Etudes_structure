@@ -391,7 +391,7 @@ def controles(M=None):
         h_ = r_["methodes"]["historique"]
         v_ = {v["id"]: v for v in h_["verifications"]}
         return (h_["grandeurs"]["deversement"]["Lc"], round(v_["H-DEV"]["taux"], 3), v_["H-DEV"]["statut"], h_["statut"],
-                any("console à bout libre" in m_ for m_ in v_["H-DEV"]["messages"]))
+                any("console (L_d = 2,1·L" in m_ for m_ in v_["H-DEV"]["messages"]))       # (lot C, C5 : le texte en 120 caractères)
     ce = {k_: els_(cs[k_]) for k_ in ("bout", "milieu")}
     ce["sans maintien"] = els_(mo.verifier(barre(profil="IPE 300", modele="console", travees=[3.0], poids_propre=False,
                                                  cas=[{"nom": "G", "nature": "permanent", "charges": [P_(20.0, 3.0)]}])))
@@ -461,7 +461,7 @@ def controles(M=None):
     c("HEB 300 S235 (t_f = 19 mm) : la méthode ELS prend f_y = 235, la NOMINALE (l'Eurocode 3 garde 225, tableau 3.3 ANB) — lot B, brief v12 "
       "§ 6.1 et test 37 ; la nuance reste dans le domaine de la doc ; la source est imprimée « f_y nominale, comme les classeurs du bureau »",
       h["grandeurs"]["fy"] == 235.0 and r["methodes"]["ec3"]["grandeurs"]["fy"] == 225.0 and h["statut"] == RE.OK
-      and not any(x["code"] == "nuance" for x in h["alertes"]) and "f_y nominale, comme les classeurs du bureau" in h["hypotheses"][0],
+      and not any(x["code"] == "nuance" for x in h["alertes"]) and "f_y nominale, comme les classeurs du bureau" in h["hypotheses"][1],
       (h["grandeurs"]["fy"], h["statut"]))
     # (reprise du lot B, le harnais suit : s_s et c saisis — sans eux, l'âme « non couvert » passerait devant « hors domaine »)
     r = mo.verifier(dict(barre(), nuance="S460", maintiens=[{"x": 3.0, "genre": "complet"}], appuis={"mode": "poses", "ss": 100.0, "c": 0.0}))
@@ -868,8 +868,8 @@ def controles_lot_c():
     a2, b2 = (_v(mo.verifier(barre(parametres=par, **base2))["ame"], "A-L00-F") for par in ({}, {"contact_inconnu": "oui"}))
     out.append(("(lot C, C0g) n° 2, contact d'extrémité inconnu (type (c)) : « non » par défaut — verdict sur s_s = 0 dans (6.10), F_Rd = 199,8 kN, "
                 "« avec contact, 248,9 kN » pour information ; la table à « oui » → F_Rd = 248,9 kN décide, « sans contact, 199,8 kN » est dit",
-                proche(a2["limite"], 199.8, 1e-3) and "avec contact, F_Rd = 248,9 kN, pour information" in a2["messages"][-1]
-                and proche(b2["limite"], 248.9, 1e-3) and "sans contact, F_Rd = 199,8 kN, pour information" in b2["messages"][-1]
+                proche(a2["limite"], 199.8, 1e-3) and any("avec contact, F_Rd = 248,9 kN, pour information" in m for m in a2["messages"])
+                and proche(b2["limite"], 248.9, 1e-3) and any("sans contact, F_Rd = 199,8 kN, pour information" in m for m in b2["messages"])
                 and a2["taux"] > b2["taux"], (a2["limite"], b2["limite"])))
     e4, f4 = (mo.verifier(barre(parametres=par, **R2))["methodes"]["ec3"] for par in ({}, {"methode_deversement_lamines": "6.3.2.2"}))
     out.append(("(lot C, C0g) n° 4, déversement d'un laminé : § 6.3.2.3 par défaut (R2 : 109,9 %), le § 6.3.2.2 pour information ; la table à "

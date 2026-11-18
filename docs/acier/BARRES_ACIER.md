@@ -977,10 +977,10 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   sa longueur de flambement, son profilé.
 - **La note PDF** a la planche des notes Poutre et Dalle (`ndc_pdf/styles.py` : le panneau de gauche et son dessin, deux
   colonnes de calcul, des vérifications numérotées, une bande de verdict ; une planche qui déborde se poursuit sur une
-  page suivante). Par barre : la barre et ses charges ; la méthode ELS D'ABORD — ses hypothèses, puis chaque
-  vérification comme les classeurs l'écrivent — ; l'Eurocode 3 ; la comparaison ; les paramètres à confirmer ; ce que la
-  note ne vérifie pas. **Elle imprime les méthodes cochées à l'écran** (rubrique « Méthodes » : ELS, Eurocode 3,
-  les deux) : ce que l'écran montre est ce qui s'imprime (Q9). Le dessin du panneau est celui de l'écran, peint tel
+  page suivante). Depuis le lot C (C5, § 9.4), elle imprime ce que son OPTION dit (« Les deux », « Méthode ELS »,
+  « Eurocode 3 »), dans l'ordre du brief § 9 : la barre et les hypothèses communes, la synthèse, les écarts avec les
+  classeurs, le détail de chaque méthode, l'âme, les décisions du bureau, les paramètres à confirmer, ce que la note
+  ne vérifie pas. Le dessin du panneau est celui de l'écran, peint tel
   quel ; chaque formule est la ligne de la fenêtre de calcul. Deux allégements, pour la lecture : la ligne du taux n'est
   pas répétée (le verdict dit les deux membres et le taux) ; (6.62) ne réécrit pas les facteurs que (6.61) vient
   d'écrire. Sous le nom de la barre, la garde et l'en-tête écrivent le taux AVANT la méthode, comme le verdict de
@@ -1200,6 +1200,42 @@ note (C5) : ils liront ce que le moteur rend.
 - **Dessin** : le signe du niveau de chaque charge (▲ ● ▼, des formes) quand les niveaux sont mêlés, le maintien négligé
   creux, la position (verticale, inclinée), N par tronçon, les débords (barre entière, appuis de `statique.appuis_x`), les
   points vérifiés (p1, p2…) ; chaque repère a sa légende en mots.
+
+### 9.4 La note de calcul (lot C, C5, 18/11/2026)
+
+- **Trois options d'impression** (`etat["impression"]` : « deux », le défaut ; « historique » ; « ec3 ») ; le moteur
+  calcule toujours les deux méthodes. Par barre, dans l'ordre du brief § 9 : (1) la barre, ses charges et les
+  hypothèses COMMUNES — combinaisons (`combinaisons.hypotheses`), type d'ouvrage, poids propre et sa position, origine
+  des longueurs (« L_y et L_z : 2,1 × 3,00 m (console, doc p. 16) »), torsion non couverte ; (2) « Les deux » : la
+  SYNTHÈSE, sujet par sujet (`comparaison.py`) — « — » quand une méthode n'a rien sur le sujet, l'âme (EN 1993-1-5,
+  commune) dans la colonne Eurocode 3, l'écart en points, le numéro de la vérification qui gouverne ; (3) « Les deux »
+  et « ELS seule » : les ÉCARTS AVEC LES CLASSEURS DU BUREAU, une ligne par correction qui joue (jamais un choix du
+  bureau : brief § 6.7) ; (4) le détail de chaque méthode imprimée, ses hypothèses PROPRES en tête, puis l'âme
+  (« Contrôles complémentaires EN 1993-1-5 » dans une note ELS seule) ; (5) les décisions du bureau appliquées (le
+  défaut, l'autre variante et son résultat — n° 1 : l'interaction plastique la plus forte, « sans objet » sans variante
+  plastique (classes 3 et 4) — ou la vérification qui l'IMPRIME ; n° 7, le seuil « à la limite » du site),
+  les paramètres à confirmer (Eurocode 3 imprimé), ce que la note ne vérifie pas (`profil_mots.limites`).
+- **À l'écran** (R1), « Tout le calcul » de l'âme dit les soudures des raidisseurs proposés (`ame.HYP_SOUDURES`, dans les
+  hypothèses de l'âme) et le calcul sans raidisseur intermédiaire ; la note dit les soudures une fois, dans « Ce que la
+  note ne vérifie pas » (`tests/test_note_profil.py`, « soudures : écran et note »). La liste entière
+  (`profil_mots.limites`, la torsion comprise) n'est lue que par la note.
+- **Le statut imprimé** est le plus défavorable des méthodes IMPRIMÉES et de l'âme ; la méthode non imprimée, quand elle
+  est plus défavorable, est dite en une ligne au bloc 1 (« Eurocode 3, non imprimé : non conforme, 110 % »).
+- **PRS** : le croquis coté sous la barre, dans le même dessin du panneau (seul en efforts imposés) ; dimensions et
+  propriétés lues dans `profil_prs` (z_s, z_j, ψ_f, f_y de chaque plat et de calcul) ; leur origine dite une fois dans les
+  hypothèses de l'Eurocode 3.
+- **La charte** : celle des notes du site, reprise telle quelle (brief § 9 : « reprendre exactement la charte ») — la
+  référence normative d'une vérification s'écrit SOUS son titre, avec l'endroit où elle a été trouvée, comme dans les
+  notes Poutre et Dalle ; le brief la place « à droite », la charte existante l'emporte.
+- **Une chose dite une fois, une ligne de 120 caractères au plus** : un message déjà imprimé sur la planche n'est pas
+  répété dans une vérification suivante (la remarque du type (c), commune aux deux appuis) ; un titre trop long pour la
+  colonne perd le nom de sa méthode. La GARDE des textes (`tests/test_note_profil.py`) mesure l'écran et la note sur les
+  quinze barres d'essai et les notes du critère : chaque message ≤ 120 caractères, aucun répété dans un bloc ; exempté
+  par son nom : `MESSAGE_CD` (texte du brief § 6.4).
+- **Le critère du lot C, deuxième partie** : les notes de R2 (depuis les charges), du HEB 200 (efforts imposés,
+  P = 432,72 kN de service et 649,08 kN de calcul, deux données) et du PRS-C (barre chargée, 8 maintiens ; l'acier au
+  centre de gravité, le béton frais, le travail et la zone en nature « exécution », ψ₀ = 1,0 : M_Ed 4 199,4 kN·m, 0,967),
+  chacune dans les trois options — `tests/test_note_profil.py`, § 9.
 
 ## 10. À confirmer par le bureau
 

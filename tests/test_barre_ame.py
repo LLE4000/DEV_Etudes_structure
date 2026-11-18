@@ -683,7 +683,9 @@ def controles(M=None):
       L["raidisseur"] == {"bs": 95.0, "ts": 8.0, "chanfrein": 20.0, "designation": "2 plats 95 × 8 mm"} and vR is not None and vB is not None
       and proche(vR["valeur"], RB + 67.5) and proche(vR["limite"], Nc) and round(Nc, 1) == 282.0 and proche(vB["limite"], Nb)
       and L["verifications"] == ["A-L01-R", "A-L01-Rb"] and verif(a, "A-L01-F") is None and verif(a, "A-L01-FM") is None
-      and a["statut"] == RE.OK and any("soudures" in h for h in a["hypotheses"]) and any("Sans raidisseur" in m for m in vR["messages"]), (L, vR))
+      # (lot C, C5 — le harnais suit : les soudures des raidisseurs sont dites une fois, dans les LIMITES — profil_mots)
+      and a["statut"] == RE.OK and any(h.startswith("Raidisseurs : f_y de chaque plat") for h in a["hypotheses"])
+      and any("Sans raidisseur" in m for m in vR["messages"]), (L, vR))
     moins = copy.deepcopy(CONTINUE)
     moins["cas"][0]["charges"].append(P_(20.0, 5.0, 200.0))
     moins["appuis"] = {"mode": "poses", "ss": 200.0, "c": 0.0}
@@ -750,7 +752,7 @@ def controles(M=None):
     c("deux charges RAPPROCHÉES sur la même semelle — leurs longueurs chargées l_y (169,8 mm) se recouvrent : à 100 et 160 mm d'entraxe — "
       "devraient être vérifiées aussi ensemble (§ 6.3(2)) : le bloc est « non couvert », et le dit ; à 180 et 500 mm, plus rien",
       round(ly50, 1) == 169.8 and all(verif(pres[d_], "A-GR") is not None and verif(pres[d_], "A-GR")["statut"] == RE.NON_COUVERT
-                                       and pres[d_]["statut"] == RE.NON_COUVERT and any("ENSEMBLE" in x["message"] for x in pres[d_]["alertes"])
+                                       and pres[d_]["statut"] == RE.NON_COUVERT and any("à vérifier ensemble" in x["message"] for x in pres[d_]["alertes"])
                                        for d_ in (0.10, 0.16))
       and all(verif(pres[d_], "A-GR") is None and pres[d_]["statut"] == RE.OK for d_ in (0.18, 0.50))
       and "charge à 3,00 m et charge à 3,10 m" in pres[0.10]["alertes"][0]["message"], {d_: pres[d_]["statut"] for d_ in pres})
@@ -1388,8 +1390,8 @@ MUTATIONS = [
     ("raidisseurs", "lot B — flambement du raidisseur sans N_st", '"taux": max(F / p["NcRd"], (F + Nst) / p["NbRd"])', '"taux": max(F / p["NcRd"], F / p["NbRd"])'),
     ("raidisseurs", "lot B — I_st,min : seuil a/h_w = 1 au lieu de √2", "    if a is not None and a / hw < math.sqrt(2.0):", "    if a is not None and a / hw < 1.0:"),
     ("raidisseurs", "lot B — vue avec raidisseur : σ sous F seule", '"sigma": N / p["Ast"]', '"sigma": F / p["Ast"]'),
-    ("ame", "lot B — rappel « ne réduit pas τ » oublié (une fois par bloc, dans les hypothèses)", "(EN 1993-1-8). \"\n                   + RA.RAPPEL_TAU)",
-     "(EN 1993-1-8).\")"),
+    ("ame", "lot B — rappel « ne réduit pas τ » oublié (une fois par bloc, dans les hypothèses)", "        hyp.append(RA.RAPPEL_TAU)",
+     "        pass"),
     ("ec3_ame", "lot B — cisaillement qui gouverne : rien n'est dit", "    if V > r[\"Vbw\"]:", "    if False:"),
     ("raidisseurs", "épaisseurs : 6 mm proposée", "EPAISSEURS = (8.0, 10.0, 12.0, 15.0, 20.0)", "EPAISSEURS = (6.0, 8.0, 10.0, 12.0, 15.0, 20.0)"),
     ("raidisseurs", "chanfrein oublié dans l'aire de contact", '    Ac = 2.0 * (bs - g["chanfrein"]) * ts', "    Ac = 2.0 * bs * ts"),

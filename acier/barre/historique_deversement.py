@@ -63,18 +63,19 @@ CAISSONS = ("caisson", "caisson_recuit")
 PROFILS_A_FOURNIR = {"recuit": "un I recuit", "lamine_semelles_additionnelles": "un I à semelles additionnelles"}
 
 # les VRAIES erreurs des classeurs que le module corrige (brief § 6.2, 6.4, 6.7) : identifiant → phrase d'une ligne
-# (« {…} » : la valeur du cas). « une_courbe » est un garde-fou : il ne joue sur aucun cas calculé (la saisie l'impose).
+# (« {…} » : la valeur du cas ; lot C, C5 : 95 caractères au plus, valeurs à leur plus grande longueur — 120 avec le préfixe
+# « Correction du classeur : », la garde des textes de tests/test_note_profil.py). « une_courbe » est un garde-fou : il ne joue sur aucun cas calculé (la saisie l'impose).
 CORRECTIONS = {
     "pcr_u": "P_cr avec (u·L)² ; le classeur Flambement oubliait u.",
     "phi_min": "φ_min dans la flexion composée (ici l'axe fort) ; le classeur prenait toujours l'axe faible.",
-    "une_courbe": "une seule courbe par axe ; le classeur rendait φ = 1 sans choix et additionnait α et β pour deux choix.",
+    "une_courbe": "une seule courbe par axe ; le classeur rendait φ = 1 sans choix, α + β avec deux.",
     "cisaillement_abs": "|V_y| + |V_z| ; le classeur additionnait les valeurs signées, qui se compensaient.",
     "phid_plafond": "φ_d = 1 pour λ̄ ≤ 0,2 (NBN B 51-002) ; prolongée, la formule des classeurs donne {prolonge}.",
-    "seuils_epaisseur": "classe pour 40 < t_f ≤ 80 mm (tableau 12) ; les tests d'épaisseur des classeurs n'en donnaient aucune.",
-    "seuils_eurocode": "seuils de 40 et 80 mm du tableau 12 ; la feuille « Calcul automatique » prenait 100 mm (Eurocode).",
-    "fy_nuance": "σ_adm,d avec la f_y de la nuance ({fy} N/mm²) ; la feuille S355 de DEVERSEMENT_CAD prenait 157 N/mm² (S235).",
-    "classe_type": "classe du type de profilé ({classe}) ; DEVERSEMENT_CAD donnait celle d'un I laminé ({classe_lamine}).",
-    "axe_faible": "classe de la ligne « axe faible » seule (doc p. 19) ; les classeurs montraient aussi la ligne « axe fort ».",
+    "seuils_epaisseur": "classe pour 40 < t_f ≤ 80 mm (tableau 12), que les tests des classeurs ne donnaient pas.",
+    "seuils_eurocode": "seuils de 40 et 80 mm du tableau 12 ; la feuille « Calcul automatique » prenait 100 mm.",
+    "fy_nuance": "σ_adm,d avec f_y = {fy} N/mm² ; la feuille S355 de DEVERSEMENT_CAD prenait 157 N/mm² (S235).",
+    "classe_type": "classe du type de profilé ({classe}) ; DEVERSEMENT_CAD prenait celle d'un I laminé ({classe_lamine}).",
+    "axe_faible": "classe de la ligne « axe faible » seule (doc p. 19), sans la ligne « axe fort » des classeurs.",
 }
 # les messages de 6.4, sans changer les valeurs
 MESSAGE_CD = ("La formule des classeurs ne tient pas compte de la hauteur de la charge : avec une charge sur la semelle haute, "
