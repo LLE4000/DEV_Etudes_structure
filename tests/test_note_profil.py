@@ -382,8 +382,11 @@ def parite(etat, pages):
                 nombre(f"le taux de {v['id']}", taux(v["taux"]))
             if v["valeur"] is not None and not PR.interaction(v):
                 signe = "≤" if v["statut"] != RE.NOK else ">"
-                nombre(f"la valeur de {v['id']}, puis le sens de la comparaison", f"{M.r1(v['valeur'])} {v['unite']} {signe}".replace("  ", " "))
-                nombre(f"la limite de {v['id']}", f"{M.r1(v['limite'])} {v['unite']}".strip())
+                if not v["unite"]:          # (lot C, C4) une somme sans unité à sa limite (-FM), comme l'écran : « = 0,513 ≤ 1,4 »
+                    nombre(f"la somme de {v['id']}, le sens et sa limite", f"= {C.fr(v['valeur'], 3)} {signe} {M.n(v['limite'], 3)}")
+                else:
+                    nombre(f"la valeur de {v['id']}, puis le sens de la comparaison", f"{M.r1(v['valeur'])} {v['unite']} {signe}".replace("  ", " "))
+                    nombre(f"la limite de {v['id']}", f"{M.r1(v['limite'])} {v['unite']}".strip())
             elif v["valeur"] is not None:
                 nombre(f"la somme de {v['id']}", f"η = {C.fr(v['valeur'], 3)}")
             for f, syms in PR.formules_de(a, v, taux=False):
@@ -939,7 +942,7 @@ MUTATIONS = (
      lambda vrai: dict(vrai, historique="Historique"), ["la barre neuve"]),
     ("le résumé de la barre redit « 74 % historique »", NP, "COURT", lambda vrai: dict(vrai, historique="historique"), ["la barre neuve"]),
     ("la note de la comparaison redit « La méthode historique »", NP.R, "NOTE_COMPARAISON",
-     lambda vrai: vrai.replace("méthode ELS (NBN B 51-001)", "méthode historique"), ["la barre neuve"]),
+     lambda vrai: vrai.replace("ELS :", "La méthode historique :"), ["la barre neuve"]),
     ("la tête de la méthode ELS répète sa norme (« Méthode ELS (NBN B 51-001) — NBN B 51-001 »)", NP, "methode",
      lambda vrai: (lambda el, k, x, largeur: (lambda o: dict(o, titre=f"{M.METHODES[k]} — {x['norme']}"))(vrai(el, k, x, largeur))), ["la barre neuve"]),
     ("les efforts imposés redisent « de service (méthode historique) »", NP, "donnees",

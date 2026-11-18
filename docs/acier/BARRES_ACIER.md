@@ -1178,6 +1178,29 @@ note (C5) : ils liront ce que le moteur rend.
 - **R2 de bout en bout** (critère du lot C) : `tests/test_barre_moteur.py`, § 10 — M_Ed 68,70, V_Ed 27,80 ; propriétés du
   brief : 118,18 / 0,887 et 86,98 / 1,093 ; catalogue (I_t 19,77 cm⁴) : 117,52 / 0,890 et 86,35 / 1,0996.
 
+### 9.3 Les résultats à l'écran (lot C, C4, 18/11/2026)
+
+`api_web/profil_resultat.py`, `profil_mots.py`, `dessin_barre.py` ; contrôles : `tests/test_api_web_profil_resultat.py`.
+
+- **Une information à un endroit.** Le taux d'une méthode est écrit au seul verdict : ni l'en-tête des blocs, ni la ligne
+  « Profilé » (plus de masse : le bouton du profilé, à gauche, la dit), ni le pied. R2 : « 144 % » 7 → 5 fois dans la
+  colonne, « 110 % » 4 → 3 (le verdict, les lignes de vérification, les cases de la comparaison).
+- **Le verdict ELS** montre la flexion, le déversement ou le flambement — jamais le contrôle hérité H-EQ (brief § 6.1) ;
+  quand H-EQ s'écrit plus haut, son taux est dit sous le verdict (À VÉRIFIER : le mettre en tête quand il refuse seul).
+- **Comparaison** : par sujet, ELS, Eurocode 3, l'écart (points, nommé par `comparaison.py`) et ce qui gouverne.
+- **Écarts avec les classeurs** (brief § 6.7) : la ligne « n corrections des classeurs » du bloc ELS ouvre la fenêtre
+  « ecarts » — une ligne par correction rendue (`corrections`), où elle joue ; jamais un choix du bureau.
+- **Avant/après raidisseur** (§ 15.4) : en tête de la fenêtre du lieu raidi, grandeur · sans · avec (F_Rd, σ_z,Ed, η₂,
+  interaction ou critère 6.2.1(5) ; σ de la section efficace, N_b,Rd, contact), puis le rappel sur τ. Test 18 : 387,8 kN ;
+  1,161 (450/387,76 ; le brief écrit 1,160) ; 1 002,2 kN · 0,449 ; 204,5 ≤ 225 N/mm² · 0,909.
+- **Fenêtres** : une vérification ne montre que ses formules et ses messages (les hypothèses : « Tout le calcul ») ;
+  P_cr,y et P_cr,z cachés sans effort normal ; « Tout le calcul » de l'Eurocode 3 dit l'autre variante de chaque décision
+  (§ 6.3.2.2 pour information, A_v,y, n_pl avec l'autre γ_M). -FM écrit comme la norme : η₂ + 0,8·η₁ = 0,513 ≤ 1,4
+  (`ame.py` : valeur = la somme, limite 1,4 ; le taux 0,366 ne change pas).
+- **Dessin** : le signe du niveau de chaque charge (▲ ● ▼, des formes) quand les niveaux sont mêlés, le maintien négligé
+  creux, la position (verticale, inclinée), N par tronçon, les débords (barre entière, appuis de `statique.appuis_x`), les
+  points vérifiés (p1, p2…) ; chaque repère a sa légende en mots.
+
 ## 10. À confirmer par le bureau
 
 | # | Question | En attendant |

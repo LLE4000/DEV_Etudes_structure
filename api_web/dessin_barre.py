@@ -12,6 +12,7 @@ from html import escape
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.barre import resultat as RE
+from acier.barre import statique as ST
 
 from . import commun as C
 from . import dessin_profil as DP
@@ -66,18 +67,72 @@ def _nature(c: Dict) -> str:
     return t[:1].lower() + t[1:]
 
 
+# ------------------------------------------------------------------ (lot C, C4) les repères : un SYMBOLE dessiné et des mots
+def _signe_niveau(niv: str, x: float, y: float, couleur: str = DP.ENCRE) -> str:
+    """Le signe du niveau d'une charge, centré en (x, y) — ▲ semelle haute, ● centre, ▼ semelle basse : une FORME, lisible
+    en noir et blanc (brief § 15.5), dessinée plutôt qu'écrite (une police sans ces glyphes ne la perd pas)."""
+    if niv == "haut":
+        return f'<path d="M{x:.1f} {y - 3.6:.1f}l3.6 6.4h-7.2z" fill="{couleur}"/>'
+    if niv == "bas":
+        return f'<path d="M{x:.1f} {y + 3.6:.1f}l3.6 -6.4h-7.2z" fill="{couleur}"/>'
+    return f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{couleur}"/>'
+
+
+def _niveaux_meles(el: Dict) -> bool:
+    """Les charges de la barre sont-elles à des niveaux différents ? (Le signe n'est dessiné qu'alors : sinon le niveau de
+    la barre, dit une fois dans les données, suffit.)"""
+    return len({ch.get("niveau") or el["niveau"] for c in el["cas"] for ch in c["charges"]}) > 1
+
+
+def _losange(x: float, y: float) -> str:
+    """Le repère d'un point vérifié : un losange CREUX sur l'axe de la barre."""
+    return f'<path d="M{x:.1f} {y - 4.5:.1f}l4.5 4.5l-4.5 4.5l-4.5 -4.5z" fill="#fff" stroke="{DP.ENCRE}" stroke-width="1.2"/>'
+
+
+def _maintien(x: float, yb: float, genre: str, neglige: bool) -> str:
+    """Un maintien latéral : un triangle au-dessus (semelle haute), en dessous (semelle basse), les deux (complet) ; CREUX
+    quand il est négligé dans M_cr (lot C, C1 : il tient la barre, le moment critique ne le compte pas)."""
+    peint = f'fill="#fff" stroke="{DP.ACCENT}" stroke-width="1.2"' if neglige else f'fill="{DP.ACCENT}"'
+    haut = f'<path d="M{x:.1f} {yb - 3:.1f}l-4.5 -8h9z" {peint}/>'
+    bas = f'<path d="M{x:.1f} {yb + 3:.1f}l-4.5 8h9z" {peint}/>'
+    return {"complet": haut + bas, "haut": haut, "bas": bas}[genre]
+
+
 # ------------------------------------------------------------------ les cas de charge
 def _largeur(texte: str, fs: float) -> float:
     """La largeur d'un texte gras, estimée (un dessin n'a pas la métrique de la police) : 0,58 du corps par caractère."""
     return 0.58 * fs * len(texte)
 
 
-def _bande_cas(c: Dict, y: float, K: Cadre, vmax: float) -> str:
+SIGNE = 11.0                     # (lot C, C4) la place du signe de niveau derrière la valeur d'une charge
+
+
+def _N_troncons(c: Dict, y: float, K: Cadre) -> List[str]:
+    """(lot C, C4) L'effort normal d'un cas PAR TRONÇON (``N_troncons`` : [{"x2", "N"}…], le premier part du bout gauche) :
+    sous la ligne du cas, un trait de cote par tronçon et sa valeur au milieu — « N = 50 kN », « 50 » si le tronçon est
+    trop court pour le mot, rien s'il l'est même pour le nombre (sa valeur se lit dans la saisie)."""
+    out, x1 = [], 0.0
+    for t in c["N_troncons"]:
+        x2 = min(float(t["x2"]), K.Lt)
+        a, b = K.X(x1), K.X(x2)
+        out.append(_trait(f"M{a + 1:.1f} {y + 5:.1f}V{y + 9:.1f}H{b - 1:.1f}V{y + 5:.1f}", CHARGE, 0.8))
+        for txt in (f"N = {M.n(t['N'], 1)} kN", M.n(t["N"], 1)):
+            if _largeur(txt, 9.0) + 4 <= b - a:
+                out.append(_t((a + b) / 2, y + 18, txt, 9.0, couleur=CHARGE))
+                break
+        x1 = x2
+    return out
+
+
+def _bande_cas(c: Dict, y: float, K: Cadre, vmax: float, niv_defaut: Optional[str] = None) -> str:
     """La bande d'un cas : son nom à gauche, ses charges sur une ligne de base ; ``y`` : la ligne de base. Les valeurs
     des charges ponctuelles et des couples sont placées d'abord ; celle d'une charge répartie se met au milieu, sinon à
     un bout de la charge, là où elle ne recouvre aucune valeur déjà écrite. Les charges réparties sont peintes dessous,
-    les flèches des charges ponctuelles et toutes les valeurs dessus."""
+    les flèches des charges ponctuelles et toutes les valeurs dessus. (lot C, C4) ``niv_defaut`` : le niveau de la barre,
+    quand ses charges sont à des niveaux MÊLÉS — chaque valeur porte alors le signe du sien (▲ ● ▼) ; l'effort normal se
+    dessine par tronçon quand il en a."""
     X, Lt, W = K.X, K.Lt, K.w
+    signe = SIGNE if niv_defaut else 0.0
     out = [_t(8, y - 16, c["nom"], 11.5, "start", gras=True), _t(8, y - 3, _nature(c), 9.0, "start", DP.MUET),
            _trait(f"M{X(0):.1f} {y:.1f}H{X(Lt):.1f}", DP.GRIS, 1.0)]
     fonds: List[str] = []                                         # les charges réparties (dessous)
@@ -99,10 +154,13 @@ def _bande_cas(c: Dict, y: float, K: Cadre, vmax: float) -> str:
             txt, dx, dy, marge = f"{M.n(abs(v), 2)} kN·m", 13.0, 18.0, 70.0
         ancre = "start" if x < W - MR - marge else "end"
         w = _largeur(txt, 10.0)
-        x1, x2 = (x + dx, x + dx + w) if ancre == "start" else (x - dx - w, x - dx)
+        s_ = signe if t == "P" else 0.0                           # (un couple n'a pas de niveau : il ne charge pas l'âme)
+        x1, x2 = (x + dx, x + dx + w + s_) if ancre == "start" else (x - dx - w - s_, x - dx)
         if any(o["type"] in ("q", "tri") and X(o["a"]) < x2 and X(o["b"]) > x1 for o in c["charges"]):
             dy = 32.0                                             # au-dessus d'une charge répartie : la valeur passe par-dessus son bord
-        dessus.append(_t(x + (dx if ancre == "start" else -dx), y - dy, txt, 10.0, ancre, CHARGE, True))
+        dessus.append(_t(x + (dx if ancre == "start" else -dx - s_), y - dy, txt, 10.0, ancre, CHARGE, True))
+        if s_:
+            dessus.append(_signe_niveau(ch.get("niveau") or niv_defaut, x2 - 4.0 if ancre == "start" else x - dx - 4.0, y - dy - 3.5, CHARGE))
         pris.append((x1, x2))
     for ch in c["charges"]:
         t, v = ch["type"], ch["v"]
@@ -122,32 +180,39 @@ def _bande_cas(c: Dict, y: float, K: Cadre, vmax: float) -> str:
             if hj > 8:
                 fonds.append(_fleche(xj, y + s * hj, y + s * 0.6, CHARGE, 0.9))
         txt = f"{M.n(abs(v), 2)} kN/m"
-        w = _largeur(txt, 10.0)
+        w = _largeur(txt, 10.0) + signe                           # (le signe de niveau, derrière la valeur)
         milieu = (xa + xb) / 2
         xm = next((x_ for x_ in (milieu, xa + w / 2 + 3, xb - w / 2 - 3)
                    if all(x_ + w / 2 + 4 < a or x_ - w / 2 - 4 > b for a, b in pris)), milieu)
-        dessus.append(_t(xm, y + s * h - 4 if bas else y + s * h + 12, txt, 10.0, couleur=CHARGE, gras=True))
+        yt = y + s * h - 4 if bas else y + s * h + 12
+        dessus.append(_t(xm - signe / 2, yt, txt, 10.0, couleur=CHARGE, gras=True))
+        if signe:
+            dessus.append(_signe_niveau(ch.get("niveau") or niv_defaut, xm + w / 2 - 4.0, yt - 3.5, CHARGE))
         pris.append((xm - w / 2, xm + w / 2))
-    if c.get("N"):
+    if c.get("N_troncons"):
+        dessus += _N_troncons(c, y, K)
+    elif c.get("N"):
         dessus.append(_t(W - 4, y + 12, f"N = {M.n(c['N'], 1)} kN", 9.5, "end", CHARGE))
     return "".join(out + fonds + dessus)
 
 
 # ------------------------------------------------------------------ la poutre
+N_TRONCONS = 16.0               # (lot C, C4) la place de plus sous un cas dont l'effort normal est donné par tronçon
+
+
 def _appuis(el: Dict) -> List[Tuple[float, str]]:
-    """Les appuis du modèle : (abscisse, « articule » | « encastre » | « libre »)."""
-    L = sum(el["travees"])
+    """Les appuis du modèle : (abscisse, « articule » | « encastre » | « libre »). (lot C, C4) Leurs abscisses sont celles
+    du moteur (``statique.appuis_x`` : depuis le bout gauche, débord compris) et la barre a sa longueur entière
+    (``statique.longueur`` : les débords en plus des portées)."""
+    L = ST.longueur(el)
+    xs = ST.appuis_x(el)
     mo = el["modele"]
     if mo == "console":
         return [(0.0, "encastre"), (L, "libre")]
     if mo == "enc_app":
-        return [(0.0, "encastre"), (L, "articule")]
+        return [(xs[0], "encastre"), (xs[-1], "articule")]
     if mo == "bi_enc":
-        return [(0.0, "encastre"), (L, "encastre")]
-    xs, x = [0.0], 0.0
-    for t in el["travees"]:
-        x += t
-        xs.append(x)
+        return [(xs[0], "encastre"), (xs[-1], "encastre")]
     return [(x, "articule") for x in xs]
 
 
@@ -172,20 +237,42 @@ def _poutre(el: Dict, yb: float, K: Cadre, raidisseurs: Sequence[float] = ()) ->
         if genre != "libre":
             out.append(_t(x, yb + 32, chr(ord("A") + k), 10.5, couleur=DP.MUET, gras=True))
     for mt in el["maintiens"]:
-        x = X(mt["x"])
-        haut = f'<path d="M{x:.1f} {yb - 3:.1f}l-4.5 -8h9z" fill="{DP.ACCENT}"/>'
-        bas = f'<path d="M{x:.1f} {yb + 3:.1f}l-4.5 8h9z" fill="{DP.ACCENT}"/>'
-        out.append({"complet": haut + bas, "haut": haut, "bas": bas}[mt["genre"]])
+        out.append(_maintien(X(mt["x"]), yb, mt["genre"], bool(mt.get("neglige"))))
     out += [_plat(X(x), yb) for x in raidisseurs]
+    # (lot C, C4) les points vérifiés : un losange creux sur l'axe, et sa lettre au-dessus (p1, p2…) ; deux lettres trop
+    # proches l'une de l'autre se superposent en hauteur, jamais l'une sur l'autre
+    dernier = -1e9
+    hauteur = 0
+    for k, xp in enumerate(el.get("points") or []):
+        x = X(xp)
+        hauteur = hauteur + 1 if x - dernier < 16 else 0
+        dernier = x
+        out.append(_losange(x, yb))
+        out.append(_t(x, yb - 16 - 10 * hauteur, f"p{k + 1}", 9.0, couleur=DP.ENCRE, gras=True))
+    # (lot C, C4) la position de la barre, quand elle n'est pas horizontale : dans la marge, sur la ligne de la poutre
+    if el.get("position") and el["position"] != "horizontale":
+        pos = "verticale" if el["position"] == "verticale" else f"inclinée {M.n(el.get('angle') or 0.0, 1)}°"
+        out.append(_t(8, yb + 4, pos, 9.5, "start", DP.MUET))
     yc = yb + 48
-    x0 = 0.0
+    g, d = (el.get("debords") or (0.0, 0.0))[:2]
+    x0 = g
     for i, L in enumerate(el["travees"]):
         xa, xb = X(x0), X(x0 + L)
         out.append(_trait(f"M{xa:.1f} {yc:.1f}H{xb:.1f}M{xa:.1f} {yc - 4:.1f}v8M{xb:.1f} {yc - 4:.1f}v8", DP.COTE, 0.8))
         nom = "L" if len(el["travees"]) == 1 else f"L_{i + 1}"
         out.append(_t((xa + xb) / 2, yc - 5, f"{nom} = {C.fr(L, 2)} m", 10.5, couleur=DP.COTE))
         x0 += L
-    return "".join(out), yc + 8
+    # (lot C, C4) les débords : leur cote prolonge celle des portées, leur valeur dessous (la place au-dessus est aux portées)
+    bas = yc + 8
+    for a_, b_ in ((0.0, g), (g + sum(el["travees"]), g + sum(el["travees"]) + d)):
+        if b_ - a_ <= 1e-9:
+            continue
+        xa, xb = X(a_), X(b_)
+        out.append(_trait(f"M{xa:.1f} {yc:.1f}H{xb:.1f}M{xa:.1f} {yc - 4:.1f}v8M{xb:.1f} {yc - 4:.1f}v8", DP.COTE, 0.8))
+        xm = (xa + xb) / 2
+        out.append(_t(xm, yc + 13, f"débord {C.fr(b_ - a_, 2)} m", 9.5, K.ancre(xm, 40), DP.COTE))
+        bas = yc + 18
+    return "".join(out), bas
 
 
 # ------------------------------------------------------------------ les enveloppes
@@ -236,12 +323,15 @@ def enveloppes(r: Dict) -> Optional[Tuple[str, Dict]]:
 def barre(ident: str, el: Dict, r: Dict, largeur: float = W, legende: bool = True) -> str:
     """Le dessin de la barre chargée : les cas de charge, la poutre, puis les enveloppes de M et de V. ``largeur`` : celle
     de la scène (plus étroite, les textes y sont plus grands) ; ``legende`` : la ligne qui dit ce qu'est un maintien."""
-    K = Cadre(largeur, sum(el["travees"]))
+    K = Cadre(largeur, ST.longueur(el))                  # (lot C, C4 : débords compris)
     vmax = max((abs(ch["v"]) for c in el["cas"] for ch in c["charges"] if ch["type"] in ("q", "tri")), default=1.0) or 1.0
+    meles = _niveaux_meles(el)
     corps, y = [], 12.0
     for c in el["cas"]:
         y += H_CAS
-        corps.append(_bande_cas(c, y, K, vmax))
+        corps.append(_bande_cas(c, y, K, vmax, el["niveau"] if meles else None))
+        if c.get("N_troncons"):
+            y += N_TRONCONS
     yb = y + 40.0
     raidis = [L["x"] for L in M.raidis(r.get("ame") or {})]
     p, y = _poutre(el, yb, K, raidis)
@@ -268,6 +358,26 @@ def barre(ident: str, el: Dict, r: Dict, largeur: float = W, legende: bool = Tru
         y += 16 if el["maintiens"] else 18
         corps.append(_plat(ML, y - 7))
         corps.append(_t(ML + 9, y - 4, "raidisseur transversal : une paire de plats, de part et d'autre de l'âme", 9.5, "start", DP.MUET))
+        y += 6
+    # (lot C, C4) les autres repères, chacun par son SIGNE et ses mots (brief § 15.5 : lisible en noir et blanc)
+    if legende and any(mt.get("neglige") for mt in el["maintiens"]):
+        y += 16
+        corps.append(_maintien(ML, y - 4, "haut", True))
+        corps.append(_t(ML + 9, y - 4, "maintien creux : présent, mais négligé dans M_cr", 9.5, "start", DP.MUET))
+        y += 6
+    if legende and meles:
+        y += 16
+        xg = ML
+        for niv in ("haut", "centre", "bas"):
+            corps.append(_signe_niveau(niv, xg, y - 7.5, CHARGE))
+            mot = M.NOM_NIVEAU[niv]
+            corps.append(_t(xg + 7, y - 4, mot, 9.5, "start", DP.MUET))
+            xg += 7 + _largeur(mot, 9.5) * 0.9 + 16
+        y += 6
+    if legende and el.get("points"):
+        y += 16
+        corps.append(_losange(ML, y - 7.5))
+        corps.append(_t(ML + 9, y - 4, "p1, p2… : points vérifiés en plus des sections critiques", 9.5, "start", DP.MUET))
         y += 6
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {K.w:.0f} {y + 6:.0f}" width="100%" role="img" '
             f'aria-label="La barre : ses cas de charge, ses appuis et ses maintiens, les enveloppes du moment et de l\'effort tranchant">'

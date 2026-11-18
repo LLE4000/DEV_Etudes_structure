@@ -111,6 +111,21 @@ MOTS_STATUT_PLURIEL = {RE.BLOQUE: "bloqués", RE.NON_COUVERT: "non couverts"}
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 # les statuts sous lesquels un TAUX n'est jamais peint « conforme » : il est montré pour information (lot C, C0b)
 STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)
+# (lot C, C4) le contrôle HÉRITÉ du classeur (H-EQ, brief § 6.1 : H11 et H12) ne décide jamais seul : il n'est jamais en
+# tête du verdict de la méthode ELS quand une autre vérification a un taux jugé (profil_resultat.tete)
+HERITES = ("H-EQ",)
+MOT_HERITE = "contrôle hérité"
+# (lot C, C4) le niveau d'une charge sur le dessin : un SYMBOLE lisible en noir et blanc, et sa légende en mots
+SYMBOLE_NIVEAU = {"haut": "▲", "centre": "●", "bas": "▼"}
+NOM_NIVEAU = {"haut": "semelle haute", "centre": "centre de cisaillement", "bas": "semelle basse"}
+# (lot C, C4) la page « Écarts avec les classeurs du bureau » (brief § 6.7) : la ligne du bloc ELS qui l'ouvre, sa fenêtre
+FENETRE_ECARTS = "ecarts"
+TITRE_ECARTS = "écarts avec les classeurs du bureau"
+
+
+def mot_corrections(n_: int) -> str:
+    """« 1 correction des classeurs », « 3 corrections des classeurs » (du texte)."""
+    return f"{n_} correction{'s' if n_ > 1 else ''} des classeurs"
 
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
 
@@ -248,4 +263,6 @@ def comparaison(v: Dict, court: bool = True) -> str:
     g, _, d = crit.partition(" ≤ ")
     if not v["unite"] and abs((v["limite"] or 0.0) - 1.0) < 1e-12:
         return f"{'η' if court else sub(g)} = {C.fr(v['valeur'], 3)} {signe} 1"
+    if not v["unite"]:                  # (lot C, C4) une somme sans unité, écrite comme la norme : « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 »
+        return f"{sub(g)} = {C.fr(v['valeur'], 3)} {'≤' if v['valeur'] <= v['limite'] else '&gt;'} {n(v['limite'], 3)}"
     return f"{sub(g)} {r1(v['valeur'])} {signe} {sub(d)} {r1(v['limite'])}{NB}{C.esc(v['unite'])}"
