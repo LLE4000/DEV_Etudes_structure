@@ -447,7 +447,7 @@ def _ajuster(el: Dict, L_avant: float) -> bool:
     """Après un changement de portée ou de modèle : une charge qui allait jusqu'au bout de la barre la suit ; ce qui
     dépasse est ramené dans la barre (une charge ou un maintien entièrement dehors est retiré). Vrai si quelque chose a
     été ramené ou retiré."""
-    L = float(sum(el["travees"]))
+    L = float(ST.longueur(el))            # la BARRE : débords compris (intégration du lot C)
     touche = False
     for c in el["cas"]:
         gardees = []
@@ -564,7 +564,7 @@ def _charge_neuve(type_: str, L: float, ancienne: Optional[Dict] = None) -> Dict
 
 def _cas_neuf(el: Dict) -> Dict:
     """Un cas de charge de plus : variable (exploitation A) tant que le moteur en admet, permanent sinon."""
-    L = float(sum(el["travees"]))
+    L = float(ST.longueur(el))
     variables = sum(1 for c in el["cas"] if c["nature"] != CO.PERMANENT)
     lettre, nature = ("Q", "exploitation_A") if variables < CO.VARIABLES_MAX else ("G", CO.PERMANENT)
     pris = {c["nom"] for c in el["cas"]}
@@ -576,11 +576,8 @@ def _cas_neuf(el: Dict) -> Dict:
 
 def _maintien_neuf(el: Dict) -> Dict:
     """Un maintien de plus, au milieu du plus long intervalle que rien ne tient encore."""
-    L = float(sum(el["travees"]))
-    tenus, x = {0.0, L}, 0.0
-    for t in el["travees"]:
-        x += t
-        tenus.add(round(x, 6))
+    L = float(ST.longueur(el))
+    tenus = {0.0, L} | {round(x, 6) for x in ST.appuis_x(el)}           # (les appuis : g, g + L₁, … — débord gauche compris)
     tenus |= {round(mt["x"], 6) for mt in el["maintiens"]}
     pts = sorted(tenus)
     a, b = max(zip(pts, pts[1:]), key=lambda p: p[1] - p[0])
@@ -592,7 +589,7 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
     KeyError : le champ n'existe pas ; ValueError : la valeur est refusée."""
     cle = "/".join(cles)
     k = cles[0]
-    L = float(sum(el["travees"]))
+    L = float(ST.longueur(el))
     if cle == "nom":
         nom = " ".join(str(valeur if valeur is not None else "").split())
         if len(nom) > NOM_MAX:

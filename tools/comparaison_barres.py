@@ -813,11 +813,10 @@ def rapport(cs: List[Dict], date: str) -> str:
       f"fichier).*\n")
     w(f"**{DONNEE}**\n")
     w("## 0. En bref\n")
-    w("- **Défaut non conservatif trouvé, hors de ce bloc** (moteur, non corrigé ici) : une barre à débord gauche ne peut pas "
-      "être chargée jusqu'au bout de sa travée. `acier/barre/entree.py`, `normaliser` : `Lt = sum(b[\"travees\"])` borne les "
-      "charges, les maintiens et les points à Σ portées, sans les débords. Mesuré : 6 m + débord gauche 0,5 m, q = 10 kN/m de "
-      "0 à 6,5 m refusé ; de 0 à 6 m accepté, et les 0,5 derniers mètres de la travée restent sans charge (M_max 59,06 kN·m). "
-      "Remède proposé : `Lt = statique.longueur(b)`, débords lus d'abord. À corriger avant la mise en ligne.")
+    w("- **Défaut non conservatif trouvé par la revue, corrigé à l'intégration du lot C** : une barre à débord gauche ne pouvait "
+      "pas être chargée jusqu'au bout de sa travée (`acier/barre/entree.py`, `normaliser` bornait les charges, les maintiens et "
+      "les points à Σ portées, sans les débords ; l'écran mesurait la barre de même). La barre va maintenant de 0 à "
+      "g + Σ portées + d (`statique.longueur`) ; contrôles et mutations : `tests/test_barre_moteur.py`, `tests/test_api_web_profil.py`.")
     w(f"- {len(cs)} cas, {sum(len(c['brief']) for c in cs) + len(R4_LIGNES)} valeurs du brief : "
       + ("**toutes à 1 % au plus** (règle 7)." if not nc else f"**{len(nc)} hors tolérance** : " + " ; ".join(nc) + "."))
     w("- Chaque cas a ses deux méthodes, ou un statut nommé (non couvert, sans objet, fonction seule) ; jamais une case vide.")

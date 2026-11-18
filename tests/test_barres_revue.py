@@ -122,7 +122,7 @@ def controles(T):
     c("questions au bureau Q1 à Q14 rangées en trois groupes (tranchées, ouvertes, nouvelles), chacune une fois",
       len(T.QUESTIONS) == 3 and sorted(int(m) for _, qs in T.QUESTIONS for q_ in qs for m in re.findall(r"\bQ(\d+)", q_))
       == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
-    c("le défaut non conservatif trouvé (débord gauche : charges bornées à Σ portées) est en tête du rapport, avant le § 1",
+    c("le défaut non conservatif trouvé (débord gauche : charges bornées à Σ portées), corrigé à l'intégration, est en tête du rapport, avant le § 1",
       texte.index("Défaut non conservatif") < texte.index("## 1."))
     return C
 
@@ -178,7 +178,8 @@ MUTATIONS = [
     ("la phrase d'un écart de plus de 10 points se tait", "    if li[\"ecart\"] is None or abs(li[\"ecart\"]) <= SEUIL_ECART:\n        return None",
      "    if True:\n        return None"),
     ("la capacité ELS sans le facteur s", '"M_els_s": None if Ms is None else S * Ms', '"M_els_s": Ms'),
-    ("le défaut non conservatif quitte la tête du rapport", '    w("- **Défaut non conservatif trouvé, hors de ce bloc** (moteur', '    w("- **Défaut trouvé, hors de ce bloc** (moteur'),
+    # (intégration du lot C, le harnais suit : le défaut est corrigé, la tête du rapport le dit — trouvé, puis corrigé)
+    ("le défaut non conservatif quitte la tête du rapport", '    w("- **Défaut non conservatif trouvé par la revue, corrigé', '    w("- **Défaut trouvé par la revue, corrigé'),
 ]
 
 

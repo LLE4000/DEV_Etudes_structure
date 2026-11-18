@@ -582,16 +582,21 @@ def controles(M=None):
     longs = [m for m in messages.values() if "\n" in m or len(m) > 120]
     c("(lot C, C0e) … et son refus : chaque valeur hors de son domaine est REFUSÉE, avec un message d'une ligne (120 caractères au plus)",
       not passent and not longs, (passent, longs))
+    # (intégration du lot C, le harnais suit : les charges sont lues avec les débords, et rdm/poutres refuse aussi le débord d'une console —
+    #  le refus d'entree, en ses mots, est exigé pour que sa mutation rougisse encore)
+    c("(lot C, C0e) le débord d'une console : refusé par entree, en une ligne qui dit où un débord est admis",
+      messages.get("débord d'une console") == "débords : seulement pour une barre sur deux appuis ou continue", messages.get("débord d'une console"))
+    # (intégration du lot C, le harnais suit : la barre à débord gauche de 0,5 m va jusqu'à 6,5 m — son dernier tronçon de N aussi)
     bon = en.normaliser(barre(combinaisons={"expression": "6.10ab"}, position="inclinee", angle=30, points=[2.0, 1.0], debords=[0.5, 0.0],
                               norme_produit="M", ouvrage="autre", maintiens=[{"x": 3.0, "neglige": True}],
-                              cas=[dict(G, courte_duree=True, psi0=0.3, N_troncons=[{"x2": 2.0, "N": 10.0}, {"x2": 6.0, "N": 0.0}],
+                              cas=[dict(G, courte_duree=True, psi0=0.3, N_troncons=[{"x2": 2.0, "N": 10.0}, {"x2": 6.5, "N": 0.0}],
                                         charges=[dict(q(5.0, 0.0, 6.0), niveau="bas"), dict(P_(5.0, 3.0), introduction="c")])],
                               appuis={"mode": "poses", "ss": 100.0, "c": None, "detail": [{"ss": 120.0, "torsion": "encastre"}, {"c": 10.0}]}))
     c("(lot C, C0e) … et une valeur admise est GARDÉE telle quelle par entree.normaliser (les points vérifiés triés, la torsion d'un appui "
       "« fourche » à défaut)",
       bon["combinaisons"]["expression"] == "6.10ab" and bon["position"] == "inclinee" and bon["angle"] == 30.0 and bon["points"] == [1.0, 2.0]
       and bon["debords"] == [0.5, 0.0] and bon["norme_produit"] == "M" and bon["ouvrage"] == "autre" and bon["maintiens"][0]["neglige"] is True
-      and bon["cas"][0]["courte_duree"] is True and bon["cas"][0]["psi0"] == 0.3 and bon["cas"][0]["N_troncons"][-1] == {"x2": 6.0, "N": 0.0}
+      and bon["cas"][0]["courte_duree"] is True and bon["cas"][0]["psi0"] == 0.3 and bon["cas"][0]["N_troncons"][-1] == {"x2": 6.5, "N": 0.0}
       and bon["cas"][0]["charges"][0]["niveau"] == "bas" and bon["cas"][0]["charges"][1]["introduction"] == "c"
       and bon["appuis"]["detail"] == [{"ss": 120.0, "torsion": "encastre"}, {"c": 10.0, "torsion": "fourche"}], bon["appuis"])
     tol = en.normaliser(barre(historique={"tolerance": True}))["historique"]
@@ -1253,6 +1258,21 @@ def controles_c1(M=None):
       "du débord, 0–1,5 m, est hors domaine)",
       rpb["longueurs"]["y"]["L"] == 7.91 and rpb["longueurs"]["z"]["origine"] == "debord" and rpb["methodes"]["historique"]["statut"] != RE.OK,
       (rpb["longueurs"], rpb["methodes"]["historique"]["statut"]))
+    # ---- (intégration du lot C, revue C8 : NON CONSERVATIF) une barre à débord gauche se charge jusqu'au bout de sa travée
+    try:
+        rq = mo.verifier(barre(debords=[0.5, 0.0], poids_propre=False, maintiens=[{"x": 6.5}], points=[6.25],
+                               cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [q(10.0, 0.0, 6.5)],
+                                     "N_troncons": [{"x2": 3.0, "N": 10.0}, {"x2": 6.5, "N": 20.0}]}]))
+    except Exception as e:  # noqa: BLE001 — un refus (ou le refus d'un module muté) fait rougir le contrôle
+        rq = {"refus": str(e)}
+    sq = PO.resoudre("appuis", [6.0], [q(10.0, 0.0, 6.5)], debords=(0.5, 0.0))
+    c("(intégration C) débord gauche 0,5 m + portée 6 m : q = 10 kN/m de 0 à 6,5 m (le bout de la travée), un maintien et une fin de N "
+      "à 6,5 m, un point à 6,25 m — acceptés (la barre va jusqu'à g + Σ portées + d, et non Σ portées : la fin de la travée restait sans "
+      "charge) ; réactions et M_max = rdm/poutres",
+      "refus" not in rq and rq["statique"]["L"] == 6.5
+      and [(a_["x"], a_["R"]) for a_ in rq["statique"]["cas"][0]["reactions"]] == [(a_["x"], a_["R"]) for a_ in sq.appuis]
+      and proche(max(abs(sq.extremes["M_max"][0]), abs(sq.extremes["M_min"][0])) * 1.35, vf(rq["methodes"]["ec3"], "E-My")["valeur"], 1e-6),
+      rq.get("refus") or rq["statique"]["cas"][0]["reactions"])
     # ---- 9. PRS chargés depuis leurs charges
     def prs10(p, niv, **k):
         return mo.verifier(_prs_barre(p, nuance="S355", travees=[10.0], poids_propre=False, niveau=niv,
@@ -1444,6 +1464,9 @@ MUTATIONS_C1 = [
     ("moteur", "C1 — méthode ELS : la section vérifiée au seul plus grand N de la barre (une traction plus forte oubliée, NON CONSERVATIF)",
      "    for n in (C.N, C.N_en(x, False), C.N_en(x, True)):", "    for n in (C.N,):"),
     ("statique", "C1 — les débords non passés au formulaire", 'c.get("charges") or [], EI, debords=debords)', 'c.get("charges") or [], EI)'),
+    ("entree", "intégration C — charges, maintiens et points bornés à Σ portées (une barre à débord gauche ne se charge pas jusqu'au bout, "
+     "NON CONSERVATIF)", "    Lt = ST.longueur(b)\n", '    Lt = sum(b["travees"])\n'),
+    ("entree", "intégration C — les débords non passés à la lecture des charges", 'c.get("charges") or [], tuple(b["debords"]))', 'c.get("charges") or [])'),
     ("statique", "C1 — le bout d'un débord pris tenu (fourche)", "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.LIBRE",
      "    if g > 1e-9 and 0.0 not in tenus:            # le bout d'un débord est libre (un maintien complet l'y tient)\n        tenus[0.0] = MC.FOURCHE"),
     ("moteur", "C1 — débord : la longueur de la barre entière oubliée", '            if Ld is not None and Ld > L + EPS:', "            if False:"),

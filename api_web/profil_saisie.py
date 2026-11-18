@@ -50,7 +50,7 @@ def _titre(texte: str) -> str:
 
 
 def _longueur(el: Dict) -> float:
-    return float(sum(el["travees"]))
+    return float(ST.longueur(el))
 
 
 def forme(el: Dict) -> Optional[str]:

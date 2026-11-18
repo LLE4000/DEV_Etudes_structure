@@ -156,8 +156,9 @@ def _contrat_commun(src: Dict, b: Dict) -> None:
     b["ouvrage"] = _parmi(src.get("ouvrage", b["ouvrage"]), DV.OUVRAGES, "type d'ouvrage")
 
 
-def _contrat_chargee(src: Dict, b: Dict, Lt: float) -> None:
-    """(lot C, C0e) Les clés de la barre chargée : combinaisons, position et angle, points vérifiés, débords."""
+def _contrat_chargee(src: Dict, b: Dict) -> float:
+    """(lot C, C0e) Les clés de la barre chargée : combinaisons, position et angle, débords, points vérifiés. Rend la
+    longueur de la BARRE (statique.longueur : débords compris), qui borne les charges, les maintiens et les points."""
     co = src.get("combinaisons", b["combinaisons"])
     if not isinstance(co, dict) or set(co) - set(b["combinaisons"]):
         raise Refus(f"combinaisons : {{{', '.join(b['combinaisons'])}}} attendu")
@@ -170,12 +171,6 @@ def _contrat_chargee(src: Dict, b: Dict, Lt: float) -> None:
     if angle is not None and not 0.0 <= _nombre(angle, "angle de la barre") <= 90.0:
         raise Refus("angle de la barre : de 0 à 90°")
     b["angle"] = None if angle is None else float(angle)
-    pts = src.get("points", b["points"])
-    if not isinstance(pts, (list, tuple)) or len(pts) > POINTS_MAX:
-        raise Refus(f"points vérifiés : une liste d'au plus {POINTS_MAX} abscisses")
-    b["points"] = sorted(PO.ramener(_nombre(x, "abscisse d'un point vérifié"), Lt) for x in pts)
-    if any(not 0.0 <= x <= Lt for x in b["points"]):
-        raise Refus(f"un point vérifié est hors de la barre (0 à {_m(Lt)} m)")
     db = src.get("debords", b["debords"])
     if not isinstance(db, (list, tuple)) or len(db) != 2:
         raise Refus("débords : deux longueurs, à gauche et à droite (m)")
@@ -184,6 +179,16 @@ def _contrat_chargee(src: Dict, b: Dict, Lt: float) -> None:
         raise Refus(f"débords : de 0 à {_m(L_MAX)} m")
     if any(b["debords"]) and b["modele"] not in ("appuis", "continue"):
         raise Refus("débords : seulement pour une barre sur deux appuis ou continue")
+    # (intégration du lot C) la barre va de 0 à g + Σ portées + d : bornée à Σ portées, une barre à débord gauche ne pouvait
+    # pas être chargée jusqu'au bout de sa travée, et la fin de la travée restait SANS CHARGE (non conservatif)
+    Lt = ST.longueur(b)
+    pts = src.get("points", b["points"])
+    if not isinstance(pts, (list, tuple)) or len(pts) > POINTS_MAX:
+        raise Refus(f"points vérifiés : une liste d'au plus {POINTS_MAX} abscisses")
+    b["points"] = sorted(PO.ramener(_nombre(x, "abscisse d'un point vérifié"), Lt) for x in pts)
+    if any(not 0.0 <= x <= Lt for x in b["points"]):
+        raise Refus(f"un point vérifié est hors de la barre (0 à {_m(Lt)} m)")
+    return Lt
 
 
 def _contrat_cas(c: Dict, nom: str, Lt: float) -> Dict:
@@ -363,8 +368,7 @@ def normaliser(barre: Dict) -> Dict:
             raise Refus(f"une poutre continue a de 2 à {PO.TRAVEES_MAX} travées")
     elif len(b["travees"]) != 1:
         raise Refus("ce modèle n'a qu'une travée")
-    Lt = sum(b["travees"])
-    _contrat_chargee(src, b, Lt)
+    Lt = _contrat_chargee(src, b)
     cas = src.get("cas", b["cas"])
     if not isinstance(cas, (list, tuple)) or not cas or len(cas) > CAS_MAX:
         raise Refus(f"de 1 à {CAS_MAX} cas de charge")
@@ -380,7 +384,7 @@ def normaliser(barre: Dict) -> Dict:
         if c.get("nature") not in CO.NATURES:
             raise Refus(f"cas « {nom} » : nature inconnue ({c.get('nature')!r})")
         try:
-            _, charges = PO.normaliser(b["modele"], b["travees"], c.get("charges") or [])
+            _, charges = PO.normaliser(b["modele"], b["travees"], c.get("charges") or [], tuple(b["debords"]))
         except PO.ErreurDonnees as e:
             raise Refus(f"cas « {nom} » : {e}") from None
         charges = [{k: ch[k] for k in ("type", "v", "a", "b", "sens") if k in ch} for ch in charges]

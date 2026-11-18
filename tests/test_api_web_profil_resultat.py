@@ -125,7 +125,7 @@ B18 = dict(travees=[2.0], poids_propre=False, appuis={"mode": "poses", "ss": 100
 DESSIN = dict(maintiens=[{"x": 3.5, "genre": "complet", "neglige": True}, {"x": 5.0, "genre": "haut"}], debords=[0.5, 0.0],
               points=[1.5, 1.6, 6.0], position="inclinee", angle=30.0,
               cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}, P_(20.0, 2.5, niveau="bas")],
-                    "N_troncons": [{"x2": 2.5, "N": 50.0}, {"x2": 6.0, "N": 30.0}]},
+                    "N_troncons": [{"x2": 2.5, "N": 50.0}, {"x2": 6.5, "N": 30.0}]},     # (intégration C : jusqu'au bout de la barre, 6,5 m)
                    {"nom": "Q", "nature": "exploitation_A", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 2.5, "b": 6.0, "niveau": "centre"}]}])
 
 

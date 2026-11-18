@@ -2089,7 +2089,32 @@ def selecteur_c3():
              (nom_, ec3_seul[:3]))]
 
 
-PARTIES_C3 = {"champs": champs_c3, "anciennes": anciennes_c3, "conditions": conditions_c3, "reguliers": reguliers_c3, "selecteur": selecteur_c3}
+def debords_integ():
+    """[(nom, vrai ?, info)] : (intégration du lot C, revue C8 : NON CONSERVATIF) l'écran mesure la BARRE, débords compris — une charge
+    neuve la couvre, une charge qui allait au bout la suit quand la portée change, un maintien neuf se pose au milieu de la travée."""
+    P._RESULTATS.clear()
+    e_ = P.etat_de([barre(poids_propre=False, maintiens=[],
+                          cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 6.0}]}])])
+    refus_ = _jouer(e_, [("debords/0", "0,5"), ("debords/1", "1"), ("cas/+", "1")])
+    b1_ = _relu(e_)["elements"][0]
+    neuve_ = b1_["cas"][1]["charges"][0]
+    refus_ += _jouer(e_, [("travees/0", "7"), ("maintiens/+", "1")])
+    b2_ = _relu(e_)["elements"][0]
+    try:
+        r_ = MO.verifier(b2_)
+    except Exception as err_:  # noqa: BLE001 — un refus du moteur est un rouge
+        r_ = {"refus": str(err_)}
+    return [("intégration C — débords 0,5 et 1 m d'une portée de 6 m : la charge du cas neuf couvre la barre (0 à 7,5 m) ; la portée passée à "
+             "7 m, elle va au bout (8,5 m) et celle de la travée glissée (0,5 à 6,5 m) reste ; le maintien neuf au milieu de la travée (4 m) ; "
+             "le moteur l'accepte (barre de 8,5 m)",
+             not refus_ and (neuve_["a"], neuve_["b"]) == (0.0, 7.5) and b1_["cas"][0]["charges"][0]["a"] == 0.5
+             and b2_["cas"][1]["charges"][0]["b"] == 8.5 and b2_["cas"][0]["charges"][0]["b"] == 6.5 and [m_["x"] for m_ in b2_["maintiens"]] == [4.0]
+             and "refus" not in r_ and r_["statique"]["L"] == 8.5,
+             (refus_, neuve_, b2_["cas"], b2_["maintiens"], r_.get("refus")))]
+
+
+PARTIES_C3 = {"champs": champs_c3, "anciennes": anciennes_c3, "conditions": conditions_c3, "reguliers": reguliers_c3, "selecteur": selecteur_c3,
+              "debords": debords_integ}
 for f_ in PARTIES_C3.values():
     for nom_, ok_, info_ in f_():
         chk(nom_, ok_, info_)
@@ -2114,6 +2139,13 @@ MUTATIONS_C3 = (     # (nom, partie rejouée, module, attribut, (ancien, nouveau
     ("ψ₀ montré pour toute nature", "conditions", P, "S", ('        if c["nature"] in CO.PSI0_SAISI:', "        if True:")),
     ("« 1,33 avec le vent » rétabli", "conditions", P, "S", ("1,5 pour les charges de service.", "1,5 pour les charges de service ; 1,33 avec le vent.")),
     ("l'aide de u fausse rétablie", "conditions", M, "AIDE_U", None),
+    # (intégration du lot C, revue C8 : NON CONSERVATIF) la longueur de la barre sans ses débords
+    ("une charge neuve bornée à Σ portées", "debords", P, "_cas_neuf",
+     ('    L = float(ST.longueur(el))\n    variables', '    L = float(sum(el["travees"]))\n    variables')),
+    ("la portée changée : une charge au bout ne suit plus (L d'avant sans débords)", "debords", P, "_appliquer",
+     ('    L = float(ST.longueur(el))\n    if cle == "nom":', '    L = float(sum(el["travees"]))\n    if cle == "nom":')),
+    ("un maintien neuf compté depuis le bout et non depuis l'appui", "debords", P, "_maintien_neuf",
+     ("{round(x, 6) for x in ST.appuis_x(el)}", "{round(sum(el[\"travees\"]), 6)}")),
 )
 for nom_, partie_, objet_, attr_, texte_ in MUTATIONS_C3:
     vrai_, s3_vrai_ = getattr(objet_, attr_), S3
