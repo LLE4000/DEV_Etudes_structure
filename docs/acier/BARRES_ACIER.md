@@ -984,7 +984,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
 | `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
 | `api_web/dessin_barre.py` | la barre : ses cas de charge, ses appuis, ses maintiens, les enveloppes de M et de V ; les taux de toutes les vérifications |
-| `api_web/dessin_profil.py` | la section à l'échelle (I, H, tubes ronds, carrés, rectangulaires) |
+| `api_web/dessin_profil.py` | la section à l'échelle (I, H, tubes ronds, carrés, rectangulaires) ; les contraintes dans la section (mise à jour 1) |
 | `api_web/note_profil.py` | la note PDF |
 
 - **Une barre garde ses deux modes** : passer de « barre chargée » à « efforts imposés » ne perd aucune saisie. La barre
@@ -1067,6 +1067,24 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   chaque valeur lisible dans son champ, les cibles au doigt, le dessin visible et sans texte sur un autre.
 - **Mesuré** (Chromium sans tête, moteur dans le navigateur) : moteur prêt en 3,5 s ; un recalcul en 0,13 s ; le
   sélecteur d'une famille de 23 profilés en 0,8 s. La note, hors navigateur : 0,5 s pour une barre, 1,1 s pour trois.
+
+**Les contraintes dans la section** (mise à jour 1, étape 2 ; `dessin_profil.contraintes`, `volets`). Un à trois volets :
+la coupe peinte (40 bandes, la teinte monte avec la contrainte rapportée à sa limite) et son diagramme le long de la hauteur.
+- **Rien n'est recalculé** : chaque vérification rend les grandeurs de SA section, `v["section"] = {N, My, Mz, Vz, Vy, sigma,
+  tau}` (H-SIGMA, H-DEV, H-EQ ; E-My en élastique seulement, avec sa limite f_y/γ_M0). Le maximum dessiné est la valeur de
+  la formule.
+- « Flexion » : σ(z) = N/A + M_y·(z − z_g)/I_y — la section du déversement (H-DEV) quand N = 0 ; sous un effort normal, celle
+  de la contrainte normale (H-SIGMA), car σ_M ne porte pas N. Eurocode 3 : M_Ed·z/I_y, limite f_y/γ_M0. Un profil remis à
+  l'échelle de la formule (φ, PE, ou une somme de valeurs absolues) n'écrit pas la valeur de l'autre fibre : elle ne serait
+  celle d'aucune formule. Les mots « comprimée » et « tendue » disent l'état réel de la fibre.
+- « Cisaillement » : τ = V_z/A_âme sur l'âme ; repère σ_adm/√3 (un repère, pas une vérification). « Contrainte
+  équivalente » : √(σ(z)² + 3τ²), τ sur toute la hauteur.
+- Pas de dessin : tube rond, M_z ≠ 0 ; V_y ≠ 0 retire le cisaillement et l'équivalente.
+- Écran : la vue « Contraintes » après « Section », les volets de la méthode affichée (« Les deux » : une rangée par
+  méthode). Note : sous la dernière formule de « ELS · déversement » (ou contrainte normale), « ELS · contrainte
+  équivalente » et « Eurocode 3 · flexion » en élastique ; le kit ne change pas.
+- Contrôles : `tests/test_barre_maj1.py` (§ 7 à 11, avec les mutations de la relecture), le harnais « barres » (la vue sur
+  les trois formats : visible, chaque texte dans le dessin, aucun sur un autre).
 
 **L'âme et ses raidisseurs à l'écran et dans la note** (lot 4, `api_web/profil*.py`, `dessin_barre.py`,
 `note_profil.py`).

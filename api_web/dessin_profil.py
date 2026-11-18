@@ -10,12 +10,15 @@ textes proportionnels à la plus grande dimension : le dessin a la même allure 
 """
 import math
 from html import escape
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.profiles import familles as FA
 
+from . import profil_mots as M
+
 ENCRE, ACIER, HACH, COTE, AXE, EFFORT = "#15181F", "#DCE2E9", "#8794A3", "#5B6573", "#7A8290", "#9C3341"
 GRIS, GRILLE, MUET, ACCENT, ETOILE = "#A7B0BD", "#E7EAEF", "#6B7280", "#2B4BCF", "#E0A100"
+CISAILLEMENT = "#0F766E"         # l'effort tranchant (le diagramme de V de la barre) et le cisaillement (le dessin des contraintes)
 # (« v » : à vérifier — une méthode hors de son domaine (lot A) : l'ocre de la pastille « v » de l'écran, jamais la couleur
 # « conforme » ; copie NOMMÉE de --vrf et --vrf-encre de site/web/css/site.css, liée par tests/test_api_web_profil.py)
 NIVEAU = {"p": ("#86EFAC", "#166534"), "f": ("#15803D", "#0F5A2C"), "r": ("#DC2626", "#991B1B"), "v": ("#B86E00", "#8A5A00")}
@@ -62,6 +65,12 @@ def _txt(x, y, t, fs, ancre="middle", couleur=ENCRE, gras=False, extra="", brut=
     corps = t if brut else _sym(t, fs)
     return (f'<text x="{_f(x)}" y="{_f(y)}" text-anchor="{ancre}" font-size="{_f(fs)}" fill="{couleur}" '
             f'font-family="{POLICE}"{poids}{extra}>{corps}</text>')
+
+
+def largeur_gras(texte: str, fs: float) -> float:
+    """La largeur d'un texte gras, estimée (un dessin n'a pas la métrique de la police) : 0,58 du corps par caractère — celle du
+    dessin de la barre et du dessin des contraintes."""
+    return 0.58 * fs * len(texte)
 
 
 def _ligne(x1, y1, x2, y2, couleur, lw, extra="") -> str:
@@ -353,3 +362,342 @@ def section_prs(s: Dict, largeur=None, ident: str = "pf_section", tableau=None) 
     larg = "100%" if largeur is None else _f(float(largeur))
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="{larg}" role="img" '
             f'aria-label="Section {escape(s["nom"])} à l\'échelle, G et C repérés">{"".join(g)}</svg>')
+
+
+# ------------------------------------------------------------------ les CONTRAINTES dans la section (mise à jour 1, étape 2)
+# Un à trois VOLETS côte à côte. Un volet = LA COUPE du profilé, à l'échelle, peinte par bandes (la teinte monte avec la
+# contrainte rapportée à sa limite), et LE DIAGRAMME de la contrainte le long de la hauteur : sa plus grande valeur en gras,
+# sa limite en trait interrompu. Rien n'est recalculé ici : chaque volet lit les grandeurs de SA vérification
+# (``v["section"]`` du moteur). L'unité est le point de la note ; à l'écran, le composer à 450 de large (hs = 110).
+COMPRESSION, TRACTION, EQUIVALENTE = EFFORT, ACCENT, "#33415C"     # les couleurs des diagrammes du module (CISAILLEMENT : en tête)
+N_BANDES = 40                    # les bandes d'une coupe peinte : le peintre du kit des notes ne peint pas de dégradé
+K_LIMITE = 60.0                  # entre la base d'un diagramme et le trait de sa limite, au plus
+ECART_VOLETS = 12.0              # entre deux volets
+PART_COUPE = 0.37                # la largeur que la coupe peut prendre dans son volet, au plus
+H_TETE, Y_CARTE = 15.0, 13.0     # la tête d'un volet (titre, lieu, filet) ; la ligne des valeurs au-dessus de la fibre haute
+LIGNE_LIMITE = 9.5               # la ligne de plus du nom d'une limite qui ne tient pas à côté de la valeur de l'autre fibre
+                                 # (7 : les boîtes des lettres se touchaient encore à l'écran — le harnais)
+MARGE_NOM = 6.0                  # l'écart estimé sous lequel il n'y tient pas (PRS-C4 : 10 à l'écran, 17 dans la note)
+FORMES_CONTRAINTES = ("I", "tube_carre", "tube_rect")    # les formes qui ont un dessin (un tube rond : aucun)
+
+
+def _teinte(couleur: str, t: float) -> str:
+    """Du blanc (t = 0) à la couleur (t = 1) : une bande de la coupe."""
+    c = [int(couleur[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(255 + (v - 255) * (0.08 + 0.92 * max(0.0, min(1.0, t)))):02X}" for v in c)
+
+
+class Coupe:
+    """La section vue par le dessin : des PLATS (x1, x2, z1, z2) en mm — x depuis l'axe de l'âme, z depuis la face
+    inférieure —, à l'échelle, dans une hauteur ``hs`` et une largeur ``large`` au plus, depuis le bord gauche ``x0``.
+    I et H laminés (les congés ne sont pas dessinés), PRS à semelles égales ou non, tubes carrés et rectangulaires."""
+
+    def __init__(self, s: Dict, x0: float, y0: float, hs: float, large: float = 38.0):
+        p = s.get("prs") if isinstance(s.get("prs"), dict) else None
+        h = self.h = float(s["h"])
+        if s["forme"] == "I":
+            b1, t1, tw, b2, t2 = (float(p[k]) for k in ("b1", "t1", "tw", "b2", "t2")) if p else (float(s[k]) for k in ("b", "tf", "tw", "b", "tf"))
+            self.plats = [(-b2 / 2, b2 / 2, 0.0, t2), (-tw / 2, tw / 2, t2, h - t1), (-b1 / 2, b1 / 2, h - t1, h)]
+            self.t_bas, self.t_haut = t2, t1
+            self.contours = [[(-b1 / 2, h), (b1 / 2, h), (b1 / 2, h - t1), (tw / 2, h - t1), (tw / 2, t2), (b2 / 2, t2), (b2 / 2, 0), (-b2 / 2, 0),
+                              (-b2 / 2, t2), (-tw / 2, t2), (-tw / 2, h - t1), (-b1 / 2, h - t1)]]
+        elif s["forme"] in ("tube_carre", "tube_rect"):
+            b, t = float(s["b"]), float(s["t"])
+            self.plats = [(-b / 2, b / 2, 0.0, t), (-b / 2, -b / 2 + t, t, h - t), (b / 2 - t, b / 2, t, h - t), (-b / 2, b / 2, h - t, h)]
+            self.t_bas = self.t_haut = t
+            self.contours = [[(-b / 2, 0), (b / 2, 0), (b / 2, h), (-b / 2, h)], [(-b / 2 + t, t), (b / 2 - t, t), (b / 2 - t, h - t), (-b / 2 + t, h - t)]]
+        else:
+            raise ValueError(f"pas de coupe peinte pour la forme « {s['forme']} »")
+        self.zg, self.Iy, self.A = float(s.get("z_g") or h / 2.0), float(s["Iy"]), float(s["A"])
+        b_max = max(x2 for _x1, x2, _z1, _z2 in self.plats) - min(x1 for x1, _x2, _z1, _z2 in self.plats)
+        self.e = min(hs / h, large / b_max)                       # pt par mm
+        self.hs = h * self.e
+        self.y0 = y0 + (hs - self.hs) / 2.0
+        self.xc, self.x1 = x0 + b_max * self.e / 2.0, x0 + b_max * self.e
+        zs = sorted({round(h * i / N_BANDES, 6) for i in range(N_BANDES + 1)} | {self.t_bas, h - self.t_haut, round(self.zg, 6)})
+        self.bandes = list(zip(zs[:-1], zs[1:]))                  # (une bande est dans UN étage de plats, d'UN côté de l'axe)
+
+    def Y(self, z: float) -> float:
+        """L'ordonnée du dessin d'une cote z (mm depuis la face inférieure)."""
+        return self.y0 + (self.h - z) * self.e
+
+    def ame(self, z: float) -> bool:
+        return self.t_bas < z < self.h - self.t_haut
+
+    def peinte(self, couleur_de) -> List[str]:
+        """La coupe peinte bande par bande (``couleur_de(z)`` au milieu de la bande), puis son contour."""
+        g = []
+        for za, zb in self.bandes:
+            zm = (za + zb) / 2.0
+            for x1, x2, z1, z2 in self.plats:
+                if z1 <= zm <= z2:
+                    larg = max((x2 - x1) * self.e, 2.0)           # (un plat d'au moins 2 pt : une âme mince se voit)
+                    g.append(f'<rect x="{self.xc + (x1 + x2) / 2 * self.e - larg / 2:.2f}" y="{self.Y(zb):.2f}" width="{larg:.2f}" '
+                             f'height="{(zb - za) * self.e + 0.15:.2f}" fill="{couleur_de(zm)}"/>')
+        for c in self.contours:
+            g.append('<path d="M' + " L".join(f"{self.xc + x * self.e:.2f},{self.Y(z):.2f}" for x, z in c)
+                     + f' Z" fill="none" stroke="{ENCRE}" stroke-width="0.45" stroke-linejoin="round"/>')
+        return g
+
+    def profil(self, xb: float, K: float, valeur, couleur_de) -> List[str]:
+        """UN DIAGRAMME le long de la hauteur : depuis la base ``xb``, ``valeur(z)`` portée à droite (positive) ou à gauche
+        (négative), ``K`` points par N/mm² ; chaque bande peinte par ``couleur_de(z)`` ; puis son contour et sa base."""
+        g, bord, eps = [], [(xb, self.Y(0.0))], 1e-6 * self.h
+        for za, zb in self.bandes:
+            va, vb = valeur(za + eps), valeur(zb - eps)
+            if abs(va) + abs(vb) > 0:
+                g.append(f'<polygon points="{xb:.2f},{self.Y(za) + 0.1:.2f} {xb + va * K:.2f},{self.Y(za) + 0.1:.2f} {xb + vb * K:.2f},{self.Y(zb):.2f} '
+                         f'{xb:.2f},{self.Y(zb):.2f}" fill="{couleur_de((za + zb) / 2)}"/>')
+            bord += [(xb + va * K, self.Y(za)), (xb + vb * K, self.Y(zb))]
+        bord.append((xb, self.Y(self.h)))
+        g.append('<path d="M' + " L".join(f"{x:.2f},{y:.2f}" for x, y in bord) + f'" fill="none" stroke="{ENCRE}" stroke-width="0.6" stroke-linejoin="round"/>')
+        g.append(_ligne(xb, self.y0 - 2.5, xb, self.y0 + self.hs + 2.5, ENCRE, 0.8))
+        return g
+
+
+def _habillage(K_: Coupe, xb: float, kd: float, limite, x_fin: float, valeur: float, en_haut: bool, couleur: str,
+               occupe: Optional[Tuple[float, float]] = None) -> Tuple[List[str], Tuple[float, float]]:
+    """Ce que les volets ont en commun : les rappels des deux fibres, l'axe du centre de gravité, LA LIMITE (``limite`` =
+    (symbole, valeur)) en trait interrompu, et la plus grande valeur, en gras, près de sa fibre ; le nom de la limite est
+    à l'autre bout de son trait : ils ne se touchent jamais. ``occupe`` : l'étendue (x) d'un texte déjà posé sur la ligne du
+    nom (la valeur de l'autre fibre, à gauche de la base) : quand l'écart ESTIMÉ entre les deux est sous ``MARGE_NOM``, le nom
+    passe à la ligne suivante, loin de la coupe (la marge couvre la police de l'écran, plus large que l'estimation). Rend les
+    éléments et la hauteur que la ligne de plus demande (sous le volet, au-dessus) : (0 ou ``LIGNE_LIMITE``, 0 ou ``LIGNE_LIMITE``).
+    Au-dessus, la rangée la fait en descendant (``_rangee``)."""
+    y0, y1, yn = K_.y0, K_.y0 + K_.hs, K_.Y(K_.zg)
+    xl = xb + limite[1] * kd
+    g = [_ligne(K_.x1 + 2, y, xb - 1.5, y, GRIS, 0.3, ' stroke-dasharray="1.2 1.4"') for y in (y0, y1)]
+    g.append(_ligne(K_.xc - (K_.x1 - K_.xc) - 2.0, yn, min(max(xl, xb + valeur * kd) + 5.0, x_fin), yn, AXE, 0.4, ' stroke-dasharray="5 1.6 1 1.6"'))
+    g.append(_ligne(xl, y0 - 2.5, xl, y1 + 2.5, ENCRE, 0.7, ' stroke-dasharray="2.2 1.6"'))
+    y_val, y_lim = (y0 - 3.6, y1 + 8.8) if en_haut else (y1 + 8.8, y0 - 3.6)
+    g.append(_txt(xb + 2.0, y_val, M.r1(valeur), 8.0, "start", couleur, True))
+    nom = f"{limite[0]} = {M.r1(limite[1])}"
+    demi = largeur_gras(nom, 6.2) / 2.0
+    # (le nom de la limite reste à droite de la base : à gauche, à la même hauteur, s'écrit la valeur de l'autre fibre — trouvé par
+    #  le harnais, une poutre symétrique : « σ_adm,d = 95,3 » sur « 84,2 » ; et il ne sort pas du volet)
+    x_nom = min(max(xl, xb + 1.0 + demi), x_fin - 1.0 - demi)
+    if occupe is not None and x_nom - demi < occupe[1] + MARGE_NOM:
+        # (le harnais, deux fois : une poutre au-delà de sa limite — le diagramme prend la place, le nom ne tient plus à droite
+        #  de la base, « σ_adm,d = 95,3 » sur « 111,1 » ; puis, la police réelle plus large que l'estimée, « σ_adm,d = 60,5 » sur
+        #  « 107,7 » à 2 d'écart estimé. Pas toujours : la ligne de plus grandit le dessin, et la note de PRS-C4 (écart 17) doit
+        #  garder sa mise en page)
+        y_lim, extra = (y_lim + LIGNE_LIMITE, (LIGNE_LIMITE, 0.0)) if en_haut else (y_lim - LIGNE_LIMITE, (0.0, LIGNE_LIMITE))
+    else:
+        extra = (0.0, 0.0)
+    g.append(_txt(x_nom, y_lim, nom, 6.2, "middle", ENCRE, True))
+    return g, extra
+
+
+def _volet(s: Dict, vo: Dict, xo: float, w: float, hs: float, decale: float = 0.0) -> Tuple[List[str], Tuple[float, float]]:
+    """UN VOLET, depuis l'abscisse ``xo``, sur la largeur ``w`` : sa tête (son titre, son lieu à droite, un filet), la
+    coupe peinte, le diagramme ; et la hauteur ajoutée sous le volet (``_habillage``). ``vo`` = {"genre", "titre", "lieu",
+    "limite": (symbole, valeur), et les grandeurs du genre} :
+        « sigma » : "N" (N, > 0 : compression), "My" (N·mm, > 0 : fibre haute comprimée) ; et "sigma" (N/mm²) quand la
+                    formule de la vérification amplifie la contrainte (φ, PE) : le profil est mis à l'échelle de cette valeur ;
+                    "N_reel" (N) : l'effort normal de la section quand le dessin ne le porte pas (σ_M, la flexion de l'Eurocode 3)
+                    — les mots « comprimée » et « tendue » disent l'état réel ;
+        « tau »   : "tau" (N/mm²) ;
+        « eq »    : "sigma" (N/mm², la contrainte normale DE LA FORMULE, à la fibre extrême), "tau" (N/mm²), "N" et "My" (la
+                    forme de σ(z), à l'échelle de la formule)."""
+    lim, x_fin = vo["limite"], xo + w
+    corps = min(7.4, 7.4 * (w - largeur_gras(vo.get("lieu") or "", 5.8) * 0.8 - 6.0) / largeur_gras(vo["titre"], 7.4))
+    g = [_txt(xo, 8.0, vo["titre"], corps, "start", ENCRE, True)]
+    if vo.get("lieu"):
+        g.append(_txt(x_fin, 8.0, vo["lieu"], 5.8, "end", MUET))
+    g.append(_ligne(xo, 11.2, x_fin, 11.2, GRIS, 0.45))
+    K_ = Coupe(s, xo + 3.0, H_TETE + Y_CARTE + decale, hs, PART_COUPE * w)       # (``decale`` : la place d'un nom passé au-dessus)
+    y0, y1, place = K_.y0, K_.y0 + K_.hs, x_fin - 4.0 - K_.x1 - 7.0
+    if vo["genre"] == "sigma":
+        def phys(z: float) -> float:                              # > 0 : compression
+            return vo.get("N", 0.0) / K_.A + vo["My"] * (z - K_.zg) / K_.Iy
+        k = vo["sigma"] / max(abs(phys(K_.h)), abs(phys(0.0))) if vo.get("sigma") else 1.0              # (une formule qui amplifie)
+
+        def sig(z: float) -> float:
+            return k * phys(z)
+        haut, bas = sig(K_.h), sig(0.0)
+        # la fibre qui gouverne : la plus sollicitée ; à valeurs égales (une section symétrique, à l'arrondi près), la COMPRIMÉE
+        ecart = abs(haut) - abs(bas)
+        en_haut = ecart > 0 if abs(ecart) > 1e-9 * max(abs(haut), abs(bas), 1.0) else haut >= bas
+        gouv, autre = (haut, bas) if en_haut else (bas, haut)
+        sens = 1.0 if gouv >= 0 else -1.0                         # la fibre qui gouverne se dessine à droite de la base
+        gauche = abs(autre) if autre * gouv < 0 else 0.0
+        kd = min(K_LIMITE / lim[1], place / (max(abs(gouv), lim[1]) + gauche))
+        xb = K_.x1 + 7.0 + gauche * kd
+
+        def col(z: float) -> str:
+            return _teinte(COMPRESSION if sig(z) > 0 else TRACTION, abs(sig(z)) / lim[1])
+        g += K_.peinte(col) + K_.profil(xb, kd, lambda z: sens * sig(z), col)
+        # l'autre fibre : sa valeur, de son côté de la base — quand le profil est celui des efforts (k = 1). Remis à l'échelle de la
+        # formule (φ, PE ; ou une formule qui somme les valeurs absolues), elle ne serait la valeur d'aucune formule : elle n'est
+        # pas écrite (relecture : « 43,1 » écrit sur une fibre à 32,8)
+        a_ecrire, occupe = None, None
+        if abs(autre) > 1e-9 and abs(k - 1.0) <= 5e-4:
+            texte, x_a, ancre = M.r1(abs(autre)), xb - 2.0 if gauche else xb + 2.0 + abs(autre) * kd, "end" if gauche else "start"
+            if not gauche and x_a + largeur_gras(texte, 7.0) > x_fin - 1.0:     # (du même signe, presque aussi grande : elle
+                x_a, ancre = x_fin - 1.0, "end"                                 #  sortirait du volet — relecture, N = −1 000 kN)
+            a_ecrire = _txt(x_a, (y1 + 8.8 if en_haut else y0 - 3.6) if gauche else (y1 - 2.0 if en_haut else y0 + 7.0),
+                            texte, 7.0, ancre, COMPRESSION if autre > 0 else TRACTION, True)
+            occupe = (x_a - largeur_gras(texte, 7.0), x_a) if gauche else None       # (à gauche : sur la ligne du nom de la limite)
+        h_, extra = _habillage(K_, xb, kd, lim, x_fin, abs(gouv), en_haut, COMPRESSION if gouv > 0 else TRACTION, occupe)
+        g += h_ + ([a_ecrire] if a_ecrire else [])
+        # les deux mots (lisible en noir et blanc) disent l'état RÉEL de la fibre : σ_M (H-DEV) et σ de l'Eurocode 3 dessinent la
+        # flexion seule — sous N, une fibre « tendue » par la flexion peut être comprimée ; elle n'a alors pas de mot (relecture)
+        n_reel = vo.get("N_reel", vo.get("N", 0.0))
+
+        def reel(z: float) -> float:
+            return n_reel / K_.A + vo["My"] * (z - K_.zg) / K_.Iy
+        for v, z, y in ((haut, K_.h, y0 - 3.6), (bas, 0.0, y1 + 7.8)):
+            if abs(v) > 1e-9 and v * reel(z) > 0:
+                mot = "comprimée" if v > 0 else "tendue"          # (une coupe élancée : le mot ne sort pas du volet, à gauche)
+                g.append(_txt(max(K_.xc, xo + 1.0 + largeur_gras(mot, 5.4) / 2.0), y, mot, 5.4, "middle", MUET))
+    elif vo["genre"] == "tau":
+        t_ = abs(vo["tau"])
+
+        def tau(z: float) -> float:
+            return t_ if K_.ame(z) else 0.0
+        xb = K_.x1 + 7.0
+        kd = min(K_LIMITE / lim[1], place / max(t_, lim[1]))
+
+        def col(z: float) -> str:
+            return _teinte(CISAILLEMENT, tau(z) / lim[1]) if K_.ame(z) else "#FFFFFF"
+        h_, extra = _habillage(K_, xb, kd, lim, x_fin, t_, True, CISAILLEMENT)
+        g += K_.peinte(col) + K_.profil(xb, kd, tau, col) + h_
+    else:
+        # σ(z) = N/A + M_y·(z − z_g)/I_y, à l'échelle de la formule (φ, PE) ; τ sur toute la hauteur : le maximum du dessin est σ_eq
+        # de la formule. (La relecture : σ·(z − z_g)/c perdait N/A — sous N seul, σ_eq tombait à √3·τ au centre de gravité.)
+        t_ = abs(vo["tau"])
+
+        def phys(z: float) -> float:
+            return vo.get("N", 0.0) / K_.A + vo.get("My", 0.0) * (z - K_.zg) / K_.Iy
+        p_max = max(abs(phys(K_.h)), abs(phys(0.0)))
+        k = vo["sigma"] / p_max if p_max > 1e-12 else 0.0
+
+        def eq(z: float) -> float:
+            return math.hypot(k * phys(z), math.sqrt(3.0) * t_)
+        haut, bas = eq(K_.h), eq(0.0)
+        # la valeur en gras à la fibre la plus sollicitée ; à valeurs égales, à la plus COMPRIMÉE — celle du volet « Flexion »
+        ecart = haut - bas
+        en_haut = ecart > 0 if abs(ecart) > 1e-9 * max(haut, bas, 1.0) else phys(K_.h) >= phys(0.0)
+        xb = K_.x1 + 7.0
+        kd = min(K_LIMITE / lim[1], place / max(haut, bas, lim[1]))
+
+        def col(z: float) -> str:
+            return _teinte(EQUIVALENTE, eq(z) / lim[1])
+        h_, extra = _habillage(K_, xb, kd, lim, x_fin, max(haut, bas), en_haut, EQUIVALENTE)
+        g += K_.peinte(col) + K_.profil(xb, kd, eq, col) + h_
+    return g, extra
+
+
+def _rangee(s: Dict, volets: Sequence[Dict], largeur: float, hs: float) -> Tuple[List[str], float]:
+    """Les éléments d'UNE rangée de volets côte à côte sur ``largeur`` (un filet entre deux), et sa hauteur. Un seul volet garde la
+    largeur d'un volet de trois : il ne s'étire pas."""
+    n = len(volets)
+    w = min((largeur - ECART_VOLETS * (n - 1)) / n, 150.0)
+    hs = Coupe(s, 0.0, 0.0, hs, PART_COUPE * w).hs                # (un profilé large : sa coupe est moins haute, le dessin aussi)
+    # (un nom de limite passé à la ligne : sous un volet, la rangée grandit ; au-dessus, TOUTE la rangée descend d'une ligne — ses
+    #  coupes restent alignées. La décision ne dépend que des abscisses : une première passe la lit)
+    decale = max(_volet(s, vo, i * (w + ECART_VOLETS), w, hs)[1][1] for i, vo in enumerate(volets))
+    g: List[str] = []
+    bas = 0.0
+    for i, vo in enumerate(volets):
+        xo = i * (w + ECART_VOLETS)
+        g_, (b_, _h) = _volet(s, vo, xo, w, hs, decale)
+        g, bas = g + g_, max(bas, b_)
+    H = H_TETE + Y_CARTE + decale + hs + 12.0 + bas
+    for i in range(1, len(volets)):
+        xo = i * (w + ECART_VOLETS)
+        g.append(_ligne(xo - ECART_VOLETS / 2, 2.0, xo - ECART_VOLETS / 2, H - 2.0, GRIS, 0.35))
+    return g, H
+
+
+def _svg_contraintes(ident: str, largeur: float, H: float, corps: str) -> str:
+    return (f'<svg id="{ident}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {largeur:.2f} {H:.2f}" width="100%" role="img" '
+            f'aria-label="Les contraintes dans la section : la coupe peinte et le diagramme le long de la hauteur">{corps}</svg>')
+
+
+def contraintes(ident: str, s: Dict, volets: Sequence[Dict], largeur: float, hs: float = 96.0) -> str:
+    """LE DESSIN DES CONTRAINTES (mise à jour 1, étape 2) : ``volets`` (un à trois) côte à côte sur ``largeur`` ; ``hs`` : la
+    hauteur de la coupe. L'unité est le point de la note : dans une colonne de note, la largeur de la colonne (hs = 84) ; à
+    l'écran, 450 (hs = 110)."""
+    g, H = _rangee(s, volets, largeur, hs)
+    return _svg_contraintes(ident, largeur, H, "".join(g))
+
+
+def contraintes_rangees(ident: str, s: Dict, rangees: Sequence[Tuple[str, Sequence[Dict]]], largeur: float, hs: float = 110.0) -> str:
+    """Les volets de PLUSIEURS méthodes, une rangée par méthode (« Les deux », à l'écran) : ``rangees`` = [(nom de la méthode,
+    volets)] ; le nom n'est écrit, au-dessus de sa rangée, que s'il y a plus d'une rangée."""
+    if len(rangees) == 1:
+        return contraintes(ident, s, rangees[0][1], largeur, hs)
+    g, y = [], 0.0
+    for nom, volets in rangees:
+        g.append(_txt(0.0, y + 9.0, nom, 8.0, "start", MUET, True))
+        y += 13.0
+        r, H = _rangee(s, volets, largeur, hs)
+        g.append(f'<g transform="translate(0 {y:.2f})">{"".join(r)}</g>')
+        y += H + 6.0
+    return _svg_contraintes(ident, largeur, y - 6.0, "".join(g))
+
+
+# ------------------------------------------------------------------ les volets d'une méthode, lus sur ses vérifications
+TITRES_VOLETS = {"sigma": "Flexion", "tau": "Cisaillement", "eq": "Contrainte équivalente"}
+# la vérification qui porte le volet « Flexion » de chaque méthode, dans l'ordre de préférence (le déversement des classeurs, sinon
+# — ou sous un effort normal, que σ_M ne porte pas — la contrainte normale ; l'Eurocode 3 : la flexion, quand elle est vérifiée en
+# élastique — le moteur ne rend sa section qu'alors)
+FLEXION_DE = {"historique": ("H-DEV", "H-SIGMA"), "ec3": ("E-My",)}
+LIMITES_FLEXION = {"H-DEV": "σ_adm,d", "H-SIGMA": "σ_adm", "E-My": "f_y/γ_M0"}
+
+
+def volets(k: str, x: Dict, s: Dict) -> Dict[str, Dict]:
+    """Les volets de la méthode ``k`` (son résultat ``x``) : {"sigma" | "tau" | "eq" : volet}, chacun avec l'``id`` de la
+    vérification qui le porte. RIEN N'EST RECALCULÉ : chaque volet lit les grandeurs que sa vérification rend de SA section
+    (``v["section"]`` du moteur) et sa limite. Aucun volet pour une forme sans coupe peinte (un tube rond), ni pour une section
+    en flexion d'axe faible (M_z ≠ 0) ; ni cisaillement ni équivalente pour une section cisaillée selon y (V_y ≠ 0)."""
+    if (s or {}).get("forme") not in FORMES_CONTRAINTES:
+        return {}
+    par_id = {v["id"]: v for v in x.get("verifications") or ()}
+
+    def droite(v: Optional[Dict], cisaille: bool = False) -> Optional[Dict]:
+        # (M_z ≠ 0 : pas de dessin ; V_y ≠ 0 n'écarte que le cisaillement et l'équivalente — τ = τ_z + τ_y ne se dessine pas
+        #  comme V_z/A_âme — la flexion σ(z) n'en dépend pas : relecture)
+        sec = (v or {}).get("section")
+        return sec if sec and not sec.get("Mz") and not (cisaille and sec.get("Vy")) else None
+
+    def lieu(v: Dict) -> Optional[str]:
+        return f"x = {M.m(v['x'])} m" if v.get("x") is not None else None
+    out: Dict[str, Dict] = {}
+    for id_ in FLEXION_DE.get(k, ()):
+        v = par_id.get(id_)
+        sec = droite(v)
+        if sec is None or not sec.get("sigma") or (not sec.get("My") and not sec.get("N")):
+            continue
+        if id_ == "H-DEV" and sec.get("N"):
+            # σ_M (H-DEV) ne porte pas N : sous un effort normal, son dessin ne serait pas σ(z) = N/A + M_y·(z − z_g)/I_y — la
+            # flexion est alors celle de la contrainte normale, qui le porte (relecture : une fibre comprimée dessinée tendue)
+            continue
+        lim = v["limite"] if id_ != "E-My" else sec.get("limite")
+        if not lim:
+            continue
+        # σ_M (H-DEV, sans effort normal) et σ de l'Eurocode 3 (M_Ed·z/I_y, § 2.3) : la flexion seule — "N_reel" garde N pour les
+        # mots ; H-SIGMA : N/A + M_y·(z − z_g)/I_y, à l'échelle de la formule (φ, PE l'amplifient)
+        out["sigma"] = {"genre": "sigma", "titre": TITRES_VOLETS["sigma"], "lieu": lieu(v), "id": id_, "limite": (LIMITES_FLEXION[id_], lim),
+                        "N": sec["N"] if id_ == "H-SIGMA" else 0.0, "N_reel": sec["N"] or 0.0, "My": sec["My"], "sigma": sec["sigma"]}
+        break
+    v = par_id.get("H-EQ") if k == "historique" else None
+    sec = droite(v, cisaille=True)
+    if sec is not None and sec.get("sigma") is not None and sec.get("tau") is not None and sec.get("repere_tau") and v["limite"]:
+        out["tau"] = {"genre": "tau", "titre": TITRES_VOLETS["tau"], "lieu": lieu(v), "id": "H-EQ", "tau": sec["tau"],
+                      "limite": ("σ_adm/√3", sec["repere_tau"])}
+        out["eq"] = {"genre": "eq", "titre": TITRES_VOLETS["eq"], "lieu": lieu(v), "id": "H-EQ", "sigma": sec["sigma"], "tau": sec["tau"],
+                     "N": sec.get("N") or 0.0, "My": sec.get("My") or 0.0, "limite": ("σ_adm", v["limite"])}
+    return out
+
+
+def volets_du_bloc(k: str, v: Dict, vs: Dict[str, Dict]) -> List[Dict]:
+    """Les volets qu'un bloc de la NOTE pose sous ses formules : « Flexion » sous la vérification qui la porte ; « Cisaillement »
+    et « Équivalente » côte à côte sous la contrainte équivalente. Dans la note, un volet n'écrit pas son abscisse : la première
+    ligne du bloc la dit."""
+    if v["id"] == "H-EQ" and "eq" in vs:
+        return [dict(vs["tau"], lieu=None), dict(vs["eq"], lieu=None, titre="Équivalente")]
+    if "sigma" in vs and vs["sigma"]["id"] == v["id"]:
+        return [dict(vs["sigma"], lieu=None)]
+    return []

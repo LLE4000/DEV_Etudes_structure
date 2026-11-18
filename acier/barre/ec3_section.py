@@ -544,8 +544,14 @@ def ajouter(J: Journal, d: Dict) -> None:
         J.verif("E-N", "Compression" if comprime else "Traction", f"{REF} § 6.2.4" if comprime else f"{REF} § 6.2.3",
                 f"N_Ed ≤ {nomN}", abs(N) / 1e3, NRd / 1e3, "kN", ef_cles["A"] + [cle_N])
     if My > 0:
-        J.verif("E-My", "Flexion" if rond else "Flexion, axe fort", f"{REF} § 6.2.5", "M_Ed ≤ M_c,Rd" if rond else "M_y,Ed ≤ M_c,y,Rd",
-                My / 1e6, MyRd / 1e6, "kN·m", cles_M + ef_cles["y"] + cles_eff2 + [cle_My])
+        vMy = J.verif("E-My", "Flexion" if rond else "Flexion, axe fort", f"{REF} § 6.2.5", "M_Ed ≤ M_c,Rd" if rond else "M_y,Ed ≤ M_c,y,Rd",
+                      My / 1e6, MyRd / 1e6, "kN·m", cles_M + ef_cles["y"] + cles_eff2 + [cle_My])
+        if classe >= 3 and not eff2 and not rond:
+            # (mise à jour 1, étape 2) la flexion vérifiée en ÉLASTIQUE (classe 3 « élastique », classe 4) : les grandeurs de la section
+            # pour le dessin des contraintes — σ = M_y,Ed/W de la formule, la limite f_y/γ_M0 ; en plastique ou en classe 2
+            # efficace, pas de dessin
+            vMy["section"] = {"N": N, "My": d["MyEd"], "Mz": d["MzEd"], "Vz": d["VzEd"], "Vy": d["VyEd"], "sigma": My / Wy, "tau": None,
+                              "limite": fy / gM0}
     if Mz > 0:
         J.verif("E-Mz", "Flexion, axe faible", f"{REF} § 6.2.5", "M_z,Ed ≤ M_c,z,Rd", Mz / 1e6, MzRd / 1e6, "kN·m", ef_cles["z"] + [cle_Mz])
 

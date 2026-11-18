@@ -810,6 +810,39 @@ class Planche(Encre):
         zx = self.margin + self.coupe_w + self.gap
         return (self.page[0] - self.margin - zx - self.col_gap * (self.n_cols - 1)) / self.n_cols
 
+    # (mise à jour 1, étape 2) UN genre d'élément de plus, ("d", svg) : un dessin peint à la largeur de sa colonne, dans le fil du
+    # bloc ; quand il n'entre plus dans la colonne, il passe à la suivante avec le rappel « (suite) » du kit, comme une formule.
+    # Le kit ndc_pdf ne change pas ; un bloc sans dessin passe tel quel au kit.
+    AVANT_DESSIN, APRES_DESSIN = 5.0, 3.0
+
+    def _items(self, d, fr, v, ms, cols, suivante=None):
+        if not any(it[0] == "d" for it in v["items"]):
+            return super()._items(d, fr, v, ms, cols, suivante)
+        for it in v["items"]:
+            if it[0] != "d":
+                fr = super()._items(d, fr, dict(v, items=[it]), ms, cols, suivante)
+                continue
+            h = hauteur_dessin(it[1], fr.w)
+            if not fr.fits(self.AVANT_DESSIN + h + self.APRES_DESSIN) and (cols.index(fr) + 1 < len(cols) or suivante is not None):
+                fr = cols[cols.index(fr) + 1] if cols.index(fr) + 1 < len(cols) else suivante()
+                self._suite(d, fr, v)
+            fr.down(self.AVANT_DESSIN + h)
+            peindre_svg(d.c, it[1], fr.x, fr.y, fr.w, h, marge=0.0, riche=True)
+            fr.down(self.APRES_DESSIN)
+        return fr
+
+
+def hauteur_dessin(svg: str, largeur: float) -> float:
+    """La hauteur d'un dessin posé à la largeur de sa colonne."""
+    vb = [float(t) for t in ET_.fromstring(svg).get("viewBox").split()]
+    return vb[3] * largeur / vb[2]
+
+
+def sous_les_formules(bloc: Dict, svg: str) -> None:
+    """Pose un dessin dans un bloc de la note, SOUS SA DERNIÈRE FORMULE : avant ses remarques et son verdict."""
+    k = max((i for i, it in enumerate(bloc["items"]) if it[0] == "e"), default=0)
+    bloc["items"].insert(k + 1, ("d", svg))
+
 
 def resume(el: Dict, r: Dict, court: bool = False) -> str:
     """« S235 · 6,00 m · 74 % ELS · 58 % Eurocode 3 » : sous le nom de la barre, dans la garde et dans l'en-tête ;
@@ -881,11 +914,17 @@ def planche(el: Dict, r: Dict, style: Planche, impression: str = "deux") -> Dict
 
     imprimes: Dict[str, List[str]] = {}            # ce que chaque vérification imprime (la décision n° 2 les cite)
     premieres = {L["verifications"][0]: L for L in rv["ame"]["lieux"] if L.get("avec") and L.get("verifications")}
+    # (mise à jour 1, étape 2) les CONTRAINTES dans la section, sous les formules du bloc qui les calcule
+    s_ = MO.section_de(rv["barre"]) if rv.get("barre") else None
+    vs_ = {k: DP.volets(k, x, s_) for k, x in rv["methodes"].items()}
     for k, x in list(rv["methodes"].items()) + [(M.AME, rv["ame"])]:
         poser(methode(el, k, x, largeur) if k != M.AME else ame(el, rv, largeur))
         precedente = None
         for v in x["verifications"]:
             details.append(verification(k, x, v, precedente, dits, premieres.get(v["id"]), largeur))
+            dessin = DP.volets_du_bloc(k, v, vs_.get(k) or {})
+            if dessin:
+                sous_les_formules(details[-1], DP.contraintes(f"note_{k}_{v['id']}", s_, dessin, largeur, hs=84.0))
             imprimes[v["id"]] = [it[2] for it in details[-1]["items"] if it[0] == "pr" and len(it) > 2]
             num[v["id"]] = n0 + len(details)
             precedente = (n0 + len(details), lignes_ecrites(x, v))

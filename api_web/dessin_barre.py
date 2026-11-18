@@ -22,7 +22,7 @@ W = 640.0                        # la largeur de la scène à l'écran
 ML, MR = 78.0, 30.0              # à gauche : le nom d'un cas et sa nature, le nom d'un diagramme
 H_CAS = 44.0                     # la hauteur de la bande d'un cas de charge
 H_DIAG = 84.0
-CHARGE, CHARGE_FOND, DIAG_M, DIAG_V = "#9C3341", "#F6E3E6", "#2B4BCF", "#0F766E"
+CHARGE, CHARGE_FOND, DIAG_M, DIAG_V = DP.EFFORT, "#F6E3E6", DP.ACCENT, DP.CISAILLEMENT   # (une source : la palette du module)
 RAIDISSEUR = "#B45309"           # un raidisseur transversal : un plat debout, à cheval sur la poutre
 FS = 11.0
 
@@ -99,9 +99,7 @@ def _maintien(x: float, yb: float, genre: str, neglige: bool) -> str:
 
 
 # ------------------------------------------------------------------ les cas de charge
-def _largeur(texte: str, fs: float) -> float:
-    """La largeur d'un texte gras, estimée (un dessin n'a pas la métrique de la police) : 0,58 du corps par caractère."""
-    return 0.58 * fs * len(texte)
+_largeur = DP.largeur_gras       # la largeur d'un texte gras, estimée : une source, celle du module
 
 
 SIGNE = 11.0                     # (lot C, C4) la place du signe de niveau derrière la valeur d'une charge

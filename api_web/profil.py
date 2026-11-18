@@ -1055,6 +1055,16 @@ def _vues(el: Dict, r: Dict, ident: str) -> List[Dict]:
     leg = "le profilé à l'échelle, ses dimensions et ses propriétés"
     vues.append({"cle": "section", "titre": f"Section {el['profil']}", "court": "Section", "svg": vue_section(el), "legende": leg,
                  "entete": _entete(el, r, "Section", leg)})
+    # (mise à jour 1, étape 2) les CONTRAINTES dans la section : les volets de la méthode affichée (« Les deux » : une rangée par
+    # méthode), lus sur les grandeurs que chaque vérification rend de sa section ; sans volet à dessiner, pas de vue
+    s_ = MO.section_de(r["barre"]) if r.get("barre") else None
+    rangees = [(M.METHODES[k], [V[g] for g in ("sigma", "tau", "eq") if g in V]) for k, x in r["methodes"].items()
+               for V in [DP.volets(k, x, s_)] if V]
+    if rangees:
+        leg = "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté"
+        vues.append({"cle": "contraintes", "titre": "Contraintes dans la section", "court": "Contraintes",
+                     "svg": DP.contraintes_rangees(f"{ident}_contraintes", s_, rangees, 450.0, 110.0), "legende": leg,
+                     "entete": _entete(el, r, "Contraintes dans la section", leg)})
     if any(x["verifications"] for x in r["methodes"].values()) or r["ame"]["verifications"]:
         leg = "le taux de chaque vérification ; la limite de 100 % en tireté"
         ms = [(f"{M.METHODES[k]}", x) for k, x in r["methodes"].items() if x["verifications"]]

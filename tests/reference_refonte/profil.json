@@ -470,6 +470,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -1022,6 +1029,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 156,7 225,2 3,00 3,00 3,00 4,9 60,5 86,9 86,9 90,5"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -1493,6 +1507,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,0 153,0 156,7 3,10 3,10 3,10 89,9 89,9 90,5 92,1"
      },
      {
       "cle": "taux",
@@ -2061,6 +2082,13 @@
       "nombres": "10365:2017 15 15 171 414 18 18 2 003,4 200 200 200 200 200 24,83 305,8 5 696,4 53-62) 569,6 59,61 61,3 642,6 78,08 9 9"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 12,1 131,8 133,4 156,7 156,7 90,5"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -2610,6 +2638,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 156,7 16,3 172,6 5,00 5,00 5,00 69,3 75,3 75,3 90,5"
      },
      {
       "cle": "taux",
@@ -3841,6 +3876,13 @@
       "nombres": "1 677,8 1 690 330 1 868,8 10365:2017 11 11 117 149,09 187,69 19 19 25 166,8 27 27 300 300 300 300 300 47,44 53-62) 8 562,9 870,2"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 130,2 156,7 2,00 2,00 2,00 287,5 287,5 356,9 50,6 90,5"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -4395,6 +4437,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "1 335,5 10 10 10365:2017 108 177 18 18 18,08 190 190 20,44 200 200 200 203,8 3 692,4 388,7 42,3 429,5 53,83 53-62) 6,5 6,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 143,8 156,7 18,0 5,00 5,00 5,00 83,8 83,8 90,5 93,5"
      },
      {
       "cle": "taux",
@@ -4967,6 +5016,13 @@
       "nombres": "10365:2017 119,66 12 12 133,9 15,5 15,5 150 708 17 17 170,6 19-57) 264 264 4 018,9 4 644,8 4 766,3 568,5 6 428 380 750 750 750x134 95,89"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 132,1 132,1 136,6 236,7 3,00 3,00 379,6 4,00 6,9 77,2"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -5404,6 +5460,13 @@
       "nombres": "10365:2017 105,42 13,2 13,2 147,2 157,2 166 068 17 17 17 17 187,49 19-57) 265 265 4 410,8 5 110 5 289,4 630,8 7 163 180 750x147 753 753"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 120,6 120,6 136,6 236,7 3,00 3,00 321,7 4,00 6,3 83,2"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -5716,6 +5779,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
      },
      {
       "cle": "taux",
@@ -6154,6 +6224,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
      },
      {
       "cle": "taux",
@@ -6600,6 +6677,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 1,9 111,1 111,1 156,7 182,8 3,00 3,00 3,00 90,5 95,3"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -7036,6 +7120,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
      },
      {
       "cle": "taux",
@@ -7476,6 +7567,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -7912,6 +8010,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 84,2 84,2 90,5 95,3"
      },
      {
       "cle": "taux",
@@ -8469,6 +8574,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 156,7 21,1 3,00 60,5 84,2 84,2 90,5"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -8923,6 +9035,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 11,0 156,7 3,00 43,8 43,8 6,3 90,5 95,3"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -9375,6 +9494,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 156,7 2,00 3,00 3,00 37,4 37,4 4,1 46,7 90,5 95,3"
      },
      {
       "cle": "taux",
@@ -9935,6 +10061,13 @@
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
      },
      {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 12,2 120,3 177,1 21,1 3,00 306,7 84,2 84,2"
+     },
+     {
       "cle": "taux",
       "titre": "Taux des vérifications",
       "court": "Taux",
@@ -10491,6 +10624,13 @@
       "court": "Section",
       "legende": "le profilé à l'échelle, ses dimensions et ses propriétés",
       "nombres": "10,7 10,7 10365:2017 125,2 126 333 15 15 150 150 19,77 19-57) 25,68 300 300 300 42,2 53,81 557,1 603,8 628,4 7,1 7,1 8 356,5"
+     },
+     {
+      "cle": "contraintes",
+      "titre": "Contraintes dans la section",
+      "court": "Contraintes",
+      "legende": "la coupe peinte et chaque contrainte le long de la hauteur, dans la section de sa vérification ; la limite en tireté",
+      "nombres": "/√3 0,00 0,00 0,00 156,7 156,7 8,1 90,5 98,2 99,2"
      },
      {
       "cle": "taux",

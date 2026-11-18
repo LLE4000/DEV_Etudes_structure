@@ -4528,8 +4528,8 @@ const principal = async () => {
         await g.screenshot({ path: path.join(OUT, 'site_barres_ame_lieu_pc.png') });
         await g.keyboard.press('Escape');
         await g.waitForTimeout(150);
-        // les trois vues, chacune un dessin visible à sa taille
-        for (const k of ['section', 'taux', 'barre']) {
+        // les quatre vues, chacune un dessin visible à sa taille (mise à jour 1, étape 2 : « Contraintes », après « Section »)
+        for (const k of ['section', 'contraintes', 'taux', 'barre']) {
           await g.click(`#vues [data-vue="${k}"]`);
           await g.waitForTimeout(250);
           const dv = await dessinB(g);
@@ -4838,6 +4838,20 @@ const principal = async () => {
           const dv = await dessinB(pg);
           verif(`barres ${cfg} · ${fmt} : le dessin est visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '400 × 250 au moins'}), dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre`,
             !!dv && dv.dedans && !dv.hors.length && !dv.dessus.length && (tel ? dv.l >= 300 : dv.l >= 400 && dv.h >= 250), JSON.stringify({ ...dv, textes: dv ? dv.textes.length : 0 }).slice(0, 400));
+          // (mise à jour 1, étape 2) la vue « Contraintes », là où une vérification rend sa section : le dessin vu comme l'œil le voit — à sa
+          // taille, dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre ; puis la vue d'avant est rendue
+          const vueC = await pg.$('#vues [data-vue="contraintes"]');
+          if (vueC) {
+            const avantVue = await pg.$eval('#vues [data-vue].on', (x) => x.dataset.vue).catch(() => null);
+            await vueC.click();
+            await pg.waitForTimeout(250);
+            const dc = await dessinB(pg);
+            verif(`barres ${cfg} · ${fmt} : la vue « Contraintes » est un dessin visible à sa taille (${tel ? '300 px de large au moins au téléphone' : '400 px de large au moins'}), dans l'écran, chacun de ses textes dans le dessin et aucun sur un autre`,
+              !!dc && dc.dedans && !dc.hors.length && !dc.dessus.length && (tel ? dc.l >= 300 : dc.l >= 400) && dc.textes.length >= 6,
+              JSON.stringify({ ...dc, textes: dc ? dc.textes.length : 0 }).slice(0, 400));
+            await pg.screenshot({ path: path.join(OUT, `site_barres_${cfg}_${fmt}_contraintes.png`) });
+            if (avantVue) { await pg.click(`#vues [data-vue="${avantVue}"]`); await pg.waitForTimeout(200); }
+          }
           if (cfg === 'prs') {
             // (lot C, C6) la vue « Section » d'un PRS : le croquis coté, sa taille LUE, G et C écrits, rien hors du dessin ni l'un sur l'autre
             await pg.click('#vues [data-vue="section"]');

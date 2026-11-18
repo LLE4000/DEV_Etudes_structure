@@ -402,7 +402,8 @@ chk("sans effort saisi : « Aucun effort à vérifier » sur la carte de chaque 
 chk("la rubrique 2 devient « Efforts » (service et ELU côte à côte), la 3 « Flambement et déversement » ; la vue de la barre s'efface",
     [m for m in re.findall(r'<span class="tt">([^<]+)</span>', ef["donnees"])] == ["Barre", "Efforts", "Flambement et déversement", "Méthodes"]
     and 'data-chemin="efforts/service/My"' in ef["donnees"] and 'data-chemin="efforts/elu/My"' in ef["donnees"]
-    and [v["cle"] for v in ef["vues"]] == ["section"] and [v["cle"] for v in neuf["vues"]] == ["barre", "section", "taux"], [v["cle"] for v in ef["vues"]])
+    and [v["cle"] for v in ef["vues"]] == ["section"] and [v["cle"] for v in neuf["vues"]] == ["barre", "section", "contraintes", "taux"],
+    [v["cle"] for v in ef["vues"]])
 ef2 = enchainer(ef["etat"], ("efforts/elu/N", "420"), ("efforts/elu/My", "28"), ("efforts/service/N", "300"), ("efforts/service/My", "20"),
                 ("diagramme/y/forme", "lineaire"), ("diagramme/y/psi", "-0,5"), ("Lc", "2,5"))
 eb2 = ef2["etat"]["elements"][0]
@@ -713,8 +714,9 @@ for titre, rep in REPONSES.items():
             mal.append((titre, v["cle"], str(ex)[:80]))
         if not v["entete"] or not v["titre"] or not v["court"]:
             mal.append((titre, v["cle"], "en-tête"))
-chk("chaque vue est du SVG bien formé, avec son en-tête : la barre et ses enveloppes, la section, les taux", not mal
-    and [v["cle"] for v in REPONSES["la note neuve"]["vues"]] == ["barre", "section", "taux"], mal[:3])
+# (mise à jour 1, étape 2 — le harnais suit : la vue « Contraintes » vient après « Section », quand une vérification a sa section)
+chk("chaque vue est du SVG bien formé, avec son en-tête : la barre et ses enveloppes, la section, les contraintes, les taux", not mal
+    and [v["cle"] for v in REPONSES["la note neuve"]["vues"]] == ["barre", "section", "contraintes", "taux"], mal[:3])
 # chaque famille du module a sa section dessinée (trouvé par la note PDF : un tube rond n'a ni h ni b, le dessin plantait)
 sans_dessin = []
 # (lot C, C3 — le harnais suit C1b : les U et les cornières, en efforts imposés seulement, sont choisis dans une barre en efforts imposés)
@@ -807,7 +809,7 @@ bande = texte(REPONSES["la note neuve"]["vues"][0]["entete"])
 chk("l'en-tête d'une vue : le profilé et l'acier, la barre en une ligne, ses maintiens, et les plus grands efforts de calcul",
     "BARRE ET EFFORTS · IPE 300 · S235" in bande and "Deux appuis · 6,00 m · 2 cas de charge, 2 charges" in bande and "Maintiens : complet à 3,00 m" in bande
     and "66,7 kN·m" in bande and "44,5 kN" in bande, bande)
-tx = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"][2]["svg"]
+tx = next(v["svg"] for v in REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]["vues"] if v["cle"] == "taux")
 chk("la vue « Taux » : une barre par vérification, la méthode en titre, le taux écrit ; un taux qui dépasse est rouge",
     "Méthode ELS (NBN B 51-001)" in tx and "Eurocode 3" in tx and ">139 %<" in tx and ">113 %<" in tx and "#DC2626" in tx, re.findall(r">(\d+ %)<", tx))
 mechant = '<script>alert(1)</script>"\'&'

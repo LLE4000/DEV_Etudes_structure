@@ -996,8 +996,12 @@ def main():
     r = ES.verifier(b0)
     chk("la sortie a la forme commune aux deux méthodes (acier/barre/resultat.py)",
         set(r) == {"methode", "norme", "statut", "taux_max", "gouvernant", "verifications", "grandeurs", "calcul", "alertes", "hypotheses"}
-        and r["methode"] == "ec3" and all(set(x) == {"id", "methode", "titre", "reference", "critere", "valeur", "limite", "unite", "taux", "statut",
-                                                      "formules", "messages"} for x in r["verifications"]), sorted(r))
+        # (mise à jour 1, étape 2 — le harnais suit : une vérification peut rendre les grandeurs de SA section, « section », pour le
+        #  dessin des contraintes — la flexion en élastique de l'Eurocode 3 : N, M_y, V_z, σ, τ au moins)
+        and r["methode"] == "ec3" and all(set(x) - {"section"} == {"id", "methode", "titre", "reference", "critere", "valeur", "limite", "unite", "taux",
+                                                                   "statut", "formules", "messages"}
+                                          and ("section" not in x or {"N", "My", "Vz", "sigma", "tau"} <= set(x["section"])) for x in r["verifications"]),
+        sorted(r))
 
     print("== 7. mutations")
     for nom, rouges in mutations():

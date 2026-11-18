@@ -593,13 +593,21 @@ def verifier(barre: Dict) -> Dict:
     # ---- les vérifications
     verifs: List[Dict] = []
 
-    def verif(id_, titre, reference, critere, valeur, lim, unite, formules, taux=None, statut=None, messages=()):
+    def verif(id_, titre, reference, critere, valeur, lim, unite, formules, taux=None, statut=None, messages=(), section=None):
         if statut is None:
             taux = valeur / lim
             statut = OK if taux <= 1.0 else NOK
-        verifs.append({"id": id_, "methode": METHODE, "titre": titre, "reference": reference, "critere": critere, "valeur": valeur,
-                       "limite": lim, "unite": unite, "taux": taux, "statut": statut, "formules": list(formules),
-                       "messages": list(messages)})
+        v = {"id": id_, "methode": METHODE, "titre": titre, "reference": reference, "critere": critere, "valeur": valeur,
+             "limite": lim, "unite": unite, "taux": taux, "statut": statut, "formules": list(formules), "messages": list(messages)}
+        if section is not None:
+            v["section"] = section
+        verifs.append(v)
+
+    def grandeurs_section(sigma_, **k):
+        """(mise à jour 1, étape 2) les grandeurs de la section d'une vérification, pour le dessin des contraintes : les efforts
+        (N > 0 en compression ; M_y > 0 : semelle haute comprimée ; N, N·mm), la contrainte normale ``sigma`` QUE SA FORMULE
+        ÉCRIT et le cisaillement ``tau`` de la formule (N/mm²). Rien n'est recalculé par le dessin."""
+        return {"N": P, "My": d["My"], "Mz": d["Mz"], "Vz": d["Vz"], "Vy": d["Vy"], "sigma": sigma_, "tau": tau, **k}
 
     if comprime:
         for a in ("z", "y"):
@@ -631,15 +639,18 @@ def verifier(barre: Dict) -> Dict:
             titre = "Flexion déviée" if devie else "Flexion"
         ref = f"{NORME} · doc p. 26" if (comprime and devie) else f"{NORME} · doc p. 20" if comprime else NORME
         cles = ["sigma_adm"] + [k for k in cles_axes + cles_dev + ["sigma_P", "sigma_My", "sigma_Mz", "sigma"] if k in presentes]
-        verif("H-SIGMA", titre, ref, "σ ≤ σ_adm", sigma, limite, "N/mm²", cles)
+        verif("H-SIGMA", titre, ref, "σ ≤ σ_adm", sigma, limite, "N/mm²", cles, section=grandeurs_section(sigma))
     if dev["cas"] == "classeurs" and dev["sigma_M"] is not None:
         verif("H-DEV", "Déversement", "NBN B 51-002 · § 4.3.3.5.3 (classeurs Déversement)", "σ_M ≤ σ_adm,d", dev["sigma_M"],
               phi_ed * limite, "N/mm²", ["sigma_adm", "lambda_E"] + [k for k in ("lambda_ed_d", "lambda_bar_d", "Phi_d", "phi_d", "sigma_adm_d",
                                                                               "sigma_M") if k in presentes],
-              messages=msg_dev)
+              messages=msg_dev, section=grandeurs_section(dev["sigma_M"]))
     if cisaille and not instable and not non_couvert:
+        # (le repère du cisaillement du dessin : σ_adm/√3, la valeur de τ pour laquelle σ_eq atteint σ_adm quand σ = 0 — un repère,
+        #  pas une vérification)
         verif("H-EQ", "Contrainte équivalente", f"{NORME} · classeur", "σ_eq ≤ σ_adm", sigma_eq, limite, "N/mm²",
-              ["sigma_adm"] + [k for k in ("sigma", "tau_z", "tau_y", "sigma_eq") if k in presentes])
+              ["sigma_adm"] + [k for k in ("sigma", "tau_z", "tau_y", "sigma_eq") if k in presentes],
+              section=grandeurs_section(sigma, repere_tau=limite / math.sqrt(3.0)))
 
     # ---- les corrections des classeurs qui jouent sur le cas : NOMMÉES, et dites dans leur vérification
     par_id = {v["id"]: v for v in verifs}
