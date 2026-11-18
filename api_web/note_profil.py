@@ -602,26 +602,65 @@ def _nums(ids, num: Dict[str, int]) -> str:
     return ("vérification " if len(ns) == 1 else "vérifications ") + (" et ".join([", ".join(map(str, ns[:-1])), str(ns[-1])]) if len(ns) > 1 else str(ns[0]))
 
 
-def decisions(el: Dict, r: Dict, num: Dict[str, int]) -> Dict:
+# (lot C, C5, reprise) le message de la variante du contact inconnu dans une vérification de l'âme (acier/barre/ec3_ame.py,
+# ``mots`` : « … ; avec contact, F_Rd = … kN, pour information » ou « … ; sans contact, F_Rd = … ») — la décision n° 2 cite
+# les vérifications qui l'IMPRIMENT (un message déjà dit n'est pas répété : ``redit``)
+MOT_CONTACT_VARIANTE = "contact, F_Rd = "
+
+
+def _variante_plastique(sa: Dict) -> bool:
+    """La variante plastique de η₁ existe-t-elle sur ce lieu (classes 1 et 2) ? Les deux seuils de résistance locale que le
+    moteur NOMME (``sans.seuil`` : η₁ élastique, η₁ plastique) diffèrent — égaux en classes 3 et 4, où il n'y a qu'η₁
+    élastique (acier/barre/ame.py : « η₁ élastique seul (classe … : pas de variante plastique) »)."""
+    s = sa.get("seuil") or {}
+    e, p = s.get("elastique"), s.get("plastique")
+    return e is not None and p is not None and abs(e - p) > 1e-9 * max(1.0, abs(e))
+
+
+def _decision_eta1(a: Dict, jeu: Dict, num: Dict[str, int]) -> Optional[str]:
+    """La ligne de la décision n° 1 (η₁ de (7.2), EN 1993-1-5) : le défaut appliqué et le RÉSULTAT de l'autre variante — la
+    plus forte interaction plastique des lieux (``sans.interaction_plastique``), avec la vérification qui l'imprime ; « sans
+    objet » quand aucun lieu n'a de variante plastique (classes 3 et 4 : la vérification le dit). Une seule vérification
+    citée (le lieu le plus chargé) : la ligne tient en 120 caractères. None : aucun lieu sous force et flexion."""
+    lieux = [L for L in a.get("lieux") or [] if (L.get("sans") or {}).get("interaction") is not None
+             and f"{L['base']}-FM" in (L.get("verifications") or ())]
+    if not lieux:
+        return None
+    tete = "n° 1 · η₁ de (7.2), EN 1993-1-5 : "
+    avec = [L for L in lieux if _variante_plastique(L["sans"])]
+    if not avec:
+        L = max(lieux, key=lambda L: L["sans"]["interaction"])
+        return tete + f"élastique (appliqué) ; plastique : sans objet, pas de variante ({_nums([L['base'] + '-FM'], num)})."
+    if jeu["eta1_ame"] == "plastique":
+        L = max(avec, key=lambda L: L["sans"]["interaction"])
+        return tete + f"plastique (appliqué) ; élastique pour information ({_nums([L['base'] + '-FM'], num)})."
+    L = max(avec, key=lambda L: L["sans"]["interaction_plastique"])
+    return tete + (f"élastique (appliqué) ; plastique : {taux_ecrit(L['sans']['interaction_plastique'])}, pour information "
+                   f"({_nums([L['base'] + '-FM'], num)}).")
+
+
+def decisions(el: Dict, r: Dict, num: Dict[str, int], imprimes: Optional[Dict[str, List[str]]] = None) -> Dict:
     """« Décisions du bureau appliquées » (brief § 13.2, règle 8) : une ligne par décision qui joue sur la barre — le défaut
-    appliqué (acier/barre/parametres.py) et l'autre variante, son résultat ou la vérification qui le donne ; n° 7, le seuil
+    appliqué (acier/barre/parametres.py) et l'autre variante, son résultat ou la vérification qui l'IMPRIME ; n° 7, le seuil
     « à la limite », cité avec sa source (celui de toutes les notes du site). Les décisions d'une méthode non imprimée
-    ne sont pas dites."""
+    ne sont pas dites. ``imprimes`` : identifiant → les messages que sa vérification imprime sur la planche (``planche``)."""
     jeu = PA.jeu(el.get("parametres"))
     T = PA.PARAMETRES
     items: List[tuple] = []
     a = r["ame"]
-    fm = [v["id"] for v in a["verifications"] if v["id"].endswith("-FM")]
-    if fm:
-        autre = T["eta1_ame"]["variante"] if jeu["eta1_ame"] == T["eta1_ame"]["valeur"] else T["eta1_ame"]["valeur"]
-        items.append(pr(f"n° 1 · η₁ de (7.2), EN 1993-1-5 : {jeu['eta1_ame']} (appliqué) ; {autre} pour information, {_nums(fm, num)}."
-                        .replace("elastique", "élastique")))
+    n1 = _decision_eta1(a, jeu, num)
+    if n1:
+        items.append(pr(n1))
     inconnus = [f"{L['base']}-F" for L in a.get("lieux") or [] if L.get("type") == "c" and (L.get("sans") or {}).get("contact") == "inconnu"
                 and L.get("ss")]
     if inconnus:
         autre = T["contact_inconnu"]["variante"] if jeu["contact_inconnu"] == T["contact_inconnu"]["valeur"] else T["contact_inconnu"]["valeur"]
+        # (lot C, C5, reprise) seulement les vérifications qui IMPRIMENT la variante : la même, dite à l'appui A, n'est pas
+        # redite à l'appui B
+        cites = [i for i in inconnus if any(MOT_CONTACT_VARIANTE in t for t in (imprimes or {}).get(i, ()))]
+        ou = _nums(cites, num)
         items.append(pr(f"n° 2 · contact d'extrémité inconnu (type (c)) : « {jeu['contact_inconnu']} » (appliqué) ; "
-                        f"« {autre} » pour information, {_nums(inconnus, num)}."))
+                        f"« {autre} » pour information" + (f", {ou}." if ou else ".")))
     e = r["methodes"].get("ec3")
     if e:
         G = e.get("grandeurs") or {}
@@ -838,12 +877,14 @@ def planche(el: Dict, r: Dict, style: Planche, impression: str = "deux") -> Dict
         details.append(b)
         dits.update(_cle(it[2]) for it in b["items"] if it[0] == "pr" and len(it) > 2)
 
+    imprimes: Dict[str, List[str]] = {}            # ce que chaque vérification imprime (la décision n° 2 les cite)
     premieres = {L["verifications"][0]: L for L in rv["ame"]["lieux"] if L.get("avec") and L.get("verifications")}
     for k, x in list(rv["methodes"].items()) + [(M.AME, rv["ame"])]:
         poser(methode(el, k, x, largeur) if k != M.AME else ame(el, rv, largeur))
         precedente = None
         for v in x["verifications"]:
             details.append(verification(k, x, v, precedente, dits, premieres.get(v["id"]), largeur))
+            imprimes[v["id"]] = [it[2] for it in details[-1]["items"] if it[0] == "pr" and len(it) > 2]
             num[v["id"]] = n0 + len(details)
             precedente = (n0 + len(details), lignes_ecrites(x, v))
     verifs = list(tete)
@@ -852,7 +893,7 @@ def planche(el: Dict, r: Dict, style: Planche, impression: str = "deux") -> Dict
     if avec_ecarts:
         verifs.append(ecarts(rv, num))
     verifs += details
-    verifs.append(decisions(el, rv, num))
+    verifs.append(decisions(el, rv, num, imprimes=imprimes))
     ac = a_confirmer(rv, largeur)
     if ac:
         verifs.append(ac)

@@ -1176,7 +1176,8 @@ note (C5) : ils liront ce que le moteur rend.
   et « ELS seule » : les ÉCARTS AVEC LES CLASSEURS DU BUREAU, une ligne par correction qui joue (jamais un choix du
   bureau : brief § 6.7) ; (4) le détail de chaque méthode imprimée, ses hypothèses PROPRES en tête, puis l'âme
   (« Contrôles complémentaires EN 1993-1-5 » dans une note ELS seule) ; (5) les décisions du bureau appliquées (le
-  défaut, l'autre variante et son résultat ou la vérification qui le donne ; n° 7, le seuil « à la limite » du site),
+  défaut, l'autre variante et son résultat — n° 1 : l'interaction plastique la plus forte, « sans objet » sans variante
+  plastique (classes 3 et 4) — ou la vérification qui l'IMPRIME ; n° 7, le seuil « à la limite » du site),
   les paramètres à confirmer (Eurocode 3 imprimé), ce que la note ne vérifie pas (`profil_mots.limites`).
 - **À l'écran** (R1), « Tout le calcul » de l'âme dit les soudures des raidisseurs proposés (`ame.HYP_SOUDURES`, dans les
   hypothèses de l'âme) et le calcul sans raidisseur intermédiaire ; la note dit les soudures une fois, dans « Ce que la

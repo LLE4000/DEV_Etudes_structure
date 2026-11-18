@@ -445,7 +445,65 @@ def controles_soudures():
              "sans raidisseur intermédiaire" in elancee, elancee[:200])]
 
 
-SPECIAUX = {"soudures : écran et note": controles_soudures, "tolérance retirée": controles_tolerance, "écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
+def _cites(ligne: str) -> set:
+    """Les numéros de vérification qu'une ligne cite : « vérification 13 », « vérifications 13 et 17 »."""
+    m = re.search(r"vérifications? ([\d, et]+)", ligne)
+    return {int(x) for x in re.findall(r"\d+", m.group(1))} if m else set()
+
+
+def controles_decisions():
+    """Décisions du bureau n° 1 et n° 2 (brief § 13.2, règle 8 : le défaut appliqué ET le résultat de l'autre variante) — (lot C,
+    C5, reprise). Mesuré avant : n° 1 renvoyait à la vérification sans donner le chiffre, et en classe 3 écrivait « plastique pour
+    information » quand la vérification dit « pas de variante plastique » ; n° 2 citait les vérifications 13 ET 17 de R2 alors que
+    la variante « avec contact, F_Rd = … » n'est imprimée qu'à la 13 (redite retirée à la 17)."""
+    def planche(b):
+        el = P.normaliser(P.etat_de([b], impression="deux"))["elements"][0]
+        r = P.calculer(el)
+        sec = NP.planche(el, r, NP.Planche(), "deux")
+        textes = {v["num"]: " ".join(it[2] for it in v["items"] if it[0] == "pr" and len(it) > 2) for v in sec["verifs"]}
+        numeros = {v["titre"]: v["num"] for v in sec["verifs"]}
+        lignes = next((textes[v["num"]] for v in sec["verifs"] if v["titre"] == NP.TITRE_DECISIONS), "")
+        dec = {int(m_.group(1)): m_.group(0) for m_ in re.finditer(r"n° (\d+) · .*?(?= n° \d+ · |$)", lignes)}
+        return r, textes, numeros, dec
+
+    def lieu_fm(r):
+        titres = {v["id"]: v["titre"] for v in r["ame"]["verifications"]}
+        L = max((L for L in r["ame"]["lieux"] if (L.get("sans") or {}).get("interaction") is not None), key=lambda L: L["sans"]["interaction"])
+        return L, titres[L["base"] + "-FM"]
+
+    out = []
+    # R2 : η₁ élastique appliqué, la variante plastique chiffrée ; le contact inconnu des deux appuis
+    r, textes, numeros, dec = planche(barre_r2())
+    L, t_fm = lieu_fm(r)
+    pl = taux(L["sans"]["interaction_plastique"])
+    out.append((f"décision n° 1 (R2) : « plastique : {pl}, pour information », la vérification citée imprime la variante",
+                f"élastique (appliqué) ; plastique : {pl}, pour information" in dec.get(1, "") and _cites(dec.get(1, "")) == {numeros[t_fm]}
+                and "variante" in textes[numeros[t_fm]] and pl in textes[numeros[t_fm]], dec.get(1)))
+    titres = {v["id"]: v["titre"] for v in r["ame"]["verifications"]}
+    inconnus = [numeros[titres[L_["base"] + "-F"]] for L_ in r["ame"]["lieux"] if L_.get("type") == "c" and (L_.get("sans") or {}).get("contact") == "inconnu"]
+    imprimant = {n_ for n_ in inconnus if NP.MOT_CONTACT_VARIANTE in textes[n_]}
+    out.append((f"décision n° 2 (R2) : elle cite les seules vérifications qui IMPRIMENT la variante du contact ({sorted(imprimant)} sur {sorted(inconnus)})",
+                len(inconnus) == 2 and imprimant and _cites(dec.get(2, "")) == imprimant and len(imprimant) < len(inconnus), dec.get(2)))
+    # R2, la table à « plastique » : l'autre variante, élastique, est imprimée à la vérification citée
+    b = barre_r2()
+    b["parametres"] = {"eta1_ame": "plastique"}
+    r, textes, numeros, dec = planche(b)
+    L, t_fm = lieu_fm(r)
+    out.append(("décision n° 1 (R2, table à « plastique ») : « plastique (appliqué) ; élastique pour information », la vérification citée "
+                "imprime η₁ élastique", "plastique (appliqué) ; élastique pour information" in dec.get(1, "") and _cites(dec.get(1, "")) == {numeros[t_fm]}
+                and "η₁ élastique (classe" in textes[numeros[t_fm]], dec.get(1)))
+    # PRS-C sous une force de 200 kN à 14 m (classe 3) : pas de variante plastique — la décision le dit, comme la vérification
+    b = barre_prsc()
+    b["cas"][0]["charges"].append(_P(200.0, 14.0, 200.0))
+    r, textes, numeros, dec = planche(b)
+    L, t_fm = lieu_fm(r)
+    out.append(("décision n° 1 (PRS-C, classe 3) : « plastique : sans objet » — jamais « pour information » quand la vérification dit "
+                "« pas de variante plastique »", "plastique : sans objet" in dec.get(1, "") and "pour information" not in dec.get(1, "")
+                and _cites(dec.get(1, "")) == {numeros[t_fm]} and "pas de variante plastique" in textes[numeros[t_fm]], dec.get(1)))
+    return out
+
+
+SPECIAUX = {"décisions n° 1 et n° 2": controles_decisions, "soudures : écran et note": controles_soudures, "tolérance retirée": controles_tolerance, "écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
             "garde des textes": controles_garde}
 
 
@@ -1337,10 +1395,18 @@ MUTATIONS = (
      ["écarts (6.7)"]),
     ("la torsion non couverte n'est plus dite", NP, "communes", lambda vrai: (lambda el, r: [h for h in vrai(el, r) if "orsion" not in h]), ["HEB 200 · ec3"]),
     ("les décisions du bureau perdent leurs variantes (seul le seuil n° 7 reste)", NP, "decisions",
-     lambda vrai: (lambda el, r, num: (lambda o: dict(o, items=o["items"][-1:]))(vrai(el, r, num))), ["R2 · deux"]),
+     lambda vrai: (lambda el, r, num, **kw: (lambda o: dict(o, items=o["items"][-1:]))(vrai(el, r, num, **kw))), ["R2 · deux"]),
     ("« section soudée équivalente » cochée n'est plus dite par la décision n° 10", NP, "decisions",
-     lambda vrai: (lambda el, r, num: (lambda o: dict(o, items=[i[:1] + tuple(t.replace(" « soudée équivalente »", "") for t in i[1:]) if i[0] == "pr" else i
-                                                         for i in o["items"]]))(vrai(el, r, num))), ["PRS « soudée équivalente »"]),
+     lambda vrai: (lambda el, r, num, **kw: (lambda o: dict(o, items=[i[:1] + tuple(t.replace(" « soudée équivalente »", "") for t in i[1:]) if i[0] == "pr" else i
+                                                                for i in o["items"]]))(vrai(el, r, num, **kw))), ["PRS « soudée équivalente »"]),
+    # (lot C, C5, reprise) n° 1 : le résultat de la variante, « sans objet » en classe 3 ; n° 2 : les seules vérifications qui l'impriment
+    ("la décision n° 1 ne donne plus le résultat de la variante plastique (elle renvoie à la vérification)", NP, "_decision_eta1",
+     lambda vrai: _source_mutee(NP, "plastique : {taux_ecrit(L['sans']['interaction_plastique'])}, pour information ",
+                                "plastique pour information ")._decision_eta1, ["décisions n° 1 et n° 2"]),
+    ("la décision n° 1 voit une variante plastique en classe 3", NP, "_variante_plastique", lambda vrai: (lambda sa: True), ["décisions n° 1 et n° 2"]),
+    ("la décision n° 2 cite toutes les vérifications du contact inconnu, même celles qui n'impriment pas la variante", NP, "decisions",
+     lambda vrai: _source_mutee(NP, "        cites = [i for i in inconnus if any(MOT_CONTACT_VARIANTE in t for t in (imprimes or {}).get(i, ()))]\n",
+                                "        cites = list(inconnus)\n").decisions, ["décisions n° 1 et n° 2"]),
     ("le PRS n'est plus au panneau (ses propriétés du catalogue le plus proche)", NP, "blocs_panneau",
      lambda vrai: (lambda el: vrai(dict(el, prs=None, profil="IPE 750x147"))), ["PRS-C au panneau"]),
     ("le tableau avant/après du raidisseur n'est plus imprimé", NP, "avant_apres", lambda vrai: (lambda L, largeur: []),
