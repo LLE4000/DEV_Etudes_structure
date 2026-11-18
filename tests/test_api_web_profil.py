@@ -143,8 +143,9 @@ chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne,
     and "1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0 and "Poids propre +" not in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
     round(r0["poids_propre"], 4) == 0.4230 and "(0,42 kN/m)" in texte(neuf["donnees"]), texte(neuf["donnees"])[:300])
-chk("la tête dit la barre : « B1 », « IPE 300 · S235 · 6,00 m » ; le pied, la masse et la flèche de service (une information)",
-    '<div class="et-rp"><b>B1</b><span>IPE 300 · S235 · 6,00 m</span></div>' in neuf["resultat"] and "Masse du profilé 42,2 kg/m" in res0
+# (lot C, C4 — le harnais suit : la masse n'est plus au pied, le bouton du profilé, à gauche, la dit — une information à un endroit)
+chk("la tête dit la barre : « B1 », « IPE 300 · S235 · 6,00 m » ; le pied, la flèche de service (une information) — la masse au seul bouton",
+    '<div class="et-rp"><b>B1</b><span>IPE 300 · S235 · 6,00 m</span></div>' in neuf["resultat"] and "kg/m" not in res0 and "42,2 kg/m" in texte(neuf["donnees"])
     and "Flèche de service 10,0 mm · L/599" in res0, res0[-300:])
 chk("la colonne de gauche : la ligne de la barre et ses cinq rubriques — Barre, Charges, Maintiens et flambement, Appuis, Méthodes",
     [m for m in re.findall(r'<span class="tt">([^<]+)</span>', neuf["donnees"])] == ["Barre", "Charges", "Maintiens et flambement", "Appuis", "Méthodes"]
@@ -192,9 +193,17 @@ for titre, etat in CAS.items():
     manques = lignes_du_moteur(rep, r)
     chk(f"{titre} : chacune des {n} vérifications du moteur a sa ligne (son titre, son taux) et sa fenêtre de calcul", rep["ok"] and n >= 4 and not manques,
         manques[:3])
-    # les verdicts : le taux le plus fort de chaque méthode
-    ecarts = [k for k, x in r["methodes"].items() if x["taux_max"] is not None and f"η {pastille(x['taux_max'])} {PR.M.METHODES[k]}" not in texte(rep["resultat"])]
-    chk(f"… et chaque verdict porte le taux le plus fort de sa méthode ; le résumé de la note, le plus fort des deux", not ecarts
+    # les verdicts : le taux le plus fort de chaque méthode. (lot C, C4 — le harnais suit : la méthode ELS n'a jamais le contrôle
+    # hérité H-EQ en tête ; quand il est plus fort, son taux — le plus fort de la méthode — est écrit SOUS le verdict, pas caché)
+    def _dit(k, x):
+        g_ = PR.tete(k, x)
+        if g_ is PR.gouvernante(x):
+            return [f"η {pastille(x['taux_max'])} {PR.M.METHODES[k]}"]
+        h_ = PR.herite_au_dela(x, g_)
+        return [f"η {pastille(g_['taux'])} {PR.M.METHODES[k]}"] + ([f"+ {PR.M.minuscule(h_['titre'])} (contrôle hérité) : {pastille(h_['taux'])}"] if h_ else [])
+    ecarts = [k for k, x in r["methodes"].items() if x["taux_max"] is not None and any(t_ not in texte(rep["resultat"]) for t_ in _dit(k, x))]
+    chk(f"… et chaque verdict porte le taux le plus fort de sa méthode (l'ELS : sous le verdict quand c'est le contrôle hérité) ; le résumé de "
+        f"la note, le plus fort des deux", not ecarts
         and rep["resume"]["taux"] == C.pct(max(x["taux_max"] for x in r["methodes"].values())), (ecarts, rep["resume"]))
 
 rep = REPONSES["une poutre continue à trois cas, un maintien d'une semelle"]
@@ -473,7 +482,8 @@ tbd = texte(bd.group(1)) if bd else ""
 chk("… s_s = 100 mm et c = 0 saisis : « Sans raidisseur · 22 % » ; une ligne par appui — ce que l'âme compare (F_Ed 44,5 ≤ F_Rd 199,8 kN, R4 "
     "type (c), contact non établi), « sans raidisseur », le taux du moteur ; rien à poser : pas de ligne « Âme » sous les verdicts",
     bd is not None and tbd.startswith("Âme et raidisseurs Sans raidisseur · 22 %") and len(rd["lieux"]) == 2
-    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur" in tbd for L in rd["lieux"])
+    and all(f"{L['nom']} {pastille(L['taux'])} F Ed 44,5 ≤ F Rd 199,8 kN" in tbd for L in rd["lieux"])
+    and tbd.count("ans raidisseur") == 1           # (lot C, C4 — le harnais suit : « sans raidisseur » une fois, dans l'en-tête)
     and round(rd["taux_max"], 2) == 0.22 and "pf-vame" not in DECIDE["resultat"], tbd[:300])
 manques = []
 for L in ra["lieux"]:
@@ -492,8 +502,13 @@ for L in ra["lieux"]:
             parts, res = W.morceaux(par[cle])
             if res not in t or parts[-1] not in t:
                 manques.append((L["nom"], cle, res))
-    if "décision impossible : s s à saisir" not in t or any(texte(PR.M.sub(h)) not in t for h in ra["hypotheses"]):
+    # (lot C, C4 — le harnais suit : la fenêtre d'un lieu ne montre que SES formules et messages ; les hypothèses du bloc sont dans
+    # « Tout le calcul » du bloc, s3)
+    if "décision impossible : s s à saisir" not in t or any(texte(PR.M.sub(h)) in t for h in ra["hypotheses"] if len(h) > 40):
         manques.append((L["nom"], "en-tête ou hypothèses"))
+s3_ = re.search(r'<div class="flyout calcul" id="ck-s3">(.*?)</div></div></div>', neuf["volets"], re.S)
+if not s3_ or any(texte(PR.M.sub(h)) not in texte(s3_.group(1)) for h in ra["hypotheses"]):
+    manques.append(("s3", "les hypothèses du bloc"))
 chk("chaque LIEU ouvre SA fenêtre de calcul (a-A-L00, a-A-L01) : toutes ses formules (à la borne s_s = c = 0) écrites par "
     "acier.barre.ecriture, les hypothèses du bloc, « décision impossible » ; « tout le calcul » du bloc (s3) porte ses vérifications et ses "
     "combinaisons",
@@ -531,10 +546,12 @@ chk("… le dessin de la barre porte le raidisseur (un plat debout à 2,00 m) et
 ss100 = saisir(e0, "appuis/ss", "100")
 c0 = DECIDE
 def fenetre_appui(rep_):
-    """Le texte de la fenêtre du premier appui."""
+    """Le texte de la fenêtre du premier appui, puis celui de « Tout le calcul » du bloc de l'âme (s3). (lot C, C4 — le harnais suit :
+    la fenêtre d'un lieu ne redit plus les hypothèses du bloc — s_s, c — : elles sont dans « Tout le calcul », dites une fois)"""
     L_ = moteur(rep_["etat"]["elements"][0])["ame"]["lieux"][0]
     f_ = re.search(rf'<div class="flyout calcul" id="ck-{re.escape(PR.fenetre("ame", L_["base"]))}">(.*?)</div></div></div>', rep_["volets"], re.S)
-    return texte(f_.group(1)) if f_ else ""
+    s3 = re.search(r'<div class="flyout calcul" id="ck-s3">(.*?)</div></div></div>', rep_["volets"], re.S)
+    return (texte(f_.group(1)) if f_ else "") + " | " + (texte(s3.group(1)) if s3 else "")
 
 
 c50 = saisir(c0["etat"], "appuis/c", "50")
@@ -542,7 +559,7 @@ chk("la longueur d'appui saisie seule (100 mm) : à la borne c = 0, « sans raid
     "« décision impossible : c à fournir » à la 2e reprise) ; avec c = 0 saisi : F_Rd = 199,8 kN (le cas R4 du brief, type (c) : le contact "
     "d'extrémité n'est pas établi, s_s = 0 dans (6.10) — lot A) — 22 %, sans borne ; avec contact, 248,9 kN pour information ; 50 mm de débord : "
     "le verdict reste 199,8 kN, l'information passe à 335,9 kN",
-    "F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" in texte(ss100["resultat"])
+    "F Ed 44,5 ≤ F Rd 199,8 kN · c = 0 : borne prudente" in texte(ss100["resultat"]) and "Sans raidisseur · 22 %" in texte(ss100["resultat"])
     and "borne prudente" not in texte(c0["resultat"])
     and "F Ed 44,5 ≤ F Rd 199,8 kN" in texte(c0["resultat"]) and "Sans raidisseur · 22 %" in texte(c0["resultat"])
     and "s s = 100 mm, débord en rive c = 0 mm" in fenetre_appui(c0)
@@ -579,11 +596,11 @@ tv = texte(voile["resultat"])
 chk("une âme qui VOILE alors que l'Eurocode 3 passe (IPE 750x134 S355, V_z = 1 850 kN) : « Âme · non conforme — voilement de l'âme par "
     "cisaillement », le bloc en rouge (107 %), la note NON CONFORME",
     voile["ok"] and 'class="pf-vame nok"' in voile["resultat"] and "Âme · non conforme — voilement de l'âme par cisaillement" in tv
-    and "Âme et raidisseurs Non conforme · 107 %" in tv and voile["resume"]["niveau"] == "r" and "Eurocode 3 Conforme · 94 %" in tv, tv[:400])
+    and "Âme et raidisseurs Non conforme · 107 %" in tv and voile["resume"]["niveau"] == "r" and "Eurocode 3 Conforme NBN" in tv, tv[:400])
 chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (107 %, et non les 94 % de l'Eurocode) : le résumé de la note, la ligne "
     "« Profilé » ; une âme qui PASSE ne compte pas — un raidisseur à 98 % ne change pas le taux d'une barre à 74 %",
     voile["resume"]["taux"] == 107 and voile["resume"]["gouvernant"] == "B1 · IPE 750x134 · voilement de l'âme par cisaillement (âme)"
-    and "Profilé IPE 750x134 107 %" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"
+    and "Profilé IPE 750x134 Eurocode 3" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"      # (C4 : la ligne sans taux)
     and PR.taux_barre(moteur(rep["etat"]["elements"][0])) == max(x["taux_max"] for x in moteur(rep["etat"]["elements"][0])["methodes"].values())
     and neuf["resume"]["taux"] == 88 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
 
@@ -874,7 +891,7 @@ def lot_a():
         ("une barre en S460 se calcule (la méthode ELS est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
          "« Hors domaine · 70 % » (lot B : f_y nominale 460 et déversement des classeurs), jamais « Conforme » ; son bloc est à vérifier (inc) ; "
          "la note « À vérifier » (v), au taux du moteur",
-         hd.get("ok") and "ELS Hors domaine · 70 %" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
+         hd.get("ok") and "ELS Hors domaine NBN" in t and "η 70 % Méthode ELS" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
          and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 70
          and "hors domaine, calcul pour information" in t, (hd.get("resume"), hd.get("erreur"), t[:200])),
         ("… sa grande pastille est ocre (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
@@ -956,7 +973,7 @@ def nom_els():
          f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in texte(nv["resultat"]), texte(nv["resultat"])[:160]),
         ("… son bloc porte le titre court « ELS » (la place manque devant « Conforme · 74 % ») ; la comparaison, l'en-tête de colonne « ELS »",
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
-         and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span></div>' in nv["resultat"],
+         and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span><span>Écart</span></div>' in nv["resultat"],
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"])),
         ("la rubrique « Méthodes » : le segment « ELS » (sa clé reste « historique »), le titre « Méthode ELS (NBN B 51-001) », le résumé "
          "« ELS + eurocode 3 · s 1,5 »",
@@ -969,7 +986,7 @@ def nom_els():
          "« La méthode ELS (NBN B 51-001) compare des contraintes de service »",
          "<b>B1 · méthode ELS (NBN B 51-001)</b><span>IPE 300 · S235 · 6,00\u00a0m · tout le calcul</span>" in nv["volets"]
          and '<th class="n">ELS</th><th class="n">Eurocode 3</th>' in nv["volets"]
-         and "La méthode ELS (NBN B 51-001) compare des contraintes de service" in texte(nv["volets"]),
+         and "ELS : contraintes de service ≤ f y /s" in texte(nv["volets"]),          # (lot C, C4 : la note en une ligne)
          re.findall(r"<b>B1 · m[^<]*</b><span>[^<]*</span>", nv["volets"])),
         ("la vue des taux : « Méthode ELS (NBN B 51-001) » en titre, la norme pas écrite une seconde fois à droite",
          ">Méthode ELS (NBN B 51-001)<" in tx_ and tx_.count("NBN B 51-001") == 1 and ">NBN EN 1993-1-1<" in tx_, re.findall(r">([^<]*NBN[^<]*)<", tx_)),
@@ -1030,7 +1047,8 @@ MUTATIONS_NOM = (
     ("le segment du choix des méthodes redit « Historique »", M, "CHOIX_METHODES",
      lambda vrai: tuple((k, "Historique" if k == "historique" else t) for k, t in vrai)),
     ("« ELS » écrit en minuscules au fil d'une phrase (« els + eurocode 3 », « (els) »)", M, "minuscule", lambda vrai: (lambda s: s.lower())),
-    ("la note de la comparaison redit « La méthode historique »", PR, "NOTE_COMPARAISON", lambda vrai: vrai.replace("méthode ELS (NBN B 51-001)", "méthode historique")),
+    # (lot C, C4 — le harnais suit : la note de la comparaison tient en une ligne, « ELS : … ; EC3 : … »)
+    ("la note de la comparaison redit « La méthode historique »", PR, "NOTE_COMPARAISON", lambda vrai: vrai.replace("ELS :", "La méthode historique :")),
     ("l'aide de la colonne « Service » redit « la méthode historique »", PS, "AIDE_JEU", lambda vrai: dict(vrai, service="Efforts non pondérés : ceux de la méthode historique.")),
     ("l'aide du mode « Efforts imposés » redit « la méthode historique »", M, "MODES",
      lambda vrai: tuple((k, t, a.replace("méthode ELS", "méthode historique")) for k, t, a in vrai)),
@@ -1120,8 +1138,9 @@ def borne_ecran():
          and resume_ap(z_).startswith("Appuis posée · s s 100 mm · c 0 mm"), (resume_ap(n_), resume_ap(s_), resume_ap(z_))),
         ("la ligne d'un lieu impossible porte le taux à la borne (« Appui A 157 % décision impossible : s s à saisir ») ; à la borne qui "
          "passe, la ligne dit la borne (« sans raidisseur (c = 0 : borne prudente) ») ; c = 0 saisi : « sans raidisseur », sans borne",
-         "Appui A 157 % décision impossible : s s à saisir" in tn and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur (c = 0 : borne prudente)" in ts
-         and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · sans raidisseur Appui B" in tz, (tn[-300:], ts[-300:])),
+         # (lot C, C4 — le harnais suit : « sans raidisseur » dit une fois, dans l'en-tête du bloc ; la ligne garde sa borne)
+         "Appui A 157 % décision impossible : s s à saisir" in tn and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN · c = 0 : borne prudente" in ts
+         and "Appui A 22 % F Ed 44,5 ≤ F Rd 199,8 kN Appui B" in tz and "Sans raidisseur · 22 %" in tz, (tn[-300:], ts[-300:])),
     ]
 
 
@@ -1143,8 +1162,10 @@ MUTATIONS_BORNE = (
     ("le résumé des Appuis tait c (manquant, ou 0 saisi)", PS, "_resume_appuis", _resume_ancien),
     ("le résumé des Appuis dit « à saisir » un champ vide (le champ dit « borne 0 »)", PS, "_resume_appuis",
      lambda vrai: _source_mutee(PS, 'else f"s<sub>s</sub> {M.SS_VIDE}"', 'else "s<sub>s</sub> à saisir"')._resume_appuis),
-    ("la ligne d'un lieu ne dit pas la borne", M, "decision_lieu",
-     lambda vrai: (lambda L: "sans raidisseur" if L["decision"] == "aucun" else vrai(L))),
+    # (lot C, C4 — le harnais suit : quand l'en-tête dit « Sans raidisseur », la ligne écrit sa borne seule, sans decision_lieu — la
+    #  mutation retire donc la borne du lieu lui-même)
+    ("la ligne d'un lieu ne dit pas la borne", MO, "verifier",
+     lambda vrai: (lambda el: (lambda r_: {**r_, "ame": {**r_["ame"], "lieux": [dict(L, borne=None) for L in r_["ame"]["lieux"]]}})(vrai(el)))),
     ("la ligne d'un lieu impossible perd son taux", MO, "verifier",
      lambda vrai: (lambda el: {**vrai(el), "ame": {**vrai(el)["ame"], "lieux": [dict(L, taux=None if L["decision"] == "impossible" else L["taux"])
                                                                            for L in vrai(el)["ame"]["lieux"]]}})),
@@ -1538,15 +1559,16 @@ def lot_c0():
     out.append(("C0b — console 3 m, N = 50 kN : la puce du verdict Eurocode 3 n'est PAS verte (57 %, montré pour information sous « non "
                 "couvert » : « v ») ; dessous, en une ligne, « + 1 non couvert : flexion composée » — une fois",
                 puces == ["r", "v"] and texte(h).count("+ 1 non couvert : flexion composée") == 1, (puces, texte(h)[:300])))
-    cmp_ = re.search(r'<div class="pf-cmp"><span>Flexion composée</span>(.*?)</div>', h)
+    cmp_ = re.search(r'<div class="pf-cmp"><span>Flexion composée(?:<small[^>]*>[^<]*</small>)?</span>(.*?)</div>', h)     # (C4 : ce qui gouverne)
     out.append(("C0b — … la case Eurocode 3 de « Flexion composée » dans la comparaison (45 %, sous un non couvert) n'est pas verte non plus",
                 cmp_ is not None and re.findall(r'class="chip ([a-z]+)"', cmp_.group(1)) == ["r", "v"], cmp_ and cmp_.group(1)))
     leg = req(action="calculer", etat=note(_console(1.0)))
-    prof = re.search(r'<b>Profilé</b>.*?<span class="pct ([a-z]+)">([^<]+)<', leg["resultat"], re.S)
-    out.append(("C0b — une console légère (rien ne refuse ; l'Eurocode 3 non couvert, l'ELS hors domaine) : la ligne « Profilé » montre son "
-                "taux (63 %) en « à vérifier », jamais en vert ; la note aussi",
-                prof is not None and prof.group(1) == "v" and prof.group(2).startswith("63") and leg["resume"]["niveau"] == "v",
-                prof and prof.groups()))
+    # (lot C, C4 — le harnais suit : la ligne « Profilé » n'écrit plus de taux — les verdicts le disent ; ils restent « à vérifier »)
+    prof = re.search(r'<div class="els pf-profil">(.*?)</div></div>', leg["resultat"], re.S)
+    puces_ = re.findall(r'<div class="verdict"[^>]*><span class="chip xl ([a-z]+)', leg["resultat"])
+    out.append(("C0b — une console légère (rien ne refuse ; l'Eurocode 3 non couvert, l'ELS hors domaine) : aucune puce verte (les deux « à "
+                "vérifier ») ; la ligne « Profilé » sans taux ; la note « à vérifier »",
+                prof is not None and "%" not in texte(prof.group(1)) and puces_ == ["v", "v"] and leg["resume"]["niveau"] == "v", (puces_, prof and prof.group(1)[:200])))
     rp = MO.verifier(_prs(30))
     vp = PR.verdicts(rp)
     out.append(("C0c — un PRS aux bords non saisis : le verdict ELS dit « Bloqué » en un mot (puce « v », sans taux), sa raison en UNE ligne "
@@ -1598,9 +1620,12 @@ def _sans_prs(vrai):
 
 MUTATIONS_C0 = (
     ("la puce du verdict peinte au taux seul (C.niveau), sans son statut", P, "R",
-     lambda vrai: _source_mutee(vrai, 'M.couleur_taux(x["statut"], x["taux_max"]), xl=True)', 'C.niveau(x["taux_max"]), xl=True)')),
-    ("la ligne « Profilé » peinte au taux seul", P, "R",
-     lambda vrai: _source_mutee(vrai, 'niv = M.couleur_taux(r["statut"], t)', 'niv = C.niveau(t) if t is not None else "c"')),
+     lambda vrai: _source_mutee(vrai, 'M.couleur_taux(x["statut"], t), xl=True)', 'C.niveau(t), xl=True)')),
+    # (lot C, C4 — le harnais suit : la ligne « Profilé » n'a plus de taux ni de couleur ; la mutation qui la peignait au taux seul
+    #  devient : la ligne « Profilé » redit le taux de la barre, en vert)
+    ("la ligne « Profilé » redit le taux de la barre, en vert", P, "R",
+     lambda vrai: _source_mutee(vrai, '<span>{C.esc(r["profil"])}</span>{C.icon("chevron-down")}</button></div></div>\')',
+                                '<span>{C.esc(r["profil"])}</span>{C.icon("chevron-down")}</button><span class="pct p">{M.taux_txt(taux_barre(r))}</span></div></div>\')')),
     ("la case de la comparaison peinte au taux seul (niveau_taux)", P, "R",
      lambda vrai: _source_mutee(vrai, 'return M.couleur_taux(case["statut"], case["taux"]) if case else "c"',
                                 'return C.niveau(case["taux"]) if case and case["taux"] is not None else "c"')),

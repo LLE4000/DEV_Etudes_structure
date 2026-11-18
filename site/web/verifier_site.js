@@ -4126,6 +4126,10 @@ const principal = async () => {
   // RECHARGÉE, le PRS est dans la bibliothèque (le sélecteur d'un PRS, sans ★). Aux trois formats, la barre « prs » (PRS-B
   // saisi, bords vides) : rien de coupé, 16 px et 44 px au doigt, l'ELS « Bloqué » non vert, la vue Section à sa taille.
   // Le témoin joint la bibliothèque à ses requêtes, comme l'écran (« carnet »).
+  // (lot C, C4) LES RÉSULTATS : le taux d'une méthode écrit une fois, au verdict (l'en-tête des blocs dit le mot) ; la ligne
+  // « 1 correction des classeurs » ouvre les écarts avec les classeurs du bureau (brief § 6.7) ; aux trois formats, la fenêtre du
+  // lieu raidi s'ouvre sur le tableau avant/après (§ 15.4, lu à 390 px) ; la barre « niveaux » (continue, une charge suspendue à la
+  // semelle basse, le maintien sur la semelle basse) : les signes de niveau dessinés et leur légende en mots.
   // Les captures : site_barres_*.png.
   //   filtre « barres » ; « module:profil » le rejoue aussi (après le contrôle commun).
   if (!FILTRE || FILTRE === 'barres' || FILTRE === 'module:profil') {
@@ -4357,12 +4361,29 @@ const principal = async () => {
         await g.waitForTimeout(200);
         const dev0 = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
           return { texte: x.textContent.replace(/[\s]+/g, ' '), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5, egal: (x.textContent.match(/=/g) || []).length }; }, VIS);
-        verif('barres : le bloc ELS de la barre neuve — « Conforme · 88 % », la ligne « Déversement » (88 %, celle qui gouverne : σ M 84,2 ≤ σ adm,d 95,3 N/mm²), puis « Contrainte équivalente » ; la ligne ouvre SON calcul, dans l\'écran — λ e,d, φ d, σ adm,d = 95,26 N/mm², η = 88,4 %, et la correction du classeur, dite',
-          !!els0 && /^Conforme · 88\s?%$/.test(els0.etat) && els0.lignes.length === 2 && els0.lignes[0].id === 'h-H-DEV' && els0.lignes[0].gov && /^Déversement\s?88\s?%/.test(els0.lignes[0].t)
+        // (lot C, C4 — le harnais suit : l'en-tête du bloc ne redit plus le taux — le verdict le dit, une fois ; une 3e ligne,
+        // « 1 correction des classeurs », ouvre les écarts avec les classeurs du bureau, brief § 6.7)
+        verif('barres : le bloc ELS de la barre neuve — « Conforme » (le taux au seul verdict), la ligne « Déversement » (88 %, celle qui gouverne : σ M 84,2 ≤ σ adm,d 95,3 N/mm²), puis « Contrainte équivalente », puis « 1 correction des classeurs » ; la ligne ouvre SON calcul, dans l\'écran — λ e,d, φ d, σ adm,d = 95,26 N/mm², η = 88,4 %, et la correction du classeur, dite',
+          !!els0 && els0.etat === 'Conforme' && els0.lignes.length === 3 && els0.lignes[0].id === 'h-H-DEV' && els0.lignes[0].gov && /^Déversement\s?88\s?%/.test(els0.lignes[0].t)
           && /84,2 ≤ σ\s?adm,d 95,3 N\/mm²/.test(els0.lignes[0].t) && /^Contrainte équivalente/.test(els0.lignes[1].t)
+          && els0.lignes[2].id === 'ecarts' && els0.lignes[2].t === '1 correction des classeurs'
           && !!dev0 && dev0.dedans && /λ\s?e,d/.test(dev0.texte) && /φ\s?d/.test(dev0.texte) && /95,26 N\/mm²/.test(dev0.texte) && /88,4 %/.test(dev0.texte)
           && /Correction du classeur : /.test(dev0.texte) && dev0.egal >= 12, JSON.stringify({ els0, dev0: dev0 && { ...dev0, texte: dev0.texte.slice(0, 300) } }).slice(0, 700));
         await g.screenshot({ path: path.join(OUT, 'site_barres_els_deversement_pc.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(150);
+        // (lot C, C4 — brief § 6.7) la ligne « 1 correction des classeurs » ouvre les ÉCARTS AVEC LES CLASSEURS DU BUREAU : une ligne
+        // par correction que le moteur rend (la barre neuve : la ligne « axe faible » du déversement), où elle joue ; jamais un choix du
+        // bureau (f_y nominale, s, C, C_d) ; lue comme l'œil la voit : dans l'écran
+        await g.click('#resultat .el.vc[data-calcul="ecarts"]');
+        await g.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+        await g.waitForTimeout(200);
+        const ec0 = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
+          return { titre: (x.querySelector('.fl-h b') || {}).textContent || '', lignes: [...x.querySelectorAll('.vtab tbody tr')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()),
+            dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 }; }, VIS);
+        verif('barres : « 1 correction des classeurs » ouvre les écarts avec les classeurs du bureau, dans l\'écran — une ligne, la correction « axe faible » du déversement, aucun choix du bureau',
+          !!ec0 && ec0.dedans && /écarts avec les classeurs du bureau/.test(ec0.titre) && ec0.lignes.length === 1 && /axe faible/.test(ec0.lignes[0]) && /déversement$/.test(ec0.lignes[0])
+          && !ec0.lignes.some((t) => /nominale|s = 1,5|C = 1/.test(t)), JSON.stringify(ec0));
         await g.keyboard.press('Escape');
         await g.waitForTimeout(150);
         // le bloc de l'âme : une ligne par appui ; chacune ouvre la fenêtre de SON lieu. (lot B, B4 : s_s et c ne sont plus
@@ -4389,9 +4410,9 @@ const principal = async () => {
         await g.waitForTimeout(200);
         const lieu0 = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
           return { texte: x.textContent.replace(/[\s]+/g, ' '), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5, egal: (x.textContent.match(/=/g) || []).length }; }, VIS);
-        verif('barres : la ligne d\'un appui ouvre la fenêtre de SON lieu, dans l\'écran — « appui A », la décision impossible (« s s à saisir »), la vérification faite à la borne (« s s = 0, c = 0 (borne prudente) ») : le critère 6.2.1(5) à 157 %, la résistance de l\'âme (F_cr = 485,6 kN, l_y, F_Rd = 58 kN), la longueur d\'appui non saisie, dite',
+        verif('barres : la ligne d\'un appui ouvre la fenêtre de SON lieu, dans l\'écran — « appui A », la décision impossible (« s s à saisir »), la vérification faite à la borne (« s s = 0, c = 0 (borne prudente) ») : le critère 6.2.1(5) à 157 %, la résistance de l\'âme (F_cr = 485,6 kN, l_y, F_Rd = 58 kN)',
           !!lieu0 && lieu0.dedans && /appui A/.test(lieu0.texte) && new RegExp(`[Dd]écision impossible : ${AME_NEUVE_MANQUE}`).test(lieu0.texte) && /borne prudente/.test(lieu0.texte) && /157\s?%/.test(lieu0.texte)
-          && /485,6 kN/.test(lieu0.texte) && /58 kN/.test(lieu0.texte) && /non saisie/.test(lieu0.texte) && lieu0.egal >= 12,
+          && /485,6 kN/.test(lieu0.texte) && /58 kN/.test(lieu0.texte) && lieu0.egal >= 12,       // (lot C, C4 — le harnais suit : « non saisie », une hypothèse du bloc, est dans « Tout le calcul »)
           JSON.stringify(lieu0).slice(0, 400));
         await g.screenshot({ path: path.join(OUT, 'site_barres_ame_lieu_pc.png') });
         await g.keyboard.press('Escape');
@@ -4452,8 +4473,8 @@ const principal = async () => {
                 plats: [...document.querySelectorAll('#stage .view[data-vue="barre"] .draw svg rect[fill="#B45309"]')].filter((x) => x.checkVisibility(VIS)).map((x) => { const r = x.getBoundingClientRect(); return Math.round(r.width) + '×' + Math.round(r.height); }) }; }, VIS);
             // (lot B, B4) s_s et c non saisis, la charge plus faible : la vérification à la borne 0 PASSE — l'âme le dit
             if (quoi === 'borne') plus = /^Sans raidisseur · 83\s?%$/.test(a.etat || '') && a.lignes.length === 2 && /^Appui A/.test(a.lignes[0]) && /^Appui B/.test(a.lignes[1])
-              && a.lignes.every((t) => /83\s?%/.test(t) && /sans raidisseur \(s[_\s]?s = 0, c = 0 : borne prudente\)$/.test(t)) && !a.bande && !a.plats.length;
-            else if (quoi === 'appui_100') plus = /^Sans raidisseur · 22\s?%$/.test(a.etat || '') && a.lignes.length === 2 && a.lignes.every((t) => /199,8/.test(t) && /sans raidisseur \(c = 0 : borne prudente\)$/.test(t))
+              && a.lignes.every((t) => /83\s?%/.test(t) && /· s[_\s]?s = 0, c = 0 : borne prudente$/.test(t) && !/sans raidisseur/.test(t)) && !a.bande && !a.plats.length;   // (lot C, C4 — le harnais suit : « sans raidisseur » une fois, dans l'en-tête)
+            else if (quoi === 'appui_100') plus = /^Sans raidisseur · 22\s?%$/.test(a.etat || '') && a.lignes.length === 2 && a.lignes.every((t) => /199,8/.test(t) && /· c = 0 : borne prudente$/.test(t) && !/sans raidisseur/.test(t))
               && !a.bande && !a.plats.length && (await g.inputValue('#donnees input[data-chemin="appuis/ss"]')) === '100';
             else if (quoi === 'raidisseur') {
               // (lot B, B4) la charge à 0,50 m n'a ni s_s saisie, ni maintien de la semelle haute à son droit : sa décision est
@@ -4526,9 +4547,9 @@ const principal = async () => {
           }
           verif(`barres : ${nom} — la page dit ce que dit le témoin (résultats, dessin de la barre, vues)${quoi ? `, et ${({ charge: 'les deux taux montent, le dessin écrit « 12 kN/m »',
             ponctuelle: 'la ponctuelle a sa ligne à gauche et sa flèche « 10 kN » au dessin', sans_ponctuelle: 'sa ligne et sa flèche ont disparu', neuve: 'les taux de la barre neuve reviennent (88 % et 58 %)',
-            borne: 'aux appuis, l\'âme tient À LA BORNE — « Sans raidisseur · 83 % », chaque appui « sans raidisseur (s s = 0, c = 0 : borne prudente) », pas de ligne « Âme » sous les verdicts',
+            borne: 'aux appuis, l\'âme tient À LA BORNE — « Sans raidisseur · 83 % » (dit une fois, dans l\'en-tête), chaque appui « s s = 0, c = 0 : borne prudente », pas de ligne « Âme » sous les verdicts',
             sans_maintien: 'la méthode ELS REFUSE la barre (rouge, plus de 100 %), l\'Eurocode 3 aussi (rouge, 113 %)', continue: 'trois portées à gauche, quatre appuis au dessin (A à D)',
-            appui_100: 'les appuis passent à « Sans raidisseur · 22 % » (F_Rd = 199,8 kN ; c non saisi, pris à 0 : « sans raidisseur (c = 0 : borne prudente) »), plus de ligne « Âme »',
+            appui_100: 'les appuis passent à « Sans raidisseur · 22 % » (F_Rd = 199,8 kN ; c non saisi, pris à 0 : « c = 0 : borne prudente » sur chaque ligne), plus de ligne « Âme »',
             raidisseur: 'l\'appui A demande 2 plats 70 × 10 mm (sa ligne les nomme, ils sont DESSINÉS sur la barre avec leur légende) ; à la charge (0,50 m : ni s s saisie, ni maintien de la semelle haute à son droit) la décision est IMPOSSIBLE (122 % à la borne) — la ligne « Âme » dit les deux, en gris, le lieu en tête (« charge à 0,50 m : s s à saisir ; semelle haute sans maintien (…) ») ; « Bloqué · 89 % » au bloc ; le champ de la longueur d\'appui de la charge',
             console: 'L z vide, « auto · 6,3 » (la console : 2,1·L — même après les efforts imposés et le retour) ; la puce de l\'Eurocode 3 n\'est PAS verte (N + M en console : non couvert), « + 1 non couvert : flexion composée » sous son verdict',
             sans_raidisseur: 's s de la charge saisie : il ne manque plus que le maintien de la semelle haute (« semelle haute sans maintien (EN 1993-1-5, 6.1(1)) ; ajouter un maintien (À VÉRIFIER) », 87 % si elle est tenue) ; l\'appui A garde ses plats, dessinés ; « À vérifier · 89 % » au bloc', par_ame: 'les lignes des appuis disparaissent du bloc (il reste la charge), la rubrique n\'offre plus la longueur d\'appui',
@@ -4628,6 +4649,11 @@ const principal = async () => {
       ['raidisseur', [['', 'ch', 'cas/0/charges/+', 'P', 'clic'], ['', 'ch', 'cas/0/charges/1/v', '150', 'champ'], ['', 'ch', 'cas/0/charges/1/ss', '0', 'champ'],
         ['', 'ap', 'appuis/ss', '100', 'champ'], ['', 'ap', 'appuis/c', '50', 'champ']]],
       ['continue', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ba', 'travees/+', '1', 'clic'], ['', 'ch', 'cas/1/charges/+', 'P', 'clic'], ['', 'ch', 'cas/+', '1', 'clic']]],
+      // (lot C, C4) une continue à charges de NIVEAUX DIFFÉRENTS (une ponctuelle suspendue à la semelle basse : le geste « niveau » d'une
+      // charge est celui de C3, cas/i/charges/j/niveau) et son maintien sur la semelle basse : le dessin peint le signe de chaque
+      // niveau (▲ ● ▼, des formes, lisibles en noir et blanc) et sa légende en mots ; rien hors du dessin, rien l'un sur l'autre
+      ['niveaux', [['', 'ba', 'modele', 'continue', 'menu'], ['', 'ch', 'cas/0/charges/+', 'P', 'clic'], ['', 'ch', 'cas/0/charges/1/niveau', 'bas', 'clic'],
+        ['', 'mt', 'maintiens/0/genre', 'bas', 'menu']]],
       ['efforts', [['', 'ba', 'mode', 'efforts', 'clic'], ['', 'ef', 'efforts/elu/N', '100', 'champ'], ['', 'ef', 'efforts/elu/My', '40', 'champ'], ['', 'ef', 'efforts/elu/Vz', '30', 'champ'],
         ['', 'ef', 'efforts/service/N', '70', 'champ'], ['', 'ef', 'efforts/service/My', '28', 'champ'], ['', 'ef', 'efforts/service/Vz', '21', 'champ']]],
       // (lot C, C6) le PRS-B saisi dans la rubrique « Barre » (les gestes du parcours, sans les bords : la méthode ELS « Bloqué »)
@@ -4706,6 +4732,17 @@ const principal = async () => {
             await pg.click('#vues [data-vue="barre"]');
             await pg.waitForTimeout(150);
           }
+          if (cfg === 'niveaux') {
+            // (lot C, C4) les niveaux mêlés se lisent au dessin : la légende en mots (semelle haute, centre, semelle basse) et le signe
+            // de chaque niveau, des FORMES dessinées (▲ ▼ : des triangles de la couleur des charges) — taille lue
+            const nv = await pg.evaluate((VIS) => { const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility(VIS)); const svg = d && d.querySelector(':scope > svg');
+              if (!svg) return null; const signes = [...svg.querySelectorAll('path[fill="#9C3341"]')].filter((x) => /l3\.6 -?6\.4h-7\.2z/.test(x.getAttribute('d') || ''))
+                .map((x) => { const r = x.getBoundingClientRect(); return Math.round(r.width * 10) / 10; });
+              return { mots: [...svg.querySelectorAll('text')].map((t) => t.textContent.trim()), signes }; }, VIS);
+            verif(`barres niveaux · ${fmt} : la continue à charges de niveaux différents — la légende dit les trois niveaux en mots, le signe de chaque charge est une forme dessinée et vue (taille lue)`,
+              !!nv && ['semelle haute', 'centre de cisaillement', 'semelle basse'].every((t) => nv.mots.includes(t)) && nv.signes.length >= 3 && nv.signes.every((w_) => w_ >= 3),
+              JSON.stringify(nv).slice(0, 400));
+          }
           const vs = await verdictsB(pg).catch(() => []);
           if (tel) { await pg.click('.mtabs [data-onglet="resultat"]'); await pg.waitForTimeout(250); }
           const vr = await verdictsB(pg);
@@ -4722,12 +4759,31 @@ const principal = async () => {
             raidisseur: /^Âme · Raidisseur : 2 plats 70 × 8 mm \(charge à 3,00 m\)$/,
             continue: new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE} \\(appui A, appui D\\) ; charge à 9,00 m : ${AME_SANS_MAINTIEN} — 21\\s?% si elle est tenue ; ajouter un maintien \\(À VÉRIFIER\\)$`),
             efforts: null,
+            niveaux: new RegExp(`^Âme · Décision impossible : ${AME_NEUVE_MANQUE}`),       // (lot C, C4 : s_s des appuis non saisie)
             prs: null,                      // (lot C, C6 : l'âme de 15 mm du PRS-B tient à la borne — pas de ligne « Âme »)
           }[cfg];
           const a = await pg.evaluate((VIS) => { const bande = document.querySelector('#resultat .pf-vame'); const raid = document.querySelector('#resultat .pf-raid');
             const r = bande && bande.checkVisibility(VIS) ? bande.getBoundingClientRect() : null;
             return { bande: r ? { texte: bande.textContent.replace(/\s+/g, ' ').trim(), l: Math.round(r.width), h: Math.round(r.height), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5,
               coupe: bande.scrollWidth > bande.clientWidth + 1 } : null, plats: raid && raid.checkVisibility(VIS) ? raid.textContent.trim() : null }; }, VIS);
+          if (cfg === 'raidisseur') {
+            // (lot C, C4 — brief § 15.4) la ligne du lieu ouvre sa fenêtre ; en tête, le tableau AVANT/APRÈS (grandeur · sans · avec) et
+            // le rappel sur τ — lus comme l'œil les voit : dans l'écran, aucune case coupée, la police lue (390 px compris)
+            await pg.click('#resultat .el.vc:has(.pf-raid)');
+            await pg.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+            await pg.waitForTimeout(250);
+            const av = await pg.evaluate((VIS) => { const t = document.querySelector('.flyout.on.calcul .pf-avap'); if (!t || !t.checkVisibility(VIS)) return null; const r = t.getBoundingClientRect();
+              const cases = [...t.children];
+              return { l: Math.round(r.width), dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5, coupees: cases.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent.trim().slice(0, 20)),
+                police: Math.min(...cases.map((c) => parseFloat(getComputedStyle(c).fontSize))), texte: t.textContent.replace(/\s+/g, ' '),
+                rappel: ((document.querySelector('.flyout.on.calcul .pf-rappel') || {}).textContent || '').trim() }; }, VIS);
+            verif(`barres raidisseur · ${fmt} : la fenêtre du lieu raidi s'ouvre sur le tableau avant/après — grandeur · sans raidisseur · 2 plats 70 × 8 mm, F_Rd, η₂, N_b,Rd, contact ; dans l'écran, aucune case coupée, police lue ≥ 10 px ; le rappel sur τ en une ligne`,
+              !!av && av.dedans && !av.coupees.length && av.police >= 10 && /Sans raidisseur/i.test(av.texte) && /2 plats 70 × 8 mm/.test(av.texte) && /N\s?b,Rd/.test(av.texte)
+              && /contact/.test(av.texte) && /ne réduit pas τ/.test(av.rappel), JSON.stringify(av).slice(0, 400));
+            await pg.screenshot({ path: path.join(OUT, `site_barres_raidisseur_avant_apres_${fmt}.png`) });
+            await pg.keyboard.press('Escape');
+            await pg.waitForTimeout(150);
+          }
           verif(`barres ${cfg} · ${fmt} : ${BANDE_ATTENDUE ? `la ligne « Âme » se lit en entier sous les verdicts, dans l'écran${tel || w < 1200 ? ', à 44 px au doigt' : ''}${cfg === 'raidisseur'
             ? ' (« Raidisseur : 2 plats 70 × 8 mm (charge à 3,00 m) ») ; la ligne du lieu nomme ses plats' : ' (« Décision impossible : s s à saisir … »)'}` : 'pas de ligne « Âme » sous les verdicts'}`,
             BANDE_ATTENDUE ? !!a.bande && BANDE_ATTENDUE.test(a.bande.texte) && a.bande.dedans && !a.bande.coupe && (tel || w < 1200 ? a.bande.h >= 43.5 : a.bande.h >= 24)

@@ -98,17 +98,41 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
 /* les avertissements du moteur, au pied du bloc de leur méthode */
 .pf-msgs { border-top: 1px solid var(--line); }
 .pf-msgs .msg { border-top: 0; padding: 6px 12px; }
-/* la comparaison : un sujet par ligne, le taux de chaque méthode */
-.pf-cmp { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; gap: 8px; align-items: center; padding: 5px 12px; font-size: 12.5px; color: var(--ink-2); }
-.pf-cmp > .chip { justify-self: center; min-width: 58px; justify-content: center; }
+/* la comparaison : un sujet par ligne, le taux de chaque méthode, leur écart (lot C, C4) ; ce qui gouverne sous le sujet.
+   À 390 px : le sujet garde 150 px, les trois colonnes 62 px chacune */
+.pf-cmp { display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 62px; gap: 6px; align-items: center; padding: 5px 12px; font-size: 12.5px; color: var(--ink-2); }
+.pf-cmp > .chip { justify-self: center; min-width: 0; width: 60px; justify-content: center; }
+.pf-cmp > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.pf-cmp > span:first-child small { display: block; font-size: 11px; line-height: 1.3; }
+.pf-cmp .pf-ecart { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-2); }
 .pf-cmp-h { padding-bottom: 0; font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
 .pf-cmp-h span { text-align: center; }
+.pf-cmp-h span:last-child { text-align: right; }
 .pf-cmp-t { border-top: 1px solid var(--line); font-weight: 650; color: var(--ink); }
 /* l'âme : un seul taux, à cheval sur les deux colonnes — il vaut pour les deux méthodes */
-.pf-cmp-c { grid-template-columns: minmax(0, 1fr) 160px; color: var(--ink-3); }
+.pf-cmp-c { grid-template-columns: minmax(0, 1fr) 130px 62px; color: var(--ink-3); }
+.pf-cmp-c > .chip { width: 124px; }
+/* (lot C, C4) un bloc sans ligne d'efforts (la comparaison) : pas de bande vide */
+body[data-module="profil"] .et-bloc-ef:empty { display: none; }
+/* (lot C, C4) la ligne « n corrections des classeurs », qui ouvre les écarts avec les classeurs du bureau (brief § 6.7) */
+.pf-lecarts { cursor: pointer; }
+.pf-lecarts .l1 b { font-weight: 600; color: var(--accent); }
+.pf-lecarts .l1 svg.i { width: 14px; height: 14px; margin-left: auto; flex: none; color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- les fenêtres de calcul */
 .pf-msg { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); padding: 2px 0; }
+/* (lot C, C4) une fenêtre sans détail (les écarts avec les classeurs) : pas de titre « Le détail du calcul » au-dessus du vide */
+body[data-module="profil"] .ck-sub:has(+ .ck-cols:empty) { display: none; }
+/* (lot C, C4 — brief § 15.4) le tableau AVANT/APRÈS raidisseur, en tête de la fenêtre du lieu : grandeur · sans · avec.
+   Dans la bande des hypothèses (des « span ») : il en prend toute la largeur ; lisible à 390 px (trois colonnes souples) */
+.ck-hyp > span:has(> .pf-avap) { flex: 1 1 100%; padding: 0; background: none; border-radius: 0; }
+.ck-hyp .pf-avap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0; padding: 0; background: none;
+  border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 12.5px; color: var(--ink-2); }
+.ck-hyp .pf-avap > span { padding: 5px 8px; border-radius: 0; background: none; border-top: 1px solid var(--line); font-size: 12.5px;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+.ck-hyp .pf-avap > span.h { border-top: 0; font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ck-hyp .pf-avap > span.g { font-weight: 600; color: var(--ink); }
+.ck-hyp > span:has(> .pf-avap) .pf-rappel { display: block; padding: 6px 2px 0; background: none; font-size: 12px; color: var(--ink-3); }
 /* le bilan des combinaisons : le nom, la vérification qui gouverne, le taux */
 .fx.pf-comb { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; gap: 8px; }
 .fx.pf-comb .s { font-style: normal; font-weight: 600; }
@@ -120,5 +144,6 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
   .pf-biblio { min-height: 44px; }
   .pf-lien { min-height: 44px; }
   .pf-vame { min-height: 44px; align-items: center; }
+  .pf-profil .el, .pf-lecarts { min-height: 44px; }
   .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 44px; }
 }
