@@ -212,6 +212,13 @@ Révision du 16/11/2026, lot B : (1) fait — k_c reste 1 hors du tableau 6.6 (S
 sont reconnus (deux appuis, bi-encastrée, encastrée-appuyée ; charge répartie ou centrale). (2) fait — pas de borne
 (tableau D.1 ANB) : S2 donne 0,600 et 0,648, comme SCIA. Les deux mesures ci-dessus ne sont pas réécrites.
 
+Révision du 18/11/2026, lot C (revue finale, `docs/validation/barres_revue_finale_2026-11-18.md` § 3) : la ligne S2
+« 0,631 ; 0,667 » et les attendus du § 4 pour S2 (C_my,0 0,933 ; (6.61) 0,631 ; (6.62) 0,667) sont DÉPASSÉS par la
+révision du lot B (0,600 ; 0,648, rejoués par `tests/test_barre_benchmarks.py`). La ligne « η de l'âme » : η = 1,00 des
+laminés est POINTÉ depuis le lot B (NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire ; `parametres.py`, « eta ») —
+plus « à pointer au lot 4 ». Les suites (3) et (4) sont faites : L17a reçu et conforme (§ 7) ; η pointé. Restent
+attendus au bureau : L1 à L16, L17b, L17c. Les mesures ci-dessus ne sont pas réécrites.
+
 ## 7. Résultat de LTBeamN reçu le 16/11/2026 (mesure datée) : L17a
 
 LTBeamN, IPE 360 de sa bibliothèque, E = 210 000 N/mm², G = 80 769 N/mm², 200 éléments, charge répartie posée sur la
