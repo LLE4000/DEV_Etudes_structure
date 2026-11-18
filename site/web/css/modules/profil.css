@@ -123,6 +123,14 @@ body[data-module="profil"] .et-bloc-ef:empty { display: none; }
 .pf-msg { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); padding: 2px 0; }
 /* (lot C, C4) une fenêtre sans détail (les écarts avec les classeurs) : pas de titre « Le détail du calcul » au-dessus du vide */
 body[data-module="profil"] .ck-sub:has(+ .ck-cols:empty) { display: none; }
+/* (lot C, C4 — reprise) la fenêtre des écarts avec les classeurs : UNE colonne de texte qui passe à la ligne (la correction, et
+   « Joue sur : … » dessous) ; ses quatre autres cases, vides, sont retirées — rien de coupé à 390 px. « ck-ecarts » : copie
+   NOMMÉE de profil_mots.FENETRE_ECARTS (« ck- » + son nom), liée par tests/test_api_web_profil_resultat.py */
+#ck-ecarts .vtab th:not(:first-child), #ck-ecarts .vtab td:not(:first-child) { display: none; }
+#ck-ecarts .vtab th:first-child { width: auto; }
+#ck-ecarts .vtab td.nm { white-space: normal; overflow-wrap: anywhere; }
+/* (lot C, C4 — reprise) une fenêtre sans hypothèses (une vérification : « Tout le calcul » les dit) : pas de bande vide */
+body[data-module="profil"] .ck-hyp:empty { display: none; }
 /* (lot C, C4 — brief § 15.4) le tableau AVANT/APRÈS raidisseur, en tête de la fenêtre du lieu : grandeur · sans · avec.
    Dans la bande des hypothèses (des « span ») : il en prend toute la largeur ; lisible à 390 px (trois colonnes souples) */
 .ck-hyp > span:has(> .pf-avap) { flex: 1 1 100%; padding: 0; background: none; border-radius: 0; }

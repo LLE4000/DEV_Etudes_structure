@@ -188,15 +188,20 @@ def controles():
         x = mod("profil").calculer(r["etat"]["elements"][0])["methodes"]["historique"]
         cs = x["corrections"]
         fen = fenetre(r["volets"], M.FENETRE_ECARTS)
-        lignes = re.findall(r'<td class="nm">(.*?)</td>', fen, re.S)
-        ou = [texte(m) for m in re.findall(r'<td class="n"><span class="chip c">(.*?)</span></td>', fen)]
+        lignes = re.findall(r'<td class="nm">(.*?)<span>(.*?)</span></td>', fen, re.S)
+        pastilles = [texte(m) for m in re.findall(r'<td class="n"><span class="chip c">(.*?)</span></td>', fen)]
         titres = {v["id"]: v["titre"] for v in x["verifications"]}
         attendu = [texte(M.sub(k["texte"][:1].upper() + k["texte"][1:])) for k in cs]
         ligne = re.search(rf'<div class="el vc pf-lecarts" data-calcul="{M.FENETRE_ECARTS}"[^>]*><div class="l1"><b>(.*?)</b>', r["resultat"])
         c(f"2. écarts — {nom} : le moteur rend {[k['id'] for k in cs]} ; la ligne « {M.mot_corrections(len(cs))} » du bloc ELS ouvre la "
           "fenêtre ; une ligne par correction, son texte, et où elle joue — exactement celles du moteur",
-          len(cs) >= 2 and ligne is not None and ligne.group(1) == M.mot_corrections(len(cs)) and [texte(li) for li in lignes] == attendu
-          and ou == [", ".join(M.minuscule(titres[i]) for i in k["verifications"]) for k in cs], ([k["id"] for k in cs], [texte(li) for li in lignes], ou))
+          len(cs) >= 2 and ligne is not None and ligne.group(1) == M.mot_corrections(len(cs)) and [texte(li[0]) for li in lignes] == attendu
+          and [texte(li[1]) for li in lignes] == ["Joue sur : " + ", ".join(M.minuscule(titres[i]) for i in k["verifications"]) for k in cs],
+          ([k["id"] for k in cs], [texte(li[0]) for li in lignes], [texte(li[1]) for li in lignes]))
+        c(f"2. écarts — {nom} (reprise, lisible à 390 px) : « où » n'est jamais logé dans la pastille de la dernière case (50 px au téléphone) — "
+          "elle dit « — » ; les quatre colonnes vides sans titre",
+          pastilles == ["—"] * len(cs) and re.search(r'<thead><tr><th>[^<]+</th><th class="fo"></th><th class="n"></th><th class="n"></th><th class="n"></th></tr>', fen)
+          is not None, pastilles)
         c(f"2. écarts — {nom} : jamais un choix du bureau présenté comme une correction (f_y nominale, s, C, C_d, courbes et classes, "
           "charges de service)",
           fen and not re.search(r"nominale|s = 1,5|C = 1|C_?d = 1|charges de service|[Cc]ourbes et classes", texte(fen)), texte(fen)[:300])
@@ -204,6 +209,12 @@ def controles():
            for k, r in cas_ecarts.items()}
     c("2. écarts — les deux barres déclenchent bien leur correction (pcr_u, phi_min) : le contrôle porte sur ce qu'il annonce",
       "pcr_u" in ids["pcr_u (u_y = 2)"] and "phi_min" in ids["phi_min (L_y = 6 m, L_z = 1 m)"], ids)
+    css = css_profil()
+    ck = f"#ck-{M.FENETRE_ECARTS}"
+    c("2. écarts — la feuille du module (copie NOMMÉE de profil_mots.FENETRE_ECARTS : « #ck-ecarts ») retire les quatre cases vides de cette "
+      "fenêtre et laisse le texte passer à la ligne : la correction prend toute la largeur au téléphone",
+      f"{ck} .vtab th:not(:first-child), {ck} .vtab td:not(:first-child) {{ display: none; }}" in css
+      and f"{ck} .vtab td.nm {{ white-space: normal; overflow-wrap: anywhere; }}" in css, ck)
     rN = suite(("mode", "efforts"), ("efforts/service/N", "50"), ("efforts/elu/N", "75"), ("flambement/y/L", "3"), ("flambement/z/L", "3"))
     xN = mod("profil").calculer(rN["etat"]["elements"][0])["methodes"]["historique"]
     c("2. écarts — sans correction qui joue (un poteau, N seul), ni ligne ni fenêtre",
@@ -364,12 +375,29 @@ def controles():
 
 
 C_ = sys.modules["api_web.commun"]
+CSS_PROFIL = os.path.join(RACINE, "site", "web", "css", "modules", "profil.css")
+CSS_MUTEE = {}
+
+
+def css_profil() -> str:
+    """La feuille du module, telle qu'elle est — ou mutée (une mutation de ``MUTATIONS`` sur ce fichier)."""
+    return CSS_MUTEE.get(CSS_PROFIL) or open(CSS_PROFIL, encoding="utf-8").read()
 
 
 def muter(nom_mod, ancien, nouveau):
     """Les contrôles qui rougissent quand le texte ``ancien`` du module ``nom_mod`` devient ``nouveau`` ; None si le texte
     n'y est pas une seule fois. Le module muté remplace l'original partout où un module du site le tient (et dans le
-    registre du routeur), puis l'original est remis, quoi qu'il arrive."""
+    registre du routeur), puis l'original est remis, quoi qu'il arrive. Une FEUILLE (un chemin .css) : son texte muté est
+    lu par ``css_profil`` le temps d'un passage."""
+    if nom_mod.endswith(".css"):
+        src = open(nom_mod, encoding="utf-8").read()
+        if src.count(ancien) != 1:
+            return None
+        CSS_MUTEE[nom_mod] = src.replace(ancien, nouveau)
+        try:
+            return [n for n, ok, _ in controles() if not ok]
+        finally:
+            CSS_MUTEE.clear()
     orig = sys.modules[nom_mod]
     src = open(orig.__file__, encoding="utf-8").read()
     if src.count(ancien) != 1:
@@ -406,10 +434,13 @@ MUTATIONS = [
      "STATUTS_A_VERIFIER = (RE.NON_COUVERT, RE.HORS_DOMAINE)"),
     (PRm, "la ligne « n corrections des classeurs » oubliée", '    if not n_:\n        return ""\n    return (f\'<div class="el vc pf-lecarts"',
      '    if True:\n        return ""\n    return (f\'<div class="el vc pf-lecarts"'),
-    (PRm, "la fenêtre des écarts ne garde que la première correction", '"etat_txt": ", ".join(M.minuscule(titres.get(i, i)) for i in c["verifications"]) or "—"} for c in cs]',
-     '"etat_txt": ", ".join(M.minuscule(titres.get(i, i)) for i in c["verifications"]) or "—"} for c in cs[:1]]'),
-    (PRm, "la fenêtre des écarts sans le lieu de la correction", '"etat_txt": ", ".join(M.minuscule(titres.get(i, i)) for i in c["verifications"]) or "—"}',
-     '"etat_txt": "—"}'),
+    (PRm, "la fenêtre des écarts ne garde que la première correction", '"niveau": "c", "etat_txt": "—"} for c in cs]', '"niveau": "c", "etat_txt": "—"} for c in cs[:1]]'),
+    (PRm, "la fenêtre des écarts sans le lieu de la correction", '"sous": C.esc(ou_correction(c, titres))', '"sous": ""'),
+    (PRm, "« où » remis dans la pastille de la dernière case (50 px au téléphone)", '"niveau": "c", "etat_txt": "—"} for c in cs]',
+     '"niveau": "c", "etat_txt": ou_correction(c, titres)} for c in cs]'),
+    (CSS_PROFIL, "la feuille garde les quatre cases vides de la fenêtre des écarts", "#ck-ecarts .vtab th:not(:first-child), #ck-ecarts .vtab td:not(:first-child) { display: none; }",
+     ""),
+    (CSS_PROFIL, "le texte d'une correction sur une seule ligne (débordement)", "#ck-ecarts .vtab td.nm { white-space: normal; overflow-wrap: anywhere; }", ""),
     (PRm, "le tableau avant/après jamais rendu", '    if L["decision"] != "raidisseur" or not s or not a:', "    if True:"),
     (PRm, "avant/après : N_b,Rd lu dans la colonne « sans »", '("N_b,Rd", rien, f"{M.r1(a[\'N_b_Rd\'])}', '("N_b,Rd", rien, f"{M.r1(s[\'F_Rd\'])}'),
     (PRm, "avant/après : le rappel sur τ oublié", 'rappel = f\'<span class="pf-rappel">{M.sub(L["rappel"])}</span>\' if L.get("rappel") else ""', 'rappel = ""'),

@@ -535,10 +535,20 @@ def _fenetre_ecarts(el: Dict, r: Dict, nom: str) -> str:
     if not cs:
         return ""
     titres = {v["id"]: v["titre"] for v in x["verifications"]}
-    lignes = [{"nom": M.sub(c["texte"][:1].upper() + c["texte"][1:]), "sous": "", "formule": "", "valeur": "", "limite": "", "niveau": "c",
-               "etat_txt": ", ".join(M.minuscule(titres.get(i, i)) for i in c["verifications"]) or "—"} for c in cs]
+    # (reprise) « où » sous le texte, en mots qui passent à la ligne — plus dans la pastille de la dernière case, qui fait
+    # 50 px au téléphone (« flexion composée » y débordait de l'écran à 390 px) ; les quatre autres cases restent vides et
+    # la feuille du module les retire de cette fenêtre (profil.css, « #ck-ecarts ») : le texte prend toute la largeur
+    lignes = [{"nom": M.sub(c["texte"][:1].upper() + c["texte"][1:]), "sous": C.esc(ou_correction(c, titres)), "formule": "", "valeur": "",
+               "limite": "", "niveau": "c", "etat_txt": "—"} for c in cs]
     return C.fenetre_calcul(M.FENETRE_ECARTS, f"{nom} · {M.TITRE_ECARTS}", f"{M.METHODES['historique']} · {dims(el)}", [], lignes, "",
-                            colonnes=(M.mot_corrections(len(cs)).capitalize(), "", "", "", "Où"))
+                            colonnes=(M.mot_corrections(len(cs)).capitalize(), "", "", "", ""))
+
+
+def ou_correction(c: Dict, titres: Dict[str, str]) -> str:
+    """Où une correction des classeurs joue (du texte) : « Joue sur : flexion composée, déversement » ; vide quand le
+    moteur ne nomme aucune vérification."""
+    ou = ", ".join(M.minuscule(titres.get(i, i)) for i in c["verifications"])
+    return f"Joue sur : {ou}" if ou else ""
 
 
 def pour_information(x: Dict) -> List[str]:

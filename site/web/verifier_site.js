@@ -4379,10 +4379,11 @@ const principal = async () => {
         await g.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
         await g.waitForTimeout(200);
         const ec0 = await g.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS)) return null; const r = x.getBoundingClientRect();
-          return { titre: (x.querySelector('.fl-h b') || {}).textContent || '', lignes: [...x.querySelectorAll('.vtab tbody tr')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()),
+          return { titre: (x.querySelector('.fl-h b') || {}).textContent || '', lignes: [...x.querySelectorAll('.vtab tbody td.nm')].filter((t) => t.checkVisibility(VIS)).map((t) => t.textContent.replace(/\s+/g, ' ').trim()),
             dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 }; }, VIS);
-        verif('barres : « 1 correction des classeurs » ouvre les écarts avec les classeurs du bureau, dans l\'écran — une ligne, la correction « axe faible » du déversement, aucun choix du bureau',
-          !!ec0 && ec0.dedans && /écarts avec les classeurs du bureau/.test(ec0.titre) && ec0.lignes.length === 1 && /axe faible/.test(ec0.lignes[0]) && /déversement$/.test(ec0.lignes[0])
+        // (lot C, C4 — reprise, le harnais suit : « où » est dit sous la correction, « Joue sur : déversement », plus dans la pastille)
+        verif('barres : « 1 correction des classeurs » ouvre les écarts avec les classeurs du bureau, dans l\'écran — une ligne, la correction « axe faible », « Joue sur : déversement » dessous, aucun choix du bureau',
+          !!ec0 && ec0.dedans && /écarts avec les classeurs du bureau/.test(ec0.titre) && ec0.lignes.length === 1 && /axe faible/.test(ec0.lignes[0]) && /Joue sur : déversement$/.test(ec0.lignes[0])
           && !ec0.lignes.some((t) => /nominale|s = 1,5|C = 1/.test(t)), JSON.stringify(ec0));
         await g.keyboard.press('Escape');
         await g.waitForTimeout(150);
@@ -4781,6 +4782,26 @@ const principal = async () => {
               !!av && av.dedans && !av.coupees.length && av.police >= 10 && /Sans raidisseur/i.test(av.texte) && /2 plats 70 × 8 mm/.test(av.texte) && /N\s?b,Rd/.test(av.texte)
               && /contact/.test(av.texte) && /ne réduit pas τ/.test(av.rappel), JSON.stringify(av).slice(0, 400));
             await pg.screenshot({ path: path.join(OUT, `site_barres_raidisseur_avant_apres_${fmt}.png`) });
+            await pg.keyboard.press('Escape');
+            await pg.waitForTimeout(150);
+          }
+          if (cfg === 'ponctuelle') {
+            // (lot C, C4 — reprise) la fenêtre des ÉCARTS AVEC LES CLASSEURS aux trois formats : UNE colonne de texte qui passe à la
+            // ligne (la correction, « Joue sur : … » dessous ; « flexion composée » débordait de sa pastille de 50 px à 390 px) — lue
+            // comme l'œil la voit : dans l'écran, aucune case coupée (la largeur du TEXTE lue, pas celle de la case)
+            await pg.click('#resultat .el.vc[data-calcul="ecarts"]');
+            await pg.waitForSelector('.flyout.on.calcul', { timeout: 10000 }).catch(() => {});
+            await pg.waitForTimeout(250);
+            const ec = await pg.evaluate((VIS) => { const x = document.querySelector('.flyout.on.calcul'); if (!x || !x.checkVisibility(VIS) || x.id !== 'ck-ecarts') return null;
+              const r = x.getBoundingClientRect(); const lu = (e) => { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect(); };
+              const cases = [...x.querySelectorAll('.vtab th, .vtab td, .vtab td.nm > span')].filter((e) => e.checkVisibility(VIS) && e.textContent.trim());
+              return { dedans: r.left >= -0.5 && r.right <= innerWidth + 0.5, cases: cases.length,
+                coupees: cases.filter((e) => { const b = e.getBoundingClientRect(); const t = lu(e); return e.scrollWidth > e.clientWidth + 1 || t.right > Math.min(b.right, innerWidth) + 0.5 || t.left < -0.5; })
+                  .map((e) => e.textContent.trim().slice(0, 40)),
+                lignes: [...x.querySelectorAll('.vtab tbody td.nm')].filter((e) => e.checkVisibility(VIS)).map((e) => e.textContent.replace(/\s+/g, ' ').trim()) }; }, VIS);
+            verif(`barres ponctuelle · ${fmt} : la fenêtre des écarts avec les classeurs — une ligne, la correction « axe faible », « Joue sur : déversement » dessous ; dans l'écran, aucune case coupée`,
+              !!ec && ec.dedans && !ec.coupees.length && ec.lignes.length === 1 && /axe faible/.test(ec.lignes[0]) && /Joue sur : déversement$/.test(ec.lignes[0]), JSON.stringify(ec).slice(0, 400));
+            await pg.screenshot({ path: path.join(OUT, `site_barres_ecarts_${fmt}.png`) });
             await pg.keyboard.press('Escape');
             await pg.waitForTimeout(150);
           }
