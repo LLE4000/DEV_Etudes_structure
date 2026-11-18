@@ -238,6 +238,27 @@ const proxyTravailleur = () => {
 // le compte du proxy, lu dans la page (0 si le proxy n'y est pas)
 const interceptees = (pg) => pg.evaluate(() => window.__interceptees || 0);
 
+// (intégration du lot C) LA BASE DES PRIX DES GRUES, semée dans un navigateur neuf : le module « Prix des grues » ne calcule
+// rien sans elle (« Aucune base des prix sur cet appareil »), et son import est un geste de l'utilisateur, joué par la partie
+// « prix_grues ». Les contrôles COMMUNS (formats, note PDF) supposaient une base déjà là : 14 rouges hérités (identiques sur
+// 766659c), le harnais SUIT. La graine est ce que l'import écrit (api_web/prix_grues._importer : carnet = [le JSON du
+// fichier], js/carnet.js : stab.carnets.v1), et seulement si ce navigateur n'a pas déjà une base.
+const BASE_PRIX_TEST = path.join(__dirname, '..', '..', 'tests', 'donnees', 'prix_grues_base_test.json');
+async function semerBasePrix(contexte) {
+  const base = JSON.parse(require('fs').readFileSync(BASE_PRIX_TEST, 'utf8'));
+  await contexte.addInitScript((base) => {
+    try {
+      const cle = 'stab.carnets.v1';
+      let c = null;
+      try { c = JSON.parse(localStorage.getItem(cle) || 'null'); } catch (e) { return; }      // (une mémoire illisible : on n'y touche pas)
+      if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.modules !== 'object' || !c.modules) c = { modules: {} };
+      if (Array.isArray(c.modules.prix_grues) && c.modules.prix_grues.length) return;
+      c.modules.prix_grues = [base];
+      localStorage.setItem(cle, JSON.stringify(c));
+    } catch (e) { /* stockage refusé : le contrôle le dira */ }
+  }, base);
+}
+
 // ---------------------------------------------------------------- PASSAGE=1 : ouvrir un écran DANS l'application
 // Sans PASSAGE, ouvrir(pg, url) est page.goto(url) : un document neuf. Avec PASSAGE=1 (variable d'environnement, lue à
 // chaque appel), il injecte <a href=url> dans le body courant et le CLIQUE : la vraie porte de navigation (après S4,
@@ -849,6 +870,7 @@ const principal = async () => {
     const contexte = async (w, h, tel) => {
       const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
       await c.addInitScript(proxyTravailleur);
+      await semerBasePrix(c);                 // (intégration du lot C : le Prix des grues a sa base, comme chez un utilisateur)
       const pg = await c.newPage();
       pg.erreurs = [];
       pg.on('pageerror', (e) => pg.erreurs.push(e.message));
@@ -1157,7 +1179,9 @@ const principal = async () => {
         const ONGLETS = compactTel
           ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .et-arbre', '#donnees .et-arbre .sec.open', ...(ligneTel ? ['.panel.left .phead .et-elt .et-elsel'] : [])]],
             ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
-            ['resultat', '.panel.right', ['.canvas', '.panel.left'], ['#resultat .el']]]
+            // (intégration du lot C, le harnais suit) le Prix des grues n'a pas de liste d'éléments : son résultat est le total
+            // de la grue ouverte (.pg-res) — vu depuis que sa base est semée (semerBasePrix) ; les autres, leur ligne .el
+            ['resultat', '.panel.right', ['.canvas', '.panel.left'], ['#resultat :is(.el, .pg-res)']]]
           : [['donnees', '.panel.left', ['.canvas', '.panel.right'], []], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], []]];
         for (const [onglet, cadre, autres, aussi] of ONGLETS) {
@@ -7407,12 +7431,14 @@ const principal = async () => {
       'import json, sys',
       'sys.path.insert(0, sys.argv[1] + "/site/web")',
       'import construire as K',
-      'out = {}',
+      'out, car = {}, {}',
       'for k in K.NOTE_PDF:',
       '    ns = {}',
       '    exec(K.NOTES_RELEVE[k], ns)',
       '    out[k] = ns["etat"]',
-      'print(json.dumps({"note_pdf": list(K.NOTE_PDF), "etats": out}))',
+      '    if isinstance(ns.get("carnet"), list):',
+      '        car[k] = ns["carnet"]',
+      'print(json.dumps({"note_pdf": list(K.NOTE_PDF), "etats": out, "carnets": car}))',
     ].join('\n');
     const fe = cp.spawnSync(PY, ['-c', ETATS, path.join(__dirname, '..', '..')], { encoding: 'utf8', cwd: path.join(__dirname, '..', '..'), maxBuffer: 1 << 26 });
     let riches = null;
@@ -7445,7 +7471,13 @@ const principal = async () => {
       ['σ max', /σ max\s*=\s*(\d+,\d+)\s*kg\/cm²/, (v) => `σ max = ${v} kg/cm²`],
       ['h_min', /h_min\s*=\s*(\d+,\d+)\s*≤/, (v) => `h_min = ${v} ≤`],
       ['A_s,néc', /A_s,néc\s*=\s*(\d+)\s*≤/, (v) => `A_s,néc = ${v} ≤`],
+      // (intégration du lot C) le Prix des grues : le total de la grue — « 360 € HTVA » à l'écran, « Total HTVA 360 € » dans le rapport
+      ['total HTVA', /(\d+)\s*€\s*HTVA/, (v) => `${v} €`],
     ];
+    // (intégration du lot C, le harnais suit) la « Note PDF » du Prix des grues est le RAPPORT DE LA GRUE OUVERTE
+    // (api_web/prix_grues.py, prix_grues_rapport.py : « Prix grue <repère> - <note>.pdf », une page par grue) et non la note de
+    // tous les éléments : le nom du fichier, le nombre de pages et les noms se lisent pour la grue ouverte — et elle seule
+    const RAPPORT_GRUE = new Set(['prix_grues']);
     const FORMATS_NOTE = [
       ['pc', { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }],
       ['tablette', { viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1, hasTouch: true }],
@@ -7463,13 +7495,23 @@ const principal = async () => {
       for (const k of avec) {
         if (!riches || !riches.etats[k]) continue;
         const id = `note-pdf-${k}`;
-        await g.evaluate(([id, k, etat]) => {
+        // (intégration du lot C, le harnais suit) un module à CARNET (le Prix des grues : sa base des prix) reçoit celui de sa
+        // recette (construire.NOTES_RELEVE : la mini-base fictive du relevé), comme l'import l'écrit (js/carnet.js) : sans
+        // lui, la note riche ne se calculait pas dans un navigateur neuf (12 rouges hérités, identiques sur 766659c)
+        await g.evaluate(([id, k, etat, carnet]) => {
           let notes = {};
           try { notes = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}') || {}; } catch (e) { notes = {}; }
           notes[id] = { id, module: k, nom: 'Contrôle note PDF', chantier: 'Essai nuit', dossier: '', indice: 'B', cree: Date.now(), modifie: Date.now(),
                         etat, resume: null, vignette: '' };
           localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
-        }, [id, k, riches.etats[k]]);
+          if (Array.isArray(carnet)) {
+            let c = null;
+            try { c = JSON.parse(localStorage.getItem('stab.carnets.v1') || 'null'); } catch (e) { c = null; }
+            if (!c || typeof c !== 'object' || !c.modules || typeof c.modules !== 'object') c = { modules: {} };
+            c.modules[k] = carnet;
+            localStorage.setItem('stab.carnets.v1', JSON.stringify(c));
+          }
+        }, [id, k, riches.etats[k], (riches.carnets || {})[k] || null]);
         await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${MODS[k].page}?note=${id}`) });
         await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 60000 }).catch(() => {});
         if (tel) { await g.click('.mtabs [data-onglet="resultat"]'); await g.waitForTimeout(300); }
@@ -7548,12 +7590,22 @@ const principal = async () => {
         }
         await g.waitForTimeout(300);
         const t = await g.evaluate(() => { const e = document.getElementById('toast'); return { vu: e.checkVisibility(), texte: e.textContent, erreur: e.classList.contains('erreur') }; });
+        const grue = RAPPORT_GRUE.has(k);
         verif(`note PDF · ${k} · ${fmt} : le clic télécharge la note (« ${dl ? dl.suggestedFilename() : '—'} », ${pages} pages, ${duree.toFixed(1)} s), un PDF, et le message le dit`,
-          dl && /^Note de calcul - .+\.pdf$/.test(dl.suggestedFilename()) && tete === '%PDF-' && pages >= Math.max(2, ecran.noms.length)
+          dl && (grue ? /^Prix grue .+ - .+\.pdf$/ : /^Note de calcul - .+\.pdf$/).test(dl.suggestedFilename()) && tete === '%PDF-'
+          && pages >= (grue ? 1 : Math.max(2, ecran.noms.length))
           && t.vu && !t.erreur && /téléchargé$/.test(t.texte), JSON.stringify({ nom: dl && dl.suggestedFilename(), tete, pages, toast: t }));
-        const absents = ecran.noms.filter((n) => !texte.includes(norm(n)));
-        verif(`note PDF · ${k} · ${fmt} : le PDF nomme chacun des ${ecran.noms.length} éléments de la note (${ecran.noms.join(' ; ')})`,
-          ecran.noms.length >= 2 && ecran.noms.every((n) => n.length > 0) && !absents.length, JSON.stringify({ absents, noms: ecran.noms }));
+        if (grue) {
+          // la grue ouverte (actif de la note semée) est nommée ; les autres ne le sont pas (le rapport est le sien)
+          const ouverte = ecran.noms[(riches.etats[k] || {}).actif || 0];
+          const autres = ecran.noms.filter((n) => n !== ouverte && texte.includes(norm(n)));
+          verif(`note PDF · ${k} · ${fmt} : le rapport nomme la grue ouverte (${ouverte}), et elle seule (la note en a ${ecran.noms.length} : ${ecran.noms.join(' ; ')})`,
+            ecran.noms.length >= 2 && !!ouverte && texte.includes(norm(ouverte)) && !autres.length, JSON.stringify({ ouverte, autres, noms: ecran.noms }));
+        } else {
+          const absents = ecran.noms.filter((n) => !texte.includes(norm(n)));
+          verif(`note PDF · ${k} · ${fmt} : le PDF nomme chacun des ${ecran.noms.length} éléments de la note (${ecran.noms.join(' ; ')})`,
+            ecran.noms.length >= 2 && ecran.noms.every((n) => n.length > 0) && !absents.length, JSON.stringify({ absents, noms: ecran.noms }));
+        }
         const pctAbsents = ecran.pcts.filter((x) => !texte.includes(norm(x)));
         const etaProche = (v) => [...texte.matchAll(/η\s*(?:max\s*)?(\d+(?:,\d+)?)\s*%/g)].some((m) => Math.abs(parseFloat(m[1].replace(',', '.')) - parseInt(v, 10)) < 1);
         const chAbsents = chiffres.filter(([nom, v]) => !texte.includes(v) && !(nom === 'η' && etaProche(v)));
