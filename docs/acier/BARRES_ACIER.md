@@ -13,6 +13,11 @@ la note, dans ce document — et « ELS » seul là où la place manque ; sa cl�
 enregistrées, `historique.py`, `test_barre_historique.py`). Les phrases que le lot A a rendues fausses (matériau, couple
 (λ̄_LT,0 ; β), η, A_v,y, poids propre, âme) sont corrigées en place.*
 
+*18/11/2026, lot C (revue finale, bloc C8) : ce document suit le **brief version 12** (16/11/2026) — méthode ELS = les
+classeurs du bureau, deux gros lots B et C, puis la mise en ligne. Les paragraphes des blocs du lot C (§ 9.1 à 9.4) sont
+relus ; la table des lots (§ 9) dit la preuve de chacun, un test ; la comparaison des deux méthodes sur tous les cas, les
+listes restantes et l'avant/après des notes enregistrées sont dans `docs/validation/barres_revue_finale_2026-11-18.md`.*
+
 **Demande du propriétaire (14/11/2026).** Vérifier un profilé métallique — poutre, poteau, poutre-poteau — avec ses
 instabilités (flambement, déversement, voilement local, raidisseurs), par DEUX méthodes calculées ensemble : la méthode
 ELS du bureau (ancienne norme belge NBN B 51-001, contraintes admissibles, charges de service) et l'Eurocode 3
@@ -457,37 +462,61 @@ avec χ_LT < 1, et un HEB 200 court dont λ̄_0 tombe entre les limites avec et 
 
 ### 5.8 Les paramètres nationaux (une seule table dans le moteur : `acier/barre/parametres.py`)
 
-| Paramètre | Valeur | Source | Statut |
-|---|---|---|---|
-| γ_M0 ; γ_M1 ; γ_M2 | 1,00 ; 1,00 ; 1,25 | NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments) | pointé (lot C) |
-| E ; G | 210 000 ; 81 000 N/mm² | EN 1993-1-1 § 3.2.6(1) (G arrondi par le même paragraphe) | pointé (lot C) |
-| λ̄_LT,0 ; β (§ 6.3.2.3) | 0,2 ; 1,0 (le couple par défaut ; la variante, ligne suivante, sur demande) | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens (§ 5.6) | pointé |
-| Variante (λ̄_LT,0 ; β) | 0,4 ; 0,75 — sur demande, poutre de bâtiment, maintiens tous ignorés dans M_cr (lot B) | ANB:2018, 6.3.2.3(1) | pointé |
-| Facteur f et tableau 6.6 (§ 6.3.2.3(2)) | formule EN, tableau complet (lot B) | ANB:2018, 6.3.2.3(2) : normatifs | pointé |
-| Méthode de déversement des I et H laminés | § 6.3.2.3 ; § 6.3.2.2 pour information | ANB:2018 (n'impose rien) | DÉCISION BUREAU n° 4 |
-| Déversement d'un I soudé, PRS ou I saisi « soudé » (`prs_soudee_equivalente`) | non : § 6.3.2.2 (k_c = 1, f = 1), § 6.3.2.3 pour information ; oui (section bisymétrique « soudée équivalente ») : § 6.3.2.3, § 6.3.2.2 pour information ; un PRS monosymétrique : § 6.3.2.2 seul | EN 1993-1-1 § 6.3.2.3(1) : « soudées équivalentes », équivalence non définie | DÉCISION BUREAU n° 10 (défaut : non) |
-| η₁ de l'interaction (7.2) de l'âme (`eta1_ame`) | élastique (W_el) ; la variante plastique (W_pl, classes 1 et 2) dite à côté | EN 1993-1-5 § 7.2 | DÉCISION BUREAU n° 1 (lot C) |
-| Contact d'extrémité « inconnu » d'une force du type (c) (`contact_inconnu`) | non : verdict sur s_s = 0 dans (6.10) ; « oui » : s_s gardé ; l'autre lecture dite pour information | EN 1993-1-5 § 6, (6.10) | DÉCISION BUREAU n° 2 (lot C) |
-| A_v,y d'un I ou H laminé (`avy_lamine`) | 2·b·t_f ; variante A − h_w·t_w | EN 1993-1-1 | DÉCISION BUREAU n° 3 (lot C ; Q3) |
-| Console en flexion composée N + M (`console_NM`) | non couvert ; aucune variante calculable tant que le bureau n'a pas fixé de méthode | § 6.3.3, annexe D ANB | DÉCISION BUREAU n° 9 (lot C) — **À VÉRIFIER** |
-| Méthode de § 6.3.3 | méthode 1, écriture de l'annexe D ANB | ANB:2018, 6.3.3(5) | pointé (lot B) |
-| Borne inférieure de C_mi,0 | aucune (clé retirée, lot B) | tableau D.1 ANB | pointé |
-| γ de n_pl quand γ_M0 ≠ γ_M1 | γ_M1 (annexe D ANB) ; la variante γ_M0 affichée | annexe D ANB / AC:2009 | **À CONFIRMER** (seulement si γ_M0 ≠ γ_M1) |
-| η (EN 1993-1-5 § 5.1) | 1,00 pour les I et H laminés et les tubes ; 1,20 pour les sections soudées (PRS, I soudés, caissons), jusqu'au S460 (lot A ; PRS : lot B) | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire (renvoi au 6.2.6(3) de l'EN 1993-1-1) | pointé (lot B) |
-| γ_G,sup ; γ_G,inf ; γ_Q | 1,35 ; 1,00 ; 1,5 (0 si favorable) | NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 | pointé (lot C) |
-| Combinaison ELU | (6.10) par défaut ; option (6.10a) et (6.10b), la plus défavorable retenue | NBN EN 1990 ANB:2021, tableau A1.2(B) | pointé (lot C) |
-| ξ de (6.10b) | 0,85 (ξ·γ_G,sup = 1,1475) ; 1,00 pour une application géotechnique | NBN EN 1990 ANB:2021, tableau A1.2(B) | pointé (lot C) |
-| ψ₀ / ψ₁ / ψ₂ | A, B : 0,7/0,5/0,3 ; C, D, F : 0,7/0,7/0,6 ; E (fluides et matières stockés compris) : 1,0/0,9/0,8 ; G : 0,7/0,5/0,3 ; H : 0/0/0 | NBN EN 1990 ANB:2021, tableau A1.1 | pointé (lot C) |
-| ψ de la neige, du vent, de la température | 0,5/**0**/0 (ψ₁ = 0, altitude ≤ 1 000 m) ; 0,6/0,2/0 ; 0,6/0,5/0 | NBN EN 1990 ANB:2021, tableau A1.1 | pointé (lot C ; ψ₁ de la neige valait 0,2, la valeur de l'EN) |
-| ψ₀ de courte durée | 0,3 — la neige et le vent seulement (mise en œuvre restreinte, ci-dessous) | NBN EN 1990 ANB:2021, tableau A1.1, note 3 | pointé (lot C) |
-| ψ₀ de l'exécution, des machines | saisi, sans défaut (exécution : 1,0 / – / 0,2 au tableau, au cas par cas) | tableau A1.1 ANB, notes 1 et 2 | une donnée de la barre (lot C) |
-| Combinaison de la méthode ELS | G + ΣQ, tout à 100 % | décision du bureau du 16/11/2026 (brief § 13.2 point 5) | tranché (Q4) |
+Cette table est une COPIE NOMMÉE de `acier/barre/parametres.py` (`PARAMETRES`, la source unique) : `tests/test_barres_revue.py`
+la compare ligne pour ligne, et `python3 tools/comparaison_barres.py --parametres` la réécrit. Ne pas l'éditer à la main.
+
+<!-- parametres.py : debut (tools/comparaison_barres.py --parametres) -->
+| Clé | Grandeur | Valeur | Statut | Source |
+|---|---|---|---|---|
+| `gamma_M0` | γ_M0 | 1 | pointé | NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments) |
+| `gamma_M1` | γ_M1 | 1 | pointé | NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments) |
+| `gamma_M2` | γ_M2 | 1,25 | pointé | NBN EN 1993-1-1 ANB:2018, 6.1(1)B (bâtiments) |
+| `E` | E | 210 000 | pointé | EN 1993-1-1 § 3.2.6(1) |
+| `G` | G | 81 000 | pointé | EN 1993-1-1 § 3.2.6(1), valeur arrondie |
+| `lambda_LT0_avec_maintiens` | λ̄_LT,0 | 0,2 | pointé | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens |
+| `beta_avec_maintiens` | β | 1 | pointé | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : M_cr avec les combinaisons, la distribution réelle des moments et les maintiens |
+| `lambda_LT0_variante` | λ̄_LT,0 (variante) | 0,4 | pointé | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : poutre de bâtiment, maintiens totalement ignorés dans M_cr |
+| `beta_variante` | β (variante) | 0,75 | pointé | NBN EN 1993-1-1 ANB:2018, 6.3.2.3(1) : poutre de bâtiment, maintiens totalement ignorés dans M_cr |
+| `methode_deversement_lamines` | méthode de déversement des I et H laminés | « 6.3.2.3 » | **décision n° 4** (variante : « 6.3.2.2 ») | NBN EN 1993-1-1 ANB:2018, 6.3.2.2(2) et 6.3.2.3 : DÉCISION BUREAU n° 4, § 6.3.2.3 par défaut |
+| `prs_soudee_equivalente` | I soudé (PRS) « section soudée équivalente » | non | **décision n° 10** (variante : oui) | EN 1993-1-1 § 6.3.2.3(1) : laminés et sections soudées dites équivalentes (équivalence non définie) ; DÉCISION BUREAU n° 10 |
+| `eta1_ame` | η₁ de l'interaction (7.2), EN 1993-1-5 | « elastique » | **décision n° 1** (variante : « plastique ») | EN 1993-1-5 § 7.2 : η₁ élastique (défaut) ; plastique en classes 1 et 2 (commentaire JRC EUR 22898) — DÉCISION BUREAU n° 1 |
+| `contact_inconnu` | contact d'extrémité inconnu (type (c)) pris pour | « non » | **décision n° 2** (variante : « oui ») | EN 1993-1-5 § 6, (6.10) : contact inconnu, verdict sur s_s = 0 (défaut ; commentaire JRC EUR 22898, p. 79) — DÉCISION BUREAU n° 2 |
+| `avy_lamine` | A_v,y d'un I ou H laminé | « 2btf » | **décision n° 3** (variante : « A_moins_hwtw ») | EN 1993-1-1:2022 § 8.2.6(3)b) : 2·b·t_f (défaut) ; variante A − h_w·t_w (6.2.6(3) e)) — DÉCISION BUREAU n° 3 |
+| `console_NM` | console en flexion composée (N + M), § 6.3.3 | « non_couvert » | **décision n° 9** (variante : aucune) | EN 1993-1-1 § 6.3.3, annexe D ANB : aucun C_m pour une console — non couvert (défaut v1) ; méthode à fixer par le bureau (À VÉRIFIER) — DÉCISION BUREAU n° 9 |
+| `methode_interaction` | méthode du § 6.3.3 | « annexe_D_ANB » | pointé | NBN EN 1993-1-1 ANB:2018, 6.3.3(5) : méthode 1 normative, écrite par l'annexe D ANB (prise comme un tout) |
+| `npl_gamma` | γ_M de n_pl quand γ_M0 ≠ γ_M1 | « gamma_M1 » | **à confirmer** | annexe D ANB : γ_M1 (appliqué) ; annexe A corrigée par l'AC:2009 : γ_M0 (affiché) — équivalence non établie |
+| `eta` | η | 1 | pointé | NBN EN 1993-1-5 ANB:2011, 5.1(2), note complémentaire : I et H laminés, tubes |
+| `eta_soude` | η (section soudée) | 1,2 | pointé | NBN EN 1993-1-5 ANB:2011, 5.1(2) : sections soudées (PRS, I, caissons) jusqu'au S460 |
+| `gamma_G_sup` | γ_G,sup | 1,35 | pointé | NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 |
+| `gamma_G_inf` | γ_G,inf | 1 | pointé | NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 |
+| `gamma_Q` | γ_Q | 1,5 | pointé | NBN EN 1990 ANB:2021, tableau A1.2(B), CC2 (0 si favorable) |
+| `xi` | ξ | 0,85 | pointé | NBN EN 1990 ANB:2021, tableau A1.2(B), (6.10b) |
+| `xi_geotechnique` | ξ (application géotechnique) | 1 | pointé | NBN EN 1990 ANB:2021, tableau A1.2(B), (6.10b) : application géotechnique (brief § 5) |
+| `psi_A` | ψ, catégorie A | 0,7 ; 0,5 ; 0,3 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_B` | ψ, catégorie B | 0,7 ; 0,5 ; 0,3 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_C` | ψ, catégorie C | 0,7 ; 0,7 ; 0,6 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_D` | ψ, catégorie D | 0,7 ; 0,7 ; 0,6 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_E` | ψ, catégorie E | 1 ; 0,9 ; 0,8 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_F` | ψ, catégorie F | 0,7 ; 0,7 ; 0,6 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_G` | ψ, catégorie G | 0,7 ; 0,5 ; 0,3 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_H` | ψ, catégorie H | 0 ; 0 ; 0 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_neige` | ψ, neige | 0,5 ; 0 ; 0 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 (neige, altitude ≤ 1 000 m) |
+| `psi_vent` | ψ, vent | 0,6 ; 0,2 ; 0 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 |
+| `psi_temperature` | ψ, température | 0,6 ; 0,5 ; 0 | pointé | NBN EN 1990 ANB:2021, tableau A1.1 (température hors incendie) |
+| `psi0_courte_duree` | ψ₀ de courte durée | 0,3 | pointé | NBN EN 1990 ANB:2021, tableau A1.1, note 3 |
+<!-- parametres.py : fin -->
+
+Hors de la table, pour mémoire : le facteur f et le tableau 6.6 (§ 6.3.2.3(2)) — formule de l'EN, tableau complet,
+normatifs (ANB:2018, 6.3.2.3(2)) ; la borne inférieure de C_mi,0 — aucune, clé retirée au lot B (`parametres.RETIREES`,
+tableau D.1 ANB) ; le ψ₀ de l'exécution et des machines — une donnée de la barre, saisie, sans défaut (tableau A1.1 ANB,
+notes 1 et 2) ; la combinaison de la méthode ELS — G + ΣQ, tout à 100 % (brief § 13.2 point 5, tranché : Q4).
 
 Les DÉCISIONS BUREAU (n° 1, 2, 3, 4, 9, 10) ont UN statut dans la table (`DECISION`) et une entrée {valeur par défaut,
 variante, valeurs admises, point du § 13.2, source} ; chaque moteur lit la sienne par `parametres.jeu()` — changer le
 défaut dans la table change le verdict, l'autre variante est rendue à côté (`tests/test_barre_moteur.py`, mutations du
-lot C). `parametres.decisions()` les rend dans l'ordre de leur numéro (ce que la note imprimera, C5). Le seuil de 95 %
-(n° 7) n'y est pas : c'est celui du site (`api_web/commun.py`).
+lot C). `parametres.decisions()` les rend dans l'ordre de leur numéro (ce que la note imprime, C5). Le seuil de 95 %
+(n° 7) n'y est pas : c'est celui du site (`acier/garde_corps/membres.SEUIL_ATTENTION`, lu par `api_web/commun.py` et la
+note). `tests/test_barres_revue.py` garde qu'aucun défaut de décision n'est écrit en dur hors de la table.
 
 « À pointer » (plus aucune entrée depuis le lot C : les trois annexes belges sont lues, brief § 13.1) : la valeur de l'EN,
 connue, restait à lire sur le texte belge. « À CONFIRMER » : la valeur change un résultat et sa source n'est pas le
@@ -725,7 +754,7 @@ ce carnet en v1. **La vue « Section »** est le croquis coté (`dessin_profil.s
 CENTRE DE GRAVITÉ, G (cercle barré) et C (losange), une lettre et un symbole chacun ; « mm » et la méthode dessous ; le
 tableau des propriétés avec leur origine (`profil_prs.proprietes` : A, z_g, I_y, I_z, W_el,y, W_pl,y, I_t, I_w ; z_s, z_j
 et ψ_f d'un monosymétrique, semelle haute comprimée ; f_y de chaque plat et de calcul) — le même tableau que la fiche de
-la note (`profil.fiche_profil(nom, barre)`, clé « tableau » : la note du PRS est au bloc C5). La masse au bouton : ρ·A
+la note (`profil.fiche_profil(nom, barre)`, clé « tableau », que la note imprime : C5). La masse au bouton : ρ·A
 (`prs.MASSE_VOLUMIQUE`). Preuve : `tests/test_api_web_profil_prs.py` (74 contrôles, 22 mutations).
 
 **Les règles EC3** (18.5) : c depuis le pied des cordons (s = a·√2) ; âme d'un monosymétrique fléchi en paroi fléchie et
@@ -850,9 +879,10 @@ REALEX 0,831 / 0,984 / 1,018 / 0,865 ; PRS-A (classeurs 90,31 et 78,79 ; fascicu
 ## 8. Les textes des normes
 
 Le brief demande que les textes priment. Ils ne sont pas dans le dépôt et ne doivent pas y entrer (dépôt public,
-normes sous droits). Deux pages de documentation d'éditeur de logiciel ont servi de recoupement pour l'ANB ; l'une
-n'est pas lisible d'ici. Pour lever les « À CONFIRMER » : envoyer en pièce jointe les pages de l'ANB de l'EN 1993-1-1
-(clauses 6.3.2.2, 6.3.2.3, 6.3.3, annexe A) et de l'ANB de l'EN 1990 (tableau des ψ) — elles seront lues, pas déposées.
+normes sous droits). Depuis le brief v12 (§ 13.1), les trois annexes belges sont lues : plus aucun paramètre n'attend un
+texte (aucune entrée « à pointer » dans la table, § 5.8). Restent jamais lus : le texte de l'EN 1990 (son annexe belge
+est lue) et la NBN B 51-001 elle-même (la méthode ELS repose sur le chapitre de cours du bureau et sur les extraits de la
+NBN B 51-002 que citent ses classeurs). Le seul « À CONFIRMER » (n_pl quand γ_M0 ≠ γ_M1) attend une décision, pas une page.
 
 ## 9. L'architecture et les lots
 
@@ -932,9 +962,10 @@ statique est celle du formulaire du dépôt (`rdm/poutres.py`), cas par cas, pui
   au-delà de 80 mm (13 HD et HL du catalogue).
 - Hors de la barre chargée (v1) : la flexion d'axe faible et les charges horizontales (le mode « efforts » les
   prend) ; la flèche de service est donnée à titre d'information, sans verdict.
-- R2 du brief, de bout en bout depuis les charges : M_Ed 68,70 kN·m, V_Ed 27,80 kN, déversement 89,5 % (Eurocode 3) —
-  et **184 % par la méthode ELS** : le déversement de la doc, sur 6 m sans maintien, est très sévère (Q4). Lot A :
-  le déversement passe à 109,9 % (Eurocode 3), avec le couple (0,2 ; 1,0) de l'ANB:2018 (89,5 % avec l'ancien couple).
+- R2 du brief, de bout en bout depuis les charges (critère du lot C, `tests/test_barre_moteur.py`) : M_Ed 68,70 kN·m,
+  V_Ed 27,80 kN ; déversement Eurocode 3 sur la semelle haute 109,9 % (M_cr 86,36 kN·m, le catalogue du site ; le
+  brief : 1,093 avec 86,98), 89,0 % au centre de cisaillement (brief 0,887) — et 143,7 % par la méthode ELS
+  (déversement des classeurs, lot B ; 184 % avec l'ancienne formule de la doc, Q4).
 
 **Intégration** : dans « Choix de profilé » (demande du propriétaire). Le module garde ce qu'il sait faire — comparer
 des profilés et retenir le plus léger qui tient — et gagne la barre : ses appuis, ses charges, ses maintiens, ses
@@ -955,9 +986,9 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | `api_web/note_profil.py` | la note PDF |
 
 - **Une barre garde ses deux modes** : passer de « barre chargée » à « efforts imposés » ne perd aucune saisie. La barre
-  neuve est une IPE 300 de 6 m, tenue à mi-portée : elle tient par les deux méthodes (ELS 74 %, Eurocode 58 % — 52 %
-  avant le lot A) — sans ce maintien, la méthode ELS la refuse (178,5 % ; l'écran, qui arrondit vers le défavorable,
-  écrit 179 % — Q4), et l'Eurocode 3 aussi depuis le lot A (113,7 %).
+  neuve est une IPE 300 de 6 m, tenue à mi-portée : elle tient par les deux méthodes (ELS 88,4 % depuis le lot B, le
+  déversement des classeurs — 74 % avant ; Eurocode 3 57,6 %) ; son âme est « bloqué » tant que s_s n'est pas saisi
+  (157 % à la borne s_s = 0, brief § 8.3 point 5). Sans ce maintien : ELS 139,3 %, Eurocode 3 112,8 %.
 - **Un verdict par méthode**, jamais un seul chiffre : la méthode ELS et l'Eurocode 3 ne comparent pas la même
   chose (des contraintes de service à σ_adm ; des efforts pondérés à des résistances). Le bloc « Comparaison » met leurs
   taux côte à côte, sujet par sujet.
@@ -972,7 +1003,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   change : seul le dernier chiffre ÉCRIT d'un demi exact. `tests/test_barre_ecriture.py` et `tests/test_api_web_profil.py`
   refusent qu'un format de Python (« {x:.1f} ») revienne écrire un nombre du module.
 - **Le sélecteur** : les profilés de la famille de la barre (ou de celles qu'on coche), triés par masse, chacun vérifié
-  par le moteur avec les méthodes de la barre ; ✓ le retenu, ★ le plus léger qui tient.
+  par le moteur — les DEUX méthodes, toujours (lot C, C0d) ; ✓ le retenu, ★ le plus léger qui tient aux deux.
 - **Une note de la version 1** (l'ancien écran) est relue en « efforts imposés », Eurocode seul : ses efforts de calcul,
   sa longueur de flambement, son profilé.
 - **La note PDF** a la planche des notes Poutre et Dalle (`ndc_pdf/styles.py` : le panneau de gauche et son dessin, deux
@@ -1069,16 +1100,25 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   bloc est rendu « à vérifier » (A14) ; (3) la vérification « E-Vb », « non couverte » depuis le lot 2, est remplacée par
   le calcul (« A-Vb ») dans `ec3_section.py` aussi : la section vérifiée seule ne se tait pas non plus.
 
-| Lot | Contenu | Preuve | État |
-|---|---|---|---|
-| 0 | deuxième avis, inventaire, plan (ce document) | § 2 | **fait** (14/11/2026) |
-| 1 | méthode ELS, efforts imposés (`section.py`, `historique.py`, `formules.py`) | `tests/test_barre_historique.py` : 83 contrôles — les 108 valeurs du tableau, les six classeurs à 10⁻⁹, les cinq exemples de la doc, chaque correction, chaque formule recalculée par son gabarit, les 1 419 profilés du catalogue, 29 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 2 | matériau, classes, section efficace, résistances de section (`parametres.py`, `resultat.py`, `ec3_classe.py`, `ec3_section.py`) | `tests/test_barre_ec3_section.py` : 128 contrôles — les limites du tableau 5.2 et les k_σ du texte ; les classes de profilés connus ; classe et A_eff du module Flambement sur tout le catalogue (4 nuances) ; W_eff recalculé par assemblage à 10⁻⁹ ; résistances et interactions à la main ; 376 formules recalculées par leur gabarit ; 27 384 calculs sur le catalogue ; 52 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 3 | flambement, torsion, déversement (M_cr numérique), annexe A (`mcr.py`, `ec3_flambement.py`, `ec3_deversement.py`, `ec3_interaction.py`, `ec3.py`) | `tests/test_barre_ec3_barre.py` : 127 contrôles — les 20 valeurs de χ ; les charges de flambement du module Flambement sur tout le catalogue ; M_cr : formule fermée, R1 (sept valeurs), C₁ du moment linéaire, console, maintiens d'une semelle ; R3 avec les deux couples ; l'annexe A recalculée d'une traite pour neuf barres à 10⁻⁹ ; le benchmark 21 (douze valeurs) ; 694 formules recalculées par leur gabarit ; 1 044 barres du catalogue ; 73 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 4 | EN 1993-1-5 : âme, charges concentrées, raidisseurs (`ec3_ame.py`, `raidisseurs.py`, `ame.py`, `enveloppe.py`) ; à l'écran et dans la note | `tests/test_barre_ame.py` : 160 contrôles (§ 5.9) ; `tests/test_api_web_profil.py` : 77 ; `tests/test_note_profil.py` : 107 (quinze notes) ; le harnais « barres » : 81 | **fait** (14/11/2026) |
-| 5 | barre chargée : appuis, charges, combinaisons, sections critiques, tronçons (`combinaisons.py`, `statique.py`, `entree.py`, `moteur.py`) | `tests/test_barre_moteur.py` : 82 contrôles — (6.10) à la main ; la somme pondérée des cas = le formulaire résolu d'un coup ; R2 de bout en bout ; la disposition défavorable d'une poutre continue ; les efforts d'une section pris ensemble ; console, maintiens d'une semelle ; les deux méthodes = leurs appels directs ; 318 formules ; 40 mutations | **fait** (14/11/2026) ; à l'écran (lot 6) |
-| 6 | écran (trois formats) et note (ELS, Eurocode 3, les deux) — `api_web/profil*.py`, `dessin_barre.py`, `note_profil.py` | `tests/test_api_web_profil.py` : 66 contrôles — le résultat est celui du moteur, 24 saisies, 21 refus, les deux modes, la relecture de la version 1, le sélecteur, le résultat qui ne dépend pas de ce qui a été ouvert avant, les 17 familles dessinées, aucun texte du dessin d'une barre sur un autre ; `tests/test_note_profil.py` : 89 contrôles — douze notes dites par pdftotext (chaque taux, chaque membre de critère, chaque résultat et chaque terme des formules), aucun mot hors de sa colonne, la sonde « comme dans le navigateur », 20 mutations ; le harnais du navigateur : « module:profil », « formats:profil », « note_pdf » et « barres » (69 contrôles : 20 gestes comparés au moteur du dépôt, trois barres aux trois formats) | **fait** (14/11/2026) |
-| 7 | revue : comparaison des méthodes, « À CONFIRMER » restants | — | à faire |
+**Les lots du brief v12** (section 12). La preuve d'un lot est son test (D-049) : il rougit si le travail est défait.
+Les lots 1 à 6 du premier brief (14/11/2026 : méthode ELS, section, barre, âme, barre chargée, écran et note) sont
+fondus dans A, B et C ; leurs suites gardent leurs contrôles.
+
+| Lot | Contenu | Preuve |
+|---|---|---|
+| 0 | inventaire du dépôt et plan (§ 2, § 7) | ce document ; `docs/acier/BARRES_ACIER_V11.md` |
+| A | résultats faux corrigés, table unique f_y / f_u | `tests/test_materiaux.py`, `tests/test_barre_ec3_section.py` ; `docs/validation/lot_a_avant_apres_2026-11-16.md` |
+| B | tous les moteurs : méthode ELS (classeurs), Eurocode 3 de la barre, PRS, EN 1993-1-5 | `tests/test_barre_historique.py` (11.1, 11.1 bis, chaque correction de 6.7), `tests/test_barre_ec3_section.py`, `tests/test_barre_ec3_barre.py` (11.2, R1, R3), `tests/test_barre_ame.py` (R4, 11.5), `tests/test_barre_prs.py` (11.8, 11.9), `tests/test_barre_benchmarks.py` (11.4 : ECCS 21, S1 à S3, L17a ; ECCS 17 à 20 et 22 bloqués) ; `docs/validation/lot_b_2026-11-17.md` |
+| C | barre chargée de bout en bout, combinaisons, interface, note dans les trois options, PRS à l'écran, débords, revue finale | `tests/test_barre_moteur.py` (R2 depuis les charges), `tests/test_barre_combinaisons.py` (tests 23 et 24), `tests/test_barre_nuances.py`, `tests/test_barre_comparaison.py`, `tests/test_rdm_poutres.py` (débords), `tests/test_api_web_profil.py`, `tests/test_api_web_profil_resultat.py`, `tests/test_api_web_profil_prs.py`, `tests/test_note_profil.py` (R2, HEB 200, PRS-C × trois options), `tests/test_barres_revue.py` (la revue) ; le harnais « barres », « note_pdf » ; `docs/validation/barres_revue_finale_2026-11-18.md` |
+| 8 | torsion (section 17), optionnel, après la mise en ligne | tests 11.7 du brief — à écrire avec le lot |
+| 9 | calcul de section par éléments finis, cartes de contraintes (sections 15, 16), optionnel | tests 11.6 du brief — à écrire avec le lot |
+
+**Ce que le module ne vérifie pas** (LIMITES : `api_web/profil_mots.limites`, la même liste à l'écran, au pied de « Tout
+le calcul », et dans la note, « Ce que la note ne vérifie pas ») : la torsion (lot 8) ; les assemblages, les appuis et
+les soudures des raidisseurs (EN 1993-1-8) ; les raidisseurs intermédiaires d'une âme élancée (calcul sans eux, côté
+sûr) ; la flexion d'axe faible d'une barre chargée (M_z en efforts imposés seulement) ; un appui intermédiaire encastré,
+une continue à rive encastrée ; les tassements d'appui (aucune nature « tassements ») ; le feu et la fatigue ; pour un
+PRS, ses soudures âme-semelles et la qualité d'acier des plats épais (EN 1993-1-10).
 
 ### 9.1 Le socle du lot C (C0, 17/11/2026)
 
@@ -1129,13 +1169,13 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
     longueurs restent des données (À VÉRIFIER) ;
   - la note PDF peint les tableaux des lieux de l'âme et des combinaisons par `couleur_taux`, comme l'écran : un taux
     bloqué, non couvert ou hors domaine n'est plus vert (avant : 156,7 % « décision impossible » en vert) ;
-  - une barre PRS (venue d'un fichier) se relit et se calcule ; l'écran, le sélecteur et la note la refusent en une
-    ligne (`profil.refus_prs`) tant que sa fiche et son croquis n'existent pas (bloc C6).
+  - une barre PRS (venue d'un fichier) se relit et se calcule ; l'écran, le sélecteur et la note la refusaient en une
+    ligne (`profil.refus_prs`) en attendant sa fiche et son croquis — faits depuis (C6 à l'écran, § 5.10 ; C5 dans la note).
 
 ### 9.2 La barre chargée de bout en bout (lot C, C1, 17/11/2026)
 
-Le moteur (`moteur.py`, `statique.py`, `ame.py`) emploie les clés posées par C0. Rien de neuf à l'écran (C3, C4) ni dans la
-note (C5) : ils liront ce que le moteur rend.
+Le moteur (`moteur.py`, `statique.py`, `ame.py`) emploie les clés posées par C0. L'écran (C3, C4) et la note (C5) lisent
+ce qu'il rend (§ 9.3, 9.4).
 
 - **Appui « par l'âme », âme élancée** (défaut NON CONSERVATIF corrigé) : le raidisseur d'appui du § 5.1(2) de l'EN 1993-1-5
   est dû à chaque appui, posé ou tenu par l'âme ; dimensionné sous la réaction entière (À VÉRIFIER).
@@ -1239,6 +1279,10 @@ note (C5) : ils liront ce que le moteur rend.
 
 ## 10. À confirmer par le bureau
 
+*Revue finale du lot C (18/11/2026) : tranchées par le brief v12 — Q1, Q2, Q3, Q4, Q7, Q13 ; caduques — Q9 (l'impression
+au choix) et Q11 (s_s à la borne 0) ; ouvertes — Q5 (décision n° 6), Q6 (n° 7), Q8, Q10 (n° 1), Q12, Q14 ; nouvelles des
+lots B et C — Q15 à Q20. Le détail, avec les hypothèses prises : `docs/validation/barres_revue_finale_2026-11-18.md` § 4.*
+
 | # | Question | En attendant |
 |---|---|---|
 | Q1 | ANB de l'EN 1993-1-1 : la méthode 1 imposée ; la borne de C_mi,0 | tranchés au lot B : méthode 1 sous l'écriture de l'annexe D ANB (6.3.3(5)) ; pas de borne (tableau D.1 ANB) |
@@ -1255,3 +1299,9 @@ note (C5) : ils liront ce que le moteur rend.
 | Q12 | Les appuis sont « posés » par défaut (la réaction appuie sur l'âme) ; le bureau attache-t-il plutôt ses poutres par l'âme (platine, cornières) ? | posés |
 | Q13 | Les raidisseurs proposés : plats de 8, 10, 12, 15, 20 mm, largeur au pas de 5 mm jusqu'à la demi-semelle, chanfrein égal au congé arrondi à 5 mm — les habitudes de l'atelier ? | ainsi |
 | Q14 | Les jeux de données JRC (« Commentary and worked examples to EN 1993-1-5 ») cités par le brief pour le lot 4 ne sont pas joignables d'ici : en pièce jointe, ils s'ajouteraient au cas R4 | R4, le témoin écrit depuis la norme, les calculs à la main |
+| Q15 | R2 sans maintien sous la charge : le brief dit « pas de raidisseur », l'EN 1993-1-5 § 6.1(1) demande la semelle chargée tenue — corriger le brief ? | « décision impossible » (règle du lot B, côté sûr) |
+| Q16 | Barre neuve : pré-remplir s_s (100 mm ?) pour qu'elle ne s'ouvre pas « bloqué » ? | vide, calcul à la borne 0 |
+| Q17 | Le message « formule prudente » des classeurs pour les laminés hauts peu maintenus (IPE 750 de 8 m : 171 % ELS, 83 % EC3) ? | réservé aux PRS |
+| Q18 | Une seule bibliothèque des PRS pour la page Catalogue et les Barres ? | deux (le carnet du navigateur ; la note du Catalogue) |
+| Q19 | Le béton frais du PRS-C en nature « exécution » (ψ₀ = 1,0), comme la note du bureau ? | exécution (M_Ed 4 199,3 ; 3 893,5 en permanent) |
+| Q20 | L'ancien écran Streamlit (`modules/tableau_profiles.py`) : I_t d'un PRS = Σ b·t³/3 (+6,2 %, non conservatif) — le retirer ? | hors du site, non corrigé |
