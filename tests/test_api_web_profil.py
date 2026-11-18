@@ -245,9 +245,10 @@ chk("(lot B) le poteau-poutre n'a plus de paramètre « à confirmer » : l'inte
 # (lot B : le harnais suit — le seul point « à confirmer » qui reste à l'interaction est γ_M0 ≠ γ_M1, brief § 7.8)
 rpp = req(action="calculer", etat=note(dict(POTEAU, parametres={"gamma_M0": 1.05})))
 ac = moteur(rpp["etat"]["elements"][0])["methodes"]["ec3"]["a_confirmer"]
-chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre avec γ_M0 = 1,05 ≠ γ_M1 : {len(ac)}, le γ de n_pl) : un lien dans "
-    "la rubrique Méthodes, une fenêtre (ac) avec leur valeur et leur source",
-    len(ac) == 1 and "1 paramètre à confirmer" in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
+# (lot C, C3 — le harnais suit : le lien « 1 paramètre à confirmer » devient UNE ligne près des champs γ_M, qui ouvre la même fenêtre)
+chk(f"les paramètres « à confirmer » de l'annexe nationale (le poteau-poutre avec γ_M0 = 1,05 ≠ γ_M1 : {len(ac)}, le γ de n_pl) : une ligne près "
+    "des champs γ_M (« γ_M de n_pl quand γ_M0 ≠ γ_M1 : γ_M1, à confirmer. »), qui ouvre une fenêtre (ac) avec leur valeur et leur source",
+    len(ac) == 1 and "γ M de n pl quand γ M0 ≠ γ M1 : γ M1 , à confirmer." in texte(rpp["donnees"]) and 'data-calcul="ac"' in rpp["donnees"]
     and 'id="ck-ac"' in rpp["volets"] and all(p["source"] in texte(rpp["volets"]) for p in ac))
 nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m sans maintien)"]
 chk("une barre que la méthode ELS refuse (139 % — lot B : le déversement des classeurs ; la variante du fascicule donnait 179 %) et que "
@@ -688,9 +689,11 @@ chk("chaque vue est du SVG bien formé, avec son en-tête : la barre et ses enve
     and [v["cle"] for v in REPONSES["la note neuve"]["vues"]] == ["barre", "section", "taux"], mal[:3])
 # chaque famille du module a sa section dessinée (trouvé par la note PDF : un tube rond n'a ni h ni b, le dessin plantait)
 sans_dessin = []
+# (lot C, C3 — le harnais suit C1b : les U et les cornières, en efforts imposés seulement, sont choisis dans une barre en efforts imposés)
+e0_efforts = saisir(e0, "mode", "efforts")["etat"]
 for fam in P.FAMILLES:
     nom = next(p["nom"] for p in CAT.profils() if p["famille"] == fam)
-    etat_f = copy.deepcopy(e0)
+    etat_f = copy.deepcopy(e0_efforts if fam in P.FAMILLES_EFFORTS else e0)
     rep = req(action="choisir", etat=etat_f, role="profil", nom=nom)
     if not rep.get("ok"):
         sans_dessin.append((fam, nom, rep.get("erreur")))
@@ -703,10 +706,12 @@ for fam in P.FAMILLES:
     except Exception as err:  # noqa: BLE001
         sans_dessin.append((fam, nom, f"SVG mal formé : {err}"))
         continue
-    if (">d = " in v) != rond or (">h = " in v) == rond or (">b = " in v) == rond or (">t = " in v) != tube or (">t<tspan" in v) == tube:
+    if fam in P.FAMILLES_DEUX and ((">d = " in v) != rond or (">h = " in v) == rond or (">b = " in v) == rond or (">t = " in v) != tube
+                                   or (">t<tspan" in v) == tube):
         sans_dessin.append((fam, nom, "cotes", rond, tube))
 chk(f"chacune des {len(P.FAMILLES)} familles du module a sa section dessinée et son résultat : un I ou un H avec h, b, t_w, t_f ; un tube carré ou "
-    "rectangulaire avec h, b, t ; un tube rond avec d et t (il n'a ni h ni b)", not sans_dessin and len(P.FAMILLES) == 17, sans_dessin[:3])
+    "rectangulaire avec h, b, t ; un tube rond avec d et t (il n'a ni h ni b) ; (lot C, C1b) UPN, UPE et L en efforts imposés",
+    not sans_dessin and len(P.FAMILLES) == 20 and P.FAMILLES_EFFORTS == ("UPN", "UPE", "L"), sans_dessin[:3])
 svg = REPONSES["la note neuve"]["vues"][0]["svg"]
 env = r0["statique"]["enveloppes"]["ec3"]
 chk("le dessin de la barre porte les charges de chaque cas (5 kN/m), la portée, et les extrêmes des enveloppes du moteur (M 66,7 kN·m ; V ± 44,5 kN)",
@@ -959,9 +964,9 @@ def nom_els():
          and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span></div>' in nv["resultat"],
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"])),
         ("la rubrique « Méthodes » : le segment « ELS » (sa clé reste « historique »), le titre « Méthode ELS (NBN B 51-001) », le résumé "
-         "« ELS + eurocode 3 · s 1,5 »",
+         "« note : les deux · s 1,5 » (lot C, C3 — le harnais suit : ce que la note imprime, les deux méthodes étant toujours calculées)",
          re.search(r'data-chemin="impression" data-sorte="choix" data-valeur="historique"[^>]*>ELS</button>', nv["donnees"]) is not None
-         and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "ELS + eurocode 3 · s 1,5" in texte(nv["donnees"])
+         and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "note : les deux · s 1,5" in texte(nv["donnees"])
          and 'data-chemin="historique/s"' in nv["donnees"] and nv["etat"]["elements"][0]["methodes"] == ["historique", "ec3"],
          re.findall(r'data-valeur="historique"[^>]*>[^<]*<', nv["donnees"])),
         ("le résumé de la note (l'accueil, la liste des notes) : « déversement (ELS) »", nv["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)", nv["resume"]),
@@ -1215,9 +1220,11 @@ def note_v2():
          not v9.get("ok") and "format inconnu" in v9.get("erreur", ""), v9.get("erreur")),
         ("… de même une version qui n'est pas un ENTIER — true (que Python compte pour 1 : « efforts imposés ») ou 2.0 — : le site écrit l'entier 2",
          all(not x.get("ok") and "format inconnu" in x.get("erreur", "") for x in (vb, vf)), (vb.get("erreur"), vf.get("erreur"))),
-        ("l'aide de la longueur d'appui (rubriques Appuis et Charges, et le survol de « s_s » et « sur ») dit le sens d'un champ VIDE — « calcul "
-         "à la borne 0 (prudent) » — et plus jamais « 0 : le cas le plus défavorable » (faux au type (c))",
-         AIDE_APPUIS in don and "Vide : calcul à la borne 0 (prudent)." in don and "(vide : calcul à la borne 0, prudent)" in ch
+        # (lot C, C3 — le harnais suit : les deux paragraphes qui redisaient AIDE_SS sous les Appuis et les Charges sont RETIRÉS ; le sens
+        #  du champ vide reste dit, une fois, au survol de « s_s » et de « sur », et le champ vide écrit « borne 0 »)
+        ("l'aide de la longueur d'appui (le survol de « s_s » aux Appuis et de « sur » aux Charges) dit le sens d'un champ VIDE — « calcul "
+         "à la borne 0 (prudent) » — et plus jamais « 0 : le cas le plus défavorable » (faux au type (c)) ; plus de paragraphe qui le redit",
+         AIDE_APPUIS not in don and "Vide : calcul à la borne 0 (prudent)." in don and "(vide : calcul à la borne 0, prudent)" not in ch
          and "Vide : calcul à la borne 0 (prudent)." in ch and "défavorable" not in don + ch, re.findall(r".{60}défavorable.{20}", don + ch)[:2]),
     ]
 
@@ -1251,8 +1258,8 @@ MUTATIONS_V2 = (
      lambda vrai: _source_mutee(P, "    if isinstance(version, bool) or not isinstance(version, int) or version not in (1, VERSION):",
                                 "    if False:").normaliser),
     ("l'aide de s_s redit « 0 : le cas le plus défavorable »", M, "AIDE_SS", lambda vrai: vrai.replace("Vide : calcul à la borne 0 (prudent).", "0 : le cas le plus défavorable.")),
-    ("l'aide des Appuis redit « longueur d'appui à 0 : le cas le plus défavorable »", P, "S",
-     lambda vrai: _source_mutee(vrai, "ou débord vide : calcul à la borne 0 (prudent).", "à 0 : le cas le plus défavorable.")),
+    ("le survol de « sur » (une ponctuelle) redit « 0 : le cas le plus défavorable »", P, "S",
+     lambda vrai: _source_mutee(vrai, '<span title="{C.esc(M.AIDE_SS)}">sur</span>', '<span title="0 : le cas le plus défavorable.">sur</span>')),
 )
 for nom_, objet_, attr_, fabrique_ in MUTATIONS_V2:
     if not hasattr(objet_, attr_):
@@ -1784,6 +1791,310 @@ finally:
 chk(f"mutation « le niveau d'une charge hors de sa répartition (le poids propre réuni à G) » : {len(rouges_)} contrôle(s) rougissent",
     bool(rouges_), rouges_)
 chk("témoin : sans mutation, le contrôle des combinaisons de la barre neuve est vert", all(ok_ for _n, ok_, _i in combinaisons_neuve()))
+
+print("=== 23. (lot C, C3) la saisie : chaque champ neuf passe par profil._appliquer et se relit ; les anciennes notes ; les retraits ; "
+      "les champs conditionnels ; n maintiens réguliers ; le sélecteur — et leurs mutations")
+from acier.barre import historique_deversement as HD3  # noqa: E402
+from api_web import profil_saisie as S3  # noqa: E402
+
+
+def _relu(etat):
+    """L'état tel qu'un fichier le rend (JSON), relu par profil.normaliser."""
+    return P.normaliser(json.loads(json.dumps(etat)))
+
+
+def _jouer(etat, gestes):
+    """Les saisies l'une après l'autre (profil.modifier, comme l'écran) ; [(chemin, mot)] des saisies refusées ou inconnues."""
+    refus = []
+    for chemin, valeur in gestes:
+        mot = P.modifier(etat, chemin.split("/"), valeur)
+        if mot is not None and ("refusée" in str(mot) or "inconnu" in str(mot)):
+            refus.append((chemin, str(mot)))
+    return refus
+
+
+# (chemin, valeur tapée, ce qu'on relit dans la barre relue, l'attendu) — l'un après l'autre, sur la même note
+GESTES_C3 = [
+    ("historique/Cd", "1,3", lambda b: b["historique"]["Cd"], 1.3),
+    ("historique/variante", "fascicule", lambda b: b["historique"]["variante"], "fascicule"),
+    ("historique/variante", "classeurs", lambda b: b["historique"]["variante"], "classeurs"),
+    ("historique/facteur_doc", "true", lambda b: b["historique"]["facteur_doc"], True),
+    ("historique/classe_d", "c", lambda b: b["historique"]["classe_d"], "c"),
+    ("historique/classe_d", "", lambda b: b["historique"]["classe_d"], None),
+    ("ouvrage", "autre", lambda b: b["ouvrage"], "autre"),
+    ("combinaisons/expression", "6.10ab", lambda b: b["combinaisons"]["expression"], "6.10ab"),
+    ("combinaisons/geotechnique", "true", lambda b: b["combinaisons"]["geotechnique"], True),
+    ("combinaisons/regle_courte_duree", "false", lambda b: b["combinaisons"]["regle_courte_duree"], False),
+    ("cas/1/courte_duree", "true", lambda b: b["cas"][1]["courte_duree"], True),
+    ("cas/1/nature", "execution", lambda b: (b["cas"][1]["nature"], b["cas"][1]["psi0"]), ("execution", None)),
+    ("cas/1/psi0", "0,8", lambda b: b["cas"][1]["psi0"], 0.8),
+    ("cas/1/psi0", "", lambda b: b["cas"][1]["psi0"], None),
+    ("cas/1/nature", "exploitation_A", lambda b: b["cas"][1]["nature"], "exploitation_A"),
+    ("cas/0/charges/0/niveau", "bas", lambda b: b["cas"][0]["charges"][0]["niveau"], "bas"),
+    ("cas/0/charges/0/niveau", "haut", lambda b: b["cas"][0]["charges"][0]["niveau"], None),       # = celui de la barre : None
+    ("cas/0/N_troncons", "troncons", lambda b: b["cas"][0]["N_troncons"], [{"x2": 3.0, "N": 0.0}, {"x2": 6.0, "N": 0.0}]),
+    ("cas/0/N_troncons/0/N", "30", lambda b: b["cas"][0]["N_troncons"][0]["N"], 30.0),
+    ("cas/0/N_troncons/0/x2", "2", lambda b: b["cas"][0]["N_troncons"][0]["x2"], 2.0),
+    ("cas/0/N_troncons/+", "1", lambda b: [t["x2"] for t in b["cas"][0]["N_troncons"]], [2.0, 4.0, 6.0]),
+    ("cas/0/N_troncons/2/-", "1", lambda b: [t["x2"] for t in b["cas"][0]["N_troncons"]], [2.0, 6.0]),
+    ("cas/0/N_troncons", "constant", lambda b: b["cas"][0]["N_troncons"], None),
+    ("cas/0/charges/+", "P", lambda b: b["cas"][0]["charges"][1]["introduction"], "auto"),
+    ("cas/0/charges/1/introduction", "c", lambda b: b["cas"][0]["charges"][1]["introduction"], "c"),
+    ("cas/0/charges/1/contact", "non", lambda b: b["cas"][0]["charges"][1]["contact"], "non"),
+    ("cas/0/charges/1/-", "1", lambda b: len(b["cas"][0]["charges"]), 1),
+    ("maintiens/0/neglige", "true", lambda b: b["maintiens"][0]["neglige"], True),
+    ("position", "verticale", lambda b: b["position"], "verticale"),
+    ("position", "inclinee", lambda b: (b["position"], b["angle"]), ("inclinee", M.ANGLE_DEFAUT)),
+    ("angle", "30", lambda b: b["angle"], 30.0),
+    ("position", "horizontale", lambda b: b["position"], "horizontale"),
+    ("points/+", "1", lambda b: b["points"], [3.0]),
+    ("points/0", "2", lambda b: b["points"], [2.0]),
+    ("points/0/-", "1", lambda b: b["points"], []),
+    ("nuance", "S460", lambda b: b["nuance"], "S460"),
+    ("norme_produit", "M", lambda b: b["norme_produit"], "M"),
+    ("nuance", "S355", lambda b: (b["nuance"], b["norme_produit"]), ("S355", None)),
+    ("debords/1", "1,2", lambda b: b["debords"], [0.0, 1.2]),
+    ("debords/1", "", lambda b: b["debords"], [0.0, 0.0]),
+    ("appuis/detail", "un_par_un", lambda b: [d["torsion"] for d in b["appuis"]["detail"]], ["fourche", "fourche"]),
+    ("appuis/detail/0/torsion", "encastre", lambda b: b["appuis"]["detail"][0]["torsion"], "encastre"),
+    ("appuis/detail/1/ss", "120", lambda b: b["appuis"]["detail"][1]["ss"], 120.0),
+    ("appuis/detail/1/ss", "", lambda b: b["appuis"]["detail"][1]["ss"], None),
+    ("appuis/detail/1/contact", "oui", lambda b: b["appuis"]["detail"][1]["contact"], "oui"),
+    ("appuis/detail", "identiques", lambda b: b["appuis"]["detail"], None),
+    ("appuis/contact", "non", lambda b: b["appuis"]["contact"], "non"),
+    ("mode", "efforts", lambda b: b["mode"], "efforts"),
+    ("poids_propre_efforts/N", "true", lambda b: b["poids_propre_efforts"], {"N": True, "M": False}),
+    ("poids_propre_efforts/M", "true", lambda b: b["poids_propre_efforts"], {"N": True, "M": True}),
+    ("flambement/y/courbe", "b", lambda b: b["flambement"]["y"]["courbe"], "b"),
+    ("flambement/y/courbe", "", lambda b: b["flambement"]["y"]["courbe"], None),
+    ("mode", "chargee", lambda b: b["mode"], "chargee"),
+]
+
+
+def champs_c3():
+    """[(nom, vrai ?, info)] : chaque champ neuf écrit par profil._appliquer, relu par profil.normaliser (un fichier), ce qu'on a tapé."""
+    P._RESULTATS.clear()
+    etat = P.nouvel_etat()
+    faux, refus = [], []
+    for chemin, valeur, lire, attendu in GESTES_C3:
+        refus += _jouer(etat, [(chemin, valeur)])
+        try:
+            relu = _relu(etat)["elements"][0]
+            vu = lire(relu)
+        except Exception as err_:  # noqa: BLE001 — une relecture qui lève est un rouge
+            vu = f"exception : {err_}"
+        if vu != attendu:
+            faux.append((chemin, valeur, vu, attendu))
+    # un s_s d'appui saisi puis VIDÉ (appuis un par un) : None, l'âme reprend la borne 0 — « Bloqué » sur la barre neuve (157 % à la borne)
+    ame_ = P.nouvel_etat()
+    refus += _jouer(ame_, [("appuis/detail", "un_par_un"), ("appuis/detail/0/ss", "100"), ("appuis/detail/1/ss", "100")])
+    plein_ = P.calculer(_relu(ame_)["elements"][0])["ame"]["statut"]
+    refus += _jouer(ame_, [("appuis/detail/1/ss", "")])
+    vide_ = _relu(ame_)["elements"][0]
+    out_ame = (vide_["appuis"]["detail"][1]["ss"] is None and plein_ == RE.OK and P.calculer(vide_)["ame"]["statut"] == RE.BLOQUE,
+               (plein_, vide_["appuis"]["detail"], P.calculer(vide_)["ame"]["statut"]))
+    imp = P.nouvel_etat()
+    mot = P.modifier(imp, ["impression"], "ec3")
+    out = [(f"C3 — les {len(GESTES_C3)} saisies des champs neufs passent par profil._appliquer (aucun « champ inconnu », aucun refus) et se "
+            "RELISENT dans la barre relue d'un fichier : C_d, variante, facteur 5,1, classe imposée, ouvrage, combinaisons, ξ, règle de courte "
+            "durée, courte durée et ψ₀ d'un cas, niveau d'une charge (celui de la barre : None), N par tronçon, introduction et contact d'une "
+            "ponctuelle, maintien négligé, position et angle, points vérifiés, nuance et norme produit, débords, appuis un par un, contact, "
+            "poids propre et courbe des efforts imposés",
+            not faux and not refus, (faux[:4], refus[:4]))]
+    out.append(("C3 — appuis un par un : s_s des deux appuis à 100 mm, l'âme est conforme ; celui de B VIDÉ redevient None (non saisi) et l'âme, "
+                "reprise à la borne 0, est « Bloqué »", *out_ame))
+    out.append(("C3 — « Note (toutes les barres) » écrit l'impression de la NOTE ; normaliser la garde",
+                mot is None and _relu(imp)["impression"] == "ec3" and imp["elements"][0] == P.nouvel_etat()["elements"][0], mot))
+    return out
+
+
+def anciennes_c3():
+    """[(nom, vrai ?, info)] : une note d'avant le lot C (v1 ; v2 sans « zero_saisi » ; v2 neuve sans « impression ») se relit sans
+    changer une saisie ; l'impression est déduite (C0)."""
+    P._RESULTATS.clear()
+    b_ = P.barre_neuve("B1")
+    vieille = sans_options_els(b_)
+    vieille["methodes"] = ["historique"]
+    out = []
+    for nom_, etat_ in (("v2 neuve sans « impression »", {"version": 2, P.ZERO_SAISI: True, "actif": 0, "elements": [copy.deepcopy(vieille)]}),
+                        ("v2 du site d'avant le lot B", {"version": 2, "actif": 0, "elements": [copy.deepcopy(vieille)]})):
+        n_ = _relu(etat_)
+        el_ = n_["elements"][0]
+        garde = {k: el_[k] for k in vieille if k not in ("cas", "historique", "maintiens", "appuis", "flambement")}
+        out.append((f"C3 — une note {nom_} : relue, aucune saisie ne change (les clés neuves à leur défaut), l'impression DÉDUITE (« historique ») "
+                    "— rien n'est réécrit dans les barres",
+                    n_["impression"] == "historique" and garde == {k: vieille[k] for k in garde} and el_["methodes"] == ["historique"]
+                    and sans_options_els(el_)["cas"] == vieille["cas"] and el_["position"] == "horizontale" and el_["points"] == []
+                    and el_["debords"] == [0.0, 0.0] and all(m_["neglige"] is False for m_ in el_["maintiens"]) and _relu(n_) == n_,
+                    {k: (el_[k], vieille[k]) for k in garde if el_[k] != vieille[k]}))
+    n1 = _relu(P._ANCIENNE)
+    out.append(("C3 — une note de la version 1 : relue en efforts imposés, impression « ec3 », la barre de _migrer (nuance S355 de la liste du "
+                "module Barres, HEB 200)", n1["impression"] == "ec3" and n1["elements"][0]["nuance"] == "S355"
+                and n1["elements"][0]["profil"] == "HEB 200" and n1["elements"][0]["mode"] == "efforts", n1["elements"][0]["profil"]))
+    return out
+
+
+# les textes RETIRÉS (766659c : profil_saisie.py l. 122-124, 144, 187-188, 191, 193, 224-225, 227, 249, 252, 260-263 ; l'aide de u)
+RETIRES_C3 = ("1,33", "Tolérance", "Compte pour le déversement", "Aucun maintien : la barre", "Complet : déplacement latéral et torsion empêchés. Semelle",
+              "Vides : la portée", "N positif en compression ; moments", "Platine d'about, cornières, gousset : la réaction entre",
+              "La réaction appuie sur l'âme (EN 1993-1-5) : le module", "paramètre à confirmer", "paramètres à confirmer", "2 console",
+              "0,7 encastré", "Déversement (semelle comprimée)", "(vide : calcul à la borne 0, prudent)")
+
+
+def _donnees(el, impression="deux", r=None):
+    return S3.formulaire(el, P.calculer(el) if r is None else r, impression)
+
+
+def conditions_c3():
+    """[(nom, vrai ?, info)] : chaque champ conditionnel n'apparaît que dans son cas ; les textes retirés sont absents partout."""
+    P._RESULTATS.clear()
+    out = []
+    neuve = P.barre_neuve()
+    d0 = _donnees(neuve)
+    tous = [d0, _donnees(dict(POTEAU)), _donnees(dict(POTEAU, parametres={"gamma_M0": 1.05})),
+            _donnees(barre(cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 5.0, "a": 3.0}]}]))]
+    restes = [t_ for t_ in RETIRES_C3 for d_ in tous if t_ in html.unescape(d_)]
+    out.append(("C3 — les textes inutiles ou faux sont RETIRÉS de la saisie : « 1,33 avec le vent » (sans source), la case « Tolérance de 5 % » "
+                "(13.2 point 5), « k paramètres à confirmer », les aides qui redisaient une infobulle (Charges, Appuis, Maintiens, Efforts), l'aide "
+                "de u fausse (« 2 console »)", not restes, restes))
+    out.append(("C3 — l'aide de u : 13.3 (1 ; 0,80 ; 0,65 ; console : 2,1·L déjà proposé, u = 1) ; « Note (toutes les barres) » ; le champ L_z "
+                "vide dit « auto · 3 » et son origine au survol",
+                html.unescape(d0).count(M.AIDE_U) == 2 and "Note (toutes les barres)" in d0
+                and 'placeholder="auto · 3"' in d0 and "Vide : le plus long tronçon entre sections tenues." in html.unescape(d0), ""))
+    cond = {}
+    # la règle de courte durée et la case « courte durée » : seulement si la barre porte de la neige ou du vent
+    neige = barre(cas=neuve["cas"] + [{"nom": "S", "nature": "neige", "N": 0.0, "charges": [{"type": "q", "v": 2.0, "a": 0.0, "b": 6.0}]}])
+    dn = _donnees(neige)
+    cond["règle et case de courte durée : absentes sans neige ni vent, présentes avec la neige (la case sur Q, pas sur S ni G)"] = (
+        "combinaisons/regle_courte_duree" not in d0 and "courte_duree" not in d0 and 'data-chemin="combinaisons/regle_courte_duree"' in dn
+        and 'data-chemin="cas/1/courte_duree"' in dn and 'cas/2/courte_duree' not in dn and 'cas/0/courte_duree' not in dn)
+    # le contact : seulement sur un lieu du type (c), que le moteur nomme
+    larges = barre(appuis={"mode": "poses", "ss": 150.0, "c": 300.0, "detail": None})
+    rl, rn = P.calculer(larges), P.calculer(neuve)
+    cond["contact d'extrémité : présent quand le moteur dit un appui du type (c) (barre neuve, s_s et c à la borne 0), absent sinon (s_s 150, c 300 mm)"] = (
+        S3.lieux_c(rn, "appui") and 'data-chemin="appuis/contact"' in d0 and not S3.lieux_c(rl, "appui")
+        and 'data-chemin="appuis/contact"' not in _donnees(larges))
+    # la classe imposée : seulement quand le moteur la dit « à fournir » (ou qu'elle est déjà imposée)
+    faux_r = copy.deepcopy(rn)
+    faux_r["methodes"]["historique"]["alertes"] = [{"code": "a_fournir", "niveau": "attention", "message": "classe à fournir"}]
+    cond["classe de déversement imposée : absente hors « à fournir », présente quand le moteur la dit à fournir"] = (
+        "historique/classe_d" not in d0 and 'data-chemin="historique/classe_d"' in _donnees(neuve, r=faux_r))
+    tube = barre(profil=next(p_["nom"] for p_ in CAT.profils() if p_["famille"] == "RHS"))
+    dt = _donnees(tube)
+    cond["facteur 5,1 : seulement pour un profil fermé (RHS) ; C_d et la variante : seulement pour un I (C_d caché en variante fascicule)"] = (
+        "historique/facteur_doc" not in d0 and 'data-chemin="historique/facteur_doc"' in dt and 'data-chemin="historique/Cd"' in d0
+        and "historique/Cd" not in dt and "historique/variante" not in dt
+        and "historique/Cd" not in _donnees(barre(historique=dict(neuve["historique"], variante="fascicule"))))
+    cond["ψ₀ : seulement pour « exécution » et « machines »"] = (
+        "/psi0" not in d0 and 'data-chemin="cas/1/psi0"' in _donnees(barre(cas=[neuve["cas"][0], dict(neuve["cas"][1], nature="machines")])))
+    cond["ξ = 1 (géotechnique) : seulement en 6.10a/b"] = (
+        "combinaisons/geotechnique" not in d0 and 'data-chemin="combinaisons/geotechnique"' in _donnees(barre(combinaisons={"expression": "6.10ab",
+                                                                                                                       "geotechnique": False, "regle_courte_duree": True})))
+    cond["norme produit : seulement pour S420 et S460"] = ("norme_produit" not in d0 and 'data-chemin="norme_produit"' in _donnees(barre(nuance="S420")))
+    cond["angle : seulement pour une barre inclinée ; position : seulement avec le poids propre"] = (
+        'data-chemin="angle"' not in d0 and 'data-chemin="angle"' in _donnees(barre(position="inclinee", angle=20.0))
+        and 'data-chemin="position"' in d0 and 'data-chemin="position"' not in _donnees(barre(poids_propre=False)))
+    cond["débords : seulement « deux appuis » et « continue »"] = (
+        'data-chemin="debords/0"' in d0 and "debords/" not in _donnees(barre(modele="console", travees=[3.0], maintiens=[],
+                                                                              cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 5.0, "a": 3.0}]}])))
+    froid = next(p_["nom"] for p_ in CAT.profils() if p_["famille"] == "SHS-F" and (p_.get("t") or 0) > 6)
+    cond["courbe par axe : en efforts imposés, seulement quand le tableau n'en donne pas (SHS-F de plus de 6 mm), absente pour un IPE"] = (
+        "flambement/y/courbe" not in _donnees(dict(POTEAU)) and 'data-chemin="flambement/y/courbe"' in _donnees(dict(POTEAU, profil=froid)))
+    cond["entrée dans l'âme : sur une ponctuelle posée sur une semelle, pas au centre de cisaillement"] = (
+        'charges/1/introduction' in _donnees(barre(cas=[dict(neuve["cas"][0], charges=neuve["cas"][0]["charges"] + [{"type": "P", "v": 5.0, "a": 3.0}])]))
+        and 'charges/1/introduction' not in _donnees(barre(niveau="centre", cas=[dict(neuve["cas"][0], charges=neuve["cas"][0]["charges"]
+                                                                                        + [{"type": "P", "v": 5.0, "a": 3.0}])])))
+    mauvais = [k_ for k_, v_ in cond.items() if not v_]
+    out.append((f"C3 — chaque champ conditionnel n'apparaît que là où il compte ({len(cond)} cas) : " + " ; ".join(cond), not mauvais, mauvais))
+    return out
+
+
+def reguliers_c3():
+    """[(nom, vrai ?, info)] : le geste « n maintiens réguliers entre a et b » (PRS-C, 28 m : 8 → 3,111 m ; 18 → 1,474 m)."""
+    P._RESULTATS.clear()
+    e_ = P.etat_de([barre(travees=[28.0], cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "q", "v": 5.0, "a": 0.0, "b": 28.0}]}])])
+    r8 = _jouer(e_, [("maintiens/reguliers", "8")])
+    x8 = [m_["x"] for m_ in _relu(e_)["elements"][0]["maintiens"]]
+    r18 = _jouer(e_, [("maintiens/reguliers", "18")])
+    x18 = [m_["x"] for m_ in _relu(e_)["elements"][0]["maintiens"]]
+    r3 = _jouer(e_, [("maintiens/reguliers", "3 2 10")])
+    x3 = [m_["x"] for m_ in _relu(e_)["elements"][0]["maintiens"]]
+    mauvais = P.modifier(e_, ["maintiens", "reguliers"], "trois")
+    pas = lambda xs: sorted({round(b_ - a_, 3) for a_, b_ in zip([0.0] + xs, xs + [28.0])})        # noqa: E731
+    return [("C3 — « 8 » sur une barre de 28 m (PRS-C, 11.9) : 8 maintiens complets au pas de 3,111 m ; « 18 » : 18 au pas de 1,474 m (ceux qui y "
+             "étaient remplacés) ; « 3 2 10 » : 2, 4, 6, 8 m remplacés de 2 à 10 m (3 maintiens à 4, 6 et 8 m), les autres gardés ; un texte "
+             "illisible est refusé en une ligne",
+             not (r8 or r18 or r3) and len(x8) == 8 and x8[0] == 3.111 and pas(x8) == [3.111, 3.112]
+             and len(x18) == 18 and x18[0] == 1.474 and set(pas(x18)) <= {1.473, 1.474, 1.474}
+             and [x for x in x3 if 2.0 <= x <= 10.0] == [4.0, 6.0, 8.0] and len(x3) == 18 - sum(1 for x in x18 if 2.0 < x < 10.0) + 3
+             and "maintiens réguliers" in str(mauvais) and len(str(mauvais)) <= 140,
+             (x8[:3], pas(x8), x18[:2], pas(x18), x3[:6], mauvais))]
+
+
+def selecteur_c3():
+    """[(nom, vrai ?, info)] : le ★ du sélecteur juge les DEUX méthodes (et l'âme) : le plus léger dont la barre est conforme partout."""
+    P._RESULTATS.clear()
+    P._CANDIDATS.clear()
+    b_ = barre(appuis={"mode": "ame", "ss": None, "c": None, "detail": None})
+    h_ = P.selecteur(P.etat_de([b_]), "profil")
+    etoile = re.search(r'<button class="pk-row[^"]*\bopt\b[^"]*"[^>]*data-choix="([^"]+)"', h_)
+    nom_ = etoile.group(1) if etoile else None
+    legers = P._noms(["IPE"])
+    avant = legers[:legers.index(nom_)] if nom_ in legers else []
+    r_ = MO.verifier(dict(b_, profil=nom_)) if nom_ else None
+    ec3_seul = [n_ for n_ in avant if MO.verifier(dict(b_, profil=n_))["methodes"]["ec3"]["statut"] == RE.OK]
+    return [("C3 — le ★ du sélecteur juge les deux méthodes : le plus léger IPE dont l'ELS ET l'Eurocode 3 tiennent ; un plus léger que "
+             "l'Eurocode 3 seul accepte n'a pas l'étoile",
+             r_ is not None and r_["statut"] == RE.OK and all(r_["methodes"][k_]["statut"] == RE.OK for k_ in ("historique", "ec3")) and ec3_seul,
+             (nom_, ec3_seul[:3]))]
+
+
+PARTIES_C3 = {"champs": champs_c3, "anciennes": anciennes_c3, "conditions": conditions_c3, "reguliers": reguliers_c3, "selecteur": selecteur_c3}
+for f_ in PARTIES_C3.values():
+    for nom_, ok_, info_ in f_():
+        chk(nom_, ok_, info_)
+
+MUTATIONS_C3 = (     # (nom, partie rejouée, module, attribut, (ancien, nouveau) du texte du module)
+    ("la case « négligé dans M_cr » ignorée", "champs", P, "_appliquer", ('                mts[j]["neglige"] = _oui(valeur)', "                pass")),
+    ("le niveau d'une charge égal à celui de la barre gardé (il ne suit plus le défaut)", "champs", P, "_appliquer",
+     ('chs[j]["niveau"] = None if valeur == el["niveau"] else str(valeur)', 'chs[j]["niveau"] = str(valeur)')),
+    ("un s_s d'appui vidé lu comme un nombre obligatoire", "champs", P, "_appliquer",
+     ('(_lire_vide(valeur, "longueur d\'appui" if cles[3] == "ss" else "débord") if cles[3] in ("ss", "c") else str(valeur))',
+      '(_lire(valeur, "longueur d\'appui" if cles[3] == "ss" else "débord") if cles[3] in ("ss", "c") else str(valeur))')),
+    ("la norme produit gardée sur une nuance qu'elle ne change pas", "champs", P, "_appliquer",
+     ("        if valeur not in NU.AVEC_NORME:", "        if False:")),
+    ("n maintiens réguliers au pas (b − a)/n", "reguliers", P, "maintiens_reguliers", ("(min(b, L) - a) / (n + 1)", "(min(b, L) - a) / n")),
+    ("le ★ jugé par l'Eurocode 3 seul", "selecteur", P, "_candidat",
+     ('            r = MO.verifier(dict(el, profil=nom))\n            c = (_taux(r), r["statut"])',
+      '            r = MO.verifier(dict(el, profil=nom))\n            c = (_taux(r), r["methodes"]["ec3"]["statut"])')),
+    ("le contact montré partout", "conditions", P, "S", ("        if contacts:", "        if True:")),
+    ("la règle de courte durée montrée sans neige ni vent", "conditions", P, "S",
+     ('        if any(c["nature"] in CO.COURTES for c in el["cas"]):', "        if True:")),
+    ("la classe imposée montrée hors « à fournir »", "conditions", P, "S", ('    if _alerte(r, "a_fournir") or h.get("classe_d"):', "    if True:")),
+    ("ψ₀ montré pour toute nature", "conditions", P, "S", ('        if c["nature"] in CO.PSI0_SAISI:', "        if True:")),
+    ("« 1,33 avec le vent » rétabli", "conditions", P, "S", ("1,5 pour les charges de service.", "1,5 pour les charges de service ; 1,33 avec le vent.")),
+    ("l'aide de u fausse rétablie", "conditions", M, "AIDE_U", None),
+)
+for nom_, partie_, objet_, attr_, texte_ in MUTATIONS_C3:
+    vrai_, s3_vrai_ = getattr(objet_, attr_), S3
+    try:
+        if texte_ is None:
+            setattr(objet_, attr_, "Coefficient de longueur de flambement : 1 articulé, 0,7 encastré – articulé, 0,5 bi-encastré, 2 console.")
+        elif attr_ == "S":                      # la saisie mutée : celle que l'écran (P.S) et ces contrôles (S3) appellent
+            S3 = _source_mutee(s3_vrai_, *texte_)
+            P.S = S3
+        else:
+            setattr(objet_, attr_, getattr(_source_mutee(objet_, *texte_), attr_))
+        rouges_ = [n_ for n_, ok_, _i in PARTIES_C3[partie_]() if not ok_]
+    except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
+        rouges_ = [f"exception : {err_}"]
+    finally:
+        setattr(objet_, attr_, vrai_)
+        S3 = s3_vrai_
+        P._RESULTATS.clear()
+        P._CANDIDATS.clear()
+    chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
+chk("témoin : sans mutation, les contrôles de la saisie du lot C (C3) sont verts", all(ok_ for f_ in PARTIES_C3.values() for _n, ok_, _i in f_()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

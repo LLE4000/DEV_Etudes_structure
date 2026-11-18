@@ -947,7 +947,7 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 | Fichier | Rôle |
 |---|---|
 | `api_web/profil.py` | la note (version 2 : `{"zero_saisi": true, "elements": [barre…], "actif"}` — sans changer de version : le site d'avant le lot B relit une note neuve telle quelle, ou la refuse si une donnée y est vide ; mais il suffit qu'il l'OUVRE pour la réécrire sans la clé, ses 0 saisis redevenant « non saisis »), ses saisies, le sélecteur de profilés, les vues, la relecture des notes de la version 1 et du site d'avant le lot B (sans « zero_saisi », un 0 de s_s ou de c est « non saisi ») ; une autre version — ou une version qui n'est pas un entier — est refusée |
-| `api_web/profil_saisie.py` | la colonne de gauche : quatre rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Méthodes |
+| `api_web/profil_saisie.py` | la colonne de gauche : cinq rubriques — Barre, Charges (ou Efforts), Maintiens et flambement, Appuis (barre chargée qui a un appui simple), Méthodes ; chaque champ du lot C seulement là où il compte |
 | `api_web/profil_resultat.py` | la colonne de droite et les fenêtres de calcul : un verdict par méthode, un bloc par méthode, la comparaison, les paramètres à confirmer |
 | `api_web/profil_mots.py` | les mots et les nombres de l'écran — et de la note |
 | `api_web/dessin_barre.py` | la barre : ses cas de charge, ses appuis, ses maintiens, les enveloppes de M et de V ; les taux de toutes les vérifications |
@@ -1095,7 +1095,8 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
 - **Les deux méthodes toujours calculées** : `moteur.verifier` rend toujours la méthode ELS et l'Eurocode 3 ;
   `b["methodes"]` reste lu (anciennes notes) mais ne décide plus du calcul. La NOTE imprime `etat["impression"]` :
   « deux » (défaut), « historique » ou « ec3 ». Une note sans cette clé : version 1 → « ec3 » ; une seule et même méthode
-  cochée dans toutes ses barres → celle-là ; sinon « deux ». Le segment « Méthodes » de l'écran écrit cette clé.
+  cochée dans toutes ses barres → celle-là ; sinon « deux ». La ligne « Note (toutes les barres) » de la rubrique Méthodes
+  écrit cette clé.
 - **La comparaison par sujets** (`acier/barre/comparaison.py`) : sept sujets (flambement axe faible, axe fort, flexion
   composée, déversement, cisaillement, âme sous charges, raidisseurs) ; une ligne {sujet, historique, ec3, commun,
   ecart} ; une case {taux (le plus fort JUGÉ), statut (le pire), gouvernant}. Tout identifiant que rend le moteur est
@@ -1107,6 +1108,18 @@ nouvel écran la couvre ; le module « Flambement » reste en l'état (`AMELIORA
   `points`, `flambement.{y,z}.courbe`, `poids_propre_efforts`, `debords` ; au plus 24 maintiens. Rien de neuf n'est
   CALCULÉ (les blocs C1 à C7 le feront). La tolérance de 5 % de la méthode ELS est retirée (brief § 13.2, point 5) : forcée
   à non, l'ancienne valeur gardée (`tolerance_retiree`) pour la note.
+- **La saisie du lot C (C3)** : chaque clé du contrat a son champ, d'une ligne, son défaut affiché, et n'apparaît que là
+  où elle compte — ce que le moteur NOMME décide : le contact d'extrémité sur un lieu du type (c) de l'âme ; la classe de
+  déversement imposée quand la méthode ELS la dit « à fournir » ; le facteur 5,1 pour un profil fermé (cas « ferme ») ;
+  la courbe par axe, en efforts imposés, quand le tableau n'en donne pas ; C_d et la variante pour un I ; ψ₀ pour
+  l'exécution et les machines ; la case « courte durée » et la règle de courte durée quand la barre porte de la neige ou
+  du vent ; ξ = 1 en (6.10a)/(6.10b) ; la norme produit pour S420 et S460 ; l'angle pour une barre inclinée (45° écrits
+  au clic, à corriger — À VÉRIFIER). Le niveau d'une charge (▲ ● ▼) égal au niveau par défaut est gardé vide (il le suit).
+  « n maintiens réguliers » : « 8 » pose 8 maintiens complets à (b − a)/(n + 1) entre les bouts de la barre (PRS-C,
+  28 m : 3,111 m), « 8 2 20 » entre 2 et 20 m ; ceux qui y étaient sont remplacés. Un débord gauche fait glisser les
+  abscisses (elles partent du bout gauche de la barre). Les U et les cornières (UPN, UPE, L) ne se choisissent qu'en
+  efforts imposés. Le lien « k paramètres à confirmer » devient une ligne près de γ_M0 et γ_M1 quand ils diffèrent
+  (`npl_gamma`). Tests : `tests/test_api_web_profil.py` § 23.
 - **Les DÉCISIONS BUREAU** dans la table (§ 5.8) : aucun défaut ne change, aucun taux ne bouge.
 - **Reprise de C0 (17/11/2026, après la contre-vérification)** :
   - le passage en efforts imposés copie les longueurs de flambement automatiques en données, et s'en SOUVIENT

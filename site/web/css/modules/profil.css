@@ -54,6 +54,31 @@
 /* un maintien : son abscisse, son genre, « retirer » */
 .pf-mt { display: grid; grid-template-columns: auto minmax(0, 92px) minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; color: var(--ink-3); }
 
+/* (lot C, C3) le niveau d'UNE charge (▲ ● ▼), sur la ligne de la charge, entre sa valeur et « retirer » */
+.pf-ch-1.niv { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto auto; }
+.pf-niv .seg.full { width: auto; }
+.pf-niv .seg.full button { min-width: 26px; padding: 0 5px; }
+/* l'effort normal d'un cas : « N », constant ou par tronçon, sa valeur ; puis un tronçon par ligne (« jusqu'à x · N ») */
+.row.pf-n { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 112px); gap: 6px; align-items: center; }
+.row.pf-n:not(:has(> .field)) { grid-template-columns: auto minmax(0, 1fr); }
+.row.pf-n > label { min-width: 1.4em; }
+.pf-nt { display: grid; grid-template-columns: auto minmax(0, 92px) minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 2px 0;
+  font-size: 12px; color: var(--ink-3); }
+.pf-nt .field { min-width: 0; }
+.pf-bout { font-size: 12px; color: var(--ink-2); }
+/* un maintien négligé dans M_cr : la case avec son maintien, sous son abscisse (le genre garde sa largeur, « Semelle haute ») */
+.pf-mt > .pf-neg { grid-column: 2 / -1; grid-row: 2; }
+.pf-neg { display: inline-flex; cursor: help; }
+.pf-neg .case { margin: 0; white-space: nowrap; }
+/* un appui, un par un : sa lettre, s_s, c (rive), sa torsion — en une ligne qui passe à la ligne s'il le faut */
+.pf-ap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; color: var(--ink-3); }
+.pf-ap > .sym { min-width: 1.2em; font-weight: 650; color: var(--ink-2); }
+.pf-ap > .field { flex: 1 1 64px; min-width: 0; }
+.pf-ap > .field.select { flex: 1 1 96px; }
+.pf-ap > span[title] { cursor: help; }
+/* efforts imposés : le poids propre, deux interrupteurs sur une ligne */
+.row.pf-pp { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+
 /* les efforts imposés : une colonne par méthode (service, ELU) */
 .pf-eff { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 5px 8px; align-items: center; }
 .pf-eff.n1 { grid-template-columns: auto minmax(0, 1fr); }
@@ -121,4 +146,10 @@ body[data-module="profil"] .et-bloc-t .n { flex: none; }
   .pf-lien { min-height: 44px; }
   .pf-vame { min-height: 44px; align-items: center; }
   .row.pf-trav { grid-template-columns: minmax(0, 1fr) 132px 44px; }
+  /* (lot C, C3) au doigt, le niveau d'une charge et la case « négligé » passent sous leur ligne (▲ ● ▼ à 44 px chacun) */
+  .pf-ch-1.niv { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) 44px; }
+  .pf-ch-1.niv > .pf-niv { grid-column: 1 / -1; grid-row: 2; }
+  .pf-niv .seg.full button { min-width: 44px; }
+  .pf-nt { grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr) 44px; }
+  body[data-module="profil"] #donnees .case { min-height: 44px; }
 }
