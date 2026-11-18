@@ -936,8 +936,10 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
   cas, nuances S420/S460 et norme produit, débords, saisie et résultats à l'écran, PRS (saisie, bibliothèque, croquis),
   note dans les trois options, revue finale — `docs/validation/barres_revue_finale_2026-11-18.md` (les deux méthodes sur
   35 cas, les écarts avec les classeurs, la qualification externe, les listes restantes, l'avant/après des notes).
-- **Reste avant la mise en ligne** : la construction, les photos, la batterie complète, le harnais aux trois formats
-  (le défaut non conservatif des débords, charges bornées à Σ portées, est corrigé à l'intégration du lot C).
+- **Intégration du lot C** (18/11) : `docs/validation/lot_c_2026-11-18.md` — le défaut non conservatif des débords
+  corrigé, site reconstruit, photo profil regelée, batterie et harnais aux trois formats joués une fois.
+- **Reste avant la mise en ligne** : le bouton « ? » du Prix des grues à 44 px au doigt (trouvé par le harnais), et
+  les points à trancher du rapport (§ 6).
 - **Reste au bureau** : `BARRES_ACIER.md` § 10 (Q5, Q6, Q8, Q10, Q12, Q14, Q15 à Q20) ; LTBeam L1 à L16, L17b, L17c ;
   pages SCIA 17 à 22 ; exemples JRC.
 
