@@ -14,14 +14,24 @@ troisième colonne) et elle dit LES CHIFFRES DE L'ÉCRAN : elle ne calcule rien.
   enveloppes de M et de V ; en efforts imposés, la section à l'échelle), peint tel quel (``ndc_pdf.svg``) ;
 - les mots sont ceux de l'écran (``profil_mots``, ``profil_resultat``).
 
-CE QUI S'IMPRIME, par barre : les MÉTHODES que la barre a de cochées à l'écran (rubrique « Méthodes » : la méthode
-ELS (NBN B 51-001), l'Eurocode 3, ou les deux) — la note imprime ce que l'écran montre. La méthode ELS vient la
-première : ses contraintes admissibles, son flambement et son déversement, tels que les classeurs du bureau les
-écrivent. Puis L'ÂME ET SES RAIDISSEURS (EN 1993-1-5), quelle que soit la méthode cochée — sous le titre « Contrôles
-complémentaires EN 1993-1-5 » dans une note « méthode ELS seule » : la décision de chaque appui et de chaque charge
-ponctuelle (sans raidisseur, ou la paire de plats), puis ses vérifications. Avec les deux méthodes, un tableau les
-compare sujet par sujet. Les paramètres de l'annexe belge dont la source reste à confirmer sont nommés, avec la valeur
-prise ; ce que la note ne vérifie pas est dit.
+CE QUI S'IMPRIME (lot C, C5 ; brief v12 § 0, § 9) : le moteur calcule TOUJOURS les deux méthodes ; la NOTE imprime ce que
+son option dit (``profil.IMPRESSION`` : « deux », le défaut ; « historique », la méthode ELS seule ; « ec3 », l'Eurocode 3
+seul). Par barre, dans l'ordre du § 9 :
+
+  1. la barre, ses charges et les hypothèses COMMUNES (combinaisons, type d'ouvrage, poids propre, torsion non couverte,
+     l'origine des longueurs) — et, quand la méthode NON imprimée est plus défavorable, une ligne qui le dit ;
+  2. (« deux ») la SYNTHÈSE : les deux méthodes sujet par sujet (acier/barre/comparaison.py), « — » quand une méthode
+     n'a rien sur un sujet, le numéro de la vérification qui gouverne ;
+  3. (« deux » et « historique ») les ÉCARTS AVEC LES CLASSEURS DU BUREAU : une ligne par correction qui joue (brief
+     § 6.7 ; jamais un choix du bureau) ;
+  4. le détail de chaque méthode imprimée (ses hypothèses PROPRES en tête), puis l'âme et ses raidisseurs (EN 1993-1-5)
+     — « Contrôles complémentaires EN 1993-1-5 » dans une note « méthode ELS seule » ;
+  5. les décisions du bureau appliquées, les paramètres à confirmer (Eurocode 3 imprimé), ce que la note ne vérifie pas.
+
+Le STATUT imprimé (la pastille, la garde) est le plus défavorable des méthodes IMPRIMÉES et de l'âme : jamais la couleur
+d'une méthode que la note ne montre pas. La note dit chaque chose une fois : un message déjà imprimé sur la planche
+n'est pas répété dans une vérification suivante ; chaque ligne de texte tient en 120 caractères (la garde des textes,
+tests/test_note_profil.py).
 
     sections(etat) -> [planche]          une planche par barre (le dictionnaire que ``Style.planche`` dessine)
     pdf(etat, infos) -> bytes            infos = {nom, chantier, indice, date} de la note du site
@@ -41,7 +51,11 @@ import xml.etree.ElementTree as ET_
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+from acier.barre import combinaisons as CO
+from acier.barre import ec3_deversement as DV
 from acier.barre import ecriture as W
+from acier.barre import moteur as MO
+from acier.barre import parametres as PA
 from acier.barre import resultat as RE
 from acier.barre import statique as ST
 from ndc_pdf import data as ndc_data
@@ -52,8 +66,10 @@ from ndc_pdf.svg import peindre_svg
 
 from . import commun as C
 from . import dessin_barre as DB
+from . import dessin_profil as DP
 from . import profil as P
 from . import profil_mots as M
+from . import profil_prs as PP
 from . import profil_resultat as R
 
 TITRE = "Barres en acier"
@@ -81,9 +97,22 @@ EFFORTS = {"N": "Effort normal", "My": "Moment, axe fort", "Vz": "Effort trancha
 # une vérification ne réécrit pas les formules que la précédente vient d'écrire, mot pour mot, à partir de ce nombre (les
 # facteurs de l'annexe A, communs à (6.61) et (6.62)) ; en dessous, elle les répète : un bloc se lit seul
 COMMUNES_MIN = 4
-# ce que la note ne vérifie pas (docs/acier/BARRES_ACIER.md : le périmètre de la version 1)
-LIMITES = ("les assemblages, les appuis et les soudures des raidisseurs (EN 1993-1-8)", "les raidisseurs intermédiaires d'une âme élancée",
-           "le feu et la fatigue")
+# (lot C, C5) ce que la note ne vérifie pas : profil_mots.limites (une source, lue aussi par « Tout le calcul » de l'écran)
+# l'origine d'une longueur de flambement rendue par le moteur (moteur._longueurs : « portee », « troncon », « console »,
+# « debord », « saisie ») — une console : U_CONSOLE × sa longueur (doc p. 16, u recommandé « encastrée – libre »)
+ORIGINES = {"portee": "la portée", "troncon": "le plus long tronçon entre sections tenues", "saisie": "saisie",
+            "debord": "la barre entière et son débord libre"}
+OUVRAGES = {"batiment": "bâtiment", "autre": "autre qu'un bâtiment"}
+# les titres des blocs neufs (lot C, C5)
+TITRE_SYNTHESE = "Synthèse des deux méthodes"
+TITRE_ECARTS = "Écarts avec les classeurs du bureau"
+TITRE_DECISIONS = "Décisions du bureau appliquées"
+TITRE_LIMITES = "Ce que la note ne vérifie pas"
+AUCUN_ECART = "Aucune correction des classeurs ne joue sur cette barre."
+# un message plus court ne se cherche pas dans un texte déjà imprimé (« ok » serait partout)
+REDITE_MIN = 20
+# le titre d'un bloc : le plus petit corps du kit (styles._titre) et ce que le carré du numéro prend à la colonne
+TITRE_MIN, TITRE_RETRAIT = 7.0, Encre.s_tit * 1.25 + 8
 
 
 # ------------------------------------------------------------------ les textes : ceux du moteur, composés
@@ -102,6 +131,22 @@ def riche(s) -> str:
     λ̄ avec sa barre."""
     morceaux = RI.auto(str(s).replace("λ̄", BARRE)).split("$")
     return "$".join(m.replace(BARRE, r"\bar{λ}") if i % 2 else m.replace(BARRE, r"$\bar{λ}$") for i, m in enumerate(morceaux))
+
+
+def pr(t: str) -> tuple:
+    """Une ligne de texte de la note : (« pr », le texte riche, le texte lui-même) — la garde des textes lit le troisième
+    (tests/test_note_profil.py : 120 caractères au plus, aucune redite dans un bloc) ; le kit ne lit que les deux premiers."""
+    return ("pr", riche(t), t)
+
+
+def brut(t: str) -> tuple:
+    """Une ligne de texte déjà composée (sans symbole à composer) : (« pr », le texte, le texte)."""
+    return ("pr", t, t)
+
+
+def _cle(t: str) -> str:
+    """Un texte comparé à un autre : en minuscules, sans point final ni blancs autour."""
+    return str(t).strip().rstrip(".").lower()
 
 
 def taux_ecrit(t: Optional[float]) -> str:
@@ -156,8 +201,67 @@ def _charge(ch: Dict) -> str:
     return f"couple de {v} kN·m à {M.m(ch['a'])} m"
 
 
-def donnees(el: Dict, r: Dict) -> Dict:
-    """Le premier bloc : la barre, ses charges (ou ses efforts imposés), ses maintiens, ses longueurs de flambement."""
+def _longueurs(el: Dict, Ls: Dict) -> str:
+    """L'origine des longueurs de flambement que le moteur a prises (``r["longueurs"][a]["origine"]``), en une ligne :
+    « L_y : la portée ; L_z : le plus long tronçon entre sections tenues » ; une console, « 2,1 × 3,00 m (console, doc
+    p. 16) »."""
+    def mot(a):
+        o = Ls[a].get("origine")
+        if o == "console":
+            return f"{C.fr(MO.U_CONSOLE, 1)} × {M.m(sum(el['travees']))} m (console, doc p. 16)"
+        return ORIGINES.get(o, "saisie")
+    y, z = mot("y"), mot("z")
+    return f"L_y et L_z : {y}." if y == z else f"L_y : {y} ; L_z : {z}."
+
+
+def _poids_propre(el: Dict, r: Dict) -> str:
+    """La ligne du poids propre d'une barre chargée : sa valeur (celle du moteur : 78,6 kN/m³ × A), où il agit (au centre de
+    gravité) et selon la POSITION de la barre (horizontale : en flexion ; verticale : dans N ; inclinée : les deux)."""
+    pp = f" ({M.n(ST.POIDS_VOLUMIQUE, 1)} kN/m³ × A = {M.n(r['poids_propre'], 3)} kN/m)" if r.get("poids_propre") else ""
+    pos = el.get("position") or "horizontale"
+    ou = {"horizontale": "en flexion", "verticale": "dans N (barre verticale)"}.get(
+        pos, f"barre inclinée de {M.n(el.get('angle'), 1)}° : en flexion et dans N")
+    return f"Poids propre du profilé{pp} : compté, cas permanent, au centre de gravité, {ou}."
+
+
+def autre_methode(r: Dict, rv: Dict) -> Optional[str]:
+    """La méthode que la note N'IMPRIME PAS, en une ligne, quand elle est plus défavorable que celles imprimées (son statut
+    est pire, ou le même avec un taux plus fort) : « Eurocode 3, non imprimé : non conforme, 110 % » — l'ingénieur le sait."""
+    caches = [k for k in r["methodes"] if k not in rv["methodes"]]
+    if not caches or not rv["methodes"]:
+        return None
+    k = caches[0]
+    x = r["methodes"][k]
+    vus = RE.pire_statut([y["statut"] for y in rv["methodes"].values()])
+    t_vus = max((y["taux_max"] for y in rv["methodes"].values() if y.get("taux_max") is not None), default=None)
+    pire = RE.pire_statut([vus, x["statut"]]) == x["statut"] and x["statut"] != vus
+    plus_fort = x["statut"] == vus and x.get("taux_max") is not None and (t_vus is None or x["taux_max"] > t_vus)
+    if not (pire or plus_fort):
+        return None
+    t = x.get("taux_max")
+    taux = "" if t is None else ", " + (f"> {C.PLAFOND_TAUX} %" if C.pct(t) > C.PLAFOND_TAUX else f"{C.pc(C.pct(t))} %")
+    nom = f"Méthode {M.ELS}, non imprimée" if k == "historique" else f"{M.METHODES[k]}, non imprimé"
+    return f"{nom} : {M.MOT_STATUT[x['statut']].lower()}{taux}."
+
+
+def communes(el: Dict, r: Dict) -> List[str]:
+    """Les hypothèses COMMUNES aux deux méthodes (brief § 9), une par ligne : les combinaisons de calcul (barre chargée ;
+    acier/barre/combinaisons.hypotheses, sur les cas du moteur, poids propre compris), le type d'ouvrage, le poids propre
+    ajouté aux efforts imposés, la torsion non couverte (brief § 17.5)."""
+    out: List[str] = []
+    if el["mode"] == "chargee":
+        out += CO.hypotheses(el["combinaisons"], ST.cas_complets(el, MO.section_de(el)), PA.jeu(el["parametres"]))
+    elif any((el.get("poids_propre_efforts") or {}).values()):
+        out.append(MO.MOT_POIDS_PROPRE_IMPOSES)
+    out.append(f"Type d'ouvrage : {OUVRAGES.get(el.get('ouvrage'), el.get('ouvrage'))}.")
+    out.append(M.HYPOTHESE_TORSION)
+    return out
+
+
+def donnees(el: Dict, r: Dict, autre: Optional[str] = None) -> Dict:
+    """Le premier bloc : la barre, ses charges (ou ses efforts imposés), ses maintiens, ses longueurs de flambement et leur
+    origine, puis les hypothèses communes (``communes``). ``r`` : le résultat tel que la note l'imprime (``imprime``) ;
+    ``autre`` : la ligne de la méthode non imprimée (``autre_methode``)."""
     items: List[tuple] = [("v", f"Profilé {r['profil']}", "", f"{M.n(r['masse'], 1)}", "kg/m")]
     # la f_y de l'Eurocode 3 (la table, selon l'épaisseur) d'abord ; la méthode ELS prend la NOMINALE, que ses hypothèses
     # disent (« f_y nominale, comme les classeurs du bureau ») : seule, la ligne dit la sienne
@@ -165,6 +269,8 @@ def donnees(el: Dict, r: Dict) -> Dict:
     if g:
         src = g.get("fy_ref")                # (la source entière — bande d'épaisseur comprise — est dans les hypothèses des méthodes)
         items.append(("v", f"Acier {el['nuance']}" + (f" · {src}" if src else ""), "f_y", M.n(g["fy"], 0), "N/mm²"))
+    if autre:
+        items.append(brut(autre))
     Ls = r["longueurs"]
     if el["mode"] == "chargee":
         items.append(("v", "Modèle", "", M.NOM_MODELE[el["modele"]], ""))
@@ -172,29 +278,31 @@ def donnees(el: Dict, r: Dict) -> Dict:
             items.append(("v", "Portée" if len(el["travees"]) == 1 else f"Travée {i + 1}", "L" if len(el["travees"]) == 1 else f"L_{i + 1}", M.m(L), "m"))
         items.append(("s", "Charges (valeurs caractéristiques)"))
         if el["poids_propre"]:
-            pp = f" ({M.n(ST.POIDS_VOLUMIQUE, 1)} kN/m³ × A = {M.n(r['poids_propre'], 3)} kN/m)" if r.get("poids_propre") else ""
-            items.append(("pr", f"Poids propre du profilé{pp} : compté, cas permanent."))
+            items.append(brut(_poids_propre(el, r)))
         for c in el["cas"]:
             quoi = [_charge(ch) for ch in c["charges"]] + ([f"effort normal {M.n(c['N'], 1)} kN"] if c.get("N") else [])
-            items.append(("pr", f"{c['nom']} — {_minuscule(M.NATURE_COURTE[c['nature']])} : " + (" ; ".join(quoi) if quoi else "aucune charge") + "."))
+            items.append(brut(f"{c['nom']} — {_minuscule(M.NATURE_COURTE[c['nature']])} : " + (" ; ".join(quoi) if quoi else "aucune charge") + "."))
         items.append(("s", "Maintiens et flambement"))
         mts = " ; ".join(f"{M.NOM_GENRE[mt['genre']].lower()} à {M.m(mt['x'])} m" for mt in el["maintiens"])
-        items.append(("pr", f"Maintiens latéraux : {mts}." if mts else "Aucun maintien latéral entre les appuis."))
+        items.append(brut(f"Maintiens latéraux : {mts}." if mts else "Aucun maintien latéral entre les appuis."))
     else:
         items.append(("s", "Efforts imposés"))
         jeux = [(k, {"historique": "service", "ec3": "elu"}[k]) for k in r["methodes"]]
-        items.append(("pr", "Valeurs : " + " · ".join({"service": f"de service (méthode {M.ELS})", "elu": "de calcul (Eurocode 3)"}[j]
-                                                      for _k, j in jeux) + "."))
+        items.append(brut("Valeurs : " + " · ".join({"service": f"de service (méthode {M.ELS})", "elu": "de calcul (Eurocode 3)"}[j]
+                                                    for _k, j in jeux) + "."))
         for cle, s_, unite, _aide in M.EFFORTS:
             vals = [el["efforts"][j][cle] for _k, j in jeux]
             if any(vals):
                 items.append(("v", EFFORTS[cle], tex(s_), " · ".join(M.r1(x) for x in vals), unite))
         formes = dict(M.DIAGRAMMES)
-        items.append(("pr", f"Diagramme du moment : {formes[el['diagramme']['y']['forme']].lower()} (axe fort), "
-                            f"{formes[el['diagramme']['z']['forme']].lower()} (axe faible)."))
+        items.append(brut(f"Diagramme du moment : {formes[el['diagramme']['y']['forme']].lower()} (axe fort), "
+                          f"{formes[el['diagramme']['z']['forme']].lower()} (axe faible)."))
         items.append(("s", "Flambement et déversement"))
     for a, nom in (("y", "axe fort"), ("z", "axe faible")):
         items.append(("v", f"Flambement, {nom}", f"u_{a}·L_{a}", f"{M.n(Ls[a]['u'], 3)} × {M.m(Ls[a]['L'])}", "m"))
+    items.append(pr(_longueurs(el, Ls)))
+    items.append(("s", "Hypothèses communes"))
+    items += [pr(h) for h in communes(el, r)]
     return {"titre": "La barre et ses charges" if el["mode"] == "chargee" else "La barre et ses efforts", "items": items, "verdicts": []}
 
 
@@ -230,14 +338,44 @@ def _tableau_combinaisons(x: Dict, largeur: float, noms: Optional[Dict[str, str]
     return ("tab", cols, lignes, note)
 
 
+# les hypothèses que le moteur écrit dans une méthode et que le premier bloc dit déjà (une fois) : le poids propre
+DITES_EN_TETE = (MO.MOT_POIDS_PROPRE, MO.MOT_POIDS_PROPRE_IMPOSES)
+
+
+def propres(el: Dict, k: str, x: Dict) -> List[str]:
+    """Les hypothèses PROPRES d'une méthode, en tête de son détail (brief § 9) : celles que le moteur écrit (sans celles du
+    premier bloc), puis ce que la note compose de ce que le moteur NOMME — méthode ELS : la tolérance de 5 % retirée d'une
+    ancienne barre ; Eurocode 3 : l'origine de f_u, k_c et sa justification, la source de M_cr et de C₁, celle de I_t et
+    I_w."""
+    out = [h for h in x["hypotheses"] if h not in DITES_EN_TETE]
+    if k == "historique":
+        if (el.get("historique") or {}).get("tolerance_retiree"):
+            out.append("Tolérance de 5 % retirée (13.2 point 5).")
+        return out
+    G = x.get("grandeurs") or {}
+    if G.get("fu"):
+        out.append(f"f_u = {M.n(G['fu'], 0)} N/mm² ({G.get('fu_source') or G.get('fu_ref') or ''}).".replace(" ().", "."))
+    D = G.get("deversement") or {}
+    if D.get("cas") == "calcule":
+        out.append("M_cr : solveur du module (moments réels, hauteur des charges, maintiens).")
+        if D.get("methode") == DV.METHODE_LAMINES:
+            out.append(f"k_c = {C.fr(D['kc'], 2)} : tableau 6.6." if D.get("kc_tabule") else "k_c = 1 : diagramme hors tableau 6.6.")
+    ids = {v["id"] for v in x["verifications"]}
+    if ids & {"E-661", "E-662"} and D.get("cas") == "calcule":
+        out.append("C₁ = M_cr,c/M_cr,0 du solveur (annexe E ANB : méthode avancée admise).")
+    if D.get("cas") == "calcule" or (G.get("flambement") or {}).get("T"):
+        out.append("I_t et I_w : formules des trois plats (I_t côté sûr), comme au panneau." if el.get("prs") else "I_t et I_w : catalogue du site.")
+    return out
+
+
 def methode(el: Dict, k: str, x: Dict, largeur: float) -> Dict:
-    """Le bloc de tête d'une méthode : sa norme, ses hypothèses (celles que le moteur écrit), le bilan de ses
-    combinaisons, ses avertissements, puis son verdict — le taux le plus fort et ce qu'il compare."""
-    items: List[tuple] = [("pr", riche(h)) for h in x["hypotheses"]]
+    """Le bloc de tête d'une méthode : sa norme, ses hypothèses propres (``propres``), le bilan de ses combinaisons, ses
+    avertissements, puis son verdict — le taux le plus fort et ce qu'il compare."""
+    items: List[tuple] = [pr(h) for h in propres(el, k, x)]
     tab = _tableau_combinaisons(x, largeur)
     if tab:
         items.append(tab)
-    items += [("pr", riche(a["message"])) for a in x["alertes"]]
+    items += [pr(a["message"]) for a in x["alertes"]]
     g = R.gouvernante(x)
     niv = R.niveau_methode(x)
     if g is None:
@@ -262,7 +400,7 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
     """Le bloc de tête de l'âme : ses hypothèses, LA DÉCISION de chaque lieu (un appui, une charge ponctuelle : sans
     raidisseur, ou la paire de plats — et son taux), le bilan de ses combinaisons, ses avertissements, puis son verdict."""
     a = r["ame"]
-    items: List[tuple] = [("pr", riche(h)) for h in a["hypotheses"]]
+    items: List[tuple] = [pr(h) for h in a["hypotheses"]]
     if a["lieux"]:
         lignes = []
         for L in a["lieux"]:
@@ -276,7 +414,7 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
     tab = _tableau_combinaisons(a, largeur, {k: L["nom"] for L in a["lieux"] for k in L["verifications"]})
     if tab:
         items.append(tab)
-    items += [("pr", riche(x["message"])) for x in a["alertes"]]
+    items += [pr(x["message"]) for x in a["alertes"]]
     verdicts = []
     if a["verifications"]:
         niv = R.niveau_methode(a)
@@ -299,30 +437,75 @@ def lignes_ecrites(x: Dict, v: Dict) -> List[Tuple[Tuple[str, ...], str]]:
     return out
 
 
-def verification(k: str, x: Dict, v: Dict, precedente: Optional[Tuple[int, List]] = None) -> Dict:
+def redit(t: str, dits) -> bool:
+    """Le message ``t`` est-il déjà imprimé sur la planche (``dits`` : les textes imprimés, ``_cle``) — le même, ou contenu
+    dans un texte plus long (« Décision impossible : s_s à saisir. » dans « Appui A, appui B : décision impossible : s_s à
+    saisir. ») ?"""
+    c = _cle(t)
+    return c in dits or (len(c) >= REDITE_MIN and any(c in d for d in dits))
+
+
+def avant_apres(L: Dict, largeur: float) -> List[tuple]:
+    """Le tableau AVANT / APRÈS d'un lieu qui reçoit un raidisseur (brief § 15.4) : sans raidisseur, la compression de l'âme
+    à la jonction (σ_z,Ed), son taux η₂ et l'interaction (7.2) ou le critère 6.2.1(5) ; avec le raidisseur proposé, la
+    contrainte de sa section efficace, son flambement hors plan, l'écrasement au contact. Les chiffres du moteur
+    (``L["sans"]``, ``L["avec"]`` : raidisseurs.vue)."""
+    sa, av = L.get("sans") or {}, L.get("avec")
+    if not av:
+        return []
+
+    def t(x):
+        return ("num", "—") if x is None else case_taux(RE.OK if x <= 1.0 else RE.NOK, x)
+
+    inter = sa.get("interaction") if sa.get("interaction") is not None else sa.get("critere")
+    lignes = [[("lab", "Contrainte : $σ_{z,Ed}$ sans, σ avec (N/mm²)"), ("num", M.r1(sa.get("sigma_z"))), ("num", M.r1(av.get("sigma")))],
+              [("lab", "Âme sous la force : $η_{2}$"), t(sa.get("eta2")), ("num", "—")],
+              [("lab", "Interaction (7.2) ou critère 6.2.1(5)"), t(inter), ("num", "—")],
+              [("lab", "Raidisseur : flambement hors plan"), ("num", "—"), t(av.get("taux_flambement"))],
+              [("lab", "Raidisseur : écrasement au contact"), ("num", "—"), t(av.get("taux_contact"))]]
+    cols = [("", largeur - 2 * 58, "left"), ("SANS RAIDISSEUR", 58, "right"), ("AVEC RAIDISSEUR", 58, "right")]
+    return [("s", "Sans et avec le raidisseur proposé"), ("tab", cols, lignes)]
+
+
+def verification(k: str, x: Dict, v: Dict, precedente: Optional[Tuple[int, List]] = None, dits=None, lieu_=None,
+                 largeur: float = 0.0) -> Dict:
     """Une vérification : sa référence et l'endroit où elle a été trouvée, ses formules, ses messages, son verdict.
     ``precedente`` : (le numéro, les formules écrites) de la vérification d'avant — celles qu'elle vient d'écrire mot
-    pour mot ne sont pas répétées quand il y en a COMMUNES_MIN au moins : une ligne le dit, à leur place."""
+    pour mot ne sont pas répétées quand il y en a COMMUNES_MIN au moins : une ligne le dit, à leur place. ``dits`` : les
+    textes déjà imprimés sur la planche (``_cle``) — un message déjà dit n'est pas répété (``redit``), ceux de ce bloc
+    s'y ajoutent. ``lieu_`` : le lieu de l'âme dont c'est la première vérification — son tableau avant/après."""
+    dits = set() if dits is None else dits
     items: List[tuple] = [("pr", " · ".join(t for t in (v["reference"], lieu(v)) if t))]
     lignes = lignes_ecrites(x, v)
-    communes = set(precedente[1]) & set(lignes) if precedente else set()
-    if len(communes) < COMMUNES_MIN:
-        communes = set()
+    communes_ = set(precedente[1]) & set(lignes) if precedente else set()
+    if len(communes_) < COMMUNES_MIN:
+        communes_ = set()
     dit = False
     for parts, res in lignes:
-        if (parts, res) in communes:
+        if (parts, res) in communes_:
             if not dit:
-                n = sum(1 for l in lignes if l in communes)
-                items.append(("pr", f"Les {n} facteurs écrits à la vérification {precedente[0]} sont les mêmes : ils ne sont pas répétés."))
+                n = sum(1 for l in lignes if l in communes_)
+                items.append(brut(f"Les {n} facteurs écrits à la vérification {precedente[0]} sont les mêmes : ils ne sont pas répétés."))
                 dit = True
             continue
         items.append(("e", None, [tex(p) for p in parts], tex(res)))
-    items += [("pr", riche(t)) for t in v["messages"]]
+    if lieu_ is not None:
+        items += avant_apres(lieu_, largeur)
+    neufs = []
+    for t in v["messages"]:
+        if not redit(t, dits) and _cle(t) not in {_cle(u) for u in neufs}:
+            neufs.append(t)
+    items += [pr(t) for t in neufs]
+    dits.update(_cle(t) for t in neufs)
     items.append(("k", 0))
     verdict = {"texte": comparaison(v), "etat": etat_verification(v), "riche": True,
                "cale": taux_ecrit(v["taux"]) if v["taux"] is not None else M.MOT_STATUT[v["statut"]].lower()}
-    # (une vérification de l'âme porte déjà son lieu : « Appui A : âme sous la réaction »)
+    # (une vérification de l'âme porte déjà son lieu : « Appui A : âme sous la réaction » ; un titre qui ne tiendrait pas dans la
+    # colonne au plus petit corps du kit perd le nom de sa méthode, que la tête du bloc dit déjà : « Flexion composée et
+    # flambement (6.61), (6.62) » sortait de la page de 2 pt, en deuxième colonne)
     titre = v["titre"] if k == M.AME else f"{M.METHODES_COURT[k]} · {_minuscule(v['titre'])}"
+    if largeur and k != M.AME and string_width(titre, Planche.f_h, TITRE_MIN) > largeur - TITRE_RETRAIT:
+        titre = v["titre"]
     return {"titre": titre, "items": items, "verdicts": [verdict]}
 
 
@@ -333,65 +516,193 @@ def _case_taux(c: Optional[Dict]) -> str:
     return taux_ecrit(c["taux"]) if c["taux"] is not None else M.MOT_STATUT[c["statut"]].lower()
 
 
-def comparaison_methodes(r: Dict, largeur: float) -> Dict:
-    """Les deux méthodes côte à côte, sujet par sujet (acier/barre/comparaison.py) : le taux le plus fort de chacune. Un
-    taux sous un statut bloqué, non couvert ou hors domaine s'écrit sans la couleur « conforme » (l'écran le pose en « v »,
-    ``profil_resultat.niveau_taux``, la même fonction)."""
+def _ecart(e: Optional[float]) -> str:
+    """L'écart d'une ligne de la synthèse (points de pourcentage, Eurocode 3 − ELS) : « +3,5 », « −30,8 », « — »."""
+    return "—" if e is None else ("+" if e > 0 else "") + W.nombre(e, 1)
+
+
+def _colonne_ec3(li: Dict) -> Tuple[Optional[Dict], bool]:
+    """(la case de la colonne Eurocode 3, est-ce celle de l'Eurocode 3 ?) d'une ligne de la synthèse : celle de l'Eurocode 3,
+    ou l'âme (EN 1993-1-5, commune aux deux méthodes) quand l'Eurocode 3 n'a rien sur le sujet ou qu'elle y est plus chargée
+    — la plus grande des deux cases que le moteur NOMME (acier/barre/comparaison.py), rien n'est recalculé."""
+    e, a = li.get("ec3"), li.get("commun")
+    if a is None or (e is not None and (a.get("taux") is None or (e.get("taux") is not None and e["taux"] >= a["taux"]))):
+        return e, True
+    return a, False
+
+
+def comparaison_methodes(r: Dict, largeur: float, num: Optional[Dict[str, int]] = None) -> Dict:
+    """LA SYNTHÈSE (bloc 2 d'une note « les deux », brief § 9) : les deux méthodes côte à côte, sujet par sujet
+    (acier/barre/comparaison.py) — le plus fort taux de chacune, « — » quand une méthode n'a rien sur le sujet (l'âme :
+    « Contrôles complémentaires » de la méthode ELS), l'écart en points, le numéro de la vérification qui gouverne
+    chaque méthode (``num`` : identifiant → numéro du bloc). Un taux sous un statut bloqué, non couvert ou hors domaine
+    s'écrit sans la couleur « conforme » (l'écran le pose en « v », ``profil_resultat.niveau_taux``, la même fonction)."""
+    num = num or {}
+
     def case(c):
         if c is None or c["taux"] is None:
             return ("num", _case_taux(c))
         return case_taux(c["statut"], c["taux"])
 
-    lignes = [[("lab", li["sujet"], False), case(li["historique"]), case(li["ec3"])]
-              for li in r["comparaison"] if li["historique"] is not None or li["ec3"] is not None]
-    cols = [("SUJET", largeur - 2 * 52, "left"), (M.METHODES_COURT["historique"].upper(), 52, "right"), (M.METHODES_COURT["ec3"].upper(), 52, "right")]
-    items = [("tab", cols, lignes)]
-    # l'âme vaut pour les deux méthodes : un seul taux, dit sous le tableau (l'écran le pose à cheval sur les deux colonnes)
-    items += [("pr", f"{R.sujet_commun(li)}, pour les deux méthodes : {_case_taux(li['commun'])}.") for li in r["comparaison"]
-              if li["commun"] is not None]
-    return {"titre": "Comparaison des deux méthodes", "items": items + [("pr", riche(R.NOTE_COMPARAISON))], "verdicts": []}
+    lignes = []
+    for li in r["comparaison"]:
+        ce, est_ec3 = _colonne_ec3(li)
+        if li["historique"] is None and ce is None:
+            continue
+        nums = " · ".join(str(num[c["gouvernant"]]) if c is not None and c.get("gouvernant") in num else "—" for c in (li["historique"], ce))
+        lignes.append([("lab", li["sujet"], False), case(li["historique"]), case(ce), ("num", _ecart(li.get("ecart")) if est_ec3 else "—"),
+                       ("num", nums)])
+    w = (44, 44, 30, 34)
+    cols = [("SUJET", largeur - sum(w), "left"), (M.METHODES_COURT["historique"].upper(), w[0], "right"),
+            (M.METHODES_COURT["ec3"].upper(), w[1], "right"), ("ÉCART", w[2], "right"), ("N°", w[3], "right")]
+    return {"titre": TITRE_SYNTHESE, "items": [("tab", cols, lignes)], "verdicts": []}
+
+
+def ecarts(r: Dict, num: Optional[Dict[str, int]] = None) -> Dict:
+    """« Écarts avec les classeurs du bureau » (bloc 3, brief § 6.7) : une ligne par correction qui JOUE sur la barre (le
+    moteur les rend : ``methodes.historique.corrections``, leur texte, ``historique_deversement.CORRECTIONS``), avec le
+    numéro de la vérification qui la porte. Jamais un choix du bureau (f_y nominale, courbes et classes, s, C, C_d)."""
+    num = num or {}
+    items = []
+    for c in (r["methodes"].get("historique") or {}).get("corrections") or []:
+        ou = ", ".join(f"n° {num[i]}" for i in c.get("verifications") or () if i in num)
+        t = c["texte"][:1].upper() + c["texte"][1:]
+        items.append(pr(t + (f" ({ou})" if ou else "")))
+    return {"titre": TITRE_ECARTS, "items": items or [brut(AUCUN_ECART)], "verdicts": []}
+
+
+def _nums(ids, num: Dict[str, int]) -> str:
+    """« vérification 14 », « vérifications 14 et 17 »."""
+    ns = sorted({num[i] for i in ids if i in num})
+    if not ns:
+        return ""
+    return ("vérification " if len(ns) == 1 else "vérifications ") + (" et ".join([", ".join(map(str, ns[:-1])), str(ns[-1])]) if len(ns) > 1 else str(ns[0]))
+
+
+def decisions(el: Dict, r: Dict, num: Dict[str, int]) -> Dict:
+    """« Décisions du bureau appliquées » (brief § 13.2, règle 8) : une ligne par décision qui joue sur la barre — le défaut
+    appliqué (acier/barre/parametres.py) et l'autre variante, son résultat ou la vérification qui le donne ; n° 7, le seuil
+    « à la limite », cité avec sa source (celui de toutes les notes du site). Les décisions d'une méthode non imprimée
+    ne sont pas dites."""
+    jeu = PA.jeu(el.get("parametres"))
+    T = PA.PARAMETRES
+    items: List[tuple] = []
+    a = r["ame"]
+    fm = [v["id"] for v in a["verifications"] if v["id"].endswith("-FM")]
+    if fm:
+        autre = T["eta1_ame"]["variante"] if jeu["eta1_ame"] == T["eta1_ame"]["valeur"] else T["eta1_ame"]["valeur"]
+        items.append(pr(f"n° 1 · η₁ de (7.2), EN 1993-1-5 : {jeu['eta1_ame']} (appliqué) ; {autre} pour information, {_nums(fm, num)}."
+                        .replace("elastique", "élastique")))
+    inconnus = [f"{L['base']}-F" for L in a.get("lieux") or [] if L.get("type") == "c" and (L.get("sans") or {}).get("contact") == "inconnu"
+                and L.get("ss")]
+    if inconnus:
+        autre = T["contact_inconnu"]["variante"] if jeu["contact_inconnu"] == T["contact_inconnu"]["valeur"] else T["contact_inconnu"]["valeur"]
+        items.append(pr(f"n° 2 · contact d'extrémité inconnu (type (c)) : « {jeu['contact_inconnu']} » (appliqué) ; "
+                        f"« {autre} » pour information, {_nums(inconnus, num)}."))
+    e = r["methodes"].get("ec3")
+    if e:
+        G = e.get("grandeurs") or {}
+        av = G.get("A_v_variante")
+        if av:
+            items.append(pr(f"n° 3 · A_v,y d'un laminé : 2·b·t_f (appliqué) ; A − h_w·t_w : {taux_ecrit(av['taux'])}, pour information "
+                            f"({_nums(['E-Vy'], num)})."))
+        D = G.get("deversement") or {}
+        info = D.get("information")
+        if D.get("cas") == "calcule" and info:
+            autre = f"{info['methode']} : M_b,Rd = {M.r1(info['M_b_Rd'] / 1e6)} kN·m, {taux_ecrit(info.get('taux'))}"
+            if el.get("prs"):
+                quoi = "PRS bisymétrique « soudée équivalente »" if D.get("soudee_equivalente") else "PRS bisymétrique"
+                items.append(pr(f"n° 10 · {quoi} : {D['methode']} (appliqué) ; {autre}, pour information."))
+            else:
+                items.append(pr(f"n° 4 · déversement des I et H laminés : {D['methode']} (appliqué) ; {autre}, pour information."))
+        if any(x.get("code") == "console_NM" for x in e.get("alertes") or ()):
+            items.append(pr("n° 9 · console sous N + M : non couvert (défaut v1) ; aucune variante tant que le bureau n'a pas fixé de méthode."))
+    items.append(pr(f"n° 7 · « à la limite » : taux de {C.pc(C.pct(C.ME.SEUIL_ATTENTION))} à 100 %, le seuil de toutes les notes du site."))
+    return {"titre": TITRE_DECISIONS, "items": items, "verdicts": []}
 
 
 def a_confirmer(r: Dict, largeur: float) -> Optional[Dict]:
-    """Les paramètres de l'annexe nationale belge dont la source reste à confirmer : la valeur prise, d'où elle vient."""
+    """Les paramètres de l'annexe nationale belge dont la source reste à confirmer : la valeur prise, d'où elle vient
+    (Eurocode 3 imprimé seulement)."""
     ac = (r["methodes"].get("ec3") or {}).get("a_confirmer") or []
     if not ac:
         return None
     cols = [("PARAMÈTRE", 62, "left"), ("VALEUR PRISE", 56, "left"), ("D'OÙ VIENT LA VALEUR", largeur - 62 - 56, "left")]
     lignes = [[("lab", riche(p["nom"]), True), ("lab", R.valeur_param(p["valeur"])), ("ref", riche(p["source"]))] for p in ac]
-    return {"titre": "Paramètres à confirmer — annexe belge", "items": [("tab", cols, lignes), ("pr", R.NOTE_A_CONFIRMER)], "verdicts": []}
+    return {"titre": "Paramètres à confirmer — annexe belge", "items": [("tab", cols, lignes)], "verdicts": []}
 
 
-def limites(r: Dict) -> Dict:
-    """Ce que la note ne vérifie pas : la flèche (donnée, non vérifiée), puis le périmètre du module."""
+def limites(el: Dict, r: Dict) -> Dict:
+    """Ce que la note ne vérifie pas : la flèche (donnée, non vérifiée), puis le périmètre du module (``profil_mots.limites`` :
+    une ligne chacune ; la torsion est dite dans les hypothèses communes)."""
     items: List[tuple] = []
     fl = (r.get("statique") or {}).get("fleche")
     if fl and fl.get("valeur"):
         rapport = f" (L/{C.fr(fl['rapport'], 0)})" if fl.get("rapport") else ""
-        items.append(("pr", f"La flèche de service — {C.fr(abs(fl['valeur']), 1)} mm{rapport} sous {fl['combinaison']}, à {M.m(fl['x'])} m : "
-                            "une information, elle n'est pas vérifiée."))
-    items.append(("pr", "Ne sont pas vérifiés : " + " ; ".join(LIMITES) + "."))
-    return {"titre": "Ce que la note ne vérifie pas", "items": items, "verdicts": []}
+        items.append(brut(f"La flèche de service — {C.fr(abs(fl['valeur']), 1)} mm{rapport} sous {fl['combinaison']}, à {M.m(fl['x'])} m : "
+                          "une information, elle n'est pas vérifiée."))
+    items.append(("s", "Ne sont pas vérifiés"))
+    items += [pr(t[:1].upper() + t[1:] + ".") for t in M.limites(bool(el.get("prs"))) if M.TORSION not in t]
+    return {"titre": TITRE_LIMITES, "items": items, "verdicts": []}
 
 
 # ------------------------------------------------------------------ le panneau de gauche
+# (lot C, C5) le nom d'une propriété d'un PRS au panneau (profil_prs.proprietes : son symbole) ; son ORIGINE est dite une fois,
+# dans les hypothèses de l'Eurocode 3 (« I_t et I_w : formules des trois plats ») et sur le croquis (la méthode)
+LIBELLES_PRS = {"A": "Aire", "z_g": "Centre de gravité", "I_y": "Inertie, axe fort", "I_z": "Inertie, axe faible", "W_el,y": "Module élastique",
+                "W_el,y,haut": "Module él., fibre haute", "W_el,y,bas": "Module él., fibre basse", "W_pl,y": "Module plastique",
+                "I_t": "Inertie de torsion", "I_w": "Gauchissement", "z_s": "Centre de cisaillement", "z_j": "Wagner", "ψ_f": "Monosymétrie",
+                "f_y,f1": "Semelle haute", "f_y,w": "Âme", "f_y,f2": "Semelle basse", "f_y": "De calcul"}
+
+
 def blocs_panneau(el: Dict) -> List[Tuple[str, List[tuple]]]:
-    """Sous le dessin : les dimensions du profilé, puis ses propriétés — celles de la vue « Section » de l'écran."""
+    """Sous le dessin : les dimensions du profilé, puis ses propriétés — celles de la vue « Section » de l'écran. Un PRS
+    (lot C, C5) : ses trois plats et sa gorge, puis le tableau de ``profil_prs.proprietes`` (A, z_g, I, W, I_t, I_w, z_s,
+    z_j et ψ_f d'un monosymétrique, f_y de chaque plat et f_y de calcul) — la même source que l'écran."""
+    def lignes(triplets, noms=LIBELLES):
+        return [(noms.get(s_, ""), tex(s_) if s_ != "masse" else "", val, unite) for s_, val, unite in triplets]
+
+    if el.get("prs"):
+        f = P.fiche_profil(el["profil"], el)
+        d = {s_: v for s_, v, _u in f["dimensions"]}
+        dims = [("Semelle haute", tex("b_1 × t_1"), f"{d['b_1']} × {d['t_1']}", "mm"), ("Âme", tex("h_w × t_w"), f"{d['h_w']} × {d['t_w']}", "mm"),
+                ("Semelle basse", tex("b_2 × t_2"), f"{d['b_2']} × {d['t_2']}", "mm"), ("Hauteur", "h", d["h"], "mm"),
+                ("Gorge", "a", d["a"], "mm" if d["a"] != "non saisie" else "")]
+        props = [(LIBELLES_PRS.get(s_, ""), tex(s_), v, u) for s_, v, u, _o in f["tableau"]]
+        return [("DIMENSIONS", dims), ("PROPRIÉTÉS", props)]
     f = P.fiche_profil(el["profil"])
-
-    def lignes(triplets):
-        return [(LIBELLES.get(s, ""), tex(s) if s != "masse" else "", val, unite) for s, val, unite in triplets]
-
     return [("DIMENSIONS", lignes(f["dimensions"])), ("PROPRIÉTÉS", lignes(f["proprietes"]))]
+
+
+def _interieur(svg: str) -> Tuple[List[float], str]:
+    """(la viewBox, le contenu) d'un dessin SVG : ce qui est entre sa balise ouvrante et sa balise fermante."""
+    vb = [float(t) for t in ET_.fromstring(svg).get("viewBox").split()]
+    return vb, svg[svg.index(">", svg.index("<svg")) + 1:svg.rindex("</svg>")]
+
+
+def empiler(haut: str, bas: str, part: float = 0.62, ecart: float = 10.0) -> str:
+    """UN dessin SVG : ``haut`` (la barre), puis ``bas`` (le croquis du PRS) dessous, centré, à ``part`` de sa largeur —
+    un seul SVG, que le panneau peint tel quel (ndc_pdf.svg : ``g`` et ``transform``)."""
+    (x1, y1, w1, h1), c1 = _interieur(haut)
+    (x2, y2, w2, h2), c2 = _interieur(bas)
+    k = part * w1 / w2
+    tx, ty = x1 + (w1 - k * w2) / 2.0, y1 + h1 + ecart
+    H = h1 + ecart + k * h2
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x1:.3f} {y1:.3f} {w1:.3f} {H:.3f}">'
+            f'<g>{c1}</g><g transform="translate({tx:.3f},{ty:.3f}) scale({k:.6f}) translate({-x2:.3f},{-y2:.3f})">{c2}</g></svg>')
 
 
 def dessin_panneau(el: Dict, r: Dict) -> Tuple[str, str]:
     """(le titre du panneau, le dessin de l'écran en SVG) : la barre chargée et ses enveloppes ; en efforts imposés, la
-    section à l'échelle."""
+    section à l'échelle. Un PRS (lot C, C5 ; brief § 18.7, charte E1 : un seul endroit) : son croquis coté sous la barre,
+    dans le même dessin — ou seul, en efforts imposés."""
     if el["mode"] == "chargee":
         env = DB.enveloppes(r)
         quoi = " — M ET V À L'ELU" if env and env[0] == "ec3" else (" — M ET V EN SERVICE" if env else "")
-        return "LA BARRE" + quoi, DB.barre("note_barre", el, r, largeur=LARGEUR_DESSIN, legende=False)
+        svg = DB.barre("note_barre", el, r, largeur=LARGEUR_DESSIN, legende=False)
+        if el.get("prs"):
+            return "LA BARRE" + quoi + " · LE PRS", empiler(svg, DP.section_prs(PP.section(el), None, "note_prs"))
+        return "LA BARRE" + quoi, svg
     return "LA SECTION", P.vue_section(el, "note_section", fiche=False)
 
 
@@ -483,41 +794,56 @@ def resume_entete(el: Dict, r: Dict, mot: str, style: "Planche") -> str:
     return entete(el, r, mot, style)[1]
 
 
-def planche(el: Dict, r: Dict, style: Planche) -> Dict:
-    """La planche d'une barre : son en-tête, son panneau, ses vérifications numérotées — les données ; par méthode, sa
-    tête puis chacune de ses vérifications ; l'âme et ses raidisseurs (sa tête : la décision de chaque lieu ; puis ses
-    vérifications) ; la comparaison ; les paramètres à confirmer ; ce qui n'est pas vérifié."""
+def planche(el: Dict, r: Dict, style: Planche, impression: str = "deux") -> Dict:
+    """La planche d'une barre, dans l'ordre du § 9 (la docstring du fichier) : ``r`` est le résultat ENTIER du moteur (les
+    deux méthodes) ; la planche imprime ce que l'option ``impression`` dit (``imprime``) — son en-tête, sa couleur et son
+    mot (le statut des méthodes imprimées et de l'âme), son panneau, ses vérifications numérotées."""
+    register_all()                                 # (les titres se mesurent : verification)
     largeur = style.largeur_colonne()
-    verifs = [donnees(el, r)]
-    for k, x in r["methodes"].items():
-        verifs.append(methode(el, k, x, largeur))
+    rv = imprime(r, impression)
+    synthese = impression == "deux" and R.comparable(rv)
+    avec_ecarts = "historique" in rv["methodes"]
+    tete = [donnees(el, rv, autre_methode(r, rv))]
+    n0 = len(tete) + synthese + avec_ecarts             # les blocs avant le détail : la barre, la synthèse, les écarts
+    details: List[Dict] = []
+    num: Dict[str, int] = {}
+    dits = {_cle(t) for b in tete for it in b["items"] if it[0] == "pr" for t in it[2:3]}
+
+    def poser(b: Dict) -> None:
+        details.append(b)
+        dits.update(_cle(it[2]) for it in b["items"] if it[0] == "pr" and len(it) > 2)
+
+    premieres = {L["verifications"][0]: L for L in rv["ame"]["lieux"] if L.get("avec") and L.get("verifications")}
+    for k, x in list(rv["methodes"].items()) + [(M.AME, rv["ame"])]:
+        poser(methode(el, k, x, largeur) if k != M.AME else ame(el, rv, largeur))
         precedente = None
         for v in x["verifications"]:
-            verifs.append(verification(k, x, v, precedente))
-            precedente = (len(verifs), lignes_ecrites(x, v))
-    verifs.append(ame(el, r, largeur))
-    precedente = None
-    for v in r["ame"]["verifications"]:
-        verifs.append(verification(M.AME, r["ame"], v, precedente))
-        precedente = (len(verifs), lignes_ecrites(r["ame"], v))
-    if R.comparable(r):
-        verifs.append(comparaison_methodes(r, largeur))
-    ac = a_confirmer(r, largeur)
+            details.append(verification(k, x, v, precedente, dits, premieres.get(v["id"]), largeur))
+            num[v["id"]] = n0 + len(details)
+            precedente = (n0 + len(details), lignes_ecrites(x, v))
+    verifs = list(tete)
+    if synthese:
+        verifs.append(comparaison_methodes(rv, largeur, num))
+    if avec_ecarts:
+        verifs.append(ecarts(rv, num))
+    verifs += details
+    verifs.append(decisions(el, rv, num))
+    ac = a_confirmer(rv, largeur)
     if ac:
         verifs.append(ac)
-    verifs.append(limites(r))
+    verifs.append(limites(el, rv))
     for i, v in enumerate(verifs, 1):
         v["num"] = i
-    titre, svg = dessin_panneau(el, r)
-    niv = P._niveau(r)
+    titre, svg = dessin_panneau(el, rv)
+    niv = P._niveau(rv)
     couleur, mot = COULEURS[niv], R.mot_niveau(niv)
 
     def dessin(d, x, y, w, h, S):
         peindre_svg(d.c, svg, x, y, w, h, marge=MARGE_DESSIN, riche=True)
 
     blocs = blocs_panneau(el)
-    nom, court = entete(el, r, mot, style)
-    return {"poutre": nom, "nom_entier": el.get("nom") or P.NOM_DEFAUT, "section": r["profil"], "beton": "", "acier": court, "resume": resume(el, r),
+    nom, court = entete(el, rv, mot, style)
+    return {"poutre": nom, "nom_entier": el.get("nom") or P.NOM_DEFAUT, "section": rv["profil"], "beton": "", "acier": court, "resume": resume(el, rv),
             "etat": mot, "couleur": couleur,
             "titre_coupe": titre, "dessin": dessin, "coupe_h": hauteur_naturelle(svg, style.coupe_w), "reserve": reserve_donnees(blocs),
             "blocs": blocs, "verifs": verifs}
@@ -527,7 +853,7 @@ def imprime(r: Dict, impression: str) -> Dict:
     """Le résultat d'une barre tel que la note l'IMPRIME (``profil.IMPRESSION`` : les deux méthodes, ou l'une) : les méthodes
     imprimées, leur comparaison quand ce sont les deux, les enveloppes de leur statique, et le statut — le plus défavorable
     des méthodes imprimées et de l'âme (``resultat.pire_statut``). Le moteur les a toujours calculées toutes les deux
-    (lot C, C0d) ; une vue, pas un second calcul. (C5 : la note par option.)"""
+    (lot C, C0d) ; une vue, pas un second calcul."""
     garde = P.methodes_imprimees(impression)
     if tuple(r["methodes"]) == garde:
         return r
@@ -539,14 +865,14 @@ def imprime(r: Dict, impression: str) -> Dict:
 
 
 def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:
-    """Les planches de la note, dans l'ordre des barres, avec les méthodes que la note imprime (``imprime``). Une barre que
+    """Les planches de la note, dans l'ordre des barres, avec ce que l'option de la note imprime (``planche``). Une barre que
     le moteur refuse arrête la note (ValueError), avec son nom et le message du moteur."""
     style = style or Planche()
     impression = etat.get(P.IMPRESSION, P.IMPRESSIONS[0])
     out = []
     for i, el in enumerate(etat["elements"]):
         try:
-            out.append(planche(el, imprime(P.calculer(el), impression), style))
+            out.append(planche(el, P.calculer(el), style, impression))
         except (ValueError, KeyError, TypeError) as err:
             raise ValueError(f"La note n'est pas préparée : barre « {el.get('nom') or f'n° {i + 1}'} », {err}") from err
     return out

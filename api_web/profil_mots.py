@@ -81,6 +81,27 @@ CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 # les statuts sous lesquels un TAUX n'est jamais peint « conforme » : il est montré pour information (lot C, C0b)
 STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)
 
+# ---- (lot C, C5) CE QUE LE MODULE NE VÉRIFIE PAS (docs/acier/BARRES_ACIER.md : le périmètre de la version 1) — une source,
+# lue par la note PDF (« Ce que la note ne vérifie pas ») et par « Tout le calcul » de l'écran. La torsion (brief § 17.5,
+# lot 8) : la note la dit dans les hypothèses communes (« Torsion non couverte »), les autres limites à la fin.
+TORSION = "charges supposées dans le plan de l'âme, par le centre de cisaillement"
+HYPOTHESE_TORSION = f"Torsion non couverte (lot 8) : {TORSION}."
+LIMITES = (f"la torsion ({TORSION})",
+           "les assemblages, les appuis et les soudures des raidisseurs (EN 1993-1-8)",
+           # (B4 : le voilement par cisaillement se calcule sans raidisseur intermédiaire, montant d'extrémité non rigide,
+           # sans la contribution des semelles — le côté sûr)
+           "les raidisseurs intermédiaires d'une âme élancée (calcul sans eux, côté sûr)",
+           "la flexion d'axe faible d'une barre chargée (M_z : en efforts imposés seulement)",
+           "un appui intermédiaire encastré, une continue à rive encastrée (modèles fixes seulement)",
+           "les tassements d'appui", "le feu et la fatigue")
+# un PRS ajoute les siennes (brief § 18.7)
+LIMITES_PRS = ("les soudures âme-semelles du PRS", "la qualité d'acier des plats épais (EN 1993-1-10)")
+
+
+def limites(prs: bool = False) -> tuple:
+    """Ce que le module ne vérifie pas pour cette barre : ``LIMITES``, et ``LIMITES_PRS`` pour un PRS."""
+    return LIMITES + (LIMITES_PRS if prs else ())
+
 _PRIME = re.compile(r"([A-Za-zΑ-Ωα-ω])([′'])_([A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)")      # A′_ed : l'indice derrière la prime
 
 
