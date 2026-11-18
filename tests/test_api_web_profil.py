@@ -1698,15 +1698,17 @@ for nom_, attr_, ancien_, nouveau_ in MUTATIONS_COPIEES:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
 chk("témoin : sans mutation, les contrôles des longueurs copiées sont verts", all(ok_ for _n, ok_, _i in longueurs_copiees()))
 
-print("=== 21. (lot C, reprise de C0 ; C6) une barre PRS : l'écran et le sélecteur la montrent, la note la refuse clairement (C5), jamais un KeyError")
+print("=== 21. (lot C, reprise de C0 ; C6 ; C5) une barre PRS : l'écran, le sélecteur ET la note la montrent, jamais un KeyError")
 
 
 def note_prs():
     """[(nom, vrai ?, info)], rejoués sous chaque mutation. Mesuré avant (f9e26aa) : « prs » gardée par COMMUNS (C0e), la barre se
     relit et se calcule, puis l'écran plantait (fiche_profil : KeyError « PRS 600x300x15x30 »), le sélecteur aussi, et la note
     refusait par un message obscur (« …, 'PRS 600x300x15x30' »). (lot C, C6 — le harnais suit : l'écran montre le PRS, son croquis,
-    le sélecteur sa bibliothèque ; tests/test_api_web_profil_prs.py le détaille) : la NOTE, seule, la refuse en une ligne qui nomme le
-    PRS, en attendant C5."""
+    le sélecteur sa bibliothèque ; tests/test_api_web_profil_prs.py le détaille). (lot C, C5 — le harnais suit : la NOTE sait maintenant
+    montrer le PRS, son PDF sort ; tests/test_note_profil.py le détaille.) La garde de ``fiche_profil`` reste : un nom hors du
+    catalogue SANS sa barre est refusé en une ligne qui nomme le PRS (``refus_prs``), jamais un KeyError."""
+    import base64
     P._RESULTATS.clear()
     out = []
     e_ = P.etat_de([_prs(30)])
@@ -1714,13 +1716,22 @@ def note_prs():
     mot_ = P.refus_prs(nom_)
     rc_, rs_ = req(action="calculer", etat=e_), req(action="selecteur", etat=e_, role=P.ROLE)
     rn_ = req(action="telecharger", etat=e_, quoi="note_pdf")
-    out.append(("reprise C0, C6 — une barre PRS (relue, calculée : ELS « bloqué ») : l'écran la montre (sa vue Section est le croquis du PRS), le "
-                "sélecteur ouvre la bibliothèque des PRS ; la note la REFUSE en une ligne qui nomme le PRS — aucun KeyError",
+    try:
+        P.fiche_profil(nom_)
+        garde_ = "aucun refus"
+    except ValueError as err_:
+        garde_ = str(err_)
+    except Exception as err_:  # noqa: BLE001 — le KeyError d'avant est vu
+        garde_ = f"{type(err_).__name__} : {err_}"
+    out.append(("reprise C0, C6, C5 — une barre PRS (relue, calculée : ELS « bloqué ») : l'écran la montre (sa vue Section est le croquis du "
+                "PRS), le sélecteur ouvre la bibliothèque des PRS, la note SORT (un PDF) ; son nom seul, sans sa barre, est refusé en une "
+                "ligne qui le nomme — aucun KeyError",
                 P.calculer(e_["elements"][0])["statut"] == RE.BLOQUE and len(mot_) <= 120 and nom_.startswith("PRS ")
                 and rc_.get("ok") is True and any(v_["cle"] == "section" and 'data-repere="C"' in v_["svg"] for v_ in rc_["vues"])
                 and rs_.get("ok") is True and "PRS" in rs_["html"]
-                and rn_.get("ok") is False and mot_ in str(rn_.get("erreur")) and "KeyError" not in str(rn_.get("erreur")),
-                [str(x_.get("erreur"))[:140] for x_ in (rc_, rs_, rn_)]))
+                and rn_.get("ok") is True and base64.b64decode(rn_["fichier"]["base64"])[:5] == b"%PDF-"
+                and garde_ == mot_,
+                [str(x_.get("erreur"))[:140] for x_ in (rc_, rs_, rn_)] + [garde_[:140]]))
     deux_ = P.etat_de([P.barre_neuve("B1"), _prs(30)], actif=0)
     rd_ = req(action="calculer", etat=deux_)
     out.append(("reprise C0 — la barre ouverte est un profilé du catalogue, une autre de la note un PRS : l'écran se rend",
@@ -1731,21 +1742,25 @@ def note_prs():
 for nom_, ok_, info_ in note_prs():
     chk(nom_, ok_, info_)
 
+from api_web import note_profil as NP  # noqa: E402
 MUTATIONS_PRS = (
-    ("fiche_profil lit le catalogue sans garde (le KeyError d'avant)", "fiche_profil",
+    ("fiche_profil lit le catalogue sans garde (le KeyError d'avant)", P, "fiche_profil",
      "    rec = CAT.par_nom().get(nom)\n    if rec is None:\n        raise ValueError(refus_prs(nom))\n", "    rec = CAT.par_nom()[nom]\n"),
-    ("le sélecteur ouvre la famille d'un PRS sans garde", "selecteur",
+    ("le sélecteur ouvre la famille d'un PRS sans garde", P, "selecteur",
      "    if el.get(\"prs\") is not None:          # (lot C, C6)", "    if False:          # (lot C, C6)"),
+    # (lot C, C5) le panneau de la note lit le PRS par son NOM seul, sans sa barre : la note est refusée, comme avant C5
+    ("la note d'un PRS refusée (son panneau le cherche au catalogue)", NP, "blocs_panneau",
+     "        f = P.fiche_profil(el[\"profil\"], el)\n", "        f = P.fiche_profil(el[\"profil\"])\n"),
 )
-for nom_, attr_, ancien_, nouveau_ in MUTATIONS_PRS:
-    vrai_ = getattr(P, attr_)
+for nom_, mod_, attr_, ancien_, nouveau_ in MUTATIONS_PRS:
+    vrai_ = getattr(mod_, attr_)
     try:
-        setattr(P, attr_, getattr(_source_mutee(P, ancien_, nouveau_), attr_))
+        setattr(mod_, attr_, getattr(_source_mutee(mod_, ancien_, nouveau_), attr_))
         rouges_ = [n_ for n_, ok_, _i in note_prs() if not ok_]
     except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
         rouges_ = [f"exception : {err_}"]
     finally:
-        setattr(P, attr_, vrai_)
+        setattr(mod_, attr_, vrai_)
         P._RESULTATS.clear()
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_), rouges_)
 chk("témoin : sans mutation, les contrôles de la note PRS sont verts", all(ok_ for _n, ok_, _i in note_prs()))
