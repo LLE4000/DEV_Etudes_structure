@@ -264,6 +264,14 @@ def controles():
     c("test 24 : charge d'exploitation de longue durée dominante + neige + vent → 0,5 et 0,6, avec le message de limite (une ligne)",
       len(lim) == 1 and lim[0]["limite"] and not avec(co, cas, Q=1.5, S=0.45) and len(lignes_lim) == 1 and len(lignes_lim[0]) <= 120
       and not any(x["limite"] for x in CO.elu([G, QA, S], P)), (lim, lignes_lim))
+    # (intégration du lot C, reste C2) la limite née de la neige et d'une température DÉCLARÉE de courte durée, sans vent : le message ne
+    # nomme pas le vent (il disait « neige et vent »)
+    cas_t = [G, QA, dict(T, courte_duree=True), S]
+    lim_t = [x for x in CO.elu(cas_t, P) if x["limite"]]
+    hyp_t = [h for h in CO.hypotheses(None, cas_t) if h.startswith("Limite")]
+    c("limite sans vent (Q de longue durée en tête, T déclarée de courte durée, S) : le message dit « deux actions de courte durée », jamais « vent »",
+      bool(lim_t) and len(hyp_t) == 1 and "vent" not in hyp_t[0] and "deux actions de courte durée" in hyp_t[0] and len(hyp_t[0]) <= 120,
+      (len(lim_t), hyp_t))
 
     # ---- 5. γ_G par source
     L = 5.0
@@ -491,6 +499,7 @@ MUTATIONS = [
     ("combinaisons", "0,3 aussi pour une charge d'exploitation", "if regle and n != tete and n in COURTES and tete_courte:", "if regle and n != tete and tete_courte:"),
     ("combinaisons", "l'option « règle désactivée » ignorée", "if regle and n != tete and n in COURTES and tete_courte:", "if n != tete and n in COURTES and tete_courte:"),
     ("combinaisons", "le message de limite jamais posé", "limite = bool(regle and tete is not None", "limite = bool(False and tete is not None"),
+    ("combinaisons", "le message de limite nomme « neige et vent » (même sans vent)", "deux actions de courte durée derrière une de longue durée", "neige et vent derrière une action de longue durée"),
     # γ_G par source
     ("combinaisons", "un seul γ pour tous les cas permanents", 'gam = {i: (g_sup if sup else P["gamma_G_inf"]) for src, sup in zip(srcs, jeu) for i in src}',
      'gam = {i: (g_sup if jeu[0] else P["gamma_G_inf"]) for src, sup in zip(srcs, jeu) for i in src}'),

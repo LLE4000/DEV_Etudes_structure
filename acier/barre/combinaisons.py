@@ -364,7 +364,8 @@ def hypotheses(options: Optional[Dict], cas: Sequence[Dict], P: Optional[Dict] =
         if declares and o["regle_courte_duree"]:
             out += _lignes("Déclarées de courte durée", [f"« {n} »" for n in declares])
         if any(c["limite"] for c in combs):
-            out.append("Limite : la note 3 n'est pas appliquée en entier — neige et vent derrière une action de longue durée : ψ₀ du tableau.")
+            # (intégration du lot C) le cas général : la limite vient aussi de la neige et d'une action DÉCLARÉE de courte durée
+            out.append("Limite : note 3 appliquée en partie — deux actions de courte durée derrière une de longue durée : ψ₀ du tableau.")
     srcs = sources(cas, perm)
     if len(srcs) > 1:
         out += _lignes("γ_G,sup ou γ_G,inf par source permanente (À VÉRIFIER)", [" + ".join(f"« {cas[i]['nom']} »" for i in s) for s in srcs])
