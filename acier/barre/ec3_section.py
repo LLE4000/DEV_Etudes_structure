@@ -420,7 +420,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         _hypotheses_prs(J, s)
     if forme not in FORMES:
         J.verif("E-SECTION", "Résistance de la section", NORME, "", None, None, "", [], statut=NON_COUVERT,
-                messages=[J.alerte("forme", "attention", MSG_FORME.format(quoi=QUOI_FORME.get(forme, QUOI_FORME["autre"])))])
+                messages=[J.alerte("forme", "attention", MSG_FORME.replace("{quoi}", QUOI_FORME.get(forme, QUOI_FORME["autre"])))])
         return
 
     # ---- un tube rond n'a pas d'axe : la résultante des deux moments, celle des deux efforts tranchants
