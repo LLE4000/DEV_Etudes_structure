@@ -84,6 +84,10 @@ MOT_RAIDISSEUR_TENU = "raidisseur nécessaire ; ajouter un maintien complet (À 
 RAISON_APPUI_ELANCEE = "Âme élancée au cisaillement : raidisseurs aux appuis (§ 5.1(2))."
 # l'appui par l'âme : le raidisseur d'appui porte la réaction entière (hypothèse prudente : l'assemblage la donne à l'âme)
 HYP_APPUI_AME = "Appui par l'âme, âme élancée : raidisseur d'appui requis (§ 5.1(2)), sous la réaction entière (À VÉRIFIER)."
+# (lot C, C5, reprise) les soudures des raidisseurs proposés : dites dans les hypothèses de l'âme, que « Tout le calcul » de
+# l'écran montre (R1) ; la note les dit UNE fois, dans « Ce que la note ne vérifie pas » (profil_mots.LIMITES), et retire
+# cette ligne de la tête de l'âme (note_profil.ame)
+HYP_SOUDURES = "Soudures des raidisseurs : non vérifiées, hors du module (EN 1993-1-8)."
 
 
 def raidisseur_tenu(libres: Sequence[str]) -> str:
@@ -132,7 +136,8 @@ def _communes(b: Dict, s: Dict, fy: float, P: Dict, fyw: Optional[float] = None,
         if el["elancee"]:
             hyp.append(f"Âme élancée (h_w/t_w = {RE.fr(el['rapport'], 1)} > 72·ε/η = {RE.fr(el['limite'], 1)}) : voilement par cisaillement "
                        "vérifié, avec la flexion.")
-            hyp.append("Voilement par cisaillement : montant d'extrémité non rigide, sans la contribution des semelles (côté sûr).")
+            hyp.append("Voilement par cisaillement : sans raidisseur intermédiaire ni apport des semelles ; montant d'extrémité "
+                       "non rigide.")
         else:
             hyp.append(f"Âme : h_w/t_w = {RE.fr(el['rapport'], 1)} ≤ 72·ε/η = {RE.fr(el['limite'], 1)} — pas de voilement par cisaillement "
                        "à vérifier (§ 5.1(2)).")
@@ -837,8 +842,8 @@ def chargee(b: Dict, s: Dict, cas: Sequence[Dict], sols: Sequence, N_cas: Sequen
                        "statut": RE.NOK if any(v["statut"] == RE.NOK for v in vs) else RE.OK, "par_ame": True})
     rendus.sort(key=lambda L: L["x"])
     if any(L["decision"] == "raidisseur" for L in rendus):
-        # (leurs soudures : profil_mots.LIMITES — dites une fois)
         hyp.append("Raidisseurs : f_y de chaque plat selon son épaisseur (table unique, option a de l'ANB) ; f_y,d = min(plats ; âme).")
+        hyp.append(HYP_SOUDURES)
         hyp.append(RA.RAPPEL_TAU)
     connues = {x["code"] for x in r["alertes"]}
     r["alertes"] += [x for k, x in alertes.items() if k not in connues]

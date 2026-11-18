@@ -52,6 +52,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from acier.barre import combinaisons as CO
+from acier.barre import ame as AMB
 from acier.barre import ec3_deversement as DV
 from acier.barre import ecriture as W
 from acier.barre import moteur as MO
@@ -421,7 +422,8 @@ def ame(el: Dict, r: Dict, largeur: float) -> Dict:
     """Le bloc de tête de l'âme : ses hypothèses, LA DÉCISION de chaque lieu (un appui, une charge ponctuelle : sans
     raidisseur, ou la paire de plats — et son taux), le bilan de ses combinaisons, ses avertissements, puis son verdict."""
     a = r["ame"]
-    items: List[tuple] = [pr(h) for h in a["hypotheses"]]
+    # (lot C, C5, reprise) les soudures des raidisseurs : dites une fois, dans « Ce que la note ne vérifie pas » (``limites``)
+    items: List[tuple] = [pr(h) for h in a["hypotheses"] if h != AMB.HYP_SOUDURES]
     if a["lieux"]:
         lignes = []
         for L in a["lieux"]:

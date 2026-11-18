@@ -1177,8 +1177,11 @@ note (C5) : ils liront ce que le moteur rend.
   bureau : brief § 6.7) ; (4) le détail de chaque méthode imprimée, ses hypothèses PROPRES en tête, puis l'âme
   (« Contrôles complémentaires EN 1993-1-5 » dans une note ELS seule) ; (5) les décisions du bureau appliquées (le
   défaut, l'autre variante et son résultat ou la vérification qui le donne ; n° 7, le seuil « à la limite » du site),
-  les paramètres à confirmer (Eurocode 3 imprimé), ce que la note ne vérifie pas (`profil_mots.limites`, la même liste
-  que « Tout le calcul » de l'écran).
+  les paramètres à confirmer (Eurocode 3 imprimé), ce que la note ne vérifie pas (`profil_mots.limites`).
+- **À l'écran** (R1), « Tout le calcul » de l'âme dit les soudures des raidisseurs proposés (`ame.HYP_SOUDURES`, dans les
+  hypothèses de l'âme) et le calcul sans raidisseur intermédiaire ; la note dit les soudures une fois, dans « Ce que la
+  note ne vérifie pas » (`tests/test_note_profil.py`, « soudures : écran et note »). La liste entière
+  (`profil_mots.limites`, la torsion comprise) n'est lue que par la note.
 - **Le statut imprimé** est le plus défavorable des méthodes IMPRIMÉES et de l'âme ; la méthode non imprimée, quand elle
   est plus défavorable, est dite en une ligne au bloc 1 (« Eurocode 3, non imprimé : non conforme, 110 % »).
 - **PRS** : le croquis coté sous la barre, dans le même dessin du panneau (seul en efforts imposés) ; dimensions et

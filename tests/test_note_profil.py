@@ -54,6 +54,7 @@ sys.path.insert(0, RACINE)
 sys.path.insert(0, os.path.join(RACINE, "tests"))
 
 import note_cas_outils as O  # noqa: E402
+from acier.barre import ame as AMB  # noqa: E402
 from acier.barre import ec3_section as ES  # noqa: E402
 from acier.barre import ecriture as W  # noqa: E402
 from acier.barre import historique_deversement as HD  # noqa: E402
@@ -411,7 +412,40 @@ def controles_tolerance():
              "une barre neuve, non", dits == [True, False], dits)]
 
 
-SPECIAUX = {"tolérance retirée": controles_tolerance, "écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
+def _texte_html(h: str) -> str:
+    """Ce qu'on LIT d'un fragment de l'écran : sans balises, les entités rendues, les espaces fines ramenées à des espaces."""
+    import html as H
+    return " ".join(H.unescape(re.sub(r"<[^>]+>", " ", h)).replace("\u00a0", " ").replace("\u202f", " ").split())
+
+
+def controles_soudures():
+    """R1 (lot C, C5, reprise) : ce que le module ne vérifie pas et que l'écran DISAIT — les soudures des raidisseurs proposés —
+    reste lu à l'écran, dans « Tout le calcul » de l'âme (ses hypothèses) ; la note le dit UNE fois, dans « Ce que la note ne
+    vérifie pas » (``profil_mots.LIMITES``), et pas dans la tête de l'âme. Mesuré avant : la ligne était retirée des hypothèses
+    de l'âme, et aucune fenêtre de l'écran ne lisait les LIMITES."""
+    def tout_le_calcul(etat):
+        el = P.normaliser(copy.deepcopy(etat))["elements"][0]
+        r = MO.verifier(el)
+        h = PR.volets(el, r, el["nom"])
+        debut = h.find(f'id="ck-s{PR.bloc_ame(r)}"')
+        fin = h.find('<div class="flyout', debut + 1)
+        return r, (_texte_html(h[debut:fin if fin > 0 else len(h)]).lower() if debut >= 0 else "")
+
+    etat = NOTES["une poutre de reprise et son raidisseur"]
+    r, tout = tout_le_calcul(etat)
+    _o, pages, _f = faire(etat)
+    T = " ".join(pages[1:]).lower()
+    raidi = any(L["decision"] == "raidisseur" for L in r["ame"]["lieux"])
+    _r, elancee = tout_le_calcul(NOTES["une âme élancée"])
+    return [("R1 : un raidisseur proposé — « soudures des raidisseurs » lu à l'écran, dans « Tout le calcul » de l'âme ; la note le dit "
+             "une fois (« Ce que la note ne vérifie pas »)",
+             raidi and "soudures des raidisseurs" in tout and T.count("soudures des raidisseurs") == 1,
+             (raidi, "soudures des raidisseurs" in tout, T.count("soudures des raidisseurs"))),
+            ("R1 : une âme élancée — « Tout le calcul » de l'âme dit le voilement par cisaillement calculé sans raidisseur intermédiaire",
+             "sans raidisseur intermédiaire" in elancee, elancee[:200])]
+
+
+SPECIAUX = {"soudures : écran et note": controles_soudures, "tolérance retirée": controles_tolerance, "écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
             "garde des textes": controles_garde}
 
 
@@ -636,6 +670,9 @@ def parite(etat, pages):
         veut("la tête du bloc de l'âme", "Contrôles complémentaires EN 1993-1-5" if seule else f"Âme et raidisseurs — {a['norme']}")
         veut("… sous son seul titre", "l'autre titre", ("Contrôles complémentaires" in T) == seule)
         for h in a["hypotheses"]:
+            if h == AMB.HYP_SOUDURES:     # (lot C, C5, reprise) dite une fois, dans « Ce que la note ne vérifie pas »
+                veut("les soudures des raidisseurs (ce que la note ne vérifie pas)", h, nu("soudures des raidisseurs") in nu(T).lower())
+                continue
             veut("une hypothèse de l'âme", h, nu(h.split(" (")[0])[:60] in nu(T))
         if a["statut"] == RE.BLOQUE and a["verifications"]:          # (lot C, C0c) une donnée manque : « Bloqué », le mot de l'écran
             veut("l'âme bloquée est dite « Bloqué »", "Bloqué — ")
@@ -1314,6 +1351,14 @@ MUTATIONS = (
     ("une correction des classeurs de 121 caractères à l'écran (avec son préfixe)", HD, "CORRECTIONS",
      lambda vrai: dict(vrai, axe_faible="x" * (LIGNE_MAX + 1 - len("Correction du classeur : "))), ["garde des textes"]),
     ("une ligne répétée dans un bloc de la note", NP, "communes", lambda vrai: (lambda el, r: vrai(el, r) + vrai(el, r)[-1:]), ["garde des textes"]),
+    # (lot C, C5, reprise) R1 : les soudures des raidisseurs, à l'écran et une fois dans la note
+    ("les soudures des raidisseurs ne sont plus dites à l'écran (« Tout le calcul » de l'âme)", AMB, "HYP_SOUDURES", lambda vrai: "",
+     ["soudures : écran et note"]),
+    ("les soudures des raidisseurs dites deux fois dans la note (tête de l'âme et « Ce que la note ne vérifie pas »)", NP, "AMB",
+     lambda vrai: type("AMB", (), {"HYP_SOUDURES": None}), ["soudures : écran et note"]),
+    ("l'âme élancée ne dit plus, à l'écran, le calcul sans raidisseur intermédiaire", AMB, "_communes",
+     lambda vrai: _source_mutee(AMB, "sans raidisseur intermédiaire ni apport des semelles", "sans apport des semelles")._communes,
+     ["soudures : écran et note"]),
     ("la tolérance de 5 % retirée n'est plus dite", NP, "propres",
      lambda vrai: (lambda el, k, x: [h for h in vrai(el, k, x) if not h.startswith("Tolérance")]), ["tolérance retirée"]),
 )
