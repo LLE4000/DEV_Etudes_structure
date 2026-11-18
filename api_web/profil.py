@@ -22,15 +22,17 @@ domaine, elle est REFUSÉE avec le message du moteur et la barre reste intacte.
 import copy
 import functools
 import json
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.barre import combinaisons as CO
 from acier.barre import entree as EN
 from acier.barre import moteur as MO
+from acier.barre import nuances as NU
 from acier.barre import parametres as PA
 from acier.barre import resultat as RE
 from acier.barre import section as SE
-from acier.flambement import normes as NO
+from acier.barre import statique as ST
 from acier.profiles import catalogue as CAT
 from acier.profiles import familles as FA
 from rdm import poutres as PO
@@ -68,7 +70,11 @@ NOM_MAX = 60                    # caractères du nom d'une barre : la borne des 
 NOM_CAS_MAX = 12                # … et du nom d'un cas de charge : il s'écrit à gauche de sa bande, sur le dessin de la barre
 GAMMA_MIN, GAMMA_MAX = 0.9, 1.5
 # les familles du catalogue que le module vérifie par ses deux méthodes : I et H laminés, tubes
-FAMILLES = tuple(f for f, (forme, _) in SE.FAMILLES.items() if forme in ("I",) + SE.TUBES)
+FAMILLES_DEUX = tuple(f for f, (forme, _) in SE.FAMILLES.items() if forme in ("I",) + SE.TUBES)
+# (lot C, C1b) les U et les cornières : la compression simple de la méthode ELS, en efforts imposés seulement (brief § 3 ;
+# entree.MSG_EFFORTS_SEULS les refuse en barre chargée) — le sélecteur ne les propose qu'en efforts imposés
+FAMILLES_EFFORTS = ("UPN", "UPE", "L")
+FAMILLES = FAMILLES_DEUX + FAMILLES_EFFORTS
 # ce qui appartient à chaque mode (l'autre est gardé tel quel dans la note : changer de mode ne perd rien)
 # (lot C, C0e : le contrat des entrées — « prs » y est, sans quoi _completer la jetait et _signature ne la voyait pas : deux PRS
 # de plats différents partageaient un résultat gardé ; chaque clé a son défaut, acier/barre/entree.nouvelle_barre)
@@ -186,7 +192,7 @@ def _migrer(e: Dict) -> Dict:
     if not isinstance(e, dict):
         raise ValueError("barre illisible")
     b = barre_neuve(str(e.get("nom") or NOM_DEFAUT))
-    b.update({"mode": "efforts", "methodes": ["ec3"], "nuance": e.get("acier") if e.get("acier") in NO.NUANCES else "S235"})
+    b.update({"mode": "efforts", "methodes": ["ec3"], "nuance": e.get("acier") if e.get("acier") in NU.NUANCES else "S235"})
     elu = b["efforts"]["elu"]
     elu["My"], elu["Vz"] = abs(_nombre(e.get("My"))), abs(_nombre(e.get("Vz")))
     for case, cle, absolu in (("avec_N", "N", False), ("avec_Mz", "Mz", True), ("avec_Vy", "Vy", True)):
@@ -200,10 +206,11 @@ def _migrer(e: Dict) -> Dict:
         if g is not None and GAMMA_MIN <= g <= GAMMA_MAX and abs(g - PA.valeur(cle)) > 1e-9:
             b["parametres"][cle] = g
     nom = e.get("profil")
-    if isinstance(nom, str) and CAT.par_nom().get(nom, {}).get("famille") in FAMILLES:
+    # (une note de la version 1 ne connaissait que les I, les H et les tubes : FAMILLES_DEUX — elle se relit comme avant)
+    if isinstance(nom, str) and CAT.par_nom().get(nom, {}).get("famille") in FAMILLES_DEUX:
         b["profil"] = nom
     else:                                   # l'ancienne note suivait « l'optimal » : le plus léger qui tient aujourd'hui
-        fams = [f for f in (e.get("familles") or []) if f in FAMILLES] or ["IPE"]
+        fams = [f for f in (e.get("familles") or []) if f in FAMILLES_DEUX] or ["IPE"]
         b["profil"] = _plus_leger(b, fams) or _noms(fams)[-1]
     return b
 
@@ -459,24 +466,99 @@ def _ajuster(el: Dict, L_avant: float) -> bool:
                 ch["a"], touche = L, True
             gardees.append(ch)
         c["charges"] = gardees
+        nt = c.get("N_troncons")
+        if nt:                               # (lot C) N par tronçon : le dernier va jusqu'au bout ; ceux qui sortent sont retirés
+            gardes = [dict(t) for t in nt[:-1] if t["x2"] < L - 1e-9]
+            gardes.append(dict(nt[-1], x2=L))
+            touche = touche or len(gardes) != len(nt)
+            c["N_troncons"] = gardes
     dedans = [mt for mt in el["maintiens"] if mt["x"] <= L]
     touche = touche or len(dedans) != len(el["maintiens"])
     el["maintiens"] = dedans
+    pts = [x for x in el.get("points") or [] if x <= L]
+    touche = touche or len(pts) != len(el.get("points") or [])
+    el["points"] = pts
     return touche
+
+
+def _decaler(el: Dict, dx: float) -> None:
+    """(lot C) Un débord GAUCHE allongé de ``dx`` (m) : les abscisses partent du bout gauche de la barre (rdm/poutres.py) —
+    charges, maintiens, points vérifiés et fins des tronçons de N glissent d'autant et restent où ils étaient sur la barre
+    (jamais une charge qui changerait de travée en silence)."""
+    for c in el["cas"]:
+        for ch in c["charges"]:
+            for k in ("a", "b"):
+                if k in ch:
+                    ch[k] = round(max(0.0, ch[k] + dx), 6)
+        for t in (c.get("N_troncons") or [])[:-1]:
+            t["x2"] = round(max(0.0, t["x2"] + dx), 6)
+    for mt in el["maintiens"]:
+        mt["x"] = round(max(0.0, mt["x"] + dx), 6)
+    el["points"] = [round(max(0.0, x + dx), 6) for x in el.get("points") or []]
+
+
+def _milieu_libre(L: float, pris) -> float:
+    """Le milieu du plus long intervalle de [0, L] que rien n'occupe (``pris`` : des abscisses, m)."""
+    pts = sorted({0.0, L} | {round(x, 6) for x in pris if 0.0 <= x <= L})
+    a, b = max(zip(pts, pts[1:]), key=lambda p: p[1] - p[0])
+    return round(0.5 * (a + b), 3)
+
+
+def maintiens_reguliers(texte, L: float) -> Tuple[int, float, float, List[float]]:
+    """(lot C) Le geste « n maintiens réguliers entre a et b » : « 8 » (de 0 à L) ou « 8 2 20 » (de 2 à 20 m) → (n, a, b, les
+    abscisses a + k·(b − a)/(n + 1), au mm). PRS-C (28 m) : 8 → un pas de 3,111 m ; 18 → 1,474 m (brief § 11.9)."""
+    nombres = [C.lire_nombre(t) for t in re.findall(r"\d+(?:[.,]\d+)?", str(texte if texte is not None else ""))]
+    if len(nombres) not in (1, 3):
+        raise ValueError("maintiens réguliers : « n » (entre les bouts de la barre) ou « n a b » (de a à b, en m)")
+    n, a, b = (nombres[0], 0.0, L) if len(nombres) == 1 else nombres
+    if n != int(n) or not 1 <= n <= EN.MAINTIENS_MAX:
+        raise ValueError(f"maintiens réguliers : n entier, de 1 à {EN.MAINTIENS_MAX}")
+    if not 0.0 <= a < b <= L + 1e-9:
+        raise ValueError(f"maintiens réguliers : 0 ≤ a < b ≤ {M.m(L)} m")
+    n = int(n)
+    return n, a, min(b, L), [round(a + k * (min(b, L) - a) / (n + 1), 3) for k in range(1, n + 1)]
+
+
+def _contact(d: Dict, valeur, defaut: str) -> None:
+    """(lot C) Le contact d'extrémité saisi (« oui », « non », « inconnu ») ; sa valeur à défaut n'est pas écrite (la clé absente la
+    suit : « inconnu » pour une charge et pour les appuis, acier/barre/entree.py ; la valeur commune pour un appui un par un)."""
+    if valeur == defaut:
+        d.pop("contact", None)
+    else:
+        d["contact"] = str(valeur)
+
+
+def _detail_neuf(el: Dict) -> List[Dict]:
+    """Les appuis un par un, au passage à « un par un » : chacun reprend s_s et c communs (c aux appuis de rive) et la fourche."""
+    ap, n = el["appuis"], len(ST.appuis_x(el))
+    return [dict({"ss": ap["ss"]}, **({"c": ap["c"]} if i in (0, n - 1) else {}), torsion="fourche") for i in range(n)]
+
+
+def _detail_ajuste(el: Dict) -> None:
+    """Les appuis un par un suivent le nombre d'appuis (une travée ajoutée ou retirée, un autre modèle)."""
+    d = el["appuis"].get("detail")
+    if d is None:
+        return
+    n = len(ST.appuis_x(el)) if S.a_des_appuis(el) else 0
+    if n == 0:
+        el["appuis"]["detail"] = None
+        return
+    el["appuis"]["detail"] = [x if x is not None else {"torsion": "fourche"} for x in d[:n]] + [{"torsion": "fourche"}] * (n - len(d))
 
 
 def _charge_neuve(type_: str, L: float, ancienne: Optional[Dict] = None) -> Dict:
     """Une charge du type demandé ; d'une ancienne (un changement de type), elle garde la valeur et, au mieux, la place."""
     v = ancienne["v"] if ancienne else {"q": 5.0, "tri": 5.0, "P": 10.0, "C": 10.0}[type_]
+    niveau = {"niveau": ancienne["niveau"]} if ancienne and ancienne.get("niveau") and type_ != "C" else {}     # (lot C : le sien)
     if type_ in ("q", "tri"):
         a, b = (ancienne["a"], ancienne["b"]) if ancienne and "b" in ancienne else (0.0, L)
-        ch = {"type": type_, "v": v, "a": a, "b": b}
+        ch = {"type": type_, "v": v, "a": a, "b": b, **niveau}
         if type_ == "tri":
             ch["sens"] = (ancienne or {}).get("sens", "croissante")
         return ch
     a = ancienne["a"] if ancienne and "b" not in ancienne else (round(0.5 * (ancienne["a"] + ancienne["b"]), 3) if ancienne else round(L / 2.0, 3))
     if type_ == "P":                         # (sa longueur d'appui rigide, en mm : None tant qu'elle n'est pas saisie — jamais supposée)
-        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss")}
+        return {"type": type_, "v": v, "a": a, "ss": (ancienne or {}).get("ss"), **niveau}
     return {"type": type_, "v": v, "a": a}
 
 
@@ -531,10 +613,46 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 if el["flambement"][a]["L"] == Lc:
                     el["flambement"][a]["L"] = None
         el["mode"] = valeur
-    elif cle in ("nuance", "niveau"):
+    elif cle == "nuance":
         el[cle] = str(valeur)
+        if valeur not in NU.AVEC_NORME:          # (lot C) la norme produit ne change que S420 et S460 : ailleurs, le défaut
+            el["norme_produit"] = None
+    elif cle in ("niveau", "ouvrage"):
+        el[cle] = str(valeur)
+    elif cle == "norme_produit":                 # (lot C) « » : N/NL (EN 10025-3) ; « M » : M/ML (EN 10025-4)
+        el[cle] = str(valeur) if valeur else None
     elif cle == "poids_propre":
         el[cle] = _oui(valeur)
+    elif cle == "position":                      # (lot C) horizontale, verticale, inclinée — l'angle écrit, jamais supposé en silence
+        el["position"] = str(valeur)
+        if valeur == "inclinee" and el.get("angle") is None:
+            el["angle"] = M.ANGLE_DEFAUT
+    elif cle == "angle":
+        el["angle"] = _lire(valeur, "angle de la barre")
+    elif k == "combinaisons" and len(cles) == 2 and cles[1] in ("expression", "geotechnique", "regle_courte_duree"):
+        el["combinaisons"][cles[1]] = str(valeur) if cles[1] == "expression" else _oui(valeur)
+    elif k == "points":                          # (lot C) les sections vérifiées en plus
+        pts = el["points"]
+        if cle == "points/+":
+            if len(pts) >= EN.POINTS_MAX:
+                raise ValueError(f"au plus {EN.POINTS_MAX} points vérifiés")
+            pts.append(_milieu_libre(L, pts))
+        elif len(cles) == 3 and cles[2] == "-":
+            del pts[_rang(cles[1], pts, "point vérifié")]
+        elif len(cles) == 2:
+            pts[_rang(cles[1], pts, "point vérifié")] = _lire(valeur, "abscisse du point vérifié")
+        else:
+            raise KeyError(cle)
+    elif k == "debords" and len(cles) == 2 and cles[1] in ("0", "1"):
+        if el["modele"] not in PO.MODELES_DEBORDS:
+            raise ValueError("débords : seulement pour une barre sur deux appuis ou continue")
+        x = C.lire_auto(valeur)
+        x = 0.0 if x is None else x
+        if cles[1] == "0":                       # un débord gauche : les abscisses glissent avec la barre
+            _decaler(el, x - el["debords"][0])
+        el["debords"][int(cles[1])] = x
+    elif k == "poids_propre_efforts" and len(cles) == 2 and cles[1] in ("N", "M"):
+        el[k][cles[1]] = _oui(valeur)
     elif cle == "modele":
         if valeur not in PO.MODELES:
             raise ValueError(f"modèle inconnu : « {valeur} »")
@@ -543,6 +661,10 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         elif valeur != "continue":
             el["travees"] = el["travees"][:1]
         el["modele"] = valeur
+        if valeur not in PO.MODELES_DEBORDS and any(el["debords"]):     # (lot C) un débord n'existe que pour ces deux modèles
+            _decaler(el, -el["debords"][0])
+            el["debords"] = [0.0, 0.0]
+        _detail_ajuste(el)
         return "Charges et maintiens ramenés dans la barre." if _ajuster(el, L) else None
     elif k == "travees":
         if cle == "travees/+":
@@ -561,6 +683,7 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 raise ValueError(f"chaque portée doit être entre {M.n(EN.L_MIN)} et {M.n(EN.L_MAX)} m")
         else:
             raise KeyError(cle)
+        _detail_ajuste(el)
         return "Charges et maintiens ramenés dans la barre." if _ajuster(el, L) else None
     elif k == "cas":
         cas = el["cas"]
@@ -582,8 +705,49 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 c["nom"] = nom or f"C{int(cles[1]) + 1}"
             elif cles[2] == "nature":
                 c["nature"] = str(valeur)
+                if c["nature"] not in CO.PSI0_SAISI:          # (lot C) ψ₀ n'est saisi que pour l'exécution et les machines
+                    c["psi0"] = None
+                if c["nature"] in CO.COURTES or c["nature"] == CO.PERMANENT:
+                    c["courte_duree"] = False
             else:
                 c["N"] = _lire(valeur, "effort normal")
+        elif len(cles) == 3 and cles[2] in ("courte_duree", "psi0", "N_troncons"):          # (lot C)
+            c = cas[_rang(cles[1], cas, "cas de charge")]
+            if cles[2] == "courte_duree":
+                c["courte_duree"] = _oui(valeur)
+            elif cles[2] == "psi0":
+                c["psi0"] = _lire_vide(valeur, "ψ₀")
+            elif valeur == "constant":
+                c["N_troncons"] = None
+            elif valeur == "troncons":
+                if not c.get("N_troncons"):          # deux moitiés au N du cas : rien ne change tant qu'on n'y touche pas
+                    c["N_troncons"] = [{"x2": round(L / 2.0, 3), "N": c["N"]}, {"x2": L, "N": c["N"]}]
+            else:
+                raise ValueError(f"effort normal : « constant » ou « troncons », reçu « {valeur} »")
+        elif len(cles) >= 4 and cles[2] == "N_troncons":
+            c = cas[_rang(cles[1], cas, "cas de charge")]
+            nt = c.get("N_troncons")
+            if not nt:
+                raise KeyError(cle)
+            if len(cles) == 4 and cles[3] == "+":    # le plus long tronçon coupé en son milieu, au même N
+                debuts = [0.0] + [t["x2"] for t in nt[:-1]]
+                k_ = max(range(len(nt)), key=lambda q: nt[q]["x2"] - debuts[q])
+                nt.insert(k_, {"x2": round(0.5 * (debuts[k_] + nt[k_]["x2"]), 3), "N": nt[k_]["N"]})
+            elif len(cles) == 5:
+                j = _rang(cles[3], nt, "tronçon")
+                if cles[4] == "-":
+                    if len(nt) == 1:
+                        raise ValueError("il reste un tronçon : choisir « constant »")
+                    del nt[j]
+                    nt[-1]["x2"] = L
+                elif cles[4] == "N":
+                    nt[j]["N"] = _lire(valeur, "N du tronçon")
+                elif cles[4] == "x2" and j < len(nt) - 1:
+                    nt[j]["x2"] = _lire(valeur, "fin du tronçon")
+                else:
+                    raise KeyError(cle)
+            else:
+                raise KeyError(cle)
         elif len(cles) >= 4 and cles[2] == "charges":
             c = cas[_rang(cles[1], cas, "cas de charge")]
             chs = c["charges"]
@@ -608,6 +772,12 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                     chs[j][champ] = _lire(valeur, {"v": "valeur de la charge", "a": "abscisse", "b": "abscisse"}[champ])
                 elif champ == "ss" and chs[j]["type"] == "P":
                     chs[j]["ss"] = _lire_vide(valeur, "longueur d'appui")
+                elif champ == "niveau" and chs[j]["type"] != "C":       # (lot C) le niveau de CETTE charge ; celui de la barre : None
+                    chs[j]["niveau"] = None if valeur == el["niveau"] else str(valeur)
+                elif champ == "introduction" and chs[j]["type"] == "P":
+                    chs[j]["introduction"] = str(valeur)
+                elif champ == "contact" and chs[j]["type"] == "P":
+                    _contact(chs[j], valeur, "inconnu")
                 else:
                     raise KeyError(cle)
             else:
@@ -620,6 +790,14 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
             if len(mts) >= EN.MAINTIENS_MAX:
                 raise ValueError(f"au plus {EN.MAINTIENS_MAX} maintiens")
             mts.append(_maintien_neuf(el))
+        elif cle == "maintiens/reguliers":       # (lot C) n maintiens réguliers de a à b : ceux qui y étaient sont remplacés
+            if valeur is None or not str(valeur).strip():
+                return None                      # (le champ vide, tel qu'il s'affiche : rien à poser)
+            n, a, b, xs = maintiens_reguliers(valeur, L)
+            gardes = [mt for mt in mts if not a + 1e-9 < mt["x"] < b - 1e-9]
+            if len(gardes) + n > EN.MAINTIENS_MAX:
+                raise ValueError(f"au plus {EN.MAINTIENS_MAX} maintiens (la barre en aurait {len(gardes) + n})")
+            el["maintiens"] = sorted(gardes + [{"x": x, "genre": "complet", "neglige": False} for x in xs], key=lambda m: m["x"])
         elif len(cles) == 3:
             j = _rang(cles[1], mts, "maintien")
             if cles[2] == "-":
@@ -628,6 +806,8 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
                 mts[j]["x"] = _lire(valeur, "abscisse du maintien")
             elif cles[2] == "genre":
                 mts[j]["genre"] = str(valeur)
+            elif cles[2] == "neglige":              # (lot C) négligé dans M_cr (7.7)
+                mts[j]["neglige"] = _oui(valeur)
             else:
                 raise KeyError(cle)
         else:
@@ -638,6 +818,26 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
         el["appuis"]["mode"] = valeur
     elif cle in ("appuis/ss", "appuis/c"):
         el["appuis"][cles[1]] = _lire_vide(valeur, "longueur d'appui" if cles[1] == "ss" else "débord")
+    elif cle == "appuis/contact":                # (lot C) le contact d'extrémité commun (un lieu du type (c))
+        _contact(el["appuis"], valeur, "inconnu")
+    elif cle == "appuis/detail":                 # (lot C) les appuis identiques, ou un par un
+        if valeur == "identiques":
+            el["appuis"]["detail"] = None
+        elif valeur == "un_par_un":
+            if el["appuis"].get("detail") is None:
+                el["appuis"]["detail"] = _detail_neuf(el)
+        else:
+            raise ValueError(f"appuis : « identiques » ou « un_par_un », reçu « {valeur} »")
+    elif k == "appuis" and len(cles) == 4 and cles[1] == "detail" and cles[3] in ("ss", "c", "contact", "torsion"):
+        d = el["appuis"].get("detail")
+        if d is None:
+            raise KeyError(cle)
+        i = _rang(cles[2], d, "appui")
+        e = d[i] = dict(d[i] or {})
+        if cles[3] == "contact":                 # (la valeur commune n'est pas recopiée : la clé absente la suit)
+            _contact(e, valeur, el["appuis"].get("contact", "inconnu"))
+        else:
+            e[cles[3]] = (_lire_vide(valeur, "longueur d'appui" if cles[3] == "ss" else "débord") if cles[3] in ("ss", "c") else str(valeur))
     elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("L", "u"):
         if cles[2] == "L" and isinstance(el.get(COPIEES), dict):     # une longueur retouchée est une saisie : elle reste au retour
             el[COPIEES].pop(cles[1], None)
@@ -647,14 +847,23 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
             el["flambement"][cles[1]]["L"] = C.lire_auto(valeur)
         else:
             el["flambement"][cles[1]][cles[2]] = _lire(valeur, "longueur de flambement" if cles[2] == "L" else "coefficient u")
+    elif k == "flambement" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] == "courbe":      # (lot C) « » : celle de la norme
+        el["flambement"][cles[1]]["courbe"] = str(valeur) if valeur else None
     elif cle == "Lc":
         el["Lc"] = C.lire_auto(valeur)
     elif k == "efforts" and len(cles) == 3 and cles[1] in ("service", "elu") and cles[2] in EN.EFFORTS:
         el["efforts"][cles[1]][cles[2]] = _lire(valeur, cles[2])
     elif k == "diagramme" and len(cles) == 3 and cles[1] in ("y", "z") and cles[2] in ("forme", "psi"):
         el["diagramme"][cles[1]][cles[2]] = str(valeur) if cles[2] == "forme" else _lire(valeur, "ψ")
-    elif k == "historique" and len(cles) == 2 and cles[1] in ("s", "C", "deversement"):      # (la tolérance de 5 % : retirée, § 13.2 point 5)
-        el["historique"][cles[1]] = _lire(valeur, "s") if cles[1] == "s" else (str(valeur) if cles[1] == "C" else _oui(valeur))
+    elif k == "historique" and len(cles) == 2 and cles[1] in ("s", "C", "deversement", "Cd", "variante", "facteur_doc", "classe_d"):
+        # (la tolérance de 5 % : retirée, § 13.2 point 5) ; (lot C) C_d, la variante, le facteur 5,1, la classe imposée (B1)
+        h, q = el["historique"], cles[1]
+        if q in ("s", "Cd"):
+            h[q] = _lire(valeur, "s" if q == "s" else "C_d")
+        elif q in ("deversement", "facteur_doc"):
+            h[q] = _oui(valeur)
+        else:
+            h[q] = (str(valeur) if valeur else None) if q == "classe_d" else str(valeur)
     elif k == "prs":                          # (lot C, C6) le PRS : « prs » (catalogue ∣ prs), ses plats, la gorge, les bords, la case
         return PP.appliquer(el, cles, valeur)
     elif k == "parametres" and len(cles) == 2 and cles[1] in ("gamma_M0", "gamma_M1"):
@@ -948,7 +1157,9 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     if el.get("prs") is not None:          # (lot C, C6) un PRS : la bibliothèque des PRS, jamais le catalogue calculé avec ses plats
         return _selecteur_prs(etat, el)
     demandees = familles if isinstance(familles, (list, tuple)) else []      # une requête abîmée : la famille du profilé
-    fams = [f for f in FAMILLES if f in demandees] or [CAT.par_nom()[el["profil"]]["famille"]]
+    # (lot C) les U et les cornières ne se proposent qu'en efforts imposés (la barre chargée les refuse : entree.MSG_EFFORTS_SEULS)
+    offertes = FAMILLES if el["mode"] == "efforts" else FAMILLES_DEUX
+    fams = [f for f in offertes if f in demandees] or [CAT.par_nom()[el["profil"]]["famille"]]
     sig = _signature(el, ("nom", "profil"))
     rows, vu_leger = [], False
     for nom in _noms(fams):
@@ -966,7 +1177,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         rows.append(row)
     i_o = next((k for k, x in enumerate(rows) if x["opt"]), 0)
     i_c = next((k for k, x in enumerate(rows) if x["cur"]), i_o)
-    filtres = "".join(f'<button type="button" class="fchip{" on" if f in fams else ""}" data-famille="{C.esc(f)}">{C.esc(f)}</button>' for f in FAMILLES)
+    filtres = "".join(f'<button type="button" class="fchip{" on" if f in fams else ""}" data-famille="{C.esc(f)}">{C.esc(f)}</button>' for f in offertes)
     methodes = " et ".join(M.minuscule(M.METHODES_COURT[k]) for k in EN.METHODES)          # (toujours les deux : lot C, C0d)
     sous = f"triés par masse · vérifiés par : {methodes} · un clic retient le profilé"
     return C.selecteur(ROLE, f"{C.esc(el.get('nom') or 'Barre')} · profilé", sous, filtres, rows, max(0, min(i_o, i_c) - 4), "kg/m")

@@ -67,6 +67,37 @@ NIVEAUX = (("haut", "Semelle haute", "La charge est posée sur la semelle haute 
            ("bas", "Semelle basse", "La charge est suspendue à la semelle basse : elle stabilise."))
 DIAGRAMMES = ((DV.CONSTANT, "Constant"), (DV.LINEAIRE, "Linéaire (ψ)"), (DV.REPARTI, "Charge répartie"), (DV.PONCTUEL, "Charge à mi-portée"))
 CHOIX_METHODES = (("deux", "Les deux"), ("historique", METHODES_COURT["historique"]), ("ec3", METHODES_COURT["ec3"]))
+# ---- (lot C, C3) les libellés et les aides des champs neufs de la SAISIE : un mot par valeur, le sens au survol (charte E6)
+NIVEAUX_CHARGE = (("haut", "▲", "Semelle haute"), ("centre", "●", "Centre de cisaillement"), ("bas", "▼", "Semelle basse"))
+POSITIONS = (("horizontale", "Horizontale"), ("verticale", "Verticale"), ("inclinee", "Inclinée"))
+ANGLE_DEFAUT = 45.0             # ° : l'angle qu'écrit le clic « Inclinée » quand aucun n'est saisi — affiché, à corriger (À VÉRIFIER)
+OUVRAGES = (("batiment", "Bâtiment"), ("autre", "Autre", "Autre : hors ponts, tours, silos, chemins de roulement."))
+EXPRESSIONS = (("6.10", "6.10"), ("6.10ab", "6.10a/b", "(6.10a) et (6.10b) : l'enveloppe des deux."))
+VARIANTES_DEV = (("classeurs", "Classeurs", "Les classeurs « Déversement » du bureau (NBN B 51-002, tableaux 11 et 12)."),
+                 ("fascicule", "Fascicule p. 19", "La semelle comprimée du fascicule (doc p. 19) : variante."))
+INTRODUCTIONS = (("auto", "auto", "Le type que le module déduit de la géométrie."),
+                 ("a", "a", "(a) Sur une semelle, reprise par le cisaillement de l'âme."),
+                 ("b", "b", "(b) Transmise d'une semelle à l'autre."),
+                 ("c", "c", "(c) Près d'une extrémité non raidie."))
+CONTACTS = (("oui", "oui"), ("non", "non"), ("inconnu", "inconnu"))
+AIDE_CONTACT = "Type (c) : le dispositif de chargement garde-t-il s_s en suivant la rotation d'extrémité ? (8.2)"
+TORSIONS = (("fourche", "Fourche"), ("encastre", "Encastré"))
+DETAIL_APPUIS = (("identiques", "Identiques"), ("un_par_un", "Un par un", "s_s, c et la torsion appui par appui."))
+N_MODES = (("constant", "constant"), ("troncons", "par tronçon"))
+COURBES_AXE = (("", "norme"), ("a", "a"), ("b", "b"), ("c", "c"))
+AIDE_COURBE = "Courbe du fascicule (doc p. 4) : le tableau n'en donne pas pour ce profil."
+AIDE_U = "13.3 : 1 articulé ; 0,80 encastré–articulé ; 0,65 bi-encastré ; console : déjà 2,1·L proposé (u = 1)."
+# l'origine d'une longueur de flambement proposée (moteur._longueurs_rendues, « origine ») : la fin de l'aide du champ vide
+ORIGINES = {"portee": "la portée", "troncon": "le plus long tronçon entre sections tenues", "console": "2,1 × la console (13.3)",
+            "debord": "la barre entière (débord)"}
+AIDE_REGULIERS = ("« 8 » : 8 maintiens complets, réguliers entre les bouts de la barre ; « 8 2 20 » : entre 2 et 20 m. "
+                  "Ceux qui y étaient sont remplacés.")
+AIDE_NEGLIGE = "Négligé dans M_cr (variante belge du déversement, 7.7) ; il reste compté au flambement."
+AIDE_DEBORDS = "Porte-à-faux au-delà du premier et du dernier appui (m). Les abscisses partent du bout gauche de la barre."
+AIDE_COURTE_DUREE = "De courte durée (moins d'un mois) : règle belge de courte durée avec la neige et le vent (tableau A1.1 ANB, note 3)."
+AIDE_REGLE_COURTE = "ψ₀ = 0,3 entre la neige et le vent (tableau A1.1 ANB, note 3, mise en œuvre restreinte du module)."
+AIDE_CD = "Coefficient de moment du déversement des classeurs (1 à 3)."
+AIDE_CLASSE_D = "Le tableau 12 ne donne pas de classe pour ce profil : la classe est à fournir."
 C_MODES = (("unite", "C = 1", "Les classeurs du bureau."), ("norme", "Selon la norme", "0,85 sous des charges ; selon ψ sous des moments d'extrémité."))
 EFFORTS = (("N", "N", "kN", "Effort normal ; positif en compression."), ("My", "M_y", "kN·m", "Moment autour de l'axe fort."),
            ("Vz", "V_z", "kN", "Effort tranchant parallèle à l'âme."), ("Mz", "M_z", "kN·m", "Moment autour de l'axe faible."),

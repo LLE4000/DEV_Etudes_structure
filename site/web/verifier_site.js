@@ -4174,6 +4174,67 @@ const principal = async () => {
       ['sa portée : 3 m', 'ba', 'travees/0', '3', 'champ', ''],
       ['le maintien retiré', 'mt', 'maintiens/0/-', '1', 'clic', ''],
       ['N = 50 kN de compression dans G', 'ch', 'cas/0/N', '50', 'champ', 'console'],
+      // (lot C, C3) un geste par champ neuf de la saisie — la page dit ce que dit le témoin après chacun (aucun contrôle de résultat
+      // ici : ceux-là sont à C4). La barre redevient d'abord la barre neuve (deux appuis, 6 m, N = 0, tenue à mi-portée).
+      ['la barre redevient « deux appuis »', 'ba', 'modele', 'appuis', 'menu', ''],
+      ['sa portée : 6 m', 'ba', 'travees/0', '6', 'champ', ''],
+      ['N de G rendu à 0', 'ch', 'cas/0/N', '0', 'champ', ''],
+      ['un maintien remis à mi-portée', 'mt', 'maintiens/+', '1', 'clic', ''],
+      ['ELS : C_d = 1,2', 'me', 'historique/Cd', '1,2', 'champ', ''],
+      ['ELS : déversement du fascicule p. 19', 'me', 'historique/variante', 'fascicule', 'clic', ''],
+      ['ELS : déversement des classeurs', 'me', 'historique/variante', 'classeurs', 'clic', ''],
+      ['ELS : C_d rendu à 1', 'me', 'historique/Cd', '1', 'champ', ''],
+      ['ouvrage : autre', 'me', 'ouvrage', 'autre', 'clic', ''],
+      ['ouvrage : bâtiment', 'me', 'ouvrage', 'batiment', 'clic', ''],
+      ['combinaisons (6.10a) et (6.10b)', 'me', 'combinaisons/expression', '6.10ab', 'clic', ''],
+      ['application géotechnique (ξ = 1)', 'me', 'combinaisons/geotechnique', 'true', 'case', ''],
+      ['combinaisons (6.10)', 'me', 'combinaisons/expression', '6.10', 'clic', ''],
+      ['γ_M0 = 1,05 (la ligne de n_pl paraît)', 'me', 'parametres/gamma_M0', '1,05', 'champ', ''],
+      ['γ_M0 = 1', 'me', 'parametres/gamma_M0', '1', 'champ', ''],
+      ['un cas de charge de plus (Q2)', 'ch', 'cas/+', '1', 'clic', ''],
+      ['Q2 : la neige', 'ch', 'cas/2/nature', 'neige', 'menu', ''],
+      ['Q déclaré de courte durée', 'ch', 'cas/1/courte_duree', 'true', 'case', ''],
+      ['la règle de courte durée désactivée', 'me', 'combinaisons/regle_courte_duree', 'false', 'case', ''],
+      ['la règle de courte durée rétablie', 'me', 'combinaisons/regle_courte_duree', 'true', 'case', ''],
+      ['Q2 : une action d\'exécution (ψ₀ à saisir)', 'ch', 'cas/2/nature', 'execution', 'menu', ''],
+      ['son ψ₀ : 1', 'ch', 'cas/2/psi0', '1', 'champ', ''],
+      ['le cas Q2 retiré', 'ch', 'cas/2/-', '1', 'clic', ''],
+      ['la charge de G sous la semelle basse (▼)', 'ch', 'cas/0/charges/0/niveau', 'bas', 'clic', ''],
+      ['la charge de G rendue au niveau par défaut (▲)', 'ch', 'cas/0/charges/0/niveau', 'haut', 'clic', ''],
+      ['niveau par défaut : centre', 'ch', 'niveau', 'centre', 'clic', ''],
+      ['niveau par défaut : semelle haute', 'ch', 'niveau', 'haut', 'clic', ''],
+      ['N de G par tronçon', 'ch', 'cas/0/N_troncons', 'troncons', 'clic', ''],
+      ['N = 40 kN jusqu\'à 3 m', 'ch', 'cas/0/N_troncons/0/N', '40', 'champ', ''],
+      ['un tronçon de plus', 'ch', 'cas/0/N_troncons/+', '1', 'clic', ''],
+      ['N de G constant', 'ch', 'cas/0/N_troncons', 'constant', 'clic', ''],
+      ['une ponctuelle au cas G', 'ch', 'cas/0/charges/+', 'P', 'clic', ''],
+      ['son entrée dans l\'âme : (b)', 'ch', 'cas/0/charges/1/introduction', 'b', 'clic', ''],
+      ['la ponctuelle retirée', 'ch', 'cas/0/charges/1/-', '1', 'clic', ''],
+      ['le maintien négligé dans M_cr', 'mt', 'maintiens/0/neglige', 'true', 'case', ''],
+      ['le maintien compté dans M_cr', 'mt', 'maintiens/0/neglige', 'false', 'case', ''],
+      ['5 maintiens réguliers', 'mt', 'maintiens/reguliers', '5', 'champ', ''],
+      ['1 maintien régulier (à mi-portée)', 'mt', 'maintiens/reguliers', '1', 'champ', ''],
+      ['un point vérifié', 'ba', 'points/+', '1', 'clic', ''],
+      ['le point vérifié à 2 m', 'ba', 'points/0', '2', 'champ', ''],
+      ['le point vérifié retiré', 'ba', 'points/0/-', '1', 'clic', ''],
+      ['un débord droit de 1 m', 'ba', 'debords/1', '1', 'champ', ''],
+      ['plus de débord', 'ba', 'debords/1', '0', 'champ', ''],
+      ['la barre verticale', 'ba', 'position', 'verticale', 'clic', ''],
+      ['la barre inclinée (45° écrits)', 'ba', 'position', 'inclinee', 'clic', ''],
+      ['α = 30°', 'ba', 'angle', '30', 'champ', ''],
+      ['la barre horizontale', 'ba', 'position', 'horizontale', 'clic', ''],
+      ['l\'acier S460 (le menu des nuances)', 'ba', 'nuance', 'S460', 'menu', ''],
+      ['sa norme produit : M/ML', 'ba', 'norme_produit', 'M', 'clic', ''],
+      ['l\'acier S235', 'ba', 'nuance', 'S235', 'menu', ''],
+      ['les appuis un par un', 'ap', 'appuis/detail', 'un_par_un', 'clic', ''],
+      ['l\'appui A encastré en torsion', 'ap', 'appuis/detail/0/torsion', 'encastre', 'menu', ''],
+      ['s_s de l\'appui B : 100 mm', 'ap', 'appuis/detail/1/ss', '100', 'champ', ''],
+      ['les appuis identiques', 'ap', 'appuis/detail', 'identiques', 'clic', ''],
+      ['contact d\'extrémité : non (appuis du type (c))', 'ap', 'appuis/contact', 'non', 'menu', ''],
+      ['les efforts imposés', 'ba', 'mode', 'efforts', 'clic', ''],
+      ['le poids propre dans P', 'ba', 'poids_propre_efforts/N', 'true', 'case', ''],
+      ['le poids propre en flexion', 'ba', 'poids_propre_efforts/M', 'true', 'case', ''],
+      ['retour à la barre chargée', 'ba', 'mode', 'chargee', 'clic', ''],
     ];
     // (lot C, C6) le PRS-B du brief (11.8), saisi dans une note neuve : sept champs, puis les bords, puis la bibliothèque
     const PRS_NOM = 'PRS 600x300x15x30x200x30';
@@ -4280,7 +4341,10 @@ const principal = async () => {
       await ouvrirRubB(pg, rub);
       if (geste === 'champ') { const s = `#donnees input[data-chemin="${chemin}"]`; await pg.fill(s, String(valeur)); await pg.press(s, 'Enter'); }
       else if (geste === 'menu') await pg.selectOption(`#donnees select[data-chemin="${chemin}"]`, String(valeur));
-      else await pg.click(`#donnees [data-chemin="${chemin}"][data-valeur="${valeur}"]`);
+      else if (geste === 'case') {          // (lot C, C3) une case : cochée (« true ») ou non — touchée seulement si elle doit changer
+        const s = `#donnees input[data-chemin="${chemin}"]`;
+        if ((await pg.isChecked(s)) !== (valeur === 'true')) await pg.click(`#donnees label.case:has(> input[data-chemin="${chemin}"])`);
+      } else await pg.click(`#donnees [data-chemin="${chemin}"][data-valeur="${valeur}"]`);
       await pg.waitForTimeout(120);
       await calmeB(pg);
     };
