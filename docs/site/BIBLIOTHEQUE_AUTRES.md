@@ -56,7 +56,9 @@ garde le focus quand la page se réécrit.
 Plusieurs charges se superposent (jusqu'à huit) : le comportement est linéaire, les effets s'additionnent.
 
 Non traités dans cette version, et dits à l'écran : porte-à-faux d'une poutre sur appuis, encastrements d'extrémité
-d'une poutre continue, appuis élastiques ou dénivelés, rigidité variable, déformation d'effort tranchant.
+d'une poutre continue, appuis élastiques ou dénivelés, rigidité variable, déformation d'effort tranchant. (Le moteur
+`rdm/poutres.py` sait les porte-à-faux depuis le lot C des barres — `debords=(g, d)`, modèles « appuis » et « continue »,
+un débord d'au plus 10⁻⁹·max(1, L) m compté nul — et le module Barres les propose ; l'écran de ce formulaire, pas encore.)
 
 ### 3.2 Conventions
 
@@ -281,7 +283,7 @@ au doigt, toute cible fait 40 px au moins et ce qui se glisse porte `touch-actio
 
 | Suite | Ce qui est comparé |
 |---|---|
-| `tests/test_rdm_poutres.py` (59) | les quinze cas d'école contre leur formule écrite dans le test ; les coefficients des poutres continues de 2 à 5 travées égales (fractions des tableaux) ; une intégration numérique indépendante de V → M → rotation → flèche ; équilibre ; mutations |
+| `tests/test_rdm_poutres.py` (91) | les quinze cas d'école contre leur formule écrite dans le test ; les débords (porte-à-faux aux rives) ; les coefficients des poutres continues de 2 à 5 travées égales (fractions des tableaux) ; une intégration numérique indépendante de V → M → rotation → flèche ; équilibre ; mutations |
 | `tests/test_rdm_plaques.py` (67) | les valeurs PUBLIÉES des tableaux 8, 29, 30 et 35 et des §§ 46-47 de Timoshenko & Woinowsky-Krieger ; la plaque carrée encastrée contre Taylor & Govindjee (2004) ; le résidu de l'équation ∇⁴w = q/D et des conditions de bord par différences finies sur 20 configurations ; Navier = Lévy, Lévy = superposition là où elles se recouvrent ; limites de poutre ; refus ; mutations |
 | `tests/test_rdm_sections.py` (47) | formes simples contre leurs formules ; 17 profilés contre le catalogue (10⁻⁵) et un profilé sur sept de tout le catalogue ; un calcul croisé numpy ; cinq sections composées calculées à la main dans le test (PRS, caisson, HEA + plat, demi-HEA, Z) ; invariants (rotation, translation) ; recouvrements ; mutations |
 | `tests/test_api_web_bibliotheque_autres.py` (66) | l'écran dit les chiffres du moteur ; chaque ligne « valeurs » de la feuille est RÉ-ÉVALUÉE et redonne le résultat affiché ; refus ; échappement ; adresse |
