@@ -13,6 +13,12 @@
 - Qualification externe : L17a reçu, conforme avec les propriétés des fabricants (+0,2 %) ; S1 à S3 reçus ; L1 à L16, L17b, L17c, ECCS 17 à 20 et 22, JRC attendus (§ 3).
 - À confirmer : `npl_gamma` seul ; sept décisions du bureau dans la table, une dans sa source du site (§ 4).
 
+Révision du 18/11/2026, intégration du lot C : le défaut non conservatif ci-dessus est CORRIGÉ (commit 1a34173). La barre
+va de 0 à g + Σ portées + d (`statique.longueur`) au moteur (`entree.normaliser`, les charges lues avec leurs débords) et à
+l'écran (`api_web/profil.py`) : 6 m + débord gauche 0,5 m, q de 0 à 6,5 m accepté, réactions et M_max = `rdm/poutres`
+(`tests/test_barre_moteur.py`, `tests/test_api_web_profil.py`, cinq mutations). Le rapport de l'intégration est
+`docs/validation/lot_c_2026-11-18.md`. La mesure ci-dessus n'est pas réécrite.
+
 ## 1. Les deux méthodes, cas par cas
 
 Statuts du brief § 9 : vérifié, à la limite (95 % à 100 %, le seuil des notes du site), non vérifié, hors domaine, non couvert, bloqué. Écart = taux EC3 − taux ELS, en points de %.
