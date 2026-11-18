@@ -918,18 +918,9 @@ def planche(el: Dict, r: Dict, style: Planche, impression: str = "deux") -> Dict
 
 
 def imprime(r: Dict, impression: str) -> Dict:
-    """Le résultat d'une barre tel que la note l'IMPRIME (``profil.IMPRESSION`` : les deux méthodes, ou l'une) : les méthodes
-    imprimées, leur comparaison quand ce sont les deux, les enveloppes de leur statique, et le statut — le plus défavorable
-    des méthodes imprimées et de l'âme (``resultat.pire_statut``). Le moteur les a toujours calculées toutes les deux
-    (lot C, C0d) ; une vue, pas un second calcul."""
-    garde = P.methodes_imprimees(impression)
-    if tuple(r["methodes"]) == garde:
-        return r
-    v = dict(r, methodes={k: x for k, x in r["methodes"].items() if k in garde}, comparaison=r["comparaison"] if len(garde) == 2 else [])
-    if r.get("statique"):
-        v["statique"] = dict(r["statique"], enveloppes={k: e for k, e in r["statique"]["enveloppes"].items() if k in garde})
-    v["statut"] = RE.pire_statut([x["statut"] for x in v["methodes"].values()] + [r["ame"]["statut"]])
-    return v
+    """Le résultat d'une barre tel que la note l'IMPRIME : la vue de la méthode affichée (``profil.vue`` : l'écran et la
+    note, une seule règle — mise à jour 1, § 1.3)."""
+    return P.vue(r, impression)
 
 
 def sections(etat: Dict, style: Optional[Planche] = None) -> List[Dict]:

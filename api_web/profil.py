@@ -118,6 +118,24 @@ def etat_de(elements: List[Dict], actif: int = 0, impression: str = IMPRESSIONS[
     return {"version": VERSION, ZERO_SAISI: True, "elements": elements, "actif": actif, IMPRESSION: impression}
 
 
+DECISIONS_ECRAN = ("ame_classe_3", "mcr_retenu")      # (mise à jour 1, § 1.3) les décisions que la rubrique « Méthodes » règle
+
+
+def vue(r: Dict, impression: str) -> Dict:
+    """Le résultat d'une barre tel que la MÉTHODE AFFICHÉE le montre (``IMPRESSION`` ; mise à jour 1, § 1.3 et 1.4 : l'écran
+    et la note) : les méthodes affichées, leur comparaison quand ce sont les deux, les enveloppes de leur statique, et le
+    statut — le plus défavorable des méthodes affichées et de l'âme (``resultat.pire_statut``). Le moteur les a toujours
+    calculées toutes les deux (lot C, C0d) ; une vue, pas un second calcul."""
+    garde = methodes_imprimees(impression)
+    if "methodes" not in r or tuple(r["methodes"]) == garde:
+        return r
+    v = dict(r, methodes={k: x for k, x in r["methodes"].items() if k in garde}, comparaison=r["comparaison"] if len(garde) == 2 else [])
+    if r.get("statique"):
+        v["statique"] = dict(r["statique"], enveloppes={k: e for k, e in r["statique"]["enveloppes"].items() if k in garde})
+    v["statut"] = RE.pire_statut([x["statut"] for x in v["methodes"].values()] + [r["ame"]["statut"]])
+    return v
+
+
 def methodes_imprimees(impression: str) -> Tuple[str, ...]:
     """Les méthodes qu'une note imprime (``IMPRESSION``), dans l'ordre du moteur."""
     return tuple(EN.METHODES) if impression == "deux" else (impression,)
@@ -863,6 +881,15 @@ def _appliquer(el: Dict, cles: List[str], valeur, r: Dict) -> Optional[str]:
             h[q] = (str(valeur) if valeur else None) if q == "classe_d" else str(valeur)
     elif k == "prs":                          # (lot C, C6) le PRS : « prs » (catalogue ∣ prs), ses plats, la gorge, les bords, la case
         return PP.appliquer(el, cles, valeur)
+    elif k == "parametres" and len(cles) == 2 and cles[1] in DECISIONS_ECRAN:
+        # (mise à jour 1, § 1.3) une DÉCISION BUREAU réglée à l'écran : une de ses valeurs ; le défaut de la table n'est pas écrit
+        admises = PA.PARAMETRES[cles[1]]["valeurs"]
+        if valeur not in admises:
+            raise ValueError(f"réglage « {PA.PARAMETRES[cles[1]]['nom']} » : {' ou '.join(admises)} — reçu « {str(valeur)[:20]} »")
+        if valeur == PA.valeur(cles[1]):
+            el["parametres"].pop(cles[1], None)
+        else:
+            el["parametres"][cles[1]] = valeur
     elif k == "parametres" and len(cles) == 2 and cles[1] in ("gamma_M0", "gamma_M1"):
         g = C.lire_auto(valeur)
         if g is None:
@@ -1074,10 +1101,13 @@ def resultat(etat: Dict) -> Dict:
     """Le résultat de la barre ouverte : la tête, un verdict par méthode, les blocs ; les fenêtres de calcul, les vues,
     la colonne de gauche, le résumé de la note."""
     el = _el(etat)
-    r = calculer(el)
-    resultats = [r if i == etat["actif"] else _sans_echec(e) for i, e in enumerate(etat["elements"])]
+    # (mise à jour 1, § 1.4) la MÉTHODE AFFICHÉE : seule sa carte (ou les deux) ; le statut et le taux de la barre — la pastille,
+    # la liste des barres, l'onglet « Taux » — suivent la même règle que la note. Plus de bloc des grosses pastilles en tête.
+    aff = etat.get(IMPRESSION, IMPRESSIONS[0])
+    r = vue(calculer(el), aff)
+    resultats = [r if i == etat["actif"] else vue(_sans_echec(e), aff) for i, e in enumerate(etat["elements"])]
     nom = C.esc(el.get("nom") or "Barre")
-    corps = (f'<div class="pbody">{E.tete_resultats(nom, R.dims(el))}{R.verdicts(r)}'
+    corps = (f'<div class="pbody">{E.tete_resultats(nom, R.dims(el))}'
              f'<div class="et-blocs">{R.blocs(el, r)}</div></div>{R.pied(r)}')
     resume = resume_note(etat, resultats)
     statut = C.statut(resume["niveau"]) if len(resultats) > 1 else ""

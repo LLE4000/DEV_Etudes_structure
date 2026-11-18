@@ -109,9 +109,9 @@ def controles(T):
     c("À CONFIRMER, tiré de SA source : parametres.a_confirmer() = npl_gamma seul ; GARDÉ VIVANT : avec γ_M0 = 1,00 et γ_M1 = 1,10, le moteur "
       "le rend dans ses hypothèses", [p["cle"] for p in PA.a_confirmer()] == ["npl_gamma"] and [p["cle"] for p in T.GAMMA] == ["npl_gamma"]
       and "`npl_gamma`" in texte)
-    c("DÉCISION BUREAU, tirées de la table : n° 1, 2, 3, 4, 9, 10 (statut « decision ») ; n° 7 dans sa source du site (membres.SEUIL_ATTENTION, "
+    c("DÉCISION BUREAU, tirées de la table : n° 1, 2, 3, 4, 9, 10, 11, 12 (statut « decision ») ; n° 7 dans sa source du site (membres.SEUIL_ATTENTION, "
       "95 %) ; n° 5 tranché ; n° 6 et 8 hors code — toutes dans le rapport",
-      [d["point"] for d in PA.decisions()] == [1, 2, 3, 4, 9, 10] and all(f"`parametres.{d['cle']}`" in texte for d in PA.decisions())
+      [d["point"] for d in PA.decisions()] == [1, 2, 3, 4, 9, 10, 11, 12] and all(f"`parametres.{d['cle']}`" in texte for d in PA.decisions())
       and ME.SEUIL_ATTENTION == 0.95 and "membres.SEUIL_ATTENTION" in texte and all(f"| {n} |" in texte for n in (5, 6, 7, 8)))
     vus = T.a_verifier_du_code()
     c("À VÉRIFIER : chaque fichier du moteur et de l'écran du profil qui dit « à vérifier » (sans accents ni casse) est CLASSÉ dans la "

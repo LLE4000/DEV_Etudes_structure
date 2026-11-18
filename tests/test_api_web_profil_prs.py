@@ -128,8 +128,9 @@ def axe_y(svg):
 
 
 def verdicts(res):
-    """[(titre, classes de la pastille)] des verdicts du résultat, dans l'ordre."""
-    return [(texte(b), c) for c, b in re.findall(r'<div class="verdict"[^>]*>.*?<span class="chip xl ([^"]*)"[^>]*>.*?</span>.*?<b>(.*?)</b>', res, re.S)]
+    """[(titre court, classe)] des CARTES du résultat, dans l'ordre. (Mise à jour 1, § 1.4 — le harnais suit : le bloc des grosses
+    pastilles est parti ; le panneau commence par le nom de la barre, la ligne « Profilé », puis les cartes.)"""
+    return [(texte(n), c) for c, n in re.findall(r'<section class="et-bloc ([a-z]+)" data-theme="\d+">.*?<span class="n">(.*?)</span>', res, re.S)]
 
 
 def controles():
@@ -339,8 +340,8 @@ def controles():
     # ---------------------------------------------------------------- 6. le verdict, la masse, deux PRS
     n = ecran_prs()
     vs = verdicts(n.r["resultat"])
-    c("6 · bords non saisis : la méthode ELS « Bloqué », sa puce jamais verte ; le moteur dit pourquoi en une ligne",
-      bool(vs) and vs[0][0].startswith("Méthode ELS") and not ({"p", "f"} & set(vs[0][1].split())) and "Bloqué" in texte(n.r["resultat"])
+    c("6 · bords non saisis : la carte ELS « Bloqué », jamais verte ; le moteur dit pourquoi en une ligne",
+      bool(vs) and vs[0][0] == "ELS" and vs[0][1] != "ok" and "Bloqué" in texte(n.r["resultat"])
       and P.calculer(n.el)["methodes"]["historique"]["statut"] == RE.BLOQUE and "Bords des semelles à saisir" in texte(n.r["resultat"]), vs)
     m_ = P.calculer(n.el)["masse"]
     c("6 · la masse au bouton du profilé : ρ·A (prs.MASSE_VOLUMIQUE 7 850 kg/m³ × 231 cm²) = 181,3 kg/m",

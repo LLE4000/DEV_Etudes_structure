@@ -969,12 +969,16 @@ def main():
     my, vz = vf(vr["R2"], "ec3", "E-My"), vf(vr["R2"], "ec3", "E-Vz")
     nbz, hnz = vf(vr["HEB 200"], "ec3", "E-Nb-z"), vf(vr["HEB 200"], "historique", "H-N-z")
     mb, dv = vf(vr["PRS-C"], "ec3", "E-Mb"), vf(vr["PRS-C"], "historique", "H-DEV")
+    # (mise à jour 1 : le harnais suit) le 0,967 du brief est celui du SOLVEUR et de la section ÉLASTIQUE — les variantes des
+    # décisions n° 12 et n° 11 ; les défauts d'aujourd'hui sont figés par tests/test_barre_maj1.py
+    el_c = barres(CRITERE["PRS-C · deux"])[0][0]
+    mbs = vf(MO.verifier(dict(el_c, parametres={"mcr_retenu": "solveur", "ame_classe_3": "elastique"})), "ec3", "E-Mb")
     chk("les chiffres du critère : R2 depuis les charges M_Ed = 68,70 kN·m, V_Ed = 27,80 kN (brief § 11.3) ; HEB 200 N_b,z,Rd = 570,1 kN (11.2, "
-        "± 0,2 %), méthode ELS 1,118 (11.1, ± 0,2 %) ; PRS-C (lien C1 + C2, nature « exécution ») M_Ed = 4 199,4 kN·m (± 0,03 %), taux 0,967, "
-        "méthode ELS σ_adm,d = 89,68 N/mm² (11.9)",
+        "± 0,2 %), méthode ELS 1,118 (11.1, ± 0,2 %) ; PRS-C (lien C1 + C2, nature « exécution ») M_Ed = 4 199,4 kN·m (± 0,03 %), taux 0,967 "
+        "(solveur, section élastique), méthode ELS σ_adm,d = 89,68 N/mm² (11.9)",
         abs(my["valeur"] - 68.70) < 0.005 and abs(vz["valeur"] - 27.80) < 0.005 and abs(nbz["limite"] / 570.1 - 1) < 0.002
-        and abs(hnz["taux"] / 1.118 - 1) < 0.002 and abs(mb["valeur"] / 4199.4 - 1) < 0.0003 and abs(mb["taux"] - 0.967) <= 0.001
-        and abs(dv["limite"] - 89.68) <= 0.01, (my["valeur"], vz["valeur"], nbz["limite"], hnz["taux"], mb["valeur"], mb["taux"], dv["limite"]))
+        and abs(hnz["taux"] / 1.118 - 1) < 0.002 and abs(mb["valeur"] / 4199.4 - 1) < 0.0003 and abs(mbs["taux"] - 0.967) <= 0.001
+        and abs(dv["limite"] - 89.68) <= 0.01, (my["valeur"], vz["valeur"], nbz["limite"], hnz["taux"], mb["valeur"], mbs["taux"], dv["limite"]))
     print("== 9 bis. la page « Écarts », la case « section soudée équivalente », le PRS au panneau")
     for nom, ok, info in controles(list(SPECIAUX)):
         chk(nom, ok, info)

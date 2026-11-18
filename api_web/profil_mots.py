@@ -72,6 +72,12 @@ NIVEAUX_CHARGE = (("haut", "▲", "Semelle haute"), ("centre", "●", "Centre de
 POSITIONS = (("horizontale", "Horizontale"), ("verticale", "Verticale"), ("inclinee", "Inclinée"))
 ANGLE_DEFAUT = 45.0             # ° : l'angle qu'écrit le clic « Inclinée » quand aucun n'est saisi — affiché, à corriger (À VÉRIFIER)
 OUVRAGES = (("batiment", "Bâtiment"), ("autre", "Autre", "Autre : hors ponts, tours, silos, chemins de roulement."))
+# (mise à jour 1, § 1.3) les deux DÉCISIONS BUREAU du bloc EUROCODE 3 : n° 11 et n° 12 (acier/barre/parametres.py)
+AUCUN_EFFORT = "Aucun effort à vérifier"          # (une méthode sans vérification : sa carte le dit)
+AME_CLASSE_3 = (("classe_2_efficace", "Classe 2 efficace", "Âme de classe 3 d'un I soudé ou d'un PRS, flexion d'axe fort seule : W_pl,eff (§ 5.5.2(11))."),
+                ("elastique", "Élastique", "Âme de classe 3 : W_el, toute la section en élastique."))
+MCR_RETENU = (("annexe_E", "Formule", "M_cr par la formule de l'annexe E ANB, tronçon par tronçon ; le solveur est affiché."),
+              ("solveur", "Solveur", "M_cr par le solveur du module ; la formule est affichée."))
 EXPRESSIONS = (("6.10", "6.10"), ("6.10ab", "6.10a/b", "(6.10a) et (6.10b) : l'enveloppe des deux."))
 VARIANTES_DEV = (("classeurs", "Classeurs", "Les classeurs « Déversement » du bureau (NBN B 51-002, tableaux 11 et 12)."),
                  ("fascicule", "Fascicule p. 19", "La semelle comprimée du fascicule (doc p. 19) : variante."))
@@ -107,14 +113,12 @@ EFFORTS = (("N", "N", "kN", "Effort normal ; positif en compression."), ("My", "
 # donnée à saisir, « v » aussi (il y a quelque chose à faire)
 NIVEAU_STATUT = {RE.OK: "p", RE.NOK: "r", RE.BLOQUE: "v", RE.NON_COUVERT: "c", RE.HORS_DOMAINE: "v"}
 MOT_STATUT = {RE.OK: "Conforme", RE.NOK: "Non conforme", RE.BLOQUE: "Bloqué", RE.NON_COUVERT: "Non couvert", RE.HORS_DOMAINE: "Hors domaine"}
-MOTS_STATUT_PLURIEL = {RE.BLOQUE: "bloqués", RE.NON_COUVERT: "non couverts"}
 CLASSE_BLOC = {"p": "ok", "f": "warn", "r": "nok", "c": "inc", "v": "inc"}
 # les statuts sous lesquels un TAUX n'est jamais peint « conforme » : il est montré pour information (lot C, C0b)
 STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)
 # (lot C, C4) le contrôle HÉRITÉ du classeur (H-EQ, brief § 6.1 : H11 et H12) ne décide jamais seul : il n'est jamais en
 # tête du verdict de la méthode ELS quand une autre vérification a un taux jugé (profil_resultat.tete)
 HERITES = ("H-EQ",)
-MOT_HERITE = "contrôle hérité"
 # (lot C, C4) le niveau d'une charge sur le dessin : un SYMBOLE lisible en noir et blanc, et sa légende en mots
 SYMBOLE_NIVEAU = {"haut": "▲", "centre": "●", "bas": "▼"}
 NOM_NIVEAU = {"haut": "semelle haute", "centre": "centre de cisaillement", "bas": "semelle basse"}

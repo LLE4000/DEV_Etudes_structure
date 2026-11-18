@@ -100,6 +100,12 @@ GABARITS_EC3_SECTION: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "e_sigma_el": (("N", "A", "My", "z", "Iy", "Mz", "y", "Iz"), "N*1e3/A + My*z/Iy*1e2 + Mz*y/Iz*1e2", 1),
     "e_tau_el": (("V", "S", "Iy", "tw"), "V*S/(Iy*tw)*1e2", 1),
     "e_critere_el": (("sx", "tau", "fy", "gM0"), "(sx/(fy/gM0))**2 + 3*(tau/(fy/gM0))**2", 3),
+    # classe 2 efficace d'une âme de classe 3 (§ 5.5.2(11), § 6.2.2.4 ; DÉCISION BUREAU n° 11) : z depuis la face intérieure
+    # de la semelle comprimée ; W_pl,eff en cm³
+    "e_b_eff2": (("eps", "tw"), "20*eps*tw", 2),
+    "e_z_p_eff2": (("hw", "Ac", "b", "tw", "At"), "hw - (Ac + 2*b*tw - At)/tw", 2),
+    "e_W_pl_eff": (("Ac", "zp", "tc", "b", "tw", "hw", "At", "tt"),
+                   "(Ac*(zp + tc/2) + b*tw*(zp - b/2) + b*tw*(b/2) + (hw - zp)**2*tw/2 + At*(hw - zp + tt/2))/1e3", 1),
 }
 GABARITS_EC3_BARRE: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     # flambement (EN 1993-1-1 § 6.3.1) : I en cm⁴, I_w en cm⁶, L en m, forces en kN
@@ -228,8 +234,11 @@ GABARITS_EC3_PRS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
                  "A - n1*(1 - rho1)*c1*t1 - n2*(1 - rho2)*c2*t2 - n3*(1 - rho3)*c3*t3", 0),
     "p_delta_M": (("N", "eN"), "N*eN/1e3", 2),
     # moment critique, contrôle analytique (E.1) de l'annexe E ANB : I_z en cm⁴, I_w en cm⁶, I_t en cm⁴, L en m
-    "p_M_cr_E1": (("C1", "E", "Iz", "kz", "L", "kw", "Iw", "G", "It", "C2", "zg", "C3", "zj"),
-                  "C1*pi**2*E*Iz/(kz*L)**2/1e8*(sqrt((kz/kw)**2*Iw/Iz*1e2 + (kz*L)**2*G*It/(pi**2*E*Iz)*1e6 + (C2*zg - C3*zj)**2) - (C2*zg - C3*zj))", 1),
+    # (E.1) de l'annexe E ANB en DEUX blocs (mise à jour 1) : N_cr,z = π²·E·I_z/(k_z·L)², puis M_cr = C₁·N_cr,z·[√(…) − (…)] —
+    # la racine n'a plus que trois termes courts (en un seul bloc, elle sortait de la colonne de la note)
+    "p_N_cr_E1": (("E", "Iz", "kz", "L"), "pi**2*E*Iz/(kz*L)**2/1e5", 1),
+    "p_M_cr_E1": (("C1", "Ncr", "kz", "kw", "Iw", "Iz", "G", "It", "C2", "zg", "C3", "zj"),
+                  "C1*Ncr*(sqrt((kz/kw)**2*Iw/Iz*1e2 + G*It/Ncr*10 + (C2*zg - C3*zj)**2) - (C2*zg - C3*zj))/1e3", 1),
 }
 GABARITS_EC3: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_EC3_SECTION, **GABARITS_EC3_BARRE, **GABARITS_EC3_AME, **GABARITS_EC3_PRS}
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {**GABARITS_HISTORIQUE, **GABARITS_EC3}

@@ -96,6 +96,13 @@ def texte(h):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", h)).replace("\u00a0", " ").replace("\u202f", " ").split())
 
 
+def cartes(h):
+    """(mise à jour 1, § 1.4 — le harnais suit : le bloc des grosses pastilles est parti, le panneau commence par le nom de la
+    barre, la ligne « Profilé », puis les CARTES) {titre court de la carte : (sa classe, ce qu'on y lit)}."""
+    return {texte(n): (cls, texte(c)) for cls, n, c in
+            re.findall(r'<section class="et-bloc ([a-z]+)" data-theme="\d+">.*?<span class="n">(.*?)</span>(.*?)</section>', h, re.S)}
+
+
 def pastille(t):
     """Le texte de la pastille d'un taux, comme l'écran l'écrit."""
     return f"{C.pc(C.pct(t))} %"
@@ -127,7 +134,7 @@ chk("ses DEUX méthodes tiennent (ELS 88 % — lot B : le déversement des class
     r0["statut"] == "bloque" and r0["ame"]["statut"] == "bloque" and round(th, 2) == 0.88 and round(te, 2) == 0.58
     and neuf["resume"]["statut"] == "À vérifier" and neuf["resume"]["taux"] == C.pct(max(th, te)) and neuf["resume"]["niveau"] == "v"
     and neuf["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)"
-    and "Âme · Décision impossible : s s à saisir (appui A, appui B)" in texte(neuf["resultat"]), (th, te, neuf["resume"]))
+    and texte(neuf["resultat"]).count("décision impossible : s s à saisir") >= 2 and "Âme ·" not in texte(neuf["resultat"]), (th, te, neuf["resume"]))
 # la base décidée : la note neuve, s_s = 100 mm et c = 0 saisis
 DECIDE = enchainer(e0, ("appuis/ss", "100"), ("appuis/c", "0"))
 chk("… s_s = 100 mm et c = 0 saisis : l'âme décide (pas de raidisseur, 22 %) et la note redevient « Conforme »",
@@ -137,10 +144,14 @@ res0 = texte(neuf["resultat"])
 # (lot C, C1, le harnais suit : le poids propre au centre de GRAVITÉ, et non sur la semelle haute avec les charges — M_cr monte,
 #  M_b,Rd 115,6 → 115,7 kN·m)
 # (lot C, C2, le harnais suit : le poids propre et G ont la même répartition, ils font une source et s'écrivent « G »)
-chk("un VERDICT par méthode : le taux du moteur, la vérification qui gouverne, ce qu'elle compare, sa combinaison et son lieu",
-    neuf["resultat"].count('class="verdict"') == 2 and f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in res0
-    and "G + Q · x = 3,00 m" in res0 and f"η {pastille(te)} Eurocode 3 · déversement M y,Ed 66,7 ≤ M b,Rd 115,7 kN·m" in res0
-    and "1,35·G + 1,5·Q · de 0,00 à 3,00 m" in res0 and "Poids propre +" not in res0, res0[:500])
+# (mise à jour 1, § 1.4 — le harnais suit : plus de verdicts en tête ; chaque CARTE dit sa ligne qui gouverne, son taux, ce qu'elle
+#  compare et son lieu — la combinaison est dans sa fenêtre)
+cs0 = cartes(neuf["resultat"])
+chk("une CARTE par méthode, plus de bloc des grosses pastilles : la ligne qui gouverne, son taux (celui du moteur), ce qu'elle compare et son lieu",
+    'class="verdict"' not in neuf["resultat"] and "pf-verdicts" not in neuf["resultat"]
+    and f"Déversement {pastille(th)} σ M 84,2 ≤ σ adm,d 95,3 N/mm² · x = 3,00 m" in cs0["ELS"][1]
+    and f"Déversement {pastille(te)} M y,Ed 66,7 ≤ M b,Rd 115,7 kN·m · de 0,00 à 3,00 m" in cs0["Eurocode 3"][1]
+    and "Poids propre +" not in res0, res0[:500])
 chk("le poids propre de la saisie est celui que le MOTEUR nomme (78,6 kN/m³ × A = 0,42 kN/m) — l'écran ne le recalcule pas",
     round(r0["poids_propre"], 4) == 0.4230 and "(0,42 kN/m)" in texte(neuf["donnees"]), texte(neuf["donnees"])[:300])
 # (lot C, C4 — le harnais suit : la masse n'est plus au pied, le bouton du profilé, à gauche, la dit — une information à un endroit)
@@ -193,16 +204,11 @@ for titre, etat in CAS.items():
     manques = lignes_du_moteur(rep, r)
     chk(f"{titre} : chacune des {n} vérifications du moteur a sa ligne (son titre, son taux) et sa fenêtre de calcul", rep["ok"] and n >= 4 and not manques,
         manques[:3])
-    # les verdicts : le taux le plus fort de chaque méthode. (lot C, C4 — le harnais suit : la méthode ELS n'a jamais le contrôle
-    # hérité H-EQ en tête ; quand il est plus fort, son taux — le plus fort de la méthode — est écrit SOUS le verdict, pas caché)
-    def _dit(k, x):
-        g_ = PR.tete(k, x)
-        if g_ is PR.gouvernante(x):
-            return [f"η {pastille(x['taux_max'])} {PR.M.METHODES[k]}"]
-        h_ = PR.herite_au_dela(x, g_)
-        return [f"η {pastille(g_['taux'])} {PR.M.METHODES[k]}"] + ([f"+ {PR.M.minuscule(h_['titre'])} (contrôle hérité) : {pastille(h_['taux'])}"] if h_ else [])
-    ecarts = [k for k, x in r["methodes"].items() if x["taux_max"] is not None and any(t_ not in texte(rep["resultat"]) for t_ in _dit(k, x))]
-    chk(f"… et chaque verdict porte le taux le plus fort de sa méthode (l'ELS : sous le verdict quand c'est le contrôle hérité) ; le résumé de "
+    # (mise à jour 1, § 1.4 — le harnais suit : plus de verdicts) le taux le plus fort de chaque méthode se lit sur SA carte — celui
+    # du contrôle hérité H-EQ compris, sur sa ligne (lot C, C4 : il ne gouverne jamais la carte, il n'est jamais caché)
+    cs_ = cartes(rep["resultat"])
+    ecarts = [k for k, x in r["methodes"].items() if x["taux_max"] is not None and pastille(x["taux_max"]) not in cs_.get(PR.M.METHODES_COURT[k], ("", ""))[1]]
+    chk(f"… et chaque carte porte le taux le plus fort de sa méthode (le contrôle hérité de l'ELS sur sa propre ligne) ; le résumé de "
         f"la note, le plus fort des deux", not ecarts
         and rep["resume"]["taux"] == C.pct(max(x["taux_max"] for x in r["methodes"].values())), (ecarts, rep["resume"]))
 
@@ -263,9 +269,9 @@ nu = REPONSES["une barre nue que la méthode historique refuse (IPE 300, 6 m san
 chk("une barre que la méthode ELS refuse (139 % — lot B : le déversement des classeurs ; la variante du fascicule donnait 179 %) et que "
     "l'Eurocode refuse aussi (113 % — lot C : le poids propre au centre de gravité, 114 % avant ; lot A : avec le couple (0,2 ; 1,0) de "
     "l'ANB:2018, elle passait à 92 %) : la note est NON CONFORME, les "
-    "deux verdicts se lisent, deux blocs rouges",
+    "deux cartes rouges le disent (mise à jour 1 : plus de verdicts en tête)",
     nu["resume"]["niveau"] == "r" and nu["resume"]["statut"] == "Non conforme" and nu["resume"]["taux"] == 139
-    and "η 139 % Méthode ELS (NBN B 51-001)" in texte(nu["resultat"]) and "η 113 % Eurocode 3" in texte(nu["resultat"])
+    and "Déversement 139 %" in cartes(nu["resultat"])["ELS"][1] and "Déversement 113 %" in cartes(nu["resultat"])["Eurocode 3"][1]
     and nu["resultat"].count('class="et-bloc nok"') == 2, nu["resume"])
 
 print("=== 3. Les saisies")
@@ -389,8 +395,9 @@ chk("passer en « efforts imposés » : les longueurs de flambement que la barre
     "les charges restent dans la note", eb["mode"] == "efforts"
     and eb["flambement"] == {"y": {"L": 6.0, "u": 1.0, "courbe": None}, "z": {"L": 3.0, "u": 1.0, "courbe": None}}
     and eb["cas"] == el0["cas"] and eb["maintiens"] == el0["maintiens"] and ef["message"] is None, eb["flambement"])
-chk("sans effort saisi : « aucun effort à vérifier » pour chaque méthode, aucun bloc ; la note est « Données incomplètes »",
-    texte(ef["resultat"]).count("aucun effort à vérifier") == 2 and 'class="et-bloc ' not in ef["resultat"] and ef["resume"]["niveau"] == "n"
+# (mise à jour 1, § 1.4 — le harnais suit : plus de verdict pour le dire — la carte de chaque méthode le dit, seule, sans ligne)
+chk("sans effort saisi : « Aucun effort à vérifier » sur la carte de chaque méthode, sans ligne ; la note est « Données incomplètes »",
+    list(cartes(ef["resultat"]).values()) == [("inc", "Aucun effort à vérifier")] * 2 and ef["resume"]["niveau"] == "n"
     and ef["resume"]["statut"] == "Données incomplètes" and ef["resume"]["taux"] is None, ef["resume"])
 chk("la rubrique 2 devient « Efforts » (service et ELU côte à côte), la 3 « Flambement et déversement » ; la vue de la barre s'efface",
     [m for m in re.findall(r'<span class="tt">([^<]+)</span>', ef["donnees"])] == ["Barre", "Efforts", "Flambement et déversement", "Méthodes"]
@@ -415,15 +422,16 @@ chk("(lot C) efforts imposés, la note n'imprimant que l'Eurocode 3 : les DEUX c
     and list(moteur(une["etat"]["elements"][0])["methodes"]) == ["historique", "ec3"])
 
 print("=== 5. Les méthodes")
-# (lot C, C0d — le harnais suit : le moteur calcule TOUJOURS les deux méthodes et l'écran les montre toujours, deux verdicts l'un sous l'autre ;
-# le choix ne décide que de ce que la NOTE imprime)
+# (mise à jour 1, § 1.3–1.4 — le harnais suit : le choix est la « MÉTHODE AFFICHÉE », pour l'écran ET la note ; le moteur calcule
+# toujours les deux méthodes ; l'écran ne montre que la carte de la méthode affichée et l'âme, sans comparaison ; le résumé suit les
+# méthodes affichées et l'âme)
 for choix in ("historique", "ec3"):
     out = saisir(e0, "methodes", choix)
     r = moteur(out["etat"]["elements"][0])
-    chk(f"(lot C) la note n'imprime que « {choix} » : l'écran garde ses DEUX verdicts, les deux blocs, l'âme et la comparaison — rien de plus ; "
-        f"le résumé et le calcul ne changent pas", list(r["methodes"]) == ["historique", "ec3"] and out["etat"]["impression"] == choix
-        and out["resultat"].count('class="verdict"') == 2 and re.findall(r'<span class="n">([^<]+)</span>', out["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
-        and out["resume"] == neuf["resume"] and out["resultat"] == neuf["resultat"] and not lignes_du_moteur(out, r), texte(out["resultat"])[:200])
+    chk(f"la méthode affichée « {choix} » : l'écran ne montre que SA carte et celle de l'âme ; le résumé est le sien ; le calcul ne change pas",
+        list(r["methodes"]) == ["historique", "ec3"] and out["etat"]["impression"] == choix
+        and re.findall(r'<span class="n">([^<]+)</span>', out["resultat"]) == [PR.M.METHODES_COURT[choix], "Âme et raidisseurs"]
+        and out["resume"]["taux"] == C.pct(r["methodes"][choix]["taux_max"]) and not lignes_du_moteur(out, P.vue(r, choix)), texte(out["resultat"])[:200])
 hi = saisir(e0, "methodes", "historique")
 chk("(lot C) les options des DEUX méthodes s'affichent toujours (s, C, déversement ; γ) — la case « tolérance de 5 % » est partie (brief § 13.2, "
     "point 5 : non)",
@@ -475,8 +483,10 @@ chk("la barre neuve (s_s et c non saisis) : le bloc « Âme et raidisseurs » (l
     and len(ra["combinaisons"]) == 7
     and all(f"{L['nom']} {pastille(L['taux'])} décision impossible : s s à saisir" in tb and round(L["taux"], 3) == 1.567 for L in ra["lieux"])
     and len(ra["lieux"]) == 2 and "Appui A, appui B : décision impossible : s s à saisir." in tb and ra["taux_max"] is None, tb[:400])
-chk("… sous les verdicts, la ligne « Âme » dit ce qui manque, et ouvre tout le calcul du bloc",
-    'class="pf-vame inc" data-calcul="s3"' in neuf["resultat"] and "Âme · Décision impossible : s s à saisir (appui A, appui B)" in texte(neuf["resultat"]))
+# (mise à jour 1, § 1.4 — le harnais suit : la ligne « Âme » sous les verdicts est partie avec eux)
+chk("… la carte de l'âme dit ce qui manque (son avertissement, en pied) et ouvre tout son calcul ; plus de ligne « Âme » au-dessus des cartes",
+    "pf-vame" not in neuf["resultat"] and 'class="et-tout" data-calcul="s3"' in neuf["resultat"]
+    and "Appui A, appui B : décision impossible : s s à saisir." in cartes(neuf["resultat"])["Âme et raidisseurs"][1])
 rd = moteur(DECIDE["etat"]["elements"][0])["ame"]
 bd = re.search(r'<section class="et-bloc ok" data-theme="3">(.*?)</section>', DECIDE["resultat"], re.S)
 tbd = texte(bd.group(1)) if bd else ""
@@ -524,11 +534,11 @@ rep = req(action="calculer", etat=note(lourde))
 rl = moteur(rep["etat"]["elements"][0])["ame"]
 tr_ = texte(rep["resultat"])
 Lc = next(L for L in rl["lieux"] if L["genre"] == "charge")
-chk("HEB 300, 675 kN à mi-portée : l'âme seule ne suffit pas — sous les verdicts, « Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m) » ; "
+chk("HEB 300, 675 kN à mi-portée : l'âme seule ne suffit pas — la ligne de la charge nomme « 2 plats 140 × 15 mm » (mise à jour 1 : plus de ligne « Âme » sous des verdicts) ; "
     "le bloc dit « 1 raidisseur · 91 % » (aux appuis d'extrémité, σ_x = 0 : le critère 6.2.1(5) à la jonction, 0,910, gouverne le bloc — le "
     "harnais suit : 87 % avant le lot B, brief § 8.2) et sa ligne nomme les plats avant ce qu'ils comparent",
-    rep["ok"] and Lc["decision"] == "raidisseur" and 'class="pf-vame warn" data-calcul="s3"' in rep["resultat"]
-    and "Âme · Raidisseur : 2 plats 140 × 15 mm (charge à 2,00 m)" in tr_ and "Âme et raidisseurs 1 raidisseur · 91 %" in tr_
+    rep["ok"] and Lc["decision"] == "raidisseur" and "pf-vame" not in rep["resultat"]
+    and "Charge à 2,00 m 87 % 2 plats 140 × 15 mm" in tr_ and "Âme et raidisseurs 1 raidisseur · 91 %" in tr_
     and "Appui A 91 % η = 0,910 ≤ 1 · sans raidisseur" in tr_
     and "Charge à 2,00 m 87 % 2 plats 140 × 15 mm · F Ed 675,0 ≤ N c,Rd 775,5 kN" in tr_ and 'class="pf-raid"' in rep["resultat"], tr_[:400])
 fen = re.search(rf'<div class="flyout calcul" id="ck-{re.escape(PR.fenetre("ame", Lc["base"]))}">(.*?)</div></div></div>', rep["volets"], re.S)
@@ -594,14 +604,15 @@ voile = req(action="calculer", etat=note(barre(mode="efforts", profil="IPE 750x1
                                                  efforts={"service": {"N": 0.0, "My": 0.0, "Mz": 0.0, "Vz": 0.0, "Vy": 0.0},
                                                           "elu": {"N": 0.0, "My": 0.0, "Mz": 0.0, "Vz": 1850.0, "Vy": 0.0}})))
 tv = texte(voile["resultat"])
-chk("une âme qui VOILE alors que l'Eurocode 3 passe (IPE 750x134 S355, V_z = 1 850 kN) : « Âme · non conforme — voilement de l'âme par "
-    "cisaillement », le bloc en rouge (107 %), la note NON CONFORME",
-    voile["ok"] and 'class="pf-vame nok"' in voile["resultat"] and "Âme · non conforme — voilement de l'âme par cisaillement" in tv
+chk("une âme qui VOILE alors que l'Eurocode 3 passe (IPE 750x134 S355, V_z = 1 850 kN) : la carte de l'âme en rouge, sa ligne « Voilement de "
+    "l'âme par cisaillement » (107 %), la note NON CONFORME",
+    voile["ok"] and cartes(voile["resultat"])["Âme et raidisseurs"][0] == "nok"
+    and "Voilement de l'âme par cisaillement 107 %" in cartes(voile["resultat"])["Âme et raidisseurs"][1]
     and "Âme et raidisseurs Non conforme · 107 %" in tv and voile["resume"]["niveau"] == "r" and "Eurocode 3 Conforme NBN" in tv, tv[:400])
 chk("… le taux de la barre est alors celui de l'ÂME, qui ne passe pas (107 %, et non les 94 % de l'Eurocode) : le résumé de la note, la ligne "
     "« Profilé » ; une âme qui PASSE ne compte pas — un raidisseur à 98 % ne change pas le taux d'une barre à 74 %",
     voile["resume"]["taux"] == 107 and voile["resume"]["gouvernant"] == "B1 · IPE 750x134 · voilement de l'âme par cisaillement (âme)"
-    and "Profilé IPE 750x134 Eurocode 3" in tv and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"      # (C4 : la ligne sans taux)
+    and re.search(r"Profilé IPE 750x134 (ELS|Eurocode 3) ", tv) is not None and PR.pire(moteur(voile["etat"]["elements"][0]))[0] == "ame"      # (C4 : la ligne sans taux)
     and PR.taux_barre(moteur(rep["etat"]["elements"][0])) == max(x["taux_max"] for x in moteur(rep["etat"]["elements"][0])["methodes"].values())
     and neuf["resume"]["taux"] == 88 and PR.pire(r0)[0] == "historique", (voile["resume"], tv[:300]))
 
@@ -896,11 +907,13 @@ def lot_a():
         ("une barre en S460 se calcule (la méthode ELS est hors de son domaine, NBN B 51-001 : AE235 à AE355) ; sa méthode dit "
          "« Hors domaine · 70 % » (lot B : f_y nominale 460 et déversement des classeurs), jamais « Conforme » ; son bloc est à vérifier (inc) ; "
          "la note « À vérifier » (v), au taux du moteur",
-         hd.get("ok") and "ELS Hors domaine NBN" in t and "η 70 % Méthode ELS" in t and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
+         hd.get("ok") and "ELS Hors domaine NBN" in t and "Déversement 70 %" in cartes(hd["resultat"])["ELS"][1] and '<section class="et-bloc inc" data-theme="1">' in hd["resultat"]
          and hd["resume"]["niveau"] == "v" and hd["resume"]["statut"] == "À vérifier" and hd["resume"]["taux"] == 70
          and "hors domaine, calcul pour information" in t, (hd.get("resume"), hd.get("erreur"), t[:200])),
-        ("… sa grande pastille est ocre (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
-         'class="chip xl v"' in hd.get("resultat", "") and 'fill="#B86E00"' in tx and 'fill="#86EFAC"' in tx, tx[:120]),
+        # (mise à jour 1, § 1.4 — le harnais suit : plus de grande pastille ; les taux de sa carte sont ocres)
+        ("… les taux de sa carte sont ocres (v) ; dans la vue des taux, ses vérifications sont ocres, celles de l'Eurocode 3 restent vertes",
+         re.findall(r'class="pct ([a-z])"', (re.search(r'<section class="et-bloc inc" data-theme="1">(.*?)</section>', hd.get("resultat", ""), re.S)
+                                             or re.match("", "")).group(0)) == ["v", "v"] and 'fill="#B86E00"' in tx and 'fill="#86EFAC"' in tx, tx[:120]),
         ("le poids propre de la saisie est celui que le MOTEUR nomme (« (0,42 kN/m) », 78,6 kN/m³ × A)",
          "Poids propre du profilé (0,42 kN/m)" in texte(nv["donnees"]), texte(nv["donnees"])[:300]),
         ("la fenêtre d'une vérification dit d'où vient f_y : la table unique, son tableau de l'ANB et sa bande d'épaisseur",
@@ -974,16 +987,20 @@ def nom_els():
                                                                                                          for v in r_["vues"]]
     restes = [m_.group(0) for t_ in tout for m_ in re.finditer(r".{0,40}[Hh]istorique.{0,30}", t_)]
     return [
-        ("le verdict de la méthode du bureau la nomme en entier : « Méthode ELS (NBN B 51-001) · déversement » (lot B : la ligne des classeurs)",
-         f"η {pastille(th)} Méthode ELS (NBN B 51-001) · déversement σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in texte(nv["resultat"]), texte(nv["resultat"])[:160]),
+        # (mise à jour 1, § 1.4 — le harnais suit : plus de verdict ; le nom entier est celui des fenêtres et de la rubrique)
+        ("la méthode du bureau : sa carte, en court, gouvernée par le déversement (lot B : la ligne des classeurs) ; son nom en entier, « Méthode ELS "
+         "(NBN B 51-001) », dans ses fenêtres",
+         f"Déversement {pastille(th)} σ M 84,2 ≤ σ adm,d 95,3 N/mm²" in cartes(nv["resultat"])["ELS"][1] and "Méthode ELS (NBN B 51-001)" in texte(nv["volets"]),
+         texte(nv["resultat"])[:160]),
         ("… son bloc porte le titre court « ELS » (la place manque devant « Conforme · 74 % ») ; la comparaison, l'en-tête de colonne « ELS »",
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"]) == ["ELS", "Eurocode 3", "Âme et raidisseurs", "Comparaison"]
          and '<div class="pf-cmp pf-cmp-h"><span></span><span>ELS</span><span>Eurocode 3</span><span>Écart</span></div>' in nv["resultat"],
          re.findall(r'<span class="n">([^<]+)</span>', nv["resultat"])),
         ("la rubrique « Méthodes » : le segment « ELS » (sa clé reste « historique »), le titre « Méthode ELS (NBN B 51-001) », le résumé "
-         "« note : les deux · s 1,5 » (lot C, C3 — le harnais suit : ce que la note imprime, les deux méthodes étant toujours calculées)",
+         "« les deux · s 1,5 » (mise à jour 1, § 1.3 — le harnais suit : « Méthode affichée », pour l'écran et la note)",
          re.search(r'data-chemin="impression" data-sorte="choix" data-valeur="historique"[^>]*>ELS</button>', nv["donnees"]) is not None
-         and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "note : les deux · s 1,5" in texte(nv["donnees"])
+         and '<div class="grp">Méthode ELS (NBN B 51-001)</div>' in nv["donnees"] and "les deux · s 1,5" in texte(nv["donnees"])
+         and "Méthode affichée" in texte(nv["donnees"])
          and 'data-chemin="historique/s"' in nv["donnees"] and nv["etat"]["elements"][0]["methodes"] == ["historique", "ec3"],
          re.findall(r'data-valeur="historique"[^>]*>[^<]*<', nv["donnees"])),
         ("le résumé de la note (l'accueil, la liste des notes) : « déversement (ELS) »", nv["resume"]["gouvernant"] == "B1 · IPE 300 · déversement (ELS)", nv["resume"]),
@@ -1461,23 +1478,21 @@ def maintien_ecran():
                 cas=[{"nom": "G", "nature": "permanent", "N": 0.0, "charges": [{"type": "P", "v": 250.0, "a": 0.5, "ss": None}]}])
     tr2_ = texte(req(action="calculer", etat=note(b2_)).get("resultat", ""))
     return [
+        # (mise à jour 1, § 1.4 — le harnais suit : la BANDE « Âme · … » sous les verdicts est partie avec eux)
         ("la LIGNE du lieu dit le fait et le remède sans le taux, que sa pastille donne (« Charge à 3,00 m 24 % semelle haute sans maintien (…) ; "
-         "ajouter un maintien (À VÉRIFIER) ») ; la BANDE, le lieu en tête (« Âme · Charge à 3,00 m : semelle haute … — 24 % si elle est tenue ; … »), "
-         "jamais « …) (charge à 3,00 m) » ; l'avertissement, la phrase entière ; « si elle est tenue » deux fois (bande, avertissement), jamais "
-         "dans les fenêtres (la -F, le titre du lieu : sans le taux)",
-         f"Charge à 3,00 m 24 % {fait} ; ajouter un maintien (À VÉRIFIER)" in tr_
-         and f"Âme · Charge à 3,00 m : {fait} — 24 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)" in tr_
+         "ajouter un maintien (À VÉRIFIER) ») ; l'avertissement, la phrase entière ; « si elle est tenue » une fois (l'avertissement), jamais "
+         "dans les fenêtres (la -F, le titre du lieu : sans le taux) ; plus de bande « Âme · »",
+         f"Charge à 3,00 m 24 % {fait} ; ajouter un maintien (À VÉRIFIER)" in tr_ and "Âme ·" not in tr_
          and f"Charge à 3,00 m : {fait} — 24 % si elle est tenue ; ajouter un maintien (À VÉRIFIER)." in tr_
-         and "(À VÉRIFIER) (charge" not in tr_ and tr_.count("si elle est tenue") == 2
+         and "(À VÉRIFIER) (charge" not in tr_ and tr_.count("si elle est tenue") == 1
          and f"x = 3,00 m · {fait} ; ajouter un maintien (À VÉRIFIER)" in tv_ and "si elle est tenue" not in tv_,
          re.findall(r".{40}sans maintien.{80}", tr_ + " | " + tv_)[:4]),
-        # (intégration du lot B, point 29 c) s_s manque AUSSI (250 kN à 0,50 m, s_s non saisi, la borne ne passe pas) : la raison finit par une
-        # parenthèse, le lieu passe en tête — sans « décision impossible : » derrière lui (deux « : » de suite)
-        ("la BANDE d'un lieu en tête dont la décision est impossible (s_s à saisir, semelle sans maintien) : « Âme · Charge à 0,50 m : s s à "
-         "saisir ; semelle haute sans maintien (…) », jamais « Charge à 0,50 m : décision impossible : … » (l'avertissement garde sa phrase "
-         "entière)",
-         f"Âme · Charge à 0,50 m : s s à saisir ; {fait}" in tr2_ and "Âme · Charge à 0,50 m : décision impossible" not in tr2_,
-         re.findall(r"Âme · .{90}", tr2_)[:1]),
+        # (intégration du lot B, point 29 c) s_s manque AUSSI (250 kN à 0,50 m, s_s non saisi, la borne ne passe pas). (mise à jour 1,
+        # § 1.4 — le harnais suit : la bande qui mettait le lieu en tête est partie ; la ligne du lieu et l'avertissement le disent)
+        ("un lieu dont la décision est impossible (s_s à saisir, semelle sans maintien) : sa ligne « Charge à 0,50 m … décision impossible : s s "
+         "à saisir ; semelle haute sans maintien (…) » et l'avertissement, sa phrase entière ; plus de bande « Âme · »",
+         f"décision impossible : s s à saisir ; {fait}" in tr2_ and f"Charge à 0,50 m : décision impossible : s s à saisir ; {fait}" in tr2_
+         and "Âme ·" not in tr2_, re.findall(r"Charge à 0,50 m.{90}", tr2_)[:2]),
     ]
 
 
@@ -1485,10 +1500,8 @@ for nom_, ok_, info_ in maintien_ecran():
     chk(nom_, ok_, info_)
 MUTATIONS_MAINTIEN = (
     ("la ligne d'un lieu redit le taux de sa pastille (la raison entière)", M, "decision_lieu", lambda vrai: (lambda L: vrai(dict(L, ligne=None)))),
-    ("la bande met le lieu en queue, après une parenthèse (« …) (charge à 3,00 m) »)", M, "resume_ame",
-     lambda vrai: _source_mutee(M, 'if t.endswith(")") else', 'if False else').resume_ame),
-    ("(point 29 c) le lieu en tête suivi de « décision impossible : »", M, "resume_ame",
-     lambda vrai: _source_mutee(M, "t = t[len(AMEB.DECISION_IMPOSSIBLE):] if t.startswith(AMEB.DECISION_IMPOSSIBLE) else t", "t = t").resume_ame),
+    # (mise à jour 1, § 1.4 — le harnais suit : les deux mutations de la BANDE — resume_ame, le lieu en tête — sont retirées avec
+    # elle : resume_ame ne sert plus qu'à la note d'une âme conforme, où aucune décision n'est impossible)
 )
 for nom_, objet_, attr_, fabrique_ in MUTATIONS_MAINTIEN:
     if not hasattr(objet_, attr_):
@@ -1506,34 +1519,9 @@ for nom_, objet_, attr_, fabrique_ in MUTATIONS_MAINTIEN:
     chk(f"mutation « {nom_} » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
 chk("témoin : sans mutation, les contrôles du maintien à l'écran sont verts", all(ok_ for _n, ok_, _i in maintien_ecran()))
 
-print("=== 18. (intégration du lot B) la ligne « Âme » sous les verdicts écrit s_s en INDICE, comme les lignes du bloc — et sa mutation")
-
-
-def ame_indice():
-    """La ligne « Âme » de la barre neuve (s_s non saisie aux appuis), rejouée sous la mutation : [(nom, vrai ?, info)]."""
-    P._RESULTATS.clear()
-    r_ = req(action="calculer", etat=note())
-    b_ = re.search(r'<button type="button" class="pf-vame[^"]*"[^>]*>(.*?)</button>', r_.get("resultat", ""), re.S)
-    h_ = b_.group(1) if b_ else ""
-    return [("la ligne « Âme » écrit « s<sub>s</sub> à saisir » — ce que l'œil lit, « s s », comme les lignes du bloc ; jamais « s_s » à "
-             "l'écran (le harnais du navigateur l'a trouvé)",
-             "s<sub>s</sub> à saisir" in h_ and "s_s" not in h_ and texte(h_) == "Âme · Décision impossible : s s à saisir (appui A, appui B)",
-             h_[-160:])]
-
-
-for nom_, ok_, info_ in ame_indice():
-    chk(nom_, ok_, info_)
-_vrai_ame = PR.verdict_ame
-try:
-    PR.verdict_ame = _source_mutee(PR, "{M.sub(texte)}</span></button>", "{C.esc(texte)}</span></button>").verdict_ame
-    rouges_ = [n_ for n_, ok_, _i in ame_indice() if not ok_]
-except Exception as err_:  # noqa: BLE001 — une mutation qui fait planter l'écran est vue
-    rouges_ = [f"exception : {err_}"]
-finally:
-    PR.verdict_ame = _vrai_ame
-    P._RESULTATS.clear()
-chk(f"mutation « la ligne « Âme » échappée sans indice (C.esc) » : {len(rouges_)} contrôle(s) rougissent", bool(rouges_))
-chk("témoin : sans mutation, la ligne « Âme » est en indice", all(ok_ for _n, ok_, _i in ame_indice()))
+# === 18. (intégration du lot B) la ligne « Âme » sous les verdicts écrivait s_s en INDICE — (mise à jour 1, § 1.4 — le harnais suit :
+# la ligne est partie avec les verdicts ; l'indice des lignes de la carte de l'âme est lu plus haut, « s s à saisir » dans chaque ligne
+# d'appui, et par le harnais du navigateur : aucun « s_s » à l'écran)
 
 print("=== 19. (lot C, C0) un taux sous son statut, le statut « bloqué », ce que la note imprime, la clé « prs » — et leurs mutations")
 
@@ -1562,28 +1550,30 @@ def lot_c0():
     P._RESULTATS.clear()
     out = []
     h = req(action="calculer", etat=note(_console(5.0)))["resultat"]
-    puces = re.findall(r'<div class="verdict"[^>]*><span class="chip xl ([a-z]+)', h)
-    out.append(("C0b — console 3 m, N = 50 kN : la puce du verdict Eurocode 3 n'est PAS verte (57 %, montré pour information sous « non "
-                "couvert » : « v ») ; dessous, en une ligne, « + 1 non couvert : flexion composée » — une fois",
-                puces == ["r", "v"] and texte(h).count("+ 1 non couvert : flexion composée") == 1, (puces, texte(h)[:300])))
+    cs_ = cartes(h)
+    # (mise à jour 1, § 1.4 — le harnais suit : plus de verdicts ; la carte et sa ligne le disent)
+    out.append(("C0b — console 3 m, N = 50 kN : la carte Eurocode 3 n'est PAS verte (non couvert) ; sa ligne de la flexion composée dit « non "
+                "couvert », une fois ; la carte ELS rouge",
+                cs_["ELS"][0] == "nok" and cs_["Eurocode 3"][0] not in ("ok",) and cs_["Eurocode 3"][1].count("non couvert") >= 1
+                and "Flexion composée et flambement (6.61), (6.62) non couvert" in cs_["Eurocode 3"][1], (cs_.get("ELS", ("",))[0], cs_.get("Eurocode 3"))))
     cmp_ = re.search(r'<div class="pf-cmp"><span>Flexion composée(?:<small[^>]*>[^<]*</small>)?</span>(.*?)</div>', h)     # (C4 : ce qui gouverne)
     out.append(("C0b — … la case Eurocode 3 de « Flexion composée » dans la comparaison (45 %, sous un non couvert) n'est pas verte non plus",
                 cmp_ is not None and re.findall(r'class="chip ([a-z]+)"', cmp_.group(1)) == ["r", "v"], cmp_ and cmp_.group(1)))
     leg = req(action="calculer", etat=note(_console(1.0)))
     # (lot C, C4 — le harnais suit : la ligne « Profilé » n'écrit plus de taux — les verdicts le disent ; ils restent « à vérifier »)
     prof = re.search(r'<div class="els pf-profil">(.*?)</div></div>', leg["resultat"], re.S)
-    puces_ = re.findall(r'<div class="verdict"[^>]*><span class="chip xl ([a-z]+)', leg["resultat"])
-    out.append(("C0b — une console légère (rien ne refuse ; l'Eurocode 3 non couvert, l'ELS hors domaine) : aucune puce verte (les deux « à "
+    puces_ = [c_ for c_, _t in cartes(leg["resultat"]).values()][:2]
+    out.append(("C0b — une console légère (rien ne refuse ; l'Eurocode 3 non couvert, l'ELS hors domaine) : aucune carte verte (les deux « à "
                 "vérifier ») ; la ligne « Profilé » sans taux ; la note « à vérifier »",
-                prof is not None and "%" not in texte(prof.group(1)) and puces_ == ["v", "v"] and leg["resume"]["niveau"] == "v", (puces_, prof and prof.group(1)[:200])))
+                prof is not None and "%" not in texte(prof.group(1)) and puces_ == ["inc", "inc"] and leg["resume"]["niveau"] == "v", (puces_, prof and prof.group(1)[:200])))
     rp = MO.verifier(_prs(30))
-    vp = PR.verdicts(rp)
-    out.append(("C0c — un PRS aux bords non saisis : le verdict ELS dit « Bloqué » en un mot (puce « v », sans taux), sa raison en UNE ligne "
-                "(« Bords des semelles à saisir… ») ; « + 1 bloqué : cisaillement » dessous ; l'en-tête du bloc dit « Bloqué »",
-                rp["methodes"]["historique"]["statut"] == RE.BLOQUE
-                and re.findall(r'class="chip xl ([a-z -]+)"[^>]*>([^<]*)', vp)[0] == ("v pf-mot", "Bloqué")
-                and texte(vp).count("Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué.") == 1
-                and "+ 1 bloqué : cisaillement" in texte(vp) and PR.etat_methode(rp["methodes"]["historique"]) == "Bloqué", texte(vp)[:300]))
+    vp = cartes(PR.blocs(_prs(30), rp)).get("ELS", ("", ""))
+    # (mise à jour 1, § 1.4 — le harnais suit : plus de verdicts ; la carte ELS dit « Bloqué », jamais verte, sa raison en UNE ligne)
+    out.append(("C0c — un PRS aux bords non saisis : la carte ELS dit « Bloqué » (à vérifier, jamais verte), sa raison en UNE ligne "
+                "(« Bords des semelles à saisir… ») ; l'en-tête du bloc dit « Bloqué »",
+                rp["methodes"]["historique"]["statut"] == RE.BLOQUE and vp[0] == "inc" and vp[1].startswith("Bloqué")
+                and vp[1].count("Bords des semelles à saisir (oxycoupés ou larges plats) : verdict bloqué.") == 1
+                and PR.etat_methode(rp["methodes"]["historique"]) == "Bloqué", vp[1][:300]))
     tb_ = re.search(r'<section class="et-bloc inc" data-theme="3">(.*?)</section>', req(action="nouveau")["resultat"], re.S)
     out.append(("C0c — la barre neuve (s_s non saisie : décision de l'âme impossible) : le bloc de l'âme dit « Bloqué »",
                 tb_ is not None and texte(tb_.group(1)).startswith("Âme et raidisseurs Bloqué"), tb_ and texte(tb_.group(1))[:80]))
@@ -1604,9 +1594,11 @@ def lot_c0():
     except ValueError as e_:
         out.append(("C0d — une impression inconnue est refusée", "impression de la note" in str(e_), str(e_)))
     imp = P.normaliser(v2_(b_h))
-    out.append(("C0d — la note qui n'imprime que l'ELS : le moteur calcule quand même LES DEUX méthodes, l'écran montre deux verdicts",
+    # (mise à jour 1, § 1.3–1.4 — le harnais suit : la méthode affichée vaut pour l'écran aussi)
+    out.append(("C0d — la méthode affichée ELS : le moteur calcule quand même LES DEUX méthodes, l'écran ne montre que la carte ELS (et l'âme)",
                 list(MO.verifier(imp["elements"][0])["methodes"]) == ["historique", "ec3"]
-                and req(action="calculer", etat=imp)["resultat"].count('class="verdict"') == 2, imp["impression"]))
+                and re.findall(r'<span class="n">([^<]+)</span>', req(action="calculer", etat=imp)["resultat"]) == ["ELS", "Âme et raidisseurs"],
+                imp["impression"]))
     # C0e — la clé « prs » est gardée et signe le résultat
     p1, p2 = _prs(30), _prs(25)
     out.append(("C0e — deux PRS de plats différents : deux signatures (la clé « prs » est dans COMMUNS), deux résultats",
@@ -1626,8 +1618,9 @@ def _sans_prs(vrai):
 
 
 MUTATIONS_C0 = (
-    ("la puce du verdict peinte au taux seul (C.niveau), sans son statut", P, "R",
-     lambda vrai: _source_mutee(vrai, 'M.couleur_taux(x["statut"], t), xl=True)', 'C.niveau(t), xl=True)')),
+    # (mise à jour 1, § 1.4 — le harnais suit : la puce du verdict est partie ; c'est la CARTE de la méthode qu'on peint au taux seul)
+    ("la carte d'une méthode peinte au taux seul (C.niveau), sans son statut", P, "R",
+     lambda vrai: _source_mutee(vrai, "        niv = niveau_methode(x)", '        niv = C.niveau(x.get("taux_max")) if x.get("taux_max") is not None else "n"')),
     # (lot C, C4 — le harnais suit : la ligne « Profilé » n'a plus de taux ni de couleur ; la mutation qui la peignait au taux seul
     #  devient : la ligne « Profilé » redit le taux de la barre, en vert)
     ("la ligne « Profilé » redit le taux de la barre, en vert", P, "R",
@@ -1636,12 +1629,12 @@ MUTATIONS_C0 = (
     ("la case de la comparaison peinte au taux seul (niveau_taux)", P, "R",
      lambda vrai: _source_mutee(vrai, 'return M.couleur_taux(case["statut"], case["taux"]) if case else "c"',
                                 'return C.niveau(case["taux"]) if case and case["taux"] is not None else "c"')),
-    ("la ligne « + 1 non couvert » retirée du verdict", P, "R", lambda vrai: _source_mutee(vrai, "reste = non_juges(x, g)", 'reste = ""')),
     ("couleur_taux ne connaît plus les statuts à vérifier", M, "STATUTS_A_VERIFIER", lambda vrai: ()),
     ("le statut « bloqué » dit « À vérifier » (le mot du niveau)", PR, "mot_methode",
      lambda vrai: (lambda x: PR.mot_niveau(PR.niveau_methode(x)) if x["statut"] == RE.BLOQUE else vrai(x))),
-    ("la raison d'un verdict bloqué remplacée par sa comparaison", PR, "verdicts",
-     lambda vrai: _source_mutee(PR, 'if g["statut"] == RE.BLOQUE and g["messages"] else', 'if False else').verdicts),
+    # (mise à jour 1 — le harnais suit : la raison d'une méthode bloquée n'est plus au verdict, elle est au pied de sa carte)
+    ("la raison d'une méthode bloquée tue au pied de sa carte", PR, "blocs",
+     lambda vrai: _source_mutee(PR, '        pied = "".join(', '        pied = "" and "".join(').blocs),
     ("une note sans « impression » imprime toujours les deux", P, "_impression_deduite", lambda vrai: (lambda etat: "deux")),
     ("« impression » oubliée à la relecture (toujours déduite)", P, "normaliser",
      lambda vrai: _source_mutee(P, "impression = etat.get(IMPRESSION, _impression_deduite(etat))", "impression = _impression_deduite(etat)").normaliser),
@@ -1767,7 +1760,7 @@ def note_prs():
     deux_ = P.etat_de([P.barre_neuve("B1"), _prs(30)], actif=0)
     rd_ = req(action="calculer", etat=deux_)
     out.append(("reprise C0 — la barre ouverte est un profilé du catalogue, une autre de la note un PRS : l'écran se rend",
-                rd_.get("ok") is True and texte(rd_["resultat"]).count("Méthode ELS") >= 1, str(rd_.get("erreur"))[:200]))
+                rd_.get("ok") is True and "ELS" in cartes(rd_["resultat"]), str(rd_.get("erreur"))[:200]))
     return out
 
 
@@ -1997,9 +1990,9 @@ def conditions_c3():
     out.append(("C3 — les textes inutiles ou faux sont RETIRÉS de la saisie : « 1,33 avec le vent » (sans source), la case « Tolérance de 5 % » "
                 "(13.2 point 5), « k paramètres à confirmer », les aides qui redisaient une infobulle (Charges, Appuis, Maintiens, Efforts), l'aide "
                 "de u fausse (« 2 console »)", not restes, restes))
-    out.append(("C3 — l'aide de u : 13.3 (1 ; 0,80 ; 0,65 ; console : 2,1·L déjà proposé, u = 1) ; « Note (toutes les barres) » ; le champ L_z "
-                "vide dit « auto · 3 » et son origine au survol",
-                html.unescape(d0).count(M.AIDE_U) == 2 and "Note (toutes les barres)" in d0
+    out.append(("C3 — l'aide de u : 13.3 (1 ; 0,80 ; 0,65 ; console : 2,1·L déjà proposé, u = 1) ; « Méthode affichée » (mise à jour 1, § 1.3 — "
+                "le harnais suit : « Note (toutes les barres) » avant) ; le champ L_z vide dit « auto · 3 » et son origine au survol",
+                html.unescape(d0).count(M.AIDE_U) == 2 and "Méthode affichée" in d0
                 and 'placeholder="auto · 3"' in d0 and "Vide : le plus long tronçon entre sections tenues." in html.unescape(d0), ""))
     cond = {}
     # la règle de courte durée et la case « courte durée » : seulement si la barre porte de la neige ou du vent

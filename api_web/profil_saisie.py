@@ -400,7 +400,7 @@ def _gamma(P: Dict, cle: str) -> float:
 def _rubrique_methodes(el: Dict, r: Dict, impression: str) -> str:
     """Ce que la NOTE imprime (``profil.IMPRESSION`` : pour toutes ses barres, E11), puis les paramètres des deux méthodes,
     toujours calculées (lot C, C0d) — chacun seulement là où il compte."""
-    s = C.ligne("Note (toutes les barres)", C.segments(["impression"], impression, M.CHOIX_METHODES), full=True)
+    s = C.ligne("Méthode affichée", C.segments(["impression"], impression, M.CHOIX_METHODES), full=True)
     h = el["historique"]
     s += _titre(M.METHODES["historique"])
     s += C.ligne("coefficient de sécurité", C.num(["historique", "s"], h["s"], "", dec=3, mini=1, maxi=3), "s",
@@ -428,6 +428,11 @@ def _rubrique_methodes(el: Dict, r: Dict, impression: str) -> str:
         if any(c["nature"] in CO.COURTES for c in el["cas"]):
             s += f'<span title="{C.esc(M.AIDE_REGLE_COURTE)}">{C.case(["combinaisons", "regle_courte_duree"], co["regle_courte_duree"], "règle de courte durée")}</span>'
     P = el["parametres"]
+    # (mise à jour 1, § 1.3) les DÉCISIONS BUREAU n° 11 et n° 12, du même composant que « Combinaisons »
+    s += C.ligne("Âme de classe 3", C.segments(["parametres", "ame_classe_3"], P.get("ame_classe_3") or PA.valeur("ame_classe_3"),
+                                               M.AME_CLASSE_3), full=True)
+    s += C.ligne("M<sub>cr</sub>", C.segments(["parametres", "mcr_retenu"], P.get("mcr_retenu") or PA.valeur("mcr_retenu"), M.MCR_RETENU),
+                 full=True)
     s += C.ligne2(("γ<sub>M0</sub>", C.num(["parametres", "gamma_M0"], P.get("gamma_M0"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M0'), 2)}"),
                    "Résistance des sections. Vide : la valeur de l'annexe nationale."),
                   ("γ<sub>M1</sub>", C.num(["parametres", "gamma_M1"], P.get("gamma_M1"), "", dec=3, auto=f"{M.n(PA.valeur('gamma_M1'), 2)}"),
@@ -445,7 +450,7 @@ def _rubrique_methodes(el: Dict, r: Dict, impression: str) -> str:
 
 def _resume_methodes(el: Dict, impression: str = "deux") -> str:
     note = M.minuscule(dict(M.CHOIX_METHODES).get(impression, M.CHOIX_METHODES[0][1]))
-    return f"note : {note} · s {M.n(el['historique']['s'], 2)}"
+    return f"{note} · s {M.n(el['historique']['s'], 2)}"
 
 
 # ------------------------------------------------------------------ la colonne

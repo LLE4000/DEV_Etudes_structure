@@ -75,6 +75,19 @@ PARAMETRES: Dict[str, Dict] = {
                    "variante": None, "valeurs": ("non_couvert",), "point": 9,
                    "source": "EN 1993-1-1 § 6.3.3, annexe D ANB : aucun C_m pour une console — non couvert (défaut v1) ; méthode à fixer "
                              "par le bureau (À VÉRIFIER) — DÉCISION BUREAU n° 9"},
+    # ---- (mise à jour 1 du 18/11/2026) deux DÉCISIONS BUREAU de plus
+    # n° 11 : l'âme de classe 3 d'un I soudé ou d'un PRS en I fléchi selon l'axe fort seul (N = 0, M_z = 0), semelle comprimée
+    # de classe 1 ou 2 : « classe 2 efficace » (W_pl,eff, EN 1993-1-1 § 5.5.2(11) et § 6.2.2.4) ; variante « élastique » (W_el)
+    "ame_classe_3": {"valeur": "classe_2_efficace", "nom": "âme de classe 3 (I soudé, PRS, flexion d'axe fort)", "statut": DECISION,
+                     "variante": "elastique", "valeurs": ("classe_2_efficace", "elastique"), "point": 11,
+                     "source": "NBN EN 1993-1-1:2005 § 5.5.2(11) et § 6.2.2.4 (ANB:2018 sans modification) : classe 2 efficace "
+                               "(défaut) ; variante élastique — DÉCISION BUREAU n° 11"},
+    # n° 12 : le M_cr qui entre dans λ̄_LT : la formule de l'annexe E ANB, tronçon par tronçon (défaut), ou le solveur du module ;
+    # les deux sont toujours calculés et affichés (acier/barre/ec3_deversement.py)
+    "mcr_retenu": {"valeur": "annexe_E", "nom": "M_cr retenu", "statut": DECISION,
+                   "variante": "solveur", "valeurs": ("annexe_E", "solveur"), "point": 12,
+                   "source": "NBN EN 1993-1-1 ANB:2018, annexe E, (E.1) : formule par tronçon (défaut) ; solveur du module (méthode "
+                             "avancée) — DÉCISION BUREAU n° 12"},
     # ---- flexion composée avec instabilité (EN 1993-1-1 § 6.3.3)
     "methode_interaction": {"valeur": "annexe_D_ANB", "nom": "méthode du § 6.3.3", "statut": POINTE,
                             "source": "NBN EN 1993-1-1 ANB:2018, 6.3.3(5) : méthode 1 normative, écrite par l'annexe D ANB (prise comme un tout)"},

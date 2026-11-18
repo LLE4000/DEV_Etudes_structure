@@ -43,7 +43,7 @@ M_cr/M_cr,0 du solveur, les charges ramenées au centre de cisaillement (brief �
 n'est pas employée : l'ANB, note de l'annexe A, renvoie à l'annexe E ANB, de domaine plus large).
 """
 import math
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from acier import formats as FMT
 from acier.flambement import normes as NO
@@ -254,7 +254,7 @@ def ajouter(J: Journal, d: Dict) -> None:
     inconnu = (dev["troncon"] is None and dev["Mcr"] is None and d.get("MyEd", 0.0) < 0 and bool(dev["zg"])
                and bool(tr.get("reparties") or tr.get("ponctuelles")))
     kc, tabule = (dev["kc"], True) if dev["kc"] is not None else coefficient_kc(fl["diagramme"] if dev["troncon"] is None else GENERAL, fl["psi"])
-    nomW = {1: "W_pl,y", 2: "W_pl,y", 3: "W_el,y", 4: "W_eff,y"}[G["classe"]]
+    nomW = "W_pl,eff,y" if G.get("classe_2_efficace") else {1: "W_pl,y", 2: "W_pl,y", 3: "W_el,y", 4: "W_eff,y"}[G["classe"]]
     cles = []
     # ---- le moment critique
     if dev["Mcr"] is not None:
@@ -277,23 +277,21 @@ def ajouter(J: Journal, d: Dict) -> None:
             return
         D.update({"lambda_cr": r["lambda"], "M_max": r["M_max"]})
         cles.append(J.f("M_cr", "M_cr", [_t("λ_cr", r["lambda"]), _t("|M_y|max", r["M_max"] / 1e6, "kN·m")], Mcr / 1e6, "kN·m", "e_M_cr"))
+    # ---- DÉCISION BUREAU n° 12 (mise à jour 1, § 1.2) : la formule de l'annexe E ANB, tronçon par tronçon, et le solveur —
+    # les deux toujours calculés ; celui de la table entre dans λ̄_LT, χ_LT et M_b,Rd (le tronçon qui gouverne : le plus
+    # grand M_Ed/M_b,Rd). Hors domaine, ou une formule au-dessus du solveur de plus de 2 % : le solveur.
+    Mcr_s = Mcr
+    F = None if dev["Mcr"] is not None else formule_annexe_e(d, tr, s, P)
+    alpha_f = min((t_["M_cr"] / t_["M_Ed"] for t_ in F["troncons"] if t_["M_Ed"] > 0), default=None) if F and F["domaine"] else None
+    au_dessus = alpha_f is not None and alpha_f > GARDE_FORMULE * Mcr_s / My
+    retenu = "annexe_E" if (P["mcr_retenu"] == "annexe_E" and alpha_f is not None and not au_dessus) else "solveur"
+    D["mcr"] = {"retenu": retenu, "decision": P["mcr_retenu"], "solveur": Mcr_s, "formule": F, "au_dessus": au_dessus,
+                "x0": (dev["troncon"] or {}).get("x0", 0.0), "entier": (dev["troncon"] or {}).get("entier", dev["troncon"] is None)}
     simple = tr["appuis"] == (MC.FOURCHE, MC.FOURCHE) and not tr["maintiens"]
     if simple:
         Mcr0 = MC.moment_constant(tr["L"], P["E"] * s["Iz"], P["E"] * (s.get("Iw") or 0.0), P["G"] * s["It"], signe * PR.zj_haut(s))
     else:
         Mcr0 = _critique(s, P, tr, moment=lambda x: signe)["M_cr"] or Mcr
-    lbLT = math.sqrt(Wy * fy / Mcr)
-    lb0 = math.sqrt(Wy * fy / Mcr0)
-    # ---- C₁ de l'étape 1 de l'annexe D ANB, selon l'annexe E ANB (méthode avancée admise : le solveur) : M_cr du tronçon,
-    # charges au centre de cisaillement, sur M_cr,0 — calculé seulement si la flexion composée le lira (N_Ed > 0 ou M_z)
-    C1 = 1.0
-    if d["NEd"] > 0 or G["Mz_calcul"] > 0:
-        centre = dev["Mcr"] is None and all(c[-1] == 0.0 for c in (*tr.get("reparties", ()), *tr.get("ponctuelles", ())))
-        Mcr_c = Mcr if centre else _critique(s, P, _au_centre(tr))["M_cr"]
-        C1 = (Mcr_c or Mcr0) / Mcr0
-        D["M_cr_centre"] = Mcr_c
-    cles.append(J.f("lambda_LT", "λ̄_LT", [_t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr", Mcr / 1e6, "kN·m")], lbLT, "",
-                    "e_lambda_LT"))
     # ---- la courbe et le couple (λ̄_LT,0 ; β) de l'ANB:2018, 6.3.2.3(1) : (0,2 ; 1,0), ou la variante si elle est permise
     # (un coefficient de la table s'écrit comme son champ, zéros inutiles ôtés : acier/formats.nb, le formateur des
     # valeurs saisies — jamais le format « g » de Python, qui écrit un point décimal ; test_barre_ecriture le refuse)
@@ -347,6 +345,35 @@ def ajouter(J: Journal, d: Dict) -> None:
         kc, tabule = 1.0, False
         methode = "§ 6.3.2.2"
     alpha = NO.ALPHA[courbe]
+    if retenu == "annexe_E":
+        # le tronçon qui gouverne : le plus grand M_Ed/M_b,Rd (k_c = 1 et f = 1 avec des maintiens : moment constant)
+        if len(F["troncons"]) > 1:
+            kc, tabule = 1.0, False
+
+        def _chi(Mcr_: float, M_: float) -> float:
+            lb_ = math.sqrt(Wy * fy / Mcr_)
+            if lb_ <= seuil or M_ / Mcr_ <= seuil ** 2:
+                return 1.0
+            if methode == METHODE_GENERALE:
+                return chi_general(lb_, alpha)
+            return chi_lamine(lb_, alpha, lbLT0, beta, kc)["chi"]
+
+        gouv = max(F["troncons"], key=lambda t_: t_["M_Ed"] / _chi(t_["M_cr"], t_["M_Ed"]))
+        F["gouvernant"] = F["troncons"].index(gouv)
+        Mcr, My = gouv["M_cr"], gouv["M_Ed"]
+        cles += blocs_e1(J, P, s, gouv["L"], gouv["C1"], gouv["C2"], gouv["C3"], gouv["z_g"], gouv["z_j"], Mcr, "M_cr")
+    lbLT = math.sqrt(Wy * fy / Mcr)
+    lb0 = math.sqrt(Wy * fy / Mcr0)
+    # ---- C₁ de l'étape 1 de l'annexe D ANB, selon l'annexe E ANB (méthode avancée admise : le solveur) : M_cr du tronçon,
+    # charges au centre de cisaillement, sur M_cr,0 — calculé seulement si la flexion composée le lira (N_Ed > 0 ou M_z)
+    C1 = 1.0
+    if d["NEd"] > 0 or G["Mz_calcul"] > 0:
+        centre = dev["Mcr"] is None and all(c[-1] == 0.0 for c in (*tr.get("reparties", ()), *tr.get("ponctuelles", ())))
+        Mcr_c = Mcr_s if centre else _critique(s, P, _au_centre(tr))["M_cr"]
+        C1 = (Mcr_c or Mcr0) / Mcr0
+        D["M_cr_centre"] = Mcr_c
+    cles.append(J.f("lambda_LT", "λ̄_LT", [_t(nomW, Wy / 1e3, "cm³"), _t("f_y", fy, "N/mm²"), _t("M_cr", Mcr / 1e6, "kN·m")], lbLT, "",
+                    "e_lambda_LT"))
     D.update({"cas": CALCULE, "troncon": {"L": tr["L"], "appuis": list(tr["appuis"]), "maintiens": [list(m) for m in tr["maintiens"]]},
               "M_cr": Mcr, "M_cr0": Mcr0, "lambda_LT": lbLT, "lambda_0": lb0, "courbe": courbe, "alpha_LT": alpha, "lambda_LT0": lbLT0,
               "beta": beta, "kc": kc, "kc_tabule": tabule, "C1": C1, "methode": methode, "W_y": Wy})
@@ -403,6 +430,7 @@ def ajouter(J: Journal, d: Dict) -> None:
         m_, c_ = _prs(J, d, D, tr, signe)
         messages += m_
         cles += c_
+    messages = lignes_mcr(D["mcr"]) + messages
     J.verif("E-Mb", "Déversement", f"{REF} ({methode})", "M_y,Ed ≤ M_b,Rd", My / 1e6, MbRd / 1e6, "kN·m", cles, messages=messages)
     niveau = "au centre de cisaillement" if not dev["zg"] else ("sur la semelle haute" if dev["zg"] > 0 else "sous la semelle basse")
     # (le sens se dit quand il compte : un PRS monosymétrique, ou M_y,Ed < 0 — celui que le plus petit M_cr a retenu)
@@ -422,6 +450,138 @@ def ajouter(J: Journal, d: Dict) -> None:
         sc = D["sens_charge"]
         J.hyp.append(f"M_y,Ed < 0, sens de la charge inconnu : le plus petit M_cr des deux sens (montante {_mcr_txt(sc['montante'])}, "
                      f"descendante {_mcr_txt(sc['descendante'])}). À VÉRIFIER.")
+
+
+# ------------------------------------------------------------------ M_cr par la formule (DÉCISION BUREAU n° 12)
+GARDE_FORMULE = 1.02             # la formule dépasse le solveur de plus de 2 % : le solveur est retenu (mise à jour 1, § 1.2)
+
+
+def _moment_simple(L: float, x: float, rep, pon) -> List[float]:
+    """Le moment en ``x`` d'une poutre sur deux appuis de portée ``L`` (mm), charge par charge (N·mm) : la part de chacune
+    dans M_y — réparties (x1, x2, q1, q2, z) intégrées par tranches, ponctuelles (x, P, z)."""
+    parts = []
+    for r_ in rep:
+        x1, x2, q1, q2 = (r_[0], r_[1], r_[2], r_[3]) if len(r_) == 5 else (r_[0], r_[1], r_[2], r_[2])   # (x1, x2, q, z) : uniforme
+        n, m = 40, 0.0
+        for k in range(n):
+            u = x1 + (x2 - x1) * (k + 0.5) / n
+            P = (q1 + (q2 - q1) * (k + 0.5) / n) * (x2 - x1) / n
+            m += P * (L - u) * x / L if x <= u else P * u * (L - x) / L
+        parts.append(m)
+    for u, P, _z in pon:
+        parts.append(P * (L - u) * x / L if x <= u else P * u * (L - x) / L)
+    return parts
+
+
+def formule_annexe_e(d: Dict, tr: Dict, s: Dict, P: Dict) -> Dict:
+    """M_cr par (E.1) de l'annexe E ANB, k_z = k_ω = 1 (mise à jour 1, § 1.2) : {"domaine", "raison" (hors domaine),
+    "troncons" [{"a", "b" (mm, depuis le début du tronçon de la barre), "L", "M_Ed", "M_cr", "C1", "C2", "C3", "z_g", "z_j",
+    "diagramme"}]}. Domaine : deux appuis à fourche, sans débord, moment d'un seul signe. Les tronçons vont d'une section
+    tenue à la suivante (appui à fourche, maintien sur la semelle comprimée ; un maintien de la semelle tendue ne coupe
+    pas) : avec maintiens, chacun sous un moment CONSTANT égal à son |M_y|max (C₁ = 1, C₂ = 0, C₃ = 1) ; sans maintien, la
+    portée avec les coefficients de son diagramme (tableaux E.1 et E.2 ANB) et z_g = la hauteur des charges, moyenne
+    pondérée par la part de chacune dans |M_y|max."""
+    dev, fl = d["deversement"], d["flexion"]["y"]
+
+    def hors(raison: str) -> Dict:
+        return {"domaine": False, "raison": raison, "troncons": []}
+
+    if d.get("console"):
+        return hors("console")
+    if tuple(tr["appuis"]) != (MC.FOURCHE, MC.FOURCHE):
+        return hors("appuis qui ne sont pas des fourches")
+    if dev["troncon"] is not None and not dev["troncon"].get("deux_appuis"):
+        return hors("barre qui n'est pas sur deux appuis sans débord")
+    L = tr["L"]
+    xs = [L * i / 400.0 for i in range(401)]
+    Ms = [tr["moment"](x) for x in xs]
+    Mmax = max(abs(m) for m in Ms)
+    if not Mmax > 0:
+        return hors("moment nul")
+    if min(Ms) < -1e-6 * Mmax and max(Ms) > 1e-6 * Mmax:
+        return hors("moment qui change de signe")
+    sens = 1.0 if max(Ms) > 1e-6 * Mmax else -1.0              # > 0 : la semelle haute est comprimée
+    zp = PR.zj_psi(s, PR.HAUT if sens > 0 else PR.BAS)
+    EIz, EIw, GIt = P["E"] * s["Iz"], P["E"] * (s.get("Iw") or 0.0), P["G"] * s["It"]
+    coupes = sorted(x for x, z in tr["maintiens"] if z * sens > 0 and 1e-6 * L < x < L * (1.0 - 1e-6))
+    if coupes:
+        bornes = [0.0] + coupes + [L]
+        trs = []
+        for a, b in zip(bornes[:-1], bornes[1:]):
+            M_Ed = max(abs(tr["moment"](a + (b - a) * k / 100.0)) for k in range(101))
+            Mcr = MC.annexe_e(b - a, EIz, EIw, GIt, 1.0, 0.0, 1.0, 0.0, zp["z_j"])
+            trs.append({"a": a, "b": b, "L": b - a, "M_Ed": M_Ed, "M_cr": Mcr, "C1": 1.0, "C2": 0.0, "C3": 1.0, "z_g": 0.0, "z_j": zp["z_j"],
+                        "diagramme": "constant"})
+        return {"domaine": True, "raison": None, "troncons": trs}
+    diag = dev.get("diagramme") or (fl["diagramme"] if dev["troncon"] is None else None)
+    if not diag:
+        return hors("diagramme hors des tableaux")
+    charge = diag in MC.E2
+    co = MC.coefficients_annexe_e(diag, fl["psi"], zp["psi_f"], None if charge else MC.kwt(L, EIw, GIt))
+    if co["bloque"]:
+        return hors(co["bloque"])
+    zg = 0.0
+    if charge:
+        rep, pon = tr.get("reparties") or (), tr.get("ponctuelles") or ()
+        if rep or pon:
+            xm = xs[max(range(len(xs)), key=lambda k: abs(Ms[k]))]
+            parts = _moment_simple(L, xm, rep, pon)
+            cotes = [r_[-1] for r_ in rep] + [p_[-1] for p_ in pon]
+            total = sum(parts)
+            zg = sum(w * z for w, z in zip(parts, cotes)) / total if abs(total) > 0 else cotes[0]
+        else:
+            zg = dev["zg"]
+        zg *= sens_charges(tr)
+    Mcr = MC.annexe_e(L, EIz, EIw, GIt, co["C1"], co["C2"], co["C3"], zg, zp["z_j"])
+    return {"domaine": True, "raison": None, "troncons": [{"a": 0.0, "b": L, "L": L, "M_Ed": Mmax, "M_cr": Mcr, "C1": co["C1"], "C2": co["C2"],
+                                                            "C3": co["C3"], "z_g": zg, "z_j": zp["z_j"], "diagramme": diag}]}
+
+
+QUOI_DIAGRAMME = {"constant": "moment constant", "lineaire": "moment linéaire", "reparti": "charge répartie", "ponctuel": "charge au milieu",
+                  "quarts": "charges aux quarts"}
+
+
+def blocs_e1(J: Journal, P: Dict, s: Dict, L: float, C1: float, C2: float, C3: float, zg: float, zj: float, Mcr: float,
+             symbole: str) -> List:
+    """(E.1) de l'annexe E ANB écrite en DEUX blocs (k_z = k_ω = 1) : N_cr,z = π²·E·I_z/(k_z·L)², puis
+    M_cr = C₁·N_cr,z·[√((k_z/k_ω)²·I_ω/I_z + G·I_t/N_cr,z + (C₂·z_g − C₃·z_j)²) − (C₂·z_g − C₃·z_j)] — la même valeur que
+    MC.annexe_e (``Mcr``, N·mm), écrite pour tenir dans une colonne de la note."""
+    Ncr = math.pi ** 2 * P["E"] * s["Iz"] / L ** 2
+    n = J.f("N_cr_E1", "N_cr,z", [_t("E", P["E"], "N/mm²"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("k_z", 1.0), _t("L", L / 1e3, "m")],
+            Ncr / 1e3, "kN", "p_N_cr_E1")
+    m = J.f("M_cr_E1", symbole, [_t("C₁", C1), _t("N_cr,z", Ncr / 1e3, "kN"), _t("k_z", 1.0), _t("k_ω", 1.0),
+                                 _t("I_ω", (s.get("Iw") or 0.0) / 1e6, "cm⁶"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("G", P["G"], "N/mm²"),
+                                 _t("I_t", s["It"] / 1e4, "cm⁴"), _t("C₂", C2), _t("z_g", zg, "mm"), _t("C₃", C3), _t("z_j", zj, "mm")],
+            Mcr / 1e6, "kN·m", "p_M_cr_E1")
+    return [n, m]
+
+
+def lignes_mcr(m: Dict) -> List[str]:
+    """Les deux lignes du M_cr (DÉCISION BUREAU n° 12), à l'écran et dans la note : celui qui est retenu, puis l'autre et
+    son écart (ou pourquoi le solveur est retenu)."""
+    F = m.get("formule")
+    if F is None:                                            # (un M_cr donné : rien à comparer)
+        return []
+    Ms = m["solveur"]
+    ou_s = "poutre entière" if m.get("entier") else "tronçon"
+    if not F["domaine"]:
+        return ["Formule hors domaine : solveur."]                 # (le texte du brief ; la raison est dans D["mcr"])
+    k = F.get("gouvernant")
+    if k is None:                                            # le solveur décide : le tronçon le plus critique de la formule
+        k = min(range(len(F["troncons"])), key=lambda i: F["troncons"][i]["M_cr"] / F["troncons"][i]["M_Ed"] if F["troncons"][i]["M_Ed"] > 0 else 1e99)
+    g = F["troncons"][k]
+    x0 = m.get("x0", 0.0)
+    ou_f = f"tronçon {_fr(x0 + g['a'] / 1e3, 2)} à {_fr(x0 + g['b'] / 1e3, 2)} m, {QUOI_DIAGRAMME.get(g['diagramme'], g['diagramme'])}"
+
+    def ecart(a: float, b: float) -> str:
+        e = round((a / b - 1.0) * 100.0)
+        return f"{'+' if e >= 0 else '−'}{abs(e)} %"
+
+    if m["retenu"] == "annexe_E":
+        return [f"M_cr retenu : formule, {ou_f} = {_fr(g['M_cr'] / 1e6, 1)} kN·m.",
+                f"Solveur ({ou_s}) : {_fr(Ms / 1e6, 1)} kN·m ({ecart(Ms, g['M_cr'])})."]
+    tete = "Formule au-dessus du solveur : solveur retenu." if m.get("au_dessus") else f"M_cr retenu : solveur ({ou_s}) = {_fr(Ms / 1e6, 1)} kN·m."
+    return [tete, f"Formule, {ou_f} : {_fr(g['M_cr'] / 1e6, 1)} kN·m ({ecart(g['M_cr'], Ms)})."]
 
 
 # ------------------------------------------------------------------ les PRS (brief § 18.5)
@@ -467,25 +627,30 @@ def _prs(J: Journal, d: Dict, D: Dict, tr: Dict, signe: float) -> Tuple[list, li
         co = MC.coefficients_annexe_e(diag, fl["psi"], zp["psi_f"], None if charge else MC.kwt(tr["L"], EIw, GIt))
         E: Dict = {"diagramme": diag, "psi_f": zp["psi_f"], "z_j": zp["z_j"], "z_j_approche": zp["z_j_approche"], **co}
         zgs = {c_[-1] for c_ in (*tr.get("reparties", ()), *tr.get("ponctuelles", ()))}
+        F_ = (D.get("mcr") or {}).get("formule")
+        dit = bool(F_ and F_["domaine"])                          # (la décision n° 12 dit déjà la formule et le solveur)
         if co["bloque"]:
-            msgs.append(f"Contrôle (E.1) bloqué : {co['bloque']}.")
+            if not dit:
+                msgs.append(f"Contrôle (E.1) bloqué : {co['bloque']}.")
         elif charge and len(zgs) > 1:
             # (lot C, C1) des charges à plusieurs hauteurs (le poids propre au centre de gravité, les autres sur une semelle) :
             # (E.1) n'a qu'un z_g — le solveur seul (brief § 7.7 et 18.5), dit en une ligne
-            msgs.append("Contrôle (E.1) : charges à plusieurs hauteurs — solveur seul.")
+            if not dit:
+                msgs.append("Contrôle (E.1) : charges à plusieurs hauteurs — solveur seul.")
         else:
             # z_g de l'annexe E ANB, 2(8) : positif quand la charge va VERS le centre de cisaillement depuis son point
             # d'application — la cote de la charge, retournée si elle monte (un soulèvement, en barre chargée)
             zg = dev["zg"] * sens_charges(tr) if charge else 0.0
             Mcr_E = MC.annexe_e(tr["L"], EIz, EIw, GIt, co["C1"], co["C2"], co["C3"], zg, zp["z_j"])
-            E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / D["M_cr"] - 1.0})
-            E["formule"] = J.f("M_cr_E1", "M_cr,E.1", [_t("C₁", co["C1"]), _t("E", P["E"], "N/mm²"), _t("I_z", s["Iz"] / 1e4, "cm⁴"), _t("k_z", 1.0),
-                                                       _t("L", tr["L"] / 1e3, "m"), _t("k_ω", 1.0), _t("I_ω", s["Iw"] / 1e6, "cm⁶"),
-                                                       _t("G", P["G"], "N/mm²"), _t("I_t", s["It"] / 1e4, "cm⁴"), _t("C₂", co["C2"]), _t("z_g", zg, "mm"),
-                                                       _t("C₃", co["C3"]), _t("z_j", zp["z_j"], "mm")], Mcr_E / 1e6, "kN·m", "p_M_cr_E1")
-            cles.append(E["formule"])
+            E.update({"z_g": zg, "M_cr": Mcr_E, "ecart": Mcr_E / (D.get("mcr") or {}).get("solveur", D["M_cr"]) - 1.0})
+            if not (dit and D["mcr"]["retenu"] == "annexe_E"):
+                # (mise à jour 1) la formule RETENUE a déjà son bloc « M_cr_E1 » (décision n° 12) : pas une seconde fois
+                bl = blocs_e1(J, P, s, tr["L"], co["C1"], co["C2"], co["C3"], zg, zp["z_j"], Mcr_E, "M_cr,E.1")
+                E["formule"] = bl[-1]
+                cles += bl
             ecart = round(E["ecart"] * 100, 2) + 0.0                # (arrondi d'abord : un écart nul s'écrit « +0,00 % »)
-            msgs.append(f"Contrôle (E.1) : M_cr = {_fr(Mcr_E / 1e6, 1)} kN·m ({'+' if ecart >= 0 else '−'}{_fr(abs(ecart), 2)} %).")
+            if not dit:
+                msgs.append(f"Contrôle (E.1) : M_cr = {_fr(Mcr_E / 1e6, 1)} kN·m ({'+' if ecart >= 0 else '−'}{_fr(abs(ecart), 2)} %).")
         D["annexe_E"] = E
     if s["monosymetrique"]:
         J.hyp.append(f"PRS monosymétrique, semelle {'haute' if signe > 0 else 'basse'} comprimée : ψ_f = "

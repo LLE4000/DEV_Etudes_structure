@@ -8,7 +8,8 @@ api_web/dessin_barre.py), vérifiés en Python ordinaire, à travers le routeur 
      déclenchent (``pcr_u`` : u ≠ 1 ; ``phi_min`` : u_y·L_y ≠ u_z·L_z) ; jamais un choix du bureau.
   3. AVANT / APRÈS RAIDISSEUR (brief § 15.4) — test 18 du § 11.5 : 387,8 kN ; 1,160 ; 1 002,2 kN ; 0,449 ; 0,909 ; le rappel
      sur τ ; aucun tableau sans raidisseur proposé.
-  4. UNE INFORMATION À UN ENDROIT — R2 : le taux de chaque méthode écrit une fois au niveau de la méthode (le verdict) ; ni la
+  4. UNE INFORMATION À UN ENDROIT — R2 : le taux de chaque méthode n'est plus écrit au niveau de la méthode (mise à jour 1 : le
+     bloc des grosses pastilles est parti) — seulement sur ses lignes et dans les cases de la comparaison ; ni la
      masse ni le taux de la barre à la ligne « Profilé » ; l'ELS jamais en tête par le contrôle hérité (H-EQ), mais par la
      plus forte des autres ; P_cr caché sans effort normal dans la vérification ; une fenêtre de vérification sans les hypothèses de sa méthode ; « sans raidisseur » une fois.
   5. -FM écrit comme la norme — « η₂ + 0,8·η₁ = 0,513 ≤ 1,4 », taux 0,366 ; à l'écran et dans la note PDF.
@@ -164,13 +165,13 @@ def controles():
     try:
         rP = suite(("prs", "prs"), *[(f"prs/{k}", v) for k, v in (("b1", "300"), ("t1", "30"), ("hw", "540"), ("tw", "15"), ("b2", "300"),
                                                                   ("t2", "30"), ("a", "6"))])
-        v0 = re.search(r'<div class="verdict"[^>]*>(.*?)</div></div>', rP["resultat"], re.S).group(1)
-        puce = re.search(r'<span class="chip xl ([a-z])[^"]*"[^>]*>(.*?)</span>', v0)
-        c("1. PRS aux bords non saisis : la méthode ELS « Bloqué » se rend (résultat, fenêtres, vues : pas de KeyError) — la puce dit le MOT, "
-          "jamais un taux pour information, jamais verte ; la raison en une ligne ; l'en-tête du bloc « Bloqué »",
-          puce is not None and puce.group(1) not in ("p", "f") and texte(puce.group(2)) == "Bloqué" and "Bords des semelles à saisir" in v0
+        # (mise à jour 1, § 1.4 — le harnais suit : plus de puce de verdict ; la CARTE ELS dit le mot, jamais verte, sa raison en pied)
+        v0 = re.search(r'<section class="et-bloc ([a-z]+)" data-theme="1">(.*?)</section>', rP["resultat"], re.S)
+        c("1. PRS aux bords non saisis : la méthode ELS « Bloqué » se rend (résultat, fenêtres, vues : pas de KeyError) — sa carte dit le MOT "
+          "dans son en-tête, jamais verte ; la raison en une ligne",
+          v0 is not None and v0.group(1) not in ("ok",) and texte(v0.group(2)).count("Bords des semelles à saisir") == 1
           and re.search(r'<span class="n">ELS</span><span class="e">Bloqué</span>', rP["resultat"]) is not None and rP["volets"] and rP["vues"],
-          v0[:300])
+          v0.group(2)[:300] if v0 else None)
         dev_ = re.search(r'<div class="el vc[^"]*" data-calcul="h-H-DEV"[^>]*><div class="l1">.*?<span class="pct ([a-z])"[^>]*>(.*?)</span>', rP["resultat"], re.S)
         c("1. … sa ligne « Déversement », bloquée, montre le taux calculé pour information (en larges plats) — jamais en vert",
           dev_ is not None and dev_.group(1) not in ("p", "f") and "%" in texte(dev_.group(2)), dev_.groups() if dev_ else None)
@@ -241,15 +242,15 @@ def controles():
     e2, r2, m2 = ecran(barre(**R2))
     col = texte(r2["resultat"])
     ts = {k: str(round(100 * x["taux_max"])) for k, x in m2["methodes"].items()}
-    # au niveau de la MÉTHODE, le taux n'est écrit qu'au verdict : le reste vient des lignes (une vérification) et des cases de
-    # la comparaison (un sujet) qui portent le même chiffre
+    # (mise à jour 1, § 1.4 — le harnais suit : le verdict est parti) au niveau de la MÉTHODE, le taux n'est plus écrit : il vient des
+    # lignes (une vérification) et des cases de la comparaison (un sujet) qui portent le même chiffre
     lignes_ = [str(C_.pct(v["taux"])) for x in m2["methodes"].values() for v in x["verifications"] if v["taux"] is not None]
     cases = [str(C_.pct(li[k]["taux"])) for li in m2["comparaison"] for k in ("historique", "ec3") if li[k] and li[k]["taux"] is not None]
-    attendu = {t: 1 + lignes_.count(t) + cases.count(t) for t in ts.values()}
+    attendu = {t: lignes_.count(t) + cases.count(t) for t in ts.values()}
     obtenu = {t: compte(col, t) for t in ts.values()}
-    c(f"4. R2 : le taux de chaque méthode n'est écrit qu'UNE fois au niveau de la méthode, au verdict — compté dans la colonne : avant "
-      f"{AVANT_R2}, après {obtenu} (verdict + lignes + cases de la comparaison)",
-      ts == {"historique": "144", "ec3": "110"} and obtenu == attendu == {"144": 5, "110": 3} and all(obtenu[t] < AVANT_R2[t] for t in obtenu),
+    c(f"4. R2 : le taux de chaque méthode n'est plus écrit au niveau de la méthode — seulement sur ses lignes et dans la comparaison ; compté "
+      f"dans la colonne : avant {AVANT_R2}, après {obtenu}",
+      ts == {"historique": "144", "ec3": "110"} and obtenu == attendu == {"144": 4, "110": 2} and all(obtenu[t] < AVANT_R2[t] for t in obtenu),
       (ts, obtenu, attendu))
     prof = re.search(r'<div class="els pf-profil">(.*?)</div></div>', r2["resultat"], re.S)
     entetes = re.findall(r'<span class="n">(.*?)</span><span class="e">(.*?)</span>', r2["resultat"])
@@ -258,19 +259,21 @@ def controles():
       prof is not None and "%" not in texte(prof.group(1)) and "kg/m" not in texte(prof.group(1))
       and all("%" not in texte(e) for n_, e in entetes if n_ in ("ELS", "Eurocode 3", "Comparaison")) and "kg/m" not in col
       and "kg/m" in texte(r2["donnees"]), (prof.group(1)[:200] if prof else None, entetes))
-    v_els = texte(re.search(r'<div class="verdict"[^>]*>(.*?)</div></div>', r2["resultat"], re.S).group(1))
-    c("4. R2, méthode ELS : le verdict est le DÉVERSEMENT (143,7 %), jamais le contrôle hérité H-EQ (143,8 %, ne décide jamais seul) ; la "
-      "ligne marquée du bloc est la même ; même écrit, le contrôle hérité ne s'ajoute pas sous le verdict (144 % des deux côtés)",
-      v_els.startswith("η 144 % Méthode ELS (NBN B 51-001) · déversement") and "contrôle hérité" not in v_els
-      and 'data-calcul="h-H-DEV" title="Voir le détail"' in re.search(r'<div class="el vc gov"[^>]*>', r2["resultat"]).group(0), v_els)
+    gov2 = re.search(r'<div class="el vc gov"[^>]*><div class="l1"><b>(.*?)</b><span class="pct[^"]*"[^>]*>(.*?)</span>', r2["resultat"])
+    c("4. R2, méthode ELS : la ligne marquée de sa carte est le DÉVERSEMENT (143,7 %), jamais le contrôle hérité H-EQ (143,8 %, ne décide "
+      "jamais seul) ; le contrôle hérité garde sa ligne et son taux (144 % des deux côtés)",
+      gov2 is not None and gov2.group(1) == "Déversement" and texte(gov2.group(2)) == "144 %"
+      and 'data-calcul="h-H-DEV" title="Voir le détail"' in re.search(r'<div class="el vc gov"[^>]*>', r2["resultat"]).group(0)
+      and texte((re.search(r'data-calcul="h-H-EQ"[^>]*><div class="l1"><b>Contrainte équivalente</b><span class="pct[^"]*"[^>]*>(.*?)</span>', r2["resultat"])
+                 or re.match("()", "")).group(1)) == "144 %",
+      gov2.groups() if gov2 else None)
     faux = {"gouvernant": "H-EQ", "taux_max": 1.50, "statut": RE.NOK,
             "verifications": [{"id": "H-DEV", "titre": "Déversement", "taux": 0.90, "statut": RE.OK},
                               {"id": "H-EQ", "titre": "Contrainte équivalente", "taux": 1.50, "statut": RE.NOK}]}
     t_ = PR.tete("historique", faux)
-    c("4. … le contrôle hérité plus fort que le reste (150 % contre 90 %) : le verdict montre le déversement, et le contrôle hérité ne "
-      "disparaît pas — il est dit sous le verdict ; l'Eurocode 3 garde son gouvernant",
-      t_ is not None and t_["id"] == "H-DEV" and (PR.herite_au_dela(faux, t_) or {}).get("id") == "H-EQ"
-      and PR.tete("ec3", dict(faux, gouvernant="H-EQ"))["id"] == "H-EQ", t_)
+    c("4. … le contrôle hérité plus fort que le reste (150 % contre 90 %) : la ligne marquée est le déversement (le contrôle hérité garde sa "
+      "ligne, avec son taux) ; l'Eurocode 3 garde son gouvernant",
+      t_ is not None and t_["id"] == "H-DEV" and PR.tete("ec3", dict(faux, gouvernant="H-EQ"))["id"] == "H-EQ", t_)
     rEQ = suite(("mode", "efforts"), ("efforts/service/N", "50"), ("efforts/service/My", "20"), ("efforts/service/Vz", "300"),
                 ("efforts/elu/N", "75"), ("efforts/elu/My", "30"), ("efforts/elu/Vz", "450"))
     xEQ = mod("profil").calculer(rEQ["etat"]["elements"][0])["methodes"]["historique"]
@@ -278,16 +281,16 @@ def controles():
     juges = [v for v in xEQ["verifications"] if v["id"] not in M.HERITES and v["statut"] in RE.JUGES and v["taux"] is not None]
     plus = max(juges, key=lambda v: v["taux"])
     hEQ = next(v for v in xEQ["verifications"] if v["id"] == "H-EQ")
-    vEQ = re.search(r'<div class="verdict" data-calcul="([^"]+)"[^>]*>(.*?)</div></div>', rEQ["resultat"], re.S)
-    tEQ = texte(vEQ.group(2)) if vEQ else ""
-    govEQ = re.search(r'<div class="el vc gov"[^>]*>', rEQ["resultat"])
-    c("4. … (reprise) H-EQ gouverne (N + M_y + V_z : 138 %) et QUATRE vérifications non héritées ont un taux jugé : le verdict ELS montre la "
-      "PLUS FORTE d'entre elles (flexion composée, 48 %), jamais une plus faible ; la ligne marquée du bloc est la même ; le contrôle hérité, "
-      "écrit plus haut, est dit dessous",
-      xEQ["gouvernant"] == "H-EQ" and len(juges) == 4 and plus["id"] == "H-SIGMA" and vEQ is not None and vEQ.group(1) == "h-H-SIGMA"
-      and tEQ.startswith(f"η {C_.pc(C_.pct(plus['taux']))} % Méthode ELS (NBN B 51-001) · flexion composée")
-      and f"+ contrainte équivalente (contrôle hérité) : {C_.pc(C_.pct(hEQ['taux']))} %" in tEQ
-      and govEQ is not None and 'data-calcul="h-H-SIGMA"' in govEQ.group(0), (tEQ, [(v["id"], round(v["taux"], 3)) for v in juges]))
+    govEQ = re.search(r'<div class="el vc gov"[^>]*><div class="l1"><b>(.*?)</b><span class="pct[^"]*"[^>]*>(.*?)</span>', rEQ["resultat"])
+    ligneEQ = re.search(r'data-calcul="h-H-EQ"[^>]*><div class="l1"><b>Contrainte équivalente</b><span class="pct[^"]*"[^>]*>(.*?)</span>', rEQ["resultat"])
+    c("4. … (reprise) H-EQ gouverne (N + M_y + V_z : 138 %) et QUATRE vérifications non héritées ont un taux jugé : la ligne marquée de la "
+      "carte ELS est la PLUS FORTE d'entre elles (flexion composée, 48 %), jamais une plus faible ; le contrôle hérité, plus haut, garde sa "
+      "ligne et son taux (mise à jour 1 — le harnais suit : plus de verdict où le dire)",
+      xEQ["gouvernant"] == "H-EQ" and len(juges) == 4 and plus["id"] == "H-SIGMA" and govEQ is not None
+      and 'data-calcul="h-H-SIGMA"' in re.search(r'<div class="el vc gov"[^>]*>', rEQ["resultat"]).group(0)
+      and govEQ.group(1) == "Flexion composée" and texte(govEQ.group(2)) == f"{C_.pc(C_.pct(plus['taux']))} %"
+      and ligneEQ is not None and texte(ligneEQ.group(1)) == f"{C_.pc(C_.pct(hEQ['taux']))} %",
+      (govEQ.groups() if govEQ else None, [(v["id"], round(v["taux"], 3)) for v in juges]))
     rS = suite(("mode", "efforts"), ("efforts/service/My", "20"), ("efforts/service/Mz", "3"), ("efforts/elu/My", "30"), ("efforts/elu/Mz", "4"))
     rSP = suite(("mode", "efforts"), ("efforts/service/N", "40"), ("efforts/service/My", "20"), ("efforts/service/Mz", "3"),
                 ("efforts/elu/N", "60"), ("efforts/elu/My", "30"), ("efforts/elu/Mz", "4"))
@@ -446,7 +449,7 @@ def muter(nom_mod, ancien, nouveau):
 
 PRm, MOm, DBm, NPm = "api_web.profil_resultat", "api_web.profil_mots", "api_web.dessin_barre", "api_web.note_profil"
 MUTATIONS = [
-    (PRm, "une méthode bloquée : la puce montre le taux pour information", "if g is not gouvernante(x) else", "if g.get(\"taux\") is not None else"),
+    # (mise à jour 1, § 1.4 — le harnais suit : la puce du verdict est partie ; « bloqué » peint en vert reste muté juste dessous)
     (MOm, "« bloqué » peint dans la couleur de son taux (vert)", "STATUTS_A_VERIFIER = (RE.BLOQUE, RE.NON_COUVERT, RE.HORS_DOMAINE)",
      "STATUTS_A_VERIFIER = (RE.NON_COUVERT, RE.HORS_DOMAINE)"),
     (PRm, "la ligne « n corrections des classeurs » oubliée", '    if not n_:\n        return ""\n    return (f\'<div class="el vc pf-lecarts"',
@@ -470,7 +473,6 @@ MUTATIONS = [
     (PRm, "le contrôle hérité H-EQ remis en tête du verdict ELS", '    if k != "historique" or g is None or g["id"] not in M.HERITES:', "    if True:"),
     (PRm, "le verdict ELS montre la plus FAIBLE des vérifications non héritées", 'return max(autres, key=lambda v: v["taux"]) if autres else g',
      'return min(autres, key=lambda v: v["taux"]) if autres else g'),
-    (PRm, "le contrôle hérité plus fort tu sous le verdict", "                 and C.pct(v[\"taux\"]) > C.pct(t[\"taux\"])), None)", "                 and False), None)"),
     (PRm, "P_cr montré sans effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)', "    sans_P = False"),
     (PRm, "P_cr caché aussi sous un effort normal", '    sans_P = x.get("methode") == "historique" and not effort_normal(par, v)',
      '    sans_P = x.get("methode") == "historique"'),

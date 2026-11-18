@@ -133,8 +133,10 @@ def controles():
       all(len(t) <= 200 and re.search(r"\b(EN|ANB)\b", t) for t in textes), [t for t in textes if len(t) > 200][:2])
     dec = PA.decisions()
     attendu = [("eta1_ame", 1, "elastique", "plastique"), ("contact_inconnu", 2, "non", "oui"), ("avy_lamine", 3, "2btf", "A_moins_hwtw"),
-               ("methode_deversement_lamines", 4, "6.3.2.3", "6.3.2.2"), ("console_NM", 9, "non_couvert", None), ("prs_soudee_equivalente", 10, False, True)]
-    c("les DÉCISIONS BUREAU de C0 (n° 1, 2, 3, 4, 9, 10) : statut « decision », le défaut et la variante du brief § 13.2, la source "
+               ("methode_deversement_lamines", 4, "6.3.2.3", "6.3.2.2"), ("console_NM", 9, "non_couvert", None), ("prs_soudee_equivalente", 10, False, True),
+               # (mise à jour 1 du 18/11/2026 : deux décisions de plus — le harnais suit)
+               ("ame_classe_3", 11, "classe_2_efficace", "elastique"), ("mcr_retenu", 12, "annexe_E", "solveur")]
+    c("les DÉCISIONS BUREAU (n° 1, 2, 3, 4, 9, 10 ; 11 et 12 de la mise à jour 1) : statut « decision », le défaut et la variante, la source "
       "nomme son numéro (un défaut changé ici rougit)",
       [(d["cle"], d["point"], d["valeur"], d["variante"]) for d in dec] == attendu
       and all(f"DÉCISION BUREAU n° {d['point']}" in d["source"] for d in dec), [(d["cle"], d["point"], d["valeur"]) for d in dec])

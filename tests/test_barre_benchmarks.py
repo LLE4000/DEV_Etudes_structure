@@ -76,7 +76,9 @@ def main():
     # relevées au lot 3 par la recherche ; la page elle-même n'est pas lisible) — valeurs de référence : brief § 11.4
     ref = {"mu_y": 1.00, "w_y": 1.138, "mu_z": 0.937, "w_z": 1.5, "C_mz0": 0.771, "M_cr0": 899.0, "lambda_0": 0.757, "a_LT": 0.998,
            "C_my0": 0.999, "b_LT": 0.043, "c_LT": 0.468, "d_LT": 0.347, "e_LT": 0.719, "C_yy": 0.981}
-    r = barre("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6,
+    # (mise à jour 1 : le harnais suit) les lectures de χ_LT ci-dessous sont faites au λ̄_LT du SOLVEUR (M_cr 1 227,2 kN·m) : la
+    # variante de la décision n° 12 ; avec la formule de l'annexe E ANB (le défaut), M_cr = 1 215,2 et le module lit 0,809
+    r = barre("IPE 500", "S235", 3750.0, NEd=500e3, MyEd=200e6, MzEd=25e6, parametres={"mcr_retenu": "solveur"},
               flexion={"y": {"diagramme": "ponctuel"}, "z": {"diagramme": "lineaire", "psi": 0.0}})
     A, D = r["grandeurs"]["annexe_A"], r["grandeurs"]["deversement"]
     site = dict(A, M_cr0=D["M_cr0"] / 1e6, lambda_0=D["lambda_0"])

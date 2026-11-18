@@ -188,6 +188,9 @@ def barre_annexe(nom, fy, L, N, My, Mz, dy, dz, alphas, classe, torsion=True, se
 
 
 # ------------------------------------------------------------------ les contrôles de référence (rejoués par les mutations)
+SOLVEUR_ELASTIQUE = {"mcr_retenu": "solveur", "ame_classe_3": "elastique"}
+
+
 def controles(M=None):
     """[(nom, ok, info)] — ``M`` : les modules à contrôler {"mcr", "ec3_flambement", "ec3_deversement",
     "ec3_interaction", "ec3"} (les mutations y passent leurs copies altérées)."""
@@ -200,6 +203,10 @@ def controles(M=None):
 
     def v(nom, nuance, L=None, **k):
         b = {"section": nom if isinstance(nom, dict) else SE.du_catalogue(nom), "nuance": nuance, **k}
+        # (mise à jour 1 : le harnais suit) ces contrôles valident le SOLVEUR de M_cr et la section élastique (valeurs R1,
+        # R3, R4, I soudé… du brief v12) : ils gardent ces deux réglages ; la formule de l'annexe E ANB (décision n° 12) et la
+        # classe 2 efficace (n° 11), les défauts d'aujourd'hui, sont figées par tests/test_barre_maj1.py
+        b["parametres"] = {**SOLVEUR_ELASTIQUE, **(b.get("parametres") or {})}
         if L is not None:
             b.setdefault("axes", {"y": {"L": L}, "z": {"L": L}})
         return ec.verifier(b)
@@ -458,7 +465,9 @@ def controles(M=None):
         t661 = next((t for t in par["eq_661"]["termes"] if t["symbole"].startswith("χ_LT")), None) if "eq_661" in par else None
         lb = r["grandeurs"]["deversement"]["lambda_LT"]
         return {"nom": mb["symbole"], "valeur": mb["valeur"], "ligne": ligne and (ligne["gabarit"], ligne["resultat"]),
-                "messages": list(verif(r, "E-Mb")["messages"]), "661": t661 and (t661["symbole"], t661["valeur"]),
+                # (mise à jour 1 : les deux lignes du M_cr, décision n° 12, sont toujours là — le harnais suit)
+                "messages": [m for m in verif(r, "E-Mb")["messages"] if not m.startswith(("M_cr retenu", "Formule", "Solveur"))],
+                "661": t661 and (t661["symbole"], t661["valeur"]),
                 "critere": (verif(r, "E-661") or {}).get("critere", ""), "lb": lb, "chi": min(chi_de(lb, 0.34, 0.2, 1.0), 1 / lb ** 2)}
 
     def f_de(kc, lb):
@@ -1128,7 +1137,7 @@ MUTATIONS = [
     ("ec3_deversement", "lot B — C₁ = k_c⁻² (AC:2009) au lieu de l'annexe E ANB (le solveur)", "        C1 = (Mcr_c or Mcr0) / Mcr0\n",
      "        C1 = 1.0 / kc ** 2\n"),
     ("ec3_deversement", "lot B — C₁ avec la hauteur de charge (non ramenée au centre de cisaillement)",
-     'Mcr_c = Mcr if centre else _critique(s, P, _au_centre(tr))["M_cr"]', "Mcr_c = Mcr"),
+     'Mcr_c = Mcr_s if centre else _critique(s, P, _au_centre(tr))["M_cr"]', "Mcr_c = Mcr_s"),
     ("ec3_deversement", "lot B — k_c : la bi-encastrée prise comme deux appuis (0,94)", '("bi_enc", REPARTI): 0.90', '("bi_enc", REPARTI): 0.94'),
     ("ec3_deversement", "lot B — k_c : l'encastrée-appuyée sous charge centrale prise comme deux appuis", '("enc_app", PONCTUEL): 0.82', '("enc_app", PONCTUEL): 0.86'),
     ("ec3_deversement", "lot B — k_c : une charge répartie PARTIELLE prise comme répartie", 'ch.get("a", 0.0) <= tol and ch.get("b", L) >= L - tol', "True"),

@@ -431,7 +431,11 @@ def cas_prs() -> List[Dict]:
         att = {8: 89.68, 2: 42.91, 18: 118.3}[n]
         br = [("ELS, σ_adm,d (N/mm²)", att, _limite(h, "H-DEV"), TOL_BRIEF), ("ELS, σ = M/W (N/mm²)", 117.08, _v(h, "H-DEV") and _v(h, "H-DEV")["valeur"], TOL_BRIEF)]
         if n == 8:
-            br += [("EC3, M_Ed (kN·m)", 4199.3, _v(e, "E-Mb") and _v(e, "E-Mb")["valeur"], TOL_BRIEF), ("EC3, taux de déversement", 0.967, _taux(e, "E-Mb"), TOL_BRIEF)]
+            # (mise à jour 1) le 0,967 du brief est celui du SOLVEUR et de la section ÉLASTIQUE : les variantes des décisions
+            # n° 12 et n° 11 ; les défauts d'aujourd'hui (formule de l'annexe E, classe 2 efficace) sont au tableau du cas
+            eb = MO.verifier(dict(b, parametres={"mcr_retenu": "solveur", "ame_classe_3": "elastique"}))["methodes"]["ec3"]
+            br += [("EC3, M_Ed (kN·m)", 4199.3, _v(e, "E-Mb") and _v(e, "E-Mb")["valeur"], TOL_BRIEF),
+                   ("EC3, taux de déversement (solveur, section élastique)", 0.967, _taux(eb, "E-Mb"), TOL_BRIEF)]
         out.append(_du_moteur(G5, nom, r, _donnees("PRS 1500 (300 × 30 / 1 420 × 25 / 500 × 50, oxycoupé)", "S235", 28.0,
                                                    "barre chargée, exécution (ψ₀ = 1,0)", "béton + travail 23,20 kN/m ; zone 2,25 kN/m"),
                               brief=br))

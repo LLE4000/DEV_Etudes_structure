@@ -54,9 +54,29 @@ def chk(nom, cond, info=""):
     print(("  OK    " if cond else "  ECHEC ") + nom + (f"   [{str(info)[:500]}]" if info and not cond else ""))
 
 
+# (mise à jour 1 : le harnais suit) ces contrôles valident le SOLVEUR de M_cr et la section élastique (brief v12 § 11.8) :
+# ec3.verifier et moteur.verifier gardent ces deux réglages ; la formule de l'annexe E ANB (décision n° 12) et la classe 2
+# efficace (n° 11), les défauts d'aujourd'hui, sont figées par tests/test_barre_maj1.py
+SOLVEUR_ELASTIQUE = {"mcr_retenu": "solveur", "ame_classe_3": "elastique"}
+
+
+class _Reglages:
+    """Un module dont ``verifier`` reçoit les réglages du solveur et de l'élastique (sauf s'ils sont donnés)."""
+
+    def __init__(self, mod):
+        self._mod = mod
+
+    def __getattr__(self, k):
+        return getattr(self._mod, k)
+
+    def verifier(self, b):
+        return self._mod.verifier({**b, "parametres": {**SOLVEUR_ELASTIQUE, **(b.get("parametres") or {})}})
+
+
 def m(nom):
     """Le module du paquet tel qu'il est MAINTENANT (une mutation le remplace) : jamais une référence gardée."""
-    return sys.modules[f"acier.barre.{nom}"]
+    mod = sys.modules[f"acier.barre.{nom}"]
+    return _Reglages(mod) if nom in ("ec3", "moteur") else mod
 
 
 def proche(a, b, tol=1e-9):
@@ -591,8 +611,10 @@ def controles():
       and any("(E.1) bloqué" in x for x in verif(rf, "E-Mb")["messages"]) and Df["M_cr"] > 0, (Df.get("annexe_E"), verif(rf, "E-Mb")["messages"]))
     rA0 = m("ec3").verifier({"section": A, "nuance": "S355", "MyEd": 500e6, "axes": {"y": {"L": L10}, "z": {"L": L10}}, "flexion": {"y": {"diagramme": "constant"}},
                              "deversement": {"niveau": "centre"}})
-    c("PRS-A, moment constant : (E.1) est exacte — l'écart s'écrit « +0,00 % », jamais « −0,00 % »",
-      any("(+0,00 %)" in x for x in verif(rA0, "E-Mb")["messages"]) and not any("−0,00" in x for x in verif(rA0, "E-Mb")["messages"]),
+    # (mise à jour 1 : la formule de l'annexe E ANB est dite par les deux lignes de la décision n° 12 — le harnais suit)
+    c("PRS-A, moment constant : (E.1) est exacte — l'écart s'écrit « +0 % », jamais « −0 % »",
+      any(x.startswith("Formule") and "(+0 %)" in x for x in verif(rA0, "E-Mb")["messages"])
+      and not any("−0 %" in x or "−0,00" in x for x in verif(rA0, "E-Mb")["messages"]),
       verif(rA0, "E-Mb")["messages"])
     trb = m("statique").troncons({**ch, "maintiens": [{"x": 5.0, "genre": "bas"}]}, B)
     c("un maintien de la semelle BASSE de PRS-B se place au plan moyen de cette semelle : −439,714 mm sous le centre de cisaillement",
@@ -991,7 +1013,10 @@ MUTATIONS = [
      '            zg = dev["zg"] * sens_charges(tr) if charge else 0.0', '            zg = (dev["zg"] if signe > 0 else -dev["zg"]) if charge else 0.0'),
     ("ec3_deversement", "hypothèse : le sens de la charge non dit", '    sens = " montante" if sens_charges(tr) < 0 else (" descendante" if PR.monosymetrique(s) or inconnu else "")',
      '    sens = ""'),
-    ("ec3_deversement", "écart de (E.1) : signe pris avant l'arrondi (« −0,00 % »)", '            ecart = round(E["ecart"] * 100, 2) + 0.0', '            ecart = E["ecart"] * 100'),
+    # (mise à jour 1 : le harnais suit) l'écart se dit désormais sur la ligne « Formule, … » de la décision n° 12 (l'ancienne ligne
+    # « Contrôle (E.1) » se tait quand la formule est dans son domaine) : c'est son arrondi qu'on mute
+    ("ec3_deversement", "écart du M_cr (décision n° 12) : pris sans arrondi (« −0,0001 % »)", "        e = round((a / b - 1.0) * 100.0)",
+     "        e = (a / b - 1.0) * 100.0"),
     # (lot C, C1, le harnais suit : la semelle comprimée se lit sur σ_x — semelle_comprimee —, le signe de M_y,Ed la suit)
     ("moteur", "barre chargée : le signe du moment d'un PRS monosymétrique perdu", '                if PR.monosymetrique(s) and semelle == "bas":',
      "                if False:"),

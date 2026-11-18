@@ -763,6 +763,8 @@ def cas_formules():
         {"section": i_sans_conge(1000.0, 300.0, 20.0, 6.0), "fy": 355.0, "NEd": -500e3, "MyEd": 500e6},     # âme de classe 4 sous traction : ψ < −1
         {"section": i_sans_conge(1000.0, 300.0, 20.0, 6.0), "fy": 235.0, "VzEd": 300e3},                     # I soudé : le plancher η·h_w·t_w
         {"section": cat("HEA 300"), "nuance": "S355", "NEd": 500e3, "MyEd": 150e6, "MzEd": 30e6},
+        # (mise à jour 1 : le harnais suit) I soudé, âme de classe 3, semelles de classe 1 : la classe 2 efficace (décision n° 11)
+        {"section": i_sans_conge(1000.0, 300.0, 20.0, 10.0), "fy": 235.0, "MyEd": 1500e6},
     ]
 
 

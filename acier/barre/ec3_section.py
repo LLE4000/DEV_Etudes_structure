@@ -383,6 +383,40 @@ def _efficace(J: Journal, s: Dict, eps: float, comprime: bool, My: float, Mz: fl
     return ef
 
 
+def classe_2_efficace(s: Dict, cl: Dict, N: float, My: float, Mz: float, semelle: str) -> Optional[Dict]:
+    """DÉCISION BUREAU n° 11 (mise à jour 1) : l'âme de classe 3 d'un I SOUDÉ ou d'un PRS en I, en flexion d'axe fort SEULE
+    (N = 0, M_z = 0), semelle comprimée de classe 1 ou 2, prise en « classe 2 efficace » (EN 1993-1-1 § 5.5.2(11) et
+    § 6.2.2.4) : deux bandes de 20·ε_w·t_w gardées, contre la semelle comprimée et contre l'axe neutre plastique ; le trou
+    entre elles ne compte pas. Rend None hors de ce domaine (rien ne change) ; sinon {"b", "z_p", "trou", "W", "A_c", "t_c",
+    "A_t", "t_t", "h_w", "t_w", "eps_w", "sans_trou"} — z mesuré depuis la face INTÉRIEURE de la semelle comprimée, W en mm³
+    (W = W_pl quand le trou est nul)."""
+    if s["forme"] != "I" or not SE.soude(s) or N != 0 or Mz > 0 or not My > 0 or cl["classe"] != 3:
+        return None
+    par = {p["role"]: p for p in cl["parois"]}
+    ame = par.get("ame")
+    sc = par.get(f"semelle_{semelle}") or par.get("semelle")
+    if ame is None or sc is None or ame["classe"] != 3 or sc["classe"] > 2:
+        return None
+    if PR.est_prs(s):
+        p = s["prs"]
+        (bc, tc), (bt, tt) = ((p["b1"], p["t1"]), (p["b2"], p["t2"])) if semelle == PR.HAUT else ((p["b2"], p["t2"]), (p["b1"], p["t1"]))
+        hw, tw = p["hw"], p["tw"]
+    else:
+        bc = bt = s["b"]
+        tc = tt = s["tf"]
+        hw, tw = SE.hauteur_ame(s), s["tw"]
+    Ac, At, eps_w = bc * tc, bt * tt, ame["epsilon"]
+    b = 20.0 * eps_w * tw
+    zp = hw - (Ac + 2.0 * b * tw - At) / tw
+    trou = zp - 2.0 * b
+    if trou <= 0.0:
+        W = s["Wpl_y"]
+    else:
+        W = Ac * (zp + tc / 2.0) + b * tw * (zp - b / 2.0) + b * tw * (b / 2.0) + (hw - zp) ** 2 * tw / 2.0 + At * (hw - zp + tt / 2.0)
+    return {"b": b, "z_p": zp, "trou": max(trou, 0.0), "W": W, "A_c": Ac, "t_c": tc, "A_t": At, "t_t": tt, "h_w": hw, "t_w": tw,
+            "eps_w": eps_w, "sans_trou": trou <= 0.0}
+
+
 def ajouter(J: Journal, d: Dict) -> None:
     """Les vérifications de la SECTION, versées dans le journal : E-N, E-My, E-Mz, E-Vz, E-Vy, le voilement par
     cisaillement d'une âme élancée (A-Vb, A-VbM : ec3_ame.py), puis E-MV (flexion et effort tranchant) ou E-NM (flexion
@@ -445,7 +479,12 @@ def ajouter(J: Journal, d: Dict) -> None:
     classe = cl["classe"]
     G["classe"], G["classification"] = classe, cl
     detail = ", ".join(f"{p['nom']} {p['classe']}" for p in cl["parois"])
-    J.hyp.append(f"Section de classe {classe}" + (f" ({detail})." if len(cl["parois"]) > 1 else "."))
+    # DÉCISION BUREAU n° 11 (mise à jour 1) : une âme de classe 3, dans son domaine, prise en classe 2 efficace
+    eff2 = (classe_2_efficace(s, cl, N, My, Mz, d.get("semelle_comprimee", PR.HAUT))
+            if P["ame_classe_3"] == "classe_2_efficace" else None)
+    G["classe_2_efficace"] = eff2
+    G["classe_affichee"] = "3 → classe 2 efficace" if eff2 else str(classe)
+    J.hyp.append(f"Section de classe {G['classe_affichee']}" + (f" ({detail})." if len(cl["parois"]) > 1 else "."))
     if forme in ("tube_carre", "tube_rect") and My > 0 and Mz > 0:
         J.hyp.append("Flexion déviée d'un tube : parois classées en compression uniforme (du côté sûr).")
     ef = None
@@ -468,6 +507,21 @@ def ajouter(J: Journal, d: Dict) -> None:
         Wy, Wz = s.get("Wel_y"), s.get("Wel_z")
     else:
         Wy, Wz = ef["Weff_y"], ef["Weff_z"]
+    cles_eff2: List[str] = []
+    if eff2:
+        Wy, nomW = eff2["W"], "W_pl,eff"
+        if eff2["sans_trou"]:
+            J.hyp.append(f"Âme de classe 3, classe 2 efficace (§ 5.5.2(11), décision n° 11) : pas de trou, W_pl,eff = W_pl,y.")
+        else:
+            cle_b = J.f("b_eff2", "b", [_t("ε_w", eff2["eps_w"]), _t("t_w", eff2["t_w"], "mm")], eff2["b"], "mm", "e_b_eff2")
+            cle_zp = J.f("z_p_eff2", "z_p", [_t("h_w", eff2["h_w"], "mm"), _t("A_c", eff2["A_c"], "mm²"), _t("b", eff2["b"], "mm"),
+                                             _t("t_w", eff2["t_w"], "mm"), _t("A_t", eff2["A_t"], "mm²")], eff2["z_p"], "mm", "e_z_p_eff2")
+            cle_W = J.f("W_pl_eff", "W_pl,eff", [_t("A_c", eff2["A_c"], "mm²"), _t("z_p", eff2["z_p"], "mm"), _t("t_c", eff2["t_c"], "mm"),
+                                                 _t("b", eff2["b"], "mm"), _t("t_w", eff2["t_w"], "mm"), _t("h_w", eff2["h_w"], "mm"),
+                                                 _t("A_t", eff2["A_t"], "mm²"), _t("t_t", eff2["t_t"], "mm")], eff2["W"] / 1e3, "cm³", "e_W_pl_eff")
+            cles_eff2 = [cle_b, cle_zp, cle_W]
+            J.hyp.append(f"Âme de classe 3, classe 2 efficace (§ 5.5.2(11), § 6.2.2.4 ; décision n° 11) : bandes de 20·ε_w·t_w, "
+                         f"trou de {_fr(eff2['trou'], 1)} mm.")
     manque = [n_ for n_, v, m in ((f"{nomW},y", Wy, My), (f"{nomW},z", Wz, Mz)) if m > 0 and not v]
     if manque:
         raise Refus(f"propriété(s) manquante(s) pour ces efforts : {', '.join(manque)}")
@@ -491,7 +545,7 @@ def ajouter(J: Journal, d: Dict) -> None:
                 f"N_Ed ≤ {nomN}", abs(N) / 1e3, NRd / 1e3, "kN", ef_cles["A"] + [cle_N])
     if My > 0:
         J.verif("E-My", "Flexion" if rond else "Flexion, axe fort", f"{REF} § 6.2.5", "M_Ed ≤ M_c,Rd" if rond else "M_y,Ed ≤ M_c,y,Rd",
-                My / 1e6, MyRd / 1e6, "kN·m", cles_M + ef_cles["y"] + [cle_My])
+                My / 1e6, MyRd / 1e6, "kN·m", cles_M + ef_cles["y"] + cles_eff2 + [cle_My])
     if Mz > 0:
         J.verif("E-Mz", "Flexion, axe faible", f"{REF} § 6.2.5", "M_z,Ed ≤ M_c,z,Rd", Mz / 1e6, MzRd / 1e6, "kN·m", ef_cles["z"] + [cle_Mz])
 

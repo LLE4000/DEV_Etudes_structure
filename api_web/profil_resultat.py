@@ -18,7 +18,6 @@ Ce fichier MET EN FORME ce que le moteur a calculé et nommé : il ne calcule ri
 import re
 from typing import Dict, List, Optional, Tuple
 
-from acier.barre import comparaison as CP
 from acier.barre import ecriture as W
 from acier.barre import resultat as RE
 
@@ -60,37 +59,13 @@ def tete(k: str, x: Dict) -> Optional[Dict]:
     """La vérification que le VERDICT d'une méthode montre (lot C, C4) : celle qui gouverne (``gouvernante``) — sauf, pour
     la méthode ELS, le contrôle hérité du classeur (``profil_mots.HERITES``, brief § 6.1 : il ne décide jamais seul) quand
     une autre vérification a un taux jugé : la plus forte de celles-là (la flexion, le déversement, le flambement). Le
-    bloc marque la même ligne ; le contrôle hérité garde la sienne, et son taux quand il dépasse (``herite_au_dela``)."""
+    bloc marque la même ligne ; le contrôle hérité garde la sienne, et son taux. (Mise à jour 1, § 1.4 : plus de verdicts en
+    tête — c'est la ligne marquée de la carte.)"""
     g = gouvernante(x)
     if k != "historique" or g is None or g["id"] not in M.HERITES:
         return g
     autres = [v for v in x["verifications"] if v["id"] not in M.HERITES and v["statut"] in RE.JUGES and v["taux"] is not None]
     return max(autres, key=lambda v: v["taux"]) if autres else g
-
-
-def herite_au_dela(x: Dict, t: Optional[Dict]) -> Optional[Dict]:
-    """Le contrôle hérité qu'un verdict ne montre pas, quand son taux ÉCRIT dépasse celui du verdict : il ne disparaît
-    jamais derrière lui (une ligne sous le verdict). None sinon — R2 : 143,8 % et 143,7 % s'écrivent tous deux 144 %."""
-    if t is None or t.get("taux") is None:
-        return None
-    return next((v for v in x["verifications"] if v["id"] in M.HERITES and v["id"] != t["id"] and v["taux"] is not None
-                 and C.pct(v["taux"]) > C.pct(t["taux"])), None)
-
-
-def non_juges(x: Dict, g: Optional[Dict]) -> str:
-    """Ce que le verdict d'une méthode ne dit pas et qui n'est pas jugé, en UNE ligne (du texte) : « + 1 non couvert :
-    flexion composée », « + 2 bloqués : flambement, axe faible ; flexion composée » — le sujet de chaque vérification
-    bloquée ou non couverte (acier/barre/comparaison.py), sauf celle que le verdict montre ; vide sinon (brief § 9 : un
-    contrôle non couvert ou bloqué ne disparaît jamais derrière le taux global)."""
-    morceaux = []
-    for st in (RE.BLOQUE, RE.NON_COUVERT):
-        vs = [v for v in x["verifications"] if v["statut"] == st and (g is None or v["id"] != g["id"])]
-        if not vs:
-            continue
-        sujets = list(dict.fromkeys(M.minuscule(CP.sujet_de(v["id"]) or v["titre"]) for v in vs))
-        mot = M.MOT_STATUT[st].lower() if len(vs) == 1 else M.MOTS_STATUT_PLURIEL[st]
-        morceaux.append(f"+ {len(vs)} {mot} : {' ; '.join(sujets)}")
-    return " · ".join(morceaux)
 
 
 def pire(r: Dict) -> Tuple[Optional[str], Optional[Dict]]:
@@ -177,55 +152,6 @@ def etat_ame(a: Dict) -> str:
         return mot
     p = C.pct(a["taux_max"])
     return f"{mot} · " + (f">{N}{C.PLAFOND_TAUX}{N}%" if p > C.PLAFOND_TAUX else f"{C.pc(p)}{N}%")
-
-
-def verdict_ame(r: Dict) -> str:
-    """Sous les verdicts des méthodes, ce que l'âme DEMANDE — une ligne, et seulement s'il y a quelque chose à faire :
-    des raidisseurs à poser, une vérification qui ne passe pas ou qui n'est pas couverte. Elle ouvre tout le calcul du bloc."""
-    a, i = r["ame"], bloc_ame(r)
-    if i is None or (a["statut"] == RE.OK and not M.raidis(a)):
-        return ""
-    if a["statut"] == RE.OK:
-        cls, texte = "warn", M.resume_ame(a)
-    elif a["statut"] in (RE.BLOQUE, RE.NON_COUVERT) and any(L["decision"] == "impossible" for L in a["lieux"]):
-        cls, texte = "inc", M.resume_ame(a)                 # une donnée manque : la dire (brief § 8.3, point 5)
-    else:
-        g = gouvernante(a)
-        cls = "nok" if a["statut"] == RE.NOK else "inc"
-        texte = f"{M.MOT_STATUT[a['statut']].lower()} — {g['titre'][:1].lower() + g['titre'][1:]}" if g else M.MOT_STATUT[a["statut"]].lower()
-    return (f'<button type="button" class="pf-vame {cls}" data-calcul="s{i}" title="Voir le calcul">{C.icon("triangle-alert")}'
-            f'<span><b>Âme</b> · {M.sub(texte)}</span></button>')     # s_s en indice, comme les lignes du bloc (M.sub échappe)
-
-
-def verdicts(r: Dict) -> str:
-    """Un verdict par méthode : la pastille de son taux le plus fort, la vérification qui gouverne et ce qu'elle compare ;
-    il ouvre la fenêtre de calcul de cette vérification. Dessous, ce que l'âme demande (``verdict_ame``)."""
-    out = ""
-    ms = methodes(r)
-    for _, k, x in ms:
-        g = tete(k, x)
-        if g is None:
-            out += (f'<div class="verdict"><div class="gov"><b>{M.METHODES[k]}</b>aucun effort à vérifier</div></div>')
-            continue
-        # le taux du verdict : celui de la vérification qu'il montre (la plus forte, sauf le contrôle hérité de l'ELS),
-        # dans la couleur de la MÉTHODE — une méthode qui refuse ne se peint jamais en vert
-        t = g["taux"] if g is not gouvernante(x) else x.get("taux_max")     # (une méthode bloquée : sans taux jugé, son mot)
-        if t is not None:
-            pastille = C.chip(C.pct(t), M.couleur_taux(x["statut"], t), xl=True)
-        else:                                    # rien n'a de taux jugé : un refus, une donnée qui manque, une vérification non couverte
-            pastille = f'<span class="chip xl {M.NIVEAU_STATUT.get(x["statut"], "c")} pf-mot">{M.MOT_STATUT[x["statut"]]}</span>'
-        ou = M.lieu(g)
-        suite = f'<br><span class="pf-ou">{C.esc(g["combinaison"])}{" · " + C.esc(ou) if ou else ""}</span>' if g.get("combinaison") else ""
-        # une vérification BLOQUÉE dit sa raison, en une ligne (son premier message) — pas le calcul pour information
-        quoi = C.esc(g["messages"][0]) if g["statut"] == RE.BLOQUE and g["messages"] else M.comparaison(g)
-        reste = non_juges(x, g)
-        h = herite_au_dela(x, g)
-        if h is not None:                       # le contrôle hérité dépasse ce que le verdict montre : dit, jamais caché
-            reste = " · ".join(t_ for t_ in (reste, f"+ {M.minuscule(h['titre'])} ({M.MOT_HERITE}) : {C.pc(C.pct(h['taux']))}{N}%") if t_)
-        reste = f'<br><span class="pf-ou pf-nc">{C.esc(reste)}</span>' if reste else ""
-        out += (f'<div class="verdict" data-calcul="{fenetre(k, g["id"])}" title="Voir le calcul">{pastille}<div class="gov">'
-                f'<b>{M.METHODES[k]} · {C.esc(g["titre"][:1].lower() + g["titre"][1:])}</b>{quoi}{suite}{reste}</div></div>')
-    return f'<div class="pf-verdicts n{len(ms)}">{out}</div>{verdict_ame(r)}'
 
 
 # ------------------------------------------------------------------ les blocs
@@ -373,7 +299,9 @@ def blocs(el: Dict, r: Dict) -> str:
     ms = methodes(r)
     for i, k, x in ms:
         if not x["verifications"]:
-            continue                                       # aucun effort : le verdict le dit, un bloc vide n'ajoute rien
+            # (mise à jour 1, § 1.4) aucun effort : plus de verdict en tête pour le dire — la carte de la méthode le dit, seule
+            out += E.bloc(i, M.METHODES_COURT[k], "inc", M.AUCUN_EFFORT, "", "", theme=True)
+            continue
         g = (tete(k, x) or {}).get("id")                   # (la ligne que le verdict montre : jamais le contrôle hérité)
         rows = "".join(_ligne(k, v, v["id"] == g) for v in x["verifications"])
         if k == "historique":

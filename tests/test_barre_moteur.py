@@ -77,6 +77,7 @@ def P_(v, a):
 def barre(**k):
     b = EN.nouvelle_barre("B")
     b.update(k)
+    b["parametres"] = {**SOLVEUR_ELASTIQUE, **(k.get("parametres") or {})}   # (mise à jour 1 : voir SOLVEUR_ELASTIQUE)
     return b
 
 
@@ -92,9 +93,28 @@ CONTINUE = dict(profil="HEA 200", modele="continue", travees=[5.0, 5.0], poids_p
 
 
 # ------------------------------------------------------------------ les contrôles de référence (rejoués par les mutations)
+# (mise à jour 1 : le harnais suit) ces contrôles valident le SOLVEUR de M_cr et la section élastique (valeurs du brief v12,
+# des classeurs et de la note du bureau) : moteur.verifier garde ces deux réglages ; la formule de l'annexe E ANB (décision
+# n° 12) et la classe 2 efficace (n° 11), les défauts d'aujourd'hui, sont figées par tests/test_barre_maj1.py
+SOLVEUR_ELASTIQUE = {"mcr_retenu": "solveur", "ame_classe_3": "elastique"}
+
+
+class _Reglages:
+    """Le moteur, dont ``verifier`` reçoit les réglages du solveur et de l'élastique (sauf s'ils sont donnés)."""
+
+    def __init__(self, mod):
+        self._mod = mod
+
+    def __getattr__(self, k):
+        return getattr(self._mod, k)
+
+    def verifier(self, b):
+        return self._mod.verifier({**b, "parametres": {**SOLVEUR_ELASTIQUE, **(b.get("parametres") or {})}})
+
+
 def controles(M=None):
     M = M or {"combinaisons": CO, "statique": ST, "entree": EN, "moteur": MO}
-    co, st, en, mo = M["combinaisons"], M["statique"], M["entree"], M["moteur"]
+    co, st, en, mo = M["combinaisons"], M["statique"], M["entree"], _Reglages(M["moteur"])
     C = []
 
     def c(nom, cond, info=""):
@@ -500,7 +520,7 @@ def controles(M=None):
     axes = {"y": {"L": 7200.0, "u": 1.0}, "z": {"L": 7200.0, "u": 0.9}}
     hd = HI.verifier({"section": sh, "fy": 235.0, "s": 1.5, "P": 432.72e3, "My": 10e6, "Vz": 5e3, "axes": axes})
     ed = EC.verifier({"section": sh, "nuance": "S235", "NEd": 600e3, "MyEd": 20e6, "MzEd": 4e6, "axes": axes,
-                      "flexion": {"y": {"diagramme": "reparti"}}, "deversement": {"niveau": "haut"}})
+                      "flexion": {"y": {"diagramme": "reparti"}}, "deversement": {"niveau": "haut"}, "parametres": SOLVEUR_ELASTIQUE})
     c("efforts imposés (le mode des classeurs) : les efforts de SERVICE vont à la méthode historique, ceux de CALCUL à l'Eurocode 3 ; chacune "
       "= son appel direct ; pas de statique",
       r["statique"] is None and [(x["id"], x["taux"]) for x in r["methodes"]["historique"]["verifications"]] == [(x["id"], x["taux"]) for x in hd["verifications"]]
@@ -853,10 +873,12 @@ def controles_lot_c():
     out.append(("(lot C, C0g) UN statut de décision (« decision ») ; la table porte les DÉCISIONS BUREAU n° 1, 2, 3, 4, 9 et 10 du brief § 13.2 — "
                 "chacune son défaut, sa variante (aucune pour le n° 9 tant que le bureau n'a pas fixé de méthode), ses valeurs ; le n° 7 (le seuil "
                 "de 95 %) n'y est pas : c'est celui du site",
-                [d["point"] for d in dec] == [1, 2, 3, 4, 9, 10] and {p_["statut"] for p_ in pa.PARAMETRES.values()} <= {pa.A_POINTER, pa.A_CONFIRMER, pa.POINTE, pa.DECISION}
+                [d["point"] for d in dec] == [1, 2, 3, 4, 9, 10, 11, 12] and {p_["statut"] for p_ in pa.PARAMETRES.values()} <= {pa.A_POINTER, pa.A_CONFIRMER, pa.POINTE, pa.DECISION}
                 and [(d["cle"], d["valeur"], d["variante"]) for d in dec] == [("eta1_ame", "elastique", "plastique"), ("contact_inconnu", "non", "oui"),
                                                                               ("avy_lamine", "2btf", "A_moins_hwtw"), ("methode_deversement_lamines", "6.3.2.3", "6.3.2.2"),
-                                                                              ("console_NM", "non_couvert", None), ("prs_soudee_equivalente", False, True)]
+                                                                              ("console_NM", "non_couvert", None), ("prs_soudee_equivalente", False, True),
+                                                                              # (mise à jour 1 : les n° 11 et 12 — le harnais suit)
+                                                                              ("ame_classe_3", "classe_2_efficace", "elastique"), ("mcr_retenu", "annexe_E", "solveur")]
                 and _leve(lambda: pa.jeu({"console_NM": "calcule"}), re_.Refus) and _leve(lambda: pa.jeu({"eta1_ame": "plastic"}), re_.Refus)
                 and _leve(lambda: pa.jeu({"prs_soudee_equivalente": 1}), re_.Refus), [(d["cle"], d["valeur"]) for d in dec]))
 
@@ -1288,10 +1310,14 @@ def controles_c1(M=None):
     pm = mo.verifier(_prs_barre(PRS_B, nuance="S355", travees=[10.0], poids_propre=True, niveau="haut",
                                 cas=[{"nom": "G", "nature": "permanent", "charges": [q(20.0, 0.0, 10.0)]}]))
     mb_h, mb_m = (vf(x["methodes"]["ec3"], "E-Mb")["messages"] for x in (pb_h, pm))
-    c("(C1) PRS : le contrôle (E.1) de l'annexe E ANB n'a qu'UN z_g — une charge sur la semelle haute : (E.1) calculé ; la même avec le poids "
-      "propre au centre de gravité (deux hauteurs) : « solveur seul », dit en une ligne",
-      any(m_.startswith("Contrôle (E.1) : M_cr = ") for m_ in mb_h) and "Contrôle (E.1) : charges à plusieurs hauteurs — solveur seul." in mb_m
-      and not any(m_.startswith("Contrôle (E.1) : M_cr = ") for m_ in mb_m), (mb_h[-2:], mb_m[-2:]))
+    fh, fm = (x["methodes"]["ec3"]["grandeurs"]["deversement"]["mcr"]["formule"]["troncons"][0] for x in (pb_h, pm))
+    c("(C1, mise à jour 1 : le harnais suit) PRS : le contrôle (E.1) de l'annexe E ANB est devenu la formule de la DÉCISION n° 12 — une "
+      "charge sur la semelle haute : z_g = +145,286 mm ; la même avec le poids propre au centre de gravité (deux hauteurs) : z_g PONDÉRÉ par la "
+      "part de chaque charge dans M, entre les deux ; chacune dite sur sa ligne « Formule, … » ; l'ancienne ligne « Contrôle (E.1) » n'est plus "
+      "écrite",
+      abs(fh["z_g"] - 145.286) < 1e-3 and 0.0 < fm["z_g"] < fh["z_g"] - 1.0
+      and all(any(m_.startswith("Formule, tronçon 0,00 à 10,00 m, charge répartie : ") for m_ in x) for x in (mb_h, mb_m))
+      and not any(m_.startswith("Contrôle (E.1)") for m_ in mb_h + mb_m), (fh.get("z_g"), fm.get("z_g"), mb_h[:2], mb_m[:2]))
     pt = prs10(PRS_B, "haut", N=-6000.0)
     c("(C1) PRS-B TENDU (N/A dépasse la compression de flexion de la semelle haute) : aucune semelle comprimée — la semelle comprimée suit le "
       "signe de M (prudent), et c'est dit (À VÉRIFIER : le plan attendait la semelle basse, que σ_x ne comprime pas non plus)",
@@ -1441,7 +1467,7 @@ MUTATIONS_C1 = [
     ("moteur", "C1 — la variante (0,4 ; 0,75) jamais demandée", 'variante = bool(b.get("maintiens")) and len(negliges) == len(b["maintiens"])', "variante = False"),
     ("moteur", "C1 — le type d'ouvrage non transmis à l'Eurocode 3", '"deversement": dev, "ouvrage": b["ouvrage"]}', '"deversement": dev}'),
     ("moteur", "C1 — un tronçon toujours « entre appuis » (la variante admise sur une console, NON CONSERVATIF)",
-     '"entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}', '"entre_appuis": True}'),
+     '"entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts,', '"entre_appuis": True,'),
     ("moteur", "C1 — le bout libre d'une console compté comme un appui", "    bouts = set(ST.appuis_x(b))\n", "    bouts = set(ST.appuis_x(b)) | {round(Lt, 9)}\n"),
     ("moteur", "C1 — poids propre imposé : rien dans N pour un poteau", 'return {"N": fN * q * L, "M": fM * q * L * L / 8.0', 'return {"N": 0.0, "M": fM * q * L * L / 8.0'),
     ("moteur", "C1 — interrupteur « dans P » sans effet", '            e["N"] += f * dans_P["N"]', "            pass"),
@@ -1489,7 +1515,10 @@ MUTATIONS_C1 = [
     ("ame", "C1 — l'âme lit toutes les ponctuelles au niveau de la barre", '            niv = ch.get("niveau") or b["niveau"]\n            if ch["type"] == "P"',
      '            niv = b["niveau"]\n            if ch["type"] == "P"'),
     ("ame", "C1 — le mode d'introduction déclaré ignoré", '        if L.get("genre") == "charge" and (L.get("introduction") or "auto") in INTRODUCTIONS_DECLAREES:', "        if False:"),
-    ("ec3_deversement", "C1 — (E.1) d'un PRS sous des charges à plusieurs hauteurs : un z_g quand même", "        elif charge and len(zgs) > 1:", "        elif False:"),
+    # (mise à jour 1 : le harnais suit) l'ancien contrôle (E.1) ne parle plus quand la formule de la décision n° 12 est dans son domaine ;
+    # le z_g de plusieurs hauteurs est désormais PONDÉRÉ par cette formule — c'est lui qu'on mute
+    ("ec3_deversement", "MU1 — formule de l'annexe E sous des charges à plusieurs hauteurs : le z_g de la charge, sans pondération",
+     "zg = sum(w * z for w, z in zip(parts, cotes)) / total if abs(total) > 0 else cotes[0]", "zg = cotes[0]"),
 ]
 
 

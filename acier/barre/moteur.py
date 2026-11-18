@@ -525,7 +525,11 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 a = tr["x1"]
                 troncon = {"L": (tr["x2"] - a) * 1e3, "moment": (lambda x, C=C, a=a: C.M(a + x / 1e3) * 1e6), "reparties": rep,
                            "ponctuelles": pon, "appuis": tr["appuis"], "maintiens": tr["maintiens"], "M_max": Mmax * 1e6,
-                           "entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts}   # (la variante du couple le lit)
+                           "entre_appuis": round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts,   # (la variante du couple le lit)
+                           # (mise à jour 1, § 1.2) le domaine de la formule de l'annexe E ANB, et ce que ses lignes écrivent
+                           "deux_appuis": (b["modele"] == "appuis" and len(b["travees"]) == 1 and not any(b.get("debords") or ())
+                                           and round(tr["x1"], 9) in bouts and round(tr["x2"], 9) in bouts),
+                           "x0": a, "entier": tr["x1"] <= EPS and tr["x2"] >= Lt - EPS}
                 flexion = {"diagramme": DV.CONSTANT}
                 tv = _travee_de(b, tr)
                 if tv is not None and Mmax > EPS:
@@ -539,7 +543,7 @@ def _chargee(b: Dict, s: Dict) -> Dict:
                 dans = sum(1 for m in negliges if tr["x1"] - EPS <= m["x"] <= tr["x2"] + EPS)
                 if variante:
                     dev.update(couple="variante", maintiens_negliges=dans)
-                if PR.est_prs(s) and b["modele"] == "appuis" and kc is not None:
+                if b["modele"] == "appuis" and kc is not None:
                     # le diagramme d'un cas des tableaux (annexe E ANB) : la FORME des charges de la portée, lue sur elles
                     # (intégration du lot B : déduite de k_c par une égalité de flottants)
                     dev["diagramme"] = DV.forme_portee([ch for f_, c_ in zip(co["facteurs"], cas) if f_ for ch in c_.get("charges") or []],
