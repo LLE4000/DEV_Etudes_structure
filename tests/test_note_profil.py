@@ -395,7 +395,23 @@ def controles_garde():
             ("garde des textes : aucun message répété dans un bloc (écran et note)", not redits, redits[:4])]
 
 
-SPECIAUX = {"écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
+def controles_tolerance():
+    """Une ancienne barre où la tolérance de 5 % était cochée (retirée, brief § 13.2 point 5 ; lot C, C0e) : la note le dit en
+    tête du détail de la méthode ELS, en une ligne — « Tolérance de 5 % retirée (13.2 point 5). » ; une barre neuve, non."""
+    b = P.barre_neuve("T5")
+    b["historique"]["tolerance"] = True
+    dits = []
+    for el_ in (b, P.barre_neuve("T0")):
+        e = P.normaliser(P.etat_de([el_]))
+        el = e["elements"][0]
+        sec = NP.planche(el, P.calculer(el), NP.Planche(), "deux")
+        dits.append(any(i[2] == "Tolérance de 5 % retirée (13.2 point 5)." for v in sec["verifs"] if v["titre"] == TETES["historique"]
+                        for i in v["items"] if i[0] == "pr" and len(i) > 2))
+    return [("une ancienne barre à la tolérance de 5 % cochée : « Tolérance de 5 % retirée (13.2 point 5). » en tête de la méthode ELS ; "
+             "une barre neuve, non", dits == [True, False], dits)]
+
+
+SPECIAUX = {"tolérance retirée": controles_tolerance, "écarts (6.7)": controles_ecarts, "PRS « soudée équivalente »": controles_soudee, "PRS-C au panneau": controles_prs_panneau,
             "garde des textes": controles_garde}
 
 
@@ -1298,6 +1314,8 @@ MUTATIONS = (
     ("une correction des classeurs de 121 caractères à l'écran (avec son préfixe)", HD, "CORRECTIONS",
      lambda vrai: dict(vrai, axe_faible="x" * (LIGNE_MAX + 1 - len("Correction du classeur : "))), ["garde des textes"]),
     ("une ligne répétée dans un bloc de la note", NP, "communes", lambda vrai: (lambda el, r: vrai(el, r) + vrai(el, r)[-1:]), ["garde des textes"]),
+    ("la tolérance de 5 % retirée n'est plus dite", NP, "propres",
+     lambda vrai: (lambda el, k, x: [h for h in vrai(el, k, x) if not h.startswith("Tolérance")]), ["tolérance retirée"]),
 )
 
 
