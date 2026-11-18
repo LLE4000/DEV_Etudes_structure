@@ -232,6 +232,29 @@ def controles():
     autre.carnet = lib
     autre("prs/t1", "32")
     c("3 · un plat repris puis changé : le nom suit les plats (« PRS 602x… »), jamais celui de la bibliothèque", autre.el["profil"] == "PRS 602x300x15x32x200x30", autre.el["profil"])
+    # (intégration du lot C, reste « important » de C6) un PRS est reconnu par son ENREGISTREMENT, pas par son nom seul : mêmes plats,
+    # autre nuance, autre gorge, autres bords — « Enregistrer » proposé, aucune ligne cochée (le taux coché était celui de l'autre)
+    sosie = ecran_prs(PRS_B[:-1] + (("a", "4"),), bords="larges_plats", nuance="S235", carnet=lib)
+    sel_s = req(action="selecteur", etat=sosie.r["etat"], role="profil", carnet=lib)
+    meme = ecran_prs(bords="oxycoupes", carnet=lib)
+    sel_m = req(action="selecteur", etat=meme.r["etat"], role="profil", carnet=lib)
+    c("3 · mêmes plats, en S235, a = 4, larges plats : ce n'est pas le PRS de la bibliothèque (S355, a = 6, oxycoupés) — « Enregistrer » proposé, "
+      "aucune ligne du sélecteur cochée ; le même PRS : « Retirer », sa ligne cochée",
+      sosie.el["profil"] == "PRS 600x300x15x30x200x30" and 'data-chemin="carnet/garder"' in sosie.r["donnees"]
+      and 'data-chemin="carnet/retirer"' not in sosie.r["donnees"] and "pk-row cur" not in (sel_s.get("html") or "")
+      and 'data-chemin="carnet/retirer"' in meme.r["donnees"] and "pk-row cur" in (sel_m.get("html") or ""),
+      (sosie.el["profil"], "pk-row cur" in (sel_s.get("html") or ""), "pk-row cur" in (sel_m.get("html") or "")))
+    # (intégration du lot C, R1) l'aide des plats et des efforts : dans l'icône .aide[title] de leur label (au doigt, etabli.js n'ouvre
+    # qu'elle), jamais un title posé sur le label (lisible au seul survol, au PC)
+    eff = Ecran()
+    eff("mode", "efforts")
+    plats_ = re.findall(r'<div class="pf-plat[^"]*"><label>(.*?)</label>', b.r["donnees"])
+    bloc_ = eff.r["donnees"].partition('class="pf-eff')[2].partition("Forme des diagrammes")[0]
+    effs_ = re.findall(r'<label>(<span class="sym">.*?)</label>', bloc_)
+    c("3 · R1 : l'aide des trois plats et des efforts imposés est dans l'icône ⓘ (.aide[title]) de son label, lisible au doigt",
+      len(plats_) == 3 and all('class="aide" title="' in x for x in plats_) and len(effs_) >= 4 and all('class="aide" title="' in x for x in effs_)
+      and not re.search(r'<div class="pf-plat[^"]*"><label title=', b.r["donnees"]) and '<label title=' not in bloc_,
+      (len(plats_), len(effs_)))
     rr = b("carnet/retirer", "1")
     c("3 · « Retirer de la bibliothèque » : la bibliothèque est vide, la barre garde son PRS", rr.get("carnet") == [] and b.el["profil"] == "PRS 600x300x15x30x200x30", rr.get("carnet"))
     lu = PP.lire_carnet([{"famille": "PRS", "dims": {"h": 600, "b": 300, "tw": 15, "tf": 30}}, {"famille": "PRS", "dims": {"h": 600, "b": 300, "tw": 15, "tf": 30}},
@@ -397,6 +420,17 @@ MUTATIONS = [
     ("api_web.profil", "un PRS de la bibliothèque choisi sans ses plats", '    if entree is not None:\n        PP.prendre(el, entree)', '    if entree is not None:\n        el["profil"] = nom'),
     ("api_web.profil", "le sélecteur d'un PRS marque une ★", '"opt": False,\n               "prop": PP.ligne_selecteur', '"opt": True,\n               "prop": PP.ligne_selecteur'),
     ("api_web.profil_saisie", "la rubrique sans le PRS (le seul bouton du catalogue)", "    return s + PP.rubrique(el, r, carnet)", "    return s + PP.bouton(el, r)"),
+    # (intégration du lot C) un PRS reconnu par son nom seul dans la bibliothèque
+    ("api_web.profil_prs", "la bibliothèque reconnaît un PRS à son nom seul (bouton « Retirer »)",
+     "    return e is not None and any(x == e for x in lire_carnet(list(carnet or [])))",
+     '    return e is not None and any(x["nom"] == e["nom"] for x in lire_carnet(list(carnet or [])))'),
+    ("api_web.profil", "le sélecteur coche le PRS de même nom (son taux à la place de celui de la barre)", '"cur": e == sien,', '"cur": s["nom"] == el["profil"],'),
+    ("api_web.profil_prs", "l'aide d'un plat au survol du label (illisible au doigt)",
+     """<div class="pf-plat{" ame" if gorge else ""}"><label><span>{libelle}</span>""",
+     """<div class="pf-plat{" ame" if gorge else ""}"><label title="{C.esc(aide)}"><span>{libelle}</span>"""),
+    ("api_web.profil_saisie", "l'aide d'un effort au survol du label (illisible au doigt)",
+     """        lignes += f'<label><span class="sym">{M.sub(sym)}</span><span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span></label>{champs}'""",
+     """        lignes += f'<label title="{C.esc(aide)}"><span class="sym">{M.sub(sym)}</span></label>{champs}'"""),
 ]
 
 

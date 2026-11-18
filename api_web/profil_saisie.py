@@ -255,7 +255,8 @@ def _rubrique_efforts(el: Dict) -> str:
     lignes = ""
     for k, sym, u, aide in M.EFFORTS:
         champs = "".join(C.num(["efforts", j, k], el["efforts"][j][k], u, dec=3) for j, _ in jeux)
-        lignes += f'<label title="{C.esc(aide)}"><span class="sym">{M.sub(sym)}</span></label>{champs}'
+        # (intégration du lot C, R1) l'aide dans l'icône .aide[title], lisible au doigt (tablette, téléphone) comme au survol
+        lignes += f'<label><span class="sym">{M.sub(sym)}</span><span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span></label>{champs}'
     s = f'<div class="pf-eff n{len(jeux)}">{tete}{lignes}</div>'
     s += _titre("Forme des diagrammes de moment")
     for a, nom in (("y", "M<sub>y</sub>"), ("z", "M<sub>z</sub>")):

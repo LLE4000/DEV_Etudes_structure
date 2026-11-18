@@ -1126,10 +1126,11 @@ def _selecteur_prs(etat: Dict, el: Dict) -> str:
     tient » : elle ne contient que ce qu'on y a mis)."""
     sig = _signature(el, ("nom", "profil", "prs", "nuance"))
     rows = []
+    sien = PP.enregistrement(el)                # (le retenu : le MÊME enregistrement — plats, gorge, bords, nuance —, pas le seul nom)
     for e in PP.lire_carnet(etat.get("carnet")):
         s, plats = PP.plats_entree(e, el["nuance"])
         t, statut = _candidat_prs(el, sig, plats, s["nuance"])
-        row = {"nom": s["nom"], "col": C.fr(s["masse"], 1), "taux": None, "niveau": "c", "cur": s["nom"] == el["profil"], "opt": False,
+        row = {"nom": s["nom"], "col": C.fr(s["masse"], 1), "taux": None, "niveau": "c", "cur": e == sien, "opt": False,
                "prop": PP.ligne_selecteur(s, t), "masse": s["masse"]}
         if statut in M.STATUTS_A_VERIFIER:
             row["etat"] = M.MOT_STATUT[statut].lower() if t is None else f"{C.pc(C.pct(min(t, 9.99)))} % ?"

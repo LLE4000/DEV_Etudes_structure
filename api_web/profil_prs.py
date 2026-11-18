@@ -148,9 +148,23 @@ def lire_carnet(carnet) -> List[Dict]:
     return out[:CARNET_MAX]
 
 
+def enregistrement(el: Dict) -> Optional[Dict]:
+    """L'enregistrement qu'aurait le PRS de la barre dans la bibliothèque (``prs.vers_bibliotheque`` : plats, gorge, bords,
+    nuance) ; None pour un profilé du catalogue ou un PRS que le moteur refuse."""
+    if not el.get("prs"):
+        return None
+    try:
+        return PR.vers_bibliotheque(section(el))
+    except (Refus, ValueError, TypeError, KeyError):
+        return None
+
+
 def dans_carnet(el: Dict, carnet: Sequence[Dict]) -> bool:
-    """Le PRS de la barre est-il dans la bibliothèque (même nom) ?"""
-    return bool(el.get("prs")) and any(e["nom"] == el["profil"] for e in carnet)
+    """Le PRS de la barre est-il dans la bibliothèque — le MÊME enregistrement, et non le seul nom : le nom ne porte ni la
+    nuance, ni la gorge, ni les bords (intégration du lot C : deux PRS aux mêmes plats, en S235 et en S355, étaient pris
+    l'un pour l'autre — « Retirer » au lieu d'« Enregistrer », et le sélecteur cochait l'autre, avec son taux)."""
+    e = enregistrement(el)
+    return e is not None and any(x == e for x in lire_carnet(list(carnet or [])))
 
 
 def garder(el: Dict, carnet) -> Tuple[List[Dict], str]:
@@ -234,11 +248,13 @@ def appliquer(el: Dict, cles: List[str], valeur) -> Optional[str]:
 
 # ------------------------------------------------------------------ la rubrique « Barre » : le profilé
 def _ligne_plat(libelle: str, sym: str, kb: str, kt: str, aide: str, p: Dict) -> str:
-    """Une ligne « b × t » : le libellé (l'aide au survol), la largeur, l'épaisseur — et, sur la ligne de l'âme, la gorge."""
+    """Une ligne « b × t » : le libellé (l'aide dans son icône), la largeur, l'épaisseur — et, sur la ligne de l'âme, la gorge."""
     gorge = ""
     if kb == "hw":
         gorge = (f'<span class="pf-x">a</span>{C.num(["prs", "a"], p.get("a"), "", dec=3, mini=0, auto="s = 0")}')
-    return (f'<div class="pf-plat{" ame" if gorge else ""}"><label title="{C.esc(aide)}"><span>{libelle}</span> <span class="pf-sym">{sym}</span></label>'
+    # (intégration du lot C, R1) l'aide dans l'icône .aide[title] : au doigt, etabli.js n'ouvre qu'elle (un title sur le label ne se lit qu'au survol)
+    return (f'<div class="pf-plat{" ame" if gorge else ""}"><label><span>{libelle}</span> <span class="pf-sym">{sym}</span>'
+            f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span></label>'
             f'{C.num(["prs", kb], p[kb], "", dec=3, mini=0)}<span class="pf-x">×</span>{C.num(["prs", kt], p[kt], "", dec=3, mini=0)}{gorge}</div>')
 
 
