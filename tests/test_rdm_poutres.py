@@ -442,6 +442,26 @@ chk("une poutre à débord n'est pas un cas d'école (None) ; sans débord, le m
     P.cas_ecole(P.resoudre("appuis", [6.0], [Q(1.0, 1.0, 7.0)], None, (1.0, 0.0))) is None
     and P.cas_ecole(P.resoudre("appuis", [6.0], [Q(1.0, 0.0, 6.0)]))["cle"] == "appuis_q")
 
+
+
+def debord_minuscule(M=P):
+    """(intégration du lot C) Un débord d'au plus TOL_APPUI·max(1, L) — un résidu de soustraction — est un débord NUL : la
+    charge du bout reste à l'appui, et le tranchant lu en 0 est celui de la poutre sans débord (30 kN, et non −5 kN d'un
+    tronçon que _travee n'atteint pas, ni 30 kN lus dans la travée PAR ERREUR à côté d'un débord gardé)."""
+    s0 = M.resoudre("appuis", [6.0], [Q(10.0, 0.0, 6.0), F(5.0, 0.0), F(5.0, 6.0)], None)
+    for e in (1e-13, 1e-10):
+        s_ = M.resoudre("appuis", [6.0], [Q(10.0, 0.0, 6.0 + 2 * e), F(5.0, 0.0), F(5.0, 6.0 + 2 * e)], None, debords=(e, e))
+        if not ([t.debord for t in s_.travees] == [None] and s_.debords == (0.0, 0.0) and s_.appuis[0]["x"] == 0.0
+                and all(pres(a["R"], b_["R"], 1e-9) for a, b_ in zip(s_.appuis, s0.appuis))
+                and all(pres(s_.evaluer(0.0)[k], s0.evaluer(0.0)[k], 1e-9) for k in ("V_g", "V_d", "M_d"))):
+            return False
+    s_ = M.resoudre("appuis", [6.0], [F(5.0, 0.0)], None, debords=(1e-8, 0.0))       # au-delà de la tolérance : un vrai débord
+    return [t.debord for t in s_.travees] == ["gauche", None] and pres(s_.evaluer(0.0)["V_d"], -5.0)
+
+
+chk("débord minuscule (10⁻¹³ et 10⁻¹⁰ m) = débord nul : un seul tronçon, réactions et V, M en 0 de la poutre sans débord ; "
+    "10⁻⁸ m reste un débord (V_d(0) = −5)", debord_minuscule())
+
 # 6.6 · mutations des débords (le source muté doit être refusé : contrôle interne ou formulaire de ce fichier)
 eq_cont = lambda M: M.resoudre("continue", Ls6, ch6, EI, debords=(g6, d6))                     # noqa: E731
 for nom, avant, apres, essai in (
@@ -452,7 +472,9 @@ for nom, avant, apres, essai in (
         ("débord compté dans la portée (l'appui A au bout de la barre)", "tr = _repartir(Ls, ch, g_, d_)",
          "tr = _repartir([g_ + Ls[0]] + Ls[1:], ch, 0.0, d_)", lambda M: attendu(debord_gauche_q(M))),
         ("flèche du débord sans la rotation de l'appui", "dg.raccorder(t0.EIrot(0.0))", "dg.raccorder(0.0)", lambda M: attendu(debord_gauche_q(M))),
-        ("charge du débord droit absente de la réaction de rive", '"R": tn.R_B if dd is None else tn.R_B + dd.R_A', '"R": tn.R_B', eq_cont)):
+        ("charge du débord droit absente de la réaction de rive", '"R": tn.R_B if dd is None else tn.R_B + dd.R_A', '"R": tn.R_B', eq_cont),
+        ("débord minuscule gardé (un tronçon que _travee n'atteint pas)", "g, d = (0.0 if g <= tol else g), (0.0 if d <= tol else d)",
+         "g, d = g, d", lambda M: attendu(debord_minuscule(M)))):
     src = open(os.path.join(RACINE, "rdm", "poutres.py"), encoding="utf-8").read()
     assert src.count(avant) == 1, nom
     espace = {"__name__": "rdm_poutres_mute"}

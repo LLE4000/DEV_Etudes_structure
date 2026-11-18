@@ -268,9 +268,11 @@ def _nombre(v, nom: str) -> float:
     return float(v)
 
 
-def debords_lus(modele: str, debords) -> Tuple[float, float]:
+def debords_lus(modele: str, debords, portees: float = 0.0) -> Tuple[float, float]:
     """(g, d) contrôlés : deux longueurs finies ≥ 0 (m) ; None vaut (0, 0). Un débord non nul n'existe que pour les
-    modèles de ``MODELES_DEBORDS`` : ailleurs, refus d'une ligne."""
+    modèles de ``MODELES_DEBORDS`` : ailleurs, refus d'une ligne. Un débord d'au plus TOL_APPUI·max(1, ``portees``)
+    (Σ portées, m) est NUL, comme ``ramener`` le fait d'une abscisse : un résidu de soustraction (10⁻¹⁵ m) faisait un
+    tronçon que ``Solution._travee`` ne peut pas atteindre — le tranchant lu au bout gauche était celui de la travée."""
     if debords is None:
         return 0.0, 0.0
     try:
@@ -280,6 +282,8 @@ def debords_lus(modele: str, debords) -> Tuple[float, float]:
     g, d = _nombre(g, "débord gauche"), _nombre(d, "débord droit")
     if g < 0 or d < 0:
         raise ErreurDonnees("un débord ne peut pas être négatif")
+    tol = TOL_APPUI * max(1.0, portees)
+    g, d = (0.0 if g <= tol else g), (0.0 if d <= tol else d)
     if (g or d) and modele not in MODELES_DEBORDS:
         raise ErreurDonnees("débords : seulement pour les modèles « appuis » et « continue »")
     return g, d
@@ -292,7 +296,6 @@ def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict],
     premier appui."""
     if modele not in MODELES:
         raise ErreurDonnees(f"modèle inconnu : {modele!r}")
-    g, d = debords_lus(modele, debords)
     Ls = [_nombre(x, "portée") for x in travees]
     if not Ls or any(x <= 0 for x in Ls):
         raise ErreurDonnees("chaque portée doit être strictement positive")
@@ -301,6 +304,7 @@ def normaliser(modele: str, travees: Sequence[float], charges: Sequence[Dict],
             raise ErreurDonnees(f"une poutre continue a de 2 à {TRAVEES_MAX} travées")
     elif len(Ls) != 1:
         raise ErreurDonnees("ce modèle n'a qu'une travée")
+    g, d = debords_lus(modele, debords, sum(Ls))
     Lt = sum(([g] if g else []) + Ls + ([d] if d else []))      # dans l'ordre des tronçons : la longueur de la Solution
     if len(charges) > CHARGES_MAX:
         raise ErreurDonnees(f"au plus {CHARGES_MAX} charges")
@@ -379,8 +383,9 @@ def _repartir(Ls: Sequence[float], charges: Sequence[Dict], g: float = 0.0, d: f
 
 # ================================================================================================ la résolution
 def _resoudre_tridiagonal(Ls: Sequence[float], seconds: Sequence[float]) -> List[float]:
-    """Le système des trois moments (M aux appuis intermédiaires ; M = 0 aux appuis de rive), par élimination de Gauss
-    sur la matrice tridiagonale — n ≤ 4 inconnues."""
+    """Le système des trois moments (M aux appuis intermédiaires ; les moments de rive, connus — nuls, ou ceux des
+    débords —, sont déjà portés au second membre par l'appelant), par élimination de Gauss sur la matrice tridiagonale
+    — n ≤ 4 inconnues."""
     n = len(seconds)
     A = [[0.0] * n for _ in range(n)]
     for i in range(n):
@@ -604,7 +609,7 @@ def resoudre(modele: str, travees: Sequence[float], charges: Sequence[Dict], EI:
     avant et après les travées ; ``appuis`` ne garde que les appuis, la réaction d'un appui de rive compte la charge
     de son débord. Sans débord, rien ne change (mêmes tronçons, mêmes opérations)."""
     Ls, ch = normaliser(modele, travees, charges, debords)
-    g_, d_ = debords_lus(modele, debords)
+    g_, d_ = debords_lus(modele, debords, sum(Ls))
     if EI is not None:
         EI = _nombre(EI, "E·I")
         if EI <= 0:
