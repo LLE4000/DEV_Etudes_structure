@@ -927,6 +927,20 @@ notes plus lisibles, sans toucher à la rigueur du calcul. Sept lots (DAL1 à DA
     dalle ; la géométrie de départ et le taux visé dans le gabarit ; les paquets de barres (EC2 8.9) ; gagner la page de
     la prédalle avec effort tranchant (A_s,max écrit une fois au lieu de quatre, ≈ 78 pt).
 
+## Fait ensuite, le module Barres acier : lots A, B et C du brief v12 (16 au 18/11/2026)
+
+- **Lot A** (16/11) : résultats faux corrigés, table unique f_y / f_u — `docs/validation/lot_a_avant_apres_2026-11-16.md`.
+- **Lot B** (17/11) : tous les moteurs (méthode ELS des classeurs, Eurocode 3 de la barre, PRS, EN 1993-1-5) —
+  `docs/validation/lot_b_2026-11-17.md`.
+- **Lot C** (18/11) : barre chargée de bout en bout (R2 depuis ses charges), combinaisons (6.10a)/(6.10b), ξ, ψ, γ_G par
+  cas, nuances S420/S460 et norme produit, débords, saisie et résultats à l'écran, PRS (saisie, bibliothèque, croquis),
+  note dans les trois options, revue finale — `docs/validation/barres_revue_finale_2026-11-18.md` (les deux méthodes sur
+  35 cas, les écarts avec les classeurs, la qualification externe, les listes restantes, l'avant/après des notes).
+- **Reste avant la mise en ligne** : le défaut non conservatif des débords (`acier/barre/entree.py`, charges bornées à
+  Σ portées), la construction, les photos, la batterie complète, le harnais aux trois formats.
+- **Reste au bureau** : `BARRES_ACIER.md` § 10 (Q5, Q6, Q8, Q10, Q12, Q14, Q15 à Q20) ; LTBeam L1 à L16, L17b, L17c ;
+  pages SCIA 17 à 22 ; exemples JRC.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

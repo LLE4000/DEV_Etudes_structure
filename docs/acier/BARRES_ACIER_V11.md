@@ -1,5 +1,8 @@
 # Barres en acier — brief version 11 : lot 0 (inventaire, écarts, plan)
 
+*18/11/2026 : document dépassé par le brief version 12 et les lots A, B et C — il reste pour mémoire, non réécrit. La
+spécification en service est `BARRES_ACIER.md` ; l'état du module, `docs/validation/barres_revue_finale_2026-11-18.md`.*
+
 *16/11/2026. Rapport du lot 0 du brief « Barres acier » version 11 (reçu ce jour). Aucun code n'a changé. La
 spécification en service reste `BARRES_ACIER.md` ; ce document dit ce que la version 11 y change, et dans quel ordre.*
 

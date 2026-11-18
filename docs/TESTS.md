@@ -109,6 +109,12 @@ au lieu de 1 860 s d'une traite.
 
 ### Mesure
 
+Recompte du 18/11/2026 (lot C des barres) : **165 suites** `tests/test_*.py` (159 à la batterie du lot B, 17/11/2026 :
+14 223 contrôles, 0 échec ; le lot C en ajoute six — `test_barre_comparaison`, `test_barre_nuances`,
+`test_barre_combinaisons`, `test_api_web_profil_prs`, `test_api_web_profil_resultat`, `test_barres_revue`) ; 16 relisent
+leur note PDF par `pdftotext` ; 18 gardent le module Barres (`test_barre*`, `test_api_web_profil*`, `test_note_profil`,
+`test_rdm_poutres`, `test_barres_revue`). La batterie du lot C est jouée une fois, à l'intégration.
+
 Avant (lot 3, 09/11/2026) : 103 suites, une à la fois, 1 845 s (le catalogue 512 s, les pieds de poteau 355 s, les
 modules 153 s). Premier passage du lanceur (09/11/2026, 02:08 UTC, quatre agents de code au travail à côté) : 105
 suites en 757 s sur 4 processus, 8411 OK ; 20 suites non suivies (node, pdftotext, python -I), toujours rejouées ; le
