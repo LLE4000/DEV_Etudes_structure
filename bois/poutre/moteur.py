@@ -164,10 +164,11 @@ GABARITS = {
 
 
 # ------------------------------------------------------------------ les coefficients
-def k_h(typ: str, h: float) -> float:
-    """k_h (§3.2(3) massif, §3.3(3) lamellé-collé) : la majoration de f_m,k sous la hauteur de référence."""
+def k_h(typ: str, h: float, rho_k: float = 0.0) -> float:
+    """k_h (§3.2(3) bois massif, §3.3(3) lamellé-collé) : la majoration de f_m,k sous la hauteur de référence — aucune
+    pour un bois massif plus lourd que ρ_k = 700 kg/m³ (§3.2(3) : D70)."""
     r = D.K_H[typ]
-    if h >= r["h_ref"]:
+    if h >= r["h_ref"] or (typ != D.LAMELLE and rho_k > D.RHO_K_MAX_K_H):
         return 1.0
     return min((r["h_ref"] / h) ** r["exposant"], r["plafond"])
 
@@ -229,7 +230,7 @@ def _calculer(p: Dict) -> Dict:
     gamma_M = D.GAMMA_M[typ]
     kdef = D.KDEF[service]
     ksys = D.K_SYS if p["systeme"] else 1.0
-    kh = k_h(typ, h)
+    kh = k_h(typ, h, mat["rho_k"])
     duree, psi2 = ch["duree"], ch["psi2"]
 
     # le déversement (indépendant de la combinaison)
@@ -365,7 +366,10 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
 
     # ---- la section
     r = D.K_H[typ]
-    if h < r["h_ref"]:
+    if typ != D.LAMELLE and mat["rho_k"] > D.RHO_K_MAX_K_H:
+        f_kh = _lu("kh", "k_h", f"ρ_k = {_c(mat['rho_k'])} kg/m³ > {_c(D.RHO_K_MAX_K_H)} : pas de majoration ({r['article']})", x["kh"],
+                   termes=[_t("ρ_k", mat["rho_k"], "kg/m³")])
+    elif h < r["h_ref"]:
         f_kh = _fx("kh", "k_h", f"min(({_c(r['h_ref'])} / {{h}})^{_c(r['exposant'])} ; {_c(r['plafond'])})", [_t("h", h, "mm")], x["kh"])
     else:
         f_kh = _lu("kh", "k_h", f"h ≥ {_c(r['h_ref'])} mm : pas de majoration ({r['article']})", x["kh"], termes=[_t("h", h, "mm")])
@@ -424,7 +428,9 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
     # ---- la compression à l'appui
     if p["appui"]["verifier"]:
         deux_h = D.L1_SUR_H_MIN * h
-        if x["raison"] == "distance":
+        if typ == D.FEUILLU:
+            origine = "feuillu : pas de majoration (§6.1.5(4), résineux seulement)"
+        elif x["raison"] == "distance":
             origine = f"l_1 < {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm : pas de majoration (§6.1.5(2))"
         elif x["raison"] == "longueur":
             origine = f"lamellé-collé, a > {_c(D.A_MAX_K_C90[typ])} mm : pas de majoration (§6.1.5(4))"
@@ -497,7 +503,7 @@ def _avertissements(p: Dict, x: Dict) -> List[Dict]:
         dire("sans_charge", ATTENTION, "Aucune charge : G = Q = 0 et le poids propre n'est pas compté ; tous les taux sont nuls.")
     if not ch["poids_propre"]:
         dire("poids_propre", ATTENTION, f"Poids propre non compté ({_n(x['g_pp'], 3)} kN/m) : il doit être compris dans G.")
-    if ap["verifier"] and x["raison"] == "distance":
+    if ap["verifier"] and x["raison"] == "distance" and x["kc90_plein"] > x["kc90"]:
         dire("kc90_distance", ATTENTION,
              f"Appuis rapprochés : la distance libre l_1 = L − a = {_n(x['l1'], 0)} mm est inférieure à 2·h = {_n(D.L1_SUR_H_MIN * x['h'], 0)} mm ; "
              f"k_c,90 est ramené de {_n(x['kc90_plein'], 2)} à {_n(x['kc90'], 1)} (EN 1995-1-1 §6.1.5).")
@@ -536,6 +542,12 @@ def _hypotheses(p: Dict, x: Dict) -> List[str]:
     else:
         out.append("Déversement : entretoises qui maintiennent la fibre comprimée, appuis maintenus en torsion ; moment pris constant "
                    f"entre deux entretoises (côté sûr) : l_ef = {expression(GABARITS['l_ef_entretoises'])} (tableau 6.1).")
+    if typ != "continu" and x["typ"] == D.FEUILLU:
+        out.append("Feuillu : σ_m,crit par la formule (6.32) écrite pour les résineux — elle suppose G = E/16, ce que l'EN 338 donne "
+                   "aussi aux classes D.")
+    if x["mat"]["type"] != D.LAMELLE and D.LIBELLES_ESSENCE[p["essence"]] != D.LIBELLES_ESSENCE[D.ESSENCE_DEFAUT_TYPE[x["typ"]]]:
+        out.append(f"L'essence ({D.LIBELLES_ESSENCE[p['essence']].lower()}) est écrite, pas calculée : les valeurs sont celles de la classe "
+                   f"{p['classe']} ({x['mat']['norme']}).")
     if p["appui"]["verifier"]:
         out.append("Appui : la réaction V_d sur la largeur b et la longueur efficace l_ef,a (§6.1.5) ; la charge portée par les "
                    "abouts au-delà de l'axe de l'appui est négligée.")
@@ -560,6 +572,12 @@ def _aides() -> Dict[str, str]:
     services = " ; ".join(f"{k}, {D.LIBELLES_SERVICE[k]}" for k in D.CLASSES_SERVICE)
     inst, fin = D.TABLEAU_7_2["inst"], D.TABLEAU_7_2["net_fin"]
     return {
+        "essence": "L'essence du bois. Elle est écrite dans la note et fixe le type — résineux, feuillu, lamellé-collé —, donc k_c,90 (la "
+                   "majoration à l'appui ne vaut que pour les résineux), la hauteur de référence de k_h et les sections proposées ; le "
+                   "calcul lit la CLASSE de résistance, qui porte toutes les valeurs.",
+        "classe": "La classe de résistance (EN 338 : C pour les résineux, D pour les feuillus ; EN 14080 : GL pour le lamellé-collé). "
+                  "À côté de chaque classe, les qualités de classement visuel qui y mènent pour cette essence (EN 1912 : la règle "
+                  "nationale et sa qualité).",
         "b": "La largeur de la section.",
         "h": "La hauteur de la section, dans le plan de flexion.",
         "L": "La portée entre AXES des appuis ; poutre sur deux appuis simples.",
@@ -661,7 +679,11 @@ def verifier(poutre: Dict) -> Dict:
     lib_m = D.LIBELLES_MAINTIEN[p["maintien"]["type"]]
     return {
         "reference": REFERENCE, "poutre": p,
-        "materiau": dict({"classe": p["classe"], "type": typ, "libelle_type": D.LIBELLES_TYPE[typ], "norme": mat["norme"]},
+        "materiau": dict({"classe": p["classe"], "type": typ, "libelle_type": D.LIBELLES_TYPE[typ], "norme": mat["norme"],
+                          "essence": p["essence"], "libelle_essence": D.LIBELLES_ESSENCE[p["essence"]], "latin": D.LATIN_ESSENCE[p["essence"]],
+                          # l'essence « dite » à côté de la classe (« C24 épicéa ») : rien quand elle n'est pas précisée
+                          "essence_dite": "" if p["essence"] == D.ESSENCE_DEFAUT_TYPE[typ] else D.LIBELLES_ESSENCE[p["essence"]].lower(),
+                          "qualites": list(D.qualites(p["essence"], p["classe"]))},
                          **{k: mat[k] for k in D.PROPRIETES}),
         "coefficients": {"service": x["service"], "libelle_service": D.LIBELLES_SERVICE[x["service"]], "gamma_M": x["gamma_M"],
                          "gamma_G": p["gamma_G"], "gamma_Q": p["gamma_Q"], "kdef": x["kdef"], "kcr": D.K_CR, "ksys": x["ksys"],

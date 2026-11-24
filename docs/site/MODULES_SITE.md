@@ -212,6 +212,17 @@ qu'une pastille de sa couleur dit à la place du taux — court, elle fait 52 px
 Le modèle d'un module compact à blocs thématiques et à lignes d'information « hors verdict » : `api_web/corniere.py`
 (`docs/acier/CORNIERE_MOTEUR.md` § 11).
 
+**L'en-tête technique d'une vue du centre** (`etabli_compact.entete`, le propriétaire, 24/11/2026 : « au-dessus du
+dessin, le nom de la section, la qualité, c'est tout — trois lignes maximum », la poutre béton armé est le modèle) : la
+ligne du titre (le titre en capitales, puis la section et sa qualité — « 75 × 225 mm · C24 épicéa », « L 100×100×10 ·
+S355 »), et DEUX lignes de texte au plus en dessous (`LIGNES_ENTETE_MAX`) ; la légende du dessin n'est plus une ligne,
+elle est au survol de l'en-tête (`title`). Une troisième ligne est REFUSÉE par le composant (ValueError : c'est le
+module qui a trop à dire, et son test le voit). Et chaque ligne est COURTE, pour tenir à côté de la bande des efforts au
+PC (1440 px) — une ligne qui se replie en compte deux à l'œil : cornières, « A · en bas · historique (P8) · R 35 kN ·
+L 300 mm » ; poutres bois, « g 0,67 · q 0,80 kN/m · A · habitation · service 1 » sous « 75 × 225 · C24 épicéa ·
+L 4,00 m ». Figé par `tests/test_api_web_corniere.py` et `tests/test_api_web_bois.py`, regardé sur les captures du
+harnais aux trois formats.
+
 **Un VOLET dépliable dans les données** (cornières, révision § 9.7 du 10/11/2026) — un `<details data-volet="k">` natif
 posé par le module dans une rubrique (le volet « Détails » de la fiche du catalogue : `corniere._fiche`), replié par
 défaut (le moteur ne l'ouvre jamais). `js/etabli.js` garde son état d'ouverture d'un calcul à l'autre — le cadre Données
@@ -290,7 +301,11 @@ profilé » (`api_web/note_profil.py`, `docs/acier/BARRES_ACIER.md` § 9 : la pl
 `api_web` elle aussi ; sa note riche : une barre chargée aux deux méthodes, un poteau comprimé et fléchi en tube
 rectangulaire, une poutre continue à l'Eurocode seul ; depuis le lot 4, chaque planche porte aussi le bloc de l'âme et de
 ses raidisseurs — EN 1993-1-5 — ; depuis le lot C, les deux méthodes sont toujours calculées et la note imprime son
-OPTION : les deux, la méthode ELS seule ou l'Eurocode 3 seul, `BARRES_ACIER.md` § 9.4). Il tient en trois points, chacun prouvé :
+OPTION : les deux, la méthode ELS seule ou l'Eurocode 3 seul, `BARRES_ACIER.md` § 9.4) — et, depuis le 24/11/2026, les
+poutres bois (`api_web/note_bois.py`, `docs/bois/POUTRE_BOIS_MOTEUR.md` § 10 : le générateur `bois/poutre/note.py` est dans
+le paquet du MOTEUR — `bois` est un paquet empaqueté entier —, le paquet de la note n'a aucun fichier de plus à recevoir et
+la note ne charge pas numpy ; sa note riche : trois poutres — une solive C24 en charges surfaciques, un linteau en chêne
+D30 maintenu aux appuis qui ne tient pas, une poutre GL28c sur mesure entretoisée avec contre-flèche). Il tient en trois points, chacun prouvé :
 
 - **Le bouton** : `construire.boutons_note_pdf` est UN composant posé aux trois emplacements (barre du haut du PC et de
   la tablette, menu ⋯ et barre du bas du téléphone) par `page_module`, pour TOUTE page d'établi, compacte ou non (avant,
@@ -324,7 +339,8 @@ OPTION : les deux, la méthode ELS seule ou l'Eurocode 3 seul, `BARRES_ACIER.md`
   est à moins d'une unité du chip (intégration du 10/11/2026 — le harnais exigeait la chaîne du chip, écrite pour des
   notes qui impriment des taux entiers). Préparation mesurée le 09/11/2026 (du clic au téléchargement) : 1,2 à 1,7 s
   (poutre, dalle, soudures, plancher), 2,3 à 2,7 s (garde-corps), 4,7 à 5,5 s (assemblages, 8 assemblages, 18 pages) ;
-  le 10/11/2026, cornières (2 cornières, 5 pages) : 2,0 à 2,2 s.
+  le 10/11/2026, cornières (2 cornières, 5 pages) : 2,0 à 2,2 s ; le 24/11/2026, poutres bois (3 poutres, 4 pages) :
+  1,1 à 1,2 s.
 
 **Modules « à cas »** (`api_web/note_cas.py`) : pour un module dont la note est
 faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend

@@ -398,9 +398,9 @@ chk("ELU : les fenêtres écrivent les limites f_y/γ_M0 et le taux σ_éq/(f_y/
     and "σ/(f<sub>y</sub>/γ<sub>M0</sub>) (I31)" in rU["volets"] and "τ/(f<sub>y</sub>/(√3·γ<sub>M0</sub>)) (I34)" in rU["volets"]
     and "limites ELU" in rU["volets"] and "(H31)" not in rU["volets"] and "σ<sub>adm</sub>" not in rU["volets"], None)
 chk("ELU : l'en-tête des vues dit l'état limite et sa limite (f_y/γ_M0 = 355, γ_M0 = 1), pas le coef ; en ELS, σ_adm = 236,7 et le coef",
-    all("ELU" in v["entete"] and "f<sub>y</sub>/γ<sub>M0</sub> = 355" in v["entete"] and "γ<sub>M0</sub> = 1" in v["entete"] and "coef" not in v["entete"]
+    all("ELU" in v["entete"] and "f<sub>y</sub>/γ<sub>M0</sub> = 355" in v["entete"] and "γ<sub>M0</sub> = 1" not in v["entete"] and "coef" not in v["entete"]
         and "σ<sub>adm</sub>" not in v["entete"] for v in rU["vues"])
-    and all("ELS" in v["entete"] and "σ<sub>adm</sub> = 236,7" in v["entete"] and "(coef 1,5)" in v["entete"] for v in r0["vues"]), None)
+    and all("ELS" in v["entete"] and "σ<sub>adm</sub> = 236,7" in v["entete"] and "coef" not in v["entete"] for v in r0["vues"]), None)
 e_elu = saisir(r0["etat"], "etat_limite", "ELU")
 chk("la bascule ELS → ELU par la saisie : la limite passe de 236,7 à 355 N/mm², l'avertissement des chevilles dit l'ELU, l'avis R_ELU_auto disparaît",
     e_elu["etat"]["cornieres"][0]["etat_limite"] == "ELU" and "355" in e_elu["resultat"] and "236,7" not in e_elu["resultat"]
@@ -442,10 +442,27 @@ e_rd = saisir(r0["etat"], "rondelles", "2")
 chk("rondelles = 2 par le segment : un entier dans l'état, le segment 2 allumé, l'hypothèse du moteur dit la rondelle large",
     e_rd["etat"]["cornieres"][0]["rondelles"] == 2 and isinstance(e_rd["etat"]["cornieres"][0]["rondelles"], int)
     and 'class="on" data-chemin="rondelles" data-sorte="choix" data-valeur="2"' in e_rd["donnees"] and "ISO 7093-1" in e_rd["resultat"], None)
+def visible_entete(v):
+    """L'en-tête d'une vue sans ses attributs de survol : ce qui se LIT à l'écran."""
+    return re.sub(r' title="[^"]*"', "", v["entete"])
+
+
 e_ty = saisir(r0["etat"], "type_ancrage", "traversant")
-chk("type d'ancrage « traversant » par le segment : l'état, le segment allumé, le bloc Ancrages et l'en-tête des vues le disent",
+chk("type d'ancrage « traversant » par le segment : l'état, le segment allumé et le bloc Ancrages le disent (24/11/2026 — le harnais suit : l'en-tête des "
+    "vues ne nomme plus les ancrages, le dessin et les données les portent)",
     e_ty["etat"]["cornieres"][0]["type_ancrage"] == "traversant" and 'class="on" data-chemin="type_ancrage" data-sorte="choix" data-valeur="traversant"' in e_ty["donnees"]
-    and "boulon traversant" in e_ty["resultat"] and all("boulon" in v["entete"] for v in e_ty["vues"]), None)
+    and "boulon traversant" in e_ty["resultat"] and not any("boulon" in visible_entete(v) for v in e_ty["vues"]), None)
+# (24/11/2026, le propriétaire : « au-dessus du dessin, le nom de la section, la qualité, c'est tout — trois lignes maximum ») : le titre, la section
+# avec sa nuance et son état limite, puis UNE ligne — la configuration, le mode, R et L ; la légende au survol (un attribut, pas une ligne)
+
+
+chk("l'en-tête de chaque vue tient en DEUX lignes : « SECTION · L 150 × 100 × 10 · S235 · ELS · σ_adm = … », puis la configuration, le mode, R et L ; "
+    "ni position, ni ancrage, ni support ; la légende du dessin est au survol de l'en-tête",
+    all(v["entete"].count('class="l2"') == 1 and 'class="l3"' not in v["entete"] and 'class="lg"' not in v["entete"]
+        and f'<div class="et-ent-t" title="{C.esc(v["legende"])}">' in v["entete"]
+        and re.search(r'<div class="l2">A · en bas · historique \(P8\) · R [\d,]+ kN · L [\d,]+ mm</div>', visible_entete(v))
+        and not any(m_ in visible_entete(v) for m_ in ("X = ", "Y = ", "cheville", "voile", "au-dessus")) for v in r0["vues"]),
+    [re.findall(r'<div class="l2">(.*?)</div>', v["entete"]) for v in r0["vues"]][:1])
 e_pt = saisir(r0["etat"], "support", "poutre")
 chk("support « poutre » par le segment : les champs 150/150 apparaissent, les bords 60 et 230 mm en information, la résumé de la rubrique dit « poutre »",
     e_pt["etat"]["cornieres"][0]["support"] == "poutre" and 'data-chemin="support_haut" data-sorte="nombre" inputmode="decimal" value="150"' in e_pt["donnees"]

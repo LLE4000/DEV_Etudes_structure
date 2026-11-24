@@ -623,7 +623,9 @@ choisie par défaut » ; mutations. `tests/test_api_web_bibliotheque.py` : la ru
   regel accepté avec la raison écrite dans la photo), harnais aux trois formats (`verifier_site.js` : module, formats),
   captures REGARDÉES, suite complète avant la mise en ligne.
 - **Hors du lot** : les notes PDF de ces modules (boutons grisés « bientôt » : à concevoir sur le modèle des cornières
-  une fois les écrans validés par l'ingénieur) ; le retrait des modules masqués ; les écrans Streamlit.
+  une fois les écrans validés par l'ingénieur — celle des poutres bois est faite le 24/11/2026,
+  `docs/bois/POUTRE_BOIS_MOTEUR.md` § 10 ; la maturité et le taux d'armature restent « bientôt ») ; le retrait des
+  modules masqués ; les écrans Streamlit.
 
 ---
 

@@ -96,6 +96,8 @@ def poutre(**k):
     if "section" in k or k.get("standard") is False or "classe" in k:
         if p["standard"]:
             p["b"] = p["h"] = None                    # déduits de la section standard
+    if "classe" in k and "essence" not in k:
+        p["essence"] = D.ESSENCE_DEFAUT_TYPE[E.type_classe(p["classe"])]      # (24/11/2026) l'essence suit le type de la classe
     if "charges__nature" in k and k["charges__nature"] != "autre":
         p["charges"]["duree"] = p["charges"]["psi2"] = None
     return p
@@ -118,13 +120,26 @@ T = {
     "C40": (40, 26, 27, 2.8, 4.0, 14000, 9400, 880, 400, 480),
     "C45": (45, 30, 29, 2.9, 4.0, 15000, 10100, 940, 410, 490),
     "C50": (50, 33.5, 30, 3.0, 4.0, 16000, 10700, 1000, 430, 520),
+    # (24/11/2026) les FEUILLUS, EN 338:2016 tableau 3 — transcription indépendante de celle de donnees.py (de mémoire, les deux ;
+    # recoupées par les relations de l'EN 384 ci-dessous et par trois lectures partielles ; les f_v,k restent à recouper)
+    "D18": (18, 11, 18, 4.8, 3.5, 9500, 8000, 590, 475, 570),
+    "D24": (24, 14, 21, 4.9, 3.7, 10000, 8400, 630, 485, 580),
+    "D30": (30, 18, 24, 5.3, 3.9, 11000, 9200, 690, 530, 640),
+    "D35": (35, 21, 25, 5.4, 4.1, 12000, 10100, 750, 540, 650),
+    "D40": (40, 24, 27, 5.5, 4.2, 13000, 10900, 810, 550, 660),
+    "D50": (50, 30, 30, 6.2, 4.5, 14000, 11800, 880, 620, 740),
+    "D60": (60, 36, 33, 10.5, 4.8, 17000, 14300, 1060, 700, 840),
+    "D70": (70, 42, 36, 12.0, 5.0, 20000, 16800, 1250, 800, 960),
     "GL24h": (24, 19.2, 24, 2.5, 3.5, 11500, 9600, 650, 385, 420),
     "GL28h": (28, 22.3, 28, 2.5, 3.5, 12600, 10500, 650, 425, 460),
+    "GL30h": (30, 24, 30, 2.5, 3.5, 13600, 11300, 650, 430, 480),
     "GL32h": (32, 25.6, 32, 2.5, 3.5, 14200, 11800, 650, 440, 490),
     "GL24c": (24, 17, 21.5, 2.5, 3.5, 11000, 9100, 650, 365, 400),
     "GL28c": (28, 19.5, 24, 2.5, 3.5, 12500, 10400, 650, 390, 420),
+    "GL30c": (30, 19.5, 24.5, 2.5, 3.5, 13000, 10800, 650, 390, 430),
     "GL32c": (32, 19.5, 24.5, 2.5, 3.5, 13500, 11200, 650, 400, 440),
 }
+TYPE_T = {c: ("massif" if c.startswith("C") else "feuillu" if c.startswith("D") else "lamelle") for c in T}
 NOMS_T = ("fm_k", "ft0_k", "fc0_k", "fc90_k", "fv_k", "E0_mean", "E0_05", "G_mean", "rho_k", "rho_mean")
 TABLE = {c: dict(zip(NOMS_T, map(float, v))) for c, v in T.items()}
 
@@ -138,10 +153,9 @@ def fautes_tables(d):
         for k, v in vals.items():
             if d.CLASSES.get(c, {}).get(k) != v:
                 f.append(f"{c} {k} : {d.CLASSES.get(c, {}).get(k)} ≠ {v}")
-        typ = "massif" if c.startswith("C") else "lamelle"
-        if d.CLASSES.get(c, {}).get("type") != typ:
+        if d.CLASSES.get(c, {}).get("type") != TYPE_T[c]:
             f.append(f"{c} : type {d.CLASSES.get(c, {}).get('type')}")
-    if d.GAMMA_M != {"massif": 1.30, "lamelle": 1.25}:
+    if d.GAMMA_M != {"massif": 1.30, "feuillu": 1.30, "lamelle": 1.25}:
         f.append(f"γ_M : {d.GAMMA_M}")
     kmod = {1: (0.60, 0.70, 0.80, 0.90, 1.10), 2: (0.60, 0.70, 0.80, 0.90, 1.10), 3: (0.50, 0.55, 0.65, 0.70, 0.90)}
     for s, vals in kmod.items():
@@ -151,14 +165,33 @@ def fautes_tables(d):
         f.append(f"k_def : {d.KDEF}")
     if (d.K_CR, d.K_SYS) != (0.67, 1.1):
         f.append(f"k_cr, k_sys : {d.K_CR}, {d.K_SYS}")
-    if (d.K_H["massif"]["h_ref"], d.K_H["massif"]["exposant"], d.K_H["massif"]["plafond"]) != (150.0, 0.2, 1.3) \
-            or (d.K_H["lamelle"]["h_ref"], d.K_H["lamelle"]["exposant"], d.K_H["lamelle"]["plafond"]) != (600.0, 0.1, 1.1):
+    if any((d.K_H[t]["h_ref"], d.K_H[t]["exposant"], d.K_H[t]["plafond"]) != (150.0, 0.2, 1.3) for t in ("massif", "feuillu")) \
+            or (d.K_H["lamelle"]["h_ref"], d.K_H["lamelle"]["exposant"], d.K_H["lamelle"]["plafond"]) != (600.0, 0.1, 1.1) or d.RHO_K_MAX_K_H != 700.0:
         f.append(f"k_h : {d.K_H}")
     if (d.COEF_SIGMA_CRIT, d.LAMBDA_PALIER, d.LAMBDA_ELANCE, d.K_CRIT_ORIGINE, d.K_CRIT_PENTE, d.LEF_CHARGE_REPARTIE, d.LEF_FIBRE_COMPRIMEE) \
             != (0.78, 0.75, 1.4, 1.56, 0.75, 0.9, 2.0):
         f.append("déversement : une constante a changé")
-    if (d.K_C90, d.K_C90_DEFAUT, d.MAJORATION_APPUI, d.L1_SUR_H_MIN, d.A_MAX_K_C90) != ({"massif": 1.5, "lamelle": 1.75}, 1.0, 30.0, 2.0, {"lamelle": 400.0}):
+    if (d.K_C90, d.K_C90_DEFAUT, d.MAJORATION_APPUI, d.L1_SUR_H_MIN, d.A_MAX_K_C90) != ({"massif": 1.5, "feuillu": 1.0, "lamelle": 1.75}, 1.0, 30.0, 2.0, {"lamelle": 400.0}):
         f.append("compression d'appui : une constante a changé")
+    essences = {"epicea": "massif", "sapin": "massif", "pin_sylvestre": "massif", "pin_maritime": "massif", "douglas": "massif", "meleze": "massif",
+                "resineux": "massif", "chene": "feuillu", "hetre": "feuillu", "chataignier": "feuillu", "azobe": "feuillu", "feuillu": "feuillu", "lamelle": "lamelle"}
+    if dict(d.TYPE_ESSENCE) != essences or list(d.CLES_ESSENCE) != list(essences) or d.ESSENCE_DEFAUT != "epicea" \
+            or d.ESSENCE_DEFAUT_TYPE != {"massif": "resineux", "feuillu": "feuillu", "lamelle": "lamelle"} \
+            or d.CLASSE_DEFAUT_TYPE != {"massif": "C24", "feuillu": "D30", "lamelle": "GL24h"}:
+        f.append(f"essences : {d.TYPE_ESSENCE}")
+    # les qualités de classement visuel (EN 1912) : la règle française pour les six résineux, le chêne et le hêtre ; les règles
+    # allemande, nordique et britannique de mémoire (à recouper) ; rien pour le classement belge
+    fr = {"C30": "ST-I (NF B 52-001-1)", "C24": "ST-II (NF B 52-001-1)", "C18": "ST-III (NF B 52-001-1)"}
+    for e in ("epicea", "sapin", "pin_sylvestre", "pin_maritime", "douglas", "meleze"):
+        for c, q in fr.items():
+            if q not in d.qualites(e, c):
+                f.append(f"{e} {c} : {d.qualites(e, c)}")
+    if d.qualites("epicea", "C24") != ("ST-II (NF B 52-001-1)", "S10 (DIN 4074-1)", "T2 (INSTA 142)", "SS (BS 4978)") \
+            or d.qualites("epicea", "C16") != ("S7 (DIN 4074-1)", "GS (BS 4978)") or d.qualites("epicea", "C18") != ("ST-III (NF B 52-001-1)", "T1 (INSTA 142)") \
+            or d.qualites("chene", "D30") != ("NF B 52-001-1:2018",) or d.qualites("chene", "D24") != ("NF B 52-001-1:2018",) or d.qualites("chene", "D40") != () \
+            or d.qualites("hetre", "D35") != ("H2 (NF B 52-001-1:2018)",) or d.qualites("hetre", "D24") != ("H3 (NF B 52-001-1:2018)",) \
+            or d.qualites("resineux", "C24") != () or d.qualites("azobe", "D70") != () or d.qualites("lamelle", "GL24h") != ():
+        f.append("qualités de classement")
     if (d.COEF_TAU_RECTANGLE, d.FLECHE_NUM, d.FLECHE_DEN, d.FORME_TRANCHANT, d.G_PESANTEUR, d.GAMMA_G, d.GAMMA_Q) != (1.5, 5.0, 384.0, 1.2, 9.81, 1.35, 1.5):
         f.append("cisaillement, flèche, pesanteur ou γ : une constante a changé")
     natures = {"A": ("moyen", 0.3), "B": ("moyen", 0.3), "C": ("moyen", 0.6), "D": ("moyen", 0.6), "E": ("long", 0.8), "H": ("court", 0.0),
@@ -171,8 +204,28 @@ def fautes_tables(d):
     return f
 
 
-chk("les 18 classes (C14 à C50, GL24h à GL32c) et leurs dix propriétés ; γ_M, k_mod, k_def, k_cr, k_sys, k_h, déversement, appui, flèche, natures, "
-    "limites : identiques à la transcription du test", not fautes_tables(D), fautes_tables(D)[:4])
+chk("les 28 classes (C14 à C50, D18 à D70, GL24h à GL32c) et leurs dix propriétés ; γ_M, k_mod, k_def, k_cr, k_sys, k_h, déversement, appui, flèche, "
+    "natures, limites ; les 13 essences, leur type et leurs qualités de classement : identiques à la transcription du test", not fautes_tables(D), fautes_tables(D)[:4])
+coh_d = []
+for c in [x for x in T if x.startswith("D")]:
+    m = TABLE[c]
+    if abs(m["ft0_k"] - 0.6 * m["fm_k"]) > 0.5:
+        coh_d.append(f"{c} : f_t,0,k ≠ 0,6·f_m,k")
+    if abs(m["fc0_k"] - 4.3 * math.sqrt(m["fm_k"])) > 0.5:
+        coh_d.append(f"{c} : f_c,0,k ≠ 4,3·√f_m,k")
+    if abs(m["fc90_k"] - (0.010 if m["fm_k"] <= 50 else 0.015) * m["rho_k"]) > 0.0501:
+        coh_d.append(f"{c} : f_c,90,k")
+    if abs(m["E0_05"] - 0.84 * m["E0_mean"]) > 50.01:
+        coh_d.append(f"{c} : E_0,05 ≠ 0,84·E_0,mean")
+    if abs(m["G_mean"] - m["E0_mean"] / 16.0) > 5.01:
+        coh_d.append(f"{c} : G_mean ≠ E_0,mean/16")
+    if abs(m["rho_mean"] - 1.2 * m["rho_k"]) > 10.01:
+        coh_d.append(f"{c} : ρ_mean ≠ 1,2·ρ_k")
+chk("EN 338:2016, feuillus : les relations de l'EN 384 tiennent pour les 8 classes D (f_t,0,k = 0,6·f_m,k, f_c,0,k = 4,3·√f_m,k, f_c,90,k = 0,010·ρ_k "
+    "jusqu'à D50 et 0,015·ρ_k au-delà, E_0,05 = 0,84·E_0,mean, G_mean = E_0,mean/16, ρ_mean = 1,2·ρ_k)", not coh_d, coh_d)
+chk("EN 14080:2013 : GL30h et GL30c — f_c,0,k = f_m,k pour l'homogène, E_0,05 = 5/6·E_0,mean à 50 près, f_t,0,k = 0,8·f_m,k pour l'homogène",
+    all(abs(D.CLASSES[c]["E0_05"] - D.CLASSES[c]["E0_mean"] * 5 / 6) <= 50.01 for c in ("GL30h", "GL30c"))
+    and D.CLASSES["GL30h"]["fc0_k"] == 30.0 and D.CLASSES["GL30h"]["ft0_k"] == 24.0 and D.CLASSES["GL30c"]["fc0_k"] == 24.5)
 coh = []
 for c in [x for x in T if x.startswith("C")]:
     m = TABLE[c]
@@ -293,7 +346,9 @@ def reference(p):
     """Le calcul de la conception § 1.4 pour une poutre NORMALISÉE, écrit ici en N et en mm (p en N/mm, L en mm, M en
     N·mm, V en N), avec ``math`` et les tables transcrites dans ce fichier — rien du moteur."""
     m = TABLE[p["classe"]]
-    massif = p["classe"].startswith("C")
+    typ = TYPE_T[p["classe"]]
+    massif = typ == "massif"                       # résineux massif ; « feuillu » : massif feuillu ; sinon lamellé-collé
+    plein = typ != "lamelle"                       # un bois massif, résineux ou feuillu
     b, h, L = p["b"], p["h"], p["L"] * 1000.0
     A, W, I = b * h, b * h * h / 6.0, b * h ** 3 / 12.0
     c = p["charges"]
@@ -301,10 +356,10 @@ def reference(p):
     g_pp = m["rho_mean"] * 9.81 * A * 1e-9                         # kg/m³ × N/kg × mm² × 10⁻⁹ = N/mm
     g, q = G + (g_pp if c["poids_propre"] else 0.0), Q
     duree, psi2 = (c["duree"], c["psi2"]) if c["nature"] == "autre" else NATURES_REF[c["nature"]]
-    gamma_M = 1.30 if massif else 1.25
+    gamma_M = 1.30 if plein else 1.25
     ksys = 1.1 if p["systeme"] else 1.0
-    if massif:
-        kh = min((150.0 / h) ** 0.2, 1.3) if h < 150.0 else 1.0
+    if plein:
+        kh = min((150.0 / h) ** 0.2, 1.3) if (h < 150.0 and m["rho_k"] <= 700.0) else 1.0      # §3.2(3) : ρ_k ≤ 700 kg/m³
     else:
         kh = min((600.0 / h) ** 0.1, 1.1) if h < 600.0 else 1.0
     # déversement
@@ -320,8 +375,8 @@ def reference(p):
     a, deb = p["appui"]["a"], p["appui"]["debord"]
     l1 = L - a
     l_ef_a = a + min(30.0, a, l1 / 2.0) + min(30.0, a, deb)
-    kc90 = 1.5 if massif else 1.75
-    if l1 < 2.0 * h or (not massif and a > 400.0):
+    kc90 = {"massif": 1.5, "feuillu": 1.0, "lamelle": 1.75}[typ]        # §6.1.5(4) : les résineux seuls sont majorés
+    if l1 < 2.0 * h or (typ == "lamelle" and a > 400.0):
         kc90 = 1.0
     combs = [("G", "permanent", p["gamma_G"] * g)] + ([("GQ", duree, p["gamma_G"] * g + p["gamma_Q"] * q)] if q > 0 else [])
     out = {"g_pp": g_pp, "g": g, "q": q, "kh": kh, "kcrit": kcrit, "l_ef": l_ef, "sigma_crit": s_crit, "lambda_rel": lam, "l_ef_a": l_ef_a,
@@ -413,11 +468,15 @@ EXEMPLES = {
     "4 · lamellé-collé GL24h 120 × 400 sur 8 m": poutre(classe="GL24h", section="120x400", L=8.0, charges__G=3.0, charges__Q=4.0),
     "5 · l'appui gouverne (a = 40 mm)": poutre(section="100x300", L=3.0, charges__G=8.0, charges__Q=12.0, appui__a=40.0),
     "6 · classe de service 3": poutre(service=3),
+    # (24/11/2026) les feuillus : un chêne D30 à l'appui (k_c,90 = 1,0 alors que l_1 ≥ 2·h), un azobé D70 sous 150 mm (ρ_k = 800 : k_h = 1)
+    "7 · chêne D30 100 × 200 sur 5 m, appui de 120 mm": poutre(essence="chene", classe="D30", section="100x200", L=5.0, charges__G=2.0, charges__Q=3.0, appui__a=120.0),
+    "8 · azobé D70 100 × 120 sur 2 m, maintenu aux appuis": poutre(essence="azobe", classe="D70", standard=False, b=100.0, h=120.0, L=2.0, charges__G=5.0,
+                                                               charges__Q=5.0, maintien__type="appuis"),
 }
 for nom, p in EXEMPLES.items():
     ec = ecarts(M, p)
     chk(f"exemple {nom} : le moteur = la référence (chaque grandeur, chaque combinaison, à 1e-9)", not ec, ec[:3])
-r2, r3, r4, r5, r6 = (M.verifier(EXEMPLES[k]) for k in list(EXEMPLES)[1:])
+r2, r3, r4, r5, r6, r7, r8 = (M.verifier(EXEMPLES[k]) for k in list(EXEMPLES)[1:])
 # à la main : g = 3 + 0,0695 = 3,0695 ; G seule : 1,35 × 3,0695 × 4²/8 = 8,288 kN·m → 13,10 / (0,6 × 24/1,3 = 11,08) = 118,2 % ;
 # G + Q : (4,144 + 0,75) × 2 = 9,788 kN·m → 15,47 / (0,8 × 24/1,3 = 14,77) = 104,7 %
 chk("exemple 2 : G seule gouverne la flexion (118,2 % contre 104,7 % pour G + Q : non conforme), le cisaillement et l'appui ; G + Q reste calculée et montrée",
@@ -440,13 +499,30 @@ chk("exemple 5 : a = 40 mm → l_ef,a = 40 + 30 + 0 = 70 mm ; la compression à 
 chk("exemple 6 : classe de service 3 — k_mod 0,50 (permanent) et 0,65 (moyen terme), k_def = 2,0 : w_fin = 3·w_g + 1,6·w_q",
     [c["kmod"] for c in r6["combinaisons"]] == [0.50, 0.65] and r6["coefficients"]["kdef"] == 2.0
     and pres(r6["fleches"]["w_fin"], 3.0 * r6["fleches"]["w_g"] + 1.6 * r6["fleches"]["w_q"]), r6["combinaisons"])
+# (24/11/2026) les feuillus, à la main : chêne D30 (EN 338:2016 tableau 3 : f_m,k 30, f_v,k 3,9, f_c,90,k 5,3, E_0,mean 11 000, ρ_mean 640), γ_M = 1,30
+chk("exemple 7 : chêne D30 100 × 200 sur 5 m — g_pp = 640·100·200·9,81/10⁹ = 0,12557 kN/m ; f_m,d (G + Q, k_mod 0,8) = 0,8 × 30/1,3 = 18,462 ; k_c,90 = 1,0 "
+    "alors que l_1 = 4 880 ≥ 2·h (§6.1.5(4) ne majore que les résineux) : f_c,90,d = 0,8 × 5,3/1,3 = 3,262 et la limite d'appui est f_c,90,d même ; "
+    "l_ef,a = 120 + 30 + 0 = 150 mm ; l'essence est dite, pas calculée",
+    pres(r7["charges"]["poids_propre"], 640 * 100 * 200 * 9.81 / 1e9) and pres(r7["combinaisons"][1]["kmod"], 0.8)
+    and pres(V(r7, "flexion")["detail"][1]["resistance"], 0.8 * 30 / 1.3) and r7["appui"]["kc90"] == 1.0 and r7["appui"]["raison"] is None
+    and r7["appui"]["l1"] == 4880.0 and r7["appui"]["l_ef"] == 150.0 and pres(V(r7, "appui")["detail"][1]["limite"], 0.8 * 5.3 / 1.3)
+    and r7["materiau"]["type"] == "feuillu" and r7["materiau"]["essence_dite"] == "chêne" and r7["coefficients"]["gamma_M"] == 1.3
+    and any(h.startswith("L'essence (chêne) est écrite, pas calculée") for h in r7["hypotheses"])
+    and not any(a["code"].startswith("kc90") for a in r7["avertissements"]), (r7["appui"], r7["hypotheses"][-1]))
+chk("exemple 8 : azobé D70 100 × 120 sur 2 m — ρ_k = 800 > 700 : k_h = 1 malgré h < 150 mm (§3.2(3)), et le bloc Section le dit ; maintenu aux appuis : "
+    "σ_m,crit par (6.32) avec E_0,05 = 16 800, et l'hypothèse dit G = E/16",
+    r8["coefficients"]["kh"] == 1.0 and r8["geometrie"]["h"] == 120.0
+    and any(f["cle"] == "kh" and f["gabarit"] is None and "ρ_k = 800" in f["expression"] for b in r8["calcul"] if b["cle"] == "section" for f in b["formules"])
+    and pres(r8["deversement"]["sigma_crit"], 0.78 * 100 ** 2 * 16800 / (120 * (0.9 * 2000 + 240)))
+    and any(h.startswith("Feuillu : σ_m,crit par la formule (6.32)") for h in r8["hypotheses"]), (r8["coefficients"]["kh"], r8["deversement"]))
 
 
 def tirage(rng, k):
     """Une poutre tirée au sort dans le domaine (les contrôles croisés tenus)."""
     classe = rng.choice(list(T))
-    typ = "massif" if classe.startswith("C") else "lamelle"
-    p = {"nom": f"T{k}", "classe": classe, "L": round(rng.uniform(0.8, 14.0), 2)}
+    typ = TYPE_T[classe]
+    p = {"nom": f"T{k}", "classe": classe, "L": round(rng.uniform(0.8, 14.0), 2),
+         "essence": rng.choice([e for e in D.CLES_ESSENCE if D.TYPE_ESSENCE[e] == typ])}
     if rng.random() < 0.6:
         s = rng.choice(E.sections(typ))
         p.update(standard=True, section=s["nom"])
@@ -470,8 +546,14 @@ def tirage(rng, k):
 rng = random.Random(20261110)
 TIRAGES = [tirage(rng, k) for k in range(400)]
 ec_t = [(p["nom"], e[0]) for p in TIRAGES for e in [ecarts(M, p)] if e]
-chk(f"{len(TIRAGES)} poutres tirées au sort (18 classes, sections standard et sur mesure, deux modes de charge, 9 natures, 3 maintiens, appui, effet système, "
-    "contre-flèche) : le moteur = la référence partout", not ec_t, ec_t[:3])
+chk(f"{len(TIRAGES)} poutres tirées au sort (28 classes et 13 essences, sections standard et sur mesure, deux modes de charge, 9 natures, 3 maintiens, appui, "
+    "effet système, contre-flèche) : le moteur = la référence partout", not ec_t, ec_t[:3])
+chk("les tirages couvrent les trois types (résineux, feuillus, lamellé-collé), un feuillu de ρ_k > 700 sous 150 mm (k_h = 1) et un feuillu à l'appui "
+    "(k_c,90 = 1,0 alors que l_1 ≥ 2·h)",
+    {TYPE_T[p["classe"]] for p in TIRAGES} == {"massif", "feuillu", "lamelle"}
+    and any(p["classe"] == "D70" and (p.get("h") or 0) < 150.0 for p in TIRAGES if not p.get("standard", True))
+    and any(TYPE_T[p["classe"]] == "feuillu" and p["appui"]["verifier"] and reference(M.normaliser(p))["kc90"] == 1.0 and
+            M.verifier(p)["appui"]["raison"] is None for p in TIRAGES))
 res_t = [M.verifier(p) for p in TIRAGES]
 couv = {
     "G seule gouverne une vérification": any(v["combinaison"] == "G" and len(v["detail"]) == 2 for r in res_t for v in r["verifications"]),
@@ -877,7 +959,10 @@ def refus_manques(mod):
             if not refuse(mod, p, lib[3:] if lib.startswith(("la ", "le ")) else lib.replace("l'", ""), "doit rester entre"):
                 f.append(f"{chemin} = {x} admis")
     cas = [
-        (dict(P0, classe="C99"), ("classe de résistance",)), (dict(P0, classe="D30"), ("classe",)), (dict(P0, inconnu=1), ("inconnu",)),
+        (dict(P0, classe="C99"), ("classe de résistance",)), (dict(P0, classe="D99"), ("classe",)), (dict(P0, inconnu=1), ("inconnu",)),
+        # (24/11/2026) l'essence : inconnue, ou d'un autre type que la classe — refusées, jamais corrigées en douce
+        (dict(P0, classe="D30"), ("essence", "Épicéa", "D30")), (dict(P0, essence="chene"), ("essence", "Chêne", "C24")),
+        (dict(P0, essence="teck"), ("essence",)), (dict(P0, essence=3), ("essence",)), (poutre(classe="GL24h", essence="epicea"), ("essence", "GL24h")),
         (dict(P0, section="80x160"), ("80 × 160", "bois massif")), (poutre(classe="GL24h", section="75x225"), ("75 × 225", "lamellé-collé")),
         (dict(P0, b=80.0), ("largeur b", "section standard")), (dict(P0, h=200), ("hauteur h", "section standard")),
         (dict(P0, L="4"), ("portée L", "nombre")), (dict(P0, L=float("nan")), ("portée L",)), (dict(P0, L=float("inf")), ("portée L",)), (dict(P0, L=True), ("portée L",)),
@@ -1160,10 +1245,16 @@ MUTATIONS = (
      [("moteur", "w_fin = w_g * (1.0 + kdef) + w_q * (1.0 + psi2 * kdef)", "w_fin = (1.0 + kdef) * (w_g + psi2 * w_q)")]),
     ("la contre-flèche oubliée", [("moteur", "w_net_fin = w_fin - w_c", "w_net_fin = w_fin")]),
     ("la limite finale prise pour l'instantanée", [("moteur", 'lim_fin = L_mm / p["lim_fin"]', 'lim_fin = L_mm / p["lim_inst"]')]),
-    ("k_h appliqué au-dessus de la hauteur de référence (défaut de l'ancien écran)", [("moteur", '    if h >= r["h_ref"]:\n        return 1.0\n', "")]),
+    ("k_h appliqué au-dessus de la hauteur de référence (défaut de l'ancien écran)",
+     [("moteur", '    if h >= r["h_ref"] or (typ != D.LAMELLE and rho_k > D.RHO_K_MAX_K_H):\n        return 1.0\n', "")]),
+    ("k_h appliqué à un feuillu de ρ_k > 700 kg/m³ (D70)", [("moteur", ' or (typ != D.LAMELLE and rho_k > D.RHO_K_MAX_K_H):', ":")]),
+    ("k_c,90 d'un feuillu majoré comme un résineux", [("donnees", "K_C90 = {MASSIF: 1.5, FEUILLU: 1.0, LAMELLE: 1.75}", "K_C90 = {MASSIF: 1.5, FEUILLU: 1.5, LAMELLE: 1.75}")]),
+    ("γ_M des feuillus = 1,25", [("donnees", "GAMMA_M = {MASSIF: 1.30, FEUILLU: 1.30, LAMELLE: 1.25}", "GAMMA_M = {MASSIF: 1.30, FEUILLU: 1.25, LAMELLE: 1.25}")]),
+    ("EN 338 tableau 3 : f_c,90,k de D30 = 8,0 (édition 2009)", [("donnees", '"fc90_k":   (4.8, 4.9, 5.3, 5.4, 5.5, 6.2, 10.5, 12.0),', '"fc90_k":   (4.8, 4.9, 8.0, 5.4, 5.5, 6.2, 10.5, 12.0),')]),
+    ("une essence d'un autre type que la classe admise", [("entree", '    if D.TYPE_ESSENCE[essence] != typ:', '    if False:')]),
     ("k_h du lamellé-collé pris à 150 mm", [("donnees", '"h_ref": 600.0', '"h_ref": 150.0')]),
     ("k_h sans plafond", [("moteur", 'return min((r["h_ref"] / h) ** r["exposant"], r["plafond"])', 'return (r["h_ref"] / h) ** r["exposant"]')]),
-    ("γ_M du lamellé-collé = 1,30", [("donnees", "GAMMA_M = {MASSIF: 1.30, LAMELLE: 1.25}", "GAMMA_M = {MASSIF: 1.30, LAMELLE: 1.30}")]),
+    ("γ_M du lamellé-collé = 1,30", [("donnees", "GAMMA_M = {MASSIF: 1.30, FEUILLU: 1.30, LAMELLE: 1.25}", "GAMMA_M = {MASSIF: 1.30, FEUILLU: 1.30, LAMELLE: 1.30}")]),
     ("déversement avec E_0,mean au lieu de E_0,05", [("moteur", 'sigma_crit = D.COEF_SIGMA_CRIT * b ** 2 * mat["E0_05"]', 'sigma_crit = D.COEF_SIGMA_CRIT * b ** 2 * mat["E0_mean"]')]),
     ("l_ef sans les 2·h de la charge sur la fibre comprimée", [("moteur", "return D.LEF_CHARGE_REPARTIE * L_mm + D.LEF_FIBRE_COMPRIMEE * h", "return D.LEF_CHARGE_REPARTIE * L_mm")]),
     ("k_crit : la branche linéaire remplacée par 1", [("moteur", "return D.K_CRIT_ORIGINE - D.K_CRIT_PENTE * lambda_rel", "return 1.0")]),
@@ -1175,13 +1266,13 @@ MUTATIONS = (
     ("appui sans longueur efficace (a seul)", [("moteur", "l_ef_a = a + cote_travee + cote_about", "l_ef_a = a")]),
     ("la majoration côté about ignore le débord", [("moteur", "cote_about = min(D.MAJORATION_APPUI, a, debord)", "cote_about = min(D.MAJORATION_APPUI, a)")]),
     ("k_c,90 gardé à 1,5 quand les appuis sont rapprochés", [("moteur", "    if l1 < D.L1_SUR_H_MIN * h:\n        raison = \"distance\"\n    elif", "    if")]),
-    ("k_c,90 du massif = 1,75", [("donnees", "K_C90 = {MASSIF: 1.5, LAMELLE: 1.75}", "K_C90 = {MASSIF: 1.75, LAMELLE: 1.75}")]),
+    ("k_c,90 du massif = 1,75", [("donnees", "K_C90 = {MASSIF: 1.5, FEUILLU: 1.0, LAMELLE: 1.75}", "K_C90 = {MASSIF: 1.75, FEUILLU: 1.0, LAMELLE: 1.75}")]),
     ("k_sys appliqué à la compression d'appui", [("moteur", 'c["fc90_d"] = c["kmod"] * mat["fc90_k"] / gamma_M', 'c["fc90_d"] = c["kmod"] * ksys * mat["fc90_k"] / gamma_M')]),
     ("k_sys oublié sur f_v,d", [("moteur", 'c["fv_d"] = c["kmod"] * ksys * mat["fv_k"] / gamma_M', 'c["fv_d"] = c["kmod"] * mat["fv_k"] / gamma_M')]),
     ("charge surfacique sans l'entraxe", [("moteur", 'G = ch["g"] * ch["entraxe"] if surfacique else ch["G"]', 'G = ch["g"] if surfacique else ch["G"]')]),
     ("EN 338 : f_v,k de C24 = 2,5 (édition 2003)", [("donnees", '"fv_k":     (3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0),', '"fv_k":     (3.0, 3.2, 3.4, 3.6, 3.8, 2.5, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0),')]),
     ("EN 338 : f_c,90,k de C30 = 3,0 (base de l'ancien écran)", [("donnees", '"fc90_k":   (2.0, 2.2, 2.2, 2.3, 2.4, 2.5, 2.5, 2.7, 2.7, 2.8, 2.9, 3.0),', '"fc90_k":   (2.0, 2.2, 2.2, 2.3, 2.4, 2.5, 2.5, 3.0, 2.7, 2.8, 2.9, 3.0),')]),
-    ("EN 14080 : E_0,05 de GL24h = 9 400", [("donnees", '"E0_05":    (9600, 10500, 11800, 9100, 10400, 11200),', '"E0_05":    (9400, 10500, 11800, 9100, 10400, 11200),')]),
+    ("EN 14080 : E_0,05 de GL24h = 9 400", [("donnees", '"E0_05":    (9600, 10500, 11300, 11800, 9100, 10400, 10800, 11200),', '"E0_05":    (9400, 10500, 11300, 11800, 9100, 10400, 10800, 11200),')]),
     ("k_def de la classe de service 2 = 0,6", [("donnees", "KDEF = {1: 0.60, 2: 0.80, 3: 2.00}", "KDEF = {1: 0.60, 2: 0.60, 3: 2.00}")]),
     ("k_mod moyen terme de la classe 3 = 0,70", [("donnees", '3: {"permanent": 0.50, "long": 0.55, "moyen": 0.65,', '3: {"permanent": 0.50, "long": 0.55, "moyen": 0.70,')]),
     ("ψ₂ de l'habitation = 0,6", [("donnees", '("A", "A · habitation", "moyen", 0.3),', '("A", "A · habitation", "moyen", 0.6),')]),
@@ -1214,8 +1305,8 @@ for nom, muts in MUTATIONS:
     if not rej:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (k_cr, k_mod de la mauvaise durée × 2, G seule oubliée, poids propre × 2, 5/384, flèche × 1 000, effort tranchant, "
-    "ψ₂, flèche finale de l'ancien écran, contre-flèche, limite, k_h × 3, γ_M, déversement × 4, M_d, τ, appui × 4, k_c,90 × 2, k_sys × 2, surfacique, tables × 6, "
-    "natures × 2, seuil, gouvernant, sélecteur × 2, refus × 4, défaut, diagrammes × 3, textes de formule × 2, point décimal) : TOUTES rejetées "
+    "ψ₂, flèche finale de l'ancien écran, contre-flèche, limite, k_h × 4, γ_M × 2, déversement × 4, M_d, τ, appui × 4, k_c,90 × 3, k_sys × 2, surfacique, tables × 7, "
+    "natures × 2, seuil, gouvernant, sélecteur × 2, refus × 5, défaut, diagrammes × 3, textes de formule × 2, point décimal) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])),
     rejets(charger_mutant(TEMOIN[1]))[:3])

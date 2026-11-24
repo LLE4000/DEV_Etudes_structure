@@ -480,7 +480,8 @@ def section(ident: str, r: Dict) -> str:
     yl = bas + 112
     xc = max(xt + TW + 104, LARGEUR_SVG) / 2                      # la légende au milieu de la feuille
     lam = " · lamelles horizontales" if n_lam else ""
-    out += _txt(xc, yl, f"{C.esc(mat['classe'])} · {C.esc(geo['designation'])} mm", 17, "middle", ENCRE, True)
+    qualite = mat["classe"] + (f" {mat['essence_dite']}" if mat.get("essence_dite") else "")      # « C24 épicéa » : la qualité, dite une fois
+    out += _txt(xc, yl, f"{C.esc(qualite)} · {C.esc(geo['designation'])} mm", 17, "middle", ENCRE, True)
     out += _txt(xc, yl + 23, f"{C.esc(mat['libelle_type'])}{lam} · A = {C.fr(geo['A'] / 100, 1)} cm² · W = {C.fr(geo['W'] / 1e3, 1)} cm³ · "
                 f"I = {C.fr(geo['I'] / 1e4, 0)} cm⁴", 13.5, "middle", COTE)
     out += _txt(xc, yl + 43, "contraintes de calcul à l'ELU, chacune dans la combinaison qui la gouverne ; limites en tirets", 13, "middle", COTE)

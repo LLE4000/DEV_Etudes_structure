@@ -5,7 +5,8 @@ fichier .stab).
 La poutre (mm, m, kN/m, kN/m²) ::
 
     {"nom": "P1",
-     "classe": "C24",                                  # EN 338 (C14 … C50) ou EN 14080 (GL24h … GL32c) : fixe le TYPE
+     "essence": "epicea",                              # donnees.ESSENCES : l'essence, du même TYPE que la classe (écrite, pas calculée)
+     "classe": "C24",                                  # EN 338 (C14 … C50 résineux, D18 … D70 feuillus) ou EN 14080 (GL…) : fixe le TYPE
      "standard": true, "section": "75x225",            # une section standard du type du bois …
      "b": 75.0, "h": 225.0,                            # … ou sur mesure (standard : false) ; toujours la section effective
      "L": 4.0,                                         # la portée entre axes des appuis (m)
@@ -27,7 +28,9 @@ Règle de ``normaliser`` — RIEN n'est ramené en silence :
   français qui nomme le champ ;
 - une valeur DÉDUITE d'une autre — b et h d'une section standard ; la durée et ψ₂ d'une nature autre que « autre » —
   est remplie quand elle manque, et REFUSÉE quand elle contredit ce qu'elle doit valoir (une note qui dirait
-  « habitation, ψ₂ = 0,7 » n'est pas corrigée en douce : elle est refusée) ;
+  « habitation, ψ₂ = 0,7 » n'est pas corrigée en douce : elle est refusée) ; l'ESSENCE absente (une note d'avant le
+  24/11/2026) devient « non précisée » du type de la classe ; présente, elle doit être du type de la classe (un chêne
+  en C24 est refusé) ;
 - trois contrôles croisés : la longueur d'appui reste plus courte que la portée (a < L), l'entraxe des entretoises
   ne dépasse pas la portée, la section standard est du type du bois.
 
@@ -39,12 +42,12 @@ from typing import Dict, List, Optional, Tuple
 
 from . import donnees as D
 
-CLES = ("nom", "classe", "standard", "section", "b", "h", "L", "charges", "appui", "maintien", "service", "gamma_G", "gamma_Q",
-        "systeme", "lim_inst", "lim_fin", "contre_fleche")
+CLES = ("nom", "essence", "classe", "standard", "section", "b", "h", "L", "charges", "appui", "maintien", "service", "gamma_G",
+        "gamma_Q", "systeme", "lim_inst", "lim_fin", "contre_fleche")
 CLES_GROUPES = {"charges": ("mode", "G", "Q", "g", "q", "entraxe", "poids_propre", "nature", "duree", "psi2"),
                 "appui": ("verifier", "a", "debord"),
                 "maintien": ("type", "entraxe")}
-LIBELLES = {"nom": "le nom", "classe": "la classe de résistance", "standard": "le choix « section standard »",
+LIBELLES = {"nom": "le nom", "essence": "l'essence", "classe": "la classe de résistance", "standard": "le choix « section standard »",
             "section": "la section standard", "charges": "les charges", "appui": "l'appui", "maintien": "le maintien latéral",
             "service": "la classe de service", "systeme": "l'effet système", "lim_inst": "la limite de flèche instantanée",
             "lim_fin": "la limite de flèche finale", "charges/mode": "le mode de saisie des charges",
@@ -88,10 +91,24 @@ def lire_tag(texte) -> str:
 
 
 def type_classe(classe: str) -> str:
-    """Le type du bois d'une classe : « massif » (C…) ou « lamelle » (GL…)."""
+    """Le type du bois d'une classe : « massif » (C…), « feuillu » (D…) ou « lamelle » (GL…)."""
     if classe not in D.CLASSES:
         raise ValueError(f"La classe de résistance « {classe} » est inconnue ({', '.join(D.CLASSES)})")
     return D.CLASSES[classe]["type"]
+
+
+def essence_de(essence, classe: str) -> str:
+    """L'essence d'une poutre, contrôlée : absente (None), celle « non précisée » du type de la classe ; présente, l'une
+    de ``donnees.ESSENCES``, du type de la classe — sinon ValueError (un chêne en C24 ne se corrige pas en douce)."""
+    typ = type_classe(classe)
+    if essence is None:
+        return D.ESSENCE_DEFAUT_TYPE[typ]
+    if not isinstance(essence, str) or essence not in D.CLES_ESSENCE:
+        raise ValueError(f"L'essence : {essence!r} n'est pas proposée ({', '.join(D.CLES_ESSENCE)})")
+    if D.TYPE_ESSENCE[essence] != typ:
+        raise ValueError(f"L'essence « {D.LIBELLES_ESSENCE[essence]} » est un {D.LIBELLES_TYPE[D.TYPE_ESSENCE[essence]]} : la classe {classe} "
+                         f"({D.LIBELLES_TYPE[typ]}) ne lui convient pas — choisir une classe {', '.join(D.classes_du_type(D.TYPE_ESSENCE[essence])[:2])}…")
+    return essence
 
 
 def sections(typ: str) -> List[Dict]:
@@ -188,7 +205,7 @@ def normaliser(poutre: Dict) -> Dict:
     if not isinstance(classe, str) or classe not in D.CLASSES:
         raise ValueError(f"La classe de résistance : {classe!r} n'est pas proposée ({', '.join(D.CLASSES)})")
     typ = D.CLASSES[classe]["type"]
-    out = {"nom": nom, "classe": classe, "standard": _case(lire("standard"), "standard")}
+    out = {"nom": nom, "essence": essence_de(poutre.get("essence"), classe), "classe": classe, "standard": _case(lire("standard"), "standard")}
 
     # la section : standard (du type du bois) ou sur mesure ; b et h sont toujours la section effective
     section = poutre.get("section")

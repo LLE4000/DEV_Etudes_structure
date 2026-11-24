@@ -502,6 +502,8 @@ COURTS = {"S1": "Section 1", "S2": "Section 2", "S3": "Section 3", "S4": "Sectio
 # historique (classeur P8) » y était coupé à l'ellipse dans les 316 px de la colonne (mesuré le 10/11/2026, relecture de
 # l'écran : 241 px demandés pour 185 au PC) ; le libellé entier (entree.LIBELLES_MODE) reste partout ailleurs
 MODES_COURTS = {EN.HISTORIQUE: "historique (P8)", EN.EQUILIBRE: "équilibre"}
+# la pose en deux mots : les segments « Pose » des données et l'en-tête des vues (24/11/2026)
+POSES_COURTES = {"A": "A · en bas", "B": "B · en haut"}
 LIEUX = {"S1": "pied du congé", "S2": "nu de l'aile verticale", "S3": "pied du congé", "S4": "nu de l'aile horizontale",
          "max_h": "le long du congé", "max_v": "le long du congé", "nette": "au droit du trou"}
 AILES = {MO.HORIZONTALE: "aile horizontale", MO.VERTICALE: "aile verticale"}
@@ -605,9 +607,9 @@ def _configuration(c: Dict) -> str:
     """La configuration A/B en segments, un pictogramme et un mot chacun (la poutre fait de même pour la répartition)."""
     bt = "".join(f'<button type="button" class="{"on" if k == c["configuration"] else ""}" data-chemin="{C._attr_chemin(["configuration"])}" '
                  f'data-sorte="choix" data-valeur="{k}" title="{C.esc(aide)}">{_picto_configuration(k)}<span>{t}</span></button>'
-                 for k, t, aide in (("A", "A · en bas", "Aile horizontale en bas (le classeur) : l'aile verticale monte le long du mur, "
+                 for k, t, aide in (("A", POSES_COURTES["A"], "Aile horizontale en bas (le classeur) : l'aile verticale monte le long du mur, "
                                      "l'ancrage est au-dessus de l'angle, le talon s'appuie sur le mur."),
-                                    ("B", "B · en haut", "Aile horizontale en haut : l'aile verticale descend, l'ancrage est au-dessous de "
+                                    ("B", POSES_COURTES["B"], "Aile horizontale en haut : l'aile verticale descend, l'ancrage est au-dessous de "
                                      "l'angle, le bout libre s'appuie sur le mur ; toujours en mode équilibre.")))
     return f'<div class="seg full et-rep">{bt}</div>'
 
@@ -1178,16 +1180,17 @@ def _ancrages_txt(res: Dict) -> str:
 
 
 def _entete(res: Dict, titre: str, legende: str) -> str:
-    c, ef, m, anc = res["corniere"], res["efforts"], res["materiau"], res["ancrages"]
+    """L'en-tête technique d'une vue : le titre et la section avec sa nuance, son état limite et sa limite (« L 120×120×15 ·
+    S355 · ELS · σ_adm = 236,7 N/mm² ») ; UNE ligne, courte — la pose, le mode, R et L (« A · en bas · historique (P8) ·
+    R 35 kN · L 300 mm »). (24/11/2026, le propriétaire : « au-dessus du dessin, le nom de la section, la qualité, c'est
+    tout — trois lignes maximum » : les positions, les ancrages et le support, qui prenaient deux lignes de plus, sont sur
+    le dessin et dans les données ; le coefficient de la limite est dans le verdict et les hypothèses ; chaque ligne tient
+    à côté de la bande des efforts au PC, mesuré sur la capture du harnais.)"""
+    c, ef, m = res["corniere"], res["efforts"], res["materiau"]
     bande = [("R", "", ef["R"], "kN"), ("M", "max", ef["Mmax"], "kN·m"), ("H", "", ef["H"], "kN")]
-    support = EN.LIBELLES_SUPPORT[c["support"]] + (f" ({C.nb(c['support_haut'])} au-dessus, {C.nb(c['support_bas'])} mm au-dessous)"
-                                                   if c["support"] == EN.POUTRE else "")
-    lignes = [f"{_cfg_txt(res)} · {_mode_txt(res)}",
-              f"R = {C.nb(c['R'])} kN ({m['etat_limite']}) sur L = {C.nb(c['L'])} mm · X = {C.nb(c['X'])} ± {C.nb(c['dx'])} · Y = {C.nb(c['Y'])} ± {C.nb(c['dy'])} mm · "
-              f"{c['n']} × {EN.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']]} Ø{C.nb(c['d'])} à s = {C.nb(round(anc['entraxe'], 2), 2)} · {support}"]
+    lignes = [f"{POSES_COURTES[res['configuration']]} · {MODES_COURTS[res['mode']]} · R {C.nb(c['R'])} kN · L {C.nb(c['L'])} mm"]
     # le sous-titre (HTML) porte l'état limite et sa limite avec le symbole que le moteur nomme (σ_adm en ELS, f_y/γ_M0 en ELU)
-    sous = (f"{C.esc(res['section']['designation'])} · {C.esc(m['nuance'] or '')} · {m['etat_limite']} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} N/mm²"
-            + (f" (coef {C.nb(c['coef'])})" if m["etat_limite"] == EN.ELS else f" (γ<sub>M0</sub> = {_g1(m['gamma_M0'])})"))
+    sous = f"{C.esc(res['section']['designation'])} · {C.esc(m['nuance'] or '')} · {m['etat_limite']} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} N/mm²"
     return E.entete(titre, sous, lignes, bande, legende)
 
 

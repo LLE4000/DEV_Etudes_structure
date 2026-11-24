@@ -121,7 +121,8 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf", "prix_grues")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue", "profil", "saf", "prix_grues",
+            "bois")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -449,6 +450,29 @@ P.choisir_section(etat, "profil", "RHS 300x100x8")
 P.gerer_elements(etat, "ajouter")
 for ch, v in ((["modele"], "continue"), (["travees", "+"], 1), (["methodes"], "ec3")):
     assert P.modifier(etat, ch, v) is None, ch
+""",
+    # trois poutres bois (docs/bois/POUTRE_BOIS_MOTEUR.md § 10) : une solive C24 en charges SURFACIQUES (g, q, entraxe) ; un
+    # linteau en CHÊNE D30 (feuillu : k_c,90 = 1, k_h sans majoration), maintenu aux appuis seulement (le déversement), poids
+    # propre non compté, qui ne tient pas ; une poutre GL28c SUR MESURE, entretoisée, classe de service 2, effet système, appui
+    # non vérifié, contre-flèche (w_net,fin), limites L/400 et L/300 — les trois types de bois, les deux modes de charge, chaque
+    # branche de la planche. La note s'ouvre sur la solive (le harnais lit son verdict et le retrouve dans la note)
+    "bois": """
+from api_web import bois as B
+etat = B.nouvel_etat()
+for ch, v in ((["nom"], "Solive S1"), (["charges", "mode"], "surfacique"), (["charges", "g"], "1,8"), (["charges", "q"], "2,5"),
+              (["charges", "entraxe"], "0,5")):
+    assert B.modifier(etat, ch, v) is None, ch
+B.gerer_elements(etat, "ajouter")
+for ch, v in ((["nom"], "Linteau chêne"), (["essence"], "chene"), (["L"], "3"), (["charges", "G"], "4"), (["charges", "Q"], "6"),
+              (["charges", "nature"], "C"), (["charges", "poids_propre"], False), (["appui", "a"], "120"), (["maintien", "type"], "appuis")):
+    assert B.modifier(etat, ch, v) is None, ch
+B.gerer_elements(etat, "ajouter")
+for ch, v in ((["nom"], "Poutre GL"), (["classe"], "GL28c"), (["standard"], "mesure"), (["b"], "140"), (["h"], "450"), (["L"], "6"),
+              (["charges", "G"], "3"), (["charges", "Q"], "5"), (["charges", "nature"], "B"), (["maintien", "type"], "entretoises"),
+              (["maintien", "entraxe"], "2,5"), (["service"], "2"), (["systeme"], True), (["appui", "verifier"], False),
+              (["contre_fleche"], "10"), (["lim_inst"], "400"), (["lim_fin"], "300")):
+    assert B.modifier(etat, ch, v) is None, ch
+etat["actif"] = 0
 """,
 }
 _SONDE_NOTE = """

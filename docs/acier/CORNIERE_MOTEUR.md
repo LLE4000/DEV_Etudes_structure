@@ -377,8 +377,13 @@ e/2 »). Données condensées à deux champs par ligne ; chaque champ est une PI
 le dessin) ; les ⓘ disent le sens des jeux (trois positions, l'enveloppe), de Y (depuis la face extérieure de l'aile
 horizontale), de R_ELU (à remplacer par 1,35·G + 1,5·Q).
 
-**Le centre** : les quatre vues du § 10 (`dessin_corniere.vues`), chacune sous son en-tête technique (configuration et
-mode ; R, L, X ± dx, Y ± dy, n Ø d ; la bande R, M_max, H ; la légende de `schemas.legende`). Le CONTRAT DE
+**Le centre** : les quatre vues du § 10 (`dessin_corniere.vues`), chacune sous son en-tête technique — depuis le
+24/11/2026 (le propriétaire : « le nom de la section, la qualité, c'est tout — trois lignes maximum »), la ligne du
+titre (« L 120×120×15 · S355 · ELS · σ_adm = 236,7 N/mm² » : le profil, son acier, l'état limite et sa limite), UNE
+ligne courte (« A · en bas · historique (P8) · R 35 kN · L 300 mm » : la pose comme les segments des données,
+`POSES_COURTES`, le mode court, R, L), la bande R, M_max, H — chaque ligne tient à côté de la bande au PC (1440 px) ; la
+légende de `schemas.legende` est au survol de l'en-tête ; X ± dx, Y ± dy, n Ø d, le coefficient de la limite se lisent
+dans les données, sur le dessin, dans le verdict (`etabli_compact.entete`, `docs/site/MODULES_SITE.md` § 4 bis). Le CONTRAT DE
 SÉLECTION : chaque `data-sel` des dessins (X, dx, Y, dy, R, L, a, n, d, profil ; jeu_ancrage en historique, yc et uV en
 équilibre) a sa ligne dans les données sous la même clé — un appui sur une pièce ouvre sa rubrique et éclaire sa ligne
 (js/compact.js), un clic dans un champ éclaire la pièce.

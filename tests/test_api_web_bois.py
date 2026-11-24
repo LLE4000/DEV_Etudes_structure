@@ -26,6 +26,7 @@ Python ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE.
     /usr/bin/python3.12 tests/test_api_web_bois.py
 """
 import ast
+import base64
 import copy
 import html
 from html.parser import HTMLParser
@@ -181,7 +182,9 @@ def controle_resultat(mod, etat, cas):
     res = rep["resultat"]
     # ---- la tête, le verdict
     tete = re.search(r'<div class="et-rp"><b>(.*?)</b><span>(.*?)</span></div>', res)
-    attendu_tete = f"{r['geometrie']['designation']} · {p['classe']} · L {C.fr(p['L'], 2)}{C.NBSP}m"
+    # (24/11/2026) la qualité du bois : la classe et l'essence quand elle est précisée (« C24 épicéa »)
+    qualite = p["classe"] + (f" {r['materiau']['essence_dite']}" if r["materiau"]["essence_dite"] else "")
+    attendu_tete = f"{r['geometrie']['designation']} · {qualite} · L {C.fr(p['L'], 2)}{C.NBSP}m"
     if not tete or html.unescape(tete.group(1)) != (p["nom"] or "Poutre") or html.unescape(tete.group(2)) != attendu_tete:
         f.append(f"{cas} : tête « {tete and tete.groups()} » ≠ « {attendu_tete} »")
     vd = VERDICT.search(res)
@@ -323,6 +326,11 @@ ETATS = {
     "appuis rapprochés (k_c,90 = 1)": etat_avec(section="100x300", L=0.65),
     "près de 100 % (Q = 2,06 kN/m)": etat_avec(charges__Q=2.06),
     "très au-delà (12 m, 20 + 30 kN/m)": etat_avec(L=12.0, charges__G=20.0, charges__Q=30.0),
+    # (24/11/2026) les feuillus : un chêne D30 à l'appui (k_c,90 = 1,0, pas de majoration), un azobé D70 bas (ρ_k > 700 : k_h = 1)
+    "chêne D30 100 × 200 sur 5 m (G = 2, Q = 3, appui de 120 mm)": etat_avec(essence="chene", classe="D30", section="100x200", L=5.0, charges__G=2.0,
+                                                                            charges__Q=3.0, appui__a=120.0),
+    "azobé D70 sur mesure 100 × 120 sur 2 m, maintenu aux appuis": etat_avec(essence="azobe", classe="D70", standard=False, b=100.0, h=120.0, L=2.0,
+                                                                         charges__G=5.0, charges__Q=5.0, maintien__type="appuis"),
 }
 for nom_cas, etat in ETATS.items():
     fautes = controle_resultat(B, etat, nom_cas)
@@ -357,6 +365,9 @@ P = lambda e: e["poutres"][e["actif"]]  # noqa: E731
 CHAMPS = [  # (chemin, saisie, lecture dans l'état, valeur attendue, ce que le calcul doit montrer)
     ("L", "4,5", lambda p: p["L"], 4.5, lambda r: r["geometrie"]["L_mm"] == 4500.0),
     ("classe", "C30", lambda p: p["classe"], "C30", lambda r: r["materiau"]["fm_k"] == 30.0),
+    # (24/11/2026) un chêne pour une poutre en C24 : la classe devient D30 ; la section 75 × 225, que les feuillus proposent aussi, reste standard
+    ("essence", "chene", lambda p: (p["essence"], p["classe"], p["standard"], p["section"]), ("chene", "D30", True, "75x225"),
+     lambda r: r["materiau"]["type"] == "feuillu" and r["materiau"]["fm_k"] == 30.0 and r["appui"]["kc90"] == 1.0),
     ("charges/G", "1,2", lambda p: p["charges"]["G"], 1.2, lambda r: r["charges"]["G"] == 1.2),
     ("charges/Q", "1,5", lambda p: p["charges"]["Q"], 1.5, lambda r: r["charges"]["q"] == 1.5),
     ("charges/mode", "surfacique", lambda p: p["charges"]["mode"], "surfacique", lambda r: r["charges"]["entraxe"] == 0.4),
@@ -405,10 +416,10 @@ chk(f"{len(CHAMPS_D_UN_ETAT)} champs de plus, ceux qui n'existent que dans un é
 relies = {c[0] for c in CHAMPS} | {c[1] for c in CHAMPS_D_UN_ETAT} | {"standard"}
 champs_donnees = set(re.findall(r'data-chemin="([^"]+)"', "".join(resultat_module(B, e)["donnees"] for e in (
     e0, etat_avec(standard=False), etat_avec(charges__mode="surfacique"), etat_avec(maintien__type="entretoises")))))
-attendus = {"nom", "classe", "standard", "b", "h", "L", "charges/mode", "charges/G", "charges/Q", "charges/g", "charges/q", "charges/entraxe", "charges/nature",
-            "charges/poids_propre", "charges/duree", "charges/psi2", "appui/a", "appui/debord", "appui/verifier", "maintien/type", "maintien/entraxe", "service",
-            "gamma_G", "gamma_Q", "systeme", "lim_inst", "lim_fin", "contre_fleche"}
-chk("le cadre Données offre TOUS les champs de la poutre (28 chemins, section standard par le sélecteur) et aucun autre ; chacun est dans une des deux "
+attendus = {"nom", "essence", "classe", "standard", "b", "h", "L", "charges/mode", "charges/G", "charges/Q", "charges/g", "charges/q", "charges/entraxe",
+            "charges/nature", "charges/poids_propre", "charges/duree", "charges/psi2", "appui/a", "appui/debord", "appui/verifier", "maintien/type",
+            "maintien/entraxe", "service", "gamma_G", "gamma_Q", "systeme", "lim_inst", "lim_fin", "contre_fleche"}
+chk("le cadre Données offre TOUS les champs de la poutre (29 chemins, section standard par le sélecteur) et aucun autre ; chacun est dans une des deux "
     "tables ci-dessus (« standard » : plus bas)", champs_donnees == attendus and relies == attendus,
     (sorted(attendus - champs_donnees), sorted(champs_donnees - attendus), sorted(attendus ^ relies)))
 # la saisie surfacique, les entretoises, la section sur mesure : leurs champs n'apparaissent que quand ils jouent
@@ -446,11 +457,43 @@ chk("une section que les deux types proposent (100 × 200) reste standard quand 
 d_retour = saisir(d_gl["etat"], "classe", "C24")
 chk("retour au massif depuis le lamellé sur mesure 75 × 225 : la section reste sur mesure (rien n'est deviné), la réserve redevient 75 × 225",
     P(d_retour["etat"])["standard"] is False and P(d_retour["etat"])["section"] == "75x225" and "avis" not in d_retour, P(d_retour["etat"]))
-menu = re.search(r'<select data-chemin="classe" data-sorte="choix">(.*?)</select>', d0, re.S).group(1)
-groupes = re.findall(r'<optgroup label="([^"]*)">(.*?)</optgroup>', menu, re.S)
-chk("le menu « Bois » est groupé : d'abord les 12 classes du bois massif (EN 338), puis les 6 du lamellé-collé (EN 14080)",
-    [html.unescape(g_[0]) for g_ in groupes] == ["Bois massif résineux · EN 338", "Lamellé-collé résineux · EN 14080"]
-    and [re.findall(r'value="([^"]+)"', g_[1]) for g_ in groupes] == [[c for c in D.CLASSES if c.startswith("C")], [c for c in D.CLASSES if c.startswith("GL")]], groupes)
+menu_e = re.search(r'<select data-chemin="essence" data-sorte="choix">(.*?)</select>', d0, re.S).group(1)
+groupes = re.findall(r'<optgroup label="([^"]*)">(.*?)</optgroup>', menu_e, re.S)
+chk("le menu « Essence » est groupé : les 7 résineux massifs (EN 338), les 5 feuillus (EN 338), le lamellé-collé (EN 14080) ; l'épicéa est choisi",
+    [html.unescape(g_[0]) for g_ in groupes] == ["Résineux massifs · EN 338", "Feuillus massifs · EN 338", "Lamellé-collé · EN 14080"]
+    and [re.findall(r'value="([^"]+)"', g_[1]) for g_ in groupes] == [[e_ for e_ in D.CLES_ESSENCE if D.TYPE_ESSENCE[e_] == t_] for t_ in D.TYPES]
+    and 'value="epicea" selected' in menu_e and [len(g_) for g_ in [re.findall(r'value="([^"]+)"', g_[1]) for g_ in groupes]] == [7, 5, 1], groupes)
+
+
+def options_classe(donnees):
+    """[(classe, choisie ?, libellé)] du menu « Qualité » du cadre Données."""
+    menu = re.search(r'<select data-chemin="classe" data-sorte="choix">(.*?)</select>', donnees, re.S).group(1)
+    return [(c_, bool(s_), html.unescape(t_)) for c_, s_, t_ in re.findall(r'<option value="([^"]+)"( selected)?>([^<]*)</option>', menu)]
+
+
+oc = options_classe(d0)
+chk("le menu « Qualité » de l'épicéa offre ses 12 classes C, chacune avec les qualités de classement visuel qui y mènent — « C24 · ST-II (NF B 52-001-1) · "
+    "S10 (DIN 4074-1) · T2 (INSTA 142) · SS (BS 4978) » choisie, « C14 » seule (aucune qualité n'y mène)",
+    [o[0] for o in oc] == list(D.classes_du_type("massif")) and next(o[2] for o in oc if o[1]) == "C24 · ST-II (NF B 52-001-1) · S10 (DIN 4074-1) · T2 (INSTA 142) · SS (BS 4978)"
+    and next(o[2] for o in oc if o[0] == "C14") == "C14" and next(o[2] for o in oc if o[0] == "C30") == "C30 · ST-I (NF B 52-001-1) · S13 (DIN 4074-1) · T3 (INSTA 142)", oc)
+d_chene = saisir(e0, "essence", "chene")
+pc_ = P(d_chene["etat"])
+oc_c = options_classe(d_chene["donnees"])
+chk("un chêne pour la poutre en C24 : la classe devient D30 (le défaut des feuillus), la section 75 × 225 reste standard sans avis ; le menu « Qualité » n'offre "
+    "plus que les 8 classes D, « D30 · NF B 52-001-1:2018 » choisie ; la tête et la liste disent « D30 chêne » ; k_c,90 = 1 à l'appui (pas de majoration)",
+    not d_chene["message"] and (pc_["essence"], pc_["classe"], pc_["standard"], pc_["section"]) == ("chene", "D30", True, "75x225") and "avis" not in d_chene
+    and [o[0] for o in oc_c] == list(D.classes_du_type("feuillu")) and next(o[2] for o in oc_c if o[1]) == "D30 · NF B 52-001-1:2018"
+    and f"75 × 225 · D30 chêne · L 4,00{C.NBSP}m" in html.unescape(d_chene["resultat"]) and "· 75 × 225 · D30 chêne" in html.unescape(d_chene["donnees"])
+    and MO.verifier(pc_)["appui"]["kc90"] == 1.0 and "feuillu : pas de majoration" in d_chene["volets"], (pc_, oc_c[:3]))
+d_lam = saisir(d_chene["etat"], "essence", "lamelle")
+pl_ = P(d_lam["etat"])
+chk("du chêne au lamellé-collé : la classe devient GL24h, la section garde ses dimensions en « sur mesure » (75 × 225 n'existe pas en lamellé) et l'avis le dit",
+    not d_lam["message"] and (pl_["essence"], pl_["classe"], pl_["standard"], pl_["b"], pl_["h"]) == ("lamelle", "GL24h", False, 75.0, 225.0)
+    and len(d_lam.get("avis", [])) == 1 and "lamellé-collé" in d_lam["avis"][0], pl_)
+d_D = saisir(e0, "classe", "D40")
+chk("une classe D choisie pour un épicéa : l'essence devient « feuillu (non précisée) » — rien n'est deviné ; une essence inconnue est refusée, la poutre intacte",
+    P(d_D["etat"])["essence"] == "feuillu" and P(d_D["etat"])["classe"] == "D40" and "non précisée" in html.unescape(d_D["donnees"])
+    and (lambda o: o["ok"] and "Essence" in o["message"] and o["etat"] == e0)(req(action="modifier", etat=copy.deepcopy(e0), chemin=["essence"], valeur="teck")), P(d_D["etat"]))
 # la nature de Q et ses verrous
 chk("nature « A · habitation » : la ligne discrète dit « moyen terme (1 semaine à 6 mois) · k_mod = 0,8 · ψ₂ = 0,3 » ; la durée et ψ₂ sont LUS et verrouillés",
     "moyen terme (1 semaine à 6 mois) · k<sub>mod</sub> = 0,8 · ψ<sub>2</sub> = 0,3" in d0
@@ -482,7 +525,8 @@ REFUS = [
     ("charges/Q", "-3", ("charge variable Q", "0 et 200")), ("charges/G", "300", ("charge permanente G",)), ("appui/a", "10", ("longueur d'appui a", "20 et 600")),
     ("appui/a", "4000", ("longueur d'appui",)), ("gamma_G", "0,9", ("γ_G", "1 et 1,5")), ("gamma_Q", "2,5", ("γ_Q",)), ("contre_fleche", "-1", ("contre-flèche",)),
     ("charges/psi2", "0,7", ("ψ₂", "habitation", "autre")), ("charges/duree", "court", ("durée", "court terme", "autre")), ("service", "4", ("classe de service",)),
-    ("service", "1,5", ("Choix illisible",)), ("lim_inst", "275", ("flèche instantanée",)), ("classe", "D30", ("classe de résistance",)),
+    ("service", "1,5", ("Choix illisible",)), ("lim_inst", "275", ("flèche instantanée",)), ("classe", "D99", ("classe de résistance",)),
+    ("essence", "teck", ("Essence",)),           # (24/11/2026 : « D30 » n'est plus hors domaine — l'essence suit le type de la classe)
     ("charges/nature", "vent", ("nature",)), ("maintien/type", "libre", ("maintien",)), ("charges/mode", "ponctuelle", ("mode",)),
     ("systeme", "oui", ("vrai ou faux",)), ("b", "80", ("largeur b", "section standard")), ("section", "80x160", ("80 × 160", "bois massif")),
     ("standard", "peut-être", ("standard ou sur mesure",)), ("inconnu", "1", ("Champ inconnu",)), ("charges/inconnu", "1", ("Champ inconnu",)),
@@ -766,23 +810,35 @@ def fautes_entete(mod, etat, cas):
                 or not all(affiche(x[2], val) for x, val in zip(bande, (ef["M_d"], ef["V_d"], ef["R"]))):
             f.append(f"{cas} {v['cle']} : bande {bande} ≠ {ef['M_d']}, {ef['V_d']}, {ef['R']}")
         t = texte(v["entete"]).replace(C.NBSP, " ")          # (une quantité y est d'un seul tenant : ses espaces sont insécables)
-        ch_, ap_ = r["charges"], r["appui"]
-        for mot in (r["geometrie"]["designation"] + " mm", r["materiau"]["classe"], f"L = {C.fr(r['geometrie']['L'], 2)} m", f"g = {C.fr(ch_['g'], 2)} kN/m",
-                    f"q = {C.fr(ch_['q'], 2)} kN/m", f"combinaison {ef['nom']}", f"a = {C.nb(ap_['a'])} mm", r["coefficients"]["libelle_nature"],
-                    f"classe de service {r['coefficients']['service']}", r["deversement"]["libelle"]):
+        ch_, mat_ = r["charges"], r["materiau"]
+        qualite = mat_["classe"] + (f" {mat_['essence_dite']}" if mat_["essence_dite"] else "")
+        # court (24/11/2026 : la ligne tient à côté de la bande des efforts, au PC comme au téléphone — « 75 × 225 · C24 épicéa · L 4,00 m »,
+        # « g 0,67 · q 0,80 kN/m · A · habitation · service 1 »)
+        for mot in (r["geometrie"]["designation"], qualite, f"L {C.fr(r['geometrie']['L'], 2)} m", f"g {C.fr(ch_['g'], 2)} ·",
+                    f"q {C.fr(ch_['q'], 2)} kN/m", r["coefficients"]["libelle_nature"], f"service {r['coefficients']['service']}"):
             if mot not in t:
                 f.append(f"{cas} {v['cle']} : l'en-tête ne dit pas « {mot} »")
-        for lie in (f"a{C.NBSP}={C.NBSP}{C.nb(ap_['a'])}{C.NBSP}mm", f"L{C.NBSP}={C.NBSP}{C.fr(r['geometrie']['L'], 2)}{C.NBSP}m"):
+        if ("poids propre non compté" in t) != (not ch_["poids_propre_compte"]):
+            f.append(f"{cas} {v['cle']} : le poids propre non compté n'est pas dit (ou l'est à tort)")
+        # (24/11/2026, le propriétaire : trois lignes au plus) le titre et UNE ligne ; la combinaison, l'appui et le maintien sont sur les dessins ;
+        # la légende est au survol de l'en-tête, plus une ligne
+        if v["entete"].count('class="l2"') != 1 or 'class="l3"' in v["entete"] or 'class="lg"' in v["entete"]:
+            f.append(f"{cas} {v['cle']} : l'en-tête n'a pas exactement une ligne sous le titre")
+        for mot in ("combinaison", "appui", "maintien", "classe de service", " mm ·", "poids propre " + C.fr(ch_["poids_propre"], 2)):
+            if mot in t:
+                f.append(f"{cas} {v['cle']} : l'en-tête dit encore « {mot} »")
+        for lie in (f"g{C.NBSP}{C.fr(ch_['g'], 2)}", f"L{C.NBSP}{C.fr(r['geometrie']['L'], 2)}{C.NBSP}m"):
             if lie not in html.unescape(v["entete"]):
                 f.append(f"{cas} {v['cle']} : « {lie} » peut se couper en fin de ligne")
-        if C.esc(v["legende"]) not in v["entete"]:
-            f.append(f"{cas} {v['cle']} : légende absente de l'en-tête")
+        if f'<div class="et-ent-t" title="{C.esc(v["legende"])}">' not in v["entete"]:
+            f.append(f"{cas} {v['cle']} : légende absente du survol de l'en-tête")
     return f
 
 
 fe = [x for nom_cas, etat in ETATS.items() for x in fautes_entete(B, etat, nom_cas)]
-chk("l'en-tête de chaque vue : la section, le bois, la portée, g et q, la nature de Q, la classe de service, la combinaison ELU qui gouverne, l'appui, le "
-    "maintien (chaque quantité d'un seul tenant) ; la bande M_d, V_d, R_d du moteur ; la légende", not fe, fe[:3])
+chk("l'en-tête de chaque vue tient en DEUX lignes : la section, la qualité du bois (« C24 épicéa », « D30 chêne ») et la portée ; puis g et q, la nature de Q, "
+    "la classe de service (chaque quantité d'un seul tenant) — ni combinaison, ni appui, ni maintien (ils sont sur les dessins) ; la bande M_d, V_d, R_d du "
+    "moteur ; la légende au survol", not fe, fe[:3])
 
 
 def textes_svg(svg):
@@ -876,7 +932,7 @@ chk("le lecteur de ce contrôle voit bien une valeur remise à la main (« de 30
 aides_ecran = [html.unescape(a) for a in re.findall(r'<span class="aide" title="([^"]+)">', "".join(resultat_module(B, e)["donnees"] for e in (
     e0, etat_avec(standard=False), etat_avec(charges__mode="surfacique"), etat_avec(maintien__type="entretoises"))))]
 chk(f"chaque aide du moteur ({len(MO.AIDES)}) est posée derrière un ⓘ du cadre Données (celle de la nature de Q et les deux verrous sont complétés par l'écran)",
-    all(any(a.startswith(v) for a in aides_ecran) for v in MO.AIDES.values()) and len(MO.AIDES) == 23, [k for k, v in MO.AIDES.items() if not any(a.startswith(v) for a in aides_ecran)])
+    all(any(v in a for a in aides_ecran) for v in MO.AIDES.values()) and len(MO.AIDES) == 25, [k for k, v in MO.AIDES.items() if not any(v in a for a in aides_ecran)])
 
 # le harnais du site charge les modules de l'écran avec le python3 du SYSTÈME (3.11) : une f-string imbriquée à la
 # manière de Python 3.12 (les mêmes guillemets dedans et dehors) y est une erreur de syntaxe
@@ -906,7 +962,13 @@ e5 = req(action="supprimer", etat=copy.deepcopy(e4["etat"]), index=1)
 chk("supprimer la copie (ouverte) : deux poutres restent, le résumé redevient conforme", [p["nom"] for p in e5["etat"]["poutres"]] == ["P1", "P2"] and e5["resume"]["niveau"] == "p")
 chk("la dernière poutre ne se supprime pas ; activer un indice hors de la liste ouvre la dernière",
     len(req(action="supprimer", etat=copy.deepcopy(e0), index=0)["etat"]["poutres"]) == 1 and req(action="activer", etat=copy.deepcopy(e5["etat"]), index=7)["etat"]["actif"] == 1)
-chk("un téléchargement est refusé proprement (pas encore de note PDF pour ce module)", req(action="telecharger", etat=copy.deepcopy(e0), quoi="note_pdf").get("ok") is False)
+# la note PDF (24/11/2026, api_web/note_bois.py — sa suite : tests/test_note_bois.py) : le routeur la rend, un PDF nommé
+# d'après la note ; un autre téléchargement est refusé proprement
+f_pdf = req(action="telecharger", etat=copy.deepcopy(e0), quoi="note_pdf", infos={"nom": "Essai", "chantier": "C", "indice": "B"})
+chk("la note PDF est rendue par le routeur : un PDF (%PDF-), « Note de calcul - Essai.pdf »",
+    f_pdf.get("ok") is True and f_pdf["fichier"]["nom"] == "Note de calcul - Essai.pdf" and f_pdf["fichier"]["type"] == "application/pdf"
+    and base64.b64decode(f_pdf["fichier"]["base64"])[:5] == b"%PDF-", f_pdf.get("erreur"))
+chk("un autre téléchargement est refusé proprement", req(action="telecharger", etat=copy.deepcopy(e0), quoi="autre").get("ok") is False)
 
 
 # ====================================================================== 11. les mutations : chacune vue rouge

@@ -2169,8 +2169,10 @@ const principal = async () => {
     await g.click('#vues [data-vue="temperatures"]');
     await g.waitForTimeout(250);
     const courbe = await g.evaluate(() => { const s = [...document.querySelectorAll('.view.on .draw > svg')].find((x) => x.checkVisibility()); const r = s && s.getBoundingClientRect();
-      // (Lot Q : la vue a l'en-tête technique de l'établi compact, son titre en capitales et sa légende en dernière ligne — le harnais suit)
-      return { titre: document.querySelector('.view.on .stitle b, .view.on .et-ent .l1 b')?.textContent, leg: document.querySelector('.view.on .stitle .leg, .view.on .et-ent .lg')?.textContent,
+      // (Lot Q : la vue a l'en-tête technique de l'établi compact, son titre en capitales ; 24/11/2026 : sa légende n'est plus une
+      //  ligne mais le survol de l'en-tête, trois lignes au plus — le harnais suit)
+      return { titre: document.querySelector('.view.on .stitle b, .view.on .et-ent .l1 b')?.textContent,
+        leg: document.querySelector('.view.on .stitle .leg')?.textContent || document.querySelector('.view.on .et-ent .et-ent-t')?.getAttribute('title'),
         l: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 }; });
     verif('météo · PC : la vue « Météo du lieu » montre la courbe des températures reçues, à sa taille, sa légende dit Open-Meteo',
       (courbe.titre || '').toUpperCase() === 'MÉTÉO DU LIEU' && /Open-Meteo/.test(courbe.leg || '') && courbe.l > 400 && courbe.h > 250, JSON.stringify(courbe));

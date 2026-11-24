@@ -20,11 +20,14 @@ kN/m² (charges).
 REFERENCE = ("EN 1995-1-1:2004 + A1:2008 + A2:2014 et NBN EN 1995-1-1 ANB ; EN 338:2016 ; EN 14080:2013 ; "
              "NBN EN 1990 ANB")
 
-# ------------------------------------------------------------------ les deux types de bois
-MASSIF, LAMELLE = "massif", "lamelle"
-TYPES = (MASSIF, LAMELLE)
-LIBELLES_TYPE = {MASSIF: "bois massif résineux", LAMELLE: "lamellé-collé résineux"}
-COURTS_TYPE = {MASSIF: "bois massif", LAMELLE: "lamellé-collé"}
+# ------------------------------------------------------------------ les trois types de bois
+# Le TYPE d'un bois est celui de sa classe de résistance : les classes C (résineux massifs) et D (feuillus massifs) de
+# l'EN 338, les classes GL (lamellé-collé résineux) de l'EN 14080. C'est lui que les coefficients lisent : γ_M, k_h,
+# k_c,90, les sections standard. (24/11/2026 : les feuillus arrivent, avec les essences — voir ESSENCES.)
+MASSIF, FEUILLU, LAMELLE = "massif", "feuillu", "lamelle"
+TYPES = (MASSIF, FEUILLU, LAMELLE)
+LIBELLES_TYPE = {MASSIF: "bois massif résineux", FEUILLU: "bois massif feuillu", LAMELLE: "lamellé-collé résineux"}
+COURTS_TYPE = {MASSIF: "bois massif", FEUILLU: "bois feuillu", LAMELLE: "lamellé-collé"}
 
 # ------------------------------------------------------------------ les classes de résistance
 # Par classe : f_m,k, f_t,0,k, f_c,0,k, f_c,90,k, f_v,k (N/mm²), E_0,mean, E_0,05, G_mean (N/mm²), ρ_k, ρ_mean (kg/m³).
@@ -47,43 +50,129 @@ _EN_338_2016_TABLEAU_1 = {
     "rho_mean": (350, 370, 380, 400, 410, 420, 430, 460, 470, 480, 490, 520),
 }
 
-# EN 14080:2013 — lamellé-collé résineux : tableau 5 (homogène, « h ») et tableau 4 (panaché, « c »).
-# (GL28h : f_t,0,k = 22,3 — des transcriptions écrivent 22,4 = 0,8 × 28 ; la norme dit 22,3.)
-_CLASSES_GL = ("GL24h", "GL28h", "GL32h", "GL24c", "GL28c", "GL32c")
-_EN_14080_2013 = {
-    "fm_k":     (24, 28, 32, 24, 28, 32),
-    "ft0_k":    (19.2, 22.3, 25.6, 17, 19.5, 19.5),
-    "fc0_k":    (24, 28, 32, 21.5, 24, 24.5),
-    "fc90_k":   (2.5, 2.5, 2.5, 2.5, 2.5, 2.5),
-    "fv_k":     (3.5, 3.5, 3.5, 3.5, 3.5, 3.5),
-    "E0_mean":  (11500, 12600, 14200, 11000, 12500, 13500),
-    "E0_05":    (9600, 10500, 11800, 9100, 10400, 11200),
-    "G_mean":   (650, 650, 650, 650, 650, 650),
-    "rho_k":    (385, 425, 440, 365, 390, 400),
-    "rho_mean": (420, 460, 490, 400, 420, 440),
+# EN 338:2016, tableau 3 — FEUILLUS, classes définies par des essais de flexion sur chant (les huit classes que le
+# marché belge rencontre : chêne D24 et D30, hêtre D35 et D40, bois tropicaux D50 à D70). Transcription du 24/11/2026,
+# recoupée par les relations de l'EN 384:2016 que la norme a utilisées pour bâtir le tableau (f_t,0,k = 0,6·f_m,k ;
+# f_c,0,k = 4,3·√f_m,k ; f_c,90,k = 0,010·ρ_k jusqu'à D50, 0,015·ρ_k au-delà ; E_0,05 = 0,84·E_0,mean ; G_mean = E_0,mean/16 ;
+# ρ_mean = 1,2·ρ_k — tests/test_poutre_bois_moteur.py les rejoue) et par trois lectures partielles (D40 : 40 / 13 000 /
+# 660 ; ρ_mean de D30 et D70) ; les f_v,k ne se déduisent d'aucune relation : À RECOUPER sur le texte de la norme
+# (docs/bois/POUTRE_BOIS_MOTEUR.md § 4).
+_CLASSES_D = ("D18", "D24", "D30", "D35", "D40", "D50", "D60", "D70")
+_EN_338_2016_TABLEAU_3 = {
+    "fm_k":     (18, 24, 30, 35, 40, 50, 60, 70),
+    "ft0_k":    (11, 14, 18, 21, 24, 30, 36, 42),
+    "fc0_k":    (18, 21, 24, 25, 27, 30, 33, 36),
+    "fc90_k":   (4.8, 4.9, 5.3, 5.4, 5.5, 6.2, 10.5, 12.0),
+    "fv_k":     (3.5, 3.7, 3.9, 4.1, 4.2, 4.5, 4.8, 5.0),
+    "E0_mean":  (9500, 10000, 11000, 12000, 13000, 14000, 17000, 20000),
+    "E0_05":    (8000, 8400, 9200, 10100, 10900, 11800, 14300, 16800),
+    "G_mean":   (590, 630, 690, 750, 810, 880, 1060, 1250),
+    "rho_k":    (475, 485, 530, 540, 550, 620, 700, 800),
+    "rho_mean": (570, 580, 640, 650, 660, 740, 840, 960),
 }
+
+# EN 14080:2013 — lamellé-collé résineux : tableau 5 (homogène, « h ») et tableau 4 (panaché, « c »).
+# (GL28h : f_t,0,k = 22,3 — des transcriptions écrivent 22,4 = 0,8 × 28 ; la norme dit 22,3. GL30h et GL30c ajoutés le
+# 24/11/2026 : f_m, f_t,0, f_c,0, E_0,mean et E_0,05 recoupés sur une transcription ouverte ; ρ du GL30c de mémoire.)
+_CLASSES_GL = ("GL24h", "GL28h", "GL30h", "GL32h", "GL24c", "GL28c", "GL30c", "GL32c")
+_EN_14080_2013 = {
+    "fm_k":     (24, 28, 30, 32, 24, 28, 30, 32),
+    "ft0_k":    (19.2, 22.3, 24, 25.6, 17, 19.5, 19.5, 19.5),
+    "fc0_k":    (24, 28, 30, 32, 21.5, 24, 24.5, 24.5),
+    "fc90_k":   (2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5),
+    "fv_k":     (3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5),
+    "E0_mean":  (11500, 12600, 13600, 14200, 11000, 12500, 13000, 13500),
+    "E0_05":    (9600, 10500, 11300, 11800, 9100, 10400, 10800, 11200),
+    "G_mean":   (650, 650, 650, 650, 650, 650, 650, 650),
+    "rho_k":    (385, 425, 430, 440, 365, 390, 390, 400),
+    "rho_mean": (420, 460, 480, 490, 400, 420, 430, 440),
+}
+NORMES_TYPE = {MASSIF: "EN 338:2016, tableau 1", FEUILLU: "EN 338:2016, tableau 3", LAMELLE: "EN 14080:2013"}
 
 
 def _classes() -> dict:
     """Les tables des deux normes, retournées par classe : {"C24": {"type", "norme", "fm_k": 24.0, …}, …}."""
     out = {}
-    for noms, table, typ in ((_CLASSES_C, _EN_338_2016_TABLEAU_1, MASSIF), (_CLASSES_GL, _EN_14080_2013, LAMELLE)):
+    for noms, table, typ in ((_CLASSES_C, _EN_338_2016_TABLEAU_1, MASSIF), (_CLASSES_D, _EN_338_2016_TABLEAU_3, FEUILLU),
+                             (_CLASSES_GL, _EN_14080_2013, LAMELLE)):
         for k, nom in enumerate(noms):
-            if typ == MASSIF:
-                norme = "EN 338:2016, tableau 1"
-            else:
+            if typ == LAMELLE:
                 norme = "EN 14080:2013, tableau 5" if nom.endswith("h") else "EN 14080:2013, tableau 4"
+            else:
+                norme = NORMES_TYPE[typ]
             out[nom] = dict({"type": typ, "norme": norme}, **{p: float(table[p][k]) for p in PROPRIETES})
     return out
 
 
-CLASSES = _classes()                       # dans l'ordre des menus : les C, puis les GL
+CLASSES = _classes()                       # dans l'ordre des menus : les C, les D, puis les GL
 CLASSE_DEFAUT = "C24"
+CLASSE_DEFAUT_TYPE = {MASSIF: "C24", FEUILLU: "D30", LAMELLE: "GL24h"}      # la classe qu'un bois prend en changeant de type
+
+# ------------------------------------------------------------------ les essences et leur classement visuel
+# L'ESSENCE ne calcule rien : l'Eurocode 5 lit la CLASSE de résistance (EN 338, EN 14080), qui porte toutes les valeurs.
+# Elle fixe le TYPE (résineux, feuillu, lamellé-collé — donc k_c,90, k_h, les sections proposées), elle est écrite dans la
+# note, et elle dit quelles QUALITÉS de classement visuel (EN 1912 : une règle nationale, une qualité → une classe) mènent
+# à chaque classe. (clé, libellé, nom latin, type)
+ESSENCES = (
+    ("epicea", "Épicéa", "Picea abies", MASSIF),
+    ("sapin", "Sapin", "Abies alba", MASSIF),
+    ("pin_sylvestre", "Pin sylvestre", "Pinus sylvestris", MASSIF),
+    ("pin_maritime", "Pin maritime", "Pinus pinaster", MASSIF),
+    ("douglas", "Douglas", "Pseudotsuga menziesii", MASSIF),
+    ("meleze", "Mélèze", "Larix decidua", MASSIF),
+    ("resineux", "Résineux (essence non précisée)", "", MASSIF),
+    ("chene", "Chêne", "Quercus robur, Q. petraea", FEUILLU),
+    ("hetre", "Hêtre", "Fagus sylvatica", FEUILLU),
+    ("chataignier", "Châtaignier", "Castanea sativa", FEUILLU),
+    ("azobe", "Azobé", "Lophira alata", FEUILLU),
+    ("feuillu", "Feuillu (essence non précisée)", "", FEUILLU),
+    ("lamelle", "Lamellé-collé (épicéa, sapin)", "Picea abies, Abies alba", LAMELLE),
+)
+CLES_ESSENCE = tuple(e[0] for e in ESSENCES)
+LIBELLES_ESSENCE = {e[0]: e[1] for e in ESSENCES}
+LATIN_ESSENCE = {e[0]: e[2] for e in ESSENCES}
+TYPE_ESSENCE = {e[0]: e[3] for e in ESSENCES}
+ESSENCE_DEFAUT = "epicea"
+ESSENCE_DEFAUT_TYPE = {MASSIF: "resineux", FEUILLU: "feuillu", LAMELLE: "lamelle"}      # une note sans essence : « non précisée »
+# Les règles de classement visuel et leurs qualités → la classe EN 338 (EN 1912, l'affectation des qualités visuelles et
+# des essences aux classes de résistance) : (règle, qualité, classe), par essence. Résineux français (NF B 52-001-1 :
+# ST-I, ST-II, ST-III → C30, C24, C18) : recoupé le 24/11/2026 sur les fiches du classement structurel de France Bois
+# Forêt et du CTBA ; chêne (D30, D24) et hêtre (H2 → D35, H3 → D24) : le rapport des qualités visuelles approuvées (CEN,
+# 2024) qui complète l'EN 1912, provenance Belgique et France. Les règles allemande (DIN 4074-1 : S7, S10, S13 → C16, C24,
+# C30), nordique (INSTA 142 : T1, T2, T3 → C18, C24, C30) et britannique (BS 4978 : GS, SS → C16, C24) sont celles du
+# tableau 1 de l'EN 1912:2012, de mémoire : À RECOUPER (docs/bois/POUTRE_BOIS_MOTEUR.md § 4). Le classement belge
+# (NBN B 16-520 : S6, S8, S10) n'a pas de correspondance confirmée : il n'est pas écrit.
+_FR = (("NF B 52-001-1", "ST-I", "C30"), ("NF B 52-001-1", "ST-II", "C24"), ("NF B 52-001-1", "ST-III", "C18"))
+_DE = (("DIN 4074-1", "S13", "C30"), ("DIN 4074-1", "S10", "C24"), ("DIN 4074-1", "S7", "C16"))
+_NORD = (("INSTA 142", "T3", "C30"), ("INSTA 142", "T2", "C24"), ("INSTA 142", "T1", "C18"))
+_UK = (("BS 4978", "SS", "C24"), ("BS 4978", "GS", "C16"))
+CLASSEMENTS = {
+    "epicea": _FR + _DE + _NORD + _UK,
+    "sapin": _FR + _DE + _UK,
+    "pin_sylvestre": _FR + _DE + _NORD + _UK,
+    "pin_maritime": _FR,
+    "douglas": _FR + _DE,
+    "meleze": _FR + _DE,
+    "chene": (("NF B 52-001-1:2018", "", "D30"), ("NF B 52-001-1:2018", "", "D24")),
+    "hetre": (("NF B 52-001-1:2018", "H2", "D35"), ("NF B 52-001-1:2018", "H3", "D24")),
+}
+REGLES_CLASSEMENT = {"NF B 52-001-1": "France", "NF B 52-001-1:2018": "France", "DIN 4074-1": "Allemagne", "INSTA 142": "pays nordiques",
+                     "BS 4978": "Royaume-Uni"}
+
+
+def qualites(essence: str, classe: str) -> tuple:
+    """Les qualités de classement visuel qui mènent à ``classe`` pour ``essence`` : (« ST-II (NF B 52-001-1) », …)."""
+    return tuple((f"{q} ({r})" if q else r) for r, q, c in CLASSEMENTS.get(essence, ()) if c == classe)
+
+
+def classes_du_type(typ: str) -> tuple:
+    """Les classes de résistance d'un type de bois, dans l'ordre des menus."""
+    return tuple(c for c, m in CLASSES.items() if m["type"] == typ)
 
 # ------------------------------------------------------------------ les coefficients de l'Eurocode 5
-# γ_M — EN 1995-1-1 tableau 2.3, valeurs retenues par l'annexe belge (NBN EN 1995-1-1 ANB) : bois massif 1,30,
-# lamellé-collé 1,25.
-GAMMA_M = {MASSIF: 1.30, LAMELLE: 1.25}
+# γ_M — EN 1995-1-1 tableau 2.3, valeurs retenues par l'annexe belge (NBN EN 1995-1-1 ANB) : bois massif 1,30 (résineux
+# et feuillus), lamellé-collé 1,25 (fiche Buildwise de la NBN EN 1995-1-1, recoupée le 24/11/2026).
+GAMMA_M = {MASSIF: 1.30, FEUILLU: 1.30, LAMELLE: 1.25}
 
 # k_mod — EN 1995-1-1 tableau 3.1 (bois massif EN 14081-1 et lamellé-collé EN 14080 : les mêmes valeurs), par classe
 # de service puis par classe de durée de charge.
@@ -114,10 +203,13 @@ K_CR = 0.67
 K_SYS = 1.1
 ENTRAXE_SYSTEME = 0.60          # m — au-delà, l'effet système est signalé (conception § 1.4 : « 60 cm environ »)
 
-# k_h — EN 1995-1-1 §3.2(3) (massif, ρ_k ≤ 700 kg/m³) et §3.3(3) (lamellé-collé) : sous la hauteur de référence,
-# f_m,k est majoré de k_h = min((h_ref/h)^exposant ; plafond) ; à partir de h_ref, k_h = 1.
+# k_h — EN 1995-1-1 §3.2(3) (bois massif, résineux ou feuillu, de masse volumique ρ_k ≤ 700 kg/m³) et §3.3(3)
+# (lamellé-collé) : sous la hauteur de référence, f_m,k est majoré de k_h = min((h_ref/h)^exposant ; plafond) ; à partir
+# de h_ref, k_h = 1. Un bois massif plus lourd que RHO_K_MAX_K_H (D70 : ρ_k = 800) n'a pas de majoration.
 K_H = {MASSIF: {"h_ref": 150.0, "exposant": 0.2, "plafond": 1.3, "article": "§3.2(3)"},
+       FEUILLU: {"h_ref": 150.0, "exposant": 0.2, "plafond": 1.3, "article": "§3.2(3)"},
        LAMELLE: {"h_ref": 600.0, "exposant": 0.1, "plafond": 1.1, "article": "§3.3(3)"}}
+RHO_K_MAX_K_H = 700.0           # kg/m³ — §3.2(3) : le bois massif plus lourd garde k_h = 1
 
 # Déversement — EN 1995-1-1 §6.3.3 : σ_m,crit = 0,78·b²·E_0,05/(h·l_ef) (6.32, résineux, section rectangulaire) ;
 # λ_rel,m = √(f_m,k/σ_m,crit) (6.30) ; k_crit (6.34) : 1 jusqu'à 0,75 ; 1,56 − 0,75·λ jusqu'à 1,4 ; 1/λ² au-delà.
@@ -138,9 +230,9 @@ COEF_TAU_RECTANGLE = 1.5
 # Compression perpendiculaire au fil à l'appui — EN 1995-1-1 §6.1.5 (amendement A1:2008) : la longueur de contact
 # est augmentée de 30 mm de chaque côté, sans dépasser a (le débord, côté about), l (la longueur de contact) ni
 # l_1/2 (la demi-distance libre, côté travée) ; k_c,90 sur appuis discrets, si l_1 ≥ 2·h : 1,5 (massif résineux),
-# 1,75 (lamellé-collé résineux, si l ≤ 400 mm) ; 1,0 sinon.
+# 1,75 (lamellé-collé résineux, si l ≤ 400 mm) ; 1,0 sinon — le §6.1.5(4) ne majore que les RÉSINEUX : un feuillu garde 1,0.
 MAJORATION_APPUI = 30.0         # mm
-K_C90 = {MASSIF: 1.5, LAMELLE: 1.75}
+K_C90 = {MASSIF: 1.5, FEUILLU: 1.0, LAMELLE: 1.75}
 K_C90_DEFAUT = 1.0
 L1_SUR_H_MIN = 2.0              # l_1 ≥ 2·h
 A_MAX_K_C90 = {LAMELLE: 400.0}  # mm — lamellé-collé : la majoration ne vaut que pour l ≤ 400 mm
@@ -206,8 +298,9 @@ HAUTEURS_LAMELLE = (160, 200, 240, 280, 320, 360, 400, 480, 560, 640)
 ELANCEMENT_MAX_LAMELLE = 6
 SECTIONS_LAMELLE = tuple((b, h) for b in LARGEURS_LAMELLE for h in HAUTEURS_LAMELLE if h <= ELANCEMENT_MAX_LAMELLE * b)
 EPAISSEUR_LAMELLE = 40.0        # mm — pour le dessin de la section (lamelles horizontales)
-SECTIONS = {MASSIF: SECTIONS_MASSIF, LAMELLE: SECTIONS_LAMELLE}
-SECTION_DEFAUT = {MASSIF: "75x225", LAMELLE: "120x400"}
+# Les feuillus se débitent aux mêmes sections que les résineux (une liste à recouper chez un négociant de chêne).
+SECTIONS = {MASSIF: SECTIONS_MASSIF, FEUILLU: SECTIONS_MASSIF, LAMELLE: SECTIONS_LAMELLE}
+SECTION_DEFAUT = {MASSIF: "75x225", FEUILLU: "100x200", LAMELLE: "120x400"}
 
 # ------------------------------------------------------------------ la saisie : modes, bornes, la poutre neuve
 MODES_CHARGE = ("lineaire", "surfacique")       # G, Q en kN/m — ou g, q en kN/m² × entraxe
@@ -237,6 +330,7 @@ BORNES = {
 # surfaciques en réserve donnent les mêmes charges linéaires (1,5 et 2,0 kN/m² × 0,40 m).
 DEFAUTS = {
     "nom": "P1",
+    "essence": ESSENCE_DEFAUT,
     "classe": CLASSE_DEFAUT,
     "standard": True,
     "section": SECTION_DEFAUT[MASSIF],

@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "a3db461b404d1a4ad81413ebd1038366bddb5cef01b14eeac45f88509d2c8ec1",
+ "sha256": "94fe1fbe4fe42b56bb31bd4d870cb6e55aa4add6201bfbdc29cd94df04e5804d",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -223,6 +223,7 @@
   "api_web/garde_corps.py",
   "api_web/icones.py",
   "api_web/note_assemblages.py",
+  "api_web/note_bois.py",
   "api_web/note_cas.py",
   "api_web/note_corniere.py",
   "api_web/note_dalle.py",
@@ -331,6 +332,7 @@
   "bois/poutre/donnees.py",
   "bois/poutre/entree.py",
   "bois/poutre/moteur.py",
+  "bois/poutre/note.py",
   "docs/validation/exemples_publies.json",
   "grues/__init__.py",
   "grues/chassis/__init__.py",
@@ -411,6 +413,7 @@
   "fichiers": 107,
   "modules": [
    "assemblages",
+   "bois",
    "corniere",
    "dalle",
    "fondation_grue",
@@ -432,26 +435,26 @@
   ]
  },
  "apercus": {
-  "age": "1066a146e57f7757",
+  "age": "499d88b4f0eb8cb0",
   "armatures": "0d888c7223e651e4",
-  "assemblages": "ef40b842398633f8",
-  "bois": "8f2ad99577d68381",
+  "assemblages": "e7377e7918efa5d3",
+  "bois": "9d1d9638944c5e03",
   "catalogue": "efd91aa18076e90f",
-  "corniere": "aef4fd3cf1920ac5",
+  "corniere": "bd864542252ee883",
   "dalle": "d904ab659d6f78ee",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
-  "flambement": "edc9ed98d6f14c96",
-  "fondation_grue": "7400039d62e0db89",
+  "flambement": "a8594707963ea9dc",
+  "fondation_grue": "bef7bc71b298cafc",
   "garde_corps": "b29d1dc198f8e67a",
-  "plancher": "9d0ec86ed498d435",
+  "plancher": "26ddcd495eb05f9b",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
-  "profil": "1151e042b85f25d7",
+  "profil": "6a329d8884b65910",
   "saf": "e88653e1536e1675",
-  "sol": "d388420baee3c87c",
-  "soudures": "865be318298eea9a",
-  "taux": "0325815790c3ee2c"
+  "sol": "dd7c45891233cf6d",
+  "soudures": "2f2aba3db698b38d",
+  "taux": "98b17f9977720fc7"
  },
- "version": "d71b6bcdee8eade7"
+ "version": "42a6fd83f5f73691"
 }

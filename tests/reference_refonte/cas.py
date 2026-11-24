@@ -210,6 +210,13 @@ cas("bois", "lamellé-collé GL24h 140 × 560 sur 8 m (G = 3, Q = 4 kN/m, appui 
 cas("bois", "l'appui gouverne (100 × 300 sur 3 m, 8 + 12 kN/m, a = 40 mm)", REF,
     [neuf(), act("choisir", role="section", nom="100 × 300"), mod("L", "3"), mod("charges/G", "8"), mod("charges/Q", "12"), mod("appui/a", "40")],
     {"taux": [269, 270], "niveau": "r"})
+# (24/11/2026) les feuillus et les essences : un chêne D30 (k_c,90 = 1,0 à l'appui, « D30 chêne » en tête), un azobé D70 bas (ρ_k > 700 : k_h = 1)
+cas("bois", "chêne D30 100 × 200 sur 5 m (G = 2, Q = 3, appui de 120 mm) : feuillu, k_c,90 = 1, la flexion ne tient pas", REF,
+    [neuf(), mod("essence", "chene"), act("choisir", role="section", nom="100 × 200"), mod("L", "5"), mod("charges/G", "2"), mod("charges/Q", "3"),
+     mod("appui/a", "120")], {"niveau": "r", "sans_message": True}, selecteurs=True)
+cas("bois", "azobé D70 sur mesure 100 × 120 sur 2 m, maintenu aux appuis (ρ_k = 800 : k_h = 1)", REF,
+    [neuf(), mod("essence", "azobe"), mod("classe", "D70"), mod("standard", "mesure"), mod("b", "100"), mod("h", "120"), mod("L", "2"), mod("charges/G", "5"),
+     mod("charges/Q", "5"), mod("maintien/type", "appuis")], {})
 cas("bois", "chevron de toiture 63 × 175 à 60 cm, 3,50 m, classe de service 2, neige (court terme)", REF,
     [neuf(), act("choisir", role="section", nom="63 × 175"), mod("L", "3,5"), mod("service", "2"), mod("charges/mode", "surfacique"), mod("charges/g", "0,9"),
      mod("charges/q", "0,5"), mod("charges/entraxe", "0,6"), mod("charges/nature", "neige")], {"niveau": "p"})

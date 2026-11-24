@@ -57,7 +57,9 @@ CLES_AVIS = ("v1", "v1_nom", "section")
 SEGMENTS_SECTION = (("standard", "Standard"), ("mesure", "Sur mesure"))
 SEGMENTS_MODE = (("lineaire", "kN/m"), ("surfacique", "kN/m²"))
 SEGMENTS_MAINTIEN = (("continu", "Continu"), ("appuis", "Aux appuis"), ("entretoises", "Entretoises"))
-GROUPES_CLASSES = {D.MASSIF: "Bois massif résineux · EN 338", D.LAMELLE: "Lamellé-collé résineux · EN 14080"}
+# les groupes du menu des ESSENCES (24/11/2026 : l'essence est choisie, puis la qualité — la classe de résistance — parmi
+# celles de son type ; les feuillus arrivent)
+GROUPES_ESSENCES = {D.MASSIF: "Résineux massifs · EN 338", D.FEUILLU: "Feuillus massifs · EN 338", D.LAMELLE: "Lamellé-collé · EN 14080"}
 # le nom COURT d'une vérification (1ʳᵉ ligne d'un résultat, sans coupure dans la colonne)
 COURTS = {"flexion": "Flexion", "cisaillement": "Cisaillement", "appui": "Appui", "fleche_inst": "Flèche instantanée",
           "fleche_fin": "Flèche finale nette"}
@@ -87,6 +89,8 @@ def _note(**champs) -> Dict:
             p[g][c] = val
         else:
             p[cle] = val
+    if "classe" in champs and "essence" not in champs:
+        p["essence"] = D.ESSENCE_DEFAUT_TYPE[EN.type_classe(p["classe"])]     # l'essence « non précisée » du type de la classe
     return {"version": VERSION, "poutres": [p], "actif": 0}
 
 
@@ -97,6 +101,9 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["L"], "valeur": "0,2"},
     {"action": "modifier", "etat": _note(standard=False), "chemin": ["b"], "valeur": "62,5"},
     {"action": "modifier", "chemin": ["classe"], "valeur": "GL28c"},
+    {"action": "modifier", "chemin": ["essence"], "valeur": "chene"},
+    {"action": "modifier", "etat": _note(essence="chene", classe="D30", section="100x200", b=100.0, h=200.0), "chemin": ["classe"], "valeur": "D40"},
+    {"action": "modifier", "etat": _note(essence="azobe", classe="D70", section="100x200", b=100.0, h=200.0), "chemin": ["maintien", "type"], "valeur": "appuis"},
     {"action": "modifier", "etat": _note(section="45x245", b=45.0, h=245.0, L=5.0), "chemin": ["maintien", "type"], "valeur": "appuis"},
     {"action": "modifier", "etat": _note(maintien__type="entretoises"), "chemin": ["maintien", "entraxe"], "valeur": "9"},
     {"action": "modifier", "etat": _note(charges__nature="autre"), "chemin": ["charges", "duree"], "valeur": "instantane"},
@@ -204,14 +211,17 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 
 # ------------------------------------------------------------------ la saisie
 def _changer_classe(etat: Dict, p: Dict, classe) -> None:
-    """Le bois change. Dans le même TYPE, rien d'autre ne bouge. D'un type à l'autre (massif ↔ lamellé-collé), la
-    section GARDE ses dimensions : standard si le nouveau type la propose aussi, sinon « sur mesure » — et l'avis le
-    dit (aucune dimension n'est changée en silence). La section standard en réserve devient la plus proche du type."""
+    """Le bois change. Dans le même TYPE, rien d'autre ne bouge. D'un type à l'autre (résineux, feuillu, lamellé-collé),
+    l'essence devient « non précisée » du nouveau type si elle n'en est pas, et la section GARDE ses dimensions :
+    standard si le nouveau type la propose aussi, sinon « sur mesure » — et l'avis le dit (aucune dimension n'est changée
+    en silence). La section standard en réserve devient la plus proche du type."""
     avant = EN.type_classe(p["classe"])
     apres = EN.type_classe(classe if isinstance(classe, str) else str(classe))
     p["classe"] = classe
     if apres == avant:
         return
+    if D.TYPE_ESSENCE.get(p.get("essence")) != apres:
+        p["essence"] = D.ESSENCE_DEFAUT_TYPE[apres]
     b, h = p["b"], p["h"]
     meme = EN.tag(b, h)
     if meme in [s["nom"] for s in EN.sections(apres)]:
@@ -223,6 +233,18 @@ def _changer_classe(etat: Dict, p: Dict, classe) -> None:
         p["section"] = EN.section_proche(apres, b, h)
     if p["standard"]:
         p["b"] = p["h"] = None
+
+
+def _changer_essence(etat: Dict, p: Dict, essence) -> Optional[str]:
+    """L'essence change. Du même type que la classe, rien d'autre ne bouge ; d'un autre type (un chêne pour une poutre
+    en C24), la classe devient celle par défaut du type (D30) et la section suit la règle de ``_changer_classe``."""
+    if not isinstance(essence, str) or essence not in D.CLES_ESSENCE:
+        return f"Essence : « {essence} » n'est pas proposée"
+    typ = D.TYPE_ESSENCE[essence]
+    if typ != EN.type_classe(p["classe"]):
+        _changer_classe(etat, p, D.CLASSE_DEFAUT_TYPE[typ])
+    p["essence"] = essence
+    return None
 
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
@@ -244,6 +266,10 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             p["nom"] = nom
         elif cle == "classe":
             _changer_classe(etat, p, valeur)
+        elif cle == "essence":
+            refus = _changer_essence(etat, p, valeur)
+            if refus:
+                return refus
         elif cle == "standard":
             v = {"standard": True, "mesure": False, True: True, False: False}.get(valeur)
             if v is None:
@@ -374,6 +400,13 @@ def _section_txt(geo: Dict) -> str:
     return C.esc(geo["designation"])
 
 
+def _classe_txt(r: Dict) -> str:
+    """« C24 épicéa », « D30 chêne », « GL24h » : la qualité du bois — sa classe, et son essence quand elle est précisée
+    (le moteur la dit : ``materiau.essence_dite``), HTML échappé."""
+    mat = r["materiau"]
+    return C.esc(mat["classe"] + (f" {mat['essence_dite']}" if mat["essence_dite"] else ""))
+
+
 def _comb(r: Dict, cle: Optional[str]) -> Optional[Dict]:
     return next((c for c in r["combinaisons"] if c["cle"] == cle), None)
 
@@ -392,14 +425,26 @@ def _comb_txt(r: Dict, v: Dict, court: bool = False) -> str:
 A = MO.AIDES
 
 
-def _menu_classes(p: Dict) -> str:
-    """Le menu des classes de résistance, groupé : d'abord le bois massif (C14 à C50), puis le lamellé-collé (GL…)."""
+def _menu_essences(p: Dict) -> str:
+    """Le menu des ESSENCES, groupé par type : les résineux massifs, les feuillus massifs, le lamellé-collé."""
     groupes = ""
     for typ in D.TYPES:
-        opts = "".join(f'<option value="{C.esc(c)}"{" selected" if c == p["classe"] else ""}>{C.esc(c)} · {C.esc(D.COURTS_TYPE[typ])}</option>'
-                       for c, m in D.CLASSES.items() if m["type"] == typ)
-        groupes += f'<optgroup label="{C.esc(GROUPES_CLASSES[typ])}">{opts}</optgroup>'
-    return (f'<div class="field select"><select data-chemin="{C._attr_chemin(["classe"])}" data-sorte="choix">{groupes}</select>'
+        opts = "".join(f'<option value="{C.esc(k)}"{" selected" if k == p["essence"] else ""}>{C.esc(D.LIBELLES_ESSENCE[k])}</option>'
+                       for k in D.CLES_ESSENCE if D.TYPE_ESSENCE[k] == typ)
+        groupes += f'<optgroup label="{C.esc(GROUPES_ESSENCES[typ])}">{opts}</optgroup>'
+    return (f'<div class="field select"><select data-chemin="{C._attr_chemin(["essence"])}" data-sorte="choix">{groupes}</select>'
+            f'{C.icon("chevron-down")}</div>')
+
+
+def _menu_classes(p: Dict) -> str:
+    """Le menu des QUALITÉS : les classes de résistance du type de l'essence, chacune suivie des qualités de classement
+    visuel qui y mènent pour cette essence (« C24 · ST-II (NF B 52-001-1) · S10 (DIN 4074-1) » — le moteur les nomme)."""
+    typ = D.TYPE_ESSENCE[p["essence"]]
+    opts = ""
+    for c in D.classes_du_type(typ):
+        q = D.qualites(p["essence"], c)
+        opts += f'<option value="{C.esc(c)}"{" selected" if c == p["classe"] else ""}>{C.esc(" · ".join((c,) + q))}</option>'
+    return (f'<div class="field select"><select data-chemin="{C._attr_chemin(["classe"])}" data-sorte="choix">{opts}</select>'
             f'{C.icon("chevron-down")}</div>')
 
 
@@ -415,8 +460,11 @@ def _rubrique_poutre(p: Dict, r: Dict) -> str:
     mat, geo, co = r["materiau"], r["geometrie"], r["coefficients"]
     aide_bois = (f"{p['classe']} ({mat['norme']}) : f_m,k {C.nb(mat['fm_k'])} · f_v,k {C.nb(mat['fv_k'])} · f_c,90,k {C.nb(mat['fc90_k'])} · "
                  f"E_0,mean {C.fr(mat['E0_mean'], 0)} · E_0,05 {C.fr(mat['E0_05'], 0)} · G_mean {C.nb(mat['G_mean'])} N/mm² · "
-                 f"ρ_mean {C.nb(mat['rho_mean'])} kg/m³. {mat['libelle_type'].capitalize()} : γ_M = {C.nb(co['gamma_M'])} (annexe belge).")
-    s = C.ligne("Bois", _menu_classes(p), "", aide_bois, full=True)
+                 f"ρ_mean {C.nb(mat['rho_mean'])} kg/m³. {mat['libelle_type'].capitalize()} : γ_M = {C.nb(co['gamma_M'])} (annexe belge). "
+                 + A["classe"])
+    latin = f" ({mat['latin']})" if mat["latin"] else ""
+    s = C.ligne("Essence", _menu_essences(p), "", f"{mat['libelle_essence']}{latin} · {mat['libelle_type']}. " + A["essence"], full=True)
+    s += C.ligne("Qualité", _menu_classes(p), "", aide_bois, full=True)
     s += C.ligne("Section", C.segments(["standard"], "standard" if p["standard"] else "mesure", SEGMENTS_SECTION), full=True)
     if p["standard"]:
         s += C.ligne("b × h", _bouton_section(r), "", f"Une section standard du {D.COURTS_TYPE[mat['type']]} : la liste s'ouvre, chaque section "
@@ -487,7 +535,7 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     p = _poutre(etat)
     r = r or MO.verifier(p)
     geo, rc, ap = r["geometrie"], r["charges"], p["appui"]
-    r1 = f"{C.esc(p['classe'])} · {_section_txt(geo)} · L {C.nb(p['L'])} m"
+    r1 = f"{_classe_txt(r)} · {_section_txt(geo)} · L {C.nb(p['L'])} m"
     r2 = f"G {C.nb(round(rc['G'], 3))} · Q {C.nb(round(rc['Q'], 3))} kN/m"
     r3 = f"a {C.nb(ap['a'])} mm · {dict(SEGMENTS_MAINTIEN)[p['maintien']['type']].lower()}"
     r4 = f"service {p['service']} · L/{p['lim_inst']} · L/{p['lim_fin']}"
@@ -498,10 +546,10 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
 
 
 def _dims(r: Dict) -> str:
-    """« · 75 × 225 · C24 » : les dimensions d'une poutre dans la liste de la note (HTML)."""
+    """« · 75 × 225 · C24 épicéa » : les dimensions et la qualité d'une poutre dans la liste de la note (HTML)."""
     if "geometrie" not in r:
         return ""
-    return f"· {_section_txt(r['geometrie'])} · {C.esc(r['materiau']['classe'])}"
+    return f"· {_section_txt(r['geometrie'])} · {_classe_txt(r)}"
 
 
 def arbre(etat: Dict, r: Optional[Dict] = None, resultats: Optional[List[Dict]] = None) -> str:
@@ -664,7 +712,7 @@ def _hyps(r: Dict) -> List[str]:
     la nature de Q."""
     mat, co = r["materiau"], r["coefficients"]
     kmod = " · ".join(f"{C.nb(c['kmod'])} ({C.esc(c['nom'])}, {C.esc(c['libelle_duree'])})" for c in r["combinaisons"])
-    out = [f"Bois <b>{C.esc(mat['classe'])}</b> · {C.esc(mat['libelle_type'])} · {C.esc(mat['norme'])}",
+    out = [f"Bois <b>{_classe_txt(r)}</b> · {C.esc(mat['libelle_type'])} · {C.esc(mat['norme'])}",
            f"Classe de service <b>{co['service']}</b> · {C.esc(co['libelle_service'])}",
            f"k<sub>mod</sub> = {kmod}",
            f"k<sub>def</sub> = {C.nb(co['kdef'])}",
@@ -715,10 +763,10 @@ def _blocs_de(r: Dict, v: Dict) -> List[str]:
 def _volets(r: Dict, nom: str) -> str:
     """Les fenêtres de calcul : une par vérification (son tableau, puis le détail qui y mène, combinaison par
     combinaison), et « tout le calcul » de chaque bloc (s0 : ELU ; s1 : ELS)."""
-    geo, mat = r["geometrie"], r["materiau"]
+    geo = r["geometrie"]
     hyps = _hyps(r)
     par_cle = {b["cle"]: b for b in r["calcul"]}
-    base = f"{_section_txt(geo)} mm · {C.esc(mat['classe'])} · L = {C.qte(geo['L'], 'm', 2)}"
+    base = f"{_section_txt(geo)} mm · {_classe_txt(r)} · L = {C.qte(geo['L'], 'm', 2)}"
     pied = _pied(r)
     out = ""
     for v in r["verifications"]:
@@ -742,18 +790,19 @@ def _volets(r: Dict, nom: str) -> str:
 
 # ------------------------------------------------------------------ les vues
 def _entete(r: Dict, titre: str, legende: str) -> str:
-    """L'en-tête technique d'une vue : la section et le bois ; les charges ; la combinaison qui gouverne l'ELU, l'appui
-    et le maintien ; à droite la bande des efforts de calcul (M_d, V_d, la réaction d'appui R_d)."""
-    geo, mat, ch, co, ef, ap = r["geometrie"], r["materiau"], r["charges"], r["coefficients"], r["efforts"], r["appui"]
-    c = _comb(r, ef["combinaison"])
+    """L'en-tête technique d'une vue, DEUX lignes : la section, la qualité du bois (« C24 épicéa ») et la portée ; les
+    charges, la nature de Q et la classe de service ; à droite la bande des efforts de calcul (M_d, V_d, la réaction
+    d'appui R_d). La combinaison qui gouverne, l'appui et le maintien sont écrits sur les dessins eux-mêmes ; la légende
+    est au survol (le propriétaire, 24/11/2026 : trois lignes au plus au-dessus du dessin)."""
+    geo, ch, co, ef = r["geometrie"], r["charges"], r["coefficients"], r["efforts"]
     bande = [("M", "d", ef["M_d"], "kN·m"), ("V", "d", ef["V_d"], "kN"), ("R", "d", ef["R"], "kN")]
-    pp = f" (dont poids propre {C.fr(ch['poids_propre'], 2)})" if ch["poids_propre_compte"] else " (poids propre non compté)"
-    # (chaque quantité d'un seul tenant : « a = 200 mm » ne se coupe pas en fin de ligne)
-    g_txt, q_txt = _lie(f"g = {C.fr(ch['g'], 2)} kN/m"), _lie(f"q = {C.fr(ch['q'], 2)} kN/m")
-    a_txt, service = _lie(f"a = {C.nb(ap['a'])} mm"), _lie(f"classe de service {co['service']}")
-    lignes = [f"{g_txt}{pp} · {q_txt} · {co['libelle_nature']} · {service}",
-              f"ELU · combinaison {c['nom']} ({c['libelle_duree']}) · appui {a_txt} · {r['deversement']['libelle']}"]
-    sous = f"{_lie(_section_txt(geo) + ' mm')} · {C.esc(mat['classe'])} · {_lie('L = ' + C.qte(geo['L'], 'm', 2))}"
+    pp = "" if ch["poids_propre_compte"] else " · poids propre non compté"
+    # court, pour tenir sur SA ligne à côté de la bande des efforts (au PC comme au téléphone) ; chaque quantité d'un seul
+    # tenant (« g 0,67 » ne se coupe pas en fin de ligne) ; le sous-titre est celui de la tête des résultats
+    g_txt, q_txt = _lie(f"g {C.fr(ch['g'], 2)}"), _lie(f"q {C.fr(ch['q'], 2)} kN/m")
+    service = _lie(f"service {co['service']}")
+    lignes = [f"{g_txt} · {q_txt}{pp} · {co['libelle_nature']} · {service}"]
+    sous = f"{_lie(_section_txt(geo))} · {_classe_txt(r)} · {_lie('L ' + C.qte(geo['L'], 'm', 2))}"
     return E.entete(titre, sous, lignes, bande, legende)
 
 
@@ -782,7 +831,7 @@ def resultat(etat: Dict) -> Dict:
     resultats = [r if i == etat["actif"] else _calculer(x) for i, x in enumerate(etat["poutres"])]
     geo, mat, ch = r["geometrie"], r["materiau"], r["charges"]
     nom = C.esc(p.get("nom") or "Poutre")
-    tete = E.tete_resultats(nom, f"{_section_txt(geo)} · {C.esc(mat['classe'])} · L {C.qte(geo['L'], 'm', 2)}")
+    tete = E.tete_resultats(nom, f"{_section_txt(geo)} · {_classe_txt(r)} · L {C.qte(geo['L'], 'm', 2)}")
     # la plus légère qui tient (l'étoile de la ligne « Flexion », qui ouvre le sélecteur)
     opt = MO.optimal(p)
     leger = (f"La plus légère qui tient : {opt['designation']} ({C.pc(C.pct(opt['taux']))} %)"
@@ -799,6 +848,18 @@ def resultat(etat: Dict) -> Dict:
     return {"resultat": corps, **({"avis": avis} if avis else {}), "volets": _volets(r, nom), "vues": _vues(r, f"bo{etat['actif']}"),
             "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": arbre(etat, r, resultats),
             "elements": elements(etat, resultats)}
+
+
+# ------------------------------------------------------------------ la note de calcul PDF
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (une planche par poutre), faite par api_web/note_bois.py
+    (24/11/2026) ; ``infos`` : le nom, le chantier, l'indice et la date de la note. L'avis d'ouverture (CLE_AVIS) n'entre
+    pas dans la note. Une note hors domaine est refusée avec le message du générateur (ValueError : le routeur le rend)."""
+    if quoi != "note_pdf":
+        return None
+    from . import note_bois as NB
+    etat = {k: v for k, v in etat.items() if k != CLE_AVIS}
+    return NB.fichier(normaliser(etat), infos)
 
 
 # ------------------------------------------------------------------ le sélecteur de sections

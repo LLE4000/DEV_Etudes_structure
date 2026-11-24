@@ -658,7 +658,9 @@ chk("compact : chaque appui dit sa charge, son répartiteur (il se choisit) et l
 chk("compact : chaque vue porte son en-tête technique — le titre, le plancher, les charges posées",
     all('class="et-ent"' in v.get("entete", "") and _texte(OP.resume_plancher(cas(e))) in _texte(v["entete"])
         and "3 objet(s) · 250 kN d'engins et d'étançons (charges de service)" in _texte(v["entete"]) for v in r["vues"])
-    and r["vues"][0]["entete"].startswith('<div class="et-ent"><div class="et-ent-t"><div class="l1"><b>PLAN DU PLANCHER</b>'), r["vues"][0].get("entete"))
+    # (24/11/2026 : la légende du dessin est au survol de l'en-tête — un attribut title —, plus une ligne : etabli_compact.entete)
+    and re.match(r'<div class="et-ent"><div class="et-ent-t"(?: title="[^"]*")?><div class="l1"><b>PLAN DU PLANCHER</b>', r["vues"][0]["entete"])
+    and 'class="lg"' not in r["vues"][0]["entete"], r["vues"][0].get("entete"))
 chk("compact : plus de cadre « Cas de cette note » ; le statut du cas reste dit même seul (une hypothèse peut le passer en « attention » : P-8)",
     r["elements"] == "" and "Conforme, attention" in r["statut_html"])
 W.gerer_elements(e, "ajouter")

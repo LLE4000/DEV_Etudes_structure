@@ -200,23 +200,31 @@ def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif
 
 
 # ------------------------------------------------------------------ au centre : l'en-tête technique d'une vue
+LIGNES_ENTETE_MAX = 2       # sous la ligne du titre : TROIS lignes au plus en tout (le propriétaire, 24/11/2026)
+
+
 def entete(titre: str, sous_titre: str, lignes: Sequence[str], bande: Optional[Sequence[Tuple[str, str, float, str]]],
            legende: str = "") -> str:
-    """L'en-tête technique d'une vue : trois lignes (``titre`` en capitales et ``sous_titre`` — du HTML du module, la
-    section et ses matériaux ; puis ``lignes``, du texte : les aciers…) et, à droite, la bande compacte des efforts — une
-    fois, sans couleur d'alerte. ``bande`` : ``(symbole, indice, valeur, unité)`` par effort ; None : pas de bande.
-    ``legende`` (texte) : ce qu'on lit sur le dessin (« barres coupées en points… »), en dernière ligne, discrète."""
+    """L'en-tête technique d'une vue : TROIS lignes au plus — ``titre`` en capitales et ``sous_titre`` (du HTML du
+    module : la section et sa qualité, « 75 × 225 mm · C24 épicéa »), puis ``lignes`` (deux au plus, du texte) — et, à
+    droite, la bande compacte des efforts, une fois, sans couleur d'alerte. ``bande`` : ``(symbole, indice, valeur,
+    unité)`` par effort ; None : pas de bande. ``legende`` (texte, ce qu'on lit sur le dessin) n'est plus une ligne : elle
+    est au survol de l'en-tête (le propriétaire, 24/11/2026 : « au-dessus du dessin, le nom de la section, la qualité,
+    c'est tout — trois lignes maximum » ; la poutre béton armé est le modèle). Plus de deux lignes : refusé — c'est le
+    module qui a trop à dire, et son test le voit."""
+    lignes = [t for t in lignes if t]
+    if len(lignes) > LIGNES_ENTETE_MAX:
+        raise ValueError(f"En-tête de vue « {titre} » : {len(lignes)} lignes sous le titre, {LIGNES_ENTETE_MAX} au plus")
     l1 = f'<div class="l1"><b>{C.esc(titre)}</b><span>· {sous_titre}</span></div>'
     corps = "".join(f'<div class="l{k + 2}">{C.esc(t)}</div>' for k, t in enumerate(lignes))
-    if legende:
-        corps += f'<div class="lg">{C.esc(legende)}</div>'
+    survol = f' title="{C.esc(legende)}"' if legende else ""
     eff = ""
     if bande is not None:
         eff = ('<div class="et-eff">'
                + "".join(f'<span><i>{s}</i>{f"<sub>{x}</sub>" if x else ""}<b>{C.fr(v, 1)}</b><small>{u}</small></span>'
                          for s, x, v, u in bande)
                + '</div>')
-    return f'<div class="et-ent"><div class="et-ent-t">{l1}{corps}</div>{eff}</div>'
+    return f'<div class="et-ent"><div class="et-ent-t"{survol}>{l1}{corps}</div>{eff}</div>'
 
 
 # ------------------------------------------------------------------ à droite : les résultats
