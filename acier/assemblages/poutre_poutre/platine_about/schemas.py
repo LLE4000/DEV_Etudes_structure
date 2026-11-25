@@ -21,7 +21,7 @@ from acier.bibliotheques import PERSO
 from ..doubles_cornieres.schemas import (            # kit partagé
     Options, Feuille, INF_MM,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_I, _section_portee)
+    _rect_rompu, _rupture, _renvoi, _section_I, _section_portee, _semelle_dessus, _semelle_travers)
 from .entrees import PILOTEES_PAR_PREDIM
 
 # Cote du dessin → clé d'entrée (édition directe sur le dessin)
@@ -240,21 +240,30 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """Vue en plan (coupe au niveau d'une rangée de boulons) : âme porteuse,
-    platine coupée, âme portée et ses deux cordons, les deux files de
-    boulons (entraxe p3) de part et d'autre de l'âme portée."""
+    """Vue en plan : les SEMELLES supérieures vues de dessus (la porteuse sur
+    toute sa largeur, la portée à partir du grugeage — 25/11/2026, le
+    propriétaire : « on voit la semelle, on voit l'âme »), puis, coupés au
+    niveau d'une rangée de boulons, l'âme porteuse, la platine, l'âme portée
+    et ses deux cordons, les deux files de boulons (entraxe p3) de profil."""
     u = R.u; xf = R.tw_P / 2; tp = R.t_p; x0 = xf + tp; ws = R.tw_S / 2
     k, m, tr = visserie(R.d_b)
     xtete = x0 + tr + k; xecrou = -xf - tr - m
     hb = R.b_p / 2; y3 = R.p_3 / 2
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
     Hh = hb + 24
     if opt.realiste:
         Hh = mx(Hh, R.b_S / 2 + 10)
     # à l'écran, vue au moins 1,3 fois plus large que haute : affichée en
     # pleine largeur de colonne, une vue étroite deviendrait une bande très
     # haute ; sur la note, la vue reste compacte (échelle du plan de principe)
-    xE = mx(xtete + 70, xecrou - 24 + 1.3 * 2 * Hh) if opt.interactive else xtete + 70
-    bb = dict(x1=xecrou - 24, x2=xE, y1=-Hh, y2=Hh)
+    x1 = xecrou - 24
+    entiere = opt.realiste and not opt.fabrication         # le plan de principe garde son champ (son échelle)
+    if entiere:
+        x1 = mn(x1, -R.b_P / 2 - 8)                        # la semelle de la porteuse, entière
+    xE = mx(xtete + 70, x1 + 1.3 * 2 * Hh) if opt.interactive else xtete + 70
+    if entiere:
+        xE = mx(xE, xs + 45, R.b_P / 2 + 30)
+    bb = dict(x1=x1, x2=xE, y1=-Hh, y2=Hh)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
@@ -269,14 +278,10 @@ def plan(R, opt):
             s.extend(prims)
 
     if opt.realiste:
-        # arêtes cachées : bord de la semelle porteuse et bords de la semelle
-        # inférieure de la portée — seulement s'ils tombent dans le champ
-        if R.b_P / 2 < xE - 4:
-            s.append(_path(["hd"], [[(R.b_P / 2, -Hh + 2), (R.b_P / 2, Hh - 2)]]))
-        x_sem_S = x0 + (N(u.l_n) if N(u.d_nb) > 0 else 0)
-        if x_sem_S < xE - 4:
-            s.append(_path(["hd"], [[(x_sem_S, -R.b_S / 2), (xE, -R.b_S / 2)],
-                                    [(x_sem_S, R.b_S / 2), (xE, R.b_S / 2)]]))
+        # semelles vues de dessus : la portée (après le grugeage), puis la porteuse qui la recouvre
+        if xs < xE - 4:
+            s.append(_poly(["sfs"] + hc("beamS"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs)))
+        s.append(_poly(["sfp"], _semelle_travers(R.b_P, Hh, 0.55 * fs, x_min=x1, x_max=xE)))
         ptsP = _rect_rompu(-xf, -Hh, R.tw_P, 2 * Hh, ("T", "B"), 0.55 * fs)
         ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)
         piece("beamP", [_poly(["pp"], ptsP), _path(["ht"], _hachures(ptsP))])

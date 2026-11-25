@@ -78,7 +78,9 @@ polaire). Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design*
 
 - **Boulons** : cisaillement Tab. 3.4 + groupe excentré (MSB P5 §3.2) ;
   glissement §3.9 (catégories B et C) ; en **tying**, la force de chaînage est
-  dans le plan du plat : elle **cisaille** les boulons, `NEd/n ≤ αv·fub·A/γMu`.
+  dans le plan du plat : elle **cisaille** les boulons et les **appuie** à
+  l'horizontale sur le plat et sur l'âme portée —
+  `NEd/n ≤ min(αv·fub·A ; Fb,hor du plat ; Fb,hor de l'âme)/γMu`.
 - **Plat** : pression diamétrale (Tab. 3.4, directions ver/hor et interaction
   quadratique — MSB P5 §3.2) ; cisaillement brut `hp·tp/1,27 · fy/√3/γM0`
   (le 1,27 couvre l'interaction avec la flexion — MSB P5 §3.2 / ECCS) ; net ;
@@ -104,7 +106,7 @@ polaire). Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design*
   (dérivation §4.5.3.3), signalée en alerte.
 
 Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + z` en
-cas (a), `z` en cas (b)), est **affiché** en information dans « Paramètres
+cas (a), `twP/2 + z` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
 retenus » et au bloc HYPOTHÈSES de la note : il appartient au calcul
 d'ÉLÉMENT du poteau (EC3-1-1 §6.2 et §6.3), l'outil ne le vérifie pas.
 

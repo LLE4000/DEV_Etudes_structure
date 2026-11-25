@@ -115,4 +115,9 @@ def materiau_du_corrige(ref):
     tableau 3.1, sans épaisseur), à passer à ``moteur.compute(u, materiau=…)``. Le corrigé reste figé ; la parité
     compare des FORMULES. L'écart de matériau avec la table belge du site (NBN EN 1993-1-1 ANB:2018 3.2.1(1),
     tableau 3.3 ANB) est nommé et testé (tests/test_assemblages_bibliotheques.py)."""
-    return MT.fixe({a["n"]: (a["fy"], a["fu"]) for a in ref["bibliotheques"]["aciers"]})
+    m = MT.fixe({a["n"]: (a["fy"], a["fu"]) for a in ref["bibliotheques"]["aciers"]})
+    # … et ses FORMULES : le moteur n'applique pas les corrections du 25/11/2026 quand il rejoue le corrigé
+    # (``moteur.compute`` : ``cor``) — la parité continue de valider tout ce qui n'a pas changé ; ce qui a changé est
+    # mesuré contre l'ancien résultat dans tests/test_assemblages_corrections.py
+    m.formules_du_corrige = True
+    return m

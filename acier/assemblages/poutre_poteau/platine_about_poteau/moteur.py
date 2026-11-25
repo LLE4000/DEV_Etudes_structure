@@ -205,7 +205,8 @@ def compute(u0=None, materiau=None):
     R.rec_ok = bool(not R.ame or R.passe_S or u.rec_S >= R.rec_min - 1e-9)
     # excentricité apportée au POTEAU : information, pas une vérification de
     # l'attache — elle appartient au calcul d'élément (EC3-1-1 §6.2 et §6.3)
-    R.e_col = (R.h_P / 2 + R.t_p) if R.aile else R.t_p
+    # de l'AXE du poteau : la demi-hauteur (aile) ou la demi-âme (correction du 25/11/2026 : elle manquait en cas b)
+    R.e_col = (R.h_P / 2 if R.aile else R.tw_P / 2) + R.t_p
     R.M_col = V * R.e_col / 1000
 
     # ---- Tableau 3.3
@@ -395,7 +396,13 @@ def compute(u0=None, materiau=None):
     R.Av_p = R.h_p * R.t_p
     R.Avn_p = (R.h_p - R.n_1 * d0) * R.t_p
     R.Ant_p = R.t_p * (R.e_2 - 0.5 * d0)
-    R.Anv_p = R.t_p * (R.h_p - R.e_1 - (R.n_1 - 0.5) * d0)
+    # plan cisaillé du bloc : de la rangée extrême au bord vers lequel les boulons poussent la platine. Sous VEd
+    # gravitaire, les boulons la poussent VERS LE HAUT (elle appartient à la poutre) : le plan va du boulon BAS au
+    # bord HAUT, e1 + (n1 − 1)·p1 — et non hp − e1, qui est le bloc d'une pièce poussée vers le bas (le plat d'âme).
+    # VEd est pris en valeur absolue : on garde donc la plus PETITE des deux pinces, comme la portance (e1,min).
+    # Correction du 25/11/2026 (audit) : avec hp − e1, une pince basse longue — celle que le prédimensionnement
+    # donne dès que hp ≥ 0,6·h commande — gonflait le bloc (pinces 35/95 : 655 kN au lieu de 409).
+    R.Anv_p = R.t_p * (R.e1_min + (R.n_1 - 1) * R.p_1 - (R.n_1 - 0.5) * d0)
     # k = 1 (§3.10.2(2), effort centré) si la flexion de la platine est
     # négligeable (hp ≥ 1,36·p3) ; 0,5 (§3.10.2(3)) sinon — MSB P5 §2.2
     R.k_bloc = 0.5 if (not R.hp_136 and R.n_1 > 1) else 1.0
@@ -464,7 +471,7 @@ def compute(u0=None, materiau=None):
     ck("bg", "Boulons", "Groupe de boulons – cisaillement et pression diamétrale sur la platine", V, R.FRd_g, "kN",
        T34 + " ; " + MSB_GRP, "EC + COMP", True,
        "FRd = ΣFb,Rd si (Fb,Rd)max ≤ Fv,Rd ; ns·(Fb,Rd)min si (Fb,Rd)min < Fv,Rd < (Fb,Rd)max ; "
-       "0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min ; Fb,Rd = k1·αb·fu·d·tp/γM2",
+       "0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min ; dans tous les cas FRd ≤ 0,8·ns·Fv,Rd ; Fb,Rd = k1·αb·fu·d·tp/γM2",
        "Fv,Rd = " + F(R.Fv_Rd, 2) + " kN ; Fb,Rd extrémité = " + F(R.Fbb_L, 1) + " kN (αb = " + F(R.abb_L, 3)
        + ") ; intérieur = " + F(R.Fbi_L, 1) + " kN (αb = " + F(R.abi_L, 3) + ") ; k1 = " + F(R.k1_L, 3)
        + " ; ns = " + js_str(R.n_b) + " → " + R.branche_g, 1)
@@ -490,9 +497,9 @@ def compute(u0=None, materiau=None):
     ck("pcb", "Platine d'about", "Rupture de bloc (2 blocs)", V, R.VRd_bp, "kN",
        "EN 1993-1-8 §3.10.2 ; k et aires : " + MSB2, "EC + COMP", True,
        "VRd,b = 2·[k·fu·Ant/γM2 + fy·Anv/(√3·γM0)] ; k = 1 si hp ≥ 1,36·p3 (ou n1 = 1), 0,5 sinon ; "
-       "Ant = tp·(e2 − d0/2) ; Anv = tp·(hp − e1 − (n1 − 0,5)·d0)",
+       "Ant = tp·(e2 − d0/2) ; Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0), e1,min = min(e1 ; e1')",
        "k = " + F(R.k_bloc, 1) + " (hp " + ("≥" if R.hp_136 else "<") + " 1,36·p3 = " + F(1.36 * R.p_3, 1)
-       + " mm) ; Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
+       + " mm) ; e1,min = " + F(R.e1_min, 1) + " mm ; Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
     ck("ptT", "Platine d'about", "Flexion de la platine en traction – tronçon en T" + ty, NT, R.FT_Rd, "kN",
        ("EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; " + MSB_TY) if R.tying else
        "EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff : Tableau 6.4 appliqué à la platine (interprétation)",
@@ -553,7 +560,7 @@ def compute(u0=None, materiau=None):
     ck("tfP", "Poteau porteur", "Aile du poteau en flexion – tronçon en T" + ty, NT, R.FT_Rd_P, "kN",
        "EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff : " + TAB64
        + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", R.aile and NT > 0,
-       "m = (p3 − twP)/2 − 0,8·rP ; e = (bP − p3)/2 ; n = min(e ; 1,25·m) ; AUCUNE rangée d'extrémité "
+       "m = (p3 − twP)/2 − 0,8·rP ; e = (bP − p3)/2 ; n = min(e ; e2 ; 1,25·m) ; AUCUNE rangée d'extrémité "
        "(le poteau continue) : rangées isolées 2πm et 4m + 1,25e, en groupe 2p1 et p1 ; "
        "FT,Rd = min(FT,1 ; FT,2 ; FT,3)",
        "m = " + F(R.m_fP, 1) + " mm ; n = " + F(R.n_fP, 1) + " mm ; Σleff = " + F(R.leff_fP, 0)
@@ -631,14 +638,16 @@ def troncon_aile_poteau(R, f, gamma, Ft):
     méthode 2 ; longueurs efficaces du Tableau 6.4).
 
     - m = (p3 − twP)/2 − 0,8·rP (Figure 6.8, poteau LAMINÉ : le congé prend
-      la place du cordon) ; e = (bP − p3)/2 ; n = min(e ; 1,25·m) ; ew = dw/4 ;
+      la place du cordon) ; e = (bP − p3)/2 ; n = min(e ; e2 de la platine ; 1,25·m) ; ew = dw/4 ;
     - Σleff : un poteau continue au-dessus et en dessous de l'attache — il
       n'y a AUCUNE rangée d'extrémité, toutes les rangées sont INTÉRIEURES
       (``mecanique.leff_aile_poteau``) ;
     - ``f`` / ``gamma`` : fy,P/γM0 à l'ELU, fu,P/γMu en tying."""
     m = mx((R.p_3 - R.tw_P) / 2 - 0.8 * R.r_P, 1e-6)
     e = R.e_P
-    n = mx(1e-6, mn(e, 1.25 * m))
+    # n = emin borné à 1,25·m, et emin est la plus petite pince des DEUX pièces serrées (Figure 6.8) : celle de
+    # l'aile du poteau ET celle de la platine (correction du 25/11/2026, audit : la platine était oubliée)
+    n = mx(1e-6, mn(e, R.e_2, 1.25 * m))
     ew = R.d_w / 4
     l1, l2 = MEC.leff_aile_poteau(R.n_1, R.p_1, m, e)
     t = MEC.troncon_T(l1, l2, R.tf_P, m, n, ew, f, gamma, R.n_b * Ft)
@@ -725,7 +734,7 @@ def predim(u, R):
                 ["Cisaillement section brute", dv(V * 1000 * K_CIS * S3 * gM0, 2 * hp * R.fy_L)],
                 ["Cisaillement section nette", dv(V * 1000 * S3 * gM2n, 2 * (hp - n * d0) * R.fu_L)],
                 ["Rupture de bloc", dv(V * 1000, 2 * (dv(kb * R.fu_L * (pk.e2 - 0.5 * d0), gM2n)
-                                                      + dv(R.fy_L * (hp - pk.e1 - (n - 0.5) * d0) / S3, gM0)))]]
+                                                      + dv(R.fy_L * (pk.e1 + (n - 1) * pk.p1 - (n - 0.5) * d0) / S3, gM0)))]]    # bloc vers la pince HAUTE (la plus courte ici)
         treq = dv(mx(*[r[1] for r in reqs]), u.eta_c)
         tmax = MEC.tp_ductile(d, R.f_ub, R.fy_L)
         cand = [t for t in DB["epais"] if 8 <= t <= tmax + 1e-9] or [DB["epais"][0]]

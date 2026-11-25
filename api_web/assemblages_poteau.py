@@ -67,6 +67,8 @@ AFFICHAGE = dict(PP.AFFICHAGE, appui={EPA.APPUI_AILE: "Sur l'aile", EPA.APPUI_AM
                  orient={ORI_P: "côté poteau", ORI_S: "côté portée"})
 SEGMENTS = PP.SEGMENTS | {"appui"}
 NOMS_ACIERS = {"P": "poteau", "S": "poutre portée"}
+# les deux pièces que l'en-tête des vues nomme (assemblages.entete_vue) : la porteuse, la portée
+NOMS_PIECES = ("Poteau", "Poutre")
 
 
 # ------------------------------------------------------------------ outils communs aux trois
@@ -90,25 +92,27 @@ def resume_portee(u):
     return s
 
 
-def items_assemblage(u, *suite):
+def items_assemblage(u, *suite, propose="les boulons, le plat et sa gorge"):
     """La section 1 : le repère, le mode, le CAS D'APPUI (il commande toute la mécanique), puis ce que la
-    configuration y ajoute et les règles du prédimensionnement."""
+    configuration y ajoute et les règles du prédimensionnement (``propose`` : ce qu'il propose, le reste est gardé)."""
     return ["id_rep", "mode_calc", "appui",
             ("aide", "Dans l'âme, la poutre entre entre les ailes du poteau : recoupe r<sub>c</sub> et jeu j dans la "
-                     "section Poutre portée.")] + list(suite) + PP.predim_items(u)
+                     "section Poutre portée.")] + list(suite) + PP.predim_items(u, propose)
 
 
 def items_poteau():
-    return ["prof_P", "nu_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u"]
+    """Le poteau et son acier sur UNE ligne ; ses dimensions quand il est « Personnalisé », deux par ligne."""
+    return [("profil", "Poteau", "prof_P", "nu_P"), ("duo", "hP_u", "bP_u"), ("duo", "twP_u", "tfP_u"), "rP_u"]
 
 
 def items_portee(*position):
     """La poutre portée et sa position ; en cas (b), la recoupe des semelles et le jeu latéral (entrees.champ_visible)."""
-    return ["prof_S", "nu_S", "hS_u", "bS_u", "twS_u", "tfS_u", "rS_u", ("grp", "Position")] + list(position) + ["rec_S", "j_lat"]
+    return ([("profil", "Poutre", "prof_S", "nu_S"), ("duo", "hS_u", "bS_u"), ("duo", "twS_u", "tfS_u"), "rS_u"]
+            + list(position) + [("duo", "rec_S", "j_lat")])
 
 
 def items_grugeage():
-    return ["d_nt", "d_nb", "l_n", "r_n", "lt_ok",
+    return PP.GRUGEAGE + [
             ("aide", "Un poteau n'oblige pas à gruger : 0 = semelle non grugée.")]
 
 
@@ -146,11 +150,11 @@ def _sections_pa(u, R, el):
         ("pt", "Poutre portée", resume_portee(u), items_portee("g_h"), True),
         ("gr", "Grugeage", PP.resume_grugeage(u), items_grugeage(), False),
         ("pl", "Plat d'âme", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
-         ["hp_u", "tp_u", "bp_u", "z_C", "nu_pl", ("grp", "Soudure sur le poteau"), "a_w"], False),
+         [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"{C.nb(N(u.get('n1_u')))} × {u.get('n2_u')} {u.get('boulon_u')} {u.get('classe')}",
-         PP.boulons_items(u) + [("grp", "Groupe · plat et âme de la portée (1 plan)"), "n1_u", "n2_u", "p1_u", "p2_u",
-                                "e1_u", "e2b_u"], True),
-        ("ef", "Efforts ELU", PP.resume_efforts(u, ("V_Ed", "N_Ed", "M_Ed")), ["V_Ed", "N_Ed", "M_Ed", "nat_N"], True),
+         PP.boulons_items(u) + [("grp", "Groupe · plat et âme de la portée (1 plan)"), ("duo", "n1_u", "n2_u"),
+                                ("duo", "p1_u", "p2_u"), ("duo", "e1_u", "e2b_u")], True),
+        ("ef", "Efforts ELU", PP.resume_efforts(u, ("V_Ed", "N_Ed", "M_Ed")), [("duo", "V_Ed", "N_Ed"), "M_Ed", "nat_N"], True),
         ("co", "Coefficients et modèle", f"γ<sub>M1</sub> {C.nb(N(u.get('g_M1')))} · ANB",
          PP.coefficients("g_M0", "g_M1", "g_M2", "g_M2n", "g_M3", "g_M3s", "g_Mu", ("grp", "Modèle"), "opt_blf", "expo"), False),
         ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),
@@ -222,7 +226,7 @@ A.enregistrer(A.Config(
     formules=lambda R, c: A.lignes_texte(R, c, FPA.textes), parametres=_parametres_pa, piece=_piece_pa,
     non_reverifies=lambda R: tuple(MEPA.limites(R.ame)), dimensions=PP.dimensions(EPA),
     sans_objet=sans_objet_aile(PERIMETRE_AILE_PA, "toutes les vérifications locales de l'aile du poteau : "),
-    noms_aciers=NOMS_ACIERS, titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"},
+    noms_aciers=NOMS_ACIERS, titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"}, noms_pieces=NOMS_PIECES,
     tableaux_boulons=lambda R: [("groupe", R.tab)],
     predim={"apply": MPA.apply_solution, "label": MPA.solution_label,
             "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {nb(r.hp)}×{nb(r.prop.tp)}",
@@ -239,28 +243,28 @@ def _sections_dc(u, R, el):
     bolt_S, bolt_P = u.get("fix_S") == EDC.BOULONNEE, u.get("fix_P") == EDC.BOULONNEE
     groupes = []
     if bolt_P:
-        groupes += [("grp", "Groupe P · ailes A sur le poteau (1 plan, par cornière)"), "n1P_u", "n2P_u", "p1P_u", "p2_P",
-                    "e1P_u", "gA_u"]
+        groupes += [("grp", "Groupe P · ailes A sur le poteau (1 plan, par cornière)"), ("duo", "n1P_u", "n2P_u"),
+                    ("duo", "p1P_u", "p2_P"), ("duo", "e1P_u", "gA_u")]
     if bolt_S:
-        groupes += [("grp", "Groupe S · âme de la poutre portée (2 plans)"), "n1S_u", "n2S_u", "p1S_u", "p2_S", "e1S_u",
-                    "e2b_u"]
+        groupes += [("grp", "Groupe S · âme de la poutre portée (2 plans)"), ("duo", "n1S_u", "n2S_u"), ("duo", "p1S_u", "p2_S"),
+                    ("duo", "e1S_u", "e2b_u")]
     secs = [
         ("as", "Assemblage", resume_assemblage(cfg, u),
          items_assemblage(u, ("grp", "Fixation des cornières", "Ailes A sur le poteau, ailes B sur l'âme de la poutre portée. "
                                       "Soudées des deux côtés : assemblage peu déformable, à réserver à des cas particuliers."),
-                          "fix_P", "fix_S"), True),
+                          "fix_P", "fix_S", propose="les boulons et les cornières"), True),
         ("po", "Poteau porteur", resume_poteau(u), items_poteau(), True),
         ("pt", "Poutre portée", resume_portee(u), items_portee("g_h"), True),
         ("gr", "Grugeage", PP.resume_grugeage(u), items_grugeage(), False),
         ("cn", "Cornières", f"2 {C.esc(u.get('corn_u'))} · h<sub>c</sub> {C.nb(N(u.get('LC_u')))}",
-         ["corn_u", "nu_C", "orient", "k1_u", "k2_u", "kt_u", "kr_u", "LC_u", "z_C"], False),
+         [("profil", "Cornière", "corn_u", "nu_C"), "orient", ("duo", "k1_u", "k2_u"), ("duo", "kt_u", "kr_u"), ("duo", "LC_u", "z_C")], False),
     ]
     if bolt_S or bolt_P:
         secs.append(("bo", "Boulons", f"{u.get('boulon_u')} {u.get('classe')}", PP.boulons_items(u) + groupes, True))
     if not (bolt_S and bolt_P):
-        secs.append(("so", "Soudures", "cordons d'angle", ["a_P", "lh_P", "a_S", "lh_S"], True))
+        secs.append(("so", "Soudures", "cordons d'angle", [("duo", "a_P", "lh_P"), ("duo", "a_S", "lh_S")], True))
     secs += [
-        ("ef", "Efforts ELU", PP.resume_efforts(u), ["V_Ed", "N_Ed", "H_Ed", "M_Ed", "nat_N"], True),
+        ("ef", "Efforts ELU", PP.resume_efforts(u), [("duo", "V_Ed", "N_Ed"), ("duo", "H_Ed", "M_Ed"), "nat_N"], True),
         ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
          PP.coefficients("g_M0", "g_M2", "g_M2n", "g_M3", "g_M3s", "g_Mu", ("grp", "Modèle"), "opt_exc", "k_rot",
                          "opt_blf", "expo"), False),
@@ -376,7 +380,7 @@ A.enregistrer(A.Config(
     parametres=_parametres_dc, piece=_piece_dc, non_reverifies=lambda R: tuple(MEDC.limites(R.ame)),
     dimensions=PP.dimensions(EDC, corniere=True),
     sans_objet=sans_objet_aile(PERIMETRE_AILE_DC, "cisaillement local de l'aile du poteau : "),
-    noms_aciers=NOMS_ACIERS, titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"},
+    noms_aciers=NOMS_ACIERS, titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"}, noms_pieces=NOMS_PIECES,
     regle_33="e ≥ 1,2·d<sub>0</sub> ; p<sub>1</sub> ≥ 2,2·d<sub>0</sub> ; p<sub>2</sub> et p<sub>3</sub> ≥ 2,4·d<sub>0</sub>",
     tableaux_boulons=lambda R: ([("groupe S", R.tabS)] if R.bolt_S else []) + ([("groupe P (une cornière)", R.tabP)] if R.bolt_P and R.M_P > 0 else []),
     selecteurs={"corniere": {"rendre": PP._sel_corniere, "choisir": A._choisir_liste("corn_u", "cornieres")}},
@@ -395,19 +399,19 @@ A.enregistrer(A.Config(
 def _sections_pb(u, R, el):
     cfg = A.CONFIGS["platine_about_poteau"]
     return [
-        ("as", "Assemblage", resume_assemblage(cfg, u), items_assemblage(u), True),
+        ("as", "Assemblage", resume_assemblage(cfg, u), items_assemblage(u, propose="les boulons, la platine et sa gorge"), True),
         ("po", "Poteau porteur", resume_poteau(u), items_poteau(), True),
         ("pt", "Poutre portée", resume_portee(u), items_portee(), True),
         ("gr", "Grugeage", PP.resume_grugeage(u), items_grugeage(), False),
         ("pl", "Platine d'about", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
-         ["hp_u", "tp_u", "bp_u", "z_C", "nu_pl", ("grp", "Soudure sur l'âme de la portée"), "a_w"], False),
+         [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"2 × {C.nb(N(u.get('n1_u')))} {u.get('boulon_u')} {u.get('classe')}",
          PP.boulons_items(u) + [("grp", "Groupe · 2 files sur le poteau, 1 plan",
                                  "Les deux files sont symétriques par rapport à l'âme du poteau ; l'écrou dégage son congé : "
                                  "p<sub>3</sub> ≥ t<sub>w,P</sub> + 2·r<sub>P</sub> + d<sub>w</sub>."),
-                                "n1_u", "p1_u", "e1_u", "p3_u"],
+                                ("duo", "n1_u", "p3_u"), ("duo", "p1_u", "e1_u")],
          True),
-        ("ef", "Efforts ELU", PP.resume_efforts(u, ("V_Ed", "N_Ed")), ["V_Ed", "N_Ed", "nat_N"], True),
+        ("ef", "Efforts ELU", PP.resume_efforts(u, ("V_Ed", "N_Ed")), [("duo", "V_Ed", "N_Ed"), "nat_N"], True),
         ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
          PP.coefficients("g_M0", "g_M2", "g_M2n", "g_Mu", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_blf", "expo"), False),
         ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),
@@ -520,7 +524,7 @@ A.enregistrer(A.Config(
     affichage=AFFICHAGE, segments=SEGMENTS, formules=lambda R, c: A.lignes_texte(R, c, FPB.textes),
     parametres=_parametres_pb, piece=_piece_pb, non_reverifies=lambda R: tuple(MEPB.limites(R.ame)),
     dimensions=PP.dimensions(EPB), noms_aciers=NOMS_ACIERS,
-    titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"},
+    titres_profils={"prof_S": "Poutre portée · profilé", "prof_P": "Poteau · profilé"}, noms_pieces=NOMS_PIECES,
     regle_33="e ≥ 1,2·d<sub>0</sub> ; p<sub>1</sub> ≥ 2,2·d<sub>0</sub> ; p<sub>3</sub> (p<sub>2</sub> du tableau) ≥ 2,4·d<sub>0</sub>",
     decimales_bench=_decimales_bench_pb,
     predim={"apply": MPB.apply_solution, "label": MPB.solution_label,

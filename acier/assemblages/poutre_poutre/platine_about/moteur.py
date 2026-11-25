@@ -75,15 +75,26 @@ def groupe_boulons(Fv, Fb_bout, Fb_int, n_bout, n_int):
     - (Fb,Rd)max ≤ Fv,Rd            → FRd = ΣFb,Rd ;
     - (Fb,Rd)min < Fv,Rd < (Fb,Rd)max → FRd = ns·(Fb,Rd)min ;
     - Fv,Rd ≤ (Fb,Rd)min            → FRd = 0,8·ns·Fv,Rd (traction parasite
-      due à la rotation : le facteur ne s'applique qu'à cette branche)."""
+      due à la rotation) ;
+    - et, dans les trois branches, FRd ≤ 0,8·ns·Fv,Rd (plafond : le guide
+      n'écrit le 0,8 qu'en troisième branche, ce qui rendait la résistance
+      non monotone en tp)."""
     ns = n_bout + n_int
     fbs = [Fb_bout] * (1 if n_bout else 0) + [Fb_int] * (1 if n_int else 0)
     fb_max, fb_min = max(fbs), min(fbs)
+    plafond = K_ROT * ns * Fv
     if fb_max <= Fv:
-        return n_bout * Fb_bout + n_int * Fb_int, "ΣFb,Rd (pression diamétrale)"
-    if fb_min < Fv:
-        return ns * fb_min, "ns·(Fb,Rd)min"
-    return K_ROT * ns * Fv, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+        FRd, branche = n_bout * Fb_bout + n_int * Fb_int, "ΣFb,Rd (pression diamétrale)"
+    elif fb_min < Fv:
+        FRd, branche = ns * fb_min, "ns·(Fb,Rd)min"
+    else:
+        FRd, branche = plafond, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+    # PLAFOND (25/11/2026, audit) : la traction parasite qui justifie le 0,8 ne dépend pas de la branche — à la
+    # lettre du guide, une platine de 11,1 mm rendait 563 kN et une de 11,2 mm 452 kN (le 0,8 n'arrivait qu'en
+    # troisième branche). Le groupe ne dépasse donc jamais 0,8·ns·Fv,Rd.
+    if FRd > plafond:
+        return plafond, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+    return FRd, branche
 
 
 # =========================================================================
@@ -332,7 +343,13 @@ def compute(u0=None, materiau=None):
     R.Av_p = R.h_p * R.t_p
     R.Avn_p = (R.h_p - R.n_1 * d0) * R.t_p
     R.Ant_p = R.t_p * (R.e_2 - 0.5 * d0)
-    R.Anv_p = R.t_p * (R.h_p - R.e_1 - (R.n_1 - 0.5) * d0)
+    # plan cisaillé du bloc : de la rangée extrême au bord vers lequel les boulons poussent la platine. Sous VEd
+    # gravitaire, les boulons la poussent VERS LE HAUT (elle appartient à la poutre) : le plan va du boulon BAS au
+    # bord HAUT, e1 + (n1 − 1)·p1 — et non hp − e1, qui est le bloc d'une pièce poussée vers le bas (le plat d'âme).
+    # VEd est pris en valeur absolue : on garde donc la plus PETITE des deux pinces, comme la portance (e1,min).
+    # Correction du 25/11/2026 (audit) : avec hp − e1, une pince basse longue — celle que le prédimensionnement
+    # donne dès que hp ≥ 0,6·h commande — gonflait le bloc (pinces 35/95 : 655 kN au lieu de 409).
+    R.Anv_p = R.t_p * (R.e1_min + (R.n_1 - 1) * R.p_1 - (R.n_1 - 0.5) * d0)
     # k = 1 (§3.10.2(2), effort centré) si la flexion de la platine est
     # négligeable (hp ≥ 1,36·p3) ; 0,5 (§3.10.2(3)) sinon — MSB P5 §2.2
     R.k_bloc = 0.5 if (not R.hp_136 and R.n_1 > 1) else 1.0
@@ -412,7 +429,7 @@ def compute(u0=None, materiau=None):
     ck("bg", "Boulons", "Groupe de boulons – cisaillement et pression diamétrale sur la platine", V, R.FRd_g, "kN",
        T34 + " ; " + MSB_GRP, "EC + COMP", True,
        "FRd = ΣFb,Rd si (Fb,Rd)max ≤ Fv,Rd ; ns·(Fb,Rd)min si (Fb,Rd)min < Fv,Rd < (Fb,Rd)max ; "
-       "0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min ; Fb,Rd = k1·αb·fu·d·tp/γM2",
+       "0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min ; dans tous les cas FRd ≤ 0,8·ns·Fv,Rd ; Fb,Rd = k1·αb·fu·d·tp/γM2",
        "Fv,Rd = " + F(R.Fv_Rd, 2) + " kN ; Fb,Rd extrémité = " + F(R.Fbb_L, 1) + " kN (αb = " + F(R.abb_L, 3)
        + ") ; intérieur = " + F(R.Fbi_L, 1) + " kN (αb = " + F(R.abi_L, 3) + ") ; k1 = " + F(R.k1_L, 3)
        + " ; ns = " + js_str(R.n_b) + " → " + R.branche_g, 1)
@@ -435,9 +452,9 @@ def compute(u0=None, materiau=None):
     ck("pcb", "Platine", "Rupture de bloc (2 blocs)", V, R.VRd_bp, "kN",
        "EN 1993-1-8 §3.10.2 ; k et aires : " + MSB2, "EC + COMP", True,
        "VRd,b = 2·[k·fu·Ant/γM2 + fy·Anv/(√3·γM0)] ; k = 1 si hp ≥ 1,36·p3 (ou n1 = 1), 0,5 sinon ; "
-       "Ant = tp·(e2 − d0/2) ; Anv = tp·(hp − e1 − (n1 − 0,5)·d0)",
+       "Ant = tp·(e2 − d0/2) ; Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0), e1,min = min(e1 ; e1')",
        "k = " + F(R.k_bloc, 1) + " (hp " + ("≥" if R.hp_136 else "<") + " 1,36·p3 = " + F(1.36 * R.p_3, 1)
-       + " mm) ; Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
+       + " mm) ; e1,min = " + F(R.e1_min, 1) + " mm ; Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
     ck("ptT", "Platine", "Flexion de la platine en traction – tronçon en T" + ty, NT, R.FT_Rd, "kN",
        ("EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; " + MSB_TY) if R.tying else
        "EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff : Tableau 6.4 appliqué à la platine (interprétation)",
@@ -550,8 +567,12 @@ def tronçon_en_T(R, f, gamma, Ft):
                     nc_grp=mn(2 * m + 0.625 * e + 0.5 * p, e1 + 0.5 * p))
 
     if n1 == 1:
-        cp = mn(2 * pi * m, pi * m + e1h + e1b)
-        nc = mn(4 * m + 1.25 * e, 2 * m + 0.625 * e + 0.5 * (e1h + e1b))
+        # UNE rangée entre DEUX bords libres : chaque demi-mécanisme s'arrête au bord s'il est plus près que la
+        # demi-ligne de rupture — la même règle que ``bout`` (cp_seul = π·m + min(π·m ; 2·e1)), appliquée des deux
+        # côtés. Σleff ne dépasse donc jamais hp. Correction du 25/11/2026 (audit) : « π·m + e1h + e1b » et
+        # « 2·m + 0,625·e + (e1h + e1b)/2 » n'étaient pas des mécanismes — 139 mm de Σleff pour une platine de 100.
+        cp = mn(pi * m, 2 * e1h) + mn(pi * m, 2 * e1b)
+        nc = mn(2 * m + 0.625 * e, e1h) + mn(2 * m + 0.625 * e, e1b)
         l1 = mn(cp, nc); l2 = nc
     else:
         bh, bb = bout(e1h), bout(e1b)
@@ -630,7 +651,7 @@ def predim(u, R):
                 ["Cisaillement section brute", dv(V * 1000 * K_CIS * S3 * gM0, 2 * hp * R.fy_L)],
                 ["Cisaillement section nette", dv(V * 1000 * S3 * gM2n, 2 * (hp - n * d0) * R.fu_L)],
                 ["Rupture de bloc", dv(V * 1000, 2 * (dv(kb * R.fu_L * (pk.e2 - 0.5 * d0), gM2n)
-                                                      + dv(R.fy_L * (hp - pk.e1 - (n - 0.5) * d0) / S3, gM0)))]]
+                                                      + dv(R.fy_L * (pk.e1 + (n - 1) * pk.p1 - (n - 0.5) * d0) / S3, gM0)))]]    # bloc vers la pince HAUTE (la plus courte ici)
         treq = dv(mx(*[r[1] for r in reqs]), u.eta_c)
         tmax = tp_ductile(d, R.f_ub, R.fy_L)
         cand = [t for t in DB["epais"] if 8 <= t <= tmax + 1e-9] or [DB["epais"][0]]

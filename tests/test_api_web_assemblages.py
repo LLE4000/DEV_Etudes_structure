@@ -1099,9 +1099,22 @@ chk("compact : une ligne par pièce — ce qu'elle choisit, son taux, ce que sa 
     [x[2] for x in lignes] == [g[1].replace("'", "&#x27;") for g in groupes] + ["Géométrie", "Proposition"]
     and CMP[:len(groupes)] == [_txt(f"{A._minuscule(A._court(cfg0, g[4]))} : {A._comparaison(cfg0, g[4])}") for g in groupes]
     and CMP[len(groupes)].startswith("Tab. 3.3 · ") and sum(1 for x in lignes if x[0]) == 1, (lignes, CMP))
-chk("compact : chaque vue porte son en-tête technique — le titre, la configuration, les pièces et les efforts",
+# (25/11/2026, le propriétaire : « au-dessus de la zone de dessin, le profilé principal, le profilé secondaire, la
+# qualité d'acier juste à côté, sur une seule ligne » — le harnais SUIT : il cherchait la phrase de la liste du projet)
+_ent0 = r["vues"][0].get("entete", "")
+_u0 = A._actif(e)["values"]
+chk("compact : chaque vue porte son en-tête technique — le titre et la configuration, UNE ligne par pièce avec son "
+    "acier (« Principale HEA 400 · S355 », « Secondaire HEA 300 · S355 »), les efforts non nuls dans la bande",
     all('class="et-ent"' in v.get("entete", "") and f"<span>· {C.esc(cfg0.court)}</span>" in v["entete"] for v in r["vues"])
-    and _txt(PJ_.description(A._actif(e)["values"])) in _txt(r["vues"][0]["entete"]), r["vues"][0].get("entete"))
+    and f'<div class="l2">Principale {_u0["prof_P"]} · {_u0["nu_P"]}</div>' in _ent0
+    and f'<div class="l3">Secondaire {_u0["prof_S"]} · {_u0["nu_S"]}</div>' in _ent0
+    and 'class="et-eff"' in _ent0 and "125,0" in _txt(_ent0) and "kN" in _txt(_ent0)
+    and "N<sub>Ed</sub>" not in _ent0 and A.entete_vue(cfg0, _u0, R0)[1] == [f"Principale {A.piece_txt(_u0, 'P')}",
+                                                                      f"Secondaire {A.piece_txt(_u0, 'S')}"], _ent0)
+_up = dict(_u0, prof_P=PERSO, nu_S=PERSO)
+chk("en-tête : un profilé saisi dimension par dimension s'écrit « personnalisé », un acier saisi « acier personnalisé »",
+    A.piece_txt(_up, "P") == f"personnalisé · {_u0['nu_P']}" and A.piece_txt(_up, "S") == f"{_u0['prof_S']} · acier personnalisé",
+    (A.piece_txt(_up, "P"), A.piece_txt(_up, "S")))
 chk("compact : plus de cadre « Dans cette note » ; un assemblage seul garde son statut dans l'en-tête (une réserve, une géométrie non conforme "
     "ne se lisent pas dans la couleur du taux)", r["elements"] == "" and r["statut_html"] == C.statut(niv0))
 A.gerer_elements(e, "ajouter")
@@ -1117,7 +1130,8 @@ chk("compact : dès deux assemblages, le statut de l'en-tête est celui de la NO
 
 # ---- la seconde passe (12/11/2026) : rien d'écrit deux fois à droite ; les aides de groupe sous ⓘ
 chk("compact : les blocs ne répètent pas la tête — pas de ligne d'efforts (le kit cache la bande vide), et la proposition "
-    "dit ce qu'est son taux", h.count('<div class="et-bloc-ef"></div>') == 2 and CMP[-1] == "taux estimé, à confirmer en vérification"
+    "dit ce qu'est son taux ET ce qu'elle garde (25/11/2026)", h.count('<div class="et-bloc-ef"></div>') == 2 and CMP[-1] == A.PROPOSITION_GARDE
+    and CMP[-1].startswith("taux estimé")
     and _txt(PJ_.description(A._actif(A.nouvel_etat())["values"])) in _txt(re.search(r'<div class="et-rp">.*?</div>', h, re.S).group(0)),
     (h.count('<div class="et-bloc-ef"></div>'), CMP[-1]))
 AIDES_GROUPE = {   # configuration → (titre du groupe, début de son aide, en texte À PLAT)
@@ -1341,9 +1355,14 @@ def ctl_virgule(cas=CAS_VIRGULE):
         for k, v in saisies.items():
             assert A.modifier(e, ["v", k], v) is None, (cle, k)
         s = _sorties(e)
+        el_ = A._actif(e)
+        R_ = A.calculer(A._cfg(el_), el_)[0]
+        # les renvois de clause des vérifications (« §6.2.4 Tab. 6.2 ») : une saisie peut en ACTIVER une que la note
+        # de base n'affichait pas (le tronçon en T des ailes A sous MEd, depuis le 25/11/2026)
+        clauses = set(_POINT.findall(" ".join(f"{c.ref} {c.formula}" for c in R_.checks))) if R_ is not None else set()
         for k, t in s.items():
             for m in _POINT.finditer(t):
-                if m.group(0) not in base[k]:
+                if m.group(0) not in base[k] and m.group(0) not in clauses:
                     ecarts.append(f"{cle}{' complet' if mode else ''} · {k} : « {t[max(0, m.start() - 40):m.end() + 10]} »")
         tout = " ".join(s.values())
         ecarts += [f"{cle}{' complet' if mode else ''} : « {a} » absent" for a in attendus if a not in tout]

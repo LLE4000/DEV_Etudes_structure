@@ -62,7 +62,7 @@ def defaults():
         "d_nt": 0, "d_nb": 0, "l_n": 0, "r_n": 10, "lt_ok": "Oui",
         "g_h": 10, "rec_S": 0, "j_lat": 5,
         "hp_u": 290, "tp_u": 10, "bp_u": 100, "z_C": 40, "nu_pl": "S355",
-        "a_w": 5,
+        "a_w": 6,
         "boulon_u": "M20", "classe": "8.8", "trou": "Normal", "d0_u": None,
         "filet": "Oui", "cat": "A", "mu_s": 0.3, "k_s": 1, "k_ser": 1,
         "n1_u": 4, "n2_u": 1, "p1_u": 70, "p2_u": 60, "e1_u": 40, "e2b_u": 40,

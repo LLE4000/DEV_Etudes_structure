@@ -6,6 +6,10 @@ Une erreur **manifeste** se corrige dans une étape séparée, avec un test qui
 documente l'ancien et le nouveau résultat ; un **choix de modèle** est proposé,
 jamais appliqué sans l'accord du bureau.
 
+**État au 25/11/2026 : treize corrections appliquées aux six attaches** après une relecture indépendante de chaque
+formule (§7) — celles des doubles cornières poutre–poutre le sont À CÔTÉ du corrigé, que la parité rejoue toujours tel
+quel.
+
 **État au 21/09/2026 : aucune correction appliquée au moteur.** La
 transcription est identique au HTML (31 cas + benchmark + 1 900 cas aléatoires,
 0 écart). Ce document consigne ce qui a été examiné, ce qui n'a pas pu être
@@ -205,3 +209,61 @@ formule publiée plutôt que du nombre imprimé :
   `η = 1,148` ;
 - **les trois** : `rec_S`, `j_lat`, `d_nt`, `d_nb`, `l_n` sont des cotes du
   DESSIN et non des paramètres avancés (règle P6 de la charte).
+
+---
+
+## 7. Corrections du 25/11/2026 — relecture indépendante des six attaches
+
+Six relectures indépendantes (une par attache : chaque vérification recalculée à la main sur le cas par défaut, sept
+variantes et des tirages aléatoires ; bancs rejoués, tous VALIDÉS) ont confirmé les formules des cas courants et trouvé
+les défauts ci-dessous. **Règle suivie** : une erreur manifeste, ou une omission du côté non sûr, est corrigée, mesurée
+et figée par un test qui rougit si on la retire ; un choix de modèle qui n'est pas du côté non sûr reste proposé (§7.3).
+
+**Comment les doubles cornières poutre–poutre restent comparées au corrigé** : le moteur applique les corrections
+partout, SAUF quand il rejoue le corrigé — `parite.materiau_du_corrige` porte « formules du corrigé », que
+`moteur.compute` lit (argument `materiau`, ou table du site remplacée par les suites de parité). La parité (31 cas,
+oracle, 1 900 tirages, textes) reste verte sans retouche ; l'ancien et le nouveau résultat de chaque correction sont
+dans `tests/test_assemblages_corrections.py`.
+
+### 7.1 Corrections appliquées
+
+| N° | Où | Avant | Après | Effet mesuré | Test |
+|---|---|---|---|---|---|
+| **K1** | platine d'about (poutre et poteau) : rupture de bloc, `moteur.py` et prédimensionnement | `Anv = tp·(hp − e1 − (n1 − ½)·d0)` avec la pince HAUTE | `Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − ½)·d0)` : sous `VEd`, les boulons poussent la platine vers le haut, le plan cisaillé va du boulon bas au bord haut ; `VEd` étant pris en valeur absolue, la plus petite des deux pinces | sans effet si pinces égales ; pinces 35 / 95 : 655 → 409 kN ; le prédimensionnement allonge la pince basse dès que `hp ≥ 0,6·h` commande (cas figé : 692 → 364 kN) | `test_platine_about_moteur`, `test_platine_about_poteau_moteur` |
+| **K2** | ailes A des cornières (poutre : C1, et poteau) : rupture de bloc | idem, `hc − e1` | idem, par `e1,min` (l'aile B, poussée vers le bas, garde `hc − e1`) | pinces 35 / 95 : 639 → 393 kN | `test_assemblages_corrections`, `test_doubles_cornieres_poteau_moteur` |
+| **K3** | platine à UNE rangée : `Σleff` du tronçon en T (`platine_about`, `mecanique.leff_platine_bords_libres`) | `π·m + e1h + e1b` et `2m + 0,625e + (e1h + e1b)/2` — pas des mécanismes | `min(π·m ; 2·e1h) + min(π·m ; 2·e1b)` et `min(2m + 0,625e ; e1h) + min(… ; e1b)` : `Σleff ≤ hp` | hp = 100 : 139 → 100 mm (poutre), 195 → 100 mm (poteau) | `test_assemblages_mecanique`, les deux suites des platines |
+| **K4** | groupe de boulons des platines (`groupe_boulons`, deux copies) | le 0,8 seulement en 3e branche (lettre du MSB P5 §2.2.4) | plafond `FRd ≤ 0,8·ns·Fv,Rd` dans les trois branches | cas par défaut : 506,8 → 451,6 kN (η 0,247 → 0,277) ; la résistance ne descend plus quand `tp` augmente (563 kN à 11,1 mm, 452 kN à 11,2 mm) | `test_assemblages_mecanique`, `test_platine_about_moteur` |
+| **K5** | plats d'âme (poutre et poteau) : gorge de PLEINE RÉSISTANCE (avis `a_rec`, prédimensionnement) | `tp·fy·βw·γM2/(2·fu·γM0)` (plat cisaillé : 0,39·tp en S355) | `…/(√2·fu·γM0)` (plat tendu : la règle des guides, 0,46 / 0,48 / 0,55·tp ; 0,50 / 0,60 avec les `fu` de l'ANB), tolérance de lecture 0,05 mm ; gorge par défaut 5 → 6 mm | tp = 10 : 4,2 → 6,0 mm ; prédimensionnement tp = 9 : a = 4 → 5 ou 6 mm. Aucun taux ne change à gorge égale | `test_plat_ame_moteur`, `test_plat_ame_poteau_moteur` |
+| **K6** | plats d'âme : flexion du plat `pfl` | sans objet dès `hp ≥ 2,73·z`, même avec `MEd` | active aussi si `MEd ≠ 0` | HEB 500, plat 315 × 15, VEd 60, MEd 88 : η 1,06 au lieu de « vérifié » | idem |
+| **K7** | plats d'âme : 2e file de boulons `m2` | `VEd·(gh + e2,b + p2)` | `+ |MEd|`, comme `mN` | MEd = 4 : 13,75 → 17,75 kNm | idem |
+| **K8** | cornières, ailes A SOUDÉES (poutre : C2, et poteau) | `MP = 0` avec l'option « Non » : cordon « centré » | `MP = (VEd/2)·(bA − xg)` toujours (l'option ne vaut que pour des boulons P) | cordon 345 → 792 N/mm (η 0,29 → 0,66) | `test_assemblages_corrections`, `test_doubles_cornieres_poteau_moteur` |
+| **K9** | cornières, cordons P (C3, et poteau) | `qn = NEd/(2·ΣL)` | `+ (MEd/2)·(hc/2)/Ixx + HEd·z/((tw + 2·(bA − xg))·ΣL)` | N 60, H 20, M 5 : 369 → 685 N/mm | idem |
+| **K10** | cornières : tronçon en T des ailes A, et aile et âme du poteau (C4, et poteau) | effort `NEd` seul : lignes inactives sous `MEd` ou `HEd` | effort `2·nP·Ft,Ed`, la traction réelle des boulons P | MEd = 5 : ligne active (η 0,20 à 0,23) | idem |
+| **K11** | cornières, ailes A SOUDÉES en traction (C5, et poteau) | aucune vérification de l'aile | `NT ≤ 2·Mpl/m`, `Mpl = 0,25·hc·tc²·f/γ`, `m = bA − tc − 0,8·rc` (cordon de bout d'aile = rotule ; `fu/γMu` en chaînage) — sous la clé `tsA` | L100×100×10, hc 190 : 42 kN ; NEd = 300 kN passait « VÉRIFIÉ », η réel 4,7 | idem |
+| **K12** | chaînage, côté poteau : `bvT` (plat d'âme) et `bvT_S` (cornières) | cisaillement des boulons seul | `min(cisaillement ; Fb,hor du plat ou des ailes B ; Fb,hor de l'âme portée)/γMu` | IPE 400, e2,b = 30, NEd 400 : η 0,94 → 1,10 | `test_plat_ame_poteau_moteur`, `test_doubles_cornieres_poteau_moteur` |
+| **K13** | poteau : pince au bout d'aile à deux files par cornière ; `n` du tronçon en T de l'aile ; `e_col` en cas (b) | `(bP − p3)/2` ; `min(e ; 1,25·m)` ; `z` | `− (n2 − 1)·p2` ; `min(e ; e2 de la pièce serrée ; 1,25·m)` (Figure 6.8) ; `twP/2 + z` (de l'axe du poteau) | HEB 220 + L150 à deux files : pince négative au lieu de 55,7 mm ; `FT,2` 955 → 902 kN (et `FT,1` +2 %) ; 50 → 55,5 mm | les trois suites du poteau |
+
+### 7.2 Ce que le prédimensionnement fait (vérifié sur les six attaches)
+
+`apply_solution` n'écrit que le mode, le boulon, les rangées, les pinces et entraxes, la pièce d'attache et sa gorge —
+jamais un effort, un profilé, un acier, un niveau (`Δz`, `zc`), le grugeage, le jeu, l'appui, la classe ou la catégorie.
+`tests/test_assemblages_predim.py` le fige (238 solutions recopiées, par le moteur et par l'écran du site).
+Le prédimensionnement n'estime PAS le glissement (catégories B et C), le chaînage, un `d0` imposé ni les cordons des
+cornières : il peut afficher « Proposition complète » pour une solution que la vérification refuse ensuite — le verdict
+affiché reste celui de la vérification complète.
+
+### 7.3 Examiné, non changé — à décider par le bureau
+
+| Objet | Constat | Sens |
+|---|---|---|
+| `bvt` des platines | `Ft,Ed = NEd/n`, sans effet de levier (0,73 → 0,86 sur un cas) | déclaré, non sûr |
+| `Σleff` de la platine en traction | Tableau 6.4 ; dépasse la valeur du guide quand la pince basse est longue (chaînage : 0,91 contre 1,25) | déclaré, moins sûr que le guide |
+| `ks` en trou surdimensionné | reste à la saisie (Tableau 3.6 : 0,85) — catégories B et C seulement | à saisir à la main |
+| section nette en catégorie C | `Anet·fy/γM0` absent (+7 à +10 %) | non sûr, rare |
+| `mN` (cornières) | `NEd` n'entre pas dans la section grugée | non sûr en compression |
+| cisaillement local de l'âme du poteau (platine) | `twP·hp`, sans le plafond `5d` des cornières | +17 à +40 % si platine dissymétrique |
+| compression `NEd < 0` | transmise « par contact », non vérifiée (cordons, âme, flambement du plat) | déclaré |
+| manques | poinçonnement de l'âme porteuse par un plat épais ; interaction V–N de l'âme portée ; plat long non grugé (bloc en flexion–cisaillement) ; âme du poteau hors plan en chaînage (cas b) | périmètre |
+| conservatifs | déversement du plat long (sans le 1/0,6 du guide) ; `Σleff` de l'aile du poteau = `n1·p1` ; cordons en méthode simplifiée ; pression diamétrale en enveloppe | sûr |
+| de mémoire | MSB Part 5, SCI P358 et ECCS n°126 n'ont pas pu être relus en ligne ; `γM1` et `γMu` belges | à confirmer |
+

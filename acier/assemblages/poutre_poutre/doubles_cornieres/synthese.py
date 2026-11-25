@@ -48,6 +48,8 @@ ELEMENTS = [("Boulons", "Boulons"), ("Cornières", "Cornières"), ("Poutre secon
 
 
 def court(c):
+    if c.key == "tsA" and "soudées" in c.label:        # ailes A soudées : la même ligne, mais pas un tronçon en T
+        return "Aile A – flexion sous traction"
     return COURT.get(c.key, ec(c.label))
 
 

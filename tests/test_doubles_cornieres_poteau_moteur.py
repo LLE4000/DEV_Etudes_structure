@@ -242,9 +242,12 @@ chk("poinçonnement : aile A de la cornière 277,911 kN ; AILE DU POTEAU 528,031
     pres(R3.Bp_Rd, 0.6 * math.pi * dm * tc * fu / 1.1 / 1000, 1e-12)
     and pres(R3.ck["ppP"].Rd, 0.6 * math.pi * dm * tfP * fu / 1.1 / 1000, 1e-12),
     f"{R3.Bp_Rd} {R3.ck['ppP'].Rd}")
-chk("tying : la force de chaînage CISAILLE le groupe S (2 plans, γMu) — ligne bvT_S",
+# le harnais SUIT (correction du 25/11/2026) : la ligne compte aussi la pression diamétrale horizontale (âme, ailes B)
+chk("tying : la force de chaînage CISAILLE le groupe S (2 plans, γMu = 213,82 kN) et l'APPUIE sur l'âme portée "
+    "(120,83 kN) — ligne bvT_S, la plus petite",
     R3.ck["bvT_S"].active and pres(R3.ck["bvT_S"].Ed, 300 / n1, 1e-12)
-    and pres(R3.ck["bvT_S"].Rd, 2 * 0.6 * 800 * As / 1.1 / 1000, 1e-12), str(R3.ck["bvT_S"].Rd))
+    and pres(2 * R3.Fv_Rd_u, 2 * 0.6 * 800 * As / 1.1 / 1000, 1e-12)
+    and pres(R3.ck["bvT_S"].Rd, 2.5 * (40 / 66) * 510 * 20 * 8.6 / 1.1 / 1000, 1e-12), str(R3.ck["bvT_S"].Rd))
 chk("tying : ailes B en traction nette 1 685,78 kN ; âme portée (hauteur hc) 724,886 kN",
     pres(R3.ck["tnB"].Rd, 2 * 0.9 * tc * (hc - n1 * d0) * fu / 1.1 / 1000, 1e-12)
     and pres(R3.ck["tnS"].Rd, 0.9 * twS * (hc - n1 * d0) * fu / 1.1 / 1000, 1e-12),
@@ -467,6 +470,94 @@ chk("charger_json ignore les clés inconnues et complète les absentes",
     and len(E.charger_json({})) == 88 and E.charger_json({})["appui"] == E.APPUI_AILE)
 
 # ================================================================
+print("\n=== 8 bis. Corrections du 25/11/2026 (audit des formules) ===")
+Rz = calcul_main({})
+# --- rupture de bloc des ailes A : le plan cisaillé va vers la plus PETITE pince (les boulons P poussent l'aile A vers
+# --- le haut). 2 rangées, p1 = 70, pinces 40 (haut) / 180 (bas), hc = 290, tc = 10, d0 = 22 :
+#       Anv = 10·(40 + 70 − 1,5·22) = 770 mm² (avec hc − e1 : 10·(290 − 40 − 33) = 2 170)
+Rc1 = calcul_main(dict(n1P_u=2, e1P_u=40))
+Rc1m = calcul_main(dict(n1P_u=2, e1P_u=180))
+chk("ailes A, pinces 40 / 180 : Anv = tc·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0) = 770 mm², bloc 474,76 kN — le même "
+    "pinces échangées ; pinces égales : 1 730 mm² comme avant",
+    Rc1.e1bot_P == 180 and Rc1.Anv_A == 770 and Rc1m.e1bot_P == 40 and Rc1m.Anv_A == 770
+    and pres(Rc1.ck["cbA"].Rd, 2 * (0.5 * 510 * Rc1.Ant_A / 1.25 + 355 * 770 / S3) / 1000, 1e-12)
+    and pres(Rc1.ck["cbA"].Rd, 474.757, 1e-5) and Rz.Anv_A == 1730,
+    f"{Rc1.Anv_A} {Rc1m.Anv_A} {Rc1.ck['cbA'].Rd}")
+# --- ailes A SOUDÉES : l'excentricité de VEd/2 (du talon au cordon de bout d'aile) n'est pas une option
+Rc2 = calcul_main(dict(fix_P=E.SOUDEE))
+Rc2o = calcul_main(dict(fix_P=E.SOUDEE, opt_exc="Oui"))
+chk("ailes A soudées, option « Non » : MP = (VEd/2)·(bA − xg) = 100 × 100 = 10 kNm quand même — le cordon passe de "
+    "344,8 (centré) à 792,4 N/mm, la valeur de l'option « Oui »",
+    pres(Rc2.M_P, 10.0, 1e-12) and pres(Rc2.ck["wP"].Ed, Rc2o.ck["wP"].Ed, 1e-12)
+    and pres(Rc2.ck["wP"].Ed, 792.3998611912549, 1e-9) and Rc2.ck["wP"].Ed > 2.2 * (200 / 2 * 1000 / Rc2.Lw_P)
+    and Rc2.mod_P == "Soudé – groupe de cordons avec moment", f"{Rc2.M_P} {Rc2.ck['wP'].Ed}")
+chk("ailes A boulonnées : l'option reste une option (« Non » : MP = 0)",
+    Rz.M_P == 0 and calcul_main(dict(opt_exc="Oui")).M_P > 0)
+# --- cordons P : MEd et le couple HEd·z les tendent
+Rc3 = calcul_main(dict(fix_P=E.SOUDEE, N_Ed=60, H_Ed=20, M_Ed=5))
+_Lw, _Lc, _lh = Rc3.Lw_P, Rc3.L_C, Rc3.u.lh_P
+_Ixx = _Lc ** 3 / 12 + 2 * _lh * (_Lc / 2) ** 2
+_qn = 60 / 2 * 1000 / _Lw + 5 / 2 * 1e6 * (_Lc / 2) / _Ixx + 20 * Rc3.zeff * 1000 / ((Rc3.tw_S + 2 * Rc3.ew_P) * _Lw)
+chk("cordons P : qn = NEd/(2·ΣL) + (MEd/2)·(hc/2)/Ixx + HEd·z/((tw + 2·(bA − xg))·ΣL)",
+    pres(Rc3.qn_P, _qn, 1e-12) and Rc3.qn_P > 1.5 * (60 / 2 * 1000 / _Lw), f"{Rc3.qn_P} {_qn}")
+# --- la traction RÉELLE des boulons P (NEd, MEd, HEd·z) va au tronçon en T, à l'aile et à l'âme du poteau
+Rc4 = calcul_main(dict(M_Ed=5))
+chk("MEd = 5 kNm sans NEd : Ft,Ed = 10,71 kN par boulon ; tronçon en T, aile et âme du poteau ACTIFS sous "
+    "2·nP·Ft,Ed = 85,71 kN (ils restaient inactifs)",
+    pres(Rc4.Ft_P, 5 * 1000 * 105 / (2 * 1 * 70 * 70 * 4 * 15 / 12), 1e-12)
+    and all(Rc4.ck[k].active and pres(Rc4.ck[k].Ed, 2 * Rc4.n_P * Rc4.Ft_P, 1e-12) for k in ("tsA", "tfP", "twtP"))
+    and pres(Rc4.ck["tsA"].Ed, 85.7142857, 1e-8), f"{Rc4.Ft_P} {Rc4.ck['tsA'].Ed}")
+Rn = calcul_main(dict(N_Ed=80))
+chk("NEd seul : l'effort reste NEd (2·nP·NEd/(2·nP)) ; tying : la force de chaînage",
+    all(pres(Rn.ck[k].Ed, 80, 1e-12) for k in ("tsA", "tfP", "twtP"))
+    and pres(calcul_main(dict(N_Ed=150, nat_N=E.NAT_TYING)).ck["tsA"].Ed, 150, 1e-12))
+# --- ailes A SOUDÉES en traction : flexion de l'aile, une rotule plastique au talon
+#       L100×100×10 (rc = 12), hc = 290, S355 : Mpl = 0,25·290·10²·355/1e6 = 2,574 kNm ; m = 100 − 10 − 0,8·12 = 80,4
+#       NRd = 2·Mpl/m = 64,02 kN ; en chaînage, fu/γMu : Mpl = 0,25·290·100·510/1,1/1e6 = 3,361 kNm → 83,62 kN
+Rc5 = calcul_main(dict(fix_P=E.SOUDEE, N_Ed=50))
+Rc5g = calcul_main(dict(fix_P=E.SOUDEE, N_Ed=300))
+Rc5t = calcul_main(dict(fix_P=E.SOUDEE, N_Ed=50, nat_N=E.NAT_TYING))
+chk("ailes A soudées, NEd = 50 kN : NRd = 2·Mpl/m = 64,02 kN (η = 0,78) ; NEd = 300 kN : NON VÉRIFIÉ (η = 4,69), "
+    "dimensionnant — rien ne vérifiait l'aile",
+    Rc5.ck["tsA"].active and "soudées" in Rc5.ck["tsA"].label and pres(Rc5.m_wA, 80.4, 1e-12)
+    and pres(Rc5.Mpl_wA, 0.25 * 290 * 100 * 355 / 1e6, 1e-12) and pres(Rc5.ck["tsA"].Rd, 2 * 2.57375 * 1000 / 80.4, 1e-12)
+    and pres(Rc5.ck["tsA"].Ed, 50, 1e-12) and not Rc5g.verified and Rc5g.gov.key == "tsA"
+    and pres(Rc5g.ck["tsA"].eta, 300 / (2 * 2.57375 * 1000 / 80.4), 1e-12),
+    f"{Rc5.ck['tsA'].Ed} {Rc5.ck['tsA'].Rd} {Rc5g.verified} {Rc5g.gov.key}")
+chk("… en chaînage : fu/γMu, comme le tronçon en T — Mpl = 3,361 kNm, NRd = 83,62 kN",
+    Rc5t.tying and pres(Rc5t.Mpl_wA, 0.25 * 290 * 100 * 510 / 1.1 / 1e6, 1e-12)
+    and pres(Rc5t.ck["tsA"].Rd, 2 * Rc5t.Mpl_wA * 1000 / 80.4, 1e-12) and pres(Rc5t.ck["tsA"].Ed, 50, 1e-12))
+chk("ailes A soudées sans traction : la ligne reste inactive", not Rc2.ck["tsA"].active)
+# --- CHAÎNAGE : la pression diamétrale HORIZONTALE des boulons S (âme portée, ailes B) entre dans leur vérification
+#       IPE 400 (tw = 8,6), M20, e2,b = 40 : αb = 40/66, k1 = 2,5 → Fb,hor,u = 2,5·(40/66)·510·20·8,6/1,1/1000
+#       = 120,83 kN/boulon < 2·Fv,Rd,u = 213,82 → 483,3 kN pour 4 boulons (855,3 par le seul cisaillement)
+Rty = calcul_main(dict(N_Ed=150, nat_N=E.NAT_TYING))
+chk("tying : boulons S — min(2·Fv,Rd,u = 213,82 ; Fb,hor,u âme = 120,83 ; 2·Fb,hor,u ailes B) = 120,83 kN/boulon",
+    pres(Rty.ck["bvT_S"].Rd, 2.5 * (40 / 66) * 510 * 20 * 8.6 / 1.1 / 1000, 1e-12)
+    and pres(Rty.ck["bvT_S"].Rd, min(2 * Rty.Fv_Rd_u, Rty.Fbh_S * 1.25 / 1.1, 2 * Rty.Fbh_B * 1.25 / 1.1), 1e-12)
+    and pres(Rty.ck["bvT_S"].Ed, 150 / 4, 1e-12) and pres(2 * Rty.Fv_Rd_u, 213.818, 1e-5),
+    f"{Rty.ck['bvT_S'].Rd} {2 * Rty.Fv_Rd_u}")
+chk("tying, ailes B soudées : la ligne des boulons S reste inactive",
+    not calcul_main(dict(N_Ed=150, nat_N=E.NAT_TYING, fix_S=E.SOUDEE)).ck["bvT_S"].active)
+# --- DEUX files par cornière : la pince au bout d'aile se compte de la file EXTÉRIEURE
+Rc6 = calcul_main(dict(n2P_u="2"))
+chk("deux files par cornière (p2 = 60) : e = (bP − p3)/2 − p2 = 95,7 − 60 = 35,7 mm, au Tableau 3.3 comme dans n ; "
+    "une file : 95,7 mm",
+    Rc6.n2_P == 2 and pres(Rc6.e_P_fl, (300 - Rc6.p_3) / 2 - 60, 1e-12) and pres(Rc6.e_P_fl, 35.7, 1e-9)
+    and pres(next(x.val for x in Rc6.dist if x.id == "P_eP"), 35.7, 1e-9)
+    and pres(Rz.e_P_fl, 95.7, 1e-9), f"{Rc6.e_P_fl} {Rc6.n_Pf}")
+# n de l'aile du poteau : emin de la Figure 6.8 compte AUSSI la pince de l'aile A de la cornière
+Rn6 = calcul_main(dict(gA_u=65, N_Ed=100))
+chk("aile du poteau : n = min(e au bout d'aile ; e2 de l'aile A ; 1,25·m) — gA = 65 : e2 = 35 mm commande (la "
+    "cornière était oubliée) ; par défaut (gA = 55) : 1,25·m = 34 mm, inchangé",
+    pres(Rn6.e2a_P, 35, 1e-12) and pres(Rn6.n_Pf, min(Rn6.e_P_fl, 35.0, 1.25 * Rn6.m_P), 1e-12) and pres(Rn6.n_Pf, 35.0, 1e-12)
+    and 1.25 * Rn6.m_P > 35 and pres(Rz.n_Pf, 34.0, 1e-9), f"{Rn6.e2a_P} {Rn6.n_Pf} {1.25 * Rn6.m_P} {Rz.n_Pf}")
+Rc6h = calcul_main(dict(n2P_u="2", prof_P="HEB 220", corn_u="L150x150x12", gA_u=75))
+chk("HEB 220 + L150×150×12, deux files : la file extérieure sort de l'aile — pince négative, NON conforme au "
+    "Tableau 3.3 (le moteur affichait 55,7 mm et « VÉRIFIÉ »)",
+    Rc6h.e_P_fl < 1.2 * Rc6h.d_0 and not next(x.ok for x in Rc6h.dist if x.id == "P_eP") and not Rc6h.verified,
+    f"{Rc6h.e_P_fl} {Rc6h.verified}")
+
 print("\n=== 9. Régression figée (tests/ref_dcc.json) ===")
 with open("tests/ref_dcc.json", encoding="utf-8") as fh:
     REF = json.load(fh)

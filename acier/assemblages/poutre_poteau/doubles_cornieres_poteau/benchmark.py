@@ -183,7 +183,7 @@ _MplA, _FT1_A, _FT2_A, _FT3_A = _troncon(_leff_A, _tc, _m_A, _n_A, _ew, _fu, 1.1
 _FT_A = min(_FT1_A, _FT2_A, _FT3_A)
 # aile du poteau : Tableau 6.4, aile NON RAIDIE, toutes les rangées intérieures
 _m_P = (_p3 - _twP) / 2 - 0.8 * _rP
-_n_P = min(_eP, 1.25 * _m_P)
+_n_P = min(_eP, _e2A, 1.25 * _m_P)                # emin de la Figure 6.8 : aile du poteau ET aile A
 _cp_i = _n1 * 2 * math.pi * _m_P
 _nc_i = _n1 * (4 * _m_P + 1.25 * _eP)
 _cp_g = _n1 * 2 * _p1
@@ -198,6 +198,8 @@ _Bp_Pb = 0.6 * math.pi * _dm * _twP * _fu / 1.1 / 1000
 _tnB_u = 2 * 0.9 * _tc * (_hc - _n1 * _d0) * _fu / 1.1 / 1000
 _tnS_u = 0.9 * _twS * (_hc - _n1 * _d0) * _fu / 1.1 / 1000
 _bvT_S = _Nty / _n1                                # effort par boulon du groupe S
+# chaînage : cisaillement (2 plans) ET pression diamétrale horizontale sur l'âme portée (αb = e2,b/3d0, k1 = 2,5), γMu
+_FbT_S = 2.5 * min(_e2b / (3 * _d0), _fub / _fu, 1) * _fu * _d * _twS / 1.1 / 1000
 
 
 SRC = dict(
@@ -276,7 +278,7 @@ BENCH = [
               "ΣFt,Rd,u = 2·n1P·Ft,Rd,u = 1 282,91 kN, ew = dw/4 = 9,25 mm",
          inp=BM3, rows=[
              ["§11.4", "Boulons du groupe S en cisaillement – effort NEd/n", _bvT_S, va("N_par_S"), "kN", ""],
-             ["§11.4", "Boulons du groupe S – résistance 2·αv·fub·A/γMu", 2 * _Fvu, rd("bvT_S"), "kN", ""],
+             ["§11.4", "Boulons du groupe S – min(2·αv·fub·A ; Fb,hor de l'âme portée)/γMu", min(2 * _Fvu, _FbT_S), rd("bvT_S"), "kN", ""],
              ["§11.4", "Ailes A – bras m = (p3 − tw,S − 2tc − 1,6·rc)/2", _m_A, va("m_T"), "mm", ""],
              ["§11.4", "Ailes A – bras n = min(e2 ; 1,25·m)", _n_A, va("n_T"), "mm", ""],
              ["§11.4", "Ailes A – Σleff", _leff_A, va("leff_T"), "mm", ""],
@@ -285,7 +287,7 @@ BENCH = [
              ["§11.4", "Ailes A – mode 2", _FT2_A, va("FT_2"), "kN", ""],
              ["§11.4", "Ailes A – FT,Rd (taux η = NEd/FT,Rd)", _FT_A, rd("tsA"), "kN", ""],
              ["§11.4", "AILE DU POTEAU – bras m = (p3 − twP)/2 − 0,8·rP", _m_P, va("m_P"), "mm", ""],
-             ["§11.4", "AILE DU POTEAU – bras n = min(e ; 1,25·m)", _n_P, va("n_Pf"), "mm", ""],
+             ["§11.4", "AILE DU POTEAU – bras n = min(e ; e2 aile A ; 1,25·m)", _n_P, va("n_Pf"), "mm", ""],
              ["§11.4", "AILE DU POTEAU – Σleff (Tab. 6.4, rangées en groupe : n1·p1)", _leff_P, va("leff1_P"), "mm", ""],
              ["§11.4", "AILE DU POTEAU – Mpl,1 (fu/γMu)", _MplP, va("Mpl_P"), "kNm", ""],
              ["§11.4", "AILE DU POTEAU – mode 1", _FT1_P, va("FTP_1"), "kN", ""],
@@ -357,7 +359,7 @@ VALID = [
         ["Ailes A – mode 1", _FT1_A, 572.0149, va("FT_1"), "kN"],
         ["Ailes A – mode 2", _FT2_A, 811.0129, va("FT_2"), "kN"],
         ["Aile du poteau – m = (p3 − twP)/2 − 0,8·rP", _m_P, 27.2, va("m_P"), "mm"],
-        ["Aile du poteau – n = min(e ; 1,25·m)", _n_P, 34.0, va("n_Pf"), "mm"],
+        ["Aile du poteau – n = min(e ; e2 aile A ; 1,25·m)", _n_P, 34.0, va("n_Pf"), "mm"],
         ["Aile du poteau – Σcp rangées isolées = n1·2πm", _cp_i, 683.6106, lambda R: 4 * 2 * math.pi * R.m_P, "mm"],
         ["Aile du poteau – Σnc rangées isolées = n1·(4m + 1,25e)", _nc_i, 913.7, lambda R: 4 * (4 * R.m_P + 1.25 * R.e_P_fl), "mm"],
         ["Aile du poteau – Σleff,1 = Σleff,2 = n1·p1 (en groupe)", _leff_P, 280.0, va("leff1_P"), "mm"],
@@ -368,7 +370,7 @@ VALID = [
         ["Rapport aile du poteau / cornières", _FT_P / _FT_A, 1.915345, lambda R: R.FTP_Rd / R.FT_Rd, "-"],
         ["Âme du poteau en traction transversale (ω = 1)", _Ft_wc, 1428.0, rd("twtP"), "kN"],
         ["Poinçonnement de l'aile du poteau (t = tfP)", _Bp_Pa, 528.0307, rd("ppP"), "kN"],
-        ["Boulons du groupe S en cisaillement – 2·αv·fub·A/γMu", 2 * _Fvu, 213.8181818, rd("bvT_S"), "kN"]]),
+        ["Boulons du groupe S en chaînage – min(2·αv·fub·A ; Fb,hor de l'âme)/γMu", min(2 * _Fvu, _FbT_S), 120.8264463, rd("bvT_S"), "kN"]]),
     dict(id="VAL-B", titre="Cas (a) par défaut : le modèle (bras, groupe excentré, cornières) et la "
                            "PRESSION DIAMÉTRALE de l'aile du poteau — calculs indépendants",
          inp=BM2, rows=[

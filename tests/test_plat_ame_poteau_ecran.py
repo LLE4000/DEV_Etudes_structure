@@ -241,7 +241,7 @@ chk("TYING : γMu paraît dans les avancés (défaut 1,10) et l'alerte le dit",
     and "NEd en tying : force de chaînage vérifiée seule (γMu)" in tty
     and "γMu = 1,10" in tty)
 chk("TYING : les cinq vérifications de la force de chaînage sont à l'écran",
-    all(x in tty for x in ("Tying – cisaillement", "Traction nette", "Bloc en traction",
+    all(x in tty for x in ("Tying – boulons", "Traction nette", "Bloc en traction",
                            "Tying – cordons")))
 at.number_input(key="fpc_N_Ed").set_value(0.0); run(at)
 chk("retour à NEd = 0 : « Nature de NEd » et γMu redisparaissent",
@@ -342,7 +342,7 @@ chk("deux pages A4 paysage, sans débordement, échelle et disposition exposées
 t1 = doc[0].get_text(); s1 = t1.replace(" ", "").replace("\n", "")
 n1 = " ".join(t1.split())          # le PDF coupe les lignes : on cherche dans le texte normalisé
 chk("page 1 : bandeau, en-tête compact 3 lignes, hypothèses, tableaux, conclusion",
-    "VÉRIFIÉ" in s1 and "Plat 290×100×10 S355" in t1 and "Soudure double a 5" in t1
+    "VÉRIFIÉ" in s1 and "Plat 290×100×10 S355" in t1 and "Soudure double a 6" in t1
     and "VEd 200,0 kN" in t1 and "rotule à la face de l'aile du poteau" in t1
     and "PLAT D'ÂME" in t1.upper() and "ASSEMBLAGE VÉRIFIÉ à l'ELU" in t1)
 chk("page 1 : le cas d'appui est dans l'en-tête ET dans les hypothèses",

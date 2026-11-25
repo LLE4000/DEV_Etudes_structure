@@ -109,7 +109,7 @@ VALID = [
          rd("pcg"), "kN"],
         ["Soudure – qz = VEd/(2hp)", 125000 / 380, 328.947368421, va("qz_w"), "N/mm"],
         ["Soudure – qx = 3·MS/hp²", 3 * 6.25e6 / 36100, 519.390581717, va("qx_w"), "N/mm"],
-        ["Soudure – résistance Fw,Rd = fvw,d·a (a = 5)", 5 * 510 / (S3 * 0.9 * 1.25), 1308.66061016,
+        ["Soudure – résistance Fw,Rd = fvw,d·a (a = 6)", 6 * 510 / (S3 * 0.9 * 1.25), 1570.39273219,
          lambda R: R.ck["w"].Rd, "N/mm"],
         # ancre VAL-A du module doubles cornières (même règle de grugeage)
         ["Grugeage – moment résistant Mv,N,Rd", 49.47898619990443,

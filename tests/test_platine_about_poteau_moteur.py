@@ -134,6 +134,20 @@ chk("platine : VRd,g = 936,035 (2 plans, 1/1,27) ; VRd,n = 951,658 ; VRd,b = 945
     and R0.k_bloc == 1.0 and R0.hp_136,
     f"{R0.ck['pcg'].Rd} {R0.ck['pcn'].Rd} {R0.ck['pcb'].Rd}")
 chk("platine : Ant = 290 et Anv = 1 730 mm²", R0.Ant_p == 290 and R0.Anv_p == 1730)
+# RUPTURE DE BLOC d'une platine DISSYMÉTRIQUE (correction du 25/11/2026, audit) : le plan cisaillé va vers la plus
+# PETITE pince — 2 rangées, p1 = 70, pinces 40 (haut) / 180 (bas), hp = 290 :
+#   Anv = 10·(40 + 70 − 1,5·22) = 770 mm² (avec hp − e1 : 10·(290 − 40 − 33) = 2 170, soit un bloc de 1 126 kN)
+Rd_ = calcul_main(dict(n1_u=2, p1_u=70, e1_u=40, hp_u=290))
+Rm_ = calcul_main(dict(n1_u=2, p1_u=70, e1_u=180, hp_u=290))
+chk("rupture de bloc, platine dissymétrique 40 / 180 : Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0) = 770 mm², "
+    "VRd,b = 2·(510·290/1,25 + 355·770/√3) = 552,28 kN — le MÊME bloc pinces échangées",
+    Rd_.e1bot == 180 and Rd_.Anv_p == 770 and pres(Rd_.ck["pcb"].Rd, 2 * (510 * 290 / 1.25 + 355 * 770 / S3) / 1000, 1e-12)
+    and pres(Rd_.ck["pcb"].Rd, 552.28, 1e-4) and Rm_.e1bot == 40 and Rm_.Anv_p == 770
+    and "e1,min = 40,0 mm" in Rd_.ck["pcb"].vals, f"{Rd_.Anv_p} {Rd_.ck['pcb'].Rd} {Rm_.Anv_p}")
+# TRONÇON EN T d'une platine à UNE rangée : Σleff ne dépasse jamais hp (mecanique.leff_platine_bords_libres)
+R1_ = calcul_main(dict(n1_u=1, hp_u=100, e1_u=50, N_Ed=60))
+chk("platine à UNE rangée, hp = 100 : Σleff = e1 + e1' = hp = 100 mm (195 mm avant la correction)",
+    pres(R1_.leff2_T, 100.0, 1e-12) and R1_.leff_T <= 100.0 + 1e-9, f"{R1_.leff_T} {R1_.leff2_T}")
 chk("âme portée : Av = hp·tw = 2 494 mm² ; VRd = 511,169 kN → DIMENSIONNANTE, η = 0,391",
     R0.Av_w == 2494 and pres(R0.ck["vwS"].Rd, 2494 * fy / S3 / 1000, 1e-12)
     and R0.gov.key == "vwS" and pres(R0.eta_max, 0.3913, 0.001), f"{R0.gov.key} {R0.eta_max}")
@@ -226,8 +240,10 @@ chk("… recoupe de 145 mm ≥ 139,5 : l'alerte disparaît et l'assemblage est v
 Rp3 = calcul_main(dict(appui=E.APPUI_AME, p3_u=180, bp_u=190))
 chk("p3 = 180 en cas (b) : l'écrou sort de la partie droite de l'âme → alerte bloquante p3_libreP",
     any(a.id == "p3_libreP" and a.block for a in Rp3.alerts), str([a.id for a in Rp3.alerts]))
-chk("cas (b) : e_col = tp = 10 mm (la face d'appui est l'âme) ; VEd·e_col = 2,0 kNm",
-    R4.e_col == 10 and R4.M_col == 2.0, f"{R4.e_col} {R4.M_col}")
+# correction du 25/11/2026 (audit) — le harnais SUIT : l'excentricité se compte de l'AXE du poteau (la demi-âme manquait)
+chk("cas (b) : e_col = twP/2 + tp = 5,5 + 10 = 15,5 mm (de l'axe du poteau à la face de la platine) ; "
+    "VEd·e_col = 3,1 kNm",
+    R4.e_col == 15.5 and abs(R4.M_col - 3.1) < 1e-12, f"{R4.e_col} {R4.M_col}")
 chk("cas (b) : le Tableau 3.3 n'a PAS de ligne « bout d'aile » (il n'y a pas de bord libre)",
     [x.id for x in R4.dist] == ["e1p", "e2p", "p1", "p3"], str([x.id for x in R4.dist]))
 
@@ -246,19 +262,23 @@ chk("PLATINE : m = 60,043 ; n = 40 ; Σleff = 290 (= hp) ; Mpl,1 = 3,3614 kNm ; 
     and pres(Rt.FT2, 580.1406, 1e-5) and pres(Rt.FT3, 1282.909, 1e-5)
     and pres(Rt.ck["ptT"].Rd, 261.3299, 1e-5) and pres(Rt.ck["ptT"].eta, 0.9566, 0.001),
     f"{Rt.m_T} {Rt.leff_T} {Rt.FT1} {Rt.FT2}")
-chk("AILE DU POTEAU (composant NEUF) : m = (p3 − twP)/2 − 0,8·rP = 42,900 ; n = 53,625 ; "
-    "Σleff = 280 (= n1·p1, Tab. 6.4, aucune rangée d'extrémité) ; Mpl,1 = 11,7161 kNm",
-    pres(Rt.m_fP, (140 - 11) / 2 - 0.8 * 27, 1e-12) and pres(Rt.n_fP, 53.625, 1e-12)
+# correction du 25/11/2026 (audit) — le harnais SUIT : n = emin borné à 1,25·m, et emin compte la pince de la PLATINE
+# (e2 = 40) comme celle de l'aile du poteau (e = 80) — Figure 6.8. Il figeait n = min(80 ; 53,625) = 53,625.
+chk("AILE DU POTEAU (composant NEUF) : m = (p3 − twP)/2 − 0,8·rP = 42,900 ; n = min(e = 80 ; e2 platine = 40 ; "
+    "1,25·m = 53,625) = 40 ; Σleff = 280 (= n1·p1, Tab. 6.4, aucune rangée d'extrémité) ; Mpl,1 = 11,7161 kNm",
+    pres(Rt.m_fP, (140 - 11) / 2 - 0.8 * 27, 1e-12) and pres(Rt.n_fP, 40.0, 1e-12) and Rt.e_2 == 40
     and Rt.e_fP == 80 and Rt.leff_fP == 280 and pres(Rt.Mpl1_fP / 1e6, 11.7161, 1e-4),
     f"{Rt.m_fP} {Rt.n_fP} {Rt.leff_fP} {Rt.Mpl1_fP / 1e6}")
-chk("aile du poteau : FT,1 = 1 296,99 ; FT,2 = 955,485 (déterminant) ; FT,3 = 1 282,91 → "
-    "FT,Rd = 955,485 kN (η = 0,262)",
-    pres(Rt.FT1_P, 1296.9893, 1e-5) and pres(Rt.FT2_P, 955.4849, 1e-5)
-    and pres(Rt.FT3_P, 1282.909, 1e-5) and pres(Rt.ck["tfP"].Rd, 955.4849, 1e-5)
-    and pres(Rt.ck["tfP"].eta, 0.2616, 0.001), f"{Rt.FT1_P} {Rt.FT2_P} {Rt.ck['tfP'].Rd}")
-chk("l'aile du poteau est 3,656 fois plus forte que la platine : le composant neuf ne gouverne pas ici, "
+#   FT,1 = (8·40 − 2·9,25)·11 716,1/(2·42,9·40 − 9,25·82,9) = 1 325,39 ; FT,2 = (2·11 716,1 + 40·1 282,91)/82,9 = 901,67
+chk("aile du poteau : FT,1 = 1 325,39 ; FT,2 = 901,671 (déterminant) ; FT,3 = 1 282,91 → "
+    "FT,Rd = 901,671 kN (η = 0,277 ; 955,485 avec n = 53,625)",
+    pres(Rt.FT1_P, (8 * 40 - 2 * 9.25) * Rt.Mpl1_fP / 1000 / (2 * 42.9 * 40 - 9.25 * 82.9), 1e-9)
+    and pres(Rt.FT1_P, 1325.3919, 1e-5) and pres(Rt.FT2_P, 901.6712, 1e-5)
+    and pres(Rt.FT3_P, 1282.909, 1e-5) and pres(Rt.ck["tfP"].Rd, 901.6712, 1e-5)
+    and pres(Rt.ck["tfP"].eta, 250 / 901.6712, 0.001), f"{Rt.FT1_P} {Rt.FT2_P} {Rt.ck['tfP'].Rd}")
+chk("l'aile du poteau est 3,450 fois plus forte que la platine : le composant neuf ne gouverne pas ici, "
     "et la dimensionnante en tying est la PLATINE",
-    pres(Rt.FT_Rd_P / Rt.FT_Rd, 3.6562, 1e-4) and Rt.gov.key == "ptT",
+    pres(Rt.FT_Rd_P / Rt.FT_Rd, 3.4503, 1e-4) and Rt.gov.key == "ptT",
     f"{Rt.FT_Rd_P / Rt.FT_Rd} {Rt.gov.key}")
 chk("âme du poteau en traction transversale : ω = 1, beff = Σleff de l'aile = 280 → 1 428,0 kN",
     Rt.ck["twtP"].active and Rt.omega_P == 1.0 and Rt.beff_P == 280

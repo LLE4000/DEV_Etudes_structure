@@ -167,7 +167,8 @@ Sont donc repris **sans aucune modification de formule** :
    S355, non couvert au-delà — lot B, `acier/assemblages/ductilite.py`), `tp ≤ 0,36·d·√(fub/fy)` (platine, §6.4.2(2) / ECCS n°126),
    `tp ≥ 8 mm` recommandé (MSB P5 §2.1), `hp ≥ 0,6·h` de la portée (maintien
    en torsion), gorge de **pleine résistance** recommandée
-   (`a ≥ tp·fy·βw·γM2/(2·fu·γM0)` pour un plat soudé sur le support ;
+   (`a ≥ tp·fy·βw·γM2/(2·fu·γM0)` pour un plat soudé sur le support — **`√2` au lieu de `2` depuis le
+   25/11/2026** : `docs/assemblages/ECARTS_ET_CORRECTIONS.md` §7, K5 — ;
    `a ≥ βw·γM2·fy·tw/(√2·fu·γM0)` pour une platine soudée sur l'âme portée, fy
    de l'âme à son épaisseur tw : 0,46 / 0,50 / 0,60·tw en S235 / S275 / S355
    pour tw ≤ 16 mm avec les fy et fu du tableau 3.3 ANB — le guide en tire
@@ -1233,7 +1234,7 @@ IPE 400 S355 / HEB 300 S355 · plat **290 × 100 × 10 S355** · 4 M20 8.8,
 | plat : `Ant / Anv` | 390 / 1 730 mm² |
 | plat : `Veff,2,Rd` | **434,140 kN** |
 | plat : court (`hp ≥ 2,73·z` et `z ≤ tp/0,15 = 66,7`) | flexion et déversement **sans objet** |
-| gorge de pleine résistance recommandée | **3,915 mm** → `a = 5` ✔ |
+| gorge de pleine résistance recommandée | **3,915 mm** → `a = 5` ✔ *(25/11/2026 : 5,537 mm par `√2` → `a = 6`)* |
 | âme : `e1,b = zp + e1 / he` | 80 / 110 mm |
 | âme : `Fb,ver,Rd / Fb,hor,Rd` | 142,213 / 106,327 kN |
 | âme : `η` pression diamétrale | **0,5349** |
@@ -1356,7 +1357,7 @@ IPE 400 S355 / HEB 300 S355 · platine **290 × 220 × 10 S355** · 4 × 2 M20
 |---|---|---|
 | `m` | `(p3 − tw,S)/2 − 0,8·a·√2` = **60,043 mm** | `(p3 − twP)/2 − 0,8·rP` = **42,900 mm** |
 | `e` | `e2` = 40,0 mm | `(bP − p3)/2` = 80,0 mm |
-| `n = min(e ; 1,25·m)` | **40,000 mm** | **53,625 mm** |
+| `n = min(e ; 1,25·m)` | **40,000 mm** | **53,625 mm** *(25/11/2026 : 40,000 — `emin` compte aussi la pince de la platine, Figure 6.8 ; `ECARTS_ET_CORRECTIONS.md` §7, K13)* |
 | `Σleff,1` | **290 mm** (= `hp`, la valeur du guide) | **280 mm** (= `n1·p1`, Tab. 6.4 en groupe) |
 | `Mpl,1` | **3,3614 kNm** | **11,7161 kNm** |
 | `FT,1` | **261,330 kN** | 1 296,99 kN |

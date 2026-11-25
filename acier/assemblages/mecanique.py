@@ -121,18 +121,29 @@ def groupe_boulons(Fv, Fb_bout, Fb_int, n_bout, n_int):
     - (Fb,Rd)max ≤ Fv,Rd              → FRd = ΣFb,Rd ;
     - (Fb,Rd)min < Fv,Rd < (Fb,Rd)max → FRd = ns·(Fb,Rd)min ;
     - Fv,Rd ≤ (Fb,Rd)min              → FRd = 0,8·ns·Fv,Rd (traction parasite
-      due à la rotation : le facteur ne s'applique qu'à cette branche).
+      due à la rotation) ;
+    - et, dans les trois branches, FRd ≤ 0,8·ns·Fv,Rd (plafond : le guide
+      n'écrit le 0,8 qu'en troisième branche, ce qui rendait la résistance
+      non monotone en tp).
 
     Référence : MSB Part 5 §2.2.4 sur EN 1993-1-8 §3.7.
     Origine de la copie : `platine_about`."""
     ns = n_bout + n_int
     fbs = [Fb_bout] * (1 if n_bout else 0) + [Fb_int] * (1 if n_int else 0)
     fb_max, fb_min = max(fbs), min(fbs)
+    plafond = K_ROT * ns * Fv
     if fb_max <= Fv:
-        return n_bout * Fb_bout + n_int * Fb_int, "ΣFb,Rd (pression diamétrale)"
-    if fb_min < Fv:
-        return ns * fb_min, "ns·(Fb,Rd)min"
-    return K_ROT * ns * Fv, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+        FRd, branche = n_bout * Fb_bout + n_int * Fb_int, "ΣFb,Rd (pression diamétrale)"
+    elif fb_min < Fv:
+        FRd, branche = ns * fb_min, "ns·(Fb,Rd)min"
+    else:
+        FRd, branche = plafond, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+    # PLAFOND (25/11/2026, audit) : la traction parasite qui justifie le 0,8 ne dépend pas de la branche — à la
+    # lettre du guide, une platine de 11,1 mm rendait 563 kN et une de 11,2 mm 452 kN (le 0,8 n'arrivait qu'en
+    # troisième branche). Le groupe ne dépasse donc jamais 0,8·ns·Fv,Rd.
+    if FRd > plafond:
+        return plafond, "0,8·ns·Fv,Rd (cisaillement des boulons)"
+    return FRd, branche
 
 
 # =========================================================================
@@ -326,13 +337,34 @@ def coef_pleine_resistance(fy, fu, bw, gM2, gM0=1.0):
     return dv(bw * gM2 * fy, math.sqrt(2) * fu * gM0)
 
 
+TOL_GORGE = 0.05          # mm : la gorge se lit au dixième — 6 mm satisfait « a ≥ 6,008 » (affiché 6,0)
+
+
 def a_pleine_resistance_plat(tp, fy_p, bw, fu_w, gM2, gM0=1.0):
     """Gorge de PLEINE RÉSISTANCE d'un double cordon soudant un PLAT sur
-    chant : a ≥ tp·fy·βw·γM2/(2·fu·γM0). mm.
+    chant : a ≥ tp·fy·βw·γM2/(√2·fu·γM0) — le plat TENDU (ou fléchi) plastifie
+    avant que le cordon ne rompe : la règle de ductilité des guides (0,46 /
+    0,48 / 0,55·tp en S235 / S275 / S355 avec les fu de l'EN ; 0,50 et 0,60
+    avec ceux de l'ANB), la même que ``coef_pleine_resistance`` applique à
+    l'âme d'une platine d'about. mm.
 
-    Référence : dérivation d'EN 1993-1-8 §4.5.3.3 (2·a·fvw,d ≥ tp·fy/(√3·γM0)).
-    Origine de la copie : `plat_ame` (``R.a_plein``)."""
-    return dv(tp * fy_p * bw * gM2, 2 * fu_w * gM0)
+    Correction du 25/11/2026 (audit) : le diviseur était 2 — l'équilibre du
+    plat CISAILLÉ (2·a·fvw,d ≥ tp·fy/(√3·γM0)), soit 0,39·tp en S355 : une
+    gorge de 4 mm proposée pour un plat de 9, là où les guides en demandent 5.
+
+    Référence : MSB Part 5 §3 (plat d'âme, cordons de pleine résistance) ;
+    dérivation d'EN 1993-1-8 §4.5.3.3.
+    Origine de la copie : `plat_ame` (``R.a_plein``), corrigée."""
+    return tp * coef_pleine_resistance(fy_p, fu_w, bw, gM2, gM0)
+
+
+def gorge_proposee(a_plein):
+    """La gorge entière qu'un prédimensionnement propose pour ``a_plein`` :
+    arrondie au millimètre supérieur à ``TOL_GORGE`` près, jamais sous 3 mm.
+
+    Référence : EN 1993-1-8 §4.5.2(2) (a ≥ 3 mm).
+    Origine de la copie : AUCUNE — composant NEUF (25/11/2026)."""
+    return mx(3, math.ceil(a_plein - TOL_GORGE))
 
 
 # =========================================================================
@@ -427,8 +459,11 @@ def leff_platine_bords_libres(n1, p1, e1h, e1b, m, e):
                     nc_grp=mn(2 * m + 0.625 * e + 0.5 * p, e1 + 0.5 * p))
 
     if n1 == 1:
-        cp = mn(2 * pi * m, pi * m + e1h + e1b)
-        nc = mn(4 * m + 1.25 * e, 2 * m + 0.625 * e + 0.5 * (e1h + e1b))
+        # UNE rangée entre DEUX bords libres : chaque demi-mécanisme s'arrête au bord s'il est plus près que la
+        # demi-ligne de rupture (la règle de ``bout``, des deux côtés) — Σleff ne dépasse jamais hp. Correction du
+        # 25/11/2026 (audit) : les deux expressions précédentes n'étaient pas des mécanismes (195 mm pour hp = 100).
+        cp = mn(pi * m, 2 * e1h) + mn(pi * m, 2 * e1b)
+        nc = mn(2 * m + 0.625 * e, e1h) + mn(2 * m + 0.625 * e, e1b)
         return mn(cp, nc), nc
     bh, bb = bout(e1h), bout(e1b)
     cp_g = bh["cp_grp"] + bb["cp_grp"] + (n1 - 2) * 2 * p

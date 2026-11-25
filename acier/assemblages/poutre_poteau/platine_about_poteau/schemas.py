@@ -48,7 +48,7 @@ from acier.formats import f0
 from acier.assemblages.poutre_poutre.doubles_cornieres.schemas import (   # kit partagé
     Options, Feuille, INF_MM,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_portee)
+    _rect_rompu, _rupture, _renvoi, _section_portee, _semelle_dessus)
 from ..dessin import marge_poteau, nom_portee, nom_poteau, section_poteau
 from .entrees import PILOTEES_PAR_PREDIM
 
@@ -299,12 +299,12 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """VUE EN PLAN (coupe horizontale au niveau d'une rangée de boulons) — la
-    vue porteuse : LE POTEAU EN COUPE (hachuré), la PLATINE coupée contre sa
-    face d'appui, l'âme de la poutre portée en coupe avec ses deux cordons,
-    les deux files de boulons (entraxe p3) de part et d'autre. En cas (b) :
-    la poutre arrive ENTRE LES AILES, avec la recoupe des semelles et les
-    jeux latéraux."""
+    """VUE EN PLAN — la vue porteuse : LE POTEAU EN COUPE (hachuré), la
+    SEMELLE supérieure de la poutre portée vue de dessus, puis, coupées au
+    niveau d'une rangée de boulons, la PLATINE contre sa face d'appui, l'âme
+    de la poutre portée avec ses deux cordons, les deux files de boulons
+    (entraxe p3) de profil. En cas (b) : la poutre arrive ENTRE LES AILES,
+    avec la recoupe des semelles et les jeux latéraux."""
     u = R.u
     xf = R.xf_P; tp = R.t_p; x0 = xf + tp; ws = R.tw_S / 2
     k, m, tr = visserie(R.d_b)
@@ -319,6 +319,9 @@ def plan(R, opt):
     # la poutre portée doit se LIRE comme une poutre, pas comme un moignon :
     # au moins 0,30·h de web au-delà de l'about (relecture des captures)
     xE = mx(xtete + 70, xcol + 60, x0 + 0.30 * R.h_S)
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
+    if opt.realiste and not opt.fabrication:              # le plan de principe garde son champ (son échelle)
+        xE = mx(xE, xs + 45)
     bb = dict(x1=-xcol - 30, x2=xE, y1=-Hh, y2=Hh)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
@@ -338,16 +341,11 @@ def plan(R, opt):
                   _path(["ht"], _hachures(sec))])
     if "colFl" in hot or "colWeb" in hot:
         s.append(_path(["hl"], [[(p[0], p[1]) for p in sec] + [tuple(sec[0])]]))
-    # --- semelles de la poutre portée (vues de dessus, trait fin) et recoupe
-    if opt.realiste:
-        fl = []
-        for sg in (-1, 1):
-            if rec > 0:
-                fl.append([(x0, sg * brec / 2), (x0 + rec, sg * brec / 2),
-                           (x0 + rec, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-            else:
-                fl.append([(x0, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-        piece("recut" if rec > 0 else "beamS", [_path(["hd"] + hc("recut"), fl)])
+    # --- SEMELLE supérieure de la poutre portée, VUE DE DESSUS (teinte légère, contour continu — 25/11/2026, le
+    # propriétaire : « on voit la semelle, on voit l'âme ») : elle commence après le grugeage, avec sa recoupe
+    if opt.realiste and xs < xE - 4:
+        piece("recut" if rec > 0 else "beamS",
+              [_poly(["sfs"] + hc("recut"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs, x_rec=x0 + rec, b_rec=brec))])
     # --- âme de la poutre portée en coupe (hachurée), bord droit rompu
     if opt.realiste:
         ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)

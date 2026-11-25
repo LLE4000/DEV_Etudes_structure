@@ -96,14 +96,52 @@ print("\n=== 2. Règles du guide ===")
 # trois branches du groupe de boulons
 chk("branche ΣFb,Rd si (Fb,Rd)max ≤ Fv,Rd",
     moteur.groupe_boulons(100, 60, 80, 2, 4) == (2 * 60 + 4 * 80, "ΣFb,Rd (pression diamétrale)"))
-chk("branche ns·(Fb,Rd)min entre les deux",
-    moteur.groupe_boulons(70, 60, 80, 2, 4) == (6 * 60, "ns·(Fb,Rd)min"))
-chk("branche 0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min (le 0,8 seulement ici)",
+chk("branche ns·(Fb,Rd)min entre les deux (sous le plafond)",
+    moteur.groupe_boulons(80, 50, 90, 2, 4) == (6 * 50, "ns·(Fb,Rd)min"))
+chk("branche 0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min",
     moteur.groupe_boulons(50, 60, 80, 2, 4)[0] == 0.8 * 6 * 50)
+# PLAFOND (correction du 25/11/2026, audit — le harnais SUIT : il figeait « le 0,8 seulement en troisième branche »,
+# qui rendait 563 kN à tp = 11,1 mm et 452 kN à tp = 11,2 mm)
+chk("plafond 0,8·ns·Fv,Rd dans les trois branches : 6 × 60 = 360 ramené à 336, ΣFb = 582 ramené à 480",
+    moteur.groupe_boulons(70, 60, 80, 2, 4) == (0.8 * 6 * 70, "0,8·ns·Fv,Rd (cisaillement des boulons)")
+    and moteur.groupe_boulons(100, 95, 98, 2, 4)[0] == 0.8 * 6 * 100)
+_serie = [calcul_main(dict(tp_u=t)).ck["bg"].Rd for t in (8, 9, 10, 11, 11.1, 11.2, 12, 14, 16)]
+chk("le groupe ne DESCEND jamais quand la platine s'épaissit (tp de 8 à 16 mm, cas par défaut)",
+    all(b >= a - 1e-9 for a, b in zip(_serie, _serie[1:])), str(_serie))
 R0 = calcul_main(dict())
-chk("cas par défaut : Fb,ext 91,66 < Fv,Rd 94,08 < Fb,int 113,9 → ns·(Fb,Rd)min = 549,96 kN",
-    R0.branche_g == "ns·(Fb,Rd)min" and pres(R0.ck["bg"].Rd, 6 * R0.Fbb_L, 1e-12)
-    and R0.Fbb_L < R0.Fv_Rd < R0.Fbi_L)
+chk("cas par défaut : Fb,ext 91,66 < Fv,Rd 94,08 < Fb,int 113,9 → ns·(Fb,Rd)min = 549,96 kN, PLAFONNÉ à "
+    "0,8·6·94,08 = 451,58 kN",
+    R0.branche_g == "0,8·ns·Fv,Rd (cisaillement des boulons)" and pres(R0.ck["bg"].Rd, 0.8 * 6 * 94.08, 1e-12)
+    and pres(6 * R0.Fbb_L, 549.96, 1e-4) and R0.Fbb_L < R0.Fv_Rd < R0.Fbi_L, f"{R0.branche_g} {R0.ck['bg'].Rd}")
+# RUPTURE DE BLOC d'une platine DISSYMÉTRIQUE (correction du 25/11/2026, audit) : le plan cisaillé va vers la plus
+# PETITE pince — 2 rangées M20, p1 = 60, pinces 35 (haut) / 95 (bas), tp = 10, e2 = 30, S355 (355/510) :
+#   Ant = 10·(30 − 11) = 190 ; Anv = 10·(35 + 60 − 1,5·22) = 620 → 2·(510·190/1,25 + 355·620/√3)/1000 = 409,19 kN
+#   (avec hp − e1 : Anv = 1 220 → 655,14 kN, soit +60 %)
+Rd_ = calcul_main(dict(n1_u=2, p1_u=60, e1_u=35, hp_u=190))
+Rm_ = calcul_main(dict(n1_u=2, p1_u=60, e1_u=95, hp_u=190))
+chk("rupture de bloc, platine dissymétrique 35 / 95 : Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0) = 620 mm², "
+    "VRd,b = 409,19 kN — et le MÊME bloc pinces échangées (95 / 35)",
+    Rd_.e1bot == 95 and Rd_.Anv_p == 620 and pres(Rd_.ck["pcb"].Rd, 2 * (510 * 190 / 1.25 + 355 * 620 / S3) / 1000, 1e-12)
+    and pres(Rd_.ck["pcb"].Rd, 409.19, 1e-4) and Rm_.e1bot == 35 and Rm_.Anv_p == 620
+    and pres(Rm_.ck["pcb"].Rd, Rd_.ck["pcb"].Rd, 1e-12), f"{Rd_.Anv_p} {Rd_.ck['pcb'].Rd} {Rm_.Anv_p}")
+chk("rupture de bloc : la formule affichée nomme e1,min et l'écrit", "e1,min" in Rd_.ck["pcb"].formula
+    and "e1,min = 35,0 mm" in Rd_.ck["pcb"].vals, Rd_.ck["pcb"].vals)
+# le PRÉDIMENSIONNEMENT allonge la pince basse dès que hp ≥ 0,6·h commande : sa « rupture de bloc » compte le même plan
+from acier.assemblages.poutre_poutre.platine_about.entrees import MODE_PREDIM as _MP  # noqa: E402
+Rp_ = calcul_main(dict(prof_S="IPE 600", prof_P="HEA 800", nu_pl="S235", V_Ed=600, d_nt=45, l_n=160, mode_calc=_MP))
+_pk = Rp_.pd.pick
+_blo = next(q[1] for q in _pk.prop.reqs if q[0] == "Rupture de bloc")
+chk("prédimensionnement (IPE 600 sur HEA 800, platine S235, VEd = 600) : pince basse plus longue que la haute, et "
+    "l'épaisseur nécessaire au bloc est celle du plan e1 + (n1 − 1)·p1",
+    Rp_.e1bot > Rp_.e_1 and pres(_blo, 600e3 / (2 * (Rp_.k_bloc * Rp_.fu_L * (_pk.e2 - 0.5 * _pk.b["d0"]) / Rp_.u.g_M2n
+                                                 + Rp_.fy_L * (_pk.e1 + (_pk.n - 1) * _pk.p1 - (_pk.n - 0.5) * _pk.b["d0"]) / S3 / Rp_.u.g_M0)), 1e-9),
+    f"{Rp_.e_1} {Rp_.e1bot} {_blo}")
+# TRONÇON EN T d'une platine à UNE rangée (correction du 25/11/2026, audit) : Σleff ne dépasse jamais hp
+R1_ = calcul_main(dict(n1_u=1, hp_u=100, e1_u=50, N_Ed=60, d_nt=0, l_n=0, d_top=60))
+chk("platine à UNE rangée, hp = 100 : Σleff,2 = e1 + e1' = hp = 100 mm (139 mm avant la correction) — pour toute pince",
+    pres(R1_.leff2_T, 100.0, 1e-12) and R1_.leff_T <= 100.0 + 1e-9
+    and all(calcul_main(dict(n1_u=1, hp_u=h, e1_u=e, N_Ed=60, d_nt=0, l_n=0, d_top=60)).leff2_T <= h + 1e-9
+            for h, e in ((80, 30), (100, 30), (120, 40), (160, 60), (190, 35))), f"{R1_.leff_T} {R1_.leff2_T}")
 Rk = calcul_main(dict(p3_u=140, bp_u=200, hp_u=180, n1_u=2, p1_u=80, e1_u=50))
 chk("rupture de bloc : hp = 180 < 1,36·140 → k = 0,5 (§3.10.2(3))", Rk.k_bloc == 0.5 and not Rk.hp_136)
 Ant, Anv = Rk.Ant_p, Rk.Anv_p

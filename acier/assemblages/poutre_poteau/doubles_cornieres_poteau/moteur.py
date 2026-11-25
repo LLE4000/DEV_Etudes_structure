@@ -204,7 +204,10 @@ def compute(u0=None, materiau=None):
     R.zw_S = R.b_B - R.xg_S; R.ew_P = R.b_A - R.xg_P
     R.zeff = R.z_S if R.bolt_S else R.zw_S
     R.M_S = V * R.zeff / 1000 + Mabs
-    R.M_P = V / 2 * (R.e_P if R.bolt_P else R.ew_P) / 1000 if u.opt_exc == "Oui" else 0
+    # ailes A SOUDÉES : VEd/2 arrive au talon, le cordon est en bout d'aile — cette excentricité n'est pas une option
+    # (« Non » est la pratique des guides pour des BOULONS P) : le cordon n'a aucun autre appui (correction du
+    # 25/11/2026, audit : le cordon se calculait « centré », à un tiers de son effort)
+    R.M_P = V / 2 * (R.e_P if R.bolt_P else R.ew_P) / 1000 if (u.opt_exc == "Oui" or not R.bolt_P) else 0
     if not R.bolt_S:
         R.mod_S = "Soudé – groupe de cordons avec moment"
     elif R.M_S == 0:
@@ -238,7 +241,8 @@ def compute(u0=None, materiau=None):
     R.rec_ok = bool(not R.ame or R.passe_S or R.b1 or u.rec_S >= R.rec_min - 1e-9)
     # excentricité apportée au POTEAU : information, pas une vérification de
     # l'attache — elle appartient au calcul d'élément (EC3-1-1 §6.2 et §6.3)
-    R.e_col = (R.h_P / 2 + R.zeff) if R.aile else R.zeff
+    # de l'AXE du poteau : la demi-hauteur (aile) ou la demi-âme (correction du 25/11/2026 : elle manquait en cas b)
+    R.e_col = (R.h_P / 2 if R.aile else R.tw_P / 2) + R.zeff
     R.M_col = V * R.e_col / 1000
 
     # ---- Tableau 3.3
@@ -282,7 +286,8 @@ def compute(u0=None, materiau=None):
     drow("P_p3", "P – p3 gauge sur le poteau (entraxe des deux files)", R.p_3, 2.4, tP, "p", R.bolt_P,
          ["gA_u"] + cornF, ["p3"])
     # pince au BOUT D'AILE du poteau (cas a) : le seul bord libre du poteau
-    drow("P_eP", "P – pince au bout d'aile du poteau e = (bP − p3)/2", (R.b_P - R.p_3) / 2, 1.2,
+    drow("P_eP", "P – pince au bout d'aile du poteau e = (bP − p3)/2" + (" − p2" if R.n2_P > 1 else ""),
+         (R.b_P - R.p_3) / 2 - (R.n2_P - 1) * u.p2_P, 1.2,
          R.tf_P, "e", R.bolt_P and R.aile,
          ["gA_u", "prof_P"] + cornF, ["eP"])
     R.dist_ok = all(x.ok for x in R.dist)
@@ -457,7 +462,9 @@ def compute(u0=None, materiau=None):
     # dessous : e1 = None) ; en cas (a) le seul bord libre est le BOUT D'AILE
     # (e2 = eP), en cas (b) il n'y a aucun bord libre (e2 = None) — étude
     # §4.2 et §5.2. Les termes du gauge viennent de p3, pas de p2.
-    R.e_P_fl = (R.b_P - R.p_3) / 2                     # pince au bout d'aile
+    # pince au bout d'aile : de la file EXTÉRIEURE au bord — avec deux files par cornière, la seconde est à p2 de la
+    # première (correction du 25/11/2026, audit : (bP − p3)/2 seul rendait 55,7 mm pour une file à 4 mm HORS de l'aile)
+    R.e_P_fl = (R.b_P - R.p_3) / 2 - (R.n2_P - 1) * u.p2_P
     bearing("P", R.t_appui, R.fu_P, None, R.p1_P, R.n1_P,
             R.e_P_fl if R.aile else None, u.p2_P, R.n2_P, R.Fz_P, R.Fx_P, 1,
             1.4 * R.p_3 / d0 - 1.7, R.p_3 / (3 * d0) - 0.25)
@@ -471,7 +478,10 @@ def compute(u0=None, materiau=None):
     R.Ant_B = R.t_C * (R.e2a_S + (R.n2_S - 1) * u.p2_S - (R.n2_S - 0.5) * d0)
     R.Anv_B = R.t_C * (R.L_C - R.e1_S - (R.n1_S - 0.5) * d0)
     R.Ant_A = R.t_C * (R.e2a_P + (R.n2_P - 1) * u.p2_P - (R.n2_P - 0.5) * d0)
-    R.Anv_A = R.t_C * (R.L_C - R.e1_P - (R.n1_P - 0.5) * d0)
+    # les boulons P poussent l'aile A VERS LE HAUT (elle descend avec la poutre) : le plan cisaillé va du boulon bas au
+    # bord haut, e1 + (n1 − 1)·p1 — et non hc − e1, le bloc d'une pièce poussée vers le bas (l'aile B). VEd est pris
+    # en valeur absolue : la plus PETITE des deux pinces (correction du 25/11/2026, audit)
+    R.Anv_A = R.t_C * (mn(R.e1_P, R.e1bot_P) + (R.n1_P - 1) * R.p1_P - (R.n1_P - 0.5) * d0)
     # tronçon en T des AILES A (MSB P5 §4.3.1.1) : géométrie du module
     # poutre–poutre, reprise sans changement de formule
     R.gA_min = R.t_C + R.r_C + d0 / 2                  # trou hors du congé de la cornière
@@ -523,7 +533,9 @@ def compute(u0=None, materiau=None):
     # ---- POTEAU : tronçon en T de l'AILE NON RAIDIE (Tab. 6.4) et âme en
     # ---- traction transversale (§6.2.6.3, ω = 1) — cas (a) seulement
     R.m_P = (R.p_3 - R.tw_P) / 2 - 0.8 * R.r_P
-    R.n_Pf = mn(R.e_P_fl, 1.25 * R.m_P)
+    # n = emin borné à 1,25·m, et emin est la plus petite pince des DEUX pièces serrées (Figure 6.8) : celle de l'aile
+    # du poteau ET celle de l'aile A de la cornière (correction du 25/11/2026, audit : la cornière était oubliée)
+    R.n_Pf = mx(1e-6, mn(R.e_P_fl, R.e2a_P, 1.25 * R.m_P))
     R.leff1_P, R.leff2_P = MEC.leff_aile_poteau(R.n1_P, R.p1_P, R.m_P, R.e_P_fl)
     tP_ = MEC.troncon_T(R.leff1_P, R.leff2_P, R.tf_P, R.m_P, R.n_Pf, R.ew_T,
                         R.fu_P if R.tying else R.fy_P, gB if R.tying else gM0, R.SFt_T)
@@ -539,6 +551,14 @@ def compute(u0=None, materiau=None):
         R["qz_" + X] = dv(V / 2 * 1000, Lw) + dv(w3 * 1e6 * (lh - xg), Iw)
         R["qx_" + X] = dv(w1 * 1000, Lw) + dv(w3 * 1e6 * (R.L_C / 2), Iw)
         R["qn_" + X] = dv(w2 * 1000, Lw)
+        if X == "P" and not R.bolt_P:
+            # MEd et le couple HEd·z tendent les cordons P comme ils tendent les boulons P (``Ft_elu``) : flexion d'axe
+            # horizontal du groupe de cordons (Ixx = hc³/12 + 2·ℓh·(hc/2)²), couple entre les deux cornières (bras
+            # = tw + 2·(bA − xg)) — correction du 25/11/2026 (audit)
+            Ixx = R.L_C ** 3 / 12 + 2 * lh * (R.L_C / 2) ** 2
+            R.qnM_P = dv(Mabs / 2 * 1e6 * (R.L_C / 2), Ixx)
+            R.qnH_P = dv(H * R.zeff * 1000, (R.tw_S + 2 * R.ew_P) * Lw)
+            R["qn_" + X] += R.qnM_P + R.qnH_P
         R["qw_" + X] = hyp(R["qz_" + X], R["qx_" + X], R["qn_" + X])
         fuo = R["fu_" + w4]
         R["fuw_" + X], R["bww_" + X] = RS.fu_bw_cordon(R.fu_C, R.bw_C, fuo, R["bw_" + w4])
@@ -599,11 +619,20 @@ def compute(u0=None, materiau=None):
     # La force de chaînage est dans le PLAN de l'âme portée : elle CISAILLE le
     # groupe S (étude §7.2) — ligne ajoutée à la liste du §8.2, qui ne la
     # portait pas (voir docs/assemblages/DOUBLES_CORNIERES_POTEAU.md).
-    ck("bvT_S", "Boulons", "Tying – boulons du groupe S en cisaillement (force de chaînage seule)",
-       R.N_par_S, 2 * R.Fv_Rd_u, "kN", T34 + " avec γMu ; " + MSB_TY, "EC + COMP", R.tying and R.bolt_S,
-       "NEd/n ≤ 2·αv·fub·A/γMu — la force de chaînage est dans le PLAN de l'âme portée : elle cisaille les boulons S",
+    # … et les APPUIE, à l'horizontale, sur l'âme portée et sur les deux ailes B (Fb,hor,Rd du Tableau 3.4, avec
+    # γMu). Correction du 25/11/2026 (audit) : la pression diamétrale manquait (défaut, NEd = 150 : 445 kN d'âme
+    # quand la ligne gouvernante affichait 527). La plus petite des trois, par boulon (§3.7).
+    if R.bolt_S:
+        R.FbT_S = dv(R.Fbh_S * gM2, gMu); R.FbT_B = dv(2 * R.Fbh_B * gM2, gMu)
+        R.FT_boulon_S = mn(2 * R.Fv_Rd_u, R.FbT_S, R.FbT_B)
+    ck("bvT_S", "Boulons", "Tying – boulons du groupe S : cisaillement et pression diamétrale (force de chaînage seule)",
+       R.N_par_S, R.FT_boulon_S if R.bolt_S else 2 * R.Fv_Rd_u, "kN", T34 + " avec γMu ; " + MSB_TY, "EC + COMP",
+       R.tying and R.bolt_S,
+       "NEd/n ≤ min(2·αv·fub·A ; Fb,hor de l'âme portée ; 2·Fb,hor d'une aile B)/γMu — la force de chaînage est dans "
+       "le PLAN de l'âme portée : elle cisaille les boulons S et les appuie à l'horizontale",
        "NEd = " + F(R.N_ty, 1) + " kN ; n = " + js_str(R.n_S) + " ; γMu = " + F(gMu, 2)
-       + " ; n·2·Fv,Rd,u = " + F(2 * R.n_S * R.Fv_Rd_u, 1) + " kN", 1)
+       + (" ; par boulon : 2·Fv,Rd,u = " + F(2 * R.Fv_Rd_u, 1) + " ; Fb,hor,u âme = " + F(R.FbT_S, 1)
+          + " ; 2·Fb,hor,u ailes B = " + F(R.FbT_B, 1) + " kN" if R.bolt_S else ""), 1)
     # --- Cornières
     ck("pdB", "Cornières", "Pression diamétrale – ailes B des cornières (groupe S)", R.F_S / 2,
        dv(R.F_S / 2, R.ipd_B) if R.ipd_B > 0 else R.Fbv_B, "kN",
@@ -645,14 +674,37 @@ def compute(u0=None, materiau=None):
        V / 2 * ((R.g_A if R.bolt_P else R.b_A) - R.t_C / 2) / 1000, WC, "kNm",
        "EN 1993-1-1 §6.2.5 ; bras de levier : hypothèse de l'outil", "INT", True,
        "MEd = (VEd/2)·(gA − tc/2) ; MRd = Wel·fy/γM0", "")
-    ck("tsA", "Cornières", "Ailes A en flexion + boulons P en traction – tronçon en T équivalent" + ty,
-       NT, R.FT_Rd, "kN",
-       "EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; leff et m : " + MSB + " §4.3.1.1"
-       + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", R.bolt_P and NT > 0,
-       "FT,1 = (8n − 2ew)·Mpl/[2mn − ew(m + n)] ; FT,2 = (2Mpl + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd",
-       "Σleff = " + F(R.leff_T, 0) + " mm ; m = " + F(R.m_T, 1) + " mm ; n = " + F(R.n_T, 1)
-       + " mm ; Mpl = " + F(R.Mpl_T, 2) + " kNm ; FT,1 = " + F(R.FT_1, 0) + " ; FT,2 = "
-       + F(R.FT_2, 0) + " ; FT,3 = " + F(R.FT_3, 0) + " kN", 1)
+    # le tronçon en T, l'aile et l'âme du poteau reçoivent la traction que portent RÉELLEMENT les boulons P : NEd, mais
+    # aussi MEd et HEd·z (``Ft_P``), ramenés à l'effort uniforme équivalent 2·nP·Ft,Ed (= NEd sans MEd ni HEd ; = la
+    # force de chaînage en tying) — correction du 25/11/2026 (audit : avec MEd seul, ces lignes restaient inactives)
+    NT_P = 2 * R.n_P * R.Ft_P if R.bolt_P else NT
+    R.NT_P = NT_P
+    if R.bolt_P:
+        ck("tsA", "Cornières", "Ailes A en flexion + boulons P en traction – tronçon en T équivalent" + ty,
+           NT_P, R.FT_Rd, "kN",
+           "EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; leff et m : " + MSB + " §4.3.1.1"
+           + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", NT_P > 0,
+           "NT = 2·nP·Ft,Ed ; FT,1 = (8n − 2ew)·Mpl/[2mn − ew(m + n)] ; FT,2 = (2Mpl + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd",
+           "Σleff = " + F(R.leff_T, 0) + " mm ; m = " + F(R.m_T, 1) + " mm ; n = " + F(R.n_T, 1)
+           + " mm ; Mpl = " + F(R.Mpl_T, 2) + " kNm ; FT,1 = " + F(R.FT_1, 0) + " ; FT,2 = "
+           + F(R.FT_2, 0) + " ; FT,3 = " + F(R.FT_3, 0) + " kN", 1)
+    else:
+        # ailes A SOUDÉES en traction : l'aile fléchit du talon (encastré : les deux cornières se font face) au cordon
+        # de bout d'aile, pris comme une ROTULE (un cordon d'un seul côté ne reprend pas ce moment) — une seule rotule
+        # plastique par aile, au talon : NT ≤ 2·Mpl/m, Mpl = 0,25·hc·tc²·f/γ (fy/γM0 ; fu/γMu en chaînage, comme le
+        # tronçon en T), m = bA − tc − 0,8·rc. L'effort : la traction la plus forte du cordon ramenée à l'effort
+        # uniforme équivalent 2·qn·ΣL, ou la force de chaînage. Correction du 25/11/2026 (audit : NEd = 300 kN
+        # passait « VÉRIFIÉ » sans que rien ne vérifie l'aile). La MÊME clé que le tronçon en T : la même ligne des
+        # tableaux (ailes A en flexion).
+        R.m_wA = R.b_A - R.t_C - 0.8 * R.r_C
+        R.Mpl_wA = dv(0.25 * R.L_C * R.t_C * R.t_C * (R.fu_C if R.tying else R.fy_C), gB if R.tying else gM0) / 1e6
+        R.NT_wA = NT if R.tying else 2 * R.qn_P * R.Lw_P / 1000
+        ck("tsA", "Cornières", "Ailes A soudées – flexion sous traction (rotule plastique au talon)" + ty, R.NT_wA,
+           dv(2 * R.Mpl_wA * 1000, R.m_wA), "kN",
+           "EN 1993-1-1 §6.2.5 ; modèle : cordon de bout d'aile = rotule (hypothèse de l'outil)"
+           + (" ; " + MSB_TY if R.tying else ""), "INT", R.NT_wA > 0,
+           "NT = 2·qn·ΣL (ou la force de chaînage) ; NRd = 2·Mpl/m ; Mpl = 0,25·hc·tc²·f/γ ; m = bA − tc − 0,8·rc",
+           "m = " + F(R.m_wA, 1) + " mm ; Mpl = " + F(R.Mpl_wA, 2) + " kNm ; qn = " + F(R.qn_P, 1) + " N/mm", 1)
     ck("tnB", "Cornières", "Ailes B – traction section nette" + ty, NT,
        dv(2 * 0.9 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C, gT) / 1000, "kN",
        "EN 1993-1-1 §6.2.3(2)" + (" ; " + MSB_TY if R.tying else ""), "EC", R.bolt_S and NT > 0,
@@ -715,7 +767,8 @@ def compute(u0=None, materiau=None):
        "Fb,Rd = k1·αb·fu,P·d·t/γM2 avec t = tfP (aile) ou twP (âme) ; AUCUNE pince d'extrémité verticale "
        "(le poteau continue) ; k1 du gauge p3" + (" et de la pince au bout d'aile" if R.aile else ""),
        "t = " + F(R.t_appui, 1) + " mm ; p3 = " + F(R.p_3, 1) + " mm"
-       + (" ; e = (bP − p3)/2 = " + F(R.e_P_fl, 1) + " mm" if R.aile else " ; aucun bord libre")
+       + (" ; e = (bP − p3)/2" + (" − p2" if R.n2_P > 1 else "") + " = " + F(R.e_P_fl, 1) + " mm" if R.aile
+          else " ; aucun bord libre")
        + " ; " + bvals("P"), 1)
     ck("vlP", "Poteau porteur",
        "Âme du poteau – cisaillement local brut (un seul côté chargé)", V / 2, R.VRd_lP, "kN",
@@ -728,19 +781,19 @@ def compute(u0=None, materiau=None):
        P358_SUP, "COMP", R.ame and R.bolt_P,
        "VEd/2 ≤ (Av − n1·d0·twP)·fu,P/(√3·γM2)",
        "Av,net = " + F(R.Av_P - R.n1_P * d0 * R.tw_P, 0) + " mm²")
-    ck("tfP", "Poteau porteur", "Aile du poteau en flexion – tronçon en T équivalent" + ty, NT,
+    ck("tfP", "Poteau porteur", "Aile du poteau en flexion – tronçon en T équivalent" + ty, NT_P,
        R.FTP_Rd, "kN",
        "EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; Σleff : " + TAB64
-       + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", R.aile and R.bolt_P and NT > 0,
-       "m = (p3 − twP)/2 − 0,8·rP ; e = (bP − p3)/2 ; n = min(e ; 1,25·m) ; Σleff : Tab. 6.4, aile NON "
+       + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", R.aile and R.bolt_P and NT_P > 0,
+       "m = (p3 − twP)/2 − 0,8·rP ; e = (bP − p3)/2" + (" − p2" if R.n2_P > 1 else "") + " ; n = min(e ; e2 de l'aile A ; 1,25·m) ; Σleff : Tab. 6.4, aile NON "
        "RAIDIE, toutes les rangées INTÉRIEURES (le poteau continue) ; FT,Rd = min(FT,1 ; FT,2 ; FT,3)",
        "m = " + F(R.m_P, 2) + " mm ; e = " + F(R.e_P_fl, 1) + " mm ; n = " + F(R.n_Pf, 3)
        + " mm ; Σleff,1 = " + F(R.leff1_P, 0) + " mm ; Σleff,2 = " + F(R.leff2_P, 0)
        + " mm ; Mpl,1 = " + F(R.Mpl_P, 4) + " kNm ; FT,1 = " + F(R.FTP_1, 0) + " ; FT,2 = "
        + F(R.FTP_2, 0) + " ; FT,3 = " + F(R.FTP_3, 0) + " kN", 1)
-    ck("twtP", "Poteau porteur", "Âme du poteau en traction transversale" + ty, NT, R.Ft_wc, "kN",
+    ck("twtP", "Poteau porteur", "Âme du poteau en traction transversale" + ty, NT_P, R.Ft_wc, "kN",
        "EN 1993-1-8 §6.2.6.3 ; ω = 1 et beff = Σleff de l'aile : interprétation de l'outil",
-       "EC + INT", R.aile and R.bolt_P and NT > 0,
+       "EC + INT", R.aile and R.bolt_P and NT_P > 0,
        "Ft,wc,Rd = ω·beff,t,wc·twP·f/γ avec ω = 1 (pas de moment d'étage : §1.3) et beff,t,wc = Σleff,1 de l'aile",
        "beff = " + F(R.leff1_P, 0) + " mm ; twP = " + F(R.tw_P, 1) + " mm ; f/γ = "
        + F(dv(R.fu_P if R.tying else R.fy_P, gB if R.tying else gM0), 1) + " MPa")

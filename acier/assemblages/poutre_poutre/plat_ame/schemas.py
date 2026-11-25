@@ -16,7 +16,8 @@ from acier.bibliotheques import PERSO
 from ..doubles_cornieres.schemas import (            # kit partagé
     Options, Feuille, PALETTE, INF_MM, SEGMENTS_ARC,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_I, _section_portee)
+    _rect_rompu, _rupture, _renvoi, _section_I, _section_portee,
+    _semelle_dessus, _semelle_travers, _boulon_travers, visserie_dessin)
 from .entrees import PILOTEES_PAR_PREDIM
 
 # Cote du dessin → clé d'entrée (édition directe sur le dessin)
@@ -221,14 +222,24 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """Vue en plan (coupe au niveau des boulons) : âme porteuse, âme portée,
-    PLAT d'un seul côté de l'âme, files de boulons."""
+    """Vue en plan : les SEMELLES supérieures vues de dessus (la porteuse sur
+    toute sa largeur, la portée à partir du grugeage — 25/11/2026, le
+    propriétaire : « on voit la semelle, on voit l'âme »), les âmes et le PLAT
+    coupés au niveau des boulons, d'un seul côté de l'âme, les boulons de
+    profil (tête contre le plat, écrou contre l'âme)."""
     u = R.u; xf = R.tw_P / 2; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2
     xt = xf + R.b_p; xE = xt + 60; p2 = N(u.p2_u)
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
+    kb, mb, trb, _sp = visserie_dessin(R.d_b)
     Hh = ws + R.t_p + 26
+    x1 = -xf - 30
     if opt.realiste:
         Hh = mx(Hh, R.b_S / 2 + 10)
-    bb = dict(x1=-xf - 30, x2=xE, y1=-Hh, y2=Hh)
+    if opt.realiste and not opt.fabrication:
+        # le plan de principe de la note garde son champ (son échelle normalisée) : la semelle y est rompue
+        xE = mx(xE, xs + 45, R.b_P / 2 + 30)
+        x1 = -R.b_P / 2 - 8
+    bb = dict(x1=x1, x2=xE, y1=-Hh, y2=Hh)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
@@ -243,9 +254,10 @@ def plan(R, opt):
             s.extend(prims)
 
     if opt.realiste:
-        xsem = mn(R.b_P / 2, xE - 4)
-        s.append(_path(["hd"], [[(xsem, -Hh + 2), (xsem, Hh - 2)]]))
-        s.append(_path(["hd"], [[(x0, -R.b_S / 2), (xE, -R.b_S / 2)], [(x0, R.b_S / 2), (xE, R.b_S / 2)]]))
+        # semelles vues de dessus : la portée (après le grugeage), puis la porteuse qui la recouvre
+        if xs < xE - 4:
+            s.append(_poly(["sfs"] + hc("beamS"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs)))
+        s.append(_poly(["sfp"], _semelle_travers(R.b_P, Hh, 0.55 * fs, x_min=x1, x_max=xE)))
     if opt.realiste:
         ptsP = _rect_rompu(-xf, -Hh, R.tw_P, 2 * Hh, ("T", "B"), 0.55 * fs)
         ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)
@@ -268,12 +280,18 @@ def plan(R, opt):
     # files de boulons (axes verticaux à travers plat + âme)
     xc1 = xf + R.g_B
     cls_s = ["ax"] if opt.realiste else ["bp"]
+    yh = y1 - (trb + kb + 6 if opt.realiste else 14)      # au-delà des têtes dessinées
     for j in range(R.n_2):
-        piece("bolts", [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, y1 - 14), (xc1 + j * p2, ws + 14)]])])
+        if opt.realiste:
+            # boulon de profil : tête contre le plat, écrou contre l'âme de la portée
+            piece("bolts", _boulon_travers(["bo"] + hc("bolts"), "y", ws, y1, xc1 + j * p2, R.d_b, R.d_w)
+                  + [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, yh), (xc1 + j * p2, ws + trb + mb + 6)]])])
+        else:
+            piece("bolts", [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, y1 - 14), (xc1 + j * p2, ws + 14)]])])
     # cotes
-    S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=y1 - 14, sym="e2,b", val=R.e2b, key="e2b_u", lvl=2))
+    S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yh, sym="e2,b", val=R.e2b, key="e2b_u", lvl=2))
     if R.n_2 > 1:
-        S.dim(dict(id="p2", side="T", a=xc1, b=xc1 + (R.n_2 - 1) * p2, o1=y1 - 14, o2=y1 - 14, sym="p2", val=p2, key="p2_u", lvl=2))
+        S.dim(dict(id="p2", side="T", a=xc1, b=xc1 + (R.n_2 - 1) * p2, o1=yh, o2=yh, sym="p2", val=p2, key="p2_u", lvl=2))
     S.dim(dict(id="gh", side="T", a=xf, b=x0, o1=y1, o2=-ws, sym="gh", val=gh, key="g_h", lvl=1, out="lo"))
     S.dim(dict(id="bp", side="T", a=xf, b=xt, o1=y1, o2=y1, sym="bp", val=R.b_p, lvl=1, calc=1))
     S.dim(dict(id="tp", side="R", a=y1, b=-ws, o1=xt, o2=xt, sym="tp", val=R.t_p, key="tp_u", lvl=1))

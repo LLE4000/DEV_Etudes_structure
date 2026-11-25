@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "94fe1fbe4fe42b56bb31bd4d870cb6e55aa4add6201bfbdc29cd94df04e5804d",
+ "sha256": "fd915885bb684bfc9d2ea488d8cc53265066291a05e6b289564430b078524296",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -437,24 +437,24 @@
  "apercus": {
   "age": "499d88b4f0eb8cb0",
   "armatures": "0d888c7223e651e4",
-  "assemblages": "e7377e7918efa5d3",
+  "assemblages": "0ac446e2619f076c",
   "bois": "9d1d9638944c5e03",
   "catalogue": "efd91aa18076e90f",
-  "corniere": "bd864542252ee883",
+  "corniere": "df7e5a6437f8fb61",
   "dalle": "d904ab659d6f78ee",
   "donnees_beton": "b1218cb2000439f9",
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "a8594707963ea9dc",
   "fondation_grue": "bef7bc71b298cafc",
-  "garde_corps": "b29d1dc198f8e67a",
+  "garde_corps": "7da00d9758b8450c",
   "plancher": "26ddcd495eb05f9b",
   "poutre": "617eb168036b4bd8",
   "prix_grues": "17e63eaa8301c3fa",
   "profil": "6a329d8884b65910",
   "saf": "e88653e1536e1675",
   "sol": "dd7c45891233cf6d",
-  "soudures": "2f2aba3db698b38d",
+  "soudures": "21a40adc1ccc7e9d",
   "taux": "98b17f9977720fc7"
  },
- "version": "42a6fd83f5f73691"
+ "version": "2a90c19368d29371"
 }

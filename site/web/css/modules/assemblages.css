@@ -94,3 +94,10 @@ button.addrow { text-align: left; }
 @media (max-width: 1199px) {
   .rows .seg.full button { min-height: 44px; }
 }
+
+/* ------------------------------------------------------------------ une pièce et son acier sur UNE ligne */
+/* (le propriétaire, 25/11/2026 : « le nom du profilé principal, la qualité de l'acier juste à côté, sur une seule
+   ligne ») : le nom de la pièce, son profilé, sa nuance — api_web/assemblages.ligne_profil */
+.row2.asm-profil { grid-template-columns: 88px minmax(0, 1.6fr) minmax(0, 1fr); }
+.row2.asm-profil > .field.select { min-width: 0; }
+.row2.asm-profil > .field.select > select { min-width: 0; text-overflow: ellipsis; }

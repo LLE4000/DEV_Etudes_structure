@@ -115,7 +115,8 @@ VALID = [
                            "3 × 2 M20 8.8, VEd = 125 kN)",
          inp={}, rows=[
         ["Pression diamétrale, boulon d'extrémité (k1 = 2,118 ; αb = 35/66)", _Fbb, 91.66, va("Fbb_L"), "kN"],
-        ["Groupe : ns·(Fb,Rd)min (Fb,ext < Fv,Rd < Fb,int)", 6 * _Fbb, 549.96, rd("bg"), "kN"],
+        ["Groupe : ns·(Fb,Rd)min = 549,96 kN (Fb,ext < Fv,Rd < Fb,int), plafonné à 0,8·ns·Fv,Rd",
+         min(6 * _Fbb, 0.8 * 6 * 0.6 * 800 * 245 / 1.25 / 1000), 451.58, rd("bg"), "kN"],
         ["Âme portée – hp·tw·fy/√3", 190 * 8.5 * 355 / S3 / 1000, 331.01, rd("vwS"), "kN"],
         ["Rupture de bloc, k = 1 (hp ≥ 1,36·p3)",
          2 * (510 * 10 * (30 - 11) / 1.25 + 355 * 10 * (190 - 35 - 2.5 * 22) / S3) / 1000, 564.96, rd("pcb"), "kN"],

@@ -143,9 +143,26 @@ chk("cordons : fvw,d = 261,732 MPa ; qz = 344,83 ; qx = 356,72 ; Fw,Ed = 496,14 
     pres(R0.fvw, fu / (S3 * bw * 1.25), 1e-12) and pres(R0.qz_w, 200000 / (2 * hp), 1e-12)
     and pres(R0.qx_w, 3 * MS * 1e6 / hp ** 2, 1e-12) and pres(R0.qw, 496.1390260410242, 1e-9),
     f"{R0.qz_w} {R0.qx_w} {R0.qw}")
-chk("gorge de pleine résistance recommandée 3,915 mm (a = 5 : pas d'alerte)",
-    pres(R0.a_plein, tp * fy * bw * 1.25 / (2 * fu), 1e-12) and not any(a.id == "a_rec" for a in R0.alerts),
-    str(R0.a_plein))
+# correction du 25/11/2026 (audit) — le harnais SUIT : il figeait le diviseur 2 (plat cisaillé, 3,915 mm), la
+# règle des guides est le plat tendu (√2) : 5,537 mm, et la gorge par défaut passe de 5 à 6 mm
+chk("gorge de pleine résistance recommandée tp·fy·βw·γM2/(√2·fu) = 5,537 mm (a = 6 par défaut : pas d'alerte ; "
+    "a = 5 : avis)",
+    pres(R0.a_plein, tp * fy * bw * 1.25 / (math.sqrt(2) * fu), 1e-12) and pres(R0.a_plein, 5.5373, 1e-4)
+    and R0.a_w == 6 and not any(a.id == "a_rec" for a in R0.alerts)
+    and any(a.id == "a_rec" and not a.block for a in calcul_main(dict(a_w=5)).alerts), str(R0.a_plein))
+# corrections du 25/11/2026 (audit) : en cas (b), l'excentricité part de l'AXE du poteau (la demi-âme manquait)
+_Rb = calcul_main(dict(appui=E.APPUI_AME))
+chk("moment apporté au POTEAU, cas (b) : e_col = twP/2 + z = 5,5 + 50 = 55,5 mm (50 avant la correction)",
+    pres(_Rb.e_col, 11 / 2 + _Rb.z_p, 1e-12) and pres(_Rb.e_col, 55.5, 1e-12)
+    and pres(_Rb.M_col, 200 * 55.5 / 1000, 1e-12), str(_Rb.e_col))
+_Rm = calcul_main(dict(M_Ed=10))
+chk("plat court : flexion sans objet si MEd = 0 ; ACTIVE avec MEd = 10 kNm (Ed = VEd·z + |MEd|)",
+    R0.court and not R0.ck["pfl"].active and _Rm.ck["pfl"].active
+    and pres(_Rm.ck["pfl"].Ed, 200 * _Rm.zeff / 1000 + 10, 1e-12), f"{_Rm.ck['pfl'].active} {_Rm.ck['pfl'].Ed}")
+_Rh = calcul_main(dict(prof_S="HEB 500", n1_u=4, n2_u=2, boulon_u="M24", hp_u=315, tp_u=15, bp_u=180, p1_u=75, e1_u=45,
+                       V_Ed=60, M_Ed=88))
+chk("HEB 500, plat 315 × 15, VEd = 60, MEd = 88 kNm : la flexion du plat GOUVERNE (η > 1) — le moteur rendait VÉRIFIÉ",
+    _Rh.ck["pfl"].active and _Rh.ck["pfl"].eta > 1 and not _Rh.verified, f"{_Rh.ck['pfl'].eta} {_Rh.verified}")
 chk("moment apporté au POTEAU : e_col = hP/2 + z = 200 mm ; VEd·e_col = 40,0 kNm (information)",
     R0.e_col == 200 and R0.M_col == 40.0, f"{R0.e_col} {R0.M_col}")
 chk("cas par défaut VÉRIFIÉ, dimensionnante = les boulons (η = 0,700)",
@@ -229,9 +246,21 @@ chk("tying : plat, traction section nette 0,9·Anet·fu/γMu = 842,891 kN",
     pres(Rt.ck["ptn"].Rd, 0.9 * (290 - 4 * 22) * 10 * 510 / 1.1 / 1000, 1e-12), str(Rt.ck["ptn"].Rd))
 chk("tying : âme portée, traction section nette (hauteur participante hp) = 724,886 kN",
     pres(Rt.ck["tnS"].Rd, 0.9 * 8.6 * (290 - 4 * 22) * 510 / 1.1 / 1000, 1e-12), str(Rt.ck["tnS"].Rd))
-chk("tying : cordons — qx = NEd/(2hp) = 431,03 N/mm ; Fw,Rd,u = 1 487,11 N/mm",
+chk("tying : cordons — qx = NEd/(2hp) = 431,03 N/mm ; Fw,Rd,u = 1 784,54 N/mm (a = 6)",
     pres(Rt.ck["wT"].Ed, 250000 / 580, 1e-12)
-    and pres(Rt.ck["wT"].Rd, 510 / (S3 * 0.9 * 1.1) * 5, 1e-12), str(Rt.ck["wT"].Rd))
+    and pres(Rt.ck["wT"].Rd, 510 / (S3 * 0.9 * 1.1) * 6, 1e-12), str(Rt.ck["wT"].Rd))   # a = 6 mm par défaut
+# correction du 25/11/2026 (audit) : en chaînage, la pression diamétrale HORIZONTALE (plat, âme portée) entre dans la
+# vérification des boulons — IPE 400 (tw = 8,6), M20, e2,b = 30 : αb = 30/66, k1 = 2,5 →
+#   Fb,hor,u = 2,5·(30/66)·510·20·8,6/1,1/1000 = 90,62 kN/boulon < Fv,Rd,u = 106,91 → 362,5 kN pour 4 boulons
+Rt30 = calcul_main(dict(N_Ed=400, nat_N=E.NAT_TYING, e2b_u=30))
+chk("tying, e2,b = 30 : l'ÂME portée gouverne — 90,62 kN/boulon (η = 1,10, NON VÉRIFIÉ) ; les boulons seuls "
+    "donnaient 106,91 (η = 0,935, « VÉRIFIÉ »)",
+    pres(Rt30.ck["bvT"].Rd, 2.5 * (30 / 66) * 510 * 20 * 8.6 / 1.1 / 1000, 1e-12)
+    and pres(Rt30.ck["bvT"].Rd, min(Rt30.Fv_Rd_u, Rt30.Fbh_L * 1.25 / 1.1, Rt30.Fbh_S * 1.25 / 1.1), 1e-12)
+    and pres(Rt30.ck["bvT"].eta, 100 / 90.6198347107438, 1e-12) and not Rt30.verified and Rt30.gov.key == "bvT"
+    and pres(400 / 4 / Rt30.Fv_Rd_u, 0.9354, 1e-3), f"{Rt30.ck['bvT'].Rd} {Rt30.ck['bvT'].eta} {Rt30.verified}")
+chk("tying, cas par défaut (e2,b = 40) : les boulons gouvernent toujours (106,91 kN) ; à l'ELU la ligne reste inactive",
+    pres(Rt.ck["bvT"].Rd, Rt.Fv_Rd_u, 1e-12) and Rt.FbT_S > Rt.Fv_Rd_u and not R0.ck["bvT"].active)
 chk("tying : rupture de bloc EN TRACTION du plat et de l'âme actives",
     Rt.ck["pbt"].active and Rt.ck["tbS"].active)
 chk("tying : côté POTEAU, rien de plus (le plat est soudé, la force est dans son plan)",

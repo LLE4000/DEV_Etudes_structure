@@ -68,7 +68,15 @@ def compute(u0=None, materiau=None):
         u[n] = N(u[n])
     u.V_Ed = abs(u.V_Ed)
     Mabs = abs(u.M_Ed)
+    # CORRECTIONS du 25/11/2026 (docs/assemblages/ECARTS_ET_CORRECTIONS.md §7) : appliquées partout, SAUF quand le
+    # calcul est rejoué sur le corrigé de référence (``parite.materiau_du_corrige`` : son matériau ET ses formules,
+    # pour que la parité avec le HTML continue de valider tout ce qui n'a pas changé) — passé en argument, ou posé
+    # à la place de la table du site par les suites qui comparent au corrigé. Aucun scalaire de plus dans ``R`` en
+    # mode corrigé : l'instantané garde sa forme.
+    cor = not getattr(materiau or MT.table_du_site, "formules_du_corrige", False)
     R = AttrDict()
+    if cor:
+        R.corrections = "C1-C5"
     R.u = u
     R.checks = []
     R.ck = {}
@@ -153,7 +161,10 @@ def compute(u0=None, materiau=None):
                         + 2 * (lh * lh * lh / 12 + lh * (lh / 2 - xg) * (lh / 2 - xg)))
     R.zw_S = R.b_B - R.xg_S; R.ew_P = R.b_A - R.xg_P; R.zeff = R.z_S if R.bolt_S else R.zw_S
     R.M_S = V * R.zeff / 1000 + Mabs
-    R.M_P = V / 2 * (R.e_P if R.bolt_P else R.ew_P) / 1000 if u.opt_exc == "Oui" else 0
+    # C2 — ailes A SOUDÉES : VEd/2 arrive au talon, le cordon est en bout d'aile ; cette excentricité n'est pas une
+    # option (« Non » est la pratique des guides pour des BOULONS P) : le cordon n'a aucun autre appui
+    R.M_P = (V / 2 * (R.e_P if R.bolt_P else R.ew_P) / 1000
+             if (u.opt_exc == "Oui" or (cor and not R.bolt_P)) else 0)
     if not R.bolt_S:
         R.mod_S = "Soudé – groupe de cordons avec moment"
     elif R.M_S == 0:
@@ -361,6 +372,11 @@ def compute(u0=None, materiau=None):
     R.Anv_B = R.t_C * (R.L_C - R.e1_S - (R.n1_S - 0.5) * d0)
     R.Ant_A = R.t_C * (R.e2a_P + (R.n2_P - 1) * u.p2_P - (R.n2_P - 0.5) * d0)
     R.Anv_A = R.t_C * (R.L_C - R.e1_P - (R.n1_P - 0.5) * d0)
+    if cor:
+        # C1 — les boulons P poussent l'aile A VERS LE HAUT (elle descend avec la poutre) : le plan cisaillé va du
+        # boulon bas au bord haut, e1 + (n1 − 1)·p1 — et non hc − e1, le bloc d'une pièce poussée vers le bas (l'aile
+        # B). VEd est pris en valeur absolue : la plus PETITE des deux pinces, de l'un ou l'autre sens.
+        R.Anv_A = R.t_C * (mn(R.e1_P, R.e1bot_P) + (R.n1_P - 1) * R.p1_P - (R.n1_P - 0.5) * d0)
     R.e1A_T = mn(R.e1_P, R.e1bot_P, 0.5 * (R.p_3 - R.tw_S - 2 * R.r_C) + d0 / 2)
     R.p1A_T = mn(R.p1_P, R.p_3 - R.tw_S - 2 * R.r_C + d0)
     R.leff_T = 2 * R.e1A_T + (R.n1_P - 1) * R.p1A_T
@@ -425,6 +441,14 @@ def compute(u0=None, materiau=None):
         R["qz_" + X] = dv(V / 2 * 1000, Lw) + dv(w3 * 1e6 * (lh - xg), Iw)
         R["qx_" + X] = dv(w1 * 1000, Lw) + dv(w3 * 1e6 * (R.L_C / 2), Iw)
         R["qn_" + X] = dv(w2 * 1000, Lw)
+        if cor and X == "P" and not R.bolt_P:
+            # C3 — MEd et le couple HEd·z tendent les cordons P comme ils tendent les boulons P (``Ft_P``) : flexion
+            # d'axe horizontal du groupe de cordons (Ixx = hc³/12 + 2·ℓh·(hc/2)²), couple entre les deux cornières
+            # (bras = tw + 2·(bA − xg))
+            Ixx = R.L_C ** 3 / 12 + 2 * lh * (R.L_C / 2) ** 2
+            R.qnM_P = dv(Mabs / 2 * 1e6 * (R.L_C / 2), Ixx)
+            R.qnH_P = dv(H * R.zeff * 1000, (R.tw_S + 2 * R.ew_P) * Lw)
+            R["qn_" + X] += R.qnM_P + R.qnH_P
         R["qw_" + X] = hyp(R["qz_" + X], R["qx_" + X], R["qn_" + X])
         fuo = R["fu_" + w4]
         R["fuw_" + X], R["bww_" + X] = RS.fu_bw_cordon(R.fu_C, R.bw_C, fuo, R["bw_" + w4])
@@ -487,10 +511,29 @@ def compute(u0=None, materiau=None):
        "Ant = " + F(R.Ant_A, 0) + " mm² ; Anv = " + F(R.Anv_A, 0) + " mm²")
     ck("flA", "Cornières", "Ailes A – flexion dans leur plan entre talon et file de boulons (ou cordon)", V / 2 * ((R.g_A if R.bolt_P else R.b_A) - R.t_C / 2) / 1000, WC, "kNm",
        "EN 1993-1-1 §6.2.5 ; bras de levier : hypothèse de l'outil", "INT", True, "MEd = (VEd/2)·(gA − tc/2) ; MRd = Wel·fy/γM0", "")
-    ck("tsA", "Cornières", "Ailes A en flexion + boulons P en traction (tronçon en T équivalent)", NEd, mn(R.FT_1, R.FT_2, R.FT_3), "kN",
-       "EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; leff et m : " + MSB + " §4.3.1.1", "EC + COMP", R.bolt_P and NEd > 0,
-       "FT,1 = (8n − 2ew)·Mpl/[2mn − ew(m + n)] ; FT,2 = (2Mpl + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd",
-       "Σleff = " + F(R.leff_T, 0) + " mm ; m = " + F(R.m_T, 1) + " mm ; n = " + F(R.n_T, 1) + " mm ; Mpl = " + F(R.Mpl_T, 2) + " kNm ; FT,1 = " + F(R.FT_1, 0) + " ; FT,2 = " + F(R.FT_2, 0) + " ; FT,3 = " + F(R.FT_3, 0) + " kN")
+    # C4 — le tronçon en T reçoit la traction que portent RÉELLEMENT les boulons P : NEd, mais aussi MEd et HEd·z
+    # (``Ft_P``), ramenés à l'effort uniforme équivalent 2·nP·Ft,Ed (= NEd quand MEd = HEd = 0)
+    NT_A = 2 * R.n_P * R.Ft_P if (cor and R.bolt_P) else NEd
+    if cor and not R.bolt_P:
+        # C5 — ailes A SOUDÉES en traction : l'aile fléchit du talon (encastré : les deux cornières se font face) au
+        # cordon de bout d'aile, pris comme une ROTULE (un cordon d'un seul côté ne reprend pas ce moment) — une
+        # seule rotule plastique par aile, au talon : NT ≤ 2·Mpl/m, Mpl = 0,25·hc·tc²·fy/γM0, m = bA − tc − 0,8·rc.
+        # L'effort : la traction la plus forte du cordon, ramenée à l'effort uniforme équivalent 2·qn·ΣL. La MÊME
+        # clé que le tronçon en T des ailes boulonnées : c'est la même ligne des tableaux (ailes A en flexion).
+        R.m_wA = R.b_A - R.t_C - 0.8 * R.r_C
+        R.Mpl_wA = dv(0.25 * R.L_C * R.t_C * R.t_C * R.fy_C, gM0) / 1e6
+        R.NT_wA = 2 * R.qn_P * R.Lw_P / 1000
+        ck("tsA", "Cornières", "Ailes A soudées – flexion sous traction (rotule plastique au talon)", R.NT_wA,
+           dv(2 * R.Mpl_wA * 1000, R.m_wA), "kN",
+           "EN 1993-1-1 §6.2.5 ; modèle : cordon de bout d'aile = rotule (hypothèse de l'outil)", "INT", R.NT_wA > 0,
+           "NT = 2·qn·ΣL ; NRd = 2·Mpl/m ; Mpl = 0,25·hc·tc²·fy/γM0 ; m = bA − tc − 0,8·rc",
+           "m = " + F(R.m_wA, 1) + " mm ; Mpl = " + F(R.Mpl_wA, 2) + " kNm ; qn = " + F(R.qn_P, 1) + " N/mm")
+    else:
+        ck("tsA", "Cornières", "Ailes A en flexion + boulons P en traction (tronçon en T équivalent)", NT_A, mn(R.FT_1, R.FT_2, R.FT_3), "kN",
+           "EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; leff et m : " + MSB + " §4.3.1.1", "EC + COMP", R.bolt_P and NT_A > 0,
+           ("NT = 2·nP·Ft,Ed ; " if cor else "")
+           + "FT,1 = (8n − 2ew)·Mpl/[2mn − ew(m + n)] ; FT,2 = (2Mpl + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd",
+           "Σleff = " + F(R.leff_T, 0) + " mm ; m = " + F(R.m_T, 1) + " mm ; n = " + F(R.n_T, 1) + " mm ; Mpl = " + F(R.Mpl_T, 2) + " kNm ; FT,1 = " + F(R.FT_1, 0) + " ; FT,2 = " + F(R.FT_2, 0) + " ; FT,3 = " + F(R.FT_3, 0) + " kN")
     ck("tnB", "Cornières", "Ailes B – traction section nette", NEd, dv(2 * 0.9 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C, gM2n) / 1000, "kN", "EN 1993-1-1 §6.2.3(2)", "EC",
        R.bolt_S and NEd > 0, "Nu,Rd = 0,9·Anet·fu/γM2", "")
     ck("tbB", "Cornières", "Ailes B – rupture de bloc en traction", NEd, mn(R.Vt1_B, R.Vt2_B), "kN", "EN 1993-1-8 §3.10.2(2) ; aires : " + MSB + " §4.3.1.4", "EC",

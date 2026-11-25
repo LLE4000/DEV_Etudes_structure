@@ -1151,10 +1151,42 @@ def _variante(R):
     return MANUEL if CA.est_manuel_R(R) else A.CONFIGS["platine_beton"]
 
 
+# les efforts de la bande de l'en-tête des vues du pied : (clé, symbole, indice, unité) — N toujours, les autres non nuls
+EFFORTS_BANDE = (("N_Ed", "N", "Ed", "kN"), ("Mx_Ed", "M", "x", "kN·m"), ("My_Ed", "M", "y", "kN·m"), ("Vx_Ed", "V", "x", "kN"),
+                 ("Vy_Ed", "V", "y", "kN"), ("T_Ed", "T", "Ed", "kN·m"))
+
+
+def entete_pied(u, R):
+    """L'en-tête des vues du pied de poteau (le propriétaire, 25/11/2026 : la pièce et son acier sur une ligne, rien de
+    plus) : le poteau — ou les éléments soudés du calcul à la main — avec son acier ; la platine, son acier et ses
+    tiges ; les efforts dans la bande, à droite (ils faisaient une ligne de plus, repliée en deux au PC)."""
+    def dim(k):
+        return C.nb(A._nombre(u.get(k)))
+    if E.est_complet(u):
+        prof = u.get("prof_c")
+        poteau = "Poteau " + ("personnalisé" if (not prof or prof == PERSO) else str(prof))
+        tiges = f"tiges {u.get('ancr') or ''} {u.get('classe') or ''}".rstrip()
+    else:
+        noms = []
+        for e in (u.get("elems") or []):
+            if isinstance(e, dict):
+                t = str(e.get("type") or "")
+                noms.append(str(e.get("prof") or "I") if t.startswith("Profilé en I") else t.split(" (")[0].lower())
+        poteau = "Calcul manuel · " + (" + ".join(noms) if noms else "aucun élément")
+        n_b = len([t for t in (u.get("tiges") or []) if isinstance(t, dict)])
+        tiges = f"{n_b} boulons {u.get('ancr') or ''} {u.get('classe') or ''}".rstrip()
+    if E.champ_visible(u, "nu_c"):
+        poteau += " · " + ("acier personnalisé" if u.get("nu_c") == PERSO else str(u.get("nu_c") or "?"))
+    platine = (f"Platine {dim('bp_u')} × {dim('lp_u')} × {dim('tp_u')} · "
+               f"{'acier personnalisé' if u.get('nu_pl') == PERSO else (u.get('nu_pl') or '?')} · {tiges}")
+    bande = [(s_, i_, A._nombre(u.get(k)), un) for k, s_, i_, un in EFFORTS_BANDE if k in u and (k == "N_Ed" or A._nombre(u.get(k)))]
+    return C.esc(A.CONFIGS["platine_beton"].court), [poteau, platine], bande
+
+
 COMMUN = dict(E=E, calculer=CA.compute, N=NO, formules=lambda R, c: A.lignes_texte(R, c, FO.textes),
               piece=_piece, sections=_sections, libelles=LIBELLES, affichage=AFFICHAGE_SITE, segments=SEGMENTS,
               entiers=ENTIERS, listes=LISTES, dimensions=_dimensions(), note_information=note_information,
-              mot_information=mot_information,
+              mot_information=mot_information, entete=entete_pied,
               visserie_defaut=E.VISSERIE_DEFAUT, exemples=exemples, etat={"grille": _grille},
               actions={"grille": _action_grille}, sur_saisie={"mode": _changer_mode}, aides=aides, refus=refus_tables,
               hypotheses=hypotheses, blocs_tete=blocs_tete, blocs=blocs, lignes_resultat=lignes_resultat,

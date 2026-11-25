@@ -44,7 +44,8 @@ from acier.formats import f0
 from acier.assemblages.poutre_poutre.doubles_cornieres.schemas import (   # kit partagé
     Options, Feuille, INF_MM,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_portee, _corniere_plan)
+    _rect_rompu, _rupture, _renvoi, _section_portee, _corniere_plan,
+    _semelle_dessus, _boulon_travers, visserie_dessin)
 from ..dessin import marge_poteau, nom_portee, nom_poteau, section_poteau
 from .entrees import PILOTEES_PAR_PREDIM
 
@@ -320,18 +321,23 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """VUE EN PLAN (coupe horizontale au niveau des boulons) — la vue
-    porteuse : LE POTEAU EN COUPE (hachuré), l'âme de la poutre portée en
-    coupe, les DEUX CORNIÈRES de part et d'autre, le gauge p3 symétrique par
-    rapport à l'âme du poteau. En cas (a) : la pince au bout d'aile. En
-    cas (b) : la poutre arrive ENTRE LES AILES, avec la largeur droite entre
-    congés, la recoupe des semelles et les jeux latéraux."""
+    """VUE EN PLAN — la vue porteuse : LE POTEAU EN COUPE (hachuré), la
+    SEMELLE supérieure de la poutre portée vue de dessus, son âme et les DEUX
+    CORNIÈRES coupées au niveau des boulons, les boulons de profil, le gauge
+    p3 symétrique par rapport à l'âme du poteau. En cas (a) : la pince au
+    bout d'aile. En cas (b) : la poutre arrive ENTRE LES AILES, avec la
+    largeur droite entre congés, la recoupe des semelles et les jeux
+    latéraux."""
     u = R.u
     xf = R.xf_P; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2
     xt = xf + R.b_B; p2S = N(u.p2_S); p2P = N(u.p2_P)
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
+    kb, mb, trb, _sp = visserie_dessin(R.d_b)
     sec = section_poteau(R)
     xcol = mx(*[abs(px) for px, _ in sec]); ycol = mx(*[abs(py) for _, py in sec])
     xE = mx(xt, xcol) + 60
+    if opt.realiste and not opt.fabrication:              # le plan de principe garde son champ (son échelle)
+        xE = mx(xE, xs + 45)
     rec = N(u.rec_S); brec = mn(R.b_S, R.libre_ailes) if rec > 0 else R.b_S
     Hh = mx(ws + R.b_A + 22, ycol + 10)
     if opt.realiste:
@@ -355,16 +361,11 @@ def plan(R, opt):
                   _path(["ht"], _hachures(sec))])
     if "colFl" in hot or "colWeb" in hot:
         s.append(_path(["hl"], [[(p[0], p[1]) for p in sec] + [tuple(sec[0])]]))
-    # --- semelles de la poutre portée (vues de dessus, trait fin) et recoupe
-    if opt.realiste:
-        fl = []
-        for sg in (-1, 1):
-            if rec > 0:
-                fl.append([(x0, sg * brec / 2), (x0 + rec, sg * brec / 2),
-                           (x0 + rec, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-            else:
-                fl.append([(x0, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-        piece("recut" if rec > 0 else "beamS", [_path(["hd"] + hc("recut"), fl)])
+    # --- SEMELLE supérieure de la poutre portée, VUE DE DESSUS (teinte légère, contour continu — 25/11/2026, le
+    # propriétaire : « on voit la semelle, on voit l'âme ») : elle commence après le grugeage, avec sa recoupe
+    if opt.realiste and xs < xE - 4:
+        piece("recut" if rec > 0 else "beamS",
+              [_poly(["sfs"] + hc("recut"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs, x_rec=x0 + rec, b_rec=brec))])
     # --- âme de la poutre portée en coupe (hachurée), bord droit rompu
     if opt.realiste:
         ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)
@@ -383,10 +384,20 @@ def plan(R, opt):
                                                          [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]])])
         if R.bolt_P:
             cls_p = ["ax"] if opt.realiste else ["bp"]
-            piece("bolts", [_path(cls_p + hc("boltsP"),
-                                  [[(xf - R.t_appui - 14, g * (ws + R.g_A + i * p2P)),
-                                    (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
-                            for i in range(R.n2_P)])
+            if opt.realiste:
+                # boulons P de profil : tête contre l'aile A de la cornière, écrou derrière la paroi d'appui du poteau
+                for i in range(R.n2_P):
+                    piece("bolts", _boulon_travers(["bo"] + hc("boltsP"), "x", xf - R.t_appui, xf + R.t_C,
+                                                   g * (ws + R.g_A + i * p2P), R.d_b, R.d_w))
+                piece("bolts", [_path(cls_p + hc("boltsP"),
+                                      [[(xf - R.t_appui - trb - mb - 6, g * (ws + R.g_A + i * p2P)),
+                                        (xf + R.t_C + trb + kb + 6, g * (ws + R.g_A + i * p2P))]])
+                                for i in range(R.n2_P)])
+            else:
+                piece("bolts", [_path(cls_p + hc("boltsP"),
+                                      [[(xf - R.t_appui - 14, g * (ws + R.g_A + i * p2P)),
+                                        (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
+                                for i in range(R.n2_P)])
         elif opt.realiste:
             # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
             # entre le bout de l'aile A et la face d'appui du poteau ; symbole
@@ -414,22 +425,29 @@ def plan(R, opt):
                 piece("weldS", [_circle(["wd"], xt, y2, mx(N(u.a_S), 4))])
     # --- files du groupe S (axes verticaux à travers cornières + âme)
     xc1 = xf + R.g_B2; xcl = xc1 + (R.n2_S - 1) * p2S; yo = -ws - R.t_C
+    yh = yo - (trb + kb + 6 if opt.realiste else 14)      # au-delà des têtes dessinées
     if R.bolt_S:
         cls_s = ["ax"] if opt.realiste else ["bp"]
         for i in range(R.n2_S):
-            s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
+            if opt.realiste:
+                # boulons S de profil, à travers les deux ailes B et l'âme de la portée
+                s.extend(_boulon_travers(["bo"] + hc("boltsS"), "y", -yo, yo, xc1 + i * p2S, R.d_b, R.d_w))
+                s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yh), (xc1 + i * p2S, -yo + trb + mb + 6)]]))
+            else:
+                s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
     # --- cotes
     if R.bolt_S:
-        S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yo - 14, sym="e2,b", val=R.e2b_S,
+        S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yh, sym="e2,b", val=R.e2b_S,
                    key="e2b_u", lvl=2))
         if R.n2_S > 1:
-            S.dim(dict(id="p2S", side="T", a=xc1, b=xcl, o1=yo - 14, o2=yo - 14, sym="p2", val=p2S,
+            S.dim(dict(id="p2S", side="T", a=xc1, b=xcl, o1=yh, o2=yh, sym="p2", val=p2S,
                        key="p2_S", lvl=2))
     S.dim(dict(id="gh", side="T", a=xf, b=x0, o1=-ws - R.b_A, o2=-ws, sym="gh", val=gh, key="g_h",
                lvl=1, out="lo"))
     S.dim(dict(id="bB", side="T", a=xf, b=xt, o1=-ws - R.b_A, o2=yo, sym="bB", val=R.b_B, lvl=1, calc=1))
     if R.bolt_P:
-        ya = -(ws + R.g_A); yl = ya - (R.n2_P - 1) * p2P; xo = xf + R.t_C + 14
+        ya = -(ws + R.g_A); yl = ya - (R.n2_P - 1) * p2P
+        xo = xf + R.t_C + (trb + kb + 6 if opt.realiste else 14)          # au-delà des têtes dessinées
         S.dim(dict(id="gA", side="R", a=ya, b=-ws, o1=xo, o2=xt, sym="gA", val=R.g_A, key="gA_u",
                    lvl=1, out="lo"))
         if R.n2_P > 1:

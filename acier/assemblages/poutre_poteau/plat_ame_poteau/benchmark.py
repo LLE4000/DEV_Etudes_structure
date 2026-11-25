@@ -135,7 +135,7 @@ _VRdg_S = _Av_S * _fy / S3 / 1000
 _fvw = _fu / (S3 * _bw * 1.25)
 _qz2 = _V * 1000 / (2 * _hp)
 _qx2 = 3 * _MS2 * 1e6 / _hp ** 2
-_a_plein = _tp * _fy * _bw * 1.25 / (2 * _fu * 1.0)
+_a_plein = _tp * _fy * _bw * 1.25 / (math.sqrt(2) * _fu * 1.0)        # le plat plastifie avant le cordon (√2)
 # poteau, cas (b) : cisaillement local de l'âme, un seul côté chargé
 _VRd_lP = _twP * _hp * _fy / (S3 * 1.0) / 1000
 # géométrie du cas (b)
@@ -181,7 +181,7 @@ _Nty = 250.0
 _ptn_u = 0.9 * (_hp - _n1 * _d0) * _tp * _fu / 1.1 / 1000
 _tnS_u = 0.9 * _twS * (_hp - _n1 * _d0) * _fu / 1.1 / 1000
 _qx_ty = _Nty * 1000 / (2 * _hp)
-_Fw_ty = _fu / (S3 * _bw * 1.1) * 5.0
+_Fw_ty = _fu / (S3 * _bw * 1.1) * 6.0            # a = 6 mm, la gorge par défaut (pleine résistance)
 
 
 SRC = dict(
@@ -231,7 +231,7 @@ BENCH = [
              ["§11.2", "Âme portée – taux de pression diamétrale", _ipd_S, et("pdS"), "-", ""],
              ["§11.2", "Âme portée – cisaillement brut VRd,g", _VRdg_S, rd("vgS"), "kN", ""],
              ["§11.2", "Cordons – Fw,Ed = √(qz² + qx²)", math.hypot(_qz2, _qx2), va("qw"), "N/mm", ""],
-             ["§11.2", "Cordons – Fw,Rd = fvw,d·a", _fvw * 5, rd("w"), "N/mm", ""],
+             ["§11.2", "Cordons – Fw,Rd = fvw,d·a", _fvw * 6, rd("w"), "N/mm", ""],
              ["§11.2", "Gorge de pleine résistance recommandée", _a_plein, va("a_plein"), "mm", ""]]),
     dict(id="BM3", titre="Cas (b) ÂME, variante b1 (la poutre reste au-delà des bouts d'aile) — "
                          "l'attache NE PASSE PAS : deux taux au-dessus de 1",
@@ -329,7 +329,7 @@ VALID = [
         ["Pince basse du plat e1' = hp − e1 − 3·p1", _e1bot, 40.0, va("e1bot"), "mm"],
         ["Soudure – qz = VEd/(2hp)", _qz2, 344.8275862, va("qz_w"), "N/mm"],
         ["Soudure – qx = 3·MS/hp²", _qx2, 356.7182, va("qx_w"), "N/mm"],
-        ["Soudure – résistance Fw,Rd = fvw,d·a (a = 5)", _fvw * 5, 1308.66061, rd("w"), "N/mm"],
+        ["Soudure – résistance Fw,Rd = fvw,d·a (a = 6)", _fvw * 6, 1570.39273, rd("w"), "N/mm"],
         ["Excentricité apportée au poteau e_col = hP/2 + z", _hP / 2 + _z2, 200.0, va("e_col"), "mm"],
         ["Moment apporté au poteau VEd·e_col (information)", _V * (_hP / 2 + _z2) / 1000, 40.0,
          va("M_col"), "kNm"]]),

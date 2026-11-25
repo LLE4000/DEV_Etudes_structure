@@ -52,7 +52,9 @@ def lignes_hypotheses(R):
         "Assemblage nominalement articulé ; ligne de transfert (rotule) à la face de l'âme de la poutre principale (MSB Part 5 §4.2.1.1).",
         ("Groupe S : répartition élastique (inertie polaire) sous VEd, NEd et MS = VEd·z + |MEd| ; z = " + F(R.z_S, 1) + " mm ; MS = " + F(R.M_S, 2) + " kNm."
          if R.bolt_S else "Cordons S : groupe de cordons en répartition élastique ; z = " + F(R.zw_S, 1) + " mm ; MS = " + F(R.M_S, 2) + " kNm."),
-        ("Groupe P : excentricité eP reprise par chaque cornière (option conservatrice) ; MP = " + F(R.M_P, 2) + " kNm."
+        ("Cordons P : VEd/2 arrive au talon, à " + F(R.ew_P, 1) + " mm du groupe de cordons — excentricité reprise par chaque cornière ; MP = " + F(R.M_P, 2) + " kNm."
+         if (R.M_P > 0 and not R.bolt_P and R.get("corrections")) else
+         "Groupe P : excentricité eP reprise par chaque cornière (option conservatrice) ; MP = " + F(R.M_P, 2) + " kNm."
          if R.M_P > 0 else "Groupe P : cisaillement centré" + (", facteur " + F(N(u.k_rot), 2) + " sur Fv,Rd pour la traction parasite due à la rotation." if R.bolt_P else ".")),
         ("Poutre grugée : flexion de la section réduite sous MEd = VEd·(gh + ln) = " + F(R.ck["mN"].Ed, 2) + " kNm."
          if R.cas_g > 0 else "Poutre secondaire non grugée."),

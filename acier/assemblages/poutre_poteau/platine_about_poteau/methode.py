@@ -105,7 +105,8 @@ des gauges minimaux par série, non consultés — point P-7).
   intérieurs (`αb = p1/3d0 − 1/4`), puis résistance du groupe en trois
   branches — `ΣFb,Rd` si `(Fb,Rd)max ≤ Fv,Rd`, `ns·(Fb,Rd)min` entre les
   deux, `0,8·ns·Fv,Rd` si le cisaillement des boulons gouverne (le 0,8 couvre
-  la traction parasite due à la rotation). Glissement §3.9 (catégories B et
+  la traction parasite due à la rotation) ; et le groupe ne dépasse jamais
+  `0,8·ns·Fv,Rd`, quelle que soit la branche. Glissement §3.9 (catégories B et
   C) ; interaction cisaillement + traction (Tab. 3.4) à l'ELU.
 - **Platine** (MSB P5 §2.2, deux plans de cisaillement, un par côté de
   l'âme) : brut `2·(hp·tp/1,27)·fy/(√3·γM0)` — le 1,27 couvre la flexion
@@ -131,7 +132,7 @@ des gauges minimaux par série, non consultés — point P-7).
   {GUIDE}.
 
 Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + tp` en
-cas (a), `tp` en cas (b)), est **affiché** en information dans « Paramètres
+cas (a), `twP/2 + tp` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
 retenus », dans l'export texte et au bloc HYPOTHÈSES de la note : il
 appartient au calcul d'ÉLÉMENT du poteau (EC3-1-1 §6.2 et §6.3), l'outil ne
 le vérifie pas.
@@ -156,7 +157,7 @@ Tronçons en T, `ew = dw/4`, mode 1 par la **méthode 2** du Tableau 6.2 :
 *platine* `m = (p3 − tw)/2 − 0,8·a·√2`, `n = min(e2 ; 1,25·m)`, Σleff d'une
 platine à bords libres (pour les détails courants **Σleff = hp**, la valeur
 du guide) ; *aile du poteau* `m = (p3 − twP)/2 − 0,8·rP` (poteau LAMINÉ : le
-congé prend la place du cordon), `e = (bP − p3)/2`, `n = min(e ; 1,25·m)`,
+congé prend la place du cordon), `e = (bP − p3)/2`, `n = min(e ; e2 ; 1,25·m)`,
 Σleff du **Tab. 6.4** — aucune rangée d'extrémité, donc `Σleff = n1·p1` dès
 que les rangées se prennent en groupe.
 

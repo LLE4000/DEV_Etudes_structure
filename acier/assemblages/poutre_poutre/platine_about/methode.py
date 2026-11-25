@@ -31,7 +31,8 @@ Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design* §2
   intérieurs (`αb = p1/3d0 − 1/4`), puis résistance du groupe en trois
   branches — `ΣFb,Rd` si `(Fb,Rd)max ≤ Fv,Rd`, `ns·(Fb,Rd)min` entre les
   deux, `0,8·ns·Fv,Rd` si le cisaillement des boulons gouverne (le 0,8
-  couvre la traction parasite due à la rotation). Pas de βLf : la platine
+  couvre la traction parasite due à la rotation) ; et le groupe ne dépasse
+  jamais `0,8·ns·Fv,Rd`, quelle que soit la branche. Pas de βLf : la platine
   transmet l'effort uniformément (§3.8(2)) — option conservatrice dans les
   paramètres avancés. Glissement §3.9 (catégories B et C).
 - **Platine** (MSB P5 §2.2, deux plans de cisaillement, un par côté de

@@ -108,7 +108,7 @@ _FRd_g = 0.8 * _ns * _Fv                          # Fv,Rd ≤ (Fb,Rd)min
 _VRdg_L = 2 * (_hp * _tp) * _fy / (1.27 * S3 * 1.0) / 1000
 _VRdn_L = 2 * _tp * (_hp - _n1 * _d0) * _fu / (S3 * 1.25) / 1000
 _Ant_L = _tp * (_e2 - 0.5 * _d0)
-_Anv_L = _tp * (_hp - _e1 - (_n1 - 0.5) * _d0)
+_Anv_L = _tp * (min(_e1, _e1bot) + (_n1 - 1) * _p1 - (_n1 - 0.5) * _d0)     # bloc vers la plus petite pince
 _VRdb_L = 2 * (1.0 * _fu * _Ant_L / 1.25 + _fy * _Anv_L / S3) / 1000   # k = 1 (hp ≥ 1,36·p3)
 # âme de la poutre portée au droit de la platine
 _Av_w = _hp * _twS
@@ -136,7 +136,7 @@ _FT2_L = (2 * _MplT + _nT * _SFt * 1000) / (_mT + _nT) / 1000
 _FT3_L = _SFt
 # aile du poteau : m du poteau LAMINÉ (congé), toutes les rangées INTÉRIEURES
 _mP = (_p3 - _twP) / 2 - 0.8 * _rP
-_nP = min(_eP, 1.25 * _mP)
+_nP = min(_eP, _e2, 1.25 * _mP)                   # emin de la Figure 6.8 : aile du poteau ET platine
 _leffP = min(_n1 * 2 * math.pi * _mP, _n1 * (4 * _mP + 1.25 * _eP), _n1 * 2 * _p1, _n1 * _p1)
 _MplP = 0.25 * _leffP * _tfP ** 2 * _fu / 1.1                # N·mm
 _FT1_P = (8 * _nP - 2 * _ew) * _MplP / (2 * _mP * _nP - _ew * (_mP + _nP)) / 1000
@@ -234,7 +234,7 @@ BENCH = [
              ["§7.3", "Platine – FT,2", _FT2_L, va("FT2"), "kN", ""],
              ["§7.3", "Platine – FT,Rd (dimensionnante en tying)", _FT_L, rd("ptT"), "kN", ""],
              ["§7.3", "AILE DU POTEAU – m = (p3 − twP)/2 − 0,8·rP", _mP, va("m_fP"), "mm", ""],
-             ["§7.3", "Aile du poteau – n = min(e ; 1,25·m)", _nP, va("n_fP"), "mm", ""],
+             ["§7.3", "Aile du poteau – n = min(e ; e2 platine ; 1,25·m)", _nP, va("n_fP"), "mm", ""],
              ["§7.3", "Aile du poteau – Σleff = n1·p1 (Tab. 6.4, rangées en groupe)", _leffP, va("leff_fP"), "mm", ""],
              ["§7.3", "Aile du poteau – Mpl,1 = 0,25·Σleff·tfP²·fu/γMu", _MplP / 1e6,
               lambda R: R.Mpl1_fP / 1e6, "kNm", ""],
@@ -323,7 +323,7 @@ VALID = [
                            "tying NEd = 250 kN) — le composant NEUF, calculé hors moteur",
          inp=BM3, rows=[
         ["m = (p3 − twP)/2 − 0,8·rP (poteau laminé : le congé)", _mP, 42.900, va("m_fP"), "mm"],
-        ["n = min(e ; 1,25·m) avec e = (bP − p3)/2 = 80", _nP, 53.625, va("n_fP"), "mm"],
+        ["n = min(e ; e2 platine ; 1,25·m) avec e = 80 et e2 = 40", _nP, 40.0, va("n_fP"), "mm"],
         ["Σleff : Tab. 6.4, aucune rangée d'extrémité → n1·p1", _leffP, 280.0, va("leff_fP"), "mm"],
         ["Mpl,1 = 0,25·Σleff·tfP²·fu/γMu", _MplP / 1e6, 11.7161, lambda R: R.Mpl1_fP / 1e6, "kNm"],
         ["FT,1 (mode 1, méthode 2)", _FT1_P, 1296.99, va("FT1_P"), "kN"],
@@ -345,7 +345,7 @@ VALID = [
         ["Âme du poteau – Fb,Rd par boulon (t = 11)", _Fb_Pb, 181.900, va("Fb_P"), "kN"],
         ["Âme du poteau – cisaillement local brut", _VRd_lP, 653.820, rd("vlP"), "kN"],
         ["Âme du poteau – cisaillement local net", _VRd_nP, 523.412, rd("vnP"), "kN"],
-        ["Excentricité apportée au poteau e_col = tp (cas b)", _tp, 10.0, va("e_col"), "mm"]]),
+        ["Excentricité apportée au poteau e_col = twP/2 + tp (cas b, de l'axe du poteau)", _twP / 2 + _tp, 15.5, va("e_col"), "mm"]]),
 ]
 
 

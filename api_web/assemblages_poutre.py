@@ -57,7 +57,7 @@ LIBELLES = {
     "rP_u": ("r", "congé"),
     "hS_u": ("h", "hauteur"), "bS_u": ("b", "largeur"), "twS_u": ("t<sub>w</sub>", "âme"), "tfS_u": ("t<sub>f</sub>", "semelle"),
     "rS_u": ("r", "congé"),
-    "d_top": ("Δz", "décalage"), "g_h": ("g<sub>h</sub>", "jeu à l'about"),
+    "d_top": ("Δz", "décalage des dessus"), "g_h": ("g<sub>h</sub>", "jeu à l'about"),
     "d_nt": ("d<sub>c,sup</sub>", "en haut"), "d_nb": ("d<sub>c,inf</sub>", "en bas"), "l_n": ("c", "longueur"),
     "r_n": ("r", "rayon (exécution)"), "lt_ok": ("", "Secondaire maintenue au déversement"),
     "hp_u": ("h<sub>p</sub>", "hauteur"), "tp_u": ("t<sub>p</sub>", "épaisseur"), "bp_u": ("b<sub>p</sub>", "largeur"),
@@ -77,7 +77,7 @@ LIBELLES = {
     "opt_blf": ("", "Appliquer β<sub>Lf</sub> (joints longs)"), "expo": ("", "Assemblage exposé aux intempéries"),
     "fy_u": ("f<sub>y</sub>", "limite élastique"), "fu_u": ("f<sub>u</sub>", "résistance"), "bw_u": ("β<sub>w</sub>", "corrélation"),
     "eta_c": ("η", "taux cible"), "k_e1": ("e<sub>1</sub>", "= k · d<sub>0</sub>"), "k_p1": ("p<sub>1</sub>", "= k · d<sub>0</sub>"),
-    "k_e2": ("e<sub>2</sub>", "= k · d<sub>0</sub>"), "pd_dmin": ("", "Ø minimal"), "pd_dmax": ("", "Ø maximal"),
+    "k_e2": ("e<sub>2</sub>", "= k · d<sub>0</sub>"), "pd_dmin": ("", "Ø min"), "pd_dmax": ("", "Ø max"),
     # doubles cornières
     "fix_P": ("", "Ailes A"), "fix_S": ("", "Ailes B"), "corn_u": ("", "Cornière"), "nu_C": ("", "Nuance"),
     "orient": ("", "Grande aile"), "k1_u": ("", "grande aile"), "k2_u": ("", "petite aile"), "kt_u": ("t<sub>c</sub>", "épaisseur"),
@@ -158,16 +158,34 @@ def resume_assemblage(cfg, u):
     return f"{C.esc(cfg.court)} · {m.lower()}"
 
 
-def predim_items(u):
+# Ce que le prédimensionnement GARDE et ce qu'il PROPOSE, dit à l'écran (le propriétaire, 25/11/2026 : « quand j'ai un
+# prédimensionnement, il faut que ça me garde mes données de base — les efforts, le profilé, le niveau auquel ils sont ;
+# c'est la plaque, le nombre de boulons qui doit changer »). C'est ce que font les six moteurs (``apply_solution`` ne
+# touche que les boulons, la pièce d'attache et sa gorge) ; tests/test_api_web_assemblages.py le fige, solution par solution.
+GARDE_PREDIM = "Vos efforts, vos profilés, leur acier, leurs niveaux et le grugeage sont gardés"
+
+
+def predim_items(u, propose="les boulons, le plat et sa gorge"):
     if u.get("mode_calc") == EPA.MODE_VERIF:
         return []
     return [("grp", "Prédimensionnement", "Les champs verrouillés sont pilotés par la proposition ; la ligne « Proposition » du "
                                           "résultat la recopie dans les données et repasse en vérification."),
-            "eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"]
+            ("aide", f"{GARDE_PREDIM} : seuls {propose} sont proposés (champs verrouillés)."),
+            "eta_c", ("duo", "pd_dmin", "pd_dmax"), "k_e1", "k_p1", "k_e2"]
 
 
 def boulons_items(u):
-    return ["boulon_u", "classe", "trou", "cat", "filet"] + A.d0_items(u) + ["mu_s", "k_s", "k_ser"]
+    return [("duo", "boulon_u", "classe"), "trou", "cat", "filet"] + A.d0_items(u) + [("duo", "mu_s", "k_s"), "k_ser"]
+
+
+def items_poutres(*position):
+    """Les deux poutres, chacune avec son acier sur UNE ligne (« Principale HEA 400 · S355 ») ; leurs dimensions quand
+    le profilé est « Personnalisé », deux par ligne ; puis la position."""
+    return [("profil", "Principale", "prof_P", "nu_P"), ("duo", "hP_u", "bP_u"), ("duo", "twP_u", "tfP_u"), "rP_u",
+            ("profil", "Secondaire", "prof_S", "nu_S"), ("duo", "hS_u", "bS_u"), ("duo", "twS_u", "tfS_u"), "rS_u"] + list(position)
+
+
+GRUGEAGE = [("duo", "d_nt", "d_nb"), ("duo", "l_n", "r_n"), "lt_ok"]
 
 
 def coefficients(*cles):
@@ -233,16 +251,14 @@ def _sections_pa(u, R, el):
     rp = R or {}
     return [
         ("as", "Assemblage", resume_assemblage(cfg, u), ["id_rep", "mode_calc"] + predim_items(u), True),
-        ("pt", "Poutres", resume_poutres(u),
-         [("grp", "Principale (porteuse)"), "prof_P", "nu_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u",
-          ("grp", "Secondaire (portée)"), "prof_S", "nu_S", "hS_u", "bS_u", "twS_u", "tfS_u", "rS_u",
-          ("grp", "Position"), "d_top", "g_h"], True),
-        ("gr", "Grugeage", resume_grugeage(u), ["d_nt", "d_nb", "l_n", "r_n", "lt_ok"], False),
+        ("pt", "Poutres", resume_poutres(u), items_poutres(("duo", "d_top", "g_h")), True),
+        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("pl", "Plat d'âme", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
-         ["hp_u", "tp_u", "bp_u", "z_C", "nu_pl", ("grp", "Soudure sur l'âme porteuse"), "a_w"], False),
+         [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"{C.nb(N(u.get('n1_u')))} × {u.get('n2_u')} {u.get('boulon_u')} {u.get('classe')}",
-         boulons_items(u) + [("grp", "Groupe · plat et âme de la portée")] + ["n1_u", "n2_u", "p1_u", "p2_u", "e1_u", "e2b_u"], True),
-        ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed", "M_Ed")), ["V_Ed", "N_Ed", "M_Ed"], True),
+         boulons_items(u) + [("grp", "Groupe · plat et âme de la portée"), ("duo", "n1_u", "n2_u"), ("duo", "p1_u", "p2_u"),
+                             ("duo", "e1_u", "e2b_u")], True),
+        ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed", "M_Ed")), [("duo", "V_Ed", "N_Ed"), "M_Ed"], True),
         ("co", "Coefficients et modèle", f"γ<sub>M1</sub> {C.nb(N(u.get('g_M1')))} · ANB",
          coefficients("g_M0", "g_M1", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_blf", "expo"), False),
         ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),
@@ -298,22 +314,21 @@ def _sections_dc(u, R, el):
     bolt_S, bolt_P = u.get("fix_S") == EDC.BOULONNEE, u.get("fix_P") == EDC.BOULONNEE
     groupes = []
     if bolt_S:
-        groupes += [("grp", "Groupe S · âme de la secondaire (2 plans)"), "n1S_u", "n2S_u", "p1S_u", "p2_S", "e1S_u", "e2b_u"]
+        groupes += [("grp", "Groupe S · âme de la secondaire (2 plans)"), ("duo", "n1S_u", "n2S_u"), ("duo", "p1S_u", "p2_S"),
+                    ("duo", "e1S_u", "e2b_u")]
     if bolt_P:
-        groupes += [("grp", "Groupe P · âme de la principale (par cornière)"), "n1P_u", "n2P_u", "p1P_u", "p2_P", "e1P_u", "gA_u"]
+        groupes += [("grp", "Groupe P · âme de la principale (par cornière)"), ("duo", "n1P_u", "n2P_u"), ("duo", "p1P_u", "p2_P"),
+                    ("duo", "e1P_u", "gA_u")]
     secs = [
         ("as", "Assemblage", resume_assemblage(cfg, u),
          ["id_rep", "mode_calc",
           ("grp", "Fixation des cornières", "Ailes A sur l'âme de la principale, ailes B sur l'âme de la secondaire. Soudées des "
                                             "deux côtés : assemblage peu déformable, à réserver à des cas particuliers."),
-          "fix_P", "fix_S"] + predim_items(u), True),
-        ("pt", "Poutres", resume_poutres(u),
-         [("grp", "Principale (porteuse)"), "prof_P", "nu_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u",
-          ("grp", "Secondaire (portée)"), "prof_S", "nu_S", "hS_u", "bS_u", "twS_u", "tfS_u", "rS_u",
-          ("grp", "Position"), "d_top", "g_h"], True),
-        ("gr", "Grugeage", resume_grugeage(u), ["d_nt", "d_nb", "l_n", "r_n", "lt_ok"], False),
+          "fix_P", "fix_S"] + predim_items(u, "les boulons et les cornières"), True),
+        ("pt", "Poutres", resume_poutres(u), items_poutres(("duo", "d_top", "g_h")), True),
+        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("cn", "Cornières", f"2 {C.esc(u.get('corn_u'))} · h<sub>c</sub> {C.nb(N(u.get('LC_u')))}",
-         ["corn_u", "nu_C", "orient", "k1_u", "k2_u", "kt_u", "kr_u", "LC_u", "z_C"], False),
+         [("profil", "Cornière", "corn_u", "nu_C"), "orient", ("duo", "k1_u", "k2_u"), ("duo", "kt_u", "kr_u"), ("duo", "LC_u", "z_C")], False),
     ]
     if bolt_S or bolt_P:
         secs.append(("bo", "Boulons", f"{u.get('boulon_u')} {u.get('classe')}", boulons_items(u) + groupes, True))
@@ -326,9 +341,9 @@ def _sections_dc(u, R, el):
                                                  "restent ceux de l'écran Streamlit (un trou « Surdimensionné » sans "
                                                  "d<sub>0</sub> y bloque encore le verdict).")], False))
     if not (bolt_S and bolt_P):
-        secs.append(("so", "Soudures", "cordons d'angle", ["a_P", "lh_P", "a_S", "lh_S"], True))
+        secs.append(("so", "Soudures", "cordons d'angle", [("duo", "a_P", "lh_P"), ("duo", "a_S", "lh_S")], True))
     secs += [
-        ("ef", "Efforts ELU", resume_efforts(u), ["V_Ed", "N_Ed", "H_Ed", "M_Ed"], True),
+        ("ef", "Efforts ELU", resume_efforts(u), [("duo", "V_Ed", "N_Ed"), ("duo", "H_Ed", "M_Ed")], True),
         ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
          coefficients("g_M0", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_exc", "k_rot", "opt_blf", "expo"), False),
         ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"),
@@ -429,17 +444,14 @@ A.enregistrer(A.Config(
 def _sections_pb(u, R, el):
     cfg = A.CONFIGS["platine_about"]
     return [
-        ("as", "Assemblage", resume_assemblage(cfg, u), ["id_rep", "mode_calc"] + predim_items(u), True),
-        ("pt", "Poutres", resume_poutres(u),
-         [("grp", "Principale (porteuse)"), "prof_P", "nu_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u",
-          ("grp", "Secondaire (portée)"), "prof_S", "nu_S", "hS_u", "bS_u", "twS_u", "tfS_u", "rS_u",
-          ("grp", "Position"), "d_top"], True),
-        ("gr", "Grugeage", resume_grugeage(u), ["d_nt", "d_nb", "l_n", "r_n", "lt_ok"], False),
+        ("as", "Assemblage", resume_assemblage(cfg, u), ["id_rep", "mode_calc"] + predim_items(u, "les boulons, la platine et sa gorge"), True),
+        ("pt", "Poutres", resume_poutres(u), items_poutres("d_top"), True),
+        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("pl", "Platine d'about", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
-         ["hp_u", "tp_u", "bp_u", "z_C", "nu_pl", ("grp", "Soudure sur l'âme de la portée"), "a_w"], False),
+         [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"2 × {C.nb(N(u.get('n1_u')))} {u.get('boulon_u')} {u.get('classe')}",
-         boulons_items(u) + [("grp", "Groupe · 2 files, 1 plan")] + ["n1_u", "p1_u", "e1_u", "p3_u"], True),
-        ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed")), ["V_Ed", "N_Ed", "nat_N"], True),
+         boulons_items(u) + [("grp", "Groupe · 2 files, 1 plan"), ("duo", "n1_u", "p3_u"), ("duo", "p1_u", "e1_u")], True),
+        ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed")), [("duo", "V_Ed", "N_Ed"), "nat_N"], True),
         ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
          coefficients("g_M0", "g_M2", "g_M2n", "g_Mu", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_blf", "expo"), False),
         ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),

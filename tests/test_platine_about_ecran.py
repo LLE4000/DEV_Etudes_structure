@@ -232,27 +232,42 @@ chk("chaque cote de fabrication posée UNE fois sur la planche (hp, zp, p3, bp, 
     not doubles and not absentes, f"doubles {doubles} absentes {absentes}")
 
 
-def aretes_cachees_ok(R):
-    """Arêtes cachées de la vue en plan : horizontales tracées de gauche à
-    droite et dans le champ ; verticales (bord de semelle porteuse) à b/2
-    exactement — jamais rabattues dans le champ."""
+def semelles_dessus_ok(R):
+    """Les SEMELLES de la vue en plan, vues de dessus (25/11/2026 : « on voit la semelle, on voit l'âme » — le
+    harnais SUIT : il contrôlait deux arêtes cachées, que la vue ne porte plus) : celle de la porteuse ENTIÈRE, de
+    −bP/2 à +bP/2 — jamais rabattue dans le champ —, celle de la portée large de bS, de la fin du grugeage SUPÉRIEUR
+    (l'about sans grugeage) jusqu'au bord droit de la vue ; plus aucune arête cachée."""
     d = schemas.plan(R, schemas.options_ecran(R))
-    xE = d.viewbox[0] + d.viewbox[2]
-    for p in d.corps:
-        if p.get("t") != "path" or "hd" not in p.get("cls", []):
-            continue
-        for (xa, ya), (xb, yb) in (l for l in p["lignes"]):
-            if abs(ya - yb) < 1e-9 and not (xa < xb <= xE):
-                return False
-            if abs(xa - xb) < 1e-9 and abs(xa - R.b_P / 2) > 1e-9:
-                return False
-    return True
+
+    def polys(classe):
+        out = []
+
+        def rec(prims):
+            for q in prims:
+                if q.get("t") == "poly" and classe in q.get("cls", []):
+                    out.append(q)
+                rec(q.get("enfants") or [])
+        rec(d.corps)
+        return out
+
+    def cachees(prims):
+        return any((q.get("t") == "path" and "hd" in q.get("cls", [])) or cachees(q.get("enfants") or []) for q in prims)
+
+    sp_, ss_ = polys("sfp"), polys("sfs")
+    if len(sp_) != 1 or len(ss_) != 1 or cachees(d.corps):
+        return False
+    xp = [q[0] for q in sp_[0]["pts"]]; xs = [q[0] for q in ss_[0]["pts"]]; ys = [q[1] for q in ss_[0]["pts"]]
+    debut = R.tw_P / 2 + R.t_p + (float(R.u.l_n) if float(R.u.d_nt) > 0 else 0.0)
+    return (abs(min(xp) + R.b_P / 2) < 1e-6 and abs(max(xp) - R.b_P / 2) < 1e-6
+            and abs(min(xs) - debut) < 1e-6 and abs(min(ys) + R.b_S / 2) < 1e-6 and abs(max(ys) - R.b_S / 2) < 1e-6
+            and max(xs) >= debut + 40 and d.viewbox[0] <= -R.b_P / 2 and d.viewbox[0] + d.viewbox[2] >= max(xs) - 1e-6)
 
 
-chk("vue en plan : arêtes cachées dans le champ, dans le bon sens, bord de semelle à b/2 (défaut, "
-    "grugé en bas, porteuse étroite)",
-    aretes_cachees_ok(R0) and aretes_cachees_ok(moteur.compute(dict(d_nb=40, l_n=60)))
-    and aretes_cachees_ok(moteur.compute(dict(prof_P="IPE 300", d_top=50, d_nt=0, l_n=0, z_C=55))))
+chk("vue en plan : semelle de la porteuse entière (± bP/2), semelle de la portée depuis la fin du grugeage supérieur, "
+    "dans le champ — défaut, grugé en bas, porteuse étroite sans grugeage, grugeage long",
+    semelles_dessus_ok(R0) and semelles_dessus_ok(moteur.compute(dict(d_nb=40, l_n=60)))
+    and semelles_dessus_ok(moteur.compute(dict(prof_P="IPE 300", d_top=50, d_nt=0, l_n=0, z_C=55)))
+    and semelles_dessus_ok(moteur.compute(dict(l_n=300))))
 g = ecran_resultats._panneaux(R0, entrees.defaults())
 chk("fenêtres d'objet : titres courts, libellés LIBELLE (une forme par clé), aides AIDES",
     [g[k]["titre"] for k in ("G", "bolts", "beamS", "beamP", "plate", "weld", "efforts")]

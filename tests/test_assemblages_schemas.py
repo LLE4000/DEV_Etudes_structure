@@ -246,11 +246,73 @@ chk("cordons B soudés : symbole EN 22553 en élévation (flèche wsy + triangle
 chk("cordons A soudés : symbole en plan (un seul, cornière du haut) avec « a 6 » éditable",
     svg_wp.count('class="wst"') == 1 and 'data-key="a_P"' in svg_wp and ">a 6<" in svg_wp)
 chk("le symbole appartient à la pièce cordon (clic → panneau)", 'data-group="weldS"' in svg_ws)
-chk("arêtes cachées des semelles en plan (trait interrompu hd) : porteuse + portée ; absentes en parité",
-    svg_pl.count('class="hd"') == 2 and 'stroke-dasharray="4 2.5"' in svg_pl
-    and 'class="hd"' not in schemas.plan(R0, schemas.Options(lvl=1, interactive=True, realiste=False)).svg())
-chk("note : symboles et arêtes cachées aussi (rendu réaliste)",
-    'class="hd"' in schemas.plan(R0, schemas.options_rapport()).svg()
+# --- vue en plan : SEMELLES vues de dessus et boulons de profil (25/11/2026, le propriétaire : « on voit la semelle,
+# --- on voit l'âme »). Le harnais SUIT : il décrivait les arêtes cachées (deux traits interrompus hd), que la vue ne
+# --- porte plus.
+
+
+def _prims(d, t, classe):
+    """Les primitives de type ``t`` et de classe ``classe`` du corps d'un dessin, groupes compris."""
+    out = []
+
+    def rec2(prims):
+        for q in prims:
+            if q.get("t") == t and classe in q.get("cls", []):
+                out.append(q)
+            rec2(q.get("enfants") or [])
+    rec2(d.corps)
+    return out
+
+
+def _etendue(poly):
+    xs_ = [q[0] for q in poly["pts"]]; ys_ = [q[1] for q in poly["pts"]]
+    return min(xs_), max(xs_), min(ys_), max(ys_)
+
+
+def semelles_plan(R, d):
+    """(porteuse entière ±bP/2, portée large de bS et partant de la fin du grugeage supérieur, jusqu'au bord de la vue)."""
+    sp_, ss_ = _prims(d, "poly", "sfp"), _prims(d, "poly", "sfs")
+    if len(sp_) != 1 or len(ss_) != 1:
+        return False, False
+    a1, a2, _b1, _b2 = _etendue(sp_[0]); c1, c2, e1, e2 = _etendue(ss_[0])
+    debut = R.tw_P / 2 + float(R.u.g_h) + (float(R.u.l_n) if float(R.u.d_nt) > 0 else 0.0)
+    return (abs(a1 + R.b_P / 2) < 1e-6 and abs(a2 - R.b_P / 2) < 1e-6,
+            abs(c1 - debut) < 1e-6 and abs(e1 + R.b_S / 2) < 1e-6 and abs(e2 - R.b_S / 2) < 1e-6
+            and c2 > debut + 40 and abs(c2 - (d.viewbox[0] + d.viewbox[2])) < d.viewbox[2])
+
+
+pl_ec = schemas.plan(R0, schemas.options_ecran(R0, 1))
+R_sg = moteur.compute(dict(d_nt=0, l_n=0, d_top=40, prof_P="IPE 400", prof_S="IPE 270"))      # sans grugeage
+R_lg = moteur.compute(dict(l_n=320))                                                          # grugeage très long
+chk("vue en plan : la semelle de la porteuse vue de dessus, ENTIÈRE (± bP/2), et celle de la portée (largeur bS) "
+    "qui part de la fin du grugeage — défaut, sans grugeage (elle part de l'about), grugeage de 320 mm",
+    semelles_plan(R0, pl_ec) == (True, True)
+    and semelles_plan(R_sg, schemas.plan(R_sg, schemas.options_ecran(R_sg, 1))) == (True, True)
+    and semelles_plan(R_lg, schemas.plan(R_lg, schemas.options_ecran(R_lg, 1))) == (True, True),
+    f"{semelles_plan(R0, pl_ec)} {semelles_plan(R_sg, schemas.plan(R_sg, schemas.options_ecran(R_sg, 1)))} "
+    f"{semelles_plan(R_lg, schemas.plan(R_lg, schemas.options_ecran(R_lg, 1)))}")
+chk("vue en plan : plus d'arête cachée (hd) ; les semelles sont dessinées AVANT les âmes coupées (qui restent "
+    "lisibles par-dessus) ; rien de tout cela en parité",
+    not _prims(pl_ec, "path", "hd")
+    and svg_pl.index('class="sfs"') < svg_pl.index('class="sfp"') < svg_pl.index('class="pp"')
+    and 'class="sf' not in schemas.plan(R0, schemas.Options(lvl=1, interactive=True, realiste=False)).svg())
+k_, m_, tr_, sp_b = schemas.visserie_dessin(R0.d_b)
+bo = _prims(pl_ec, "rect", "bo")
+xf_, yo_ = R0.tw_P / 2, R0.tw_S / 2 + R0.t_C
+tetes_S = [q for q in bo if abs(q["y"] + q["h"] - (-yo_ - tr_)) < 1e-6 and abs(q["h"] - k_) < 1e-6]
+ecrous_S = [q for q in bo if abs(q["y"] - (yo_ + tr_)) < 1e-6 and abs(q["h"] - m_) < 1e-6]
+tetes_P = [q for q in bo if abs(q["x"] - (xf_ + R0.t_C + tr_)) < 1e-6 and abs(q["w"] - k_) < 1e-6]
+ecrous_P = [q for q in bo if abs(q["x"] + q["w"] - (-xf_ - tr_)) < 1e-6 and abs(q["w"] - m_) < 1e-6]
+chk("vue en plan : boulons DE PROFIL — groupe S : tête au-dessus de l'aile B, écrou sous l'autre ; groupe P : tête "
+    "contre l'aile A, écrou derrière l'âme porteuse ; une rondelle sous chacun",
+    len(bo) == 2 * R0.n2_S + 4 * R0.n2_P and len(tetes_S) == R0.n2_S == len(ecrous_S)
+    and len(tetes_P) == 2 * R0.n2_P == len(ecrous_P) and len(_prims(pl_ec, "rect", "bw")) == len(bo),
+    f"bo {len(bo)} S {len(tetes_S)}/{len(ecrous_S)} P {len(tetes_P)}/{len(ecrous_P)} bw {len(_prims(pl_ec, 'rect', 'bw'))}")
+chk("vue en plan soudée : aucun boulon dessiné ; parité : des axes seulement",
+    not _prims(schemas.plan(Rw, schemas.options_ecran(Rw, 1)), "rect", "bo")
+    and not _prims(schemas.plan(R0, schemas.Options(lvl=1, interactive=True, realiste=False)), "rect", "bo"))
+chk("note : symboles et semelles vues de dessus aussi (rendu réaliste)",
+    'class="sfp"' in schemas.plan(R0, schemas.options_rapport()).svg()
     and 'class="wst"' in schemas.elevation(Rw, schemas.options_rapport()).svg())
 
 # --- lignes de rupture : le bord d'un profil coupé est un zigzag, pas un

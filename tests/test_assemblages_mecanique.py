@@ -380,14 +380,38 @@ chk("bords libres, n1 = 2 : le terme 2m + 0,625e + e1 gouverne — Σleff,1 = Σ
     all(proche(a, 350.0, 1e-12)
         for a in MC.leff_platine_bords_libres(2, 400.0, 30.0, 30.0, 60.0, 40.0)),
     str(MC.leff_platine_bords_libres(2, 400.0, 30.0, 30.0, 60.0, 40.0)))
-# n1 = 1 : aucun groupe. m = 20, e = 100, e1h = e1b = 20 :
-#   cp = min(2πm = 125,66 ; πm + e1h + e1b = 102,83) = 102,83
-#   nc = min(4m + 1,25e = 205 ; 2m + 0,625e + 0,5(e1h + e1b) = 122,5) = 122,5
+# n1 = 1 : aucun groupe, et DEUX bords libres — chaque demi-mécanisme s'arrête au bord s'il est plus près que la
+# demi-ligne de rupture (correction du 25/11/2026, audit : le harnais SUIT — il figeait « πm + e1h + e1b » et
+# « 2m + 0,625e + (e1h + e1b)/2 », qui ne sont pas des mécanismes et rendaient 102,8 et 122,5 mm pour hp = 40).
+# m = 20, e = 100, e1h = e1b = 20 :
+#   cp = min(πm = 62,8 ; 2·e1h = 40) + min(πm ; 2·e1b = 40) = 80
+#   nc = min(2m + 0,625e = 102,5 ; e1h = 20) + min(102,5 ; e1b = 20) = 40 = hp
 un = MC.leff_platine_bords_libres(1, 70.0, 20.0, 20.0, 20.0, 100.0)
-chk("bords libres, n1 = 1 : aucun groupe — Σleff,1 = πm + e1h + e1b = 102,832 mm, "
-    "Σleff,2 = 2m + 0,625e + 0,5(e1h + e1b) = 122,5 mm",
-    proche(un[0], math.pi * 20.0 + 40.0, 1e-12) and proche(un[1], 122.5, 1e-12),
-    str(un))
+chk("bords libres, n1 = 1 : Σleff,1 = Σleff,2 = e1h + e1b = hp = 40 mm (jamais plus que la platine)",
+    proche(un[0], 40.0, 1e-12) and proche(un[1], 40.0, 1e-12), str(un))
+# dissymétrique : e1h = 20, e1b = 200 (bord bas hors de portée) → nc = 20 + 102,5 ; cp = 40 + πm
+dis = MC.leff_platine_bords_libres(1, 70.0, 20.0, 200.0, 20.0, 100.0)
+chk("bords libres, n1 = 1, pinces 20 / 200 : nc = e1h + (2m + 0,625e) = 122,5 ; cp = 2·e1h + πm = 102,832 ; "
+    "le même résultat pinces échangées",
+    proche(dis[1], 122.5, 1e-12) and proche(dis[0], 40.0 + math.pi * 20.0, 1e-12)
+    and dis == MC.leff_platine_bords_libres(1, 70.0, 200.0, 20.0, 20.0, 100.0), str(dis))
+loin = MC.leff_platine_bords_libres(1, 70.0, 500.0, 500.0, 20.0, 100.0)
+chk("bords libres, n1 = 1, bords hors de portée : la rangée isolée du Tableau 6.4 — 2πm et 4m + 1,25e",
+    proche(loin[0], 2 * math.pi * 20.0, 1e-12) and proche(loin[1], 205.0, 1e-12), str(loin))
+chk("bords libres, n1 = 1 : Σleff ≤ e1h + e1b sur 400 géométries",
+    all(max(MC.leff_platine_bords_libres(1, 70.0, a, b, m_, 60.0)) <= a + b + 1e-9
+        for a in (15.0, 30.0, 60.0, 120.0) for b in (15.0, 40.0, 90.0, 200.0, 400.0)
+        for m_ in (10.0, 25.0, 40.0, 60.0, 90.0) for _ in (0, 1, 2, 3)))
+# le GROUPE est plafonné à 0,8·ns·Fv,Rd dans les trois branches (correction du 25/11/2026)
+chk("groupe de fixations : plafond 0,8·ns·Fv,Rd — branche 2 (6 × 60 = 360 > 336) et branche 1 (582 > 480) "
+    "ramenées au plafond ; sous le plafond, la branche garde sa valeur et son nom",
+    MC.groupe_boulons(70, 60, 80, 2, 4) == (0.8 * 6 * 70, "0,8·ns·Fv,Rd (cisaillement des boulons)")
+    and MC.groupe_boulons(100, 95, 98, 2, 4) == (0.8 * 6 * 100, "0,8·ns·Fv,Rd (cisaillement des boulons)")
+    and MC.groupe_boulons(80, 50, 90, 2, 4) == (6 * 50, "ns·(Fb,Rd)min")
+    and MC.groupe_boulons(100, 60, 80, 2, 4) == (2 * 60 + 4 * 80, "ΣFb,Rd (pression diamétrale)"))
+_suite = [MC.groupe_boulons(94.08, 9.166 * t, 11.39 * t, 2, 4)[0] for t in [6 + 0.1 * i for i in range(141)]]
+chk("groupe de fixations : la résistance ne DESCEND jamais quand la platine s'épaissit (tp de 6 à 20 mm)",
+    all(b >= a - 1e-9 for a, b in zip(_suite, _suite[1:])), str(max(a - b for a, b in zip(_suite, _suite[1:]))))
 
 print("\n--- troncon_T sur les deux ailes de poteau du §7.3 (HEB 300 S355, tying) ---")
 Ft_u = RS.Ft_Rd(800.0, 245.0, 1.1)                # M20 8.8, γMu = 1,1

@@ -14,7 +14,7 @@ from .notation import ref_courte
 TABLES = [
     ("boulons", "Boulons",
      [("bv", "Cisaillement du groupe"), ("gl", "Glissement"),
-      ("bvT", "Tying – cisaillement")]),
+      ("bvT", "Tying – boulons")]),
     ("plat", "Plat d'âme",
      [("pdL", "Pression diamétrale"), ("pcg", "Cisaillement brut"), ("pcn", "Cisaillement net"),
       ("pcb", "Rupture de bloc"), ("pfl", "Flexion dans le plan"), ("plt", "Déversement (plat long)"),

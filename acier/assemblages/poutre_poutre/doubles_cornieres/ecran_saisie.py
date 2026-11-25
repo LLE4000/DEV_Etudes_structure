@@ -93,7 +93,7 @@ AIDES = {
     "lt_ok": "Poutre secondaire maintenue au déversement : condition de la règle de stabilité locale du "
              "grugeage (MSB P5 §4.2.5).",
     "d0_u": "Vide = d0 normal du boulon (Tab. 3.3) ; à saisir pour un trou surdimensionné.",
-    "opt_exc": "Non : pratique ECCS n°126 / MSB P5. Oui : variante conservatrice, M = (VEd/2)·eP par cornière.",
+    "opt_exc": "Non : pratique ECCS n°126 / MSB P5. Oui : variante conservatrice, M = (VEd/2)·eP par cornière. Ailes A soudées : toujours comptée.",
     "k_rot": "0,8 : MSB P5 §4.2.1.2 / SCI P358 ; 1,0 pour désactiver.",
     "opt_blf": "βLf des assemblages longs, EN 1993-1-8 §3.8 (Lj > 15d). Les guides ne l'appliquent pas aux "
                "attaches d'âme ; Oui = variante conservatrice.",

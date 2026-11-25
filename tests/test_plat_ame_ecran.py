@@ -204,7 +204,7 @@ chk("deux pages A4 paysage, sans débordement, échelle et disposition exposées
     str(note.derniers_avertissements))
 t1 = doc[0].get_text(); s1 = t1.replace(" ", "").replace("\n", "")
 chk("page 1 : bandeau, en-tête compact 3 lignes, hypothèses, tableaux, conclusion",
-    "VÉRIFIÉ" in s1 and "Plat 190×100×10 S355" in t1 and "Soudure double a 5" in t1
+    "VÉRIFIÉ" in s1 and "Plat 190×100×10 S355" in t1 and "Soudure double a 6" in t1
     and "VEd 125,0 kN" in t1 and "rotule à la face de l'âme porteuse" in t1
     and "PLAT D'ÂME" in t1.upper() and "ASSEMBLAGE VÉRIFIÉ à l'ELU" in t1)
 chk("page 1 : γM1 ANB écrit dans les hypothèses", "γM1 1,10 (ANB)" in t1)

@@ -41,7 +41,8 @@ from acier.formats import f0
 from acier.assemblages.poutre_poutre.doubles_cornieres.schemas import (   # kit partagé
     Options, Feuille, INF_MM,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_portee)
+    _rect_rompu, _rupture, _renvoi, _section_portee,
+    _semelle_dessus, _boulon_travers, visserie_dessin)
 from ..dessin import marge_poteau, nom_portee, nom_poteau, section_poteau
 from .entrees import PILOTEES_PAR_PREDIM
 
@@ -268,17 +269,22 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """VUE EN PLAN (coupe horizontale au niveau des boulons) — la vue
-    porteuse : LE POTEAU EN COUPE (hachuré), l'âme de la poutre portée en
-    coupe, le PLAT d'un seul côté de l'âme avec ses cordons, les files de
-    boulons. En cas (b) : la poutre arrive ENTRE LES AILES, avec la recoupe
+    """VUE EN PLAN — la vue porteuse : LE POTEAU EN COUPE (hachuré), la
+    SEMELLE supérieure de la poutre portée vue de dessus, son âme et le PLAT
+    coupés au niveau des boulons (le plat d'un seul côté de l'âme, avec ses
+    cordons), les boulons de profil (tête contre le plat, écrou contre
+    l'âme). En cas (b) : la poutre arrive ENTRE LES AILES, avec la recoupe
     des semelles et les jeux latéraux."""
     u = R.u
     xf = R.xf_P; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2
     xt = xf + R.b_p; p2 = N(u.p2_u)
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
+    kb, mb, trb, _sp = visserie_dessin(R.d_b)
     sec = section_poteau(R)
     xcol = mx(*[abs(px) for px, _ in sec]); ycol = mx(*[abs(py) for _, py in sec])
     xE = mx(xt, xcol) + 60
+    if opt.realiste and not opt.fabrication:              # le plan de principe garde son champ (son échelle)
+        xE = mx(xE, xs + 45)
     rec = N(u.rec_S); brec = mn(R.b_S, R.libre_ailes) if rec > 0 else R.b_S
     Hh = mx(ws + R.t_p + 26, ycol + 10)
     if opt.realiste:
@@ -302,16 +308,11 @@ def plan(R, opt):
                   _path(["ht"], _hachures(sec))])
     if "colFl" in hot or "colWeb" in hot:
         s.append(_path(["hl"], [[(p[0], p[1]) for p in sec] + [tuple(sec[0])]]))
-    # --- semelles de la poutre portée (vues de dessus, trait fin) et recoupe
-    if opt.realiste:
-        fl = []
-        for sg in (-1, 1):
-            if rec > 0:
-                fl.append([(x0, sg * brec / 2), (x0 + rec, sg * brec / 2),
-                           (x0 + rec, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-            else:
-                fl.append([(x0, sg * R.b_S / 2), (xE, sg * R.b_S / 2)])
-        piece("recut" if rec > 0 else "beamS", [_path(["hd"] + hc("recut"), fl)])
+    # --- SEMELLE supérieure de la poutre portée, VUE DE DESSUS (teinte légère, contour continu — 25/11/2026, le
+    # propriétaire : « on voit la semelle, on voit l'âme ») : elle commence après le grugeage, avec sa recoupe
+    if opt.realiste and xs < xE - 4:
+        piece("recut" if rec > 0 else "beamS",
+              [_poly(["sfs"] + hc("recut"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs, x_rec=x0 + rec, b_rec=brec))])
     # --- âme de la poutre portée en coupe (hachurée), bord droit rompu
     if opt.realiste:
         ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)
@@ -332,12 +333,18 @@ def plan(R, opt):
     # --- files de boulons (axes verticaux à travers plat + âme)
     xc1 = xf + R.g_B
     cls_s = ["ax"] if opt.realiste else ["bp"]
+    yh = y1 - (trb + kb + 6 if opt.realiste else 14)      # au-delà des têtes dessinées
     for j in range(R.n_2):
-        piece("bolts", [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, y1 - 14), (xc1 + j * p2, ws + 14)]])])
+        if opt.realiste:
+            # boulon de profil : tête contre le plat, écrou contre l'âme de la portée
+            piece("bolts", _boulon_travers(["bo"] + hc("bolts"), "y", ws, y1, xc1 + j * p2, R.d_b, R.d_w)
+                  + [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, yh), (xc1 + j * p2, ws + trb + mb + 6)]])])
+        else:
+            piece("bolts", [_path(cls_s + hc("bolts"), [[(xc1 + j * p2, y1 - 14), (xc1 + j * p2, ws + 14)]])])
     # --- cotes
-    S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=y1 - 14, sym="e2,b", val=R.e2b, key="e2b_u", lvl=2))
+    S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yh, sym="e2,b", val=R.e2b, key="e2b_u", lvl=2))
     if R.n_2 > 1:
-        S.dim(dict(id="p2", side="T", a=xc1, b=xc1 + (R.n_2 - 1) * p2, o1=y1 - 14, o2=y1 - 14, sym="p2", val=p2, key="p2_u", lvl=2))
+        S.dim(dict(id="p2", side="T", a=xc1, b=xc1 + (R.n_2 - 1) * p2, o1=yh, o2=yh, sym="p2", val=p2, key="p2_u", lvl=2))
     S.dim(dict(id="gh", side="T", a=xf, b=x0, o1=y1, o2=-ws, sym="gh", val=gh, key="g_h", lvl=1, out="lo"))
     S.dim(dict(id="bp", side="T", a=xf, b=xt, o1=y1, o2=y1, sym="bp", val=R.b_p, lvl=1, calc=1))
     S.dim(dict(id="tp", side="R", a=y1, b=-ws, o1=xt, o2=xt, sym="tp", val=R.t_p, key="tp_u", lvl=1))

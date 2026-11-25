@@ -116,7 +116,10 @@ l'exemple publié avec γM1 = 1,0 (comme sa source).
   290 × 100 × 10, 4 M20 8.8. `z = 50` ; `MS = 10,0 kNm` ; `Ip = 24 500 mm²` ;
   `F,Ed = 65,854 kN` → **η boulons 0,700** (dimensionnante) ; plat 468,02 /
   475,83 / 434,14 kN ; âme portée η 0,5349 ; cordons 496,14 / 1 308,66 N/mm ;
-  gorge de pleine résistance 3,915 mm. **VÉRIFIÉ.**
+  gorge de pleine résistance 3,915 mm. **VÉRIFIÉ.** *(Depuis le 25/11/2026 :
+  la gorge de pleine résistance se calcule par √2 — 5,537 mm — et la gorge par
+  défaut est de 6 mm, d'où des cordons à 1 570,39 N/mm ;
+  `docs/assemblages/ECARTS_ET_CORRECTIONS.md` §7, K5.)*
 - **BM3 — cas (b) variante b1** (`gh = 155`) : `z = 195 mm` (× 3,9),
   `MS = 39 kNm`, `F,Ed = 174,461 kN` → **η boulons 1,854** ; plat LONG,
   `λLT = 54,366`, `pb = 276,516 MPa`, `Mb,Rd = 35,235 kNm` → **η 1,107**.

@@ -937,6 +937,42 @@ def champ(cfg: Config, u: Dict, k: str, verrou: bool = False, plein: Optional[bo
     return C.ligne(lab, C.num(["v", k], v, _unite(f), dec=3, entier=entier, desactive=verrou, mini=1 if entier else None), sym, _aide(f, cfg, u))
 
 
+def _options(cfg: Config, k: str) -> List:
+    aff = cfg.affichage.get(k, {})
+    return [(o, aff.get(o, o)) for o in cfg.E.CHAMPS[k]["o"]]
+
+
+def _cellule(cfg: Config, u: Dict, k: str, verrou: bool = False):
+    """(libellé court en HTML, champ, aide) de la clé ``k`` pour une ligne à DEUX champs (``commun.ligne2``) : son
+    symbole quand elle en a un — celui que le dessin cote, « p₁ », « e₂,b » —, sinon son libellé ; le libellé long et
+    l'aide de l'écran Streamlit au survol de ⓘ. None pour une case à cocher (elle garde sa ligne)."""
+    f = cfg.E.CHAMPS[k]
+    sym, lab = cfg.libelles.get(k, ("", f["l"]))
+    v = u.get(k)
+    if f["t"] == "s":
+        if list(f["o"]) == OUI_NON:
+            return None
+        ctl = C.segments(["v", k], v, _options(cfg, k)) if k in cfg.segments else C.choix(["v", k], v, _options(cfg, k), desactive=verrou)
+    elif f["t"] == "x":
+        ctl = C.texte(["v", k], v, "")
+    else:
+        entier = k in COMPTES or k in cfg.entiers
+        ctl = C.num(["v", k], v, _unite(f), dec=3, entier=entier, desactive=verrou, mini=1 if entier else None)
+    return (sym or lab), ctl, _aide(f, cfg, u)
+
+
+def ligne_profil(cfg: Config, u: Dict, titre: str, k_prof: str, k_nu: str, verrou: bool = False) -> str:
+    """Une PIÈCE et son ACIER sur UNE ligne (le propriétaire, 25/11/2026 : « quand on a le nom du profilé principal, on
+    a la qualité de l'acier juste à côté, sur une seule ligne ») : le nom de la pièce, son profilé (ou sa cornière), sa
+    nuance. L'aide ⓘ dit les deux libellés longs de l'écran Streamlit."""
+    fp, fn = cfg.E.CHAMPS[k_prof], cfg.E.CHAMPS[k_nu]
+    aide = _aide(fp, cfg, u) + " · " + _aide(fn, cfg, u)
+    a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>'
+    return (f'<div class="row2 asm-profil"><label><span>{C.esc(titre)}</span>{a}</label>'
+            f'{C.choix(["v", k_prof], u.get(k_prof), _options(cfg, k_prof), desactive=verrou)}'
+            f'{C.choix(["v", k_nu], u.get(k_nu), _options(cfg, k_nu))}</div>')
+
+
 def _grp(titre: str, aide: str = "") -> str:
     """Un titre de groupe du cadre Données. Son ``aide`` (HTML ou texte) ne prend plus un paragraphe de la colonne
     compacte : elle se lit sous ⓘ, au survol ou au toucher (js/etabli.js) — en texte, les indices à plat (« p3 »)."""
@@ -951,12 +987,31 @@ def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
     champs pilotés par le prédimensionnement sont verrouillés (◆ dans Streamlit)."""
     pred = bool(getattr(cfg.E, "mode_predim", lambda u: False)(u))
     pil = set(getattr(cfg.E, "PILOTEES_PAR_PREDIM", ()))
+
+    def vu(cle):
+        return cle in cfg.E.CHAMPS and cfg.E.champ_visible(u, cle)
+
     out = ""
     for k in cles:
         if isinstance(k, tuple) and k[0] == "lib":        # un champ sous le libellé de son mode : ("lib", clé, (sym, lab))
             _g, cle, lab = k
-            if cle in cfg.E.CHAMPS and cfg.E.champ_visible(u, cle):
+            if vu(cle):
                 out += champ(cfg, u, cle, verrou=pred and cle in pil, libelle=lab)
+            continue
+        if isinstance(k, tuple) and k[0] == "duo":        # DEUX champs sur une ligne : ("duo", clé, clé) — un seul visible : sa ligne
+            vus = [c for c in k[1:] if vu(c)]
+            cells = [_cellule(cfg, u, c, verrou=pred and c in pil) for c in vus]
+            if len(vus) == 2 and all(cells):
+                out += C.ligne2(*cells)
+            else:
+                out += "".join(champ(cfg, u, c, verrou=pred and c in pil) for c in vus)
+            continue
+        if isinstance(k, tuple) and k[0] == "profil":     # une pièce et son acier sur une ligne : ("profil", nom, profilé, nuance)
+            _g, titre, kp, kn = k
+            if vu(kp) and vu(kn):
+                out += ligne_profil(cfg, u, titre, kp, kn, verrou=pred and kp in pil)
+            else:
+                out += "".join(champ(cfg, u, c, verrou=pred and c in pil) for c in (kp, kn) if vu(c))
             continue
         if isinstance(k, tuple):
             genre, x = k[0], k[1]
@@ -1500,7 +1555,7 @@ def resultat(etat: Dict) -> Dict:
         if cfg.predim and R.get("pd") is not None and R.pd.get("pick") is not None:
             pick = R.pd.pick
             t_est, niv_est = taux_estime(pick.eta, 0)
-            row = C.ligne_verif("Proposition", "taux estimé, à confirmer en vérification", t_est, niv_est, calcul="predim", pk="solution",
+            row = C.ligne_verif("Proposition", PROPOSITION_GARDE, t_est, niv_est, calcul="predim", pk="solution",
                                 piece=C.esc(cfg.predim["nom"](pick)))
             blocs += E.bloc(1, "Mode prédimensionnement" if R.pred else "Prédimensionnement", "inc", "solution proposée",
                             "", row, theme=True, calcul="predim")
@@ -1513,11 +1568,59 @@ def resultat(etat: Dict) -> Dict:
         vol = volets(cfg, R, u, el)
     cfg = pour(cfg, R)
     vs = vues(cfg, R, el)
-    d = PJ.description(u)
+    sous, lignes, bande = entete_vue(cfg, u, R)
     for v in vs:
-        v["entete"] = E.entete(v["titre"].upper(), C.esc(cfg.court), [d] if d else [], None, v.get("legende", ""))
+        v["entete"] = E.entete(v["titre"].upper(), sous, lignes, bande, v.get("legende", ""))
     return {"resultat": html_res, "volets": vol, "vues": vs, "phrase": "", "statut_html": _statut_note(bilans, niv),
             "resume": resume_note(etat, bilans), "donnees": arbre(etat, R), "elements": elements(etat, bilans)}
+
+
+# les pièces que l'en-tête d'une vue nomme, dans l'ordre : la porteuse, la portée (``Config.noms_pieces``)
+NOMS_PIECES = ("Principale", "Secondaire")
+# les efforts de la bande de l'en-tête : (clé, symbole, unité) — V toujours, les autres quand ils ne sont pas nuls
+EFFORTS_BANDE = (("V_Ed", "V", "kN"), ("N_Ed", "N", "kN"), ("H_Ed", "H", "kN"), ("M_Ed", "M", "kN·m"))
+
+
+def piece_txt(u: Dict, X: str) -> str:
+    """« HEA 400 · S355 » : le profilé d'une pièce et la nuance de son acier, sur une ligne (texte)."""
+    prof = u.get("prof_" + X)
+    nu = u.get("nu_" + X)
+    return (f"{'personnalisé' if prof == PERSO else (prof or '?')} · "
+            f"{'acier personnalisé' if nu == PERSO else (nu or '?')}")
+
+
+def bande_efforts(u: Dict) -> List:
+    """La bande des efforts de l'en-tête d'une vue : V_Ed toujours, N_Ed, H_Ed et M_Ed quand ils sont saisis non nuls."""
+    out = []
+    for cle, s, un in EFFORTS_BANDE:
+        if cle in u and (cle == "V_Ed" or _nombre(u.get(cle))):
+            out.append((s, "Ed", _nombre(u.get(cle)), un))
+    return out
+
+
+def _nombre(v) -> float:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    return x if math.isfinite(x) else 0.0
+
+
+def entete_vue(cfg: Config, u: Dict, R):
+    """(sous-titre, lignes, bande) de l'en-tête des vues d'un assemblage (le propriétaire, 25/11/2026 : « au-dessus de la
+    zone de dessin, le profilé principal, le profilé secondaire, la qualité d'acier juste à côté, sur une seule ligne ») :
+    le nom de l'attache ; UNE ligne par pièce — « Principale HEA 400 · S355 », « Secondaire HEA 300 · S355 » — ; les
+    efforts dans la bande, à droite. Une configuration qui a mieux à dire le dit (``Config.entete``) ; sans profilés
+    porteur et porté, la ligne de la liste du projet (``projet.description``)."""
+    if getattr(cfg, "entete", None):
+        return cfg.entete(u, R)
+    if "prof_P" in u and "prof_S" in u:
+        nP, nS = getattr(cfg, "noms_pieces", NOMS_PIECES)
+        appui = PJ.APPUI_COURT.get(str(u.get("appui") or ""))
+        sous = C.esc(cfg.court) + (f" · {C.esc(appui)}" if appui else "")
+        return sous, [f"{nP} {piece_txt(u, 'P')}", f"{nS} {piece_txt(u, 'S')}"], bande_efforts(u)
+    d = PJ.description(u)
+    return C.esc(cfg.court), [d] if d else [], None
 
 
 def phrase(cfg: Config, u: Dict) -> str:
@@ -1768,6 +1871,13 @@ def _nom_solution(cfg: Config, R, r) -> str:
     return n if noms.count(n) <= 1 else f"{n} ({r.get('var') or r.get('i')})"
 
 
+# Ce que « appliquer une solution » fait, dit dans le sélecteur et sous la ligne « Proposition » du résultat (le
+# propriétaire, 25/11/2026 : « il faut que ça me garde mes données de base — les efforts, le profilé, le niveau ; c'est la
+# plaque, le nombre de boulons qui doit changer »). C'est la règle des six moteurs ; le test la rejoue sur chaque solution.
+SOUS_TITRE_SOLUTIONS = "taux estimé · un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés"
+PROPOSITION_GARDE = "taux estimé · efforts, profilés et niveaux gardés"
+
+
 def sel_solution(cfg: Config, u: Dict, familles=None) -> str:
     R = moteur(cfg, u)
     p = R.pd
@@ -1781,7 +1891,8 @@ def sel_solution(cfg: Config, u: Dict, familles=None) -> str:
                      "prop": C.esc(cfg.predim["label"](r) + " · " + geo_solution(cfg, r) + " · taux estimé"
                                    + ("" if r.ok else " au-dessus du taux cible")
                                    + ("" if math.isfinite(r.eta) else " (indéterminé)"))})
-    return C.selecteur("solution", "Solutions du prédimensionnement", "taux estimé · un clic recopie la solution et repasse en vérification",
+    # (25/11/2026) ce qu'un clic change, et ce qu'il garde : dit là où on choisit
+    return C.selecteur("solution", "Solutions du prédimensionnement", SOUS_TITRE_SOLUTIONS,
                        "", rows, _debut([dict(r, _ok=r["opt"]) for r in rows]), cfg.predim["unite_col"],
                        etoile="proposée par défaut (le moins de rangées)")
 

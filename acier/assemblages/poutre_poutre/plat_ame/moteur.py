@@ -24,6 +24,7 @@ import math
 from acier.bibliotheques import DB, PERSO, find, idx
 from acier.assemblages import materiau as MT
 from acier.assemblages import ductilite as DU
+from acier.assemblages import mecanique as MEC
 from acier.js import AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp, js_str
 from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince, EffortBoulon
@@ -181,10 +182,10 @@ def compute(u0=None, materiau=None):
     # ---- alertes
     tfrP = R.tf_P + R.r_P; gap = R.h_P - u.d_top - R.h_S; tfrS = R.tf_S + R.r_S
     m12 = 1.2 * d0
-    # gorge de pleine résistance vis-à-vis du plat (dérivation §4.5.3.3 :
-    # 2·a·fvw,d ≥ tp·fy/(√3·γM0)) — recommandation, contrôlée par alerte
+    # gorge de pleine résistance vis-à-vis du plat (le plat plastifie avant le cordon : a ≥ tp·fy·βw·γM2/(√2·fu·γM0),
+    # la règle des guides — mecanique.a_pleine_resistance_plat) — recommandation, contrôlée par alerte
     R.fuw, R.bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_P, R.bw_P)
-    R.a_plein = dv(R.t_p * R.fy_L * R.bww * gM2, 2 * R.fuw * gM0)
+    R.a_plein = MEC.a_pleine_resistance_plat(R.t_p, R.fy_L, R.bww, R.fuw, gM2, gM0)
     botLim = R.h_S - (u.d_nb if u.d_nb > 0 else tfrS); sumC = u.z_C + R.h_p
     prP = ["prof_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u"] if u.prof_P == PERSO else ["prof_P"]
     prS = ["prof_S", "hS_u", "tfS_u", "rS_u"] if u.prof_S == PERSO else ["prof_S"]
@@ -243,10 +244,10 @@ def compute(u0=None, materiau=None):
              m="Plat LONG (z > tp/0,15) et poutre non maintenue au déversement : le déversement du plat est vérifié, mais la stabilité d'ensemble demande un examen particulier (SCI P358).",
              f=["lt_ok", "tp_u", "e2b_u", "g_h"], d=["z"], e=["plate"],
              w="z = " + F(R.z_p, 1) + " mm > tp/0,15 = " + F(dv(R.t_p, 0.15), 1) + " mm."),
-        dict(id="a_rec", c=R.a_w < R.a_plein - 1e-9, b=0,
+        dict(id="a_rec", c=R.a_w < R.a_plein - MEC.TOL_GORGE, b=0,
              m="Gorge inférieure à la PLEINE RÉSISTANCE recommandée vis-à-vis du plat — admissible si la vérification en contrainte du cordon passe, mais le détail courant soude le plat à pleine résistance.",
              f=["a_w", "tp_u"], d=["aw"], e=["weld"],
-             w="Recommandé : a ≥ tp·fy·βw·γM2/(2·fu·γM0) = " + F(R.a_plein, 1) + " mm (dérivation EN 1993-1-8 §4.5.3.3) ; actuel : a = " + f0(R.a_w) + " mm."),
+             w="Recommandé : a ≥ tp·fy·βw·γM2/(√2·fu·γM0) = " + F(R.a_plein, 1) + " mm (le plat plastifie avant le cordon : MSB Part 5 §3, dérivation EN 1993-1-8 §4.5.3.3) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="MEd", c=Mabs != 0, b=0,
              m="MEd ≠ 0 : l'assemblage reste modélisé comme articulé ; MEd est ajouté au moment d'excentricité VEd·z. Un moment significatif sort du domaine de l'outil.",
              f=["M_Ed"], d=["z"], e=[], w="MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm."),
@@ -408,9 +409,10 @@ def compute(u0=None, materiau=None):
        "Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0)",
        "Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
     ck("pfl", "Plat d'âme", "Flexion dans son plan", R.M_S, dv(R.Wel_p * R.fy_L, gM0) / 1e6, "kNm",
-       "MSB Part 5 §3.2.3 ; EN 1993-1-1 §6.2.5", "COMP", not R.court,
-       "Sans objet si hp ≥ 2,73·z ; sinon MEd = VEd·z ≤ Wel·fy/γM0 avec Wel = tp·hp²/6",
-       "hp = " + F(R.h_p, 0) + " < 2,73·z = " + F(2.73 * R.z_p, 1) + " mm ; Wel = " + F(R.Wel_p, 0) + " mm³", 1)
+       "MSB Part 5 §3.2.3 ; EN 1993-1-1 §6.2.5", "COMP", (not R.court) or Mabs > 0,
+       "Sans objet si hp ≥ 2,73·z ET MEd = 0 ; sinon VEd·z + |MEd| ≤ Wel·fy/γM0 avec Wel = tp·hp²/6",
+       "hp = " + F(R.h_p, 0) + (" ≥" if R.court else " <") + " 2,73·z = " + F(2.73 * R.z_p, 1) + " mm"
+       + (" ; |MEd| = " + F(Mabs, 2) + " kNm" if Mabs > 0 else "") + " ; Wel = " + F(R.Wel_p, 0) + " mm³", 1)
     ck("plt", "Plat d'âme", "Déversement du plat LONG (z > tp/0,15)", R.M_S, R.Mb_p, "kNm",
        "SCI P358 (plats longs) ; courbe : BS 5950-1 Annexe B.2.1 (Table 17), E = 205 000 MPa ; γM1 ANB",
        "COMP", R.long_p,
@@ -439,8 +441,8 @@ def compute(u0=None, materiau=None):
        "MEd = VEd·(gh + ln) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd",
        "Wel,N = " + F(R.W_N, 0) + " mm³ ; Vpl,N,Rd = " + F(R.VRd_gS, 1) + " kN ; réduction = " + F(R.rho_N, 3), 1)
     ck("m2", "Poutre secondaire", "Poutre grugée – interaction à la 2e file de boulons (n2 = 2)",
-       V * (u.g_h + R.e2b + u.p2_u) / 1000, R.Mc_2, "kNm", "MSB Part 5 §3.2.5", "COMP",
-       R.cas_g > 0 and R.n_2 == 2 and u.l_n > R.e2b + u.p2_u, "MEd = VEd·(gh + e2,b + p2)", "")
+       V * (u.g_h + R.e2b + u.p2_u) / 1000 + Mabs, R.Mc_2, "kNm", "MSB Part 5 §3.2.5", "COMP",
+       R.cas_g > 0 and R.n_2 == 2 and u.l_n > R.e2b + u.p2_u, "MEd = VEd·(gh + e2,b + p2) + |MEd|", "")
     ck("stN", "Poutre secondaire", "Stabilité locale du grugeage – longueur ln", u.l_n, R.ln_max, "mm",
        "MSB Part 5 §4.2.5", "COMP", R.cas_g > 0,
        "ln ≤ h si h/tw ≤ limite ; sinon ln ≤ K·h/(h/tw)³",
@@ -566,7 +568,8 @@ def predim(u, R, Mabs):
         cand = [t for t in DB["epais"] if t <= tmax + 1e-9] or [DB["epais"][0]]
         tp = cand[_first_ge(cand, treq)]
         bp = ceil5(u.g_h + pk.e2 * 2)
-        a = mx(3, math.ceil(dv(tp * R.fy_L * R.bw_L * u.g_M2, 2 * mn(R.fu_L, R.fu_P) * gM0)))
+        fuw, bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_P, R.bw_P)
+        a = MEC.gorge_proposee(MEC.a_pleine_resistance_plat(tp, R.fy_L, bww, fuw, u.g_M2, gM0))
         return AttrDict(reqs=reqs, treq=treq, tp=tp, bp=bp, a=a, tmax=tmax)
 
     for r in rows:

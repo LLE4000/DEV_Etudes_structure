@@ -105,7 +105,35 @@ chk("plat court par défaut (z = 50 ≤ tp/0,15 = 66,7) : ni flexion ni déverse
     not R0.ck["pfl"].active and not R0.ck["plt"].active)
 chk("soudure : qz = VEd/(2hp) = 328,9 N/mm ; qx = 3·MS/hp² = 519,4 N/mm ; Fw,Rd = fvw·a",
     pres(R0.qz_w, 125000 / 380, 1e-9) and pres(R0.qx_w, 3 * 6.25e6 / 36100, 1e-9)
-    and pres(R0.ck["w"].Rd, R0.fvw * 5, 1e-9))
+    and pres(R0.ck["w"].Rd, R0.fvw * 6, 1e-9))      # a = 6 mm par défaut depuis le 25/11/2026 (pleine résistance)
+# --- corrections du 25/11/2026 (audit des formules)
+# gorge de PLEINE RÉSISTANCE : le plat tendu plastifie avant le cordon — tp·fy·βw·γM2/(√2·fu·γM0), la règle des guides
+# (0,55·tp en S355) ; le diviseur était 2 (plat cisaillé : 3,915 mm pour tp = 10, une gorge de 5 passait sans avis)
+chk("gorge de pleine résistance : 10·355·0,9·1,25/(√2·510) = 5,537 mm ; a = 6 par défaut : pas d'avis ; a = 5 : avis "
+    "non bloquant",
+    pres(R0.a_plein, 10 * 355 * 0.9 * 1.25 / (math.sqrt(2) * 510), 1e-12) and pres(R0.a_plein, 5.5373, 1e-4)
+    and R0.a_w == 6 and not any(a.id == "a_rec" for a in R0.alerts)
+    and any(a.id == "a_rec" and not a.block for a in calcul_main(dict(a_w=5)).alerts), str(R0.a_plein))
+from acier.assemblages import mecanique as _MEC  # noqa: E402
+from acier.assemblages.poutre_poutre.plat_ame.entrees import MODE_PREDIM as _MP  # noqa: E402
+_Rp = calcul_main(dict(mode_calc=_MP))
+chk("prédimensionnement : chaque plat proposé reçoit sa gorge de pleine résistance (0,554·tp arrondi au mm supérieur)",
+    all(r.prop.a == max(3, math.ceil(r.prop.tp * 355 * 0.9 * 1.25 / (math.sqrt(2) * 510) - _MEC.TOL_GORGE))
+        for r in _Rp.pd.rows if r.geom) and _Rp.pd.a == max(3, math.ceil(_Rp.pd.tp * 0.55373 - 0.05)),
+    f"{_Rp.pd.tp} {_Rp.pd.a}")
+# flexion du plat : « sans objet si hp ≥ 2,73·z » ne couvre que M = VEd·z — avec un MEd, la vérification reste due
+_Rm = calcul_main(dict(M_Ed=4))
+chk("plat court (hp = 190 ≥ 2,73·z = 136,5) : flexion sans objet si MEd = 0 ; ACTIVE avec MEd = 4 kNm — "
+    "Ed = 125·0,05 + 4 = 10,25 kNm, Rd = Wel·fy = 21,36 kNm",
+    R0.court and not R0.ck["pfl"].active and _Rm.court and _Rm.ck["pfl"].active
+    and pres(_Rm.ck["pfl"].Ed, 10.25, 1e-12) and pres(_Rm.ck["pfl"].Rd, 10 * 190 ** 2 / 6 * 355 / 1e6, 1e-12),
+    f"{_Rm.ck['pfl'].active} {_Rm.ck['pfl'].Ed} {_Rm.ck['pfl'].Rd}")
+# interaction à la 2e file : MEd s'ajoute, comme à l'extrémité du grugeage (mN)
+_R2 = calcul_main(dict(n2_u=2, bp_u=160, d_nb=40, M_Ed=4))
+_R2s = calcul_main(dict(n2_u=2, bp_u=160, d_nb=40))
+chk("2e file de boulons (n2 = 2), MEd = 4 kNm : Ed = 125·(10 + 40 + 60)/1000 + 4 = 17,75 kNm (13,75 sans MEd)",
+    _R2.ck["m2"].active and pres(_R2.ck["m2"].Ed, 17.75, 1e-12) and pres(_R2s.ck["m2"].Ed, 13.75, 1e-12)
+    and pres(_R2.ck["m2"].Rd, _R2s.ck["m2"].Rd, 1e-12), f"{_R2.ck['m2'].Ed} {_R2s.ck['m2'].Ed}")
 chk("cisaillement local âme porteuse : Av = tw·hp = 11 × 190 = 2090 mm², Ed = VEd/2",
     R0.Av_P == 2090 and R0.ck["vlP"].Ed == 62.5)
 chk("cas par défaut VÉRIFIÉ, dimensionnante = pression diamétrale de l'âme",

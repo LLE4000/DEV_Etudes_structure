@@ -461,3 +461,29 @@ corrigés (point 3). Tests : `tests/test_api_web_assemblages.py` partie 12 (19 c
 navigateur `verifier_site.js module:assemblages` 23 / 23 et parcours de relecture (`scratchpad/rv_parcours.js`,
 `rv_parcours2.js` : poutre–poutre sur PC, tablette et téléphone, note « à corriger », n₁ = 10⁹, texte piégé,
 cornières soudées, colonne « Excel », pile à la limite) au vert, captures regardées.
+
+## 10. Lot du 25/11/2026 : en-tête des vues, saisie condensée, prédimensionnement, vues en plan, formules
+
+Demande du propriétaire : une application simple à encoder, des dessins et des formules justes, un prédimensionnement
+qui garde les données de base.
+
+1. **En-tête des vues** (`assemblages.entete_vue`, `etabli_compact.entete`) : le titre de la vue et le nom de
+   l'attache, puis UNE ligne par pièce avec son acier — « Principale HEA 400 · S355 », « Secondaire HEA 300 · S355 »
+   (« Poteau … », « Poutre … » dans la famille poutre–poteau, avec « · sur l'aile » ou « · dans l'âme ») —, et les
+   efforts non nuls dans la bande de droite. Pied de poteau : sa ligne de poteau et sa ligne de platine
+   (`assemblages_pied.entete_pied`). Une configuration qui a mieux à dire le dit (`Config.entete`).
+2. **Saisie condensée** (`assemblages.champs` : éléments `("profil", titre, clé du profilé, clé de l'acier)` et
+   `("duo", clé, clé)`) : le profilé et son acier sur UNE ligne (`ligne_profil`, CSS `.row2.asm-profil`), les cotes
+   deux par ligne. Les sections sont les mêmes, les champs aussi : rien n'a été retiré.
+3. **Prédimensionnement** : le mode dit ce qu'il garde (« Vos efforts, vos profilés, leur acier, leurs niveaux et le
+   grugeage sont gardés : seuls … sont proposés ») ; la ligne « Proposition » et la fenêtre des solutions le rappellent.
+   Preuve : `tests/test_assemblages_predim.py` (six attaches, 238 solutions recopiées par le moteur et par l'écran).
+4. **Vues en plan** (les six `schemas.plan`, rendu réaliste seulement — la parité avec le HTML ne change pas) : la
+   SEMELLE supérieure vue de dessus (classes `sfp` la porteuse, `sfs` la portée ; teinte légère, contour continu), les
+   âmes et la pièce d'attache coupées au niveau des boulons par-dessus, les boulons DE PROFIL (tête, écrou, rondelles :
+   `_boulon_travers`). La semelle de la portée commence après le grugeage supérieur. Le PLAN DE PRINCIPE de la note
+   (`options_fabrication`) garde son champ : la semelle de la porteuse y est rompue, pour que la planche tienne à la
+   même échelle normalisée qu'avant.
+5. **Formules** : treize corrections après relecture indépendante des six attaches —
+   `docs/assemblages/ECARTS_ET_CORRECTIONS.md` §7 (ce qui a changé, l'effet mesuré, le test ; et ce qui reste à
+   décider). La gorge par défaut des plats d'âme passe de 5 à 6 mm (pleine résistance du plat de 10 mm).

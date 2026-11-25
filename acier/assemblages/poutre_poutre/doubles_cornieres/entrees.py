@@ -244,7 +244,7 @@ GROUPES = [
             _c("g_M3", "γM3 – glissement ELU", un="-"), _c("g_M3s", "γM3,ser – glissement ELS", un="-")]),
     dict(t="Options du modèle mécanique",
          f=[_c("opt_exc", "Excentricité gA reprise par chaque groupe P dans son plan", "s", OUI_NON,
-               h="Non : pratique ECCS n°126 / MSB Part 5. Oui : variante conservatrice, M = (VEd/2)·eP par cornière."),
+               h="Non : pratique ECCS n°126 / MSB Part 5. Oui : variante conservatrice, M = (VEd/2)·eP par cornière. Ailes A soudées : toujours comptée."),
             _c("k_rot", "Facteur sur Fv,Rd des boulons P", un="-", h="0,8 : MSB Part 5 §4.2.1.2 / SCI P358. 1,0 pour désactiver."),
             _c("opt_blf", "Appliquer βLf des assemblages longs (Lj > 15d)", "s", OUI_NON,
                h="EN 1993-1-8 §3.8. MSB Part 5 ne l'applique pas aux cornières d'âme ; Oui = variante conservatrice."),

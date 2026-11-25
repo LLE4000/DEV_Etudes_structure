@@ -21,7 +21,7 @@ TABLES = [
      [("bv_S", "Cisaillement – groupe S"), ("bv_P", "Cisaillement – groupe P"),
       ("bt_P", "Traction – groupe P"), ("bi_P", "Interaction V + T – groupe P"),
       ("gl_S", "Glissement – groupe S"), ("gl_P", "Glissement – groupe P"),
-      ("bvT_S", "Tying – cisaillement du groupe S")]),
+      ("bvT_S", "Tying – boulons du groupe S")]),
     # table PLATE des cornières, dans l'ordre du §8.2 : c'est elle que la NOTE
     # imprime (une ligne par vérification) ; l'écran rend la même chose en
     # MATRICE aile A / aile B (``matrice_cornieres``), plus compacte.
@@ -66,6 +66,8 @@ ELEMENTS = [("Boulons", "Boulons"), ("Cornières", "Cornières"), ("Poutre port�
 
 
 def court(c):
+    if c.key == "tsA" and "soudées" in c.label:        # ailes A soudées : la même ligne, mais pas un tronçon en T
+        return "Aile A – flexion sous traction"
     return COURT.get(c.key, c.label)
 
 

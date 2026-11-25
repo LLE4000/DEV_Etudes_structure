@@ -322,6 +322,11 @@ def lignes(R, c):
                   dict(tc=("tc", R.t_C), e2=("e2", e2), n2=("n2", n2), p2=("p2", p2), d0=("d0", d0)), Ant, "mm²", 0)
         anv = Sub("Anv", "tc*(hc - e1 - (n1 - 0.5)*d0)",
                   dict(tc=("tc", R.t_C), hc=("hc", R.L_C), e1=("e1", e1), n1=("n1", n1), d0=("d0", d0)), Anv, "mm²", 0)
+        if k == "cbA" and R.get("corrections"):
+            # C1 : le bloc de l'aile A va vers la plus petite pince (les boulons P la poussent vers le haut)
+            anv = Sub("Anv", "tc*(e1m + (n1 - 1)*p1 - (n1 - 0.5)*d0)",
+                      dict(tc=("tc", R.t_C), e1m=("e1,min", min(R.e1_P, R.e1bot_P)), n1=("n1", n1), p1=("p1", R.p1_P),
+                           d0=("d0", d0)), Anv, "mm²", 0)
         b = _bloc(R, "Veff,2,Rd", Ant, Anv, R.fu_C, R.fy_C, 2); b.res = c.Rd
         L = [[ant, anv], [b, _eta(c, "V/VRd", dict(V=("VEd", V), VRd=("Veff,2,Rd", c.Rd)))]]
     elif k == "flB":
@@ -334,6 +339,14 @@ def lignes(R, c):
         med = Sub("MEd", "V/2*(g - tc/2)/1000", dict(V=("VEd", V), g=bras, tc=("tc", R.t_C)), c.Ed, "kNm")
         mrd = Sub("MRd", "tc*hc**2/6*fy/gM0/1e6", dict(tc=("tc", R.t_C), hc=("hc", R.L_C), fy=("fy", R.fy_C), gM0=("γM0", u.g_M0)), c.Rd, "kNm")
         L = [[med, mrd], [_eta(c, "MEd/MRd", dict(MEd=("MEd", c.Ed), MRd=("MRd", c.Rd)))]]
+    elif k == "tsA" and R.get("corrections") and not R.bolt_P:
+        # C5 : ailes A soudées, une rotule plastique au talon
+        mpl = Sub("Mpl", "0.25*hc*tc**2*fy/gM0/1e6", dict(hc=("hc", R.L_C), tc=("tc", R.t_C), fy=("fy", R.fy_C),
+                                                         gM0=("γM0", u.g_M0)), R.Mpl_wA, "kNm")
+        mm = Sub("m", "bA - tc - 0.8*rc", dict(bA=("bA", R.b_A), tc=("tc", R.t_C), rc=("rc", R.r_C)), R.m_wA, "mm", 1)
+        nrd = Sub("NRd", "2*Mpl*1000/m", dict(Mpl=("Mpl", R.Mpl_wA), m=("m", R.m_wA)), c.Rd, "kN")
+        nt = Sub("NT", "2*qn*Lw/1000", dict(qn=("qn", R.qn_P), Lw=("ΣL", R.Lw_P)), c.Ed, "kN")
+        L = [[mpl, mm], [nt, nrd], [_eta(c, "NT/NRd", dict(NT=("NT", c.Ed), NRd=("NRd", c.Rd)))]]
     elif k == "tsA":
         mpl = Sub("Mpl", "0.25*leff*tc**2*fy/gM0/1e6", dict(leff=("Σleff", R.leff_T), tc=("tc", R.t_C), fy=("fy", R.fy_C),
                                                           gM0=("γM0", u.g_M0)), R.Mpl_T, "kNm")
@@ -342,6 +355,10 @@ def lignes(R, c):
         f2 = Sub("FT,2", "(2*Mpl*1000 + n*SFt)/(m + n)", dict(Mpl=("Mpl", R.Mpl_T), n=("n", R.n_T), SFt=("ΣFt,Rd", R.SFt_T), m=("m", R.m_T)), R.FT_2, "kN")
         f3 = Sub("FT,3", "SFt", dict(SFt=("ΣFt,Rd", R.SFt_T)), R.FT_3, "kN")
         L = [[mpl, f1], [f2, f3], [_eta(c, "NEd/min(FT1, FT2, FT3)", dict(NEd=("NEd", NEd), FT1=("FT,1", R.FT_1), FT2=("FT,2", R.FT_2), FT3=("FT,3", R.FT_3)))]]
+        if R.get("corrections"):
+            # C4 : l'effort est la traction réelle des boulons P, 2·nP·Ft,Ed (= NEd sans MEd ni HEd)
+            nt = Sub("NT", "2*nP*Ft", dict(nP=("nP", R.n_P), Ft=("Ft,Ed", R.Ft_P)), c.Ed, "kN")
+            L = [[mpl, f1], [f2, f3], [nt, _eta(c, "NT/min(FT1, FT2, FT3)", dict(NT=("NT", c.Ed), FT1=("FT,1", R.FT_1), FT2=("FT,2", R.FT_2), FT3=("FT,3", R.FT_3)))]]
     elif k in ("tnB", "tnS"):
         if k == "tnB":
             nu = Sub("Nu,Rd", "2*0.9*tc*(hc - n1*d0)*fu/gM2n/1000", dict(tc=("tc", R.t_C), hc=("hc", R.L_C), n1=("n1", R.n1_S),
@@ -444,6 +461,10 @@ def lignes(R, c):
         qz = Sub("qz", "V/2*1000/Lw + M3*1e6*(lh - xg)/Iw", dict(V=("VEd", V), M3=("M", w3), lh=("ℓh", lh), xg=("xg", R["xg_" + X]), **base), R["qz_" + X], "N/mm")
         qx = Sub("qx", "w1*1000/Lw + M3*1e6*(hc/2)/Iw", dict(w1=("|NEd|/2" if X == "S" else "HEd/2", w1), M3=("M", w3), hc=("hc", R.L_C), **base), R["qx_" + X], "N/mm")
         qn = Sub("qn", "w2*1000/Lw", dict(w2=("0" if X == "S" else "NEd/2", w2), **base), R["qn_" + X], "N/mm")
+        if X == "P" and R.get("corrections") and not R.bolt_P:
+            # C3 : MEd et le couple HEd·z tendent aussi les cordons P
+            qn = Sub("qn", "w2*1000/Lw + qnM + qnH", dict(w2=("NEd/2", w2), qnM=("qn(MEd)", R.qnM_P), qnH=("qn(HEd·z)", R.qnH_P),
+                                                         **base), R["qn_" + X], "N/mm")
         qw = Sub("Fw,Ed", "sqrt(qz**2 + qx**2 + qn**2)", dict(qz=("qz", R["qz_" + X]), qx=("qx", R["qx_" + X]), qn=("qn", R["qn_" + X])), R["qw_" + X], "N/mm")
         L = [[fv, fw], [qz, qx, qn, qw], [_eta(c, "FwEd/FwRd", dict(FwEd=("Fw,Ed", c.Ed), FwRd=("Fw,Rd", c.Rd)))]]
     elif k in ("waS", "waP"):

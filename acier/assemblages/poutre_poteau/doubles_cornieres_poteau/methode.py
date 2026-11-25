@@ -138,7 +138,7 @@ la rotation est couverte par le facteur **0,8** sur `Fv,Rd`
   longueur minimale §4.5.1(2) ; en tying, `fu/(√3·βw·γMu)`.
 
 Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + z` en
-cas (a), `z` en cas (b)), est **affiché** en information dans « Paramètres
+cas (a), `twP/2 + z` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
 retenus » et au bloc HYPOTHÈSES de la note : il appartient au calcul
 d'ÉLÉMENT du poteau (EC3-1-1 §6.2 et §6.3), l'outil ne le vérifie pas.
 
@@ -210,7 +210,10 @@ Ils sont listés dans `docs/assemblages/POUTRE_POTEAU.md` §9 et
 pas de ligne « boulons du groupe S en cisaillement sous la force de
 chaînage », que son §7.2 demande pourtant (« OUI pour le groupe S »).
 L'outil l'ÉCRIT (`bvT_S`) : laisser le groupe S sans vérification en tying
-serait un défaut non conservatif.
+serait un défaut non conservatif. Depuis le 25/11/2026 la ligne compte aussi
+la **pression diamétrale horizontale** des boulons S sur l'âme portée et sur
+les ailes B (`Fb,hor,Rd` du Tableau 3.4, avec `γMu`) : la plus petite des
+trois résistances, par boulon.
 
 #### Sources
 

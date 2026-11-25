@@ -279,7 +279,7 @@ chk("TYING : γMu paraît dans les avancés (défaut 1,10) et l'alerte le dit",
     "dcc_g_Mu" in cles_widgets(at) and at.session_state["dcc_g_Mu"] == 1.1
     and "NEd en tying : force de chaînage vérifiée seule (γMu)" in tty and "γMu = 1,10" in tty)
 chk("TYING : les composantes de la force de chaînage sont à l'écran, AILE DU POTEAU comprise",
-    all(x in tty for x in ("Tying – cisaillement du groupe S", "Aile A – tronçon en T",
+    all(x in tty for x in ("Tying – boulons du groupe S", "Aile A – tronçon en T",
                            "Aile en flexion (tronçon en T)", "Âme en traction transversale",
                            "Poinçonnement", "Traction nette", "Bloc en traction")))
 at.number_input(key="dcc_N_Ed").set_value(0.0); run(at)

@@ -306,6 +306,62 @@ def _rect_rompu(x, y, w, h, bords, amp=None):
     return pts
 
 
+def _semelle_dessus(x_deb, x_fin, b, amp=None, x_rec=None, b_rec=None):
+    """Contour d'une SEMELLE vue de dessus (vue en plan) : de ``x_deb`` à ``x_fin`` — bord droit ROMPU, la poutre
+    continue —, largeur ``b`` centrée sur l'axe y = 0. Le zigzag de la rupture est rejeté sur une MOITIÉ du bord
+    (y < 0) : sur l'axe, il se confondrait avec celui de l'âme coupée. ``x_rec`` / ``b_rec`` : une recoupe en largeur
+    près de l'about (la semelle n'a que ``b_rec`` de ``x_deb`` à ``x_rec`` : poutre entrant entre les ailes d'un
+    poteau)."""
+    if x_rec is not None and b_rec is not None and x_rec > x_deb and b_rec < b:
+        haut = [(x_deb, -b_rec / 2), (x_rec, -b_rec / 2), (x_rec, -b / 2), (x_fin, -b / 2)]
+    else:
+        haut = [(x_deb, -b / 2), (x_fin, -b / 2)]
+    bas = [(x, -y) for x, y in reversed(haut)]
+    return [list(q) for q in haut[:-1]] + _rupture(haut[-1], (x_fin, 0.0), amp) + [list(q) for q in bas]
+
+
+def _semelle_travers(b, demi, amp=None, x_min=None, x_max=None):
+    """Contour de la SEMELLE d'une poutre qui TRAVERSE la vue en plan (la porteuse) : largeur ``b`` centrée sur
+    x = 0, de −``demi`` à +``demi`` ; ses deux bouts sont des lignes de rupture dont le zigzag est rejeté du côté
+    OPPOSÉ à l'attache (x < 0) — celui de l'âme coupée reste seul sur l'axe, et rien ne brouille le côté coté.
+    ``x_min`` / ``x_max`` : la vue s'arrête AVANT le bord de la semelle (plan de principe, tenu compact pour garder
+    son échelle) — le bord tronqué devient lui-même une ligne de rupture, et les bouts restent droits de ce côté."""
+    xl, xr = -b / 2, b / 2
+    gauche = x_min is not None and x_min > xl + 1e-9
+    droite = x_max is not None and x_max < xr - 1e-9
+    if gauche:
+        xl = x_min
+    if droite:
+        xr = x_max
+    pts = [[xl, -demi]] if gauche else _rupture((xl, -demi), (0.0, -demi), amp)
+    pts += (_rupture((xr, -demi), (xr, demi), amp) if droite else [[xr, -demi], [xr, demi]])
+    pts += ([[xl, demi]] if gauche else _rupture((0.0, demi), (xl, demi), amp))
+    if gauche:
+        pts += _rupture((xl, demi), (xl, -demi), amp)[1:-1]
+    return pts
+
+
+def visserie_dessin(d):
+    """Proportions de DESSIN d'un boulon vu de profil (mm) : hauteur de tête k, hauteur d'écrou m, épaisseur de
+    rondelle tr, surplat s — dessin de principe, les proportions de la platine d'about."""
+    return 0.63 * d, 0.9 * d, mx(2.5, 0.15 * d), 1.5 * d
+
+
+def _boulon_travers(cls_t, axe, c_ecrou, c_tete, t, d, dw):
+    """Un boulon vu DE PROFIL à travers un paquet de pièces : ``axe`` « x » (boulon horizontal, à l'ordonnée ``t``)
+    ou « y » (boulon vertical, à l'abscisse ``t``) ; l'écrou et sa rondelle contre la face ``c_ecrou``, la tête et sa
+    rondelle contre la face ``c_tete`` — chacun vers l'extérieur du paquet (le sens se lit sur les deux faces)."""
+    k, m, tr, sp = visserie_dessin(d)
+    sg = 1 if c_tete >= c_ecrou else -1
+
+    def bloc(cls, a, e, larg):
+        lo, hi = (a, a + e) if e >= 0 else (a + e, a)
+        return _rect(cls, lo, t - larg / 2, hi - lo, larg) if axe == "x" else _rect(cls, t - larg / 2, lo, larg, hi - lo)
+
+    return [bloc(["bw"], c_ecrou, -sg * tr, dw), bloc(cls_t, c_ecrou - sg * tr, -sg * m, sp),
+            bloc(["bw"], c_tete, sg * tr, dw), bloc(cls_t, c_tete + sg * tr, sg * k, sp)]
+
+
 def _renvoi(S, s, x0, y0, x1, y1, txt):
     """Renvoi d'annotation (plan de principe) : ligne de rappel oblique
     depuis la pièce, étiquette à halo au bout — « 3×Ø22 », « r 10 »."""
@@ -753,13 +809,23 @@ def elevation(R, opt):
 
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
-    """Vue en plan cotée (transcription de ``DCDraw.plan``)."""
+    """Vue en plan cotée (transcription de ``DCDraw.plan``). En rendu réaliste (25/11/2026, le propriétaire : « on
+    voit la semelle, on voit l'âme ») : les SEMELLES supérieures vues de dessus — celle de la porteuse sur toute sa
+    largeur, celle de la portée à partir du grugeage —, les âmes et les cornières coupées au niveau des boulons, les
+    boulons de profil (tête, écrou, rondelles)."""
     u = R.u; xf = R.tw_P / 2; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2; xt = xf + R.b_B
     xE = xt + 60; Hh = ws + R.b_A + 22; p2S = N(u.p2_S); p2P = N(u.p2_P)
+    xs = x0 + (N(u.l_n) if N(u.d_nt) > 0 else 0)          # début de la semelle supérieure de la portée
+    kb, mb, trb, _sp = visserie_dessin(R.d_b)
+    x1 = -xf - 30
     if opt.realiste:
-        # place pour les arêtes cachées des semelles de la portée (± bS/2)
-        Hh = mx(Hh, R.b_S / 2 + 10)
-    bb = dict(x1=-xf - 30, x2=xE, y1=-Hh, y2=Hh)
+        Hh = mx(Hh, R.b_S / 2 + 10)                       # la portée dans toute sa largeur
+    if opt.realiste and not opt.fabrication:
+        # la porteuse dans toute sa largeur, et un bout de semelle de la portée après le grugeage ; le PLAN DE
+        # PRINCIPE de la note garde son champ (il tient ainsi à son échelle normalisée) : la semelle y est rompue
+        xE = mx(xE, xs + 45, R.b_P / 2 + 30)
+        x1 = -R.b_P / 2 - 8
+    bb = dict(x1=x1, x2=xE, y1=-Hh, y2=Hh)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
@@ -774,12 +840,11 @@ def plan(R, opt):
             s.extend(prims)
 
     if opt.realiste:
-        # arêtes cachées (au-dessus du plan de coupe, trait interrompu) :
-        # bord de semelle de la porteuse côté attache, bords de semelle de
-        # la portée — on lit d'un coup d'œil le dégagement du grugeage
-        xsem = mn(R.b_P / 2, xE - 4)
-        s.append(_path(["hd"], [[(xsem, -Hh + 2), (xsem, Hh - 2)]]))
-        s.append(_path(["hd"], [[(x0, -R.b_S / 2), (xE, -R.b_S / 2)], [(x0, R.b_S / 2), (xE, R.b_S / 2)]]))
+        # SEMELLES vues de dessus (teinte légère, contour continu) : la portée d'abord — elle commence après le
+        # grugeage —, puis la porteuse, qui la recouvre : on lit les largeurs et le dégagement du grugeage
+        if xs < xE - 4:
+            s.append(_poly(["sfs"] + hc("beamS"), _semelle_dessus(xs, xE, R.b_S, 0.55 * fs)))
+        s.append(_poly(["sfp"], _semelle_travers(R.b_P, Hh, 0.55 * fs, x_min=x1, x_max=xE)))
     if opt.realiste:
         # âmes coupées : bords francs remplacés par des lignes de rupture
         # (la porteuse continue en haut et en bas, la portée à droite)
@@ -800,8 +865,16 @@ def plan(R, opt):
             piece("cleat", [_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]])])
         if R.bolt_P:
             cls_p = ["ax"] if opt.realiste else ["bp"]
-            piece("bolts", [_path(cls_p + hc("boltsP"), [[(-xf - 14, g * (ws + R.g_A + i * p2P)), (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
-                            for i in range(R.n2_P)])
+            if opt.realiste:
+                # boulons P de profil : tête contre l'aile A de la cornière, écrou derrière l'âme de la porteuse
+                for i in range(R.n2_P):
+                    piece("bolts", _boulon_travers(["bo"] + hc("boltsP"), "x", -xf, xf + R.t_C, g * (ws + R.g_A + i * p2P), R.d_b, R.d_w))
+                piece("bolts", [_path(cls_p + hc("boltsP"), [[(-xf - trb - mb - 6, g * (ws + R.g_A + i * p2P)),
+                                                              (xf + R.t_C + trb + kb + 6, g * (ws + R.g_A + i * p2P))]])
+                                for i in range(R.n2_P)])
+            else:
+                piece("bolts", [_path(cls_p + hc("boltsP"), [[(-xf - 14, g * (ws + R.g_A + i * p2P)), (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
+                                for i in range(R.n2_P)])
         elif opt.realiste:
             # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
             # entre le bout de l'aile A et la face de l'âme principale ;
@@ -830,20 +903,28 @@ def plan(R, opt):
     if R.bolt_S:
         cls_s = ["ax"] if opt.realiste else ["bp"]
         for i in range(R.n2_S):
-            s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
+            if opt.realiste:
+                # boulons S de profil, à travers les deux ailes B et l'âme de la portée
+                s.extend(_boulon_travers(["bo"] + hc("boltsS"), "y", -yo, yo, xc1 + i * p2S, R.d_b, R.d_w))
+                s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - trb - kb - 6), (xc1 + i * p2S, -yo + trb + mb + 6)]]))
+            else:
+                s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
     if R.bolt_S:
-        S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yo - 14, sym="e2,b", val=R.e2b_S, key="e2b_u", lvl=2))
+        yh = yo - (trb + kb + 6 if opt.realiste else 14)                  # au-delà des têtes dessinées
+        S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yh, sym="e2,b", val=R.e2b_S, key="e2b_u", lvl=2))
         if R.n2_S > 1:
-            S.dim(dict(id="p2S", side="T", a=xc1, b=xcl, o1=yo - 14, o2=yo - 14, sym="p2", val=p2S, key="p2_S", lvl=2))
+            S.dim(dict(id="p2S", side="T", a=xc1, b=xcl, o1=yh, o2=yh, sym="p2", val=p2S, key="p2_S", lvl=2))
     S.dim(dict(id="gh", side="T", a=xf, b=x0, o1=-ws - R.b_A, o2=-ws, sym="gh", val=gh, key="g_h", lvl=1, out="lo"))
     S.dim(dict(id="bB", side="T", a=xf, b=xt, o1=-ws - R.b_A, o2=yo, sym="bB", val=R.b_B, lvl=1, calc=1))
     if R.bolt_P:
-        ya = -(ws + R.g_A); yl = ya - (R.n2_P - 1) * p2P; xo = xf + R.t_C + 14
+        ya = -(ws + R.g_A); yl = ya - (R.n2_P - 1) * p2P
+        xo = xf + R.t_C + (trb + kb + 6 if opt.realiste else 14)          # au-delà des têtes dessinées
+        xg = -xf - (trb + mb + 6 if opt.realiste else 14)                 # au-delà des écrous dessinés
         S.dim(dict(id="gA", side="R", a=ya, b=-ws, o1=xo, o2=xt, sym="gA", val=R.g_A, key="gA_u", lvl=1, out="lo"))
         if R.n2_P > 1:
             S.dim(dict(id="p2P", side="R", a=yl, b=ya, o1=xo, o2=xo, sym="p2", val=p2P, key="p2_P", lvl=1, out="lo"))
         S.dim(dict(id="e2A", side="R", a=-(ws + R.b_A), b=yl, o1=xf + R.t_C, o2=xo, sym="e2", val=R.e2a_P, lvl=2, calc=1, out="lo"))
-        S.dim(dict(id="p3", side="L", a=ya, b=-ya, o1=-xf - 14, o2=-xf - 14, sym="p3", val=R.p_3, lvl=1, calc=1))
+        S.dim(dict(id="p3", side="L", a=ya, b=-ya, o1=xg, o2=xg, sym="p3", val=R.p_3, lvl=1, calc=1))
     else:
         if not opt.realiste:
             # géométrie du HTML : étiquette « a » près du disque de cordon
@@ -973,6 +1054,12 @@ def style_de(cls, ctx, p=None):
     ink, acc, ko = p["ink"], p["accent"], p["ko"]
     if "pp" in c or "ps" in c:
         st.update(fill=p["pp"] if "pp" in c else p["ps"], stroke=ink, sw=1.4)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "sfp" in c or "sfs" in c:
+        # SEMELLE VUE DE DESSUS (vue en plan, 25/11/2026) : la teinte de sa pièce, légère, contour continu fin — on lit
+        # la largeur du profilé et le dégagement du grugeage sans cacher l'âme coupée ni l'attache dessous
+        st.update(fill=p["pp"] if "sfp" in c else p["ps"], fo=0.42 if "sfp" in c else 0.6, stroke=ink, sw=0.9)
         if hot_self:
             st.update(stroke=ko, sw=3)
     elif "fl2" in c:
@@ -1247,6 +1334,8 @@ def _css(p, pre):
         f"#{pre} *{{vector-effect:non-scaling-stroke}}"
         f"#{pre} .pp{{fill:{p['pp']};stroke:{ink};stroke-width:1.4}}"
         f"#{pre} .ps{{fill:{p['ps']};stroke:{ink};stroke-width:1.4}}"
+        f"#{pre} .sfp{{fill:{p['pp']};fill-opacity:.42;stroke:{ink};stroke-width:.9}}"
+        f"#{pre} .sfs{{fill:{p['ps']};fill-opacity:.6;stroke:{ink};stroke-width:.9}}"
         f"#{pre} .fl2{{stroke:{ink};stroke-width:.8;fill:none}}"
         f"#{pre} .co{{fill:{acc};fill-opacity:.28;stroke:{acc};stroke-width:1.6}}"
         f"#{pre} .co2{{fill:{acc};opacity:.6}}"
