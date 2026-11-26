@@ -482,9 +482,7 @@ def resultat(etat: Dict) -> Dict:
         rows += C.ligne_res("Économique", f'<span class="arm-or">★</span> {_piece(opt)}', _taux(res, opt), _niv(res, opt), calcul="opt")
     rows += f'<div class="elgrp">{"Barres retenues · " + C.esc(x["nom"]) if b["mode"] == "barres" else "Nappe retenue · Ø" + str(x["d"])}</div>' + _fiche(res, x)
     messages = "".join(C.message(C.esc(a["message"]), a["code"] in ("insuffisante", "chevauchement")) for a in res["avertissements"])
-    pied = (f'<div class="pfoot"><div class="mass"><span>Masse volumique du tableau</span>'
-            f'<b>ρ = {C.fr(T.MASSE_VOLUMIQUE, 0)} kg/m³</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    pied = ""         # (25/11/2026 : plus de cadre au pied du résultat ; ρ se lit à la section 4 des Données et aux hypothèses)
     volets = _fenetre("disp", f"{C.esc(b['nom'])} · disposition retenue", res, x, True)
     if opt:
         volets += _fenetre("opt", f"{C.esc(b['nom'])} · la plus économique", res, opt, False)

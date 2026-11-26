@@ -64,7 +64,11 @@ for v in m0["verifications"]:
 chk("trois lignes de résultat (deux lignes chacune : la comparaison, la jauge), chacune ouvre la fenêtre de calcul",
     res.count('class="el vc') == 3 and len(re.findall(r'class="el vc[^"]*" data-calcul="s0"', res)) == 3 and 'id="ck-s0"' in r0["volets"])
 chk("le profilé est sur la ligne « Section » et ouvre le sélecteur (★ : un plus léger tient)", 'data-pk="profil"' in res and "Plus léger qui tient : HEA 180" in res)
-chk("le pied : la masse de la barre (42,3 kg/m × 4,00 m = 169 kg) et la légende", "169" in texte(res.split("pfoot")[1]) and 'class="legend"' in res)
+# (25/11/2026 : le cadre du pied — nom du module, code couleur — est retiré de tous les modules ; la masse de la barre, qui ne
+#  se lisait que là, est la dernière ligne du corps du résultat)
+chk("à la fin du résultat : la masse de la barre (42,3 kg/m × 4,00 m = 169 kg) ; plus de cadre au pied, ni de légende des couleurs",
+    "169" in texte(res.split('class="pinfos"')[1]) and res.endswith("</div></div></div>") and "pfoot" not in res and 'class="legend"' not in res
+    and "95–100" not in res)
 chk("une barre seule : pas de statut de note (le verdict le dit déjà)", r0["statut_html"] == "")
 chk("le résumé : 63 %, vert pâle, la barre et la vérification gouvernante",
     r0["resume"] == {"taux": 63, "niveau": "p", "statut": "Conforme", "gouvernant": "P1 · HEA 200 · flambement z-z"}, r0["resume"])

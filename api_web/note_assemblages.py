@@ -33,6 +33,11 @@ Ce que le site change, pour que la note dise les chiffres de l'écran (décision
   calculait les deux premiers en silence, et posait une page « calcul impossible » pour le troisième). Le bouton
   « Note PDF » de l'écran Streamlit d'un assemblage est d'ailleurs grisé dans ces cas-là.
 
+- la note SANS les taux (le propriétaire, 25/11/2026 : « afficher les pourcentages de résultats dans la note de calcul
+  ou pas […] soit on garde la note de calcul actuelle, soit les pourcentages sont masqués ») : l'option de la note
+  (``etat["note_taux"]``, rubrique « Options » de l'écran) passe à chaque générateur et au récapitulatif
+  (``acier/assemblages/note_kit.py`` : ``SANS_TAUX``). Cochée — le défaut —, la note est celle d'avant, à l'octet près.
+
 Les informations de la page de garde : celles de la note du site (``infos`` : nom, chantier, indice, date) deviennent
 celles du projet Streamlit (``projet_ui.infos``) — ``nom_projet`` = le chantier, ou à défaut le nom de la note ;
 ``partie`` = le nom de la note quand un chantier est donné ; ``indice`` ; ``date`` (la date du jour à défaut) ; puis
@@ -51,8 +56,10 @@ from . import assemblages as A
 from . import commun as C
 from . import pdf_reunion as PR
 
-# le sous-titre de la ligne « Récapitulatif » du sommaire (rapport_projet.generer_rapport : la même phrase)
+# le sous-titre de la ligne « Récapitulatif » du sommaire (rapport_projet.generer_rapport : la même phrase) ; et celui
+# de la note SANS les taux
 SOUS_TITRE_RECAP = "Taux de travail et vérification dimensionnante de chaque assemblage"
+SOUS_TITRE_RECAP_SANS_TAUX = "État et vérification dimensionnante de chaque assemblage"
 # l'auteur du document (rapport_projet.generer_rapport : set_metadata)
 AUTEUR = "Bureau d'Études Valens"
 # le nom d'une note sans nom : celui du fichier et le projet de la garde
@@ -114,10 +121,16 @@ def info_recap(R) -> Dict:
     return {"etat": RP.etat_de(R), "eta": eta, "gov": gov}
 
 
+def sans_taux(etat: Dict) -> bool:
+    """La note s'écrit-elle SANS les taux ? (l'option « Afficher les taux dans la note de calcul », décochée.)"""
+    return etat.get("note_taux", True) is False
+
+
 def elements(etat: Dict, infos: Dict) -> List:
     """``[(entrée, info, octets de sa note, nombre de pages)]`` dans l'ordre de la note (la forme de
     ``rapport_projet.notes``) ; ValueError si un assemblage ne peut pas partir (``_motif``)."""
     from acier import rapport_projet as RP
+    from acier.assemblages.note_kit import SANS_TAUX
     calc, refus = [], []
     for i, el in enumerate(etat["assemblages"]):
         cfg = A._cfg(el)
@@ -132,7 +145,7 @@ def elements(etat: Dict, infos: Dict) -> List:
     out = []
     for el, cfg, b in calc:
         e = {"type": el["type"], "values": el["values"], "visserie": el.get("visserie", "")}
-        pdf = module_note(cfg.cle).generer_note(b["R"], RP.infos_note(infos, e))
+        pdf = module_note(cfg.cle).generer_note(b["R"], dict(RP.infos_note(infos, e), **{SANS_TAUX: sans_taux(etat)}))
         out.append((e, info_recap(b["R"]), pdf, PR.nombre_de_pages(pdf)))
     return out
 
@@ -145,14 +158,17 @@ def document(etat: Dict, infos: Dict) -> bytes:
     from ndc_pdf import data as ndc_data
     from ndc_pdf.kit import Doc
     from ndc_pdf.styles import Encre
+    from acier.assemblages.note_kit import SANS_TAUX
     infos = infos or {}
     elems = elements(etat, infos)
     S = Encre()
     lignes = RP.lignes_sommaire(elems, S)
     n_recap = RP.pages_recap(len(elems))
-    avant = [dict(titre=RP.TITRE_RECAP, sous=SOUS_TITRE_RECAP, pages=n_recap)]
+    sans = sans_taux(etat)
+    avant = [dict(titre=RP.TITRE_RECAP, sous=SOUS_TITRE_RECAP_SANS_TAUX if sans else SOUS_TITRE_RECAP, pages=n_recap)]
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["bureau"], doc_meta["titre"] = RP.BUREAU, RP.TITRE
+    doc_meta[SANS_TAUX] = sans                    # le récapitulatif sans sa colonne « η max » (rapport_projet._recap)
     fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="garde_assemblages_")
     os.close(fd)
     try:

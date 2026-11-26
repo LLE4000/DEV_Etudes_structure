@@ -1,6 +1,8 @@
-/* Le module « Assemblages métalliques » : les vues de la toile qui sont des documents (prédimensionnement, note
-   texte, méthode, validation) et les tableaux larges des fenêtres de calcul. Couleurs et tailles : celles de la charte
-   (variables de css/charte.css), rien d'inventé. */
+/* Le module « Assemblages métalliques » : les tableaux larges des fenêtres de calcul, les deux vues « document » du pied
+   de poteau (répartition, efforts des tiges), le bloc et le sélecteur des propositions du prédimensionnement. Couleurs
+   et tailles : celles de la charte (variables de css/charte.css), rien d'inventé. (La toile ne porte plus que les
+   dessins — 25/11/2026 : les vues prédimensionnement, note texte, méthode et validation sont retirées, leurs styles
+   avec elles.) */
 
 /* une vue « document » occupe toute la feuille et défile ; la feuille garde son titre et son cartouche */
 .sheet .draw > .asm-doc { align-self: stretch; justify-self: stretch; width: 100%; height: 100%; min-height: 0; overflow: auto;
@@ -13,14 +15,6 @@
 .asm-doc b { color: var(--ink); font-weight: 650; }
 .asm-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; background: var(--bg); border-radius: 4px; padding: 0 4px; color: var(--ink); }
 .asm-note { color: var(--ink-3); font-size: 11.5px; }
-.asm-txt { margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; user-select: text; }
-
-/* les chiffres clés en tête d'une vue */
-.asm-kpi { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
-.asm-kpi > div { display: flex; flex-direction: column; gap: 1px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 0; }
-.asm-kpi span { font-size: 10.5px; color: var(--ink-3); }
-.asm-kpi b { font-size: 13px; color: var(--ink); font-weight: 650; }
 
 /* les tableaux d'une vue ou d'une fenêtre : la charte (vtab), serrés, les cellules longues repliées */
 .vtab.asm-tab { font-size: 12px; margin: 2px 0 6px; }
@@ -37,7 +31,7 @@
 /* la matrice aile A · aile B : les cellules « E_d / R_d · η » ne se coupent pas */
 .vtab.asm-mat td { white-space: nowrap; }
 .vtab.asm-mat td:last-child { white-space: normal; color: var(--ink-3); font-size: 11.5px; }
-/* le titre d'un exemple publié (vue Validation) : en clair, pas en capitales (VEd, kN gardent leur casse) */
+/* un sous-titre d'une vue document : en clair, pas en capitales (VEd, kN gardent leur casse) */
 .asm-doc h5 { margin: 16px 0 2px; font-size: 13px; font-weight: 650; color: var(--ink); line-height: 1.4; }
 
 /* le menu Configuration : toute la largeur du cadre (les noms des sept attaches sont longs) */
@@ -101,3 +95,16 @@ button.addrow { text-align: left; }
 .row2.asm-profil { grid-template-columns: 88px minmax(0, 1.6fr) minmax(0, 1fr); }
 .row2.asm-profil > .field.select { min-width: 0; }
 .row2.asm-profil > .field.select > select { min-width: 0; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------------ les propositions du prédimensionnement */
+/* le bloc « Prédimensionnement » du résultat : une ligne, dont le bouton « Proposer » ouvre les solutions vérifiées
+   (api_web/assemblages.bloc_propositions) — pas de bouton « tout le calcul » dans son en-tête */
+.et-bloc.asm-prop .el.vc .l1 .prof { color: var(--accent-hover); font-weight: 600; }
+[data-theme="dark"] .et-bloc.asm-prop .el.vc .l1 .prof { color: var(--accent); }
+/* sans proposition : pourquoi, et quoi changer (api_web/assemblages.aucune_solution) — en tête du sélecteur */
+.flyout.picker .asm-aucune { flex: 1 1 100%; padding: 10px 12px; border-radius: 8px; border-left: 4px solid var(--nok);
+  background: color-mix(in srgb, var(--nok) 8%, var(--panel)); color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
+.flyout.picker .asm-aucune b { color: var(--ink); font-weight: 650; }
+.flyout.picker .asm-aucune.info { border-left-color: var(--att); background: var(--ok-bg); }
+/* le nom d'une proposition (« 3×2 M20 · plat 190×140×8 ») est plus long qu'un nom de profilé : il se replie */
+#pk-solution .pk-row .nm { white-space: normal; text-align: left; line-height: 1.25; }

@@ -36,7 +36,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -152,7 +152,7 @@
      ["Δc dev · tolérance", "10 mm"],
      ["Durabilité S4 / XC4 ·", "40 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
-     ["pour l'inclure. EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["pour l'inclure. Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poteau · extérieur Exposition XC4 · classe structurale S4 (proposée) Ø", "20 mm", "·"],
@@ -269,7 +269,7 @@
      ["Durabilité S6 / XD3/XS3 ·", "65 mm", "100 %"],
      ["Feu · R60 b ≥", "300", "·"],
      ["a", "25", "·", "17 mm", "26 %"],
-     ["EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition XD3/XS3 · classe structurale S6 (proposée) Ø", "20 mm", "·"],
@@ -413,7 +413,7 @@
      ["Durabilité S1 / X0 ·", "20 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Voile · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -530,7 +530,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -647,7 +647,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -764,7 +764,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -881,7 +881,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E1 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Poutre · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -998,7 +998,7 @@
      ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
      ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
      ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+     ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
     ],
     "calculs": [
      ["E2 · durabilité EN 1992-1-1 §4.4.1 · taux : part de l'enrobage retenu Dalle · intérieur Exposition X0 · classe structurale S1 (proposée) Ø", "20 mm", "·"],
@@ -1099,7 +1099,7 @@
        ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
        ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
        ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-       ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+       ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
       ]
      },
      {
@@ -1116,7 +1116,7 @@
        ["Durabilité S1 / X0 ·", "30 mm", "100 %"],
        ["Feu non vérifié : cochez « Vérifier la résistance au feu » (section", "4)"],
        ["pour l'inclure. Classe structurale S1, sous S4 (référence", "50 ans)", ":"],
-       ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5 écran v2.0 Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur"]
+       ["la réduction se justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité). Barres : part de c nom retenu · valeurs ANB de l'écran, à valider par l'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5"]
       ]
      }
     ]

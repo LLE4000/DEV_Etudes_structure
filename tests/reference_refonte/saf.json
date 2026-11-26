@@ -64,7 +64,7 @@
      ["Écart le plus grand OK sur", "5 cas"],
      ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
      ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -337,7 +337,7 @@
      ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(32,0 m)"],
      ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -873,7 +873,7 @@
      ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(32,0 m)"],
      ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -1410,7 +1410,7 @@
      ["Ø12 Zones rouges · haut aucune aucune U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(42,8 m)"],
      ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -1921,7 +1921,7 @@
      ["Ø12 Zones rouges · haut aucune aucune U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(32,0 m)"],
      ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -2407,7 +2407,7 @@
      ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(40,0 m)"],
      ["Ferraillage du plot à vérifier à prévoir (non dimensionné) Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, le ferraillage des plots coulés en place, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, le ferraillage des plots coulés en place, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -2793,7 +2793,7 @@
      ["Données", "2"],
      ["Vérification", "3 SAF", "4"],
      ["Efforts SCIA", "5 Note"],
-     ["Sol Calcul impossible Calcul impossible Une surface d'appui sort de la dalle. Contrôles Non conforme Appuis dans la dalle Non conforme une surface d'appui sort Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Exporter le SAF Imprimer la note Une surface d'appui sort de la dalle Méthode du bureau · moteur Dalles v2.2"]
+     ["Sol Calcul impossible Calcul impossible Une surface d'appui sort de la dalle. Contrôles Non conforme Appuis dans la dalle Non conforme une surface d'appui sort Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Exporter le SAF Imprimer la note Une surface d'appui sort de la dalle"]
     ],
     "calculs": [
      ["Contrôles les surfaces d'appui et le bord de la dalle Surface d'appui :", "0,50", "×", "0,50 m", "·", "0,2500 m²"],
@@ -2951,7 +2951,7 @@
      ["Écart le plus grand OK sur", "5 cas"],
      ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
      ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -3141,7 +3141,7 @@
      ["Écart le plus grand OK sur", "5 cas"],
      ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
      ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -3331,7 +3331,7 @@
      ["Écart le plus grand OK sur", "5 cas"],
      ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
      ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -3505,7 +3505,7 @@
      ["Données", "2"],
      ["Vérification", "3 SAF", "4"],
      ["Efforts SCIA", "5 Note"],
-     ["Sol Calcul impossible Calcul impossible Une surface d'appui sort de la dalle. Contrôles Non conforme Appuis dans la dalle Non conforme une surface d'appui sort Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Exporter le SAF Imprimer la note Une surface d'appui sort de la dalle Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Sol Calcul impossible Calcul impossible Une surface d'appui sort de la dalle. Contrôles Non conforme Appuis dans la dalle Non conforme une surface d'appui sort Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Exporter le SAF Imprimer la note Une surface d'appui sort de la dalle Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Contrôles les surfaces d'appui et le bord de la dalle Surface d'appui :", "0,50", "×", "0,50 m", "·", "0,2500 m²"],
@@ -3709,7 +3709,7 @@
      ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
      ["sur tout le pourtour", "(32,0 m)"],
      ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+     ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -4202,7 +4202,7 @@
      ["Écart le plus grand OK sur", "5 cas"],
      ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
      ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+     ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
     ],
     "calculs": [
      ["Vérification rapide la contrainte de contact maximale de chaque raideur de sol Plaque mince sur sol élastique · maille", "0,20 m"],
@@ -4427,7 +4427,7 @@
        ["Ø12 U de fermeture principe Ø12 e", "15 cm"],
        ["sur tout le pourtour", "(32,0 m)"],
        ["Écart module / SCIA à saisir valeurs SCIA à saisir (bloc", "3 Non)"],
-       ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Méthode du bureau · moteur Dalles v2.2"]
+       ["vérifiés : le poinçonnement, la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA"]
       ]
      },
      {
@@ -4455,7 +4455,7 @@
        ["Écart le plus grand OK sur", "5 cas"],
        ["et", "5 k", ":", "0,00 %", "<", "0,1 %"],
        ["Contrôles Conforme Appuis dans la dalle OK Distance au bord OK", "0,75 m", "≥", "0,50 m"],
-       ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet Méthode du bureau · moteur Dalles v2.2"]
+       ["Non vérifiés : la fissuration, les efforts horizontaux et les moments aux pieds de la grue, la torsion, les ancrages et les recouvrements (le principe n'est pas un plan d'exécution). Proposer Exporter le SAF Imprimer la note Joindre les notes SCIA Aucun jeu de réactions complet"]
       ]
      }
     ]

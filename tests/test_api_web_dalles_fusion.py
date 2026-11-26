@@ -327,8 +327,13 @@ rep_c = req(action="calculer", etat=EC)
 m_c = MO.verifier(POS.pour_moteur(actif(EC)))
 chk("type coulee : chaque ligne est celle de beton.dalle.moteur.verifier sur la copie que le site lui envoie",
     lignes(rep_c) == lignes_moteur(m_c, P) and rep_c["resume"]["taux"] == C.pct(m_c["taux_max"]), lignes(rep_c)[:3])
-chk("le pied dit le moteur et sa version : « moteur prédalle » v1.1 pour une prédalle, « moteur dalle » v2.2 pour une dalle coulée",
-    "moteur prédalle</span><b>v1.1</b>" in rep_p["resultat"] and "moteur dalle</span><b>v2.2</b>" in rep_c["resultat"])
+# (25/11/2026 : le cadre du pied du résultat est retiré de TOUS les modules — demande du propriétaire ; il disait « moteur
+#  prédalle v1.1 » ou « moteur dalle v2.2 ». Le harnais SUIT : ce contrôle lisait ce pied. Ce qui distingue une prédalle
+#  d'une dalle coulée reste dit par les hypothèses et les formules — le contrôle suivant.)
+chk("plus de pied au résultat — ni « moteur prédalle » / « moteur dalle », ni version, ni légende des couleurs —, pour une "
+    "prédalle comme pour une dalle coulée",
+    all('class="pfoot' not in r_["resultat"] and 'class="legend"' not in r_["resultat"] and "moteur prédalle" not in r_["resultat"]
+        and "moteur dalle" not in r_["resultat"] and r_["resultat"].rstrip().endswith("</div>") for r_ in (rep_p, rep_c)))
 chk("les hypothèses et les formules sont celles du type : « dont prédalle 6 cm et 16 cm coulés en place », l'axe e₁ « c + ⌈Ø/2⌉ … dans la "
     "prédalle » ; rien de tel pour une dalle coulée",
     "dont prédalle <b>6 cm</b> et 16 cm coulés en place" in rep_p["volets"] and "dans la prédalle" in rep_p["volets"]

@@ -42,8 +42,7 @@
      ["μ B400", "0,1904"],
      ["τ adm,I", "0,56 N/mm²"],
      ["τ adm,II", "1,13 N/mm²"],
-     ["τ adm,IV", "2,26 N/mm²"],
-     ["Aide-mémoire du bureau Classes de béton"]
+     ["τ adm,IV", "2,26 N/mm²"]
     ],
     "calculs": [
      ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
@@ -133,8 +132,7 @@
      ["yd", "347,8 MPa"],
      ["E s", "200 GPa"],
      ["ε yd", "1,74 ‰"],
-     ["Tableau des armatures ρ", "7 860 kg/m³"],
-     ["Aide-mémoire du bureau Aciers d'armature"]
+     ["Tableau des armatures ρ", "7 860 kg/m³"]
     ],
     "calculs": [
      ["Acier B400 · d'où viennent les valeurs f yd comme le module Poutre, E s de l' EN 1992-1-1 f yk =", "400 MPa"],
@@ -197,7 +195,7 @@
      ["c min", "45 mm"],
      ["Δc dev", "10 mm"],
      ["c nom,dur", "55 mm"],
-     ["Classe structurale proposée S6 retenue S4 Aide-mémoire du bureau Enrobages"]
+     ["Classe structurale proposée S6 retenue S4"]
     ],
     "calculs": [
      ["Enrobage XD3/XS3 · S4 · d'où viennent les valeurs le calcul de l'écran Enrobage, pour une dalle sans étrier Exposition XD3/XS3 Classe structurale S4 Ø =", "20 mm"],
@@ -290,8 +288,7 @@
      ["Espacement fixe e =", "15 cm", "8 378 mm²/m"],
      ["e =", "30 cm", "4 189 mm²/m"],
      ["e =", "35 cm", "3 590 mm²/m"],
-     ["e =", "40 cm", "3 142 mm²/m"],
-     ["Aide-mémoire du bureau Tableau des armatures"]
+     ["e =", "40 cm", "3 142 mm²/m"]
     ],
     "calculs": [
      ["Barre Ø40 · d'où viennent les valeurs le tableau du bureau, recalculé Tableau « Tableau armature.png » ρ =", "7 860 kg/m³"],
@@ -369,8 +366,7 @@
      ["μ B400", "0,1904"],
      ["τ adm,I", "0,56 N/mm²"],
      ["τ adm,II", "1,13 N/mm²"],
-     ["τ adm,IV", "2,26 N/mm²"],
-     ["Aide-mémoire du bureau Classes de béton"]
+     ["τ adm,IV", "2,26 N/mm²"]
     ],
     "calculs": [
      ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
@@ -428,8 +424,7 @@
     "statut": "Consultation",
     "phrase": "Tableaux du bureau à venir",
     "resultat": [
-     ["Tableaux du bureau à venir Les tableaux de l'ingénieur s'afficheront ici. D'où viennent les valeurs Ancrages et recouvrements Le fichier beton/donnees/ancrages_recouvrements.json attend les tableaux : un tableau par grandeur (ancrage droit, recouvrement…), une ligne par cas (classe de béton, adhérence…), une colonne par diamètre. Format la documentation du module, DONNEES_BETON.md §", "6."],
-     ["Aide-mémoire du bureau Ancrages et recouvrements"]
+     ["Tableaux du bureau à venir Les tableaux de l'ingénieur s'afficheront ici. D'où viennent les valeurs Ancrages et recouvrements Le fichier beton/donnees/ancrages_recouvrements.json attend les tableaux : un tableau par grandeur (ancrage droit, recouvrement…), une ligne par cas (classe de béton, adhérence…), une colonne par diamètre. Format la documentation du module, DONNEES_BETON.md §", "6."]
     ],
     "calculs": [
      ["Ancrages et recouvrements · le fichier à remplir aucune valeur tant que le bureau n'a pas fourni ses tableaux beton/donnees/ancrages_recouvrements.json « Tableaux du bureau à venir » Les valeurs, une à une Ce que contiendra un tableau titre · grandeur (l bd , l", "0", "…)", "·"],
@@ -485,7 +480,7 @@
      ["c min", "20 mm"],
      ["Δc dev", "10 mm"],
      ["c nom,dur", "30 mm"],
-     ["Classe structurale proposée S2 retenue S4 Aide-mémoire du bureau Enrobages"]
+     ["Classe structurale proposée S2 retenue S4"]
     ],
     "calculs": [
      ["Enrobage XC1 · S4 · d'où viennent les valeurs le calcul de l'écran Enrobage, pour une dalle sans étrier Exposition XC1 Classe structurale S4 Ø =", "20 mm"],
@@ -578,8 +573,7 @@
      ["μ B400", "0,1904"],
      ["τ adm,I", "0,56 N/mm²"],
      ["τ adm,II", "1,13 N/mm²"],
-     ["τ adm,IV", "2,26 N/mm²"],
-     ["Aide-mémoire du bureau Classes de béton"]
+     ["τ adm,IV", "2,26 N/mm²"]
     ],
     "calculs": [
      ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
@@ -656,8 +650,7 @@
      ["yd", "434,8 MPa"],
      ["E s", "200 GPa"],
      ["ε yd", "2,17 ‰"],
-     ["Tableau des armatures ρ", "7 860 kg/m³"],
-     ["Aide-mémoire du bureau Aciers d'armature"]
+     ["Tableau des armatures ρ", "7 860 kg/m³"]
     ],
     "calculs": [
      ["Acier B500 · d'où viennent les valeurs f yd comme le module Poutre, E s de l' EN 1992-1-1 f yk =", "500 MPa"],
@@ -711,8 +704,7 @@
        ["μ B400", "0,1904"],
        ["τ adm,I", "0,56 N/mm²"],
        ["τ adm,II", "1,13 N/mm²"],
-       ["τ adm,IV", "2,26 N/mm²"],
-       ["Aide-mémoire du bureau Classes de béton"]
+       ["τ adm,IV", "2,26 N/mm²"]
       ]
      },
      {
@@ -735,8 +727,7 @@
        ["yd", "434,8 MPa"],
        ["E s", "200 GPa"],
        ["ε yd", "2,17 ‰"],
-       ["Tableau des armatures ρ", "7 860 kg/m³"],
-       ["Aide-mémoire du bureau Aciers d'armature"]
+       ["Tableau des armatures ρ", "7 860 kg/m³"]
       ]
      }
     ]

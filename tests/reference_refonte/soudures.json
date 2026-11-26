@@ -16,6 +16,11 @@
    "date": "2026-11-16",
    "raison": "Lot A, deuxième passe : vue Méthode calculée depuis la table (148,5 ; 160,8 N/mm², marges 29 et 39 %), nombres en virgule décimale (γ_F, γM2, k·g/10, g, épaisseurs « 8,5 mm »)",
    "ecarts": ["cas ajouté, configuration C5 : valeurs qui ne se voient plus [\"8\"]"]
+  },
+  {
+   "date": "2026-11-25",
+   "raison": "Cadre du pied du résultat retiré de tous les modules le 25/11/2026 (demande du propriétaire : « en bas à droite […] il y a un code couleur. J'aimerais qu'on vire ce cadre-là, il ne sert à rien ») — aucune valeur de calcul n'a changé ; ce que le pied portait se lit ailleurs : la méthode, l'acier et γM2 dans l'en-tête des vues et aux hypothèses des fenêtres de calcul.",
+   "ecarts": ["console de 10 mm : calcul impossible : valeurs qui ne se voient plus [\"1,25\", \"2\", \"235\"]"]
   }
  ],
  "cas": [
@@ -47,7 +52,7 @@
      ["méthode choisie ◀ EC3 simplifiée", "74 %"],
      ["à titre indicatif ELS bureau k =", "100", "156 %"],
      ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
-     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["à titre indicatif"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -319,8 +324,7 @@
      ["à titre indicatif Méthode ELS du bureau : efforts de service, résultante ≤ k·a avec k =", "100"],
      ["kg/(mm·cm) =", "98,1 N/mm²", ";"],
      ["l'Eurocode donnerait f vw,d /1,5 =", "138,6 N/mm²", "(141"],
-     ["kg/(mm·cm)) pour le S235 ELS du bureau · k =", "100"],
-     ["τ adm =", "98,1 N/mm²"]
+     ["kg/(mm·cm)) pour le S235"]
     ],
     "calculs": [
      ["Latéral haut a =", "5 mm", "·"],
@@ -586,7 +590,7 @@
      ["méthode choisie ◀ EC3 simplifiée", "119 %"],
      ["à titre indicatif ELS bureau k =", "100", "252 %"],
      ["à titre indicatif ELS k Eurocode =", "141", "178 %"],
-     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["à titre indicatif"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -826,7 +830,7 @@
      ["traitée comme pleine pénétration (EN 1993-1-8 §4.7.3) Pleine pénétration (cordon) : la soudure vaut la pièce la plus faible (EN 1993-1-8 §4.7.1) — sa section t × l est vérifiée élastiquement, √(σ² + 3τ²) ≤ fy/γM0 = 235/1 N/mm² (fy =", "235 N/mm²,"],
      ["la plus faible des deux pièces : pièce B, S235 de", "10 mm", ":"],
      ["t ≤", "16 mm,"],
-     ["tableau 3.3 ANB) Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["tableau 3.3 ANB)"]
     ],
     "calculs": [
      ["Cordon pleine · t =", "10 mm", "·"],
@@ -985,7 +989,7 @@
      ["méthode choisie ◀ EC3 simplifiée", "74 %"],
      ["à titre indicatif ELS bureau k =", "100", "156 %"],
      ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
-     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["à titre indicatif"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -1220,8 +1224,7 @@
      ["eff =", "0 mm)"],
      ["cordon gauche : ne compte pas (gorge ≥", "3 mm"],
      ["et l eff ≥ max(30 mm ; 6a) exigés ; a =", "5 l,"],
-     ["eff =", "0 mm)"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["eff =", "0 mm)"]
     ],
     "calculs": [],
     "avis": ["⚠ cordon droit : ne compte pas (gorge ≥ 3 mm et l eff ≥ max(30 mm ; 6a) exigés ; a = 5, l eff = 0 mm)", "⚠ cordon gauche : ne compte pas (gorge ≥ 3 mm et l eff ≥ max(30 mm ; 6a) exigés ; a = 5, l eff = 0 mm)"],
@@ -1322,7 +1325,7 @@
      ["méthode choisie ◀ EC3 simplifiée", "0 %"],
      ["à titre indicatif ELS bureau k =", "100", "0 %"],
      ["à titre indicatif ELS k Eurocode =", "141", "0 %"],
-     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["à titre indicatif"]
     ],
     "calculs": [
      ["Cordon droit a =", "5 mm", "·"],
@@ -1565,8 +1568,7 @@
      ["à titre indicatif ELS bureau k =", "100", ">", "999 %"],
      ["à titre indicatif ELS k Eurocode =", "141", ">", "999 %"],
      ["à titre indicatif Soudure discontinue (cordons verticaux) :", "1"],
-     ["tronçon de", "60 mm"],
-     ["Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["tronçon de", "60 mm"]
     ],
     "calculs": [
      ["Cordon droit · tronçon", "1"],
@@ -1838,7 +1840,7 @@
      ["méthode choisie ◀ EC3 simplifiée", "78 %"],
      ["à titre indicatif ELS bureau k =", "100", "166 %"],
      ["à titre indicatif ELS k Eurocode =", "141", "117 %"],
-     ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+     ["à titre indicatif"]
     ],
     "calculs": [
      ["Semelle sup. ext. a =", "5 mm", "·"],
@@ -2304,7 +2306,7 @@
        ["méthode choisie ◀ EC3 simplifiée", "74 %"],
        ["à titre indicatif ELS bureau k =", "100", "156 %"],
        ["à titre indicatif ELS k Eurocode =", "141", "110 %"],
-       ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+       ["à titre indicatif"]
       ]
      },
      {
@@ -2337,7 +2339,7 @@
        ["méthode choisie ◀ EC3 simplifiée", "78 %"],
        ["à titre indicatif ELS bureau k =", "100", "166 %"],
        ["à titre indicatif ELS k Eurocode =", "141", "117 %"],
-       ["à titre indicatif Eurocode directionnelle · S235 γ M2 =", "1,25"]
+       ["à titre indicatif"]
       ]
      }
     ]

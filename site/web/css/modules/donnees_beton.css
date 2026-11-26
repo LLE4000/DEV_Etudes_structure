@@ -137,7 +137,6 @@
 .db-vig.db-r { color: var(--nok); }
 .db-regle { font-size: 12px; line-height: 1.45; color: var(--ink-2); padding: 3px 0; }
 .db-regle b { color: var(--ink); margin-right: 4px; }
-.pfoot .db-nb { white-space: nowrap; }
 
 /* ---------------------------------------------------------------- téléphone : le tableau prend sa hauteur, défile en largeur */
 @media (max-width: 700px) {

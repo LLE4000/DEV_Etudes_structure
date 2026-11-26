@@ -44,6 +44,7 @@ sys.path.insert(0, os.path.join(RACINE, "site", "web"))
 
 import construire as K  # noqa: E402
 from api_web import note_assemblages as NA  # noqa: E402
+from api_web import note_bois as NB  # noqa: E402
 from api_web import note_cas as NC  # noqa: E402
 from api_web import note_dalle as ND  # noqa: E402
 from api_web import note_poutre as NP  # noqa: E402
@@ -125,7 +126,9 @@ def ecarts(module: str, octets: bytes, etat: dict) -> list:
             if f"{CHANTIER} · {NOM} · 03/04/2026 · indice C" not in norm(t):
                 out.append(f"page {i + 1} : « chantier · nom · 03/04/2026 · indice C » absent de l'en-tête")
         return out
-    if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue", "profil", "saf"):     # la même garde (ndc_pdf : garde_lignes)
+    # la même garde (ndc_pdf : garde_lignes) — les poutres bois aussi (leur note date du 24/11/2026 ; ce contrôle ne la
+    # connaissait pas et s'arrêtait sur « etat["cas"] » : le harnais SUIT, corrigé le 26/11/2026)
+    if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue", "profil", "saf", "bois"):
         g = plat(tx[0])
         for lab, val in (("PROJET", CHANTIER), ("PARTIE", NOM), ("DATE", "03/04/2026"), ("INDICE", "C")):
             if plat(lab + val) not in g:
@@ -160,7 +163,7 @@ for mod, e in ETATS.items():
     ec = ecarts(mod, NOTES[mod], e)
     chk(f"{mod} : le nom, le chantier (accents, guillemets, « & »), l'indice C et la date de la note du site, exactement aux "
         f"endroits prévus ({len(pages(NOTES[mod]))} pages) ; rien d'autre", not ec, ec[:4])
-chk("les onze modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 11, sorted(NOTES))
+chk("les douze modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 12, sorted(NOTES))
 
 # ---------------------------------------------------------------- MUTATIONS : chacune doit faire rougir son module
 vrai_infos = NC.infos_du_cas
@@ -196,6 +199,12 @@ try:
     chk("mutation « indice 0 » : assemblages rougit", ecarts("assemblages", note("assemblages", ETATS["assemblages"]), ETATS["assemblages"]) != [])
 finally:
     NA.infos_projet = vrai_p
+vrai_b = NB.infos_doc
+NB.infos_doc = lambda etat, infos: {**vrai_b(etat, infos), "indice": "0"}
+try:
+    chk("mutation « indice 0 » : bois rougit", ecarts("bois", note("bois", ETATS["bois"]), ETATS["bois"]) != [])
+finally:
+    NB.infos_doc = vrai_b
 vrai_g = NC.infos_du_cas
 NC.infos_du_cas = lambda gen, etat, cas, infos: {**vrai_g(gen, etat, cas, infos), "indice": "A"}
 try:

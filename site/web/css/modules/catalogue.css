@@ -88,7 +88,6 @@
 .cat-alerte svg.i { width: 14px; height: 14px; flex: none; margin-top: 1px; }
 .msg .cat-etoile { display: inline-grid; vertical-align: -3px; margin-right: 5px; }
 .msg .cat-etoile svg.i { width: 14px; height: 14px; color: #E0A100; fill: #E0A100; }
-.pfoot .cat-nb { white-space: nowrap; }
 .cat-export { display: flex; flex-direction: column; gap: 6px; }
 .cat-export .field.area textarea { font-size: 11px; white-space: pre; overflow-x: auto; }
 

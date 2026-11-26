@@ -28,8 +28,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -267,7 +266,7 @@
      ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
      ["La disposition retenue Ø12 ·", "15 cm"],
      ["ne suffit pas :", "753,98 mm²/m", "<", "754 mm²/m"],
-     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["requis."]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -374,8 +373,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -481,7 +479,7 @@
      ["barres/m · e =", "25 cm"],
      ["Une barre Ø20", "314,2 mm²", "·", "2,469 kg/m"],
      ["La disposition retenue 4Ø20 ne suffit pas :", "1 257 mm²", "<", "2 400 mm²"],
-     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["requis."]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -582,8 +580,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -675,8 +672,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -782,8 +778,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -887,8 +882,7 @@
      ["Masse des barres", "3,556 kg/m"],
      ["Lues par mètre", "4"],
      ["barres/m · e =", "25 cm"],
-     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
     ],
     "calculs": [
      ["Repère", "1", "·"],
@@ -996,7 +990,7 @@
      ["barres/m · e =", "25 cm"],
      ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
      ["La disposition retenue 4Ø12 ne suffit pas :", "452 mm²", "<", "900 mm²"],
-     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+     ["requis."]
     ],
     "calculs": [
      ["Repère", "2", "·"],
@@ -1086,8 +1080,7 @@
        ["Masse des barres", "3,556 kg/m"],
        ["Lues par mètre", "4"],
        ["barres/m · e =", "25 cm"],
-       ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
-       ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+       ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"]
       ]
      },
      {
@@ -1105,7 +1098,7 @@
        ["barres/m · e =", "25 cm"],
        ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
        ["La disposition retenue 4Ø12 ne suffit pas :", "452 mm²", "<", "900 mm²"],
-       ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+       ["requis."]
       ]
      }
     ]

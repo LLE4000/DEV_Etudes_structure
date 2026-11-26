@@ -149,12 +149,12 @@ def rapides():
     # U2 (lot 5, § 5.2) : les cartes du module poutre — la ligne d'étapes, SOL, ÉQUILIBRE, CONTRÔLES, ARMATURES, pas de grand chiffre
     chk("U2 la dalle type : l'écran dit le MOTEUR dans la carte SOL — « σ max = 1,12 kg/cm² > 0,50 kg/cm² · cas 3.a · k = 10 », le taux "
         f"{C.pct(gov['sigma_max'] / (0.5 * V.KG_CM2))} % ; la carte est « Non conforme » (rouge) ; aucun grand chiffre ; la ligne d'étapes en tête ; "
-        "les cartes SOL, ÉQUILIBRE, CONTRÔLES, ARMATURES et leurs pastilles d'état ; le pied « Méthode du bureau · moteur Dalles » et sa version",
+        "les cartes SOL, ÉQUILIBRE, CONTRÔLES, ARMATURES et leurs pastilles d'état ; plus de cadre au pied (méthode, version, code couleur : 25/11/2026)",
         f"σ max = {fr(gov['sigma_max'] / V.KG_CM2, 2)} kg/cm² > 0,50 kg/cm² · cas {gov['cas_max']} · k = 10" in res and gov["cas_max"] == "3.a"
         and fr(gov["sigma_max"] / V.KG_CM2, 2) == "1,12" and r["resume"]["niveau"] == "r"
         and r["resume"]["taux"] == C.pct(gov["sigma_max"] / (0.5 * V.KG_CM2))
         and 'chip xl' not in r["resultat"] and 'class="verdict' not in r["resultat"] and '<section class="et-bloc nok" data-theme="0">' in r["resultat"]
-        and "Sol Non conforme" in res and "Méthode du bureau · moteur Dalles v2.2" in res
+        and "Sol Non conforme" in res and "Méthode du bureau · moteur Dalles" not in res and "pfoot" not in r["resultat"]
         and re.findall(r'<span class="n">([^<]+)</span><span class="e">', r["resultat"]) == ["Sol", "Équilibre", "Contrôles", "Armatures"]
         and re.findall(r'<li class="[a-z]*"><span class="n">\d</span><span class="t">([^<]+)</span>', r["resultat"])
         == ["Données", "Vérification", "SAF", "Efforts SCIA", "Note"], (res[:300], r["resume"]))

@@ -1122,7 +1122,8 @@ def resultat(etat: Dict) -> Dict:
     resultats = [r if i == etat["actif"] else _calculer(x) for i, x in enumerate(etat["fondations"])]
     nom = C.esc(f.get("nom") or "Fondation")
     tete = E.tete_resultats(nom, f"{C.esc(EN.COURTS_TYPE[f['type']])} · {C.esc(f['beton'])} · {C.esc(f['acier'])}")
-    pied = f'<div class="pfoot">{_export(r)}<div class="legend">{C.legende()}</div></div>'
+    # (25/11/2026 : plus de cadre d'information au pied du résultat — ``commun.infos`` ; il reste la barre d'ACTIONS)
+    pied = f'<div class="pactions">{_export(r)}</div>'
     resume = resume_note(etat, resultats)
     statut = C.statut(resume["niveau"]) if len(resultats) > 1 else ""
     corps = f'<div class="pbody">{tete}{_verdict(r)}<div class="et-blocs">{_blocs(r)}</div></div>{pied}'

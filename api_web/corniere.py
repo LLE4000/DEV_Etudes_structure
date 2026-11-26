@@ -1216,13 +1216,14 @@ def resultat(etat: Dict) -> Dict:
     tete = E.tete_resultats(nom, dims)
     bs, _ = _bloc_sections(r)
     blocs = bs + _bloc_ancrages(r) + _bloc_comparaison(r)
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; la masse de la cornière et son origine — une
+    #  masse « calculée » pour une saisie libre — se lisent à la fin du corps)
     masse = f"{C.qte(sec['masse'], 'kg/m', 2)} ({'catalogue' if sec['masse_source'] == 'catalogue' else 'calculée'})"
-    pied = (f'<div class="pfoot"><div class="mass"><span>Masse de la cornière</span><b>{masse}</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    pied = C.infos(("Masse de la cornière", masse))
     nivs = [_niv_res(x) if "taux_max" in x else "x" for x in resultats]
     statut = C.statut(next((n for n in ("x", "r") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     corps = (f'<div class="pbody">{tete}{"".join(C.message(a) for a in avis)}{_verdict(r)}<div class="et-blocs">{blocs}</div>'
-             f'{_messages(r, sans=("note_v1",) if avis else ())}{_hypotheses_html(r)}</div>{pied}')
+             f'{_messages(r, sans=("note_v1",) if avis else ())}{_hypotheses_html(r)}{pied}</div>')
     return {"resultat": corps, **({"avis": avis} if avis else {}), "volets": _volets(r, nom), "vues": _vues(r, f"cor{etat['actif']}"),
             "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": arbre(etat, r, resultats),
             "elements": elements(etat, resultats)}

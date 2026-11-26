@@ -758,7 +758,7 @@ chk("la marque est EXPLIQUÉE là où on la voit, ses DEUX couleurs : « [argent
     and all(re.search(r'<div class="mp-h"><div class="h2">Modules</div>' + _LEG.format("vérifié"), v, re.S) for v in _volets.values()))
 _etablis_v = {n: re.findall(r'<template id="et-verif-gabarit">(.*?)</template>', h, re.S) for n, h in PAGES_R.items() if 'id="resultat"' in h}
 _cle_de = {v: k for k, v in SW.ADRESSES.items()}
-chk(f"dans les {len(_etablis_v)} pages d'établi, le gabarit de la ligne « Module vérifié / à vérifier » (js/marques.js la pose au pied du cadre Résultat) "
+chk(f"dans les {len(_etablis_v)} pages d'établi, le gabarit de la ligne « Module vérifié / à revérifier » (js/marques.js la pose au pied du Résultat) "
     "nomme LE module de la page ; c'est une ligne qu'on lit — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)",
     len(_etablis_v) >= 17 and all(len(g) == 1 and f'<span class="et-verif" data-verif-module="{_cle_de[n[:-5]]}">' in g[0]
                                   and "<button" not in g[0] and "<a " not in g[0] and g[0].count("<svg") == 2 for n, g in _etablis_v.items()),
@@ -877,13 +877,21 @@ chk("js/marques.js ne MONTRE une marque que pour l'état « verifie » (ni « ch
     and re.search(r"etat\.ecran = OUVRIR\[sorte\]\(corps, ctx\);\n(?:\s*//[^\n]*\n)*\s*marquer\(corps\);", APP) is not None
     and re.search(r'\$\("#resultat"\)\.innerHTML = r\.resultat;\s*\n\s*poserVerification\(\$\("#resultat"\), MODULE\);', ET_JS) is not None
     and "marquer(document);" in AC_JS and "marquer(document);" in EE)
+# (25/11/2026) le CADRE du pied du résultat est retiré de tous les modules (« ce cadre-là, il ne sert à rien ») : la ligne ne se
+# pose plus que pour un module vérifié, ou vérifié puis changé — directement dans le cadre Résultat, sous le corps
+chk("js/marques.js ne pose la ligne du module, au pied du Résultat, que pour « verifie » et « change » (« Module à vérifier » est parti avec le "
+    "cadre du pied) ; elle est la dernière ligne de #resultat, hors de tout cadre « pfoot », et le rendu suivant la remporte",
+    'export const ETATS_MARQUES = ["verifie", "change"];' in MQ_JS and "if (!gabarit || !ETATS_MARQUES.includes(V.etat(cle).etat)) return;" in MQ_JS
+    and "    resultat.appendChild(gabarit.content.cloneNode(true));" in MQ_JS and ".pfoot" not in MQ_JS.split("export function poserVerification")[1]
+    and 'for (const vieux of resultat.querySelectorAll(":scope > .et-verif")) vieux.remove();' in MQ_JS
+    and ".resultat > .et-verif { flex: none;" in SITE_CSS and ".pfoot" not in SITE_CSS)
 chk("les marques prennent la couleur de leur NIVEAU partout où on les voit (la marque des modules, la ligne du pied du résultat, la légende, "
     "l'écusson de la page Équipe) : js/marques.js et l'écran de l'équipe écrivent data-niveau, css/site.css peint l'argent et l'or avec leurs jetons ; "
     "« Vérifier aussi » n'est proposé qu'à un administrateur qui n'a pas encore signé une marque argentée",
     'el.dataset.niveau = e.niveau; }' in MQ_JS and 'el.dataset.niveau = e.niveau || "";' in MQ_JS and 'data-niveau="${esc(m.niveau)}"' in EE
     and 'm.niveau === "argent" && !VF.aSigne(m, eq.moi) ? poser("Vérifier aussi", ' in EE
-    and all(f'.pfoot .et-verif[data-etat="verifie"][data-niveau="{n}"] {{ color: var(--{n}); }}' in SITE_CSS
-            and f'span.ok[data-verifie][data-niveau="{n}"], .okleg .okleg-i[data-niveau="{n}"], .pfoot .et-verif[data-niveau="{n}"] .et-verif-i {{ color: var(--{n}-vif); }}' in SITE_CSS
+    and all(f'.resultat > .et-verif[data-etat="verifie"][data-niveau="{n}"] {{ color: var(--{n}); }}' in SITE_CSS
+            and f'span.ok[data-verifie][data-niveau="{n}"], .okleg .okleg-i[data-niveau="{n}"], .resultat > .et-verif[data-niveau="{n}"] .et-verif-i {{ color: var(--{n}-vif); }}' in SITE_CSS
             and f'td .valid.ok[data-niveau="{n}"] {{ color: var(--{n}); background: var(--{n}-soft); }}' in SITE_CSS for n in ("argent", "or")))
 _jetons = {}
 for _theme, _motif in (("clair", r":root \{(.*?)\n\}"), ("sombre", r'\[data-theme="dark"\] \{(.*?)\n\}')):
@@ -978,7 +986,9 @@ if not REJOUE:
         ("revérifier ajoute une ligne au lieu de remplacer la sienne", [("js/verifications.js", "w.version === v.version && qui(w.par) !== qui(v.par)", "w.version === v.version")], None),
         ("les lignes périmées gardées au registre", [("js/verifications.js", "w.version === v.version && qui(w.par) !== qui(v.par)", "qui(w.par) !== qui(v.par)")], None),
         ("la marque sans son niveau (ni argent ni or)", [("js/marques.js", " el.dataset.niveau = e.niveau; }", " }")], None),
-        ("l'or peint comme l'argent", [("css/site.css", 'span.ok[data-verifie][data-niveau="or"], .okleg .okleg-i[data-niveau="or"], .pfoot .et-verif[data-niveau="or"] .et-verif-i { color: var(--or-vif); }\n', "")], None),
+        ("l'or peint comme l'argent", [("css/site.css", 'span.ok[data-verifie][data-niveau="or"], .okleg .okleg-i[data-niveau="or"], .resultat > .et-verif[data-niveau="or"] .et-verif-i { color: var(--or-vif); }\n', "")], None),
+        ("« Module à vérifier » revient au pied du résultat de chaque module", [("js/marques.js", 'export const ETATS_MARQUES = ["verifie", "change"];', 'export const ETATS_MARQUES = ["verifie", "change", "non"];')], None),
+        ("la marque d'un module vérifié reposée dans un cadre « pfoot »", [("js/marques.js", "    resultat.appendChild(gabarit.content.cloneNode(true));", '    resultat.querySelector(".pfoot").appendChild(gabarit.content.cloneNode(true));')], None),
         ("un or trop pâle pour se lire", [("css/charte.css", "  --or: #8C6400;\n", "  --or: #D4A72C;\n")], None),
         ("une marque dorée trop pâle pour se voir", [("css/charte.css", "  --or-vif: #B07D00;\n", "  --or-vif: #F0D58A;\n")], None),
         ("une vérification sans version", [("js/verifications.js", "  const v = { par: E.signatureDe(moi), t: Date.now(), version: VERSIONS[cle] };", '  const v = { par: E.signatureDe(moi), t: Date.now(), version: "0000000000000000" };')], None),

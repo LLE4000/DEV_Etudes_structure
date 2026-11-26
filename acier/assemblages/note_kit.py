@@ -1,14 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Le kit des notes PDF des assemblages : le bloc HYPOTHÈSES empaqueté.
+"""Le kit des notes PDF des assemblages : le bloc HYPOTHÈSES empaqueté, et la note SANS les taux.
 
 Règle (charte du 31/10/2026, §11) : au plus ``n_max`` lignes de ``larg``
 caractères, composées de SEGMENTS écrits par le module — jamais coupés ;
 quand ils ne tiennent pas, les formes courtes sont prises du dernier
 segment au premier ; s'ils ne tiennent toujours pas, ``ValueError`` (le
 test rougit : c'est le texte qu'il faut revoir, pas la règle).
+
+La note SANS les taux (demande du propriétaire, 25/11/2026 : « afficher les pourcentages de résultats dans la note de
+calcul ou pas. […] Si je dimensionne tout, je n'ai pas envie qu'on voie en un clin d'œil que j'ai dimensionné tout à
+60 %. […] Soit on garde la note de calcul actuelle, soit les pourcentages sont masqués ») : ``infos["sans_taux"]``,
+recopié dans ``doc_meta``. La note garde alors tout ce qui PROUVE — Ed, Rd, le verdict de chaque vérification, celui de
+l'assemblage, la vérification dimensionnante — et n'écrit plus aucun pourcentage : ni « η max », ni les taux par
+élément du bandeau, ni la colonne η (elle dit « OK » ou « NON OK »), ni le « = 80,3 % » qui finit une formule
+(``masquer_taux``). Sans l'option, pas un octet ne change.
 """
 
 import itertools
+import re
 
 from acier.formats import F
 
@@ -18,6 +27,38 @@ _MINUSCULES = "abcdefghijklmnopqrstuvwxyzàâäéèêëîïôöùûüç"
 # « EC3 = EN 1993-1-8 sauf indication ») ; un § du guide MSB Part 5 porte donc TOUJOURS « MSB P5 »
 # (relecture du 01/11/2026 : « (§4.2.4) » nu, à côté de « (§4.5.1) » de l'EN, se lisait comme l'EN).
 MSB = "MSB P5 "
+
+# ------------------------------------------------------------------ la note SANS les taux
+SANS_TAUX = "sans_taux"                     # la clé de ``infos`` (l'écran du site) et de ``doc_meta`` (les notes)
+
+
+def sans_taux(doc):
+    """La note s'écrit-elle SANS les taux ? (``doc`` : le ``doc_meta`` d'une note, ou les ``infos`` qu'elle reçoit.)"""
+    return bool((doc or {}).get(SANS_TAUX))
+
+
+def verdict(ok):
+    """Ce que la colonne η d'un tableau dit à la place d'un taux."""
+    return "OK" if ok else "NON OK"
+
+
+# « η = 66,70 kN / 83,07 kN = 80,3 % ≤ 100 % » : la ligne qui finit une vérification, dans les six moteurs
+_ETA_COMPAREE = re.compile(r"η = (?P<ed>[^=;]+?) / (?P<rd>[^=;]+?) = (?:>\s*)?[-−]?\d+(?:[.,]\d+)?\s*%\s*(?P<op>≤|>)\s*100\s*%")
+# « … = 27,0 % », « → 85 % », « (85 %) » : un taux en fin d'égalité ou entre parenthèses (les lignes substituées des doubles
+# cornières, les tableaux « calcul à la main » du pied de poteau)
+_TAUX_FINAL = re.compile(r"\s*(?:=|→)\s*(?:>\s*)?[-−]?\d+(?:[.,]\d+)?\s*%|\s*\((?:>\s*)?[-−]?\d+(?:[.,]\d+)?\s*%\)")
+
+
+# « béton d'ancrage à 107,7 %, hors périmètre » : un taux dit dans une phrase (le motif « à vérifier » du pied de poteau)
+_TAUX_DIT = re.compile(r"\s+à\s+(?:>\s*)?[-−]?\d+(?:[.,]\d+)?\s*%")
+
+
+def masquer_taux(texte):
+    """Un texte de la note SANS ses taux : « η = 66,70 kN / 83,07 kN = 80,3 % ≤ 100 % » devient « 66,70 kN ≤ 83,07 kN »
+    (la comparaison reste, le pourcentage part) ; ailleurs, le « = 27,0 % », le « → 85 % », le « (85 %) » ou le
+    « à 107,7 % » est retiré. Un SEUIL (« au-delà de 100 % ») n'est pas un taux : il reste."""
+    t = _ETA_COMPAREE.sub(lambda m: m.group("ed").strip() + " " + m.group("op") + " " + m.group("rd").strip(), texte)
+    return _TAUX_DIT.sub("", _TAUX_FINAL.sub("", t))
 
 
 def coefficients(tete, g_M2, g_M2n, tete_net=None):

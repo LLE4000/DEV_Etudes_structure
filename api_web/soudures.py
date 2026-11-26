@@ -1639,9 +1639,7 @@ def resultat(etat: Dict) -> Dict:
                             "décide du statut", rows, theme=True, calcul="m")
             volets += _fenetre_comparaison(res, hyps)
     messages = "".join(C.message(_texte_indices(texte_fr(msg)), message_grave(msg)) for msg in msgs)
-    meth, coef = _ligne_methode(res)
-    pied = (f'<div class="pfoot"><div class="mass"><span>{meth}</span><b>{coef}</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    pied = ""         # (25/11/2026 : plus de cadre au pied du résultat ; la méthode se lit dans l'en-tête des vues)
     vs = vues(res)
     for v in vs:
         v["entete"] = _entete(cas, res, v)
@@ -1658,7 +1656,7 @@ def resultat(etat: Dict) -> Dict:
 # page 2 reçoit l'échelle et le nombre de points montrés en page 1 ; l'identification imprimée est celle de la note du
 # site (celle de l'état, « identification », venue de Streamlit, ne s'imprime pas et ne se montre plus)
 NOTE = NC.Generateur("acier.soudures.note", "Soudures", lambda n1: (n1.echelle, n1.points_montres),
-                     ("acier/soudures/note.py", "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
+                     ("acier/soudures/note.py",) + NC.PEINTRE_SCENES)
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:

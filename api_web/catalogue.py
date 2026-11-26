@@ -1115,9 +1115,7 @@ def resultat(etat: Dict) -> Dict:
     if not lst:
         messages += C.message(C.esc(CO.MESSAGE_VIDE + " " + _raisons_vide(r)))
     corps = _verdict(p) + f'<div class="els">{rows}</div>' + messages + (_table_fiche(p, r["filtres"]) if p is not None else "")
-    m = CAT.meta()
-    pied = (f'<div class="pfoot"><div class="mass"><span>Catalogue du bureau · v{C.esc(m["version"])} · {C.esc(_date(m["date"]))}</span>'
-            f'<b class="cat-nb">{C.fr(len(CAT.profils()), 0)}{C.NBSP}profilés</b></div></div>')
+    pied = ""         # (25/11/2026 : plus de cadre au pied du résultat ; version, date et nombre de profilés : fenêtre « Méthode »)
     volets = (fenetre_fiche(p) if p is not None else "") + fenetre_methode()
     # la toile
     nf = len(r["familles"])

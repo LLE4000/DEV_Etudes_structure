@@ -175,9 +175,13 @@ l'ingénieur : **vérifié**.
   (`construire.marque_verifie`) : sans le script, ou avant lui, aucun module ne se dit vérifié.
 - **Où on la voit** (la même, depuis un composant partagé — R1) : la tuile du module sur l'accueil, sa ligne du volet
   des modules (toutes les pages), son bouton dans « Nouvelle note », son résultat dans la recherche, et **dans le
-  module**, au pied du cadre Résultat : « Module vérifié · LLE · 11/11/2026 », « Module à vérifier » ou « Module à
-  revérifier ». Cette ligne se LIT : ce n'est pas un bouton (au doigt, un bouton du résultat doit faire 44 px — il
-  aurait pris une ligne au résultat).
+  module**, sous le résultat : « Module vérifié · LLE · 11/11/2026 » ou « Module à revérifier ». Cette ligne se LIT :
+  ce n'est pas un bouton (au doigt, un bouton du résultat doit faire 44 px — il aurait pris une ligne au résultat).
+  **Un module que personne n'a vérifié n'y porte AUCUNE ligne** (25/11/2026) : le cadre du pied du résultat est
+  retiré de tous les modules (demande du propriétaire — nom du module, code couleur et « Module à vérifier » ne
+  servaient à rien), et « Module à vérifier » ne se dit plus dans le module — sans marque, un module n'est pas
+  vérifié, comme sur sa tuile de l'accueil ; l'état de chaque module reste dit sur la page Équipe
+  (`marques.ETATS_MARQUES`, `poserVerification` ; harnais : filtre « bureau »).
 - **Ce que la marque dit, et ce qu'elle ne dit pas** : la MÉTHODE du module a été relue par un administrateur ;
   **chaque note reste à relire par son auteur** (une saisie fausse donne un résultat faux dans un module vérifié).
   L'infobulle et la page Équipe le rappellent.

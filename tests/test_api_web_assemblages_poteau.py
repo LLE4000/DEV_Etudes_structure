@@ -3,26 +3,33 @@
 d'âme soudé, doubles cornières, platine d'about partielle — sur l'aile ou dans l'âme du poteau. Ce que le site calcule
 et affiche est ce que calcule et affiche l'écran Streamlit ; chaque contrôle rougit si l'on retire ce qu'il protège.
 
-  1. Les trois configurations : enregistrées avec LEUR moteur (acier/assemblages/poutre_poteau/…), sections pensées
-     (le cas d'appui en tête, le poteau, la poutre portée et sa position, la pièce, les boulons…), chaque champ que
-     l'écran Streamlit montre est dans le cadre Données, et seulement lui (entrees.champ_visible), aile et âme.
+  1. Les trois configurations : enregistrées avec LEUR moteur (acier/assemblages/poutre_poteau/…), rubriques pensées
+     (Assemblage et le cas d'appui en tête · Poteau et poutre, avec la position et le grugeage · la pièce · Boulons ·
+     Efforts ELU · Options), chaque champ que l'écran Streamlit montre est dans le cadre Données (entrees.champ_visible),
+     aile et âme — sans la bascule « Mode », avec les règles du prédimensionnement (Options).
   2. Les copies NOMMÉES de l'écran Streamlit, rejouées avec un faux « st » sur des dizaines de résultats (aile, âme,
-     traction, tying, prédimensionnement, cornières soudées) : PERIMETRE_AILE, « paramètres retenus », « détail de la
-     solution retenue », règle de choix, ce qui est sans objet et non revérifié (repli Périmètre), la règle du Tableau
-     3.3, la légende de la matrice des ailes, les tableaux de répartition par boulon, les décimales du Benchmark.
+     traction, tying, cornières soudées) : PERIMETRE_AILE, « paramètres retenus », ce qui est sans objet et non
+     revérifié (repli Périmètre → le pied de chaque fenêtre de calcul), la règle du Tableau 3.3, la légende de la
+     matrice des ailes, les tableaux de répartition par boulon.
   3. La parité du calcul (fichier → saisies → moteur), chemin de l'écran Streamlit et chemin du site, au bit près,
      sur des jeux qui couvrent les deux cas d'appui, la traction et le tying, les cornières soudées, les profilés
-     personnalisés vides, le prédimensionnement.
+     personnalisés vides, et des notes enregistrées en mode prédimensionnement (le site les relit en vérification,
+     la proposition du moteur recopiée — ce que fait « Appliquer » dans l'écran Streamlit).
   4. L'écran Streamlit LUI-MÊME (AppTest) : les trois écrans poutre–poteau (fpc_, dcc_, pac_), des jeux chargés dans
      leur état comme le fait « Ouvrir » ; leur résultat a l'empreinte de celui du site.
   5. Ce que le site affiche = le moteur : verdict, une ligne par pièce, la gouvernante, E_d / R_d dans chaque fenêtre,
-     détail des formules et ligne η, alertes, les trois dessins (élévation, plan, coupe A-A) au caractère près, note
-     texte, méthode (limites de methode.limites(ame)), validation, prédim, matrice des ailes, répartition par boulon,
-     hypothèses (« poteau », « poutre portée »).
+     détail des formules et ligne η, alertes, les trois dessins (élévation, plan, coupe A-A) au caractère près — la
+     toile ne porte QU'EUX —, les limites de methode.limites(ame) au pied des fenêtres, le bloc des solutions, matrice
+     des ailes, répartition par boulon, hypothèses (« poteau », « poutre portée »).
   6. La saisie : cas d'appui, refus (rangées 2,4, γ = 0, V vide, recoupe négative…), configuration changée (la pièce
      porteuse et le grugeage d'une poutre ne suivent pas sur un poteau ; le cas d'appui suit dans la famille).
-  7. Les sélecteurs (poteau, poutre portée, boulon, cornière, solutions) et l'échappement.
-  8. Mutations : abîmer une copie nommée, le calcul de 10⁻⁷, les colonnes du prédimensionnement fait rougir.
+  7. Les sélecteurs (poteau, poutre portée, boulon, cornière, solutions VÉRIFIÉES) et l'échappement.
+  8. Mutations : abîmer une copie nommée, le calcul de 10⁻⁷, le périmètre des fenêtres, une proposition qui change le
+     cas d'appui fait rougir.
+
+(25/11/2026, revue de l'écran demandée par le propriétaire : la toile ne garde que les dessins ; les onglets Prédim,
+Note, Méthode et Validation et le MODE prédimensionnement sont retirés ; les propositions, vérifiées par le calcul
+complet, s'ouvrent du résultat — leur suite : tests/test_assemblages_predim.py. Le harnais SUIT.)
 
     /usr/bin/python3.12 tests/test_api_web_assemblages_poteau.py        (streamlit requis pour 2 et 4)
 """
@@ -38,6 +45,7 @@ import random
 import math
 import re
 import sys
+import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(RACINE)
@@ -85,6 +93,8 @@ def chk(nom, cond, info=""):
     print(("OK   " if cond else "ÉCHEC ") + nom + (f"   [{str(info)[:300]}]" if info and not cond else ""))
 
 
+# les règles du prédimensionnement : l'écran Streamlit ne les montre que dans son mode ; le site, toujours (Options)
+REGLES_PREDIM = {"eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"}
 POTEAU = {"plat_ame_poteau": "acier.assemblages.poutre_poteau.plat_ame_poteau",
           "doubles_cornieres_poteau": "acier.assemblages.poutre_poteau.doubles_cornieres_poteau",
           "platine_about_poteau": "acier.assemblages.poutre_poteau.platine_about_poteau"}
@@ -224,6 +234,20 @@ def chemin_streamlit(cle, src):
     brut = cfg.E.charger_json(src)
     compute = ecran(cle, "interface").compute
     u = {k: kit.valeur_widget(D, k, brut.get(k)) for k in cfg.E.CLES}
+    # (25/11/2026) le site n'a plus de MODE prédimensionnement (les propositions s'ouvrent du résultat) : une note
+    # enregistrée dans ce mode y est relue avec la proposition du moteur RECOPIÉE (``assemblages.sans_mode_predim``) —
+    # ce que fait le bouton « Appliquer » de l'onglet Prédim de l'écran Streamlit (``moteur.apply_solution``)
+    if cfg.E.mode_predim(u):
+        try:
+            vides_ = kit.dimensions_vides(D, u)
+            pd = compute(kit.provisoire(D, u) if vides_ else u).get("pd")
+        except Exception:  # noqa: BLE001
+            pd = None
+        if pd is not None and pd.get("pick") is not None and pd.pick.get("prop"):
+            b2 = cfg.E.charger_json(cfg.predim["moteur"].apply_solution(u, pd.pick))
+            u = {k: kit.valeur_widget(D, k, b2.get(k)) for k in u}
+        else:
+            u = dict(u, mode_calc=cfg.E.MODE_VERIF)
     vides = kit.dimensions_vides(D, u)
     try:
         R = compute(kit.provisoire(D, u) if vides else u)
@@ -231,6 +255,12 @@ def chemin_streamlit(cle, src):
     except Exception as e:  # noqa: BLE001
         R, err = None, type(e).__name__
     return u, sorted(vides), R, err
+
+
+def en_predim(cle, src):
+    """La note ``src`` est-elle enregistrée en mode prédimensionnement ? (L'écran Streamlit y reste ; le site l'en sort.)"""
+    cfg = A.CONFIGS[cle]
+    return bool(cfg.E.mode_predim(cfg.E.charger_json(src)))
 
 
 def chemin_site(cle, src):
@@ -326,11 +356,14 @@ chk("le fichier d'aide n'a pas de MODULE ; ses trois configurations sont au regi
     not hasattr(PT, "MODULE") and [c for c in A.ordre() if c in POTEAU] == list(POTEAU))
 for cle, chemin in POTEAU.items():
     cfg = A.CONFIGS[cle]
-    chk(f"{cle} : le moteur est celui de la configuration (entrees, compute, synthese, schemas, methode, benchmark)",
+    chk(f"{cle} : le moteur est celui de la configuration (entrees, compute, synthese, benchmark ; les limites de "
+        "methode.limites ; le moteur des propositions) — ni texte de méthode ni export texte à l'écran",
         cfg.E is ecran(cle, "entrees") and cfg.calculer is ecran(cle, "moteur").compute and cfg.S is ecran(cle, "synthese")
-        and cfg.bench is ecran(cle, "benchmark") and cfg.methode == ecran(cle, "methode").METHODE and cfg.famille == "poutre_poteau")
+        and cfg.bench is ecran(cle, "benchmark") and cfg.famille == "poutre_poteau" and cfg.predim["moteur"] is ecran(cle, "moteur")
+        and all(cfg.non_reverifies(types.SimpleNamespace(ame=a)) == tuple(ecran(cle, "methode").limites(a)) for a in (False, True))
+        and not hasattr(cfg, "methode") and not hasattr(cfg, "T"))
     vus_ko = []
-    for nom, v in (("aile", {}), ("âme", {"appui": AME}), ("prédim", {"mode_calc": cfg.E.MODE_PREDIM}),
+    for nom, v in (("aile", {}), ("âme", {"appui": AME}), ("note enregistrée en prédim", {"mode_calc": cfg.E.MODE_PREDIM}),
                    ("tying", {"N_Ed": 50, "nat_N": cfg.E.NAT_TYING, "cat": "B"}),
                    ("perso", {"prof_P": PERSO, "prof_S": PERSO, "nu_P": PERSO, "trou": cfg.E.CHAMPS["trou"]["o"][-1]})):
         e = etat_de(cle, v)
@@ -341,25 +374,39 @@ for cle, chemin in POTEAU.items():
         attendus = {k for k in cfg.E.CHAMPS if cfg.E.champ_visible(u, k)}
         if "d0_u" in attendus and not (u.get("d0_u") or 0) > 0:
             attendus.discard("d0_u")                     # trou normal : la case « d0 imposé » le remplace
-        if lus != attendus:
-            vus_ko.append((nom, sorted(attendus - lus), sorted(lus - attendus)))
-    chk(f"{cle} : chaque champ que l'écran Streamlit montre est dans le cadre Données, et seulement lui (aile, âme, "
-        "prédim, tying, personnalisé)", not vus_ko, vus_ko)
+        # (25/11/2026) le site n'a plus la bascule « Mode » ; les règles du prédimensionnement, que l'écran Streamlit ne
+        # montre que dans ce mode, sont toujours dans « Options » (elles règlent les propositions)
+        attendus = (attendus - {"mode_calc"}) | REGLES_PREDIM
+        if lus != attendus or u["mode_calc"] != cfg.E.MODE_VERIF:
+            vus_ko.append((nom, sorted(attendus - lus), sorted(lus - attendus), u["mode_calc"]))
+    chk(f"{cle} : chaque champ que l'écran Streamlit montre est dans le cadre Données, et seulement lui (aile, âme, tying, "
+        "personnalisé, note enregistrée en prédimensionnement) — sans la bascule « Mode », avec les règles du "
+        "prédimensionnement", not vus_ko, vus_ko)
     don = A.resultat(etat_de(cle))["donnees"]
     titres = re.findall(r'<span class="tt">([^<]+)</span>', don)
-    chk(f"{cle} : sections pensées — Assemblage, Poteau porteur, Poutre portée, Grugeage, la pièce, Boulons, Efforts, "
-        f"Coefficients, Cartouche ({len(titres)})",
-        titres[:4] == ["Assemblage", "Poteau porteur", "Poutre portée", "Grugeage"] and titres[-3:] ==
-        ["Efforts ELU", "Coefficients et modèle", "Cartouche et affichage"], titres)
-    tete = don.split('data-sec="po"')[0]
+    rub = re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', don)
+    chk(f"{cle} : rubriques pensées — Assemblage · Poteau et poutre · la pièce · Boulons · Efforts ELU · Options "
+        f"({len(titres)}) ; la première seule ouverte, « Options » seule secondaire",
+        titres[:2] == ["Assemblage", "Poteau et poutre"] and titres[3:] == ["Boulons", "Efforts ELU", "Options"] and len(titres) == 6
+        and [k for _o, k, _s in rub] == ["as", "pt", "cn" if "cornieres" in cle else "pl", "bo", "ef", "op"]
+        and [k for o, k, _s in rub if o] == ["as"] and [k for _o, k, s_ in rub if s_] == ["op"], (titres, rub))
+    tete = don.split('data-sec="pt"')[0]
     chk(f"{cle} : le cas d'appui est en tête (section Assemblage), en segments « Sur l'aile / Dans l'âme »",
         'data-chemin="v/appui"' in tete and tete.count('data-chemin="v/appui"') == 2 and 'data-valeur="Âme du poteau">Dans l&#x27;âme<' in tete
         and 'select data-chemin="type"' in tete)
     e = etat_de(cle, {"appui": AME})
     don = A.resultat(e)["donnees"]
-    portee = don.split('data-sec="pt"')[1].split('data-sec="gr"')[0]
-    chk(f"{cle} : en cas (b), la recoupe des semelles et le jeu latéral sont dans « Poutre portée › Position »",
-        'data-chemin="v/rec_S"' in portee and 'data-chemin="v/j_lat"' in portee)
+    pieces = don.split('data-sec="pt"')[1].split('data-sec="')[0]
+    chk(f"{cle} : « Poteau et poutre » porte le poteau, la poutre portée, sa position — en cas (b), la recoupe des semelles "
+        "et le jeu latéral — et son GRUGEAGE (plus de rubrique à part)",
+        all(f'data-chemin="v/{k}"' in pieces for k in ("prof_P", "nu_P", "prof_S", "nu_S", "rec_S", "j_lat", "d_nt", "d_nb", "l_n"))
+        and "Grugeage" in pieces and 'data-sec="gr"' not in don and 'data-sec="po"' not in don)
+    options = don.split('data-sec="op"')[1]
+    chk(f"{cle} : « Options » porte les coefficients, les règles du prédimensionnement, la note (taux affichés ou non), le "
+        "cartouche et les cotes des dessins",
+        all(f'data-chemin="v/{k}"' in options for k in sorted(REGLES_PREDIM) + ["g_M0", "g_M2", "id_projet", "id_red"])
+        and 'data-chemin="note_taux"' in options and C.esc(A.LIBELLE_NOTE_TAUX) in options and 'data-chemin="cotation"' in options
+        and 'data-chemin="v/mode_calc"' not in don, options[:200])
 e = etat_de("doubles_cornieres_poteau", {"fix_P": "Soudée", "fix_S": "Soudée"})
 don = A.resultat(e)["donnees"]
 chk("cornières soudées des deux côtés : pas de section Boulons, une section Soudures, pas de visserie",
@@ -377,7 +424,7 @@ for cle in POTEAU:
     chk(f"{cle} : options affichées du cas d'appui et de la nature de N_Ed = les options du moteur ; dimensions "
         "provisoires = ecran_saisie.DIMENSIONS",
         set(cfg.affichage["appui"]) == set(cfg.E.CHAMPS["appui"]["o"]) and set(cfg.affichage["nat_N"]) == set(cfg.E.CHAMPS["nat_N"]["o"])
-        and set(cfg.affichage["mode_calc"]) == set(cfg.E.CHAMPS["mode_calc"]["o"]) and cfg.dimensions == es.D.DIMENSIONS)
+        and "mode_calc" not in cfg.affichage and cfg.dimensions == es.D.DIMENSIONS)
 chk("cornières : options affichées de la grande aile = les options du moteur",
     set(A.CONFIGS["doubles_cornieres_poteau"].affichage["orient"]) == set(A.CONFIGS["doubles_cornieres_poteau"].E.CHAMPS["orient"]["o"]))
 
@@ -385,8 +432,8 @@ CAS2 = {cle: jeux(cle, 22, graine=2) for cle in POTEAU}
 for cle in POTEAU:
     ER = ecran(cle, "ecran_resultats")
     cfg = A.CONFIGS[cle]
-    e_par, e_det, e_per, e_33, e_tab, e_leg = [], [], [], [], [], []
-    n_par = n_det = n_ame = n_aile = 0
+    e_par, e_per, e_33, e_tab, e_leg = [], [], [], [], []
+    n_par = n_per = n_ame = n_aile = 0
     for nom, src in CAS2[cle]:
         el = A.normaliser({"assemblages": [{"type": cle, "values": src}]})["assemblages"][0]
         R, vides, err = A.calculer(cfg, el)
@@ -407,7 +454,10 @@ for cle in POTEAU:
             ER.onglet_verifications(R)
         non, sans = fs.perimetre[0]
         cfg_r = A.pour(cfg, R)
-        vm = A.vue_methode(cfg_r, R)
+        # (25/11/2026) l'onglet « Méthode » de la toile, qui portait ce périmètre, est retiré : il est écrit au pied de
+        # CHAQUE fenêtre de calcul (``assemblages.perimetre``)
+        vm = A.perimetre(cfg_r, R)
+        n_per += 1
         if list(A.non_reverifies(cfg_r, R)) != non or any(C.esc(s) not in vm for s in sans + non):
             e_per.append((nom, "périmètre", [s[:40] for s in sans + non if C.esc(s) not in vm][:2]))
         cap33 = [t for t in fs.textes if isinstance(t, str) and t.startswith("e ≥ 1,2·d0")]
@@ -422,59 +472,18 @@ for cle in POTEAU:
         if cle == "doubles_cornieres_poteau" and PT.YDC.matrice_cornieres(R):
             if PT.LEGENDE_AILES not in fs.textes or C.esc(PT.LEGENDE_AILES) not in PT.matrice_cornieres(R):
                 e_leg.append(nom)
-        # l'onglet Prédim : détail de la solution retenue, règle de choix, colonnes du tableau
-        if R.get("pd") is None:
-            continue
-        with faux_st(ER) as fs:
-            ER.onglet_predim(R, el["values"], lambda u: None)
-        det = [t for t in fs.tables if t[1] == ("", "")]
-        n_det += 1
-        if not det or det[0][2] != A.detail_predim(cfg, R.pd):
-            e_det.append((nom, ecarts(det[0][2] if det else [], A.detail_predim(cfg, R.pd))[:2]))
-        if cfg.predim["regle"] not in fs.textes:
-            e_det.append((nom, "règle", [t[:60] for t in fs.textes if "Règle" in str(t)]))
-        # les colonnes de « Toutes les combinaisons » : les valeurs que l'écran écrit, ligne par ligne
-        cols = cfg.predim["colonnes"](R) if callable(cfg.predim["colonnes"]) else cfg.predim["colonnes"]
-        rows = [r for r in R.pd.rows if r.geom]
-        cellules = [t.strip("*") for t in fs.textes if isinstance(t, str)]
-        vp = A.vue_predim(cfg, R, el["values"])
-        for r in rows[:6]:
-            for _h, f in cols:
-                if f(r) not in cellules and cle != "doubles_cornieres_poteau":
-                    e_det.append((nom, "colonne", _h, f(r)))
-                if C.esc(f(r)) not in vp:
-                    e_det.append((nom, "vue Prédim", _h, f(r)))
     chk(f"{cle} : les jeux couvrent l'aile ({n_aile}) et l'âme ({n_ame})", n_aile >= 5 and n_ame >= 5)
     chk(f"{cle} : « Paramètres retenus » = ce qu'écrit ecran_resultats._parametres_retenus ({n_par} résultats)",
         n_par >= 20 and not e_par, e_par[:2])
-    chk(f"{cle} : « Détail de la solution retenue », règle de choix et colonnes des combinaisons = onglet_predim "
-        f"({n_det} résultats)", n_det >= 20 and not e_det, e_det[:3])
     chk(f"{cle} : Périmètre — non revérifiés (methode.limites) et sans objet (dont l'aile du poteau) = le repli de "
-        "l'écran, dits dans la vue Méthode", not e_per, e_per[:2])
+        f"l'écran, dits au pied des fenêtres de calcul ({n_per} résultats)", n_per >= 20 and not e_per, e_per[:2])
     chk(f"{cle} : la règle du Tableau 3.3 de la fenêtre Géométrie = la légende de l'écran", not e_33, e_33[:2])
     chk(f"{cle} : répartition élastique par boulon = les tableaux de l'onglet Vérifications", not e_tab, e_tab[:2])
     if cle == "doubles_cornieres_poteau":
         chk("cornières : la légende de la matrice des ailes = celle de l'écran (aile A sur le POTEAU)", not e_leg, e_leg[:3])
 
-# le Benchmark : les décimales de chaque configuration
-for cle in POTEAU:
-    ER = ecran(cle, "ecran_resultats")
-    cfg = A.CONFIGS[cle]
-    B = cfg.bench.run_bench()
-    with faux_st(ER) as fs:
-        ER.onglet_benchmark(B, lambda u: None)
-    ecran_ = [t[2] for t in fs.tables if t[1][:1] == ("Vérification",)]
-    vv = A.vue_validation(cfg)
-    manque = []
-    for tab in ecran_:
-        for li in tab:
-            ref, val = li[2], li[3]
-            ref_n = ref.split(" ")[0]                     # F() n'écrit pas de séparateur de milliers : le nombre, puis l'unité
-            if chiffres(ref_n) not in chiffres(sans_balises(vv)) or chiffres(val) not in chiffres(sans_balises(vv)):
-                manque.append((li[0][:30], ref, val))
-    chk(f"{cle} : vue Validation — chaque référence et chaque valeur de l'outil écrites avec les décimales de l'onglet "
-        f"Benchmark ({sum(len(t) for t in ecran_)} lignes)", ecran_ and not manque, manque[:3])
-chk("vue Validation : un rapport sans unité ne porte pas « - »", " -</td>" not in A.vue_validation(A.CONFIGS["plat_ame_poteau"]))
+# (25/11/2026 : l'onglet « Validation » de la toile est retiré — les bancs de comparaison sont rejoués par les suites du
+# dépôt, à chaque modification : tests/test_*_poteau*.py ; le contrôle des décimales de la vue n'a plus d'objet)
 
 # =====================================================================================================================
 print("\n=== 3. La parité du calcul : fichier → saisies → moteur (écran Streamlit / site) ===")
@@ -485,21 +494,26 @@ for cle in POTEAU:
     CAS[cle] = jeux(cle, TIRAGES)
     diff = comparer_parite(cle, CAS[cle])
     total += len(CAS[cle])
-    etats = {"vérifié": 0, "non vérifié": 0, "à compléter": 0, "erreur": 0, "prédim": 0, "âme": 0, "traction": 0}
+    # « prédim » : les notes ENREGISTRÉES en mode prédimensionnement (le site les relit avec leur proposition recopiée) ;
+    # « en mode prédim » : les calculs du site restés dans ce mode — il ne doit plus y en avoir (25/11/2026)
+    etats = {"vérifié": 0, "non vérifié": 0, "à compléter": 0, "erreur": 0, "prédim": 0, "en mode prédim": 0, "âme": 0, "traction": 0}
     for _nom, src in CAS[cle]:
         u, v, R, err = chemin_site(cle, src)
+        etats["prédim"] += en_predim(cle, src)
         if err:
             etats["erreur"] += 1
         elif v:
             etats["à compléter"] += 1
         elif R is not None:
             etats["vérifié" if R.verified else "non vérifié"] += 1
-            etats["prédim"] += bool(R.get("pred"))
+            etats["en mode prédim"] += bool(R.get("pred"))
             etats["âme"] += bool(R.ame)
             etats["traction"] += bool((C.lire_nombre(u.get("N_Ed")) or 0) > 0)
     chk(f"{cle} : {len(CAS[cle])} jeux, même empreinte au bit près ({etats})", not diff, diff[:3])
-    chk(f"{cle} : les jeux couvrent vérifié, non vérifié, à compléter, prédim, âme et traction",
-        all(etats[k] > 0 for k in ("vérifié", "non vérifié", "à compléter", "prédim", "âme", "traction")), etats)
+    chk(f"{cle} : les jeux couvrent vérifié, non vérifié, à compléter, âme, traction et des notes enregistrées en mode "
+        "prédimensionnement — que le site relit en vérification (aucun de ses calculs ne reste dans ce mode)",
+        all(etats[k] > 0 for k in ("vérifié", "non vérifié", "à compléter", "prédim", "âme", "traction"))
+        and etats["en mode prédim"] == 0, etats)
 print(f"     ({total} jeux comparés)")
 
 # =====================================================================================================================
@@ -523,7 +537,9 @@ if AppTest:
         chk(f"{cle} : l'écran Streamlit s'ouvre depuis la page projet", ouvert, at.exception)
         if not ouvert:
             continue
-        bons = [c for c in CAS[cle] if not chemin_site(cle, c[1])[1] and chemin_site(cle, c[1])[3] is None]
+        # (sans les notes en mode prédimensionnement : l'écran Streamlit y reste, le site les en sort — leur parité est
+        #  celle du bouton « Appliquer », contrôlée plus haut par ``chemin_streamlit``)
+        bons = [c for c in CAS[cle] if not en_predim(cle, c[1]) and not chemin_site(cle, c[1])[1] and chemin_site(cle, c[1])[3] is None]
         cas = bons[:CAS_ECRAN // 2] + [c for c in bons if c[1].get("appui") == AME][:CAS_ECRAN - CAS_ECRAN // 2]
         diffs, vus, ames = [], 0, 0
         for nom, src in cas:
@@ -595,7 +611,7 @@ for cle in POTEAU:
                 _aide, lf = cfg.formules(R, c)
                 if not lf or lf[-1]["parts"][0] != "η" or lf[-1]["res"] != f"{C.pc(A.taux(c.eta, 1))} %" or C.lignes_fx(lf) not in fen:
                     defauts.append((nom, "détail", c.key))
-        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) + bool(R.get("pred")):
+        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) or R.get("pred"):
             defauts.append((nom, "alertes", len(R.alerts)))
         opt = M.options_ecran(R, el["cotation"], A._hl(R))
         opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, el["cotation"] >= 1, None
@@ -603,38 +619,54 @@ for cle in POTEAU:
         for k, f in (("elevation", M.elevation), ("plan", M.plan), ("coupe", M.coupe_aa)):
             if vues[k]["svg"] != f(R, opt).svg(identifiant=f"asm_{k}"):
                 defauts.append((nom, "dessin", k))
-        if C.esc(cfg.T.construire_texte(R, False)) not in vues["note"]["svg"]:
-            defauts.append((nom, "note texte"))
+        if list(vues) != ["elevation", "plan", "coupe"]:
+            defauts.append((nom, "vues", list(vues)))
+        # les limites de la méthode (methode.limites(ame)) : au pied de chaque fenêtre de calcul
         lim = ecran(cle, "methode").limites(R.ame)
-        if not all(C.esc(t) in vues["methode"]["svg"] for t in lim):
-            defauts.append((nom, "limites de la méthode"))
+        pied = "<b>Non revérifiés ici</b> : " + C.esc(" ; ".join(lim)) + "."
+        if r["volets"].count(pied) != len(A._groupes(A.pour(cfg, R), R)) or not lim:
+            defauts.append((nom, "limites de la méthode", r["volets"].count(pied)))
         hyp = r["volets"].split('class="ck-hyp">')[1].split("</div>")[0]
         # un acier « Personnalisé » sans f_y (fichier) vaut f_y = 0 dans le moteur : il n'est pas dit (η = 10⁹ le dit)
         if ((R.fy_P and "poteau f<sub>y</sub>" not in hyp) or (R.fy_S and "poutre portée f<sub>y</sub>" not in hyp)
                 or "principale" in hyp or "secondaire" in hyp):
             defauts.append((nom, "hypothèses", hyp[:120]))
     chk(f"{cle} : {n} résultats — verdict, lignes par pièce, gouvernante, cas d'appui, E_d / R_d et détail η de chaque "
-        "vérification dans sa fenêtre, alertes, trois dessins, note, limites, hypothèses = le moteur", n >= 25 and not defauts, defauts[:3])
+        "vérification dans sa fenêtre, alertes, les trois dessins (et eux seuls), limites au pied des fenêtres, hypothèses = "
+        "le moteur", n >= 25 and not defauts, defauts[:3])
     e = etat_de(cle)
     r = A.resultat(e)
     vues = {v["cle"]: v for v in r["vues"]}
-    B = cfg.bench.run_bench()
-    chk(f"{cle} : vues Élévation, Plan, Coupe A-A, Prédim, Note, Méthode, Validation ({B['statut']})",
-        list(vues) == ["elevation", "plan", "coupe", "predim", "note", "methode", "validation"]
-        and C.esc(B["statut"]) in vues["validation"]["svg"] and all(C.esc(b["id"]) in vues["validation"]["svg"] for b in B["bench"]))
+    # (25/11/2026, le propriétaire : « dans la partie centrale, on devrait juste avoir élévation, plan, droite » — le
+    #  harnais SUIT : il cherchait les onglets Prédim, Note, Méthode et Validation)
+    chk(f"{cle} : la toile porte Élévation, Plan, Coupe A-A — ni Prédim, ni Note, ni Méthode, ni Validation",
+        [(v["cle"], v["court"]) for v in r["vues"]] == [("elevation", "Élévation"), ("plan", "Plan"), ("coupe", "Coupe A-A")]
+        and all(v["svg"].lstrip().startswith("<svg") for v in r["vues"]), [(v["cle"], v["court"]) for v in r["vues"]])
     niveaux = []
     for nv in (0, 1, 2):
         A.modifier(e, ["cotation"], nv)
         niveaux.append(len(A.resultat(e)["vues"][0]["svg"]))
     chk(f"{cle} : les trois niveaux de cotation changent l'élévation", niveaux[0] < niveaux[1] <= niveaux[2], niveaux)
-    e = etat_de(cle, {"mode_calc": cfg.E.MODE_PREDIM})
-    R = r_de(e)
-    r = A.resultat(e)
-    vp = {v["cle"]: v for v in r["vues"]}["predim"]["svg"]
-    rows = [x for x in R.pd.rows if x.geom]
-    chk(f"{cle} : prédimensionnement — bandeau, ligne Proposition, vue Prédim ({len(rows)} combinaisons), fenêtre",
-        "Mode prédimensionnement" in r["resultat"] and 'data-pk="solution"' in r["resultat"] and vp.count("<tr>") - 1 >= len(rows)
-        and "★ retenue" in vp and 'id="ck-predim"' in r["volets"] and C.esc(cfg.predim["regle"]) in r["volets"])
+    for appui in ({}, {"appui": AME}):
+        e = etat_de(cle, dict({"mode_calc": cfg.E.MODE_PREDIM}, **appui))
+        R = r_de(e)
+        r = A.resultat(e)
+        u0 = cfg.E.charger_json(dict({"mode_calc": cfg.E.MODE_PREDIM}, **appui))
+        pick = cfg.calculer(u0).pd.pick
+        chk(f"{cle} : une note enregistrée en mode prédimensionnement ({'âme' if appui else 'aile'}) est relue en VÉRIFICATION, "
+            "la proposition du moteur recopiée (« Appliquer ») — ni bandeau de mode, ni fenêtre ni vue Prédim ; le bloc "
+            "« Prédimensionnement » du résultat ouvre les solutions vérifiées",
+            A._actif(e)["values"]["mode_calc"] == cfg.E.MODE_VERIF and not R.get("pred") and bool(R.ame) == bool(appui)
+            and A._actif(e)["values"] == A.valeurs_normales(cfg, cfg.predim["moteur"].apply_solution(u0, pick))
+            and "Mode prédimensionnement" not in r["resultat"] and 'id="ck-predim"' not in r["volets"]
+            and [v["cle"] for v in r["vues"]] == ["elevation", "plan", "coupe"]
+            and re.search(r'<div class="el vc fixe"><div class="l1"><b>Solutions</b><button class="prof" data-pk="solution"[^>]*>'
+                          r'<span>Proposer</span>', r["resultat"]) is not None and C.esc(A.PROPOSITION_GARDE) in r["resultat"],
+            (A._actif(e)["values"]["mode_calc"], R.get("pred")))
+    e = etat_de(cle)
+    msg = A.modifier(e, ["v", "mode_calc"], cfg.E.MODE_PREDIM)
+    chk(f"{cle} : la bascule vers le mode prédimensionnement est refusée (le mode n'existe plus à l'écran)",
+        bool(msg) and A._actif(e)["values"]["mode_calc"] == cfg.E.MODE_VERIF, msg)
 # la matrice des ailes, la répartition par boulon, la pression diamétrale
 R = r_de(etat_de("doubles_cornieres_poteau"))
 vol = A.resultat(etat_de("doubles_cornieres_poteau"))["volets"]
@@ -650,12 +682,12 @@ chk("plat d'âme : la répartition élastique par boulon du groupe est dans la f
     "Répartition élastique par boulon · groupe" in vol and all(C.fr(b.f, 2) in vol for b in R.tab))
 e = etat_de("plat_ame_poteau")
 r = A.resultat(e)
-chk("plat d'âme sur l'aile : pas de ligne « Poteau porteur » (aucune vérification active), et la vue Méthode dit pourquoi",
-    "<b>Poteau porteur</b>" not in r["resultat"] and C.esc(PT.PERIMETRE_AILE_PA) in {v["cle"]: v for v in r["vues"]}["methode"]["svg"])
+chk("plat d'âme sur l'aile : pas de ligne « Poteau porteur » (aucune vérification active), et le pied des fenêtres de calcul "
+    "dit pourquoi", "<b>Poteau porteur</b>" not in r["resultat"] and C.esc(PT.PERIMETRE_AILE_PA) in r["volets"])
 A.modifier(e, ["v", "appui"], AME)
 r = A.resultat(e)
 chk("plat d'âme dans l'âme : la ligne « Poteau porteur » paraît (cisaillement local), sans le texte de l'aile",
-    "<b>Poteau porteur</b>" in r["resultat"] and C.esc(PT.PERIMETRE_AILE_PA) not in {v["cle"]: v for v in r["vues"]}["methode"]["svg"])
+    "<b>Poteau porteur</b>" in r["resultat"] and C.esc(PT.PERIMETRE_AILE_PA) not in r["volets"])
 R = r_de(etat_de("platine_about_poteau", {"N_Ed": 80}))
 vol = A.resultat(etat_de("platine_about_poteau", {"N_Ed": 80}))["volets"]
 chk("platine en traction sur l'aile : tronçon en T de l'aile du poteau et âme en traction transversale dans la fenêtre "
@@ -719,6 +751,33 @@ chk("poutre–poteau → poutre–poutre : le poteau ne devient pas la poutre pr
 # =====================================================================================================================
 print("\n=== 7. Les sélecteurs et l'échappement ===")
 RX_PK = re.compile(r'<button class="pk-row( cur)?( opt)?" data-choix="([^"]+)"[^>]*>.*?<span class="chip (\w)">([^<]+)</span></button>')
+GARDES = ("appui", "V_Ed", "N_Ed", "nat_N", "prof_P", "nu_P", "prof_S", "nu_S", "z_C", "rec_S", "j_lat", "d_nt", "d_nb", "l_n")
+
+
+def fautes_solutions(cle):
+    """Le sélecteur des solutions d'une attache DANS L'ÂME du poteau, et le clic qui recopie la dernière : ce qui cloche."""
+    cfg = A.CONFIGS[cle]
+    e = etat_de(cle, {"appui": AME})
+    u = dict(A._actif(e)["values"])
+    X = A.propositions(cfg, u)
+    rows = RX_PK.findall(A.selecteur(e, "solution"))
+    out = []
+    if not (len(rows) == len(X.solutions) >= 1):
+        return [("lignes", len(rows), len(X.solutions))]
+    if [n for _c, o, n, *_ in rows if o] != [html.escape(cfg.predim["nom"](X.solutions[0].u))]:
+        out.append(("★", [n for _c, o, n, *_ in rows if o]))
+    if [t for *_x, t in rows] != [f"{C.pc(C.pct(min(A.eta_R(s.R), 9.99)))}{C.NBSP}%" for s in X.solutions]:
+        out.append(("taux", [t for *_x, t in rows]))
+    s2 = X.solutions[-1]
+    A.choisir_section(e, "solution", cfg.predim["nom"](s2.u))
+    v2 = A._actif(e)["values"]
+    R2 = r_de(e)
+    if not (R2.verified and R2.ame and abs(R2.eta_max - s2.eta) < 1e-9):
+        out.append(("recopie", R2.statut, R2.eta_max, s2.eta))
+    if v2["mode_calc"] != cfg.E.MODE_VERIF or [k for k in GARDES if k in u and v2[k] != u[k]]:
+        out.append(("gardés", [k for k in GARDES if k in u and v2[k] != u[k]], v2["mode_calc"]))
+    return out
+
 for cle in POTEAU:
     cfg = A.CONFIGS[cle]
     e = etat_de(cle)
@@ -739,18 +798,17 @@ for cle in POTEAU:
     chk(f"{cle} : sélecteur de la poutre portée", "Poutre portée · profilé" in A.selecteur(e, "prof_S", ["IPE"]))
     A.choisir_section(e, "boulon", "M24")
     chk(f"{cle} : choisir M24 → boulon_u", A._actif(e)["values"]["boulon_u"] == "M24")
-    e = etat_de(cle, {"mode_calc": cfg.E.MODE_PREDIM, "appui": AME})
-    u = A._actif(e)["values"]
-    R = r_de(e)
-    sols = [x for x in R.pd.rows if x.geom and x.prop]
-    rows = RX_PK.findall(A.selecteur(e, "solution"))
-    chk(f"{cle} : sélecteur des solutions (âme) — chaque combinaison possible, ★ sur la proposée",
-        len(rows) == len(sols) and [n for _c, o, n, *_ in rows if o] == [A._nom_solution(cfg, R, R.pd.pick)], (len(rows), len(sols)))
-    r2 = sols[len(sols) // 2]
-    attendu = A.valeurs_normales(cfg, cfg.predim["apply"](dict(u), r2))
-    A.choisir_section(e, "solution", A._nom_solution(cfg, R, r2))
-    chk(f"{cle} : choisir une solution = moteur.apply_solution (repasse en vérification, garde l'âme)",
-        A._actif(e)["values"] == attendu and attendu["mode_calc"] == cfg.E.MODE_VERIF and attendu["appui"] == AME)
+    # les propositions du prédimensionnement (25/11/2026) : des dispositions VÉRIFIÉES par le calcul complet — leur
+    # suite : tests/test_assemblages_predim.py ; ici, le sélecteur de l'écran et le clic qui recopie, DANS L'ÂME
+    fautes = fautes_solutions(cle)
+    chk(f"{cle} : sélecteur des solutions (âme) — les propositions vérifiées, ★ sur la plus simple ; en choisir une la "
+        "recopie : l'assemblage est vérifié, au taux annoncé ; le cas d'appui, le poteau, la poutre, les efforts et les niveaux "
+        "gardés ; toujours en vérification", not fautes, fautes)
+    try:
+        A.choisir_section(etat_de(cle, {"appui": AME}), "solution", "solution inconnue")
+        chk(f"{cle} : une solution inconnue est refusée", False)
+    except ValueError:
+        chk(f"{cle} : une solution inconnue est refusée", True)
 e = etat_de("doubles_cornieres_poteau")
 rows = RX_PK.findall(A.selecteur(e, "corniere"))
 chk("cornières sur poteau : sélecteur des cornières EN 10056-1, ✓ sur la retenue",
@@ -809,31 +867,39 @@ so0 = A.CONFIGS["plat_ame_poteau"].sans_objet
 A.CONFIGS["plat_ame_poteau"].sans_objet = lambda R: []
 try:
     R = r_de(etat_de("plat_ame_poteau"))
-    rouge = C.esc(PT.PERIMETRE_AILE_PA) not in A.vue_methode(A.CONFIGS["plat_ame_poteau"], R)
+    rouge = C.esc(PT.PERIMETRE_AILE_PA) not in A.perimetre(A.CONFIGS["plat_ame_poteau"], R)
 finally:
     A.CONFIGS["plat_ame_poteau"].sans_objet = so0
-chk("mutation « sans objet de l'aile oublié » : le contrôle de la vue Méthode rougit", rouge)
-co0 = A.CONFIGS["platine_about_poteau"].predim["colonnes"]
-A.CONFIGS["platine_about_poteau"].predim["colonnes"] = lambda R: [(h, f) for h, f in co0(R)][:-1] + [("η poteau", lambda r: pct_pdp(r))]
-
-
-def pct_pdp(r):
-    from acier.formats import pct
-    return pct(r.e.pdP)                                   # l'écran prend max(p. diam., cisaillement local) dans l'âme
-
-
+chk("mutation « sans objet de l'aile oublié » : le contrôle du périmètre des fenêtres rougit", rouge)
+pe0 = A.perimetre
+A.perimetre = lambda cfg, R: ""
 try:
-    e = etat_de("platine_about_poteau", {"mode_calc": A.CONFIGS["platine_about_poteau"].E.MODE_PREDIM, "appui": AME, "V_Ed": 400})
-    R = r_de(e)
-    ER = ecran("platine_about_poteau", "ecran_resultats")
-    with faux_st(ER) as fs:
-        ER.onglet_predim(R, A._actif(e)["values"], lambda u: None)
-    cellules = [t.strip("*") for t in fs.textes if isinstance(t, str)]
-    f = A.CONFIGS["platine_about_poteau"].predim["colonnes"](R)[-1][1]
-    rouge = any(f(r) not in cellules for r in R.pd.rows if r.geom)
+    r = A.resultat(etat_de("platine_about_poteau", {"appui": AME}))
+    lim = ecran("platine_about_poteau", "methode").limites(True)
+    rouge = "<b>Non revérifiés ici</b> : " + C.esc(" ; ".join(lim)) + "." not in r["volets"]
 finally:
-    A.CONFIGS["platine_about_poteau"].predim["colonnes"] = co0
-chk("mutation « η poteau sans le cisaillement local de l'âme » : le contrôle des colonnes rougit", rouge)
+    A.perimetre = pe0
+chk("mutation « le périmètre retiré des fenêtres de calcul » : le contrôle des limites de la méthode rougit", rouge)
+ch0 = A.PR.chercher
+
+
+def chercher_sur_l_aile(M, S, u, genre, **k):
+    """Une recherche qui rendrait ses propositions avec le cas d'appui changé (sur l'aile)."""
+    X = ch0(M, S, u, genre, **k)
+    for s_ in X.solutions:
+        s_.u["appui"] = A.CONFIGS["platine_about_poteau"].E.APPUI_AILE
+    return X
+
+
+A.PR.chercher = chercher_sur_l_aile
+A._RECHERCHE.clear()
+try:
+    rouge = fautes_solutions("platine_about_poteau") != []
+finally:
+    A.PR.chercher = ch0
+    A._RECHERCHE.clear()
+chk("mutation « une proposition qui change le cas d'appui » : le contrôle des solutions rougit", rouge)
+chk("… et sans la mutation, il reste vert", fautes_solutions("platine_about_poteau") == [])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -23,7 +23,7 @@ from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
 from acier.formats import F, pct, nb
 from acier.js import N, js_str
-from acier.assemblages.note_kit import empaqueter
+from acier.assemblages.note_kit import empaqueter, SANS_TAUX, masquer_taux
 from . import schemas, synthese
 from . import elements as EL
 from . import moteur as MO
@@ -278,6 +278,7 @@ class Note(_np.Note):
                "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts)
                                 and not a_verif else "."))
         col = S.att if a_verif else (S.ok if R.verified else S.ko)
+        txt = masquer_taux(txt) if self.sans_taux else txt
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS
@@ -359,6 +360,7 @@ def generer_note(R, infos=None, chemin=None):
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["titre"] = "Note de calcul"
     doc_meta["visserie"] = infos.get("visserie", "")
+    doc_meta[SANS_TAUX] = bool(infos.get(SANS_TAUX))          # la note sans les taux (note_kit)
     if chemin is None:
         fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_platine_manuelle_")
         os.close(fd)

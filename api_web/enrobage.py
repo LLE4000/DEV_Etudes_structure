@@ -542,11 +542,13 @@ def resultat(etat: Dict) -> Dict:
     res = M.calculer(el)
     resultats = [res if i == etat["actif"] else M.calculer(x) for i, x in enumerate(etat["elements"])]
     nom = el.get("nom") or f"Élément {etat['actif'] + 1}"
-    pied = (f'<div class="pfoot"><div class="mass"><span>EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5</span><b>écran v2.0</b></div>'
-            f'<div class="legend en-leg"><span>Barres : part de c<sub>nom</sub> retenu · valeurs ANB de l\'écran, à valider par l\'ingénieur</span></div></div>')
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; ce que les barres montrent, et la réserve « à
+    #  valider par l'ingénieur », restent écrits à la fin du résultat)
+    pied = ('<div class="pinfos en-leg"><span>Barres : part de c<sub>nom</sub> retenu · valeurs ANB de l\'écran, à valider par '
+            'l\'ingénieur · EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5</span></div>')
     # en tête du résultat : le calcul d'enrobage a changé de lieu (ce module reste servi pour les notes existantes)
     corps = (f'<div class="pbody">{C.message(BANDEAU)}{_verdict(res)}{_synthese(res)}<div class="els">{_lignes(res)}</div>'
-             f'{_messages(res)}</div>{pied}')
+             f'{_messages(res)}{pied}</div>')
     f = res["feu"]
     phrase = (f"{C.esc(el['type'])} · {C.esc(el['classe_expo'])} / {el['classe_struct']} · Ø{el['diam_barre']} · étrier Ø{el['diam_etrier']}"
               f" · Δc<sub>dev</sub> {el['delta_dev']} mm" + (f" · {f['r']}" if f else ""))

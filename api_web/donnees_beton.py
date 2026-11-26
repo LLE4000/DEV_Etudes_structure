@@ -1042,7 +1042,7 @@ def resultat(etat: Dict) -> Dict:
     rows += _ligne("D'où viennent les valeurs", C.esc(NOMS[c["rubrique"]]), calcul="source")
     # (« bandeau » : la rubrique Enrobages dit en tête où est désormais le calcul d'enrobage)
     corps = rendu.get("bandeau", "") + rendu["verdict"] + f'<div class="els">{rows}</div>' + rendu["messages"] + rendu["fiche"]
-    pied = (f'<div class="pfoot"><div class="mass"><span>Aide-mémoire du bureau</span><b class="db-nb">{C.esc(NOMS[c["rubrique"]])}</b></div></div>')
+    pied = ""                                     # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos``)
     vues = [{"cle": "tableau", "titre": NOMS[c["rubrique"]], "court": "Tableau", "svg": _normes(rendu["table"]), "legende": rendu["legende"]}]
     vues += rendu["vues_plus"]
     vues = [{**v, "legende": _legende(v["legende"])} for v in vues]

@@ -243,8 +243,23 @@ def statut(niv: str) -> str:
     return f'<span class="status {cls}"><span class="dot"></span>{txt}</span>'
 
 
-def legende() -> str:
-    return '<span class="chip r">&gt;{0}100{0}%</span><span class="chip f">95–100{0}%</span><span class="chip p">&lt;{0}95{0}%</span>'.format(NBSP)
+def infos(*lignes, classe: str = "") -> str:
+    """Les lignes d'information À LA FIN du corps du résultat, à la suite des blocs : (libellé, valeur) ou (libellé,
+    valeur, infobulle), en HTML — la masse d'une pièce, une flèche donnée pour information. Sans ligne : rien.
+
+    Il n'y a PLUS de cadre au pied du panneau Résultat (le propriétaire, 25/11/2026 : « en bas à droite, c'est écrit
+    poutre – poutre, doubles cornières, supérieur à 100 %, 95 à 100 %, inférieur à 95 %, il y a un code couleur. J'aimerais
+    qu'on vire ce cadre-là, il ne sert à rien. Et ça peut être pour tous les modules »). Le code couleur, le nom du module,
+    sa méthode et sa version n'y sont plus ; ce qui était une DONNÉE et ne se lisait que là se lit ici.
+    tests/test_reference_refonte.py refuse le retour du cadre (« pfoot », le code couleur) dans le résultat d'un module."""
+    lignes = [x for x in lignes if x]
+    if not lignes:
+        return ""
+    out = ""
+    for x in lignes:
+        titre = f' title="{esc(x[2])}"' if len(x) > 2 and x[2] else ""
+        out += f'<div class="mass"{titre}><span>{x[0]}</span><b>{x[1]}</b></div>'
+    return f'<div class="pinfos{" " + classe if classe else ""}">{out}</div>'
 
 
 # ------------------------------------------------------------------ résultat, calcul, sélecteur
@@ -400,7 +415,7 @@ def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str],
 
 
 def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[Dict], debut: int, unite: str,
-              etoile: str = "le plus léger qui tient", pastille: str = "taux") -> str:
+              etoile: str = "le plus léger qui tient", pastille: str = "taux", vide: Optional[str] = None) -> str:
     """Le sélecteur, LE MÊME pour les profilés et les armatures : trié par ordre de grandeur, le retenu (✓) et l'optimal
     (★, le plus léger qui tient) marqués ; un clic choisit (le calcul est relancé) ; sous la liste, les propriétés de la
     ligne survolée. ``rows`` : nom, col (la colonne d'ordre de grandeur), taux (arrondi ; None : pas de pastille),
@@ -409,7 +424,9 @@ def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[
     pour une cornière que la charge ne peut pas atteindre) ; ``inactif`` (vrai), une ligne que le moteur ne peut pas retenir — elle porte
     ``aria-disabled`` (grisée par la feuille de l'établi, le parcours ne la choisit pas ; un clic la demande quand même,
     et le refus du moteur se lit). Le pied dit « ✓ retenu · ★ <etoile> · <unite> · <pastille> » : ``etoile=""`` retire
-    la légende ★ et ``pastille=""`` le « · taux » (un module de consultation, sans optimal ni vérification)."""
+    la légende ★ et ``pastille=""`` le « · taux » (un module de consultation, sans optimal ni vérification). ``vide``
+    (HTML) : ce qu'une liste SANS ligne dit à la place de « Aucune section dans cette sélection » — « » pour ne rien
+    dire là (les propositions d'un assemblage disent pourquoi, et quoi changer, dans ``filtres``)."""
     def pastille_(r):
         if r.get("taux") is not None:
             return chip(r["taux"], r["niveau"])
@@ -426,7 +443,10 @@ def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[
         f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>'
         f'{pastille_(r)}</button>' for r in rows)
     prop0 = next((r.get("prop", "") for r in rows if r["cur"]), "")
-    vide = "" if rows else '<div class="pk-vide">Aucune section dans cette sélection.</div>'
+    if rows:
+        vide = ""
+    elif vide is None:
+        vide = '<div class="pk-vide">Aucune section dans cette sélection.</div>'
     leg_etoile = f'<span>{icon("star")}{etoile}</span>' if etoile else ""
     leg_unite = f"{unite} · {pastille}" if pastille else unite
     return (f'<div class="flyout picker" id="pk-{esc(ident)}" data-pk="{esc(ident)}" data-debut="{debut}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'

@@ -1247,10 +1247,9 @@ def resultat(etat: Dict) -> Dict:
     for v in vues:
         v["entete"] = _entete(f, c, v, phrase)
     tete = E.tete_resultats(C.esc(f.get("nom") or "Fondation"), f"{C.esc(COURTS[f['mode']])} · {phrase}")
-    # le pied, comme celui de la poutre : la méthode et le moteur, la version de l'écran Streamlit (l'avertissement de
-    # pré-dimensionnement est le dernier message du résultat, une seule fois)
-    meth = "Boussinesq · Newmark" if f["mode"] in ("cpt", "profil", "theories") else C.esc(COURTS[f["mode"]])
-    pied = f'<div class="pfoot"><div class="mass"><span>{meth} · moteur rigidite_sol</span><b>{C.esc(R.VERSION)}</b></div></div>'
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; l'avertissement de pré-dimensionnement reste le
+    #  dernier message du résultat, une seule fois)
+    pied = ""
     # le statut de la NOTE (dès deux fondations) : le moins bon de ses éléments ; seule, le résultat le dit déjà
     ordre = {"x": 0, "c": 1, "i": 2}
     statut = C.statut(min((x["niveau"] for x in calculs), key=lambda n: ordre.get(n, 2))) if len(calculs) > 1 else ""

@@ -62,9 +62,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "3,10 c"],
-     ["w /t w", "15,68"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "15,68"]
     ],
     "calculs": [
      ["IPE", "80", "·"],
@@ -1848,9 +1846,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "5,28 c"],
-     ["w /t w", "35,01"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "35,01"]
     ],
     "calculs": [
      ["IPE", "300", "·"],
@@ -2062,9 +2058,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "4,79 c"],
-     ["w /t w", "38,49"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "38,49"]
     ],
     "calculs": [
      ["IPE", "400", "·"],
@@ -2271,9 +2265,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "12,17 c"],
-     ["w /t w", "72,00"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "72,00"]
     ],
     "calculs": [
      ["PRS 600x300x8x12 · d'où viennent les propriétés les formules du moteur de sections, avec les valeurs du profilé PRS 600x300x8x12 · PRS — I reconstitué soudé défini par l'utilisateur ρ =", "7", "850 kg/m³"],
@@ -2484,9 +2476,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "3,10 c"],
-     ["w /t w", "15,68"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "15,68"]
     ],
     "calculs": [
      ["IPE", "80", "·"],
@@ -2699,9 +2689,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "3,10 c"],
-     ["w /t w", "15,68"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "15,68"]
     ],
     "calculs": [
      ["IPE", "80", "·"],
@@ -2876,9 +2864,7 @@
     "phrase": "0 profilé · 11 familles · ordre du catalogue",
     "resultat": [
      ["Aucun profilé Aucun profilé : élargir les familles, la recherche ou les filtres. Méthode et sources", "1 419"],
-     ["profilés Aucun profilé : élargir les familles, la recherche ou les filtres. En cause : recherche « ZZZ", "999", "»."],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["profilés Aucun profilé : élargir les familles, la recherche ou les filtres. En cause : recherche « ZZZ", "999", "»."]
     ],
     "calculs": [
      ["Méthode et sources d'où viennent les profilés et leurs propriétés Source acier/donnees/profiles.json version", "1", "·", "04/11/2026", "1 419"],
@@ -3052,9 +3038,7 @@
      ["α", "90,0 °"],
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
-     ["Classification c f /t f", "8,41"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["Classification c f /t f", "8,41"]
     ],
     "calculs": [
      ["CHS 26.9x3.2 · d'où viennent les propriétés les formules du moteur de sections, avec les valeurs du profilé CHS 26.9x3.2 · Tubes ronds finis à chaud EN 10210-2:2019 ρ =", "7", "850 kg/m³"],
@@ -3262,9 +3246,7 @@
      ["Position y c", "0,0 mm"],
      ["z c", "0,0 mm"],
      ["Classification c f /t f", "3,50 c"],
-     ["w /t w", "9,33"],
-     ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-     ["profilés"]
+     ["w /t w", "9,33"]
     ],
     "calculs": [
      ["HEB", "100", "·"],
@@ -3461,9 +3443,7 @@
        ["Position y c", "0,0 mm"],
        ["z c", "0,0 mm"],
        ["Classification c f /t f", "3,10 c"],
-       ["w /t w", "15,68"],
-       ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-       ["profilés"]
+       ["w /t w", "15,68"]
       ]
      },
      {
@@ -3506,9 +3486,7 @@
        ["Position y c", "0,0 mm"],
        ["z c", "0,0 mm"],
        ["Classification c f /t f", "3,50 c"],
-       ["w /t w", "9,33"],
-       ["Catalogue du bureau · v1 · 04/11/2026", "1 419"],
-       ["profilés"]
+       ["w /t w", "9,33"]
       ]
      }
     ]

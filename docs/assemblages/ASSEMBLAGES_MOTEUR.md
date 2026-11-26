@@ -69,6 +69,50 @@ l'onglet Prédim (= `ecran_resultats.onglet_predim`), les dimensions provisoires
 
 ## 3. L'écran (famille poutre–poutre, construite et vérifiée en entier)
 
+> **Revue de l'écran du 25/11/2026 — elle prime sur la description ci-dessous, là où elles diffèrent.** Demande du
+> propriétaire, sur une capture (doubles cornières, HEA 300 sur HEA 400, V<sub>Ed</sub> = 200 kN : « AUCUNE combinaison
+> ne respecte le taux cible ») : « dans la partie centrale, on devrait juste avoir élévation, plan, droite […] le
+> prédimensionnement, c'est pas là son endroit […] à droite, on a la vérification ; en dessous, le prédimensionnement
+> […] quand on clique dessus, j'ai aucune solution proposée […] Ça pourrait épaissir ma platine, ça pourrait rajouter
+> des boulons […] Les propositions, ça doit nous proposer des propositions qui sont correctes. La seule raison pour
+> laquelle ça n'irait pas, ce serait que les profilés seraient pas assez suffisants […] poutre et grugeage, ça pourrait
+> être regroupé […] affichage, coefficients, modèle : plutôt dans un truc d'option, et dans l'option, afficher les
+> pourcentages de résultats dans la note de calcul ou pas ».
+>
+> - **Toile** : les DESSINS seulement — Élévation, Plan, Droite (poutre–poteau : Coupe A-A ; pied de poteau : ses vues
+>   de résultat, plan, coupes, domaine, répartition, efforts). Les onglets Prédim, Note, Méthode et Validation sont
+>   retirés. Ce que l'onglet Méthode portait d'utile au calcul — ce que la vérification NE COUVRE PAS
+>   (`Config.non_reverifies`, `sans_objet`) — est écrit au pied de CHAQUE fenêtre de calcul (`assemblages.perimetre`) ;
+>   les bancs de comparaison de l'onglet Validation sont rejoués par les suites du dépôt à chaque modification.
+> - **Données** : Assemblage · Poutres (profilés, position ET grugeage ; poutre–poteau : « Poteau et poutre ») · la
+>   pièce d'attache · Boulons · [Soudures] · Efforts ELU · **Options** (coefficients et modèle, règles du
+>   prédimensionnement — taux cible, Ø min et max, k·d₀ —, note de calcul, cartouche, cotes des dessins, exemples
+>   publiés, « Rétablir »). Plus de bascule « Mode » : une note enregistrée en mode prédimensionnement est relue en
+>   vérification, la proposition du moteur recopiée (`assemblages.sans_mode_predim`, ce que faisait « Appliquer »).
+> - **Résultat** : le bloc « Vérifications », puis le bloc « Prédimensionnement » : la ligne « Solutions » ouvre le
+>   sélecteur des **solutions vérifiées**. Plus de cadre au pied (comme dans tous les modules).
+> - **Les solutions** (`acier/assemblages/propositions.py`, neuf — aucune formule : il CHERCHE, le moteur JUGE) :
+>   chaque candidat est calculé par `moteur.compute` ; une proposition est donc, par construction, un assemblage que
+>   le moteur déclare vérifié, et son taux est celui du calcul complet. Graines = les combinaisons du
+>   prédimensionnement du moteur sur tout le catalogue des boulons (pinces de détail, resserrées si la hauteur
+>   manque) ; retouches d'après ce que le calcul reproche (gorge de pleine résistance, pièce plus épaisse — une
+>   cornière du CATALOGUE —, entraxe étiré, deuxième file) ; par diamètre, le moins de rangées qui tient le taux
+>   cible, une file avant deux ; un plat d'âme plus court que 0,6·h (l'avis `hp_rec` du moteur) est allongé juste ce
+>   qu'il faut, sinon une rangée de plus. Une proposition ne touche ni un effort, ni un profilé, ni un acier, ni un
+>   niveau, ni le grugeage. **Sans solution**, l'écran nomme la vérification qui reste au-delà de 100 % dans le
+>   meilleur candidat et dit quoi changer (« Changer le profilé de la poutre secondaire…, ou réduire le grugeage ») ;
+>   quand c'est la géométrie de base qui n'est pas valide, il le dit (« à corriger d'abord »). Cas de la capture :
+>   128 % non conforme → « 4×2 M16 · L150x90x10 », 89 %, en un clic. Mesuré : 6 à 52 calculs complets par recherche,
+>   moins de 0,2 s hors navigateur.
+> - **Note PDF** : l'option « Afficher les taux (%) dans la note de calcul » (Options, vaut pour toute la note).
+>   Décochée, la note garde chaque effort, chaque résistance et chaque verdict (« OK » / « NON OK », VÉRIFIÉ / NON
+>   VÉRIFIÉ), sans aucun pourcentage de résultat (`note_kit.masquer_taux`, `SANS_TAUX`) ; cochée ou absente, la note
+>   est inchangée à l'octet.
+> - **Preuves** : `tests/test_assemblages_predim.py` (chaque proposition recalculée hors de la recherche, données de
+>   base gardées, 10 mutations), `tests/test_api_web_assemblages*.py` (l'écran des trois familles),
+>   `tests/test_note_assemblages.py` § 9 (la note sans les taux, 16 notes), `tests/reference_refonte/assemblages.json`
+>   (regel du 25/11/2026, sa raison écrite), `site/web/verifier_site.js` filtre « assemblages » (les trois formats).
+
 **Cadre Données** — sections numérotées et repliables, dans l'ordre du travail :
 1. *Assemblage* : Configuration (menu pleine largeur, les sept attaches), Repère, Mode (Vérification / Prédim.) ; en
    prédimensionnement, le taux cible, Ø min et max, les règles e₁ = k·d₀, p₁ = k·d₀, e₂ = k·d₀, et les champs pilotés

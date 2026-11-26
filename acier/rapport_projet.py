@@ -156,6 +156,7 @@ def _recap(S, d, doc, elems):
     l_eta = 46                                  # largeur de la colonne du taux
     l_etat = 68                                 # réserve de la pastille d'état
     x_eta = W - m - l_etat - l_eta
+    sans = bool(doc.get("sans_taux"))           # la note SANS les taux (acier/assemblages/note_kit.py)
     n_pages = 0
     for debut in range(0, max(1, len(elems)), CAP_RECAP):
         d.new_page((W, H))
@@ -168,6 +169,8 @@ def _recap(S, d, doc, elems):
         # en-têtes déjà en capitales : « η » passé en majuscule deviendrait « Η »
         for lab, x in (("N°", m), ("REPÈRE", x_rep), ("ASSEMBLAGE", x_tit),
                        ("η MAX", x_eta), ("ÉTAT", W - m - l_etat)):
+            if sans and lab == "η MAX":             # (la note SANS les taux : l'état suffit — note_kit.sans_taux)
+                continue
             d.t(x, y, lab, S.f_v, 6.6, S.mut, track=1.1)
         y -= 6
         d.line(m, y, W - m, y, S.acc, 0.8)
@@ -180,7 +183,8 @@ def _recap(S, d, doc, elems):
             d.t(m, y, f"{i + 1:02d}", S.f_h, 8.0, mix(S.acc, "#FFFFFF", 0.55))
             d.t(x_rep, y, modele.repere(e) or "—", S.f_h, 8.4, S.ink)
             d.t(x_tit, y, d.fit(titre_de(e["type"]), S.f_h, 8.4, x_eta - x_tit - 8), S.f_h, 8.4, S.ink)
-            d.t(x_eta, y, eta, S.f_v, 8.0, _couleur(S, etat))
+            if not sans:
+                d.t(x_eta, y, eta, S.f_v, 8.0, _couleur(S, etat))
             chip(d, W - m, y - 2, ETATS[etat].upper(), S.f_v, 6.4, "#FFFFFF",
                  _couleur(S, etat), align="right")
             gov = info.get("gov") or ""

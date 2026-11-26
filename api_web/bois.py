@@ -838,13 +838,13 @@ def resultat(etat: Dict) -> Dict:
              if opt and not (p["standard"] and opt["nom"] == p["section"]) and (opt["A"] < geo["A"] or r["statut"] == MO.NOK) else "")
     messages = "".join(C.message(_message(a)) for a in r["avertissements"])
     pp = f"{C.qte(ch['poids_propre'], 'kN/m', 3)}{'' if ch['poids_propre_compte'] else ' (non compté)'}"
-    pied = (f'<div class="pfoot"><div class="mass"><span>Masse · {C.qte(geo["longueur"] / 1000, "m", 2)} de pièce</span>'
-            f'<b>{C.qte(r["masse"], "kg", 1)} · {C.qte(r["masse_lineique"], "kg/m", 2)}</b></div>'
-            f'<div class="mass"><span>Poids propre</span><b>{pp}</b></div><div class="legend">{C.legende()}</div></div>')
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; la masse de la pièce ne se lit que là)
+    pied = C.infos((f'Masse · {C.qte(geo["longueur"] / 1000, "m", 2)} de pièce',
+                    f'{C.qte(r["masse"], "kg", 1)} · {C.qte(r["masse_lineique"], "kg/m", 2)}'), ("Poids propre", pp))
     nivs = [_niv_res(x) if "taux_max" in x else "x" for x in resultats]
     statut = C.statut(next((n for n in ("x", "r") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     corps = (f'<div class="pbody">{tete}{"".join(C.message(C.esc(a)) for a in avis)}{_verdict(r)}<div class="et-blocs">{_blocs(r, leger)}</div>'
-             f'{messages}{_hypotheses_html(r)}</div>{pied}')
+             f'{messages}{_hypotheses_html(r)}{pied}</div>')
     return {"resultat": corps, **({"avis": avis} if avis else {}), "volets": _volets(r, nom), "vues": _vues(r, f"bo{etat['actif']}"),
             "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": arbre(etat, r, resultats),
             "elements": elements(etat, resultats)}

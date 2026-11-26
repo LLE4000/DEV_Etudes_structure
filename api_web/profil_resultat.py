@@ -325,13 +325,14 @@ def blocs(el: Dict, r: Dict) -> str:
 def pied(r: Dict) -> str:
     """Sous les blocs : la flèche de service (une information : elle n'est pas vérifiée). (lot C, C4) La masse du profilé
     se lit dans son bouton, à gauche — plus ici."""
-    s = ""
     fl = (r.get("statique") or {}).get("fleche")
-    if fl and fl.get("valeur"):
-        rapport = f" · L/{C.fr(fl['rapport'], 0)}" if fl.get("rapport") else ""
-        s += (f'<div class="mass pf-fleche" title="Flèche de service la plus grande ({C.esc(fl["combinaison"])}, à {M.m(fl["x"])} m) : une '
-              f'information, elle n\'est pas vérifiée"><span>Flèche de service</span><b>{C.fr(abs(fl["valeur"]), 1)}{N}mm{rapport}</b></div>')
-    return f'<div class="pfoot">{s}<div class="legend">{C.legende()}</div></div>'
+    if not (fl and fl.get("valeur")):
+        return ""
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` : la ligne se lit à la fin du corps)
+    rapport = f" · L/{C.fr(fl['rapport'], 0)}" if fl.get("rapport") else ""
+    return C.infos(("Flèche de service", f'{C.fr(abs(fl["valeur"]), 1)}{N}mm{rapport}',
+                    f'Flèche de service la plus grande ({fl["combinaison"]}, à {M.m(fl["x"])} m) : une information, elle n\'est pas vérifiée'),
+                   classe="pf-fleche")
 
 
 # ------------------------------------------------------------------ les fenêtres de calcul

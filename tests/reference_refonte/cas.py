@@ -478,6 +478,15 @@ def _relue_sans_V():
     return e
 
 
+def _relue_en_predim():
+    """Une note enregistrée par l'ancien écran en MODE prédimensionnement (retiré le 25/11/2026) : le site la relit en
+    vérification, la proposition du moteur recopiée (ce que faisait « Appliquer »)."""
+    from api_web import assemblages as AS
+    e = AS.nouvel_etat()
+    e["assemblages"][0]["values"]["mode_calc"] = "PRÉDIMENSIONNEMENT"
+    return e
+
+
 COMPLET = "Vérification complète EN 1993-1-8 + EN 1992-4 (grille régulière)"
 cas("assemblages", "note neuve (doubles cornières)", REF, [neuf()], selecteurs=True, fichiers=True)
 for _t in _TYPES[1:]:
@@ -496,7 +505,22 @@ cas("assemblages", "platine_beton : chargé près de 100 % (N_Ed = 1 770 kN, cal
     {"taux": [95, 100]})
 cas("assemblages", "platine_beton : chargé près de 100 % (N_Ed = 1 610 kN, vérification complète)", REF,
     [neuf(), mod("type", "platine_beton"), mod("v/mode", COMPLET), mod("v/N_Ed", "1610")], {"taux": [95, 100]})
-cas("assemblages", "doubles cornières : prédimensionnement", LIM, [neuf(), mod("v/mode_calc", "PRÉDIMENSIONNEMENT")])
+# (25/11/2026, revue de l'écran demandée par le propriétaire) le MODE prédimensionnement n'existe plus : les solutions,
+# VÉRIFIÉES par le calcul complet (acier/assemblages/propositions.py), s'ouvrent du résultat — sa capture (doubles
+# cornières, HEA 300 sur HEA 400, V_Ed = 200 kN : « AUCUNE combinaison » hier) ; un plat d'âme allongé à 0,6·h ; le cas
+# sans solution (« changer le profilé ») ; la bascule refusée ; une note d'hier relue
+cas("assemblages", "doubles cornières : V_Ed = 200 kN, la solution conseillée recopiée (4×2 M16 · L150x90x10)", REF,
+    [neuf(), mod("v/V_Ed", "200"), act("choisir", role="solution", nom="4×2 M16 · L150x90x10")], {"niveau": "p", "taux": [88, 90]},
+    selecteurs=True)
+cas("assemblages", "plat d'âme : V_Ed = 30 kN, la solution conseillée recopiée (2 M20 · plat 175×90×8, haut de 0,6·h)", REF,
+    [neuf(), mod("type", "plat_ame"), mod("v/V_Ed", "30"), act("choisir", role="solution", nom="2 M20 · plat 175×90×8")],
+    {"niveau": "p", "sans_message": True})
+cas("assemblages", "platine d'about : V_Ed = 400 kN, aucune solution (changer le profilé de la poutre portée)", LIM,
+    [neuf(), mod("type", "platine_about"), mod("v/V_Ed", "400")], {"niveau": "r"}, selecteurs=True)
+cas("assemblages", "bascule vers le mode prédimensionnement refusée (le mode n'existe plus)", LIM,
+    [neuf(), mod("v/mode_calc", "PRÉDIMENSIONNEMENT")], {"message": True})
+cas("assemblages", "note enregistrée en mode prédimensionnement, relue en vérification (proposition du moteur recopiée)", LIM,
+    [calc(_relue_en_predim())], {"niveau": "f"})
 cas("assemblages", "effort tranchant nul", LIM, [neuf(), mod("v/V_Ed", "0")])
 cas("assemblages", "effort illisible refusé", LIM, [neuf(), mod("v/V_Ed", "beaucoup")], {"message": True})
 cas("assemblages", "longueur de cornière vidée refusée", LIM, [neuf(), mod("v/LC_u", "")], {"message": True})

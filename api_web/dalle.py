@@ -1413,8 +1413,7 @@ def resultat(etat: Dict) -> Dict:
         blocs += h
         volets += v
     dims = _dims(d)
-    pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur {"prédalle" if predalle else "dalle"}</span>'
-            f'<b>v{C.esc(_MO(d).REFERENCE.split(" v")[-1])}</b></div><div class="legend">{C.legende()}</div></div>')
+    pied = ""                                     # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos``)
     # l'état de la NOTE (toutes ses dalles) dans l'en-tête du panneau : utile dès deux dalles ; seule, chaque section dit le sien
     # (l'état de CHAQUE dalle colore aussi son nom, dans la ligne et dans la liste des dalles : ``arbre``)
     nivs = [PC.niveau_element(_MO(q), _M(q), x) for q, x in zip(etat["dalles"], resultats)]

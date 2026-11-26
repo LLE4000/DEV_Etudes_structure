@@ -911,7 +911,9 @@ def resultat(etat: Dict) -> Dict:
         msgs += C.message("Ont suivi : " + C.esc(" ; ".join(suivis)) + ".")
     blocs = _bloc_familles(r) + _bloc_diametres(r) + _bloc_beton(r) + (_bloc_note(etat, resultats) if len(etat["poutres"]) > 1 else "")
     t = r["totaux"]
-    pied = (f'<div class="pfoot tx-pied"><div class="mass"><span>Par mètre de poutre</span><b>{C.qte(t["kg_m_majore"], "kg/m", 1)}</b></div>'
+    # (25/11/2026 : plus de cadre d'information au pied du résultat — ``commun.infos`` ; il reste la barre d'ACTIONS, avec
+    #  le bordereau et la masse par mètre qu'il détaille)
+    pied = (f'<div class="pactions tx-pied"><div class="mass"><span>Par mètre de poutre</span><b>{C.qte(t["kg_m_majore"], "kg/m", 1)}</b></div>'
             f'{C.bouton_telecharger("bordereau", "Bordereau CSV")}</div>')
     methode = f'<div class="et-hyps">{C.aide(C.esc(_methode()))}</div>'
     corps = (f'<div class="pbody">{tete}{msgs}{_verdict(r)}<div class="et-blocs">{blocs}</div>{_avertissements(r)}{methode}</div>{pied}')

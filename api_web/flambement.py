@@ -684,12 +684,12 @@ def resultat(etat: Dict) -> Dict:
         legende = f"{len(etat['barres'])} barres · la ligne surlignée est ouverte"
         vues.append({"cle": "note", "titre": "Toutes les barres", "court": "Toutes", "svg": _vue_note(etat, resultats), "legende": legende,
                      "entete": E.entete("TOUTES LES BARRES", f"{len(etat['barres'])} barres dans la note", [], None, "la ligne surlignée est ouverte")})
-    pied = (f'<div class="pfoot"><div class="mass"><span>Masse de la barre · {C.fr(p["masse"], 1)} kg/m × {_m(b["L"])} m</span>'
-            f'<b>{C.fr(p["masse"] * b["L"], 0)}{C.NBSP}kg</b></div><div class="legend">{C.legende()}</div></div>')
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; la masse de la barre ne se lit que là)
+    pied = C.infos((f'Masse de la barre · {C.fr(p["masse"], 1)} kg/m × {_m(b["L"])} m', f'{C.fr(p["masse"] * b["L"], 0)}{C.NBSP}kg'))
     # le statut de la NOTE (dès deux barres) : le moins bon de ses éléments ; seule, le verdict le dit déjà
     nivs = [_niv(_taux(x)) for x in resultats]
     statut = C.statut(next((n_ for n_ in ("x", "r", "f") if n_ in nivs), "p")) if len(resultats) > 1 else ""
-    return {"resultat": f'<div class="pbody">{corps}</div>{pied}', "volets": volets, "vues": vues, "phrase": "", "statut_html": statut,
+    return {"resultat": f'<div class="pbody">{corps}{pied}</div>', "volets": volets, "vues": vues, "phrase": "", "statut_html": statut,
             "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 
 

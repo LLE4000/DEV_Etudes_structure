@@ -7,9 +7,9 @@ affiche l'écran Streamlit ; chaque contrôle rougit si l'on retire ce qu'il pro
      dans le cadre, et seulement lui, dans les deux modes (ETA, tube, profilé et acier personnalisés) ; les tables
      du calcul à la main (boulons, éléments, raidisseurs) et la grille à poser.
   2. Les copies NOMMÉES de l'écran Streamlit, rejouées avec un faux « st » : options courtes, aides, périmètre,
-     natures, état de la bascule, boulon ajouté, grille posée, « l'épaisseur de la platine, le calcul à la main »
-     (bloc_platine, bloc_etat, detail_main), paramètres retenus, répartition, efforts des tiges, onglets Benchmark,
-     cas « Charger ces données », légende du Tableau 3.3, bascule de mode (ecran_saisie.changer_mode).
+     état de la bascule, boulon ajouté, grille posée, « l'épaisseur de la platine, le calcul à la main »
+     (bloc_platine, bloc_etat, detail_main), paramètres retenus, répartition, efforts des tiges, cas « Charger ces
+     données », légende du Tableau 3.3, bascule de mode (ecran_saisie.changer_mode).
   3. La parité du calcul (fichier → saisies → moteur), chemin de l'écran Streamlit et chemin du site, au bit près,
      sur des jeux qui couvrent les deux modes : boulons, éléments de chaque type, raidisseurs, rotations, critère,
      appui, point d'application, grilles, tube, ETA, périmètre complet, profilé personnalisé vide.
@@ -17,7 +17,9 @@ affiche l'écran Streamlit ; chaque contrôle rougit si l'on retire ce qu'il pro
      son résultat a l'empreinte de celui du site.
   5. Ce que le site affiche = le moteur : verdict, lignes par pièce, lignes d'information grises, les quatre
      critères de l'épaisseur, E_d / R_d dans chaque fenêtre, détail des formules et ligne η, alertes, dessins (plan,
-     coupes, domaine) au caractère près, note texte, méthode, validation, vues Efforts / Répartition.
+     coupes, domaine) au caractère près, vues Efforts / Répartition — ni Note, ni Méthode, ni Validation (25/11/2026 :
+     la toile ne garde que les vues de résultat ; ce que la vérification ne couvre pas est au pied de chaque fenêtre
+     de calcul ; les bancs sont rejoués par les suites du dépôt. Le harnais SUIT).
   6. La saisie : tables (ajouter, retirer jusqu'au dernier, écrire), refus (dimension négative, rotation 45°, type
      inconnu), grille, bascule de mode acceptée ou refusée (raison dite, note intacte), exemples, réinitialisation,
      visserie par défaut de l'attache, configuration changée.
@@ -328,9 +330,12 @@ ES, ER, EM = ecran("ecran_saisie"), ecran("ecran_resultats"), ecran("manuel.ecra
 
 # =====================================================================================================================
 print("=== 1. La configuration et son cadre Données ===")
-chk("le pied de poteau est enregistré, avec sa variante « calcul manuel » (synthèse, texte, méthode, dessins)",
-    CFG.calculer is PI.CA.compute and PI.MANUEL.S is PI.YMA and PI.MANUEL.T is PI.TMA and CFG.S is PI.YCO
-    and A.pour(CFG, r_de(neuf())) is PI.MANUEL and A.pour(CFG, r_de(neuf(True))) is CFG)
+chk("le pied de poteau est enregistré, avec sa variante « calcul manuel » (synthèse, dessins) — sans export texte ni "
+    "texte de méthode à l'écran, sans prédimensionnement (ses dispositions sont libres)",
+    CFG.calculer is PI.CA.compute and PI.MANUEL.S is PI.YMA and CFG.S is PI.YCO
+    and A.pour(CFG, r_de(neuf())) is PI.MANUEL and A.pour(CFG, r_de(neuf(True))) is CFG
+    and all(not hasattr(c, k) for c in (CFG, PI.MANUEL) for k in ("T", "methode", "natures", "validation"))
+    and CFG.predim is None and PI.MANUEL.predim is None)
 RX_CHEMIN = re.compile(r'data-chemin="v/([^"/]+)(?:/[^"]*)?"')
 
 
@@ -359,12 +364,22 @@ chk(f"chaque champ que l'écran Streamlit montre est dans le cadre Données, et 
 dm, dc = A.resultat(neuf())["donnees"], A.resultat(neuf(True))["donnees"]
 secs_m = re.findall(r'<span class="tt">([^<]+)</span>', dm)
 secs_c = re.findall(r'<span class="tt">([^<]+)</span>', dc)
-chk("calcul manuel : neuf sections pensées (Assemblage, Platine, Boulons, Éléments soudés, Raidisseurs, Béton, Efforts, "
-    "Coefficients, Cartouche)", secs_m == ["Assemblage", "Platine", "Boulons", "Éléments soudés", "Raidisseurs", "Béton et massif",
-                                           "Efforts ELU", "Coefficients", "Cartouche et affichage"], secs_m)
-chk("vérification complète : huit sections (Poteau et Tiges d'ancrage à la place des tables)",
-    secs_c == ["Assemblage", "Poteau", "Platine", "Tiges d'ancrage", "Béton et massif", "Efforts ELU", "Coefficients",
-               "Cartouche et affichage"], secs_c)
+chk("calcul manuel : huit rubriques pensées (Assemblage, Platine, Boulons, Éléments soudés, Raidisseurs, Béton, Efforts, "
+    "Options)", secs_m == ["Assemblage", "Platine", "Boulons", "Éléments soudés", "Raidisseurs", "Béton et massif",
+                           "Efforts ELU", "Options"], secs_m)
+chk("vérification complète : sept rubriques (Poteau et Tiges d'ancrage à la place des tables)",
+    secs_c == ["Assemblage", "Poteau", "Platine", "Tiges d'ancrage", "Béton et massif", "Efforts ELU", "Options"], secs_c)
+for nom_, d_, coefs in (("calcul manuel", dm, ("g_M0", "g_M2", "g_c", "a_cc", "C_f")),
+                        ("vérification complète", dc, ("g_M0", "g_M2", "g_Mc", "g_c", "a_cc", "C_f"))):
+    rub = re.findall(r'<div class="sec( open)?" data-sec="([^"]+)"( data-secondaire="1")?>', d_)
+    op = d_.split('data-sec="op"')[1]
+    chk(f"{nom_} : « Options », la dernière rubrique et la seule secondaire, porte les coefficients, la note (taux affichés "
+        "ou non), le cartouche, les cotes des dessins, les exemples publiés et « Rétablir » — plus de rubriques "
+        "« Coefficients » ni « Cartouche et affichage »",
+        rub[-1][1] == "op" and [k for _o, k, s_ in rub if s_] == ["op"] and [k for o, k, _s in rub if o] == ["as"]
+        and all(f'data-chemin="v/{k}"' in op for k in coefs + ("id_projet", "id_red", "id_date"))
+        and all(f'data-chemin="{k}"' in op for k in ("note_taux", "cotation", "exemple", "reinitialiser", "visserie"))
+        and C.esc(A.LIBELLE_NOTE_TAUX) in op and 'data-sec="co"' not in d_ and 'data-sec="ca"' not in d_, rub)
 chk("en tête : Mode, Critère, Appui en segments (manuel) ; Mode, Périmètre (complet) — options courtes de l'écran",
     all(f'data-chemin="v/{k}" data-sorte="choix"' in dm for k in ("mode", "crit", "appui"))
     and all(f'data-chemin="v/{k}" data-sorte="choix"' in dc for k in ("mode", "perim")) and ">Complet<" in dm
@@ -391,11 +406,10 @@ chk("options courtes = ecran_saisie.AFFICHAGE ; types d'élément = manuel/ecran
 chk("aides = ecran_saisie.AIDES (vérification complète) et AIDES_MANUEL (calcul manuel), entrée par entrée",
     all(ES.AIDES[k] == v for k, v in PI.AIDES_CO.items()) and all(ES.AIDES_MANUEL[k] == v for k, v in PI.AIDES_MA.items()),
     [k for k, v in PI.AIDES_MA.items() if ES.AIDES_MANUEL.get(k) != v])
-from acier.assemblages import ui_commun as UC  # noqa: E402
-chk("périmètre, natures, critères, vocabulaire, légendes du plan = les constantes de l'écran",
-    PI.NON_REVERIFIES == ER.NON_REVERIFIES and PI.NON_VERIFIES == EM.NON_VERIFIES and PI.NATURES == ER.NATURES == EM.NATURES
-    and PI.TEXTES_NATURES_CO == ER.TEXTES_NATURES and PI.TEXTES_NATURES_MA == EM.TEXTES_NATURES
-    and PI.SENS_EC == UC.NATURES["EC"] and PI.CRITERES_NOMS == EM.CRITERES_NOMS and PI.LIBELLE_MODE == ES.LIBELLE_MODE
+# (25/11/2026 : les « natures » des formules n'étaient dites que dans l'onglet Méthode de la toile, retiré avec lui)
+chk("périmètre, critères, vocabulaire, légendes du plan = les constantes de l'écran",
+    PI.NON_REVERIFIES == ER.NON_REVERIFIES and PI.NON_VERIFIES == EM.NON_VERIFIES
+    and PI.CRITERES_NOMS == EM.CRITERES_NOMS and PI.LIBELLE_MODE == ES.LIBELLE_MODE
     and PI.LEGENDE_PLAN_CO == ER.CAPTION_LEGENDE and PI.LEGENDE_PLAN_MA == EM.CAPTION_LEGENDE
     and PI.GRILLE_DEFAUT == {"nx": 2, "ny": 2, "wx": 400.0, "wy": 400.0})
 
@@ -576,20 +590,8 @@ for nom, src in [("défaut", E.defaults()), ("grille 3×2", dict(E.defaults(), t
 chk("la bascule de mode = ecran_saisie.changer_mode : reprise de la disposition (manuel ↔ complet), refus avec la même "
     "raison et la note intacte quand la disposition n'est pas régulière", not diff_b, diff_b[:2])
 
-# les onglets Benchmark : chaque cellule de l'écran est dans la vue Validation du site
-diff_val = []
-for M, vue, args in ((ER, PI._validation_complet(), (ecran("benchmark").run_bench(), lambda d: None)),
-                     (EM, PI._validation_manuel(), (lambda d: None,))):
-    with faux_st(M) as fs:
-        M.onglet_benchmark(*args)
-    texte_vue = plat(vue)
-    for t in fs.tables:
-        for li in t[2]:
-            for x in li:
-                if plat(x) not in texte_vue:
-                    diff_val.append((M.__name__.split(".")[-1], x))
-chk("la vue Validation porte chaque cellule des onglets Benchmark de l'écran (calculs manuels, validation croisée, "
-    "VAL-M1 à VAL-M4)", not diff_val, diff_val[:3])
+# (25/11/2026 : l'onglet « Validation » de la toile est retiré — les bancs de comparaison (VAL-A, VAL-B, VAL-M1 à VAL-M4,
+# la validation croisée) sont rejoués par les suites du dépôt à chaque modification ; le contrôle de la vue n'a plus d'objet)
 
 # =====================================================================================================================
 print("\n=== 3. La parité du calcul : fichier → saisies → moteur (écran Streamlit / site) ===")
@@ -655,6 +657,22 @@ print("\n=== 5. Ce que le site affiche = le moteur ===")
 # (établi compact, 12/11/2026 : le taux est au bout de la PREMIÈRE ligne ; une ligne d'information y dit « hors verdict » en mots)
 RX_EL = re.compile(r'<div class="el vc( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?'
                    r'<span class="(?:pct|et-mot) (\w)"[^>]*>([^<]+)</span></div><div class="l2">')
+VUES_MA = ["plan", "coupe_aa", "coupe_bb", "efforts"]
+VUES_CO = ["plan", "coupe_aa", "coupe_bb", "domaine", "repartition"]
+
+
+def fautes_perimetre(R, r):
+    """Ce que la vérification ne couvre pas (les constantes de l'écran Streamlit : NON_VERIFIES au calcul manuel,
+    NON_REVERIFIES en vérification complète) : écrit au pied de CHAQUE fenêtre de calcul, sous son titre."""
+    manuel = PI.CA.est_manuel_R(R)
+    cfg = A.pour(CFG, R)
+    titre = "Non vérifiés ici" if manuel else "Non revérifiés ici"
+    limites = PI.NON_VERIFIES if manuel else PI.NON_REVERIFIES
+    pied = f"<b>{titre}</b> : " + C.esc(" ; ".join(limites)) + "."
+    n = r["volets"].count(pied)
+    return [] if n == len(A._groupes(cfg, R)) >= 1 and len(limites) >= 3 else [(titre, n, len(A._groupes(cfg, R)))]
+
+
 defauts = []
 for nom, R, u, e in RESULTATS[:40]:
     cfg = A.pour(CFG, R)
@@ -719,15 +737,16 @@ for nom, R, u, e in RESULTATS[:40]:
     for k, dess in dessins:
         if vues[k]["svg"] != dess.svg(identifiant=f"asm_{k}"):
             defauts.append((nom, "dessin", k))
-    if vues["note"]["svg"] != f'<div class="asm-doc"><pre class="asm-txt">{C.esc(cfg.T.construire_texte(R, False))}</pre></div>':
-        defauts.append((nom, "note"))
-    if C.esc(PI.NON_VERIFIES[0] if PI.CA.est_manuel_R(R) else PI.NON_REVERIFIES[0]) not in vues["methode"]["svg"]:
-        defauts.append((nom, "méthode"))
+    manque = fautes_perimetre(R, r)
+    if manque:
+        defauts.append((nom, "périmètre", manque))
+    if list(vues) != (VUES_MA if PI.CA.est_manuel_R(R) else VUES_CO):
+        defauts.append((nom, "vues", list(vues)))
     doc = vues.get("efforts" if PI.CA.est_manuel_R(R) else "repartition")
     if doc is None or not doc["svg"].startswith('<div class="asm-doc">'):
         defauts.append((nom, "vue Efforts / Répartition"))
 chk(f"verdict, lignes par pièce (information en gris), quatre critères, E_d / R_d et détail dans chaque fenêtre, alertes, "
-    f"dessins au caractère près, note, méthode, vues ({min(40, len(RESULTATS))} résultats)", not defauts, defauts[:3])
+    f"dessins au caractère près, périmètre au pied des fenêtres, vues ({min(40, len(RESULTATS))} résultats)", not defauts, defauts[:3])
 # le cas mesuré (petits chantiers, 10/11/2026) : périmètre « EC3 seul », béton d'ancrage à 454 % (interaction N / V,
 # hef 100 mm, N = −50 kN, Mx = 10 kNm) sous un verdict « vérifié » — c'est le PÉRIMÈTRE (le béton d'ancrage n'entre pas
 # dans le verdict, comme dans l'écran Streamlit), pas un défaut du calcul : la ligne le dit et ne montre aucun taux ; la
@@ -757,13 +776,20 @@ chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous 
     and not R2.verified and anc2 and anc2[0][3] == "r" and anc2[0][4] == f"454{C.NBSP}%",
     (R108.statut, anc, anc2, round(pire.eta, 3) if pire else None))
 rm, rc = A.resultat(neuf()), A.resultat(neuf(True))
-chk("calcul manuel : vues Plan, Coupe A-A, Coupe B-B, Efforts, Note, Méthode, Validation (VAL-M1 à VAL-M4)",
-    [v["cle"] for v in rm["vues"]] == ["plan", "coupe_aa", "coupe_bb", "efforts", "note", "methode", "validation"]
-    and "VAL-M4" in rm["vues"][-1]["svg"] and "Non vérifiés ici" in rm["vues"][5]["svg"])
-chk("vérification complète : vues Plan, Coupes, Domaine, Répartition, Note, Méthode, Validation (VAL-A, VAL-B, validation "
-    "croisée)", [v["cle"] for v in rc["vues"]] == ["plan", "coupe_aa", "coupe_bb", "domaine", "repartition", "note", "methode", "validation"]
-    and "VAL-B" in rc["vues"][-1]["svg"] and "Validation croisée indépendante" in rc["vues"][-1]["svg"]
-    and "Non revérifiés ici" in rc["vues"][6]["svg"] and "modèle d&#x27;ingénieur (niveau 2" in rc["vues"][6]["svg"])
+# (25/11/2026, le propriétaire : « dans la partie centrale, on devrait juste avoir élévation, plan, droite » — le harnais
+#  SUIT : il cherchait les onglets Note, Méthode et Validation ; le pied de poteau garde ses vues de RÉSULTAT)
+chk("calcul manuel : vues Plan, Coupe A-A, Coupe B-B, Efforts — ni Note, ni Méthode, ni Validation ; « Non vérifiés ici » "
+    "au pied des fenêtres de calcul",
+    [(v["cle"], v["court"]) for v in rm["vues"]] == [("plan", "Plan"), ("coupe_aa", "Coupe A-A"), ("coupe_bb", "Coupe B-B"), ("efforts", "Efforts")]
+    and not fautes_perimetre(r_de(neuf()), rm) and "asm-txt" not in "".join(v["svg"] for v in rm["vues"]),
+    [v["cle"] for v in rm["vues"]])
+chk("vérification complète : vues Plan, Coupes, Domaine, Répartition — ni Note, ni Méthode, ni Validation ; « Non revérifiés "
+    "ici » au pied des fenêtres de calcul",
+    [(v["cle"], v["court"]) for v in rc["vues"]] == [("plan", "Plan"), ("coupe_aa", "Coupe A-A"), ("coupe_bb", "Coupe B-B"),
+                                                     ("domaine", "Domaine"), ("repartition", "Répartition")]
+    and not fautes_perimetre(r_de(neuf(True)), rc), [v["cle"] for v in rc["vues"]])
+chk("le pied de poteau n'a pas de prédimensionnement : ni bloc « Prédimensionnement », ni sélecteur de solutions",
+    all("asm-prop" not in r["resultat"] and 'data-pk="solution"' not in r["resultat"] for r in (rm, rc)))
 chk("fenêtre Platine : le calcul à la main EN TÊTE (état, quatre critères, tables), la fenêtre Géométrie : paramètres "
     "retenus et légende du Tableau 3.3", all("Épaisseur de la platine — le calcul à la main" in r["volets"].split('id="ck-platine"')[1][:4000]
                                               and C.esc(PI.LEGENDE_33) in r["volets"] and "Paramètres retenus" in r["volets"] for r in (rm, rc)))

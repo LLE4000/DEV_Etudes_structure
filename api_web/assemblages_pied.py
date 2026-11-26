@@ -11,27 +11,29 @@ chargent streamlit ou reportlab). Ce que l'écran Streamlit compose dans ces fic
 une COPIE NOMMÉE, liée à l'original par tests/test_api_web_assemblages_pied.py (faux « st ») :
 
 - les options courtes (``AFFICHAGE``, ``AFF_TYPES``), les aides « ? » (``AIDES_CO``, ``AIDES_MA``), les listes du
-  périmètre (``NON_REVERIFIES``, ``NON_VERIFIES``), le sens des natures, la règle du Tableau 3.3 (``LEGENDE_33``) ;
+  périmètre (``NON_REVERIFIES``, ``NON_VERIFIES`` : au pied des fenêtres de calcul), la règle du Tableau 3.3
+  (``LEGENDE_33``) ;
 - l'état de la bascule (``etat_bascule``), le boulon ajouté (``ajouter_boulon``), la grille posée (``poser_grille``) ;
 - « l'épaisseur de la platine, le calcul à la main » (``platine_complet`` = ``ecran_resultats.bloc_platine``,
   ``platine_manuel`` = ``manuel/ecran.bloc_etat``, ``detail_main`` = ``manuel/ecran.detail_main``) ;
 - les paramètres retenus des deux modes, la répartition (``repartition`` = ``onglet_repartition``), les efforts des
-  tiges (``efforts_manuel`` = ``onglet_efforts``), les deux onglets Benchmark (``validation_*``).
+  tiges (``efforts_manuel`` = ``onglet_efforts``).
+
+La toile porte les DESSINS de la configuration (plan, coupes, domaine résistant) et ses deux tableaux de RÉSULTATS
+(la répartition, les efforts des tiges — ce qu'un logiciel d'ancrage demande) ; la note texte, la méthode et la
+validation n'y sont plus (revue du 25/11/2026 : les bancs de validation sont rejoués par les tests du dépôt).
 
 La bascule de mode reprend la disposition comme l'écran Streamlit (``manuel/conversion`` : la grille et le profilé
 deviennent des boulons et un élément ; vers la vérification complète seulement si la disposition est régulière, sinon
 la raison est dite et le mode reste).
 """
 import copy
-import functools
 import math
 
 from acier.assemblages.pied_poteau.platine_beton import (benchmark as BCO, calcul as CA, entrees as E, formules as FO,
-                                                        geometrie as GE, methode as MEC, notation as NO, schemas as SCO,
-                                                        synthese as YCO, texte as TCO)
+                                                        geometrie as GE, notation as NO, schemas as SCO, synthese as YCO)
 from acier.assemblages.pied_poteau.platine_beton.manuel import (benchmark as BMA, conversion as CV, elements as EL,
-                                                               methode as MEM, schemas as SMA, synthese as YMA,
-                                                               texte as TMA)
+                                                               schemas as SMA, synthese as YMA)
 from acier.bibliotheques import DB, PERSO, find
 from acier.formats import F, pct, nb
 from acier.js import N, js_str
@@ -94,18 +96,12 @@ AIDES_MA = dict(AIDES_CO, **{
 })
 # La note de la fenêtre Soudure du calcul manuel (manuel/ecran._panneaux).
 NOTE_GORGE_MA = "La gorge ne sert qu'au bras de levier (0,8·a·√2 déduit) : les cordons ne sont pas vérifiés ici."
-# Le périmètre (ecran_resultats.NON_REVERIFIES ; manuel/ecran.NON_VERIFIES) et le sens des natures.
+# Le périmètre (ecran_resultats.NON_REVERIFIES ; manuel/ecran.NON_VERIFIES).
 NON_REVERIFIES = ("fendage et éclatement latéral du massif (EC2-4 §7.2.1.7-8, signalés en alerte)",
                   "tiges post-installées, raidisseurs, bêche", "flambement et classe de section du poteau",
                   "poinçonnement du massif au-delà de l'EN 1992-1-1 §6.7")
 NON_VERIFIES = ("cordons", "raidisseurs eux-mêmes", "poteau",
                 "béton d'ancrage (cône, arrachement, bord, pry-out) — logiciel d'ancrage ou vérification complète")
-NATURES = ("EC", "EC + INT", "INT")
-SENS_EC = "formule de l'Eurocode"                                            # ui_commun.NATURES["EC"]
-TEXTES_NATURES_CO = {"EC + INT": "Eurocode et interprétation nommée",
-                     "INT": "modèle d'ingénieur (niveau 2, tiges de coin ou latérales)"}
-TEXTES_NATURES_MA = {"EC + INT": "Eurocode et interprétation nommée",
-                     "INT": "modèle d'ingénieur (sections au nu, bandes, angles)"}
 # La légende du Tableau 3.3 des deux modes (ecran_resultats._tableau_33).
 LEGENDE_33 = ("e ≥ 1,2·d0 au bord de la platine (Tableau 3.3) ; les distances aux bords du MASSIF relèvent de "
               "l'EN 1992-4 (cône, bord, fendage).")
@@ -595,78 +591,8 @@ def _vues(S, complet):
     return vues
 
 
-# ---------------------------------------------------------- la validation (onglets Benchmark)
-@functools.lru_cache(maxsize=1)
-def _validation_complet() -> str:
-    """ecran_resultats.onglet_benchmark : les calculs manuels (VAL-A, VAL-B), les fiches à compléter, la validation
-    croisée ; recalculés par le moteur (ils ne dépendent pas des données de l'assemblage)."""
-    B = BCO.run_bench()
-    S = BCO.SRC
-    out = (f'<div class="asm-kpi"><div><span>Benchmark du module</span><b>{C.esc(B["statut"])}</b></div></div>'
-           f'<p class="asm-note">Ces tableaux sont recalculés par le moteur à chaque ouverture ; ils ne dépendent pas des '
-           f'données. Source : {C.esc(S["titre"])}. {C.esc(S["org"])}. Norme : {C.esc(S["norme"])}.</p>')
-    if not B["bench"]:
-        out += ('<p class="asm-note">Aucun exemple publié n\'est rejoué en V1 (lot C : MSB Part 5 pied articulé, SCI P398 '
-                'pied encastré, avec le document sous les yeux). Seuil des calculs manuels : écart ≤ 0,5 %.</p>')
-    for b in B["bench"]:
-        lignes = [[C.esc(r["lab"]), C.esc(r["page"]), C.esc(A.fr_js(r["ref"], _nd(r["ref"])) + ("" if r["unit"] == "-" else " " + r["unit"])),
-                   A.fr_js(r["val"], _nd(r["ref"]) + 1), f'{A.fr_js(r["ec"] * 100, 2)} %', C.esc(r["st"])] for r in b["rows"]]
-        out += (f"<h5>{C.esc(b['id'])}</h5><p class=\"asm-note\">{C.esc(b['titre'])} — données : {C.esc(b['data'])}</p>"
-                + A.tableau(["Vérification", "Réf.", "Référence", "Outil", "Écart", "Statut"], lignes, droite=(2, 3, 4), classe="asm-tab"))
-    for f in B.get("fiches", []):
-        out += (f"<h5>{C.esc(f['id'])} – fiche à compléter</h5>"
-                f"<p class=\"asm-note\">{C.esc(f['titre'] + ' — ' + f.get('source', '') + '. ' + f.get('data', ''))}</p>")
-    out += "<h4>Vérifications sans exemple publié consulté</h4><ul>" + "".join(
-        f"<li><b>{C.esc(x[0])}</b> – {C.esc(x[1])}</li>" for x in BCO.NOCOVER) + "</ul>"
-    V = B.get("croisee")
-    if V:
-        out += (f"<h5>Validation croisée indépendante du {C.esc(V['date'])} — {V['configurations']} configurations, "
-                f"{V['directions']} directions</h5>"
-                f"<p class=\"asm-note\">Hors moteur (numpy + scipy) : grille de ressorts pour la répartition élastique, "
-                f"programme linéaire (HiGHS) pour le domaine résistant — le domaine exact des champs admissibles bornés. "
-                f"Rapport : {C.esc(V['rapport'])} (ses figures y sont).</p>"
-                + A.tableau(["Grandeur", "Écart maximal", "Tolérance"], [[C.esc(x) for x in e] for e in V["ecarts"]],
-                            droite=(1, 2), classe="asm-tab"))
-    for c in B["valid"]:
-        lignes = []
-        for r in c["rows"]:
-            n = 4 if abs(r["main"]) < 10 else (2 if abs(r["main"]) < 1000 else 0)
-            lignes.append([C.esc(r["lab"]), C.esc(A.fr_js(r["main"], n) + ("" if r["unit"] == "-" else " " + r["unit"])),
-                           A.fr_js(r["ref"], n), A.fr_js(r["val"], n), f'{A.fr_js(r["ec"] * 100, 3)} %',
-                           "OK" if r["ok"] else "À CONTRÔLER"])
-        out += (f"<h5>{C.esc(c['id'])} – calcul manuel indépendant</h5>"
-                f"<p class=\"asm-note\">{C.esc(c['titre'])}. Colonne « manuel » : calcul indépendant hors moteur ; colonne "
-                f"« contrôle » : même valeur recomposée à la main (arrondie).</p>"
-                + A.tableau(["Grandeur", "Manuel", "Contrôle", "Outil", "Écart", ""], lignes, droite=(1, 2, 3, 4), classe="asm-tab"))
-    out += ('<p class="asm-note">Pour rejouer un cas : section « Cartouche et affichage », « Exemples et cas de '
-            'validation ».</p>')
-    return f'<div class="asm-doc">{out}</div>'
-
-
-def _nd(x):
-    return 2 if abs(x) < 1 else (1 if abs(x) < 10 else 0)
-
-
-@functools.lru_cache(maxsize=1)
-def _validation_manuel() -> str:
-    """manuel/ecran.onglet_benchmark : les calculs à la main VAL-M1 à VAL-M4 rejoués par le moteur."""
-    B = BMA.run_bench_manuel()
-    out = (f'<div class="asm-kpi"><div><span>Benchmark du calcul manuel</span><b>{C.esc(B["statut"])}</b></div></div>'
-           '<p class="asm-note">Chaque cas est recalculé à la main dans tests/test_platine_manuelle.py (formule par '
-           'formule) et rejoué ici. Seuil : écart ≤ 0,5 %.</p>')
-    for c in B["cas"]:
-        lignes = [[C.esc(r["lab"]), C.esc(A.fr_js(r["main"], 3) + ("" if r["unit"] == "-" else " " + r["unit"])),
-                   A.fr_js(r["val"], 3), f'{A.fr_js((r["ec"] if abs(r["ec"]) >= 5e-6 else 0.0) * 100, 3)} %',
-                   "OK" if r["ok"] else "À CONTRÔLER"] for r in c["rows"]]
-        out += (f"<h5>{C.esc(c['id'])} – {C.esc(c['titre'])}</h5><p class=\"asm-note\">{C.esc(c['data'])}</p>"
-                + A.tableau(["Grandeur", "Manuel", "Outil", "Écart", ""], lignes, droite=(1, 2, 3), classe="asm-tab"))
-    out += ('<p class="asm-note">Pour rejouer un cas : section « Cartouche et affichage », « Exemples et cas de '
-            'validation ».</p>')
-    return f'<div class="asm-doc">{out}</div>'
-
-
 def exemples():
-    """« Charger ces données dans l'outil » des deux onglets Benchmark : les exemples publiés et les calculs manuels
+    """« Charger ces données dans l'outil » (rubrique « Options ») : les exemples publiés et les calculs manuels
     de la vérification complète (les défauts, les données du cas, le mode complet — ecran_resultats._charger), puis
     les calculs manuels de la platine à la main (les défauts, les données du cas — manuel/ecran._charger)."""
     out = []
@@ -825,7 +751,9 @@ def _beton_resume(u) -> str:
 
 
 def _coefficients(u, complet) -> list:
-    items = ["g_M0", "g_M2", "g_c"] + (["g_Mc"] if complet else []) + ["a_cc", "C_f", ("aide", C.esc(AIDES_CO["COEFF. γ"]))]
+    """Les premiers items de la rubrique « Options » : les coefficients partiels, puis l'acier personnalisé."""
+    items = ([("grp", "Coefficients partiels"), "g_M0", "g_M2", "g_c"] + (["g_Mc"] if complet else [])
+             + ["a_cc", "C_f", ("aide", C.esc(AIDES_CO["COEFF. γ"]))])
     if E.acier_perso(u):
         items += [("grp", "Acier personnalisé"), "fy_u", "fu_u", "bw_u"]
     return items
@@ -851,11 +779,7 @@ def _sections_manuel(u, R, el):
         ("ef", "Efforts ELU", _resume_efforts(u),
          ["N_Ed", "Mx_Ed", "My_Ed", "Vx_Ed", "Vy_Ed", "T_Ed", ("aide", C.esc(AIDES_CO["EFFORTS ELU"])),
           ("grp", "Point d'application"), "xN", "yN"], True),
-        ("co", "Coefficients", f"γ<sub>M0</sub> {C.nb(N(u.get('g_M0')))} · γ<sub>M2</sub> {C.nb(N(u.get('g_M2')))} · "
-                               f"γ<sub>c</sub> {C.nb(N(u.get('g_c')))}", _coefficients(u, False), False),
-        ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"),
-         A.section_cartouche(cfg, u, el, libelle_visserie="Visserie",
-                             aide_visserie=AIDES_MA["visserie"]), False),
+        A.section_options(cfg, u, el, _coefficients(u, False), libelle_visserie="Visserie", aide_visserie=AIDES_MA["visserie"]),
     ]
 
 
@@ -879,11 +803,7 @@ def _sections_complet(u, R, el):
          ["beton", "fiss", "bc_u", "lc_u", "hc_u", ("grp", "Mortier de calage"), "t_g", "f_g"], False),
         ("ef", "Efforts ELU", _resume_efforts(u),
          ["N_Ed", "Mx_Ed", "My_Ed", "Vx_Ed", "Vy_Ed", "T_Ed", ("aide", C.esc(AIDES_CO["EFFORTS ELU"]))], True),
-        ("co", "Coefficients", f"γ<sub>M0</sub> {C.nb(N(u.get('g_M0')))} · γ<sub>M2</sub> {C.nb(N(u.get('g_M2')))} · "
-                               f"γ<sub>Mc</sub> {C.nb(N(u.get('g_Mc')))}", _coefficients(u, True), False),
-        ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"),
-         A.section_cartouche(cfg, u, el, libelle_visserie="Visserie",
-                             aide_visserie=AIDES_CO["visserie"]), False),
+        A.section_options(cfg, u, el, _coefficients(u, True), libelle_visserie="Visserie", aide_visserie=AIDES_CO["visserie"]),
     ]
 
 
@@ -1194,15 +1114,10 @@ COMMUN = dict(E=E, calculer=CA.compute, N=NO, formules=lambda R, c: A.lignes_tex
               selecteurs={"ancr": {"rendre": sel_tige, "choisir": A._choisir_liste("ancr", "boulons")},
                           "prof_c": {"rendre": A.sel_profil("prof_c", "Poteau · profilé"), "choisir": A._choisir_liste("prof_c", "profils")}})
 
-A.enregistrer(A.Config(cle="platine_beton", nom_menu="Platine sur béton", S=YCO, T=TCO, methode=MEC.METHODE, bench=BCO, vues=_vues(SCO, True),
+A.enregistrer(A.Config(cle="platine_beton", nom_menu="Platine sur béton", S=YCO, bench=BCO, vues=_vues(SCO, True),
                        variante=_variante, parametres=parametres_complet, non_reverifies=NON_REVERIFIES,
-                       normes={"Ancrages": "EN 1992-4", "Béton": "EN 1993-1-8 §6.2.5"},
-                       natures=(("EC", SENS_EC),) + tuple((n, TEXTES_NATURES_CO[n]) for n in NATURES[1:]),
-                       validation=lambda cfg: _validation_complet(), **COMMUN))
-# la variante « platine à la main » : même saisie ; synthèse, texte, méthode, dessins, périmètre et validation du
-# calcul manuel
-MANUEL = A.Config(cle="platine_beton", nom_menu="Platine sur béton", S=YMA, T=TMA, methode=MEM.METHODE, bench=None, vues=_vues(SMA, False),
+                       normes={"Ancrages": "EN 1992-4", "Béton": "EN 1993-1-8 §6.2.5"}, **COMMUN))
+# la variante « platine à la main » : même saisie ; synthèse, dessins et périmètre du calcul manuel
+MANUEL = A.Config(cle="platine_beton", nom_menu="Platine sur béton", S=YMA, bench=None, vues=_vues(SMA, False),
                   parametres=parametres_manuel, non_reverifies=NON_VERIFIES, titre_non_verifies="Non vérifiés ici",
-                  normes={"Appui": "EN 1993-1-8 §6.2.5", "Trous": "EN 1993-1-8 Tab. 3.4"},
-                  natures=(("EC", SENS_EC),) + tuple((n, TEXTES_NATURES_MA[n]) for n in NATURES[1:]),
-                  validation=lambda cfg: _validation_manuel(), **COMMUN)
+                  normes={"Appui": "EN 1993-1-8 §6.2.5", "Trous": "EN 1993-1-8 Tab. 3.4"}, **COMMUN)

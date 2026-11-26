@@ -144,6 +144,9 @@
 .pg-faire summary { cursor: pointer; font-weight: 700; color: #c46a00; }
 .pg-faire ul { margin: 6px 0 2px; padding-left: 16px; display: grid; gap: 4px; }
 .pg-aide-b { flex: none; min-width: 32px; font-weight: 800; }
+/* au doigt (téléphone et tablettes : sous 1 200 px, comme les autres cibles de l'établi), 44 px de large comme de haut —
+   le harnais « formats » le mesurait à 32 × 44 (26/11/2026) */
+@media (max-width: 1199px) { .pg-aide-b { min-width: 44px; } }
 .pg-leg { display: flex; flex-wrap: wrap; gap: 10px; }
 .pg-cycle { font-size: 12.5px; margin: 3px 0; color: var(--ink-2); }
 .pg-cycle b { margin-right: 6px; color: var(--ink); }

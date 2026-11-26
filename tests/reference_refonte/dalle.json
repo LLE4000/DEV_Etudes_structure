@@ -89,7 +89,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -579,7 +579,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -917,7 +917,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1220,7 +1220,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1562,7 +1562,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -1856,7 +1856,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -2154,7 +2154,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -2448,7 +2448,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "2", "·"],
@@ -2741,7 +2741,7 @@
        ["Supérieure X 10/10/100/100", "38 %"],
        ["A s,néc =", "301", "≤"],
        ["A s =", "785 mm²"],
-       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+       ["Non vérifiées : la flèche et la fissuration."]
       ]
      },
      {
@@ -2763,7 +2763,7 @@
        ["Supérieure X 10/10/100/100", "38 %"],
        ["A s,néc =", "301", "≤"],
        ["A s =", "785 mm²"],
-       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+       ["Non vérifiées : la flèche et la fissuration."]
       ]
      }
     ]
@@ -2804,7 +2804,7 @@
      ["Supérieure X 10/10/100/100", "38 %"],
      ["A s,néc =", "301", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -3104,7 +3104,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur dalle v2.2"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -3466,7 +3466,7 @@
      ["Effort tranchant", "64 %"],
      ["τ =", "0,36 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -3888,7 +3888,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -4268,7 +4268,7 @@
      ["Effort tranchant", "49 %"],
      ["τ =", "0,28 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -4692,7 +4692,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -5077,7 +5077,7 @@
      ["Effort tranchant", "49 %"],
      ["τ =", "0,28 N/mm²", "≤"],
      ["τ adm,I =", "0,56 N/mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -5505,7 +5505,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -5880,7 +5880,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -6255,7 +6255,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -6628,7 +6628,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Dalle", "1", "·"],
@@ -7004,7 +7004,7 @@
      ["Supérieure X 10/10/100/100", "42 %"],
      ["A s,néc =", "331", "≤"],
      ["A s =", "785 mm²"],
-     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+     ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
     ],
     "calculs": [
      ["Prédalle", "2", "·"],
@@ -7369,7 +7369,7 @@
        ["Supérieure X 10/10/100/100", "42 %"],
        ["A s,néc =", "331", "≤"],
        ["A s =", "785 mm²"],
-       ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+       ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
       ]
      },
      {
@@ -7396,7 +7396,7 @@
        ["Supérieure X 10/10/100/100", "42 %"],
        ["A s,néc =", "331", "≤"],
        ["A s =", "785 mm²"],
-       ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration. Méthode du bureau · moteur prédalle v1.1"]
+       ["Non vérifiés : la phase provisoire (prédalle seule, étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration."]
       ]
      }
     ]

@@ -23,7 +23,6 @@ from saf.fondation_grue import projet as PR
 from saf.fondation_grue import proposition as PP
 from saf.fondation_grue import verification as V
 
-from beton.dalle import moteur as MOTEUR_DALLE
 
 from . import commun as C
 from . import etabli_compact as E
@@ -38,8 +37,6 @@ ENVELOPPE_CAS, ENVELOPPE_K = "Enveloppe des cas", "Enveloppe des k"
 # ce que la méthode ne vérifie pas (§ 11) : la ligne grise sous les cartes (les armatures y ajoutent les leurs)
 NON_VERIFIES = ("la fissuration", "les efforts horizontaux et les moments aux pieds de la grue", "la torsion",
                 "les ancrages et les recouvrements (le principe n'est pas un plan d'exécution)")
-METHODE = "Méthode du bureau · moteur Dalles"
-VERSION_MOTEUR = MOTEUR_DALLE.REFERENCE.split()[-1]                       # « v2.2 », la version du moteur du module Dalles
 
 
 def _kpa(x: float) -> str:
@@ -376,12 +373,6 @@ def _carte_sol(el: Dict, calc: Dict, s: Dict) -> str:
     return E.bloc(0, "Sol", cls, ETATS[cls] if not s["pp"] else "Données incomplètes", "", rows, table, theme=True)
 
 
-def pied() -> str:
-    """Le pied de la colonne, comme le module poutre : la méthode et le moteur qui calcule les sections."""
-    return (f'<div class="pfoot"><div class="mass"><span>{METHODE}</span><b>{C.esc(VERSION_MOTEUR)}</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
-
-
 def colonne(el: Dict, calc: Dict, s: Dict, carte_armatures: str = "", non_verifies_extra: Sequence[str] = (),
             etapes_: Optional[List[Tuple[str, bool]]] = None) -> Tuple[str, str]:
     """(la colonne des résultats, les fenêtres de calcul) : la ligne d'étapes, SOL, ÉQUILIBRE, CONTRÔLES, ARMATURES, la
@@ -394,11 +385,11 @@ def colonne(el: Dict, calc: Dict, s: Dict, carte_armatures: str = "", non_verifi
         rows = C.ligne_verif("Calcul", C.esc(s["phrase"]), None, "r", etat_txt="impossible")
         blocs = E.bloc(0, "Sol", "nok", "Calcul impossible", "", rows, theme=True) + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True, calcul="s1")
         return (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
-                f'{_boutons(el, calc, joindre=False)}</div>{pied()}', _fenetre_controles(el, calc, s))
+                f'{_boutons(el, calc, joindre=False)}</div>', _fenetre_controles(el, calc, s))
     blocs = (_carte_sol(el, calc, s) + _carte_equilibre(el, calc, s)
              + E.bloc(2, "Contrôles", ctl_cls, ETATS[ctl_cls], "", ctl_rows, theme=True, calcul="s1") + carte_armatures)
     html = (f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{C.aide(non_verifies(el, calc, non_verifies_extra))}'
-            f'{_proposer(el, calc, s)}{_boutons(el, calc)}</div>{pied()}')
+            f'{_proposer(el, calc, s)}{_boutons(el, calc)}</div>')
     volets = _fenetre_k(el, calc, s) + _fenetre_controles(el, calc, s) + ("" if s["pp"] else _fenetre_positions(el, calc, s))
     return html, volets
 

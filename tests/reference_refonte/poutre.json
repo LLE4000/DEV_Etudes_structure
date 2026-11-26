@@ -74,7 +74,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -333,7 +333,7 @@
      ["Lit supérieur L1 : espacement entre barres", "188", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "484", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "20 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur M inf =", "120 kN·m", "·"],
@@ -649,7 +649,7 @@
      ["Lit supérieur L1 : espacement entre barres", "188", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "484", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "20 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur M inf =", "136 kN·m", "·"],
@@ -910,7 +910,7 @@
      ["Lit supérieur L1 : espacement entre barres", "86", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "488", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur M inf =", "120 kN·m", "·"],
@@ -1281,7 +1281,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -1474,7 +1474,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -1667,7 +1667,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -1860,7 +1860,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -2053,7 +2053,7 @@
      ["Lit supérieur L1 : espacement entre barres", "188", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "484", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "20 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur M inf =", "400 kN·m", "·"],
@@ -2250,7 +2250,7 @@
      ["Lit supérieur L1 : espacement entre barres", "138", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V2 (copie) · section A · hauteur V =", "0 kN", "·"],
@@ -2426,7 +2426,7 @@
        ["Lit supérieur L1 : espacement entre barres", "138", "≥", "25 mm"],
        ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
        ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+       ["Non vérifiées : la flèche et la fissuration."]
       ]
      },
      {
@@ -2451,7 +2451,7 @@
        ["Lit supérieur L1 : espacement entre barres", "138", "≥", "25 mm"],
        ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
        ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-       ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+       ["Non vérifiées : la flèche et la fissuration."]
       ]
      }
     ]
@@ -2498,7 +2498,7 @@
      ["supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "272", "≥", "32 mm"],
      ["Enrobage des barres longitudinales", "40", "≥", "32 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -2689,7 +2689,7 @@
      ["Lit supérieur L1 : espacement entre barres", "88", "≥", "25 mm"],
      ["Faces inférieure et supérieure : espacement libre", "288", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
@@ -2913,7 +2913,7 @@
      ["Taux d'armature", "75 kg/m³", "12,74 kg/m"],
      ["d'acier · +", "5 %", "·"],
      ["sur", "2,00 m"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur M inf =", "120 kN·m", "·"],
@@ -3357,7 +3357,7 @@
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
      ["Taux d'armature", "135 kg/m³", "10,01 kg/m"],
      ["d'acier · +", "5 %"],
-     ["Non vérifiées : la flèche et la fissuration. Méthode du bureau · moteur poutre v2.40"]
+     ["Non vérifiées : la flèche et la fissuration."]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],

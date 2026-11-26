@@ -63,7 +63,7 @@ L'EXTRACTEUR ne dépend PAS des classes CSS. Il dépend :
    par la classe ``on`` OU ``aria-pressed="true"`` OU ``aria-checked="true"`` (la seule classe lue, et elle a deux
    remplaçants admis), ``data-pk``, ``data-calcul``, ``data-telecharger``, ``data-meteo-chemin``, ``data-transmettre``
    (l'envoi de l'élément ouvert à un autre module), ``data-activer`` ;
-4. de ``C.legende()`` (ôtée du résultat, c'est une légende fixe) et de ``C.message`` (espionnée pour les avis) ;
+4. de ``C.message`` (espionnée pour les avis) — la légende des couleurs, au pied du résultat, n'existe plus (25/11/2026) ;
 5. de ``api_web.age.aujourdhui`` / ``maintenant``, figés au 07/11/2026 (le plan de la météo dépend du jour).
 
 Un GROUPE : on lit les mots dans l'ordre ; un nombre suivi d'une unité (« 402 mm² », « 30 % ») est une quantité ; un
@@ -313,6 +313,15 @@ def _sans_trace(erreur) -> str:
     return str(erreur or "").split("\nTraceback")[0].strip()
 
 
+# Le CADRE du pied du résultat — le nom du module ou sa méthode, le code couleur « > 100 % · 95–100 % · < 95 % », « Module à
+# vérifier » — est retiré de TOUS les modules (le propriétaire, 25/11/2026 : « en bas à droite … il y a un code couleur.
+# J'aimerais qu'on vire ce cadre-là, il ne sert à rien. Et ça peut être pour tous les modules »). Aucun résultat photographié
+# ne le rend : ``_PIEDS`` nomme ceux qui le feraient (``main`` rougit). Ce qui reste au pied : une barre d'ACTIONS
+# (« pactions » : Exporter, bordereau) ; ce qui était une donnée se lit à la fin du corps (``commun.infos``).
+_CADRE_DU_PIED = ('class="pfoot', 'class="legend"', 'class="chip f">95–100')
+_PIEDS = []
+
+
 def photographier(cle: str, case: dict) -> dict:
     """Rejoue les requêtes du cas et rend sa photo (voir l'en-tête : ce qui est figé)."""
     etat, messages, rep = None, [], None
@@ -339,7 +348,8 @@ def photographier(cle: str, case: dict) -> dict:
         actions |= lec.actions
         for k, v in lec.menus.items():
             menus.setdefault(k, v)
-    resultat = (rep.get("resultat") or "").replace(C.legende(), "")
+    resultat = rep.get("resultat") or ""
+    _PIEDS.extend(f"{cle} · {case.get('nom')}" for marque in _CADRE_DU_PIED if marque in resultat)
     photo = {
         "messages": messages,
         "resume": rep["resume"],
@@ -364,7 +374,7 @@ def photographier(cle: str, case: dict) -> dict:
         for k in range(n):
             a = _req(cle, {"action": "activer", "etat": copy.deepcopy(etat), "index": k})
             photo["elements"].append({"phrase": texte(a.get("phrase", "")),
-                                      "resultat": groupes((a.get("resultat") or "").replace(C.legende(), ""))}
+                                      "resultat": groupes(a.get("resultat") or "")}
                                      if a.get("ok") else {"erreur": _sans_trace(a.get("erreur"))})
     if case.get("selecteurs"):
         roles = list(dict.fromkeys(re.findall(r'data-pk="([^"]+)"', rep.get("resultat", "") + rep.get("donnees", ""))))
@@ -714,6 +724,8 @@ def main(argv) -> int:
             geler(cle, raison)
         else:
             comparer(cle)
+    chk("aucun résultat ne rend le cadre du pied (nom du module, code couleur) : il est retiré de tous les modules", not _PIEDS,
+        sorted(set(_PIEDS))[:12])
     print(f"\nDurée : {time.time() - t0:.1f} s")
     print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
     for nom, info in KO:

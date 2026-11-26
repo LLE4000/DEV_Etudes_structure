@@ -1447,8 +1447,7 @@ def resultat(etat: Dict) -> Dict:
     m = r["materiau"]
     tete = E.tete_resultats(nom, f"{C.esc(m['classe'])} · {_dur_court(m)} · {C.esc(_temperatures_txt(r))}")
     blocs = _bloc_objectifs(r) + _bloc_temperatures(r) + _bloc_essai(r)
-    pied = (f'<div class="pfoot"><div class="mass"><span>Âge équivalent · loi {C.esc(m["loi"]["libelle"])}</span>'
-            f'<b>t<sub>T</sub>(28{NB}j) = {_jours(r["synthese"]["t_T_28"])}</b></div><div class="legend">{C.legende()}</div></div>')
+    pied = ""         # (25/11/2026 : plus de cadre au pied du résultat ; t_T(28 j) est la ligne « Âge équivalent » du résultat)
     corps = (f'<div class="pbody">{tete}{"".join(C.message(C.esc(a)) for a in avis)}{_verdict(r)}<div class="et-blocs">{blocs}</div>'
              f'{_messages(r)}{_methode(r)}</div>{pied}')
     rs = resume_note(etat, resultats)

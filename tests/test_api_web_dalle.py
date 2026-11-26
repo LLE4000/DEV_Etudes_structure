@@ -816,10 +816,12 @@ _vc = saisir(P.nouvel_etat(), "sections/0/My_inf", "28")
 _court_c, _court_p = C.aide(P.non_verifies(_vc["etat"]["dalles"][0])), C.aide(P.non_verifies(_vp["etat"]["dalles"][0]))
 _aide_c, _aide_p = C.aide(P.PERIMETRE_CSP), C.aide(P.texte_perimetre(_vp["etat"]["dalles"][0]))
 chk("la dalle CSP dit ce qui n'est PAS vérifié (la flèche, la fissuration), comme la prédalle : une phrase sous le résultat (après les "
-    "avertissements, avant le pied), le périmètre entier au pied de chaque fenêtre de calcul ; ni « Vérifié : » sous le résultat, ni « Streamlit »",
+    "avertissements, à la fin du corps — il n'y a plus de cadre au pied, 25/11/2026), le périmètre entier au pied de chaque fenêtre de calcul ; "
+    "ni « Vérifié : » sous le résultat, ni « Streamlit »",
     _court_c == C.aide("Non vérifiées : la flèche et la fissuration.") and P.PERIMETRE_CSP.endswith(P.NON_VERIFIEES_CSP)
     and _court_c in _vc["resultat"] and _court_p in _vp["resultat"] and "Non vérifiés : la phase provisoire" in _court_p
-    and _vc["resultat"].index(_court_c) > _vc["resultat"].index('<div class="et-blocs">') and _vc["resultat"].index(_court_c) < _vc["resultat"].index('<div class="pfoot">')
+    and _vc["resultat"].index(_court_c) > _vc["resultat"].index('<div class="et-blocs">') and _vc["resultat"].endswith(_court_c + "</div>")
+    and "pfoot" not in _vc["resultat"] + _vp["resultat"]
     and "Vérifié :" not in _vc["resultat"] and "Vérifié :" not in _vp["resultat"]
     and "Streamlit" not in _vc["resultat"] + _vp["resultat"] + _vc["volets"] + _vp["volets"]
     and _vc["volets"].count(_aide_c) >= 1 and _vp["volets"].count(_aide_p) >= 1, (_vc["volets"].count(_aide_c), _vp["volets"].count(_aide_p)))

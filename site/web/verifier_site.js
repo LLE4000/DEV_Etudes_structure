@@ -782,6 +782,11 @@ const principal = async () => {
       const nEl = await p.$$eval('#resultat .el', (e) => e.length);
       const verdictMod = await p.$('#resultat .verdict');
       verif(`${cle} : le résultat s'affiche`, nEl > 0 || !!verdictMod, `${nEl} ligne(s)`);
+      // (25/11/2026, le propriétaire : « en bas à droite […] il y a un code couleur. J'aimerais qu'on vire ce cadre-là […] pour
+      //  tous les modules ») : plus de pied au cadre Résultat — ni nom du module, ni légende des couleurs, ni « Module à vérifier »
+      const cadrePied = await p.evaluate(() => { const r = document.getElementById('resultat');
+        return { n: r.querySelectorAll('.pfoot, .legend').length, dit: /Module à vérifier/.test(r.textContent), couleurs: /<\s?95\s?%/.test(r.textContent) && /95\s?[–-]\s?100\s?%/.test(r.textContent) }; });
+      verif(`${cle} : plus de cadre au pied du résultat — ni nom du module, ni code couleur, ni « Module à vérifier »`, cadrePied.n === 0 && !cadrePied.dit && !cadrePied.couleurs, JSON.stringify(cadrePied));
       const nVues = await p.$$eval('#vues button', (e) => e.length);
       m = await mesure();
       if (nVues) verif(`${cle} : la vue (dessin ou tableau) est visible et à sa taille`, m.vue && m.vue[0] > 200 && m.vue[1] > 120, JSON.stringify(m.vue));
@@ -4961,8 +4966,18 @@ const principal = async () => {
   //    sans la phrase « en information, hors verdict » ; en calcul manuel, N_Ed = 1 770 kN : « appui fjd à 107,4 %, hors
   //    calcul manuel » ;
   //  - le PLAT D'ÂME (poutre–poutre) : l'avis « Ductilité non assurée » se lit (tp = 10 mm > 0,42·d = 8,4 mm, plat S355, et
-  //    la référence de l'étude SCI) ; au PC, en prédimensionnement à V_Ed = 30 kN, la proposition est un M20 — poutre–poutre
-  //    et poutre–poteau (le M16 ne tient plus la ductilité en S355).
+  //    la référence de l'étude SCI).
+  // (25/11/2026) LA REVUE DE L'ÉCRAN demandée par le propriétaire, sur sa capture (doubles cornières, HEA 300 sur HEA 400,
+  // V_Ed = 200 kN), aux trois formats (R1) — le harnais SUIT (il passait en « mode prédimensionnement », qui n'existe plus) :
+  //  - la toile ne porte que les DESSINS (Élévation, Plan, Droite) — ni Prédim, ni Note, ni Méthode, ni Validation ;
+  //  - les rubriques : Assemblage · Poutres (avec le grugeage) · Cornières · Boulons · Efforts ELU · Options ; plus de bascule
+  //    de mode ; l'option « Afficher les taux (%) dans la note de calcul » dans « Options » ;
+  //  - plus de cadre au pied du résultat (nom du module, code couleur, « Module à vérifier ») ;
+  //  - le bloc « Prédimensionnement » du résultat : « Proposer » ouvre des solutions VÉRIFIÉES par le calcul complet (là où
+  //    l'ancien écran disait « AUCUNE combinaison ») ; un clic en recopie une : « Conforme » ; les lignes se lisent en entier,
+  //    dans l'écran ; le plat d'âme à 30 kN : la première solution est un M20 (la ductilité tenue), haute de 0,6·h ;
+  //  - sans solution (platine d'about, V = 400 kN) : l'écran dit que ce sont les PROFILÉS, et quoi changer ;
+  //  - au PC, la note PDF « sans les taux » : plus un pourcentage de résultat, les verdicts restent.
   //   filtre « assemblages » ; « module:assemblages » le rejoue aussi (après le contrôle commun).
   if (!FILTRE || FILTRE === 'assemblages' || FILTRE === 'module:assemblages') {
     await p.goto(`${BASE}/`);
@@ -4970,7 +4985,7 @@ const principal = async () => {
     const VIS_A = { visibilityProperty: true, opacityProperty: true };
     const COMPLET = 'Vérification complète EN 1993-1-8 + EN 1992-4 (grille régulière)', MANUEL = 'Calcul manuel de la platine (boulons et éléments libres)';
     for (const [fmt, w, h, tel] of [['pc', 1440, 900, false], ['tab1024', 1024, 768, false], ['iphone13', 390, 844, true]]) {
-      const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel || fmt === 'tab1024', acceptDownloads: true, locale: 'fr-BE' });
       const pg = await cx.newPage();
       pg.erreurs = [];
       pg.on('pageerror', (e) => pg.erreurs.push(e.message));
@@ -5037,16 +5052,120 @@ const principal = async () => {
         verif(`assemblages · plat d'âme · ${fmt} : la note neuve dit l'avis de ductilité, visible — « Ductilité non assurée (recommandation) — tp = 10 mm > 0,42·d = 8,4 mm (plat S355) ; tw = 8,5 mm > 8,4 mm (poutre S355) ; … (étude SCI, …) » ; le verdict reste vert, « sous réserve des alertes »`,
           a3.msgs.some((x) => /^Ductilité non assurée \(recommandation\) — tp = 10 mm > 0,42·d = 8,4 mm \(plat S355\) ; tw = 8,5 mm > 8,4 mm \(poutre S355\) ; .*\(étude SCI, New Steel Construction, mai 2018\)$/.test(x))
           && /sous réserve des alertes$/.test(a3.verdict || '') && !!a3.pastille && a3.pastille.niveau === 'p', court(a3));
+        // ---- (25/11/2026) la revue de l'écran. « Proposer » : le sélecteur des solutions, tel que l'œil le voit
+        const solutionsA = async () => {
+          await onglet('resultat');
+          await pg.click('#resultat .prof[data-pk="solution"]');
+          await pg.waitForSelector('.flyout.on.picker#pk-solution', { timeout: 120000 });
+          await pg.waitForTimeout(350);
+          return pg.evaluate((VIS) => {
+            const net = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+            const f = document.querySelector('.flyout.on.picker#pk-solution'), fr = f.getBoundingClientRect();
+            const rows = [...f.querySelectorAll('.pk-row')].map((r) => {
+              const q = r.getBoundingClientRect(), n = r.querySelector('.nm'), c = r.querySelector('.chip');
+              return { nom: net(n.textContent), boulons: net(r.querySelector('.kg').textContent), taux: net(c.textContent), niveau: [...c.classList].filter((k) => k.length === 1).join(''),
+                etoile: r.classList.contains('opt'), h: Math.round(q.height), detail: r.dataset.prop || '',
+                entier: n.scrollWidth <= n.clientWidth + 1 && n.scrollHeight <= n.clientHeight + 1 && n.getBoundingClientRect().width > 60,
+                dedans: r.checkVisibility(VIS) && q.left >= fr.left - 0.5 && q.right <= fr.right + 0.5 && q.top >= fr.top - 0.5 && q.bottom <= fr.bottom + 0.5 };
+            });
+            const a = f.querySelector('.asm-aucune'), ar = a ? a.getBoundingClientRect() : null;
+            return { titre: net((f.querySelector('.fl-h b') || {}).textContent), sous: net((f.querySelector('.fl-h span') || {}).textContent), rows,
+              aucune: a && a.checkVisibility(VIS) ? net(a.textContent) : '',
+              aucuneEntier: !a || (a.scrollWidth <= a.clientWidth + 1 && ar.left >= fr.left - 0.5 && ar.right <= fr.right + 0.5 && ar.bottom <= fr.bottom + 0.5 && ar.height > 30),
+              boite: fr.left >= -0.5 && fr.right <= innerWidth + 0.5 && fr.top >= -0.5 && fr.bottom <= innerHeight + 0.5 && fr.width >= 280,
+              doigt: matchMedia('(pointer: coarse)').matches };
+          }, VIS_A);
+        };
+        const fermerA = async () => { await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); if (await pg.$('.flyout.on.picker')) { await pg.click('.flyout.on.picker [data-fermer]'); await pg.waitForTimeout(200); } };
+        // ---- la capture du propriétaire : doubles cornières, HEA 300 sur HEA 400, V_Ed = 200 kN
+        await neuveA(`Cornières revue · ${fmt}`);
+        await menuA('#donnees select[data-chemin="type"]', 'doubles_cornieres');
+        await champA('#donnees input[data-chemin="v/V_Ed"]', '200');
+        const ec = await pg.evaluate(() => {
+          const net = (t) => String(t || '').replace(/\s+/g, ' ').trim(), q = (x) => document.querySelector(x);
+          const c = q('#donnees .sec[data-sec="op"] input[data-chemin="note_taux"]');
+          return { vues: [...document.querySelectorAll('#vues button')].map((x) => net(x.textContent)),
+            rubriques: [...document.querySelectorAll('#donnees .sec[data-sec]')].map((x) => `${x.dataset.sec}:${net((x.querySelector('.tt') || {}).textContent)}`),
+            grugeage: !!q('#donnees .sec[data-sec="pt"] [data-chemin="v/d_nt"]') && !!q('#donnees .sec[data-sec="pt"] [data-chemin="v/l_n"]') && !q('#donnees .sec[data-sec="gr"]'),
+            bascule: !!q('#donnees [data-chemin="v/mode_calc"]'), option: c ? c.checked : null, libelle: c ? net(c.closest('label').textContent) : '',
+            pied: document.querySelectorAll('#resultat .pfoot, #resultat .legend, #resultat .et-verif').length,
+            codeCouleur: /95\s?[–-]\s?100\s?%/.test(net(q('#resultat').textContent)) || /Module à vérifier/.test(net(q('#resultat').textContent)) };
+        });
+        verif(`assemblages · doubles cornières · ${fmt} : la toile ne porte que les dessins — « Élévation », « Plan », « Droite » (ni Prédim, ni Note, ni Méthode, ni Validation)`,
+          JSON.stringify(ec.vues) === '["Élévation","Plan","Droite"]', JSON.stringify(ec.vues));
+        verif(`assemblages · doubles cornières · ${fmt} : les rubriques — Assemblage · Poutres · Cornières · Boulons · Efforts ELU · Options ; le grugeage est dans « Poutres » ; plus de bascule de mode ; « Options » porte la case « Afficher les taux (%) dans la note de calcul », cochée`,
+          JSON.stringify(ec.rubriques) === '["as:Assemblage","pt:Poutres","cn:Cornières","bo:Boulons","ef:Efforts ELU","op:Options"]' && ec.grugeage && !ec.bascule
+          && ec.option === true && ec.libelle === 'Afficher les taux (%) dans la note de calcul', JSON.stringify(ec));
+        verif(`assemblages · doubles cornières · ${fmt} : plus de cadre au pied du résultat — ni nom du module, ni code couleur (« 95–100 % »), ni « Module à vérifier »`,
+          ec.pied === 0 && !ec.codeCouleur, JSON.stringify({ pied: ec.pied, codeCouleur: ec.codeCouleur }));
+        const a5 = await lireA();
+        const s1 = await solutionsA();
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_solutions_${fmt}.png`) });
+        verif(`assemblages · doubles cornières · ${fmt} : à V_Ed = 200 kN l'assemblage saisi est « Non conforme » (128 %) ; « Proposer » ouvre les « Solutions vérifiées » — « 4×2 M16 · L150x90x10 » (16 boulons, 89 %, conseillée ★) et « 3×2 M20 · L150x150x12 » (12 boulons, 100 %) — là où l'ancien écran disait « AUCUNE combinaison »`,
+          !!a5.bloc && /^Non conforme · 128\s?%$/.test(a5.bloc.etat) && s1.titre === 'Solutions vérifiées' && /efforts, profilés et niveaux gardés$/.test(s1.sous) && s1.rows.length === 2
+          && s1.rows[0].nom === '4×2 M16 · L150x90x10' && s1.rows[0].boulons === '16' && /^89\s?%$/.test(s1.rows[0].taux) && s1.rows[0].niveau === 'p' && s1.rows[0].etoile
+          && s1.rows[1].nom === '3×2 M20 · L150x150x12' && s1.rows[1].boulons === '12' && /^100\s?%$/.test(s1.rows[1].taux) && !s1.rows[1].etoile && !s1.aucune
+          && /au-dessus du taux cible$/.test(s1.rows[1].detail) && /^groupe S 4 × 2 · groupe P 4 × 1 par cornière · M16 8\.8 · 2 L150x90x10/.test(s1.rows[0].detail),
+          JSON.stringify({ bloc: a5.bloc, s1 }).slice(0, 900));
+        verif(`assemblages · doubles cornières · ${fmt} : la fenêtre des solutions est dans l'écran, chaque nom se lit en entier sur UNE ligne, chaque ligne est dans la fenêtre${tel || fmt === 'tab1024' ? ', haute de 40 px au moins au doigt' : ''}`,
+          s1.boite && s1.rows.every((x) => x.entier && x.dedans && (!s1.doigt || x.h >= 40)) && s1.doigt === (tel || fmt === 'tab1024'), JSON.stringify(s1).slice(0, 700));
+        await pg.click('.flyout.on.picker#pk-solution .pk-row');
+        await calmeA();
+        const a6 = await lireA();
+        const apres = await pg.evaluate(() => { const v = (k) => { const e = document.querySelector(`#donnees [data-chemin="v/${k}"]`); return e ? e.value : null; };
+          const seg = (k) => { const e = document.querySelector(`#donnees button.on[data-chemin="v/${k}"]`); return e ? e.dataset.valeur : null; };
+          return { V: v('V_Ed'), n1S: v('n1S_u'), n2S: seg('n2S_u'), n2P: seg('n2P_u'), d_nt: v('d_nt'), z_C: v('z_C'), ouvert: !!document.querySelector('.flyout.on.picker') }; });
+        verif(`assemblages · doubles cornières · ${fmt} : un clic sur la première solution la recopie — « Conforme », 89 % ; quatre rangées sur deux files (groupe S), des M16 et des L150x90x10 ; l'effort (200 kN), le grugeage et le niveau n'ont pas bougé ; la fenêtre s'est refermée`,
+          !!a6.bloc && /^Conforme · 89\s?%$/.test(a6.bloc.etat) && !!a6.pastille && a6.pastille.niveau === 'p' && /M16/.test(a6.texte) && /L150x90x10/.test(a6.texte)
+          && apres.V === '200' && apres.n1S === '4' && apres.n2S === '2' && apres.n2P === '1' && apres.d_nt === '50' && apres.z_C === '50' && !apres.ouvert, JSON.stringify({ bloc: a6.bloc, apres }));
+        await onglet('resultat');
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_solution_recopiee_${fmt}.png`) });
+        await onglet('donnees');
         if (fmt === 'pc') {
-          for (const [typ, quoi] of [['plat_ame', 'poutre–poutre'], ['plat_ame_poteau', 'poutre–poteau']]) {
-            if (typ !== 'plat_ame') { await neuveA(`Plat d'âme poteau lot B · ${fmt}`); await menuA('#donnees select[data-chemin="type"]', typ); }
-            await boutonA('#donnees button[data-chemin="v/mode_calc"][data-valeur="PRÉDIMENSIONNEMENT"]');
-            await champA('#donnees input[data-chemin="v/V_Ed"]', '30');
-            const a4 = await lireA();
-            verif(`assemblages · plat d'âme ${quoi} · pc : en prédimensionnement, V_Ed = 30 kN — la proposition est un M20 (« M20, 2 rangées, plat 140 × 8. Proposition complète » : 8 mm ≤ 0,42·d = 8,4 mm)`,
-              a4.msgs.some((x) => /^Mode prédimensionnement — M20, 2 rangées, plat 140 × 8\. Proposition complète$/.test(x)), JSON.stringify(a4.msgs).slice(0, 500));
-          }
+          // la note PDF sans les taux (l'option de la rubrique « Options »), puis avec
+          const noteA = async (nom) => {
+            const [dl] = await Promise.all([pg.waitForEvent('download', { timeout: 180000 }), pg.click('.top [data-action="pdf"]')]);
+            const fpdf = path.join(OUT, nom);
+            await dl.saveAs(fpdf);
+            return String(require('child_process').spawnSync('pdftotext', [fpdf, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 }).stdout || '').replace(/\s+/g, ' ');
+          };
+          await rubriqueDe('#donnees input[data-chemin="note_taux"]');
+          await pg.click('#donnees label.case:has(input[data-chemin="note_taux"])');
+          await calmeA();
+          const decochee = await pg.$eval('#donnees input[data-chemin="note_taux"]', (e) => !e.checked);
+          const sansT = await noteA('site_assemblages_note_sans_taux.pdf');
+          const reste = (sansT.replace(/au-(?:delà|dessus) de 100\s?%/g, '').match(/\d\s?%/g) || []).length;
+          await pg.click('#donnees label.case:has(input[data-chemin="note_taux"])');
+          await calmeA();
+          const avecT = await noteA('site_assemblages_note_avec_taux.pdf');
+          verif(`assemblages · doubles cornières · pc : la case décochée, la note PDF ne porte plus AUCUN pourcentage de résultat (« η max », les taux des tableaux et des formules) — le verdict « VÉRIFIÉ », les efforts et « OK » restent ; recochée, la note retrouve « η max 88,5 % »`,
+            decochee && reste === 0 && !/η max/.test(sansT) && /VÉRIFIÉ/.test(sansT) && /\bOK\b/.test(sansT) && /200,0 kN/.test(sansT) && sansT.length > 2000
+            && /η max 88,5\s?%/.test(avecT) && (avecT.match(/\d\s?%/g) || []).length >= 10, JSON.stringify({ decochee, reste, sans: sansT.length, avec: (avecT.match(/\d\s?%/g) || []).length }));
         }
+        // ---- le plat d'âme à 30 kN (poutre–poutre et poutre–poteau) : la première solution tient la ductilité (un M20) et la
+        //      hauteur recommandée (0,6·h : 175 mm sous un HEA 300 ; 240 mm — trois rangées — sous un IPE 400)
+        for (const [typ, quoi, attendu] of [['plat_ame', 'poutre–poutre', '2 M20 · plat 175×90×8'], ['plat_ame_poteau', 'poutre–poteau', '3 M20 · plat 240×90×8']]) {
+          await neuveA(`Plat d'âme 30 kN ${quoi} · ${fmt}`);
+          await menuA('#donnees select[data-chemin="type"]', typ);
+          await champA('#donnees input[data-chemin="v/V_Ed"]', '30');
+          const s2 = await solutionsA();
+          await pg.click('.flyout.on.picker#pk-solution .pk-row');
+          await calmeA();
+          const a7 = await lireA();
+          verif(`assemblages · plat d'âme ${quoi} · ${fmt} : à V_Ed = 30 kN, la solution conseillée est « ${attendu} » (un M20 : 8 mm ≤ 0,42·d = 8,4 mm ; un plat de 0,6·h) — recopiée, « Conforme », sans l'avis de ductilité ni celui de la hauteur du plat`,
+            s2.rows.length >= 3 && s2.rows[0].nom === attendu && s2.rows[0].etoile && s2.rows.every((x) => x.entier && x.dedans) && s2.boite
+            && !!a7.bloc && /^Conforme · /.test(a7.bloc.etat) && !a7.msgs.some((x) => /Ductilité non assurée|hp < 0,6/.test(x)), JSON.stringify({ rows: s2.rows.map((x) => [x.nom, x.taux]), bloc: a7.bloc, msgs: a7.msgs }).slice(0, 600));
+        }
+        // ---- sans solution : la platine d'about à 400 kN — ce sont les PROFILÉS (le grugeage de la poutre portée)
+        await neuveA(`Platine sans solution · ${fmt}`);
+        await menuA('#donnees select[data-chemin="type"]', 'platine_about');
+        await champA('#donnees input[data-chemin="v/V_Ed"]', '400');
+        const s3 = await solutionsA();
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_aucune_solution_${fmt}.png`) });
+        verif(`assemblages · platine d'about · ${fmt} : à V_Ed = 400 kN, aucune disposition ne passe — l'écran le dit et dit quoi changer : « Aucune solution avec ces profilés. … au mieux, Poutre secondaire · grugeage – flexion + V reste à 224 % … Changer le profilé de la poutre secondaire …, ou réduire le grugeage. » — lu en entier, dans la fenêtre`,
+          s3.rows.length === 0 && /^Aucune solution avec ces profilés\. Toutes les dispositions ont été essayées/.test(s3.aucune) && /grugeage – flexion \+ V reste à 224\s?%/.test(s3.aucune)
+          && /Changer le profilé de la poutre secondaire \(une âme plus épaisse, une poutre plus haute\), ou réduire le grugeage\.$/.test(s3.aucune) && s3.aucuneEntier && s3.boite, JSON.stringify(s3).slice(0, 700));
+        await fermerA();
         verif(`assemblages · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (e) { verif(`assemblages · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
       await cx.close();
@@ -7499,11 +7618,8 @@ const principal = async () => {
       ['h min', /hmin\s*=\s*(?:[\d,]+\s*\+\s*[\d,]+\s*=\s*)?(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s', /As\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['η', /η\s*(\d+)\s*%/, (v) => `${v} %`],
-      // (les barres en acier, 14/11/2026 : un verdict par MÉTHODE — sa pastille, puis « Méthode ELS (NBN B 51-001) · … » ou
-      // « Eurocode 3 · … » ; la note écrit le même taux sous le nom de la barre : « 88 % ELS · 58 % Eurocode 3 » — le nom
-      // de la méthode du bureau depuis le 16/11/2026, sa clé interne reste « historique »)
-      ['taux ELS', /(\d+)\s*%\s*Méthode ELS \(NBN B 51-001\) ·/, (v) => `${v} % ELS`],
-      ['taux Eurocode 3', /(\d+)\s*%\s*Eurocode 3 ·/, (v) => `${v} % Eurocode 3`],
+      // (les barres en acier : le taux de chaque MÉTHODE se lit sur sa carte — ``tauxCartes``, plus bas ; la note écrit le même
+      // taux sous le nom de la barre : « 88 % ELS · 58 % Eurocode 3 »)
       // (le Générateur SAF, 14/11/2026 : la contrainte de contact — « σ 1,12 kg/cm² » dans la pastille, « 110,2 kPa » dans la
       // comparaison ; la note écrit « σ max = 110,2 kPa (1,12 kg/cm²) »)
       ['σ (kPa)', /Contrainte de contact\s*(\d+,\d)\s*kPa/, (v) => `${v} kPa`],
@@ -7516,6 +7632,23 @@ const principal = async () => {
       // (intégration du lot C) le Prix des grues : le total de la grue — « 360 € HTVA » à l'écran, « Total HTVA 360 € » dans le rapport
       ['total HTVA', /(\d+)\s*€\s*HTVA/, (v) => `${v} €`],
     ];
+    // (26/11/2026 — le harnais SUIT la mise à jour 1 des barres, § 1.4 : les grosses pastilles « N % Méthode ELS (NBN B 51-001)
+    //  · … » et « N % Eurocode 3 · … » sont retirées du résultat depuis fc078b7, et ce filtre les lisait encore — 6 rouges
+    //  hérités, identiques sur la version en ligne.) Le taux d'une méthode se lit sur SA carte : le PLUS FORT de ses lignes —
+    //  celui que la note écrit sous le nom de la barre (« 113 % ELS » pour une carte qui montre 111 % au déversement et 113 %
+    //  à la contrainte équivalente) ; une méthode que l'option n'affiche pas n'a pas de carte : pas de taux.
+    const tauxCartes = (pg) => pg.$$eval('#resultat .et-bloc[data-theme]', (bs, VIS) => {
+      const out = {};
+      for (const b of bs) {
+        if (!b.checkVisibility(VIS)) continue;
+        const n = ((b.querySelector('.et-bloc-t .n') || {}).textContent || '').trim();
+        const cle = n === 'ELS' ? 'els' : n === 'Eurocode 3' ? 'ec3' : null;
+        if (!cle) continue;
+        const taux = [...b.querySelectorAll('.el.vc .pct')].map((c) => parseFloat(c.textContent.replace(/[^\d,]/g, '').replace(',', '.'))).filter((x) => Number.isFinite(x));
+        out[cle] = taux.length ? Math.round(Math.max(...taux)) : null;
+      }
+      return out;
+    }, { visibilityProperty: true, opacityProperty: true });
     // (intégration du lot C, le harnais suit) la « Note PDF » du Prix des grues est le RAPPORT DE LA GRUE OUVERTE
     // (api_web/prix_grues.py, prix_grues_rapport.py : « Prix grue <repère> - <note>.pdf », une page par grue) et non la note de
     // tous les éléments : le nom du fichier, le nombre de pages et les noms se lisent pour la grue ouverte — et elle seule
@@ -7579,6 +7712,9 @@ const principal = async () => {
         if (k === 'profil') {
           const imp = (riches.etats[k] || {}).impression || 'deux';
           const herite = tEcran.match(/\(contrôle hérité\) : (\d+)\s*%/);
+          const tc = await tauxCartes(g);
+          if (tc.els !== null && tc.els !== undefined) chiffres.push(['taux ELS', `${tc.els} % ELS`]);
+          if (tc.ec3 !== null && tc.ec3 !== undefined) chiffres.push(['taux Eurocode 3', `${tc.ec3} % Eurocode 3`]);
           for (let i = chiffres.length - 1; i >= 0; i--) {
             const [nom, v] = chiffres[i];
             if (nom === 'η' || (nom === 'taux ELS' && imp === 'ec3') || (nom === 'taux Eurocode 3' && imp === 'historique')) chiffres.splice(i, 1);
@@ -7686,8 +7822,12 @@ const principal = async () => {
             // plus grand des deux, celui que la note écrit (C5, R6 : le durable garde le défavorable)
             const vuI = norm(await g.evaluate(() => { const r = document.getElementById('resultat'); return r && r.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? r.innerText : ''; }));
             const lu = (re) => { const m = vuI.match(re); return m ? +m[1] : null; };
-            const ecrI = { els: Math.max(lu(/(\d+)\s*%\s*Méthode ELS \(NBN B 51-001\) ·/) || 0, lu(/\(contrôle hérité\) : (\d+)\s*%/) || 0) || null,
-                           ec3: lu(/(\d+)\s*%\s*Eurocode 3 ·/) };
+            const tcI = await tauxCartes(g);
+            const ecrI = { els: tcI.els === null || tcI.els === undefined ? null : Math.max(tcI.els, lu(/\(contrôle hérité\) : (\d+)\s*%/) || 0),
+                           ec3: tcI.ec3 === null || tcI.ec3 === undefined ? null : tcI.ec3 };
+            // (l'écran n'affiche que la ou les méthodes de l'option — mise à jour 1 : le segment est la « Méthode affichée »,
+            //  pour l'écran ET la note) : les taux qu'il FAUT lire sont ceux de l'option
+            const lusI = { deux: ecrI.els !== null && ecrI.ec3 !== null, historique: ecrI.els !== null, ec3: ecrI.ec3 !== null }[imp];
             const dI = g.waitForEvent('download', { timeout: 180000 }).catch(() => null);
             await g.click(sel);
             const dlI = await dI;
@@ -7706,7 +7846,7 @@ const principal = async () => {
             const ordre = imp !== 'deux' || (brut.indexOf('Synthèse des deux méthodes') > 0 && brut.indexOf('Synthèse des deux méthodes') < titreEls);
             const attenduI = { deux: `${ecrI.els} % ELS · ${ecrI.ec3} % Eurocode 3`, historique: `${ecrI.els} % ELS`, ec3: `${ecrI.ec3} % Eurocode 3` }[imp];
             verif(`note PDF · profil · pc · option « ${imp} » : le résumé de la barre active dit les taux de l'écran — « ${attenduI} » (ELS : sa pastille, ou le contrôle hérité écrit dessous quand il la dépasse)`,
-              dlI && ecrI.els !== null && ecrI.ec3 !== null && brut.includes(attenduI), JSON.stringify({ ecrI, ecran: vuI.slice(0, 260) }));
+              dlI && lusI && brut.includes(attenduI), JSON.stringify({ ecrI, ecran: vuI.slice(0, 260) }));
             // le résumé sous le nom de la barre : « … % ELS · … % Eurocode 3 » (les deux), les seuls taux de la méthode imprimée sinon
             const resume = { deux: /\d+ % ELS · \d+ % Eurocode 3/, historique: /\d+ % ELS/, ec3: /\d+ % Eurocode 3/ }[imp];
             verif(`note PDF · profil · pc · option « ${imp} » : la note sort, ses blocs y sont et les autres non, « Torsion non couverte »${imp === 'deux' ? ', la synthèse en bloc 2' : ''}, le résumé des taux`,
@@ -8261,17 +8401,23 @@ const principal = async () => {
         && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 6)), JSON.stringify(mes));
       await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_accueil.png`), fullPage: true });
       // ---- DANS le module : au pied du cadre Résultat, « Module vérifié · LL · la date » — une ligne qu'on lit, aux quatre formats
-      const piedModule = async (adresse) => {
-        await g.goto(`${BASE}/${adresse}`);
-        await g.waitForSelector('#resultat .pfoot .et-verif', { timeout: 120000, state: 'attached' });
+      // (25/11/2026 : le CADRE du pied est retiré de tous les modules — nom du module, code couleur, « Module à vérifier » ; la
+      //  ligne ne paraît plus que pour un module VÉRIFIÉ ou À REVÉRIFIER, posée sous le résultat, hors de ce qui défile. Le
+      //  harnais SUIT : il la cherchait dans « .pfoot » et attendait « Module à vérifier » d'un module jamais vérifié.)
+      const piedModule = async (adresse, sansMarque = false) => {
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${adresse}`) });
+        await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 120000 }).catch(() => {});
+        if (!sansMarque) await g.waitForSelector('#resultat > .et-verif', { timeout: 120000, state: 'attached' });
         if (tel) await g.click('.mtabs [data-onglet="resultat"]');
-        await g.waitForTimeout(350);
-        return g.evaluate(async () => { const e = document.querySelector('#resultat .pfoot .et-verif');
+        await g.waitForTimeout(sansMarque ? 900 : 350);
+        if (sansMarque) return g.evaluate(() => ({ n: document.querySelectorAll('#resultat .et-verif').length, pied: document.querySelectorAll('#resultat .pfoot, #resultat .legend').length,
+          dit: /Module à vérifier|Module vérifié|Module à revérifier/.test(document.getElementById('resultat').textContent), resultat: document.getElementById('resultat').textContent.trim().length }));
+        return g.evaluate(async () => { const e = document.querySelector('#resultat > .et-verif');
           // au BOUT de ce qu'on peut faire défiler (la page, et ce qui défile dedans) — comme on lit la fin d'un résultat ; « scrollIntoView »
           // la posait au ras du bas de l'écran, sous la barre des boutons du téléphone : présente dans le DOM, cachée à l'œil
           for (const d of [document.scrollingElement, ...[...document.querySelectorAll('*')].filter((x) => /(auto|scroll)/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 2)]) d.scrollTop = d.scrollHeight;
           await new Promise((ok) => setTimeout(ok, 250));
-          const r = e.getBoundingClientRect(), t = e.querySelector('.et-verif-t'), tr = t.getBoundingClientRect(), pied = e.closest('.pfoot').getBoundingClientRect();
+          const r = e.getBoundingClientRect(), t = e.querySelector('.et-verif-t'), tr = t.getBoundingClientRect(), pied = document.getElementById('resultat').getBoundingClientRect();
           const dessus = document.elementFromPoint(tr.left + Math.min(20, tr.width / 2), tr.top + tr.height / 2);
           const icones = [...e.querySelectorAll('.et-verif-i')].filter((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map((x) => x.className.replace('et-verif-i ', ''));
           const teinte = (n) => { const i = document.createElement('i'); i.style.color = `var(--${n})`; document.body.appendChild(i); const c = getComputedStyle(i).color; i.remove(); return c; };
@@ -8279,23 +8425,23 @@ const principal = async () => {
             niveau: e.dataset.niveau, couleur: getComputedStyle(e).color, jetons: { argent: teinte('argent'), or: teinte('or') },
             picto: (() => { const i = [...e.querySelectorAll('.et-verif-i')].find((x) => x.checkVisibility()); return i ? getComputedStyle(i).color : ''; })(), vifs: { argent: teinte('argent-vif'), or: teinte('or-vif') },
             dans: r.left >= pied.left - 1 && r.right <= pied.right + 1 && r.right <= innerWidth && tr.width > 40 && r.bottom <= innerHeight + 1 && !!dessus && e.contains(dessus),
-            icones, n: document.querySelectorAll('#resultat .et-verif').length,
+            icones, n: document.querySelectorAll('#resultat .et-verif').length, cadre: document.querySelectorAll('#resultat .pfoot, #resultat .legend').length,
             boutons: e.querySelectorAll('button, a').length, auDoigt: matchMedia('(pointer: coarse)').matches }; });
       };
       const pv = await piedModule('poutre');
       verif(`${dit} · dans « Poutres béton armé », le pied du cadre Résultat dit « Module vérifié deux fois · LL, MDU · ${jour} », en OR : une seule ligne, lue en entier (11 px au moins), dans le cadre et dans l'écran, rien ne la recouvre au bout du défilement, son pictogramme — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)`,
         pv.vu && pv.etat === 'verifie' && pv.texte === `Module vérifié deux fois · LL, MDU · ${jour}` && /vérifié par Louis Lejeune et Marie Dubois/.test(pv.titre) && pv.entier && pv.police >= 11 && pv.dans
-        && JSON.stringify(pv.icones) === '["et-verif-oui"]' && pv.niveau === 'or' && pv.couleur === pv.jetons.or && pv.picto === pv.vifs.or && pv.n === 1 && pv.boutons === 0 && pv.auDoigt === doigt, JSON.stringify(pv));
+        && JSON.stringify(pv.icones) === '["et-verif-oui"]' && pv.niveau === 'or' && pv.couleur === pv.jetons.or && pv.picto === pv.vifs.or && pv.n === 1 && pv.cadre === 0 && pv.boutons === 0 && pv.auDoigt === doigt, JSON.stringify(pv));
       await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_module_verifie.png`) });
       const ps = await piedModule('soudures');
       verif(`${dit} · dans « Soudures », vérifié par un seul administrateur : « Module vérifié · LL · ${jour} », en ARGENT, lu en entier, dans le cadre`,
         ps.vu && ps.etat === 'verifie' && ps.texte === `Module vérifié · LL · ${jour}` && /vérifié par Louis Lejeune le /.test(ps.titre) && ps.entier && ps.dans && ps.niveau === 'argent' && ps.couleur === ps.jetons.argent && ps.picto === ps.vifs.argent
         && ps.jetons.argent !== ps.jetons.or && JSON.stringify(ps.icones) === '["et-verif-oui"]', JSON.stringify(ps));
       await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_module_argent.png`) });
-      const pd = await piedModule('dalle'), pn = await piedModule('corniere');
-      verif(`${dit} · « Dalles béton armé », dont le calcul a changé depuis sa vérification, dit « Module à revérifier » ; « Cornières », que personne n'a vérifié, « Module à vérifier » — jamais « vérifié »`,
-        pd.vu && pd.etat === 'change' && pd.texte === 'Module à revérifier' && /son calcul a changé/.test(pd.titre) && JSON.stringify(pd.icones) === '["et-verif-non"]' && pd.dans && pd.entier
-        && pn.vu && pn.etat === 'non' && pn.texte === 'Module à vérifier' && JSON.stringify(pn.icones) === '["et-verif-non"]' && pn.dans && pn.entier, JSON.stringify({ pd, pn }));
+      const pd = await piedModule('dalle'), pn = await piedModule('corniere', true);
+      verif(`${dit} · « Dalles béton armé », dont le calcul a changé depuis sa vérification, dit « Module à revérifier » ; « Cornières », que personne n'a vérifié, ne porte AUCUNE marque (ni « Module à vérifier », ni cadre au pied) — jamais « vérifié »`,
+        pd.vu && pd.etat === 'change' && pd.texte === 'Module à revérifier' && /son calcul a changé/.test(pd.titre) && JSON.stringify(pd.icones) === '["et-verif-non"]' && pd.dans && pd.entier && pd.cadre === 0
+        && pn.n === 0 && pn.pied === 0 && !pn.dit && pn.resultat > 20, JSON.stringify({ pd, pn }));
       await g.goto(`${BASE}/`);
       await pretBureau(g, 'accueil');
       await g.reload();

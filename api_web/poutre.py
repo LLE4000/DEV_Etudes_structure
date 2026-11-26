@@ -1358,8 +1358,7 @@ def resultat(etat: Dict) -> Dict:
     if ta:
         tete += _ta_tete(ta, bool((p.get("taux") or {}).get("note")))
         volets += _ta_volets(ta, p, nom_p)
-    pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur poutre</span><b>{C.esc(MO.REFERENCE.split(" (")[0].split()[-1])}</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    pied = ""                                     # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos``)
     # l'état de la NOTE (toutes ses poutres) dans l'en-tête du panneau : utile dès deux poutres ; seule, chaque section dit le sien
     statut = C.statut(_niveau_note_note(resultats)) if len(etat["poutres"]) > 1 else ""
     fiches_ = etat.get("fiches") or []

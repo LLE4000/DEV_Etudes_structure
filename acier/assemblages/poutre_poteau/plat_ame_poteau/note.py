@@ -27,7 +27,7 @@ from acier.formats import F, nb
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB
+from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX
 from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ...poutre_poutre.plat_ame.note import Note as NoteFamille, _prof, M
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, CART_H, _fmt_echelle
@@ -205,6 +205,7 @@ def generer_note(R, infos=None, chemin=None):
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["titre"] = "Note de calcul"
     doc_meta["visserie"] = infos.get("visserie", "")
+    doc_meta[SANS_TAUX] = bool(infos.get(SANS_TAUX))          # la note sans les taux (note_kit)
     if chemin is None:
         fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_plat_ame_poteau_")
         os.close(fd)

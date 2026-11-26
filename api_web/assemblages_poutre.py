@@ -2,25 +2,27 @@
 """La famille POUTRE–POUTRE du module « Assemblages métalliques » du site : plat d'âme soudé, doubles cornières
 d'âme, platine d'about (hauteur partielle). Fichier d'AIDE (sans MODULE) : il décrit les trois configurations à la
 carte commune (api_web/assemblages.py) — leurs sections de données, leurs libellés courts, leurs pièces, leurs
-formules, leurs dessins, leur prédimensionnement.
+formules, leurs dessins, les mots de leurs propositions.
 
 Les moteurs sont ceux du dépôt (acier/assemblages/poutre_poutre/<config>/ : entrees, moteur, synthese, formules,
-notation, texte, methode, benchmark, schemas), importés SANS leurs fichiers d'écran. Les quelques textes de l'écran
-Streamlit qu'on ne peut pas importer (ils vivent dans ecran_resultats.py, qui charge streamlit) sont des COPIES
-NOMMÉES, liées à l'original par tests/test_api_web_assemblages.py : ``NON_REVERIFIES_*`` et les « paramètres
-retenus ».
+notation, benchmark, schemas), importés SANS leurs fichiers d'écran. Les quelques textes de l'écran Streamlit qu'on ne
+peut pas importer (ils vivent dans ecran_resultats.py, qui charge streamlit) sont des COPIES NOMMÉES, liées à
+l'original par tests/test_api_web_assemblages.py : ``NON_REVERIFIES_*`` et les « paramètres retenus ».
+
+Les rubriques du cadre Données (revue du 25/11/2026) : Assemblage · Poutres (les deux poutres, leur position ET le
+grugeage : « comme ça on définit un peu la géométrie ») · la pièce d'attache · Boulons · [Soudures] · Efforts ELU ·
+Options.
 """
 from acier.assemblages.poutre_poutre.doubles_cornieres import (benchmark as BDC, entrees as EDC, formules as FDC,
-                                                              methode as MEDC, moteur as MDC, notation as NDC,
-                                                              schemas as SDC, synthese as YDC, texte as TDC)
-from acier.assemblages.poutre_poutre.plat_ame import (benchmark as BPA, entrees as EPA, formules as FPA, methode as MEPA,
-                                                     moteur as MPA, notation as NPA, schemas as SPA, synthese as YPA,
-                                                     texte as TPA)
+                                                              moteur as MDC, notation as NDC, schemas as SDC,
+                                                              synthese as YDC)
+from acier.assemblages.poutre_poutre.plat_ame import (benchmark as BPA, entrees as EPA, formules as FPA, moteur as MPA,
+                                                     notation as NPA, schemas as SPA, synthese as YPA)
 from acier.assemblages.poutre_poutre.platine_about import (benchmark as BPB, entrees as EPB, formules as FPB,
-                                                          methode as MEPB, moteur as MPB, notation as NPB, schemas as SPB,
-                                                          synthese as YPB, texte as TPB)
+                                                          moteur as MPB, notation as NPB, schemas as SPB,
+                                                          synthese as YPB)
 from acier.bibliotheques import DB, ORI_P, ORI_S, PERSO, find
-from acier.formats import F, pct, nb
+from acier.formats import F, nb
 from acier.js import N, js_str
 
 from . import assemblages as A
@@ -45,13 +47,8 @@ NON_REVERIFIES_PB = ("flexion TRANSVERSALE de l'âme porteuse sous la traction d
 # ------------------------------------------------------------------ libellés courts (symbole, libellé)
 # Le libellé LONG et l'aide de chaque champ restent ceux de l'écran Streamlit (entrees.GROUPES) : ils s'affichent
 # au survol du « i » ; le cadre Données porte une forme courte, qui tient sur sa ligne.
-def _s(x):
-    return x
-
-
 LIBELLES = {
     "id_projet": ("", "Projet"), "id_rep": ("", "Repère"), "id_red": ("", "Rédacteur"), "id_date": ("", "Date"),
-    "mode_calc": ("", "Mode"),
     "prof_P": ("", "Profilé"), "nu_P": ("", "Nuance"), "prof_S": ("", "Profilé"), "nu_S": ("", "Nuance"),
     "hP_u": ("h", "hauteur"), "bP_u": ("b", "largeur"), "twP_u": ("t<sub>w</sub>", "âme"), "tfP_u": ("t<sub>f</sub>", "semelle"),
     "rP_u": ("r", "congé"),
@@ -91,12 +88,9 @@ LIBELLES = {
     "a_S": ("a<sub>B</sub>", "gorge ailes B"), "lh_S": ("ℓ<sub>h,B</sub>", "retours ailes B"),
     "opt_exc": ("", "Excentricité g<sub>A</sub> reprise par le groupe P"), "k_rot": ("k<sub>rot</sub>", "groupe P"),
 }
-# « Prédimensionnement » ne tient pas dans un segment de la colonne Données (mesuré : 145 px pour 150 px offerts,
-# texte coupé) : le segment dit « Prédim. », comme l'onglet Prédim de l'écran Streamlit ; l'aide dit le mot entier.
-AFFICHAGE = {"mode_calc": {EPA.MODE_VERIF: "Vérification", EPA.MODE_PREDIM: "Prédim."},
-             "orient": {ORI_P: "côté principale", ORI_S: "côté secondaire"},
+AFFICHAGE = {"orient": {ORI_P: "côté principale", ORI_S: "côté secondaire"},
              "nat_N": {EPB.NAT_ELU: "ELU", EPB.NAT_TYING: "Tying"}}
-SEGMENTS = frozenset({"mode_calc", "fix_P", "fix_S", "n2_u", "n2S_u", "n2P_u", "trou", "cat", "nat_N", "orient"})
+SEGMENTS = frozenset({"fix_P", "fix_S", "n2_u", "n2S_u", "n2P_u", "trou", "cat", "nat_N", "orient"})
 
 
 def libelles(**surcharges):
@@ -137,14 +131,13 @@ def profil(u, X):
     return "personnalisé" if u.get("prof_" + X) == PERSO else str(u.get("prof_" + X))
 
 
+def grugee(u) -> bool:
+    return bool(N(u.get("d_nt")) or N(u.get("d_nb")))
+
+
 def resume_poutres(u):
-    return f"{profil(u, 'S')} sur {profil(u, 'P')}"
-
-
-def resume_grugeage(u):
-    if not (N(u.get("d_nt")) or N(u.get("d_nb"))):
-        return "non grugée"
-    return f"d<sub>c</sub> {C.nb(N(u.get('d_nt')))} / {C.nb(N(u.get('d_nb')))} · c {C.nb(N(u.get('l_n')))}"
+    """« HEA 300 sur HEA 400 · grugée » : les deux poutres, et le grugeage quand il y en a un (texte)."""
+    return f"{profil(u, 'S')} sur {profil(u, 'P')}" + (" · grugée" if grugee(u) else "")
 
 
 def resume_efforts(u, cles=("V_Ed", "N_Ed", "M_Ed", "H_Ed")):
@@ -153,43 +146,26 @@ def resume_efforts(u, cles=("V_Ed", "N_Ed", "M_Ed", "H_Ed")):
     return " · ".join(out) + " kN"
 
 
-def resume_assemblage(cfg, u):
-    m = AFFICHAGE["mode_calc"].get(u.get("mode_calc"), "")
-    return f"{C.esc(cfg.court)} · {m.lower()}"
-
-
-# Ce que le prédimensionnement GARDE et ce qu'il PROPOSE, dit à l'écran (le propriétaire, 25/11/2026 : « quand j'ai un
-# prédimensionnement, il faut que ça me garde mes données de base — les efforts, le profilé, le niveau auquel ils sont ;
-# c'est la plaque, le nombre de boulons qui doit changer »). C'est ce que font les six moteurs (``apply_solution`` ne
-# touche que les boulons, la pièce d'attache et sa gorge) ; tests/test_api_web_assemblages.py le fige, solution par solution.
-GARDE_PREDIM = "Vos efforts, vos profilés, leur acier, leurs niveaux et le grugeage sont gardés"
-
-
-def predim_items(u, propose="les boulons, le plat et sa gorge"):
-    if u.get("mode_calc") == EPA.MODE_VERIF:
-        return []
-    return [("grp", "Prédimensionnement", "Les champs verrouillés sont pilotés par la proposition ; la ligne « Proposition » du "
-                                          "résultat la recopie dans les données et repasse en vérification."),
-            ("aide", f"{GARDE_PREDIM} : seuls {propose} sont proposés (champs verrouillés)."),
-            "eta_c", ("duo", "pd_dmin", "pd_dmax"), "k_e1", "k_p1", "k_e2"]
-
-
 def boulons_items(u):
     return [("duo", "boulon_u", "classe"), "trou", "cat", "filet"] + A.d0_items(u) + [("duo", "mu_s", "k_s"), "k_ser"]
 
 
 def items_poutres(*position):
     """Les deux poutres, chacune avec son acier sur UNE ligne (« Principale HEA 400 · S355 ») ; leurs dimensions quand
-    le profilé est « Personnalisé », deux par ligne ; puis la position."""
-    return [("profil", "Principale", "prof_P", "nu_P"), ("duo", "hP_u", "bP_u"), ("duo", "twP_u", "tfP_u"), "rP_u",
-            ("profil", "Secondaire", "prof_S", "nu_S"), ("duo", "hS_u", "bS_u"), ("duo", "twS_u", "tfS_u"), "rS_u"] + list(position)
+    le profilé est « Personnalisé », deux par ligne ; la position ; puis le GRUGEAGE de la secondaire (le propriétaire,
+    25/11/2026 : « poutre et grugeage, ça pourrait être regroupé ensemble […] comme ça on définit un peu la géométrie »)."""
+    return ([("profil", "Principale", "prof_P", "nu_P"), ("duo", "hP_u", "bP_u"), ("duo", "twP_u", "tfP_u"), "rP_u",
+             ("profil", "Secondaire", "prof_S", "nu_S"), ("duo", "hS_u", "bS_u"), ("duo", "twS_u", "tfS_u"), "rS_u"]
+            + list(position) + [("grp", "Grugeage de la secondaire", AIDE_GRUGEAGE)] + GRUGEAGE)
 
 
 GRUGEAGE = [("duo", "d_nt", "d_nb"), ("duo", "l_n", "r_n"), "lt_ok"]
+AIDE_GRUGEAGE = "Profondeur en haut et en bas, longueur c, rayon d'exécution. 0 = semelle non grugée."
 
 
 def coefficients(*cles):
-    return list(cles) + [("grp", "Acier personnalisé"), "fy_u", "fu_u", "bw_u"]
+    """Les premiers items de la rubrique « Options » : les coefficients partiels, le modèle, l'acier personnalisé."""
+    return [("grp", "Coefficients partiels")] + list(cles) + [("grp", "Acier personnalisé"), "fy_u", "fu_u", "bw_u"]
 
 
 def piece_profil(u, X):
@@ -200,68 +176,84 @@ def boulons_texte(R, u, n):
     return C.esc(f"{n} {R.boulon} · {u.get('classe')}")
 
 
-# ------------------------------------------------------------------ l'onglet Prédim : copies nommées
-# Le tableau « Détail de la solution retenue par défaut » et la légende de l'onglet Prédim de chaque écran
-# Streamlit (ecran_resultats.onglet_predim) ; le test les relit en faisant tourner onglet_predim avec un faux « st ».
-def detail_predim_pa(p):
-    return [["Boulon proposé", p.boulon], ["Rangées n1 (1 file)", js_str(p.n)],
-            ["e1 / p1 / e2 = e2,b", f"{p.e1} / {p.p1} / {p.e2} mm"],
-            ["Hauteur du plat hp = 2·e1 + (n1 − 1)·p1", f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
-            ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Plat proposé", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
-            ["Taux estimé (boulons et pression diamétrale de l'âme)", pct(p.eta, 1)], ["État", p.msg]]
+# ------------------------------------------------------------------ les propositions : leurs mots
+# Une proposition du prédimensionnement (acier/assemblages/propositions.py) se dit depuis SES saisies : en quelques mots
+# dans la liste (``nom_*``), puis sa géométrie sous la liste (``detail_*``). Rien n'est recalculé ici.
+def _i(v, k) -> str:
+    return js_str(int(N(v.get(k))))
 
 
-def detail_predim_dc(p):
-    return [["Boulon proposé", p.boulon], ["Rangées n1 (groupes S et P, 1 file)", p.n],
-            ["e1 / p1 / e2 = e2,b", f"{p.e1} / {p.p1} / {p.e2} mm"],
-            ["Hauteur des cornières hc = 2·e1 + (n1 − 1)·p1", f"{p.LC} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
-            ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Cornière proposée", f"L{nb(p.leg)}x{nb(p.leg)}x{nb(p.tC)} – trusquinage gA = {nb(p.gA)} mm"],
-            ["Taux estimé (boulons et pressions diamétrales des âmes)", pct(p.eta, 1)], ["État", p.msg]]
+def nom_plat(v) -> str:
+    """« 3 M20 · plat 190×80×8 » ; deux files : « 3×2 M20 · … »."""
+    files = "×2" if int(N(v.get("n2_u"))) == 2 else ""
+    return f"{_i(v, 'n1_u')}{files} {v.get('boulon_u')} · plat {nb(N(v.get('hp_u')))}×{nb(N(v.get('bp_u')))}×{nb(N(v.get('tp_u')))}"
 
 
-def detail_predim_pb(p):
-    return [["Boulon proposé", p.boulon], ["Rangées n1 (2 files)", js_str(p.n)],
-            ["e1 / p1 / e2", f"{p.e1} / {p.p1} / {p.e2} mm"],
-            ["Entraxe des files p3 (≥ 90 mm, rondelle hors cordon)", f"{p.p3} mm"],
-            ["Hauteur de la platine hp = max(2·e1 + (n1 − 1)·p1 ; 0,6·h)", f"{p.hp} mm (hauteur disponible " + F(p.hav, 0) + " mm)"],
-            ["Épaisseur nécessaire au taux cible", F(p.treq, 2) + " mm"],
-            ["Platine proposée", nb(p.hp) + " × " + nb(p.bp) + " × " + nb(p.tp) + " mm – gorge a = " + nb(p.a) + " mm"],
-            ["Taux estimé (boulons, âme portée, âme porteuse)", pct(p.eta, 1)], ["État", p.msg]]
+def detail_plat(v) -> str:
+    p2 = f" / p2 {nb(N(v.get('p2_u')))}" if int(N(v.get("n2_u"))) == 2 else ""
+    return (f"{_i(v, 'n1_u')} rangées × {_i(v, 'n2_u')} file{'s' if int(N(v.get('n2_u'))) > 1 else ''} {v.get('boulon_u')} "
+            f"{v.get('classe')} · plat {nb(N(v.get('hp_u')))} × {nb(N(v.get('bp_u')))} × {nb(N(v.get('tp_u')))} mm · "
+            f"gorge a {nb(N(v.get('a_w')))} · e1 {nb(N(v.get('e1_u')))} / p1 {nb(N(v.get('p1_u')))} / e2 {nb(N(v.get('e2b_u')))}{p2} mm")
 
 
-# la légende des calculs manuels de l'onglet Benchmark des doubles cornières (sa colonne de contrôle est un classeur)
-LEGENDE_MANUEL_DC = ("Colonne « manuel » : calcul indépendant hors moteur (intégration numérique pour les cordons). "
-                     "Colonne « Excel » : classeur recalculé avec les mêmes données.", "Excel")
+def nom_cornieres(v) -> str:
+    """« 3 M20 · L100x100x8 » : les rangées du groupe BOULONNÉ (celui de l'âme portée quand les deux le sont ; deux
+    files : « 3×2 M20 · … ») ; sans aucun boulon — les deux ailes soudées — : « L100x100x8 · hc 190 · soudées » (un nom
+    qui parlerait de boulons qui n'existent pas serait faux)."""
+    bS, bP = v.get("fix_S") == EDC.BOULONNEE, v.get("fix_P") == EDC.BOULONNEE
+    if not (bS or bP):
+        return f"{v.get('corn_u')} · hc {nb(N(v.get('LC_u')))} · soudées"
+    X = "S" if bS else "P"
+    files = "×2" if int(N(v.get("n2" + X + "_u"))) == 2 else ""
+    return f"{_i(v, 'n1' + X + '_u')}{files} {v.get('boulon_u')} · {v.get('corn_u')}"
 
-REGLE_PA = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. L'épaisseur du "
-            "plat est plafonnée par la ductilité (SCI P358 §5.3 (3)) ; la gorge proposée est la pleine résistance. Seule la vérification "
-            "détaillée fait foi.")
-REGLE_DC = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. MEd est ajouté "
-            "à VEd·z ; les tractions dues à HEd et MEd ne sont prises en compte que dans la vérification détaillée.")
-REGLE_PB = ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. L'épaisseur de "
-            "la platine reste entre 8 mm et la limite de ductilité ; la gorge proposée est la pleine résistance du guide. "
-            "Seule la vérification détaillée fait foi.")
+
+def detail_cornieres(v) -> str:
+    """La géométrie d'une proposition : chaque aile (son groupe de boulons, ou sa gorge quand elle est soudée), le
+    boulon, la cornière, sa longueur ; les pinces et le trusquinage seulement là où il y a des boulons."""
+    bS, bP = v.get("fix_S") == EDC.BOULONNEE, v.get("fix_P") == EDC.BOULONNEE
+    g = [f"groupe S {_i(v, 'n1S_u')} × {_i(v, 'n2S_u')}" if bS else f"ailes B soudées (a {nb(N(v.get('a_S')))})",
+         f"groupe P {_i(v, 'n1P_u')} × {_i(v, 'n2P_u')} par cornière" if bP else f"ailes A soudées (a {nb(N(v.get('a_P')))})"]
+    inegale = f" (grande aile {AFFICHAGE['orient'].get(v.get('orient'), '')})" if _inegale(v) else ""
+    boulon = f" · {v.get('boulon_u')} {v.get('classe')}" if (bS or bP) else ""
+    pinces = (f" · e1 {nb(N(v.get('e1S_u')))} / p1 {nb(N(v.get('p1S_u')))} / e2 {nb(N(v.get('e2b_u')))}" if (bS or bP) else "")
+    trusquinage = f" · gA {nb(N(v.get('gA_u')))}" if bP else ""
+    return f"{' · '.join(g)}{boulon} · 2 {v.get('corn_u')}{inegale} · hc {nb(N(v.get('LC_u')))}{pinces}{trusquinage} mm"
+
+
+def _inegale(v) -> bool:
+    try:
+        c = find(DB["cornieres"], v.get("corn_u"))
+    except (ValueError, KeyError, TypeError):
+        return False
+    return c["a1"] != c["a2"]
+
+
+def nom_platine(v) -> str:
+    """« 2×3 M20 · platine 240×175×8 »."""
+    return f"2×{_i(v, 'n1_u')} {v.get('boulon_u')} · platine {nb(N(v.get('hp_u')))}×{nb(N(v.get('bp_u')))}×{nb(N(v.get('tp_u')))}"
+
+
+def detail_platine(v) -> str:
+    return (f"2 files × {_i(v, 'n1_u')} rangées {v.get('boulon_u')} {v.get('classe')} · platine {nb(N(v.get('hp_u')))} × "
+            f"{nb(N(v.get('bp_u')))} × {nb(N(v.get('tp_u')))} mm · gorge a {nb(N(v.get('a_w')))} · e1 {nb(N(v.get('e1_u')))} / "
+            f"p1 {nb(N(v.get('p1_u')))} / p3 {nb(N(v.get('p3_u')))} mm")
 
 
 # ================================================================== plat d'âme soudé
 def _sections_pa(u, R, el):
     cfg = A.CONFIGS["plat_ame"]
-    rp = R or {}
     return [
-        ("as", "Assemblage", resume_assemblage(cfg, u), ["id_rep", "mode_calc"] + predim_items(u), True),
+        ("as", "Assemblage", C.esc(cfg.court), ["id_rep"], True),
         ("pt", "Poutres", resume_poutres(u), items_poutres(("duo", "d_top", "g_h")), True),
-        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("pl", "Plat d'âme", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
          [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"{C.nb(N(u.get('n1_u')))} × {u.get('n2_u')} {u.get('boulon_u')} {u.get('classe')}",
          boulons_items(u) + [("grp", "Groupe · plat et âme de la portée"), ("duo", "n1_u", "n2_u"), ("duo", "p1_u", "p2_u"),
                              ("duo", "e1_u", "e2b_u")], True),
         ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed", "M_Ed")), [("duo", "V_Ed", "N_Ed"), "M_Ed"], True),
-        ("co", "Coefficients et modèle", f"γ<sub>M1</sub> {C.nb(N(u.get('g_M1')))} · ANB",
-         coefficients("g_M0", "g_M1", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_blf", "expo"), False),
-        ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),
+        A.section_options(cfg, u, el, coefficients("g_M0", "g_M1", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"),
+                                                   "opt_blf", "expo")),
     ]
 
 
@@ -283,7 +275,7 @@ def _parametres_pa(R):
 
 def _piece_pa(R, u, grp):
     if grp == "Boulons":
-        return boulons_texte(R, u, f"{js_str(R.n_1)} × {js_str(R.n_2)}"), ("" if R.pred else "boulon")
+        return boulons_texte(R, u, f"{js_str(R.n_1)} × {js_str(R.n_2)}"), "boulon"
     if grp == "Plat d'âme":
         return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre secondaire":
@@ -294,21 +286,19 @@ def _piece_pa(R, u, grp):
 
 
 A.enregistrer(A.Config(
-    cle="plat_ame", E=EPA, calculer=MPA.compute, S=YPA, N=NPA, T=TPA, methode=MEPA.METHODE, bench=BPA,
+    cle="plat_ame", E=EPA, calculer=MPA.compute, S=YPA, N=NPA, bench=BPA,
     vues=vues_poutre(SPA), sections=_sections_pa, libelles=libelles(), affichage=AFFICHAGE, segments=SEGMENTS,
     formules=lambda R, c: A.lignes_texte(R, c, FPA.textes), parametres=_parametres_pa, piece=_piece_pa,
     non_reverifies=NON_REVERIFIES_PA, dimensions=dimensions(EPA),
     tableaux_boulons=lambda R: [("groupe", R.tab)],
-    predim={"apply": MPA.apply_solution, "label": MPA.solution_label,
-            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · plat {nb(r.hp)}×{nb(r.prop.tp)}",
-            "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": [("variante", lambda r: r.var), ("h<sub>p</sub> (mm)", lambda r: nb(r.hp)),
-                         ("η boulons", lambda r: pct(r.e.bS)), ("η p. diam. âme", lambda r: pct(r.e.pdS))],
-            "detail": detail_predim_pa, "regle": REGLE_PA,
-            "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} mm"}))
+    predim={"moteur": MPA, "genre": "plat", "nom": nom_plat, "detail": detail_plat}))
 
 
 # ================================================================== doubles cornières
+FIXATION = ("grp", "Fixation des cornières", "Ailes A sur l'âme de la principale, ailes B sur l'âme de la secondaire. Soudées des "
+                                             "deux côtés : assemblage peu déformable, à réserver à des cas particuliers.")
+
+
 def _sections_dc(u, R, el):
     cfg = A.CONFIGS["doubles_cornieres"]
     bolt_S, bolt_P = u.get("fix_S") == EDC.BOULONNEE, u.get("fix_P") == EDC.BOULONNEE
@@ -320,13 +310,8 @@ def _sections_dc(u, R, el):
         groupes += [("grp", "Groupe P · âme de la principale (par cornière)"), ("duo", "n1P_u", "n2P_u"), ("duo", "p1P_u", "p2_P"),
                     ("duo", "e1P_u", "gA_u")]
     secs = [
-        ("as", "Assemblage", resume_assemblage(cfg, u),
-         ["id_rep", "mode_calc",
-          ("grp", "Fixation des cornières", "Ailes A sur l'âme de la principale, ailes B sur l'âme de la secondaire. Soudées des "
-                                            "deux côtés : assemblage peu déformable, à réserver à des cas particuliers."),
-          "fix_P", "fix_S"] + predim_items(u, "les boulons et les cornières"), True),
+        ("as", "Assemblage", C.esc(cfg.court), ["id_rep", FIXATION, "fix_P", "fix_S"], True),
         ("pt", "Poutres", resume_poutres(u), items_poutres(("duo", "d_top", "g_h")), True),
-        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("cn", "Cornières", f"2 {C.esc(u.get('corn_u'))} · h<sub>c</sub> {C.nb(N(u.get('LC_u')))}",
          [("profil", "Cornière", "corn_u", "nu_C"), "orient", ("duo", "k1_u", "k2_u"), ("duo", "kt_u", "kr_u"), ("duo", "LC_u", "z_C")], False),
     ]
@@ -344,10 +329,8 @@ def _sections_dc(u, R, el):
         secs.append(("so", "Soudures", "cordons d'angle", [("duo", "a_P", "lh_P"), ("duo", "a_S", "lh_S")], True))
     secs += [
         ("ef", "Efforts ELU", resume_efforts(u), [("duo", "V_Ed", "N_Ed"), ("duo", "H_Ed", "M_Ed")], True),
-        ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
-         coefficients("g_M0", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_exc", "k_rot", "opt_blf", "expo"), False),
-        ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"),
-         A.section_cartouche(cfg, u, el, avec_visserie=bolt_S or bolt_P), False),
+        A.section_options(cfg, u, el, coefficients("g_M0", "g_M2", "g_M2n", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_exc",
+                                                   "k_rot", "opt_blf", "expo"), avec_visserie=bolt_S or bolt_P),
     ]
     return secs
 
@@ -371,9 +354,9 @@ def _parametres_dc(R):
 def _piece_dc(R, u, grp):
     if grp == "Boulons":
         g = [f"S {js_str(R.n1_S)}×{js_str(R.n2_S)}" if R.bolt_S else "", f"P {js_str(R.n1_P)}×{js_str(R.n2_P)}" if R.bolt_P else ""]
-        return C.esc(f"{R.boulon} {u.get('classe')} · " + " · ".join(x for x in g if x)), ("" if R.pred else "boulon")
+        return C.esc(f"{R.boulon} {u.get('classe')} · " + " · ".join(x for x in g if x)), "boulon"
     if grp == "Cornières":
-        return C.esc(f"2 {R.corn_txt} · hc {nb(R.L_C)}"), ("" if R.pred else "corniere")
+        return C.esc(f"2 {R.corn_txt} · hc {nb(R.L_C)}"), "corniere"
     if grp == "Poutre secondaire":
         return piece_profil(u, "S")
     if grp == "Poutre principale":
@@ -423,38 +406,29 @@ def _sel_corniere(cfg, u, familles=None):
 
 
 A.enregistrer(A.Config(
-    cle="doubles_cornieres", E=EDC, calculer=MDC.compute, S=YDC, N=NDC, T=TDC, methode=MEDC.METHODE, bench=BDC,
+    cle="doubles_cornieres", E=EDC, calculer=MDC.compute, S=YDC, N=NDC, bench=BDC,
     vues=vues_poutre(SDC), sections=_sections_dc, libelles=libelles(z_C=LIBELLES["z_C@dc"]), affichage=AFFICHAGE,
     segments=SEGMENTS, formules=lambda R, c: A.lignes_sub(R, c, FDC), parametres=_parametres_dc, piece=_piece_dc,
     non_reverifies=NON_REVERIFIES_DC, dimensions=dimensions(EDC, corniere=True),
     tableaux_boulons=lambda R: ([("groupe S", R.tabS)] if R.bolt_S else []) + ([("groupe P (une cornière)", R.tabP)] if R.bolt_P and R.M_P > 0 else []),
     selecteurs={"corniere": {"rendre": _sel_corniere, "choisir": A._choisir_liste("corn_u", "cornieres")}},
-    blocs=lambda R, grp: matrice_cornieres(R, YDC) if grp == "Cornières" else "", legende_manuel=LEGENDE_MANUEL_DC,
-    predim={"apply": MDC.apply_solution, "label": MDC.solution_label,
-            "nom": lambda r: f"{js_str(r.n)} {r.b['n']} · {MDC.nom_cornière_proposee(r)}",
-            "col": lambda r: r.Lc, "unite_col": "h<sub>c</sub> mm",
-            "colonnes": [("h<sub>c</sub> (mm)", lambda r: nb(r.Lc)), ("Cornière", MDC.nom_cornière_proposee),
-                         ("η boulons S", lambda r: pct(r.e.bS)), ("η p. diam. âme S", lambda r: pct(r.e.pdS)),
-                         ("η boulons P", lambda r: pct(r.e.bP)), ("η p. diam. âme P", lambda r: pct(r.e.pdP))],
-            "detail": detail_predim_dc, "regle": REGLE_DC,
-            "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / e2 {r.e2} / gA {r.prop.gA} mm"}))
+    blocs=lambda R, grp: matrice_cornieres(R, YDC) if grp == "Cornières" else "",
+    predim={"moteur": MDC, "genre": "cornieres", "nom": nom_cornieres, "detail": detail_cornieres}))
 
 
 # ================================================================== platine d'about
 def _sections_pb(u, R, el):
     cfg = A.CONFIGS["platine_about"]
     return [
-        ("as", "Assemblage", resume_assemblage(cfg, u), ["id_rep", "mode_calc"] + predim_items(u, "les boulons, la platine et sa gorge"), True),
+        ("as", "Assemblage", C.esc(cfg.court), ["id_rep"], True),
         ("pt", "Poutres", resume_poutres(u), items_poutres("d_top"), True),
-        ("gr", "Grugeage", resume_grugeage(u), GRUGEAGE, False),
         ("pl", "Platine d'about", f"{C.nb(N(u.get('hp_u')))} × {C.nb(N(u.get('bp_u')))} × {C.nb(N(u.get('tp_u')))} · a {C.nb(N(u.get('a_w')))}",
          [("duo", "hp_u", "bp_u"), ("duo", "tp_u", "z_C"), ("duo", "nu_pl", "a_w")], False),
         ("bo", "Boulons", f"2 × {C.nb(N(u.get('n1_u')))} {u.get('boulon_u')} {u.get('classe')}",
          boulons_items(u) + [("grp", "Groupe · 2 files, 1 plan"), ("duo", "n1_u", "p3_u"), ("duo", "p1_u", "e1_u")], True),
         ("ef", "Efforts ELU", resume_efforts(u, ("V_Ed", "N_Ed")), [("duo", "V_Ed", "N_Ed"), "nat_N"], True),
-        ("co", "Coefficients et modèle", "γ<sub>M</sub> · options",
-         coefficients("g_M0", "g_M2", "g_M2n", "g_Mu", "g_M3", "g_M3s", ("grp", "Modèle"), "opt_blf", "expo"), False),
-        ("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), A.section_cartouche(cfg, u, el), False),
+        A.section_options(cfg, u, el, coefficients("g_M0", "g_M2", "g_M2n", "g_Mu", "g_M3", "g_M3s", ("grp", "Modèle"),
+                                                   "opt_blf", "expo")),
     ]
 
 
@@ -479,7 +453,7 @@ def _parametres_pb(R):
 
 def _piece_pb(R, u, grp):
     if grp == "Boulons":
-        return boulons_texte(R, u, f"2 × {js_str(R.n_1)}"), ("" if R.pred else "boulon")
+        return boulons_texte(R, u, f"2 × {js_str(R.n_1)}"), "boulon"
     if grp == "Platine":
         return C.esc(f"{nb(R.h_p)} × {nb(R.b_p)} × {nb(R.t_p)} mm"), ""
     if grp == "Poutre secondaire":
@@ -490,14 +464,8 @@ def _piece_pb(R, u, grp):
 
 
 A.enregistrer(A.Config(
-    cle="platine_about", nom_plat="platine", E=EPB, calculer=MPB.compute, S=YPB, N=NPB, T=TPB, methode=MEPB.METHODE, bench=BPB,
+    cle="platine_about", nom_plat="platine", E=EPB, calculer=MPB.compute, S=YPB, N=NPB, bench=BPB,
     vues=vues_poutre(SPB), sections=_sections_pb, libelles=libelles(z_C=("z<sub>p</sub>", "sous le dessus")),
     affichage=AFFICHAGE, segments=SEGMENTS, formules=lambda R, c: A.lignes_texte(R, c, FPB.textes),
     parametres=_parametres_pb, piece=_piece_pb, non_reverifies=NON_REVERIFIES_PB, dimensions=dimensions(EPB),
-    predim={"apply": MPB.apply_solution, "label": MPB.solution_label,
-            "nom": lambda r: f"2×{js_str(r.n)} {r.b['n']} · {nb(r.hp)}×{nb(r.prop.bp)}×{nb(r.prop.tp)}",
-            "col": lambda r: r.hp, "unite_col": "h<sub>p</sub> mm",
-            "colonnes": [("h<sub>p</sub> (mm)", lambda r: nb(r.hp)), ("η boulons", lambda r: pct(r.e.bv)),
-                         ("η âme portée", lambda r: pct(r.e.vwS)), ("η p. diam. P", lambda r: pct(r.e.pdP))],
-            "detail": detail_predim_pb, "regle": REGLE_PB,
-            "geo": lambda r: f"e1 {r.e1} / p1 {r.p1} / p3 {r.p3} mm"}))
+    predim={"moteur": MPB, "genre": "platine", "nom": nom_platine, "detail": detail_platine}))

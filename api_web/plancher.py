@@ -2156,8 +2156,7 @@ def resultat(etat: Dict) -> Dict:
     else:
         statut = C.statut("c" if res else "x")
     tete = E.tete_resultats(C.esc(cas["nom"] or "Cas"), C.esc(OP.resume_plancher(cas)))
-    pied = (f'<div class="pfoot"><div class="mass"><span>Engins et étançons (charges de service)</span><b>{C.fr(tot, 0)}{C.NBSP}kN</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    pied = ""         # (25/11/2026 : plus de cadre au pied du résultat ; le total des engins se lit dans l'en-tête des vues)
     vues = _vues(etat, cas, calc)
     charges_txt = f"{len(cas['charges'])} objet(s) · {OP.fmt(tot, 0)} kN d'engins et d'étançons (charges de service)"
     for v in vues:

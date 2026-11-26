@@ -19,7 +19,7 @@
 #resultat .bar b.c { background: #A9B4C6; }
 [data-theme="dark"] #resultat .bar b.c { background: #56627A; }
 #resultat .el .l2 .pct.c { color: var(--ink); }
-.en-leg { font-size: 11px; color: var(--ink-3); }
+.pinfos.en-leg { font-size: 11px; line-height: 1.4; color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- les données : le guide de l'écran */
 .en-guide { font-size: 12px; line-height: 1.5; color: var(--ink-2); padding: 2px 0 4px; }

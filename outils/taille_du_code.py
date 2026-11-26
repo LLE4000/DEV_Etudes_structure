@@ -92,7 +92,7 @@ REGLES = (
                        r"note_assemblages)\.py$|site/web/css/modules/assemblages\.css$)")),
     ("soudures", _R(r"^(acier/soudures/|api_web/soudures\.py$|site/web/css/modules/soudures\.css$)")),
     ("garde_corps", _R(r"^(acier/garde_corps/|api_web/garde_corps\.py$|site/web/css/modules/garde_corps\.css$)")),
-    ("bois", _R(r"^(bois/|api_web/(bois|dessin_bois)\.py$|site/web/css/modules/bois\.css$)")),
+    ("bois", _R(r"^(bois/|api_web/(bois|dessin_bois|note_bois)\.py$|site/web/css/modules/bois\.css$)")),
     ("sol", _R(r"^(sol/|api_web/(sol|dessin_sol)\.py$|site/web/css/modules/sol\.css$)")),
     # le Générateur SAF : le moteur et l'écriture des fichiers (saf/), l'écran, la note, et les gestes du plan (plan.js :
     # glisser, tourner, cote à taper), que lui seul câble aujourd'hui. Les châssis de grue (grues/) sont une bibliothèque

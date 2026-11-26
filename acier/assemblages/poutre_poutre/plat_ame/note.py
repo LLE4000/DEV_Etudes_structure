@@ -25,7 +25,7 @@ from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB
+from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX, sans_taux, verdict, masquer_taux
 from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ..doubles_cornieres.rapport import peindre
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
@@ -186,6 +186,8 @@ class Note:
     def __init__(self, R, doc_meta, variante):
         self.R = R; self.doc = doc_meta; self.mode_lignes = variante
         self.S = Encre(); self.warnings = []; self.formules_imprimees = []
+        # la note SANS les taux (``note_kit.sans_taux`` : option de l'écran du site) — Ed, Rd et les verdicts restent
+        self.sans_taux = sans_taux(doc_meta)
 
     def titre(self, d, fr, txt):
         S = self.S
@@ -202,7 +204,9 @@ class Note:
         x = fr.x
         for ent, w, al in cols:
             xs.append(x)
-            d.t(x + (w - 3 if al == "right" else 0), fr.y, ent.upper() if ent != "η" else ent, S.f_b, S_TAB_H, S.mut, al)
+            # (note SANS les taux : la colonne η dit « OK » / « NON OK », sans titre — comme celle des pinces)
+            if not (self.sans_taux and ent in ("η", "max")):
+                d.t(x + (w - 3 if al == "right" else 0), fr.y, ent.upper() if ent != "η" else ent, S.f_b, S_TAB_H, S.mut, al)
             x += w
         fr.down(2.5)
         d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.5)
@@ -211,6 +215,8 @@ class Note:
             n_max = 1
             for (ent, w, al), cell in zip(cols, cells):
                 style, txt = cell[0], cell[1]
+                if self.sans_taux and style == "lab":
+                    txt = masquer_taux(txt)        # (un taux écrit dans un libellé : les tableaux « calcul à la main »)
                 if style in ("lab", "ref"):
                     size = S_REF if style == "ref" else S_TAB
                     ls = d.wrap(txt, S.f_b, size, w - 4)
@@ -233,8 +239,8 @@ class Note:
                     d.t(xx + w - 3, y, ls[0], S.f_b, S_TAB, S.ink, "right")
                 elif style == "eta":
                     ok, gov = cell[2], (len(cell) > 3 and cell[3])
-                    d.t(xx + w - 3, y, ls[0], "Carlito-Bold" if (gov or not ok) else S.f_b, S_TAB,
-                        S.ok if ok else S.ko, "right")
+                    d.t(xx + w - 3, y, verdict(ok) if self.sans_taux else ls[0], "Carlito-Bold" if (gov or not ok) else S.f_b,
+                        S_TAB, S.ok if ok else S.ko, "right")
                 elif style == "st":
                     ok = cell[2]
                     d.t(xx + w - 3, y, ls[0], "Carlito-Bold", S_TAB, S.ok if ok else S.ko, "right")
@@ -265,10 +271,11 @@ class Note:
         w = chip(d, M, y - 3.2, "À VÉRIFIER" if a_verif else ("VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ"), S.f_v, 6.6,
                  "#FFFFFF", col)
         x = M + w + 8
-        t1 = "η max " + pct(R.eta_max, 1)
-        d.t(x, y, t1, "Carlito-Bold", 8.6, col)
-        x += d.w(t1, "Carlito-Bold", 8.6) + 5
-        t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + self.ref(R.gov.ref) + ")") if R.gov else ""
+        if not self.sans_taux:
+            t1 = "η max " + pct(R.eta_max, 1)
+            d.t(x, y, t1, "Carlito-Bold", 8.6, col)
+            x += d.w(t1, "Carlito-Bold", 8.6) + 5
+        t2 = (("" if self.sans_taux else "— ") + "dimensionnant : " + self.SYN.court(R.gov) + " (" + self.ref(R.gov.ref) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
@@ -277,8 +284,10 @@ class Note:
             t2 += " · à vérifier : " + R.a_verifier
         elif R.verified and (R.reserve or R.alerts):
             t2 += " · sous réserve des points signalés"
+        if self.sans_taux:
+            t2 = masquer_taux(t2)
         pieces = []
-        for nom, eta, ok, _ in self.SYN.taux_par_element(R):
+        for nom, eta, ok, _ in ([] if self.sans_taux else self.SYN.taux_par_element(R)):
             pieces.append((nom + " ", S.f_b, S.ink)); pieces.append((pct(eta, 0), "Carlito-Bold", S.ok if ok else S.ko))
             pieces.append(("   ", S.f_b, S.ink))
         wt = sum(d.w(t, f, 8) for t, f, _ in pieces)
@@ -290,6 +299,7 @@ class Note:
         # une hypothèse prudente qui CHANGE le résultat (règle 7 du lot B : pied de poteau, calcul manuel), une ligne
         # ocre, avant les alertes (jamais rangée dans « + n autre(s) point(s) »)
         for txt in self.lignes_a_verifier(R):
+            txt = masquer_taux(txt) if self.sans_taux else txt
             y -= 10
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=S.att)
             d.t(M + 9, y, d.fit(txt, S.f_b, 6.8, W - 2 * M - 12), S.f_b, 6.8, S.ink)
@@ -300,6 +310,7 @@ class Note:
             col = S.ko if a.block else S.att
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=col)
             txt = titre + (" : " + det if det else "")
+            txt = masquer_taux(txt) if self.sans_taux else txt
             l1, l2 = _deux_lignes(d, txt, S.f_b, 6.8, W - 2 * M - 12)
             d.t(M + 9, y, l1, S.f_b, 6.8, S.ink)
             if l2:                      # un avis trop long passe à la ligne, il n'est plus coupé (« …mai 20… »)
@@ -371,6 +382,7 @@ class Note:
         S, R = self.S, self.R
         txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1 " + self.NORME
                + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
+        txt = masquer_taux(txt) if self.sans_taux else txt
         col = S.ok if R.verified else S.ko
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
@@ -386,6 +398,8 @@ class Note:
         textes = formules.textes(R, c)
         if self.mode_lignes == "eta" and len(textes) > 1:
             textes = [textes[0], textes[-1]]
+        if self.sans_taux:
+            textes = [masquer_taux(t) for t in textes]
         bloc = []
         for t in textes:
             bloc.extend(d.wrap(t, S.f_b, S_FORM, largeur - 6))
@@ -551,6 +565,7 @@ def generer_note(R, infos=None, chemin=None):
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["titre"] = "Note de calcul"
     doc_meta["visserie"] = infos.get("visserie", "")
+    doc_meta[SANS_TAUX] = bool(infos.get(SANS_TAUX))          # la note sans les taux (note_kit)
     if chemin is None:
         fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_plat_ame_")
         os.close(fd)

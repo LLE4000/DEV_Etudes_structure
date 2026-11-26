@@ -1,6 +1,13 @@
 {
  "module": "sol",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-25",
+   "raison": "Cadre du pied du résultat retiré de tous les modules le 25/11/2026 (demande du propriétaire : « en bas à droite […] il y a un code couleur. J'aimerais qu'on vire ce cadre-là, il ne sert à rien ») — aucune valeur de calcul n'a changé ; le pied ne portait que les noms des méthodes (Boussinesq, Newmark) et la version du moteur.",
+   "ecarts": ["méthodes rapide, théories, abaque, plat : valeurs qui ne se voient plus [\"0\"]", "plaque (mode plat) : valeurs qui ne se voient plus [\"0\", \"5\"]"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",
@@ -35,7 +42,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -190,7 +197,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -367,7 +374,7 @@
      ["d'écart. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · théories comparées un ordre de grandeur, jamais la valeur retenue E =", "25 MPa"],
@@ -453,7 +460,7 @@
      ["béton seul Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Plat en béton · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · plat en béton contact assimilé à une compression 1D : k = E / h_c Plat", "200", "×", "200 mm"],
@@ -525,7 +532,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,19 MN/m³", "·"],
@@ -687,7 +694,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "60,48 MN/m³", "·"],
@@ -841,7 +848,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -994,7 +1001,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -1149,7 +1156,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -1304,7 +1311,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -1459,7 +1466,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F1 · sondage CPT01 k au centre =", "15,71 MN/m³", "·"],
@@ -1675,7 +1682,7 @@
      ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
      ["à", "4"],
      ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-     ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+     ["pour le dimensionnement final."]
     ],
     "calculs": [
      ["F2 · sondage CPT01 k au centre =", "13,71 MN/m³", "·"],
@@ -1813,7 +1820,7 @@
        ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
        ["à", "4"],
        ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-       ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+       ["pour le dimensionnement final."]
       ]
      },
      {
@@ -1836,7 +1843,7 @@
        ["Faire varier M à la main pour mesurer la sensibilité de la dalle. Valeurs de pré-dimensionnement. Les modules déduits d'un CPT sont des corrélations : elles divergent d'un facteur", "2"],
        ["à", "4"],
        ["selon les auteurs, d'où l'encadrement systématique. Se référer au rapport géotechnique et à l'EN", "1997"],
-       ["pour le dimensionnement final. Boussinesq · Newmark · moteur rigidite_sol v5.0"]
+       ["pour le dimensionnement final."]
       ]
      }
     ]

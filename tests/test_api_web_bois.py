@@ -267,8 +267,9 @@ def controle_resultat(mod, etat, cas):
             f.append(f"{cas} : hypothèse absente « {h[:40]} »")
     if "Non couvert par ce module" not in res or any(C.symb_math(x) not in res for x in r["non_couvert"]):
         f.append(f"{cas} : ce qui n'est pas couvert n'est pas écrit sous le résultat")
-    pied = re.search(rf'<div class="pfoot"><div class="mass"><span>Masse · ({NOMBRE}) m de pièce</span><b>({NOMBRE}) kg · ({NOMBRE}) kg/m</b></div>'
-                     rf'<div class="mass"><span>Poids propre</span><b>({NOMBRE}) kN/m( \(non compté\))?</b></div>', res)
+    # (25/11/2026 : plus de cadre au pied du résultat ; la masse et le poids propre se lisent à la FIN du corps — commun.infos)
+    pied = re.search(rf'<div class="pinfos"><div class="mass"><span>Masse · ({NOMBRE}) m de pièce</span><b>({NOMBRE}) kg · ({NOMBRE}) kg/m</b></div>'
+                     rf'<div class="mass"><span>Poids propre</span><b>({NOMBRE}) kN/m( \(non compté\))?</b></div></div></div>$', res)
     if not pied or not affiche(pied.group(1), r["geometrie"]["longueur"] / 1000) or not affiche(pied.group(2), r["masse"]) \
             or not affiche(pied.group(3), r["masse_lineique"]) or not affiche(pied.group(4), r["charges"]["poids_propre"]) \
             or bool(pied.group(5)) != (not r["charges"]["poids_propre_compte"]):
@@ -1047,7 +1048,7 @@ MUTATIONS = [
     ("l'étoile de la ligne de flexion annonce la section retenue",
      "    opt = MO.optimal(p)\n    leger = (", "    opt = next((c for c in MO.candidats_sections(p) if c[\"retenue\"]), None)\n    leger = (", lambda m: controle_resultat(m, e0, "neuve")),
     ("la bande de l'en-tête écrit V_d à la place de M_d", 'bande = [("M", "d", ef["M_d"], "kN·m")', 'bande = [("M", "d", ef["V_d"] * 2, "kN·m")', lambda m: fautes_entete(m, e0, "neuve")),
-    ("le pied écrit la masse au mètre à la place de la masse de la pièce", "f'<b>{C.qte(r[\"masse\"], \"kg\", 1)} ·", "f'<b>{C.qte(r[\"masse_lineique\"], \"kg\", 1)} ·",
+    ("la fin du résultat écrit la masse au mètre à la place de la masse de la pièce", "f'{C.qte(r[\"masse\"], \"kg\", 1)} ·", "f'{C.qte(r[\"masse_lineique\"], \"kg\", 1)} ·",
      lambda m: controle_resultat(m, e0, "neuve")),
     ("les avertissements du moteur ne sont plus rendus", 'messages = "".join(C.message(_message(a)) for a in r["avertissements"])', 'messages = ""',
      lambda m: controle_resultat(m, ETATS["appuis rapprochés (k_c,90 = 1)"], "k_c,90")),

@@ -10,8 +10,8 @@ configurations du registre (acier/registre.py) :
 Ce fichier est l'AIGUILLAGE et la CARTE COMMUNE : l'état de la note, la liste des assemblages (ajouter, copier,
 supprimer), le menu « Configuration » en tête du cadre Données, puis la mise en forme commune à toutes les
 configurations — le cadre Données (sections numérotées), le résultat (verdict, une ligne par pièce), les fenêtres de
-calcul (tableau des vérifications et détail des formules), les sélecteurs (boulon, profilés, cornière, solutions du
-prédimensionnement) et les vues de la toile (dessins, prédimensionnement, note texte, méthode, validation).
+calcul (tableau des vérifications et détail des formules), les sélecteurs (boulon, profilés, cornière, propositions
+du prédimensionnement) et les vues de la toile : les DESSINS, et eux seuls.
 
 Chaque configuration est DÉCRITE par sa famille (``Config`` ci-dessous) : son moteur (``entrees``, ``moteur``,
 ``synthese``, ``formules``, ``notation``, ``texte``, ``methode``, ``benchmark``, ``schemas`` du dépôt — jamais
@@ -26,20 +26,37 @@ l'une de ses options, un texte est une chaîne) — c'est exactement ce que l'é
 
 L'écran est l'établi COMPACT (api_web/etabli_compact.py, la mise en forme des poutres — 12/11/2026), le même pour les
 sept configurations : à gauche la ligne de l'assemblage ouvert (son REPÈRE, qui est son nom ; la liste, copier,
-supprimer) et les rubriques de la configuration en accordéon — la première seule ouverte, « Coefficients et modèle »
-et « Cartouche et affichage » secondaires ; au centre les vues sous leur en-tête technique ; à droite la tête, le
-verdict, le bloc « Vérifications » (une ligne par pièce : ce qu'elle choisit — boulon, profilé —, son taux, ce que sa
-vérification la plus chargée compare ; puis la géométrie du Tableau 3.3) et, quand il y en a un, le bloc du
-prédimensionnement.
+supprimer) et les rubriques de la configuration en accordéon — la première seule ouverte, « Options » secondaire ; au
+centre les dessins sous leur en-tête technique ; à droite la tête, le verdict, le bloc « Vérifications » (une ligne
+par pièce : ce qu'elle choisit — boulon, profilé —, son taux, ce que sa vérification la plus chargée compare ; puis
+la géométrie du Tableau 3.3) et le bloc « Prédimensionnement », qui ouvre les propositions.
+
+REVUE DE L'ÉCRAN du 25/11/2026 (le propriétaire, sur sa tablette) — ce qui a changé, et pourquoi :
+
+- « dans la partie centrale, on devrait juste avoir élévation, plan, droite » : la toile ne porte plus que les dessins.
+  Les onglets Prédim, Note (« c'était pour la recopier dans mon mail, il n'y a plus besoin »), Méthode et Validation
+  (« c'est dans le dépôt GitHub, où on revérifie à chaque fois qu'on modifie quelque chose ») sont retirés ; ce que la
+  vérification ne couvre PAS reste écrit, au pied de chaque fenêtre de calcul ;
+- « les propositions, ça doit nous proposer des propositions qui sont correctes » : le bloc « Prédimensionnement » du
+  résultat ouvre des dispositions VÉRIFIÉES par le calcul complet (acier/assemblages/propositions.py : plus de
+  rangées, une deuxième file, une pièce plus épaisse) ; sans solution, il nomme la vérification qui bloque et dit de
+  changer de profilé. La bascule « Mode vérification / prédimensionnement » n'existe plus : une note enregistrée dans
+  ce mode est relue avec sa proposition recopiée (``sans_mode_predim``) ;
+- « poutre et grugeage, ça pourrait être regroupé » ; « cartouche, affichage, coefficients, modèle : plutôt un truc
+  d'option » : les rubriques sont Assemblage · Poutres (avec le grugeage) · la pièce d'attache · Boulons · Efforts ELU ·
+  Options. « Options » porte aussi les règles du prédimensionnement et « afficher les taux dans la note de calcul » (une
+  option de la NOTE, ``etat["note_taux"]`` : api_web/note_assemblages.py).
 """
 import copy
 import html
+import json
 import math
 import re
 from typing import Callable, Dict, List, Optional, Sequence
 
 from acier import projet as PJ
 from acier import registre as RG
+from acier.assemblages import propositions as PR
 from acier.bibliotheques import DB, PERSO, find
 
 from . import commun as C
@@ -49,12 +66,12 @@ MODULE = "assemblages"
 PAGE = "assemblages"
 GENRE = E.Genre("Assemblages", "l'assemblage", "cet assemblage", "un assemblage")
 CLASSES_BLOC = {"p": "ok", "f": "warn", "r": "nok", "v": "warn"}
-# les rubriques SECONDAIRES des sept configurations : les coefficients et le modèle ; le cartouche et l'affichage
-SECONDAIRES = frozenset({"co", "ca"})
+# la rubrique SECONDAIRE des sept configurations : « Options » (coefficients, modèle, prédimensionnement, note, cartouche)
+SECONDAIRES = frozenset({"op"})
 
 VISSERIE_DEFAUT = "1 rondelle + 1 écrou"
 NIVEAUX_COTATION = (("0", "Simple"), ("1", "Édition"), ("2", "Toutes"))   # « Vue simple », « Complète » : rognés à 1024 px
-# les vues de la toile : leur nom court (les onglets du haut de la toile)
+MODE_VERIF = "VÉRIFICATION"                # le seul mode de calcul de l'écran du site (``sans_mode_predim``)
 UNITES = {"kNm": "kN·m", "MPa": "N/mm²", "-": ""}
 OUI_NON = ["Oui", "Non"]
 # les nombres qui comptent (rangées, files de tiges) : entiers ≥ 1 — Streamlit les arrondit en silence
@@ -83,22 +100,24 @@ AIDE_PERSO_ACIER = ("commun à toutes les pièces en « Personnalisé » ; repri
 class Config:
     """Ce qu'une famille confie à la carte commune pour une configuration (voir les fichiers assemblages_*.py).
 
-    ``E`` entrees, ``calculer(u)`` → R, ``S`` synthese, ``N`` notation, ``T`` texte, ``methode`` (texte Markdown),
-    ``bench`` (module benchmark ou None), ``vues(R, opt)`` → [(clé, titre, court, Dessin)], ``options_dessin(R,
-    niveau, hl)``, ``sections(u, R)`` → [(clé, titre, résumé, [items], ouvert)], ``libelles`` {clé: (symbole,
-    libellé)}, ``formules(R, c)`` → (aide, [lignes de C.lignes_fx]), ``parametres(R)`` → [[libellé, valeur]],
-    ``non_reverifies`` (texte de l'écran Streamlit), ``piece(R, u, groupe)`` → (texte, rôle du sélecteur),
-    ``predim`` {apply, label, nom} ou None, ``tableaux_boulons(R)`` → [(titre, liste d'EffortBoulon)],
-    ``dimensions`` (valeurs provisoires des dimensions vides), ``segments`` (clés en segments), ``affichage``
-    (options courtes), ``famille`` (clé de la famille du registre), ``blocs(R, groupe)`` (HTML de plus dans la
-    fenêtre d'une pièce : la matrice aile A · aile B des cornières). ``predim`` porte aussi ``detail(p)`` (le
-    tableau « Détail de la solution retenue par défaut » de l'onglet Prédim), ``regle`` (sa légende) et
-    ``geo(r)`` (les pinces d'une solution) ; ses ``colonnes`` peuvent être une fonction du résultat.
+    ``E`` entrees, ``calculer(u)`` → R, ``S`` synthese, ``N`` notation, ``bench`` (module benchmark ou None : ses
+    exemples publiés se chargent depuis « Options »), ``vues(R, opt)`` → [(clé, titre, court, Dessin)],
+    ``options_dessin(R, niveau, hl)``, ``sections(u, R, el)`` → [(clé, titre, résumé, [items], ouvert)], ``libelles``
+    {clé: (symbole, libellé)}, ``formules(R, c)`` → (aide, [lignes de C.lignes_fx]), ``parametres(R)`` → [[libellé,
+    valeur]], ``non_reverifies`` (texte de l'écran Streamlit : ce que la vérification ne couvre pas, au pied des
+    fenêtres de calcul), ``piece(R, u, groupe)`` → (texte, rôle du sélecteur), ``tableaux_boulons(R)`` → [(titre, liste
+    d'EffortBoulon)], ``dimensions`` (valeurs provisoires des dimensions vides), ``segments`` (clés en segments),
+    ``affichage`` (options courtes), ``famille`` (clé de la famille du registre), ``blocs(R, groupe)`` (HTML de plus
+    dans la fenêtre d'une pièce : la matrice aile A · aile B des cornières).
+
+    ``predim`` (ou None : pied de poteau) : les PROPOSITIONS du prédimensionnement (acier/assemblages/propositions.py)
+    — ``moteur`` (le module du moteur : ``compute``, ``apply_solution``), ``genre`` (« plat », « cornieres »,
+    « platine »), ``nom(v)`` (une proposition en quelques mots, depuis ses saisies : « 3 M20 · L100x100x8 ») et
+    ``detail(v)`` (sa géométrie : pinces, entraxes, gorge).
 
     Facultatifs (famille poutre–poteau) : ``noms_aciers`` {« P »: « poteau », …} (les aciers des hypothèses),
-    ``sans_objet(R)`` (ce que l'écran ajoute au « sans objet » de son repli Périmètre), ``regle_33`` (la règle du
-    Tableau 3.3 que l'écran écrit sous ses pinces), ``decimales_bench(ligne)`` → (décimales de la référence, de
-    l'outil) de l'onglet Benchmark.
+    ``sans_objet(R)`` (ce que l'écran ajoute au « sans objet » de son périmètre), ``regle_33`` (la règle du
+    Tableau 3.3 que l'écran écrit sous ses pinces).
 
     Facultatifs (famille pied de poteau, deux modes et des tables libres) : ``visserie_defaut`` (la visserie d'un
     assemblage neuf de l'écran Streamlit, ``entrees.VISSERIE_DEFAUT``), ``exemples()`` → [(id, libellé, saisies
@@ -108,12 +127,10 @@ class Config:
     s'écrire : la bascule de mode reprend la disposition), ``aides`` (dict ou f(u) : l'aide « ? » de l'écran
     Streamlit d'un champ), ``hypotheses(R, u)`` (pastilles de plus), ``normes`` {groupe: norme}, ``blocs_tete(R,
     groupe)`` (HTML en tête du détail d'une fenêtre), ``lignes_resultat(R, u)`` (lignes de plus dans le résultat),
-    ``complement_verdict(R)``, ``legende_33`` (le pied de la fenêtre Géométrie), ``natures`` [(code, sens)] et
-    ``titre_non_verifies`` (la vue Méthode), ``validation(cfg)`` (la vue Validation, à la place de la générique),
-    ``nom_menu`` (le nom de l'attache dans le menu Configuration quand son nom court redit sa famille), ``refus(u)``
-    → [(chemin, message)] (les lignes de ses tables qu'une note relue porte et que la saisie refuserait),
-    ``legende_manuel`` (la légende et la colonne de contrôle des calculs manuels de son onglet Benchmark),
-    ``mot_information(R, groupe)`` (ce que la ligne d'une pièce d'information dit d'elle : « information » par défaut ;
+    ``complement_verdict(R)``, ``legende_33`` (le pied de la fenêtre Géométrie), ``titre_non_verifies`` (le titre de
+    ce que la vérification ne couvre pas), ``nom_menu`` (le nom de l'attache dans le menu Configuration quand son nom
+    court redit sa famille), ``refus(u)`` → [(chemin, message)] (les lignes de ses tables qu'une note relue porte et
+    que la saisie refuserait), ``mot_information(R, groupe)`` (ce que la ligne d'une pièce d'information dit d'elle : « information » par défaut ;
     le béton d'ancrage hors du périmètre « EC3 seul » le dit)."""
 
     def __init__(self, **k):
@@ -129,7 +146,7 @@ class Config:
                             ("blocs", None), ("visserie_defaut", VISSERIE_DEFAUT), ("exemples", None), ("etat", {}),
                             ("actions", {}), ("sur_saisie", {}), ("aides", None), ("hypotheses", None), ("normes", {}),
                             ("blocs_tete", None), ("lignes_resultat", None), ("complement_verdict", None),
-                            ("legende_33", None), ("natures", None), ("titre_non_verifies", None), ("validation", None),
+                            ("legende_33", None), ("titre_non_verifies", None),
                             ("nom_menu", None), ("refus", None), ("mot_information", None)):
             if not hasattr(self, nom):
                 setattr(self, nom, defaut)
@@ -265,11 +282,9 @@ def saisies_refusees(cfg: Config, u: Dict) -> List:
     tapait (``_lire_saisie``) : V<sub>Ed</sub> vide, γ ≤ 0, rangées 2,4, dimension négative… L'écran Streamlit les
     calcule EN SILENCE (V vide = 0 : plat d'âme « vérifié » à 60 % au lieu de 74 % ; γ<sub>M2</sub> = 0 : boulons à
     0 %) — non conservatif. Le site les garde dans les champs, à corriger, et suspend le verdict. [(clé, message)]"""
-    pred = bool(getattr(cfg.E, "mode_predim", lambda u: False)(u))
-    pil = set(getattr(cfg.E, "PILOTEES_PAR_PREDIM", ())) if pred else set()
     out = []
     for k, f in cfg.E.CHAMPS.items():
-        if f["t"] != "n" or k in cfg.listes or k in pil or k in cfg.sur_saisie or not cfg.E.champ_visible(u, k):
+        if f["t"] != "n" or k in cfg.listes or k in cfg.sur_saisie or not cfg.E.champ_visible(u, k):
             continue
         _x, msg = _lire_saisie(cfg, u, k, u.get(k))
         if msg:
@@ -295,12 +310,31 @@ def nouvel_assemblage(cle: str, repere: str = "A1") -> Dict:
     cfg = CONFIGS[cle]
     v = valeurs_defaut(cfg)
     v["id_rep"] = repere
-    return dict({"type": cle, "values": v, "visserie": cfg.visserie_defaut, "cotation": 1, "texte_complet": False},
-                **_etat_ecran(cfg))
+    return dict({"type": cle, "values": v, "visserie": cfg.visserie_defaut, "cotation": 1}, **_etat_ecran(cfg))
 
 
 def nouvel_etat() -> Dict:
-    return {"version": 1, "assemblages": [nouvel_assemblage(ordre()[0])], "actif": 0}
+    """Une note neuve : un assemblage de la première configuration ; ``note_taux`` — la note de calcul PDF écrit les
+    taux (« Options » : une option de la NOTE, la même pour tous ses assemblages)."""
+    return {"version": 1, "assemblages": [nouvel_assemblage(ordre()[0])], "actif": 0, "note_taux": True}
+
+
+def sans_mode_predim(cfg: Config, u: Dict) -> Dict:
+    """Les saisies d'un assemblage, TOUJOURS en mode vérification. Une note enregistrée dans l'ancien « mode
+    prédimensionnement » (la bascule de la section Assemblage, retirée le 25/11/2026 : les propositions s'ouvrent du
+    résultat) montrait le calcul de la proposition du moteur : cette proposition est RECOPIÉE dans les saisies
+    (``moteur.apply_solution``), si bien que la note relue affiche le même assemblage ; si le moteur ne peut pas la
+    donner (saisies incomplètes), le mode est seulement remis à « vérification »."""
+    mode = getattr(cfg.E, "mode_predim", None)
+    if not cfg.predim or mode is None or not mode(u):
+        return u
+    try:
+        pd = moteur(cfg, u).get("pd")
+        if pd is not None and pd.get("pick") is not None and pd.pick.get("prop"):
+            return valeurs_normales(cfg, cfg.predim["moteur"].apply_solution(u, pd.pick))
+    except Exception:  # noqa: BLE001 — une note que le moteur ne calcule pas : elle reste à corriger, en vérification
+        pass
+    return dict(u, mode_calc=MODE_VERIF)
 
 
 def _assemblage_relu(el) -> Dict:
@@ -313,8 +347,8 @@ def _assemblage_relu(el) -> Dict:
     niv = el.get("cotation", 1)
     niv = int(niv) if isinstance(niv, (int, float)) and not isinstance(niv, bool) and 0 <= niv <= 2 else 1
     vis = el.get("visserie")
-    return dict({"type": cfg.cle, "values": valeurs_normales(cfg, v), "visserie": str(vis) if vis is not None else cfg.visserie_defaut,
-                 "cotation": niv, "texte_complet": bool(el.get("texte_complet", False))}, **_etat_ecran(cfg, el))
+    return dict({"type": cfg.cle, "values": sans_mode_predim(cfg, valeurs_normales(cfg, v)),
+                 "visserie": str(vis) if vis is not None else cfg.visserie_defaut, "cotation": niv}, **_etat_ecran(cfg, el))
 
 
 def normaliser(etat) -> Dict:
@@ -331,6 +365,7 @@ def normaliser(etat) -> Dict:
     except (TypeError, ValueError):
         a = 0
     out["actif"] = min(max(0, a), len(out["assemblages"]) - 1)
+    out["note_taux"] = etat.get("note_taux", True) is not False      # (une note d'avant l'option : les taux, comme avant)
     return out
 
 
@@ -529,9 +564,9 @@ def _nom_champ(cfg: Config, k: str) -> str:
 
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     """Une saisie dans l'assemblage ouvert. ``chemin`` : [« type »] (le menu Configuration), [« v », clé] (une donnée
-    du moteur), [« v », liste, …] (les tables du calcul à la main), [« visserie »], [« cotation »], [« texte_complet
-    »], [« d0_impose »], [« exemple »], [« reinitialiser »]. Rend un message si la saisie est refusée — l'assemblage
-    reste intact."""
+    du moteur), [« v », liste, …] (les tables du calcul à la main), [« visserie »], [« cotation »], [« d0_impose »],
+    [« exemple »], [« reinitialiser »] ; et [« note_taux »], une option de la NOTE (les taux dans sa note de calcul PDF).
+    Rend un message si la saisie est refusée — l'assemblage reste intact."""
     el = _actif(etat)
     cfg = _cfg(el)
     chemin = [int(c) if isinstance(c, str) and c.lstrip("-").isdigit() and c != "-" else c for c in chemin]
@@ -549,8 +584,8 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             return f"Niveau de cotation inconnu : « {valeur} »"
         el["cotation"] = int(x)
         return None
-    if chemin == ["texte_complet"]:
-        el["texte_complet"] = bool(valeur)
+    if chemin == ["note_taux"]:
+        etat["note_taux"] = bool(valeur)
         return None
     if chemin == ["d0_impose"]:
         return _d0_impose(cfg, el["values"], bool(valeur))
@@ -578,6 +613,8 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     x, msg = _lire_saisie(cfg, u, k, valeur)
     if msg:
         return msg
+    if k == "mode_calc" and x != MODE_VERIF:      # (une page d'avant le 25/11/2026 : la bascule n'existe plus)
+        return "Le mode prédimensionnement n'existe plus : les propositions s'ouvrent depuis le résultat (bloc « Prédimensionnement »)."
     if k in cfg.sur_saisie:                       # pied : la bascule de mode reprend la disposition
         return cfg.sur_saisie[k](cfg, el, x)
     ancien = u.get(k)
@@ -740,15 +777,6 @@ def lignes_sub(R, c, F) -> (str, List[Dict]):
     return c.formula, out
 
 
-def taux_estime(eta, nd: int = 1):
-    """(taux affiché, niveau) d'un taux ESTIMÉ du prédimensionnement : plafonné à 999 %, rouge au-delà de 100 % ; un
-    taux indéterminé (NaN : une combinaison dégénérée, que l'écran Streamlit écrit « — ») est rouge, à 999 %, et dit
-    « indéterminé » là où la place le permet."""
-    if not isinstance(eta, (int, float)) or not math.isfinite(eta):
-        return C.pct(9.99, nd), "r"
-    return C.pct(min(eta, 9.99), nd), ("r" if eta > 1 else C.niveau(eta))
-
-
 def taux(eta, nd: int = 0):
     """Un taux du moteur à afficher (C.pct), plafonné à 999 % : un taux infini ou indéterminé (pied de poteau :
     aucune épaisseur ne suffit, η = ∞ — l'écran Streamlit écrit « > 999 % ») reste rouge au lieu d'arrêter l'écran."""
@@ -833,61 +861,6 @@ def niveau_R(R) -> str:
     return "v" if R.get("a_verifier") else C.niveau(eta_R(R))
 
 
-def markdown(md: str) -> str:
-    """Le texte de l'onglet Méthode (Markdown simple du moteur : titres ####, listes, gras, `code`, paragraphes) en
-    HTML échappé."""
-    out, para, liste = [], [], []
-
-    def ligne(t):
-        t = html.escape(t, quote=False)
-        t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
-        t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
-        t = re.sub(r"(?<![\w*])\*([^*]+)\*(?![\w*])", r"<i>\1</i>", t)
-        return t
-
-    def vider():
-        if para:
-            out.append("<p>" + ligne(" ".join(para)) + "</p>")
-            para.clear()
-        if liste:
-            out.append("<ul>" + "".join("<li>" + ligne(x) + "</li>" for x in liste) + "</ul>")
-            liste.clear()
-
-    for brut in (md or "").splitlines():
-        t = brut.rstrip()
-        if not t.strip():
-            vider()
-            continue
-        if t.lstrip().startswith("#"):
-            vider()
-            out.append("<h4>" + ligne(t.lstrip("# ").strip()) + "</h4>")
-        elif re.match(r"^\s*[-*] ", t):
-            if para:
-                vider()
-            liste.append(re.sub(r"^\s*[-*] ", "", t))
-        elif liste and brut.startswith("  "):
-            liste[-1] += " " + t.strip()
-        else:
-            if liste:
-                vider()
-            para.append(t.strip())
-    vider()
-    return "".join(out)
-
-
-def fr_js(x, nd: int = 1) -> str:
-    """Un nombre de l'onglet Benchmark écrit comme l'écran Streamlit l'écrit (``acier.formats.F`` : l'arrondi de
-    ``toFixed``, 31,25 → « 31,3 » là où l'arrondi de Python dit « 31,2 »), avec l'espace fine des milliers du site."""
-    from acier.formats import F
-    s = F(x, nd)
-    ent, virg, dec = s.partition(",")
-    signe = "-" if ent.startswith("-") else ""
-    ent = ent.lstrip("-")
-    if ent.isdigit() and len(ent) > 3:
-        ent = f"{int(ent):,}".replace(",", "\u202f")
-    return signe + ent + virg + dec
-
-
 def tableau(entetes: Sequence[str], lignes: Sequence[Sequence[str]], droite: Sequence[int] = (), classe: str = "") -> str:
     """Un tableau de la charte (classe vtab) ; les cellules sont déjà du HTML."""
     th = "".join(f'<th class="{"n" if i in droite else ""}">{h}</th>' for i, h in enumerate(entetes))
@@ -915,10 +888,10 @@ def _aide(f: Dict, cfg: Optional[Config] = None, u: Optional[Dict] = None) -> st
     return t
 
 
-def champ(cfg: Config, u: Dict, k: str, verrou: bool = False, plein: Optional[bool] = None, libelle=None) -> str:
+def champ(cfg: Config, u: Dict, k: str, plein: Optional[bool] = None, libelle=None) -> str:
     """Une ligne de saisie pour la clé ``k`` du moteur : symbole et libellé courts, aide = libellé long de l'écran
-    Streamlit, le champ selon le type (nombre, choix, texte), verrouillé si le prédimensionnement le pilote.
-    ``libelle`` (symbole, libellé) : celui du mode (pied de poteau : « Tige » ou « Boulon »)."""
+    Streamlit, le champ selon le type (nombre, choix, texte). ``libelle`` (symbole, libellé) : celui du mode (pied de
+    poteau : « Tige » ou « Boulon »)."""
     f = cfg.E.CHAMPS[k]
     sym, lab = libelle or cfg.libelles.get(k, ("", f["l"]))
     v = u.get(k)
@@ -930,11 +903,11 @@ def champ(cfg: Config, u: Dict, k: str, verrou: bool = False, plein: Optional[bo
         if k in cfg.segments:
             return C.ligne(lab, C.segments(["v", k], v, opts), sym, _aide(f, cfg, u), full=True)
         large = plein if plein is not None else max(len(t) for _, t in opts) > 15
-        return C.ligne(lab, C.choix(["v", k], v, opts, desactive=verrou), sym, _aide(f, cfg, u), full=large)
+        return C.ligne(lab, C.choix(["v", k], v, opts), sym, _aide(f, cfg, u), full=large)
     if f["t"] == "x":
         return C.ligne(lab, C.texte(["v", k], v, ""), sym, _aide(f, cfg, u), full=True)
     entier = k in COMPTES or k in cfg.entiers
-    return C.ligne(lab, C.num(["v", k], v, _unite(f), dec=3, entier=entier, desactive=verrou, mini=1 if entier else None), sym, _aide(f, cfg, u))
+    return C.ligne(lab, C.num(["v", k], v, _unite(f), dec=3, entier=entier, mini=1 if entier else None), sym, _aide(f, cfg, u))
 
 
 def _options(cfg: Config, k: str) -> List:
@@ -942,7 +915,7 @@ def _options(cfg: Config, k: str) -> List:
     return [(o, aff.get(o, o)) for o in cfg.E.CHAMPS[k]["o"]]
 
 
-def _cellule(cfg: Config, u: Dict, k: str, verrou: bool = False):
+def _cellule(cfg: Config, u: Dict, k: str):
     """(libellé court en HTML, champ, aide) de la clé ``k`` pour une ligne à DEUX champs (``commun.ligne2``) : son
     symbole quand elle en a un — celui que le dessin cote, « p₁ », « e₂,b » —, sinon son libellé ; le libellé long et
     l'aide de l'écran Streamlit au survol de ⓘ. None pour une case à cocher (elle garde sa ligne)."""
@@ -952,16 +925,16 @@ def _cellule(cfg: Config, u: Dict, k: str, verrou: bool = False):
     if f["t"] == "s":
         if list(f["o"]) == OUI_NON:
             return None
-        ctl = C.segments(["v", k], v, _options(cfg, k)) if k in cfg.segments else C.choix(["v", k], v, _options(cfg, k), desactive=verrou)
+        ctl = C.segments(["v", k], v, _options(cfg, k)) if k in cfg.segments else C.choix(["v", k], v, _options(cfg, k))
     elif f["t"] == "x":
         ctl = C.texte(["v", k], v, "")
     else:
         entier = k in COMPTES or k in cfg.entiers
-        ctl = C.num(["v", k], v, _unite(f), dec=3, entier=entier, desactive=verrou, mini=1 if entier else None)
+        ctl = C.num(["v", k], v, _unite(f), dec=3, entier=entier, mini=1 if entier else None)
     return (sym or lab), ctl, _aide(f, cfg, u)
 
 
-def ligne_profil(cfg: Config, u: Dict, titre: str, k_prof: str, k_nu: str, verrou: bool = False) -> str:
+def ligne_profil(cfg: Config, u: Dict, titre: str, k_prof: str, k_nu: str) -> str:
     """Une PIÈCE et son ACIER sur UNE ligne (le propriétaire, 25/11/2026 : « quand on a le nom du profilé principal, on
     a la qualité de l'acier juste à côté, sur une seule ligne ») : le nom de la pièce, son profilé (ou sa cornière), sa
     nuance. L'aide ⓘ dit les deux libellés longs de l'écran Streamlit."""
@@ -969,7 +942,7 @@ def ligne_profil(cfg: Config, u: Dict, titre: str, k_prof: str, k_nu: str, verro
     aide = _aide(fp, cfg, u) + " · " + _aide(fn, cfg, u)
     a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>'
     return (f'<div class="row2 asm-profil"><label><span>{C.esc(titre)}</span>{a}</label>'
-            f'{C.choix(["v", k_prof], u.get(k_prof), _options(cfg, k_prof), desactive=verrou)}'
+            f'{C.choix(["v", k_prof], u.get(k_prof), _options(cfg, k_prof))}'
             f'{C.choix(["v", k_nu], u.get(k_nu), _options(cfg, k_nu))}</div>')
 
 
@@ -983,11 +956,8 @@ def _grp(titre: str, aide: str = "") -> str:
 
 
 def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
-    """Les champs visibles (``entrees.champ_visible``, les conditions de l'écran Streamlit) parmi ``cles`` ; les
-    champs pilotés par le prédimensionnement sont verrouillés (◆ dans Streamlit)."""
-    pred = bool(getattr(cfg.E, "mode_predim", lambda u: False)(u))
-    pil = set(getattr(cfg.E, "PILOTEES_PAR_PREDIM", ()))
-
+    """Les champs visibles (``entrees.champ_visible``, les conditions de l'écran Streamlit) parmi ``cles``. Aucun n'est
+    verrouillé : l'écran du site est toujours en vérification (``sans_mode_predim``)."""
     def vu(cle):
         return cle in cfg.E.CHAMPS and cfg.E.champ_visible(u, cle)
 
@@ -996,22 +966,22 @@ def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
         if isinstance(k, tuple) and k[0] == "lib":        # un champ sous le libellé de son mode : ("lib", clé, (sym, lab))
             _g, cle, lab = k
             if vu(cle):
-                out += champ(cfg, u, cle, verrou=pred and cle in pil, libelle=lab)
+                out += champ(cfg, u, cle, libelle=lab)
             continue
         if isinstance(k, tuple) and k[0] == "duo":        # DEUX champs sur une ligne : ("duo", clé, clé) — un seul visible : sa ligne
             vus = [c for c in k[1:] if vu(c)]
-            cells = [_cellule(cfg, u, c, verrou=pred and c in pil) for c in vus]
+            cells = [_cellule(cfg, u, c) for c in vus]
             if len(vus) == 2 and all(cells):
                 out += C.ligne2(*cells)
             else:
-                out += "".join(champ(cfg, u, c, verrou=pred and c in pil) for c in vus)
+                out += "".join(champ(cfg, u, c) for c in vus)
             continue
         if isinstance(k, tuple) and k[0] == "profil":     # une pièce et son acier sur une ligne : ("profil", nom, profilé, nuance)
             _g, titre, kp, kn = k
             if vu(kp) and vu(kn):
-                out += ligne_profil(cfg, u, titre, kp, kn, verrou=pred and kp in pil)
+                out += ligne_profil(cfg, u, titre, kp, kn)
             else:
-                out += "".join(champ(cfg, u, c, verrou=pred and c in pil) for c in (kp, kn) if vu(c))
+                out += "".join(champ(cfg, u, c) for c in (kp, kn) if vu(c))
             continue
         if isinstance(k, tuple):
             genre, x = k[0], k[1]
@@ -1022,8 +992,8 @@ def champs(cfg: Config, u: Dict, cles: Sequence[str]) -> str:
             elif genre == "html":
                 out += x
             continue
-        if k in cfg.E.CHAMPS and cfg.E.champ_visible(u, k):
-            out += champ(cfg, u, k, verrou=pred and k in pil)
+        if vu(k):
+            out += champ(cfg, u, k)
     return out
 
 
@@ -1042,13 +1012,15 @@ def _menu_configuration(el: Dict) -> str:
 
 def formulaire(etat: Dict, R=None) -> str:
     """Le cadre Données : la configuration en tête, puis les rubriques de la configuration (leurs numéros et leurs clés
-    sont ceux de la famille) — la première seule ouverte ; « Coefficients et modèle » et « Cartouche et affichage »
-    secondaires. Le REPÈRE de l'assemblage n'y est plus : il se modifie sur sa ligne, en tête de la colonne."""
+    sont ceux de la famille) — la première seule ouverte ; « Options » secondaire. Le REPÈRE de l'assemblage n'y est
+    plus : il se modifie sur sa ligne, en tête de la colonne."""
     el = _actif(etat)
     cfg = _cfg(el)
     u = el["values"]
     out = ""
-    for n, (cle, titre, resume, items, _ouvert) in enumerate(cfg.sections(u, R, el), start=1):
+    # (l'option de la NOTE que la rubrique « Options » montre : passée aux sections avec l'assemblage, sans y être écrite)
+    vu = dict(el, _note_taux=etat.get("note_taux", True) is not False)
+    for n, (cle, titre, resume, items, _ouvert) in enumerate(cfg.sections(u, R, vu), start=1):
         corps = champs(cfg, u, [k for k in items if k != "id_rep"])
         if n == 1:
             corps = _menu_configuration(el) + corps
@@ -1070,58 +1042,52 @@ def arbre(etat: Dict, R=None) -> str:
     return E.arbre(GENRE, noms, etat["actif"], formulaire(etat, R), "assemblage", compact=True)
 
 
-def section_cartouche(cfg: Config, u: Dict, el: Dict, avec_visserie: bool = True, libelle_visserie: str = "Visserie",
-                      aide_visserie: str = "") -> List:
-    """Les items de la section « Cartouche et affichage » (commune) : rédacteur, visserie, projet, date, niveau de
-    cotation des dessins, texte complet de la note, exemple publié à charger."""
-    items = ["id_red"]
+# ce que la case de la note dit (« Options », toutes les configurations) — le propriétaire, 25/11/2026 : « si je dimensionne
+# tout, je n'ai pas envie qu'on voie en un clin d'œil que j'ai dimensionné tout à 60 %. Mais je veux pouvoir l'afficher »
+LIBELLE_NOTE_TAUX = "Afficher les taux (%) dans la note de calcul"
+AIDE_NOTE_TAUX = ("Décochée : la note PDF garde chaque effort, chaque résistance et chaque verdict, sans aucun pourcentage. "
+                  "Vaut pour toute la note (tous ses assemblages).")
+
+
+def section_options(cfg: Config, u: Dict, el: Dict, coefficients: Sequence = (), avec_visserie: bool = True,
+                    libelle_visserie: str = "Visserie", aide_visserie: str = "") -> tuple:
+    """La rubrique « Options », la dernière et la seule secondaire (le propriétaire, 25/11/2026 : « ta cartouche,
+    affichage, coefficients, modèle : moi, je mettrais plutôt ça dans un truc d'option ») : les ``coefficients`` et le
+    modèle de la configuration ; les règles du prédimensionnement (taux cible, diamètres admis, pinces k·d0) quand
+    elle en a un ; la NOTE de calcul (afficher ou non les taux) ; le cartouche (rédacteur, visserie, projet, date) ;
+    les dessins (niveau de cotation) ; les exemples publiés à charger et le retour aux valeurs par défaut."""
+    items = list(coefficients)
+    if cfg.predim:
+        # (l'écran Streamlit ne montre ces règles qu'en mode prédimensionnement — ``entrees.champ_visible`` ; le site, qui
+        #  n'a plus ce mode, les montre toujours : elles règlent les propositions)
+        items += [("grp", "Prédimensionnement", "Les règles des propositions (bloc « Prédimensionnement » du résultat) : le taux à "
+                                               "tenir, les diamètres admis, les pinces et entraxes de détail. Une proposition "
+                                               "ne change jamais un effort, un profilé, un acier, un niveau ni le grugeage."),
+                  ("html", champ(cfg, u, "eta_c")),
+                  ("html", C.ligne2(_cellule(cfg, u, "pd_dmin"), _cellule(cfg, u, "pd_dmax"))),
+                  ("html", C.ligne2(_cellule(cfg, u, "k_e1"), _cellule(cfg, u, "k_p1"))),
+                  ("html", champ(cfg, u, "k_e2"))]
+    items += [("grp", "Note de calcul"),
+              ("html", C.case(["note_taux"], el.get("_note_taux", True) is not False, LIBELLE_NOTE_TAUX)),
+              ("aide", AIDE_NOTE_TAUX),
+              ("grp", "Cartouche"), "id_red"]
     if avec_visserie:
         items.append(("html", C.ligne(libelle_visserie, C.texte(["visserie"], el.get("visserie"), cfg.visserie_defaut), "",
                                       aide_visserie or "Rondelles et écrous par boulon, portés au cartouche du plan. Ex. : "
                                       "« 1 rondelle + 2 écrous (contre-écrou) ».", full=True)))
-    items += ["id_projet", "id_date", ("grp", "Affichage")]
+    items += ["id_projet", "id_date", ("grp", "Dessins")]
     items.append(("html", C.ligne("Cotes", C.segments(["cotation"], str(el.get("cotation", 1)), NIVEAUX_COTATION), "",
                                   "Niveau de cotation des dessins : vue simple, édition (toutes les cotes saisies), "
                                   "cotations complètes (grandeurs calculées comprises).", full=True)))
-    items.append(("html", C.case(["texte_complet"], bool(el.get("texte_complet")), "Note texte : toutes les vérifications, "
-                                 "avec leurs formules")))
     ex = exemples(cfg)
     if ex:
         opts = [("", "—")] + [(i, lab) for i, lab, _d in ex]
         items += [("grp", "Exemples publiés" if not cfg.exemples else "Exemples et cas de validation"),
                   ("html", C.ligne("Charger", C.choix(["exemple"], "", opts), "",
-                                   "Remplace les données par celles d'un exemple publié (onglet Benchmark de "
-                                   "Streamlit) ; le repère est gardé.", full=True))]
+                                   "Remplace les données par celles d'un exemple publié ; le repère est gardé.", full=True))]
     items.append(("html", f'<button type="button" class="addrow" data-chemin="reinitialiser" data-valeur="1" title="Le repère est gardé">{C.icon("history")}'
                           'Rétablir les valeurs par défaut</button>'))
-    return items
-
-
-def sections_generiques(cfg: Config, u: Dict, R, el: Dict, ouvertes=("Boulons", "Efforts")) -> List:
-    """Les sections du cadre Données tirées des GROUPES de l'écran Streamlit (entrees.GROUPES : même ordre, mêmes
-    titres, mêmes conditions d'affichage) : l'identification et le mode en tête (section « Assemblage »), le
-    cartouche à la fin. Sert aux configurations qui n'ont pas (encore) de disposition propre."""
-    tete = ["id_rep"]
-    corps, fin = [], []
-    for g in cfg.E.GROUPES:
-        cles = [f["k"] for f in g["f"]]
-        titre = g["t"].split(" – ")[0].split(" (")[0]
-        if g["t"] == "Identification":
-            continue
-        if g["t"].startswith("Mode"):
-            tete += cles
-            continue
-        if g["t"].startswith("Règles du prédimensionnement"):
-            fin = [("grp", "Prédimensionnement")] + cles
-            continue
-        if "d0_u" in cles:
-            i = cles.index("d0_u")
-            cles = cles[:i] + d0_items(u) + cles[i + 1:]
-        ouvert = any(titre.startswith(o) for o in ouvertes)
-        corps.append((_slug(titre)[:12], titre, "", cles, ouvert))
-    out = [("as", "Assemblage", C.esc(cfg.court), tete + fin, True)] + corps
-    out.append(("ca", "Cartouche et affichage", C.esc(u.get("id_red") or "rédacteur à saisir"), section_cartouche(cfg, u, el), False))
-    return out
+    return ("op", "Options", "coefficients · note · cartouche", items, False)
 
 
 def d0_items(u: Dict) -> List:
@@ -1238,12 +1204,29 @@ def _hypotheses(cfg: Config, R, u: Dict) -> List[str]:
     return h
 
 
+def perimetre(cfg: Config, R) -> str:
+    """Ce que la vérification NE COUVRE PAS, au pied de chaque fenêtre de calcul (HTML) : les « non revérifiés » de la
+    configuration (``Config.non_reverifies`` : les limites que l'écran Streamlit déclare) et le « sans objet » de ce
+    cas. L'onglet « Méthode » de la toile, qui les portait, est retiré (25/11/2026) : une limite de validité ne
+    disparaît pas avec son onglet."""
+    sans = [_court(cfg, c) for c in R.checks if not c.active]
+    # ce que l'écran Streamlit ajoute au « sans objet » (poutre–poteau sur l'aile : pourquoi l'aile n'est pas vérifiée)
+    sans += list(getattr(cfg, "sans_objet", None) and cfg.sans_objet(R) or ())
+    nr = non_reverifies(cfg, R)
+    out = ""
+    if nr:
+        out += f"<br><b>{C.esc(cfg.titre_non_verifies or 'Non revérifiés ici')}</b> : {C.esc(' ; '.join(nr))}."
+    if sans:
+        out += f"<br>Sans objet dans cette configuration : {C.esc(' ; '.join(sans))}."
+    return out
+
+
 def volets(cfg: Config, R, u: Dict, el: Dict) -> str:
-    """Les fenêtres de calcul : une par pièce (tableau des vérifications, détail des formules), la géométrie
-    (Tableau 3.3 et paramètres retenus), le prédimensionnement."""
+    """Les fenêtres de calcul : une par pièce (tableau des vérifications, détail des formules) et la géométrie
+    (Tableau 3.3 et paramètres retenus)."""
     hyps = _hypotheses(cfg, R, u)
     out = ""
-    sans_objet = [_court(cfg, c) for c in R.checks if not c.active]
+    limites = perimetre(cfg, R)
     for grp, nom, eta, ok, pire, on, info in _groupes(cfg, R):
         lignes = [_ligne_vtab(cfg, c, c is pire and not info, R) for c in on]
         detail = (cfg.blocs_tete(R, grp) or "") if cfg.blocs_tete else ""
@@ -1259,14 +1242,10 @@ def volets(cfg: Config, R, u: Dict, el: Dict) -> str:
                                       for b in tab], droite=(1, 2, 3, 4, 5), classe="asm-tab") + "</div>")
         if cfg.blocs:
             detail += cfg.blocs(R, grp) or ""
-        pied = (f'<div class="ck-autres">{C.esc(cfg.N.LEGENDE_REFERENCES)}'
-                + (f"<br>Sans objet dans cette configuration : {C.esc(' ; '.join(sans_objet))}." if sans_objet else "")
-                + "</div>")
+        pied = f'<div class="ck-autres">{C.esc(cfg.N.LEGENDE_REFERENCES)}{limites}</div>'
         sous = f"{C.esc(cfg.court)} · {C.esc(_court(cfg, pire))} · {C.esc(cfg.normes.get(grp, 'EN 1993-1-8'))}"
         out += C.fenetre_calcul(_slug(grp), C.esc(nom), sous, hyps, lignes, detail, pied)
     out += _volet_geometrie(cfg, R, hyps)
-    if cfg.predim and R.get("pd") is not None:
-        out += _volet_predim(cfg, R, u, hyps)
     return out
 
 
@@ -1310,51 +1289,6 @@ def _volet_geometrie(cfg: Config, R, hyps) -> str:
     verdict = "conformes" if R.get("dist_ok", True) else "NON conformes"
     return C.fenetre_calcul("geometrie", "Géométrie · pinces et entraxes", f"Tableau 3.3 : {verdict} · paramètres retenus",
                             hyps, lignes, detail, pied)
-
-
-def _volet_predim(cfg: Config, R, u: Dict, hyps) -> str:
-    p = R.pd
-    lignes = []
-    for r in _solutions(cfg, R):
-        lignes.append({"nom": C.esc(cfg.predim["nom"](r)), "sous": C.esc(f"{r.b['n']} · {int(r.n)} rangées"
-                                                                         + (f" · {r.get('var')}" if r.get("var") else "")),
-                       "formule": math_html(geo_solution(cfg, r)),
-                       "valeur": "proposée" if r is p.pick else "", "limite": f"cible {C.pc(C.pct(C.lire_nombre(u.get('eta_c')) or 0.9, 0))} %",
-                       "taux": taux_estime(r.eta)[0], "niveau": taux_estime(r.eta)[1], "gov": r is p.pick})
-    detail = ('<div class="ck-g asm-large"><div class="ck-t">Détail de la solution retenue par défaut</div>'
-              + tableau(["", ""], [[C.esc(a), f"<b>{C.esc(b)}</b>"] for a, b in detail_predim(cfg, p)], droite=(1,), classe="asm-tab")
-              + "</div>")
-    if p.get("reqs"):
-        detail += ('<div class="ck-g asm-large"><div class="ck-t">Épaisseur nécessaire par vérification</div>'
-                   + tableau(["Vérification", "Épaisseur"], [[C.esc(q[0]), f"{C.fr(q[1], 2)} mm"] for q in p.reqs], droite=(1,),
-                             classe="asm-tab") + "</div>")
-    pied = (f'<div class="ck-autres">{C.esc(regle_predim(cfg))} La ligne « Proposition » du résultat ouvre les solutions ; '
-            'en choisir une la recopie dans les données et repasse en vérification.</div>')
-    return C.fenetre_calcul("predim", "Prédimensionnement", C.esc(p.msg or ""), hyps, lignes[:12], detail, pied)
-
-
-def detail_predim(cfg: Config, p) -> List:
-    """Le tableau « Détail de la solution retenue par défaut » de l'onglet Prédim (lignes [libellé, valeur], textes
-    de l'écran Streamlit — copies nommées de chaque famille) ; à défaut, le boulon, les rangées, les pinces et l'état."""
-    f = cfg.predim.get("detail")
-    if f:
-        return [[str(a), str(b)] for a, b in f(p)]
-    return [["Boulon proposé", str(p.boulon)], ["Rangées n1", C.nb(p.n) if p.get("n") is not None else "—"],
-            ["e1 / p1 / e2", f"{C.nb(p.e1)} / {C.nb(p.p1)} / {C.nb(p.e2)} mm"], ["État", str(p.msg)]]
-
-
-def regle_predim(cfg: Config) -> str:
-    return cfg.predim.get("regle") or ("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus "
-                                       "petit diamètre. Seule la vérification détaillée fait foi.")
-
-
-def _solutions(cfg: Config, R) -> List:
-    """Les solutions du prédimensionnement offertes (onglet Prédim de Streamlit : taux ≤ 1, la cible d'abord, puis
-    le score) — au plus neuf."""
-    p = R.pd
-    rows = [r for r in p.rows if r.geom and r.prop]
-    sols = sorted([r for r in rows if r.eta <= 1], key=lambda r: (0 if r.ok else 1, r.score if r.ok else r.eta))[:9]
-    return sols
 
 
 def phrase_hors_table(err: str) -> Optional[str]:
@@ -1484,9 +1418,9 @@ def _statut_note(bilans: List[Dict], niv: str) -> str:
 
 def resultat(etat: Dict) -> Dict:
     """Le calcul de l'assemblage ouvert et sa mise en forme : la tête (le repère ; la configuration, les pièces et les
-    efforts), le verdict, le bloc « Vérifications » (une ligne par pièce, puis la géométrie), le bloc du
-    prédimensionnement, les messages ; les fenêtres de calcul, les vues sous leur en-tête technique, la colonne de
-    gauche, le résumé de la note."""
+    efforts), le verdict, le bloc « Vérifications » (une ligne par pièce, puis la géométrie), le bloc
+    « Prédimensionnement » (il ouvre les propositions vérifiées), les messages ; les fenêtres de calcul, les dessins
+    sous leur en-tête technique, la colonne de gauche, le résumé de la note."""
     el = _actif(etat)
     cfg = _cfg(el)
     u = el["values"]
@@ -1494,8 +1428,7 @@ def resultat(etat: Dict) -> Dict:
     b = bilans[etat["actif"]]
     R = b["R"]
     tete = E.tete_resultats(C.esc(_repere(el, etat["actif"])), phrase(cfg, u))
-    pied = (f'<div class="pfoot"><div class="mass"><span>{C.esc(cfg.titre_famille)} · {C.esc(cfg.nom_menu or cfg.court)}</span>'
-            f'<b>EN 1993-1-8</b></div><div class="legend">{C.legende()}</div></div>')
+    pied = ""                                     # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos``)
     if R is None:
         verdict = (f'<div class="verdict"><div class="gov"><b>Calcul impossible</b>{C.esc(motif_impossible(b["erreur"]))}</div></div>')
         return {"resultat": f'<div class="pbody">{tete}{verdict}</div>{pied}', "volets": "", "vues": [], "phrase": "",
@@ -1552,18 +1485,9 @@ def resultat(etat: Dict) -> Dict:
         # (pas de ligne d'efforts : la tête, juste au-dessus, dit déjà la configuration, les pièces et les efforts)
         blocs = E.bloc(0, "Vérifications", CLASSES_BLOC.get(niv, "inc"), f"{C.STATUTS[niv][1]} · {C.pc(taux(eta_R(R)))}{C.NBSP}%",
                        "", rows, theme=True, calcul=fen)
-        if cfg.predim and R.get("pd") is not None and R.pd.get("pick") is not None:
-            pick = R.pd.pick
-            t_est, niv_est = taux_estime(pick.eta, 0)
-            row = C.ligne_verif("Proposition", PROPOSITION_GARDE, t_est, niv_est, calcul="predim", pk="solution",
-                                piece=C.esc(cfg.predim["nom"](pick)))
-            blocs += E.bloc(1, "Mode prédimensionnement" if R.pred else "Prédimensionnement", "inc", "solution proposée",
-                            "", row, theme=True, calcul="predim")
-        msg = ""
-        if R.pred:
-            msg += C.message(f"<b>Mode prédimensionnement</b> — {C.esc(cfg.predim['label'](R.pd.pick) if R.pd.get('pick') is not None else '')}. "
-                             f"{C.esc(R.pd.msg)}")
-        msg += _messages(cfg, R)
+        if cfg.predim:
+            blocs += bloc_propositions()
+        msg = _messages(cfg, R)
         html_res = f'<div class="pbody">{tete}{_verdict(cfg, R, niv)}<div class="et-blocs">{blocs}</div>{msg}</div>{pied}'
         vol = volets(cfg, R, u, el)
     cfg = pour(cfg, R)
@@ -1643,62 +1567,12 @@ def _hl(R) -> Dict:
 
 
 def vues(cfg: Config, R, el: Dict) -> List[Dict]:
-    """Les dessins du moteur (``schemas`` de la configuration), puis le prédimensionnement, la note texte, la méthode
-    et la validation (les onglets de l'écran Streamlit), en tableaux."""
+    """Les DESSINS du moteur (``schemas`` de la configuration : élévation, vue en plan, vue de droite ou coupe), et eux
+    seuls (le propriétaire, 25/11/2026 : « dans la partie centrale, on devrait juste avoir élévation, plan, droite »).
+    Le prédimensionnement s'ouvre du résultat ; la note texte, la méthode et la validation ne sont plus des onglets."""
     niveau = int(el.get("cotation", 1))
-    out = []
-    for cle, titre, court, dessin, legende in cfg.vues(R, niveau, _hl(R)):
-        out.append({"cle": cle, "titre": titre, "court": court, "svg": dessin.svg(identifiant=f"asm_{cle}"), "legende": legende})
-    if cfg.predim and R.get("pd") is not None:
-        out.append({"cle": "predim", "titre": "Prédimensionnement", "court": "Prédim", "svg": vue_predim(cfg, R, el["values"]),
-                    "legende": "toutes les combinaisons géométriquement possibles"})
-    out.append({"cle": "note", "titre": "Note texte", "court": "Note", "svg": vue_note(cfg, R, el),
-                "legende": "à copier dans un courriel ou un rapport"})
-    out.append({"cle": "methode", "titre": "Méthode", "court": "Méthode", "svg": vue_methode(cfg, R),
-                "legende": "le modèle mécanique, ses sources et ses limites"})
-    if cfg.validation:                            # pied de poteau : l'onglet Benchmark de chaque mode
-        out.append({"cle": "validation", "titre": "Validation", "court": "Validation", "svg": cfg.validation(cfg),
-                    "legende": "calculs manuels indépendants rejoués par le moteur"})
-    elif cfg.bench:
-        out.append({"cle": "validation", "titre": "Validation", "court": "Validation", "svg": vue_validation(cfg),
-                    "legende": "exemples publiés rejoués par le moteur"})
-    return out
-
-
-def vue_predim(cfg: Config, R, u: Dict) -> str:
-    """L'onglet Prédim de Streamlit : la solution retenue par défaut, l'épaisseur nécessaire par vérification, puis
-    toutes les combinaisons géométriquement possibles (taux estimés)."""
-    p = R.pd
-    rows = [r for r in p.rows if r.geom]
-    cols = cfg.predim.get("colonnes", [])
-    if callable(cols):                       # des colonnes qui dépendent du résultat (platine sur poteau : le cas d'appui)
-        cols = cols(R)
-    entetes = ["Boulon", "n<sub>1</sub>"] + [h for h, _ in cols] + ["η estimé", ""]
-    lignes = []
-    for r in rows:
-        ch = C.chip(*taux_estime(r.eta)) if math.isfinite(r.eta) else "—"
-        mark = "★ retenue" if r is p.pick else ("" if r.ok else "au-delà de la cible")
-        lignes.append([f"<b>{C.esc(r.b['n'])}</b>", C.nb(r.n)] + [C.esc(f(r)) for _, f in cols] + [ch, C.esc(mark)])
-    head = (f'<div class="asm-kpi"><div><span>Proposition</span><b>{C.esc(cfg.predim["label"](p.pick)) if p.get("pick") is not None else "aucune"}</b></div>'
-            f'<div><span>Taux estimé</span><b>{C.pc(taux_estime(p.eta or 0)[0])} %</b></div><div><span>État</span><b>{C.esc(p.msg)}</b></div></div>')
-    det = ("<h4>Détail de la solution retenue par défaut</h4>"
-           + tableau(["", ""], [[C.esc(a), f"<b>{C.esc(b)}</b>"] for a, b in detail_predim(cfg, p)], droite=(1,), classe="asm-tab asm-cle"))
-    reqs = ""
-    if p.get("reqs"):
-        reqs = ("<h4>Épaisseur nécessaire par vérification</h4>"
-                + tableau(["Vérification", "Épaisseur"], [[C.esc(q[0]), f"{C.fr(q[1], 2)} mm"] for q in p.reqs], droite=(1,),
-                          classe="asm-tab asm-cle"))
-    corps = (head + det + reqs + "<h4>Toutes les combinaisons géométriquement possibles</h4>"
-             + tableau(entetes, lignes, droite=tuple(range(1, len(entetes) - 1)), classe="asm-tab")
-             + f'<p class="asm-note">{C.esc(regle_predim(cfg))} Pour recopier une solution dans les données : la ligne '
-               '« Proposition » du résultat.</p>')
-    return f'<div class="asm-doc">{corps}</div>'
-
-
-def vue_note(cfg: Config, R, el: Dict) -> str:
-    """L'onglet Note de Streamlit : l'export texte (essentiel, ou toutes les vérifications avec leurs formules)."""
-    t = cfg.T.construire_texte(R, bool(el.get("texte_complet")))
-    return f'<div class="asm-doc"><pre class="asm-txt">{C.esc(t)}</pre></div>'
+    return [{"cle": cle, "titre": titre, "court": court, "svg": dessin.svg(identifiant=f"asm_{cle}"), "legende": legende}
+            for cle, titre, court, dessin, legende in cfg.vues(R, niveau, _hl(R))]
 
 
 def non_reverifies(cfg: Config, R) -> tuple:
@@ -1706,76 +1580,6 @@ def non_reverifies(cfg: Config, R) -> tuple:
     résultat (poutre–poteau : les limites dépendent de l'appui, aile ou âme)."""
     nr = cfg.non_reverifies
     return tuple(nr(R) if callable(nr) else nr or ())
-
-
-def vue_methode(cfg: Config, R) -> str:
-    """L'onglet Méthode de Streamlit, et le périmètre de la vérification (ce qui n'est pas revérifié, ce qui est
-    sans objet dans cette configuration)."""
-    sans = [_court(cfg, c) for c in R.checks if not c.active]
-    # ce que l'écran Streamlit ajoute au « sans objet » (poutre–poteau sur l'aile : pourquoi l'aile n'est pas vérifiée)
-    sans += list(getattr(cfg, "sans_objet", None) and cfg.sans_objet(R) or ())
-    per = ""
-    nr = non_reverifies(cfg, R)
-    if nr or sans:
-        per = "<h4>Périmètre de la vérification</h4><ul>"
-        if nr:
-            per += f"<li><b>{C.esc(cfg.titre_non_verifies or 'Non revérifiés ici')}</b> : " + C.esc(" ; ".join(nr)) + ".</li>"
-        if sans:
-            per += "<li><b>Sans objet dans cette configuration</b> : " + C.esc(" ; ".join(sans)) + ".</li>"
-        per += "</ul>"
-    nat = cfg.natures or (("EC", "formule de l'Eurocode"), ("COMP", "modèle complémentaire reconnu"),
-                          ("INT", "interprétation de l'outil"))
-    natures = ("<h4>Natures des vérifications</h4><ul>" + "".join(f"<li><b>{C.esc(n)}</b> : {C.esc(t)}</li>" for n, t in nat)
-               + f'</ul><p class="asm-note">{C.esc(cfg.N.LEGENDE_REFERENCES)}</p>')
-    return f'<div class="asm-doc">{markdown(cfg.methode)}{per}{natures}</div>'
-
-
-# la légende des calculs manuels indépendants de l'onglet Benchmark (ecran_resultats.onglet_benchmark : copie nommée,
-# test : tests/test_api_web_assemblages.py la relit dans le source de chaque écran) et le nom de sa colonne de contrôle
-LEGENDE_MANUEL = ("Colonne « manuel » : calcul indépendant hors moteur ; colonne « contrôle » : même valeur recomposée à "
-                  "la main (arrondie).", "Contrôle")
-
-
-def vue_validation(cfg: Config) -> str:
-    """L'onglet Benchmark de Streamlit : les exemples publiés et les calculs manuels, rejoués par le moteur."""
-    B = cfg.bench.run_bench()
-    S = getattr(cfg.bench, "SRC", {}) or {}
-    url = f" Document : {C.esc(S['url'])}." if S.get("url") else ""      # écrit, jamais chargé (aucune ressource externe)
-    out = (f'<div class="asm-kpi"><div><span>Benchmark du module</span><b>{C.esc(B["statut"])}</b></div>'
-           f'<div><span>Source</span><b>{C.esc(S.get("titre", ""))}</b></div></div>'
-           f'<p class="asm-note">{C.esc(S.get("org", ""))}, {C.esc(S.get("annee", ""))}. Norme : {C.esc(S.get("norme", ""))}.{url} '
-           f'Ces tableaux sont recalculés par le moteur à chaque ouverture ; ils ne dépendent pas des données saisies. '
-           f'Seuils : écart ≤ 1 % OK ; 1 à 3 % à expliquer ; &gt; 3 % à vérifier. Aucune formule n\'a été ajustée pour coller à la source. '
-           f'Pour rejouer un exemple : section « Cartouche et affichage », « Exemples publiés ».</p>')
-    for b in B["bench"]:
-        lignes = []
-        for r in b["rows"]:
-            lab = r["lab"] + ((" — " + r["exp"]) if (r["exp"] and abs(r["ec"]) > 0.003) else "")
-            # les décimales de l'onglet Benchmark de la configuration (platine sur poteau : 3 pour un rapport sans unité)
-            nd, nv = cfg.decimales_bench(r) if getattr(cfg, "decimales_bench", None) else ((1, 2) if r["ref"] < 10 else (0, 1))
-            un = "" if r["unit"] in ("-", "") else " " + C.esc(r["unit"])        # un rapport n'a pas d'unité
-            lignes.append([C.esc(lab), f'<span class="nw">{C.esc(r["page"])}</span>', f'{fr_js(r["ref"], nd)}{un}',
-                           fr_js(r["val"], nv),
-                           f'{fr_js(r["ec"] * 100, 2)} %', C.esc(r["st"])])
-        out += (f"<h5>{C.esc(b['id'])} · {C.esc(b['titre'])}</h5><p class=\"asm-note\">Données : {C.esc(b['data'])}</p>"
-                + tableau(["Vérification", "Page", "Référence", "Outil", "Écart", ""], lignes, droite=(2, 3, 4), classe="asm-tab"))
-    if getattr(cfg.bench, "NOCOVER", None):
-        out += "<h4>Vérifications sans exemple publié consulté</h4><ul>" + "".join(
-            f"<li><b>{C.esc(x[0])}</b> — {C.esc(x[1])}</li>" for x in cfg.bench.NOCOVER) + "</ul>"
-    for c in B.get("valid", []):
-        lignes = []
-        for r in c["rows"]:
-            main = r.get("hand", r.get("main", 0.0)) or 0.0
-            ctrl = r.get("xls", r.get("ref", main))
-            n = 4 if abs(main) < 10 else (2 if abs(main) < 1000 else 0)
-            un = "" if r.get("unit", "-") == "-" else " " + r["unit"]
-            st = r.get("st") or ("OK" if r.get("ok", True) else "À VÉRIFIER")
-            lignes.append([C.esc(r["lab"]), C.esc(fr_js(main, n) + un), fr_js(ctrl, n), fr_js(r.get("val", 0.0), n),
-                           f'{fr_js(r.get("ec", 0.0) * 100, 3)} %', C.esc(st)])
-        legende, colonne = getattr(cfg, "legende_manuel", None) or LEGENDE_MANUEL
-        out += (f"<h5>{C.esc(c['id'])} · calcul manuel indépendant</h5><p class=\"asm-note\">{C.esc(c['titre'] + '. ' + legende)}</p>"
-                + tableau(["Grandeur", "Manuel", C.esc(colonne), "Outil", "Écart", ""], lignes, droite=(1, 2, 3, 4), classe="asm-tab"))
-    return f'<div class="asm-doc">{out}</div>'
 
 
 # ===================================================================== les sélecteurs
@@ -1865,51 +1669,135 @@ def _selecteurs(cfg: Config) -> Dict:
     return s
 
 
-def _nom_solution(cfg: Config, R, r) -> str:
-    noms = [cfg.predim["nom"](x) for x in R.pd.rows if x.geom and x.prop]
-    n = cfg.predim["nom"](r)
-    return n if noms.count(n) <= 1 else f"{n} ({r.get('var') or r.get('i')})"
+# ===================================================================== les propositions du prédimensionnement
+# Ce qu'une proposition change, et ce qu'elle garde (le propriétaire, 25/11/2026 : « il faut que ça me garde mes données
+# de base — les efforts, le profilé, le niveau ; c'est la plaque, le nombre de boulons qui doit changer ») : dit dans le
+# bloc du résultat et dans le sélecteur. C'est la règle de ``acier/assemblages/propositions.py`` ; le test la rejoue
+# sur chaque proposition (tests/test_assemblages_predim.py).
+TITRE_PROPOSITIONS = "Solutions vérifiées"
+SOUS_TITRE_SOLUTIONS = "un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés"
+PROPOSITION_GARDE = "efforts, profilés et niveaux gardés"
+# la dernière recherche (UNE seule) : le clic qui recopie une proposition ne la refait pas
+_RECHERCHE: Dict = {}
 
 
-# Ce que « appliquer une solution » fait, dit dans le sélecteur et sous la ligne « Proposition » du résultat (le
-# propriétaire, 25/11/2026 : « il faut que ça me garde mes données de base — les efforts, le profilé, le niveau ; c'est la
-# plaque, le nombre de boulons qui doit changer »). C'est la règle des six moteurs ; le test la rejoue sur chaque solution.
-SOUS_TITRE_SOLUTIONS = "taux estimé · un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés"
-PROPOSITION_GARDE = "taux estimé · efforts, profilés et niveaux gardés"
+def bloc_propositions() -> str:
+    """Le bloc « Prédimensionnement » du résultat, sous les vérifications (le propriétaire, 25/11/2026 : « à droite, on
+    a la vérification. En dessous, on a le prédimensionnement. Je trouve que c'est là qu'on devrait l'avoir ») : une
+    ligne, dont le bouton ouvre les propositions. La recherche se fait AU CLIC (un calcul complet par candidat : elle
+    ne ralentit pas la saisie). Pas de « tout le calcul » ici : une proposition recopiée se lit dans les vérifications."""
+    tete = ('<div class="et-bloc-h"><button type="button" class="et-bloc-t" data-bloc="1" aria-expanded="true" title="Replier ou déplier">'
+            f'{C.icon("chevron-down")}<span class="n">Prédimensionnement</span><span class="e">calcul complet</span></button></div>')
+    row = C.ligne_verif("Solutions", PROPOSITION_GARDE, None, "c", pk="solution", piece="Proposer", etat_txt="vérifiées")
+    return (f'<section class="et-bloc inc asm-prop" data-theme="1">{tete}<div class="et-bloc-c"><div class="et-bloc-ef"></div>'
+            f'<div class="els">{row}</div></div></section>')
+
+
+def propositions(cfg: Config, u: Dict):
+    """Les propositions VÉRIFIÉES pour les saisies de l'écran (``acier/assemblages/propositions.chercher`` : chaque
+    candidat est jugé par le calcul complet du moteur). La dernière recherche est gardée : choisir une ligne du
+    sélecteur ne la refait pas."""
+    motif = trop_grand(cfg, u)
+    if motif:
+        raise ValueError(motif)
+    cle = (cfg.cle, json.dumps(u, sort_keys=True, default=str, ensure_ascii=False))
+    if _RECHERCHE.get("cle") != cle:
+        _RECHERCHE.clear()
+        _RECHERCHE.update(cle=cle, X=PR.chercher(cfg.predim["moteur"], cfg.S, a_calculer(cfg, u), cfg.predim["genre"]))
+    return _RECHERCHE["X"]
+
+
+def changements(cfg: Config, u: Dict, v: Dict) -> Dict:
+    """Ce qu'une proposition (ses saisies ``v``) change dans celles de l'écran : {clé: valeur du widget} — les seules
+    clés qui diffèrent du calcul de l'écran (``a_calculer`` : une dimension vide y est provisoire, elle reste vide)."""
+    base = a_calculer(cfg, u)
+    return {k: valeur_widget(cfg, k, x) for k, x in v.items()
+            if k in u and k not in cfg.listes and x != base.get(k) and valeur_widget(cfg, k, x) != u.get(k)}
+
+
+def _detail_proposition(cfg: Config, s) -> str:
+    """La ligne d'une proposition sous la liste (HTML) : sa géométrie, ce qui la gouverne et son taux, ses réserves."""
+    R, g = s.R, s.R.get("gov")
+    c = pour(cfg, R)
+    quoi = f" · {C.esc(g.grp)} : {C.esc(_minuscule(_court(c, g)))} {C.pc(taux_c(g, 0))}{C.NBSP}%" if g is not None else ""
+    cible = "" if s.cible else " · au-dessus du taux cible"
+    reserve = "".join(f" · avis : {C.esc(c.N.ligne_alerte(a, R)[0])}" for a in s.reserves[:2])
+    return C.esc(cfg.predim["detail"](s.u)) + quoi + cible + reserve
+
+
+# les conseils quand RIEN ne passe : la pièce dont la vérification bloque (l'ordre de ``synthese.ELEMENTS``)
+CONSEIL_PORTEE = "Changer le profilé {piece} (une âme plus épaisse, une poutre plus haute){grugeage}."
+CONSEIL_PORTEUSE = "Changer le profilé {piece} (une âme ou une aile plus épaisse)."
+CONSEIL_HAUTEUR = ("La hauteur disponible de l'âme portée ({hav} mm) ne loge pas assez de boulons : une poutre plus haute, un "
+                   "grugeage plus court ou une attache placée plus haut.")
+VERIFS_GRUGEAGE = ("stN", "stD", "mN", "m2")     # les vérifications de la section grugée : réduire le grugeage aide
+
+
+def _de_la(groupe: str) -> str:
+    """« de la poutre secondaire », « du poteau porteur » : le groupe d'une vérification, après « le profilé »."""
+    nom = groupe[:1].lower() + groupe[1:]
+    return ("de la " if nom.startswith("poutre") else "du ") + nom
+
+
+def aucune_solution(cfg: Config, X) -> str:
+    """Ce que le sélecteur dit quand aucune disposition ne passe (HTML) — le propriétaire, 25/11/2026 : « la seule raison
+    pour laquelle ça n'irait pas, ce serait que les profilés ne seraient pas suffisants. Et qu'on devrait changer de
+    profilé si on a 0 solution » : la vérification qui reste au-delà de 100 % dans le meilleur candidat, nommée, puis
+    quoi changer."""
+    tete = "<b>Aucune solution avec ces profilés.</b> "
+    b = X.blocage
+    hav = C.nb(round(X.hav)) if X.get("hav") is not None else "?"
+    if b is None and X.get("geometrie") is not None:
+        # aucune disposition n'a une géométrie valide : une donnée que les propositions ne touchent pas (une semelle qui
+        # heurte la poutre porteuse, un grugeage trop court…) — l'alerte bloquante du moteur, telle qu'il la dit
+        R = X.geometrie
+        a = next(x for x in R.alerts if x.block)
+        titre, det = pour(cfg, R).N.ligne_alerte(a, R)
+        return (f"<b>Aucune solution : la géométrie n'est pas valide.</b> Quelle que soit la disposition des boulons — "
+                f"{C.esc(titre)}" + (f" {C.esc(det)}" if det else "") + " À corriger d'abord (rubrique des poutres).")
+    if b is None or b.gov is None:
+        return (f'{tete}Aucune disposition de boulons (M12 à M36, deux rangées au moins) ne tient dans la hauteur disponible '
+                f'de l\'âme portée ({hav}{C.NBSP}mm). Une poutre plus haute, un grugeage plus court ou une attache placée plus haut.')
+    c = pour(cfg, b.R)
+    g = b.gov
+    portee, porteuse = c.S.ELEMENTS[2][0], c.S.ELEMENTS[3][0]
+    essayees = "Toutes les dispositions ont été essayées (M12 à M36, 2 à 8 rangées, une ou deux files, pièce plus épaisse)"
+    reste = (f"{essayees} : au mieux, <b>{C.esc(g.grp)} · {C.esc(_minuscule(_court(c, g)))}</b> reste à "
+             f"{C.pc(taux(min(b.R.eta_max, 9.99)))}{C.NBSP}% ({_comparaison(c, g)}). ")
+    if g.grp == portee:
+        conseil = CONSEIL_PORTEE.format(piece=C.esc(_de_la(portee)),
+                                        grugeage=", ou réduire le grugeage" if g.key in VERIFS_GRUGEAGE else "")
+    elif g.grp == porteuse:
+        conseil = CONSEIL_PORTEUSE.format(piece=C.esc(_de_la(porteuse)))
+    else:
+        conseil = CONSEIL_HAUTEUR.format(hav=hav)
+    return tete + reste + conseil
 
 
 def sel_solution(cfg: Config, u: Dict, familles=None) -> str:
-    R = moteur(cfg, u)
-    p = R.pd
+    """Le sélecteur « Solutions » : les propositions VÉRIFIÉES, la conseillée d'abord (★ : au taux cible, sans réserve,
+    sur une file, le moins de boulons) ; chacune avec son nombre de
+    boulons et son taux — celui du calcul complet, pas une estimation. Sans proposition : pourquoi, et quoi changer."""
+    X = propositions(cfg, u)
     rows = []
-    for r in [x for x in p.rows if x.geom and x.prop]:
-        applique = valeurs_normales(cfg, cfg.predim["apply"](u, r))
-        cur = all(applique.get(k) == u.get(k) for k in applique if k != "mode_calc") and not R.pred
-        t, niv = taux_estime(r.eta, 0)
-        rows.append({"nom": _nom_solution(cfg, R, r), "col": C.nb(cfg.predim["col"](r)), "taux": t,
-                     "niveau": niv, "cur": cur, "opt": r is p.pick,
-                     "prop": C.esc(cfg.predim["label"](r) + " · " + geo_solution(cfg, r) + " · taux estimé"
-                                   + ("" if r.ok else " au-dessus du taux cible")
-                                   + ("" if math.isfinite(r.eta) else " (indéterminé)"))})
-    # (25/11/2026) ce qu'un clic change, et ce qu'il garde : dit là où on choisit
-    return C.selecteur("solution", "Solutions du prédimensionnement", SOUS_TITRE_SOLUTIONS,
-                       "", rows, _debut([dict(r, _ok=r["opt"]) for r in rows]), cfg.predim["unite_col"],
-                       etoile="proposée par défaut (le moins de rangées)")
-
-
-def geo_solution(cfg: Config, r) -> str:
-    """Les pinces et entraxes d'une solution, comme sur sa carte de l'onglet Prédim de Streamlit."""
-    f = cfg.predim.get("geo")
-    return f(r) if f else f"e1 {C.nb(r.e1)} / p1 {C.nb(r.p1)} / e2 {C.nb(r.e2)} mm"
+    for k, s in enumerate(X.solutions):
+        rows.append({"nom": cfg.predim["nom"](s.u), "col": C.nb(s.boulons), "taux": C.pct(min(eta_R(s.R), 9.99)),
+                     "niveau": niveau_R(s.R), "cur": not changements(cfg, u, s.u), "opt": k == 0,
+                     "prop": _detail_proposition(cfg, s)})
+    tete = "" if rows else f'<div class="asm-aucune">{aucune_solution(cfg, X)}</div>'
+    if rows and not X.solutions[0].plage:
+        tete = ('<div class="asm-aucune info">Aucun diamètre de la plage choisie (Options · Prédimensionnement) ne passe : '
+                'les solutions des autres diamètres.</div>')
+    return C.selecteur("solution", TITRE_PROPOSITIONS, SOUS_TITRE_SOLUTIONS, tete, rows, 0, "boulons",
+                       etoile="conseillée", vide="")
 
 
 def choisir_solution(cfg: Config, u: Dict, nom: str) -> None:
-    """Une solution du prédimensionnement recopiée dans les saisies (``moteur.apply_solution`` : boulons, rangées,
-    pinces, pièce ; repasse en VÉRIFICATION), normalisée comme l'écran Streamlit la réécrit."""
-    R = moteur(cfg, u)
-    for r in [x for x in R.pd.rows if x.geom and x.prop]:
-        if _nom_solution(cfg, R, r) == nom:
-            u.update(valeurs_normales(cfg, cfg.predim["apply"](u, r)))
+    """Une proposition recopiée dans les saisies : ses boulons, ses rangées et ses files, ses pinces, sa pièce
+    d'attache et sa gorge (``changements``) — jamais un effort, un profilé, un acier, un niveau ni le grugeage."""
+    for s in propositions(cfg, u).solutions:
+        if cfg.predim["nom"](s.u) == nom:
+            u.update(changements(cfg, u, s.u))
             return
     raise ValueError(f"solution inconnue : {nom}")
 

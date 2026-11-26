@@ -77,8 +77,15 @@ note = son élément le plus chargé).
 - **Résultat** : un **verdict** (`C.chip(taux, niveau, xl=True)` + la vérification gouvernante et sa comparaison
   « valeur ≤ limite » ; pour une valeur qui n'est pas un taux : `C.verdict_valeur`, ci-dessous), puis une ligne par
   vérification `C.ligne_res(nom, pièce, taux, niveau, calcul=, pk=, gov=, leger=, sans_taux=)` (deux lignes : nom et
-  pièce, puis jauge et taux), groupées si utile (`<div class="elgrp">`), les avertissements (`C.message`), le pied
-  (`pfoot` : méthode + `C.legende()`).
+  pièce, puis jauge et taux), groupées si utile (`<div class="elgrp">`), les avertissements (`C.message`).
+  **Il n'y a plus de pied** (25/11/2026 — le propriétaire : « en bas à droite […] il y a un code couleur. J'aimerais
+  qu'on vire ce cadre-là, il ne sert à rien. Et ça peut être pour tous les modules ») : ni nom du module, ni méthode,
+  ni version du moteur, ni légende des couleurs (`C.legende` est retirée). Ce qui était une DONNÉE et ne se lisait que
+  là reste : une ligne `C.infos((libellé, valeur[, infobulle]), …)` à la FIN du corps du résultat (la masse d'une
+  pièce, une flèche de service — bois, flambement, garde-corps, cornière, barres), ou l'endroit où elle se lisait déjà
+  (l'en-tête des vues, les hypothèses d'une fenêtre de calcul, la fenêtre « Méthode ») ; un bouton (exporter, le
+  bordereau) est dans une barre `class="pactions"`. Gardes : `tests/test_reference_refonte.py` (`_CADRE_DU_PIED` :
+  aucun résultat ne rend `pfoot` ni la légende) et le contrôle commun du harnais (`verifier_site.js`, chaque module).
 - **Fenêtre de calcul** : `C.fenetre_calcul(id, titre, sous_titre, hypothèses, lignes, détail, pied, colonnes)` —
   hypothèses en pastilles, tableau vérification/formule/valeur/limite/taux, puis le **détail des formules**
   `C.lignes_fx` : « symbole = expression = valeurs substituées = résultat », comme une note faite à la main.

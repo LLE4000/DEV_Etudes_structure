@@ -23,6 +23,10 @@ vérifiée en Python ordinaire. Chaque contrôle rougit si l'on retire ce qu'il 
      polices) ; rapport_projet n'importe plus pymupdf en tête.
   8. MUTATIONS : sans le masque des chaînes, sans la renumérotation, sans le taux de l'écran au récapitulatif, avec
      l'erreur brute du refus hors tableau, sans les refus — les contrôles qui les gardent rougissent.
+  9. La note SANS LES TAUX (option « Afficher les taux (%) dans la note de calcul » décochée, 25/11/2026) : plus un
+     pourcentage de résultat — ni au bandeau, ni dans les tableaux, ni dans les formules, ni au récapitulatif ; E_d,
+     R_d, les verdicts (« OK » / « NON OK ») et l'état restent ; un SEUIL (« au-delà de 100 % ») n'est pas un taux ;
+     la note par défaut est inchangée, à l'octet ; mutations.
 
     /usr/bin/python3.12 tests/test_note_assemblages.py        (pdftotext, pymupdf et streamlit requis)
 """
@@ -88,9 +92,12 @@ def asm(cle, rep, *saisies):
     return e["assemblages"][0]
 
 
-def note(*els, infos=None):
-    """La note par le routeur (comme le navigateur) : (réponse, octets ou None)."""
+def note(*els, infos=None, taux=None):
+    """La note par le routeur (comme le navigateur) : (réponse, octets ou None). ``taux`` : l'option « Afficher les
+    taux (%) dans la note de calcul » de la note (None : la note ne la porte pas — une note d'avant l'option)."""
     etat = {"version": 1, "assemblages": [copy.deepcopy(e) for e in els], "actif": 0}
+    if taux is not None:
+        etat["note_taux"] = taux
     r = json.loads(RT.traiter(json.dumps({"module": "assemblages", "action": "telecharger", "etat": etat,
                                           "quoi": "note_pdf", "infos": infos if infos is not None else INFOS})))
     return r, (base64.b64decode(r["fichier"]["base64"]) if r.get("ok") else None)
@@ -550,6 +557,100 @@ try:
         bool(controle_refus()))
 finally:
     NA._motif = garde_m
+
+# ===================================================================== 9. la note sans les taux
+print("— 9. la note sans les taux (l'option de la rubrique « Options »)")
+from acier.assemblages import note_kit as NK  # noqa: E402
+
+_POURCENT = re.compile(r"\d\s?%")
+_SEUIL = re.compile(r"au-(?:delà|dessus) de 100\s?%")           # un SEUIL dit en mots n'est pas un taux
+_GRANDEUR = re.compile(r"\d+,\d+ (?:kNm/m|kNm|kN|MPa)(?![\w/])")          # une valeur et son unité (E_d, R_d, σ)
+_VERDICT = re.compile(r"NON VÉRIFIÉ|À VÉRIFIER|VÉRIFIÉ")                    # chaque verdict écrit, dans l'ordre
+
+
+def _plat(t):
+    return re.sub(r"\s+", " ", t)
+
+
+def fautes_sans_taux(liste):
+    """Pour chaque (nom, assemblage) : la note AVEC ses taux (par défaut) et SANS — ce qui cloche dans la seconde."""
+    fautes, n = [], 0
+    for nom, el in liste:
+        _r0, avec = note(el)
+        r1, sans = note(el, taux=False)
+        if not (r1.get("ok") and avec):
+            fautes.append((nom, "note refusée", r1.get("erreur")))
+            continue
+        n += 1
+        ta, ts = _plat(texte(avec)), _plat(texte(sans))
+        if len(_POURCENT.findall(ta)) < 10:
+            fautes.append((nom, "la note par défaut n'a plus ses taux", len(_POURCENT.findall(ta))))
+        reste = _POURCENT.findall(_SEUIL.sub("", ts))
+        if reste:
+            i = _POURCENT.search(_SEUIL.sub("", ts)).start()
+            fautes.append((nom, "un pourcentage reste", len(reste), _SEUIL.sub("", ts)[max(0, i - 60):i + 12]))
+        if "η max" in ts or "η MAX" in ts or "Taux de travail" in ts or NA.SOUS_TITRE_RECAP_SANS_TAUX not in ts:
+            fautes.append((nom, "bandeau ou récapitulatif"))
+        if sorted(_GRANDEUR.findall(ta)) != sorted(_GRANDEUR.findall(ts)):
+            fautes.append((nom, "E_d / R_d", sorted(set(_GRANDEUR.findall(ta)) ^ set(_GRANDEUR.findall(ts)))[:4]))
+        va, vs = _VERDICT.findall(ta), _VERDICT.findall(ts)
+        if not va or va != vs:
+            fautes.append((nom, "verdict", va[:3], vs[:3]))
+        # la colonne η des tableaux de vérification dit « OK » ou « NON OK » à la place du taux (la note par défaut n'écrit
+        # ces mots que dans son tableau des pinces, qui reste) : des verdicts en PLUS, et un « NON OK » sous « NON VÉRIFIÉ »
+        d_mots = len(re.findall(r"\bOK\b", ts)) - len(re.findall(r"\bOK\b", ta))           # (« NON OK » compris)
+        d_non = len(re.findall(r"\bNON OK\b", ts)) - len(re.findall(r"\bNON OK\b", ta))
+        if d_mots < 4 or (va and va[0] == "NON VÉRIFIÉ" and d_non < 1) or (va and va[0] == "VÉRIFIÉ" and d_non != 0):
+            fautes.append((nom, "colonne des verdicts", d_mots, d_non, va[:1]))
+        if PR.nombre_de_pages(sans) != PR.nombre_de_pages(avec):
+            fautes.append((nom, "pages", PR.nombre_de_pages(sans), PR.nombre_de_pages(avec)))
+    return fautes, n
+
+
+f9, n9 = fautes_sans_taux(CAS)
+chk(f"sans les taux : {n9} notes (les sept configurations, conformes et non conformes) — plus un pourcentage de résultat "
+    "(bandeau, tableaux, formules, calcul à la main, récapitulatif) ; E_d, R_d et leurs unités inchangés ; le verdict de tête "
+    "inchangé ; la colonne η dit « OK » / « NON OK » ; même nombre de pages", n9 == len(CAS) and not f9, f9[:4])
+_e9 = CAS[0][1]
+chk("sans les taux : l'option cochée (« note_taux » vrai) ou absente (une note d'avant l'option) rend la MÊME note, à "
+    "l'octet — la note par défaut est inchangée", note(_e9)[1] == note(_e9, taux=True)[1] != note(_e9, taux=False)[1])
+_t9 = _plat(texte(note(*[c[1] for c in CAS[:3]], taux=False)[1], 2, 2))
+chk("sans les taux : le récapitulatif garde l'état et la vérification dimensionnante de chaque assemblage, sans la colonne "
+    "« η MAX » (la page de garde l'annonce : « État et vérification dimensionnante de chaque assemblage »)",
+    "η" not in _t9 and not _POURCENT.search(_t9) and "NON VÉRIFIÉ" in _t9 and "VÉRIFIÉ" in _t9.replace("NON VÉRIFIÉ", "")
+    and _t9.count("dimensionnante : ") == 3 and "ÉTAT" in _t9, _t9[:300])
+chk("sans les taux : la comparaison reste lisible — « η = 66,70 kN / 83,07 kN = 80,3 % ≤ 100 % » devient « 66,70 kN ≤ "
+    "83,07 kN » ; un taux au-delà de 100 % garde son sens (« > ») ; « → 47 % », « (79 %) », « à 107,7 % » partent ; un "
+    "seuil reste",
+    NK.masquer_taux("η = 66,70 kN / 83,07 kN = 80,3 % ≤ 100 %") == "66,70 kN ≤ 83,07 kN"
+    and NK.masquer_taux("η = 300,00 kN / 220,60 kN = 136,0 % > 100 %") == "300,00 kN > 220,60 kN"
+    and NK.masquer_taux("σvm = 162 MPa ≤ 345 MPa → 47 % ; Mpl = 5,17 kNm") == "σvm = 162 MPa ≤ 345 MPa ; Mpl = 5,17 kNm"
+    and NK.masquer_taux("19,8 mm pour tp = 25 mm (79 %) — conforme") == "19,8 mm pour tp = 25 mm — conforme"
+    and NK.masquer_taux("béton d'ancrage à 107,7 %, hors périmètre EC3") == "béton d'ancrage, hors périmètre EC3"
+    and NK.masquer_taux("Béton d'ancrage au-delà de 100 % — hors périmètre") == "Béton d'ancrage au-delà de 100 % — hors périmètre"
+    and NK.verdict(True) == "OK" and NK.verdict(False) == "NON OK")
+# mutations : le masque retiré des notes ; l'option qui n'atteint plus la note
+_MODS9 = [NA.module_note(k) for k in ("plat_ame", "doubles_cornieres")] + [
+    sys.modules["acier.assemblages.pied_poteau.platine_beton.note"], sys.modules["acier.assemblages.pied_poteau.platine_beton.manuel.note"]]
+_garde9 = [m.masquer_taux for m in _MODS9]
+for m in _MODS9:
+    m.masquer_taux = lambda t: t
+try:
+    fm, _n = fautes_sans_taux([CAS[0], CAS[2], CAS[12]])
+    chk("mutation : sans le masque des textes (« = 80,3 % », « → 47 % »), des pourcentages restent dans les trois notes "
+        "(doubles cornières, plat d'âme, pied de poteau) — le contrôle rougit",
+        {x[0] for x in fm if x[1] == "un pourcentage reste"} == {CAS[0][0], CAS[2][0], CAS[12][0]}, fm[:3])
+finally:
+    for m, f in zip(_MODS9, _garde9):
+        m.masquer_taux = f
+_garde_st = NA.sans_taux
+NA.sans_taux = lambda etat: False
+try:
+    fm, _n = fautes_sans_taux([CAS[0], CAS[14]])
+    chk("mutation : l'option qui n'atteint plus la note (elle resterait « avec taux ») — le contrôle rougit", len(fm) >= 2, fm[:2])
+finally:
+    NA.sans_taux = _garde_st
+chk("… et sans les mutations, il reste vert", not fautes_sans_taux([CAS[0], CAS[12]])[0])
 
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")

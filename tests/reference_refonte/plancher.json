@@ -16,6 +16,11 @@
    "date": "2026-11-16",
    "raison": "Lot A : tôles S235 de 20 et 30 mm à f = 225 (tableau 3.3 ANB, 16 < t ≤ 40 mm) au lieu de 235 ; c = t·√(f/(3·p)) −2,2 % ; plateaux entiers : taux inchangés",
    "ecarts": ["exemple hourdis (engin, plateaux, filière) : valeurs qui ne se voient plus [\"354\", \"370\", \"388\", \"409\"]", "exemple dalle (télescopique à roues) : valeurs qui ne se voient plus [\"669\"]", "hourdis : filière retirée (non conforme) : valeurs qui ne se voient plus [\"354\", \"370\", \"388\", \"409\"]", "hourdis en service, sens 2 : valeurs qui ne se voient plus [\"354\", \"370\", \"388\", \"409\"]"]
+  },
+  {
+   "date": "2026-11-25",
+   "raison": "Cadre du pied du résultat retiré de tous les modules le 25/11/2026 (demande du propriétaire : « en bas à droite […] il y a un code couleur. J'aimerais qu'on vire ce cadre-là, il ne sert à rien ») — aucune valeur de calcul n'a changé ; ce que le pied portait se lit ailleurs : le total des engins et des étançons dans l'en-tête des vues et à la rubrique Charges.",
+   "ecarts": ["fiche générique à renseigner (à compléter) : valeurs qui ne se voient plus [\"0\"]", "exemple dalle (télescopique à roues) : valeurs qui ne se voient plus [\"80\"]", "hourdis : filière retirée (non conforme) : valeurs qui ne se voient plus [\"250\"]", "charge ponctuelle ajoutée puis dupliquée : valeurs qui ne se voient plus [\"60\"]", "hourdis en service, sens 2 : valeurs qui ne se voient plus [\"250\"]"]
   }
  ],
  "cas": [
@@ -49,8 +54,7 @@
      ["M Rd =", "51,00 kN·m"],
      ["Tranchant H7", "+7", "25 %"],
      ["V Ed =", "22,69 kN", "≤"],
-     ["V Rd =", "89,00 kN"],
-     ["Engins et étançons (charges de service)", "0 kN"]
+     ["V Rd =", "89,00 kN"]
     ],
     "calculs": [
      ["Élément H1 cas C1 · flexion et tranchant · M Rd , V Rd du catalogue SP Ergon", "2018", "·"],
@@ -459,7 +463,7 @@
      ["L", "7,20 m", "·", "8", "×", "1,20 m", "·"],
      ["Clavetés η — Vérification impossible le moteur s'arrête avant tout calcul : voir ci-dessous Hourdis : résistances M Rd et V Rd du catalogue à renseigner (étape", "1,"],
      ["fiche du fabricant) ; aucune vérification n'est possible sans elles. Où compléter · Section", "2", "«"],
-     ["Hourdis » : choisir un type du catalogue, ou saisir M Rd et V Rd de la fiche du fabricant. Engins et étançons (charges de service)", "0 kN"]
+     ["Hourdis » : choisir un type du catalogue, ou saisir M Rd et V Rd de la fiche du fabricant."]
     ],
     "calculs": [],
     "avis": ["⚠ Hourdis : résistances M Rd et V Rd du catalogue à renseigner (étape 1, fiche du fabricant) ; aucune vérification n'est possible sans elles. Où compléter · Section 2 « Hourdis » : choisir un type du catalogue, ou saisir M Rd et V Rd de la fiche du fabricant."],
@@ -628,7 +632,7 @@
      ["étançon T1 ·", "40 kN"],
      ["Filière F1", "59 %"],
      ["porté par H5", "8"],
-     ["ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — voir le détail. Engins et étançons (charges de service)", "250 kN"]
+     ["ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — voir le détail."]
     ],
     "calculs": [
      ["Élément H1 cas C1 levage en rive · flexion et tranchant · M Rd , V Rd du catalogue Hourdis générique", "200", "·"],
@@ -1381,7 +1385,7 @@
      ["Tôle", "800", "×", "800", "×", "20", "96 %"],
      ["porté par B6 R4 ·", "28 kN"],
      ["Tôle", "800", "×", "800", "×", "20", "96 %"],
-     ["porté par B4 coefficient k de la largeur efficace en flexion non transcrit : b m = t y , résultat très conservatif sous charge concentrée (P-4) Engins et étançons (charges de service)", "80 kN"]
+     ["porté par B4 coefficient k de la largeur efficace en flexion non transcrit : b m = t y , résultat très conservatif sous charge concentrée (P-4)"]
     ],
     "calculs": [
      ["Dalle BA · flexion et tranchant cas C2 dalle · méthode de l'application, par mètre de largeur Dalle BA C30/37 · f yk =", "500 N/mm²", "·"],
@@ -1734,8 +1738,7 @@
      ["largeur", "9,60 m", "·"],
      ["h", "200 mm", "·"],
      ["C30/37 η — Vérification impossible le moteur s'arrête avant tout calcul : voir ci-dessous Prédalle sans chape durcie : seules les charges surfaciques de bétonnage sont admises ; pas d'engin ni d'étai (P-7) — voir les tables d'étaiement du fabricant. Où compléter · Section", "2", "«"],
-     ["Prédalle » : cocher « Chape durcie », ou ne garder que des stocks (section", "3)."],
-     ["Engins et étançons (charges de service)", "30 kN"]
+     ["Prédalle » : cocher « Chape durcie », ou ne garder que des stocks (section", "3)."]
     ],
     "calculs": [],
     "avis": ["⚠ Prédalle sans chape durcie : seules les charges surfaciques de bétonnage sont admises ; pas d'engin ni d'étai (P-7) — voir les tables d'étaiement du fabricant. Où compléter · Section 2 « Prédalle » : cocher « Chape durcie », ou ne garder que des stocks (section 3)."],
@@ -1914,7 +1917,7 @@
      ["Sans répartiteur", "57 %"],
      ["porté par H5", "7"],
      ["ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — voir le détail. Section", "4", "«"],
-     ["Répartiteurs » : proposer une filière sous les appuis en défaut ; vue « Balayage » : les positions admissibles de l'engin. Engins et étançons (charges de service)", "250 kN"]
+     ["Répartiteurs » : proposer une filière sous les appuis en défaut ; vue « Balayage » : les positions admissibles de l'engin."]
     ],
     "calculs": [
      ["Élément H1 cas C1 levage en rive · flexion et tranchant · M Rd , V Rd du catalogue Hourdis générique", "200", "·"],
@@ -2550,8 +2553,7 @@
      ["M Rd =", "51,00 kN·m"],
      ["Tranchant H7", "+7", "25 %"],
      ["V Ed =", "22,69 kN", "≤"],
-     ["V Rd =", "89,00 kN"],
-     ["Engins et étançons (charges de service)", "0 kN"]
+     ["V Rd =", "89,00 kN"]
     ],
     "calculs": [
      ["Élément H1 cas C1 · flexion et tranchant · M Rd , V Rd du catalogue SP Ergon", "2018", "·"],
@@ -2973,7 +2975,7 @@
      ["porté par H5 T2 ·", "30 kN"],
      ["Sans répartiteur", "217 %"],
      ["porté par H5 Section", "4", "«"],
-     ["Répartiteurs » : proposer une filière sous les appuis en défaut. Engins et étançons (charges de service)", "60 kN"]
+     ["Répartiteurs » : proposer une filière sous les appuis en défaut."]
     ],
     "calculs": [
      ["Élément H1 cas C1 · flexion et tranchant · M Rd , V Rd du catalogue SP Ergon", "2018", "·"],
@@ -3450,7 +3452,7 @@
      ["étançon T1 ·", "40 kN"],
      ["Filière F1", "41 %"],
      ["porté par H5", "8"],
-     ["ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — voir le détail. Engins et étançons (charges de service)", "250 kN"]
+     ["ligne(s) non vérifiée(s) : paramètre à transcrire ou donnée absente — voir le détail."]
     ],
     "calculs": [
      ["Élément H1 cas C1 levage en rive · flexion et tranchant · M adm , V adm du catalogue Hourdis générique", "200", "·"],
@@ -4106,8 +4108,7 @@
      ["M Rd =", "51,00 kN·m"],
      ["Tranchant H7", "+7", "25 %"],
      ["V Ed =", "22,69 kN", "≤"],
-     ["V Rd =", "89,00 kN"],
-     ["Engins et étançons (charges de service)", "0 kN"]
+     ["V Rd =", "89,00 kN"]
     ],
     "calculs": [
      ["Élément H1 cas C2 · flexion et tranchant · M Rd , V Rd du catalogue SP Ergon", "2018", "·"],
@@ -4506,8 +4507,7 @@
        ["M Rd =", "51,00 kN·m"],
        ["Tranchant H7", "+7", "25 %"],
        ["V Ed =", "22,69 kN", "≤"],
-       ["V Rd =", "89,00 kN"],
-       ["Engins et étançons (charges de service)", "0 kN"]
+       ["V Rd =", "89,00 kN"]
       ]
      },
      {
@@ -4525,8 +4525,7 @@
        ["M Rd =", "51,00 kN·m"],
        ["Tranchant H7", "+7", "25 %"],
        ["V Ed =", "22,69 kN", "≤"],
-       ["V Rd =", "89,00 kN"],
-       ["Engins et étançons (charges de service)", "0 kN"]
+       ["V Rd =", "89,00 kN"]
       ]
      }
     ]

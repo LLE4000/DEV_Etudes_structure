@@ -1,6 +1,6 @@
 // Ce que TOUTE page porte du bureau, quel que soit son écran : la PASTILLE de la personne du poste (au pied de la barre)
 // et la MARQUE des modules vérifiés (cahier des charges § 4) — sur les tuiles de l'accueil, dans le volet des modules, dans
-// « Nouvelle note », et au pied du cadre Résultat d'un module. Les gabarits (site/web/construire.py : marque_verifie, rail,
+// « Nouvelle note », et au pied du Résultat d'un module vérifié. Les gabarits (site/web/construire.py : marque_verifie, rail,
 // page_module) écrivent ces marques CACHÉES ou vides ; ce fichier les montre d'après ce navigateur (js/equipe.js,
 // js/verifications.js).
 //
@@ -35,8 +35,9 @@ export function marquer(racine = typeof document === "undefined" ? null : docume
   } catch (e) { console.error(e); }
 }
 
-// la marque d'un module, au pied de son cadre Résultat : « Module vérifié · LLE · 11/11/2026 » (argentée), « Module vérifié
-// deux fois · LLE, MDU · 14/11/2026 » (dorée), « Module à vérifier », « Module à revérifier » (son calcul a changé depuis)
+// la marque d'un module, au pied de son Résultat : « Module vérifié · LLE · 11/11/2026 » (argentée), « Module vérifié deux
+// fois · LLE, MDU · 14/11/2026 » (dorée), « Module à revérifier » (son calcul a changé depuis). Un module que personne n'a
+// vérifié n'en porte PAS (``poserVerification``) : « Module à vérifier » est parti avec le cadre du pied (25/11/2026).
 function peindre(el) {
   const cle = el.dataset.verifModule;
   const e = V.etat(cle), d = V.dire(cle, e);
@@ -47,16 +48,21 @@ function peindre(el) {
   if (t) t.textContent = e.etat === "verifie" ? `Module ${d.court.toLowerCase()} · ${d.qui}` : e.etat === "change" ? "Module à revérifier" : "Module à vérifier";
 }
 
-// Poser la marque au pied du cadre Résultat d'un établi (js/etabli.js, après chaque rendu du résultat : le pied « .pfoot »
-// vient du moteur à chaque calcul). Un module qui ne se vérifie pas (masqué, absorbé par un autre) n'en porte pas.
+// Poser la marque au pied du Résultat d'un établi (js/etabli.js, après chaque rendu du résultat, qui la remporte) : la
+// DERNIÈRE ligne du cadre, sous le corps qui défile. Elle ne se pose que pour un module VÉRIFIÉ, ou vérifié puis changé
+// (« à revérifier ») : il n'y a plus de cadre au pied du résultat (le propriétaire, 25/11/2026 : « en bas à droite … il y
+// a un code couleur. J'aimerais qu'on vire ce cadre-là, il ne sert à rien. Et ça peut être pour tous les modules »), et
+// « Module à vérifier » ne se dit plus — sans marque, un module n'est pas vérifié, comme sur sa tuile de l'accueil. Un
+// module qui ne se vérifie pas (masqué, absorbé par un autre) n'en porte jamais.
+export const ETATS_MARQUES = ["verifie", "change"];
 export function poserVerification(resultat, cle) {
   try {
     if (!resultat || !V.modules().includes(cle)) return;
-    const pied = resultat.querySelector(".pfoot");
+    for (const vieux of resultat.querySelectorAll(":scope > .et-verif")) vieux.remove();
     const gabarit = document.getElementById("et-verif-gabarit");
-    if (!pied || !gabarit || pied.querySelector(".et-verif")) return;
-    pied.appendChild(gabarit.content.cloneNode(true));
-    const el = pied.querySelector(".et-verif");
+    if (!gabarit || !ETATS_MARQUES.includes(V.etat(cle).etat)) return;
+    resultat.appendChild(gabarit.content.cloneNode(true));
+    const el = resultat.querySelector(":scope > .et-verif");
     if (el) peindre(el);
   } catch (e) { console.error(e); }
 }

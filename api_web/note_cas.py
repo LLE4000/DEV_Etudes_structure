@@ -55,6 +55,16 @@ AIDE_IDENTIFICATION = ("L'en-tête et le cartouche de la note PDF portent le nom
                        "cette note du site — ceux du cartouche des dessins —, comme pour tous les modules : une seule source.")
 
 
+# le PEINTRE DES SCÈNES du kit des notes — ``rapport.peindre`` des doubles cornières, que les notes des soudures, des
+# garde-corps et des cornières d'appui réemploient — et le fichier qu'il importe. Jusqu'au 25/11/2026 ce ``texte.py``
+# arrivait par le paquet du MOTEUR : l'écran des assemblages l'importait pour son onglet « Note », retiré ce jour-là.
+# Chaque note le déclare donc elle-même, par cette liste (une seule : les trois notes la citent). Trouvé par la sonde
+# « comme dans le navigateur » de tests/test_note_soudures.py, test_note_garde_corps.py et test_note_corniere.py : le
+# fichier était chargé sans être déclaré.
+PEINTRE_SCENES: Tuple[str, ...] = ("acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py",
+                                   "acier/assemblages/poutre_poutre/doubles_cornieres/texte.py")
+
+
 class Generateur(NamedTuple):
     """Ce que le site sait du générateur de la note d'un module."""
     module: str                         # le module Python du générateur (« acier.garde_corps.note »)

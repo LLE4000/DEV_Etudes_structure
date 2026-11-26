@@ -22,12 +22,13 @@ import base64
 import copy
 from typing import Dict, Optional, Tuple
 
+from .note_cas import PEINTRE_SCENES
+
 TITRE = "Cornières d'appui"
 # les fichiers du dépôt que la NOTE charge en plus de l'écran du module et du paquet de la note de la poutre (ndc_pdf, le
 # Pillow factice, reportlab) : le paquet de la note (site/web/construire.paquet_note, note.zip) les embarque. La liste
 # est PROUVÉE complète par la sonde « comme dans le navigateur » de tests/test_note_corniere.py.
-FICHIERS: Tuple[str, ...] = ("acier/corniere/note.py", "acier/corniere/formules.py", "acier/corniere/methode.py",
-                             "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py")
+FICHIERS: Tuple[str, ...] = ("acier/corniere/note.py", "acier/corniere/formules.py", "acier/corniere/methode.py") + PEINTRE_SCENES
 
 
 def _texte(x) -> str:

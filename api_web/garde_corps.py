@@ -575,11 +575,11 @@ def resultat(etat: Dict, avec_optimaux: bool = True) -> Dict:
                              "".join(r for _, _, r in groupes[i]), theme=True)
         volets += _fenetre_bloc(i, [c for _, c, _ in groupes[i] if c], blocs, hyps)
     messages = "".join(C.message(C.esc(msg), msg.startswith("Refus") or "DÉPASSÉ" in msg) for msg in res.get("messages", []))
-    pied = (f'<div class="pfoot"><div class="mass"><span>Masse indicative de l\'acier</span><b>{C.fr(res.get("masse") or 0, 0)}{C.NBSP}kg</b></div>'
-            f'<div class="legend">{C.legende()}</div></div>')
+    # (25/11/2026 : plus de cadre au pied du résultat — ``commun.infos`` ; la masse de l'acier ne se lit que là)
+    pied = C.infos(("Masse indicative de l'acier", f'{C.fr(res.get("masse") or 0, 0)}{C.NBSP}kg'))
     nom = C.esc(cas.get("nom") or f"G{etat['actif'] + 1}")
     dims = f'{C.esc(res.get("type_libelle", ""))} · {C.esc((res.get("geometrie") or {}).get("phrase", ""))}'
-    html_res = (f'<div class="pbody">{E.tete_resultats(nom, dims)}{verdict}<div class="et-blocs">{html_blocs}</div>{messages}</div>{pied}')
+    html_res = (f'<div class="pbody">{E.tete_resultats(nom, dims)}{verdict}<div class="et-blocs">{html_blocs}</div>{messages}{pied}</div>')
     # les fenêtres de calcul des pièces (celles des blocs, « tout le calcul », sont déjà faites)
     for k, b in blocs.items():
         if not b.get("groupes"):
@@ -603,8 +603,7 @@ def resultat(etat: Dict, avec_optimaux: bool = True) -> Dict:
 # quand une colonne ne tient pas (sa page de suite) — qu'il pose lui-même dans la note (``poser``, api_web/note_cas.py) ;
 # l'identification imprimée est celle de la note du site
 NOTE = NC.Generateur("acier.garde_corps.note", "Garde-corps", None,
-                     ("acier/garde_corps/note.py", "acier/garde_corps/methode.py",
-                      "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
+                     ("acier/garde_corps/note.py", "acier/garde_corps/methode.py") + NC.PEINTRE_SCENES)
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:

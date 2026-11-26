@@ -1118,7 +1118,7 @@ def resultat(etat: Dict) -> Dict:
     resultats = [r if i == etat["actif"] else vue(_sans_echec(e), aff) for i, e in enumerate(etat["elements"])]
     nom = C.esc(el.get("nom") or "Barre")
     corps = (f'<div class="pbody">{E.tete_resultats(nom, R.dims(el))}'
-             f'<div class="et-blocs">{R.blocs(el, r)}</div></div>{R.pied(r)}')
+             f'<div class="et-blocs">{R.blocs(el, r)}</div>{R.pied(r)}</div>')
     resume = resume_note(etat, resultats)
     statut = C.statut(resume["niveau"]) if len(resultats) > 1 else ""
     return {"resultat": corps, "volets": R.volets(el, r, nom), "vues": _vues(el, r, f"pf{etat['actif']}"), "phrase": "", "statut_html": statut,
