@@ -194,16 +194,17 @@ _PIECES_PDF = re.compile(r"([A-ZÉÈ][\wéèêàç']+) (> 999|\d+) %")
 
 
 def chiffres_ecran(r):
-    """Les chiffres de l'écran : le taux de la tête (pastille du verdict), son niveau, les taux des pièces."""
-    tete = r["resultat"].split('class="verdict"')[1]
-    m = re.search(r'class="chip xl (\w)"[^>]*><small>η</small>([^<]+)</span>', tete)
+    """Les chiffres de l'écran : le taux de la tête et son niveau (l'en-tête du bloc « Vérifications » : « Non
+    conforme · 131 % » — 26/11/2026, le harnais SUIT : plus de pastille de verdict en tête), les taux des pièces."""
+    tete = re.search(r'<span class="n">Vérifications</span><span class="e">([^<]*) · ([^<·]+)</span>', r["resultat"])
+    niveau = {v[1]: k for k, v in C.STATUTS.items() if k in "pfrv"}[tete.group(1)]
     # (établi compact : le taux est au bout de la première ligne ; une ligne sans taux — « hors verdict » — n'en est pas une)
     pieces = [(n_, niv_, t_) for n_, sorte_, niv_, t_ in re.findall(
         r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(?:(?!</div>).)*?<span class="(pct|et-mot) (\w)"[^>]*>([^<]+)</span></div>',
         r["resultat"]) if sorte_ == "pct"]
     # une ligne d'INFORMATION (pied de poteau, béton d'ancrage au périmètre « EC3 seul ») ne porte plus de taux mais
     # « hors verdict » (A.SANS_TAUX_INFORMATION, petits chantiers du 10/11/2026) : ce n'est pas un taux de pièce
-    return {"niveau": m.group(1), "taux": m.group(2).replace(C.NBSP, " ").replace("&gt;", ">"),
+    return {"niveau": niveau, "taux": tete.group(2).replace(C.NBSP, " ").replace("&gt;", ">"),
             "pieces": [(n, t.replace(C.NBSP, " ").replace("&gt;", ">")) for n, _niv, t in pieces
                        if n not in ("Géométrie", "Proposition") and t.strip() != A.SANS_TAUX_INFORMATION]}
 

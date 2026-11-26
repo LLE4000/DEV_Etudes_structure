@@ -69,6 +69,47 @@ l'onglet Prédim (= `ecran_resultats.onglet_predim`), les dimensions provisoires
 
 ## 3. L'écran (famille poutre–poutre, construite et vérifiée en entier)
 
+> **Revue de l'écran du 26/11/2026 — elle prime sur celle du 25/11 et sur la description ci-dessous, là où elles
+> diffèrent.** Demande du propriétaire, sur deux captures de la platine d'about (HEA 320 sur HEA 400,
+> V<sub>Ed</sub> = 400 kN, M24 : « η 131 % », « Impossible — platine trop étroite (pince e2) ») : « avant, je cliquais
+> sur le dessin et je pouvais tout choisir […] réactive ça, c'était assez pratique […] en haut à droite, il y a un gros
+> 131 % et une autre ligne : dans le module en béton, ça on avait supprimé […] ça me dit que c'est pas bon : que ça me
+> propose une solution bonne. Les pinces, par exemple, je suis pas bon : que ça me propose un truc qui serait correct
+> […] dans les options, ça propose un diamètre 16 à 22 : que ça ne mette pas ça, que ça mette les boulons qui
+> conviennent ».
+>
+> - **Le dessin se MANIPULE** (`api_web/dessin_assemblages.py`, `site/web/js/plan.js` — le composant du Générateur SAF,
+>   les trois formats). Le dessin cliquable existait dans l'écran Streamlit et n'avait jamais été branché sur le site ;
+>   le kit des schémas écrivait toujours ce que chaque objet règle. Une COTE se tape sur le dessin (un champ s'ouvre
+>   sur elle ; la valeur part par le chemin du champ des Données) ; une PIÈCE ouvre son sélecteur — profilés, boulons,
+>   cornières, tiges : la liste du résultat, chaque ligne calculée par le moteur — ou mène à son champ (le plat, un
+>   cordon, les efforts : la rubrique s'ouvre, au téléphone l'onglet Données vient devant) ; « + » et « − » règlent
+>   les rangées d'un groupe de boulons. Le dessin est un RACCOURCI : une cible n'est posée que si son champ existe
+>   dans le cadre Données rendu (R1). Au doigt, une cote proche du doigt l'emporte sur la pièce touchée ; au clavier,
+>   Entrée sur l'objet. Le glisser du kit (jeu, décalage, tiges) n'est PAS branché — voir
+>   `docs/site/DESSIN_CLIQUABLE_ETUDE.md`, niveau (b).
+> - **Plus de gros taux en tête** : l'en-tête du bloc « Vérifications » dit l'état et le taux, la ligne qui gouverne
+>   est marquée ; la ligne « Géométrie » dit ce qu'elle compare dès qu'une distance n'est pas conforme (« Platine –
+>   e2 (bord latéral) : 30,0 mm < 31,2 mm »). Pied de poteau « À vérifier » : la raison est un message.
+> - **« À corriger »** (`api_web/assemblages_corriger.py`) : un assemblage que le moteur ne vérifie pas s'ouvre sur ce
+>   bloc, avant les vérifications. (1) Chaque DÉFAUT DE GÉOMÉTRIE que le moteur nomme (alerte bloquante, pince ou
+>   entraxe hors du Tableau 3.3) et ses RETOUCHES en un geste — « b<sub>p</sub> 150 → 155 mm » : la plus petite
+>   retouche d'UNE saisie de l'attache ou des boulons avec laquelle le moteur ne signale plus ce défaut, ni aucun
+>   nouveau (`acier/assemblages/corrections.py`, neuf — aucune formule : il cherche par crans de 5 mm, d'une rangée
+>   ou d'une épaisseur de la série, le calcul complet juge ; 4 à 46 calculs, moins de 0,2 s hors navigateur).
+>   (2) La SOLUTION VÉRIFIÉE et « Appliquer » : la conseillée, et celle qui garde le diamètre choisi quand elle
+>   existe ; « Autres solutions » ouvre la liste. (3) Sans aucune solution : la vérification qui bloque, puis
+>   « Profilés qui conviennent » — les profilés plus hauts de la famille (ou d'une autre : puces), chacun avec SA
+>   solution vérifiée, cherchée au clic ; en retenir un recopie le profilé et sa solution. Cas des captures :
+>   HEA 340 (98 %), ou HEB 320 (90 %).
+> - **Plus de plage de diamètres** : « Ø min » et « Ø max » quittent les Options ; la recherche parcourt tout le
+>   catalogue des boulons et rend une solution par diamètre qui convient (`assemblages.chercher_solutions`). Le taux
+>   cible et les pinces k·d₀ restent.
+> - **Preuves** : `tests/test_dessin_assemblages.py` (le contrat des sept configurations — chaque cible existe dans les
+>   Données —, l'aller-retour, 8 mutations), `tests/test_assemblages_corriger.py` (chaque retouche recalculée hors de
+>   la recherche, chaque bouton essayé, les profilés qui conviennent, 12 mutations), `site/web/verifier_site.js`
+>   filtre « assemblages » (trois formats).
+>
 > **Revue de l'écran du 25/11/2026 — elle prime sur la description ci-dessous, là où elles diffèrent.** Demande du
 > propriétaire, sur une capture (doubles cornières, HEA 300 sur HEA 400, V<sub>Ed</sub> = 200 kN : « AUCUNE combinaison
 > ne respecte le taux cible ») : « dans la partie centrale, on devrait juste avoir élévation, plan, droite […] le

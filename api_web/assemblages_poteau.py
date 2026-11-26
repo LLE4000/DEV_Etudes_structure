@@ -112,11 +112,11 @@ def sans_objet_aile(texte, debut):
 
 
 def vues_poteau(S):
-    """Les vues du moteur : élévation et vue en plan (celles de l'écran Streamlit, avec ses options, sans
-    l'interactivité : les cotes se saisissent dans les Données), puis la coupe A-A de la note de calcul."""
+    """Les vues du moteur : élévation et vue en plan (celles de l'écran Streamlit, avec ses options, interactivité
+    comprise — ``assemblages.vues`` la traduit pour le site), puis la coupe A-A de la note de calcul."""
     def vues(R, niveau, hl):
         opt = S.options_ecran(R, niveau, hl)
-        opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, niveau >= 1, None
+        opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, niveau >= 1, None
         u = R.u
         cas = "sur l'aile du poteau" if R.aile else "dans l'âme du poteau, entre les ailes"
         return [("elevation", "Élévation", "Élévation", S.elevation(R, opt), f"{u.prof_S} {cas}"),

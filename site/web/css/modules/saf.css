@@ -148,10 +148,7 @@
 .sf-plan.sf-en-geste .sf-carte { opacity: .35; }
 .sf-plan .sf-etiq { font-family: Inter, system-ui, sans-serif; font-weight: 600; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff;
   stroke-linejoin: round; pointer-events: none; }
-/* la cote qu'on tape : un champ posé sur elle */
-.sf-saisie { position: fixed; z-index: 80; height: 30px; border: 2px solid var(--accent); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 13px;
-  font-weight: 600; text-align: center; background: var(--panel); color: var(--ink); box-shadow: var(--shadow-pop); font-variant-numeric: tabular-nums; }
-.sf-saisie:focus { outline: none; }
+/* (la cote qu'on tape — .sf-saisie — est dans css/etabli.css : le composant js/plan.js sert aussi les assemblages) */
 
 /* ------------------------------------------------------------------ les vérifications */
 .sf-tk { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }

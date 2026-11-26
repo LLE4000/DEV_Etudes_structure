@@ -115,11 +115,13 @@ def dimensions(E, corniere=False):
 
 
 def vues_poutre(S):
-    """Les trois vues du moteur (élévation, plan, vue de droite) avec les options de l'écran Streamlit, sans
-    l'interactivité (le site ne modifie pas une cote sur le dessin : les cotes se saisissent dans les Données)."""
+    """Les trois vues du moteur (élévation, plan, vue de droite) avec les options de l'écran Streamlit, interactivité
+    comprise : le kit écrit sur chaque objet ce qu'il règle (cote, pièce, poignée d'un groupe de boulons), et
+    ``assemblages.vues`` le traduit pour le site (``dessin_assemblages.manipulable``). Aucune cote verrouillée :
+    l'écran du site est toujours en vérification."""
     def vues(R, niveau, hl):
         opt = S.options_ecran(R, niveau, hl)
-        opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, niveau >= 1, None
+        opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, niveau >= 1, None
         u = R.u
         return [("elevation", "Élévation", "Élévation", S.elevation(R, opt), "rotule à la face de l'âme porteuse"),
                 ("plan", "Vue en plan", "Plan", S.plan(R, opt), f"{u.prof_S} sur {u.prof_P}"),

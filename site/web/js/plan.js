@@ -1,5 +1,6 @@
-// Le PLAN QUI SE MANIPULE (le « Générateur SAF », api_web/dessin_saf.py) : on déplace un objet du dessin, on le tourne, on
-// tape une cote, on ajoute un sommet — au doigt comme à la souris. Ce fichier ne sait RIEN de ce qui est dessiné : le
+// Le PLAN QUI SE MANIPULE (le « Générateur SAF », api_web/dessin_saf.py ; les dessins des assemblages métalliques,
+// api_web/dessin_assemblages.py) : on déplace un objet du dessin, on le tourne, on tape une cote, on ajoute un sommet, on
+// ouvre le sélecteur ou la rubrique d'une pièce — au doigt comme à la souris. Ce fichier ne sait RIEN de ce qui est dessiné : le
 // moteur écrit dans le dessin ce que chaque geste règle (un chemin de l'état, les valeurs de départ, l'échelle, la grille,
 // les accroches) ; au lâcher, la valeur part au moteur (« modifier »), qui la relit, recalcule et redessine.
 //
@@ -9,9 +10,16 @@
 //       accroches, plus fortes que la grille ; « suit » = {sel, i} : les polygones dont le sommet i suit le geste ;
 //       « double » : le chemin d'un double-clic (retirer ce sommet).
 //   data-plan-tourner = {chemin, cx, cy, angle, accroches, cible} : une poignée de rotation autour de (cx, cy).
-//   data-plan-cote    = {chemin, valeur, unite} : une cote qui se tape (un clic ouvre un champ sur elle).
+//   data-plan-cote    = {chemin, valeur, unite, signe} : une cote qui se tape (un clic ouvre un champ sur elle).
 //   data-plan-sec     = la rubrique des données qu'un clic sur l'objet ouvre.
-//   data-plan-clic    = {chemin, valeur} : ce qu'un appui bref sur l'objet RÈGLE (un bord devient le repère des cotes).
+//   data-plan-clic    = {chemin, valeur} : ce qu'un appui bref sur l'objet RÈGLE (un bord devient le repère des cotes ; une
+//                       rangée de boulons de plus).
+//   data-plan-pk      = le rôle d'un SÉLECTEUR (profilés, boulons, cornières) : un appui bref sur la pièce l'ouvre.
+//   data-plan-champ   = le chemin d'un CHAMP des données : un appui bref sur la pièce y mène (sa rubrique s'ouvre, au
+//                       téléphone l'onglet Données vient devant, la ligne du champ s'éclaire).
+//   … ces gestes brefs se font aussi au CLAVIER (Entrée ou Espace sur l'objet, quand le dessin le rend focalisable), et au
+//   DOIGT une cote ou un bouton proche du doigt l'emporte sur la pièce touchée (AIMANT) — pour les petites cibles que le
+//   dessin déclare boutons (role="button").
 //   data-plan-bord    = le rang d'un bord : un double appui y ajoute un sommet ({apres, x, y}, au chemin de data-plan-fond).
 //   data-plan-fond    = {chemin, ech, pas} : la feuille — un clic dans le vide ajoute un sommet ({x, y}).
 //   <svg data-plan>   = {ech, origine: {x, y}} : l'origine du repère, en unités du dessin (y du modèle vers le haut).
@@ -56,13 +64,27 @@ export function accrocherAngle(brut, accroches = [], tol = TOLERANCE_ANGLE) {
   return arrondi(norme(v));
 }
 
-export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast, signal }) {
+// ce qu'un appui BREF règle, ouvre ou choisit (les objets qui ne se déplacent pas)
+const APPUIS = ["data-plan-sec", "data-plan-cote", "data-plan-fond", "data-plan-clic", "data-plan-pk", "data-plan-champ"];
+const SEL_APPUIS = APPUIS.map((a) => `.view.on [${a}]`).join(", ");
+// … ceux qu'on atteint aussi au clavier, et les PETITES cibles (une étiquette de cote, un bouton « + ») que le doigt vise mal
+const SEL_CLAVIER = ["data-plan-cote", "data-plan-clic", "data-plan-pk", "data-plan-champ"].map((a) => `.view.on [${a}]`).join(", ");
+const SEL_PETITES = '.view.on [data-plan-cote][role="button"], .view.on [data-plan-clic][role="button"]';
+// AU DOIGT, une petite cible posée sur une grande (une cote sur une poutre) : celle dont le cadre est à moins de AIMANT px
+// du doigt l'emporte sur la pièce touchée, la plus proche d'abord (une étiquette de cote fait 30 × 17 px à la tablette).
+// Seules les petites cibles que le dessin déclare BOUTONS (role="button" : les cotes et les « ± » des assemblages) aimantent :
+// un dessin qui ne le demande pas (le plan du Générateur SAF, ses cotes et ses bords) garde exactement son toucher.
+export const AIMANT = 14;
+// le clic qui suit un appui pris par le dessin est avalé pendant ce délai (ms) : au doigt, il arrive après le relâcher
+const CLIC_AVALE_MS = 500;
+
+export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, ouvrirSelecteur = null, allerAuChamp = null, notes, toast, signal }) {
   const fini = () => signal && signal.aborted;
   const chemin = (c) => String(c).split("/");
   let geste = null, appui = null, avalerClic = false;
   // le DOUBLE appui : la toile capture le pointeur dès l'appui (elle déplace la vue), et l'événement « dblclick » tombe alors
   // sur le fond du dessin, jamais sur l'objet — on reconnaît donc ici deux appuis brefs sur le même objet
-  let dernierAppui = null, doubleFait = -1e9;
+  let dernierAppui = null, doubleFait = -1e9, clicAvale = 0;
   const double = (cle) => {
     const t = performance.now();
     const oui = !!dernierAppui && dernierAppui.cle === cle && t - dernierAppui.t < 450;
@@ -121,6 +143,44 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     g.svg.querySelectorAll(g.d.suit.sel).forEach((poly) => { if (poly.planBase) { poly.setAttribute("points", poly.planBase); delete poly.planBase; } });
   }
 
+  // l'objet VISÉ par un appui : celui qu'on touche — et, au doigt, la petite cible la plus proche (AIMANT) quand on a
+  // touché le vide ou une grande pièce à côté d'elle
+  function viser(ev) {
+    const direct = ev.target.closest(SEL_APPUIS);
+    if (ev.pointerType === "mouse" || !ev.target.closest(".view.on .draw")) return direct;
+    if (direct && !direct.hasAttribute("data-plan-pk") && !direct.hasAttribute("data-plan-champ") && !direct.hasAttribute("data-plan-sec")) return direct;
+    let mieux = null, dmin = AIMANT;
+    stage.querySelectorAll(SEL_PETITES).forEach((c) => {
+      const r = c.getBoundingClientRect();
+      const d = Math.hypot(Math.max(r.left - ev.clientX, 0, ev.clientX - r.right), Math.max(r.top - ev.clientY, 0, ev.clientY - r.bottom));
+      if (d < dmin) { dmin = d; mieux = c; }
+    });
+    return mieux || direct;
+  }
+  // ce qu'un appui bref (ou Entrée) fait d'un objet : taper sa cote, régler une valeur, ouvrir un sélecteur, mener à un champ.
+  // Un geste ainsi pris n'est pas AUSSI le double appui de la toile (deux appuis vifs sur « + » ne remettent pas le zoom).
+  // ``pointeur`` (faux au clavier) : le CLIC qui suit l'appui est avalé quand le geste change ce qu'il y a sous le doigt — au
+  // doigt, ce clic arrive APRÈS le relâcher, sur ce qui s'y trouve alors : l'onglet Données qu'on vient d'amener (il repliait
+  // la rubrique à peine ouverte — harnais du 26/11/2026, au téléphone), la fenêtre du sélecteur (il y choisirait une ligne).
+  function agir(el, souris, pointeur = true) {
+    if (el.hasAttribute("data-plan-cote")) { doubleFait = performance.now(); ouvrirCote(el); return true; }
+    const c = el.hasAttribute("data-plan-clic") && lire(el, "planClic");
+    if (c) { doubleFait = performance.now(); envoyer("modifier", { chemin: chemin(c.chemin), valeur: c.valeur }); return true; }
+    if (el.dataset.planPk && ouvrirSelecteur) {
+      doubleFait = performance.now();
+      if (pointeur) clicAvale = doubleFait;
+      ouvrirSelecteur(el.dataset.planPk, el);
+      return true;
+    }
+    if (el.dataset.planChamp && allerAuChamp) {
+      doubleFait = performance.now();
+      if (pointeur) clicAvale = doubleFait;
+      allerAuChamp(el.dataset.planChamp, souris);
+      return true;
+    }
+    return false;
+  }
+
   stage.addEventListener("pointerdown", (ev) => {
     if (!ev.target.closest || (ev.pointerType === "mouse" && ev.button !== 0)) return;
     const el = ev.target.closest(".view.on [data-plan-tourner], .view.on [data-plan-glisser]");
@@ -128,8 +188,8 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     const m = svg && svg.getScreenCTM();
     if (!el || !m) {
       // un objet qui ne se déplace pas : un appui bref ouvre sa rubrique (la toile garde le déplacement de la vue)
-      const s = ev.target.closest(".view.on [data-plan-sec], .view.on [data-plan-cote], .view.on [data-plan-fond], .view.on [data-plan-clic]");
-      appui = s ? { el: s, x: ev.clientX, y: ev.clientY, id: ev.pointerId, seuil: SEUIL[ev.pointerType] || 5 } : null;
+      const s = viser(ev);
+      appui = s ? { el: s, x: ev.clientX, y: ev.clientY, id: ev.pointerId, seuil: SEUIL[ev.pointerType] || 5, souris: ev.pointerType === "mouse" } : null;
       return;
     }
     const tourne = el.hasAttribute("data-plan-tourner");
@@ -223,7 +283,7 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     appui = null;
     if (!a || ev.pointerId !== a.id || fini()) return;
     if (Math.hypot(ev.clientX - a.x, ev.clientY - a.y) > a.seuil) return;
-    if (a.el.hasAttribute("data-plan-cote")) { ouvrirCote(a.el); return; }
+    if (!a.el.isConnected) return;      // (le dessin a été refait entre l'appui et le relâcher)
     if (a.el.hasAttribute("data-plan-bord") && double(`bord:${a.el.dataset.planBord}`)) {
       // deux appuis sur un bord : un sommet de plus, à cet endroit
       const svg = a.el.ownerSVGElement, fond = svg.querySelector("[data-plan-fond]"), d = fond && lire(fond, "planFond"), pt = d && pointModele(svg, ev, d.pas);
@@ -235,11 +295,16 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
       if (pt) envoyer("modifier", { chemin: chemin(d.chemin), valeur: pt });
       return;
     }
-    const c = a.el.hasAttribute("data-plan-clic") && lire(a.el, "planClic");
-    if (c) { envoyer("modifier", { chemin: chemin(c.chemin), valeur: c.valeur }); return; }
+    if (agir(a.el, a.souris)) return;      // une cote, une valeur à régler, un sélecteur, un champ
     if (a.el.dataset.planSec) ouvrirRubrique(a.el.dataset.planSec);
   }, { capture: true, signal });
   window.addEventListener("pointercancel", () => { appui = null; }, { capture: true, signal });
+  // … et au CLAVIER : Entrée ou Espace sur un objet focalisable du dessin (une cote, une pièce, un bouton « + »)
+  stage.addEventListener("keydown", (ev) => {
+    if ((ev.key !== "Enter" && ev.key !== " ") || !ev.target.matches || !ev.target.matches(SEL_CLAVIER)) return;
+    ev.preventDefault();
+    agir(ev.target, true, false);
+  }, { signal });
 
   // un double appui que le plan vient de prendre (un sommet ajouté, retiré) n'est pas aussi celui de la toile (qui remet
   // le dessin agrandi à sa feuille)
@@ -255,14 +320,16 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
     const r = el.getBoundingClientRect();
     const i = document.createElement("input");
     i.className = "sf-saisie";
-    i.setAttribute("inputmode", "decimal");
+    // (une cote qui peut être NÉGATIVE — « signe » : un décalage — prend le clavier entier : le pavé décimal du téléphone n'a pas de « − »)
+    i.setAttribute("inputmode", d.signe ? "text" : "decimal");
     i.setAttribute("aria-label", `Valeur de la cote${d.unite ? ` (${d.unite})` : ""}`);
     i.value = String(arrondi(d.valeur)).replace(".", ",");
-    const l = Math.max(64, r.width + 26);
-    i.style.left = `${Math.round(Math.min(Math.max(4, r.left + r.width / 2 - l / 2), innerWidth - l - 4))}px`;
-    i.style.top = `${Math.round(Math.max(4, r.top + r.height / 2 - 15))}px`;
-    i.style.width = `${Math.round(l)}px`;
     document.body.appendChild(i);
+    // posé sur la cote, centré, dans la fenêtre : sa hauteur est celle de la feuille de style (30 px, 44 px au doigt)
+    const h = i.offsetHeight || 30, l = Math.max(h > 36 ? 88 : 64, r.width + 26);
+    i.style.left = `${Math.round(Math.min(Math.max(4, r.left + r.width / 2 - l / 2), innerWidth - l - 4))}px`;
+    i.style.top = `${Math.round(Math.max(4, Math.min(r.top + r.height / 2 - h / 2, innerHeight - h - 4)))}px`;
+    i.style.width = `${Math.round(l)}px`;
     champ = i;
     i.focus();
     i.select();
@@ -287,6 +354,9 @@ export function cablerPlan({ bench, stage, envoyer, ouvrirRubrique, notes, toast
   const horsDonnees = (el) => el && !el.closest("#donnees") && !el.closest(".panel.left .phead");
   bench.addEventListener("click", (ev) => {
     if (avalerClic) { ev.stopPropagation(); return; }
+    // (le clic d'un appui que le dessin vient de prendre — ``agir`` : UN clic, dans la demi-seconde)
+    if (clicAvale && performance.now() - clicAvale < CLIC_AVALE_MS) { clicAvale = 0; ev.stopPropagation(); ev.preventDefault(); return; }
+    clicAvale = 0;
     // (une case « data-agir » : son clic ne remonte pas — la ligne qui la porte n'ouvre pas sa fenêtre de calcul)
     if (ev.target.closest && ev.target.closest("label.sf-scia, input[data-agir], select[data-agir]") && horsDonnees(ev.target)) { ev.stopPropagation(); return; }
     const b = ev.target.closest && ev.target.closest("button[data-agir][data-chemin]");

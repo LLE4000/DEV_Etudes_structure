@@ -5001,7 +5001,7 @@ const principal = async () => {
       const menuA = async (sel, v) => { await onglet('donnees'); await rubriqueDe(sel); await pg.selectOption(sel, v); await calmeA(); };
       const boutonA = async (sel) => { await onglet('donnees'); await rubriqueDe(sel); await pg.click(sel); await calmeA(); };
       const champA = async (sel, v) => { await onglet('donnees'); await rubriqueDe(sel); await pg.fill(sel, v); await pg.press(sel, 'Enter'); await calmeA(); };
-      // ce que l'œil voit du résultat (au téléphone, l'onglet Résultat) : le verdict, sa pastille et sa couleur, la pastille de
+      // ce que l'œil voit du résultat (au téléphone, l'onglet Résultat) : l'absence de gros taux, le bloc « À corriger », la pastille de
       // l'en-tête (le statut au PC et à la tablette, la pastille du téléphone), le bloc des vérifications et la couleur de sa
       // bande, les messages visibles, le texte entier ; les couleurs de référence lues sur la feuille (--vrf, --vrf-fond)
       const lireA = async () => {
@@ -5011,13 +5011,24 @@ const principal = async () => {
           const vu = (e) => !!e && e.checkVisibility(VIS);
           const sonde = (v) => { const e = document.createElement('i'); e.style.backgroundColor = `var(${v})`; document.body.append(e); const c = getComputedStyle(e).backgroundColor; e.remove(); return c; };
           const niv = (e) => [...e.classList].filter((k) => k.length === 1).join('');
-          const v = document.querySelector('#resultat .verdict'), chip = v && v.querySelector('.chip.xl'), bl = document.querySelector('#resultat .et-bloc[data-theme="0"]');
-          const hd = bl && bl.querySelector('.et-bloc-h'), rv = vu(v) ? v.getBoundingClientRect() : null;
+          // (26/11/2026, le harnais SUIT : plus de gros taux en tête — « gros » doit rester faux ; un assemblage non vérifié
+          //  s'ouvre sur le bloc « À corriger » : ses défauts, leurs retouches, la solution vérifiée)
+          const bl = document.querySelector('#resultat .et-bloc[data-theme="0"]'), co = document.querySelector('#resultat .et-bloc.asm-corr');
+          const hd = bl && bl.querySelector('.et-bloc-h'), res = document.getElementById('resultat').getBoundingClientRect();
           const st = [document.querySelector('#statut .status'), document.getElementById('chip-m')].find(vu);
-          return { verdict: rv ? net(v.textContent) : null, dedans: !!rv && rv.left >= -0.5 && rv.right <= innerWidth + 0.5,
-            pastille: chip ? { niveau: niv(chip), fond: getComputedStyle(chip).backgroundColor } : null,
+          const dans = (e) => { const r = e.getBoundingClientRect(); return vu(e) && r.left >= res.left - 0.5 && r.right <= res.right + 0.5 && r.width > 20; };
+          const bouton = (b) => ({ t: net(b.textContent), chemin: b.dataset.chemin || '', valeur: b.dataset.valeur || '', h: Math.round(b.getBoundingClientRect().height), dedans: dans(b) });
+          return { gros: [...document.querySelectorAll('#resultat .chip.xl, #resultat .verdict .chip')].some(vu),
             entete: st ? { texte: net(st.textContent), niveau: niv(st), fond: getComputedStyle(st).backgroundColor } : null,
-            bloc: vu(bl) ? { etat: net((bl.querySelector('.et-bloc-t .e') || {}).textContent), orange: bl.classList.contains('warn'), fond: hd ? getComputedStyle(hd).backgroundColor : null } : null,
+            bloc: vu(bl) ? { etat: net((bl.querySelector('.et-bloc-t .e') || {}).textContent), orange: bl.classList.contains('warn'), vert: bl.classList.contains('ok'),
+              rouge: bl.classList.contains('nok'), fond: hd ? getComputedStyle(hd).backgroundColor : null } : null,
+            corriger: vu(co) ? { etat: net((co.querySelector('.et-bloc-t .e') || {}).textContent), avant: !!bl && !!(co.compareDocumentPosition(bl) & Node.DOCUMENT_POSITION_FOLLOWING),
+              defauts: [...co.querySelectorAll('.asm-def')].map((d) => ({ titre: net((d.querySelector('p b') || {}).textContent), rets: [...d.querySelectorAll('.asm-ret')].map(bouton) })),
+              sols: [...co.querySelectorAll('.asm-sol')].map((x) => ({ mot: net((x.querySelector('.t .m') || {}).textContent), nom: net((x.querySelector('.t b') || {}).textContent),
+                taux: net((x.querySelector('.t .pct') || {}).textContent), etoile: !!x.querySelector('.leger'), appliquer: bouton(x.querySelector('button[data-agir]')) })),
+              aucune: net((co.querySelector('.asm-aucune') || {}).textContent), autres: net((co.querySelector('[data-pk="solution"]') || {}).textContent),
+              profils: !!co.querySelector('[data-pk="profil_solution"]') && dans(co.querySelector('[data-pk="profil_solution"]')) } : null,
+            predim: [...document.querySelectorAll('#resultat .et-bloc.asm-prop')].some(vu),
             msgs: [...document.querySelectorAll('#resultat .msg')].filter(vu).map((x) => net(x.textContent)),
             texte: net((document.querySelector('#resultat') || {}).textContent), vrf: sonde('--vrf'), vrfFond: sonde('--vrf-fond') };
         }, VIS_A);
@@ -5031,27 +5042,28 @@ const principal = async () => {
         await menuA('#donnees select[data-chemin="type"]', 'platine_beton');
         await boutonA(`#donnees button[data-chemin="v/mode"][data-valeur="${COMPLET}"]`);
         const a1 = await lireA();
-        verif(`assemblages · pied de poteau · ${fmt} : en vérification complète, la note neuve est « À VÉRIFIER », en ORANGE — la pastille du verdict, celle de l'en-tête et la bande du bloc (« À vérifier · 56 % ») ; la raison dans le verdict (« à vérifier : béton d'ancrage à 107,7 %, hors périmètre EC3 »), dite UNE fois, sans « en information, hors verdict »`,
-          !!a1.verdict && a1.dedans && /· à vérifier : béton d'ancrage à 107,7 %, hors périmètre EC3$/.test(a1.verdict)
-          && !!a1.pastille && a1.pastille.niveau === 'v' && a1.pastille.fond === a1.vrf && !!a1.entete && a1.entete.niveau === 'v' && a1.entete.fond === a1.vrf
-          && !!a1.bloc && a1.bloc.orange && /^À vérifier · 56 %$/.test(a1.bloc.etat) && a1.bloc.fond === a1.vrfFond
-          && (a1.texte.match(/107,7 %/g) || []).length === 1 && !/en information, hors verdict/i.test(a1.texte) && !a1.msgs.some((x) => /^À vérifier : béton/.test(x)), court(a1));
+        // (26/11/2026, le harnais SUIT : la raison n'est plus dans un verdict de tête — c'est UN message « À vérifier — … »)
+        verif(`assemblages · pied de poteau · ${fmt} : en vérification complète, la note neuve est « À VÉRIFIER », en ORANGE — la pastille de l'en-tête et la bande du bloc (« À vérifier · 56 % ») ; plus de gros taux en tête ; la raison dans UN message (« À vérifier — béton d'ancrage à 107,7 %, hors périmètre EC3 »), dite UNE fois, sans « en information, hors verdict »`,
+          !a1.gros && a1.msgs.filter((x) => /^À vérifier — béton d'ancrage à 107,7 %, hors périmètre EC3$/.test(x)).length === 1
+          && !!a1.entete && a1.entete.niveau === 'v' && a1.entete.fond === a1.vrf
+          && !!a1.bloc && a1.bloc.orange && /^À vérifier · 56 %$/.test(a1.bloc.etat) && a1.bloc.fond === a1.vrfFond && !a1.corriger
+          && (a1.texte.match(/107,7 %/g) || []).length === 1 && !/en information, hors verdict/i.test(a1.texte), court(a1));
         await onglet('resultat');
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_pied_a_verifier_${fmt}.png`) });
         await onglet('donnees');
         await boutonA(`#donnees button[data-chemin="v/mode"][data-valeur="${MANUEL}"]`);
         await champA('#donnees input[data-chemin="v/N_Ed"]', '1770');
         const a2 = await lireA();
-        verif(`assemblages · pied de poteau · ${fmt} : en calcul manuel, N_Ed = 1 770 kN — « À VÉRIFIER », en orange (« À vérifier · 100 % ») ; la raison dans le verdict (« à vérifier : appui fjd à 107,4 %, hors calcul manuel »)`,
-          !!a2.verdict && /· à vérifier : appui fjd à 107,4 %, hors calcul manuel$/.test(a2.verdict) && !!a2.pastille && a2.pastille.niveau === 'v' && a2.pastille.fond === a2.vrf
+        verif(`assemblages · pied de poteau · ${fmt} : en calcul manuel, N_Ed = 1 770 kN — « À VÉRIFIER », en orange (« À vérifier · 100 % ») ; la raison dans un message (« À vérifier — appui fjd à 107,4 %, hors calcul manuel »)`,
+          !a2.gros && a2.msgs.some((x) => /^À vérifier — appui fjd à 107,4 %, hors calcul manuel$/.test(x)) && !!a2.entete && a2.entete.niveau === 'v'
           && !!a2.bloc && a2.bloc.orange && /^À vérifier · 100 %$/.test(a2.bloc.etat), court(a2));
         // ---- le plat d'âme : l'avis de ductilité de la note neuve ; au PC, le prédimensionnement à 30 kN
         await neuveA(`Plat d'âme lot B · ${fmt}`);
         await menuA('#donnees select[data-chemin="type"]', 'plat_ame');
         const a3 = await lireA();
-        verif(`assemblages · plat d'âme · ${fmt} : la note neuve dit l'avis de ductilité, visible — « Ductilité non assurée (recommandation) — tp = 10 mm > 0,42·d = 8,4 mm (plat S355) ; tw = 8,5 mm > 8,4 mm (poutre S355) ; … (étude SCI, …) » ; le verdict reste vert, « sous réserve des alertes »`,
+        verif(`assemblages · plat d'âme · ${fmt} : la note neuve dit l'avis de ductilité, visible — « Ductilité non assurée (recommandation) — tp = 10 mm > 0,42·d = 8,4 mm (plat S355) ; tw = 8,5 mm > 8,4 mm (poutre S355) ; … (étude SCI, …) » ; le bloc reste vert (« Conforme · … % »), sans gros taux en tête`,
           a3.msgs.some((x) => /^Ductilité non assurée \(recommandation\) — tp = 10 mm > 0,42·d = 8,4 mm \(plat S355\) ; tw = 8,5 mm > 8,4 mm \(poutre S355\) ; .*\(étude SCI, New Steel Construction, mai 2018\)$/.test(x))
-          && /sous réserve des alertes$/.test(a3.verdict || '') && !!a3.pastille && a3.pastille.niveau === 'p', court(a3));
+          && !a3.gros && !!a3.bloc && a3.bloc.vert && /^Conforme · \d+ %$/.test(a3.bloc.etat) && !a3.corriger && a3.predim, court(a3));
         // ---- (25/11/2026) la revue de l'écran. « Proposer » : le sélecteur des solutions, tel que l'œil le voit
         const solutionsA = async () => {
           await onglet('resultat');
@@ -5088,35 +5100,50 @@ const principal = async () => {
             rubriques: [...document.querySelectorAll('#donnees .sec[data-sec]')].map((x) => `${x.dataset.sec}:${net((x.querySelector('.tt') || {}).textContent)}`),
             grugeage: !!q('#donnees .sec[data-sec="pt"] [data-chemin="v/d_nt"]') && !!q('#donnees .sec[data-sec="pt"] [data-chemin="v/l_n"]') && !q('#donnees .sec[data-sec="gr"]'),
             bascule: !!q('#donnees [data-chemin="v/mode_calc"]'), option: c ? c.checked : null, libelle: c ? net(c.closest('label').textContent) : '',
+            plage: !!q('#donnees [data-chemin="v/pd_dmin"]') || !!q('#donnees [data-chemin="v/pd_dmax"]'), regles: ['eta_c', 'k_e1', 'k_p1', 'k_e2'].every((k) => !!q(`#donnees .sec[data-sec="op"] [data-chemin="v/${k}"]`)),
             pied: document.querySelectorAll('#resultat .pfoot, #resultat .legend, #resultat .et-verif').length,
             codeCouleur: /95\s?[–-]\s?100\s?%/.test(net(q('#resultat').textContent)) || /Module à vérifier/.test(net(q('#resultat').textContent)) };
         });
         verif(`assemblages · doubles cornières · ${fmt} : la toile ne porte que les dessins — « Élévation », « Plan », « Droite » (ni Prédim, ni Note, ni Méthode, ni Validation)`,
           JSON.stringify(ec.vues) === '["Élévation","Plan","Droite"]', JSON.stringify(ec.vues));
-        verif(`assemblages · doubles cornières · ${fmt} : les rubriques — Assemblage · Poutres · Cornières · Boulons · Efforts ELU · Options ; le grugeage est dans « Poutres » ; plus de bascule de mode ; « Options » porte la case « Afficher les taux (%) dans la note de calcul », cochée`,
+        verif(`assemblages · doubles cornières · ${fmt} : les rubriques — Assemblage · Poutres · Cornières · Boulons · Efforts ELU · Options ; le grugeage est dans « Poutres » ; plus de bascule de mode ; « Options » porte la case « Afficher les taux (%) dans la note de calcul », cochée, le taux cible et les pinces k·d0 — plus de plage de diamètres « Ø min – Ø max »`,
           JSON.stringify(ec.rubriques) === '["as:Assemblage","pt:Poutres","cn:Cornières","bo:Boulons","ef:Efforts ELU","op:Options"]' && ec.grugeage && !ec.bascule
-          && ec.option === true && ec.libelle === 'Afficher les taux (%) dans la note de calcul', JSON.stringify(ec));
+          && ec.option === true && ec.libelle === 'Afficher les taux (%) dans la note de calcul' && !ec.plage && ec.regles, JSON.stringify(ec));
         verif(`assemblages · doubles cornières · ${fmt} : plus de cadre au pied du résultat — ni nom du module, ni code couleur (« 95–100 % »), ni « Module à vérifier »`,
           ec.pied === 0 && !ec.codeCouleur, JSON.stringify({ pied: ec.pied, codeCouleur: ec.codeCouleur }));
         const a5 = await lireA();
         const s1 = await solutionsA();
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_solutions_${fmt}.png`) });
-        verif(`assemblages · doubles cornières · ${fmt} : à V_Ed = 200 kN l'assemblage saisi est « Non conforme » (128 %) ; « Proposer » ouvre les « Solutions vérifiées » — « 4×2 M16 · L150x90x10 » (16 boulons, 89 %, conseillée ★) et « 3×2 M20 · L150x150x12 » (12 boulons, 100 %) — là où l'ancien écran disait « AUCUNE combinaison »`,
-          !!a5.bloc && /^Non conforme · 128\s?%$/.test(a5.bloc.etat) && s1.titre === 'Solutions vérifiées' && /efforts, profilés et niveaux gardés$/.test(s1.sous) && s1.rows.length === 2
+        // (26/11/2026, le harnais SUIT : non vérifié, le résultat s'ouvre sur « À corriger », qui PROPOSE la solution — « ça me dit
+        //  que c'est pas bon : que ça me propose une solution bonne » ; le sélecteur s'ouvre par « Autres solutions », et il liste
+        //  désormais TOUS les diamètres qui conviennent — le M12 aussi, hors de l'ancienne plage M16–M30)
+        const k5 = a5.corriger || { sols: [], defauts: [] };
+        verif(`assemblages · doubles cornières · ${fmt} : à V_Ed = 200 kN l'assemblage saisi est « Non conforme » (128 %), sans gros taux en tête ; le résultat s'ouvre sur « À corriger · résistance insuffisante », AVANT les vérifications : la solution conseillée ★ « 4×2 M16 · L150x90x10 » (89 %) puis « avec vos M20 » « 3×2 M20 · L150x150x12 » (100 %), chacune avec « Appliquer »${tel || fmt === 'tab1024' ? ' (44 px au doigt)' : ''}, dans la colonne ; « Autres solutions (1) »`,
+          !a5.gros && !!a5.bloc && a5.bloc.rouge && /^Non conforme · 128\s?%$/.test(a5.bloc.etat) && !!a5.corriger && k5.avant && k5.etat === 'résistance insuffisante' && !k5.defauts.length && !a5.predim
+          && k5.sols.length === 2 && k5.sols[0].mot === 'conseillée' && k5.sols[0].etoile && k5.sols[0].nom === '4×2 M16 · L150x90x10' && /^89\s?%$/.test(k5.sols[0].taux)
+          && k5.sols[1].mot === 'avec vos M20' && !k5.sols[1].etoile && k5.sols[1].nom === '3×2 M20 · L150x150x12' && /^100\s?%$/.test(k5.sols[1].taux)
+          && k5.sols.every((x) => x.appliquer.t === 'Appliquer' && x.appliquer.chemin === 'solution' && x.appliquer.valeur === x.nom && x.appliquer.dedans && (!(tel || fmt === 'tab1024') || x.appliquer.h >= 44))
+          && k5.autres === 'Autres solutions (1)', JSON.stringify({ bloc: a5.bloc, corriger: a5.corriger }).slice(0, 900));
+        verif(`assemblages · doubles cornières · ${fmt} : « Autres solutions » ouvre les « Solutions vérifiées » — une par diamètre qui convient, sans plage : « 4×2 M16 · L150x90x10 » (16 boulons, 89 %, conseillée ★), « 4×2 M12 · L100x100x8 » (24 boulons, 76 %) et « 3×2 M20 · L150x150x12 » (12 boulons, 100 %)`,
+          s1.titre === 'Solutions vérifiées' && /efforts, profilés et niveaux gardés$/.test(s1.sous) && s1.rows.length === 3
           && s1.rows[0].nom === '4×2 M16 · L150x90x10' && s1.rows[0].boulons === '16' && /^89\s?%$/.test(s1.rows[0].taux) && s1.rows[0].niveau === 'p' && s1.rows[0].etoile
-          && s1.rows[1].nom === '3×2 M20 · L150x150x12' && s1.rows[1].boulons === '12' && /^100\s?%$/.test(s1.rows[1].taux) && !s1.rows[1].etoile && !s1.aucune
-          && /au-dessus du taux cible$/.test(s1.rows[1].detail) && /^groupe S 4 × 2 · groupe P 4 × 1 par cornière · M16 8\.8 · 2 L150x90x10/.test(s1.rows[0].detail),
-          JSON.stringify({ bloc: a5.bloc, s1 }).slice(0, 900));
+          && s1.rows[1].nom === '4×2 M12 · L100x100x8' && s1.rows[1].boulons === '24' && /^76\s?%$/.test(s1.rows[1].taux) && !s1.rows[1].etoile
+          && s1.rows[2].nom === '3×2 M20 · L150x150x12' && s1.rows[2].boulons === '12' && /^100\s?%$/.test(s1.rows[2].taux) && !s1.rows[2].etoile && !s1.aucune
+          && /au-dessus du taux cible$/.test(s1.rows[2].detail) && /^groupe S 4 × 2 · groupe P 4 × 1 par cornière · M16 8\.8 · 2 L150x90x10/.test(s1.rows[0].detail),
+          JSON.stringify({ s1 }).slice(0, 900));
         verif(`assemblages · doubles cornières · ${fmt} : la fenêtre des solutions est dans l'écran, chaque nom se lit en entier sur UNE ligne, chaque ligne est dans la fenêtre${tel || fmt === 'tab1024' ? ', haute de 40 px au moins au doigt' : ''}`,
           s1.boite && s1.rows.every((x) => x.entier && x.dedans && (!s1.doigt || x.h >= 40)) && s1.doigt === (tel || fmt === 'tab1024'), JSON.stringify(s1).slice(0, 700));
-        await pg.click('.flyout.on.picker#pk-solution .pk-row');
+        // (la fenêtre refermée, « Appliquer » de la solution conseillée, dans le bloc)
+        await fermerA();
+        await onglet('resultat');
+        await pg.click('#resultat .asm-corr .asm-sol button[data-agir]');
         await calmeA();
         const a6 = await lireA();
         const apres = await pg.evaluate(() => { const v = (k) => { const e = document.querySelector(`#donnees [data-chemin="v/${k}"]`); return e ? e.value : null; };
           const seg = (k) => { const e = document.querySelector(`#donnees button.on[data-chemin="v/${k}"]`); return e ? e.dataset.valeur : null; };
           return { V: v('V_Ed'), n1S: v('n1S_u'), n2S: seg('n2S_u'), n2P: seg('n2P_u'), d_nt: v('d_nt'), z_C: v('z_C'), ouvert: !!document.querySelector('.flyout.on.picker') }; });
-        verif(`assemblages · doubles cornières · ${fmt} : un clic sur la première solution la recopie — « Conforme », 89 % ; quatre rangées sur deux files (groupe S), des M16 et des L150x90x10 ; l'effort (200 kN), le grugeage et le niveau n'ont pas bougé ; la fenêtre s'est refermée`,
-          !!a6.bloc && /^Conforme · 89\s?%$/.test(a6.bloc.etat) && !!a6.pastille && a6.pastille.niveau === 'p' && /M16/.test(a6.texte) && /L150x90x10/.test(a6.texte)
+        verif(`assemblages · doubles cornières · ${fmt} : « Appliquer » recopie la solution conseillée — « Conforme », 89 %, le bloc « À corriger » a disparu, le « Prédimensionnement » est revenu sous les vérifications ; quatre rangées sur deux files (groupe S), des M16 et des L150x90x10 ; l'effort (200 kN), le grugeage et le niveau n'ont pas bougé`,
+          !!a6.bloc && /^Conforme · 89\s?%$/.test(a6.bloc.etat) && a6.bloc.vert && !a6.corriger && a6.predim && !a6.gros && /M16/.test(a6.texte) && /L150x90x10/.test(a6.texte)
           && apres.V === '200' && apres.n1S === '4' && apres.n2S === '2' && apres.n2P === '1' && apres.d_nt === '50' && apres.z_C === '50' && !apres.ouvert, JSON.stringify({ bloc: a6.bloc, apres }));
         await onglet('resultat');
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_solution_recopiee_${fmt}.png`) });
@@ -5160,12 +5187,224 @@ const principal = async () => {
         await neuveA(`Platine sans solution · ${fmt}`);
         await menuA('#donnees select[data-chemin="type"]', 'platine_about');
         await champA('#donnees input[data-chemin="v/V_Ed"]', '400');
-        const s3 = await solutionsA();
+        // (26/11/2026, le harnais SUIT : le résultat le dit lui-même, en tête du bloc « À corriger », et propose les profilés)
+        const s3 = await lireA();
+        const k3 = s3.corriger || { defauts: [], sols: [] };
+        await onglet('resultat');
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_aucune_solution_${fmt}.png`) });
-        verif(`assemblages · platine d'about · ${fmt} : à V_Ed = 400 kN, aucune disposition ne passe — l'écran le dit et dit quoi changer : « Aucune solution avec ces profilés. … au mieux, Poutre secondaire · grugeage – flexion + V reste à 224 % … Changer le profilé de la poutre secondaire …, ou réduire le grugeage. » — lu en entier, dans la fenêtre`,
-          s3.rows.length === 0 && /^Aucune solution avec ces profilés\. Toutes les dispositions ont été essayées/.test(s3.aucune) && /grugeage – flexion \+ V reste à 224\s?%/.test(s3.aucune)
-          && /Changer le profilé de la poutre secondaire \(une âme plus épaisse, une poutre plus haute\), ou réduire le grugeage\.$/.test(s3.aucune) && s3.aucuneEntier && s3.boite, JSON.stringify(s3).slice(0, 700));
+        await onglet('donnees');
+        verif(`assemblages · platine d'about · ${fmt} : à V_Ed = 400 kN, aucune disposition ne passe — le résultat s'ouvre sur « À corriger » qui le dit et dit quoi changer : « Aucune solution avec ces profilés. Au mieux, Poutre secondaire · grugeage – flexion + V reste à 224 % … Changer le profilé de la poutre secondaire …, ou réduire le grugeage. », puis « Profilés qui conviennent » ; aucun « Appliquer »`,
+          !s3.gros && !!s3.corriger && k3.avant && !k3.sols.length && /^Aucune solution avec ces profilés\. Au mieux, Poutre secondaire · grugeage – flexion \+ V reste à 224\s?%/.test(k3.aucune)
+          && /Changer le profilé de la poutre secondaire \(une âme plus épaisse, une poutre plus haute\), ou réduire le grugeage\.$/.test(k3.aucune) && k3.profils
+          && !!s3.bloc && /^Non conforme · 227\s?%$/.test(s3.bloc.etat), JSON.stringify({ bloc: s3.bloc, corriger: s3.corriger }).slice(0, 700));
+        // ---- la capture du propriétaire (26/11/2026) : HEA 320 sur HEA 400, 400 kN, M24, p1 = 65 — « les pinces, je suis pas bon : que
+        //      ça me propose un truc qui serait correct »
+        const doigtA = tel || fmt === 'tab1024';
+        await menuA('#donnees select[data-chemin="v/prof_S"]', 'HEA 320');
+        await menuA('#donnees select[data-chemin="v/boulon_u"]', 'M24');
+        await champA('#donnees input[data-chemin="v/p1_u"]', '65');
+        const c1 = await lireA();
+        const kc = c1.corriger || { defauts: [], sols: [] };
+        await onglet('resultat');
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_a_corriger_${fmt}.png`) });
+        await onglet('donnees');
+        verif(`assemblages · platine d'about · ${fmt} : la capture du propriétaire — plus de gros « 131 % » en tête (le bloc dit « Non conforme · 131 % ») ; « À corriger · 2 défauts de géométrie » : la pince basse (« p1 65 → 60 mm », « hp 190 → 200 mm », « n1 3 → 2 ») et la platine trop étroite (« bp 150 → 155 mm », « p3 90 → 85 mm ») — chaque bouton dans la colonne${doigtA ? ', 44 px au doigt' : ''} ; les deux alertes ne sont pas redites dans les messages ; la ligne « Géométrie » dit ce qu'elle compare`,
+          !c1.gros && !!c1.bloc && /^Non conforme · 131\s?%$/.test(c1.bloc.etat) && !!c1.corriger && kc.avant && kc.etat === '2 défauts de géométrie'
+          && JSON.stringify(kc.defauts.map((d) => d.titre)) === '["Impossible — pince basse du groupe de boulons","Impossible — platine trop étroite (pince e2)"]'
+          && JSON.stringify(kc.defauts.map((d) => d.rets.map((r) => r.t))) === '[["p1 65 → 60 mm","hp 190 → 200 mm","n1 3 → 2"],["bp 150 → 155 mm","p3 90 → 85 mm"]]'
+          && kc.defauts.every((d) => d.rets.every((r) => r.dedans && (!doigtA || r.h >= 44))) && !c1.msgs.some((x) => /platine trop étroite|pince basse/.test(x))
+          && /Géométrie.*Platine – e1 \(haut\/bas, valeur mini\) : 25,0 mm < 31,2 mm/.test(c1.texte) && /^Aucune solution avec ces profilés\. Au mieux/.test(kc.aucune) && kc.profils,
+          JSON.stringify({ bloc: c1.bloc, corriger: c1.corriger, msgs: c1.msgs }).slice(0, 1100));
+        await onglet('resultat');
+        await pg.click('#resultat .asm-ret[data-chemin="v/bp_u"]');
+        await calmeA();
+        const c2 = await lireA();
+        const bp2 = await pg.$eval('#donnees input[data-chemin="v/bp_u"]', (e) => e.value);
+        verif(`assemblages · platine d'about · ${fmt} : un appui sur « bp 150 → 155 mm » : le champ bp des Données vaut 155, la platine n'est plus « trop étroite » — il reste UN défaut (la pince basse)`,
+          bp2 === '155' && !!c2.corriger && c2.corriger.etat === '1 défaut de géométrie' && c2.corriger.defauts.length === 1 && c2.corriger.defauts[0].titre === 'Impossible — pince basse du groupe de boulons',
+          JSON.stringify({ bp2, corriger: c2.corriger }).slice(0, 500));
+        // « Profilés qui conviennent » : cherchés au clic, chacun avec SA solution vérifiée
+        await onglet('resultat');
+        await pg.click('#resultat .asm-corr [data-pk="profil_solution"]');
+        await pg.waitForSelector('.flyout.on.picker#pk-profil_solution', { timeout: 120000 });
+        await pg.waitForTimeout(350);
+        const pf = await pg.evaluate((VIS) => {
+          const net = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+          const f = document.querySelector('.flyout.on.picker#pk-profil_solution'), fr = f.getBoundingClientRect(), a = f.querySelector('.asm-aucune');
+          return { titre: net((f.querySelector('.fl-h b') || {}).textContent), tete: a && a.checkVisibility(VIS) ? net(a.textContent) : '',
+            rows: [...f.querySelectorAll('.pk-row')].map((r) => { const q = r.getBoundingClientRect(), c = r.querySelector('.chip');
+              return { nom: net(r.querySelector('.nm').textContent), taux: net(c.textContent), niveau: [...c.classList].filter((k) => k.length === 1).join(''), etoile: r.classList.contains('opt'),
+                detail: r.dataset.prop || '', h: Math.round(q.height), dedans: r.checkVisibility(VIS) && q.left >= fr.left - 0.5 && q.right <= fr.right + 0.5 && q.bottom <= fr.bottom + 0.5 }; }),
+            familles: [...f.querySelectorAll('.fchip')].map((x) => `${net(x.textContent)}${x.classList.contains('on') ? '*' : ''}`).join(' '),
+            boite: fr.left >= -0.5 && fr.right <= innerWidth + 0.5 && fr.top >= -0.5 && fr.bottom <= innerHeight + 0.5 && fr.width >= 280 };
+        }, VIS_A);
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_profils_${fmt}.png`) });
+        verif(`assemblages · platine d'about · ${fmt} : « Profilés qui conviennent · poutre secondaire » — SEUL ce qui convient est listé : « HEA 340 » (98 %, ★ le plus petit), avec sa solution ; les sept profilés plus hauts essayés sans solution sont comptés, avec la raison du premier (« HEA 360 : Grugeage inférieur nécessaire ou insuffisant. ») ; les puces des familles ; la fenêtre dans l'écran`,
+          pf.titre === 'Profilés qui conviennent · poutre secondaire' && pf.rows.length === 1 && pf.rows[0].nom === 'HEA 340' && /^98\s?%$/.test(pf.rows[0].taux) && pf.rows[0].etoile && pf.rows[0].dedans
+          && /solution : <b>[^<]*M\d\d · platine/.test(pf.rows[0].detail) && /^7 profilés essayés sans solution \(HEA 360, /.test(pf.tete) && /HEA 360 : Grugeage inférieur nécessaire ou insuffisant\.$/.test(pf.tete)
+          && pf.familles === 'IPE HEA* HEB HEM' && pf.boite && (!doigtA || pf.rows[0].h >= 40), JSON.stringify(pf).slice(0, 800));
+        await pg.click('.flyout.on.picker#pk-profil_solution .pk-row');
+        await calmeA();
+        const c3 = await lireA();
+        const ap3 = await pg.evaluate(() => { const v = (k) => { const e = document.querySelector(`#donnees [data-chemin="v/${k}"]`); return e ? e.value : null; };
+          return { prof_S: v('prof_S'), prof_P: v('prof_P'), V: v('V_Ed'), d_nt: v('d_nt'), l_n: v('l_n'), z_C: v('z_C'), ouvert: !!document.querySelector('.flyout.on.picker') }; });
+        verif(`assemblages · platine d'about · ${fmt} : « HEA 340 » retenu : le profilé ET sa solution sont recopiés — « Conforme, attention · 98 % », plus de bloc « À corriger » ; la poutre principale (HEA 400), l'effort (400 kN), le grugeage et le niveau n'ont pas bougé`,
+          !!c3.bloc && /^Conforme, attention · 98\s?%$/.test(c3.bloc.etat) && !c3.corriger && c3.predim && ap3.prof_S === 'HEA 340' && ap3.prof_P === 'HEA 400' && ap3.V === '400'
+          && ap3.d_nt === '50' && ap3.l_n === '150' && ap3.z_C === '50' && !ap3.ouvert, JSON.stringify({ bloc: c3.bloc, ap3 }));
+        // ---- (26/11/2026) le DESSIN SE MANIPULE — « avant, je cliquais sur le dessin et je pouvais tout choisir […] réactive ça »
+        //      Un vrai toucher à la tablette et au téléphone, un clic à la souris au PC ; on lit ce que l'œil voit.
+        const pointA = (sel) => pg.evaluate((sel) => {
+          const el = document.querySelector(`#stage .view.on ${sel}`);
+          if (!el) return null;
+          for (const f of [...el.querySelectorAll('path, rect, polygon, circle, text')]) {
+            const r = f.getBoundingClientRect();
+            if (r.width < 1 || r.height < 1) continue;
+            for (const fy of [0.5, 0.25, 0.75, 0.1, 0.9]) for (const fx of [0.5, 0.25, 0.75, 0.1, 0.9]) {
+              const x = r.left + r.width * fx, y = r.top + r.height * fy, e = document.elementFromPoint(x, y);
+              if (e && el.contains(e)) return { x, y };
+            }
+          }
+          return null;
+        }, sel);
+        const toucherA = async (x, y) => { if (doigtA) await pg.touchscreen.tap(x, y); else await pg.mouse.click(x, y); await pg.waitForTimeout(350); };
+        const appuyerA = async (sel) => { const q = await pointA(sel); if (!q) throw new Error(`rien à toucher : ${sel}`); await toucherA(q.x, q.y); };
+        const dessinA = () => pg.evaluate((VIS) => {
+          const vu = (e) => !!e && e.checkVisibility(VIS) && e.getBoundingClientRect().width > 0;
+          const dans = (e) => { const r = e.getBoundingClientRect(); return r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5; };
+          const sa = document.querySelector('.sf-saisie'), fl = [...document.querySelectorAll('.flyout.on')].filter(vu), bench = document.querySelector('.bench');
+          const svg = document.querySelector('#stage .view.on .draw > svg');
+          return { saisie: vu(sa) ? { v: sa.value, h: Math.round(sa.getBoundingClientRect().height), corps: parseFloat(getComputedStyle(sa).fontSize), dedans: dans(sa), actif: document.activeElement === sa } : null,
+            volets: fl.map((x) => x.id).join(), voletDedans: fl.every(dans),
+            rubriques: [...document.querySelectorAll('#donnees .sec.open')].filter(vu).map((x) => x.dataset.sec).join(),
+            vise: [...document.querySelectorAll('#donnees .et-vise')].filter(vu).length, onglet: bench.dataset.tab || '', plein: bench.classList.contains('plein'),
+            zoom: svg && svg.zoomPose ? Math.round(svg.zoomPose.z * 100) : 100, pose: svg ? svg.style.transform : '' };
+        }, VIS_A);
+        const valA = (k) => pg.$eval(`#donnees [data-chemin="v/${k}"]`, (e) => e.value);
+        await neuveA(`Dessin qui se manipule · ${fmt}`);
+        await menuA('#donnees select[data-chemin="type"]', 'plat_ame');
+        await onglet('dessin');
+        const cib = await pg.evaluate((VIS) => {
+          const q = (x) => [...document.querySelectorAll(`#stage .view.on ${x}`)].filter((e) => e.checkVisibility(VIS));
+          const gras = q('[data-plan-cote] text').every((t) => +getComputedStyle(t).fontWeight >= 600);
+          return { cotes: q('[data-plan-cote]').length, pk: q('[data-plan-pk]').map((e) => e.dataset.planPk).sort().join(), champs: q('[data-plan-champ]').map((e) => e.dataset.planChamp).sort().join(),
+            clics: q('[data-plan-clic]').length, glisser: q('[data-drag], [data-drag2]').length, gras,
+            sansCible: q('g.ed, g[tabindex]').filter((e) => !['planCote', 'planPk', 'planChamp', 'planClic'].some((k) => k in e.dataset)).length };
+        }, VIS_A);
+        verif(`assemblages · dessin · ${fmt} : l'élévation du plat d'âme porte ses cibles — au moins dix cotes cliquables (en gras), les deux poutres et les boulons (leurs sélecteurs), le plat, les efforts et le groupe (leurs champs), « + » et « − » ; rien ne promet un geste sans cible, aucun reste du glisser`,
+          cib.cotes >= 10 && cib.gras && cib.pk === 'boulon,prof_P,prof_S' && cib.champs === 'v/V_Ed,v/n1_u,v/tp_u' && cib.clics === 2 && cib.glisser === 0 && cib.sansCible === 0, JSON.stringify(cib));
+        // une COTE : un appui ouvre un champ SUR elle ; la valeur tapée part au moteur
+        await appuyerA('[data-key="p1_u"]');
+        const d1 = await dessinA();
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_dessin_cote_${fmt}.png`) });
+        verif(`assemblages · dessin · ${fmt} : un appui sur la cote « p1 60 » ouvre un champ posé sur elle — sa valeur (60), le curseur dedans, dans l'écran${doigtA ? ' ; au doigt, 44 px de haut et 16 px de corps (iOS n\'agrandit pas la page)' : ''} ; aucune fenêtre ne s'ouvre`,
+          !!d1.saisie && d1.saisie.v === '60' && d1.saisie.dedans && d1.saisie.actif && (!doigtA || (d1.saisie.h >= 44 && d1.saisie.corps >= 16)) && !d1.volets, JSON.stringify(d1));
+        await pg.fill('.sf-saisie', '65');
+        await pg.keyboard.press('Enter');
+        await calmeA();
+        const d2 = await pg.evaluate(() => ({ champ: (document.querySelector('#donnees [data-chemin="v/p1_u"]') || {}).value, saisie: !!document.querySelector('.sf-saisie'),
+          dessin: [...document.querySelectorAll('#stage .view.on [data-key="p1_u"] text')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()) }));
+        verif(`assemblages · dessin · ${fmt} : « 65 » tapé sur la cote, Entrée — le champ p1 des Données vaut 65, le dessin refait écrit « p1 65 », le champ posé sur la cote s'est refermé`,
+          d2.champ === '65' && d2.dessin.length >= 1 && d2.dessin.every((t) => /\b65$/.test(t)) && !d2.saisie, JSON.stringify(d2));
+        // les PIÈCES : la poutre → le sélecteur de son profilé ; un boulon → celui des boulons, et la ligne choisie est retenue
+        await appuyerA('[data-group="beamS"]');
+        await pg.waitForSelector('.flyout.on.picker#pk-prof_S', { timeout: 60000 }).catch(() => {});
+        await pg.waitForTimeout(300);
+        const d3 = await dessinA();
+        await pg.screenshot({ path: path.join(OUT, `site_assemblages_dessin_profil_${fmt}.png`) });
         await fermerA();
+        await appuyerA('[data-group="bolts"]');
+        await pg.waitForSelector('.flyout.on.picker#pk-boulon', { timeout: 60000 }).catch(() => {});
+        await pg.waitForTimeout(300);
+        const d4 = await dessinA();
+        await pg.click('.flyout.on.picker#pk-boulon .pk-row[data-choix="M16"]');
+        await calmeA();
+        const boulonA = await valA('boulon_u');
+        verif(`assemblages · dessin · ${fmt} : un appui sur la poutre secondaire ouvre le sélecteur de son profilé, un appui sur un boulon celui des boulons — chacun dans l'écran ; « M16 » choisi dans la liste est retenu`,
+          d3.volets === 'pk-prof_S' && d3.voletDedans && d4.volets === 'pk-boulon' && d4.voletDedans && boulonA === 'M16' && !d3.saisie && !d4.saisie, JSON.stringify({ d3, d4, boulonA }));
+        // « + » : une rangée de plus ; le plat : son champ des Données
+        await onglet('dessin');
+        const n0A = await valA('n1_u');
+        await appuyerA('[data-action="n1_u:+1"]');
+        await calmeA();
+        const n1A = await valA('n1_u');
+        await onglet('dessin');
+        await appuyerA('[data-group="plate"]');
+        await pg.waitForTimeout(450);
+        const d5 = await dessinA();
+        verif(`assemblages · dessin · ${fmt} : « + » du groupe de boulons ajoute une rangée (${n0A} → ${+n0A + 1}) ; un appui sur le plat mène à son champ — la rubrique « Plat d'âme » s'ouvre (elle seule), sa ligne s'éclaire${tel ? ' ; au téléphone, l\'onglet Données vient devant' : ''}`,
+          +n1A === +n0A + 1 && d5.rubriques === 'pl' && d5.vise === 1 && (!tel || d5.onglet === 'donnees') && !d5.volets && !d5.saisie, JSON.stringify({ n0A, n1A, d5 }));
+        // un GLISSER n'ouvre rien (le dessin agrandi se déplace) ; au doigt, une cote proche du doigt l'emporte sur la pièce
+        await onglet('dessin');
+        await pg.click('#zoom [data-zoom="plus"]');
+        await pg.click('#zoom [data-zoom="plus"]');
+        await pg.waitForTimeout(250);
+        const g0 = await dessinA();
+        const qS = await pointA('[data-group="beamP"]');
+        if (doigtA) {
+          const cdp = await cx.newCDPSession(pg);
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: qS.x, y: qS.y }] });
+          for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: qS.x - 8 * i, y: qS.y - 6 * i }] });
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          await cdp.detach();
+        } else {
+          await pg.mouse.move(qS.x, qS.y); await pg.mouse.down(); await pg.mouse.move(qS.x - 24, qS.y - 18, { steps: 4 }); await pg.mouse.move(qS.x - 48, qS.y - 36, { steps: 4 }); await pg.mouse.up();
+        }
+        await pg.waitForTimeout(500);
+        const g1 = await dessinA();
+        verif(`assemblages · dessin · ${fmt} : agrandi (${g0.zoom} %), un GLISSER qui part d'une poutre déplace le dessin et n'ouvre RIEN — ni sélecteur, ni champ ; le zoom est gardé`,
+          g0.zoom > 140 && g1.zoom === g0.zoom && g1.pose !== g0.pose && !g1.volets && !g1.saisie, JSON.stringify({ g0, g1 }));
+        if (doigtA) {
+          const pres = await pg.evaluate(() => {
+            const cs = [...document.querySelectorAll('#stage .view.on [data-plan-cote], #stage .view.on [data-plan-clic]')];
+            const dist = (r, x, y) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+            const draw = document.querySelector('#stage .view.on .draw').getBoundingClientRect();
+            for (const c of cs.filter((e) => e.hasAttribute('data-plan-cote'))) {
+              const r = c.getBoundingClientRect();
+              for (const [x, y] of [[r.right + 9, r.top + r.height / 2], [r.left - 9, r.top + r.height / 2], [r.left + r.width / 2, r.bottom + 9], [r.left + r.width / 2, r.top - 9]]) {
+                if (x < draw.left + 2 || x > draw.right - 2 || y < draw.top + 2 || y > draw.bottom - 2) continue;
+                const e = document.elementFromPoint(x, y);
+                if (!e || !e.closest('.view.on .draw') || c.contains(e) || e.closest('[data-plan-cote], [data-plan-clic]')) continue;
+                if (cs.every((o) => o === c || dist(o.getBoundingClientRect(), x, y) > 18)) return { x, y, cle: c.dataset.key, sur: e.closest('[data-plan-pk], [data-plan-champ]') ? 'une pièce' : 'le vide' };
+              }
+            }
+            return null;
+          });
+          if (pres) await toucherA(pres.x, pres.y);
+          const d6 = await dessinA();
+          const attendue = pres ? String(await valA(pres.cle)) : '';
+          verif(`assemblages · dessin · ${fmt} : au doigt, un appui à 9 px d'une cote (sur ${pres ? pres.sur : '?'}) ouvre CETTE cote — la petite cible l'emporte sur la pièce touchée (un dessin dense se touche)`,
+            !!pres && !!d6.saisie && d6.saisie.v === attendue && !d6.volets, JSON.stringify({ pres, d6, attendue }));
+          await pg.keyboard.press('Escape');
+          await pg.waitForTimeout(200);
+        } else {
+          // à la SOURIS : un double clic sur une pièce du dessin agrandi garde le zoom (le geste pris n'est pas aussi celui de la
+          // toile) ; au clavier, Entrée sur une cote l'ouvre ; en plein écran, une pièce le quitte pour montrer son sélecteur
+          const qP = await pointA('[data-group="beamP"]');
+          await pg.mouse.dblclick(qP.x, qP.y);
+          await pg.waitForSelector('.flyout.on.picker#pk-prof_P', { timeout: 60000 }).catch(() => {});
+          await pg.waitForTimeout(400);
+          const d7 = await dessinA();
+          await fermerA();
+          await pg.focus('#stage .view.on [data-key="e1_u"]');
+          await pg.keyboard.press('Enter');
+          await pg.waitForTimeout(250);
+          const d8 = await dessinA();
+          const e1A = await valA('e1_u');
+          await pg.keyboard.press('Escape');
+          await pg.waitForTimeout(200);
+          const d8b = await dessinA();
+          await pg.click('#zoom [data-plein]');
+          await pg.waitForTimeout(300);
+          const pleinAvant = (await dessinA()).plein;
+          await appuyerA('[data-group="bolts"]');
+          await pg.waitForSelector('.flyout.on.picker#pk-boulon', { timeout: 60000 }).catch(() => {});
+          await pg.waitForTimeout(300);
+          const d9 = await dessinA();
+          await fermerA();
+          verif(`assemblages · dessin · pc : un DOUBLE clic sur une poutre du dessin agrandi ouvre son sélecteur et garde le zoom (${g0.zoom} %) ; au clavier, Entrée sur la cote « e1 » ouvre son champ (sa valeur), Échap le referme sans rien changer ; en plein écran, un appui sur un boulon quitte le plein écran et montre le sélecteur`,
+            d7.volets === 'pk-prof_P' && d7.zoom === g0.zoom && !!d8.saisie && d8.saisie.v === String(e1A) && d8.saisie.actif && !d8b.saisie && (await valA('e1_u')) === e1A
+            && pleinAvant && !d9.plein && d9.volets === 'pk-boulon' && d9.voletDedans, JSON.stringify({ d7, d8, pleinAvant, d9 }));
+        }
         verif(`assemblages · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (e) { verif(`assemblages · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
       await cx.close();
@@ -7704,6 +7943,10 @@ const principal = async () => {
         const tEcran = norm(ecran.texte);
         const chiffres = [];
         for (const [nom, re, forme] of CHIFFRES) { const m = tEcran.match(re); if (m) chiffres.push([nom, forme(m[1])]); }
+        // (26/11/2026 — le harnais SUIT la revue de l'écran des assemblages : plus de gros « η N % » en tête du résultat ; le
+        //  taux de l'assemblage ouvert se lit dans l'en-tête du bloc « Vérifications » — « À vérifier · 56 % » —, et la note
+        //  l'écrit « η max 56,3 % » : comparé comme le « η » d'avant, à l'arrondi près)
+        if (k === 'assemblages') { const m = tEcran.match(/VÉRIFICATIONS (?:Conforme, attention|Conforme|Non conforme|À vérifier) · (\d+)\s*%/i); if (m) chiffres.push(['η', `${m[1]} %`]); }
         // (lot C, intégration vague 2) les barres : la note imprime les méthodes de son option (C5 ; la note semée est « ec3 » :
         // son dernier geste, « methodes », règle l'option de TOUTE la note depuis C0) — une méthode non imprimée n'a pas de taux
         // à comparer ; « η » est la pastille de la première méthode, déjà comparée par son nom. Le taux ELS de la note est le

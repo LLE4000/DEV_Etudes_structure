@@ -486,7 +486,13 @@ entrée (une entrée abîmée est écartée, la liste est bornée).
 son dessin ce que chaque geste règle, et la page ne sait rien d'autre —
 `data-plan-glisser` (un objet qui se déplace : chemin, valeurs de départ, échelle, grille, accroches),
 `data-plan-tourner` (une poignée de rotation), `data-plan-cote` (une cote qui se tape), `data-plan-clic` (ce qu'un appui
-bref règle), `data-plan-sec` (la rubrique qu'un clic ouvre), `data-plan-bord` et `data-plan-fond` (un sommet ajouté).
+bref règle), `data-plan-sec` (la rubrique qu'un clic ouvre), `data-plan-bord` et `data-plan-fond` (un sommet ajouté) ;
+et, depuis le 26/11/2026 (les dessins des assemblages, `api_web/dessin_assemblages.py`) : `data-plan-pk` (le rôle d'un
+SÉLECTEUR qu'un appui sur la pièce ouvre) et `data-plan-champ` (le chemin d'un champ des Données : sa rubrique s'ouvre,
+au téléphone l'onglet Données vient devant, sa ligne s'éclaire). Ces gestes brefs se font aussi au clavier (Entrée sur
+l'objet focalisable) ; au doigt, une cote ou un bouton à moins de 14 px l'emporte sur la pièce touchée — pour les petites
+cibles que le dessin déclare boutons (`role="button"` : le plan du Générateur SAF garde son toucher). RÈGLE (R1) : un
+dessin ne vise qu'un champ qui EXISTE dans le cadre Données rendu — c'est un raccourci, jamais le seul accès.
 Au lâcher, la valeur part en « modifier » ; le moteur la relit (un refus remet l'objet en place) et redessine. Hors du
 dessin : `data-agir` (un bouton, un menu ou une case du résultat qui modifie la note), `data-suite` (une suite de
 lectures `selecteur` avec barre de progression et « Arrêter » — « Proposer »), `data-reprendre` (choisir une note d'un

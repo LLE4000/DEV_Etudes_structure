@@ -60,6 +60,7 @@ from acier.assemblages import propositions as PR
 from acier.bibliotheques import DB, PERSO, find
 
 from . import commun as C
+from . import dessin_assemblages as DA
 from . import etabli_compact as E
 
 MODULE = "assemblages"
@@ -127,7 +128,7 @@ class Config:
     s'écrire : la bascule de mode reprend la disposition), ``aides`` (dict ou f(u) : l'aide « ? » de l'écran
     Streamlit d'un champ), ``hypotheses(R, u)`` (pastilles de plus), ``normes`` {groupe: norme}, ``blocs_tete(R,
     groupe)`` (HTML en tête du détail d'une fenêtre), ``lignes_resultat(R, u)`` (lignes de plus dans le résultat),
-    ``complement_verdict(R)``, ``legende_33`` (le pied de la fenêtre Géométrie), ``titre_non_verifies`` (le titre de
+    ``legende_33`` (le pied de la fenêtre Géométrie), ``titre_non_verifies`` (le titre de
     ce que la vérification ne couvre pas), ``nom_menu`` (le nom de l'attache dans le menu Configuration quand son nom
     court redit sa famille), ``refus(u)`` → [(chemin, message)] (les lignes de ses tables qu'une note relue porte et
     que la saisie refuserait), ``mot_information(R, groupe)`` (ce que la ligne d'une pièce d'information dit d'elle : « information » par défaut ;
@@ -145,7 +146,7 @@ class Config:
                             ("selecteurs", {}), ("entiers", frozenset()), ("listes", {}), ("est_manuel", None),
                             ("blocs", None), ("visserie_defaut", VISSERIE_DEFAUT), ("exemples", None), ("etat", {}),
                             ("actions", {}), ("sur_saisie", {}), ("aides", None), ("hypotheses", None), ("normes", {}),
-                            ("blocs_tete", None), ("lignes_resultat", None), ("complement_verdict", None),
+                            ("blocs_tete", None), ("lignes_resultat", None),
                             ("legende_33", None), ("titre_non_verifies", None),
                             ("nom_menu", None), ("refus", None), ("mot_information", None)):
             if not hasattr(self, nom):
@@ -593,6 +594,14 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return _charger_exemple(cfg, el, valeur)
     if chemin == ["reinitialiser"]:
         return _reinitialiser(cfg, el)
+    if chemin == ["solution"]:                    # « Appliquer » du bloc « À corriger » : la proposition nommée est recopiée
+        if not cfg.predim:
+            return "Cette configuration n'a pas de solutions à proposer."
+        try:
+            choisir_solution(cfg, el["values"], "" if valeur is None else str(valeur))
+        except ValueError as e:
+            return f"Solution refusée : {e}"
+        return None
     if tete in cfg.actions:                       # un état d'écran de la configuration (pied : la grille à poser)
         return cfg.actions[tete](cfg, el, chemin[1:], valeur)
     if tete != "v" or len(chemin) < 2:
@@ -1060,11 +1069,12 @@ def section_options(cfg: Config, u: Dict, el: Dict, coefficients: Sequence = (),
     if cfg.predim:
         # (l'écran Streamlit ne montre ces règles qu'en mode prédimensionnement — ``entrees.champ_visible`` ; le site, qui
         #  n'a plus ce mode, les montre toujours : elles règlent les propositions)
-        items += [("grp", "Prédimensionnement", "Les règles des propositions (bloc « Prédimensionnement » du résultat) : le taux à "
-                                               "tenir, les diamètres admis, les pinces et entraxes de détail. Une proposition "
+        # (26/11/2026 : plus de plage de diamètres « Ø min – Ø max » — les propositions parcourent tout le catalogue des
+        #  boulons et rendent une solution par diamètre qui convient, ``chercher_solutions``)
+        items += [("grp", "Prédimensionnement", "Les règles des solutions proposées : le taux à tenir, les pinces et entraxes "
+                                               "de détail (k · d0). Tous les diamètres du catalogue sont essayés. Une solution "
                                                "ne change jamais un effort, un profilé, un acier, un niveau ni le grugeage."),
                   ("html", champ(cfg, u, "eta_c")),
-                  ("html", C.ligne2(_cellule(cfg, u, "pd_dmin"), _cellule(cfg, u, "pd_dmax"))),
                   ("html", C.ligne2(_cellule(cfg, u, "k_e1"), _cellule(cfg, u, "k_p1"))),
                   ("html", champ(cfg, u, "k_e2"))]
     items += [("grp", "Note de calcul"),
@@ -1346,14 +1356,20 @@ def elements(etat: Dict, bilans: List[Dict]) -> str:
     return ""
 
 
-def _messages(cfg: Config, R) -> str:
+def _messages(cfg: Config, R, dites: frozenset = frozenset()) -> str:
     out = ""
     # « À vérifier » : le verdict dit la raison, l'avis du moteur (ancr_info, tige_info, fjd_info) dit quoi faire — la
     # phrase d'information la redirait (une seule fois à l'écran : brief v12, « pas de blabla »)
     note = None if (R.verified and R.get("a_verifier")) else getattr(cfg, "note_information", None)
     if note and note(R):
         out += C.message(C.esc(note(R)))
+    # « À vérifier » (un contrôle hors périmètre au-delà de 100 % — pied de poteau) : la raison que le moteur nomme, dite
+    # ici depuis que la tête ne porte plus de verdict
+    if R.verified and R.get("a_verifier"):
+        out += C.message(f"<b>À vérifier</b> — {C.esc(R.a_verifier)}")
     for a in R.alerts:
+        if a.id in dites:                         # (déjà dite, avec ses retouches, dans le bloc « À corriger »)
+            continue
         titre, det = cfg.N.ligne_alerte(a, R)
         out += C.message(f"<b>{C.esc(titre)}</b>" + (f" — {C.esc(det)}" if det else ""), grave=a.block)
     # « Vérifié sous réserve » ne s'écrit que d'un assemblage VÉRIFIÉ : sous « Non conforme » (une tige hors des
@@ -1372,38 +1388,26 @@ def _minuscule(s: str) -> str:
     return s[:1].lower() + s[1:]
 
 
-def _verdict(cfg: Config, R, niv: str) -> str:
-    g = R.gov
-    cause = _cause_geometrie(R)
-    if cause is not None:
-        titre, detail = cause
-        return (f'<div class="verdict">{C.chip(taux(eta_R(R)), niv, xl=True)}<div class="gov"><b>{C.esc(titre)}</b>'
-                f'{detail}</div></div>')
-    if g is None:
-        return f'<div class="verdict">{C.chip(taux(eta_R(R)), niv, xl=True)}<div class="gov"><b>{C.esc(R.statut)}</b></div></div>'
-    motif = ""
-    if not R.geo_ok:
-        motif = " · géométrie non valide"
-    elif not R.dist_ok:
-        motif = " · pinces ou entraxes non conformes"
-    elif R.verified and R.get("a_verifier"):
-        motif = " · à vérifier : " + R.a_verifier
-    elif R.verified and (R.get("reserve") or R.alerts):
-        motif = " · sous réserve des alertes"
-    suite = cfg.complement_verdict(R) if cfg.complement_verdict else ""
-    return (f'<div class="verdict">{C.chip(taux(eta_R(R)), niv, xl=True)}<div class="gov"><b>{C.esc(g.grp)} · {C.esc(_minuscule(_court(cfg, g)))}</b>'
-            f'{_comparaison(cfg, g)}{suite}{C.esc(motif)}</div></div>')
-
-
 def _rangee_geometrie(R, gov: bool = False) -> str:
     """La ligne « Géométrie » du résultat : le Tableau 3.3 (pinces et entraxes), conforme ou non selon le moteur ;
-    marquée gouvernante quand c'est elle que la tête nomme (``_cause_geometrie``)."""
+    marquée gouvernante quand c'est la géométrie qui gouverne (``_cause_geometrie``).
+
+    Comme la ligne d'une pièce, elle dit CE QU'ELLE COMPARE dès qu'une distance n'est pas conforme : la pire, nommée,
+    sa valeur et sa limite (« Platine – e2 (bord latéral) : 30,0 mm < 31,2 mm ») — depuis le 26/11/2026 la tête ne
+    porte plus de verdict, et c'est lui qui l'écrivait ; conforme, le compte des distances vérifiées."""
     dist = list(R.get("dist") or [])
     t = max([_taux_distance(x) for x in dist] or [0.0])
     niv = "r" if not (R.get("dist_ok", True) and R.get("geo_ok", True)) else C.niveau(t)
     n = len(dist)
     txt = (f"{n} pinces et entraxes" if n > 1 else "1 distance au bord") if dist else "géométrie"
-    return C.ligne_verif("Géométrie", f"Tab. 3.3 · {txt}", C.pct(t), niv, calcul="geometrie", gov=gov)
+    p = _pince_ko(R)
+    if p is not None:
+        cmp_ = (f"{C.fr(p.val, 1)} mm &lt; {C.fr(p.min, 1)} mm" if p.min is not None and p.val < p.min
+                else f"{C.fr(p.val, 1)} mm &gt; {C.fr(p.max, 1)} mm")
+        quoi = f"{C.esc(p.lab)} : {cmp_}"       # (le nom tel que le moteur l'écrit : « S – e2 cornière » est le groupe S)
+    else:
+        quoi = f"Tab. 3.3 · {txt}"
+    return C.ligne_verif("Géométrie", quoi, C.pct(t), niv, calcul="geometrie", gov=gov)
 
 
 def _statut_note(bilans: List[Dict], niv: str) -> str:
@@ -1485,18 +1489,25 @@ def resultat(etat: Dict) -> Dict:
         # (pas de ligne d'efforts : la tête, juste au-dessus, dit déjà la configuration, les pièces et les efforts)
         blocs = E.bloc(0, "Vérifications", CLASSES_BLOC.get(niv, "inc"), f"{C.STATUTS[niv][1]} · {C.pc(taux(eta_R(R)))}{C.NBSP}%",
                        "", rows, theme=True, calcul=fen)
-        if cfg.predim:
+        # Un assemblage que le moteur ne vérifie pas s'ouvre sur « À corriger » (assemblages_corriger.bloc : les défauts
+        # de géométrie et leurs retouches, la solution vérifiée) ; vérifié, le bloc « Prédimensionnement » suit les
+        # vérifications, comme avant. Plus de GROS taux en tête (le propriétaire, 26/11/2026 : « un gros 131 % et une
+        # autre ligne […] dans le module en béton, ça on avait supprimé, parce que ça ne sert à rien de l'afficher alors
+        # qu'en dessous on le voit ») : l'en-tête du bloc dit l'état et le taux, la ligne qui gouverne est marquée.
+        corriger, dites = AC.bloc(cfg, R, u)
+        if cfg.predim and not corriger:
             blocs += bloc_propositions()
-        msg = _messages(cfg, R)
-        html_res = f'<div class="pbody">{tete}{_verdict(cfg, R, niv)}<div class="et-blocs">{blocs}</div>{msg}</div>{pied}'
+        msg = _messages(cfg, R, dites)
+        html_res = f'<div class="pbody">{tete}<div class="et-blocs">{corriger}{blocs}</div>{msg}</div>{pied}'
         vol = volets(cfg, R, u, el)
     cfg = pour(cfg, R)
-    vs = vues(cfg, R, el)
+    donnees = arbre(etat, R)
+    vs = vues(cfg, R, el, donnees)
     sous, lignes, bande = entete_vue(cfg, u, R)
     for v in vs:
         v["entete"] = E.entete(v["titre"].upper(), sous, lignes, bande, v.get("legende", ""))
     return {"resultat": html_res, "volets": vol, "vues": vs, "phrase": "", "statut_html": _statut_note(bilans, niv),
-            "resume": resume_note(etat, bilans), "donnees": arbre(etat, R), "elements": elements(etat, bilans)}
+            "resume": resume_note(etat, bilans), "donnees": donnees, "elements": elements(etat, bilans)}
 
 
 # les pièces que l'en-tête d'une vue nomme, dans l'ordre : la porteuse, la portée (``Config.noms_pieces``)
@@ -1566,12 +1577,21 @@ def _hl(R) -> Dict:
     return {"dims": dims, "elems": elems} if (dims or elems) else None
 
 
-def vues(cfg: Config, R, el: Dict) -> List[Dict]:
+def vues(cfg: Config, R, el: Dict, donnees: str = "") -> List[Dict]:
     """Les DESSINS du moteur (``schemas`` de la configuration : élévation, vue en plan, vue de droite ou coupe), et eux
     seuls (le propriétaire, 25/11/2026 : « dans la partie centrale, on devrait juste avoir élévation, plan, droite »).
-    Le prédimensionnement s'ouvre du résultat ; la note texte, la méthode et la validation ne sont plus des onglets."""
+    Le prédimensionnement s'ouvre du résultat ; la note texte, la méthode et la validation ne sont plus des onglets.
+
+    Ils se MANIPULENT (le propriétaire, 26/11/2026 : « avant, je cliquais sur le dessin et je pouvais tout choisir ») :
+    une cote se tape sur le dessin, une pièce ouvre son sélecteur ou sa rubrique, « + » et « − » règlent les rangées
+    d'un groupe de boulons — ``dessin_assemblages.manipulable``, d'après le cadre Données rendu (``donnees``) : le
+    dessin ne mène qu'à un champ qui y EXISTE (R1 : un raccourci, jamais le seul accès)."""
     niveau = int(el.get("cotation", 1))
-    return [{"cle": cle, "titre": titre, "court": court, "svg": dessin.svg(identifiant=f"asm_{cle}"), "legende": legende}
+    chemins = frozenset(re.findall(r'data-chemin="([^"]+)"', donnees))
+    roles = frozenset(_selecteurs(cfg))
+    unites = {k: _unite(f) for k, f in cfg.E.CHAMPS.items()}
+    return [{"cle": cle, "titre": titre, "court": court, "legende": legende,
+             "svg": DA.manipulable(dessin.svg(identifiant=f"asm_{cle}"), R.u, chemins, roles, unites, COMPTES_MAXI, SIGNEES)}
             for cle, titre, court, dessin, legende in cfg.vues(R, niveau, _hl(R))]
 
 
@@ -1665,6 +1685,8 @@ def _selecteurs(cfg: Config) -> Dict:
             s[cle] = {"rendre": sel_profil(cle, titres.get(cle, titre)), "choisir": _choisir_liste(cle, "profils")}
     if cfg.predim:
         s["solution"] = {"rendre": sel_solution, "choisir": choisir_solution}
+        # (sans aucune solution : les profilés plus hauts, chacun avec sa solution vérifiée — assemblages_corriger)
+        s["profil_solution"] = {"rendre": AC.sel_profils, "choisir": AC.choisir_profil}
     s.update(cfg.selecteurs)
     return s
 
@@ -1697,14 +1719,31 @@ def propositions(cfg: Config, u: Dict):
     """Les propositions VÉRIFIÉES pour les saisies de l'écran (``acier/assemblages/propositions.chercher`` : chaque
     candidat est jugé par le calcul complet du moteur). La dernière recherche est gardée : choisir une ligne du
     sélecteur ne la refait pas."""
+    cle = (cfg.cle, json.dumps(u, sort_keys=True, default=str, ensure_ascii=False))
+    if _RECHERCHE.get("cle") != cle:
+        X = chercher_solutions(cfg, u)
+        _RECHERCHE.clear()
+        _RECHERCHE.update(cle=cle, X=X)
+    return _RECHERCHE["X"]
+
+
+# la plage de diamètres de l'écran Streamlit (« Ø min », « Ø max ») : elle n'est plus une saisie du site
+PLAGE_DIAMETRES = ("pd_dmin", "pd_dmax")
+
+
+def chercher_solutions(cfg: Config, u: Dict):
+    """La recherche des propositions VÉRIFIÉES pour des saisies, sans mémoire — sur TOUT le catalogue des boulons (le
+    propriétaire, 26/11/2026 : « dans les options, ça propose un diamètre 16 à 22 […] que ça ne mette pas ça. Que ça
+    mette les boulons qui conviennent ») : plus de plage à saisir, UNE solution par diamètre qui convient.
+
+    La plage que la note garde est ignorée. Celle des DÉFAUTS du moteur (``entrees.defaults`` : les diamètres courants)
+    ne sert plus qu'à ranger : à taux cible égal, un diamètre courant est conseillé avant un M12 ou un M36."""
     motif = trop_grand(cfg, u)
     if motif:
         raise ValueError(motif)
-    cle = (cfg.cle, json.dumps(u, sort_keys=True, default=str, ensure_ascii=False))
-    if _RECHERCHE.get("cle") != cle:
-        _RECHERCHE.clear()
-        _RECHERCHE.update(cle=cle, X=PR.chercher(cfg.predim["moteur"], cfg.S, a_calculer(cfg, u), cfg.predim["genre"]))
-    return _RECHERCHE["X"]
+    defauts = cfg.E.defaults()
+    base = dict(a_calculer(cfg, u), **{k: defauts[k] for k in PLAGE_DIAMETRES})
+    return PR.chercher(cfg.predim["moteur"], cfg.S, base, cfg.predim["genre"], nb_max=len(DB["boulons"]), tout=True)
 
 
 def changements(cfg: Config, u: Dict, v: Dict) -> Dict:
@@ -1712,7 +1751,7 @@ def changements(cfg: Config, u: Dict, v: Dict) -> Dict:
     clés qui diffèrent du calcul de l'écran (``a_calculer`` : une dimension vide y est provisoire, elle reste vide)."""
     base = a_calculer(cfg, u)
     return {k: valeur_widget(cfg, k, x) for k, x in v.items()
-            if k in u and k not in cfg.listes and x != base.get(k) and valeur_widget(cfg, k, x) != u.get(k)}
+            if k in u and k not in cfg.listes and k not in PLAGE_DIAMETRES and x != base.get(k) and valeur_widget(cfg, k, x) != u.get(k)}
 
 
 def _detail_proposition(cfg: Config, s) -> str:
@@ -1739,7 +1778,7 @@ def _de_la(groupe: str) -> str:
     return ("de la " if nom.startswith("poutre") else "du ") + nom
 
 
-def aucune_solution(cfg: Config, X) -> str:
+def aucune_solution(cfg: Config, X, court: bool = False) -> str:
     """Ce que le sélecteur dit quand aucune disposition ne passe (HTML) — le propriétaire, 25/11/2026 : « la seule raison
     pour laquelle ça n'irait pas, ce serait que les profilés ne seraient pas suffisants. Et qu'on devrait changer de
     profilé si on a 0 solution » : la vérification qui reste au-delà de 100 % dans le meilleur candidat, nommée, puis
@@ -1761,8 +1800,10 @@ def aucune_solution(cfg: Config, X) -> str:
     c = pour(cfg, b.R)
     g = b.gov
     portee, porteuse = c.S.ELEMENTS[2][0], c.S.ELEMENTS[3][0]
-    essayees = "Toutes les dispositions ont été essayées (M12 à M36, 2 à 8 rangées, une ou deux files, pièce plus épaisse)"
-    reste = (f"{essayees} : au mieux, <b>{C.esc(g.grp)} · {C.esc(_minuscule(_court(c, g)))}</b> reste à "
+    # (``court`` — le bloc « À corriger » du résultat : sans la phrase qui dit ce qui a été essayé, que le sélecteur garde)
+    essayees = ("Au mieux" if court else
+                "Toutes les dispositions ont été essayées (M12 à M36, 2 à 8 rangées, une ou deux files, pièce plus épaisse) : au mieux")
+    reste = (f"{essayees}, <b>{C.esc(g.grp)} · {C.esc(_minuscule(_court(c, g)))}</b> reste à "
              f"{C.pc(taux(min(b.R.eta_max, 9.99)))}{C.NBSP}% ({_comparaison(c, g)}). ")
     if g.grp == portee:
         conseil = CONSEIL_PORTEE.format(piece=C.esc(_de_la(portee)),
@@ -1785,9 +1826,6 @@ def sel_solution(cfg: Config, u: Dict, familles=None) -> str:
                      "niveau": niveau_R(s.R), "cur": not changements(cfg, u, s.u), "opt": k == 0,
                      "prop": _detail_proposition(cfg, s)})
     tete = "" if rows else f'<div class="asm-aucune">{aucune_solution(cfg, X)}</div>'
-    if rows and not X.solutions[0].plage:
-        tete = ('<div class="asm-aucune info">Aucun diamètre de la plage choisie (Options · Prédimensionnement) ne passe : '
-                'les solutions des autres diamètres.</div>')
     return C.selecteur("solution", TITRE_PROPOSITIONS, SOUS_TITRE_SOLUTIONS, tete, rows, 0, "boulons",
                        etoile="conseillée", vide="")
 
@@ -1824,6 +1862,7 @@ def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional
 
 # ===================================================================== les familles
 # chargées en DERNIER : elles décrivent leurs configurations avec les briques ci-dessus (enregistrer, champs…)
+from . import assemblages_corriger as AC  # noqa: E402
 from . import assemblages_poutre  # noqa: E402,F401
 from . import assemblages_poteau  # noqa: E402,F401
 from . import assemblages_pied  # noqa: E402,F401

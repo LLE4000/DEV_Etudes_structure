@@ -432,7 +432,11 @@ export function ouvrirEtabli(hote, ctx) {
 
     // le PLAN qui se manipule (js/plan.js : un objet du dessin se déplace, se tourne, une cote se tape — le moteur écrit dans
     // le dessin ce que chaque geste règle), et les contrôles « data-agir » du résultat et du dessin
-    cablerPlan({ bench, stage: $("#stage"), envoyer, ouvrirRubrique, notes: N, toast, signal });
+    cablerPlan({ bench, stage: $("#stage"), envoyer, ouvrirRubrique, notes: N, toast, signal,
+      // une PIÈCE du dessin ouvre son sélecteur (celui que le résultat ouvre : la même liste, le même moteur) ou mène à son
+      // champ des données ; le plein écran se quitte d'abord — la fenêtre et la colonne sont SOUS la toile agrandie
+      ouvrirSelecteur: (role, ancre) => { toile.quitterPleinEcran(); return ouvrirSelecteur(role, ancre); },
+      allerAuChamp: (chemin, souris) => allerAuChamp(chemin, souris) });
 
     function appliquer(r, action, date = false) {
       note.etat = r.etat;
@@ -863,6 +867,34 @@ export function ouvrirEtabli(hote, ctx) {
       ouvrirSeule(cle);
       const s = zone.querySelector(`.sec[data-sec="${CSS.escape(cle)}"]`);
       if (s) image(() => s.scrollIntoView({ block: "nearest" }));
+    }
+    // le DESSIN amène au CHAMP d'une pièce (js/plan.js, data-plan-champ : le plat, un cordon, les efforts d'un assemblage) :
+    // sa rubrique s'ouvre et les autres se referment, la colonne repliée se rouvre, au téléphone l'onglet Données vient
+    // devant, le plein écran se quitte ; la ligne du champ vient sous les yeux et s'éclaire un instant (.et-vise). À la
+    // SOURIS le champ prend le curseur ; au doigt, non — le clavier virtuel couvrirait l'écran avant qu'on ait choisi quoi
+    // changer. Rend false quand le champ n'est pas dans les données (rien ne bouge).
+    function allerAuChamp(chemin, souris = false) {
+      const champ = $("#donnees").querySelector(`[data-chemin="${CSS.escape(chemin)}"]`);
+      if (!champ) return false;
+      toile.quitterPleinEcran();
+      fermerVolets();
+      if (compact) compact.deplierPoutre();
+      if (telephone.matches) onglet("donnees");
+      bench.classList.remove("sans-g");
+      const rub = champ.closest(".sec[data-sec]");
+      if (rub && !rub.classList.contains("open")) ouvrirRubrique(rub.dataset.sec);
+      const ligne = champ.closest(".row, .row2, .lit, .secard") || champ;
+      image(() => {
+        ligne.scrollIntoView({ block: "center" });
+        $("#donnees").querySelectorAll(".et-vise").forEach((x) => x.classList.remove("et-vise"));
+        ligne.classList.add("et-vise");
+        setTimeout(() => ligne.classList.remove("et-vise"), 2200);
+        if (souris && typeof champ.focus === "function" && !champ.disabled) {
+          champ.focus({ preventScroll: true });
+          if (typeof champ.select === "function") champ.select();
+        }
+      });
+      return true;
     }
     // « Renommer » l'élément ouvert : son champ « Nom », choisi — sur la ligne de l'élément dans l'arborescence (établi
     // compact), dans la tête des RÉSULTATS (colonne de gauche compacte : au téléphone l'onglet Résultat s'ouvre, au PC la

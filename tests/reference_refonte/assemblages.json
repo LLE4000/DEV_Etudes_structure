@@ -41,6 +41,11 @@
    "date": "2026-11-25",
    "raison": "Revue de l'écran du 25/11/2026 demandée par le propriétaire, sur sa capture (doubles cornières, V = 200 kN) — aucune vérification n'a changé de valeur. (1) La toile ne porte que les dessins : les onglets Prédim, Note, Méthode et Validation sont retirés (les limites de la méthode se lisent au pied de chaque fenêtre de calcul ; les bancs sont rejoués par les suites du dépôt). (2) Le MODE prédimensionnement est retiré : le bloc « Prédimensionnement » du résultat ouvre des solutions VÉRIFIÉES par le calcul complet (acier/assemblages/propositions.py) — le sélecteur « solution » liste donc d'autres dispositions qu'hier (taux du calcul complet, plus d'estimation), et le cas « prédimensionnement » est remplacé par cinq cas (solution recopiée, plat de 0,6·h, aucune solution, bascule refusée, note d'hier relue). (3) Rubriques regroupées (le grugeage avec les poutres, « Options » : coefficients, règles du prédimensionnement, note, cartouche) ; l'option « texte_complet » disparaît avec son onglet ; l'option « note_taux » (taux affichés ou non dans la note PDF) apparaît. (4) Le cadre du pied du résultat (nom du module, norme, code couleur) est retiré, comme dans tous les modules.",
    "ecarts": ["doubles cornières : prédimensionnement : cas retiré", "note neuve (doubles cornières) : etat changé", "note neuve (doubles cornières) : valeurs qui ne se voient plus [\"1,86\", \"104\", \"110\", \"132\", \"142\", \"165\", \"178\", \"199\", \"2,42\", \"2,49\", \"2,72\", \"2,80\", \"4,13\", \"4,59\", \"97\", \"97,2\"]", "plat_ame : neuf : etat changé", "plat_ame : neuf : valeurs qui ne se voient plus [\"104\", \"116\", \"129\", \"130\", \"132\", \"142\", \"145\", \"150\", \"165\", \"183\", \"199\", \"2,73\", \"213\", \"242\", \"25\", \"35\", \"4,08\", \"4,88\", \"45\", \"5,05\", \"55\", \"7,54\", \"8,…", "platine_about : neuf : etat changé", "platine_about : neuf : valeurs qui ne se voient plus [\"0,6\", \"199\", \"2,07\", \"2,21\", \"3,03\", \"3,74\", \"35\", \"4,16\", \"41\", \"41,5\", \"42\", \"43,2\", \"50\", \"64,8\", \"75\"]", "plat_ame_poteau : neuf : etat changé", "plat_ame_poteau : neuf : valeurs qui ne se voient plus [\"0,00\", \"116\", \"117\", \"121\", \"130\", \"138\", \"145\", \"15\", \"150\", \"158\", \"165\", \"178\", \"185\", \"190\", \"2,73\", \"210\", \"213\", \"230\", \"235\", \"250\", \"260\", \"275\", \"3,…", "doubles_cornieres_poteau : neuf : etat changé", "doubles_cornieres_poteau : neuf : valeurs qui ne se voient plus [\"1,32\", \"1,83\", \"1,94\", \"109\", \"118,6\", \"138\", \"145\", \"165\", \"169\", \"2,15\", \"2,32\", \"210\", \"275\", \"3,26\", \"3,62\", \"310\", \"315\", \"32\", \"326\", \"34\", \"34,3\", \"34…", "platine_about_poteau : neuf : etat changé", "platine_about_poteau : neuf : valeurs qui ne se voient plus [\"0,6\", \"1,41\", \"1,61\", \"105\", \"110\", \"23\", \"275\", \"29,5\", \"3,03\", \"3,74\", \"310\", \"315\", \"32,4\", \"326\", \"33,6\", \"35\", \"4,16\", \"41,5\", \"43\", \"43,2\", \"50\", \"64,8…", "platine_beton : neuf : etat changé", "doubles_cornieres : exemple publié BM1 : etat changé", "doubles_cornieres : exemple publié BM1 : valeurs qui ne se voient plus [\"120\", \"16\", \"3,23\", \"35\", \"4,02\", \"4,09\", \"4,15\", \"4,94\", \"440\", \"45\", \"457\", \"5,49\", \"65\", \"80\", \"85\", \"86,6\", \"95,5\", \"98,5\"]", "doubles_cornieres : exemple publié BM4 : etat changé", "doubles_cornieres : exemple publié BM4 : valeurs qui ne se voient plus [\"1,51\", \"120\", \"16\", \"3,08\", \"3,55\", \"3,59\", \"3,89\", \"390\", \"4,14\", \"4,60\", \"45\", \"457\", \"65\", \"65,9\", \"67,4\", \"7\", \"74,2\", \"75\", \"76,6\", \"77\", \"80,4\", \"81,3\"…", "plat_ame : exemple publié BM1 : etat changé", "plat_ame : exemple publié BM1 : valeurs qui ne se voient plus [\"110\", \"12\", \"2,73\", \"24\", \"35\", \"370\", \"380\", \"390\", \"400\", \"405\", \"430\", \"440\", \"45\", \"457\", \"55\", \"65\", \"65,9\", \"68,9\", \"7\", \"7,11\", \"7,18\", \"7,78\", \"71,4\"…", "platine_about : exemple publié BM1 : etat changé", "platine_about : exemple publié BM1 : valeurs qui ne se voient plus [\"150\", \"16\", \"160\", \"170\", \"24\", \"3,95\", \"35\", \"390\", \"405\", \"440\", \"45\", \"457\", \"5,00\", \"5,08\", \"5,65\", \"50\", \"6,28\", \"60\", \"65\", \"75\", \"87\", \"87,5\", \"93,9\",…", "plat_ame_poteau : exemple publié BM2 : etat changé", "plat_ame_poteau : exemple publié BM2 : valeurs qui ne se voient plus [\"0,00\", \"110\", \"2,73\", \"24\", \"240\", \"250\", \"260\", \"275\", \"310\", \"315\", \"320\", \"326\", \"35\", \"45\", \"5,16\", \"5,69\", \"5,95\", \"54,9\", \"55\", \"55,3\", \"60\", \"60,7\", \"…", "plat_ame_poteau : exemple publié BM4 : etat changé", "plat_ame_poteau : exemple publié BM4 : valeurs qui ne se voient plus [\"0,00\", \"110\", \"2,73\", \"24\", \"240\", \"250\", \"260\", \"275\", \"310\", \"315\", \"320\", \"326\", \"35\", \"45\", \"5,16\", \"5,69\", \"5,95\", \"54,9\", \"55\", \"55,3\", \"60\", \"60,7\", \"…", "doubles_cornieres_poteau : exemple publié BM3 : etat changé", "doubles_cornieres_poteau : exemple publié BM3 : valeurs qui ne se voient plus [\"1,76\", \"110\", \"118,6\", \"119\", \"16\", \"2,56\", \"2,58\", \"2,74\", \"2,84\", \"2,98\", \"24\", \"240\", \"3,91\", \"30\", \"326\", \"4,35\", \"45\", \"50\", \"51,8\", \"54,9\", \"55\", \"60\",…", "platine_about_poteau : exemple publié BM4 : etat changé", "platine_about_poteau : exemple publié BM4 : valeurs qui ne se voient plus [\"0,6\", \"150\", \"16\", \"160\", \"170\", \"2,35\", \"2,58\", \"24\", \"240\", \"260\", \"30\", \"326\", \"35\", \"4,39\", \"4,88\", \"43,6\", \"45\", \"47,3\", \"50\", \"51,8\", \"53,7\", \"65\", \"66…", "platine_beton : exemple publié VAL-A : etat changé", "platine_beton : exemple publié VAL-M1 : etat changé", "platine_beton : exemple publié VAL-M3 : etat changé", "pied de poteau : vérification complète (grille régulière) : etat changé", "doubles_cornieres : chargé près de 100 % (V_Ed = 152 kN) : etat changé", "doubles_cornieres : chargé près de 100 % (V_Ed = 152 kN) : valeurs qui ne se voient plus [\"118\", \"118,2\", \"16\", \"160\", \"199\", \"2,26\", \"2,94\", \"3,03\", \"3,30\", \"3,41\", \"30\", \"5,02\", \"5,58\", \"80\"]", "plat_ame : chargé près de 100 % (V_Ed = 152 kN) : etat changé", "plat_ame : chargé près de 100 % (V_Ed = 152 kN) : valeurs qui ne se voient plus [\"102\", \"102,0\", \"16\", \"185\", \"199\", \"2,73\", \"25\", \"30\", \"45\", \"5,09\", \"6,20\", \"6,38\", \"70\", \"8,67\", \"9,63\"]", "platine_about : chargé près de 100 % (V_Ed = 290 kN) : etat changé", "platine_about : chargé près de 100 % (V_Ed = 290 kN) : valeurs qui ne se voient plus [\"0,6\", \"170\", \"175\", \"180\", \"199\", \"24\", \"45\", \"5,13\", \"5,26\", \"5,46\", \"6,31\", \"65\", \"7,01\", \"75\", \"95\", \"95,1\", \"96,3\"]", "plat_ame_poteau : chargé près de 100 % (V_Ed = 285 kN) : etat changé", "plat_ame_poteau : chargé près de 100 % (V_Ed = 285 kN) : valeurs qui ne se voient plus [\"0,00\", \"110\", \"12\", \"16\", \"2,73\", \"24\", \"25\", \"275\", \"30\", \"310\", \"315\", \"320\", \"326\", \"35\", \"45\", \"5,61\", \"55\", \"6,22\", \"6,53\", \"60\", \"7\", \"7,45\", \"70\", \"75…", "doubles_cornieres_poteau : chargé près de 100 % (V_Ed = 341 kN) : etat changé", "doubles_cornieres_poteau : chargé près de 100 % (V_Ed = 341 kN) : valeurs qui ne se voient plus [\"1,35\", \"118,6\", \"16\", \"24\", \"3,40\", \"3,41\", \"3,89\", \"30\", \"310\", \"326\", \"35\", \"4,06\", \"4,26\", \"4,74\", \"50\", \"55\", \"75\", \"80\", \"88\", \"88,3\", \"93,6\", \"93,7\", \"…", "platine_about_poteau : chargé près de 100 % (V_Ed = 510 kN) : etat changé", "platine_about_poteau : chargé près de 100 % (V_Ed = 510 kN) : valeurs qui ne se voient plus [\"0,6\", \"105\", \"110\", \"16\", \"165\", \"185\", \"210\", \"24\", \"30\", \"310\", \"315\", \"320\", \"326\", \"4,48\", \"4,94\", \"45\", \"5,31\", \"5,59\", \"50\", \"6,22\", \"75\", \"90\", \"90,4\"…", "platine_beton : chargé près de 100 % (N_Ed = 1 770 kN, calcul manuel) : etat changé", "platine_beton : chargé près de 100 % (N_Ed = 1 610 kN, vérification complète) : etat changé", "effort tranchant nul : etat changé", "effort tranchant nul : valeurs qui ne se voient plus [\"110\", \"120\", \"16\", \"199\", \"24\", \"30\", \"65\", \"75\", \"80\", \"90\"]", "effort illisible refusé : etat changé", "effort illisible refusé : valeurs qui ne se voient plus [\"1,86\", \"16\", \"160\", \"199\", \"2,42\", \"2,49\", \"2,72\", \"2,80\", \"4,13\", \"4,59\", \"90\", \"97\", \"97,2\"]", "longueur de cornière vidée refusée : etat changé", "longueur de cornière vidée refusée : valeurs qui ne se voient plus [\"1,86\", \"16\", \"160\", \"199\", \"2,42\", \"2,49\", \"2,72\", \"2,80\", \"4,13\", \"4,59\", \"90\", \"97\", \"97,2\"]", "profilé personnalisé, hauteur vidée (à compléter) : etat changé", "profilé personnalisé, hauteur vidée (à compléter) : valeurs qui ne se voient plus [\"-1\", \"-8\", \"1993\"]", "note relue avec V_Ed vide (verdict suspendu) : etat changé", "note relue avec V_Ed vide (verdict suspendu) : valeurs qui ne se voient plus [\"-1\", \"-8\", \"1993\"]", "pinces trop courtes (e1 = 10 mm) : etat changé", "pinces trop courtes (e1 = 10 mm) : valeurs qui ne se voient plus [\"1,86\", \"16\", \"160\", \"199\", \"2,42\", \"2,49\", \"2,72\", \"2,80\", \"30\", \"4,13\", \"4,59\", \"80\", \"90\", \"97\", \"97,2\"]", "plat d'âme : configuration changée, valeurs gardées : etat changé", "plat d'âme : configuration changée, valeurs gardées : valeurs qui ne se voient plus [\"110\", \"140\", \"145\", \"150\", \"16\", \"160\", \"165\", \"180\", \"185\", \"199\", \"2,73\", \"24\", \"25\", \"3,38\", \"3,67\", \"3,82\", \"30\", \"35\", \"45\", \"55\", \"6,35\", \"60\", \"60,4\",…", "pied : tige retirée (calcul manuel) : etat changé", "pied : traction N = −100 kN (vérification complète) : etat changé", "assemblage ajouté (platine d'about) : etat changé", "assemblage ajouté (platine d'about) : valeurs qui ne se voient plus [\"0,6\", \"16\", \"170\", \"175\", \"180\", \"199\", \"2,07\", \"2,21\", \"24\", \"3,03\", \"3,74\", \"4,16\", \"41\", \"41,5\", \"43,2\", \"45\", \"50\", \"64,8\", \"65\", \"75\", \"97\"]", "note abîmée : etat changé", "note abîmée : valeurs qui ne se voient plus [\"1,86\", \"16\", \"160\", \"199\", \"2,42\", \"2,49\", \"2,72\", \"2,80\", \"4,13\", \"4,59\", \"90\", \"97\", \"97,2\"]"]
+  },
+  {
+   "date": "2026-11-26",
+   "raison": "revue du 26/11/2026 de l'écran des assemblages (demande du propriétaire), AFFICHAGE seul : plus de gros taux en tête du résultat (l'en-tête du bloc « Vérifications » le dit, la ligne « Géométrie » dit ce qu'elle compare) ; un assemblage non vérifié s'ouvre sur le bloc « À corriger » (défauts de géométrie, retouches en un geste, solution vérifiée, profilés qui conviennent) ; plus de plage de diamètres dans les Options (champs pd_dmin et pd_dmax retirés de l'écran), le sélecteur des solutions liste un diamètre de plus par boulon qui convient ; pied de poteau « À vérifier » : la raison est un message ; les dessins portent les poignées des groupes de boulons et l'étiquette des efforts (dessin interactif). Aucun chiffre de calcul n'a changé",
+   "ecarts": ["platine_beton : exemple publié VAL-A : avis changés", "pied de poteau : vérification complète (grille régulière) : avis changés", "platine_beton : chargé près de 100 % (N_Ed = 1 770 kN, calcul manuel) : avis changés", "pinces trop courtes (e1 = 10 mm) : avis changés"]
   }
  ],
  "cas": [
@@ -63,8 +68,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme ·", "80 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -423,8 +426,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -448,8 +449,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -461,7 +460,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -586,7 +585,10 @@
       ["M24 · L120x120x10", "6", "83 %", "3"],
       ["M16 · L80x80x8", "9", "79 %", "3"],
       ["M20 · L100x100x8", "9", "80 %", "3"],
-      ["M22 · L100x100x8", "9", "88 %"],
+      ["M22 · L100x100x8", "9", "88 %", "2"],
+      ["M27 · L120x120x10", "6", "83 %", "2"],
+      ["M30 · L150x150x10", "6", "85 %", "4"],
+      ["M12 · L80x80x8", "12", "74 %"],
       ["retenu conseillée boulons · taux"]
      ]
     },
@@ -612,9 +614,7 @@
      ["A1 Plat d'âme · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "80 %"],
+     ["Vérifications Conforme ·", "80 %"],
      ["Boulons", "3", "×", "1"],
      ["M20 · 8.8", "71 %"],
      ["cisaillement du groupe :", "66,7 kN", "≤", "94,1 kN"],
@@ -914,8 +914,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -936,8 +934,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -949,7 +945,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 100 150 190 300 35 40 400 50 50 50 6 60 60 e1 e2,b p1 p1"
+      "nombres": "0 0 1 10 100 125 150 190 3 300 35 40 400 50 50 50 6 60 60 e1 e2,b p1 p1"
      },
      {
       "cle": "plan",
@@ -1050,7 +1046,11 @@
       ["M24 · plat 190×110×10", "2", "83 %", "3"],
       ["M20 · plat 190×80×8", "3", "87 %", "3"],
       ["M22 · plat 190×90×9", "3", "89 %", "4"],
-      ["M16 · plat 185×70×8", "4", "89 %"],
+      ["M16 · plat 185×70×8", "4", "89 %", "2"],
+      ["M27 · plat 195×120×10", "2", "83 %", "2"],
+      ["M30 · plat 195×120×12", "2", "86 %", "2×2"],
+      ["M36 · plat 195×270×15", "4", "76 %", "5×2"],
+      ["M12 · plat 180×90×8", "10", "70 %"],
       ["retenu conseillée boulons · taux"]
      ]
     }
@@ -1075,9 +1075,7 @@
      ["A1 Platine d'about · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "52 %"],
-     ["Poutre secondaire · grugeage – stabilité (c)", "150,0 mm", "≤", "290,0 mm", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "52 %"],
+     ["Vérifications Conforme ·", "52 %"],
      ["Boulons", "2", "×", "3"],
      ["M20 · 8.8", "28 %"],
      ["groupe : cisaillement et pression diam. :", "125,0 kN", "≤", "451,6 kN"],
@@ -1360,8 +1358,6 @@
      "v/opt_blf": false,
      "v/p1_u": "60",
      "v/p3_u": "90",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -1381,8 +1377,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -1394,7 +1388,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 400 5 50 50 60 60 e1 p1 p1"
+      "nombres": "0 0 10 125 150 190 2 3 300 35 400 5 50 50 60 60 e1 p1 p1"
      },
      {
       "cle": "plan",
@@ -1494,7 +1488,11 @@
       ["Solutions vérifiées un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés 2×2 M16 · platine 175×160×8", "4", "65 %", "2×2"],
       ["M20 · platine 175×170×8", "4", "52 %", "2×2"],
       ["M22 · platine 175×180×8", "4", "52 %", "2×2"],
-      ["M24 · platine 175×190×8", "4", "52 %"],
+      ["M24 · platine 175×190×8", "4", "52 %", "2×2"],
+      ["M27 · platine 185×200×8", "4", "52 %", "2×2"],
+      ["M30 · platine 175×210×8", "4", "52 %", "2×2"],
+      ["M36 · platine 190×245×8", "4", "52 %", "2×3"],
+      ["M12 · platine 175×140×8", "6", "80 %"],
       ["retenu conseillée boulons · taux"]
      ]
     }
@@ -1519,9 +1517,7 @@
      ["A1 Plat d'âme/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "125 kN"],
-     ["η", "50 %"],
-     ["Soudure · gorge minimale", "3,0 mm", "≤", "6,0 mm", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "50 %"],
+     ["Vérifications Conforme ·", "50 %"],
      ["Boulons", "4", "×", "1"],
      ["M20 · 8.8", "44 %"],
      ["cisaillement du groupe :", "41,2 kN", "≤", "94,1 kN"],
@@ -1783,8 +1779,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -1806,8 +1800,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -1819,7 +1811,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 100 290 300 300 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
+      "nombres": "0 0 1 10 100 125 290 300 300 4 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -1882,7 +1874,11 @@
       ["M20 · plat 240×90×8", "3", "63 %", "3"],
       ["M22 · plat 240×100×8", "3", "61 %", "3"],
       ["M24 · plat 240×110×8", "3", "61 %", "4"],
-      ["M16 · plat 240×80×8", "4", "70 %"],
+      ["M16 · plat 240×80×8", "4", "70 %", "2"],
+      ["M36 · plat 240×160×8", "2", "75 %", "3"],
+      ["M27 · plat 270×120×8", "3", "60 %", "3"],
+      ["M30 · plat 290×130×8", "3", "60 %", "6"],
+      ["M12 · plat 250×60×8", "6", "80 %"],
       ["retenu conseillée boulons · taux"]
      ]
     }
@@ -1907,8 +1903,6 @@
      ["A1 Cornières/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "125 kN"],
-     ["η", "36 %"],
-     ["Poutre portée · pression diamétrale – âme", "41,2 kN", "≤", "113,5 kN"],
      ["Vérifications Conforme ·", "36 %"],
      ["Boulons M20 8.8 · S 4×1 · P 4×1", "22 %"],
      ["cisaillement – groupe S :", "41,2 kN", "≤", "188,2 kN"],
@@ -2234,8 +2228,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "70",
      "v/p1S_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -2260,8 +2252,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -2273,7 +2263,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 290 300 300 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 290 300 300 4 4 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -2392,7 +2382,11 @@
       ["M20 · L100x100x8", "6", "84 %", "2"],
       ["M22 · L100x100x8", "6", "77 %", "2"],
       ["M24 · L120x120x10", "6", "68 %", "3"],
-      ["M16 · L80x80x8", "9", "58 %"],
+      ["M16 · L80x80x8", "9", "58 %", "2"],
+      ["M27 · L120x120x10", "6", "89 %", "2"],
+      ["M30 · L150x150x10", "6", "87 %", "2"],
+      ["M36 · L200x200x16", "6", "65 %", "4"],
+      ["M12 · L80x80x8", "12", "70 %"],
       ["retenu conseillée boulons · taux"]
      ]
     }
@@ -2417,9 +2411,7 @@
      ["A1 Platine/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "125 kN"],
-     ["η", "24 %"],
-     ["Poutre portée · âme – cisaillement sur hp", "125,0 kN", "≤", "511,2 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "24 %"],
+     ["Vérifications Conforme ·", "24 %"],
      ["Boulons", "2", "×", "4"],
      ["M20 · 8.8", "21 %"],
      ["groupe : cisaillement et pression diam. :", "125,0 kN", "≤", "602,1 kN"],
@@ -2698,8 +2690,6 @@
      "v/opt_blf": false,
      "v/p1_u": "70",
      "v/p3_u": "140",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -2720,8 +2710,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -2733,7 +2721,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 290 300 300 40 40 400 5 70 70 70 e1 p1 p1 p1"
+      "nombres": "0 0 10 125 2 290 300 300 4 40 40 400 5 70 70 70 e1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -2827,7 +2815,8 @@
       ["Solutions vérifiées un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés 2×2 M16 · platine 240×165×8", "4", "65 %", "2×2"],
       ["M20 · platine 240×185×8", "4", "42 %", "2×2"],
       ["M22 · platine 240×195×8", "4", "34 %", "2×2"],
-      ["M24 · platine 240×210×8", "4", "30 %"],
+      ["M24 · platine 240×210×8", "4", "30 %", "2×3"],
+      ["M12 · platine 240×140×8", "6", "80 %"],
       ["retenu conseillée boulons · taux"]
      ]
     }
@@ -2855,9 +2844,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "79 %"],
-     ["Platine · épaisseur requise tp", "19,8 mm", "≤", "25,0 mm", "·"],
-     ["tronçon en T du boulon · sous réserve des alertes Vérifications Conforme ·", "79 %"],
+     ["Vérifications Conforme ·", "79 %"],
      ["Platine", "500", "×", "500", "×", "25 mm", "·"],
      ["S355", "79 %"],
      ["épaisseur requise tp :", "19,8 mm", "≤", "25,0 mm"],
@@ -3133,7 +3120,7 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire d'appui (bleu), zone comprimée (rouge), C, axe neutre, T et bras m de chaque boulon, bande comprimée (mEd).",
-      "nombres": "1 2 3 300 339 39 4 500 500 65 900 900"
+      "nombres": "1 2 3 30 300 300 339 39 4 50 500 500 65 900 900"
      },
      {
       "cle": "coupe_aa",
@@ -3192,8 +3179,6 @@
     "phrase": "",
     "resultat": [
      ["A1 Doubles cornières · Personnalisé sur Personnalisé · V =", "450 kN"],
-     ["η", "90 %"],
-     ["Poutre secondaire · rupture de bloc – âme", "450,0 kN", "≤", "498,6 kN"],
      ["Vérifications Conforme ·", "90 %"],
      ["Boulons M20 8.8 · S 6×1 · P 6×1", "50 %"],
      ["cisaillement – groupe P :", "37,5 kN", "≤", "75,3 kN"],
@@ -3540,8 +3525,6 @@
      "v/orient": "Grande aile sur poutre principale",
      "v/p1P_u": "70",
      "v/p1S_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "Personnalisé",
      "v/prof_S": "Personnalisé",
      "v/rP_u": "27",
@@ -3572,8 +3555,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/orient": "2 · 85c6ec5c16d4",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -3585,7 +3566,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 40 40 40 430 50 50 60 70 70 70 70 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 40 40 40 430 450 50 50 6 6 60 70 70 70 70 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -3622,8 +3603,6 @@
     "phrase": "",
     "resultat": [
      ["A1 Doubles cornières · Personnalisé sur Personnalisé · V =", "350 kN"],
-     ["η", "72 %"],
-     ["Poutre secondaire · rupture de bloc – âme", "350,0 kN", "≤", "486,1 kN"],
      ["Vérifications Conforme ·", "72 %"],
      ["Boulons M20 8.8 · S 5×2 · P 5×1", "47 %"],
      ["cisaillement – groupe P :", "35,0 kN", "≤", "75,3 kN"],
@@ -3975,8 +3954,6 @@
      "v/p1P_u": "70",
      "v/p1S_u": "70",
      "v/p2_S": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "Personnalisé",
      "v/prof_S": "Personnalisé",
      "v/rP_u": "27",
@@ -4007,8 +3984,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/orient": "2 · 85c6ec5c16d4",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -4020,7 +3995,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 360 40 40 40 50 60 60 70 70 70 70 70 70 70 70 80 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p1 p1 p2"
+      "nombres": "0 0 1 10 2 350 360 40 40 40 5 5 50 60 60 70 70 70 70 70 70 70 70 80 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p1 p1 p2"
      },
      {
       "cle": "plan",
@@ -4057,8 +4032,6 @@
     "phrase": "",
     "resultat": [
      ["A1 Plat d'âme · Personnalisé sur Personnalisé · V =", "350 kN"],
-     ["η", "78 %"],
-     ["Plat d'âme · cisaillement brut", "350,0 kN", "≤", "450,1 kN"],
      ["Vérifications Conforme ·", "78 %"],
      ["Boulons", "5", "×", "2"],
      ["M20 · 8.8", "60 %"],
@@ -4353,8 +4326,6 @@
      "v/opt_blf": false,
      "v/p1_u": "70",
      "v/p2_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "Personnalisé",
      "v/prof_S": "Personnalisé",
      "v/rP_u": "27",
@@ -4381,8 +4352,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -4394,7 +4363,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 160 360 40 40 50 6 60 60 70 70 70 70 80 e1 e2,b p1 p1 p1 p1 p2"
+      "nombres": "0 0 10 160 2 350 360 40 40 5 50 6 60 60 70 70 70 70 80 e1 e2,b p1 p1 p1 p1 p2"
      },
      {
       "cle": "plan",
@@ -4432,9 +4401,7 @@
     "resultat": [
      ["A1 Platine d'about · Personnalisé sur Personnalisé · V =", "550 kN", "·"],
      ["N =", "275 kN"],
-     ["η", "90 %"],
-     ["Poutre secondaire · âme – cisaillement sur hp", "550,0 kN", "≤", "614,4 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "90 %"],
+     ["Vérifications Conforme ·", "90 %"],
      ["Boulons", "2", "×", "6"],
      ["M20 · 8.8", "61 %"],
      ["groupe : cisaillement et pression diam. :", "550,0 kN", "≤", "903,2 kN"],
@@ -4730,8 +4697,6 @@
      "v/opt_blf": false,
      "v/p1_u": "70",
      "v/p3_u": "140",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "Personnalisé",
      "v/prof_S": "Personnalisé",
      "v/rP_u": "27",
@@ -4758,8 +4723,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -4771,7 +4734,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 12 40 430 5,6 50 60 70 70 70 70 70 e1 p1 p1 p1 p1 p1"
+      "nombres": "0 0 12 2 40 430 5,6 50 550 6 60 70 70 70 70 70 e1 p1 p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -4810,9 +4773,7 @@
      ["A1 Plat d'âme/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "200 kN"],
-     ["η", "70 %"],
-     ["Boulons · cisaillement du groupe", "65,9 kN", "≤", "94,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "70 %"],
+     ["Vérifications Conforme ·", "70 %"],
      ["Boulons", "4", "×", "1"],
      ["M20 · 8.8", "70 %"],
      ["cisaillement du groupe :", "65,9 kN", "≤", "94,1 kN"],
@@ -5074,8 +5035,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -5097,8 +5056,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -5110,7 +5067,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 100 290 300 300 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
+      "nombres": "0 0 1 10 100 200 290 300 300 4 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -5149,9 +5106,7 @@
      ["A1 Plat d'âme/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(dans l'âme) · V =", "200 kN"],
-     ["η", "70 %"],
-     ["Boulons · cisaillement du groupe", "65,9 kN", "≤", "94,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "70 %"],
+     ["Vérifications Conforme ·", "70 %"],
      ["Boulons", "4", "×", "1"],
      ["M20 · 8.8", "70 %"],
      ["cisaillement du groupe :", "65,9 kN", "≤", "94,1 kN"],
@@ -5446,8 +5401,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -5470,8 +5423,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -5483,7 +5434,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 dans l'âme du poteau, entre les ailes",
-      "nombres": "0 0 10 100 290 300 300 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
+      "nombres": "0 0 1 10 100 200 290 300 300 4 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -5523,9 +5474,7 @@
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "200 kN", "·"],
      ["N =", "300 kN"],
-     ["η", "67 %"],
-     ["Boulons · tying – boulons du groupe S", "75,0 kN", "≤", "111,3 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "67 %"],
+     ["Vérifications Conforme ·", "67 %"],
      ["Boulons M20 8.8 · S 4×1 · P 4×1", "67 %"],
      ["tying – boulons du groupe S :", "75,0 kN", "≤", "111,3 kN"],
      ["Cornières", "2"],
@@ -5932,8 +5881,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "70",
      "v/p1S_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -5959,8 +5906,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -5972,7 +5917,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 290 300 300 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 200 290 300 300 4 4 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -6011,9 +5956,7 @@
      ["A1 Platine/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(dans l'âme) · V =", "200 kN"],
-     ["η", "39 %"],
-     ["Poutre portée · âme – cisaillement sur hp", "200,0 kN", "≤", "511,2 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "39 %"],
+     ["Vérifications Conforme ·", "39 %"],
      ["Boulons", "2", "×", "4"],
      ["M20 · 8.8", "33 %"],
      ["groupe : cisaillement et pression diam. :", "200,0 kN", "≤", "602,1 kN"],
@@ -6305,8 +6248,6 @@
      "v/opt_blf": false,
      "v/p1_u": "70",
      "v/p3_u": "110",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -6328,8 +6269,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -6341,7 +6280,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 dans l'âme du poteau, entre les ailes",
-      "nombres": "0 0 10 290 300 300 40 40 400 5 70 70 70 e1 p1 p1 p1"
+      "nombres": "0 0 10 2 200 290 300 300 4 40 40 400 5 70 70 70 e1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -6382,10 +6321,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "56 %"],
-     ["Platine · épaisseur requise tp", "14,0 mm", "≤", "25,0 mm", "·"],
-     ["console comprimée · à vérifier : béton d'ancrage à", "107,7 %,"],
-     ["hors périmètre EC3 Vérifications À vérifier ·", "56 %"],
+     ["Vérifications À vérifier ·", "56 %"],
      ["Pied N + M x + M y · Tab. 6.7", "53 %"],
      ["niveau", "1", ":"],
      ["interaction linéaire (Tab. 6.7) :", "0,528", "≤", "1,000"],
@@ -6417,7 +6353,8 @@
      ["contrainte équivalente :", "169,4 MPa", "≤", "417,8 MPa"],
      ["Géométrie", "62 %"],
      ["Tab. 3.3 ·", "1"],
-     ["distance au bord Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b =", "75 mm"],
+     ["distance au bord À vérifier — béton d'ancrage à", "107,7 %,"],
+     ["hors périmètre EC3 Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b =", "75 mm"],
      ["par tige Soulèvement : tiges tendues —", "1"],
      ["tige(s) tendue(s), T max =", "43,2 kN,"],
      ["ΣT =", "43,2 kN"],
@@ -6788,7 +6725,7 @@
      ["Rigidité Sj,ini / seuil rigide (§5.2.2.5)", "75,7", "/", "272,2 MNm/rad", "→"],
      ["SEMI-RIGIDE (information) e ≥ 1,2·d0 au bord de la platine (Tableau 3.3) ; les distances aux bords du MASSIF relèvent de l'EN 1992-4 (cône, bord, fendage)."]
     ],
-    "avis": ["Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b = 75 mm par tige", "Soulèvement : tiges tendues — 1 tige(s) tendue(s), T max = 43,2 kN, ΣT = 43,2 kN", "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier — 1 vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les compter dans le verdict", "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8) — c = 250 mm < 1,5·hef = 450 mm", "Rigidité du pied (information) — Rigidité initiale Sj,ini = 76 MNm/rad ; seuil « rigide » (§5.2.2.5) = 272 MNm/rad → pied SEMI-RIGIDE pour Lc = 4,0 m"],
+    "avis": ["À vérifier — béton d'ancrage à 107,7 %, hors périmètre EC3", "Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b = 75 mm par tige", "Soulèvement : tiges tendues — 1 tige(s) tendue(s), T max = 43,2 kN, ΣT = 43,2 kN", "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier — 1 vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les compter dans le verdict", "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8) — c = 250 mm < 1,5·hef = 450 mm", "Rigidité du pied (information) — Rigidité initiale Sj,ini = 76 MNm/rad ; seuil « rigide » (§5.2.2.5) = 272 MNm/rad → pied SEMI-RIGIDE pour Lc = 4,0 m"],
     "champs": {
      "cotation": "1",
      "exemple": "",
@@ -6863,14 +6800,14 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire efficace (bleu), zone comprimée (rouge), axe neutre, C et T des tiges.",
-      "nombres": "300 343 400 400 43 500 500 900 900"
+      "nombres": "2 2 30 300 300 343 400 400 43 50 500 500 900 900"
      },
      {
       "cle": "coupe_aa",
       "titre": "Coupe A-A",
       "court": "Coupe A-A",
       "legende": "coupe selon x : platine, mortier, tiges, massif",
-      "nombres": "25 30 300 300 40 400 500 8 900"
+      "nombres": "25 30 30 300 300 300 40 400 50 500 8 900"
      },
      {
       "cle": "coupe_bb",
@@ -6916,9 +6853,7 @@
      ["A1 Pied de poteau · calcul manuel · HEA", "300", "·"],
      ["platine 500×500×25 ·", "4"],
      ["boulons M24 · N =", "-100 kN"],
-     ["η", "44 %"],
-     ["Platine · épaisseur requise tp", "11,0 mm", "≤", "25,0 mm", "·"],
-     ["section au nu d'une paroi · sous réserve des alertes Vérifications Conforme ·", "44 %"],
+     ["Vérifications Conforme ·", "44 %"],
      ["Platine", "500", "×", "500", "×", "25 mm", "·"],
      ["S355", "44 %"],
      ["épaisseur requise tp :", "11,0 mm", "≤", "25,0 mm"],
@@ -7206,7 +7141,7 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire d'appui (bleu), zone comprimée (rouge), C, axe neutre, T et bras m de chaque boulon, bande comprimée (mEd).",
-      "nombres": "1 2 25 25 25 25 3 300 4 500 500 65 65 65 65 900 900"
+      "nombres": "0 0 1 2 25 25 25 25 3 300 4 500 500 65 65 65 65 900 900 −100"
      },
      {
       "cle": "coupe_aa",
@@ -7252,9 +7187,7 @@
      ["A1 Pied de poteau · calcul manuel · HEA", "300", "·"],
      ["platine 500×500×25 ·", "4"],
      ["boulons M24 · N =", "2000 kN"],
-     ["η", "76 %"],
-     ["Platine · épaisseur requise tp", "19,0 mm", "≤", "25,0 mm", "·"],
-     ["bande comprimée · sous réserve des alertes Vérifications Conforme ·", "76 %"],
+     ["Vérifications Conforme ·", "76 %"],
      ["Platine", "500", "×", "500", "×", "25 mm", "·"],
      ["S355", "76 %"],
      ["épaisseur requise tp :", "19,0 mm", "≤", "25,0 mm"],
@@ -7467,7 +7400,7 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire d'appui (bleu), zone comprimée (rouge), C, axe neutre, T et bras m de chaque boulon, bande comprimée (mEd).",
-      "nombres": "1 2 2000 3 300 4 500 500 900 900"
+      "nombres": "0 0 1 2 2000 2000 3 300 4 500 500 900 900"
      },
      {
       "cle": "coupe_aa",
@@ -7515,10 +7448,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "56 %"],
-     ["Platine · épaisseur requise tp", "14,0 mm", "≤", "25,0 mm", "·"],
-     ["console comprimée · à vérifier : béton d'ancrage à", "107,7 %,"],
-     ["hors périmètre EC3 Vérifications À vérifier ·", "56 %"],
+     ["Vérifications À vérifier ·", "56 %"],
      ["Pied N + M x + M y · Tab. 6.7", "53 %"],
      ["niveau", "1", ":"],
      ["interaction linéaire (Tab. 6.7) :", "0,528", "≤", "1,000"],
@@ -7550,7 +7480,8 @@
      ["contrainte équivalente :", "169,4 MPa", "≤", "417,8 MPa"],
      ["Géométrie", "62 %"],
      ["Tab. 3.3 ·", "1"],
-     ["distance au bord Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b =", "75 mm"],
+     ["distance au bord À vérifier — béton d'ancrage à", "107,7 %,"],
+     ["hors périmètre EC3 Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b =", "75 mm"],
      ["par tige Soulèvement : tiges tendues —", "1"],
      ["tige(s) tendue(s), T max =", "43,2 kN,"],
      ["ΣT =", "43,2 kN"],
@@ -7921,7 +7852,7 @@
      ["Rigidité Sj,ini / seuil rigide (§5.2.2.5)", "75,7", "/", "272,2 MNm/rad", "→"],
      ["SEMI-RIGIDE (information) e ≥ 1,2·d0 au bord de la platine (Tableau 3.3) ; les distances aux bords du MASSIF relèvent de l'EN 1992-4 (cône, bord, fendage)."]
     ],
-    "avis": ["Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b = 75 mm par tige", "Soulèvement : tiges tendues — 1 tige(s) tendue(s), T max = 43,2 kN, ΣT = 43,2 kN", "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier — 1 vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les compter dans le verdict", "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8) — c = 250 mm < 1,5·hef = 450 mm", "Rigidité du pied (information) — Rigidité initiale Sj,ini = 76 MNm/rad ; seuil « rigide » (§5.2.2.5) = 272 MNm/rad → pied SEMI-RIGIDE pour Lc = 4,0 m"],
+    "avis": ["À vérifier — béton d'ancrage à 107,7 %, hors périmètre EC3", "Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — Σleff plafonnée à 0,25·b = 75 mm par tige", "Soulèvement : tiges tendues — 1 tige(s) tendue(s), T max = 43,2 kN, ΣT = 43,2 kN", "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier — 1 vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les compter dans le verdict", "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8) — c = 250 mm < 1,5·hef = 450 mm", "Rigidité du pied (information) — Rigidité initiale Sj,ini = 76 MNm/rad ; seuil « rigide » (§5.2.2.5) = 272 MNm/rad → pied SEMI-RIGIDE pour Lc = 4,0 m"],
     "champs": {
      "cotation": "1",
      "exemple": "",
@@ -7996,14 +7927,14 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire efficace (bleu), zone comprimée (rouge), axe neutre, C et T des tiges.",
-      "nombres": "300 343 400 400 43 500 500 900 900"
+      "nombres": "2 2 30 300 300 343 400 400 43 50 500 500 900 900"
      },
      {
       "cle": "coupe_aa",
       "titre": "Coupe A-A",
       "court": "Coupe A-A",
       "legende": "coupe selon x : platine, mortier, tiges, massif",
-      "nombres": "25 30 300 300 40 400 500 8 900"
+      "nombres": "25 30 30 300 300 300 40 400 50 500 8 900"
      },
      {
       "cle": "coupe_bb",
@@ -8100,8 +8031,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "152 kN"],
-     ["η", "98 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "81,1 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme, attention ·", "98 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "43 %"],
      ["cisaillement – groupe S :", "81,1 kN", "≤", "188,2 kN"],
@@ -8460,8 +8389,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -8485,8 +8412,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -8498,7 +8423,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 150 152 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -8539,9 +8464,7 @@
      ["A1 Plat d'âme · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "152 kN"],
-     ["η", "98 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "81,1 kN", "≤", "83,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme, attention ·", "98 %"],
+     ["Vérifications Conforme, attention ·", "98 %"],
      ["Boulons", "3", "×", "1"],
      ["M20 · 8.8", "86 %"],
      ["cisaillement du groupe :", "81,1 kN", "≤", "94,1 kN"],
@@ -8841,8 +8764,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -8863,8 +8784,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -8876,7 +8795,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 100 150 190 300 35 40 400 50 50 50 6 60 60 e1 e2,b p1 p1"
+      "nombres": "0 0 1 10 100 150 152 190 3 300 35 40 400 50 50 50 6 60 60 e1 e2,b p1 p1"
      },
      {
       "cle": "plan",
@@ -8917,9 +8836,7 @@
      ["A1 Platine d'about · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "290 kN"],
-     ["η", "98 %"],
-     ["Poutre secondaire · grugeage – flexion + V", "46,4 kNm", "≤", "47,5 kNm", "·"],
-     ["sous réserve des alertes Vérifications Conforme, attention ·", "98 %"],
+     ["Vérifications Conforme, attention ·", "98 %"],
      ["Boulons", "2", "×", "3"],
      ["M20 · 8.8", "64 %"],
      ["groupe : cisaillement et pression diam. :", "290,0 kN", "≤", "451,6 kN"],
@@ -9202,8 +9119,6 @@
      "v/opt_blf": false,
      "v/p1_u": "60",
      "v/p3_u": "90",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -9223,8 +9138,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -9236,7 +9149,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 400 5 50 50 60 60 e1 p1 p1"
+      "nombres": "0 0 10 150 190 2 290 3 300 35 400 5 50 50 60 60 e1 p1 p1"
      },
      {
       "cle": "plan",
@@ -9277,9 +9190,7 @@
      ["A1 Plat d'âme/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "285 kN"],
-     ["η", "100 %"],
-     ["Boulons · cisaillement du groupe", "93,8 kN", "≤", "94,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme, attention ·", "100 %"],
+     ["Vérifications Conforme, attention ·", "100 %"],
      ["Boulons", "4", "×", "1"],
      ["M20 · 8.8", "100 %"],
      ["cisaillement du groupe :", "93,8 kN", "≤", "94,1 kN"],
@@ -9541,8 +9452,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -9564,8 +9473,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -9577,7 +9484,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 100 290 300 300 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
+      "nombres": "0 0 1 10 100 285 290 300 300 4 40 40 40 400 50 6 70 70 70 e1 e2,b p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -9618,8 +9525,6 @@
      ["A1 Cornières/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "341 kN"],
-     ["η", "99 %"],
-     ["Poutre portée · pression diamétrale – âme", "112,3 kN", "≤", "113,5 kN"],
      ["Vérifications Conforme, attention ·", "99 %"],
      ["Boulons M20 8.8 · S 4×1 · P 4×1", "60 %"],
      ["cisaillement – groupe S :", "112,3 kN", "≤", "188,2 kN"],
@@ -9945,8 +9850,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "70",
      "v/p1S_u": "70",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -9971,8 +9874,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -9984,7 +9885,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 290 300 300 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 290 300 300 341 4 4 40 40 40 40 400 50 70 70 70 70 70 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -10025,9 +9926,7 @@
      ["A1 Platine/poteau · IPE", "400"],
      ["sur HEB", "300"],
      ["(sur l'aile) · V =", "510 kN"],
-     ["η", "100 %"],
-     ["Poutre portée · âme – cisaillement sur hp", "510,0 kN", "≤", "511,2 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme, attention ·", "100 %"],
+     ["Vérifications Conforme, attention ·", "100 %"],
      ["Boulons", "2", "×", "4"],
      ["M20 · 8.8", "85 %"],
      ["groupe : cisaillement et pression diam. :", "510,0 kN", "≤", "602,1 kN"],
@@ -10306,8 +10205,6 @@
      "v/opt_blf": false,
      "v/p1_u": "70",
      "v/p3_u": "140",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEB 300",
      "v/prof_S": "IPE 400",
      "v/r_n": "10",
@@ -10328,8 +10225,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -10341,7 +10236,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "IPE 400 sur l'aile du poteau",
-      "nombres": "0 0 10 290 300 300 40 40 400 5 70 70 70 e1 p1 p1 p1"
+      "nombres": "0 0 10 2 290 300 300 4 40 40 400 5 510 70 70 70 e1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -10385,10 +10280,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "100 %"],
-     ["Platine · épaisseur requise tp", "24,9 mm", "≤", "25,0 mm", "·"],
-     ["bande comprimée · à vérifier : appui fjd à", "107,4 %,"],
-     ["hors calcul manuel Vérifications À vérifier ·", "100 %"],
+     ["Vérifications À vérifier ·", "100 %"],
      ["Platine", "500", "×", "500", "×", "25 mm", "·"],
      ["S355", "100 %"],
      ["épaisseur requise tp :", "24,9 mm", "≤", "25,0 mm"],
@@ -10408,7 +10300,8 @@
      ["M24 8.8 · information hors verdict Appui C30/37 · f jd =", "20,4 N/mm²", "·"],
      ["information hors verdict Géométrie", "62 %"],
      ["Tab. 3.3 ·", "2"],
-     ["pinces et entraxes Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — boulon", "1,"],
+     ["pinces et entraxes À vérifier — appui fjd à", "107,4 %,"],
+     ["hors calcul manuel Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — boulon", "1,"],
      ["boulon", "2,"],
      ["boulon", "3,"],
      ["boulon", "4"],
@@ -10537,7 +10430,7 @@
      ["F2,vb,Rd =", "56,0 kN"],
      ["e ≥ 1,2·d0 au bord de la platine (Tableau 3.3) ; les distances aux bords du MASSIF relèvent de l'EN 1992-4 (cône, bord, fendage)."]
     ],
-    "avis": ["Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — boulon 1, boulon 2, boulon 3, boulon 4", "Pression sous la platine supérieure à fjd — hors calcul manuel, à vérifier — p max = 21,9 MPa > fjd = 20,4 MPa"],
+    "avis": ["À vérifier — appui fjd à 107,4 %, hors calcul manuel", "Tiges de coin : longueur efficace plafonnée (modèle d'ingénieur) — boulon 1, boulon 2, boulon 3, boulon 4", "Pression sous la platine supérieure à fjd — hors calcul manuel, à vérifier — p max = 21,9 MPa > fjd = 20,4 MPa"],
     "champs": {
      "cotation": "1",
      "exemple": "",
@@ -10622,7 +10515,7 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire d'appui (bleu), zone comprimée (rouge), C, axe neutre, T et bras m de chaque boulon, bande comprimée (mEd).",
-      "nombres": "1 1770 2 3 300 4 500 500 900 900"
+      "nombres": "1 1770 1770 2 3 30 300 4 50 500 500 900 900"
      },
      {
       "cle": "coupe_aa",
@@ -10672,10 +10565,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "100 %"],
-     ["Platine · épaisseur requise tp", "24,9 mm", "≤", "25,0 mm", "·"],
-     ["flexion composée (niveau", "1)", "·"],
-     ["sous réserve des alertes Vérifications Conforme, attention ·", "100 %"],
+     ["Vérifications Conforme, attention ·", "100 %"],
      ["Pied N + M x + M y · Tab. 6.7", "99 %"],
      ["niveau", "1", ":"],
      ["interaction linéaire (Tab. 6.7) :", "0,987", "≤", "1,000"],
@@ -11096,14 +10986,14 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire efficace (bleu), zone comprimée (rouge), axe neutre, C et T des tiges.",
-      "nombres": "1610 300 400 400 500 500 900 900"
+      "nombres": "1610 1610 2 2 30 300 400 400 50 500 500 900 900"
      },
      {
       "cle": "coupe_aa",
       "titre": "Coupe A-A",
       "court": "Coupe A-A",
       "legende": "coupe selon x : platine, mortier, tiges, massif",
-      "nombres": "25 30 300 300 40 400 500 8 900"
+      "nombres": "1610 25 30 30 300 300 40 400 50 500 8 900"
      },
      {
       "cle": "coupe_bb",
@@ -11152,8 +11042,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "200 kN"],
-     ["η", "89 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "54,0 kN", "≤", "60,9 kN"],
      ["Vérifications Conforme ·", "89 %"],
      ["Boulons M16 8.8 · S 4×2 · P 4×1", "52 %"],
      ["cisaillement – groupe P :", "25,0 kN", "≤", "48,2 kN"],
@@ -11523,8 +11411,6 @@
      "v/p1P_u": "45",
      "v/p1S_u": "45",
      "v/p2_S": "50",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -11549,8 +11435,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/orient": "2 · 85c6ec5c16d4",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -11562,7 +11446,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 195 30 30 300 35 400 45 45 45 45 45 45 50 50 50 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p2"
+      "nombres": "0 0 1 10 150 195 2 200 30 30 300 35 4 4 400 45 45 45 45 45 45 50 50 50 70 e1 e1 e2,b p1 p1 p1 p1 p1 p1 p2"
      },
      {
       "cle": "plan",
@@ -11683,7 +11567,8 @@
       ["assemblage vérifié retenu le plus petit qui tient h mm · taux"]
      ],
      "solution": [
-      ["Solutions vérifiées un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés 4×2 M16 · L150x90x10", "16", "89 %", "3×2"],
+      ["Solutions vérifiées un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés 4×2 M16 · L150x90x10", "16", "89 %", "4×2"],
+      ["M12 · L100x100x8", "24", "76 %", "3×2"],
       ["M20 · L150x150x12", "12", "100 %"],
       ["groupe S", "4", "×", "2", "·"],
       ["groupe P", "4", "×", "1"],
@@ -11721,8 +11606,6 @@
      ["A1 Plat d'âme · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "30 kN"],
-     ["η", "60 %"],
-     ["Soudure · gorge minimale", "3,0 mm", "≤", "5,0 mm"],
      ["Vérifications Conforme ·", "60 %"],
      ["Boulons", "2", "×", "1"],
      ["M20 · 8.8", "23 %"],
@@ -12019,8 +11902,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "95",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -12041,8 +11922,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -12054,7 +11933,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 175 300 40 40 400 5 50 50 50 90 95 e1 e2,b p1"
+      "nombres": "0 0 1 10 150 175 2 30 300 40 40 400 5 50 50 50 90 95 e1 e2,b p1"
      },
      {
       "cle": "plan",
@@ -12095,9 +11974,8 @@
      ["A1 Platine d'about · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "400 kN"],
-     ["η", "227 %"],
-     ["Poutre secondaire · grugeage – flexion + V", "64,0 kNm", ">", "28,3 kNm"],
-     ["Vérifications Non conforme ·", "227 %"],
+     ["À corriger résistance insuffisante Aucune solution avec ces profilés. Au mieux, Poutre secondaire · grugeage – flexion + V reste à", "224 %", "(63,2 kNm", ">", "28,3 kNm)."],
+     ["Changer le profilé de la poutre secondaire (une âme plus épaisse, une poutre plus haute), ou réduire le grugeage. Profilés qui conviennent Vérifications Non conforme ·", "227 %"],
      ["Boulons", "2", "×", "3"],
      ["M20 · 8.8", "89 %"],
      ["groupe : cisaillement et pression diam. :", "400,0 kN", "≤", "451,6 kN"],
@@ -12111,7 +11989,7 @@
      ["effort au point critique :", "1052,6 N/mm", "≤", "1206,0 N/mm"],
      ["Géométrie", "88 %"],
      ["Tab. 3.3 ·", "4"],
-     ["pinces et entraxes Prédimensionnement calcul complet Solutions Proposer vérifiées efforts, profilés et niveaux gardés Gorge sous la pleine résistance recommandée — Recommandé : a ≥ 0,60·tw =", "5,1 mm"],
+     ["pinces et entraxes Gorge sous la pleine résistance recommandée — Recommandé : a ≥ 0,60·tw =", "5,1 mm"],
      ["(βw·γM2·fy/(√2·fu), fy de l'âme à son épaisseur tw :", "355 MPa", "—"],
      ["MSB P5 §2.2) ; actuel : a =", "5 mm"]
     ],
@@ -12380,8 +12258,6 @@
      "v/opt_blf": false,
      "v/p1_u": "60",
      "v/p3_u": "90",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -12401,20 +12277,18 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
     },
-    "actions": ["calcul:boulons", "calcul:geometrie", "calcul:platine", "calcul:poutre-principale", "calcul:poutre-secondaire", "calcul:soudure", "chemin:reinitialiser", "pk:boulon", "pk:prof_P", "pk:prof_S", "pk:solution"],
+    "actions": ["calcul:boulons", "calcul:geometrie", "calcul:platine", "calcul:poutre-principale", "calcul:poutre-secondaire", "calcul:soudure", "chemin:reinitialiser", "pk:boulon", "pk:prof_P", "pk:prof_S", "pk:profil_solution"],
     "vues": [
      {
       "cle": "elevation",
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 400 5 50 50 60 60 e1 p1 p1"
+      "nombres": "0 0 10 150 190 2 3 300 35 400 400 5 50 50 60 60 e1 p1 p1"
      },
      {
       "cle": "plan",
@@ -12433,6 +12307,14 @@
     ],
     "etat": {"version": 1, "assemblages": [{"type": "platine_about", "values": {"id_projet": "", "id_rep": "A1", "id_red": "", "id_date": "", "mode_calc": "VÉRIFICATION", "prof_P": "HEA 400", "hP_u": null, "bP_u": null, "twP_u": null, "tfP_u": null, "rP_u": null, "nu_P": "S355", "prof_S": "HEA 300", "hS_u": null, "bS_u": null, "twS_u": null, "tfS_u": null, "rS_u": null, "nu_S": "S355", "d_top": 0.0, "d_nt": 50.0, "d_nb": 0.0, "l_n": 150.0, "r_n": 10.0, "lt_ok": "Oui", "hp_u": 190.0, "tp_u": 10.0, "bp_u": 150.0, "z_C": 50.0, "nu_pl": "S355", "a_w": 5.0, "boulon_u": "M20", "classe": "8.8", "trou": "Normal", "d0_u": null, "filet": "Oui", "cat": "A", "mu_s": 0.3, "k_s": 1.0, "k_ser": 1.0, "n1_u": 3.0, "p1_u": 60.0, "e1_u": 35.0, "p3_u": 90.0, "V_Ed": 400.0, "N_Ed": 0.0, "nat_N": "ELU fondamental", "g_M0": 1.0, "g_M2n": 1.25, "g_M2": 1.25, "g_M3": 1.25, "g_M3s": 1.1, "g_Mu": 1.1, "opt_blf": "Non", "expo": "Non", "fy_u": null, "fu_u": null, "bw_u": null, "eta_c": 0.9, "k_e1": 1.6, "k_p1": 2.7, "k_e2": 1.8, "pd_dmin": "M16", "pd_dmax": "M24"}, "visserie": "1 rondelle + 1 écrou", "cotation": 1}], "actif": 0, "note_taux": true},
     "selecteurs": {
+     "profil_solution": [
+      ["Profilés qui conviennent · poutre secondaire un clic retient le profilé ET sa solution vérifiée · efforts, aciers et niveaux gardés IPE HEA HEB HEM", "7"],
+      ["profilés essayés sans solution (HEA", "320 HEA,", "360 HEA,", "400 HEA,", "450…)", "—"],
+      ["HEA", "320", ":"],
+      ["Poutre secondaire · grugeage – flexion + V reste à", "130 %."],
+      ["HEA", "340", "330", "98 %"],
+      ["retenu le plus petit qui convient h mm · taux"]
+     ],
      "boulon": [
       ["Boulons · classe 8.8 triés par diamètre · un clic retient le boulon M12", "84", "257 %"],
       ["M16", "157", "227 %"],
@@ -12509,12 +12391,6 @@
       ["t w", "11", "·"],
       ["t f", "19 mm", "·"],
       ["assemblage non vérifié retenu le plus petit qui tient h mm · taux"]
-     ],
-     "solution": [
-      ["Solutions vérifiées un clic recopie boulons, pièce d'attache et gorge · efforts, profilés et niveaux gardés Aucune solution avec ces profilés. Toutes les dispositions ont été essayées (M12 à M36,", "2"],
-      ["à", "8"],
-      ["rangées, une ou deux files, pièce plus épaisse) : au mieux, Poutre secondaire · grugeage – flexion + V reste à", "224 %", "(63,2 kNm", ">", "28,3 kNm)."],
-      ["Changer le profilé de la poutre secondaire (une âme plus épaisse, une poutre plus haute), ou réduire le grugeage. retenu conseillée boulons · taux"]
      ]
     }
    }
@@ -12540,8 +12416,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme ·", "80 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -12900,8 +12774,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -12925,8 +12797,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -12938,7 +12808,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -12979,8 +12849,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "97 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "70,0 kN", "≤", "72,0 kN"],
      ["Vérifications Conforme, attention ·", "97 %"],
      ["Boulons M16 8.8 · S 3×1 · P 3×1", "58 %"],
      ["cisaillement – groupe S :", "70,0 kN", "≤", "120,6 kN"],
@@ -13340,8 +13208,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "50",
      "v/p1S_u": "50",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -13365,8 +13231,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -13378,7 +13242,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 160 30 30 300 35 400 45 50 50 50 50 50 50 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 160 3 3 30 30 300 35 400 45 50 50 50 50 50 50 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -13416,8 +13280,6 @@
     "resultat": [
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400"],
-     ["η", "52 %"],
-     ["Poutre secondaire · grugeage – stabilité (c)", "150,0 mm", "≤", "290,0 mm"],
      ["Vérifications Conforme ·", "52 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "0 %"],
      ["cisaillement – groupe S :", "0,0 kN", "≤", "188,2 kN"],
@@ -13776,8 +13638,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -13801,8 +13661,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -13814,7 +13672,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 0 1 1 10 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -13855,8 +13713,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme ·", "80 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -14215,8 +14071,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -14240,8 +14094,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -14253,7 +14105,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -14294,8 +14146,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme ·", "80 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -14654,8 +14504,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -14679,8 +14527,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -14692,7 +14538,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -14792,8 +14638,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "Personnalisé",
      "v/rS_u": "27",
@@ -14820,8 +14664,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -14833,7 +14675,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -14932,8 +14774,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -14957,8 +14797,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -14970,7 +14808,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 0 1 1 10 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -15009,9 +14847,37 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "359 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", ">", "18,6 kN", "·"],
-     ["pinces ou entraxes non conformes Vérifications Non conforme ·", "359 %"],
+     ["À corriger", "2"],
+     ["défauts de géométrie Tab. 3.3 — S – e1 cornière (haut/bas, valeur mini)", "10,0 mm", "<"],
+     ["1,2·d0 =", "26,4 mm"],
+     ["e", "1", "10", "→", "30 mm"],
+     ["Tab. 3.3 — S – e1,b âme poutre secondaire (vers grugeage sup.)", "10,0 mm", "<"],
+     ["1,2·d0 =", "26,4 mm"],
+     ["e", "1", "10", "→", "30 mm"],
+     ["avec vos M20", "3"],
+     ["M20 · L100x100x8", "80 %"],
+     ["groupe S", "3", "×", "1", "·"],
+     ["groupe P", "3", "×", "1"],
+     ["par cornière · M20 8.8 ·", "2"],
+     ["L100x100x8 · hc", "190", "·"],
+     ["e1", "35", "/"],
+     ["p1", "60", "/"],
+     ["e2", "40", "·"],
+     ["gA", "45 mm", "·"],
+     ["Poutre secondaire : pression diamétrale – âme", "80 %"],
+     ["Appliquer conseillée", "2"],
+     ["M24 · L120x120x10", "83 %"],
+     ["groupe S", "2", "×", "1", "·"],
+     ["groupe P", "2", "×", "1"],
+     ["par cornière · M24 8.8 ·", "2"],
+     ["L120x120x10 · hc", "190", "·"],
+     ["e1", "45", "/"],
+     ["p1", "100", "/"],
+     ["e2", "50", "·"],
+     ["gA", "50 mm", "·"],
+     ["Poutre secondaire : pression diamétrale – âme", "83 %"],
+     ["Appliquer Autres solutions", "(5)"],
+     ["Vérifications Non conforme ·", "359 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
      ["Cornières", "2"],
@@ -15022,11 +14888,7 @@
      ["Poutre principale HEA", "400", "15 %"],
      ["pression diamétrale – âme :", "20,8 kN", "≤", "136,3 kN"],
      ["Géométrie", "264 %"],
-     ["Tab. 3.3 ·", "8"],
-     ["pinces et entraxes Prédimensionnement calcul complet Solutions Proposer vérifiées efforts, profilés et niveaux gardés Tab. 3.3 — S – e1 cornière (haut/bas, valeur mini) —", "10,0 mm", "<"],
-     ["1,2·d0 =", "26,4 mm"],
-     ["Tab. 3.3 — S – e1,b âme poutre secondaire (vers grugeage sup.) —", "10,0 mm", "<"],
-     ["1,2·d0 =", "26,4 mm"]
+     ["S – e1 cornière (haut/bas, valeur mini) :", "10,0 mm", "<", "26,4 mm"]
     ],
     "calculs": [
      ["Boulons Doubles cornières · Cisaillement – groupe S · EN 1993-1-8 Aciers · principale f y =", "345", "·"],
@@ -15317,7 +15179,7 @@
      ["e ≤ 4t +", "40 mm"],
      ["si exposé (EN 1993-1-8 Tableau 3.3)."]
     ],
-    "avis": ["⚠ Tab. 3.3 — S – e1 cornière (haut/bas, valeur mini) — 10,0 mm < 1,2·d0 = 26,4 mm", "⚠ Tab. 3.3 — S – e1,b âme poutre secondaire (vers grugeage sup.) — 10,0 mm < 1,2·d0 = 26,4 mm"],
+    "avis": [],
     "champs": {
      "cotation": "1",
      "d0_impose": false,
@@ -15372,8 +15234,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -15397,20 +15257,18 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
     },
-    "actions": ["calcul:boulons", "calcul:cornieres", "calcul:geometrie", "calcul:poutre-principale", "calcul:poutre-secondaire", "chemin:reinitialiser", "pk:boulon", "pk:corniere", "pk:prof_P", "pk:prof_S", "pk:solution"],
+    "actions": ["calcul:boulons", "calcul:cornieres", "calcul:geometrie", "calcul:poutre-principale", "calcul:poutre-secondaire", "chemin:reinitialiser", "chemin:solution", "chemin:v/e1S_u", "pk:boulon", "pk:corniere", "pk:prof_P", "pk:prof_S", "pk:solution"],
     "vues": [
      {
       "cle": "elevation",
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 10 10 150 190 300 35 40 400 50 50 50 60 60 60 60 60 e1 e1 e1' e1,b e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 10 10 125 150 190 3 3 300 35 40 400 50 50 50 60 60 60 60 60 e1 e1 e1' e1,b e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",
@@ -15449,9 +15307,7 @@
      ["A1 Plat d'âme · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "90 kN"],
-     ["η", "58 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "48,0 kN", "≤", "83,1 kN", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "58 %"],
+     ["Vérifications Conforme ·", "58 %"],
      ["Boulons", "3", "×", "1"],
      ["M20 · 8.8", "51 %"],
      ["cisaillement du groupe :", "48,0 kN", "≤", "94,1 kN"],
@@ -15751,8 +15607,6 @@
      "v/nu_pl": "S355",
      "v/opt_blf": false,
      "v/p1_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -15773,8 +15627,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -15786,7 +15638,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 100 150 190 300 35 40 400 50 50 50 6 60 60 e1 e2,b p1 p1"
+      "nombres": "0 0 1 10 100 150 190 3 300 35 40 400 50 50 50 6 60 60 90 e1 e2,b p1 p1"
      },
      {
       "cle": "plan",
@@ -15828,9 +15680,7 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "79 %"],
-     ["Platine · épaisseur requise tp", "19,8 mm", "≤", "25,0 mm", "·"],
-     ["tronçon en T du boulon · sous réserve des alertes Vérifications Conforme ·", "79 %"],
+     ["Vérifications Conforme ·", "79 %"],
      ["Platine", "500", "×", "500", "×", "25 mm", "·"],
      ["S355", "79 %"],
      ["épaisseur requise tp :", "19,8 mm", "≤", "25,0 mm"],
@@ -16141,7 +15991,7 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire d'appui (bleu), zone comprimée (rouge), C, axe neutre, T et bras m de chaque boulon, bande comprimée (mEd).",
-      "nombres": "1 2 3 300 339 39 500 500 65 900 900"
+      "nombres": "1 2 3 30 300 300 339 39 50 500 500 65 900 900"
      },
      {
       "cle": "coupe_aa",
@@ -16189,8 +16039,6 @@
      ["Mx =", "50 kNm", "·"],
      ["My =", "30 kNm", "·"],
      ["Vy =", "40 kN"],
-     ["η", "124 %"],
-     ["Tiges · interaction traction / cisaillement", "1,245", ">", "1,000"],
      ["Vérifications Non conforme ·", "124 %"],
      ["Pied N + M x + M y · Tab. 6.7", "79 %"],
      ["niveau", "1", ":"],
@@ -16663,14 +16511,14 @@
       "titre": "Vue en plan",
       "court": "Plan",
       "legende": "Vue en plan : aire efficace (bleu), zone comprimée (rouge), axe neutre, C et T des tiges.",
-      "nombres": "102 126 17 300 400 400 500 500 59 900 900"
+      "nombres": "102 126 17 2 2 30 300 400 400 50 500 500 59 900 900 −100"
      },
      {
       "cle": "coupe_aa",
       "titre": "Coupe A-A",
       "court": "Coupe A-A",
       "legende": "coupe selon x : platine, mortier, tiges, massif",
-      "nombres": "25 30 300 300 40 400 500 8 900"
+      "nombres": "25 30 30 300 300 40 400 50 500 8 900 −100"
      },
      {
       "cle": "coupe_bb",
@@ -16718,9 +16566,7 @@
      ["A2 Platine d'about · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "52 %"],
-     ["Poutre secondaire · grugeage – stabilité (c)", "150,0 mm", "≤", "290,0 mm", "·"],
-     ["sous réserve des alertes Vérifications Conforme ·", "52 %"],
+     ["Vérifications Conforme ·", "52 %"],
      ["Boulons", "2", "×", "3"],
      ["M20 · 8.8", "28 %"],
      ["groupe : cisaillement et pression diam. :", "125,0 kN", "≤", "451,6 kN"],
@@ -17003,8 +16849,6 @@
      "v/opt_blf": false,
      "v/p1_u": "60",
      "v/p3_u": "90",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -17024,8 +16868,6 @@
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
      "v/nu_pl": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -17037,7 +16879,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 400 5 50 50 60 60 e1 p1 p1"
+      "nombres": "0 0 10 125 150 190 2 3 300 35 400 5 50 50 60 60 e1 p1 p1"
      },
      {
       "cle": "plan",
@@ -17062,8 +16904,6 @@
        ["A1 Doubles cornières · HEA", "300"],
        ["sur HEA", "400", "·"],
        ["V =", "125 kN"],
-       ["η", "80 %"],
-       ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
        ["Vérifications Conforme ·", "80 %"],
        ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
        ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -17085,9 +16925,7 @@
        ["A2 Platine d'about · HEA", "300"],
        ["sur HEA", "400", "·"],
        ["V =", "125 kN"],
-       ["η", "52 %"],
-       ["Poutre secondaire · grugeage – stabilité (c)", "150,0 mm", "≤", "290,0 mm", "·"],
-       ["sous réserve des alertes Vérifications Conforme ·", "52 %"],
+       ["Vérifications Conforme ·", "52 %"],
        ["Boulons", "2", "×", "3"],
        ["M20 · 8.8", "28 %"],
        ["groupe : cisaillement et pression diam. :", "125,0 kN", "≤", "451,6 kN"],
@@ -17128,8 +16966,6 @@
      ["A1 Doubles cornières · HEA", "300"],
      ["sur HEA", "400", "·"],
      ["V =", "125 kN"],
-     ["η", "80 %"],
-     ["Poutre secondaire · pression diamétrale – âme", "66,7 kN", "≤", "83,1 kN"],
      ["Vérifications Conforme ·", "80 %"],
      ["Boulons M20 8.8 · S 3×1 · P 3×1", "35 %"],
      ["cisaillement – groupe S :", "66,7 kN", "≤", "188,2 kN"],
@@ -17488,8 +17324,6 @@
      "v/opt_exc": false,
      "v/p1P_u": "60",
      "v/p1S_u": "60",
-     "v/pd_dmax": "M24",
-     "v/pd_dmin": "M16",
      "v/prof_P": "HEA 400",
      "v/prof_S": "HEA 300",
      "v/r_n": "10",
@@ -17513,8 +17347,6 @@
      "v/nu_C": "7 · f4ce5b9084b8",
      "v/nu_P": "7 · f4ce5b9084b8",
      "v/nu_S": "7 · f4ce5b9084b8",
-     "v/pd_dmax": "8 · 1779583321ed",
-     "v/pd_dmin": "8 · 1779583321ed",
      "v/prof_P": "91 · e22c447817af",
      "v/prof_S": "91 · e22c447817af",
      "v/trou": "2 · e136d28b2908"
@@ -17526,7 +17358,7 @@
       "titre": "Élévation",
       "court": "Élévation",
       "legende": "rotule à la face de l'âme porteuse",
-      "nombres": "0 0 10 150 190 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
+      "nombres": "0 0 1 1 10 125 150 190 3 3 300 35 35 40 400 50 50 50 60 60 60 60 e1 e1 e2,b p1 p1 p1 p1"
      },
      {
       "cle": "plan",

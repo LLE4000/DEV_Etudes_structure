@@ -1,9 +1,10 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "bce1c51f8e1c771d5fb3e41bf4e719c78e8d617a89b5e58e3fc82c62ca2127a0",
+ "sha256": "aa43fafd99f8f6866d7055d9fde8ed5db4ab060cd9f89ecacc3880668e8726fc",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
+  "acier/assemblages/corrections.py",
   "acier/assemblages/ductilite.py",
   "acier/assemblages/materiau.py",
   "acier/assemblages/mecanique.py",
@@ -161,6 +162,7 @@
   "api_web/age.py",
   "api_web/armatures.py",
   "api_web/assemblages.py",
+  "api_web/assemblages_corriger.py",
   "api_web/assemblages_pied.py",
   "api_web/assemblages_poteau.py",
   "api_web/assemblages_poutre.py",
@@ -184,6 +186,7 @@
   "api_web/dalle_predalle.py",
   "api_web/dessin_age.py",
   "api_web/dessin_armatures.py",
+  "api_web/dessin_assemblages.py",
   "api_web/dessin_barre.py",
   "api_web/dessin_biblio_enrobage.py",
   "api_web/dessin_biblio_hourdis.py",
@@ -425,7 +428,7 @@
  "apercus": {
   "age": "69958239b1699556",
   "armatures": "2419e3cfa97749c1",
-  "assemblages": "6a17eed18c3744af",
+  "assemblages": "37385ea1469dfbb2",
   "bois": "928a70296ddb705f",
   "catalogue": "8d7b482a71f07dfe",
   "corniere": "40fafb956e38def1",
@@ -444,5 +447,5 @@
   "soudures": "c1e200e679b860aa",
   "taux": "954eb1da293405ef"
  },
- "version": "4cc9eeb2687e5933"
+ "version": "13b257c04b8cec5a"
 }

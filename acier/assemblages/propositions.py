@@ -375,11 +375,14 @@ def _reserves(R, changees):
     return [a for a in R.alerts if not a.block and set(a.fields) & changees]
 
 
-def chercher(M, S, u, genre, nb_max=6, budget=BUDGET):
+def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
     """Les propositions VÉRIFIÉES pour les saisies ``u`` (un dictionnaire, comme pour ``M.compute``).
 
     ``M`` : le moteur (``compute``, ``apply_solution``) ; ``S`` : sa synthèse (``ELEMENTS``) ; ``genre`` : « plat »,
-    « cornieres » ou « platine ».
+    « cornieres » ou « platine ». ``tout`` (26/11/2026 — « que ça mette les boulons qui conviennent ») : les diamètres
+    HORS de la plage sont cherchés aussi, même quand la plage donne des solutions ; à taux cible égal, ceux de la plage
+    restent devant (sans cela, « le moins de boulons » conseillait deux M36 pour 30 kN : deux rangées de M36 suffisent
+    à la hauteur recommandée du plat, là où il en faut trois de M20).
 
     Rend ``solutions`` — au plus ``nb_max``, une par diamètre, la plus simple d'abord, chacune {u (saisies complètes), R
     (son calcul), boulon, i (rang du diamètre), n (rangées), boulons (nombre), eta, cible (taux cible tenu), plage
@@ -503,13 +506,14 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET):
         return trouve, refus
 
     trouve, refus = passe(True)
-    if not trouve:                                # rien dans la plage de diamètres choisie : le reste du catalogue
+    if not trouve or tout:                        # rien dans la plage de diamètres (ou « tout ») : le reste du catalogue
         hors, refus_hors = passe(False)
-        trouve = hors
+        trouve = {**hors, **trouve}               # (les diamètres des deux passes sont disjoints)
         if refus is None or (refus_hors is not None and refus_hors.R.eta_max < refus.R.eta_max):
             refus = refus_hors
-    # la plus simple d'abord : au taux cible, sans réserve, sur une file, le moins de boulons, le plus petit diamètre
-    sols = sorted(trouve.values(), key=lambda x: (not x.cible, len(x.reserves), x.deux_files, x.boulons, x.i))
+    # la plus simple d'abord : au taux cible, un diamètre de la plage, sans réserve, sur une file, le moins de boulons, le
+    # plus petit diamètre (sans « tout », toutes les solutions sont du même côté de la plage : l'ordre d'avant)
+    sols = sorted(trouve.values(), key=lambda x: (not x.cible, not x.plage, len(x.reserves), x.deux_files, x.boulons, x.i))
     # deux dispositions que RIEN ne distingue pour le moteur n'en font qu'une — des cornières soudées des deux côtés,
     # trouvées par deux diamètres de boulons qui n'existent pas : la mieux classée reste
     if G.signature is not None:

@@ -575,7 +575,8 @@ class _Doc:
 def _vues(S, complet):
     def vues(R, niveau, hl):
         opt = S.options_ecran(R, niveau, hl)
-        opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, niveau >= 1, None
+        # (interactivité comprise : ``assemblages.vues`` la traduit pour le site — dessin_assemblages.manipulable)
+        opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, niveau >= 1, None
         out = [("plan", "Vue en plan", "Plan", S.plan(R, opt), LEGENDE_PLAN_CO if complet else LEGENDE_PLAN_MA),
                ("coupe_aa", "Coupe A-A", "Coupe A-A", S.coupe_aa(R, opt), "coupe selon x : platine, mortier, tiges, massif"),
                ("coupe_bb", "Coupe B-B", "Coupe B-B", S.coupe_bb(R, opt), "coupe selon y")]
@@ -990,17 +991,6 @@ def lignes_resultat(R, u) -> dict:
     return {"Platine": f'<div class="asm-sous" title="Épaisseur requise : les quatre critères (t / t_p)">{out}</div>'}
 
 
-def complement_verdict(R) -> str:
-    """Le critère qui gouverne l'épaisseur, quand l'épaisseur requise gouverne le verdict (le bandeau de l'écran)."""
-    g = R.gov
-    if g is None or g.key != "tpq" or not g.active:
-        return ""
-    P = R.plaque
-    if CA.est_manuel_R(R):
-        return " · " + C.esc(CRITERES_NOMS[P["pire"]])
-    return " · " + C.esc(CRITERES_CO[max(ORDRE_CO, key=lambda k: P["t_" + k])])
-
-
 def hypotheses(R, u) -> list:
     """Les pastilles de plus : les tiges (ou boulons), le béton, le mode."""
     manuel = CA.est_manuel_R(R)
@@ -1110,7 +1100,7 @@ COMMUN = dict(E=E, calculer=CA.compute, N=NO, formules=lambda R, c: A.lignes_tex
               visserie_defaut=E.VISSERIE_DEFAUT, exemples=exemples, etat={"grille": _grille},
               actions={"grille": _action_grille}, sur_saisie={"mode": _changer_mode}, aides=aides, refus=refus_tables,
               hypotheses=hypotheses, blocs_tete=blocs_tete, blocs=blocs, lignes_resultat=lignes_resultat,
-              complement_verdict=complement_verdict, legende_33=C.esc(LEGENDE_33),
+              legende_33=C.esc(LEGENDE_33),
               selecteurs={"ancr": {"rendre": sel_tige, "choisir": A._choisir_liste("ancr", "boulons")},
                           "prof_c": {"rendre": A.sel_profil("prof_c", "Poteau · profilé"), "choisir": A._choisir_liste("prof_c", "profils")}})
 

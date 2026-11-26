@@ -52,6 +52,7 @@ os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
 from acier.bibliotheques import DB, PERSO  # noqa: E402
+from acier.assemblages import corrections as CO  # noqa: E402
 from api_web import assemblages as A  # noqa: E402
 from api_web import assemblages_poteau as PT  # noqa: E402
 from api_web import commun as C  # noqa: E402
@@ -94,7 +95,8 @@ def chk(nom, cond, info=""):
 
 
 # les règles du prédimensionnement : l'écran Streamlit ne les montre que dans son mode ; le site, toujours (Options)
-REGLES_PREDIM = {"eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"}
+# (26/11/2026, le harnais SUIT : plus de plage de diamètres dans les Options)
+REGLES_PREDIM = {"eta_c", "k_e1", "k_p1", "k_e2"}
 POTEAU = {"plat_ame_poteau": "acier.assemblages.poutre_poteau.plat_ame_poteau",
           "doubles_cornieres_poteau": "acier.assemblages.poutre_poteau.doubles_cornieres_poteau",
           "platine_about_poteau": "acier.assemblages.poutre_poteau.platine_about_poteau"}
@@ -593,8 +595,12 @@ for cle in POTEAU:
         trouve = [(b, t) for _g, _c, b, _n, t in lignes][:len(attendu)]
         if [t for _, t in trouve] != attendu or [b for b, _ in trouve] != noms:
             defauts.append((nom, "lignes", trouve, attendu))
-        if f"{C.pc(A.taux(eta_tete(R)))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
-            defauts.append((nom, "verdict"))
+        # (26/11/2026, le harnais SUIT : plus de gros taux en tête — « dans le module en béton, ça on avait supprimé » ;
+        #  le taux de l'assemblage se lit dans l'en-tête du bloc « Vérifications », après son état)
+        tete_v = re.search(r'<span class="n">Vérifications</span><span class="e">([^<]*)</span>', r["resultat"])
+        if (tete_v is None or not tete_v.group(1).endswith(f" · {C.pc(A.taux(eta_tete(R)))}{C.NBSP}%")
+                or "chip xl" in r["resultat"] or 'class="verdict"' in r["resultat"]):
+            defauts.append((nom, "taux de tête"))
         gov = [x for x in lignes if x[0]]
         att_gov = "Géométrie" if geometrie_gouverne(R) else (R.gov.grp if R.gov is not None else None)
         if att_gov is not None and (len(gov) != 1 or gov[0][2] != C.esc(att_gov)):
@@ -611,13 +617,22 @@ for cle in POTEAU:
                 _aide, lf = cfg.formules(R, c)
                 if not lf or lf[-1]["parts"][0] != "η" or lf[-1]["res"] != f"{C.pc(A.taux(c.eta, 1))} %" or C.lignes_fx(lf) not in fen:
                     defauts.append((nom, "détail", c.key))
-        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) or R.get("pred"):
+        # les alertes du moteur, une par message — sauf celles que le bloc « À corriger » dit déjà, avec leurs retouches
+        # (26/11/2026, le harnais SUIT : un assemblage non vérifié s'ouvre sur ses défauts de géométrie)
+        defs = CO.defauts(R) if not R.verified else []
+        dites = {d.alerte.id for d in defs if d.alerte is not None}
+        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + bool(R.get("reserve") and R.verified)
+                or r["resultat"].count('class="asm-def"') != len(defs) or R.get("pred")):
             defauts.append((nom, "alertes", len(R.alerts)))
         opt = M.options_ecran(R, el["cotation"], A._hl(R))
-        opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, el["cotation"] >= 1, None
+        # (26/11/2026, le harnais SUIT : le dessin se MANIPULE — le kit est rendu avec son interactivité, que
+        #  ``dessin_assemblages.manipulable`` traduit ; les FORMES et les textes restent ceux du moteur, au caractère
+        #  près — les attributs des groupes sont gardés par tests/test_dessin_assemblages.py)
+        opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, el["cotation"] >= 1, None
         vues = {v["cle"]: v for v in r["vues"]}
+        _nu = lambda svg: re.sub(r"<g[^>]*>", "<g>", svg)  # noqa: E731
         for k, f in (("elevation", M.elevation), ("plan", M.plan), ("coupe", M.coupe_aa)):
-            if vues[k]["svg"] != f(R, opt).svg(identifiant=f"asm_{k}"):
+            if _nu(vues[k]["svg"]) != _nu(f(R, opt).svg(identifiant=f"asm_{k}")):
                 defauts.append((nom, "dessin", k))
         if list(vues) != ["elevation", "plan", "coupe"]:
             defauts.append((nom, "vues", list(vues)))
@@ -654,14 +669,20 @@ for cle in POTEAU:
         u0 = cfg.E.charger_json(dict({"mode_calc": cfg.E.MODE_PREDIM}, **appui))
         pick = cfg.calculer(u0).pd.pick
         chk(f"{cle} : une note enregistrée en mode prédimensionnement ({'âme' if appui else 'aile'}) est relue en VÉRIFICATION, "
-            "la proposition du moteur recopiée (« Appliquer ») — ni bandeau de mode, ni fenêtre ni vue Prédim ; le bloc "
-            "« Prédimensionnement » du résultat ouvre les solutions vérifiées",
+            "la proposition du moteur recopiée (« Appliquer ») — ni bandeau de mode, ni fenêtre ni vue Prédim ; le résultat "
+            "propose les solutions vérifiées (le bloc « Prédimensionnement » ; ou « À corriger » quand cette proposition "
+            "d'avant, une estimation, n'est pas vérifiée par le calcul complet)",
             A._actif(e)["values"]["mode_calc"] == cfg.E.MODE_VERIF and not R.get("pred") and bool(R.ame) == bool(appui)
             and A._actif(e)["values"] == A.valeurs_normales(cfg, cfg.predim["moteur"].apply_solution(u0, pick))
             and "Mode prédimensionnement" not in r["resultat"] and 'id="ck-predim"' not in r["volets"]
             and [v["cle"] for v in r["vues"]] == ["elevation", "plan", "coupe"]
-            and re.search(r'<div class="el vc fixe"><div class="l1"><b>Solutions</b><button class="prof" data-pk="solution"[^>]*>'
-                          r'<span>Proposer</span>', r["resultat"]) is not None and C.esc(A.PROPOSITION_GARDE) in r["resultat"],
+            # (26/11/2026, le harnais SUIT : la proposition recopiée d'une note d'avant est une ESTIMATION du moteur — dans
+            #  l'âme, elle laisse une pince à 30 mm pour 31,2 : l'écran s'ouvre alors sur « À corriger », qui propose la
+            #  retouche et la solution vérifiée ; vérifiée, le bloc « Prédimensionnement » comme avant)
+            and ((R.verified and re.search(r'<div class="el vc fixe"><div class="l1"><b>Solutions</b><button class="prof" data-pk="solution"[^>]*>'
+                                           r'<span>Proposer</span>', r["resultat"]) is not None and C.esc(A.PROPOSITION_GARDE) in r["resultat"])
+                 or (not R.verified and "asm-corr" in r["resultat"] and 'data-chemin="solution"' in r["resultat"]
+                     and "Prédimensionnement</span>" not in r["resultat"])),
             (A._actif(e)["values"]["mode_calc"], R.get("pred")))
     e = etat_de(cle)
     msg = A.modifier(e, ["v", "mode_calc"], cfg.E.MODE_PREDIM)

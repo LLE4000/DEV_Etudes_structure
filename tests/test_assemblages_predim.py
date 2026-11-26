@@ -307,10 +307,11 @@ for cle in JEUX:
         and [v["cle"] for v in r["vues"]] == (["elevation", "plan", "droite"] if "poteau" not in cle else ["elevation", "plan", "coupe"]),
         str([v["cle"] for v in r["vues"]]))
     don = r["donnees"]
+    # (26/11/2026, le harnais SUIT : plus de plage de diamètres « Ø min – Ø max » — tests/test_assemblages_corriger.py § 5)
     chk(f"{cle} : plus de bascule « Mode » ni de champ verrouillé dans les Données ; les règles du prédimensionnement (taux "
-        "cible, diamètres, pinces) sont dans « Options », la dernière rubrique",
+        "cible, pinces) sont dans « Options », la dernière rubrique",
         'data-chemin="v/mode_calc"' not in don and not re.search(r'data-chemin="v/[^"]*"[^>]* disabled', don)
-        and all(f'data-chemin="v/{k}"' in don for k in ("eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"))
+        and all(f'data-chemin="v/{k}"' in don for k in ("eta_c", "k_e1", "k_p1", "k_e2"))
         and don.index('data-chemin="v/eta_c"') > don.index(">Options<"), don[:200])
 chk("les mots communs : le sous-titre du sélecteur et la ligne du résultat disent « efforts, profilés et niveaux gardés »",
     "efforts, profilés et niveaux gardés" in A.SOUS_TITRE_SOLUTIONS and "efforts, profilés et niveaux gardés" in A.PROPOSITION_GARDE)

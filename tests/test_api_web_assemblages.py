@@ -52,6 +52,7 @@ sys.path.insert(0, os.path.join(RACINE, "tests"))
 
 from acier import registre as RG  # noqa: E402
 from acier.bibliotheques import DB, PERSO  # noqa: E402
+from acier.assemblages import corrections as CO  # noqa: E402
 from api_web import assemblages as A  # noqa: E402
 from api_web import assemblages_poutre as PP  # noqa: E402
 from api_web import commun as C  # noqa: E402
@@ -529,6 +530,13 @@ print("\n=== 5. Ce que le site affiche = le moteur ===")
 # (établi compact, 12/11/2026 : le taux est au bout de la PREMIÈRE ligne ; une ligne d'information y dit « hors verdict » en mots)
 RX_EL = re.compile(r'<div class="el vc( gov)?" data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]+)</b>.*?'
                    r'<span class="(?:pct|et-mot) (\w)"[^>]*>([^<]+)</span></div><div class="l2">')
+
+
+def _nu(svg):
+    """Un dessin sans les attributs de ses groupes : ses formes et ses textes, ceux du moteur."""
+    return re.sub(r"<g[^>]*>", "<g>", svg)
+
+
 for cle in POUTRE_POUTRE:
     cfg = A.CONFIGS[cle]
     M = __import__(f"{TOUS[cle]}.schemas", fromlist=["x"])
@@ -546,8 +554,12 @@ for cle in POUTRE_POUTRE:
         noms = [g for g, *_ in A._groupes(cfg, R)]
         if [t for _, t in trouve] != [t for _, t in attendu] or [b for b, _ in trouve] != [b.replace("'", "&#x27;") for b in noms]:
             defauts.append((nom, "lignes", trouve, attendu))
-        if f"{C.pc(A.taux(eta_tete(R)))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
-            defauts.append((nom, "verdict"))
+        # (26/11/2026, le harnais SUIT : plus de gros taux en tête — « dans le module en béton, ça on avait supprimé » ;
+        #  le taux de l'assemblage se lit dans l'en-tête du bloc « Vérifications », après son état)
+        tete_v = re.search(r'<span class="n">Vérifications</span><span class="e">([^<]*)</span>', r["resultat"])
+        if (tete_v is None or not tete_v.group(1).endswith(f" · {C.pc(A.taux(eta_tete(R)))}{C.NBSP}%")
+                or "chip xl" in r["resultat"] or 'class="verdict"' in r["resultat"]):
+            defauts.append((nom, "taux de tête"))
         gov = [x for x in lignes if x[0]]
         att_gov = "Géométrie" if geometrie_gouverne(R) else (R.gov.grp if R.gov is not None else None)
         if att_gov is not None and (len(gov) != 1 or gov[0][2] != C.esc(att_gov)):
@@ -559,19 +571,26 @@ for cle in POUTRE_POUTRE:
                 fen = r["volets"].split(f'id="ck-{A._slug(c.grp)}"')[1].split('class="flyout')[0]
                 if f">{ed}{' ' + un if un else ''}<" not in fen or f">{rd}{' ' + un if un else ''}<" not in fen:
                     defauts.append((nom, "fenêtre", c.key, ed, rd))
-        # les alertes du moteur, une par message
-        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) or R.get("pred"):
+        # les alertes du moteur, une par message — sauf celles que le bloc « À corriger » dit déjà, avec leurs retouches
+        # (26/11/2026, le harnais SUIT : un assemblage non vérifié s'ouvre sur ses défauts de géométrie)
+        defs = CO.defauts(R) if not R.verified else []
+        dites = {d.alerte.id for d in defs if d.alerte is not None}
+        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + bool(R.get("reserve") and R.verified)
+                or r["resultat"].count('class="asm-def"') != len(defs) or R.get("pred")):
             defauts.append((nom, "alertes", len(R.alerts)))
         # les dessins : ceux des schémas du moteur, au caractère près
         opt = M.options_ecran(R, el["cotation"], A._hl(R))
-        opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, el["cotation"] >= 1, None
+        # (26/11/2026, le harnais SUIT : le dessin se MANIPULE — le kit est rendu avec son interactivité, que
+        #  ``dessin_assemblages.manipulable`` traduit ; les FORMES et les textes restent ceux du moteur, au caractère
+        #  près — les attributs des groupes sont gardés par tests/test_dessin_assemblages.py)
+        opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, el["cotation"] >= 1, None
         vues = {v["cle"]: v for v in r["vues"]}
         for k, f in (("elevation", M.elevation), ("plan", M.plan), ("droite", M.vue_droite)):
-            if vues[k]["svg"] != f(R, opt).svg(identifiant=f"asm_{k}"):
+            if _nu(vues[k]["svg"]) != _nu(f(R, opt).svg(identifiant=f"asm_{k}")):
                 defauts.append((nom, "dessin", k))
         if list(vues) != ["elevation", "plan", "droite"]:
             defauts.append((nom, "vues", list(vues)))
-    chk(f"{cle} : verdict, lignes par pièce (taux de synthese.taux_par_element), gouvernante, E_d / R_d de chaque "
+    chk(f"{cle} : taux de tête, lignes par pièce (taux de synthese.taux_par_element), gouvernante, E_d / R_d de chaque "
         f"vérification dans sa fenêtre, alertes et dessins = le moteur ; la toile ne porte QUE les trois dessins",
         not defauts, defauts[:3])
     e = etat_de(cle)
@@ -635,8 +654,12 @@ chk("pied de poteau (périmètre EN 1993-1-8) : le béton d'ancrage EN 1992-4 es
     "une seule fois",
     Rp.verified and pire is not None and pire.eta > 1 and anc and anc[0][3] == "c" and anc[0][4] == A.SANS_TAUX_INFORMATION
     and "hors périmètre" in res.split("Ancrages")[1][:200]
-    and "à vérifier : béton d&#x27;ancrage à 107,7 %" in res.replace("\u202f", " ").replace("\xa0", " ")
-    and "en information, hors verdict" not in res and "Conforme" not in res.split('class="verdict"')[0], anc)
+    # (26/11/2026, le harnais SUIT : la raison n'est plus dans un verdict de tête — l'en-tête du bloc dit « À vérifier »,
+    #  et le message « À vérifier — … » la nomme, une seule fois)
+    and "<b>À vérifier</b> — béton d&#x27;ancrage à 107,7 %" in res.replace("\u202f", " ").replace("\xa0", " ")
+    and len(re.findall(r"107,7", res)) == 1
+    and "en information, hors verdict" not in res
+    and re.search(r'<span class="n">Vérifications</span><span class="e">À vérifier · ', res) is not None, anc)
 chk("doubles cornières : la répartition élastique par boulon (groupe S) est dans la fenêtre Boulons",
     "Répartition élastique par boulon · groupe S" in vol and all(C.fr(b.f, 2) in vol for b in R.tabS))
 
@@ -1011,9 +1034,10 @@ e = etat_de("plat_ame")
 A._actif(e)["values"]["V_Ed"] = 155.6883916                       # η = 1,0000000003 : vérifié pour le moteur
 R = r_de(e)
 r = A.resultat(e)
-v = re.search(r'chip xl (\w)"><small>η</small>([^<]+)', r["resultat"])
-chk("η = 1 + 3·10⁻¹⁰, que le moteur déclare vérifié : verdict « 100 % » vert foncé, « Conforme, attention »",
-    R.eta_max > 1 and R.verified and v.groups() == ("f", f"100{C.NBSP}%") and "Conforme, attention" in r["statut_html"]
+# (26/11/2026, le harnais SUIT : le taux se lit dans l'en-tête du bloc « Vérifications », plus dans une pastille de tête)
+v = re.search(r'<section class="et-bloc (\w+)" data-theme="0">.*?<span class="e">([^<]+)</span>', r["resultat"], re.S)
+chk("η = 1 + 3·10⁻¹⁰, que le moteur déclare vérifié : le bloc écrit « Conforme, attention · 100 % » (orange), jamais 101 %",
+    R.eta_max > 1 and R.verified and v.groups() == ("warn", f"Conforme, attention · 100{C.NBSP}%") and "Conforme, attention" in r["statut_html"]
     and "101" not in r["resultat"] and "101" not in r["volets"].split('id="ck-geometrie"')[0], (R.eta_max, v.groups()))
 ev0 = A.eta_vu
 A.eta_vu = lambda eta, ok=True: eta
@@ -1035,7 +1059,9 @@ chk("p₁ = 48,4 mm = 2,2·d₀ (conforme pour le moteur, à 10⁻¹⁴ près) :
 
 # (e) le cadre Données des trois attaches poutre–poutre = les champs que l'écran Streamlit montre (champ_visible), ni
 # plus ni moins — les deux ailes des cornières soudées cachaient le bloc BOULONS, que le moteur lit encore
-REGLES_PREDIM = {"eta_c", "pd_dmin", "pd_dmax", "k_e1", "k_p1", "k_e2"}
+# (26/11/2026, le harnais SUIT : plus de plage de diamètres « Ø min – Ø max » dans les Options — la recherche parcourt
+#  tout le catalogue des boulons)
+REGLES_PREDIM = {"eta_c", "k_e1", "k_p1", "k_e2"}
 ecarts_cd = []
 for cle in POUTRE_POUTRE:
     cfg = A.CONFIGS[cle]
@@ -1185,9 +1211,10 @@ chk("compact : l'aide d'un groupe se lit sous ⓘ (survol ou toucher), en texte 
     and not any("<" in t for v in vus.values() for t in v.values()), {k: list(v) for k, v in vus.items()})
 ep = {"version": 1, "assemblages": [A.nouvel_assemblage("doubles_cornieres")], "actif": 0}
 dp = A.resultat(ep)["donnees"]
-chk("compact : dans « Options », le groupe « Prédimensionnement » porte son mode d'emploi sous ⓘ (les règles des propositions ; "
-    "ce qu'une proposition ne change jamais) ; la note de calcul y a sa case « Afficher les taux », cochée par défaut",
-    re.search(r'<div class="grp">Prédimensionnement <span class="aide" title="Les règles des propositions', dp) is not None
+# (26/11/2026, le harnais SUIT : l'aide ne parle plus de « diamètres admis » — tous les diamètres du catalogue sont essayés)
+chk("compact : dans « Options », le groupe « Prédimensionnement » porte son mode d'emploi sous ⓘ (les règles des solutions proposées, "
+    "tous les diamètres essayés ; ce qu'une solution ne change jamais) ; la note de calcul y a sa case « Afficher les taux », cochée par défaut",
+    re.search(r'<div class="grp">Prédimensionnement <span class="aide" title="Les règles des solutions proposées[^"]*Tous les diamètres du catalogue sont essayés', dp) is not None
     and "ne change jamais un effort" not in re.sub(r'title="[^"]*"', "", dp)
     and re.search(r'<input type="checkbox" data-chemin="note_taux"[^>]* checked', dp) is not None and A.LIBELLE_NOTE_TAUX in dp
     and dp.index('data-chemin="note_taux"') > dp.index('data-sec="op"'), dp[-600:])

@@ -1,5 +1,15 @@
 # Modifier les données sur le dessin — étude de faisabilité (PROPOSITION à trancher)
 
+> **Suite donnée le 26/11/2026** (demande du propriétaire : « avant, je cliquais sur le dessin et je pouvais tout
+> choisir […] réactive ça ») : le niveau **(a) cliquer → modifier** est BRANCHÉ pour les **assemblages métalliques**
+> (sept configurations, trois formats) — non par le prototype `edition.js`, mais par le composant qui existait entre-
+> temps pour le Générateur SAF (`site/web/js/plan.js` : la cote se tape SUR le dessin) et une traduction du vocabulaire
+> du kit (`api_web/dessin_assemblages.py`). Les quatre points du § 3 : l'appui est lu au `pointerdown` et n'agit qu'au
+> relâcher sous le seuil ; un geste pris n'est pas aussi le double appui de la toile (le zoom reste) ; au doigt, une
+> cote à moins de 14 px l'emporte sur la pièce touchée (les dessins denses) ; une pièce ouvre le sélecteur du Résultat
+> ou mène à son champ, et le plein écran se quitte d'abord. Le niveau **(b) glisser** reste à trancher ; les autres
+> modules du § 4 aussi. Preuves : `tests/test_dessin_assemblages.py`, `verifier_site.js` filtre « assemblages ».
+
 *07/11/2026. Question de l'ingénieur : « On pourrait cliquer sur les éléments dans le dessin et les changer dans le
 dessin. Est-ce que ce serait possible, ou la construction du site ne fonctionnerait pas comme ça ? Avant de tout
 modifier, tu me dis si c'est possible. »*

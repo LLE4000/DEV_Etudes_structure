@@ -752,3 +752,14 @@
 @media (max-width: 700px) {
   [data-etabli="compact"] .et-volet > summary { min-height: 44px; font-size: 13px; }
 }
+
+/* ------------------------------------------------------------------ le dessin qui se manipule (js/plan.js) */
+/* La COTE QU'ON TAPE : un champ posé sur elle (le Générateur SAF ; les assemblages métalliques, 26/11/2026). Au doigt
+   (tablette, téléphone) : 44 px de haut et 16 px de corps — sous cette taille, iOS agrandit la page dès que le champ
+   prend le curseur. */
+.sf-saisie { position: fixed; z-index: 80; height: 30px; border: 2px solid var(--accent); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 13px;
+  font-weight: 600; text-align: center; background: var(--panel); color: var(--ink); box-shadow: var(--shadow-pop); font-variant-numeric: tabular-nums; }
+.sf-saisie:focus { outline: none; }
+@media (pointer: coarse) { .sf-saisie { height: 44px; font-size: 16px; } }
+/* la ligne des données où une pièce du dessin vient de mener (js/etabli.js, allerAuChamp) : éclairée un instant */
+#donnees .et-vise { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-line); border-radius: 6px; }

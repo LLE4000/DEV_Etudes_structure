@@ -700,8 +700,11 @@ for nom, R, u, e in RESULTATS[:40]:
     ko = [x for x in (R.get("dist") or []) if not x.ok]
     if ko and isinstance(eta_v, (int, float)) and math.isfinite(eta_v):
         eta_v = max(eta_v, max(A._taux_distance(x) for x in ko))
-    if f"{C.pc(A.taux(eta_v))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
-        defauts.append((nom, "verdict"))
+    # (26/11/2026, le harnais SUIT : plus de gros taux en tête ; le taux se lit dans l'en-tête du bloc « Vérifications »)
+    tete_v = re.search(r'<span class="n">Vérifications</span><span class="e">([^<]*)</span>', r["resultat"])
+    if (tete_v is None or not tete_v.group(1).endswith(f" · {C.pc(A.taux(eta_v))}{C.NBSP}%")
+            or "chip xl" in r["resultat"] or 'class="verdict"' in r["resultat"]):
+        defauts.append((nom, "taux de tête"))
     c = R.ck.get("tpq")
     if c is not None and c.active and (N_tp := C.lire_nombre(u.get("tp_u"))):
         crit = [x for x in lignes if x[1] == "platine" and x[2] != "Platine"]
@@ -723,19 +726,25 @@ for nom, R, u, e in RESULTATS[:40]:
     # l'écran Streamlit, ecran_resultats.py:48 et manuel/ecran.py:349). Lot B : sous « À vérifier » (R.a_verifier), ni
     # « sous réserve » ni phrase d'information — la raison est dans le verdict, l'avis du moteur dit quoi faire
     a_verif = bool(R.verified and R.get("a_verifier"))
+    # (26/11/2026, le harnais SUIT : sous « À vérifier », la raison est un message « À vérifier — … » — un de plus —
+    #  depuis que la tête ne porte plus de verdict)
     if r["resultat"].count('class="msg') != (len(R.alerts) + bool(R.get("reserve") and R.verified and not a_verif)
-                                             + bool(PI.note_information(R) and not a_verif)):
+                                             + bool(PI.note_information(R) and not a_verif) + a_verif):
         defauts.append((nom, "alertes", len(R.alerts)))
     S = PI.SMA if PI.CA.est_manuel_R(R) else PI.SCO
     el = A._actif(e)
     opt = S.options_ecran(R, el["cotation"], A._hl(R))
-    opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, el["cotation"] >= 1, None
+    # (26/11/2026, le harnais SUIT : le dessin se MANIPULE — le kit est rendu avec son interactivité, que
+    #  ``dessin_assemblages.manipulable`` traduit ; les FORMES et les textes restent ceux du moteur, au caractère près —
+    #  les attributs des groupes sont gardés par tests/test_dessin_assemblages.py)
+    opt.interactive, opt.poignees, opt.editables, opt.locked = True, True, el["cotation"] >= 1, None
+    _nu = lambda svg: re.sub(r"<g[^>]*>", "<g>", svg)  # noqa: E731
     vues = {v["cle"]: v for v in r["vues"]}
     dessins = [("plan", S.plan(R, opt)), ("coupe_aa", S.coupe_aa(R, opt)), ("coupe_bb", S.coupe_bb(R, opt))]
     if not PI.CA.est_manuel_R(R):
         dessins.append(("domaine", S.domaine(R)))
     for k, dess in dessins:
-        if vues[k]["svg"] != dess.svg(identifiant=f"asm_{k}"):
+        if _nu(vues[k]["svg"]) != _nu(dess.svg(identifiant=f"asm_{k}")):
             defauts.append((nom, "dessin", k))
     manque = fautes_perimetre(R, r)
     if manque:
@@ -766,12 +775,12 @@ assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
 R2 = r_de(e2)
 anc2 = [x for x in RX_EL.findall(A.resultat(e2)["resultat"]) if x[2] == "Ancrages"]
 chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous « vérifié » : la ligne dit « hors périmètre » "
-    "et « hors verdict », sans taux ; le verdict dit « à vérifier : béton d'ancrage à 454,0 % » (la phrase d'information "
+    "et « hors verdict », sans taux ; un message dit « À vérifier — béton d'ancrage à 454,0 % » (la phrase d'information "
     "ne le redit plus) ; au périmètre « EC3 + EC2-4 », non conforme et la ligne en rouge à 454 %",
     R108.verified and pire is not None and round(pire.eta, 2) == 4.54 and anc and anc[0][3] == "c"
     and anc[0][4] == A.SANS_TAUX_INFORMATION and "454" not in r108.split('data-calcul="ancrages"')[1].split('class="el')[0]
     and "hors périmètre" in r108.split('data-calcul="ancrages"')[1][:300]
-    and "à vérifier : béton d'ancrage à 454,0 %, hors périmètre EC3" in texte(r108)
+    and "À vérifier — béton d'ancrage à 454,0 %, hors périmètre EC3" in texte(r108)
     and "à 454,0 % — non satisfait" not in texte(r108)
     and not R2.verified and anc2 and anc2[0][3] == "r" and anc2[0][4] == f"454{C.NBSP}%",
     (R108.statut, anc, anc2, round(pire.eta, 3) if pire else None))
@@ -803,7 +812,8 @@ chk("hypothèses : les tiges (boulons), le béton, le critère ou le périmètre
 e_inf = etat_de(dict(E.defaults(), mode=E.MODE_COMPLET, ancr="M12"))
 r_inf = A.resultat(e_inf)
 chk("une épaisseur requise infinie (aucune ne suffit : M12) s'affiche « 999 % » rouge au lieu d'arrêter l'écran "
-    "(Streamlit : « > 999 % »)", r_de(e_inf).eta_max == float("inf") and "999" in r_inf["resultat"].split('class="verdict"')[1][:200]
+    "(Streamlit : « > 999 % »)", r_de(e_inf).eta_max == float("inf")
+    and re.search(r'<span class="n">Vérifications</span><span class="e">Non conforme · 999', r_inf["resultat"]) is not None
     and r_inf["statut_html"] == C.statut("r"))
 
 # =====================================================================================================================
@@ -951,9 +961,11 @@ chk("tige à 30 mm du bord : le taux de tête égale celui de la ligne « Géom�
 chk("tige à 30 mm du bord : le gouvernant nommé est la pince, pas une vérification satisfaite",
     tete["gouvernant"].endswith("Géométrie · pince des boulons au bord de la platine") and "Trous" not in tete["gouvernant"],
     tete["gouvernant"])
-v = plat(re.search(r'<div class="verdict">.*?</div></div>', res["resultat"], re.S).group(0))
-chk("tige à 30 mm du bord : le verdict écrit la comparaison de la pince (30,0 mm < 31,2 mm, e ≥ 1,2·d0)",
-    "104%" in v and "Géométrie · pince des boulons au bord de la platine" in v and "30,0 mm < 31,2 mm (e ≥ 1,2·d0)" in v, v)
+# (26/11/2026, le harnais SUIT : plus de verdict en tête — la comparaison de la pince se lit sur la ligne « Géométrie »,
+#  marquée gouvernante, comme la ligne d'une pièce dit ce qu'elle compare)
+v = plat(re.search(r'<div class="el vc gov"[^>]*><div class="l1"><b>Géométrie</b>.*?</div></div>', res["resultat"], re.S).group(0))
+chk("tige à 30 mm du bord : la ligne « Géométrie » écrit la comparaison de la pince (30,0 mm < 31,2 mm) et son taux",
+    "104%" in v and "Pince des boulons au bord de la platine : 30,0 mm < 31,2 mm" in v and 'class="verdict"' not in res["resultat"], v)
 marques = re.findall(r'<div class="el vc gov"[^>]*><div class="l1"><b>([^<]+)</b>', res["resultat"])
 chk("tige à 30 mm du bord : la ligne marquée gouvernante est « Géométrie » (pas « Trous » à 0 %)", marques == ["Géométrie"], marques)
 chk("tige à 30 mm du bord : le bloc « Vérifications » écrit aussi 104 % (établi compact : son état, à côté du verdict)",
@@ -1135,9 +1147,10 @@ def controles_a_verifier():
                 f"{b['niveau']} / {st}"))
     # la raison UNE fois (le verdict) ; l'avis du moteur dit quoi faire ; ni message « À vérifier : … » qui la redit, ni
     # phrase d'information (« en information, hors verdict ») — contre-vérification du bloc : quatre fois avant
-    out.append(("… le verdict dit la raison courte, une seule fois à l'écran (ni message répété, ni phrase d'information)",
-                ("· à vérifier : " + RAISON_DEFAUT) in rs and len(re.findall(r"107,7 ?%", rs)) == 1
-                and "en information, hors verdict" not in rs and "À vérifier : béton" not in rs, rs[:600]))
+    # (26/11/2026, le harnais SUIT : la raison n'est plus dans un verdict de tête mais dans LE message « À vérifier — … »)
+    out.append(("… un message dit la raison courte, une seule fois à l'écran (pas de phrase d'information qui la redit)",
+                ("À vérifier — " + RAISON_DEFAUT) in rs and len(re.findall(r"107,7 ?%", rs)) == 1
+                and "en information, hors verdict" not in rs, rs[:600]))
     e2 = neuf(complet=True)
     assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
     b2, _, _ = _vue(e2)
@@ -1154,7 +1167,7 @@ def controles_a_verifier():
     bt, stt, rst = _vue(_manuel(**MANUEL_TIGES))
     out.append(("calcul manuel, M12 4.6 sous Mx = 80 kNm : platine vérifiée, tiges à 324,6 % — « À vérifier »",
                 bt["R"].verified and bt["niveau"] == "v" and bt["R"].a_verifier
-                == "tiges à 324,6 %, hors calcul manuel" and "à vérifier : tiges à 324,6 %, hors calcul manuel" in rst
+                == "tiges à 324,6 %, hors calcul manuel" and "À vérifier — tiges à 324,6 %, hors calcul manuel" in rst
                 and bt["R"].statut == "PLATINE À VÉRIFIER (tiges à 324,6 %, hors calcul manuel)",
                 f"{bt['niveau']} {bt['R'].get('a_verifier')}"))
     bf, _, _ = _vue(_manuel(**MANUEL_FJD))
