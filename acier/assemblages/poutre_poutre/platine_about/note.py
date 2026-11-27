@@ -23,7 +23,7 @@ from ndc_pdf import data as ndc_data
 from acier.formats import F, nb
 from acier.js import N, js_str
 from acier.bibliotheques import PERSO
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX
+from acier.assemblages.note_kit import empaqueter_au_mieux, coefficients, MSB, SANS_TAUX, segment_maintien
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
 from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS as NOTATIONS_COURTES
@@ -83,17 +83,25 @@ def segments_hypotheses(R):
                     "tying : fu/γMu (MSB P5 §2.3)")
                    if tying else ("NEd ELU combiné avec VEd (tronçon en T §6.2.4)", "NEd ELU avec VEd (§6.2.4)"))
     plein = F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm"
-    seg.append(("cordons sur hp (§4.5.3.3), pleine résistance " + plein, "cordons hp, pleine résistance " + plein))
+    seg.append(("cordons sur hp − 2a (§4.5.1, §4.5.3.3), pleine résistance " + plein,
+                "cordons hp − 2a, pleine résistance " + plein,
+                "cordons hp − 2a, pleine résistance " + F(R.a_plein, 1) + " mm"))
     suffixe = (" · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else "") + (" · γMu " + F(N(u.g_Mu), 2) if tying else "")
     g = " · γM2 " + F(N(u.g_M2), 2)
     seg.append(tuple(f + suffixe for f in coefficients("γM0 " + F(N(u.g_M0), 2) + " (ANB)" + g, N(u.g_M2), N(u.g_M2n),
                                                        tete_net="γM0 " + F(N(u.g_M0), 2) + g)))
+    # L19 : la poutre grugée maintenue au déversement — en DERNIER : c'est lui que le kit raccourcit d'abord
+    s_ = segment_maintien(R.cas_g > 0 and str(u.lt_ok) == "Oui")
+    if s_:
+        seg.append(s_)
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+    """Trois lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 class Note(_np.Note):

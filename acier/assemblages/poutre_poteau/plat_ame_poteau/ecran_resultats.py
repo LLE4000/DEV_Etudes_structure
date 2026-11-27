@@ -48,13 +48,16 @@ CAPTION_USAGE = ("Touche une cote pour la modifier, touche une pièce (poteau, p
 # ------------------------------------------------------------------ bandeau
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
+    # « À VÉRIFIER » (lot de clôture du 27/11/2026) : R.statut le dit déjà, avec ses raisons (articulation à justifier,
+    # cas hors périmètre) ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
     comp = "— " + pct(R.eta_max, 1) + (" · " + synthese.court(R.gov) if R.gov else "")
     if not R.geo_ok:
         comp += " · géométrie non valide"
     if not R.dist_ok:
         comp += " · pinces ou entraxes non conformes"
-    bloc_statut_ligne("ok" if ok else "nok", titre, comp,
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, comp,
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
     if R.pred:
         bloc_alerte("Mode prédimensionnement : " + R.boulon + ", " + js_str(R.n_1) + " rangées, plat "
@@ -109,7 +112,7 @@ def _panneaux(R, u):
     g["recut"] = g["beamS"]
     g["plate"] = dict(titre="Plat",
                       champs=[ch("hp_u"), ch("tp_u"), ch("bp_u"), ch("z_C"), ch("nu_pl")],
-                      note="hp, bp, tp et zp : aussi des cotes sur le dessin ; la gorge a : fenêtre Soudure.")
+                      note="hp, bp, tp et zc : aussi des cotes sur le dessin ; la gorge a : fenêtre Soudure.")
     g["weld"] = dict(titre="Soudure", champs=[ch("a_w")])
     g["efforts"] = dict(titre="Efforts",
                         champs=[ch("V_Ed"), ch("N_Ed"), ch("M_Ed")]
@@ -240,7 +243,7 @@ def _parametres_retenus(R):
          ["Moment d'excentricité MS = VEd·z + |MEd|", F(R.M_S, 2) + " kNm"],
          ["Modèle", R.mod],
          ["Inertie polaire du groupe", F(R.Ip, 0) + " mm²"],
-         ["Plat court / long (limite tp/0,15 = " + F(R.t_p / 0.15, 1) + " mm)",
+         ["Plat court / long (zp = " + F(R.g_B, 1) + " mm à la 1ʳᵉ file ; limite tp/0,15 = " + F(R.t_p / 0.15, 1) + " mm)",
           ("LONG (déversement vérifié)" if R.long_p else "court")],
          ["Pince e2 du plat (bord libre)", F(R.e2_p, 1) + " mm"],
          ["Pince e1,b dans l'âme de la poutre portée", F(R.e1b_S, 1) + " mm"],

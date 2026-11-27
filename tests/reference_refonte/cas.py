@@ -498,8 +498,10 @@ for _t, _ex in (("doubles_cornieres", "BM1"), ("doubles_cornieres", "BM4"), ("pl
 cas("assemblages", "pied de poteau : vérification complète (grille régulière)", REF, [neuf(), mod("type", "platine_beton"), mod("v/mode", COMPLET)],
     selecteurs=True)
 # (lot A : f_u selon le tableau 3.3 ANB, 470 au lieu de 510 en S355 — trois charges redescendues dans la bande [95, 100] %)
-for _t, _v in (("doubles_cornieres", "152"), ("plat_ame", "152"), ("platine_about", "290"), ("plat_ame_poteau", "285"),
-               ("doubles_cornieres_poteau", "341"), ("platine_about_poteau", "510")):
+# (lot de clôture du 27/11/2026 : deux charges redescendues dans la bande — plat d'âme 152 → 132 kN, le cas par défaut
+#  tient désormais les pinces de 2d ; platine d'about sur poteau 510 → 450 kN, l'âme portée est cisaillée sur 0,9·hp·tw)
+for _t, _v in (("doubles_cornieres", "152"), ("plat_ame", "132"), ("platine_about", "290"), ("plat_ame_poteau", "285"),
+               ("doubles_cornieres_poteau", "341"), ("platine_about_poteau", "450")):
     cas("assemblages", f"{_t} : chargé près de 100 % (V_Ed = {_v} kN)", REF, [neuf(), mod("type", _t), mod("v/V_Ed", _v)], {"taux": [95, 100]})
 cas("assemblages", "platine_beton : chargé près de 100 % (N_Ed = 1 770 kN, calcul manuel)", REF, [neuf(), mod("type", "platine_beton"), mod("v/N_Ed", "1770")],
     {"taux": [95, 100]})

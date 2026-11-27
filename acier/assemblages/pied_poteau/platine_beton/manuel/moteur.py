@@ -179,10 +179,13 @@ def compute(u0=None, materiau=None):
     bc = CP.beton_comprime(R.fck, u.a_cc, gc, u.bp_u, u.lp_u, u.bc_u, u.lc_u, u.hc_u, u.t_g, u.f_g)
     R.fcd, R.fjd, R.ratio_c, R.Ac0, R.Ac1, R.beta_j = bc["fcd"], bc["fjd"], bc["ratio"], bc["Ac0"], bc["Ac1"], bc["beta_j"]
     R.E_cm = CP.E_cm(R.fck)
+    R.k_diff = bc["k"]
     if not bc["mortier_ok"]:
-        al("mortier", "Mortier de scellement hors conditions de βj = 2/3 (épaisseur ≤ 0,2·min(bp, lp) et "
-           "résistance ≥ 0,2·fck) — EN 1993-1-8 §6.2.5(7).", True, ["t_g", "f_g"],
-           f"tg = {F(u.t_g, 0)} mm, fg = {F(u.f_g, 0)} MPa", dims=["tg"], elems=["grout"])
+        al("mortier", "Mortier de scellement hors conditions de βj = 2/3 (épaisseur ≤ 0,2·min(bp, lp), "
+           "résistance ≥ 0,2·fck et, au-delà de 50 mm d'épaisseur, résistance ≥ fck) — EN 1993-1-8 §6.2.5(7).",
+           True, ["t_g", "f_g"],
+           f"tg = {F(u.t_g, 0)} mm, fg = {F(u.f_g, 0)} MPa ; limites {F(0.2 * min(u.bp_u, u.lp_u), 0)} mm et "
+           f"{F(R.fck if u.t_g > CP.MORTIER_EPAIS else 0.2 * R.fck, 1)} MPa", dims=["tg"], elems=["grout"])
     if u.bp_u > u.bc_u or u.lp_u > u.lc_u:
         al("massif", "La platine déborde du massif.", True, ["bp_u", "lp_u", "bc_u", "lc_u"],
            f"platine {F(u.bp_u, 0)} × {F(u.lp_u, 0)} mm, massif {F(u.bc_u, 0)} × {F(u.lc_u, 0)} mm",
@@ -288,6 +291,7 @@ def compute(u0=None, materiau=None):
                                                                 coin=False, nx=1.0, ny=0.0, dedans=True, faces=[])
         t["appui"] = a
         t["m"] = max(1.0, a["d"] - cord)
+        t["d_acier"] = a["d"]
         t["coin"] = bool(a["coin"])
         t["cercle"] = bool(a.get("cercle"))
         nx, ny = a["nx"], a["ny"]
@@ -306,6 +310,29 @@ def compute(u0=None, materiau=None):
             h = (t["x"] - px) * fnx + (t["y"] - py) * fny
             if h > 1e-9 and f["L"] > 0:
                 t["faces"].append((f, max(1.0, h - cord)))
+    # R13 (lot de clôture) : le TROU d'un boulon ne peut pas mordre sur le cordon d'un élément soudé (refus) ; une
+    # RONDELLE qui le chevauche gêne la pose (avis). Avant, un boulon posé sur le cordon gardait m = 1 mm et un
+    # tronçon en T d'autant plus résistant. (L'emprise de l'acier lui-même est déjà refusée : « bin », « brd ».)
+    R.z_cordon = u.a_w * math.sqrt(2)                                  # côté du cordon d'angle de gorge a
+    libres = [t for t in R.tiges if not t["appui"].get("dedans")]
+    mord = [t for t in libres if t["d_acier"] - R.z_cordon - R.d0 / 2 < -1e-9]
+    gene = [t for t in libres if t["d_acier"] - R.z_cordon - R.d_w / 2 < -1e-9]
+    deja = {a.id for a in R.alerts}
+    mord = [t for t in mord if f"bin_{t['i']}" not in deja and f"brd_{t['i']}" not in deja]
+    if mord and (R.elems or R.raid):
+        pm = min(mord, key=lambda t: t["d_acier"])
+        al("tige_acier", f"Le trou du boulon {pm['i'] + 1} mord sur le cordon d'un élément soudé : il ne peut pas "
+           "être posé là — l'écarter.", True, ["a_w"],
+           f"boulon {pm['i'] + 1} ({F(pm['x'], 0)} ; {F(pm['y'], 0)}) : axe à {F(pm['d_acier'], 1)} mm de l'acier ; "
+           f"il faut cordon {F(R.z_cordon, 1)} + d0/2 {F(R.d0 / 2, 1)} = {F(R.z_cordon + R.d0 / 2, 1)} mm",
+           elems=["anchors", "col"])
+        geo_ok = False
+    elif gene and (R.elems or R.raid) and not any(k.startswith(("bin_", "brd_")) for k in deja):
+        pm = min(gene, key=lambda t: t["d_acier"])
+        al("rondelle", f"La rondelle du boulon {pm['i'] + 1} chevauche le cordon d'un élément soudé : pose à "
+           "contrôler (boulon à écarter, rondelle ou cordon à adapter).", False, ["a_w"],
+           f"boulon {pm['i'] + 1} : axe à {F(pm['d_acier'], 1)} mm de l'acier ; rondelle libre à partir de "
+           f"{F(R.z_cordon + R.d_w / 2, 1)} mm", elems=["anchors"])
     if any(t["coin"] for t in R.tiges):
         al("coin", "Boulons dans un angle (au-delà d'une face ET de son about) : bras jusqu'à l'angle, longueur "
            "efficace plafonnée à m par boulon — modèle d'ingénieur, à valider.", False, [],
@@ -689,13 +716,21 @@ def compute(u0=None, materiau=None):
     R.gov = gov
     R.eta_max = gov.eta if gov else 0.0
     R.all_ok = all(c.ok for c in act if c.key not in R.info_keys)
-    R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
+    # R12 (lot de clôture) : une alerte BLOQUANTE refuse la platine, quelle qu'elle soit (mortier hors conditions,
+    # platine qui déborde du massif : avant, elles laissaient « VÉRIFIÉE »).
+    R.bloquant = [a.id for a in R.alerts if a.block]
+    R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok and not R.bloquant)
     # Lot B (brief v12 § 19.1 point 4) : les tiges et l'appui fjd, hors du verdict du calcul manuel, qui dépassent
     # 100 % ne laissent plus « Conforme » : « À VÉRIFIER », avec la raison courte (``R.a_verifier``)
-    R.a_verifier = a_verifier_manuel(R)
+    # la raison n'existe que sur une platine VÉRIFIÉE (lot de clôture, P8 — comme en vérification complète)
+    R.a_verifier = a_verifier_manuel(R) if R.verified else ""
     if R.verified and R.a_verifier:
         R.statut = "PLATINE À VÉRIFIER (" + R.a_verifier + ")"
     else:
         R.statut = ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel)"
-    R.reserve = any(a.id in ("coin", "plein", "tige_info", "fjd_info") for a in R.alerts)
+    R.reserve = any(a.id in ("coin", "plein", "tige_info", "fjd_info", "rondelle") for a in R.alerts)
+    # A8 (lot de clôture) : la PORTÉE du verdict, dite une fois — le calcul manuel juge la platine ; le béton
+    # d'ancrage (EN 1992-4) n'y est pas calculé du tout.
+    R.portee = ("Le verdict porte sur la platine. Tiges (acier) et appui fjd : en information. Béton d'ancrage "
+                "(EN 1992-4 : cône, arrachement, bord, pry-out, fendage) : non vérifié ici — à justifier à part.")
     return R

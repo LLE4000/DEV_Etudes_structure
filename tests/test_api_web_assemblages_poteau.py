@@ -621,7 +621,11 @@ for cle in POTEAU:
         # (26/11/2026, le harnais SUIT : un assemblage non vérifié s'ouvre sur ses défauts de géométrie)
         defs = CO.defauts(R) if not R.verified else []
         dites = {d.alerte.id for d in defs if d.alerte is not None}
-        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + bool(R.get("reserve") and R.verified)
+        # (lot de clôture du 27/11/2026 : un assemblage « À VÉRIFIER » dit sa raison dans UN message de plus, et pas la
+        #  phrase « vérifié sous réserve » — le harnais suit)
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + a_verif
+                + bool(R.get("reserve") and R.verified and not a_verif)
                 or r["resultat"].count('class="asm-def"') != len(defs) or R.get("pred")):
             defauts.append((nom, "alertes", len(R.alerts)))
         opt = M.options_ecran(R, el["cotation"], A._hl(R))

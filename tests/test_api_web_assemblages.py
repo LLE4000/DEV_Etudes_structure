@@ -575,7 +575,11 @@ for cle in POUTRE_POUTRE:
         # (26/11/2026, le harnais SUIT : un assemblage non vérifié s'ouvre sur ses défauts de géométrie)
         defs = CO.defauts(R) if not R.verified else []
         dites = {d.alerte.id for d in defs if d.alerte is not None}
-        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + bool(R.get("reserve") and R.verified)
+        # (lot de clôture du 27/11/2026 : un assemblage « À VÉRIFIER » dit sa raison dans UN message de plus, et pas la
+        #  phrase « vérifié sous réserve » — le harnais suit)
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        if (r["resultat"].count('class="msg') != len([a for a in R.alerts if a.id not in dites]) + a_verif
+                + bool(R.get("reserve") and R.verified and not a_verif)
                 or r["resultat"].count('class="asm-def"') != len(defs) or R.get("pred")):
             defauts.append((nom, "alertes", len(R.alerts)))
         # les dessins : ceux des schémas du moteur, au caractère près
@@ -795,8 +799,11 @@ for cle in POUTRE_POUTRE:
     attendu = []
     for b in DB["boulons"]:
         R = cfg.calculer(A.a_calculer(cfg, dict(u, boulon_u=b["n"])))
-        attendu.append((b["n"], f"{C.pc(C.pct(min(eta_tete(R), 9.99)))}{C.NBSP}%", R.verified))
-    opt = next(n for n, _t, ok in attendu if ok)
+        attendu.append((b["n"], f"{C.pc(C.pct(min(eta_tete(R), 9.99)))}{C.NBSP}%", R.verified, bool(R.get("a_verifier"))))
+    # ★ : le plus petit VÉRIFIÉ sans raison à justifier ; à défaut, le plus petit vérifié (lot de clôture du 27/11/2026 :
+    # une platine de 10 mm avec des M12 ou des M16 dépasse la limite de ductilité — « à vérifier », orange)
+    opt = next((n for n, _t, ok, av in attendu if ok and not av), None) or next(n for n, _t, ok, _av in attendu if ok)
+    attendu = [(n, t, ok) for n, t, ok, _av in attendu]
     chk(f"{cle} : sélecteur de boulons — tous les boulons, taux du moteur, ✓ sur le retenu, ★ sur le plus petit qui tient",
         [(n, t) for _c, _o, n, _n, t in rows] == [(n, t) for n, t, _ in attendu]
         and [n for c, _o, n, *_ in rows if c] == [u["boulon_u"]] and [n for _c, o, n, *_ in rows if o] == [opt], rows[:3])
@@ -1031,12 +1038,14 @@ chk(f"pied de poteau : une table de plus de {A.LIGNES_MAXI} boulons est une note
 e = etat_de("plat_ame")
 # lot A (16/11/2026) : le harnais suit — f_u = 470 (tableau 3.3 ANB) au lieu de 510 ; le taux gouvernant (pression
 # diamétrale de l'âme) est proportionnel à 1/f_u : V_Ed × 470/510 garde le même taux
-A._actif(e)["values"]["V_Ed"] = 155.6883916                       # η = 1,0000000003 : vérifié pour le moteur
+# lot de clôture (27/11/2026) : le harnais suit — pinces de 2d au défaut (e1 = 40, p1 = 55) : la pression diamétrale
+# de l'âme gouverne toujours, à 134,5 kN
+A._actif(e)["values"]["V_Ed"] = 134.4995842                       # η = 1,0000000007 : vérifié pour le moteur
 R = r_de(e)
 r = A.resultat(e)
 # (26/11/2026, le harnais SUIT : le taux se lit dans l'en-tête du bloc « Vérifications », plus dans une pastille de tête)
 v = re.search(r'<section class="et-bloc (\w+)" data-theme="0">.*?<span class="e">([^<]+)</span>', r["resultat"], re.S)
-chk("η = 1 + 3·10⁻¹⁰, que le moteur déclare vérifié : le bloc écrit « Conforme, attention · 100 % » (orange), jamais 101 %",
+chk("η = 1 + 7·10⁻¹⁰, que le moteur déclare vérifié : le bloc écrit « Conforme, attention · 100 % » (orange), jamais 101 %",
     R.eta_max > 1 and R.verified and v.groups() == ("warn", f"Conforme, attention · 100{C.NBSP}%") and "Conforme, attention" in r["statut_html"]
     and "101" not in r["resultat"] and "101" not in r["volets"].split('id="ck-geometrie"')[0], (R.eta_max, v.groups()))
 ev0 = A.eta_vu
@@ -1046,8 +1055,8 @@ try:
 finally:
     A.eta_vu = ev0
 chk("mutation « sans la tolérance du moteur » : le verdict repasse à 101 % rouge", rouge)
-A._actif(e)["values"]["V_Ed"] = 155.6883921                        # η = 1,0000000035 : non vérifié
-chk("η = 1 + 3·10⁻⁹ (non vérifié pour le moteur) : 101 % rouge, « Non conforme »",
+A._actif(e)["values"]["V_Ed"] = 134.4995846                        # η = 1,0000000037 : non vérifié
+chk("η = 1 + 4·10⁻⁹ (non vérifié pour le moteur) : 101 % rouge, « Non conforme »",
     not r_de(e).verified and "Non conforme" in A.resultat(e)["statut_html"])
 e = etat_de("plat_ame")
 A.modifier(e, ["v", "p1_u"], "48,4")                                # p₁ = 2,2·d₀ = 48,400000000000006 mm

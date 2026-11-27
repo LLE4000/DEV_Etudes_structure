@@ -84,3 +84,13 @@ source) ; l'écran et la note du cas courant utilisent l'ANB.
   extraite de la source depuis cet environnement (réseau restreint) : la
   vérification est ancrée par calcul manuel indépendant (VAL-A) et listée
   dans « sans exemple publié consulté ».
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Le plat d'âme suit désormais la procédure du **SCI P358** : plat LONG jugé sur `zp` (première file), déversement par `χLT` de l'EN 1993-1-1 avec le 0,6 du diagramme triangulaire, section ABCD de l'âme portée (ligne `abS`), poinçonnement de l'âme porteuse (ligne `poi`), grugeage court à deux files, cordons sur `hp − 2·a`. Le détail éprouvé (pinces `≥ 2·d`, 8.8 non précontraints, cordons de pleine résistance) est porté au statut « À VÉRIFIER (articulation à justifier) » ; le cas par défaut le tient (`e1 = 40`, `p1 = 55` en M20). Le seuil du MSB (`z` au centre du groupe) reste calculé en information : au-delà de 100 %, statut « À VÉRIFIER ». Détail : `ECARTS_ET_CORRECTIONS.md` §8.1 (L6 à L13). Les chiffres de ce document antérieurs au lot sont ceux de la révision précédente.
+
+Notation (L20) : `zp` est celui du SCI — de la face d'appui à la **première** file, le critère du plat long ; `z` va au centre du groupe (MSB). La position verticale du plat (saisie `z_C`) s'écrit désormais **`zc`** (saisie, dessin, alertes), comme aux doubles cornières ; le dessin cote `zp` à côté de `z` quand il y a deux files. Les hypothèses de la note disent « cordons sur hp − 2a » et, pour une poutre grugée, « maintenue au déversement (donnée de la saisie) » (L19).
+
+Verdict de la note (L22, arbitrage A1) : quand le détail éprouvé est tenu, la conclusion l'écrit — « Articulation : détail éprouvé tenu (e1 du plat = 40 ≥ 2d = 40 mm ; a = 6 ≥ 6,0 mm ; 8.8 non précontraints) » sur le cas par défaut (`note_kit.phrase_articulation` : `rec_2d`, `pince_2d`, `rec_a`, `a_plein`, `rec_boul`). Non tenu, le statut « À VÉRIFIER (articulation à justifier : …) » le dit déjà.

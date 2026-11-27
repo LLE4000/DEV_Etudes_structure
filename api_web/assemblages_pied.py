@@ -618,7 +618,7 @@ LIBELLES = {
     "tw_u": ("t<sub>w</sub>", "âme"), "tf_u": ("t<sub>f</sub>", "aile"), "r_u": ("r", "congé"), "t_u": ("t", "paroi"),
     "nu_c": ("", "Nuance"), "L_c": ("L<sub>c</sub>", "hauteur"), "contrev": ("", "Ossature contreventée"),
     "bp_u": ("b<sub>p</sub>", "largeur (x)"), "lp_u": ("l<sub>p</sub>", "longueur (y)"), "tp_u": ("t<sub>p</sub>", "épaisseur"),
-    "nu_pl": ("", "Nuance"), "a_w": ("a", "gorge"),
+    "nu_pl": ("", "Nuance"), "a_w": ("a", "gorge"), "contact": ("", "Appui direct du poteau"),
     "n_ax": ("n<sub>x</sub>", "files (x)"), "n_ay": ("n<sub>y</sub>", "rangées (y)"),
     "w_x": ("w<sub>x</sub>", "entraxe (x)"), "w_y": ("w<sub>y</sub>", "entraxe (y)"),
     "ancr": ("", "Tige"), "classe": ("", "Classe"), "typ_a": ("", "Ancrage"),
@@ -795,7 +795,7 @@ def _sections_complet(u, R, el):
          ["forme", "prof_c", "h_u", "b_u", "tw_u", "tf_u", "r_u", "t_u", "nu_c", ("grp", "Rigidité du pied (information)"),
           "L_c", "contrev"], True),
         ("pl", "Platine", _platine_resume(u),
-         ["bp_u", "lp_u", "tp_u", "nu_pl", ("grp", "Soudure poteau / platine"), "a_w"], True),
+         ["bp_u", "lp_u", "tp_u", "nu_pl", ("grp", "Soudure poteau / platine"), "a_w", "contact"], True),
         ("ti", "Tiges d'ancrage", f"{C.nb(N(u.get('n_ax')))} × {C.nb(N(u.get('n_ay')))} {C.esc(u.get('ancr') or '')} "
                                   f"{C.esc(u.get('classe') or '')} · {C.esc(E.ancrage_txt(u, True))}",
          [("grp", "Grille centrée sur le poteau"), "n_ax", "n_ay", "w_x", "w_y", ("grp", "Tiges"),

@@ -89,9 +89,14 @@ chk("âme – cisaillement net VRd = 995 kN (p. 5-45 ; même écart d'aire)",
     pres(R.ck["vnS"].Rd, 995, 0.01), str(R.ck["vnS"].Rd))
 chk("âme – rupture de bloc VRd = 507 kN (p. 5-45, poutre NON grugée : (n1 − 1)·d0)",
     pres(R.ck["vbS"].Rd, 507, 0.01), str(R.ck["vbS"].Rd))
-chk("plat LONG (z = 80 > tp/0,15 = 66,7) : λLT = 38,80 ; pb = 264,65 MPa ; Mb,Rd = 57,16 kNm (γM1 = 1,0)",
-    R.long_p and pres(R.lam_LT, 38.797938089542846, 1e-9) and pres(R.pb_LT, 264.647581710414, 1e-9)
-    and pres(R.ck["plt"].Rd, 57.163877649449425, 1e-9))
+# LE HARNAIS SUIT (lot de clôture du 27/11/2026) : il figeait « plat long » jugé sur z = 80 (centre du groupe, règle du
+# MSB) et la courbe BS 5950-1 (pb = 264,65 MPa, Mb,Rd = 57,16 kNm) ; le bureau a retenu le SCI, qui juge sur
+# zp = gh + e2,b = 50 (la première file) : ce plat est COURT — ni déversement ni section ABCD dans le verdict
+chk("plat COURT pour le SCI (zp = 50 ≤ tp/0,15 = 66,7), long pour le MSB (z = 80) : déversement et section ABCD "
+    "inactifs ; ABCD du MSB en information : 38,5 / 65,87 kNm (le guide imprime 38 et 66)",
+    not R.long_p and R.long_msb and not R.ck["plt"].active and not R.ck["abS"].active
+    and pres(R.abcd_msb.MEd, 38.5, 1e-12) and pres(R.abcd_msb.MRd, 66, 0.01) and R.a_verifier == "",
+    f"{R.long_p} {R.abcd_msb.MRd} {R.a_verifier}")
 chk("VÉRIFIÉ ; dimensionnante = cisaillement brut du plat (la plus petite résistance du guide)",
     R.verified and R.gov.key == "pcg", R.gov.key)
 chk("cas (a) : AUCUNE vérification du poteau porteur (groupe VIDE, étude §4.4)",
@@ -139,9 +144,13 @@ _A = 2 * 180 * 13.5 + (400 - 27) * 8.6 + (4 - math.pi) * 441
 _Av = max(_A - 2 * 180 * 13.5 + (8.6 + 42) * 13.5, (400 - 27) * 8.6)
 chk("âme portée : Av = 4 269,46 mm² ; VRd,g = 875,065 kN",
     pres(R0.Av_S, _Av, 1e-12) and pres(R0.ck["vgS"].Rd, _Av * fy / S3 / 1000, 1e-12), str(R0.ck["vgS"].Rd))
-chk("cordons : fvw,d = 261,732 MPa ; qz = 344,83 ; qx = 356,72 ; Fw,Ed = 496,14 N/mm ; η = 0,379",
-    pres(R0.fvw, fu / (S3 * bw * 1.25), 1e-12) and pres(R0.qz_w, 200000 / (2 * hp), 1e-12)
-    and pres(R0.qx_w, 3 * MS * 1e6 / hp ** 2, 1e-12) and pres(R0.qw, 496.1390260410242, 1e-9),
+# LE HARNAIS SUIT (27/11/2026) : la longueur EFFICACE d'un cordon est ℓ = hp − 2a = 278 mm (EN 1993-1-8 §4.5.1(1)),
+# plus hp = 290 — qz 344,83 → 359,71 ; qx 356,72 → 388,18 ; Fw,Ed 496,14 → 529,22 N/mm (+6,7 %)
+chk("cordons : fvw,d = 261,732 MPa ; ℓ = hp − 2a = 278 mm ; qz = 359,71 ; qx = 388,18 ; Fw,Ed = 529,22 N/mm ; "
+    "η = 0,337 (a = 6)",
+    pres(R0.fvw, fu / (S3 * bw * 1.25), 1e-12) and R0.Lw1 == hp - 12 and pres(R0.qz_w, 200000 / (2 * (hp - 12)), 1e-12)
+    and pres(R0.qx_w, 3 * MS * 1e6 / (hp - 12) ** 2, 1e-12)
+    and pres(R0.qw, math.hypot(200000 / (2 * (hp - 12)), 3 * MS * 1e6 / (hp - 12) ** 2), 1e-12),
     f"{R0.qz_w} {R0.qx_w} {R0.qw}")
 # correction du 25/11/2026 (audit) — le harnais SUIT : il figeait le diviseur 2 (plat cisaillé, 3,915 mm), la
 # règle des guides est le plat tendu (√2) : 5,537 mm, et la gorge par défaut passe de 5 à 6 mm
@@ -184,11 +193,33 @@ chk("gh minimal de la variante b1 = (bP − twP)/2 + j = 149,5 mm (HEB 300, j = 
 chk("b1 : z = 195 mm (× 3,9) ; MS = 39,0 kNm ; F,Ed = 174,461 kN ; taux des boulons 1,854 > 1",
     R3.z_p == 195 and R3.M_S == 39 and pres(R3.F_b, 174.46126989643733, 1e-9)
     and pres(R3.ck["bv"].eta, 1.8543927497495465, 1e-9) and not R3.ck["bv"].ok, str(R3.F_b))
-chk("b1 : plat LONG — λLT = 54,366 ; pb = 276,516 MPa ; Wel = 140 166,67 mm³ ; Mb,Rd = 35,235 kNm ; η = 1,107",
-    R3.long_p and pres(R3.lam_LT, 2.8 * math.sqrt(195 * 290 / 150), 1e-12)
-    and pres(R3.pb_LT, 276.5156657700093, 1e-9) and pres(R3.Wel_p, 10 * 290 ** 2 / 6, 1e-12)
-    and pres(R3.ck["plt"].Rd, 35.23479922917845, 1e-9) and not R3.ck["plt"].ok,
-    f"{R3.lam_LT} {R3.pb_LT} {R3.ck['plt'].Rd}")
+# LE HARNAIS SUIT (27/11/2026) : il figeait la courbe BS 5950-1 (pb = 276,5 MPa, Mb,Rd = 35,24 kNm, η = 1,107). Le SCI
+# (Check 3) : λ̄LT = 54,366/(π·√(E/fy)) = 0,7115 ; χLT (6.56, αLT = 0,76) = 0,636 ; Mb = min(Wel·χLT·fy/(0,6·γM1) ;
+# Wel·fy/γM0) = min(47,92 ; 49,76) = 47,92 kNm → η = 0,814. Le plat reste NON VÉRIFIÉ par ses boulons (1,854).
+
+
+def _chi(lb, a=0.76):
+    ph = 0.5 * (1 + a * (lb - 0.2) + lb * lb)
+    return 1 / (ph + math.sqrt(ph * ph - lb * lb))
+
+
+_lb3 = 2.8 * math.sqrt(195 * 290 / 150) / (math.pi * math.sqrt(210000 / 355))
+chk("b1 : plat LONG (zp = 195 > 66,7) — λ = 54,366 ; λ̄LT = 0,7115 ; χLT = 0,636 ; Wel = 140 166,67 mm³ ; "
+    "Mb,Rd = Wel·χLT·fy/(0,6·γM1) = 47,92 kNm ; η = 0,814",
+    R3.long_p and pres(R3.lam_LT, 2.8 * math.sqrt(195 * 290 / 150), 1e-12) and pres(R3.lamb_LT, _lb3, 1e-12)
+    and pres(R3.chi_LT, _chi(_lb3), 1e-12) and pres(R3.Wel_p, 10 * 290 ** 2 / 6, 1e-12)
+    and pres(R3.ck["plt"].Rd, 10 * 290 ** 2 / 6 * _chi(_lb3) * 355 / (0.6 * 1.1) / 1e6, 1e-12)
+    and pres(R3.ck["plt"].Rd, 47.92, 1e-3) and R3.ck["plt"].ok,
+    f"{R3.lam_LT} {R3.lamb_LT} {R3.chi_LT} {R3.ck['plt'].Rd}")
+# section ABCD de l'âme portée (Check 4, plat long à UNE file) : VEd·zp = 200 × 0,195 = 39,0 kNm
+# ≤ Mc,BC,Rd + Vpl,AB,Rd·(n1 − 1)·p1 = fy·tw·210²/6 + tw·e2,b·fy/√3 × 0,210
+_McBC = 355 * 8.6 * 210 ** 2 / 6 / 1e6
+_VAB = 8.6 * 40 * 355 / S3 / 1000
+chk("b1 : section ABCD de l'âme portée ACTIVE — 39,0 kNm demandés ; Mc,BC,Rd 22,44 + Vpl,AB,Rd 70,51 × 0,210 = "
+    "37,25 kNm : η = 1,047, NON vérifiée (absente avant le 27/11/2026)",
+    R3.ck["abS"].active and pres(R3.ck["abS"].Ed, 39.0, 1e-12) and pres(R3.abcd.Mc_BC, _McBC, 1e-12)
+    and pres(R3.abcd.V_AB, _VAB, 1e-12) and pres(R3.ck["abS"].Rd, _McBC + _VAB * 0.21, 1e-12)
+    and not R3.ck["abS"].ok, f"{R3.ck['abS'].Ed} {R3.ck['abS'].Rd} {R3.abcd.fort}")
 chk("b1 : âme du poteau ACTIVE — VRd = twP·hp·fy/(√3·γM0) = 653,820 kN, Ed = VEd/2 = 100, η = 0,153",
     R3.ck["vlP"].active and pres(R3.ck["vlP"].Rd, 11 * 290 * 355 / S3 / 1000, 1e-12)
     and R3.ck["vlP"].Ed == 100 and pres(R3.ck["vlP"].eta, 0.15294722129620533, 1e-9),
@@ -200,11 +231,12 @@ chk("b1 redimensionné : Ip = 81 000 mm² ; z = 225 ; MS = 45 kNm ; F,Ed = 76,08
     R3p.Ip == 81000 and R3p.z_p == 225 and R3p.M_S == 45
     and pres(R3p.F_b, 76.08474807008886, 1e-9) and pres(R3p.ck["bv"].eta, 0.5612956508947774, 1e-9),
     f"{R3p.Ip} {R3p.F_b}")
-chk("b1 redimensionné : λLT = 51,121 ; pb = 287,879 MPa ; Wel = 204 800 ; Mb,Rd = 53,598 kNm ; η = 0,840",
-    pres(R3p.lam_LT, 2.8 * math.sqrt(225 * 320 / (1.5 * 144)), 1e-12)
-    and pres(R3p.pb_LT, 287.8785864351627, 1e-9) and R3p.Wel_p == 204800
-    and pres(R3p.ck["plt"].Rd, 53.597758638110285, 1e-9)
-    and pres(R3p.ck["plt"].eta, 0.8395873473709605, 1e-9), str(R3p.ck["plt"].Rd))
+_lb3p = 2.8 * math.sqrt(R3p.g_B * 320 / (1.5 * 144)) / (math.pi * math.sqrt(210000 / R3p.fy_L))
+chk("b1 redimensionné : λ̄LT et χLT du SCI ; Wel = 204 800 ; Mb,Rd = min(Wel·χLT·fy/(0,6·γM1) ; Wel·fy/γM0) "
+    "(53,598 kNm et η = 0,840 avec l'ancienne courbe)",
+    pres(R3p.lamb_LT, _lb3p, 1e-12) and R3p.Wel_p == 204800
+    and pres(R3p.ck["plt"].Rd, min(204800 * _chi(_lb3p) * R3p.fy_L / (0.6 * R3p.u.g_M1), 204800 * R3p.fy_L) / 1e6, 1e-12)
+    and pres(R3p.ck["plt"].eta, R3p.M_S / R3p.ck["plt"].Rd, 1e-12), f"{R3p.g_B} {R3p.chi_LT} {R3p.ck['plt'].Rd}")
 chk("b1 redimensionné : ductilité tp = 12 ≤ 0,5·d = 12 (pas d'alerte tp_duct)",
     R3p.rec_tp and not any(a.id == "tp_duct" for a in R3p.alerts))
 # L'étude annonce ce cas « ✔ » sur ces deux taux seulement : l'outil trouve
@@ -228,8 +260,15 @@ chk("BM4 : recoupe minimale (bP − twP)/2 + j − gh = 139,5 mm si la poutre ne
     pres(R4.rec_min, (300 - 11) / 2 + 5 - 10, 1e-12), str(R4.rec_min))
 chk("BM4 : VÉRIFIÉ, et l'âme du poteau est vérifiée (η = 0,153)",
     R4.verified and R4.ck["vlP"].active and pres(R4.ck["vlP"].eta, 0.15294722129620533, 1e-9))
-chk("cas (b) : le groupe « Poteau porteur » porte exactement UNE vérification",
-    len([c for c in R4.checks if c.grp == "Poteau porteur" and c.active]) == 1)
+# LE HARNAIS SUIT (27/11/2026) : il figeait UNE vérification du poteau (le cisaillement local) ; le SCI (Check 10) en
+# demande deux pour une âme — cisaillement local ET poinçonnement par le plat —, plus la flexion hors plan en chaînage
+chk("cas (b) : le groupe « Poteau porteur » porte le cisaillement local ET le poinçonnement (SCI Check 10) — "
+    "twP·fu·hp²/(6·γM2) = 11 × 510 × 290²/7,5 = 62,91 kNm pour MS = 10 kNm ; en chaînage s'ajoute l'âme hors plan",
+    [c.key for c in R4.checks if c.grp == "Poteau porteur" and c.active] == ["vlP", "poi"]
+    and pres(R4.ck["poi"].Rd, 11 * 510 * 290 ** 2 / (6 * 1.25) / 1e6, 1e-12) and pres(R4.ck["poi"].Ed, 10.0, 1e-12)
+    and [c.key for c in calcul_main(dict(BM.BM4, N_Ed=250, nat_N="Tying (accidentel)")).checks
+         if c.grp == "Poteau porteur" and c.active] == ["vlP", "poi", "ahP"]
+    and not R0.ck["poi"].active and not R0.ck["ahP"].active)
 chk("benchmark du module : statut VALIDÉ, pire écart 0,76 % (arrondis de la source)",
     BM.run_bench()["statut"] == "VALIDÉ" and BM.run_bench()["worst"] <= 0.01,
     str(BM.run_bench()["worst"]))
@@ -246,8 +285,8 @@ chk("tying : plat, traction section nette 0,9·Anet·fu/γMu = 842,891 kN",
     pres(Rt.ck["ptn"].Rd, 0.9 * (290 - 4 * 22) * 10 * 510 / 1.1 / 1000, 1e-12), str(Rt.ck["ptn"].Rd))
 chk("tying : âme portée, traction section nette (hauteur participante hp) = 724,886 kN",
     pres(Rt.ck["tnS"].Rd, 0.9 * 8.6 * (290 - 4 * 22) * 510 / 1.1 / 1000, 1e-12), str(Rt.ck["tnS"].Rd))
-chk("tying : cordons — qx = NEd/(2hp) = 431,03 N/mm ; Fw,Rd,u = 1 784,54 N/mm (a = 6)",
-    pres(Rt.ck["wT"].Ed, 250000 / 580, 1e-12)
+chk("tying : cordons — qx = NEd/(2·(hp − 2a)) = 449,64 N/mm (431,03 sur 2·hp) ; Fw,Rd,u = 1 784,54 N/mm (a = 6)",
+    pres(Rt.ck["wT"].Ed, 250000 / 556, 1e-12)
     and pres(Rt.ck["wT"].Rd, 510 / (S3 * 0.9 * 1.1) * 6, 1e-12), str(Rt.ck["wT"].Rd))   # a = 6 mm par défaut
 # correction du 25/11/2026 (audit) : en chaînage, la pression diamétrale HORIZONTALE (plat, âme portée) entre dans la
 # vérification des boulons — IPE 400 (tw = 8,6), M20, e2,b = 30 : αb = 30/66, k1 = 2,5 →
@@ -311,7 +350,7 @@ chk("… mais tout le bloc de la poutre grugée s'active à l'identique quand on
 # ================================================================
 print("\n=== 6. Les briques de mecanique.py sont APPELÉES, pas recopiées ===")
 sg = MEC.section_grugee(dict(h=Rg.h_S, b=Rg.b_S, tw=Rg.tw_S, tf=Rg.tf_S, r=Rg.r_S),
-                        Rg.fy_S, 50, 40, 1.0, 125.0, True)
+                        Rg.fy_S, 50, 40, 1.0, 125.0, True, k_double=0.9)   # deux grugeages : 0,9 (SCI P358 Check 4)
 chk("poutre grugée : cas_g, Av, W_N, Mv,N,Rd, ln,max identiques à mecanique.section_grugee",
     sg["cas_g"] == Rg.cas_g and sg["Av"] == Rg.Av_S and sg["W_N"] == Rg.W_N
     and sg["Mv_N"] == Rg.ck["mN"].Rd and sg["ln_max"] == Rg.ln_max)
@@ -322,9 +361,12 @@ be = MEC.bearing(R0.t_p, R0.fu_L, R0.f_ub, R0.d_b, R0.d_0, min(R0.e_1, R0.e1bot)
                  R0.e2_p, R0.u.p2_u, R0.n_2, 1.25, 1.0, Fz=R0.Fz_b, Fx=R0.Fx_b)
 chk("pression diamétrale : Fbv, Fbh et l'interaction identiques à mecanique.bearing",
     be["Fbv"] == R0.Fbv_L and be["Fbh"] == R0.Fbh_L and be["ipd"] == R0.ipd_L)
-chk("déversement : λLT et pb identiques à mecanique.lam_LT / pb_bs5950",
-    MEC.lam_LT(R3.z_p, R3.h_p, R3.t_p) == R3.lam_LT
-    and MEC.pb_bs5950(R3.lam_LT, R3.fy_L) == R3.pb_LT)
+from acier.assemblages import sci as SCI  # noqa: E402
+_pl3 = SCI.plat_long(R3.t_p, R3.h_p, R3.z_p, R3.g_B, R3.fy_L, R3.u.g_M0, R3.u.g_M1)
+chk("déversement : λ, λ̄LT et χLT identiques à sci.plat_long (zp : la première file) ; l'ancienne courbe "
+    "(mecanique.pb_bs5950) reste une fonction, le calcul ne l'appelle plus",
+    _pl3["lam"] == R3.lam_LT and _pl3["lam_bar"] == R3.lamb_LT and _pl3["chi"] == R3.chi_LT and _pl3["long"] == R3.long_p
+    and "pb_LT" not in R3)
 chk("gorge de pleine résistance : identique à mecanique.a_pleine_resistance_plat",
     MEC.a_pleine_resistance_plat(R0.t_p, R0.fy_L, R0.bww, R0.fuw, 1.25, 1.0) == R0.a_plein)
 chk("le plateau de la courbe : pb = py pour λ ≤ λL0", moteur.pb_bs5950(20, 355) == 355)
@@ -400,7 +442,7 @@ for nom, cas in REF.items():
             print("   ", nom, "scalaire", k, "attendu", v, "obtenu", Rr[k])
     if (Rr.gov.key if Rr.gov else None) != cas["gov"] or Rr.verified != cas["verified"] \
        or Rr.geo_ok != cas["geo_ok"] or Rr.dist_ok != cas["dist_ok"] \
-       or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
+       or sorted(a.id for a in Rr.alerts) != cas["alerts"] or Rr.a_verifier != cas["a_verifier"]:
         ndiff += 1
         print("   ", nom, "synthèse divergente")
 chk(f"RÉGRESSION CALCUL : 0 différence sur les {len(REF)} cas figés "

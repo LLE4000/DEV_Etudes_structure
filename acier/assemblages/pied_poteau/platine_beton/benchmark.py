@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Benchmark du pied de poteau — V1 (lot A) : CALCULS MANUELS INDÉPENDANTS,
-formule par formule, sur le cas par défaut (VAL-A) et reproduction du script
-autonome de l'étude du 30/10/2026 (VAL-B, massif large : fjd = 34 MPa) —
-l'étude avait chiffré la répartition élastique et le domaine sans ce module.
+"""Benchmark du pied de poteau : EXEMPLES PUBLIÉS rejoués (BENCH), CALCULS
+MANUELS INDÉPENDANTS, formule par formule, sur le cas par défaut (VAL-A) et
+reproduction du script autonome de l'étude du 30/10/2026 (VAL-B, massif
+large : fjd = 34 MPa) — l'étude avait chiffré la répartition élastique et le
+domaine sans ce module.
 
-AUCUN EXEMPLE PUBLIÉ n'est encore rejoué (BENCH vide) : l'exemple de pied de
-poteau du guide « Steel Buildings in Europe, Part 5 » et celui de SCI P398
-seront rejoués au lot B, avec les chiffres de la source sous les yeux — aucun
-nombre n'est reconstitué de mémoire. Seuils : écart ≤ 0,5 % sur un calcul
-manuel (formules exactes), sinon « À CONTRÔLER ».
+Les exemples publiés (lot de clôture, 27/11/2026) : MSB Part 5 §6.5 et SCI
+P358, exemples 1 à 3 des pieds de poteau (compression centrée, appui direct :
+fjd, épaisseur minimale de la platine) ; SCI P398, annexe E, exemple E.1
+(N + M : bande c, tronçon en T comprimé, aile du poteau, charnière droite
+0,5·bp, tronçon en T tendu). Leurs chiffres sont dans
+docs/validation/exemples_publies.json, COPIÉS des guides avec leur page —
+aucun nombre n'est reconstitué de mémoire, aucun guide n'est dans le dépôt.
+Seuils : écart ≤ 1 % sur une valeur publiée, sinon un écart EXPLIQUÉ (modèle
+plus sévère du moteur, arrondi du guide) ; ≤ 0,5 % sur un calcul manuel
+(formules exactes), sinon « À CONTRÔLER ».
 """
 import json
 import math
@@ -42,7 +48,9 @@ VALIDATION_CROISEE = dict(
 def _valeur(R, cle):
     """Lecture d'une grandeur du moteur désignée par une fiche : « fjd »,
     « ck:ncp » (Rd), « ed:ncp » (Ed), « FC_Rd:x+ » (N → kN), « MRd1:x+ »,
-    « rangee:0:FT_Rd » (N → kN)."""
+    « zC:x+ » (mm), « kN:Ft_EC3 » (force de R, N → kN), « plaque:t_N »
+    (épaisseurs requises), « rangee:0:FT_Rd » (N → kN), « rangee:0:Mpl1 »
+    (N·mm → kNm), « rangee:0:leff1 » (mm)."""
     if cle.startswith("ck:"):
         return R.ck[cle[3:]].Rd
     if cle.startswith("ed:"):
@@ -51,10 +59,16 @@ def _valeur(R, cle):
         return R.FC_Rd[cle[6:]] / 1e3
     if cle.startswith("MRd1:"):
         return R.MRd1[cle[5:]]
+    if cle.startswith("zC:"):
+        return R.zC[cle[3:]]
+    if cle.startswith("kN:"):
+        return R[cle[3:]] / 1e3
+    if cle.startswith("plaque:"):
+        return R.plaque[cle[7:]]
     if cle.startswith("rangee:"):
         _, i, k = cle.split(":")
         v = R.rangees[int(i)][k]
-        return v / 1e3 if k.startswith("FT") else v
+        return v / 1e3 if k.startswith("FT") else (v / 1e6 if k.startswith("Mpl") else v)
     return R[cle]
 
 
@@ -97,9 +111,11 @@ def va(k):
 
 
 SRC = dict(
-    titre="Aucun exemple publié rejoué en V1 — calculs manuels (VAL-A, VAL-B)",
-    org="Bureau d'Études Valens — étude de méthode du 30/10/2026 (docs/assemblages/PIED_POTEAU_ETUDE.md)",
-    annee="2026",
+    titre="Exemples publiés rejoués (MSB Part 5 §6.5 ; SCI P358, pieds de poteau, exemples 1 à 3 ; SCI P398, exemple "
+          "E.1) et calculs manuels (VAL-A, VAL-B)",
+    org="ArcelorMittal / Peiner Träger / Corus (2008) ; SCI / BCSA (2013, 2014) ; Bureau d'Études Valens — étude de "
+        "méthode du 30/10/2026 (docs/assemblages/PIED_POTEAU_ETUDE.md)",
+    annee="2008 – 2026",
     norme="EN 1993-1-8:2005 §6.2.5, §6.2.4, §6.2.8, §6.2.2 ; EN 1992-1-1 §6.7 ; EN 1992-4:2018 §7.2 ; "
           "γM0 = 1,00 (ANB), γM2 = 1,25, γMc = 1,5, αcc = 0,85 (hypothèse)",
     url="")
@@ -107,11 +123,12 @@ SRC = dict(
 BENCH = _bench_depuis_fiches()
 
 NOCOVER = [
-    ["Exemples publiés (pied articulé, aire efficace — MSB Part 5 §6.5 ; pied encastré N + M — SCI P398)",
-     "Fiches prêtes dans docs/validation/exemples_publies.json, à COMPLÉTER avec le document sous les yeux "
-     "(inaccessible depuis l'environnement de calcul le 31/10/2026) ; une fiche complète est rejouée ici "
-     "automatiquement. En attendant, les formules sont ancrées par VAL-A (calcul manuel) et le moteur par la "
-     "validation croisée indépendante (ci-dessous)."],
+    ["Ce que les exemples publiés ne chiffrent pas",
+     "Les cinq exemples rejoués ancrent fjd, la bande c, l'épaisseur minimale de la platine, le tronçon en T comprimé, "
+     "l'aile du poteau et le tronçon en T tendu d'un pied UNIAXIAL. Aucun ne vérifie les tiges au cisaillement (ils "
+     "comptent sur le frottement), ni le béton d'ancrage (EN 1992-4), ni la flexion biaxiale ; leurs cordons ne "
+     "reprennent que l'effort tranchant, sur une longueur choisie (le moteur vérifie le contour entier). Ces lignes "
+     "restent ancrées par VAL-A (calcul manuel) et par la validation croisée indépendante (ci-dessous)."],
     ["Flexion biaxiale (niveau 2, domaine exact)",
      "Validée NUMÉRIQUEMENT le 31/10/2026 contre un programme linéaire (écart 0,04 %) : le domaine est bien "
      "l'exact du modèle. Le MODÈLE (bloc fjd, tiges à leur résistance) reste une borne inférieure non codifiée : "
@@ -191,8 +208,10 @@ VALID = [
 
 
 def run_bench():
-    """Rejoue les exemples publiés (aucun en V1) et les calculs manuels ;
-    retourne ``bench``, ``valid``, ``worst``, ``ok`` et ``statut``."""
+    """Rejoue les exemples publiés (fiches complètes) et les calculs manuels ;
+    retourne ``bench``, ``valid``, ``worst``, ``ok`` et ``statut``. ``worst``
+    est le plus grand écart NON expliqué (un écart expliqué — modèle plus
+    sévère, arrondi du guide — est affiché avec son explication)."""
     out, worst, n_unexp = [], 0.0, 0
     for b in BENCH:
         R = compute(b["inp"])
@@ -205,7 +224,8 @@ def run_bench():
                 else ("Écart > 3 % documenté" if r[5] else "À vérifier")
             if a > 0.01 and not r[5]:
                 n_unexp += 1
-            worst = mx(worst, a)
+            if not r[5]:
+                worst = mx(worst, a)
             rows.append(dict(page=r[0], lab=r[1], ref=r[2], val=v, unit=r[4], ec=ec, st=st, exp=r[5]))
         out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R, MT.SOURCE_TABLE), rows=rows))
     nv, val = 0, []

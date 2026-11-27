@@ -572,3 +572,9 @@ qui garde les données de base.
 5. **Formules** : treize corrections après relecture indépendante des six attaches —
    `docs/assemblages/ECARTS_ET_CORRECTIONS.md` §7 (ce qui a changé, l'effet mesuré, le test ; et ce qui reste à
    décider). La gorge par défaut des plats d'âme passe de 5 à 6 mm (pleine résistance du plat de 10 mm).
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Nouveau module partagé `acier/assemblages/sci.py` : les règles du SCI P358 reprises par le lot (groupe de boulons, platine courte, âme porteuse, `Σleff` en chaînage, âme du poteau en chaînage, plat long, section ABCD, poinçonnement, cordons) et `poser_statut`, qui écrit le verdict à trois états — VÉRIFIÉ, À VÉRIFIER (raisons), NON VÉRIFIÉ. `R.a_verifier` (raisons d'un assemblage vérifié) et `R.justifier` (la liste) sont lus par l'écran, la note PDF et les propositions. Liste des corrections : `ECARTS_ET_CORRECTIONS.md` §8.

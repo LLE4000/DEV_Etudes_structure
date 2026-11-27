@@ -65,8 +65,10 @@ CAPTURE = ("platine_about", dict(prof_S="HEA 320", prof_P="HEA 400", V_Ed=400.0,
 # des géométries que le moteur REFUSE (une pince trop courte, un entraxe trop serré, une pièce trop étroite, trop de
 # rangées), par attache : (modifications des saisies par défaut, la saisie que l'on s'attend à voir retouchée)
 JEUX = {
+    # (M27 : avec la géométrie du défaut d'AVANT le lot de clôture, e1 = 35 et p1 = 60 — le nouveau défaut, e1 = 40, lève
+    #  la pince du M27, et la mutation « une retouche touche une saisie non permise » n'avait plus de défaut où se montrer)
     "plat_ame": [(dict(e1_u=20.0), "e1_u"), (dict(p1_u=40.0), "p1_u"), (dict(e2b_u=20.0), "e2b_u"), (dict(n1_u=6), "n1_u"),
-                 (dict(boulon_u="M27"), None)],
+                 (dict(boulon_u="M27", e1_u=35.0, p1_u=60.0), None)],
     "doubles_cornieres": [(dict(p1S_u=70.0), "p1S_u"), (dict(e1P_u=15.0, gA_u=30.0), "gA_u"), (dict(e1S_u=15.0), "e1S_u"),
                           (dict(n1P_u=5), "n1P_u")],
     "platine_about": [(dict(boulon_u="M24"), "bp_u"), (dict(p1_u=40.0), "p1_u"), CAPTURE[1:] + ("bp_u",), (dict(e1_u=15.0), "e1_u")],
@@ -133,7 +135,7 @@ def fautes_retouches(cle, modifs, module=CO):
                 f.append(f"{nom} : la pince « {d.pince.id} » reste non conforme")
             if not (b1 <= b0 and k1 <= k0):
                 f.append(f"{nom} : un NOUVEAU défaut apparaît ({sorted(b1 - b0)} {sorted(k1 - k0)})")
-            if bool(R1.verified) != r.verifie:
+            if bool(R1.verified and not R1.get("a_verifier")) != r.verifie:
                 f.append(f"{nom} : « assemblage vérifié » mal dit ({r.verifie} / {R1.verified})")
             # la plus petite : un cran de moins ne lève pas le défaut
             if r.crans > 1:
@@ -311,7 +313,15 @@ chk("la capture : « Aucune solution avec ces profilés » EN TÊTE du bloc (ava
     not f and "Aucune solution avec ces profilés" in t and t.index("Aucune solution") < t.index("150 → 155")
     and "Poutre secondaire · grugeage – flexion + V reste à 130" in t.replace("\xa0", " ") and 'data-pk="profil_solution"' in res
     and not RX_SOL.findall(res) and "Toutes les dispositions ont été essayées" not in t, t[:500])
-sel = A.selecteur(etat, "profil_solution")
+# (lot de clôture du 27/11/2026 : l'âme portée est cisaillée sur 0,9·hp·tw — le HEA 340 qui convenait à 98 % est à
+#  102 %, et aucun HEA ne convient plus ; le sélecteur le dit, et c'est dans les HEB que la liste se lit — le harnais suit)
+sel_a = A.selecteur(etat, "profil_solution")
+chk("« Profilés qui conviennent », famille du profilé saisi (HEA) : aucun ne convient — dit en clair, avec le premier "
+    "essayé et ce qui le bloque (HEA 340 : cisaillement de l'âme sur 0,9·hp·tw, 102 %), et le conseil d'une autre famille",
+    not re.findall(r'data-choix="([^"]+)"', sel_a) and "Aucun des profilés essayés ne convient" in texte(sel_a)
+    and "HEA 340 : Poutre secondaire · âme – cisaillement sur hp reste à 102" in texte(sel_a).replace("\xa0", " ")
+    and "Essayer une autre famille" in texte(sel_a), texte(sel_a)[:400])
+sel = A.selecteur(etat, "profil_solution", ["HEB"])
 lignes = re.findall(r'data-choix="([^"]+)"', sel)
 ok_profils = []
 for nom in lignes:
@@ -325,8 +335,9 @@ for nom in lignes:
 chk(f"« Profilés qui conviennent » ({', '.join(lignes)}) : SEULS des profilés qui conviennent sont listés, le plus petit "
     "d'abord (★) ; en retenir un recopie le profilé ET sa solution — l'assemblage est vérifié, seule la poutre secondaire a "
     "changé parmi les données de base ; ceux essayés sans solution sont comptés, avec la raison du premier",
-    lignes[:1] == ["HEA 340"] and all(ok and touchees == ["prof_S"] for _n, ok, touchees in ok_profils)
-    and "999" not in sel and "sans solution" in texte(sel) and "Grugeage inférieur" in texte(sel), f"{ok_profils} {texte(sel)[:300]}")
+    lignes[:1] == ["HEB 320"] and all(ok and touchees == ["prof_S"] for _n, ok, touchees in ok_profils)
+    and "999" not in sel and "sans solution" in texte(sel) and "HEB 280 : Poutre secondaire · grugeage" in texte(sel),
+    f"{ok_profils} {texte(sel)[:300]}")
 for fam, mini in (("HEB", 2), ("HEM", 2)):
     sel_f = A.selecteur(etat, "profil_solution", [fam])
     noms = re.findall(r'data-choix="([^"]+)"', sel_f)
@@ -351,6 +362,9 @@ for cle in SIX:
         'data-chemin="v/pd_dmin"' not in don and 'data-chemin="v/pd_dmax"' not in don
         and all(f'data-chemin="v/{k}"' in don for k in ("eta_c", "k_e1", "k_p1", "k_e2")))
 noms_boulons = [b["n"] for b in DB["boulons"]]
+# (platine d'about sur poteau : quatre diamètres depuis le lot de clôture — le M12 n'est plus proposé, sa platine de
+#  8 mm dépasse 0,36·d·√(fub/fy) = 6,5 mm : son articulation serait « à justifier », ce n'est pas une solution vérifiée)
+MINI_DIAMETRES = {"plat_ame": 5, "platine_about_poteau": 4}
 for cle in ("plat_ame", "platine_about_poteau"):
     etat = etat_de(cle, pd_dmin="M20", pd_dmax="M20")
     u = A._actif(etat)["values"]
@@ -361,7 +375,7 @@ for cle in ("plat_ame", "platine_about_poteau"):
     chk(f"{cle}, une note qui garde une plage « M20 – M20 » : la recherche l'ignore — {len(diam)} solutions, de "
         f"{diam and min(diam, key=noms_boulons.index)} à {diam and max(diam, key=noms_boulons.index)}, une par diamètre ; la "
         "recopier ne touche pas la plage gardée dans la note",
-        len(diam) >= 5 and len(set(diam)) == len(diam) and set(diam) - {"M20"}
+        len(diam) >= MINI_DIAMETRES[cle] and len(set(diam)) == len(diam) and set(diam) - {"M20"}
         and (u["pd_dmin"], u["pd_dmax"]) == avant, f"{diam} {avant} {(u['pd_dmin'], u['pd_dmax'])}")
 chk("le sélecteur des solutions ne parle plus de « plage »", "plage" not in A.selecteur(etat_de("plat_ame", pd_dmin="M20", pd_dmax="M20"), "solution"))
 # … mais la solution CONSEILLÉE reste un diamètre courant (le harnais navigateur a trouvé, 26/11/2026 : sans la plage, « le
@@ -429,7 +443,7 @@ MUT_CO = [
     ("une retouche touche une saisie non permise (un niveau, le grugeage)",
      "            if cle not in permises or isinstance(u.get(cle), bool):", "            if isinstance(u.get(cle), bool):", fautes_tous),
     ("« assemblage vérifié » dit à tort",
-     "verifie=bool(R1.verified)))", "verifie=True))", fautes_tous),
+     'verifie=bool(R1.verified and not R1.get("a_verifier")),', "verifie=True,", fautes_tous),
     ("la valeur proposée sort de la grille (la valeur brute, pas le cran)",
      "    v = base + sens * k * pas\n", "    v = v0 + sens * k * pas * 0.5\n", fautes_tous),
 ]
@@ -460,7 +474,8 @@ MUT_AC = [
 ]
 SRC_PR = open(os.path.join(RACINE, "acier", "assemblages", "propositions.py"), encoding="utf-8").read()
 chk("mutation « la conseillée est celle qui a le moins de boulons, quel que soit le diamètre » (2 M36 pour 30 kN) : vue rouge",
-    bool(fautes_conseillee(mutant(SRC_PR, "key=lambda x: (not x.cible, not x.plage, len(x.reserves),", "key=lambda x: (not x.cible, len(x.reserves),",
+    bool(fautes_conseillee(mutant(SRC_PR, "key=lambda x: (not x.cible, bool(x.a_verifier), not x.plage, len(x.reserves),",
+                                  "key=lambda x: (not x.cible, bool(x.a_verifier), len(x.reserves),",
                                   "propositions_mutant"))))
 chk("témoin : l'écran tel quel passe ces contrôles", not fautes_ecrans(AC))
 survivants = [titre for titre, ancien, nouveau, controle in MUT_AC

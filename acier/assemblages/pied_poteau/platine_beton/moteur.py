@@ -36,7 +36,8 @@ from . import composants as CP
 from . import equilibre as EQ
 from . import geometrie as GE
 from acier.assemblages import materiau as MT
-from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, TYPE_ETA, OUI, PERIM_TOUT, fck_de, acier_epaisseur
+from .entrees import (defaults, NUM, FORME_RHS, TYPE_CROSSE, TYPE_ETA, TYPE_TETE, OUI, PERIM_TOUT, fck_de,
+                      acier_epaisseur)
 
 GROUPES_VERIF = ("Pied", "Béton", "Ancrages", "Platine", "Tiges", "Poteau", "Soudure")
 DETAIL_SEUL = frozenset({"wa"})          # minimum de détail : jamais dimensionnant s'il passe
@@ -47,6 +48,7 @@ REF_65 = "EN 1993-1-8 §6.2.5 ; EN 1992-1-1 §6.7"
 REF_67 = "EN 1993-1-8 §6.2.8.3 (modèle de la Table 6.7) + interaction linéaire (convexité)"
 REF_T62 = "EN 1993-1-8 §6.2.4, Tableau 6.2 ; longueurs efficaces dérivées des Tableaux 6.4 / 6.6"
 REF_924 = "EN 1992-4"
+FYB_CROSSE = 300.0        # MPa — au-delà, l'ancrage par crosse est exclu (EN 1993-1-8 §6.2.6.12(5))
 PI = math.pi
 E = CP.E_ACIER
 
@@ -196,11 +198,13 @@ def compute(u0=None, materiau=None):
     bc = CP.beton_comprime(R.fck, u.a_cc, gc, u.bp_u, u.lp_u, u.bc_u, u.lc_u, u.hc_u, u.t_g, u.f_g)
     R.fcd, R.fjd, R.ratio_c, R.Ac0, R.Ac1, R.beta_j = bc["fcd"], bc["fjd"], bc["ratio"], bc["Ac0"], bc["Ac1"], bc["beta_j"]
     R.E_cm = CP.E_cm(R.fck)
+    R.k_diff = bc["k"]                                                # rapport d'homothétie de la diffusion
     if not bc["mortier_ok"]:
-        al("mortier", "Mortier de scellement hors conditions de βj = 2/3 (épaisseur ≤ 0,2·min(bp, lp) et "
-           "résistance ≥ 0,2·fck) — EN 1993-1-8 §6.2.5(7).", True, ["t_g", "f_g"],
+        al("mortier", "Mortier de scellement hors conditions de βj = 2/3 (épaisseur ≤ 0,2·min(bp, lp), "
+           "résistance ≥ 0,2·fck et, au-delà de 50 mm d'épaisseur, résistance ≥ fck) — EN 1993-1-8 §6.2.5(7).",
+           True, ["t_g", "f_g"],
            f"tg = {F(u.t_g, 0)} mm, fg = {F(u.f_g, 0)} MPa ; limites {F(0.2 * min(u.bp_u, u.lp_u), 0)} mm et "
-           f"{F(0.2 * R.fck, 1)} MPa", dims=["tg"], elems=["grout"])
+           f"{F(R.fck if u.t_g > CP.MORTIER_EPAIS else 0.2 * R.fck, 1)} MPa", dims=["tg"], elems=["grout"])
     if u.bp_u > u.bc_u or u.lp_u > u.lc_u:
         al("massif", "La platine déborde du massif.", True, ["bp_u", "lp_u", "bc_u", "lc_u"],
            f"platine {F(u.bp_u, 0)} × {F(u.lp_u, 0)} mm, massif {F(u.bc_u, 0)} × {F(u.lc_u, 0)} mm",
@@ -247,6 +251,11 @@ def compute(u0=None, materiau=None):
         R.Ft_bond = ad["F"]
         R.fbd = ad["fbd"]
         R.Ft_anc = min(R.Ft_anc, R.Ft_bond)
+        if R.f_yb > FYB_CROSSE + 1e-9:
+            al("crosse_fyb", "Tige à crosse : cet ancrage est exclu pour un acier de limite d'élasticité supérieure à "
+               "300 MPa (EN 1993-1-8 §6.2.6.12(5)) — prendre une tige à tête, ou une classe 4.6 ou 5.6.", True,
+               ["typ_a", "classe"], f"classe {u.classe} : fyb = {F(R.f_yb, 0)} MPa > {F(FYB_CROSSE, 0)} MPa",
+               elems=["anchors"])
     elif R.eta:
         # tige scellée : la résistance d'adhérence d'UNE tige seule borne aussi la tige dans le tronçon en T
         R.Ft_bond = math.pi * R.d_a * u.hef * u.eta_tau / gMc
@@ -278,6 +287,31 @@ def compute(u0=None, materiau=None):
            f"wx = {F(u.w_x, 0)}, wy = {F(u.w_y, 0)} mm ; profil {F(dims['b'], 0)} × {F(dims['h'], 0)} mm",
            dims=["wx", "wy"], elems=["anchors", "col"])
         geo_ok = False
+    # R13 (lot de clôture) : le TROU d'une tige ne peut mordre ni sur le profilé ni sur son cordon (refus) ; une
+    # RONDELLE qui chevauche le cordon gêne la pose (avis). Avant, une tige posée sur le cordon gardait m = 1 mm
+    # (``tstub_rangee``) et un tronçon en T d'autant plus résistant : le pied sortait « vérifié ».
+    R.z_cordon = u.a_w * math.sqrt(2)                                  # côté du cordon d'angle de gorge a
+    for t in R.tiges:
+        t["jeu_trou"] = t["d_acier"] - R.z_cordon - R.d0 / 2
+        t["jeu_rond"] = t["d_acier"] - R.z_cordon - R.d_w / 2
+    dehors = [t for t in R.tiges if t["classe"] != "dedans"]
+    mord = [t for t in dehors if t["jeu_trou"] < -1e-9]
+    gene = [t for t in dehors if t["jeu_rond"] < -1e-9]
+    R.jeu_trou = min((t["jeu_trou"] for t in dehors), default=CP.INF)
+    if mord:
+        pm = min(mord, key=lambda t: t["jeu_trou"])
+        al("tige_acier", "Le trou d'une tige mord sur le profilé ou sur son cordon : la tige ne peut pas être posée "
+           "là — l'écarter du profilé.", True, ["w_x", "w_y", "a_w"],
+           f"tige ({F(pm['x'], 0)} ; {F(pm['y'], 0)}) : axe à {F(max(pm['d_acier'], 0.0), 1)} mm de l'acier ; il faut "
+           f"cordon {F(R.z_cordon, 1)} + d0/2 {F(R.d0 / 2, 1)} = {F(R.z_cordon + R.d0 / 2, 1)} mm",
+           dims=["wx", "wy"], elems=["anchors", "col"])
+        geo_ok = False
+    elif gene:
+        pm = min(gene, key=lambda t: t["jeu_rond"])
+        al("rondelle", "La rondelle d'une tige chevauche le cordon du profilé : pose à contrôler (tige à écarter, "
+           "rondelle ou cordon à adapter).", False, ["w_x", "w_y", "a_w"],
+           f"tige ({F(pm['x'], 0)} ; {F(pm['y'], 0)}) : axe à {F(pm['d_acier'], 1)} mm de l'acier ; rondelle libre "
+           f"à partir de {F(R.z_cordon + R.d_w / 2, 1)} mm", dims=["wx", "wy"], elems=["anchors"])
     if "coin" in classes:
         al("coin", "Tiges au-delà de l'about d'aile (coin) : pas de longueur efficace codifiée — tronçon en T "
            "contre la face d'aile, longueur plafonnée à la demi-largeur d'aile par tige (modèle d'ingénieur, "
@@ -320,7 +354,10 @@ def compute(u0=None, materiau=None):
             cap = 0.5 * (dims["tf"] + 4 * m)
         elif classe_r == "int":
             e_x = u.bp_u / 2 - abs(ts[0]["x"])
-        ts_r = CP.tstub_rangee(liste, m, e_x, u.tp_u, R.fy_p, gM0, R.Lb, R.As, R.Ft_anc, cap)
+        # Tableau 6.6, motif « 0,5·bp » : la charnière droite qui traverse la platine le long de l'appui (lot de
+        # clôture) — sans objet pour une tige entre les ailes d'un profilé en I, que les ailes bordent
+        l_droite = None if (classe_r == "int" and R.forme == "I") else 0.5 * (u.bp_u if axe == "y" else u.lp_u)
+        ts_r = CP.tstub_rangee(liste, m, e_x, u.tp_u, R.fy_p, gM0, R.Lb, R.As, R.Ft_anc, cap, l_droite)
         ts_r.update(cle=f"{axe}{'+' if sg > 0 else '-'}:{_coord:.0f}", classe=classe_r, idx=idx,
                     nat="INT" if classe_r in ("coin", "lat") else "EC", liste=liste, cap=cap)
         R.rangees.append(ts_r)
@@ -511,7 +548,7 @@ def compute(u0=None, materiau=None):
         Lb = 8 * R.d_a + u.t_g + tp + 0.6 * R.d_a
         Ft = [0.0] * len(R.tiges)
         for r in R.rangees:
-            ts_ = CP.tstub_rangee(r["liste"], r["m"], r["e_x"], tp, fy, gM0, Lb, R.As, R.Ft_anc, r["cap"])
+            ts_ = CP.tstub_rangee(r["liste"], r["m"], r["e_x"], tp, fy, gM0, Lb, R.As, R.Ft_anc, r["cap"], r["l_droite"])
             for k in r["idx"]:
                 Ft[k] = ts_["FT_tige"]
         ok_T = all(Ti <= f + 1e-6 for Ti, f in zip(T_fixe, Ft))
@@ -609,7 +646,9 @@ def compute(u0=None, materiau=None):
     ck("cone", "Ancrages", "Cône de béton du groupe tendu", R.T_tot, cone["NRd"] / 1e3 if cone["actif"] else None, "kN",
        REF_924 + " §7.2.1.4", "EC", bool(tend),
        "NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N ; N⁰Rk,c = k1·√fck·hef^1,5 ; NRd,c = NRk,c/γMc",
-       (f"k1 = {F(cone['k1'], 1)} ({'fissuré' if R.fiss else 'non fissuré'}) ; hef = {F(u.hef, 0)} mm ; "
+       (f"k1 = {F(cone['k1'], 1)} ({'fissuré' if R.fiss else 'non fissuré'}"
+        + (" ; valeur de l'ETA" if k1_eta else " ; valeur des fixations post-installées, prudente pour une tige "
+           "coulée en place") + f") ; hef = {F(u.hef, 0)} mm ; "
         f"Ac,N/A⁰c,N = {F(cone['Ac'] / cone['Ac0'], 2)} ; ψs = {F(cone['psi_s'], 2)} ; ψre = {F(cone['psi_re'], 2)} ; "
         f"ψec = {F(cone['psi_ec'], 2)} ; ψM = 1 (conservatif) ; NRk,c = {F(cone['NRk'] / 1e3, 1)} kN") if cone["actif"] else "", 1)
     if u.typ_a == TYPE_CROSSE:
@@ -668,22 +707,47 @@ def compute(u0=None, materiau=None):
     # périmètre au-delà de 100 % ne laisse plus « Conforme » : l'attache est « À VÉRIFIER », avec la raison courte
     # (``R.a_verifier``, que l'écran et la note écrivent). Les contrôles « pour information » d'une méthode plus prudente
     # (INFO_SEUL : niveau 2, pression maximale élastique) n'y entrent pas.
-    R.a_verifier = ""
+    # Lot de clôture (A8, N3, N5) : la raison devient une LISTE (``R.justifier``) — s'y ajoutent ce que le moteur ne
+    # MODÉLISE pas : la torsion dans les ruines du béton en cisaillement (les deux périmètres : le taux affiché du
+    # bord ne la compte pas, le filet du lot B ne peut donc plus rien dire) ; le fendage et l'éclatement latéral au
+    # périmètre COMPLET, qui prétend compter le béton d'ancrage (au périmètre EC3, l'avis « fend » suffit : le statut
+    # y dit déjà que le béton d'ancrage est hors verdict).
+    raisons = []
     if R.perim_ec3:
         hors = [c for c in R.checks if c.key in ANCRAGE_BETON and c.active and not c.ok]
         if hors:
             pire_a = max(hors, key=lambda c: c.eta)
             # le pourcentage par ``pct``, le formateur de l'écran (« au-delà de 999 % », jamais « 1550,4 % »)
-            R.a_verifier = "béton d'ancrage " + a_pct(pire_a.eta, 1) + ", hors périmètre EC3"
+            raisons.append("béton d'ancrage " + a_pct(pire_a.eta, 1) + ", hors périmètre EC3")
             al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre EC3 : " + pire_a.label + " "
                + a_pct(pire_a.eta, 1) + " — à vérifier.", False, ["perim"],
                f"{len(hors)} vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les "
                "compter dans le verdict", elems=["pedestal", "anchors"])
+    if abs(T_) > 1e-9:
+        raisons.append("torsion : bord et pry-out du béton non vérifiés")
+        al("tors_beton", "Torsion : la rupture du bord et le pry-out du béton (EN 1992-4 §7.2.2.4 et §7.2.2.5) ne "
+           "comptent que la résultante Vx, Vy — le cisaillement que la torsion donne à chaque tige n'y entre pas. À "
+           "justifier à part (répartition rive par rive).", False, ["T_Ed"],
+           f"T = {F(u.T_Ed, 1)} kNm → jusqu'à {F(max(t['V_en'] for t in R.tiges), 1)} kN par tige ; "
+           f"résultante V = {F(V_res / 1e3, 1)} kN", elems=["efforts", "pedestal"])
     c_min = min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"])
+    R.c_min = c_min
+    fendage = bool(tend) and c_min < 1.5 * u.hef - 1e-9
+    eclatement = bool(tend) and u.typ_a == TYPE_TETE and c_min <= 0.5 * u.hef + 1e-9
     if c_min < 1.5 * u.hef:
-        al("fend", "Bord du massif à moins de 1,5·hef : fendage (EN 1992-4 §7.2.1.7) et, pour une tige à tête, "
-           "éclatement latéral (§7.2.1.8) à vérifier — non couverts en V1.", False, ["bc_u", "lc_u", "hef"],
-           f"c = {F(c_min, 0)} mm < 1,5·hef = {F(1.5 * u.hef, 0)} mm", dims=["bc", "lc", "hef"], elems=["pedestal"])
+        al("fend", "Bord du massif à moins de 1,5·hef : fendage (EN 1992-4 §7.2.1.7) et, pour une tige à tête à "
+           "moins de 0,5·hef du bord, éclatement latéral (§7.2.1.8) à justifier — le moteur ne les calcule pas.",
+           False, ["bc_u", "lc_u", "hef"],
+           f"c = {F(c_min, 0)} mm < 1,5·hef = {F(1.5 * u.hef, 0)} mm"
+           + (f" (et ≤ 0,5·hef = {F(0.5 * u.hef, 0)} mm)" if c_min <= 0.5 * u.hef + 1e-9 else ""),
+           dims=["bc", "lc", "hef"], elems=["pedestal"])
+    if not R.perim_ec3:
+        if fendage:
+            raisons.append("fendage du massif non vérifié")
+        if eclatement:
+            raisons.append("éclatement latéral non vérifié")
+    R.justifier = raisons
+    R.a_verifier = " ; ".join(raisons)
 
     # poteau : aile / paroi comprimée
     Iy, Wpl = CP.inertie_wpl(R.forme, dims)
@@ -704,15 +768,27 @@ def compute(u0=None, materiau=None):
        f"paroi {nom_aile} ; Wpl = {F(Wpl / 1e3, 0)} cm³ ; fy = {F(R.fy_c, 0)} MPa")
 
     # cordons
-    w = CP.cordons(R.forme, dims, u.a_w, R.fu_w, R.bw_w, gM2, N_, Mx, My, Vx, Vy, T_) if u.a_w > 0 and geo_ok \
+    # A11 (lot de clôture) : « appui direct » — option explicite, « Non » par défaut. L'about du poteau est scié
+    # d'équerre et en contact avec la platine : la compression passe par le contact, les cordons gardent la traction,
+    # le cisaillement et la torsion.
+    R.appui_direct = u.get("contact") == OUI
+    w = CP.cordons(R.forme, dims, u.a_w, R.fu_w, R.bw_w, gM2, N_, Mx, My, Vx, Vy, T_, contact=R.appui_direct) \
+        if u.a_w > 0 and geo_ok \
         else dict(s_eq=0.0, s_perp=0.0, f_eq=1.0, f_perp=1.0, point="—", A=0.0, L=0.0, sig_n=0.0, tau_par=0.0)
     R.cordons = w
-    ck("w", "Soudure", "Cordons poteau / platine — méthode directionnelle, point le plus sollicité", w["s_eq"], w["f_eq"],
+    ck("w", "Soudure", "Cordons poteau / platine — méthode directionnelle, point le plus sollicité"
+       + (" (appui direct : la compression passe par le contact)" if R.appui_direct else ""), w["s_eq"], w["f_eq"],
        "MPa", "EN 1993-1-8 §4.5.3.2", "EC", u.a_w > 0,
-       "√(σ⊥² + 3(τ⊥² + τ∥²)) ≤ fu/(βw·γM2) ; groupe de cordons en ligne (N, Mx, My par σn = N/A + M·r/I, "
-       "Vx, Vy par τ∥, torsion par T·r/Ip) ; σ⊥ = τ⊥ = σn/√2",
+       "√(σ⊥² + 3(τ⊥² + τ∥²)) ≤ fu/(βw·γM2) ; groupe de cordons en ligne ("
+       + ("appui direct : σn = max(0 ; M·r/I − N/A), la compression passe par le contact" if R.appui_direct
+          else "N, Mx, My par σn = N/A + M·r/I")
+       + ", Vx, Vy par τ∥, torsion par T·r/Ip) ; σ⊥ = τ⊥ = σn/√2",
        f"a = {F(u.a_w, 1)} mm ; L = {F(w['L'], 0)} mm ; point : {w['point']} ; σn = {F(w['sig_n'], 1)} MPa ; "
        f"τ∥ = {F(w['tau_par'], 1)} MPa ; fu/(βw·γM2) = {F(w['f_eq'], 0)} MPa", 1)
+    if R.appui_direct:
+        al("appui_direct", "Appui direct : la compression du poteau passe par le contact avec la platine — about "
+           "scié d'équerre, contact à contrôler à la pose. Les cordons gardent la traction, le cisaillement et la "
+           "torsion.", False, ["contact", "a_w"], f"σn des cordons = {F(w['sig_n'], 1)} MPa", elems=["col"])
     ck("wp", "Soudure", "Cordons — contrainte normale σ⊥ ≤ 0,9·fu/γM2", w["s_perp"], w["f_perp"], "MPa",
        "EN 1993-1-8 §4.5.3.2", "EC", u.a_w > 0, "σ⊥ ≤ 0,9·fu/γM2", "")
     ck("wa", "Soudure", "Gorge minimale", 3, u.a_w, "mm", "EN 1993-1-8 §4.5.2(2)", "EC", True, "a ≥ 3 mm", "")
@@ -743,11 +819,25 @@ def compute(u0=None, materiau=None):
     R.gov = gov
     R.eta_max = gov.eta if gov else 0.0
     R.all_ok = all(c.ok for c in act if c.key not in R.info_keys)
-    R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
+    # R12 (lot de clôture) : une alerte BLOQUANTE refuse le pied, quelle qu'elle soit. Avant, seules celles qui
+    # touchaient ``geo_ok`` comptaient : un mortier hors conditions laissait « VÉRIFIÉ ».
+    R.bloquant = [a.id for a in R.alerts if a.block]
+    R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok and not R.bloquant)
+    # N9 : la raison « à vérifier » n'existe que sur un pied VÉRIFIÉ — un pied refusé est refusé, sans nuance
+    # (``R.justifier`` garde la liste entière)
+    if not R.verified:
+        R.a_verifier = ""
     if R.verified and R.a_verifier:
         R.statut = "PIED DE POTEAU À VÉRIFIER (" + R.a_verifier + ")"
     else:
         R.statut = ("PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ") \
             + (" (EC3 — béton d'ancrage en information)" if R.perim_ec3 else "")
-    R.reserve = any(a.id in ("coin", "lat", "ancr_info") for a in R.alerts)
+    R.reserve = any(a.id in ("coin", "lat", "ancr_info", "rondelle", "tors_beton") for a in R.alerts)
+    # A8 (lot de clôture) : la PORTÉE du verdict, dite une fois, selon le périmètre choisi
+    R.portee = (("Périmètre EN 1993-1-8 : platine, tiges (acier), poteau, cordons et béton d'appui décident. Béton "
+                 "d'ancrage (EN 1992-4 : cône, arrachement, bord, pry-out, interaction) : calculé en information, hors "
+                 "verdict.") if R.perim_ec3 else
+                ("Périmètre complet : EN 1993-1-8 et béton d'ancrage EN 1992-4 (cône, arrachement, bord, pry-out, "
+                 "interaction) décident.")) \
+        + " Non calculés : fendage, éclatement latéral, effet de la torsion sur le béton."
     return R

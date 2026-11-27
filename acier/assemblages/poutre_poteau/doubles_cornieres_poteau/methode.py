@@ -127,7 +127,10 @@ la rotation est couverte par le facteur **0,8** sur `Fv,Rd`
 - **Âme portée** : pression diamétrale ; cisaillement brut / net ; rupture de
   bloc ; traction nette (hauteur participante `hc`) et bloc en traction ;
   grugeage (facultatif sur un poteau, 0 par défaut) : flexion + cisaillement
-  et stabilité locale (MSB P5 §4.2.4 / §4.2.5).
+  et stabilité locale (MSB P5 §4.2.4 / §4.2.5) ; grugeage COURT (deux files
+  et `xN = c − (e2,b + p2) < 2·d`) : bras `max(gh + c ; gh + e2,b + p2)` et
+  résistance de la section au droit de la 2ᵉ file (MSB P5 §4.2.4.2 ; SCI
+  P358, Check 5).
 - **Poteau porteur** : pression diamétrale de l'aile ou de l'âme ;
   cisaillement local brut et net de l'âme en cas (b) ; tronçon en T de l'aile
   et âme en traction transversale en cas (a), sous boulons tendus ;
@@ -141,6 +144,16 @@ Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + z` en
 cas (a), `twP/2 + z` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
 retenus » et au bloc HYPOTHÈSES de la note : il appartient au calcul
 d'ÉLÉMENT du poteau (EC3-1-1 §6.2 et §6.3), l'outil ne le vérifie pas.
+
+#### Ce que le statut dit
+
+« ASSEMBLAGE À VÉRIFIER (raison) » : toutes les vérifications passent, mais
+une raison nommée reste à justifier — cornières soudées des deux côtés,
+`HEd` de plus de 10 % de `VEd` (flexion hors plan des cornières), poutre
+grugée non maintenue au déversement, effort tranchant inversé (`VEd < 0`),
+appui dans l'âme du poteau sous une traction (flexion hors plan de l'âme non
+vérifiée). L'écran, la note PDF et les propositions disent le même statut,
+en orange (lot de clôture du 27/11/2026).
 
 #### Annexe nationale belge
 

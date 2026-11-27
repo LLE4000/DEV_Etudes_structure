@@ -23,7 +23,7 @@ from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
 from acier.formats import F, pct, nb
 from acier.js import N, js_str
-from acier.assemblages.note_kit import empaqueter, SANS_TAUX, masquer_taux
+from acier.assemblages.note_kit import empaqueter_au_mieux, SANS_TAUX, masquer_taux
 from . import schemas, synthese
 from . import elements as EL
 from . import moteur as MO
@@ -93,8 +93,10 @@ def segments_hypotheses(R):
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
+    """Trois lignes de ≤ 110 caractères ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110)
 
 
 def _avis_fjd_range(R):
@@ -274,9 +276,9 @@ class Note(_np.Note):
                 else ("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : ")
         txt = (tete + "épaisseur requise " + req
                + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, " + selon
-               + " et Tableau 3.4 " + self.NORME + " — tiges et béton d'ancrage en "
-               "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts)
-                                and not a_verif else "."))
+               + " et Tableau 3.4 " + self.NORME + " — tiges (acier) et appui en information ; béton d'ancrage "
+               "non vérifié ici, à justifier à part" + (" ; sous réserve des points signalés." if R.verified
+                                                        and (R.reserve or R.alerts) and not a_verif else "."))
         col = S.att if a_verif else (S.ok if R.verified else S.ko)
         txt = masquer_taux(txt) if self.sans_taux else txt
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)

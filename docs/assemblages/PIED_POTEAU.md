@@ -288,3 +288,11 @@ manuel (élastique) : `docs/assemblages/PLATINE_MANUELLE.md` § 6.
 - **Vocabulaire non suivi** : les messages du moteur gardent « périmètre
   complet » (alerte du béton d'ancrage) là où l'écran dit « EC3 + EC2-4 » ; le
   moteur ne change pas.
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Douze corrections (`ECARTS_ET_CORRECTIONS.md` §8.2) : aire de diffusion semblable à la platine (`fjd`), mortier de plus de 50 mm, toute alerte bloquante refuse le pied, tige dont le trou mord sur le profilé ou son cordon, crosse limitée à `fyb = 300 MPa`, libellé de `k1`, statut « À VÉRIFIER » pour la torsion (deux périmètres) et pour le fendage et l'éclatement latéral (périmètre complet), option « Appui direct » des cordons, bras `m` d'une tige entre les ailes (cordon et non congé), charnière droite `0,5·bp` du Tableau 6.6. **Le banc rejoue désormais cinq exemples publiés** (MSB Part 5 §6.5 ; SCI P358, pieds de poteau, exemples 1 à 3 ; SCI P398, annexe E, exemple E.1) : `docs/validation/exemples_publies.json`. Le périmètre par défaut reste « EN 1993-1-8 seule » (décision du lot B).
+
+P13 : `γMs,V` de l'EN 1992-4 (tiges au cisaillement) vaut 1,5 dès que `fuk > 800 MPa` ou `fyk/fuk > 0,8` (tiges 10.9) — avant : `max(1,25 ; fuk/fyk)` seul, soit `VRd,s` surestimé de 20 % en 10.9. La seconde branche du Tableau 4.1 est citée de mémoire (deux lectures concordantes) : à confirmer sur le texte ; elle est appliquée parce qu'elle ne peut que rendre le calcul plus prudent.

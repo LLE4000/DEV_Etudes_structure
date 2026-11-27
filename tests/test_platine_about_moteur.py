@@ -6,10 +6,12 @@ Chaque garantie rougit si on la retire :
      plate — IPE A 550 S275, platine 430×200×12 S275, 12 M20 8.8, p3 = 140,
      VEd = 550 kN, tying 275 kN) : les valeurs imprimées, EN DIRECT, effort
      tranchant ET tying.
-  2. RÈGLES DU GUIDE : groupe de boulons en trois branches (le 0,8 ne
-     s'applique que si le cisaillement des boulons gouverne), rupture de
-     bloc k = 1 / 0,5 selon hp ≥ 1,36·p3, coefficients de pleine résistance
-     0,46 / 0,48 / 0,55, ductilité tp ≤ 0,36·d·√(fub/fy).
+  2. RÈGLES DU GUIDE : groupe de boulons du SCI P358 Check 8 (UNE pression
+     diamétrale, la plus petite, comparée à 0,8·Fv,Rd — règle retenue le
+     27/11/2026 ; l'ancienne, trois branches du MSB plafonnées, reste
+     testée comme fonction), rupture de bloc k = 1 / 0,5 selon
+     hp ≥ 1,36·p3, coefficients de pleine résistance 0,46 / 0,48 / 0,55,
+     ductilité tp ≤ 0,36·d·√(fub/fy).
   3. TRONÇON EN T : les DEUX ailes portées par une seule résistance (pas de
      ×2), mode 1 par la méthode 2, Σleff = hp sur les détails courants ;
      ELU (fy/γM0) ≠ tying (fu/γMu) ; tying vérifié SEUL.
@@ -62,14 +64,17 @@ S3 = math.sqrt(3)
 print("=== 1. Exemple publié : MSB Part 5 §2.4 (platine d'about partielle) ===")
 R = calcul_main(WE)
 chk("géométrie : e2 = (200 − 140)/2 = 30, e1' = 40, 12 boulons", R.e_2 == 30 and R.e1bot == 40 and R.n_b == 12)
-chk("âme portée : hp·tw·fy/√3 = 614 kN (Av = 3870 mm²)", pres(R.ck["vwS"].Rd, 614, 0.01) and R.Av_w == 3870,
-    str(R.ck["vwS"].Rd))
+# LE HARNAIS SUIT (lot de clôture du 27/11/2026) : il figeait l'aire hp·tw du MSB (614 kN) ; le bureau a retenu
+# Av = 0,9·hp·tw (SCI P358 Check 4) — 0,9 × 614,4 = 553,0 kN ; l'aire TENDUE reste tw·hp (3870 mm²)
+chk("âme portée : 0,9·hp·tw·fy/√3 = 553 kN (Av = 0,9 × 3870 = 3483 mm² ; le MSB imprime 614 kN sans le 0,9)",
+    pres(R.ck["vwS"].Rd, 0.9 * 430 * 9 * 275 / S3 / 1000, 1e-12) and pres(R.ck["vwS"].Rd / 0.9, 614, 0.01)
+    and pres(R.Av_w, 3483, 1e-12) and R.At_w == 3870, str(R.ck["vwS"].Rd))
 chk("un boulon : Fv,Rd = 94 kN", pres(R.Fv_Rd, 94, 0.01), str(R.Fv_Rd))
 chk("pression diamétrale, boulons d'extrémité = 107 kN (source : αb arrondi à 0,61)", pres(R.Fbb_L, 107, 0.01),
     str(R.Fbb_L))
 chk("pression diamétrale, boulons intérieurs = 142 kN", pres(R.Fbi_L, 142, 0.01), str(R.Fbi_L))
-chk("groupe : Fv,Rd ≤ (Fb,Rd)min → 0,8·ns·Fv,Rd = 902 kN", pres(R.ck["bg"].Rd, 902, 0.01)
-    and R.branche_g.startswith("0,8"), str(R.ck["bg"].Rd))
+chk("groupe : Fb,Rd,min > 0,8·Fv,Rd → 0,8·n·Fv,Rd = 902 kN (les deux guides s'accordent ici)",
+    pres(R.ck["bg"].Rd, 902, 0.01) and R.branche_g.startswith("0,8"), str(R.ck["bg"].Rd))
 chk("platine : min(brut ; net ; bloc) = rupture de bloc 1182 kN",
     pres(min(R.ck["pcg"].Rd, R.ck["pcn"].Rd, R.ck["pcb"].Rd), 1182, 0.01)
     and R.ck["pcb"].Rd < R.ck["pcg"].Rd < R.ck["pcn"].Rd)
@@ -81,8 +86,8 @@ chk("tying – âme de la poutre en traction tw·hp·fu/γMu = 1513 kN", pres(R.
     str(R.ck["tnS"].Rd))
 chk("pleine résistance S275 : a ≥ 0,48·tw (4,32 mm ≤ 5,6)", pres(R.k_plein, 0.48, 0.005)
     and pres(R.a_plein, 0.48 * 9, 0.005) and not any(a.id == "a_rec" for a in R.alerts))
-chk("dimensionnante en cisaillement : âme de la poutre, 550/614 = 0,90",
-    R.gov.key == "vwS" and pres(R.eta_max, 550 / 614.4450, 1e-4) and R.verified, R.gov.key)
+chk("dimensionnante en cisaillement : âme de la poutre, 550/553 = 0,995 (0,90 avant le 0,9 du SCI)",
+    R.gov.key == "vwS" and pres(R.eta_max, 550 / (0.9 * 614.4450), 1e-4) and R.verified, R.gov.key)
 chk("tying 275/493 = 0,56 (sans interaction avec VEd : vérifié seul)",
     pres(R.ck["ptT"].eta, 0.559, 0.01) and not R.ck["bvt"].active and R.Ft_Ed == 0)
 chk("ductilité : tp = 12 ≤ 0,36·20·√(800/275) = 12,28 mm (de justesse, comme le guide)",
@@ -93,7 +98,21 @@ chk("benchmark : statut VALIDÉ, pire écart ≤ 1 %", B["ok"] and B["statut"] =
 
 # ================================================================
 print("\n=== 2. Règles du guide ===")
-# trois branches du groupe de boulons
+# GROUPE DE BOULONS — SCI P358 Check 8, règle RETENUE (27/11/2026) : une seule pression diamétrale, la plus petite
+from acier.assemblages import sci as SCI  # noqa: E402
+chk("SCI Check 8 : Fb,Rd ≤ 0,8·Fv,Rd → n·Fb,Rd ; sinon 0,8·n·Fv,Rd — la plus petite pression de la liste",
+    SCI.groupe_boulons(100, [60, 80, 95], 6) == (6 * 60, "n·Fb,Rd (plus petite pression diamétrale)")
+    and SCI.groupe_boulons(100, [85, 80, 95], 6) == (6 * 80, "n·Fb,Rd (plus petite pression diamétrale)")
+    and SCI.groupe_boulons(100, [85, 81, 95], 6) == (0.8 * 6 * 100, "0,8·n·Fv,Rd (cisaillement des boulons)"))
+# l'élément PORTEUR entre dans le minimum : âme porteuse de 5 mm S235 sous une platine de 10 mm S355
+_Rm = calcul_main(dict(prof_P=PERSO, hP_u=390, bP_u=300, twP_u=5, tfP_u=19, rP_u=27, nu_P="S275"))
+chk("l'élément porteur entre dans le minimum (âme porteuse de 5 mm : Fb,Rd,2 = 2,5·0,659·430·20·5/1,25 = 56,7 kN "
+    "< 0,8·Fv,Rd = 75,3 → 6 × 56,7 = 340,1 kN)",
+    pres(_Rm.Fbi_P, 2.5 * (60 / 66 - 0.25) * 430 * 20 * 5 / 1.25 / 1000, 1e-12) and _Rm.Fb_min == _Rm.Fbi_P
+    and pres(_Rm.ck["bg"].Rd, 6 * _Rm.Fbi_P, 1e-12) and _Rm.branche_g.startswith("n·Fb,Rd"),
+    f"{_Rm.Fbi_P} {_Rm.ck['bg'].Rd} {_Rm.branche_g}")
+# ANCIENNE règle (MSB P5 §2.2.4, trois branches plafonnées) : la fonction reste, pour le test ancien / nouveau
+# (tests/test_assemblages_cloture.py) ; le calcul ne l'appelle plus
 chk("branche ΣFb,Rd si (Fb,Rd)max ≤ Fv,Rd",
     moteur.groupe_boulons(100, 60, 80, 2, 4) == (2 * 60 + 4 * 80, "ΣFb,Rd (pression diamétrale)"))
 chk("branche ns·(Fb,Rd)min entre les deux (sous le plafond)",
@@ -109,9 +128,9 @@ _serie = [calcul_main(dict(tp_u=t)).ck["bg"].Rd for t in (8, 9, 10, 11, 11.1, 11
 chk("le groupe ne DESCEND jamais quand la platine s'épaissit (tp de 8 à 16 mm, cas par défaut)",
     all(b >= a - 1e-9 for a, b in zip(_serie, _serie[1:])), str(_serie))
 R0 = calcul_main(dict())
-chk("cas par défaut : Fb,ext 91,66 < Fv,Rd 94,08 < Fb,int 113,9 → ns·(Fb,Rd)min = 549,96 kN, PLAFONNÉ à "
-    "0,8·6·94,08 = 451,58 kN",
-    R0.branche_g == "0,8·ns·Fv,Rd (cisaillement des boulons)" and pres(R0.ck["bg"].Rd, 0.8 * 6 * 94.08, 1e-12)
+chk("cas par défaut : Fb,Rd,min = Fb,ext 91,66 > 0,8·Fv,Rd = 75,26 → 0,8·6·94,08 = 451,58 kN (la même valeur "
+    "que l'ancienne règle plafonnée)",
+    R0.branche_g == "0,8·n·Fv,Rd (cisaillement des boulons)" and pres(R0.ck["bg"].Rd, 0.8 * 6 * 94.08, 1e-12)
     and pres(6 * R0.Fbb_L, 549.96, 1e-4) and R0.Fbb_L < R0.Fv_Rd < R0.Fbi_L, f"{R0.branche_g} {R0.ck['bg'].Rd}")
 # RUPTURE DE BLOC d'une platine DISSYMÉTRIQUE (correction du 25/11/2026, audit) : le plan cisaillé va vers la plus
 # PETITE pince — 2 rangées M20, p1 = 60, pinces 35 (haut) / 95 (bas), tp = 10, e2 = 30, S355 (355/510) :
@@ -174,11 +193,15 @@ chk("ELU : fy/γM0 et γM2 (FT,1 = 491,86 × 275/430 × 1,1 ; FT,3 avec γM2)",
 chk("ELU : interaction cisaillement + traction active, tying inactif",
     Re.ck["bvt"].active and not Re.ck["wT"].active
     and pres(Re.ck["bvt"].Ed, (550 / 12) / Re.Fv_Rd + (275 / 12) / (1.4 * Re.Ft_Rd), 1e-12))
-chk("ELU : âme portée tw·hp·fy/γM0 ; cordons sous la résultante √(qz² + qx²)",
-    pres(Re.ck["tnS"].Rd, 9 * 430 * 275 / 1000, 1e-12)
-    and pres(Re.ck["w"].Ed, math.hypot(550000 / 860, 275000 / 860), 1e-12))
-chk("tying : cordon sous NEd seul avec γMu", R.ck["wT"].active
-    and pres(R.ck["wT"].Ed, 275000 / 860, 1e-12) and pres(R.ck["w"].Ed, 550000 / 860, 1e-12))
+# LE HARNAIS SUIT (27/11/2026) : il figeait la longueur 2·hp = 860 mm ; la longueur EFFICACE est 2·(hp − 2a) =
+# 2 × (430 − 11,2) = 837,6 mm (EN 1993-1-8 §4.5.1(1)) — +2,7 % sur l'effort par unité de longueur
+_LW = 2 * (430 - 2 * 5.6)
+chk("ELU : âme portée tw·hp·fy/γM0 (aire TENDUE, sans 0,9) ; cordons sous la résultante √(qz² + qx²) sur "
+    "ℓw = 2·(hp − 2a) = 837,6 mm",
+    pres(Re.ck["tnS"].Rd, 9 * 430 * 275 / 1000, 1e-12) and pres(Re.Lw, 837.6, 1e-12)
+    and pres(Re.ck["w"].Ed, math.hypot(550000 / _LW, 275000 / _LW), 1e-12))
+chk("tying : cordon sous NEd seul avec γMu, sur la même longueur efficace", R.ck["wT"].active
+    and pres(R.ck["wT"].Ed, 275000 / _LW, 1e-12) and pres(R.ck["w"].Ed, 550000 / _LW, 1e-12))
 chk("NEd en compression : sans effet (transmis par contact)",
     not any(calcul_main(dict(N_Ed=-80)).ck[k].active for k in ("bvt", "ptT", "pp", "tnS")))
 
@@ -188,9 +211,13 @@ chk("défaut VÉRIFIÉ ; la gorge minimale (60 %) n'est PAS dimensionnante", R0.
     and R0.ck["wa"].eta == 0.6, R0.gov.key)
 chk("grugeage : MEd = VEd·(tp + c) = 125 × 0,160 = 20 kNm ; Mv,N,Rd = 49,479 (ancre des deux autres modules)",
     pres(R0.ck["mN"].Ed, 20.0, 1e-12) and pres(R0.ck["mN"].Rd, 49.4789861999044, 1e-9))
-chk("âme portée : 8,5 × 190 × 355/√3 = 331,0 kN", pres(R0.ck["vwS"].Rd, 8.5 * 190 * 355 / S3 / 1000, 1e-12))
-chk("âme porteuse : cisaillement local Av = tw·hp = 2090 mm², Ed = VEd/2",
-    R0.Av_P == 2090 and R0.ck["vlP"].Ed == 62.5)
+chk("âme portée : 0,9 × 8,5 × 190 × 355/√3 = 297,9 kN (331,0 avant le 0,9 du SCI)",
+    pres(R0.ck["vwS"].Rd, 0.9 * 8.5 * 190 * 355 / S3 / 1000, 1e-12))
+# LE HARNAIS SUIT (27/11/2026) : il figeait Av = tw·hp = 2090 mm² (les pinces de la platine) ; le SCI (Check 10)
+# mesure la section sur l'élément PORTEUR : et = min(e1,t = 85 ; 5d = 100), eb = min(e1,b = 185 ; p3/2 = 45 ; 100)
+chk("âme porteuse : cisaillement local Av = tw·(et + 2·p1 + eb) = 11 × (85 + 120 + 45) = 2750 mm², Ed = VEd/2",
+    R0.et_P == 85 and R0.eb_P == 45 and R0.Av_P == 2750 and R0.ck["vlP"].Ed == 62.5
+    and pres(R0.ck["vnP"].Rd, (2750 - 3 * 22 * 11) * 510 / S3 / 1.25 / 1000, 1e-12), f"{R0.et_P} {R0.eb_P} {R0.Av_P}")
 chk("pression diamétrale de l'âme porteuse : αb = p1/3d0 − 1/4, k1 = 2,5 (pas de bord libre)",
     pres(R0.abi_P, 60 / 66 - 0.25, 1e-12) and R0.k1_P == 2.5)
 chk("pleine résistance S355 (platine) / S355 (âme) : 0,554·8,5 = 4,71 mm ≤ a = 5", pres(R0.a_plein, 4.7067, 1e-3)
@@ -214,19 +241,24 @@ chk("tp = 12 en S355 (> 10,8 mm) : ductilité (recommandation, non bloquante)",
     "tp_duct" in ids(dict(tp_u=12)) and moteur.compute(dict(tp_u=12)).geo_ok)
 chk("tp = 6 : platine < 8 mm déconseillée", "tp_min" in ids(dict(tp_u=6)))
 chk("hp < 0,6·h : maintien en torsion", "hp_rec" in ids(dict(hp_u=170)))
-chk("a = 4 < 4,71 : gorge sous la pleine résistance", "a_rec" in ids(dict(a_w=4)))
+chk("a = 4 < 0,8 × 5,11 = 4,09 mm : gorge sous le DÉTAIL ÉPROUVÉ (0,8 × la pleine résistance, SCI Check 2) ; "
+    "a = 4,1 : plus d'avis", "a_rec" in ids(dict(a_w=4)) and "a_rec" not in ids(dict(a_w=4.1)))
 chk("NEd > 0 : flexion transversale de l'âme porteuse signalée (non vérifiée)", "NEd" in ids(dict(N_Ed=40)))
 chk("Tableau 3.3 : e1, e2, p1 et p3 (= p2) contrôlés", [x.id for x in R0.dist] == ["e1p", "e2p", "p1", "p3"]
     and all(x.ok for x in R0.dist))
 
 # ================================================================
 print("\n=== 6. Prédimensionnement ===")
-Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT", V_Ed=250))
-chk("proposition complète (V = 250 kN)", Rp.pd.found and Rp.pd.msg == "Proposition complète", Rp.pd.msg)
+# LE HARNAIS SUIT (27/11/2026) : à 250 kN l'âme portée (0,9·hp·tw du SCI) passe à 91 % sur hp = 175 — au-dessus du
+# taux cible de 90 % : plus de proposition sous la cible ; 240 kN (87,5 %) la garde
+Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT", V_Ed=240))
+chk("proposition complète (V = 240 kN ; à 250 kN l'âme portée dépasse le taux cible avec le 0,9 du SCI)",
+    Rp.pd.found and Rp.pd.msg == "Proposition complète"
+    and not moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT", V_Ed=250)).pd.found, Rp.pd.msg)
 chk("au moins deux rangées, hp ≥ 0,6·h, p3 ≥ 90, 8 mm ≤ tp ≤ limite de ductilité",
     Rp.pd.n >= 2 and Rp.pd.hp >= 0.6 * Rp.h_S and Rp.pd.p3 >= 90
     and 8 <= Rp.pd.tp <= moteur.tp_ductile(Rp.d_b, Rp.f_ub, Rp.fy_L) + 1e-9)
-u2 = moteur.apply_solution(dict(V_Ed=250), Rp.pd.pick)
+u2 = moteur.apply_solution(dict(V_Ed=240), Rp.pd.pick)
 chk("apply_solution : mode VÉRIFICATION, boulon, rangées, p3, hp, tp, bp, a recopiés",
     u2["mode_calc"] == "VÉRIFICATION" and u2["boulon_u"] == Rp.pd.boulon and u2["n1_u"] == Rp.pd.n
     and u2["p3_u"] == Rp.pd.p3 and u2["hp_u"] == Rp.pd.hp and u2["tp_u"] == Rp.pd.tp and u2["a_w"] == Rp.pd.a)
@@ -284,7 +316,7 @@ for nom, cas in REF.items():
             ndiff += 1
             print("   ", nom, "scalaire", k, "attendu", v, "obtenu", Rr[k])
     if (Rr.gov.key if Rr.gov else None) != cas["gov"] or Rr.verified != cas["verified"] \
-       or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
+       or sorted(a.id for a in Rr.alerts) != cas["alerts"] or Rr.a_verifier != cas["a_verifier"]:
         ndiff += 1
         print("   ", nom, "synthèse divergente")
 chk(f"RÉGRESSION CALCUL : 0 différence sur les {len(REF)} cas figés ({nverif} vérifications)", ndiff == 0,

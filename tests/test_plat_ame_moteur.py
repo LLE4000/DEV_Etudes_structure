@@ -88,13 +88,34 @@ chk("âme – cisaillement net VRd = 995 kN (p. 5-45 ; même écart d'aire)",
 chk("âme – rupture de bloc VRd = 507 kN (p. 5-45, poutre NON grugée : (n1 − 1)·d0)",
     pres(R.ck["vbS"].Rd, 507, 0.01), str(R.ck["vbS"].Rd))
 chk("flexion du plat sans objet (hp = 360 ≥ 2,73·z = 218,4)", not R.ck["pfl"].active and R.court)
-chk("plat LONG (z = 80 > tp/0,15 = 66,7) : déversement actif", R.long_p and R.ck["plt"].active)
+# LE HARNAIS SUIT (lot de clôture du 27/11/2026) : il figeait « plat long » jugé sur z = 80 (le centre du groupe,
+# règle du MSB) ; le bureau a retenu le SCI, qui le juge sur zp = gh + e2,b = 50 (la PREMIÈRE file) : ce plat est COURT
+chk("plat COURT pour le SCI (zp = 50 ≤ tp/0,15 = 66,7), long pour le MSB (z = 80) : ni déversement ni section ABCD "
+    "dans le verdict",
+    not R.long_p and R.long_msb and R.g_B == 50 and not R.ck["plt"].active and not R.ck["abS"].active)
+chk("… et la section ABCD du MSB reste calculée pour INFORMATION : 38,5 kNm demandés, 65,87 résistants (le guide "
+    "imprime 38 et 66, p. 5-46) — 58 %, aucun motif « à vérifier »",
+    pres(R.abcd_msb.MEd, 38.5, 1e-12) and pres(R.abcd_msb.MRd, 66, 0.01) and pres(R.eta_abcd_msb, 38.5 / 65.873, 1e-4)
+    and R.a_verifier == "", f"{R.abcd_msb.MEd} {R.abcd_msb.MRd} {R.a_verifier}")
 chk("VÉRIFIÉ à VEd = 350 kN ; dimensionnante = cisaillement brut du plat (450 kN, "
     "la plus petite résistance du guide)", R.verified and R.gov.key == "pcg", R.gov.key)
 
-print("\n=== 2. Cas par défaut : ancrages partagés avec le module 1 ===")
-R0 = calcul_main(dict())
-chk("défaut : z = 50, Ip = 7200, effort de boulon 66,699… kN (mêmes nombres que doubles cornières)",
+print("\n=== 2. Géométrie partagée avec le module 1 (e1 = 35, p1 = 60 : l'ancien cas par défaut) ===")
+# LE HARNAIS SUIT (27/11/2026) : le cas par défaut tient désormais les pinces à 2·d du détail éprouvé (e1 = 40,
+# p1 = 55 — SCI P358 §5.3 (5)) ; les ancres partagées avec les doubles cornières gardent LEUR géométrie, saisie ici
+Rdef = calcul_main(dict())
+chk("cas par défaut : e1 = 40 = 2·d, p1 = 55, hp = 190 (40 + 2 × 55 + 40) — toutes les pinces ≥ 2d, VÉRIFIÉ sans motif "
+    "« à vérifier » ; l'ancienne géométrie (e1 = 35) sort « À VÉRIFIER (articulation à justifier : e1 du plat …) »",
+    Rdef.e_1 == 40 and Rdef.p_1 == 55 and Rdef.e1bot == 40 and Rdef.rec_2d and Rdef.verified and Rdef.a_verifier == ""
+    and Rdef.statut == "ASSEMBLAGE VÉRIFIÉ" and not any(a.id == "pince_2d" for a in Rdef.alerts),
+    f"{Rdef.e_1} {Rdef.p_1} {Rdef.statut}")
+R0 = calcul_main(dict(e1_u=35, p1_u=60))
+chk("e1 = 35 < 2d = 40 : VÉRIFIÉ par le calcul, mais statut « À VÉRIFIER (articulation à justifier : e1 du plat = "
+    "35 mm < 2d = 40 mm) » et avis non bloquant",
+    R0.verified and not R0.rec_2d and R0.pince_2d == ("e1 du plat", 35.0)
+    and R0.statut == "ASSEMBLAGE À VÉRIFIER (articulation à justifier : e1 du plat = 35 mm < 2d = 40 mm)"
+    and any(a.id == "pince_2d" and not a.block for a in R0.alerts), R0.statut)
+chk("e1 = 35, p1 = 60 : z = 50, Ip = 7200, effort de boulon 66,699… kN (mêmes nombres que doubles cornières)",
     R0.z_p == 50 and R0.Ip == 7200 and pres(R0.F_b, 66.6992108065922, 1e-9), str(R0.F_b))
 chk("taux de pression diamétrale de l'âme = 0,739914371796275 (ancre VAL-A du module 1)",
     abs(R0.ck["pdS"].eta - 0.739914371796275) < 1e-12, str(R0.ck["pdS"].eta))
@@ -103,8 +124,10 @@ chk("grugeage : A_Tee 6121, Av 2358,5, Wel,N 139377,43, Mv,N,Rd 49,479 kNm, ln,m
     and pres(R0.ck["mN"].Rd, 49.4789861999044, 1e-9) and R0.ln_max == 290)
 chk("plat court par défaut (z = 50 ≤ tp/0,15 = 66,7) : ni flexion ni déversement",
     not R0.ck["pfl"].active and not R0.ck["plt"].active)
-chk("soudure : qz = VEd/(2hp) = 328,9 N/mm ; qx = 3·MS/hp² = 519,4 N/mm ; Fw,Rd = fvw·a",
-    pres(R0.qz_w, 125000 / 380, 1e-9) and pres(R0.qx_w, 3 * 6.25e6 / 36100, 1e-9)
+# LE HARNAIS SUIT (27/11/2026) : la longueur EFFICACE d'un cordon est hp − 2a = 178 mm (EN 1993-1-8 §4.5.1(1)),
+# plus hp = 190 — qz 328,9 → 351,1 N/mm (+6,7 %), qx 519,4 → 591,8 N/mm (+13,9 % : le bras de flexion est au carré)
+chk("soudure : ℓ = hp − 2a = 178 mm ; qz = VEd/(2ℓ) = 351,1 N/mm ; qx = 3·MS/ℓ² = 591,8 N/mm ; Fw,Rd = fvw·a",
+    R0.Lw1 == 178 and pres(R0.qz_w, 125000 / 356, 1e-9) and pres(R0.qx_w, 3 * 6.25e6 / 178 ** 2, 1e-9)
     and pres(R0.ck["w"].Rd, R0.fvw * 6, 1e-9))      # a = 6 mm par défaut depuis le 25/11/2026 (pleine résistance)
 # --- corrections du 25/11/2026 (audit des formules)
 # gorge de PLEINE RÉSISTANCE : le plat tendu plastifie avant le cordon — tp·fy·βw·γM2/(√2·fu·γM0), la règle des guides
@@ -140,20 +163,58 @@ chk("cas par défaut VÉRIFIÉ, dimensionnante = pression diamétrale de l'âme"
     R0.verified and R0.gov.key == "pdS")
 chk("γM1 par défaut = 1,10 (ANB belge)", R0.u.g_M1 == 1.1)
 
-print("\n=== 3. Déversement du plat long (BS 5950-1 Annexe B.2.1) ===")
-chk("pb = py pour λ ≤ λL0 (plateau)", moteur.pb_bs5950(20, 275) == 275)
+print("\n=== 3. Plat LONG selon le SCI P358 (Check 3 et Check 4) — règle retenue le 27/11/2026 ===")
+# LE HARNAIS SUIT : il figeait la courbe BS 5950-1 des profilés laminés (pb, E = 205 000), sans le 0,6, avec le bras z.
+# L'ancienne fonction reste (test ancien / nouveau, tests/test_assemblages_cloture.py) ; le calcul ne l'appelle plus.
+from acier.assemblages import sci as SCI  # noqa: E402
+S3 = math.sqrt(3)
+chk("ancienne courbe gardée comme fonction : pb = py pour λ ≤ λL0 (plateau)", moteur.pb_bs5950(20, 275) == 275)
+chk("χLT de la Table 5.2 du guide (expression 6.56, αLT = 0,76) : 0,25 → 0,96 ; 0,50 → 0,78 ; 0,75 → 0,61 ; "
+    "1,00 → 0,47 ; 1,50 → 0,28 ; 2,00 → 0,18 ; 2,70 → 0,11, à l'arrondi de la table",
+    all(abs(SCI.chi_LT(l) - x) <= 0.005 + 1e-12 for l, x in ((0.25, 0.96), (0.50, 0.78), (0.75, 0.61), (1.00, 0.47),
+                                                               (1.50, 0.28), (2.00, 0.18), (2.70, 0.11))),
+    str([round(SCI.chi_LT(l), 4) for l in (0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.7)]))
+# un plat réellement long : l'exemple avec gh = 40 → zp = 80 > 66,7 ; z = 110 ; hp = 360 < 2,73·z = 300,3 ? non : court
+RL = calcul_main(dict(WE, g_h=40, bp_u=190))
 lam = 2.8 * math.sqrt(80 * 360 / (1.5 * 100))
-chk("λLT = 2,8·√(z·hp/(1,5·tp²)) = 38,80 sur l'exemple publié", pres(R.lam_LT, lam, 1e-12), str(R.lam_LT))
-pE = math.pi ** 2 * 205000 / lam ** 2
-lam0 = 0.4 * math.sqrt(math.pi ** 2 * 205000 / 275)
-eta = 0.007 * (lam - lam0)
-phi = (275 + (eta + 1) * pE) / 2
-pb = pE * 275 / (phi + math.sqrt(phi * phi - pE * 275))
-chk("pb (Perry-Robertson, E = 205 000) recalculé indépendamment", pres(R.pb_LT, pb, 1e-12),
-    f"{R.pb_LT} vs {pb}")
-chk("Mb,Rd = Wel·pb/γM1 (γM1 = 1,0 sur l'exemple)", pres(R.ck["plt"].Rd, 216000 * pb / 1e6, 1e-12))
-Rg = calcul_main(dict(WE, g_M1=1.1))
-chk("γM1 = 1,10 (ANB) réduit Mb,Rd de 1/1,1", pres(Rg.ck["plt"].Rd, R.ck["plt"].Rd / 1.1, 1e-12))
+lamb = lam / (math.pi * math.sqrt(210000 / 275))
+phi = 0.5 * (1 + 0.76 * (lamb - 0.2) + lamb * lamb)
+chi = 1 / (phi + math.sqrt(phi * phi - lamb * lamb))
+chk("plat long (gh = 40 : zp = 80 > tp/0,15 = 66,7) : λ = 2,8·√(zp·hp/(1,5·tp²)) = 38,80 — avec zp, la première "
+    "file, et non z = 110 ; λ̄LT = λ/(π·√(E/fy)) = 0,447 ; χLT = 0,817",
+    RL.long_p and RL.g_B == 80 and RL.z_p == 110 and pres(RL.lam_LT, lam, 1e-12) and pres(RL.lamb_LT, lamb, 1e-12)
+    and pres(RL.chi_LT, chi, 1e-12) and pres(chi, 0.8168, 1e-4), f"{RL.lam_LT} {RL.lamb_LT} {RL.chi_LT}")
+chk("résistance : min(Wel·χLT·fy/(0,6·γM1) = 80,87 ; Wel·fy/γM0 = 59,40) = 59,40 kNm — le 0,6 du diagramme "
+    "triangulaire ; demande VEd·z = 350 × 0,110 = 38,5 kNm",
+    RL.ck["plt"].active and pres(RL.Mb_LT, 216000 * chi * 275 / 0.6 / 1e6, 1e-12)
+    and pres(RL.ck["plt"].Rd, 59.4, 1e-12) and pres(RL.ck["plt"].Ed, 38.5, 1e-12), f"{RL.Mb_LT} {RL.ck['plt'].Rd}")
+# le déversement GOUVERNE sur un plat mince et très long : tp = 8, gh = 100 (zp = 140), γM1 = 1,10
+RLg = calcul_main(dict(WE, tp_u=8, g_h=100, bp_u=250, g_M1=1.1))
+_lb = 2.8 * math.sqrt(140 * 360 / (1.5 * 64)) / (math.pi * math.sqrt(210000 / 275))
+_ph = 0.5 * (1 + 0.76 * (_lb - 0.2) + _lb * _lb)
+_ch = 1 / (_ph + math.sqrt(_ph * _ph - _lb * _lb))
+chk("plat de 8 mm, zp = 140, γM1 = 1,10 : le déversement gouverne — Wel·χLT·fy/(0,6·γM1) = 172 800 × 0,618 × 275/0,66 "
+    "= 44,5 kNm < Wel·fy = 47,52 kNm ; avec γM1 = 1,0 le plafond élastique reprend la main",
+    pres(RLg.chi_LT, _ch, 1e-12) and pres(RLg.ck["plt"].Rd, 172800 * _ch * 275 / (0.6 * 1.1) / 1e6, 1e-12)
+    and RLg.ck["plt"].Rd < 172800 * 275 / 1e6
+    and pres(calcul_main(dict(WE, tp_u=8, g_h=100, bp_u=250, g_M1=1.0)).ck["plt"].Rd, 172800 * 275 / 1e6, 1e-12),
+    f"{RLg.chi_LT} {RLg.ck['plt'].Rd}")
+chk("MEd imposé : le diagramme n'est plus triangulaire, le 0,6 n'est PAS appliqué (coefficient 1)",
+    calcul_main(dict(WE, g_h=40, bp_u=190, M_Ed=5)).k_tri == 1.0 and RL.k_tri == 0.6)
+# SECTION ABCD de l'âme portée (Check 4) : VEd·(zp + p2) ≤ Mc,BC,Rd + Vpl,AB,Rd·(n1 − 1)·p1
+_VAB = 9 * 100 * 275 / S3 / 1000
+_Mc = 275 * 9 * 280 ** 2 / 6 / 1e6
+chk("section ABCD (plat long) : 350 × (80 + 60) = 49,0 kNm ≤ Mc,BC,Rd 32,34 + Vpl,AB,Rd 142,89 × 0,280 = 72,35 kNm ; "
+    "VBC,Ed = 350 × 280/547 = 179,2 ≤ 0,5·Vpl,BC,Rd = 200,1 : pas de réduction",
+    RL.ck["abS"].active and pres(RL.ck["abS"].Ed, 49.0, 1e-12) and pres(RL.abcd.V_AB, _VAB, 1e-12)
+    and pres(RL.abcd.Mc_BC, _Mc, 1e-12) and pres(RL.ck["abS"].Rd, _Mc + _VAB * 0.28, 1e-12) and not RL.abcd.fort
+    and pres(RL.abcd.VBC, 350 * 280 / 547, 1e-12), f"{RL.ck['abS'].Ed} {RL.ck['abS'].Rd}")
+RLf = calcul_main(dict(WE, g_h=40, bp_u=190, V_Ed=420))
+chk("… cisaillement FORT de BC (VEd = 420 : VBC,Ed = 215,0 > 200,1) : Mc,BC,Rd réduit par 1 − (2·VBC/Vpl,BC − 1)²",
+    RLf.abcd.fort and pres(RLf.abcd.Mc_BC, _Mc * (1 - (2 * (420 * 280 / 547) / (9 * 280 * 275 / S3 / 1000) - 1) ** 2), 1e-12),
+    str(RLf.abcd.Mc_BC))
+chk("plat long sur une poutre NON maintenue : statut « à vérifier » (le guide ne l'admet pas sans essais)",
+    "plat long et poutre non maintenue" in calcul_main(dict(WE, g_h=40, bp_u=190, lt_ok="Non")).a_verifier)
 
 print("\n=== 4. Alertes et domaine ===")
 Ra = moteur.compute(dict(hp_u=300))
@@ -166,18 +227,27 @@ Rc = moteur.compute(dict(tp_u=15))
 chk("tp = 15 > 0,42·d = 8,4 et tw = 8,5 > 8,4 (S355) : alerte ductilité (non bloquante)",
     any(a.id == "tp_duct" and not a.block for a in Rc.alerts))
 Rd_ = moteur.compute(dict(e2b_u=70, lt_ok="Non"))
-chk("z = 80 > tp/0,15 et poutre non maintenue : alerte plat long",
+chk("zp = gh + e2,b = 80 > tp/0,15 et poutre non maintenue : alerte plat long",
     Rd_.long_p and any(a.id == "long_nr" for a in Rd_.alerts))
 chk("hp < 0,6·h : recommandation signalée", any(a.id == "hp_rec" for a in moteur.compute(dict(hp_u=170)).alerts))
 chk("Tableau 3.3 : 6 lignes actives par défaut (e1p, e2p, e1b, e2b, p1 ; p2 inactif)",
     len(R0.dist) == 5 and all(x.ok for x in R0.dist), str([x.id for x in R0.dist]))
 
 print("\n=== 5. Prédimensionnement ===")
-Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT"))
-chk("proposition complète au cas par défaut", Rp.pd.found and Rp.pd.msg == "Proposition complète", Rp.pd.msg)
+# LE HARNAIS SUIT (27/11/2026) : les propositions tiennent les pinces à 2·d du détail éprouvé (SCI P358 §5.3 (5)).
+# Sur les 199 mm disponibles de la HEA 300 grugée, 3 M20 à e1 = 40 et p1 = 55 sont à 92,9 % sous 125 kN — au-dessus
+# du taux cible de 90 % : plus de proposition « complète » à cette charge (elle existait à 80,3 % avec e1 = 35) ;
+# à 110 kN (81,8 %) la proposition complète revient.
+Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT", V_Ed=110))
+chk("proposition complète à 110 kN, pinces ≥ 2·d ; à 125 kN (cas par défaut) aucune combinaison sous le taux cible",
+    Rp.pd.found and Rp.pd.msg == "Proposition complète" and Rp.pd.e1 >= 2 * Rp.pd.pick.b["d"]
+    and Rp.pd.e2 >= 2 * Rp.pd.pick.b["d"] and not moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT")).pd.found,
+    Rp.pd.msg)
+chk("prédimensionnement : AUCUNE ligne proposée sous 2·d (e1 et e2, tous diamètres)",
+    all(r.e1 >= 2 * r.b["d"] and r.e2 >= 2 * r.b["d"] for r in Rp.pd.rows))
 chk("épaisseur proposée ≤ plafond de ductilité (0,42·d en S355, SCI P358 §5.3 (3))",
     Rp.pd.tp <= Rp.pd.pick.prop.tmax + 1e-9, str(Rp.pd.tp))
-u2 = moteur.apply_solution(dict(), Rp.pd.pick)
+u2 = moteur.apply_solution(dict(V_Ed=110), Rp.pd.pick)
 chk("apply_solution : mode VÉRIFICATION, boulon, rangées, hp, tp, bp, a recopiés",
     u2["mode_calc"] == "VÉRIFICATION" and u2["boulon_u"] == Rp.pd.boulon
     and u2["n1_u"] == Rp.pd.n and u2["hp_u"] == Rp.pd.hp and u2["tp_u"] == Rp.pd.tp
@@ -209,13 +279,16 @@ for i in range(200):
             print("      première exception :", type(e).__name__, e, "au tirage", i)
 chk("aucune exception sur 200 tirages", nerr == 0, str(nerr))
 
-print("\n=== 7. Régression figée (tests/ref_plat_ame.json, 12 cas, 187 vérifications) ===")
+print("\n=== 7. Régression figée (tests/ref_plat_ame.json, 13 cas, 215 vérifications) ===")
 import json  # noqa: E402
 with open("tests/ref_plat_ame.json", encoding="utf-8") as fh:
     REF = json.load(fh)
 ndiff = 0
 for nom, cas in REF.items():
     Rr = moteur.compute(cas["inp"])
+    if {c.key for c in Rr.checks if c.active} != set(cas["checks"]) or Rr.a_verifier != cas["a_verifier"]:
+        ndiff += 1      # (une vérification ACTIVE de plus ou de moins, ou un motif « à vérifier » différent)
+        print("   ", nom, "vérifications actives ou motif divergents", Rr.a_verifier)
     for k, (ed, rd, eta) in cas["checks"].items():
         c = Rr.ck.get(k)
         if c is None or not c.active or abs(c.Ed - ed) > 1e-9 * max(1, abs(ed)) \
@@ -231,7 +304,7 @@ for nom, cas in REF.items():
        or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
         ndiff += 1
         print("   ", nom, "synthèse divergente")
-chk("RÉGRESSION CALCUL : 0 différence sur les 12 cas figés", ndiff == 0, str(ndiff))
+chk("RÉGRESSION CALCUL : 0 différence sur les 13 cas figés", ndiff == 0, str(ndiff))
 
 # ================================================================
 print("\n=== 8. Lot A : f_y et f_u de chaque pièce selon SON épaisseur (tableau 3.3 ANB) ===")

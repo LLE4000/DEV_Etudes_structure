@@ -29,6 +29,7 @@ from acier.js import (AttrDict, INF, N, dv, mn, mx, js_round, ceil5, hyp,
 from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince, EffortBoulon
 from acier import resistances as RS
+from acier.assemblages import sci as SCI
 from acier.assemblages import materiau as MT
 from .entrees import defaults, NUM, MODE_PREDIM, BOULONNEE
 
@@ -66,6 +67,7 @@ def compute(u0=None, materiau=None):
         u[k] = v
     for n in NUM:
         u[n] = N(u[n])
+    v_inverse = bool(u.V_Ed < 0)                # sens inversé : traité en valeur absolue, chemin à justifier (statut)
     u.V_Ed = abs(u.V_Ed)
     Mabs = abs(u.M_Ed)
     # CORRECTIONS du 25/11/2026 (docs/assemblages/ECARTS_ET_CORRECTIONS.md §7) : appliquées partout, SAUF quand le
@@ -76,7 +78,8 @@ def compute(u0=None, materiau=None):
     cor = not getattr(materiau or MT.table_du_site, "formules_du_corrige", False)
     R = AttrDict()
     if cor:
-        R.corrections = "C1-C5"
+        R.corrections = "C1-C7"                 # C6 et C7 : lot de clôture du 27/11/2026 (grugeage court, statut)
+        R.V_inverse = v_inverse
     R.u = u
     R.checks = []
     R.ck = {}
@@ -155,6 +158,9 @@ def compute(u0=None, materiau=None):
     R.xm_P = (R.n2_P - 1) * u.p2_P / 2; R.ym_P = (R.n1_P - 1) * R.p1_P / 2
     R.e_P = R.g_A + (R.n2_P - 1) * u.p2_P / 2
     for X in ("S", "P"):
+        # (longueurs NOMINALES du groupe de cordons : la longueur efficace de l'EN 1993-1-8 §4.5.1(1) — L − 2a aux
+        # extrémités libres — n'est PAS appliquée ici ; le groupe en C et son banc sont ceux du corrigé de référence,
+        # et ce choix de modèle attend l'accord du bureau : ECARTS_ET_CORRECTIONS.md §8.4)
         lh = u["lh_" + X]; L = R.L_C; Lw = L + 2 * lh; xg = dv(lh * lh, Lw)
         R["Lw_" + X] = Lw; R["xg_" + X] = xg
         R["Iw_" + X] = (L * L * L / 12 + 2 * lh * (L / 2) * (L / 2) + L * xg * xg
@@ -304,6 +310,15 @@ def compute(u0=None, materiau=None):
              m="Catégorie B ou C : boulons précontraints de classe 8.8 ou 10.9 requis (EN 1993-1-8 §3.4.1).",
              f=["cat", "classe"], d=[], e=[], w=""),
     ]
+    if cor:
+        AL += [
+            dict(id="V_inv", c=v_inverse, b=0,
+                 m="VEd saisi négatif (effort de soulèvement) : calculé en valeur absolue — pinces chargées, bloc et appui changent de côté : chemin de l'effort à justifier.",
+                 f=["V_Ed"], d=[], e=[], w=""),
+            dict(id="blf_off", c=u.opt_blf != "Oui" and mx((R.n1_S - 1) * R.p1_S if R.bolt_S else 0, (R.n1_P - 1) * R.p1_P if R.bolt_P else 0) > 15 * d, b=0,
+                 m="Assemblage long (Lj > 15·d) : le coefficient βLf de l'EN 1993-1-8 §3.8 n'est PAS appliqué (option « βLf » sur Non, comme les exemples des guides).",
+                 f=["opt_blf"], d=[], e=["bolts"], w="Lj > 15·d = " + F(15 * d, 0) + " mm."),
+        ]
     R.alerts = [Alerte(id=a["id"], msg=a["m"], block=bool(a["b"]), fields=list(a["f"]),
                        dims=list(a["d"]), elems=list(a["e"]), why=a["w"],
                        covers=list(a.get("cv") or []))
@@ -413,6 +428,14 @@ def compute(u0=None, materiau=None):
     R.Mv_N = dv(R.W_N * R.fy_S, gM0) / 1e6 * R.rho_N
     Vm = mn(R.VRd_gS, R.VRd_bS)
     R.Mc_2 = dv(R.W_N * R.fy_S, gM0) / 1e6 * (1 if V <= 0.5 * Vm else mx(0, 1 - (2 * dv(V, Vm) - 1) ** 2))
+    # C6 — GRUGEAGE COURT à deux files (MSB P5 §4.2.4.2) : si l'extrémité du grugeage est à moins de 2d de la 2e file
+    # (xN < 2d), le moment est le plus grand de VEd·(gh + ln) et VEd·(gh + e2,b + p2), et la résistance celle de la
+    # vérification à la 2e file (Mc,Rd, avec Vpl = min(VRd,g ; VRd,b)). Avant : VEd·(gh + ln) ≤ Mv,N,Rd seulement.
+    court_N = False
+    if cor:
+        R.xN = u.l_n - (R.e2b_S + (R.n2_S - 1) * u.p2_S)
+        R.court_N = court_N = bool(R.cas_g > 0 and R.bolt_S and R.n2_S == 2 and R.xN < SCI.N_2D * d)
+        R.bras_N = mx(u.g_h + u.l_n, u.g_h + R.e2b_S + u.p2_S) if court_N else u.g_h + u.l_n
     # domaine de la règle du guide (limites S275 / S355) : lu sur la NUANCE, pas sur la f_y réduite par l'épaisseur
     fyn_S = MT.nominale(R, "S")
     R.el_N = dv(R.h_S, R.tw_S); R.lim_N = 54.3 if fyn_S <= 275 else 48
@@ -546,10 +569,17 @@ def compute(u0=None, materiau=None):
        MSB + " §4.2.3.1 (ECCS n°126)", "COMP", R.bolt_S, "VRd,n = (Av − n1·d0·tw)·fu/(√3·γM2)", "Av,net = " + F(R.Av_S - R.n1_S * d0 * R.tw_S, 0) + " mm²", 1)
     ck("vbS", "Poutre secondaire", "Âme – rupture de bloc", V, R.VRd_bS, "kN", "EN 1993-1-8 §3.10.2(3) ; aires : " + MSB + " §4.2.3.1", "EC", R.bolt_S,
        "Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0)", "Ant = " + F(R.Ant_S, 0) + " mm² ; Anv = " + F(R.Anv_S, 0) + " mm²", 1)
-    ck("mN", "Poutre secondaire", "Poutre grugée – flexion + cisaillement à l'extrémité du grugeage", V * (u.g_h + u.l_n) / 1000 + Mabs, R.Mv_N, "kNm",
-       MSB + " §4.2.4 ; SCI P358 Check 5", "COMP", R.cas_g > 0,
-       "MEd = VEd·(gh + ln) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd",
-       "Wel,N = " + F(R.W_N, 0) + " mm³ ; Vpl,N,Rd = " + F(R.VRd_gS, 1) + " kN ; réduction = " + F(R.rho_N, 3), 1)
+    if court_N:      # C6 — MSB P5 §4.2.4.2 (deux files, xN < 2d)
+        ck("mN", "Poutre secondaire", "Poutre grugée – flexion + cisaillement à l'extrémité du grugeage", V * R.bras_N / 1000 + Mabs, R.Mc_2, "kNm",
+           MSB + " §4.2.4.2 ; SCI P358 Check 5", "COMP", True,
+           "deux files et xN < 2d : MEd = VEd·max(gh + ln ; gh + e2,b + p2) ≤ Mc,Rd de la 2e file, Vpl,N,Rd = min(VRd,g ; VRd,b)",
+           "xN = " + F(R.xN, 0) + " mm < 2d = " + F(SCI.N_2D * d, 0) + " mm : bras = " + F(R.bras_N, 0) + " mm ; Wel,N = " + F(R.W_N, 0)
+           + " mm³ ; Vpl,N,Rd = min(" + F(R.VRd_gS, 1) + " ; " + F(R.VRd_bS, 1) + ") kN", 1)
+    else:
+        ck("mN", "Poutre secondaire", "Poutre grugée – flexion + cisaillement à l'extrémité du grugeage", V * (u.g_h + u.l_n) / 1000 + Mabs, R.Mv_N, "kNm",
+           MSB + " §4.2.4 ; SCI P358 Check 5", "COMP", R.cas_g > 0,
+           "MEd = VEd·(gh + ln) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd",
+           "Wel,N = " + F(R.W_N, 0) + " mm³ ; Vpl,N,Rd = " + F(R.VRd_gS, 1) + " kN ; réduction = " + F(R.rho_N, 3), 1)
     ck("m2", "Poutre secondaire", "Poutre grugée – interaction à la 2e file de boulons (n2 = 2)", V * (u.g_h + R.e2b_S + u.p2_S) / 1000, R.Mc_2, "kNm", MSB + " §4.2.3.2", "COMP",
        R.cas_g > 0 and R.bolt_S and R.n2_S == 2 and u.l_n > R.e2b_S + u.p2_S, "MEd = VEd·(gh + e2,b + p2)", "")
     ck("stN", "Poutre secondaire", "Stabilité locale du grugeage – longueur ln", u.l_n, R.ln_max, "mm", MSB + " §4.2.5 ; SCI P358 Check 6", "COMP", R.cas_g > 0,
@@ -585,6 +615,16 @@ def compute(u0=None, materiau=None):
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
     R.statut = "ASSEMBLAGE VÉRIFIÉ" if R.verified else "ASSEMBLAGE NON VÉRIFIÉ"
     R.reserve = bool(R.cas_g > 0 and R.val_N.startswith("NON VALIDE"))
+    if cor:
+        # C7 — statut (lot de clôture du 27/11/2026) : ce que le calcul ne PROUVE pas se lit dans le verdict — « À
+        # VÉRIFIER (raison) », jamais « VÉRIFIÉ » en vert (le corrigé de référence garde ses deux statuts).
+        SCI.poser_statut(R, [
+            SCI.donnee((not R.bolt_P and not R.bolt_S) and "articulation à justifier : cornières soudées des deux côtés"),
+            SCI.donnee((H > 0.1 * V and H > 0) and "flexion hors plan des cornières sous HEd non couverte"),
+            SCI.donnee(R.reserve and "poutre grugée non maintenue au déversement"),
+            SCI.donnee(R.V_inverse and "effort tranchant de sens inversé"),
+            SCI.donnee((NEd > 0) and "âme porteuse sous la traction non vérifiée"),
+        ])
     return R
 
 

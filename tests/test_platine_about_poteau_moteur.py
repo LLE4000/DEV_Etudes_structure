@@ -76,8 +76,12 @@ def pres(a, b, tol):
 # ================================================================
 print("=== 1. HÉRITAGE : l'exemple publié MSB Part 5 §2.4 sur un POTEAU ===")
 R = calcul_main(BM.WE)
-chk("âme de la poutre – cisaillement sur hp = 614 kN (Av = 430 × 9 = 3 870 mm²)",
-    pres(R.ck["vwS"].Rd, 614, 0.01), str(R.ck["vwS"].Rd))
+# LE HARNAIS SUIT (lot de clôture du 27/11/2026) : il figeait l'aire hp·tw du MSB (614 kN) ; le bureau a retenu
+# Av = 0,9·hp·tw (SCI P358 Check 4) — 0,9 × 614,4 = 553,0 kN
+chk("âme de la poutre – cisaillement sur hp = 0,9 × 614 = 553 kN (Av = 0,9 × 430 × 9 = 3 483 mm² ; le MSB "
+    "imprime 614 kN sans le 0,9)",
+    pres(R.ck["vwS"].Rd, 0.9 * 430 * 9 * 275 / S3 / 1000, 1e-12) and pres(R.ck["vwS"].Rd / 0.9, 614, 0.01),
+    str(R.ck["vwS"].Rd))
 chk("un boulon en cisaillement Fv,Rd = 94 kN (arrondi de la source)", pres(R.Fv_Rd, 94, 0.01), str(R.Fv_Rd))
 chk("pression diamétrale de la platine : 107 kN aux extrémités (αb arrondi 0,61) et 142 kN à l'intérieur",
     pres(R.Fbb_L, 107, 0.01) and pres(R.Fbi_L, 142, 0.01), f"{R.Fbb_L} {R.Fbi_L}")
@@ -95,8 +99,8 @@ chk("ANCRE du tronçon en T : m = 59,164 ; n = 30 ; ew = 9,25 ; Σleff = 430 (= 
     pres(R.m_T, (140 - 9) / 2 - 0.8 * 5.6 * math.sqrt(2), 1e-12) and R.nT == 30 and R.ew_T == 9.25
     and R.leff_T == 430 and pres(R.FT1, 491.8580, 1e-5) and pres(R.FT2, 783.1995, 1e-5)
     and pres(R.FT3, 1924.3636, 1e-5), f"{R.m_T} {R.leff_T} {R.FT1} {R.FT2} {R.FT3}")
-chk("l'exemple est VÉRIFIÉ, dimensionnante = l'âme de la poutre sur hp (η = 0,895)",
-    R.verified and R.gov.key == "vwS" and pres(R.eta_max, 550 / 614.445, 1e-6), R.gov.key)
+chk("l'exemple est VÉRIFIÉ, dimensionnante = l'âme de la poutre sur hp (η = 0,995 ; 0,895 avant le 0,9 du SCI)",
+    R.verified and R.gov.key == "vwS" and pres(R.eta_max, 550 / (0.9 * 614.445), 1e-6), R.gov.key)
 chk("benchmark du module : statut VALIDÉ, pire écart 0,95 % (αb arrondi par la source)",
     BM.run_bench()["statut"] == "VALIDÉ" and BM.run_bench()["worst"] <= 0.01,
     str(BM.run_bench()["worst"]))
@@ -124,8 +128,8 @@ chk("platine : k1 = 2,5 ; αb extrémité 0,606061 et intérieur 0,810606 → Fb
     R0.k1_L == 2.5 and pres(R0.abb_L, _abb, 1e-12) and pres(R0.abi_L, _abi, 1e-12)
     and pres(R0.Fbb_L, _k1 * _abb * fu * d * tp / 1.25 / 1000, 1e-12)
     and pres(R0.Fbi_L, _k1 * _abi * fu * d * tp / 1.25 / 1000, 1e-12), f"{R0.Fbb_L} {R0.Fbi_L}")
-chk("groupe : Fv,Rd ≤ (Fb,Rd)min → FRd = 0,8·ns·Fv,Rd = 602,112 kN (η = 0,332)",
-    pres(R0.ck["bg"].Rd, 0.8 * ns * Fv, 1e-12) and "0,8·ns·Fv,Rd" in R0.branche_g
+chk("groupe (SCI Check 8) : Fb,Rd,min > 0,8·Fv,Rd → FRd = 0,8·n·Fv,Rd = 602,112 kN (η = 0,332)",
+    pres(R0.ck["bg"].Rd, 0.8 * ns * Fv, 1e-12) and "0,8·n·Fv,Rd" in R0.branche_g
     and pres(R0.ck["bg"].eta, 200 / (0.8 * ns * Fv), 1e-12), str(R0.ck["bg"].Rd))
 chk("platine : VRd,g = 936,035 (2 plans, 1/1,27) ; VRd,n = 951,658 ; VRd,b = 945,799 kN (k = 1)",
     pres(R0.ck["pcg"].Rd, 2 * (hp * tp) * fy / (1.27 * S3) / 1000, 1e-12)
@@ -148,17 +152,19 @@ chk("rupture de bloc, platine dissymétrique 40 / 180 : Anv = tp·(e1,min + (n1 
 R1_ = calcul_main(dict(n1_u=1, hp_u=100, e1_u=50, N_Ed=60))
 chk("platine à UNE rangée, hp = 100 : Σleff = e1 + e1' = hp = 100 mm (195 mm avant la correction)",
     pres(R1_.leff2_T, 100.0, 1e-12) and R1_.leff_T <= 100.0 + 1e-9, f"{R1_.leff_T} {R1_.leff2_T}")
-chk("âme portée : Av = hp·tw = 2 494 mm² ; VRd = 511,169 kN → DIMENSIONNANTE, η = 0,391",
-    R0.Av_w == 2494 and pres(R0.ck["vwS"].Rd, 2494 * fy / S3 / 1000, 1e-12)
-    and R0.gov.key == "vwS" and pres(R0.eta_max, 0.3913, 0.001), f"{R0.gov.key} {R0.eta_max}")
+# LE HARNAIS SUIT (27/11/2026) : Av = 0,9·hp·tw (SCI P358 Check 4) — 460,05 kN au lieu de 511,17
+chk("âme portée : Av = 0,9·hp·tw = 2 244,6 mm² ; VRd = 460,052 kN → DIMENSIONNANTE, η = 0,435 (0,391 avant)",
+    pres(R0.Av_w, 0.9 * 2494, 1e-12) and R0.At_w == 2494 and pres(R0.ck["vwS"].Rd, 0.9 * 2494 * fy / S3 / 1000, 1e-12)
+    and R0.gov.key == "vwS" and pres(R0.eta_max, 0.4347, 0.001), f"{R0.gov.key} {R0.eta_max}")
 chk("AILE DU POTEAU : αb = 0,810606 du seul p1 (aucune pince d'extrémité), k1 = 2,5 du gauge et du "
     "bout d'aile, t = tfP = 19 → Fb,Rd = 314,191 kN/boulon et VRd = 2 513,53 kN (η = 0,0796)",
     pres(R0.ab_P, _abi, 1e-12) and R0.k1_P == 2.5 and R0.t_appui == 19
     and pres(R0.Fb_P, 2.5 * _abi * fu * d * 19 / 1.25 / 1000, 1e-12)
     and pres(R0.ck["pdP"].Rd, ns * R0.Fb_P, 1e-12) and pres(R0.ck["pdP"].eta, 0.0796, 0.001),
     f"{R0.Fb_P} {R0.ck['pdP'].Rd}")
-chk("cordons : qz = VEd/(2hp) = 344,83 N/mm ; fvw,d = 261,732 MPa ; Fw,Rd = 1 308,66 N/mm",
-    pres(R0.qz_w, 200000 / (2 * hp), 1e-12) and pres(R0.fvw, fu / (S3 * bw * 1.25), 1e-12)
+# LE HARNAIS SUIT (27/11/2026) : la longueur EFFICACE des cordons est 2·(hp − 2a) = 560 mm, plus 2·hp = 580
+chk("cordons : qz = VEd/(2·(hp − 2a)) = 357,14 N/mm (344,83 sur 2·hp) ; fvw,d = 261,732 MPa ; Fw,Rd = 1 308,66 N/mm",
+    pres(R0.qz_w, 200000 / (2 * (hp - 10)), 1e-12) and R0.Lw == 560 and pres(R0.fvw, fu / (S3 * bw * 1.25), 1e-12)
     and pres(R0.ck["w"].Rd, fu / (S3 * bw * 1.25) * 5, 1e-12), f"{R0.qz_w} {R0.fvw}")
 chk("gorge de pleine résistance recommandée 0,553727·tw = 4,762 mm (a = 5 : pas d'alerte)",
     pres(R0.a_plein, bw * 1.25 * fy / (math.sqrt(2) * fu) * 8.6, 1e-12)
@@ -214,12 +220,15 @@ chk("ÂME DU POTEAU : k1 = 2,5 du seul gauge (aucun bord libre), t = twP = 11 �
     "et VRd = 1 455,20 kN",
     R4.t_appui == 11 and R4.k1_P == 2.5 and pres(R4.Fb_P, 181.9, 1e-4)
     and pres(R4.ck["pdP"].Rd, 8 * 181.9, 1e-4), f"{R4.Fb_P} {R4.ck['pdP'].Rd}")
-chk("cisaillement local de l'âme ACTIF : brut 653,820 kN (η = 0,153) et net 523,412 kN (η = 0,191), "
-    "Ed = VEd/2 = 100 kN",
+# LE HARNAIS SUIT (27/11/2026) : il figeait Av = twP·hp (653,8 et 523,4 kN) ; le SCI (Check 10) mesure la section sur
+# le POTEAU : et = 5d = 100 (il continue), eb = min(p3/2 = 55 ; 5d) → Av = 11 × (100 + 210 + 55) = 4 015 mm²
+chk("cisaillement local de l'âme ACTIF (SCI Check 10) : Av = 11 × (5d + 3·p1 + p3/2) = 4 015 mm² → brut "
+    "822,912 kN (η = 0,122) et net 717,748 kN (η = 0,139), Ed = VEd/2 = 100 kN",
     R4.ck["vlP"].active and R4.ck["vnP"].active and R4.ck["vlP"].Ed == 100
-    and pres(R4.ck["vlP"].Rd, 11 * 290 * 355 / S3 / 1000, 1e-12)
-    and pres(R4.ck["vnP"].Rd, 11 * (290 - 4 * 22) * 510 / (S3 * 1.25) / 1000, 1e-12)
-    and pres(R4.ck["vlP"].eta, 0.15294722129620533, 1e-9) and pres(R4.ck["vnP"].eta, 0.1911, 0.001),
+    and R4.et_P == 100 and R4.eb_P == 55 and R4.Av_P == 4015
+    and pres(R4.ck["vlP"].Rd, 4015 * 355 / S3 / 1000, 1e-12)
+    and pres(R4.ck["vnP"].Rd, (4015 - 4 * 22 * 11) * 510 / (S3 * 1.25) / 1000, 1e-12)
+    and pres(R4.ck["vlP"].eta, 100 / 822.912, 1e-5) and pres(R4.ck["vnP"].eta, 100 / 717.748, 1e-5),
     f"{R4.ck['vlP'].Rd} {R4.ck['vnP'].Rd}")
 chk("cas (a) : le cisaillement local de l'âme est SANS OBJET (l'attache est sur l'aile)",
     not R0.ck["vlP"].active and not R0.ck["vnP"].active)
@@ -288,9 +297,10 @@ chk("poinçonnement : Ft,Ed = NEd/ns = 31,25 kN ; platine 277,911 kN et aile 528
     pres(Rt.ck["pp"].Ed, 31.25, 1e-12) and pres(Rt.Bp_pl, 277.911, 1e-4)
     and pres(Rt.Bp_P, 528.031, 1e-4) and pres(Rt.ck["pp"].Rd, 277.911, 1e-4),
     f"{Rt.Bp_pl} {Rt.Bp_P} {Rt.ck['pp'].Rd}")
-chk("tying : âme portée en traction sur hp = 1 156,31 kN ; cordons qx = 431,03 pour 1 487,11 N/mm",
+chk("tying : âme portée en traction sur hp = 1 156,31 kN (aire TENDUE tw·hp, sans 0,9) ; cordons "
+    "qx = NEd/(2·(hp − 2a)) = 446,43 pour 1 487,11 N/mm",
     pres(Rt.ck["tnS"].Rd, 2494 * 510 / 1.1 / 1000, 1e-12)
-    and pres(Rt.ck["wT"].Ed, 250000 / 580, 1e-12)
+    and pres(Rt.ck["wT"].Ed, 250000 / 560, 1e-12)
     and pres(Rt.ck["wT"].Rd, 510 / (S3 * 0.9 * 1.1) * 5, 1e-12), str(Rt.ck["wT"].Rd))
 Rtb = calcul_main(BM.BM4T)
 chk("cas (b) en tying : le tronçon en T de l'aile et l'âme en traction transversale sont SANS OBJET "
@@ -353,11 +363,14 @@ be = MEC.bearing(R0.t_appui, R0.fu_P, R0.f_ub, R0.d_b, R0.d_0, None, R0.p_1, R0.
                  R0.e_P, R0.p_3, 2, 1.25, 1.0)
 chk("pression diamétrale du poteau : αb, k1 et Fb identiques à mecanique.bearing(e1 = None)",
     be["abv"] == R0.ab_P and be["k1v"] == R0.k1_P and be["Fbv"] == R0.Fb_P)
-gb = MEC.groupe_boulons(R0.Fv_Rd * R0.bLf, R0.Fbb_L, R0.Fbi_L, 2, R0.n_b - 2)
-chk("groupe de fixations : FRd et la branche identiques à mecanique.groupe_boulons",
-    gb[0] == R0.FRd_g and gb[1] == R0.branche_g)
+# LE HARNAIS SUIT (27/11/2026) : le groupe est celui du SCI P358 Check 8 (``sci.groupe_boulons``), la plus petite
+# pression diamétrale — platine (extrémité, courante) et POTEAU — comparée à 0,8·Fv,Rd ; le double grugeage prend 0,9
+from acier.assemblages import sci as SCI  # noqa: E402
+gb = SCI.groupe_boulons(R0.Fv_Rd * R0.bLf, [min(R0.Fbb_L, R0.Fbi_L, R0.Fb_P)], R0.n_b)
+chk("groupe de fixations : FRd et la branche identiques à sci.groupe_boulons (platine ET poteau dans le minimum)",
+    gb[0] == R0.FRd_g and gb[1] == R0.branche_g and R0.Fb_min == min(R0.Fbb_L, R0.Fbi_L, R0.Fb_P))
 sg = MEC.section_grugee(dict(h=Rg.h_S, b=Rg.b_S, tw=Rg.tw_S, tf=Rg.tf_S, r=Rg.r_S),
-                        Rg.fy_S, 50, 40, 1.0, 200.0, True)
+                        Rg.fy_S, 50, 40, 1.0, 200.0, True, k_double=SCI.K_AV)
 chk("poutre grugée : cas_g, Av, W_N, Mv,N,Rd, ln,max identiques à mecanique.section_grugee",
     sg["cas_g"] == Rg.cas_g and sg["Av"] == Rg.Av_S and sg["W_N"] == Rg.W_N
     and sg["Mv_N"] == Rg.ck["mN"].Rd and sg["ln_max"] == Rg.ln_max)
@@ -462,7 +475,7 @@ for nom, cas in REF.items():
             print("   ", nom, "scalaire", k, "attendu", v, "obtenu", Rr[k])
     if (Rr.gov.key if Rr.gov else None) != cas["gov"] or Rr.verified != cas["verified"] \
        or Rr.geo_ok != cas["geo_ok"] or Rr.dist_ok != cas["dist_ok"] \
-       or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
+       or sorted(a.id for a in Rr.alerts) != cas["alerts"] or Rr.a_verifier != cas["a_verifier"]:
         ndiff += 1
         print("   ", nom, "synthèse divergente")
 chk(f"RÉGRESSION CALCUL : 0 différence sur les {len(REF)} cas figés "

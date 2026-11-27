@@ -251,7 +251,7 @@ GROUPES = [
                h="1,1 : valeur des guides (MSB P5 §2.3, SCI P358) ; l'EN 1993-1-8 ne la fixe pas — à confirmer pour la Belgique.")]),
     dict(t="Options du modèle mécanique",
          f=[_c("opt_blf", "Appliquer βLf des assemblages longs (Lj > 15d)", "s", OUI_NON,
-               h="EN 1993-1-8 §3.8. Les guides ne l'appliquent pas aux attaches d'âme ; Oui = variante conservatrice."),
+               h="EN 1993-1-8 §3.8. Non par défaut : l'âme est soudée sur toute la hauteur, le transfert est uniforme (exception du §3.8(2)) — les guides ne l'appliquent pas aux attaches d'âme ; Oui = variante conservatrice."),
             _c("expo", "Assemblage exposé aux intempéries", "s", OUI_NON,
                h="Active les pinces maximales 4t + 40 mm (Tableau 3.3).")]),
     dict(t="Acier personnalisé", si=_acier_perso,

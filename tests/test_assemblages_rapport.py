@@ -106,8 +106,12 @@ for ident in ("VAL_B", "deux_files_double_grugeage", "N_traction", "soude_2_cote
     chk(f"{ident} : 3 pages, sans débordement, variante {rapport.derniere_variante}",
         dc.page_count == 3 and not rapport.derniers_avertissements, str(rapport.derniers_avertissements)[:200])
     tt = dc[1].get_text()
-    chk(f"{ident} : statut du moteur sur la planche",
-        ("ASSEMBLAGE VÉRIFIÉ" in tt) == bool(Rc.verified) and ("NON VÉRIFIÉ" in tt) == (not Rc.verified))
+    # (lot de clôture du 27/11/2026 : trois états — un assemblage vérifié dont une raison reste à justifier est
+    #  « À VÉRIFIER », jamais « VÉRIFIÉ » sur la planche)
+    a_verif = bool(Rc.verified and Rc.get("a_verifier"))
+    chk(f"{ident} : statut du moteur sur la planche ({'à vérifier' if a_verif else 'vérifié' if Rc.verified else 'non vérifié'})",
+        ("ASSEMBLAGE VÉRIFIÉ" in tt) == bool(Rc.verified and not a_verif) and ("NON VÉRIFIÉ" in tt) == (not Rc.verified)
+        and ("ASSEMBLAGE À VÉRIFIER" in tt) == a_verif)
 
 print("\n=== 5. Depuis l'application ===")
 from streamlit.testing.v1 import AppTest  # noqa: E402

@@ -20,6 +20,7 @@ TABLES = [
       ("bvt", "Cisaillement + traction")]),
     ("platine", "Platine d'about",
      [("pcg", "Cisaillement brut"), ("pcn", "Cisaillement net"), ("pcb", "Rupture de bloc"),
+      ("pip", "Flexion dans le plan (platine courte)"),
       ("ptT", "Flexion en traction (tronçon en T)"), ("pp", "Poinçonnement")]),
     ("portee", "Poutre portée",
      [("vwS", "Âme – cisaillement sur hp"), ("vgS", "Grugeage – cisaillement"),
@@ -28,7 +29,7 @@ TABLES = [
     ("poteau", "Poteau porteur",
      [("pdP", "Pression diamétrale"), ("vlP", "Cisaillement local de l'âme – brut"),
       ("vnP", "Cisaillement local de l'âme – net"), ("tfP", "Aile en flexion (tronçon en T)"),
-      ("twtP", "Âme en traction transversale")]),
+      ("twtP", "Âme en traction transversale"), ("ahP", "Âme hors plan (chaînage)")]),
     ("soudure", "Soudure (double cordon)",
      [("w", "Effort au point critique"), ("wT", "Tying – cordons"), ("wa", "Gorge minimale")]),
 ]

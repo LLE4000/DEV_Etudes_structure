@@ -190,19 +190,20 @@ GROUPES = [
                h="Cas (b) : longueur recoupée pour que la poutre entre entre les ailes du poteau. 0 = aucune."),
             _c("lt_ok", "Poutre portée maintenue au déversement", "s", OUI_NON,
                h="Condition d'application de la règle de stabilité locale du grugeage (MSB Part 5 §4.2.5). "
-                 "Un plat long (z > tp/0,15) sur poutre non maintenue demande un examen particulier.")]),
+                 "Un plat long (zp > tp/0,15, zp à la première file) sur poutre non maintenue : le guide ne l'admet "
+                 "pas sans essais — statut « à vérifier ».")]),
     dict(t="Plat d'âme",
          f=[_c("hp_u", "Hauteur du plat hp", un="mm",
                h="Recommandation des guides : hp ≥ 0,6·h de la portée (maintien en torsion)."),
             _c("tp_u", "Épaisseur du plat tp", un="mm",
                h=DU.texte_aide()),
             _c("bp_u", "Largeur du plat bp (depuis la face d'appui)", un="mm"),
-            _c("z_C", "Dessus de la poutre portée → dessus du plat zp", un="mm"),
+            _c("z_C", "Dessus de la poutre portée → dessus du plat zc", un="mm"),
             _c("nu_pl", "Nuance d'acier du plat", "s", ACIERS)]),
     dict(t="Soudure du plat sur le poteau",
          f=[_c("a_w", "Gorge a (cordon d'angle DOUBLE, toute hauteur)", un="mm",
                h="Deux cordons verticaux, un par face du plat. Pleine résistance vis-à-vis du plat : "
-                 "a ≥ tp·fy·βw·γM2/(2·fu·γM0) — dérivation EN 1993-1-8 §4.5.3.3."),
+                 "a ≥ tp·fy·βw·γM2/(√2·fu·γM0) — dérivation EN 1993-1-8 §4.5.3.3."),
             _c("g_h", "Jeu gh entre la face d'appui et l'about de la poutre", un="mm"),
             _c("j_lat", "Jeu latéral entre la semelle de la poutre et l'aile du poteau", un="mm", si=sur_ame,
                h="Cas (b) : jeu de montage en largeur, entre la semelle de la poutre portée et l'aile du poteau.")]),

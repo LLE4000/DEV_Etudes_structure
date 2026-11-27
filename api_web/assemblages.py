@@ -1616,15 +1616,22 @@ def _avec(cfg: Config, u: Dict, **k):
 def _ligne_sel(nom: str, col: str, R, cur: bool, prop: str) -> Dict:
     if R is None:
         return {"nom": nom, "col": col, "taux": 999, "niveau": "r", "cur": cur, "opt": False, "prop": prop + " · calcul impossible", "_ok": False}
+    # « _ok » : vérifié SANS raison à justifier ; « _ok2 » : vérifié, une raison nommée restant à justifier (orange) —
+    # lot de clôture du 27/11/2026 (N9) : une ligne « à vérifier » ne passe jamais pour une ligne vérifiée
     return {"nom": nom, "col": col, "taux": C.pct(min(eta_R(R), 9.99)), "niveau": niveau_R(R), "cur": cur, "opt": False,
-            "prop": prop + f" · {C.esc(R.statut.lower())}", "_ok": bool(R.verified)}
+            "prop": prop + f" · {C.esc(R.statut.lower())}", "_ok": bool(R.verified and not R.get("a_verifier")),
+            "_ok2": bool(R.verified)}
 
 
 def _marquer_optimal(rows: List[Dict]) -> List[Dict]:
-    for r in rows:
-        if r["_ok"]:
-            r["opt"] = True
-            break
+    """L'étoile « le plus petit qui tient » : la première ligne vérifiée sans raison à justifier ; à défaut — la raison
+    tient aux données gardées (poutre grugée non maintenue, effort inversé…), aucune ligne ne peut la lever — la
+    première ligne vérifiée, qui reste orange et dit sa raison."""
+    for cle in ("_ok", "_ok2"):
+        for r in rows:
+            if r.get(cle):
+                r["opt"] = True
+                return rows
     return rows
 
 
@@ -1761,7 +1768,9 @@ def _detail_proposition(cfg: Config, s) -> str:
     quoi = f" · {C.esc(g.grp)} : {C.esc(_minuscule(_court(c, g)))} {C.pc(taux_c(g, 0))}{C.NBSP}%" if g is not None else ""
     cible = "" if s.cible else " · au-dessus du taux cible"
     reserve = "".join(f" · avis : {C.esc(c.N.ligne_alerte(a, R)[0])}" for a in s.reserves[:2])
-    return C.esc(cfg.predim["detail"](s.u)) + quoi + cible + reserve
+    # (N9) une solution dont le moteur dit « À VÉRIFIER » le dit ici, avec sa raison — elle est orange dans la liste
+    a_verif = f" · <b>à vérifier</b> : {C.esc(R.a_verifier)}" if (R.verified and R.get("a_verifier")) else ""
+    return C.esc(cfg.predim["detail"](s.u)) + quoi + cible + reserve + a_verif
 
 
 # les conseils quand RIEN ne passe : la pièce dont la vérification bloque (l'ordre de ``synthese.ELEMENTS``)

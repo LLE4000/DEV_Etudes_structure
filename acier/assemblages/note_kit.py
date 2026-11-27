@@ -138,3 +138,68 @@ def empaqueter(segments, n_max=3, larg=110, une_fois=None):
     if premier is not None:
         return premier
     raise ValueError("les hypothèses ne tiennent pas en " + str(n_max) + " lignes de " + str(larg))
+
+
+LIGNES_DE_SECOURS = 6
+
+
+def empaqueter_au_mieux(segments, n_max=3, larg=110, une_fois=None, n_secours=LIGNES_DE_SECOURS):
+    """``empaqueter`` qui ne REFUSE plus la note : ``n_max`` lignes tant que
+    les formes courtes y tiennent ; sinon une ligne de plus, jusqu'à
+    ``n_secours``. La colonne des dessins s'ajuste au nombre de lignes
+    (``colonne_dessins`` de chaque note).
+
+    Avant le lot de clôture du 27/11/2026 (défaut D1 du dossier de contrôle),
+    ``empaqueter`` levait « les hypothèses ne tiennent pas en 3 lignes » dès
+    que plusieurs cas se cumulaient — grugeage et chaînage, grugeage et
+    boulons précontraints, appui dans l'âme… — et l'utilisateur n'obtenait
+    pas sa note, alors que le calcul était fait."""
+    for n in range(n_max, n_secours + 1):
+        try:
+            return empaqueter(segments, n_max=n, larg=larg, une_fois=une_fois)
+        except ValueError:
+            if n >= n_secours:
+                raise
+
+
+def segment_maintien(maintenue):
+    """Le segment des HYPOTHÈSES que le calcul SUPPOSE sans le vérifier (lot de clôture du 27/11/2026, L19 ; arbitrage
+    A1 : « reporter le maintien réel au déversement dans les hypothèses ») : la poutre grugée maintenue au déversement
+    (``maintenue`` : poutre grugée, saisie « Oui »). La stabilité du grugeage (stN, stD) ne vaut que sous cette
+    hypothèse ; « Non » rend « À VÉRIFIER ». Placé en DERNIER dans le bloc : c'est lui que le kit raccourcit d'abord,
+    les coefficients gardent leur forme longue et la note tient dans les trois lignes de la charte. La seconde poutre
+    éventuelle (âme porteuse chargée des deux côtés) n'y est pas : elle ne tiendrait pas dans la charte, la méthode la
+    déclare hors périmètre. None s'il n'y a rien à dire."""
+    if not maintenue:
+        return None
+    return ("poutre grugée maintenue au déversement (donnée de la saisie)", "maintenue au déversement (saisie)",
+            "maintenue au déversement")
+
+
+MM = "\u00a0mm"           # l'espace INSÉCABLE colle le nombre à son unité (``ndc_pdf.kit.Doc.wrap`` ne coupe pas dessus)
+
+
+def phrase_articulation(R):
+    """La JUSTIFICATION de l'articulation, écrite au verdict de la note quand le détail éprouvé est tenu (lot de
+    clôture du 27/11/2026, arbitrage A1 : « reporter la justification de l'articulation dans le verdict de la note
+    révisée ») : le moteur nomme les conditions et leurs bornes — platine d'about : ``rec_tp`` (tp ≤ ``tp_max`` =
+    0,36·d·√(fub/fy)), ``rec_a`` (a ≥ ``a_detail``, 0,8 × pleine résistance) ; plat d'âme : ``rec_2d`` (la plus petite
+    pince ``pince_2d`` ≥ 2d), ``rec_a`` (a ≥ ``a_plein``), ``rec_boul`` (8.8 non précontraints) —, la note ne compose
+    que la phrase. Quand une condition manque, le statut « À VÉRIFIER (articulation à justifier : …) » le dit déjà :
+    "" (rien à ajouter) ; "" aussi pour un module qui ne nomme pas ces conditions (doubles cornières). La phrase est
+    COURTE à dessein : la conclusion grandit vers le haut, sur la place des blocs de formules FACULTATIFS de la colonne
+    (mesuré sur 192 notes, exemples du dossier et grille d'options : 43 la portent, aucune ne change de disposition ni
+    ne déborde ; sur cinq notes du plat sur poteau aux options cumulées, elle prend la place du dernier bloc facultatif —
+    jamais d'une formule obligatoire)."""
+    if R.get("rec_tp") is not None and R.get("tp_max") is not None:                       # platine d'about
+        if not (R.rec_tp and R.rec_a):
+            return ""
+        return ("articulation : détail éprouvé tenu (tp = " + F(R.t_p, 0) + " ≤ " + F(R.tp_max, 1) + MM + " ; a = "
+                + F(R.a_w, 0) + " ≥ " + F(R.a_detail, 1) + MM + ")")
+    if R.get("rec_2d") is not None and R.get("pince_2d") is not None:                     # plat d'âme
+        if not (R.rec_2d and R.rec_a and R.get("rec_boul")):
+            return ""
+        from acier.assemblages.sci import N_2D             # (import local : sci ne dépend pas du kit des notes)
+        return ("articulation : détail éprouvé tenu (" + R.pince_2d[0] + " = " + F(R.pince_2d[1], 0) + " ≥ 2d = "
+                + F(N_2D * R.d_b, 0) + MM + " ; a = " + F(R.a_w, 0) + " ≥ " + F(R.a_plein, 1) + MM + " ; 8.8 non précontraints)")
+    return ""

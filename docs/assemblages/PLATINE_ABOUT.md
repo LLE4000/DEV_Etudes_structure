@@ -109,3 +109,13 @@ depuis cet environnement : valeurs modifiables.
   du diamètre : dessin de principe, pas des cotes ;
 - numéros de sous-clauses MSB P5 cités seulement là où ils ont été lus
   (§2.1, §2.2, §2.2.1, §2.2.4, §2.3, §2.4) — aucun numéro inventé.
+
+---
+
+## Lot de clôture du 27/11/2026
+
+La platine d'about suit désormais la procédure du **SCI P358** dans son domaine : groupe de boulons (`n·Fb,min` ou `0,8·n·Fv,Rd`), âme portée sur `0,9·hp·tw`, flexion dans le plan d'une platine courte (ligne `pip`), cisaillement local du porteur sur `et + (n1 − 1)·p1 + eb`, `Σleff` plafonnée en chaînage, cordons sur `hp − 2·a`, détail éprouvé de l'articulation porté au statut « À VÉRIFIER ». Les chiffres de ce document antérieurs au lot (taux, résistances du banc) sont ceux de la révision précédente ; l'ancien et le nouveau de chaque règle, avec leur effet mesuré : `ECARTS_ET_CORRECTIONS.md` §8.1 et `tests/test_assemblages_cloture.py`.
+
+βLf (L21) : « Non » par défaut, et la condition est écrite (avis, aide, méthode) — l'âme portée est soudée sur toute la hauteur de la platine : transfert uniforme, l'exception du §3.8(2) de l'EN 1993-1-8. Hypothèses de la note (L19) : « cordons sur hp − 2a » ; poutre grugée « maintenue au déversement (donnée de la saisie) », en dernier segment (la note garde ses trois lignes).
+
+Verdict de la note (L22, arbitrage A1) : quand le détail éprouvé est tenu, la conclusion l'écrit — « Articulation : détail éprouvé tenu (tp = 10 ≤ 15,9 mm ; a = 9 ≥ 6,7 mm) » pour A1 (`note_kit.phrase_articulation`, valeurs nommées par le moteur : `rec_tp`, `tp_max`, `rec_a`, `a_detail`). Non tenu, le statut « À VÉRIFIER (articulation à justifier : …) » le dit déjà.

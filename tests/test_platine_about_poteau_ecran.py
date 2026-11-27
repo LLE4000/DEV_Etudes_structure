@@ -104,8 +104,9 @@ print("\n=== 2. Écran ===")
 cles = [k for k in at.session_state.to_dict() if k.startswith("pac_") and k[4:] in interface.CLES]
 chk("les 66 clés d'entrée existent en session", len(cles) == 66, str(len(cles)))
 t = md(at)
-chk("cas par défaut : ASSEMBLAGE VÉRIFIÉ, dimensionnante l'âme de la poutre portée (39,1 %)",
-    "ASSEMBLAGE VÉRIFIÉ" in t and "NON VÉRIFIÉ" not in t and "39,1 %" in t)
+# lot de clôture (27/11/2026, L2) : le harnais suit — Av = 0,9·hp·tw (SCI P358 Check 4) : 39,1 → 43,5 %
+chk("cas par défaut : ASSEMBLAGE VÉRIFIÉ, dimensionnante l'âme de la poutre portée (43,5 %)",
+    "ASSEMBLAGE VÉRIFIÉ" in t and "NON VÉRIFIÉ" not in t and "43,5 %" in t)
 chk("taux par élément : Boulons, Platine, Portée, Poteau, Soudure (le poteau est TOUJOURS là)",
     all(x in t for x in ("Boulons", "Platine", "Portée", "Poteau", "Soudure")))
 chk("deux composants empilés dans la colonne figée (CSS sticky sur pac_col_dessin)",
@@ -408,12 +409,14 @@ Rb = moteur.compute(dict(appui=entrees.APPUI_AME, bp_u=190, p3_u=110))
 pdfb = note.generer_note(Rb, {"date": "02/11/2026", "indice": "0"})
 docb = pymupdf.open(stream=pdfb, filetype="pdf")
 tb1 = " ".join(docb[0].get_text().split()); tb2 = " ".join(docb[1].get_text().split())
+# lot de clôture (27/11/2026, L12) : le harnais suit — l'âme est vérifiée au chaînage (Check 14) ; l'alerte courte le dit
+# (avant : « flexion hors plan de l'âme non vérifiée »)
 chk("cas (b) : 2 pages, le cartouche dit « âme du poteau », le cisaillement local est dans les "
-    "hypothèses et la flexion hors plan dans l'alerte du bandeau",
+    "hypothèses et ce que la flexion hors plan devient dans l'alerte du bandeau",
     docb.page_count == 2 and not note.derniers_avertissements
     and "appui : âme du poteau" in tb2
     and "Appui dans l'âme : cisaillement local un seul côté" in tb1
-    and "flexion hors plan de l'âme" in tb1.lower(),
+    and "flexion hors plan vérifiée en chaînage seulement" in tb1,
     f"{docb.page_count} {note.derniers_avertissements}")
 with open("tests/ref_pac.json", encoding="utf-8") as fh:
     REF = json.load(fh)

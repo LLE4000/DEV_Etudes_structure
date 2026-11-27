@@ -13,6 +13,13 @@ correction s'y écrit donc À CÔTÉ du corrigé : le moteur l'applique partout,
   C4  tronçon en T des ailes A : l'effort est la traction réelle des boulons P (NEd, MEd, HEd·z) ;
   C5  ailes A SOUDÉES en traction : flexion de l'aile, une rotule plastique au talon.
 
+Lot de clôture du 27/11/2026 (même registre, §8) :
+
+  C6  poutre grugée à DEUX files, extrémité du grugeage à moins de 2d de la 2e file (xN < 2d) : le moment est le plus
+      grand de VEd·(gh + ln) et VEd·(gh + e2,b + p2), la résistance celle de la 2e file (MSB P5 §4.2.4.2) ;
+  C7  statut « À VÉRIFIER (raison) » : ce que le calcul ne prouve pas (cornières soudées des deux côtés, HEd, poutre
+      grugée non maintenue, VEd de sens inversé, traction sur l'âme porteuse) se lit dans le verdict.
+
 Lancement : python3 tests/test_assemblages_corrections.py
 """
 import json
@@ -58,8 +65,11 @@ def nouveau(u):
 print("=== 0. Le corrigé reste rejoué tel quel ===")
 A0, N0 = ancien({}), nouveau({})
 chk("mode corrigé : aucune correction, aucun scalaire de plus (l'instantané garde sa forme)",
-    "corrections" not in A0 and N0.get("corrections") == "C1-C5"
-    and set(N0) - set(A0) == {"corrections"}, str(sorted(set(N0) - set(A0))))
+    "corrections" not in A0 and N0.get("corrections") == "C1-C7"
+    # LE HARNAIS SUIT (27/11/2026) : C6 et C7 posent leurs scalaires, en mode corrigé SEULEMENT du moteur corrigé
+    and set(N0) - set(A0) == {"corrections", "V_inverse", "xN", "court_N", "bras_N", "a_verifier", "justifier",
+                              "justifier_detail"}
+    and "a_verifier" not in A0 and A0.statut == "ASSEMBLAGE VÉRIFIÉ", str(sorted(set(N0) - set(A0))))
 chk("cas par défaut (boulonné, pinces égales, sans NEd ni MEd) : les corrections ne changent AUCUNE vérification",
     all(pres(a.Ed, n.Ed) and pres(a.Rd, n.Rd) and a.active == n.active for a, n in zip(A0.checks, N0.checks))
     and [c.key for c in A0.checks] == [c.key for c in N0.checks])
@@ -133,9 +143,51 @@ chk("sans traction : la ligne reste inactive ; boulonnée : le tronçon en T du 
     not nouveau(dict(fix_P="Soudée")).ck["tsA"].active and "tronçon en T" in N4n.ck["tsA"].label
     and "soudées" in N5.ck["tsA"].label)
 
+print("\n=== C6. Grugeage court à deux files (MSB P5 §4.2.4.2) ===")
+# l'exemple à deux files du banc (IPE A 550, cornières 160×90×10, 5 × 2 M20, e2,b = 40, p2 = 60, VEd = 350 kN), poutre
+# grugée 50 × 110 sur une porteuse de 200 mm de large : xN = 110 − (40 + 60) = 10 mm < 2d = 40 mm
+from acier.assemblages.poutre_poutre.doubles_cornieres import benchmark as _BK  # noqa: E402
+u6 = dict([b for b in _BK.BENCH if b["id"] == "BM4"][0]["inp"], bP_u=200, d_nt=50, l_n=110)
+A6, N6 = ancien(u6), nouveau(u6)
+chk("xN = 10 mm < 2d : le corrigé compare VEd·(gh + ln) = 42,0 kNm à Mv,N,Rd = 157,47 kNm (26,7 %) ; désormais "
+    "max(42,0 ; 38,5) = 42,0 kNm contre Mc,Rd de la 2e file = 87,07 kNm (48,2 %) — la réduction par min(VRd,g ; VRd,b)",
+    N6.court_N and N6.xN == 10 and not A6.get("court_N") and pres(A6.ck["mN"].Ed, 42.0) and pres(A6.ck["mN"].Rd, A6.Mv_N)
+    and pres(A6.ck["mN"].Rd, 157.466, 1e-5) and pres(N6.ck["mN"].Ed, 42.0) and pres(N6.ck["mN"].Rd, N6.Mc_2)
+    and pres(N6.ck["mN"].Rd, 87.074, 1e-5) and N6.ck["mN"].Rd < A6.ck["mN"].Rd,
+    f"{A6.ck['mN'].Ed} {A6.ck['mN'].Rd} {N6.ck['mN'].Ed} {N6.ck['mN'].Rd}")
+N6b = nouveau(dict(u6, l_n=100))
+chk("grugeage arrêté À la 2e file (ln = 100, xN = 0) : le bras de la 2e file gouverne — VEd·(gh + e2,b + p2) = 38,5 kNm",
+    N6b.court_N and N6b.xN == 0 and pres(N6b.ck["mN"].Ed, 350 * 0.110) and pres(N6b.bras_N, 110))
+N6c = nouveau(dict(u6, l_n=150))
+chk("xN = 50 mm ≥ 2d : rien ne change (VEd·(gh + ln) ≤ Mv,N,Rd, et la vérification à la 2e file à part)",
+    not N6c.court_N and pres(N6c.ck["mN"].Rd, N6c.Mv_N) and pres(N6c.ck["mN"].Ed, 350 * 0.160) and N6c.ck["m2"].active)
+
+print("\n=== C7. Statut « À VÉRIFIER » : ce que le calcul ne prouve pas ===")
+chk("cas par défaut : VÉRIFIÉ, aucun motif ; le corrigé garde ses deux statuts",
+    N0.statut == "ASSEMBLAGE VÉRIFIÉ" and N0.a_verifier == "" and A0.statut == "ASSEMBLAGE VÉRIFIÉ")
+N7v = nouveau(dict(V_Ed=-125))
+chk("VEd = −125 kN : calculé en valeur absolue, mais « À VÉRIFIER (effort tranchant de sens inversé) » et un avis "
+    "non bloquant — le corrigé rendait « VÉRIFIÉ » sans rien dire",
+    N7v.verified and N7v.statut == "ASSEMBLAGE À VÉRIFIER (effort tranchant de sens inversé)"
+    and any(a.id == "V_inv" and not a.block for a in N7v.alerts)
+    and ancien(dict(V_Ed=-125)).statut == "ASSEMBLAGE VÉRIFIÉ" and pres(N7v.eta_max, N0.eta_max), N7v.statut)
+N7n = nouveau(dict(N_Ed=40))
+chk("NEd = 40 kN de traction : l'âme porteuse n'est pas vérifiée hors de son plan → « À VÉRIFIER »",
+    N7n.verified and N7n.statut == "ASSEMBLAGE À VÉRIFIER (âme porteuse sous la traction non vérifiée)", N7n.statut)
+N7s = nouveau(dict(fix_P="Soudée", fix_S="Soudée", V_Ed=60))
+chk("cornières soudées des deux côtés : « articulation à justifier » dans le statut dès que le calcul passe",
+    N7s.verified and N7s.statut == "ASSEMBLAGE À VÉRIFIER (articulation à justifier : cornières soudées des deux côtés)",
+    N7s.statut)
+N7h = nouveau(dict(H_Ed=20))
+chk("HEd = 20 kN > 10 % de VEd : « À VÉRIFIER (flexion hors plan des cornières sous HEd non couverte) »",
+    N7h.verified and N7h.statut == "ASSEMBLAGE À VÉRIFIER (flexion hors plan des cornières sous HEd non couverte)", N7h.statut)
+N7g = nouveau(dict(lt_ok="Non"))
+chk("poutre grugée NON maintenue au déversement : « À VÉRIFIER (poutre grugée non maintenue au déversement) »",
+    N7g.verified and N7g.reserve and "poutre grugée non maintenue au déversement" in N7g.a_verifier, N7g.statut)
+
 print("\n=== 6. Les formules affichées se recalculent ===")
 nb, vues, sans = 0, 0, []
-for R in (N1, N1m, N2, N3, N4, N5):
+for R in (N1, N1m, N2, N3, N4, N5, N6, N6b):
     for c in R.checks:
         if not c.active:
             continue
@@ -149,7 +201,7 @@ for R in (N1, N1m, N2, N3, N4, N5):
                 if not ok:
                     nb += 1
                     print("      ", c.key, s.nom, "moteur", s.res, "substitution", v)
-chk(f"aucune substitution affichée ne s'écarte de son résultat (cas C1 à C5, {vues} substitutions)",
+chk(f"aucune substitution affichée ne s'écarte de son résultat (cas C1 à C6, {vues} substitutions)",
     nb == 0 and vues > 400 and not sans, f"{nb} écart(s), {vues} vues, sans gabarit {sorted(set(sans))}")
 chk("les gabarits corrigés sont bien ceux affichés : Anv par e1,min (C1), NT = 2·nP·Ft,Ed (C4), NT = 2·qn·ΣL et "
     "NRd = 2·Mpl/m (C5), qn à trois termes (C3)",

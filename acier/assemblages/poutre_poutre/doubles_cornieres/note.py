@@ -37,7 +37,7 @@ from acier.formats import F, pct
 from acier.js import N
 from acier.bibliotheques import PERSO
 from acier.js import js_str, mx
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX, sans_taux, verdict, masquer_taux
+from acier.assemblages.note_kit import empaqueter_au_mieux, coefficients, MSB, SANS_TAUX, sans_taux, verdict, masquer_taux, segment_maintien
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
 from .notation import ec, ligne_alerte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
@@ -124,12 +124,18 @@ def segments_hypotheses(R):
     suffixe = " · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else ""
     seg.append(tuple(f + suffixe for f in coefficients("γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(N(u.g_M2), 2),
                                                        N(u.g_M2), N(u.g_M2n))))
+    # L19 : la poutre grugée maintenue au déversement — en DERNIER : c'est lui que le kit raccourcit d'abord
+    s_ = segment_maintien(R.cas_g > 0 and str(u.lt_ok) == "Oui")
+    if s_:
+        seg.append(s_)
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+    """Trois lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 def _priorite(R):
@@ -251,18 +257,25 @@ class Note:
         # statut · taux maximal · dimensionnante ··· taux par élément
         y -= 15
         etat_ok = R.verified
-        w = chip(d, M, y - 3.2, "VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ", S.f_v, 6.6, "#FFFFFF", S.ok if etat_ok else S.ko)
+        # « À VÉRIFIER » (ocre, lot de clôture du 27/11/2026) : une raison nommée par le moteur reste à justifier
+        # (``R.a_verifier``) ; jamais « VÉRIFIÉ » en vert dans ce cas
+        a_verif = bool(etat_ok and R.get("a_verifier"))
+        col_etat = S.att if a_verif else (S.ok if etat_ok else S.ko)
+        w = chip(d, M, y - 3.2, "À VÉRIFIER" if a_verif else ("VÉRIFIÉ" if etat_ok else "NON VÉRIFIÉ"), S.f_v, 6.6,
+                 "#FFFFFF", col_etat)
         x = M + w + 8
         if not self.sans_taux:
             t1 = "η max " + pct(R.eta_max, 1)
-            d.t(x, y, t1, "Carlito-Bold", 8.6, S.ok if etat_ok else S.ko)
+            d.t(x, y, t1, "Carlito-Bold", 8.6, col_etat)
             x += d.w(t1, "Carlito-Bold", 8.6) + 5
         t2 = (("" if self.sans_taux else "— ") + "dimensionnant : " + synthese.court(R.gov) + " (" + synthese.lignes_ref(R.gov) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
             t2 += " · Tableau 3.3 non conforme"
-        if R.verified and (R.reserve or R.alerts):
+        if a_verif:
+            t2 += " · à vérifier : " + R.a_verifier
+        elif R.verified and (R.reserve or R.alerts):
             t2 += " · sous réserve des points signalés"
         pieces = []
         for nom, eta, ok, _ in ([] if self.sans_taux else synthese.taux_par_element(R)):
@@ -385,9 +398,14 @@ class Note:
         S, R = self.S, self.R
         # le taux maximal et la dimensionnante sont déjà dans le bandeau :
         # la conclusion ne les répète pas
-        txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1"
-               + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
-        col = S.ok if R.verified else S.ko
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        if a_verif:
+            txt = (R.statut.split(" (", 1)[0] + " : " + R.a_verifier + " ; vérifié à l'ELU selon EN 1993-1-8 et "
+                   "EN 1993-1-1 pour le reste.")
+        else:
+            txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1"
+                   + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
+        col = S.att if a_verif else (S.ok if R.verified else S.ko)
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS

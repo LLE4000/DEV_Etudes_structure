@@ -12,7 +12,7 @@ Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md §4.2) :
     EFFORTS ELU ? | VEd (kN) | NEd (kN) | MEd (kNm) |
     ▸ Paramètres avancés   ▸ Cartouche (note et plan)
 
-La géométrie (hp, tp, bp, zp, pinces, entraxes, grugeage, jeu, gorge) ne se
+La géométrie (hp, tp, bp, zc, pinces, entraxes, grugeage, jeu, gorge) ne se
 modifie que sur le dessin (P6). Une forme par clé : ``LIBELLE`` est lu par
 la carte, les fenêtres d'objet du dessin, le panneau Cotes et les chips
 d'alerte (P5) ; un « ? » n'existe que pour une entrée de ``AIDES`` (P3).
@@ -61,7 +61,7 @@ _LIBELLE = {
     "id_projet": "Projet", "id_rep": "Repère", "id_red": "Rédacteur", "id_date": "Date",
     "visserie": "Visserie par boulon",
     # géométrie : fenêtres d'objet, panneau Cotes, chips d'alerte
-    "hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zp", "a_w": "a",
+    "hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zc", "a_w": "a",
     "e1_u": "e1", "p1_u": "p1", "e2b_u": "e2,b", "p2_u": "p2",
     "g_h": "gh", "d_top": "Δz", "d_nt": "dc,sup", "d_nb": "dc,inf", "l_n": "c",
     # tête de la colonne dessin
@@ -93,7 +93,7 @@ AIDES = {
     # aides portées par les fenêtres d'objet et le panneau Cotes (géométrie)
     "hp_u": "Recommandation des guides : hp ≥ 0,6·h de la secondaire (maintien en torsion).",
     "tp_u": DU.texte_aide(),
-    "a_w": "Deux cordons, un par face du plat ; pleine résistance a ≥ tp·fy·βw·γM2/(2·fu·γM0) (§4.5.3.3).",
+    "a_w": "Deux cordons, un par face du plat ; pleine résistance a ≥ tp·fy·βw·γM2/(√2·fu·γM0) (§4.5.3.3).",
     "g_h": "Jeu entre l'âme porteuse et l'about de la secondaire ; aussi par glissement horizontal de la poutre.",
     "d_top": "0 = dessus des semelles au même niveau ; aussi par glissement vertical de la poutre secondaire.",
     "d_nt": "0 = semelle supérieure non grugée.",

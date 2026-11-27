@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "aa43fafd99f8f6866d7055d9fde8ed5db4ab060cd9f89ecacc3880668e8726fc",
+ "sha256": "d13df6f8d7fc5b7563d0598b2f388200f34e7c8562c9708b3d53568f1be1c354",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -85,6 +85,7 @@
   "acier/assemblages/poutre_poutre/platine_about/schemas.py",
   "acier/assemblages/poutre_poutre/platine_about/synthese.py",
   "acier/assemblages/propositions.py",
+  "acier/assemblages/sci.py",
   "acier/barre/__init__.py",
   "acier/barre/ame.py",
   "acier/barre/combinaisons.py",
@@ -398,8 +399,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "e1548a62fabe359eedf1f09d4b038e733458c91938b3885eb62e912fbe1370f4",
-  "octets": 2240535,
+  "sha256": "8670a3cc784cb92b0319be3be7f32f8c958fa0f1c8b00a067bdb62ae9bf42309",
+  "octets": 2244122,
   "reportlab": "5.1.0",
   "fichiers": 108,
   "modules": [
@@ -447,5 +448,5 @@
   "soudures": "c1e200e679b860aa",
   "taux": "954eb1da293405ef"
  },
- "version": "13b257c04b8cec5a"
+ "version": "832480b97a9a44e1"
 }

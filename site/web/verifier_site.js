@@ -5208,8 +5208,11 @@ const principal = async () => {
         await onglet('resultat');
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_a_corriger_${fmt}.png`) });
         await onglet('donnees');
-        verif(`assemblages · platine d'about · ${fmt} : la capture du propriétaire — plus de gros « 131 % » en tête (le bloc dit « Non conforme · 131 % ») ; « À corriger · 2 défauts de géométrie » : la pince basse (« p1 65 → 60 mm », « hp 190 → 200 mm », « n1 3 → 2 ») et la platine trop étroite (« bp 150 → 155 mm », « p3 90 → 85 mm ») — chaque bouton dans la colonne${doigtA ? ', 44 px au doigt' : ''} ; les deux alertes ne sont pas redites dans les messages ; la ligne « Géométrie » dit ce qu'elle compare`,
-          !c1.gros && !!c1.bloc && /^Non conforme · 131\s?%$/.test(c1.bloc.etat) && !!c1.corriger && kc.avant && kc.etat === '2 défauts de géométrie'
+        // (27/11/2026, le harnais SUIT le lot de clôture : la règle du groupe de boulons du SCI P358 Check 8 — n·Fb,min dès que
+        //  Fb,min ≤ 0,8·Fv,Rd — fait peser la pince e1 de 25 mm sur TOUT le groupe : 97 → 151 % ; le grugeage, à 131 %, ne
+        //  gouverne plus)
+        verif(`assemblages · platine d'about · ${fmt} : la capture du propriétaire — plus de gros taux en tête (le bloc dit « Non conforme · 151 % » ; 131 % avant la règle du groupe de boulons du SCI) ; « À corriger · 2 défauts de géométrie » : la pince basse (« p1 65 → 60 mm », « hp 190 → 200 mm », « n1 3 → 2 ») et la platine trop étroite (« bp 150 → 155 mm », « p3 90 → 85 mm ») — chaque bouton dans la colonne${doigtA ? ', 44 px au doigt' : ''} ; les deux alertes ne sont pas redites dans les messages ; la ligne « Géométrie » dit ce qu'elle compare`,
+          !c1.gros && !!c1.bloc && /^Non conforme · 151\s?%$/.test(c1.bloc.etat) && !!c1.corriger && kc.avant && kc.etat === '2 défauts de géométrie'
           && JSON.stringify(kc.defauts.map((d) => d.titre)) === '["Impossible — pince basse du groupe de boulons","Impossible — platine trop étroite (pince e2)"]'
           && JSON.stringify(kc.defauts.map((d) => d.rets.map((r) => r.t))) === '[["p1 65 → 60 mm","hp 190 → 200 mm","n1 3 → 2"],["bp 150 → 155 mm","p3 90 → 85 mm"]]'
           && kc.defauts.every((d) => d.rets.every((r) => r.dedans && (!doigtA || r.h >= 44))) && !c1.msgs.some((x) => /platine trop étroite|pince basse/.test(x))
@@ -5224,11 +5227,14 @@ const principal = async () => {
           bp2 === '155' && !!c2.corriger && c2.corriger.etat === '1 défaut de géométrie' && c2.corriger.defauts.length === 1 && c2.corriger.defauts[0].titre === 'Impossible — pince basse du groupe de boulons',
           JSON.stringify({ bp2, corriger: c2.corriger }).slice(0, 500));
         // « Profilés qui conviennent » : cherchés au clic, chacun avec SA solution vérifiée
+        // (27/11/2026, le harnais SUIT le lot de clôture : Av = 0,9·hp·tw (SCI P358 Check 4) — le HEA 340 passe de 98 à 102 %
+        //  sur le cisaillement de l'âme, et plus AUCUN HEA ne convient à 400 kN ; la fenêtre le dit et conseille une autre
+        //  famille : on ajoute la puce « HEB », le HEB 320 convient)
         await onglet('resultat');
         await pg.click('#resultat .asm-corr [data-pk="profil_solution"]');
         await pg.waitForSelector('.flyout.on.picker#pk-profil_solution', { timeout: 120000 });
         await pg.waitForTimeout(350);
-        const pf = await pg.evaluate((VIS) => {
+        const lirePf = () => pg.evaluate((VIS) => {
           const net = (t) => String(t || '').replace(/\s+/g, ' ').trim();
           const f = document.querySelector('.flyout.on.picker#pk-profil_solution'), fr = f.getBoundingClientRect(), a = f.querySelector('.asm-aucune');
           return { titre: net((f.querySelector('.fl-h b') || {}).textContent), tete: a && a.checkVisibility(VIS) ? net(a.textContent) : '',
@@ -5238,18 +5244,29 @@ const principal = async () => {
             familles: [...f.querySelectorAll('.fchip')].map((x) => `${net(x.textContent)}${x.classList.contains('on') ? '*' : ''}`).join(' '),
             boite: fr.left >= -0.5 && fr.right <= innerWidth + 0.5 && fr.top >= -0.5 && fr.bottom <= innerHeight + 0.5 && fr.width >= 280 };
         }, VIS_A);
+        const pf0 = await lirePf();
+        verif(`assemblages · platine d'about · ${fmt} : « Profilés qui conviennent · poutre secondaire », famille HEA — AUCUN ne convient à 400 kN : la fenêtre le dit, avec la raison du premier (« HEA 340 : Poutre secondaire · âme – cisaillement sur hp reste à 102 %. ») et le conseil (« Essayer une autre famille… ») ; aucune ligne ; les puces des familles ; la fenêtre dans l'écran`,
+          pf0.titre === 'Profilés qui conviennent · poutre secondaire' && pf0.rows.length === 0
+          && /^Aucun des profilés essayés ne convient \(HEA 340, HEA 360, HEA 400, HEA 450…\) — HEA 340 : Poutre secondaire · âme – cisaillement sur hp reste à 102\s?%\. Essayer une autre famille, réduire le grugeage ou revoir les efforts\.$/.test(pf0.tete)
+          && pf0.familles === 'IPE HEA* HEB HEM' && pf0.boite, JSON.stringify(pf0).slice(0, 800));
+        await pg.click('.flyout.on.picker#pk-profil_solution .fchip[data-famille="HEB"]');
+        await pg.waitForSelector('.flyout.on.picker#pk-profil_solution .pk-row', { timeout: 120000 });
+        await pg.waitForTimeout(350);
+        const pf = await lirePf();
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_profils_${fmt}.png`) });
-        verif(`assemblages · platine d'about · ${fmt} : « Profilés qui conviennent · poutre secondaire » — SEUL ce qui convient est listé : « HEA 340 » (98 %, ★ le plus petit), avec sa solution ; les sept profilés plus hauts essayés sans solution sont comptés, avec la raison du premier (« HEA 360 : Grugeage inférieur nécessaire ou insuffisant. ») ; les puces des familles ; la fenêtre dans l'écran`,
-          pf.titre === 'Profilés qui conviennent · poutre secondaire' && pf.rows.length === 1 && pf.rows[0].nom === 'HEA 340' && /^98\s?%$/.test(pf.rows[0].taux) && pf.rows[0].etoile && pf.rows[0].dedans
-          && /solution : <b>[^<]*M\d\d · platine/.test(pf.rows[0].detail) && /^7 profilés essayés sans solution \(HEA 360, /.test(pf.tete) && /HEA 360 : Grugeage inférieur nécessaire ou insuffisant\.$/.test(pf.tete)
-          && pf.familles === 'IPE HEA* HEB HEM' && pf.boite && (!doigtA || pf.rows[0].h >= 40), JSON.stringify(pf).slice(0, 800));
+        verif(`assemblages · platine d'about · ${fmt} : la puce « HEB » ajoutée, SEUL ce qui convient est listé : « HEB 320 » (88 %, ★ le plus petit) et « HEB 340 » (89 %), chacun avec sa solution ; les six profilés essayés sans solution sont comptés, avec la raison du premier (« HEB 280 : Poutre secondaire · grugeage – flexion + V reste à 149 %. ») ; les puces HEA et HEB allumées ; la fenêtre dans l'écran`,
+          pf.titre === 'Profilés qui conviennent · poutre secondaire' && pf.rows.length === 2 && pf.rows[0].nom === 'HEB 320' && /^88\s?%$/.test(pf.rows[0].taux) && pf.rows[0].etoile
+          && pf.rows[1].nom === 'HEB 340' && /^89\s?%$/.test(pf.rows[1].taux) && !pf.rows[1].etoile
+          && pf.rows.every((r) => r.dedans && /solution : <b>[^<]*M\d\d · platine/.test(r.detail) && (!doigtA || r.h >= 40))
+          && /^6 profilés essayés sans solution \(HEB 280, HEB 300, HEA 340, HEA 360…\) — HEB 280 : Poutre secondaire · grugeage – flexion \+ V reste à 149\s?%\.$/.test(pf.tete)
+          && pf.familles === 'IPE HEA* HEB* HEM' && pf.boite, JSON.stringify(pf).slice(0, 800));
         await pg.click('.flyout.on.picker#pk-profil_solution .pk-row');
         await calmeA();
         const c3 = await lireA();
         const ap3 = await pg.evaluate(() => { const v = (k) => { const e = document.querySelector(`#donnees [data-chemin="v/${k}"]`); return e ? e.value : null; };
           return { prof_S: v('prof_S'), prof_P: v('prof_P'), V: v('V_Ed'), d_nt: v('d_nt'), l_n: v('l_n'), z_C: v('z_C'), ouvert: !!document.querySelector('.flyout.on.picker') }; });
-        verif(`assemblages · platine d'about · ${fmt} : « HEA 340 » retenu : le profilé ET sa solution sont recopiés — « Conforme, attention · 98 % », plus de bloc « À corriger » ; la poutre principale (HEA 400), l'effort (400 kN), le grugeage et le niveau n'ont pas bougé`,
-          !!c3.bloc && /^Conforme, attention · 98\s?%$/.test(c3.bloc.etat) && !c3.corriger && c3.predim && ap3.prof_S === 'HEA 340' && ap3.prof_P === 'HEA 400' && ap3.V === '400'
+        verif(`assemblages · platine d'about · ${fmt} : « HEB 320 » retenu : le profilé ET sa solution sont recopiés — « Conforme · 88 % », plus de bloc « À corriger » ; la poutre principale (HEA 400), l'effort (400 kN), le grugeage et le niveau n'ont pas bougé`,
+          !!c3.bloc && /^Conforme · 88\s?%$/.test(c3.bloc.etat) && !c3.corriger && c3.predim && ap3.prof_S === 'HEB 320' && ap3.prof_P === 'HEA 400' && ap3.V === '400'
           && ap3.d_nt === '50' && ap3.l_n === '150' && ap3.z_C === '50' && !ap3.ouvert, JSON.stringify({ bloc: c3.bloc, ap3 }));
         // ---- (26/11/2026) le DESSIN SE MANIPULE — « avant, je cliquais sur le dessin et je pouvais tout choisir […] réactive ça »
         //      Un vrai toucher à la tablette et au téléphone, un clic à la souris au PC ; on lit ce que l'œil voit.
@@ -5296,8 +5313,10 @@ const principal = async () => {
         await appuyerA('[data-key="p1_u"]');
         const d1 = await dessinA();
         await pg.screenshot({ path: path.join(OUT, `site_assemblages_dessin_cote_${fmt}.png`) });
-        verif(`assemblages · dessin · ${fmt} : un appui sur la cote « p1 60 » ouvre un champ posé sur elle — sa valeur (60), le curseur dedans, dans l'écran${doigtA ? ' ; au doigt, 44 px de haut et 16 px de corps (iOS n\'agrandit pas la page)' : ''} ; aucune fenêtre ne s'ouvre`,
-          !!d1.saisie && d1.saisie.v === '60' && d1.saisie.dedans && d1.saisie.actif && (!doigtA || (d1.saisie.h >= 44 && d1.saisie.corps >= 16)) && !d1.volets, JSON.stringify(d1));
+        // (27/11/2026, le harnais SUIT le lot de clôture : le plat par défaut tient e1 = 2d = 40 mm (arbitrage A3) — p1 60 → 55,
+        //  la même hauteur de plat)
+        verif(`assemblages · dessin · ${fmt} : un appui sur la cote « p1 55 » ouvre un champ posé sur elle — sa valeur (55), le curseur dedans, dans l'écran${doigtA ? ' ; au doigt, 44 px de haut et 16 px de corps (iOS n\'agrandit pas la page)' : ''} ; aucune fenêtre ne s'ouvre`,
+          !!d1.saisie && d1.saisie.v === '55' && d1.saisie.dedans && d1.saisie.actif && (!doigtA || (d1.saisie.h >= 44 && d1.saisie.corps >= 16)) && !d1.volets, JSON.stringify(d1));
         await pg.fill('.sf-saisie', '65');
         await pg.keyboard.press('Enter');
         await calmeA();

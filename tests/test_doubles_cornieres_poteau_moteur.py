@@ -577,7 +577,7 @@ for nom, cas in REF.items():
             print("   ", nom, "scalaire", k, "attendu", v, "obtenu", Rr[k])
     if (Rr.gov.key if Rr.gov else None) != cas["gov"] or Rr.verified != cas["verified"] \
        or Rr.geo_ok != cas["geo_ok"] or Rr.dist_ok != cas["dist_ok"] \
-       or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
+       or sorted(a.id for a in Rr.alerts) != cas["alerts"] or Rr.a_verifier != cas["a_verifier"]:
         ndiff += 1
         print("   ", nom, "synthèse divergente")
 chk(f"RÉGRESSION CALCUL : 0 différence sur les {len(REF)} cas figés "

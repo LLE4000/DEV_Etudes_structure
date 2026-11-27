@@ -16,9 +16,11 @@
   « en ligne » ;
 - rigidité : EN 1993-1-8 §6.3.4 (k13, k15, k16), classification §5.2.2.5.
 
-Unités : N, mm, MPa (N/mm²), N·mm. Les valeurs k des formules EN 1992-4
-sont celles des tiges coulées en place (tête ou plaque d'ancrage) ; une tige
-post-installée relèvera de son ETA (V1.1).
+Unités : N, mm, MPa (N/mm²), N·mm. Les valeurs k2, k8, k9 des formules
+EN 1992-4 sont celles des tiges coulées en place (tête ou plaque d'ancrage) ;
+k1 (cône) est la valeur indicative des fixations post-installées, plus basse,
+gardée par prudence (voir ``cone_beton``) ; une tige post-installée prend les
+valeurs de son ETA.
 """
 import math
 
@@ -32,24 +34,53 @@ def E_cm(fck):
     return 22000.0 * ((fck + 8.0) / 10.0) ** 0.3
 
 
+MORTIER_EPAIS = 50.0      # mm — au-delà, le mortier doit valoir le béton (EN 1993-1-8 §6.2.5(7))
+
+
+def diffusion_independante(bp, lp, bc, lc, hc):
+    """ANCIENNE aire de diffusion (avant le lot de clôture, R05) : chaque
+    direction diffusée pour elle-même — (b2, l2). Elle n'est PAS semblable à
+    l'aire chargée : sur un massif allongé elle surestime √(Ac1/Ac0). Gardée
+    pour le test « ancien / nouveau » (tests/test_assemblages_cloture.py) et
+    comme borne de chaque direction dans ``beton_comprime``."""
+    cx, cy = (bc - bp) / 2.0, (lc - lp) / 2.0
+    b2 = min(3 * bp, bp + 2 * max(0.0, cx), bp + max(0.0, hc))
+    l2 = min(3 * lp, lp + 2 * max(0.0, cy), lp + max(0.0, hc))
+    return b2, l2
+
+
+def mortier_conforme(t_g, f_g, bp, lp, fck):
+    """Les conditions de βj = 2/3 (EN 1993-1-8 §6.2.5(7)) : épaisseur du
+    mortier ≤ 0,2 fois la plus petite largeur de la platine ET résistance ≥
+    0,2·fck ; ET, pour un mortier de PLUS DE 50 mm, résistance au moins égale
+    à celle du béton du massif."""
+    return bool(t_g <= 0.2 * min(bp, lp) and f_g >= 0.2 * fck and (t_g <= MORTIER_EPAIS or f_g >= fck))
+
+
 def beton_comprime(fck, a_cc, g_c, bp, lp, bc, lc, hc, t_g, f_g, beta_j=2.0 / 3.0):
     """Résistance de calcul à l'écrasement du joint fjd = βj·FRdu/(beff·leff),
     avec FRdu = Ac0·fcd·√(Ac1/Ac0) ≤ 3·fcd·Ac0 (EN 1992-1-1 §6.7). Ac0 est
     pris égal à la PLATINE (simplification conservative : √(Ac1/Ac0) ne
-    dépasse pas celui d'un tronçon en T plus petit) ; Ac1 est l'aire
-    homothétique concentrique dans le massif, limitée par ses bords, par
-    3·Ac0 et par la hauteur (diffusion 2:1 : b2 ≤ b1 + h)."""
+    dépasse pas celui d'un tronçon en T plus petit).
+
+    Ac1 est l'aire de diffusion SEMBLABLE à l'aire chargée et de même centre
+    (EN 1992-1-1 §6.7(3)) : un seul rapport d'homothétie k pour les deux
+    directions, k = min(3 ; b2/bp ; l2/lp), où b2 et l2 sont les bornes de
+    chaque direction (bords du massif, 3 fois le côté, hauteur du massif :
+    b2 ≤ b1 + h). Alors Ac1 = k²·Ac0 et √(Ac1/Ac0) = k. Avant le lot de
+    clôture (R05) les deux directions étaient diffusées séparément — voir
+    ``diffusion_independante``."""
     fcd = a_cc * fck / g_c
     Ac0 = bp * lp
-    cx, cy = (bc - bp) / 2.0, (lc - lp) / 2.0
-    b2 = min(3 * bp, bp + 2 * max(0.0, cx), bp + max(0.0, hc))
-    l2 = min(3 * lp, lp + 2 * max(0.0, cy), lp + max(0.0, hc))
+    b2_lim, l2_lim = diffusion_independante(bp, lp, bc, lc, hc)
+    k = min(3.0, b2_lim / bp, l2_lim / lp) if (bp > 0 and lp > 0) else 1.0
+    k = max(1.0, k)
+    b2, l2 = k * bp, k * lp
     Ac1 = b2 * l2
-    ratio = min(3.0, math.sqrt(Ac1 / Ac0)) if Ac0 > 0 else 1.0
+    ratio = k
     fjd = beta_j * fcd * ratio
-    mortier_ok = (t_g <= 0.2 * min(bp, lp)) and (f_g >= 0.2 * fck)
-    return dict(fcd=fcd, Ac0=Ac0, Ac1=Ac1, b2=b2, l2=l2, ratio=ratio, fjd=fjd, beta_j=beta_j,
-                mortier_ok=mortier_ok)
+    return dict(fcd=fcd, Ac0=Ac0, Ac1=Ac1, b2=b2, l2=l2, b2_lim=b2_lim, l2_lim=l2_lim, k=k, ratio=ratio, fjd=fjd,
+                beta_j=beta_j, mortier_ok=mortier_conforme(t_g, f_g, bp, lp, fck))
 
 
 def c_bande(tp, fy_p, fjd, g_M0):
@@ -58,7 +89,7 @@ def c_bande(tp, fy_p, fjd, g_M0):
 
 
 # ------------------------------------------------- tronçon en T (traction)
-def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None):
+def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None, l_droite=None):
     """Résistance d'une rangée de tiges tendues contre une ligne d'appui.
 
     ``tiges_rangee`` : liste de dicts ``e_lat`` (pince latérale, le long de
@@ -68,7 +99,13 @@ def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None)
     d'allongement de la tige (Tableau 6.2 : 8d + mortier + platine + rondelle
     + ½ écrou) ; ``As`` : section résistante d'une tige ; ``Ft_anc`` :
     résistance en traction d'une tige (acier) ; ``cap`` : plafond de la
-    longueur efficace PAR TIGE (convention demi-longueur), None sinon.
+    longueur efficace PAR TIGE (convention demi-longueur), None sinon ;
+    ``l_droite`` : longueur efficace de la charnière DROITE qui traverse
+    toute la platine le long de l'appui — le motif « 0,5·bp » du Tableau 6.6
+    (rangée extérieure à l'aile), borne de la somme non circulaire de la
+    RANGÉE ; None : motif sans objet (tiges entre les ailes). Avant le lot
+    de clôture ce motif manquait : la rangée d'une platine large, tiges loin
+    de l'aile, était surestimée.
 
     Longueurs efficaces par tige (demi-longueur) :
       circulaire     : min(π·m ; π·m/2 + s/2 ; π·m/2 + e_lat)
@@ -76,7 +113,7 @@ def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None)
                            s/4 + m + 0,3125·e_x)
     — la somme sur deux tiges redonne le Tableau 6.6 (rangée extérieure à
     l'aile : 2πmx ; πmx + w ; πmx + 2e ; 4mx + 1,25ex ; e + 2mx + 0,625ex ;
-    0,5w + 2mx + 0,625ex).
+    0,5w + 2mx + 0,625ex), et ``l_droite`` y ajoute 0,5·bp.
     Modes du Tableau 6.2 (méthode 1) ; sans effet de levier si Lb > Lb*."""
     m = max(m, 1.0)
     n_b = len(tiges_rangee)
@@ -89,6 +126,9 @@ def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None)
             cpi, nci = min(cpi, cap), min(nci, cap)
         cp += cpi
         nc += nci
+    nc_tiges = nc
+    if l_droite is not None:
+        nc = min(nc, l_droite)
     leff1, leff2 = min(cp, nc), nc
     Mpl1 = 0.25 * leff1 * tp ** 2 * fy_p / g_M0
     Mpl2 = 0.25 * leff2 * tp ** 2 * fy_p / g_M0
@@ -106,7 +146,8 @@ def tstub_rangee(tiges_rangee, m, e_x, tp, fy_p, g_M0, Lb, As, Ft_anc, cap=None)
     mode = "1" if FT == FT1 else ("2" if FT == FT2 else "3")
     if not levier and mode == "1":
         mode = "1-2 (sans effet de levier)"
-    return dict(n=n_b, m=m, e_x=e_x, n_lev=n, leff_cp=cp, leff_nc=nc, leff1=leff1, leff2=leff2,
+    return dict(n=n_b, m=m, e_x=e_x, n_lev=n, leff_cp=cp, leff_nc=nc, leff_nc_tiges=nc_tiges, l_droite=l_droite,
+                droite=bool(l_droite is not None and l_droite < nc_tiges - 1e-9), leff1=leff1, leff2=leff2,
                 Mpl1=Mpl1, Mpl2=Mpl2, Lb=Lb, Lb_star=Lb_star, levier=levier,
                 FT1=FT1, FT2=FT2, FT3=FT3, FT_Rd=FT, mode=mode, FT_tige=FT / n_b if n_b else 0.0)
 
@@ -130,12 +171,17 @@ def tige_cisaillement_EC3(f_yb, f_ub, As, g_M2):
 
 
 def tige_cisaillement_EN1992_4(As, f_uk, f_yk, d, t_g, f_g, N_Ed_tige, N_Rd_s):
-    """VRk,s = k6·As·fuk (k6 = 0,6 si fuk ≤ 500, 0,5 au-delà), γMs,V = fuk/fyk ≥ 1,25 —
+    """VRk,s = k6·As·fuk (k6 = 0,6 si fuk ≤ 500, 0,5 au-delà), γMs,V = fuk/fyk ≥ 1,25 si fuk ≤ 800 MPa et
+    fyk/fuk ≤ 0,8, 1,5 sinon (EN 1992-4 Tableau 4.1 ; la seconde branche, ajoutée au lot de clôture, est citée de
+    mémoire — à confirmer sur le texte ; elle ne peut que rendre le calcul plus prudent) —
     EN 1992-4 §7.2.2.3. Si le mortier dépasse d/2 ou fait moins de 30 N/mm², le
     cisaillement agit avec un BRAS DE LEVIER l = d/2 + tg : VRk,s,M = αM·MRk,s/l,
     MRk,s = 1,2·Wel·fuk·(1 − NEd/NRd,s), αM = 2 (platine encastrant la tige)."""
     k6 = 0.6 if f_uk <= 500 else 0.5
-    g = max(1.25, f_uk / f_yk) if f_yk > 0 else 1.25
+    if f_yk > 0 and f_uk <= 800.0 and f_yk / f_uk <= 0.8 + 1e-12:
+        g = max(1.25, f_uk / f_yk)
+    else:                       # tiges 10.9, aciers à fyk/fuk > 0,8 (avant le lot : 1,25 — VRd,s + 20 % en 10.9)
+        g = 1.5
     VRd = k6 * As * f_uk / g
     levier = (t_g > 0.5 * d) or (f_g < 30.0)
     VRd_M = INF
@@ -163,9 +209,13 @@ def _aire_projetee(x_t, y_t, bc, lc, scr, ccr):
 
 def cone_beton(hef, fck, fiss, x_t, y_t, bc, lc, e_x, e_y, g_Mc, k1=None):
     """Cône de béton du groupe TENDU — EN 1992-4 §7.2.1.4 :
-    NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N, N⁰Rk,c = k1·√fck·hef^1,5
-    (k1 = 7,7 fissuré, 11,0 non fissuré pour les tiges coulées en place ;
-    ``k1`` imposé = valeur de l'ETA d'une tige post-installée), scr,N = 3·hef,
+    NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N, N⁰Rk,c = k1·√fck·hef^1,5.
+    k1 = 7,7 (béton fissuré) / 11,0 (non fissuré) : ce sont les valeurs
+    indicatives des fixations POST-INSTALLÉES, gardées ici par prudence pour
+    toutes les tiges — une tige à tête coulée en place admet des valeurs
+    indicatives plus hautes (8,9 / 12,7), à reprendre du texte de la norme
+    avant de les retenir (docs/assemblages/ECARTS_ET_CORRECTIONS.md §8) ;
+    ``k1`` imposé = valeur de l'ETA d'une tige post-installée. scr,N = 3·hef,
     ccr,N = 1,5·hef. ``x_t``, ``y_t`` : coordonnées des tiges tendues (massif
     centré bc × lc) ; ``e_x``, ``e_y`` : excentrement de la résultante de
     traction par rapport au centre du groupe tendu. ψM,N = 1 (conservatif)."""
@@ -279,13 +329,20 @@ def segments_cordons(forme, dims):
             (b / 2, -h / 2, b / 2, h / 2), (-b / 2, -h / 2, -b / 2, h / 2)]
 
 
-def cordons(forme, dims, a, fu, bw, g_M2, N, Mx, My, Vx, Vy, T):
+def cordons(forme, dims, a, fu, bw, g_M2, N, Mx, My, Vx, Vy, T, contact=False):
     """Groupe de cordons traité « en ligne » (gorge a) : aire, inerties des
     lignes, contraintes au point le plus sollicité de l'aile (coin) et de
     l'âme, méthode directionnelle EN 1993-1-8 §4.5.3.2 :
     σeq = √(σ⊥² + 3(τ⊥² + τ∥²)) ≤ fu/(βw·γM2), σ⊥ ≤ 0,9·fu/γM2, avec, pour
     une force normale au cordon dans le plan de la platine, σ⊥ = τ⊥ = σn/√2.
-    N en valeur absolue (cordons supposés transmettre aussi la compression)."""
+
+    ``contact`` False (défaut) : N en valeur absolue — les cordons
+    transmettent aussi la compression. ``contact`` True (« appui direct » :
+    about du poteau scié d'équerre et en contact avec la platine) : la
+    compression passe par le contact, les cordons ne reprennent que la
+    TRACTION — σn = max(0 ; |Mx|·y/Ix + |My|·x/Iy − N/A), N > 0 en
+    compression. Le cisaillement et la torsion restent aux cordons dans les
+    deux cas."""
     segs = segments_cordons(forme, dims)
     A = Ix = Iy = 0.0
     A_h = A_v = 0.0
@@ -310,7 +367,10 @@ def cordons(forme, dims, a, fu, bw, g_M2, N, Mx, My, Vx, Vy, T):
         pts = [("paroi (coin)", xm, ym, False), ("paroi latérale (coin)", xm, ym, True)]
     pire = None
     for nom, x, y, vertical in pts:
-        sig_n = abs(N) / A + abs(Mx) * abs(y) / Ix + abs(My) * abs(x) / Iy
+        if contact:
+            sig_n = max(0.0, abs(Mx) * abs(y) / Ix + abs(My) * abs(x) / Iy - N / A)
+        else:
+            sig_n = abs(N) / A + abs(Mx) * abs(y) / Ix + abs(My) * abs(x) / Iy
         if vertical:
             sig_n += abs(T) * abs(y) / Ip
             tau_p = abs(Vy) / A_v + abs(T) * abs(x) / Ip
@@ -322,7 +382,8 @@ def cordons(forme, dims, a, fu, bw, g_M2, N, Mx, My, Vx, Vy, T):
         cand = dict(point=nom, sig_n=sig_n, tau_par=tau_p, s_perp=s_perp, s_eq=s_eq)
         if pire is None or s_eq > pire["s_eq"]:
             pire = cand
-    pire.update(A=A, Ix=Ix, Iy=Iy, Ip=Ip, L=A / a if a else 0.0, f_eq=fu / (bw * g_M2), f_perp=0.9 * fu / g_M2)
+    pire.update(A=A, Ix=Ix, Iy=Iy, Ip=Ip, L=A / a if a else 0.0, f_eq=fu / (bw * g_M2), f_perp=0.9 * fu / g_M2,
+                contact=bool(contact))
     return pire
 
 

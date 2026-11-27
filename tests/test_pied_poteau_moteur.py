@@ -133,8 +133,10 @@ chk("niveau 1 à la main : Mx,Rd = (N + ΣT)·zC + ΣT·zT = 160,4 kNm ; My,Rd =
 rng = random.Random(7)
 ok_conv = True
 for _ in range(4):
-    # entraxes ≤ 430 : pince ≥ 35 mm ≥ 1,2·d0 (une géométrie invalide rend des capacités nulles, à dessein)
-    Rr = compute(dict(w_x=rng.choice([300, 380, 430]), w_y=rng.choice([300, 380, 430]), n_ay=rng.choice([2, 3, 4]),
+    # entraxes ≤ 430 : pince ≥ 35 mm ≥ 1,2·d0 (une géométrie invalide rend des capacités nulles, à dessein) ;
+    # wy ≥ 340 : à wy = 300 les tiges sont à 5 mm de l'aile du HEA 300, trou DANS le cordon — refusé depuis le lot de
+    # clôture (R13, alerte « tige_acier »), contrôlé en section 8
+    Rr = compute(dict(w_x=rng.choice([300, 380, 430]), w_y=rng.choice([340, 380, 430]), n_ay=rng.choice([2, 3, 4]),
                       N_Ed=rng.choice([0, 300, 1200]), Mx_Ed=rng.choice([20, 80]), My_Ed=rng.choice([0, 40, 80]),
                       bc_u=1200, lc_u=1200))
     ok_conv &= bool(Rr.dom) and convexe(Rr.dom) and all(Rr.MRd1[k] <= Rr.MRd2[k] + 1e-6 for k in Rr.MRd1) and Rr.eta1 >= Rr.eta2 - 1e-9
@@ -263,8 +265,10 @@ chk("ETA : NRk,s et VRk,s saisis remplacent les valeurs calculées (mêmes γMs)
 chk("sans ETA : le cône garde k1 = 7,7 (fissuré) et l'arrachement de la tête", pres(R0.cone["k1"], 7.7, 1e-12)
     and R0.ck["pull"].label.startswith("Arrachement de la tête"))
 from acier.assemblages.pied_poteau.platine_beton import benchmark as BM  # noqa: E402
-chk("fiches d'exemples publiés : lues, incomplètes → aucune rejouée, listées « à compléter » ; validation croisée datée",
-    len(BM.fiches_publiees()) == 2 and all(not f["complet"] for f in BM.fiches_publiees()) and BM.BENCH == []
+chk("fiches d'exemples publiés : lues, COMPLÈTES depuis le lot de clôture → cinq rejouées (section 8), aucune « à "
+    "compléter » ; validation croisée datée",
+    len(BM.fiches_publiees()) == 5 and all(f["complet"] for f in BM.fiches_publiees())
+    and [x["id"] for x in BM.BENCH] == ["BM1", "BM2", "BM3", "BM4", "BM5"]
     and BM.VALIDATION_CROISEE["configurations"] == 40 and BM.VALIDATION_CROISEE["date"] == "31/10/2026")
 chk("une fiche complète se rejoue : la lecture des grandeurs du moteur (fjd, ck:, FC_Rd:, MRd1:, rangee:)",
     pres(BM._valeur(R0, "fjd"), R0.fjd, 1e-12) and pres(BM._valeur(R0, "ck:ncp"), R0.ck["ncp"].Rd, 1e-12)
@@ -334,6 +338,170 @@ LA.jouer(chk, compute, mutations=[LA.MUTATIONS[0], LA.MUTATIONS[1], LA.MUTATION_
    perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85), "p", 290, 420,
           "platine de 25 mm : la réduction historique du module, −10 MPa de 16 à 40 mm, sur la valeur saisie"),
    hors_table=(dict(tp_u=300), "platine"))
+
+# ================================================================
+print("\n=== 8. Lot de clôture (27/11/2026) : l'ancien et le nouveau de chaque correction ===")
+from acier.assemblages.pied_poteau.platine_beton.entrees import OUI, TYPE_TETE, PERIM_EC3  # noqa: E402
+S2 = math.sqrt(2)
+# --- R05 : aire de diffusion SEMBLABLE à l'aire chargée (EN 1992-1-1 §6.7)
+bcN = CP.beton_comprime(30, 0.85, 1.5, 500, 500, 600, 1500, 600, 30, 30)
+b2a, l2a = CP.diffusion_independante(500, 500, 600, 1500, 600)
+fjd_ancien = 2 / 3 * 17.0 * min(3.0, math.sqrt(b2a * l2a / 250000.0))
+chk("R05 — massif allongé 600 × 1 500 sous une platine 500 × 500 : un seul rapport k = min(3 ; 600/500 ; 1100/500) = 1,2 "
+    "→ fjd = 13,60 MPa ; l'ancienne diffusion, direction par direction, rendait 18,41 MPa (+35 %)",
+    pres(bcN["k"], 1.2, 1e-12) and pres(bcN["fjd"], 13.6, 1e-9) and pres(bcN["Ac1"], 1.44 * 250000, 1e-9)
+    and pres(fjd_ancien, 18.41, 5e-4) and pres(compute(dict(bc_u=600, lc_u=1500)).fjd, 13.6, 1e-9),
+    f"{bcN['fjd']:.3f} / ancien {fjd_ancien:.3f}")
+chk("R05 — massif carré : rien ne change (900 × 900 : k = 1,8 = √(Ac1/Ac0) de l'ancienne règle, fjd = 20,40 MPa) ; la "
+    "hauteur du massif borne toujours (hc = 200 : k = 1,4)",
+    pres(R0.fjd, 20.4, 1e-9) and pres(R0.k_diff, 1.8, 1e-12)
+    and pres(CP.beton_comprime(30, 0.85, 1.5, 500, 500, 900, 900, 200, 30, 30)["k"], 1.4, 1e-12))
+# --- mortier de plus de 50 mm (EN 1993-1-8 §6.2.5(7))
+chk("mortier : conditions de βj = 2/3 — 60 mm / 20 MPa refusé (plus de 50 mm : fg ≥ fck = 30), 60 / 30 admis, 50 / 20 "
+    "admis (seul 0,2·fck compte), 30 / 5 refusé, 110 mm refusé (> 0,2 × 500)",
+    [CP.mortier_conforme(t, f, 500, 500, 30) for t, f in ((60, 20), (60, 30), (50, 20), (30, 5), (110, 40))]
+    == [False, True, True, False, False])
+# --- R12 : une alerte bloquante refuse le pied
+Rm3 = compute(dict(f_g=3))
+Rm60 = compute(dict(t_g=60, f_g=20))
+chk("R12 — mortier de 3 MPa : toutes les vérifications passent, l'alerte « mortier » est bloquante → PIED NON VÉRIFIÉ "
+    "(avant : « VÉRIFIÉ », l'alerte ne touchait pas le verdict) ; mortier 60 mm / 20 MPa : refusé aussi",
+    Rm3.all_ok and Rm3.geo_ok and Rm3.bloquant == ["mortier"] and not Rm3.verified
+    and Rm3.statut.startswith("PIED DE POTEAU NON VÉRIFIÉ") and Rm60.bloquant == ["mortier"] and not Rm60.verified
+    and R0.bloquant == [], f"{Rm3.statut} {Rm3.bloquant}")
+# --- R13 : le trou d'une tige ne mord ni sur le profilé ni sur son cordon
+Rtu = compute(dict(forme=FORME_RHS, h_u=300, b_u=300, t_u=10, w_x=290, w_y=290))
+R330, R340, R360 = (compute(dict(w_x=200, w_y=w)) for w in (330, 340, 360))
+ids = lambda R: [a.id for a in R.alerts]  # noqa: E731
+chk("R13 — tube 300 × 300, grille de 290 : les tiges sont DANS la paroi → refus « tige_acier » (avant : m forcé à 1 mm, "
+    "tronçon en T énorme, pied « vérifié »)",
+    "tige_acier" in Rtu.bloquant and not Rtu.verified and all(t["d_acier"] == 0.0 for t in Rtu.tiges), str(ids(Rtu)))
+chk("R13 — HEA 300, a = 8, M24 (d0 = 26, rondelle 44) : il faut 11,3 + 13 = 24,3 mm de l'aile pour le trou, 33,3 mm pour "
+    "la rondelle. À 20 mm (wy = 330) : refus ; à 25 mm (wy = 340) : avis « rondelle » seulement ; à 35 mm (wy = 360) : rien",
+    "tige_acier" in R330.bloquant and not R330.verified
+    and "tige_acier" not in ids(R340) and "rondelle" in ids(R340) and R340.bloquant == []
+    and "tige_acier" not in ids(R360) and "rondelle" not in ids(R360)
+    and pres(R340.z_cordon, 8 * S2, 1e-12) and pres(R340.jeu_trou, 25 - 8 * S2 - 13, 1e-9),
+    f"{ids(R330)} | {ids(R340)} | {ids(R360)}")
+HEA = dict(h=290, b=300, tw=8.5, tf=14, r=27)
+cl = lambda x, y: GE.classer_tige(x, y, "I", HEA, 8)  # noqa: E731
+chk("R13 — distance de l'axe à l'acier : devant l'aile, la cote ; au coin, la diagonale jusqu'à l'about ; entre les "
+    "ailes, près du congé de 27 mm, la distance à l'arc (r − distance au centre du congé)",
+    pres(cl(100, 200)["d_acier"], 55, 1e-12) and pres(cl(200, 200)["d_acier"], math.hypot(50, 55), 1e-12)
+    and pres(cl(24.25, 111)["d_acier"], 27 - math.hypot(27 - 20, 27 - 20), 1e-12)
+    and pres(cl(100, 0)["d_acier"], 100 - 4.25, 1e-12))
+# --- bras d'une tige entre les ailes : le cordon, pas le congé (Figure 6.2 d'EN 1993-1-8, cas soudé)
+ci = cl(100, 0)
+chk("tige entre les ailes (HEA 300, x = 100) : m = 100 − tw/2 − 0,8·a·√2 = 86,70 mm ; l'ancien bras déduisait 0,8·r = "
+    "21,6 mm (cas « laminé ») → 74,15 mm, plus court de 12,5 mm, donc plus résistant",
+    ci["classe"] == "int" and pres(ci["m"], 100 - 4.25 - 0.8 * 8 * S2, 1e-12)
+    and pres(GE.m_int_ancien(100, HEA), 100 - 4.25 - 21.6, 1e-12) and ci["m"] > GE.m_int_ancien(100, HEA) + 12.5,
+    f"{ci['m']:.2f} / {GE.m_int_ancien(100, HEA):.2f}")
+# --- Tableau 6.6, motif 0,5·bp : la charnière droite qui traverse la platine
+Rw = compute(dict(w_x=250, w_y=430))
+rw = Rw.rangees[0]
+m_w, ex_w = 215 - 145 - 0.8 * 8 * S2, 250 - 215
+nc_w = 2 * min(2 * m_w + 0.625 * ex_w, 0.5 * 125 + m_w + 0.3125 * ex_w, 0.25 * 250 + m_w + 0.3125 * ex_w)
+anc = CP.tstub_rangee(rw["liste"], rw["m"], rw["e_x"], 25, Rw.fy_p, 1.0, Rw.Lb, Rw.As, Rw.Ft_anc, rw["cap"])
+chk("Tableau 6.6 — rangée devant l'aile, tiges à 250 d'entraxe et à 70 mm de l'aile, platine de 500 : les motifs par "
+    "tige donnent 268,8 mm ; la charnière droite 0,5·bp = 250 mm gouverne (−7,0 % sur Mpl et sur le mode 1) — motif "
+    "absent avant le lot",
+    Rw.geo_ok and rw["classe"] == "ext" and pres(nc_w, 268.8, 5e-4) and pres(rw["leff_nc_tiges"], nc_w, 1e-9) and rw["droite"]
+    and pres(rw["leff1"], 250, 1e-12) and pres(rw["leff2"], 250, 1e-12) and pres(anc["leff1"], nc_w, 1e-9)
+    and pres(rw["FT1"] / anc["FT1"], 250 / nc_w, 1e-9) and rw["FT1"] < anc["FT1"],
+    f"{rw['leff_nc_tiges']:.1f} → {rw['leff2']:.1f} ; FT1 {anc['FT1'] / 1e3:.1f} → {rw['FT1'] / 1e3:.1f} kN")
+chk("Tableau 6.6 — le cas par défaut ne change pas (tiges de coin : 2 × 0,25·b = 150 mm < 0,5·bp = 250 mm) ; une tige "
+    "entre les ailes d'un profilé en I n'a pas ce motif",
+    pres(R0.rangees[0]["leff1"], 150, 1e-12) and not R0.rangees[0]["droite"]
+    and all(r["l_droite"] is None for r in compute(dict(w_x=200, w_y=400, n_ay=3)).rangees if r["classe"] == "int"))
+# --- crosse : fyb ≤ 300 MPa (EN 1993-1-8 §6.2.6.12(5))
+chk("crosse — classe 8.8 (fyb = 640) : refus « crosse_fyb » ; classe 5.6 (fyb = 300) : admise ; une tige à tête 8.8 : "
+    "pas concernée",
+    "crosse_fyb" in compute(dict(typ_a=TYPE_CROSSE)).bloquant and not compute(dict(typ_a=TYPE_CROSSE)).verified
+    and "crosse_fyb" not in ids(compute(dict(typ_a=TYPE_CROSSE, classe="5.6"))) and "crosse_fyb" not in ids(R0))
+# --- statut : torsion, fendage, éclatement latéral ; la raison n'existe que sur un pied vérifié
+Rt = compute(dict(Vx_Ed=0, Vy_Ed=0, T_Ed=20, bc_u=3000, lc_u=3000))
+Rvt = compute(dict(T_Ed=20, bc_u=3000, lc_u=3000))
+Rtm = compute(dict(Vx_Ed=0, Vy_Ed=0, T_Ed=-20, bc_u=3000, lc_u=3000))
+chk("torsion seule (T = 20 kNm) : 17,68 kN par tige (deux composantes de 12,5), mais ni la rupture de bord ni le pry-out "
+    "ne s'activent (V résultant nul) → PIED À VÉRIFIER « torsion : bord et pry-out du béton non vérifiés », avis "
+    "« tors_beton » ; avec V en plus : le taux du bord ne bouge pas, même statut",
+    pres(Rt.V_t_en, math.hypot(12.5, 12.5), 1e-9) and not Rt.ck["edge"].active and not Rt.ck["pry"].active
+    and Rt.verified and "torsion" in Rt.a_verifier and "tors_beton" in ids(Rt) and Rt.statut.startswith("PIED DE POTEAU À VÉRIFIER")
+    and pres(Rvt.ck["edge"].eta, compute(dict(bc_u=3000, lc_u=3000)).ck["edge"].eta, 1e-12) and "torsion" in Rvt.a_verifier
+    and "tors_beton" not in ids(compute(dict(bc_u=3000, lc_u=3000))), f"{Rt.statut} | {Rvt.statut}")
+Rc14 = compute(dict(perim=PERIM_TOUT, bc_u=1400, lc_u=1400, Vy_Ed=10))
+Rc30 = compute(dict(perim=PERIM_TOUT, bc_u=3000, lc_u=3000))
+Re14 = compute(dict(perim=PERIM_EC3, bc_u=1400, lc_u=1400, Vy_Ed=10))
+Rc07 = compute(dict(perim=PERIM_TOUT, bc_u=700, lc_u=700, hef=300))
+chk("fendage — périmètre COMPLET, bord à 500 mm < 1,5·hef = 450 ? non : à 1 400 de massif le bord est à 500 mm ≥ 450 → "
+    "rien ; à 900 (défaut, 250 mm) la raison « fendage du massif non vérifié » est nommée ; au périmètre EC3 elle reste "
+    "un avis (« fend »), sans changer le statut",
+    Rc30.justifier == [] and Rc14.justifier == [] and "fendage du massif non vérifié" in compute(dict(perim=PERIM_TOUT)).justifier
+    and "fend" in ids(R0) and not any("fendage" in x for x in R0.justifier), f"{Rc14.justifier} {Rc14.c_min}")
+chk("éclatement latéral — tige à tête à 150 mm du bord = 0,5·hef, périmètre complet : raison nommée ; sans objet pour "
+    "une tige scellée",
+    "éclatement latéral non vérifié" in Rc07.justifier
+    and "éclatement latéral non vérifié" not in compute(dict(perim=PERIM_TOUT, bc_u=700, lc_u=700, typ_a=TYPE_ETA)).justifier,
+    str(Rc07.justifier))
+Rcd = compute(dict(perim=PERIM_TOUT))
+chk("la raison « à vérifier » n'existe que sur un pied VÉRIFIÉ : périmètre complet par défaut (interaction du béton "
+    "107,7 %) → NON VÉRIFIÉ, a_verifier vide, la liste des raisons reste lisible (justifier)",
+    not Rcd.verified and Rcd.a_verifier == "" and Rcd.justifier and Rcd.statut == "PIED DE POTEAU NON VÉRIFIÉ"
+    and Rc14.verified and Rc14.a_verifier == "" and Re14.statut == "PIED DE POTEAU VÉRIFIÉ (EC3 — béton d'ancrage en information)",
+    f"{Rcd.statut} | {Rc14.statut} | {Re14.statut}")
+chk("la portée du verdict est écrite (R.portee) : périmètre EC3 — béton d'ancrage en information ; complet — il décide ; "
+    "dans les deux, fendage, éclatement latéral et torsion sur le béton nommés « non calculés »",
+    "en information, hors verdict" in R0.portee and "décident." in Rcd.portee
+    and all("Non calculés : fendage, éclatement latéral, effet de la torsion sur le béton." in R.portee for R in (R0, Rcd)))
+chk("torsion de signe inversé (T = −20 kNm) : la même raison, le même statut — le signe ne la fait pas disparaître",
+    Rtm.verified and Rtm.a_verifier == Rt.a_verifier and Rtm.statut == Rt.statut, Rtm.statut)
+# --- γMs,V de l'EN 1992-4 (Tableau 4.1) : 1,5 dès que fuk > 800 MPa ou fyk/fuk > 0,8
+v109 = CP.tige_cisaillement_EN1992_4(353, 1000, 900, 24, 10, 40, 0, 1e9)
+v88, v46 = CP.tige_cisaillement_EN1992_4(353, 800, 640, 24, 10, 40, 0, 1e9), CP.tige_cisaillement_EN1992_4(353, 400, 240, 24, 10, 40, 0, 1e9)
+chk("γMs,V de l'EN 1992-4 (Tableau 4.1, seconde branche citée de mémoire, du côté sûr) : tige 10.9 → 1,5 (avant : "
+    "1,25, VRd,s surestimé de 20 %) ; 8.8 → 1,25 ; 4.6 → fuk/fyk = 1,667 ; VRd,s = k6·As·fuk/γMs,V = 117,7 kN en 10.9",
+    pres(v109[4], 1.5, 1e-12) and pres(v88[4], 1.25, 1e-12) and pres(v46[4], 400 / 240, 1e-12)
+    and pres(v109[1], 0.5 * 353 * 1000 / 1.5, 1e-9) and not v109[3], f"{v109[4]} {v88[4]} {v46[4]} {v109[1]:.0f}")
+# --- A11 : appui direct du poteau (option explicite, « Non » par défaut)
+w0 = CP.cordons("I", HEA, 8, 470, 0.9, 1.25, 300e3, 50e6, 30e6, 0, 40e3, 0)
+w1 = CP.cordons("I", HEA, 8, 470, 0.9, 1.25, 300e3, 50e6, 30e6, 0, 40e3, 0, contact=True)
+sn1 = 50e6 * 145 / w0["Ix"] + 30e6 * 150 / w0["Iy"] - 300e3 / w0["A"]
+chk("appui direct — cordons du cas par défaut : sans contact σn = N/A + M·r/I = 119,8 MPa ; avec contact la compression "
+    "passe par l'appui, σn = max(0 ; M·r/I − N/A) = 75,8 MPa ; le cisaillement ne change pas",
+    pres(w0["sig_n"], 300e3 / w0["A"] + 50e6 * 145 / w0["Ix"] + 30e6 * 150 / w0["Iy"], 1e-9) and pres(w0["sig_n"], 119.8, 1e-3)
+    and pres(w1["sig_n"], sn1, 1e-9) and pres(w1["sig_n"], 75.8, 1e-3) and pres(w1["tau_par"], w0["tau_par"], 1e-12)
+    and w1["contact"] and not w0["contact"], f"{w0['sig_n']:.2f} → {w1['sig_n']:.2f}")
+Rad = compute(dict(contact=OUI))
+chk("appui direct — moteur : défaut « Non » (cordons à 40,5 %) ; « Oui » : 25,7 %, avis « appui_direct » ; sous "
+    "N = 2 000 kN les cordons ne gardent que le cisaillement (σn = 0) ; en TRACTION (N = −100 kN) l'option ne change rien",
+    not R0.appui_direct and pres(R0.ck["w"].eta, 0.405, 2e-3) and Rad.appui_direct and pres(Rad.ck["w"].eta, 0.257, 2e-3)
+    and "appui_direct" in ids(Rad) and "appui_direct" not in ids(R0)
+    and compute(dict(contact=OUI, N_Ed=2000)).cordons["sig_n"] == 0.0
+    and pres(compute(dict(contact=OUI, N_Ed=-100)).ck["w"].eta, compute(dict(N_Ed=-100)).ck["w"].eta, 1e-12),
+    f"{R0.ck['w'].eta:.4f} → {Rad.ck['w'].eta:.4f}")
+# --- k1 du cône : le libellé dit d'où vient la valeur
+chk("cône — k1 = 7,7 gardé (valeur des fixations post-installées, prudente pour une tige coulée en place), et la ligne "
+    "le dit ; avec une ETA : « valeur de l'ETA »",
+    pres(R0.cone["k1"], 7.7, 1e-12) and "valeur des fixations post-installées" in R0.ck["cone"].vals
+    and "valeur de l'ETA" in compute(dict(typ_a=TYPE_ETA, eta_k1=8.5)).ck["cone"].vals)
+# --- les cinq exemples publiés
+bm = {x["id"]: x for x in b["bench"]}
+e1 = {r["lab"][:12]: r for r in bm["BM2"]["rows"]}
+chk("exemples publiés — cinq fiches complètes rejouées (MSB §6.5 ; SCI P358 ex. 1 à 3 ; SCI P398 E.1), aucune ligne "
+    "« À vérifier » ni « À expliquer » : chaque écart de plus de 1 % porte son explication",
+    sorted(bm) == ["BM1", "BM2", "BM3", "BM4", "BM5"] and b["fiches"] == []
+    and all(r["st"] in ("OK", "Écart expliqué", "Écart > 3 % documenté") for x in b["bench"] for r in x["rows"])
+    and b["statut"] == "VALIDÉ" and b["worst"] <= 0.01, f"{b['statut']} {b['worst']:.4f}")
+chk("SCI P398 E.1 — c = 112 mm, Fc,pl,Rd = 2 193 kN, ℓeff,1 = 0,5·bbp = 300 mm et Mpl,1,Rd = 47,8 kNm retrouvés à moins "
+    "de 0,3 % ; FT,3 = 753 kN contre 812 (la tige est bornée par EN 1992-4 : écart documenté, du côté sûr)",
+    all(abs(r["ec"]) <= 0.003 for r in bm["BM2"]["rows"] if r["lab"].startswith(("c =", "Fc,pl", "ℓeff", "Mpl")))
+    and sum(1 for r in bm["BM2"]["rows"] if r["lab"].startswith(("c =", "Fc,pl", "ℓeff", "Mpl"))) == 4
+    and any(r["lab"].startswith("FT,3") and pres(r["val"], 753.07, 1e-4) and r["exp"] for r in bm["BM2"]["rows"]))
+chk("pieds articulés publiés (appui direct) — le critère d'aire du moteur retrouve tp,min à moins de 1,5 % (45 / 47 / "
+    "89 / 19 mm) ; l'épaisseur RETENUE par le moteur est du côté sûr (jusqu'à +4 %)",
+    all(abs(r["ec"]) <= 0.015 for k in ("BM1", "BM3", "BM4", "BM5") for r in bm[k]["rows"] if "critère d'aire" in r["lab"])
+    and all(-0.001 <= r["ec"] <= 0.041 for k in ("BM1", "BM3", "BM4", "BM5") for r in bm[k]["rows"] if "RETIENT" in r["lab"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

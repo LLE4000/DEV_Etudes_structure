@@ -27,7 +27,7 @@ from acier.formats import F, nb
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX
+from acier.assemblages.note_kit import empaqueter_au_mieux, coefficients, MSB, SANS_TAUX, segment_maintien
 from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ...poutre_poutre.plat_ame.note import Note as NoteFamille, _prof, M
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, CART_H, _fmt_echelle
@@ -74,9 +74,15 @@ def segments_hypotheses(R):
            "z = " + F(R.zeff, 1) + " mm",
            "le groupe reprend VEd·z + |MEd|"]
     if R.ame:
-        # la flexion hors plan de l'âme est AUSSI dite par l'alerte « ame_hp »
-        # imprimée sous le bandeau : la forme courte peut donc la lâcher
-        seg.append(("appui dans l'âme : cisaillement local un seul côté, flexion hors plan NON vérifiée",
+        # la flexion hors plan de l'âme : au CHAÎNAGE, la formule du SCI P358 (Check 14, ligne « ahP ») ;
+        # sous une traction ELU, non vérifiée (le statut le dit) ; sans traction, sans objet
+        if N(u.N_Ed) > 0 and R.tying:
+            hors_plan = ", flexion hors plan au chaînage (SCI P358 Check 14)"
+        elif N(u.N_Ed) > 0:
+            hors_plan = ", flexion hors plan sous la traction ELU NON vérifiée"
+        else:
+            hors_plan = ""
+        seg.append(("appui dans l'âme : cisaillement local un seul côté" + hors_plan,
                     "appui dans l'âme : cisaillement local un seul côté",
                     "appui dans l'âme (cisaillement local)",
                     "appui dans l'âme du poteau"))
@@ -84,9 +90,9 @@ def segments_hypotheses(R):
         seg.append(("appui sur l'aile, attache dans le plan de l'âme du poteau",
                     "appui sur l'aile (plan de l'âme du poteau)",
                     "appui sur l'aile"))
-    seg.append(("plat court (z ≤ tp/0,15 : pas de déversement)" if not R.long_p
-                else "plat long (z > tp/0,15 : déversement, courbe BS 5950-1)",
-                "plat court (z ≤ tp/0,15)" if not R.long_p else "plat long (z > tp/0,15 : déversement)"))
+    seg.append(("plat court (zp ≤ tp/0,15 : sans déversement)" if not R.long_p
+                else "plat long (zp > tp/0,15 : déversement, χLT EC3-1-1)",
+                "plat court, zp ≤ tp/0,15" if not R.long_p else "plat long, zp > tp/0,15 : déversement"))
     if R.cas_g > 0:
         seg.append(("grugeage : flexion de la section réduite (" + MSB + "§4.2.4)",
                     "grugeage : section réduite (" + MSB + "§4.2.4)"))
@@ -97,17 +103,22 @@ def segments_hypotheses(R):
     seg.append(("au poteau : VEd·e = " + F(R.M_col, 1) + " kNm à reporter au calcul d'élément",
                 "au poteau VEd·e = " + F(R.M_col, 1) + " kNm",
                 "au poteau VEd·e " + F(R.M_col, 1) + " kNm"))
-    seg.append(("cordons pleine hauteur, un par face (§4.5.3.3)", "cordons pleine hauteur (§4.5.3.3)"))
+    seg.append(("cordons sur hp − 2a, un par face (§4.5.1, §4.5.3.3)", "cordons hp − 2a (§4.5.1)"))
     suffixe = " · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else ""
     g = "γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
     seg.append(tuple(f + suffixe for f in coefficients(g, N(u.g_M2), N(u.g_M2n))))
+    # L19 : la poutre grugée maintenue au déversement — en DERNIER : c'est lui que le kit raccourcit d'abord
+    s_ = segment_maintien(R.cas_g > 0 and str(u.lt_ok) == "Oui")
+    if s_:
+        seg.append(s_)
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible
-    (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+    """Trois lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 # ------------------------------------------------------------- page 1
@@ -170,7 +181,7 @@ class PlanPrincipePP(PlanPrincipe):
                  ("POTEAU · POUTRE", "P : " + _prof(R, "P") + " " + u.nu_P,
                   "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
                  ("PLAT", nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl,
-                  "zp " + F(N(u.z_C), 0) + " mm"
+                  "zc " + F(N(u.z_C), 0) + " mm"
                   + (" · recoupe " + F(N(u.rec_S), 0) + " mm" if R.ame and N(u.rec_S) > 0 else ""), 0.155),
                  ("FIXATIONS", fix, vis, 0.245),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.095),

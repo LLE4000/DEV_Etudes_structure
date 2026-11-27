@@ -13,9 +13,11 @@ TABLES = [
       ("ptn", "Traction nette")]),
     ("portee", "Poutre secondaire (portée)",
      [("pdS", "Pression diamétrale – âme"), ("vgS", "Cisaillement brut – âme"), ("vnS", "Cisaillement net – âme"),
-      ("vbS", "Rupture de bloc – âme"), ("mN", "Grugeage – flexion + V"), ("m2", "Grugeage – 2e file"),
+      ("vbS", "Rupture de bloc – âme"), ("abS", "Section ABCD – âme (plat long)"),
+      ("mN", "Grugeage – flexion + V"), ("m2", "Grugeage – 2e file"),
       ("stN", "Grugeage – stabilité (c)"), ("stD", "Grugeage – stabilité (dc)"), ("tnS", "Traction nette – âme")]),
-    ("porteuse", "Poutre principale (porteuse)", [("vlP", "Cisaillement local de l'âme")]),
+    ("porteuse", "Poutre principale (porteuse)",
+     [("vlP", "Cisaillement local de l'âme"), ("poi", "Poinçonnement par le plat")]),
     ("soudure", "Soudure (double cordon)",
      [("w", "Effort au point critique"), ("wa", "Gorge minimale")]),
 ]

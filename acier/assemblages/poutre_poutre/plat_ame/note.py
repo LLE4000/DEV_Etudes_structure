@@ -25,7 +25,8 @@ from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX, sans_taux, verdict, masquer_taux
+from acier.assemblages.note_kit import (empaqueter_au_mieux, coefficients, MSB, SANS_TAUX, sans_taux, verdict, masquer_taux,
+                                       segment_maintien, phrase_articulation)
 from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ..doubles_cornieres.rapport import peindre
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
@@ -77,20 +78,26 @@ def segments_hypotheses(R):
     seg = ["articulé : rotule à la face de l'âme porteuse (MSB P5 §3.2)",
            "z = " + F(R.zeff, 1) + " mm",
            "le groupe reprend VEd·z + |MEd|",
-           ("plat court (z ≤ tp/0,15 : pas de déversement)" if not R.long_p
-            else "plat long (z > tp/0,15 : déversement, courbe BS 5950-1)")]
+           ("plat court (zp ≤ tp/0,15 : sans déversement)" if not R.long_p
+            else "plat long (zp > tp/0,15 : déversement, χLT EC3-1-1)")]
     if R.cas_g > 0:
         seg.append(("grugeage : flexion de la section réduite (MSB P5 §4.2.4)", "grugeage : section réduite (MSB P5 §4.2.4)"))
-    seg.append(("cordons pleine hauteur, un par face (§4.5.3.3)", "cordons pleine hauteur (§4.5.3.3)"))
+    seg.append(("cordons sur hp − 2a, un par face (§4.5.1, §4.5.3.3)", "cordons hp − 2a (§4.5.1)"))
     suffixe = " · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else ""
     g = "γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
     seg.append(tuple(f + suffixe for f in coefficients(g, N(u.g_M2), N(u.g_M2n))))
+    # L19 : la poutre grugée maintenue au déversement — en DERNIER : c'est lui que le kit raccourcit d'abord
+    s_ = segment_maintien(R.cas_g > 0 and str(u.lt_ok) == "Oui")
+    if s_:
+        seg.append(s_)
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+    """Trois lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 def _deux_lignes(d, txt, police, taille, largeur):
@@ -380,10 +387,20 @@ class Note:
 
     def conclusion(self, d, x, w):
         S, R = self.S, self.R
-        txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1 " + self.NORME
-               + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
+        # « À VÉRIFIER » (lot de clôture du 27/11/2026) : les raisons que le moteur nomme (articulation à justifier, cas
+        # hors périmètre) — en ocre, jamais en vert, avec les mêmes mots que le bandeau et que l'écran
+        a_verif = bool(R.verified and R.get("a_verifier"))
+        if a_verif:
+            txt = (R.statut.split(" (", 1)[0] + " : " + R.a_verifier + " ; vérifié à l'ELU selon EN 1993-1-8 et "
+                   "EN 1993-1-1 " + self.NORME + " pour le reste.")
+        else:
+            # le détail éprouvé TENU s'écrit aussi (arbitrage A1) : la note dit pourquoi l'attache est une articulation
+            art = phrase_articulation(R) if R.verified else ""
+            txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1 " + self.NORME
+                   + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else ".")
+                   + ((" " + art[0].upper() + art[1:] + ".") if art else ""))
         txt = masquer_taux(txt) if self.sans_taux else txt
-        col = S.ok if R.verified else S.ko
+        col = S.att if a_verif else (S.ok if R.verified else S.ko)
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7
         y0 = BAS
@@ -531,7 +548,7 @@ class PlanPrincipeFP(PlanPrincipe):
         cases = [("ASSEMBLAGE", "Poutre–poutre – plat d'âme soudé", ident or "—", 0.185),
                  ("POUTRES", "P : " + _prof(R, "P") + " " + u.nu_P, "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
                  ("PLAT", nb(R.h_p) + "×" + nb(R.b_p) + "×" + nb(R.t_p) + " " + u.nu_pl,
-                  "zp " + F(N(u.z_C), 0) + " mm", 0.165),
+                  "zc " + F(N(u.z_C), 0) + " mm", 0.165),
                  ("FIXATIONS", fix, vis, 0.27),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),
                  ("ÉCHELLE", _fmt_echelle(dnm), "A4 paysage", 0.115)]

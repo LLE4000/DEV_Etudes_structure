@@ -25,7 +25,7 @@ import math
 from acier.bibliotheques import PERSO
 from acier.js import dv, mx
 from .entrees import APPUI_AILE, APPUI_AME
-from .moteur import compute, pb_bs5950
+from .moteur import compute
 from acier.assemblages import materiau as MT    # le matériau des exemples (validation de formules)
 
 S3 = math.sqrt(3)
@@ -78,14 +78,16 @@ def va(k):
 # =====================================================================
 #  Calculs manuels indépendants (expressions littérales, hors moteur)
 # =====================================================================
-def _pb(lam, py):
-    """Perry-Robertson de BS 5950-1 Annexe B.2.1, réécrit ici in extenso —
+def _chi(lb, alpha=0.76):
+    """χLT de l'expression (6.56) de l'EN 1993-1-1 avec αLT = 0,76 (SCI P358, Table 5.2), réécrit ici in extenso —
     la valeur de référence ne vient PAS de la fonction du moteur."""
-    lam0 = 0.4 * math.sqrt(math.pi ** 2 * 205000 / py)
-    eta = 0.007 * (lam - lam0)
-    pE = math.pi ** 2 * 205000 / lam ** 2
-    phi = (py + (eta + 1) * pE) / 2
-    return pE * py / (phi + math.sqrt(phi * phi - pE * py))
+    phi = 0.5 * (1 + alpha * (lb - 0.2) + lb * lb)
+    return 1 / (phi + math.sqrt(phi * phi - lb * lb))
+
+
+def _lamb(lam, fy):
+    """λ̄LT = λ/(π·√(E/fy)), E = 210 000 MPa."""
+    return lam / (math.pi * math.sqrt(210000 / fy))
 
 
 # --- géométrie et matériaux de référence (étude §11.1)
@@ -131,10 +133,11 @@ _ipd_S = math.hypot(_Fz2 / _Fbv_S, _Fx2 / _Fbh_S)
 _A_S = 2 * _bS * _tfS + (_hS - 2 * _tfS) * _twS + (4 - math.pi) * _rS ** 2
 _Av_S = max(_A_S - 2 * _bS * _tfS + (_twS + 2 * _rS) * _tfS, (_hS - 2 * _tfS) * _twS)
 _VRdg_S = _Av_S * _fy / S3 / 1000
-# cordons (deux cordons verticaux pleine hauteur)
+# cordons (deux cordons verticaux, à pleine gorge sur ℓ = hp − 2a : EN 1993-1-8 §4.5.1(1) ; a = 6 par défaut)
 _fvw = _fu / (S3 * _bw * 1.25)
-_qz2 = _V * 1000 / (2 * _hp)
-_qx2 = 3 * _MS2 * 1e6 / _hp ** 2
+_Lw = _hp - 2 * 6.0
+_qz2 = _V * 1000 / (2 * _Lw)
+_qx2 = 3 * _MS2 * 1e6 / _Lw ** 2
 _a_plein = _tp * _fy * _bw * 1.25 / (math.sqrt(2) * _fu * 1.0)        # le plat plastifie avant le cordon (√2)
 # poteau, cas (b) : cisaillement local de l'âme, un seul côté chargé
 _VRd_lP = _twP * _hp * _fy / (S3 * 1.0) / 1000
@@ -150,10 +153,17 @@ _z3 = _gh3 + _e2b
 _MS3 = _V * _z3 / 1000
 _Fx3 = _MS3 * 1000 * ((_n1 - 1) * _p1 / 2) / _Ip2
 _F3 = math.hypot(_Fz2, _Fx3)
+# plat LONG selon le SCI P358 Check 3 : zp = z (une file) ; γM1 = 1,10 (ANB)
 _lam3 = 2.8 * math.sqrt(_z3 * _hp / (1.5 * _tp ** 2))
-_pb3 = _pb(_lam3, _fy)
+_lamb3 = _lamb(_lam3, _fy)
+_chi3 = _chi(_lamb3)
 _Wel3 = _tp * _hp ** 2 / 6
-_Mb3 = _Wel3 * _pb3 / 1.1 / 1e6
+_Mb3 = min(_Wel3 * _chi3 * _fy / (0.6 * 1.1), _Wel3 * _fy / 1.0) / 1e6
+# section ABCD de l'âme portée (Check 4, une file) : VEd·zp ≤ Mc,BC,Rd + Vpl,AB,Rd·(n1 − 1)·p1
+_hBC3 = (_n1 - 1) * _p1
+_McBC3 = _fy * _twS * _hBC3 ** 2 / 6 / 1e6          # VBC,Ed = VEd·hBC/hb ≤ 0,5·Vpl,BC,Rd : pas de réduction
+_VAB3 = _twS * _e2b * _fy / S3 / 1000
+_MRd_abcd3 = _McBC3 + _VAB3 * _hBC3 / 1000
 # --- BM3' : 5 × 2 M24, p1 = p2 = 60, plat 320 × 12
 _d4, _d04, _As4 = 24.0, 26.0, 353.0
 _n1p, _n2p, _p1p, _p2p, _hpp, _tpp, _bpp = 5, 2, 60.0, 60.0, 320.0, 12.0, 295.0
@@ -164,10 +174,12 @@ _MS4 = _V * _zp4 / 1000
 _Fz4 = _V / (_n1p * _n2p) + _MS4 * 1000 * ((_n2p - 1) * _p2p / 2) / _Ipp
 _Fx4 = _MS4 * 1000 * ((_n1p - 1) * _p1p / 2) / _Ipp
 _F4 = math.hypot(_Fz4, _Fx4)
-_lam4 = 2.8 * math.sqrt(_zp4 * _hpp / (1.5 * _tpp ** 2))
-_pb4 = _pb(_lam4, _fy)
+_zp1_4 = _gh3 + _e2b                                   # zp du SCI : la PREMIÈRE file (z = zp + p2/2 au centre)
+_lam4 = 2.8 * math.sqrt(_zp1_4 * _hpp / (1.5 * _tpp ** 2))
+_lamb4 = _lamb(_lam4, _fy)
+_chi4 = _chi(_lamb4)
 _Wel4 = _tpp * _hpp ** 2 / 6
-_Mb4 = _Wel4 * _pb4 / 1.1 / 1e6
+_Mb4 = min(_Wel4 * _chi4 * _fy / (0.6 * 1.1), _Wel4 * _fy / 1.0) / 1e6
 _e1b4 = _zp + _e1
 _abv_S4 = min(_e1b4 / (3 * _d04), _p1p / (3 * _d04) - 0.25, _fub / _fu, 1)
 _k1v_S4 = min(2.8 * _e2b / _d04 - 1.7, 1.4 * _p2p / _d04 - 1.7, 2.5)
@@ -180,7 +192,12 @@ _ipd_S4 = math.hypot(_Fz4 / _Fbv_S4, _Fx4 / _Fbh_S4)
 _Nty = 250.0
 _ptn_u = 0.9 * (_hp - _n1 * _d0) * _tp * _fu / 1.1 / 1000
 _tnS_u = 0.9 * _twS * (_hp - _n1 * _d0) * _fu / 1.1 / 1000
-_qx_ty = _Nty * 1000 / (2 * _hp)
+_qx_ty = _Nty * 1000 / (2 * _Lw)
+# cas (b) : poinçonnement de l'âme du poteau (SCI Check 10, forme rigoureuse) et âme hors plan en chaînage (Check 14)
+_M_poi = _twP * _fu * _hp ** 2 / (6 * 1.25) / 1e6
+_s_w = 6.0 / 0.7
+_b1_ame = (_tp + 2 * _s_w) / _libre_droit
+_FRd_ame = 8 * (_fu * _twP ** 2 / 4) / (1.1 * (1 - _b1_ame)) * (_hp / _libre_droit + 1.5 * math.sqrt(1 - _b1_ame)) / 1000
 _Fw_ty = _fu / (S3 * _bw * 1.1) * 6.0            # a = 6 mm, la gorge par défaut (pleine résistance)
 
 
@@ -243,11 +260,14 @@ BENCH = [
              ["§11.2", "Moment d'excentricité MS", _MS3, va("M_S"), "kNm", ""],
              ["§11.2", "Effort du boulon le plus sollicité F,Ed", _F3, va("F_b"), "kN", ""],
              ["§11.2", "Taux des boulons (NON VÉRIFIÉ)", _F3 / _Fv, et("bv"), "-", ""],
-             ["§11.2", "Élancement de déversement λLT", _lam3, va("lam_LT"), "-", ""],
-             ["§11.2", "Contrainte de déversement pb", _pb3, va("pb_LT"), "MPa", ""],
+             ["P358 Ch. 3", "Élancement 2,8·√(zp·hp/(1,5·tp²))", _lam3, va("lam_LT"), "-", ""],
+             ["P358 Ch. 3", "Élancement réduit λ̄LT", _lamb3, va("lamb_LT"), "-", ""],
+             ["P358 Ch. 3", "χLT (expression 6.56, αLT = 0,76)", _chi3, va("chi_LT"), "-", ""],
              ["§11.2", "Module élastique Wel = tp·hp²/6", _Wel3, va("Wel_p"), "mm³", ""],
-             ["§11.2", "Moment résistant Mb,Rd = Wel·pb/γM1 (γM1 = 1,10 ANB)", _Mb3, rd("plt"), "kNm", ""],
-             ["§11.2", "Taux de déversement du plat (NON VÉRIFIÉ)", _MS3 / _Mb3, et("plt"), "-", ""],
+             ["P358 Ch. 3", "Moment résistant min(Wel·χLT·fy/(0,6·γM1) ; Wel·fy/γM0) (γM1 = 1,10 ANB)", _Mb3, rd("plt"), "kNm", ""],
+             ["P358 Ch. 3", "Taux de déversement du plat", _MS3 / _Mb3, et("plt"), "-", ""],
+             ["P358 Ch. 4", "Section ABCD de l'âme portée – moment résistant (NON VÉRIFIÉE : 39,0 kNm demandés)",
+              _MRd_abcd3, rd("abS"), "kNm", ""],
              ["§11.2", "Âme du poteau – cisaillement local VRd = twP·hp·fy/(√3·γM0)", _VRd_lP, rd("vlP"), "kN", ""],
              ["§11.2", "Âme du poteau – taux (Ed = VEd/2 = 100 kN)", _V / 2 / _VRd_lP, et("vlP"), "-", ""]]),
     dict(id="BM3'", titre="Cas (b) ÂME, variante b1 REDIMENSIONNÉE — les deux taux de l'étude "
@@ -264,9 +284,9 @@ BENCH = [
              ["§11.2", "Composante Fx", _Fx4, va("Fx_b"), "kN", ""],
              ["§11.2", "Effort du boulon le plus sollicité F,Ed", _F4, va("F_b"), "kN", ""],
              ["§11.2", "Taux des boulons (Fv,Rd = 135,552 kN pour un M24 filet)", _F4 / _Fv4, et("bv"), "-", ""],
-             ["§11.2", "Élancement λLT", _lam4, va("lam_LT"), "-", ""],
-             ["§11.2", "Contrainte pb", _pb4, va("pb_LT"), "MPa", ""],
-             ["§11.2", "Moment résistant Mb,Rd", _Mb4, rd("plt"), "kNm", ""],
+             ["P358 Ch. 3", "Élancement 2,8·√(zp·hp/(1,5·tp²)), zp = 195 (première file)", _lam4, va("lam_LT"), "-", ""],
+             ["P358 Ch. 3", "χLT", _chi4, va("chi_LT"), "-", ""],
+             ["P358 Ch. 3", "Moment résistant min(Wel·χLT·fy/(0,6·γM1) ; Wel·fy/γM0)", _Mb4, rd("plt"), "kNm", ""],
              ["§11.2", "Taux de déversement du plat", _MS4 / _Mb4, et("plt"), "-", ""],
              ["calcul manuel", "Âme portée – taux de pression diamétrale : DÉFAUT trouvé par l'outil",
               _ipd_S4, et("pdS"), "-", ""],
@@ -289,13 +309,44 @@ BENCH = [
              ["§11.2", "Âme du poteau – taux (Ed = VEd/2)", _V / 2 / _VRd_lP, et("vlP"), "-", ""]]),
 ]
 
+# Exemple 2 du SCI P358 (plats d'âme, p. 152-159) : chaînage de 175 kN, poutre 406×178×74 UKB S275 sur l'ÂME d'un
+# poteau 305×305×137 UKC S275, plat 290×100×10, 4 M20 8.8 sur une file, soudures de 8 mm (a = 5,6).
+SCI_2 = dict(appui=APPUI_AME, prof_P=PERSO, hP_u=320.5, bP_u=309.2, twP_u=13.8, tfP_u=21.7, rP_u=15.2, nu_P="S275",
+             prof_S=PERSO, hS_u=412.8, bS_u=179.5, twS_u=9.5, tfS_u=16.0, rS_u=10.2, nu_S="S275",
+             nu_pl="S275", d_nt=0, d_nb=0, l_n=0, g_h=10, z_C=50, hp_u=290, tp_u=10, bp_u=100, boulon_u="M20",
+             classe="8.8", n1_u=4, n2_u=1, p1_u=70, e1_u=40, e2b_u=40, a_w=5.6, V_Ed=0, N_Ed=175,
+             nat_N="Tying (accidentel)", g_Mu=1.1, g_M2n=1.1)
+SRC_SCI = dict(
+    titre="SCI P358 — Joints in Steel Construction: Simple Joints to Eurocode 3 — Fin plates, Worked example 2 "
+          "(beam to column web, tying resistance)",
+    org="The Steel Construction Institute / The British Constructional Steelwork Association (édition de 2014)",
+    annee="pages 152 à 159 : Checks 11, 12 et 14 de la procédure",
+    norme="BS EN 1993-1-8 et BS EN 1993-1-1 avec l'annexe britannique ; chaînage avec fu/γMu, γMu = 1,1",
+    url="https://www.steelconstruction.info/images/3/3d/SCI_P358.pdf")
+BENCH.append(
+    dict(id="BM5", titre="SCI P358, plats d'âme, exemple 2 — CHAÎNAGE de 175 kN sur l'ÂME d'un poteau "
+                         "305×305×137 UKC : plat, boulons, âme portée et âme du poteau hors de son plan",
+         src=SRC_SCI, mat=None, source=MT.SOURCE_TABLE,
+         data="406×178×74 UKB S275 (tw 9,5) sur l'âme d'un 305×305×137 UKC S275 (tw 13,8, hauteur droite "
+              "dc = 246,7 mm), plat 290×100×10 S275, 4 M20 8.8 sur une file, p1 = 70, e1 = 40, e2 = 50, e2,b = 40, "
+              "gh = 10, soudures de 8 mm (a = 5,6), force de chaînage 175 kN, γMu = 1,1",
+         inp=SCI_2, rows=[
+             ["p. 155", "Check 11 — plat, rupture de bloc en traction", 661, lambda R: min(R.Nt1_p, R.Nt2_p), "kN", ""],
+             ["p. 155", "Check 11 — plat, traction de la section nette", 678, rd("ptn"), "kN", ""],
+             ["p. 155", "Check 11 — boulons en cisaillement n·Fv,u", 428, lambda R: R.n_b * R.Fv_Rd_u, "kN", ""],
+             ["p. 156", "Check 12 — âme portée, rupture de bloc en traction", 597, rd("tbS"), "kN", ""],
+             ["p. 156", "Check 12 — âme portée, traction de la section nette", 644, rd("tnS"), "kN", ""],
+             ["p. 159", "Check 14 — âme du poteau hors de son plan, FRd,u", 412, rd("ahP"), "kN", ""]]))
+
 NOCOVER = [
     ["Cisaillement local de l'âme du poteau (cas b)", "Aucun exemple publié consulté : c'est le modèle "
      "même des trois modules poutre–poutre (SCI P358, élément support chargé d'un seul côté, "
      "Av = twP·hp), transposé sans changement de formule. Calcul manuel indépendant (BM3, BM4)."],
-    ["Déversement du plat LONG en âme de poteau", "La courbe est celle du module plat d'âme "
-     "(BS 5950-1 Annexe B.2.1), ancrée par son VAL-A ; son application à z ≈ 200 mm est NEUVE : "
-     "calcul manuel indépendant (BM3, VAL-A)."],
+    ["Déversement du plat LONG en âme de poteau", "La formule est celle du SCI P358 (Check 3 : χLT de "
+     "l'expression 6.56, αLT = 0,76, et le 0,6 du diagramme triangulaire), sa table est rejouée au banc du plat "
+     "d'âme poutre–poutre ; son application à zp ≈ 200 mm : calcul manuel indépendant (BM3, VAL-A)."],
+    ["Poinçonnement de l'âme du poteau par le plat", "Les exemples du guide n'appliquent que la forme prudente "
+     "(tp ≤ t2·fu,2/fy,p) ; la forme rigoureuse du Check 10 est recalculée à la main (VAL-D)."],
     ["Règles géométriques du cas (b)", "Largeur droite entre congés, passage de la semelle entre "
      "ailes, recoupe des semelles en largeur : géométrie, pas de résistance — calculs manuels (BM4). "
      "La recoupe en LARGEUR n'est pas un grugeage (point tranché P-3 de l'étude)."],
@@ -312,13 +363,16 @@ NOCOVER = [
 ]
 
 VALID = [
-    dict(id="VAL-A", titre="Déversement du plat LONG sur le cas (b) variante b1 (plat 290×10, "
-                           "z = 195 > tp/0,15 = 66,7) — la courbe de BS 5950-1 réécrite in extenso",
+    dict(id="VAL-A", titre="Plat LONG sur le cas (b) variante b1 (plat 290×10, zp = 195 > tp/0,15 = 66,7) — "
+                           "déversement et section ABCD du SCI P358, réécrits in extenso",
          inp=BM3, rows=[
-        ["Élancement λLT = 2,8·√(z·hp/(1,5·tp²))", _lam3, 54.36616595, va("lam_LT"), "-"],
-        ["Contrainte de déversement pb (Perry-Robertson, E = 205 000)", _pb3, 276.5156658, va("pb_LT"), "MPa"],
-        ["Moment résistant Mb,Rd = Wel·pb/γM1 (γM1 = 1,10 ANB)", _Mb3, 35.23479923, rd("plt"), "kNm"],
-        ["Plateau : pb = py pour λ ≤ λL0", 355, 355, lambda R: pb_bs5950(20, 355), "MPa"]]),
+        ["Élancement 2,8·√(zp·hp/(1,5·tp²))", _lam3, 54.36616595, va("lam_LT"), "-"],
+        ["Élancement réduit λ̄LT = λ/(π·√(E/fy))", _lamb3, 0.711517, va("lamb_LT"), "-"],
+        ["χLT (expression 6.56, αLT = 0,76)", _chi3, 0.635651, va("chi_LT"), "-"],
+        ["Moment résistant min(Wel·χLT·fy/(0,6·γM1) ; Wel·fy/γM0) (γM1 = 1,10 ANB)", _Mb3, 47.9231, rd("plt"), "kNm"],
+        ["ABCD – Mc,BC,Rd = fy·tw·((n1 − 1)·p1)²/(6·γM0)", _McBC3, 22.4396, lambda R: R.abcd.Mc_BC, "kNm"],
+        ["ABCD – Vpl,AB,Rd = tw·e2,b·fy/(√3·γM0)", _VAB3, 70.5060, lambda R: R.abcd.V_AB, "kN"],
+        ["ABCD – moment résistant Mc,BC,Rd + Vpl,AB,Rd·(n1 − 1)·p1", _MRd_abcd3, 37.2459, rd("abS"), "kNm"]]),
     dict(id="VAL-B", titre="Cas (a) par défaut : le modèle (bras, groupe, cordons) et le TYING "
                            "(NEd = 250 kN, γMu = 1,1) — calculs indépendants",
          inp=BM2, rows=[
@@ -327,8 +381,8 @@ VALID = [
         ["Taux – pression diamétrale de l'âme portée (interaction)", _ipd_S, 0.5348613587, et("pdS"), "-"],
         ["Pince e2 du plat au bord libre", _e2p, 50.0, va("e2_p"), "mm"],
         ["Pince basse du plat e1' = hp − e1 − 3·p1", _e1bot, 40.0, va("e1bot"), "mm"],
-        ["Soudure – qz = VEd/(2hp)", _qz2, 344.8275862, va("qz_w"), "N/mm"],
-        ["Soudure – qx = 3·MS/hp²", _qx2, 356.7182, va("qx_w"), "N/mm"],
+        ["Soudure – qz = VEd/(2·(hp − 2a))", _qz2, 359.7122302, va("qz_w"), "N/mm"],
+        ["Soudure – qx = 3·MS/(hp − 2a)²", _qx2, 388.1786657, va("qx_w"), "N/mm"],
         ["Soudure – résistance Fw,Rd = fvw,d·a (a = 6)", _fvw * 6, 1570.39273, rd("w"), "N/mm"],
         ["Excentricité apportée au poteau e_col = hP/2 + z", _hP / 2 + _z2, 200.0, va("e_col"), "mm"],
         ["Moment apporté au poteau VEd·e_col (information)", _V * (_hP / 2 + _z2) / 1000, 40.0,
@@ -340,8 +394,15 @@ VALID = [
         ["Le groupe : n·Fv,Rd,u", 4 * _Fvu, 427.6363636, lambda R: R.n_b * R.Fv_Rd_u, "kN"],
         ["Plat – traction section nette 0,9·Anet·fu/γMu", _ptn_u, 842.8909091, rd("ptn"), "kN"],
         ["Âme portée – traction section nette (hauteur participante hp)", _tnS_u, 724.8858182, rd("tnS"), "kN"],
-        ["Cordons – qx = NEd/(2hp)", _qx_ty, 431.0344828, va("qx_ty"), "N/mm"],
-        ["Cordons – Fw,Rd,u = fu/(√3·βw·γMu)·a", _Fw_ty, 1487.114330, rd("wT"), "N/mm"]]),
+        ["Cordons – qx = NEd/(2·(hp − 2a))", _qx_ty, 449.6402878, va("qx_ty"), "N/mm"],
+        ["Cordons – Fw,Rd,u = fu/(√3·βw·γMu)·a", _Fw_ty, 1784.537196, rd("wT"), "N/mm"]]),
+    dict(id="VAL-D", titre="Cas (b), âme du poteau HEB 300 (twP = 11) : poinçonnement par le plat (SCI Check 10) et "
+                           "flexion hors plan sous le chaînage de 250 kN (Check 14) — calculs indépendants",
+         inp=dict(BM4, N_Ed=250, nat_N="Tying (accidentel)"), rows=[
+        ["Poinçonnement – twP·fu·hp²/(6·γM2)", _M_poi, 62.9068, rd("poi"), "kNm"],
+        ["Poinçonnement – demande MS = VEd·z", _MS2, 10.0, lambda R: R.ck["poi"].Ed, "kNm"],
+        ["Âme hors plan – β1 = (tp + 2s)/dc, s = a/0,7", _b1_ame, 0.130495, lambda R: (R.t_p + 2 * R.a_w / 0.7) / R.libre_droit, "-"],
+        ["Âme hors plan – FRd,u = 8·Mpl/(γMu·(1 − β1))·(η1 + 1,5·√(1 − β1))", _FRd_ame, 360.398, rd("ahP"), "kN"]]),
 ]
 
 
@@ -351,7 +412,7 @@ def run_bench():
     (« VALIDÉ » / « À CONTRÔLER »)."""
     out = []; worst = 0; n_unexp = 0
     for b in BENCH:
-        R = compute(b["inp"], MT.EXEMPLES); rows = []
+        R = compute(b["inp"], b.get("mat", MT.EXEMPLES)); rows = []
         for r in b["rows"]:
             v = r[3](R); ec = (v - r[2]) / r[2]; a = abs(ec)
             if a <= 0.01:
@@ -364,7 +425,8 @@ def run_bench():
                 n_unexp += 1
             worst = mx(worst, a)
             rows.append(dict(page=r[0], lab=r[1], ref=r[2], val=v, unit=r[4], ec=ec, st=st, exp=r[5]))
-        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R), rows=rows))
+        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R, b.get("source", MT.SOURCE_EXEMPLES)),
+                        rows=rows, src=b.get("src", SRC)))
     nv = 0; val = []
     for c in VALID:
         R = compute(c["inp"], MT.EXEMPLES); rows = []

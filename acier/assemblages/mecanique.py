@@ -116,7 +116,11 @@ def portance_bout_interieur(t, fu, fub, d, d0, e1, e2, p1, p3, gM2, ktrou=1.0):
 
 
 def groupe_boulons(Fv, Fb_bout, Fb_int, n_bout, n_int):
-    """Résistance d'un GROUPE de fixations en cisaillement : ``(FRd, branche)``.
+    """ANCIENNE résistance d'un GROUPE de fixations en cisaillement :
+    ``(FRd, branche)`` — MSB P5 §2.2.4 plafonné. Les moteurs ne l'appellent
+    PLUS depuis le lot de clôture du 27/11/2026 : ils appliquent
+    ``sci.groupe_boulons`` (SCI P358, Check 8). Gardée pour les tests qui
+    documentent l'ancien et le nouveau résultat.
 
     - (Fb,Rd)max ≤ Fv,Rd              → FRd = ΣFb,Rd ;
     - (Fb,Rd)min < Fv,Rd < (Fb,Rd)max → FRd = ns·(Fb,Rd)min ;
@@ -201,7 +205,7 @@ def bolt_table(n1, n2, p1, p2, V, Hh, M, Ip, horizontal_signe=False):
 #  3. Poutre GRUGÉE : section réduite, module, réduction, stabilité locale
 # =========================================================================
 def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
-                   renvoi_non_maintenue="", fy_nuance=None):
+                   renvoi_non_maintenue="", fy_nuance=None, k_double=1.0):
     """Tout le bloc de la poutre grugée, pour un profil en I ou H.
 
     ``fy`` : la f_y de la poutre (selon son épaisseur) — elle sert aux
@@ -215,7 +219,12 @@ def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
     ``V`` (kN) sert à la réduction ``ρ`` ; ``maintenue`` dit si la poutre est
     maintenue au déversement (domaine de validité de la règle du guide) ;
     ``renvoi_non_maintenue`` est le renvoi propre au module, ajouté à la
-    phrase de domaine (`doubles_cornieres` cite « SCI P358 Check 7 »).
+    phrase de domaine (`doubles_cornieres` cite « SCI P358 Check 7 ») ;
+    ``k_double`` : le coefficient de l'aire de cisaillement d'une poutre à
+    DEUX grugeages (section rectangulaire) — 0,9 pour les platines d'about et
+    les plats d'âme, qui suivent le SCI P358 depuis le 27/11/2026 (Check 5 :
+    Av,DN = 0,9·tw·(h − dnt − dnb)) ; 1,0 pour les cornières, qui suivent le
+    MSB P5 (parité avec le corrigé de référence).
 
     Rend ``{cas_g, Asec, h_T, A_Tee, Av, VRd_g, hw_T, zb_T, I_N, W_N, rho_N,
     Mv_N, el_N, lim_N, ln_max, domaine, val_N}`` :
@@ -246,7 +255,7 @@ def section_grugee(profil, fy, dnt, dnb, gM0, V=0.0, maintenue=True,
     elif cas_g == 1:
         Av = A_Tee - b * tf + (tw + 2 * r) * tf / 2
     else:
-        Av = tw * h_T
+        Av = k_double * tw * h_T
     VRd_g = dv(Av * fy / S3, gM0) / 1000
     hw_T = h_T - tf
     zb_T = dv(b * tf * tf / 2 + tw * hw_T * (tf + hw_T / 2), A_Tee)

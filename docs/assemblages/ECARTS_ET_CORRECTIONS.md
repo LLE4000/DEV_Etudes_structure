@@ -267,3 +267,106 @@ affiché reste celui de la vérification complète.
 | conservatifs | déversement du plat long (sans le 1/0,6 du guide) ; `Σleff` de l'aile du poteau = `n1·p1` ; cordons en méthode simplifiée ; pression diamétrale en enveloppe | sûr |
 | de mémoire | MSB Part 5, SCI P358 et ECCS n°126 n'ont pas pu être relus en ligne ; `γM1` et `γMu` belges | à confirmer |
 
+
+---
+
+## 8. Lot de clôture du 27/11/2026 — contrôle indépendant des sept attaches
+
+Un second contrôleur a relu le dossier de contre-expertise et proposé onze arbitrages (A1 à A11) et neuf constats
+nouveaux (N1 à N9). Chaque proposition a été revérifiée ici, sur le texte des guides et par le calcul, avant d'être
+portée au moteur. Les guides ont été lus à la source (steelconstruction.info : SCI P358, SCI P398, MSB Part 5) ; aucun
+n'est dans le dépôt — le code ne garde que les valeurs utiles, avec leur page.
+
+**Principe retenu.** Pour les platines d'about et les plats d'âme, la procédure du **SCI P358** est appliquée comme un
+tout dans son domaine (A1, A7) ; le MSB P5 reste la référence des doubles cornières et sert d'information là où il est
+plus sévère. Les règles communes vivent dans `acier/assemblages/sci.py`, une fonction par règle, avec sa page et la
+valeur publiée qui l'ancre. **Les doubles cornières poutre–poutre gardent leur parité** avec le corrigé de référence :
+leurs corrections restent derrière le garde « corrigé » et `tests/test_assemblages_parite.py` est inchangé.
+
+Tests : `tests/test_assemblages_cloture.py` (l'ancien et le nouveau de chaque règle, 62 contrôles),
+`tests/test_pied_poteau_moteur.py` §8 (24 contrôles), les suites de chaque moteur et leurs bancs. Une passe de
+mutations retire chaque correction une à une : 41 mutations, 41 vues (au premier passage, le rang des propositions n'était plus vu — contrôle renforcé — et une mutation mal écrite a été refaite).
+
+### 8.1 Six attaches de poutre — corrections appliquées
+
+| N° | Où | Avant | Après | Effet mesuré |
+|---|---|---|---|---|
+| **L1** (A1) | platines d'about : groupe de boulons | trois branches, dont `ΣFb,Rd` (somme des pressions diamétrales), plafonnées à `0,8·n·Fv,Rd` | SCI P358 Check 8 : `n·Fb,min` si `Fb,min ≤ 0,8·Fv,Rd`, sinon `0,8·n·Fv,Rd` ; `Fb,min` sur la platine ET sur le porteur | −3,9 à −13,9 % sur quatre cas figés ; exemple 1 du SCI : 602 kN retrouvés |
+| **L2** (A1) | platines : âme portée au droit de la platine | `Av = hp·tw` | `Av = 0,9·hp·tw` (Check 4) ; double grugeage `0,9·tw·hT`, platines ET plats (Checks 4 et 5) | +11 % de taux : exemple du MSB 89,5 → 99,5 % |
+| **L3** (A1) | platines courtes (`hp < 1,36·p3`) | rien | flexion dans le plan, `VRd = 2·tp·hp²·fy/(3·(p3 − tw)·γM0)` (Check 9), ligne `pip` | platine 80 × 220 × 10, 120 kN : « vérifié » 97,6 % → 105,0 % |
+| **L4** (A1) | platines : cisaillement local du porteur | `Av = t2·hp` | `Av = t2·(et + (n1 − 1)·p1 + eb)`, `et = min(e1,t ; 5d)`, `eb = min(e1,b ; p3/2 ; 5d)` (Check 10) | +8 à +60 % de résistance selon le cas ; exemple 1 du SCI : 742 et 795 kN retrouvés |
+| **L5** (A2) | platines en CHAÎNAGE : `Σleff` du tronçon en T | Tableau 6.4 seul | de plus plafonnée par `e1A`, `p1A` (Check 11 ; MSB §2.3.1) ; la traction ELU garde le Tableau 6.4 | exemple 2 du SCI : 290 mm ; 381 kN avec sa tête de 33 mm, 393 kN avec la rondelle de 37 mm du site |
+| **L6** (A4) | cordons des platines et des plats | longueur `hp` | longueur efficace `hp − 2·a` par cordon ; refus sous `max(30 mm ; 6·a)` | +2,7 à +7,4 % (platines), +5 à +24 % (plats) |
+| **L7** (A3) | détail éprouvé de l'articulation | avis | statut « À VÉRIFIER (articulation à justifier : …) » : platine au-delà de `0,36·d·√(fub/fy)`, gorge sous 0,8 × pleine résistance (platine) ou sous la pleine résistance (plat), pinces du plat `< 2·d`, boulons hors 8.8 non précontraints | PA-4, PA-9, PAP-7, PL-2, PL-10, PLP-7, PLP-8 passent de « vérifié » à « à vérifier » |
+| **L8** (A3) | plat d'âme, cas par défaut | M20, `e1 = 35`, `p1 = 60` (pince `< 2·d`) | `e1 = 40`, `p1 = 55` : le cas par défaut tient le détail ; le prédimensionnement propose des pinces `≥ 2·d` | cas par défaut 80,3 → 92,9 % |
+| **L9** (A7) | plat d'âme LONG | seuil sur `z` (centre du groupe), courbe BS 5950-1, sans le 0,6 | seuil du SCI sur `zp` (première file) ; `VRd = min(Wel·χLT·fy/(0,6·z·γM1) ; Wel·fy/(z·γM0))`, `χLT` de l'EN 1993-1-1 (Check 3) ; section ABCD (Check 4), ligne `abS` | +16 à +36 % ou −16 % de résistance selon le cas ; Tableau 5.2 et exemple 1 (743 kN) retrouvés |
+| **L10** (A7, N1) | plat long pour le MSB, court pour le SCI | rien | section ABCD du MSB calculée ; au-delà de 100 % : statut « À VÉRIFIER (section ABCD … selon le MSB P5) » | cas N1 : « vérifié » 99,6 % → à vérifier, 27,50 / 22,69 kNm = 121,2 % |
+| **L11** (A6) | plat d'âme : âme porteuse | rien | poinçonnement, forme rigoureuse `VEd·z + |NEd|·hp/6 ≤ t2·fu,2·hp²/(6·γM2)` (Check 10), ligne `poi` | PL-3 : ligne à plus de 400 % ; PL-10 : 32,1 % |
+| **L12** (A5) | âme du poteau en CHAÎNAGE (appui dans l'âme) | avis « non couverte » | SCI P358 Check 14, ligne `ahP` dans le verdict (deux formules : platine, plat) | plat par défaut, 400 kN : « vérifié » 93,5 % → 120,4 % (332,13 kN) ; platine, 370 kN : 97,6 % → 102,1 % (362,47 kN) ; exemples 2 du SCI retrouvés : 405,4 kN pour 405 (platine, p. 49), 411,7 kN pour 412 (plat, p. 159) |
+| **L13** (R07) | grugeage COURT à deux files (`xN < 2·d`) | bras `gh + c`, résistance au bout du grugeage | bras `max(gh + c ; gh + e2,b + p2)` et résistance au droit de la 2ᵉ file — plats : SCI Check 5 ; cornières : MSB §4.2.4.2 (C6) | cornières à deux files : résistance réduite (cisaillement fort au droit de la file) |
+| **L14** (A9) | effort tranchant inversé, traction sur âme porteuse, poutre grugée non maintenue, cornières soudées des deux côtés, `HEd` | calculés comme le cas courant, sans réserve | statut « À VÉRIFIER (raison) » ; avis `V_inv` | DC-5, DC-10, PA-2 passent à « à vérifier » |
+| **L15** (A10) | βLf des platines longues | « Non » par défaut, sans avis | « Non » par défaut (les exemples publiés à six rangées n'appliquent pas βLf) ; avis `blf_off` dès que `Lj > 15·d` | option « Oui » : 903,2 → 891,9 kN sur l'exemple du MSB |
+| **L16** (D1) | note PDF : bloc HYPOTHÈSES | trois lignes, sinon la note est refusée | une ligne de plus quand il le faut (`note_kit.empaqueter_au_mieux`) | 234 combinaisons d'options (attaches sur poteau et plat poutre–poutre) rejouées sur la révision en ligne : 44 notes refusées (28 plats, 10 platines, 6 cornières, sur poteau) → 0 |
+| **L17** (D4) | aide de la gorge du plat (six textes) | `…/(2·fu·γM0)` | `…/(√2·fu·γM0)`, la formule du moteur depuis K5 | texte seulement |
+| **L18** (N9) | sélecteurs et propositions | une ligne « à vérifier » comptait comme vérifiée (étoile « le plus petit qui tient », « conseillée ») | elle reste orange, dit sa raison, et passe après les lignes vérifiées ; une proposition n'est retenue que vérifiée et sans raison de détail (`propositions._valide`) — une raison de DONNÉE (`sci.donnee` : traction, V < 0, maintien…) ne l'écarte pas | — |
+| **L19** (A1, A4, A5) | note PDF : hypothèses | « cordons sur hp » ; « flexion hors plan NON vérifiée » pour tout appui dans l'âme | « cordons sur hp − 2a » ; au chaînage, « flexion hors plan (SCI P358 Check 14) », sous une traction ELU « NON vérifiée », sans traction rien ; la poutre grugée « maintenue au déversement (donnée de la saisie) », en DERNIER segment (`note_kit.segment_maintien` : c'est lui que le kit raccourcit d'abord, la note garde les trois lignes de la charte) ; la seconde poutre éventuelle n'y tient pas : elle reste dans la méthode | texte seulement — un premier essai avec deux segments faisait passer presque toutes les notes à quatre lignes : refusé par les suites de la charte, corrigé dans le code |
+| **L20** (A7) | plat d'âme : notation | « zp » désignait à la fois la position verticale du plat (saisie, dessin, alertes) et, dans la méthode, la note et les paramètres, la distance du SCI à la PREMIÈRE file | la position verticale s'écrit « zc » (comme aux cornières) ; « zp » est celui du SCI P358 ; le dessin cote zp à côté de z quand il y a deux files | texte et dessin seulement |
+| **L21** (A10) | βLf : la condition de l'exception | « comme les exemples des guides » | écrite dans l'avis, l'aide et la méthode : l'âme est soudée sur toute la hauteur de la platine, transfert uniforme — l'exception du §3.8(2) | texte seulement |
+| **L22** (A1) | note PDF : verdict | le détail éprouvé TENU n'était pas écrit (seul son défaut l'était, par le statut) | « Articulation : détail éprouvé tenu (tp = 10 ≤ 15,9 mm ; a = 9 ≥ 6,7 mm) » à la conclusion des platines et des plats, valeurs nommées par le moteur (`note_kit.phrase_articulation`) | 192 notes rejouées : 43 la portent, aucune ne change de disposition ni ne déborde ; sur cinq notes du plat sur poteau aux options cumulées, elle prend la place du dernier bloc de formules facultatif |
+
+### 8.2 Pied de poteau — corrections appliquées
+
+| N° | Où | Avant | Après | Effet mesuré |
+|---|---|---|---|---|
+| **P1** (R05) | `fjd` : aire de diffusion | chaque direction diffusée à part | aire SEMBLABLE à la platine, un seul rapport `k = min(3 ; b2/bp ; l2/lp)` (EN 1992-1-1 §6.7) | massif 600 × 1 500 sous platine 500 × 500 : 18,41 → 13,60 MPa ; 17 fiches changent de taux |
+| **P2** (R05) | mortier | deux conditions de `βj = 2/3` | de plus : au-delà de 50 mm, `fg ≥ fck` (EN 1993-1-8 §6.2.5(7)) | 60 mm / 20 MPa : refusé |
+| **P3** (R12) | verdict | une alerte bloquante hors géométrie laissait « VÉRIFIÉ » (mortier ; massif en calcul manuel) | toute alerte bloquante refuse, dans les deux modes | mortier de 3 MPa : 79,2 % « vérifiée » → refus |
+| **P4** (R13) | tiges près du profilé | bras `m` forcé à 1 mm : tronçon en T énorme | refus si le trou mord sur l'acier ou sur son cordon (`a·√2 + d0/2`) ; avis si la rondelle chevauche le cordon — deux modes | PP-8, PP-10, PP-20, PP-22, PP-29 refusées |
+| **P5** (N4) | tige à crosse | admise avec tout acier | refus au-delà de `fyb = 300 MPa` (EN 1993-1-8 §6.2.6.12(5)) | PP-5, PP-19 |
+| **P6** (N2) | `k1` du cône | libellé « tiges coulées en place » sur 7,7 / 11,0 | valeurs gardées, libellé corrigé (ce sont celles des fixations post-installées) | texte seulement |
+| **P7** (N3, N5, A8) | statut des ancrages | orange seulement pour un béton d'ancrage hors périmètre au-delà de 100 % | de plus : torsion (bord et pry-out ne la comptent pas), deux périmètres ; fendage et éclatement latéral au périmètre complet | T seul 20 kNm : « vérifié » → à vérifier |
+| **P8** (N9) | raison « à vérifier » | écrite aussi sur un pied refusé | seulement sur un pied vérifié, dans les deux modes (le calcul manuel la gardait sur une platine refusée, sans l'afficher) | — |
+| **P9** (A11) | cordons poteau / platine | reprennent toujours la compression | option « Appui direct » (« Non » par défaut) : la compression passe par le contact | cas par défaut : 40,5 → 25,7 % ; les exemples publiés (appui direct) ne sont plus refusés par leurs cordons |
+| **P10** | tige entre les ailes : bras `m` | `|x| − tw/2 − 0,8·r` (cas laminé) | `|x| − tw/2 − 0,8·a·√2` (platine soudée — EN 1993-1-8 Figure 6.2) | HEA 300, x = 100 : 74,2 → 86,7 mm |
+| **P11** | rangée devant l'aile : `Σleff` | motifs par tige seulement | de plus la charnière droite `0,5·bp` (EN 1993-1-8 Tableau 6.6) | platine 500, tiges à 250 : 268,8 → 250 mm ; SCI P398 E.1 : 300 mm et 47,8 kNm retrouvés |
+| **P12** | banc | aucun exemple publié | cinq rejoués : MSB §6.5, SCI P358 (pieds, ex. 1 à 3), SCI P398 E.1 (`docs/validation/exemples_publies.json`) | écarts ≤ 1 % ou expliqués |
+| **P13** | γMs,V de l'EN 1992-4 (tiges au cisaillement) | `max(1,25 ; fuk/fyk)` seul | 1,5 dès que fuk > 800 MPa ou fyk/fuk > 0,8 (Tableau 4.1 — seconde branche citée de mémoire, concordante avec le recalcul indépendant ; appliquée parce qu'elle ne peut que rendre le calcul plus prudent) | tiges 10.9 : VRd,s − 17 % ; le reste inchangé |
+
+P10 et P11 ne figuraient pas dans les arbitrages : ils ont été trouvés en rejouant l'exemple E.1 du SCI P398, et
+corrigés parce qu'ils vont du côté non sûr.
+
+### 8.3 Les 92 exemples du dossier, avant et après
+
+Rejoués avec les mêmes saisies sur la révision en production et sur le lot : 60 restent non vérifiés, 16 restent
+vérifiés, 10 passent de « vérifié » à « à vérifier » (PA-2, PA-4, PA-9, PL-2, PL-10, DC-5, DC-10, PAP-7, PLP-7,
+PLP-8), 4 restent « à vérifier », 2 passent de « à vérifier » à « non vérifié » (PP-10 et PP-29 : trou d'une tige dans
+le cordon). **Aucun exemple ne devient plus favorable.**
+
+### 8.4 Non appliqué — à décider par le bureau
+
+| Objet | Constat | Pourquoi ce n'est pas dans le lot |
+|---|---|---|
+| cordons des cornières : longueur efficace | `L − 2·a` changerait le banc de parité (ΣL 270 → 260 mm) | règle de la maison : les tests de parité restent tels quels ; choix de modèle |
+| βLf (A10) | le second contrôleur propose de l'appliquer dès que `Lj > 15·d` | les deux exemples publiés à six rangées ne l'appliquent pas (transfert uniforme) ; « Non » + avis, option en saisie |
+| épaisseur du plat d'âme, règle du SCI §5.3 (3) | proposée en statut | décision du bureau du 16/11/2026 : un plat de 10 mm en S355 avec des M20 reste admis — elle reste un avis |
+| `k1` d'une tige à tête (8,9 / 12,7) | cas par défaut : interaction du béton 107,7 → 99,4 % | valeurs indicatives de l'EN 1992-4, texte sous licence non consulté : 7,7 / 11,0 gardés, du côté sûr |
+| 0,9 sur le double grugeage des cornières | le SCI l'applique, le MSB non | les cornières suivent le MSB |
+| `m2` (2ᵉ file, plats) | le moteur prend `min(VRd,g ; VRd,b)` (MSB), plus sévère que `min(VRd,g ; VRd,n)` (SCI) ; les cornières à grugeage court (L13) prennent ce même `Mc,Rd` (MSB §4.2.4.2) : 130 kNm au lieu des 164 du SCI sur la géométrie de son exemple 1 | du côté sûr, gardé |
+| γM2 du poinçonnement | imprimé dans la procédure du SCI, omis dans ses exemples | le moteur le garde (côté sûr) |
+| poutres de plus de 610 mm | le SCI borne `gh`, `(n1 − 1)·p1` et l'élancement | non porté : à ajouter comme avis |
+| deux poutres en vis-à-vis | hors périmètre, déclaré dans la méthode (les hypothèses de la note n'ont pas la place, charte de trois lignes) | il faudrait une saisie « vis-à-vis » pour en faire un statut |
+| taux du pied en soulèvement (fc1) | mesuré à N fixé (0,640 sur PP-21) ; à excentricité constante (Tableau 6.7) : 0,705 | même frontière, même verdict ; la marge affichée en traction est plus faible de 9 % à e constant — définition du taux à choisir |
+| βw d'un cordon entre aciers différents (§4.5.3.2(6)) | les attaches de poutre prennent le βw de la pièce de plus faible fu, le pied le plus grand des deux | sur un acier personnalisé (fu 430, βw 1,0) : résistance − 11 à − 15 % selon la lecture, aucun verdict ne change — une convention à fixer |
+| cordons du pied : Vx | porté par les seuls cordons parallèles (§4.9(2) l'admet) | la répartition élastique classique donne σ⊥ + 7,6 % (PP-12, sous la résistance) |
+| bras de levier de l'EN 1992-4 (tiges au cisaillement) | αM = 2 (platine encastrant la tige) et e1 = tg | αM = 1 : PP-8 de 0,647 à 0,786 ; e1 au plan moyen de la platine : PP-19 à 1,87 — texte de l'EN 1992-4 à lire |
+| tronçons en T non codifiés du pied (tige latérale, boulon de coin) | modèles du moteur prudents d'après des mécanismes de lignes de rupture (411 à 423 kN contre 234 ; 243 contre 131) | bornes supérieures : une indication, pas une preuve ; aucune règle publiée |
+| Lb* d'une rangée d'une seule tige (Tableau 6.2, nb) | As/leff par tige : le double de la lecture « rangées de deux boulons » | sens non sûr possible si Lb est entre Lb*/2 et Lb* ; aucun des 92 exemples n'est dans ce cas — définition à lire |
+| cornières sur poteau : bras de flA et wP ; effet de levier dans bi_P | 66,5 mm contre 70 mm ; Ft,Ed sans effet de levier (§3.11) | sans conséquence sur les exemples (flA à 0,22 ; bi_P couvert par la répartition prudente, non démontré) |
+| A1 : maintien réel au déversement, seconde poutre | la note révisée écrit le maintien dans ses hypothèses et l'articulation justifiée à son verdict (L22) ; le verdict (vérifié, 87,8 %) vaut sous ces hypothèses | données du projet à confirmer par le bureau : si la poutre n'est pas maintenue, la saisie « Non » rend « À VÉRIFIER » ; une seconde poutre sur la même âme se vérifie avec les deux réactions |
+| seconde poutre dans les hypothèses de la note | « âme porteuse chargée d'un seul côté » demanderait une quatrième ligne à presque toutes les notes grugées | la charte des notes (31/10/2026 : trois lignes, une quatrième seulement quand les options se cumulent) ; l'admettre est votre décision — le point est écrit dans la méthode |
+| torsion du pied : béton en cisaillement | statut « à vérifier » | la répartition rive par rive (EN 1992-4 §7.2.2.5) est un modèle à écrire et à valider |
+| fendage, éclatement latéral | statut au périmètre complet seulement ; avis au périmètre EC3 | le périmètre EC3 dit déjà que le béton d'ancrage est hors verdict (décision du lot B) |
+| calcul manuel : couleur du statut | le second contrôleur propose « ancrages à justifier » en orange, toujours | presque toutes les platines ont des tiges chargées : l'orange ne distinguerait plus rien ; la portée est écrite (note, écran), la couleur reste celle du lot B |
+| tiges du pied : acier de l'EN 1992-4 | `NRd,s = As·fuk/1,5` borne la tige (−7,3 % sur le SCI P398 E.1 : 105,2 % au lieu de 98,4 %) | plus sévère que l'exemple publié, du côté sûr |
+| platine du pied : épaisseur retenue | `tc` (pression de la platine réelle) dépasse le critère d'aire des guides de 1 à 4 % | du côté sûr |
+| tiges du pied au cisaillement | avec un mortier de plus de `d/2`, bras de levier de l'EN 1992-4 sans frottement | les exemples publiés comptent sur le frottement ; le moteur est plus sévère |

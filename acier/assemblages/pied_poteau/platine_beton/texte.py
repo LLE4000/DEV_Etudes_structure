@@ -32,7 +32,8 @@ def ligne_donnees(R):
             + nb(N(u.tp_u)) + " " + str(u.nu_pl) + " ; " + tige + " ; béton " + str(u.beton)
             + (" fissuré" if u.fiss == OUI else " non fissuré") + ", massif " + nb(N(u.bc_u)) + "x"
             + nb(N(u.lc_u)) + "x" + nb(N(u.hc_u)) + ", mortier tg = " + nb(N(u.t_g)) + " mm ; a = "
-            + nb(N(u.a_w)) + " mm ; N = " + F(u.N_Ed, 1) + " kN, Mx = " + F(u.Mx_Ed, 1) + ", My = "
+            + nb(N(u.a_w)) + " mm" + (" (appui direct du poteau)" if R.get("appui_direct") else "")
+            + " ; N = " + F(u.N_Ed, 1) + " kN, Mx = " + F(u.Mx_Ed, 1) + ", My = "
             + F(u.My_Ed, 1) + " kNm, Vx = " + F(u.Vx_Ed, 1) + ", Vy = " + F(u.Vy_Ed, 1) + " kN"
             + (", T = " + F(u.T_Ed, 2) + " kNm" if N(u.T_Ed) else ""))
 
@@ -53,7 +54,8 @@ def construire_texte(R, complet=False):
         return "∞" if v == float("inf") else F(v, 1)
     L += ["Données : " + ligne_donnees(R) + ".",
           "Périmètre : " + ("EN 1993-1-8 seule (platine, tiges, poteau, cordons, béton d'appui) — béton d'ancrage "
-                            "EN 1992-4 en information." if R.perim_ec3 else "complet — EN 1993-1-8 + EN 1992-4."),
+                            "EN 1992-4 en information." if R.perim_ec3 else "complet — EN 1993-1-8 + EN 1992-4.")
+          + " Non calculés : fendage, éclatement latéral, effet de la torsion sur le béton.",
           "Répartition élastique : fjd = " + F(R.fjd, 1) + " MPa, c = " + F(R.c, 1) + " mm, Aeff = "
           + F(R.A_eff / 100, 0) + " cm² ; C = " + F(R.C, 1) + " kN en (" + F(R.xC, 0) + " ; " + F(R.yC, 0)
           + ") mm, pmax = " + F(R.pmax, 1) + " MPa, ΣT = " + F(R.T_tot, 1) + " kN (T max = " + F(R.T_max, 1) + " kN).",

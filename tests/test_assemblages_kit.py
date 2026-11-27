@@ -273,9 +273,11 @@ if IMPORT_OK:
         str([len(l) for l in lignes]))
     chk("textes exacts de la charte (défaut)",
         lignes == ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §3.2) ; z = 50,0 mm ; le groupe reprend VEd·z + |MEd|.",
-                   "Plat court (z ≤ tp/0,15 : pas de déversement) ; grugeage : flexion de la section réduite "
+                   "Plat court (zp ≤ tp/0,15 : sans déversement) ; grugeage : flexion de la section réduite "
                    "(MSB P5 §4.2.4).",
-                   "Cordons pleine hauteur, un par face (§4.5.3.3) ; γM0 1,00 · γM1 1,10 (ANB) · γM2 1,25."], str(lignes))
+                   # (lot de clôture du 27/11/2026, L19 : le harnais suit — cordons hp − 2a, poutre grugée maintenue au déversement)
+                   "Cordons hp − 2a (§4.5.1) ; γM0 1,00 · γM1 1,10 (ANB) · γM2 1,25 ; maintenue au déversement (saisie)."],
+        str(lignes))
     with open("tests/ref_plat_ame.json", encoding="utf-8") as fh:
         REF = json.load(fh)
     pertes, trop = [], []
@@ -298,11 +300,14 @@ if IMPORT_OK:
     chk("12 cas figés : aucun renvoi au guide sans « MSB P5 », au plus une fois par ligne",
         not [l for l in toutes if msb_nu.search(l) or l.count("MSB P5") > 1],
         str([l for l in toutes if msb_nu.search(l) or l.count("MSB P5") > 1][:2]))
-    R_long = moteur.compute(dict(u0, hp_u=360, bp_u=160, tp_u=10, V_Ed=350, n2_u="2", cat="B"))
+    # (lot de clôture du 27/11/2026 : le plat est LONG au sens du SCI P358, sur zp — de l'appui à la PREMIÈRE file ;
+    #  e2,b = 60 mm → zp = 70 > tp/0,15 = 66,7 mm. Avec e2,b = 40, zp = 50 : plat court, alors que z = 80 le disait long.)
+    R_long = moteur.compute(dict(u0, hp_u=360, bp_u=160, tp_u=10, V_Ed=350, n2_u="2", cat="B", e2b_u=60))
     ls = note.lignes_hypotheses(R_long)
-    chk("variante plat long + cat B : « Plat long » et « γM3 » écrits",
-        any(l.startswith("Plat long (z > tp/0,15 : déversement, courbe BS 5950-1)") for l in ls)
-        and any("γM3 1,25" in l for l in ls), str(ls))
+    R_zp50 = moteur.compute(dict(u0, hp_u=360, bp_u=160, tp_u=10, V_Ed=350, n2_u="2", cat="B"))
+    chk("variante plat long + cat B : « Plat long » et « γM3 » écrits ; le même plat avec zp = 50 mm est court",
+        R_long.long_p and any(l.startswith("Plat long (zp > tp/0,15 : déversement, χLT EC3-1-1)") for l in ls)
+        and any("γM3 1,25" in l for l in ls) and not R_zp50.long_p and R_zp50.long_msb, str(ls))
 
     # ================================================================
     print("\n=== 9. « ? » visibles dans la carte au défaut ===")

@@ -313,8 +313,10 @@ def _verifs_synthese(R):
     for a in R.alerts:
         items.append(("p", ("Bloquant : " if a.block else "Attention : ") + a.msg))
     items.append(("k", 0))
-    verdicts = [dict(etat="ok" if R.verified else "ko",
-                     texte=R.statut + (" – sous réserve des points signalés" if R.verified and (R.reserve or R.alerts) else "")
+    a_verif = bool(R.verified and R.get("a_verifier"))            # une raison nommée reste à justifier : ocre
+    verdicts = [dict(etat="att" if a_verif else ("ok" if R.verified else "ko"),
+                     texte=R.statut + (" – sous réserve des points signalés" if R.verified and (R.reserve or R.alerts)
+                                       and not a_verif else "")
                      + " – ELU, EN 1993-1-8 et EN 1993-1-1")]
     verifs.append(dict(num=n, titre="Synthèse", items=items, verdicts=verdicts))
     return verifs
@@ -322,7 +324,7 @@ def _verifs_synthese(R):
 
 def _blocs_developpement(R):
     u = R.u
-    synth = [("Statut", None, "Vérifié" if R.verified else "Non vérifié", ""),
+    synth = [("Statut", None, _etat(R), ""),
              ("Taux maximal", None, pct(R.eta_max, 1), ""),
              ("Géométrie", None, "valide" if R.geo_ok else "NON VALIDE", ""),
              ("Tableau 3.3", None, "conforme" if R.dist_ok else "NON CONFORME", "")]
@@ -390,6 +392,10 @@ def _verifs_developpement(R, detail):
 
 
 def _etat(R):
+    """L'état en un mot (pastille de l'en-tête, ligne « Statut ») : trois états depuis le lot de clôture du
+    27/11/2026 — la raison d'un « À vérifier » est écrite dans le verdict de la synthèse, pas ici."""
+    if R.verified and R.get("a_verifier"):
+        return "À vérifier"
     return "Vérifié" if R.verified else "Non vérifié"
 
 

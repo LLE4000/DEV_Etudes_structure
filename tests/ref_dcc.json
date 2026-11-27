@@ -1,5 +1,6 @@
 {
  "N_elu": {
+  "a_verifier": "",
   "alerts": [
    "NEd"
   ],
@@ -227,6 +228,7 @@
   "verified": true
  },
  "N_tying": {
+  "a_verifier": "",
   "alerts": [
    "N_tying"
   ],
@@ -455,6 +457,7 @@
   "verified": true
  },
  "N_tying_ame": {
+  "a_verifier": "âme du poteau sous le chaînage : flexion hors plan non vérifiée",
   "alerts": [
    "N_tying",
    "ame_hp"
@@ -686,7 +689,10 @@
   "verified": true
  },
  "WE_cornieres": {
-  "alerts": [],
+  "a_verifier": "",
+  "alerts": [
+   "blf_off"
+  ],
   "checks": {
    "bv_P": [
     37.5,
@@ -900,8 +906,10 @@
   "verified": true
  },
  "WE_tying": {
+  "a_verifier": "",
   "alerts": [
-   "NEd"
+   "NEd",
+   "blf_off"
   ],
   "checks": {
    "bi_P": [
@@ -1172,6 +1180,7 @@
   "verified": false
  },
  "aile_HEd": {
+  "a_verifier": "flexion hors plan des cornières sous HEd non couverte",
   "alerts": [
    "HEd"
   ],
@@ -1379,6 +1388,7 @@
   "verified": true
  },
  "aile_MEd": {
+  "a_verifier": "",
   "alerts": [
    "MEd"
   ],
@@ -1586,6 +1596,7 @@
   "verified": true
  },
  "ame_L100_bloquant": {
+  "a_verifier": "",
   "alerts": [
    "ame_hp",
    "bA_congeP"
@@ -1774,6 +1785,7 @@
   "verified": false
  },
  "ame_b0": {
+  "a_verifier": "",
   "alerts": [
    "ame_hp"
   ],
@@ -1962,6 +1974,7 @@
   "verified": true
  },
  "ame_b2_recoupe": {
+  "a_verifier": "",
   "alerts": [
    "ame_hp"
   ],
@@ -2161,6 +2174,7 @@
   "verified": true
  },
  "ame_recoupe_insuffisante": {
+  "a_verifier": "",
   "alerts": [
    "aile_poutre",
    "ame_hp"
@@ -2360,6 +2374,7 @@
   "verified": false
  },
  "cat_B": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -2545,6 +2560,7 @@
   "verified": true
  },
  "cat_C": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -2730,6 +2746,7 @@
   "verified": true
  },
  "defaut_aile": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -2903,6 +2920,7 @@
   "verified": true
  },
  "deux_files": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -3083,6 +3101,7 @@
   "verified": true
  },
  "gauge_insuffisant": {
+  "a_verifier": "",
   "alerts": [
    "p3_congeP"
   ],
@@ -3260,6 +3279,7 @@
   "verified": false
  },
  "grugeage_double": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -3456,6 +3476,7 @@
   "verified": true
  },
  "non_verifie": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -3631,6 +3652,7 @@
   "verified": false
  },
  "perso": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -3818,6 +3840,7 @@
   "verified": true
  },
  "predim": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -3993,6 +4016,7 @@
   "verified": true
  },
  "soudee_P": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_S": [
@@ -4158,6 +4182,7 @@
   "verified": true
  },
  "soudee_P_ame": {
+  "a_verifier": "",
   "alerts": [
    "ame_hp"
   ],
@@ -4332,6 +4357,7 @@
   "verified": true
  },
  "soudee_S": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [
@@ -4487,6 +4513,7 @@
   "verified": true
  },
  "soudee_deux": {
+  "a_verifier": "articulation à justifier : cornières soudées des deux côtés",
   "alerts": [
    "soude2"
   ],
@@ -4635,6 +4662,7 @@
   "verified": true
  },
  "trou_surdim": {
+  "a_verifier": "",
   "alerts": [],
   "checks": {
    "bv_P": [

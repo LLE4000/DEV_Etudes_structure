@@ -252,3 +252,9 @@ l'exemple publié avec les coefficients de sa source.
   famille (« … plan et droite à droite ») : la troisième vue de ce module
   s'appelle COUPE A-A. Texte hérité, non repris pour ne pas toucher au module
   poutre–poutre.
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Grugeage court à deux files (`xN < 2·d` — MSB P5 §4.2.4.2) ; statut « À VÉRIFIER (raison) » pour les cas que le calcul ne couvre pas (cornières soudées des deux côtés, `HEd`, poutre grugée non maintenue, effort tranchant inversé, appui dans l'âme sous traction) ; bloc HYPOTHÈSES de la note sur quatre lignes quand il le faut (défaut D1 : 6 notes sur 108 étaient refusées). Les cordons des cornières gardent leur longueur nominale (point à décider, `ECARTS_ET_CORRECTIONS.md` §8.4).

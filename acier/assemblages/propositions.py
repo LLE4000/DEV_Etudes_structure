@@ -369,6 +369,14 @@ def _etat_initial(G, base, r, de_detail, hav):
     return s
 
 
+def _valide(R):
+    """Le calcul ``R`` est-il une SOLUTION ? Vérifié, et sans raison « à vérifier » qui tienne au détail que la
+    proposition écrit (épaisseur, gorge, pinces, plat long — ``R.justifier_detail``, lot de clôture du 27/11/2026). Une
+    raison qui tient aux données GARDÉES (une traction, l'appui, la fixation des cornières…) n'empêche pas la solution :
+    aucune proposition ne la lèverait ; la solution est alors montrée orange, avec sa raison."""
+    return bool(R is not None and R.verified and not R.get("justifier_detail"))
+
+
 def _reserves(R, changees):
     """Les avis NON bloquants qui portent sur ce que la proposition règle (un champ qu'elle écrit) : la ductilité, une
     hauteur sous 0,6·h… — pas ceux qui tiennent aux données gardées (un moment, une traction)."""
@@ -421,9 +429,9 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
             R = calculer(v) if v is not None else None
             if R is None:
                 break
-            if garde is None or not garde[1].verified or (R.verified and R.eta_max < garde[1].eta_max):
+            if garde is None or not _valide(garde[1]) or (_valide(R) and R.eta_max < garde[1].eta_max):
                 garde, s_garde = (v, R, list(mots)), AttrDict(s, gorges=dict(s.gorges))
-            if (R.verified and R.eta_max <= cible + 1e-9) or not (R.geo_ok and R.dist_ok) or essais[0] >= budget:
+            if (_valide(R) and R.eta_max <= cible + 1e-9) or not (R.geo_ok and R.dist_ok) or essais[0] >= budget:
                 break
             mot = G.retoucher(S, v, R, r, s, deux)
             if mot is None:
@@ -433,7 +441,7 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
         # la disposition gardée tient le taux cible « sous réserve » d'un avis qu'elle peut lever elle-même (étape 5) : le
         # plus PETIT nombre de crans qui fait tomber l'avis (il tombe au-delà d'un seuil : dichotomie), le moteur la
         # vérifiant toujours au taux cible ; adoptée alors, sinon laissée telle quelle
-        if (garde is not None and G.reserve is not None and garde[1].verified and garde[1].eta_max <= cible + 1e-9
+        if (garde is not None and G.reserve is not None and _valide(garde[1]) and garde[1].eta_max <= cible + 1e-9
                 and _a_alerte(garde[1], G.reserve)):
             s_garde.plafond = G.plafond(garde[1])
 
@@ -443,7 +451,7 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
                     G.lever(r, t)
                 v2 = G.ecrire(M, base, r, t)
                 R2 = calculer(v2) if (v2 is not None and essais[0] < budget) else None
-                return (v2, R2) if (R2 is not None and R2.verified and R2.eta_max <= cible + 1e-9
+                return (v2, R2) if (_valide(R2) and R2.eta_max <= cible + 1e-9
                                     and not _a_alerte(R2, G.reserve)) else None
 
             t, crans = AttrDict(s_garde, gorges=dict(s_garde.gorges)), 0
@@ -463,9 +471,10 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
         return garde
 
     def rang(x):
-        """Le rang d'une disposition parmi celles d'un diamètre : au taux cible d'abord ; puis le moins de réserves ;
-        puis, au taux cible, le moins de boulons — sinon la moins chargée."""
-        return (x.cible, -len(x.reserves), -x.boulons if x.cible else -x.eta)
+        """Le rang d'une disposition parmi celles d'un diamètre : au taux cible d'abord ; puis SANS raison à
+        justifier (``R.a_verifier`` : une solution « à vérifier » passe après une solution vérifiée — lot de clôture) ;
+        puis le moins de réserves ; puis, au taux cible, le moins de boulons — sinon la moins chargée."""
+        return (x.cible, not x.a_verifier, -len(x.reserves), -x.boulons if x.cible else -x.eta)
 
     def passe(dans_plage):
         """{diamètre: sa disposition} et le meilleur refus, pour les diamètres de la plage (ou hors d'elle)."""
@@ -483,7 +492,7 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
                     if etat is None:
                         continue
                     v, R, mots = etat
-                    if not R.verified:
+                    if not _valide(R):
                         if R.geo_ok and R.dist_ok and math.isfinite(R.eta_max) and (refus is None or R.eta_max < refus.R.eta_max):
                             refus = AttrDict(u=v, R=R, gov=R.get("gov"))
                         elif not (R.geo_ok and R.dist_ok):
@@ -494,7 +503,8 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
                     changees = {k for k in v if v.get(k) != base.get(k)}
                     sol = AttrDict(u=v, R=R, boulon=r.b["n"], i=i, n=n, boulons=G.boulons(v), eta=R.eta_max,
                                    cible=bool(R.eta_max <= cible + 1e-9), plage=dans_plage, deux_files="deux files" in mots,
-                                   reserves=_reserves(R, changees), retouches=mots)
+                                   reserves=_reserves(R, changees), retouches=mots,
+                                   a_verifier=str(R.get("a_verifier") or ""))
                     if i not in trouve or rang(sol) > rang(trouve[i]):
                         trouve[i] = sol
                     if sol.cible:
@@ -513,7 +523,8 @@ def chercher(M, S, u, genre, nb_max=6, budget=BUDGET, tout=False):
             refus = refus_hors
     # la plus simple d'abord : au taux cible, un diamètre de la plage, sans réserve, sur une file, le moins de boulons, le
     # plus petit diamètre (sans « tout », toutes les solutions sont du même côté de la plage : l'ordre d'avant)
-    sols = sorted(trouve.values(), key=lambda x: (not x.cible, not x.plage, len(x.reserves), x.deux_files, x.boulons, x.i))
+    sols = sorted(trouve.values(), key=lambda x: (not x.cible, bool(x.a_verifier), not x.plage, len(x.reserves),
+                                                  x.deux_files, x.boulons, x.i))
     # deux dispositions que RIEN ne distingue pour le moteur n'en font qu'une — des cornières soudées des deux côtés,
     # trouvées par deux diamètres de boulons qui n'existent pas : la mieux classée reste
     if G.signature is not None:

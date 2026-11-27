@@ -134,7 +134,8 @@ chk("onglet par défaut : Vérifications (groupe de boulons) ; Tableau 3.3 repli
     and "Groupe : cisaillement et pression diam." in t and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at))
 chk("la limite « flexion TRANSVERSALE de l'âme porteuse » est écrite en clair (expander Périmètre)",
     "flexion TRANSVERSALE de l'âme porteuse" in t
-    and any(x.startswith("Périmètre de la vérification — 5 non revérifiés · 6 sans objet") for x in expanders(at)))
+    # (7 sans objet depuis le lot de clôture : la flexion dans le plan d'une platine courte, « pip », inactive ici)
+    and any(x.startswith("Périmètre de la vérification — 5 non revérifiés · 7 sans objet") for x in expanders(at)))
 chk("légende des natures après les tables, références dans un repli",
     "formule de l'Eurocode" in t and "Légende et références" in expanders(at)
     and "Références : EC3 = EN 1993-1-8" in t)
@@ -303,7 +304,8 @@ chk("HYPOTHÈSES : textes exacts de la charte (défaut : NEd = 0, grugeage, cat 
     lignes == ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §2.2) ; groupe centré, VEd/n par boulon.",
                "Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; grugeage : section réduite, bras tp + c "
                "(MSB P5 §4.2.4).",
-               "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25."],
+               # (lot de clôture du 27/11/2026, L19 : le harnais suit — cordons hp − 2a, poutre grugée maintenue au déversement)
+               "Cordons hp − 2a, pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 ; maintenue au déversement."],
     str(lignes))
 l_elu = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, cat="B")))
 l_ty = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TYING, p3_u=140, bp_u=200, hp_u=180,
@@ -312,14 +314,15 @@ l_ty2 = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TY
 # Point 10 de la consolidation (01/11/2026) : un § du guide porte TOUJOURS « MSB P5 » (un § nu est de l'EN 1993-1-8) ;
 # le paquetage (lexicographique, « MSB P5 » une fois par ligne si possible) garde les formes longues des cordons.
 chk("HYPOTHÈSES : variantes (NEd ELU cat B ; tying k = 0,5 ; tying sans grugeage, γM2 ≠ γM2,net)",
+    # (lot de clôture du 27/11/2026, L19 : le harnais suit — cordons hp − 2a, poutre grugée maintenue au déversement ; la forme la plus courte des cordons garde la gorge, sans le facteur 0,60·tw)
     l_elu[1:] == ["Platine hp ≥ 1,36·p3 → k = 1,0 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; NEd ELU avec VEd (§6.2.4).",
-                  "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25."]
+                  "Cordons hp − 2a, pleine résistance 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25 ; maintenue au déversement."]
     and l_ty[1:] == ["Platine hp < 1,36·p3 → k = 0,5 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; tying : fu/γMu "
                      "(MSB P5 §2.3).",
-                     "Cordons sur hp (§4.5.3.3), pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10."]
+                     "Cordons hp − 2a, pleine résistance 5,1 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10 ; maintenue au déversement."]
     and l_ty2[1:] == ["Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; tying : force de chaînage seule, "
                       "fu/γMu (MSB P5 §2.3).",
-                      "Cordons hp, pleine résistance 0,60·tw = 5,1 mm ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · "
+                      "Cordons hp − 2a, pleine résistance 5,1 mm ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · "
                       "γM3 1,25 · γMu 1,10."],
     str(l_elu + l_ty + l_ty2))
 t2 = doc[1].get_text(); s2 = t2.replace(" ", "").replace("\n", "")
@@ -350,7 +353,10 @@ chk("onglet Benchmark : exemple publié + calculs manuels, statut VALIDÉ",
 at.button(key="pab_btn_bm_0").click(); run(at)
 chk("« Charger ces données » : l'exemple publié dans l'outil (VEd = 550, tying 275, hp = 430)",
     float(at.session_state["pab_V_Ed"]) == 550.0 and float(at.session_state["pab_hp_u"]) == 430.0
-    and at.session_state["pab_nat_N"] == "Tying (accidentel)" and "ASSEMBLAGE VÉRIFIÉ" in md(at))
+    # (lot de clôture du 27/11/2026, A9 : le chaînage d'une attache poutre–poutre ne vérifie pas l'âme porteuse — le
+    #  statut le dit ; le harnais suit)
+    and at.session_state["pab_nat_N"] == "Tying (accidentel)"
+    and "ASSEMBLAGE À VÉRIFIER (âme porteuse sous la traction non vérifiée)" in md(at))
 at.button(key="pab_btn_reset").click(); run(at)
 at.button(key="pab_btn_pdf").click(); run(at)
 chk("« Générer PDF » depuis l'application : 2 pages",
@@ -359,8 +365,9 @@ chk("« Générer PDF » depuis l'application : 2 pages",
 at.session_state["pab_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : export texte avec statut, groupe et références",
+    # (le groupe de boulons suit le SCI P358, Check 8, depuis le lot de clôture : sa référence est « P358 Ch. 8 »)
     "PLATINE D'ABOUT" in code and "VÉRIFIÉ" in code and "Tableau 3.3 : conforme" in code
-    and "MSB P5 §2.2.4" in code)
+    and "P358 Ch. 8" in code)
 chk("le rédacteur saisi figure dans l'export texte (amendement 3 : un champ saisi et jamais lu)",
     "Rédacteur : J. Dupont" in texte.construire_texte(moteur.compute(dict(id_red="J. Dupont")))
     and "Rédacteur" not in texte.construire_texte(moteur.compute(dict())))

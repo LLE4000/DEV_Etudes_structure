@@ -545,7 +545,8 @@ for v in variantes:
                     | set(ecran_resultats.cotes_panneau(v)) | set(ecran_resultats.CLES_TETE_DESSIN) | set(EM.CLES_TABLES))
     manquantes |= {k for k in CHAMPS if champ_visible(v, k)} - atteignables
 chk("rien ne se perd (manuel) : chaque clé visible en calcul manuel a une destination (carte, avancés, cartouche, "
-    "tables, fenêtres, panneau Cotes, tête du dessin)", not manquantes and len(CHAMPS) == 61, str(sorted(manquantes)))
+    "tables, fenêtres, panneau Cotes, tête du dessin)", not manquantes and len(CHAMPS) == 62, str(sorted(manquantes)))
+# (62 depuis le lot de clôture : « contact », l'appui direct du poteau — vérification complète seulement)
 
 
 # ================================================================

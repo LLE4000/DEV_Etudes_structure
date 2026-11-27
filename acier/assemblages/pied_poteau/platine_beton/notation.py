@@ -79,7 +79,12 @@ def ref_courte(ref):
 
 TITRES_ALERTES = {
     "profil": "Impossible — dimensions du profilé incomplètes",
-    "mortier": "Mortier hors conditions de βj = 2/3 (EC3 §6.2.5(7))",
+    "mortier": "Impossible — mortier hors conditions de βj = 2/3 (EC3 §6.2.5(7))",
+    "tige_acier": "Impossible — le trou d'une tige mord sur le profilé ou sur son cordon",
+    "rondelle": "Rondelle d'une tige sur le cordon du profilé : pose à contrôler",
+    "crosse_fyb": "Impossible — tige à crosse : fyb limité à 300 MPa (EC3 §6.2.6.12(5))",
+    "tors_beton": "Torsion : bord et pry-out du béton non vérifiés (EC2-4 §7.2.2) — à justifier",
+    "appui_direct": "Appui direct : la compression passe par le contact, à contrôler à la pose",
     "massif": "Impossible — la platine déborde du massif",
     "files": "Plus de deux files : rangées traitées tige par tige",
     "dist_e": "Tab. 3.3 — pince des tiges au bord de la platine",
@@ -90,7 +95,7 @@ TITRES_ALERTES = {
     "eq": "Impossible — équilibre élastique introuvable",
     "soul": "Soulèvement : tiges tendues",
     "comp_dom": "N > 2·FC,Rd : niveau 1 hors domaine, le niveau 2 renseigne",
-    "fend": "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8)",
+    "fend": "Bord du massif à moins de 1,5·hef : fendage et éclatement à justifier (EC2-4 §7.2.1.7-8)",
     "rig": "Rigidité du pied (information)",
     "ancr_info": "Béton d'ancrage (EN 1992-4) au-delà de 100 % — hors périmètre EC3, à vérifier",
     "eta_info": "Tige post-installée : valeurs de l'ETA à reporter du document (ψg,Np = 1)",

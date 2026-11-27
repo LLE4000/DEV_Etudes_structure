@@ -117,7 +117,7 @@ def defaults():
         "forme": FORME_I,
         "prof_c": "HEA 300", "h_u": None, "b_u": None, "tw_u": None, "tf_u": None, "r_u": None,
         "t_u": None, "nu_c": "S355",
-        "bp_u": 500, "lp_u": 500, "tp_u": 25, "nu_pl": "S355", "a_w": 8,
+        "bp_u": 500, "lp_u": 500, "tp_u": 25, "nu_pl": "S355", "a_w": 8, "contact": NON,
         "n_ax": 2, "n_ay": 2, "w_x": 400, "w_y": 400,
         "ancr": "M24", "classe": "8.8", "typ_a": TYPE_TETE, "hef": 300, "d_h": 40,
         "eta_tau": 10, "eta_k1": 7.7, "eta_nrks": 0, "eta_vrks": 0,
@@ -294,7 +294,12 @@ GROUPES = [
     dict(t="Platine",
          f=[_c("bp_u", "bp — largeur selon x", "n", un="mm"), _c("lp_u", "lp — longueur selon y", "n", un="mm"),
             _c("tp_u", "tp — épaisseur", "n", un="mm"), _c("nu_pl", "Nuance", "s", ACIERS),
-            _c("a_w", "a — gorge des cordons poteau / platine", "n", un="mm")]),
+            _c("a_w", "a — gorge des cordons poteau / platine", "n", un="mm"),
+            _c("contact", "Appui direct du poteau sur la platine", "s", OUI_NON, si=est_complet,
+               h="« Non » (défaut) : les cordons reprennent aussi la compression. « Oui » : about du poteau scié "
+                 "d'équerre et en contact avec la platine — la compression passe par le contact, les cordons "
+                 "gardent la traction, le cisaillement et la torsion. À n'employer que si le contact est contrôlé "
+                 "à la pose.")]),
     dict(t="Tiges d'ancrage",
          f=[_c("n_ax", "Files (selon x)", "n", si=est_complet), _c("n_ay", "Rangées (selon y)", "n", si=est_complet),
             _c("w_x", "wx — entraxe total des files", "n", un="mm", si=est_complet),

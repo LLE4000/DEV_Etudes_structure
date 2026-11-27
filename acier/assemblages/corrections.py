@@ -181,8 +181,10 @@ def corriger(calculer, u, R, permises, entieres=(), grilles=None, nb=3, budget=B
                         bon = (k, v, R1)
                         break
                 k, v, R1 = bon
+                # « vérifié » : sans raison à justifier (lot de clôture du 27/11/2026) ; sinon la raison est dite
                 trouvees.append(AttrDict(cle=cle, de=v0, vers=float(int(round(v))) if cle in entieres else float(v), crans=k, R=R1,
-                                         verifie=bool(R1.verified)))
+                                         verifie=bool(R1.verified and not R1.get("a_verifier")),
+                                         a_verifier=str(R1.get("a_verifier") or "") if R1.verified else ""))
         ordre = {c: i for i, c in enumerate(d.fields)}
         trouvees.sort(key=lambda x: (x.cle in entieres, x.crans, ordre[x.cle]))
         out.append(AttrDict(defaut=d, retouches=trouvees[:nb], essais=0))

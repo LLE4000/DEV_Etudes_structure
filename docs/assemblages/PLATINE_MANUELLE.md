@@ -347,3 +347,11 @@ et hef. Elle garde « Boulons 4 × M24 8.8 – trous Ø26 · tête Ø40 · hef 3
 ligne APRÈS la visserie saisie — si cette ligne déborde, c'est lui qui se
 coupe. À l'écran, le « ? » du repère n'est plus que sur la première rangée de
 boulons (sous 1351 px il se répétait sur chacune).
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Le calcul manuel refuse désormais la platine dès qu'une alerte bloquante existe (mortier hors conditions, platine qui déborde du massif — avant : « VÉRIFIÉE »), et quand le trou d'un boulon mord sur le cordon d'un élément soudé (avis si c'est la rondelle). `fjd` suit l'aire de diffusion semblable à la platine. La conclusion de la note dit la portée exacte : tiges (acier) et appui en information, **béton d'ancrage non vérifié ici, à justifier à part**. La couleur du statut reste celle du lot B (orange seulement quand un contrôle hors verdict dépasse 100 %) : l'orange systématique proposé par le second contrôle est un point à décider (`ECARTS_ET_CORRECTIONS.md` §8.4).
+
+La raison « à vérifier » (tiges ou appui hors calcul manuel au-delà de 100 %) n'existe que sur une platine **vérifiée**, comme en vérification complète (P8) : sur une platine refusée, elle restait écrite dans le moteur sans être affichée.

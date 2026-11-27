@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Benchmark du module platine d'about sur poteau — quatre cas, et aucun
+"""Benchmark du module platine d'about sur poteau — cinq cas, et aucun
 nombre de mémoire.
 
 - **BM1 — HÉRITAGE** : l'exemple publié du guide (MSB Part 5 §2.4, *Worked
@@ -11,9 +11,13 @@ nombre de mémoire.
 - **BM2** : le cas par défaut, appui sur l'AILE (étude §11.3).
 - **BM3** : le même en TYING (NEd = 250 kN, γMu = 1,1) — le tableau du §7.3 :
   les DEUX tronçons en T, celui de la platine et celui de l'AILE DU POTEAU,
-  qui est 3,66 fois plus forte.
+  qui est 3,45 fois plus forte.
 - **BM4** : appui dans l'ÂME du poteau — la platine 290 × 220 du cas (a) ne
   tient pas entre les congés (198 mm) : p3 = 110 et bp = 190.
+- **BM5** (lot de clôture du 27/11/2026) : l'exemple 2 du SCI P358 — force de
+  chaînage de 175 kN sur l'ÂME d'un poteau 305×305×137 UKC : la platine en
+  flexion, l'âme portée en traction et l'âme du poteau hors de son plan
+  (Check 14), sur le matériau du guide, qui est la table du site.
 
 Chaque valeur de référence est écrite ici comme une EXPRESSION LITTÉRALE
 indépendante (jamais une constante recopiée) : le moteur est relancé et
@@ -26,7 +30,9 @@ import math
 from acier.bibliotheques import PERSO
 from acier.js import mx
 from .entrees import APPUI_AILE, APPUI_AME, NAT_TYING
-from .moteur import compute
+from .moteur import compute, troncon_platine
+from acier.js import AttrDict
+from acier.assemblages import sci as SCI
 from acier.assemblages import materiau as MT    # le matériau des exemples (validation de formules)
 
 S3 = math.sqrt(3)
@@ -34,6 +40,24 @@ S3 = math.sqrt(3)
 E_AB = "Arrondi de la source : αb = 0,61 pour e1/3d0 = 40/66 = 0,606."
 E_FV = "Arrondi de la source : Fv,Rd = 94 kN pour 94,08 kN."
 E_M = "Arrondi de la source : m = 59 mm pour 59,16 mm (a = 5,6 mm)."
+E_09 = ("Le guide MSB P5 calcule l'âme sans le 0,9 ; la ligne compare SA valeur. Le moteur applique la règle RETENUE "
+        "(SCI P358 Check 4, Av = 0,9·hp·tw) et rend 0,9 × cette valeur : 553 kN.")
+E_EW = ("Le guide prend la cote sur angles de la tête (33 mm, ew = 8,25 mm) ; le site prend la rondelle (37 mm, "
+        "ew = 9,25 mm) et rend 393 kN. La ligne rejoue la formule avec la cote du guide.")
+
+# Exemple 2 du SCI P358 (platines d'about, p. 44-49) : chaînage de 175 kN, poutre 406×178×74 UKB S275 sur l'ÂME d'un
+# poteau 305×305×137 UKC S275, platine 290×150×10, 4 rangées × 2 M20 8.8, p3 = 90, soudures de 6 mm (a = 4,24).
+SCI_2 = dict(appui=APPUI_AME, prof_P=PERSO, hP_u=320.5, bP_u=309.2, twP_u=13.8, tfP_u=21.7, rP_u=15.2, nu_P="S275",
+             prof_S=PERSO, hS_u=412.8, bS_u=179.5, twS_u=9.5, tfS_u=16.0, rS_u=10.2, nu_S="S275",
+             nu_pl="S275", boulon_u="M20", classe="8.8", n1_u=4, p1_u=70, e1_u=40, p3_u=90, bp_u=150, hp_u=290,
+             tp_u=10, a_w=4.24, d_nt=0, d_nb=0, l_n=0, z_C=50, V_Ed=0, N_Ed=175, nat_N=NAT_TYING, g_Mu=1.1, g_M2n=1.1)
+
+
+def _ptT_cote_du_guide(R):
+    """Le tronçon en T de la platine avec la cote du guide sous la tête (33 mm) au lieu de la rondelle du site."""
+    R2 = AttrDict(R)
+    R2.d_w = 33.0
+    return troncon_platine(R2, R.fu_L, R.u.g_Mu, R.Ft_Rd_u)["FT_Rd"]
 
 # --- les données de l'exemple publié, reprises telles quelles du module
 # --- poutre–poutre, SUPPORT remplacé : un poteau PERSO dont l'aile a
@@ -111,15 +135,16 @@ _Ant_L = _tp * (_e2 - 0.5 * _d0)
 _Anv_L = _tp * (min(_e1, _e1bot) + (_n1 - 1) * _p1 - (_n1 - 0.5) * _d0)     # bloc vers la plus petite pince
 _VRdb_L = 2 * (1.0 * _fu * _Ant_L / 1.25 + _fy * _Anv_L / S3) / 1000   # k = 1 (hp ≥ 1,36·p3)
 # âme de la poutre portée au droit de la platine
-_Av_w = _hp * _twS
-_VRd_wS = _Av_w * _fy / S3 / 1000
+_Av_w = _hp * _twS                                # aire TENDUE de l'âme (tw·hp)
+_VRd_wS = 0.9 * _Av_w * _fy / S3 / 1000           # cisaillement : Av = 0,9·hp·tw (SCI P358 Check 4)
 # aile du poteau : pression diamétrale, AUCUNE pince d'extrémité verticale
 _k1_P = min(2.8 * _eP / _d0 - 1.7, 1.4 * _p3 / _d0 - 1.7, 2.5)
 _Fb_P = _k1_P * _abi_L * _fu * _d * _tfP / 1.25 / 1000
 _VRd_pdP = _ns * _Fb_P
 # cordons (deux cordons verticaux pleine hauteur)
 _fvw = _fu / (S3 * _bw * 1.25)
-_qz = _V * 1000 / (2 * _hp)
+_Lw = 2 * (_hp - 2 * _a)                          # deux cordons à pleine gorge sur hp − 2a (EN 1993-1-8 §4.5.1(1))
+_qz = _V * 1000 / _Lw
 _k_plein = _bw * 1.25 * _fy / (math.sqrt(2) * _fu * 1.0)
 _a_plein = _k_plein * _twS
 # --- TYING (NEd = 250 kN, γMu = 1,1) : les DEUX tronçons en T
@@ -150,7 +175,7 @@ _Bp_fl = 0.6 * math.pi * _dm * _tfP * _fu / 1.1 / 1000
 _Bp_we = 0.6 * math.pi * _dm * _twP * _fu / 1.1 / 1000
 _Ft_wc = 1.0 * _leffP * _twP * _fu / 1.1 / 1000
 _tnS_u = _Av_w * _fu / 1.1 / 1000
-_qx_ty = _Nty * 1000 / (2 * _hp)
+_qx_ty = _Nty * 1000 / _Lw
 _Fw_ty = _fu / (S3 * _bw * 1.1) * _a
 _FtEd = _Nty / _ns
 # --- cas (b) : géométrie du poteau et cisaillement local de l'âme
@@ -165,9 +190,10 @@ _rec_min = (_bP - _twP) / 2 + 5.0 - _tp
 _k1_Pb = min(1.4 * _p3b / _d0 - 1.7, 2.5)
 _Fb_Pb = _k1_Pb * _abi_L * _fu * _d * _twP / 1.25 / 1000
 _VRd_pdPb = _ns * _Fb_Pb
-_Av_Pb = _twP * _hp
+# SCI P358 Check 10 : et = 5d (le poteau continue), eb = min(p3/2 ; 5d)
+_Av_Pb = _twP * (5 * _d + (_n1 - 1) * _p1 + min(_p3b / 2, 5 * _d))
 _VRd_lP = _Av_Pb * _fy / S3 / 1000
-_VRd_nP = _twP * (_hp - _n1 * _d0) * _fu / (S3 * 1.25) / 1000
+_VRd_nP = (_Av_Pb - _n1 * _d0 * _twP) * _fu / (S3 * 1.25) / 1000
 
 
 SRC = dict(
@@ -180,6 +206,14 @@ SRC = dict(
           "(MSB P5 §2.3)",
     url="https://steelconstruction.info/images/5/53/SBE_MS5.pdf")
 
+SRC_SCI = dict(
+    titre="SCI P358 — Joints in Steel Construction: Simple Joints to Eurocode 3 — Partial depth end plates, "
+          "Worked example 2 (tying resistance, beam to column web)",
+    org="The Steel Construction Institute / The British Constructional Steelwork Association (édition de 2014)",
+    annee="pages 44 à 49 : Checks 11, 12 et 14 de la procédure",
+    norme="BS EN 1993-1-8 et BS EN 1993-1-1 avec l'annexe britannique ; chaînage avec fu/γMu, γMu = 1,1",
+    url="https://www.steelconstruction.info/images/3/3d/SCI_P358.pdf")
+
 BENCH = [
     dict(id="BM1", titre="HÉRITAGE — §2.4 Worked Example: Partial depth end plate sur un POTEAU (appui "
                          "sur l'aile), VEd = 550 kN et force de chaînage 275 kN",
@@ -188,11 +222,12 @@ BENCH = [
               "e1 = 40, p1 = 70 (40 + 5 × 70 + 40 = 430), cordon 8 mm (a = 5,6), poutre non grugée. "
               "Les neuf valeurs publiées ne dépendent PAS du support : elles doivent sortir inchangées",
          inp=WE, rows=[
-             ["§2.4", "Âme de la poutre – cisaillement sur hp (Av = 430 × 9 = 3870 mm²)", 614, rd("vwS"), "kN", ""],
+             ["§2.4", "Âme de la poutre – cisaillement sur hp, SANS le 0,9 du SCI (Av = 430 × 9 = 3870 mm²)", 614,
+              lambda R: R.ck["vwS"].Rd / SCI.K_AV, "kN", E_09],
              ["§2.4", "Un boulon en cisaillement Fv,Rd", 94, va("Fv_Rd"), "kN", E_FV],
              ["§2.4", "Pression diamétrale sur la platine – boulons d'extrémité", 107, va("Fbb_L"), "kN", E_AB],
              ["§2.4", "Pression diamétrale sur la platine – boulons intérieurs", 142, va("Fbi_L"), "kN", ""],
-             ["§2.4", "Groupe de boulons FRd = 0,8·ns·Fv,Rd (Fv,Rd ≤ (Fb,Rd)min)", 902, rd("bg"), "kN", E_FV],
+             ["§2.4", "Groupe de boulons FRd = 0,8·ns·Fv,Rd (les deux guides rendent la même valeur)", 902, rd("bg"), "kN", E_FV],
              ["§2.4", "Platine – cisaillement, min(brut ; net ; bloc) = rupture de bloc", 1182,
               lambda R: min(R.ck["pcg"].Rd, R.ck["pcn"].Rd, R.ck["pcb"].Rd), "kN", ""],
              ["§2.4", "Tying – platine en flexion (tronçon en T, mode 1)", 493, rd("ptT"), "kN", E_M],
@@ -214,16 +249,18 @@ BENCH = [
              ["§11.3", "Platine – cisaillement brut VRd,g (2 plans, 1/1,27)", _VRdg_L, rd("pcg"), "kN", ""],
              ["§11.3", "Platine – cisaillement net VRd,n (2 plans)", _VRdn_L, rd("pcn"), "kN", ""],
              ["§11.3", "Platine – rupture de bloc VRd,b (2 blocs, k = 1)", _VRdb_L, rd("pcb"), "kN", ""],
-             ["§11.3", "Âme portée – cisaillement sur hp (Av = hp·tw = 2494 mm²)", _VRd_wS, rd("vwS"), "kN", ""],
+             ["§11.3", "Âme portée – cisaillement sur hp (Av = 0,9·hp·tw = 2245 mm²)", _VRd_wS, rd("vwS"), "kN", ""],
              ["§11.3", "Âme portée – taux (dimensionnante)", _V / _VRd_wS, et("vwS"), "-", ""],
              ["§11.3", "AILE DU POTEAU – Fb,Rd par boulon (αb du seul p1, k1 du gauge)", _Fb_P, va("Fb_P"), "kN", ""],
              ["§11.3", "Aile du poteau – VRd = ns·Fb,Rd", _VRd_pdP, rd("pdP"), "kN", ""],
-             ["§11.3", "Cordons – qz = VEd/(2hp)", _qz, va("qz_w"), "N/mm", ""],
-             ["§11.3", "Gorge de pleine résistance recommandée (0,553727·tw)", _a_plein, va("a_plein"), "mm", ""]]),
+             ["§11.3", "Cordons – qz = VEd/(2·(hp − 2a))", _qz, va("qz_w"), "N/mm", ""],
+             ["§11.3", "Gorge de pleine résistance (0,553727·tw)", _a_plein, va("a_plein"), "mm", ""],
+             ["§11.3", "Gorge du détail éprouvé : 0,8 × la pleine résistance (SCI P358 Check 2)", 0.8 * _a_plein,
+              va("a_detail"), "mm", ""]]),
     dict(id="BM3", titre="Cas (a) TYING (NEd = 250 kN seul, γMu = 1,1) — les DEUX tronçons en T : "
                          "celui de la platine et celui de l'AILE DU POTEAU, le composant NEUF",
          data="Même assemblage qu'en BM2, NEd = 250 kN en tying : Ft,Rd,u = 160,364 kN par boulon, "
-              "ΣFt,Rd,u = 1 282,91 kN, ew = dw/4 = 9,25 mm. L'aile du poteau (tfP = 19) est 3,66 fois "
+              "ΣFt,Rd,u = 1 282,91 kN, ew = dw/4 = 9,25 mm. L'aile du poteau (tfP = 19) est 3,45 fois "
               "plus forte que la platine (tp = 10) : avec une aile laminée épaisse, le composant neuf "
               "ne gouverne pas — il gouvernerait avec une aile mince ou un p3 plus grand",
          inp=BM3, rows=[
@@ -248,7 +285,7 @@ BENCH = [
              ["§11.3", "Poinçonnement de l'aile (t = 19)", _Bp_fl, va("Bp_P"), "kN", ""],
              ["§7.4", "Âme du poteau en traction transversale (ω = 1, beff = Σleff)", _Ft_wc, rd("twtP"), "kN", ""],
              ["§11.3", "Âme portée en traction sur hp (fu/γMu)", _tnS_u, rd("tnS"), "kN", ""],
-             ["§11.3", "Cordons – qx = NEd/(2hp)", _qx_ty, va("qx_ty"), "N/mm", ""],
+             ["§11.3", "Cordons – qx = NEd/(2·(hp − 2a))", _qx_ty, va("qx_ty"), "N/mm", ""],
              ["§11.3", "Cordons – Fw,Rd,u = fu/(√3·βw·γMu)·a", _Fw_ty, rd("wT"), "N/mm", ""]]),
     dict(id="BM4", titre="Cas (b) ÂME DU POTEAU — la platine 290 × 220 du cas (a) NE TIENT PAS entre les "
                          "congés (198 mm) : p3 = 110 et bp = 190",
@@ -267,12 +304,25 @@ BENCH = [
              ["§11.3", "ÂME DU POTEAU – Fb,Rd par boulon (k1 du seul gauge, aucun bord libre)",
               _Fb_Pb, va("Fb_P"), "kN", ""],
              ["§11.3", "Âme du poteau – VRd = ns·Fb,Rd", _VRd_pdPb, rd("pdP"), "kN", ""],
-             ["§11.3", "Âme du poteau – cisaillement local BRUT (Av = twP·hp)", _VRd_lP, rd("vlP"), "kN", ""],
+             ["§11.3", "Âme du poteau – cisaillement local BRUT (Av = twP·(5d + 3·p1 + p3/2) = 4015 mm²)", _VRd_lP, rd("vlP"), "kN", ""],
              ["§11.3", "Âme du poteau – taux (Ed = VEd/2 = 100 kN)", _V / 2 / _VRd_lP, et("vlP"), "-", ""],
              ["§11.3", "Âme du poteau – cisaillement local NET", _VRd_nP, rd("vnP"), "kN", ""],
              ["§11.3", "Âme du poteau – taux net", _V / 2 / _VRd_nP, et("vnP"), "-", ""],
              ["§5.4", "Poinçonnement de l'âme (t = 11, γMu) — cas (b) en tying",
               _Bp_we, lambda R: compute(BM4T, MT.EXEMPLES).Bp_P, "kN", ""]]),
+    dict(id="BM5", titre="SCI P358, platines d'about, exemple 2 — CHAÎNAGE de 175 kN sur l'ÂME d'un poteau "
+                         "305×305×137 UKC : platine, âme portée et âme du poteau hors de son plan",
+         src=SRC_SCI, mat=None, source=MT.SOURCE_TABLE,
+         data="406×178×74 UKB S275 (tw 9,5) sur l'âme d'un 305×305×137 UKC S275 (tw 13,8, hauteur droite d2 = "
+              "246,7 mm), platine 290×150×10 S275, 4 rangées × 2 M20 8.8, p3 = 90, e1 = 40, p1 = 70, soudure de "
+              "6 mm (a = 4,24), force de chaînage 175 kN, γMu = 1,1",
+         inp=SCI_2, rows=[
+             ["p. 47", "Check 11 — Σleff = 2·e1A + (n1 − 1)·p1A", 290, va("leff_T"), "mm", ""],
+             ["p. 47", "Check 11 — m = (p3 − tw − 2·0,8·a·√2)/2", 35.4, va("m_T"), "mm", ""],
+             ["p. 47", "Check 11 — résistance au chaînage de la platine (mode 1), cote du guide sous la tête",
+              381, _ptT_cote_du_guide, "kN", E_EW],
+             ["p. 48", "Check 12 — âme portée en traction tw·hp·fu/γMu", 1027, rd("tnS"), "kN", ""],
+             ["p. 49", "Check 14 — âme du poteau hors de son plan, FRd,u", 405, rd("ahP"), "kN", ""]]),
 ]
 
 NOCOVER = [
@@ -287,9 +337,10 @@ NOCOVER = [
     ["Âme du poteau en traction transversale", "§6.2.6.3 avec ω = 1 et beff,t,wc = Σleff de l'aile : "
      "interprétation de l'outil (point P-5) — les guides ne listent pas ce composant pour les attaches "
      "simples. Calcul manuel indépendant (BM3, VAL-B)."],
-    ["Cisaillement local de l'âme du poteau (cas b)", "Aucun exemple publié consulté : c'est le modèle "
-     "même des modules poutre–poutre (SCI P358, élément support chargé d'un seul côté, Av = twP·hp), "
-     "transposé sans changement de formule. Calcul manuel indépendant (BM4, VAL-C)."],
+    ["Cisaillement local de l'âme du poteau (cas b)", "Formule du SCI P358 Check 10 (Av = twP·(et + (n1 − 1)·p1 "
+     "+ eb), et = 5d pour un poteau qui continue, eb = min(p3/2 ; 5d)) : l'exemple 1 du guide l'ancre sur une "
+     "poutre porteuse (banc de la platine poutre–poutre, 742 et 795 kN) ; pour un poteau, calcul manuel "
+     "indépendant (BM4, VAL-C)."],
     ["Règles géométriques du cas (b) et gauge minimal", "Largeur droite entre congés, largeur de la "
      "platine, dégagement de l'écrou, passage de la semelle, recoupe en largeur, gauge "
      "p3 ≥ twP + 2·rP + dw : géométrie, pas de résistance — calculs manuels (BM2, BM4, VAL-C). La "
@@ -326,11 +377,11 @@ VALID = [
         ["n = min(e ; e2 platine ; 1,25·m) avec e = 80 et e2 = 40", _nP, 40.0, va("n_fP"), "mm"],
         ["Σleff : Tab. 6.4, aucune rangée d'extrémité → n1·p1", _leffP, 280.0, va("leff_fP"), "mm"],
         ["Mpl,1 = 0,25·Σleff·tfP²·fu/γMu", _MplP / 1e6, 11.7161, lambda R: R.Mpl1_fP / 1e6, "kNm"],
-        ["FT,1 (mode 1, méthode 2)", _FT1_P, 1296.99, va("FT1_P"), "kN"],
-        ["FT,2", _FT2_P, 955.485, va("FT2_P"), "kN"],
+        ["FT,1 (mode 1, méthode 2)", _FT1_P, 1325.39, va("FT1_P"), "kN"],
+        ["FT,2", _FT2_P, 901.671, va("FT2_P"), "kN"],
         ["FT,3 = ΣFt,Rd,u", _FT3_P, 1282.91, va("FT3_P"), "kN"],
-        ["FT,Rd de l'aile = min des trois modes", _FT_P, 955.485, rd("tfP"), "kN"],
-        ["Rapport aile / platine (3,66 : l'aile ne gouverne pas)", _FT_P / _FT_L, 3.6562,
+        ["FT,Rd de l'aile = min des trois modes", _FT_P, 901.671, rd("tfP"), "kN"],
+        ["Rapport aile / platine (3,45 : l'aile ne gouverne pas)", _FT_P / _FT_L, 3.4503,
          lambda R: R.FT_Rd_P / R.FT_Rd, "-"],
         ["Âme du poteau en traction transversale ω·beff·twP·fu/γMu", _Ft_wc, 1428.00, rd("twtP"), "kN"]]),
     dict(id="VAL-C", titre="Cas (b) : la géométrie du poteau (largeur droite, dégagement de l'écrou, "
@@ -343,8 +394,8 @@ VALID = [
         ["Largeur maximale de la platine bp ≤ ℓ − 2·j", _bp_maxP, 198.0, va("bp_maxP"), "mm"],
         ["Recoupe minimale (bP − twP)/2 + j − tp", _rec_min, 139.5, va("rec_min"), "mm"],
         ["Âme du poteau – Fb,Rd par boulon (t = 11)", _Fb_Pb, 181.900, va("Fb_P"), "kN"],
-        ["Âme du poteau – cisaillement local brut", _VRd_lP, 653.820, rd("vlP"), "kN"],
-        ["Âme du poteau – cisaillement local net", _VRd_nP, 523.412, rd("vnP"), "kN"],
+        ["Âme du poteau – cisaillement local brut (SCI Check 10)", _VRd_lP, 822.912, rd("vlP"), "kN"],
+        ["Âme du poteau – cisaillement local net", _VRd_nP, 717.748, rd("vnP"), "kN"],
         ["Excentricité apportée au poteau e_col = twP/2 + tp (cas b, de l'axe du poteau)", _twP / 2 + _tp, 15.5, va("e_col"), "mm"]]),
 ]
 
@@ -355,7 +406,7 @@ def run_bench():
     (« VALIDÉ » / « À CONTRÔLER »)."""
     out = []; worst = 0; n_unexp = 0
     for b in BENCH:
-        R = compute(b["inp"], MT.EXEMPLES); rows = []
+        R = compute(b["inp"], b.get("mat", MT.EXEMPLES)); rows = []
         for r in b["rows"]:
             v = r[3](R); ec = (v - r[2]) / r[2]; a = abs(ec)
             if a <= 0.01:
@@ -368,7 +419,8 @@ def run_bench():
                 n_unexp += 1
             worst = mx(worst, a)
             rows.append(dict(page=r[0], lab=r[1], ref=r[2], val=v, unit=r[4], ec=ec, st=st, exp=r[5]))
-        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R), rows=rows))
+        out.append(dict(id=b["id"], titre=b["titre"], data=MT.avec_exemple(b["data"], R, b.get("source", MT.SOURCE_EXEMPLES)),
+                        rows=rows, src=b.get("src", SRC)))
     nv = 0; val = []
     for c in VALID:
         R = compute(c["inp"], MT.EXEMPLES); rows = []

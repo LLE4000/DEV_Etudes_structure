@@ -188,6 +188,8 @@ def elevation(R, opt):
     S.dim(dict(id="e2p", side="T", a=xcl, b=xt, o1=yb1, o2=yc, sym="e2", val=R.e2_p, lvl=2, calc=1))
     S.dim(dict(id="gh", side="T", a=xf, b=x0, o1=yc, o2=yt + dnt, sym="gh", val=gh, key="g_h", lvl=2, out="lo"))
     S.dim(dict(id="z", side="T", a=xf, b=xf + R.zeff, o1=yc, o2=yb1, sym="z", val=R.zeff, lvl=1, calc=1))
+    if R.n_2 > 1:      # deux files : zp du SCI P358 (face d'appui → PREMIÈRE file), le critère du plat long
+        S.dim(dict(id="zp", side="T", a=xf, b=xf + R.g_B, o1=yc, o2=yb1, sym="zp", val=R.g_B, lvl=2, calc=1))
     if dnt > 0:
         S.dim(dict(id="c", side="T", a=x0, b=x0 + ln, o1=yt + dnt, o2=yt, sym="c", val=ln, key="l_n", lvl=1))
     elif dnb > 0:
@@ -198,7 +200,7 @@ def elevation(R, opt):
         S.dim(dict(id="p1", side="R", a=yb1 + (i - 1) * R.p_1, b=yb1 + i * R.p_1, o1=xcl, o2=xcl, sym="p1", val=R.p_1, key="p1_u", lvl=1))
     S.dim(dict(id="e1bot", side="R", a=ybl, b=yc + R.h_p, o1=xcl, o2=xt, sym="e1'", val=R.e1bot, lvl=2, calc=1))
     S.dim(dict(id="hp", side="R", a=yc, b=yc + R.h_p, o1=xt, o2=xt, sym="hp", val=R.h_p, key="hp_u", lvl=1))
-    S.dim(dict(id="zp", side="R", a=yt, b=yc, o1=xE, o2=xt, sym="zp", val=zc, key="z_C", lvl=1, out="lo"))
+    S.dim(dict(id="zc", side="R", a=yt, b=yc, o1=xE, o2=xt, sym="zc", val=zc, key="z_C", lvl=1, out="lo"))
     if dnt > 0:
         S.dim(dict(id="dcs", side="R", a=yt, b=yt + dnt, o1=x0 + ln, o2=x0 + ln, sym="dc,sup", val=dnt, key="d_nt", lvl=1, out="lo"))
     if dnb > 0:

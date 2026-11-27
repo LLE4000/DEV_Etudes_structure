@@ -413,6 +413,14 @@ def lignes(R, c):
                   dict(tw=("tw", R.tw_S), e1b=("e1,b", R.e1b_S), n1=("n1", R.n1_S), p1=("p1", R.p1_S), d0=("d0", d0)), R.Anv_S, "mm²", 0)
         b = _bloc(R, "Veff,2,Rd", R.Ant_S, R.Anv_S, R.fu_S, R.fy_S, 1); b.res = c.Rd
         L = [[ant, anv], [b, _eta(c, "V/VRd", dict(V=("VEd", V), VRd=("Veff,2,Rd", c.Rd)))]]
+    elif k == "mN" and R.get("court_N"):
+        # grugeage COURT à deux files (MSB P5 §4.2.4.2, correction du 27/11/2026) : le plus grand des deux bras, et la
+        # résistance de la vérification à la 2e file (Vpl = min(VRd,g ; VRd,b))
+        med = Sub("MEd", "V*max(gh + cn, gh + e2b + p2)/1000 + M",
+                  dict(V=("VEd", V), gh=("gh", u.g_h), cn=("c", u.l_n), e2b=("e2,b", R.e2b_S), p2=("p2", u.p2_S),
+                       M=("|MEd,parasite|", Mabs)), c.Ed, "kNm")
+        xn = Sub("xN", "cn - (e2b + p2)", dict(cn=("c", u.l_n), e2b=("e2,b", R.e2b_S), p2=("p2", u.p2_S)), R.xN, "mm", 0)
+        L = [[xn, med, Sub("Mc,2,Rd", None, {}, c.Rd, "kNm")], [_eta(c, "MEd/MRd", dict(MEd=("MEd", c.Ed), MRd=("Mc,2,Rd", c.Rd)))]]
     elif k == "mN":
         med = Sub("MEd", "V*(gh + cn)/1000 + M", dict(V=("VEd", V), gh=("gh", u.g_h), cn=("c", u.l_n), M=("|MEd,parasite|", Mabs)), c.Ed, "kNm")
         subs = [Sub("Wel,N", None, {}, R.W_N, "mm³", 0)]

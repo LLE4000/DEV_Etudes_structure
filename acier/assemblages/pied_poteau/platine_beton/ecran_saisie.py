@@ -63,6 +63,7 @@ _LIBELLE = {
     "N_Ed": "NEd", "Mx_Ed": "Mx,Ed", "My_Ed": "My,Ed", "Vx_Ed": "Vx,Ed", "Vy_Ed": "Vy,Ed", "T_Ed": "TEd",
     "g_M0": "γM0", "g_M2": "γM2", "g_c": "γc béton", "g_Mc": "γMc (EN 1992-4)", "a_cc": "αcc",
     "C_f": "Cf,d frottement", "f_g": "Mortier fg", "L_c": "Hauteur Lc", "contrev": "Contreventé",
+    "contact": "Appui direct",
     "xN": "xN", "yN": "yN",
     "fy_u": "fy", "fu_u": "fu", "bw_u": "βw",
     "id_projet": "Projet", "id_rep": "Repère", "id_red": "Rédacteur", "id_date": "Date",

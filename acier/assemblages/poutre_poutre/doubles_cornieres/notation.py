@@ -109,6 +109,8 @@ TITRES_ALERTES = {
     "HEd": "HEd > 10 % de VEd : flexion hors plan des cornières non couverte",
     "soude2": "Soudée des deux côtés : capacité de rotation à justifier (§5.2)",
     "cat_cl": "Catégorie B ou C : boulons 8.8 ou 10.9 requis (§3.4.1)",
+    "V_inv": "VEd négatif : calculé en valeur absolue, chemin de l'effort à justifier",
+    "blf_off": "Assemblage long (Lj > 15·d) : βLf non appliqué (option)",
 }
 
 

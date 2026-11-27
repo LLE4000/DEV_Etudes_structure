@@ -112,8 +112,13 @@ def fautes_propositions(cle, modifs, module=PR, au_moins=1):
         nom = cfg.predim["nom"](s.u)
         v = A.valeurs_normales(cfg, s.u)
         R = A.moteur(cfg, v)                                  # 1. recalculée HORS de la recherche
-        if not R.verified or R.get("a_verifier"):
+        # (lot de clôture du 27/11/2026 : une raison « à vérifier » qui tient aux DONNÉES gardées — une traction, la
+        #  fixation soudée des deux côtés — n'empêche pas une solution, aucune proposition ne la lèverait ; une raison
+        #  du DÉTAIL que la proposition écrit — gorge, épaisseur, pinces — l'empêche)
+        if not R.verified or R.get("justifier_detail"):
             f.append(f"{nom} : le moteur ne la vérifie pas ({R.statut}, η = {R.eta_max:.3f})")
+        if R.get("a_verifier") != s.a_verifier:
+            f.append(f"{nom} : la raison « à vérifier » n'est pas celle du calcul complet")
         if abs(R.eta_max - s.eta) > 1e-9:
             f.append(f"{nom} : taux annoncé {s.eta:.4f} ≠ calcul complet {R.eta_max:.4f}")
         if s.cible != (R.eta_max <= X.cible + 1e-9):
@@ -126,6 +131,10 @@ def fautes_propositions(cle, modifs, module=PR, au_moins=1):
     return f, X
 
 
+# la charge à laquelle UNE file suffit pour chaque diamètre de la plage. Plat d'âme : 100 kN — depuis le lot de clôture
+# (pinces de 2d, cordons sur hp − 2a), le cas par défaut (125 kN) n'atteint plus le taux cible sur une file en M16 et en
+# M20 : la deuxième file y est proposée à bon droit (le harnais suit). Les autres attaches : leur défaut.
+UNE_FILE = {"plat_ame": dict(V_Ed=100.0)}
 total, essais_maxi, duree_maxi = 0, 0, 0.0
 for cle, jeux in JEUX.items():
     cfg = A.CONFIGS[cle]
@@ -158,9 +167,9 @@ for cle, jeux in JEUX.items():
         chk(f"jeu {i + 1} : l'écran liste ces {len(X.solutions)} proposition(s) et les recopie telles quelles (assemblage vérifié, "
             "saisies normalisées, données de base gardées)", not fs and len(X.solutions) >= 1, str(fs[:3]))
     # 4. la plus simple d'abord
-    _f, X0 = fautes_propositions(cle, {})
-    chk("données par défaut : une file suffit — aucune proposition à deux files ; la première tient le taux cible et n'a "
-        "aucune réserve", X0.solutions and not any(s.deux_files for s in X0.solutions) and X0.solutions[0].cible
+    _f, X0 = fautes_propositions(cle, UNE_FILE.get(cle, {}))
+    chk(("données par défaut" if cle not in UNE_FILE else f"données par défaut, {UNE_FILE[cle]}") + " : une file suffit — "
+        "aucune proposition à deux files ; la première tient le taux cible et n'a aucune réserve", X0.solutions and not any(s.deux_files for s in X0.solutions) and X0.solutions[0].cible
         and not X0.solutions[0].reserves and all(s.plage for s in X0.solutions),
         str([(cfg.predim["nom"](s.u), s.deux_files, s.cible, len(s.reserves)) for s in X0.solutions]))
 
@@ -265,7 +274,8 @@ print("\n=== Sans solution : la vérification qui bloque, et « changer de profi
 cfg, u = saisies("plat_ame", dict(V_Ed=250))
 X = PR.chercher(cfg.predim["moteur"], cfg.S, A.a_calculer(cfg, u), "plat")
 chk("plat d'âme, HEA 300 sur HEA 400, V = 250 kN : aucune proposition ; le meilleur candidat reste bloqué par la pression "
-    "diamétrale de l'âme de la poutre SECONDAIRE (133 %) — la géométrie de ce candidat est valide",
+    "diamétrale de l'âme de la poutre SECONDAIRE (126 % depuis le lot de clôture, 133 % avant : les pinces de 2d du "
+    "meilleur candidat) — la géométrie de ce candidat est valide",
     not X.solutions and X.blocage is not None and X.blocage.gov.grp == "Poutre secondaire" and X.blocage.gov.key == "pdS"
     and X.blocage.R.geo_ok and X.blocage.R.dist_ok and 1.2 < X.blocage.R.eta_max < 1.5,
     str(X.blocage and (X.blocage.gov.grp, X.blocage.gov.key, X.blocage.R.eta_max)))
@@ -273,7 +283,7 @@ html = A.sel_solution(cfg, u)
 chk("l'écran le dit : « Aucune solution avec ces profilés », la vérification nommée et son taux, « Changer le profilé de la "
     "poutre secondaire » ; aucune ligne à choisir, pas de « Aucune section dans cette sélection »",
     "<b>Aucune solution avec ces profilés.</b>" in html and "Poutre secondaire · pression diamétrale – âme" in html
-    and "133" in html and "Changer le profilé de la poutre secondaire" in html and "data-choix=" not in html
+    and "126" in html and "Changer le profilé de la poutre secondaire" in html and "data-choix=" not in html
     and "Aucune section" not in html, html[:600])
 cfg, u = saisies("platine_about", dict(V_Ed=400))
 html = A.sel_solution(cfg, u)
@@ -349,7 +359,7 @@ def mutant(ancien, nouveau):
 
 MUTATIONS = [
     ("la recherche accepte un candidat que le moteur ne vérifie pas",
-     "                    if not R.verified:\n", "                    if False:\n",
+     "                    if not _valide(R):\n", "                    if False:\n",
      lambda m: fautes_propositions("plat_ame", dict(V_Ed=250), m, au_moins=0)[0]),
     ("une proposition change un NIVEAU (z sous le dessus)",
      "    v = M.apply_solution(base, r)\n    p2 = _p2(base, r)\n    v.update(e1_u=s.e1,",
@@ -363,7 +373,11 @@ MUTATIONS = [
      lambda m: fautes_propositions("doubles_cornieres", dict(V_Ed=200), m)[0]),
     ("deux files proposées d'abord, quand une file suffit",
      "            for deux in ((False, True) if G.files else (False,)):", "            for deux in ((True,) if G.files else (False,)):",
-     lambda m: ["deux files"] if any(s.deux_files for s in fautes_propositions("plat_ame", {}, m)[1].solutions) else []),
+     # (lot de clôture du 27/11/2026, le harnais suit : sur le plat d'âme, la deuxième file n'est plus jamais prise
+     #  d'avance — à 100 kN une file suffit, au-delà la deuxième est due ; la mutation se voit sur les cornières et sur
+     #  le plat d'âme sur poteau, à leur défaut, où une file suffit à chaque diamètre de la plage)
+     lambda m: ["deux files"] if any(s.deux_files for cle in ("doubles_cornieres", "plat_ame_poteau")
+                                     for s in fautes_propositions(cle, {}, m)[1].solutions) else []),
     ("une cornière « personnalisée » proposée à la place d'une cornière du catalogue",
      "                mieux = (cle, dict(corn_u=c[\"n\"], orient=orient, gA_u=gA))",
      "                mieux = (cle, dict(corn_u=\"Personnalisé\", orient=orient, gA_u=gA, k1_u=c[\"a1\"], k2_u=c[\"a2\"], kt_u=c[\"t\"] - 1, kr_u=c[\"r\"]))",

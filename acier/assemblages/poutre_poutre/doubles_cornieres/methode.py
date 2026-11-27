@@ -24,7 +24,7 @@ L'assemblage est nominalement articulé : il transmet l'effort tranchant VEd, et
 
 - z, entre la face de l'âme porteuse et le centre du groupe S : MS = VEd·z + |MEd|. Les efforts par boulon viennent d'une répartition élastique avec l'inertie polaire Ip = Σ(x² + y²) ; le boulon d'angle le plus chargé est vérifié. VEd n'est jamais simplement divisé par le nombre de boulons.
 - Groupe P : cisaillement centré (VEd/2)/n par boulon, avec le facteur 0,8 sur Fv,Rd qui couvre la traction parasite due à la rotation (MSB Part 5 §4.2.1.2, SCI P358). Option conservatrice : moment (VEd/2)·eP repris par chaque cornière dans son plan.
-- Poutre grugée : flexion de la section réduite sous VEd·(gh + ln), avec réduction si VEd dépasse 0,5·Vpl,N,Rd, et règle de stabilité locale du grugeage.
+- Poutre grugée : flexion de la section réduite sous VEd·(gh + ln), avec réduction si VEd dépasse 0,5·Vpl,N,Rd, et règle de stabilité locale du grugeage. Grugeage COURT (deux files de boulons et xN = ln − (e2,b + p2) < 2·d) : le bras devient max(gh + ln ; gh + e2,b + p2) et la résistance celle de la section au droit de la 2ᵉ file (MSB Part 5 §4.2.4.2 ; SCI P358, Check 5) — lot de clôture du 27/11/2026.
 - NEd : cisaillement horizontal des boulons S, traction des boulons P, tronçon en T équivalent des ailes A, sections nettes et ruptures de bloc en traction. HEd : cisaillement horizontal des boulons P et traction par le couple HEd·z/p3. MEd : moment parasite, pris en valeur absolue.
 
 ### Trois natures de vérification
@@ -40,6 +40,8 @@ L'assemblage est nominalement articulé : il transmet l'effort tranchant VEd, et
 - Deux poutres secondaires en vis-à-vis partageant les mêmes boulons.
 - Stabilité d'ensemble d'une poutre grugée non maintenue au déversement ; stabilité du grugeage pour une nuance supérieure à S355.
 - Méthode directionnelle des soudures (§4.5.3.2) : seule la méthode simplifiée, plus sévère, est utilisée.
+
+Ces cas ne sont plus seulement listés (lot de clôture du 27/11/2026). « ASSEMBLAGE À VÉRIFIER (raison) » : toutes les vérifications passent, mais une raison nommée reste à justifier — cornières soudées des deux côtés (l'articulation ne peut plus tourner), HEd de plus de 10 % de VEd (flexion hors plan des cornières), poutre grugée non maintenue au déversement, effort tranchant inversé (VEd < 0), traction (âme porteuse hors plan). L'écran, la note PDF et les propositions disent le même statut, en orange.
 
 ### Données de bibliothèque
 

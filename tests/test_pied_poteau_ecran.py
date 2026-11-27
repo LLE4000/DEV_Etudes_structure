@@ -320,13 +320,16 @@ chk(f"les {len(CAS)} cas figés : 2 pages, échelle trouvée, sans débordement"
 # ================================================================
 print("\n=== 6. Benchmark, exports, onglets ===")
 at.session_state["ppb_ui_onglet"] = "Benchmark"; run(at)
-chk("onglet Benchmark : calculs manuels VAL-A et VAL-B, statut VALIDÉ, aucun exemple publié (dit en clair)",
-    all(x in md(at) for x in ("VAL-A", "VAL-B", "Benchmark du module : VALIDÉ", "Aucun exemple publié")))
-chk("onglet Benchmark : fiches BM1 / BM2 « à compléter » et validation croisée indépendante du 31/10/2026 "
-    "(40 configurations, écarts, figures)",
-    all(x in md(at) for x in ("BM1 – fiche à compléter", "BM2 – fiche à compléter",
-                              "Validation croisée indépendante du 31/10/2026 — 40 configurations",
-                              "Résultante comprimée C (grille de ressorts", "0,042 %")))
+# (lot de clôture, 27/11/2026 : les cinq exemples publiés sont rejoués — l'onglet ne dit plus « aucun exemple publié »
+#  ni « fiche à compléter » ; le harnais SUIT le changement)
+chk("onglet Benchmark : calculs manuels VAL-A et VAL-B, statut VALIDÉ, cinq exemples publiés rejoués (BM1 à BM5)",
+    all(x in md(at) for x in ("VAL-A", "VAL-B", "Benchmark du module : VALIDÉ", "#### BM1", "#### BM5"))
+    and "Aucun exemple publié" not in md(at))
+chk("onglet Benchmark : plus aucune fiche « à compléter » ; un écart publié porte son explication ; validation croisée "
+    "indépendante du 31/10/2026 (40 configurations, écarts, figures)",
+    all(x in md(at) for x in ("3 % documenté", "Écart expliqué", "Validation croisée indépendante du 31/10/2026 — 40 configurations",
+                              "Résultante comprimée C (grille de ressorts", "0,042 %"))
+    and "fiche à compléter" not in md(at))
 at.button(key="ppb_btn_val_1").click(); run(at)
 chk("« Charger ces données » : VAL-B (massif 3 000) dans l'outil, VÉRIFIÉ",
     float(at.session_state["ppb_bc_u"]) == 3000.0 and "PIED DE POTEAU VÉRIFIÉ" in md(at))
@@ -520,7 +523,8 @@ dest = (kit.cles_carte(D) | kit.cles_carte(ecran_saisie.D_MANUEL) | set(EM.CLES_
         | {c["key"] for grp in EM._panneaux(compute_mode(um), um).values() for c in grp["champs"]}
         | set(ecran_resultats.cotes_panneau(u)) | set(ecran_resultats.cotes_panneau(um)))
 chk(f"les {len(inventaire)} clés de l'inventaire (CHAMPS, listes, visserie, grille posée, dessin interactif) ont une "
-    "destination dans l'un ou l'autre mode", len(inventaire) == 70 and not inventaire - dest, str(sorted(inventaire - dest)))
+    "destination dans l'un ou l'autre mode", len(inventaire) == 71 and not inventaire - dest, str(sorted(inventaire - dest)))
+# (71 depuis le lot de clôture : « contact », l'appui direct du poteau, dans la fenêtre Soudure)
 
 
 # ================================================================

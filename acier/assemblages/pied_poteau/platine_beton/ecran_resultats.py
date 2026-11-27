@@ -180,7 +180,10 @@ def _panneaux(R, u):
                          + ([ch("t_g")] if tg_nul else []))
     g["grout"] = dict(titre="Mortier", champs=[ch("t_g"), ch("f_g")],
                       note="βj = 2/3 si tg ≤ 0,2·min(bp, lp) et fg ≥ 0,2·fck (EC3 §6.2.5(7)).")
-    g["weld"] = dict(titre="Soudure", champs=[ch("a_w")])
+    g["weld"] = dict(titre="Soudure", champs=[ch("a_w"), ch("contact")],
+                     note="Appui direct « Oui » : about du poteau scié d'équerre, en contact avec la platine — la "
+                          "compression passe par le contact, les cordons gardent la traction, le cisaillement et "
+                          "la torsion.")
     g["efforts"] = dict(titre="Efforts", champs=[ch(k) for k in ("N_Ed", "Mx_Ed", "My_Ed", "Vx_Ed", "Vy_Ed", "T_Ed")],
                         note="Mx comprime le côté y > 0 (haut de la vue en plan) ; My comprime le côté x > 0.")
     return g

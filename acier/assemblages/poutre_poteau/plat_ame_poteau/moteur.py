@@ -49,6 +49,7 @@ from acier.formats import F, f0, nb
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
+from acier.assemblages import sci as SCI
 from acier.assemblages import materiau as MT
 from acier.assemblages import ductilite as DU
 from .. import textes as TXT
@@ -58,7 +59,8 @@ S3 = math.sqrt(3)
 T34 = "EN 1993-1-8 Tableau 3.4"
 MSB3 = "MSB Part 5 §3.2 (fin plate)"
 MSB_TY = "MSB Part 5 §2.3 (tying)"
-P358_SUP = "SCI P358 (élément support chargé d'un seul côté)"
+P358_SUP = "SCI P358 Check 10 (élément support chargé d'un seul côté)"
+SCI_AME = "SCI P358 Check 14"
 
 GROUPES_VERIF = ("Boulons", "Plat d'âme", "Poutre portée", "Poteau porteur",
                  "Soudure")
@@ -102,10 +104,12 @@ def compute(u0=None, materiau=None):
         u[k] = v
     for n in NUM:
         u[n] = N(u[n])
+    v_inverse = bool(u.V_Ed < 0)                # sens inversé : traité en valeur absolue, chemin à justifier (statut)
     u.V_Ed = abs(u.V_Ed)
     Mabs = abs(u.M_Ed)
     R = AttrDict()
     R.u = u
+    R.V_inverse = v_inverse
     R.checks = []
     R.ck = {}
     R.pred = u.mode_calc == MODE_PREDIM
@@ -183,7 +187,19 @@ def compute(u0=None, materiau=None):
              "VEd·z (répartition élastique, inertie polaire)")
     R.rec_hp = R.h_p >= 0.6 * R.h_S             # maintien en torsion (guides)
     DU.poser(R, d)                              # ductilité : plat OU âme portée ≤ k·d (SCI P358 §5.3 (3))
-    R.long_p = R.z_p > dv(R.t_p, 0.15)          # plat LONG (P358 / MSB P5)
+    # plat LONG : le SCI le juge sur zp, de la face d'appui à la PREMIÈRE file (R.g_B) — règle retenue le 27/11/2026 ;
+    # le MSB P5 le juge sur z, au centre du groupe (R.z_p) : à deux files, un plat peut être long pour lui seul
+    R.long_p = R.g_B > dv(R.t_p, SCI.SEUIL_PLAT_LONG)
+    R.long_msb = R.z_p > dv(R.t_p, SCI.SEUIL_PLAT_LONG)
+    # détail ÉPROUVÉ de l'articulation (SCI P358 §5.3 (5)) : toutes les pinces du plat et de l'âme portée ≥ 2d
+    pinces = [("e1 du plat", mn(R.e_1, R.e1bot)), ("e2 du plat", R.e2_p), ("e2,b de l'âme portée", R.e2b)]
+    if u.d_nt > 0:
+        pinces.append(("e1,b de l'âme portée", R.e1b_S))
+    if u.d_nb > 0:
+        pinces.append(("he de l'âme portée", R.h_e))
+    R.pince_2d = min(pinces, key=lambda x: x[1])
+    R.rec_2d = R.pince_2d[1] >= SCI.N_2D * d - 1e-9
+    R.rec_boul = bool(u.classe == "8.8" and u.cat == "A")      # §5.3 (4) : 8.8 non précontraints
 
     # ---- géométrie propre au POTEAU (étude §3.2.2, §4.3, §5.3)
     # brique partagée : les largeurs utiles du poteau sont les mêmes pour
@@ -229,7 +245,7 @@ def compute(u0=None, materiau=None):
     drow("e2p", "Plat – e2 (bord libre)", R.e2_p, 1.2, R.t_p, "e", True,
          ["bp_u", "g_h", "e2b_u", "p2_u"], ["e2p"])
     drow("e1b", "Âme de la poutre portée – e1,b (vers grugeage sup.)", R.e1b_S, 1.2, R.tw_S, "e",
-         u.d_nt > 0, ["z_C", "e1_u", "d_nt"], ["e1b", "zp", "dcs"])
+         u.d_nt > 0, ["z_C", "e1_u", "d_nt"], ["e1b", "zc", "dcs"])
     drow("he", "Âme de la poutre portée – he (vers grugeage inf.)", R.h_e, 1.2, R.tw_S, "e",
          u.d_nb > 0, ["z_C", "e1_u", "n1_u", "p1_u", "d_nb"], ["he", "dci"])
     drow("e2b", "Âme de la poutre portée – e2,b (vers l'about)", R.e2b, 1.2, R.tw_S, "e", True,
@@ -245,6 +261,8 @@ def compute(u0=None, materiau=None):
     # 2·a·fvw,d ≥ tp·fy/(√3·γM0)) — recommandation, contrôlée par alerte
     R.fuw, R.bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_P, R.bw_P)
     R.a_plein = MEC.a_pleine_resistance_plat(R.t_p, R.fy_L, R.bww, R.fuw, gM2, gM0)
+    R.rec_a = R.a_w >= R.a_plein - MEC.TOL_GORGE       # §5.3 (6) et Check 8 : cordons de pleine résistance
+    R.Lw1 = SCI.leff_cordon(R.h_p, R.a_w)              # longueur efficace d'UN cordon : hp − 2a (EN 1993-1-8 §4.5.1(1))
     botLim = R.h_S - (u.d_nb if u.d_nb > 0 else tfrS); sumC = u.z_C + R.h_p
     prS = ["prof_S", "hS_u", "bS_u", "tfS_u", "rS_u"] if u.prof_S == PERSO else ["prof_S"]
     prP = ["prof_P", "hP_u", "bP_u", "twP_u", "tfP_u", "rP_u"] if u.prof_P == PERSO else ["prof_P"]
@@ -260,15 +278,15 @@ def compute(u0=None, materiau=None):
              w="Pince e2 = bp − gh − e2,b − (n2 − 1)·p2 = " + f0(R.b_p) + " − " + f0(u.g_h) + " − " + f0(R.e2b) + " − " + js_str(R.n_2 - 1) + " × " + f0(u.p2_u) + " = " + f0(R.e2_p) + " mm, alors qu'il faut au moins 1,2·d0 = " + F(m12, 1) + " mm. Allonger le plat ou réduire e2,b / p2."),
         dict(id="zc_top", c=u.z_C < (u.d_nt if u.d_nt > 0 else tfrS), b=1,
              m="Configuration impossible : le dessus du plat est dans la zone grugée ou dans le congé supérieur de la poutre portée.",
-             f=["z_C", "d_nt"] + prS, d=["zp", "dcs"], e=["plate", "notchT"],
-             w=("zp = " + f0(u.z_C) + " mm est inférieur à la profondeur du grugeage dc,sup = " + f0(u.d_nt) + " mm : il faut zp ≥ dc,sup.") if u.d_nt > 0
-             else ("zp = " + f0(u.z_C) + " mm est inférieur à tf + r = " + f0(tfrS) + " mm (semelle et congé de la poutre portée) : il faut zp ≥ " + f0(math.ceil(tfrS)) + " mm.")),
+             f=["z_C", "d_nt"] + prS, d=["zc", "dcs"], e=["plate", "notchT"],
+             w=("zc = " + f0(u.z_C) + " mm est inférieur à la profondeur du grugeage dc,sup = " + f0(u.d_nt) + " mm : il faut zc ≥ dc,sup.") if u.d_nt > 0
+             else ("zc = " + f0(u.z_C) + " mm est inférieur à tf + r = " + f0(tfrS) + " mm (semelle et congé de la poutre portée) : il faut zc ≥ " + f0(math.ceil(tfrS)) + " mm.")),
         dict(id="h_dispo", c=sumC > botLim, b=1,
              m="Configuration impossible : hauteur disponible insuffisante – le plat dépasse la partie droite de l'âme de la poutre portée.",
-             f=["hp_u", "z_C"] + (["d_nb"] if u.d_nb > 0 else []) + prS, d=["hp", "zp"] + (["dci"] if u.d_nb > 0 else []), e=["plate"],
-             w="zp + hp = " + f0(u.z_C) + " + " + f0(R.h_p) + " = " + f0(sumC) + " mm dépasse la limite basse de la partie droite de l'âme : "
+             f=["hp_u", "z_C"] + (["d_nb"] if u.d_nb > 0 else []) + prS, d=["hp", "zc"] + (["dci"] if u.d_nb > 0 else []), e=["plate"],
+             w="zc + hp = " + f0(u.z_C) + " + " + f0(R.h_p) + " = " + f0(sumC) + " mm dépasse la limite basse de la partie droite de l'âme : "
              + (("h − dc,inf = " + f0(R.h_S) + " − " + f0(u.d_nb)) if u.d_nb > 0 else ("h − (tf + r) = " + f0(R.h_S) + " − " + f0(tfrS)))
-             + " = " + f0(botLim) + " mm. Avec zp = " + f0(u.z_C) + " mm, hp maximal = " + f0(math.floor(botLim - u.z_C)) + " mm."),
+             + " = " + f0(botLim) + " mm. Avec zc = " + f0(u.z_C) + " mm, hp maximal = " + f0(math.floor(botLim - u.z_C)) + " mm."),
         dict(id="aile_poutre", c=R.ame and not R.rec_ok, b=1,
              m=TXT.M_AILE_POUTRE,
              f=["rec_S", "j_lat", "g_h"] + prS + prP, d=["rec", "jlat", "gh"], e=["beamS", "recut", "col"],
@@ -279,15 +297,27 @@ def compute(u0=None, materiau=None):
              f=["n1_u", "n2_u"], d=[], e=["bolts"], w="n1 × n2 = 1 boulon : ajouter au moins une rangée ou une file."),
         dict(id="d0_manq", c=u.trou == "Surdimensionné" and N(u.d0_u) == 0, b=1,
              m="Trou surdimensionné : saisir le diamètre d0.", f=["trou", "d0_u"], d=[], e=[], w=""),
+        dict(id="w_court", c=R.Lw1 < mx(30, 6 * R.a_w), b=1,
+             m="Cordon trop court pour porter un effort : longueur efficace hp − 2a inférieure à max(30 mm ; 6·a) (EN 1993-1-8 §4.5.1(2)).",
+             f=["hp_u", "a_w"], d=["hp", "aw"], e=["weld"],
+             w="hp − 2a = " + f0(R.h_p) + " − 2 × " + f0(R.a_w) + " = " + F(R.Lw1, 0) + " mm < max(30 ; 6 × " + f0(R.a_w) + ") = " + F(mx(30, 6 * R.a_w), 0) + " mm."),
         *DU.alertes(R, d),                     # ductilité : recommandation, jamais bloquante (à la place de l'ancienne tp_duct)
+        dict(id="pince_2d", c=not R.rec_2d, b=0,
+             m="Pince inférieure à 2·d : hors du détail éprouvé des plats d'âme (toutes les pinces du plat et de l'âme portée ≥ 2d, capacité de rotation) — articulation à justifier.",
+             f=["e1_u", "e2b_u", "bp_u", "hp_u", "boulon_u"], d=["e1", "e2b", "e2p"], e=["plate", "bolts"],
+             w=R.pince_2d[0] + " = " + F(R.pince_2d[1], 0) + " mm < 2·d = " + f0(SCI.N_2D * d) + " mm (SCI P358 §5.3 (5))."),
+        dict(id="boul_det", c=not R.rec_boul, b=0,
+             m="Boulons hors du détail éprouvé des plats d'âme (classe 8.8, non précontraints) : capacité de rotation à justifier.",
+             f=["classe", "cat"], d=[], e=["bolts"],
+             w="Classe " + js_str(u.classe) + ", catégorie " + js_str(u.cat) + " (SCI P358 §5.3 (4))."),
         dict(id="hp_rec", c=not R.rec_hp, b=0,
              m="hp < 0,6·h de la poutre portée : recommandation des guides (maintien en torsion de la poutre à l'appui) non respectée.",
              f=["hp_u"] + prS, d=["hp"], e=["plate"],
              w="hp = " + f0(R.h_p) + " mm < 0,6·h = " + F(0.6 * R.h_S, 0) + " mm."),
         dict(id="long_nr", c=R.long_p and u.lt_ok != "Oui", b=0,
-             m="Plat LONG (z > tp/0,15) et poutre non maintenue au déversement : le déversement du plat est vérifié, mais la stabilité d'ensemble demande un examen particulier (SCI P358).",
+             m="Plat LONG (zp > tp/0,15) et poutre non maintenue au déversement : le guide n'admet pas ce détail sans justification par essais (SCI P358 Check 3) — à justifier.",
              f=["lt_ok", "tp_u", "e2b_u", "g_h"], d=["z"], e=["plate"],
-             w="z = " + F(R.z_p, 1) + " mm > tp/0,15 = " + F(dv(R.t_p, 0.15), 1) + " mm."),
+             w="zp = gh + e2,b = " + F(R.g_B, 1) + " mm > tp/0,15 = " + F(dv(R.t_p, 0.15), 1) + " mm."),
         dict(id="b1_long", c=R.b1, b=0,
              m="Cas (b), variante b1 : la poutre reste au-delà des bouts d'aile du poteau — le bras z est multiplié par 3 à 4, le plat devient LONG et la flexion hors plan de l'âme du poteau sous qx n'est pas vérifiée. Préférer la recoupe des semelles (variante b2).",
              f=["g_h", "rec_S"], d=["gh", "z"], e=["plate", "col"],
@@ -296,12 +326,15 @@ def compute(u0=None, materiau=None):
              + " mm avec un about au contact de l'âme."),
         dict(id="ame_hp", c=R.ame, b=0,
              m=TXT.m_ame_hp("qx = 3·MS/hp² et sous la force de chaînage",
-                            "plat traversant, raidisseurs entre ailes"),
+                            "plat traversant, raidisseurs entre ailes",
+                            "Le guide la vérifie par le POINÇONNEMENT de l'âme (SCI P358 Check 10) et, en "
+                            "chaînage, par sa formule du Check 14 : les deux sont calculés ici ; une traction "
+                            "ELU reste à justifier."),
              f=["appui"] + prP, d=["libreP"], e=["col", "colWeb"], w=""),
-        dict(id="a_rec", c=R.a_w < R.a_plein - MEC.TOL_GORGE, b=0,
-             m="Gorge inférieure à la PLEINE RÉSISTANCE recommandée vis-à-vis du plat — admissible si la vérification en contrainte du cordon passe, mais le détail courant soude le plat à pleine résistance.",
+        dict(id="a_rec", c=not R.rec_a, b=0,
+             m="Gorge inférieure à la PLEINE RÉSISTANCE vis-à-vis du plat : la vérification en contrainte du cordon décide de la résistance, mais le plat ne plastifie plus avant le cordon — articulation à justifier.",
              f=["a_w", "tp_u"], d=["aw"], e=["weld"],
-             w="Recommandé : a ≥ tp·fy·βw·γM2/(√2·fu·γM0) = " + F(R.a_plein, 1) + " mm (le plat plastifie avant le cordon : MSB Part 5 §3, dérivation EN 1993-1-8 §4.5.3.3) ; actuel : a = " + f0(R.a_w) + " mm."),
+             w="Détail éprouvé : a ≥ tp·fy·βw·γM2/(√2·fu·γM0) = " + F(R.a_plein, 1) + " mm (SCI P358 Check 8 et §5.3 (6) ; dérivation EN 1993-1-8 §4.5.3.3) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="MEd", c=Mabs != 0, b=0,
              m="MEd ≠ 0 : l'assemblage reste modélisé comme articulé ; MEd est ajouté au moment d'excentricité VEd·z. Un moment significatif sort du domaine de l'outil.",
              f=["M_Ed"], d=["z"], e=[], w="MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm."),
@@ -315,6 +348,13 @@ def compute(u0=None, materiau=None):
         dict(id="cat_cl", c=u.cat != "A" and R.f_ub < 800, b=1,
              m="Catégorie B ou C : boulons précontraints de classe 8.8 ou 10.9 requis (EN 1993-1-8 §3.4.1).",
              f=["cat", "classe"], d=[], e=[], w=""),
+        dict(id="V_inv", c=R.V_inverse, b=0,
+             m="VEd saisi négatif (effort de soulèvement) : calculé en valeur absolue — pinces chargées, bloc et appui changent de côté : chemin de l'effort à justifier.",
+             f=["V_Ed"], d=[], e=[], w=""),
+        dict(id="blf_off", c=u.opt_blf != "Oui" and (R.n_1 - 1) * R.p_1 > 15 * d, b=0,
+             m="Assemblage long (Lj > 15·d) : le coefficient βLf de l'EN 1993-1-8 §3.8 n'est PAS appliqué (option « βLf » sur Non, comme les exemples des guides).",
+             f=["opt_blf", "n1_u", "p1_u"], d=["p1"], e=["bolts"],
+             w="Lj = (n1 − 1)·p1 = " + f0((R.n_1 - 1) * R.p_1) + " mm > 15·d = " + f0(15 * d) + " mm."),
     ]
     R.alerts = [Alerte(id=a["id"], msg=a["m"], block=bool(a["b"]), fields=list(a["f"]),
                        dims=list(a["d"]), elems=list(a["e"]), why=a["w"],
@@ -370,9 +410,15 @@ def compute(u0=None, materiau=None):
     R.Anv_p = R.t_p * (R.h_p - R.e_1 - (R.n_1 - 0.5) * d0)
     R.Wel_p = R.t_p * R.h_p * R.h_p / 6
     R.court = R.h_p >= 2.73 * R.z_p             # flexion non déterminante
-    R.lam_LT = MEC.lam_LT(R.z_p, R.h_p, R.t_p)
-    R.pb_LT = MEC.pb_bs5950(R.lam_LT, R.fy_L)
-    R.Mb_p = dv(R.Wel_p * R.pb_LT, gM1) / 1e6
+    # déversement du plat LONG — SCI P358 Check 3 (retenu le 27/11/2026) : λ̄LT = 2,8·√(zp·hp/(1,5·tp²))/(π·√(E/fy)),
+    # χLT de l'expression (6.56) de l'EN 1993-1-1 avec αLT = 0,76, et le 0,6 du diagramme TRIANGULAIRE du moment
+    # VEd·z dans le plat — non appliqué si un moment MEd est imposé. Avant : la courbe BS 5950-1 des profilés laminés
+    # (``mecanique.pb_bs5950``), sans le 0,6, avec le bras z.
+    pl_ = SCI.plat_long(R.t_p, R.h_p, R.z_p, R.g_B, R.fy_L, gM0, gM1)
+    R.lam_LT = pl_["lam"]; R.lamb_LT = pl_["lam_bar"]; R.chi_LT = pl_["chi"]
+    R.k_tri = 0.6 if Mabs == 0 else 1.0
+    R.Mb_LT = dv(R.Wel_p * R.chi_LT * R.fy_L, R.k_tri * gM1) / 1e6
+    R.Mb_p = mn(R.Mb_LT, dv(R.Wel_p * R.fy_L, gM0) / 1e6)
     # rupture de bloc EN TRACTION du plat (§3.10.2(2)) : deux chemins
     # d'arrachement — entre rangées (cas 1) ou vers le bord libre le plus
     # proche (cas 2) ; aires du guide (MSB P5 §4.3.1.4)
@@ -385,7 +431,8 @@ def compute(u0=None, materiau=None):
     # ---- poutre portée (section grugée : mêmes règles que le module
     # ---- doubles cornières, MSB Part 5 §4.2.4 / §4.2.5)
     sg = MEC.section_grugee(dict(h=R.h_S, b=R.b_S, tw=R.tw_S, tf=R.tf_S, r=R.r_S),
-                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui", fy_nuance=MT.nominale(R, "S"))
+                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui", fy_nuance=MT.nominale(R, "S"),
+                            k_double=SCI.K_AV)      # deux grugeages : 0,9 (SCI P358 Check 4)
     R.cas_g = sg["cas_g"]; R.Asec_S = sg["Asec"]; R.h_T = sg["h_T"]; R.A_Tee = sg["A_Tee"]
     R.Av_S = sg["Av"]; R.VRd_gS = sg["VRd_g"]; R.hw_T = sg["hw_T"]; R.zb_T = sg["zb_T"]
     R.I_N = sg["I_N"]; R.W_N = sg["W_N"]; R.rho_N = sg["rho_N"]; R.Mv_N = sg["Mv_N"]
@@ -399,6 +446,24 @@ def compute(u0=None, materiau=None):
     R.VRd_bS = (dv(0.5 * R.fu_S * R.Ant_S, gM2n) + dv(R.fy_S * R.Anv_S / S3, gM0)) / 1000
     Vm = mn(R.VRd_gS, R.VRd_bS)
     R.Mc_2 = dv(R.W_N * R.fy_S, gM0) / 1e6 * (1 if V <= 0.5 * Vm else mx(0, 1 - (2 * dv(V, Vm) - 1) ** 2))
+    # GRUGEAGE COURT à deux files (SCI P358 Check 5) : si l'extrémité du grugeage est à moins de 2d de la 2e file
+    # (xN < 2d), les trous affaiblissent la section du grugeage — le moment est le plus grand de VEd·(gh + ln) et
+    # VEd·(gh + e2,b + p2), la résistance celle du Check 4 (Vpl = min(VRd,g ; VRd,n), section NETTE comprise).
+    R.VRd_nS = dv((R.Av_S - R.n_1 * d0 * R.tw_S) * R.fu_S / S3, gM2n) / 1000
+    R.xN = u.l_n - (R.e2b + (R.n_2 - 1) * u.p2_u)
+    R.court_N = bool(R.cas_g > 0 and R.n_2 == 2 and R.xN < SCI.N_2D * d)
+    Vn_ = mn(R.VRd_gS, R.VRd_nS)
+    R.rho_Nn = 1 if V <= 0.5 * Vn_ else mx(0, 1 - (2 * dv(V, Vn_) - 1) ** 2)
+    R.Mc_N = dv(R.W_N * R.fy_S, gM0) / 1e6 * R.rho_Nn
+    R.bras_N = mx(u.g_h + u.l_n, u.g_h + R.e2b + u.p2_u) if R.court_N else u.g_h + u.l_n
+    # plat LONG : section ABCD de l'âme portée (SCI P358 Check 4, « resistance at the connection ») — AB et CD
+    # cisaillées, BC fléchie ; hb : hauteur de la section (réduite si la poutre est grugée). Avant : absente.
+    R.abcd = AttrDict(SCI.abcd_sci(V, R.tw_S, R.fy_S, R.n_1, R.p_1, R.n_2, u.p2_u, R.e2b, R.g_B, R.h_T, gM0))
+    # … et la même selon le MSB P5 (§3.2.5.3), qui la demande dès que z > tp/0,15 : INFORMATION — au-delà de
+    # 100 % alors que le SCI ne la demande pas (plat « court » pour lui), le statut le dit
+    R.abcd_msb = AttrDict(SCI.abcd_msb(V, R.tw_S, R.fy_S, R.fu_S, R.n_1, R.p_1, R.n_2, u.p2_u, R.e2b, R.g_B, d0,
+                                       Vn_, gM0, gM2n))
+    R.eta_abcd_msb = dv(R.abcd_msb.MEd + Mabs, R.abcd_msb.MRd) if (R.long_msb and R.n_1 > 1) else 0.0
     R.Nt1_S = (dv(R.fu_S * R.tw_S * (R.n_1 - 1) * (R.p_1 - d0), gT)
                + dv(R.fy_S * 2 * R.tw_S * R.Ah_S / S3, gM0)) / 1000
     R.Nt2_S = (dv(R.fu_S * R.tw_S * (R.e1b_S + (R.n_1 - 1) * R.p_1 - (R.n_1 - 0.5) * d0), gT)
@@ -409,14 +474,20 @@ def compute(u0=None, materiau=None):
     # ---- modules poutre–poutre) ; cas (a) : groupe VIDE, voir §4.4
     R.Av_P = R.tw_P * R.h_p
     R.VRd_lP = dv(R.Av_P * R.fy_P / S3, gM0) / 1000
+    # poinçonnement de l'âme du poteau (SCI P358 Check 10, forme rigoureuse) : l'effort par unité de longueur au pied
+    # du plat, 6·MS/hp² (+ |NEd|/hp), ne dépasse pas twP·fu/γM2 — écrit en moment : MS + |NEd|·hp/6 ≤ twP·fu·hp²/(6·γM2)
+    R.tp_poi, R.M_poi = SCI.poinconnement(R.tw_P, R.fu_P, R.h_p, R.t_p, R.fy_L, gM2n)
+    R.MEd_poi = R.M_S + abs(NEd) * R.h_p / 6000
+    # cas (b) en CHAÎNAGE : flexion hors plan de l'âme du poteau sous le plat (SCI P358 Check 14)
+    R.FRd_ame = SCI.ame_poteau_plat(R.fu_P, R.tw_P, R.libre_droit, R.h_p, R.t_p, R.a_w, gMu)
 
-    # ---- soudure (deux cordons verticaux pleine hauteur, gorge a chacun)
-    R.qz_w = dv(V * 1000, 2 * R.h_p)
-    R.qx_w = dv(3 * R.M_S * 1e6, R.h_p * R.h_p) + dv(abs(NEd) * 1000, 2 * R.h_p)
+    # ---- soudure (deux cordons verticaux, gorge a chacun, à pleine gorge sur hp − 2a)
+    R.qz_w = dv(V * 1000, 2 * R.Lw1)
+    R.qx_w = dv(3 * R.M_S * 1e6, R.Lw1 * R.Lw1) + dv(abs(NEd) * 1000, 2 * R.Lw1)
     R.qw = hyp(R.qz_w, R.qx_w)
     R.fvw = RS.fvw_d(R.fuw, R.bww, gM2)
     R.Fw = R.fvw * R.a_w
-    R.qx_ty = dv(NT * 1000, 2 * R.h_p)
+    R.qx_ty = dv(NT * 1000, 2 * R.Lw1)
     R.fvw_u = RS.fvw_d(R.fuw, R.bww, gMu)
     R.Fw_ty = R.fvw_u * R.a_w
 
@@ -474,11 +545,13 @@ def compute(u0=None, materiau=None):
        "Sans objet si hp ≥ 2,73·z ET MEd = 0 ; sinon VEd·z + |MEd| ≤ Wel·fy/γM0 avec Wel = tp·hp²/6",
        "hp = " + F(R.h_p, 0) + (" ≥" if R.court else " <") + " 2,73·z = " + F(2.73 * R.z_p, 1) + " mm"
        + (" ; |MEd| = " + F(Mabs, 2) + " kNm" if Mabs > 0 else "") + " ; Wel = " + F(R.Wel_p, 0) + " mm³", 1)
-    ck("plt", "Plat d'âme", "Déversement du plat LONG (z > tp/0,15)", R.M_S, R.Mb_p, "kNm",
-       "SCI P358 (plats longs) ; courbe : BS 5950-1 Annexe B.2.1 (Table 17), E = 205 000 MPa ; γM1 ANB",
+    ck("plt", "Plat d'âme", "Déversement du plat LONG (zp > tp/0,15)", R.M_S, R.Mb_p, "kNm",
+       "SCI P358 Check 3 ; χLT : EN 1993-1-1 §6.3.2.3 (6.56), αLT = 0,76 ; γM1 ANB",
        "COMP", R.long_p,
-       "Mb,Rd = Wel·pb(λLT)/γM1 ; λLT = 2,8·√(z·hp/(1,5·tp²))",
-       "λLT = " + F(R.lam_LT, 1) + " ; pb = " + F(R.pb_LT, 1) + " MPa ; Wel = " + F(R.Wel_p, 0) + " mm³ ; γM1 = " + F(gM1, 2), 1)
+       "VEd·z ≤ min(Wel·χLT·fy/(0,6·γM1) ; Wel·fy/γM0) ; λ̄LT = 2,8·√(zp·hp/(1,5·tp²))/(π·√(E/fy)) ; 0,6 : diagramme "
+       "triangulaire du moment (1 si MEd ≠ 0)",
+       "zp = " + F(R.g_B, 1) + " mm ; λ̄LT = " + F(R.lamb_LT, 3) + " ; χLT = " + F(R.chi_LT, 3) + " ; Wel = " + F(R.Wel_p, 0)
+       + " mm³ ; γM1 = " + F(gM1, 2) + " ; coefficient du diagramme = " + F(R.k_tri, 1), 1)
     ck("ptn", "Plat d'âme", "Traction section nette" + ty, NT, dv(0.9 * R.Avn_p * R.fu_L, gT) / 1000, "kN",
        "EN 1993-1-1 §6.2.3(2)" + (" ; " + MSB_TY if R.tying else ""), "EC", NT > 0,
        "Nu,Rd = 0,9·Anet·fu/γ ; Anet = tp·(hp − n1·d0)",
@@ -503,11 +576,21 @@ def compute(u0=None, materiau=None):
        "EN 1993-1-8 §3.10.2(3) ; aires : MSB Part 5 §3.2.5.1", "EC", True,
        "Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0) ; Anv avec (n1 − 1)·d0 si non grugée, (n1 − 0,5)·d0 si grugée",
        "Ant = " + F(R.Ant_S, 0) + " mm² ; Anv = " + F(R.Anv_S, 0) + " mm²", 1)
+    ck("abS", "Poutre portée", "Âme – section ABCD au droit d'un plat LONG", R.abcd.MEd + Mabs, R.abcd.MRd, "kNm",
+       "SCI P358 Check 4", "COMP", R.long_p and R.n_1 > 1,
+       "VEd·zp (une file) ou VEd·(zp + p2) (deux files) ≤ Mc,BC,Rd + Vpl,AB,Rd·(n1 − 1)·p1 ; Mc,BC,Rd = "
+       "fy·tw·((n1 − 1)·p1)²/(6·γM0), réduit si VBC,Ed = VEd·(n1 − 1)·p1/hb > 0,5·Vpl,BC,Rd",
+       "bras = " + F(R.abcd.bras, 0) + " mm ; Mc,BC,Rd = " + F(R.abcd.Mc_BC, 2) + " kNm ; Vpl,AB,Rd = " + F(R.abcd.V_AB, 1)
+       + " kN ; VBC,Ed = " + F(R.abcd.VBC, 1) + " kN ; Vpl,BC,Rd = " + F(R.abcd.Vpl_BC, 1) + " kN", 1)
     ck("mN", "Poutre portée", "Poutre grugée – flexion + cisaillement à l'extrémité du grugeage",
-       V * (u.g_h + u.l_n) / 1000 + Mabs, R.Mv_N, "kNm",
-       "MSB Part 5 §4.2.4 (mêmes règles pour le grugeage)", "COMP", R.cas_g > 0,
-       "MEd = VEd·(gh + c) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd",
-       "Wel,N = " + F(R.W_N, 0) + " mm³ ; Vpl,N,Rd = " + F(R.VRd_gS, 1) + " kN ; réduction = " + F(R.rho_N, 3), 1)
+       V * R.bras_N / 1000 + Mabs, R.Mc_N if R.court_N else R.Mv_N, "kNm",
+       "SCI P358 Check 5 ; MSB Part 5 §4.2.4", "COMP", R.cas_g > 0,
+       "MEd = VEd·(gh + c) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd ; deux files et "
+       "xN < 2d : MEd = VEd·max(gh + c ; gh + e2,b + p2) et Vpl,N,Rd = min(VRd,g ; VRd,n)",
+       "Wel,N = " + F(R.W_N, 0) + " mm³ ; " + (("xN = " + F(R.xN, 0) + " mm < 2d = " + f0(SCI.N_2D * d) + " mm : bras = "
+                                               + F(R.bras_N, 0) + " mm ; Vpl,N,Rd = min(" + F(R.VRd_gS, 1) + " ; "
+                                               + F(R.VRd_nS, 1) + ") kN ; réduction = " + F(R.rho_Nn, 3)) if R.court_N else
+                                              ("Vpl,N,Rd = " + F(R.VRd_gS, 1) + " kN ; réduction = " + F(R.rho_N, 3))), 1)
     ck("m2", "Poutre portée", "Poutre grugée – interaction à la 2e file de boulons (n2 = 2)",
        V * (u.g_h + R.e2b + u.p2_u) / 1000 + Mabs, R.Mc_2, "kNm", "MSB Part 5 §3.2.5", "COMP",
        R.cas_g > 0 and R.n_2 == 2 and u.l_n > R.e2b + u.p2_u, "MEd = VEd·(gh + e2,b + p2) + |MEd|", "")
@@ -536,14 +619,26 @@ def compute(u0=None, materiau=None):
        R.VRd_lP, "kN", P358_SUP, "COMP", R.ame,
        "VEd/2 ≤ Av·fy,P/(√3·γM0) ; Av = twP·hp", "Av = " + F(R.Av_P, 0) + " mm² ; twP = "
        + F(R.tw_P, 1) + " mm ; fy,P = " + F(R.fy_P, 0) + " MPa", 1)
+    ck("poi", "Poteau porteur", "Âme du poteau – poinçonnement par le plat", R.MEd_poi, R.M_poi, "kNm",
+       "SCI P358 Check 10 (forme rigoureuse)", "COMP", R.ame,
+       "MS + |NEd|·hp/6 ≤ twP·fu·hp²/(6·γM2) — le plat plastifie avant que l'âme du poteau ne poinçonne ; forme "
+       "prudente : tp ≤ twP·fu/(fy,p·γM2)",
+       "twP = " + F(R.tw_P, 1) + " mm ; fu = " + F(R.fu_P, 0) + " MPa ; hp = " + F(R.h_p, 0) + " mm ; forme prudente : tp ≤ "
+       + F(R.tp_poi, 1) + " mm (tp = " + F(R.t_p, 0) + " mm)", 1)
+    ck("ahP", "Poteau porteur", "Âme du poteau – flexion hors plan sous le chaînage", NT, R.FRd_ame, "kN",
+       SCI_AME, "COMP", R.ame and R.tying,
+       "FRd,u = 8·Mpl/(γMu·(1 − β1))·(η1 + 1,5·√(1 − β1)) ; Mpl = fu,P·twP²/4 ; η1 = hp/dc ; β1 = (tp + 2s)/dc ; "
+       "s = a/0,7 ; dc : hauteur droite de l'âme",
+       "dc = " + F(R.libre_droit, 1) + " mm ; twP = " + F(R.tw_P, 1) + " mm ; η1 = " + F(dv(R.h_p, R.libre_droit), 3)
+       + " ; β1 = " + F(dv(R.t_p + 2 * R.a_w / 0.7, R.libre_droit), 3) + " ; fu,P = " + F(R.fu_P, 0) + " MPa", 1)
     # --- Soudure
     ck("w", "Soudure", "Cordons plat / poteau – effort par unité de longueur au point critique", R.qw, R.Fw, "N/mm",
        W445, "EC", True,
-       "Fw,Ed = √(qz² + qx²) ≤ Fw,Rd = fvw,d·a ; qz = VEd/(2hp) ; qx = 3·MS/hp² + |NEd|/(2hp) ; fvw,d = fu/(√3·βw·γM2)",
-       "a = " + F(R.a_w, 0) + " mm ; qz = " + F(R.qz_w, 0) + " ; qx = " + F(R.qx_w, 0) + " N/mm ; fvw,d = " + F(R.fvw, 1) + " MPa", 1)
+       "Fw,Ed = √(qz² + qx²) ≤ Fw,Rd = fvw,d·a ; qz = VEd/(2ℓ) ; qx = 3·MS/ℓ² + |NEd|/(2ℓ) ; ℓ = hp − 2a (§4.5.1(1)) ; fvw,d = fu/(√3·βw·γM2)",
+       "a = " + F(R.a_w, 0) + " mm ; ℓ = " + F(R.Lw1, 0) + " mm ; qz = " + F(R.qz_w, 0) + " ; qx = " + F(R.qx_w, 0) + " N/mm ; fvw,d = " + F(R.fvw, 1) + " MPa", 1)
     ck("wT", "Soudure", "Cordons – tying (force de chaînage seule)", R.qx_ty, R.Fw_ty, "N/mm",
        W445 + " avec γMu ; " + MSB_TY, "EC + INT", R.tying,
-       "qx = NEd/(2hp) ≤ fu/(√3·βw·γMu)·a",
+       "qx = NEd/(2ℓ) ≤ fu/(√3·βw·γMu)·a ; ℓ = hp − 2a",
        "qx = " + F(R.qx_ty, 0) + " N/mm ; a = " + F(R.a_w, 1) + " mm ; γMu = " + F(gMu, 2))
     ck("wa", "Soudure", "Gorge minimale", 3, R.a_w, "mm", "EN 1993-1-8 §4.5.2(2)", "EC", True, "a ≥ 3 mm", "")
 
@@ -557,8 +652,24 @@ def compute(u0=None, materiau=None):
     R.eta_max = gov.eta if gov else 0
     R.all_ok = all(c.ok for c in act)
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
-    R.statut = "ASSEMBLAGE VÉRIFIÉ" if R.verified else "ASSEMBLAGE NON VÉRIFIÉ"
     R.reserve = bool(R.cas_g > 0 and R.val_N.startswith("NON VALIDE"))
+    # ---- statut (lot de clôture du 27/11/2026) : ce que le calcul ne PROUVE pas se lit dans le verdict — « À
+    # VÉRIFIER (raison) », jamais « VÉRIFIÉ » en vert. L'articulation d'un plat d'âme repose sur le détail éprouvé du
+    # guide (SCI P358 §5.3 : boulons 8.8 non précontraints, pinces ≥ 2d, cordons de pleine résistance) ; la règle
+    # d'épaisseur (§5.3 (3)) reste un AVIS — décision du bureau du 16/11/2026 (``ductilite.py``).
+    SCI.poser_statut(R, [
+        (not R.rec_2d) and ("articulation à justifier : " + R.pince_2d[0] + " = " + F(R.pince_2d[1], 0) + " mm < 2d = "
+                            + f0(SCI.N_2D * d) + " mm"),
+        (not R.rec_a) and ("articulation à justifier : gorge de " + f0(R.a_w) + " mm < " + F(R.a_plein, 1)
+                           + " mm (pleine résistance)"),
+        SCI.donnee((not R.rec_boul) and "articulation à justifier : boulons hors du détail éprouvé (8.8 non précontraints)"),
+        (R.long_p and u.lt_ok != "Oui") and "plat long et poutre non maintenue au déversement",
+        (R.eta_abcd_msb > 1 + 1e-9 and not (R.long_p and R.n_1 > 1))
+        and ("section ABCD de l'âme portée à " + F(100 * R.eta_abcd_msb, 0) + " % selon le MSB P5 (plat court pour le SCI)"),
+        SCI.donnee(R.reserve and "poutre grugée non maintenue au déversement"),
+        SCI.donnee(R.V_inverse and "effort tranchant de sens inversé"),
+        SCI.donnee((R.ame and R.N_elu > 0) and "âme du poteau sous la traction ELU : flexion hors plan non vérifiée"),
+    ])
     return R
 
 
@@ -597,10 +708,13 @@ def predim(u, R, Mabs):
           d = b["d"]; d0 = b["d0"]; A = b["As"] if u.filet == "Oui" else b["A"]
           # deux jeux de pinces : « détail » (k·d0 arrondi au 5 supérieur) et
           # « compacte » (au 5 inférieur, plancher normatif du Tableau 3.3)
-          jd = (ceil5(u.k_e1 * d0), ceil5(u.k_p1 * d0), ceil5(u.k_e2 * d0))
-          jc = (mx(ceil5(1.2 * d0), 5 * math.floor(u.k_e1 * d0 / 5)),
+          # … et jamais sous 2·d : le détail éprouvé de l'articulation (SCI P358 §5.3 (5)) — sinon chaque
+          # proposition sortirait « à vérifier »
+          e2d = ceil5(SCI.N_2D * d)
+          jd = (mx(ceil5(u.k_e1 * d0), e2d), ceil5(u.k_p1 * d0), mx(ceil5(u.k_e2 * d0), e2d))
+          jc = (mx(ceil5(1.2 * d0), 5 * math.floor(u.k_e1 * d0 / 5), e2d),
                 mx(ceil5(2.2 * d0), 5 * math.floor(u.k_p1 * d0 / 5)),
-                mx(ceil5(1.2 * d0), 5 * math.floor(u.k_e2 * d0 / 5)))
+                mx(ceil5(1.2 * d0), 5 * math.floor(u.k_e2 * d0 / 5), e2d))
           for var, (e1, p1, e2) in (("détail", jd),) + ((("compacte", jc),) if jc != jd else ()):
             hp = 2 * e1 + (n - 1) * p1
             geom = bool(hp <= hav and imin <= i <= imax)

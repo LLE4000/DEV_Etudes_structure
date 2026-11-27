@@ -21,9 +21,9 @@ from acier.assemblages import materiau as MT
 # ne vaut qu'en cas (b), et chaque attache la dit à sa façon : ce qui
 # sollicite l'âme hors de son plan n'est pas le même (docstring de
 # ``..textes``).
-LIMITE_AME = ("flexion HORS PLAN de l'âme du poteau sous la traction des boulons (NEd, tying) — non "
-              "couverte par l'EN 1993-1-8 pour une âme non raidie : le tronçon en T suppose une aile "
-              "encastrée sur une âme centrale, une âme entre deux ailes ne s'y ramène pas")
+LIMITE_AME = ("flexion HORS PLAN de l'âme du poteau sous une traction ELU des boulons — non couverte par "
+              "l'EN 1993-1-8 pour une âme non raidie (le tronçon en T suppose une aile encastrée sur une âme "
+              "centrale) ; sous la force de chaînage elle est vérifiée par la formule du SCI P358 (Check 14)")
 
 
 def limites(ame=True):
@@ -100,36 +100,50 @@ des gauges minimaux par série, non consultés — point P-7).
 
 #### Vérifications et sources
 
-- **Groupe de boulons** (MSB P5 §2.2.4 sur EN 1993-1-8 §3.7) : pression
-  diamétrale sur la platine, boulons d'extrémité (`αb = e1/3d0`) et
-  intérieurs (`αb = p1/3d0 − 1/4`), puis résistance du groupe en trois
-  branches — `ΣFb,Rd` si `(Fb,Rd)max ≤ Fv,Rd`, `ns·(Fb,Rd)min` entre les
-  deux, `0,8·ns·Fv,Rd` si le cisaillement des boulons gouverne (le 0,8 couvre
-  la traction parasite due à la rotation) ; et le groupe ne dépasse jamais
-  `0,8·ns·Fv,Rd`, quelle que soit la branche. Glissement §3.9 (catégories B et
-  C) ; interaction cisaillement + traction (Tab. 3.4) à l'ELU.
+- **Groupe de boulons** (SCI P358, Check 8, sur EN 1993-1-8 §3.7) : `Fb,Rd`
+  est la plus PETITE pression diamétrale d'un boulon — sur la platine
+  (extrémité `αb = e1/3d0`, intérieur `αb = p1/3d0 − 1/4`) ET sur le poteau ;
+  puis `FRd = n·Fb,Rd` si `Fb,Rd ≤ 0,8·Fv,Rd`, sinon `FRd = 0,8·n·Fv,Rd` (le
+  0,8 couvre la traction parasite due à la rotation). Avant le lot de
+  clôture, une troisième branche additionnait les pressions diamétrales
+  (`ΣFb,Rd`). βLf (§3.8) : « Non » par défaut, comme les exemples publiés —
+  transfert uniforme, l'exception du §3.8(2) —, un avis dès que `(n1 − 1)·p1 > 15·d`. Glissement §3.9 (catégories B et C) ;
+  interaction cisaillement + traction (Tab. 3.4) à l'ELU.
 - **Platine** (MSB P5 §2.2, deux plans de cisaillement, un par côté de
   l'âme) : brut `2·(hp·tp/1,27)·fy/(√3·γM0)` — le 1,27 couvre la flexion
   nominale dans son plan ; net ; rupture de bloc §3.10.2 avec `k = 1` si
-  `hp ≥ 1,36·p3`, `0,5` sinon ; **tronçon en T** en traction (§6.2.4) et
-  poinçonnement, `t·fu` minimal de la platine ou du poteau.
-- **Âme portée** : cisaillement sur la hauteur de la platine, `Av = hp·tw`
-  (EN 1993-1-1 §6.2.6, aire du guide §2.2.1) ; traction au droit de la
+  `hp ≥ 1,36·p3`, `0,5` sinon ; **platine courte** (`hp < 1,36·p3`) : flexion
+  dans son plan, `VRd = 2·tp·hp²·fy/(3·(p3 − tw)·γM0)` (SCI P358, Check 9) ;
+  **tronçon en T** en traction (§6.2.4) et poinçonnement, `t·fu` minimal de
+  la platine ou du poteau.
+- **Âme portée** : cisaillement sur la hauteur de la platine,
+  `Av = 0,9·hp·tw` (SCI P358, Check 4 — avant le lot : `hp·tw`) ; double
+  grugeage : `Av = 0,9·tw·hT` ; traction au droit de la
   platine ; grugeage (facultatif sur un poteau, **0 par défaut**) :
   cisaillement de la section réduite, flexion + cisaillement à l'extrémité du
   grugeage avec le bras `tp + c`, stabilité locale — mêmes règles que les
   modules existants (MSB P5 §4.2.4 / §4.2.5).
 - **Poteau porteur** : pression diamétrale de l'aile (a) ou de l'âme (b) ;
-  en cas (b) cisaillement local brut et net sous `VEd/2` (SCI P358) ; en
-  cas (a) et sous traction, tronçon en T de l'aile (Tab. 6.4) et âme en
-  traction transversale (§6.2.6.3, `ω = 1`).
-- **Soudure** : deux cordons sur toute la hauteur `hp`, méthode simplifiée
-  §4.5.3.3 ; en tying `qx = NEd/2hp` avec `fu/(√3·βw·γMu)` ; gorge minimale
-  §4.5.2 ; **pleine résistance** recommandée par le guide :
-  `a ≥ βw·γM2·fy·tw/(√2·fu)`, avec la fy de l'ÂME à son épaisseur tw (une
-  exigence de sur-résistance : la plus petite fy du profilé la rendrait
-  moins sévère, MSB P5 §2.2) ; le site obtient **{PLEINE}** — signalée en alerte.
-  {GUIDE}.
+  en cas (b) cisaillement local brut et net sous `VEd/2` (SCI P358,
+  Check 10) sur `Av = twP·(et + (n1 − 1)·p1 + eb)`, `et = 5·d` et
+  `eb = min(p3/2 ; 5·d)` pour un poteau qui continue (avant le lot : la
+  hauteur `hp` de la platine) ; en cas (a)
+  et sous traction, tronçon en T de l'aile (Tab. 6.4) et âme en traction
+  transversale (§6.2.6.3, `ω = 1`) ; en cas (b) et en **tying**, flexion hors
+  plan de l'âme (SCI P358, Check 14) :
+  `FRd,u = 8·Mpl,u/(1 − β1)·(η1 + 1,5·√((1 − β1)·(1 − γ1)))/γMu`,
+  `Mpl,u = fu,2·twP²/4`, `η1 = ((n1 − 1)·p1 − n1·d0/2)/dc`, `β1 = p3/dc`,
+  `γ1 = d0/dc`. Sous une traction ELU, ce contrôle n'existe pas : statut
+  « À VÉRIFIER ».
+- **Soudure** : deux cordons de longueur efficace `Lw = hp − 2·a` chacun
+  (EN 1993-1-8 §4.5.1(1)), méthode simplifiée §4.5.3.3 ; en tying
+  `qx = NEd/(2·Lw)` avec `fu/(√3·βw·γMu)` ; gorge minimale §4.5.2 ; une
+  longueur efficace sous `max(30 mm ; 6·a)` est refusée. **Pleine
+  résistance** de l'âme : `a ≥ βw·γM2·fy·tw/(√2·fu)`, avec la fy de l'ÂME à
+  son épaisseur tw (MSB P5 §2.2) ; le site obtient **{PLEINE}**. {GUIDE}. Le
+  **détail éprouvé** du SCI P358 (Check 2, annexe C.2) demande 0,8 fois
+  cette gorge : sous ce seuil, alerte et statut « À VÉRIFIER (articulation à
+  justifier) ».
 
 Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + tp` en
 cas (a), `twP/2 + tp` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
@@ -156,7 +170,9 @@ compte et la nature de NEd n'apparaît que pour une traction.
 Tronçons en T, `ew = dw/4`, mode 1 par la **méthode 2** du Tableau 6.2 :
 *platine* `m = (p3 − tw)/2 − 0,8·a·√2`, `n = min(e2 ; 1,25·m)`, Σleff d'une
 platine à bords libres (pour les détails courants **Σleff = hp**, la valeur
-du guide) ; *aile du poteau* `m = (p3 − twP)/2 − 0,8·rP` (poteau LAMINÉ : le
+du guide) — en **tying**, plafonnée de plus par la règle des deux guides
+(SCI P358, Check 11 ; MSB P5 §2.3.1) : `e1A = min(e1 ; 0,5·(p3 − tw −
+2·a·√2) + d0/2)`, `p1A = min(p1 ; p3 − tw − 2·a·√2 + d0)` ; *aile du poteau* `m = (p3 − twP)/2 − 0,8·rP` (poteau LAMINÉ : le
 congé prend la place du cordon), `e = (bP − p3)/2`, `n = min(e ; e2 ; 1,25·m)`,
 Σleff du **Tab. 6.4** — aucune rangée d'extrémité, donc `Σleff = n1·p1` dès
 que les rangées se prennent en groupe.
@@ -212,8 +228,9 @@ Ils sont listés dans `docs/assemblages/POUTRE_POTEAU.md` §9 et
   cisaillement du panneau d'âme, hors périmètre ici, et `ω = 1` est la valeur
   en l'absence de moment d'étage — donc la plus favorable. Un bureau qui veut
   être conservatif impose `ω` en saisie ;
-- **P-6** : la flexion hors plan de l'âme du poteau en cas (b) n'est pas
-  vérifiée, elle est déclarée ;
+- **P-6** : la flexion hors plan de l'âme du poteau en cas (b) est vérifiée
+  en CHAÎNAGE par la formule du SCI P358 (Check 14, lot de clôture) ; sous
+  une traction ELU elle reste déclarée, et le statut le dit (« À VÉRIFIER ») ;
 - **P-7** : le gauge minimal `p3 ≥ twP + 2·rP + dw` est une règle géométrique
   de dégagement du congé, pas une clause normative ;
 - **P-3** : la recoupe en LARGEUR des semelles n'est **pas** un grugeage ; les

@@ -30,8 +30,14 @@ l'EN 1992-4.
 
 1. **Aire efficace** (EC3 §6.2.5) : bande `c = tp·√(fy/(3·fjd·γM0))` autour
    de chaque paroi du profilé, découpée par la platine ; `fjd = βj·fcd·√(Ac1/Ac0)`
-   avec `βj = 2/3`, `Ac0` = platine, `Ac1` concentrique limitée par le
-   massif, par `3·Ac0` et par la hauteur (diffusion 2:1) — EN 1992-1-1 §6.7.
+   avec `βj = 2/3`, `Ac0` = platine, `Ac1` **semblable à la platine et de
+   même centre** : un seul rapport `k = √(Ac1/Ac0)` pour les deux directions,
+   le plus petit de 3, de `b2/bp` et de `l2/lp` — `b2`, `l2` bornés par le
+   massif et par sa hauteur (`b2 ≤ bp + hc`) — EN 1992-1-1 §6.7. Sur un
+   massif allongé, c'est le petit côté qui décide. `βj = 2/3` suppose un
+   mortier d'au plus 0,2 fois le petit côté de la platine, d'au moins
+   0,2·fck et, **au-delà de 50 mm d'épaisseur, au moins aussi résistant que
+   le béton** (EC3 §6.2.5(7)) : sinon le pied est refusé.
 2. **Répartition** : platine rigide sur un lit **sans traction** (raideur
    `kc = Ecm/(1,275·√(beff·leff))`, k13 de l'EC3 §6.3.4) et tiges tendues
    seulement (`kb = E·k16`). L'équilibre de `N`, `Mx`, `My` donne la zone
@@ -61,6 +67,18 @@ qui relèvent souvent du béton armé et que l'outil ne valide pour l'instant
 que par ses propres recalculs manuels. Le périmètre **Complet** les fait
 entrer dans le verdict.
 
+**Ce que le statut dit.** « VÉRIFIÉ » : tout ce qui est dans le périmètre
+passe. « À VÉRIFIER (raison) » : le pied passe, mais une raison nommée reste
+à justifier — au périmètre EC3, un béton d'ancrage au-delà de 100 % ; dans
+les deux périmètres, une **torsion** (la rupture du bord et le pry-out ne
+comptent que la résultante `Vx, Vy`, pas le cisaillement que la torsion donne
+à chaque tige) ; au périmètre complet, le **fendage** (bord à moins de
+`1,5·hef`) et l'**éclatement latéral** (tige à tête à moins de `0,5·hef`),
+que l'outil ne calcule pas. « NON VÉRIFIÉ » : une vérification du périmètre
+dépasse 100 %, ou une **alerte bloquante** existe (géométrie, mortier hors
+conditions, tige dont le trou mord sur le profilé ou son cordon, crosse avec
+un acier de plus de 300 MPa).
+
 #### L'épaisseur de la platine : le moment pris
 
 Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
@@ -76,8 +94,9 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
   épaisseur `tM`) — l'aire efficace grandit avec `tp`.
 - **Côté tendu** : la platine fléchit autour de l'aile sous l'effort `T` de
   la rangée de tiges : le moment pris est **`M = T·m`**, `m` étant la
-  distance de la tige au nu de l'aile, cordon déduit (`e − 0,8·a·√2`). Il
-  est repris par la longueur efficace `Σleff` du tronçon en T :
+  distance de la tige au nu de l'aile — ou de l'âme, pour une tige entre
+  les ailes —, cordon déduit (`e − 0,8·a·√2` : la platine est SOUDÉE au
+  profilé). Il est repris par la longueur efficace `Σleff` du tronçon en T :
   `Mpl,1 = 0,25·Σleff,1·tp²·fy/γM0`, `FT,Rd = 2·Mpl,1/m` sans effet de levier
   (`Lb > Lb*`), `4·Mpl,1/m` avec (modes 1, 2, 3 du Tab. 6.2). L'épaisseur
   demandée est `tp ≥ √(2·T·m·γM0/(Σleff,1·fy))` sans effet de levier
@@ -98,7 +117,10 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
 - **Platine tendue** : tronçon en T de la rangée de la tige la plus
   sollicitée (EC3 §6.2.4, Tab. 6.2 : modes 1-2-3, sans effet de levier si
   `Lb > Lb*`), longueurs efficaces **par tige** dérivées des Tab. 6.4 / 6.6
-  (la somme sur deux tiges redonne la rangée extérieure à l'aile). Tiges
+  (la somme sur deux tiges redonne la rangée extérieure à l'aile), bornées
+  par la **charnière droite** qui traverse la platine le long de l'aile
+  (`0,5·bp`, Tab. 6.6). Le trou d'une tige doit rester à `a·√2 + d0/2` de
+  l'acier du profilé (refus sinon) ; sa rondelle à `a·√2 + dw/2` (avis). Tiges
   **de coin** (au-delà de l'about d'aile) : longueur plafonnée à `0,25·b`
   par tige ; tiges **latérales** : appui réduit à `(tf + 4m)/2` — modèles
   d'ingénieur signalés en alerte.
@@ -107,8 +129,11 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
   0,0003·fyb`, frottement `Cf,d·N` déduit) et EC2-4 §7.2.2.3 (sans
   frottement, bras de levier si `tg > d/2` ou `fg < 30 MPa`) ; interaction.
 - **Tiges, béton** (EC2-4, tiges coulées en place) : cône du groupe tendu
-  (§7.2.1.4, `k1 = 7,7 / 11`, `ψM,N = 1`), arrachement de la tête (§7.2.1.5)
-  ou adhérence de la crosse (EC3 §6.2.6.12 sur EC2 §8.4.2, `η1 = 0,7`),
+  (§7.2.1.4, `k1 = 7,7 / 11` — valeurs indicatives des fixations
+  post-installées, gardées par prudence pour une tige coulée en place —,
+  `ψM,N = 1`), arrachement de la tête (§7.2.1.5) ou adhérence de la crosse
+  (EC3 §6.2.6.12 sur EC2 §8.4.2, `η1 = 0,7` ; la crosse est exclue au-delà
+  de `fyb = 300 MPa`, §6.2.6.12(5)),
   rupture du bord (§7.2.2.5, rangée voisine du bord, trous normaux),
   pry-out (§7.2.2.4), interaction `βN^1,5 + βV^1,5 ≤ 1` (§7.2.3.2).
 - **Tige post-installée scellée** (valeurs de l'ETA saisies : `τRk`, `k1`,
@@ -120,7 +145,13 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
 - **Poteau** : aile (ou paroi) comprimée `Fc,fc,Rd = Mc,Rd/(h − tf)` contre
   l'effort de sa bande (EC3 §6.2.6.7 par analogie).
 - **Cordons** poteau / platine : méthode directionnelle (EC3 §4.5.3.2),
-  groupe « en ligne », point le plus sollicité, `σ⊥ = τ⊥ = σn/√2`.
+  groupe « en ligne », point le plus sollicité, `σ⊥ = τ⊥ = σn/√2`. Par
+  défaut les cordons reprennent aussi la compression. Option **« Appui
+  direct »** (fenêtre Soudure, « Non » par défaut) : about du poteau scié
+  d'équerre et en contact avec la platine — la compression passe par le
+  contact, `σn = max(0 ; M·r/I − N/A)`, les cordons gardent la traction, le
+  cisaillement et la torsion. C'est l'hypothèse des exemples publiés de
+  pieds articulés.
 - **Rigidité** (information) : `Sj,ini = E·z²/Σ(1/ki)` avec k13, k15, k16
   (EC3 §6.3.4) ; seuil « rigide » `30·E·Ic/Lc` (ossature non contreventée) ou
   `48·E·Ic/Lc` (EC3 §5.2.2.5).
@@ -129,35 +160,46 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
 
 γM0 = 1,00 (NBN EN 1993-1-1 ANB) ; γM2 = 1,25 ; γc = 1,5 et **αcc = 0,85**
 (hypothèse ANB pour fcd — à confirmer) ; γMc = 1,5 (EN 1992-4, Tab. 4.1) ;
-γMs,N = max(1,4 ; 1,2·fuk/fyk), γMs,V = max(1,25 ; fuk/fyk). Toutes ces
+γMs,N = max(1,4 ; 1,2·fuk/fyk), γMs,V = max(1,25 ; fuk/fyk) si fuk ≤ 800 MPa et fyk/fuk ≤ 0,8, sinon
+1,5 (tiges 10.9 — citée de mémoire, du côté sûr). Toutes ces
 valeurs sont modifiables dans les paramètres avancés.
 
 #### Ce qui est volontairement conservatif
 
 `Ac0` = platine pour `√(Ac1/Ac0)` ; `ψM,N = 1` ; crosse non comptée ;
 rupture de bord pour la résultante entière sur le bord le plus défavorable ;
-cordons supposés transmettre aussi la compression ; niveau 1 : seule la
+cordons supposés transmettre aussi la compression (sauf option « Appui
+direct ») ; `k1` du cône pris à la valeur des fixations post-installées ;
+tige bornée aussi par l'acier de l'EN 1992-4 (`γMs,N = 1,5` en 8.8) ;
+épaisseur de la platine jugée sous la pression de la platine réelle (`tc`),
+au-dessus du critère d'aire des guides (`tN`) ; niveau 1 : seule la
 bande de la paroi comprimée résiste (au-delà de `N = 2·FC,Rd`, alerte — le
 niveau 2 renseigne).
 
 #### Limites du modèle (à justifier séparément le cas échéant)
 
 - fendage et éclatement latéral (EC2-4 §7.2.1.7 et §7.2.1.8) quand un bord
-  du massif est à moins de `1,5·hef` — signalés, non calculés ;
+  du massif est à moins de `1,5·hef` — signalés, non calculés (raison du
+  statut « À VÉRIFIER » au périmètre complet) ;
+- torsion : le béton d'ancrage en cisaillement (bord, pry-out) ne la compte
+  pas — statut « À VÉRIFIER » dès que `T ≠ 0` ;
 - tiges post-installées (valeurs ETA), raidisseurs, bêche de cisaillement,
   profils creux circulaires — hors V1 ;
 - flambement et classification de la section du poteau ; poinçonnement du
   massif au-delà de l'EN 1992-1-1 §6.7 ; frottement platine / mortier sous
   soulèvement (ignoré) ;
 - flexion biaxiale : le niveau 2 n'a pas d'exemple publié — validation par
-  éléments finis hors outil prévue (lot C) avant toute promotion.
+  éléments finis hors outil prévue (lot C) avant toute promotion ;
+- exemples publiés rejoués (onglet Benchmark) : cinq, tous UNIAXIAUX — MSB
+  Part 5 §6.5, SCI P358 (pieds de poteau, exemples 1 à 3), SCI P398 (E.1).
 
 #### Sources
 
 EN 1993-1-8:2005 §6.2.4, §6.2.5, §6.2.6, §6.2.8, §6.3.4, §4.5.3 ;
 EN 1992-1-1:2004 §6.7, §8.4.2 ; EN 1992-4:2018 §7.2 ; *Steel Buildings in
-Europe – Part 5: Joint Design* (pied articulé, aire efficace) ; SCI P398
-(pied encastré) ; étude de méthode du bureau (30/10/2026).
+Europe – Part 5: Joint Design* §6.5 (pied articulé, aire efficace) ; SCI P358
+(pieds articulés, exemples 1 à 3) ; SCI P398, annexe E (pied encastré) ;
+étude de méthode du bureau (30/10/2026).
 """
 
 

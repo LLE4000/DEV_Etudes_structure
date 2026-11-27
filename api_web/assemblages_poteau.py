@@ -160,7 +160,7 @@ def _parametres_pa(R):
          ["Moment d'excentricité MS = VEd·z + |MEd|", F(R.M_S, 2) + " kNm"],
          ["Modèle", R.mod],
          ["Inertie polaire du groupe", F(R.Ip, 0) + " mm²"],
-         ["Plat court / long (limite tp/0,15 = " + F(R.t_p / 0.15, 1) + " mm)",
+         ["Plat court / long (zp = " + F(R.g_B, 1) + " mm à la 1ʳᵉ file ; limite tp/0,15 = " + F(R.t_p / 0.15, 1) + " mm)",
           ("LONG (déversement vérifié)" if R.long_p else "court")],
          ["Pince e2 du plat (bord libre)", F(R.e2_p, 1) + " mm"],
          ["Pince e1,b dans l'âme de la poutre portée", F(R.e1b_S, 1) + " mm"],

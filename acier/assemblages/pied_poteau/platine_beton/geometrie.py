@@ -198,29 +198,54 @@ def classer_tige(x, y, forme, dims, a_w):
                  (Tableau 6.4, conservatif) ;
     - ``dedans`` : dans le vide d'un profil creux — géométrie invalide.
 
-    Retourne ``dict(classe, ligne, m)`` : ``ligne`` = ("y", ±1) pour une
-    paroi normale à y, ("x", ±1) pour une paroi normale à x, ``m`` = distance
-    au bord de l'appui, cordon déduit (0,8·a·√2) ou congé (0,8·r)."""
+    Retourne ``dict(classe, ligne, m, d_acier)`` : ``ligne`` = ("y", ±1)
+    pour une paroi normale à y, ("x", ±1) pour une paroi normale à x ; ``m`` =
+    distance au bord de l'appui, CORDON déduit (0,8·a·√2 — la platine est
+    SOUDÉE au profilé : cas « soudé » de la Figure 6.2 d'EN 1993-1-8, sur
+    l'âme comme sur l'aile) ; ``d_acier`` = distance de l'AXE de la tige à
+    l'acier du profilé le plus proche (≤ 0 : l'axe est dans l'acier) — le
+    moteur en tire le jeu du trou et de la rondelle au pied du cordon.
+
+    Avant le lot de clôture, la tige « int » d'un profilé en I déduisait
+    0,8·r (cas « laminé » de la Figure 6.2, celui d'une aile de poteau) : m
+    plus court, donc tronçon en T plus résistant, dès que r > a·√2 — voir
+    ``m_int_ancien``."""
     h, b = dims["h"], dims["b"]
     sy, sx = (1 if y >= 0 else -1), (1 if x >= 0 else -1)
     cord = 0.8 * a_w * math.sqrt(2)
     if forme == "I":
         tw, tf, r = dims["tw"], dims["tf"], dims.get("r", 0) or 0
         if abs(y) > h / 2:
-            m = abs(y) - h / 2 - cord
-            return dict(classe="ext" if abs(x) <= b / 2 else "coin", ligne=("y", sy), m=m)
+            dy, dx = abs(y) - h / 2, abs(x) - b / 2
+            m = dy - cord
+            return dict(classe="ext" if abs(x) <= b / 2 else "coin", ligne=("y", sy), m=m,
+                        d_acier=dy if dx <= 0 else math.hypot(dx, dy))
         if abs(x) > b / 2:
-            return dict(classe="lat", ligne=("x", sx), m=abs(x) - b / 2 - cord)
-        return dict(classe="int", ligne=("x", sx), m=abs(x) - tw / 2 - 0.8 * r,
-                    m2=h / 2 - tf - abs(y))
+            dx, dy = abs(x) - b / 2, (h / 2 - tf) - abs(y)       # dy > 0 : sous le niveau de l'aile
+            return dict(classe="lat", ligne=("x", sx), m=dx - cord,
+                        d_acier=dx if dy <= 0 else math.hypot(dx, dy))
+        dxw, dyf = abs(x) - tw / 2, h / 2 - tf - abs(y)          # à l'âme, à la face intérieure de l'aile
+        if dxw < r and dyf < r:                                  # dans le carré du congé de raccordement
+            d_acier = r - math.hypot(r - dxw, r - dyf)
+        else:
+            d_acier = min(dxw, dyf)
+        return dict(classe="int", ligne=("x", sx), m=dxw - cord, m2=dyf, d_acier=d_acier)
     t = dims["t"]
     dy, dx = abs(y) - h / 2, abs(x) - b / 2
     if dy > 0 and dx <= 0:
-        return dict(classe="ext", ligne=("y", sy), m=dy - cord)
+        return dict(classe="ext", ligne=("y", sy), m=dy - cord, d_acier=dy)
     if dx > 0 and dy <= 0:
-        return dict(classe="ext", ligne=("x", sx), m=dx - cord)
+        return dict(classe="ext", ligne=("x", sx), m=dx - cord, d_acier=dx)
     if dx > 0 and dy > 0:
-        return dict(classe="coin", ligne=("y", sy) if dy <= dx else ("x", sx), m=min(dx, dy) - cord)
+        return dict(classe="coin", ligne=("y", sy) if dy <= dx else ("x", sx), m=min(dx, dy) - cord,
+                    d_acier=math.hypot(dx, dy))
     if abs(x) < b / 2 - t and abs(y) < h / 2 - t:
-        return dict(classe="dedans", ligne=("y", sy), m=0.0)
-    return dict(classe="int", ligne=("y", sy) if abs(y) >= abs(x) else ("x", sx), m=0.0)
+        return dict(classe="dedans", ligne=("y", sy), m=0.0,
+                    d_acier=min(b / 2 - t - abs(x), h / 2 - t - abs(y)))
+    return dict(classe="int", ligne=("y", sy) if abs(y) >= abs(x) else ("x", sx), m=0.0, d_acier=0.0)
+
+
+def m_int_ancien(x, dims):
+    """ANCIEN bras d'une tige « int » d'un profilé en I (avant le lot de
+    clôture) : |x| − tw/2 − 0,8·r. Gardé pour le test « ancien / nouveau »."""
+    return abs(x) - dims["tw"] / 2 - 0.8 * (dims.get("r", 0) or 0)

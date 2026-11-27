@@ -12,6 +12,7 @@ TABLES = [
       ("bvt", "Cisaillement + traction")]),
     ("platine", "Platine d'about",
      [("pcg", "Cisaillement brut"), ("pcn", "Cisaillement net"), ("pcb", "Rupture de bloc"),
+      ("pip", "Flexion dans le plan (platine courte)"),
       ("ptT", "Flexion en traction (tronçon en T)"), ("pp", "Poinçonnement")]),
     ("portee", "Poutre secondaire (portée)",
      [("vwS", "Âme – cisaillement sur hp"), ("vgS", "Grugeage – cisaillement"),

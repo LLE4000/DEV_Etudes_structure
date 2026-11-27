@@ -134,17 +134,18 @@ tt = " ".join(t.split())
 # légende du pied de la note) — « (§4.2.1.2) » et « (§4.2.4) » nus se lisaient comme l'EN, à côté de « (§4.5.1) ».
 HYP_DEFAUT = ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1) ; z = 50,0 mm.",
               "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; groupe P : cisaillement centré, 0,80·Fv,Rd (MSB P5 §4.2.1.2).",
-              "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 (boulons, soudures, nettes)."]
+              # (lot de clôture du 27/11/2026, L19 : le harnais suit — cordons hp − 2a, poutre grugée maintenue au déversement ; les coefficients perdent leur qualificatif, faute de place)
+              "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 ; maintenue au déversement."]
 lignes = note.lignes_hypotheses(R)
-chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères, textes exacts (défaut : 78 / 104 / 107)",
-    lignes == HYP_DEFAUT and [len(x) for x in lignes] == [78, 104, 107], str(lignes))
+chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères, textes exacts (défaut : 78 / 104 / 106)",
+    lignes == HYP_DEFAUT and [len(x) for x in lignes] == [78, 104, 106], str(lignes))
 chk("HYPOTHÈSES imprimées sur la page 1, références abrégées",
     all(x in tt for x in HYP_DEFAUT) and "Ip,S" not in t and "· nettes 1,25" not in t)
 L2 = "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; "
 var = {
     "MP > 0, cat B": (dict(opt_exc="Oui", cat="B"),
                       [L2 + "groupe P : MP = 3,44 kNm par cornière (MSB P5 §4.2.1.2).",
-                       "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+                       "Grugeage : section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25 ; maintenue au déversement."]),
     "ailes A soudées, MP > 0": (dict(fix_P="Soudée", opt_exc="Oui"),
                                 [L2 + "cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1).",
                                  HYP_DEFAUT[2]]),
@@ -154,14 +155,14 @@ var = {
     "ailes B soudées, cat C": (dict(fix_S="Soudée", cat="C", classe="10.9"),
                                ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1) ; groupe P : "
                                 "0,80·Fv,Rd (MSB P5 §4.2.1.2).",
-                                "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+                                "Grugeage : section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25 ; maintenue au déversement."]),
     "les deux soudées, MP > 0": (dict(fix_S="Soudée", fix_P="Soudée", opt_exc="Oui"),
                                  ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1).",
-                                  "Cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1) ; grugeage (MSB P5 §4.2.4) ; "
-                                  "γM0 1,00 · γM2 1,25."]),
+                                  "Cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1).",     # quatre lignes : options cumulées (D1)
+                                  "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 ; maintenue au déversement."]),
     "γM2 ≠ γM2,net, cat C": (dict(g_M2n=1.2, cat="C"),
-                             [HYP_DEFAUT[1], "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · "
-                              "γM2 1,25 · γM2,net 1,20 · γM3 1,25."]),
+                             [HYP_DEFAUT[1], "Grugeage (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · γM3 1,25 ; "
+                              "maintenue au déversement (saisie)."]),
 }
 ecarts = []
 for nom, (inp, attendu) in var.items():

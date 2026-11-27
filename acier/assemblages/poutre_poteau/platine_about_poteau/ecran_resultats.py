@@ -46,13 +46,16 @@ CAPTION_USAGE = ("Touche une cote pour la modifier, touche une pièce (poteau, p
 # ------------------------------------------------------------------ bandeau
 def bandeau(R):
     ok = R.verified
-    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
+    # « À VÉRIFIER » (lot de clôture du 27/11/2026) : R.statut le dit déjà, avec ses raisons (articulation à justifier,
+    # cas hors périmètre) ; bandeau ocre, jamais vert
+    a_verif = bool(ok and R.get("a_verifier"))
+    titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) and not a_verif else "")
     comp = "— " + pct(R.eta_max, 1) + (" · " + synthese.court(R.gov) if R.gov else "")
     if not R.geo_ok:
         comp += " · géométrie non valide"
     if not R.dist_ok:
         comp += " · pinces ou entraxes non conformes"
-    bloc_statut_ligne("ok" if ok else "nok", titre, comp,
+    bloc_statut_ligne("warn" if a_verif else ("ok" if ok else "nok"), titre, comp,
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
     if R.pred:
         bloc_alerte("Mode prédimensionnement : " + R.boulon + ", " + js_str(R.n_1) + " rangées × 2, platine "

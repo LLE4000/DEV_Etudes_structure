@@ -90,7 +90,9 @@ def bouton_retouche(cfg, r) -> str:
     un = A._unite(cfg.E.CHAMPS[r.cle])
     de, vers = _valeur(cfg, r.cle, r.de), _valeur(cfg, r.cle, r.vers)
     unite = f" {un}" if un else ""
-    titre = f"{A._nom_champ(cfg, r.cle)} : {de} → {vers}{unite}" + (" — l'assemblage est alors vérifié" if r.verifie else "")
+    titre = f"{A._nom_champ(cfg, r.cle)} : {de} → {vers}{unite}" + (
+        " — l'assemblage est alors vérifié" if r.verifie
+        else (" — l'assemblage est alors à vérifier (" + r.a_verifier + ")" if r.get("a_verifier") else ""))
     bon = f'<span class="ok" aria-hidden="true">{C.icon("check")}</span>' if r.verifie else ""
     return (f'<button type="button" class="asm-ret{" bon" if r.verifie else ""}" data-agir data-chemin="v/{C.esc(r.cle)}" '
             f'data-valeur="{C.esc(vers)}" title="{C.esc(titre)}"><span class="s">{_symbole(cfg, r.cle)}</span> {de} → <b>{vers}</b>{unite}{bon}</button>')

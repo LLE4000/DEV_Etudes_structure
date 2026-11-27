@@ -245,3 +245,13 @@ consulté ; toutes ces valeurs sont modifiables dans les paramètres avancés.
   est gelé) ; les captures ont été prises avec une COPIE de scratchpad qui
   ajoute cette ligne (et deux états, « ame »/« ameok » et « tying »). **Une
   ligne à verser au socle.**
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Mêmes règles que la platine d'about poutre–poutre (`ECARTS_ET_CORRECTIONS.md` §8.1, L1 à L7). De plus, appui dans l'âme du poteau : en **chaînage**, la flexion hors plan de l'âme est vérifiée par la formule du SCI P358 (Check 14, ligne `ahP` — 370 kN sur le cas du dossier : 102,1 %) ; sous une traction ELU elle reste déclarée et le statut devient « À VÉRIFIER ». Le bloc HYPOTHÈSES de la note prend une quatrième ligne quand il le faut (défaut D1 : 10 notes sur 54 étaient refusées). Les chiffres de ce document antérieurs au lot sont ceux de la révision précédente.
+
+βLf (L21) : même condition écrite qu'en poutre–poutre (§3.8(2), transfert uniforme). Hypothèses de la note (L19) : « cordons sur hp − 2a » ; appui dans l'âme : au chaînage « flexion hors plan (SCI P358 Check 14) », sous une traction ELU « NON vérifiée ».
+
+Verdict de la note (L22, arbitrage A1) : quand le détail éprouvé est tenu, la conclusion l'écrit — « Articulation : détail éprouvé tenu (tp = … ≤ 0,36·d·√(fub/fy) ; a = … ≥ 0,8 × pleine résistance) », en valeurs (`note_kit.phrase_articulation`, valeurs nommées par le moteur : `rec_tp`, `tp_max`, `rec_a`, `a_detail`). Non tenu, le statut « À VÉRIFIER (articulation à justifier : …) » le dit déjà.

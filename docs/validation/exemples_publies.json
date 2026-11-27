@@ -1,44 +1,428 @@
 {
-  "_lire_moi": [
-    "Fiches des EXEMPLES PUBLIÉS à rejouer par le benchmark du pied de poteau (onglet Benchmark, benchmark.BENCH).",
-    "Une fiche n'est rejouée que si « complet » vaut true. Chaque valeur de référence doit être COPIÉE du document,",
-    "avec sa page : aucun nombre n'est reconstitué de mémoire. Les documents sont gratuits (steelconstruction.info,",
-    "page The Green Books ; constructalia.arcelormittal.com) mais inaccessibles depuis l'environnement de calcul.",
-    "« inp » : les entrées du module (clés de entrees.defaults()) ; « rows » : [page, libellé, valeur de référence,",
-    "grandeur du moteur (clé de R, ou 'ck:<clé>' pour la résistance Rd d'une vérification, ou 'ed:<clé>'), unité,",
-    "explication d'un écart attendu (ou null)]."
-  ],
-  "fiches": [
-    {
-      "id": "BM1",
-      "complet": false,
-      "titre": "Steel Buildings in Europe – Multi-Storey Steel Buildings, Part 5: Joint Design — §6.5 Worked Example : Column base (pied articulé, aire efficace)",
-      "source": "ArcelorMittal / Peiner Träger / Corus (CTICM, SCI), 2008 — SBE_MS5.pdf, pages 5-105 à 5-108",
-      "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
-      "data": "À COMPLÉTER depuis le document : profilé, platine (bp × lp × tp, nuance), béton (classe, fcd), massif, N_Ed.",
-      "inp": {},
-      "rows": [
-        ["5-106", "fjd (résistance d'appui du joint)", null, "fjd", "MPa", null],
-        ["5-106", "c (largeur de bande efficace)", null, "c", "mm", null],
-        ["5-107", "Aeff (aire efficace)", null, "A_eff", "mm²", null],
-        ["5-107", "NRd = fjd·Aeff", null, "ck:ncp", "kN", null]
-      ]
-    },
-    {
-      "id": "BM2",
-      "complet": false,
-      "titre": "SCI P398 — Joints in Steel Construction: Moment-Resisting Joints to Eurocode 3 — Worked Example : Column base (pied encastré, N + M)",
-      "source": "SCI / BCSA, 2013 — SCI_P398.pdf, chapitre 5 et exemple de pied de poteau de l'annexe des exemples",
-      "norme": "EN 1993-1-8:2005 §6.2.5, §6.2.4, §6.2.8",
-      "data": "À COMPLÉTER depuis le document : profilé, platine, tiges (diamètre, classe, position), béton, N_Ed, M_Ed.",
-      "inp": {},
-      "rows": [
-        ["", "fjd", null, "fjd", "MPa", null],
-        ["", "c", null, "c", "mm", null],
-        ["", "FC,Rd de l'aile comprimée (tronçon en T comprimé)", null, "FC_Rd:x+", "kN", null],
-        ["", "FT,Rd de la rangée tendue (tronçon en T, modes 1-2-3)", null, "rangee:0:FT_Rd", "kN", null],
-        ["", "Mj,Rd (résistance en flexion du pied)", null, "MRd1:x+", "kNm", null]
-      ]
-    }
-  ]
+ "_lire_moi": [
+  "Fiches des EXEMPLES PUBLIÉS rejoués par le benchmark du pied de poteau (onglet Benchmark, benchmark.BENCH).",
+  "Une fiche n'est rejouée que si « complet » vaut true. Chaque valeur de référence est COPIÉE du document,",
+  "avec sa page : aucun nombre n'est reconstitué de mémoire. Les cinq fiches ont été complétées le 27/11/2026,",
+  "les guides sous les yeux (steelconstruction.info, documents gratuits ; aucun n'est versé dans le dépôt).",
+  "« inp » : les entrées du module (clés de entrees.defaults()) ; « rows » : [page, libellé, valeur de référence,",
+  "grandeur du moteur (benchmark._valeur : clé de R, 'ck:<clé>' = résistance Rd, 'ed:<clé>' = sollicitation,",
+  "'kN:<clé>' = force de R en kN, 'plaque:<clé>', 'zC:<sens>', 'FC_Rd:<sens>', 'MRd1:<sens>',",
+  "'rangee:<i>:<clé>'), unité, explication d'un écart attendu (ou null)]."
+ ],
+ "fiches": [
+  {
+   "id": "BM1",
+   "complet": true,
+   "titre": "Steel Buildings in Europe – Multi-Storey Steel Buildings, Part 5: Joint Design — §6.5 Worked Example : Column base (pied articulé en appui direct, aire efficace)",
+   "source": "ArcelorMittal / Peiner Träger / Corus (CTICM, SCI), 2008 — SBE_MS5.pdf, pages 5-105 à 5-107",
+   "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
+   "data": "HD 320 × 127 S355 (h 320, b 300, tw 11,5, tf 20,5, r 27), platine 600 × 600 × 50 S275 (fy,p = 255), cordons de 8 mm de côté (a = 5,6), tiges M24 4.6, C30/37 avec αcc = 1,0, NEd = 4 300 kN, VEd = 100 kN ; faces en appui direct. Le guide ne vérifie ni les tiges au cisaillement (frottement) ni le béton d'ancrage : hors comparaison. Mortier et massif non précisés par le guide : 30 mm et 1,5 fois la platine (α = 1,5 du guide).",
+   "inp": {
+    "beton": "C30/37",
+    "t_g": 30,
+    "f_g": 30,
+    "Mx_Ed": 0,
+    "My_Ed": 0,
+    "Vx_Ed": 0,
+    "T_Ed": 0,
+    "contact": "Oui",
+    "n_ax": 2,
+    "n_ay": 2,
+    "forme": "Profilé en I ou H",
+    "prof_c": "Personnalisé",
+    "h_u": 320,
+    "b_u": 300,
+    "tw_u": 11.5,
+    "tf_u": 20.5,
+    "r_u": 27,
+    "nu_c": "S355",
+    "bp_u": 600,
+    "lp_u": 600,
+    "tp_u": 50,
+    "nu_pl": "S275",
+    "a_w": 5.6,
+    "a_cc": 1.0,
+    "bc_u": 900,
+    "lc_u": 900,
+    "hc_u": 600,
+    "ancr": "M24",
+    "classe": "4.6",
+    "w_x": 450,
+    "w_y": 450,
+    "N_Ed": 4300,
+    "Vy_Ed": 100
+   },
+   "rows": [
+    [
+     "5-106",
+     "fcd = αcc·fck/γc (αcc = 1,0)",
+     20,
+     "fcd",
+     "MPa",
+     null
+    ],
+    [
+     "5-107",
+     "fjd = 2/3 × 1,5 × fcd",
+     20,
+     "fjd",
+     "MPa",
+     null
+    ],
+    [
+     "5-107",
+     "tp,min = c·√(3·fjd·γM0/fy,p), c tel que Aeff = Areq — critère d'aire du moteur (tN)",
+     45,
+     "plaque:t_N",
+     "mm",
+     "aire du guide par la formule approchée 4c² + P·c + A (périmètre réel du profilé, congés compris) ; le moteur prend l'union exacte des rectangles élargis de c : −1,5 %"
+    ],
+    [
+     "5-107",
+     "tp,min — épaisseur que le moteur RETIENT (flexion élastique de la bande, tc)",
+     45,
+     "ed:tpq",
+     "mm",
+     "le moteur garde la bande c de la platine réelle et la pression qu'elle donne : tc = tp·√(p/fjd), du côté sûr (le guide réduit c jusqu'à p = fjd) : 46,8 mm, +4 %"
+    ]
+   ]
+  },
+  {
+   "id": "BM2",
+   "complet": true,
+   "titre": "SCI P398 — Joints in Steel Construction: Moment-Resisting Joints to Eurocode 3 — Appendix E, Example E.1 : Unstiffened column base plate (pied encastré, N + M) — situation 2 (NEd = 350 kN)",
+   "source": "SCI / BCSA, 2013 — SCI_P398.pdf, pages 143 à 150",
+   "norme": "EN 1993-1-8:2005 §6.2.5, §6.2.4, §6.2.6.7, §6.2.8",
+   "data": "305 × 305 × 118 UKC S355 (h 314,5, b 307,4, tw 12,0, tf 18,7, r 15,2 ; fy,c = 345), platine 600 × 600 × 50 S275 (fy,bp = 255), 8 M24 8.8 (4 par côté, à 225 mm de l'axe, entraxes 150), cordons de 12 mm de côté (a = 8,4), C30/37, fjd = fcd = 17 MPa, MEd = 350 kNm, NEd = 350 kN (compression), VEd = 75 kN. Le guide répartit les efforts à la main (NL,T = 799 kN ≤ 812 kN) ; le moteur borne en plus la tige par EN 1992-4 (753 kN) et rend 105,2 % au niveau 1.",
+   "inp": {
+    "beton": "C30/37",
+    "t_g": 30,
+    "f_g": 30,
+    "Mx_Ed": 350,
+    "My_Ed": 0,
+    "Vx_Ed": 0,
+    "T_Ed": 0,
+    "contact": "Non",
+    "n_ax": 4,
+    "n_ay": 2,
+    "forme": "Profilé en I ou H",
+    "prof_c": "Personnalisé",
+    "h_u": 314.5,
+    "b_u": 307.4,
+    "tw_u": 12.0,
+    "tf_u": 18.7,
+    "r_u": 15.2,
+    "nu_c": "S355",
+    "bp_u": 600,
+    "lp_u": 600,
+    "tp_u": 50,
+    "nu_pl": "S275",
+    "a_w": 8.4,
+    "a_cc": 0.85,
+    "bc_u": 900,
+    "lc_u": 900,
+    "hc_u": 600,
+    "ancr": "M24",
+    "classe": "8.8",
+    "w_x": 450,
+    "w_y": 450,
+    "N_Ed": 350,
+    "Vy_Ed": 75
+   },
+   "rows": [
+    [
+     "145",
+     "fjd = fcd (α·βj = 1)",
+     17,
+     "fjd",
+     "MPa",
+     null
+    ],
+    [
+     "147",
+     "c = tbp·√(fy,bp/(3·fjd·γM0))",
+     112,
+     "c",
+     "mm",
+     null
+    ],
+    [
+     "146",
+     "zc — bras de la compression, sous l'aile",
+     148,
+     "zC:x+",
+     "mm",
+     null
+    ],
+    [
+     "148",
+     "Fc,pl,Rd = Aeff·fjd (béton sous l'aile comprimée)",
+     2193,
+     "FC_Rd:x+",
+     "kN",
+     null
+    ],
+    [
+     "148",
+     "Fc,fc,Rd = Mc,Rd/(hc − tf,c) (aile et âme du poteau)",
+     2282,
+     "kN:Fc_fc_Rd",
+     "kN",
+     "Wpl du moteur sans les congés du profilé (1 931 contre 1 960 cm³) : −1,3 %, du côté sûr"
+    ],
+    [
+     "149",
+     "ℓeff,1 = 0,5·bbp (charnière droite, Tableau 6.6)",
+     300,
+     "rangee:0:leff1",
+     "mm",
+     null
+    ],
+    [
+     "149",
+     "Mpl,1,Rd = 0,25·ℓeff,1·tbp²·fy,bp/γM0",
+     47.8,
+     "rangee:0:Mpl1",
+     "kNm",
+     null
+    ],
+    [
+     "149",
+     "FT,1-2,Rd = 2·Mpl,1,Rd/mx (sans effet de levier)",
+     1593,
+     "rangee:0:FT1",
+     "kN",
+     "mx = 60 mm (arrondi) dans le guide, 58,25 mm dans le moteur (0,8 fois le côté du cordon déduit) : +3,1 %"
+    ],
+    [
+     "149",
+     "Ft,Rd d'un boulon M24 8.8 (Tableau 3.4)",
+     203,
+     "kN:Ft_EC3",
+     "kN",
+     null
+    ],
+    [
+     "149",
+     "FT,3,Rd = 4·Ft,Rd",
+     812,
+     "rangee:0:FT3",
+     "kN",
+     "le moteur borne aussi la tige par EN 1992-4 §7.2.1.3 (NRd,s = As·fuk/1,5 = 188,3 kN) : 753 kN, −7,3 %, du côté sûr"
+    ]
+   ]
+  },
+  {
+   "id": "BM3",
+   "complet": true,
+   "titre": "SCI P358 — Joints in Steel Construction: Simple Joints to Eurocode 3 — Column bases, Example 1 : I-section column, no overlap (pied articulé en appui direct)",
+   "source": "SCI / BCSA, 2014 — SCI_P358.pdf, pages 246 à 248",
+   "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
+   "data": "305 × 305 × 137 UKC S355 (h 320,5, b 309,2, tw 13,8, tf 21,7, r 15,2), platine 600 × 600 × 50 S275 (fyp = 255), cordons de 8 mm de côté (a = 5,6), tiges M24 8.8, C30/37 avec αcc = 0,85, NEd = 4 300 kN, VEd = 100 kN ; faces en appui direct. Le guide ne vérifie ni les tiges au cisaillement (frottement) ni le béton d'ancrage : hors comparaison. Mortier et massif non précisés par le guide : 30 mm et 1,5 fois la platine (α = 1,5 du guide).",
+   "inp": {
+    "beton": "C30/37",
+    "t_g": 30,
+    "f_g": 30,
+    "Mx_Ed": 0,
+    "My_Ed": 0,
+    "Vx_Ed": 0,
+    "T_Ed": 0,
+    "contact": "Oui",
+    "n_ax": 2,
+    "n_ay": 2,
+    "forme": "Profilé en I ou H",
+    "prof_c": "Personnalisé",
+    "h_u": 320.5,
+    "b_u": 309.2,
+    "tw_u": 13.8,
+    "tf_u": 21.7,
+    "r_u": 15.2,
+    "nu_c": "S355",
+    "bp_u": 600,
+    "lp_u": 600,
+    "tp_u": 50,
+    "nu_pl": "S275",
+    "a_w": 5.6,
+    "a_cc": 0.85,
+    "bc_u": 900,
+    "lc_u": 900,
+    "hc_u": 600,
+    "ancr": "M24",
+    "classe": "8.8",
+    "w_x": 450,
+    "w_y": 450,
+    "N_Ed": 4300,
+    "Vy_Ed": 100
+   },
+   "rows": [
+    [
+     "247",
+     "fcd = αcc·fck/γc (αcc = 0,85)",
+     17,
+     "fcd",
+     "MPa",
+     null
+    ],
+    [
+     "247",
+     "fjd = α·βj·fcd (α = 1,5, βj = 2/3)",
+     17,
+     "fjd",
+     "MPa",
+     null
+    ],
+    [
+     "248",
+     "tp,min = c·√(3·fjd·γM0/fyp), c tel que Aeff = Areq — critère d'aire du moteur (tN)",
+     47,
+     "plaque:t_N",
+     "mm",
+     "aire du guide par la formule approchée 4c² + P·c + A (périmètre réel du profilé, congés compris) ; le moteur prend l'union exacte des rectangles élargis de c : −1,0 %"
+    ],
+    [
+     "248",
+     "tp,min — épaisseur que le moteur RETIENT (flexion élastique de la bande, tc)",
+     47,
+     "ed:tpq",
+     "mm",
+     "le moteur garde la bande c de la platine réelle et la pression qu'elle donne : tc = tp·√(p/fjd), du côté sûr (le guide réduit c jusqu'à p = fjd) : 48,0 mm, +2,2 %"
+    ]
+   ]
+  },
+  {
+   "id": "BM4",
+   "complet": true,
+   "titre": "SCI P358 — Joints in Steel Construction: Simple Joints to Eurocode 3 — Column bases, Example 2 : I-section column, with overlap (pied articulé en appui direct, aire pleine)",
+   "source": "SCI / BCSA, 2014 — SCI_P358.pdf, pages 249 à 251",
+   "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
+   "data": "305 × 305 × 283 UKC S355 (h 365,3, b 322,2, tw 26,8, tf 44,1, r 15,2), platine 800 × 800 × 90 S275 (fy,p = 235), cordons de 8 mm de côté (a = 5,6), tiges M36 8.8, C30/37 avec αcc = 0,85, NEd = 9 000 kN, VEd = 115 kN ; faces en appui direct ; les bandes c se recouvrent entre les ailes. Le guide ne vérifie ni les tiges au cisaillement (frottement) ni le béton d'ancrage : hors comparaison. Mortier et massif non précisés par le guide : 30 mm et 1,5 fois la platine (α = 1,5 du guide).",
+   "inp": {
+    "beton": "C30/37",
+    "t_g": 30,
+    "f_g": 30,
+    "Mx_Ed": 0,
+    "My_Ed": 0,
+    "Vx_Ed": 0,
+    "T_Ed": 0,
+    "contact": "Oui",
+    "n_ax": 2,
+    "n_ay": 2,
+    "forme": "Profilé en I ou H",
+    "prof_c": "Personnalisé",
+    "h_u": 365.3,
+    "b_u": 322.2,
+    "tw_u": 26.8,
+    "tf_u": 44.1,
+    "r_u": 15.2,
+    "nu_c": "S355",
+    "bp_u": 800,
+    "lp_u": 800,
+    "tp_u": 90,
+    "nu_pl": "S275",
+    "a_w": 5.6,
+    "a_cc": 0.85,
+    "bc_u": 1200,
+    "lc_u": 1200,
+    "hc_u": 800,
+    "ancr": "M36",
+    "classe": "8.8",
+    "w_x": 650,
+    "w_y": 650,
+    "N_Ed": 9000,
+    "Vy_Ed": 115
+   },
+   "rows": [
+    [
+     "250",
+     "fjd = α·βj·fcd (α = 1,5, βj = 2/3)",
+     17,
+     "fjd",
+     "MPa",
+     null
+    ],
+    [
+     "250",
+     "tp,min = c·√(3·fjd·γM0/fy,p), c tel que (h + 2c)(b + 2c) = Areq — critère d'aire du moteur (tN)",
+     89,
+     "plaque:t_N",
+     "mm",
+     null
+    ],
+    [
+     "250",
+     "tp,min — épaisseur que le moteur RETIENT (flexion élastique de la bande, tc)",
+     89,
+     "ed:tpq",
+     "mm",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "BM5",
+   "complet": true,
+   "titre": "SCI P358 — Joints in Steel Construction: Simple Joints to Eurocode 3 — Column bases, Example 3 : RHS column (pied articulé en appui direct, profil creux)",
+   "source": "SCI / BCSA, 2014 — SCI_P358.pdf, pages 252 à 254",
+   "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
+   "data": "RHS 200 × 100 × 10 S355, platine 400 × 300 × 20 S275 (fyp = 265), cordons de 6 mm de côté (a = 4,2), tiges M20 8.8, C30/37 avec αcc = 0,85, NEd = 900 kN, VEd = 100 kN ; faces en appui direct ; les bandes c se recouvrent dans le tube. Le guide ne vérifie ni les tiges au cisaillement (frottement) ni le béton d'ancrage : hors comparaison. Mortier et massif non précisés par le guide : 30 mm et 1,5 fois la platine (α = 1,5 du guide).",
+   "inp": {
+    "beton": "C30/37",
+    "t_g": 30,
+    "f_g": 30,
+    "Mx_Ed": 0,
+    "My_Ed": 0,
+    "Vx_Ed": 0,
+    "T_Ed": 0,
+    "contact": "Oui",
+    "n_ax": 2,
+    "n_ay": 2,
+    "forme": "Profil creux rectangulaire ou carré (RHS / SHS)",
+    "h_u": 200,
+    "b_u": 100,
+    "t_u": 10,
+    "nu_c": "S355",
+    "bp_u": 300,
+    "lp_u": 400,
+    "tp_u": 20,
+    "nu_pl": "S275",
+    "a_w": 4.2,
+    "a_cc": 0.85,
+    "bc_u": 450,
+    "lc_u": 600,
+    "hc_u": 600,
+    "ancr": "M20",
+    "classe": "8.8",
+    "w_x": 200,
+    "w_y": 300,
+    "N_Ed": 900,
+    "Vy_Ed": 100
+   },
+   "rows": [
+    [
+     "253",
+     "fjd = α·βj·fcd (α = 1,5, βj = 2/3)",
+     17,
+     "fjd",
+     "MPa",
+     null
+    ],
+    [
+     "254",
+     "tp,min = c·√(3·fjd·γM0/fyp), c tel que (h + 2c)(b + 2c) = Areq — critère d'aire du moteur (tN)",
+     19,
+     "plaque:t_N",
+     "mm",
+     "le guide arrondit 18,9 à 19 mm ; le moteur rend 18,75 mm : −1,3 % sur la valeur arrondie"
+    ],
+    [
+     "254",
+     "tp,min — épaisseur que le moteur RETIENT (flexion élastique de la bande, tc)",
+     19,
+     "ed:tpq",
+     "mm",
+     "le moteur garde la bande c de la platine réelle et la pression qu'elle donne : tc = tp·√(p/fjd), du côté sûr (le guide réduit c jusqu'à p = fjd) : 19,5 mm, +2,7 %"
+    ]
+   ]
+  }
+ ]
 }

@@ -17,8 +17,9 @@ from acier.assemblages import materiau as MT
 # ne vaut qu'en cas (b), et chaque attache la dit à sa façon : ce qui
 # sollicite l'âme hors de son plan n'est pas le même (docstring de
 # ``..textes``).
-LIMITE_AME = ("flexion HORS PLAN de l'âme du poteau sous qx = 3·MS/hp² et sous la force de chaînage — "
-              "non couverte par l'EN 1993-1-8 pour une âme non raidie")
+LIMITE_AME = ("flexion HORS PLAN de l'âme du poteau sous qx = 3·MS/hp² et sous une traction ELU — non "
+              "couverte par l'EN 1993-1-8 pour une âme non raidie ; sous la force de chaînage elle est "
+              "vérifiée par la formule du SCI P358 (Check 14)")
 
 
 def limites(ame=True):
@@ -85,11 +86,17 @@ polaire). Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design*
   quadratique — MSB P5 §3.2) ; cisaillement brut `hp·tp/1,27 · fy/√3/γM0`
   (le 1,27 couvre l'interaction avec la flexion — MSB P5 §3.2 / ECCS) ; net ;
   rupture de bloc §3.10.2(3) ; **flexion** sans objet si `hp ≥ 2,73·z`, sinon
-  `Wel·fy/γM0` (MSB P5 §3.2.3) ; **déversement du plat LONG** (`z > tp/0,15`) :
-  `Mb,Rd = Wel·pb(λLT)/γM1` avec `λLT = 2,8·√(z·hp/(1,5·tp²))` et la courbe de
-  BS 5950-1 **Annexe B.2.1** (celle de sa Table 17, E = 205 000 MPa) — méthode
-  SCI P358 ; traction section nette EC3-1-1 §6.2.3(2) et rupture de bloc en
-  traction §3.10.2(2).
+  `Wel·fy/γM0` (MSB P5 §3.2.3) ; **déversement du plat LONG** — au sens du
+  SCI P358 : `zp > tp/0,15`, `zp` de la face d'appui à la PREMIÈRE file de
+  boulons — : `VRd = min(Wel·χLT·fy/(0,6·z·γM1) ; Wel·fy/(z·γM0))`, `χLT` par
+  l'EN 1993-1-1 §6.3.2.2 (courbe d, αLT = 0,76) avec
+  `λ̄LT = 2,8/(π·√(E/fy))·√(zp·hp/(1,5·tp²))` (SCI P358, Check 3 ; son
+  Tableau 5.2 est retrouvé). Le MSB P5 compte le plat long dès que `z > tp/0,15`
+  (`z` au CENTRE du groupe) : entre les deux seuils, la section ABCD du MSB
+  est calculée et, au-delà de 100 %, le statut passe à « À VÉRIFIER ». Un
+  plat long sur une poutre NON maintenue : « À VÉRIFIER » (le guide ne
+  l'admet pas sans essais) ; traction section nette EC3-1-1 §6.2.3(2) et rupture
+  de bloc en traction §3.10.2(2).
 - **Âme portée** : pression diamétrale ; cisaillement brut / net ; rupture de
   bloc avec `(n1 − 1)·d0` si la poutre n'est **pas** grugée, `(n1 − 0,5)·d0`
   sinon (MSB P5 §3.2.5.1) ; traction nette et bloc en traction ; grugeage
@@ -97,13 +104,42 @@ polaire). Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design*
   stabilité locale — mêmes règles que le module doubles cornières
   (MSB P5 §4.2.4 / §4.2.5).
 - **Poteau porteur** : cas (b) seulement — cisaillement local de l'âme
-  `VEd/2 ≤ twP·hp·fy,P/(√3·γM0)` (SCI P358, un seul côté chargé). Cas (a) :
-  rien, et c'est écrit.
-- **Soudure** : deux cordons verticaux pleine hauteur, méthode simplifiée
-  §4.5.3.3 sous `qz = VEd/2hp` et `qx = 3·MS/hp² + |NEd|/2hp` ; en tying
-  `qx = NEd/2hp` avec `fu/(√3·βw·γMu)` ; gorge minimale §4.5.2 ;
-  recommandation de **pleine résistance** `a ≥ tp·fy·βw·γM2/(2·fu·γM0)`
-  (dérivation §4.5.3.3), signalée en alerte.
+  `VEd/2 ≤ twP·hp·fy,P/(√3·γM0)` (SCI P358, un seul côté chargé) ;
+  poinçonnement de l'âme par le plat ; en **tying**, flexion hors plan de
+  l'âme sous la force de chaînage (SCI P358, Check 14 — voir plus bas). Cas
+  (a) : rien, et c'est écrit.
+- **Soudure** : deux cordons verticaux, méthode simplifiée §4.5.3.3 sous
+  `qz = VEd/(2·Lw)` et `qx = 3·MS/Lw² + |NEd|/(2·Lw)`, `Lw = hp − 2·a` ; en
+  tying `qx = NEd/(2·Lw)` avec `fu/(√3·βw·γMu)` ; gorge minimale §4.5.2 ;
+  **pleine résistance** `a ≥ tp·fy·βw·γM2/(√2·fu·γM0)` (dérivation §4.5.3.3 :
+  le plat plastifie avant le cordon) — sous cette gorge, alerte et statut
+  « À VÉRIFIER (articulation à justifier) ».
+
+#### Règles reprises du SCI P358 (lot de clôture du 27/11/2026)
+
+- **Détail éprouvé de l'articulation** (SCI P358 §5.3 et Check 1) : pinces
+  du plat et de l'âme `≥ 2·d`, boulons 8.8 non précontraints, cordons de
+  pleine résistance. Hors de ce détail la saisie reste admise — le Tableau
+  3.3 de l'EN 1993-1-8 décide de la géométrie — mais le statut devient
+  « ASSEMBLAGE À VÉRIFIER (articulation à justifier : …) ». Le cas par défaut
+  tient le détail (M20, e1 = 40 mm, p1 = 55 mm).
+- **Cordons** : longueur efficace `hp − 2·a` par cordon (EN 1993-1-8
+  §4.5.1(1)) ; une longueur efficace sous `max(30 mm ; 6·a)` est refusée.
+- **Grugeage court** (SCI P358, Check 5) : deux files de boulons et
+  `xN = c − (e2,b + p2) < 2·d` → la section au droit de la 2ᵉ file se vérifie
+  avec le bras `max(gh + c ; gh + e2,b + p2)`.
+- **Section ABCD de l'âme portée** au droit d'un plat long (SCI P358,
+  Check 4) : cisaillement de AB et de BC, flexion de la section CD.
+- **Poinçonnement de l'âme porteuse** par le plat (SCI P358, Check 10, forme
+  rigoureuse) : `VEd·z + |NEd|·hp/6 ≤ t2·fu,2·hp²/(6·γM2)`.
+- **Effort tranchant inversé** (`VEd < 0`) : les ruptures de bloc et les
+  sections sont celles d'un effort descendant — le sens inverse n'est pas
+  modélisé, statut « À VÉRIFIER ».
+- **Âme du poteau en chaînage** (cas (b), tying — SCI P358, Check 14) :
+  `FRd,u = 8·Mpl,u/(1 − β1)·(η1 + 1,5·√(1 − β1))/γMu`, `Mpl,u = fu,2·tw²/4`,
+  `η1 = hp/dc`, `β1 = (tp + 2·s)/dc`, `dc` la largeur droite de l'âme entre
+  congés. Sous une traction ELU (hors chaînage), ce contrôle n'existe pas :
+  statut « À VÉRIFIER (âme du poteau sous la traction ELU) ».
 
 Le moment que l'attache apporte au poteau, `VEd·e_col` (`e_col = hP/2 + z` en
 cas (a), `twP/2 + z` en cas (b) : de l'AXE du poteau), est **affiché** en information dans « Paramètres
@@ -151,9 +187,11 @@ Ils sont listés dans `docs/assemblages/POUTRE_POTEAU.md` §9 et
   transmet `VEd` (déjà vérifié) et la recoupe est au voisinage de la rotule ;
 - **P-4** : aucune épaisseur minimale d'aile de poteau n'est imposée — ni
   l'EN 1993-1-8 ni les guides n'en donnent pour une attache simple ;
-- **P-6** : la flexion hors plan de l'âme du poteau en cas (b) n'est pas
-  vérifiée, elle est déclarée (le tronçon en T suppose une aile encastrée sur
-  une âme centrale ; une âme entre deux ailes ne s'y ramène pas) ;
+- **P-6** : la flexion hors plan de l'âme du poteau en cas (b) est vérifiée
+  en CHAÎNAGE par la formule du SCI P358 (Check 14, lot de clôture) ; sous
+  `VEd·z` et sous une traction ELU elle reste déclarée, et le statut le dit
+  (le tronçon en T suppose une aile encastrée sur une âme centrale ; une âme
+  entre deux ailes ne s'y ramène pas) ;
 - **P-9** : `γMu = 1,1` est la valeur du guide, modifiable en saisie.
 
 #### Sources
@@ -162,8 +200,8 @@ Ils sont listés dans `docs/assemblages/POUTRE_POTEAU.md` §9 et
 Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI,
 06/2009) — §3 fin plate et §3.4 Worked Example (benchmark du module), §2.3
 tying ; *SCI P358, Joints in Steel Construction: Simple Joints to Eurocode 3* ;
-*ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005 ; BS 5950-1:2000
-Annexe B.2.1 (courbe de déversement des plats longs).
+*ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005 (§6.3.2.2 : χLT du plat
+long).
 """
 
 

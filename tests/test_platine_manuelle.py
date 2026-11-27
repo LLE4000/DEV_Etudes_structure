@@ -215,13 +215,21 @@ chk("raidisseurs de 100 le long des boulons (à 25 mm) : le bras tombe à 25 −
     pres(Rr.tiges[0]["m"], m_r, 1e-9) and "raidisseur" in Rr.tiges[0]["appui"]["face"] and not Rr.tiges[0]["coin"]
     and pres(Rr.plaque["t_S"], math.sqrt(4 * 25e3 * m_r / (b_r * 355)), 0.005) and Rr.plaque["t_req"] < Rf.plaque["t_req"],
     f"{Rr.plaque['t_req']:.2f} < {Rf.plaque['t_req']:.2f} ; m = {Rr.tiges[0]['m']:.2f} ; {Rr.tiges[0]['appui']['face']}")
-Rr2 = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3,
-                      raid=[dict(x=100, y=145, dir="+y", L=50, t=10), dict(x=-100, y=145, dir="+y", L=50, t=10),
-                            dict(x=100, y=-145, dir="−y", L=50, t=10), dict(x=-100, y=-145, dir="−y", L=50, t=10)]))
-chk("un boulon juste AU-DELÀ DU BOUT d'un raidisseur de 10 mm n'est tenu que par ce bout : bande étroite b = 10 + 2m = 32 mm, "
+# (lot de clôture, R13 : le boulon est à 25 mm du bout du raidisseur, et non plus 20 — à 20 mm son trou, de 13 mm de
+#  rayon, mordait sur le cordon de 11,3 mm de côté : géométrie désormais refusée, contrôlée juste après)
+RAID_BOUT = lambda L: [dict(x=100, y=145, dir="+y", L=L, t=10), dict(x=-100, y=145, dir="+y", L=L, t=10),
+                       dict(x=100, y=-145, dir="−y", L=L, t=10), dict(x=-100, y=-145, dir="−y", L=L, t=10)]
+Rr2 = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3, raid=RAID_BOUT(45)))
+chk("un boulon juste AU-DELÀ DU BOUT d'un raidisseur de 10 mm n'est tenu que par ce bout : bande étroite b = 10 + 2m = 42 mm, "
     "l'épaisseur requise MONTE (le modèle le dit, c'est voulu)",
-    pres(Rr2.tiges[0]["m"], 20 - CORD, 1e-9) and pres(Rr2.pire_section["b"], 10 + 2 * (20 - CORD), 1e-9)
+    pres(Rr2.tiges[0]["m"], 25 - CORD, 1e-9) and pres(Rr2.pire_section["b"], 10 + 2 * (25 - CORD), 1e-9)
     and Rr2.plaque["t_req"] > Rf.plaque["t_req"], f"{Rr2.plaque['t_req']:.2f} > {Rf.plaque['t_req']:.2f}")
+Rr3 = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3, raid=RAID_BOUT(50)))
+chk("R13 : à 20 mm du bout du raidisseur, le trou (rayon 13) mord sur le cordon (côté 11,3) — refus « tige_acier », "
+    "platine NON vérifiée ; à 25 mm : la rondelle chevauche le cordon, simple avis",
+    any(a.id == "tige_acier" and a.block for a in Rr3.alerts) and not Rr3.verified
+    and not any(a.id == "tige_acier" for a in Rr2.alerts) and any(a.id == "rondelle" and not a.block for a in Rr2.alerts),
+    str([a.id for a in Rr3.alerts]) + " / " + str([a.id for a in Rr2.alerts]))
 
 # ================================================================
 print("\n=== 4. Côté comprimé ===")
@@ -418,6 +426,13 @@ LA.jouer(chk, MM.compute, mutations=[LA.MUTATIONS[0], LA.MUTATION_REGLE_PIED], a
    perso=(dict(nu_pl=PERSO, fy_u=300, fu_u=420, bw_u=0.85), "p", 290, 420,
           "platine de 25 mm : la réduction historique du module, −10 MPa de 16 à 40 mm, sur la valeur saisie"),
    hors_table=(dict(tp_u=300), "platine"))
+
+print("\n=== 11. Lot de clôture : la raison « à vérifier » n'existe que sur une platine vérifiée (P8) ===")
+Rk = MM.compute(dict(N_Ed=-500))
+chk("traction de 500 kN : la platine est refusée par son propre calcul ; les tiges (119,5 %, hors calcul manuel) "
+    "ne donnent pas de raison « à vérifier » à une platine NON vérifiée — comme en vérification complète",
+    not Rk.verified and Rk.a_verifier == "" and Rk.statut == "PLATINE NON VÉRIFIÉE (calcul manuel)"
+    and MM.a_verifier_manuel(Rk) == "tiges à 119,5 %, hors calcul manuel", Rk.a_verifier)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

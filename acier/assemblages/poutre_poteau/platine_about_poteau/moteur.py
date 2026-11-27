@@ -26,10 +26,13 @@ DEUX cas d'appui, et c'est la clé ``appui`` qui commande toute la mécanique
 
 Modèles et sources, distingués vérification par vérification (champ ``nat``) :
 - ``EC``   : formule directe de l'EN 1993-1-8 / EN 1993-1-1 ;
-- ``COMP`` : modèle complémentaire d'un guide reconnu — « Steel Buildings in
-             Europe, Part 5: Joint Design » §2 (platine d'about de hauteur
-             partielle : §2.1 détails, §2.2 cisaillement, §2.3 tying),
-             SCI P358, ECCS n°126 ;
+- ``COMP`` : modèle complémentaire d'un guide reconnu — SCI P358 (édition de
+             2014), la procédure RETENUE par le bureau le 27/11/2026 pour le
+             groupe de boulons, l'âme portée (0,9), la platine courte, l'âme
+             du poteau en cisaillement local et en chaînage
+             (``acier/assemblages/sci.py``) ; « Steel Buildings in Europe,
+             Part 5: Joint Design » §2 pour ce que les deux guides écrivent
+             de la même façon ; ECCS n°126 ;
 - ``INT``  : interprétation de l'outil, nommée comme telle.
 
 Traction NEd : deux natures. ELU fondamental — fy/γM0 et γM2, combinée avec
@@ -57,15 +60,18 @@ from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
 from acier.assemblages import materiau as MT
+from acier.assemblages import sci as SCI
 from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, APPUI_AME, NAT_TYING
 
 S3 = math.sqrt(3)
 T34 = "EN 1993-1-8 Tableau 3.4"
 MSB2 = "MSB Part 5 §2.2 (platine d'about partielle)"
-MSB_GRP = "MSB Part 5 §2.2.4 (groupe de boulons) sur EN 1993-1-8 §3.7"
+SCI_GRP = "SCI P358 Check 8"
+SCI_PL = "SCI P358 Check 9"
 MSB_TY = "MSB Part 5 §2.3 (tying)"
-P358_SUP = "SCI P358 (élément support chargé d'un seul côté)"
+P358_SUP = "SCI P358 Check 10 (élément support chargé d'un seul côté)"
+SCI_AME = "SCI P358 Check 14"
 TAB64 = "EN 1993-1-8 Tableau 6.4 (aile de poteau non raidie)"
 K_CIS = 1.27             # cisaillement brut de la platine : flexion nominale dans son plan (MSB P5 §2.2)
 
@@ -105,9 +111,11 @@ def compute(u0=None, materiau=None):
         u[k] = v
     for n in NUM:
         u[n] = N(u[n])
+    v_inverse = bool(u.V_Ed < 0)                # sens inversé : traité en valeur absolue, chemin à justifier (statut)
     u.V_Ed = abs(u.V_Ed)
     R = AttrDict()
     R.u = u
+    R.V_inverse = v_inverse
     R.checks = []
     R.ck = {}
     R.pred = u.mode_calc == MODE_PREDIM
@@ -247,6 +255,12 @@ def compute(u0=None, materiau=None):
     R.fuw, R.bww = RS.fu_bw_cordon(R.fu_L, R.bw_L, R.fu_S, R.bw_S)
     R.k_plein = MEC.coef_pleine_resistance(R.fy_wS, R.fuw, R.bww, gM2, gM0)
     R.a_plein = R.k_plein * R.tw_S
+    # gorge du DÉTAIL ÉPROUVÉ d'une platine d'about : 0,8 × la pleine résistance (SCI P358 Check 2 et annexe C.2 —
+    # la platine plastifie avant que le cordon ne rompe) ; en dessous, la rotation de l'articulation n'est plus
+    # couverte par le détail : le statut le dit
+    R.a_detail = SCI.gorge_detail_platine(R.k_plein, R.tw_S)
+    R.rec_a = R.a_w >= R.a_detail - MEC.TOL_GORGE
+    R.Lw1 = SCI.leff_cordon(R.h_p, R.a_w)       # longueur efficace d'UN cordon : hp − 2a (EN 1993-1-8 §4.5.1(1))
     botLim = R.h_S - (u.d_nb if u.d_nb > 0 else tfrS); sumC = u.z_C + R.h_p
     AL = [
         dict(id="e1bot", c=R.e1bot < m12, b=1,
@@ -308,8 +322,12 @@ def compute(u0=None, materiau=None):
              w=TXT.w_aile_poutre(f0(R.b_S), f0(R.libre_ailes), "tp", F(R.rec_min, 1), f0(u.rec_S)) + "."),
         dict(id="d0_manq", c=u.trou == "Surdimensionné" and N(u.d0_u) == 0, b=1,
              m="Trou surdimensionné : saisir le diamètre d0.", f=["trou", "d0_u"], d=[], e=[], w=""),
+        dict(id="w_court", c=R.Lw1 < mx(30, 6 * R.a_w), b=1,
+             m="Cordon trop court pour porter un effort : longueur efficace hp − 2a inférieure à max(30 mm ; 6·a) (EN 1993-1-8 §4.5.1(2)).",
+             f=["hp_u", "a_w"], d=["hp", "aw"], e=["weld"],
+             w="hp − 2a = " + f0(R.h_p) + " − 2 × " + f0(R.a_w) + " = " + F(R.Lw1, 0) + " mm < max(30 ; 6 × " + f0(R.a_w) + ") = " + F(mx(30, 6 * R.a_w), 0) + " mm."),
         dict(id="tp_duct", c=not R.rec_tp, b=0,
-             m="Platine trop épaisse pour la ductilité de l'articulation : la rotation doit venir de la déformation de la platine, pas des boulons.",
+             m="Platine trop épaisse pour la ductilité de l'articulation : la rotation doit venir de la déformation de la platine, pas des boulons — articulation à justifier.",
              f=["tp_u", "boulon_u", "nu_pl", "classe"], d=["tp"], e=["plate"],
              w="tp = " + f0(R.t_p) + " mm > 0,36·d·√(fub/fy) = 0,36 × " + f0(d) + " × √(" + f0(R.f_ub) + "/" + f0(R.fy_L) + ") = " + F(R.tp_max, 1) + " mm (EN 1993-1-8 §6.4.2(2) ; ECCS n°126)."),
         dict(id="tp_min", c=R.t_p < 8, b=0,
@@ -319,15 +337,23 @@ def compute(u0=None, materiau=None):
              m="hp < 0,6·h de la poutre portée : recommandation du guide (maintien en torsion de la poutre à l'appui) non respectée.",
              f=["hp_u"] + prS, d=["hp"], e=["plate"],
              w="hp = " + f0(R.h_p) + " mm < 0,6·h = " + F(0.6 * R.h_S, 0) + " mm (MSB P5 §2.1)."),
-        dict(id="a_rec", c=R.a_w < R.a_plein - 1e-9, b=0,
-             m="Gorge sous la PLEINE RÉSISTANCE recommandée par le guide — admissible si la vérification du cordon passe, mais le tying n'est alors plus couvert d'office.",
+        dict(id="a_rec", c=not R.rec_a, b=0,
+             m="Gorge sous celle du DÉTAIL ÉPROUVÉ du guide (0,8 × la pleine résistance de l'âme) : la vérification du cordon décide de la résistance, mais la platine ne plastifie plus avant le cordon — articulation à justifier.",
              f=["a_w"] + prS, d=["aw"], e=["weld"],
-             w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu), fy de l'âme à son épaisseur tw : " + f0(R.fy_wS) + " MPa — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
+             w="Détail éprouvé : a ≥ 0,8 × " + F(R.k_plein, 2) + "·tw = " + F(R.a_detail, 1) + " mm (pleine résistance βw·γM2·fy/(√2·fu)·tw = " + F(R.a_plein, 1) + " mm, fy de l'âme à son épaisseur tw : " + f0(R.fy_wS) + " MPa — SCI P358 Check 2) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="ame_hp", c=R.ame, b=0,
              m=TXT.m_ame_hp("la traction des boulons", "raidisseurs entre ailes",
                             "Le tronçon en T de l'aile et l'âme en traction transversale sont "
-                            "sans objet dans ce cas d'appui."),
+                            "sans objet dans ce cas d'appui. En CHAÎNAGE, l'âme est vérifiée par la "
+                            "formule du SCI P358 (Check 14) ; à l'ELU, elle reste à justifier."),
              f=["appui"] + prP, d=["libreP"], e=["col", "colWeb"], w=""),
+        dict(id="V_inv", c=R.V_inverse, b=0,
+             m="VEd saisi négatif (effort de soulèvement) : calculé en valeur absolue — pinces chargées, bloc et appui changent de côté : chemin de l'effort à justifier.",
+             f=["V_Ed"], d=[], e=[], w=""),
+        dict(id="blf_off", c=u.opt_blf != "Oui" and (R.n_1 - 1) * R.p_1 > 15 * d, b=0,
+             m="Assemblage long (Lj > 15·d) : le coefficient βLf de l'EN 1993-1-8 §3.8 n'est PAS appliqué — l'âme portée est soudée sur toute la hauteur de la platine : transfert uniforme, l'exception du §3.8(2), comme dans les exemples des guides (option « βLf » pour l'appliquer quand même).",
+             f=["opt_blf", "n1_u", "p1_u"], d=["p1"], e=["bolts"],
+             w="Lj = (n1 − 1)·p1 = " + f0((R.n_1 - 1) * R.p_1) + " mm > 15·d = " + f0(15 * d) + " mm."),
         dict(id="NEd", c=NEd > 0 and not R.tying, b=0,
              m="NEd de traction à l'ELU fondamental : boulons, platine (tronçon en T), poinçonnement, âme portée "
                "et cordons sont vérifiés ; en cas (a) s'ajoutent le tronçon en T de l'aile du poteau et l'âme du "
@@ -381,7 +407,6 @@ def compute(u0=None, materiau=None):
     R.Fbb_L = pl["Fb_bout"]; R.Fbi_L = pl["Fb_int"]
     n_bout = 2 if R.n_1 > 0 else 0              # rangée d'extrémité, deux files
     n_int = R.n_b - n_bout
-    R.FRd_g, R.branche_g = MEC.groupe_boulons(R.Fv_Rd * R.bLf, R.Fbb_L, R.Fbi_L, n_bout, n_int)
 
     # ---- pression diamétrale du POTEAU : AUCUNE pince d'extrémité verticale
     # ---- (le poteau continue au-dessus et en dessous de l'attache), αb du seul
@@ -391,6 +416,11 @@ def compute(u0=None, materiau=None):
                      R.e_P if R.aile else None, R.p_3, 2, gM2, R.k_trou)
     R.ab_P = bP["abv"]; R.k1_P = bP["k1v"]; R.Fb_P = bP["Fbv"]
     R.VRd_pdP = R.n_b * R.Fb_P
+    # GROUPE — SCI P358 Check 8 (retenu le 27/11/2026) : UNE pression diamétrale, la plus petite — platine en
+    # extrémité, platine en partie courante, poteau — comparée à 0,8·Fv,Rd. Avant : les trois branches du MSB P5
+    # §2.2.4 plafonnées (``mecanique.groupe_boulons``), sans le poteau.
+    R.Fb_min = mn(R.Fbb_L, R.Fbi_L if n_int else INF, R.Fb_P)
+    R.FRd_g, R.branche_g = SCI.groupe_boulons(R.Fv_Rd * R.bLf, [R.Fb_min], R.n_b)
 
     # ---- platine : aires (deux plans de cisaillement, un par côté de l'âme)
     R.Av_p = R.h_p * R.t_p
@@ -411,27 +441,38 @@ def compute(u0=None, materiau=None):
     # ---- poutre portée (section grugée : mêmes règles que les modules
     # ---- existants, MSB Part 5 §4.2.4 / §4.2.5)
     sg = MEC.section_grugee(dict(h=R.h_S, b=R.b_S, tw=R.tw_S, tf=R.tf_S, r=R.r_S),
-                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui", fy_nuance=MT.nominale(R, "S"))
+                            R.fy_S, u.d_nt, u.d_nb, gM0, V, u.lt_ok == "Oui", fy_nuance=MT.nominale(R, "S"),
+                            k_double=SCI.K_AV)      # deux grugeages : 0,9 (SCI P358 Check 5)
     R.cas_g = sg["cas_g"]; R.Asec_S = sg["Asec"]; R.h_T = sg["h_T"]; R.A_Tee = sg["A_Tee"]
     R.Av_S = sg["Av"]; R.VRd_gS = sg["VRd_g"]; R.hw_T = sg["hw_T"]; R.zb_T = sg["zb_T"]
     R.I_N = sg["I_N"]; R.W_N = sg["W_N"]; R.rho_N = sg["rho_N"]; R.Mv_N = sg["Mv_N"]
     R.el_N = sg["el_N"]; R.lim_N = sg["lim_N"]; R.ln_max = sg["ln_max"]; R.val_N = sg["val_N"]
-    R.Av_w = R.tw_S * R.h_p                     # âme portée au droit de la platine
+    R.At_w = R.tw_S * R.h_p                     # âme portée au droit de la platine : aire TENDUE (tw·hp)
+    R.Av_w = SCI.K_AV * R.At_w                  # aire de CISAILLEMENT : 0,9·hp·tw (SCI P358 Check 4)
     R.e_N = R.t_p + u.l_n                       # face d'appui → extrémité du grugeage
 
     # ---- POTEAU, cas (b) : cisaillement local de l'âme, un seul côté chargé
     # ---- (SCI P358, même composant que l'âme porteuse des modules
     # ---- poutre–poutre) ; la section NETTE existe : les boulons y percent
-    R.Av_P = R.tw_P * R.h_p
-    R.Avn_P = R.tw_P * (R.h_p - R.n_1 * d0)
+    # SCI P358 Check 10 : la section se mesure sur le POTEAU — et = min(e1,t ; 5d) au-dessus de la première rangée,
+    # eb = min(p3/2 ; 5d) sous la dernière. Le poteau CONTINUE au-dessus de l'attache (hypothèse du module, la même
+    # que la pression diamétrale sans pince d'extrémité) : et = 5d. Avant : Av = twP·hp, les pinces de la platine.
+    R.et_P, R.eb_P = SCI.longueurs_ame_porteuse(None, None, R.p_3, d, poteau=True)
+    R.Av_P = R.tw_P * (R.et_P + (R.n_1 - 1) * R.p_1 + R.eb_P)
+    R.Avn_P = R.Av_P - R.n_1 * d0 * R.tw_P
+    # platine COURTE (hp < 1,36·p3) : flexion dans son plan, en plus du cisaillement (SCI P358 Check 9)
+    R.VRd_ip = SCI.platine_flexion_plan(R.t_p, R.h_p, R.fy_L, R.p_3, R.tw_S, gM0)
+    # cas (b) en CHAÎNAGE : flexion hors plan de l'âme du poteau sous la platine (SCI P358 Check 14)
+    R.FRd_ame = SCI.ame_poteau_platine(R.fu_P, R.tw_P, R.libre_droit, R.n_1, R.p_1, R.p_3, d0, gMu)
 
     # ---- soudure (deux cordons verticaux sur toute la hauteur hp, gorge a)
-    R.qz_w = dv(V * 1000, 2 * R.h_p)
-    R.qx_w = dv(R.N_elu * 1000, 2 * R.h_p)
+    R.Lw = 2 * R.Lw1                            # deux cordons, à pleine gorge sur hp − 2a chacun
+    R.qz_w = dv(V * 1000, R.Lw)
+    R.qx_w = dv(R.N_elu * 1000, R.Lw)
     R.qw = math.hypot(R.qz_w, R.qx_w)
     R.fvw = RS.fvw_d(R.fuw, R.bww, gM2)
     R.Fw = R.fvw * R.a_w
-    R.qx_ty = dv(R.N_ty * 1000, 2 * R.h_p)
+    R.qx_ty = dv(R.N_ty * 1000, R.Lw)
     R.fvw_u = RS.fvw_d(R.fuw, R.bww, gMu)
     R.Fw_ty = R.fvw_u * R.a_w
 
@@ -468,13 +509,13 @@ def compute(u0=None, materiau=None):
     ty = " (tying : fu/γMu)" if R.tying else ""
     cas_P = "l'aile" if R.aile else "l'âme"
     # --- Boulons
-    ck("bg", "Boulons", "Groupe de boulons – cisaillement et pression diamétrale sur la platine", V, R.FRd_g, "kN",
-       T34 + " ; " + MSB_GRP, "EC + COMP", True,
-       "FRd = ΣFb,Rd si (Fb,Rd)max ≤ Fv,Rd ; ns·(Fb,Rd)min si (Fb,Rd)min < Fv,Rd < (Fb,Rd)max ; "
-       "0,8·ns·Fv,Rd si Fv,Rd ≤ (Fb,Rd)min ; dans tous les cas FRd ≤ 0,8·ns·Fv,Rd ; Fb,Rd = k1·αb·fu·d·tp/γM2",
-       "Fv,Rd = " + F(R.Fv_Rd, 2) + " kN ; Fb,Rd extrémité = " + F(R.Fbb_L, 1) + " kN (αb = " + F(R.abb_L, 3)
-       + ") ; intérieur = " + F(R.Fbi_L, 1) + " kN (αb = " + F(R.abi_L, 3) + ") ; k1 = " + F(R.k1_L, 3)
-       + " ; ns = " + js_str(R.n_b) + " → " + R.branche_g, 1)
+    ck("bg", "Boulons", "Groupe de boulons – cisaillement et pression diamétrale", V, R.FRd_g, "kN",
+       T34 + " ; " + SCI_GRP, "EC + COMP", True,
+       "FRd = n·Fb,Rd si Fb,Rd ≤ 0,8·Fv,Rd ; 0,8·n·Fv,Rd sinon ; Fb,Rd = min(platine en extrémité ; platine en "
+       "partie courante ; poteau), Fb,Rd = k1·αb·fu·d·t/γM2",
+       "Fv,Rd = " + F(R.Fv_Rd, 2) + " kN ; Fb,Rd platine : extrémité = " + F(R.Fbb_L, 1) + " kN (αb = " + F(R.abb_L, 3)
+       + ")" + ((" ; intérieur = " + F(R.Fbi_L, 1) + " kN (αb = " + F(R.abi_L, 3) + ")") if n_int else "")
+       + " ; k1 = " + F(R.k1_L, 3) + " ; poteau = " + F(R.Fb_P, 1) + " kN ; n = " + js_str(R.n_b) + " → " + R.branche_g, 1)
     ck("gl", "Boulons", "Glissement (1 surface de frottement)", R.Fv_Ed * ks,
        dv(u.k_s * u.mu_s * mx(0, R.Fp_C - 0.8 * R.Ft_Ed), g3), "kN",
        "EN 1993-1-8 §3.9.1 ; §3.9.2 (traction)", "EC", u.cat != "A",
@@ -500,25 +541,31 @@ def compute(u0=None, materiau=None):
        "Ant = tp·(e2 − d0/2) ; Anv = tp·(e1,min + (n1 − 1)·p1 − (n1 − 0,5)·d0), e1,min = min(e1 ; e1')",
        "k = " + F(R.k_bloc, 1) + " (hp " + ("≥" if R.hp_136 else "<") + " 1,36·p3 = " + F(1.36 * R.p_3, 1)
        + " mm) ; e1,min = " + F(R.e1_min, 1) + " mm ; Ant = " + F(R.Ant_p, 0) + " mm² ; Anv = " + F(R.Anv_p, 0) + " mm²", 1)
+    ck("pip", "Platine d'about", "Platine courte – flexion dans son plan", V, R.VRd_ip, "kN",
+       SCI_PL, "COMP", not R.hp_136,
+       "si hp < 1,36·p3 : VEd ≤ VRd,ip = 2·tp·hp²·fy/(3·(p3 − tw)·γM0) — chaque moitié de la platine porte VEd/2 "
+       "au bras (p3 − tw)/2",
+       "hp = " + F(R.h_p, 0) + " mm < 1,36·p3 = " + F(1.36 * R.p_3, 1) + " mm ; tp = " + F(R.t_p, 0) + " mm ; p3 − tw = "
+       + F(R.p_3 - R.tw_S, 1) + " mm ; fy = " + F(R.fy_L, 0) + " MPa", 1)
     ck("ptT", "Platine d'about", "Flexion de la platine en traction – tronçon en T" + ty, NT, R.FT_Rd, "kN",
-       ("EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; " + MSB_TY) if R.tying else
+       ("EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff plafonné : SCI P358 Check 11") if R.tying else
        "EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff : Tableau 6.4 appliqué à la platine (interprétation)",
        "EC + COMP" if R.tying else "EC + INT", NT > 0,
        "FT,Rd = min(FT,1 ; FT,2 ; FT,3) ; FT,1 = (8n − 2ew)·Mpl,1/(2mn − ew(m + n)) ; "
        "FT,2 = (2·Mpl,2 + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd ; Mpl = 0,25·Σleff·tp²·f/γ",
        "m = " + F(R.m_T, 1) + " mm ; n = " + F(R.nT, 1) + " mm ; ew = " + F(R.ew_T, 2) + " mm ; Σleff = "
-       + F(R.leff_T, 0) + " mm ; FT,1 = " + F(R.FT1, 1) + " ; FT,2 = " + F(R.FT2, 1) + " ; FT,3 = "
-       + F(R.FT3, 1) + " kN", 1)
+       + F(R.leff_T, 0) + " mm" + ((" (plafonds e1A, p1A du guide : " + F(R.leff_sci, 0) + " mm)") if R.tying else "")
+       + " ; FT,1 = " + F(R.FT1, 1) + " ; FT,2 = " + F(R.FT2, 1) + " ; FT,3 = " + F(R.FT3, 1) + " kN", 1)
     ck("pp", "Platine d'about", "Poinçonnement sous la tête ou l'écrou (traction)" + ty, dv(NT, R.n_b),
        RS.Bp_Rd(R.d_m, mn(R.t_p * R.fu_L, R.t_appui * R.fu_P), gT), "kN", T34, "EC", NT > 0,
        "Bp,Rd = 0,6·π·dm·t·fu/γ (pièce la plus faible sous la tête ou l'écrou : platine ou poteau)",
        "dm = " + F(R.d_m, 1) + " mm ; platine " + F(R.Bp_pl, 1) + " kN ; poteau (" + cas_P + ", t = "
        + F(R.t_appui, 1) + " mm) " + F(R.Bp_P, 1) + " kN")
     # --- Poutre portée
-    ck("vwS", "Poutre portée", "Âme – cisaillement au droit de la platine (Av = hp·tw)", V,
+    ck("vwS", "Poutre portée", "Âme – cisaillement au droit de la platine (Av = 0,9·hp·tw)", V,
        dv(R.Av_w * R.fy_S / S3, gM0) / 1000, "kN",
-       "EN 1993-1-1 §6.2.6(1) ; Av = hp·tw : MSB Part 5 §2.2.1", "EC + COMP", True,
-       "VRd = hp·tw·fy/(√3·γM0) — l'âme ne transmet l'effort qu'à la platine",
+       "EN 1993-1-1 §6.2.6(1) ; Av = 0,9·hp·tw : SCI P358 Check 4", "EC + COMP", True,
+       "VRd = 0,9·hp·tw·fy/(√3·γM0) — l'âme ne transmet l'effort qu'à la platine ; 0,9 : section rectangulaire",
        "Av = " + F(R.Av_w, 0) + " mm²", 1)
     ck("vgS", "Poutre portée", "Grugeage – cisaillement de la section réduite", V, R.VRd_gS, "kN",
        "EN 1993-1-1 §6.2.6", "EC", R.cas_g > 0,
@@ -537,13 +584,13 @@ def compute(u0=None, materiau=None):
        R.h_S / 2 if R.cas_g == 1 else R.h_S / 5, "mm", "MSB Part 5 §4.2.5", "COMP", R.cas_g > 0,
        "dc ≤ h/2 (1 semelle grugée) ; dc ≤ h/5 (2 semelles)", "")
     ck("tnS", "Poutre portée", "Âme – traction au droit de la platine" + ty, NT,
-       (dv(R.Av_w * R.fu_S, gMu) if R.tying else dv(R.Av_w * R.fy_S, gM0)) / 1000, "kN",
+       (dv(R.At_w * R.fu_S, gMu) if R.tying else dv(R.At_w * R.fy_S, gM0)) / 1000, "kN",
        ("EN 1993-1-1 §6.2.3 ; " + MSB_TY) if R.tying else "EN 1993-1-1 §6.2.3 ; hauteur participante = hp",
        "EC + COMP", NT > 0,
-       "Nu,Rd = tw·hp·fu/γMu" if R.tying else "Npl,Rd = tw·hp·fy/γM0", "Av = " + F(R.Av_w, 0) + " mm²")
+       "Nu,Rd = tw·hp·fu/γMu" if R.tying else "Npl,Rd = tw·hp·fy/γM0", "A = " + F(R.At_w, 0) + " mm²")
     # --- Poteau porteur
     ck("pdP", "Poteau porteur", "Pression diamétrale – " + cas_P + " du poteau", V, R.VRd_pdP, "kN",
-       T34 + " ; SCI P358 (élément porteur)", "EC", True,
+       T34 + " ; " + SCI_GRP + " (élément porteur)", "EC", True,
        "VRd = ns·Fb,Rd ; Fb,Rd = k1·αb·fu,P·d·t/γM2 ; AUCUNE pince d'extrémité verticale (le poteau continue) : "
        "αb = min(p1/3d0 − 1/4 ; fub/fu ; 1) pour toutes les rangées"
        + (" ; k1 = min(2,8·e/d0 − 1,7 ; 1,4·p3/d0 − 1,7 ; 2,5) avec e = (bP − p3)/2" if R.aile
@@ -552,11 +599,13 @@ def compute(u0=None, materiau=None):
        + " ; Fb,Rd = " + F(R.Fb_P, 1) + " kN par boulon ; ns = " + js_str(R.n_b), 1)
     ck("vlP", "Poteau porteur", "Âme du poteau – cisaillement local brut (un seul côté chargé)", V / 2,
        dv(R.Av_P * R.fy_P / S3, gM0) / 1000, "kN", P358_SUP, "COMP", R.ame,
-       "VEd/2 ≤ Av·fy,P/(√3·γM0) ; Av = twP·hp",
-       "Av = " + F(R.Av_P, 0) + " mm² ; twP = " + F(R.tw_P, 1) + " mm ; fy,P = " + F(R.fy_P, 0) + " MPa", 1)
+       "VEd/2 ≤ Av·fy,P/(√3·γM0) ; Av = twP·(et + (n1 − 1)·p1 + eb), et = min(e1,t ; 5d) = 5d (le poteau continue), "
+       "eb = min(p3/2 ; 5d)",
+       "et = " + F(R.et_P, 0) + " mm ; eb = " + F(R.eb_P, 0) + " mm ; Av = " + F(R.Av_P, 0) + " mm² ; twP = "
+       + F(R.tw_P, 1) + " mm ; fy,P = " + F(R.fy_P, 0) + " MPa", 1)
     ck("vnP", "Poteau porteur", "Âme du poteau – cisaillement local net", V / 2,
        dv(R.Avn_P * R.fu_P / S3, gM2n) / 1000, "kN", P358_SUP, "COMP", R.ame,
-       "VEd/2 ≤ Av,net·fu,P/(√3·γM2) ; Av,net = twP·(hp − n1·d0)", "Av,net = " + F(R.Avn_P, 0) + " mm²")
+       "VEd/2 ≤ Av,net·fu,P/(√3·γM2) ; Av,net = Av − n1·d0·twP", "Av,net = " + F(R.Avn_P, 0) + " mm²")
     ck("tfP", "Poteau porteur", "Aile du poteau en flexion – tronçon en T" + ty, NT, R.FT_Rd_P, "kN",
        "EN 1993-1-8 §6.2.4 (Tableau 6.2, méthode 2) ; Σleff : " + TAB64
        + (" ; " + MSB_TY if R.tying else ""), "EC + COMP", R.aile and NT > 0,
@@ -572,16 +621,22 @@ def compute(u0=None, materiau=None):
        "Ft,wc,Rd = ω·beff,t,wc·twP·f/γ ; ω = 1 (une attache simple n'apporte pas de moment d'étage, "
        "donc aucun cisaillement de panneau) ; beff,t,wc = Σleff de l'aile",
        "beff = " + F(R.beff_P, 0) + " mm ; twP = " + F(R.tw_P, 1) + " mm ; ω = " + F(R.omega_P, 2))
+    ck("ahP", "Poteau porteur", "Âme du poteau – flexion hors plan sous le chaînage", NT, R.FRd_ame, "kN",
+       SCI_AME, "COMP", R.ame and R.tying,
+       "FRd,u = 8·Mpl/(1 − β1)·(η1 + 1,5·√(1 − β1)·√(1 − γ1)) ; Mpl = fu,P·twP²/(4·γMu) ; "
+       "η1 = ((n1 − 1)·p1 − n1·d0/2)/d2 ; β1 = p3/d2 ; γ1 = d0/d2 ; d2 : hauteur droite de l'âme",
+       "d2 = " + F(R.libre_droit, 1) + " mm ; twP = " + F(R.tw_P, 1) + " mm ; β1 = " + F(dv(R.p_3, R.libre_droit), 3)
+       + " ; η1 = " + F(dv((R.n_1 - 1) * R.p_1 - R.n_1 * d0 / 2, R.libre_droit), 3) + " ; fu,P = " + F(R.fu_P, 0) + " MPa", 1)
     # --- Soudure
     ck("w", "Soudure", "Cordons âme portée / platine – effort par unité de longueur", R.qw, R.Fw, "N/mm",
        W445, "EC", True,
-       "Fw,Ed = √(qz² + qx²) ≤ Fw,Rd = fvw,d·a ; qz = VEd/(2hp) ; qx = NEd,ELU/(2hp) ; fvw,d = fu/(√3·βw·γM2)",
-       "a = " + F(R.a_w, 1) + " mm ; qz = " + F(R.qz_w, 0) + " ; qx = " + F(R.qx_w, 0) + " N/mm ; fvw,d = "
+       "Fw,Ed = √(qz² + qx²) ≤ Fw,Rd = fvw,d·a ; qz = VEd/ℓw ; qx = NEd,ELU/ℓw ; ℓw = 2·(hp − 2a) (§4.5.1(1)) ; fvw,d = fu/(√3·βw·γM2)",
+       "a = " + F(R.a_w, 1) + " mm ; ℓw = " + F(R.Lw, 0) + " mm ; qz = " + F(R.qz_w, 0) + " ; qx = " + F(R.qx_w, 0) + " N/mm ; fvw,d = "
        + F(R.fvw, 1) + " MPa", 1)
     ck("wT", "Soudure", "Cordons – tying (force de chaînage seule)", R.qx_ty, R.Fw_ty, "N/mm",
        W445 + " avec γMu ; " + MSB_TY, "EC + INT", R.tying,
-       "qx = NEd/(2hp) ≤ fu/(√3·βw·γMu)·a — le guide l'admet d'office pour un cordon à pleine résistance",
-       "qx = " + F(R.qx_ty, 0) + " N/mm ; a = " + F(R.a_w, 1) + " mm ; γMu = " + F(gMu, 2))
+       "qx = NEd/ℓw ≤ fu/(√3·βw·γMu)·a ; ℓw = 2·(hp − 2a) — le guide l'admet d'office pour un cordon à pleine résistance",
+       "qx = " + F(R.qx_ty, 0) + " N/mm ; a = " + F(R.a_w, 1) + " mm ; ℓw = " + F(R.Lw, 0) + " mm ; γMu = " + F(gMu, 2))
     ck("wa", "Soudure", "Gorge minimale", 3, R.a_w, "mm", "EN 1993-1-8 §4.5.2(2)", "EC", True, "a ≥ 3 mm", "")
 
     # ---- synthèse : la gorge minimale (3 mm) est un minimum de détail, pas
@@ -597,8 +652,17 @@ def compute(u0=None, materiau=None):
     R.eta_max = gov.eta if gov else 0
     R.all_ok = all(c.ok for c in act)
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
-    R.statut = "ASSEMBLAGE VÉRIFIÉ" if R.verified else "ASSEMBLAGE NON VÉRIFIÉ"
     R.reserve = bool(R.cas_g > 0 and R.val_N.startswith("NON VALIDE"))
+    # ---- statut (lot de clôture du 27/11/2026) : ce que le calcul ne PROUVE pas se lit dans le verdict — « À
+    # VÉRIFIER (raison) », jamais « VÉRIFIÉ » en vert. L'âme du poteau sous une traction ELU n'a pas de modèle
+    # (le SCI ne la traite qu'en chaînage, Check 14) : elle reste à justifier.
+    SCI.poser_statut(R, [
+        (not R.rec_tp) and ("articulation à justifier : platine de " + f0(R.t_p) + " mm > " + F(R.tp_max, 1) + " mm"),
+        (not R.rec_a) and ("articulation à justifier : gorge de " + f0(R.a_w) + " mm < " + F(R.a_detail, 1) + " mm (détail éprouvé)"),
+        SCI.donnee(R.reserve and "poutre grugée non maintenue au déversement"),
+        SCI.donnee(R.V_inverse and "effort tranchant de sens inversé"),
+        SCI.donnee((R.ame and R.N_elu > 0) and "âme du poteau sous la traction ELU : flexion hors plan non vérifiée"),
+    ])
     return R
 
 
@@ -623,8 +687,13 @@ def troncon_platine(R, f, gamma, Ft):
     n = mx(1e-6, mn(e, 1.25 * m))
     ew = R.d_w / 4
     l1, l2 = MEC.leff_platine_bords_libres(R.n_1, R.p_1, R.e_1, R.e1bot, m, e)
+    # CHAÎNAGE : les deux guides plafonnent les longueurs efficaces (e1A, p1A — SCI P358 Check 11, MSB P5 §2.3.1) ; on
+    # garde la plus PETITE des deux lectures. À l'ELU, les mécanismes de l'EN seuls (les guides n'y ont pas de modèle).
+    leff_sci = SCI.leff_chainage(R.n_1, R.p_1, R.e_1, R.e1bot, R.p_3, R.tw_S, R.a_w, R.d_0)
+    if R.tying:
+        l1 = mn(l1, leff_sci); l2 = mn(l2, leff_sci)
     t = MEC.troncon_T(l1, l2, R.t_p, m, n, ew, f, gamma, R.n_b * Ft)
-    return dict(m_T=m, nT=n, ew_T=ew, leff_T=l1, leff2_T=l2,
+    return dict(m_T=m, nT=n, ew_T=ew, leff_T=l1, leff2_T=l2, leff_sci=leff_sci,
                 Mpl1_T=t["Mpl1"], FT1=t["FT1"], FT2=t["FT2"], FT3=t["FT3"], FT_Rd=t["FT_Rd"],
                 Bp_pl=RS.Bp_Rd(R.d_m, R.t_p * R.fu_L, gamma if R.tying else R.u.g_M2n))
 
@@ -711,9 +780,11 @@ def predim(u, R):
             k1P = mn(INF if ame else 2.8 * eP / d0 - 1.7, 1.4 * p3 / d0 - 1.7, 2.5)
             t_ap = R.tw_P if ame else R.tf_P
             FbP = dv(k1P * abP * R.fu_P * d * t_ap, gM2) / 1000 * R.k_trou
+            # âme du poteau (cas b) : les longueurs cisaillées du SCI (Check 10, le poteau continue)
+            et_, eb_ = SCI.longueurs_ame_porteuse(None, None, p3, d, poteau=True)
             e = AttrDict(bg=dv(V, MEC.K_ROT * nb * Fv), pdP=dv(V, nb * FbP),
-                         vwS=dv(V * 1000 * S3 * gM0, R.tw_S * hp * R.fy_S),
-                         vlP=dv(V / 2 * 1000 * S3 * gM0, R.tw_P * hp * R.fy_P) if ame else 0.0)
+                         vwS=dv(V * 1000 * S3 * gM0, SCI.K_AV * R.tw_S * hp * R.fy_S),
+                         vlP=dv(V / 2 * 1000 * S3 * gM0, R.tw_P * (et_ + (n - 1) * p1 + eb_) * R.fy_P) if ame else 0.0)
             eta = mx(e.bg, e.pdP, e.vwS, e.vlP); ok = bool(geom and eta <= u.eta_c)
             rows.append(AttrDict(b=b, i=i, n=n, e1=e1, p1=p1, e2=e2, p3=p3, hp=hp,
                                  geom=geom, e=e, eta=eta, ok=ok,
@@ -735,6 +806,8 @@ def predim(u, R):
                 ["Cisaillement section nette", dv(V * 1000 * S3 * gM2n, 2 * (hp - n * d0) * R.fu_L)],
                 ["Rupture de bloc", dv(V * 1000, 2 * (dv(kb * R.fu_L * (pk.e2 - 0.5 * d0), gM2n)
                                                       + dv(R.fy_L * (pk.e1 + (n - 1) * pk.p1 - (n - 0.5) * d0) / S3, gM0)))]]    # bloc vers la pince HAUTE (la plus courte ici)
+        if hp < 1.36 * pk.p3 and pk.p3 > R.tw_S:        # platine courte : flexion dans son plan (SCI P358 Check 9)
+            reqs.append(["Flexion dans le plan (platine courte)", dv(V * 1000 * 3 * (pk.p3 - R.tw_S) * gM0, 2 * hp * hp * R.fy_L)])
         treq = dv(mx(*[r[1] for r in reqs]), u.eta_c)
         tmax = MEC.tp_ductile(d, R.f_ub, R.fy_L)
         cand = [t for t in DB["epais"] if 8 <= t <= tmax + 1e-9] or [DB["epais"][0]]

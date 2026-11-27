@@ -16,7 +16,7 @@ Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md §4.2, étendue
 Le CAS D'APPUI est en en-tête, en ``segmented_control`` à côté du mode : c'est
 la clé qui commande toute la mécanique (POUTRE_POTEAU.md §10.6).
 
-La géométrie (hp, tp, bp, zp, pinces, entraxes, grugeage, jeux, RECOUPE,
+La géométrie (hp, tp, bp, zc, pinces, entraxes, grugeage, jeux, RECOUPE,
 gorge) ne se modifie que sur le dessin (P6) — y compris ``rec_S`` et
 ``j_lat``, qui sont des cotes de la vue en plan : l'étude les plaçait dans
 les paramètres avancés, la règle P6 de la charte les met sur le dessin, où
@@ -70,7 +70,7 @@ _LIBELLE = {
     "id_projet": "Projet", "id_rep": "Repère", "id_red": "Rédacteur", "id_date": "Date",
     "visserie": "Visserie par boulon",
     # géométrie : fenêtres d'objet, panneau Cotes, chips d'alerte
-    "hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zp", "a_w": "a",
+    "hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zc", "a_w": "a",
     "e1_u": "e1", "p1_u": "p1", "e2b_u": "e2,b", "p2_u": "p2",
     "g_h": "gh", "d_nt": "dc,sup", "d_nb": "dc,inf", "l_n": "c",
     "rec_S": "Recoupe rc", "j_lat": "Jeu latéral j",
@@ -108,7 +108,7 @@ AIDES = {
     # aides portées par les fenêtres d'objet et le panneau Cotes (géométrie)
     "hp_u": "Recommandation des guides : hp ≥ 0,6·h de la poutre portée (maintien en torsion).",
     "tp_u": DU.texte_aide(),
-    "a_w": "Deux cordons, un par face du plat ; pleine résistance a ≥ tp·fy·βw·γM2/(2·fu·γM0) (§4.5.3.3).",
+    "a_w": "Deux cordons, un par face du plat ; pleine résistance a ≥ tp·fy·βw·γM2/(√2·fu·γM0) (§4.5.3.3).",
     "g_h": "Jeu entre la face d'appui du poteau et l'about de la poutre ; aussi par glissement de la poutre.",
     "d_nt": "0 = semelle supérieure non grugée ; un poteau n'oblige pas à gruger.",
     "d_nb": "0 = semelle inférieure non grugée.",

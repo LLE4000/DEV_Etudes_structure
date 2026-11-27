@@ -23,15 +23,15 @@ def ref_courte(ref):
 # l'onglet Méthode : une source (charte du 01/11/2026, point 4 — les cotes ne
 # portent plus que leur symbole). Elle tient sur la ligne de la note
 # (≤ 798 pt à 5,6 pt, contrôlé par la suite d'écran).
-NOTATIONS = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hp, bp, tp : plat ; zp : position du "
+NOTATIONS = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hp, bp, tp : plat ; zc : position du "
              "plat ; e2,b : pince à l'about ; c, dc : grugeage ; gh : jeu à l'about ; "
              "rc : recoupe des semelles ; j : jeu latéral ; ℓ : largeur droite entre congés ; "
-             "h, b, tw, tf : poteau ; a : gorge (cordon double) ; z : excentricité "
-             "(face d'appui → groupe) ; e_col : axe du poteau → attache.")
+             "h, b, tw, tf : poteau ; a : gorge (cordon double) ; z, zp : face d'appui → groupe, "
+             "→ 1ʳᵉ file (P358) ; e_col : axe du poteau → attache.")
 
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
-                      "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126 ; BS 5950-1 : courbe de déversement "
-                      "des plats longs (Annexe B.2.1 / Table 17).")
+                      "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126 ; plat long : χLT de l'EC3-1-1 "
+                      "§6.3.2.2 (P358, Check 3).")
 
 TITRES_ALERTES = {
     "e1bot": "Impossible — pince basse du groupe de boulons",
@@ -41,13 +41,18 @@ TITRES_ALERTES = {
     "aile_poutre": "Impossible — la semelle ne passe pas entre les ailes du poteau",
     "one_bolt": "Impossible — un seul boulon",
     "d0_manq": "Trou surdimensionné : saisir d0",
+    "w_court": "Impossible — cordon trop court pour porter un effort (§4.5.1(2))",
+    "pince_2d": "Pince < 2·d : articulation à justifier",
+    "boul_det": "Boulons hors du détail éprouvé (8.8 non précontraints)",
+    "V_inv": "VEd négatif : calculé en valeur absolue, chemin de l'effort à justifier",
+    "blf_off": "Assemblage long (Lj > 15·d) : βLf non appliqué (option)",
     "tp_duct": "Ductilité non assurée (recommandation)",
     "duct_nc": "Ductilité : règle non couverte au-delà du S355 (recommandation)",
     "hp_rec": "hp < 0,6·h : maintien en torsion non assuré (recommandation)",
-    "long_nr": "Plat long et poutre non maintenue au déversement",
+    "long_nr": "Plat long et poutre non maintenue : à justifier",
     "b1_long": "Cas (b) variante b1 : bras z triplé, plat long",
-    "ame_hp": "Appui dans l'âme : flexion hors plan de l'âme non vérifiée",
-    "a_rec": "Gorge sous la pleine résistance recommandée",
+    "ame_hp": "Appui dans l'âme : poinçonnement et chaînage vérifiés, traction ELU à justifier",
+    "a_rec": "Gorge sous la pleine résistance : articulation à justifier",
     "MEd": "MEd ≠ 0 : traité comme moment parasite",
     "NEd": "NEd de traction : flexion hors plan du poteau non vérifiée",
     "N_tying": "NEd en tying : force de chaînage vérifiée seule (γMu)",

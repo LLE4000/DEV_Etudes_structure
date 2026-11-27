@@ -24,7 +24,7 @@ from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
 from acier.formats import F, pct, nb
 from acier.js import N, js_str
-from acier.assemblages.note_kit import empaqueter, SANS_TAUX, masquer_taux
+from acier.assemblages.note_kit import empaqueter_au_mieux, SANS_TAUX, masquer_taux
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT, OUI, ancrage_txt, TYPE_CROSSE, TYPE_ETA
 from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, rangee_lisible, NOTATIONS as NOTATIONS_COURTES
@@ -90,8 +90,10 @@ def segments_hypotheses(R):
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
+    """Trois lignes de ≤ 110 caractères ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110)
 
 
 class Note(_np.Note):

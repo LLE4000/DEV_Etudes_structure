@@ -195,3 +195,13 @@ l'exemple publié avec γM1 = 1,0 (comme sa source).
   famille (« … plan et droite à droite ») : la troisième vue de ce module
   s'appelle COUPE A-A. Texte hérité, non repris pour ne pas toucher au module
   poutre–poutre.
+
+---
+
+## Lot de clôture du 27/11/2026
+
+Mêmes règles que le plat d'âme poutre–poutre (`ECARTS_ET_CORRECTIONS.md` §8.1). De plus, appui dans l'âme du poteau : poinçonnement de l'âme par le plat, et en **chaînage** flexion hors plan de l'âme par la formule du SCI P358 (Check 14, ligne `ahP` — cas par défaut à 400 kN : 332,13 kN, 120,4 %, là où le module rendait « vérifié » à 93,5 %). Le bloc HYPOTHÈSES de la note prend une quatrième ligne quand il le faut (défaut D1 : 28 notes sur 54 étaient refusées). Les chiffres de ce document antérieurs au lot sont ceux de la révision précédente.
+
+Notation (L20) : comme au plat d'âme poutre–poutre, `zp` (SCI, première file) et `z` (centre du groupe) ; la position verticale du plat s'écrit **`zc`**. Hypothèses de la note (L19) : « cordons sur hp − 2a » ; appui dans l'âme : « flexion hors plan au chaînage (SCI P358 Check 14) », sous une traction ELU « NON vérifiée », sans traction rien ; poutre grugée « maintenue au déversement ».
+
+Verdict de la note (L22, arbitrage A1) : quand le détail éprouvé est tenu, la conclusion l'écrit — « Articulation : détail éprouvé tenu (plus petite pince ≥ 2d ; a ≥ pleine résistance ; 8.8 non précontraints) », en valeurs (`note_kit.phrase_articulation` : `rec_2d`, `pince_2d`, `rec_a`, `a_plein`, `rec_boul`). Non tenu, le statut « À VÉRIFIER (articulation à justifier : …) » le dit déjà.

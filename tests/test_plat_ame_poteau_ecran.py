@@ -383,10 +383,12 @@ chk("cas (b) : 2 pages, la table « Poteau porteur » EST imprimée, le cartouch
     and "POTEAUPORTEUR" in tb1.replace(" ", "").upper() and "appui : âme du poteau" in tb2,
     f"{docb.page_count} {note.derniers_avertissements} "
     f"{'POTEAUPORTEUR' in tb1.replace(' ', '').upper()} {'appui : âme du poteau' in tb2}")
+# lot de clôture (27/11/2026, L11, L12) : le harnais suit — l'âme est vérifiée par le poinçonnement et, en chaînage,
+# par le Check 14 ; l'alerte courte le dit (avant : « flexion hors plan de l'âme non vérifiée »)
 chk("cas (b) : l'appui dans l'âme et le cisaillement local sont dits dans les hypothèses, "
-    "et la flexion hors plan dans l'alerte du bandeau",
+    "et ce que la flexion hors plan devient dans l'alerte du bandeau",
     "Appui dans l'âme : cisaillement local un seul côté" in tb1
-    and "flexion hors plan de l'âme" in tb1.lower())
+    and "poinçonnement et chaînage vérifiés, traction ELU à justifier" in tb1)
 with open("tests/ref_fpc.json", encoding="utf-8") as fh:
     REF = json.load(fh)
 nb = 0
@@ -397,8 +399,10 @@ for nom, cas in REF.items():
         nb += 1
         print("      ", nom, dc.page_count, note.derniere_echelle, note.derniers_avertissements)
 chk(f"les {len(REF)} cas figés : 2 pages, échelle trouvée, sans débordement", nb == 0, str(nb))
+# lot de clôture (27/11/2026, L19) : le double grugeage cumule assez de segments, maintien au déversement compris, pour
+# prendre la quatrième ligne que D1 prévoit — les autres cas figés gardent trois lignes
 nh = [nom for nom, cas in REF.items()
-      if not (1 <= len(note.lignes_hypotheses(moteur.compute(cas["inp"]))) <= 3
+      if not (1 <= len(note.lignes_hypotheses(moteur.compute(cas["inp"]))) <= (4 if nom == "grugeage_double" else 3)
               and all(len(l) <= 110 for l in note.lignes_hypotheses(moteur.compute(cas["inp"]))))]
 chk("HYPOTHÈSES de tous les cas figés : ≤ 3 lignes de ≤ 110", not nh, str(nh))
 
@@ -417,7 +421,9 @@ chk("un contrôle par cas de benchmark : chaque ligne de chaque cas est à son �
          if r["st"] not in ("OK", "Écart expliqué")][:3]))
 chk("BM1 (héritage) : les dix valeurs publiées, pire écart 0,76 %",
     len(B["bench"][0]["rows"]) == 10 and B["worst"] <= 0.01, str(B["worst"]))
-chk("sept « vérifications sans exemple publié consulté » sont nommées", len(benchmark.NOCOVER) == 7)
+# lot de clôture (27/11/2026, L11) : le harnais suit — le poinçonnement de l'âme du poteau, ajouté, n'a pas d'exemple publié
+chk("huit « vérifications sans exemple publié consulté » sont nommées (le poinçonnement ajouté par le lot)",
+    len(benchmark.NOCOVER) == 8 and any("Poinçonnement" in str(x) for x in benchmark.NOCOVER))
 at.button(key="fpc_btn_bm_0").click(); run(at)
 chk("« Charger ces données » : l'exemple publié dans l'outil (VEd = 350, hp = 360)",
     float(at.session_state["fpc_V_Ed"]) == 350.0 and float(at.session_state["fpc_hp_u"]) == 360.0)

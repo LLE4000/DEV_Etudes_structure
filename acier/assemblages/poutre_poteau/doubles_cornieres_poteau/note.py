@@ -26,7 +26,7 @@ from acier.formats import F, nb
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter, coefficients, MSB, SANS_TAUX
+from acier.assemblages.note_kit import empaqueter_au_mieux, coefficients, MSB, SANS_TAUX
 from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ...poutre_poutre.plat_ame.note import Note as NoteFamille, _prof, M
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, CART_H, _fmt_echelle
@@ -124,9 +124,10 @@ def segments_hypotheses(R):
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible
-    (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
+    """Trois lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible ; une ligne
+    de plus quand plusieurs cas se cumulent (défaut D1 du dossier de contrôle,
+    lot de clôture du 27/11/2026) : la note s'imprime toujours."""
+    return empaqueter_au_mieux(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 # ------------------------------------------------------------- page 1

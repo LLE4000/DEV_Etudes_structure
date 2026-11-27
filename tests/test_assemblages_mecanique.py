@@ -10,17 +10,27 @@ trois attaches poutre–poutre, qui ne sont pas touchés, et dans
 (`docs/assemblages/POUTRE_POTEAU.md` §10.1 et §10.2).
 
 Une copie non tenue est une seconde vérité. Ce test est le lien : pour
-chacun des **56 cas figés** du dépôt, il recalcule chaque grandeur par
+chacun des **57 cas figés** du dépôt, il recalcule chaque grandeur par
 `mecanique.py` et la compare à celle du moteur d'origine. Si une formule
 change d'un seul côté, il rougit et NOMME le cas et la grandeur.
 
-  1. PLAT D'ÂME — les 12 cas de `tests/ref_plat_ame.json` : `section_grugee`,
-     `bearing` (plat et âme portée), `groupe_excentre`, `bolt_table`,
-     `lam_LT`, `pb_bs5950`, `a_pleine_resistance_plat`.
+Depuis le lot de clôture du 27/11/2026, les règles que le bureau a RETENUES
+du SCI P358 (groupe de boulons des platines, plat long, 0,9 des sections
+rectangulaires, plafonds du chaînage) vivent dans `acier/assemblages/sci.py`,
+que les SIX moteurs appellent : il n'y en a qu'une copie, et ce test la lie
+de la même façon. `mecanique.groupe_boulons` et `mecanique.pb_bs5950` (les
+anciennes règles) ne sont plus appelées par un calcul ; elles restent pour
+le test ancien / nouveau (`tests/test_assemblages_cloture.py`).
+
+  1. PLAT D'ÂME — les 13 cas de `tests/ref_plat_ame.json` : `section_grugee`
+     (deux grugeages : 0,9), `bearing` (plat et âme portée),
+     `groupe_excentre`, `bolt_table`, `sci.plat_long` (zp, λ̄LT, χLT),
+     `a_pleine_resistance_plat`.
   2. PLATINE D'ABOUT — les 13 cas de `tests/ref_platine_about.json` :
      `section_grugee`, `portance_bout_interieur` (platine et âme porteuse),
-     `groupe_boulons`, `tp_ductile`, `coef_pleine_resistance`,
-     `leff_platine_bords_libres`, `troncon_T` (ELU et tying). Puis, parce
+     `sci.groupe_boulons`, `tp_ductile`, `coef_pleine_resistance`,
+     `leff_platine_bords_libres` plafonné par `sci.leff_chainage` en
+     chaînage, `troncon_T` (ELU et tying). Puis, parce
      que les cas figés n'atteignent pas toutes les branches du Tableau 6.4,
      2 000 GÉOMÉTRIES TIRÉES (graine fixe) comparées directement à
      `platine_about.tronçon_en_T`, et les branches restantes recalculées à
@@ -55,6 +65,7 @@ os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
 from acier.assemblages import mecanique as MC  # noqa: E402
+from acier.assemblages import sci as SCI  # noqa: E402
 from acier.js import mn  # noqa: E402
 from acier import resistances as RS  # noqa: E402
 
@@ -137,19 +148,19 @@ def profil_S(R):
 
 
 # =========================================================================
-print("=== 1. Plat d'âme — les 12 cas figés de tests/ref_plat_ame.json ===")
+print("=== 1. Plat d'âme — les 13 cas figés de tests/ref_plat_ame.json ===")
 from acier.assemblages.poutre_poutre.plat_ame import moteur as M_fpl  # noqa: E402
 
 with open("tests/ref_plat_ame.json", encoding="utf-8") as fh:
     REF_FPL = json.load(fh)
-chk("12 cas figés chargés", len(REF_FPL) == 12, str(len(REF_FPL)))
+chk("13 cas figés chargés", len(REF_FPL) == 13, str(len(REF_FPL)))
 for nom, cas in REF_FPL.items():
     R = M_fpl.compute(cas["inp"])
     u = R.u
     L = Lien(nom)
     # poutre grugée : le plus gros bloc dupliqué du dépôt
     L.eq_dict(R, GRUGEE, MC.section_grugee(profil_S(R), R.fy_S, u.d_nt, u.d_nb, u.g_M0,
-                                           V=u.V_Ed, maintenue=u.lt_ok == "Oui"))
+                                           V=u.V_Ed, maintenue=u.lt_ok == "Oui", k_double=SCI.K_AV))
     # groupe de boulons excentré
     g = MC.groupe_excentre(R.n_1, R.n_2, R.p_1, u.p2_u, u.V_Ed, u.N_Ed, R.M_S)
     L.eq_dict(R, [("n", "n_b"), ("Ip", "Ip"), ("xm", "xm"), ("ym", "ym"),
@@ -162,9 +173,13 @@ for nom, cas in REF_FPL.items():
     L.eq_bearing(R, "L", t=R.t_p, fu=R.fu_L, e1=mn(R.e_1, R.e1bot), e2=R.e2_p, **commun)
     L.eq_bearing(R, "S", t=R.tw_S, fu=R.fu_S, e2=R.e2b, **commun,
                  e1=mn(R.e1b_S, R.h_e) if u.d_nb > 0 else R.e1b_S)
-    # déversement du plat LONG et gorge de pleine résistance
-    L.eq("lam_LT", MC.lam_LT(R.z_p, R.h_p, R.t_p), R.lam_LT)
-    L.eq("pb_LT", MC.pb_bs5950(R.lam_LT, R.fy_L), R.pb_LT)
+    # déversement du plat LONG (SCI P358 Check 3 : zp, la première file) et gorge de pleine résistance
+    pl = SCI.plat_long(R.t_p, R.h_p, R.z_p, R.g_B, R.fy_L, u.g_M0, u.g_M1)
+    L.eq("lam_LT", MC.lam_LT(R.g_B, R.h_p, R.t_p), R.lam_LT)       # la même racine, avec zp au lieu de z
+    L.eq("lam_LT (sci)", pl["lam"], R.lam_LT)
+    L.eq("lamb_LT", pl["lam_bar"], R.lamb_LT)
+    L.eq("chi_LT", pl["chi"], R.chi_LT)
+    L.eq("long_p", float(pl["long"]), float(R.long_p))
     L.eq("a_plein", MC.a_pleine_resistance_plat(R.t_p, R.fy_L, R.bww, R.fuw,
                                                 u.g_M2, u.g_M0), R.a_plein)
     L.verdict("plat d'âme")
@@ -181,7 +196,7 @@ for nom, cas in REF_PAB.items():
     u = R.u
     L = Lien(nom)
     L.eq_dict(R, GRUGEE, MC.section_grugee(profil_S(R), R.fy_S, u.d_nt, u.d_nb, u.g_M0,
-                                           V=u.V_Ed, maintenue=u.lt_ok == "Oui"))
+                                           V=u.V_Ed, maintenue=u.lt_ok == "Oui", k_double=SCI.K_AV))
     # pression diamétrale du groupe à deux files : boulons d'extrémité et intérieurs
     p = MC.portance_bout_interieur(R.t_p, R.fu_L, R.f_ub, R.d_b, R.d_0, R.e1_min,
                                    R.e_2, R.p_1, R.p_3, u.g_M2, R.k_trou)
@@ -193,9 +208,10 @@ for nom, cas in REF_PAB.items():
     L.eq("k1_P", pP["k1"], R.k1_P)
     if R.n_1 > 1:         # à une seule rangée, le moteur écrase abi_P (pas de p1)
         L.eq_dict(R, [("ab_int", "abi_P"), ("Fb_int", "Fbi_P")], pP)
-    n_bout = 2 if R.n_1 > 0 else 0
-    FRd, branche = MC.groupe_boulons(R.Fv_Rd * R.bLf, R.Fbb_L, R.Fbi_L,
-                                     n_bout, R.n_b - n_bout)
+    # groupe : SCI P358 Check 8 — la plus petite pression diamétrale (platine en extrémité, platine courante si
+    # elle existe, âme porteuse) comparée à 0,8·Fv,Rd
+    fbs = [R.Fbb_L, R.Fbi_P] + ([R.Fbi_L] if R.n_1 > 1 else [])
+    FRd, branche = SCI.groupe_boulons(R.Fv_Rd * R.bLf, fbs, R.n_b)
     L.eq("FRd_g", FRd, R.FRd_g)
     L.eq("branche_g", branche, R.branche_g)
     # règles de détail
@@ -204,6 +220,10 @@ for nom, cas in REF_PAB.items():
          R.k_plein)
     # tronçon en T de la platine : longueurs efficaces, puis les trois modes
     l1, l2 = MC.leff_platine_bords_libres(R.n_1, R.p_1, R.e_1, R.e1bot, R.m_T, R.e_2)
+    if R.tying:            # chaînage : les plafonds e1A, p1A des guides (SCI P358 Check 11)
+        plafond = SCI.leff_chainage(R.n_1, R.p_1, R.e_1, R.e1bot, R.p_3, R.tw_S, R.a_w, R.d_0)
+        L.eq("leff_sci", plafond, R.leff_sci)
+        l1, l2 = min(l1, plafond), min(l2, plafond)
     L.eq("leff_T", l1, R.leff_T)
     L.eq("leff2_T", l2, R.leff2_T)
     if R.tying:
@@ -558,9 +578,9 @@ chk(f"chacune des {len(BRIQUES)} briques porte sa référence normative dans sa 
 sans_src = [n for n, f in BRIQUES if "Origine de la copie" not in (f.__doc__ or "")]
 chk("chaque brique nomme le module d'origine de la copie", not sans_src, str(sans_src))
 
-chk(f"les 56 cas figés sont liés ({len(REF_FPL)} + {len(REF_PAB)} + {len(REF_DC)})",
-    len(REF_FPL) + len(REF_PAB) + len(REF_DC) == 56)
-chk(f"au moins 2 900 grandeurs comparées sur les 56 cas ({TOTAL})", TOTAL >= 2900,
+chk(f"les 57 cas figés sont liés ({len(REF_FPL)} + {len(REF_PAB)} + {len(REF_DC)})",
+    len(REF_FPL) + len(REF_PAB) + len(REF_DC) == 57)
+chk(f"au moins 2 900 grandeurs comparées sur les 57 cas ({TOTAL})", TOTAL >= 2900,
     str(TOTAL))
 
 # ================================================================ lot A
